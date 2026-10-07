@@ -73,9 +73,15 @@ const themeSlots = new Map(Object.entries({text:7,prompt:13,highlight:3,handle:5
 export function coloredHandle(account,colors,useColor=true,hover=false){
   if(!useColor)return account;
   const rgb=Array.isArray(colors)&&colors.length===Array.from(account).length?colors:handleCharacterColors(account);
-  // A dark cell behind every letter: the handle's colours are light, and
-  // whatever the window's ground is, they need something to stand on.
-  return '\x1b[48;5;233m'+(hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${truecolor?'\x1b[38;2;'+rgb[i].join(';')+'m':'\x1b[38;5;'+cube(rgb[i])+'m'}${ch}`).join('')+'\x1b[0m'+color.ground;
+  // Keep the personal hues on the page itself. Light terminal themes need
+  // darker ink, rather than a black backing behind the handle.
+  return (hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${exact(pageAccent(rgb[i]))}${ch}`).join('')+'\x1b[0m'+color.ground;
+}
+
+function pageAccent(rgb) {
+  if (!followsSlab) return rgb;
+  const base = LIGHT ? [35, 25, 45] : [245, 235, 250];
+  return rgb.map((value, i) => Math.round(value * 0.25 + base[i] * 0.75));
 }
 // Ink, by role. In a window Slab dresses the page's own roles follow the
 // window: plain text is the profile's text colour, the muted and soft roles
@@ -132,8 +138,10 @@ export const color = {
   prompt: fg(palette.prompt),
   highlight: fg(palette.highlight),
   handle: fg(palette.handle),
-  soft: fg(palette.soft),
-  muted: fg(palette.muted),
+  // ANSI dim makes inline code and footer facts disappear on light Slab
+  // pages. Use readable secondary ink in both appearances.
+  get soft() { return followsSlab ? exact(LIGHT ? [95, 52, 83] : [215, 197, 216]) : fg(palette.soft); },
+  get muted() { return followsSlab ? exact(LIGHT ? [107, 60, 74] : [202, 187, 199]) : fg(palette.muted); },
   status: fg(palette.status),
   error: fg(palette.error),
   you: fg(palette.you),
@@ -429,8 +437,6 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
   // Pro reads like a page: your lines and the replies flush left, and only
   // a notice, an error or an inbox line wears a two-cell mark.
   const flush = gutter === "narrow" && (entry.kind === "typed" || entry.kind === "assistant");
-  // Pro replies use dark ink on a light ground with one cell on each side.
-  const cloud = gutter === "narrow" && entry.kind === "assistant" && useColor;
   const typed = gutter === "narrow" && entry.kind === "typed" && useColor;
   const prefix = flush ? "" : gutter === "narrow" ? `${label.slice(0, 1)} ` : `${label.padEnd(4)} `;
   const continuation = " ".repeat(prefix.length);
@@ -465,7 +471,7 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
     // a block and not as more prose.
     const codeGround=useColor&&(fenced||entry.kind==='command'||entry.kind==='change');
     const onGround=(line)=>codeGround?`\x1b[48;5;234m${fit(line,Math.max(1,width-prefix.length))}\x1b[49m`:line;
-    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(cloud?2:typed?(TYPED_STYLE==='bubble'?2:TYPED_STYLE==='outline'?4:0):0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',cloud?(r,v)=>cloudInk(r,v,CLOUD_TINT):typed&&TYPED_STYLE==='bubble'?(r,v)=>cloudInk(r,v,TYPED_TINT):null).map(onGround));continue;}
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(typed?(TYPED_STYLE==='bubble'?2:TYPED_STYLE==='outline'?4:0):0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',typed&&TYPED_STYLE==='bubble'?(r,v)=>cloudInk(r,v,TYPED_TINT):null).map(onGround));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
     for(const line of code.split("\n")){
@@ -478,7 +484,6 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
       rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));offset++;
     }
   }
-  if (cloud) return cloudRows(rows, width, CLOUD_TINT);
   // A typed line in pro is set the way the layout says: outlined, bubbled,
   // or plain on the page.
   if (typed) return TYPED_STYLE === "bubble" ? cloudRows(rows, width, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(rows, width) : rows;
@@ -819,7 +824,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     // Codex's shape: the transcript, a bar to type in with a blank line on
     // either side, and one muted line under it saying who, where, which model.
     // Nothing sits between the words and the typing.
-    const barBg = useColor ? bg(state.tray === "light" ? [232, 232, 236] : state.tray === "dark" ? [28, 28, 32] : shape.bar) : "";
+    const barBg = useColor ? followsSlab ? color.ground : bg(shape.bar) : "";
     const ink = (rgb) => (useColor ? fg(rgb) : "");
     let inner;
     state.cursorCell = null;
@@ -881,15 +886,9 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
           return span ? selectRow(state.pageRows[index], span, width, useColor) : row;
         })
       : ruled;
-    // Under the hood: the tray — the air, the bar, the status line — sits on
-    // black, or on white in light mode, whatever ground the window has. The
-    // transcript above is the hood; this is the machinery, and it always
-    // looks like itself.
-    const light = state.tray === "light";
-    const trayGround = useColor ? `${bg(light ? [255, 255, 255] : [0, 0, 0])}${fg(light ? [40, 40, 40] : [230, 230, 230])}` : "";
-    const trayMuted = useColor ? fg(light ? [110, 110, 110] : [150, 150, 150]) : "";
-    const onTray = (row) => (useColor ? `${trayGround}${String(row).replace(/\x1b\[0m/g, `\x1b[0m${trayGround}`).replace(new RegExp(color.ground.replace(/[[\]\\]/g, "\\$&"), "g"), trayGround).replace(new RegExp(color.muted.replace(/[[\]\\]/g, "\\$&"), "g"), trayMuted)}${trayGround}` : row);
-    const trayRows = shape.bottom.map((name) => onTray(name === "bar" ? bar : name === "gap" ? fit("", width) : rows[name]?.() ?? ""));
+    // Conversation, composer and footer share the terminal's ground. Slab
+    // already owns its light/dark and working/idle colors.
+    const trayRows = shape.bottom.map((name) => name === "bar" ? bar : rows[name]?.() ?? "");
     return paintUpdate(paintDropdown([...shown, ...trayRows].slice(0, height), state, width, height, useColor, shape), state, width, height - shape.bottom.length, useColor)
       .map((line) => `${ground}${fit(line, width)}${reset}`)
       .join("\n");
@@ -1080,9 +1079,7 @@ export function setCorners(style) { CORNERS = ["slant", "block", "flat"].include
 // bubble, or plain lines on the page.
 export function setTypedStyle(style) { TYPED_STYLE = ["outline", "bubble", "lines"].includes(style) ? style : "outline"; }
 
-// Your words in an outline: rounded box-drawing corners in the prompt's ink,
-// the words inside in the same ink, the ground showing through — the
-// machine's cloud is filled, yours is drawn, and that is the difference.
+// Your words in an outline; replies sit directly on the page beside them.
 function outlineRows(rows, width, painted = false) {
   while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
   while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
@@ -1205,19 +1202,17 @@ export function breathingHandle(account, state) {
 function paintedMascot(state, useColor) {
   const pose = mascotRow(state.mascotMs ?? 0, Boolean(state.busy));
   if (!useColor) return pose;
-  const ears = exact([255, 130, 200]), face = exact([120, 220, 255]), nose = exact([255, 218, 120]);
+  const ears = exact(pageAccent([255, 130, 200])), face = exact(pageAccent([120, 220, 255])), nose = exact(pageAccent([255, 218, 120]));
   return Array.from(pose).map((ch, i) => `${i < 2 || ch === '.' ? ears : ch === '>' ? nose : face}${ch}`).join('') + color.reset + color.ground;
 }
 
 function statusFact(name, text, state, useColor) {
   if (!useColor) return text;
   if (name === "workspace") {
-    return text.split(/(\/)/).map((part, index, parts) => {
-      return paint(true, part === "/" || part === "~" ? "muted" : index === parts.length - 1 ? "inbox bold" : "inbox", part);
-    }).join("");
+    return paint(true, "muted", text);
   }
   if (name === "model") {
-    return paint(true, "run bold", text);
+    return paint(true, "soft", text);
   }
   const activity = state.status === "offline" ? "error"
     : state.recoveryNotice || state.connectionNotice || state.status === "connecting" ? "run" : "status";
@@ -1226,9 +1221,7 @@ function statusFact(name, text, state, useColor) {
 }
 
 function statusSpend(text, useColor) {
-  if (!useColor) return text;
-  return text.split(/(\$?\d+(?:\.\d+)?[kM%dhm]?)/).map(part =>
-    paint(true, /^\$?\d/.test(part) ? "run" : "muted", part)).join("");
+  return paint(useColor, "muted", text);
 }
 
 export function proStatus(state, width, useColor, shape = state.layout || {}) {

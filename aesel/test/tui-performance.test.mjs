@@ -17,7 +17,7 @@ test('cached transcript rows follow streaming edits, wrapping and appearance',()
   const narrow=renderFrame(state,32,24,true);
   assert.notDeepEqual(state.pageRows,cleanText(next).split('\n').slice(0,-3));
   try{
-    setAppearance('light'); assert.notEqual(renderFrame(state,32,24,true),narrow);
+    setAppearance('light'); assert.equal(renderFrame(state,32,24,true),narrow, 'plain replies inherit the page instead of adding a light-mode card');
     setTypedStyle('lines'); assert.doesNotMatch(cleanText(renderFrame(state,32,24,true)),/╭/);
   }finally{setAppearance('dark');setTypedStyle('outline');}
   assert.notEqual(first,next);

@@ -50,7 +50,7 @@ test("short pro messages fit their text without white cap rows or minimum-width 
   ], input: "" };
   const frame = cleanText(renderFrame(state, 40, 14, true));
   assert.deepEqual(frame.split("\n").filter(row => row.trim()).map(row => row.trimEnd()), [
-    " ╭────╮", " │ hi │", " ╰────╯", "  hi.",
+    " ╭────╮", " │ hi │", " ╰────╯", " hi.",
   ]);
 });
 
