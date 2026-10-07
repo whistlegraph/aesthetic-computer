@@ -284,16 +284,16 @@ test("adopt converts an ordinary Claude rock in place and renames it", async () 
   const env = { SLAB_HOME: join(home, ".local", "share", "slab") };
 
   const refused = await callProx(home, "prox_bind_notification", {
-    handle: "neo:surizu", contact: "fia",
+    handle: "neo:surizu", contact: "fia", adopt: false,
   }, env);
-  assert.match(refused, /was not launched as a guarded Loopboy; pass adopt=true/);
+  assert.match(refused, /Pass adopt=true to enter Loopboy mode in place/);
   assert.equal(JSON.parse(await readFile(marker, "utf8")).loopboy_contact, "");
 
   const bound = await callProx(home, "prox_bind_notification", {
     handle: "neo:surizu", contact: "fia", adopt: true, name: "surizo",
   }, env);
   assert.match(bound, /Loopboy bound fia → neo:surizo/);
-  assert.match(bound, /adopted in place: marker cccccccc stamped loopboy_contact=fia/);
+  assert.match(bound, /in place.*no automatic typing/);
   const stamped = JSON.parse(await readFile(marker, "utf8"));
   assert.equal(stamped.loopboy_contact, "fia");
   assert.equal(stamped.claude_pid, process.pid);
@@ -301,7 +301,7 @@ test("adopt converts an ordinary Claude rock in place and renames it", async () 
   assert.equal(config.loops.fia.sessionId, id);
   assert.equal(config.loops.fia.name, "surizo");
   assert.equal(config.loops.fia.agent, "claude");
-  assert.equal(config.loops.fia.wake, true);
+  assert.equal(config.loops.fia.wake, false);
 });
 
 test("prox_send drops a line in a local rock's inbox and prox_inbox reads it", async () => {
@@ -332,7 +332,7 @@ test("prox_send drops a line in a local rock's inbox and prox_inbox reads it", a
   assert.match(await callProx(home, "prox_inbox", { handle: "neo:surizu" }, env), /is empty\.$/);
 });
 
-test("adopt refuses Codex-backed rocks and rocks guarded for someone else", async () => {
+test("adopt accepts Codex-backed rocks and refuses a different bound contact", async () => {
   const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
   const id = "dddddddd-1111-2222-3333-444444444444";
   const { marker } = await ordinaryRock(home, id, { agentType: "codex" });
@@ -340,15 +340,17 @@ test("adopt refuses Codex-backed rocks and rocks guarded for someone else", asyn
   const codex = await callProx(home, "prox_bind_notification", {
     handle: "neo:surizu", contact: "fia", adopt: true,
   }, env);
-  assert.match(codex, /is a codex session; Codex-backed Loopboys need their contact headers at launch/);
-  assert.equal(JSON.parse(await readFile(marker, "utf8")).loopboy_contact, "");
+  assert.match(codex, /Loopboy bound fia.*in place/);
+  assert.equal(JSON.parse(await readFile(marker, "utf8")).loopboy_contact, "fia");
 
   const other = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
-  await ordinaryRock(other, id, { loopboyContact: "alex" });
+  const otherFixture = await ordinaryRock(other, id, { loopboyContact: "alex" });
+  const otherMarker = JSON.parse(await readFile(otherFixture.marker, "utf8"));
+  await writeFile(otherFixture.marker, JSON.stringify({ ...otherMarker, loopboy_contact: "alex" }));
   const foreign = await callProx(other, "prox_bind_notification", {
     handle: "neo:surizu", contact: "fia", adopt: true,
   }, { SLAB_HOME: join(other, ".local", "share", "slab") });
-  assert.match(foreign, /was launched for alex, not fia/);
+  assert.match(foreign, /is bound to alex; use prox_unbind_notification/);
 });
 
 test("Easel namespace is exact, fleet ambiguity is preserved, and local stays local", async () => {

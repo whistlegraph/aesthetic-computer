@@ -27,6 +27,7 @@ import { join } from "node:path";
 import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { deliverLocal, drain, makeMessage, peek, stamp } from "./prox-inbox.mjs";
+import { readLoopboyMode, writeLoopboyMode } from "../lib/loopboy-mode.mjs";
 import { clip, toon } from "../../shared/toon.mjs";
 
 const pexec = promisify(execFile);
@@ -116,7 +117,9 @@ async function allRocks() {
   const rows = [];
   for (const led of await allLedgers()) {
     for (const e of led.entries || []) {
-      rows.push({ ...e, agentType: canonicalAgent(e.agentType), host: e.host || led.host, ip: led.ip, self: led.self });
+      const mode = led.self ? await readLoopboyMode(e.id) : null;
+      rows.push({ ...e, ...(mode ? { loopboyContact: mode.contact, name: mode.name || e.name } : {}),
+        agentType: canonicalAgent(e.agentType), host: e.host || led.host, ip: led.ip, self: led.self });
     }
   }
   return rows;
@@ -410,6 +413,40 @@ async function toolInbox({ handle, consume = false } = {}, context) {
   return [{ type: "text", text: [head, ...messages.map((m) => stamp(m))].join("\n") }];
 }
 
+// A waiting tool call is the passive delivery path for terminal agents.
+// Its identity comes from the existing prox connection, not launch-only contact
+// headers. Each poll rechecks mutable mode so an exit revokes an in-flight wait.
+async function toolLoopboyWait({ contact = "", timeoutSeconds = 30 } = {}, context) {
+  const id = await callerSessionId(context);
+  if (!id) throw new Error("Cannot identify the calling prox; use prox_inbox with an explicit local handle.");
+  const requested = String(contact || "").trim().toLowerCase();
+  const seconds = Number(timeoutSeconds);
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > 55) throw new Error("timeoutSeconds must be between 0 and 55");
+  async function boundContact() {
+    const mode = await readLoopboyMode(id);
+    const marker = await readMarker(id);
+    const key = mode ? mode.contact : marker?.loopboy_contact;
+    const route = key && (await readJson(LOOPBOY_CONFIG))?.loops?.[key];
+    if (!key || route?.sessionId !== id || (route.channel || route.event || "imessage") !== "imessage") {
+      throw new Error("Loopboy mode is off or its route changed; the prox and conversation remain open.");
+    }
+    if (requested && requested !== key) throw new Error(`This prox is bound to ${key}, not ${requested}.`);
+    return key;
+  }
+  const initial = await boundContact();
+  const deadline = Date.now() + seconds * 1000;
+  do {
+    if (await boundContact() !== initial) throw new Error("Loopboy contact changed while waiting; start a new wait.");
+    if ((await peek(id)).length) {
+      const messages = await drain(id);
+      if (messages.length) return [{ type: "text", text: messages.map(stamp).join("\n") }];
+    }
+    if (Date.now() >= deadline) break;
+    await sleep(Math.min(250, deadline - Date.now()));
+  } while (true);
+  return [{ type: "text", text: `No queued updates for ${initial}. The same prox can call prox_loopboy_wait again; no terminal input was submitted.` }];
+}
+
 async function toolWake({ handle, prompt, by }) {
   if (!handle) throw new Error("`handle` is required (a host:name or prox:aesel:name; see prox_find).");
   const text = String(prompt || "").trim();
@@ -520,6 +557,14 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   }
   if (String(prompt).length > 4000) throw new Error("`prompt` exceeds 4000 characters.");
   const contactKey = String(loopboyContact || "").trim().toLowerCase();
+  if (contactKey && !/^[a-z0-9_-]{1,40}$/.test(contactKey)) throw new Error("Invalid Loopboy contact key");
+  if (contactKey) {
+    const previous = (await readJson(LOOPBOY_CONFIG))?.loops?.[contactKey];
+    const marker = previous?.sessionId ? await readMarker(previous.sessionId) : null;
+    const pid = Number(marker?.agent_pid || marker?.claude_pid || 0);
+    if (pid && pidAlive(pid)) throw new Error(`${contactKey} already has a live prox (${previous.sessionId}); change its mode with prox_bind_notification/prox_unbind_notification, without launching a replacement.`);
+  }
+
 
   // Snapshot the live markers before launching so the poll below can tell
   // the newborn Loopboy's marker apart from every session already running.
@@ -538,6 +583,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   const ledgers = await allLedgers();
   const target = ledgers.find((l) => String(l.host || "").toLowerCase() === wanted);
   if (!target) throw new Error(`no cached ledger for host «${host}» — it must be online in prox first.`);
+  if (contactKey && !target.self) throw new Error("Loopboy routes must be configured on the owning host; use prox_bind_notification there for an existing session.");
   if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
   const launcher = by || `${self}:prox`;
@@ -595,7 +641,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
     cfg.loops[contactKey] = {
       event: "imessage", contact: contactKey,
       sessionId: marker.id, host: result.host || target.host,
-      agent: agentName, wake: true, assignedAt: new Date().toISOString(),
+      agent: agentName, wake: false, delivery: "inbox", assignedAt: new Date().toISOString(),
     };
     await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
     binding = ` and bound Loopboy contact ${contactKey}`;
@@ -640,75 +686,69 @@ async function toolJob({ host, job = "mediascholar", action = "status" }) {
   return [{ type: "text", text: `${target.host}:${jobName} ${jobAction} — ${detail}` }];
 }
 
-// ── adoption: convert a running ordinary rock into a Loopboy in place ──────
-// A launched Loopboy gets its contact from SLAB_LOOPBOY_CONTACT at process
-// start, and the prompt hook copies that into the session marker on every
-// prompt. Adoption stamps the same field onto a live Claude marker instead;
-// the hook keeps a stamped contact across rewrites, so the menubar verifies
-// the route on its next refresh and the rock re-forms as a gem with the
-// cadence strip — Terminal window and conversation untouched.
-async function adoptRock(r, contactKey) {
-  if (isCodexBacked(r.agentType)) {
-    throw new Error(
-      `${r.host}:${r.name} is a ${r.agentType} session; Codex-backed Loopboys need their ` +
-      `contact headers at launch — start one with prox_launch and loopboyContact=${contactKey}`,
-    );
-  }
+// Loopboy is a mutable mode of an existing prox, for every agent type.
+async function bindingTarget(handle) {
+  if (!handle) throw new Error("`handle` is required (the stable host:name or session id)");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}».`);
+  if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${candidates(hits)}).`);
+  const r = hits[0];
+  if (!r.self) throw new Error(`Run this mode change on ${r.host}; Loopboy routes belong to the owning host.`);
   const path = join(MARKER_DIRS[0], r.id);
   const marker = await readJson(path);
-  if (!marker) throw new Error(`${r.host}:${r.name} has no live session marker to adopt (is its Terminal still open?)`);
-  const pid = Number(marker.claude_pid || marker.agent_pid || 0);
-  if (!pid || !pidAlive(pid)) throw new Error(`${r.host}:${r.name} marker points at a dead process (pid ${pid || "?"})`);
-  marker.loopboy_contact = contactKey;
-  await writeFile(path, JSON.stringify(marker) + "\n");
-  return `adopted in place: marker ${r.id.slice(0, 8)} stamped loopboy_contact=${contactKey}; the rock re-forms as a gem on the next menubar refresh.`;
+  if (!marker || marker.session_id !== r.id) throw new Error(`${r.host}:${r.name} has no live session marker.`);
+  const pid = Number(marker.agent_pid || marker.claude_pid || 0);
+  if (!pid || !pidAlive(pid)) throw new Error(`${r.host}:${r.name} marker points at a dead process (pid ${pid || "?"}).`);
+  return { r, path, marker };
 }
 
-async function toolBindNotification({ handle, contact, event = "imessage", wake = true, adopt = false, name = "" }) {
+async function toolBindNotification({ handle, contact, event = "imessage", adopt = true, name = "" }) {
   if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
-  if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
   const contactKey = String(contact || "").trim().toLowerCase();
-  if (!contactKey) throw new Error("`contact` is required (the key from ~/.config/slab/imsg.json)");
+  if (!/^[a-z0-9_-]{1,40}$/.test(contactKey)) throw new Error("`contact` must be a short contact key from ~/.config/slab/imsg.json");
   const petName = String(name || "").trim().toLowerCase();
-  if (petName && !/^[a-z][a-z0-9_-]{1,15}$/.test(petName)) {
-    throw new Error("`name` must be a short lowercase pet name (2–16 letters, digits, - or _)");
-  }
-  const hits = resolve(await allRocks(), handle);
-  if (!hits.length) throw new Error(`no rock resolves «${handle}» to bind.`);
-  if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
-  const r = hits[0];
-  if (!r.self) throw new Error("iMessage notification wake targets must be a local prox on this machine");
-  const launched = String(r.loopboyContact || "").trim().toLowerCase();
-  if (launched && launched !== contactKey) {
-    throw new Error(`${r.host}:${r.name} was launched for ${launched}, not ${contactKey}`);
-  }
-  let adoption = "";
-  if (!launched) {
-    if (!adopt) {
-      throw new Error(
-        `${r.host}:${r.name} was not launched as a guarded Loopboy; pass adopt=true to convert it in place, ` +
-        `or start a dedicated one with prox_launch and loopboyContact=${contactKey}`,
-      );
-    }
-    adoption = `\n${await adoptRock(r, contactKey)}`;
-  }
-  const loop = {
-    event: "imessage",
-    contact: contactKey,
-    sessionId: r.id,
-    host: r.host,
-    name: petName || r.name,
-    agent: r.agentType || "claude",
-    wake: wake !== false,
-    assignedAt: new Date().toISOString(),
-  };
-  await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
+  if (petName && !/^[a-z][a-z0-9_-]{1,15}$/.test(petName)) throw new Error("`name` must be a short lowercase pet name (2–16 letters, digits, - or _)");
+  const { r, path, marker } = await bindingTarget(handle);
+  const mode = await readLoopboyMode(r.id);
+  const boundContact = mode ? mode.contact : String(marker.loopboy_contact || "").toLowerCase();
+  if (boundContact && boundContact !== contactKey) throw new Error(`${r.host}:${r.name} is bound to ${boundContact}; use prox_unbind_notification before changing contact.`);
+  if (!boundContact && !adopt) throw new Error("Pass adopt=true to enter Loopboy mode in place. No relaunch is needed.");
   const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
-  cfg.version = 1;
-  cfg.loops ||= {};
+  cfg.version = 1; cfg.loops ||= {};
+  const previous = cfg.loops[contactKey];
+  if (previous?.sessionId && previous.sessionId !== r.id) {
+    const other = await readMarker(previous.sessionId);
+    const pid = Number(other?.agent_pid || other?.claude_pid || 0);
+    if (pid && pidAlive(pid)) throw new Error(`${contactKey} already has a live listener (${previous.sessionId}); unbind it before assigning another prox.`);
+  }
+  // Do not carry autoRespond or legacy wake authorization into the new mode.
+  const loop = { event, channel: event, contact: contactKey, sessionId: r.id,
+    host: r.host, name: petName || r.name, agent: r.agentType || "claude",
+    wake: false, delivery: "inbox", assignedAt: new Date().toISOString() };
+  await writeLoopboyMode(r.id, { contact: contactKey, name: loop.name });
+  // Mirror for older renderers; the mode record wins over stale watcher writes.
+  const latest = await readJson(path);
+  if (latest) await writeFile(path, JSON.stringify({ ...latest, loopboy_contact: contactKey }) + "\n");
   cfg.loops[contactKey] = loop;
+  await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
   await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${loop.name} (${r.id}) — poke${loop.wake ? " + reactivate" : " only"}.${adoption}` }];
+  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${loop.name} (${r.id}) in place — inbox + visual poke; no automatic typing. Same process and conversation.` }];
+}
+
+async function toolUnbindNotification({ handle }) {
+  const { r, path } = await bindingTarget(handle);
+  const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
+  // Persist OFF before removing the route: old launch env/headers cannot rearm it.
+  await writeLoopboyMode(r.id, { contact: "", name: r.name });
+  const marker = await readJson(path);
+  if (marker) await writeFile(path, JSON.stringify({ ...marker,
+    loopboy_contact: "", loopboy_state: "", loopboy_response: "" }) + "\n");
+  for (const [contact, loop] of Object.entries(cfg.loops || {})) {
+    if (loop.sessionId === r.id) delete cfg.loops[contact];
+  }
+  await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
+  await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
+  return [{ type: "text", text: `Loopboy mode off for ${r.host}:${r.name} (${r.id}). Same process, window, name, and conversation.` }];
 }
 
 async function toolClose({ handle }) {
@@ -864,7 +904,7 @@ const TOOLS = [
         cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },
-        loopboyContact: { type: "string", description: "Optional iMessage contact key. Launches a screen-backed Loopboy and binds it immediately." },
+        loopboyContact: { type: "string", description: "Optional contact key for a NEW prox. To convert an existing prox, use prox_bind_notification; it preserves the conversation." },
       },
       required: ["host", "agent"],
     },
@@ -886,19 +926,34 @@ const TOOLS = [
   {
     name: "prox_bind_notification",
     description:
-      "Create or replace one contact-keyed Loopboy route from iMessage to a stable local prox. Every new inbound from that contact pokes the rock and, by default, reactivates its terminal session with a steering prompt. This does not send or react to the incoming message.",
+      "Enter Loopboy mode on an existing local Claude, Codex, or Aesel prox. Preserves its process, window, name, and conversation. Arrivals use inbox + visual poke, never typing or automatic replies. Use prox_unbind_notification to leave the mode.",
     inputSchema: {
       type: "object",
       properties: {
         handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
         contact: { type: "string", description: "Contact key from ~/.config/slab/imsg.json, for example alex." },
         event: { type: "string", enum: ["imessage"], default: "imessage" },
-        wake: { type: "boolean", default: true, description: "Also reactivate the agent session; false means visual poke only." },
-        adopt: { type: "boolean", default: false, description: "Convert an ordinary running Claude rock into this contact's Loopboy in place: stamps its live marker, keeps the window open, and the rock re-forms as a gem." },
+        wake: { type: "boolean", default: false, description: "Deprecated compatibility field. Automatic typing is always disabled, even when true." },
+        adopt: { type: "boolean", default: true, description: "Enter Loopboy mode in place on any supported agent. No relaunch or launch-time contact headers required." },
         name: { type: "string", description: "Optional pet name for the Loopboy, for example surizo. Defaults to the rock's current name." },
       },
       required: ["handle", "contact"],
     },
+  },
+  {
+    name: "prox_loopboy_wait",
+    description: "Wait for inbox updates inside the current Loopboy session, without typing, focus changes, resumes, or a new prox. Mode and contact are checked on every poll; leaving Loopboy ends the wait. No launch-time contact headers required.",
+    inputSchema: { type: "object", properties: {
+      contact: { type: "string", description: "Optional expected contact key; a different contact is refused." },
+      timeoutSeconds: { type: "number", default: 30, minimum: 0, maximum: 55 },
+    } },
+  },
+  {
+    name: "prox_unbind_notification",
+    description: "Leave Loopboy mode in place. Keeps the same prox process, window, name, and conversation. Clears the contact route and prevents stale launch settings from re-enabling it.",
+    inputSchema: { type: "object", properties: {
+      handle: { type: "string", description: "Stable local host:name or session id." },
+    }, required: ["handle"] },
   },
 ];
 
@@ -913,9 +968,8 @@ async function callTool(name, args, context) {
     case "prox_launch": return toolLaunch(args || {});
     case "prox_job": return toolJob(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
+    case "prox_unbind_notification": return toolUnbindNotification(args || {});
     case "prox_loopboy_wait": return toolLoopboyWait(args || {}, context);
-    case "prox_loopboy_agent_status": return toolLoopboyAgentStatus(args || {});
-    case "prox_loopboy_agent_nudge": return toolLoopboyAgentNudge(args || {});
     case "prox_close": return toolClose(args || {});
     case "prox_dump": return toolDump(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
