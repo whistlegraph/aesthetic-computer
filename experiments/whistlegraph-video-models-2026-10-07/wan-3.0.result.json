@@ -1,0 +1,17 @@
+{
+  "http_status": 200,
+  "video": {
+    "url": "https://v3b.fal.media/files/b/0aad7757/jZDAa6RYNevaPVQihq3k0_hoYzs1Zy.mp4",
+    "content_type": "video/mp4",
+    "file_name": "jZDAa6RYNevaPVQihq3k0_hoYzs1Zy.mp4",
+    "file_size": 14819750,
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "duration": 5.038005,
+    "num_frames": 150
+  },
+  "seed": 10072026,
+  "duration": 5.038005,
+  "actual_prompt": null
+}

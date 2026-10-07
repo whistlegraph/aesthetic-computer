@@ -1,0 +1,11 @@
+{
+  "http_status": 200,
+  "video": {
+    "url": "https://v3b.fal.media/files/b/0aad7794/8NSyQ_d1RJ6UIk1EKQ8hD_video.mp4",
+    "content_type": "video/mp4",
+    "file_name": "video.mp4",
+    "file_size": 4161552
+  },
+  "seed": 10072026,
+  "draft_id": null
+}

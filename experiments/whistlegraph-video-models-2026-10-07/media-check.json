@@ -1,0 +1,62 @@
+{
+  "seedance-2.5": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_type": "video",
+        "width": 720,
+        "height": 1280,
+        "r_frame_rate": "24/1"
+      },
+      {
+        "codec_type": "audio",
+        "sample_rate": "32000",
+        "r_frame_rate": "0/0"
+      }
+    ],
+    "format": {
+      "duration": "5.056000"
+    }
+  },
+  "h3-max": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_type": "video",
+        "width": 768,
+        "height": 1344,
+        "r_frame_rate": "24/1"
+      },
+      {
+        "codec_type": "audio",
+        "sample_rate": "32000",
+        "r_frame_rate": "0/0"
+      }
+    ],
+    "format": {
+      "duration": "5.184000"
+    }
+  },
+  "wan-3.0": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_type": "video",
+        "width": 720,
+        "height": 1280,
+        "r_frame_rate": "30/1"
+      },
+      {
+        "codec_type": "audio",
+        "sample_rate": "44100",
+        "r_frame_rate": "0/0"
+      }
+    ],
+    "format": {
+      "duration": "5.038005"
+    }
+  }
+}

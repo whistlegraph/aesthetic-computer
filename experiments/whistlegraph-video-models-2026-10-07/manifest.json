@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-07",
+  "source_url": "https://www.tiktok.com/@whistlegraph/video/7119595740988460330",
+  "source_segment_seconds": [
+    0,
+    5
+  ],
+  "observed_account_debit_usd": 4.87,
+  "billing_note": "Difference between account balances before and after; may include concurrent activity.",
+  "models": [
+    {
+      "name": "seedance-2.5",
+      "endpoint": "bytedance/seedance-2.5/reference-to-video",
+      "request_id": "01a11802-a233-7722-83c6-15adcd8fe104",
+      "inference_seconds": 807.3580000400543,
+      "video_sha256": "ebb5cbd04d457aee99d3b7efd932806cd55e4566b8ffd5f6379480b717dce765"
+    },
+    {
+      "name": "h3-max",
+      "endpoint": "minimax/h3-max/reference-to-video",
+      "request_id": "01a11802-a32b-7bb2-b244-ef87150bd484",
+      "inference_seconds": 12.628999948501587,
+      "video_sha256": "f51cea3d51703dfe1eda8b7c248aebe69fab2948b1e769d2f7e5c5061606410e"
+    },
+    {
+      "name": "wan-3.0",
+      "endpoint": "alibaba/wan-3.0/reference-to-video",
+      "request_id": "01a11802-a397-7ab3-a1f4-c8bfeca6001e",
+      "inference_seconds": 206.0569999217987,
+      "video_sha256": "7cef7ef55f93401ac4685cba53aba338612c36a1e8229bff32edf2986922ed6d"
+    }
+  ],
+  "reference_sha256": "3f93e2a83c05124a7896943518f211db9291a0d8fe2603f4c9b6ce276c04790f"
+}

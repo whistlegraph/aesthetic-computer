@@ -1,0 +1,14 @@
+{
+  "http_status": 200,
+  "video": {
+    "url": "https://v3b.fal.media/files/b/0aad7742/r_EBhg-OZkzVGVGZQManB_minimax-h3.mp4",
+    "content_type": "video/mp4",
+    "file_name": "r_EBhg-OZkzVGVGZQManB_minimax-h3.mp4",
+    "file_size": 19419648
+  },
+  "expanded_prompt": null,
+  "seed": 10072026,
+  "timings": {
+    "inference": 8.750996910996037
+  }
+}

@@ -44,3 +44,7 @@ while the chalk touches the surface.
 Scripts reference the working dir `~/Desktop/seedance-variations/` and source
 videos in `~/Downloads/` — point SRC/OUT constants at your own material.
 Costs: fast tier ≈ $0.24/s, standard ≈ $0.30/s @720p; a typical 8s clip ≈ $2.
+
+## October 2026 model comparison
+
+[Seedance 2.5, H3 Max and Wan 3.0](../../experiments/whistlegraph-video-models-2026-10-07/README.md): original videos, comparison reel, exact prompts and findings. Wan followed the requested drawing sequence most closely in this single trial; audio synchronization still needs listening review.
