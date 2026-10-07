@@ -1,6 +1,6 @@
 import {currentWare,selectWare} from './wares.mjs';
 import {migrateLegacyStorage} from './legacy-storage.mjs';
-migrateLegacyStorage(localStorage);
+Object.defineProperty(window, 'localStorage', {value:migrateLegacyStorage(window.localStorage), configurable:true});
 window.whistlegraphSelectWare=id=>{
   if(window.whistlegraphIsBusy?.()||window.whistlegraphRecording?.())return false;
   try {
@@ -11,4 +11,8 @@ window.whistlegraphSelectWare=id=>{
     return true;
   } catch(error) {window.toast?.(error.message);return false;}
 };
-await import(currentWare(localStorage)==='roblox'?'./roblox-engine.mjs':'./engine.mjs');
+try {
+  await import(currentWare(localStorage)==='roblox'?'./roblox-engine.mjs':'./engine.mjs');
+} catch (error) {
+  window.webkit.messageHandlers.whistlegraph.postMessage({action:'startupError',text:String(error?.message||error)});
+}

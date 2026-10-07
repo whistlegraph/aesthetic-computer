@@ -20,13 +20,32 @@ test('brain switching queues without overwriting artwork or changing the current
 test('rename preserves exact history, archive and thread identity; a new workspace does not resurrect legacy work',()=>{
   const s=storage();const ledger='{"source":"// Walkieware scene v2","head":3}';
   s.setItem('walkieware-source-versions',ledger);s.setItem('walkieware-source-thread','same-id');s.setItem('walkieware-archive-old','saved-archive');
-  migrateLegacyStorage(s);assert.equal(s.getItem('whistlegraph-source-versions'),ledger);assert.equal(s.getItem('whistlegraph-source-thread'),'same-id');assert.equal(s.getItem('whistlegraph-archive-old'),'saved-archive');
-  s.removeItem('whistlegraph-source-versions');migrateLegacyStorage(s);assert.equal(s.getItem('whistlegraph-source-versions'),null);
-  assert.equal(s.getItem('walkieware-source-versions'),ledger);
+  const current=migrateLegacyStorage(s);assert.equal(current.getItem('whistlegraph-source-versions'),ledger);assert.equal(current.getItem('whistlegraph-source-thread'),'same-id');assert.equal(current.getItem('whistlegraph-archive-old'),'saved-archive');
+  assert.equal(s.getItem('walkieware-source-versions'),ledger);assert.equal(s.length,3,'opening copies nothing');
+  current.removeItem('whistlegraph-source-versions');assert.equal(migrateLegacyStorage(s).getItem('whistlegraph-source-versions'),null);
 });
 test('rename does not overwrite newer names or immutable source content',()=>{
-  const s=storage();s.setItem('walkieware-source','old');s.setItem('whistlegraph-source','new');migrateLegacyStorage(s);assert.equal(s.getItem('whistlegraph-source'),'new');
+  const s=storage();s.setItem('walkieware-source','old');s.setItem('whistlegraph-source','new');assert.equal(migrateLegacyStorage(s).getItem('whistlegraph-source'),'new');
   const old=sceneSource({shape:'circle',color:'pink',x:.5,y:.5,size:.2,bounce:false,speed:1},'same-motion').replaceAll('Whistlegraph','Walkieware').replaceAll('whistlegraph','walkieware');
   const edited=localEdit(old,'make it blue');assert.ok(edited);assert.match(edited.source,/same-motion/);assert.match(edited.source,/"color":"blue"/);
   assert.ok(isBasePiece('// Walkieware v0 — base color.'));
+});
+
+test('a full store opens without writes and edits the existing legacy record',()=>{
+  const s=storage();s.setItem('walkieware-source','saved');s.setItem('walkieware-archive-old','history');
+  const set=s.setItem;s.setItem=(key,value)=>{if(s.getItem(key)===null)throw new DOMException('Full','QuotaExceededError');set(key,value);};
+  const current=migrateLegacyStorage(s);
+  assert.equal(current.getItem('whistlegraph-source'),'saved');
+  assert.deepEqual(Array.from({length:current.length},(_,i)=>current.key(i)),['whistlegraph-source','whistlegraph-archive-old']);
+  current.setItem('whistlegraph-source','edited');assert.equal(s.getItem('walkieware-source'),'edited');
+  assert.throws(()=>current.setItem('brand-new-key','x'),{name:'QuotaExceededError'});
+  assert.equal(current.getItem('whistlegraph-archive-old'),'history');
+});
+test('partial and completed migrations keep newer work and intentional deletions',()=>{
+  const s=storage();s.setItem('walkieware-source','older');s.setItem('whistlegraph-source','newer');
+  let current=migrateLegacyStorage(s);assert.equal(current.getItem('whistlegraph-source'),'newer');
+  assert.equal(current.length,1,'aliases appear only once in archive enumeration');
+  current.removeItem('whistlegraph-source');assert.equal(migrateLegacyStorage(s).getItem('whistlegraph-source'),null);
+  s.setItem('walkieware-source','old recovery copy');s.setItem('whistlegraph-storage-migrated','1');
+  current=migrateLegacyStorage(s);assert.equal(current.getItem('whistlegraph-source'),null);
 });

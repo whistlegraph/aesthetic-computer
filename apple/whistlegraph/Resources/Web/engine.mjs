@@ -1,3 +1,4 @@
+import {AccountConnection} from './account-connection.mjs';
 import {fetchPersonalAccess,hasPersonalAccess} from './personal-access.mjs';
 import {createAIConsentGate} from './ai-consent.mjs';
 import {SourceEditor} from './source-editor.mjs';
@@ -91,10 +92,22 @@ function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
   accountPalette=colors;
   signIn.replaceChildren(...Array.from('@'+handle,(character,index)=>{const span=document.createElement('span');span.textContent=character;span.style.color='rgb('+colors[index].join(',')+')';return span;}));nativeSnapshot();
 }
-function accountIdentity(value){
-  if(value===accountToken)return;accountToken=value;accountHandle='';personalAccess=null;syncAIConsent();braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
-  accountVerification=value?verifyAccount(value).then(async account=>{if(accountToken!==value)return;accountHandle=account.handle;syncAIConsent();if(!accountHandle){signIn.textContent='Set handle';return;}const access=await fetchPersonalAccess(value);if(accountToken!==value)return;personalAccess=access;paintHandle(accountHandle);void refreshBraincells();const handle=accountHandle;void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountHandle===handle)paintHandle(handle,colors);}).catch(()=>{});}).catch(()=>{if(accountToken===value)signIn.textContent='Retry sign-in';}):Promise.resolve();
+const accountConnection = new AccountConnection({verify: verifyAccount, changed: state => post({action:'accountState', ...state})});
+function accountIdentity(value, notice='', force=false){
+  if(value&&value===accountToken&&accountHandle&&!force)return;
+  accountToken=value;accountHandle='';accountPalette=[];personalAccess=null;syncAIConsent();braincells=null;braincellsError='';signIn.textContent=value?'…':'Sign in';
+  nativeSnapshot();
+  accountVerification=accountConnection.connect(value, notice).then(account=>{
+    if(!account||accountToken!==value)return;
+    accountHandle=account.handle;syncAIConsent();
+    if(!accountHandle){signIn.textContent='Set handle';nativeSnapshot();return;}
+    paintHandle(accountHandle);void refreshBraincells();
+    const handle=accountHandle,revision=accountConnection.revision;
+    void fetchPersonalAccess(value).then(access=>{if(accountToken===value&&accountConnection.revision===revision){personalAccess=access;nativeSnapshot();}});
+    void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountConnection.revision===revision)paintHandle(handle,colors);}).catch(()=>{});
+  });
 }
+
 const $ = id => document.getElementById(id);
 const ui = document.createElement('section'); ui.id = 'live-work'; ui.hidden = true;
 ui.innerHTML = '<div class="live-line"><strong id="live-phase"></strong><span id="live-time"></span><button id="live-stop">Stop</button></div><p id="live-request"></p><ol id="version-feed" aria-label="Versions"></ol><details id="live-details" hidden><pre id="live-code"></pre><ol id="live-events"></ol></details>';
@@ -521,7 +534,7 @@ window.whistlegraphEngineEvent=event=>{
     if(pendingCapture?.id===event.captureID)pendingCapture.finish(event.error?Error(event.error):null,event);
     return;
   }
-  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token);if(token&&pending)void ask(pending);else void resumeAttempt();}
+  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token,event.notice||'',event.retry===true);if(token&&pending)void ask(pending);else void resumeAttempt();}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.whistlegraphWorkFinished?.();}
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){

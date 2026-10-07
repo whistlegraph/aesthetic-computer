@@ -12,6 +12,7 @@ import UIKit
     private var completion: ((Result<String, Error>) -> Void)?
     private var controller: UIViewController?
     private var exchange: Task<Void, Never>?
+    private var navigationTimeout: Task<Void, Never>?
     private let identity = VerifiedAccountIdentity()
 
     func token() async throws -> String? {
@@ -59,22 +60,23 @@ import UIKit
         }
         guard status == errSecSuccess else { throw NativeSignIn.failure("Could not save sign-in securely.") }
     }
-    func signIn(from view: WKWebView?, completion: @escaping (Result<String, Error>) -> Void) {
+    func signIn(from view: WKWebView?, signUp: Bool = false, completion: @escaping (Result<String, Error>) -> Void) {
         DeviceActionLog.shared.record(.signIn, .requested)
         guard controller == nil, let host = view?.window?.rootViewController else {
             completion(.failure(NativeSignIn.failure("Sign-in could not open. Close any open sheet and try again."))); return
         }
         do {
-            attempt = try NativeSignIn(); self.completion = completion
+            attempt = try NativeSignIn(signUp: signUp); self.completion = completion
             let config = WKWebViewConfiguration(); config.websiteDataStore = .nonPersistent()
             let web = WKWebView(frame: .zero, configuration: config); web.navigationDelegate = self
-            let page = UIViewController(); page.view = web; page.title = "Sign in to Aesthetic Computer"
+            let page = UIViewController(); page.view = web; page.title = signUp ? "Join Aesthetic Computer" : "Log in to Aesthetic Computer"
             page.navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
             let navigation = UINavigationController(rootViewController: page); controller = navigation
             ActionTouchProbe.TouchObserver.authenticationPresented = true
             host.present(navigation, animated: true)
             navigation.presentationController?.delegate = self
             web.load(URLRequest(url: attempt!.url))
+            armNavigationTimeout()
         } catch { completion(.failure(error)) }
     }
     @objc private func cancel() { finish(.failure(NativeSignIn.failure("Sign-in cancelled. Your words are still here."))) }
@@ -85,6 +87,7 @@ import UIKit
         case .success: DeviceActionLog.shared.record(.signIn, .succeeded)
         case .failure(let error): DeviceActionLog.shared.recordError(.signIn, error)
         }
+        navigationTimeout?.cancel(); navigationTimeout = nil
         exchange?.cancel(); exchange = nil
         let done = completion; completion = nil; attempt = nil
         controller?.dismiss(animated: true); controller = nil; done?(result)
@@ -94,7 +97,8 @@ import UIKit
         if NativeSignIn.isCallback(url) {
             decisionHandler(.cancel)
             do {
-                guard var attempt = attempt else { return }
+                guard navigationAction.targetFrame?.isMainFrame == true, var attempt = attempt, !attempt.consumed else { return }
+                navigationTimeout?.cancel()
                 let body = try attempt.exchangeBody(for: url); self.attempt = attempt
                 exchange = Task {
                     do {
@@ -106,6 +110,25 @@ import UIKit
             } catch { finish(.failure(error)) }
         } else { decisionHandler(url.scheme == "https" ? .allow : .cancel) }
     }
+    private func armNavigationTimeout() {
+        navigationTimeout?.cancel()
+        navigationTimeout = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(30))
+            guard !Task.isCancelled, let self, self.controller != nil, self.attempt?.consumed != true else { return }
+            self.finish(.failure(NativeSignIn.failure("AC sign-in did not finish loading. Check your connection and try again.")))
+        }
+    }
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        if attempt?.consumed != true { armNavigationTimeout() }
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { navigationTimeout?.cancel() }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { navigationFailed(error) }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { navigationFailed(error) }
+    private func navigationFailed(_ error: Error) {
+        guard !NativeSignIn.ignoresNavigationFailure(error as NSError, callbackAccepted: attempt?.consumed == true, presented: controller != nil) else { return }
+        finish(.failure(NativeSignIn.failure("Could not load AC sign-in. Check your connection and try again.")))
+    }
+
 }
 
 final class WhistlegraphBundle: NSObject, WKURLSchemeHandler {

@@ -28,8 +28,8 @@ const server=http.createServer(async(req,res)=>{
       window.webkit={messageHandlers:{whistlegraph:{postMessage:m=>{__nativeMessages.push(m);if(m.action==='render')setTimeout(()=>window.whistlegraphEngineEvent({kind:'previewEvent',event:{kind:'painted'}}),10);}}}};
       const original=fetch.bind(window);
       window.fetch=(url,init)=>{
-        if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-maker'}));
-        if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:'fixture'}));
+        if(String(url).includes('/userinfo')){if(window.__accountFailure)return Promise.reject(Object.assign(Error('offline fixture'),{name:'TypeError'}));return Promise.resolve(Response.json({sub:'fixture-maker'}));}
+        if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:window.__noHandle?'':'fixture'}));
         if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[]}));
         if(String(url).includes('/api/whistlegraph-roblox')){
           __roomRequests.push({method:init.method,...(init.body?{body:JSON.parse(init.body)}:{})});
@@ -43,13 +43,31 @@ const server=http.createServer(async(req,res)=>{
       await page.waitForFunction(ware=>typeof whistlegraphNativeCommand==='function'&&__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.ware===ware),{},ware);
       await page.evaluate(()=>{whistlegraphEngineEvent({kind:'previewReady'});whistlegraphEngineEvent({kind:'account',token:'fixture'});});
     };
+    const accountStates=()=>page.evaluate(()=>__nativeMessages.filter(m=>m.action==='accountState').map(m=>m.status));
+    const checkAccount=async()=>{
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.handle==='fixture');
+      assert.equal((await accountStates()).at(-1),'ready');
+      const before=(await accountStates()).length;
+      await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture'}));
+      assert.equal((await accountStates()).length,before,'ordinary token reuse does not close the workspace');
+      await page.evaluate(()=>{window.__accountFailure=true;whistlegraphEngineEvent({kind:'account',token:'fixture',retry:true});});
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='accountState').at(-1)?.status==='failed');
+      await page.evaluate(()=>{window.__accountFailure=false;window.__noHandle=true;whistlegraphEngineEvent({kind:'account',token:'fixture',retry:true});});
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='accountState').at(-1)?.status==='needsHandle');
+      await page.evaluate(()=>{window.__noHandle=false;whistlegraphEngineEvent({kind:'account',token:'fixture',retry:true});});
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.handle==='fixture');
+      await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:''}));
+      assert.equal((await accountStates()).at(-1),'signedOut');
+      await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture'}));
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.handle==='fixture');
+    };
     const last=()=>page.evaluate(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot);
     const change=async ware=>{await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.evaluate(ware=>whistlegraphNativeCommand({action:'setWare',ware}),ware)]);await ready(ware);};
-    await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?whistlegraph=1');await ready('piece');
+    await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?whistlegraph=1');await ready('piece');await checkAccount();
     assert.equal((await last()).head,1);
     const pieceBefore=await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions'));
     assert.deepEqual(JSON.parse(pieceBefore),ledger,'legacy history migrated without source changes');
-    await change('roblox');assert.equal((await last()).head,0);
+    await change('roblox');await checkAccount();assert.equal((await last()).head,0);
     await page.evaluate(()=>whistlegraphAsk('make it bounce'));assert.equal((await last()).head,1);
     const bouncing=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-roblox-room-versions')));
     assert.ok(JSON.parse(bouncing.versions[1].source).objects.find(o=>o.id==='bridge').bounce>0);
@@ -73,6 +91,6 @@ const server=http.createServer(async(req,res)=>{
     await change('piece');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),pieceBefore);
     await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.evaluate(()=>whistlegraphAsk('switch to Roblox'))]);await ready('roblox');
     assert.equal((await last()).head,2,'room work survives switching away');
-    assert.deepEqual(errors,[]);console.log('PASS ware bridge: migration, switching, drawing, versions, export, durable save and launch gating');
+    assert.deepEqual(errors,[]);console.log('PASS ware bridge: account entry, retries, sign-out, migration, switching, drawing, versions, export, durable save and launch gating');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;server.close();});

@@ -6,6 +6,12 @@ From this directory, run `./run.sh device` to bundle, build, install, and open t
 
 For an unsigned build transferred from poorslice, run `bash sign-device.sh <Whistlegraph.app> <identity> <profile> <entitlements>` before packaging or installing. This signs embedded debug libraries before the app and verifies all nested signatures. An install succeeding does not prove launch succeeds: verify the unlocked phone opens the workspace before marking a build launch-verified.
 
+Signed-out launches show Aesel's shared blue **Log in** and green **I'm new** buttons. A verified account without a handle gets handle setup; failed verification gets Retry. Workspace controls appear after account verification. Native login and signup use PKCE and show navigation failures instead of waiting indefinitely. The workspace stays mounted behind the entry screen, preserving local pieces.
+
+The navigation guard accepts both the current `?whistlegraph=1` / `preview=whistlegraph` URLs and their legacy Walkieware equivalents, while retaining the `walkieware://app` storage origin. A storage facade exposes legacy keys under current names without copying the archive; partial migrations prefer existing current keys. Removing a piece removes both aliases so deleted work cannot reappear. Completed migrations keep their original deletion semantics.
+
+`PreviewNavigationCheck.swift`, `account-connection.test.mjs`, `wares.test.mjs`, and `ware-bridge.test.cjs` cover launch URLs, retry, account changes, full storage, and both wares. `WorkspaceBootCheck.swift` runs the actual bundle in WebKit, including an optional local storage snapshot in an ephemeral container. `AccountEntryTests` opens and cancels the real hosted login/signup forms in an ephemeral workspace without changing the phone's saved sign-in or pieces.
+
 Typing uses AC's `compkey` sample and QWERTY pitch mapping. Enter sends the prompt, pasted line breaks become spaces, and the limit is 96 characters. Account settings control key and button sounds together.
 
 ## Story cards

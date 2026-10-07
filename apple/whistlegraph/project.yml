@@ -24,6 +24,8 @@ targets:
     sources:
       - Sources
       - ../aesel/Sources/NativeSignIn.swift
+      - ../aesel/Sources/CurtainAccountButtonStyle.swift
+      - ../aesel/Sources/AeselButtonStyle.swift
       - path: Resources/PrivacyInfo.xcprivacy
         buildPhase: resources
       - path: Resources/Assets.xcassets

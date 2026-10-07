@@ -1,3 +1,4 @@
+import {AccountConnection} from './account-connection.mjs';
 import {AcServer} from '/easel/src/ac-server.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
 import {DEFAULT_MODEL} from './generation-policy.mjs';
@@ -9,6 +10,7 @@ import {roomPlace} from './roblox-export.mjs';
 import {saveForLaunch} from './roblox-connection.mjs';
 
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'roblox',...body});
+const accountConnection=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state})});
 const key='whistlegraph-roblox-room',endpoint='https://aesthetic.computer/api/whistlegraph-roblox';
 const versions=new PieceVersions(localStorage,key+'-versions',JSON.stringify(starterRoom()));
 let room=validateRoom(JSON.parse(versions.head.source)),selected='bridge',token='',handle='',owner='',busy=false,server=null;
@@ -123,10 +125,11 @@ window.whistlegraphNativeCommand=command=>{
 };
 window.whistlegraphEngineEvent=event=>{
   if(event.kind==='account'){
+    if(event.token&&event.token===token&&handle&&!event.retry)return;
     token=event.token||'';handle='';owner='';window.whistlegraphAccountReady=!!token;
     if(!token&&busy){cancelled=true;server?.interrupt();}
     const expected=token;
-    if(token)void verifyAccount(token).then(account=>{if(token===expected){handle=account.handle||'';owner=account.sub;snapshot();}}).catch(()=>{});
+    void accountConnection.connect(token,event.notice||'').then(account=>{if(account&&token===expected){handle=account.handle||'';owner=account.sub;snapshot();}});
     snapshot();
   }
   if(event.kind==='error'){error=event.text||'Sign-in failed';snapshot();window.whistlegraphWorkFinished?.();}

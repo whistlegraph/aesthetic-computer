@@ -25,6 +25,11 @@ struct WhistlegraphApp: App {
             ZStack {
                 Color(uiColor: .systemBackground).ignoresSafeArea()
                 WhistlegraphScreen(session: voice)
+                    .opacity(voice.accountReady ? 1 : 0)
+                    .allowsHitTesting(voice.accountReady)
+                    .accessibilityElement(children: voice.accountReady ? .contain : .ignore)
+                    .accessibilityHidden(!voice.accountReady)
+                if !voice.accountReady { WhistlegraphAccountEntry(session: voice) }
                 #if DEBUG
                 if NativeScreenFixture.mode == "audio" {
                     Text(voice.audioTestResult).accessibilityIdentifier("audio-autoplay-result")
@@ -34,7 +39,7 @@ struct WhistlegraphApp: App {
                         .accessibilityIdentifier("consent-fixture-requests")
                 }
                 #endif
-                if !voice.workspaceReady {
+                if voice.accountReady && !voice.workspaceReady {
                     VStack(spacing: 20) {
                         Text("whistlegraph").font(.largeTitle.bold())
                         if let failure = voice.startupFailure {
@@ -45,10 +50,10 @@ struct WhistlegraphApp: App {
                 }
             }
             .background(ActionTouchProbe().frame(width: 0, height: 0).allowsHitTesting(false))
-            .task { if !voice.isConsentFixture { await voice.braincells.start(session: voice) } }
+            .task { if !voice.isConsentFixture && !voice.accountEntryTest { await voice.braincells.start(session: voice) } }
             .onChange(of: voice.snapshot.handle) { _, _ in Task {
                 await voice.syncAIAccount()
-                if !voice.isConsentFixture { await voice.braincells.accountChanged() }
+                if !voice.isConsentFixture && !voice.accountEntryTest { await voice.braincells.accountChanged() }
             } }
             .sheet(isPresented: $voice.showingAIConsent, onDismiss: voice.finishAIConsentPrompt) {
                 WhistlegraphAIConsentSheet(canAllow: voice.canAllowAIConsent,
@@ -62,7 +67,7 @@ struct WhistlegraphApp: App {
                 DeviceActionLog.shared.record(.lifecycle, value == .active ? .active : value == .background ? .background : .inactive)
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
-                if value == .active && !voice.isConsentFixture {
+                if value == .active && !voice.isConsentFixture && !voice.accountEntryTest {
                     Task {
                         await TezDisplayRate.shared.refresh()
                         await voice.braincells.recover()
@@ -88,6 +93,9 @@ struct Workspace: UIViewRepresentable {
     func makeCoordinator() -> WorkspaceCoordinator { WorkspaceCoordinator(session: voice) }
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        #if DEBUG
+        if voice.accountEntryTest { config.websiteDataStore = .nonPersistent() }
+        #endif
         config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphNativeShell = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if let data = try? JSONSerialization.data(withJSONObject: voice.aiConsent.bridge), let json = String(data: data, encoding: .utf8) {
             config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphAIConsent = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
@@ -207,7 +215,10 @@ struct Workspace: UIViewRepresentable {
         view.scrollView.contentInsetAdjustmentBehavior = .never
         voice.webView = view
         view.navigationDelegate = context.coordinator
-        voice.reloadWorkspace()
+        DispatchQueue.main.async { [weak view] in
+            guard let view, voice.webView === view else { return }
+            voice.reloadWorkspace()
+        }
         return view
     }
     func updateUIView(_ view: WKWebView, context: Context) {}
@@ -235,6 +246,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private var acceptedAIConsent = false
     @Published private(set) var localDataRevision = 0
     let aiConsent = AIConsent.shared
+    @Published var accountStatus: AccountEntryStatus = .checking
+    @Published var accountNotice = ""
     @Published var engineReady = false
     private var performanceTurn = false
     @Published var performanceCapture = false
@@ -255,6 +268,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             HTTPURLResponse(url: request.url!, statusCode: fails ? 503 : 200, httpVersion: nil, headerFields: nil)!)
     }
     #endif
+    var accountEntryTest: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["WHISTLEGRAPH_ACCOUNT_ENTRY_TEST"] == "1"
+        #else
+        return false
+        #endif
+    }
     var isConsentFixture: Bool {
         #if DEBUG
         return NativeScreenFixture.mode == "consent"
@@ -559,6 +579,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     func signOut() {
         guard capturePhase == .idle else { return }
         account.signOut()
+        accountStatus = .signedOut; accountNotice = ""
         aiConsent.bind(subject: nil, handle: "")
         emitEngine(["kind": "account", "token": ""])
     }
@@ -576,7 +597,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         webView?.load(URLRequest(url: URL(string: "\(WhistlegraphBundle.storageScheme)://app/index.html?whistlegraph=1")!))
         startupTimeout = Task { [weak self] in
             try? await Task.sleep(for: .seconds(12))
-            guard !Task.isCancelled, let self, !self.workspaceReady else { return }
+            guard !Task.isCancelled, let self, !(self.workspaceReady && self.engineReady) else { return }
             self.startupFailure = "The workspace did not finish opening. Tap Reload to try again."
             DeviceActionLog.shared.record(.workspace, .failed)
         }
@@ -800,6 +821,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             #endif
             traceSnapshot(next)
             snapshot = next; tv.updateProgress(next); engineReady = true
+            if workspaceReady { startupTimeout?.cancel() }
         case "voiceIdle":
             performanceCapture = false
             capturePhase = .idle; captureStarted = nil
@@ -825,30 +847,44 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 DeviceActionLog.shared.record(.inference, nil, status.map { [.status: $0] } ?? [:], stage: stage)
             }
             if let name = body["event"] as? String, ["requestDispatched", "firstModelOutput", "firstCheckpoint", "generationFinished", "generationFailed", "transcriptPainted", "signedIn", "generationEntered", "guidesReady", "firstIncrementalCompile", "inferenceHeaders", "jevDecision", "jevFallback", "jevCacheHit", "jevApplied", "inputSocketReady", "inputSocketAck", "inputHttpFallback", "starterDispatched", "starterPainted", "refinementFailed", "localEditDispatched", "localEditPainted"].contains(name) { AudioBenchmark.mark(name, fields: body["fields"] as? [String: Any] ?? [:]) }
+        case "startupError":
+            startupTimeout?.cancel()
+            startupFailure = "Could not load the workspace: " + String((body["text"] as? String ?? "Unknown error").prefix(300))
+            DeviceActionLog.shared.record(.workspace, .failed)
+            #if DEBUG
+            print("[whistlegraph] startup failure: \(startupFailure ?? "")")
+            if let data = startupFailure?.data(using: .utf8) {
+                try? data.write(to: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("whistlegraph-startup-error.txt"), options: .atomic)
+            }
+            #endif
         case "ready":
             DeviceActionLog.shared.record(.workspace, .ready)
-            workspaceReady = true; startupFailure = nil; startupTimeout?.cancel()
+            workspaceReady = true; startupFailure = nil
+            if engineReady { startupTimeout?.cancel() }
             print("[whistlegraph] controls ready")
             if AudioBenchmark.enabled || SequenceBenchmark.enabled { UIApplication.shared.isIdleTimerDisabled = true }
             Task { await NetworkBenchmark.run() }
+        case "accountState":
+            #if DEBUG
+            if NativeScreenFixture.enabled { accountStatus = .ready; return }
+            #endif
+            guard let name = body["status"] as? String, let status = AccountEntryStatus(rawValue: name) else { return }
+            accountStatus = status
+            accountNotice = String((body["notice"] as? String ?? "").prefix(500))
         case "account":
             if isConsentFixture { emitEngine(["kind": "account", "token": ""]); return }
-            Task { do { emitEngine(["kind": "account", "token": try await account.token() ?? ""]) }
-                catch { DeviceActionLog.shared.recordError(.accountToken, error); emitEngine(["kind": "account", "token": ""]) } }
+            #if DEBUG
+            if accountEntryTest { emitEngine(["kind": "account", "token": ""]); return }
+            #endif
+            restoreAccount(force: false)
         case "aiConsent":
             // The network guard can reject background recovery or stale account
             // work. Only native Send/retry/Talk gestures may present permission.
             DeviceActionLog.shared.record(.consentBridge, .denied)
         case "signIn":
             if isConsentFixture { return }
-            account.signIn(from: webView) { [weak self] result in
-                switch result {
-                case .success(let token):
-                    self?.aiConsent.bind(subject: nil, handle: "")
-                    self?.emitEngine(["kind": "account", "token": token])
-                case .failure(let error): self?.emitEngine(["kind": "error", "text": error.localizedDescription])
-                }
-            }
+            signIn()
+
         case "drawingCommitted":
             if let id = body["drawingID"] as? String, let revision = body["revision"] as? Int { drawing.consume(id: id, revision: revision) }
         case "render":
