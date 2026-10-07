@@ -39,7 +39,7 @@ export async function handler(event, context) {
     return respond(500, { error: "Stripe not configured" });
   }
 
-  const stripe = Stripe(stripeKey);
+  const stripe = new Stripe(stripeKey);
 
   try {
     const body = JSON.parse(event.body || "{}");

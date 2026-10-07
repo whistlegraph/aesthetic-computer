@@ -86,7 +86,7 @@ $('form').addEventListener('submit', async (event) => {
     const data = await res.json();
     if (!res.ok || !data.url) throw new Error('Checkout unavailable');
     const url = new URL(data.url);
-    if (url.protocol !== 'https:' || url.hostname !== 'checkout.stripe.com') throw new Error('Invalid checkout URL');
+    if (url.protocol !== 'https:' || !['checkout.stripe.com', 'pay.aesthetic.computer'].includes(url.hostname)) throw new Error('Invalid checkout URL');
     location.assign(url.href);
   } catch {
     $('error').textContent = words[lang].error;
