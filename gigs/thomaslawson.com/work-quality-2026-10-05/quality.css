@@ -1,0 +1,38 @@
+.tl-quality-sr{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.tl-quality :focus-visible{outline:2px solid #35312a!important;outline-offset:5px!important}
+.tl-quality-home-title{margin:0!important;padding:0!important;font:inherit!important;line-height:0!important}
+.tl-quality .tl-feature-controls button,.tl-quality .tl-panel-close,.tl-quality .tl-header-search{min-width:44px;min-height:44px}
+.tl-quality-carousel .tl-feature-art{display:block;touch-action:pan-y}
+.tl-quality-carousel .tl-feature-art img{width:100%;height:auto;max-height:none;object-fit:contain}
+.tl-quality-carousel .tl-feature-foot{gap:16px;flex-wrap:wrap;align-items:flex-start}
+.tl-quality-carousel .tl-feature-caption{min-width:0;flex:1 1 180px}
+.tl-quality-carousel .tl-feature-controls{flex:0 0 auto;gap:4px}
+.tl-quality-carousel .tl-quality-play{font:12px Inter,sans-serif!important;letter-spacing:0!important;padding:0 8px!important}
+.tl-quality .tl-feature-detail{overflow-wrap:anywhere}
+.tl-quality-image-button{display:block!important;background:none!important;border:0!important;border-radius:0!important;padding:0!important;width:100%;color:inherit;cursor:zoom-in}
+.tl-quality-image-button img{display:block;width:100%;height:auto}
+.tl-quality-viewer{box-sizing:border-box;width:min(1400px,96vw);max-width:96vw;height:94dvh;max-height:94dvh;margin:auto;padding:60px 20px 20px;background:#fff9f0;color:#292620;border:0;overflow:auto}
+.tl-quality-viewer::backdrop{background:rgba(20,18,15,.9)}
+.tl-quality-viewer figure{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100%;margin:0;gap:14px}
+.tl-quality-viewer img{object-fit:contain;max-width:100%;max-height:calc(94dvh - 160px);width:auto;height:auto}
+.tl-quality-viewer figcaption{font:16px/1.5 Inter,sans-serif;text-align:center;max-width:75ch}
+.tl-quality-viewer-close{position:absolute;right:16px;top:10px;min-height:44px;min-width:64px;background:transparent;color:#292620;border:1px solid currentColor;padding:8px 16px;font:16px Inter,sans-serif}
+.tl-quality-viewer-open{overflow:hidden}
+.tl-quality-archive{max-width:1188px;margin:40px auto 80px;padding:0 28px}
+.tl-quality-archive h1{font:400 clamp(32px,5vw,60px)/1.1 Inter,sans-serif;margin:0 0 24px}
+.tl-quality-archive nav{display:flex;flex-wrap:wrap;gap:10px 22px;margin:24px 0}
+.tl-quality-archive nav a{display:inline-flex;align-items:center;min-height:44px;text-underline-offset:5px}
+.tl-quality-archive nav a[aria-current]{text-decoration:underline;font-weight:600}
+.tl-quality-records{list-style:none!important;margin:32px 0!important;padding:0!important;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:44px 30px}
+.tl-quality-records li{margin:0;min-width:0;overflow-wrap:anywhere}
+.tl-quality-records img{display:block;width:100%;height:250px;object-fit:contain;object-position:left bottom;margin:0 0 16px}
+.tl-quality-records h2{font:400 22px/1.25 Newsreader,serif;margin:0 0 8px}
+.tl-quality-records p{font:14px/1.5 Inter,sans-serif;margin:0;color:#575047}
+.tl-quality-work{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(240px,1fr);gap:50px;align-items:start}
+.tl-quality-work>figure{margin:0;min-width:0}
+.tl-quality-work>figure img{width:100%;height:auto;max-height:75vh;object-fit:contain}
+.tl-quality-work p{font:18px/1.6 Newsreader,serif}
+.tl-quality-work .tl-quality-credit{font:16px/1.5 Inter,sans-serif}
+.tl-quality-work a{display:inline-block;min-height:44px;text-decoration:underline;text-underline-offset:4px}
+@media(max-width:600px){.tl-quality-carousel .tl-feature-foot{gap:8px}.tl-quality-carousel .tl-feature-caption{flex-basis:100%}.tl-quality-carousel .tl-feature-controls{margin-left:auto}.tl-quality-archive{padding:0 20px;margin-top:24px}.tl-quality-records{grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 18px}.tl-quality-records img{height:170px}.tl-quality-records h2{font-size:20px}.tl-quality-work{grid-template-columns:1fr;gap:26px}.tl-quality-viewer{padding-left:12px;padding-right:12px}}
+@media(prefers-reduced-motion:reduce){.tl-quality *,.tl-quality *::before,.tl-quality *::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

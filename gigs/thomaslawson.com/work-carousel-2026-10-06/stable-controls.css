@@ -1,0 +1,13 @@
+/* Keep the controls beside the caption, independent of its wrapping. */
+body.tl-refresh:not(#tl) .tl-quality-carousel .tl-feature-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+body.tl-refresh:not(#tl) .tl-quality-carousel .tl-feature-caption {
+  min-width: 0;
+}
+body.tl-refresh:not(#tl) .tl-quality-carousel .tl-feature-controls {
+  grid-column: 2;
+  grid-row: 1;
+}

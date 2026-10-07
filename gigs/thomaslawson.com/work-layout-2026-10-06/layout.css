@@ -1,0 +1,66 @@
+/* Reuse the recent periods' grid, retaining uncropped images and original captions. */
+body.tl-refresh:not(#tl) .tl-archive-grid-source { display: none !important; }
+body.tl-refresh:not(#tl) .tl-archive-grid .tl-archive-work {
+  min-width: 0;
+  width: 100% !important;
+}
+body.tl-refresh:not(#tl) .tl-archive-work :is(.elementor-widget-image,.elementor-widget-container,.tl-quality-image-button,a) {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-archive-work img {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  margin: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-archive-work .tl-cap {
+  display: block !important;
+  width: 100% !important;
+  margin: .6rem 0 0 !important;
+  text-align: left !important;
+}
+body.tl-refresh:not(#tl) .tl-archive-work .tl-cap > span { display: block; }
+
+body.tl-refresh:not(#tl) .tl-portrait-project {
+  width: min(var(--tl-wide), 100vw - 2 * var(--tl-gutter));
+  margin: 64px auto 0;
+  padding: 48px 0 0;
+  border-top: 1px solid #d8d0c5;
+  scroll-margin-top: 100px;
+}
+body.tl-refresh:not(#tl) #tl-portrait-title {
+  margin: 0 !important;
+  font: 400 clamp(28px, 3vw, 36px)/1.2 var(--tl-sans) !important;
+  letter-spacing: -.025em;
+  color: var(--tl-ink);
+}
+body.tl-refresh:not(#tl) .tl-portrait-project > .tl-follow-context {
+  max-width: none;
+  margin: 10px 0 32px !important;
+}
+body.tl-refresh:not(#tl) .tl-portrait-project > .tl-oct-project-header {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
+}
+body.tl-refresh:not(#tl) .tl-portrait-project #tl-portrait-film {
+  width: 100% !important;
+  margin: 32px 0 !important;
+  scroll-margin-top: 100px;
+}
+body.tl-refresh:not(#tl) .tl-portrait-project .tl-portrait-play img {
+  opacity: 1 !important;
+  filter: none !important;
+  object-fit: contain;
+  background: var(--tl-bg, #f9f5ec);
+}
+@media (max-width:700px) {
+  body.tl-refresh:not(#tl) .tl-portrait-project { margin-top: 40px; padding-top: 32px; }
+}
