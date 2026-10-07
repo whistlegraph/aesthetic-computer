@@ -6281,7 +6281,7 @@ function paint($) {
   // A steady link to Give, independent of the rotating promotional slot.
   if (showLoginCurtain && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text && activeSubscribers !== null && screen.height >= 280) {
-    const label = `${activeSubscribers.toLocaleString()} monthly supporter${activeSubscribers === 1 ? "" : "s"} · Join`;
+    const label = `${activeSubscribers.toLocaleString()} monthly supporter${activeSubscribers === 1 ? "" : "s"}`;
     const position = { screen, center: "x", y: Math.floor(screen.height / 2 + 65) };
     if (!subscribersBtn) subscribersBtn = new $.ui.TextButtonSmall(label, position);
     else subscribersBtn.reposition(position, label);
