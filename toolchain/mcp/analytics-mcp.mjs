@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
+import { fetchRetry } from "./fetch-retry.mjs";
 import { VISIT_ACTIONS, VISIT_DEPTHS, visitProperty, visitScopeMatch } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { fisheryOptions } from "../analytics/human-fishery.mjs";
 
@@ -117,7 +118,7 @@ async function directDownloads({ days = 30, exclude = [], excludeSelf = true } =
   days = Number(days);
   if (!Number.isFinite(days) || days <= 0 || days > 3650) throw new Error("days must be 1..3650");
   const hashes = [...exclude];
-  if (excludeSelf) hashes.push((await (await fetch("https://aesthetic.computer/api/download?whoami=1")).json()).hash);
+  if (excludeSelf) hashes.push((await (await fetchRetry("https://aesthetic.computer/api/download?whoami=1")).json()).hash);
   if (hashes.some((h) => !/^[a-f0-9]{16}$/.test(h))) throw new Error("exclude takes 16-hex hashes from /api/download?whoami=1");
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/downloads-report.mjs --days ${days}${hashes.length ? ` --exclude ${hashes.join(",")}` : ""}`;
   const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
@@ -207,7 +208,7 @@ async function ascToken() {
 }
 
 async function asc(path) {
-  const res = await fetch(`${ASC_API}${path}`, { headers: { Authorization: `Bearer ${await ascToken()}` } });
+  const res = await fetchRetry(`${ASC_API}${path}`, { headers: { Authorization: `Bearer ${await ascToken()}` } });
   const body = await res.json();
   if (!res.ok) throw new Error(`${res.status} ${JSON.stringify(body.errors ?? body)}`);
   return body;
@@ -237,7 +238,7 @@ async function appDownloads({ days = 7, apps = Object.keys(APPS) } = {}) {
           const segments = await asc(`/v1/analyticsReportInstances/${instance.id}/segments`);
           const counts = {};
           for (const segment of segments.data) {
-            const gz = Buffer.from(await (await fetch(segment.attributes.url)).arrayBuffer());
+            const gz = Buffer.from(await (await fetchRetry(segment.attributes.url)).arrayBuffer());
             const [head, ...lines] = zlib.gunzipSync(gz).toString().trim().split("\n");
             const cols = head.split("\t");
             for (const line of lines) {

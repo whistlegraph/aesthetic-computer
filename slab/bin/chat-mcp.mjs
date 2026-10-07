@@ -21,6 +21,7 @@
 // no SDK, only node builtins + the shared http-front.
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { UA, whoami } from "../../toolchain/mcp/ac-token.mjs";
+import { fetchRetry } from "../../toolchain/mcp/fetch-retry.mjs";
 // The limit and the message syntax come from the server's own copy, so this
 // tool's contract can't drift from what chat-manager.mjs actually enforces.
 import {
@@ -56,9 +57,9 @@ async function toolRead(args = {}) {
   const ch = channel(args.channel);
   const limit = Math.min(Math.max(parseInt(args.limit ?? 20, 10) || 20, 1), 100);
   const q = new URLSearchParams({ instance: ch.key, limit: String(limit) });
-  const res = await fetch(`${READ_API}?${q}`, {
+  const res = await fetchRetry(`${READ_API}?${q}`, {
     headers: { "User-Agent": UA, Accept: "application/json" },
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`chat-messages → HTTP ${res.status}`);
   const body = await res.json();
