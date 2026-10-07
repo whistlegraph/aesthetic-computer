@@ -2011,15 +2011,6 @@ async function halt($, text) {
     // 🛰️ Jump to jasellite
     jump(`https://jasellite.aesthetic.computer`);
     return true;
-  } else if (slug === "give") {
-    // 🎁 Jump to Give page (opens in new window)
-    // If user is logged in, prefill their email for easier Stripe checkout
-    let giveUrl = `https://give.aesthetic.computer`;
-    if (user?.email) {
-      giveUrl += `?email=${encodeURIComponent(user.email)}`;
-    }
-    jump(`out:${giveUrl}`);
-    return true;
   } else if (slug === "mime") {
     jump("https://aesthetic.computer/mime/");
     return true;
@@ -8424,7 +8415,7 @@ function act({
   if (giveBtn && !giveBtn.btn.disabled) {
     giveBtn.btn.act(e, {
       down: () => downSound(),
-      push: () => { pushSound(); const giveUrl = "https://give.aesthetic.computer"; if (net.iframe) { send({ type: "post-to-parent", content: { type: "openExternal", url: giveUrl } }); } else { jump(giveUrl); } },
+      push: () => { pushSound(); jump("give?source=homepage"); },
       cancel: () => cancelSound(),
     });
   }
@@ -8839,9 +8830,7 @@ function act({
       down: () => downSound(),
       push: () => {
         pushSound();
-        const url = "https://give.aesthetic.computer/?source=homepage";
-        if (net.iframe) send({ type: "post-to-parent", content: { type: "openExternal", url } });
-        else jump(url);
+        jump("give?source=homepage");
       },
       cancel: () => cancelSound(),
     });

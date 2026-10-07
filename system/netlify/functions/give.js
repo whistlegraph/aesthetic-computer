@@ -42,7 +42,7 @@ export async function handler(event, context) {
     const amountCents = parseInt(body.amount) || 2500;
     const recurring = body.recurring === true;
     const email = body.email; // Optional: prefill email for logged-in users
-    const attribution = body.source === "homepage" ? { source: "homepage" } : {};
+    const attribution = ["homepage", "give-piece"].includes(body.source) ? { source: body.source } : {};
 
     // Validate amount for currency
     if (amountCents < currencyConfig.min || amountCents > currencyConfig.max) {
@@ -54,9 +54,15 @@ export async function handler(event, context) {
 
     // Build session config
     const giveBaseUrl = dev ? `https://${event.headers.host}` : "https://give.aesthetic.computer";
+    const pieceReturn = new URL("https://aesthetic.computer/give");
+    pieceReturn.search = new URLSearchParams({ amount: (amountCents / 100).toFixed(2), currency,
+      frequency: recurring ? "monthly" : "once", ...(attribution.source ? { source: attribution.source } : {}) }).toString();
+    const cancelUrl = body.surface === "piece" ? pieceReturn.href
+      : `${giveBaseUrl}/${attribution.source ? `?source=${attribution.source}` : ""}`;
     const sessionConfig = {
-      success_url: `${giveBaseUrl}/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
-      cancel_url: `${giveBaseUrl}/${attribution.source ? "?source=homepage" : ""}`,
+      success_url: body.surface === "piece" ? `${pieceReturn.href}&thanks=1`
+        : `${giveBaseUrl}/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
+      cancel_url: cancelUrl,
       billing_address_collection: "auto",
       // Prefill email if user is logged in (makes checkout easier & ties to account)
       ...(email && { customer_email: email }),
