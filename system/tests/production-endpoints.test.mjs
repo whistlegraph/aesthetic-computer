@@ -30,6 +30,42 @@ async function load(name, { env = {}, mocks = {}, ...options } = {}) {
   return module.namespace.handler;
 }
 
+test("mood lists return a successful empty collection for handles without moods", async () => {
+  let records = [], failure, disconnected = 0;
+  const database = { disconnect: async () => { disconnected++; } };
+  const unused = () => { throw Error("Unexpected dependency call"); };
+  const handler = await load("mood.mjs", { mocks: {
+    "../../backend/authorization.mjs": { authorize: unused, userIDFromHandleOrEmail: unused, getHandleOrEmail: unused },
+    "../../backend/database.mjs": {
+      connect: async () => database, moodFor: unused, getMoodByRkey: unused,
+      allMoods: async (db, handle) => {
+        assert.equal(db, database); assert.equal(handle, "@fixture");
+        if (failure) throw failure;
+        return records;
+      },
+    },
+    "../../backend/http.mjs": http,
+    "../../backend/mood-atproto.mjs": { createMoodOnAtproto: unused },
+    "../../backend/bluesky-mirror.mjs": { shouldMirror: unused, postMoodToBluesky: unused },
+    "../../backend/bluesky-engagement.mjs": { fetchBlueskyEngagement: unused },
+    "../../../shared/push.mjs": { broadcastToTopic: unused },
+    "../../backend/shell.mjs": { shell: {} },
+    "../../backend/profile-stream.mjs": { publishProfileEvent: unused },
+    "../../backend/filter.mjs": { filter: unused },
+  } });
+  const event = { httpMethod: "GET", path: "/api/mood/all", queryStringParameters: { for: "@fixture" } };
+  const empty = await handler(event);
+  assert.equal(empty.statusCode, 200);
+  assert.deepEqual(JSON.parse(empty.body), { moods: [] });
+  records = [{ handle: "@fixture", mood: "hello", when: "2026-10-08T12:00:00Z" }];
+  const populated = await handler(event);
+  assert.equal(populated.statusCode, 200);
+  assert.deepEqual(JSON.parse(populated.body), { moods: records });
+  assert.equal(disconnected, 2);
+  failure = Error("Database unavailable");
+  await assert.rejects(handler(event), /Database unavailable/);
+});
+
 for (const faster of ["lookup", "gallery"]) test(`painting metadata ${faster} completion preserves another in-flight lookup`, async () => {
   let closed = false, entered, release;
   const started = new Promise(resolve => { entered = resolve; });

@@ -172,9 +172,7 @@ export async function handler(event, context) {
       // them as { moods }.
       const moods = await allMoods(database, handle);
       await database.disconnect();
-      return moods && moods.length > 0
-        ? respond(200, { moods })
-        : respond(500, { message: "No mood found." });
+      return respond(200, { moods });
     } else if (slug === "search") {
       // GET /api/mood/search?q=<text>&limit=N
       // Case-insensitive substring search over recent moods, newest first,

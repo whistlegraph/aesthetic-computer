@@ -335,6 +335,9 @@ end
 rm -f $TMP_SPACES
 
 # Install service file + Caddy config from the deployed checkout
+# systemctl reload uses --force, rebuilding TLS listeners even for identical
+# config. Ordinary code deploys should leave them running; caddy reload skips
+# unchanged config. Certificate-only rotations still need an explicit --force.
 echo -e "$GREEN-> Updating service + Caddy config...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cp $REMOTE_DIR/lith/lith.service /etc/systemd/system/lith.service && \
@@ -349,7 +352,7 @@ if [ ! -f /var/lib/aesthetic-computer/gym.anthonyzollo.com/index.html ]; then \
   cp $REMOTE_DIR/lith/gym/index.html /var/lib/aesthetic-computer/gym.anthonyzollo.com/index.html; \
 fi && \
 systemctl daemon-reload && \
-systemctl reload caddy"
+caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile"
 
 # Restart lith service, and the Amail SMTP door beside it
 echo -e "$GREEN-> Restarting lith + lith-mail...$NC"
