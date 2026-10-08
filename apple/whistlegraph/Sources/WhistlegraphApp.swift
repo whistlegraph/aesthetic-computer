@@ -67,6 +67,7 @@ struct WhistlegraphApp: App {
                 DeviceActionLog.shared.record(.lifecycle, value == .active ? .active : value == .background ? .background : .inactive)
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
+                if value == .active && !voice.isConsentFixture && !voice.accountEntryTest { DeviceRegistry.report(.open, account: voice.account) }
                 if value == .active && !voice.isConsentFixture && !voice.accountEntryTest {
                     Task {
                         await TezDisplayRate.shared.refresh()
@@ -246,7 +247,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private var acceptedAIConsent = false
     @Published private(set) var localDataRevision = 0
     let aiConsent = AIConsent.shared
-    @Published var accountStatus: AccountEntryStatus = .checking
+    @Published var accountStatus: AccountEntryStatus = .checking {
+        didSet { if accountStatus == .ready && oldValue != .ready { DeviceRegistry.report(.login, account: account) } }
+    }
     @Published var accountNotice = ""
     @Published var engineReady = false
     private var performanceTurn = false
@@ -579,6 +582,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     func signOut() {
         guard capturePhase == .idle else { return }
         account.signOut()
+        DeviceRegistry.report(.logout, account: nil)
         accountStatus = .signedOut; accountNotice = ""
         aiConsent.bind(subject: nil, handle: "")
         emitEngine(["kind": "account", "token": ""])

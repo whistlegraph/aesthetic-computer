@@ -47,7 +47,7 @@ struct WhistlegraphAIConsentSheet: View {
                     .accessibilityAddTraits(.isHeader)
                 Text("To make and check your piece, AC shares your typed and spoken words, drawings, code and version history, sound measurements and artwork previews with OpenRouter and your chosen AI provider.")
                     .font(.custom("ComicRelief-Regular", size: 18, relativeTo: .body))
-                Text("Providers: Anthropic, OpenAI, DeepSeek, Moonshot AI, Alibaba (Qwen), MiniMax and Z.ai. Personal models use Anthropic or OpenAI directly.")
+                Text("Providers: Anthropic, OpenAI, DeepSeek, Moonshot AI, Alibaba (Qwen), MiniMax and Z.ai.")
                     .font(.custom("ComicRelief-Regular", size: 15, relativeTo: .subheadline))
                 Text("Change your choice in Brain → AI & privacy.")
                     .font(.custom("ComicRelief-Regular", size: 15, relativeTo: .subheadline))
@@ -98,7 +98,7 @@ struct WhistlegraphPrivacySheet: View {
         List {
                 Section("AI creation") {
                     Text("AC sends your prompts, speech transcripts, selected source and version context, drawings, requested sound measurements, and cropped artwork preview images to AI services to generate and check edits.")
-                    Text("Hosted models use OpenRouter and the model provider you select: Anthropic, OpenAI, DeepSeek, Moonshot AI, Alibaba/Qwen, MiniMax, or Z.ai. Personal models use Anthropic or OpenAI. The Brain panel identifies the current model and service.")
+                    Text("Hosted models use OpenRouter and the model provider you select: Anthropic, OpenAI, DeepSeek, Moonshot AI, Alibaba/Qwen, MiniMax, or Z.ai. The Brain panel identifies the current model and service.")
                     Toggle("Allow AI creation", isOn: Binding(get: { consent.creation }, set: { consent.set(\.creation, $0) }))
                         .disabled(!consent.signedIn).accessibilityIdentifier("privacy-ai-creation")
                 }
@@ -114,7 +114,7 @@ struct WhistlegraphPrivacySheet: View {
                 }
                 Section {
                     Text("Turning permission off stops new requests and cancels active sending. Data already sent may remain with those services under their policies. Viewing, editing source and exporting your saved work remain available.")
-                    Text("Your AC account privately stores source, version history, requests and diagnostic receipts. Saved microphone recordings remain on this phone unless cloud speech is enabled. Avoid sending sensitive personal information.")
+                    Text("Your AC account privately stores source, version history, requests and diagnostic receipts. It also keeps a record of each device you use Whistlegraph on — app build, device model, iOS version and when it last opened — so AC can support you and send notifications you allow. Saved microphone recordings remain on this phone unless cloud speech is enabled. Avoid sending sensitive personal information.")
                     Link("Privacy policy", destination: privacy).accessibilityIdentifier("privacy-policy")
                     Link("Contact support", destination: URL(string: "mailto:mail@aesthetic.computer")!)
                     if !consent.signedIn { Text("Sign in to manage this account's AI permissions.").foregroundStyle(.secondary) }

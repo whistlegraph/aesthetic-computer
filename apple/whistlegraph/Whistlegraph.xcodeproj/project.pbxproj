@@ -33,6 +33,7 @@
 		47DADA794ABD0CD203CFF48C /* StoryExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */; };
 		49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */; };
 		4A8B9BCE5403659FFB71EA65 /* AccountDeletionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 725C2A9ACD0323F49EFFDFC1 /* AccountDeletionClient.swift */; };
+		4ABB5050941AD905930711B7 /* DeviceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 325762318FCE1CB2986C5B1F /* DeviceRegistry.swift */; };
 		4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */; };
 		55A7061DE3B5F747C7BE96CE /* WhistlegraphBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10BFA0F39F2F514E799291F6 /* WhistlegraphBraincells.swift */; };
 		561DCBD95EB8AECF60476DE7 /* WhistlegraphTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DACE2604B34CCB5EB3EE8AC /* WhistlegraphTV.swift */; };
@@ -108,6 +109,7 @@
 		2AB3C6140E5D943C3363C353 /* WhistlegraphSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphSource.swift; sourceTree = "<group>"; };
 		30AAFA5A6A0627C23CA67DA4 /* WhistlegraphPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphPrivacy.swift; sourceTree = "<group>"; };
 		31AAC74C07F21688CEFF544F /* PieceAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceAudio.swift; sourceTree = "<group>"; };
+		325762318FCE1CB2986C5B1F /* DeviceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistry.swift; sourceTree = "<group>"; };
 		35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputButtonLabels.swift; sourceTree = "<group>"; };
 		367C82326F5862EB85ED3260 /* DeviceActionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceActionLog.swift; sourceTree = "<group>"; };
 		3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderSheetsTests.swift; sourceTree = "<group>"; };
@@ -203,6 +205,7 @@
 				10E2AAA0A3F2BA1A5AEBED58 /* CodeTicker.swift */,
 				919CF3F0659F42F321B22145 /* CostDisplay.swift */,
 				367C82326F5862EB85ED3260 /* DeviceActionLog.swift */,
+				325762318FCE1CB2986C5B1F /* DeviceRegistry.swift */,
 				35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */,
 				7848DB9FED6B955BC193F650 /* LiveTranscription.swift */,
 				5D233DBB6F87184A91C13D41 /* MusicalInput.swift */,
@@ -422,6 +425,7 @@
 				86581AE590F8A301268220CA /* CostDisplay.swift in Sources */,
 				6460BCE9CE823AF90631AE50 /* CurtainAccountButtonStyle.swift in Sources */,
 				6037259BAADEA55B4760A19A /* DeviceActionLog.swift in Sources */,
+				4ABB5050941AD905930711B7 /* DeviceRegistry.swift in Sources */,
 				123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */,
 				5D29324F2AF09B53070D7644 /* LiveTranscription.swift in Sources */,
 				14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */,
@@ -622,7 +626,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 114;
+				CURRENT_PROJECT_VERSION = 115;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -707,7 +711,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 114;
+				CURRENT_PROJECT_VERSION = 115;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -767,7 +771,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 114;
+				CURRENT_PROJECT_VERSION = 115;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

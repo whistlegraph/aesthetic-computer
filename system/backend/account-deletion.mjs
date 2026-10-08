@@ -340,6 +340,7 @@ const DELETE = [
   ["pieces", (sub) => ({ user: sub })],
   ["moods", (sub) => ({ user: sub })],
   ["push-tokens", (sub) => ({ user: sub })],
+  ["app-devices", (sub) => ({ user: { $in: [sub, `sotce-${sub}`] } })],
   ["easel-transcripts-private", (sub) => ({ owner: sub })],
   ["walkieware-threads", (sub) => ({ owner: sub })],
   ["whistlegraph-roblox-rooms", (sub) => ({ _id: sub })],
