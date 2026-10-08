@@ -290,9 +290,18 @@ if (initialPiece) {
   const file = path.resolve(cwd, initialPiece);
   if (!existsSync(file) || !live.retarget(file)) throw new Error("--piece must name an existing supported piece file");
 }
-if (desktopRestored?.pieceVersion !== undefined && desktopRestored.ui.medium === 'piece') {
-  const latest = live.history.list().at(-1);
-  if (latest?.version !== desktopRestored.pieceVersion) await live.rollback(desktopRestored.pieceVersion);
+// Pro resumes the conversation without opening a piece. Its saved version
+// belongs to the old file, never the unused random LivePiece above.
+if (!pro && initialPiece && desktopRestored?.pieceVersion !== undefined && desktopRestored.ui.medium === 'piece') {
+  try {
+    const versions = live.history.list();
+    const version = desktopRestored.pieceVersion;
+    // Check before rollback can capture today's source as a new v0.
+    if (!versions.some((entry) => entry.version === version)) throw new Error(`No saved v${version} for this piece.`);
+    if (versions.at(-1).version !== version) await live.rollback(version);
+  } catch (error) {
+    desktopRestoreError = `Saved piece version was not restored: ${error.message}`;
+  }
 }
 const state = {
   medium: currentArtifact?.kind || 'piece',
