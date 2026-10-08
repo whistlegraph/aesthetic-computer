@@ -464,7 +464,7 @@ final class PromptPreview {
             // staging directory and WebKit streams it from there.
             let bytes = artifact.kind == "video" ? Data() : try artifact.readValidatedFile()
             let dimensions = artifact.kind == "video" ? artifact.videoDimensions() : artifact.dimensions(bytes)
-            if artifact.kind == "picture", NSImage(data: bytes) == nil { throw CocoaError(.fileReadCorruptFile) }
+            if artifact.kind == "picture", !artifact.readable(bytes) { throw CocoaError(.fileReadCorruptFile) }
             if artifact.mime == "application/pdf", (PDFDocument(data: bytes)?.pageCount ?? 0) == 0 { throw CocoaError(.fileReadCorruptFile) }
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("slab-artifact-\(UUID().uuidString)", isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
@@ -484,7 +484,7 @@ final class PromptPreview {
                     _ = try artifact.stageFile(into: directory)
                 } else {
                     text = nil
-                    try bytes.write(to: directory.appendingPathComponent("artifact"), options: .atomic)
+                    try bytes.write(to: directory.appendingPathComponent(artifact.stagedName), options: .atomic)
                 }
                 target = directory.appendingPathComponent("index.html")
                 let sketch = artifact.kind == "sound" ? (sketches[artifact.key] ?? nil) : nil

@@ -15,6 +15,7 @@ export const MEDIA_TYPES = new Map([
   ["jpg", { kind: "picture", mime: "image/jpeg", glyph: "🖼" }],
   ["jpeg", { kind: "picture", mime: "image/jpeg", glyph: "🖼" }],
   ["webp", { kind: "picture", mime: "image/webp", glyph: "🖼" }],
+  ["svg", { kind: "picture", mime: "image/svg+xml", glyph: "🖼" }],
   ["wav", { kind: "sound", mime: "audio/wav", glyph: "🔊" }],
   ["mp3", { kind: "sound", mime: "audio/mpeg", glyph: "🔊" }],
   ["pdf", { kind: "paper", mime: "application/pdf", glyph: "📄" }],
