@@ -1041,11 +1041,14 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
 function updateBanner(state, width, area) {
   const update = state.update;
   if (!update || update.dismissed) return null;
-  const lines = [
+  const lines = update.kind === "behind" ? [
+    `✦ Aesel ${update.version} is out ✦`,
+    "this checkout is behind · git pull, then /update",
+  ] : [
     `✦ Aesel ${update.version} is ready ✦`,
     update.kind === "checkout" ? "/update restarts into it · this thread comes with you" : "/update installs it and restarts · this thread comes with you",
-    "/update later hides this",
   ];
+  lines.push("/update later hides this");
   const inner = Math.min(width - 4, Math.max(...lines.map((line) => textWidth(line))) + 4);
   if (inner < 20 || area < lines.length + 2) return null;
   const x = Math.max(0, Math.floor((width - inner) / 2));

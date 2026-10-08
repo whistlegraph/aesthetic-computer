@@ -631,3 +631,13 @@ test('recovery controls remain readable at 32 columns while usage yields its spa
     assert.ok(frame.split('\n').every(row=>textWidth(row)===32));
   }
 });
+
+test("a checkout behind the served release says git pull, a pulled one says ready", () => {
+  const base = { profile: { name: "pro" }, account: "@tester", model: "gpt-test", status: "ready", entries: [], input: "" };
+  const behind = renderFrame({ ...base, update: { version: "0.8.21", kind: "behind", dismissed: false } }, 80, 24, false);
+  assert.match(behind, /Aesel 0\.8\.21 is out/);
+  assert.match(behind, /git pull, then \/update/);
+  const ready = renderFrame({ ...base, update: { version: "0.8.21", kind: "checkout", dismissed: false } }, 80, 24, false);
+  assert.match(ready, /Aesel 0\.8\.21 is ready/);
+  assert.doesNotMatch(ready, /git pull/);
+});

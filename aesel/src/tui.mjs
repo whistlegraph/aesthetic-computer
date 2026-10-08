@@ -58,7 +58,7 @@ import { LivePiece, pieceDirectory } from "./live.mjs";
 import { exampleConfig, resolveProfile } from "./profile.mjs";
 import { BOTTOM_ROWS, Layout, STATUS_FACTS } from "./layout.mjs";
 import { DraftBroadcast } from "./draft-broadcast.mjs";
-import { applyUpdate, checkForUpdate, currentVersion, installed, isNewer } from "./updates.mjs";
+import { applyUpdate, checkForUpdate, currentVersion, fetchManifest, installed, isNewer } from "./updates.mjs";
 import { publishPiece, publishedCommand } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
@@ -2642,8 +2642,10 @@ async function submitInput(submittedText, submittedMessages = null) {
           flash(`installing aesel ${update.version}…`);
           redraw();
           await applyUpdate({ manifest: update });
-        } else if (!(state.update || isNewer(currentVersion(), startedVersion))) {
-          flash(`aesel ${currentVersion()} · a checkout: git pull, then /update`);
+        } else if (!isNewer(currentVersion(), startedVersion)) {
+          flash(state.update?.kind === "behind"
+            ? `aesel ${state.update.version} is out · git pull, then /update`
+            : `aesel ${currentVersion()} · a checkout: git pull, then /update`);
           return redraw();
         }
         return restartInPlace();
@@ -3369,14 +3371,21 @@ if (state.media?.source === "pinned") {
 
 // 🆕 A newer Aesel, announced in the window that is already open. A release
 // install asks the feed every half hour; a checkout notices its own
-// package.json moving past the version this window started on (a git pull).
+// package.json moving past the version this window started on (a git pull),
+// and also asks the feed, so a checkout that has fallen behind what the site
+// serves says "git pull" instead of saying nothing.
 // Nothing installs itself: the banner says so, and /update does it.
 const startedVersion = currentVersion();
 function announceUpdate(version, kind) {
-  if (!version || (state.update && !isNewer(version, state.update.version))) return;
+  if (!version) return;
+  // A pulled checkout catching up to the version it was told about upgrades
+  // the banner from "behind" to "ready" at the same number.
+  const upgrade = state.update?.kind === "behind" && kind === "checkout" && !isNewer(state.update.version, version);
+  if (state.update && !upgrade && !isNewer(version, state.update.version)) return;
   state.update = { version, kind, dismissed: false };
   redraw();
 }
+let servedAskedAt = 0;
 async function lookForUpdate(force = false) {
   if (installed()) {
     const update = await checkForUpdate({ force }).catch(() => null);
@@ -3384,6 +3393,10 @@ async function lookForUpdate(force = false) {
   } else {
     const onDisk = currentVersion();
     if (onDisk && startedVersion && isNewer(onDisk, startedVersion)) announceUpdate(onDisk, "checkout");
+    if (Date.now() - servedAskedAt < 30 * 60 * 1000) return;
+    servedAskedAt = Date.now();
+    const served = await fetchManifest().catch(() => null);
+    if (served && onDisk && isNewer(served.version, onDisk)) announceUpdate(served.version, "behind");
   }
 }
 void lookForUpdate();
