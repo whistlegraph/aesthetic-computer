@@ -16,6 +16,9 @@ test('Whistlegraph updates the existing app, Keychain service and WebView origin
   assert.match(read('Sources/WhistlegraphApp.swift'), /WhistlegraphBundle\.storageScheme\).*app\/index\.html/);
   assert.match(read('Sources/WhistlegraphApp.swift'), /forURLScheme: WhistlegraphBundle\.storageScheme/);
   assert.match(read('Resources/Web/shell.html'), /<title>Whistlegraph<\/title>/);
+  // The deployed runtime uses this marker to suppress public piece telemetry.
+  assert.match(read('Resources/Web/engine.mjs'), /preview=walkieware/);
+  assert.match(read('Resources/Web/story.html'), /preview=walkieware/);
 });
 
 test('saved Walkieware work, branch history and cloud identity survive unchanged', () => {

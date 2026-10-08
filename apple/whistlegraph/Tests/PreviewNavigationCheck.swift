@@ -7,9 +7,11 @@ import Foundation
             PreviewNavigation.allows(URL(string: value), mainFrame: main, document: document)
         }
         precondition(allowed("walkieware://app/index.html?whistlegraph=1", main: true))
-        precondition(allowed(runtime.replacingOccurrences(of: "preview=walkieware", with: "preview=whistlegraph")))
-        precondition(PreviewNavigation.bridge(URL(string: "walkieware://app/index.html?whistlegraph=1"), mainFrame: true, document: .workspace) == .workspace)
+        precondition(!allowed(runtime.replacingOccurrences(of: "preview=walkieware", with: "preview=whistlegraph")), "Use the deployed runtime's private preview marker")
         precondition(!allowed("walkieware://app/index.html?whistlegraph=1&walkie=1", main: true))
+        precondition(!allowed(runtime + "&preview=whistlegraph"))
+        precondition(!allowed(runtime.replacingOccurrences(of: "preview=walkieware", with: "preview=unknown")))
+        precondition(PreviewNavigation.bridge(URL(string: "walkieware://app/index.html?whistlegraph=1"), mainFrame: true, document: .workspace) == .workspace)
         precondition(allowed("walkieware://app/index.html?walkie=1", main: true))
         precondition(allowed("walkieware://app/index.html?walkie=1#local", main: true))
         precondition(allowed("walkieware://app/story.html", main: true, document: .story))

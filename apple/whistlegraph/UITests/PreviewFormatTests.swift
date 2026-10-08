@@ -11,6 +11,7 @@ final class PreviewFormatTests: XCTestCase {
         XCTAssertTrue(brain.waitForExistence(timeout: 30))
         for format in ["9:16", "1:1", "4:3", "16:9", "2:3"] {
             brain.tap()
+            XCTAssertTrue(app.buttons["brain-canvas"].waitForExistence(timeout: 10)); app.buttons["brain-canvas"].tap()
             let choices = app.segmentedControls["brain-preview-format"]
             XCTAssertTrue(choices.waitForExistence(timeout: 10))
             XCTAssertTrue(app.segmentedControls["brain-pixel-size"].exists)
@@ -19,6 +20,7 @@ final class PreviewFormatTests: XCTestCase {
             if format == "2:3" {
                 let settings = XCTAttachment(screenshot: app.screenshot()); settings.name = "Brain preview controls"; settings.lifetime = .keepAlways; add(settings)
             }
+            app.navigationBars.buttons["Brain"].tap()
             app.buttons["Done"].tap()
             let picture = app.otherElements["story-picture"]
             XCTAssertTrue(picture.waitForExistence(timeout: 10))
@@ -32,7 +34,9 @@ final class PreviewFormatTests: XCTestCase {
         }
         app.terminate(); app.launch()
         XCTAssertTrue(brain.waitForExistence(timeout: 30)); brain.tap()
+        XCTAssertTrue(app.buttons["brain-canvas"].waitForExistence(timeout: 10)); app.buttons["brain-canvas"].tap()
         XCTAssertTrue(app.segmentedControls["brain-preview-format"].buttons["2:3"].isSelected)
+        app.navigationBars.buttons["Brain"].tap()
         app.buttons["Done"].tap()
     }
 }

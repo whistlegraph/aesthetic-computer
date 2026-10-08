@@ -1,0 +1,122 @@
+# Whistlegraph TestFlight. Release signing and uploads use the same Admin key
+# as AC, Oskiewar and Menu Band. First-time app creation uses an Apple ID
+# session: Apple's public API does not support creating an apps resource.
+require "shellwords"
+require "yaml"
+
+APP_DIR = File.expand_path("..", __dir__)
+REPO_DIR = File.expand_path("../..", APP_DIR)
+SETTINGS = YAML.load_file(File.join(APP_DIR, "project.yml")).fetch("settings").fetch("base")
+VERSION = SETTINGS.fetch("MARKETING_VERSION").to_s
+BUILD = SETTINGS.fetch("CURRENT_PROJECT_VERSION").to_s
+BUNDLE = "computer.aesthetic.walkieware"
+TESTER_GROUP = "Whistlegraph Friends"
+TEAM = "FB5948YR3S"
+KEY_ID = "S4TQKG6U99"
+ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
+KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{KEY_ID}.p8")
+RELEASE_DIR = File.expand_path(ENV.fetch("WHISTLEGRAPH_RELEASE_DIR", "~/Library/Developer/Whistlegraph-Releases/#{VERSION}-#{BUILD}"))
+IPA = File.expand_path(ENV.fetch("WHISTLEGRAPH_IPA", File.join(RELEASE_DIR, "export/Whistlegraph.ipa")))
+
+def asc_key
+  app_store_connect_api_key(key_id: KEY_ID, issuer_id: ISSUER,
+                           key_filepath: KEY_PATH, in_house: false)
+end
+
+def store_app
+  Spaceship::ConnectAPI::App.find(BUNDLE)
+end
+
+platform :ios do
+  desc "Create the first app record using a terminal Apple ID login (once)"
+  lane :create do
+    asc_key
+    if (app = store_app)
+      UI.success("Whistlegraph already exists: #{app.id}")
+      next
+    end
+    unless Spaceship::ConnectAPI::BundleId.find(BUNDLE)
+      Spaceship::ConnectAPI::BundleId.create(name: "Whistlegraph", identifier: BUNDLE, platform: "IOS")
+    end
+    # produce requires an Apple ID session; seeding an API token cannot replace it.
+    sh("node", File.join(__dir__, "refresh-service-key.mjs"))
+    Spaceship::ConnectAPI.token = nil
+    produce(username: ENV["FASTLANE_USER"], app_identifier: BUNDLE,
+            app_name: "Whistlegraph", app_version: VERSION, sku: "whistlegraph",
+            language: "en-US", platform: "ios", skip_devcenter: true)
+  end
+
+  desc "Bundle, archive Release with two compiler jobs, and export a signed IPA"
+  lane :build do
+    sh("node", File.join(APP_DIR, "bundle.mjs"))
+    sh("xcodegen", "generate", "--spec", File.join(APP_DIR, "project.yml"), "--project", APP_DIR)
+    auth = "-allowProvisioningUpdates -authenticationKeyPath #{KEY_PATH.shellescape} " \
+           "-authenticationKeyID #{KEY_ID} -authenticationKeyIssuerID #{ISSUER}"
+    build_ios_app(project: File.join(APP_DIR, "Whistlegraph.xcodeproj"),
+                  scheme: "Whistlegraph", configuration: "Release",
+                  archive_path: File.join(RELEASE_DIR, "Whistlegraph.xcarchive"),
+                  export_method: "app-store", export_team_id: TEAM,
+                  xcargs: "-jobs 2 #{auth}", export_xcargs: auth,
+                  output_directory: File.dirname(IPA), output_name: File.basename(IPA))
+  end
+
+  desc "Upload the signed IPA to TestFlight using the Apple API key"
+  lane :upload do
+    key = asc_key
+    UI.user_error!("No app record yet. Run FASTLANE_USER=<Apple ID> fastlane ios create once.") unless store_app
+    UI.user_error!("Missing #{IPA}; run fastlane ios build first.") unless File.file?(IPA)
+    upload_to_testflight(api_key: key, app_identifier: BUNDLE, ipa: IPA,
+                         skip_waiting_for_build_processing: true,
+                         distribute_external: false)
+  end
+
+  desc "Submit this version/build for external beta review and notify its private group"
+  lane :distribute do
+    upload_to_testflight(api_key: asc_key, app_identifier: BUNDLE, app_platform: "ios",
+                         app_version: VERSION, build_number: BUILD,
+                         distribute_only: true, distribute_external: true,
+                         groups: [TESTER_GROUP], notify_external_testers: true,
+                         submit_beta_review: true,
+                         changelog: ENV.fetch("WHISTLEGRAPH_TEST_NOTES", "Test voice, typing and drawing, piece revisions, version history, and story-video export. Sign in with your Aesthetic Computer account and allow AI creation in Brain > AI & privacy."))
+  end
+
+  desc "Add one external tester: fastlane ios invite email:<email> name:<first-name>"
+  lane :invite do |options|
+    email = options[:email].to_s.strip
+    UI.user_error!("Provide email:<tester email>") if email.empty?
+    asc_key
+    app = store_app
+    UI.user_error!("Create the app record first") unless app
+    group = app.get_beta_groups(includes: "betaTesters").find { |g| g.name == TESTER_GROUP && !g.is_internal_group }
+    UI.user_error!("Create the private #{TESTER_GROUP} group first") unless group
+    if group.beta_testers.to_a.any? { |t| t.email.casecmp?(email) }
+      UI.success("Tester is already in #{TESTER_GROUP}")
+      next
+    end
+    tester = Spaceship::ConnectAPI::BetaTester.find(email: email)
+    if tester
+      group.add_beta_testers(beta_tester_ids: [tester.id])
+    else
+      attributes = {email: email}
+      attributes[:firstName] = options[:name] if options[:name]
+      Spaceship::ConnectAPI.post_beta_tester_assignment(beta_group_ids: [group.id], attributes: attributes)
+    end
+    UI.success("Tester added to #{TESTER_GROUP}; install access depends on an approved build.")
+  end
+
+  desc "Read App Store Connect versions and builds using the Apple API key"
+  lane :status do
+    asc_key
+    if (app = store_app)
+      sh("node", File.join(REPO_DIR, "slab/menuband/bin/asc.mjs"),
+         "status", "--app", app.id, "--platform", "IOS")
+      build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: VERSION,
+                                               build_number: BUILD, platform: "IOS").first
+      if build&.build_beta_detail
+        UI.message("TestFlight #{VERSION} (#{BUILD}): #{build.build_beta_detail.external_build_state}")
+      end
+    else
+      UI.important("No Whistlegraph app record yet; the signed IPA can be prepared before creation.")
+    end
+  end
+end

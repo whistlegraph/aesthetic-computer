@@ -16,14 +16,14 @@ enum PreviewNavigation {
         guard let url, let mainFrame, url.user == nil, url.password == nil, url.port == nil else { return false }
         if mainFrame {
             guard url.scheme == "walkieware", url.host == "app", url.path == document.rawValue else { return false }
-            return document == .workspace ? [["whistlegraph": "1"], ["walkie": "1"]].contains(query(url) ?? [:]) : url.query == nil
+            if document == .story { return url.query == nil }
+            // The storage origin stays put across the Whistlegraph rename.
+            return query(url) == ["whistlegraph": "1"] || query(url) == ["walkie": "1"]
         }
         // Creating an iframe can first navigate its empty document.
         if url.absoluteString == "about:blank" { return true }
         return url.scheme == "https" && url.host == "aesthetic.computer" && url.path == "/wipe"
-            && ["whistlegraph", "walkieware"].contains(where: { name in
-                query(url) == ["noauth": "true", "noplot": "true", "nogap": "true", "nolabel": "true", "preview": name]
-            })
+            && query(url) == ["noauth": "true", "noplot": "true", "nogap": "true", "nolabel": "true", "preview": "walkieware"]
     }
     private static func query(_ url: URL) -> [String: String]? {
         guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else { return nil }
