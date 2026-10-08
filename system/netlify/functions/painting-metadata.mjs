@@ -5,11 +5,8 @@
 // Single painting: ?slug=xxx&handle=yyy (optional)
 // Gallery list: ?limit=20&sort=recent&offset=0 (no slug parameter)
 
-import { MongoClient } from "mongodb";
+import { connect } from "../../backend/database.mjs";
 import { userPaintingSlugQuery } from "../../backend/painting-slug-query.mjs";
-
-const client = new MongoClient(process.env.MONGODB_CONNECTION_STRING);
-const dbName = process.env.MONGODB_NAME || "aesthetic";
 
 function respond(statusCode, body) {
   return {
@@ -35,8 +32,7 @@ export async function handler(event) {
   // If no slug, return list of paintings (for gallery)
   if (!slug) {
     try {
-      await client.connect();
-      const db = client.db(dbName);
+      const { db } = await connect();
       const paintings = db.collection("paintings");
       const users = db.collection("users");
 
@@ -103,15 +99,12 @@ export async function handler(event) {
     } catch (error) {
       console.error("Error fetching paintings list:", error);
       return respond(500, { error: "Internal server error" });
-    } finally {
-      await client.close();
     }
   }
 
   // Original single painting lookup by slug
   try {
-    await client.connect();
-    const db = client.db(dbName);
+    const { db } = await connect();
     const paintings = db.collection("paintings");
 
     // Build query
@@ -157,7 +150,5 @@ export async function handler(event) {
   } catch (error) {
     console.error("Error fetching painting metadata:", error);
     return respond(500, { error: "Internal server error" });
-  } finally {
-    await client.close();
   }
 }

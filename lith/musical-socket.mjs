@@ -1,15 +1,15 @@
 import {WebSocketServer, WebSocket} from 'ws';
+import {attachSocketRoute} from './socket-routing.mjs';
 
 // Same decision service and durable allowance as HTTP. No audio or tokens in URLs.
 export function attachMusicalSocket(server, {authenticate, decide, authMs=5000, lifetimeMs=600000}={}) {
  const wss=new WebSocketServer({noServer:true,maxPayload:8192,perMessageDeflate:false});
  const accounts=new Map();
  const upgrade=(req,socket,head)=>{
-  if(req.url!=='/api/easel-musical-stream')return;
   if(wss.clients.size>=64){socket.end('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n');return;}
   wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws));
  };
- server.on('upgrade',upgrade);
+ const detach=attachSocketRoute(server,['/api/easel-musical-stream'],upgrade);
  wss.on('connection',ws=>{
   let subject,authenticating=false,active=null,queued=null,closed=false,alive=true;
   let messages=0,windowAt=Date.now();
@@ -64,5 +64,5 @@ export function attachMusicalSocket(server, {authenticate, decide, authMs=5000, 
   ws.on('error',()=>{});
   ws.on('close',()=>{closed=true;clearTimeout(authTimer);clearTimeout(lifeTimer);clearInterval(pingTimer);active?.controller.abort();queued=null;if(subject){const n=(accounts.get(subject)||1)-1;if(n)accounts.set(subject,n);else accounts.delete(subject);}});
  });
- return {close(){server.off('upgrade',upgrade);for(const ws of wss.clients)ws.terminate();wss.close();},wss};
+ return {close(){detach();for(const ws of wss.clients)ws.terminate();wss.close();},wss};
 }

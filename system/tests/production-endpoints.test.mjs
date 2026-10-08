@@ -30,6 +30,36 @@ async function load(name, { env = {}, mocks = {}, ...options } = {}) {
   return module.namespace.handler;
 }
 
+for (const faster of ["lookup", "gallery"]) test(`painting metadata ${faster} completion preserves another in-flight lookup`, async () => {
+  let closed = false, entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const db = { collection: () => ({
+    async findOne(query) {
+      if (query.$or?.[0]?.slug === "slow") { entered(); await gate; }
+      if (closed) throw Error("Cannot use a session that has ended");
+      return { slug: "fixture", code: "fixture" };
+    },
+    find() { return { sort() { return this; }, skip() { return this; }, limit() { return this; }, async toArray() { return []; } }; },
+  }) };
+  class MongoClient {
+    async connect() { closed = false; }
+    db() { return db; }
+    async close() { closed = true; }
+  }
+  const handler = await load("painting-metadata.mjs", { mocks: {
+    mongodb: { MongoClient },
+    "../../backend/database.mjs": { connect: async () => ({ db }) },
+    "../../backend/painting-slug-query.mjs": { userPaintingSlugQuery: slug => ({ slug }) },
+  } });
+  const pending = handler({ httpMethod: "GET", queryStringParameters: { slug: "slow" } });
+  await started;
+  const first = await handler({ httpMethod: "GET", queryStringParameters: faster === "lookup" ? { slug: "fast" } : {} });
+  release();
+  assert.equal(first.statusCode, 200);
+  assert.equal((await pending).statusCode, 200);
+});
+
 test("gives constructs Stripe and returns its feed, then uses the cache", async () => {
   let reads = 0;
   class Stripe {

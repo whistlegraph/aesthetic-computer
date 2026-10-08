@@ -1,4 +1,5 @@
 import {WebSocketServer,WebSocket} from 'ws';
+import {attachSocketRoute} from './socket-routing.mjs';
 import {randomUUID} from 'node:crypto';
 import {publicThread,sourceHash} from '../system/backend/whistlegraph.mjs';
 
@@ -7,12 +8,11 @@ export function attachWhistlegraphSocket(server,{authenticate,store,authMs=5000,
   const rooms=new Map();
   const send=(ws,value)=>{if(ws?.readyState===WebSocket.OPEN){if(ws.bufferedAmount>8_100_000)ws.close(1008,'Slow reader');else ws.send(JSON.stringify(value));}};
   const upgrade=(req,socket,head)=>{
-    // Older installed clients retain their authenticated connection route.
-    if(!['/api/whistlegraph-stream','/api/walkieware-stream'].includes(req.url))return;
     if(wss.clients.size>=64){socket.destroy();return;}
     wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws));
   };
-  server.on('upgrade',upgrade);
+  // Older installed clients retain their authenticated connection route.
+  const detach=attachSocketRoute(server,['/api/whistlegraph-stream','/api/walkieware-stream'],upgrade);
   wss.on('connection',ws=>{
     let owner,row,room,role,closed=false,chain=Promise.resolve(),pending=0,alive=true,messages=0,windowAt=Date.now();
     const authTimer=setTimeout(()=>ws.close(1008,'Authenticate first'),authMs);
@@ -89,5 +89,5 @@ export function attachWhistlegraphSocket(server,{authenticate,store,authMs=5000,
       if(room&&!room.clients.size)rooms.delete(row._id);
     });
   });
-  return {wss,close(){server.off('upgrade',upgrade);for(const ws of wss.clients)ws.terminate();wss.close();}};
+  return {wss,close(){detach();for(const ws of wss.clients)ws.terminate();wss.close();}};
 }
