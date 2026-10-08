@@ -21,6 +21,9 @@ import { randomUUID } from "node:crypto";
 import { withMachineLease } from "./computer-use-lease.mjs";
 import { clickPointAsync, sendKeysAsync, shAsync } from "../bin/macos.mjs";
 import { evalCall, pageCall, pendingCall } from "./safari-page.mjs";
+import { localFrame } from "./frame-local.mjs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const ID_RE = /^safari:(\d+):(\d+)$/;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -159,9 +162,28 @@ const p = pick(); p.win.currentTab = p.tab; p.id;`);
 pw=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); ph=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
 t=$(( pw * ${top} / ${ow} )); l=$(( pw * ${left} / ${ow} ))
 sips -c $(( ph - t )) $(( pw - l )) --cropOffset $t $l "$f" >/dev/null 2>&1
-base64 -i "$f"; rm -f "$f"`);
+base64 -i "$f"; rm -f "$f"`).catch(error => {
+    // The puppet launch agent usually has no Screen Recording grant of its
+    // own. Locally, fall back to frame's native capture (SlabMenubar holds
+    // that grant): bring the tab forward, then capture its page rectangle.
+    if (spec.local && /could not create image/.test(error.message)) return null;
+    throw error;
+  });
+  if (b64 === null) return frameShot(spec, id, g);
   if (!b64) throw new Error("screencapture returned nothing — grant Screen Recording to the process running puppet");
   return b64.replace(/\s+/g, "");
+}
+
+async function frameShot(spec, id) {
+  return withMachineLease(spec, async () => {
+    await focus(spec, id, { exact: true });
+    const g = await page(spec, id, "P.geometry()", { exact: true });
+    const [x, y] = toScreen(g, 0, 0);
+    const crop = [x, y, g.iw, g.ih].map(Math.round).join(",");
+    const frame = await localFrame(join(homedir(), ".local", "share", "slab", "state"), `window noocr novisual fast crop=${crop}`);
+    if (!frame?.jpg?.length) throw new Error("frame capture returned no image");
+    return Buffer.from(frame.jpg).toString("base64");
+  });
 }
 
 // Native pointer stream through CSS-pixel points. One point is a click.
