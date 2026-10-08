@@ -10,12 +10,16 @@ const integer = value => Number.isSafeInteger(value) && value >= 0;
 
 export function edgeScope(config, window) {
   const zones = config.cloudflare?.zones || edgeZones;
+  const directOriginZones = config.cloudflare?.directOriginZones ?? ["nopaint.art"];
   if (!Array.isArray(zones) || !zones.length || zones.length > 8 || new Set(zones).size !== zones.length ||
+      !Array.isArray(directOriginZones) || directOriginZones.length > 8 ||
+      directOriginZones.some(zone => !Object.hasOwn(VISIT_PROPERTIES, zone) || visitGroup(zone) !== "studio") ||
       zones.some(zone => !Object.hasOwn(VISIT_PROPERTIES, zone) || visitGroup(zone) !== "studio") ||
       !Number.isFinite(Date.parse(window.start)) || !Number.isFinite(Date.parse(window.end)) ||
       Date.parse(window.end) <= Date.parse(window.start) || Date.parse(window.end) - Date.parse(window.start) > 168 * 3600000)
     throw new Error("Invalid edge correlation scope");
-  return { ...window, zones, hosts: [...new Set(zones.flatMap(zone => [zone, ...VISIT_PROPERTIES[zone]]))], limit: 1000 };
+  return { ...window, zones, directOriginZones: directOriginZones.filter(zone => zones.includes(zone)),
+    hosts: [...new Set(zones.flatMap(zone => [zone, ...VISIT_PROPERTIES[zone]]))], limit: 1000 };
 }
 
 async function readCloudflare(path, headers, fetchImpl, body) {
@@ -73,10 +77,12 @@ export function edgeRows(result, hosts, scope) {
 
 export async function collectCloudflare(scope, { fetchImpl = globalThis.fetch, auth = credentials, env = process.env } = {}) {
   const token = env.AESPATCHER_CLOUDFLARE_API_TOKEN;
-  const { email, apiKey } = token ? {} : auth();
-  if (!token && (!email || !apiKey)) return { rows: [], coverage: scope.zones.map(zone => ({ zone, status: "unavailable", reason: "missing-credential" })) };
+  const direct = zone => scope.directOriginZones?.includes(zone);
+  const { email, apiKey } = token || scope.zones.every(direct) ? {} : auth();
   const headers = { "content-type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : { "X-Auth-Email": email, "X-Auth-Key": apiKey }) };
   const zones = await Promise.all(scope.zones.map(async zone => {
+    if (direct(zone)) return { rows: [], coverage: { zone, status: "disabled", reason: "direct-origin; Lith access logs only" } };
+    if (!token && (!email || !apiKey)) return { rows: [], coverage: { zone, status: "unavailable", reason: "missing-credential" } };
     try {
       const result = await readCloudflare(`/zones?name=${encodeURIComponent(zone)}`, headers, fetchImpl);
       const matches = result.success && Array.isArray(result.result) ? result.result.filter(row => row.name === zone && row.status === "active") : [];

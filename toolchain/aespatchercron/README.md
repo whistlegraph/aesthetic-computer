@@ -121,6 +121,14 @@ aliases. `cloudflare.zones` can select up to eight known studio properties;
 client domains are rejected. An inaccessible zone is reported individually.
 Set `cloudflare.enabled: false` to disable this comparison.
 
+`nopaint.art` uses DigitalOcean DNS and connects directly to Lith. Its apex and
+`www` requests use the shared Caddy access log; Cloudflare coverage is marked
+`disabled: direct-origin`, while Lith counts and findings remain available.
+`cloudflare.directOriginZones` defaults to `["nopaint.art"]`; set it to `[]`
+after a verified migration behind Cloudflare. This setting does not change DNS.
+No Paint access counts begin when the logging configuration is deployed;
+earlier requests cannot be recovered from these logs.
+
 The reader requests `httpRequestsAdaptiveGroups` for eyeball requests, grouped
 by UTC hour, hostname, edge status and origin status. Its returned counts are
 already [estimates](https://developers.cloudflare.com/analytics/graphql-api/sampling/);

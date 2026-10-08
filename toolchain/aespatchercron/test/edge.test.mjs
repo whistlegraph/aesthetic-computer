@@ -76,6 +76,26 @@ test("one inaccessible zone cannot erase another zone's evidence", async () => {
   assert.doesNotMatch(JSON.stringify(out), /private-key|raw error/);
 });
 
+test("direct-origin No Paint retains Lith evidence without a Cloudflare credential or request", async () => {
+  const nopaint = { cloudflare: { zones: ["nopaint.art"] } };
+  const out = await collectEdge(nopaint, window, {
+    env: {}, auth: () => { throw Error("Unexpected credential read"); },
+    fetchImpl: () => { throw Error("Unexpected Cloudflare request"); },
+    readAccess: async (_config, scope) => {
+      assert.deepEqual(scope.hosts, ["nopaint.art", "www.nopaint.art"]);
+      return { ...access(), rows: [{ ...access().rows[0], host: "nopaint.art" }] };
+    },
+  });
+  assert.equal(out.correlation.cloudflare[0].status, "disabled");
+  assert.match(out.correlation.cloudflare[0].reason, /direct-origin/);
+  assert.equal(out.correlation.buckets[0].edge, null);
+  assert.equal(out.correlation.buckets[0].lith.errors5xx, 3);
+  assert.equal(out.signals.leads[0].source, "lith-access");
+  validateSignals(out.signals, []);
+  assert.deepEqual(edgeScope({ cloudflare: { zones: ["nopaint.art"], directOriginZones: [] } }, window).directOriginZones, []);
+  assert.throws(() => edgeScope({ cloudflare: { directOriginZones: ["false.work"] } }, window), /scope/);
+});
+
 test("correlation requires the same host and UTC hour and never auto-patches a timing overlap", () => {
   const cf = { ...edgeRows(result([group(500, 500)]), scope.hosts, scope), coverage };
   const joined = correlateEdge(scope, cf, access());

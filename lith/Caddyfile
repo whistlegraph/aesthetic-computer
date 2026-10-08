@@ -97,14 +97,8 @@
 	}
 }
 
-# lith production Caddyfile — full subdomain routing
-# Cloudflare handles TLS. Caddy serves HTTP on :80.
-
-# --- papers.aesthetic.computer ---
-# (touched 2026-04-29 to re-fire webhook after the install-Caddyfile-before-reload fix)
-:443 {
-    import machine_discovery
-    tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
+# Shared access sink for proxied and explicitly opted-in direct-origin hosts.
+(lith_access_log) {
     log {
         output file /var/log/caddy/access.log {
             roll_size 50MiB
@@ -114,6 +108,17 @@
         format json
         level INFO
     }
+}
+
+# lith production Caddyfile — full subdomain routing
+# Cloudflare handles TLS. Caddy serves HTTP on :80.
+
+# --- papers.aesthetic.computer ---
+# (touched 2026-04-29 to re-fire webhook after the install-Caddyfile-before-reload fix)
+:443 {
+    import machine_discovery
+    tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
+    import lith_access_log
     # --- Global performance headers ---
     # Code modules change every deploy — short TTL so rollouts are visible fast.
     # (lib/disk .mjs are STATIC sub-imports without the ?v= cache-bust boot.mjs
@@ -1275,6 +1280,7 @@ www.oskiewar.com {
 # /classic stays the permanent home of the preserved 2021 Construct build,
 # and /gallery + the per-painting archive record pages keep serving here.
 nopaint.art {
+    import lith_access_log
     import machine_discovery
     # Pin issuance to LE production (Caddy demoted this host to LE staging
     # after early post-DNS-flip failures; staging's resolvers held the stale
@@ -1375,6 +1381,7 @@ nopaint.art {
 }
 
 www.nopaint.art {
+    import lith_access_log
     # Same serving requirement as the apex block above: without a distinct
     # TLS setting, the catch-all's pinned origin cert answers this SNI too.
     tls {
