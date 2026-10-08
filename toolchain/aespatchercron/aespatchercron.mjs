@@ -72,7 +72,10 @@ async function main() {
       const evidence = await collect(config.repo, config);
       await save(join(home, "latest.json"), evidence);
       return { report: evidence.report, signals: { coverage: evidence.signals.coverage, leads: evidence.signals.leads, metrics: evidence.signals.metrics,
-        privateReportCount: evidence.signals.privateReports.length }, saved: join(home, "latest.json") };
+        privateReportCount: evidence.signals.privateReports.length }, correlation: evidence.correlation && {
+          start: evidence.correlation.start, end: evidence.correlation.end, bucketSeconds: evidence.correlation.bucketSeconds,
+          buckets: evidence.correlation.buckets.length, findings: evidence.correlation.buckets.filter(row => row.assessment !== "no-error-signal"),
+        }, saved: join(home, "latest.json") };
     }
     if (command === "scan") return scan(config, rest[0]);
     if (command === "tick") {

@@ -9,7 +9,8 @@ export function defaults(repo) {
   return { repo, fetch: true, collection: { hours: 24, minimum: 3, limit: 100, chatLimit: 200, logLimit: 2000 },
     lith: { host: "root@lith.aesthetic.computer", root: "/opt/ac", identity: join(repo, "aesthetic-computer-vault/home/.ssh/id_rsa") },
     bounds: { perDay: 2, maxActive: 4, maxFiles: 4, maxLines: 200 },
-    worker: { executable: "codex", timeoutMs: 900000 }, posthog: { enabled: true, projectId: null, organizationId: null }, hosting: { kind: "unconfigured" } };
+    worker: { executable: "codex", timeoutMs: 900000 }, cloudflare: { enabled: true },
+    posthog: { enabled: true, projectId: null, organizationId: null }, hosting: { kind: "unconfigured" } };
 }
 
 export function validateConfig(config) {

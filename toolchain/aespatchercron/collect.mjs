@@ -5,6 +5,7 @@ import { collectDiagnostics, journalNames, errorNames, functionConsumers } from 
 import { userReports } from "./reports.mjs";
 import { emptySignals, mergeSignals, validateSignals } from "./signals.mjs";
 import { collectPostHog } from "./posthog.mjs";
+import { collectEdge } from "./edge.mjs";
 
 export async function catalog(repo) {
   const prefix = "system/public/aesthetic.computer/disks/";
@@ -114,10 +115,15 @@ export async function collect(repo, config) {
     parsed = { signals, report: { format: "aespatcher.signals.v1", start: new Date(Date.parse(opts.end) - opts.hours * 3600000).toISOString(), end: opts.end, minimum: opts.minimum,
       runs: [], transitions: [], visits: [], unavailable: ["runs", "piece-runs", "account-activity", "visits"], truncated: [] } };
   }
-  const signals = validateSignals(mergeSignals(parsed.signals, await collectPostHog(repo, config)), routes);
+  const window = { start: parsed.report.start, end: parsed.report.end };
+  const [posthog, edge] = await Promise.all([
+    collectPostHog(repo, { ...config, collection: { ...config.collection, end: opts.end } }),
+    collectEdge(config, window),
+  ]);
+  const signals = validateSignals(mergeSignals(parsed.signals, posthog, edge.signals), routes);
   const modules = {};
-  for (const file of ["collect.mjs", "diagnostics.mjs", "reports.mjs", "signals.mjs", "posthog.mjs"])
+  for (const file of ["collect.mjs", "diagnostics.mjs", "reports.mjs", "signals.mjs", "posthog.mjs", "edge.mjs", "lith-access.mjs", "../domains/cloudflare.mjs"])
     modules[file] = hash(await readFile(new URL(file, import.meta.url)));
-  return { report: parsed.report, signals, provenance: { revision: await git(repo, "rev-parse", "HEAD"),
+  return { report: parsed.report, signals, correlation: edge.correlation, provenance: { revision: await git(repo, "rev-parse", "HEAD"),
     collector: hash(JSON.stringify(modules)), modules, remotePayload: hash(source), at: new Date().toISOString() } };
 }

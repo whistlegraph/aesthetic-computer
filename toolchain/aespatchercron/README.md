@@ -48,6 +48,8 @@ client analytics. Missing credentials and unsupported queries fail visibly.
   function exception prefixes on the server. Raw lines never leave Lith.
 * `lith-errors`: Lith's bounded in-memory error ring, fetched over loopback and
   reduced to function counts before transport. It resets when Lith restarts.
+* Cloudflare and `lith-access`: hourly host/status aggregates, aligned to the
+  same UTC window, from Cloudflare analytics and Lith's retained Caddy logs.
 * `chat-clock` and `chat-system`: bounded recent public, nondeleted, nonmuted
   messages; only selected malfunction reports become private evidence.
 * PostHog: read-only, AC-bound aggregate piece events and endpoint status counts
@@ -104,6 +106,48 @@ aggregate report; it applies the same schema and admission gates. `scan`
 reports the number of manual-review diagnostics as well as worker candidates.
 Collector provenance hashes all collection/validation modules and the exact
 remote program sent to Lith.
+
+## Cloudflare and Lith correlation
+
+Cloudflare reads use the existing vault credential resolver in
+[`../domains/cloudflare.mjs`](../domains/cloudflare.mjs). No key is copied into
+runtime state or source. `AESPATCHER_CLOUDFLARE_API_TOKEN` can supply a scoped
+read token instead. Requests are limited to zone lookup and GraphQL analytics;
+this collector never changes DNS, cache rules, security settings or deployment.
+
+The default zones are `aesthetic.computer`, `laklok.com`, `kidlisp.com`,
+`notepat.com`, `oskiewar.com` and `nopaint.art`, with their reviewed hostname
+aliases. `cloudflare.zones` can select up to eight known studio properties;
+client domains are rejected. An inaccessible zone is reported individually.
+Set `cloudflare.enabled: false` to disable this comparison.
+
+The reader requests `httpRequestsAdaptiveGroups` for eyeball requests, grouped
+by UTC hour, hostname, edge status and origin status. Its returned counts are
+already [estimates](https://developers.cloudflare.com/analytics/graphql-api/sampling/);
+they are never multiplied by the sampling interval again. Each zone is bounded
+to 1,000 groups, with overflow reported. Bots and direct origin traffic make
+these request populations different from the piece-run/user telemetry.
+
+Caddy logs are reduced on Lith before transport: no paths, query strings, IPs,
+headers, Ray IDs or log lines leave the host. Reads include the active log and
+up to three rotated logs, capped at 256 MiB of decoded data and 45 seconds.
+Retention gaps, malformed rows and read limits mark origin coverage incomplete.
+Both layers use precisely the aggregate report's `[start, end)` window.
+
+`latest.json` includes `correlation.buckets`, matched by exact hostname and UTC
+hour. Each bucket retains separate edge estimates and observed Lith counts;
+an unobserved side is `null`, never a fabricated zero. The collector distinguishes
+co-occurring edge/Lith 5xx, origin 5xx reported by Cloudflare, and edge failures
+without a recorded origin response. Origin status zero does not prove Cloudflare
+caused a failure: connection failures and other paths may lack an origin HTTP
+response. Cached responses, other origins, sampling and ingestion delay also
+prevent subtracting these totals or treating a mismatch as lost requests.
+
+These findings enter the manual-review count, not the automatic piece worker.
+Timing overlap cannot authorize infrastructure changes or establish causality.
+The `collect` command prints flagged buckets; all buckets remain in the private
+evidence file for inspection. Lith, boot/piece telemetry and public reports
+remain the primary product evidence; PostHog is optional context.
 
 ## PostHog read access
 
@@ -273,6 +317,9 @@ English/Danish report routing, moderation filters, redaction, instruction-like
 reports, public quotation rejection, real boot schema, bounded log coverage,
 client exclusion and source failures. PostHog tests cover project binding,
 aggregate query shape, missing read permissions and response validation.
+Edge tests cover zone/host boundaries, estimated counts, partial source failure,
+exact-hour joins, manual-only findings, rotated logs, retention gaps and
+server-side removal of request details.
 The worktree integration
 test explicitly skips when the host performance guard returns exit 75; it
 does not bypass the guard. No test invokes a model or creates a remote PR.
