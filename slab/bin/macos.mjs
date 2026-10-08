@@ -52,7 +52,7 @@ export function sh(spec, command, { stdin } = {}) {
   return execFileSync(file, args, { input: stdin, encoding: "utf8", maxBuffer: MAX_BUFFER }).trim();
 }
 
-function shAsync(spec, command, { stdin } = {}) {
+export function shAsync(spec, command, { stdin } = {}) {
   const [file, args] = invocation(spec, command);
   return new Promise((resolve, reject) => {
     const child = execFile(file, args, { encoding: "utf8", maxBuffer: MAX_BUFFER, timeout: 45000 },

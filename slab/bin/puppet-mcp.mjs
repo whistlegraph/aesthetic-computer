@@ -22,6 +22,7 @@ import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.
 import { PUPPET_GUIDANCE } from "../lib/computer-use-guidance.mjs";
 import { clip, toon } from "../../shared/toon.mjs";
 import { termListAsync as termList, typeTextAsync as typeText, sendKeysAsync as sendKeys } from "./macos.mjs";
+import * as safari from "../lib/safari-puppet.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH = process.env.SLAB_PUPPET_CONFIG || join(HOME, ".config", "slab", "puppet.json");
@@ -67,7 +68,15 @@ function rpc(req, { timeoutMs = 20000 } = {}) {
 const text = (t) => [{ type: "text", text: typeof t === "string" ? t : JSON.stringify(t, null, 2) }];
 
 // ── CDP verbs (via the warm daemon) ─────────────────────────────────────────
-async function toolList({ full = false } = {}) {
+async function toolList({ full = false, browser, machine } = {}) {
+  if (browser === "safari") {
+    const name = machine || "local";
+    const state = await safari.list(machineSpec(name), name);
+    if (full) return text(state);
+    if (!state.running) return text(`Safari is not running on ${name}.`);
+    return text(toon("pages", state.pages.map(p => ({ machine: name, id: p.id, current: p.current, title: clip(p.title, 80), url: p.url })),
+      ["machine", "id", "current", "title", "url"], { note: "Safari target IDs are safari:<windowId>:<tabIndex>; pass browser:\"safari\" with them." }));
+  }
   const machines = await rpc({ cmd: "list" });
   if (full) return text(machines);
   const rows = Object.entries(machines).map(([machine, state]) => ({
@@ -129,6 +138,10 @@ async function toolTerm({ machine }) {
 }
 
 async function toolSemantic(action, args) {
+  if (args.browser === "safari") {
+    const { image, ...evidence } = await safari.semantic(machineSpec(args.machine), action, args);
+    return [...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : []), ...text(evidence)];
+  }
   // Cold raw-CDP and Playwright connections can each await native consent.
   // Keep the reply channel open beyond both handshakes and the bounded action.
   const result = await rpc({ cmd: "semantic", machine: args.machine, args: { ...args, action } }, { timeoutMs: 135000 });
@@ -140,13 +153,16 @@ const LOCATOR = { type: "object", description: "Exactly one selector; role also 
   text: { type: "string" }, testId: { type: "string" }, css: { type: "string" },
 } };
 const WAIT_STATE = { type: "string", enum: ["visible", "hidden", "attached", "detached"] };
+// Every browser verb takes `browser`. Chrome (the default) goes through the
+// warm CDP daemon; Safari drives the real desktop Safari via safari-puppet.mjs.
+const BROWSER = { type: "string", enum: ["chrome", "safari"], description: "Which desktop browser to drive. Default chrome (CDP daemon). safari drives the real, logged-in Safari over AppleScript plus native input; its target IDs look like safari:<windowId>:<tabIndex>." };
 const SEMANTIC_TOOLS = ["snapshot", "click", "fill", "wait"].map(action => ({
   name: `puppet_${action}`, act: ["click", "fill"].includes(action),
   description: action === "snapshot" ? "OBSERVE an exact browser page: accessibility snapshot plus observation ID; optional JPEG. Get page IDs from puppet_list pages."
     : action === "wait" ? "WAIT for a semantic locator state, with a bounded timeout and no input. No fixed sleep."
     : `ACT: ${action} a strict semantic locator on an exact browser page, with Playwright actionability checks. Optional after condition verifies the result. performed=true means input happened even if verification failed: do not repeat it automatically.`,
   inputSchema: { type: "object", properties: {
-    machine: { type: "string" }, target: { type: "string", description: "Exact page ID from puppet_list pages; no URL substring." },
+    machine: { type: "string" }, browser: BROWSER, target: { type: "string", description: "Exact page ID from puppet_list pages; no URL substring." },
     ...(action !== "snapshot" ? { locator: LOCATOR } : {}),
     ...(action === "fill" ? { value: { type: "string" } } : {}),
     ...(action === "wait" ? { state: WAIT_STATE } : { image: { type: "boolean" } }),
@@ -215,6 +231,27 @@ const TOOLS = [
     inputSchema: { type: "object", properties: { machine: { type: "string" } }, required: ["machine"] } },
 ];
 
+// Add the browser choice to every browser verb's schema (the OS-level
+// type/keys/term verbs are browser-agnostic and stay as they are).
+const BROWSER_TOOLS = new Set(["puppet_choose", "puppet_list", "puppet_eval", "puppet_upload", "puppet_waitfor", "puppet_shot",
+  "puppet_nav", "puppet_reload", "puppet_stroke", "puppet_gesture", "puppet_key", "puppet_cursor"]);
+for (const tool of TOOLS) if (BROWSER_TOOLS.has(tool.name)) tool.inputSchema.properties.browser = BROWSER;
+TOOLS.find(t => t.name === "puppet_list").inputSchema.properties.machine = { type: "string", description: "browser:safari only — which machine's Safari to list (default local). Chrome lists every machine." };
+
+// Safari versions of the CDP verbs. Same arguments, same reply shapes.
+const SAFARI = {
+  puppet_eval: async (s, a) => text(await safari.evaluate(s, a) ?? null),
+  puppet_upload: (s, a) => safari.upload(s, a),
+  puppet_waitfor: async (s, a) => text(await safari.waitFor(s, a)),
+  puppet_nav: async (s, a) => text(await safari.nav(s, a)),
+  puppet_reload: async (s, a) => text(await safari.reload(s, a)),
+  puppet_shot: async (s, a) => [{ type: "image", data: await safari.shot(s, a), mimeType: a.format === "png" ? "image/png" : "image/jpeg" }],
+  puppet_stroke: async (s, a) => text(`${await safari.stroke(s, a)} points dispatched`),
+  puppet_gesture: async (s, a) => text(`${await safari.gesture(s, a)} steps`),
+  puppet_key: async (s, a) => text(`key: ${await safari.key(s, a)}`),
+  puppet_cursor: async (s, a) => { await safari.cursor(s, a); return text("cursor placed"); },
+};
+
 const HANDLERS = {
   puppet_choose: args => toolSemantic("choose", args),
   ...Object.fromEntries(["snapshot", "click", "fill", "wait"].map(action => [`puppet_${action}`, args => toolSemantic(action, args)])),
@@ -238,9 +275,12 @@ async function handleMessage(message) {
       case "tools/list":
         return { jsonrpc: "2.0", id, result: { tools: TOOLS.map(({ act, ...t }) => t) } };
       case "tools/call": {
-        const fn = HANDLERS[params?.name];
+        const args = params.arguments || {};
+        if (args.browser && !["chrome", "safari"].includes(args.browser)) throw new Error(`browser must be "chrome" or "safari"`);
+        const safariFn = args.browser === "safari" && SAFARI[params?.name];
+        const fn = safariFn ? a => safariFn(machineSpec(a.machine), a) : HANDLERS[params?.name];
         if (!fn) throw new Error(`Unknown tool: ${params?.name}`);
-        const content = await fn(params.arguments || {});
+        const content = await fn(args);
         return { jsonrpc: "2.0", id, result: { content } };
       }
       default:
