@@ -6,15 +6,24 @@ export const config = { path: "/api/og-image" };
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const FETCH_TIMEOUT_MS = 8000;
+const UNAVAILABLE_TTL = 5 * 60 * 1000;
+const unavailable = new Map();
 
-const corsJson = (status, body) =>
+const corsJson = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
+      ...headers,
     },
   });
+
+function unavailableImage(entry) {
+  return corsJson(404, { error: "Image unavailable", upstreamStatus: entry.status }, {
+    "Cache-Control": `public, max-age=${Math.max(0, Math.floor((entry.until - Date.now()) / 1000))}`,
+  });
+}
 
 export default async function handler(req) {
   if (req.method === "OPTIONS") {
@@ -41,6 +50,10 @@ export default async function handler(req) {
     return corsJson(400, { error: "Invalid URL" });
   }
 
+  const cached = unavailable.get(targetUrl);
+  if (cached?.until > Date.now()) return unavailableImage(cached);
+  unavailable.delete(targetUrl);
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
@@ -55,7 +68,18 @@ export default async function handler(req) {
     });
     clearTimeout(timeout);
 
-    if (!upstream.ok) return corsJson(502, { error: `HTTP ${upstream.status}` });
+    if (!upstream.ok) {
+      await upstream.body?.cancel().catch(() => {});
+      // A missing or denied remote image is an unavailable chat decoration,
+      // not an origin outage. Keep the same short retry window as og-preview.
+      if ([401, 403, 404, 410].includes(upstream.status)) {
+        const entry = { status: upstream.status, until: Date.now() + UNAVAILABLE_TTL };
+        if (unavailable.size >= 1000) unavailable.delete(unavailable.keys().next().value);
+        unavailable.set(targetUrl, entry);
+        return unavailableImage(entry);
+      }
+      return corsJson(502, { error: `HTTP ${upstream.status}` });
+    }
 
     const contentType = upstream.headers.get("content-type") || "application/octet-stream";
     if (!/^image\//i.test(contentType)) {
