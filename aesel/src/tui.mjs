@@ -2351,51 +2351,31 @@ async function syncArtifact() {
   redraw();
 }
 
-async function commandNew(rest) {
-  if (rest && rest !== 'thread') { addEntry('notice','/new starts fresh work · /new thread keeps the current work'); return redraw(); }
+async function commandNew() {
+  // /new is only a new thread: the piece, preview and published address stay.
   if (state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) {
-    addEntry('notice','Wait for the current turn and uploads before starting new work.'); return redraw();
+    addEntry('notice','Wait for the current turn and uploads before starting a new thread.'); return redraw();
   }
   const previousEngine=engine, previousHandoff=handoff, previousArchive=archivedConversation;
-  const previousArtifact=await artifacts.selected();
-  const fields=['directory','slug','runtime','blank','fallbackChannel','revision','revisionFile','ahead','pushes'];
-  const previousLive=Object.fromEntries(fields.map(key=>[key,live[key]]));
   let candidate;
   state.busy=true;state.status='starting';redraw();
   try {
     if(autopublish.pending && !await autopublish.flush()) throw new Error('The last save did not publish; retry after the upload succeeds.');
     await transcriptPending;
-    live.unwatch();
     await replaceWork({
       archive:()=>archiveThread(captureDesktop()),
-      prepare:async()=>{
-        if(rest!=='thread') {
-          if(state.medium==='piece') { await live.fresh(); }
-          else await artifacts.create(state.medium);
-          await syncArtifact();
-        }
-        handoff='';archivedConversation=[];
-      },
+      prepare:async()=>{ handoff='';archivedConversation=[]; },
       connect:async()=>{ candidate=openEngine();await candidate.connect();return candidate; },
       discard:async()=>candidate?.close(),
-      restore:async()=>{
-        handoff=previousHandoff;archivedConversation=previousArchive;
-        live.unwatch();Object.assign(live,previousLive);
-        await artifacts.select(previousArtifact?.id || 'piece');await syncArtifact();
-        if(state.medium==='piece')live.watch(liveError);
-      },
+      restore:async()=>{ handoff=previousHandoff;archivedConversation=previousArchive; },
       accept:async next=>{engine=next;previousEngine.close();},
     });
     state.entries=[];
     state.input='';state.cursor=0;state.queued=[];state.scrollOffset=0;
     slabSession.connected(engine.threadId, backend.id);
-    if(state.medium==='piece') {
-      live.watch(liveError);refreshQr();live.push().catch(liveError);
-      if(rest!=='thread') { blankPublished=false;autopublish.published=null;publishBlankOnce(); }
-    }
     saveDesktopIdle();
   } catch(error) { addEntry('error',errorText(error)); }
-  finally { if(state.medium==='piece')live.watch(liveError);state.busy=false;state.status='ready';redraw(); }
+  finally { state.busy=false;state.status='ready';redraw(); }
 }
 
 async function commandMedium(rest) {
@@ -2686,7 +2666,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         "notice",
         pro
           ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -2866,7 +2846,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry("notice", state.showQr ? (state.medium !== 'piece' ? artifactShareAddress() : live.scanUrl) : "QR hidden");
       return redraw();
     }
-    if (command === "/new") return commandNew(rest);
+    if (command === "/new") return commandNew();
     addEntry("error", `Unknown command: ${text}`);
     return redraw();
   }

@@ -90,7 +90,7 @@ ac --piece path/to/fogozo.mjs        # reopen an existing piece and its versions
 piece, channel and QR. A new provider thread receives recent user/assistant
 context (up to 24,000 characters) and the current piece; provider thread IDs and
 tool history are not portable. A failed connection returns to the prior engine.
-`/new` explicitly starts a fresh conversation. `/backend` lists account options;
+`/new` starts a new thread on the current piece. `/backend` lists account options;
 `/model` accepts a model name for your own vendor CLI.
 
 AC braincell inference uses an automatic model. Saved manual model choices are
