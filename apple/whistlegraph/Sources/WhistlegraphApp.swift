@@ -7,6 +7,7 @@ import CoreText
 @main
 struct WhistlegraphApp: App {
     @StateObject private var voice = WhistlegraphSession()
+    @UIApplicationDelegateAdaptor(WhistlegraphAppDelegate.self) private var delegate
     @Environment(\.scenePhase) private var phase
     @AppStorage("whistlegraph-appearance") private var appearance = "system"
     init() {
@@ -63,11 +64,21 @@ struct WhistlegraphApp: App {
                 WhistlegraphSpeechConsentSheet(choose: voice.chooseCloudSpeech)
             }
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
+            .onChange(of: voice.snapshot.versions.count) { old, new in
+                // Version 0 is the starting piece; the first saved one is a good moment to ask.
+                if new > old && new > 1 && !voice.isConsentFixture && !voice.accountEntryTest {
+                    Task { await WhistlegraphNotifications.askAfterFirstPiece(account: voice.account) }
+                }
+            }
             .onChange(of: phase) { _, value in
                 DeviceActionLog.shared.record(.lifecycle, value == .active ? .active : value == .background ? .background : .inactive)
                 if value == .background { voice.cancelHold() }
                 if value == .active && voice.capturePhase == .idle { voice.resumePieceAudio() }
-                if value == .active && !voice.isConsentFixture && !voice.accountEntryTest { DeviceRegistry.report(.open, account: voice.account) }
+                if value == .active && !voice.isConsentFixture && !voice.accountEntryTest {
+                    delegate.session = voice
+                    DeviceRegistry.report(.open, account: voice.account)
+                    Task { await WhistlegraphNotifications.refresh(account: voice.account) }
+                }
                 if value == .active && !voice.isConsentFixture && !voice.accountEntryTest {
                     Task {
                         await TezDisplayRate.shared.refresh()
@@ -577,6 +588,14 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         reloadWorkspace()
         try DeviceActionLog.shared.clear()
         if let cleanupError { throw cleanupError }
+    }
+    /// A notification's `url` is "/<piece>"; open it if it is one of this account's pieces.
+    func openFromNotification(_ url: String) {
+        let piece = String(url.drop(while: { $0 == "/" }).prefix(64))
+        DeviceActionLog.shared.record(.notifications, .presented)
+        guard !piece.isEmpty, pieces.contains(where: { $0.id == piece }) else { return }
+        if pieces.contains(where: { $0.id == piece && $0.current }) { return }
+        command("openPiece", piece: piece)
     }
     /// Drops the Keychain sign-in and tells the engine, which parks its sockets.
     func signOut() {

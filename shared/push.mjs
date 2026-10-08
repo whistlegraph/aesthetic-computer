@@ -241,7 +241,6 @@ function apnsJWT() {
   return apnsJwtCache.token;
 }
 
-const APNS_HOST = process.env.APNS_HOST || "https://api.push.apple.com";
 
 function apnsRequest(session, deviceToken, payload, headers) {
   return new Promise((resolve) => {
@@ -285,47 +284,69 @@ function apnsRequest(session, deviceToken, payload, headers) {
 }
 
 // Send to many APNs tokens over a single HTTP/2 session.
-async function sendAPNsBatch(tokens, note) {
-  if (!apnsConfigured() || tokens.length === 0) {
-    return tokens.map(() => ({ ok: false, detail: "apns not configured" }));
-  }
+// One warm HTTP/2 session per APNs host, reused across sends: a push to one
+// device costs a request, not a TLS handshake. Apple keeps idle connections
+// open; pings keep NATs from dropping them, and a closed or errored session is
+// replaced on the next send. unref() lets short-lived processes exit.
+const apnsSessions = new Map();
+function apnsSession(host) {
+  const live = apnsSessions.get(host);
+  if (live && !live.closed && !live.destroyed) return live;
+  const session = http2.connect(host);
+  session.unref();
+  const drop = () => { if (apnsSessions.get(host) === session) apnsSessions.delete(host); };
+  session.on("error", drop);
+  session.on("close", drop);
+  session.on("goaway", () => { drop(); session.close(); });
+  const ping = setInterval(() => {
+    if (session.closed || session.destroyed) return clearInterval(ping);
+    session.ping(() => {});
+  }, 60_000);
+  ping.unref();
+  session.on("close", () => clearInterval(ping));
+  apnsSessions.set(host, session);
+  return session;
+}
+
+export const APNS_HOSTS = Object.freeze({
+  production: process.env.APNS_HOST || "https://api.push.apple.com",
+  sandbox: "https://api.sandbox.push.apple.com",
+});
+
+function apnsPayload(note) {
   const aps = {
     alert: { title: note.title, body: note.body },
     sound: "default",
     "mutable-content": 1,
   };
   if (note.urgent) aps["interruption-level"] = "time-sensitive";
-  const payload = JSON.stringify({ aps, ...(note.data || {}) });
-  const headers = {
-    authorization: `bearer ${apnsJWT()}`,
-    "apns-topic": process.env.APNS_BUNDLE_ID || "aesthetic.computer",
-    "apns-push-type": "alert",
-    "apns-priority": "10",
-    "apns-expiration": "0",
-  };
-
-  return new Promise((resolve) => {
-    const session = http2.connect(APNS_HOST);
-    session.on("error", (err) => {
-      resolve(tokens.map(() => ({ ok: false, detail: err?.message })));
-    });
-    session.once("connect", async () => {
-      const results = await Promise.all(
-        tokens.map((t) => apnsRequest(session, t, payload, headers)),
-      );
-      session.close();
-      resolve(results);
-    });
-    session.setTimeout(15_000, () => session.close());
-  });
+  if (note.thread) aps["thread-id"] = note.thread;
+  return JSON.stringify({ aps, ...(note.data || {}) });
 }
 
-// 📦 Notification shape
-// note = { title, body, icon?, image?, data? (flat string map, e.g. { piece }),
-//          urgent?, ttl? }
-// `icon` is the small badge the OS draws beside the text. It defaults to the
-// aesthetic.computer mark, but a sender with its own face — sotce.net's
-// cookie — passes one and keeps it.
+// Send to many APNs tokens over the warm session for `host`, as `topic`
+// (the app's bundle id). Defaults keep the AC app's existing behavior.
+async function sendAPNsBatch(tokens, note, {
+  topic = process.env.APNS_BUNDLE_ID || "aesthetic.computer",
+  host = APNS_HOSTS.production,
+} = {}) {
+  if (!apnsConfigured() || tokens.length === 0) {
+    return tokens.map(() => ({ ok: false, detail: "apns not configured" }));
+  }
+  const payload = apnsPayload(note);
+  const headers = {
+    authorization: `bearer ${apnsJWT()}`,
+    "apns-topic": topic,
+    "apns-push-type": "alert",
+    "apns-priority": note.urgent === false ? "5" : "10",
+    "apns-expiration": String(note.expiresAt ? Math.floor(note.expiresAt / 1000) : 0),
+    ...(note.collapse ? { "apns-collapse-id": String(note.collapse).slice(0, 64) } : {}),
+  };
+  let session;
+  try { session = apnsSession(host); }
+  catch (err) { return tokens.map(() => ({ ok: false, detail: err?.message })); }
+  return Promise.all(tokens.map((t) => apnsRequest(session, t, payload, headers)));
+}
 
 function webPayload(note) {
   return JSON.stringify({
@@ -439,4 +460,57 @@ export async function sendToUser(db, userSub, note, { device } = {}, log = conso
     );
   }
   return sendToDevices(db, docs, note, log);
+}
+
+// 🛰️ AC network notifications: send to a device, a person, or a group in the
+//    app device registry (Mongo `app-devices`, shared/app-devices.mjs).
+//      target: { app, deviceId } | { user, app? } | { app, topic }
+//      note:   { title, body, data?, thread?, collapse?, urgent?, expiresAt? }
+//    Each device is reached through its own app's APNs topic or Web Push.
+//    Registrations the push service reports gone are cleared from their row.
+export async function sendToTarget(db, target, note, log = console.log) {
+  const { APP_DEVICES, targetFilter } = await import("./app-devices.mjs");
+  const { appConfig } = await import("./app-registry.mjs");
+  const devices = db.collection(APP_DEVICES);
+  const docs = await devices.find({ ...targetFilter(target), push: { $exists: true } }).toArray();
+  const summary = { attempted: docs.length, succeeded: 0, failed: 0, pruned: 0 };
+  if (!docs.length) return summary;
+
+  // Group APNs rows by app topic and environment; each group is one batch.
+  const groups = new Map();
+  const web = [];
+  for (const doc of docs) {
+    if (doc.push.kind === "webpush") { web.push(doc); continue; }
+    const topic = appConfig(doc.app)?.apns;
+    if (doc.push.kind !== "apns" || !topic) { summary.failed++; continue; }
+    const key = `${topic}|${doc.push.env}`;
+    if (!groups.has(key)) groups.set(key, { topic, host: APNS_HOSTS[doc.push.env] || APNS_HOSTS.production, docs: [] });
+    groups.get(key).docs.push(doc);
+  }
+  const gone = [];
+  const tally = (doc, res) => {
+    if (res.ok) return void summary.succeeded++;
+    summary.failed++;
+    if (res.gone) gone.push(doc._id);
+    else log(`🔔 push failed (${doc.app} ${doc.handle ? "@" + doc.handle : doc.deviceId}):`, res.status || "", res.detail);
+  };
+  await Promise.all([
+    ...[...groups.values()].map(async ({ topic, host, docs: batch }) => {
+      const results = await sendAPNsBatch(batch.map((d) => d.push.token), note, { topic, host });
+      results.forEach((res, i) => tally(batch[i], res));
+    }),
+    (async () => {
+      if (!web.length) return;
+      if (!webPushConfigured()) return web.forEach((d) => tally(d, { ok: false, detail: "vapid not configured" }));
+      const payload = webPayload(note);
+      const results = await pool(web, SEND_CONCURRENCY, (d) => sendWebPush(d.push.subscription, payload, { ttl: note.ttl ?? 60, urgent: note.urgent }));
+      results.forEach((res, i) => tally(web[i], res));
+    })(),
+  ]);
+  if (gone.length) {
+    await devices.updateMany({ _id: { $in: gone } }, { $unset: { push: "" } })
+      .then(() => { summary.pruned = gone.length; })
+      .catch((err) => log("🔴 push prune failed:", err?.message));
+  }
+  return summary;
 }

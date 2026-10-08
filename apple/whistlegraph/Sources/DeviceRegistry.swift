@@ -10,7 +10,8 @@ import UIKit
 @MainActor enum DeviceRegistry {
     enum Event: String { case open, seen, login, logout, push }
 
-    static func report(_ event: Event, account: WhistlegraphAccount?, push: [String: Any]? = nil) {
+    /// `push`: an APNs registration dictionary, or NSNull() when notifications were turned off.
+    static func report(_ event: Event, account: WhistlegraphAccount?, push: Any? = nil) {
         #if DEBUG
         guard ProcessInfo.processInfo.environment["WHISTLEGRAPH_DEVICE_REPORTS"] == "1" else { return }
         #endif

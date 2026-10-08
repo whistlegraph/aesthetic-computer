@@ -16,7 +16,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "115"
+    CURRENT_PROJECT_VERSION: "116"
 targets:
   Whistlegraph:
     type: application
@@ -43,6 +43,10 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    entitlements:
+      path: Whistlegraph.entitlements
+      properties:
+        aps-environment: development
     preBuildScripts:
       - name: Reject internal payment archives
         script: |

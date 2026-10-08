@@ -77,6 +77,7 @@
 		E5B597B1518B1DB4512EBF31 /* TezosBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */; };
 		E81F2B275AC7E65EC667E67F /* RecordedTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */; };
 		E9F24EB7F859B4C869009F26 /* PaymentBuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED23B0C39652687E9ECFFAF /* PaymentBuild.swift */; };
+		EAA4FB7CDBF8FFF24D329A9E /* WhistlegraphNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A5412A5EB6C90116E3831B /* WhistlegraphNotifications.swift */; };
 		EE469E48E164A4E317B262F4 /* AccountEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2014384D32064E6DABEAB7 /* AccountEntryTests.swift */; };
 		F160CBA0E689C1B29B1C38FB /* WhistlegraphDebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */; };
 		FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */; };
@@ -135,6 +136,7 @@
 		6FB1D789A7001E472597133B /* AIConsentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIConsentTests.swift; sourceTree = "<group>"; };
 		725C2A9ACD0323F49EFFDFC1 /* AccountDeletionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionClient.swift; sourceTree = "<group>"; };
 		7848DB9FED6B955BC193F650 /* LiveTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscription.swift; sourceTree = "<group>"; };
+		79A5412A5EB6C90116E3831B /* WhistlegraphNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphNotifications.swift; sourceTree = "<group>"; };
 		8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifiedAccountIdentity.swift; sourceTree = "<group>"; };
 		85CE7F71D92E8328A7BDA44D /* PreviewFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormatTests.swift; sourceTree = "<group>"; };
 		88B494AD8CD86FCC5DE0E4CC /* StoryExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryExport.swift; sourceTree = "<group>"; };
@@ -246,6 +248,7 @@
 				99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */,
 				1BC2C1DC5E036F689EA59561 /* WhistlegraphHeader.swift */,
 				A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */,
+				79A5412A5EB6C90116E3831B /* WhistlegraphNotifications.swift */,
 				30AAFA5A6A0627C23CA67DA4 /* WhistlegraphPrivacy.swift */,
 				E66B3ADC4D6D837FABC53B8F /* WhistlegraphScreen.swift */,
 				2AB3C6140E5D943C3363C353 /* WhistlegraphSource.swift */,
@@ -467,6 +470,7 @@
 				FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */,
 				73873BDDC483417E2F6E1143 /* WhistlegraphHeader.swift in Sources */,
 				63AC2EF656BB908FC6B195DA /* WhistlegraphMint.swift in Sources */,
+				EAA4FB7CDBF8FFF24D329A9E /* WhistlegraphNotifications.swift in Sources */,
 				6122FB433EC952206856DEBD /* WhistlegraphPrivacy.swift in Sources */,
 				4B35B066F49BDD9BD8B90B5A /* WhistlegraphScreen.swift in Sources */,
 				2D8D89A7A8C4657353319EBE /* WhistlegraphSource.swift in Sources */,
@@ -525,6 +529,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Whistlegraph.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -543,6 +548,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Whistlegraph.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -626,7 +632,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 115;
+				CURRENT_PROJECT_VERSION = 116;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -662,6 +668,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Whistlegraph.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -711,7 +718,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 115;
+				CURRENT_PROJECT_VERSION = 116;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -771,7 +778,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 115;
+				CURRENT_PROJECT_VERSION = 116;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
