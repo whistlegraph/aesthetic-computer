@@ -66,7 +66,7 @@ let accountToken='',accountHandle='',accountPalette=[],accountVerification=Promi
 let personalAccess=null,turnPersonalAccess=false;
 let turnHandle='',turnModel='',activeModel='',braincells=null,braincellsError='',creditsRequest=0;
 function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
-function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,personalAccess:busy?turnPersonalAccess:hasPersonalAccess(personalAccess),model:busy?turnModel:selectedModel()});}
+function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,image:busy&&!!inputData(turnRequest)?.drawing,personalAccess:busy?turnPersonalAccess:hasPersonalAccess(personalAccess),model:busy?turnModel:selectedModel()});}
 async function refreshBraincells(){
   benchmark('braincellsRequest');
   const currentToken=token,request=++creditsRequest;
@@ -239,6 +239,13 @@ function updateFeed() {
   $('live-time').hidden=!busy;nativeSnapshot();
 }
 
+// A phone loading the piece in the production frame over cellular can take
+// seconds to paint. Two seconds turned late paints into unverified-render
+// rollbacks (wgZuhus, 2026-10-08), so wait longer but stop on a runtime error.
+async function waitForPaint(target, stopped, ms=20000) {
+  const until=Date.now()+ms;
+  while(Date.now()<until&&!stopped()&&!turnRuntimeFailed&&(!painted||lastPaintedSource!==target))await new Promise(resolve=>setTimeout(resolve,50));
+}
 function render(value) {
   previewSource=value;painted=false;feedback=null;previewHash=null;
   const id=++renderID;
@@ -283,7 +290,7 @@ async function checkVisualResult() {
       inspect:async()=>{
         phase('Checking picture…');
         const target=source,hash=await hashSource(target),id=renderID;
-        for(let i=0;i<100&&!signal.aborted&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
+        await waitForPaint(target,()=>signal.aborted);
         signal.throwIfAborted();
         const runtime=validateCandidate(target,feedback,hash);
         if(!runtime.passed)throw Error('Visual check needs a working current preview: '+runtime.findings.map(f=>f.code).join(', '));
@@ -464,7 +471,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
         generate:async(task,repair)=>{server?.close();server=makeServer({repair});turnSucceeded=false;await server.startTurn(drawingContent(task,chalkImage));return turnSucceeded;},
         inspect:async()=>{
           const target=source,hash=await hashSource(target);
-          for(let i=0;i<100&&!turnCancelled&&(!painted||lastPaintedSource!==target);i++)await new Promise(resolve=>setTimeout(resolve,20));
+          await waitForPaint(target,()=>turnCancelled);
           return validateCandidate(target,feedback,hash);
         }});
       if(result.validation){

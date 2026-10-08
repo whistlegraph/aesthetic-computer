@@ -5,6 +5,8 @@ for(const handle of ['', 'fixture', 'Jeffrey', 'jeffrey-other']) {
   assert.equal(generationProfile(handle).rounds,4);
   assert.equal(generationProfile(handle).maxTokens,4096);
   assert.equal(generationProfile(handle,{repair:true}).model,REPAIR_MODEL);
+  // The text-only repair model cannot take the chalk PNG.
+  assert.equal(generationProfile(handle,{repair:true,image:true}).model,DEFAULT_MODEL);
 }
 assert.equal(generationProfile('jeffrey').model,'anthropic/claude-opus-5');
 assert.equal(generationProfile('jeffrey').rounds,12);

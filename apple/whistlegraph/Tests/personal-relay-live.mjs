@@ -14,9 +14,11 @@ const server=createServer(async(req,res)=>{try{const file=resolve(root,'.'+new U
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const browser=await puppeteer.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
 try{
- const page=await browser.newPage();await page.setViewport({width:430,height:800});
+ const page=await browser.newPage();
+ // WHISTLEGRAPH_LIVE_SLOW=1 approximates a phone on cellular: 4x CPU, 300 ms latency.
+ if(process.env.WHISTLEGRAPH_LIVE_SLOW){const cdp=await page.createCDPSession();await cdp.send('Emulation.setCPUThrottlingRate',{rate:4});await cdp.send('Network.enable');await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:300,downloadThroughput:1.5e6,uploadThroughput:7.5e5});}await page.setViewport({width:430,height:800});
  let ready=false,lastRender,snapshot,reviewFrames=0;const errors=[],inference=[];
- page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/api/easel-inference')||r.url().includes('/api/aesel/'))inference.push(new URL(r.url()).pathname);});
+ page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')console.log('console',m.text().slice(0,200));});page.on('request',r=>{if(r.url().includes('/api/easel-inference')||r.url().includes('/api/aesel/'))inference.push(new URL(r.url()).pathname);});
  const runtime=()=>page.frames().find(f=>f.url().startsWith('https://aesthetic.computer/'));
  const render=async m=>{lastRender=m;if(ready)await runtime().evaluate(m=>window.whistlegraphRender(m.source,'relay-live-test',m.renderID),m);};
  await page.exposeFunction('__nativeBridge',async m=>{
@@ -24,7 +26,7 @@ try{
    if(m.action==='snapshot')snapshot=m.snapshot;
    if(m.action==='render')await render(m);
    if(m.action==='previewReady'){ready=true;if(lastRender)await render(lastRender);await page.evaluate(()=>window.whistlegraphEngineEvent({kind:'previewReady'}));}
-   if(m.action==='previewEvent')await page.evaluate(e=>window.whistlegraphEngineEvent({kind:'previewEvent',event:e}),m.event);
+   if(m.action==='previewEvent')console.log('previewEvent',JSON.stringify(m.event).slice(0,200));if(m.action==='render')console.log('render',m.renderID,m.source.length);if(m.action==='previewEvent')await page.evaluate(e=>window.whistlegraphEngineEvent({kind:'previewEvent',event:e}),m.event);
    if(m.action==='visualCapture'){
     const frames=[],started=Date.now();
     for(let i=0;i<4;i++){
@@ -49,10 +51,15 @@ try{
  for(let i=0;i<60 && (!ready||snapshot?.handle!=='jeffrey');i++)await new Promise(r=>setTimeout(r,500));
  if(!ready||snapshot?.handle!=='jeffrey'){console.log(JSON.stringify({ready,handle:snapshot?.handle,errors,frames:await Promise.all(page.frames().map(async f=>({url:f.url(),state:await f.evaluate(()=>({title:document.title,preloaded:!!window.preloaded,send:typeof window.acSEND,render:typeof window.whistlegraphRender,text:document.body.innerText.slice(0,100)})).catch(()=>null)})))}));await page.screenshot({path:out+'/startup.png'});}
  if(!ready||snapshot?.handle!=='jeffrey')throw Error('Runtime or signed-in account not ready');
+ // Build 108+ requires first-use AI consent bound to the verified handle and token.
+ await page.evaluate(token=>window.whistlegraphSetAIConsent({creation:true,handle:'jeffrey',token}),token);
  console.log('Real browser ready; generating through personal relay');
- await page.evaluate(()=>window.whistlegraphAsk('Make a pink circle centered on black. Keep it static.'));
- await new Promise(r=>setTimeout(r,500));
- const stored=await page.evaluate(()=>({attempt:JSON.parse(localStorage.getItem('walkieware-source-attempt')),source:localStorage.getItem('walkieware-source'),receipts:JSON.parse(localStorage.getItem('walkieware-source-receipts'))}));
+ // WHISTLEGRAPH_LIVE_CHALK=1 sends a chalk sketch with the request, as the phone does with Chalk on.
+ if(process.env.WHISTLEGRAPH_LIVE_CHALK){const sketch=JSON.parse(await readFile('apple/whistlegraph/Tests/fixtures/chalk-sailboat.json','utf8'));await page.evaluate(d=>window.whistlegraphAskDrawing('anime palm tree',d),sketch);}
+ else await page.evaluate(()=>window.whistlegraphAsk('Make a pink circle centered on black. Keep it static.'));
+ // Wait for the whole turn (generation, checks, review), not a fixed delay.
+ for(let i=0;i<400;i++){await new Promise(r=>setTimeout(r,1000));if(!(await page.evaluate(()=>window.whistlegraphIsBusy())))break;}
+ const stored=await page.evaluate(()=>({attempt:JSON.parse(localStorage.getItem('whistlegraph-source-attempt')),source:localStorage.getItem('whistlegraph-source'),receipts:JSON.parse(localStorage.getItem('whistlegraph-source-receipts'))}));
  const report={provider:snapshot?.inference?.provider,attempt:stored.attempt,source:stored.source,reviewFrames,apiCalls:inference,errors,receipt:stored.receipts?.at(-1)?.receipt};
  await writeFile(out+'/live-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify({provider:report.provider,attempt:report.attempt,reviewFrames,errors}));
  if(inference.some(path=>path==='/api/easel-inference')||reviewFrames<4||stored.attempt?.status!=='completed')throw Error('Personal generation/review did not pass');

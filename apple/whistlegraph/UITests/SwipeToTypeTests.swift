@@ -59,6 +59,9 @@ final class SwipeToTypeTests: XCTestCase {
             let preview = app.webViews.firstMatch
             XCTAssertTrue(preview.exists)
             XCTAssertLessThanOrEqual(preview.frame.maxY, app.keyboards.firstMatch.frame.minY)
+            // The field and its Send button must clear the keyboard, not just the preview.
+            XCTAssertLessThanOrEqual(editor.frame.maxY, app.keyboards.firstMatch.frame.minY)
+            XCTAssertLessThanOrEqual(app.buttons["request-send"].frame.maxY, app.keyboards.firstMatch.frame.minY)
             editor.tap()
             editor.typeText(String(repeating: "a", count: 110))
             XCTAssertEqual((editor.value as? String)?.count, 96)

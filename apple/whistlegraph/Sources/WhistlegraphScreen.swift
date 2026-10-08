@@ -96,6 +96,13 @@ struct WhistlegraphScreen: View {
         session.previewFormat.fit(width: UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12,
                                   height: min(380, UIScreen.main.bounds.height * 0.4))
     }
+    // With the keyboard and composer up, the full-size preview pushes the text
+    // field under the keyboard. Scale the framed preview (not the runtime, which
+    // would resize the piece) so the sketch stays visible above the composer.
+    private var composeScale: CGFloat {
+        guard showComposer, !narrator.isPlaying else { return 1 }
+        return min(1, UIScreen.main.bounds.height * 0.2 / (previewSize.height + 12))
+    }
     var body: some View {
         VStack(spacing: narrator.isPlaying ? 0 : session.layout.spacing) {
             HStack {
@@ -115,7 +122,7 @@ struct WhistlegraphScreen: View {
                 .accessibilityLabel("Open story cards").accessibilityIdentifier("play-versions")
                 }
             }.frame(height: narrator.isPlaying ? 0 : nil).clipped().accessibilityHidden(narrator.isPlaying)
-            if !narrator.isPlaying {
+            if !narrator.isPlaying && !showComposer {
                 HStack {
                     WarePicker(session: session) { narrator.stop(); showComposer = false }
                     Spacer(minLength: 0)
@@ -148,6 +155,9 @@ struct WhistlegraphScreen: View {
             .overlay { WhistlegraphPreviewInset() }
             .padding(6)
             .background(WhistlegraphWoodFrame())
+            .scaleEffect(composeScale, anchor: .top)
+            .frame(height: composeScale < 1 ? (previewSize.height + 12) * composeScale : nil, alignment: .top)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: showComposer)
             .accessibilityIdentifier("story-picture")
             .overlay {
                 if narrator.isPlaying && !exporter.requested {

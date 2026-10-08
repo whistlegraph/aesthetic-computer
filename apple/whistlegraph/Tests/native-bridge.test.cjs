@@ -182,8 +182,8 @@ const server = http.createServer(async (req, res) => {
       // Exercise the actual microphone bridge: drawing and sound arrive in one final event.
       await page.evaluate(drawing=>{
         voiceStart();const id=__nativeMessages.filter(m=>m.action==='start').at(-1).id;
-        walkieNativeEvent({id,kind:'listening'});
-        walkieNativeEvent({id,kind:'mixedFinal',drawing,text:JSON.stringify({transcript:'follow this sweep',words:[{text:'sweep',atMs:700,durationMs:250}],sound:{schema:'whistlegraph-sound/v1',durationMs:1200,audibleMs:1000,frames:[{atMs:700,rms:.8,pitchHz:440}],onsetsMs:[700],recordingID:'22222222-2222-4222-8222-222222222222'}})});
+        whistlegraphNativeEvent({id,kind:'listening'});
+        whistlegraphNativeEvent({id,kind:'mixedFinal',drawing,text:JSON.stringify({transcript:'follow this sweep',words:[{text:'sweep',atMs:700,durationMs:250}],sound:{schema:'whistlegraph-sound/v1',durationMs:1200,audibleMs:1000,frames:[{atMs:700,rms:.8,pitchHz:440}],onsetsMs:[700],recordingID:'22222222-2222-4222-8222-222222222222'}})});
       },{...sketch,revision:5});
       await page.waitForFunction(()=>JSON.parse(localStorage.getItem('whistlegraph-source-versions')).head===2&&!whistlegraphIsBusy());
       assert.equal(requests,2);const mixed=JSON.stringify(inferenceBodies[1]);
@@ -246,7 +246,8 @@ const server = http.createServer(async (req, res) => {
       assert.ok(inferenceBodies.every(b=>b.max_tokens===4096));
       assert.equal(inferenceBodies[0].model,'deepseek/deepseek-v4.1-flash');
       assert.equal(inferenceBodies[0].thinking.type,'disabled');
-      assert.equal(inferenceBodies[1].model,'deepseek/deepseek-v4-pro');
+      // V4 Pro is text-only on OpenRouter; a chalk repair stays on the image-capable model.
+      assert.equal(inferenceBodies[1].model,'deepseek/deepseek-v4.1-flash');
       assert.equal(inferenceBodies[1].thinking.budget_tokens,1024);
       const receipt=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-receipts')).at(-1).receipt);
       assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,process.argv.includes('--repair-fails')?2:3);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');

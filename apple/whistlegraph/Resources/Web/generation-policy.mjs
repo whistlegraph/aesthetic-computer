@@ -10,11 +10,13 @@ export function modelChoices(handle, {personalAccess=false}={}) {
   return Object.entries(MODEL_LABELS).filter(([id])=>(handle==='jeffrey'||personalAccess)||(!id.startsWith('anthropic/')&&!id.startsWith('openai/'))).map(([id,label])=>({id,label}));
 }
 // The handle comes from verifyAccount, never from a preference or command.
-export function generationProfile(handle, {repair=false,model='',personalAccess=false}={}) {
+// DeepSeek V4 Pro is text-only on OpenRouter (404 "No endpoints found that support
+// image input"), so a repair that carries chalk stays on the image-capable default.
+export function generationProfile(handle, {repair=false,model='',personalAccess=false,image=false}={}) {
   const personal=handle==='jeffrey'||personalAccess;
   const selected=modelChoices(handle,{personalAccess}).some(option=>option.id===model)?model:'';
   const chosen=selected||(personal?'anthropic/claude-opus-5':DEFAULT_MODEL);
-  const resolved=repair&&chosen===DEFAULT_MODEL?REPAIR_MODEL:chosen;
+  const resolved=repair&&!image&&chosen===DEFAULT_MODEL?REPAIR_MODEL:chosen;
   if(personal)return {personalRelay:resolved.startsWith('anthropic/')||resolved.startsWith('openai/'),model:resolved,maxTokens:16384,rounds:repair?4:12,outputContinuations:repair?1:2,reasoning:{max_tokens:4096},thinking:{type:'enabled',budget_tokens:4096}};
   return {model:resolved,maxTokens:4096,rounds:repair?2:4,outputContinuations:repair?0:1,reasoning:repair?{max_tokens:1024}:{effort:'none'},thinking:repair?{type:'enabled',budget_tokens:1024}:{type:'disabled'}};
 }
