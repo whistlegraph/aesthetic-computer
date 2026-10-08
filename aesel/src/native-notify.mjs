@@ -14,7 +14,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { arch, homedir, release } from "node:os";
 import { dirname, join } from "node:path";
 
-const GUI_BUNDLE = "computer.aesthetic.easel";
+// The released Mac app (release-mac.sh) and the App Store / Xcode build.
+const GUI_BUNDLES = ["computer.aesthetic.aesel.native", "computer.aesthetic.easel"];
 // Resolves stdout, or null when the command failed.
 const run = (file, args) => new Promise(resolve =>
   execFile(file, args, { timeout: 3000 }, (error, stdout) => resolve(error ? null : String(stdout))));
@@ -46,7 +47,9 @@ export async function notifyNative({ title, body = "", kind = "done" }, { platfo
   if (await terminalFocused({ lsappinfo: exec })) return "focused";
   const text = String(body).replace(/\s+/g, " ").trim();
   // An older Aesel.app without the aesel:// scheme makes `open` fail; fall through.
-  if ((await exec("/usr/bin/lsappinfo", ["find", `bundleid=${GUI_BUNDLE}`]) || "").trim() &&
+  let running = false;
+  for (const bundle of GUI_BUNDLES) if ((await exec("/usr/bin/lsappinfo", ["find", `bundleid=${bundle}`]) || "").trim()) { running = true; break; }
+  if (running &&
       await exec("/usr/bin/open", ["-g", notifyURL({ title, body: text, kind })]) !== null) return "aesel";
   // argv, not string interpolation: titles and replies may contain quotes.
   await exec("/usr/bin/osascript", ["-e", "on run argv", "-e", "display notification (item 2 of argv) with title (item 1 of argv)", "-e", "end run", title, text.slice(0, 240)]);
