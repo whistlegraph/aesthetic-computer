@@ -56,7 +56,9 @@ platform :ios do
                   scheme: "Whistlegraph", configuration: "Release",
                   archive_path: File.join(RELEASE_DIR, "Whistlegraph.xcarchive"),
                   export_method: "app-store", export_team_id: TEAM,
-                  xcargs: "-jobs 2 #{auth}", export_xcargs: auth,
+                  # gym now adds the API key to -exportArchive itself; passing it again
+                  # fails with "-authenticationKeyPath may only be provided once".
+                  xcargs: "-jobs 2 #{auth}", export_xcargs: "-allowProvisioningUpdates",
                   output_directory: File.dirname(IPA), output_name: File.basename(IPA))
   end
 
