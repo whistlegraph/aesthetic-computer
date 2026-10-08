@@ -93,12 +93,15 @@ final class MissionActivityView: NSView {
 }
 
 final class MissionLaneRule: NSView {
+    var color: NSColor = .secondaryLabelColor
     override func draw(_ dirtyRect: NSRect) {
-        // A light edge and dark core stay visible over either desktop theme.
+        // Both outlines keep even CSS blue and snow visible on any desktop.
         NSColor.white.withAlphaComponent(0.7).setFill()
         bounds.fill()
         NSColor.black.withAlphaComponent(0.6).setFill()
         bounds.insetBy(dx: 0, dy: 0.5).fill()
+        color.setFill()
+        bounds.insetBy(dx: 0, dy: 1).fill()
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
@@ -141,6 +144,13 @@ struct MissionItem: Equatable {
     var finishedAt: Date? = nil
     var laneID: String? = nil
     var isLaneHeader: Bool = false
+    var laneColor: UInt32? = nil
+}
+
+func missionLaneColor(_ value: Any?) -> UInt32? {
+    guard let hex = value as? String,
+          hex.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil else { return nil }
+    return UInt32(hex.dropFirst(), radix: 16)
 }
 
 func missionTimeLabel(_ item: MissionItem, now: Date = Date()) -> String? {
@@ -221,8 +231,10 @@ func loadMission(_ path: String) -> Mission? {
                   seen.insert(id).inserted else { continue }
             let label = (lane["label"] as? String) ?? id
             let state = ((lane["state"] as? String) ?? "idle").replacingOccurrences(of: "_", with: " ")
-            rows.append(MissionItem(text: "\(host.capitalized) · \(label)  /  \(state)", status: "pending",
-                                    laneID: id, isLaneHeader: true))
+            let context = "\(host.capitalized) · \(label)  /  \(state)"
+            let name = (lane["name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            rows.append(MissionItem(text: name ?? context, status: "pending", detail: name == nil ? nil : context,
+                                    laneID: id, isLaneHeader: true, laneColor: missionLaneColor(lane["color"])))
             let tasks = (lane["items"] as? [[String: Any]]) ?? []
             for value in tasks {
                 if var item = parseItem(value, fallbackDate: nil) {
@@ -889,10 +901,25 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             let ip = NSMutableParagraphStyle()
             ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
             if item.isLaneHeader {
-                f.attributedStringValue = NSAttributedString(string: item.text, attributes: [
-                    .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
-                    .foregroundColor: primary, .paragraphStyle: ip])
+                let color = item.laneColor.map(hexColor) ?? primary
+                var attributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 13, weight: .bold),
+                    .foregroundColor: color, .paragraphStyle: ip]
+                if let rgb = item.laneColor {
+                    let brightness = 0.2126 * Double((rgb >> 16) & 255)
+                        + 0.7152 * Double((rgb >> 8) & 255) + 0.0722 * Double(rgb & 255)
+                    attributes[.strokeColor] = brightness < 128 ? NSColor.white : NSColor.black
+                    attributes[.strokeWidth] = -2
+                }
+                let heading = NSMutableAttributedString(string: item.text, attributes: attributes)
+                if let context = item.detail {
+                    heading.append(NSAttributedString(string: "\n" + context, attributes: [
+                        .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                        .foregroundColor: primary, .paragraphStyle: ip]))
+                }
+                f.attributedStringValue = heading
                 let rule = MissionLaneRule()
+                rule.color = color
                 c.content.addSubview(rule)
                 c.content.addSubview(f)
                 missionLaneRules.append(rule)
@@ -1102,7 +1129,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             my -= mm.items[i]
             missionActivityViews[i]?.frame = NSRect(x: 7, y: my - 3, width: missionW, height: mm.items[i] + 6)
             missionActivityViews[i]?.needsLayout = true
-            missionLaneRules[i]?.frame = NSRect(x: 7, y: my + mm.items[i] - 2, width: missionW, height: 2)
+            missionLaneRules[i]?.frame = NSRect(x: 7, y: my + mm.items[i] - 5, width: missionW, height: 5)
             f.frame = NSRect(x: 15, y: my, width: missionW - 8,
                              height: mm.items[i] - (missionLaneRules[i] == nil ? 0 : 12))
             my -= 8

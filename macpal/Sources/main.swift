@@ -242,20 +242,24 @@ if argv.contains("--test-mission-lanes") {
     let start = iso.string(from: now.addingTimeInterval(-125))
     var doc: [String: Any] = ["mission": "Iris lanes", "updatedAt": iso.string(from: now),
         "lanes": [
-            ["id": "panda", "host": "panda", "label": "General", "state": "blocked",
+            ["id": "blue", "name": "Lane Blue", "color": "#0000ff", "host": "panda", "label": "General", "state": "blocked",
              "items": [["text": "Blocked job", "status": "pending", "startedAt": start]],
              "queued": [["title": "Next job"]]],
-            ["id": "panda-light", "host": "panda", "label": "Light", "state": "waiting", "items": []],
-            ["id": "chicken", "host": "chicken", "label": "General", "state": "running",
+            ["id": "teal", "name": "Lane Teal", "color": "#008080", "host": "panda", "label": "Light", "state": "waiting", "items": []],
+            ["id": "coral", "name": "Lane Coral", "color": "#ff7f50", "host": "chicken", "label": "General", "state": "running",
              "items": [["text": "Running job", "status": "in_progress", "startedAt": start]]],
-            ["id": "chicken-light", "host": "chicken", "label": "Light", "state": "idle", "items": []],
-            ["id": "chicken", "host": "chicken", "label": "Duplicate", "items": []],
+            ["id": "snow", "name": "Lane Snow", "color": "#fffafa", "host": "chicken", "label": "Light", "state": "idle", "items": []],
+            ["id": "coral", "host": "chicken", "label": "Duplicate", "items": []],
         ]]
     try! JSONSerialization.data(withJSONObject: doc).write(to: URL(fileURLWithPath: path))
     let rows = loadMission(path)!.items
-    precondition(rows.filter { $0.isLaneHeader }.map { $0.laneID! } == ["panda", "panda-light", "chicken", "chicken-light"])
+    precondition(rows.filter { $0.isLaneHeader }.map { $0.laneID! } == ["blue", "teal", "coral", "snow"])
+    precondition(rows[0].text == "Lane Blue" && rows[0].laneColor == 0x0000ff)
+    precondition(rows[0].detail == "Panda · General  /  blocked")
+    precondition(rows.filter { $0.isLaneHeader }.map { $0.laneColor! } == [0x0000ff, 0x008080, 0xff7f50, 0xfffafa])
+    precondition(missionLaneColor("#invalid") == nil && missionLaneColor("red") == nil)
     precondition(rows[1].text == "Blocked job" && rows[2].text == "Next: Next job")
-    precondition(rows.firstIndex { $0.text == "Running job" }! > rows.firstIndex { $0.laneID == "panda-light" }!)
+    precondition(rows.firstIndex { $0.text == "Running job" }! > rows.firstIndex { $0.laneID == "teal" }!)
     precondition(missionTimeLabel(rows[1], now: now) == "2m 05s elapsed")
     precondition(rows.filter { $0.text == "No task running" }.count == 2)
     precondition(rows.filter { $0.isLaneHeader }.allSatisfy { missionTimeLabel($0) == nil })

@@ -122,6 +122,14 @@ time but have an amber warning instead of green activity. Older flat cards keep
 their existing status sorting. Run the built binary with `--test-mission-lanes`
 or `--test-mission-timing` to check these contracts without opening a window.
 
+Named lanes also carry `name`, `color` (CSS `#rrggbb`), and `tag`, e.g.
+`{"id":"blue","name":"Lane Blue","color":"#0000ff","tag":"lane:blue"}`.
+The divider and name use that color with contrasting edges. Host, workload
+class, and state sit below the permanent name. Iris owns one flat registry;
+MacPal never assigns colors by machine or array order. Initial identities are
+Blue (Panda general), Teal (Panda light), Coral (Chicken general), and Snow
+(Chicken light). Retired IDs remain reserved and new slots need explicit IDs.
+
 The avatar (float, poses, name wiggle, hover, drag-to-corner, collapse, Menu
 Band sing) lives in `PalCore.swift` and is shared. Everything that stacks
 *beneath the name* is a `PalPlugin`.
