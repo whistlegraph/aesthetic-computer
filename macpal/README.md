@@ -104,10 +104,23 @@ completion percentage. Prompt rocks are one input to whole-host state, not the
 identity of the heartbeat itself. Panda/Iris is the first use; the resolver and
 aggregation contract are machine-generic.
 
-Fleet mission rows have no panel background. Their lettering follows the system
+Running mission todos have a green stripe and a subtle flowing green tint behind
+steady lettering. Reduce Motion keeps the stripe and tint still. Other rows have
+no panel background. An item's ISO `startedAt` drives a seconds-resolution elapsed
+timer; `finishedAt` freezes it when supplied. Heartbeats (`at` / `updatedAt`) never
+reset that timer. Rows without a start retain their activity age. The lettering follows the system
 appearance with a small contrasting halo for desktop readability. The provider
 mark sits to the avatar’s left, opposite the resident agent’s contact disc;
 `mission.json` replaces the retired nine-point `tasks` row.
+
+Iris fleet cards can supply `lanes` instead of a flat checklist. Each section has
+`id`, `host`, `label`, `state`, `items`, and `queued` (`id`/`title` pairs). MacPal
+keeps their order, draws a horizontal divider above each lane, and shows its
+current task and up to two queued tasks. Empty and waiting lanes remain visible.
+Both Panda and Chicken receive all four sections. Blocked tasks retain elapsed
+time but have an amber warning instead of green activity. Older flat cards keep
+their existing status sorting. Run the built binary with `--test-mission-lanes`
+or `--test-mission-timing` to check these contracts without opening a window.
 
 The avatar (float, poses, name wiggle, hover, drag-to-corner, collapse, Menu
 Band sing) lives in `PalCore.swift` and is shared. Everything that stacks

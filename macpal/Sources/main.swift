@@ -217,6 +217,57 @@ if argv.contains("--test-agent-chip") {
 
 // Headless contract smoke test used by CI/local verification. It exercises the
 // Swift renderer model without opening a Macpal window.
+if argv.contains("--test-mission-timing") {
+    let start = Date(timeIntervalSince1970: 1_000)
+    var item = MissionItem(text: "Test suite", status: "in_progress", at: start, startedAt: start)
+    precondition(missionTimeLabel(item, now: start.addingTimeInterval(9)) == "9s elapsed")
+    precondition(missionTimeLabel(item, now: start.addingTimeInterval(125)) == "2m 05s elapsed")
+    precondition(missionTimeLabel(item, now: start.addingTimeInterval(3725)) == "1h 02m 05s elapsed")
+    item.at = start.addingTimeInterval(120) // Heartbeats must not reset the clock.
+    precondition(missionTimeLabel(item, now: start.addingTimeInterval(125)) == "2m 05s elapsed")
+    precondition(missionTimeLabel(item, now: start.addingTimeInterval(-10)) == "0s elapsed")
+    item = MissionItem(text: "Test suite", status: "done", at: item.at,
+                       startedAt: start, finishedAt: start.addingTimeInterval(125))
+    precondition(missionTimeLabel(item, now: start.addingTimeInterval(900)) == "2m 05s elapsed")
+    item.startedAt = nil
+    precondition(missionTimeLabel(item, now: start.addingTimeInterval(600)) == "8m ago")
+    print("Mission timing contract OK")
+    exit(0)
+}
+
+if argv.contains("--test-mission-lanes") {
+    let path = NSTemporaryDirectory() + "macpal-lanes-" + UUID().uuidString + ".json"
+    let now = Date()
+    let iso = ISO8601DateFormatter()
+    let start = iso.string(from: now.addingTimeInterval(-125))
+    var doc: [String: Any] = ["mission": "Iris lanes", "updatedAt": iso.string(from: now),
+        "lanes": [
+            ["id": "panda", "host": "panda", "label": "General", "state": "blocked",
+             "items": [["text": "Blocked job", "status": "pending", "startedAt": start]],
+             "queued": [["title": "Next job"]]],
+            ["id": "panda-light", "host": "panda", "label": "Light", "state": "waiting", "items": []],
+            ["id": "chicken", "host": "chicken", "label": "General", "state": "running",
+             "items": [["text": "Running job", "status": "in_progress", "startedAt": start]]],
+            ["id": "chicken-light", "host": "chicken", "label": "Light", "state": "idle", "items": []],
+            ["id": "chicken", "host": "chicken", "label": "Duplicate", "items": []],
+        ]]
+    try! JSONSerialization.data(withJSONObject: doc).write(to: URL(fileURLWithPath: path))
+    let rows = loadMission(path)!.items
+    precondition(rows.filter { $0.isLaneHeader }.map { $0.laneID! } == ["panda", "panda-light", "chicken", "chicken-light"])
+    precondition(rows[1].text == "Blocked job" && rows[2].text == "Next: Next job")
+    precondition(rows.firstIndex { $0.text == "Running job" }! > rows.firstIndex { $0.laneID == "panda-light" }!)
+    precondition(missionTimeLabel(rows[1], now: now) == "2m 05s elapsed")
+    precondition(rows.filter { $0.text == "No task running" }.count == 2)
+    precondition(rows.filter { $0.isLaneHeader }.allSatisfy { missionTimeLabel($0) == nil })
+    doc.removeValue(forKey: "lanes")
+    doc["items"] = [["text": "Done", "status": "done"], ["text": "Pending", "status": "pending"], ["text": "Running", "status": "in_progress"]]
+    try! JSONSerialization.data(withJSONObject: doc).write(to: URL(fileURLWithPath: path))
+    precondition(loadMission(path)!.items.map { $0.text } == ["Running", "Pending", "Done"])
+    try! FileManager.default.removeItem(atPath: path)
+    print("Mission lane contract OK")
+    exit(0)
+}
+
 if argv.contains("--test-loopboy-heartbeat") {
     let now = Date().timeIntervalSince1970
     let active = LoopboyHeartbeatContract.aggregate(known: true, online: true, now: now,
@@ -273,6 +324,27 @@ LaunchPing.send()
 let pal = PalController(config: config)
 pal.plugins = plugins
 pal.build()
+
+// Capture the actual badge view against --home fixtures in either appearance.
+if let path = argValue("--snapshot-badge") {
+    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        // Fixture rendering must not depend on an asynchronous git refresh.
+        if let fuser = pal.plugins.compactMap({ $0 as? FuserPlugin }).first {
+            fuser.mission = loadMission(fuserHome + "/mission.json")
+            fuser.rebuildMissionFields()
+        }
+        pal.collapsed = false
+        pal.layout()
+        pal.content.layoutSubtreeIfNeeded()
+        guard let bitmap = pal.content.bitmapImageRepForCachingDisplay(in: pal.content.bounds) else { exit(1) }
+        pal.content.cacheDisplay(in: pal.content.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else { exit(1) }
+        do { try png.write(to: URL(fileURLWithPath: path)) }
+        catch { print("Badge snapshot failed: \(error)"); exit(1) }
+        print("Badge snapshot → \(path)")
+        exit(0)
+    }
+}
 
 // Display focus flash: fuser machines pulse a soft accent bloom around the
 // screen edge when the Deskflow cursor crosses onto them (and on same-machine

@@ -45,6 +45,64 @@ final class GhostView: NSView {
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
 
+// Running work has a steady green edge and a flowing tint behind its text.
+// Animate only the background; the lettering stays fully opaque.
+final class MissionActivityView: NSView {
+    private let stripe = CALayer()
+    private let flow = CAGradientLayer()
+    private var flowWidth: CGFloat = 0
+
+    init(dark: Bool) {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 5
+        layer?.masksToBounds = true
+        let green = dark ? hexColor(0x7EE787) : hexColor(0x237A37)
+        layer?.backgroundColor = green.withAlphaComponent(dark ? 0.12 : 0.09).cgColor
+        stripe.backgroundColor = green.cgColor
+        flow.colors = [green.withAlphaComponent(0).cgColor,
+                       green.withAlphaComponent(0.18).cgColor,
+                       green.withAlphaComponent(0).cgColor]
+        flow.startPoint = CGPoint(x: 0, y: 0.5)
+        flow.endPoint = CGPoint(x: 1, y: 0.5)
+        layer?.addSublayer(flow)
+        layer?.addSublayer(stripe)
+    }
+    required init?(coder: NSCoder) { fatalError("no nib") }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stripe.frame = CGRect(x: 0, y: 0, width: 3, height: bounds.height)
+        flow.frame = bounds
+        CATransaction.commit()
+        let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        flow.isHidden = reducedMotion
+        if reducedMotion { flow.removeAnimation(forKey: "missionFlow"); flowWidth = 0 }
+        else if bounds.width > 0 && flowWidth != bounds.width {
+            flowWidth = bounds.width
+            let travel = CABasicAnimation(keyPath: "transform.translation.x")
+            travel.fromValue = -bounds.width
+            travel.toValue = bounds.width
+            travel.duration = 3
+            travel.repeatCount = .infinity
+            flow.add(travel, forKey: "missionFlow")
+        }
+    }
+}
+
+final class MissionLaneRule: NSView {
+    override func draw(_ dirtyRect: NSRect) {
+        // A light edge and dark core stay visible over either desktop theme.
+        NSColor.white.withAlphaComponent(0.7).setFill()
+        bounds.fill()
+        NSColor.black.withAlphaComponent(0.6).setFill()
+        bounds.insetBy(dx: 0, dy: 0.5).fill()
+    }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
 // AppKit's label cell pins attachments to the top of a taller field. Draw the
 // measured icon + text line in the center of its padded badge instead.
 final class MissionHeadingField: NSTextField {
@@ -78,6 +136,23 @@ struct MissionItem: Equatable {
     // When this item last moved (0.2.11): its own `at`, else the mission's
     // updatedAt. Drives the "8m ago" age and the done-newest-first order.
     var at: Date? = nil
+    // A run's stable start, separate from its continually refreshed heartbeat.
+    var startedAt: Date? = nil
+    var finishedAt: Date? = nil
+    var laneID: String? = nil
+    var isLaneHeader: Bool = false
+}
+
+func missionTimeLabel(_ item: MissionItem, now: Date = Date()) -> String? {
+    if let start = item.startedAt, item.status == "in_progress" || item.finishedAt != nil || item.laneID != nil {
+        let seconds = Int(max(0, (item.finishedAt ?? now).timeIntervalSince(start)))
+        if seconds >= 3600 {
+            return String(format: "%dh %02dm %02ds elapsed", seconds / 3600, seconds / 60 % 60, seconds % 60)
+        }
+        if seconds >= 60 { return String(format: "%dm %02ds elapsed", seconds / 60, seconds % 60) }
+        return "\(seconds)s elapsed"
+    }
+    return item.at.map { relativeAge($0, now: now) }
 }
 
 // Sort rank: active rows first, then pending, then done.
@@ -120,10 +195,12 @@ func loadMission(_ path: String) -> Mission? {
     isoFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     func parseDate(_ s: String) -> Date? { iso.date(from: s) ?? isoFrac.date(from: s) }
     guard let d = parseDate(ts), Date().timeIntervalSince(d) < 24 * 3600 else { return nil }
-    let parsed = ((obj["items"] as? [[String: Any]]) ?? []).compactMap { it -> MissionItem? in
+    func parseItem(_ it: [String: Any], fallbackDate: Date?) -> MissionItem? {
         guard let t = it["text"] as? String, !t.isEmpty else { return nil }
         var item = MissionItem(text: t, status: (it["status"] as? String) ?? "pending")
-        item.at = ((it["at"] as? String).flatMap(parseDate)) ?? d
+        item.at = ((it["at"] as? String).flatMap(parseDate)) ?? fallbackDate
+        item.startedAt = (it["startedAt"] as? String).flatMap(parseDate)
+        item.finishedAt = (it["finishedAt"] as? String).flatMap(parseDate)
         if let d = it["detail"] as? String, !d.isEmpty { item.detail = d }
         if let p = it["progress"] as? Double {          // accepts 0…1 or 0…100
             item.progress = min(1, max(0, p > 1 ? p / 100 : p))
@@ -133,6 +210,43 @@ func loadMission(_ path: String) -> Mission? {
         if let f = it["flag"] as? String, !f.isEmpty { item.flag = f.lowercased() }
         return item
     }
+    // Structured lanes retain their boundaries and feeder order. Global status
+    // sorting is only for older, flat mission documents.
+    if let lanes = obj["lanes"] as? [[String: Any]], !lanes.isEmpty {
+        var rows: [MissionItem] = []
+        var seen = Set<String>()
+        for lane in lanes {
+            guard let id = lane["id"] as? String, !id.isEmpty,
+                  let host = lane["host"] as? String, !host.isEmpty,
+                  seen.insert(id).inserted else { continue }
+            let label = (lane["label"] as? String) ?? id
+            let state = ((lane["state"] as? String) ?? "idle").replacingOccurrences(of: "_", with: " ")
+            rows.append(MissionItem(text: "\(host.capitalized) · \(label)  /  \(state)", status: "pending",
+                                    laneID: id, isLaneHeader: true))
+            let tasks = (lane["items"] as? [[String: Any]]) ?? []
+            for value in tasks {
+                if var item = parseItem(value, fallbackDate: nil) {
+                    item.laneID = id
+                    rows.append(item)
+                }
+            }
+            if tasks.isEmpty { rows.append(MissionItem(text: "No task running", status: "pending", laneID: id)) }
+            let queued = (lane["queued"] as? [[String: Any]]) ?? []
+            for next in queued.prefix(2) {
+                if let title = next["title"] as? String, !title.isEmpty {
+                    rows.append(MissionItem(text: "Next: " + title, status: "pending", laneID: id))
+                }
+            }
+            if queued.count > 2 {
+                rows.append(MissionItem(text: "+\(queued.count - 2) queued", status: "pending", laneID: id))
+            }
+        }
+        if !rows.isEmpty {
+            return Mission(title: title, agent: (obj["agent"] as? String) ?? "",
+                           emoji: (obj["emoji"] as? String) ?? "", items: rows)
+        }
+    }
+    let parsed = ((obj["items"] as? [[String: Any]]) ?? []).compactMap { parseItem($0, fallbackDate: d) }
     // Active on top, pending next, done underneath with the most recently
     // completed first (directly under the active rows). Index breaks ties so
     // the feeder's order survives within a group.
@@ -466,6 +580,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     let providerChip = GhostImageView()
     var lastMissionDark: Bool?
     var missionItemFields: [NSTextField] = []
+    var missionActivityViews: [MissionActivityView?] = []
+    var missionTimeRanges: [NSRange?] = []
+    var missionLaneRules: [NSView?] = []
     var overtimeOn = false
     var overtimeLines: [String] = []
 
@@ -483,7 +600,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     let badgeW: CGFloat = 236
     let pad: CGFloat = 7
     var paneW: CGFloat { badgeW - pad * 2 }
-    var preferredWidth: CGFloat { badgeW }
+    var preferredWidth: CGFloat {
+        mission?.items.contains(where: { $0.isLaneHeader }) == true ? 320 : badgeW
+    }
 
     private var tick4 = 0   // git refresh every 4th tick (~4s)
 
@@ -617,7 +736,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     // ── mission block ─────────────────────────────────────────────────────
     // Bake the attributed strings for the current mission — one field per
-    // item so the active row can breathe on its own. Layout measures and
+    // item so the active row can flow on its own. Layout measures and
     // places everything, so a width change just re-wraps.
 
     // Transparent lettering needs a small contrasting halo over other windows.
@@ -706,7 +825,12 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     func rebuildMissionFields() {
         missionItemFields.forEach { $0.removeFromSuperview() }
+        missionActivityViews.forEach { $0?.removeFromSuperview() }
+        missionLaneRules.forEach { $0?.removeFromSuperview() }
         missionItemFields = []
+        missionActivityViews = []
+        missionTimeRanges = []
+        missionLaneRules = []
         guard let m = mission, let c = c else {
             missionTitleField.isHidden = true
             providerChip.isHidden = true
@@ -764,6 +888,20 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             f.shadow = textShadow
             let ip = NSMutableParagraphStyle()
             ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
+            if item.isLaneHeader {
+                f.attributedStringValue = NSAttributedString(string: item.text, attributes: [
+                    .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+                    .foregroundColor: primary, .paragraphStyle: ip])
+                let rule = MissionLaneRule()
+                c.content.addSubview(rule)
+                c.content.addSubview(f)
+                missionLaneRules.append(rule)
+                missionItemFields.append(f)
+                missionTimeRanges.append(nil)
+                missionActivityViews.append(nil)
+                continue
+            }
+            missionLaneRules.append(nil)
             ip.headIndent = 19   // wrapped lines tuck under the text, past the square
             // Square checkboxes on the left: filled = done, half = active,
             // empty = pending.
@@ -773,7 +911,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                 mark = "■"; markColor = green
                 textColor = secondary
             case "in_progress":
-                mark = "▣"; markColor = amber
+                mark = "▣"; markColor = green
                 textColor = primary
             default:
                 mark = "□"; markColor = secondary
@@ -793,14 +931,17 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             a.append(NSAttributedString(string: item.text, attributes: [
                 .font: monoFont(13), .foregroundColor: textColor,
                 .paragraphStyle: ip]))
-            // Age: when this row last moved, dim and small, trailing the text
-            // (wraps under the indent with it rather than truncating anything).
-            if let at = item.at {
-                a.append(NSAttributedString(string: " · " + relativeAge(at, now: now), attributes: [
+            // Elapsed run time when provided; otherwise retain the activity age.
+            var timeRange: NSRange?
+            if let timing = missionTimeLabel(item, now: now) {
+                let label = " · " + timing
+                timeRange = NSRange(location: a.length, length: (label as NSString).length)
+                a.append(NSAttributedString(string: label, attributes: [
                     .font: monoFont(11),
                     .foregroundColor: secondary,
                     .paragraphStyle: ip]))
             }
+            missionTimeRanges.append(timeRange)
             // Sub-line: the inferred subtask, dimmer and smaller, tucked under the text.
             if let d = item.detail {
                 a.append(NSAttributedString(string: "\n↳ " + d, attributes: [
@@ -825,16 +966,26 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                     .paragraphStyle: ip]))
             }
             f.attributedStringValue = a
-            if item.status == "in_progress" {
-                // Subtle breathing on the active row — opacity only, so it's
-                // a single composited property, dirt cheap.
-                let pulse = CAKeyframeAnimation(keyPath: "opacity")
-                pulse.values = [1, 0.55, 1]; pulse.keyTimes = [0, 0.5, 1]
-                pulse.duration = 1.6; pulse.repeatCount = .infinity
-                f.layer?.add(pulse, forKey: "missionPulse")
+            let activity = item.status == "in_progress" ? MissionActivityView(dark: dark) : nil
+            if let activity = activity {
+                c.content.addSubview(activity)
             }
+            missionActivityViews.append(activity)
             c.content.addSubview(f)
             missionItemFields.append(f)
+        }
+    }
+
+    // Keep the row views and their animations alive while just the clock ticks.
+    private func updateMissionTimes(now: Date) {
+        guard let items = mission?.items, items.count == missionItemFields.count else { return }
+        for (i, item) in items.enumerated() {
+            guard let range = missionTimeRanges[i], let timing = missionTimeLabel(item, now: now) else { continue }
+            let text = NSMutableAttributedString(attributedString: missionItemFields[i].attributedStringValue)
+            let label = " · " + timing
+            text.replaceCharacters(in: range, with: label)
+            missionItemFields[i].attributedStringValue = text
+            missionTimeRanges[i] = NSRange(location: range.location, length: (label as NSString).length)
         }
     }
 
@@ -852,7 +1003,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         -> (title: CGFloat, items: [CGFloat], total: CGFloat) {
         guard mission != nil else { return (0, [], 0) }
         let t = max(44, fieldHeight(missionTitleField, width: width - 12) + 10)
-        let its = missionItemFields.map { fieldHeight($0, width: width) }
+        let its = missionItemFields.enumerated().map { i, field in
+            fieldHeight(field, width: width - 8) + (missionLaneRules[i] == nil ? 0 : 12)
+        }
         let total = t + its.reduce(0, +) + CGFloat(max(0, its.count - 1)) * 8
             + (its.isEmpty ? 0 : 12)
         return (t, its, total)
@@ -939,13 +1092,19 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             c.content.addSubview(providerChip, positioned: .above, relativeTo: c.glyphView)
         }
         missionItemFields.forEach { $0.isHidden = !missionVisible }
+        missionActivityViews.forEach { $0?.isHidden = !missionVisible }
+        missionLaneRules.forEach { $0?.isHidden = !missionVisible }
         guard missionVisible else { return }
         var my = missionY + mm.total - mm.title
         missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
         my -= 12
         for (i, f) in missionItemFields.enumerated() {
             my -= mm.items[i]
-            f.frame = NSRect(x: 7, y: my, width: missionW, height: mm.items[i])
+            missionActivityViews[i]?.frame = NSRect(x: 7, y: my - 3, width: missionW, height: mm.items[i] + 6)
+            missionActivityViews[i]?.needsLayout = true
+            missionLaneRules[i]?.frame = NSRect(x: 7, y: my + mm.items[i] - 2, width: missionW, height: 2)
+            f.frame = NSRect(x: 15, y: my, width: missionW - 8,
+                             height: mm.items[i] - (missionLaneRules[i] == nil ? 0 : 12))
             my -= 8
         }
     }
@@ -958,6 +1117,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             missionTitleField.isHidden = collapsed || mission == nil
             providerChip.isHidden = collapsed || mission == nil || providerChip.image == nil
             missionItemFields.forEach { $0.isHidden = collapsed || mission == nil }
+            missionActivityViews.forEach { $0?.isHidden = collapsed || mission == nil }
+            missionLaneRules.forEach { $0?.isHidden = collapsed || mission == nil }
             return
         }
         let hide = collapsed
@@ -965,6 +1126,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         missionTitleField.isHidden = hide || mission == nil
         providerChip.isHidden = hide || mission == nil || providerChip.image == nil
         missionItemFields.forEach { $0.isHidden = hide || mission == nil }
+        missionActivityViews.forEach { $0?.isHidden = hide || mission == nil }
+        missionLaneRules.forEach { $0?.isHidden = hide || mission == nil }
         overtimeField.isHidden = hide || !overtimeOn || overtimeLines.isEmpty
         overtimeChip.isHidden = hide || !overtimeOn
         paneContainer?.isHidden = hide || curPaneH <= 0
@@ -1124,16 +1287,19 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         }
         statusField.setText(line)
 
-        // Re-bake on a data change, or when any row's "Nm ago" label ticked
-        // over — the ages ride the existing poll, at minute granularity.
+        // Data changes rebuild rows; clock ticks only replace their time labels.
         let now = Date()
-        let ageKey = (missionNow?.items ?? []).map { $0.at.map { relativeAge($0, now: now) } ?? "" }.joined(separator: "|")
+        let ageKey = (missionNow?.items ?? []).map { missionTimeLabel($0, now: now) ?? "" }.joined(separator: "|")
         let missionDark = paneIsDark()
-        if missionNow != mission || ageKey != lastAgeKey || missionDark != lastMissionDark {
+        if missionNow != mission || missionDark != lastMissionDark {
             mission = missionNow
             lastAgeKey = ageKey
             lastMissionDark = missionDark
             rebuildMissionFields()
+            if !c.collapsed { c.layout() }
+        } else if ageKey != lastAgeKey {
+            lastAgeKey = ageKey
+            updateMissionTimes(now: now)
             if !c.collapsed { c.layout() }
         }
 
