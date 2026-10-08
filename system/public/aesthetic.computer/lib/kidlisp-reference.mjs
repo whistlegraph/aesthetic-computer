@@ -70,6 +70,31 @@
    - Example: `(write "hello" x y)` or `(write 'hello' x y)`
    - Useful for avoiding escaping when mixing quote types
 
+   ### Rich Text
+   - `(flow block...)` - One scrollable page using AC's default typeface and chat's text.box wrapping. Drag, wheel, or arrow keys scroll.
+   - `(heading text...)` - A heading block within a flow.
+   - `(paragraph text...)` - A paragraph; concatenate strings and named links with explicit spaces.
+   - `(link "label" "https://destination")` - An inline button in a paragraph. Opens a new tab and preserves the reader; browser popup and iframe policies still apply.
+   - Tab selects link fragments; Enter opens the selected link. A drag never activates a link.
+   - Wrap at the current width; whole-pixel glyph sizes remain legible in short tiled windows. No positioning expressions are required.
+     ```lisp
+     (wipe black)
+     (flow
+       (heading "today")
+       (paragraph "I worked on " (link "Aesel" "https://aesel.app") " today."))
+     ```
+
+   ### Episode Data
+   - `(fetch "episode.json")` - A cached JSON handle. Relative URLs resolve beside the page; loading and errors remain observable on the handle. HTTP(S), 2 MB maximum, no credentials.
+   - `(get episode "title")` - Read a loaded own field; returns null while loading or when absent.
+   - `(listen episode)` - A flow document with native Play/Pause, seek, and Follow controls. No autoplay. Highlighting uses the streaming audio clock; manual scrolling releases Follow.
+     ```lisp
+     (wipe black)
+     (def episode (fetch "episode.json"))
+     (flow (listen episode))
+     ```
+   - Episode JSON: title, canonical body, audio.url, optional paragraph blocks, and words with start/end character offsets and fromMs/toMs measured against the full audio. Paragraph blocks must reproduce body exactly. Missing timings produce no highlight.
+
    ### Color System
    Colors can be specified as:
    - Named colors: "red", "blue", "lime", "orange", "purple", etc.

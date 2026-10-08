@@ -1,0 +1,4 @@
+{
+  "source": "(wipe 12 18 30) (ink 250 190 40) (box -4 5 33 20) (ink 40 180 250) (circle 60 30 18) (ink 255 80 120 128) (box 30 12 32 33) (ink white) (line -10 60 100 2) (point 88 56)",
+  "width": 96, "height": 64, "frames": 2, "seed": 7
+}

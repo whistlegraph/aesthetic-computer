@@ -1,0 +1,4 @@
+{
+  "source": "(if (= frame 0) (wipe 16 24 40)) (ink 255 90 30 120) (circle (+ 5 (* frame 7)) 30 14) (ink 30 150 255 100) (box 20 (* frame 3) 55 7)",
+  "width": 96, "height": 64, "frames": 10, "seed": 19
+}

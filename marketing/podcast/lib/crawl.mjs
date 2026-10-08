@@ -1,10 +1,8 @@
 // crawl.mjs — the daily token's image: the episode as a Star Wars crawl.
 //
-// Drawn here in node rather than on the oven, which repaints a page this
-// heavy only every few seconds while it captures. The glyphs are AC's own
-// font_1 (6×10 vector drawings), rasterized once and scaled with area
-// coverage, so a line sharpens as it nears and fades as it recedes. The
-// frames loop seamlessly by construction: frame N would equal frame 0.
+// AC's font_1 glyphs stay at whole-pixel sizes and scroll at a constant
+// scale. Fractional shrinking loses strokes on the default low-res canvas.
+// Frames loop seamlessly by construction: frame N would equal frame 0.
 //
 // The same geometry, driven by (clock), is what crawlPiece() writes as the
 // token's live KidLisp $code.
@@ -77,7 +75,7 @@ const PALETTES = [
 ];
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
-export function crawlLayout({ title, body, date, size = 512, cols = 30, kmin = 0.42 }) {
+export function crawlLayout({ title, body, date, size = 512, cols = 20, kmin = 0.42 }) {
   const lines = [];
   for (const t of wrap(fontText(title).toUpperCase(), cols)) lines.push({ text: t, title: true });
   lines.push(null);
@@ -150,11 +148,14 @@ function drawLine(buf, g, text, color, yBase, s) {
 export function crawlFrame(g, t) {
   const buf = new Float32Array(g.W * g.H * 3);
   for (const { x, y, c } of g.stars) buf.set(c, (y * g.W + x) * 3);
-  const zNow = t * g.TRAVEL;
+  const cols = Math.max(...g.lines.filter(Boolean).map(l => l.text.length));
+  const s = Math.max(1, Math.floor(.92 * g.W / (cols * GW)));
+  const lineHeight = 14 * s;
+  const offset = t * (g.lines.length * lineHeight + g.H);
   g.lines.forEach((l, i) => {
     if (!l) return;
-    const p = place(g, i, zNow);
-    if (p) drawLine(buf, g, l.text, l.color, p.y, p.s);
+    const y = 4 * s + i * lineHeight - offset;
+    if (y + GH * s > 0 && y < g.H) drawLine(buf, g, l.text, l.title ? l.color : [235, 245, 255], y, s);
   });
   return Uint8Array.from(buf, (v) => Math.round(v));
 }
@@ -195,22 +196,20 @@ export function crawlPiece(g, { periodMs = readablePeriod(g) } = {}) {
   const kl = (s) => s.replace(/\\/g, "").replace(/"/g, '\\"');
   const f = (v) => +v.toFixed(4);
   const cols = Math.max(...g.lines.map((l) => (l ? l.text.length : 0)));
-  // The same plane as the GIF, in fractions of the screen: the horizon at
-  // HOR/H of the height, A/H of it from the near line to the vanishing depth.
-  const hor = f(g.HOR / g.H), a = f(g.A / g.H);
-  const s0 = `(min (/ (* .9 w) ${cols * GW}) (/ h ${f(g.H / g.S0)}))`;
-  const zNow = `(* (/ (mod (clock) ${periodMs}) ${periodMs}) ${g.TRAVEL.toFixed(1)})`;
-  const src = ["(wipe black)"];
+  // AC's default canvas is deliberately low resolution. Fractional font
+  // scales discard glyph pixels, especially in short, wide tiled windows.
+  // Keep whole glyph pixels, size from width, and scroll without recession.
+  const fit = `(/ (* .92 w) ${cols * GW})`;
+  const s = `(max 1 (- ${fit} (mod ${fit} 1)))`;
+  const offset = `(* (/ (mod (- (clock) crawl_start) ${periodMs}) ${periodMs}) (+ (* ${g.lines.length * 14} ${s}) h))`;
+  const src = ["(wipe black)", "(def crawl_start (clock))"];
   for (const { x, y, c } of g.stars) src.push(`(ink ${c.join(" ")})(plot (* w ${f(x / g.W)}) (* h ${f(y / g.H)}))`);
   g.lines.forEach((l, i) => {
     if (!l) return;
     const text = kl(l.text);
-    const z = `(- ${zNow} ${(i * g.L).toFixed(2)})`;
-    const k = `(/ ${g.D} (+ ${g.D} (max ${z} 0)))`;
-    const y = `(- (- h (* h ${a} (- 1 ${k}))) (* (max (- ${z} ${g.GONE.toFixed(1)}) 0) h))`;
-    const s = `(* ${s0} ${k} ${k})`;
-    const x = `(- (/ w 2) (* ${text.length * GW / 2} ${s}))`;
-    src.push(`(ink ${l.color.join(" ")})`, `(write "${text}" ${x} ${y} nil ${s})`);
+    const y = `(- (* ${4 + i * 14} ${s}) ${offset})`;
+    const x = `(/ (- w (* ${cols * GW} ${s})) 2)`;
+    src.push(`(ink ${(l.title ? l.color : [235, 245, 255]).join(" ")})`, `(write "${text}" ${x} ${y} nil ${s})`);
   });
   return src.join("\n");
 }

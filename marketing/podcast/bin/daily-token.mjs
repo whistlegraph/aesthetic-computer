@@ -73,7 +73,7 @@ const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
-const { artifactMode, crawlBundle, checkBundle, crawlPackage, checkPinnedArtifact, tokenMetadata, TEIA_FORMAT } = await import(resolve(ROOT, "lib", "artifact.mjs"));
+const { artifactMode, crawlBundle, checkBundle, dailyPackage, contentFiles, checkPublishedContent, checkPinnedArtifact, tokenMetadata, TEIA_FORMAT } = await import(resolve(ROOT, "lib", "artifact.mjs"));
 let ARTIFACT;
 try { ARTIFACT = artifactMode(); } catch (err) { console.error(`✗ ${err.message}`); process.exit(1); }
 
@@ -137,9 +137,10 @@ async function store(source) {
 
 if (!receipt.code) {
   const layout = crawlLayout({ title, body, date });
-  // The live piece is paced for reading and keeps more of its size as a
-  // line recedes (a shallower plane); the GIF stays a 30 s preview.
-  const source = crawlPiece(crawlLayout({ title, body, date, kmin: .62 }));
+  // Whole-pixel text remains readable in AC's default tiled view.
+  const source = process.env.DAILY_RICH_TEXT === "1"
+    ? (await import(resolve(ROOT, "lib", "daily-richtext.mjs"))).richDailyPiece({ title, body })
+    : crawlPiece(layout);
   if (source.length > 50000) { console.error(`✗ the crawl piece is ${source.length} chars (store-kidlisp takes 50000)`); process.exit(1); }
   const code = await store(source);
   console.log(`  page stored as $${code} — rendering the crawl…`);
@@ -162,6 +163,8 @@ if (!receipt.code) {
 // that fails is rebuilt once from this checkout's runtime, and if it still
 // fails the night refuses to mint HTML rather than mint a broken artifact.
 const htmlPath = resolve(dailyDir, `${slug}.html`);
+const episodeContent = { title, body, date, code: receipt.code, source: receipt.source };
+contentFiles(episodeContent); // Also check GIF-mode source against the script.
 let packaged;
 if (ARTIFACT === "zip") {
   const pack = async () => {
@@ -185,13 +188,13 @@ if (ARTIFACT === "zip") {
     process.exit(1);
   }
   console.log("  ✓ bundle checks out: PACK mode, offline, source intact, runtime current");
-  packaged = crawlPackage(readFileSync(htmlPath, "utf8"), {
+  packaged = dailyPackage(readFileSync(htmlPath, "utf8"), {
     gif: readFileSync(resolve(dailyDir, `${slug}.gif`)),
     thumbnail: readFileSync(resolve(dailyDir, `${slug}-thumb.png`)),
     frames: receipt.frames,
-  });
+  }, episodeContent);
   writeFileSync(resolve(dailyDir, `${slug}.zip`), packaged.zip);
-  console.log(`  ✓ HEN/Teia package → out/daily/${slug}.zip (index.html + covers)`);
+  console.log(`  ✓ HEN/Teia package → out/daily/${slug}.zip (page, covers, transcript, JSON, source)`);
 }
 
 const metadataFor = (uris) => tokenMetadata({ title, body, date, episodeUrl, code: receipt.code, creator: SIGNER, artifact: ARTIFACT, uris, ac: AC });
@@ -236,6 +239,16 @@ if (!receipt.metadataUri) {
 }
 
 // ── 3. mint ──────────────────────────────────────────────────────────────
+if (!receipt.mintOp && receipt.tokenId === undefined) {
+  receipt.contentQA = await checkPublishedContent({
+    metadataUri: receipt.metadataUri,
+    metadata: metadataFor({ directory: receipt.artifactUri, gif: receipt.displayUri, thumb: receipt.thumbnailUri }),
+    files: packaged?.files || [],
+    gateway: process.env.IPFS_GATEWAY || "https://ipfs.aesthetic.computer",
+  });
+  save();
+  console.log("  ✓ pinned content read back: episode text matches; SHA-256 evidence saved");
+}
 // Taquito lives in tezos/'s node_modules (npm install --prefix tezos).
 const requireTezos = createRequire(resolve(REPO, "tezos", "package.json"));
 const { TezosToolkit } = requireTezos("@taquito/taquito");

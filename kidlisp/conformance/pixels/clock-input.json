@@ -1,0 +1,9 @@
+{
+  "source": "(wipe 8 14 22) (tap (def shade 240)) (lift (def shade 70)) (if (= frame 0) (def shade 70)) (ink shade 120 180) (box penx peny 12 12) (ink 255 200 40) (line 0 55 (% (/ (clock) 10) width) 55) (1s (ink white) (box 75 4 15 15))",
+  "width": 96, "height": 64, "frames": 9, "seed": 11, "epochMs": 1000, "stepMs": 250,
+  "events": [
+    { "frame": 1, "type": "touch", "x": 12, "y": 12 },
+    { "frame": 2, "type": "draw", "x": 35, "y": 28, "dx": 23, "dy": 16 },
+    { "frame": 3, "type": "lift", "x": 35, "y": 28 }
+  ]
+}

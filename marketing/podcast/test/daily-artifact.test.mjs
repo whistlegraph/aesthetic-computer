@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { artifactMode, tokenMetadata, crawlBundle, checkBundle, crawlPackage, checkPinnedArtifact, CRAWL_STYLE } from "../lib/artifact.mjs";
+import { artifactMode, tokenMetadata, crawlBundle, checkBundle, crawlPackage, dailyPackage, contentFiles, checkPublishedContent, checkPinnedArtifact, CRAWL_STYLE } from "../lib/artifact.mjs";
 import AdmZip from "adm-zip";
 import { crawlLayout, crawlPiece, readablePeriod } from "../lib/crawl.mjs";
 
@@ -81,13 +81,45 @@ test("gif metadata is exactly what the daily minted before the switch", () => {
 const layout = crawlLayout({ title: episode.title, body: episode.body, date: episode.date });
 const source = crawlPiece(layout);
 
+test("canonical prose remains readable without the canvas, including unsupported glyphs", () => {
+  const e = { ...episode, body: `${episode.body}\n\nCafé, <script> & 🌑 \\ path.` };
+  e.source = crawlPiece(crawlLayout(e));
+  const files = contentFiles(e);
+  assert.equal(files[0].content.toString(), `${e.title}\n\n${e.body}\n`);
+  assert.equal(JSON.parse(files[1].content).body, e.body);
+  assert.equal(files[2].content.toString(), e.source);
+  assert.throws(() => contentFiles({ ...e, source: e.source.replace('It said', 'We lost') }), /differs/);
+  assert.throws(() => contentFiles({ ...e, source: e.source.replace(/\(write .*\n?/, '') }), /differs/);
+});
+
+test("read-back rejects missing or modified published text and mismatched metadata", async () => {
+  const files = contentFiles({ ...episode, source });
+  const metadata = tokenMetadata(episode);
+  const responses = new Map([["QmMetadata", Buffer.from(JSON.stringify(metadata))], ...files.map(f => [`QmDirectory/${f.name}`, f.content])]);
+  const fetch = async url => {
+    const bytes = responses.get(url.split('/ipfs/')[1]);
+    return bytes ? new Response(bytes) : new Response('missing', { status: 404 });
+  };
+  const args = { metadataUri: "ipfs://QmMetadata", metadata, files, fetch };
+  const qa = await checkPublishedContent(args);
+  assert.equal(Object.keys(qa.files).length, 3);
+  assert.match(qa.files['transcript.txt'], /^[a-f0-9]{64}$/);
+  responses.set('QmDirectory/transcript.txt', Buffer.from('truncated'));
+  await assert.rejects(checkPublishedContent(args), /Pinned content differs: transcript.txt/);
+  responses.delete('QmDirectory/transcript.txt');
+  await assert.rejects(checkPublishedContent(args), /404/);
+  await assert.rejects(checkPublishedContent({ ...args, metadata: { ...metadata, description: 'different' } }), /metadata differs: description/);
+});
+
 test("the crawl is responsive, paced for reading, and keeps its punctuation", () => {
   // No pinned resolution: every size and place comes from the live w and h.
   assert.ok(source.startsWith("(wipe black)"));
   assert.doesNotMatch(source, /\(resolution /);
-  assert.match(source, /\(min \(\/ \(\* \.9 w\) \d+\) \(\/ h [\d.]+\)\)/, "text sized from w and h");
+  assert.match(source, /\(max 1 \(- \(\/ \(\* \.92 w\) \d+\) \(mod/, "whole glyph pixels sized from width");
+  assert.doesNotMatch(source, /\(floor /, "use arithmetic supported by the production interpreter");
+  assert.doesNotMatch(source, /\(\/ h /, "short windows must not shrink the font");
   assert.ok(readablePeriod(layout) >= 30000, "a pass is at least 30 s");
-  assert.ok(source.includes(`(write "A DOOR; (FOR LETTERS)"`));
+  assert.ok(source.includes(`(write "A DOOR; (FOR"`));
   const written = [...source.matchAll(/\(write "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]).join(" ");
   assert.equal(written, `A DOOR; (FOR LETTERS) It said \\"hello\\", then (quietly) left; a colon: fine?`);
 });
@@ -115,8 +147,21 @@ test("the bundle is one offline, self-extracting PACK-mode page", async () => {
   assert.deepEqual(zip.getEntries().map(entry => entry.entryName).sort(), ["cover.gif", "index.html", "thumbnail.png"]);
   for (const file of packed.files) assert.deepEqual(zip.readFile(file.name), file.content, "IPFS gets the exact ZIP contents");
   assert.deepEqual(checkBundle(zip.readAsText("index.html"), { code: "dly", source }), []);
+  const daily = dailyPackage(outer, { gif: Buffer.from("gif"), thumbnail: Buffer.from("png"), frames: 300 }, { ...episode, source });
+  const dailyZip = new AdmZip(daily.zip);
+  assert.equal(JSON.parse(dailyZip.readAsText("content.json")).body, episode.body);
+  assert.equal(dailyZip.readAsText("transcript.txt"), `${episode.title}\n\n${episode.body}\n`);
+  const jsonLD = dailyZip.readAsText('index.html').match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1];
+  assert.equal(JSON.parse(jsonLD).text, episode.body);
+  const hostile = { ...episode, body: 'literal </script><script>alert(1)</script>' };
+  hostile.source = crawlPiece(crawlLayout(hostile));
+  const safe = new AdmZip(dailyPackage(outer, { gif: Buffer.from('gif'), thumbnail: Buffer.from('png'), frames: 2 }, hostile).zip).readAsText('index.html');
+  assert.equal(JSON.parse(safe.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]).text, hostile.body);
+  for (const file of daily.files) assert.deepEqual(dailyZip.readFile(file.name), file.content);
   assert.match(zip.readAsText("index.html"), /property="og:image" content="cover.gif"/);
-  assert.deepEqual(checkBundle(outer, { code: "xyz", source }), ["doesn't start $xyz"]);
+  assert.deepEqual(checkBundle(outer, { code: "xyz", source }), ["doesn't start $xyz", "VFS crawl source differs from the stored $code"]);
+  const wrongVfs = inner.replace(/window\.VFS = \{.*?\};\n/s, () => `window.VFS = ${JSON.stringify({ ...vfs, "disks/dly.lisp": { ...vfs["disks/dly.lisp"], content: '(wipe black)' } })};\n`);
+  assert.deepEqual(checkBundle(outer.replace(b64, gzipSync(wrongVfs).toString("base64")), { code: "dly", source }), ["VFS crawl source differs from the stored $code"]);
   // ...and one packed from a runtime without the highlighter fixes fails it.
   const stale = { ...vfs, "lib/kidlisp.mjs": { ...vfs["lib/kidlisp.mjs"], content: vfs["lib/kidlisp.mjs"].content.replace(/tokenScan\(/g, "scan(").replace(/window\.acPACK_MODE\s*&&\s*!window\.acKEEP_LABEL\)\s*return/g, "") } };
   const staleInner = inner.replace(/window\.VFS = \{.*?\};\n/s, () => `window.VFS = ${JSON.stringify(stale)};\n`);

@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.b841cf8fd8ce.mjs",
-  "sha256": "b841cf8fd8ceab5be8553cec81ef4cf98eee4e43e0cf326e0883fb3076b8fe4e",
-  "bytes": 1692889,
-  "sourceSha256": "f261f5c951eae01e468eff53182ec68d98ae97acdefbf21ae67edf17523dc83d",
+  "filename": "disk.worker.9efca6b25128.mjs",
+  "sha256": "9efca6b25128bbbe89fbffa4c81f92f72526a09783083289499460d9a6244ed6",
+  "bytes": 1714087,
+  "sourceSha256": "ca03ba87a6a17cfb6b50b7b60c0bb5298e5f95e4aeb817fa375dfe6384602aa2",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -34,6 +34,7 @@
     "public/aesthetic.computer/lib/headers.mjs",
     "public/aesthetic.computer/lib/help.mjs",
     "public/aesthetic.computer/lib/helpers.mjs",
+    "public/aesthetic.computer/lib/kidlisp-execution.mjs",
     "public/aesthetic.computer/lib/kidlisp.mjs",
     "public/aesthetic.computer/lib/l5.mjs",
     "public/aesthetic.computer/lib/logs.mjs",
@@ -52,6 +53,7 @@
     "public/aesthetic.computer/lib/preview-evidence.mjs",
     "public/aesthetic.computer/lib/redact.mjs",
     "public/aesthetic.computer/lib/restricted-api.mjs",
+    "public/aesthetic.computer/lib/rich-text.mjs",
     "public/aesthetic.computer/lib/shop.mjs",
     "public/aesthetic.computer/lib/socket.mjs",
     "public/aesthetic.computer/lib/sound/sound-whitelist.mjs",

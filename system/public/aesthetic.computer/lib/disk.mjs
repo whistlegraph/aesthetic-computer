@@ -11941,10 +11941,10 @@ async function makeFrame({ data: { type, content } }) {
   // 🎵 Streaming Audio messages - forward to piece receive function
   // (the whole family: playing/paused/stopped/error/state, time-data,
   //  seeked, frequencies/waveform/peaks-data, speed-data)
-  if (type.startsWith("stream:")) {
+  if (type.startsWith("stream:") || type === "kidlisp:data") {
     if (typeof receive === "function") {
       try {
-        receive({ type, content });
+        receive({ type, content }, cachedAPI);
       } catch (e) {
         console.warn("🎵 Stream receive error:", e);
       }

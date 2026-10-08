@@ -1,0 +1,4 @@
+{
+  "source": "(wipe 8) (repeat 12 (ink (random 256) (random 256) (random 256)) (line (random width) (random height) (random width) (random height))) (box) (circle)",
+  "width": 96, "height": 64, "frames": 8, "seed": 42
+}

@@ -6,6 +6,7 @@
 //   node kidlisp/conformance/oracle.mjs render --out DIR [--repo PATH | --base URL] [--only bop,pie] [--video]
 //   node kidlisp/conformance/oracle.mjs compare BEFORE AFTER --out DIR
 //   node kidlisp/conformance/oracle.mjs check [--against origin/main] [--out DIR] [--video]
+//   node kidlisp/conformance/oracle.mjs check --worker-against HEAD [--only bop,pie]
 //
 // `check` is the PR gate: it renders `--against` twice in a scratch worktree
 // (the second pass measures each piece's own noise) and the current checkout
@@ -20,6 +21,7 @@
 import puppeteer from "puppeteer";
 import sharp from "sharp";
 import { spawn, execFileSync } from "node:child_process";
+import { get as httpsGet } from "node:https";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -94,6 +96,9 @@ async function render(base, out) {
   );
   await browser.close();
   writeFileSync(join(out, "render.json"), JSON.stringify({ base, at: AT, pieces: report }, null, 2));
+  if (flags["worker-against"] && Object.values(report).some(p => !p.worker?.verified)) {
+    throw new Error(`Required worker was not active for every piece; inspect ${join(out, "render.json")}`);
+  }
   console.log(`🎞️ ${pieces.length} pieces → ${out}`);
 }
 
@@ -110,13 +115,20 @@ async function shoot(browser, base, piece, out) {
   await page.setViewport({ width: SIZE, height: SIZE, deviceScaleFactor: 1 });
   // By $code, exactly as it runs live. Sources resolve from prod (lith falls
   // back when there's no local db), which is fine: a $code's source never changes.
-  const url = `${base}/$${piece.code}?nogap=true&nolabel=true&density=1&noauth=true`;
+  const url = `${base}/$${piece.code}?nogap=true&nolabel=true&density=1&noauth=true${flags["worker-against"] ? "&workerbundle=1" : ""}`;
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
   // The clock starts when boot hides its overlay, not at navigation; boot time
   // swings by seconds under load and would read as a changed piece.
   await page
     .waitForFunction(() => window.acBOOTED === true, { timeout: 30_000 })
     .catch(() => errors.push(NOBOOT));
+  let worker;
+  if (flags["worker-against"]) {
+    const state = await page.evaluate(() => window.acWORKER_BUNDLE);
+    const expected = workerOverride?.filename || JSON.parse(readFileSync(join(repo, "system/public/aesthetic.computer/lib/disk-worker-manifest.json"), "utf8")).filename;
+    worker = { expected, state, verified: Boolean(state?.ready && state.active && state.filename === expected) };
+    if (!worker.verified) errors.push(`Required worker ${expected} was not active: ${JSON.stringify(state)}`);
+  }
   const t0 = Date.now();
   const video = flags.video ? await page.screencast({ path: join(out, `${piece.code}.webm`) }) : null;
   const frames = [];
@@ -128,7 +140,7 @@ async function shoot(browser, base, piece, out) {
   }
   await video?.stop();
   await context.close();
-  return { url, frames, errors };
+  return { url, frames, errors, ...(worker && { worker }) };
 }
 
 const NOBOOT = "oracle: never booted";
@@ -137,9 +149,15 @@ const NOBOOT = "oracle: never booted";
 // has no db, and its 503 → prod fallback costs seconds per embed; this also
 // hands both sides of a check the exact same sources.
 const sources = new Map();
+let workerOverride = null;
+let workerOverrideRequests = 0;
 
 async function answer(req) {
   const url = new URL(req.url());
+  if (workerOverride && url.pathname === "/aesthetic.computer/lib/disk-worker-manifest.json") {
+    workerOverrideRequests++;
+    return req.respond({ status: 200, contentType: "application/json", body: JSON.stringify(workerOverride) });
+  }
   const code = url.pathname === "/api/store-kidlisp" && url.searchParams.get("code");
   if (!code) return req.continue();
   if (!sources.has(code)) sources.set(code, lookup(code));
@@ -283,6 +301,7 @@ function markdown(rows) {
 // ✅ check — the PR gate
 
 async function check() {
+  if (flags["worker-against"]) return checkWorker();
   const against = flags.against || "origin/main";
   const out = resolve(flags.out || mkdtempSync(join(tmpdir(), "kidlisp-oracle-")));
   const tree = mkdtempSync(join(tmpdir(), "kidlisp-base-"));
@@ -311,17 +330,59 @@ async function check() {
   process.exit(failed ? 1 : 0);
 }
 
+// Compare the exact committed worker using one development host. No checkout:
+// useful under a disk reserve, and explicitly narrower than a whole-tree check.
+async function checkWorker() {
+  const ref = String(flags["worker-against"]);
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9/._~^@{}-]*$/.test(ref)) throw new Error("Invalid worker revision");
+  const out = resolve(flags.out || mkdtempSync(join(tmpdir(), "kidlisp-worker-oracle-")));
+  const manifest = JSON.parse(execFileSync("git", ["-C", repo, "show", `${ref}:system/public/aesthetic.computer/lib/disk-worker-manifest.json`], { encoding: "utf8" }));
+  if (!/^disk\.worker\.[a-f0-9]{12}\.mjs$/.test(manifest.filename)) throw new Error("Invalid committed worker manifest");
+  const worker = execFileSync("git", ["-C", repo, "show", `${ref}:system/public/aesthetic.computer/lib/${manifest.filename}`], { maxBuffer: 32 * 1024 * 1024 });
+  const { createHash } = await import("node:crypto");
+  if (createHash("sha256").update(worker).digest("hex") !== manifest.sha256) throw new Error("Committed worker hash differs from its manifest");
+  const servedWorker = readFileSync(join(repo, "system/public/aesthetic.computer/lib", manifest.filename));
+  if (createHash("sha256").update(servedWorker).digest("hex") !== manifest.sha256) throw new Error("Committed worker artifact is absent or modified in this checkout");
+  const server = await serve(repo, 8870);
+  try {
+    workerOverride = manifest;
+    await render(server.base, join(out, "before"));
+    const beforeRequests = workerOverrideRequests;
+    await render(server.base, join(out, "noise"));
+    if (!beforeRequests || workerOverrideRequests === beforeRequests) throw new Error("Baseline worker was not intercepted in both passes");
+    workerOverride = null;
+    await render(server.base, join(out, "after"));
+    writeFileSync(join(out, "scope.json"), JSON.stringify({ mode: "worker-only", reference: ref, workerSha256: manifest.sha256, host: "current checkout in development mode", pieces: corpus().map(p => p.code) }, null, 2));
+    const failed = await compare(join(out, "before"), join(out, "after"), join(out, "diff"), join(out, "noise"));
+    console.log(`📎 ${out} (worker comparison; current host on both sides)`);
+    process.exitCode = failed ? 1 : 0;
+  } finally { workerOverride = null; server.stop(); }
+}
+
 // 🧰 plumbing
 
 async function serve(root, port) {
   const child = spawn("node", ["server.mjs"], {
     cwd: join(root, "lith"),
-    env: { ...process.env, PORT: String(port) },
+    // Conformance must never start production maintenance jobs, even if the
+    // invoking shell has NODE_ENV=production. Local certs are handled below.
+    env: { ...process.env, NODE_ENV: "development", PORT: String(port) },
     stdio: "ignore",
   });
-  const base = `http://localhost:${port}`;
+  const tls = existsSync(join(root, "ssl-dev/localhost.pem")) && existsSync(join(root, "ssl-dev/localhost-key.pem"));
+  const base = `${tls ? "https" : "http"}://localhost:${port}`;
+  const ready = () => tls ? new Promise(resolve => {
+    // This exception is confined to the child we own on loopback. It does not
+    // change global TLS validation or requests to any external service.
+    const request = httpsGet(base, { rejectUnauthorized: false }, response => {
+      response.resume();
+      resolve(response.statusCode >= 200 && response.statusCode < 300);
+    });
+    request.on("error", () => resolve(false));
+    request.setTimeout(1000, () => { request.destroy(); resolve(false); });
+  }) : fetch(base).then(r => r.ok, () => false);
   for (let i = 0; i < 60; i++) {
-    if (await fetch(base).then((r) => r.ok, () => false)) return { base, stop: () => child.kill() };
+    if (await ready()) return { base, stop: () => child.kill() };
     await wait(500);
   }
   child.kill();
@@ -342,6 +403,7 @@ async function launch() {
       "--disable-background-timer-throttling",
       "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows",
+      "--allow-insecure-localhost", // the repo's local development certificate
     ],
   });
 }

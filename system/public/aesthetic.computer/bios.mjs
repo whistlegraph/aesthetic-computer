@@ -15391,7 +15391,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           } catch (err) {
             opened = null;
           }
-          if (!opened || opened.closed || typeof opened.closed === "undefined") {
+          if (!content.preserve && (!opened || opened.closed || typeof opened.closed === "undefined")) {
             window.location.href = content.url;
           }
         }
@@ -19351,6 +19351,31 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         console.warn("🎵 stream:peaks failed:", err?.message || err);
         send({ type: "stream:peaks-data", content: { id, peaks: [] } });
       });
+      return;
+    }
+
+    // JSON stays data: resolve beside the piece, never execute imported source.
+    if (type === "kidlisp:json") {
+      const { id, url } = content;
+      (async () => {
+        const target = new URL(url, location.href);
+        if (!["http:", "https:"].includes(target.protocol) || target.username || target.password) throw new Error("Expected an http(s) data URL");
+        const response = await fetch(target.href, { credentials: "omit", signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw new Error(`Data fetch failed: ${response.status}`);
+        const reader = response.body.getReader();
+        let size = 0, chunks = [];
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          size += value.length;
+          if (size > 2 * 1024 * 1024) { await reader.cancel(); throw new Error("JSON exceeds 2 MB"); }
+          chunks.push(value);
+        }
+        const bytes = new Uint8Array(size);
+        let offset = 0;
+        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+        send({ type: "kidlisp:data", content: { id, url: response.url || target.href, status: "ready", value: JSON.parse(new TextDecoder().decode(bytes)) } });
+      })().catch(error => send({ type: "kidlisp:data", content: { id, status: "error", error: error.message } }));
       return;
     }
 

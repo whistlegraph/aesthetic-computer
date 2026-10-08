@@ -39,10 +39,10 @@ Every implementation in the monorepo, with claimed conformance level and current
 
 | Runtime | Path | Decree claim | Status | Notes |
 |---|---|---|---|---|
-| **JS** (reference) | `system/public/aesthetic.computer/lib/kidlisp.mjs` | `'26: Core + Render + Audio` | shipping | Canonical; spec defers to behavior here when ambiguous |
+| **JS** (reference) | `system/public/aesthetic.computer/lib/kidlisp.mjs` | `'26: Core + Render + Audio` | shipping baseline | Canonical; local opt-in execution controls and numeric-plan tooling are experimental (see §9) |
 | **Common Lisp** (AC Native) | `fedac/native/cl/kidlisp-*.lisp` | `'26: Core + Render` (target) | in progress | Tree-walker, DRM/KMS framebuffer; replacing QuickJS path |
 | **Swift** (Menuband) | `slab/menuband/` | `'26: Core + Render` (planned) | not started | This document's motivating port; Metal blit + CPU framebuffer |
-| **WASM** | `kidlisp-wasm/` | unclaimed | experimental | Compiler approach (`compiler.mjs`) |
+| **WASM** | `kidlisp-wasm/`; `lib/kidlisp-plan-wasm.mjs` | unclaimed | experimental | Existing f32 renderer compiler; separate f64 `numeric-v1` backend preserves audited JS arithmetic (§9) |
 | **Playdate** | `kidlisp-playdate/` | unclaimed | experimental | C runtime for Panic Playdate |
 | **Game Boy** | `kidlisp-gameboy/` | unclaimed | experimental | GBDK C + asm |
 | **N64** | `kidlisp-n64/` | unclaimed | experimental | Bare-metal asm exploration |
@@ -106,3 +106,171 @@ A port hitting phase 3 can publish `KidLisp Decree '26: Core + Render + RBP-26`.
 - API map: [`COMPLETE_API_MAP.md`](COMPLETE_API_MAP.md)
 - Directory map: [`STRUCTURE.md`](STRUCTURE.md)
 - Top-level project score: [`../SCORE.md`](../SCORE.md)
+
+## 8. High-level assembly direction (proposal)
+
+KidLisp source is a compact, human-editable instruction language for a visual
+computer. A compiler can lower its expressions into an execution plan with
+explicit values, resources, effects, and update dependencies. Programs retain
+their source and meaning across hosts; each host implements the same operations
+using its own renderer and media system.
+
+This is an optimization direction, not a new Decree conformance claim or a
+replacement compiler already implemented across the language. The existing WASM
+compiler and JS precompile paths are precedents to consult before adding a
+shared intermediate representation.
+
+### Execution contract
+
+| Stage | Responsibility |
+|---|---|
+| Parse | Source locations and canonical syntax; preserve inspectable source |
+| Resolve | Bind operations and variables to known operations and value slots |
+| Lower | Record pure calculations, ordered effects, resources, and dependencies |
+| Prepare | Load data and build reusable layouts, buffers, and input regions |
+| Update | Recompute values whose inputs changed; execute required effects in source order |
+| Host | Draw, play media, and deliver input without changing language semantics |
+
+An operation records its inputs, result shape, effect class, dependencies, and
+host capability. Constant arithmetic may fold; stable text may lay out once;
+viewport expressions update on resize; media bindings update from the media
+clock. Clock, frame, random, ink, page, timers, input, and network operations
+have distinct dependencies. Unknown operations keep the reference evaluator
+path until their behavior has an explicit contract.
+
+Optimization must preserve evaluation order, random consumption, timer behavior,
+mutable graphics state, errors, and lifecycle cleanup. A drawing or random effect
+cannot disappear because its arguments stayed constant. Fetching data cannot
+execute source. Unsupported host capabilities must be discoverable and fail
+explicitly. Future compiled plans should be versioned and inspectable alongside
+the original source, with stable operation identifiers and source mappings.
+
+### First example: a prepared reader
+
+```lisp
+(wipe black)
+(def episode (fetch "episode.json"))
+(flow (listen episode))
+```
+
+The local JS prototype lowers the episode into cached text lines, link regions,
+and positioned word fragments. It validates canonical prose and ordered cues
+once per loaded resource. A viewport change rebuilds geometry; an audio-clock
+update selects a cue by binary search and paints visible lines. Resource records
+are immutable after loading: replace the record to change its contents. Generic
+`flow` expressions still compare their values so dynamic prose keeps working.
+
+The reader uses a specialized execution plan. The local `numeric-v1` compiler
+now also lowers an audited arithmetic subset into constant, input-slot, and call
+instructions; it is available explicitly and does not replace reference
+evaluation. `fetch`, `get`, `listen`, and rich-text forms are local JS extensions;
+other runtimes have not claimed them.
+
+### Performance evidence and gates
+
+Run `node kidlisp/tools/bench-rich-text.mjs [path-to-rich-text-module]` for a
+repeatable synthetic reader benchmark. On Neo, an initial before/after sample
+put 295-word steady-frame bookkeeping at approximately 7 μs / 1 μs; a 10,000-word
+sample was approximately 77 μs / 1 μs. Preparation became more expensive because
+it builds the word geometry up front. These figures exclude glyph rasterization,
+the KidLisp interpreter, audio decoding, and GPU presentation. They establish a
+specific optimization, not total frame latency or a device-wide speed claim.
+
+A five-second headless Chrome sample of the packed reader at 990 × 270 while
+playing narration measured 0.599 seconds of main-thread task time (0.469 seconds
+of script time). That covers the packed host as well as the reader; it excludes
+startup, other browser processes, and GPU/audio work. Playback, pause, seek,
+and the highlighted render were checked separately. This is one desktop sample,
+not a mobile or frame-rate guarantee.
+
+A compiler optimization needs semantic differential tests and rendered evidence
+under fixed input, clock, and random seeds. Measure preparation time, steady
+frame median and tail latency, allocation/GC, memory, audio clock lag, and dropped
+frames separately. Test representative pieces and long resources on intended
+hosts. Keep the current corpus oracle for deployment regression checks; its
+noise-tolerant images cannot establish exact compiler equivalence by themselves.
+
+## 9. Engineering constraints
+
+These are the rules for growing KidLisp. Existing paths that do not yet meet a
+rule need an explicit limitation and a migration test; an optimization does not
+establish a new language behavior merely by being faster.
+
+1. **Preserve meaning.** Changes to evaluation order, numeric edge cases, random
+   consumption, timers, graphics state, or lifecycle are language changes.
+   Optimizations need differential tests against the reference evaluator.
+2. **Make execution reproducible.** Conformance profiles declare their clock,
+   seed, input stream, viewport, resources, and host capabilities. State belongs
+   to a runtime instance; tests must not patch global time or randomness.
+3. **Declare instruction contracts.** Audited operations specify stable IDs,
+   arguments, results, effects, dependencies, and supported profiles. Tooling
+   derives its metadata from that registry. Unknown effects stay unoptimized.
+4. **Bound work and ownership.** Nested evaluation shares a work budget; depth,
+   source size, memory, caches, requests, and media have explicit limits and
+   owners. Leaving a piece disposes its resources. Exhaustion must be actionable
+   and unwind cleanly.
+5. **Make measurement observational.** Enabling a profiler must preserve program
+   behavior. Report preparation, execution, rendering, allocation, memory, and
+   slow-frame results separately, with the host and workload specified.
+6. **Preserve inspectability and portability.** Keep canonical source and content,
+   source mappings, versioned plans, declared capabilities, and pinned assets.
+   An unsupported host capability must fail explicitly.
+
+### Implemented foundation (local, opt-in)
+
+The JS reference accepts `new KidLisp({ execution })`, where `execution` is a
+`KidLispExecution` from `lib/kidlisp-execution.mjs`. The host calls
+`execution.beginFrame(frame)` once before that frame's inputs and evaluation.
+The context supplies a uint32 seed, epoch, frame duration, and shared work/depth
+ledger. Embedded instances derive labeled seeds and inherit that ledger. Source
+parsing is capped at one million characters and the selected nesting depth.
+Budget failures include a code, frame, work count, and operation; failed frames
+remain failed until the host begins the next frame. Function scope is unwound.
+
+`kidlisp/conformance/replay.mjs` exposes the bounded `commands-v1` fixture runner.
+`lib/kidlisp-ops.mjs` owns eight audited numeric contracts and their aliases;
+`node kidlisp/tools/operations.mjs` emits their versioned JSON manifest.
+`lib/kidlisp-plan.mjs` exposes `compileNumeric(expression, { bindings, fold })`
+and `runNumeric(plan, inputs, execution?)`. Plans carry source AST paths, explicit
+input slots, and numeric encoding that survives JSON even for -0, NaN, and
+infinities. Compilation has a node/depth budget. Plans contain data and execute
+without dynamic JavaScript generation. Effects and undeclared bindings are
+rejected. This numeric ABI is experimental, not a ratified Decree guarantee.
+
+Controlled evaluation bypasses the legacy profiler-dependent arithmetic cache
+and diagnostic early-stop heuristic so monitoring is observational in this
+profile. Default browser execution and its existing profiler paths have not
+been migrated. The work ledger measures evaluator/plan work; host rasterization,
+buffer allocation, network, and media still need their own resource budgets.
+Command replay does not establish pixel conformance or complete media replay.
+The registry covers the audited numeric subset; migrating the remaining
+instructions and generated editor/reference documentation is subsequent work.
+
+`kidlisp/conformance/pixels.mjs check` now provides exact `pixels-v1` CPU renders
+through the reference module lifecycle and real software rasterizer. Five pinned
+fixtures check every RGBA byte, including alpha, against reviewed PNGs and a
+second isolated run. It rejects unsupported capabilities, stale goldens, and
+swallowed rendering errors. Its first failure exposed boot-time color detection
+executing arbitrary first operations; detection now consults registered colors.
+The profile's fixed simulation cadence, bounds, and exclusions are specified in
+`conformance/README.md`; it does not claim full browser or GPU conformance.
+
+`lib/kidlisp-plan-wasm.mjs` compiles the eight `numeric-v1` operations to native
+f64 Wasm, retaining reference division, remainder, rounding, NaN, and signed-zero
+behavior. It imports only pure remainder when needed, validates inputs, and
+charges the supplied execution ledger before running. It is an explicit backend,
+not the default evaluator. The older f32 compiler remains a separate experiment.
+
+`kidlisp/benchmarks/ray-sphere.lisp` is a first rendering-kernel workload: three
+spheres, a checker floor, hard shadows, and two reflection bounces. The benchmark
+checks exact frames across reference evaluation, numeric plans, Wasm, and direct
+JS. It reports preparation, median and p95 whole CPU frame time, resolution,
+ray/intersection counts, host, and hashes. JS still owns scene traversal, shading,
+and the pixel loop. Include that boundary cost; do not call kernel timing full
+runtime performance or promise photorealism from this scene. Compile larger
+batches only after measuring this baseline and preserving its pixels.
+
+Required next gates: fonts/media/GPU in controlled pixel profiles; host
+memory/resource ownership; the remaining instruction contracts; then effectful
+compiler lowering. Keep the browser corpus gate alongside deterministic checks
+until its resources and frame delivery are controlled end to end.

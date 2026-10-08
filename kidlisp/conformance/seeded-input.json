@@ -1,0 +1,14 @@
+{
+  "source": "(wipe black) (tap (write \"pressed\" 0 0)) (lift (write \"released\" 0 0)) (ink (random 256) (random 256) (random 256)) (line penx peny (random width) (random height)) (write (clock) 0 10) (write down 0 20) (1s (write \"tick\" 0 30))",
+  "seed": 42,
+  "epochMs": 1000,
+  "stepMs": 250,
+  "frames": 9,
+  "width": 128,
+  "height": 128,
+  "events": [
+    { "frame": 1, "type": "touch", "x": 12, "y": 30 },
+    { "frame": 2, "type": "draw", "x": 24, "y": 36, "dx": 12, "dy": 6 },
+    { "frame": 3, "type": "lift", "x": 24, "y": 36 }
+  ]
+}

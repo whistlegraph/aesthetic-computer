@@ -48,9 +48,8 @@ removing a stale lock. A saved receipt always wins over a leftover queue job.
 **The daily token (bin/daily-token.mjs).** With `DAILY_MINT=1` the episode is
 also minted as a hic et nunc OBJKT signed by aesthetic.tez, named just the
 episode title. Its image is the update itself: the script set in AC's pixel
-font by a KidLisp piece (stored as a new $code; commas, semicolons, quotes and
-parens are stripped because KidLisp splits on them) over a slow fade whose
-colors turn with the date, grabbed by the oven as a 512² GIF, with a frame as
+font by a KidLisp piece (stored as a new $code, with punctuation preserved)
+over a date-colored starfield, rendered locally as a 512² GIF, with a frame as
 the thumbnail. AC's own IPFS node pins it (`/api/ipfs-add`, admin-only, the
 Kubo node Keeps uses) with TZIP-21 metadata (the script as description, links
 to the episode and the live $code), `mint_OBJKT` mints `DAILY_EDITIONS` (1, a
@@ -64,6 +63,30 @@ as a directory. The artifact URI is the directory root with MIME type
 display image. Never mint a bare HTML or ZIP file CID as the interactive
 artifact. `DAILY_ARTIFACT=gif` retains the GIF-only option. An unminted receipt
 with previously pinned metadata in another format stops for inspection.
+New interactive packages also carry `transcript.txt`, `content.json` and
+`source.lisp`. The canonical transcript preserves Unicode and punctuation
+even where the pixel font cannot draw them. Before signing, the crawl's text
+must match the episode after font normalization; the pinned metadata and every
+directory file are fetched through IPFS and compared with the intended bytes.
+Any missing or mismatched content stops minting, including an old unminted
+directory without transcripts. `contentQA` in the receipt records file SHA-256
+hashes and the read-back time. GIF mode verifies the prose in pinned metadata.
+These checks confirm content preservation, not visual legibility; the sandbox
+render check remains separate.
+Daily text now wraps at 20 columns, sizes from width in whole glyph pixels,
+and scrolls without perspective shrinking. A new view starts at the title;
+short tiled windows must not scale the font down from their height. Inspect
+both a 512² viewer and a 990×270 tiled view with `daily-artifact-check.mjs`
+(`--width 990 --height 270 --shots <directory>`) before accepting a change.
+`DAILY_RICH_TEXT=1` selects a compact `(flow (heading ...) (paragraph ...))`
+reader with named `(link "Aesel" "https://aesel.app")` buttons, manual scrolling
+and keyboard link selection. Destinations live in `lib/daily-richtext.mjs`.
+Keep this option off until the live AC runtime supports these forms; new
+bundles carry the updated runtime, but live `$code` URLs use production.
+Use `daily-artifact-check.mjs --reader` to verify static text and scrolling.
+To verify a visible link, add `--link-x <x> --link-y <y> --expect-url <url>`;
+the checker requires a separate tab and an unchanged reader URL. Interactive
+hosts must allow popups for new tabs; blocked popups never replace the reader.
 Stages resume from `out/daily/<slug>.token.json`; it refuses to sign with any
 key but aesthetic.tez or below 0.15 XTZ (each day burns ~0.06). Needs
 `AESTHETIC_KEY` in the appliance env (jasellite: `~/.config/ac/tezos-daily.env`,
@@ -174,3 +197,23 @@ private paper directory and its slug outside the publish allowlist.
 - `/api/say` invocation pattern + content-hash caching — lifted from `pop/bin/say.mjs`.
 - Jingle synthesis follows the pop DSP posture (phase-increment sines, exp-decay
   bells) but is self-contained here.
+
+## Readalong data (local prototype)
+
+`(def episode (fetch "episode.json"))` followed by `(flow (listen episode))`
+loads canonical prose, optional named link blocks, the actual mastered podcast,
+and word timings. Native Play/Pause and seek use the media clock. Follow scrolls
+the spoken line; dragging or wheeling releases it. Leaving stops playback.
+
+Build the JSON from an existing daily and Whisper word output (`-ml 1 -sow -oj`):
+
+```sh
+node bin/read-along.mjs daily.md words.json 12384 episode.mp3 episode.json
+```
+
+The offset is the narration's start in the final master, in milliseconds.
+Keep episode.json and episode.mp3 beside the packed piece. The audio SHA-256
+is recorded; canonical text is never replaced with ASR spelling. Edit alignment
+records substitutions and omits missing words; boundaries are ASR measurements,
+not phoneme forced alignment. This is an explicit build step; the daily cron
+does not yet produce readalong data or opt into the new runtime.

@@ -15,6 +15,8 @@ import {
   applyPCenterShifts,
 } from "./melody-parser.mjs";
 import { buildColoredMelodyString } from "./melody-highlighter.mjs";
+import { RichTextFlow, richNode, richLink } from "./rich-text.mjs";
+import { KidLispExecution } from "./kidlisp-execution.mjs";
 
 // Global second-based tempo: ms per parser duration-unit. A plain note (parser
 // duration 2.0) = 1000ms = 1s; `.` subdivides (0.5s…), `,` multiplies (2s…).
@@ -75,6 +77,7 @@ const KIDLISP_FUNCTIONS = new Set([
   "tap", "draw", "now", "die", "later", "repeat", "loop", "range", "each", "for", "while",
   // Data
   "label", "len", "list", "get", "first", "rest", "push", "pop", "slice", "concat", "reverse",
+  "flow", "heading", "paragraph", "link", "fetch", "listen",
   // Misc
   "mul", "add", "sub", "div", "mod", "width", "height", "time", "elapsed", "delta",
   // Special
@@ -1225,7 +1228,9 @@ function formatInkLogValue(value) {
 
 // KidLisp Environment Class
 class KidLisp {
-  constructor() {
+  constructor({ execution = null } = {}) {
+    if (execution !== null && !(execution instanceof KidLispExecution)) throw new TypeError("Expected a KidLispExecution context");
+    this.execution = execution;
     this.ast = null; // Abstract syntax tree.
     this.networkCache = { sources: {} };
     this.globalDef = {};
@@ -1256,7 +1261,7 @@ class KidLisp {
     this.instantTriggersExecuted = {}; // Track which instant triggers have already fired
 
     // Isolated random number generator state for each instance
-    this.randomSeed = Date.now() + Math.random(); // Unique seed per instance
+    this.randomSeed = execution ? execution.seed : Date.now() + Math.random();
     this.randomState = this.randomSeed;
 
     // Cache state (URLs stored per instance)
@@ -2103,6 +2108,11 @@ class KidLisp {
 
   // Reset all state for a fresh KidLisp instance
   reset(clearOnceExecuted = false, sourceChanged = false) {
+    if (this.execution) this.randomState = this.randomSeed = this.execution.seed;
+    this.richFlow?.stop();
+    this.jsonData = new Map();
+    this.richFlow = null;
+    this.richFlowActive = false;
     // Reset core state
     this.ast = null;
     this.globalDef = {};
@@ -2704,8 +2714,6 @@ class KidLisp {
     }
 
     if (colorName) {
-      const globalEnv = this.getGlobalEnv();
-
       // Check if it's an RGB string first (e.g., "255 0 0" or "255, 0, 0")
       if (isValidRGBString(colorName)) {
         const rgbValues = parseRGBString(colorName);
@@ -2725,31 +2733,19 @@ class KidLisp {
         }
       }
 
-      // Check if it's a direct color name, fade string, color code, or pattern code in the global environment
-      if (globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
+      // Color detection must not execute a program operation. Even a dummy
+      // drawing API cannot prevent def/once/repeat from mutating instance state
+      // or consuming randomness during boot.
+      if (Object.hasOwn(cssColors, colorName) || colorName === "rainbow" || colorName === "zebra") {
         try {
-          // Create a dummy API to prevent side effects during color detection
-          // This prevents drawing commands like (box) from executing on the main screen
-          const dummyApi = {
-            screen: { width: 100, height: 100 },
-            isSafe: true,
-          };
-          const safeApi = new Proxy(dummyApi, {
-            get: (target, prop) => {
-              if (prop in target) return target[prop];
-              return () => {}; // Return no-op function for any other property
-            }
-          });
-
-          // Test if this is a color function by calling it with safe API
-          const result = globalEnv[colorName](safeApi);
+          const result = cssColors[colorName] || colorName;
 
           // Check if the result is a valid color (array of RGB values, fade string, or rainbow/zebra)
           const isValidColor = Array.isArray(result) ||
             typeof result === "string" && (result.startsWith("fade:") || result === "rainbow" || result === "zebra");
 
           if (isValidColor) {
-            // If we get here without error, it's a color function
+            // Only registered colors reach this branch.
             this.firstLineColor = colorName;
 
             // Always store local backup for worker fallback, regardless of global storage
@@ -2763,7 +2759,7 @@ class KidLisp {
             }
           }
         } catch (e) {
-          // Not a color function, ignore
+          // Persistent host storage is optional.
         }
       }
       // Check for color codes directly (c0, c1, etc.)
@@ -3847,6 +3843,7 @@ class KidLisp {
         this.inkStateSet = false;
       },
       paint: ($) => {
+        this.richFlowActive = false;
         // 🔄 GPU failover reset — if an effect just got disabled, restart the
         // piece so feedback loops (burn) don't carry corrupted frames.
         if (typeof self !== "undefined" && self.__gpuFailoverOccurred) {
@@ -4610,6 +4607,7 @@ class KidLisp {
         this.updateMelodies({ sound });
       },
       act: ({ event: e, api }) => {
+        if (this.richFlowActive && this.richFlow?.act(e, api)) return;
         // 👆 The hand, tracked every event. `down` is the state a button needs and
         // KidLisp never had: it could see a press and never a release, so you could
         // say "on tap, do X" but not "while held, be red." Now you can.
@@ -4715,6 +4713,16 @@ class KidLisp {
           }
         }
       },
+      receive: (message, api) => {
+        if (message.type === "kidlisp:data") {
+          for (const handle of this.jsonData?.values() || []) {
+            if (handle.id === message.content.id) Object.assign(handle, message.content);
+          }
+          api.needsPaint();
+        }
+        this.richFlow?.receive(message, api);
+      },
+      leave: () => this.richFlow?.stop(),
     };
   }
 
@@ -4730,7 +4738,7 @@ class KidLisp {
       
       case "noise":
         // Fuzzy static/noise effect
-        return Math.random() * 0.15; // Low amplitude noise
+        return (this.execution ? this.seededRandom() : Math.random()) * 0.15;
       
       case "pulse":
         // Rhythmic pulse (every ~2 seconds at 120fps)
@@ -4978,6 +4986,14 @@ class KidLisp {
 
   // Main parsing method - handles both single expressions and multi-line input
   parse(input) {
+    if (this.execution) {
+      if (typeof input !== "string" || input.length > 1000000) this.execution.fail("SOURCE_BUDGET", "KidLisp source exceeds 1,000,000 characters", "parse");
+      let depth = 0;
+      for (const char of maskStringsAndComments(input)) {
+        if (char === "(" && ++depth > this.execution.maxDepth) this.execution.fail("PARSE_DEPTH", "KidLisp source nesting exceeds evaluation depth", "parse");
+        if (char === ")" && --depth < 0) this.execution.fail("PARSE_SYNTAX", "Unexpected closing parenthesis", "parse");
+      }
+    }
     const parseStart = this.startTiming('parse');
     // 🏃‍♂️ Handle comma-separated expressions for compact one-liners
     // Transform "blue, ink rainbow, repeat 100 line" into "(blue) (ink rainbow) (repeat 100 line)"
@@ -5276,6 +5292,7 @@ class KidLisp {
   // Mirror clock.mjs: read the server-synced UTC time so every client agrees and
   // animation/notes are musically locked. Capture the smoothed offset each frame.
   _syncClock(api) {
+    if (this.execution) return;
     try {
       const c = api?.clock;
       if (!c?.time) return;
@@ -5294,7 +5311,7 @@ class KidLisp {
   }
   // Synced UTC ms (falls back to local time when no clock API / static stub).
   _now() {
-    return Date.now() + (this._clockOffset || 0);
+    return this.execution ? this.execution.timeMs : Date.now() + (this._clockOffset || 0);
   }
 
   // ── Multi-track melody scheduler (absolute UTC time) ──────────────────────
@@ -5613,6 +5630,30 @@ class KidLisp {
       lift: (api, args) => {
         this.lifter = args;
       },
+      fetch: (api, args) => {
+        const url = unquoteString(String(args[0]));
+        this.jsonData ||= new Map();
+        if (!this.jsonData.has(url)) {
+          const handle = { kidlispData: true, status: "loading", url, id: `json-${Date.now()}-${Math.random()}` };
+          this.jsonData.set(url, handle);
+          api.send({ type: "kidlisp:json", content: { id: handle.id, url } });
+        }
+        return this.jsonData.get(url);
+      },
+      get: (_api, args) => {
+        const value = args[0]?.kidlispData ? args[0].value : args[0];
+        const key = unquoteString(String(args[1]));
+        return value && Object.hasOwn(value, key) ? value[key] : null;
+      },
+      listen: (_api, args) => ({ richText: true, kind: "listen", data: args[0] }),
+      heading: (_api, args) => richNode("heading", args.map(value => value?.richText ? value : unquoteString(String(value)))),
+      paragraph: (_api, args) => richNode("paragraph", args.map(value => value?.richText ? value : unquoteString(String(value)))),
+      link: (_api, args) => richLink(unquoteString(String(args[0])), unquoteString(String(args[1]))),
+      flow: (api, args) => {
+        this.richFlow ||= new RichTextFlow();
+        this.richFlowActive = true;
+        this.richFlow.paint(api, args.map(value => value?.richText ? value : unquoteString(String(value))));
+      },
       if: (api, args, env) => {
         if (!args || args.length < 1) {
           console.error("❗ Invalid `if`. Wrong number of arguments.");
@@ -5768,6 +5809,9 @@ class KidLisp {
         }
       },
       // ➗ Mathematical Operators
+      floor: (_api, [value = 0]) => typeof value === "number" ? Math.floor(value) : 0,
+      ceil: (_api, [value = 0]) => typeof value === "number" ? Math.ceil(value) : 0,
+      round: (_api, [value = 0]) => typeof value === "number" ? Math.round(value) : 0,
       max: (api, args, env) => {
         // Simply evaluate each argument in the current environment
         const nums = args
@@ -7976,6 +8020,8 @@ class KidLisp {
           );
           return undefined;
         }
+        // Fast drawing loops and nested repeats share the frame's work ledger.
+        this.execution?.consume(["repeat"], Math.ceil(count));
         perfEnd("repeat-setup");
 
         let result;
@@ -9557,6 +9603,13 @@ class KidLisp {
 
   // Fast evaluation for common expressions to avoid full recursive evaluation
   fastEval(expr, api, env) {
+    if (!this.execution) return this._fastEval(expr, api, env);
+    this.execution.enter(expr);
+    try { return this._fastEval(expr, this.execution.bindApi(api), env); }
+    finally { this.execution.exit(); }
+  }
+
+  _fastEval(expr, api, env) {
     if (typeof expr === "number") return expr;
     if (typeof expr === "string") {
       // Handle randomization token
@@ -9850,6 +9903,25 @@ class KidLisp {
   }
 
   evaluate(parsed, api = {}, env, inArgs, isTopLevel = false, expressionIndex = 0) {
+    if (!this.execution) return this._evaluate(parsed, api, env, inArgs, isTopLevel, expressionIndex);
+    this.execution.enter(parsed);
+    const depth = this.evalDepth;
+    const level = this.localEnvLevel;
+    const local = this.localEnv;
+    try {
+      const result = this._evaluate(parsed, this.execution.bindApi(api), env, inArgs, isTopLevel, expressionIndex);
+      if (this.execution.state.error) throw this.execution.state.error;
+      return result;
+    } finally {
+      // Budget exceptions must unwind function scope and depth, including early returns.
+      this.evalDepth = depth;
+      this.localEnvLevel = level;
+      this.localEnv = local;
+      this.execution.exit();
+    }
+  }
+
+  _evaluate(parsed, api = {}, env, inArgs, isTopLevel = false, expressionIndex = 0) {
     // 🎨 DEFAULT PATTERN: If no code provided, show a checkerboard pattern
     // Note: 0 is a valid value, so we must check for undefined/null/empty string explicitly
     if (parsed === undefined || parsed === null || parsed === "" || (Array.isArray(parsed) && parsed.length === 0)) {
@@ -9919,7 +9991,7 @@ class KidLisp {
     // 🚀 PERFORMANCE: Simple frame-level caching for expensive expressions
     const needsCaching = Array.isArray(parsed) && parsed.length > 0;
     let cacheKey = null;
-    if (needsCaching && this.perf.enabled) {
+    if (needsCaching && this.perf.enabled && !this.execution) {
       // Create a simple cache key from the expression structure
       const head = parsed[0];
       // Only cache mathematical operations that are pure and don't contain time-varying variables
@@ -10175,7 +10247,7 @@ class KidLisp {
       }
 
       // Only stop in truly pathological cases
-      if (this.perf.bodyProcessCount > 5000) {
+      if (!this.execution && this.perf.bodyProcessCount > 5000) {
         console.error(`🚨 PATHOLOGICAL BODY PROCESSING: ${this.perf.bodyProcessCount} calls! Likely infinite recursion.`);
         this.perf.bodyProcessCount = 0;
         this.perf.evalCallCount = 0;
@@ -10186,6 +10258,7 @@ class KidLisp {
 
     for (let bodyIndex = 0; bodyIndex < body.length; bodyIndex++) {
       const item = body[bodyIndex];
+      this.execution?.consume(item);
       // console.log("🥡 Processing item:", JSON.stringify(item), "type:", Array.isArray(item) ? "array" : typeof item);
       /*if (VERBOSE)*/ // console.log("🥡 Item:", item /*, "body:", body*/);
 
@@ -13279,7 +13352,7 @@ class KidLisp {
         embeddedKidLisp.timingStates = new Map();
         // Give a unique random seed for existing layers that don't have cached state
         if (!embeddedKidLisp.randomSeed) {
-          embeddedKidLisp.randomSeed = Date.now() + Math.random() + (source.hashCode?.() || 0);
+          embeddedKidLisp.randomSeed = embeddedKidLisp.execution ? embeddedKidLisp.execution.seed : Date.now() + Math.random() + (source.hashCode?.() || 0);
           embeddedKidLisp.randomState = embeddedKidLisp.randomSeed;
         }
       }
@@ -13297,13 +13370,13 @@ class KidLisp {
     }
 
     // Create new embedded layer
-    const embeddedKidLisp = new KidLisp();
+    const embeddedKidLisp = new KidLisp({ execution: this.execution?.fork(layerKey) });
     
     // Track which embedded code this instance is running (for console error attribution)
     embeddedKidLisp.embeddedSourceId = cacheId;
     
     // CRITICAL: Give each embedded layer a unique random seed for isolated random state
-    embeddedKidLisp.randomSeed = Date.now() + Math.random() + (source.hashCode?.() || 0);
+    embeddedKidLisp.randomSeed = embeddedKidLisp.execution ? embeddedKidLisp.execution.seed : Date.now() + Math.random() + (source.hashCode?.() || 0);
     embeddedKidLisp.randomState = embeddedKidLisp.randomSeed;
     
     // CRITICAL: Each embedded layer needs ISOLATED but PERSISTENT timing state
@@ -14725,7 +14798,7 @@ class KidLisp {
     }
 
     // Create a new KidLisp instance for this layer
-    const kidlispInstance = new KidLisp();
+    const kidlispInstance = new KidLisp({ execution: this.execution?.fork(`programmatic:${this.embeddedLayers.length}:${source}`) });
     kidlispInstance.isEmbeddedContext = true;
     kidlispInstance.isNestedInstance = options.isNestedInstance !== false; // Default to true
     kidlispInstance.embeddedContext = { x, y, width, height };

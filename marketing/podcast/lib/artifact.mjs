@@ -8,9 +8,69 @@
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
+import AdmZip from "adm-zip";
+import { crawlLayout } from "./crawl.mjs";
+import { readRichDailySource } from "./daily-richtext.mjs";
 import { teiaPackage, TEIA_FORMAT } from "../../../system/backend/whistlegraph-teia.mjs";
 
 export { teiaPackage as crawlPackage, TEIA_FORMAT };
+
+// Preserve canonical prose outside the compressed canvas runtime. These
+// files can be read without JavaScript, OCR, fonts, or a running browser.
+export function contentFiles({ title, body, date, code, source }) {
+  if (![title, body, date, code, source].every(v => typeof v === "string" && v.trim())) {
+    throw new Error("Daily content needs a title, body, date, code and source");
+  }
+  const prose = lines => lines.join(" ").replace(/\s+/g, " ").trim();
+  if (/^\(flow\b/m.test(source)) {
+    const document = readRichDailySource(source);
+    if (document.title !== title || prose([document.body]) !== prose([body])) throw new Error("Rich text differs from the episode");
+  } else {
+    const written = [...source.matchAll(/\(write ("(?:[^"\\]|\\.)*")/g)].map(m => JSON.parse(m[1]));
+    const intended = crawlLayout({ title, body, date }).lines.filter(Boolean).map(l => l.text.replace(/\\/g, ""));
+    if (prose(written) !== prose(intended)) throw new Error("Crawl text differs from the episode");
+  }
+  const content = { title, body, date, code, source, bodySha256: createHash("sha256").update(body).digest("hex") };
+  return [
+    { name: "transcript.txt", mime: "text/plain", content: Buffer.from(`${title}\n\n${body}\n`) },
+    { name: "content.json", mime: "application/json", content: Buffer.from(JSON.stringify(content, null, 2) + "\n") },
+    { name: "source.lisp", mime: "text/plain", content: Buffer.from(source) },
+  ];
+}
+
+export function dailyPackage(html, preview, episode) {
+  const prose = contentFiles(episode);
+  const structured = JSON.stringify({ "@context": "https://schema.org", "@type": "CreativeWork", name: episode.title, text: episode.body, dateCreated: episode.date }).replace(/</g, "\\u003c");
+  const readable = html.replace(/<head(?:\s[^>]*)?>/i, head => `${head}\n<link rel="alternate" type="text/plain" href="transcript.txt">\n<script type="application/ld+json">${structured}</script>`);
+  const base = teiaPackage(readable, preview);
+  const files = [...base.files, ...prose];
+  const zip = new AdmZip();
+  for (const file of files) zip.addFile(file.name, file.content);
+  return { files, zip: zip.toBuffer() };
+}
+
+// Read the actual pinned metadata and directory, including resumed receipts.
+// A local successful pack is insufficient evidence for an immutable mint.
+export async function checkPublishedContent({ metadataUri, metadata, files = [], gateway = "https://ipfs.aesthetic.computer", fetch = globalThis.fetch }) {
+  const read = async (uri, name = "") => {
+    if (!/^ipfs:\/\/[A-Za-z0-9]+$/.test(uri || "")) throw new Error("Expected an IPFS root URI");
+    const response = await fetch(`${gateway.replace(/\/$/, "")}/ipfs/${uri.slice(7)}${name ? `/${name}` : ""}`, { signal: AbortSignal.timeout(30000) });
+    if (!response.ok) throw new Error(`IPFS read-back failed (${response.status}): ${name || "metadata"}`);
+    return Buffer.from(await response.arrayBuffer());
+  };
+  const actual = JSON.parse((await read(metadataUri)).toString("utf8"));
+  for (const key of ["name", "description", "artifactUri", "displayUri", "thumbnailUri"]) {
+    if (actual[key] !== metadata[key]) throw new Error(`Pinned metadata differs: ${key}`);
+  }
+  const hashes = {};
+  for (const file of files) {
+    const bytes = await read(actual.artifactUri, file.name);
+    if (!bytes.equals(file.content)) throw new Error(`Pinned content differs: ${file.name}`);
+    hashes[file.name] = createHash("sha256").update(bytes).digest("hex");
+  }
+  return { checkedAt: new Date().toISOString(), metadataUri, files: hashes };
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..");
@@ -77,6 +137,8 @@ export function checkBundle(html, { code, source }) {
   let vfs;
   try { vfs = JSON.parse(inner.match(/window\.VFS = (\{.*?\});\n/s)[1].replace(/<\\\/script>/g, "</script>")); } catch { return fail("no readable VFS"); }
   for (const f of REQUIRED_FILES) if (!vfs[f]) problems.push(`VFS lacks ${f}`);
+  if (vfs[`disks/${code}.lisp`]?.content !== source) problems.push("VFS crawl source differs from the stored $code");
+  if (/^\(flow\b/m.test(source) && (!vfs["lib/rich-text.mjs"] || !/flow:\s*\(/.test(vfs["lib/kidlisp.mjs"]?.content || ""))) problems.push("VFS lacks rich-text support");
   if (!Object.keys(vfs).some((f) => f.startsWith("disks/drawings/font_1/"))) problems.push("VFS lacks the font_1 glyphs");
   const kidlisp = vfs["lib/kidlisp.mjs"]?.content || "";
   for (const [fix, mark] of Object.entries(RUNTIME_MARKS)) if (!mark.test(kidlisp)) problems.push(`runtime lacks the ${fix}`);
