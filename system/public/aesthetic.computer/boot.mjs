@@ -1517,8 +1517,9 @@ if (!sandboxed && !localStorageBlocked) {
 
 const AUTH0_CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt"; // the aesthetic SPA
 // Social providers offered in the sign-in dialog, by Auth0 connection name.
+// `live` providers show for everyone; the rest only under the preview flag.
 const SOCIAL_CONNECTIONS = [
-  { connection: "google-oauth2", label: "Google" },
+  { connection: "google-oauth2", label: "Google", live: true }, // since 2026-10-08
   { connection: "apple", label: "Apple" },
 ];
 
@@ -1576,10 +1577,10 @@ if (!sandboxed && !window.acNOAUTH) {
     clientId: AUTH0_CLIENT_ID,
     redirect: redirectLogin,
     social: socialLogin,
-    // Each provider must be switched on for the aesthetic app in the Auth0
-    // dashboard (Authentication → Social) before its button shows. Until
-    // then `localStorage["ac:social"] = "on"` previews the buttons.
-    socials: safeLocalStorageGet("ac:social") === "on" ? SOCIAL_CONNECTIONS : [],
+    // A provider must exist as an Auth0 connection enabled for the aesthetic
+    // app (auth0-actions/social.sh) before it is marked `live`. Until then
+    // `localStorage["ac:social"] = "on"` previews its button.
+    socials: SOCIAL_CONNECTIONS.filter((p) => p.live || safeLocalStorageGet("ac:social") === "on"),
   });
   window.acLOGIN = async (mode, { redirect = false } = {}) => {
     // 🖥️ The desktop app signs in the way every AC Mac app does — the
