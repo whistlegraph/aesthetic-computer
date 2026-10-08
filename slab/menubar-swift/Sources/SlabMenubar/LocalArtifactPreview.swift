@@ -20,7 +20,7 @@ struct LocalArtifactPreview: Equatable {
               let version = marker["version"] as? Int, version > 0,
               let artifactID = marker["artifactId"] as? String, !artifactID.isEmpty else { return nil }
         let allowed: [String: [String]] = [
-            "picture": ["image/png", "image/jpeg", "image/webp"],
+            "picture": ["image/png", "image/jpeg", "image/webp", "image/svg+xml"],
             "sound": ["audio/wav", "audio/x-wav", "audio/mpeg"],
             "paper": ["application/pdf", "text/plain", "text/markdown", "text/x-tex", "application/x-tex"],
             "video": ["video/mp4", "video/quicktime", "video/webm"],
@@ -34,6 +34,12 @@ struct LocalArtifactPreview: Equatable {
 
     /// The file's own name, drawn under it on the card.
     var name: String { (path as NSString).lastPathComponent }
+
+    var isSVG: Bool { mime == "image/svg+xml" }
+
+    /// The name the file takes in the staging directory. WebKit never sniffs
+    /// SVG, so a vector picture keeps its extension or the img stays blank.
+    var stagedName: String { isSVG ? "artifact.svg" : "artifact" }
 
     /// Pictures, sounds and papers are read whole and re-written into the
     /// staging directory. A video is linked there instead of copied, so it may
@@ -64,7 +70,7 @@ struct LocalArtifactPreview: Equatable {
     /// alone.
     func stageFile(into directory: URL) throws -> URL {
         let source = try validatedFile()
-        let target = directory.appendingPathComponent("artifact")
+        let target = directory.appendingPathComponent(stagedName)
         do { try FileManager.default.linkItem(at: source, to: target) }
         catch { try FileManager.default.copyItem(at: source, to: target) }
         return target
@@ -85,6 +91,7 @@ struct LocalArtifactPreview: Equatable {
     /// Pixel dimensions for pictures; PDF points for the first page. UI resizing
     /// scales this surface and never changes the artifact's logical viewport.
     func dimensions(_ data: Data) -> CGSize {
+        if isSVG, let size = Self.svgDimensions(data) { return size }
         if kind == "picture", let rep = NSBitmapImageRep(data: data), rep.pixelsWide > 0, rep.pixelsHigh > 0 {
             return CGSize(width: rep.pixelsWide, height: rep.pixelsHigh)
         }
@@ -93,6 +100,46 @@ struct LocalArtifactPreview: Equatable {
             if size.width > 0 && size.height > 0 { return size }
         }
         return CGSize(width: 768, height: 512)
+    }
+
+    /// Whether the bytes are a picture this card can draw. NSImage reads the
+    /// rasters; an SVG only has to be UTF-8 with an svg root, and WebKit
+    /// draws it, animations and all.
+    func readable(_ data: Data) -> Bool {
+        if isSVG { return Self.svgRoot(data) != nil }
+        return NSImage(data: data) != nil
+    }
+
+    /// The opening `<svg ...>` tag, or nil when the text has none.
+    static func svgRoot(_ data: Data) -> String? {
+        guard let text = String(data: data, encoding: .utf8),
+              let start = text.range(of: "<svg", options: .caseInsensitive),
+              let end = text.range(of: ">", range: start.upperBound..<text.endIndex) else { return nil }
+        return String(text[start.lowerBound..<end.upperBound])
+    }
+
+    /// An SVG's size from its width and height, or failing those its viewBox.
+    /// Percentages and other relative units say nothing about shape, so they
+    /// fall through to the viewBox.
+    static func svgDimensions(_ data: Data) -> CGSize? {
+        guard let root = svgRoot(data) else { return nil }
+        func attribute(_ name: String) -> String? {
+            guard let match = root.range(of: "\\s\(name)\\s*=\\s*[\"']([^\"']*)[\"']", options: .regularExpression) else { return nil }
+            let pair = root[match]
+            guard let quote = pair.firstIndex(where: { $0 == "\"" || $0 == "'" }) else { return nil }
+            return String(pair[pair.index(after: quote)..<pair.index(before: pair.endIndex)])
+        }
+        func length(_ name: String) -> Double? {
+            guard let value = attribute(name)?.trimmingCharacters(in: .whitespaces),
+                  value.range(of: "^[0-9.]+(px)?$", options: .regularExpression) != nil else { return nil }
+            return Double(value.replacingOccurrences(of: "px", with: ""))
+        }
+        if let width = length("width"), let height = length("height"), width > 0, height > 0 {
+            return CGSize(width: width, height: height)
+        }
+        let box = (attribute("viewBox") ?? "").split(whereSeparator: { $0 == " " || $0 == "," }).compactMap { Double($0) }
+        if box.count == 4, box[2] > 0, box[3] > 0 { return CGSize(width: box[2], height: box[3]) }
+        return nil
     }
 
     static func escaped(_ text: String) -> String {
@@ -111,7 +158,9 @@ struct LocalArtifactPreview: Equatable {
             content = Self.soundContent
             ready = Self.soundScript(sketch)
         } else if kind == "picture" {
-            content = "<img id='artifact' src='artifact' alt='Picture preview'>"
+            // An SVG loaded as an img plays its own CSS and SMIL animation
+            // but runs no script and fetches nothing, like any other picture.
+            content = "<img id='artifact' src='\(stagedName)' alt='Picture preview'>"
             ready = "const a=document.getElementById('artifact'); a.onload=ready; a.onerror=failed; if(a.complete&&a.naturalWidth)ready();"
         } else if kind == "sound" {
             content = (waveform ?? "") + "<audio id='artifact' controls preload='metadata' src='artifact'></audio>"

@@ -8,9 +8,39 @@ For an unsigned build transferred from poorslice, run `bash sign-device.sh <Whis
 
 Signed-out launches show Aesel's shared blue **Log in** and green **I'm new** buttons. A verified account without a handle gets handle setup; failed verification gets Retry. Workspace controls appear after account verification. Native login and signup use PKCE and show navigation failures instead of waiting indefinitely. The workspace stays mounted behind the entry screen, preserving local pieces.
 
-The navigation guard accepts both the current `?whistlegraph=1` / `preview=whistlegraph` URLs and their legacy Walkieware equivalents, while retaining the `walkieware://app` storage origin. A storage facade exposes legacy keys under current names without copying the archive; partial migrations prefer existing current keys. Removing a piece removes both aliases so deleted work cannot reappear. Completed migrations keep their original deletion semantics.
+A storage facade exposes legacy keys under current names without copying the archive; partial migrations prefer existing current keys. Removing a piece removes both aliases so deleted work cannot reappear. Completed migrations keep their original deletion semantics.
 
 `PreviewNavigationCheck.swift`, `account-connection.test.mjs`, `wares.test.mjs`, and `ware-bridge.test.cjs` cover launch URLs, retry, account changes, full storage, and both wares. `WorkspaceBootCheck.swift` runs the actual bundle in WebKit, including an optional local storage snapshot in an ephemeral container. `AccountEntryTests` opens and cancels the real hosted login/signup forms in an ephemeral workspace without changing the phone's saved sign-in or pieces.
+
+## TestFlight
+
+App Store Connect record: [Whistlegraph, 6820297686](https://appstoreconnect.apple.com/apps/6820297686/testflight/ios).
+
+From this directory, use `fastlane ios status`, `fastlane ios build`, and
+`fastlane ios upload`. These use the same Admin API key as AC, Oskiewar and
+Menu Band. Build always archives **Release**, with two compiler jobs, and
+exports to `~/Library/Developer/Whistlegraph-Releases/<version>-<build>/export/`.
+Set `WHISTLEGRAPH_IPA` to upload an already exported package.
+
+For the first app record only, run
+`FASTLANE_USER=<Apple ID> fastlane ios create`. Fastlane can perform this login
+in the terminal, including two-factor authentication; a browser is optional.
+Apple's public API does not support creating app records, and Fastlane
+[`produce` does not support API-key authentication](https://docs.fastlane.tools/app-store-connect-api/).
+An app-specific upload password cannot replace that Apple ID login.
+The create lane refreshes Fastlane's public login widget-key cache from Apple's
+current redirect before signing in, avoiding the retired Olympus endpoint in
+older Fastlane installations. It sends no credentials and follows no redirect.
+
+Upload starts Apple's processing; it does not submit an App Store release or
+automatically invite external testers. External TestFlight distribution requires
+test information, a tester group, and Apple's beta review when required.
+`fastlane ios distribute` submits the version/build from `project.yml` to the
+private **Whistlegraph Friends** group and enables notification after approval.
+`fastlane ios invite email:<email> name:<first-name>` adds a tester to that group.
+Both use the API key. Review-account credentials stay in the vault and App Store
+Connect. `node ../../slab/menuband/bin/asc.mjs status --app whistlegraph --platform IOS`
+also reads the release state through the shared account CLI.
 
 Typing uses AC's `compkey` sample and QWERTY pitch mapping. Enter sends the prompt, pasted line breaks become spaces, and the limit is 96 characters. Account settings control key and button sounds together.
 
@@ -23,6 +53,8 @@ Export uses the shared AC `canvas-tape.mjs` hardware encoder, also used by BIOS 
 `StoryCardsTests` checks branch navigation, caption placement, selection restoration, and the on-device MP4 flow. The `story` debug fixture uses separate local storage and no cloud thread; it writes `Documents/story-export-test.mp4` for frame/audio inspection.
 
 ## Update compatibility
+
+The workspace navigation guard accepts both the current `whistlegraph=1` and legacy `walkie=1` entry marker. Artwork keeps `preview=walkieware`, which the deployed runtime uses to suppress public piece telemetry.
 
 Whistlegraph updates the existing Walkieware installation. Keep these persisted and deployed contracts until an explicit migration replaces them:
 
@@ -132,14 +164,22 @@ Story playback owns a separate WebKit runtime so it can play during generation
 without replacing the pixels under visual review. The wood frame belongs to the
 phone's chrome and is excluded from the piece, TV output, and story exports.
 
-## Tezos and cost units (build 105)
+## Braincells and advanced settings (build 111)
 
-Brain settings remembers Braincells / USD / Tezos and applies it to balances,
-request costs and the thread meter. Balance value uses the existing $5 per
-million pack. Inference meters keep provider cost; equivalent braincells are
-not wallet deductions. Hosted AC inference charges twice provider cost, drawing
-from free allowance first. Tezos conversions use an expiring, timestamped TzKT
-rate from `/api/easel-tezos`; an unavailable rate is never replaced with zero.
+Brain opens with the available braincell total, a segmented daily refill meter,
+and saved braincells that never expire. Free allowance is used first. The refill
+button shows the exact pack and localized App Store price before Apple's purchase
+confirmation. Pending transactions recover automatically when Brain opens or the
+app returns to the foreground; manual recovery remains under Advanced. An absent
+StoreKit product shows an unavailable state with retry, never an invented price.
+
+Canvas contains pixel size and aspect ratio. Advanced contains model selection,
+provider details, source, diagnostics, and the Braincells / USD / Tezos cost-unit
+preference. Provider-cost estimates appear only there, not beside the canvas or
+in the piece menu. These estimates are not wallet deductions. Hosted AC inference
+charges twice provider cost, drawing from free allowance first. Tezos conversions
+use an expiring, timestamped TzKT rate from `/api/easel-tezos`; an unavailable rate
+is never replaced with zero. Balances always display braincells.
 
 Buy braincells with tez opens an AC checkout in the browser, where Beacon pairs
 with Temple or another Tezos wallet. Choose $3 / 600,000 or $5 / 1,000,000 braincells in checkout before connecting.
@@ -263,7 +303,7 @@ on being a reader app or a free companion exemption. App Review decides approval
 
 Before submission:
 
-1. Confirm the existing App Store Connect record's bundle ID is
+1. Create or confirm the App Store Connect record with bundle ID
    `computer.aesthetic.walkieware` and obtain its real numeric Apple ID. Create
    the consumable `computer.aesthetic.walkieware.braincells.1m`, set availability
    and price tiers, add localization and the purchase screenshot, and complete

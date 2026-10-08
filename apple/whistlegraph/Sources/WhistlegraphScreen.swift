@@ -191,10 +191,7 @@ struct WhistlegraphScreen: View {
                             .accessibilityLabel("Send chalk").accessibilityIdentifier("drawing-send")
                             .disabled(!canTalk || session.capturePhase != .idle)
                     }
-                    HStack(spacing: 6) {
-                        if let cost = session.snapshot.inference?.threadCost { ThreadCostLabel(cost: cost) }
-                        BrainButton(session: session) { showComposer = false }
-                    }
+                    BrainButton(session: session) { showComposer = false }
                 }.font(.title3).buttonStyle(.plain).frame(minHeight: 44)
                 if drawing.full { Text("Chalk full · send or undo a stroke").font(.caption) }
                 if session.capturePhase == .recording || session.capturePhase == .opening {

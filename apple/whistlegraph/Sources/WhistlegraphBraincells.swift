@@ -11,7 +11,7 @@ import StoreKit
     private let delivery = StoreCreditDelivery()
     private var listener: Task<Void, Never>?
     private var recovering = false
-    private var loading = false
+    @Published private(set) var loading = false
 
     deinit { listener?.cancel() }
 
@@ -141,19 +141,27 @@ struct BraincellPurchase: View {
                 Task { await purchase.buy() }
             } label: {
                 HStack {
-                    Text("1,000,000 braincells")
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label("Refill", systemImage: "plus.circle.fill").font(.headline)
+                        Text("1,000,000 braincells").font(.subheadline)
+                    }
                     Spacer()
-                    if purchase.busy { ProgressView() } else { Text(product.displayPrice) }
+                    if purchase.busy { ProgressView().tint(.white) } else { Text(product.displayPrice).font(.headline) }
                 }
-            }.disabled(purchase.busy || !signedIn).accessibilityIdentifier("brain-buy-app-store")
-            Text("For AC inference. Purchased braincells do not expire.").font(.footnote).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity).padding(.vertical, 6)
+            }.buttonStyle(.borderedProminent).tint(.purple)
+                .disabled(purchase.busy || !signedIn).accessibilityIdentifier("brain-buy-app-store")
+            Text("One-time purchase. No subscription.").font(.footnote).foregroundStyle(.secondary)
         } else {
-            Text(purchase.storeStatus).font(.footnote).foregroundStyle(.secondary)
-                .accessibilityIdentifier("brain-app-store-status")
-            Button("Reload App Store purchases") { Task { await purchase.load() } }
+            if purchase.loading {
+                ProgressView("Loading refills…").accessibilityIdentifier("brain-app-store-status")
+            } else {
+                Text(purchase.storeStatus).font(.footnote).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("brain-app-store-status")
+                Button("Try again") { Task { await purchase.load() } }
+            }
         }
         if !purchase.notice.isEmpty { Text(purchase.notice).font(.footnote).accessibilityIdentifier("brain-purchase-notice") }
-        Button("Check pending purchases") { Task { await purchase.recover() } }.disabled(purchase.busy)
         if !signedIn { Text("Sign in to AC to buy braincells.").font(.footnote).foregroundStyle(.secondary) }
     }
 }

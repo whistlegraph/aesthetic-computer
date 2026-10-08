@@ -37,9 +37,6 @@ struct PiecesSheet: View {
                             .font(.custom("ComicRelief-Bold", size: 20, relativeTo: .title3))
                     }.disabled(disabled).accessibilityIdentifier("pieces-new")
                 }
-                if let inference {
-                    Section { LabeledContent(inference.label, value: inference.provider) }
-                }
                 #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
                 if let session = mintSession, session.snapshot.handle == "jeffrey", session.snapshot.hasPiece {
                     Section {

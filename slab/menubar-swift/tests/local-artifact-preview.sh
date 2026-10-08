@@ -5,7 +5,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 probeDir=$(mktemp -d /tmp/slab-artifact-check.XXXXXX)
 probe="$probeDir/check.swift"
 trap 'rm -rf "$probeDir"' EXIT
-cat "$root/Sources/SlabMenubar/LocalArtifactPreview.swift" > "$probe"
+cat "$root/Sources/SlabMenubar/LocalArtifactPreview.swift" "$root/Sources/SlabMenubar/SoundSketch.swift" > "$probe"
 cat >> "$probe" <<'SWIFT'
 let marker: [String: Any] = ["path": "/tmp/picture.png", "mime": "image/png", "version": 2, "artifactId": "picture-one"]
 let picture = LocalArtifactPreview(marker: marker, kind: "picture")!
@@ -17,6 +17,17 @@ invalid = marker; invalid["mime"] = "text/html"
 assert(LocalArtifactPreview(marker: invalid, kind: "picture") == nil)
 invalid = marker; invalid["version"] = 0
 assert(LocalArtifactPreview(marker: invalid, kind: "picture") == nil)
+let vector = LocalArtifactPreview(marker: ["path":"/tmp/turtle.svg", "mime":"image/svg+xml", "version":1,"artifactId":"svg-one"], kind:"picture")!
+assert(vector.stagedName == "artifact.svg")
+assert(picture.stagedName == "artifact")
+assert(vector.html(nonce:"test").contains("<img id='artifact' src='artifact.svg'"))
+let walking = Data("<?xml version='1.0'?><svg xmlns='http://www.w3.org/2000/svg' width=\"1024\" height='768' viewBox='0 0 10 10'><style>@keyframes a{}</style></svg>".utf8)
+assert(vector.readable(walking))
+assert(vector.dimensions(walking) == CGSize(width: 1024, height: 768))
+let boxed = Data("<svg viewBox=\"0,0,300,150\" width='100%' stroke-width='4'></svg>".utf8)
+assert(vector.dimensions(boxed) == CGSize(width: 300, height: 150))
+assert(!vector.readable(Data("<html>not a picture</html>".utf8)))
+assert(vector.dimensions(Data("nope".utf8)) == CGSize(width: 768, height: 512))
 let sound = LocalArtifactPreview(marker: ["path":"/tmp/sound.wav", "mime":"audio/wav", "version":1,"artifactId":"sound-one"], kind:"sound")!
 let audioHTML = sound.html(nonce:"test")
 assert(audioHTML.contains("controls preload='metadata'"))
