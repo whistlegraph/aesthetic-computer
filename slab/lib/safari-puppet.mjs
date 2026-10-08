@@ -158,10 +158,20 @@ const p = pick(); p.win.currentTab = p.tab; p.id;`);
   const wid = Number(id.match(ID_RE)[1]);
   const ext = format === "png" ? "png" : "jpg";
   const top = Math.max(0, Math.round(g.oh - g.ih)), ow = Math.max(1, Math.round(g.ow)), left = Math.max(0, Math.round(g.ow - g.iw));
+  // sips -c silently ignores crops on macOS 27, so crop with ImageIO via JXA.
   const b64 = await shAsync(spec, `f=$(mktemp -t puppetshot).${ext}; screencapture -x -o -l${wid} -t ${ext} "$f" || exit 1
-pw=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); ph=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
-t=$(( pw * ${top} / ${ow} )); l=$(( pw * ${left} / ${ow} ))
-sips -c $(( ph - t )) $(( pw - l )) --cropOffset $t $l "$f" >/dev/null 2>&1
+osascript -l JavaScript - "$f" ${top} ${left} ${ow} >/dev/null <<'JXA' || exit 1
+ObjC.import("AppKit");
+function run(a) {
+  const rep = $.NSBitmapImageRep.imageRepWithData($.NSData.dataWithContentsOfFile(a[0]));
+  const k = rep.pixelsWide / Number(a[3]), y = Math.round(Number(a[1]) * k), x = Math.round(Number(a[2]) * k);
+  const cg = $.CGImageCreateWithImageInRect(rep.CGImage, $.CGRectMake(x, y, rep.pixelsWide - x, rep.pixelsHigh - y));
+  const out = $.NSBitmapImageRep.alloc.initWithCGImage(cg);
+  const type = a[0].endsWith(".png") ? $.NSBitmapImageFileTypePNG : $.NSBitmapImageFileTypeJPEG;
+  out.representationUsingTypeProperties(type, $({ NSImageCompressionFactor: 0.8 })).writeToFileAtomically(a[0], true);
+  return "ok";
+}
+JXA
 base64 -i "$f"; rm -f "$f"`).catch(error => {
     // The puppet launch agent usually has no Screen Recording grant of its
     // own. Locally, fall back to frame's native capture (SlabMenubar holds
