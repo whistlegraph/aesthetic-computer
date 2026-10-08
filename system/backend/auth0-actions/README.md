@@ -29,6 +29,15 @@ to claim a handle they already own — and cannot, because it is taken, by them.
 
 ### Install
 
+**Use the script:** `bash system/backend/auth0-actions/install.sh` — Auth0 CLI,
+browser device login, then update + deploy + bind to post-login (keeping other
+bindings), secrets read from `vault/lith/.env` and never printed. Installed
+this way on 2026-10-08 (action `d90e7eb3…`); the dashboard's Action editor
+hung twice that day. It now also links first-time `google-oauth2` / `apple`
+logins, preferring the password account as primary.
+
+The manual dashboard route, for reference:
+
 1. **Auth0 Dashboard → Actions → Library → Build Custom**, name it
    `link-email-identity`, trigger **Login / Post Login**.
 2. Paste the contents of [`link-email-identity.js`](./link-email-identity.js).

@@ -13675,6 +13675,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "logout") {
       accountActivity.stop();
       if (window.acTOKEN) {
+        // 🚪 Signed in through the in-page email-code door (signup-flow.mjs):
+        // there is no host to defer to and no hosted session to end, so
+        // forgetting the tokens is the whole of signing out.
+        if (window.self === window.top && window.safeLocalStorageGet?.("ac-otp-session")) {
+          window.safeLocalStorageRemove("ac-otp-session");
+          window.safeLocalStorageRemove("session-aesthetic");
+          location.reload();
+          return;
+        }
         if (window.parent) {
           window.parent.postMessage({ type: "logout" }, "*");
           window.safeLocalStorageRemove("session-aesthetic");

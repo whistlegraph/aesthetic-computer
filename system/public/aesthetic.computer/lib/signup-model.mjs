@@ -6,9 +6,11 @@ export const SIGNUP_TTL_MS = 24 * 60 * 60 * 1000;
 export const SIGNUP_STAGES = Object.freeze([
   "started", "auth_returned", "auth_failed", "verification_shown",
   "verification_resent", "verified", "handle_shown", "handle_failed", "completed",
+  // In-page email-code door (signup-flow.mjs): handle first, then a mailed code.
+  "handle_held", "code_sent", "code_failed", "fallback", "social_started",
 ]);
 export const SIGNUP_SOURCES = Object.freeze(["prompt", "get-handle", "chat", "laer-klokken", "piece"]);
-export const SIGNUP_ERRORS = Object.freeze(["network", "auth", "taken", "invalid", "unverified", "other"]);
+export const SIGNUP_ERRORS = Object.freeze(["network", "auth", "taken", "invalid", "unverified", "code", "other"]);
 export const signupID = value => typeof value === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value);
 
 // Return navigation stays on this origin. Never retain prompt text, searches,

@@ -24,6 +24,7 @@ import * as logger from "../../backend/logger.mjs";
 import { shell } from "../../backend/shell.mjs";
 import { updateAtprotoHandle } from "../../backend/at.mjs";
 import { handleQuarantined } from "../../backend/account-deletion.mjs";
+import { heldByOther, releaseHold } from "../../backend/handle-hold.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -373,6 +374,10 @@ export async function handler(event, context) {
           if (!existingHandle && (await handleQuarantined(database.db, handle))) {
             throw new Error("taken");
           }
+          // A newcomer may be holding it while they fetch an email code.
+          if (!existingHandle && (await heldByOther(database.db, handle, body.hold))) {
+            throw new Error("taken");
+          }
 
           if (existingHandle && existingHandle.handle.toLowerCase() === handle.toLowerCase()) {
             return respond(400, { message: "same" });
@@ -395,6 +400,7 @@ export async function handler(event, context) {
           if (existingHandle) throw new Error("taken");
           // Recently deleted accounts' handles are held (account-deletion.mjs).
           if (await handleQuarantined(database.db, handle)) throw new Error("taken");
+          if (await heldByOther(database.db, handle, body.hold)) throw new Error("taken");
 
           // Add a new `@handles` document for this user.
           await handles.insertOne({ _id: primarySub, handle, createdAt: new Date(), updatedAt: new Date() });
@@ -404,9 +410,11 @@ export async function handler(event, context) {
               user: primarySub,
               action: "handle:create",
               value: handle,
+              quiet: true, // recorded, no longer announced in chat
             }); // 🪵 Log initial handle creation.
           }
         }
+        await releaseHold(database.db, handle);
         atprotoSync = await updateAtprotoHandle(database, primarySub, handle);
         // Update the redis handle <-> userID cache...
         if (existingUser?.handle)

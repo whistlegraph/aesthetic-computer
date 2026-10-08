@@ -70,6 +70,10 @@ async function log(text, data, from = "log") {
   await logs.createIndex({ when: 1 }); // Index for `when`.
   await logs.insertOne({ ...msg }); // Add to database,
 
+  // A quiet log is kept for the record (reports read `logs`) but not posted
+  // to chat — e.g. `handle:create`, whose public "hi @handle" was retired.
+  if (data.quiet) return;
+
   // Alert all chat instances directly through HTTP calls with `LOGGER_KEY`.
   // For mute/unmute and handle actions (AC users only), we need to notify all AC chat servers
   // Note: Sotce users' handle changes are never logged (filtered in handle.mjs), so they won't reach here

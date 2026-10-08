@@ -1515,21 +1515,22 @@ if (!sandboxed && !localStorageBlocked) {
   if (handed || safeLocalStorageGet("session-aesthetic")) likelyLoggedIn = true;
 }
 
+const AUTH0_CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt"; // the aesthetic SPA
+// Social providers offered in the sign-in dialog, by Auth0 connection name.
+const SOCIAL_CONNECTIONS = [
+  { connection: "google-oauth2", label: "Google" },
+  { connection: "apple", label: "Apple" },
+];
+
 // If noauth mode OR no Auth0 cache found, skip auth entirely
 const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && !location.search.includes('code=') && !location.search.includes('state='));
 
 // Login must survive a failed or expired saved session, including early returns
 // from the restore flow below. Install it before attempting authentication.
 if (!sandboxed && !window.acNOAUTH) {
-  window.acSignup = createSignupFlow(window, document);
-  window.acLOGIN = async (mode) => {
-    // 🖥️ The desktop app signs in the way every AC Mac app does — the
-    // system browser and the shared ~/.ac-token — and hands the session back
-    // (see ac-electron's `ac:desktop-login`). An in-app Auth0 redirect can
-    // only return to an allow-listed origin, which a local page isn't.
-    if (typeof window.acDESKTOP?.login === "function") {
-      return window.acDESKTOP.login(mode);
-    }
+  // The hosted Universal Login redirect: the fallback door, and the only one
+  // where the in-page email-code door can't run (embedded, or a tenant fault).
+  const redirectLogin = async (mode) => {
     window.acSignup.start(mode === "signup" ? "signup" : "login");
     try {
       // Lazy-load Auth0 if not already loaded
@@ -1548,6 +1549,52 @@ if (!sandboxed && !window.acNOAUTH) {
       window.acSignup.failed();
       throw error;
     }
+  };
+  // 🌐 Google, Apple and other providers show their own sign-in page, so the
+  // in-page door opens them in a popup and the piece stays put. A blocked
+  // popup falls back to the full redirect. Resolves to the signed-in Auth0
+  // client, or null when the redirect took over.
+  const socialLogin = async (connection) => {
+    if (!window.auth0Client) {
+      await loadAuth0Script();
+      await setupAuth0Client();
+    }
+    safeLocalStorageRemove("session-aesthetic");
+    safeLocalStorageRemove("ac-otp-session");
+    try {
+      await window.auth0Client.loginWithPopup({ authorizationParams: { connection, prompt: "login" } });
+      return window.auth0Client;
+    } catch (error) {
+      if (/popup/i.test(error?.message || "") && /null/.test(error?.message || "")) {
+        await window.auth0Client.loginWithRedirect({ authorizationParams: { connection } });
+        return null;
+      }
+      throw error;
+    }
+  };
+  window.acSignup = createSignupFlow(window, document, {
+    clientId: AUTH0_CLIENT_ID,
+    redirect: redirectLogin,
+    social: socialLogin,
+    // Each provider must be switched on for the aesthetic app in the Auth0
+    // dashboard (Authentication → Social) before its button shows. Until
+    // then `localStorage["ac:social"] = "on"` previews the buttons.
+    socials: safeLocalStorageGet("ac:social") === "on" ? SOCIAL_CONNECTIONS : [],
+  });
+  window.acLOGIN = async (mode, { redirect = false } = {}) => {
+    // 🖥️ The desktop app signs in the way every AC Mac app does — the
+    // system browser and the shared ~/.ac-token — and hands the session back
+    // (see ac-electron's `ac:desktop-login`). An in-app Auth0 redirect can
+    // only return to an allow-listed origin, which a local page isn't.
+    if (typeof window.acDESKTOP?.login === "function") {
+      return window.acDESKTOP.login(mode);
+    }
+    // 🚪 Handle first, then an emailed code, without leaving the page
+    // (signup-flow.mjs). `?login=password` keeps the hosted page reachable.
+    if (redirect || new URLSearchParams(location.search).get("login") === "password") {
+      return redirectLogin(mode);
+    }
+    window.acSignup.open(mode === "signup" ? "signup" : "login");
   };
 }
 
@@ -1596,7 +1643,7 @@ function loadAuth0Script() {
 async function setupAuth0Client() {
   if (window.auth0Client) return window.auth0Client; // Already set up
   
-  const clientId = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+  const clientId = AUTH0_CLIENT_ID;
   window.acAuthTiming.auth0ClientCreateStart = performance.now();
   bootLog("initializing auth0 client");
 
@@ -1666,6 +1713,24 @@ if (!sandboxed && !skipAuth) {
             window.history.replaceState({}, document.title, cleanUrl);
           } catch (e) { /* Ignore in restricted context */ }
         }
+      }
+
+      // 🚪 A session from the in-page email-code door carries its own refresh
+      // token (auth0-otp.mjs); renew the access token before it is checked
+      // below. Only while that same account still holds session-aesthetic — a
+      // later redirect login clears it and must not be overridden.
+      if (safeLocalStorageGet("ac-otp-session") && safeLocalStorageGet("session-aesthetic")) {
+        try {
+          const { otpSignIn } = await import("./lib/auth0-otp.mjs");
+          const otpDoor = otpSignIn({ clientId: AUTH0_CLIENT_ID });
+          const held = otpDoor.session();
+          const current = JSON.parse(atob(decodeURIComponent(safeLocalStorageGet("session-aesthetic"))));
+          if (held && current?.account?.id === held.sub) {
+            const access = await otpDoor.token();
+            if (access) safeLocalStorageSet("session-aesthetic", btoa(JSON.stringify({ accessToken: access, account: { id: held.sub, label: held.email } })));
+            else safeLocalStorageRemove("session-aesthetic");
+          }
+        } catch (e) { bootLog(`otp session refresh skipped: ${e?.message || e}`); }
       }
 
       const params = extractLegitimateParams(window.location.href);

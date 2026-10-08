@@ -182,7 +182,8 @@ export class ChatManager {
               {
                 $unionWith: {
                   coll: "logs",
-                  pipeline: [{ $match: {} }],
+                  // New handles are recorded but no longer greeted in chat.
+                  pipeline: [{ $match: { action: { $ne: "handle:create" } } }],
                 },
               },
               { $sort: { when: -1 } },
