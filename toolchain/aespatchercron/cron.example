@@ -1,0 +1,4 @@
+# Operator-installed only. Add the actual Node/Codex location to PATH first.
+# This collects signals and runs at most one investigation, stopping for review.
+PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
+17 */6 * * * umask 077; /absolute/path/to/node /absolute/path/to/aesthetic-computer/toolchain/aespatchercron/aespatchercron.mjs tick >> "$HOME/.local/share/aespatchercron/cron.log" 2>&1
