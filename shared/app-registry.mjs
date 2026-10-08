@@ -11,7 +11,7 @@
 export const APPS = Object.freeze({
   whistlegraph:      { tenant: "aesthetic", apns: "computer.aesthetic.walkieware", web: false, wired: true },
   aestheticcomputer: { tenant: "aesthetic", apns: "aesthetic.computer",            web: true,  wired: false },
-  aesel:             { tenant: "aesthetic", apns: "computer.aesthetic.easel",      web: false, wired: false },
+  aesel:             { tenant: "aesthetic", apns: "computer.aesthetic.easel",      web: false, wired: true },
   oskiewar:          { tenant: "aesthetic", apns: "computer.aesthetic.oskiewar",   web: true,  wired: false },
   menuband:          { tenant: "aesthetic", apns: "computer.aesthetic.menuband",   web: false, wired: false },
   "sotce-net":       { tenant: "sotce",     apns: null,                            web: true,  wired: false },

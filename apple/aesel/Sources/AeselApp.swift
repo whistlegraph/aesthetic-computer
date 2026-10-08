@@ -2,9 +2,13 @@ import SwiftUI
 
 @main
 struct AeselApp: App {
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(AeselAppDelegate.self) private var appDelegate
+    #endif
     init() {
         ApplePlatform.registerFonts()
         LaunchPing.send("aesel")
+        AeselNotifications.center.install()
         #if os(macOS)
         AeselTerminal.install()
         #endif
@@ -167,3 +171,12 @@ private struct AeselWorkspace: View {
     }
 
 }
+
+#if os(macOS)
+/// Receives `aesel://` URLs in AppKit so they never open a SwiftUI window.
+final class AeselAppDelegate: NSObject, NSApplicationDelegate {
+    func application(_ application: NSApplication, open urls: [URL]) {
+        Task { @MainActor in urls.forEach(AeselNotifications.handle) }
+    }
+}
+#endif

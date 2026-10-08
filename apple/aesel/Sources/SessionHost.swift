@@ -1,6 +1,9 @@
 import Foundation
 import WebKit
 import Security
+#if os(macOS)
+import AppKit
+#endif
 
 /// Runs the shared JavaScript session in a WKWebView that is never shown.
 ///
@@ -53,6 +56,7 @@ final class SessionHost: NSObject {
         #endif
         super.init()
         Self.instances.add(self)
+        AeselDevices.reportOpenOnce(token: store.token())
         if let issue = store.issue { session.fatal = issue }
 
         let controller = WKUserContentController()
@@ -125,6 +129,17 @@ final class SessionHost: NSObject {
     func stop() { call("void aesel.stop();") }
     func newPiece() { newSession(medium: "piece") }
     func newSession(medium: String) { call("void aesel.newPiece(\(quote(medium)));") }
+    /// A notification click: bring forward the window showing `thread`, or
+    /// resume it in the first window.
+    static func focus(thread: String) {
+        let hosts = instances.allObjects
+        guard let host = hosts.first(where: { $0.session.currentThreadID == thread }) ?? hosts.first else { return }
+        if host.session.currentThreadID != thread, !host.session.busy { host.resumeSession(id: thread) }
+        #if os(macOS)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        #endif
+    }
+
     func resumeSession(id: String) { call("void aesel.resumeSession(\(quote(id)));") }
     func save() { call("void aesel.save();") }
     func setDraft(_ text: String, threadID: String) {
@@ -339,6 +354,7 @@ extension SessionHost: WKScriptMessageHandler {
             if type == "diagnostic" {
                 NSLog("[aesel] %@ at %@: %@", body["operation"] as? String ?? "request", body["step"] as? String ?? "response", body["message"] as? String ?? "unknown failure")
             }
+            AeselNotifications.observe(body, session: session) { [store] in store.token() }
             session.receive(body)
         }
     }

@@ -67,6 +67,7 @@ import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGe
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
+import { notifyNative, reportDevice } from "./native-notify.mjs";
 import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged } from "./media.mjs";
 import { watchSource } from "./source-watch.mjs";
 import { planMime, postMime, MAX_BYTES } from "./mime.mjs";
@@ -126,6 +127,9 @@ if (continuingId && !/^[a-f0-9-]{36}$/i.test(continuingId)) throw new Error("Inv
 const slabSession = new SlabSession({ cwd, pro, private: profile.private, ...(continuingId ? {sessionId: continuingId} : {}) });
 slabSession.start();
 slabSession.identity(session.handle);
+// The AC network device registry: this machine runs the Aesel TUI.
+const aeselVersion = (() => { try { return JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version; } catch { return undefined; } })();
+if (!process.env.AESEL_DESKTOP) void session.token().then(token => reportDevice("open", { token, version: aeselVersion }), () => {});
 process.once("exit", () => slabSession.close());
 let sharingAcknowledgment;
 // A private session never joins the required transcript sharing — nothing
@@ -1894,6 +1898,12 @@ function handleNotification({ method, params = {} }) {
       if (params.turn?.status === "interrupted") slabSession.interrupted();
       else if (params.turn?.status === "failed") slabSession.awaitingInput("easel turn failed");
       else slabSession.complete();
+      // Native notification when the terminal is not frontmost. Short turns stay
+      // quiet: if it finished in seconds you were probably still looking.
+      if (!process.env.AESEL_DESKTOP && params.turn?.status !== "interrupted") {
+        if (params.turn?.status === "failed") void notifyNative({ title: "Aesel stopped with a problem", body: failure?.message || "The turn failed.", kind: "failed" });
+        else if (Date.now() - (state.turnActivity?.startedAt || state.requestStartedAt || Date.now()) >= 8000) void notifyNative({ title: "Aesel is done", body: finalReply?.text || "", kind: "done" });
+      }
       // The turn's words, whole, now that there are no more of them.
       for (const id of turnAssistant) {
         const entry = state.entries.find((candidate) => candidate.id === id);
@@ -1973,11 +1983,13 @@ function handleNotification({ method, params = {} }) {
 
 const approvalQueue = new ApprovalQueue();
 
+let notifiedApproval = null;
 function showPendingApproval() {
   const pending = approvalQueue.current;
   state.approval = pending ? {id:pending.id, method:pending.method, subject:pending.subject, choicesText:pending.choicesText} : null;
   if (state.approval) {
     slabSession.awaitingInput("easel needs approval");
+    if (!process.env.AESEL_DESKTOP && notifiedApproval !== pending.id) { notifiedApproval = pending.id; void notifyNative({ title: "Aesel needs your approval", body: pending.subject || "", kind: "approval" }); }
     state.status = "approval";
   } else {
     slabSession.resumeWork();

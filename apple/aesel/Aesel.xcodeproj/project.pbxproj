@@ -17,6 +17,7 @@
 		1A0F35CCE1C51897FB881351 /* PreviewResize.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC974F17F071328B039F80B8 /* PreviewResize.swift */; };
 		1F53641C03321161A7665F3B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
 		2026E504A366EFEB32F2F822 /* AeselModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26176753E43E445E2CF551D /* AeselModelPicker.swift */; };
+		208C94F5C9B9698F5ED3BFE7 /* AeselNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7801891B519EE2B10A99183E /* AeselNotifications.swift */; };
 		209EDA86EAD34DFC2EFD8848 /* NotebookWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */; };
 		2177ABB4922D91CD4C857EF1 /* NotebookWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */; };
 		23BD42525B15F37C435178AB /* AeselProviderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */; };
@@ -41,6 +42,7 @@
 		60D63C84E3196DD0C030FF63 /* AeselSourceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */; };
 		61636BC5717C14D1D6A3F51F /* preview-continuity.js in Resources */ = {isa = PBXBuildFile; fileRef = F9AA1A94FD57EA03B4309E30 /* preview-continuity.js */; };
 		633F0065719420EF155326A0 /* SignInPanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */; };
+		63B9A80BB7D76ACA8803EA9D /* AeselNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7801891B519EE2B10A99183E /* AeselNotifications.swift */; };
 		6C328E19AB09BC33ECF7E26E /* AeselHoverSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BE7BCB5067054611C54637 /* AeselHoverSound.swift */; };
 		6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
 		7179F7E1202917D1C1E57EA1 /* LaunchPing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92968DF5C690392605590A85 /* LaunchPing.swift */; };
@@ -108,6 +110,7 @@
 		5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Braincells.swift; sourceTree = "<group>"; };
 		6975BD799206CFA5D9095BDB /* NativeSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSignIn.swift; sourceTree = "<group>"; };
 		72A337044339282DB88573A0 /* AeselPieceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselPieceView.swift; sourceTree = "<group>"; };
+		7801891B519EE2B10A99183E /* AeselNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselNotifications.swift; sourceTree = "<group>"; };
 		7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselScene.swift; sourceTree = "<group>"; };
 		7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlatform.swift; sourceTree = "<group>"; };
 		90DE4FA98343A247299E9ACA /* NotebookDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookDocument.swift; sourceTree = "<group>"; };
@@ -169,6 +172,7 @@
 				A2BE7BCB5067054611C54637 /* AeselHoverSound.swift */,
 				F26176753E43E445E2CF551D /* AeselModelPicker.swift */,
 				BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */,
+				7801891B519EE2B10A99183E /* AeselNotifications.swift */,
 				72A337044339282DB88573A0 /* AeselPieceView.swift */,
 				3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */,
 				B4D06A336C257DC6663C0E51 /* AeselProx.swift */,
@@ -368,6 +372,7 @@
 				928997979C8BC6E92AC2B3A9 /* AeselHoverSound.swift in Sources */,
 				C5323C1BB9D8D59F14A1FF74 /* AeselModelPicker.swift in Sources */,
 				A2CDE2052DDB891D3A4659D6 /* AeselNotebook.swift in Sources */,
+				63B9A80BB7D76ACA8803EA9D /* AeselNotifications.swift in Sources */,
 				06DAB9B425E19C4E02F25A24 /* AeselPieceView.swift in Sources */,
 				E269C78DB87E568CC6F63CC8 /* AeselProviderPicker.swift in Sources */,
 				A10EC17AA74EA9E2FB9495B6 /* AeselProx.swift in Sources */,
@@ -408,6 +413,7 @@
 				6C328E19AB09BC33ECF7E26E /* AeselHoverSound.swift in Sources */,
 				2026E504A366EFEB32F2F822 /* AeselModelPicker.swift in Sources */,
 				A4B8792BDBB5F95822088FB0 /* AeselNotebook.swift in Sources */,
+				208C94F5C9B9698F5ED3BFE7 /* AeselNotifications.swift in Sources */,
 				56DF7E946D2DDC7451AA9F0E /* AeselPieceView.swift in Sources */,
 				23BD42525B15F37C435178AB /* AeselProviderPicker.swift in Sources */,
 				8C8ABE58FEAE08FF90C5AEEF /* AeselProx.swift in Sources */,
