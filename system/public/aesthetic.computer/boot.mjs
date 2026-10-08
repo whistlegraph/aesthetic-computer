@@ -1520,7 +1520,7 @@ const AUTH0_CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt"; // the aesthetic SPA
 // `live` providers show for everyone; the rest only under the preview flag.
 const SOCIAL_CONNECTIONS = [
   { connection: "google-oauth2", label: "Google", live: true }, // since 2026-10-08
-  { connection: "apple", label: "Apple" },
+  { connection: "apple", label: "Apple", live: true }, // since 2026-10-08
 ];
 
 // If noauth mode OR no Auth0 cache found, skip auth entirely
