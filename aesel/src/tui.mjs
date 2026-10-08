@@ -77,6 +77,8 @@ import { FrameDiff } from './frame-diff.mjs';
 import { Transcript } from "./transcript.mjs";
 import {markStartup,flushStartupTrace} from './startup-trace.mjs';
 import {Appearance} from './appearance.mjs';
+import {SlabHandle} from './slab-handle.mjs';
+import {setPageBackground} from './render.mjs';
 import {nativeTerminalPhase} from './native-terminal.mjs';
 
 markStartup('imports');
@@ -370,6 +372,13 @@ markStartup('state');
 
 if (desktopRestored) Object.assign(state, desktopRestored.ui, { medium: currentArtifact?.kind || "piece" });
 if(pro)setAppearance(state.tray);
+const slabHandle = new SlabHandle({
+  directory:path.join(slabSession.stateDir, 'aesel-handles'), sessionId:slabSession.sessionId,
+  enabled:process.platform === 'darwin' && process.env.TERM_PROGRAM === 'Apple_Terminal'
+    && !process.env.AESEL_DESKTOP && process.env.NO_COLOR !== '1' && process.env.AESEL_NATIVE_HANDLE !== '0',
+  changed:() => redraw(),
+});
+process.once('exit', () => slabHandle.close());
 // Older checkpoints included automatic approval notices in the conversation.
 state.entries = state.entries.filter(entry => !['command', 'change'].includes(entry.kind) && !(entry.kind === 'notice' && /^Ran: /.test(entry.text)));
 if (desktopRestoreError) state.entries.push({ id: "desktop-restore-error", kind: "error", text: desktopRestoreError });
@@ -1048,6 +1057,8 @@ function redraw(immediate = false) {
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
     const view = process.env.AESEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.AESEL_DESKTOP};
+    view.slabHandle = slabHandle.readyLayout;
+    setPageBackground(slabHandle.background);
     const frame = renderFrame(view, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
     // The renderer says where the bar's cursor cell is, and what plain words
     // stand on each transcript row, on the copy it was given.
@@ -1059,6 +1070,8 @@ function redraw(immediate = false) {
       if (layout !== lastLayout) { lastLayout = layout; process.stdout.write(`\x1b]777;easel-layout:${layout}\x07`); }
     }
     if (output) process.stdout.write(output);
+    slabHandle.update(view.handleGeometry);
+    slabHandle.setHovered(state.hover === 'profile');
     // Pro leaves the terminal's own cursor on the bar, blinking as it does
     // everywhere else; every other mode hides it and paints its own.
     if (state.cursorCell && !process.env.AESEL_DESKTOP) process.stdout.write(`\x1b[${state.cursorCell.row};${state.cursorCell.col}H\x1b[?25h`);
@@ -1332,6 +1345,7 @@ startNativeGamepad();
   }
   await transcriptPending.catch(() => {});
   closing = true;
+  slabHandle.close();
   turnRecovery.reset();clearTimeout(reconnectTimer);
   performanceAbort?.abort();
   session.unwatch();
@@ -3220,7 +3234,7 @@ function decodeKeys(buffer) {
         // anchors, a drag stretches, the release copies. The bottom line keeps
         // its clicks; a wheel keeps its scroll.
         if (pro && !state.dropdown && !state.settings && !state.about) {
-          const transcriptRows = (process.stdout.rows || 24) - ((state.layout?.bottom || ["bar", "gap", "status"]).length);
+          const transcriptRows = (process.stdout.rows || 24) - ((state.layout?.bottom || ["gap", "bar", "gap", "status"]).length);
           if (mouse.press && mouse.y <= transcriptRows) {
             state.selection = { anchor: [mouse.x, mouse.y], head: [mouse.x, mouse.y], active: true };
             redraw();

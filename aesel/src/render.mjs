@@ -14,6 +14,7 @@ import { rowSpan } from "./selection.mjs";
 import { handleCharacterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
 import { formatJoules } from "./energy.mjs";
+import {readableRGB, terminalRGB} from './contrast.mjs';
 
 // The terminal draws pro's layout for every session; the desktop app
 // (AESEL_DESKTOP) draws its own.
@@ -70,34 +71,41 @@ function cube(rgb) {
   return 16 + 36 * r + 6 * g + b;
 }
 const themeSlots = new Map(Object.entries({text:7,prompt:13,highlight:3,handle:5,soft:6,muted:8,status:2,error:1,you:9,run:11,edit:10}).map(([role,index]) => [palette[role].join(","),index]));
+let pageBackground = null;
+export function setPageBackground(rgb) {
+  pageBackground = Array.isArray(rgb) && rgb.length === 3 && rgb.every(n=>Number.isFinite(n)&&n>=0&&n<=255) ? rgb : null;
+}
 export function coloredHandle(account,colors,useColor=true,hover=false){
   if(!useColor)return account;
   const rgb=Array.isArray(colors)&&colors.length===Array.from(account).length?colors:handleCharacterColors(account);
-  // Keep the personal hues on the page itself. Light terminal themes need
-  // darker ink, rather than a black backing behind the handle.
-  return (hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${exact(pageAccent(rgb[i]))}${ch}`).join('')+'\x1b[0m'+color.ground;
+  return (hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${pageInk(rgb[i])}${ch}`).join('')+'\x1b[0m'+color.ground;
 }
 
-function pageAccent(rgb) {
-  if (!followsSlab) return rgb;
-  const base = LIGHT ? [35, 25, 45] : [245, 235, 250];
-  return rgb.map((value, i) => Math.round(value * 0.25 + base[i] * 0.75));
+// Slab adjusts these ANSI hues to the actual tab background as its status
+// changes. The macOS appearance alone cannot tell us how light that page is.
+const slabHues = [[1,352],[2,141],[3,46],[4,217],[5,283],[6,185],
+  [9,358],[10,126],[11,27],[12,247],[13,309],[14,174]];
+function pageInk([r,g,b]) {
+  if (!followsSlab) return exact([r,g,b]);
+  if (pageBackground) return exact(readableRGB([r,g,b],pageBackground,{truecolor,minimum:5}));
+  const high = Math.max(r,g,b), low = Math.min(r,g,b), delta = high-low;
+  if (delta < 12) return '\x1b[38;5;8m';
+  const hue = ((high===r ? (g-b)/delta : high===g ? (b-r)/delta+2 : (r-g)/delta+4)*60+360)%360;
+  const distance = value => Math.min(Math.abs(hue-value),360-Math.abs(hue-value));
+  const index = slabHues.reduce((best, next) => distance(next[1]) < distance(best[1]) ? next : best)[0];
+  return `\x1b[38;5;${index}m`;
 }
-// Ink, by role. In a window Slab dresses the page's own roles follow the
-// window: plain text is the profile's text colour, the muted and soft roles
-// the same dimmed, the highlight its bold colour, and the coloured roles the
-// standard ANSI slots. Everything else — the cloud's inks, the tray's, the
-// outline's — is the interface's own and keeps its exact colour anywhere.
+
+// Page roles use Slab's readable ANSI palette; surfaces with their own
+// background (code and bubbles) keep their own coordinated inks.
 const exact = (rgb) => (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
 const SLAB_INK = new Map([
   [palette.text.join(","), "\x1b[39m"],
-  [palette.soft.join(","), "\x1b[39m\x1b[2m"],
-  [palette.muted.join(","), "\x1b[39m\x1b[2m"],
-  [palette.highlight.join(","), "\x1b[39m\x1b[1m"],
 ]);
 const fg = (rgb) => {
   if (!followsSlab) return exact(rgb);
   const key = rgb.join(",");
+  if (pageBackground && themeSlots.has(key)) return exact(readableRGB(rgb,pageBackground,{truecolor,minimum:5}));
   if (SLAB_INK.has(key)) return SLAB_INK.get(key);
   return themeSlots.has(key) ? `\x1b[38;5;${themeSlots.get(key)}m` : exact(rgb);
 };
@@ -133,22 +141,20 @@ export const color = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
   inverse: "\x1b[7m",
-  ground: (paintsGround ? bg(palette.background) : "") + fg(palette.text),
-  text: fg(palette.text),
-  prompt: fg(palette.prompt),
-  highlight: fg(palette.highlight),
-  handle: fg(palette.handle),
-  // ANSI dim makes inline code and footer facts disappear on light Slab
-  // pages. Use readable secondary ink in both appearances.
-  get soft() { return followsSlab ? exact(LIGHT ? [95, 52, 83] : [215, 197, 216]) : fg(palette.soft); },
-  get muted() { return followsSlab ? exact(LIGHT ? [107, 60, 74] : [202, 187, 199]) : fg(palette.muted); },
-  status: fg(palette.status),
-  error: fg(palette.error),
-  you: fg(palette.you),
-  run: fg(palette.run),
-  edit: fg(palette.edit),
-  inbox: fg(palette.inbox),
-  block: bg(palette.block) + fg(palette.text),
+  get ground() { return (paintsGround ? bg(palette.background) : "") + fg(palette.text); },
+  get text() { return fg(palette.text); },
+  get prompt() { return fg(palette.prompt); },
+  get highlight() { return fg(palette.highlight); },
+  get handle() { return fg(palette.handle); },
+  get soft() { return fg(palette.soft); },
+  get muted() { return fg(palette.muted); },
+  get status() { return fg(palette.status); },
+  get error() { return fg(palette.error); },
+  get you() { return fg(palette.you); },
+  get run() { return fg(palette.run); },
+  get edit() { return fg(palette.edit); },
+  get inbox() { return pageInk(palette.inbox); },
+  block: bg(palette.block) + exact(palette.text),
 };
 
 // The easel splash paints the piece's name a hue per character. These are the
@@ -297,6 +303,18 @@ function paint(enabled, tone, value) {
   return `${tones}${value}${color.reset}${color.ground}`;
 }
 
+function surfacePaint(role, value, background, inks = palette) {
+  const base = role.replace(/\bbold\b/g, '').trim() || 'text';
+  const rgb = readableRGB(inks[base] || inks.text, background, {truecolor});
+  return `${exact(rgb)}${/\bbold\b/.test(role) ? '\x1b[1m' : ''}${value}\x1b[22m`;
+}
+
+// Code's fixed charcoal stays independent of the status-tinted page. Each
+// token restores that background after SGR resets, including padded columns.
+function codePaint(role, value) {
+  return `\x1b[48;5;234m${surfacePaint(role,value,[28,28,28])}`;
+}
+
 // Make a painted row exactly `width` columns: pad it short, clip it long, and
 // carry its colour either way. Every row of every frame goes through this, so
 // no row can reach the terminal wide enough to wrap — and since one wrapped
@@ -401,7 +419,7 @@ function outputRows(source,width,useColor,tone,code=false,prose=false,ink=null){
 // Content, layout and appearance are part of the key; streamed edits miss it.
 const entryCache = new Map();
 function entryLines(entry, width, useColor, gutter = "wide") {
-  const key = JSON.stringify([entry.kind, entry.text, entry.from, entry.wave, width, useColor, gutter, TYPED_STYLE, CORNERS, LIGHT]);
+  const key = JSON.stringify([entry.kind, entry.text, entry.from, entry.wave, width, useColor, gutter, TYPED_STYLE, CORNERS, LIGHT, pageBackground]);
   if (entryCache.has(key)) {
     const rows = entryCache.get(key);
     entryCache.delete(key); entryCache.set(key, rows);
@@ -449,12 +467,14 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
     // The shimmer: the words in the page's ink with a spark of the prompt's
     // pink, three letters wide, travelling through them one step per frame —
     // alive, but quiet enough to sit on any ground Slab gives the window.
-    const spark = [fg(palette.prompt), fg(palette.highlight), fg(palette.prompt)];
+    const bubble = TYPED_STYLE === 'bubble';
+    const sparkInk = rgb => bubble ? exact(readableRGB(rgb,truecolor?TYPED_TINT.bg:terminalRGB(TYPED_TINT.bg),{truecolor})) : fg(rgb);
+    const spark = [sparkInk(palette.prompt), sparkInk(palette.highlight), sparkInk(palette.prompt)];
     const hues = { length: 1 };
     let at = 0;
     const total = Array.from(text).length + 3;
     const head = entry.wave % Math.max(1, total);
-    const inkFor = () => { const d = at - head; at += 1; return d >= -2 && d <= 0 ? spark[d + 2] : color.text; };
+    const inkFor = () => { const d = at - head; at += 1; return d >= -2 && d <= 0 ? spark[d + 2] : bubble ? sparkInk(TYPED_TINT.ink) : color.text; };
     const inner = Math.max(1, width - prefix.length - (TYPED_STYLE === "lines" ? 0 : TYPED_STYLE === "bubble" ? 2 : 4));
     const painted = wrapText(text, inner).map((line) => Array.from(line).map((ch) => `${TYPED_STYLE === "bubble" ? bg(TYPED_TINT.bg) : ""}${inkFor()}${ch}`).join(""));
     return TYPED_STYLE === "bubble" ? cloudRows(painted, width - prefix.length, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(painted, width - prefix.length, true) : painted.map((row) => `${row}${color.reset}${color.ground}`);
@@ -478,10 +498,10 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
       let start=offset,used=0;
       for(const ch of line){
         const w=charWidth(ch);
-        if(used+w>Math.max(1,width-5)&&used){rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));start=offset;used=0;}
+        if(used+w>Math.max(1,width-5)&&used){rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>useColor?codePaint(tone,value):value)));start=offset;used=0;}
         offset+=ch.length;used+=w;
       }
-      rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));offset++;
+      rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>useColor?codePaint(tone,value):value)));offset++;
     }
   }
   // A typed line in pro is set the way the layout says: outlined, bubbled,
@@ -751,7 +771,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const pro = proLayout(state) && !(state.desktop || state.desktopProsePrompt);
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
-  const shape = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "media", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
+  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "media", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
+  state.handleGeometry = null;
   const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
@@ -856,7 +877,9 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     const account = state.account || "";
     const model = state.model || state.providerSettings?.model || "";
     const engine = state.providerSettings?.backend || "";
-    const statusLine = proStatus(state, width, useColor, shape).line;
+    const statusRow = height - shape.bottom.length + shape.bottom.indexOf('status');
+    const statusLine = proStatus(state, width, useColor, shape,
+      !state.approval && !state.settings && !state.about && shape.bottom.includes('status') ? {row:statusRow, rows:height} : null).line;
     const rows = {
       gap: () => "",
       bar: () => bar,
@@ -993,7 +1016,7 @@ export function windowTitle(state) {
 export function dropdownGeometry(state, width, height, shape = state.layout || {}) {
   const drop = state.dropdown;
   if (!drop) return null;
-  const bottom = shape.bottom || ["bar", "gap", "status"];
+  const bottom = shape.bottom || ["gap", "bar", "gap", "status"];
   const statusRow = bottom.lastIndexOf("status");
   // The anchor row is the status line; without one, the bar.
   const anchor = height - bottom.length + (statusRow >= 0 ? statusRow : Math.max(0, bottom.lastIndexOf("bar")));
@@ -1059,7 +1082,12 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
     : { text: [242, 238, 250], soft: [196, 184, 220], muted: [160, 150, 180], highlight: [255, 170, 90] };
   const bar = useColor ? bg(ground) : "";
   const reset = useColor ? color.reset : "";
-  const cell = (text, tone) => `${useColor ? (tone === "block" ? bg(palette.block) + fg([255, 255, 255]) : bar + fg(inks[tone] || inks.text)) : ""}${fit(text, g.boxWidth)}${reset}${useColor ? color.ground : ""}`;
+  const cell = (text, tone) => {
+    const selected = tone === 'block', background = selected ? palette.block : ground;
+    const value = fit(text,g.boxWidth);
+    const ink = selected ? {text:palette.text} : inks;
+    return `${useColor ? (selected ? bg(background) : bar) + surfacePaint(selected?'text':tone,value,truecolor?background:terminalRGB(background),ink) : value}${reset}${useColor ? color.ground : ''}`;
+  };
   const place = (y, painted) => { if (y >= 0 && y < rows.length) rows[y] = `${fit(rows[y], g.x)}${painted}`; };
   place(g.top, cell(` ▾ ${g.title}`, "soft"));
   for (let j = 0; j < g.count; j += 1) {
@@ -1101,9 +1129,7 @@ const CLOUD_TINT = new Proxy({}, { get: (_, key) => (LIGHT ? CLOUD_TINT_LIGHT : 
 const TYPED_TINT = { bg: palette.typedCloud, ink: palette.typedInk, soft: [170, 80, 130], highlight: palette.cloudHighlight };
 function cloudInk(role, value, tint = CLOUD_TINT) {
   const inks = { text: tint.ink, soft: tint.soft, muted: tint.soft, highlight: tint.highlight, error: palette.error, inbox: tint.soft, prompt: tint.ink };
-  const bold = /\bbold\b/.test(role);
-  const base = role.replace(/\bbold\b/, "").trim() || "text";
-  return `${bg(tint.bg)}${fg(inks[base] || tint.ink)}${bold ? "\x1b[1m" : ""}${value}${bold ? "\x1b[22m" : ""}`;
+  return `${bg(tint.bg)}${surfacePaint(role,value,truecolor?tint.bg:terminalRGB(tint.bg),inks)}`;
 }
 
 // Flat cards use only their text rows. Rounded styles add half-block caps.
@@ -1202,7 +1228,7 @@ export function breathingHandle(account, state) {
 function paintedMascot(state, useColor) {
   const pose = mascotRow(state.mascotMs ?? 0, Boolean(state.busy));
   if (!useColor) return pose;
-  const ears = exact(pageAccent([255, 130, 200])), face = exact(pageAccent([120, 220, 255])), nose = exact(pageAccent([255, 218, 120]));
+  const ears = pageInk([255, 130, 200]), face = pageInk([120, 220, 255]), nose = pageInk([255, 218, 120]);
   return Array.from(pose).map((ch, i) => `${i < 2 || ch === '.' ? ears : ch === '>' ? nose : face}${ch}`).join('') + color.reset + color.ground;
 }
 
@@ -1224,7 +1250,7 @@ function statusSpend(text, useColor) {
   return paint(useColor, "muted", text);
 }
 
-export function proStatus(state, width, useColor, shape = state.layout || {}) {
+export function proStatus(state, width, useColor, shape = state.layout || {}, position = null) {
   const status = shape.status || ["handle", "workspace", "media", "model", "activity"];
   const separator = shape.separator ?? " · ";
   const account = state.account || "";
@@ -1280,7 +1306,15 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     if (name === "activity" && state.busy && !state.recoveryNotice && !state.connectionNotice) {
       fact = paintedMascot(state, useColor) + statusFact(name, text.slice(MASCOT_ROW_WIDTH), state, useColor);
     } else if (name === "handle" && text.startsWith("@")) {
-      fact = coloredHandle(account, breathingHandle(account, state), useColor) + (route ? paint(useColor, "highlight", route) : "");
+      const geometry = position && useColor ? {text:account, column:x, row:position.row,
+        columns:width, rows:position.rows, width:textWidth(account),
+        colors:state.handleColors || handleCharacterColors(account)} : null;
+      if (geometry) state.handleGeometry = geometry;
+      const native = geometry && state.slabHandle && JSON.stringify(geometry) === JSON.stringify(state.slabHandle);
+      // Conceal keeps the characters available to Accessibility and copying;
+      // Slab locates their exact cell bounds before acknowledging the slot.
+      fact = (native ? `\x1b[8m${account}\x1b[28m` : coloredHandle(account, breathingHandle(account, state), useColor))
+        + (route ? paint(useColor, "highlight", route) : "");
     } else {
       fact = statusFact(name, text, state, useColor);
     }
@@ -1341,7 +1375,7 @@ export function headerAction(state, columns, rows, x, y) {
   // Pro draws no header and no model controls. The one thing to click is the
   // model on the status line, which opens the settings drawer.
   if (proLayout(state)) {
-    const shape = { bottom: ["bar", "gap", "status"], ...(state.layout || {}) };
+    const shape = { bottom: ["gap", "bar", "gap", "status"], ...(state.layout || {}) };
     // An open drop-down owns the mouse: a row of it picks, anywhere else closes.
     const g = dropdownGeometry(state, Math.max(32, columns), Math.max(10, rows), shape);
     if (g) {
@@ -1353,8 +1387,8 @@ export function headerAction(state, columns, rows, x, y) {
     if (banner && y - 1 >= banner.top && y - 1 < banner.top + banner.height && x - 1 >= banner.x && x - 1 < banner.x + banner.inner) return "update";
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
-    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => ["model", "engine", "media"].includes(span.name) && x >= span.x + 1 && x <= span.x + span.width);
-    return hit ? (hit.name === "engine" ? "provider" : hit.name) : "";
+    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => ["handle", "model", "engine", "media"].includes(span.name) && x >= span.x + 1 && x <= span.x + (span.name === 'handle' ? textWidth(state.account || '') : span.width));
+    return hit ? (hit.name === 'handle' ? state.account?.startsWith('@') ? 'profile' : '' : hit.name === "engine" ? "provider" : hit.name) : "";
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
   if(state.settings){

@@ -2840,6 +2840,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     cursor: msg)
             }
             palette = palette.readable
+            if s.agentType == "easel", let bg = palette.bg {
+                PromptSigilOverlayController.shared.setAeselPageColor(sessionId: s.sessionId,
+                    color: NSColor(calibratedRed: CGFloat(bg.0) / 65535,
+                                   green: CGFloat(bg.1) / 65535, blue: CGFloat(bg.2) / 65535, alpha: 1))
+            }
             if let text = palette.text {
                 PromptSigilOverlayController.shared.setPromptColor(
                     sessionId: s.sessionId,

@@ -15,7 +15,7 @@ test('cached transcript rows follow streaming edits, wrapping and appearance',()
   assert.match(cleanText(next),/Second reply/);
   assert.ok(next.includes('\x1b]8;;https://example.com\x07'));
   const narrow=renderFrame(state,32,24,true);
-  assert.notDeepEqual(state.pageRows,cleanText(next).split('\n').slice(0,-3));
+  assert.notDeepEqual(state.pageRows,cleanText(next).split('\n').slice(0,-4));
   try{
     setAppearance('light'); assert.equal(renderFrame(state,32,24,true),narrow, 'plain replies inherit the page instead of adding a light-mode card');
     setTypedStyle('lines'); assert.doesNotMatch(cleanText(renderFrame(state,32,24,true)),/╭/);
@@ -36,8 +36,8 @@ test('visible history matches a full layout at the latest reply and every scroll
     for(const offset of [0,1,10,40,history.length,history.length+100]){
       const state={...base,scrollOffset:offset};
       renderFrame(state,width,16,useColor);
-      const start=Math.max(0,history.length-13-offset);
-      assert.deepEqual(state.pageRows,history.slice(start,start+13),`width=${width}, color=${useColor}, offset=${offset}`);
+      const start=Math.max(0,history.length-12-offset);
+      assert.deepEqual(state.pageRows,history.slice(start,start+12),`width=${width}, color=${useColor}, offset=${offset}`);
     }
   }
 });
