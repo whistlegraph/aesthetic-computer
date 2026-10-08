@@ -129,6 +129,9 @@ final class SessionHost: NSObject {
     func stop() { call("void aesel.stop();") }
     func newPiece() { newSession(medium: "piece") }
     func newSession(medium: String) { call("void aesel.newPiece(\(quote(medium)));") }
+    /// Any signed-in window's token, for reports that are not tied to one window.
+    static func currentToken() -> String? { instances.allObjects.lazy.compactMap { $0.store.token() }.first }
+
     /// A notification click: bring forward the window showing `thread`, or
     /// resume it in the first window.
     static func focus(thread: String) {

@@ -26,6 +26,11 @@ test("reports are validated before they reach Mongo", () => {
   assert.throws(() => normalizeReport({ ...base, app: "sotce-net", platform: "web", push: { kind: "apns", token: "ab".repeat(32) } }));
   assert.equal(normalizeReport({ ...base, push: { kind: "apns", token: "AB".repeat(32), env: "sandbox" } }).push.token, "ab".repeat(32));
   assert.equal(normalizeReport({ ...base, push: null }).push, null);
+  // An app may ship under several bundles; the device says which, and only those are accepted.
+  const token = "ab".repeat(32);
+  assert.equal(normalizeReport({ ...base, push: { kind: "apns", token } }).push.topic, "computer.aesthetic.walkieware");
+  assert.equal(normalizeReport({ ...base, app: "aesel", platform: "mac", push: { kind: "apns", token, topic: "computer.aesthetic.aesel.native" } }).push.topic, "computer.aesthetic.aesel.native");
+  assert.throws(() => normalizeReport({ ...base, push: { kind: "apns", token, topic: "com.example.other" } }), e => e.statusCode === 400);
 });
 
 test("an open counts, binds the verified account, and records the build", () => {

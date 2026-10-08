@@ -481,7 +481,7 @@ export async function sendToTarget(db, target, note, log = console.log) {
   const web = [];
   for (const doc of docs) {
     if (doc.push.kind === "webpush") { web.push(doc); continue; }
-    const topic = appConfig(doc.app)?.apns;
+    const topic = doc.push.topic || appConfig(doc.app)?.apns?.[0];
     if (doc.push.kind !== "apns" || !topic) { summary.failed++; continue; }
     const key = `${topic}|${doc.push.env}`;
     if (!groups.has(key)) groups.set(key, { topic, host: APNS_HOSTS[doc.push.env] || APNS_HOSTS.production, docs: [] });

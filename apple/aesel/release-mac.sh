@@ -101,7 +101,11 @@ find "$AESEL" -type f -perm -u+x -print0 | while IFS= read -r -d '' file; do
     fi
 done
 codesign --force --options runtime --timestamp --entitlements Node.entitlements -s "$IDENTITY" "$APP/Contents/Helpers/node"
-codesign --force --options runtime --timestamp --entitlements MacDirect.entitlements -s "$IDENTITY" "$APP"
+# Push needs the Developer ID profile embedded before the app's final seal.
+PROFILE=${AESEL_DIRECT_PROFILE:-$REPO/vault/aesel/AeselDirect.provisionprofile}
+[[ -f "$PROFILE" ]] || { echo "missing $PROFILE (Developer ID profile with push)" >&2; exit 1; }
+cp "$PROFILE" "$APP/Contents/embedded.provisionprofile"
+codesign --force --options runtime --timestamp --entitlements MacDirectPush.entitlements -s "$IDENTITY" "$APP"
 codesign --verify --deep --strict "$APP"
 "$APP/Contents/Helpers/node" --version >/dev/null
 

@@ -178,5 +178,14 @@ final class AeselAppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         Task { @MainActor in urls.forEach(AeselNotifications.handle) }
     }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { @MainActor in await AeselNotifications.registerRemoteIfAllowed() }
+    }
+    func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { @MainActor in AeselNotifications.registered(deviceToken: deviceToken) }
+    }
+    func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NSLog("[aesel] remote notifications unavailable: %@", error.localizedDescription)
+    }
 }
 #endif

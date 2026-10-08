@@ -88,7 +88,39 @@ import UIKit
     private static func askOnce() {
         guard !UserDefaults.standard.bool(forKey: askedKey) else { return }
         UserDefaults.standard.set(true, forKey: askedKey)
-        Task { _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) }
+        Task {
+            let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false
+            if granted { registerRemote() }
+        }
+    }
+
+    /// Remote push lets the network reach this Mac while Aesel is closed. Only the
+    /// Developer ID build carries the entitlement; elsewhere registration fails quietly.
+    static func registerRemoteIfAllowed() async {
+        guard enabled else { return }
+        let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+        if status == .authorized || status == .provisional { registerRemote() }
+    }
+
+    private static func registerRemote() {
+        #if os(macOS)
+        NSApplication.shared.registerForRemoteNotifications()
+        #else
+        UIApplication.shared.registerForRemoteNotifications()
+        #endif
+    }
+
+    /// The APNs token goes to the device registry with the bundle this build runs as.
+    static func registered(deviceToken: Data) {
+        let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        AeselDevices.report(.push, token: SessionHost.currentToken(), push: [
+            "kind": "apns", "token": hex, "env": environment, "topic": Bundle.main.bundleIdentifier ?? "",
+        ])
     }
 
     private static func post(title: String, body: String, thread: String, kind: String) {
@@ -118,7 +150,7 @@ import UIKit
 
 /// The GUI's row in the AC network device registry.
 @MainActor enum AeselDevices {
-    enum Event: String { case open, login, logout }
+    enum Event: String { case open, login, logout, push }
     private static var opened = false
 
     /// macOS has no identifierForVendor; keep one id for this install.
@@ -139,7 +171,7 @@ import UIKit
         report(.open, token: token)
     }
 
-    static func report(_ event: Event, token: String?) {
+    static func report(_ event: Event, token: String?, push: [String: Any]? = nil) {
         #if DEBUG
         guard ProcessInfo.processInfo.environment["AESEL_DEVICE_REPORTS"] == "1" else { return }
         #endif
@@ -156,6 +188,7 @@ import UIKit
         #endif
         if let version = info["CFBundleShortVersionString"] as? String { body["version"] = version }
         if let build = info["CFBundleVersion"] as? String, build.allSatisfy(\.isNumber) { body["build"] = build }
+        if let push { body["push"] = push }
         var request = URLRequest(url: URL(string: "https://aesthetic.computer/api/app-device")!, timeoutInterval: 10)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

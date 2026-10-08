@@ -13,7 +13,7 @@
 //   handle     handle at last verified report, without "@"
 //   platform, version, build, model, os, label
 //   firstAt, lastSeenAt, lastOpenAt, opens
-//   push       { kind: "apns", token, env } | { kind: "webpush", subscription }
+//   push       { kind: "apns", token, env, topic } | { kind: "webpush", subscription }
 //   topics     group names this device receives, e.g. "testers"
 //
 // Rows do not expire: devices are kept until the app removes them, the push
@@ -33,8 +33,12 @@ const text = (value, max) => typeof value === "string" ? value.slice(0, max) : "
 function normalizePush(push, app) {
   if (push === null) return null; // permission revoked or token dropped
   if (push === undefined) return undefined;
-  if (push?.kind === "apns" && appConfig(app)?.apns && APNS_TOKEN.test(push.token ?? "")) {
-    return { kind: "apns", token: push.token.toLowerCase(), env: push.env === "sandbox" ? "sandbox" : "production" };
+  const topics = appConfig(app)?.apns || [];
+  if (push?.kind === "apns" && topics.length && APNS_TOKEN.test(push.token ?? "")) {
+    // The bundle this build runs as; a direct Mac build differs from the store one.
+    const topic = push.topic === undefined ? topics[0] : push.topic;
+    if (!topics.includes(topic)) throw Object.assign(new Error("Unknown APNs topic for this app"), { statusCode: 400 });
+    return { kind: "apns", token: push.token.toLowerCase(), env: push.env === "sandbox" ? "sandbox" : "production", topic };
   }
   const sub = push?.subscription;
   if (push?.kind === "webpush" && appConfig(app)?.web && typeof sub?.endpoint === "string" &&
