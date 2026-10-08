@@ -1,15 +1,12 @@
-// PROMPT ROCKS.
+// PROX CREATURES (formerly prompt rocks).
 //
-// The tumbling stones parked at the top-right of every terminal window running
-// a live Claude session — one rock per prompt. Say "prompt rocks" and this file
-// is what you mean.
+// One persistent egg creature beside each live local agent session.
 //
-// A rock's SHAPE is its identity: a 3D sigil grown from the session's
-// id + current prompt, so the stone re-forms whenever the session moves on to a
-// new prompt. Its MOTION is the status channel — spin speed and direction say
-// working / awaiting / complete, and a poke from a peer makes it blink and
-// rattle. It carries a pet name in bubble lettering; pointing wakes its
-// seeded percussion voice, and clicking reveals the inferred session summary.
+// The saved shell and slowly acquired features are its identity. Cached
+// breathing poses and facial expressions carry status; peer attention adds a
+// blink and rattle. Pointing wakes its seeded percussion voice, and clicking
+// reveals the inferred session summary. Legacy rock-layer names below also
+// serve QR and Aesel surfaces; character state lives in ProxCreatures.
 //
 // Each rock is a borderless, click-through companion surface one level above
 // ordinary application windows. It can never fall behind its own terminal when
@@ -505,7 +502,7 @@ final class PromptSigilOverlay {
     private(set) var name: String = ""
     var tooltipTitle: String = ""
     var tooltipBody: String = ""
-    var tooltipEdition: String = "PROMPT ROCK  •  LIVING MEMORY"
+    var tooltipEdition: String = "PROX CREATURE"
     var tooltipStatus: String = ""
     var tooltipStats: String = ""
     /// The same seed that generated the current rock graphic also generates
@@ -610,11 +607,10 @@ final class PromptSigilOverlay {
 
         rockLayer.frame = CGRect(x: pad, y: pad + labelH, width: size, height: size)
         rockLayer.contentsGravity = .resizeAspect
-        // Low-res frames scaled up with nearest-neighbour → chunky low-poly
-        // pixels, and cheap.
-        rockLayer.magnificationFilter = .nearest
-        rockLayer.minificationFilter = .nearest
-        rockLayer.contentsScale = 1
+        // Soft shells and tiny faces stay legible at the badge's native size.
+        rockLayer.magnificationFilter = .linear
+        rockLayer.minificationFilter = .linear
+        rockLayer.contentsScale = 2
         // A tight contact shadow separates the model from its coloured
         // silhouette. Derive it from the animated alpha so every pose stays
         // outlined, including hover scaling and rattles.
@@ -2656,13 +2652,13 @@ final class PromptSigilOverlayController {
 
     private func motion(for state: ClaudeSession.State) -> (Double, Bool) {
         switch state {
-        case .working:     return (10, true)
-        case .rendering:   return (7,  true)
-        case .awaiting:    return (13, false)
-        case .interrupted: return (26, false)
-        case .complete:    return (38, true)
-        case .blank:       return (80, true)
-        case .stale:       return (44, false)
+        case .working:     return (4, true)
+        case .rendering:   return (3, true)
+        case .awaiting:    return (5, false)
+        case .interrupted: return (7, false)
+        case .complete:    return (8, true)
+        case .blank:       return (10, true)
+        case .stale:       return (12, false)
         }
     }
 
@@ -3142,29 +3138,36 @@ final class PromptSigilOverlayController {
                 overlays[s.sessionId] = ov
                 membershipChanged = true
             }
-            // Seed from session id + prompt: the session id guarantees every
-            // window a distinct rock even when prompts collide (trivial "..",
-            // "yes", blank); the prompt makes the rock re-form as the session
-            // moves to a new prompt.
-            let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
+            let creature = ProxCreatures.shared.appearance(for: s.sessionId)
+                ?? ProxCreature.egg(id: s.sessionId, name: SigilRenderer.name(for: s),
+                                    seed: SigilRenderer.seed(for: s.sessionId))
+            let seed = creature.numericSeed
             ov.setNameVisible(!s.isDesktopEasel && !s.usesAeselStrip)
             ov.soundSeed = seed
             ov.setScanCode(scanCode)
-            // Re-render the sprite sheet only when the rock or the sun moved.
+            // Appearance survives prompts. Only growth, expression, or lighting
+            // changes require new frames; hover and poke reuse cached poses.
             let loopboy = loopIds.contains(s.sessionId)
-            let key = "\(seed):\(dark):\(sunMinute):\(loopboy)"
+            let mood: ProxCreatureFrames.Mood
+            switch s.state {
+            case .working, .rendering: mood = .working
+            case .awaiting, .interrupted: mood = .waiting
+            case .complete: mood = .resting
+            case .blank, .stale: mood = .sleeping
+            }
+            let key = "\(creature.appearanceKey):\(dark):\(sunMinute):\(loopboy):\(mood.rawValue)"
             // An Aesel strip never shows its stone, so it never draws one.
             if !s.usesAeselStrip, ov.frameKey != key {
                 ov.frameKey = key
                 let (hx, e, inten) = (sun.hx, sun.elevation, sun.intensity)
                 renderQueue.async { [weak ov] in
-                    let hi = SigilRockFrames.render(
-                        seed: seed, dark: dark, sunHx: hx, sunElevation: e,
-                        sunIntensity: inten, gem: loopboy)
-                    // Gems stay crisp and glass-like; ordinary rocks retain
-                    // their deliberately chunky 30px pixel material.
-                    let lo = loopboy ? hi : hi.map { SigilRockFrames.downsample($0, to: 30) }
-                    DispatchQueue.main.async { ov?.setFrames(rock: lo, shadow: hi) }
+                    let frames = ProxCreatureFrames.render(creature,
+                        dark: dark, sunHx: hx, sunElevation: e, sunIntensity: inten,
+                        mood: mood, luminous: loopboy)
+                    DispatchQueue.main.async {
+                        guard let ov, ov.frameKey == key, !frames.isEmpty else { return }
+                        ov.setFrames(rock: frames, shadow: frames)
+                    }
                 }
             }
             let (basePeriod, cw) = motion(for: s.state)
@@ -3214,9 +3217,7 @@ final class PromptSigilOverlayController {
             ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
             // The card says what kind of object this is; a scan rock is not
             // offering a memory, it is offering a way in.
-            ov.tooltipEdition = scanSurface
-                ? "PROMPT ROCK  •  SCAN TO OPEN"
-                : "PROMPT ROCK  •  LIVING MEMORY"
+            ov.tooltipEdition = scanSurface ? "SCAN TO OPEN" : creature.stage.rawValue.uppercased()
             let story = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
                 ?? ProxMemoirs.shared.text(for: s.sessionId)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)

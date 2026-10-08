@@ -11,12 +11,16 @@ mkdir -p "$cache_root"
 if [ ! -x "$binary" ] || [ "$main" -nt "$binary" ] || \
    [ "$source_root/SigilRenderer.swift" -nt "$binary" ] || \
    [ "$source_root/SigilMesh.swift" -nt "$binary" ] || \
+   [ "$source_root/ProxCreature.swift" -nt "$binary" ] || \
+   [ "$source_root/ProxCreatureFrames.swift" -nt "$binary" ] || \
    [ "$source_root/SigilRockFrames.swift" -nt "$binary" ]; then
   cp "$main" "$cache_root/main.swift"
   xcrun swiftc -O \
     "$source_root/SigilRenderer.swift" \
     "$source_root/SigilMesh.swift" \
     "$source_root/SigilRockFrames.swift" \
+    "$source_root/ProxCreature.swift" \
+    "$source_root/ProxCreatureFrames.swift" \
     "$cache_root/main.swift" \
     -o "$binary"
 fi

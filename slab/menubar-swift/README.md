@@ -79,53 +79,55 @@ Holding Command–Option outlines the current pane and shows one arrow on each
 destination reachable with the next keypress. Zoom entry and arrow jumps retain
 their edge flash and particle burst.
 
-## Prompt rocks
+## Prox creatures
 
-`Sources/SlabMenubar/PromptSigilOverlay.swift` — the tumbling stones parked at
-the top-right of each terminal window, one per live Claude session. When someone
-says "prompt rocks", this is it.
+`PromptSigilOverlay.swift` places one egg creature beside each local agent
+session. The pet name, shell palette, and proportions belong to the session;
+a new prompt no longer rerolls its body. `ProxCreatureFrames.swift` renders
+cached breathing, blinking portraits, with status-colored shadows and faster
+motion while working. Awaiting creatures look expectant; idle ones settle.
+Loopboy adds a glow to the same character. QR surfaces and Aesel title strips
+keep their existing layouts.
 
-- **Shape = identity.** Each rock is a 3D sigil grown from `sessionId + prompt`,
-  so it re-forms when the session moves on to a new prompt. Frames are
-  pre-rendered per rock (`SigilRockFrames`) and played back as a sprite sheet.
-- **Motion = status.** Spin speed and direction encode working / awaiting /
-  complete / stale. A poke from a peer (the ledger's "observed" note) makes the
-  stone blink and rattle.
-- **Name + living memoir.** A deterministic pet name in Comic Sans bubble
-  lettering sits under the stone; pointing at it instantly reveals a compact
-  5:7 collectible summary card—the same 250 × 350 design geometry as the
-  KidLisp cards, displayed at 76% on the desktop—with a crisp
-  framed rock portrait, paper texture, a few sentences about what the session
-  has done, its current position, uptime, and recent activity. The stock follows
-  system Light/Dark appearance while the keyline and status jewel keep each
-  prox colour-coded. Clicking the card renders it as PNG and opens the native
-  macOS share picker (Messages, AirDrop, Mail, and installed share services);
-  Loopboy cards wear the pink Loopboy edition mark.
-  One change-aware heartbeat runs at a time, slowly refining a persistent
-  per-session cache from bounded transcript tails. It prefers Apple's local
-  Foundation Model, can fall back to Haiku, and uses the active agent's own
-  recent prose when neither is available. Hover and prox MCP reads never
-  trigger inference themselves.
-- **A shared sun** lights every rock from the local time of day, so the whole
-  wall of stones re-lights together.
-- **Platform target awareness.** A session marker may carry
-  `"platform_target":"xbox"`. Its
-  `platform-target-awareness-identifier-badge` appears as a compact branded
-  Xbox acknowledgement at the bottom-left of that prompt terminal. The target
-  is session metadata—not a pet-name or tty rule—and is also advertised in the
-  fleet ledger. Clearing the field removes the badge.
+`ProxCreatures.swift` saves a versioned appearance under
+`~/.config/slab/creatures/<seed>.json`. Only observed working/rendering time
+counts toward growth: stirring after 30 minutes, hatchling after two hours,
+familiar after eight. Sleep, closed sessions, and idle time add nothing. Every
+existing prox starts as an egg on first adoption. Saves happen at most once a
+minute, plus births and appearance changes; a sudden shutdown can lose up to a
+minute of growth.
 
-The rocks are borderless, click-through `.floating` windows — they ride above
-the normal-window stack so a busy wall of preview cards can't bury them. The
-price is that **occlusion is hand-rolled**, in two places that must agree:
-`reposition` hides a rock whose terminal corner is covered, and `overlayAt`
-refuses the pointer to a rock that is hidden or covered *at the cursor*. Skip
-either and a stone will wake up and pop its bubble through the window sitting on
-top of it.
+The existing memoir pass can suggest one additive feature (ears, sprout, fins,
+feet, tail), at most once per two active hours and three features total. It
+can choose none. This shares the memoir's change detection and budget: one
+inference every two minutes across the host, no more than once per twelve
+minutes per changed session. Apple Foundation Models run locally; Haiku keeps
+the existing `enableExternalMemoirs` opt-in. Without a model, the written
+summary falls back to session prose and no anatomical feature is invented.
+Model output never supplies code, geometry, or arbitrary assets.
 
-The fleet ledger carries the same cached `memoir` and `started` fields. Use
-`prox_recap` for a narrative-first, read-only view before poking or waking a
-session; older peers remain compatible because both fields are optional.
+The fleet ledger includes an optional `creature` record; older peers still
+work. `prox_character(handle)` reads that appearance without a poke or model
+call. Pass an existing `destination` directory to export a `.creature` bundle
+containing `character.json`, transparent `sigil.png`, and animated `sigil.gif`.
+The appearance contains no transcript, subject, memoir, or local paths.
+`prox_dump` also preserves the character alongside its private session bundle.
+To render a saved character directly:
+
+```sh
+mkdir -p /tmp/my-prox
+slab/bin/prox-sigil-export character.json /tmp/my-prox light
+```
+
+Clicking a creature opens its living memoir card. The shared local-time sun,
+pet-name sounds, peer attention reactions, platform badges, and occlusion
+checks remain in `PromptSigilOverlay.swift`. Both `reposition` and `overlayAt`
+must reject a companion covered by another window.
+
+Validation: `bash slab/menubar-swift/tests/prox-creature.sh` covers persistence,
+active-time accounting, inference parsing, and bounded growth.
+`tests/prox-creature-preview.swift` renders the production geometry on light
+and dark backgrounds, including the actual 56-point badge size.
 
 ## Fleet prompt hosts
 

@@ -133,6 +133,8 @@ enum LedgerCLI {
         ]
         if let started = e.started { out["started"] = started }
         if let memoir = e.memoir { out["memoir"] = memoir }
+        if let creature = e.creature, let data = try? JSONEncoder().encode(creature),
+           let object = try? JSONSerialization.jsonObject(with: data) { out["creature"] = object }
         if let platformTarget = e.platformTarget, !platformTarget.isEmpty {
             out["platformTarget"] = platformTarget
         }

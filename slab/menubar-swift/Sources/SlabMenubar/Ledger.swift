@@ -22,8 +22,8 @@
 import Foundation
 
 // One advertised handle. `name` is the stable session/thread pet-name (and
-// matches the local overlay); `seed` is the evolving prompt-sensitive visual
-// identity in hex so the current rock can be re-rendered anywhere.
+// matches the local overlay). `creature` is the portable, versioned appearance;
+// `seed` remains available for older peers and legacy rock exporters.
 struct LedgerEntry: Codable, Equatable {
     var id: String
     var host: String
@@ -55,6 +55,7 @@ struct LedgerEntry: Codable, Equatable {
     var proxNamespace: String?
     var proxName: String?
     var proxIdentity: String?
+    var creature: ProxCreature?
 }
 
 struct Ledger: Codable {
@@ -87,10 +88,6 @@ final class LedgerStore {
     /// overlay loop wakes from idle and shows the reaction without waiting for
     /// the next lazy tick.
     static let observedNote = Notification.Name("slab.ledger.observed")
-    /// Posted on the main queue when prox asks this host to re-enter a live
-    /// prompt. AppDelegate handles it through the exact same guarded terminal
-    /// wake primitive used only for explicit prox_wake requests.
-    static let wakeNote = Notification.Name("slab.ledger.wake")
     /// Posted after Terminal accepts a prox/Loopboy prompt launch. The app
     /// waits briefly for the new window, then normalizes the wall so Terminal's
     /// tall default frame never survives as a special case.
@@ -156,9 +153,7 @@ final class LedgerStore {
         server?.stop()
         let s = try? LedgerHTTPServer(ip: selfIP, port: Self.port)
         s?.onPoke = { [weak self] body in self?.receivePoke(body) }
-        s?.onWake = { [weak self] body in
-            self?.receiveWake(body) ?? ["ok": false, "error": "ledger unavailable"]
-        }
+
         s?.onLaunch = { body in Self.launchPrompt(body) }
         s?.onNavigate = { body in DeskflowSpatialNav.receiveNavigate(body) }
         s?.onDeskflowRoute = { body in DeskflowSpatialNav.receiveRoute(body) }
@@ -242,8 +237,8 @@ final class LedgerStore {
             // Keep Loopboys on the real Terminal PTY. GNU Screen forwards
             // Terminal focus-report sequences (ESC [ I / ESC [ O) as literal
             // Codex input, corrupting the prompt whenever focus changes. Slab
-            // already knows how to focus the exact tty and type the wake prompt
-            // through trusted CGEvents, so an extra terminal layer is harmful.
+            // delivers peer messages through the inbox and prox_receive.
+            // No terminal input injection is supported.
             command = "cd \(shellQuote(cwd)) && "
                 + "exec env SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
                 + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboyContact)) "
@@ -356,29 +351,6 @@ final class LedgerStore {
         receivePoke(["id": sessionId, "by": by])
     }
 
-    /// Validate and enqueue a bounded prox continuation. The HTTP server never
-    /// touches Accessibility, the pasteboard, or Terminal directly; all UX is
-    /// owned by AppDelegate's explicit prox wake path on the main queue.
-    private func receiveWake(_ body: [String: Any]) -> [String: Any] {
-        let sid = ((body["id"] as? String) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let prompt = ((body["prompt"] as? String) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !sid.isEmpty else { return ["ok": false, "error": "id is required"] }
-        guard !prompt.isEmpty else { return ["ok": false, "error": "prompt is required"] }
-        guard prompt.count <= 1_000 else {
-            return ["ok": false, "error": "prompt exceeds 1000 characters"]
-        }
-        let by = String(((body["by"] as? String) ?? "prox-wake").prefix(100))
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(
-                name: Self.wakeNote,
-                object: nil,
-                userInfo: ["id": sid, "prompt": prompt, "by": by])
-        }
-        return ["ok": true, "queued": true, "id": sid]
-    }
-
     /// Live observed record for a session, or nil once the window has decayed.
     /// Thread-safe; the overlay controller calls this each frame.
     func observation(for sessionId: String) -> (by: String, remaining: TimeInterval)? {
@@ -414,7 +386,8 @@ final class LedgerStore {
     // ── local publish (sessions + advertised agents) ─────────────────────
     private func publishLocal(sessions: [ClaudeSession]) {
         var entries: [LedgerEntry] = sessions.map { s in
-            let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
+            let creature = ProxCreatures.shared.appearance(for: s.sessionId)
+            let seed = creature?.numericSeed ?? SigilRenderer.seed(for: s.sessionId)
             return LedgerEntry(
                 id: s.sessionId,
                 host: selfHost,
@@ -430,7 +403,8 @@ final class LedgerStore {
                 agentType: s.agentType,
                 platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget,
                 loopboyContact: LoopboyRoutes.verifiedContact(for: s),
-                scanURL: s.scanURL.isEmpty ? nil : s.scanURL)
+                scanURL: s.scanURL.isEmpty ? nil : s.scanURL,
+                creature: creature)
         }
         // The Easel address is the rock's own name, never the piece's, so
         // `prox:aesel:<name>` keeps pointing at the same session however many
@@ -629,9 +603,6 @@ final class LedgerHTTPServer {
     /// Called on `POST /poke` with the decoded JSON body — the owner marks the
     /// referenced handle "observed".
     var onPoke: (([String: Any]) -> Void)?
-    /// Called on POST /wake after JSON framing. The owner validates and queues
-    /// re-entry through the menubar's explicit prox wake path.
-    var onWake: (([String: Any]) -> [String: Any])?
     /// Called on POST /launch. The callback owns validation and returns a
     /// compact JSON-safe result dictionary.
     var onLaunch: (([String: Any]) -> [String: Any])?
@@ -737,14 +708,10 @@ final class LedgerHTTPServer {
             return
         }
 
-        // POST /wake — queue one bounded continuation through AppDelegate.
-        // The response only acknowledges the queue; terminal focus/paste work
-        // remains asynchronous so this tailnet server stays responsive.
+        // Retired at the receiver as well: old clients must never reach a
+        // keyboard/PTY path, even if their MCP tool list is cached.
         if line.hasPrefix("POST"), line.contains("/wake") {
-            let obj = decodedBody(data, bodyStart: bodyStart)
-            let result = onWake?(obj) ?? ["ok": false, "error": "wake unavailable"]
-            let body = (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
-                ?? Data("{\"ok\":false,\"error\":\"encoding failed\"}".utf8)
+            let body = Data("{\"ok\":false,\"error\":\"Terminal wake retired. Use /send and prox_receive; no keyboard input is permitted.\"}".utf8)
             respond(client, body: body)
             return
         }

@@ -76,11 +76,12 @@ async function transcriptFor(rock, marker) {
   return findFile(join(homedir(), ".claude", "projects"), `${rock.id}.jsonl`);
 }
 
-async function renderRockBundle(seed, bundle) {
-  if (!seed) return false;
+async function renderRockBundle(rock, bundle) {
+  if (!rock.seed && !rock.creature) return false;
   const exporter = join(import.meta.dirname, "prox-sigil-export");
   try {
-    await pexec(exporter, [seed, bundle, "dark"], { timeout: 60_000 });
+    const source = rock.creature ? join(bundle, "character.json") : rock.seed;
+    await pexec(exporter, [source, bundle, "dark"], { timeout: 90_000 });
     return true;
   } catch { return false; }
 }
@@ -270,10 +271,26 @@ async function toolFind({ handle }) {
       `  subject: ${(r.subject || "").replace(/\s+/g, " ")}`,
       `  cwd:     ${r.cwd || "?"}`,
       `  id:      ${r.id}`,
-      `  seed:    ${r.seed || "?"}   (re-render the same sigil anywhere)`,
+      `  seed:    ${r.seed || "?"}`,
+      ...(r.creature ? [`  creature: ${r.creature.stage}; ${r.creature.traits.map(t => t.feature).join(", ") || "egg shell"} (prox_character for portable appearance)`] : []),
     );
   }
   return [{ type: "text", text: L.join("\n") }];
+}
+
+async function toolCharacter({ handle, destination } = {}) {
+  if (!handle) throw new Error("`handle` is required.");
+  const hits = resolve(await allRocks(), handle);
+  if (hits.length !== 1) throw new Error(`Expected one prox for «${handle}»; found ${hits.length}. Use host:name.`);
+  const r = hits[0];
+  if (!r.creature) throw new Error("This prox has no saved creature yet; its owning Slab needs the creature update.");
+  if (!destination) return [{ type: "text", text: JSON.stringify(r.creature, null, 2) }];
+  const safeName = `${r.host}-${r.name}`.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  const out = join(String(destination), `${safeName}.creature`);
+  await mkdir(out, { recursive: false, mode: 0o700 });
+  await writeFile(join(out, "character.json"), JSON.stringify(r.creature, null, 2) + "\n", { mode: 0o600 });
+  const rendered = await renderRockBundle(r, out);
+  return [{ type: "text", text: `${out}\ncharacter.json${rendered ? " + sigil.png + sigil.gif" : " (image renderer unavailable)"}` }];
 }
 
 async function toolPoke({ handle, by }) {
@@ -368,7 +385,7 @@ async function toolSend({ handle, text, urgency = "queue", by }, context) {
   // it, and — for a file drop to a session that is not mid-turn — when.
   const receipt = (via, where) => {
     const idle = via === "file" && r.status !== "working"
-      ? `\nnote: ${r.name} is ${r.status}; a file drop is read at its next prompt — prox_wake to nudge it.` : "";
+      ? `\nnote: ${r.name} is ${r.status}; message queued until its next hook or prox_receive call. Terminal input is never submitted.` : "";
     return [{ type: "text", text: `sent to ${r.host}:${r.name} via ${where} as «${message.from}» (${urgency}, id ${message.id}).\nreceiver sees: ${clip(stamp(message), 400)}${idle}` }];
   };
   if (r.self) {
@@ -386,6 +403,9 @@ async function toolSend({ handle, text, urgency = "queue", by }, context) {
   let result;
   try { result = await res.json(); } catch { throw new Error(`${r.host} returned an invalid /send response (HTTP ${res.status}).`); }
   if (!res.ok || !result.ok) throw new Error(`send to ${r.host}:${r.name} failed: ${result.error || `HTTP ${res.status}`}`);
+  if (!["file", "socket"].includes(result.via) || result.id !== message.id) {
+    throw new Error(`send to ${r.host}:${r.name} returned an invalid receipt; delivery is unconfirmed (id ${message.id}).`);
+  }
   return receipt(result.via, `remote (${result.via || "?"} on ${r.host})`);
 }
 
@@ -447,30 +467,42 @@ async function toolLoopboyWait({ contact = "", timeoutSeconds = 30 } = {}, conte
   return [{ type: "text", text: `No queued updates for ${initial}. The same prox can call prox_loopboy_wait again; no terminal input was submitted.` }];
 }
 
-async function toolWake({ handle, prompt, by }) {
-  if (!handle) throw new Error("`handle` is required (a host:name or prox:aesel:name; see prox_find).");
+// Cached clients may still call prox_wake. Route through the same inbox,
+// including on peers with an old menubar: never call the retired /wake route.
+async function toolWake({ handle, prompt, by }, context) {
   const text = String(prompt || "").trim();
   if (!text) throw new Error("`prompt` is required.");
   if (text.length > 1000) throw new Error("`prompt` exceeds 1000 characters.");
-  const hits = resolve(await allRocks(), handle);
-  if (!hits.length) throw new Error(`no rock resolves «${handle}» to wake.`);
-  if (hits.length > 1) {
-    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Wake a specific host:name.` }];
+  const result = await toolSend({ handle, text, by }, context);
+  return [{ type: "text", text: "prox_wake is deprecated; delivered through the inbox only. No terminal input was submitted.\n" + result[0].text }];
+}
+
+// Asynchronous builds use the same data path as ordinary peer messages.
+async function toolArtifactReady({ handle, artifacts, by }, context) {
+  if (!Array.isArray(artifacts) || !artifacts.length || artifacts.length > 20
+      || artifacts.some((path) => typeof path !== "string" || !path.trim())) {
+    throw new Error("`artifacts` must contain 1–20 nonempty paths.");
   }
-  const r = hits[0];
-  if (!r.ip) throw new Error(`no tailnet ip known for ${r.host} — can't reach its ledger server.`);
-  const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
-  const waker = by || `${self}:prox`;
-  const body = JSON.stringify({ by: waker, id: r.id, prompt: text });
-  const res = await fetch(`http://${r.ip}:${PORT}/wake`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
-    body,
-    signal: AbortSignal.timeout(5000),
-  }).catch((e) => { throw new Error(`wake to ${r.host} (${r.ip}) failed: ${e.message}`); });
-  const result = await res.json().catch(() => ({}));
-  if (!res.ok || result.ok === false) throw new Error(result.error || `wake failed (HTTP ${res.status})`);
-  return [{ type: "text", text: `woke ${r.host}:${r.name} as «${waker}» with a bounded continuation.` }];
+  return toolSend({ handle, by, text: `Artifacts ready:\n${artifacts.join("\n")}\nInspect the outputs, iterate if needed, and continue the original task.` }, context);
+}
+
+// Any agent can keep a tool call open for its own inbox. An idle terminal
+// does not get resumed: its agent must call this or use its lifecycle hooks.
+async function toolReceive({ timeoutSeconds = 30 } = {}, context) {
+  const seconds = Number(timeoutSeconds);
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > 55) {
+    throw new Error("timeoutSeconds must be between 0 and 55");
+  }
+  const id = await callerSessionId(context);
+  if (!id) throw new Error("Cannot identify the calling prox; forward x-slab-prompt-session-id or use prox_inbox with an explicit local handle.");
+  const deadline = Date.now() + seconds * 1000;
+  do {
+    const messages = await drain(id);
+    if (messages.length) return [{ type: "text", text: `${messages.length} received message(s):\n${messages.map((m) => stamp(m)).join("\n")}` }];
+    if (Date.now() >= deadline) break;
+    await sleep(Math.min(250, deadline - Date.now()));
+  } while (true);
+  return [{ type: "text", text: "No queued messages. Call prox_receive again when waiting for a peer; no terminal input was submitted." }];
 }
 
 async function toolDump({ handle, destination } = {}) {
@@ -501,8 +533,10 @@ async function toolDump({ handle, destination } = {}) {
     host: r.host, name: r.name, sessionId: r.id, providerSessionId: providerId,
     agent, cwd: marker.cwd || r.cwd || "", subject: marker.subject || r.subject || "",
     seed: r.seed || "", status: r.status || marker.state || "",
+    ...(r.creature ? { creature: r.creature } : {}),
   };
   await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
+  if (r.creature) await writeFile(join(out, "character.json"), JSON.stringify(r.creature, null, 2) + "\n", { mode: 0o600 });
 
   let resume;
   if (agent === "easel") {
@@ -539,12 +573,18 @@ cd ${shellQuote(marker.cwd || r.cwd || homedir())} 2>/dev/null || cd "$HOME"
 exec claude --resume ${shellQuote(r.id)}
 `;
   }
+  if (r.creature && /^[0-9a-f]{16}$/.test(r.creature.seed)) {
+    // A character travels with the private session bundle, too. Never replace
+    // a creature that has already grown further on the destination machine.
+    const restore = `\nmkdir -p "$HOME/.config/slab/creatures"\ncp -n "$bundle/character.json" "$HOME/.config/slab/creatures/${r.creature.seed}.json"\n`;
+    resume = resume.replace(/\nexec /, `${restore}\nexec `);
+  }
   await writeFile(join(out, "resume.sh"), resume, { mode: 0o700 });
   await chmod(join(out, "resume.sh"), 0o700);
   await writeFile(join(out, "README.txt"),
-    `Portable prox state for ${r.host}:${r.name}\n\nRun ./resume.sh to install the transcript into ${agent}'s native session store and resume it.\nThe animated sigil.gif is rendered from the prompt rock's exact seeded 3D model.\nThis bundle contains raw private agent history, including tool results and local paths. Do not publish it.\n`,
+    `Portable prox state for ${r.host}:${r.name}\n\nRun ./resume.sh to install the transcript into ${agent}'s native session store and resume it.\nThe animated sigil.gif is rendered from the saved appearance.\nThis bundle contains raw private agent history, including tool results and local paths. Do not publish it. Use prox_character to export appearance alone.\n`,
     { mode: 0o600 });
-  const rendered = await renderRockBundle(r.seed, out);
+  const rendered = await renderRockBundle(r, out);
   return [{ type: "text", text: `dumped ${r.host}:${r.name} → ${out}\nagent: ${agent}\nresume id: ${providerId}\nrock: ${rendered ? "animated exact-model sigil.gif + Finder icon" : "renderer unavailable; state bundle is still complete"}\nprivate raw transcript included; move the .prox folder as one bundle.` }];
 }
 
@@ -787,6 +827,14 @@ async function toolClose({ handle }) {
 
 const TOOLS = [
   {
+    name: "prox_character",
+    description: "Read a prox's versioned egg-creature appearance, growth stage, and acquired features. With destination, export character.json and transparent PNG/animated GIF to a new .creature directory for reuse elsewhere. Includes no transcript, subject, memoir, or local paths. Reads the cached ledger; never triggers inference or a poke.",
+    inputSchema: { type: "object", properties: {
+      handle: { type: "string", description: "Exactly one prox, usually host:name." },
+      destination: { type: "string", description: "Existing local parent directory for a new <host>-<name>.creature bundle. Omit to read JSON only." },
+    }, required: ["handle"] },
+  },
+  {
     name: "prox_list",
     description:
       "List the prompt rocks across the Slab fleet — every live Claude, Codex, or Easel session and headless agent the menubar advertises — as one compact table: host, name, status, kind, age, subject, alias. Finished rocks idle for more than a day are hidden by default (the footer counts them). Reads the local fleet ledger cache (no SSH).",
@@ -829,7 +877,7 @@ const TOOLS = [
   {
     name: "prox_send",
     description:
-      "Send a text message to a prompt rock's inbox — the session reads it at its next turn boundary (or at once, if its harness listens on its inbox socket). No keystrokes are injected. Resolves the same host:name / fuzzy handle as prox_poke and refuses ambiguous matches; a rock on another machine is reached through its owner's ledger server.",
+      "Send a text message to a prompt rock's inbox — the session receives it through prox_receive, its next lifecycle hook, or its inbox socket. A file receipt confirms queued delivery, not that the agent has read it. Wait for an explicit reply when acknowledgement matters. No keystrokes are injected. Resolves the same host:name / fuzzy handle as prox_poke and refuses ambiguous matches; a rock on another machine is reached through its owner's ledger server.",
     inputSchema: {
       type: "object",
       properties: {
@@ -854,9 +902,25 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_artifact_ready",
+    description: "Queue completed artifact paths and a continuation message in a session's Slab inbox. Never types, focuses, or resumes a terminal. Receipt confirms delivery to the inbox, not that the agent has read it.",
+    inputSchema: { type: "object", properties: {
+      handle: { type: "string", description: "A stable host:name or session id." },
+      artifacts: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 20 },
+      by: { type: "string", description: "Optional sender label." },
+    }, required: ["handle", "artifacts"] },
+  },
+  {
+    name: "prox_receive",
+    description: "Wait for peer messages in the calling session's own Slab inbox, then consume and return them through this tool call. Works across agents and fleet hosts via prox_send. Use while waiting for a peer. No keyboard, focus changes, terminal input, or session resume. Timeout leaves messages queued for the next receive or lifecycle hook.",
+    inputSchema: { type: "object", properties: {
+      timeoutSeconds: { type: "number", default: 30, minimum: 0, maximum: 55 },
+    } },
+  },
+  {
     name: "prox_wake",
     description:
-      "Wake one live Claude, Codex, or Aesel rock with a bounded continuation prompt. Aesel routes to its exact native window; terminal agents route to their exact tty. Resolves host:name and prox:aesel:name handles and refuses ambiguous matches.",
+      "Deprecated compatibility alias for prox_send. Queues the prompt in the session inbox only; never focuses, types, presses Return, or resumes a terminal. Use prox_send to send and prox_receive to wait for messages.",
     inputSchema: {
       type: "object",
       properties: {
@@ -961,10 +1025,13 @@ async function callTool(name, args, context) {
   switch (name) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
+    case "prox_character": return toolCharacter(args || {});
     case "prox_poke": return toolPoke(args || {});
     case "prox_send": return toolSend(args || {}, context);
     case "prox_inbox": return toolInbox(args || {}, context);
-    case "prox_wake": return toolWake(args || {});
+    case "prox_wake": return toolWake(args || {}, context);
+    case "prox_receive": return toolReceive(args || {}, context);
+    case "prox_artifact_ready": return toolArtifactReady(args || {}, context);
     case "prox_launch": return toolLaunch(args || {});
     case "prox_job": return toolJob(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
@@ -1013,4 +1080,4 @@ async function handleMessage(message, context) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_send, prox_inbox, prox_wake, prox_launch, prox_job, prox_close, prox_dump)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_send, prox_inbox, prox_receive, prox_launch, prox_job, prox_close, prox_dump)" });

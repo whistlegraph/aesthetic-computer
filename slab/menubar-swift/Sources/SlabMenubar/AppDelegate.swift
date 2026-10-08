@@ -467,12 +467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // watcher; hardware-encodes an SCStream straight to mp4 when asked.
         if #available(macOS 15.0, *) { ScreenRecord.shared.start() }
 
-        // Advertised ledger: serve this machine's handles over the tailnet and
-        // cache peers' ledgers, so `host:name` references resolve O(1) without
-        // an SSH crawl. Overlay stays local — this is a data channel only.
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(handleLedgerWake(_:)),
-            name: LedgerStore.wakeNote, object: nil)
+
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -580,14 +575,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // serialized by the `gathering` guard) so decor + menu read one
             // consistent mark.
             snapshot.claudeSessions = TitleEmoji.assign(snapshot.claudeSessions)
-            // Slowly refresh one transcript-backed prox memoir at a time. The
-            // scheduler is change-aware and globally throttled; this 2 s app
-            // refresh merely offers it the current live set.
-            ProxMemoirs.shared.refresh(snapshot.claudeSessions)
-            // Publish this machine's ledger + refresh the peer cache (throttled
-            // inside; peer GETs are async URLSession — never block this queue).
-            LedgerStore.shared.tick(sessions: snapshot.claudeSessions,
-                                    peers: snapshot.tailnetPeers)
             // RENDERING overlay — a session whose turn is done but whose
             // launched render (a ~/.ac-pop-renders heartbeat tagged with its
             // sessionId) is still running shows pink `rendering` instead of
@@ -604,6 +591,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     return s
                 }
             }
+            // Count active growth after render states are known, then offer
+            // sessions to the throttled memoir pass and publish their appearance.
+            ProxCreatures.shared.observe(snapshot.claudeSessions)
+            ProxMemoirs.shared.refresh(snapshot.claudeSessions)
+            LedgerStore.shared.tick(sessions: snapshot.claudeSessions,
+                                    peers: snapshot.tailnetPeers)
             // `zzz` is the prompt lifecycle's cold tier: once an unbound,
             // resumable local prompt has been genuinely idle for the configured
             // window, persist its wake record, stop the agent, and leave its
@@ -1047,154 +1040,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ])
     }
 
-    private func ttyForSession(_ sid: String) -> String? {
-        if let tty = state.claudeSessions.first(where: { $0.sessionId == sid })?.tty,
-           !tty.isEmpty { return tty }
-        for dir in [Paths.activePromptsDir, Paths.awaitingPromptsDir] {
-            let path = "\(dir)/\(sid)"
-            guard let data = FileManager.default.contents(atPath: path),
-                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let tty = obj["tty"] as? String, !tty.isEmpty else { continue }
-            return tty
-        }
-        return nil
-    }
-
-    @objc private func handleLedgerWake(_ note: Notification) {
-        guard let sid = note.userInfo?["id"] as? String,
-              let prompt = note.userInfo?["prompt"] as? String,
-              !sid.isEmpty, !prompt.isEmpty else { return }
-        let session = state.claudeSessions.first(where: { $0.sessionId == sid })
-        if let session, session.agentType == "easel", session.hostPid > 0 {
-            wakeEasel(pid: session.hostPid, windowID: session.hostWindowID, prompt: prompt) { status in
-                NSLog("🪨 [wake] Easel prox \(sid.prefix(8)) finished status=\(status)")
-            }
-            return
-        }
-        guard let tty = ttyForSession(sid) else { return }
-        wakeTerminal(tty: tty, prompt: prompt,
-                     providerSessionId: session?.providerSessionId ?? "",
-                     nudgeScreen: session?.nudgeScreen ?? "",
-                     cwd: session?.cwd ?? Paths.acRepo,
-                     agentType: session?.agentType ?? "claude") { status in
-            NSLog("🪨 [wake] prox \(sid.prefix(8)) finished status=\(status)")
-        }
-    }
-
-    /// Easel owns an embedded PTY, not a Terminal.app window. Focus the exact
-    /// desktop host process advertised by its marker, then use the same trusted
-    /// keyboard event path as explicit prox terminal wakes.
-    private func wakeEasel(pid: Int, windowID: Int, prompt: String,
-                           completion: @escaping (Int32) -> Void) {
-        let previousApp = NSWorkspace.shared.frontmostApplication
-        guard let app = NSRunningApplication(processIdentifier: pid_t(pid)),
-              !app.isTerminated else { completion(2); return }
-        let axApp = AXUIElementCreateApplication(pid_t(pid))
-        var raw: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString,
-                                            &raw) == .success,
-              let window = (raw as? [AXUIElement])?.first(where: { element in
-                  return AXTiler.windowID(element).map(Int.init) == windowID
-              }) else {
-            completion(2); return
-        }
-        _ = app.activate(options: [.activateIgnoringOtherApps])
-        _ = AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString,
-                                         kCFBooleanTrue)
-        _ = AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString,
-                                         kCFBooleanTrue)
-        _ = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
-        DispatchQueue.global(qos: .utility).async {
-            Self.typePromptWithCGEvents(prompt)
-            DispatchQueue.main.async {
-                if let previousApp, !previousApp.isTerminated {
-                    _ = previousApp.activate(options: [.activateIgnoringOtherApps])
-                }
-                completion(0)
-            }
-        }
-    }
-
     /// Stable Loopboy bindings, keyed by session id. A bound client loop is
     /// visually different from an ordinary manually-launched prox even while
     /// both agents share the same working/awaiting state.
     private func loopboySessionLabels() -> [String: String] {
         LoopboyRoutes.verifiedBySession(state.claudeSessions)
-    }
-
-    private func wakeTerminal(tty: String, prompt: String,
-                              providerSessionId: String = "",
-                              nudgeScreen: String = "",
-                              cwd: String,
-                              agentType: String,
-                              completion: @escaping (Int32) -> Void) {
-        if !nudgeScreen.isEmpty {
-            DispatchQueue.global(qos: .utility).async {
-                let cleared = ShellRunner.run("/usr/bin/screen", args: [
-                    "-S", nudgeScreen, "-p", "0", "-X", "stuff", "\u{15}",
-                ])
-                guard cleared.status == 0 else { completion(cleared.status); return }
-                Thread.sleep(forTimeInterval: 0.08)
-                let typed = ShellRunner.run("/usr/bin/screen", args: [
-                    "-S", nudgeScreen, "-p", "0", "-X", "stuff", prompt,
-                ])
-                guard typed.status == 0 else { completion(typed.status); return }
-                // Screen can discard a control character appended to the end
-                // of a `stuff` string. Submit in a separate PTY write, like a
-                // physical Return after the visible text has landed.
-                Thread.sleep(forTimeInterval: 0.18)
-                let submitted = ShellRunner.run("/usr/bin/screen", args: [
-                    "-S", nudgeScreen, "-p", "0", "-X", "stuff", "\r",
-                ])
-                completion(submitted.status)
-            }
-            return
-        }
-        let previousApp = NSWorkspace.shared.frontmostApplication
-        guard PromptSigilOverlayController.shared.focusTerminal(tty: tty) else {
-            completion(2)
-            return
-        }
-        DispatchQueue.global(qos: .utility).async {
-            Self.typePromptWithCGEvents(prompt)
-            DispatchQueue.main.async {
-                if let previousApp, !previousApp.isTerminated {
-                    _ = previousApp.activate(options: [.activateIgnoringOtherApps])
-                }
-                completion(0)
-            }
-        }
-    }
-
-    /// Type through the trusted Accessibility event tap after AppleScript has
-    /// focused the exact tty window. Unlike System Events, this requires no
-    /// separate Apple Events automation grant for the menubar app.
-    private static func typePromptWithCGEvents(_ prompt: String) {
-        Thread.sleep(forTimeInterval: 0.15)
-        let source = CGEventSource(stateID: .hidSystemState)
-        for character in prompt {
-            var units = Array(String(character).utf16)
-            guard !units.isEmpty,
-                  let down = CGEvent(keyboardEventSource: source,
-                                     virtualKey: 0, keyDown: true),
-                  let up = CGEvent(keyboardEventSource: source,
-                                   virtualKey: 0, keyDown: false) else { continue }
-            down.keyboardSetUnicodeString(stringLength: units.count,
-                                          unicodeString: &units)
-            up.keyboardSetUnicodeString(stringLength: units.count,
-                                        unicodeString: &units)
-            down.post(tap: .cghidEventTap)
-            up.post(tap: .cghidEventTap)
-            Thread.sleep(forTimeInterval: 0.028)
-        }
-        Thread.sleep(forTimeInterval: 0.18)
-        if let down = CGEvent(keyboardEventSource: source,
-                              virtualKey: CGKeyCode(kVK_Return), keyDown: true),
-           let up = CGEvent(keyboardEventSource: source,
-                            virtualKey: CGKeyCode(kVK_Return), keyDown: false) {
-            down.post(tap: .cghidEventTap)
-            up.post(tap: .cghidEventTap)
-        }
     }
 
     /// Pull the Asana task tree off-main via `slab/bin/asana status`. The
