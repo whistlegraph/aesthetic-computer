@@ -2787,9 +2787,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
-            // Codex caches its terminal background at startup. Keep that
-            // appearance for its lifetime; status hues still change normally.
-            let sessionDark = s.agentType == "codex" ? (s.terminalDark ?? darkAppearance) : darkAppearance
+            // All agent pages follow the current seat appearance. The startup
+            // probe only prepares Codex's initial colors; it must not pin a
+            // live terminal after the user switches Light/Dark.
+            let sessionDark = darkAppearance
             // Pulse only the attention states — every other state holds steady
             // so working/blank/stale sessions don't churn osascript on the
             // 0.6 s blink tick.
