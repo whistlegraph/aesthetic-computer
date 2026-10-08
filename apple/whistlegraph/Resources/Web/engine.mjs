@@ -101,7 +101,7 @@ ui.innerHTML = '<div class="live-line"><strong id="live-phase"></strong><span id
 document.body.append(ui);
 $('live-stop').hidden=true;
 const frame = document.createElement('iframe'); frame.id = 'live-piece'; frame.title = 'Your piece, live';
-frame.allow = 'autoplay'; frame.src = 'https://aesthetic.computer/wipe?noauth=true&noplot=true&nogap=true&nolabel=true&preview=whistlegraph';
+frame.allow = 'autoplay'; frame.src = 'https://aesthetic.computer/wipe?noauth=true&noplot=true&nogap=true&nolabel=true&preview=walkieware';
 const previewBox=document.createElement('div');previewBox.id='live-preview-box';previewBox.append(frame,identity);$('stage').prepend(previewBox);
 function positionHistory(){ui.style.top=(previewBox.getBoundingClientRect().bottom+identity.getBoundingClientRect().height+16)+'px';}
 new ResizeObserver(positionHistory).observe(previewBox);

@@ -779,8 +779,20 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             layout = NativeLayout(tokens: values)
             print("[whistlegraph] native layout spacing=\(layout.spacing) title=\(layout.titleSize)")
         case "snapshot":
-            guard let value = body["snapshot"] as? [String: Any],
-                  let data = try? JSONSerialization.data(withJSONObject: value), data.count < 2_000_000,
+            guard var value = body["snapshot"] as? [String: Any] else { return }
+            #if DEBUG
+            if NativeScreenFixture.enabled,
+               let state = ProcessInfo.processInfo.environment["WHISTLEGRAPH_BRAINCELLS_FIXTURE"],
+               var inference = value["inference"] as? [String: Any] {
+                inference["braincells"] = ["remaining": state == "empty" ? 0 : 75000,
+                    "used": state == "empty" ? 100000 : 25000, "limit": 100000,
+                    "purchased": state == "empty" ? 0 : 1000000, "unlimited": state == "unlimited",
+                    "resetsAt": ISO8601DateFormatter().string(from: Date().addingTimeInterval(3600))] as [String: Any]
+                inference["braincellsError"] = ""
+                value["inference"] = inference
+            }
+            #endif
+            guard let data = try? JSONSerialization.data(withJSONObject: value), data.count < 2_000_000,
                   var next = try? JSONDecoder().decode(PieceSnapshot.self, from: data),
                   next.versions.count <= 256, next.code.count <= 32, next.handle.count <= 100 else { return }
             if next.revisions == nil { next.versions = snapshot.versions }

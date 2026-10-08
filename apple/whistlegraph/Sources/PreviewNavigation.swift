@@ -16,7 +16,9 @@ enum PreviewNavigation {
         guard let url, let mainFrame, url.user == nil, url.password == nil, url.port == nil else { return false }
         if mainFrame {
             guard url.scheme == "walkieware", url.host == "app", url.path == document.rawValue else { return false }
-            return document == .workspace ? query(url) == ["walkie": "1"] : url.query == nil
+            if document == .story { return url.query == nil }
+            // The storage origin stays put across the Whistlegraph rename.
+            return query(url) == ["whistlegraph": "1"] || query(url) == ["walkie": "1"]
         }
         // Creating an iframe can first navigate its empty document.
         if url.absoluteString == "about:blank" { return true }

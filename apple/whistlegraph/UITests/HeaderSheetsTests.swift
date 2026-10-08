@@ -11,7 +11,7 @@ final class HeaderSheetsTests: XCTestCase {
         let brain = app.buttons["brain-settings"]
         XCTAssertTrue(brain.waitForExistence(timeout: 30))
         brain.tap()
-        app.swipeUp()
+        XCTAssertTrue(app.buttons["brain-advanced"].waitForExistence(timeout: 10)); app.buttons["brain-advanced"].tap()
         let units = app.segmentedControls["brain-cost-unit"]
         XCTAssertTrue(units.waitForExistence(timeout: 15))
         for unit in ["Braincells", "USD", "Tezos"] {
@@ -25,12 +25,14 @@ final class HeaderSheetsTests: XCTestCase {
         #else
         XCTAssertFalse(app.buttons["brain-buy-tezos"].exists)
         #endif
+        app.navigationBars.buttons["Brain"].tap()
         app.buttons["Done"].tap()
         app.terminate(); app.launch()
         XCTAssertTrue(brain.waitForExistence(timeout: 30))
-        brain.tap(); app.swipeUp()
+        brain.tap(); XCTAssertTrue(app.buttons["brain-advanced"].waitForExistence(timeout: 10)); app.buttons["brain-advanced"].tap()
         XCTAssertTrue(units.waitForExistence(timeout: 15))
         XCTAssertTrue(units.buttons["Tezos"].isSelected, "unit survives relaunch")
+        app.navigationBars.buttons["Brain"].tap()
         app.buttons["Done"].tap()
     }
 
@@ -41,7 +43,7 @@ final class HeaderSheetsTests: XCTestCase {
         app.launch()
         let brain = app.buttons["brain-settings"]
         XCTAssertTrue(brain.waitForExistence(timeout: 30))
-        brain.tap(); app.swipeUp()
+        brain.tap(); XCTAssertTrue(app.buttons["brain-advanced"].waitForExistence(timeout: 10)); app.buttons["brain-advanced"].tap()
         let units = app.segmentedControls["brain-cost-unit"]
         XCTAssertTrue(units.waitForExistence(timeout: 15))
         units.buttons["Tezos"].tap()
@@ -78,7 +80,7 @@ final class HeaderSheetsTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.buttons["brain-settings"].waitForExistence(timeout: 30))
-        app.buttons["brain-settings"].tap(); app.swipeUp()
+        openBrain(app); XCTAssertTrue(app.buttons["brain-advanced"].waitForExistence(timeout: 10)); app.buttons["brain-advanced"].tap()
         XCTAssertTrue(app.buttons["brain-buy-tezos"].waitForExistence(timeout: 15))
         app.buttons["brain-buy-tezos"].tap()
         let browsers = ["com.apple.mobilesafari", "com.google.chrome.ios"].map { XCUIApplication(bundleIdentifier: $0) }
@@ -156,9 +158,19 @@ final class HeaderSheetsTests: XCTestCase {
         return XCTWaiter().wait(for: [gone], timeout: timeout) == .completed
     }
 
+    private func openBrain(_ app: XCUIApplication) {
+        let brain = app.buttons["brain-settings"]
+        XCTAssertTrue(brain.waitForExistence(timeout: 20))
+        brain.tap()
+        // The preview can finish sizing between finding the button and tapping.
+        if !app.navigationBars["Brain"].waitForExistence(timeout: 5) { brain.tap() }
+        XCTAssertTrue(app.navigationBars["Brain"].waitForExistence(timeout: 10))
+    }
+
     private func launch() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["WHISTLEGRAPH_NATIVE_SCREEN_FIXTURE"] = "history"
+        app.launchEnvironment["WHISTLEGRAPH_BRAINCELLS_FIXTURE"] = "ready"
         app.launch()
         // The button exists as "Log in" before the engine has loaded the fixture.
         let account = app.buttons.matching(identifier: "workspace-account")
@@ -170,20 +182,23 @@ final class HeaderSheetsTests: XCTestCase {
     #if !WHISTLEGRAPH_INTERNAL_PAYMENTS
     func testAppStoreMonetizationControls() {
         let app = launch()
-        app.buttons["brain-settings"].tap()
-        app.swipeUp()
-        let units = app.segmentedControls["brain-cost-unit"]
-        XCTAssertTrue(units.waitForExistence(timeout: 15))
-        for unit in ["Braincells", "USD", "Tezos"] { XCTAssertTrue(units.buttons[unit].exists) }
+        openBrain(app)
+        XCTAssertTrue(app.buttons["brain-advanced"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.segmentedControls["brain-cost-unit"].exists)
+        XCTAssertFalse(app.buttons["brain-model"].exists)
+        XCTAssertFalse(app.buttons["Check pending purchases"].exists)
         let store = app.descendants(matching: .any).matching(NSPredicate(format:
             "identifier == %@ OR identifier == %@", "brain-buy-app-store", "brain-app-store-status")).firstMatch
         XCTAssertTrue(store.waitForExistence(timeout: 15), "App Store product or honest unavailable state")
         XCTAssertFalse(app.buttons["brain-buy-tezos"].exists)
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = "Simple brain and refill"; image.lifetime = .keepAlways; add(image)
         app.buttons["Done"].tap()
-        XCTAssertTrue(waitForDisappearance(of: units))
+        XCTAssertTrue(waitForDisappearance(of: store))
         app.buttons["workspace-settings"].tap()
         XCTAssertTrue(app.buttons["pieces-new"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["pieces-mint"].exists)
+        XCTAssertFalse(app.staticTexts["OpenRouter"].exists)
     }
     #endif
 
@@ -191,30 +206,17 @@ final class HeaderSheetsTests: XCTestCase {
     func testPhoneBrainPanelAndPieceMenu() {
         let app = XCUIApplication()
         app.launch()
-        let brain = app.buttons["brain-settings"]
-        XCTAssertTrue(brain.waitForExistence(timeout: 30))
-        func capture(_ name: String) {
-            let image = XCTAttachment(screenshot: app.screenshot())
-            image.name = name; image.lifetime = .keepAlways; add(image)
-        }
-        capture("Build 98 phone workspace")
-        brain.tap()
-        XCTAssertTrue(app.segmentedControls["brain-pixel-size"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["OpenRouter"].waitForExistence(timeout: 15))
-        capture("Build 98 phone Brain settings")
-        // Expand the sheet to inspect the allowance and request usage below it.
-        app.swipeUp()
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "brain-balance").firstMatch.waitForExistence(timeout: 15), app.debugDescription)
-        capture("Build 98 phone braincells and usage")
+        XCTAssertTrue(app.buttons["brain-settings"].waitForExistence(timeout: 30))
+        openBrain(app)
+        XCTAssertTrue(app.buttons["brain-canvas"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["OpenRouter"].exists)
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = "Phone Brain"; image.lifetime = .keepAlways; add(image)
         app.buttons["Done"].tap()
-        XCTAssertTrue(waitForDisappearance(of: app.segmentedControls["brain-pixel-size"]))
         app.buttons["workspace-settings"].tap()
         XCTAssertTrue(app.buttons["pieces-new"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["OpenRouter"].exists)
-        XCTAssertFalse(app.segmentedControls["brain-pixel-size"].exists)
-        capture("Build 98 phone piece menu")
+        XCTAssertFalse(app.staticTexts["OpenRouter"].exists)
         app.buttons["Done"].tap()
-        XCTAssertTrue(waitForDisappearance(of: app.buttons["pieces-new"]))
     }
 
     func testPieceCodeOpensPiecesSheetWithNewPiece() {
@@ -240,17 +242,40 @@ final class HeaderSheetsTests: XCTestCase {
         XCTAssertTrue(waitForDisappearance(of: app.buttons["account-sign-out"]), "Done closes the account sheet")
     }
 
-    func testThreadCostAppearsLeftOfBrain() {
+    func testProviderCostsStayInAdvanced() {
         let app = launch()
-        let cost = app.staticTexts["thread-cost"]
-        XCTAssertTrue(cost.waitForExistence(timeout: 20))
+        XCTAssertFalse(app.staticTexts["thread-cost"].exists)
+        openBrain(app)
+        XCTAssertTrue(app.buttons["brain-advanced"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["thread-cost"].exists)
+        XCTAssertTrue(app.buttons["brain-advanced"].waitForExistence(timeout: 10)); app.buttons["brain-advanced"].tap()
+        let units = app.segmentedControls["brain-cost-unit"]
+        XCTAssertTrue(units.waitForExistence(timeout: 10))
+        units.buttons["USD"].tap()
+        let cost = app.staticTexts["thread-cost"].firstMatch
+        XCTAssertTrue(cost.waitForExistence(timeout: 10))
         XCTAssertEqual(cost.value as? String, "$0.42")
-        let brain = app.buttons["brain-settings"]
-        XCTAssertTrue(brain.exists)
-        XCTAssertLessThanOrEqual(cost.frame.maxX, brain.frame.minX)
-        XCTAssertLessThan(abs(cost.frame.midY - brain.frame.midY), 3)
-        let image = XCTAttachment(screenshot: app.screenshot())
-        image.name = "Thread cost left of brain"; image.lifetime = .keepAlways; add(image)
+    }
+
+    func testBraincellBalances() {
+        for state in ["ready", "empty", "unlimited"] {
+            let app = XCUIApplication()
+            app.launchEnvironment["WHISTLEGRAPH_NATIVE_SCREEN_FIXTURE"] = "history"
+            app.launchEnvironment["WHISTLEGRAPH_BRAINCELLS_FIXTURE"] = state
+            app.launch()
+            let account = app.buttons.matching(identifier: "workspace-account")
+                .matching(NSPredicate(format: "label == %@", "@preview, account")).firstMatch
+            XCTAssertTrue(account.waitForExistence(timeout: 30))
+            openBrain(app)
+            let balance = app.descendants(matching: .any).matching(identifier: "brain-balance").firstMatch
+            XCTAssertTrue(balance.waitForExistence(timeout: 15))
+            XCTAssertEqual(balance.value as? String, state == "ready" ? "1,075,000" : state == "empty" ? "0" : "Unlimited")
+            XCTAssertEqual(app.staticTexts["Saved"].exists, state != "unlimited")
+            if state == "unlimited" { XCTAssertFalse(app.buttons["brain-buy-app-store"].exists) }
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = "Brain balance " + state; image.lifetime = .keepAlways; add(image)
+            app.terminate()
+        }
     }
 
     func testUnsentDrawingSurvivesRelaunch() {
@@ -271,7 +296,8 @@ final class HeaderSheetsTests: XCTestCase {
         let app = launch()
         let code = app.buttons["brain-settings"]
         XCTAssertTrue(code.waitForExistence(timeout: 20))
-        code.tap()
+        openBrain(app)
+        XCTAssertTrue(app.buttons["brain-canvas"].waitForExistence(timeout: 10)); app.buttons["brain-canvas"].tap()
         let picker = app.segmentedControls["brain-pixel-size"]
         XCTAssertTrue(picker.waitForExistence(timeout: 10))
         for size in [1, 2, 3, 4] {
@@ -283,7 +309,8 @@ final class HeaderSheetsTests: XCTestCase {
         app.terminate()
         app.launch()
         XCTAssertTrue(code.waitForExistence(timeout: 20))
-        code.tap()
+        openBrain(app)
+        XCTAssertTrue(app.buttons["brain-canvas"].waitForExistence(timeout: 10)); app.buttons["brain-canvas"].tap()
         XCTAssertTrue(picker.waitForExistence(timeout: 10))
         XCTAssertTrue(picker.buttons["4×"].isSelected)
         picker.buttons["2×"].tap()
