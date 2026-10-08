@@ -1,7 +1,7 @@
 import {AccountConnection} from './account-connection.mjs';
 import {AcServer} from '/easel/src/ac-server.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
-import {DEFAULT_MODEL} from './generation-policy.mjs';
+import {FLASH_MODEL} from './generation-policy.mjs';
 import {PieceVersions} from './piece-versions.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 import {starterRoom,validateRoom,drawPath,localRoomEdit,ROOM_SCHEMA,ROOM_LIMITS} from './room-schema.mjs';
@@ -61,7 +61,7 @@ async function ask(text){
     if(local){commit(local,text);return;}
     if(!token){error='Sign in to ask the brain to edit this room.';post({action:'signIn'});return;}
     busy=true;attempt={request:text,status:'working',error:''};preview.cancel();snapshot();
-    server=new AcServer({token:()=>token,model:window.__whistlegraphModel||DEFAULT_MODEL,artifacts,controls:wares,preview:false,frameCapture:false,rounds:6,reasoning:{effort:'none'},thinking:{type:'disabled'},
+    server=new AcServer({token:()=>token,model:window.__whistlegraphModel||FLASH_MODEL,artifacts,controls:wares,preview:false,frameCapture:false,rounds:6,reasoning:{effort:'none'},thinking:{type:'disabled'},
       developerInstructions:'This is Whistlegraph. Make the requested room edit using artifact_room. Keep changes small and use only the supported grammar. Do not claim to have run Roblox, published a game, or linked an account. No preamble. If the requested behavior is unsupported, explain that briefly instead of inventing a component. '+WARE_INSTRUCTIONS});
     server.on('notification',({method,params})=>{
       if(method==='item/agentMessage/delta'){output+=params.delta;snapshot();}

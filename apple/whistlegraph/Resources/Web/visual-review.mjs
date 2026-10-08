@@ -46,7 +46,9 @@ export async function reviewVisualResult({evidence, sourceHash, renderID, source
     const response = await fetch('https://aesthetic.computer/api/easel-inference', {
       method:'POST', signal:controller.signal,
       headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`},
-      body:JSON.stringify({model, max_tokens:1800, thinking:{type:'disabled'}, reasoning:{effort:'none'},
+      // Claude 5.5 on OpenRouter rejects disabled reasoning (400 "Reasoning is
+      // mandatory"); ask it for the least instead.
+      body:JSON.stringify({model, max_tokens:1800, ...(model.startsWith('anthropic/')?{reasoning:{effort:'minimal'}}:{thinking:{type:'disabled'}, reasoning:{effort:'none'}}),
         system:VISUAL_REVIEW_INSTRUCTIONS,
         messages:[{role:'user',content:[
           {type:'text',text:JSON.stringify({latestRequest:request,selectedBranch:history,sourceHash,source})},

@@ -130,8 +130,8 @@ const server = http.createServer(async (req, res) => {
       await page.evaluate(()=>whistlegraphAsk('Draw a clover with a bee'));
       const state=await page.evaluate(()=>({ledger:JSON.parse(localStorage.getItem('whistlegraph-source-versions')),messages:__nativeMessages,phase:document.getElementById('live-phase').textContent}));
       assert.equal(state.ledger.head,1,JSON.stringify(state));
-      assert.equal(inferenceBodies[0].model,process.argv.includes('--jeffrey')?'anthropic/claude-opus-5':'deepseek/deepseek-v4.1-flash');
-      assert.equal(inferenceBodies[0].max_tokens,process.argv.includes('--jeffrey')?16384:4096);
+      assert.equal(inferenceBodies[0].model,process.argv.includes('--jeffrey')?'anthropic/claude-opus-5':'anthropic/claude-sonnet-5.5');
+      assert.equal(inferenceBodies[0].max_tokens,16384);
       assert.equal(requests,2,'provisional failures do not buy repair inference');
       assert.equal(visualRequests,1,'final candidate is still visually checked');
       const renders=state.messages.filter(m=>m.action==='render').map(m=>m.source);
@@ -243,12 +243,10 @@ const server = http.createServer(async (req, res) => {
       assert.ok(inferenceBodies[1].messages.some(m=>JSON.stringify(m).includes('REPAIR THIS CANDIDATE ONCE')));
       assert.ok(inferenceBodies.every(b=>JSON.stringify(b.messages).includes('DRAWING REFERENCE')),'both passes retain gesture intent');
       assert.ok(inferenceBodies.every(b=>b.messages.some(m=>Array.isArray(m.content)&&m.content.some(c=>c.type==='image'))),'initial and repair passes retain chalk pixels');
-      assert.ok(inferenceBodies.every(b=>b.max_tokens===4096));
-      assert.equal(inferenceBodies[0].model,'deepseek/deepseek-v4.1-flash');
-      assert.equal(inferenceBodies[0].thinking.type,'disabled');
-      // V4 Pro is text-only on OpenRouter; a chalk repair stays on the image-capable model.
-      assert.equal(inferenceBodies[1].model,'deepseek/deepseek-v4.1-flash');
-      assert.equal(inferenceBodies[1].thinking.budget_tokens,1024);
+      // Everyone's default is hosted Sonnet with the full Claude budget; the repair keeps it.
+      assert.ok(inferenceBodies.every(b=>b.max_tokens===16384));
+      assert.ok(inferenceBodies.every(b=>b.model==='anthropic/claude-sonnet-5.5'));
+      assert.ok(inferenceBodies.every(b=>b.thinking.budget_tokens===4096));
       const receipt=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-receipts')).at(-1).receipt);
       assert.equal(receipt.repairs,1);assert.equal(receipt.rounds.length,process.argv.includes('--repair-fails')?2:3);assert.equal(receipt.rounds[0].reportedModel,'fixture/reported');
       assert.equal(receipt.rounds[0].providerRequestID,'provider-1');assert.equal(receipt.rounds[1].usage.costUSD,.001);

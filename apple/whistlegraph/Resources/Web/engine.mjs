@@ -463,8 +463,10 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     const viewport=frame.getBoundingClientRect();
     const prompt=compileEditContract({request:text,...selectedBranch(versions.value),source})+
       `\nCurrent preview: ${Math.round(viewport.width)} × ${Math.round(viewport.height)} CSS points. Compose for this shape using screen.width and screen.height; keep subjects within the canvas and remain responsive when it resizes.`;
-    // Jeffrey's personal turns may keep working until completion or explicit Stop.
-    const deadline=turnHandle==='jeffrey'?null:setTimeout(()=>{turnCancelled=true;turnError='Edit check timed out';server?.interrupt();},75000);
+    // No wall-clock deadline: every turn is bounded by its profile's rounds,
+    // continuations and output tokens, and by Stop. A fixed 75 s cut off slow
+    // phones and long Opus turns that were still making progress.
+    const deadline=null;
     try{
       const result=await runEditExperiment({prompt,cancelled:()=>turnCancelled,
         onRepair:()=>{activeReceipt.value.repairs=1;activeReceipt.save();phase('Repairing…');},

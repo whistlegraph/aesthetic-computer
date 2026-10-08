@@ -1,23 +1,30 @@
-export const DEFAULT_MODEL = 'deepseek/deepseek-v4.1-flash';
+// Everyone's default is hosted Claude Sonnet (OpenRouter, billed in braincells).
+export const DEFAULT_MODEL = 'anthropic/claude-sonnet-5.5';
+export const FLASH_MODEL = 'deepseek/deepseek-v4.1-flash';
 export const REPAIR_MODEL = 'deepseek/deepseek-v4-pro';
+// Served only through the personal relay, for accounts it grants.
+const RELAY_MODELS = ['anthropic/claude-opus-5','openai/gpt-6-astra'];
 export const MODEL_LABELS = {
+  'anthropic/claude-sonnet-5.5':'Claude Sonnet 5.5',
+  'anthropic/claude-opus-5.5':'Claude Opus 5.5',
   'deepseek/deepseek-v4.1-flash':'DeepSeek V4.1 Flash',
   'deepseek/deepseek-v4-pro':'DeepSeek V4 Pro',
   'anthropic/claude-opus-5':'Claude Opus 5 · personal',
   'openai/gpt-6-astra':'GPT-6 Astra · personal',
 };
 export function modelChoices(handle, {personalAccess=false}={}) {
-  return Object.entries(MODEL_LABELS).filter(([id])=>(handle==='jeffrey'||personalAccess)||(!id.startsWith('anthropic/')&&!id.startsWith('openai/'))).map(([id,label])=>({id,label}));
+  return Object.entries(MODEL_LABELS).filter(([id])=>personalAccess||!RELAY_MODELS.includes(id)).map(([id,label])=>({id,label}));
 }
-// The handle comes from verifyAccount, never from a preference or command.
+// Personal models follow the relay's access grant, never a handle or preference.
+// Claude turns get the full budget for everyone; DeepSeek keeps its lean one.
 // DeepSeek V4 Pro is text-only on OpenRouter (404 "No endpoints found that support
-// image input"), so a repair that carries chalk stays on the image-capable default.
+// image input"), so a repair that carries chalk stays on the image-capable Flash.
 export function generationProfile(handle, {repair=false,model='',personalAccess=false,image=false}={}) {
-  const personal=handle==='jeffrey'||personalAccess;
   const selected=modelChoices(handle,{personalAccess}).some(option=>option.id===model)?model:'';
-  const chosen=selected||(personal?'anthropic/claude-opus-5':DEFAULT_MODEL);
-  const resolved=repair&&!image&&chosen===DEFAULT_MODEL?REPAIR_MODEL:chosen;
-  if(personal)return {personalRelay:resolved.startsWith('anthropic/')||resolved.startsWith('openai/'),model:resolved,maxTokens:16384,rounds:repair?4:12,outputContinuations:repair?1:2,reasoning:{max_tokens:4096},thinking:{type:'enabled',budget_tokens:4096}};
-  return {model:resolved,maxTokens:4096,rounds:repair?2:4,outputContinuations:repair?0:1,reasoning:repair?{max_tokens:1024}:{effort:'none'},thinking:repair?{type:'enabled',budget_tokens:1024}:{type:'disabled'}};
+  const chosen=selected||(personalAccess?'anthropic/claude-opus-5':DEFAULT_MODEL);
+  const resolved=repair&&!image&&chosen===FLASH_MODEL?REPAIR_MODEL:chosen;
+  const personalRelay=personalAccess&&RELAY_MODELS.includes(resolved);
+  if(!resolved.startsWith('deepseek/'))return {personalRelay,model:resolved,maxTokens:16384,rounds:repair?4:12,outputContinuations:repair?1:2,reasoning:{max_tokens:4096},thinking:{type:'enabled',budget_tokens:4096}};
+  return {personalRelay:false,model:resolved,maxTokens:4096,rounds:repair?2:4,outputContinuations:repair?0:1,reasoning:repair?{max_tokens:1024}:{effort:'none'},thinking:repair?{type:'enabled',budget_tokens:1024}:{type:'disabled'}};
 }
 export const GENERATION_INSTRUCTIONS = 'This surface is Whistlegraph. The person watches the piece being made. A local starter may already be visible: its source is the real current piece; refine it instead of discarding it. For an existing piece, make small revision-checked edit_piece calls instead of resending unchanged code. Use write_piece to create the initial piece or for a necessary rewrite. No prose preamble. Each ask becomes one internal version; complete edit checkpoints are preview layers within it. Make the first visible working drawing in 3–6 lines whenever possible. The UI previews complete paint statements and exact replacement checkpoints while streaming: put required declarations and a complete exported paint function first; avoid long data tables or helper code before that first drawing. Then refine in small complete write_piece checkpoints only as needed to satisfy the request. Do not add unrequested animation or features. For animation use Number(paintCount) from the paint API, or explicit state advanced in sim; there is no numeric frame API. A request for a spoken narrator needs audible speak(), not just written notes; use the speech guide. Use numeric RGB ink(r,g,b) or six-digit hex colors like "#ffffff"; three-digit CSS hex colors are unsupported. Use AC ink alpha on the 0–255 scale and size geometry relative to the screen. Every saved piece must have working helpers and a caption; never finish with placeholder or empty drawing helpers. line(x1,y1,x2,y2) draws ONE segment; its fifth argument is thickness, never another coordinate. For a path, loop over adjacent point pairs with separate four-argument line calls; never spread three or more point pairs into line. Use the native oval(x,y,radiusX,radiusY,filled) for ellipses instead of approximating them with overlapping circles. Fit the entire composition, including radii and stroke thickness, inside the screen with margins; use at most 90% of the fitting scale and center it. Do not repeat the prompt or add interaction instructions, help text, usage hints, or captions inside or outside the picture unless explicitly requested. Use the default write font for other in-piece text unless the person requests another. Use ac_preview for runtime observations; this phone has no desktop frame-capture service. Once the requested change is painted and runtime-checked, finish the generation turn. The app then captures four timed frames of the actual phone preview and reviews them against the latest request and selected branch before saving. A failed visual check can return concrete mismatches for one narrow repair; do not claim visual success yourself. Never fake progress or tests. Keep one line `export const caption = "…"` in the piece: a plain sentence under 120 characters naming the subject, its mood, what actually moves and what the person can actually do, if anything; never invent motion or interactions in the caption. Update it whenever an edit changes any of that. It is the piece\'s memory of itself and comes back to you with every follow-up. Preserve the current piece and the original intent of the selected branch on revisions. Short follow-ups modify that existing world; do not replace its subject, characters, message, interactions, or sound without a request to do so. Treat uncertain speech transcriptions conservatively in context instead of inventing a new subject from an ambiguous word. Adjectives of culture, nationality or place (Latina, Japanese, Nordic, tropical) describe how things look: palette, patterns, dress, flora, light. They never change the language of any text or speech unless the request mentions words, text, language or voice. Do not turn ordinary spoken requests into text posters, transcript timelines, waveform charts, or word-timed animation unless explicitly requested. No publishing: these are private local previews.';

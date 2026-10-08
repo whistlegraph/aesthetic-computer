@@ -12,6 +12,8 @@ export const EASEL_MODELS = {
   "z-ai/glm-5.3-flash": { label: "GLM 5.3 Flash" },
   "openai/gpt-5.6-luna": { label: "Luna" },
   "anthropic/claude-opus-5": { label: "Opus (premium)" },
+  "anthropic/claude-sonnet-5.5": { label: "Claude Sonnet 5.5" },
+  "anthropic/claude-opus-5.5": { label: "Claude Opus 5.5" },
   "z-ai/glm-4.6": { label: "glm" },
   "qwen/qwen3-coder": { label: "qwen" },
   "deepseek/deepseek-chat-v3.1": { label: "deepseek" },

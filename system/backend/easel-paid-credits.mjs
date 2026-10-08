@@ -146,6 +146,8 @@ const OPEN_PRICES={
  'deepseek/deepseek-v4.1-flash':[0.30,1.20], 'deepseek/deepseek-v4-pro':[0.78,1.57],
  'moonshotai/kimi-k3':[3.00,15.0], 'qwen/qwen3.7-plus':[0.32,1.28],
  'minimax/minimax-m3':[0.30,1.20], 'z-ai/glm-5.3-flash':[0.15,0.50],
+ // OpenRouter 2026-10-08. Whistlegraph's default (Sonnet) and premium (Opus).
+ 'anthropic/claude-sonnet-5.5':[2.00,10.0], 'anthropic/claude-opus-5.5':[4.00,20.0],
 };
 // Braincells per token, worst case: every token priced as output, marked up,
 // rounded up to a hundredth. Flash comes to 0.48, Kimi K3 to 6.
