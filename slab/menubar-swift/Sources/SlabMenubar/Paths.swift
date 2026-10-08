@@ -17,8 +17,6 @@ enum Paths {
         ProcessInfo.processInfo.environment["AC_REPO"] ?? "\(home)/aesthetic-computer"
     }
 
-    static var slabWallpaper: String { "\(slabBin)/slab-wallpaper" }
-    static var wallpaperStatusDir: String { "\(slabHome)/wallpaper/status" }
     /// Cached near-black + status-glow PNGs set as the macOS desktop
     /// picture (aggregate Claude status, matching the menubar icon).
     static var desktopWallpaperDir: String { "\(slabHome)/wallpaper/desktop" }
@@ -28,7 +26,7 @@ enum Paths {
     static var desktopOriginalFile: String { "\(desktopWallpaperDir)/.original" }
 
     /// Generic iMessage bridge (contact lives in the untracked config below,
-    /// never in tracked code). Mirrors the slab-wallpaper wrapper convention.
+    /// never in tracked code).
     static var imsgHelper: String { "\(slabBin)/imsg" }
     static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
     static var signalHelper: String { "\(slabBin)/signal" }
@@ -194,8 +192,7 @@ enum Paths {
     /// When this file exists (and iTerm2 is installed), every slab-spawned
     /// Claude session (restore-threads, restart-all) opens in iTerm2 rather
     /// than Terminal.app — even while the user is typing in a Terminal
-    /// window. This is what makes the iTerm2-only tiled topic wallpapers the
-    /// default surface again. Toggled from the menubar's "Spawn in iTerm2".
+    /// window. Toggled from the menubar's "Spawn in iTerm2".
     static var preferItermFlag: String { "\(slabHome)/state/prefer-iterm" }
 
     /// When this file exists, status themes use the *light* (bright,

@@ -23,32 +23,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// overlapping 2 s tick doesn't pile up worker threads (a stalled
     /// `tailscale status` can run right up to its 2 s timeout).
     private var gathering = false
-    /// Subject keys we've already fired a `slab-wallpaper` gen for, so a slow
-    /// generation isn't re-kicked every 2 s tick. Guarded by `wallpaperLock`
-    /// (touched from the off-main resolve).
-    private var kickedWallpapers = Set<String>()
-    /// At most one `slab-wallpaper` gen may run at a time. Every status flip and
-    /// every retitled session mints a fresh key, and a gen takes minutes on a
-    /// loaded box — detached spawns outran their own renders and piled up
-    /// (8 nodes × ~16 MB on neo, self-amplifying into swap). A request landing
-    /// mid-render coalesces into `pendingWallpaper`, replacing whatever was
-    /// waiting: only the newest state is worth drawing.
-    private var wallpaperBusy = false
-    private var pendingWallpaper: (key: String, subject: String, status: String)?
-    private let wallpaperLock = NSLock()
-    /// `slab-wallpaper path` is a pure hash of (subject, status) plus an
-    /// existence check, so once it names a real file that answer is permanent —
-    /// but we were forking a node to re-ask it for every session on every 2 s
-    /// tick. Seven sessions is ~3.5 node spawns a second, forever, and it scales
-    /// with the one number that keeps growing. Remember the answers instead.
-    private var wallpaperPaths: [String: String] = [:]
-    /// Keys whose render hasn't landed yet still answer "" — those we re-ask, but
-    /// on a slow clock, not every tick. A finished gen clears its stamp so the
-    /// fresh picture is picked up on the next pass rather than after the wait.
-    private var wallpaperProbedAt: [String: Date] = [:]
-    private let wallpaperProbeRetry: TimeInterval = 20
-    /// One-shot guard so the status-defaults gen is kicked once per launch.
-    private var defaultsKicked = false
     private var refreshTimer: Timer?
     /// Dedicated contact-awareness clock. iMessage must not depend on the
     /// heavier fleet snapshot completing; a stalled system probe should never
@@ -567,10 +541,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             var snapshot = StateSnapshot.gather()
-            // Resolve each session's wallpaper here (off-main): only instant
-            // cache probes + fire-and-forget gen kicks, so the main thread
-            // never waits on node/network (see slab-menubar-perf).
-            snapshot.claudeSessions = self.resolveWallpapers(snapshot.claudeSessions)
             // Sticky per-session title emoji — assigned here (off-main,
             // serialized by the `gathering` guard) so decor + menu read one
             // consistent mark.
@@ -2202,8 +2172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Toggle the "spawn in iTerm2" preference: when on, restore-threads /
-    /// restart-all open sessions in iTerm2 (the only terminal that shows the
-    /// tiled topic wallpapers) instead of Terminal.app. A pure spawn-target
+    /// restart-all open sessions in iTerm2 instead of Terminal.app. A spawn-target
     /// preference — existing windows are untouched until you restart them.
     @objc func togglePreferIterm() {
         let path = Paths.preferItermFlag
@@ -2234,116 +2203,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .awaiting:    return "awaiting"
         case .interrupted: return "interrupted"
         case .stale:       return "stale"
-        }
-    }
-
-    /// Off-main: pick each session's wallpaper from cache only (instant
-    /// `slab-wallpaper path` probe + status-default file check), and queue a
-    /// gen for anything not yet cached (`kickWallpaper` — one at a time). Never
-    /// blocks on node/network beyond the ~50 ms probe (see slab-menubar-perf).
-    private func resolveWallpapers(_ sessions: [ClaudeSession]) -> [ClaudeSession] {
-        let bin = Paths.slabWallpaper
-        let fm = FileManager.default
-        guard fm.isExecutableFile(atPath: bin) else { return sessions }
-
-        // Status-default set: kick once per launch, detached.
-        wallpaperLock.lock()
-        let kickDefaults = !defaultsKicked
-        if kickDefaults { defaultsKicked = true }
-        wallpaperLock.unlock()
-        if kickDefaults { ShellRunner.runAsync(bin, args: ["defaults"]) }
-
-        var out: [ClaudeSession] = []
-        out.reserveCapacity(sessions.count)
-        for var s in sessions {
-            let st = stateName(s.state)
-            let summary = s.titleString
-            var pick = ""
-            if !summary.isEmpty {
-                pick = wallpaperPath(subject: summary, status: st, fm: fm)
-            }
-            if pick.isEmpty {
-                let def = "\(Paths.wallpaperStatusDir)/\(st).jpg"
-                if fm.fileExists(atPath: def) { pick = def }
-            }
-            s.wallpaper = pick
-
-            if !summary.isEmpty { kickWallpaper(subject: summary, status: st) }
-            out.append(s)
-        }
-        return out
-    }
-
-    /// The cached answer if we have one, else a throttled `slab-wallpaper path`.
-    /// Off-main (called from `resolveWallpapers`).
-    private func wallpaperPath(subject: String, status: String, fm: FileManager) -> String {
-        let key = "\(status)\u{1}\(subject)"
-
-        wallpaperLock.lock()
-        if let known = wallpaperPaths[key] {
-            wallpaperLock.unlock()
-            // The file can be swept out from under us; a stale name is worse
-            // than a fresh probe, so drop it and let the retry path re-ask.
-            if fm.fileExists(atPath: known) { return known }
-            wallpaperLock.lock()
-            wallpaperPaths[key] = nil
-        }
-        if let last = wallpaperProbedAt[key], Date().timeIntervalSince(last) < wallpaperProbeRetry {
-            wallpaperLock.unlock()
-            return ""
-        }
-        wallpaperProbedAt[key] = Date()
-        wallpaperLock.unlock()
-
-        let probe = ShellRunner.output(
-            Paths.slabWallpaper, args: ["path", "subject", subject, status], timeout: 4
-        )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !probe.isEmpty, fm.fileExists(atPath: probe) else { return "" }
-
-        wallpaperLock.lock()
-        wallpaperPaths[key] = probe
-        wallpaperProbedAt[key] = nil
-        wallpaperLock.unlock()
-        return probe
-    }
-
-    /// Queue a subject gen: new if unseen, otherwise nothing. Coalescing — a
-    /// request that arrives while a gen runs displaces the one waiting, and the
-    /// displaced key leaves the once-only set so it can be asked for again if
-    /// that state comes back.
-    private func kickWallpaper(subject: String, status: String) {
-        let key = "\(status)\u{1}\(subject)"
-        wallpaperLock.lock()
-        guard kickedWallpapers.insert(key).inserted else { wallpaperLock.unlock(); return }
-        if wallpaperBusy {
-            if let stale = pendingWallpaper { kickedWallpapers.remove(stale.key) }
-            pendingWallpaper = (key, subject, status)
-            wallpaperLock.unlock()
-            return
-        }
-        wallpaperBusy = true
-        wallpaperLock.unlock()
-        runWallpaper(subject, status)
-    }
-
-    /// One gen, then drain whatever coalesced behind it. The 180 s cap matches
-    /// slab-wallpaper's own stale-lock reclaim — past that the render is wedged,
-    /// and a wedged render must die rather than hold the slot forever.
-    private func runWallpaper(_ subject: String, _ status: String) {
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            _ = ShellRunner.run(
-                Paths.slabWallpaper, args: ["subject", subject, status], timeout: 180
-            )
-            guard let self = self else { return }
-            self.wallpaperLock.lock()
-            // The picture this gen just drew is the one the probe was waiting
-            // for: forget the throttle so the next tick asks once and caches it.
-            self.wallpaperProbedAt["\(status)\u{1}\(subject)"] = nil
-            let next = self.pendingWallpaper
-            self.pendingWallpaper = nil
-            if next == nil { self.wallpaperBusy = false }
-            self.wallpaperLock.unlock()
-            if let next = next { self.runWallpaper(next.subject, next.status) }
         }
     }
 
@@ -2579,7 +2438,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// session, in iTerm2 *and* Terminal.app. Called from `refresh()`, but
     /// only emits an osascript when something actually changed since the
     /// last pass (state flipped, subject moved, appearance flipped, or a new
-    /// session appeared). iTerm2 gets ad-hoc per-session colors + wallpaper;
+    /// session appeared). iTerm2 gets ad-hoc per-session colors;
     /// Terminal.app uses a readable base profile plus per-tab RGB overrides.
     /// Both blocks are `is running`-guarded so a non-running terminal is a
     /// cheap no-op and is never launched.
@@ -2609,7 +2468,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard state.themeByStatus else { return }
         struct Assignment {
             let tty: String; let palette: Palette; let title: String
-            let wallpaper: String; let profile: String
+            let profile: String
         }
         var changes: [Assignment] = []
         var seen = Set<String>()
@@ -2748,7 +2607,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 loopboyBeat ? "heartbeat" : "-",
                 title,
                 profile,
-                s.wallpaper.isEmpty ? "-" : s.wallpaper,
                 // Pulse phase joins the key only for attention states so
                 // working/blank tiles don't churn — see `updateBlinkTimer`.
                 blink ? "pulse" : "-",
@@ -2757,7 +2615,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             lastTerminalDecor[s.sessionId] = key
             changes.append(Assignment(
                 tty: s.tty, palette: palette, title: title,
-                wallpaper: s.wallpaper, profile: profile))
+                profile: profile))
         }
         // Reap entries for sessions that disappeared since last tick — they
         // either died or got reaped by the janitor; either way our memo is
@@ -2819,7 +2677,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 it.append("              set _slabContrast to (ASCII character 27) & \"]1337;SetProfileProperty=Minimum Contrast=MC41NQ==\" & (ASCII character 7)")
                 it.append("              do shell script \"/usr/bin/printf %s \" & quoted form of _slabContrast & \" > \" & quoted form of ttyName")
                 it.append("              set name of s to \"\(esc(a.title))\"")
-                it.append("              set background image of s to \"\(esc(a.wallpaper))\"")
                 it.append("            end if")
             }
             it.append(contentsOf: [
@@ -3078,8 +2935,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private static func preferredTerminalApp() -> String {
         // "Make iTerm2 the home": when the user has pinned iTerm2 (and it's
         // installed), every slab-spawned session goes there — even while
-        // they're typing in a Terminal window — so the iTerm2-only tiled
-        // topic wallpapers are the default surface again.
+        // they're typing in a Terminal window.
         let itermInstalled = NSWorkspace.shared.urlForApplication(
             withBundleIdentifier: "com.googlecode.iterm2") != nil
         if itermInstalled,
@@ -3451,7 +3307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// is deliberately agent-agnostic: Claude and Codex hosts share the same
     /// geometry and Far/Near/Tiny font calculation.
     /// Terminal gets bounds only — AppleScript can't set per-session decor
-    /// or wallpaper on Terminal.app, so those windows tile but stay
+    /// on Terminal.app, so those windows tile but stay
     /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
     /// Menu / hotkey entry point: an explicit tile, which DOES reset each
     /// Terminal window's font zoom so the grid-derived size actually lands.
@@ -4017,7 +3873,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// by **bundle id**: on installs where the app registers as `iTerm.app`
     /// (the common case), the by-name `application "iTerm2"` term fails to
     /// resolve with -1728, which silently zeroed every window count, spawn,
-    /// and tile pass — the bug that made the iTerm2 topic wallpapers vanish.
+    /// and tile pass.
     /// Terminal.app resolves fine by name. Single source of truth so no
     /// AppleScript path can regress to the broken by-name form again.
     static func appSpecifier(_ app: String) -> String {

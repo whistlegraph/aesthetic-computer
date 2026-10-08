@@ -60,10 +60,6 @@ struct ClaudeSession {
     var transcriptPath: String = ""
     var state: State
     var awaitingMessage: String?
-    /// Absolute path to this session's iTerm2 background-image wallpaper,
-    /// resolved off-main during refresh (instant cache probe; empty until
-    /// the async generator has produced one). Empty → leave bg image unset.
-    var wallpaper: String = ""
     /// Sticky per-session emoji (see TitleEmoji) prefixed to the window
     /// title and menu row so the eye can re-find a session after the tiler
     /// shuffles the grid. Stamped during refresh; "" until the first prompt.
