@@ -88,8 +88,3 @@ export function inferenceBudgetFailure(budget, handle) {
   }
   return null;
 }
-
-// Only the authenticated, verified owner account may run without a spending cap.
-export function unlimitedBraincells(user, handle, adminSub = process.env.ADMIN_SUB) {
-  return !!adminSub && user?.sub === adminSub && user?.email_verified === true && handle === 'jeffrey';
-}

@@ -106,13 +106,13 @@ const server = http.createServer(async (req, res) => {
     assert.deepEqual(errors,[]);
     if(process.argv.includes('--trial')) {
       await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture-only'}));
-      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.inference?.provider==='Personal Claude'));
+      // A relay grant no longer changes generation: everyone is on hosted Sonnet.
+      await page.waitForFunction(()=>__nativeMessages.some(m=>m.action==='snapshot'&&m.snapshot.handle==='fifi'&&m.snapshot.inference?.provider));
       const settings=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.inference);
-      assert.equal(settings.selection,'anthropic/claude-opus-5');
-      assert.ok(settings.models.some(m=>m.id==='openai/gpt-6-astra'));
-      await page.evaluate(()=>whistlegraphNativeCommand({action:'setModel',text:'openai/gpt-6-astra'}));
-      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.inference.provider==='Personal Codex');
-      console.log('PASS Fifi capability selects personal Opus and offers Codex without owner identity. No provider call.');return;
+      assert.equal(settings.provider,'OpenRouter');
+      assert.equal(settings.selection,'anthropic/claude-sonnet-5.5');
+      assert.ok(!settings.models.some(m=>m.id==='openai/gpt-6-astra'||m.id==='anthropic/claude-opus-5'));
+      console.log('PASS a relay-granted account still uses hosted Sonnet and sees no relay models. No provider call.');return;
     }
     if(process.argv.includes('--streaming')) {
       await page.evaluate(()=>{
@@ -130,7 +130,7 @@ const server = http.createServer(async (req, res) => {
       await page.evaluate(()=>whistlegraphAsk('Draw a clover with a bee'));
       const state=await page.evaluate(()=>({ledger:JSON.parse(localStorage.getItem('whistlegraph-source-versions')),messages:__nativeMessages,phase:document.getElementById('live-phase').textContent}));
       assert.equal(state.ledger.head,1,JSON.stringify(state));
-      assert.equal(inferenceBodies[0].model,process.argv.includes('--jeffrey')?'anthropic/claude-opus-5':'anthropic/claude-sonnet-5.5');
+      assert.equal(inferenceBodies[0].model,'anthropic/claude-sonnet-5.5','owner and trial accounts use the hosted default too');
       assert.equal(inferenceBodies[0].max_tokens,16384);
       assert.equal(requests,2,'provisional failures do not buy repair inference');
       assert.equal(visualRequests,1,'final candidate is still visually checked');

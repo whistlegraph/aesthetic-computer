@@ -1,4 +1,3 @@
-import { unlimitedBraincells } from '../../backend/easel-policy.mjs';
 // Read the signed-in handle's existing daily allowance; never a vendor balance.
 export function createHandler({ authorize, getHandleOrEmail, checkBudget, paidBalance = async () => 0, offer = null, creditPack = {amount: 500, credits: 1_000_000} }) {
   const reply = (statusCode, value) => ({ statusCode, headers: {
@@ -24,7 +23,7 @@ export function createHandler({ authorize, getHandleOrEmail, checkBudget, paidBa
       const valueUSD = cells => Math.round(cells * creditPack.amount / creditPack.credits * 1e6) / 1e8;
       const dollars = { currency: "USD", free: valueUSD(budget.remaining), purchased: valueUSD(purchased),
         total: valueUSD(budget.remaining + purchased) };
-      return reply(200, { unlimited: unlimitedBraincells(user, handle.slice(1)), dollars, purchased, offer, handle, unit: "braincells", remaining: budget.remaining,
+      return reply(200, { unlimited: false, dollars, purchased, offer, handle, unit: "braincells", remaining: budget.remaining,
         used: budget.used, limit: budget.budget, day: budget.day,
         resetsAt: new Date(Date.parse(budget.day + "T00:00:00Z") + 86400000).toISOString() });
     } catch { return reply(503, { error: "Allowance unavailable" }); }
