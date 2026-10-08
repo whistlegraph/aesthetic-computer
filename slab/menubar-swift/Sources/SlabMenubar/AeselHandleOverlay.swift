@@ -48,6 +48,8 @@ final class AeselHandleOverlays {
 
     private final class Surface {
         let panel: NSPanel
+        let interactionPanel: NSPanel
+        let interactionView: PromptRockInteractionView
         let root = CALayer()
         let view = HandleView()
         let slot: Slot
@@ -66,8 +68,8 @@ final class AeselHandleOverlays {
             panel = NSPanel(contentRect: initial, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             panel.isReleasedWhenClosed = false
             panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
-            // Terminal owns mouse reporting and Slab's existing cursor bridge.
-            // A transparent native label must not intercept the footer click.
+            // The moving lettering is separate from a stable, cell-sized hit
+            // area. AppKit owns the pointer here instead of racing Terminal.
             panel.ignoresMouseEvents = true; panel.hidesOnDeactivate = false
             panel.level = .floating
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
@@ -82,6 +84,21 @@ final class AeselHandleOverlays {
             view.setAccessibilityRole(.link)
             view.setAccessibilityLabel("Open \(slot.text)")
             panel.contentView = view
+            interactionPanel = NSPanel(contentRect: CGRect(origin: initial.origin, size: rect.size),
+                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            interactionPanel.isReleasedWhenClosed = false
+            interactionPanel.isOpaque = false; interactionPanel.backgroundColor = .clear
+            interactionPanel.hasShadow = false; interactionPanel.ignoresMouseEvents = false
+            interactionPanel.hidesOnDeactivate = false; interactionPanel.level = .floating
+            interactionPanel.collectionBehavior = panel.collectionBehavior
+            interactionView = PromptRockInteractionView(frame: CGRect(origin: .zero, size: rect.size))
+            interactionView.onClick = view.onClick
+            interactionView.onHoverChange = { [weak view] hovering in view?.setHovered(hovering) }
+            interactionView.setAccessibilityElement(true)
+            interactionView.setAccessibilityRole(.link)
+            interactionView.setAccessibilityLabel("Open \(slot.text)")
+            view.setAccessibilityElement(false)
+            interactionPanel.contentView = interactionView
             root.frame = CGRect(x: 0, y: 0, width: rect.width + 12, height: rect.height + 12)
             let natural = min(18, rect.height * 0.8)
             let size = min(natural, natural * max(1, rect.width - 3) / max(1, AeselRock.width(slot.text, size: natural)))
@@ -149,7 +166,10 @@ final class AeselHandleOverlays {
     }
 
     private func remove(_ id: String) {
-        surfaces.removeValue(forKey: id)?.panel.close()
+        if let surface = surfaces.removeValue(forKey: id) {
+            surface.interactionPanel.close()
+            surface.panel.close()
+        }
         try? FileManager.default.removeItem(at: directory.appendingPathComponent(id + ".json.ack"))
     }
 
@@ -160,6 +180,7 @@ final class AeselHandleOverlays {
             let id = session.sessionId
             guard let number = bindings[session.overlayBindingKey], let b = windows[number] else {
                 surfaces[id]?.panel.orderOut(nil)
+                surfaces[id]?.interactionPanel.orderOut(nil)
                 continue
             }
             let window = CGRect(x: b.0, y: b.1, width: b.2, height: b.3)
@@ -172,8 +193,11 @@ final class AeselHandleOverlays {
                 if visible {
                     let frame = CGRect(x: rect.minX - 6, y: screenHeight - rect.maxY - 6, width: rect.width + 12, height: rect.height + 12)
                     if surface.panel.frame != frame { surface.panel.setFrame(frame, display: false) }
+                    let hit = frame.insetBy(dx: 6, dy: 6)
+                    if surface.interactionPanel.frame != hit { surface.interactionPanel.setFrame(hit, display: false) }
                     surface.root.speed = eco || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : surface.view.hovered ? 2.5 : 1
                     if !surface.panel.isVisible { surface.panel.orderFrontRegardless() }
+                    if !surface.interactionPanel.isVisible { surface.interactionPanel.orderFrontRegardless() }
                     if now.timeIntervalSince(surface.lastAck) >= 1 {
                         let ack: [String: Any] = ["schema": 1, "sessionId": id, "token": surface.slot.token,
                                                   "at": now.timeIntervalSince1970 * 1000]
@@ -182,7 +206,11 @@ final class AeselHandleOverlays {
                             surface.lastAck = now
                         }
                     }
-                } else { surface.panel.orderOut(nil) }
+                } else {
+                    surface.interactionPanel.orderOut(nil)
+                    surface.panel.orderOut(nil)
+                    surface.view.setHovered(false)
+                }
             }
             guard !pending.contains(id), now >= (nextRead[id] ?? .distantPast) else { continue }
             pending.insert(id); nextRead[id] = now.addingTimeInterval(0.5)
@@ -213,7 +241,6 @@ final class AeselHandleOverlays {
                             self.surfaces[id] = Surface(slot: slot, windowID: number, window: window, rect: rect)
                         }
                     } else { self.surfaces[id]?.lastSeen = Date() }
-                    self.surfaces[id]?.view.setHovered(slot.hovered ?? false)
                 }
             }
         }

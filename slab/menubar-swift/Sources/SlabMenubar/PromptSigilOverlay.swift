@@ -347,6 +347,14 @@ final class PromptRockInteractionView: NSView {
     var onClick: (() -> Void)?
     private var tracking: NSTrackingArea?
 
+    override func draw(_ dirtyRect: NSRect) {
+        // WindowServer passes fully transparent pixels through to Terminal,
+        // even with ignoresMouseEvents=false. Keep the whole hit area present
+        // between glyphs so AppKit owns both the cursor and the first click.
+        NSColor.black.withAlphaComponent(0.01).setFill()
+        bounds.fill()
+    }
+
     override func updateTrackingAreas() {
         if let tracking { removeTrackingArea(tracking) }
         let next = NSTrackingArea(
@@ -378,6 +386,7 @@ final class PromptRockInteractionView: NSView {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) { onClick?() }
+    override func accessibilityPerformPress() -> Bool { onClick?(); return true }
 }
 
 /// One borderless, click-through badge window holding a session's per-prompt

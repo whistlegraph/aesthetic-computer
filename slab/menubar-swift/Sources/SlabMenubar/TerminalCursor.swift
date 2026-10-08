@@ -137,9 +137,16 @@ final class TerminalCursor {
     }
 
     private func assertHand(recheck: Bool = true) {
+        // A native rock, handle or preview owns its own cursor. In particular,
+        // a queued Terminal retry must not paint an arrow over its hand.
+        let number = windowUnderPointer()
+        if NSApp.windows.contains(where: { $0.windowNumber == number && !$0.ignoresMouseEvents }) {
+            showing = false; over = nil; checked = .distantPast
+            return
+        }
         if recheck, Date().timeIntervalSince(checked) > 0.02 {
             checked = Date()
-            over = claimUnderPointer()
+            over = claimUnderPointer(window: number)
         }
         if let id = over, let hand = hands[id] {
             if !background {
@@ -159,19 +166,23 @@ final class TerminalCursor {
     /// The hand whose Terminal window is the topmost window under the pointer,
     /// with Terminal frontmost (a background terminal reports no motion, so its
     /// hover could be stale).
-    private func claimUnderPointer() -> Int? {
+    private func claimUnderPointer(window number: Int) -> Int? {
         guard !hands.isEmpty,
               Self.terminals.contains(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "")
         else { return nil }
+        guard number > 0 else { return nil }
+        return hands.first { PromptSigilOverlayController.shared.terminalWindowID(tty: $0.value.tty) == number }?.key
+    }
+
+    private func windowUnderPointer() -> Int {
         let point = NSEvent.mouseLocation
-        let ours = Set(NSApp.windows.map(\.windowNumber))
+        let transparent = Set(NSApp.windows.filter(\.ignoresMouseEvents).map(\.windowNumber))
         var below = 0, number = 0
         for _ in 0..<8 {
             number = NSWindow.windowNumber(at: point, belowWindowWithWindowNumber: below)
-            guard ours.contains(number), number > 0 else { break }
+            guard transparent.contains(number), number > 0 else { break }
             below = number
         }
-        guard number > 0 else { return nil }
-        return hands.first { PromptSigilOverlayController.shared.terminalWindowID(tty: $0.value.tty) == number }?.key
+        return number
     }
 }
