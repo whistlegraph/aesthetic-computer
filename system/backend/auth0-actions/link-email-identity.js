@@ -39,13 +39,15 @@
 
 const ManagementClient = require("auth0").ManagementClient;
 
-// The connection the emailed codes authenticate against. Anything else — the
-// database connection, a social provider — is a login that already knows who
-// it is and must be left alone.
-const PASSWORDLESS_CONNECTION = "email";
+// The connections a new identity can arrive on and be folded into an account
+// that already exists: the emailed codes, and the social providers the
+// sign-in dialog offers (signup-flow.mjs). Google and Apple hand over an
+// address they have already verified. The database connection is never
+// folded — it is where nearly every existing account lives.
+const LINKABLE_CONNECTIONS = new Set(["email", "google-oauth2", "apple"]);
 
 exports.onExecutePostLogin = async (event, api) => {
-  if (event.connection?.name !== PASSWORDLESS_CONNECTION) return;
+  if (!LINKABLE_CONNECTIONS.has(event.connection?.name)) return;
   // The code was accepted, so Auth0 has marked the address verified. Belt and
   // braces: a future connection setting must not quietly turn this into a
   // takeover.
@@ -80,13 +82,15 @@ exports.onExecutePostLogin = async (event, api) => {
     return;
   }
 
-  // The account they already had: same address, verified, and NOT the
-  // passwordless identity we just logged in as.
-  const primary = (candidates || []).find((user) =>
-    user.user_id !== event.user.user_id &&
-    user.email_verified === true &&
-    (user.identities || []).some((identity) =>
-      identity.connection !== PASSWORDLESS_CONNECTION));
+  // The account they already had: same address, verified, and not the
+  // identity we just logged in as. A password account wins (that is where
+  // handles were made for years); otherwise the oldest — say, someone who
+  // joined by code and now taps "Continue with Google".
+  const others = (candidates || []).filter((user) =>
+    user.user_id !== event.user.user_id && user.email_verified === true);
+  const primary =
+    others.find((user) => (user.identities || []).some((identity) => identity.provider === "auth0")) ||
+    others.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))[0];
 
   // Nobody to be. This is a genuinely new person, and the passwordless
   // identity they just made is the right one to keep.
