@@ -226,6 +226,16 @@ if argv.contains("--test-mission-timing") {
     item.at = start.addingTimeInterval(120) // Heartbeats must not reset the clock.
     precondition(missionTimeLabel(item, now: start.addingTimeInterval(125)) == "2m 05s elapsed")
     precondition(missionTimeLabel(item, now: start.addingTimeInterval(-10)) == "0s elapsed")
+    precondition(missionTimeBudget(item) == nil)
+    item.deadlineAt = start.addingTimeInterval(90 * 60)
+    let half = missionTimeBudget(item, now: start.addingTimeInterval(45 * 60))!
+    precondition(half.fraction == 0.5 && half.remaining == 45 * 60 && !half.overdue)
+    let late = missionTimeBudget(item, now: start.addingTimeInterval(91 * 60))!
+    precondition(late.fraction == 1 && late.remaining == 0 && late.overdue)
+    item.finishedAt = start.addingTimeInterval(45 * 60)
+    precondition(missionTimeBudget(item, now: start.addingTimeInterval(100 * 60))!.fraction == 0.5)
+    item.deadlineAt = start
+    precondition(missionTimeBudget(item) == nil)
     item = MissionItem(text: "Test suite", status: "done", at: item.at,
                        startedAt: start, finishedAt: start.addingTimeInterval(125))
     precondition(missionTimeLabel(item, now: start.addingTimeInterval(900)) == "2m 05s elapsed")
@@ -251,7 +261,9 @@ if argv.contains("--test-mission-lanes") {
     var doc: [String: Any] = ["mission": "Iris lanes", "updatedAt": iso.string(from: now),
         "lanes": [
             ["id": "blue", "name": "Lane Blue", "color": "#0000ff", "emoji": "🔵", "host": "panda", "label": "General", "state": "blocked",
-             "items": [["text": "Blocked job", "status": "pending", "startedAt": start]],
+             "items": [["text": "Blocked job", "status": "pending", "startedAt": start,
+                        "deadlineAt": iso.string(from: now.addingTimeInterval(600)),
+                        "subitems": ["Inspect fixture", "Measure imports"]]],
              "queued": [["title": "Next job"]]],
             ["id": "teal", "name": "Lane Teal", "color": "#008080", "host": "panda", "label": "Light", "state": "waiting", "items": []],
             ["id": "coral", "name": "Lane Coral", "color": "#ff7f50", "host": "chicken", "label": "General", "state": "running",
@@ -270,6 +282,7 @@ if argv.contains("--test-mission-lanes") {
     precondition(rows[1].text == "Blocked job" && rows[2].text == "Next: Next job")
     precondition(rows.firstIndex { $0.text == "Running job" }! > rows.firstIndex { $0.laneID == "teal" }!)
     precondition(missionTimeLabel(rows[1], now: now) == "2m 05s elapsed")
+    precondition(rows[1].deadlineAt != nil && rows[1].subitems == ["Inspect fixture", "Measure imports"])
     precondition(rows.filter { $0.text == "No task running" }.count == 2)
     precondition(rows.filter { $0.isLaneHeader }.allSatisfy { missionTimeLabel($0) == nil })
     doc.removeValue(forKey: "lanes")

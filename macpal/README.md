@@ -124,12 +124,20 @@ or `--test-mission-timing` to check these contracts without opening a window.
 
 Named lanes also carry `name`, `color` (CSS `#rrggbb`), and `tag`, e.g.
 `{"id":"blue","name":"Lane Blue","color":"#0000ff","tag":"lane:blue"}`.
-Each lane gets an opaque tinted card, subtle border, soft shadow, and its registry
-emoji. The compact board hides the mission heading and Git bar. Lane backgrounds
-touch, with 12-point system text and one line per task. Long titles and queue
-items scroll horizontally instead of wrapping; clock updates preserve the scroll.
-Reduce Motion keeps text stationary. Elapsed time uses monospaced digits before
-the current task. Full detail remains in the accessibility label and source JSON. Text
+Each lane gets a flat tinted background and its registry emoji, with square edges
+and no outline or left rail. The compact board hides the mission heading and Git
+bar, leaving clearance beneath the animated machine name. Lane backgrounds touch,
+with 12-point task titles and separate 11-point lines for each subitem. Long lines
+scroll independently instead of wrapping. Native-resolution text moves in whole
+display pixels, pauses at the start, and clips within its row. Clock updates
+preserve the scroll; Reduce Motion keeps text stationary.
+
+Items may supply `subitems` (strings) and an ISO `deadlineAt` alongside `startedAt`.
+A stationary clock and thin bar show elapsed/allowed time and time remaining.
+The bar measures **time used**, not work completed; it turns amber at 80% and red
+at the deadline. Finished tasks freeze at `finishedAt`. Missing deadlines show
+elapsed time only. Iris projects the enforced task/sweep deadline, capped by the
+applicable authorization expiry, without changing any limit. Text
 colors adapt to maintain at least 4.5:1 contrast against each card in either
 appearance. The host sits beside the permanent name. Iris owns one flat registry;
 MacPal never assigns colors by machine or array order. Initial identities are

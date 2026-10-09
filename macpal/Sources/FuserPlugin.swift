@@ -45,28 +45,24 @@ final class GhostView: NSView {
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
 
-// Running work has a steady green edge and a flowing tint behind its text.
+// Running work has a flowing green tint behind its task title.
 // Animate only the background; the lettering stays fully opaque.
 final class MissionActivityView: NSView {
-    private let stripe = CALayer()
     private let flow = CAGradientLayer()
     private var flowWidth: CGFloat = 0
 
     init(dark: Bool) {
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 5
         layer?.masksToBounds = true
         let green = dark ? hexColor(0x7EE787) : hexColor(0x237A37)
         layer?.backgroundColor = green.withAlphaComponent(dark ? 0.06 : 0.04).cgColor
-        stripe.backgroundColor = green.cgColor
         flow.colors = [green.withAlphaComponent(0).cgColor,
                        green.withAlphaComponent(0.09).cgColor,
                        green.withAlphaComponent(0).cgColor]
         flow.startPoint = CGPoint(x: 0, y: 0.5)
         flow.endPoint = CGPoint(x: 1, y: 0.5)
         layer?.addSublayer(flow)
-        layer?.addSublayer(stripe)
     }
     required init?(coder: NSCoder) { fatalError("no nib") }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
@@ -74,7 +70,6 @@ final class MissionActivityView: NSView {
         super.layout()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        stripe.frame = CGRect(x: 0, y: 0, width: 3, height: bounds.height)
         flow.frame = bounds
         CATransaction.commit()
         let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -131,23 +126,8 @@ struct MissionLanePalette {
 final class MissionLaneCardView: NSView {
     var palette = MissionLanePalette(color: .gray, dark: false)
     override func draw(_ dirtyRect: NSRect) {
-        let rect = bounds.insetBy(dx: 3, dy: 0)
-        let card = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
-        NSGraphicsContext.saveGraphicsState()
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.24)
-        shadow.shadowBlurRadius = 2
-        shadow.shadowOffset = NSSize(width: 0, height: -2)
-        shadow.set()
         palette.background.setFill()
-        card.fill()
-        NSGraphicsContext.restoreGraphicsState()
-        palette.border.setStroke()
-        card.lineWidth = 1
-        card.stroke()
-        palette.accent.setFill()
-        NSBezierPath(roundedRect: NSRect(x: rect.minX + 1, y: rect.minY + 4,
-            width: 2, height: max(0, rect.height - 8)), xRadius: 1.5, yRadius: 1.5).fill()
+        bounds.fill()
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
@@ -188,6 +168,8 @@ struct MissionItem: Equatable {
     // A run's stable start, separate from its continually refreshed heartbeat.
     var startedAt: Date? = nil
     var finishedAt: Date? = nil
+    var deadlineAt: Date? = nil
+    var subitems: [String] = []
     var laneID: String? = nil
     var isLaneHeader: Bool = false
     var laneColor: UInt32? = nil
@@ -258,6 +240,8 @@ func loadMission(_ path: String) -> Mission? {
         item.at = ((it["at"] as? String).flatMap(parseDate)) ?? fallbackDate
         item.startedAt = (it["startedAt"] as? String).flatMap(parseDate)
         item.finishedAt = (it["finishedAt"] as? String).flatMap(parseDate)
+        item.deadlineAt = (it["deadlineAt"] as? String).flatMap(parseDate)
+        item.subitems = (it["subitems"] as? [String] ?? []).filter { !$0.isEmpty }
         if let d = it["detail"] as? String, !d.isEmpty { item.detail = d }
         if let p = it["progress"] as? Double {          // accepts 0…1 or 0…100
             item.progress = min(1, max(0, p > 1 ? p / 100 : p))
@@ -322,38 +306,41 @@ func loadMission(_ path: String) -> Mission? {
                    items: items)
 }
 
-// ── marquee status field ──────────────────────────────────────────────────
-// No truncation: the styled status line is baked (accent shadow and all) into
-// an image; when it fits it centers like a label, and when it overflows two
-// copies scroll in an endless leftward loop.
+// Text is drawn at the window's actual backing scale. Scroll in whole device
+// pixels so Core Animation never interpolates a low-resolution text bitmap.
+final class MarqueeTextLayer: CALayer {
+    var text = NSAttributedString()
+    override func draw(in ctx: CGContext) {
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+        text.draw(at: .zero)
+        NSGraphicsContext.restoreGraphicsState()
+    }
+}
+
 final class MarqueeField: NSView {
-    private let lead = CALayer()
-    private let trail = CALayer()
-    private let fadeMask = CAGradientLayer()
+    private let lead = MarqueeTextLayer()
+    private let trail = MarqueeTextLayer()
     private var textW: CGFloat = 0
     private var textH: CGFloat = 0
     private let gap: CGFloat = 28
-    private let speed: CGFloat = 26   // px/s
-    private let fadeW: CGFloat = 10   // edge fade margin when scrolling
+    private let speed: CGFloat = 24
     var centered = true
     var accentShadow = true
     private var previousText: NSAttributedString?
-    private var animationWidth: CGFloat = -1
-    private var animationSpan: CGFloat = -1
-    private var reducedMotion = false
+    private var animationKey = ""
+    private var scale: CGFloat { window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2 }
+    private func pixel(_ value: CGFloat) -> CGFloat { (value * scale).rounded() / scale }
 
     init() {
         super.init(frame: .zero)
-        layer = CALayer()
         wantsLayer = true
         layer?.masksToBounds = true
-        for l in [lead, trail] { l.anchorPoint = .zero; layer?.addSublayer(l) }
-        fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
-        fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
-        fadeMask.colors = [
-            CGColor(gray: 0, alpha: 0), CGColor(gray: 0, alpha: 1),
-            CGColor(gray: 0, alpha: 1), CGColor(gray: 0, alpha: 0),
-        ]
+        for l in [lead, trail] {
+            l.anchorPoint = .zero
+            l.masksToBounds = true
+            layer?.addSublayer(l)
+        }
     }
     required init?(coder: NSCoder) { fatalError("no nib") }
 
@@ -362,86 +349,169 @@ final class MarqueeField: NSView {
         previousText = NSAttributedString(attributedString: attr)
         setAccessibilityLabel(attr.string)
         let m = NSMutableAttributedString(attributedString: attr)
-        let sh = NSShadow()
-        sh.shadowColor = accent; sh.shadowBlurRadius = 0
-        sh.shadowOffset = NSSize(width: 2, height: -2)
         if accentShadow {
+            let sh = NSShadow()
+            sh.shadowColor = accent; sh.shadowBlurRadius = 0
+            sh.shadowOffset = NSSize(width: 2, height: -2)
             m.addAttribute(.shadow, value: sh, range: NSRange(location: 0, length: m.length))
         }
-        let size = m.size()
-        textW = ceil(size.width) + 2; textH = ceil(size.height) + 2
-        let img = NSImage(size: NSSize(width: textW, height: textH), flipped: false) { _ in
-            m.draw(at: NSPoint(x: 0, y: 2))
-            return true
-        }
-        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        textW = ceil(m.size().width) + 2
+        textH = ceil(m.size().height) + 2
+        CATransaction.begin(); CATransaction.setDisableActions(true)
         for l in [lead, trail] {
+            l.text = m
             l.contentsScale = scale
-            l.contents = img
             l.bounds = CGRect(x: 0, y: 0, width: textW, height: textH)
+            l.setNeedsDisplay()
         }
+        CATransaction.commit()
         relayout()
     }
 
-    override func setFrameSize(_ s: NSSize) {
-        guard s != frame.size else { return }
-        super.setFrameSize(s); relayout()
-    }
+    override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); relayout() }
+    override func viewDidChangeBackingProperties() { super.viewDidChangeBackingProperties(); relayout() }
+    override func setFrameSize(_ size: NSSize) { super.setFrameSize(size); relayout() }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 
     private func relayout() {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let changed = animationWidth != bounds.width || animationSpan != textW || reduce != reducedMotion
-        animationWidth = bounds.width; animationSpan = textW; reducedMotion = reduce
+        let key = "\(bounds.width)|\(textW)|\(scale)|\(reduce)"
+        let changed = key != animationKey
+        animationKey = key
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        if changed {
-            lead.removeAnimation(forKey: "marquee"); trail.removeAnimation(forKey: "marquee")
+        for l in [lead, trail] {
+            if changed { l.removeAnimation(forKey: "marquee") }
+            if l.contentsScale != scale { l.contentsScale = scale; l.setNeedsDisplay() }
         }
-        let y = (bounds.height - textH) / 2
-        if textW <= bounds.width || reduce {
-            trail.isHidden = true
-            lead.position = CGPoint(x: centered && textW <= bounds.width ? (bounds.width - textW) / 2 : 0, y: y)
-            layer?.mask = nil
+        let y = pixel((bounds.height - textH) / 2)
+        let scrolls = textW > bounds.width && bounds.width > 0 && !reduce
+        trail.isHidden = !scrolls
+        if !scrolls {
+            lead.position = CGPoint(x: centered && textW <= bounds.width ? pixel((bounds.width - textW) / 2) : 0, y: y)
         } else {
-            trail.isHidden = false
-            let f = bounds.width > 0 ? min(0.5, fadeW / bounds.width) : 0
-            fadeMask.frame = bounds
-            fadeMask.locations = [0, f as NSNumber, (1 - f) as NSNumber, 1]
-            layer?.mask = fadeMask
-            let span = textW + gap
+            let span = pixel(textW + gap)
             lead.position = CGPoint(x: 0, y: y)
             trail.position = CGPoint(x: span, y: y)
-            for l in [lead, trail] where changed {
-                let a = CABasicAnimation(keyPath: "transform.translation.x")
-                a.fromValue = 0; a.toValue = -span
-                a.duration = CFTimeInterval(span / speed)
-                a.repeatCount = .infinity
-                l.add(a, forKey: "marquee")
+            if changed {
+                let steps = Int(ceil(span * scale))
+                let pause: Double = 1.5
+                let duration = pause + Double(span / speed)
+                let values: [NSNumber] = [0] + (0...steps).map { NSNumber(value: -Double($0) / Double(scale)) }
+                let times: [NSNumber] = [0] + (0...steps).map { NSNumber(value: (pause + Double($0) / Double(steps) * (duration - pause)) / duration) }
+                for l in [lead, trail] {
+                    let motion = CAKeyframeAnimation(keyPath: "transform.translation.x")
+                    motion.values = values; motion.keyTimes = times
+                    motion.calculationMode = .discrete
+                    motion.duration = duration; motion.repeatCount = .infinity
+                    l.add(motion, forKey: "marquee")
+                }
             }
         }
         CATransaction.commit()
     }
 }
 
-// A single-line mission label shares the compositor-driven marquee. Timer
-// updates replace its contents without restarting the scrolling animation.
+struct MissionTimeBudget {
+    let elapsed: TimeInterval
+    let limit: TimeInterval
+    var fraction: Double { min(1, max(0, elapsed / limit)) }
+    var remaining: TimeInterval { max(0, limit - elapsed) }
+    var overdue: Bool { elapsed >= limit }
+}
+
+func missionTimeBudget(_ item: MissionItem, now: Date = Date()) -> MissionTimeBudget? {
+    guard let start = item.startedAt, let deadline = item.deadlineAt,
+          deadline > start else { return nil }
+    return MissionTimeBudget(elapsed: max(0, (item.finishedAt ?? now).timeIntervalSince(start)),
+                             limit: deadline.timeIntervalSince(start))
+}
+
+final class MissionTimeBudgetView: NSView {
+    var budget: MissionTimeBudget?
+    var label = NSAttributedString()
+    var fill = NSColor.systemGreen
+    var track = NSColor.gray
+    override func draw(_ dirtyRect: NSRect) {
+        label.draw(at: NSPoint(x: 0, y: budget == nil ? 1 : 5))
+        if let budget = budget {
+            track.setFill()
+            NSRect(x: 0, y: 0, width: bounds.width, height: 2).fill()
+            fill.setFill()
+            NSRect(x: 0, y: 0, width: floor(bounds.width * budget.fraction), height: 2).fill()
+        }
+    }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
+// Each task owns a title, independent subitem marquees, and a stationary clock.
 final class MissionLaneRowField: NSTextField {
     private let marquee = MarqueeField()
+    private var details: [MarqueeField] = []
+    private let timing = MissionTimeBudgetView()
+    private var hasTiming = false
+    var preferredHeight: CGFloat { 18 + CGFloat(details.count) * 17 + (hasTiming ? 22 : 0) }
+    override var isFlipped: Bool { false }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         isEditable = false; isSelectable = false
         isBordered = false; drawsBackground = false
+        wantsLayer = true; layer?.masksToBounds = true
         marquee.centered = false; marquee.accentShadow = false
-        addSubview(marquee)
+        addSubview(marquee); addSubview(timing)
+        timing.isHidden = true
     }
     required init?(coder: NSCoder) { fatalError("no nib") }
     override var attributedStringValue: NSAttributedString {
         didSet { marquee.setText(attributedStringValue) }
     }
+    func configure(item: MissionItem, palette: MissionLanePalette, now: Date) {
+        let lines = item.subitems.isEmpty ? item.detail.map { [$0] } ?? [] : item.subitems
+        for line in lines where !item.isLaneHeader {
+            let view = MarqueeField()
+            view.centered = false; view.accentShadow = false
+            let text = line.components(separatedBy: .newlines).joined(separator: " ")
+            view.setText(NSAttributedString(string: text, attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .regular), .foregroundColor: palette.secondary]))
+            details.append(view); addSubview(view)
+        }
+        timing.track = palette.secondary.withAlphaComponent(0.18)
+        timing.fill = palette.accent
+        updateTiming(item: item, palette: palette, now: now)
+    }
+    func updateTiming(item: MissionItem, palette: MissionLanePalette, now: Date) {
+        hasTiming = item.startedAt != nil && !item.isLaneHeader
+        timing.isHidden = !hasTiming
+        guard hasTiming else { return }
+        let budget = missionTimeBudget(item, now: now)
+        timing.budget = budget
+        func clock(_ time: TimeInterval) -> String {
+            let s = Int(max(0, time))
+            return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60)
+                             : String(format: "%d:%02d", s / 60, s % 60)
+        }
+        let text: String
+        if let budget = budget {
+            let remaining = item.finishedAt != nil ? "finished" : budget.overdue
+                ? "+" + clock(budget.elapsed - budget.limit) + " over" : clock(budget.remaining) + " left"
+            text = "Time \(clock(budget.elapsed)) / \(clock(budget.limit)) · \(remaining)"
+            timing.fill = budget.overdue ? hexColor(0xC94D4D) : budget.fraction >= 0.8 ? hexColor(0xB87919) : hexColor(0x399B59)
+        } else {
+            text = missionTimeLabel(item, now: now) ?? ""
+        }
+        timing.label = NSAttributedString(string: text, attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular), .foregroundColor: palette.secondary])
+        timing.setAccessibilityLabel(text)
+        timing.needsDisplay = true
+    }
     override func draw(_ dirtyRect: NSRect) {}
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        marquee.frame = bounds
+        marquee.frame = NSRect(x: 0, y: bounds.height - 18, width: bounds.width, height: 18)
+        for (i, view) in details.enumerated() {
+            view.frame = NSRect(x: 13, y: bounds.height - 18 - CGFloat(i + 1) * 17, width: max(0, bounds.width - 13), height: 17)
+        }
+        timing.frame = NSRect(x: 13, y: 1, width: max(0, bounds.width - 13), height: 20)
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
@@ -1053,13 +1123,6 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                 .font: NSFont.systemFont(ofSize: inLane ? 11 : 13, weight: .bold),
                 .foregroundColor: markColor, .paragraphStyle: ip]))
             var timeRange: NSRange?
-            if inLane, let timing = missionTimeLabel(item, now: now), item.startedAt != nil {
-                let label = timing + " · "
-                timeRange = NSRange(location: a.length, length: (label as NSString).length)
-                a.append(NSAttributedString(string: label, attributes: [
-                    .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
-                    .foregroundColor: secondary, .paragraphStyle: ip]))
-            }
             let queued = item.text.hasPrefix("Next:") || item.text.hasSuffix(" queued")
             a.append(NSAttributedString(string: item.text, attributes: [
                 .font: NSFont.systemFont(ofSize: inLane ? 12 : (queued ? 12.5 : 13.5),
@@ -1102,6 +1165,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                     .paragraphStyle: ip]))
             }
             f.attributedStringValue = a
+            if let row = f as? MissionLaneRowField, let palette = lanePalette {
+                row.configure(item: item, palette: palette, now: now)
+            }
             let activity = item.status == "in_progress" ? MissionActivityView(dark: dark) : nil
             if let activity = activity {
                 c.content.addSubview(activity)
@@ -1115,7 +1181,13 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // Keep the row views and their animations alive while just the clock ticks.
     private func updateMissionTimes(now: Date) {
         guard let items = mission?.items, items.count == missionItemFields.count else { return }
+        var palette = MissionLanePalette(color: .gray, dark: paneIsDark())
         for (i, item) in items.enumerated() {
+            if item.isLaneHeader { palette = MissionLanePalette(color: item.laneColor.map(hexColor) ?? .gray, dark: paneIsDark()) }
+            if let row = missionItemFields[i] as? MissionLaneRowField {
+                row.updateTiming(item: item, palette: palette, now: now)
+                continue
+            }
             guard let range = missionTimeRanges[i], let timing = missionTimeLabel(item, now: now) else { continue }
             let text = NSMutableAttributedString(attributedString: missionItemFields[i].attributedStringValue)
             let label = item.laneID == nil ? " · " + timing : timing + " · "
@@ -1145,7 +1217,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         guard mission != nil else { return (0, [], 0) }
         if showsLanes {
             let heights = missionItemFields.indices.map { i -> CGFloat in
-                18 + (missionLaneCards[i] == nil ? 0 : 4) + laneBottomPadding(i)
+                ((missionItemFields[i] as? MissionLaneRowField)?.preferredHeight ?? 18)
+                    + (missionLaneCards[i] == nil ? 0 : 4) + laneBottomPadding(i)
             }
             return (0, heights, heights.reduce(0, +))
         }
@@ -1166,7 +1239,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         // minimal keeps only a live mission: the lane board a machine is watching.
         if minimal || showsLanes {
             let h = missionMetrics(width: controller.fullWidth - 14).total
-            return h > 0 ? h + (showsLanes ? 0 : 8) : 0
+            return h > 0 ? h + (showsLanes ? 16 : 8) : 0
         }
         // Mission mode stands the terminal pane down: its height leaves the
         // stack, so the todo list owns the badge's lower half until the
@@ -1256,8 +1329,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             let top: CGFloat = missionLaneCards[i] == nil ? 0 : 4
             let inCard = mission?.items[i].laneID != nil
             let textHeight = mm.items[i] - top - bottom
-            missionActivityViews[i]?.frame = NSRect(x: inCard ? 15 : 7, y: my + bottom - (inCard ? 0 : 4),
-                width: missionW - (inCard ? 16 : 0), height: textHeight + (inCard ? 0 : 8))
+            missionActivityViews[i]?.frame = NSRect(x: inCard ? 15 : 7, y: inCard ? my + bottom + textHeight - 18 : my + bottom - 4,
+                width: missionW - (inCard ? 16 : 0), height: inCard ? 18 : textHeight + 8)
             missionActivityViews[i]?.needsLayout = true
             f.frame = NSRect(x: inCard ? 19 : 15, y: my + bottom,
                 width: missionW - (inCard ? 24 : 8), height: textHeight)
