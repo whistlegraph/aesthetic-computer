@@ -68,6 +68,7 @@ fi
 
 # Write commit ref for version endpoint
 echo "$NEW_HEAD" > system/public/.commit-ref
+git rev-list --count HEAD > system/public/.commit-count
 
 # Max-level .br/.zst sidecars for oskiewar.com's `precompressed` file_server.
 # After every checkout, because Caddy serves a sidecar that exists without

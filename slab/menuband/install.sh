@@ -245,6 +245,19 @@ strip -S "${APP_LAUNCHER_BIN}"
 # leaves regular symbols intact for crash report symbolication.
 strip -S "${APP_BIN}"
 cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
+# Stamp the git revision this build came from, so the running app can tell
+# when it has fallen behind the served main (RevisionChecker → orange branch
+# mark on the chip). Skipped silently outside a git checkout.
+if GIT_COMMIT="$(git -C "${SCRIPT_DIR}" rev-parse HEAD 2>/dev/null)"; then
+    GIT_COUNT="$(git -C "${SCRIPT_DIR}" rev-list --count HEAD 2>/dev/null || echo 0)"
+    GIT_BRANCH="$(git -C "${SCRIPT_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+    for kv in "MBGitCommit string ${GIT_COMMIT}" "MBGitCommitCount integer ${GIT_COUNT}" "MBGitBranch string ${GIT_BRANCH}"; do
+        set -- ${kv}
+        /usr/libexec/PlistBuddy -c "Delete :$1" "${APP_DIR}/Contents/Info.plist" >/dev/null 2>&1 || true
+        /usr/libexec/PlistBuddy -c "Add :$1 $2 $3" "${APP_DIR}/Contents/Info.plist"
+    done
+    say "stamped revision ${GIT_COMMIT:0:10} (#${GIT_COUNT}, ${GIT_BRANCH})"
+fi
 if [[ -f "${SCRIPT_DIR}/AppIcon.icns" ]]; then
     cp "${SCRIPT_DIR}/AppIcon.icns" "${APP_RES}/AppIcon.icns"
 fi

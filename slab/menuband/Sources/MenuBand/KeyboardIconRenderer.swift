@@ -462,6 +462,10 @@ enum KeyboardIconRenderer {
     /// The chip paints a little robot head in its top-left corner while
     /// set, signalling "a machine (not the keyboard) is playing me."
     static var fleetDriving: Bool = false
+    /// Commits the running build is behind the served main (RevisionChecker).
+    /// Above zero the chip wears a small orange branch mark in its top-right
+    /// corner: "this Menu Band is behind — rebuild."
+    static var behindMainBy: Int = 0
     /// The score currently performing (for the popover transport) and its
     /// start/end wall-clock window for the progress bar. Nil title = idle.
     static var scoreTitle: String? = nil
@@ -2083,6 +2087,36 @@ enum KeyboardIconRenderer {
     /// The head is a filled rounded square (reads round at this size) and
     /// the eyes are cleared to transparent so they glow as eye-holes
     /// against either a light or dark menu bar.
+    /// The behind-main mark: a trunk with a commit dot at each end and a
+    /// branch forking off to the upper right — the smallest shape that still
+    /// reads as "git" at menubar size. Orange, like a warning light.
+    private static func drawChipBranchMark(in r: NSRect) {
+        let orange = NSColor(srgbRed: 255/255, green: 149/255, blue: 0/255, alpha: 1)
+        let dot: CGFloat = 2.2
+        let trunkX = r.minX + 1.6
+        let bottom = NSPoint(x: trunkX, y: r.minY + 1.1)
+        let top = NSPoint(x: trunkX, y: r.maxY - 1.1)
+        let tip = NSPoint(x: r.maxX - 1.1, y: r.midY + 0.6)
+        // Halo so it stays legible on both menubar appearances.
+        withGlow(color: orange, blur: 1.5, alpha: 0.6) {
+            orange.setStroke()
+            let trunk = NSBezierPath()
+            trunk.move(to: bottom); trunk.line(to: top)
+            trunk.lineWidth = 1.0; trunk.stroke()
+            let fork = NSBezierPath()
+            fork.move(to: NSPoint(x: trunkX, y: r.midY - 0.6))
+            fork.curve(to: tip,
+                       controlPoint1: NSPoint(x: trunkX, y: r.midY + 0.9),
+                       controlPoint2: NSPoint(x: tip.x, y: r.midY - 0.4))
+            fork.lineWidth = 1.0; fork.stroke()
+            orange.setFill()
+            for c in [bottom, top, tip] {
+                NSBezierPath(ovalIn: NSRect(x: c.x - dot / 2, y: c.y - dot / 2,
+                                            width: dot, height: dot)).fill()
+            }
+        }
+    }
+
     private static func drawChipFleetRobot(in corner: NSRect,
                                             color: NSColor,
                                             baseAlpha: CGFloat) {
@@ -2971,6 +3005,16 @@ enum KeyboardIconRenderer {
                                      y: iconBox.maxY - robotSide + 1.5,
                                      width: robotSide, height: robotSide)
             drawChipFleetRobot(in: robotCorner, color: color, baseAlpha: alpha)
+        }
+        // Behind-main tell — a little orange git branch (two commits and a
+        // fork) in the top-right corner while the running build trails the
+        // served main. Opposite corner from the fleet robot so both can show.
+        if behindMainBy > 0 {
+            let side: CGFloat = 7.0
+            let corner = NSRect(x: iconBox.maxX - side + 1.5,
+                                y: iconBox.maxY - side + 1.5,
+                                width: side, height: side)
+            drawChipBranchMark(in: corner)
         }
         // Linger / bell-ring flourish — a fermata mark (the music
         // notation for "let ring / hold this note") drawn above the

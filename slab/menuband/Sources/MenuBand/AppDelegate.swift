@@ -865,6 +865,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         Self.registerBundledFonts()
         LaunchPing.send()
+        // Behind-main tell on the chip (fleet builds only; see RevisionChecker).
+        RevisionChecker.onChange = { [weak self] in
+            KeyboardIconRenderer.behindMainBy = RevisionChecker.behindBy ?? 0
+            self?.updateIcon()
+        }
+        RevisionChecker.start()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
         // LaunchAgent). Reconcile the OS registration with the user's stored
@@ -3791,7 +3797,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .milkyTracker: layoutName = "MilkyTracker"
         }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
-        button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)"
+        let revision = RevisionChecker.statusLine.map { " · \($0)" } ?? ""
+        button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
         // Force a synchronous redraw — the click drag-loop runs the runloop
         // in `eventTracking` mode and has been swallowing the next CA flush
         // until mouseUp. Without this, key blinks and hover highlights only
@@ -4119,9 +4126,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if menuBand.isPercussionDisplayNote(display) {
                 // Shift-click accents the drum (a harder hit).
                 menuBand.playABCLayer(forDisplayNote: display)
-                currentDrumGroup = menuBand.percussionNoteOn(
-                    menuBand.percussionDrum(forDisplayNote: display),
-                    velocity: v, pan: p, accent: shift)
+                currentDrumGroup = menuBand.percussionKeyHit(
+                    displayNote: display, velocity: v, pan: p, accent: shift)
                 menuBand.drumLitOn(display)
                 currentDrumDisplay = display
             } else if let played = playedNote(for: display) {
