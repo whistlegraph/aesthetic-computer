@@ -221,10 +221,12 @@ struct WhistlegraphScreen: View {
             .frame(maxWidth: .infinity)
             .frame(height: narrator.isPlaying ? UIScreen.main.bounds.width * 16 / 9 : nil)
             .background(narrator.isPlaying ? storyBackground : Color.clear)
-            if !narrator.error.isEmpty && !narrator.isPlaying { Text(narrator.error).foregroundStyle(.orange) }
-            if let notice = session.speechNotice { Text(notice).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading).accessibilityIdentifier("speech-fallback-notice") }
-            if let failure = session.captureError, !narrator.isPlaying { Text(failure).font(.body).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
-            if !session.snapshot.error.isEmpty && !narrator.isPlaying { Text(session.snapshot.error).font(.body).foregroundStyle(.orange).accessibilityIdentifier("workspace-error") }
+            // No orange status line. A failed try explains itself in its own row (beside Keep, Discard and
+            // Try again); the few notices that have no row speak quietly in the page's own ink.
+            if !narrator.error.isEmpty && !narrator.isPlaying { QuietNote(text: narrator.error, ink: paper) }
+            if let notice = session.speechNotice { QuietNote(text: notice, ink: paper).accessibilityIdentifier("speech-fallback-notice") }
+            if let failure = session.captureError, !narrator.isPlaying { QuietNote(text: failure, ink: paper) }
+            if !session.snapshot.error.isEmpty && !narrator.isPlaying && session.snapshot.attempt == nil { QuietNote(text: session.snapshot.error, ink: paper).accessibilityIdentifier("workspace-error") }
             if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
@@ -427,9 +429,16 @@ struct VersionFeed: View {
                     } else if snapshot.busy, let output = snapshot.output, !output.isEmpty {
                         CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"))
                     } else {
-                    Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
-                        .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
-                        .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .trailing)
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
+                            .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+                            .lineLimit(1).truncationMode(.tail)
+                        // Why it stopped, in the row it belongs to: no separate status line.
+                        if ["failed", "interrupted"].contains(attempt.status), !attempt.error.isEmpty {
+                            Text(attempt.error).font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.58), relativeTo: .footnote))
+                                .opacity(0.72).lineLimit(1).truncationMode(.tail).accessibilityIdentifier("attempt-error")
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     if snapshot.busy {
                         Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
@@ -653,5 +662,15 @@ struct ChalkStickIcon: View {
         .opacity(lit ? 1 : 0.7)
         .frame(width: 24, height: 24)
         .accessibilityHidden(true)
+    }
+}
+
+/// A notice in the page's own ink, small and unhurried, instead of an orange status line.
+struct QuietNote: View {
+    let text: String
+    let ink: Color
+    var body: some View {
+        Text(text).font(.custom("ComicRelief-Regular", size: 15, relativeTo: .footnote))
+            .foregroundStyle(ink.opacity(0.72)).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
