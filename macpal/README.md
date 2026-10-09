@@ -115,7 +115,7 @@ mark sits to the avatar’s left, opposite the resident agent’s contact disc;
 
 Iris fleet cards can supply `lanes` instead of a flat checklist. Each section has
 `id`, `host`, `label`, `state`, `items`, and `queued` (`id`/`title` pairs). MacPal
-keeps their order, draws a horizontal divider above each lane, and shows its
+keeps their order, draws a colored background for each lane, and shows its
 current task and up to two queued tasks. Empty and waiting lanes remain visible.
 Both Panda and Chicken receive all four sections. Blocked tasks retain elapsed
 time but have an amber warning instead of green activity. Older flat cards keep
@@ -125,10 +125,13 @@ or `--test-mission-timing` to check these contracts without opening a window.
 Named lanes also carry `name`, `color` (CSS `#rrggbb`), and `tag`, e.g.
 `{"id":"blue","name":"Lane Blue","color":"#0000ff","tag":"lane:blue"}`.
 Each lane gets an opaque tinted card, subtle border, soft shadow, and its registry
-emoji. The mission UI uses the macOS system font, with semibold task titles,
-regular detail text, and monospaced digits for timers on their own line. Text
+emoji. The compact board hides the mission heading and Git bar. Lane backgrounds
+touch, with 12-point system text and one line per task. Long titles and queue
+items scroll horizontally instead of wrapping; clock updates preserve the scroll.
+Reduce Motion keeps text stationary. Elapsed time uses monospaced digits before
+the current task. Full detail remains in the accessibility label and source JSON. Text
 colors adapt to maintain at least 4.5:1 contrast against each card in either
-appearance. Host, workload class, and state sit below the permanent name. Iris owns one flat registry;
+appearance. The host sits beside the permanent name. Iris owns one flat registry;
 MacPal never assigns colors by machine or array order. Initial identities are
 Blue (Panda general), Teal (Panda light), Coral (Chicken general), and Snow
 (Chicken light), with 🔵 / 🌊 / 🪸 / ❄️ respectively. Retired IDs remain reserved

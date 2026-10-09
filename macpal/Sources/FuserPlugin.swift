@@ -131,12 +131,12 @@ struct MissionLanePalette {
 final class MissionLaneCardView: NSView {
     var palette = MissionLanePalette(color: .gray, dark: false)
     override func draw(_ dirtyRect: NSRect) {
-        let rect = bounds.insetBy(dx: 5, dy: 5)
-        let card = NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12)
+        let rect = bounds.insetBy(dx: 3, dy: 0)
+        let card = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
         shadow.shadowColor = NSColor.black.withAlphaComponent(0.24)
-        shadow.shadowBlurRadius = 6
+        shadow.shadowBlurRadius = 2
         shadow.shadowOffset = NSSize(width: 0, height: -2)
         shadow.set()
         palette.background.setFill()
@@ -146,8 +146,8 @@ final class MissionLaneCardView: NSView {
         card.lineWidth = 1
         card.stroke()
         palette.accent.setFill()
-        NSBezierPath(roundedRect: NSRect(x: rect.minX + 1, y: rect.minY + 13,
-            width: 3, height: max(0, rect.height - 26)), xRadius: 1.5, yRadius: 1.5).fill()
+        NSBezierPath(roundedRect: NSRect(x: rect.minX + 1, y: rect.minY + 4,
+            width: 2, height: max(0, rect.height - 8)), xRadius: 1.5, yRadius: 1.5).fill()
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
@@ -334,7 +334,13 @@ final class MarqueeField: NSView {
     private var textH: CGFloat = 0
     private let gap: CGFloat = 28
     private let speed: CGFloat = 26   // px/s
-    private let fadeW: CGFloat = 18   // edge fade margin when scrolling
+    private let fadeW: CGFloat = 10   // edge fade margin when scrolling
+    var centered = true
+    var accentShadow = true
+    private var previousText: NSAttributedString?
+    private var animationWidth: CGFloat = -1
+    private var animationSpan: CGFloat = -1
+    private var reducedMotion = false
 
     init() {
         super.init(frame: .zero)
@@ -352,11 +358,16 @@ final class MarqueeField: NSView {
     required init?(coder: NSCoder) { fatalError("no nib") }
 
     func setText(_ attr: NSAttributedString) {
+        guard previousText?.isEqual(to: attr) != true else { return }
+        previousText = NSAttributedString(attributedString: attr)
+        setAccessibilityLabel(attr.string)
         let m = NSMutableAttributedString(attributedString: attr)
         let sh = NSShadow()
         sh.shadowColor = accent; sh.shadowBlurRadius = 0
         sh.shadowOffset = NSSize(width: 2, height: -2)
-        m.addAttribute(.shadow, value: sh, range: NSRange(location: 0, length: m.length))
+        if accentShadow {
+            m.addAttribute(.shadow, value: sh, range: NSRange(location: 0, length: m.length))
+        }
         let size = m.size()
         textW = ceil(size.width) + 2; textH = ceil(size.height) + 2
         let img = NSImage(size: NSSize(width: textW, height: textH), flipped: false) { _ in
@@ -372,15 +383,24 @@ final class MarqueeField: NSView {
         relayout()
     }
 
-    override func setFrameSize(_ s: NSSize) { super.setFrameSize(s); relayout() }
+    override func setFrameSize(_ s: NSSize) {
+        guard s != frame.size else { return }
+        super.setFrameSize(s); relayout()
+    }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
 
     private func relayout() {
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let changed = animationWidth != bounds.width || animationSpan != textW || reduce != reducedMotion
+        animationWidth = bounds.width; animationSpan = textW; reducedMotion = reduce
         CATransaction.begin(); CATransaction.setDisableActions(true)
-        lead.removeAnimation(forKey: "marquee"); trail.removeAnimation(forKey: "marquee")
+        if changed {
+            lead.removeAnimation(forKey: "marquee"); trail.removeAnimation(forKey: "marquee")
+        }
         let y = (bounds.height - textH) / 2
-        if textW <= bounds.width {
+        if textW <= bounds.width || reduce {
             trail.isHidden = true
-            lead.position = CGPoint(x: (bounds.width - textW) / 2, y: y)
+            lead.position = CGPoint(x: centered && textW <= bounds.width ? (bounds.width - textW) / 2 : 0, y: y)
             layer?.mask = nil
         } else {
             trail.isHidden = false
@@ -391,7 +411,7 @@ final class MarqueeField: NSView {
             let span = textW + gap
             lead.position = CGPoint(x: 0, y: y)
             trail.position = CGPoint(x: span, y: y)
-            for l in [lead, trail] {
+            for l in [lead, trail] where changed {
                 let a = CABasicAnimation(keyPath: "transform.translation.x")
                 a.fromValue = 0; a.toValue = -span
                 a.duration = CFTimeInterval(span / speed)
@@ -401,6 +421,29 @@ final class MarqueeField: NSView {
         }
         CATransaction.commit()
     }
+}
+
+// A single-line mission label shares the compositor-driven marquee. Timer
+// updates replace its contents without restarting the scrolling animation.
+final class MissionLaneRowField: NSTextField {
+    private let marquee = MarqueeField()
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isEditable = false; isSelectable = false
+        isBordered = false; drawsBackground = false
+        marquee.centered = false; marquee.accentShadow = false
+        addSubview(marquee)
+    }
+    required init?(coder: NSCoder) { fatalError("no nib") }
+    override var attributedStringValue: NSAttributedString {
+        didSet { marquee.setText(attributedStringValue) }
+    }
+    override func draw(_ dirtyRect: NSRect) {}
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        marquee.frame = bounds
+    }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
 
 // ── ANSI + heuristic pane colorizer ──────────────────────────────────────
@@ -660,9 +703,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     let badgeW: CGFloat = 236
     let pad: CGFloat = 7
     var paneW: CGFloat { badgeW - pad * 2 }
-    var preferredWidth: CGFloat {
-        mission?.items.contains(where: { $0.isLaneHeader }) == true ? 340 : badgeW
-    }
+    var showsLanes: Bool { mission?.items.contains(where: { $0.isLaneHeader }) == true }
+    var preferredWidth: CGFloat { showsLanes ? 320 : badgeW }
 
     private var tick4 = 0   // git refresh every 4th tick (~4s)
 
@@ -945,26 +987,29 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             }
             let primary = lanePalette?.primary ?? primary
             let secondary = lanePalette?.secondary ?? secondary
-            let f = NSTextField(labelWithString: "")
+            let inLane = item.laneID != nil
+            let f: NSTextField = inLane ? MissionLaneRowField(frame: .zero) : NSTextField(labelWithString: "")
+            f.toolTip = item.text + (item.detail.map { " — " + $0 } ?? "")
+            f.setAccessibilityLabel(f.toolTip)
             f.alignment = .left
-            f.maximumNumberOfLines = 0
-            f.cell?.wraps = true
-            f.cell?.lineBreakMode = .byWordWrapping
+            f.maximumNumberOfLines = inLane ? 1 : 0
+            f.cell?.wraps = !inLane
+            f.cell?.lineBreakMode = inLane ? .byClipping : .byWordWrapping
             f.wantsLayer = true
             f.shadow = item.laneID == nil ? textShadow : nil
             let ip = NSMutableParagraphStyle()
-            ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
+            ip.alignment = .left; ip.lineBreakMode = inLane ? .byClipping : .byWordWrapping
             if item.isLaneHeader {
                 let palette = lanePalette!
                 let headingStyle = ip.mutableCopy() as! NSMutableParagraphStyle
-                headingStyle.lineSpacing = 4
-                let title = (item.laneEmoji.map { $0 + "  " } ?? "") + item.text
+                let title = (item.laneEmoji.map { $0 + " " } ?? "") + item.text.replacingOccurrences(of: "Lane ", with: "")
                 let heading = NSMutableAttributedString(string: title, attributes: [
-                    .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
+                    .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
                     .foregroundColor: palette.accent, .paragraphStyle: headingStyle])
                 if let context = item.detail {
-                    heading.append(NSAttributedString(string: "\n" + context, attributes: [
-                        .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                    let host = context.components(separatedBy: " · ").first ?? context
+                    heading.append(NSAttributedString(string: " · " + host, attributes: [
+                        .font: NSFont.systemFont(ofSize: 11, weight: .regular),
                         .foregroundColor: secondary, .paragraphStyle: headingStyle]))
                 }
                 f.attributedStringValue = heading
@@ -980,8 +1025,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                 continue
             }
             missionLaneCards.append(nil)
-            ip.lineSpacing = 2
-            ip.headIndent = 19   // wrapped lines tuck under the text, past the square
+            ip.lineSpacing = inLane ? 0 : 2
+            ip.headIndent = inLane ? 0 : 19   // wrapped lines tuck under the text, past the square
             // Square checkboxes on the left: filled = done, half = active,
             // empty = pending.
             var mark: String, markColor: NSColor, textColor: NSColor
@@ -1005,20 +1050,27 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             }
             let a = NSMutableAttributedString()
             a.append(NSAttributedString(string: mark + " ", attributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: .bold),
+                .font: NSFont.systemFont(ofSize: inLane ? 11 : 13, weight: .bold),
                 .foregroundColor: markColor, .paragraphStyle: ip]))
+            var timeRange: NSRange?
+            if inLane, let timing = missionTimeLabel(item, now: now), item.startedAt != nil {
+                let label = timing + " · "
+                timeRange = NSRange(location: a.length, length: (label as NSString).length)
+                a.append(NSAttributedString(string: label, attributes: [
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
+                    .foregroundColor: secondary, .paragraphStyle: ip]))
+            }
             let queued = item.text.hasPrefix("Next:") || item.text.hasSuffix(" queued")
             a.append(NSAttributedString(string: item.text, attributes: [
-                .font: NSFont.systemFont(ofSize: queued ? 12.5 : 13.5,
+                .font: NSFont.systemFont(ofSize: inLane ? 12 : (queued ? 12.5 : 13.5),
                     weight: item.startedAt != nil || item.status == "in_progress" ? .semibold : .regular),
                 .foregroundColor: queued ? secondary : textColor,
                 .paragraphStyle: ip]))
             let detailStyle = ip.mutableCopy() as! NSMutableParagraphStyle
             detailStyle.firstLineHeadIndent = 19
             // Elapsed run time when provided; otherwise retain the activity age.
-            var timeRange: NSRange?
-            if let timing = missionTimeLabel(item, now: now) {
-                let label = (item.laneID == nil ? " · " : "\n") + timing
+            if !inLane, let timing = missionTimeLabel(item, now: now) {
+                let label = " · " + timing
                 timeRange = NSRange(location: a.length, length: (label as NSString).length)
                 a.append(NSAttributedString(string: label, attributes: [
                     .font: NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .medium),
@@ -1027,7 +1079,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             }
             missionTimeRanges.append(timeRange)
             // Sub-line: the inferred subtask, dimmer and smaller, tucked under the text.
-            if let d = item.detail {
+            if !inLane, let d = item.detail {
                 a.append(NSAttributedString(string: "\n" + d, attributes: [
                     .font: NSFont.systemFont(ofSize: 12, weight: .regular),
                     .foregroundColor: secondary,
@@ -1035,7 +1087,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             }
             // Progress bar: ten cells of ▰/▱ plus the percentage, coloured by the
             // flag (red/green) or the status (yellow while in progress).
-            if let p = item.progress {
+            if !inLane, let p = item.progress {
                 let cells = 10, filled = Int((p * Double(cells)).rounded())
                 let bar = String(repeating: "▰", count: filled)
                     + String(repeating: "▱", count: max(0, cells - filled))
@@ -1066,7 +1118,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         for (i, item) in items.enumerated() {
             guard let range = missionTimeRanges[i], let timing = missionTimeLabel(item, now: now) else { continue }
             let text = NSMutableAttributedString(attributedString: missionItemFields[i].attributedStringValue)
-            let label = (item.laneID == nil ? " · " : "\n") + timing
+            let label = item.laneID == nil ? " · " + timing : timing + " · "
             text.replaceCharacters(in: range, with: label)
             missionItemFields[i].attributedStringValue = text
             missionTimeRanges[i] = NSRange(location: range.location, length: (label as NSString).length)
@@ -1084,13 +1136,19 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     private func laneBottomPadding(_ index: Int) -> CGFloat {
         guard let items = mission?.items, items[index].laneID != nil else { return 0 }
-        return index == items.count - 1 || items[index + 1].isLaneHeader ? 18 : 0
+        return index == items.count - 1 || items[index + 1].isLaneHeader ? 4 : 0
     }
 
     // Measured height of the whole mission block at the badge width.
     private func missionMetrics(width: CGFloat)
         -> (title: CGFloat, items: [CGFloat], total: CGFloat) {
         guard mission != nil else { return (0, [], 0) }
+        if showsLanes {
+            let heights = missionItemFields.indices.map { i -> CGFloat in
+                18 + (missionLaneCards[i] == nil ? 0 : 4) + laneBottomPadding(i)
+            }
+            return (0, heights, heights.reduce(0, +))
+        }
         let t = max(44, fieldHeight(missionTitleField, width: width - 12) + 10)
         let its = missionItemFields.enumerated().map { i, field in
             let inset: CGFloat = mission?.items[i].laneID == nil ? 8 : 36
@@ -1106,9 +1164,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // exact bottom-up stack the original badge computed.
     func stackHeight(in controller: PalController) -> CGFloat {
         // minimal keeps only a live mission: the lane board a machine is watching.
-        if minimal {
+        if minimal || showsLanes {
             let h = missionMetrics(width: controller.fullWidth - 14).total
-            return h > 0 ? h + 8 : 0
+            return h > 0 ? h + (showsLanes ? 0 : 8) : 0
         }
         // Mission mode stands the terminal pane down: its height leaves the
         // stack, so the todo list owns the badge's lower half until the
@@ -1124,7 +1182,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     }
 
     func layoutRows(in controller: PalController, originY: CGFloat) {
-        if minimal {
+        if minimal || showsLanes {
             statusField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
@@ -1173,8 +1231,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private func layoutMission(y missionY: CGFloat, width missionW: CGFloat,
                                mm: (title: CGFloat, items: [CGFloat], total: CGFloat)) {
         let missionVisible = mission != nil && mm.total > 0
-        missionTitleField.isHidden = !missionVisible
-        providerChip.isHidden = !missionVisible || providerChip.image == nil
+        missionTitleField.isHidden = !missionVisible || showsLanes
+        providerChip.isHidden = !missionVisible || showsLanes || providerChip.image == nil
         if let c = c, !providerChip.isHidden {
             let side: CGFloat = 32
             providerChip.frame = NSRect(x: c.glyphView.frame.minX - 8,
@@ -1188,37 +1246,37 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         guard missionVisible else { return }
         var my = missionY + mm.total - mm.title
         missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
-        my -= 12
+        my -= showsLanes ? 0 : 12
         var card: MissionLaneCardView?
         var cardTop: CGFloat = 0
         for (i, f) in missionItemFields.enumerated() {
             if let next = missionLaneCards[i] { card = next; cardTop = my }
             my -= mm.items[i]
             let bottom = laneBottomPadding(i)
-            let top: CGFloat = missionLaneCards[i] == nil ? 0 : 18
+            let top: CGFloat = missionLaneCards[i] == nil ? 0 : 4
             let inCard = mission?.items[i].laneID != nil
             let textHeight = mm.items[i] - top - bottom
-            missionActivityViews[i]?.frame = NSRect(x: inCard ? 19 : 7, y: my + bottom - 4,
-                width: missionW - (inCard ? 24 : 0), height: textHeight + 8)
+            missionActivityViews[i]?.frame = NSRect(x: inCard ? 15 : 7, y: my + bottom - (inCard ? 0 : 4),
+                width: missionW - (inCard ? 16 : 0), height: textHeight + (inCard ? 0 : 8))
             missionActivityViews[i]?.needsLayout = true
-            f.frame = NSRect(x: inCard ? 25 : 15, y: my + bottom,
-                width: missionW - (inCard ? 36 : 8), height: textHeight)
+            f.frame = NSRect(x: inCard ? 19 : 15, y: my + bottom,
+                width: missionW - (inCard ? 24 : 8), height: textHeight)
             if bottom > 0 {
                 card?.frame = NSRect(x: 7, y: my, width: missionW, height: cardTop - my)
                 card?.needsDisplay = true
                 card = nil
             }
-            my -= 8
+            my -= showsLanes ? 0 : 8
         }
     }
 
     func setCollapsed(_ collapsed: Bool) {
-        if minimal {
+        if minimal || showsLanes {
             statusField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
             paneContainer?.isHidden = true
-            missionTitleField.isHidden = collapsed || mission == nil
-            providerChip.isHidden = collapsed || mission == nil || providerChip.image == nil
+            missionTitleField.isHidden = collapsed || mission == nil || showsLanes
+            providerChip.isHidden = collapsed || mission == nil || showsLanes || providerChip.image == nil
             missionItemFields.forEach { $0.isHidden = collapsed || mission == nil }
             missionActivityViews.forEach { $0?.isHidden = collapsed || mission == nil }
             missionLaneCards.forEach { $0?.isHidden = collapsed || mission == nil }
@@ -1327,7 +1385,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // git runs off-main: a slow/hung git must never stall the window.
     func refresh() {
         // git only every ~4th tick; status files are read every tick (cheap).
-        let doGit = tick4 % 4 == 0
+        let doGit = !minimal && !showsLanes && tick4 % 4 == 0
         tick4 += 1
         guard !refreshing else { return }
         refreshing = true
