@@ -179,6 +179,8 @@ struct IdentityHeader: View {
                     ComicTitle(text: "/" + session.snapshot.code, size: size)
                 }.buttonStyle(.plain).accessibilityLabel(session.snapshot.code + ", pieces").accessibilityIdentifier("workspace-settings")
             }
+            // The ware is the extension: /code.ac is an AC piece, .rbx a Roblox room. Tap to switch.
+            if signedIn { WarePicker(session: session, size: size, beforeSwitch: beforeOpening) }
         }
         .onChange(of: showingAccount) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .account) }
         .onChange(of: showingPieces) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .pieces) }

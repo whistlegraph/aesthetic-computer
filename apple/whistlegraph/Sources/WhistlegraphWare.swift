@@ -4,6 +4,8 @@ enum Ware: String, CaseIterable, Identifiable {
     case piece, roblox
     var id: String { rawValue }
     var title: String { self == .piece ? "Aesthetic.Computer Piece" : "Roblox Room" }
+    /// The file-extension spelling in the top bar: /code.ac, /code.rbx.
+    var fileExtension: String { self == .piece ? "ac" : "rbx" }
 }
 
 struct RobloxRoomSnapshot: Decodable {
@@ -14,6 +16,7 @@ struct RobloxRoomSnapshot: Decodable {
 
 struct WarePicker: View {
     @ObservedObject var session: WhistlegraphSession
+    var size: CGFloat = 18
     let beforeSwitch: () -> Void
     var body: some View {
         Menu {
@@ -27,14 +30,9 @@ struct WarePicker: View {
                 }.accessibilityIdentifier("ware-" + ware.rawValue)
             }
         } label: {
-            HStack(spacing: 7) {
-                if session.snapshot.wareID == "piece" {
-                    (Text("Aesthetic") + Text(".").foregroundColor(Color(red: 180/255, green: 72/255, blue: 135/255)) + Text("Computer Piece"))
-                } else { Text("Roblox Room") }
-                Image(systemName: "chevron.down").font(.caption.bold())
-            }
-            .font(.custom("ComicRelief-Regular", size: 18, relativeTo: .body))
-            .frame(minHeight: 44)
+            // The ware reads as the piece's extension, right after its /code.
+            ComicTitle(text: "." + (Ware(rawValue: session.snapshot.wareID) ?? .piece).fileExtension, size: size)
+                .opacity(0.75)
         }
         .disabled(!session.engineReady || session.snapshot.busy || session.capturePhase != .idle)
         .accessibilityLabel("Ware, " + (Ware(rawValue: session.snapshot.wareID)?.title ?? Ware.piece.title))

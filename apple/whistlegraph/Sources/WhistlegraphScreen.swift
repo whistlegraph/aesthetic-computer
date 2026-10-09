@@ -127,12 +127,6 @@ struct WhistlegraphScreen: View {
                 .accessibilityLabel("Open story cards").accessibilityIdentifier("play-versions")
                 }
             }.frame(height: narrator.isPlaying ? 0 : nil).clipped().accessibilityHidden(narrator.isPlaying)
-            if !narrator.isPlaying && !showComposer {
-                HStack {
-                    WarePicker(session: session) { narrator.stop(); showComposer = false }
-                    Spacer(minLength: 0)
-                }
-            }
             VStack(spacing: narrator.isPlaying ? 12 : 4) {
             // This representable never changes identity when cards or versions change.
             GeometryReader { geometry in
