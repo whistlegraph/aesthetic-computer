@@ -1145,20 +1145,27 @@ final class MenuBandController {
         return next.on
     }
 
+    /// Group tokens for TrackDrum-kit keys carry this bit plus the strike
+    /// (pitch class and hand), so the matching key-up can lift the finger
+    /// from the same spot — every key has a down and an up, as on the pad.
+    private static let trackDrumLiftBit: UInt64 = 1 << 63
+
     /// One drum hit for a split key, by the side's kit. Classic returns the
-    /// hat-pedal group token; the TrackDrum membrane is one-shot (group 0).
+    /// hat-pedal group token; the TrackDrum membrane returns a lift token
+    /// (`percussionNoteOff` plays the finger lift at the same spot).
     @discardableResult
     func percussionKeyHit(displayNote: UInt8, velocity: UInt8, pan: UInt8,
                           accent: Bool = false) -> UInt64 {
         let left = Int(displayNote) < MenuBandLayout.lingerSplitMidi
         let trackDrum = left ? percussionLeftTrackDrum : percussionRightTrackDrum
         if trackDrum {
-            let strike = MenuBandPercussion.keyStrike(pitchClass: Int(displayNote) % 12, left: left)
+            let pc = Int(displayNote) % 12
+            let strike = MenuBandPercussion.keyStrike(pitchClass: pc, left: left)
             let v = UInt8(min(127, Int(velocity) + (accent ? 18 : 0)))
             mixAnalysis.mark("skin-key-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
             lastSoundWasTrackDrum = true
             synth.playDrumSkin(strike: strike, anchors: [], velocity: v)
-            return 0
+            return Self.trackDrumLiftBit | UInt64(pc << 1) | (left ? 1 : 0)
         }
         return percussionNoteOn(percussionDrum(forDisplayNote: displayNote),
                                 velocity: velocity, pan: pan, accent: accent)
@@ -1230,8 +1237,16 @@ final class MenuBandController {
         synth.percussionVoicePressure()
     }
 
-    /// Key/click-up for a split drum (hi-hat foot-pedal release).
+    /// Key/click-up for a split drum: the hi-hat pedal release in the
+    /// classic kit, the finger lift in the TrackDrum kit.
     func percussionNoteOff(_ group: UInt64) {
+        if group & Self.trackDrumLiftBit != 0 {
+            let pc = Int((group >> 1) & 0xF)
+            let left = group & 1 == 1
+            let point = MenuBandPercussion.keyStrike(pitchClass: pc, left: left)
+            synth.playSurfaceLift(at: point, anchors: [], velocity: 64, synthetic: true)
+            return
+        }
         synth.percussionNoteOff(group)
     }
 
@@ -4397,7 +4412,7 @@ final class MenuBandController {
                 let group = heldDrumKeys.removeValue(forKey: keyCode)
                 let dn = heldDrumDisplay.removeValue(forKey: keyCode)
                 heldLock.unlock()
-                if let group { synth.percussionNoteOff(group) }
+                if let group { percussionNoteOff(group) }
                 if let dn { drumLitOff(dn) }
             }
             return true

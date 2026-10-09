@@ -837,15 +837,15 @@ final class MenuBandPercussion {
         let map: [(d: Double, dir: Dir)] = [
             (0.00, .up),    // C  kick, dead center
             (0.20, .up),    // C# kick edge
-            (0.38, .up),    // D  tom
-            (0.44, .down),  // D# tom, other side of the skin
+            (0.54, .up),    // D  snare (the normal kit's snare key)
+            (0.40, .down),  // D# tom
             (0.92, .up),    // E  click — top rim
             (1.00, .side),  // F  click — side rim, pans to the hand
-            (0.70, .up),    // F# hat
-            (0.54, .up),    // G  snare
-            (0.62, .down),  // G# snare rim
-            (0.78, .up),    // A  hat
-            (0.86, .down),  // A# hat, open-ish, other side
+            (0.62, .down),  // F# snare rim
+            (0.78, .up),    // G  hat (the normal kit's hat key: L)
+            (0.86, .up),    // G# hat edge
+            (0.84, .down),  // A  hat, other side — the open-hat key
+            (0.44, .up),    // A# tom, higher
             (0.96, .down),  // B  click — bottom rim
         ]
         let (d, dir) = map[((pc % 12) + 12) % 12]
