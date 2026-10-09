@@ -58,10 +58,10 @@ final class MissionActivityView: NSView {
         layer?.cornerRadius = 5
         layer?.masksToBounds = true
         let green = dark ? hexColor(0x7EE787) : hexColor(0x237A37)
-        layer?.backgroundColor = green.withAlphaComponent(dark ? 0.12 : 0.09).cgColor
+        layer?.backgroundColor = green.withAlphaComponent(dark ? 0.06 : 0.04).cgColor
         stripe.backgroundColor = green.cgColor
         flow.colors = [green.withAlphaComponent(0).cgColor,
-                       green.withAlphaComponent(0.18).cgColor,
+                       green.withAlphaComponent(0.09).cgColor,
                        green.withAlphaComponent(0).cgColor]
         flow.startPoint = CGPoint(x: 0, y: 0.5)
         flow.endPoint = CGPoint(x: 1, y: 0.5)
@@ -92,16 +92,62 @@ final class MissionActivityView: NSView {
     }
 }
 
-final class MissionLaneRule: NSView {
-    var color: NSColor = .secondaryLabelColor
+func missionContrast(_ a: NSColor, _ b: NSColor) -> CGFloat {
+    func luminance(_ color: NSColor) -> CGFloat {
+        let c = color.usingColorSpace(.sRGB)!
+        func linear(_ v: CGFloat) -> CGFloat { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        return 0.2126 * linear(c.redComponent) + 0.7152 * linear(c.greenComponent) + 0.0722 * linear(c.blueComponent)
+    }
+    let x = luminance(a), y = luminance(b)
+    return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+}
+
+struct MissionLanePalette {
+    let background: NSColor
+    let accent: NSColor
+    let primary: NSColor
+    let secondary: NSColor
+    let border: NSColor
+
+    init(color: NSColor, dark: Bool) {
+        let base = dark ? hexColor(0x151B26) : NSColor.white
+        background = base.blended(withFraction: dark ? 0.20 : 0.12, of: color) ?? base
+        primary = dark ? hexColor(0xEDF2FA) : hexColor(0x182332)
+        let proposedAccent = color.blended(withFraction: dark ? 0.58 : 0.42,
+            of: dark ? .white : hexColor(0x102030)) ?? color
+        func readable(_ value: NSColor, on background: NSColor, toward foreground: NSColor) -> NSColor {
+            for step in 0...10 {
+                let candidate = value.blended(withFraction: CGFloat(step) / 10, of: foreground) ?? foreground
+                if missionContrast(candidate, background) >= 4.8 { return candidate }
+            }
+            return foreground
+        }
+        accent = readable(proposedAccent, on: background, toward: primary)
+        secondary = readable(dark ? hexColor(0xBAC7D8) : hexColor(0x46566B), on: background, toward: primary)
+        border = (dark ? NSColor.white : hexColor(0x1D3049)).withAlphaComponent(dark ? 0.13 : 0.14)
+    }
+}
+
+final class MissionLaneCardView: NSView {
+    var palette = MissionLanePalette(color: .gray, dark: false)
     override func draw(_ dirtyRect: NSRect) {
-        // Both outlines keep even CSS blue and snow visible on any desktop.
-        NSColor.white.withAlphaComponent(0.7).setFill()
-        bounds.fill()
-        NSColor.black.withAlphaComponent(0.6).setFill()
-        bounds.insetBy(dx: 0, dy: 0.5).fill()
-        color.setFill()
-        bounds.insetBy(dx: 0, dy: 1).fill()
+        let rect = bounds.insetBy(dx: 5, dy: 5)
+        let card = NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12)
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.24)
+        shadow.shadowBlurRadius = 6
+        shadow.shadowOffset = NSSize(width: 0, height: -2)
+        shadow.set()
+        palette.background.setFill()
+        card.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        palette.border.setStroke()
+        card.lineWidth = 1
+        card.stroke()
+        palette.accent.setFill()
+        NSBezierPath(roundedRect: NSRect(x: rect.minX + 1, y: rect.minY + 13,
+            width: 3, height: max(0, rect.height - 26)), xRadius: 1.5, yRadius: 1.5).fill()
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
@@ -145,6 +191,7 @@ struct MissionItem: Equatable {
     var laneID: String? = nil
     var isLaneHeader: Bool = false
     var laneColor: UInt32? = nil
+    var laneEmoji: String? = nil
 }
 
 func missionLaneColor(_ value: Any?) -> UInt32? {
@@ -234,7 +281,8 @@ func loadMission(_ path: String) -> Mission? {
             let context = "\(host.capitalized) · \(label)  /  \(state)"
             let name = (lane["name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             rows.append(MissionItem(text: name ?? context, status: "pending", detail: name == nil ? nil : context,
-                                    laneID: id, isLaneHeader: true, laneColor: missionLaneColor(lane["color"])))
+                                    laneID: id, isLaneHeader: true, laneColor: missionLaneColor(lane["color"]),
+                                    laneEmoji: lane["emoji"] as? String))
             let tasks = (lane["items"] as? [[String: Any]]) ?? []
             for value in tasks {
                 if var item = parseItem(value, fallbackDate: nil) {
@@ -594,7 +642,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     var missionItemFields: [NSTextField] = []
     var missionActivityViews: [MissionActivityView?] = []
     var missionTimeRanges: [NSRange?] = []
-    var missionLaneRules: [NSView?] = []
+    var missionLaneCards: [MissionLaneCardView?] = []
     var overtimeOn = false
     var overtimeLines: [String] = []
 
@@ -613,7 +661,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     let pad: CGFloat = 7
     var paneW: CGFloat { badgeW - pad * 2 }
     var preferredWidth: CGFloat {
-        mission?.items.contains(where: { $0.isLaneHeader }) == true ? 320 : badgeW
+        mission?.items.contains(where: { $0.isLaneHeader }) == true ? 340 : badgeW
     }
 
     private var tick4 = 0   // git refresh every 4th tick (~4s)
@@ -838,11 +886,11 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     func rebuildMissionFields() {
         missionItemFields.forEach { $0.removeFromSuperview() }
         missionActivityViews.forEach { $0?.removeFromSuperview() }
-        missionLaneRules.forEach { $0?.removeFromSuperview() }
+        missionLaneCards.forEach { $0?.removeFromSuperview() }
         missionItemFields = []
         missionActivityViews = []
         missionTimeRanges = []
-        missionLaneRules = []
+        missionLaneCards = []
         guard let m = mission, let c = c else {
             missionTitleField.isHidden = true
             providerChip.isHidden = true
@@ -858,7 +906,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         let green = dark ? hexColor(0x7EE787) : hexColor(0x237A37)
         let amber = dark ? hexColor(0xFFD66B) : hexColor(0x865800)
         let red = dark ? hexColor(0xFF8585) : hexColor(0xB32626)
-        let titleFont = playfulFont(15, bold: true)
+        let titleFont = NSFont.systemFont(ofSize: 16, weight: .semibold)
         let irisHeading = m.title.lowercased().contains("iris lanes")
         let titleLine = NSMutableAttributedString()
         if irisHeading, let icon = agentIcon(for: "iris") {
@@ -890,45 +938,49 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         providerChip.toolTip = provider.isEmpty ? nil : provider
         providerChip.setAccessibilityLabel(provider.isEmpty ? nil : provider + " provider")
         let now = Date()
+        var lanePalette: MissionLanePalette?
         for item in m.items {
+            if item.isLaneHeader {
+                lanePalette = MissionLanePalette(color: item.laneColor.map(hexColor) ?? .gray, dark: dark)
+            }
+            let primary = lanePalette?.primary ?? primary
+            let secondary = lanePalette?.secondary ?? secondary
             let f = NSTextField(labelWithString: "")
             f.alignment = .left
             f.maximumNumberOfLines = 0
             f.cell?.wraps = true
             f.cell?.lineBreakMode = .byWordWrapping
             f.wantsLayer = true
-            f.shadow = textShadow
+            f.shadow = item.laneID == nil ? textShadow : nil
             let ip = NSMutableParagraphStyle()
             ip.alignment = .left; ip.lineBreakMode = .byWordWrapping
             if item.isLaneHeader {
-                let color = item.laneColor.map(hexColor) ?? primary
-                var attributes: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 13, weight: .bold),
-                    .foregroundColor: color, .paragraphStyle: ip]
-                if let rgb = item.laneColor {
-                    let brightness = 0.2126 * Double((rgb >> 16) & 255)
-                        + 0.7152 * Double((rgb >> 8) & 255) + 0.0722 * Double(rgb & 255)
-                    attributes[.strokeColor] = brightness < 128 ? NSColor.white : NSColor.black
-                    attributes[.strokeWidth] = -2
-                }
-                let heading = NSMutableAttributedString(string: item.text, attributes: attributes)
+                let palette = lanePalette!
+                let headingStyle = ip.mutableCopy() as! NSMutableParagraphStyle
+                headingStyle.lineSpacing = 4
+                let title = (item.laneEmoji.map { $0 + "  " } ?? "") + item.text
+                let heading = NSMutableAttributedString(string: title, attributes: [
+                    .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
+                    .foregroundColor: palette.accent, .paragraphStyle: headingStyle])
                 if let context = item.detail {
                     heading.append(NSAttributedString(string: "\n" + context, attributes: [
-                        .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                        .foregroundColor: primary, .paragraphStyle: ip]))
+                        .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+                        .foregroundColor: secondary, .paragraphStyle: headingStyle]))
                 }
                 f.attributedStringValue = heading
-                let rule = MissionLaneRule()
-                rule.color = color
-                c.content.addSubview(rule)
+                f.setAccessibilityLabel(item.text + (item.detail.map { ", " + $0 } ?? ""))
+                let card = MissionLaneCardView()
+                card.palette = palette
+                c.content.addSubview(card, positioned: .below, relativeTo: nil)
                 c.content.addSubview(f)
-                missionLaneRules.append(rule)
+                missionLaneCards.append(card)
                 missionItemFields.append(f)
                 missionTimeRanges.append(nil)
                 missionActivityViews.append(nil)
                 continue
             }
-            missionLaneRules.append(nil)
+            missionLaneCards.append(nil)
+            ip.lineSpacing = 2
             ip.headIndent = 19   // wrapped lines tuck under the text, past the square
             // Square checkboxes on the left: filled = done, half = active,
             // empty = pending.
@@ -955,26 +1007,31 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             a.append(NSAttributedString(string: mark + " ", attributes: [
                 .font: NSFont.systemFont(ofSize: 13, weight: .bold),
                 .foregroundColor: markColor, .paragraphStyle: ip]))
+            let queued = item.text.hasPrefix("Next:") || item.text.hasSuffix(" queued")
             a.append(NSAttributedString(string: item.text, attributes: [
-                .font: monoFont(13), .foregroundColor: textColor,
+                .font: NSFont.systemFont(ofSize: queued ? 12.5 : 13.5,
+                    weight: item.startedAt != nil || item.status == "in_progress" ? .semibold : .regular),
+                .foregroundColor: queued ? secondary : textColor,
                 .paragraphStyle: ip]))
+            let detailStyle = ip.mutableCopy() as! NSMutableParagraphStyle
+            detailStyle.firstLineHeadIndent = 19
             // Elapsed run time when provided; otherwise retain the activity age.
             var timeRange: NSRange?
             if let timing = missionTimeLabel(item, now: now) {
-                let label = " · " + timing
+                let label = (item.laneID == nil ? " · " : "\n") + timing
                 timeRange = NSRange(location: a.length, length: (label as NSString).length)
                 a.append(NSAttributedString(string: label, attributes: [
-                    .font: monoFont(11),
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 11.5, weight: .medium),
                     .foregroundColor: secondary,
-                    .paragraphStyle: ip]))
+                    .paragraphStyle: detailStyle]))
             }
             missionTimeRanges.append(timeRange)
             // Sub-line: the inferred subtask, dimmer and smaller, tucked under the text.
             if let d = item.detail {
-                a.append(NSAttributedString(string: "\n↳ " + d, attributes: [
-                    .font: monoFont(11),
+                a.append(NSAttributedString(string: "\n" + d, attributes: [
+                    .font: NSFont.systemFont(ofSize: 12, weight: .regular),
                     .foregroundColor: secondary,
-                    .paragraphStyle: ip]))
+                    .paragraphStyle: detailStyle]))
             }
             // Progress bar: ten cells of ▰/▱ plus the percentage, coloured by the
             // flag (red/green) or the status (yellow while in progress).
@@ -1009,7 +1066,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         for (i, item) in items.enumerated() {
             guard let range = missionTimeRanges[i], let timing = missionTimeLabel(item, now: now) else { continue }
             let text = NSMutableAttributedString(attributedString: missionItemFields[i].attributedStringValue)
-            let label = " · " + timing
+            let label = (item.laneID == nil ? " · " : "\n") + timing
             text.replaceCharacters(in: range, with: label)
             missionItemFields[i].attributedStringValue = text
             missionTimeRanges[i] = NSRange(location: range.location, length: (label as NSString).length)
@@ -1020,9 +1077,14 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     func fieldHeight(_ f: NSTextField, width: CGFloat) -> CGFloat {
         guard f.attributedStringValue.length > 0 else { return 0 }
         let r = f.attributedStringValue.boundingRect(
-            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            with: NSSize(width: width - 4, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading])
         return ceil(r.height) + 2
+    }
+
+    private func laneBottomPadding(_ index: Int) -> CGFloat {
+        guard let items = mission?.items, items[index].laneID != nil else { return 0 }
+        return index == items.count - 1 || items[index + 1].isLaneHeader ? 18 : 0
     }
 
     // Measured height of the whole mission block at the badge width.
@@ -1031,7 +1093,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         guard mission != nil else { return (0, [], 0) }
         let t = max(44, fieldHeight(missionTitleField, width: width - 12) + 10)
         let its = missionItemFields.enumerated().map { i, field in
-            fieldHeight(field, width: width - 8) + (missionLaneRules[i] == nil ? 0 : 12)
+            let inset: CGFloat = mission?.items[i].laneID == nil ? 8 : 36
+            return fieldHeight(field, width: width - inset)
+                + (missionLaneCards[i] == nil ? 0 : 18) + laneBottomPadding(i)
         }
         let total = t + its.reduce(0, +) + CGFloat(max(0, its.count - 1)) * 8
             + (its.isEmpty ? 0 : 12)
@@ -1120,18 +1184,30 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         }
         missionItemFields.forEach { $0.isHidden = !missionVisible }
         missionActivityViews.forEach { $0?.isHidden = !missionVisible }
-        missionLaneRules.forEach { $0?.isHidden = !missionVisible }
+        missionLaneCards.forEach { $0?.isHidden = !missionVisible }
         guard missionVisible else { return }
         var my = missionY + mm.total - mm.title
         missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
         my -= 12
+        var card: MissionLaneCardView?
+        var cardTop: CGFloat = 0
         for (i, f) in missionItemFields.enumerated() {
+            if let next = missionLaneCards[i] { card = next; cardTop = my }
             my -= mm.items[i]
-            missionActivityViews[i]?.frame = NSRect(x: 7, y: my - 3, width: missionW, height: mm.items[i] + 6)
+            let bottom = laneBottomPadding(i)
+            let top: CGFloat = missionLaneCards[i] == nil ? 0 : 18
+            let inCard = mission?.items[i].laneID != nil
+            let textHeight = mm.items[i] - top - bottom
+            missionActivityViews[i]?.frame = NSRect(x: inCard ? 19 : 7, y: my + bottom - 4,
+                width: missionW - (inCard ? 24 : 0), height: textHeight + 8)
             missionActivityViews[i]?.needsLayout = true
-            missionLaneRules[i]?.frame = NSRect(x: 7, y: my + mm.items[i] - 5, width: missionW, height: 5)
-            f.frame = NSRect(x: 15, y: my, width: missionW - 8,
-                             height: mm.items[i] - (missionLaneRules[i] == nil ? 0 : 12))
+            f.frame = NSRect(x: inCard ? 25 : 15, y: my + bottom,
+                width: missionW - (inCard ? 36 : 8), height: textHeight)
+            if bottom > 0 {
+                card?.frame = NSRect(x: 7, y: my, width: missionW, height: cardTop - my)
+                card?.needsDisplay = true
+                card = nil
+            }
             my -= 8
         }
     }
@@ -1145,7 +1221,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             providerChip.isHidden = collapsed || mission == nil || providerChip.image == nil
             missionItemFields.forEach { $0.isHidden = collapsed || mission == nil }
             missionActivityViews.forEach { $0?.isHidden = collapsed || mission == nil }
-            missionLaneRules.forEach { $0?.isHidden = collapsed || mission == nil }
+            missionLaneCards.forEach { $0?.isHidden = collapsed || mission == nil }
             return
         }
         let hide = collapsed
@@ -1154,7 +1230,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         providerChip.isHidden = hide || mission == nil || providerChip.image == nil
         missionItemFields.forEach { $0.isHidden = hide || mission == nil }
         missionActivityViews.forEach { $0?.isHidden = hide || mission == nil }
-        missionLaneRules.forEach { $0?.isHidden = hide || mission == nil }
+        missionLaneCards.forEach { $0?.isHidden = hide || mission == nil }
         overtimeField.isHidden = hide || !overtimeOn || overtimeLines.isEmpty
         overtimeChip.isHidden = hide || !overtimeOn
         paneContainer?.isHidden = hide || curPaneH <= 0

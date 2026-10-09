@@ -124,11 +124,16 @@ or `--test-mission-timing` to check these contracts without opening a window.
 
 Named lanes also carry `name`, `color` (CSS `#rrggbb`), and `tag`, e.g.
 `{"id":"blue","name":"Lane Blue","color":"#0000ff","tag":"lane:blue"}`.
-The divider and name use that color with contrasting edges. Host, workload
-class, and state sit below the permanent name. Iris owns one flat registry;
+Each lane gets an opaque tinted card, subtle border, soft shadow, and its registry
+emoji. The mission UI uses the macOS system font, with semibold task titles,
+regular detail text, and monospaced digits for timers on their own line. Text
+colors adapt to maintain at least 4.5:1 contrast against each card in either
+appearance. Host, workload class, and state sit below the permanent name. Iris owns one flat registry;
 MacPal never assigns colors by machine or array order. Initial identities are
 Blue (Panda general), Teal (Panda light), Coral (Chicken general), and Snow
-(Chicken light). Retired IDs remain reserved and new slots need explicit IDs.
+(Chicken light), with 🔵 / 🌊 / 🪸 / ❄️ respectively. Retired IDs remain reserved
+and new slots need explicit IDs. Cards keep all rows from a lane together and
+leave clicks available to the desktop beneath them.
 
 The avatar (float, poses, name wiggle, hover, drag-to-corner, collapse, Menu
 Band sing) lives in `PalCore.swift` and is shared. Everything that stacks

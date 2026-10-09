@@ -236,13 +236,21 @@ if argv.contains("--test-mission-timing") {
 }
 
 if argv.contains("--test-mission-lanes") {
+    for dark in [false, true] {
+        for color: UInt32 in [0x0000ff, 0x008080, 0xff7f50, 0xfffafa] {
+            let p = MissionLanePalette(color: hexColor(color), dark: dark)
+            precondition(missionContrast(p.primary, p.background) >= 4.5)
+            precondition(missionContrast(p.secondary, p.background) >= 4.5)
+            precondition(missionContrast(p.accent, p.background) >= 4.5)
+        }
+    }
     let path = NSTemporaryDirectory() + "macpal-lanes-" + UUID().uuidString + ".json"
     let now = Date()
     let iso = ISO8601DateFormatter()
     let start = iso.string(from: now.addingTimeInterval(-125))
     var doc: [String: Any] = ["mission": "Iris lanes", "updatedAt": iso.string(from: now),
         "lanes": [
-            ["id": "blue", "name": "Lane Blue", "color": "#0000ff", "host": "panda", "label": "General", "state": "blocked",
+            ["id": "blue", "name": "Lane Blue", "color": "#0000ff", "emoji": "🔵", "host": "panda", "label": "General", "state": "blocked",
              "items": [["text": "Blocked job", "status": "pending", "startedAt": start]],
              "queued": [["title": "Next job"]]],
             ["id": "teal", "name": "Lane Teal", "color": "#008080", "host": "panda", "label": "Light", "state": "waiting", "items": []],
@@ -255,6 +263,7 @@ if argv.contains("--test-mission-lanes") {
     let rows = loadMission(path)!.items
     precondition(rows.filter { $0.isLaneHeader }.map { $0.laneID! } == ["blue", "teal", "coral", "snow"])
     precondition(rows[0].text == "Lane Blue" && rows[0].laneColor == 0x0000ff)
+    precondition(rows[0].laneEmoji == "🔵")
     precondition(rows[0].detail == "Panda · General  /  blocked")
     precondition(rows.filter { $0.isLaneHeader }.map { $0.laneColor! } == [0x0000ff, 0x008080, 0xff7f50, 0xfffafa])
     precondition(missionLaneColor("#invalid") == nil && missionLaneColor("red") == nil)
