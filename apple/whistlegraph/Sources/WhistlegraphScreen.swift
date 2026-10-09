@@ -85,6 +85,11 @@ struct WhistlegraphScreen: View {
         return .ready
     }
     private var theme: WhistlegraphTheme { WhistlegraphTheme(phase: themePhase, dark: colorScheme == .dark) }
+    // iOS offers the keyboard in light or dark only; match whichever the piece is wearing.
+    private func openComposer() {
+        UITextField.appearance().keyboardAppearance = colorScheme == .dark ? .dark : .light
+        showComposer = true
+    }
     private var paper: Color { theme.foreground }
     private var accent: Color { theme.accent }
     private var storyBackground: Color {
@@ -110,13 +115,13 @@ struct WhistlegraphScreen: View {
                 Spacer()
                 if session.snapshot.wareID == "piece" {
                 Button { showTV = true } label: {
-                    Image(systemName: "tv").font(.system(size: 26, weight: .bold)).frame(width: 44, height: 44)
-                }.accessibilityLabel("Project to TV").accessibilityIdentifier("project-tv")
+                    SendToTVIcon().frame(width: 44, height: 44)
+                }.accessibilityLabel("Send to TV").accessibilityIdentifier("project-tv")
                 Button {
                     showComposer = false
                     ButtonSounds.play(.play); openStory()
                 } label: {
-                    Image(systemName: "rectangle.stack.fill").font(.system(size: 28, weight: .bold)).frame(width: 44, height: 44)
+                    CardFanIcon().frame(width: 44, height: 44)
                 }
                 .disabled(session.capturePhase != .idle || !session.engineReady || !session.snapshot.versions.contains(where: { $0.id > 0 }))
                 .accessibilityLabel("Open story cards").accessibilityIdentifier("play-versions")
@@ -231,6 +236,8 @@ struct WhistlegraphScreen: View {
         }
         .padding(.horizontal, narrator.isPlaying ? 0 : session.layout.pageInset)
         .foregroundStyle(paper)
+        // Tapping anywhere outside the composer closes it and the keyboard; the draft stays.
+        .simultaneousGesture(TapGesture().onEnded { if showComposer { showComposer = false } })
         .safeAreaInset(edge: .bottom, spacing: 8) {
             Group {
                 if narrator.isPlaying { EmptyView() } else if showComposer {
@@ -241,7 +248,7 @@ struct WhistlegraphScreen: View {
                     }
                 } else {
                     HStack(spacing: 12 * (1 - chalkReveal)) {
-                        Button { ButtonSounds.play(.key); showComposer = true } label: {
+                        Button { ButtonSounds.play(.key); openComposer() } label: {
                             TypingButtonLabel()
                                 .frame(maxWidth: .infinity, minHeight: session.layout.talkHeight)
                                 .foregroundStyle(theme.buttonInk)
@@ -357,7 +364,7 @@ struct WhistlegraphScreen: View {
             .accessibilityIdentifier("talk-control")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: Text("Draw and record")) { if canTalk { session.beginHold(); session.latchPerformance() } }
-            .accessibilityAction(named: Text("Type a request")) { if canTalk { session.cancelHold(); ButtonSounds.play(.key); showComposer = true } }
+            .accessibilityAction(named: Text("Type a request")) { if canTalk { session.cancelHold(); ButtonSounds.play(.key); openComposer() } }
             .accessibilityAction { if session.capturePhase == .recording { session.endHold() } else if canTalk { session.beginHold() } }
         }
     }
@@ -595,5 +602,32 @@ struct InlineRequestComposer: View {
             .background(theme.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .task { keySounds.prepare(); focused = true }
             .onDisappear { keySounds.stop() }
+    }
+}
+
+/// A TV with a small arrow rising out of it: the piece goes up to the screen.
+struct SendToTVIcon: View {
+    var body: some View {
+        VStack(spacing: -1) {
+            Image(systemName: "arrow.up").font(.system(size: 12, weight: .heavy))
+            Image(systemName: "tv").font(.system(size: 23, weight: .bold))
+        }
+    }
+}
+
+/// Story cards held like a hand of cards: four cards fanned from a pivot
+/// below the frame, each outlined so the overlaps read as separate cards.
+struct CardFanIcon: View {
+    var body: some View {
+        ZStack {
+            ForEach([-27.0, -9.0, 9.0, 27.0], id: \.self) { angle in
+                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                    .fill(.tint)
+                    .overlay(RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .stroke(Color(uiColor: .systemBackground), lineWidth: 1.5))
+                    .frame(width: 12, height: 19)
+                    .rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 1.55))
+            }
+        }.offset(y: -2)
     }
 }

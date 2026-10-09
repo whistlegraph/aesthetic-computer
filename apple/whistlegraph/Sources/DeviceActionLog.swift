@@ -12,7 +12,7 @@ final class DeviceActionLog: @unchecked Sendable {
     }
     enum Outcome: String, Codable {
         case requested, started, ended, ready, succeeded, failed, cancelled, denied
-        case notSignedIn, notReady, busy, accountChanged, emptyInput, inputTooLong, captureActive
+        case notSignedIn, notReady, busy, accountChanged, emptyInput, inputTooLong, captureActive, storageFull
         case unavailable, exhausted, declined, pending, alreadyAdded, ignored, presented, dismissed
         case active, inactive, background, opening, recording, processing, partial, final, sound
         case enabled, disabled, add, undo, clear, committed, painted, invalidated, httpError
@@ -21,7 +21,7 @@ final class DeviceActionLog: @unchecked Sendable {
     }
     enum Control: String, Codable {
         case type, talk, chalk, brain, account, pieces, story, tv, privacy, deleteAccount, debugLog
-        case ask, retry, stop, signIn, newPiece, openPiece, checkout, presentVersion, endPresentation
+        case ask, retry, stop, signIn, newPiece, openPiece, deletePiece, checkout, presentVersion, endPresentation
         case setModel, refreshBraincells, density, format, appearance, sounds, costUnit, creation
         case cloudSpeech, cloudNarration, requestText, send, cancel, allow, decline, drawingPad
     }

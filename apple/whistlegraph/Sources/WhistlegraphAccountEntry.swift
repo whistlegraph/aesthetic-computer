@@ -36,6 +36,11 @@ struct WhistlegraphAccountEntry: View {
                                 action("Log in") { session.signIn() }.accessibilityIdentifier("account-entry-login")
                                 action("I'm new", signUp: true) { session.signIn(signUp: true) }.accessibilityIdentifier("account-entry-signup")
                             }
+                            // Logging in is the AI permission (App Review 5.1.2(i)); the policy names who sees what.
+                            Text("By continuing, what you say, type and draw goes to AI helpers. [Privacy](https://aesthetic.computer/privacy-policy.html)")
+                                .font(.custom("ComicRelief-Regular", size: 14, relativeTo: .footnote))
+                                .multilineTextAlignment(.center).tint(theme.foreground)
+                                .accessibilityIdentifier("account-entry-ai-line")
                             if session.accountStatus == .failed {
                                 Button("Retry account verification") { session.restoreAccount() }
                                     .accessibilityIdentifier("account-entry-retry")

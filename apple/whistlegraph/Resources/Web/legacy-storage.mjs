@@ -3,6 +3,10 @@
 // A completed migration's old recovery copies must not resurrect deleted work.
 export function migrateLegacyStorage(storage) {
   const legacy = storage.getItem('whistlegraph-storage-migrated') !== '1';
+  // A partial old migration can hold a record under both names. The current
+  // name wins, so the old copy is dead weight against WebKit's 5 MB quota.
+  if (legacy) for (const key of Array.from({length: storage.length}, (_, i) => storage.key(i)))
+    if (key?.startsWith('walkieware-') && storage.getItem('whistlegraph-' + key.slice('walkieware-'.length)) !== null) storage.removeItem(key);
   const oldKey = key => legacy && key.startsWith('whistlegraph-') ? 'walkieware-' + key.slice('whistlegraph-'.length) : null;
   const physicalKey = key => {
     const old = oldKey(key);

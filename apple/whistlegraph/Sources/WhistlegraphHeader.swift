@@ -26,6 +26,7 @@ struct PiecesSheet: View {
     let disabled: Bool
     let open: (String) -> Void
     let newPiece: () -> Void
+    var delete: (String) -> Void = { _ in }
     var mintSession: WhistlegraphSession? = nil
     @Environment(\.dismiss) private var dismiss
     var body: some View {
@@ -66,6 +67,13 @@ struct PiecesSheet: View {
                         }
                         .disabled(disabled && !piece.current)
                         .accessibilityIdentifier("piece-" + piece.title)
+                        // Deleting frees this phone's 5 MB piece store; the open piece stays.
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !piece.current {
+                                Button(role: .destructive) { ButtonSounds.play(.pop); delete(piece.id) } label: { Label("Delete", systemImage: "trash") }
+                                    .disabled(disabled).accessibilityIdentifier("piece-delete-" + piece.title)
+                            }
+                        }
                     }
                 }
             }
@@ -179,7 +187,8 @@ struct IdentityHeader: View {
                         inference: session.snapshot.inference,
                         disabled: session.snapshot.busy || session.capturePhase != .idle,
                         open: { session.command("openPiece", piece: $0) },
-                        newPiece: { session.command("newPiece") }, mintSession: session)
+                        newPiece: { session.command("newPiece") },
+                        delete: { session.command("deletePiece", piece: $0) }, mintSession: session)
         }
         .sheet(isPresented: $showingAccount) {
             AccountSheet(handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,

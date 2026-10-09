@@ -41,6 +41,16 @@ test('a full store opens without writes and edits the existing legacy record',()
   assert.throws(()=>current.setItem('brand-new-key','x'),{name:'QuotaExceededError'});
   assert.equal(current.getItem('whistlegraph-archive-old'),'history');
 });
+test('identical old copies are dropped so a full phone gets its room back',()=>{
+  const s=storage();s.setItem('walkieware-archive-a','same');s.setItem('whistlegraph-archive-a','same');
+  s.setItem('walkieware-archive-b','only old');s.setItem('walkieware-source','old');s.setItem('whistlegraph-source','new');
+  const current=migrateLegacyStorage(s);
+  assert.equal(s.getItem('walkieware-archive-a'),null);assert.equal(current.getItem('whistlegraph-archive-a'),'same');
+  assert.equal(current.getItem('whistlegraph-archive-b'),'only old','an old-only record stays reachable');
+  assert.equal(s.getItem('walkieware-source'),null);assert.equal(current.getItem('whistlegraph-source'),'new');
+  s.setItem('walkieware-archive-c','recovery copy');s.setItem('whistlegraph-archive-c','kept');s.setItem('whistlegraph-storage-migrated','1');
+  migrateLegacyStorage(s);assert.equal(s.getItem('walkieware-archive-c'),'recovery copy','a completed migration is left alone');
+});
 test('partial and completed migrations keep newer work and intentional deletions',()=>{
   const s=storage();s.setItem('walkieware-source','older');s.setItem('whistlegraph-source','newer');
   let current=migrateLegacyStorage(s);assert.equal(current.getItem('whistlegraph-source'),'newer');

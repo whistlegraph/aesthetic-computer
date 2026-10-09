@@ -187,7 +187,7 @@ window.whistlegraphNativeCommand=command=>{
   if(command.action==='setWare'&&!busy)window.whistlegraphSelectWare?.(command.ware);
   if(['ask','retry'].includes(command.action)) {
     if(busy)return {accepted:false,reason:'busy'};
-    if(!versions||(command.action==='retry'&&(!ready||!painted)))return {accepted:false,reason:'notReady'};
+    if(!versions||(command.action==='retry'&&!ready))return {accepted:false,reason:'notReady'};
     if(!accountHandle||accountToken!==token)return {accepted:false,reason:'authentication'};
     if(!aiConsent.allowed)return {accepted:false,reason:'permission'};
     if(command.action==='ask'&&(typeof command.text!=='string'||(!command.text.trim()&&!command.drawing)))return {accepted:false,reason:'emptyInput'};
@@ -205,8 +205,9 @@ window.whistlegraphNativeCommand=command=>{
     if(version)post({action:'presentation',version:version.id,source:version.source||'export function paint({wipe}){wipe("black");}'});
   }
   if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;}
-  if(command.action==='newPiece'&&!busy)window.whistlegraphNewPiece?.();
-  if(command.action==='openPiece'&&!busy&&typeof command.piece==='string')window.whistlegraphOpenPiece?.(command.piece);
+  if(command.action==='newPiece'&&!busy){const result=window.whistlegraphNewPiece?.();if(result?.accepted===false)return result;}
+  if(command.action==='openPiece'&&!busy&&typeof command.piece==='string'){const result=window.whistlegraphOpenPiece?.(command.piece);if(result?.accepted===false)return result;}
+  if(command.action==='deletePiece'&&typeof command.piece==='string'){const result=window.whistlegraphDeletePiece?.(command.piece);if(result?.accepted===false)return result;}
   if(command.action==='retry'&&!busy)void resumeAttempt(true);
   if(command.action==='stop')$('live-stop').click();
   if(command.action==='signIn')post({action:'signIn'});
@@ -528,15 +529,27 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   }
 }
 async function resumeAttempt(manual=false){
-  if(busy||!token||!ready||!painted||!versions||(!manual&&!recoveryPending))return;
+  if(busy||!token||!ready||!versions||(!manual&&!recoveryPending))return;
+  if(!painted){
+    if(!manual)return;
+    // Nothing has painted since the last edit: a half-written checkpoint can
+    // wedge the runtime, and every retry after that is refused. Try again means
+    // start over, so queue the request fresh (no checkpoint) and reload the
+    // workspace; the account arriving on load resumes it on a clean preview.
+    const attempt=readAttempt(localStorage,storageKey);
+    if(!attempt){phase('Could not resume: request unavailable');return;}
+    saveAttempt(localStorage,storageKey,{...attempt,checkpoint:undefined,status:'working',retries:0});
+    phase('Restarting the preview…');setTimeout(()=>location.reload(),50);return;
+  }
   const expectedToken=token;
   await accountVerification;
   if(busy||token!==expectedToken||!aiConsent.allowed||(!manual&&!recoveryPending))return;
   recoveryPending=false;
   const attempt=claimAttempt(localStorage,storageKey,versions.value,manual);
   if(!attempt){if(manual)phase('Could not resume: version changed or request unavailable');return;}
-  phase('Resuming interrupted edit…');
-  await ask(attempt.text,attempt.displayText,null,null,attempt.localText,attempt);
+  phase(manual?'Trying again from the start…':'Resuming interrupted edit…');
+  // A manual Try again starts over; the checkpoint is what failed the last time.
+  await ask(attempt.text,attempt.displayText,null,null,attempt.localText,manual?{...attempt,checkpoint:undefined}:attempt);
 }
 window.whistlegraphEngineEvent=event=>{
   if(event.kind==='visualCapture'){
@@ -697,18 +710,22 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   label.textContent=thread.identity.code?'/'+thread.identity.code:'';
   const newPiece=document.createElement('button');newPiece.textContent='New piece';newPiece.style.cssText='font:24px Comic,Arial;padding:14px';
   newPiece.onclick=window.whistlegraphNewPiece=()=>{
-    if(busy)return;
-    archiveCurrentPiece();
-    location.reload();
+    if(busy)return {accepted:false,reason:'busy'};
+    const parked=archiveCurrentPiece();if(parked.accepted===false)return parked;
+    location.reload();return {accepted:true};
   };
   // Every piece on this phone: the open one plus the archives "New piece" left.
   // Opening another swaps archives, so the current one is never lost.
   const ARCHIVE='whistlegraph-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts','-receipt-cost','-attempt','-inflight'];
+  // The archive write comes first: when the phone's 5 MB store is full it
+  // throws, nothing is removed, and the open piece stays exactly as it was.
   function archiveCurrentPiece(){
     const extras={};for(const suffix of ARCHIVE_SUFFIXES){const v=localStorage.getItem(storageKey+suffix);if(v!==null)extras[suffix]=v;}
-    localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));
+    try{localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));}
+    catch{phase('This phone has no room to put the open piece away');return {accepted:false,reason:'storageFull'};}
     thread.suspend();
     for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight','-receipts','-receipt-cost'])localStorage.removeItem(storageKey+suffix);
+    return {accepted:true};
   }
   function pieceSummary(id,identity,ledger,current){
     const made=(ledger?.versions||[]).filter(v=>v.id>0),last=made.at(-1);
@@ -724,16 +741,23 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   }
   postPieces=()=>post({action:'pieces',pieces:pieceList()});
   window.whistlegraphOpenPiece=id=>{
-    if(busy||id===thread.identity.id)return;
+    if(busy||id===thread.identity.id)return {accepted:false,reason:'busy'};
     let saved;try{saved=JSON.parse(localStorage.getItem(ARCHIVE+id));}catch{}
-    if(!saved?.identity?.id||!saved.ledger){phase('That piece is no longer on this phone');postPieces();return;}
-    archiveCurrentPiece();
-    localStorage.setItem(storageKey,saved.source||'');
-    localStorage.setItem(storageKey+'-versions',JSON.stringify(saved.ledger));
-    localStorage.setItem(storageKey+'-thread',JSON.stringify(saved.identity));
-    for(const [suffix,value] of Object.entries(saved.extras||{}))localStorage.setItem(storageKey+suffix,value);
+    if(!saved?.identity?.id||!saved.ledger){phase('That piece is no longer on this phone');postPieces();return {accepted:false,reason:'notReady'};}
+    const parked=archiveCurrentPiece();if(parked.accepted===false)return parked;
+    try{
+      localStorage.setItem(storageKey,saved.source||'');
+      localStorage.setItem(storageKey+'-versions',JSON.stringify(saved.ledger));
+      localStorage.setItem(storageKey+'-thread',JSON.stringify(saved.identity));
+      for(const [suffix,value] of Object.entries(saved.extras||{}))localStorage.setItem(storageKey+suffix,value);
+    }catch{phase('This phone has no room to open that piece');location.reload();return {accepted:false,reason:'storageFull'};}
     localStorage.removeItem(ARCHIVE+id);
-    location.reload();
+    location.reload();return {accepted:true};
+  };
+  // Deleting frees this phone's store; the open piece is never deletable here.
+  window.whistlegraphDeletePiece=id=>{
+    if(busy||id===thread.identity.id)return {accepted:false,reason:'busy'};
+    localStorage.removeItem(ARCHIVE+id);postPieces();return {accepted:true};
   };
   postPieces();
   $('info').append(newPiece);

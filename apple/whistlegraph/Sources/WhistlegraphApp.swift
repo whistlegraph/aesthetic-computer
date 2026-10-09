@@ -56,13 +56,6 @@ struct WhistlegraphApp: App {
                 await voice.syncAIAccount()
                 if !voice.isConsentFixture && !voice.accountEntryTest { await voice.braincells.accountChanged() }
             } }
-            .sheet(isPresented: $voice.showingAIConsent, onDismiss: voice.finishAIConsentPrompt) {
-                WhistlegraphAIConsentSheet(canAllow: voice.canAllowAIConsent,
-                    allow: voice.allowAIConsent, decline: voice.declineAIConsent)
-            }
-            .sheet(isPresented: $voice.showingSpeechConsent) {
-                WhistlegraphSpeechConsentSheet(choose: voice.chooseCloudSpeech)
-            }
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
             .onChange(of: voice.snapshot.versions.count) { old, new in
                 // Version 0 is the starting piece; the first saved one is a good moment to ask.
@@ -219,6 +212,9 @@ struct Workspace: UIViewRepresentable {
         config.mediaTypesRequiringUserActionForPlayback = []
         PieceAudio.activate()
         let view = WKWebView(frame: .zero, configuration: config)
+        #if DEBUG
+        view.isInspectable = true // Safari › Develop › <phone> shows the engine console on debug installs.
+        #endif
         view.allowsLinkPreview = false
         view.isOpaque = false
         view.backgroundColor = .clear
@@ -246,16 +242,10 @@ struct Workspace: UIViewRepresentable {
 final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
     @Published var layout = NativeLayout()
     @Published var snapshot = PieceSnapshot()
-    @Published var showingAIConsent = false
-    @Published var showingSpeechConsent = false
     @Published var speechNotice: String?
-    private var speechConsentAccount: (subject: String, handle: String, generation: Int)?
     @Published private(set) var verifyingAIAccount = false
     @Published var actionError: String?
     @Published var typedDraft = ""
-    private var consentRequest: (subject: String, handle: String, generation: Int, code: String, head: Int)?
-    private var afterAIConsent: (() -> Void)?
-    private var acceptedAIConsent = false
     @Published private(set) var localDataRevision = 0
     let aiConsent = AIConsent.shared
     @Published var accountStatus: AccountEntryStatus = .checking {
@@ -364,7 +354,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             value["text"] = text
         }
         if let version { value["version"] = version }
-        if action == "openPiece", let piece { value["piece"] = piece }
+        if ["openPiece", "deletePiece"].contains(action), let piece { value["piece"] = piece }
         if action == "ask" {
             guard canStartAIAction() else { return }
             guard let text, (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || drawing.hasInk) else {
@@ -394,6 +384,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                     case .busy: message = "A piece is still being made. Wait or tap Stop, then send again."
                     case .authentication: message = "Your account is still connecting. Your draft is here; try sending again in a moment."
                     case .permission: message = "AI permission has not reached the workspace. Your draft is here; try sending again."
+                    case .storageFull: message = "This phone's piece storage is full, so the open piece could not be put away. Delete an old piece in Your Pieces, then try again."
                     default: message = "The workspace is not ready for that request. Your draft is still here. Try again."
                     }
                     reportActionFailure(message, reason: reason); return
@@ -402,7 +393,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 onAccepted?()
             } catch {
                 DeviceActionLog.shared.recordError(.commandDelivery, error)
-                if ["ask", "retry", "signIn", "newPiece", "openPiece"].contains(action) {
+                if ["ask", "retry", "signIn", "newPiece", "openPiece", "deletePiece"].contains(action) {
                     reportActionFailure("The workspace could not receive that action. Your draft is still here. Try again.", reason: .notReady)
                 }
             }
@@ -425,12 +416,6 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         // Permission does not start a microphone after the finger has lifted.
         guard aiConsent.creation else { requestAIConsent(); return }
         if isConsentFixture { return }
-        if !aiConsent.cloudSpeech && aiConsent.record.cloudSpeechChoice == nil, let subject = aiConsent.subject {
-            speechConsentAccount = (subject, snapshot.handle, account.generation)
-            showingSpeechConsent = true
-            DeviceActionLog.shared.record(.consent, .presented, control: .cloudSpeech)
-            return
-        }
         speechNotice = nil
         performanceTurn = false
         captureError = nil; transcript = ""; speechStartedAt = nil; capturePhase = .opening
@@ -440,13 +425,6 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             self?.cancel()
             self?.reportActionFailure("Recording could not start. Try holding Talk again.", reason: .failed)
         }
-    }
-    func chooseCloudSpeech(_ enabled: Bool) {
-        defer { showingSpeechConsent = false; speechConsentAccount = nil }
-        guard let pending = speechConsentAccount, pending.subject == aiConsent.subject,
-              pending.handle == snapshot.handle, pending.generation == account.generation else { return }
-        aiConsent.set(\.cloudSpeech, enabled)
-        // A choice never starts recording after the finger has lifted.
     }
     func latchPerformance() {
         DeviceActionLog.shared.record(.talkLatch, .requested)
@@ -467,6 +445,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             #endif
             guard expected == account.generation else { return false }
             aiConsent.bind(subject: subject, handle: snapshot.handle)
+            // Logging in is the permission; only the switch in AI & privacy turns it off.
+            if aiConsent.signedIn && !aiConsent.decided && !accountEntryTest { aiConsent.set(allowed: true) }
             if subject == nil && reportFailure { reportActionFailure("Your sign-in has expired. Sign out from Account, then log in again. Your draft is still here.", reason: .notSignedIn) }
             return aiConsent.signedIn
         } catch {
@@ -481,52 +461,24 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             return false
         }
     }
-    var canAllowAIConsent: Bool {
-        guard let request = consentRequest else { return false }
-        return aiConsent.signedIn && request.subject == aiConsent.subject &&
-            request.handle == snapshot.handle && request.generation == account.generation
-    }
+    /// Logging in is the permission. Off here means the switch in AI & privacy.
     func requestAIConsent(resume: (() -> Void)? = nil) {
         DeviceActionLog.shared.record(.consent, .requested)
-        guard !showingAIConsent else { return }
         if aiConsent.creation { resume?(); return }
         guard !snapshot.handle.isEmpty else { command("signIn"); return }
         guard !verifyingAIAccount else { return }
         verifyingAIAccount = true
         let generation = account.generation, handle = snapshot.handle
-        let code = snapshot.code, head = snapshot.head
         Task {
             defer { verifyingAIAccount = false }
             guard await syncAIAccount(reportFailure: true) else { return }
-            guard generation == account.generation, handle == snapshot.handle,
-                  code == snapshot.code, head == snapshot.head, !showingAIConsent,
-                  let subject = aiConsent.subject, aiConsent.signedIn else {
+            guard generation == account.generation, handle == snapshot.handle else {
                 reportActionFailure("Your account or piece changed. Try that action again.", reason: .accountChanged); return
             }
-            if aiConsent.creation { resume?(); return }
-            consentRequest = (subject, handle, generation, code, head)
-            afterAIConsent = resume; acceptedAIConsent = false
-            showingAIConsent = true
-            DeviceActionLog.shared.record(.consent, .presented)
-        }
-    }
-    func allowAIConsent() {
-        DeviceActionLog.shared.record(.consent, .succeeded, control: .allow)
-        guard canAllowAIConsent else { declineAIConsent(); return }
-        aiConsent.set(\.creation, true)
-        acceptedAIConsent = true; showingAIConsent = false
-    }
-    func declineAIConsent() {
-        DeviceActionLog.shared.record(.consent, .declined)
-        acceptedAIConsent = false; showingAIConsent = false
-    }
-    func finishAIConsentPrompt() {
-        DeviceActionLog.shared.record(.consent, .dismissed)
-        let request = consentRequest, resume = afterAIConsent
-        let accepted = acceptedAIConsent && canAllowAIConsent
-        consentRequest = nil; afterAIConsent = nil; acceptedAIConsent = false
-        guard accepted, let request, let resume else { return }
-        Task {
+            guard aiConsent.creation else {
+                DeviceActionLog.shared.record(.consent, .declined)
+                reportActionFailure("Create with AI is switched off for this account. Turn it on in Brain → AI & privacy.", reason: .permission); return
+            }
             // Await the WebView gate before continuing the original action.
             guard let webView else { reportActionFailure("The workspace is not ready. Try again.", reason: .notReady); return }
             do {
@@ -536,19 +488,12 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 DeviceActionLog.shared.recordError(.consentBridge, error)
                 reportActionFailure("Could not apply AI permission. Your draft is still here. Try again.", reason: .failed); return
             }
-            guard aiConsent.creation, request.subject == aiConsent.subject,
-                  request.handle == snapshot.handle, request.generation == account.generation,
-                  request.code == snapshot.code, request.head == snapshot.head else { return }
-            resume()
+            guard generation == account.generation, handle == snapshot.handle, aiConsent.creation else { return }
+            resume?()
         }
     }
     private func applyAIConsent() {
-        if showingSpeechConsent, let pending = speechConsentAccount,
-           pending.subject != aiConsent.subject || pending.handle != snapshot.handle || pending.generation != account.generation { showingSpeechConsent = false; speechConsentAccount = nil }
-        if showingAIConsent && !canAllowAIConsent { declineAIConsent() }
-        if !aiConsent.creation { command("stop"); cancelHold() }
-        if !aiConsent.cloudSpeech { cancelHold() }
-        if !aiConsent.cloudNarration { StoryVoice.cancelCloudRequests() }
+        if !aiConsent.allowed { command("stop"); cancelHold(); StoryVoice.cancelCloudRequests() }
         let value = aiConsent.bridge
         Task { _ = try? await webView?.callAsyncJavaScript("window.__whistlegraphAIConsent = value; window.whistlegraphSetAIConsent?.(value);", arguments: ["value": value], in: nil, contentWorld: .page) }
     }

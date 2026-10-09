@@ -1,13 +1,14 @@
 import Foundation
 import CryptoKit
 
+/// Logging in is the permission: the first verified sign-in records `allowed`
+/// for that account, and it covers AI creation, cloud speech and cloud narration.
+/// `false` means the switch in AI & privacy was turned off and stays off.
+/// A new version means the disclosure changed and the account is asked once more.
 struct AIConsentRecord: Codable, Equatable {
-    static let version = 1
+    static let version = 2
     var version = Self.version
-    var creation = false
-    var cloudSpeech = false
-    var cloudSpeechChoice: Bool? = nil
-    var cloudNarration = false
+    var allowed: Bool? = nil
     var updatedAt = Date()
     static func key(subject: String) -> String {
         "whistlegraph-ai-consent:" + SHA256.hash(data: Data(subject.utf8)).map { String(format: "%02x", $0) }.joined()
