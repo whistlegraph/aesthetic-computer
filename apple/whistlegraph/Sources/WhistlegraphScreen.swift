@@ -17,12 +17,15 @@ struct PieceSnapshot: Decodable {
     var busy = false
     var phase = ""
     var attempt: PieceAttempt?
+    var draft: PieceDraft?
     var revisions: [PieceRevision]? = []
     var versions: [PieceRevision] { get { revisions ?? [] } set { revisions = newValue } }
     enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, phase, attempt; case revisions = "versions" }
     var hasHistory: Bool { versions.count > 1 }
 }
 struct PieceAttempt: Decodable { let request: String; let status: String; let error: String }
+/// Code a failed try painted on this phone, waiting to be kept as a version or discarded.
+struct PieceDraft: Decodable { let request: String; let error: String; let createdAt: String; let characters: Int }
 struct PieceRevision: Decodable, Identifiable {
     let id: Int
     let parent: Int?
@@ -175,7 +178,7 @@ struct WhistlegraphScreen: View {
                             .accessibilityLabel("Cancel recording, keep drawing")
                     }
                     Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
-                        Label("Chalk", systemImage: drawing.enabled ? "pencil.tip.crop.circle.fill" : "pencil.tip.crop.circle")
+                        Label { Text("Chalk") } icon: { ChalkStickIcon(lit: drawing.enabled) }
                     }.accessibilityIdentifier("draw-control").accessibilityValue(drawing.enabled ? "On" : "Off")
                         .disabled(!canTalk)
                     if drawing.hasInk {
@@ -225,7 +228,7 @@ struct WhistlegraphScreen: View {
             if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
-                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }) { narrator.select($0, session: session) }
+                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }, keepDraft: { session.command("keepDraft") }, discardDraft: { session.command("discardDraft") }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }
         }
         .padding(.horizontal, narrator.isPlaying ? 0 : session.layout.pageInset)
@@ -373,6 +376,8 @@ struct VersionFeed: View {
     var holdSelection = false
     let stop: () -> Void
     let retry: () -> Void
+    var keepDraft: () -> Void = {}
+    var discardDraft: () -> Void = {}
     let select: (Int) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var focusedVersion: Int?
@@ -429,6 +434,11 @@ struct VersionFeed: View {
                     if snapshot.busy {
                         Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
                     } else if attempt.status == "interrupted" || attempt.status == "failed" {
+                        if snapshot.draft != nil {
+                            // The try painted; only its checks said no. The work is the user's to keep.
+                            Button("Keep") { ButtonSounds.play(.pop); keepDraft() }.disabled(disabled).accessibilityIdentifier("draft-keep")
+                            Button("Discard") { ButtonSounds.play(.tick); discardDraft() }.disabled(disabled).accessibilityIdentifier("draft-discard")
+                        }
                         Button("Try again") { ButtonSounds.play(.press); retry() }.disabled(disabled)
                     }
                 }.frame(height: rowHeight).padding(.horizontal, 10)
@@ -623,5 +633,25 @@ struct CardFanIcon: View {
                     .rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 1.55))
             }
         }.offset(y: -2)
+    }
+}
+
+/// A stick of pink chalk, tilted like it is about to write; lit when the pad is open.
+struct ChalkStickIcon: View {
+    var lit: Bool
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(LinearGradient(colors: [Color(red: 1, green: 0.78, blue: 0.97), Color(red: 1, green: 0.55, blue: 0.95), Color(red: 0.85, green: 0.4, blue: 0.8)],
+                                     startPoint: .leading, endPoint: .trailing))
+                .frame(width: 8, height: 22)
+                .overlay(RoundedRectangle(cornerRadius: 2, style: .continuous).stroke(Color.black.opacity(0.35), lineWidth: 1))
+            // A worn, dusty tip.
+            Capsule().fill(Color.white.opacity(0.85)).frame(width: 6, height: 3).offset(y: -10)
+        }
+        .rotationEffect(.degrees(-38))
+        .opacity(lit ? 1 : 0.7)
+        .frame(width: 24, height: 24)
+        .accessibilityHidden(true)
     }
 }

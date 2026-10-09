@@ -247,6 +247,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var snapshot = PieceSnapshot()
     @Published var speechNotice: String?
     @Published private(set) var verifyingAIAccount = false
+    /// The chalk that went out with the last request; it clears when that request saves a version.
+    private var sentChalkID: String?
     @Published var actionError: String?
     @Published var typedDraft = ""
     @Published private(set) var localDataRevision = 0
@@ -321,13 +323,14 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, ware: String? = nil, onAccepted: (() -> Void)? = nil) {
-        guard ["checkout", "newPiece", "openPiece", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) else { return }
+        guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) else { return }
         if ["setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
         }
         let control = DeviceActionLog.Control(rawValue: action)
         DeviceActionLog.shared.record(.command, .requested, control: control,
             [.characters: text?.count ?? 0, .version: version ?? snapshot.head, .busy: snapshot.busy ? 1 : 0, .engineReady: engineReady ? 1 : 0])
+        if action == "retry", drawing.hasInk { sentChalkID = drawing.id } // A retry resends the chalk on the pad.
         if ["ask", "retry"].contains(action), !aiConsent.creation {
             requestAIConsent { [weak self] in self?.command(action, version: version, text: text, piece: piece, onAccepted: onAccepted) }
             return
@@ -365,7 +368,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             }
             guard text.count <= 96 else { reportActionFailure("Keep your request to 96 characters or fewer.", reason: .inputTooLong); return }
             value["text"] = text
-            if let sketch = drawing.payload() { value["drawing"] = sketch }
+            if let sketch = drawing.payload() { value["drawing"] = sketch; sentChalkID = drawing.id }
         }
         #if DEBUG
         if isConsentFixture && ["ask", "retry"].contains(action) {
@@ -816,6 +819,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             }
             #endif
             traceSnapshot(next)
+            // The iteration finished with a new version: the chalk it was asked with is spent.
+            if !next.busy, next.head > snapshot.head, let sent = sentChalkID, sent == drawing.id { drawing.clear(); sentChalkID = nil }
             snapshot = next; tv.updateProgress(next); engineReady = true
             if workspaceReady { startupTimeout?.cancel() }
         case "voiceIdle":
@@ -965,7 +970,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         if kind == "final" { AudioBenchmark.checkTranscript(text) }
         var event: [String: Any] = ["kind": kind, "text": text, "id": id ?? capture.turn]
         if performanceTurn { event["performance"] = true }
-        if ["mixedFinal", "final"].contains(kind), let sketch = drawing.payload(speechStart: speechStartedAt) { event["drawing"] = sketch }
+        if ["mixedFinal", "final"].contains(kind), let sketch = drawing.payload(speechStart: speechStartedAt) { event["drawing"] = sketch; sentChalkID = drawing.id }
         guard let data = try? JSONSerialization.data(withJSONObject: event),
               let json = String(data: data, encoding: .utf8) else { return }
         webView?.evaluateJavaScript("window.whistlegraphNativeEvent?.(\(json))") { _, error in

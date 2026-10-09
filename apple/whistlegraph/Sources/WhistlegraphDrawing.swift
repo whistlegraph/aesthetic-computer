@@ -105,20 +105,34 @@ final class GestureInkView: UIView {
         draft?.end(); setNeedsDisplay()
     }
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { draft?.end() }
+    static let chalk = UIColor(red: 1, green: 0.55, blue: 0.95, alpha: 1)
+    // A dry chalk mark: a powder halo, a dark edge so it reads over any piece,
+    // the stick itself, then grain scattered along the line. The grain is
+    // seeded per stroke so it never shimmers between redraws.
     override func draw(_ rect: CGRect) {
         guard let strokes = draft?.strokes else { return }
-        for stroke in strokes {
-            guard let first = stroke.first else { continue }
+        let chalk = Self.chalk
+        for (index, stroke) in strokes.enumerated() {
+            guard !stroke.isEmpty else { continue }
+            let points = stroke.map { CGPoint(x: $0[0] / 1000 * bounds.width, y: $0[1] / 1000 * bounds.height) }
             let path = UIBezierPath(); path.lineCapStyle = .round; path.lineJoinStyle = .round
-            let origin = CGPoint(x: first[0] / 1000 * bounds.width, y: first[1] / 1000 * bounds.height)
-            path.move(to: origin)
-            for p in stroke.dropFirst() { path.addLine(to: CGPoint(x: p[0] / 1000 * bounds.width, y: p[1] / 1000 * bounds.height)) }
+            path.move(to: points[0])
+            for p in points.dropFirst() { path.addLine(to: p) }
             // Touch-up adds a timed sample even when a held tap never moved.
-            if stroke.allSatisfy({ $0[0] == first[0] && $0[1] == first[1] }) {
-                path.addLine(to: CGPoint(x: origin.x + 0.1, y: origin.y))
+            if points.allSatisfy({ $0 == points[0] }) { path.addLine(to: CGPoint(x: points[0].x + 0.1, y: points[0].y)) }
+            chalk.withAlphaComponent(0.16).setStroke(); path.lineWidth = 12; path.stroke()
+            UIColor.black.withAlphaComponent(0.35).setStroke(); path.lineWidth = 6.5; path.stroke()
+            chalk.withAlphaComponent(0.9).setStroke(); path.lineWidth = 4.5; path.stroke()
+            var seed = UInt32(truncatingIfNeeded: index &* 2_654_435_761 &+ 97)
+            func noise() -> CGFloat { seed = seed &* 1_664_525 &+ 1_013_904_223; return CGFloat((seed >> 8) & 0xffff) / 65535 }
+            for p in points {
+                for _ in 0..<2 {
+                    let angle = noise() * .pi * 2, radius = 2 + noise() * 4.5, size = 1.2 + noise() * 1.3
+                    let dot = CGRect(x: p.x + cos(angle) * radius - size / 2, y: p.y + sin(angle) * radius - size / 2, width: size, height: size)
+                    (noise() < 0.55 ? chalk : UIColor.white).withAlphaComponent(0.22 + noise() * 0.33).setFill()
+                    UIBezierPath(ovalIn: dot).fill()
+                }
             }
-            UIColor.black.withAlphaComponent(0.8).setStroke(); path.lineWidth = 7; path.stroke()
-            UIColor(red: 1, green: 0.14, blue: 1, alpha: 1).setStroke(); path.lineWidth = 4; path.stroke()
         }
     }
 }

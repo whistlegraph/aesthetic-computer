@@ -21,7 +21,7 @@ final class DeviceActionLog: @unchecked Sendable {
     }
     enum Control: String, Codable {
         case type, talk, chalk, brain, account, pieces, story, tv, privacy, deleteAccount, debugLog
-        case ask, retry, stop, signIn, newPiece, openPiece, deletePiece, checkout, presentVersion, endPresentation
+        case ask, retry, stop, signIn, newPiece, openPiece, deletePiece, keepDraft, discardDraft, checkout, presentVersion, endPresentation
         case setModel, refreshBraincells, density, format, appearance, sounds, costUnit, creation
         case cloudSpeech, cloudNarration, requestText, send, cancel, allow, decline, drawingPad
     }

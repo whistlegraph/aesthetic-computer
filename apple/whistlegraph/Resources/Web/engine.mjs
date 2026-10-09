@@ -176,7 +176,7 @@ function nativeSnapshot(){
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
-    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null};
+    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
@@ -205,6 +205,8 @@ window.whistlegraphNativeCommand=command=>{
     if(version)post({action:'presentation',version:version.id,source:version.source||'export function paint({wipe}){wipe("black");}'});
   }
   if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;}
+  if(command.action==='keepDraft'&&!busy)void keepDraft();
+  if(command.action==='discardDraft'){localStorage.removeItem(storageKey+'-draft');log('Draft discarded');nativeSnapshot();}
   if(command.action==='newPiece'&&!busy){const result=window.whistlegraphNewPiece?.();if(result?.accepted===false)return result;}
   if(command.action==='openPiece'&&!busy&&typeof command.piece==='string'){const result=window.whistlegraphOpenPiece?.(command.piece);if(result?.accepted===false)return result;}
   if(command.action==='deletePiece'&&typeof command.piece==='string'){const result=window.whistlegraphDeletePiece?.(command.piece);if(result?.accepted===false)return result;}
@@ -299,14 +301,27 @@ async function checkVisualResult() {
         if(source!==target||renderID!==id)throw Error('Preview changed before visual review');
         const round=activeReceipt?.request();
         const reviewUsage={};
-        const verdict=await reviewVisualResult({evidence,sourceHash:hash,renderID:id,source:target,
-          request:inferenceRequest(turnRequest),history:selectedBranch(versions.value),drawing:chalk,
-          model:window.__whistlegraphModel||profile().model,token,signal,personalRelay:profile().personalRelay,
-          onHeaders:response=>{if(round)activeReceipt?.headers(round,response);},
-          onEvent:e=>{
-            if(e.message?.model||e.model)activeReceipt?.notify('model/reported',{reported:e.message?.model||e.model});
-            if(e.usage||e.message?.usage){Object.assign(reviewUsage,e.usage||e.message?.usage);activeReceipt?.notify('turn/usage',{usage:reviewUsage});}
-          }});
+        let verdict;
+        try{
+          verdict=await reviewVisualResult({evidence,sourceHash:hash,renderID:id,source:target,
+            request:inferenceRequest(turnRequest),history:selectedBranch(versions.value),drawing:chalk,
+            model:window.__whistlegraphModel||profile().model,token,signal,personalRelay:profile().personalRelay,
+            onHeaders:response=>{if(round)activeReceipt?.headers(round,response);},
+            onEvent:e=>{
+              if(e.message?.model||e.model)activeReceipt?.notify('model/reported',{reported:e.message?.model||e.model});
+              if(e.usage||e.message?.usage){Object.assign(reviewUsage,e.usage||e.message?.usage);activeReceipt?.notify('turn/usage',{usage:reviewUsage});}
+            }});
+        }catch(error){
+          // The reviewer being busy (429), down (5xx) or unreachable is not a
+          // judgment on the picture. The candidate painted; keep it, marked
+          // unreviewed in the receipt, rather than throw the work away
+          // (jeffrey lost a valid "make fia larger" to a 429, 2026-10-09).
+          if(signal.aborted||turnCancelled||!/unavailable \(HTTP (429|5\d\d)\)|fetch failed|network|timed out|aborted/i.test(String(error?.message||error)))throw error;
+          if(source!==target||renderID!==id||!painted||turnRuntimeFailed)throw Error('Preview changed during visual review');
+          validationChecks.push({code:'visual-unreviewed',sourceHash:hash});
+          log('Visual review unavailable; keeping the painted result unreviewed · '+(error?.message||error));
+          return {passed:true,unreviewed:true,observations:'Review unavailable: '+(error?.message||error),findings:[]};
+        }
         if(source!==target||renderID!==id||!painted||turnRuntimeFailed)throw Error('Preview changed during visual review');
         validationChecks.push({code:verdict.passed?'visual-pass':'visual-fail',sourceHash:hash});
         log('Visual check · '+verdict.observations);
@@ -516,6 +531,12 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);const drawing=inputData(turnRequest)?.drawing;if(drawing)post({action:'drawingCommitted',drawingID:drawing.id,revision:drawing.revision});benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
       catch(error){turnSucceeded=false;turnError=error.message;phase('Could not save version');log(error.message);benchmark('generationFailed',{message:error.message});}
     }else turnSucceeded=false;
+    // A try that painted but failed its checks is not thrown away: it waits as
+    // a draft the phone can keep as a version or discard. Partial progress is
+    // the user's; the checks only decide what gets saved automatically.
+    if(!turnSucceeded&&!turnCancelled&&source&&source!==previous&&painted&&lastPaintedSource===source){
+      try{localStorage.setItem(storageKey+'-draft',JSON.stringify({source,request:turnRequest,error:turnError||'No verified version was committed',parent:turnParent,createdAt:new Date().toISOString()}));}catch{}
+    }
     if(!turnSucceeded){source=previous;vfs.mount(file,source);saved();const restored=source||'export function paint({wipe}) {wipe("black");}';if(previewSource!==restored)render(restored);server?.close();server=null;log('Restored previous version');}
     benchmark(turnSucceeded?'generationFinished':'generationFailed',{message:turnSucceeded?'':turnError||'No verified version was committed'});
     lastAttempt={...lastAttempt,status:turnSucceeded?'completed':'failed',error:turnError||(!turnSucceeded?'No verified version was committed':''),runtimeErrors:[...runtimeErrors],finishedAt:new Date().toISOString()};threadUpdate();
@@ -534,6 +555,32 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
 // before the account token, and spending it there would retry nothing.
 let launchRetryUsed=false;
 const launchRetryPending=()=>window.__whistlegraphRetryOnLaunch===true&&!launchRetryUsed;
+function readDraft(){
+  try{const draft=JSON.parse(localStorage.getItem(storageKey+'-draft'));if(draft?.source&&typeof draft.request==='string')return draft;}catch{}
+  // A failed try from before drafts existed still has its last painted checkpoint in the journal.
+  const attempt=readAttempt(localStorage,storageKey);
+  if(attempt?.status==='failed'&&typeof attempt.checkpoint==='string'&&attempt.checkpoint.trim()&&attempt.checkpoint!==attempt.baseSource)
+    return {source:attempt.checkpoint,request:attempt.displayText||attempt.localText||'Request',error:lastAttempt?.error||'Checks did not pass',parent:attempt.parent,createdAt:lastAttempt?.startedAt||''};
+  return null;
+}
+// Keep the draft as the next version: it has to paint again on this phone,
+// and the piece must still be where the draft left it.
+async function keepDraft(){
+  const draft=readDraft();
+  if(!draft||busy||!versions)return;
+  if(draft.parent!==versions.head.id){phase('The piece moved on; that draft belonged to v'+draft.parent);localStorage.removeItem(storageKey+'-draft');nativeSnapshot();return;}
+  busy=true;previous=source;nativeSnapshot();
+  source=draft.source;vfs.mount(file,source);render(source);phase('Keeping the draft…');
+  await waitForPaint(source,()=>false,20000);
+  if(painted&&lastPaintedSource===source){
+    try{
+      const version=versions.commit({source,request:draft.request,layers:0,parent:draft.parent});saved();
+      localStorage.removeItem(storageKey+'-draft');lastAttempt={...(lastAttempt||{request:draft.request,startedAt:draft.createdAt}),status:'completed',error:''};
+      phase(`v${version.id} · Kept as is`);log(`Kept the draft as v${version.id}`);
+    }catch(error){source=previous;vfs.mount(file,source);render(source);phase('Could not keep the draft');log(error.message);}
+  }else{source=previous;vfs.mount(file,source);render(source);phase('The draft did not paint this time');}
+  busy=false;end();threadUpdate();
+}
 async function resumeAttempt(manual=false){
   const launchRetry=!manual&&launchRetryPending();
   if(launchRetry)manual=true;
