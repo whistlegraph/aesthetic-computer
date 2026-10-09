@@ -6,6 +6,7 @@ struct WhistlegraphAccountEntry: View {
     @ObservedObject var session: WhistlegraphSession
     @Environment(\.colorScheme) private var scheme
     @Environment(\.openURL) private var openURL
+    @State private var showingFeed = false
 
     private func action(_ title: String, signUp: Bool = false, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
@@ -36,6 +37,8 @@ struct WhistlegraphAccountEntry: View {
                                 action("Log in") { session.signIn() }.accessibilityIdentifier("account-entry-login")
                                 action("I'm new", signUp: true) { session.signIn(signUp: true) }.accessibilityIdentifier("account-entry-signup")
                             }
+                            // Exploring needs no account: the feed is the front door.
+                            action("Explore mimes") { ButtonSounds.play(.play); showingFeed = true }.accessibilityIdentifier("account-entry-explore")
                             // Logging in is the AI permission (App Review 5.1.2(i)); the policy names who sees what.
                             Text("By continuing, what you say, type and draw goes to AI helpers. [Privacy](https://aesthetic.computer/privacy-policy.html)")
                                 .font(.custom("ComicRelief-Regular", size: 14, relativeTo: .footnote))
@@ -58,6 +61,7 @@ struct WhistlegraphAccountEntry: View {
         }
         .foregroundStyle(theme.foreground).background(theme.background.ignoresSafeArea())
         .accessibilityIdentifier("account-entry")
+        .fullScreenCover(isPresented: $showingFeed) { MimeFeedView { showingFeed = false; session.signIn() } }
     }
 }
 

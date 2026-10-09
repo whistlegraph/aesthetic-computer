@@ -62,6 +62,26 @@ export function mongoWhistlegraphStore(collection, {name=pronounceableCode}={}) 
       await collection.updateOne({_id:row._id,owner},{$unset:{receipts:''}});return true;
     },
     async state(owner,id,state){await collection.updateOne({_id:id,owner},{$set:{diagnostics:state}});},
+    // mime.ac: a thread its owner published is readable by anyone, by code or
+    // in the feed. The handle is stamped at publish time so the feed never
+    // needs an account lookup; unpublishing keeps the row and its history.
+    async publish(owner,code,published,handle) {
+      if(!validCode(code))return null;
+      const row=await collection.findOne({owner,codeKey:code.toLowerCase()});
+      if(!row)return null;
+      const set=published?{published:true,publishedAt:row.publishedAt||new Date().toISOString(),handle:typeof handle==='string'&&handle.startsWith('@')?handle:(row.handle||'')}:{published:false};
+      await collection.updateOne({_id:row._id,owner},{$set:set});
+      return {...row,...set};
+    },
+    async readPublished(code) {
+      if(!validCode(code))return null;
+      return collection.findOne({codeKey:code.toLowerCase(),published:true},{projection:{receipts:0,diagnostics:0}});
+    },
+    async feed({before,limit=20}={}) {
+      const query={published:true,'ledger.head':{$gt:0}};
+      if(typeof before==='string'&&before)query.publishedAt={$lt:before};
+      return collection.find(query,{projection:{receipts:0,diagnostics:0}}).sort({publishedAt:-1}).limit(Math.min(50,Math.max(1,Number(limit)|0||20))).toArray();
+    },
     async save(owner,id,revision,ledger) {
       ledger=validateLedger(ledger);
       const previous=await collection.findOne({_id:id,owner,revision});
@@ -78,5 +98,23 @@ export function mongoWhistlegraphStore(collection, {name=pronounceableCode}={}) 
 export function publicThread(row) {
   if(!row)return null;
   const head=row.ledger?.versions.find(v=>v.id===row.ledger.head);
-  return {id:row._id,code:row.code,revision:row.revision,ledger:row.ledger,head:head?.id,sourceHash:head?sourceHash(head.source):null,updatedAt:row.updatedAt,diagnostics:row.diagnostics,receipts:row.receipts};
+  return {id:row._id,code:row.code,revision:row.revision,ledger:row.ledger,head:head?.id,sourceHash:head?sourceHash(head.source):null,updatedAt:row.updatedAt,diagnostics:row.diagnostics,receipts:row.receipts,published:row.published===true};
+}
+// The words a version was asked for, as the phone shows them: the transcript
+// of a spoken or mixed request, "Drawing"/"Sound" for chalk or sound alone,
+// the typed text otherwise. Never the INPUT DATA block.
+export function captionOf(request) {
+  if(request==null)return 'Starting piece';
+  const raw=String(request);
+  let data=null;try{data=JSON.parse(raw.split('\nINPUT DATA:\n')[1]);}catch{}
+  const text=data?(data.transcript||(data.drawing?'Drawing':'Sound')):raw.split('\nINPUT DATA:\n')[0];
+  return String(text||'Starting piece').replace(/ · [\d.]+ seconds$/,'').trim().slice(0,160);
+}
+// What the feed shows for one published mime: enough to render it and say
+// who made it. Receipts, diagnostics and the full ledger stay private.
+export function feedEntry(row) {
+  if(!row)return null;
+  const versions=row.ledger?.versions||[];
+  const head=versions.find(v=>v.id===row.ledger?.head),made=versions.filter(v=>v.id>0),last=made.at(-1);
+  return {code:row.code,handle:row.handle||'',caption:last?captionOf(last.request):'',source:head?.source||'',versions:made.length,publishedAt:row.publishedAt||null,updatedAt:row.updatedAt};
 }

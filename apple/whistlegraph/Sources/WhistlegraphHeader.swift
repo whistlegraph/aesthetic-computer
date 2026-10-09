@@ -28,7 +28,10 @@ struct PiecesSheet: View {
     let newPiece: () -> Void
     var delete: (String) -> Void = { _ in }
     var mintSession: WhistlegraphSession? = nil
+    var session: WhistlegraphSession? = nil
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var publishing = MimePublishModel()
+    @State private var showingFeed = false
     var body: some View {
         NavigationStack {
             List {
@@ -47,6 +50,21 @@ struct PiecesSheet: View {
                     }
                 }
                 #endif
+                Section("mime.ac") {
+                    Button { ButtonSounds.play(.play); showingFeed = true } label: {
+                        Label("Explore mimes", systemImage: "play.rectangle.on.rectangle")
+                    }.accessibilityIdentifier("pieces-explore")
+                    if let session, let current = pieces.first(where: { $0.current }), !current.code.isEmpty {
+                        Toggle(isOn: Binding(get: { publishing.published == true },
+                                             set: { value in Task { await publishing.set(value, account: session.account) } })) {
+                            Label("Publish /" + current.code, systemImage: "antenna.radiowaves.left.and.right")
+                        }
+                        .disabled(publishing.published == nil || publishing.busy || current.versions == 0)
+                        .accessibilityIdentifier("pieces-publish")
+                        if current.versions == 0 { Text("Make a first version to publish.").font(.footnote).foregroundStyle(.secondary) }
+                        else if !publishing.notice.isEmpty { Text(publishing.notice).font(.footnote).foregroundStyle(.secondary) }
+                    }
+                }
                 Section(pieces.count == 1 ? "Your piece" : "Your pieces") {
                     ForEach(pieces) { piece in
                         Button {
@@ -80,6 +98,8 @@ struct PiecesSheet: View {
             .navigationTitle("Pieces")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .task { if let session, let current = pieces.first(where: { $0.current }) { await publishing.load(code: current.code, account: session.account) } }
+            .fullScreenCover(isPresented: $showingFeed) { MimeFeedView { showingFeed = false; dismiss() } }
         }
         .presentationDetents([.medium, .large])
     }
@@ -190,7 +210,7 @@ struct IdentityHeader: View {
                         disabled: session.snapshot.busy || session.capturePhase != .idle,
                         open: { session.command("openPiece", piece: $0) },
                         newPiece: { session.command("newPiece") },
-                        delete: { session.command("deletePiece", piece: $0) }, mintSession: session)
+                        delete: { session.command("deletePiece", piece: $0) }, mintSession: session, session: session)
         }
         .sheet(isPresented: $showingAccount) {
             AccountSheet(handle: session.snapshot.handle, colors: session.snapshot.colors, appearance: $appearance,

@@ -19,6 +19,7 @@
 		14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D233DBB6F87184A91C13D41 /* MusicalInput.swift */; };
 		15EE658816EEA4B8BE6AAF5A /* StoryVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */; };
 		19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */; };
+		1B101CD76675E76E3CADEF17 /* MimeFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF9805E6F3EA99293F95943 /* MimeFeed.swift */; };
 		24D22223CEEE7F360CEAEADC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FCE365B860DBD53E42DB2824 /* PrivacyInfo.xcprivacy */; };
 		26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */; };
 		275555C74507A6F62B0F037B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF5F023E15041FF61F9FD358 /* Assets.xcassets */; };
@@ -156,6 +157,7 @@
 		B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
 		B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCardsTests.swift; sourceTree = "<group>"; };
 		BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphApp.swift; sourceTree = "<group>"; };
+		BDF9805E6F3EA99293F95943 /* MimeFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeFeed.swift; sourceTree = "<group>"; };
 		C534DE3AC6E813F8BDFE5244 /* WhistlegraphDeleteAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDeleteAccount.swift; sourceTree = "<group>"; };
 		CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordedTranscription.swift; sourceTree = "<group>"; };
 		CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTrim.swift; sourceTree = "<group>"; };
@@ -210,6 +212,7 @@
 				325762318FCE1CB2986C5B1F /* DeviceRegistry.swift */,
 				35643029A3E82EEDEAC8DED6 /* InputButtonLabels.swift */,
 				7848DB9FED6B955BC193F650 /* LiveTranscription.swift */,
+				BDF9805E6F3EA99293F95943 /* MimeFeed.swift */,
 				5D233DBB6F87184A91C13D41 /* MusicalInput.swift */,
 				5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */,
 				4BBA0E45689010CB41A6A8FF /* NetworkBenchmark.swift */,
@@ -431,6 +434,7 @@
 				4ABB5050941AD905930711B7 /* DeviceRegistry.swift in Sources */,
 				123228FADA6696AB354306C7 /* InputButtonLabels.swift in Sources */,
 				5D29324F2AF09B53070D7644 /* LiveTranscription.swift in Sources */,
+				1B101CD76675E76E3CADEF17 /* MimeFeed.swift in Sources */,
 				14FFBE48767E2576693FB7B3 /* MusicalInput.swift in Sources */,
 				B35A82E6CD62E5D1D9460EE3 /* NativeScreenFixture.swift in Sources */,
 				77EC5FCFB7F9BF4A6BD4F94B /* NativeSignIn.swift in Sources */,

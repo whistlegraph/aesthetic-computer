@@ -8,7 +8,7 @@ final class DeviceActionLog: @unchecked Sendable {
         case typeEdit, typeSend, talkBegin, talkEnd, talkLatch, talkCancel, speech
         case accountToken, accountIdentity, signIn, signOut, consent, consentBridge
         case workspace, snapshot, inference, credits, storeCatalog, storePurchase, storeDelivery
-        case drawing, preview, story, share, deletion, logExport, logClear, source, projection, notifications
+        case drawing, preview, story, share, deletion, logExport, logClear, source, projection, notifications, feed, publish
     }
     enum Outcome: String, Codable {
         case requested, started, ended, ready, succeeded, failed, cancelled, denied
