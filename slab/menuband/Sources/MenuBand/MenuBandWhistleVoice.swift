@@ -33,12 +33,6 @@ final class MenuBandWhistleVoice {
         var env: Double = 0          // amplitude envelope 0…1
         var releasing = false
         var active = false
-        // Breath + timbre state
-        var breathDrift: Double = 0  // slow wander, ±
-        var flutter: Double = 0      // fast tremor
-        var jitter: Double = 0       // cents, random walk
-        var vibPhase: Double = 0
-        var vibRate: Double = 5.2
         var seed: UInt32 = 0x9E3779B9
         // Resonator (RBJ bandpass on the fundamental) + hiss filters
         var r1: Double = 0, r2: Double = 0
@@ -68,6 +62,23 @@ final class MenuBandWhistleVoice {
     private let scoopTau = 0.045
     private let jitterCents = 6.0
     private let vibratoCents = 5.0
+
+    /// One whistler, one breath. Every sounding voice shares the breath
+    /// drift, flutter, pitch jitter and vibrato below. Held together (K and
+    /// L, say) two voices then move as one, so their interference pattern
+    /// holds still and reads as a steady beat instead of a wandering phase —
+    /// independent jitter per voice re-randomized it every few hundred ms.
+    private var breathDrift: Double = 0
+    private var flutter: Double = 0
+    private var jitter: Double = 0
+    private var vibPhase: Double = 0
+    private var vibRate: Double = 5.2
+    private var breathSeed: UInt32 = 0x2545F491
+    private var sounding = 0
+    /// Per-block scratch for the shared breath, preallocated: the render
+    /// thread never allocates. 8192 frames covers any CoreAudio block.
+    private var breathBuf = [Double](repeating: 0, count: 8192)
+    private var centsBuf = [Double](repeating: 0, count: 8192)
 
     private var pitchScale: Double = 1.0
     private var glidePitch: Double = 1.0
@@ -170,7 +181,6 @@ final class MenuBandWhistleVoice {
                 let p = Float(pan) / 127.0 * (.pi / 2)
                 v.panL = cos(p); v.panR = sin(p)
                 v.seed = seedCounter | 1
-                v.vibRate = 4.8 + 0.8 * (Self.noise(&v.seed) * 0.5 + 0.5)
                 v.active = true
                 voices[slot] = v
             case let .noteOff(midi, channel):
@@ -197,11 +207,36 @@ final class MenuBandWhistleVoice {
         let hpCoeff = exp(-dt * 2 * .pi * 1_800)           // hiss band: 1.8–5 kHz
         let lpCoeff = exp(-dt * 2 * .pi * 5_000)
 
+        // Shared breath for the block: wander, tremor, jitter and vibrato
+        // advance once per sample into scratch arrays every voice reads.
+        let frames = min(frameCount, breathBuf.count)
+        sounding = 0
+        var vibGrow = 0.0
+        for i in 0..<maxVoices where voices[i].active {
+            sounding += 1
+            vibGrow = max(vibGrow, voices[i].age)
+        }
+        for i in 0..<frames {
+            let n1 = Self.noise(&breathSeed)
+            breathDrift += (n1 * 0.14 - breathDrift) * driftCoeff
+            let n2 = Self.noise(&breathSeed)
+            flutter += (n2 * 0.06 - flutter) * flutterCoeff
+            breathBuf[i] = max(0.35, min(1.15, 0.82 + breathDrift + flutter))
+            let n3 = Self.noise(&breathSeed)
+            jitter += (n3 * jitterCents - jitter) * jitterCoeff
+            let vibDepth = vibratoCents * min(1, vibGrow / 0.45) * breathBuf[i]
+            vibPhase += vibRate * dt
+            if vibPhase >= 1 { vibPhase -= 1 }
+            centsBuf[i] = jitter + sin(vibPhase * 2 * .pi) * vibDepth
+        }
+        // Air thins as voices stack so the noise beds don't pile up.
+        let airScale = 1.0 / sqrt(Double(max(1, sounding)))
+
         for idx in 0..<maxVoices where voices[idx].active {
             var v = voices[idx]
             var pitch = pitchStart
             var active = true
-            for i in 0..<frameCount {
+            for i in 0..<frames {
                 pitch += (pitchTarget - pitch) * pitchCoeff
                 // Envelope: quick breath-in, exponential damper-free release.
                 if v.releasing {
@@ -211,22 +246,12 @@ final class MenuBandWhistleVoice {
                     v.env = min(1, v.env + attackInc)
                 }
                 v.age += dt
-                // Breath pressure: slow wander + fast tremor, both noise-fed.
-                let n1 = Self.noise(&v.seed)
-                v.breathDrift += (n1 * 0.14 - v.breathDrift) * driftCoeff
-                let n2 = Self.noise(&v.seed)
-                v.flutter += (n2 * 0.06 - v.flutter) * flutterCoeff
-                let breath = max(0.35, min(1.15, 0.82 + v.breathDrift + v.flutter))
-                // Pitch: onset scoop settles, jitter wanders, vibrato grows in.
+                let breath = breathBuf[i]
+                // Pitch: this voice's onset scoop and release droop, plus
+                // the shared jitter and vibrato.
                 let scoop = scoopCents * exp(-v.age / scoopTau)
-                let n3 = Self.noise(&v.seed)
-                v.jitter += (n3 * jitterCents - v.jitter) * jitterCoeff
-                let vibDepth = vibratoCents * min(1, v.age / 0.45) * breath
-                v.vibPhase += v.vibRate * dt
-                let vib = sin(v.vibPhase * 2 * .pi) * vibDepth
-                // Release droops a touch, like breath giving out.
                 let droop = v.releasing ? -14.0 * (1 - v.env) : 0
-                let cents = scoop + v.jitter + vib + droop
+                let cents = scoop + centsBuf[i] + droop
                 let f = v.f0 * pitch * pow(2.0, cents / 1200.0)
                 v.phase += f * dt
                 if v.phase >= 1 { v.phase -= 1 }
@@ -247,8 +272,8 @@ final class MenuBandWhistleVoice {
                 v.hpz = hpCoeff * (v.hpz + x) - x        // one-pole highpass
                 let hp = x + v.hpz
                 v.lpz = v.lpz * lpCoeff + hp * (1 - lpCoeff)
-                let air = y * airLevel * (0.6 + 0.4 * breath)
-                    + v.lpz * hissLevel * breath
+                let air = (y * airLevel * (0.6 + 0.4 * breath)
+                    + v.lpz * hissLevel * breath) * airScale
                 let amp = Float(v.env * (0.78 + 0.22 * breath))
                 let s = (Float(tone + air) * amp) * v.gain
                 left[i] += s * v.panL
