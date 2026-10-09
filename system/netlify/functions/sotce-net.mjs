@@ -1408,6 +1408,30 @@ export const handler = async (event, context) => {
               /* display: none; */
               margin-left: 1em;
             }
+            #chat-preview {
+              position: absolute;
+              top: 56px;
+              left: 16px;
+              width: calc(100% - 128px);
+              box-sizing: border-box;
+              padding: 8px 10px;
+              border: 1px solid var(--pink-border);
+              border-radius: 0.5em;
+              background: var(--button-background);
+              color: var(--button-text);
+              font: inherit;
+              text-align: left;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              cursor: pointer;
+              pointer-events: auto;
+            }
+            #chat-preview[hidden] { display: none; }
+            @media (max-width: ${miniBreakpoint}px) {
+              #chat-preview { width: calc(100% - 96px); }
+            }
+            #garden.has-chat-preview { --garden-top-height: 108px; }
             #ask-button,
             #respond-button {
               margin-left: 1em;
@@ -1778,7 +1802,7 @@ export const handler = async (event, context) => {
                 transparent 100%
               );
               z-index: 3;
-              height: 72px;
+              height: var(--garden-top-height, 72px);
               pointer-events: none;
             }
 
@@ -2159,9 +2183,9 @@ export const handler = async (event, context) => {
             #garden-canvas {
               display: block;
               width: 100%;
-              height: calc(100vh - 72px);
-              height: calc(100dvh - 72px);
-              margin-top: 72px;
+              height: calc(100vh - var(--garden-top-height, 72px));
+              height: calc(100dvh - var(--garden-top-height, 72px));
+              margin-top: var(--garden-top-height, 72px);
               background-color: var(--garden-background);
             }
             
@@ -3499,6 +3523,28 @@ export const handler = async (event, context) => {
             
             // Global chat button reference (set when garden renders)
             let chatButtonRef = null;
+            let chatPreviewRef = null;
+
+            function updateChatPreview() {
+              if (!chatPreviewRef) return;
+              const message = chat.system.messages.findLast((msg) =>
+                !msg.deleted && typeof msg.text === "string" && msg.text.trim()
+              );
+              chatPreviewRef.hidden = !message;
+              const garden = chatPreviewRef.closest("#garden");
+              const wasVisible = garden.classList.contains("has-chat-preview");
+              garden.classList.toggle("has-chat-preview", !!message);
+              if (message) {
+                const sender = message.from || "anon";
+                const handle = sender.startsWith("@") ? sender : "@" + sender;
+                const text = handle + ": " + message.text.trim();
+                chatPreviewRef.textContent = text;
+                chatPreviewRef.setAttribute("aria-label", "Open chat: " + text);
+              }
+              if (wasVisible !== !!message && garden.isConnected) {
+                window.dispatchEvent(new Event("resize"));
+              }
+            }
             
             // Helper to open chat with optional prefilled message
             function prefillChatInput(message) {
@@ -4255,6 +4301,7 @@ export const handler = async (event, context) => {
 
             // 🤖 Respond to every chat message...
             chat.system.receiver = (id, type, content) => {
+              updateChatPreview();
               /*
               console.log(
                 "🗨️ Received chat:",
@@ -4355,6 +4402,7 @@ export const handler = async (event, context) => {
                     layoutChanged = true;
                   }
                 });
+                updateChatPreview();
 
                 if (layoutChanged) {
                   clearChatMessages();
@@ -5396,6 +5444,16 @@ export const handler = async (event, context) => {
               };
 
               topBar.appendChild(chatButton);
+              if (subscription?.subscribed) {
+                const chatPreview = cel("button");
+                chatPreview.id = "chat-preview";
+                chatPreview.type = "button";
+                chatPreview.hidden = true;
+                chatPreview.onclick = () => openChatWithMessage();
+                topBar.appendChild(chatPreview);
+                chatPreviewRef = chatPreview;
+                updateChatPreview();
+              }
               // }
 
               // ❓ Ask + Respond buttons
@@ -6934,7 +6992,7 @@ export const handler = async (event, context) => {
                 
                 // Resize canvas to fill container
                 function resizeCanvas() {
-                  const topBarHeight = 72;
+                  const topBarHeight = g.classList.contains("has-chat-preview") ? 108 : 72;
                   const bottomPadding = 32;
                   const w = window.innerWidth;
                   const h = window.innerHeight - topBarHeight;
