@@ -822,20 +822,41 @@ final class MenuBandPercussion {
     enum DrumSkinZone: String { case kick, tom, snare, hat, click }
 
     /// Where a keyboard key strikes the TrackDrum membrane when a side is
-    /// latched to the TrackDrum kit (⇧[ / ⇧]). The twelve pitch classes walk
-    /// out from the center: C is the kick dead center, D and D# the tom
-    /// ring, E and F the snare, F# G G# the hat, A A# B the click out to the
-    /// rim — the same contours a finger crosses, so every key is a spot the
-    /// pad already knows, through whichever kit is selected. Along the
-    /// vertical axis `roundedTrackpadDistance` is exactly |sy|, so the
-    /// radius maps straight to y; the strike sits a little left or right of
-    /// center so each side keeps its own pan.
+    /// latched to the TrackDrum kit (⇧[ / ⇧]). Laid out for the hand, not
+    /// the scale: on the home row C (H / C) is the kick dead center, E and F
+    /// (J K / E F) are two kinds of click on the rim, G is the snare, A the
+    /// hat; the sharps are the in-between spots (kick edge, tom, snare rim,
+    /// open hat) and B a third click. Clicks differ by WHERE on the rim they
+    /// land — the membrane's modes depend on the strike angle, so a top-rim
+    /// click and a side-rim click are different sounds, and the side one
+    /// pans to that hand. Along the vertical axis `roundedTrackpadDistance`
+    /// is exactly |sy|; along the horizontal it is 1 − 1.64·(1 − |sx|) once
+    /// past the flat middle, which is the inverse used for side strikes.
     static func keyStrike(pitchClass pc: Int, left: Bool) -> CGPoint {
-        let radius: [Double] = [0.00, 0.18, 0.36, 0.43, 0.52, 0.60,
-                                0.68, 0.76, 0.85, 0.90, 0.95, 1.00]
-        let d = radius[((pc % 12) + 12) % 12]
-        let x = 0.5 + (left ? -0.14 : 0.14)
-        return CGPoint(x: x, y: 0.5 + d * 0.5)
+        enum Dir { case up, down, side }
+        let map: [(d: Double, dir: Dir)] = [
+            (0.00, .up),    // C  kick, dead center
+            (0.20, .up),    // C# kick edge
+            (0.38, .up),    // D  tom
+            (0.44, .down),  // D# tom, other side of the skin
+            (0.92, .up),    // E  click — top rim
+            (1.00, .side),  // F  click — side rim, pans to the hand
+            (0.70, .up),    // F# hat
+            (0.54, .up),    // G  snare
+            (0.62, .down),  // G# snare rim
+            (0.78, .up),    // A  hat
+            (0.86, .down),  // A# hat, open-ish, other side
+            (0.96, .down),  // B  click — bottom rim
+        ]
+        let (d, dir) = map[((pc % 12) + 12) % 12]
+        let hand: Double = left ? -1 : 1
+        switch dir {
+        case .up:   return CGPoint(x: 0.5 + hand * 0.14, y: 0.5 + d * 0.5)
+        case .down: return CGPoint(x: 0.5 + hand * 0.14, y: 0.5 - d * 0.5)
+        case .side:
+            let sx = max(0.40, 1 - (1 - d) / 1.64)
+            return CGPoint(x: 0.5 + hand * sx * 0.5, y: 0.5)
+        }
     }
 
     static func drumSkinZone(at strike: CGPoint) -> DrumSkinZone {
