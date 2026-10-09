@@ -83,13 +83,14 @@ async function open(path, { phone = false, failed = false, roomStatus = null, as
   const pixels = await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
     const bounds = canvas.getBoundingClientRect();
+    const density = navigator.maxTouchPoints > 0 ? Math.min(2, devicePixelRatio) : devicePixelRatio;
     return { actual: [canvas.width, canvas.height],
-      expected: [Math.round(bounds.width * devicePixelRatio),
-        Math.round(bounds.height * devicePixelRatio)] };
+      expected: [Math.round(bounds.width * density),
+        Math.round(bounds.height * density)] };
   });
   assert.deepEqual(pixels.actual, pixels.expected, 'canvas maps to exact display pixels');
   assert.equal(await page.evaluate(() => __oskiewarGraphicsThemeStatus),
-    assetFailure || path.includes('graphics=flat') ? 'flat' : 'photorealistic');
+    path.includes('renderer=canvas') && !assetFailure && !path.includes('graphics=flat') ? 'photorealistic' : 'flat');
   assert.deepEqual(errors, [], 'no browser exceptions');
   assert.deepEqual(discoveries, [], 'startup never discovers an unsolicited match');
   return { page, context };

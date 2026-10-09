@@ -98,15 +98,26 @@ async function open(path, { phone = false, failed = false, roomStatus = null, as
   const pixels = await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
     const bounds = canvas.getBoundingClientRect();
+    const density = navigator.maxTouchPoints > 0 ? Math.min(2, devicePixelRatio) : devicePixelRatio;
     return { actual: [canvas.width, canvas.height],
-      expected: [Math.round(bounds.width * devicePixelRatio),
-        Math.round(bounds.height * devicePixelRatio)] };
+      expected: [Math.round(bounds.width * density),
+        Math.round(bounds.height * density)] };
   });
   assert.deepEqual(pixels.actual, pixels.expected, 'canvas maps to exact display pixels');
   assert.equal(await page.evaluate(() => __oskiewarGraphicsThemeStatus),
     path.includes('renderer=canvas') && !assetFailure && !path.includes('graphics=flat') ? 'photorealistic' : 'flat');
   assert.deepEqual(errors, [], 'no browser exceptions');
   assert.deepEqual(discoveries, [], 'startup never discovers an unsolicited match');
+  if (await page.evaluate(() => __oskiewarTouch.screen === 'title')) {
+    await page.screenshot({path:`${output}/title-${phone?'ios':'web'}.png`});
+    const button = await page.evaluate(() => {
+      const b = __oskiewarTouch.titleButton, view = __fightHost.gameView();
+      return {x:(b.x+b.width/2)/view.width*innerWidth,
+        y:(b.y+b.height/2)/view.height*innerHeight};
+    });
+    await page.mouse.click(button.x, button.y);
+    await page.waitForFunction(() => __oskiewarTouch.screen === 'game');
+  }
   return { page, context, errors, deletionRequests, failDeletion: () => { deletionFails = true; } };
 }
 async function state(page) {
@@ -139,20 +150,24 @@ try {
     await page.waitForFunction(()=>__oskiewarTouch.menu===null);
     await pause(250); // Let the menu button's synthetic press release before another key.
     await page.waitForFunction(()=>__oskiewarTouch.screen==='game' && __oskiewarTouch.practiceFighter==='@tester' && __oskiewarTouch.practiceModel?.parts>0);
-    assert.equal(await page.evaluate(()=>__oskiewarTouch.level),'desert');
+    assert.equal(await page.evaluate(()=>__oskiewarTouch.level),'painting');
     assert.deepEqual(await page.evaluate(()=>__sockets),[],'saved likeness stays local');
     await page.screenshot({path:`${output}/saved-${phone?'ios':'web'}.png`});
     async function press(key) { await page.keyboard.down(key); await pause(150); await page.keyboard.up(key); await pause(150); }
     await press('Escape');
     await page.waitForFunction(()=>__oskiewarTouch.menu==='level');
     await page.screenshot({path:`${output}/menu-${phone?'ios':'web'}.png`});
-    await press('KeyD'); await press('Enter');
+    await press('KeyD'); await press('KeyD'); await press('Enter');
     await page.waitForFunction(()=>__oskiewarTouch.level==='pool' && __oskiewarTouch.menu===null && __oskiewarTouch.practiceModel?.parts>0);
     assert.equal(await page.evaluate(()=>__oskiewarTouch.practiceFighter),'@tester','level switch keeps the saved fighter');
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>globalThis.__oskiewarFighterAppearance?.handle==='@tester');
     assert.equal(await page.evaluate(()=>__oskiewarLocalPractice),true);
     if(phone) {
+      if (await page.evaluate(() => __oskiewarTouch.screen === 'title')) {
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => __oskiewarTouch.screen === 'game');
+      }
       await page.click('#game-menu');
       await page.waitForFunction(()=>__oskiewarTouch.menu==='level');
       await page.click('#account-handle');

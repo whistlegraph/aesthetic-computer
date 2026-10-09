@@ -7859,8 +7859,10 @@ test("a level swaps under the rider and keeps what they ride and hold", () => wi
   const { fight, tick } = createFight(false, false);
   fight.enterFreeskate();
   tick(100000);
-  assert.equal(fight.courseState().course, "desert");
-  assert.equal(fight.courseState().room, "desert1", "the desert is one public room");
+  assert.equal(fight.courseState().course, "painting");
+  assert.equal(fight.courseState().room, "paint1", "the painting is one public room");
+  assert.equal(fight.paintCans.length, 0);
+  assert.equal(fight.chalkPickups.length, 24);
   const rider = fight.players[0];
   rider.onewheel = true; rider.skateboard = true;
   rider.chalkColor = { name: "RED", rgb: [232, 52, 66], paint: true, spill: 2400 };

@@ -8,7 +8,7 @@ export function mountAccountDeletion({ account, onDeleted }) {
   const settings = document.createElement('dialog');
   settings.id = 'account-settings';
   settings.setAttribute('aria-labelledby', 'account-settings-title');
-  settings.innerHTML = '<h2 id="account-settings-title"></h2><div id="account-settings-actions"><button id="account-settings-close" type="button">Done</button></div>';
+  settings.innerHTML = '<h2 id="account-settings-title"></h2><div id="account-settings-actions"><button id="account-settings-close" class="oskiewar-button" type="button">done</button></div>';
   document.body.append(settings);
   const settingsTitle = settings.querySelector('h2');
   const settingsActions = settings.querySelector('div');

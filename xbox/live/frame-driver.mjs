@@ -6,6 +6,7 @@ export function createFrameDriver({
   paint,
   sample = () => {},
   simulationFps = 60,
+  renderFps = Infinity,
   maxCatchUpTicks = 4,
   now = () => performance.now(),
   requestFrame = (callback) => requestAnimationFrame(callback),
@@ -19,6 +20,9 @@ export function createFrameDriver({
     throw new TypeError("simulate callback required");
   if (typeof paint !== "function") throw new TypeError("paint callback required");
   const interval = 1000 / simulationFps;
+  const renderInterval = Number.isFinite(renderFps) && renderFps > 0
+    ? 1000 / renderFps : 0;
+  let nextRenderAt = null;
   const normalizeTimeScale = (value) => {
     const number = Number(value);
     if (!Number.isFinite(number)) return 1;
@@ -179,6 +183,16 @@ export function createFrameDriver({
       const current = Number.isFinite(timestamp) ? timestamp : now();
       sampleInput();
       pumpSimulation(current, false);
+      // Keep input and combat at their existing cadence, but avoid painting
+      // extra frames on high-refresh phones. Carry the phase across jitter.
+      if (nextRenderAt !== null && current + earlyTolerance < nextRenderAt) {
+        rafHandle = requestFrame(rafTick);
+        return;
+      }
+      nextRenderAt = renderInterval > 0
+        ? current + renderInterval - (nextRenderAt === null ? 0
+          : Math.max(0, current - nextRenderAt) % renderInterval)
+        : null;
       const started = now();
       const dueEvery = wallInterval();
       const alpha = currentTimeScale === 0 ? 0 : Math.max(0, Math.min(1,
@@ -237,6 +251,7 @@ export function createFrameDriver({
       if (running) return;
       running = true;
       visible = true;
+      nextRenderAt = null;
       forgetProfileFrame();
       stats.startedAt = now();
       simulationTime = stats.startedAt;
@@ -258,6 +273,7 @@ export function createFrameDriver({
     },
     setVisible(value) {
       visible = Boolean(value);
+      nextRenderAt = null;
       forgetProfileFrame();
       clearSimulationTimer();
       clearMaintenanceTimer();

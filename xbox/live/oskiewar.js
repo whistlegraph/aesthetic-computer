@@ -295,13 +295,13 @@ let terrainPhase = 0;
 let skateparkMap = globalThis.__oskiewarMap === "skatepark";
 // Which skate course the long-park machinery is running: "park" is the long
 // outdoor course (half-pipe, pond, blocks, loops, chains, boost pads);
-// "indoor" is the full hall. Freeskate defaults to a compact bare halfpipe;
+// "indoor" is the full hall. Freeskate defaults to the painting;
 // hosts can opt into "indoor" or "skatepark" with __oskiewarFreeskateMap.
 let skateCourse = "park";
 // The monowheel desert: the pool machinery (3D park physics, camera, decals,
 // loose vehicles) under open dunes instead of the park — no bowls, pipe,
-// building, karts or kids; a monowheel, chalk and paint cans. Freeskate's
-// default course; __oskiewarFreeskateMap = "pool" brings the park back.
+// building, karts or kids; a monowheel, chalk and paint cans.
+// Hosts select it with __oskiewarFreeskateMap = "desert".
 let poolDesert = false;
 let poolPainting = false;
 const parkLoops = [
@@ -7140,13 +7140,13 @@ function freeskateCourse() {
   const requested = String(globalThis.__oskiewarFreeskateMap || "").trim().toLowerCase();
   return requested === "skatepark" || requested === "park" ? "park"
     : requested === "indoor" ? "indoor" : requested === "halfpipe" ? "halfpipe"
-    : requested === "pool" ? "pool" : requested === "painting" ? "painting" : "desert";
+    : requested === "pool" ? "pool" : requested === "desert" ? "desert" : "painting";
 }
 // What the mode is called on the title and the HUD: the course, not the verb.
 const freeskateModeName = () => courseTitle(freeskateCourse());
 // The freeskate courses, in the order the pause menu steps through them, and
 // what each is called. The running one is `freeskateCourseNow()`.
-const freeskateLevels = ["desert", "pool", "painting", "indoor", "halfpipe", "park"];
+const freeskateLevels = ["painting", "desert", "pool", "indoor", "halfpipe", "park"];
 const courseTitle = (course) => course === "painting" ? "Painting" : course === "desert" ? desertTitle : course === "pool" ? "the park"
   : course === "indoor" ? "indoor" : course === "halfpipe" ? "halfpipe" : course === "park" ? "long park" : "freeskate";
 const freeskateCourseNow = () => !skateparkMap ? "station" : poolPainting ? "painting" : poolDesert ? "desert" : skateCourse;
@@ -7158,7 +7158,7 @@ const freeskateCourseNow = () => !skateparkMap ? "station" : poolPainting ? "pai
 const publicParkRooms = { painting: "paint1", desert: "desert1", pool: "park1", indoor: "indoor1", halfpipe: "pipe1", park: "long1" };
 const courseForParkRoom = (name) => Object.keys(publicParkRooms).find((course) => publicParkRooms[course] === name) || "";
 const requestedParkRoom = () => /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarParkRoom || "") ? globalThis.__oskiewarParkRoom : "";
-const parkRoomFor = (course) => requestedParkRoom() || publicParkRooms[course] || publicParkRooms.desert;
+const parkRoomFor = (course) => requestedParkRoom() || publicParkRooms[course] || publicParkRooms.painting;
 function joinParkRoom(course) {
   const room = parkRoomFor(course);
   if (room === sessionName) return false;
@@ -7254,7 +7254,7 @@ function freeskateRequested() {
   return String(globalThis.__oskiewarOpponent || "").trim().toLowerCase() === "freeskate";
 }
 
-// Freeskate starts with one rider beside a monowheel in the empty swimming pool.
+// Freeskate starts on the painting with chalk in both hands.
 // The existing hall and long park remain explicit host options.
 function beginFreeskate(now, seededLayout = false) {
   applyPendingOw();
@@ -10001,6 +10001,9 @@ function replayViewerImpacts(tick, dt) {
 }
 
 function gameBoot() {
+  const showFreeskateTitle = !globalThis.__oskiewarFreeskateMap &&
+    !globalThis.__oskiewarParkRoom && !globalThis.__oskiewarSessionName &&
+    !globalThis.__oskiewarOw;
   globalThis.__oskiewarWorkshopCommand = workshopCommand;
   workshopBase ||= workshopSnapshot();
   if (globalThis.__oskiewarPublishedMap && globalThis.__oskiewarValidateMap) {
@@ -10072,7 +10075,13 @@ function gameBoot() {
     else startSelfPlay(startedAt);
     return;
   }
-  if (freeskateRequested()) beginFreeskate(startedAt);
+  if (freeskateRequested()) {
+    beginFreeskate(startedAt);
+    if (showFreeskateTitle) {
+      shellMode = "MENU";
+      gameplayStarted = false;
+    }
+  }
   else if (survivalRequested()) beginSurvival(startedAt);
   else if (versusRequested()) {
     versusRoomName = sessionName;
@@ -19956,7 +19965,7 @@ const touchPadShown = () => typeof capabilities === "function" &&
 // The top of the Y disc, the pad's highest reach (see the arithmetic below).
 const touchPadTop = () => viewHeight - 56 - viewInset.bottom - 2 * Math.round((globalThis.__oskiewarTouch?.stickRadius || 58) * 1.05) - 40;
 function drawTouchControls() {
-  if (!touchPadShown()) return;
+  if (shellMode !== "GAME" || !touchPadShown()) return;
   const pad = localPad(), held = pad.down || [];
   const touch = globalThis.__oskiewarTouch, stick = touch?.stick;
   const radius = touch?.stickRadius || 58;
@@ -27582,7 +27591,6 @@ function resetPaintingSupply(){
    const x=home.x+(i-3.5)*230,z=home.z-950-row*430;
    chalkPickups.push({x,z,y:parkDeckY-12,color:{...color,tool:row===1?'MARKER':row===2?'PASTEL':'CHALK',width:row===1?12:row===2?24:6},active:true});
  });
- for(let row=0;row<3;row++)paintColors.forEach((color,i)=>placePaintCan(home.x+(i-(paintColors.length-1)/2)*290,home.z+950+row*380,color,paintCanSpill*8));
 }
 function chalkHands(p){
  return [['chalk',p.chalkColor],['chalkOffhand',p.chalkOffhand]].filter(([,color])=>color)

@@ -1,9 +1,9 @@
 // Preserve sharp pixels when the browser limits refresh rather than draw time.
 export function renderSurface(width, height, logicalWidth, logicalHeight,
-  devicePixelRatio = 1, scale = 1) {
+  devicePixelRatio = 1, scale = 1, maxPixelRatio = Infinity) {
   // Round display pixels directly. Deriving them from rounded logical bounds
   // can miss a pixel and make the compositor filter the entire canvas.
-  const density = Math.max(1, devicePixelRatio) * scale;
+  const density = Math.min(maxPixelRatio, Math.max(1, devicePixelRatio)) * scale;
   const pixelWidth = Math.max(1, Math.round(width * density));
   const pixelHeight = Math.max(1, Math.round(height * density));
   return { pixelWidth, pixelHeight,

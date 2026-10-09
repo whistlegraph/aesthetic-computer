@@ -59,7 +59,7 @@ test('3D controls are immediate: A jump, B crouch, X interact, Y drop, triggers 
 });
 test('Painting is flat, includes plentiful distinct drawing tools, and has no active weapons or vehicles',()=>{
  const {api:a}=fixture();assert.equal(a.course,'painting');assert.ok(a.levels.includes('painting'));
- const h=a.home();assert.equal(a.floor(h.x-100,-2500),a.floor(h.x+100,2000));assert.equal(a.chalk.length,24);assert.ok(a.paint.length>=12);
+ const h=a.home();assert.equal(a.floor(h.x-100,-2500),a.floor(h.x+100,2000));assert.equal(a.chalk.length,24);assert.equal(a.paint.length,0);
  assert.deepEqual([...new Set(a.chalk.map(p=>p.color.tool))].sort(),['CHALK','MARKER','PASTEL']);
  assert.ok(a.guns.every(g=>!g.active));assert.equal(a.monowheel.active,false);assert.equal(a.players[0].chalkColor.name,'BLACK');
  a.swap('pool',1e6);a.swap('painting',2e6);assert.equal(a.course,'painting');assert.ok(a.players[0].chalkColor);

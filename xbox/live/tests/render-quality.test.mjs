@@ -6,6 +6,17 @@ test('Retina uses display pixels rather than a 1080p ceiling', () => {
   assert.equal(renderSurface(1440, 900, 1728, 1080, 2).pixelHeight, 1800);
   assert.equal(renderSurface(1440, 900, 1728, 1080, 1).pixelHeight, 900);
 });
+test('phone pixel budget reduces 3x raster area without changing logical coordinates', () => {
+  const full = renderSurface(390, 844, 499, 1080, 3);
+  const phone = renderSurface(390, 844, 499, 1080, 3, 1, 2);
+  assert.equal(phone.pixelWidth, 780);
+  assert.equal(phone.pixelHeight, 1688);
+  assert.ok(Math.abs(phone.pixelWidth * phone.pixelHeight /
+    (full.pixelWidth * full.pixelHeight) - 4 / 9) < 1e-8);
+  assert.equal(phone.scaleX * 499, phone.pixelWidth);
+  assert.equal(phone.scaleY * 1080, phone.pixelHeight);
+  assert.deepEqual(renderSurface(390, 844, 499, 1080, 2, 1, 2), phone);
+});
 test('rounding logical width cannot shrink the physical canvas by a pixel', () => {
   for (const [width, height, dpr] of [[1200, 700, 2], [1365, 911, 2], [390, 844, 3]]) {
     const logicalWidth = Math.round(1080 * width / height);

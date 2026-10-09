@@ -69,6 +69,41 @@ test("renders at an uncapped 120 Hz while combat remains fixed at 60 Hz", () => 
     [0, 16.67, 33.33]);
 });
 
+test("phone cap halves 120 Hz paints while retaining 60 Hz combat and fresh input", () => {
+  const h = harness({ renderFps: 60 });
+  h.driver.start();
+  for (let frame = 1; frame <= 120; frame++) h.fireRaf(frame * 1000 / 120);
+  assert.equal(h.paints.length, 60);
+  assert.equal(h.simulations.length, 61);
+  assert.equal(h.samples.length, 121);
+  assert.equal(h.driver.stats.droppedSimulationTicks, 0);
+});
+
+test("phone cap retains every paint at 60 Hz and resets after backgrounding", () => {
+  const h = harness({ renderFps: 60 });
+  h.driver.start();
+  for (let frame = 1; frame <= 60; frame++) h.fireRaf(frame * 1000 / 60);
+  assert.equal(h.paints.length, 60);
+  h.driver.setVisible(false);
+  h.fireRaf(2000);
+  assert.equal(h.paints.length, 60);
+  h.driver.setVisible(true);
+  h.fireRaf(2001);
+  assert.equal(h.paints.length, 61);
+});
+
+test("phone paint budget holds across display refresh rates", () => {
+  for (const hz of [30, 60, 90, 120, 144, 240]) {
+    const h = harness({ renderFps: 60 });
+    h.driver.start();
+    for (let frame = 1; frame <= hz; frame++) h.fireRaf(frame * 1000 / hz);
+    assert.ok(Math.abs(h.paints.length - Math.min(hz, 60)) <= 1,
+      `${hz} Hz produced ${h.paints.length} paints`);
+    assert.equal(h.simulations.length, 61);
+    assert.equal(h.driver.stats.droppedSimulationTicks, 0);
+  }
+});
+
 test("a 30 Hz display still advances the 60 Hz simulation between paints", () => {
   const h = harness();
   h.driver.start();
@@ -104,11 +139,11 @@ test("bounds catch-up work and drops stale wall-clock ticks", () => {
   assert.ok(h.driver.stats.droppedSimulationTicks > 50);
 });
 
-test("pauses simulation timers while hidden and resumes without fast-forwarding", () => {
+test("uses one coarse maintenance timer while hidden and resumes without fast-forwarding", () => {
   const h = harness();
   h.driver.start();
   h.driver.setVisible(false);
-  assert.equal(h.timerCount(), 0);
+  assert.equal(h.timerCount(), 1); // Room maintenance replaces the tight timer.
   h.setTime(5000);
   h.driver.setVisible(true);
 
