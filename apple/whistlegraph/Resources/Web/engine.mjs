@@ -528,6 +528,14 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     end();
   }
 }
+// Debug installs can be launched with WHISTLEGRAPH_RETRY_ON_LAUNCH=1 so a
+// failed request is tried again from a Mac without touching the phone. Once
+// per workspace session, on the first paint, so a reload cannot loop.
+function retryOnLaunch(){
+  if(window.__whistlegraphRetryOnLaunch!==true)return false;
+  try{if(sessionStorage.getItem('whistlegraph-retry-on-launch'))return false;sessionStorage.setItem('whistlegraph-retry-on-launch','1');}catch{return false;}
+  return true;
+}
 async function resumeAttempt(manual=false){
   if(busy||!token||!ready||!versions||(!manual&&!recoveryPending))return;
   if(!painted){
@@ -569,7 +577,7 @@ window.whistlegraphEngineEvent=event=>{
       return;
     }
     if(!streamingPreview)activeReceipt?.observe(event.event);
-    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
+    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt(retryOnLaunch());}
     if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__whistlegraphSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={...feedback,rendered:false,logs:[...(feedback?.logs||[]),{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
     if(event.event.kind==='console'&&['error','warn'].includes(event.event.event?.level)){
       const entry={level:event.event.event.level,text:event.event.event.message||'Runtime error'};
@@ -771,7 +779,8 @@ if(window.__whistlegraphVisualCaptureTest)void(async()=>{
   try {await captureVisual(previewHash,renderID,new AbortController().signal);}
   catch(error){log(error.message);}
 })();
-setTimeout(()=>{if(!ready){ui.hidden=false;phase('Preview still loading');log('AC runtime has not reported ready. Check your connection.');}},20000);
+// A slow connection is not a status line; the console keeps the note and the engine keeps waiting.
+setTimeout(()=>{if(!ready){ui.hidden=false;log('AC runtime has not reported ready after 20 s. Check the connection.');}},20000);
 
 if(window.__whistlegraphSequence && !window.__whistlegraphLocalSequence && window.__whistlegraphReviewVersion===undefined) import("./sequence-benchmark.mjs").then(({runSequence})=>runSequence({ask,ready:()=>ready,source:()=>source,painted:()=>painted&&lastPaintedSource===source,interrupt:()=>server?.interrupt(),model:window.__whistlegraphModel||DEFAULT_MODEL}));
 
