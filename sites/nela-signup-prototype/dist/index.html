@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#000000">
+<title>Join NELA Computer Club — prototype</title>
+<meta name="description" content="Try a proposed NELA Computer Club signup flow, including Signal verification and optional membership.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23000' d='M0 0h32v32H0z'/%3E%3Cpath fill='none' stroke='%2300d080' stroke-width='3' d='M7 25V7l18 18V7'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="./style.css">
+<script type="module" src="./app.mjs"></script>
+</head>
+<body>
+<div class="prototype-bar"><span>PROTOTYPE · Nothing is submitted.</span><button id="questions" type="button">Open questions</button></div>
+<header><a href="https://nela.computer" target="_blank" rel="noopener" class="brand">NELA<br>COMPUTER CLUB</a><div class="entry-control"><label for="entry">Start from</label><select id="entry"><option value="web">The website</option><option value="signal">A Signal invite</option></select><button id="reset" class="text-button" type="button">Restart</button></div></header>
+<div class="workspace"><aside><nav aria-label="Signup steps"><ol id="steps"></ol></nav><div class="identity-preview" id="identity-preview" aria-label="Your proposed identity"><span class="cursor-mark" aria-hidden="true">▌</span><span id="identity-label">your-name.nela.computer</span></div></aside><main id="main" tabindex="-1"></main></div>
+<footer><a href="https://nela.computer" target="_blank" rel="noopener">nela.computer</a><span>A starting point for discussion.</span></footer>
+<dialog id="questions-dialog" aria-labelledby="questions-title"><div class="dialog-heading"><h2 id="questions-title">Still to decide</h2><button data-close="questions-dialog" aria-label="Close open questions" class="text-button">Close</button></div><ol class="questions-list"><li><strong>Name & domain</strong><p>Is this a club handle, a subdomain, or both? Which names are reserved, and can people rename them?</p></li><li><strong>Signal & account access</strong><p>A Signal invite may suggest a profile; a one-time confirmation proves ownership. Decide how Authentik links that identity, how the bridge issues challenges, and how someone recovers a lost account. Bridge access and hosting are still pending.</p></li><li><strong>Agreement</strong><p>The club currently links to the Berlin Code of Conduct. Confirm which policy version is accepted, who receives reports, and whether an approval step is needed.</p></li><li><strong>Notifications</strong><p>Which teams need opt-in lists? This version offers event announcements by email or Signal. No group is joined automatically.</p></li><li><strong>Membership</strong><p>The amounts are examples. Confirm pricing, recurrence, cancellation, receipts, and whether payment creates any additional permissions.</p></li><li><strong>Order & minimum information</strong><p>This version requests an email only when Signal is unlinked or email announcements are selected. Email and Signal confirmations are simulated; decide the real verification and consent records before connecting services.</p></li></ol><p class="source-link">Reference: <a href="https://nela.computer" target="_blank" rel="noopener">NELA’s current community principles</a>.</p></dialog>
+<dialog id="checkout-dialog" aria-labelledby="checkout-title"><div class="dialog-heading"><h2 id="checkout-title">Stripe checkout · demo</h2><button data-close="checkout-dialog" class="text-button">Close</button></div><p id="checkout-amount" class="checkout-amount"></p><p>No card details. No charge.</p><div class="checkout-actions"><button id="pay-success" class="primary">Simulate payment success</button><button id="pay-failure">Simulate payment failure</button><button id="pay-cancel" class="text-button">Cancel checkout</button></div></dialog>
+<div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+<noscript>This prototype needs JavaScript to move through the signup steps.</noscript>
+</body></html>
