@@ -7,7 +7,7 @@ const image={type:'image',source:{type:'base64',media_type:'image/png',data}};
 const body=content=>({messages:[{role:'user',content}]});
 test('static PNGs add a pixel reservation and pass the shared free/paid request policy',()=>{
  assert.equal(imageInputBound(body('hello')),0);
- assert.equal(imageInputBound(body([image])),4097);
+ assert.equal(imageInputBound(body([image])),1026,'twice the provider rate (one token per 750 pixels) plus overhead');
  assert.ok(inferenceRequest(body([image])).model);
 });
 test('invalid, oversized, remote, animated and unbounded media fail before inference',()=>{

@@ -22,10 +22,12 @@ export function imageInputBound(body) {
    if(kind==='IEND'){ended=size===0&&at===png.length;break;}
   }
   if(!ended||!data)throw Error('Invalid hosted PNG.');
-  // Deliberately conservative: one token per pixel plus per-image overhead,
-  // in addition to the existing serialized-byte bound. Actual cost settles
-  // from provider usage; unused reserved credit returns to the wallet.
-  pixels+=width*height+4096;
+  // Providers charge about one token per 750 pixels; hold twice that plus
+  // overhead. (One token per pixel on top of the base64 bytes held ~6M
+  // braincells for a single 768² chalk image and refused every paid chalk
+  // request against the 2M daily cap, 2026-10-09.) Actual cost settles from
+  // provider usage; unused reserved credit returns to the wallet.
+  pixels+=Math.ceil(width*height/750)*2+1024;
   return value;
  });
  return pixels;

@@ -59,10 +59,11 @@ export async function revokeGrant(grant,wallets) {
 }
 export function reservationSize(body,maxTokens) {
   // UTF-8 bytes upper-bound text tokens, including JSON tool definitions.
-  // Static PNG pixels have a separate conservative bound. Other media remains
-  // unsupported; it cannot hide unbounded token cost.
-  const input=JSON.stringify({system:body.system,messages:body.messages,tools:body.tools});
+  // Image bytes are not text: the PNG bound covers them, so their base64 is
+  // left out of the byte count. Other media remains unsupported; it cannot
+  // hide unbounded token cost.
   const images=imageInputBound(body);
+  const input=JSON.stringify({system:body.system,messages:body.messages,tools:body.tools},(_,value)=>value&&typeof value==='object'&&value.type==='image'?{type:'image'}:value);
   return Math.ceil(Buffer.byteLength(input,'utf8')*1.25)+images+maxTokens+4096;
 }
 // Pending work counts until settled, including work crossing midnight. This
