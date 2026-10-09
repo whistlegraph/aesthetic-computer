@@ -31,10 +31,10 @@ swiftc -O \
 
 echo "› assembling bundle"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-# Only the star's art ships in Fía's bundle; the fuser machine glyphs in
-# Resources/ are source the fuser installer (macpal/fuser/install.sh) stages
-# on-device — they're loaded from disk, not the bundle.
+# The main fleet avatars are staged on-device by macpal/fuser/install.sh.
+# Bundle the two lane-host portraits too, so either host can show both machines.
 cp Resources/star-*.svg "$APP/Contents/Resources/"
+cp Resources/panda-glyph.svg Resources/chicken-glyph.svg "$APP/Contents/Resources/"
 # Agent-contact avatars (Iris on panda) ride in every bundle as fallback art;
 # a wire-staged <supportDir>/agent-<name>.png still wins at runtime.
 for f in Resources/agent-*.png; do

@@ -449,7 +449,8 @@ final class MissionLaneRowField: NSTextField {
     private var details: [MarqueeField] = []
     private let timing = MissionTimeBudgetView()
     private var hasTiming = false
-    var preferredHeight: CGFloat { 18 + CGFloat(details.count) * 17 + (hasTiming ? 22 : 0) }
+    var lineHeight: CGFloat = 18
+    var preferredHeight: CGFloat { lineHeight + CGFloat(details.count) * 17 + (hasTiming ? 22 : 0) }
     override var isFlipped: Bool { false }
 
     override init(frame frameRect: NSRect) {
@@ -507,9 +508,9 @@ final class MissionLaneRowField: NSTextField {
     override func draw(_ dirtyRect: NSRect) {}
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        marquee.frame = NSRect(x: 0, y: bounds.height - 18, width: bounds.width, height: 18)
+        marquee.frame = NSRect(x: 0, y: bounds.height - lineHeight, width: bounds.width, height: lineHeight)
         for (i, view) in details.enumerated() {
-            view.frame = NSRect(x: 13, y: bounds.height - 18 - CGFloat(i + 1) * 17, width: max(0, bounds.width - 13), height: 17)
+            view.frame = NSRect(x: 13, y: bounds.height - lineHeight - CGFloat(i + 1) * 17, width: max(0, bounds.width - 13), height: 17)
         }
         timing.frame = NSRect(x: 13, y: 1, width: max(0, bounds.width - 13), height: 20)
     }
@@ -926,6 +927,15 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     // (Claude.app / Codex.app), then a small built-in vector mark so the
     // minis — which have neither app — still show who is working.
     private var agentIconCache: [String: NSImage] = [:]
+    private var laneHostImages: [String: NSImage] = [:]
+    private func laneHostImage(_ host: String) -> NSImage? {
+        let key = host.lowercased()
+        guard ["panda", "chicken"].contains(key) else { return nil }
+        if let image = laneHostImages[key] { return image }
+        guard let path = resource(key + "-glyph", "svg"), let image = NSImage(contentsOfFile: path) else { return nil }
+        laneHostImages[key] = image
+        return image
+    }
     func agentIcon(for agent: String) -> NSImage? {
         let key = agent.trimmingCharacters(in: .whitespaces).lowercased()
         guard !key.isEmpty else { return nil }
@@ -1071,6 +1081,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             ip.alignment = .left; ip.lineBreakMode = inLane ? .byClipping : .byWordWrapping
             if item.isLaneHeader {
                 let palette = lanePalette!
+                (f as? MissionLaneRowField)?.lineHeight = 22
                 let headingStyle = ip.mutableCopy() as! NSMutableParagraphStyle
                 let title = (item.laneEmoji.map { $0 + " " } ?? "") + item.text.replacingOccurrences(of: "Lane ", with: "")
                 let heading = NSMutableAttributedString(string: title, attributes: [
@@ -1078,9 +1089,18 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
                     .foregroundColor: palette.accent, .paragraphStyle: headingStyle])
                 if let context = item.detail {
                     let host = context.components(separatedBy: " · ").first ?? context
-                    heading.append(NSAttributedString(string: " · " + host, attributes: [
+                    let hostStyle: [NSAttributedString.Key: Any] = [
                         .font: NSFont.systemFont(ofSize: 11, weight: .regular),
-                        .foregroundColor: secondary, .paragraphStyle: headingStyle]))
+                        .foregroundColor: secondary, .paragraphStyle: headingStyle]
+                    heading.append(NSAttributedString(string: " · ", attributes: hostStyle))
+                    if let image = laneHostImage(host) {
+                        let attachment = NSTextAttachment()
+                        attachment.image = image
+                        attachment.bounds = NSRect(x: 0, y: -4, width: 18, height: 18)
+                        heading.append(NSAttributedString(attachment: attachment))
+                        heading.append(NSAttributedString(string: " ", attributes: hostStyle))
+                    }
+                    heading.append(NSAttributedString(string: host, attributes: hostStyle))
                 }
                 f.attributedStringValue = heading
                 f.setAccessibilityLabel(item.text + (item.detail.map { ", " + $0 } ?? ""))
@@ -1210,6 +1230,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         guard let items = mission?.items, items[index].laneID != nil else { return 0 }
         return index == items.count - 1 || items[index + 1].isLaneHeader ? 4 : 0
     }
+    private func laneHeadingGap(_ index: Int) -> CGFloat {
+        mission?.items[index].isLaneHeader == true ? 6 : 0
+    }
 
     // Measured height of the whole mission block at the badge width.
     private func missionMetrics(width: CGFloat)
@@ -1218,7 +1241,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         if showsLanes {
             let heights = missionItemFields.indices.map { i -> CGFloat in
                 ((missionItemFields[i] as? MissionLaneRowField)?.preferredHeight ?? 18)
-                    + (missionLaneCards[i] == nil ? 0 : 4) + laneBottomPadding(i)
+                    + (missionLaneCards[i] == nil ? 0 : 4) + laneBottomPadding(i) + laneHeadingGap(i)
             }
             return (0, heights, heights.reduce(0, +))
         }
@@ -1326,13 +1349,14 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             if let next = missionLaneCards[i] { card = next; cardTop = my }
             my -= mm.items[i]
             let bottom = laneBottomPadding(i)
+            let headingGap = laneHeadingGap(i)
             let top: CGFloat = missionLaneCards[i] == nil ? 0 : 4
             let inCard = mission?.items[i].laneID != nil
-            let textHeight = mm.items[i] - top - bottom
+            let textHeight = mm.items[i] - top - bottom - headingGap
             missionActivityViews[i]?.frame = NSRect(x: inCard ? 15 : 7, y: inCard ? my + bottom + textHeight - 18 : my + bottom - 4,
                 width: missionW - (inCard ? 16 : 0), height: inCard ? 18 : textHeight + 8)
             missionActivityViews[i]?.needsLayout = true
-            f.frame = NSRect(x: inCard ? 19 : 15, y: my + bottom,
+            f.frame = NSRect(x: inCard ? 19 : 15, y: my + bottom + headingGap,
                 width: missionW - (inCard ? 24 : 8), height: textHeight)
             if bottom > 0 {
                 card?.frame = NSRect(x: 7, y: my, width: missionW, height: cardTop - my)

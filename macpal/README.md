@@ -131,6 +131,8 @@ with 12-point task titles and separate 11-point lines for each subitem. Long lin
 scroll independently instead of wrapping. Native-resolution text moves in whole
 display pixels, pauses at the start, and clips within its row. Clock updates
 preserve the scroll; Reduce Motion keeps text stationary.
+Lane headings have six points of space below them, with the bundled Panda or
+Chicken portrait beside the host name.
 
 Items may supply `subitems` (strings) and an ISO `deadlineAt` alongside `startedAt`.
 A stationary clock and thin bar show elapsed/allowed time and time remaining.
