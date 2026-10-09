@@ -109,7 +109,7 @@ export async function postMoodToBluesky(database, moodText, handle, atprotoRkey)
     const rkey = response.uri.split("/").pop();
 
     shell.log(`✅ Posted to Bluesky: ${rkey}`);
-    shell.log(`🔗 View: https://bsky.app/profile/${BSKY_IDENTIFIER}/post/${rkey}`);
+    shell.log(`🔗 View: https://bsky.app/profile/${agent.session.did}/post/${rkey}`);
 
     return {
       uri: response.uri,

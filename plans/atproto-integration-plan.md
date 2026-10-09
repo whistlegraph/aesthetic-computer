@@ -1,5 +1,60 @@
 # ATProto Integration Plan
 
+## Bluesky login assessment — 2026-10-08
+
+This assessment supersedes the older authentication/bootstrap suggestions below.
+The PDS is live at `https://at.aesthetic.computer`; AC already publishes creative
+records. Google and Apple now enter through Auth0, and AC authorization and data
+ownership still use the canonical Auth0 subject. The implementation below is
+proposed, not enabled.
+
+Keep that session boundary for a first Bluesky login implementation. Add a
+server-side AT Protocol OAuth broker on Lith, using the official
+`@atproto/oauth-client-node` client. Expose the broker through an Auth0 custom
+connection so successful logins still produce the tokens accepted by
+`system/backend/authorization.mjs`. Confirm the tenant's custom-connection
+capabilities before selecting its OAuth2 or OIDC adapter; AT Protocol OAuth is
+not itself a drop-in OIDC provider. This is a recommendation, not a tested
+Auth0 integration.
+
+1. Start with **Connect Bluesky** for a signed-in AC user. Require a fresh AC
+   authentication and a completed AT Protocol OAuth flow, bound to the same
+   browser and one-time linking transaction. Store an atomically unique
+   `(provider: atproto, subject: DID) → canonical AC subject` mapping. Refuse
+   links already owned by another AC account; do not merge their histories.
+2. Offer **Continue with Bluesky** after linking. Resolve the verified OAuth
+   DID to that mapping and preserve the primary Auth0 subject. A new DID needs
+   an explicit existing-account linking or new-account onboarding choice;
+   never silently create a second AC account for a returning person.
+3. Request the identity-only `atproto` scope initially. Publishing permissions
+   are a separate, explicit connection upgrade. Do not collect app passwords
+   or require people to migrate their PDS.
+
+The broker must use the SDK's handle/DID and issuer validation, PKCE, PAR,
+DPoP, and callback state checks. Pin redirect destinations, persist expiring
+OAuth state server-side, protect discovery from private-network requests, and
+encrypt any retained session material. Preserve logout, account locks,
+deletion checks, and recovery through an existing AC login method. Test lost
+callbacks, replay, conflicting links, handle changes, and PDS migration.
+
+Do **not** add Bluesky to `link-email-identity.js`'s automatic email-linking
+allowlist. An arbitrary self-hosted PDS can assert an email and its verification
+status. Email equality, matching handles, or a public DID record alone do not
+prove control of an AC account. Use the OAuth-verified DID and proof of the
+existing AC session.
+
+Keep login identities separate from `users.atproto`, which currently points to
+an AC-managed publishing repository and includes its credentials. Connecting
+an external Bluesky identity must not replace that DID or move existing art.
+The signup UI's provider callback also currently assumes an Auth0 client and
+a verified-email provider; accommodate the DID-linking state explicitly before
+adding a visible Bluesky button.
+
+References: [AT Protocol OAuth](https://atproto.com/specs/oauth),
+[Auth0 OIDC connections](https://auth0.com/docs/authenticate/identity-providers/enterprise-identity-providers/oidc),
+[current auth Action](../system/backend/auth0-actions/link-email-identity.js),
+[current signup flow](../system/public/aesthetic.computer/lib/signup-flow.mjs).
+
 ## Overview
 - **Goal:** Connect aesthetic computer (AC) clients, services, and media pipeline to the AT Protocol (ATProto) so creative works, identity, and live interactions flow across both ecosystems.
 - **Success criteria:**

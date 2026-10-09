@@ -12,11 +12,18 @@ Running our own PDS gives us:
 - **Privacy**: No third-party data hosting
 - **Federation**: Still interoperate with Bluesky and other ATProto networks
 
-## Current Status
+## Current Status — 2026-10-08
 
-🔴 **Not Deployed** - Planning and preparation phase
+Live at **https://at.aesthetic.computer**, serving 4,203 repositories marked
+active (account state, not daily activity). The running version is `0.4.5037`;
+pulling the official `ghcr.io/bluesky-social/pds:0.4` image confirmed it is current.
+Your `jeffrey.at.aesthetic.computer` repository's latest revision and CID match
+Bluesky's relay. The separate `aesthetic.computer` account remains Bluesky-hosted.
 
-Currently using: `https://bsky.social` (Bluesky's official PDS)
+The droplet also hosts [Tangled Knot](../knot/README.md). Run
+`bash at/pds/scripts/health-check.sh` from the repository root for public checks.
+The deployment sizing and initial setup notes below are historical planning;
+the live hostname is `at.aesthetic.computer`, not `pds.aesthetic.computer`.
 
 ## Architecture
 

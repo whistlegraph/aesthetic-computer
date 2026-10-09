@@ -5,7 +5,7 @@
 import { AtpAgent } from "@atproto/api";
 import { shell } from "./shell.mjs";
 
-const BSKY_SERVICE = "https://bsky.social";
+const BSKY_SERVICE = "https://public.api.bsky.app";
 
 /**
  * Fetch engagement stats for a Bluesky post

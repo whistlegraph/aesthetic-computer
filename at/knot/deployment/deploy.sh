@@ -22,8 +22,8 @@ KNOT_PUBLIC_PORT=5555
 KNOT_INTERNAL_PORT=5444
 APPVIEW_ENDPOINT="https://tangled.org"
 # Tag or commit SHA from https://tangled.org/@tangled.org/core (empty = build master HEAD).
-# Currently pinned to a master SHA past v1.13.0-alpha — no v1.14 tag exists yet.
-KNOT_VERSION="${KNOT_VERSION:-3ff418dad639a9755b9ef7509ed948578d89be8b}"
+# v1.16.1-alpha, verified 2026-10-08 (1d379a324497da39a27e49453c72615607a9b199).
+KNOT_VERSION="${KNOT_VERSION:-v1.16.1-alpha}"
 
 # PDS droplet — knot co-hosts here
 PDS_DEPLOY_DIR="$SCRIPT_DIR/../../pds/deployment/digitalocean"
@@ -165,7 +165,8 @@ if [ -n "${KNOT_VERSION:-}" ]; then
     git checkout "$KNOT_VERSION"
 fi
 
-CGO_ENABLED=1 go build -o knot ./cmd/knot
+# The PDS shares this droplet; bound compiler parallelism and Go heap use.
+GOMAXPROCS=1 GOMEMLIMIT=700MiB CGO_ENABLED=1 go build -p 1 -o knot ./cmd/knot
 
 # Preserve previous binary for rollback
 if [ -f /usr/local/bin/knot ]; then
@@ -217,8 +218,8 @@ EOF
 set -euo pipefail
 chown git:git /home/git/.knot.env
 chmod 600 /home/git/.knot.env
-mkdir -p /home/git/repositories /home/git/database /home/git/log
-chown -R git:git /home/git/repositories /home/git/database /home/git/log
+mkdir -p /home/git/repositories /home/git/database /home/git/logs
+chown -R git:git /home/git/repositories /home/git/database /home/git/logs
 
 # Optional MOTD
 printf "aesthetic computer knot\n" > /home/git/motd

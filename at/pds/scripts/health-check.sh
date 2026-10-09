@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Configuration
-PDS_URL="${PDS_URL:-https://pds.aesthetic.computer}"
+PDS_URL="${PDS_URL:-https://at.aesthetic.computer}"
 ALERT_EMAIL="${ALERT_EMAIL:-me@jas.life}"
 
 # Colors
@@ -120,11 +120,12 @@ check_dns() {
 check_response_time() {
     echo -n "Response Time... "
     
-    START=$(date +%s%N)
-    curl -s -o /dev/null "$PDS_URL/xrpc/_health" || true
-    END=$(date +%s%N)
-    
-    ELAPSED=$(( ($END - $START) / 1000000 ))
+    # curl's timer works on both BSD/macOS and GNU systems (date +%N does not).
+    SECONDS_ELAPSED=$(curl --connect-timeout 5 --max-time 15 -s -o /dev/null -w '%{time_total}' "$PDS_URL/xrpc/_health") || {
+        echo -e "${RED}✗ FAILED${NC} (request failed)"
+        return 1
+    }
+    ELAPSED=$(awk -v seconds="$SECONDS_ELAPSED" 'BEGIN { printf "%.0f", seconds * 1000 }')
     
     if [ $ELAPSED -lt 200 ]; then
         echo -e "${GREEN}✓ EXCELLENT${NC} (${ELAPSED}ms)"
@@ -144,7 +145,7 @@ check_http_health || FAILED=$((FAILED + 1))
 check_websocket || FAILED=$((FAILED + 1))
 check_ssl || FAILED=$((FAILED + 1))
 check_dns || FAILED=$((FAILED + 1))
-check_response_time
+check_response_time || FAILED=$((FAILED + 1))
 
 echo ""
 if [ $FAILED -eq 0 ]; then

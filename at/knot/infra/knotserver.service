@@ -11,8 +11,11 @@ EnvironmentFile=/home/git/.knot.env
 ExecStart=/usr/local/bin/knot server
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:/home/git/log/knot.log
-StandardError=append:/home/git/log/knot.log
+Environment=GOMEMLIMIT=768MiB
+MemoryHigh=1536M
+MemoryMax=2G
+StandardOutput=append:/home/git/logs/knot.log
+StandardError=append:/home/git/logs/knot.log
 
 # Hardening
 NoNewPrivileges=true
