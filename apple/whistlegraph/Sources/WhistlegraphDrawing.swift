@@ -6,6 +6,8 @@ final class DrawingDraft: ObservableObject {
     @Published var enabled = false { didSet { if enabled != oldValue { DeviceActionLog.shared.record(.drawing, enabled ? .enabled : .disabled) } } }
     @Published private(set) var strokes: [[[Double]]] = []
     @Published private(set) var revision = 0
+    /// Bumped when a send takes the chalk: the pad blows it away, then clears.
+    @Published private(set) var dissipation = 0
     private(set) var id = UUID().uuidString
     private var startedAt: TimeInterval = 0
     private var aspect = 4.0 / 3.0
@@ -61,6 +63,8 @@ final class DrawingDraft: ObservableObject {
     func end() { active = false; DeviceActionLog.shared.record(.drawing, .add, [.strokes: strokes.count, .points: strokes.reduce(0) { $0 + $1.count }]) }
     func undo() { DeviceActionLog.shared.record(.drawing, .undo); active = false; if hasInk { strokes.removeLast(); revision += 1; persist() } }
     func clear() { DeviceActionLog.shared.record(.drawing, .clear); active = false; strokes = []; revision += 1; id = UUID().uuidString; startedAt = 0; persist() }
+    /// The chalk went out with a request. Let the pad animate it away before clearing.
+    func dissipate() { guard hasInk else { return }; active = false; dissipation += 1 }
     func consume(id: String, revision: Int) { if self.id == id && self.revision == revision { clear() } }
     func payload(speechStart: TimeInterval? = nil) -> [String: Any]? {
         guard hasInk else { return nil }
@@ -74,6 +78,8 @@ final class DrawingDraft: ObservableObject {
 struct DrawingPad: UIViewRepresentable {
     @ObservedObject var draft: DrawingDraft
     var interactive: Bool
+    final class Coordinator { var dissipated = 0 }
+    func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> GestureInkView {
         let view = GestureInkView(); view.backgroundColor = .clear; view.isOpaque = false
         view.isMultipleTouchEnabled = false; view.isExclusiveTouch = false; view.isAccessibilityElement = true; view.accessibilityTraits = .allowsDirectInteraction; view.accessibilityIdentifier = "drawing-pad"
@@ -82,12 +88,48 @@ struct DrawingPad: UIViewRepresentable {
         return view
     }
     func updateUIView(_ view: GestureInkView, context: Context) {
-        view.draft = draft; view.isUserInteractionEnabled = interactive; view.setNeedsDisplay()
+        view.draft = draft; view.isUserInteractionEnabled = interactive
+        if context.coordinator.dissipated != draft.dissipation {
+            context.coordinator.dissipated = draft.dissipation
+            // Snapshot while the strokes are still there, then clear the live pad.
+            view.dissipate()
+            DispatchQueue.main.async { draft.clear() }
+        }
+        view.setNeedsDisplay()
     }
 }
 
 final class GestureInkView: UIView {
     var draft: DrawingDraft?
+    /// The chalk lifts off as dust: a copy of the marks drifts up and fades
+    /// while a burst of powder scatters from where they were.
+    func dissipate() {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        let image = UIGraphicsImageRenderer(bounds: bounds).image { _ in draw(bounds) }
+        let ghost = UIImageView(image: image); ghost.frame = bounds; ghost.isUserInteractionEnabled = false
+        addSubview(ghost)
+        let dust = CAEmitterLayer()
+        dust.emitterShape = .rectangle; dust.emitterMode = .surface
+        dust.emitterPosition = CGPoint(x: bounds.midX, y: bounds.midY); dust.emitterSize = bounds.size
+        dust.renderMode = .additive; dust.beginTime = CACurrentMediaTime()
+        dust.emitterCells = [Self.chalk, UIColor.white].map { color in
+            let cell = CAEmitterCell()
+            cell.contents = Self.speck.cgImage; cell.color = color.withAlphaComponent(0.85).cgColor
+            cell.birthRate = 420; cell.lifetime = 1.1; cell.lifetimeRange = 0.4
+            cell.velocity = 40; cell.velocityRange = 30; cell.emissionLongitude = -.pi / 2; cell.emissionRange = .pi / 2
+            cell.yAcceleration = -18; cell.scale = 0.12; cell.scaleRange = 0.08; cell.alphaSpeed = -1.0; cell.spin = 1; cell.spinRange = 2
+            return cell
+        }
+        layer.addSublayer(dust)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { dust.birthRate = 0 }
+        UIView.animate(withDuration: 0.9, delay: 0, options: [.curveEaseOut]) {
+            ghost.alpha = 0; ghost.transform = CGAffineTransform(translationX: 0, y: -14).scaledBy(x: 1.04, y: 1.04)
+        } completion: { _ in ghost.removeFromSuperview() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { dust.removeFromSuperlayer() }
+    }
+    private static let speck: UIImage = UIGraphicsImageRenderer(size: CGSize(width: 24, height: 24)).image { context in
+        UIColor.white.setFill(); context.cgContext.fillEllipse(in: CGRect(x: 4, y: 4, width: 16, height: 16))
+    }
     private func pressure(_ touch: UITouch) -> Double? {
         guard touch.type == .pencil, touch.maximumPossibleForce > 0 else { return nil }
         return Double(touch.force / touch.maximumPossibleForce)
