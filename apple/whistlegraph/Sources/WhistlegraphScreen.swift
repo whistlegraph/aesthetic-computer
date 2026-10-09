@@ -638,10 +638,10 @@ struct CardFanIcon: View {
                     .fill(.tint)
                     .overlay(RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                         .stroke(Color(uiColor: .systemBackground), lineWidth: 1.5))
-                    .frame(width: 12, height: 19)
-                    .rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 1.55))
+                    .frame(width: 12, height: 26)
+                    .rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 1.4))
             }
-        }.offset(y: -2)
+        }.offset(y: -3)
     }
 }
 
