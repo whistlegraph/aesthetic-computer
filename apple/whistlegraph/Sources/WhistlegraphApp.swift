@@ -676,6 +676,19 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             }
             #endif
             if body["action"] as? String == "storyTape" { storyTapeEvent?(body); return }
+            if body["action"] as? String == "frameHello" {
+                DeviceActionLog.shared.record(.preview, .started, [.enabled: (body["top"] as? Bool == true) ? 1 : 0, .status: (body["ac"] as? Bool == true) ? 1 : 0]); return
+            }
+            if body["action"] as? String == "previewScriptError" {
+                DeviceActionLog.shared.record(.preview, .failed, [.characters: (body["message"] as? String ?? "").count])
+                #if DEBUG
+                print("[whistlegraph] preview script error:", body["message"] ?? "")
+                #endif
+                return
+            }
+            if body["action"] as? String == "previewWaiting" {
+                DeviceActionLog.shared.record(.preview, .pending, [.enabled: (body["preloaded"] as? Bool == true) ? 1 : 0, .status: (body["acSEND"] as? Bool == true) ? 1 : 0, .durationMs: (body["ticks"] as? Int ?? 0) * 100]); return
+            }
             if body["action"] as? String == "previewReady" {
                 DeviceActionLog.shared.record(.preview, .ready)
                 #if DEBUG

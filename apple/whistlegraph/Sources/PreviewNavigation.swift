@@ -22,8 +22,17 @@ enum PreviewNavigation {
         }
         // Creating an iframe can first navigate its empty document.
         if url.absoluteString == "about:blank" { return true }
-        return url.scheme == "https" && url.host == "aesthetic.computer" && url.path == "/wipe"
-            && query(url) == ["noauth": "true", "noplot": "true", "nogap": "true", "nolabel": "true", "preview": "walkieware"]
+        // The runtime rewrites its own URL after boot (the piece's path, flags reordered, noplot
+        // dropped), so the artwork frame is known by host + the private preview flags, never by
+        // the exact URL: matching the launch URL alone dropped every message after boot (2026-10-09).
+        guard url.scheme == "https", url.host == "aesthetic.computer", let flags = query(url) else { return false }
+        let piece = url.path.dropFirst()
+        guard url.path.hasPrefix("/"), !piece.contains("/"),
+              piece.allSatisfy({ $0.isLetter || $0.isNumber || "._-".contains($0) }) else { return false }
+        let required = ["noauth": "true", "nogap": "true", "nolabel": "true", "preview": "walkieware"]
+        for (key, value) in required where flags[key] != value { return false }
+        for (key, value) in flags where required[key] == nil { guard key == "noplot", value == "true" else { return false } }
+        return true
     }
     private static func query(_ url: URL) -> [String: String]? {
         guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems else { return nil }

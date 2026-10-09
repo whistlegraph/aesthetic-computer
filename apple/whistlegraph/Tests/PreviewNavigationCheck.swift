@@ -16,6 +16,13 @@ import Foundation
         precondition(allowed("walkieware://app/index.html?walkie=1#local", main: true))
         precondition(allowed("walkieware://app/story.html", main: true, document: .story))
         precondition(allowed(runtime) && allowed(runtime, document: .story))
+        let rewritten = "https://aesthetic.computer/wipe?nogap=true&nolabel=true&noauth=true&preview=walkieware"
+        precondition(allowed(rewritten), "The runtime rewrites its URL after boot; the frame stays the artwork frame")
+        precondition(allowed("https://aesthetic.computer/whistlegraph-preview?nogap=true&nolabel=true&noauth=true&preview=walkieware"))
+        precondition(!allowed("https://aesthetic.computer/wipe?nogap=true&nolabel=true&preview=walkieware"), "noauth is required")
+        precondition(!allowed(runtime + "&extra=1"), "Unknown flags are not artwork")
+        precondition(!allowed("https://aesthetic.computer/wipe/extra?nogap=true&nolabel=true&noauth=true&preview=walkieware"))
+        precondition(PreviewNavigation.bridge(URL(string: rewritten), mainFrame: false, document: .workspace) == .artwork)
         precondition(allowed("about:blank"))
         for value in ["walkieware://app/easel/phone/host.html", "https://aesthetic.computer/braincells/",
                       "https://aesthetic.computer/mint/#secret", "https://checkout.stripe.com/c/pay",

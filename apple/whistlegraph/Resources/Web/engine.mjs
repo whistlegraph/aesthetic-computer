@@ -529,15 +529,17 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   }
 }
 // Debug installs can be launched with WHISTLEGRAPH_RETRY_ON_LAUNCH=1 so a
-// failed request is tried again from a Mac without touching the phone. Once
-// per workspace session, on the first paint, so a reload cannot loop.
-function retryOnLaunch(){
-  if(window.__whistlegraphRetryOnLaunch!==true)return false;
-  try{if(sessionStorage.getItem('whistlegraph-retry-on-launch'))return false;sessionStorage.setItem('whistlegraph-retry-on-launch','1');}catch{return false;}
-  return true;
-}
+// failed request is tried again from a Mac without touching the phone. The
+// flag is spent only when a resume actually proceeds: the first paint comes
+// before the account token, and spending it there would retry nothing.
+let launchRetryUsed=false;
+const launchRetryPending=()=>window.__whistlegraphRetryOnLaunch===true&&!launchRetryUsed;
 async function resumeAttempt(manual=false){
+  const launchRetry=!manual&&launchRetryPending();
+  if(launchRetry)manual=true;
   if(busy||!token||!ready||!versions||(!manual&&!recoveryPending))return;
+  if(launchRetry&&!painted)return; // Wait for the paint; the flag stays pending.
+  if(launchRetry){launchRetryUsed=true;log('Retrying the last request on launch');}
   if(!painted){
     if(!manual)return;
     // Nothing has painted since the last edit: a half-written checkpoint can
@@ -577,7 +579,7 @@ window.whistlegraphEngineEvent=event=>{
       return;
     }
     if(!streamingPreview)activeReceipt?.observe(event.event);
-    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt(retryOnLaunch());}
+    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
     if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__whistlegraphSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={...feedback,rendered:false,logs:[...(feedback?.logs||[]),{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
     if(event.event.kind==='console'&&['error','warn'].includes(event.event.event?.level)){
       const entry={level:event.event.event.level,text:event.event.event.message||'Runtime error'};

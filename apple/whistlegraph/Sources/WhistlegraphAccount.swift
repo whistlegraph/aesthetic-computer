@@ -163,7 +163,12 @@ struct WhistlegraphPreview {
     }
     static let script = """
     (() => {
+      // Every frame says hello so the device log shows which frames the script reached.
+      try { window.webkit?.messageHandlers?.whistlegraph?.postMessage({action:'frameHello', top: window === window.top, ac: location.origin === 'https://aesthetic.computer'}); } catch {}
       if (window === window.top || location.origin !== 'https://aesthetic.computer') return;
+      // Any throw below is reported, not swallowed; and timers prove they run by posting on their first tick.
+      window.addEventListener('error', e => { try { window.webkit.messageHandlers.whistlegraph.postMessage({action:'previewScriptError', message: String(e.message || e).slice(0, 120)}); } catch {} });
+      try {
       window.acFORCE_NOGAP = true;
       window.whistlegraphSetPixelSize = size => {
         if (!Number.isInteger(size) || size < 1 || size > 4) return;
@@ -203,10 +208,16 @@ struct WhistlegraphPreview {
         if (e.detail.kind === 'painted') { if (paintedRevision === revision) return; paintedRevision = revision; }
         post({action:'previewEvent',event:e.detail});
       });
+      let ticks = 0;
       const poll = setInterval(() => {
-        if (!window.preloaded || !window.acSEND) return;
+        if (!window.preloaded || !window.acSEND) {
+          // While waiting, report the real flags every four seconds (eight times) so a stuck preview is diagnosable from the device log.
+          if ((++ticks === 1 || ticks % 40 === 0) && ticks <= 320) post({action:'previewWaiting', preloaded: !!window.preloaded, acSEND: typeof window.acSEND === 'function', ticks});
+          return;
+        }
         clearInterval(poll); ready = true; window.AC?.startAudio?.(); post({action:'previewReady'});
       }, 100);
+      } catch (error) { try { post({action:'previewScriptError', message: String(error && error.message || error).slice(0, 120)}); } catch {} }
     })();
     """
 }
