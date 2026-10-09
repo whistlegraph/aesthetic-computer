@@ -13653,6 +13653,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🔤 The prompt's sign-in: run one step in this thread (it needs the DOM
+    // for the email-code exchange) and hand the plain result back.
+    if (type === "signup:step") {
+      const { action, ...data } = content || {};
+      // Let the phone's keyboard offer the right autofill for the next answer.
+      if (action === "field" && keyboard?.input) {
+        keyboard.input.autocomplete = data.field === "email" ? "email" : data.field === "code" ? "one-time-code" : "off";
+        keyboard.input.inputMode = data.field === "code" ? "numeric" : data.field === "email" ? "email" : "text";
+        return;
+      }
+      if (!window.acSignup?.step) {
+        send({ type: "signup:result", content: { action, ok: false, reason: "fallback" } });
+        return;
+      }
+      window.acSignup.step(action, data).then(
+        (result) => send({ type: "signup:result", content: { action, ...result } }),
+        (error) => send({ type: "signup:result", content: { action, ok: false, reason: "error", message: error?.message } }),
+      );
+      return;
+    }
+
     // Authenticate / signup or login a user.
     if (type === "login") {
       if (window.self !== window.top) {

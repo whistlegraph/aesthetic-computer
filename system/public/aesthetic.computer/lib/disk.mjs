@@ -11324,6 +11324,13 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🔤 A step of the prompt's sign-in (signup-flow.mjs `step`) has finished
+  // in the main thread; the prompt reads it as an act event.
+  if (type === "signup:result") {
+    actAlerts.push({ name: "signup:result", content });
+    return;
+  }
+
   // 🎵 Clock piece sent its cached code for QR display
   if (type === "clock:cached") {
     cachedClockCode = content?.code || null;

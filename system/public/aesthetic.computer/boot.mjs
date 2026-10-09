@@ -1595,7 +1595,18 @@ if (!sandboxed && !window.acNOAUTH) {
     if (redirect || new URLSearchParams(location.search).get("login") === "password") {
       return redirectLogin(mode);
     }
-    window.acSignup.open(mode === "signup" ? "signup" : "login");
+    // 🔤 Joining happens at the prompt (prompt.mjs `runJoin`): arrive there
+    // with `signup` / `login` already run, so it asks for the handle or email.
+    // A prompt too old to know these words would hand them straight back here,
+    // so a second request within a few seconds takes the hosted page instead.
+    let lastJump = 0;
+    try { lastJump = Number(sessionStorage.getItem("ac:join-jump")) || 0; } catch {}
+    if (window.self === window.top && typeof window.acDISK_SEND === "function" && Date.now() - lastJump > 8000) {
+      try { sessionStorage.setItem("ac:join-jump", String(Date.now())); } catch {}
+      window.acDISK_SEND({ type: "jump", content: { piece: `prompt~${mode === "signup" ? "signup" : "login"}~!autorun` } });
+      return;
+    }
+    return redirectLogin(mode);
   };
 }
 

@@ -441,7 +441,107 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     }
   }
 
+  // 🔤 The prompt door: the same steps with no DOM at all. prompt.mjs turns
+  // `handle @name`, `email you@x`, `code 123456`, `google` and `apple` into
+  // `signup:step` messages; bios calls step() and posts the plain-data result
+  // back as `signup:result`. The prompt draws every word of the experience.
+  function ensureAttempt(mode = "signup") {
+    if (!read()) start(mode);
+    if (!attempt.hold) { attempt.hold = win.crypto.randomUUID(); persist(); }
+    return attempt;
+  }
+
+  // Signed in (code or provider): a returning account is done; a newcomer
+  // claims the handle they held; otherwise the prompt asks for one.
+  async function afterSignIn(sub) {
+    let existing = null;
+    try {
+      const res = await win.fetch(`/handle?for=${encodeURIComponent(sub)}`, { cache: "no-store" });
+      if (res.ok) existing = (await res.json()).handle || null;
+    } catch {}
+    if (existing) return { ok: true, done: true, handle: existing, destination: "/prompt", returning: true };
+    if (read()?.handle) return claimQuietly(attempt.handle);
+    track("handle_shown");
+    return { ok: true, needsHandle: true };
+  }
+
+  async function claimQuietly(handle) {
+    try {
+      const result = await request("/handle", { method: "POST", body: JSON.stringify({ handle, hold: read()?.hold }) });
+      if (!result.handle) throw Object.assign(new Error("Missing handle"), { reason: "network" });
+      win.dispatchEvent(new win.Event("ac:handle-created"));
+      return { ok: true, done: true, handle: result.handle, destination: signupReturnPath(read()?.returnTo, win.location.origin) || "/chat" };
+    } catch (error) {
+      const reason = SIGNUP_ERRORS.includes(error.reason) ? error.reason : "network";
+      track("handle_failed", reason);
+      if (attempt) { attempt.handle = null; persist(); }
+      return { ok: false, reason, needsHandle: true };
+    }
+  }
+
+  const tenantFault = (error) => !!otpModule?.tenantFaults?.includes(error?.code);
+
+  async function step(action, data = {}) {
+    try {
+      if (!supported() || !clientId) return { ok: false, reason: "fallback" };
+      if (action === "start") {
+        ensureAttempt(data.mode === "login" ? "login" : "signup");
+        attempt.mode = data.mode === "login" ? "login" : "signup"; persist();
+        return { ok: true };
+      }
+      if (action === "hold") {
+        const handle = String(data.handle || "").trim().replace(/^@/, "");
+        if (validateHandle(handle) !== "valid") return { ok: false, reason: "invalid", handle };
+        if (signedIn || auth) return claimQuietly(handle); // already in: claim straight away
+        ensureAttempt("signup"); attempt.mode = "signup"; persist();
+        const res = await win.fetch("/api/handle-hold", { method: "POST", cache: "no-store",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ handle, attempt: attempt.hold }) });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const reason = body.status === "taken" || body.status === "held" ? "taken" : body.status === "invalid" ? "invalid" : "network";
+          track("handle_failed", reason);
+          return { ok: false, reason, handle };
+        }
+        attempt.handle = handle; attempt.holdUntil = Date.parse(body.until) || Date.now() + 600000; persist();
+        track("handle_held");
+        return { ok: true, handle, minutes: holdMinutes() };
+      }
+      if (action === "email") {
+        ensureAttempt(data.mode || read()?.mode || "login");
+        const email = await (await door()).sendCode(data.email);
+        track("code_sent");
+        return { ok: true, email };
+      }
+      if (action === "code") {
+        const session = await (await door()).verify(data.email, data.code);
+        signedIn = session;
+        adopt(session);
+        track("verified");
+        return afterSignIn(session.sub);
+      }
+      if (action === "provider") {
+        ensureAttempt(read()?.mode || "signup");
+        track("social_started");
+        const client = await social?.(data.connection);
+        if (!client) return { ok: true, redirected: true };
+        signedIn = null; otp?.forget(); auth = client;
+        const user = await client.getUser();
+        if (!user?.sub) return { ok: false, reason: "auth" };
+        track("verified");
+        return afterSignIn(user.sub);
+      }
+      if (action === "finish") { complete(data.destination || "/prompt"); return { ok: true }; }
+      if (action === "password") { fallback(data.mode); return { ok: true, redirected: true }; }
+      return { ok: false, reason: "unknown" };
+    } catch (error) {
+      if (tenantFault(error)) return { ok: false, reason: "fallback" };
+      if (action === "code") track("code_failed", "code");
+      return { ok: false, reason: error?.code || "error", message: error?.message || "That didn’t work." };
+    }
+  }
+
   return {
+    step,
     start, track, resume, complete, pending: () => !!read(), close, open,
     remember(path) { const safe = signupReturnPath(path, win.location.origin); if (safe) previousPiece = safe; },
     failed() {

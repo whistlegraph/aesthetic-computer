@@ -237,6 +237,155 @@ let clearBtnConfirmTimeout = null; // Reset timer for confirmation
 let curtainHoverTarget = null; // Sound once when entering a visible curtain action.
 
 let resendVerificationText;
+
+// 🔤 Joining, entirely at the prompt. Logged out, `handle @name` holds a name,
+// `email you@x.com` mails six digits, `code 123456` signs in and claims it;
+// `login` skips to email, `google` / `apple` open the provider, `password`
+// falls back to the hosted page. Each answer pre-fills the next command. The
+// browser-only work runs in bios (signup-flow.mjs `step`), which answers with
+// a `signup:result` act event.
+const JOIN_WORDS = ["signup", "imnew", "login", "hi", "handle", "email", "code", "google", "apple", "password"];
+let join = { stage: null, mode: null, email: null, handle: null };
+
+function isJoinCommand(text) {
+  const t = text.trim();
+  const word = t.split(/\s+/)[0].toLowerCase();
+  if (JOIN_WORDS.includes(word)) return true;
+  if (join.stage === "code" && /^\d{6}$/.test(t)) return true;
+  if (join.stage === "email" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) return true;
+  return false;
+}
+
+function joinFill({ send, system }, text, field = "text") {
+  const fill = () => {
+    system.prompt.input.text = text;
+    system.prompt.input.runnable = true;
+    system.prompt.input.snap();
+    send({ type: "keyboard:text:replace", content: { text } });
+  };
+  firstActivation = false;
+  fill();
+  // The prompt blanks itself after a command returns; restore the pre-fill
+  // only if that happened, so anything typed since is never overwritten.
+  setTimeout(() => {
+    if (!system.prompt.input.text) fill();
+  }, 120);
+  send({ type: "signup:step", content: { action: "field", field } });
+  send({ type: "keyboard:unlock" });
+  send({ type: "keyboard:open" });
+}
+
+const joinSend = ({ send }, action, data = {}) =>
+  send({ type: "signup:step", content: { action, ...data } });
+
+function joinStart($, mode) {
+  join = { stage: mode === "login" ? "email" : "handle", mode, email: null, handle: null };
+  joinSend($, "start", { mode });
+  if (mode === "login") {
+    joinFill($, "email ", "email");
+    $.notice("YOUR EMAIL?", ["yellow", "blue"]);
+  } else {
+    joinFill($, "handle @");
+    $.notice("PICK A HANDLE", ["yellow", "blue"]);
+  }
+}
+
+function runJoin($, text) {
+  const t = text.trim();
+  const [first, ...rest] = t.split(/\s+/);
+  const word = first.toLowerCase();
+  const arg = rest.join(" ").trim();
+  if (join.stage === "code" && /^\d{6}$/.test(t)) return joinCode($, t);
+  if (join.stage === "email" && !JOIN_WORDS.includes(word) && t.includes("@")) return joinEmail($, t);
+  switch (word) {
+    case "signup":
+    case "imnew":
+      return joinStart($, "signup");
+    case "login":
+    case "hi":
+      return joinStart($, "login");
+    case "handle": {
+      const name = arg.replace(/^@/, "");
+      if (!name) return joinStart($, "signup");
+      join.mode = "signup";
+      $.notice("CHECKING @" + name.toUpperCase(), ["yellow", "blue"]);
+      return joinSend($, "hold", { handle: name });
+    }
+    case "email":
+      if (!arg) return joinStart($, join.mode || "login");
+      return joinEmail($, arg);
+    case "code":
+      if (!join.email) return joinStart($, "login");
+      return joinCode($, arg);
+    case "google":
+    case "apple":
+      $.notice("OPENING " + word.toUpperCase(), ["yellow", "blue"]);
+      return joinSend($, "provider", { connection: word === "google" ? "google-oauth2" : "apple" });
+    case "password":
+      return joinSend($, "password", { mode: join.mode || "login" });
+  }
+}
+
+function joinEmail($, email) {
+  join.email = email;
+  $.notice("SENDING CODE", ["yellow", "blue"]);
+  joinSend($, "email", { email, mode: join.mode || "login" });
+}
+
+function joinCode($, code) {
+  const digits = String(code || "").replace(/\D/g, "");
+  if (digits.length !== 6) {
+    $.notice("SIX DIGITS", ["yellow", "red"]);
+    return joinFill($, "code ", "code");
+  }
+  $.notice("CHECKING CODE", ["yellow", "blue"]);
+  joinSend($, "code", { email: join.email, code: digits });
+}
+
+// The answer to a step, back from bios.
+function joinResult($, r = {}) {
+  const { notice } = $;
+  if (r.redirected) return;
+  if (r.done) {
+    join = { stage: null, mode: null, email: null, handle: null };
+    notice("HI @" + String(r.handle).toUpperCase(), ["lime", "green"]);
+    setTimeout(() => joinSend($, "finish", { destination: r.destination }), 1400);
+    return;
+  }
+  if (r.needsHandle) {
+    join.stage = "handle";
+    notice(r.reason === "taken" ? "TAKEN · PICK ANOTHER" : "PICK A HANDLE", ["yellow", "blue"]);
+    return joinFill($, "handle @");
+  }
+  if (r.reason === "fallback") {
+    notice("TYPE: password", ["yellow", "red"]);
+    return joinFill($, "password");
+  }
+  switch (r.action) {
+    case "hold":
+      if (r.ok) {
+        join.stage = "email";
+        join.handle = r.handle;
+        notice("@" + r.handle.toUpperCase() + " IS YOURS", ["lime", "green"]);
+        return joinFill($, "email ", "email");
+      }
+      notice(r.reason === "taken" ? "@" + String(r.handle).toUpperCase() + " IS TAKEN" :
+        r.reason === "invalid" ? "LETTERS + NUMBERS" : "TRY AGAIN", ["yellow", "red"]);
+      return joinFill($, "handle @");
+    case "email":
+      if (r.ok) {
+        join.stage = "code";
+        notice("CODE SENT · CHECK EMAIL", ["lime", "green"]);
+        return joinFill($, "code ", "code");
+      }
+      notice((r.message || "COULDN'T SEND").toUpperCase(), ["yellow", "red"]);
+      return joinFill($, "email " + (join.email || ""), "email");
+    case "code":
+    case "provider":
+      notice(r.action === "code" ? "WRONG CODE · TRY AGAIN" : "SIGN IN DIDN'T FINISH", ["yellow", "red"]);
+      if (r.action === "code") return joinFill($, "code ", "code");
+  }
+}
 let ellipsisTicker;
 let chatTicker; // Ticker instance for chat messages
 let chatTickerButton; // Button for chat ticker hover interaction
@@ -3897,6 +4046,12 @@ async function halt($, text) {
     // Jump to the dedicated keep piece for multi-step minting flow
     store["keep:piece"] = code;
     jump(`keep~$${code}`);
+    return true;
+  } else if (!user && !net.iframe && isJoinCommand(text)) {
+    // 🔤 Logged out: handle / email / code / login / google / apple join here.
+    runJoin({ send, system, notice }, text);
+    flashColor = [255, 255, 0, 100]; // Yellow
+    makeFlash($);
     return true;
   } else if (text.startsWith("email")) {
     // Set user email.
@@ -8145,6 +8300,12 @@ function act({
     send({ type: "keyboard:lock" });
     return;
   }
+  // 🔤 A join step finished in bios (see `runJoin`).
+  if (e.is("signup:result")) {
+    joinResult({ send, system, notice }, e.content);
+    needsPaint();
+    return;
+  }
   // 🎞️ Rolodex: a predominantly-vertical drag on the focused prompt
   // scrubs command history pixel-by-pixel and stays where you let go
   // (the snap). Only engages past a threshold so taps / horizontal
@@ -8355,7 +8516,8 @@ function act({
         down: () => downSound(),
         push: () => {
           pushSound();
-          net.login();
+          if (!net.iframe) joinStart({ send, system, notice }, "login");
+          else net.login();
           // if (net.iframe) jump("login-wait");
         },
         cancel: () => cancelSound(),
@@ -8369,7 +8531,7 @@ function act({
         down: () => downSound(),
         push: () => {
           pushSound();
-          net.signup();
+          joinStart({ send, system, notice }, "signup");
           // if (net.iframe) jump("signup-wait");
         },
         cancel: () => cancelSound(),
