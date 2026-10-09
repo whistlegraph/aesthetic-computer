@@ -777,6 +777,18 @@ final class MenuBandController {
         onInstrumentVisualChange?()
     }
 
+    /// Our own non-MIDI instruments live behind ~: ~ then digits. Slot 1 is
+    /// Fluoddity. Unknown slots are consumed and do nothing.
+    func selectOwnInstrument(_ slot: Int) {
+        switch slot {
+        case 1:
+            if midiMode { toggleMIDIMode() }
+            setFluoddityBackend(true)
+        default:
+            break
+        }
+    }
+
     /// Custom instruments live behind the backtick: ` then digits. Slot 1
     /// is the AC grand piano, 79 the AC whistle (GM 79's number, ours). Picking one is a "play this locally" gesture
     /// like typing a GM number, so it leaves MIDI mode. Unknown slots are
@@ -3726,6 +3738,10 @@ final class MenuBandController {
     /// selects a custom voice (`1 = the AC grand piano). Same staleness
     /// window as the digits, so a forgotten ` can't hijack a later number.
     private var voiceCustomPrefix: Bool = false
+    /// True after ~ (⇧`) primes a pick of one of OUR OWN instruments — the
+    /// non-MIDI designs (~1 = Fluoddity). ` is for our versions of
+    /// GM-numbered voices; ~ is for things GM never had a number for.
+    private var voiceOwnPrefix: Bool = false
     /// Letters typed after `-` accumulate into a CDJ station callsign — e.g.
     /// `-kpbj`, `-nts1`, or `-nts2`. The piano instrument is unchanged.
     /// Cleared on `-`, on a match, on divergence from any known name, and on
@@ -4143,6 +4159,17 @@ final class MenuBandController {
             // record the global sample. Plain ` records the global sample
             // (and clears per-key customs) — the "Home" gesture.
             if lingerSide != .none {
+                // ~ held + note = per-key sample. A tap of ~ then digits =
+                // one of our own instruments (~1 Fluoddity); the two
+                // coexist because digits are never note keys.
+                if isDown && !isRepeat {
+                    voiceOwnPrefix = true
+                    voiceCustomPrefix = false
+                    voiceDigitNegative = false
+                    voiceDigitBuffer = ""
+                    voiceCommandBuffer = ""
+                    voiceDigitLastPress = CACurrentMediaTime()
+                }
                 perKeySampleArmed = isDown
                 if !isDown, let m = perKeySampleRecordingMidi {
                     // ~ released mid per-key capture — finalize it.
@@ -4237,17 +4264,20 @@ final class MenuBandController {
                 // Custom instrument, primed by a preceding `. Digits buffer
                 // like the GM picker so `79 reaches slot 79 (`7 on the way
                 // is a consumed no-op): `1 = AC grand piano, `79 = AC whistle.
-                if voiceCustomPrefix && !staleGap {
+                if (voiceCustomPrefix || voiceOwnPrefix) && !staleGap {
+                    let own = voiceOwnPrefix
                     voiceDigitLastPress = now
                     if voiceDigitBuffer.count >= 3 { voiceDigitBuffer = "" }
                     voiceDigitBuffer.append(String(digit))
                     let slot = Int(voiceDigitBuffer) ?? 0
                     DispatchQueue.main.async { [weak self] in
-                        self?.selectCustomInstrument(slot)
+                        if own { self?.selectOwnInstrument(slot) }
+                        else { self?.selectCustomInstrument(slot) }
                     }
                     return true
                 }
                 voiceCustomPrefix = false
+                voiceOwnPrefix = false
                 // CDJ Radio shortcut, primed by a preceding `-`.
                 // `-1` toggles the saved station. Other digits are no-ops —
                 // we consume them so they don't quietly pick a GM

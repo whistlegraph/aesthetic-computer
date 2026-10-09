@@ -3748,7 +3748,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch menuBand.instrumentBackend {
         case .sample:    voiceLabel = "`"
         case .kpbj:      voiceLabel = menuBand.radioStation.label
-        case .fluoddity: voiceLabel = "~"
+        case .fluoddity: voiceLabel = "~1"
         case .acPiano:   voiceLabel = "`1"
         case .whistle:   voiceLabel = "`79"
         default:         voiceLabel = nil
