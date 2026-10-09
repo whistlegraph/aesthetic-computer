@@ -12,30 +12,26 @@ enum CreaturePreview {
         let canvas = NSImage(size: NSSize(width: 960, height: 640))
         var portraits: [(String, CGImage, NSRect)] = []
         for i in 0..<8 {
-            var creature = ProxCreature.egg(id: "preview-\(i)", name: "miva", seed: [123, 4412, 9918, 2306][i % 4])
-            if i >= 2 { creature.grow(by: 7200) }
-            if i >= 4 {
-                creature.acquire([.ears, .sprout, .fins, .tail][i - 4], provider: .local)
-                creature.grow(by: 7200)
-                creature.acquire(.feet, provider: .local)
-            }
-            let mood: ProxCreatureFrames.Mood = [.working, .waiting, .resting, .sleeping][i % 4]
+            var creature = ProxCreature.egg(id: "preview", name: "miva", seed: 123)
+            creature.grow(by: [0, 1800, 7200, 28800][i % 4])
+            // Every stage must read without any inference-selected traits.
+            let mood: ProxCreatureFrames.Mood = .working
             let frames = ProxCreatureFrames.render(creature, dark: i < 4,
                 sunHx: -0.45, sunElevation: 0.72, sunIntensity: 0.8,
-                mood: mood, luminous: i == 7, frameCount: i == 0 ? 72 : 1, px: 240)
+                mood: mood, luminous: false, frameCount: i == 1 ? 72 : 1, px: 240)
             guard let first = frames.first else { fatalError("Missing render \(i)") }
             let rect = NSRect(x: (i % 4) * 240, y: i < 4 ? 320 : 0, width: 240, height: 320)
             portraits.append(("\(creature.stage.rawValue) · \(mood.rawValue)", first, rect))
             try JSONEncoder().encode(creature).write(to: directory.appendingPathComponent("character-\(i).json"))
-            if i == 0 {
-                let gif = CGImageDestinationCreateWithURL(directory.appendingPathComponent("egg.gif") as CFURL,
+            if i == 1 {
+                let gif = CGImageDestinationCreateWithURL(directory.appendingPathComponent("hatching.gif") as CFURL,
                     UTType.gif.identifier as CFString, frames.count, nil)!
                 CGImageDestinationSetProperties(gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
                 for frame in frames {
                     CGImageDestinationAddImage(gif, frame, [kCGImagePropertyGIFDictionary:
                         [kCGImagePropertyGIFDelayTime: 4.0 / Double(frames.count)]] as CFDictionary)
                 }
-                assert(CGImageDestinationFinalize(gif))
+                guard CGImageDestinationFinalize(gif) else { fatalError("Could not write GIF") }
             }
         }
         canvas.lockFocus()
@@ -56,7 +52,7 @@ enum CreaturePreview {
         let png = CGImageDestinationCreateWithURL(directory.appendingPathComponent("preview.png") as CFURL,
             UTType.png.identifier as CFString, 1, nil)!
         CGImageDestinationAddImage(png, cg, nil)
-        assert(CGImageDestinationFinalize(png))
+        guard CGImageDestinationFinalize(png) else { fatalError("Could not write PNG") }
         print(directory.appendingPathComponent("preview.png").path)
     }
 }

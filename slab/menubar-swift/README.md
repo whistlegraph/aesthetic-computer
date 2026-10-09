@@ -92,7 +92,10 @@ keep their existing layouts.
 `ProxCreatures.swift` saves a versioned appearance under
 `~/.config/slab/creatures/<seed>.json`. Only observed working/rendering time
 counts toward growth: stirring after 30 minutes, hatchling after two hours,
-familiar after eight. Sleep, closed sessions, and idle time add nothing. Every
+familiar after eight. Stirring opens a jagged shell with a head and hands peeking
+out; hatchlings stand free on their own feet, and familiars grow a taller torso.
+These stage shapes do not depend on inference or acquired features. Sleep,
+closed sessions, and idle time add nothing. Every
 existing prox starts as an egg on first adoption. Saves happen at most once a
 minute, plus births and appearance changes; a sudden shutdown can lose up to a
 minute of growth.
