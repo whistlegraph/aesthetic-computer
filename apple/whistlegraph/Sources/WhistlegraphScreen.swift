@@ -633,15 +633,16 @@ struct SendToTVIcon: View {
 struct CardFanIcon: View {
     var body: some View {
         ZStack {
-            ForEach([-27.0, -9.0, 9.0, 27.0], id: \.self) { angle in
-                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+            // Three cards, as tall as the TV beside them.
+            ForEach([-22.0, 0.0, 22.0], id: \.self) { angle in
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .fill(.tint)
-                    .overlay(RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                    .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous)
                         .stroke(Color(uiColor: .systemBackground), lineWidth: 1.5))
-                    .frame(width: 12, height: 26)
-                    .rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 1.4))
+                    .frame(width: 15, height: 32)
+                    .rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 1.25))
             }
-        }.offset(y: -3)
+        }.offset(y: -4)
     }
 }
 

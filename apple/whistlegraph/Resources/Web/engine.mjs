@@ -56,6 +56,7 @@ const runtimeErrors=[];
 let lastAttempt=null,activeAttempt=null,recoveryPending=true,presentedVersion=null,narrationPending=null;
 try{lastAttempt=JSON.parse(localStorage.getItem(storageKey+'-attempt')||'null');}catch{}
 let versions=null,turnSucceeded=false,turnRequest='',turnParent=null,turnRuntimeFailed=false,turnError='';
+let turnNotes=[]; // The reviewer's findings on a saved version: advice for the next request, never a veto.
 let token = '', busy = false, server, source = '', previous = '', pending = '', checkpoints = 0;
 let feedback = null, lastPaintedSource = '', previewSource = '', provisional = '', compileTimer = null;
 let streamTool='',streamBase='',streamRevision='',rejectedPreview='';
@@ -432,7 +433,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   document.body.classList.add('live-mode');phase('Sending…');log('Submitted');
   timer=setInterval(()=>$('live-time').textContent=((performance.now()-started)/1000).toFixed(1)+'s',100);
   let noChange=false;
-  validationChecks=[];runtimeErrors.length=0;
+  validationChecks=[];runtimeErrors.length=0;turnNotes=[];
   try{
     await accountVerification;if(turnCancelled)throw Error('Stopped');turnHandle=accountToken===token?accountHandle:'';turnPersonalAccess=!!turnHandle&&hasPersonalAccess(personalAccess);turnModel=selectedModel(turnHandle);
     activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:'compiled',model:window.__whistlegraphModel||profile().model,journal:receipts});
@@ -524,11 +525,18 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
     if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed){
       try {
         const verdict=await checkVisualResult();
-        if(!verdict.passed)throw Error('Visual check failed: '+verdict.findings.join('; '));
+        if(!verdict.passed){
+          // The picture painted and ran. After one repair, the reviewer's
+          // remaining findings are notes on the saved version, not a reason to
+          // throw the work away (a lettering nitpick discarded a valid chalk
+          // piece twice on 2026-10-09).
+          turnNotes=verdict.findings.slice(0,4);
+          log('Saved with notes · '+turnNotes.join('; '));
+        }
       } catch(error) {turnSucceeded=false;turnError=error.message;phase('Could not verify picture');log(turnError);}
     }
     if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed&&painted&&lastPaintedSource===source){
-      try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · Ready to play`);log(`Saved v${version.id} · ${checkpoints} layers`);const drawing=inputData(turnRequest)?.drawing;if(drawing)post({action:'drawingCommitted',drawingID:drawing.id,revision:drawing.revision});benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
+      try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · ${turnNotes.length?'Saved with notes':'Ready to play'}`);log(`Saved v${version.id} · ${checkpoints} layers`);const drawing=inputData(turnRequest)?.drawing;if(drawing)post({action:'drawingCommitted',drawingID:drawing.id,revision:drawing.revision});benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
       catch(error){turnSucceeded=false;turnError=error.message;phase('Could not save version');log(error.message);benchmark('generationFailed',{message:error.message});}
     }else turnSucceeded=false;
     // A try that painted but failed its checks is not thrown away: it waits as
