@@ -30,6 +30,33 @@ async function load(name, { env = {}, mocks = {}, ...options } = {}) {
   return module.namespace.handler;
 }
 
+test("MCP accepts initialized notifications without a JSON-RPC reply and keeps request responses", async () => {
+  const handler = await load("mcp-remote.mjs", { mocks: { "../../backend/http.mjs": http } });
+  const post = message => handler({ httpMethod: "POST", path: "/mcp", headers: {}, body: JSON.stringify(message) });
+  const initialized = await post({ jsonrpc: "2.0", id: 0, method: "initialize", params: {} });
+  assert.equal(initialized.statusCode, 200);
+  assert.equal(JSON.parse(initialized.body).id, 0);
+  for (const params of [undefined, {}, { _meta: { fixture: true } }]) {
+    const response = await post({ jsonrpc: "2.0", method: "notifications/initialized", params });
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.body, "");
+    assert.equal(response.headers["Access-Control-Allow-Origin"], "*");
+  }
+  const tools = await post({ jsonrpc: "2.0", id: "tools", method: "tools/list" });
+  assert.equal(tools.statusCode, 200);
+  assert.equal(JSON.parse(tools.body).id, "tools");
+  assert.ok(JSON.parse(tools.body).result.tools.length > 0);
+});
+
+test("MCP does not accept malformed initialized notifications", async () => {
+  const handler = await load("mcp-remote.mjs", { mocks: { "../../backend/http.mjs": http } });
+  const valid = { jsonrpc: "2.0", method: "notifications/initialized" };
+  for (const patch of [{ jsonrpc: "1.0" }, { id: 0 }, { id: null }, { params: null }, { params: [] }, { params: "bad" }]) {
+    const response = await handler({ httpMethod: "POST", headers: {}, body: JSON.stringify({ ...valid, ...patch }) });
+    assert.equal(response.statusCode, 400);
+  }
+});
+
 test("mood lists return a successful empty collection for handles without moods", async () => {
   let records = [], failure, disconnected = 0;
   const database = { disconnect: async () => { disconnected++; } };
