@@ -10,9 +10,11 @@ export const CREDIT_PACK = Object.freeze({ id:'braincells-1m-v1', amount:500, cu
 export const BRAINCELLS_PER_USD = CREDIT_PACK.credits / (CREDIT_PACK.amount / 100);
 // Hosted inference sells at twice what OpenRouter charges AC for it.
 export const INFERENCE_MARKUP = 2;
-// The most one handle may spend from its wallet in a UTC day ($10 at pack
-// price). A runaway loop stops here rather than draining a balance overnight.
-export const DAILY_PAID_BRAINCELL_CAP = 2_000_000;
+// Bought braincells are never cut off by the day: the wallet balance is the
+// limit (jeffrey, 2026-10-09). This cap exists only so a runaway loop cannot
+// drain a balance overnight; at $500 of pack price per UTC day no person
+// iterating by hand reaches it (Sonnet at 4 per token is ~25M tokens).
+export const DAILY_PAID_BRAINCELL_CAP = 100_000_000;
 // The same pack sold through Apple in-app purchase; Apple keeps the price.
 export const IAP_PRODUCTS = Object.freeze({ 'computer.aesthetic.easel.braincells.1m': Object.freeze({ credits:1_000_000, unit:'braincells' }) });
 const COLLECTION='ac-credit-wallets';
