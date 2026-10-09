@@ -290,6 +290,7 @@ kidlisp-n64/peter-lemon-n64/
 **/.tokens
 
 # Environment Files with Secrets
+/fedac/native/upload.env
 .env.local
 .env.*.local
 .env.secret

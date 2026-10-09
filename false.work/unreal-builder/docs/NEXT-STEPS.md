@@ -91,7 +91,7 @@ This will:
 ### Step 4: Configure Perforce Password (IN THE VM)
 
 ```powershell
-p4 set P4PASSWD=AestheticComp1
+# Enter the machine account password from the private vault at the p4 login prompt.
 p4 login
 p4 info  # Test connection
 
@@ -145,7 +145,7 @@ Add these secrets:
 |-------------|-------|
 | `P4_SERVER` | `ssl:falsework.helixcore.io:1666` |
 | `P4_USER` | `machine` |
-| `P4_PASSWORD` | `AestheticComp1` |
+| `P4_PASSWORD` | Read from the private vault |
 | `P4_WORKSPACE` | `spiderlily_build_workspace` |
 | `P4_CLIENT_PATH` | `//depot/SpiderLily/SL_main/...` |
 | `PROJECT_NAME` | `SpiderLily` |

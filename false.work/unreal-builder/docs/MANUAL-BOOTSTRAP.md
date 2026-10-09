@@ -57,7 +57,7 @@ msiexec /i C:\EpicGamesLauncherInstaller.msi /quiet
 ```powershell
 p4 set P4PORT=ssl:falsework.helixcore.io:1666
 p4 set P4USER=machine
-p4 set P4PASSWD=AestheticComp1
+# Enter the machine account password from the private vault at the p4 login prompt.
 p4 set P4CLIENT=spiderlily_build_workspace
 p4 login
 p4 info  # Test connection

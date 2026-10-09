@@ -99,7 +99,7 @@ p4 trust -y -f ssl:falsework.helixcore.io:1666
 $env:P4PORT = "ssl:falsework.helixcore.io:1666"
 $env:P4USER = "machine"
 p4 login
-# Enter password when prompted: AestheticComp1
+# Enter the machine account password from the private vault when prompted.
 
 # Create workspace
 p4 client spiderlily_build_workspace
@@ -177,7 +177,7 @@ cd C:\scripts
 Add these secrets:
 - `P4_SERVER`: `ssl:falsework.helixcore.io:1666`
 - `P4_USER`: `machine`
-- `P4_PASSWORD`: `AestheticComp1` (from vault)
+- `P4_PASSWORD`: Read from the private vault
 - `P4_WORKSPACE`: `spiderlily_build_workspace`
 
 #### Trigger Builds

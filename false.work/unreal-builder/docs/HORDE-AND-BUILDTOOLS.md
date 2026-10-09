@@ -39,7 +39,7 @@ Invoke-WebRequest -Uri "https://cdist2.perforce.com/perforce/r24.1/bin.ntx64/p4.
 ```powershell
 p4 set P4PORT=ssl:falsework.helixcore.io:1666
 p4 set P4USER=machine
-p4 set P4PASSWD=AestheticComp1
+# Enter the machine account password from the private vault at the p4 login prompt.
 p4 login
 p4 sync
 ```

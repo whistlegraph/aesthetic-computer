@@ -32,12 +32,12 @@ if [ -z "${DO_SPACES_KEY:-}" ] || [ -z "${DO_SPACES_SECRET:-}" ]; then
   [ -f "/tmp/.ac-upload-env" ] && { set -a; source "/tmp/.ac-upload-env"; set +a; }
 fi
 if [ -z "${DO_SPACES_KEY:-}" ] || [ -z "${DO_SPACES_SECRET:-}" ]; then
-  # Plaintext vault file, or in-repo fallback (oven ships upload.env in-tree).
-  # The oven's clone has no aesthetic-computer-vault/ sibling, so without
-  # this fallback the upload silently failed with "DO_SPACES_KEY not set".
+  # Private host configuration or vault file, never a tracked repository file.
+  # See upload.env.example. Host configuration also survives fresh checkouts.
   for candidate in \
-      "${SCRIPT_DIR}/../../../aesthetic-computer-vault/fedac/native/upload.env" \
-      "${SCRIPT_DIR}/../upload.env"; do
+      "${AC_NATIVE_UPLOAD_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/aesthetic-computer/native-upload.env}" \
+      "/etc/aesthetic-computer/native-upload.env" \
+      "${SCRIPT_DIR}/../../../aesthetic-computer-vault/fedac/native/upload.env"; do
     [ -f "$candidate" ] && { set -a; source "$candidate"; set +a; break; }
   done
 fi

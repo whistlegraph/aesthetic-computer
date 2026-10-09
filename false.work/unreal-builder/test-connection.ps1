@@ -9,8 +9,7 @@ $env:P4PORT = "ssl:falsework.helixcore.io:1666"
 $env:P4USER = "machine"
 $env:P4CLIENT = "spiderlily_build_workspace"
 
-# Note: P4PASSWD should be set separately for security
-# Run: p4 set P4PASSWD=AestheticComp1
+# Authenticate with p4 login; enter the machine account password from the private vault.
 
 Write-Host "Testing with:" -ForegroundColor Yellow
 Write-Host "  Server: $env:P4PORT"
@@ -52,8 +51,7 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "  $loginStatus" -ForegroundColor Gray
 } else {
     Write-Host "  ✗ Not logged in" -ForegroundColor Red
-    Write-Host "  Please run: p4 set P4PASSWD=AestheticComp1" -ForegroundColor Yellow
-    Write-Host "  Then run: p4 login" -ForegroundColor Yellow
+    Write-Host "  Run p4 login and enter the machine account password from the private vault." -ForegroundColor Yellow
     exit 1
 }
 
