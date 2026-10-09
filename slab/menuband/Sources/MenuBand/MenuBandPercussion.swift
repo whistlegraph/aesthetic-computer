@@ -821,6 +821,23 @@ final class MenuBandPercussion {
 
     enum DrumSkinZone: String { case kick, tom, snare, hat, click }
 
+    /// Where a keyboard key strikes the TrackDrum membrane when a side is
+    /// latched to the TrackDrum kit (⇧[ / ⇧]). The twelve pitch classes walk
+    /// out from the center: C is the kick dead center, D and D# the tom
+    /// ring, E and F the snare, F# G G# the hat, A A# B the click out to the
+    /// rim — the same contours a finger crosses, so every key is a spot the
+    /// pad already knows, through whichever kit is selected. Along the
+    /// vertical axis `roundedTrackpadDistance` is exactly |sy|, so the
+    /// radius maps straight to y; the strike sits a little left or right of
+    /// center so each side keeps its own pan.
+    static func keyStrike(pitchClass pc: Int, left: Bool) -> CGPoint {
+        let radius: [Double] = [0.00, 0.18, 0.36, 0.43, 0.52, 0.60,
+                                0.68, 0.76, 0.85, 0.90, 0.95, 1.00]
+        let d = radius[((pc % 12) + 12) % 12]
+        let x = 0.5 + (left ? -0.14 : 0.14)
+        return CGPoint(x: x, y: 0.5 + d * 0.5)
+    }
+
     static func drumSkinZone(at strike: CGPoint) -> DrumSkinZone {
         let distance = roundedTrackpadDistance(
             sx: Double(strike.x - 0.5) * 2,

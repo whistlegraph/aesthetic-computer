@@ -342,6 +342,12 @@ final class MenuBandController {
     private let monoOutputKey = "notepat.monoOutput"
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
     private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
+    /// Per-side kit choice for the percussion split. False = the classic
+    /// twelve-drum kit (`Drum.forPitchClass`); true = the TrackDrum
+    /// membrane, keys striking it at a radius (`keyStrike`). Latched with
+    /// ⇧[ / ⇧] and remembered, so the alt kit can be lived with for a while.
+    private let percussionLeftTrackDrumKey = "notepat.percussionLeftTrackDrum"
+    private let percussionRightTrackDrumKey = "notepat.percussionRightTrackDrum"
     private let percussionVolumeKey = "notepat.percussionVolume"
     private let percussionVolume90MigrationKey = "notepat.percussionVolume90Migration"
     private let masterVolumeKey = "notepat.masterVolume"
@@ -1081,6 +1087,58 @@ final class MenuBandController {
         if !percussionLeft && !percussionRight { synth.percussion.silence() }
         synth.keepEngineWarm = percussionLeft || percussionRight || trackpadPerformanceActive
         onChange?()
+    }
+
+    var percussionLeftTrackDrum: Bool {
+        get { UserDefaults.standard.bool(forKey: percussionLeftTrackDrumKey) }
+        set { UserDefaults.standard.set(newValue, forKey: percussionLeftTrackDrumKey); onChange?() }
+    }
+    var percussionRightTrackDrum: Bool {
+        get { UserDefaults.standard.bool(forKey: percussionRightTrackDrumKey) }
+        set { UserDefaults.standard.set(newValue, forKey: percussionRightTrackDrumKey); onChange?() }
+    }
+
+    /// Bracket press for one side. Plain `[`/`]`: off ↔ on with the classic
+    /// kit. ⇧`[`/⇧`]` (`{`/`}`): off → on with the TrackDrum kit; on with the
+    /// classic kit → switch kits (stay on); on with TrackDrum → off. Returns
+    /// whether the side ended up latched, for the cue.
+    @discardableResult
+    func pressPercussionLatch(left: Bool, trackDrum: Bool) -> Bool {
+        let on = left ? percussionLeft : percussionRight
+        let kit = left ? percussionLeftTrackDrum : percussionRightTrackDrum
+        let next: (on: Bool, kit: Bool)
+        if trackDrum {
+            next = (!on || !kit) ? (true, true) : (false, false)
+        } else {
+            next = on ? (false, false) : (true, false)
+        }
+        if left {
+            percussionLeftTrackDrum = next.kit
+            if percussionLeft != next.on { percussionLeft = next.on } else { applyPercussionSideEffects() }
+        } else {
+            percussionRightTrackDrum = next.kit
+            if percussionRight != next.on { percussionRight = next.on } else { applyPercussionSideEffects() }
+        }
+        return next.on
+    }
+
+    /// One drum hit for a split key, by the side's kit. Classic returns the
+    /// hat-pedal group token; the TrackDrum membrane is one-shot (group 0).
+    @discardableResult
+    func percussionKeyHit(displayNote: UInt8, velocity: UInt8, pan: UInt8,
+                          accent: Bool = false) -> UInt64 {
+        let left = Int(displayNote) < MenuBandLayout.lingerSplitMidi
+        let trackDrum = left ? percussionLeftTrackDrum : percussionRightTrackDrum
+        if trackDrum {
+            let strike = MenuBandPercussion.keyStrike(pitchClass: Int(displayNote) % 12, left: left)
+            let v = UInt8(min(127, Int(velocity) + (accent ? 18 : 0)))
+            mixAnalysis.mark("skin-key-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
+            lastSoundWasTrackDrum = true
+            synth.playDrumSkin(strike: strike, anchors: [], velocity: v)
+            return 0
+        }
+        return percussionNoteOn(percussionDrum(forDisplayNote: displayNote),
+                                velocity: velocity, pan: pan, accent: accent)
     }
 
     func togglePercussionSplit() { percussionSplit.toggle() }
@@ -3867,12 +3925,15 @@ final class MenuBandController {
 
         // Brackets latch the sided percussion split on the first key-down:
         // `[` (33) flips the LEFT half of the board to drums, `]` (30) the
-        // RIGHT half — `]` gave up its old ++d note for this. Holding either
-        // bracket still makes Up/Down a percussion-volume trim, but release
-        // never changes the latched state. Bare presses only (a modified
-        // bracket like ⌘-[ passed through above). Consumed in both directions.
+        // RIGHT half — `]` gave up its old ++d note for this. Shifted (`{`
+        // / `}`) latches the side to the TrackDrum kit instead — the
+        // membrane with its clicks — see `pressPercussionLatch`. Holding
+        // either bracket still makes Up/Down a percussion-volume trim, but
+        // release never changes the latched state. Bare or shifted presses
+        // only (a ⌘/⌥ bracket passed through above). Consumed both ways.
         if keyCode == 33 /* [ */ || keyCode == 30 /* ] */ {
             let left = keyCode == 33
+            let wantTrackDrum = shift   // the physical key, not the caps-lock linger latch
             heldLock.lock()
             if isDown && !isRepeat {
                 percussionControlKeysHeld.insert(keyCode)
@@ -3884,15 +3945,16 @@ final class MenuBandController {
             if isDown && !isRepeat {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    let enabled: Bool
-                    if left {
-                        self.percussionLeft.toggle()
-                        enabled = self.percussionLeft
+                    let enabled = self.pressPercussionLatch(left: left, trackDrum: wantTrackDrum)
+                    let kitIsTrackDrum = left ? self.percussionLeftTrackDrum : self.percussionRightTrackDrum
+                    if enabled && kitIsTrackDrum {
+                        // Arm cue in the alt kit's own voice: a rim click.
+                        self.synth.playDrumSkin(
+                            strike: MenuBandPercussion.keyStrike(pitchClass: 11, left: left),
+                            anchors: [], velocity: 96)
                     } else {
-                        self.percussionRight.toggle()
-                        enabled = self.percussionRight
+                        self.playPercussionToggleCue(on: enabled, pan: left ? 32 : 96)
                     }
-                    self.playPercussionToggleCue(on: enabled, pan: left ? 32 : 96)
                 }
             }
             return true
@@ -4286,9 +4348,12 @@ final class MenuBandController {
                     // Shift (the linger arm) ACCENTS the drum — a harder,
                     // more intense hit (the percussion analogue of linger).
                     let accent = lingerSide.isLingering
-                    let group = synth.percussionNoteOn(drum, velocity: 100, pan: pan,
-                                                       accent: accent)
                     let dn = percDisplayNote
+                    // By the side's kit: classic drum (hat group token) or a
+                    // TrackDrum membrane strike (one-shot, group 0).
+                    let group: UInt64 = dn.map {
+                        percussionKeyHit(displayNote: $0, velocity: 100, pan: pan, accent: accent)
+                    } ?? synth.percussionNoteOn(drum, velocity: 100, pan: pan, accent: accent)
                     heldLock.lock()
                     heldDrumKeys[keyCode] = group
                     if let dn { heldDrumDisplay[keyCode] = dn }
