@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "profile": "ray-frame-f64-v1",
+  "sha256": "99b244bd4a016f508b9e31c7c525a331146cc65a77b34430baa537f6e6e1a962",
+  "bytes": 3734,
+  "sourceSha256": "7bfbc9a368a9f5c70fa8cb62181e1545be20245b1d006174d2322e31970b1bc7",
+  "hostSha256": "d29762e9118e5ffe654e35045c22d6d6f4c6c4d772c3037e354d787f7a5b351b",
+  "kernelSha256": "d5e4953e0c1598ff8bf5ad235de96cf492e7fb55e45a9b1185e09242276033fa",
+  "compiler": "Homebrew clang version 22.1.8",
+  "flags": [
+    "--target=wasm32",
+    "-O3",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-fno-builtin",
+    "-nostdlib"
+  ],
+  "memoryBytes": 1179648,
+  "imports": []
+}

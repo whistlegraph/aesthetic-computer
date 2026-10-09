@@ -1,0 +1,1094 @@
+{
+  "version": 1,
+  "refreshed": "2026-10-08T23:51:21.135Z",
+  "pieces": [
+    {
+      "code": "bop",
+      "source": "purple, ink, line, blur 5",
+      "handle": "@jeffrey",
+      "hits": 17891,
+      "sha256": "338b4aa0f6834923d9b61639154a43c9b46bac1710585fb81adebbb529cd7897",
+      "embeds": false
+    },
+    {
+      "code": "pie",
+      "source": "(fps 24)\n(0.25s (wipe (... red yellow blue)))\n(ink green)\n(line 0 height/2 width height/2)\n(ink red)\n(line width/2 0 width/2 height)\n(scroll frame frame)",
+      "handle": "@jeffrey",
+      "hits": 12685,
+      "sha256": "c0c64899b8041ba94bb7f4b2ce8700eb47bb5a885f6cb8a8dafe295979d63d5c",
+      "embeds": false
+    },
+    {
+      "code": "roz",
+      "source": "fade:red-blue-black-blue-red\nink (? rainbow white 0) (1s... 24 64)\nline w/2 0 w/2 h\n(spin (2s... -1.125 1.125)) (zoom 1.1)\n(0.5s (contrast 1.05))\n(scroll (? -0.1 0 0.1) (? -0.1 0 0.1))\nink (? cyan yellow magenta) 8\ncircle w/2 h/2 (? 2 4 8)",
+      "handle": "@jeffrey",
+      "hits": 11346,
+      "sha256": "7f15157c6fd3351411aecd40801539d5af142e965dfced52618f06649d693709",
+      "embeds": false
+    },
+    {
+      "code": "ceo",
+      "source": "(1s (coat fade:black-red-rainbow-red-black:frame 64)) (0.3s (zoom 0.5)) (scroll 1)",
+      "handle": "@jeffrey",
+      "hits": 10996,
+      "sha256": "90a366860cbe04f2830dd9b4956253e0ebe58faec227246cdb3255dfb6f886a6",
+      "embeds": false
+    },
+    {
+      "code": "4xa",
+      "source": "blue",
+      "handle": "@jeffrey",
+      "hits": 10314,
+      "sha256": "16477688c0e00699c6cfa4497a3612d7e83c532062b64b250fed8908128ed548",
+      "embeds": false
+    },
+    {
+      "code": "cow",
+      "source": "($39i 0 0 w h 128)\n($r2f 0 0 w h 128)\n(contrast 1.5)",
+      "handle": "@jeffrey",
+      "hits": 10023,
+      "sha256": "752224c31fd0ae47b97351a886eb6092e20540f350b994befaf98f9ecba9e269",
+      "embeds": true
+    },
+    {
+      "code": "4bb",
+      "source": "black, ink (? yellow black) 48, line, scroll 1\nbake, ink (? magenta erase) 64, line, scroll -1\nbake, ink (? lime erase) 16, line, scroll 0 1\nbake, ink (? cyan erase) 48, line, scroll 0 -1\nburn, blur 8, contrast 1.25",
+      "handle": "@jeffrey",
+      "hits": 6848,
+      "sha256": "da31ec44467d2d5370a4f2f74eba676e65a968fa8c0e2243a6479e834d57aa94",
+      "embeds": false
+    },
+    {
+      "code": "87a",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") 160 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 6043,
+      "sha256": "10796b7bd2f6d9d949ab326dafac1f6388153da95dbbb50ded40de3c29eaf10c",
+      "embeds": false
+    },
+    {
+      "code": "wib",
+      "source": "(wipe blue)",
+      "handle": "@jeffrey",
+      "hits": 6032,
+      "sha256": "e6ea8594b822b11ef72fa8607f0a4409f2ab06b226bb88534e6933c12aeb516d",
+      "embeds": false
+    },
+    {
+      "code": "39i",
+      "source": "black\n(0.1s (ink (? black white) 32)\n(circle ? ? 32))\n(ink (? white black gray) (? 32 96))\nflood ? ?\nscroll (2s... 1 0 -1) (3s... -1 0 1)\n(1.5s (zoom (? 0.5 4)))\n(1s (blur 0.5))\n(2s (contrast 2))\n(0.3s (ink (? white black)) (repeat 30 point))\n(1s... (spin (0.5s... -0.1 0.1))",
+      "handle": "@jeffrey",
+      "hits": 5841,
+      "sha256": "0540ee4a6a774d48612cd3a40e8807dba5f3628168b395a683bc8b55058ff45b",
+      "embeds": false
+    },
+    {
+      "code": "nsh",
+      "source": "kidlisp",
+      "handle": "@jeffrey",
+      "hits": 5705,
+      "sha256": "9665a71a43e4d6dc95f361597a7b2c7a42c56d1a3dc9a2684dd3006ba5481a32",
+      "embeds": false
+    },
+    {
+      "code": "dlb",
+      "source": "(melody a.aa.e.aa….deagef.f….ad.409)",
+      "handle": "@snakes",
+      "hits": 5669,
+      "sha256": "3b6fb31603135aede4db81ed3875c24baccc9037fe8fdc69b33030b40519992e",
+      "embeds": false
+    },
+    {
+      "code": "c4x",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/2 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 153 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 5499,
+      "sha256": "3b5a1eb97d3170838bd9911b36d2e2bf5e4683fdce4cd3d9f0841e0693da2870",
+      "embeds": false
+    },
+    {
+      "code": "rzo",
+      "source": "lisy\n\nlist",
+      "handle": "@Cozy829",
+      "hits": 5439,
+      "sha256": "ba8244e5df0fdfb6a50e0dbb5f6a25dad7a613bae235545902db666d7b5eab9d",
+      "embeds": false
+    },
+    {
+      "code": "isd",
+      "source": "(melody d.d..d.e..g..e.h..e.f..e.fd. 500)",
+      "handle": "@prutti",
+      "hits": 5422,
+      "sha256": "6ec2d7a5f0c07c19cbbc1b3eff376998f63ba7c35ddf145120efd4f0f590713d",
+      "embeds": false
+    },
+    {
+      "code": "pif",
+      "source": "($pie 0 0 w/2 h)\n($febs w/2 0 w/2 h)",
+      "handle": "@jeffrey",
+      "hits": 5366,
+      "sha256": "0541e283231c88c649dfd4007bf8363224f0a19d86cc31c18b445b535e84e0ec",
+      "embeds": true
+    },
+    {
+      "code": "wa9",
+      "source": "shape 214 0 32, 255",
+      "handle": "@AwesomeAspen",
+      "hits": 5311,
+      "sha256": "bcbeb5d98bed506dcf9ce433a5aa52a07c0a4fc1c79079f32299aa3c980c8232",
+      "embeds": false
+    },
+    {
+      "code": "17m",
+      "source": "(melody adedf 170)",
+      "handle": "@alki",
+      "hits": 5238,
+      "sha256": "d3783ae9f5f12f84a1d940ba0f60d7d75487e8e82a4e8ad2d0b6ca46c387be9d",
+      "embeds": false
+    },
+    {
+      "code": "ga1",
+      "source": "brown",
+      "handle": "@jeffrey",
+      "hits": 5197,
+      "sha256": "5eb67f9f8409b9c3f739735633cbdf92121393d0e13bd0f464b1b2a6a15ad2dc",
+      "embeds": false
+    },
+    {
+      "code": "olp",
+      "source": "yellow, ink black 10, box",
+      "handle": "@sat",
+      "hits": 5072,
+      "sha256": "301a858489965f9df977a7ba4420c357f07eebb9f03ced9aa9a5a59fc9291925",
+      "embeds": false
+    },
+    {
+      "code": "r2f",
+      "source": "salmon\nink fade:palegreen-purple (? 20 48)\nbox ? ? (? 2 4 32 64)\nink (? c0 c4 c7 rainbow) (? 32 64 96)\n(repeat 2 (flood ? ?))\ncontrast (? 1.05 0.97 1)\nscroll 0.1\n(0.1s (zoom (? 1.89 1 1.1 1.2)))\nspin (? -0.1 0 0 0 0.1)\nscroll 0 (? 1 -1)\nblur 0.05",
+      "handle": "@jeffrey",
+      "hits": 4866,
+      "sha256": "44221f4bddd02737e19ac940c355020a3e622acf7367a82ba986aeb188a45d76",
+      "embeds": false
+    },
+    {
+      "code": "wezo",
+      "source": "(wipe fade:zebra-rainbow-zebra-rainbow-zebra)\n(zoom 0.25)",
+      "handle": "@jeffrey",
+      "hits": 4838,
+      "sha256": "93e2cf73a62a3f3c575061b6dc7993163edeab4749469673682b9e299b900545",
+      "embeds": false
+    },
+    {
+      "code": "9ay",
+      "source": "chat",
+      "handle": "@bash",
+      "hits": 4820,
+      "sha256": "31e06f7d89feb99a0e6c0affe198748c3bb5bef5e3cc92d95cb9e996197d3fc3",
+      "embeds": false
+    },
+    {
+      "code": "bap",
+      "source": "purple, line, blur 5",
+      "handle": "@jeffrey",
+      "hits": 4783,
+      "sha256": "f0847227150290ceeb342cc234986a1f4bdc8cd90fbb57602fae4a868ef54599",
+      "embeds": false
+    },
+    {
+      "code": "wifz",
+      "source": "(wipe fade:zebra-zebra-zebra-rainbow:frame*2)",
+      "handle": "@jeffrey",
+      "hits": 4722,
+      "sha256": "9954241a446eeac373689b65b621b8c2ee349d03bf02acd01d7fa91001dc5c74",
+      "embeds": false
+    },
+    {
+      "code": "epk",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/4 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 height/2 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 4622,
+      "sha256": "c04ead9ac58fbfe40d3be87a572c5bf3a0e2ba34ec503f084ee7385a202d8cf1",
+      "embeds": false
+    },
+    {
+      "code": "bels",
+      "source": "brown\nline 0 0 100 100\nscroll -2 1",
+      "handle": "@jeffrey",
+      "hits": 4200,
+      "sha256": "e0a360964412a629191bb39c96a0ac7ae1f5add78aa078323ca6ffe3bdcd6acc",
+      "embeds": false
+    },
+    {
+      "code": "h6g",
+      "source": "(Butterfly",
+      "handle": "@jeffrey",
+      "hits": 4097,
+      "sha256": "6014c7d992c003cdd76854e02b6007728c6c5f081fcaffaedc862e062c37dd2a",
+      "embeds": false
+    },
+    {
+      "code": "qkn",
+      "source": "(Butterfly)",
+      "handle": "@jeffrey",
+      "hits": 4048,
+      "sha256": "87139344a3f6b84aa891c276fd2cc69b01be33d5ff3f569a408acdfcfc20b4d2",
+      "embeds": false
+    },
+    {
+      "code": "reeb",
+      "source": "red, ink erase, line, bake",
+      "handle": "@jeffrey",
+      "hits": 3615,
+      "sha256": "6bd8443648413076a3bc31bdd1441eb48601d84a23494ea043173e26bb9e7672",
+      "embeds": false
+    },
+    {
+      "code": "otoc",
+      "source": "(once noise) (spin (0.5s... 1 -1)) (suck 1) (contrast 1.01)",
+      "handle": "@jeffrey",
+      "hits": 3605,
+      "sha256": "ce66afd46cdd12c01526b4dd595e08ac568035b55fb150fcf8dd1f01b972e57a",
+      "embeds": false
+    },
+    {
+      "code": "mz4",
+      "source": "purple",
+      "handle": "@jeffrey",
+      "hits": 3561,
+      "sha256": "8e0a1b0ada42172886fd1297e25abf99f14396a9400acbd5f20da20289cff02f",
+      "embeds": false
+    },
+    {
+      "code": "niy",
+      "source": "cyan\n($pie 0 0 w/2 h)\n($febs w/2 0 w/2 h)\n(ink rainbow) (line)",
+      "handle": "@jeffrey",
+      "hits": 3384,
+      "sha256": "328f1711b41817f058e395d5ab961689e68d9d5e3b58b95353094dae358bb1ab",
+      "embeds": true
+    },
+    {
+      "code": "sepb",
+      "source": "(3s... ($neio 0 0 w h/2)\n($pif 0 h/2 w h/2))\n(blur 4)\n;(1s (zoom 0.5))\n;(scroll 0 -frame)",
+      "handle": "@jeffrey",
+      "hits": 3334,
+      "sha256": "622fa2e794a9774bf743649b770c396884fd6a9117de412915b2321782887226",
+      "embeds": true
+    },
+    {
+      "code": "inz",
+      "source": "(beige)\n(ink (0.25s... 127 0 rainbow))\n(write X 3 3)\n(scroll 18 3)\n(blur 0.1)\n(1.25s (zoom (? 0.25 1.5)))",
+      "handle": "@jeffrey",
+      "hits": 3132,
+      "sha256": "ed43705838833c0426844c52f12459a51cfcd5799a3c6e9ee63aab5f73a07559",
+      "embeds": false
+    },
+    {
+      "code": "air",
+      "source": "fade:pink-gray-pink\nink (? orange yellow) 32\nline\n(0.15s (zoom 0.2))\nscroll 1 0.25\n(0.1s (contrast 1.01))\n(0.5s (ink rainbow 96) (repeat 10 point))",
+      "handle": "@jeffrey",
+      "hits": 3077,
+      "sha256": "0509200805983a096944e2a2ef7252bbd3227a99329755eb3dbfc9f6d73c001b",
+      "embeds": false
+    },
+    {
+      "code": "ri3",
+      "source": "red, ink erase 32, line",
+      "handle": "@jeffrey",
+      "hits": 2961,
+      "sha256": "e52a75e12cea850359e2c195131b5f4f56ad6fe789bad426e576be348c3b9239",
+      "embeds": false
+    },
+    {
+      "code": "wes",
+      "source": "wipe brown\n(2s... ((line) (line)) (box 0 0 25 25))",
+      "handle": "@jeffrey",
+      "hits": 2785,
+      "sha256": "f97c946087ec3189971d23709c7c5dd8d061dc654385ec01693f7d8a2876c460",
+      "embeds": false
+    },
+    {
+      "code": "4wi",
+      "source": "(wipe fade:red-zebra-rainbow-zebra-red:frame*4)",
+      "handle": "@jeffrey",
+      "hits": 2779,
+      "sha256": "71a18704b6a914a17da6a618c615a513da6ab11f979ef2410473c596d2d100f6",
+      "embeds": false
+    },
+    {
+      "code": "nrb",
+      "source": "red, ink black, line 0 15 5 28",
+      "handle": "@jeffrey",
+      "hits": 2718,
+      "sha256": "f1bce260459dcb2b43d5df5ed56c1600f28ead8ef02f4c6ea74f76aba2ad186f",
+      "embeds": false
+    },
+    {
+      "code": "fdj",
+      "source": "brown, ink, line, blur 5, scroll 50",
+      "handle": "@jeffrey",
+      "hits": 2699,
+      "sha256": "199590b3678ad6b5c9923786219e2d820b37423310c3292aca11118cd8c5270e",
+      "embeds": false
+    },
+    {
+      "code": "peil",
+      "source": "purple, ink, line",
+      "handle": "@jeffrey",
+      "hits": 2651,
+      "sha256": "d5eedeb15ab8b60205204cf190d03747713c6d8ca9d7a313cf40b277fb2f7ade",
+      "embeds": false
+    },
+    {
+      "code": "uni",
+      "source": "purple, ink, line, scroll",
+      "handle": "@jeffrey",
+      "hits": 2634,
+      "sha256": "f9048ae0299e6f0e916bc57344072b6155880bfc32496fe77bb1a88a3ce54cc5",
+      "embeds": false
+    },
+    {
+      "code": "bair",
+      "source": "black\nink rainbow 127\nrepeat 100 point\nzoom 1.05\nspin 1\nscroll 20",
+      "handle": "@jeffrey",
+      "hits": 2569,
+      "sha256": "951b30a09c69aa944289f7c6b6d93c495f06a3bc2be3a57cde0e86ddaa155543",
+      "embeds": false
+    },
+    {
+      "code": "eel",
+      "source": "(beige)\n(ink (0.5s... gray black rainbow))\n(0.1s (write (? x X) width/2 height/2))\n(0.05s (scroll (? 18 -18) (? 32 -32))\n(blur 0.1)\n(1.25s (zoom (? 2 1.5 0.5)))",
+      "handle": "@jeffrey",
+      "hits": 2564,
+      "sha256": "f6eb1fa589672ac145b676785c2cd9c222ad9ca9a284228e89e7cf4ce0b48ca1",
+      "embeds": false
+    },
+    {
+      "code": "nece",
+      "source": "red, ink blue, line, scroll 1",
+      "handle": "@jeffrey",
+      "hits": 2539,
+      "sha256": "10e1ec1d79ea1d65040ea921d7413dab708460a054c5b4eb1a6ec3bda8e707e0",
+      "embeds": false
+    },
+    {
+      "code": "bial",
+      "source": "brown\nink rainbow\nline 0 0 100 100\nscroll -2 1\n(1s (zoom 1.5))",
+      "handle": "@jeffrey",
+      "hits": 2538,
+      "sha256": "44f98897c7d32c6185860c4e26fd67df4c0bd7f9ca8104474d656585297c2a01",
+      "embeds": false
+    },
+    {
+      "code": "woe",
+      "source": "white\n(once (line 0 h/2 w h/2)\n(line w/2 0 w/2 h))\nflood ? ?\n(0.5s (zoom (? 0.5 2)))\nscroll 2",
+      "handle": "@jeffrey",
+      "hits": 2513,
+      "sha256": "1d50717ea4520ba203ded418abbe3d736bc5925eac2f438ea3a596ff4f51e2fc",
+      "embeds": false
+    },
+    {
+      "code": "ayc",
+      "source": "$bop",
+      "handle": "@jeffrey",
+      "hits": 2513,
+      "sha256": "b38d84729dc63cd433f45751bd9722565cc081b7f436ebdec9950c994ebfafeb",
+      "embeds": true
+    },
+    {
+      "code": "o6p",
+      "source": "prompt",
+      "handle": "@jeffrey",
+      "hits": 2458,
+      "sha256": "cf07194ee232eb531e15f690000d19846dea69cf05504782658afcfacb9228a2",
+      "embeds": false
+    },
+    {
+      "code": "febs",
+      "source": "fade:red-blue-black-red\n(scroll (1s... -1 1) -1)",
+      "handle": "@jeffrey",
+      "hits": 2447,
+      "sha256": "cca230b684c2b6b5f22423d2b18fda5951f83f03ddcd0ad127eefd43b1c01498",
+      "embeds": false
+    },
+    {
+      "code": "faim",
+      "source": "fade:tan-cyan:90\nink (? zebra gold tan) (? 8 32)\nmask 0 0 w/2 h, line, scroll 2\nmask w/2 0 w/2 h\nink (? rainbow pink tan) 32, line\nscroll -2",
+      "handle": "@jeffrey",
+      "hits": 2432,
+      "sha256": "d2d7be7bacdb8a1ad703e6180b4d1033b76c5773cb7637657d375e707e949359",
+      "embeds": false
+    },
+    {
+      "code": "xom",
+      "source": "fps 24, ink (? white black black black yellow)\nrepeat 100 line\nspin 1\n(zoom 1.05)\n(blur 10)\n(sharpen 5)",
+      "handle": "@jeffrey",
+      "hits": 2429,
+      "sha256": "b5c27d3b4c1773dd63b3815377fe8a144b96813f7a95cc03d17b71f6c3dd024a",
+      "embeds": false
+    },
+    {
+      "code": "berz",
+      "source": "black\nink (? white black)\nrepeat 100 line\nspin 1\n(zoom 1.05)\n(blur 1)",
+      "handle": "@jeffrey",
+      "hits": 2359,
+      "sha256": "67a73506754d70b5a0f3fde3a37335105b52afb0efe1d8ea3d348a89779798c4",
+      "embeds": false
+    },
+    {
+      "code": "dbh",
+      "source": "ink blue\nwrite \"hello casey\" 16 16",
+      "handle": "@jeffrey",
+      "hits": 2314,
+      "sha256": "a86f31915cdeb13de537f40233794326613d2687094bf58a90f2904e3d135d45",
+      "embeds": false
+    },
+    {
+      "code": "1fi",
+      "source": "fade:blue-green-blue\n(1s (zoom 0.75))\n(0.5s (ink fade:white-rainbow 128)\n      (box ? ? 64))\nscroll (1s... 2 -2) (1s... -2 2)",
+      "handle": "@jeffrey",
+      "hits": 2213,
+      "sha256": "cf94220e18d74d256b2995fe023a3cb17cbc5d3390f5e79d0dd9a7e64ab05e75",
+      "embeds": false
+    },
+    {
+      "code": "noc",
+      "source": "(ink rainbow (? 45 128 20))\n(0.028s \n  (scroll width/8)\n  (box 0 0 width/16 height)\n)\n(shear 0.00400 (? 0.03 0.1 -1 10))",
+      "handle": "@jeffrey",
+      "hits": 2141,
+      "sha256": "076e9754a87082a1154d37347c3aca008bc0918d88b0b11f457f045fe7f95b17",
+      "embeds": false
+    },
+    {
+      "code": "lei",
+      "source": "blue\nink rainbow\nline ? 0 100 ?\nscroll (... 1 0 -1 -2) (? 1 1 -2)\n(1s (blur 1))\n(0.8s (scroll width/2 height/2))",
+      "handle": "@jeffrey",
+      "hits": 2124,
+      "sha256": "1b7972a63c06036fd675725456376e77d6693c4c432f6e6b6b70563e860a0cd4",
+      "embeds": false
+    },
+    {
+      "code": "weus",
+      "source": "white\nmask 0 0 w/2 h, ink zebra 32\nbox ? ? ?\nunmask\nscroll 0 15\nink zebra 64, line\n(0.2s (blur 2))\n(0.5s (sharpen 1.05)",
+      "handle": "@jeffrey",
+      "hits": 2077,
+      "sha256": "6f0e9b5e7f1544443fae11510246924e3407ae1b6ee738a829c96a136d6937e9",
+      "embeds": false
+    },
+    {
+      "code": "woww",
+      "source": "($wwa 0 0 w/2 h/2)\n($wwi 0 h/2 w/2 h/2)\n($wafr w/2 0 w/2 h)\n(zoom 0.5)\n(scroll frame)\n(contrast 5)",
+      "handle": "@jeffrey",
+      "hits": 2034,
+      "sha256": "a1c270a936d2b9a49e859449ba3067794430d7082b13194a9ec03e53d3f2e516",
+      "embeds": true
+    },
+    {
+      "code": "zo5",
+      "source": "black\nink (5s... (... white red) (rainbow))\npoint width/2 height/2\nscroll (? -1 0 1) (? -1 0 1)\n(0.5s (zoom 2))",
+      "handle": "@jeffrey",
+      "hits": 1926,
+      "sha256": "b74cda7eb450cd1c03a7193d5bcfd44542bd30230283f1a4439cb9317888bcc3",
+      "embeds": false
+    },
+    {
+      "code": "inc",
+      "source": "white\n(0.25s (ink) (line 0 h/2 w h/2)\n(line w/2 0 w/2 h))\n(ink rainbow (? 16 96)) (flood ? ?)\n(0.5s (zoom (? 0.5 2 3) w h))\nscroll (2s... -2 0 2) (3s... -1 0 1)\n(0.2s (contrast (? 1.2 0.9)))",
+      "handle": "@jeffrey",
+      "hits": 1900,
+      "sha256": "472a81598c105ae563fc567f4eab18b24c92c404d720d5076ac1b1c096af0afb",
+      "embeds": false
+    },
+    {
+      "code": "mtz",
+      "source": "red, ink white, line 0 0 100 100, scroll -1 4, ink (? red yellow blue), point ? ?",
+      "handle": "@jeffrey",
+      "hits": 1872,
+      "sha256": "6be5cbb471613b7142b4a53706339e477f624425be27df198c40a5d843512f9a",
+      "embeds": false
+    },
+    {
+      "code": "wwi",
+      "source": "(wipe fade:red-rainbow)",
+      "handle": "@jeffrey",
+      "hits": 1868,
+      "sha256": "8178f15738c67b4401cdcfaa9bfe4dc407718f0c85eb382f3a604a721aac5a33",
+      "embeds": false
+    },
+    {
+      "code": "bell",
+      "source": "brown\nink yellow\nline 0 0 0 height\nink (... blue rainbow)\nline 1 0 1 height\nscroll -2\n(0.2s (zoom 2.2 0 0))\nink\nrepeat 2 line",
+      "handle": "@jeffrey",
+      "hits": 1719,
+      "sha256": "29b8cf4655cc2cb2fe0e314a542eec6eb8b07d02ced90539d05e451a623c84c8",
+      "embeds": false
+    },
+    {
+      "code": "wiww",
+      "source": "($wwa 0 0 w/2 h/2)\n($wwi 0 h/2 w/2 h/2)\n($wafr w/2 0 w/2 h)\n(zoom 0.1)\n(scroll frame)",
+      "handle": "@jeffrey",
+      "hits": 1711,
+      "sha256": "f1e3bb9afa79824e381954df24ec04cc649dde3eeb7ebe31da0660d33546d368",
+      "embeds": true
+    },
+    {
+      "code": "ock",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") 170 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1647,
+      "sha256": "948fd52974da58719cc99f1c7e455deedb15bb2a25f987a06c007d38b65dc3a3",
+      "embeds": false
+    },
+    {
+      "code": "6cc",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") w/2 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1604,
+      "sha256": "2eb0413fad9f3a5d844e934e6ae041056606e6a6f5d04bf4cc6a0f3b87fecf09",
+      "embeds": false
+    },
+    {
+      "code": "857",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") 150 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1590,
+      "sha256": "cb69756f011e440e8130874df486522c82d7557ae9bfc07c93f67e39afe8bc57",
+      "embeds": false
+    },
+    {
+      "code": "7xl",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.5s... .7 ?) \nbake\nwrite (.35s... \"dog\" \"god\") w/2 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1552,
+      "sha256": "b96e1f2fa6b13e78079ef4cc5e33c523f9247f25660a50c81a210f985e41f280",
+      "embeds": false
+    },
+    {
+      "code": "fky",
+      "source": "white\nstamp #48q 150 150 1\nscroll width/4 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/2 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 153 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 1518,
+      "sha256": "23934854ba7896d97076ee99df6fa7e731a3c4d2d3373994e23a9edc28172151",
+      "embeds": false
+    },
+    {
+      "code": "plw",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") 165 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1474,
+      "sha256": "f522afe589e8785edcb7dd039cd1cb6e8ea19ed2db6fb58d597874aeae2f117f",
+      "embeds": false
+    },
+    {
+      "code": "lzb",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/4 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 150 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 1467,
+      "sha256": "9cc79abb15bc69d3efcde07800f14d59dccf2ffece7d5f3fc8cd4e48a199776b",
+      "embeds": false
+    },
+    {
+      "code": "zba",
+      "source": "blue\nink rainbow\nline 0 0 100 0\nscroll 1 2\n(0.2s (zoom 1.5 0 0))\nspin 2 0 0",
+      "handle": "@jeffrey",
+      "hits": 1454,
+      "sha256": "a7e58c195a5d472fe1cae539748ade7796f2c90b93f49ca01be9a08bc0fe0a46",
+      "embeds": false
+    },
+    {
+      "code": "kl5",
+      "source": "white\nstamp #48q 150 150 1\nscroll width/4 12\nscroll frame\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/2 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 153 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 1444,
+      "sha256": "fb35362efdc14631b0937a1cc18a33a969e309946b01382b883bca8c258933ed",
+      "embeds": false
+    },
+    {
+      "code": "omd",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.5s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.5s... .7 ?) \nbake\nwrite (.35s... \"dog\" \"god\") w/2 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1430,
+      "sha256": "42701aeaba9501402fc8d45b7bef53c90deeba2ae8acc2e488026357c21eb2ad",
+      "embeds": false
+    },
+    {
+      "code": "b4t",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/2 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 h/2 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 1418,
+      "sha256": "c401b960cabb10cccd6f7f0cb88633529450230d9c75f8f2b03867d18e92b760",
+      "embeds": false
+    },
+    {
+      "code": "bjn",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/4 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 154 white\nscroll width/2\nzoom (1s... 2 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 1389,
+      "sha256": "8509548d16e31bedd025027968cf27f76a057784c50b0ba1d71b0cc704d418c3",
+      "embeds": false
+    },
+    {
+      "code": "i5t",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll -12 height/5\nblur 2\nspin -5\nfps 24",
+      "handle": "@fifi",
+      "hits": 1349,
+      "sha256": "24bf144c88f22cee35a9e52dd38eb8ddb6ab5be09072e253e2d79874bf1e05b4",
+      "embeds": false
+    },
+    {
+      "code": "wah",
+      "source": "($39i 0 0 w h 128)\n($r2f 0 0 w h 128)",
+      "handle": "@jeffrey",
+      "hits": 1346,
+      "sha256": "ff3899f483fe37e2206cfcaeea55b842ca138d474fed995d3015b41562a39c38",
+      "embeds": true
+    },
+    {
+      "code": "h67",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.5s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.5s... .7 ?) \nbake\nwrite (.5s... \"dog\" \"god\") w/2 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1339,
+      "sha256": "6719bf316285efcf53501554b4142e2314d872d1518f2b41c31fa20214483825",
+      "embeds": false
+    },
+    {
+      "code": "bils",
+      "source": "brown\nline 200 0 100 100\nscroll -2 1",
+      "handle": "@jeffrey",
+      "hits": 1339,
+      "sha256": "b40bfde5f61bb1d255ba32a1439b636755900126f194761187d6ea285b9f7ad3",
+      "embeds": false
+    },
+    {
+      "code": "ory",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/4 5\nblur 2\nspin -5\nfps 24",
+      "handle": "@fifi",
+      "hits": 1333,
+      "sha256": "60a87d41897ef4161170642dded321d1547bcd40267437eb9053541c9648e283",
+      "embeds": false
+    },
+    {
+      "code": "boo",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/5 5\nblur 2\nspin -5\nfps 24",
+      "handle": "@fifi",
+      "hits": 1310,
+      "sha256": "5f279cd5296a530106d8a2450685c73d6b27e4892acf6943c8dd5153ac6c5d19",
+      "embeds": false
+    },
+    {
+      "code": "iqa",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll -12 5\nblur 2\nspin -5\nfps 24",
+      "handle": "@fifi",
+      "hits": 1297,
+      "sha256": "6937312802eab79a1d136e0b4572c09aaaf437e6caaca441abede3602c51f77c",
+      "embeds": false
+    },
+    {
+      "code": "y95",
+      "source": "white\nstamp #32g 150 250 .4\nscroll width/3 -3\nscroll frame\nspin 14\nblur 3\nbake\nblur 1\nspin 3\nzoom .8\nwrite \"gently\" 70 90 zebra 1.1\nscroll 5\nbake\nstamp #ceu w/2 h/2 1",
+      "handle": "@fifi",
+      "hits": 1283,
+      "sha256": "b73a97fff84455b0feedbb579783497ce3be94540947dc898c434e3415d2472a",
+      "embeds": false
+    },
+    {
+      "code": "aes",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/4 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 154 white\nscroll width/2\nzoom (1s... 1 .7 ?)\nspin -3",
+      "handle": "@fifi",
+      "hits": 1271,
+      "sha256": "20e7b35fbbf9f0677aa5f15f086f99f256ac00c6cbcd2b9cf303efd3d92f0450",
+      "embeds": false
+    },
+    {
+      "code": "mpl",
+      "source": "fade:pink-zebra\nsamp #txr 150 150",
+      "handle": "@fifi",
+      "hits": 1269,
+      "sha256": "a3b4d3bad0d54504221e77f39b3c7b3ac9c1e4f4df82b5c626c2c69c4b8a04e9",
+      "embeds": false
+    },
+    {
+      "code": "qv6",
+      "source": "fade:black-lightsteelblue-orange:vertical \nspin -10 \nblur 4\nscroll width/5 -20\nbake\nstamp #6td w/2 240 .5 \nblur 4 \nscroll frame/5 5 \nspin 13\nbake\nstamp #icy 180 180 1.5\nblur 1\nbake\nfps 24\nbake  \nwrite \"*\"",
+      "handle": "@fifi",
+      "hits": 1259,
+      "sha256": "de8f610271dbe657dee5ff39d8e3ea145298a8bb4c3067216a5b16ead489660f",
+      "embeds": false
+    },
+    {
+      "code": "78o",
+      "source": "white\nstamp #32g 150 270 .4\nscroll width/3 -3\nscroll frame 5\nspin 14\nblur 3\nbake\nblur 1\nspin 3\nzoom .8\nwrite \"gently\" 70 90 zebra 1.1\nscroll 5\nbake\nstamp #ceu w/2 h/2 1",
+      "handle": "@fifi",
+      "hits": 1254,
+      "sha256": "48b80ec1c6184894eeb16fb0adc58259e6e2d244cc0a54f4fa1e456ad6b94e02",
+      "embeds": false
+    },
+    {
+      "code": "uvc",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") 167 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1244,
+      "sha256": "73ea3af2a45e5ad7d3cb03d4a09fe5482c929808a553225e15b1905a124e1a4e",
+      "embeds": false
+    },
+    {
+      "code": "3pr",
+      "source": "white\nstamp #48q 150 150 1\nscroll frame 12\n#e8j\nblur 2\nbake\nzoom (.5s... .5 1 ?)\nscroll width/4 5\nblur 2\nspin -3\nfps 24\nbake\nwrite \"miracle mindset\" 150 154 white\nscroll width/2\nzoom (1s... 1 .7 ?)\nspin",
+      "handle": "@fifi",
+      "hits": 1238,
+      "sha256": "a1a0056c56d62fe67b51b85bce9ce3006fbb898dd9a03c41f080400a0b48e7ef",
+      "embeds": false
+    },
+    {
+      "code": "fnv",
+      "source": "white\nstamp #32g 150 270 .4\nscroll width/3 -3\nscroll frame height/5\nspin 14\nblur 3\nbake\nblur 1\nspin 3\nzoom .8\nwrite \"gently\" 70 90 zebra 1.1\nscroll 5\nbake\nstamp #ceu w/2 h/2 1",
+      "handle": "@fifi",
+      "hits": 1236,
+      "sha256": "3d5cac3d27b9744b11ebb8560dee74f14174cb682a314e0595421e84e5044f19",
+      "embeds": false
+    },
+    {
+      "code": "qxx",
+      "source": "fade:black-lightsteelblue-orange:vertical \nspin -10 \nblur 4\nscroll width/5 -20\nbake\nstamp #6td w/2 240 .5 \nblur 4 \nscroll frame/5 5 \nspin 13\nbake\nstamp #icy 175 180 1.5\nblur 1\nbake\nfps 24\nbake  \nwrite \"*\"",
+      "handle": "@fifi",
+      "hits": 1231,
+      "sha256": "f652c679277560a624ec24eb5ba2967c089c7c6c96555f9a510f2af6f2e38b1a",
+      "embeds": false
+    },
+    {
+      "code": "u2b",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.25s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.25s... .7 ?) \nbake\nwrite (.25s... \"dog\" \"god\") 168 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1229,
+      "sha256": "d3d51c8cf05793b7e2371c9c1d1099203d14cb747c969b89181c73fbb60857e5",
+      "embeds": false
+    },
+    {
+      "code": "w5m",
+      "source": "white\nstamp #32g 150 250 .4\nscroll width/3 -3\nscroll frame\nspin 14\nblur 3\nbake\nblur 1\nspin 3\nzoom .8\nwrite \"gently\" 70 90 zebra 1.1\nscroll 3 frame\nbake\nstamp #ceu w/2 h/2 1",
+      "handle": "@fifi",
+      "hits": 1225,
+      "sha256": "34501a83edffeffd4d78c23678467606fd26dd4d12a213a05956c1cb32a386fc",
+      "embeds": false
+    },
+    {
+      "code": "ljk",
+      "source": "fade:lightsteelblue-pink-lightgreen:vertical\nspin -10 \nscroll frame -5\nscroll width/5 frame\nblur 2\nbake\nstamp #dml 270 280 1.2 20\nblur (1s... 1 2)\nzoom (.5s... .8 ?)\nspin -10\nbake\nstamp #o2d 190 h/2 1.3 \nblur 2 \nzoom (.5s... .7 ?) \nbake\nwrite (.75s... \"dog\" \"god\") w/2 h/2 zebra\nfps 24\nstamp #dml 60 80 .8 170\nblur 2",
+      "handle": "@fifi",
+      "hits": 1222,
+      "sha256": "a9e212793627ce5610333963f7b5ea19b167c7740050e1bf081473d69f010b59",
+      "embeds": false
+    },
+    {
+      "code": "uen",
+      "source": "fade:black-lightsteelblue-orange:vertical \nspin -10 \nblur 4\nscroll width/5 -20\nbake\nstamp #6td w/2 240 .5 \nblur 4 \nscroll frame/5 5 \nspin 13\nbake\nstamp #icy 178 180 1.5\nblur 1\nbake\nfps 24\nbake  \nwrite \"*\"",
+      "handle": "@fifi",
+      "hits": 1219,
+      "sha256": "7936d25ec7531713dd4bb6759a4178d4b3b16fef23a8e09977865ae3a37d122b",
+      "embeds": false
+    },
+    {
+      "code": "tgo",
+      "source": "white\nstamp #32g 150 250 .4\nscroll width/3 -3\nscroll frame\nspin 14\nblur 3\nbake\nblur 1\nspin 3\nzoom .7\nwrite \"gently\" 70 90 zebra 1.1\nscroll 3\nbake\nstamp #ceu w/2 h/2 1",
+      "handle": "@fifi",
+      "hits": 1213,
+      "sha256": "32ef3ff5d32f88d0b7dc6b40474c9812fa601eabd362eca9dc1080e8fd017cc4",
+      "embeds": false
+    },
+    {
+      "code": "cjg",
+      "source": "white\nstamp #32g 150 250 .4\nscroll width/3 -3\nscroll frame\nspin 14\nblur 3\nbake\nblur 1\nspin 3\nzoom .8\nwrite \"gently\" 70 90 zebra 1.1\nscroll 3\nbake\nstamp #ceu w/2 h/2 1",
+      "handle": "@fifi",
+      "hits": 1211,
+      "sha256": "0ef8adb1510ba35a751a8c0675c6e33ed9d1165df5e54c2a36fd1a51631f27ac",
+      "embeds": false
+    }
+  ],
+  "dependencies": {
+    "neio": {
+      "code": "neio",
+      "source": "(ink rainbow) (line 0 0 w h)",
+      "handle": null,
+      "hits": 82,
+      "sha256": "ba4e76212dd534ca28bfdf831086d70184c873406624ff80ab552e5bbb573351"
+    },
+    "wwa": {
+      "code": "wwa",
+      "source": "(wipe fade:rainbow-red)",
+      "handle": "@jeffrey",
+      "hits": 252,
+      "sha256": "6bb23c838d16cffb9e569b1f044a58a5e22013bbe99d809a210d063b41941867"
+    },
+    "wafr": {
+      "code": "wafr",
+      "source": "(wipe fade:rainbow-blue-rainbow-cyan)",
+      "handle": "@jeffrey",
+      "hits": 228,
+      "sha256": "525eb65dead5961e70c83a0deba86da53cba2af26a0fd82ab4300a43d7d81893"
+    }
+  },
+  "audit": {
+    "edges": {
+      "857": [],
+      "bop": [],
+      "pie": [],
+      "roz": [],
+      "ceo": [],
+      "4xa": [],
+      "cow": [
+        "39i",
+        "r2f"
+      ],
+      "4bb": [],
+      "87a": [],
+      "wib": [],
+      "39i": [],
+      "nsh": [],
+      "dlb": [],
+      "c4x": [],
+      "rzo": [],
+      "isd": [],
+      "pif": [
+        "pie",
+        "febs"
+      ],
+      "wa9": [],
+      "17m": [],
+      "ga1": [],
+      "olp": [],
+      "r2f": [],
+      "wezo": [],
+      "9ay": [],
+      "bap": [],
+      "wifz": [],
+      "epk": [],
+      "bels": [],
+      "h6g": [],
+      "qkn": [],
+      "reeb": [],
+      "otoc": [],
+      "mz4": [],
+      "niy": [
+        "pie",
+        "febs"
+      ],
+      "sepb": [
+        "neio",
+        "pif"
+      ],
+      "inz": [],
+      "air": [],
+      "ri3": [],
+      "wes": [],
+      "4wi": [],
+      "nrb": [],
+      "fdj": [],
+      "peil": [],
+      "uni": [],
+      "bair": [],
+      "eel": [],
+      "nece": [],
+      "bial": [],
+      "woe": [],
+      "ayc": [
+        "bop"
+      ],
+      "o6p": [],
+      "febs": [],
+      "faim": [],
+      "xom": [],
+      "berz": [],
+      "dbh": [],
+      "1fi": [],
+      "noc": [],
+      "lei": [],
+      "weus": [],
+      "woww": [
+        "wwa",
+        "wwi",
+        "wafr"
+      ],
+      "zo5": [],
+      "inc": [],
+      "mtz": [],
+      "wwi": [],
+      "bell": [],
+      "wiww": [
+        "wwa",
+        "wwi",
+        "wafr"
+      ],
+      "ock": [],
+      "6cc": [],
+      "7xl": [],
+      "fky": [],
+      "plw": [],
+      "lzb": [],
+      "zba": [],
+      "kl5": [],
+      "omd": [],
+      "b4t": [],
+      "bjn": [],
+      "i5t": [],
+      "wah": [
+        "39i",
+        "r2f"
+      ],
+      "h67": [],
+      "bils": [],
+      "ory": [],
+      "boo": [],
+      "iqa": [],
+      "y95": [],
+      "aes": [],
+      "mpl": [],
+      "qv6": [],
+      "78o": [],
+      "uvc": [],
+      "3pr": [],
+      "fnv": [],
+      "qxx": [],
+      "u2b": [],
+      "w5m": [],
+      "ljk": [],
+      "uen": [],
+      "tgo": [],
+      "cjg": [],
+      "neio": [],
+      "wwa": [],
+      "wafr": []
+    },
+    "missing": [],
+    "cycles": [],
+    "duplicates": [],
+    "maxDepth": 2,
+    "transitive": {
+      "857": [],
+      "bop": [],
+      "pie": [],
+      "roz": [],
+      "ceo": [],
+      "4xa": [],
+      "cow": [
+        "39i",
+        "r2f"
+      ],
+      "4bb": [],
+      "87a": [],
+      "wib": [],
+      "39i": [],
+      "nsh": [],
+      "dlb": [],
+      "c4x": [],
+      "rzo": [],
+      "isd": [],
+      "pif": [
+        "pie",
+        "febs"
+      ],
+      "wa9": [],
+      "17m": [],
+      "ga1": [],
+      "olp": [],
+      "r2f": [],
+      "wezo": [],
+      "9ay": [],
+      "bap": [],
+      "wifz": [],
+      "epk": [],
+      "bels": [],
+      "h6g": [],
+      "qkn": [],
+      "reeb": [],
+      "otoc": [],
+      "mz4": [],
+      "niy": [
+        "pie",
+        "febs"
+      ],
+      "sepb": [
+        "neio",
+        "pif",
+        "pie",
+        "febs"
+      ],
+      "inz": [],
+      "air": [],
+      "ri3": [],
+      "wes": [],
+      "4wi": [],
+      "nrb": [],
+      "fdj": [],
+      "peil": [],
+      "uni": [],
+      "bair": [],
+      "eel": [],
+      "nece": [],
+      "bial": [],
+      "woe": [],
+      "ayc": [
+        "bop"
+      ],
+      "o6p": [],
+      "febs": [],
+      "faim": [],
+      "xom": [],
+      "berz": [],
+      "dbh": [],
+      "1fi": [],
+      "noc": [],
+      "lei": [],
+      "weus": [],
+      "woww": [
+        "wwa",
+        "wwi",
+        "wafr"
+      ],
+      "zo5": [],
+      "inc": [],
+      "mtz": [],
+      "wwi": [],
+      "bell": [],
+      "wiww": [
+        "wwa",
+        "wwi",
+        "wafr"
+      ],
+      "ock": [],
+      "6cc": [],
+      "7xl": [],
+      "fky": [],
+      "plw": [],
+      "lzb": [],
+      "zba": [],
+      "kl5": [],
+      "omd": [],
+      "b4t": [],
+      "bjn": [],
+      "i5t": [],
+      "wah": [
+        "39i",
+        "r2f"
+      ],
+      "h67": [],
+      "bils": [],
+      "ory": [],
+      "boo": [],
+      "iqa": [],
+      "y95": [],
+      "aes": [],
+      "mpl": [],
+      "qv6": [],
+      "78o": [],
+      "uvc": [],
+      "3pr": [],
+      "fnv": [],
+      "qxx": [],
+      "u2b": [],
+      "w5m": [],
+      "ljk": [],
+      "uen": [],
+      "tgo": [],
+      "cjg": []
+    }
+  }
+}

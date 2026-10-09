@@ -43,6 +43,8 @@ Every implementation in the monorepo, with claimed conformance level and current
 | **Common Lisp** (AC Native) | `fedac/native/cl/kidlisp-*.lisp` | `'26: Core + Render` (target) | in progress | Tree-walker, DRM/KMS framebuffer; replacing QuickJS path |
 | **Swift** (Menuband) | `slab/menuband/` | `'26: Core + Render` (planned) | not started | This document's motivating port; Metal blit + CPU framebuffer |
 | **WASM** | `kidlisp-wasm/`; `lib/kidlisp-plan-wasm.mjs` | unclaimed | experimental | Existing f32 renderer compiler; separate f64 `numeric-v1` backend preserves audited JS arithmetic (§9) |
+| **WebGPU benchmark** | `kidlisp/benchmarks/raytrace-gpu.mjs` | unclaimed | experimental | f32 WGSL ray kernel lowered from the numeric plan; bounded handwritten scene host, CPU fallback (§9) |
+| **WebGPU feedback graph** | `kidlisp/graph/` | unclaimed | experimental | Pinned `$roz` reference controls → ordered integer GPU effects; persistent buffers and 2D preview (§9) |
 | **Playdate** | `kidlisp-playdate/` | unclaimed | experimental | C runtime for Panic Playdate |
 | **Game Boy** | `kidlisp-gameboy/` | unclaimed | experimental | GBDK C + asm |
 | **N64** | `kidlisp-n64/` | unclaimed | experimental | Bare-metal asm exploration |
@@ -269,6 +271,59 @@ ray/intersection counts, host, and hashes. JS still owns scene traversal, shadin
 and the pixel loop. Include that boundary cost; do not call kernel timing full
 runtime performance or promise photorealism from this scene. Compile larger
 batches only after measuring this baseline and preserving its pixels.
+
+The next benchmark stage now includes a whole-frame f64 Wasm renderer and an
+f32 WebGPU renderer. Both embed the same audited numeric plan's ray kernel;
+their scene/shading hosts are still handwritten. Wasm runs one frame with no
+host imports, fixed memory, and a bounded reflection stack. GPU compute writes
+directly to a persistent texture and presents without pixel readback. The
+preview has capability/device-loss fallback to frame Wasm. CPU tests require
+exact pixels; the documented GPU profile uses bounded color-error tolerances.
+Measure completed GPU work and presentation separately from submission; browser
+timestamp quantization can produce zero for short dispatches. See the conformance
+README for build hashes, benchmark commands, scope and numerical limits.
+
+`kidlisp/graph/` adds the pinned `roz-feedback-v1` experiment. The reference
+evaluator parses `$roz` once and resolves seeded/timed controls each frame.
+Ordered line, spin, zoom, contrast, scroll and circle nodes operate on two reused
+GPU buffers. Fixed transform gather maps come from the real CPU rasterizer;
+integer arithmetic and blend lookup tables retain its pixel quirks. Preparation
+has a 512 × 512 limit; frames have at most six nodes and a shared evaluator work
+budget. Unknown source and unsupported command parameters fail explicitly.
+No model inference or shader recompilation occurs during animation.
+
+The preview displays the source’s own 2D image. A fixed-step accumulator keeps
+60 simulation updates per second independently of presentation cadence. Each
+GPU submission can contain up to four ordered updates, with at most two
+submissions queued. Normal animation does not wait for a GPU fence; diagnostic
+runs await completion separately. GPU failure restarts the seeded CPU canvas.
+The browser gate checks exact single/batched/queued pixels, wall-clock cadence,
+pause/reset/resize and device loss. This controlled host is not a full browser
+lifecycle or RBP-26 conformance claim. Commands and limits are documented in
+`conformance/README.md`. A backend preview must display the authored source;
+additional geometry belongs in a separate explicitly authored example.
+
+For live audio, the intended host is AudioWorklet with bounded Wasm DSP blocks.
+GPU processing is a separate option for buffered/offline workloads; audio's
+render thread must not wait on the graphics queue. Moving evaluator traversal or
+compilation to Wasm requires its own representation and benchmark; whole-frame
+numeric rendering speed does not establish a speedup for object-heavy AST work.
+
+### Compilation direction beyond the benchmark
+
+Compile source and plans when source changes; reuse prepared code, resources,
+and layouts while frame inputs change. Runtime execution requires no model
+inference. Counted loops should stay inside the compiled backend, with numeric
+slots and reused buffers. Hoist only proven pure expressions with stable inputs;
+retain ordered drawing, random consumption, clock reads and errors.
+
+Future tail-call support must include mutual tail calls with bounded host stack
+use; lower them to frame reuse, jumps or a trampoline. Other recursion needs
+explicit call frames and a shared work budget. Nested lists/records need a
+general value representation and ownership/collection rules; specialize known
+numeric shapes into packed layouts without silently changing aliasing or
+mutation. GPU kernels require statically bounded layouts. These are design
+constraints, not features implemented by the current numeric plan compiler.
 
 Required next gates: fonts/media/GPU in controlled pixel profiles; host
 memory/resource ownership; the remaining instruction contracts; then effectful

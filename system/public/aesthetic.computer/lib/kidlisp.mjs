@@ -1273,6 +1273,8 @@ class KidLisp {
     this.embeddedLayers = [];
     this.embeddedLayerCache = new Map();
     this.embeddedSourceCache = new Map(); // Cache source code by cacheId to avoid duplicate fetches
+    this.inclusionPath = [];
+    this.inclusionErrors = new Set();
 
     // Embedded layer loading state tracking
     this.loadingEmbeddedLayers = new Set(); // Track which $codes are currently loading
@@ -6205,7 +6207,7 @@ class KidLisp {
           this.inkStateSet = true;
 
           // Check if we should defer this command
-          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
             this.postEmbedCommands = this.postEmbedCommands || [];
             this.postEmbedCommands.push({
               name: 'ink',
@@ -6236,7 +6238,7 @@ class KidLisp {
             this.inkStateSet = true;
 
             // Check if we should defer this command
-            if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+            if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
               this.postEmbedCommands = this.postEmbedCommands || [];
               this.postEmbedCommands.push({
                 name: 'ink',
@@ -6256,7 +6258,7 @@ class KidLisp {
           this.inkStateSet = true;
 
           // Check if we should defer this command
-          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
             this.postEmbedCommands = this.postEmbedCommands || [];
             this.postEmbedCommands.push({
               name: 'ink',
@@ -6420,7 +6422,7 @@ class KidLisp {
         }
 
         // Check if we should defer this command
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'line',
@@ -6550,7 +6552,7 @@ class KidLisp {
         }
 
         // Check if we should defer this command
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'box',
@@ -6620,7 +6622,7 @@ class KidLisp {
         }
 
         // Check if we should defer this command
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'circle',
@@ -6674,7 +6676,7 @@ class KidLisp {
         }
 
         // Check if we should defer this command
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'point',
@@ -6735,7 +6737,7 @@ class KidLisp {
         }
 
         // Check if we should defer this command
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
           this.postEmbedCommands = this.postEmbedCommands || [];
           this.postEmbedCommands.push({
             name: 'tri',
@@ -6791,7 +6793,7 @@ class KidLisp {
           }
 
           // Check if we should defer this command
-          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase) {
+          if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance) {
             this.postEmbedCommands = this.postEmbedCommands || [];
             this.postEmbedCommands.push({
               name: 'flood',
@@ -7306,7 +7308,7 @@ class KidLisp {
 
         // 🎯 CRITICAL FIX: When embedded layers exist, defer contrast to post-composite
         // This ensures contrast affects the ENTIRE composite (including embedded layers)
-        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isEmbeddedContext) {
+        if (this.embeddedLayers && this.embeddedLayers.length > 0 && !this.inEmbedPhase && !this.isNestedInstance && !this.isEmbeddedContext) {
           this.postCompositeCommands = this.postCompositeCommands || [];
           this.postCompositeCommands.push({
             name: 'contrast',
@@ -9067,6 +9069,18 @@ class KidLisp {
           return undefined;
         }
 
+        // Source sharing is safe; recursive instance sharing is not. Reject
+        // cycles on this ancestry path while allowing independent siblings.
+        if (this.inclusionPath.includes(cacheId) || this.inclusionPath.length >= 32) {
+          const reason = this.inclusionPath.includes(cacheId) ? "cycle" : "depth limit";
+          const message = `KidLisp inclusion ${reason}: ${[...this.inclusionPath, cacheId].map(code => `$${code}`).join(" → ")}`;
+          if (!this.inclusionErrors.has(message)) {
+            this.inclusionErrors.add(message);
+            console.warn(message);
+          }
+          return undefined;
+        }
+
         // Parse dimensions, position, and alpha from arguments
         // Default to fullscreen at (0,0) with full opacity
         // Safety: Use 512x512 if screen not available yet (during parsing)
@@ -9313,6 +9327,9 @@ class KidLisp {
           // Always render nested embedded layers when called from within another embedded layer
           // This ensures nested embeds like ($pie ...) and ($febs ...) actually execute
           const shouldRender = this.updateEmbeddedLayer(api, existingLayer);
+          // Nested instances evaluate directly rather than entering the root
+          // module's final composite phase. Their children must paint here.
+          if (this.isNestedInstance) this.compositeEmbeddedLayer(api, existingLayer);
 
           // In preserve mode (stateless rendering), we still need to paste immediately because
           // the layer positions might be different on each call. However, renderEmbeddedLayers()
@@ -13329,7 +13346,7 @@ class KidLisp {
       embeddedKidLisp.onceExecuted.clear();
 
       // CRITICAL: Restore isolated timing state for existing layers
-      const layerCacheKey = `${source}_timing`;
+      const layerCacheKey = `${layerKey}_timing`;
       let existingTimingState = this.embeddedLayerCache?.get?.(layerCacheKey);
       
       if (existingTimingState) {
@@ -13371,6 +13388,7 @@ class KidLisp {
 
     // Create new embedded layer
     const embeddedKidLisp = new KidLisp({ execution: this.execution?.fork(layerKey) });
+    embeddedKidLisp.inclusionPath = [...this.inclusionPath, cacheId];
     
     // Track which embedded code this instance is running (for console error attribution)
     embeddedKidLisp.embeddedSourceId = cacheId;
@@ -13381,7 +13399,7 @@ class KidLisp {
     
     // CRITICAL: Each embedded layer needs ISOLATED but PERSISTENT timing state
     // Check if we have cached timing state for this layer
-    const layerCacheKey = `${source}_timing`;
+    const layerCacheKey = `${layerKey}_timing`;
     let existingTimingState = this.embeddedLayerCache?.get?.(layerCacheKey);
     
     if (existingTimingState) {
@@ -13411,7 +13429,8 @@ class KidLisp {
     // IMPORTANT: Share the source cache with embedded instances
     // This allows nested embeds to use already-cached KidLisp source code
     embeddedKidLisp.embeddedSourceCache = this.embeddedSourceCache;
-    embeddedKidLisp.embeddedLayerCache = this.embeddedLayerCache;
+    // Mutable layers and timelines stay instance-local. Sharing this cache
+    // let one child's viewport eviction remove its parent's or sibling's layers.
 
     // Preprocess source to fix scroll syntax
     let processedSource = source;
@@ -13608,6 +13627,10 @@ class KidLisp {
     }
     
     this.embeddedLayerCache.set(layerKey, embeddedLayer);
+    if (this.isNestedInstance) {
+      this.updateEmbeddedLayer(api, embeddedLayer);
+      this.compositeEmbeddedLayer(api, embeddedLayer);
+    }
     // console.log(`✅ Pushed layer to embeddedLayers. Count: ${this.embeddedLayers.length}. Layer ID: ${embeddedLayer.id}`);
 
     // 🎨 IMMEDIATE PASTE: Paste the embedded layer back to main canvas right after creation
@@ -14518,7 +14541,7 @@ class KidLisp {
       );
 
       // CRITICAL: Save persistent timing state after execution
-      const layerCacheKey = `${embeddedLayer.source}_timing`;
+      const layerCacheKey = `${embeddedLayer.cacheId}_timing`;
       if (this.embeddedLayerCache) {
         this.embeddedLayerCache.set(layerCacheKey, {
           frameCount: embeddedLayer.kidlispInstance.frameCount,
@@ -14563,6 +14586,7 @@ class KidLisp {
       system: api.system,
 
       // Direct passthrough of most functions to main API
+      page: (...args) => api.page(...args),
       line: (...args) => api.line(...args),
       ink: (...args) => api.ink(...args),
       wipe: (...args) => {

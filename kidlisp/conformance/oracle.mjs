@@ -29,12 +29,12 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../..");
-const corpusPath = join(here, "corpus.json");
 const SIZE = 384;
 
 
 const [cmd, ...rest] = process.argv.slice(2);
 const { flags, pos } = parse(rest);
+const corpusPath = resolve(flags.corpus || join(here,"corpus.json"));
 const AT = String(flags.at || "1500,4000").split(",").map(Number); // frame times after boot.
 
 // 🗂️ corpus
@@ -107,11 +107,15 @@ async function shoot(browser, base, piece, out) {
   // and module cache, and boot trips over each other.
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
-  const errors = [];
+  const errors = [], inclusions = new Set();
   page.on("pageerror", (e) => errors.push(String(e.message || e).slice(0, 300)));
   page.on("console", (m) => m.type() === "error" && errors.push(m.text().slice(0, 300)));
   await page.setRequestInterception(true);
-  page.on("request", (req) => answer(req));
+  page.on("request", (req) => {
+    const url=new URL(req.url());
+    if(url.pathname==="/api/store-kidlisp"&&url.searchParams.has("code"))inclusions.add(url.searchParams.get("code"));
+    answer(req);
+  });
   await page.setViewport({ width: SIZE, height: SIZE, deviceScaleFactor: 1 });
   // By $code, exactly as it runs live. Sources resolve from prod (lith falls
   // back when there's no local db), which is fine: a $code's source never changes.
@@ -140,7 +144,7 @@ async function shoot(browser, base, piece, out) {
   }
   await video?.stop();
   await context.close();
-  return { url, frames, errors, ...(worker && { worker }) };
+  return { url, frames, errors, inclusions:[...inclusions], ...(worker && { worker }) };
 }
 
 const NOBOOT = "oracle: never booted";
@@ -149,6 +153,12 @@ const NOBOOT = "oracle: never booted";
 // has no db, and its 503 → prod fallback costs seconds per embed; this also
 // hands both sides of a check the exact same sources.
 const sources = new Map();
+if(flags.corpus) {
+  const snapshot=JSON.parse(readFileSync(corpusPath,"utf8"));
+  for(const piece of [...snapshot.pieces,...Object.values(snapshot.dependencies||{})]) {
+    sources.set(piece.code,Promise.resolve({status:200,body:JSON.stringify({source:piece.source,handle:piece.handle,hits:piece.hits})}));
+  }
+}
 let workerOverride = null;
 let workerOverrideRequests = 0;
 
@@ -160,6 +170,7 @@ async function answer(req) {
   }
   const code = url.pathname === "/api/store-kidlisp" && url.searchParams.get("code");
   if (!code) return req.continue();
+  if(flags.corpus&&!sources.has(code))return req.respond({status:404,contentType:"application/json",body:JSON.stringify({error:`Unpinned inclusion $${code}`})});
   if (!sources.has(code)) sources.set(code, lookup(code));
   const { status, body } = await sources.get(code);
   req.respond({ status, contentType: "application/json", body });

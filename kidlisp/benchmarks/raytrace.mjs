@@ -39,14 +39,19 @@ const sky = d => {
   return [0.12 + t * 0.37, 0.17 + t * 0.49, 0.25 + t * 0.65];
 };
 
-export function renderRayFrame(kernel, { width = 96, height = 54, frame = 0, bounces = 2 } = {}) {
+export function rayControls({ width = 96, height = 54, frame = 0, bounces = 2 } = {}) {
   if (![width, height].every(n => Number.isInteger(n) && n > 0 && n <= 512) || !Number.isInteger(frame) || frame < 0 || frame > 1000000 || !Number.isInteger(bounces) || bounces < 0 || bounces > 3) throw new RangeError("Invalid ray frame controls");
+  return { width, height, frame, bounces, greenX: 0.05 + Math.sin(frame * 0.04) * 0.28 };
+}
+
+export function renderRayFrame(kernel, controls = {}) {
+  const { width, height, frame, bounces, greenX } = rayControls(controls);
   kernel.beginFrame(frame);
   const rgba = new Uint8ClampedArray(width * height * 4);
   const spheres = [
     { center: [-1.12, -0.12, 2.3], radius: 0.88, color: [0.78, 0.075, 0.055], mirror: 0.30 },
     { center: [1.0, -0.35, 1.8], radius: 0.65, color: [0.48, 0.56, 0.66], mirror: 0.82 },
-    { center: [0.05 + Math.sin(frame * 0.04) * 0.28, 0.05, 4.15], radius: 1.05, color: [0.045, 0.48, 0.31], mirror: 0.20 },
+    { center: [greenX, 0.05, 4.15], radius: 1.05, color: [0.045, 0.48, 0.31], mirror: 0.20 },
   ];
   const light = [-3.5, 5.5, -1.5];
   let rays = 0, intersections = 0;
