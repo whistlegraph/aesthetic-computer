@@ -659,6 +659,9 @@ final class CollapsedPianoWaveformView: NSView {
             case .acPiano:
                 title = "`1  AC Grand Piano"
                 badgeColor = NSColor(srgbRed: 196/255, green: 132/255, blue: 40/255, alpha: 1)
+            case .composite:
+                title = "~2  Composite"
+                badgeColor = NSColor(srgbRed: 150/255, green: 110/255, blue: 220/255, alpha: 1)
             case .whistle:
                 title = "`79  AC Whistle"
                 badgeColor = NSColor(srgbRed: 72/255, green: 150/255, blue: 210/255, alpha: 1)

@@ -3751,6 +3751,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .fluoddity: voiceLabel = "~1"
         case .acPiano:   voiceLabel = "`1"
         case .whistle:   voiceLabel = "`79"
+        case .composite: voiceLabel = "~2"
         default:         voiceLabel = nil
         }
         // Reserve badge width for the actual subscript so 3-digit GM

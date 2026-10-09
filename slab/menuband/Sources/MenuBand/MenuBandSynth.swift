@@ -107,6 +107,8 @@ final class MenuBandSynth {
     let acPiano = MenuBandACPianoVoice()
     /// The AC whistle — custom instrument `79, a human whistle model.
     let whistle = MenuBandWhistleVoice()
+    /// Composite — ~2, notepat's five-oscillator shimmer wave.
+    let composite = MenuBandCompositeVoice()
     /// Spacebar reverse-replay. Continuously records the post-FX master into
     /// a rolling ring (fed from the same `mainMixerNode` tap the visualizer
     /// + tape use — see `ingestWaveformBuffer`), and on `playReverse()` plays
@@ -242,6 +244,7 @@ final class MenuBandSynth {
     /// there whatever the backend is by then.
     private var acPianoRoutedNotes: Set<UInt16> = []
     private var whistleRoutedNotes: Set<UInt16> = []
+    private var compositeRoutedNotes: Set<UInt16> = []
     private var idleSuspendWorkItem: DispatchWorkItem?
     /// 60 s instead of 2 s so a short pause between phrases never trips
     /// `engine.pause()`. The pause itself is cheap, but `engine.start()`
@@ -466,6 +469,14 @@ final class MenuBandSynth {
     func setWhistleVoice(_ on: Bool) {
         usingWhistleVoice = on
         if !on { whistle.panic() }
+    }
+
+    /// True while composite owns melodic notes.
+    private(set) var usingCompositeVoice = false
+
+    func setCompositeVoice(_ on: Bool) {
+        usingCompositeVoice = on
+        if !on { composite.panic() }
     }
 
     /// Feature flag: the AC OS native GM synth (`gmSynth`). Re-enabled now
@@ -810,6 +821,7 @@ final class MenuBandSynth {
         // AC grand piano: same bus, same silent-until-routed contract.
         acPiano.attach(to: engine, output: tonesBus)
         whistle.attach(to: engine, output: tonesBus)
+        composite.attach(to: engine, output: tonesBus)
         // Spacebar reverse-replay voice. Plays DRY into mainMixerNode (NOT
         // the pre-limiter bus) so the already-effected captured audio isn't
         // re-processed. Its rolling capture ring is fed from a dedicated tap
@@ -2450,6 +2462,9 @@ final class MenuBandSynth {
         if usingWhistleVoice {
             setWhistleVoice(false)
         }
+        if usingCompositeVoice {
+            setCompositeVoice(false)
+        }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             selectMelodicProgram(au, program: program)
             updateSamplerRoutingForActiveBackend()
@@ -2861,6 +2876,7 @@ final class MenuBandSynth {
         channelPan[Int(channel & 0x0F)] = pan & 0x7F
         acPiano.setPan(pan, channel: channel)
         whistle.setPan(pan, channel: channel)
+        composite.setPan(pan, channel: channel)
         guard started, midiSynthReady, let au = midiSynth?.audioUnit else { return }
         sendMIDIEvent(au, status: 0xB0 | (channel & 0x0F),
                       data1: 10, data2: pan & 0x7F)
@@ -3092,6 +3108,11 @@ final class MenuBandSynth {
             whistleRoutedNotes.insert(noteKey(midi, channel: channel))
             return
         }
+        if usingCompositeVoice && channel != 9 {
+            composite.noteOn(midi, velocity: velocity, channel: channel)
+            compositeRoutedNotes.insert(noteKey(midi, channel: channel))
+            return
+        }
         // Drums (channel 9) always route through MIDISynth/drums sampler
         // — drum kits are GM regardless of melodic backend choice.
         if channel == 9 {
@@ -3192,6 +3213,7 @@ final class MenuBandSynth {
         fluodVoice.setPitchBend(amount: amount)
         acPiano.setPitchBend(amount: amount)
         whistle.setPitchBend(amount: amount)
+        composite.setPitchBend(amount: amount)
     }
 
     /// Route the trackpad pitch-bend into the KPBJ radio backend. Like
@@ -3234,7 +3256,7 @@ final class MenuBandSynth {
         guard started else { return }
         // These backends do not receive this CC; don't release their
         // headroom as if their voices had audibly faded.
-        if !usingPluginInstrument && !usingFluoddityVoice && !usingACPianoVoice && !usingWhistleVoice
+        if !usingPluginInstrument && !usingFluoddityVoice && !usingACPianoVoice && !usingWhistleVoice && !usingCompositeVoice
             && !gmRoutable(currentMelodicProgram),
            midiSynthReady || usingSampleBackend {
             melodicHeadroom.setExpression(value, channel: channel)
@@ -3284,6 +3306,10 @@ final class MenuBandSynth {
             whistle.noteOff(midi, channel: channel)
             return
         }
+        if compositeRoutedNotes.remove(key) != nil {
+            composite.noteOff(midi, channel: channel)
+            return
+        }
         if usingPluginInstrument && channel != 9, let au = pluginUnit?.audioUnit {
             sendMIDIEvent(au, status: 0x80 | (channel & 0x0F), data1: midi)
             return
@@ -3327,6 +3353,8 @@ final class MenuBandSynth {
         acPiano.panic()
         whistleRoutedNotes.removeAll()
         whistle.panic()
+        compositeRoutedNotes.removeAll()
+        composite.panic()
         defer { scheduleIdleSuspendIfNeeded() }
         if midiSynthReady, let au = midiSynth?.audioUnit {
             for ch: UInt8 in 0..<16 {

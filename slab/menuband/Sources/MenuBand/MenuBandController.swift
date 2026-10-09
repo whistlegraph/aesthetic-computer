@@ -728,6 +728,7 @@ final class MenuBandController {
             synth.setSampleBackend(false)
             synth.setACPianoVoice(false)
             synth.setWhistleVoice(false)
+            synth.setCompositeVoice(false)
             synth.setFluoddityVoice(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -749,6 +750,7 @@ final class MenuBandController {
             synth.setSampleBackend(false)
             synth.setFluoddityVoice(false)
             synth.setWhistleVoice(false)
+            synth.setCompositeVoice(false)
             synth.setACPianoVoice(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -771,6 +773,26 @@ final class MenuBandController {
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
             synth.setWhistleVoice(false)
+            synth.setCompositeVoice(false)
+            synth.setMelodicProgram(melodicProgram)
+        }
+        onChange?()
+        onInstrumentVisualChange?()
+    }
+
+    /// Switch to (or away from) composite — ~2, notepat's old five-layer
+    /// shimmer wave, ported in MenuBandCompositeVoice.
+    func setCompositeBackend(_ enabled: Bool) {
+        if enabled {
+            UserDefaults.standard.set("composite", forKey: instrumentBackendKey)
+            synth.setSampleBackend(false)
+            synth.setFluoddityVoice(false)
+            synth.setACPianoVoice(false)
+            synth.setWhistleVoice(false)
+            synth.setCompositeVoice(true)
+        } else {
+            UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
+            synth.setCompositeVoice(false)
             synth.setMelodicProgram(melodicProgram)
         }
         onChange?()
@@ -778,12 +800,15 @@ final class MenuBandController {
     }
 
     /// Our own non-MIDI instruments live behind ~: ~ then digits. Slot 1 is
-    /// Fluoddity. Unknown slots are consumed and do nothing.
+    /// Fluoddity, 2 composite. Unknown slots are consumed and do nothing.
     func selectOwnInstrument(_ slot: Int) {
         switch slot {
         case 1:
             if midiMode { toggleMIDIMode() }
             setFluoddityBackend(true)
+        case 2:
+            if midiMode { toggleMIDIMode() }
+            setCompositeBackend(true)
         default:
             break
         }
@@ -1948,7 +1973,7 @@ final class MenuBandController {
 
     enum InstrumentBackend: String {
         case gm, garageBand = "gb", kpbj = "kpbj", sample = "sample",
-             fluoddity = "fluod", acPiano = "acpiano", whistle = "acwhistle"
+             fluoddity = "fluod", acPiano = "acpiano", whistle = "acwhistle", composite = "composite"
     }
 
     var instrumentBackend: InstrumentBackend {
@@ -2299,6 +2324,8 @@ final class MenuBandController {
             return "`1 AC Grand Piano"
         case .whistle:
             return "`79 AC Whistle"
+        case .composite:
+            return "~2 Composite"
         case .gm:
             let safe = max(0, min(127, Int(effectiveMelodicProgram)))
             return String(format: "%03d %@", safe + 1, GeneralMIDI.programName(safe))
@@ -2331,6 +2358,7 @@ final class MenuBandController {
             synth.setFluoddityVoice(false)
             synth.setACPianoVoice(false)
             synth.setWhistleVoice(false)
+            synth.setCompositeVoice(false)
             synth.setSampleBackend(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -2610,6 +2638,9 @@ final class MenuBandController {
         }
         if instrumentBackend == .whistle {
             synth.setWhistleVoice(true)
+        }
+        if instrumentBackend == .composite {
+            synth.setCompositeVoice(true)
         }
         if UserDefaults.standard.object(forKey: midiModeKey) == nil {
             UserDefaults.standard.set(false, forKey: midiModeKey)
