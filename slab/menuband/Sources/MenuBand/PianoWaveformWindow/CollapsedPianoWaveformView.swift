@@ -184,6 +184,12 @@ final class CollapsedPianoWaveformView: NSView {
             m.setACPianoBackend(m.instrumentBackend != .acPiano)
             self.refresh()
         }
+        // `79 WHISTLE cell — toggle the AC whistle (same as typing ` 7 9).
+        instrumentList.onWhistleCommit = { [weak self] in
+            guard let self = self, let m = self.menuBand else { return }
+            m.setWhistleBackend(m.instrumentBackend != .whistle)
+            self.refresh()
+        }
         // MIC cell (far left, squawk-enabled only) — ask AppDelegate to
         // start/stop voice squawk. Routed through a notification so this
         // view stays decoupled from the squawk engine.
@@ -549,6 +555,7 @@ final class CollapsedPianoWaveformView: NSView {
         }
         instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
         instrumentList.acPianoActive = (menuBand.instrumentBackend == .acPiano)
+        instrumentList.whistleActive = (menuBand.instrumentBackend == .whistle)
         instrumentList.fluoddityActive = (menuBand.instrumentBackend == .fluoddity)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
         instrumentList.spotifyActive = menuBand.spotifyPlayerPresented
@@ -652,6 +659,9 @@ final class CollapsedPianoWaveformView: NSView {
             case .acPiano:
                 title = "`1  AC Grand Piano"
                 badgeColor = NSColor(srgbRed: 196/255, green: 132/255, blue: 40/255, alpha: 1)
+            case .whistle:
+                title = "`79  AC Whistle"
+                badgeColor = NSColor(srgbRed: 72/255, green: 150/255, blue: 210/255, alpha: 1)
             case .gm:
                 title = String(format: "%03d  %@",
                                safe + 1,

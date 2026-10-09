@@ -97,6 +97,7 @@ final class InstrumentListView: NSView {
         case midiOut
         case sample
         case acPiano
+        case whistle
         case program(Int)
         case radio(Int)
         case spotify
@@ -126,6 +127,10 @@ final class InstrumentListView: NSView {
     var onACPianoCommit: (() -> Void)?
     /// True while the AC grand piano backend is active — fills the cell.
     var acPianoActive: Bool = false { didSet { needsDisplay = true } }
+    /// Fires when the `79 cell is clicked; wired to `menuBand.setWhistleBackend`.
+    var onWhistleCommit: (() -> Void)?
+    /// True while the AC whistle backend is active — fills the cell.
+    var whistleActive: Bool = false { didSet { needsDisplay = true } }
     /// When true, a MIC cell appears at the LEFT edge of the top row — the
     /// same mic Menu Band already uses for sampling, here routed to voice
     /// squawk. Driven by the About-window "Voice squawk" Advanced flag,
@@ -242,6 +247,9 @@ final class InstrumentListView: NSView {
         }
         if isACPianoHit(point) {
             return "`1 AC Grand Piano — the sampled piano from AC OS; type ` then 1"
+        }
+        if isWhistleHit(point) {
+            return "`79 AC Whistle — a human whistle model, sine-smooth with breath; type ` then 7 9"
         }
         if let program = program(at: point) {
             return "\(program + 1) \(GeneralMIDI.programName(program)) - click to choose, drag to audition"
@@ -393,8 +401,10 @@ final class InstrumentListView: NSView {
     /// the radio strip at the bottom.
     /// Width of the SAMPLE cell carved off the right end of the top row.
     private var sampleCellW: CGFloat { min(86, bounds.width * 0.32) }
-    /// Width of the `1 PIANO cell between MIDI OUT and SAMPLE.
-    private var acPianoCellW: CGFloat { min(78, bounds.width * 0.28) }
+    /// Custom-instrument cells between MIDI OUT and SAMPLE, labelled by the
+    /// command that picks them (` then digits) — compact, the grid is 224 pt.
+    private var acPianoCellW: CGFloat { 34 }
+    private var whistleCellW: CGFloat { 40 }
 
     /// Width of the MIC cell carved off the LEFT end of the top row. Zero
     /// (absent) unless squawk is enabled, so the top row keeps its old
@@ -408,13 +418,23 @@ final class InstrumentListView: NSView {
 
     private var midiOutRect: NSRect {
         NSRect(x: micCellW, y: 0,
-               width: bounds.width - micCellW - acPianoCellW - sampleCellW,
+               width: bounds.width - micCellW - acPianoCellW - whistleCellW - sampleCellW,
                height: Self.midiOutH)
+    }
+
+    /// `79 cell — the AC whistle, between `1 and SAMPLE.
+    private var whistleRect: NSRect {
+        NSRect(x: bounds.width - sampleCellW - whistleCellW, y: 0,
+               width: whistleCellW, height: Self.midiOutH)
+    }
+
+    private func isWhistleHit(_ point: NSPoint) -> Bool {
+        whistleRect.contains(point)
     }
 
     /// `1 PIANO cell — the AC grand piano, between MIDI OUT and SAMPLE.
     private var acPianoRect: NSRect {
-        NSRect(x: bounds.width - sampleCellW - acPianoCellW, y: 0,
+        NSRect(x: bounds.width - sampleCellW - whistleCellW - acPianoCellW, y: 0,
                width: acPianoCellW, height: Self.midiOutH)
     }
 
@@ -456,6 +476,7 @@ final class InstrumentListView: NSView {
         if isMidiOutHit(point) { return .midiOut }
         if isSampleHit(point) { return .sample }
         if isACPianoHit(point) { return .acPiano }
+        if isWhistleHit(point) { return .whistle }
         if let program = program(at: point) { return .program(program) }
         if let station = radioStationIndex(at: point) { return .radio(station) }
         if isSpotifyHit(point) { return .spotify }
@@ -644,7 +665,7 @@ final class InstrumentListView: NSView {
                 cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
             }
             let labelColor: NSColor = acPianoActive ? .white : .labelColor
-            let str = NSAttributedString(string: "`1 PIANO", attributes: [
+            let str = NSAttributedString(string: "`1", attributes: [
                 .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
                 .foregroundColor: labelColor,
                 .kern: 0.4,
@@ -652,6 +673,32 @@ final class InstrumentListView: NSView {
             let size = str.size()
             str.draw(at: NSPoint(x: pianoR.midX - size.width / 2,
                                  y: pianoR.midY - size.height / 2))
+        }
+
+        // `79 cell — the AC whistle. Sky blue: air.
+        let whistleR = whistleRect
+        if whistleR.intersects(dirtyRect) {
+            let tint = NSColor(srgbRed: 72/255, green: 150/255, blue: 210/255, alpha: 1)
+            let hovered = hoveredTarget == .whistle
+            let cap = NSBezierPath(roundedRect: whistleR.insetBy(dx: 1.75, dy: 1.5),
+                                   xRadius: 3, yRadius: 3)
+            if whistleActive {
+                tint.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
+                tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
+            } else {
+                tint.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
+                tint.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
+            }
+            let labelColor: NSColor = whistleActive ? .white : .labelColor
+            let str = NSAttributedString(string: "`79", attributes: [
+                .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
+                .foregroundColor: labelColor,
+                .kern: 0.4,
+            ])
+            let size = str.size()
+            str.draw(at: NSPoint(x: whistleR.midX - size.width / 2,
+                                 y: whistleR.midY - size.height / 2))
         }
 
         // Radio-station cells in the full-width strip at the BOTTOM, below
@@ -930,6 +977,10 @@ final class InstrumentListView: NSView {
         // `1 PIANO cell — toggle the AC grand piano. No audible preview.
         if isACPianoHit(pt) {
             onACPianoCommit?()
+            return
+        }
+        if isWhistleHit(pt) {
+            onWhistleCommit?()
             return
         }
         // Fluoddity row — toggle the ecosystem backend / breed / mutate.

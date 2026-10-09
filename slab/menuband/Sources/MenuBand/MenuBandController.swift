@@ -727,6 +727,7 @@ final class MenuBandController {
             UserDefaults.standard.set("fluod", forKey: instrumentBackendKey)
             synth.setSampleBackend(false)
             synth.setACPianoVoice(false)
+            synth.setWhistleVoice(false)
             synth.setFluoddityVoice(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -747,6 +748,7 @@ final class MenuBandController {
             UserDefaults.standard.set("acpiano", forKey: instrumentBackendKey)
             synth.setSampleBackend(false)
             synth.setFluoddityVoice(false)
+            synth.setWhistleVoice(false)
             synth.setACPianoVoice(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -757,8 +759,26 @@ final class MenuBandController {
         onInstrumentVisualChange?()
     }
 
-    /// Custom instruments live behind the backtick: ` then a digit. Slot 1
-    /// is the AC grand piano. Picking one is a "play this locally" gesture
+    /// Switch to (or away from) the AC whistle — custom instrument `79, our
+    /// own version of GM 79: a human-whistle model, sine-smooth with breath.
+    func setWhistleBackend(_ enabled: Bool) {
+        if enabled {
+            UserDefaults.standard.set("acwhistle", forKey: instrumentBackendKey)
+            synth.setSampleBackend(false)
+            synth.setFluoddityVoice(false)
+            synth.setACPianoVoice(false)
+            synth.setWhistleVoice(true)
+        } else {
+            UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
+            synth.setWhistleVoice(false)
+            synth.setMelodicProgram(melodicProgram)
+        }
+        onChange?()
+        onInstrumentVisualChange?()
+    }
+
+    /// Custom instruments live behind the backtick: ` then digits. Slot 1
+    /// is the AC grand piano, 79 the AC whistle (GM 79's number, ours). Picking one is a "play this locally" gesture
     /// like typing a GM number, so it leaves MIDI mode. Unknown slots are
     /// consumed and do nothing, so a stray digit can't pick a GM voice the
     /// user wasn't aiming for.
@@ -767,6 +787,9 @@ final class MenuBandController {
         case 1:
             if midiMode { toggleMIDIMode() }
             setACPianoBackend(true)
+        case 79:
+            if midiMode { toggleMIDIMode() }
+            setWhistleBackend(true)
         default:
             break
         }
@@ -1898,7 +1921,7 @@ final class MenuBandController {
 
     enum InstrumentBackend: String {
         case gm, garageBand = "gb", kpbj = "kpbj", sample = "sample",
-             fluoddity = "fluod", acPiano = "acpiano"
+             fluoddity = "fluod", acPiano = "acpiano", whistle = "acwhistle"
     }
 
     var instrumentBackend: InstrumentBackend {
@@ -2247,6 +2270,8 @@ final class MenuBandController {
             return "Fluoddity"
         case .acPiano:
             return "`1 AC Grand Piano"
+        case .whistle:
+            return "`79 AC Whistle"
         case .gm:
             let safe = max(0, min(127, Int(effectiveMelodicProgram)))
             return String(format: "%03d %@", safe + 1, GeneralMIDI.programName(safe))
@@ -2278,6 +2303,7 @@ final class MenuBandController {
             // exits later.
             synth.setFluoddityVoice(false)
             synth.setACPianoVoice(false)
+            synth.setWhistleVoice(false)
             synth.setSampleBackend(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -2554,6 +2580,9 @@ final class MenuBandController {
         // So does the AC grand piano — its bank ships in the app.
         if instrumentBackend == .acPiano {
             synth.setACPianoVoice(true)
+        }
+        if instrumentBackend == .whistle {
+            synth.setWhistleVoice(true)
         }
         if UserDefaults.standard.object(forKey: midiModeKey) == nil {
             UserDefaults.standard.set(false, forKey: midiModeKey)
@@ -4190,13 +4219,16 @@ final class MenuBandController {
                 let now = CACurrentMediaTime()
                 let staleGap = now - voiceDigitLastPress
                     > Self.voiceDigitFlushInterval
-                // Custom instrument, primed by a preceding `: `1 is the
-                // AC grand piano. Other digits are consumed no-ops.
+                // Custom instrument, primed by a preceding `. Digits buffer
+                // like the GM picker so `79 reaches slot 79 (`7 on the way
+                // is a consumed no-op): `1 = AC grand piano, `79 = AC whistle.
                 if voiceCustomPrefix && !staleGap {
-                    voiceCustomPrefix = false
                     voiceDigitLastPress = now
+                    if voiceDigitBuffer.count >= 3 { voiceDigitBuffer = "" }
+                    voiceDigitBuffer.append(String(digit))
+                    let slot = Int(voiceDigitBuffer) ?? 0
                     DispatchQueue.main.async { [weak self] in
-                        self?.selectCustomInstrument(digit)
+                        self?.selectCustomInstrument(slot)
                     }
                     return true
                 }

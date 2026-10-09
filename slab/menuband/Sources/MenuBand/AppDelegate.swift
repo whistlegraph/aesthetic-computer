@@ -3750,6 +3750,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .kpbj:      voiceLabel = menuBand.radioStation.label
         case .fluoddity: voiceLabel = "~"
         case .acPiano:   voiceLabel = "`1"
+        case .whistle:   voiceLabel = "`79"
         default:         voiceLabel = nil
         }
         // Reserve badge width for the actual subscript so 3-digit GM
