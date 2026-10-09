@@ -134,7 +134,7 @@ test('a day of bought braincells is capped, and the refusal says when it resets'
  const using=fn=>fn(w);
  const body={messages};
  await assert.rejects(authorizePaidRequest({user:'rich',model:DEFAULT_EASEL_MODEL,body,maxTokens:1000,now,withWallets:using}),
-  e=>e.statusCode===429&&/2,000,000/.test(e.message)&&/midnight UTC, in 2h 30m/.test(e.message));
+  e=>e.statusCode===429&&e.message.includes(DAILY_PAID_BRAINCELL_CAP.toLocaleString('en-US'))&&/midnight UTC, in 2h 30m/.test(e.message));
  await assert.rejects(authorizePaidRequest({user:'poor',model:DEFAULT_EASEL_MODEL,body,maxTokens:1000,now,withWallets:using}),
   e=>e.statusCode===402&&e.message===OUT_OF_BRAINCELLS&&/\/provider/.test(e.message));
  // Yesterday's spend does not count against today.
