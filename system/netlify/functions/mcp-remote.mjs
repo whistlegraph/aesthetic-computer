@@ -790,6 +790,16 @@ export async function handler(event, context) {
       const message = JSON.parse(event.body || "{}");
       console.log(`🔧 MCP method: ${message.method}`);
 
+      // Initialization is a one-way notification, not a method call.
+      if (message.method === "notifications/initialized") {
+        if (message.jsonrpc !== "2.0" || Object.hasOwn(message, "id") ||
+            (message.params !== undefined && (!message.params ||
+              typeof message.params !== "object" || Array.isArray(message.params)))) {
+          return respond(400, { error: "Invalid initialized notification" }, corsHeaders);
+        }
+        return { statusCode: 202, headers: corsHeaders, body: "" };
+      }
+
       const result = await handleMCPMessage(message, authToken);
       const response = { jsonrpc: "2.0", id: message.id, result };
 

@@ -72,11 +72,18 @@ export async function generateThumbnail(source, options = {}) {
  * @param {string} slug - Painting slug (timestamp or short code)
  * @param {string} handleOrCode - User handle (@username) or user code (acXXXXX) - optional, for user paintings
  * @param {Object} options - Options (same as generateThumbnail)
+ * @param {string} options.userId - Owner ID for a fully qualified painting key
  * @returns {Promise<Buffer>} Thumbnail buffer
  */
 export async function getThumbnailFromSlug(slug, handleOrCode = null, options = {}) {
   const size = options.size || 512;
-  const cleanSlug = slug.replace(/\.(png|zip)$/i, "");
+  let cleanSlug = slug.replace(/\.(png|zip)$/i, "");
+  // Stored slugs can already contain the owner's painting directory.
+  // Strip only this owner's prefix before adding the handle route below.
+  const ownerPrefix = options.userId && `${options.userId}/painting/`;
+  if (handleOrCode && ownerPrefix && cleanSlug.startsWith(ownerPrefix)) {
+    cleanSlug = cleanSlug.slice(ownerPrefix.length);
+  }
   const isDev = process.env.CONTEXT === "dev";
   
   let imageUrl;
