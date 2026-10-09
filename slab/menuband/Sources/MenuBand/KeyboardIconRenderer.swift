@@ -753,6 +753,68 @@ enum KeyboardIconRenderer {
         7 * whiteW
     }
 
+    // MARK: - Ghost keys (the reach notes past either end)
+
+    /// Slot of a natural relative to the first drawn white (C4 = 0). Negative
+    /// for naturals below the drawn range, so the reach keys land in the
+    /// slots the keyboard would continue into.
+    private static func whiteOrdinal(_ midi: Int) -> Int {
+        if midi >= firstMidi {
+            return (firstMidi..<midi).filter { isWhite($0) }.count
+        }
+        return -((midi..<firstMidi).filter { isWhite($0) }.count)
+    }
+
+    /// Which keys past the drawn range to draw for a set of lit notes: every
+    /// lit note outside the active range, plus the naturals a lit sharp hangs
+    /// between (so it has a key under it) and every natural between the
+    /// range edge and the farthest lit note (the row stays continuous).
+    static func ghostNotes(lit: Set<UInt8>) -> (whites: [Int], sharps: [Int]) {
+        guard let range = activeRange else { return ([], []) }
+        let out = lit.map(Int.init).filter { !range.contains($0) }
+        guard !out.isEmpty else { return ([], []) }
+        var whites = Set<Int>()
+        var sharps = Set<Int>()
+        if let lowest = out.filter({ $0 < range.lowerBound }).min() {
+            var floor = lowest
+            while !isWhite(floor) { floor -= 1 }
+            for m in floor..<range.lowerBound {
+                if isWhite(m) { whites.insert(m) } else { sharps.insert(m) }
+            }
+        }
+        if let highest = out.filter({ $0 > range.upperBound }).max() {
+            var ceil = highest
+            while !isWhite(ceil) { ceil += 1 }
+            for m in (range.upperBound + 1)...ceil {
+                if isWhite(m) { whites.insert(m) } else { sharps.insert(m) }
+            }
+        }
+        return (whites.sorted(), sharps.sorted())
+    }
+
+    /// How far the piano leans (pixels, + = keys move right) to reveal every
+    /// lit reach note. A natural needs its own slot; a sharp hangs on the
+    /// slot boundary, so it needs the neighbor slot plus half its own width.
+    /// Reach on both sides at once cancels out — rare, and the keys still
+    /// sound.
+    static func leanOffset(for lit: Set<UInt8>) -> CGFloat {
+        guard let range = activeRange else { return 0 }
+        let out = lit.map(Int.init).filter { !range.contains($0) }
+        guard !out.isEmpty else { return 0 }
+        let sharpReach = blackW / (2 * whiteW) + 0.12
+        func reach(_ m: Int, pastEdge edge: Int) -> CGFloat {
+            let span: [Int] = m < edge ? Array(m..<edge) : Array((edge + 1)...m)
+            var n = CGFloat(span.filter { isWhite($0) }.count)
+            if !isWhite(m) { n += sharpReach }
+            return n
+        }
+        let left = out.filter { $0 < range.lowerBound }
+            .map { reach($0, pastEdge: range.lowerBound) }.max() ?? 0
+        let right = out.filter { $0 > range.upperBound }
+            .map { reach($0, pastEdge: range.upperBound) }.max() ?? 0
+        return (left - right) * whiteW
+    }
+
     /// Global magnification of the menubar icon. The image is drawn at
     /// base coordinates then blown up by this factor so the whole thing
     /// (piano, chip, bars, tape) reads larger in the bar — same
@@ -953,6 +1015,7 @@ enum KeyboardIconRenderer {
                       hovered: HitResult? = nil,
                       letterAlpha: ((UInt8) -> CGFloat)? = nil,
                       slideOffsetX: CGFloat = 0,
+                      leanOffsetX: CGFloat = 0,
                       settingsFlash: CGFloat = 0,
                       includeSettings: Bool = true,
                       layout: Layout = .fixedCanvas) -> NSImage {
@@ -1020,6 +1083,18 @@ enum KeyboardIconRenderer {
             if abs(slideOffsetX) > 0.01 {
                 let xform = NSAffineTransform()
                 xform.translateX(by: slideOffsetX, yBy: 0)
+                xform.concat()
+            }
+            // Ghost-key lean: the reach keys (Z X ; ') live one step past
+            // each end of the drawn range. While one is lit the piano
+            // leans sideways inside the same window — just far enough
+            // to reveal that key in its real slot — and eases back on
+            // release. The keyboard keeps its linear flow instead of
+            // lighting the edge key for a note it isn't. Eased by
+            // AppDelegate toward `leanOffset(for:)`.
+            if abs(leanOffsetX) > 0.01 {
+                let xform = NSAffineTransform()
+                xform.translateX(by: leanOffsetX, yBy: 0)
                 xform.concat()
             }
             // Piano theme: notepat's cool off-white naturals in light
@@ -1402,6 +1477,81 @@ enum KeyboardIconRenderer {
                     }
                 }
                 NSGraphicsContext.restoreGraphicsState()
+            }
+
+            // Ghost keys — the reach notes past either end of the drawn
+            // range, continued in their own slots (B3 / A#3 to the left
+            // of C4, C6 / C#6 to the right of B5). Drawn only while one
+            // is lit (plus the natural a lit sharp hangs on, so the
+            // sharp has a key under it); translucent when idle so they
+            // read as the keyboard continuing past the window, solid
+            // accent when pressed. The lean above is what brings them
+            // into view; the piano mask still clips them.
+            let ghost = ghostNotes(lit: litNotes.union(playbackLitNotes))
+            if !ghost.whites.isEmpty || !ghost.sharps.isEmpty {
+                let ghostAlpha: CGFloat = isDark ? 0.55 : 0.60
+                for m in ghost.whites {
+                    let rect = whiteRect(at: whiteOrdinal(m) + slotOffset)
+                    let isLit = litNotes.contains(UInt8(m))
+                    let isPlaybackLit = playbackLitNotes.contains(UInt8(m))
+                    let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 0, bl: 0)
+                    if isPlaybackLit {
+                        playbackLit.setFill(); path.fill()
+                    } else if isLit {
+                        lit(m).setFill(); path.fill()
+                    } else {
+                        NSGradient(starting: whiteHi.withAlphaComponent(ghostAlpha),
+                                   ending: whiteLo.withAlphaComponent(ghostAlpha))!
+                            .draw(in: path, angle: -90)
+                    }
+                    groove.withAlphaComponent(isLit ? 1 : ghostAlpha).setStroke()
+                    path.lineWidth = 0.7
+                    path.stroke()
+                    if let letter = labelByMidi[m] {
+                        let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
+                        let a: CGFloat = isLit ? 1.0
+                            : (letterAlpha?(UInt8(m)) ?? (typeMode ? 1.0 : 0.0)) * ghostAlpha
+                        if a > 0.01 {
+                            drawWhiteLabel(display, in: rect, lit: isLit, alpha: a,
+                                           chroma: Self.chromaticColorByPitchClass[m % 12],
+                                           uppercase: Self.uppercaseForMidi(m))
+                        }
+                    }
+                }
+                for m in ghost.sharps {
+                    var leftWhite = m - 1
+                    while !isWhite(leftWhite) { leftWhite -= 1 }
+                    let rect = blackRect(rightOfWhiteIndex: whiteOrdinal(leftWhite) + slotOffset)
+                    let isLit = litNotes.contains(UInt8(m))
+                    let isPlaybackLit = playbackLitNotes.contains(UInt8(m))
+                    let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
+                    if isPlaybackLit {
+                        playbackLit.setFill(); path.fill()
+                    } else if isLit {
+                        if isDark {
+                            NSColor(srgbRed: 22/255, green: 30/255,
+                                    blue: 36/255, alpha: 1).setFill()
+                        } else {
+                            lit(m).setFill()
+                        }
+                        path.fill()
+                    } else {
+                        NSGradient(starting: blackHi.withAlphaComponent(ghostAlpha),
+                                   ending: blackLo.withAlphaComponent(ghostAlpha))!
+                            .draw(in: path, angle: -90)
+                    }
+                    groove.withAlphaComponent(isLit ? 1 : ghostAlpha).setStroke()
+                    path.lineWidth = 0.6
+                    path.stroke()
+                    if let letter = labelByMidi[m] {
+                        let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
+                        let a: CGFloat = isLit ? 1.0
+                            : (letterAlpha?(UInt8(m)) ?? (typeMode ? 1.0 : 0.0)) * ghostAlpha
+                        if a > 0.01 {
+                            drawBlackLabel(display, in: rect, lit: isLit, alpha: a)
+                        }
+                    }
+                }
             }
             if let countIn {
                 drawCountInProgress(countIn, layout: layout)

@@ -178,6 +178,12 @@ final class CollapsedPianoWaveformView: NSView {
             self?.menuBand?.setSampleBackend(true)
             self?.refresh()
         }
+        // `1 PIANO cell — toggle the AC grand piano (same as typing ` 1).
+        instrumentList.onACPianoCommit = { [weak self] in
+            guard let self = self, let m = self.menuBand else { return }
+            m.setACPianoBackend(m.instrumentBackend != .acPiano)
+            self.refresh()
+        }
         // MIC cell (far left, squawk-enabled only) — ask AppDelegate to
         // start/stop voice squawk. Routed through a notification so this
         // view stays decoupled from the squawk engine.
@@ -542,6 +548,7 @@ final class CollapsedPianoWaveformView: NSView {
             instrumentList.radioBackendActive = false
         }
         instrumentList.sampleBackendActive = (menuBand.instrumentBackend == .sample)
+        instrumentList.acPianoActive = (menuBand.instrumentBackend == .acPiano)
         instrumentList.fluoddityActive = (menuBand.instrumentBackend == .fluoddity)
         instrumentList.selectedRadioStationID = menuBand.radioStation.id
         instrumentList.spotifyActive = menuBand.spotifyPlayerPresented
@@ -642,6 +649,9 @@ final class CollapsedPianoWaveformView: NSView {
             case .fluoddity:
                 title = "~  Fluoddity"
                 badgeColor = .systemIndigo
+            case .acPiano:
+                title = "`1  AC Grand Piano"
+                badgeColor = NSColor(srgbRed: 196/255, green: 132/255, blue: 40/255, alpha: 1)
             case .gm:
                 title = String(format: "%03d  %@",
                                safe + 1,

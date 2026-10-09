@@ -71,6 +71,14 @@ targets:
       - path: Sources/MenuBand/Resources
         buildPhase: resources
 
+      # AC grand piano sample bank (` then 1): AC OS's Salamander anchors,
+      # copied as a folder reference so it lands as Resources/piano/<midi>.raw.
+      # MenuBandACPianoVoice accepts that subdirectory (install.sh uses
+      # acpiano/). One source of truth, nothing duplicated in git.
+      - path: ../../fedac/native/samples/piano
+        type: folder
+        buildPhase: resources
+
       # The Metal shader ships as RAW SOURCE under a neutral extension:
       # WaveformView compiles it at runtime via makeLibrary(source:). A
       # `.metal` extension would trip Xcode's resources-phase auto-compile,

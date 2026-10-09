@@ -160,10 +160,26 @@ final class MenuBandController {
     /// melodic channels 0–7 lets fast same-key retriggers overlap as
     /// distinct voices instead of voice-stealing on channel 0. Same lock.
     private var heldKeyChannel: [UInt16: UInt8] = [:]
-    /// Display-note (clamped into the menubar piano's C4–C5 range) for
-    /// each held key. Lets keyUp remove the visually-lit cell even when
-    /// the audio note was octave-shifted out of the visible range.
+    /// Display-note (the key's own pitch, octave shift removed) for each
+    /// held key. Lets keyUp remove the visually-lit cell even when the
+    /// audio note was octave-shifted out of the visible range.
     private var heldKeyDisplayNote: [UInt16: UInt8] = [:]
+    /// Lowest / highest display note the menubar piano can show. The drawn
+    /// range is C4–B5 (60–83); notepat's reach keys (Z X below, ; ' above)
+    /// sit one step past each end at 58–59 and 84–85. They used to be
+    /// clamped onto the edge keys, which lit C4 for a Z press. Now they keep
+    /// their own display note and the renderer leans the piano to reveal
+    /// them as ghost keys in their real slots (`KeyboardIconRenderer.
+    /// leanOffset(for:)`).
+    static let displayNoteMin = 58
+    static let displayNoteMax = 85
+
+    /// The key to light for a sounding note: its intrinsic pitch with the
+    /// octave shift removed, clamped to the showable range.
+    @inline(__always)
+    static func displayNote(for note: UInt8, shift: Int) -> UInt8 {
+        UInt8(max(displayNoteMin, min(displayNoteMax, Int(note) - shift * 12)))
+    }
     /// Per-key linger flag captured at keyDown. We sample shift state
     /// once on press so a release-shift-mid-hold still rings out the
     /// note that was started under shift.
@@ -292,7 +308,7 @@ final class MenuBandController {
         guard let note = MenuBandLayout.midiNote(forKeyCode: keyCode,
                                                  octaveShift: shift,
                                                  keymap: keymap) else { return .neutral }
-        let dn = max(60, min(83, Int(note) - shift * 12))
+        let dn = Int(Self.displayNote(for: note, shift: shift))
         return dn < MenuBandLayout.lingerSplitMidi ? .left : .right
     }
 
@@ -704,6 +720,7 @@ final class MenuBandController {
         if enabled {
             UserDefaults.standard.set("fluod", forKey: instrumentBackendKey)
             synth.setSampleBackend(false)
+            synth.setACPianoVoice(false)
             synth.setFluoddityVoice(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -712,6 +729,41 @@ final class MenuBandController {
         }
         onChange?()
         onInstrumentVisualChange?()
+    }
+
+    /// Switch the active melodic backend to (or away from) the AC grand
+    /// piano — the first custom instrument, typed as ` then 1. Same shape
+    /// as the Fluoddity switch: persists the pick, clears the competing
+    /// backends so routing can't shadow it, restores the last GM voice on
+    /// the way out. Survives relaunch (the bank is in the app).
+    func setACPianoBackend(_ enabled: Bool) {
+        if enabled {
+            UserDefaults.standard.set("acpiano", forKey: instrumentBackendKey)
+            synth.setSampleBackend(false)
+            synth.setFluoddityVoice(false)
+            synth.setACPianoVoice(true)
+        } else {
+            UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
+            synth.setACPianoVoice(false)
+            synth.setMelodicProgram(melodicProgram)
+        }
+        onChange?()
+        onInstrumentVisualChange?()
+    }
+
+    /// Custom instruments live behind the backtick: ` then a digit. Slot 1
+    /// is the AC grand piano. Picking one is a "play this locally" gesture
+    /// like typing a GM number, so it leaves MIDI mode. Unknown slots are
+    /// consumed and do nothing, so a stray digit can't pick a GM voice the
+    /// user wasn't aiming for.
+    func selectCustomInstrument(_ slot: Int) {
+        switch slot {
+        case 1:
+            if midiMode { toggleMIDIMode() }
+            setACPianoBackend(true)
+        default:
+            break
+        }
     }
 
     /// Multiple surfaces can show the live waveform at once (popover,
@@ -1069,7 +1121,7 @@ final class MenuBandController {
         guard let note = MenuBandLayout.midiNote(forKeyCode: keyCode,
                                                  octaveShift: shift,
                                                  keymap: keymap) else { return false }
-        let dn = max(60, min(83, Int(note) - shift * 12))
+        let dn = Int(Self.displayNote(for: note, shift: shift))
         return dn < MenuBandLayout.lingerSplitMidi ? percussionLeft : percussionRight
     }
 
@@ -1788,7 +1840,7 @@ final class MenuBandController {
 
     enum InstrumentBackend: String {
         case gm, garageBand = "gb", kpbj = "kpbj", sample = "sample",
-             fluoddity = "fluod"
+             fluoddity = "fluod", acPiano = "acpiano"
     }
 
     var instrumentBackend: InstrumentBackend {
@@ -2119,7 +2171,7 @@ final class MenuBandController {
     var audioRoutingContextLabel: String? {
         if midiMode { return "Local synth muted - MIDI OUT" }
         if instrumentBackend == .sample && !sampleVoiceHasRecording {
-            return "No sample yet - hold ` to record"
+            return "No sample yet - hold ⌃` to record"
         }
         return nil
     }
@@ -2135,6 +2187,8 @@ final class MenuBandController {
             return garageBandPatchURL?.deletingPathExtension().lastPathComponent ?? "GarageBand patch"
         case .fluoddity:
             return "Fluoddity"
+        case .acPiano:
+            return "`1 AC Grand Piano"
         case .gm:
             let safe = max(0, min(127, Int(effectiveMelodicProgram)))
             return String(format: "%03d %@", safe + 1, GeneralMIDI.programName(safe))
@@ -2161,9 +2215,11 @@ final class MenuBandController {
     func setSampleBackend(_ enabled: Bool) {
         if enabled {
             UserDefaults.standard.set("sample", forKey: instrumentBackendKey)
-            // Mutually exclusive with the Fluoddity backend — clear its
-            // routing flag so it can't resurrect when sample exits later.
+            // Mutually exclusive with the Fluoddity and AC piano backends —
+            // clear their routing flags so they can't resurrect when sample
+            // exits later.
             synth.setFluoddityVoice(false)
+            synth.setACPianoVoice(false)
             synth.setSampleBackend(true)
         } else {
             UserDefaults.standard.set("gm", forKey: instrumentBackendKey)
@@ -2436,6 +2492,10 @@ final class MenuBandController {
         // persisted pick implies.
         if instrumentBackend == .fluoddity {
             synth.setFluoddityVoice(true)
+        }
+        // So does the AC grand piano — its bank ships in the app.
+        if instrumentBackend == .acPiano {
+            synth.setACPianoVoice(true)
         }
         if UserDefaults.standard.object(forKey: midiModeKey) == nil {
             UserDefaults.standard.set(false, forKey: midiModeKey)
@@ -3070,7 +3130,7 @@ final class MenuBandController {
             guard vNote <= 127 else { continue }
             let note = UInt8(vNote)
             let ch = nextMelodicChannel()
-            let display = UInt8(max(60, min(83, Int(note) - shift * 12)))
+            let display = Self.displayNote(for: note, shift: shift)
             if !midiMode { synth.setPan(pan, channel: ch) }
             cancelLingerFade(channel: ch)
             primeChannelBend(ch)
@@ -3233,7 +3293,7 @@ final class MenuBandController {
     /// `heldKeyLinger` so the eventual key-up rings (or cuts) like any note.
     private func playSingleVoice(keyCode: UInt16, note: UInt8, shift: Int, linger: Bool) {
         let synthCh = nextMelodicChannel()
-        let displayNote = UInt8(max(60, min(83, Int(note) - shift * 12)))
+        let displayNote = Self.displayNote(for: note, shift: shift)
         heldLock.lock()
         heldNotes[keyCode] = note
         heldKeyChannel[keyCode] = synthCh
@@ -3560,6 +3620,10 @@ final class MenuBandController {
     /// digit buffer so a stray `-` doesn't hijack the next typed
     /// voice number.
     private var voiceDigitNegative: Bool = false
+    /// True after a plain ` primes a custom-instrument pick: ` then a digit
+    /// selects a custom voice (`1 = the AC grand piano). Same staleness
+    /// window as the digits, so a forgotten ` can't hijack a later number.
+    private var voiceCustomPrefix: Bool = false
     /// Letters typed after `-` accumulate into a CDJ station callsign — e.g.
     /// `-kpbj`, `-nts1`, or `-nts2`. The piano instrument is unchanged.
     /// Cleared on `-`, on a match, on divergence from any known name, and on
@@ -3954,17 +4018,20 @@ final class MenuBandController {
                 voiceDigitBuffer = ""
                 voiceCommandBuffer = ""
                 voiceDigitNegative = true
+                voiceCustomPrefix = false
                 voiceDigitLastPress = CACurrentMediaTime()
             }
             return true
         }
 
-        // Backtick (`, keyCode 50) is the microphone sampler trigger:
-        // hold the key to record a clip from the default input device,
-        // release to switch the active voice to that clip. Subsequent
-        // notes pitch-shift the recording with duration preserved
-        // (TimePitch, cents = (midi−60)×100). Pressing any number key flips back to a
-        // GM voice (`setMelodicProgram` exits sample mode internally).
+        // Backtick (`, keyCode 50). Plain ` is the custom-instrument
+        // prefix: ` then a digit picks a custom voice (`1 = the AC grand
+        // piano). The microphone sampler keeps its modifier forms — hold
+        // ⌃` to record the global sample (chromatic), hold ~ to record
+        // per-key samples — and the SAMPLE cell in the popover. Notes
+        // then pitch-shift the recording with duration preserved
+        // (TimePitch, cents = (midi−60)×100); any number key flips back
+        // to a GM voice (`setMelodicProgram` exits sample mode internally).
         if keyCode == 50 {
             // ~ (Shift+`) ARMS per-key recording while held — it does NOT
             // record the global sample. Plain ` records the global sample
@@ -3980,11 +4047,31 @@ final class MenuBandController {
                 onInstrumentVisualChange?()
                 return true
             }
-            // Plain ` = normal global sample (C4 = raw); ⌃+` = chromatic
-            // (pitch-corrected) global sample. Two modes of the Sample voice.
-            return handleSampleRecordKey(isDown: isDown, isRepeat: isRepeat,
-                                         chromatic: control,
-                                         source: typeMode ? "type" : "local")
+            // ⌃` = chromatic (pitch-corrected) global sample.
+            if control {
+                return handleSampleRecordKey(isDown: isDown, isRepeat: isRepeat,
+                                             chromatic: true,
+                                             source: typeMode ? "type" : "local")
+            }
+            // Plain ` primes a custom-instrument pick. Tracked in the
+            // control-keys set so the QWERTY map lights it like a digit.
+            heldLock.lock()
+            let inserted = isDown
+                ? heldControlKeys.insert(keyCode).inserted
+                : heldControlKeys.remove(keyCode) != nil
+            heldLock.unlock()
+            if inserted {
+                let notify: () -> Void = { [weak self] in self?.onLitChanged?() }
+                if Thread.isMainThread { notify() } else { DispatchQueue.main.async(execute: notify) }
+            }
+            if isDown && !isRepeat {
+                voiceCustomPrefix = true
+                voiceDigitNegative = false
+                voiceDigitBuffer = ""
+                voiceCommandBuffer = ""
+                voiceDigitLastPress = CACurrentMediaTime()
+            }
+            return true
         }
 
         // ~ held + a note key = record a per-key sample into that key
@@ -4041,12 +4128,24 @@ final class MenuBandController {
                 let now = CACurrentMediaTime()
                 let staleGap = now - voiceDigitLastPress
                     > Self.voiceDigitFlushInterval
+                // Custom instrument, primed by a preceding `: `1 is the
+                // AC grand piano. Other digits are consumed no-ops.
+                if voiceCustomPrefix && !staleGap {
+                    voiceCustomPrefix = false
+                    voiceDigitLastPress = now
+                    DispatchQueue.main.async { [weak self] in
+                        self?.selectCustomInstrument(digit)
+                    }
+                    return true
+                }
+                voiceCustomPrefix = false
                 // CDJ Radio shortcut, primed by a preceding `-`.
                 // `-1` toggles the saved station. Other digits are no-ops —
                 // we consume them so they don't quietly pick a GM
                 // voice the user wasn't aiming for.
                 if voiceDigitNegative && !staleGap {
                     voiceDigitNegative = false
+                    voiceCustomPrefix = false
                     voiceDigitLastPress = now
                     if digit == 1 {
                         DispatchQueue.main.async { [weak self] in
@@ -4059,6 +4158,7 @@ final class MenuBandController {
                 // voice number — clear the prefix and fall through to
                 // normal positive-digit handling.
                 voiceDigitNegative = false
+                voiceCustomPrefix = false
                 if voiceDigitBuffer.count >= 3 || staleGap {
                     voiceDigitBuffer = ""
                 }
@@ -4106,6 +4206,7 @@ final class MenuBandController {
                 // Stale prefix — abandon the capture and let this key play
                 // as a normal note (fall through to the handlers below).
                 voiceDigitNegative = false
+                voiceCustomPrefix = false
                 voiceCommandBuffer = ""
             } else {
                 voiceDigitLastPress = now
@@ -4116,6 +4217,7 @@ final class MenuBandController {
                     // Complete match → tune the separate CDJ deck. A name
                     // selects; it does not toggle off like `-1` does.
                     voiceDigitNegative = false
+                    voiceCustomPrefix = false
                     voiceCommandBuffer = ""
                     let station = RadioStation.by(id: token)
                     DispatchQueue.main.async { [weak self] in
@@ -4124,6 +4226,7 @@ final class MenuBandController {
                 } else if !isPrefix {
                     // Diverged from every known name → stop capturing.
                     voiceDigitNegative = false
+                    voiceCustomPrefix = false
                     voiceCommandBuffer = ""
                 }
                 return true  // consumed the letter while capturing a name
@@ -4166,7 +4269,7 @@ final class MenuBandController {
         // triggers on key-down, consumes key-up, never stores a melodic note.
         let percDisplayNote: UInt8? = MenuBandLayout
             .midiNote(forKeyCode: keyCode, octaveShift: shift, keymap: keymap)
-            .map { UInt8(max(60, min(83, Int($0) - shift * 12))) }
+            .map { Self.displayNote(for: $0, shift: shift) }
         let percActiveForKey: Bool = {
             // Chord modifiers (⌘/⌥) don't disqualify a drum key — drums are
             // chord-immune. Other modifiers (⌃) still pass the key through.
@@ -4218,11 +4321,7 @@ final class MenuBandController {
             // sharper attack tail-off). MIDI out still goes to channel 0
             // so DAW tracks listening on one channel get every note.
             let synthCh = nextMelodicChannel()
-            let displayNote: UInt8 = {
-                let v = Int(note) - shift * 12
-                let clamped = max(60, min(83, v))
-                return UInt8(clamped)
-            }()
+            let displayNote = Self.displayNote(for: note, shift: shift)
             // Sided linger: left shift rings out only the left half of the
             // board (display note below the split), right shift only the
             // right half; caps lock / both shifts ring the whole board.

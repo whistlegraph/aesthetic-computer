@@ -384,6 +384,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var flashStrength: CGFloat = 0
     private var flashStartedAt: CFTimeInterval = 0
     private var iconAnimTimer: Timer?
+    /// Ghost-key lean (pixels): where the menubar piano is sitting right
+    /// now and where it is headed. `updateIcon` reads the target off the
+    /// lit notes (`KeyboardIconRenderer.leanOffset(for:)`); `tickIconAnim`
+    /// eases toward it so a reach key slides the keyboard over instead of
+    /// jumping it.
+    private var leanCurrent: CGFloat = 0
+    private var leanTarget: CGFloat = 0
     private static let slideDuration: CFTimeInterval = 0.34
     private static let limitNudgeDistance: CGFloat = 16
     private static let flashDuration: CFTimeInterval = 0.18
@@ -3614,7 +3621,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         }
 #endif
-        if !slideActive && !flashActive && !countInActive {
+        var leanActive = false
+        if abs(leanTarget - leanCurrent) > 0.2 {
+            // ~95% of the way in ten frames: quick enough to keep up with
+            // a Z-X run, slow enough to read as the keyboard leaning.
+            leanCurrent += (leanTarget - leanCurrent) * 0.3
+            leanActive = true
+        } else if leanCurrent != leanTarget {
+            leanCurrent = leanTarget
+        }
+        if !slideActive && !flashActive && !countInActive && !leanActive {
             iconAnimTimer?.invalidate()
             iconAnimTimer = nil
         }
@@ -3727,6 +3743,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .sample:    voiceLabel = "`"
         case .kpbj:      voiceLabel = menuBand.radioStation.label
         case .fluoddity: voiceLabel = "~"
+        case .acPiano:   voiceLabel = "`1"
         default:         voiceLabel = nil
         }
         // Reserve badge width for the actual subscript so 3-digit GM
@@ -3745,6 +3762,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         statusItem.length = KeyboardIconRenderer.imageSize.width
+        // Reach keys (Z X ; ') lean the piano to reveal their ghost slot.
+        let lean = KeyboardIconRenderer.leanOffset(for: menuBand.litNotes)
+        if lean != leanTarget {
+            leanTarget = lean
+            startIconAnimTimerIfNeeded()
+        }
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
             playbackLitNotes: menuBand.playbackLitNotes,
@@ -3758,6 +3781,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.letterAlpha(for: midi) ?? 0
             },
             slideOffsetX: currentSlideOffset(),
+            leanOffsetX: leanCurrent,
             settingsFlash: currentFlashStrength()
         )
         let layoutName: String

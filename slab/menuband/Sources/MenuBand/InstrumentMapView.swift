@@ -96,6 +96,7 @@ final class InstrumentListView: NSView {
         case mic
         case midiOut
         case sample
+        case acPiano
         case program(Int)
         case radio(Int)
         case spotify
@@ -120,6 +121,11 @@ final class InstrumentListView: NSView {
     /// True while the mic-sampler backend is active — fills the SAMPLE cell
     /// the same way `midiModeActive` fills MIDI OUT.
     var sampleBackendActive: Bool = false { didSet { needsDisplay = true } }
+    /// Fires when the `1 PIANO cell (left of SAMPLE) is clicked. The popover
+    /// wires this to `menuBand.setACPianoBackend(...)`.
+    var onACPianoCommit: (() -> Void)?
+    /// True while the AC grand piano backend is active — fills the cell.
+    var acPianoActive: Bool = false { didSet { needsDisplay = true } }
     /// When true, a MIC cell appears at the LEFT edge of the top row — the
     /// same mic Menu Band already uses for sampling, here routed to voice
     /// squawk. Driven by the About-window "Voice squawk" Advanced flag,
@@ -233,6 +239,9 @@ final class InstrumentListView: NSView {
         }
         if isMidiOutHit(point) {
             return "0 MIDI OUT - route notes to the virtual MIDI port; local synth is muted"
+        }
+        if isACPianoHit(point) {
+            return "`1 AC Grand Piano — the sampled piano from AC OS; type ` then 1"
         }
         if let program = program(at: point) {
             return "\(program + 1) \(GeneralMIDI.programName(program)) - click to choose, drag to audition"
@@ -384,6 +393,8 @@ final class InstrumentListView: NSView {
     /// the radio strip at the bottom.
     /// Width of the SAMPLE cell carved off the right end of the top row.
     private var sampleCellW: CGFloat { min(86, bounds.width * 0.32) }
+    /// Width of the `1 PIANO cell between MIDI OUT and SAMPLE.
+    private var acPianoCellW: CGFloat { min(78, bounds.width * 0.28) }
 
     /// Width of the MIC cell carved off the LEFT end of the top row. Zero
     /// (absent) unless squawk is enabled, so the top row keeps its old
@@ -397,7 +408,18 @@ final class InstrumentListView: NSView {
 
     private var midiOutRect: NSRect {
         NSRect(x: micCellW, y: 0,
-               width: bounds.width - micCellW - sampleCellW, height: Self.midiOutH)
+               width: bounds.width - micCellW - acPianoCellW - sampleCellW,
+               height: Self.midiOutH)
+    }
+
+    /// `1 PIANO cell — the AC grand piano, between MIDI OUT and SAMPLE.
+    private var acPianoRect: NSRect {
+        NSRect(x: bounds.width - sampleCellW - acPianoCellW, y: 0,
+               width: acPianoCellW, height: Self.midiOutH)
+    }
+
+    private func isACPianoHit(_ point: NSPoint) -> Bool {
+        acPianoRect.contains(point)
     }
 
     private func isMicHit(_ point: NSPoint) -> Bool {
@@ -433,6 +455,7 @@ final class InstrumentListView: NSView {
         if isMicHit(point) { return .mic }
         if isMidiOutHit(point) { return .midiOut }
         if isSampleHit(point) { return .sample }
+        if isACPianoHit(point) { return .acPiano }
         if let program = program(at: point) { return .program(program) }
         if let station = radioStationIndex(at: point) { return .radio(station) }
         if isSpotifyHit(point) { return .spotify }
@@ -601,6 +624,34 @@ final class InstrumentListView: NSView {
             let size = str.size()
             str.draw(at: NSPoint(x: sampleR.midX - size.width / 2,
                                  y: sampleR.midY - size.height / 2))
+        }
+
+        // `1 PIANO cell — between MIDI OUT and SAMPLE. The AC grand piano,
+        // the first custom instrument. Warm amber so it reads as a sampled
+        // acoustic beside the red sampler and the accent MIDI cell.
+        let pianoR = acPianoRect
+        if pianoR.intersects(dirtyRect) {
+            let tint = NSColor(srgbRed: 196/255, green: 132/255, blue: 40/255, alpha: 1)
+            let hovered = hoveredTarget == .acPiano
+            let cap = NSBezierPath(roundedRect: pianoR.insetBy(dx: 1.75, dy: 1.5),
+                                   xRadius: 3, yRadius: 3)
+            if acPianoActive {
+                tint.withAlphaComponent(hovered ? 0.98 : 0.85).setFill(); cap.fill()
+                tint.setStroke(); cap.lineWidth = 1.4; cap.stroke()
+            } else {
+                tint.withAlphaComponent(hovered ? 0.48 : 0.30).setFill(); cap.fill()
+                tint.withAlphaComponent(hovered ? 1.0 : 0.85).setStroke()
+                cap.lineWidth = hovered ? 1.4 : 1.0; cap.stroke()
+            }
+            let labelColor: NSColor = acPianoActive ? .white : .labelColor
+            let str = NSAttributedString(string: "`1 PIANO", attributes: [
+                .font: NSFont.systemFont(ofSize: 10.5, weight: .semibold),
+                .foregroundColor: labelColor,
+                .kern: 0.4,
+            ])
+            let size = str.size()
+            str.draw(at: NSPoint(x: pianoR.midX - size.width / 2,
+                                 y: pianoR.midY - size.height / 2))
         }
 
         // Radio-station cells in the full-width strip at the BOTTOM, below
@@ -874,6 +925,11 @@ final class InstrumentListView: NSView {
         // SAMPLE cell — switch to the mic-sampler backend. No audible preview.
         if isSampleHit(pt) {
             onSampleCommit?()
+            return
+        }
+        // `1 PIANO cell — toggle the AC grand piano. No audible preview.
+        if isACPianoHit(pt) {
+            onACPianoCommit?()
             return
         }
         // Fluoddity row — toggle the ecosystem backend / breed / mutate.

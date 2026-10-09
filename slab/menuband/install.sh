@@ -278,6 +278,19 @@ if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
     cp -R "${PKG_BUNDLE_SRC}/." "${APP_RES}/"
 fi
 
+# AC grand piano sample bank (` then 1). Copied from fedac/native's piano
+# anchors — the exact files AC OS plays — into Resources/acpiano/ so there is
+# one source of truth and no 14 MB second copy in git. MenuBandACPianoVoice
+# looks here first; a `swift run` dev build reads the repo path directly.
+PIANO_BANK_SRC="${SCRIPT_DIR}/../../fedac/native/samples/piano"
+if [[ -d "${PIANO_BANK_SRC}" ]]; then
+    rm -rf "${APP_RES:?}/acpiano"
+    mkdir -p "${APP_RES}/acpiano"
+    cp "${PIANO_BANK_SRC}"/*.raw "${APP_RES}/acpiano/"
+else
+    warn "AC piano bank missing at ${PIANO_BANK_SRC} — \`1 will be silent"
+fi
+
 # Menu Band Juke is linked into this process and reads assets from the app's
 # signed Resources/Assets directory. Copying source assets explicitly avoids
 # SwiftPM's generated accessor and its embedded local build path.
