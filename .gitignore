@@ -615,3 +615,6 @@ xbox/live/oskiewar-release.json
 # Native app bundles are rebuilt from xbox/live, never a second source tree.
 xbox/builds/macos/
 xbox/builds/ios/
+
+# Pulled Menu Band takes (menuband_take_pull); backed up to @jeffrey, not git
+pop/menuband/takes/
