@@ -14,7 +14,9 @@
 //   OVAL   cx cy rx ry fill r g b a
 //   TRI    x1 y1 x2 y2 x3 y3 fill r g b a
 //   SHAPE  n fill r g b a  x1 y1 … xn yn
-export const OP = Object.freeze({ CLEAR: 1, LINE: 2, BOX: 3, OVAL: 4, TRI: 5, SHAPE: 6 });
+//   CAMERA x y z yaw pitch fov near              (the 3D layer, kidlisp-mesh.mjs)
+//   PLACE  mesh x y z yaw pitch roll scale a     mesh = an id in frame.meshes
+export const OP = Object.freeze({ CLEAR: 1, LINE: 2, BOX: 3, OVAL: 4, TRI: 5, SHAPE: 6, CAMERA: 7, PLACE: 8 });
 
 export class GpuFrame {
   constructor(capacity = 1 << 16) {
@@ -23,7 +25,12 @@ export class GpuFrame {
     this.r = 255; this.g = 255; this.b = 255; this.a = 255;
     this.overlay = false;      // the CPU buffer has something to composite on top (text, pastes)
     this.ops = 0;
+    this.meshes = new Map();   // id → { verts, faces } (kidlisp-mesh.mjs layout), defined once, drawn by PLACE
+    this.meshVersion = 0;
   }
+  defineMesh(id, mesh) { this.meshes.set(id, mesh); this.meshVersion++; }
+  camera(x, y, z, yaw, pitch, fov, near = 1) { this.push(OP.CAMERA, x, y, z, yaw, pitch, fov, near); }
+  place(mesh, x, y, z, yaw = 0, pitch = 0, roll = 0, scale = 1) { this.push(OP.PLACE, mesh, x, y, z, yaw, pitch, roll, scale, this.a); }
   reset() { this.length = 0; this.ops = 0; this.overlay = false; }
   grow(extra) {
     if (this.length + extra <= this.buffer.length) return;
@@ -62,6 +69,8 @@ export function readFrame(buffer, visit) {
     else if (op === OP.OVAL) { visit.oval?.(buffer[i], buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6], buffer[i + 7], buffer[i + 8]); i += 9; }
     else if (op === OP.TRI) { visit.tri?.(buffer[i], buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6], buffer[i + 7], buffer[i + 8], buffer[i + 9], buffer[i + 10]); i += 11; }
     else if (op === OP.SHAPE) { const count = buffer[i]; const fill = buffer[i + 1]; const r = buffer[i + 2], g = buffer[i + 3], b = buffer[i + 4], a = buffer[i + 5]; i += 6; visit.shape?.(buffer.subarray(i, i + count * 2), fill, r, g, b, a); i += count * 2; }
+    else if (op === OP.CAMERA) { visit.camera?.(buffer[i], buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]); i += 7; }
+    else if (op === OP.PLACE) { visit.place?.(buffer[i], buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6], buffer[i + 7], buffer[i + 8]); i += 9; }
     else return i; // unknown op: stop
   }
   return i;

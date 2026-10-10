@@ -46,6 +46,7 @@ import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
 import { compileProgram, runKernelOverPool, runKernelOnGPU, kernelBackend } from "./kidlisp-compile.mjs";
+import { buildMesh, sceneCamera, placeMesh, projectMesh } from "./kidlisp-mesh.mjs";
 import { compileKernel } from "./kidlisp-kernel.mjs";
 import { GpuFrame } from "./gpu-frame.mjs";
 
@@ -64,6 +65,8 @@ const KIDLISP_FUNCTIONS = new Set([
   "abs", "sqrt", "tan", "exp", "sign", "pow", "atan2", "hypot", "clamp",
   // Pools, hums, console input (kidlisp/PIECE-IL.md)
   "pool", "spawn", "each", "kill", "alive", "empty", "rank", "kernel", "run", "gpu", "set", "uniform", "hum", "tune", "hush", "key", "pad", "else",
+  // The 3D layer (kidlisp-mesh.mjs): geometry once, a camera and placements per frame
+  "mesh", "camera", "place",
   // Output
   "print", "debug", "log", "console",
   // Math
@@ -1263,6 +1266,9 @@ class KidLisp {
     this.killing = false;
     this.keysDown = new Set();
     this.padState = {};
+    this.meshes = new Map();   // name → { id, verts, faces } (kidlisp-mesh.mjs)
+    this.meshSerial = 0;
+    this.camera27 = null;      // the frame's camera, the Xbox layout
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
@@ -4206,7 +4212,7 @@ class KidLisp {
           this.gpuActive = !!(this.compiled && this.gpuFrame && $.gpuFrame?.available);
           if (this.gpuActive) this.gpuFrame.reset();
           /*const evaluated = */ withKidlispConsoleCapture(() => (this.compiled ? this.compiled.run($) : this.evaluate(this.ast, $, undefined, undefined, true)));
-          if (this.gpuActive && this.gpuFrame.ops) $.gpuFrame.send(this.gpuFrame.take(), this.gpuFrame.overlay);
+          if (this.gpuActive && this.gpuFrame.ops) { let meshes = null; if (this.gpuFrame.meshVersion !== this.gpuFrameMeshesSent) { this.gpuFrameMeshesSent = this.gpuFrame.meshVersion; meshes = [...this.gpuFrame.meshes.values()].map((m) => ({ id: m.id, verts: m.verts.slice(), faces: m.faces.slice() })); } $.gpuFrame.send(this.gpuFrame.take(), this.gpuFrame.overlay, meshes); }
           
           // 🍞 IMPLICIT TRAILING BAKE: If we used bake and ended on a bake buffer,
           // automatically create one more empty bake buffer to finalize the current one.
@@ -5895,6 +5901,45 @@ class KidLisp {
       // 🫙 Pools: fixed-capacity records (kidlisp/PIECE-IL.md §3.1). Spawn
       // fills a free slot, or the oldest when full; each binds the fields as
       // locals for the body, writes numbers back, and `kill` frees the slot.
+      // (mesh name (cube w h d r g b) (cube x y z w h d r g b) (face …) (tri …)):
+      // geometry built once, numbers only; drawn by place.
+      mesh: (api, args = [], env) => {
+        const name = unquoteString(String(args[0] ?? ""));
+        if (!name) return 0;
+        if (this.meshes.has(name)) return this.meshes.get(name).id;
+        const parts = args.slice(1).filter(Array.isArray).map((part) => [String(part[0]), ...part.slice(1).map((a) => numArg(api, env, a, 0))]);
+        try {
+          const built = buildMesh(parts);
+          const id = ++this.meshSerial;
+          this.meshes.set(name, { id, name, verts: built.verts, faces: built.faces });
+          return id;
+        } catch (error) { console.warn("mesh " + name + ": " + (error?.message || error)); return 0; }
+      },
+      // (camera x y z [yaw pitch fov near]): where the frame is seen from, in the piece's pixels.
+      camera: (api, args = [], env) => {
+        const v = args.map((a) => numArg(api, env, a, 0));
+        this.camera27 = sceneCamera(v[0] ?? 0, v[1] ?? 0, v[2] ?? 0, v[3] ?? 0, v[4] ?? 0, args.length > 5 ? v[5] : 60, api.screen?.width ?? 0, api.screen?.height ?? 0, this.camera27 || new Float32Array(27), args.length > 6 ? v[6] : 1);
+        return 0;
+      },
+      // (place name x y z [yaw pitch roll scale]): a mesh at a pose. On the GPU
+      // path the frame records it; on the CPU the projector draws it with tri.
+      place: (api, args = [], env) => {
+        const mesh = this.meshes.get(unquoteString(String(args[0] ?? "")));
+        if (!mesh) return 0;
+        const v = args.slice(1).map((a) => numArg(api, env, a, 0));
+        const [x = 0, y = 0, z = 0, yaw = 0, pitch = 0, roll = 0] = v, scale = args.length > 7 ? v[6] : 1;
+        if (this.gpuActive && this.gpuFrame) {
+          if (!this.gpuFrame.meshes.has(mesh.id)) this.gpuFrame.defineMesh(mesh.id, mesh);
+          this.gpuFrame.place(mesh.id, x, y, z, yaw, pitch, roll, scale);
+          return 1;
+        }
+        if (!this.camera27) this.camera27 = sceneCamera(0, 0, 0, 0, 0, 60, api.screen?.width ?? 0, api.screen?.height ?? 0);
+        const alpha = this.inkState?.[3] ?? 255;
+        return projectMesh(this.camera27, placeMesh(mesh, x, y, z, yaw, pitch, roll, scale), (x1, y1, x2, y2, x3, y3, depth, r, g, b) => {
+          api.ink?.(r, g, b, alpha);
+          api.tri?.(x1, y1, x2, y2, x3, y3);
+        });
+      },
       pool: (api, args = [], env) => {
         const name = unquoteString(String(args[0] ?? ""));
         if (!name) return 0;
@@ -11146,7 +11191,7 @@ class KidLisp {
                   head === "trans" ||
                   head === "jump" ||
                   head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" || head === "kernel" || head === "run" || head === "gpu" ||
-                  head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad" ||
+                  head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad" || head === "mesh" ||
                   (head === "shape" && args.length === 1 && typeof args[0] === "string" && this.pools?.has(args[0]))
                 ) {
                   processedArgs = args;

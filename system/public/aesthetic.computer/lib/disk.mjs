@@ -4418,8 +4418,9 @@ const $commonApi = {
     probed: false,
     sent: false,
     probe: () => { if ($commonApi.gpuFrame.probed) return; $commonApi.gpuFrame.probed = true; send({ type: "gpu-frame-probe" }); },
-    send: (buffer, overlay = false) => {
-      send({ type: "gpu-frame", content: { buffer, overlay } }, [buffer.buffer]);
+    // meshes: new entries for the renderer's table ({ id, verts, faces }), or null.
+    send: (buffer, overlay = false, meshes = null) => {
+      send({ type: "gpu-frame", content: { buffer, overlay, meshes } }, [buffer.buffer]);
       $commonApi.gpuFrame.sent = true;
     },
   },

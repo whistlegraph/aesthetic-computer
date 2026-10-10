@@ -22,9 +22,9 @@ import { CompileError, kernelBackend, runKernelOverPool, runKernelOnGPU } from "
 const ARITH_NAMES = new Set(["+", "-", "*", "/", "%", "mod", "mul", "max", "min", "sin", "cos", "tan", "abs", "sqrt", "floor", "ceil", "round", "exp", "pow", "sign", "atan2", "hypot", "clamp"]);
 const COMPARE_NAMES = { ">": ">", "<": "<", "=": "===" };
 const SCREEN = { width: "(api.screen?.width ?? 0)", w: "(api.screen?.width ?? 0)", height: "(api.screen?.height ?? 0)", h: "(api.screen?.height ?? 0)", frame: "(api.paintCount || 0)", f: "(api.paintCount || 0)" };
-const DELEGATE_TOP = new Set(["tap", "draw", "lift", "once", "melody", "clock", "later", "jump", "hop", "delay", "trans", "net", "source", "choose", "?", "bake", "embed", "fps", "resolution", "die", "mic", "speaker", "overtone", "amplitude"]);
+const DELEGATE_TOP = new Set(["mesh", "tap", "draw", "lift", "once", "melody", "clock", "later", "jump", "hop", "delay", "trans", "net", "source", "choose", "?", "bake", "embed", "fps", "resolution", "die", "mic", "speaker", "overtone", "amplitude"]);
 const RAW_ANYWHERE = new Set(["hum", "tune", "hush", "pluck", "bell", "sub", "flute", "hat", "voice"]);
-const GPU_HEADS = new Set(["wipe", "ink", "line", "box", "circle", "oval", "tri", "shape", "write", "plot", "point"]);
+const GPU_HEADS = new Set(["wipe", "ink", "line", "box", "circle", "oval", "tri", "shape", "write", "plot", "point", "camera", "place"]);
 const isTimerHead = (head) => typeof head === "number" || (typeof head === "string" && /^\d*\.?\d+s(?:!|\.{2,3})?$/.test(head));
 const unquote = (s) => (typeof s === "string" && /^".*"$/s.test(s) ? s.slice(1, -1) : s);
 const lit = (v) => JSON.stringify(v);
@@ -296,6 +296,8 @@ export function programHelpers(lisp) {
         case "oval": if (n >= 4 && numbers(v, 4)) { frame.oval(v[0], v[1], v[2], v[3], outline(v[4]) ? 0 : fill); return; } break;
         case "tri": if (n >= 6 && numbers(v, 6)) { frame.tri(v[0], v[1], v[2], v[3], v[4], v[5], outline(v[6]) ? 0 : fill); return; } break;
         case "shape": if (n >= 6 && n % 2 === 0 && numbers(v, n)) { frame.shape(v, fill); return; } break;
+        case "camera": if (n >= 3 && numbers(v, 3)) { frame.camera(v[0], v[1], v[2], G(v[3]), G(v[4]), typeof v[5] === "number" ? v[5] : 60, typeof v[6] === "number" ? v[6] : 1); return; } break;
+        case "place": { const mesh = lisp.meshes?.get(String(v[0])); if (mesh && n >= 4 && typeof v[1] === "number" && typeof v[2] === "number" && typeof v[3] === "number") { if (!frame.meshes.has(mesh.id)) frame.defineMesh(mesh.id, mesh); frame.place(mesh.id, v[1], v[2], v[3], G(v[4]), G(v[5]), G(v[6]), typeof v[7] === "number" ? v[7] : 1); } return; }
       }
       frame.overlay = true;
       return cpu(api, v, undefined);

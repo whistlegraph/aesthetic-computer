@@ -1377,6 +1377,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   gpuFrameCanvas.style.display = "none";
   gpuFrameCanvas.style.imageRendering = "pixelated";
   let frameRenderer = null, frameRendererRequest = null, pendingGpuFrame = null;
+  const gpuFrameMeshes = new Map();   // the 3D layer's mesh table, filled by the frames that carry new meshes
 
   // 🖥️🎨 WebGL Composite Canvas (blitted pixel buffer)
   const webglCompositeCanvas = document.createElement("canvas");
@@ -15184,7 +15185,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       return;
     }
-    if (type === "gpu-frame") { pendingGpuFrame = content; return; }
+    if (type === "gpu-frame") { if (content.meshes) for (const m of content.meshes) gpuFrameMeshes.set(m.id, m); pendingGpuFrame = content; return; }
 
     if (type === "webgpu-command") {
       // Use new backend system if available, fallback to old WebGPU
@@ -20430,7 +20431,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (webgpuCanvas.style.display !== "none") webgpuCanvas.style.display = "none";
             if (webglCompositeCanvas.style.display !== "none") webglCompositeCanvas.style.display = "none";
             if (overlayCan.style.display !== "none") overlayCan.style.display = "none";
-            try { frameRenderer.render(frame.buffer, frame.overlay ? { pixels: imageData.data, width: imageData.width, height: imageData.height } : null); }
+            try { frameRenderer.render(frame.buffer, frame.overlay ? { pixels: imageData.data, width: imageData.width, height: imageData.height } : null, gpuFrameMeshes); }
             catch (error) { console.warn("GPU frame render failed:", error?.message || error); }
             skipImmediateOverlays = true;
           } else if (content.webgpuEnabled) {

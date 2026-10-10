@@ -99,10 +99,38 @@ const visit = {
   tri: (x1, y1, x2, y2, x3, y3, fill, r, g, b, a) => { if (!vis(a)) return; if (fill) T(x1, y1, x2, y2, x3, y3, r, g, b); else ring([x1, y1, x2, y2, x3, y3], r, g, b); },
   shape: (pts, fill, r, g, b, a) => { if (!vis(a)) return; const p = Array.from(pts); if (fill) fan(p, r, g, b); else ring(p, r, g, b); },
 };
-const COUNTS = { clear: 0, line: 0, box: 0, oval: 0, tri: 0, shape: 0 };
-const counting = { clear: () => COUNTS.clear++, line: () => COUNTS.line++, box: () => COUNTS.box++, oval: () => COUNTS.oval++, tri: () => COUNTS.tri++, shape: () => COUNTS.shape++ };
+// The 3D layer: the camera is built in host pixels; a placed mesh goes to the
+// host's retained meshes where it has them (the Xbox: meshUpload/meshDraw
+// with the 27-float camera) and through the projector otherwise, far to near,
+// as triangle3d with depth when the host has it, else as plain triangles.
+const { sceneCamera, placeMesh, projectMesh } = KidLispNative;
+let camera27 = null; const handles = new Map(); let meshFaces = 0;
+const hostMeshes = typeof meshUpload === "function" && typeof meshDraw === "function";
+const host3d = typeof triangle3d === "function";
+visit.camera = (x, y, z, yaw, pitch, fov, near) => { camera27 = sceneCamera(x * S, y * S, z * S, yaw, pitch, fov, HW, HH, camera27 || new Float32Array(27), (near || 1) * S); };
+visit.place = (id, x, y, z, yaw, pitch, roll, scale, a) => {
+  const mesh = lisp && lisp.gpuFrame && lisp.gpuFrame.meshes.get(id); if (!mesh || !camera27) return;
+  if (hostMeshes) {
+    // meshDraw has no pose of its own: a mesh is uploaded in world space, so
+    // each distinct pose of a mesh is uploaded once and kept (static scenes
+    // cost one upload; a moving mesh re-uploads when its pose changes).
+    const key = id + ":" + (x * S) + "," + (y * S) + "," + (z * S) + "," + yaw + "," + pitch + "," + roll + "," + scale;
+    let handle = handles.get(key);
+    if (handle === undefined) {
+      const world = placeMesh(mesh, x * S, y * S, z * S, yaw, pitch, roll, scale * S);
+      handle = meshUpload(world.verts, world.faces); handles.set(key, handle);
+      if (handles.size > 2048) { for (const [k, h] of handles) { if (typeof meshFree === "function") meshFree(h); handles.delete(k); if (handles.size <= 1024) break; } }
+    }
+    if (handle >= 0) meshFaces += meshDraw(handle, camera27, 1, 1, 1, 1, a / 255) | 0;
+    return;
+  }
+  const world = placeMesh(mesh, x * S, y * S, z * S, yaw, pitch, roll, scale * S);
+  meshFaces += projectMesh(camera27, world, (x1, y1, x2, y2, x3, y3, depth, r, g, b) => { if (host3d) triangle3d(C(x1), C(y1), depth, C(x2), C(y2), depth, C(x3), C(y3), depth, r, g, b); else triangle(C(x1), C(y1), C(x2), C(y2), C(x3), C(y3), r, g, b); }, a);
+};
+const COUNTS = { clear: 0, line: 0, box: 0, oval: 0, tri: 0, shape: 0, camera: 0, place: 0 };
+const counting = { clear: () => COUNTS.clear++, line: () => COUNTS.line++, box: () => COUNTS.box++, oval: () => COUNTS.oval++, tri: () => COUNTS.tri++, shape: () => COUNTS.shape++, camera: () => COUNTS.camera++, place: () => COUNTS.place++ };
 function drawFrame(buffer) {
-  lastOps = buffer.length; for (const k in COUNTS) COUNTS[k] = 0; readFrame(buffer, counting); lastCounts = JSON.stringify(COUNTS);
+  lastOps = buffer.length; for (const k in COUNTS) COUNTS[k] = 0; meshFaces = 0; readFrame(buffer, counting); lastCounts = JSON.stringify(COUNTS);
   S = HW / W; const d0 = Date.now(); if (DRAW) readFrame(buffer, visit); lastDrawMs = Date.now() - d0;
 }
 function bench() {
@@ -129,7 +157,7 @@ function paint() {
   fpsCount++; if (Date.now() - fpsAt >= 1000) { fps = fpsCount; fpsCount = 0; fpsAt = Date.now(); }
   const ms = Date.now() - t0;
   if (DENSITY_AUTO) { if (ms > BUDGET_MS) density = Math.max(0.25, density * Math.max(0.7, Math.sqrt(BUDGET_MS / ms))); else if (ms < BUDGET_MS * 0.7) density = Math.min(1, density * 1.04); }
-  if (frames % 10 === 1) say("KIDLISP", JSON.stringify({ piece: ORDER[current], frame: frames, ms, density: Math.round(density * 100) / 100, drawMs: lastDrawMs, ops: lastOps, counts: lastCounts, w: W, h: H, err: lastErr }));
+  if (frames % 10 === 1) say("KIDLISP", JSON.stringify({ piece: ORDER[current], frame: frames, ms, density: Math.round(density * 100) / 100, drawMs: lastDrawMs, ops: lastOps, counts: lastCounts, meshFaces, w: W, h: H, err: lastErr }));
   box(6, 6, Math.min(HW - 12, fps * 3), 4, 255, 255, 255); box(6, 12, Math.min(HW - 12, ms), 4, 255, 120, 60);   // fps and ms, as bars, in host pixels
 }
 function act() {}
