@@ -184,3 +184,10 @@ literal or state-derived bound that `repeat` expresses.
 
 Steps 1 and 2 are language work in `lib/kidlisp.mjs` and the conformance
 corpus. Step 3 is the one that decides the rest.
+
+## 7. Measured
+
+The two biggest pieces in the corpus were translated by hand and benchmarked
+against their JavaScript in the production runtime on 2026-10-10:
+`kidlisp/reports/whistlegraph-benchmark-2026-10-10.md`. Size is a wash;
+the reference evaluator is 12 to 30 times slower; both pieces run bounded.

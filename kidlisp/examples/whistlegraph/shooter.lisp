@@ -5,6 +5,8 @@
 ; hashed brick courses, box soldiers and the painter's order are all here,
 ; drawn with the same tri and line calls through the same renderer.
 
+; a unit random: KidLisp's random gives integers
+(later rnd01 (/ (random 1000000) 1000000))
 ; ---- constants and the world ------------------------------------------------
 (def EYE 1.6) (def AX 18) (def AZ 90) (def NEAR 0.2) (def WH 12) (def PH 1.2)
 (pool pillars 24 qx qz qh)
@@ -36,7 +38,7 @@
 (pool targets 7 tx ty tz ton tgy tr tdead tseed tcr tcg tcb tox toy)
 (later setCam (now WW width) (now HH height) (now FF (* WW 0.9))
   (now sy (sin yaw)) (now cy (cos yaw)) (now sp (sin pitch)) (now cp (cos pitch)))
-(later rnd aa bb (+ aa (* (random) (- bb aa))))
+(later rnd aa bb (+ aa (* (rnd01) (- bb aa))))
 (later wrap aa (atan2 (sin aa) (cos aa)))
 ; camera space of a world point: crt (right), cd (depth), cup (up)
 (def crt 0) (def cd 0) (def cup 0)
@@ -145,14 +147,14 @@
   (now freeCount 0) (each pillars (if (> (pillarFree slot) 0) (now freeCount (+ freeCount 1))))
   (def placed 0)
   (now onIdx -1) (def gy 0)
-  (if (> freeCount 0) (if (< (random) 0.5)
-    (now pickN (floor (* (random) freeCount))) (now pickI 0)
+  (if (> freeCount 0) (if (< (rnd01) 0.5)
+    (now pickN (floor (* (rnd01) freeCount))) (now pickI 0)
     (each pillars (if (> (pillarFree slot) 0) (if (= pickI pickN) (now pickX qx) (now pickZ qz) (now pickH qh) (now onIdx slot)) (now pickI (+ pickI 1))))
     (def placed 1) (def gy pickH)))
   (if (< placed 1)
     (now freeCount 0) (each caves (if (< (hypot (- cx px) (- cz pz)) 36) (if (> cz (- pz 4)) (now freeCount (+ freeCount 1)))))
-    (if (> freeCount 0) (if (< (random) 0.5)
-      (now pickN (floor (* (random) freeCount))) (now pickI 0)
+    (if (> freeCount 0) (if (< (rnd01) 0.5)
+      (now pickN (floor (* (rnd01) freeCount))) (now pickI 0)
       (each caves (if (< (hypot (- cx px) (- cz pz)) 36) (if (> cz (- pz 4))
         (if (= pickI pickN) (def jj (rnd -1.2 1.2)) (def oo (rnd 1.2 2.2)) (now pickX (+ cx (* cdx jj) (* cnx oo))) (now pickZ (+ cz (* cdz jj) (* cnz oo))))
         (now pickI (+ pickI 1)))))
@@ -164,9 +166,9 @@
       (now pickX (clamp (+ px (* (sin aa) dd)) (+ (- 0 AX) 1) (- AX 1)))
       (now pickZ (clamp (+ pz (* (cos aa) dd)) (+ (- 0 AZ) 1) (- AZ 1)))
       (if (< (inPillar pickX pickZ 1) 1) (def tries 1)))))
-  (def cidx (floor (* (random) 4)))
+  (def cidx (floor (* (rnd01) 4)))
   (def kreaim (if (< shots 4) 0 else 1.2)) (def rr (rnd 0.45 0.55))
-  (spawn targets (tx pickX) (tz pickZ) (ton onIdx) (tgy gy) (ty (+ gy 1.1)) (tr rr) (tdead 0) (tseed (* (random) 100))
+  (spawn targets (tx pickX) (tz pickZ) (ton onIdx) (tgy gy) (ty (+ gy 1.1)) (tr rr) (tdead 0) (tseed (* (rnd01) 100))
     (tcr (if (= cidx 0) 150 else (if (= cidx 1) 50 else (if (= cidx 2) 90 else 130))))
     (tcg (if (= cidx 0) 50 else (if (= cidx 1) 90 else (if (= cidx 2) 120 else 80))))
     (tcb (if (= cidx 0) 50 else (if (= cidx 1) 150 else (if (= cidx 2) 50 else 140))))

@@ -4,6 +4,8 @@
 ; KidLisp with pools, for kidlisp/PIECE-IL.md. Same drawing calls, same
 ; renderer; closures became global transform state plus small functions.
 
+; a unit random: KidLisp's random gives integers
+(later rnd01 (/ (random 1000000) 1000000))
 ; ---- time and the camera, once a frame --------------------------------
 (def tt 0) (def tc 0) (def kc 0) (def th 0) (def cT 1) (def sT 0)
 (def zm 1) (def pit 0) (def cP 1) (def sP 0) (def gh 1) (def uu 1) (def gfloor 1)
@@ -54,7 +56,7 @@
 
 ; ---- the cast ---------------------------------------------------------
 (pool stars 60 sa srad sy sr sph ssp shue zs)
-(once (repeat 60 ii (spawn stars (sa (* (random) 6.283)) (srad (+ 0.1 (* (random) 0.36))) (sy (random)) (sr (+ 0.6 (* (random) 1.4))) (sph (* (random) 6.28)) (ssp (+ 1 (* (random) 3))) (shue (random)))))
+(once (repeat 60 ii (spawn stars (sa (* (rnd01) 6.283)) (srad (+ 0.1 (* (rnd01) 0.36))) (sy (rnd01)) (sr (+ 0.6 (* (rnd01) 1.4))) (sph (* (rnd01) 6.28)) (ssp (+ 1 (* (rnd01) 3))) (shue (rnd01)))))
 (pool fwends 10 fr fg fb ear off ph rad zs ang)
 (once
   (spawn fwends (fr 250) (fg 160) (fb 50) (ear 1) (off 0) (ph 0) (rad 0.37))
@@ -72,9 +74,11 @@
 (later bandB k (if (= k 0) 130 else (if (= k 1) 30 else (if (= k 2) 190 else (if (= k 3) 60 else 200)))))
 
 ; ---- music: a tune at 240 bpm and a harp on tap --------------------------
-(0.25s (pluck (choose e4 g4 a4 g4 e4 d4 c4 d4 e4 g4 a4 c5)))
-(0.5s (sub (choose c3 c3 a2 g2)))
-(tap (bell (choose e4 g4 a4 c5)))
+(def noteIdx 0)
+(0.25s (now noteIdx (mod (+ noteIdx 1) 8))
+  (if (= noteIdx 0) (pluck e4) else (if (= noteIdx 1) (pluck g4) else (if (= noteIdx 2) (pluck a4) else (if (= noteIdx 3) (pluck g4) else (if (= noteIdx 4) (pluck e4) else (if (= noteIdx 5) (pluck d4) else (if (= noteIdx 6) (pluck c4) else (pluck d4)))))))))
+(0.5s (sub c3))
+(tap (bell e4))
 
 ; ---- extruded letters: back layers first, dark; front layer bright -----
 (later rr v size (round (* v size)))

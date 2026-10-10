@@ -36,6 +36,11 @@ async function measure(browser, file, [width, height]) {
   await page.setViewport({width, height, deviceScaleFactor: 1});
   const errors = [];
   page.on('pageerror', e => errors.push(String(e).slice(0, 200)));
+  page.on('console', async m => {
+    if (!(m.type() === 'error' || /⛔|Unknown KidLisp|Evaluation failure/.test(m.text()))) return;
+    const parts = await Promise.all(m.args().map(a => a.evaluate(v => v instanceof Error ? v.message + ' @ ' + String(v.stack || '').split('\n').slice(1, 3).join(' | ') : String(v)).catch(() => '?')));
+    errors.push((parts.join(' ') || m.text()).slice(0, 400));
+  });
   // The runtime is the page, as the render pool loads it. bios reports fps to
   // a parent window; `parent` is replaceable, so a stand-in parent collects it.
   await page.goto(RUNTIME, {waitUntil: 'domcontentloaded', timeout: 90_000});
@@ -58,7 +63,7 @@ async function measure(browser, file, [width, height]) {
     samples: fps.length, fpsMedian: sorted[Math.floor(sorted.length / 2)] ?? 0, fpsMin: sorted[0] ?? 0, fpsMax: sorted.at(-1) ?? 0, errors, shot};
 }
 
-const browser = await puppeteer.launch({headless: true, executablePath: CHROME, args: ['--no-sandbox', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--autoplay-policy=no-user-gesture-required', '--mute-audio']});
+const browser = await puppeteer.launch({headless: true, executablePath: CHROME, args: ['--no-sandbox', '--ignore-certificate-errors', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--autoplay-policy=no-user-gesture-required', '--mute-audio']});
 const results = [];
 try {
   for (const file of files) for (const size of SIZES) {
