@@ -671,11 +671,16 @@ function remoteFailed(message,draft){
 async function watchRemoteTurn(job){
   const startedAt=Date.now();
   while(remoteJob&&remoteJob.id===job.id){
-    await new Promise(r=>setTimeout(r,5000));
+    await new Promise(r=>setTimeout(r,3000));
     if(!remoteJob||remoteJob.id!==job.id)return;
     let state;
     try{const r=await fetch('https://aesthetic.computer/api/whistlegraph-turn?id='+encodeURIComponent(job.id),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});state=await r.json();}catch{continue;}
     if(state.status==='queued'||state.status==='running'){
+      // The knot's phase and the code it is writing, shown as if the turn ran here.
+      const p=state.progress;
+      if(state.status==='queued')phase('Waiting for a worker…');
+      else if(p?.phase){phase(p.phase+(p.round>1?' · round '+p.round:''));if(p.tail){outputStream=streamedCode(p.tail,'write_piece').slice(-6000);$('live-code').textContent=outputStream;$('live-details').open=true;}}
+      nativeSnapshot();
       if(Date.now()-startedAt>15*60000){remoteFailed('The knot did not finish in fifteen minutes. Try again.',state.checkpoint||null);return;}
       continue;
     }

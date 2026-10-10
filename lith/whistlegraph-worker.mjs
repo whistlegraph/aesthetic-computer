@@ -48,7 +48,7 @@ function workerFetch(owner, settings) {
 // the phone's preview. Returns {source, findings, repairs, notes, acceptance, checks}.
 const REPAIR_NOTE = (findings) => '\n\nREPAIR THIS CANDIDATE ONCE. Preserve the edit contract; fix only these checks, inspect the resulting preview, and do not claim visual acceptance:\n' + JSON.stringify(findings);
 const runtimeLevel = l => l.level === 'warn' && /^(?:Type|Reference|Range|Syntax)?Error\b|\bat paint \(/.test(l.text) ? 'error' : l.level;
-export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signal, log = () => {}}) {
+export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onProgress = () => {}, signal, log = () => {}}) {
   const head = thread.ledger?.versions.find(v => v.id === thread.ledger.head);
   if (!head || head.id !== job.baseVersion || sourceHash(head.source) !== job.baseHash) throw Object.assign(Error('The piece moved on before this turn ran'), {code: 'moved'});
   const cwd = mkdtempSync(join(tmpdir(), 'wg-turn-'));
@@ -60,14 +60,17 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signa
     const prompt = compileEditContract({request: job.request.text, ...selectedBranch(thread.ledger), source}) +
       '\nCurrent preview: 390 × 520 CSS points. Compose for this shape using screen.width and screen.height; keep subjects within the canvas and remain responsive when it resizes.';
     const settingsFor = repair => generationProfile('', {repair, model: job.model || '', image: !!job.request.drawing});
-    let completed = false, error = '', server = null, checkpointAt = 0, renders = 0, lastPainted = null, repairs = 0, feedback = null, lastProof = null;
+    let completed = false, error = '', server = null, checkpointAt = 0, renders = 0, lastPainted = null, repairs = 0, feedback = null, lastProof = null, round = 0, progressAt = 0;
     const checks = [], notes = [];
+    let tail = '', phaseNow = 'Waiting for model…';
+    const progress = (phase, {force = false} = {}) => { phaseNow = phase; const now = Date.now(); if (force || now - progressAt > 2500) { progressAt = now; void onProgress({phase, round, streamed: tail.length, tail: tail.slice(-3000)}); } };
     // Every write is painted at once and the result handed back to the model
     // as runtime feedback, as the phone does: the edit contract tells it to
     // inspect ac_preview, and without that it rewrote one piece twelve rounds
     // running (85,000 characters) until the round cap stopped it, 2026-10-10.
     const paint = async () => {
       if (!pool) return null;
+      progress('Painting…', {force: true});
       const proof = await pool.render({source, renderID: ++renders});
       proof.logs = proof.logs.map(l => ({...l, level: runtimeLevel(l)}));
       lastProof = proof;
@@ -84,9 +87,12 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signa
       server.runtimeFeedback = () => feedback;
       completed = false; error = '';
       let streamed = 0, lastNote = Date.now(), said = '';
+      tail = ''; progress(repair ? 'Repairing…' : 'Waiting for model…', {force: true});
       server.on('notification', ({method, params}) => {
         if (method === 'turn/completed') { completed = !params.turn.error && params.turn.status === 'completed'; error = params.turn.error ? String(params.turn.error.message || params.turn.error) : ''; }
-        if (method === 'item/modelCode/delta') { streamed += params.delta?.length || 0; if (Date.now() - lastNote > 20000) { lastNote = Date.now(); log('streaming', job.code, streamed, 'chars', repair ? '(repair)' : ''); } }
+        if (method === 'item/reasoning/delta') progress('Thinking…');
+        if (method === 'item/modelCode/delta') { streamed += params.delta?.length || 0; tail = (tail + (params.delta || '')).slice(-6000); progress(repair ? 'Repairing…' : 'Writing…'); if (Date.now() - lastNote > 20000) { lastNote = Date.now(); log('streaming', job.code, streamed, 'chars', repair ? '(repair)' : ''); } }
+        if (method === 'turn/started') round += 1;
         if (method === 'turn/usage') log('usage', job.code, params.usage?.output_tokens ?? 0, 'output tokens');
         if (method === 'item/started') log('tool', job.code, params.item?.tool || params.item?.type || '?');
         if (method === 'item/agentMessage/delta') { said += params.delta || ''; }
@@ -130,14 +136,15 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signa
       request: inferenceRequest(job.request.text), history: selectedBranch(thread.ledger), drawing: chalk, model: settingsFor(false).model, token: 'worker', fetch: workerFetch(job.owner, settingsFor(false)), signal});
     let acceptance = 'unreviewed';
     try {
+      progress('Checking picture…', {force: true});
       let verdict = await review(candidate, proof); checks.push(verdict.passed ? 'visual-pass' : 'visual-fail');
       log('picture review', job.code, verdict.passed ? 'passed' : 'findings: ' + verdict.findings.join('; ').slice(0, 200));
       if (!verdict.passed && repairs === 0 && candidate === source) {
-        repairs = 1; log('repairing picture', job.code);
+        repairs = 1; log('repairing picture', job.code); progress('Repairing picture…', {force: true});
         const before = {source: candidate, proof};
         const ok = await generate(prompt + REPAIR_NOTE(verdict.findings), true);
         const again = ok ? await inspect() : null;
-        if (again?.passed) { candidate = source; proof = again.proof; verdict = await review(candidate, proof); checks.push(verdict.passed ? 'visual-pass' : 'visual-fail'); }
+        if (again?.passed) { candidate = source; proof = again.proof; progress('Checking picture…', {force: true}); verdict = await review(candidate, proof); checks.push(verdict.passed ? 'visual-pass' : 'visual-fail'); }
         else { candidate = before.source; proof = before.proof; notes.push('The repair did not paint; kept the picture before it.'); }
       }
       acceptance = verdict.passed ? 'reviewed' : 'reviewed-with-notes';
@@ -173,7 +180,7 @@ async function work(queue, store, job, pool) {
   try {
     const thread = await store.read(job.owner, job.code);
     if (!thread) throw Object.assign(Error('Thread unavailable'), {code: 'moved'});
-    const turn = await runTurn({job, thread, pool, onCheckpoint: source => beat(source), log, signal: controller.signal});
+    const turn = await runTurn({job, thread, pool, onCheckpoint: source => beat(source), onProgress: p => queue.heartbeat(job._id, WORKER, undefined, p).catch(() => {}), log, signal: controller.signal});
     const fresh = await store.read(job.owner, job.code);
     const result = await commitVersion(store, job, fresh, turn.source, [...turn.findings.map(f => f.code), ...turn.notes], {acceptance: turn.acceptance, checks: turn.checks});
     await queue.complete(job._id, WORKER, {...result, repairs: turn.repairs, elapsedMs: Date.now() - started});

@@ -89,9 +89,11 @@ export function mongoTurnQueue(collection, {now = () => new Date()} = {}) {
       return collection.findOneAndUpdate({status: 'queued', threadID: {$nin: running}}, {$set: set, $inc: {attempts: 1}}, {sort: {createdAt: 1}, returnDocument: 'after'});
     },
     // Returns false when the lease is gone, or 'cancel' when the owner asked for the turn to stop.
-    async heartbeat(id, worker, checkpoint) {
+    async heartbeat(id, worker, checkpoint, progress) {
       const update = {$set: {heartbeatAt: now().toISOString()}};
       if (typeof checkpoint === 'string') update.$set.checkpoint = checkpoint;
+      // What the phone shows while it waits: the phase, the round, the tail of the code being written.
+      if (progress && typeof progress === 'object') update.$set.progress = {phase: String(progress.phase || '').slice(0, 80), round: Number(progress.round) || 0, streamed: Number(progress.streamed) || 0, tail: String(progress.tail || '').slice(-3000), at: now().toISOString()};
       const row = await collection.findOneAndUpdate({_id: id, status: 'running', claimedBy: worker}, update, {returnDocument: 'after'});
       if (!row) return false;
       return row.cancelRequested ? 'cancel' : true;
