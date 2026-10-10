@@ -4410,6 +4410,19 @@ const $commonApi = {
       return p;
     },
   },
+  // 🧊 A frame of drawing as one buffer (lib/gpu-frame.mjs): a compiled
+  // KidLisp piece on the GPU path records its drawing and sends it here once
+  // a frame; bios draws it with WebGPU and composites the CPU buffer on top.
+  gpuFrame: {
+    available: false, // bios says so once its renderer is up
+    probed: false,
+    sent: false,
+    probe: () => { if ($commonApi.gpuFrame.probed) return; $commonApi.gpuFrame.probed = true; send({ type: "gpu-frame-probe" }); },
+    send: (buffer, overlay = false) => {
+      send({ type: "gpu-frame", content: { buffer, overlay } }, [buffer.buffer]);
+      $commonApi.gpuFrame.sent = true;
+    },
+  },
   // WebGPU 2D Renderer API
   webgpu: {
     enabled: false, // Flag to disable CPU renderer when true
@@ -11570,6 +11583,8 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.gpuReady = true;
     return;
   }
+  if (type === "gpu-frame-ready") { $commonApi.gpuFrame.available = true; return; }
+  if (type === "gpu-frame-unavailable") { $commonApi.gpuFrame.available = false; return; }
 
   if (type === "gpu-forms-removed") {
     // Delete forms from the sent list that have been removed from the GPU scene.
@@ -17249,6 +17264,8 @@ async function makeFrame({ data: { type, content } }) {
       if (painted === true) sendData.paintChanged = true;
       if (loading === true) sendData.loading = true;
 
+      // A GPU frame was sent this paint: bios shows it instead of the CPU canvas.
+      if ($commonApi.gpuFrame.sent) { sendData.gpuFrame = true; $commonApi.gpuFrame.sent = false; }
       // WebGPU state (tell main thread whether to skip CPU rendering)
       if ($commonApi.webgpu.enabled) {
         sendData.webgpuEnabled = true;

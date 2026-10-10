@@ -47,6 +47,7 @@ import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
 import { compileProgram, runKernelOverPool, runKernelOnGPU, kernelBackend } from "./kidlisp-compile.mjs";
 import { compileKernel } from "./kidlisp-kernel.mjs";
+import { GpuFrame } from "./gpu-frame.mjs";
 
 // LLM API Specification and examples moved to kidlisp-reference.mjs
 
@@ -3769,6 +3770,11 @@ class KidLisp {
     // directive in the source or globalThis.__kidlispCompile. A program it
     // cannot take runs on the interpreter as before.
     this.compiled = null;
+    // `; @gpu` (with `; @compile`): the compiled program records its drawing
+    // into a frame buffer the host draws with WebGPU (lib/gpu-frame.mjs), when
+    // the host has a renderer; otherwise it draws on the CPU as usual.
+    this.gpuFrame = /^\s*;\s*@gpu\b/m.test(source) ? new GpuFrame() : null;
+    this.gpuActive = false;
     if (/^\s*;\s*@compile\b/m.test(source) || globalThis.__kidlispCompile === true) {
       try { this.compiled = compileProgram(this.ast, this); }
       catch (error) { console.warn("KidLisp compile fell back to the interpreter: " + (error?.message || error)); }
@@ -4196,7 +4202,11 @@ class KidLisp {
           }
 
           // Evaluate the entire AST - bake() calls will switch to bake buffers
+          if (this.compiled && this.gpuFrame) $.gpuFrame?.probe?.();
+          this.gpuActive = !!(this.compiled && this.gpuFrame && $.gpuFrame?.available);
+          if (this.gpuActive) this.gpuFrame.reset();
           /*const evaluated = */ withKidlispConsoleCapture(() => (this.compiled ? this.compiled.run($) : this.evaluate(this.ast, $, undefined, undefined, true)));
+          if (this.gpuActive && this.gpuFrame.ops) $.gpuFrame.send(this.gpuFrame.take(), this.gpuFrame.overlay);
           
           // 🍞 IMPLICIT TRAILING BAKE: If we used bake and ended on a bake buffer,
           // automatically create one more empty bake buffer to finalize the current one.

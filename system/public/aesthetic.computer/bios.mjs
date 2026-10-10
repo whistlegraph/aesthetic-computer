@@ -43,6 +43,7 @@ import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
 import * as graph from "./lib/graph.mjs";
 import * as WebGPU from "./lib/webgpu.mjs";
+import { createFrameRenderer } from "./lib/gpu-frame-renderer.mjs";
 import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import * as CaptureSession from "./lib/capture-session.mjs";
@@ -1363,6 +1364,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   webgpuCanvas.style.pointerEvents = "none"; // Let events pass through to main canvas
   webgpuCanvas.style.display = "none"; // Hidden by default until WebGPU is enabled
 
+  // 🧊 The GPU frame canvas (lib/gpu-frame-renderer.mjs): a compiled KidLisp
+  // piece on the GPU path draws here, one buffer a frame, the CPU buffer
+  // composited on top. Sized and placed exactly like the WebGPU canvas.
+  const gpuFrameCanvas = document.createElement("canvas");
+  gpuFrameCanvas.dataset.type = "gpu-frame";
+  gpuFrameCanvas.style.position = "absolute";
+  gpuFrameCanvas.style.top = "0";
+  gpuFrameCanvas.style.left = "0";
+  gpuFrameCanvas.style.zIndex = "1";
+  gpuFrameCanvas.style.pointerEvents = "none";
+  gpuFrameCanvas.style.display = "none";
+  gpuFrameCanvas.style.imageRendering = "pixelated";
+  let frameRenderer = null, frameRendererRequest = null, pendingGpuFrame = null;
+
   // 🖥️🎨 WebGL Composite Canvas (blitted pixel buffer)
   const webglCompositeCanvas = document.createElement("canvas");
   webglCompositeCanvas.dataset.type = "webgl-composite";
@@ -1924,6 +1939,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     const wasWebgpuVisible = webgpuCanvas.style.display !== "none";
     if (wasWebglVisible) webglCompositeCanvas.style.display = "none";
     if (wasWebgpuVisible) webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
 
     // Resize the original canvas
     canvas.width = width;
@@ -1932,6 +1948,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Resize WebGPU canvas to match
     webgpuCanvas.width = width;
     webgpuCanvas.height = height;
+    gpuFrameCanvas.width = width;
+    gpuFrameCanvas.height = height;
 
     // Resize WebGL composite and overlay canvases to match
     webglCompositeCanvas.width = width;
@@ -2136,6 +2154,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webglCompositeCanvas.style.height = "100%";
       webgpuCanvas.style.width = "100%";
       webgpuCanvas.style.height = "100%";
+      gpuFrameCanvas.style.width = "100%";
+      gpuFrameCanvas.style.height = "100%";
       overlayCan.style.width = "100%";
       overlayCan.style.height = "100%";
       recordingUICan.style.width = "100%";
@@ -2154,6 +2174,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webglCompositeCanvas.style.height = projectedHeight + "px";
       webgpuCanvas.style.width = projectedWidth + "px";
       webgpuCanvas.style.height = projectedHeight + "px";
+      gpuFrameCanvas.style.width = projectedWidth + "px";
+      gpuFrameCanvas.style.height = projectedHeight + "px";
       overlayCan.style.width = projectedWidth + "px";
       overlayCan.style.height = projectedHeight + "px";
       recordingUICan.style.width = projectedWidth + "px";
@@ -2172,6 +2194,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webglCompositeCanvas.style.height = projectedHeight + "px";
       webgpuCanvas.style.width = projectedWidth + "px";
       webgpuCanvas.style.height = projectedHeight + "px";
+      gpuFrameCanvas.style.width = projectedWidth + "px";
+      gpuFrameCanvas.style.height = projectedHeight + "px";
       overlayCan.style.width = projectedWidth + "px";
       overlayCan.style.height = projectedHeight + "px";
       recordingUICan.style.width = projectedWidth + "px";
@@ -2229,6 +2253,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       wrapper.append(uiCanvas);
       if (debug) wrapper.append(debugCanvas);
       wrapper.append(webgpuCanvas); // Add WebGPU canvas (initially hidden)
+      wrapper.append(gpuFrameCanvas); // The GPU frame canvas (initially hidden)
       wrapper.append(statsOverlay); // Add stats overlay (highest z-index)
       document.body.append(wrapper);
       perf.markBoot("dom-appended");
@@ -14563,6 +14588,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       if (webgpuCanvas.style.display !== "none") {
         webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
         needsGPUCleanup = true;
       }
       if (canvas.style.visibility === "hidden") {
@@ -15146,6 +15172,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       return;
     }
+
+    // 🧊 GPU frames: a probe brings the renderer up and answers; a frame waits for its render message.
+    if (type === "gpu-frame-probe") {
+      if (frameRenderer) { send({ type: "gpu-frame-ready" }); return; }
+      if (!frameRendererRequest) {
+        frameRendererRequest = createFrameRenderer(gpuFrameCanvas).then((renderer) => {
+          frameRenderer = renderer;
+          send({ type: renderer ? "gpu-frame-ready" : "gpu-frame-unavailable" });
+        }).catch((error) => { console.warn("GPU frame renderer unavailable:", error?.message || error); send({ type: "gpu-frame-unavailable" }); });
+      }
+      return;
+    }
+    if (type === "gpu-frame") { pendingGpuFrame = content; return; }
 
     if (type === "webgpu-command") {
       // Use new backend system if available, fallback to old WebGPU
@@ -20333,6 +20372,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
           if (webgpuCanvas.style.display !== "none") {
             webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
           }
           if (canShowCanvas) {
             webglBlitter.render(imageData);
@@ -20382,8 +20422,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // Use async rendering for better performance (except during tape playback for immediate UI)
           const forceSynchronousRendering = isRecording || needs$creenshot;
 
-          // Skip CPU rendering if WebGPU is enabled
-          if (content.webgpuEnabled) {
+          // 🧊 A GPU frame for this paint: draw it, the CPU buffer over it, and show that canvas.
+          if (content.gpuFrame && frameRenderer && pendingGpuFrame) {
+            const frame = pendingGpuFrame; pendingGpuFrame = null;
+            if (canvas.style.visibility !== "hidden") canvas.style.visibility = "hidden";
+            if (gpuFrameCanvas.style.display === "none") gpuFrameCanvas.style.display = "block";
+            if (webgpuCanvas.style.display !== "none") webgpuCanvas.style.display = "none";
+            if (webglCompositeCanvas.style.display !== "none") webglCompositeCanvas.style.display = "none";
+            if (overlayCan.style.display !== "none") overlayCan.style.display = "none";
+            try { frameRenderer.render(frame.buffer, frame.overlay ? { pixels: imageData.data, width: imageData.width, height: imageData.height } : null); }
+            catch (error) { console.warn("GPU frame render failed:", error?.message || error); }
+            skipImmediateOverlays = true;
+          } else if (content.webgpuEnabled) {
             // Switch backend if piece requests a specific one
             if (content.gpuBackend && activeGPUBackend?.getName() !== content.gpuBackend) {
               log.gpu.debug?.(`Switching to requested backend: ${content.gpuBackend}`);
@@ -20423,6 +20473,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             if (webgpuCanvas.style.display !== "none") {
               webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
             }
             if (canShowCanvas) {
               webglBlitter.render(imageData);
@@ -20434,6 +20485,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             if (webgpuCanvas.style.display !== "none") {
               webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
             }
             if (webglCompositeCanvas.style.display !== "none") {
               webglCompositeCanvas.style.display = "none";
@@ -20450,6 +20502,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
               if (webgpuCanvas.style.display !== "none") {
                 webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
               }
               if (webglCompositeCanvas.style.display !== "none") {
                 webglCompositeCanvas.style.display = "none";
@@ -20482,6 +20535,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
               if (webgpuCanvas.style.display !== "none") {
                 webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
               }
               if (webglCompositeCanvas.style.display !== "none") {
                 webglCompositeCanvas.style.display = "none";
@@ -20498,6 +20552,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             if (webgpuCanvas.style.display !== "none") {
               webgpuCanvas.style.display = "none";
+            if (gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
             }
             if (webglCompositeCanvas.style.display !== "none") {
               webglCompositeCanvas.style.display = "none";

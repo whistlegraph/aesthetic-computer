@@ -111,6 +111,8 @@ const SCREEN = { width: (api) => api.screen?.width ?? 0, w: (api) => api.screen?
 const DELEGATE_TOP = new Set(["tap", "draw", "lift", "once", "melody", "clock", "later", "jump", "hop", "delay", "trans", "net", "source", "choose", "?", "bake", "embed", "fps", "resolution", "die", "mic", "speaker", "overtone", "amplitude"]);
 // Forms that take their arguments raw and evaluate what they need themselves; usable inside functions.
 const RAW_ANYWHERE = new Set(["hum", "tune", "hush", "pluck", "bell", "sub", "flute", "hat", "voice"]);
+// Drawing heads the GPU frame records (gpu-frame.mjs); ink runs on the CPU too, for its colour parsing.
+const GPU_HEADS = new Set(["wipe", "ink", "line", "box", "circle", "oval", "tri", "shape", "write", "plot", "point"]);
 const isTimerHead = (head) => typeof head === "number" || (typeof head === "string" && /^\d*\.?\d+s(?:!|\.{2,3})?$/.test(head));
 const unquote = (s) => (typeof s === "string" && /^".*"$/s.test(s) ? s.slice(1, -1) : s);
 const NOTE = /^[a-g][#b]?[0-9]$/i;
@@ -276,8 +278,48 @@ export function compileProgram(ast, lisp) {
     }
     if (head === "key") return () => (lisp.keysDown.has(String(unquote(args[0] ?? "")).toLowerCase()) ? 1 : 0);
     if (head === "pad") return () => { const v = lisp.padState[String(unquote(args[0] ?? "")).toLowerCase()]; return typeof v === "number" ? v : 0; };
-    if (head === "shape" && args.length === 1 && typeof args[0] === "string" && poolDecl(args[0])) return (f, api) => env.shape(api, args);
+    if (head === "shape" && args.length === 1 && typeof args[0] === "string" && poolDecl(args[0])) {
+      const name = args[0];
+      return (f, api) => {
+        if (!lisp.gpuActive) return env.shape(api, args);
+        const pool = lisp.pools.get(name); if (!pool) return;
+        const n = pool.fields.length, order = pool.order && pool.order.length ? pool.order : null, limit = order ? order.length : pool.cap, points = [];
+        for (let step = 0; step < limit; step++) { const slot = order ? order[step] : step; if (pool.alive[slot]) points.push(pool.data[slot * n], pool.data[slot * n + 1]); }
+        if (points.length >= 6) lisp.gpuFrame.shape(points, lisp.fillMode !== false ? 1 : 0);
+      };
+    }
     if (head === "random") { const parts = args.map((a) => compile(a, sc)); return (f, api) => env.random(api, parts.map((p) => p(f, api))); }
+    // The GPU path: when the piece asked for it and the host has a renderer,
+    // the drawing heads record into the frame instead of rasterizing. ink
+    // still runs on the CPU so names, fades and `?` resolve as they always
+    // have; the resolved colour is read back. Text and anything else stays
+    // on the CPU and is composited over the frame.
+    if (lisp.gpuFrame && GPU_HEADS.has(head)) {
+      const parts = args.map((a) => compile(a, sc));
+      const n = parts.length;
+      const cpu = env[head];
+      if (typeof cpu !== "function") throw new CompileError("unknown form " + head);
+      const vals = () => { const out = new Array(n); return out; };
+      const num = (v) => (typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : 0);
+      return (f, api) => {
+        const v = vals(); for (let k = 0; k < n; k++) v[k] = parts[k](f, api);
+        if (!lisp.gpuActive) return cpu(api, v, undefined);
+        const frame = lisp.gpuFrame, fill = lisp.fillMode !== false ? 1 : 0;
+        switch (head) {
+          case "wipe": { cpu(api, v, undefined); const c = api.inkrn?.() || [0, 0, 0, 255]; frame.clear(c[0], c[1], c[2], 255); api.wipe?.(0, 0, 0, 0); return; }
+          case "ink": { const out = cpu(api, v, undefined); const c = api.inkrn?.(); if (c) frame.ink(c[0], c[1], c[2], c[3] ?? 255); return out; }
+          case "line": if (n >= 4 && v.slice(0, 4).every((x) => typeof x === "number")) { frame.line(v[0], v[1], v[2], v[3], typeof v[4] === "number" ? v[4] : 1); return; } break;
+          case "box": if (n >= 4 && v.slice(0, 4).every((x) => typeof x === "number")) { frame.box(v[0], v[1], v[2], v[3], v[4] === "outline" || /^outline/.test(String(v[4] ?? "")) ? 0 : fill); return; } break;
+          case "circle": if (n >= 3 && v.slice(0, 3).every((x) => typeof x === "number")) { frame.circle(v[0], v[1], v[2], v[3] === "outline" || /^outline/.test(String(v[3] ?? "")) ? 0 : fill); return; } break;
+          case "oval": if (n >= 4 && v.slice(0, 4).every((x) => typeof x === "number")) { frame.oval(v[0], v[1], v[2], v[3], v[4] === "outline" || /^outline/.test(String(v[4] ?? "")) ? 0 : fill); return; } break;
+          case "tri": if (n >= 6 && v.slice(0, 6).every((x) => typeof x === "number")) { frame.tri(v[0], v[1], v[2], v[3], v[4], v[5], v[6] === "outline" || /^outline/.test(String(v[6] ?? "")) ? 0 : fill); return; } break;
+          case "shape": if (n >= 6 && n % 2 === 0 && v.every((x) => typeof x === "number")) { frame.shape(v, fill); return; } break;
+        }
+        // Not a shape the frame takes (a named colour fill, text): the CPU draws it, over the frame.
+        frame.overlay = true;
+        return cpu(api, v, undefined);
+      };
+    }
     // A piece function.
     if (rt.fns.has(head) || definesFunction(head)) {
       const parts = args.map((a) => compile(a, sc));
