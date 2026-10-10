@@ -615,6 +615,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     private let capture = SpeechCapture()
     override init() {
         super.init()
+        tv.token = { [weak self] in try? await self?.account.token() }
         #if DEBUG
         if isConsentFixture, ProcessInfo.processInfo.environment["WALKIE_RESET_AI_CONSENT"] == "1" {
             UserDefaults.standard.removeObject(forKey: AIConsentRecord.key(subject: "fixture:ai-consent"))

@@ -6,6 +6,8 @@ struct TVDevice: Identifiable, Equatable {
     let id: String
     let name: String
     let url: URL
+    /// A screen paired over the knot by its four-letter code (a TV browser, the Xbox's Edge) rather than AC OS on the LAN.
+    var knot: String? = nil
 }
 
 // Native execution: only painted checkpoints leave the phone, over the LAN.
@@ -25,6 +27,12 @@ struct TVDevice: Identifiable, Equatable {
     private var connection = UUID()
     private var progress = ""
     private var progressTask: Task<Void, Never>?
+    /// The signed-in bearer, for screens paired over the knot. Set by the session.
+    var token: () async -> String? = { nil }
+    private static let knotAPI = URL(string: "https://aesthetic.computer/api/whistlegraph-screen")!
+    private static let pairedKey = "whistlegraph-knot-screens"
+    @Published var pairing = ""
+    @Published private(set) var pairingStatus = ""
 
     func updateProgress(_ snapshot: PieceSnapshot) {
         let data: [String: Any] = ["code": snapshot.code, "phase": snapshot.phase, "busy": snapshot.busy]
@@ -38,7 +46,8 @@ struct TVDevice: Identifiable, Equatable {
             while !Task.isCancelled && connection == expected {
                 if let device = selected, connected, let bytes = progress.data(using: .utf8), var value = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any] {
                     value["updatedAt"] = Date().timeIntervalSince1970 * 1000
-                    if let data = try? JSONSerialization.data(withJSONObject: value), let text = String(data: data, encoding: .utf8) {
+                    if let code = device.knot { _ = try? await knotRequest("PUT", code: code, body: ["status": value]) }
+                    else if let data = try? JSONSerialization.data(withJSONObject: value), let text = String(data: data, encoding: .utf8) {
                         try? await upload(text, name: "wgtv-status.json", device: device, jump: false)
                     }
                 }
@@ -50,9 +59,54 @@ struct TVDevice: Identifiable, Equatable {
     override init() { super.init(); browser.delegate = self }
     func discover() {
         DeviceActionLog.shared.record(.projection, .started)
+        Task { await listKnotScreens() }
         guard !searching else { return }
         searching = true
         browser.searchForServices(ofType: "_http._tcp.", inDomain: "local.")
+    }
+    // MARK: Screens over the knot
+    private func knotRequest(_ method: String, code: String?, body: [String: Any]? = nil) async throws -> (Data, Int) {
+        guard let token = await token() else { throw URLError(.userAuthenticationRequired) }
+        var url = Self.knotAPI
+        if let code { url = url.appending(queryItems: [URLQueryItem(name: "code", value: code)]) }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 12)
+        request.httpMethod = method
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let body { request.setValue("application/json", forHTTPHeaderField: "Content-Type"); request.httpBody = try JSONSerialization.data(withJSONObject: body) }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+    private static func knotDevice(_ code: String) -> TVDevice {
+        TVDevice(id: "knot:" + code, name: "Screen " + code, url: knotAPI.appending(queryItems: [URLQueryItem(name: "code", value: code)]), knot: code)
+    }
+    /// Screens this handle paired before and that still poll the knot.
+    private func listKnotScreens() async {
+        guard let (data, status) = try? await knotRequest("GET", code: nil), status == 200,
+              let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let screens = value["screens"] as? [[String: Any]] else { return }
+        let alive = screens.compactMap { $0["code"] as? String }
+        devices.removeAll { $0.knot != nil && !alive.contains($0.knot!) }
+        for code in alive where !devices.contains(where: { $0.knot == code }) { devices.append(Self.knotDevice(code)) }
+        devices.sort { $0.name < $1.name }
+    }
+    /// Pair the screen showing these four letters, then project to it.
+    func pair() {
+        let code = pairing.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard code.count == 4, code.allSatisfy({ $0.isLetter && $0.isASCII }) else { pairingStatus = "Type the four letters on the screen."; return }
+        pairingStatus = "Pairing…"
+        Task {
+            do {
+                let (data, status) = try await knotRequest("POST", code: code, body: ["action": "pair"])
+                guard status == 200 else {
+                    let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
+                    pairingStatus = message ?? "No screen shows \(code)."; return
+                }
+                pairingStatus = ""; pairing = ""
+                let device = Self.knotDevice(code)
+                devices.removeAll { $0.id == device.id }; devices.append(device); devices.sort { $0.name < $1.name }
+                connect(device)
+            } catch { pairingStatus = "Sign in to pair a screen." }
+        }
     }
     func stopDiscovery() { browser.stop(); searching = false }
     func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
@@ -86,6 +140,14 @@ struct TVDevice: Identifiable, Equatable {
         sending?.cancel(); sending = nil; connection = UUID(); sentSource = ""
         selected = device; connected = false; previousPiece = ""; status = "Connecting…"
         let expected = connection
+        if let code = device.knot {
+            Task {
+                guard let (_, status) = try? await knotRequest("GET", code: code), connection == expected else { return }
+                if status == 200 { connected = true; sendLatest(); startProgress() }
+                else { self.status = "Screen \(code) is not paired to you any more. Pair it again."; devices.removeAll { $0.id == device.id }; selected = nil }
+            }
+            return
+        }
         Task {
             do {
                 let state = try await readStatus(device.url)
@@ -107,6 +169,13 @@ struct TVDevice: Identifiable, Equatable {
                     let source = latestSource
                     guard source.utf8.count <= 512_000 else { throw URLError(.dataLengthExceedsMaximum) }
                     status = "Sending…"
+                    if let code = device.knot {
+                        let (_, code_) = try await knotRequest("PUT", code: code, body: ["source": source])
+                        guard code_ == 200 else { throw URLError(.badServerResponse) }
+                        guard !Task.isCancelled, connection == expected else { return }
+                        sentSource = source; status = "Projecting to \(device.name)"
+                        continue
+                    }
                     let hash = SHA256.hash(data: Data(source.utf8)).map { String(format: "%02x", $0) }.joined()
                     let name = "wg-" + String(hash.prefix(16)) + ".mjs"
                     guard let runtimeURL = Bundle.main.url(forResource: "wgtv-compat", withExtension: "js", subdirectory: "Web") else { throw URLError(.fileDoesNotExist) }
@@ -142,6 +211,12 @@ struct TVDevice: Identifiable, Equatable {
         progressTask?.cancel(); progressTask = nil
         let device = selected, previous = previousPiece
         connection = UUID(); sending?.cancel(); sending = nil; selected = nil; connected = false; sentSource = ""; status = ""
+        if let device, let code = device.knot {
+            // Unpairing clears the picture; the screen shows its letters again.
+            devices.removeAll { $0.id == device.id }
+            Task { _ = try? await knotRequest("DELETE", code: code) }
+            return
+        }
         // Restore only if this phone's receiver slot still owns the screen.
         guard let device, previous != "wgtv", !previous.isEmpty,
               previous.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }) else { return }
@@ -161,12 +236,23 @@ struct WhistlegraphTVSheet: View {
             List {
                 ForEach(tv.devices) { device in
                     Button { tv.connect(device) } label: {
-                        HStack { Label(device.name, systemImage: "tv"); Spacer(); if tv.selected == device { Image(systemName: "checkmark") } }
+                        HStack { Label(device.name, systemImage: device.knot != nil ? "sparkles.tv" : "tv"); Spacer(); if tv.selected == device { Image(systemName: "checkmark") } }
                     }.accessibilityIdentifier("tv-device-" + device.name)
                 }
                 if tv.devices.isEmpty { Text("Looking for AC OS on your Wi-Fi…").foregroundStyle(.secondary) }
                 if !tv.status.isEmpty { Text(tv.status).accessibilityIdentifier("tv-status") }
                 if tv.selected != nil { Button("Stop projecting", role: .destructive) { tv.disconnect() } }
+                Section {
+                    HStack {
+                        TextField("Letters on the screen", text: $tv.pairing)
+                            .textInputAutocapitalization(.characters).autocorrectionDisabled().font(.system(.title3, design: .monospaced))
+                            .onSubmit { tv.pair() }.accessibilityIdentifier("tv-pair-code")
+                        Button("Pair") { tv.pair() }.disabled(tv.pairing.trimmingCharacters(in: .whitespaces).count != 4).accessibilityIdentifier("tv-pair")
+                    }
+                    if !tv.pairingStatus.isEmpty { Text(tv.pairingStatus).font(.footnote).foregroundStyle(.secondary) }
+                } header: { Text("Pair a screen") } footer: {
+                    Text("On the TV, open aesthetic.computer/wgtv in its browser (the Xbox's Edge works) and type the four letters it shows. Pieces play there through the knot, so it works off your Wi-Fi too, and a controller on the TV reaches the piece.")
+                }
             }
             .navigationTitle("TV")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

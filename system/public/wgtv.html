@@ -1,0 +1,117 @@
+<!doctype html>
+<!-- A screen for Whistlegraph: open this on a TV's browser (the Xbox's Edge,
+     a laptop plugged into a set), read the four letters to your phone's TV
+     sheet, and the phone's painted checkpoints land here through the knot.
+     The piece runs in the real aesthetic.computer runtime below, so a
+     controller plugged into the TV reaches it through the Gamepad API. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Whistlegraph TV</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: ui-rounded, -apple-system, "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #000; opacity: 0; transition: opacity .4s; }
+  iframe.showing { opacity: 1; }
+  #pair { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; text-align: center; transition: opacity .4s; }
+  #pair.hidden { opacity: 0; pointer-events: none; }
+  #code { font-size: 22vmin; font-weight: 800; letter-spacing: .18em; line-height: 1; margin-left: .18em; }
+  #how { font-size: 3.2vmin; opacity: .8; max-width: 70vw; line-height: 1.4; }
+  #how b { color: #ffd166; }
+  #corner { position: fixed; right: 2.2vmin; top: 2vmin; font-size: 2.6vmin; opacity: .55; letter-spacing: .12em; transition: opacity .4s; }
+  #corner.off { opacity: 0; }
+  #phase { position: fixed; left: 2.2vmin; bottom: 2vmin; font-size: 2.6vmin; opacity: 0; transition: opacity .3s; }
+  #phase.on { opacity: .85; }
+  #who { position: fixed; left: 2.2vmin; top: 2vmin; font-size: 2.6vmin; opacity: .55; }
+</style>
+</head>
+<body>
+<div id="pair">
+  <div id="code">····</div>
+  <div id="how">On your phone, open <b>Whistlegraph</b>, tap the <b>TV</b> button and type these letters under <b>Pair a screen</b>.</div>
+</div>
+<div id="who"></div>
+<div id="corner" class="off"></div>
+<div id="phase"></div>
+<script type="module">
+  const API = '/api/whistlegraph-screen';
+  const RUNTIME = '/wipe?noauth=true&noplot=true&nogap=true&nolabel=true&preview=walkieware';
+  const $ = id => document.getElementById(id);
+  const remember = (key, value) => { try { value == null ? localStorage.removeItem(key) : localStorage.setItem(key, value); } catch {} };
+  const recall = key => { try { return localStorage.getItem(key); } catch { return null; } };
+
+  // The runtime frame: made once, driven the way the app's feed drives it.
+  let frame = null, frameReady = false, pendingSource = null, shownHash = '';
+  function runtime() {
+    if (frame) return frame;
+    frame = document.createElement('iframe'); frame.src = RUNTIME; frame.allow = 'autoplay; gamepad; fullscreen';
+    document.body.prepend(frame);
+    const poll = setInterval(() => {
+      const w = frame.contentWindow;
+      if (!w || !w.preloaded || !w.acSEND) return;
+      clearInterval(poll); frameReady = true; flush();
+    }, 100);
+    return frame;
+  }
+  function flush() {
+    if (!frameReady || pendingSource == null) return;
+    const source = pendingSource; pendingSource = null;
+    const w = frame.contentWindow;
+    try { w.AC?.startAudio?.(); } catch {}
+    w.acSEND({type: 'dropped:piece', content: {name: 'wgtv', source, search: 'noauth=true&noplot=true&nogap=true&nolabel=true', isKidLisp: false}});
+    frame.classList.add('showing'); $('pair').classList.add('hidden'); $('corner').classList.remove('off');
+    try { frame.contentWindow.focus(); } catch {}
+  }
+  function show(source) { pendingSource = source; runtime(); flush(); }
+  function idle(code) {
+    pendingSource = null; shownHash = '';
+    frame?.classList.remove('showing'); $('pair').classList.remove('hidden'); $('corner').classList.add('off'); $('phase').classList.remove('on');
+    $('code').textContent = code; $('who').textContent = '';
+  }
+
+  // A screen keeps its code across reloads; a dead one makes a new one.
+  async function screen() {
+    const saved = {code: recall('wgtv-code'), secret: recall('wgtv-secret')};
+    if (saved.code && saved.secret) {
+      const r = await fetch(`${API}?code=${saved.code}&secret=${saved.secret}&since=-1`).catch(() => null);
+      if (r?.ok) return saved;
+    }
+    const r = await fetch(API, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const made = await r.json();
+    remember('wgtv-code', made.code); remember('wgtv-secret', made.secret);
+    return made;
+  }
+
+  let revision = -1, since = -1;
+  async function loop() {
+    const me = await screen();
+    $('code').textContent = me.code; $('corner').textContent = me.code;
+    let misses = 0;
+    for (;;) {
+      let state = null;
+      try { const r = await fetch(`${API}?code=${me.code}&secret=${me.secret}&since=${since}`, {cache: 'no-store'}); state = r.ok ? await r.json() : (r.status === 404 ? {gone: true} : null); } catch {}
+      if (state?.gone) { remember('wgtv-code', null); remember('wgtv-secret', null); location.reload(); return; }
+      if (state) {
+        misses = 0;
+        if (!state.paired) { if (revision !== state.revision) { revision = state.revision; since = state.revision; idle(me.code); } }
+        else {
+          $('who').textContent = state.name ? '@' + state.name : '';
+          if (typeof state.source === 'string') {
+            revision = state.revision; since = state.revision;
+            if (state.source && state.sourceHash !== shownHash) { shownHash = state.sourceHash; show(state.source); }
+          }
+          const s = state.status;
+          if (s && s.busy && s.phase) { $('phase').textContent = s.phase; $('phase').classList.add('on'); } else $('phase').classList.remove('on');
+        }
+      } else if (++misses > 20) { $('how').textContent = 'Lost the knot. Trying again…'; }
+      await new Promise(r => setTimeout(r, state?.paired ? 1200 : 2500));
+    }
+  }
+  loop();
+  // The runtime frame is the piece; keep it focused so a controller reaches it.
+  window.addEventListener('click', () => { try { frame?.contentWindow.focus(); } catch {} });
+</script>
+</body>
+</html>
