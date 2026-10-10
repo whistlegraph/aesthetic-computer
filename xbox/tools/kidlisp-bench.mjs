@@ -22,9 +22,15 @@ const run = (args, opts = {}) => execFileSync('node', args, { cwd: root, encodin
 const perPiece = Math.floor((seconds * 1000) / Math.max(1, pieces.length || 3));
 const built = JSON.parse(run(['kidlisp/tools/native-tv-script.mjs', 'draw', String(perPiece), 'kidlisp/build/kidlisp-tv.js', density, ...pieces]));
 console.log(`built ${built.out} (${built.kb} KB) for ${built.pieces.join(', ')}, ${perPiece} ms each, density ${density}`);
-const deployed = run(['xbox/tools/live.mjs', 'hot-deploy', 'kidlisp/build/kidlisp-tv.js']).trim().split('\n').at(-1);
-console.log(deployed);
-const generation = Number((deployed.match(/generation (\d+)/) || [])[1] || 0);
+// publish, then wait for the host to log the new live generation (hot-deploy's
+// own byte check does not match a script with multibyte characters)
+const lastGeneration = (text) => Number((text.match(/AC_NATIVE_LIVE_READY bytes=\d+ generation=(\d+)(?![\s\S]*AC_NATIVE_LIVE_READY)/) || [])[1] || 0);
+const before = lastGeneration(run(['xbox/tools/live.mjs', 'logs', '400']));
+run(['xbox/tools/live.mjs', 'publish', 'kidlisp/build/kidlisp-tv.js']);
+let generation = before;
+for (let attempt = 0; attempt < 60 && generation === before; attempt++) { await sleep(1000); generation = lastGeneration(run(['xbox/tools/live.mjs', 'logs', '400'])); }
+if (generation === before) throw new Error('the Xbox did not log a new live generation; is Native BIOS running?');
+console.log(`live generation ${generation}`);
 
 mkdirSync(resolve(root, 'kidlisp/build/xbox-bench'), { recursive: true });
 const shots = new Set();

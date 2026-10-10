@@ -19,6 +19,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { KidLisp } from '../../system/public/aesthetic.computer/lib/kidlisp.mjs';
+import { emitProgram } from '../../system/public/aesthetic.computer/lib/kidlisp-emit.mjs';
+import { GpuFrame } from '../../system/public/aesthetic.computer/lib/gpu-frame.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(resolve(root, 'system/package.json'));
@@ -32,8 +35,21 @@ const bundle = (await esbuild.build({
   platform: 'neutral', target: 'es2020', external: ['url', 'module', 'https', 'node:*'], logLevel: 'silent',
 })).outputFiles[0].text;
 
-const directives = (source) => (/^\s*;\s*@compile\b/m.test(source) ? '' : '; @compile\n') + (/^\s*;\s*@gpu\b/m.test(source) ? '' : '; @gpu\n') + source;
-const pieces = Object.fromEntries(pieceFiles.map((file) => [basename(file, '.lisp'), directives(readFileSync(resolve(root, file), 'utf8'))]));
+// Each piece is emitted here, on the host, as one JavaScript function
+// (kidlisp-emit.mjs): the shell binds it to the evaluator's runtime instead
+// of compiling closures at load. The `; @compile` line is dropped so the
+// evaluator does not also build the closure tree; `; @gpu` stays so the
+// drawing records into the frame.
+const directives = (source) => (/^\s*;\s*@gpu\b/m.test(source) ? '' : '; @gpu\n') + source.replace(/^\s*;\s*@compile\b.*$/mg, '');
+const pieces = {}, emitted = {};
+const quiet = console.log;
+for (const file of pieceFiles) {
+  const name = basename(file, '.lisp'), source = directives(readFileSync(resolve(root, file), 'utf8'));
+  pieces[name] = source;
+  console.log = () => {};
+  try { const lisp = new KidLisp(); lisp.gpuFrame = new GpuFrame(); lisp.module(source, true); emitted[name] = emitProgram(lisp.ast, lisp); }
+  finally { console.log = quiet; }
+}
 
 const script = `const buildVersion = 1;
 globalThis.console = globalThis.console || { log() {}, warn() {}, error() {}, info() {}, debug() {} };
@@ -41,13 +57,16 @@ ${bundle}
 globalThis.performance = globalThis.performance || { now: () => Date.now() };
 globalThis.KIDLISP_HOST_SOURCE = true;   // this script is itself host-built source: kernels may be emitted as JavaScript
 const PIECES = ${JSON.stringify(pieces)};
+const EMITTED = {
+${Object.entries(emitted).map(([name, text]) => `  ${JSON.stringify(name)}: function (H) {\n${text}\n  },`).join('\n')}
+};
 const ORDER = ${JSON.stringify(Object.keys(pieces))};
 const SWITCH_EVERY = ${Number(switchArg) || 20000};
 const DRAW = ${mode === 'nodraw' ? 'false' : 'true'};
 const DENSITY_AUTO = ${densityArg === 'auto' ? 'true' : 'false'};
 let density = ${densityArg === 'auto' ? 0.5 : Number(densityArg) || 1};   // the piece's pixels per host pixel
 const BUDGET_MS = 16;
-const { KidLisp, compileProgram, readFrame } = KidLispNative;
+const { KidLisp, programHelpers, readFrame } = KidLispNative;
 let lisp = null, piece = null, current = -1, frames = 0, lastSwitch = 0, W = 390, H = 520, fpsCount = 0, fpsAt = 0, fps = 0;
 let lastOps = 0, lastErr = "", lastDrawMs = 0, lastCounts = "";
 const say = (event, detail) => { if (typeof telemetry === "function") telemetry(event, detail); };
@@ -64,10 +83,12 @@ const api = {
 // The hosts: wipe(r g b) · box(x y w h r g b) · line(x1 y1 x2 y2 width r g b) · triangle(x1 y1 x2 y2 x3 y3 r g b). No alpha, so faint ops are skipped.
 const vis = (a) => a >= 48;
 let S = 1;   // host pixels per piece pixel, 1/density
-const L = (x1, y1, x2, y2, r, g, b) => line(x1 * S, y1 * S, x2 * S, y2 * S, Math.max(1, S), r, g, b);
+const C = (v) => (v > 32000 ? 32000 : v < -32000 ? -32000 : v);   // the host refuses coordinates beyond ±32768, and the frame with them
+const L = (x1, y1, x2, y2, r, g, b) => line(C(x1 * S), C(y1 * S), C(x2 * S), C(y2 * S), Math.max(1, S), r, g, b);
 const WINDING = 1;   // the GPU triangle path may cull one orientation; every fill is emitted with this sign
-const T = (x1, y1, x2, y2, x3, y3, r, g, b) => { const area = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1); if (area * WINDING < 0) triangle(x1 * S, y1 * S, x3 * S, y3 * S, x2 * S, y2 * S, r, g, b); else triangle(x1 * S, y1 * S, x2 * S, y2 * S, x3 * S, y3 * S, r, g, b); };
-const B = (x, y, w, h, r, g, b) => box(x * S, y * S, w * S, h * S, r, g, b);
+const T = (x1, y1, x2, y2, x3, y3, r, g, b) => { x1 = C(x1 * S) / S; y1 = C(y1 * S) / S; x2 = C(x2 * S) / S; y2 = C(y2 * S) / S; x3 = C(x3 * S) / S; y3 = C(y3 * S) / S; const area = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1); if (area * WINDING < 0) triangle(x1 * S, y1 * S, x3 * S, y3 * S, x2 * S, y2 * S, r, g, b); else triangle(x1 * S, y1 * S, x2 * S, y2 * S, x3 * S, y3 * S, r, g, b); };
+// The Xbox composites its box layer over the GPU triangles, so a filled box bigger than a dot is two triangles, in order with the rest.
+const B = (x, y, w, h, r, g, b) => { if (Math.abs(w * h) <= 4) box(x * S, y * S, w * S, h * S, r, g, b); else { triangle(x * S, y * S, (x + w) * S, y * S, (x + w) * S, (y + h) * S, r, g, b); triangle(x * S, y * S, (x + w) * S, (y + h) * S, x * S, (y + h) * S, r, g, b); } };
 const fan = (pts, r, g, b) => { for (let k = 1; k + 1 < pts.length / 2; k++) T(pts[0], pts[1], pts[k * 2], pts[k * 2 + 1], pts[k * 2 + 2], pts[k * 2 + 3], r, g, b); };
 const ring = (pts, r, g, b) => { const n = pts.length / 2; for (let k = 0; k < n; k++) { const j = (k + 1) % n; L(pts[k * 2], pts[k * 2 + 1], pts[j * 2], pts[j * 2 + 1], r, g, b); } };
 const visit = {
@@ -93,7 +114,7 @@ function bench() {
 function quietly(fn) { const log = console.log; console.log = () => {}; try { return fn(); } finally { console.log = log; } }
 function load(index) {
   current = index; lisp = new KidLisp();
-  quietly(() => { piece = lisp.module(PIECES[ORDER[index]], true); lisp.setAPI(api); piece.boot(api); });
+  quietly(() => { piece = lisp.module(PIECES[ORDER[index]], true); lisp.setAPI(api); piece.boot(api); lisp.compiled = EMITTED[ORDER[index]](programHelpers(lisp)); });
   frames = 0; lastSwitch = Date.now();
 }
 function boot() { try { bench(); } catch (_) {} screen(); api.screen.width = W; api.screen.height = H; load(0); }
