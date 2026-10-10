@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import WebKit
 
 struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
 
@@ -57,83 +58,114 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
         })
         storyKey = StoryCache.key(["story-movie-v2"] + rows.compactMap { keys[$0.id] })
         readyURL = cache.find(storyKey); completedCards = rows.filter { cached($0) != nil }.count
-        active = true; busy = readyURL == nil; stage = .preparing; error = ""
-        if readyURL == nil { assembleIfReady() }
+        active = true; busy = readyURL == nil; stage = .preparing; error = ""; failures = [:]
+        if readyURL == nil { recordMissing() }
     }
     private func cached(_ row: PieceRevision) -> URL? { keys[row.id].flatMap { cache.find($0) } }
     var firstMissingIndex: Int? { rows.firstIndex { cached($0) == nil } }
-    func needsCard(at index: Int) -> Bool { rows.indices.contains(index) && cached(rows[index]) == nil }
 
-    // Called after this exact revision paints and its narration file is ready.
-    func startCard(_ row: PieceRevision, audio: StoryAudio?) async {
-        guard active, readyURL == nil, cached(row) == nil, assembly == nil else { return }
-        if let audio, audio.url.lastPathComponent.hasPrefix("story-voice-"), let key = keys[row.id] {
+    // ---- Off-screen recording (the visible story is never touched) ----
+    private var recorder: Task<Void, Never>?
+    private var recorderPreview: StoryPreview?
+    @Published private(set) var recorderView: WKWebView?
+    @Published private(set) var failures: [Int: String] = [:]
+    private func preview(_ session: WhistlegraphSession) -> StoryPreview {
+        if let recorderPreview { return recorderPreview }
+        let preview = StoryPreview(session: session, standalone: true)
+        recorderPreview = preview; recorderView = preview.view
+        return preview
+    }
+    /// Every card without a clip, in order, each with one retry. Browsing the
+    /// story meanwhile is free; a card that fails twice is reported, never
+    /// re-rolled on its own, and tried again on the next Export tap.
+    private func recordMissing() {
+        guard recorder == nil, session != nil, rows.contains(where: { cached($0) == nil }) else { assembleIfReady(); return }
+        let run = storyRun
+        busy = true; stage = .preparing
+        recorder = Task { [weak self] in
+            guard let self else { return }
+            defer { if self.storyRun == run { self.recorder = nil } }
+            for row in self.rows where self.cached(row) == nil {
+                guard self.active, self.storyRun == run else { return }
+                for attempt in 1...2 {
+                    do { try await self.record(row); self.failures[row.id] = nil; break }
+                    catch is CancellationError { return }
+                    catch {
+                        self.discardCard()
+                        guard self.active, self.storyRun == run else { return }
+                        if attempt == 2 { self.failures[row.id] = error.localizedDescription; DeviceActionLog.shared.record(.share, .failed, control: .story) }
+                    }
+                }
+                self.completedCards = self.rows.filter { self.cached($0) != nil }.count
+            }
+            guard self.active, self.storyRun == run else { return }
+            if self.rows.contains(where: { self.cached($0) == nil }) {
+                self.busy = false
+                if self.requested { self.requested = false; self.error = self.failures.values.first ?? "A card could not be recorded. Try again." }
+            } else { self.assembleIfReady() }
+        }
+    }
+    enum RecordError: LocalizedError {
+        case notPainted, noClip
+        var errorDescription: String? { self == .notPainted ? "This card did not paint." : "This card did not record." }
+    }
+    /// One card: present it in the off-screen runtime, wait for its paint, fetch its
+    /// narration, roll tape for the narration plus the story's tail, stop, compose, cache.
+    private func record(_ row: PieceRevision) async throws {
+        guard let session else { throw RecordError.noClip }
+        let preview = preview(session)
+        let source = try await session.versionSource(row.id)
+        let painted = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            var settled = false
+            let timeout = Task { try? await Task.sleep(for: .seconds(30)); if !settled { settled = true; preview.onPainted = nil; continuation.resume(returning: false) } }
+            preview.onPainted = { version in guard version == row.id, !settled else { return }; settled = true; timeout.cancel(); preview.onPainted = nil; continuation.resume(returning: true) }
+            preview.present(version: row.id, source: source)
+        }
+        guard painted else { throw RecordError.notPainted }
+        let sound = try await StoryVoice.audio(for: row)
+        if let sound, sound.url.lastPathComponent.hasPrefix("story-voice-"), let key = keys[row.id] {
             keys[row.id] = StoryCache.key([key, "device-fallback"])
             storyKey = StoryCache.key(["story-movie-v2"] + rows.compactMap { keys[$0.id] })
+            if cached(row) != nil { return }
         }
-        discardCard()
-        let expected = operation
-        await reset?.value
-        guard active, operation == expected else { return }
-        do {
-            currentKey = keys[row.id]; self.audio = audio; bytes = 0
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("story-canvas-\(expected).mp4")
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-            raw = url; file = try FileHandle(forWritingTo: url)
-            session?.storyTapeEvent = { [weak self] event in self?.receive(event) }
-            try await session?.storyTape("update", arguments: ["value": ["version": row.id, "caption": row.utterance, "background": StoryCardStyle.cssBackground(code: session?.snapshot.code ?? "", version: row.id)]])
-            guard operation == expected, active else { return }
-            try await session?.storyTape("start", arguments: ["id": expected.uuidString])
-            guard operation == expected, active else { return }
-            previousIdleTimer = UIApplication.shared.isIdleTimerDisabled; UIApplication.shared.isIdleTimerDisabled = true
-            recording = true; busy = true; stage = .rendering
-            deadline = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(120))
-                guard !Task.isCancelled, let self, self.operation == expected else { return }
-                self.fail("This card took too long to export. Try again.")
-            }
-        } catch { if operation == expected { fail(error.localizedDescription) } }
-    }
-    func pause(_ paused: Bool) {
-        guard recording else { return }
-        let expected = operation
-        Task {
-            guard operation == expected else { return }
-            try? await session?.storyTape(paused ? "pause" : "resume")
-        }
-    }
-    func finishCard() async {
-        guard recording else { assembleIfReady(); return }
+        let expected = UUID(); operation = expected
+        currentKey = keys[row.id]; audio = sound; bytes = 0
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("story-canvas-\(expected).mp4")
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        raw = url; file = try FileHandle(forWritingTo: url)
+        preview.onTape = { [weak self] event in self?.receive(event) }
+        try await preview.tape("update", arguments: ["value": ["version": row.id, "caption": row.utterance, "background": StoryCardStyle.cssBackground(code: session.snapshot.code, version: row.id)]])
+        try check(expected)
+        try await preview.tape("start", arguments: ["id": expected.uuidString])
+        recording = true; stage = .rendering
+        // As the narrator times it: the narration, then a tail so short cards still hold four seconds.
+        let narration = sound.map { max(0.5, $0.end - $0.start) } ?? 0
+        try await Task.sleep(for: .seconds(narration + max(1.5, 4 - narration)))
+        try check(expected)
         recording = false; stage = .finishingVideo
-        let expected = operation
-        await withCheckedContinuation { continuation in
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             completion = continuation
-            Task {
-                guard operation == expected else { return }
-                do { try await session?.storyTape("stop") }
-                catch { if operation == expected { fail(error.localizedDescription) } }
-            }
+            Task { do { try await preview.tape("stop", arguments: [:]) } catch { if self.operation == expected { self.fail(error.localizedDescription) } } }
         }
+        guard cached(row) != nil else { throw RecordError.noClip }
     }
+    func stop() { recorder?.cancel(); recorder = nil }
     func request() {
         DeviceActionLog.shared.record(.share, .started, control: .story)
         if let readyURL { movie = StoryMovie(url: readyURL); return }
         requested = true; active = true; busy = true; error = ""
-        assembleIfReady()
+        recordMissing()
     }
-    func needsRestart(before index: Int) -> Bool {
-        !recording && assembly == nil || rows.prefix(index).contains { cached($0) == nil }
-    }
-    func skipCard() { if raw != nil || recording { discardCard() } }
     func discardCard() {
         operation = UUID(); exportSession?.cancelExport(); exportSession = nil
         cleanupCard()
-        let current = session, earlier = reset
-        reset = Task { await earlier?.value; try? await current?.storyTape("cancel") }
+        let current = recorderPreview, earlier = reset
+        reset = Task { await earlier?.value; try? await current?.tape("cancel", arguments: [:]) }
     }
     func cancel() {
         if requested { DeviceActionLog.shared.record(.share, .cancelled, control: .story) }
         active = false; storyRun = UUID(); assembly?.cancel(); assembly = nil
+        recorder?.cancel(); recorder = nil
         discardCard(); busy = false; requested = false
     }
     func clearMovie() { movie = nil }
@@ -142,7 +174,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
         deadline?.cancel(); deadline = nil
         try? file?.close(); file = nil
         if let raw { try? FileManager.default.removeItem(at: raw) }; raw = nil
-        audio = nil; currentKey = nil; session?.storyTapeEvent = nil; recording = false
+        audio = nil; currentKey = nil; recorderPreview?.onTape = nil; recording = false
         completion?.resume(); completion = nil
     }
     private func fail(_ message: String) {

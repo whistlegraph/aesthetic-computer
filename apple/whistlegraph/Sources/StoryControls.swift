@@ -76,12 +76,12 @@ struct StoryControls: View {
             Spacer()
             HStack(spacing: 32) {
                 Button { narrator.previous() } label: { Image(systemName: "backward.end.fill").frame(width: 52, height: 48) }
-                    .accessibilityLabel("Previous card").disabled(exporter.requested)
+                    .accessibilityLabel("Previous card")
                 Button { narrator.setPaused(!narrator.isPaused) } label: {
                     Image(systemName: narrator.isPaused ? "play.fill" : "pause.fill").frame(width: 52, height: 48)
-                }.accessibilityLabel(narrator.isPaused ? "Resume story" : "Pause story").accessibilityIdentifier("story-pause").disabled(exporter.requested)
+                }.accessibilityLabel(narrator.isPaused ? "Resume story" : "Pause story").accessibilityIdentifier("story-pause")
                 Button { narrator.next() } label: { Image(systemName: "forward.end.fill").frame(width: 52, height: 48) }
-                    .accessibilityLabel("Next card").disabled(exporter.requested)
+                    .accessibilityLabel("Next card")
             }
         }.font(.system(size: 20, weight: .semibold)).foregroundStyle(.white).buttonStyle(.plain)
             .padding(.horizontal, 20).padding(.vertical, 8)

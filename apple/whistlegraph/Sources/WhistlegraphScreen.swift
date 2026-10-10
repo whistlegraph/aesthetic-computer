@@ -139,6 +139,10 @@ struct WhistlegraphScreen: View {
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
                     .accessibilityHidden(!session.snapshot.hasPreview || narrator.isPlaying)
                 if narrator.isPlaying { StoryWorkspace(player: session.storyPreview) }
+                // The off-screen recorder paints at the preview's size, unseen and untouchable.
+                if narrator.isPlaying, let recorder = exporter.recorderView {
+                    StoryRecorderHost(view: recorder).frame(width: previewSize.width, height: previewSize.height).opacity(0.02).allowsHitTesting(false).accessibilityHidden(true)
+                }
                 if !session.snapshot.hasPreview && !session.engineReady { ProgressView() }
                 if !narrator.isPlaying && (chalkActive || drawing.hasInk) {
                     DrawingPad(draft: drawing, interactive: chalkActive && canTalk)
@@ -295,20 +299,14 @@ struct WhistlegraphScreen: View {
     }
     private func openStory() {
         DeviceActionLog.shared.record(.story, .presented)
-        narrator.onNarration = { row, audio in await exporter.startCard(row, audio: audio) }
-        narrator.onCardComplete = { await exporter.finishCard() }
-        narrator.onSkip = { exporter.skipCard() }
-        narrator.onPause = { exporter.pause($0) }
-        narrator.shouldPlay = { !exporter.requested || exporter.needsCard(at: $0) }
+        // The visible story is for watching and flipping; cards record off-screen.
         narrator.play(session)
         exporter.prepare(session: session, rows: narrator.branch)
     }
     private func exportStory() {
         DeviceActionLog.shared.record(.share, .requested, control: .story)
-        if exporter.readyURL != nil { narrator.setPaused(true); exporter.request(); return }
-        let restart = exporter.needsRestart(before: narrator.index)
+        if exporter.readyURL != nil { narrator.setPaused(true) }
         exporter.request()
-        if restart, let missing = exporter.firstMissingIndex { narrator.jump(to: missing) } else { narrator.setPaused(false) }
     }
     private var canTalk: Bool { session.workspaceReady && session.engineReady && !session.snapshot.busy && session.capturePhase != .processing }
     private var talkControl: some View {

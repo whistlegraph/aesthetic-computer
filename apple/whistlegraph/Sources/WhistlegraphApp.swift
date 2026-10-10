@@ -948,6 +948,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
 
+    /// A saved version's source, for recording a story card off-screen.
+    func versionSource(_ id: Int) async throws -> String {
+        guard let webView else { throw URLError(.resourceUnavailable) }
+        let value = try await webView.callAsyncJavaScript("return window.whistlegraphVersionSource?.(id) ?? null;", arguments: ["id": id], in: nil, contentWorld: .page)
+        guard let source = value as? String, !source.isEmpty else { throw URLError(.resourceUnavailable) }
+        return source
+    }
     func emitEngine(_ event: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: event),
               let json = String(data: data, encoding: .utf8) else { return }

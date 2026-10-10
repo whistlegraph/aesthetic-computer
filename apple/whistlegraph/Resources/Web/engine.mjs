@@ -911,6 +911,7 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
     return list.sort((a,b)=>(b.current-a.current)||(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0)).slice(0,256);
   }
   postPieces=()=>post({action:'pieces',pieces:pieceList()});
+  window.whistlegraphVersionSource=id=>versions?.value.versions.find(v=>v.id===id)?.source??null;
   window.whistlegraphOpenPiece=id=>{
     if(busy||id===thread.identity.id)return {accepted:false,reason:'busy'};
     let saved;try{saved=JSON.parse(localStorage.getItem(ARCHIVE+id));}catch{}
