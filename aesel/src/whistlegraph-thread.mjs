@@ -13,9 +13,9 @@ export function threadIdentity(storage,key,uuid=()=>crypto.randomUUID()) {
   const value={id:uuid(),code:null};storage.setItem(key+'-thread',JSON.stringify(value));return value;
 }
 export class WhistlegraphThread {
-  constructor({storage,key,token,ledger,state,onStatus,onCommand,receipts=null,WebSocketImpl=globalThis.WebSocket,url='wss://aesthetic.computer/api/whistlegraph-stream',heartbeatMs=15000,maxIdleMs=45000,reconnectMs=3000}) {
+  constructor({storage,key,token,ledger,state,onStatus,onCommand,onAdopt=null,receipts=null,WebSocketImpl=globalThis.WebSocket,url='wss://aesthetic.computer/api/whistlegraph-stream',heartbeatMs=15000,maxIdleMs=45000,reconnectMs=3000}) {
     this.receipts=receipts;
-    Object.assign(this,{storage,key,token,ledger,state,onStatus,onCommand,WebSocketImpl,url,heartbeatMs,maxIdleMs,reconnectMs});
+    Object.assign(this,{storage,key,token,ledger,state,onStatus,onCommand,onAdopt,WebSocketImpl,url,heartbeatMs,maxIdleMs,reconnectMs});
     this.identity=threadIdentity(storage,key);this.revision=Number(storage.getItem(key+'-cloud-revision')||0);this.last=storage.getItem(key+'-cloud-ledger')||'';
     this.active=false;this.sending=false;this.ready=false;this.connectURL=url;
   }
@@ -34,11 +34,24 @@ export class WhistlegraphThread {
         this.receiptSupport=m.capabilities?.includes('attempt-receipts-v1')===true;
         this.identity.code=m.thread.code;this.storage.setItem(this.key+'-thread',JSON.stringify(this.identity));
         const cloud=ledgerText(m.thread.ledger),local=ledgerText(this.ledger());
-        // Never silently replace local work with another device's history.
-        if(m.thread.ledger&&cloud!==local&&m.thread.revision!==this.revision){this.onStatus(this.identity.code,'History conflict');return;}
+        // Never silently replace local work with another device's history. A
+        // device with nothing unsynced (its local ledger is the last cloud
+        // ledger it saw) follows the server forward: that is a turn that ran
+        // off the phone, not another device's history.
+        if(m.thread.ledger&&cloud!==local&&m.thread.revision!==this.revision){
+          if(this.canFollow(local,m.thread)){await this.follow(m.thread);}
+          else {this.onStatus(this.identity.code,'History conflict');return;}
+        }
         this.revision=m.thread.revision;this.ready=true;
         if(cloud===local){this.last=local;this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',local);}
         this.onStatus(this.identity.code,'Connected');this.sync();this.update();this.flushReceipts();
+      }
+      if(m.type==='updated'&&m.thread?.ledger) {
+        if(this.sending)return;
+        const cloud=ledgerText(m.thread.ledger),local=ledgerText(this.ledger());
+        if(cloud===local){this.revision=m.thread.revision;this.last=cloud;this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',cloud);return;}
+        if(this.canFollow(local,m.thread)){await this.follow(m.thread);this.update();}
+        else this.onStatus(this.identity.code,'History conflict');
       }
       if(m.type==='saved') {
         this.revision=m.thread.revision;this.last=ledgerText(m.thread.ledger);this.sending=false;
@@ -68,6 +81,13 @@ export class WhistlegraphThread {
     ws.onerror=()=>{};
   }
   send(value){if(this.ws?.readyState===1)this.ws.send(JSON.stringify(value));}
+  canFollow(local,thread){return !!this.onAdopt&&local===this.last&&Number.isSafeInteger(thread.revision)&&thread.revision>this.revision;}
+  async follow(thread){
+    this.revision=thread.revision;this.last=ledgerText(thread.ledger);
+    this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',this.last);
+    await this.onAdopt(thread.ledger,thread);
+    this.onStatus(this.identity.code,'Updated');
+  }
   sync(){if(!this.ready||this.sending)return;const ledger=this.ledger(),next=ledgerText(ledger);if(next===this.last)return;this.sending=true;this.send({type:'sync',revision:this.revision,ledger});}
   update(){if(this.ready)this.send({type:'state',state:this.state()});}
   flushReceipts(){

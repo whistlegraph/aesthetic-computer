@@ -357,7 +357,20 @@ function compileStream() {
 }
 function saved() { try { localStorage.setItem(storageKey,source); } catch {} updateFeed(); }
 function review(show) { $('speak').disabled=busy; $('speak-label').textContent=busy?'Working…':'Hold to talk'; }
-function end() { clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); }
+function end() { clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); if(pendingAdopt){const next=pendingAdopt;pendingAdopt=null;adoptLedger(next);} }
+let pendingAdopt=null;
+function adoptLedger(ledger){
+  try{
+    if(!versions||ledger?.format!==1||!Array.isArray(ledger.versions))return;
+    versions.persist(ledger);
+    source=previous=versions.head.source;vfs.mount(file,source);saved();
+    render(source||'export function paint({wipe}) {wipe("black");}');
+    lastAttempt={request:versions.head.request||'',status:'completed',error:'',startedAt:versions.head.createdAt||''};
+    localStorage.removeItem(storageKey+'-inflight');localStorage.removeItem(storageKey+'-attempt');localStorage.removeItem(storageKey+'-draft');
+    phase(`v${versions.head.id} · Made while you were away`);log('Adopted v'+versions.head.id+' from the knot');
+    updateFeed();threadUpdate();nativeSnapshot();
+  }catch(error){log('Could not adopt the server version: '+error.message);}
+}
 function delta(text) {
   outputStream=(outputStream+text).slice(-6000);
   if (!firstDelta) {firstDelta=true; log('First model output');benchmark('firstModelOutput');}
@@ -758,6 +771,9 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   thread=new WhistlegraphThread({storage:localStorage,key:storageKey,receipts,token:()=>token,ledger:()=>versions.value,
     state:()=>({busy,phase:$('live-phase').textContent,head:versions.head.id,source:versions.head.source,errors:runtimeErrors,attempt:lastAttempt}),
     onStatus:(code,status)=>{label.textContent=code?'/'+code:'';label.title=status;label.dataset.status=status;post({action:'threadStatus',code:code||'',threadID:thread.identity.id,status});nativeSnapshot();},
+    // A turn that ran off the phone: take the server's ledger as our own.
+    // While a turn runs here, it waits until that turn ends.
+    onAdopt:async ledger=>{if(busy){pendingAdopt=ledger;return;}adoptLedger(ledger);},
     onCommand:async command=>{
       if(command.action==='layout'){
         if(typeof command.css!=='string'||new TextEncoder().encode(command.css).length>100000)throw Error('Invalid layout');

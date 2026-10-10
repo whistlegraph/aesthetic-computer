@@ -159,3 +159,28 @@ test('receipt client defers old servers, retries after lost acknowledgement, and
   assert.equal(receipts.pending(),null);assert.equal(phone.ready,true);
  }finally{phone.suspend();}
 });
+
+test('a device with nothing unsynced follows a server-side turn; one with local work still reports a conflict',async()=>{
+ const values=new Map(),storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+ const base={format:1,head:1,versions:[ledger.versions[0],{id:1,parent:0,source:'export function paint({wipe}){wipe(1);}',request:'one',createdAt:'t1',layers:0}]};
+ const ahead={...base,head:2,versions:[...base.versions,{id:2,parent:1,source:'export function paint({wipe}){wipe(2);}',request:'two (worker)',createdAt:'t2',layers:0}]};
+ let local=base,adopted=null,statuses=[];let sockets=[];
+ class FakeSocket{constructor(){sockets.push(this);this.readyState=1;queueMicrotask(()=>this.onopen?.());}send(raw){const m=JSON.parse(raw);if(m.type==='authenticate')queueMicrotask(()=>this.onmessage?.({data:JSON.stringify({type:'ready',thread:{code:'wgRemot',revision:5,ledger:ahead}})}));}close(){this.readyState=3;}}
+ storage.setItem('k-cloud-revision','4');storage.setItem('k-cloud-ledger',JSON.stringify(base));
+ const phone=new WhistlegraphThread({storage,key:'k',token:()=>'t',ledger:()=>local,state:()=>({}),onStatus:(_,s)=>statuses.push(s),onCommand:async()=>({ok:true}),onAdopt:async l=>{adopted=l;local=l;},WebSocketImpl:FakeSocket});
+ await phone.resume();await new Promise(r=>setTimeout(r,20));
+ assert.equal(adopted?.head,2,'the ledger the server moved to is adopted on connect');
+ assert.equal(phone.revision,5);assert.equal(storage.getItem('k-cloud-revision'),'5');
+ assert.ok(statuses.includes('Updated')&&statuses.includes('Connected'),statuses.join(','));
+ // Live: a later 'updated' while connected and clean follows too.
+ const later={...ahead,head:3,versions:[...ahead.versions,{id:3,parent:2,source:'export function paint({wipe}){wipe(3);}',request:'three (worker)',createdAt:'t3',layers:0}]};
+ await sockets[0].onmessage({data:JSON.stringify({type:'updated',thread:{code:'wgRemot',revision:6,ledger:later},versionID:3,source:'worker'})});
+ assert.equal(adopted.head,3);assert.equal(phone.revision,6);
+ // With local work the server has not seen, nothing is replaced.
+ local={...later,head:4,versions:[...later.versions,{id:4,parent:3,source:'export function paint({wipe}){wipe(4);}',request:'mine',createdAt:'t4',layers:0}]};
+ const further={...later,head:5,versions:[...later.versions,{id:5,parent:3,source:'x',request:'theirs',createdAt:'t5',layers:0}]};
+ statuses.length=0;
+ await sockets[0].onmessage({data:JSON.stringify({type:'updated',thread:{code:'wgRemot',revision:7,ledger:further},versionID:5,source:'worker'})});
+ assert.equal(adopted.head,3,'local work is never replaced');assert.ok(statuses.includes('History conflict'));
+ phone.suspend();
+});

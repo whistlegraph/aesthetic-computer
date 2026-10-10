@@ -2,6 +2,7 @@ import {WebSocketServer,WebSocket} from 'ws';
 import {attachSocketRoute} from './socket-routing.mjs';
 import {randomUUID} from 'node:crypto';
 import {publicThread,sourceHash} from '../system/backend/whistlegraph.mjs';
+import {onThreadUpdated} from '../system/backend/whistlegraph-live.mjs';
 
 export function attachWhistlegraphSocket(server,{authenticate,store,authMs=5000,lifetimeMs=600000}={}) {
   const wss=new WebSocketServer({noServer:true,maxPayload:8_100_000,perMessageDeflate:false});
@@ -13,6 +14,11 @@ export function attachWhistlegraphSocket(server,{authenticate,store,authMs=5000,
   };
   // Older installed clients retain their authenticated connection route.
   const detach=attachSocketRoute(server,['/api/whistlegraph-stream','/api/walkieware-stream'],upgrade);
+  // A turn that finished on the server (a worker's commit) reaches every
+  // client in the thread's room as 'updated'; a device with nothing unsynced
+  // follows it, one with local work reports a conflict as it always has.
+  const notify=(threadID,payload)=>{const room=rooms.get(threadID);let n=0;for(const client of room?.clients||[]){send(client,{type:'updated',...payload});n++;}return n;};
+  const unsubscribe=onThreadUpdated(notify);
   wss.on('connection',ws=>{
     let owner,row,room,role,closed=false,chain=Promise.resolve(),pending=0,alive=true,messages=0,windowAt=Date.now();
     const authTimer=setTimeout(()=>ws.close(1008,'Authenticate first'),authMs);
@@ -89,5 +95,5 @@ export function attachWhistlegraphSocket(server,{authenticate,store,authMs=5000,
       if(room&&!room.clients.size)rooms.delete(row._id);
     });
   });
-  return {wss,close(){detach();for(const ws of wss.clients)ws.terminate();wss.close();}};
+  return {wss,notify,close(){unsubscribe();detach();for(const ws of wss.clients)ws.terminate();wss.close();}};
 }

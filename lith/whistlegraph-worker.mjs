@@ -150,6 +150,12 @@ async function work(queue, store, job, pool) {
     const result = await commitVersion(store, job, fresh, turn.source, [...turn.findings.map(f => f.code), ...turn.notes], {acceptance: turn.acceptance, checks: turn.checks});
     await queue.complete(job._id, WORKER, {...result, repairs: turn.repairs, elapsedMs: Date.now() - started});
     log('done', job.code, 'v' + result.versionID, turn.acceptance, `${Date.now() - started} ms`, turn.repairs ? 'after a repair' : '');
+    // Best effort: lith broadcasts the new revision to the thread's room and pushes the owner.
+    try {
+      const r = await fetch(`${SITE}/api/whistlegraph-turn-done`, {method: 'POST', headers: {'Content-Type': 'application/json', 'x-ac-worker': process.env.WHISTLEGRAPH_WORKER_SECRET},
+        body: JSON.stringify({owner: job.owner, code: job.code, versionID: result.versionID, displayText: job.request.displayText || ''}), signal: AbortSignal.timeout(15000)});
+      log('told lith', job.code, r.status, (await r.text()).slice(0, 120));
+    } catch (error) { log('could not tell lith', job.code, error.message); }
   } catch (error) {
     const draft = error.draft || job.checkpoint || null;
     await queue.fail(job._id, WORKER, error.message, {draft});
