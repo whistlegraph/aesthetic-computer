@@ -18,12 +18,18 @@ struct PieceSnapshot: Decodable {
     var phase = ""
     var attempt: PieceAttempt?
     var draft: PieceDraft?
+    var progress: TurnProgress?
     var revisions: [PieceRevision]? = []
     var versions: [PieceRevision] { get { revisions ?? [] } set { revisions = newValue } }
     enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, phase, attempt; case revisions = "versions" }
     var hasHistory: Bool { versions.count > 1 }
 }
 struct PieceAttempt: Decodable { let request: String; let status: String; let error: String }
+/// What a turn is doing right now: on the knot or on this phone, with its steps so far.
+struct TurnProgress: Decodable {
+    struct Step: Decodable, Identifiable { let at: String; let text: String; var id: String { at + text } }
+    let phase: String; let round: Int; let worker: String; let startedAt: String; let steps: [Step]; let said: String
+}
 /// Code a failed try painted on this phone, waiting to be kept as a version or discarded.
 struct PieceDraft: Decodable { let request: String; let error: String; let createdAt: String; let characters: Int }
 struct PieceRevision: Decodable, Identifiable {
@@ -429,6 +435,7 @@ struct VersionFeed: View {
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
+                VStack(spacing: 4) {
                 HStack(spacing: 12) {
                     if snapshot.busy { ProgressView().frame(width: 48) }
                     if snapshot.busy && snapshot.phase.hasPrefix("Checking picture") {
@@ -470,6 +477,11 @@ struct VersionFeed: View {
                         withAnimation(.easeOut(duration: 0.2)) { attemptSwipe = 0 }
                     } : nil)
                 .accessibilityAction(named: Text("Discard this try")) { discardAttempt() }
+                // Not just a spinner: the phase, the clock, who is working, each step, and what the model says.
+                if snapshot.busy, let progress = snapshot.progress {
+                    TurnProgressPanel(progress: progress, textSize: textSize).padding(.horizontal, 12).padding(.bottom, 6)
+                }
+                }
             }
         }
         .scrollDisabled(disabled || holdSelection)
@@ -692,5 +704,40 @@ struct QuietNote: View {
     var body: some View {
         Text(text).font(.custom("ComicRelief-Regular", size: 15, relativeTo: .footnote))
             .foregroundStyle(ink.opacity(0.72)).frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct TurnProgressPanel: View {
+    let progress: TurnProgress
+    let textSize: CGFloat
+    private static let withFraction: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
+    private static let plain = ISO8601DateFormatter()
+    static func date(_ value: String) -> Date? { withFraction.date(from: value) ?? plain.date(from: value) }
+    private func clock(_ seconds: Double) -> String { let s = max(0, Int(seconds)); return String(format: "%d:%02d", s / 60, s % 60) }
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let start = Self.date(progress.startedAt)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(progress.phase).font(.custom("ComicRelief-Bold", size: max(13, textSize * 0.7), relativeTo: .subheadline))
+                    if progress.round > 1 { Text("round \(progress.round)").opacity(0.7) }
+                    Spacer(minLength: 0)
+                    if let start { Text(clock(context.date.timeIntervalSince(start))).monospacedDigit() }
+                    if !progress.worker.isEmpty { Text(progress.worker).opacity(0.55).lineLimit(1) }
+                }.font(.custom("ComicRelief-Regular", size: max(12, textSize * 0.6), relativeTo: .footnote))
+                ForEach(progress.steps.suffix(5)) { step in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(start.flatMap { s in Self.date(step.at).map { "+" + clock($0.timeIntervalSince(s)) } } ?? "")
+                            .monospacedDigit().opacity(0.5).frame(width: 48, alignment: .trailing)
+                        Text(step.text).lineLimit(1).truncationMode(.tail)
+                    }.font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).opacity(0.85)
+                }
+                if !progress.said.isEmpty {
+                    Text("\u{201C}" + progress.said + "\u{201D}").font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).lineLimit(2).opacity(0.7)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine).accessibilityIdentifier("turn-progress")
+        }
     }
 }
