@@ -29,8 +29,8 @@ export class GpuFrame {
     this.meshVersion = 0;
   }
   defineMesh(id, mesh) { this.meshes.set(id, mesh); this.meshVersion++; }
-  camera(x, y, z, yaw, pitch, fov, near = 1) { this.push(OP.CAMERA, x, y, z, yaw, pitch, fov, near); }
-  place(mesh, x, y, z, yaw = 0, pitch = 0, roll = 0, scale = 1) { this.push(OP.PLACE, mesh, x, y, z, yaw, pitch, roll, scale, this.a); }
+  camera(x, y, z, yaw, pitch, fov, near = 1) { this.grow(8); const o = this.buffer; let i = this.length; o[i++] = OP.CAMERA; o[i++] = x; o[i++] = y; o[i++] = z; o[i++] = yaw; o[i++] = pitch; o[i++] = fov; o[i++] = near; this.length = i; this.ops++; }
+  place(mesh, x, y, z, yaw = 0, pitch = 0, roll = 0, scale = 1) { this.grow(10); const o = this.buffer; let i = this.length; o[i++] = OP.PLACE; o[i++] = mesh; o[i++] = x; o[i++] = y; o[i++] = z; o[i++] = yaw; o[i++] = pitch; o[i++] = roll; o[i++] = scale; o[i++] = this.a; this.length = i; this.ops++; }
   reset() { this.length = 0; this.ops = 0; this.overlay = false; }
   grow(extra) {
     if (this.length + extra <= this.buffer.length) return;
@@ -38,13 +38,14 @@ export class GpuFrame {
     next.set(this.buffer.subarray(0, this.length)); this.buffer = next;
   }
   ink(r, g, b, a = 255) { this.r = r; this.g = g; this.b = b; this.a = a; }
-  push(...values) { this.grow(values.length); for (let i = 0; i < values.length; i++) this.buffer[this.length++] = values[i]; this.ops++; }
-  clear(r = this.r, g = this.g, b = this.b, a = 255) { this.push(OP.CLEAR, r, g, b, a); }
-  line(x1, y1, x2, y2, thickness = 1) { this.push(OP.LINE, x1, y1, x2, y2, thickness, this.r, this.g, this.b, this.a); }
-  box(x, y, w, h, fill = 1) { this.push(OP.BOX, x, y, w, h, fill, this.r, this.g, this.b, this.a); }
-  oval(cx, cy, rx, ry, fill = 1) { this.push(OP.OVAL, cx, cy, rx, ry, fill, this.r, this.g, this.b, this.a); }
-  circle(cx, cy, r, fill = 1) { this.push(OP.OVAL, cx, cy, r, r, fill, this.r, this.g, this.b, this.a); }
-  tri(x1, y1, x2, y2, x3, y3, fill = 1) { this.push(OP.TRI, x1, y1, x2, y2, x3, y3, fill, this.r, this.g, this.b, this.a); }
+  // Fixed-arity writes (no rest arguments): an engine without a JIT allocates
+  // an array per spread, and a frame is thousands of these.
+  clear(r = this.r, g = this.g, b = this.b, a = 255) { this.grow(5); const o = this.buffer; let i = this.length; o[i++] = OP.CLEAR; o[i++] = r; o[i++] = g; o[i++] = b; o[i++] = a; this.length = i; this.ops++; }
+  line(x1, y1, x2, y2, thickness = 1) { this.grow(10); const o = this.buffer; let i = this.length; o[i++] = OP.LINE; o[i++] = x1; o[i++] = y1; o[i++] = x2; o[i++] = y2; o[i++] = thickness; o[i++] = this.r; o[i++] = this.g; o[i++] = this.b; o[i++] = this.a; this.length = i; this.ops++; }
+  box(x, y, w, h, fill = 1) { this.grow(10); const o = this.buffer; let i = this.length; o[i++] = OP.BOX; o[i++] = x; o[i++] = y; o[i++] = w; o[i++] = h; o[i++] = fill; o[i++] = this.r; o[i++] = this.g; o[i++] = this.b; o[i++] = this.a; this.length = i; this.ops++; }
+  oval(cx, cy, rx, ry, fill = 1) { this.grow(10); const o = this.buffer; let i = this.length; o[i++] = OP.OVAL; o[i++] = cx; o[i++] = cy; o[i++] = rx; o[i++] = ry; o[i++] = fill; o[i++] = this.r; o[i++] = this.g; o[i++] = this.b; o[i++] = this.a; this.length = i; this.ops++; }
+  circle(cx, cy, r, fill = 1) { this.oval(cx, cy, r, r, fill); }
+  tri(x1, y1, x2, y2, x3, y3, fill = 1) { this.grow(12); const o = this.buffer; let i = this.length; o[i++] = OP.TRI; o[i++] = x1; o[i++] = y1; o[i++] = x2; o[i++] = y2; o[i++] = x3; o[i++] = y3; o[i++] = fill; o[i++] = this.r; o[i++] = this.g; o[i++] = this.b; o[i++] = this.a; this.length = i; this.ops++; }
   shape(points, fill = 1) {
     const n = points.length >> 1; if (n < 2) return;
     this.grow(7 + n * 2);

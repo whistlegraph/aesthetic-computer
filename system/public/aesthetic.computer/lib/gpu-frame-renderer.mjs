@@ -5,7 +5,7 @@
 // text and anything the GPU path does not draw still show. Runs in bios on
 // its own canvas, sized like the main canvas.
 import { readFrame } from "./gpu-frame.mjs";
-import { sceneCamera, placeMesh, projectMesh } from "./kidlisp-mesh.mjs";
+import { sceneCamera, placeMesh, projectMesh, FaceList } from "./kidlisp-mesh.mjs";
 
 const SEGMENTS = 24;                       // an oval's polygon
 const FLOATS_PER_VERTEX = 6;               // x y r g b a
@@ -98,10 +98,11 @@ export async function createFrameRenderer(canvas) {
   // triangles, far to near, through the same vertex buffer. The camera is in
   // canvas pixels; meshes come from the frame's table.
   let camera27 = null, meshes = null, placed = 0;
+  const faceList = new FaceList();   // every placed face of the frame, sorted once at the end
   visit.camera = (x, y, z, yaw, pitch, fov, near) => { camera27 = sceneCamera(x, y, z, yaw, pitch, fov, canvas.width, canvas.height, camera27 || new Float32Array(27), near || 1); };
   visit.place = (id, x, y, z, yaw, pitch, roll, scale, a) => {
     const mesh = meshes?.get(id); if (!mesh || !camera27) return;
-    placed += projectMesh(camera27, placeMesh(mesh, x, y, z, yaw, pitch, roll, scale), (x1, y1, x2, y2, x3, y3, depth, r, g, b, alpha) => triangle(x1, y1, x2, y2, x3, y3, r, g, b, alpha), a);
+    placed += projectMesh(camera27, placeMesh(mesh, x, y, z, yaw, pitch, roll, scale), faceList, a);
   };
 
   return {
@@ -113,7 +114,9 @@ export async function createFrameRenderer(canvas) {
       if (!configured.w) return;
       count = 0; clearColor = { r: 0, g: 0, b: 0, a: 1 }; placed = 0;
       if (meshTable) meshes = meshTable;
+      faceList.reset();
       readFrame(frame, visit);
+      faceList.flush((x1, y1, x2, y2, x3, y3, depth, r, g, b, alpha) => triangle(x1, y1, x2, y2, x3, y3, r, g, b, alpha));
       const bytes = count * FLOATS_PER_VERTEX * 4;
       if (bytes > vertexCapacity) { vertexBuffer?.destroy(); vertexCapacity = Math.max(bytes, 1 << 16); vertexBuffer = device.createBuffer({ size: vertexCapacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST }); }
       if (bytes) device.queue.writeBuffer(vertexBuffer, 0, vertices.buffer, 0, bytes);

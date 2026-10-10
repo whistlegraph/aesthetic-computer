@@ -69,7 +69,7 @@ export function sceneCamera(x, y, z, yaw, pitch, fov, width, height, out = new F
   // forward = R_y(yaw) R_x(pitch) (0,0,1); right = (cy, 0, -sy); up = right × forward
   const fx = sy * cp, fy = -sp, fz = cy * cp;
   const rx = cy, ry = 0, rz = -sy;
-  const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+  const ux = fy * rz - fz * ry, uy = fz * rx - fx * rz, uz = fx * ry - fy * rx;   // up = forward × right
   out[0] = x; out[1] = y; out[2] = z;
   out[3] = rx; out[4] = ry; out[5] = rz; out[6] = ux; out[7] = uy; out[8] = uz; out[9] = fx; out[10] = fy; out[11] = fz;
   out[12] = left + width / 2; out[13] = top + height / 2;
@@ -107,10 +107,30 @@ export function placeMesh(mesh, px, py, pz, yaw = 0, pitch = 0, roll = 0, scale 
 }
 
 // ---- projecting (the Xbox's SceneMesh, in JavaScript) ------------------------
-// Emits each visible face as screen-space triangles with depth and the lit
-// colour: emit(x1, y1, x2, y2, x3, y3, depth, r, g, b). Faces come out
-// far-to-near so a host without a depth buffer can paint in order.
-export function projectMesh(m, world, emit, alpha = 255) {
+// A frame's faces are collected across every placement, then sorted once,
+// far to near, so a host without a depth buffer paints in the right order
+// between objects as well as within them. Clipping: against the near plane
+// in view space (Sutherland-Hodgman), then against a guard band around the
+// viewport in screen space, so nothing projected from just in front of the
+// eye reaches a host as a coordinate it refuses. Facing: a face whose
+// normal points away from the eye is dropped (closed meshes only; an open
+// surface should be built with both faces).
+export class FaceList {
+  constructor() { this.faces = []; }
+  reset() { this.faces.length = 0; }
+  // emit(x1, y1, x2, y2, x3, y3, depth, r, g, b, alpha), far to near
+  flush(emit) {
+    const faces = this.faces;
+    faces.sort((a, b) => b.z - a.z);
+    for (const face of faces) {
+      const s = face.screen;
+      for (let k = 1; k + 1 < s.length; k++) emit(s[0][0], s[0][1], s[k][0], s[k][1], s[k + 1][0], s[k + 1][1], (s[0][2] + s[k][2] + s[k + 1][2]) / 3, face.r, face.g, face.b, face.alpha);
+    }
+    const n = faces.length; faces.length = 0; return n;
+  }
+}
+export function projectMesh(m, world, emitOrList, alpha = 255) {
+  const list = emitOrList instanceof FaceList ? emitOrList : new FaceList();
   const verts = world.verts, faces = world.faces, n = verts.length / 3;
   const view = new Float64Array(n * 3);
   for (let i = 0; i < n; i++) {
@@ -119,37 +139,41 @@ export function projectMesh(m, world, emit, alpha = 255) {
     view[i * 3 + 1] = x * m[6] + y * m[7] + z * m[8];
     view[i * 3 + 2] = x * m[9] + y * m[10] + z * m[11];
   }
-  const near = m[17], out = [];
+  const near = m[17];
+  const guard = Math.max(m[20] - m[18], m[21] - m[19]) * 4;
+  const gl = m[18] - guard, gt = m[19] - guard, gr = m[20] + guard, gb = m[21] + guard;
+  let count = 0;
   for (let f = 0; f < faces.length; f += 10) {
     const ids = [faces[f], faces[f + 1], faces[f + 2], faces[f + 3]];
-    // back faces: the lit normal points away when its dot with the view ray is positive
     const nx = faces[f + 7], ny = faces[f + 8], nz = faces[f + 9];
     const i0 = ids[0] * 3, cx = verts[i0] - m[0], cy = verts[i0 + 1] - m[1], cz = verts[i0 + 2] - m[2];
-    if (nx * cx + ny * cy + nz * cz > 0) continue;
+    if (nx * cx + ny * cy + nz * cz > 0) continue;                        // facing away
     let poly = [];
-    for (const id of ids) { const p = [view[id * 3], view[id * 3 + 1], view[id * 3 + 2]]; if (!poly.length || poly[poly.length - 1][0] !== p[0] || poly[poly.length - 1][1] !== p[1] || poly[poly.length - 1][2] !== p[2]) poly.push(p); }
+    for (const id of ids) { const p = [view[id * 3], view[id * 3 + 1], view[id * 3 + 2]]; const last = poly[poly.length - 1]; if (!last || last[0] !== p[0] || last[1] !== p[1] || last[2] !== p[2]) poly.push(p); }
     if (poly.length < 3) continue;
-    poly = clipNear(poly, near);
+    poly = clip(poly, (p) => p[2] - near);                                // near plane, view space
     if (poly.length < 3) continue;
     const light = 0.72 + Math.max(0, -(nx * m[24] + ny * m[25] + nz * m[26])) * 0.28;
     const r = Math.round(faces[f + 4] * light), g = Math.round(faces[f + 5] * light), b = Math.round(faces[f + 6] * light);
     let depthSum = 0;
-    const screen = poly.map((p) => { const k = m[14] + (m[15] / p[2] - m[14]) * m[16]; depthSum += p[2]; return [m[12] + p[0] * k, m[13] - p[1] * k, Math.max(-1.499, Math.min(1.4, m[22] + p[2] * m[23]))]; });
-    out.push({ z: depthSum / poly.length, screen, r, g, b });
+    let screen = poly.map((p) => { const k = m[14] + (m[15] / p[2] - m[14]) * m[16]; depthSum += p[2]; return [m[12] + p[0] * k, m[13] - p[1] * k, Math.max(-1.499, Math.min(1.4, m[22] + p[2] * m[23]))]; });
+    screen = clip(screen, (p) => p[0] - gl); if (screen.length < 3) continue;   // the guard band, screen space
+    screen = clip(screen, (p) => gr - p[0]); if (screen.length < 3) continue;
+    screen = clip(screen, (p) => p[1] - gt); if (screen.length < 3) continue;
+    screen = clip(screen, (p) => gb - p[1]); if (screen.length < 3) continue;
+    list.faces.push({ z: depthSum / poly.length, screen, r, g, b, alpha });
+    count++;
   }
-  out.sort((a, b) => b.z - a.z);
-  for (const face of out) {
-    const s = face.screen;
-    for (let k = 1; k + 1 < s.length; k++) emit(s[0][0], s[0][1], s[k][0], s[k][1], s[k + 1][0], s[k + 1][1], (s[0][2] + s[k][2] + s[k + 1][2]) / 3, face.r, face.g, face.b, alpha);
-  }
-  return out.length;
+  if (emitOrList instanceof FaceList) return count;
+  return list.flush(emitOrList);
 }
-function clipNear(poly, near) {
+// Sutherland-Hodgman against one half-space: dist(p) >= 0 is inside.
+function clip(poly, dist) {
   const out = [];
   for (let i = 0; i < poly.length; i++) {
-    const a = poly[i], b = poly[(i + 1) % poly.length], da = a[2] - near, db = b[2] - near;
+    const a = poly[i], b = poly[(i + 1) % poly.length], da = dist(a), db = dist(b);
     if (da >= 0) out.push(a);
-    if ((da >= 0) !== (db >= 0)) { const t = da / (da - db); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]); }
+    if ((da >= 0) !== (db >= 0)) { const t = da / (da - db); out.push(a.map((v, k) => v + (b[k] - v) * t)); }
   }
   return out;
 }

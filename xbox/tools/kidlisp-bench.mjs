@@ -22,15 +22,18 @@ const run = (args, opts = {}) => execFileSync('node', args, { cwd: root, encodin
 const perPiece = Math.floor((seconds * 1000) / Math.max(1, pieces.length || 3));
 const built = JSON.parse(run(['kidlisp/tools/native-tv-script.mjs', 'draw', String(perPiece), 'kidlisp/build/kidlisp-tv.js', density, ...pieces]));
 console.log(`built ${built.out} (${built.kb} KB) for ${built.pieces.join(', ')}, ${perPiece} ms each, density ${density}`);
-// publish, then wait for the host to log the new live generation (hot-deploy's
-// own byte check does not match a script with multibyte characters)
-const lastGeneration = (text) => Number((text.match(/AC_NATIVE_LIVE_READY bytes=\d+ generation=(\d+)(?![\s\S]*AC_NATIVE_LIVE_READY)/) || [])[1] || 0);
-const before = lastGeneration(run(['xbox/tools/live.mjs', 'logs', '400']));
+// publish, then restart the app so the host starts clean (its mesh store and
+// the rest of its state outlive a hot reload), and wait for the live script
+// to be logged after the new boot.
+const boots = (text) => text.split('AC_NATIVE_BIOS_READY').length - 1;
+const liveAfterBoot = (text) => { const at = text.lastIndexOf('AC_NATIVE_BIOS_READY'); return at >= 0 && text.indexOf('AC_NATIVE_LIVE_READY', at) >= 0; };
+const bootsBefore = boots(run(['xbox/tools/live.mjs', 'logs', '2000']));
 run(['xbox/tools/live.mjs', 'publish', 'kidlisp/build/kidlisp-tv.js']);
-let generation = before;
-for (let attempt = 0; attempt < 60 && generation === before; attempt++) { await sleep(1000); generation = lastGeneration(run(['xbox/tools/live.mjs', 'logs', '400'])); }
-if (generation === before) throw new Error('the Xbox did not log a new live generation; is Native BIOS running?');
-console.log(`live generation ${generation}`);
+try { run(['xbox/tools/live.mjs', 'restart']); } catch { try { run(['xbox/tools/live.mjs', 'launch']); } catch (error) { console.log('restart failed: ' + (error.message || error)); } }
+let ready = false, generation = 0;
+for (let attempt = 0; attempt < 90 && !ready; attempt++) { await sleep(1000); const log = run(['xbox/tools/live.mjs', 'logs', '2000']); ready = boots(log) > bootsBefore && liveAfterBoot(log); if (ready) generation = Number((log.slice(log.lastIndexOf('AC_NATIVE_LIVE_READY')).match(/generation=(\d+)/) || [])[1] || 0); }
+if (!ready) throw new Error('the Xbox did not boot the live script after the restart');
+console.log(`restarted; live generation ${generation}`);
 
 mkdirSync(resolve(root, 'kidlisp/build/xbox-bench'), { recursive: true });
 const shots = new Set();

@@ -16842,7 +16842,7 @@ function sceneCamera(x, y, z, yaw, pitch, fov, width2, height2, out = new Float3
   const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
   const fx = sy * cp, fy = -sp, fz = cy * cp;
   const rx = cy, ry = 0, rz = -sy;
-  const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+  const ux = fy * rz - fz * ry, uy = fz * rx - fx * rz, uz = fx * ry - fy * rx;
   out[0] = x;
   out[1] = y;
   out[2] = z;
@@ -16893,7 +16893,28 @@ function placeMesh(mesh, px, py, pz, yaw = 0, pitch = 0, roll = 0, scale7 = 1) {
   }
   return { verts, faces };
 }
-function projectMesh(m, world2, emit, alpha = 255) {
+var FaceList = class {
+  constructor() {
+    this.faces = [];
+  }
+  reset() {
+    this.faces.length = 0;
+  }
+  // emit(x1, y1, x2, y2, x3, y3, depth, r, g, b, alpha), far to near
+  flush(emit) {
+    const faces = this.faces;
+    faces.sort((a2, b2) => b2.z - a2.z);
+    for (const face of faces) {
+      const s2 = face.screen;
+      for (let k = 1; k + 1 < s2.length; k++) emit(s2[0][0], s2[0][1], s2[k][0], s2[k][1], s2[k + 1][0], s2[k + 1][1], (s2[0][2] + s2[k][2] + s2[k + 1][2]) / 3, face.r, face.g, face.b, face.alpha);
+    }
+    const n2 = faces.length;
+    faces.length = 0;
+    return n2;
+  }
+};
+function projectMesh(m, world2, emitOrList, alpha = 255) {
+  const list = emitOrList instanceof FaceList ? emitOrList : new FaceList();
   const verts = world2.verts, faces = world2.faces, n2 = verts.length / 3;
   const view = new Float64Array(n2 * 3);
   for (let i2 = 0; i2 < n2; i2++) {
@@ -16902,7 +16923,10 @@ function projectMesh(m, world2, emit, alpha = 255) {
     view[i2 * 3 + 1] = x * m[6] + y * m[7] + z * m[8];
     view[i2 * 3 + 2] = x * m[9] + y * m[10] + z * m[11];
   }
-  const near = m[17], out = [];
+  const near = m[17];
+  const guard = Math.max(m[20] - m[18], m[21] - m[19]) * 4;
+  const gl = m[18] - guard, gt = m[19] - guard, gr = m[20] + guard, gb = m[21] + guard;
+  let count = 0;
   for (let f2 = 0; f2 < faces.length; f2 += 10) {
     const ids = [faces[f2], faces[f2 + 1], faces[f2 + 2], faces[f2 + 3]];
     const nx = faces[f2 + 7], ny = faces[f2 + 8], nz = faces[f2 + 9];
@@ -16911,36 +16935,42 @@ function projectMesh(m, world2, emit, alpha = 255) {
     let poly2 = [];
     for (const id of ids) {
       const p = [view[id * 3], view[id * 3 + 1], view[id * 3 + 2]];
-      if (!poly2.length || poly2[poly2.length - 1][0] !== p[0] || poly2[poly2.length - 1][1] !== p[1] || poly2[poly2.length - 1][2] !== p[2]) poly2.push(p);
+      const last = poly2[poly2.length - 1];
+      if (!last || last[0] !== p[0] || last[1] !== p[1] || last[2] !== p[2]) poly2.push(p);
     }
     if (poly2.length < 3) continue;
-    poly2 = clipNear(poly2, near);
+    poly2 = clip(poly2, (p) => p[2] - near);
     if (poly2.length < 3) continue;
     const light = 0.72 + Math.max(0, -(nx * m[24] + ny * m[25] + nz * m[26])) * 0.28;
     const r2 = Math.round(faces[f2 + 4] * light), g = Math.round(faces[f2 + 5] * light), b2 = Math.round(faces[f2 + 6] * light);
     let depthSum = 0;
-    const screen2 = poly2.map((p) => {
+    let screen2 = poly2.map((p) => {
       const k = m[14] + (m[15] / p[2] - m[14]) * m[16];
       depthSum += p[2];
       return [m[12] + p[0] * k, m[13] - p[1] * k, Math.max(-1.499, Math.min(1.4, m[22] + p[2] * m[23]))];
     });
-    out.push({ z: depthSum / poly2.length, screen: screen2, r: r2, g, b: b2 });
+    screen2 = clip(screen2, (p) => p[0] - gl);
+    if (screen2.length < 3) continue;
+    screen2 = clip(screen2, (p) => gr - p[0]);
+    if (screen2.length < 3) continue;
+    screen2 = clip(screen2, (p) => p[1] - gt);
+    if (screen2.length < 3) continue;
+    screen2 = clip(screen2, (p) => gb - p[1]);
+    if (screen2.length < 3) continue;
+    list.faces.push({ z: depthSum / poly2.length, screen: screen2, r: r2, g, b: b2, alpha });
+    count++;
   }
-  out.sort((a2, b2) => b2.z - a2.z);
-  for (const face of out) {
-    const s2 = face.screen;
-    for (let k = 1; k + 1 < s2.length; k++) emit(s2[0][0], s2[0][1], s2[k][0], s2[k][1], s2[k + 1][0], s2[k + 1][1], (s2[0][2] + s2[k][2] + s2[k + 1][2]) / 3, face.r, face.g, face.b, alpha);
-  }
-  return out.length;
+  if (emitOrList instanceof FaceList) return count;
+  return list.flush(emitOrList);
 }
-function clipNear(poly2, near) {
+function clip(poly2, dist5) {
   const out = [];
   for (let i2 = 0; i2 < poly2.length; i2++) {
-    const a2 = poly2[i2], b2 = poly2[(i2 + 1) % poly2.length], da = a2[2] - near, db = b2[2] - near;
+    const a2 = poly2[i2], b2 = poly2[(i2 + 1) % poly2.length], da = dist5(a2), db = dist5(b2);
     if (da >= 0) out.push(a2);
     if (da >= 0 !== db >= 0) {
       const t2 = da / (da - db);
-      out.push([a2[0] + (b2[0] - a2[0]) * t2, a2[1] + (b2[1] - a2[1]) * t2, a2[2] + (b2[2] - a2[2]) * t2]);
+      out.push(a2.map((v2, k) => v2 + (b2[k] - v2) * t2));
     }
   }
   return out;
@@ -16966,10 +16996,36 @@ var GpuFrame = class {
     this.meshVersion++;
   }
   camera(x, y, z, yaw, pitch, fov, near = 1) {
-    this.push(OP.CAMERA, x, y, z, yaw, pitch, fov, near);
+    this.grow(8);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.CAMERA;
+    o2[i2++] = x;
+    o2[i2++] = y;
+    o2[i2++] = z;
+    o2[i2++] = yaw;
+    o2[i2++] = pitch;
+    o2[i2++] = fov;
+    o2[i2++] = near;
+    this.length = i2;
+    this.ops++;
   }
   place(mesh, x, y, z, yaw = 0, pitch = 0, roll = 0, scale7 = 1) {
-    this.push(OP.PLACE, mesh, x, y, z, yaw, pitch, roll, scale7, this.a);
+    this.grow(10);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.PLACE;
+    o2[i2++] = mesh;
+    o2[i2++] = x;
+    o2[i2++] = y;
+    o2[i2++] = z;
+    o2[i2++] = yaw;
+    o2[i2++] = pitch;
+    o2[i2++] = roll;
+    o2[i2++] = scale7;
+    o2[i2++] = this.a;
+    this.length = i2;
+    this.ops++;
   }
   reset() {
     this.length = 0;
@@ -16988,28 +17044,92 @@ var GpuFrame = class {
     this.b = b2;
     this.a = a2;
   }
-  push(...values2) {
-    this.grow(values2.length);
-    for (let i2 = 0; i2 < values2.length; i2++) this.buffer[this.length++] = values2[i2];
+  // Fixed-arity writes (no rest arguments): an engine without a JIT allocates
+  // an array per spread, and a frame is thousands of these.
+  clear(r2 = this.r, g = this.g, b2 = this.b, a2 = 255) {
+    this.grow(5);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.CLEAR;
+    o2[i2++] = r2;
+    o2[i2++] = g;
+    o2[i2++] = b2;
+    o2[i2++] = a2;
+    this.length = i2;
     this.ops++;
   }
-  clear(r2 = this.r, g = this.g, b2 = this.b, a2 = 255) {
-    this.push(OP.CLEAR, r2, g, b2, a2);
-  }
   line(x1, y1, x2, y2, thickness = 1) {
-    this.push(OP.LINE, x1, y1, x2, y2, thickness, this.r, this.g, this.b, this.a);
+    this.grow(10);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.LINE;
+    o2[i2++] = x1;
+    o2[i2++] = y1;
+    o2[i2++] = x2;
+    o2[i2++] = y2;
+    o2[i2++] = thickness;
+    o2[i2++] = this.r;
+    o2[i2++] = this.g;
+    o2[i2++] = this.b;
+    o2[i2++] = this.a;
+    this.length = i2;
+    this.ops++;
   }
   box(x, y, w, h, fill = 1) {
-    this.push(OP.BOX, x, y, w, h, fill, this.r, this.g, this.b, this.a);
+    this.grow(10);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.BOX;
+    o2[i2++] = x;
+    o2[i2++] = y;
+    o2[i2++] = w;
+    o2[i2++] = h;
+    o2[i2++] = fill;
+    o2[i2++] = this.r;
+    o2[i2++] = this.g;
+    o2[i2++] = this.b;
+    o2[i2++] = this.a;
+    this.length = i2;
+    this.ops++;
   }
   oval(cx, cy, rx, ry, fill = 1) {
-    this.push(OP.OVAL, cx, cy, rx, ry, fill, this.r, this.g, this.b, this.a);
+    this.grow(10);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.OVAL;
+    o2[i2++] = cx;
+    o2[i2++] = cy;
+    o2[i2++] = rx;
+    o2[i2++] = ry;
+    o2[i2++] = fill;
+    o2[i2++] = this.r;
+    o2[i2++] = this.g;
+    o2[i2++] = this.b;
+    o2[i2++] = this.a;
+    this.length = i2;
+    this.ops++;
   }
   circle(cx, cy, r2, fill = 1) {
-    this.push(OP.OVAL, cx, cy, r2, r2, fill, this.r, this.g, this.b, this.a);
+    this.oval(cx, cy, r2, r2, fill);
   }
   tri(x1, y1, x2, y2, x3, y3, fill = 1) {
-    this.push(OP.TRI, x1, y1, x2, y2, x3, y3, fill, this.r, this.g, this.b, this.a);
+    this.grow(12);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.TRI;
+    o2[i2++] = x1;
+    o2[i2++] = y1;
+    o2[i2++] = x2;
+    o2[i2++] = y2;
+    o2[i2++] = x3;
+    o2[i2++] = y3;
+    o2[i2++] = fill;
+    o2[i2++] = this.r;
+    o2[i2++] = this.g;
+    o2[i2++] = this.b;
+    o2[i2++] = this.a;
+    this.length = i2;
+    this.ops++;
   }
   shape(points, fill = 1) {
     const n2 = points.length >> 1;

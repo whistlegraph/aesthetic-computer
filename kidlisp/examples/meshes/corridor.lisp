@@ -22,21 +22,23 @@
 (camera camx 60 camz yaw 0 70 NEAR_PLANE)
 (place floor 0 -150 2000)
 (place ceiling 0 150 2000)
-; two long walls of bricks, staggered rows
+; two long walls of bricks, staggered rows. Inside a loop a value is set
+; with now: def defines a name once.
+(def wx 0) (def by 0) (def stag 0) (def bz 0) (def cz 0)
 (repeat 2 side
-  (def wx (- (* side 1200) 600))
+  (now wx (- (* side 1200) 600))
   (place mortar wx 0 2000 1.5708)
   (repeat 11 row
-    (def by (- (* row 28) 140))
-    (def stag (* (% row 2) 32))
+    (now by (- (* row 28) 140))
+    (now stag (* (% row 2) 32))
     (repeat 60 col
-      (def bz (+ (* col 66) stag -40))
+      (now bz (+ (* col 66) stag -40))
       (place brick wx by bz 1.5708))))
 (repeat 8 pi
   (place pillar -520 0 (+ (* pi 520) 300))
   (place pillar 520 0 (+ (* pi 520) 300)))
 (repeat 6 ci
-  (def cz (+ (* ci 650) 500))
+  (now cz (+ (* ci 650) 500))
   (place crate (- (* (% ci 3) 200) 200) -120 cz (* ci 0.4))
   (place guard (+ (* (% ci 2) 300) -150) -105 (+ cz 200) (* tt 0.8)))
 (ink 255 255 255 120)
