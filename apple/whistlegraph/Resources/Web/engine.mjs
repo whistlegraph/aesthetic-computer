@@ -520,6 +520,18 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       turnSucceeded=painted&&lastPaintedSource===source;turnRuntimeFailed=false;
       if(turnSucceeded){benchmark('refinementFailed',{message:turnError||'Refinement unavailable'});log('Refinement failed; kept the starter');server?.close();server=null;}
     }
+    if(!turnSucceeded&&!turnCancelled&&activeAttempt?.checkpoint&&activeAttempt.checkpoint!==previous&&activeAttempt.checkpoint!==source){
+      // A repair broke the picture (the last candidate never painted). The
+      // last candidate that did paint is the work worth keeping, with a note;
+      // throwing it away cost a whole try on 2026-10-10 ('unverified-render').
+      source=activeAttempt.checkpoint;vfs.mount(file,source);turnRuntimeFailed=false;
+      if(previewSource!==source)render(source);
+      for(let i=0;i<200&&!(painted&&lastPaintedSource===source);i++)await new Promise(resolve=>setTimeout(resolve,20));
+      if(painted&&lastPaintedSource===source){
+        turnSucceeded=true;turnNotes=[...turnNotes,'The last repair did not paint; kept the last picture that did.'];
+        log('Repair did not paint; kept the last painted checkpoint');server?.close();server=null;
+      }
+    }
     // All generation paths, including local edits and starter recovery, inspect
     // the exact candidate's pixels before adding a saved version.
     if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed){
