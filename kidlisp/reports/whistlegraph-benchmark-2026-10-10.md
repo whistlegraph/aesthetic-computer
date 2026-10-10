@@ -14,6 +14,15 @@ into pools.
 | Fía | KidLisp | 26,396 | 409 | 5 | 5 |
 | Shooter (wgNirin v7) | JavaScript | 18,586 | 385 | 60 | 56 |
 | Shooter | KidLisp | 22,369 | 382 | 2 | 2 |
+| Fía | KidLisp, closure compiler | 26,412 | 410 | 18 | 13 |
+| Shooter | KidLisp, closure compiler | 22,380 | 383 | 12 | 11 |
+
+The last two rows are the same sources with a `; @compile` first line
+(`lib/kidlisp-compile.mjs`, later the same day): the program compiled once
+into closures with names resolved to slots, the drawing calls still going
+through the interpreter's own table. In Node the compiled evaluation costs
+33 ms a frame for Fía and 70 ms for the shooter, against 150 and 700
+interpreted; JavaScript evaluates each in about 2 ms.
 
 Per frame the KidLisp Fía makes about 2,900 ink, 1,600 line, 730 oval and
 30 shape calls; the shooter about 2,400 ink and 5,000 tri calls. The
@@ -47,8 +56,11 @@ with notes and colors; `>=` does not exist; `random` returns integers;
 
 ## Next
 
-The compiled path, in the order the census ranks the work: compile a
-piece's arithmetic and pools to the numeric plan and the Wasm frame
+The closure compiler closed the gap from 12 to 30 times down to 3 to 5.
+What remains is per-call allocation in the closures, the interpreter's
+drawing wrappers (fill mode, colour parsing, random fills on every call),
+and property writes for globals. After that, the plan: compile a piece's
+arithmetic and pools to the numeric plan and the Wasm frame
 (`lib/kidlisp-plan.mjs`, `kidlisp/benchmarks/raytrace-frame.c`), keep the
 drawing calls as a command list the host rasterizes, and measure these two
 pieces again. 60 fps at 1280×720 for the shooter is the bar.

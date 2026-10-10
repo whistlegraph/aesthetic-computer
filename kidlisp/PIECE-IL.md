@@ -191,3 +191,5 @@ The two biggest pieces in the corpus were translated by hand and benchmarked
 against their JavaScript in the production runtime on 2026-10-10:
 `kidlisp/reports/whistlegraph-benchmark-2026-10-10.md`. Size is a wash;
 the reference evaluator is 12 to 30 times slower; both pieces run bounded.
+A closure compiler (`lib/kidlisp-compile.mjs`, `; @compile`) brought that to
+3 to 5 times the same evening, same draw stream.
