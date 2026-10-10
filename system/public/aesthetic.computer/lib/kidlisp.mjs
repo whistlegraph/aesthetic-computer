@@ -45,7 +45,7 @@ const note = (raw, fallback) => {
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
-import { compileProgram, runKernelOverPool, kernelBackend } from "./kidlisp-compile.mjs";
+import { compileProgram, runKernelOverPool, runKernelOnGPU, kernelBackend } from "./kidlisp-compile.mjs";
 import { compileKernel } from "./kidlisp-kernel.mjs";
 
 // LLM API Specification and examples moved to kidlisp-reference.mjs
@@ -62,7 +62,7 @@ const KIDLISP_FUNCTIONS = new Set([
   // Arithmetic
   "abs", "sqrt", "tan", "exp", "sign", "pow", "atan2", "hypot", "clamp",
   // Pools, hums, console input (kidlisp/PIECE-IL.md)
-  "pool", "spawn", "each", "kill", "alive", "empty", "rank", "kernel", "run", "set", "uniform", "hum", "tune", "hush", "key", "pad", "else",
+  "pool", "spawn", "each", "kill", "alive", "empty", "rank", "kernel", "run", "gpu", "set", "uniform", "hum", "tune", "hush", "key", "pad", "else",
   // Output
   "print", "debug", "log", "console",
   // Math
@@ -5958,6 +5958,10 @@ class KidLisp {
         const k = this.kernels?.get(unquoteString(String(args[0] ?? "")));
         return k ? runKernelOverPool(k.plan, k.backend, this, api, unquoteString(String(args[1] ?? "")), args[2] ? unquoteString(String(args[2])) : undefined) : 0;
       },
+      gpu: (api, args = []) => {
+        const k = this.kernels?.get(unquoteString(String(args[0] ?? "")));
+        return k ? runKernelOnGPU(k.plan, k, this, api, unquoteString(String(args[1] ?? "")), args[2] ? unquoteString(String(args[2])) : undefined) : 0;
+      },
       // (rank name field [-1]): the order `each` visits live slots, by a field.
       // The painter's algorithm in a bounded form: sort once, draw back to front.
       rank: (api, args = [], env) => {
@@ -11131,7 +11135,7 @@ class KidLisp {
                   head === "delay" ||
                   head === "trans" ||
                   head === "jump" ||
-                  head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" || head === "kernel" || head === "run" ||
+                  head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" || head === "kernel" || head === "run" || head === "gpu" ||
                   head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad" ||
                   (head === "shape" && args.length === 1 && typeof args[0] === "string" && this.pools?.has(args[0]))
                 ) {

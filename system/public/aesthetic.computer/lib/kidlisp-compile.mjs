@@ -18,7 +18,7 @@
 // interpreter as before. Globals live in the interpreter's globalDef so a
 // tap handler the interpreter runs sees the same values.
 
-import { compileKernel, runKernel, instantiateKernelWasm } from "./kidlisp-kernel.mjs";
+import { compileKernel, runKernel, instantiateKernelWasm, kernelGPUDevice, createKernelGPU } from "./kidlisp-kernel.mjs";
 
 export class CompileError extends Error {}
 
@@ -46,6 +46,38 @@ export function runKernelOverPool(plan, backend, lisp, api, fromName, toName) {
   }
   if (backend) backend.run(rows, count, uniforms, lisp.execution); else runKernel(plan, rows, count, uniforms, lisp.execution);
   for (let r = 0; r < count; r++) { const base = r * stride, at = slots[r] * tn; for (let i = 0; i < nOut; i++) to.data[at + outIdx[i]] = rows[base + nIn + nUni + i]; }
+  return count;
+}
+// (gpu kernel from [to]): the same map as `run`, dispatched to the GPU. The
+// results of a dispatch land in the pool on the next frame that calls it,
+// one frame late by design, which the source says by using `gpu` and not
+// `run`. Without WebGPU, or while the device warms up, it is `run`.
+export function runKernelOnGPU(plan, entry, lisp, api, fromName, toName) {
+  const from = lisp.pools.get(fromName), to = lisp.pools.get(toName || fromName);
+  if (!from || !to) return 0;
+  if (!entry.gpu && !entry.gpuRequested) { entry.gpuRequested = true; kernelGPUDevice().then((device) => { if (device) try { entry.gpu = createKernelGPU(plan, device); } catch (error) { console.warn("Kernel " + plan.name + " stays on the CPU: " + (error?.message || error)); } }); }
+  if (!entry.gpu) return runKernelOverPool(plan, entry.backend, lisp, api, fromName, toName);
+  const nIn = plan.inputs.length, nUni = plan.uniforms.length, nOut = plan.outputs.length, stride = nIn + nUni + nOut;
+  const inIdx = plan.inputs.map((name) => from.fields.indexOf(name)), outIdx = plan.outputs.map((name) => to.fields.indexOf(name));
+  if (inIdx.includes(-1) || outIdx.includes(-1)) return 0;
+  const tn = to.fields.length;
+  // Land what the last dispatch produced, if the pool still has those slots.
+  const landed = entry.landed;
+  if (landed && landed.key === fromName + ">" + (toName || fromName)) {
+    for (let r = 0; r < landed.count; r++) { const slot = landed.slots[r]; if (slot < to.cap && to.alive[slot]) { const base = r * stride, at = slot * tn; for (let i = 0; i < nOut; i++) to.data[at + outIdx[i]] = landed.out[base + nIn + nUni + i]; } }
+    entry.landed = null;
+  }
+  if (entry.gpu.busy) return 0;
+  const uniforms = plan.uniforms.map((name) => { const v = name === "width" ? api.screen?.width : name === "height" ? api.screen?.height : name === "frame" ? api.paintCount : lisp.globalDef[name]; return typeof v === "number" ? v : 0; });
+  const slots = [];
+  for (let s = 0; s < from.cap; s++) if (from.alive[s]) slots.push(s);
+  const count = slots.length;
+  if (!count) return 0;
+  const rows = new Float64Array(count * stride), fn = from.fields.length;
+  for (let r = 0; r < count; r++) { const base = r * stride, at = slots[r] * fn; for (let i = 0; i < nIn; i++) rows[base + i] = from.data[at + inIdx[i]]; for (let i = 0; i < nUni; i++) rows[base + nIn + i] = uniforms[i]; }
+  lisp.execution?.consume(["kernel-gpu"], count);
+  const key = fromName + ">" + (toName || fromName);
+  entry.gpu.run(rows, count, uniforms).then((out) => { if (out) entry.landed = { key, count, slots, out }; }).catch((error) => console.warn("Kernel " + plan.name + " dispatch failed: " + (error?.message || error)));
   return count;
 }
 export function kernelBackend(plan) {
@@ -237,6 +269,10 @@ export function compileProgram(ast, lisp) {
     if (head === "run") {
       const [kname, fromName, toName] = args;
       return (f, api) => { const k = rt.kernels.get(kname); return k ? runKernelOverPool(k.plan, k.backend, lisp, api, fromName, toName) : 0; };
+    }
+    if (head === "gpu") {
+      const [kname, fromName, toName] = args;
+      return (f, api) => { const k = rt.kernels.get(kname); return k ? runKernelOnGPU(k.plan, k, lisp, api, fromName, toName) : 0; };
     }
     if (head === "key") return () => (lisp.keysDown.has(String(unquote(args[0] ?? "")).toLowerCase()) ? 1 : 0);
     if (head === "pad") return () => { const v = lisp.padState[String(unquote(args[0] ?? "")).toLowerCase()]; return typeof v === "number" ? v : 0; };

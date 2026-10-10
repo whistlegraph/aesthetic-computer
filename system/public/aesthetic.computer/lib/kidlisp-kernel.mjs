@@ -286,3 +286,61 @@ ${stores.join("\n")}
 }
 `;
 }
+
+// ---- WebGPU: a compute pass per run, results a frame later ----------------
+// The device is shared by every kernel in the worker. A run writes the rows
+// to a storage buffer, dispatches, and reads back asynchronously; the
+// caller decides what to do with results that arrive after the frame.
+let gpuDevice = null, gpuDeviceRequest = null;
+export async function kernelGPUDevice() {
+  if (gpuDevice) return gpuDevice;
+  if (typeof navigator === "undefined" || !navigator.gpu) return null;
+  gpuDeviceRequest ||= (async () => {
+    try { const adapter = await navigator.gpu.requestAdapter(); if (!adapter) return null; gpuDevice = await adapter.requestDevice(); gpuDevice.lost?.then(() => { gpuDevice = null; gpuDeviceRequest = null; }); return gpuDevice; }
+    catch { return null; }
+  })();
+  return gpuDeviceRequest;
+}
+export function createKernelGPU(plan, device) {
+  const nIn = plan.inputs.length, nUni = plan.uniforms.length, nOut = plan.outputs.length, stride = nIn + nUni + nOut;
+  const module = device.createShaderModule({ code: emitKernelWGSL(plan) });
+  const pipeline = device.createComputePipeline({ layout: "auto", compute: { module, entryPoint: "main" } });
+  const uniformFloats = Math.max(4, Math.ceil(nUni / 4) * 4);
+  const uniformBuffer = device.createBuffer({ size: uniformFloats * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  let rowBuffer = null, readBuffer = null, capacity = 0, bindGroup = null, busy = false;
+  const ensure = (count) => {
+    if (count <= capacity) return;
+    capacity = Math.max(count, 256);
+    rowBuffer?.destroy(); readBuffer?.destroy();
+    rowBuffer = device.createBuffer({ size: capacity * stride * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST });
+    readBuffer = device.createBuffer({ size: capacity * stride * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    bindGroup = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: rowBuffer } }, { binding: 1, resource: { buffer: uniformBuffer } }] });
+  };
+  const staging = { f32: null, uni: new Float32Array(uniformFloats) };
+  return {
+    stride, plan,
+    get busy() { return busy; },
+    // Resolves with a Float32Array of count*stride once the device has written the outputs.
+    async run(rows, count, uniforms = []) {
+      if (busy) return null;
+      busy = true;
+      try {
+        ensure(count);
+        if (!staging.f32 || staging.f32.length < count * stride) staging.f32 = new Float32Array(Math.max(count, 256) * stride);
+        const f32 = staging.f32;
+        for (let i = 0; i < count * stride; i++) f32[i] = rows[i];
+        device.queue.writeBuffer(rowBuffer, 0, f32, 0, count * stride);
+        staging.uni.fill(0); for (let i = 0; i < nUni; i++) staging.uni[i] = uniforms[i] || 0;
+        device.queue.writeBuffer(uniformBuffer, 0, staging.uni);
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginComputePass(); pass.setPipeline(pipeline); pass.setBindGroup(0, bindGroup); pass.dispatchWorkgroups(Math.ceil(count / 64)); pass.end();
+        encoder.copyBufferToBuffer(rowBuffer, 0, readBuffer, 0, count * stride * 4);
+        device.queue.submit([encoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ, 0, count * stride * 4);
+        const out = new Float32Array(readBuffer.getMappedRange(0, count * stride * 4).slice(0));
+        readBuffer.unmap();
+        return out;
+      } finally { busy = false; }
+    },
+  };
+}
