@@ -93,3 +93,18 @@ arithmetic and pools to the numeric plan and the Wasm frame
 (`lib/kidlisp-plan.mjs`, `kidlisp/benchmarks/raytrace-frame.c`), keep the
 drawing calls as a command list the host rasterizes, and measure these two
 pieces again. 60 fps at 1280×720 for the shooter is the bar.
+
+## The native shells (evening)
+
+Same bundle, same pieces, run by the native bios lifecycle (PIECE-IL.md §10).
+
+| per frame | Xbox Series X (QuickJS-ng, no JIT) | Mac shell (JavaScriptCore, JIT) |
+|---|---|---|
+| shooter | 1,200 ms | 15 ms (28 to 42 fps) |
+| Fía | 1,010 ms | 28 ms (25 fps) |
+| starfield | 645 ms | 10 ms (54 to 60 fps) |
+| frame buffer → host calls | 0 to 23 ms | 2 to 14 ms |
+| 10 million sin-multiply-adds | 1,909 ms | 308 ms in local QuickJS, 482 in Node |
+
+The Mac shell re-signed without the JIT entitlement ran the same script at
+130 to 230 ms a frame: the entitlement is the difference, not the engine.

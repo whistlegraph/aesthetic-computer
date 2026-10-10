@@ -270,3 +270,52 @@ What is left after this is evaluation and the runtime's own per-frame
 work. Kernels (§8) take the data-parallel arithmetic; the whole program to
 Wasm takes the rest, and a host that keeps kernel outputs on the GPU and
 draws from them never pays a readback at all.
+
+
+## 10. The console: the same bundle in the native bios
+
+Measured 2026-10-10. `node kidlisp/tools/native-tv-script.mjs` bundles the
+evaluator, the closure compiler and the frame builder (esbuild, one classic
+script, global `KidLispNative`), embeds the pieces, and adds the
+boot/sim/paint/act lifecycle the native bios shells call, with a shim that
+walks each frame buffer (§9) into the host's `wipe`, `box`, `line` and
+`triangle`. The same file runs in the Mac shell (JavaScriptCore, JIT) and
+on the Xbox devkit through the live-piece lane the bios already has
+(`node xbox/tools/live.mjs hot-deploy kidlisp/build/kidlisp-tv.js`, no
+msix rebuild: the host reloads `LocalState/live-piece.js` and logs
+`AC_NATIVE_LIVE_READY`). Nothing in the evaluator needed changing for
+either engine.
+
+| per frame | Xbox Series X, QuickJS-ng, no JIT | Mac shell, JavaScriptCore, JIT |
+|---|---|---|
+| shooter (7,100 triangles) | 1,200 ms | 15 ms |
+| Fía (2,250 lines, ovals) | 1,010 ms | 28 ms |
+| starfield (4,000 boxes, one kernel) | 645 ms | 10 ms |
+| walking the frame buffer into host calls | 0 to 23 ms | 2 to 14 ms |
+| 10 million `sin`-multiply-adds | 1,909 ms | 308 ms (local QuickJS) |
+
+The drawing contract holds: ten thousand boxes cost the Xbox 3 ms. The
+cost is the evaluation, and the reason is the engine, not the pieces:
+the console's QuickJS is six times slower than QuickJS on an M-series
+Mac and has no JIT, so the compiled closures that give 25 to 60 fps
+under a JIT give one frame a second there. Oskiewar reaches 60 fps on
+the same engine only because its JavaScript is written tight by hand.
+
+So on the console the piece has to be compiled below JavaScript. The
+closure compiler already lowers a piece to typed arithmetic, slots and
+pools (§7), and the kernel subset already emits Wasm and WGSL from one
+plan (§8); the next emitter is C, from the same lowered forms, compiled
+into the native bios by AppVeyor (`appveyor.yml` builds the msix on any
+commit touching `xbox/native-bios/`). That is the "msix like oskiewar"
+route: a KidLisp console package whose pieces are C, with the frame
+buffer as the only drawing interface and the Device Portal install
+(`xbox/tools/live.mjs install`) as the installer. The JavaScript bundle
+stays the development path: hot-deploy a piece in seconds, read its
+`KIDLISP` telemetry lines, then compile it when it is done.
+
+Open on the Xbox: the frame's CLEAR maps to the host `wipe`, which oskiewar
+uses for its dark sky, yet the screen comes up white with the post shader's
+vignette; and the shooter's 7,100 filled triangles are counted but not
+seen, where the Mac shell draws them (the host's `triangle` puts every
+vertex at z = 0 under a depth buffer). Both are host-side questions for
+the C++ lane, not evaluator faults.

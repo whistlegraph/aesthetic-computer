@@ -618,3 +618,6 @@ xbox/builds/ios/
 
 # Pulled Menu Band takes (menuband_take_pull); backed up to @jeffrey, not git
 pop/menuband/takes/
+
+# Generated native live scripts (node kidlisp/tools/native-tv-script.mjs)
+kidlisp/build/
