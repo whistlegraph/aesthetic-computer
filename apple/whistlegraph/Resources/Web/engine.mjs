@@ -81,6 +81,7 @@ async function refreshKnotPieces(){
   postPieces?.();
 }
 function noteBraincells(message){if(/out of braincells/i.test(String(message||'')))braincellsEmptyAt=braincells&&braincells.unlimited!==true?braincells.remaining+braincells.purchased:0;}
+setInterval(()=>{if(token&&document.visibilityState!=='hidden')void refreshKnotPieces();},30000);
 function braincellsEmpty(){return braincellsEmptyAt!==null||(!!braincells&&braincells.unlimited!==true&&braincells.remaining+braincells.purchased<=0);}
 function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
 function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,image:busy&&!!inputData(turnRequest)?.drawing,personalAccess:busy?turnPersonalAccess:hasPersonalAccess(personalAccess),model:busy?turnModel:selectedModel()});}
@@ -199,7 +200,7 @@ function nativeSnapshot(){
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
-    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy:busy||!!remoteJob,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece|no room|not on the knot/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,progress:(busy||remoteJob)?(remoteJob?turnProgress:{phase:phaseText,round:0,worker:'this phone',startedAt:lastAttempt?.startedAt||'',steps:turnSteps.slice(-16),said:''}):null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
+    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy:busy||!!remoteJob,remote:!!remoteJob&&!busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece|no room|not on the knot/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,progress:(busy||remoteJob)?(remoteJob?turnProgress:{phase:phaseText,round:0,worker:'this phone',startedAt:lastAttempt?.startedAt||'',steps:turnSteps.slice(-16),said:''}):null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
@@ -380,7 +381,7 @@ function compileStream() {
 }
 function saved() { try { localStorage.setItem(storageKey,source); } catch {} updateFeed(); }
 function review(show) { $('speak').disabled=busy; $('speak-label').textContent=busy?'Working…':'Hold to talk'; }
-function end() { if(turnSucceeded)braincellsEmptyAt=null; clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); if(pendingAdopt){const next=pendingAdopt;pendingAdopt=null;adoptLedger(next);} }
+function end() { if(turnSucceeded)braincellsEmptyAt=null; void refreshKnotPieces(); clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); if(pendingAdopt){const next=pendingAdopt;pendingAdopt=null;adoptLedger(next);} }
 let pendingAdopt=null;
 function adoptLedger(ledger){
   try{
@@ -678,7 +679,7 @@ async function submitRemoteTurn({text,displayText,drawing}){
     if(r.status!==202)throw Error(job.error||('Could not send the request (HTTP '+r.status+')'));
     remoteJob={id:job.id,parent:versions.head.id};
     if(activeAttempt)activeAttempt=saveAttempt(localStorage,storageKey,{...activeAttempt,remote:job.id,status:'working'});
-    phase('Working on the knot…');log('Sent to the knot as turn '+String(job.id).slice(0,8));benchmark('remoteDispatched');
+    phase('Working on the knot…');log('Sent to the knot as turn '+String(job.id).slice(0,8));benchmark('remoteDispatched');void refreshKnotPieces();
     nativeSnapshot();threadUpdate();
     void watchRemoteTurn(remoteJob);
   }catch(error){remoteFailed(error.message||String(error),null);}
@@ -688,7 +689,7 @@ function remoteFailed(message,draft){
   lastAttempt={...(lastAttempt||{request:''}),status:message==='Stopped'?'interrupted':'failed',error:message,finishedAt:new Date().toISOString()};
   if(activeAttempt)saveAttempt(localStorage,storageKey,{...activeAttempt,status:'failed'});
   if(draft)try{localStorage.setItem(storageKey+'-draft',JSON.stringify({source:draft,request:lastAttempt.request,error:message,parent:versions.head.id,createdAt:new Date().toISOString()}));}catch{}
-  remoteJob=null;openTurnsChecked=false;activeAttempt=null;busy=false;phase(message==='Stopped'?'Stopped':'Could not finish');log(message);
+  remoteJob=null;openTurnsChecked=false;activeAttempt=null;busy=false;phase(message==='Stopped'?'Stopped':'Could not finish');log(message);void refreshKnotPieces();
   $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();
 }
 async function watchRemoteTurn(job){
@@ -964,14 +965,17 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   }
   function pieceList(){
     const list=[pieceSummary(thread.identity.id,thread.identity,versions.value,true)];
+    if(remoteJob)list[0].working=true;
     for(let i=0;i<localStorage.length;i++){
       const key=localStorage.key(i);if(!key?.startsWith(ARCHIVE))continue;
       try{const saved=JSON.parse(localStorage.getItem(key));if(saved?.identity?.id&&saved.identity.id!==thread.identity.id)list.push(pieceSummary(saved.identity.id,saved.identity,saved.ledger,false));}catch{}
     }
     for(const t of knotPieces){
       if(list.some(p=>p.id===t.id||(p.code&&p.code===t.code)))continue;
-      list.push({id:t.id,code:t.code,utterance:String(t.utterance||'').slice(0,160),versions:Number(t.versions)||0,updatedAt:t.updatedAt||'',current:false,remote:true});
+      list.push({id:t.id,code:t.code,utterance:String(t.utterance||'').slice(0,160),versions:Number(t.versions)||0,updatedAt:t.updatedAt||'',current:false,remote:true,working:t.working===true});
     }
+    // A parked piece whose turn is still on the knot is marked too.
+    for(const p of list)if(!p.current&&knotPieces.some(t=>t.working===true&&(t.id===p.id||t.code===p.code)))p.working=true;
     return list.sort((a,b)=>(b.current-a.current)||(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0)).slice(0,256);
   }
   // A piece from the knot lands on this phone the way a turn's result does:

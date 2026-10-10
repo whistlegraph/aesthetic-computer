@@ -12,6 +12,8 @@ struct PieceSummary: Decodable, Identifiable {
     let current: Bool
     /// Made on the knot and not yet on this phone; opening fetches it.
     var remote: Bool? = nil
+    /// A turn for this piece is queued or running on the knot.
+    var working: Bool? = nil
     var date: Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -82,6 +84,7 @@ struct PiecesSheet: View {
                                         .font(.custom("ComicRelief-Regular", size: 17, relativeTo: .body))
                                     Text(detail(piece)).font(.footnote).foregroundStyle(.secondary)
                                 }.frame(maxWidth: .infinity, alignment: .trailing)
+                                if piece.working == true { ProgressView().controlSize(.small).accessibilityLabel("Working on the knot") }
                                 if piece.current { Image(systemName: "checkmark").foregroundStyle(.secondary).accessibilityLabel("Open now") }
                                 else if piece.remote == true { Image(systemName: "icloud.and.arrow.down").foregroundStyle(.secondary).accessibilityLabel("On the knot") }
                             }
@@ -109,7 +112,7 @@ struct PiecesSheet: View {
     }
     private func detail(_ piece: PieceSummary) -> String {
         let versions = piece.versions == 1 ? "1 version" : "\(piece.versions) versions"
-        let where_ = piece.remote == true ? "on the knot · " : ""
+        let where_ = piece.working == true ? "working · " : piece.remote == true ? "on the knot · " : ""
         guard let date = piece.date else { return where_ + versions }
         return where_ + versions + " · " + date.formatted(.relative(presentation: .named))
     }
@@ -212,7 +215,8 @@ struct IdentityHeader: View {
         .sheet(isPresented: $showingPieces) {
             PiecesSheet(pieces: session.pieces, colors: session.snapshot.colors,
                         inference: session.snapshot.inference,
-                        disabled: session.snapshot.busy || session.capturePhase != .idle,
+                        // A turn on the knot does not pin the phone to its piece; a local one does.
+                        disabled: (session.snapshot.busy && !session.snapshot.remote) || session.capturePhase != .idle,
                         open: { session.command("openPiece", piece: $0) },
                         newPiece: { session.command("newPiece") },
                         delete: { session.command("deletePiece", piece: $0) }, mintSession: session, session: session)

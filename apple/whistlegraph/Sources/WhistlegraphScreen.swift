@@ -15,13 +15,15 @@ struct PieceSnapshot: Decodable {
     var hasPreview = false
     var error = ""
     var busy = false
+    /// Busy because a turn is running on the knot, not on this phone: the piece can be parked.
+    var remote = false
     var phase = ""
     var attempt: PieceAttempt?
     var draft: PieceDraft?
     var progress: TurnProgress?
     var revisions: [PieceRevision]? = []
     var versions: [PieceRevision] { get { revisions ?? [] } set { revisions = newValue } }
-    enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, phase, attempt; case revisions = "versions" }
+    enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, remote, phase, attempt; case revisions = "versions" }
     var hasHistory: Bool { versions.count > 1 }
 }
 struct PieceAttempt: Decodable { let request: String; let status: String; let error: String }

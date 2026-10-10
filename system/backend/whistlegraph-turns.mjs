@@ -118,6 +118,8 @@ export function mongoTurnQueue(collection, {now = () => new Date()} = {}) {
       const running = await collection.updateOne({_id: id, owner, status: 'running'}, {$set: {cancelRequested: true}});
       return running.modifiedCount === 1;
     },
+    // Which of the owner's pieces have a turn queued or running, for the piece list.
+    async openCodes(owner) { return collection.distinct('code', {owner, status: {$in: ['queued', 'running']}}); },
     async listOpen(owner, threadID) { return collection.find({owner, threadID, status: {$in: ['queued','running']}}).sort({createdAt: 1}).toArray(); },
     async recent(owner, limit = 20) { return collection.find({owner}).sort({createdAt: -1}).limit(Math.min(100, Math.max(1, limit))).toArray(); },
     // Queue depth is the autoscale signal.

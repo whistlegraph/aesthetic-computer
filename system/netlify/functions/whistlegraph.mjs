@@ -17,7 +17,12 @@ export async function handler(event) {
       if(!code||event.queryStringParameters?.receipts!=='1')return reply(400,{error:'Specify a thread code and receipts=1'});
       return await store.clearReceipts(owner,code)?reply(200,{cleared:true}):reply(404,{error:'Thread unavailable'});
     }
-    if(!code)return reply(200,{threads:(await store.list(owner)).map(threadSummary)});
+    if(!code){
+      // Pieces with a turn on the knot are marked, so the list shows what is cooking.
+      let working=new Set();
+      try{const {turnQueue}=await import('./whistlegraph-turn.mjs');working=new Set(await (await turnQueue()).openCodes(owner));}catch{}
+      return reply(200,{threads:(await store.list(owner)).map(row=>({...threadSummary(row),working:working.has(row.code)}))});
+    }
     const row=await store.read(owner,code);
     return row?reply(200,publicThread(row)):reply(404,{error:'Thread unavailable'});
   }catch{return reply(503,{error:'Thread storage unavailable'});}
