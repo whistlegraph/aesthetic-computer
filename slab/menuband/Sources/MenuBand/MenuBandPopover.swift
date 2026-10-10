@@ -583,12 +583,9 @@ final class MenuBandPopoverViewController: NSViewController {
         _ = octaveCaption
         titleRow.addArrangedSubview(octaveStepper)  // hidden, value model only
 
-        // [v1 cutoff] Volume / max-volume mixer slider removed — system
-        // volume drives the master mix for v1. The slider + mute icon
-        // (buildVolumeWidget / volumeSliderChanged / volumeIconClicked)
-        // stay below as orphaned, guard-protected dead code so the
-        // post-v1 single-column mixer can re-wire them without a rebuild.
-        // The title row now flows straight to the octave readout (right).
+        #if !MAC_APP_STORE
+        titleRow.addArrangedSubview(MenuBandSystemVolumeView())
+        #endif
 
         // Spacer lives in the middle so the octave widget pins LEFT and
         // the MIDI pair pins RIGHT.

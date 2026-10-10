@@ -3496,6 +3496,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        #if !MAC_APP_STORE
+        MenuBandSystemVolume.shared.stop()
+        #endif
         #if MAC_APP_STORE
         trackpadPlugin.setCaptureEnabled(false)
         trackpadPlugin.stop()

@@ -23,6 +23,31 @@ MIDI-mode shortcut. The shared chord modifiers work on every layout.
 Lives at `slab/menuband/`. Distinct from `slab/menubar-swift/` (the
 Claude session menubar; different status item, different process).
 
+## System output volume
+
+The direct-download popover's **System** checkbox and slider control all apps
+playing through the current stereo system output, including interfaces such as
+Scarlett Solo that expose no Core Audio volume property. Requires macOS 14.2+
+and system-audio permission. A child mode of the signed MenuBand executable
+excludes its own playback from a device tap, applies a smoothed 0–100% gain,
+and sends audio to the same output. Physical microphone inputs are skipped;
+audio is never stored or networked. Starts at 25% on first use and remembers
+the slider level per device. Enablement is explicit each session. Turning it
+off, quitting, or changing output/rate restores the interface's hardware level.
+The interface's direct hardware monitoring is outside this software control.
+The helper runs directly on the HAL audio thread without a dispatch-queue hop.
+For crunching, inspect CoreAudio overloads and the headset menu's IO buffer:
+16 frames produced client timeouts on the local Scarlett Solo; 256 frames
+cleared the observed overloads. Air masking does not fix missed audio deadlines.
+
+**Air**, directly below System, adds continuous White, Brown, or Cabin noise
+through the same output helper. Cabin is a gently moving low airplane-like
+rumble. Filter sweeps a smooth two-stage low-pass from 60–6000 Hz, defaulting
+to a dark 160 Hz; it affects only Air and remembers its setting. Air starts
+silent, fades smoothly, and follows System volume including mute. Its color is remembered; its level resets to zero when disabled or quit.
+This masks distracting noise; it does not remove hiss from speakers or cables.
+The pitched ⇧Space Air instrument remains separate.
+
 ## Juke
 
 The full JukeWizard listening surface now ships as **Juke** inside the

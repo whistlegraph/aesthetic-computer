@@ -1,5 +1,11 @@
 import AppKit
 
+#if !MAC_APP_STORE
+if #available(macOS 14.2, *), MenuBandSystemVolumeHelper.runIfRequested(CommandLine.arguments) {
+    exit(0)
+}
+#endif
+
 // Headless KidLisp renderer mode: `--kidlisp-render <src> <w> <h> <out.ppm>`.
 // Short-circuits app startup so conformance harnesses can call the same
 // binary without launching a status item.
