@@ -29,3 +29,25 @@ export function migrateLegacyStorage(storage) {
     clear() { storage.clear(); },
   };
 }
+
+// The last cloud ledger used to be kept whole beside the ledger itself, in
+// the open piece and inside every parked piece's extras. Each copy becomes
+// a mark. On a phone with 5 MB this is the difference between parking a
+// piece and "no room" (2026-10-10: 5.3 MB used, half of it copies).
+export function compactLedgerCopies(storage, mark) {
+  let freed = 0;
+  for (const key of Array.from({length: storage.length}, (_, i) => storage.key(i))) {
+    if (!key) continue;
+    try {
+      if (key.endsWith('-cloud-ledger')) {
+        const value = storage.getItem(key);
+        if (value && !value.startsWith('mark:')) { const next = mark(JSON.parse(value)); storage.setItem(key, next); freed += value.length - next.length; }
+      } else if (key.startsWith('whistlegraph-archive-')) {
+        const value = storage.getItem(key); const saved = JSON.parse(value);
+        const copy = saved?.extras?.['-cloud-ledger'];
+        if (typeof copy === 'string' && !copy.startsWith('mark:')) { saved.extras['-cloud-ledger'] = mark(JSON.parse(copy)); const next = JSON.stringify(saved); storage.setItem(key, next); freed += value.length - next.length; }
+      }
+    } catch {}
+  }
+  return freed;
+}

@@ -1,4 +1,15 @@
 // Stable local identity; the server atomically reserves its pronounceable code.
+// What the phone remembers of the last cloud ledger it saw: a mark of its
+// text, not the text. Keeping the whole ledger a second time doubled the
+// biggest record in a 5 MB store (a 16-version piece is 500k characters
+// each way, 2026-10-10) and left no room to park a piece.
+export function ledgerMark(ledger) {
+  const text = typeof ledger === 'string' ? ledger : ledgerText(ledger);
+  if (text.startsWith('mark:')) return text;
+  let a = 0x811c9dc5, b = 0x01000193 ^ 0x5bd1e995;
+  for (let i = 0; i < text.length; i++) { const c = text.charCodeAt(i); a = Math.imul(a ^ c, 0x01000193); b = Math.imul(b ^ c, 0x5bd1e995) ^ (b >>> 13); }
+  return 'mark:' + (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0') + text.length.toString(16);
+}
 export const ledgerText = ledger => ledger?JSON.stringify({format:ledger.format,head:ledger.head,versions:ledger.versions.map(v=>({id:v.id,parent:v.parent,source:v.source,request:v.request??null,createdAt:v.createdAt||'',layers:Number.isInteger(v.layers)?v.layers:0}))}):'null';
 export async function verifyThreadRevision(command,state) {
   const before=state();if(before.busy)throw Error('Device busy');
@@ -16,7 +27,7 @@ export class WhistlegraphThread {
   constructor({storage,key,token,ledger,state,onStatus,onCommand,onAdopt=null,onTurn=null,receipts=null,WebSocketImpl=globalThis.WebSocket,url='wss://aesthetic.computer/api/whistlegraph-stream',heartbeatMs=15000,maxIdleMs=45000,reconnectMs=3000}) {
     this.receipts=receipts;
     Object.assign(this,{storage,key,token,ledger,state,onStatus,onCommand,onAdopt,onTurn,WebSocketImpl,url,heartbeatMs,maxIdleMs,reconnectMs});
-    this.identity=threadIdentity(storage,key);this.revision=Number(storage.getItem(key+'-cloud-revision')||0);this.last=storage.getItem(key+'-cloud-ledger')||'';
+    this.identity=threadIdentity(storage,key);this.revision=Number(storage.getItem(key+'-cloud-revision')||0);this.last=storage.getItem(key+'-cloud-ledger')||'';if(this.last&&!this.last.startsWith('mark:')){try{this.last=ledgerMark(JSON.parse(this.last));storage.setItem(key+'-cloud-ledger',this.last);}catch{this.last='';}}
     this.active=false;this.sending=false;this.ready=false;this.connectURL=url;
   }
   async resume() {
@@ -33,7 +44,7 @@ export class WhistlegraphThread {
       if(m.type==='ready') {
         this.receiptSupport=m.capabilities?.includes('attempt-receipts-v1')===true;
         this.identity.code=m.thread.code;this.storage.setItem(this.key+'-thread',JSON.stringify(this.identity));
-        const cloud=ledgerText(m.thread.ledger),local=ledgerText(this.ledger());
+        const cloud=ledgerMark(m.thread.ledger),local=ledgerMark(this.ledger());
         // Never silently replace local work with another device's history. A
         // device with nothing unsynced (its local ledger is the last cloud
         // ledger it saw) follows the server forward: that is a turn that ran
@@ -49,13 +60,13 @@ export class WhistlegraphThread {
       if(m.type==='turn'&&m.turn){try{await this.onTurn?.(m.turn);}catch{}}
       if(m.type==='updated'&&m.thread?.ledger) {
         if(this.sending)return;
-        const cloud=ledgerText(m.thread.ledger),local=ledgerText(this.ledger());
+        const cloud=ledgerMark(m.thread.ledger),local=ledgerMark(this.ledger());
         if(cloud===local){this.revision=m.thread.revision;this.last=cloud;this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',cloud);return;}
         if(this.canFollow(local,m.thread)){await this.follow(m.thread);this.update();}
         else this.onStatus(this.identity.code,'History conflict');
       }
       if(m.type==='saved') {
-        this.revision=m.thread.revision;this.last=ledgerText(m.thread.ledger);this.sending=false;
+        this.revision=m.thread.revision;this.last=ledgerMark(m.thread.ledger);this.sending=false;
         this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',this.last);this.sync();
       }
       if(m.type==='receiptSaved'&&m.id===this.receiptSending) {
@@ -84,19 +95,19 @@ export class WhistlegraphThread {
   send(value){if(this.ws?.readyState===1)this.ws.send(JSON.stringify(value));}
   canFollow(local,thread){return !!this.onAdopt&&local===this.last&&Number.isSafeInteger(thread.revision)&&thread.revision>this.revision;}
   async follow(thread){
-    this.revision=thread.revision;this.last=ledgerText(thread.ledger);
+    this.revision=thread.revision;this.last=ledgerMark(thread.ledger);
     this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',this.last);
     await this.onAdopt(thread.ledger,thread);
     this.onStatus(this.identity.code,'Updated');
   }
-  sync(){if(!this.ready||this.sending)return;const ledger=this.ledger(),next=ledgerText(ledger);if(next===this.last)return;this.sending=true;this.send({type:'sync',revision:this.revision,ledger});}
+  sync(){if(!this.ready||this.sending)return;const ledger=this.ledger(),next=ledgerMark(ledger);if(next===this.last)return;this.sending=true;this.send({type:'sync',revision:this.revision,ledger});}
   update(){if(this.ready)this.send({type:'state',state:this.state()});}
   flushReceipts(){
     if(!this.ready||!this.receiptSupport||this.receiptSending)return;
     const receipt=this.receipts?.pending();if(!receipt)return;
     this.receiptSending=receipt.id;this.send({type:'receipt',receipt});
   }
-  async flush(){for(let i=0;i<100;i++){if(!this.ready)throw Error('Connection lost; inspect history before retrying');if(!this.sending&&this.last===ledgerText(this.ledger()))return;await new Promise(r=>setTimeout(r,100));}throw Error('Version sync pending; inspect before retrying');}
+  async flush(){for(let i=0;i<100;i++){if(!this.ready)throw Error('Connection lost; inspect history before retrying');if(!this.sending&&this.last===ledgerMark(this.ledger()))return;await new Promise(r=>setTimeout(r,100));}throw Error('Version sync pending; inspect before retrying');}
   disconnect(ws){if(this.ws!==ws)return;this.ws=null;this.ready=false;this.sending=false;this.receiptSending=null;clearTimeout(this.receiptTimer);clearInterval(this.heartbeat);this.onStatus(this.identity.code,'Offline');try{ws.close();}catch{}if(this.active)this.timer=setTimeout(()=>this.resume(),this.reconnectMs);}
   suspend(){this.active=false;clearTimeout(this.timer);if(this.ws)this.disconnect(this.ws);}
 }

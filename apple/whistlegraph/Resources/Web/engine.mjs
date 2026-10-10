@@ -16,7 +16,7 @@ import {initializeBasePiece,isBasePiece} from './base-piece.mjs';
 import {handleCharacterColors,fetchHandleColors} from '/easel/src/handle-colors.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
 import {localEdit} from './local-scene.mjs';
-import {WhistlegraphThread,verifyThreadRevision,ledgerText} from '/easel/src/whistlegraph-thread.mjs';
+import {WhistlegraphThread,verifyThreadRevision,ledgerMark} from '/easel/src/whistlegraph-thread.mjs';
 import {instantPiece} from './instant-piece.mjs';
 import {MusicalInputSocket} from '/easel/src/musical-input-socket.mjs';
 import {MusicalInputAdvisor} from '/easel/src/musical-input-advisor.mjs';
@@ -199,7 +199,7 @@ function nativeSnapshot(){
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
-    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy:busy||!!remoteJob,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,progress:(busy||remoteJob)?(remoteJob?turnProgress:{phase:phaseText,round:0,worker:'this phone',startedAt:lastAttempt?.startedAt||'',steps:turnSteps.slice(-16),said:''}):null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
+    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy:busy||!!remoteJob,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece|no room|not on the knot/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,progress:(busy||remoteJob)?(remoteJob?turnProgress:{phase:phaseText,round:0,worker:'this phone',startedAt:lastAttempt?.startedAt||'',steps:turnSteps.slice(-16),said:''}):null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
@@ -988,7 +988,7 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
       localStorage.setItem(storageKey+'-versions',JSON.stringify(cloud.ledger));
       localStorage.setItem(storageKey+'-thread',JSON.stringify({id:cloud.id,code:cloud.code}));
       localStorage.setItem(storageKey+'-cloud-revision',String(cloud.revision));
-      localStorage.setItem(storageKey+'-cloud-ledger',ledgerText(cloud.ledger));
+      localStorage.setItem(storageKey+'-cloud-ledger',ledgerMark(cloud.ledger));
     }catch{phase('This phone has no room to open that piece');location.reload();return;}
     location.reload();
   }
