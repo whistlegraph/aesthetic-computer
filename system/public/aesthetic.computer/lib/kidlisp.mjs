@@ -45,6 +45,7 @@ const note = (raw, fallback) => {
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
+import { compileProgram } from "./kidlisp-compile.mjs";
 
 // LLM API Specification and examples moved to kidlisp-reference.mjs
 
@@ -3763,6 +3764,15 @@ class KidLisp {
     this.ast = this.precompileAST(this.ast);
     perfEnd("precompile");
 
+    // The closure compiler (kidlisp-compile.mjs): on by a `; @compile`
+    // directive in the source or globalThis.__kidlispCompile. A program it
+    // cannot take runs on the interpreter as before.
+    this.compiled = null;
+    if (/^\s*;\s*@compile\b/m.test(source) || globalThis.__kidlispCompile === true) {
+      try { this.compiled = compileProgram(this.ast, this); }
+      catch (error) { console.warn("KidLisp compile fell back to the interpreter: " + (error?.message || error)); }
+    }
+
     // Initialize syntax highlighting
     this.initializeSyntaxHighlighting(source);
 
@@ -4185,7 +4195,7 @@ class KidLisp {
           }
 
           // Evaluate the entire AST - bake() calls will switch to bake buffers
-          /*const evaluated = */ withKidlispConsoleCapture(() => this.evaluate(this.ast, $, undefined, undefined, true));
+          /*const evaluated = */ withKidlispConsoleCapture(() => (this.compiled ? this.compiled.run($) : this.evaluate(this.ast, $, undefined, undefined, true)));
           
           // 🍞 IMPLICIT TRAILING BAKE: If we used bake and ended on a bake buffer,
           // automatically create one more empty bake buffer to finalize the current one.

@@ -55,8 +55,8 @@
 (later co x y rx ry (cam x y) (oval cxo cyo (cs (max 1 (round (* rx (abs sc))))) (cs (max 1 (round (* ry spy))))))
 
 ; ---- the cast ---------------------------------------------------------
-(pool stars 60 sa srad sy sr sph ssp shue zs)
-(once (repeat 60 ii (spawn stars (sa (* (rnd01) 6.283)) (srad (+ 0.1 (* (rnd01) 0.36))) (sy (rnd01)) (sr (+ 0.6 (* (rnd01) 1.4))) (sph (* (rnd01) 6.28)) (ssp (+ 1 (* (rnd01) 3))) (shue (rnd01)))))
+(pool stars 60 sa srad sy srr sph ssp shue zs)
+(once (repeat 60 ii (spawn stars (sa (* (rnd01) 6.283)) (srad (+ 0.1 (* (rnd01) 0.36))) (sy (rnd01)) (srr (+ 0.6 (* (rnd01) 1.4))) (sph (* (rnd01) 6.28)) (ssp (+ 1 (* (rnd01) 3))) (shue (rnd01)))))
 (pool fwends 10 fr fg fb ear off ph rad zs ang)
 (once
   (spawn fwends (fr 250) (fg 160) (fb 50) (ear 1) (off 0) (ph 0) (rad 0.37))
@@ -337,10 +337,10 @@
   (each slices (heartSlice ssc sz sdepth)))
 
 ; ---- stars, back to front -------------------------------------------------
-(later star sa srad sy sr sph ssp shue zs
+(later star sa srad sy srr sph ssp shue zs
   (def tw (+ 0.5 (* 0.5 (sin (+ (* tc ssp 0.6) sph)))))
   (def ang (+ sa th)) (def zn (/ (+ zs 1) 2)) (def pf (+ 0.55 (* 0.9 zn)))
-  (def RR (max 2 (* (min width height) 0.022 sr (+ 0.6 (* 0.6 tw)) pf zm)))
+  (def RR (max 2 (* (min width height) 0.022 srr (+ 0.6 (* 0.6 tw)) pf zm)))
   (def sx (+ (/ width 2) (* (cos ang) srad width (+ 0.85 (* 0.3 zn)) zm)))
   (def syy (+ (* height 0.42) (* (- (* sy height) (* height 0.42)) pf) (* zs height 0.025 (+ 1 (* 3 pit)))))
   (def rot (+ (* tc 0.2 (- shue 0.5)) sph))
@@ -376,7 +376,7 @@
 (nosquash)
 (each stars (def zs (sin (+ sa th))))
 (rank stars zs)
-(each stars (star sa srad sy sr sph ssp shue zs))
+(each stars (star sa srad sy srr sph ssp shue zs))
 (heart)
 ; gloss on the facing lobe
 (def facing 0) (now facing (if (< cT 0) 0 else 1))

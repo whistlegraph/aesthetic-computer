@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.4728e9392cc2.mjs",
-  "sha256": "4728e9392cc28201d25b14a3a64b8db1f7b13561c1e1a3e4f2773390a6563451",
-  "bytes": 1727253,
-  "sourceSha256": "523cc65da38f79cf2e6ef41ad329207a8a646e70a9af6e40f1c001ecced148de",
+  "filename": "disk.worker.54d38d5f13f9.mjs",
+  "sha256": "54d38d5f13f938ec9f8faf062863f5f0dc3c3b83c61872da5caba851894b3f57",
+  "bytes": 1741309,
+  "sourceSha256": "20806f90f63bf457926471ab7815bc426556b430c05f2df3d2e110d4578aa110",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -34,6 +34,7 @@
     "public/aesthetic.computer/lib/headers.mjs",
     "public/aesthetic.computer/lib/help.mjs",
     "public/aesthetic.computer/lib/helpers.mjs",
+    "public/aesthetic.computer/lib/kidlisp-compile.mjs",
     "public/aesthetic.computer/lib/kidlisp-execution.mjs",
     "public/aesthetic.computer/lib/kidlisp.mjs",
     "public/aesthetic.computer/lib/l5.mjs",

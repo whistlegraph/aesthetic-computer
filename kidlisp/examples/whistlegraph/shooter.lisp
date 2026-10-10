@@ -70,16 +70,14 @@
   (empty cpts) (each pv (cam vx vy vz) (spawn cpts (rt crt) (up cup) (dd cd)))
   (empty clipped) (now gotFirst 0)
   (each cpts
-    (if (< gotFirst 1) (now firstRt rt) (now firstUp up) (now firstD dd) (now gotFirst 1)
-      else (clipEdge prevRt prevUp prevD rt up dd))
+    (if (< gotFirst 1) (now firstRt rt) (now firstUp up) (now firstD dd) (now gotFirst 1) else (clipEdge prevRt prevUp prevD rt up dd))
     (now prevRt rt) (now prevUp up) (now prevD dd))
   (if (> gotFirst 0) (clipEdge prevRt prevUp prevD firstRt firstUp firstD))
   (if (> (alive clipped) 2)
     (ink r g b)
     (now fanCount 0)
     (each clipped (scr krt kup kdd)
-      (if (= fanCount 0) (now fanx scx) (now fany scy)
-        else (if (> fanCount 1) (tri fanx fany lastx lasty scx scy)))
+      (if (= fanCount 0) (now fanx scx) (now fany scy) else (if (> fanCount 1) (tri fanx fany lastx lasty scx scy)))
       (now lastx scx) (now lasty scy) (now fanCount (+ fanCount 1)))))
 ; a four-point quad in one call
 (later quad4 x1 y1 z1 x2 y2 z2 x3 y3 z3 x4 y4 z4 r g b
@@ -113,13 +111,12 @@
 
 ; ---- occlusion: does the xz segment from the player to (x,z) pass a pillar? --
 (def blk 0)
-(later slab o d c lo0 hi0
+(later slab org dlt ctr lo0 hi0
   ; narrows the global t0/t1 window for one axis
-  (def lo (- c PH)) (def hi (+ c PH))
-  (if (< (abs d) 0.000001)
-    (if (if (< o lo) 1 else (if (> o hi) 1 else 0)) (now t0 2))
-    else
-    (def aa (/ (- lo o) d)) (def bb (/ (- hi o) d))
+  (def lo (- ctr PH)) (def hi (+ ctr PH))
+  (if (< (abs dlt) 0.000001)
+    (if (if (< org lo) 1 else (if (> org hi) 1 else 0)) (now t0 2)) else
+    (def aa (/ (- lo org) dlt)) (def bb (/ (- hi org) dlt))
     (if (> aa bb) (def sw aa) (def aa bb) (def bb sw))
     (now t0 (max t0 aa)) (now t1 (min t1 bb))))
 (def t0 0) (def t1 1)
@@ -363,8 +360,7 @@
 (later drawTarget idx
   (each targets (if (= slot idx)
     (if (> tdead 0)
-      (def kk (- 0.9 tdead)) (disc tx ty tz (* tr (+ 1 (* kk 2))) 255 220 80 (floor (* 255 tdead)) 0)
-      else (enemy tx ty tz tgy tseed tcr tcg tcb)))))
+      (def kk (- 0.9 tdead)) (disc tx ty tz (* tr (+ 1 (* kk 2))) 255 220 80 (floor (* 255 tdead)) 0) else (enemy tx ty tz tgy tseed tcr tcg tcb)))))
 (each objs (if (= okind 0) (drawPillar oslot) else (drawTarget oslot)))
 (if (> trOn 0) (seg trax tray traz trbx trby trbz 255 235 140 2))
 (hands)
