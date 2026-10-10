@@ -89,19 +89,28 @@ export function compileProgram(ast, lisp) {
 
   // ---- expressions ----------------------------------------------------------
   function compile(expr, sc) {
-    if (typeof expr === "number") return () => expr;
+    if (typeof expr === "number") { const c = () => expr; c.numeric = true; return c; }
     if (typeof expr === "string") {
       if (/^".*"$/s.test(expr)) { const v = expr.slice(1, -1); return () => v; }
       const i = slotFor(sc, expr);
       if (i >= 0) return (f) => f[i];
       if (SCREEN[expr]) { const fn = SCREEN[expr]; return (f, api) => fn(api); }
-      // A global, or a word the interpreter would answer (a note, a color), or the word itself.
+      // A global the program defines reads straight from the shared store.
+      if (globalNames.has(expr)) return () => g[expr];
+      // Otherwise a word the interpreter would answer (a note, a color), or the word itself.
       return () => (expr in g ? g[expr] : typeof env[expr] === "function" && !(expr in ARITH) ? env[expr](lisp.api, []) : expr);
     }
     if (!Array.isArray(expr) || !expr.length) return () => undefined;
     const [head, ...args] = expr;
     if (typeof head !== "string") throw new CompileError("timer form inside a function: " + JSON.stringify(expr).slice(0, 60));
-    if (ARITH[head]) { const op = ARITH[head], parts = args.map((a) => compile(a, sc)); return (f, api) => op(parts.map((p) => num(p(f, api)))); }
+    if (ARITH[head]) {
+      const parts = args.map((a) => compile(a, sc));
+      const fast = arith(head, parts);
+      if (fast) { fast.numeric = true; return fast; }
+      const op = ARITH[head];
+      const slow = (f, api) => { const vals = new Array(parts.length); for (let k = 0; k < parts.length; k++) vals[k] = num(parts[k](f, api)); return op(vals); };
+      slow.numeric = true; return slow;
+    }
     if (COMPARE[head]) {
       if (args.length !== 2) throw new CompileError(head + " with a body");
       const op = COMPARE[head], a = compile(args[0], sc), b = compile(args[1], sc);
@@ -186,7 +195,12 @@ export function compileProgram(ast, lisp) {
     // A piece function.
     if (rt.fns.has(head) || definesFunction(head)) {
       const parts = args.map((a) => compile(a, sc));
-      return (f, api) => { const fn = rt.fns.get(head); if (!fn) return undefined; const nf = new Array(fn.size); for (let k = 0; k < fn.arity; k++) nf[k] = parts[k] ? parts[k](f, api) : undefined; return fn.body(nf, api); };
+      return (f, api) => {
+        const fn = rt.fns.get(head); if (!fn) return undefined;
+        const nf = fn.free.length ? fn.free.pop() : new Array(fn.size);
+        for (let k = 0; k < fn.arity; k++) nf[k] = parts[k] ? parts[k](f, api) : undefined;
+        try { return fn.body(nf, api); } finally { fn.free.push(nf); }
+      };
     }
     if (RAW_ANYWHERE.has(head)) { const fn = env[head]; if (typeof fn !== "function") throw new CompileError("unknown form " + head); return (f, api) => fn(api, args, undefined); }
     if (DELEGATE_TOP.has(head) || isTimerHead(head)) throw new CompileError(head + " inside a function");
@@ -196,9 +210,69 @@ export function compileProgram(ast, lisp) {
     const fn = env[head];
     if (typeof fn !== "function") throw new CompileError("unknown form " + head);
     const parts = args.map((a) => compile(a, sc));
-    return (f, api) => fn(api, parts.map((p) => p(f, api)), undefined);
+    const n = parts.length;
+    return (f, api) => { const vals = new Array(n); for (let k = 0; k < n; k++) vals[k] = parts[k](f, api); return fn(api, vals, undefined); };
   }
   const num = (v) => (typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : 0);
+  // The common shapes without an argument array: two-operand + - * / and
+  // the one-argument functions, numbers guarded inline.
+  function arith(head, parts) {
+    const [a, b, c] = parts;
+    const n = (p) => (p.numeric ? p : (f, api) => { const v = p(f, api); return typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : 0; });
+    if (parts.length === 1) {
+      const x = n(a);
+      switch (head) {
+        case "sin": return (f, api) => Math.sin(x(f, api));
+        case "cos": return (f, api) => Math.cos(x(f, api));
+        case "abs": return (f, api) => Math.abs(x(f, api));
+        case "sqrt": return (f, api) => { const v = x(f, api); return v >= 0 ? Math.sqrt(v) : 0; };
+        case "floor": return (f, api) => Math.floor(x(f, api));
+        case "ceil": return (f, api) => Math.ceil(x(f, api));
+        case "round": return (f, api) => Math.round(x(f, api));
+        case "exp": return (f, api) => Math.exp(x(f, api));
+        case "sign": return (f, api) => Math.sign(x(f, api));
+        case "tan": return (f, api) => Math.tan(x(f, api));
+        case "-": return (f, api) => -x(f, api);
+        default: return null;
+      }
+    }
+    if (parts.length === 2) {
+      const x = n(a), y = n(b);
+      switch (head) {
+        case "+": return (f, api) => x(f, api) + y(f, api);
+        case "-": return (f, api) => x(f, api) - y(f, api);
+        case "*": return (f, api) => x(f, api) * y(f, api);
+        case "/": return (f, api) => { const d = y(f, api); return d !== 0 ? x(f, api) / d : 0; };
+        case "%": case "mod": return (f, api) => { const d = y(f, api); return d !== 0 ? x(f, api) % d : 0; };
+        case "max": return (f, api) => Math.max(x(f, api), y(f, api));
+        case "min": return (f, api) => Math.min(x(f, api), y(f, api));
+        case "pow": return (f, api) => Math.pow(x(f, api), y(f, api));
+        case "atan2": return (f, api) => Math.atan2(x(f, api), y(f, api));
+        case "hypot": return (f, api) => Math.hypot(x(f, api), y(f, api));
+        default: return null;
+      }
+    }
+    if (parts.length === 3) {
+      const x = n(a), y = n(b), z = n(c);
+      switch (head) {
+        case "+": return (f, api) => x(f, api) + y(f, api) + z(f, api);
+        case "-": return (f, api) => x(f, api) - y(f, api) - z(f, api);
+        case "*": return (f, api) => x(f, api) * y(f, api) * z(f, api);
+        case "clamp": return (f, api) => Math.max(y(f, api), Math.min(z(f, api), x(f, api)));
+        default: return null;
+      }
+    }
+    if (parts.length === 4) {
+      const x = n(a), y = n(b), z = n(c), w = n(parts[3]);
+      switch (head) {
+        case "+": return (f, api) => x(f, api) + y(f, api) + z(f, api) + w(f, api);
+        case "-": return (f, api) => x(f, api) - y(f, api) - z(f, api) - w(f, api);
+        case "*": return (f, api) => x(f, api) * y(f, api) * z(f, api) * w(f, api);
+        default: return null;
+      }
+    }
+    return null;
+  }
 
   // ---- functions ----------------------------------------------------------
   const fnForms = new Map();
@@ -210,7 +284,7 @@ export function compileProgram(ast, lisp) {
     const sc = scope(null, true);
     for (const p of params) slotOf(sc, p);
     declare(bodyForms, sc);
-    const entry = { arity: params.length, size: 0, body: null };
+    const entry = { arity: params.length, size: 0, body: null, free: [] };
     rt.fns.set(name, entry);
     const body = bodyForms.map((b) => compile(b, sc));
     entry.size = sc.size;
