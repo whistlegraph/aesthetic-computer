@@ -83,4 +83,8 @@ test('the same request is one row, and a person cannot stack more than the cap',
   await assert.rejects(q.enqueue('bob', thread('t2', 'wgBobbo'), validateTurnRequest({...good, code: 'wgBobbo', requestID: id})), {statusCode: 404});
   for (let i = 1; i < MAX_QUEUED_PER_OWNER; i++) await q.enqueue('alice', thread('t1', 'wgFeeda'), validateTurnRequest({...good, text: 'more ' + i}));
   await assert.rejects(q.enqueue('alice', thread('t1', 'wgFeeda'), validateTurnRequest({...good, text: 'one too many'})), {statusCode: 429});
+  assert.equal(await q.cancel('bob', first._id), false, 'only the owner cancels');
+  assert.ok(await q.cancel('alice', first._id));
+  assert.equal(await q.cancel('alice', first._id), false, 'a cancelled turn is not waiting');
+  await q.enqueue('alice', thread('t1', 'wgFeeda'), validateTurnRequest({...good, text: 'room again'}));
 });
