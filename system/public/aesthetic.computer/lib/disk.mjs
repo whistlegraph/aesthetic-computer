@@ -3782,6 +3782,9 @@ const $commonApi = {
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
+    // Whether the corner label is hidden (nolabel, a pack, the shell's own
+    // overlay, the Tab toggle): a piece need not prepare a label nobody sees.
+    hidden: () => hideLabel || hideLabelForFrame || hideLabelViaTab,
     label: (text, color, offset, plainTextOverride) => {
       currentHUDTxt = text;
       // Use plainTextOverride if provided, otherwise strip color codes from text

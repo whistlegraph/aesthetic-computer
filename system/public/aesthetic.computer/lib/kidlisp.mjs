@@ -13069,6 +13069,14 @@ class KidLisp {
     if (!api.hud || !api.hud.label || !this.syntaxHighlightSource) return;
     // A pack hides its label (disk.mjs hideLabel), so don't colour it.
     if (typeof window !== "undefined" && window.acPACK_MODE && !window.acKEEP_LABEL) return;
+    // A hidden label is not coloured either: colouring the source tokens
+    // every paint was a fifth of a big piece's frame (worker profile of the
+    // compiled Fía piece, 2026-10-11) with nolabel set. When the label shows,
+    // ten times a second is enough for its blinking timers.
+    if (api.hud.hidden?.()) return;
+    const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (this.hudColoredAt && nowMs - this.hudColoredAt < 100 && this.hudColoredSource === this.syntaxHighlightSource) return;
+    this.hudColoredAt = nowMs; this.hudColoredSource = this.syntaxHighlightSource;
 
     const coloredString = this.buildColoredKidlispString();
     if (coloredString) {
