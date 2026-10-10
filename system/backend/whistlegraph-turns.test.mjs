@@ -39,7 +39,7 @@ test('a turn request is checked before it is queued', () => {
   assert.deepEqual(validateTurnRequest(good), {code: 'wgFeeda', text: 'make it spin', baseVersion: 2, baseHash: hash});
   assert.throws(() => validateTurnRequest({...good, code: 'nope'}), /thread code/);
   assert.throws(() => validateTurnRequest({...good, text: ''}), /words or add chalk/);
-  assert.throws(() => validateTurnRequest({...good, text: 'x'.repeat(1201)}), /at most/);
+  assert.throws(() => validateTurnRequest({...good, text: 'x'.repeat(20_001)}), /at most/);
   assert.throws(() => validateTurnRequest({...good, baseHash: 'short'}), /sha256/);
   assert.throws(() => validateTurnRequest({...good, baseVersion: -1}), /baseVersion/);
   assert.throws(() => validateTurnRequest({...good, model: 'bad model!'}), /model/);

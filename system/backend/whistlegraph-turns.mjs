@@ -7,7 +7,7 @@ import {validCode} from './whistlegraph.mjs';
 
 export const LEASE_MS = 90_000;           // A worker that misses three 30 s heartbeats has lost the job.
 export const MAX_QUEUED_PER_OWNER = 3;    // Backpressure: a person waits on their own queue, never on everyone's.
-export const MAX_TEXT = 1200;             // The phone's 96-grapheme line, or the full mixed-input prompt.
+export const MAX_TEXT = 20_000;           // The full mixed-input prompt (words, chalk vectors, sound measurements), as the socket allows.
 const STATUSES = ['queued','running','done','failed'];
 const isHex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 
