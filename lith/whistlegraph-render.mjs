@@ -46,12 +46,18 @@ export class RenderPool {
     let shell = null; try { shell = puppeteer.executablePath({headless: 'shell'}); } catch {}
     const executablePath = process.env.CHROME_PATH || (shell && existsSync(shell) ? shell : existsSync(CHROME) ? CHROME : undefined);
     this.#browser = await puppeteer.launch({headless: shell && !process.env.CHROME_PATH ? 'shell' : true, executablePath,
-      args: ['--no-sandbox', '--disable-dev-shm-usage', '--autoplay-policy=no-user-gesture-required', '--mute-audio', `--window-size=${this.#viewport.width},${this.#viewport.height}`]});
+      // Every tab must keep painting while others are in front: no
+      // background throttling, or a pool of three paints only one.
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--autoplay-policy=no-user-gesture-required', '--mute-audio',
+        '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--disable-features=CalculateNativeWinOcclusion',
+        `--window-size=${this.#viewport.width},${this.#viewport.height}`]});
     for (let i = 0; i < this.#size; i++) this.#tabs.push(await this.#open(i));
     this.#log('render pool ready', `${this.#size} tabs`, executablePath || 'bundled chrome');
   }
   async #open(index) {
-    const page = await this.#browser.newPage();
+    // Each tab in its own context: its own window, never a background tab of another.
+    const context = await this.#browser.createBrowserContext();
+    const page = await context.newPage();
     await page.setViewport(this.#viewport);
     await page.evaluateOnNewDocument(PAGE_SCRIPT);
     await page.goto(this.#site + PREVIEW, {waitUntil: 'domcontentloaded', timeout: 90_000});
@@ -66,7 +72,7 @@ export class RenderPool {
   }
   async #release(tab, broken = false) {
     try {
-      if (broken || ++tab.renders >= 40) { await tab.page.close().catch(() => {}); const fresh = await this.#open(tab.index); Object.assign(tab, fresh, {renders: 0}); }
+      if (broken || ++tab.renders >= 40) { await tab.page.browserContext().close().catch(() => {}); const fresh = await this.#open(tab.index); Object.assign(tab, fresh, {renders: 0}); }
     } catch (error) { this.#log('tab recycle failed', error.message); }
     tab.busy = false; this.#waiting.shift()?.();
   }
