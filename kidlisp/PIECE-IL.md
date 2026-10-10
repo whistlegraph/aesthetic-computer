@@ -247,3 +247,26 @@ output stay in the closure compiler. Kernels take the parts that are
 already maps over data, which the census says is most of the arithmetic in
 the two big pieces: projection, star fields, the skirt's bands, the
 soldier's boxes.
+
+## 9. The frame as one buffer: drawing on the GPU
+
+A compiled piece that says `; @gpu` does not call the software rasterizer.
+Its drawing heads record into a frame buffer (`lib/gpu-frame.mjs`): clear,
+line, box, oval, tri and shape, each with its colour, one Float32Array a
+frame, handed to bios in a single transferred message. bios tessellates it
+to triangles with per-vertex colour and draws it with WebGPU in one pass on
+its own canvas (`lib/gpu-frame-renderer.mjs`), then composites the CPU
+buffer over it as a texture when the frame asks, so `write` and anything
+the path does not take still show. `ink` keeps running on the CPU for its
+colour parsing and the resolved colour is read back; `wipe` clears both.
+The worker probes bios once; without a renderer the piece draws on the CPU
+as before, same stream.
+
+Measured 2026-10-11, phone size / 1280×720: Fía 36 / 21 fps from 31 / 20
+on the CPU path; the shooter 25 / 24 from 22 / 22. The pictures match. The
+format is the contract: a native host can consume the same buffer.
+
+What is left after this is evaluation and the runtime's own per-frame
+work. Kernels (§8) take the data-parallel arithmetic; the whole program to
+Wasm takes the rest, and a host that keeps kernel outputs on the GPU and
+draws from them never pays a readback at all.

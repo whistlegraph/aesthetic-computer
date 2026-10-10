@@ -21,6 +21,8 @@ into pools.
 | Fía | compiler v3 + the heart projection as a Wasm kernel | 26,921 | 420 | 28 | 16 |
 | Fía | … and no HUD colouring for the hidden label | 26,921 | 420 | 31 | 20 |
 | Shooter | compiler v3, no HUD colouring | 22,380 | 383 | 22 | 22 |
+| Fía | … and the frame drawn by WebGPU (`; @gpu`) | 26,928 | 421 | 36 | 21 |
+| Shooter | … and the frame drawn by WebGPU (`; @gpu`) | 22,387 | 384 | 25 | 24 |
 
 The compiler rows are the same sources with a `; @compile` first line
 (`lib/kidlisp-compile.mjs`, later the same day): the program compiled once
@@ -47,6 +49,13 @@ is now skipped for a hidden label (339d671608). The star field in
 `kidlisp/examples/kernels/` shows the `gpu` form losing to `run` on this
 runtime (35 against 60 fps at phone size): a compute pass has to read its
 results back for a CPU rasterizer, and that costs more than the arithmetic.
+
+The `; @gpu` rows (8754e56644, PIECE-IL.md §9): the compiled program
+records its drawing into one buffer a frame (`lib/gpu-frame.mjs`) and bios
+draws it with WebGPU as one vertex buffer and one draw
+(`lib/gpu-frame-renderer.mjs`), the CPU buffer composited on top for text.
+The frames match the CPU path's picture. What remains is evaluation and the
+runtime's per-frame work around it; the rasterizer is off the clock.
 
 ## What it says
 
