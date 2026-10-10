@@ -1,5 +1,5 @@
 // Stable local identity; the server atomically reserves its pronounceable code.
-const ledgerText = ledger => ledger?JSON.stringify({format:ledger.format,head:ledger.head,versions:ledger.versions.map(v=>({id:v.id,parent:v.parent,source:v.source,request:v.request??null,createdAt:v.createdAt||'',layers:Number.isInteger(v.layers)?v.layers:0}))}):'null';
+export const ledgerText = ledger => ledger?JSON.stringify({format:ledger.format,head:ledger.head,versions:ledger.versions.map(v=>({id:v.id,parent:v.parent,source:v.source,request:v.request??null,createdAt:v.createdAt||'',layers:Number.isInteger(v.layers)?v.layers:0}))}):'null';
 export async function verifyThreadRevision(command,state) {
   const before=state();if(before.busy)throw Error('Device busy');
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(before.source));

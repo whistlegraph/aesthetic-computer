@@ -547,8 +547,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     func openFromNotification(_ url: String) {
         let piece = String(url.drop(while: { $0 == "/" }).prefix(64))
         DeviceActionLog.shared.record(.notifications, .presented)
-        guard !piece.isEmpty, pieces.contains(where: { $0.id == piece }) else { return }
-        if pieces.contains(where: { $0.id == piece && $0.current }) { return }
+        // The push names the piece by code. One not on this phone is fetched from the knot.
+        guard !piece.isEmpty else { return }
+        if pieces.contains(where: { ($0.id == piece || $0.code == piece) && $0.current }) { return }
         command("openPiece", piece: piece)
     }
     /// Drops the Keychain sign-in and tells the engine, which parks its sockets.

@@ -44,7 +44,9 @@ export function mongoWhistlegraphStore(collection, {name=pronounceableCode}={}) 
       throw Error('Unable to reserve a name');
     },
     async read(owner,code) {if(!validCode(code))return null;return collection.findOne({owner,codeKey:code.toLowerCase()});},
-    async list(owner) {return collection.find({owner},{projection:{owner:0,ledger:0,receipts:0}}).sort({updatedAt:-1}).limit(100).toArray();},
+    // A listing carries each thread's shape, not its ledger: the head, how
+    // many versions were made, and the words of the last one.
+    async list(owner) {return collection.find({owner},{projection:{code:1,revision:1,updatedAt:1,published:1,head:'$ledger.head',versions:{$subtract:[{$size:{$ifNull:['$ledger.versions',[]]}},1]},lastRequest:{$arrayElemAt:['$ledger.versions.request',-1]},lastAt:{$arrayElemAt:['$ledger.versions.createdAt',-1]}}}).sort({updatedAt:-1}).limit(100).toArray();},
     async receipt(owner,id,value) {
       const receipt=validateReceipt(value);
       // First write wins; retries are idempotent within the retained history.
@@ -94,6 +96,12 @@ export function mongoWhistlegraphStore(collection, {name=pronounceableCode}={}) 
       return result.modifiedCount?{...previous,ledger,revision:revision+1}:null;
     }
   };
+}
+// One row of a listing, as the phone's piece list shows it.
+export function threadSummary(row) {
+  if(!row)return null;
+  const versions=Math.max(0,Number(row.versions)||0);
+  return {id:row._id,code:row.code,revision:row.revision,updatedAt:row.lastAt||row.updatedAt,head:row.head??0,versions,utterance:versions>0&&row.lastRequest?String(captionOf(row.lastRequest)).slice(0,160):'',published:row.published===true};
 }
 export function publicThread(row) {
   if(!row)return null;

@@ -16,7 +16,7 @@ import {initializeBasePiece,isBasePiece} from './base-piece.mjs';
 import {handleCharacterColors,fetchHandleColors} from '/easel/src/handle-colors.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
 import {localEdit} from './local-scene.mjs';
-import {WhistlegraphThread,verifyThreadRevision} from '/easel/src/whistlegraph-thread.mjs';
+import {WhistlegraphThread,verifyThreadRevision,ledgerText} from '/easel/src/whistlegraph-thread.mjs';
 import {instantPiece} from './instant-piece.mjs';
 import {MusicalInputSocket} from '/easel/src/musical-input-socket.mjs';
 import {MusicalInputAdvisor} from '/easel/src/musical-input-advisor.mjs';
@@ -70,6 +70,16 @@ let turnHandle='',turnModel='',activeModel='',braincells=null,braincellsError=''
 // until the wallet grows past that or a turn goes through, so the icon says
 // so instead of a row that fails quietly each time.
 let braincellsEmptyAt=null;
+// Pieces this handle made on the knot that are not on this phone: a turn run
+// from elsewhere, another phone, a stand-in. Listed beside the local ones and
+// opened by fetching the thread.
+let knotPieces=[];
+async function refreshKnotPieces(){
+  if(!token){knotPieces=[];postPieces?.();return;}
+  try{const r=await fetch('https://aesthetic.computer/api/whistlegraph',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(10000)});if(!r.ok)return;const value=await r.json();if(Array.isArray(value.threads))knotPieces=value.threads.filter(t=>t&&typeof t.id==='string'&&typeof t.code==='string');}
+  catch{return;}
+  postPieces?.();
+}
 function noteBraincells(message){if(/out of braincells/i.test(String(message||'')))braincellsEmptyAt=braincells&&braincells.unlimited!==true?braincells.remaining+braincells.purchased:0;}
 function braincellsEmpty(){return braincellsEmptyAt!==null||(!!braincells&&braincells.unlimited!==true&&braincells.remaining+braincells.purchased<=0);}
 function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
@@ -108,7 +118,7 @@ function accountIdentity(value, notice='', force=false){
     if(!account||accountToken!==value)return;
     accountHandle=account.handle;syncAIConsent();
     if(!accountHandle){signIn.textContent='Set handle';nativeSnapshot();return;}
-    paintHandle(accountHandle);void refreshBraincells();
+    paintHandle(accountHandle);void refreshBraincells();void refreshKnotPieces();
     const handle=accountHandle,revision=accountConnection.revision;
     void fetchPersonalAccess(value).then(access=>{if(accountToken===value&&accountConnection.revision===revision){personalAccess=access;nativeSnapshot();}});
     void fetchHandleColors('@'+handle).then(colors=>{if(accountToken===value&&accountConnection.revision===revision)paintHandle(handle,colors);}).catch(()=>{});
@@ -958,13 +968,38 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
       const key=localStorage.key(i);if(!key?.startsWith(ARCHIVE))continue;
       try{const saved=JSON.parse(localStorage.getItem(key));if(saved?.identity?.id&&saved.identity.id!==thread.identity.id)list.push(pieceSummary(saved.identity.id,saved.identity,saved.ledger,false));}catch{}
     }
+    for(const t of knotPieces){
+      if(list.some(p=>p.id===t.id||(p.code&&p.code===t.code)))continue;
+      list.push({id:t.id,code:t.code,utterance:String(t.utterance||'').slice(0,160),versions:Number(t.versions)||0,updatedAt:t.updatedAt||'',current:false,remote:true});
+    }
     return list.sort((a,b)=>(b.current-a.current)||(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0)).slice(0,256);
+  }
+  // A piece from the knot lands on this phone the way a turn's result does:
+  // the thread is fetched and mounted whole, the open piece parked first.
+  async function openKnotPiece(t){
+    let cloud;
+    try{const r=await fetch('https://aesthetic.computer/api/whistlegraph?code='+encodeURIComponent(t.code),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});cloud=await r.json();}
+    catch{phase('Could not reach the knot for that piece');return;}
+    if(!cloud?.ledger?.versions||cloud.id!==t.id){phase('That piece is not on the knot any more');void refreshKnotPieces();return;}
+    const head=cloud.ledger.versions.find(v=>v.id===cloud.ledger.head);
+    const parked=archiveCurrentPiece();if(parked.accepted===false)return;
+    try{
+      localStorage.setItem(storageKey,head?.source||'');
+      localStorage.setItem(storageKey+'-versions',JSON.stringify(cloud.ledger));
+      localStorage.setItem(storageKey+'-thread',JSON.stringify({id:cloud.id,code:cloud.code}));
+      localStorage.setItem(storageKey+'-cloud-revision',String(cloud.revision));
+      localStorage.setItem(storageKey+'-cloud-ledger',ledgerText(cloud.ledger));
+    }catch{phase('This phone has no room to open that piece');location.reload();return;}
+    location.reload();
   }
   postPieces=()=>post({action:'pieces',pieces:pieceList()});
   window.whistlegraphVersionSource=id=>versions?.value.versions.find(v=>v.id===id)?.source??null;
   window.whistlegraphOpenPiece=id=>{
-    if(busy||id===thread.identity.id)return {accepted:false,reason:'busy'};
+    if(busy||id===thread.identity.id||id===thread.identity.code)return {accepted:false,reason:'busy'};
     let saved;try{saved=JSON.parse(localStorage.getItem(ARCHIVE+id));}catch{}
+    // A push names the piece by code; so may a knot piece that is not on this phone.
+    if(!saved){for(let i=0;i<localStorage.length&&!saved;i++){const key=localStorage.key(i);if(!key?.startsWith(ARCHIVE))continue;try{const row=JSON.parse(localStorage.getItem(key));if(row?.identity?.code===id&&row.ledger){saved=row;id=row.identity.id;}}catch{}}}
+    if(!saved){const t=knotPieces.find(k=>k.id===id||k.code===id);if(t){phase('Fetching /'+t.code+' from the knot…');void openKnotPiece(t);return {accepted:true};}}
     if(!saved?.identity?.id||!saved.ledger){phase('That piece is no longer on this phone');postPieces();return {accepted:false,reason:'notReady'};}
     const parked=archiveCurrentPiece();if(parked.accepted===false)return parked;
     try{

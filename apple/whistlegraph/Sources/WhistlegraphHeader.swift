@@ -10,6 +10,8 @@ struct PieceSummary: Decodable, Identifiable {
     let versions: Int
     let updatedAt: String
     let current: Bool
+    /// Made on the knot and not yet on this phone; opening fetches it.
+    var remote: Bool? = nil
     var date: Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -81,13 +83,15 @@ struct PiecesSheet: View {
                                     Text(detail(piece)).font(.footnote).foregroundStyle(.secondary)
                                 }.frame(maxWidth: .infinity, alignment: .trailing)
                                 if piece.current { Image(systemName: "checkmark").foregroundStyle(.secondary).accessibilityLabel("Open now") }
+                                else if piece.remote == true { Image(systemName: "icloud.and.arrow.down").foregroundStyle(.secondary).accessibilityLabel("On the knot") }
                             }
                         }
                         .disabled(disabled && !piece.current)
                         .accessibilityIdentifier("piece-" + piece.title)
                         // Deleting frees this phone's 5 MB piece store; the open piece stays.
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if !piece.current {
+                            // A knot piece is not in this phone's store; nothing here to delete.
+                            if !piece.current && piece.remote != true {
                                 Button(role: .destructive) { ButtonSounds.play(.pop); delete(piece.id) } label: { Label("Delete", systemImage: "trash") }
                                     .disabled(disabled).accessibilityIdentifier("piece-delete-" + piece.title)
                             }
@@ -105,8 +109,9 @@ struct PiecesSheet: View {
     }
     private func detail(_ piece: PieceSummary) -> String {
         let versions = piece.versions == 1 ? "1 version" : "\(piece.versions) versions"
-        guard let date = piece.date else { return versions }
-        return versions + " · " + date.formatted(.relative(presentation: .named))
+        let where_ = piece.remote == true ? "on the knot · " : ""
+        guard let date = piece.date else { return where_ + versions }
+        return where_ + versions + " · " + date.formatted(.relative(presentation: .named))
     }
 }
 

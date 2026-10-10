@@ -1,6 +1,6 @@
 import {connect} from '../../backend/database.mjs';
 import {authenticateMusical} from './easel-musical-jev.mjs';
-import {mongoWhistlegraphStore,publicThread} from '../../backend/whistlegraph.mjs';
+import {mongoWhistlegraphStore,publicThread,threadSummary} from '../../backend/whistlegraph.mjs';
 export {authenticateMusical as authenticateWhistlegraph};
 let pending;
 export const whistlegraphStore=()=>pending??=(async()=>{const {db}=await connect();return mongoWhistlegraphStore(db.collection('walkieware-threads'));})().catch(error=>{pending=null;throw error;});
@@ -17,7 +17,7 @@ export async function handler(event) {
       if(!code||event.queryStringParameters?.receipts!=='1')return reply(400,{error:'Specify a thread code and receipts=1'});
       return await store.clearReceipts(owner,code)?reply(200,{cleared:true}):reply(404,{error:'Thread unavailable'});
     }
-    if(!code)return reply(200,{threads:(await store.list(owner)).map(publicThread)});
+    if(!code)return reply(200,{threads:(await store.list(owner)).map(threadSummary)});
     const row=await store.read(owner,code);
     return row?reply(200,publicThread(row)):reply(404,{error:'Thread unavailable'});
   }catch{return reply(503,{error:'Thread storage unavailable'});}
