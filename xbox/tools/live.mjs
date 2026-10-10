@@ -389,6 +389,12 @@ async function main() {
   else if (command === "launch") launch();
   else if (command === "stop") stop();
   else if (command === "restart") { stop(); launch(); }
+  else if (command === "remove") {
+    // delete one file from the app's LocalState (a stale live-post.hlsl survives shader-reset across restarts)
+    if (!argument) throw new Error("usage: xbox-live remove <filename>");
+    curl(["--fail", "-u", autoAuth, "-X", "DELETE", appFileUrl(installed(), argument)]);
+    console.log(JSON.stringify({ removed: argument, package: installed().PackageFullName }));
+  }
   else if (command === "publish") publish(argument);
   else if (command === "shader") publishShader(argument);
   else if (command === "shader-reset") publishShader(null, true);
@@ -399,7 +405,7 @@ async function main() {
   else if (command === "deploy") { publish(argument); launch(); logs("20"); }
   else if (command === "hot-deploy") await hotDeploy(argument);
   else if (command === "deploy-kidlisp") await deployKidLisp(argument);
-  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | stop | restart | publish <piece.js> | shader <effect.hlsl> | shader-reset | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | hot-deploy <piece.js> | deploy-kidlisp <$code>");
+  else throw new Error("commands: status | install <msix> [deps...] | prune | launch | stop | restart | remove <filename> | publish <piece.js> | shader <effect.hlsl> | shader-reset | logs [lines] | frames [output.json] | screenshot [output.png] | video [seconds] [output.mp4] | deploy <piece.js> | hot-deploy <piece.js> | deploy-kidlisp <$code>");
 }
 
 try { await main(); } catch (error) { console.error(error.message); process.exit(1); }

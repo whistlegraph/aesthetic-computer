@@ -15,7 +15,7 @@
 
 (def tt 0) (now tt (/ frame 60))
 (def camx 0) (now camx (* (sin (* tt 0.5)) 80))
-(def camz 0) (now camz (+ (* tt 220) 200))
+(def camz 0) (now camz (+ (% (* tt 220) 3400) 200))   ; the walk loops before the corridor ends
 (def yaw 0) (now yaw (* (sin (* tt 0.7)) 0.25))
 
 (wipe 90 140 210)

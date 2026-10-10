@@ -29,6 +29,7 @@ const boots = (text) => text.split('AC_NATIVE_BIOS_READY').length - 1;
 const liveAfterBoot = (text) => { const at = text.lastIndexOf('AC_NATIVE_BIOS_READY'); return at >= 0 && text.indexOf('AC_NATIVE_LIVE_READY', at) >= 0; };
 const bootsBefore = boots(run(['xbox/tools/live.mjs', 'logs', '2000']));
 run(['xbox/tools/live.mjs', 'publish', 'kidlisp/build/kidlisp-tv.js']);
+try { run(['xbox/tools/live.mjs', 'remove', 'live-post.hlsl']); } catch {}
 try { run(['xbox/tools/live.mjs', 'restart']); } catch { try { run(['xbox/tools/live.mjs', 'launch']); } catch (error) { console.log('restart failed: ' + (error.message || error)); } }
 let ready = false, generation = 0;
 for (let attempt = 0; attempt < 90 && !ready; attempt++) { await sleep(1000); const log = run(['xbox/tools/live.mjs', 'logs', '2000']); ready = boots(log) > bootsBefore && liveAfterBoot(log); if (ready) generation = Number((log.slice(log.lastIndexOf('AC_NATIVE_LIVE_READY')).match(/generation=(\d+)/) || [])[1] || 0); }
