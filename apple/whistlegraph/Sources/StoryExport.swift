@@ -59,6 +59,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
         storyKey = StoryCache.key(["story-movie-v2"] + rows.compactMap { keys[$0.id] })
         readyURL = cache.find(storyKey); completedCards = rows.filter { cached($0) != nil }.count
         active = true; busy = readyURL == nil; stage = .preparing; error = ""; failures = [:]
+        posters = [:]; for row in rows { _ = poster(for: row.id) }
         if readyURL == nil { recordMissing() }
     }
     private func cached(_ row: PieceRevision) -> URL? { keys[row.id].flatMap { cache.find($0) } }
@@ -67,6 +68,26 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
     // ---- Off-screen recording (the visible story is never touched) ----
     private var recorder: Task<Void, Never>?
     private var recorderPreview: StoryPreview?
+    // ---- Posters: a still of each card, shown the instant it is selected ----
+    @Published private(set) var posters: [Int: UIImage] = [:]
+    func poster(for version: Int?) -> UIImage? {
+        guard let version else { return nil }
+        if let image = posters[version] { return image }
+        guard let key = keys[version], let url = cache.find(key, ext: "png"), let image = UIImage(contentsOfFile: url.path) else { return nil }
+        posters[version] = image; return image
+    }
+    /// Keep a still of a card from whichever runtime just painted it.
+    func capturePoster(for version: Int?, from view: WKWebView) {
+        guard let version, posters[version] == nil, let key = keys[version], cache.find(key, ext: "png") == nil, view.bounds.width > 0 else { return }
+        let config = WKSnapshotConfiguration(); config.afterScreenUpdates = true
+        view.takeSnapshot(with: config) { [weak self] image, _ in
+            guard let self, let image, let data = image.pngData() else { return }
+            self.posters[version] = image
+            let staging = FileManager.default.temporaryDirectory.appendingPathComponent("story-poster-\(UUID()).png")
+            try? data.write(to: staging); defer { try? FileManager.default.removeItem(at: staging) }
+            _ = try? self.cache.store(staging, key: key, ext: "png", protecting: Set(self.keys.values))
+        }
+    }
     @Published private(set) var recorderView: WKWebView?
     @Published private(set) var failures: [Int: String] = [:]
     private func preview(_ session: WhistlegraphSession) -> StoryPreview {
@@ -122,6 +143,7 @@ struct StoryMovie: Identifiable { let id = UUID(); let url: URL }
             preview.present(version: row.id, source: source)
         }
         guard painted else { throw RecordError.notPainted }
+        capturePoster(for: row.id, from: preview.view)
         let sound = try await StoryVoice.audio(for: row)
         if let sound, sound.url.lastPathComponent.hasPrefix("story-voice-"), let key = keys[row.id] {
             keys[row.id] = StoryCache.key([key, "device-fallback"])

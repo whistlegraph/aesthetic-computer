@@ -139,6 +139,11 @@ struct WhistlegraphScreen: View {
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
                     .accessibilityHidden(!session.snapshot.hasPreview || narrator.isPlaying)
                 if narrator.isPlaying { StoryWorkspace(player: session.storyPreview) }
+                // The instant a card is selected, its last still stands in until the runtime paints it.
+                if narrator.isPlaying, let current = narrator.currentVersion, session.narratedVersion != current, let poster = exporter.poster(for: current) {
+                    Image(uiImage: poster).resizable().aspectRatio(contentMode: .fill).allowsHitTesting(false).accessibilityHidden(true)
+                        .transition(.opacity)
+                }
                 // The off-screen recorder paints at the preview's size, unseen and untouchable.
                 if narrator.isPlaying, let recorder = exporter.recorderView {
                     StoryRecorderHost(view: recorder).frame(width: previewSize.width, height: previewSize.height).opacity(0.02).allowsHitTesting(false).accessibilityHidden(true)
@@ -288,7 +293,7 @@ struct WhistlegraphScreen: View {
         .onChange(of: showTV) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .tv) }
         .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
         .onChange(of: session.localDataRevision) { _, _ in exporter.cancel(); narrator.stop(); showComposer = false }
-        .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion) }
+        .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion); if narrator.isPlaying { exporter.capturePoster(for: session.narratedVersion, from: session.storyPreview.view) } }
         .onChange(of: exporter.movie?.id) { _, value in if value != nil { narrator.setPaused(true) } }
         .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }
         .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() }; if value == .idle || value == .processing { chalkDrag = 0; held = false } }

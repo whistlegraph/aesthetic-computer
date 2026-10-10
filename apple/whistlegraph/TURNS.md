@@ -129,7 +129,8 @@ Workers are interchangeable, so scaling is replicas, not bigger boxes:
 
 ## Virtualization
 
-The worker ships as one container image: `node:22-slim`, the repo's
+The worker ships as one container image (`lith/whistlegraph-worker.Dockerfile`,
+built from the repo root): `node:22-slim` with Chromium, the repo's
 `aesel/src`, `apple/whistlegraph/Resources/Web` engine modules, and
 `system/public/aesthetic.computer/lib` for the rasterizer. No Chrome in the
 default image; a second tag adds chromium for the fallback pool. Config is
