@@ -602,6 +602,13 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
 // before the account token, and spending it there would retry nothing.
 let launchRetryUsed=false;
 const launchRetryPending=()=>window.__whistlegraphRetryOnLaunch===true&&!launchRetryUsed;
+// Debug installs can also fire one request on launch (WHISTLEGRAPH_AUTO_ASK),
+// once the account and the first paint are in: a hands-free make, for tests.
+let autoAsked=false;
+function autoAskIfDue(){
+  if(autoAsked||typeof window.__whistlegraphAutoAsk!=='string'||!token||!ready||!painted||busy||!versions)return;
+  autoAsked=true;log('Auto ask on launch');void window.whistlegraphAskDrawing(window.__whistlegraphAutoAsk,null);
+}
 function readDraft(){
   try{const draft=JSON.parse(localStorage.getItem(storageKey+'-draft'));if(draft?.source&&typeof draft.request==='string')return draft;}catch{}
   // A failed try from before drafts existed still has its last painted checkpoint in the journal.
@@ -715,7 +722,7 @@ window.whistlegraphEngineEvent=event=>{
     if(pendingCapture?.id===event.captureID)pendingCapture.finish(event.error?Error(event.error):null,event);
     return;
   }
-  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token,event.notice||'',event.retry===true);if(token&&pending)void ask(pending);else void resumeAttempt();}
+  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token,event.notice||'',event.retry===true);if(token&&pending)void ask(pending);else void resumeAttempt();autoAskIfDue();}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.whistlegraphWorkFinished?.();}
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){
@@ -728,7 +735,7 @@ window.whistlegraphEngineEvent=event=>{
       return;
     }
     if(!streamingPreview)activeReceipt?.observe(event.event);
-    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();}
+    if(event.event.kind==='painted'){if(turnStarter&&previewSource===turnStarter&&!starterPainted){starterPainted=true;benchmark('starterPainted');}if(previewSource.trimEnd()!==previous.trimEnd())window.__whistlegraphSequenceEvent?.('painted');painted=true;lastPaintedSource=previewSource;if(busy&&activeAttempt&&source===previewSource&&!turnRuntimeFailed){activeAttempt={...activeAttempt,checkpoint:source};try{saveAttempt(localStorage,storageKey,activeAttempt);}catch(error){log('Could not persist checkpoint: '+error.message);}}feedback={...feedback,rendered:true,updatedAt:new Date().toISOString()};if(!streamingPreview&&activeReceipt&&previewSource.trimEnd()!==previous.trimEnd())activeReceipt.painted();log('Checkpoint painted');phase(busy?'Building…':lastAttempt?.status==='failed'?'Could not finish · previous version restored':'Ready to play');if(narrationPending!==null){post({action:'narrationReady',version:narrationPending});narrationPending=null;}void resumeAttempt();autoAskIfDue();}
     if(event.event.kind==='invalidated'){turnRuntimeFailed=true;window.__whistlegraphSequenceEvent?.('runtimeError',{message:'Preview invalidated'});painted=false;feedback={...feedback,rendered:false,logs:[...(feedback?.logs||[]),{level:'error',text:'Preview invalidated'}],updatedAt:new Date().toISOString()};log('Preview failed; inspect activity');phase('Preview error');if(lastPaintedSource && lastPaintedSource!==previewSource){render(lastPaintedSource);log('Restored last painted checkpoint');}}
     if(event.event.kind==='console'&&['error','warn'].includes(event.event.event?.level)){
       const entry={level:event.event.event.level,text:event.event.event.message||'Runtime error'};

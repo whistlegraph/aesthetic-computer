@@ -5,17 +5,15 @@ import UIKit
 /// app build and version, model, iOS version, and, when signed in, the account
 /// (verified server-side from the bearer token). Each activation counts as an open.
 /// The device id is identifierForVendor, which survives reinstalls while any
-/// computer.aesthetic app remains installed. Debug builds stay silent unless
-/// WHISTLEGRAPH_DEVICE_REPORTS=1, so fixtures and UI tests never register.
+/// computer.aesthetic app remains installed. Fixtures and UI tests never
+/// register; a debug build on a real phone does, like a release build, unless
+/// launched with WHISTLEGRAPH_DEVICE_REPORTS=0.
 @MainActor enum DeviceRegistry {
     enum Event: String { case open, seen, login, logout, push }
 
     /// `push`: an APNs registration dictionary, or NSNull() when notifications were turned off.
     static func report(_ event: Event, account: WhistlegraphAccount?, push: Any? = nil) {
-        #if DEBUG
-        guard ProcessInfo.processInfo.environment["WHISTLEGRAPH_DEVICE_REPORTS"] == "1" else { return }
-        #endif
-        guard let deviceId = UIDevice.current.identifierForVendor?.uuidString else { return }
+        guard reportsAllowed, let deviceId = UIDevice.current.identifierForVendor?.uuidString else { return }
         let info = Bundle.main.infoDictionary ?? [:]
         var body: [String: Any] = [
             "app": "whistlegraph", "deviceId": deviceId, "event": event.rawValue,
@@ -35,6 +33,16 @@ import UIKit
             request.httpBody = try? JSONSerialization.data(withJSONObject: body)
             _ = try? await URLSession.shared.data(for: request) // best effort; the next open retries
         }
+    }
+
+    static var reportsAllowed: Bool {
+        let env = ProcessInfo.processInfo.environment
+        if env["WHISTLEGRAPH_DEVICE_REPORTS"] == "0" || env["WHISTLEGRAPH_DEVICE_REPORTS"] == "1" { return env["WHISTLEGRAPH_DEVICE_REPORTS"] == "1" }
+        #if DEBUG
+        return !NativeScreenFixture.enabled && env["WHISTLEGRAPH_ACCOUNT_ENTRY_TEST"] != "1" && env["WHISTLEGRAPH_NATIVE_SCREEN_FIXTURE"] == nil && env["WALKIE_NATIVE_SCREEN_FIXTURE"] == nil
+        #else
+        return true
+        #endif
     }
 
     /// Hardware identifier such as "iPhone15,3".

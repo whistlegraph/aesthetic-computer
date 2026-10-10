@@ -18,14 +18,8 @@ import UserNotifications
         #endif
     }
 
-    /// Fixtures and UI tests never prompt; Debug opts in like DeviceRegistry.
-    private static var enabled: Bool {
-        #if DEBUG
-        return ProcessInfo.processInfo.environment["WHISTLEGRAPH_DEVICE_REPORTS"] == "1"
-        #else
-        return true
-        #endif
-    }
+    /// Fixtures and UI tests never prompt; a real phone does, like DeviceRegistry.
+    private static var enabled: Bool { DeviceRegistry.reportsAllowed }
 
     /// On every activation: APNs tokens can change, so re-register when allowed;
     /// when the person has turned notifications off, stop targeting this device.

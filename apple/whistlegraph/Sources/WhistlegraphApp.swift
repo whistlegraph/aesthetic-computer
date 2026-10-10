@@ -127,6 +127,10 @@ struct Workspace: UIViewRepresentable {
         config.userContentController.addUserScript(WKUserScript(source: WhistlegraphPreview.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         #if DEBUG
         if NativeScreenFixture.enabled { config.userContentController.addUserScript(WKUserScript(source: NativeScreenFixture.script, injectionTime: .atDocumentStart, forMainFrameOnly: true)) }
+        if let words = ProcessInfo.processInfo.environment["WHISTLEGRAPH_AUTO_ASK"], !words.isEmpty,
+           let data = try? JSONSerialization.data(withJSONObject: [words]), let json = String(data: data, encoding: .utf8) {
+            config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphAutoAsk = \(json)[0];", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         if ProcessInfo.processInfo.environment["WHISTLEGRAPH_RETRY_ON_LAUNCH"] == "1" {
             config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphRetryOnLaunch = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
