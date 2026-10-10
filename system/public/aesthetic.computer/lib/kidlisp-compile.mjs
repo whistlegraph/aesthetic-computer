@@ -18,7 +18,7 @@
 // interpreter as before. Globals live in the interpreter's globalDef so a
 // tap handler the interpreter runs sees the same values.
 
-import { compileKernel, runKernel, instantiateKernelWasm, kernelGPUDevice, createKernelGPU } from "./kidlisp-kernel.mjs";
+import { compileKernel, runKernel, instantiateKernelWasm, instantiateKernelJS, kernelGPUDevice, createKernelGPU } from "./kidlisp-kernel.mjs";
 
 export class CompileError extends Error {}
 
@@ -81,8 +81,14 @@ export function runKernelOnGPU(plan, entry, lisp, api, fromName, toName) {
   return count;
 }
 export function kernelBackend(plan) {
-  if (typeof WebAssembly === "undefined") return null;
-  try { return instantiateKernelWasm(plan); } catch (error) { console.warn("Kernel " + plan.name + " runs in JavaScript: " + (error?.message || error)); return null; }
+  if (typeof WebAssembly !== "undefined") {
+    try { return instantiateKernelWasm(plan); } catch (error) { console.warn("Kernel " + plan.name + " runs in JavaScript: " + (error?.message || error)); }
+  }
+  // Generated source only where the host already runs the piece as a script
+  // it built itself (the native shells, kidlisp/tools/native-tv-script.mjs);
+  // the worker keeps plans as data and never evaluates JavaScript.
+  if (globalThis.KIDLISP_HOST_SOURCE !== true) return null;
+  try { return instantiateKernelJS(plan); } catch (error) { console.warn("Kernel " + plan.name + " runs on the stack runner: " + (error?.message || error)); return null; }
 }
 
 const ARITH = {

@@ -89,3 +89,27 @@ ${PROJECT}
   assert.deepEqual(streams.compiled, streams.interpreted);
   assert.notDeepEqual(streams.compiled[0], [0, 0], 'outputs were written');
 });
+
+test('the emitted JavaScript gives the stack runner\'s numbers, edge values included', async () => {
+  const { instantiateKernelJS } = await import('../system/public/aesthetic.computer/lib/kidlisp-kernel.mjs');
+  const plan = compileKernel(parse(PROJECT)[0]);
+  const stride = 13, values = [0, -0, 1, -1, 2.5, -7.25, 1e-9, 1e9, 0.1];
+  const rows = [];
+  for (const hx of values) for (const hy of values) rows.push([hx, hy, 0.8, 3, 0.9, 0.43, 0.95, 0.31, 160, 195, 218, 0, 0]);
+  const a = new Float64Array(rows.flat()), b = a.slice(), uniforms = rows[0].slice(2, 11);
+  runKernel(plan, a, rows.length);
+  instantiateKernelJS(plan).run(b, rows.length, uniforms);
+  for (let r = 0; r < rows.length; r++) for (const i of [11, 12]) assert.ok(Object.is(a[r * stride + i], b[r * stride + i]), `row ${r} out ${i}: runner ${a[r * stride + i]} js ${b[r * stride + i]}`);
+  const names = kernelOperationNames().filter(n => !['mod', 'mul'].includes(n));
+  for (const name of names) {
+    const arity = {'+': 2, '-': 2, '*': 2, '/': 2, '%': 2, min: 2, max: 2, pow: 2, atan2: 2, hypot: 2, '>': 2, '<': 2, '=': 2, clamp: 3, select: 3}[name] ?? 1;
+    const ins = ['a', 'b', 'c'].slice(0, arity);
+    const p = compileKernel(parse(`(kernel k (in ${ins.join(' ')}) (out o) (set o (${name} ${ins.join(' ')})))`)[0]);
+    const js = instantiateKernelJS(p);
+    for (const vals of [[1.5, -2, 0.5], [-0, 0, 1], [3, 0, 2], [-4.5, 4.5, -1], [0.3, 0.7, 0.2], [0, -0, -0]]) {
+      const r1 = new Float64Array([...vals.slice(0, arity), 0]), r2 = r1.slice();
+      runKernel(p, r1, 1); js.run(r2, 1, []);
+      assert.ok(Object.is(r1[arity], r2[arity]) || (Number.isNaN(r1[arity]) && Number.isNaN(r2[arity])), `${name}(${vals.slice(0, arity)}) runner ${r1[arity]} js ${r2[arity]}`);
+    }
+  }
+});

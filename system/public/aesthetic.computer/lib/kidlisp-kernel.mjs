@@ -19,6 +19,7 @@
 // what makes it safe to lower, and the same plan runs three ways —
 //   JavaScript  runKernel(plan, …)            the reference, no allocation per element
 //   Wasm        instantiateKernelWasm(plan)   one function, a loop over rows in linear memory
+//   JS source   instantiateKernelJS(plan)     one plain loop, for hosts without Wasm
 //   WGSL        emitKernelWGSL(plan)          a compute shader, one invocation per row
 // — so a piece that leans on a kernel is already shaped for the GPU, and a
 // host that has no GPU runs the same numbers on the CPU.
@@ -285,6 +286,59 @@ ${lines.join("\n")}
 ${stores.join("\n")}
 }
 `;
+}
+
+// ---- JavaScript source: the plan as one straight-line function ------------
+// For hosts without Wasm (QuickJS on the console): the same plan the stack
+// runner walks, emitted as a loop of plain arithmetic so the engine runs
+// bytecode instead of a dispatch per instruction. Bit for bit the runner's
+// numbers: + folds from 0 and * from 1 the way the reference apply does.
+export function emitKernelJS(plan) {
+  const nIn = plan.inputs.length, nUni = plan.uniforms.length, nOut = plan.outputs.length, stride = nIn + nUni + nOut;
+  const v = (slot) => `v${slot}`;
+  const literal = (n) => (Number.isNaN(n) ? "NaN" : n === Infinity ? "Infinity" : n === -Infinity ? "(-Infinity)" : Object.is(n, -0) ? "(-0)" : n < 0 ? `(${n})` : String(n));
+  const lines = [], stack = [];
+  for (const ins of plan.code) {
+    if (ins.op === "const") stack.push(literal(decode(ins.value)));
+    else if (ins.op === "load") stack.push(v(ins.slot));
+    else if (ins.op === "store") lines.push(`${v(ins.slot)} = ${stack.pop()};`);
+    else {
+      const o = byId.get(ins.id), a = stack.splice(stack.length - ins.count, ins.count);
+      switch (o.name) {
+        case "+": stack.push(`(0${a.map((x) => ` + ${x}`).join("")})`); break;
+        case "*": stack.push(`(1${a.map((x) => ` * ${x}`).join("")})`); break;
+        case "-": stack.push(a.length === 0 ? "0" : a.length === 1 ? `(-${a[0]})` : `(${a.join(" - ")})`); break;
+        case "/": stack.push(`safeDiv(${a[0]}, ${a[1]})`); break;
+        case "%": stack.push(`safeRem(${a[0]}, ${a[1]})`); break;
+        case "sqrt": stack.push(`safeSqrt(${a[0]})`); break;
+        case "clamp": stack.push(`Math.max(${a[1]}, Math.min(${a[2]}, ${a[0]}))`); break;
+        case ">": case "<": stack.push(`(${a[0]} ${o.name} ${a[1]} ? 1 : 0)`); break;
+        case "=": stack.push(`(${a[0]} === ${a[1]} ? 1 : 0)`); break;
+        case "select": stack.push(`(${a[0]} !== 0 ? ${a[1]} : ${a[2]})`); break;
+        default: stack.push(`Math.${o.name}(${a.join(", ")})`);
+      }
+    }
+  }
+  const loads = [...plan.inputs.map((_, i) => `let ${v(i)} = rows[base + ${i}];`), ...plan.uniforms.map((_, i) => `let ${v(nIn + i)} = uniforms ? uniforms[${i}] : rows[base + ${nIn + i}];`)];
+  const zero = [...plan.outputs, ...plan.locals].map((_, i) => `let ${v(nIn + nUni + i)} = 0;`);
+  const stores = plan.outputs.map((_, i) => `rows[base + ${nIn + nUni + i}] = ${v(nIn + nUni + i)};`);
+  return `// kernel ${plan.name}: kernel-v1, emitted from the same plan the stack runner walks
+const safeDiv = (a, b) => (b === 0 ? 0 : a / b);
+const safeRem = (a, b) => (b === 0 ? 0 : a % b);
+const safeSqrt = (a) => (a >= 0 ? Math.sqrt(a) : 0);
+return function ${plan.name.replace(/\W/g, "_")}(rows, count, uniforms) {
+  for (let row = 0; row < count; row++) {
+    const base = row * ${stride};
+    ${[...loads, ...zero].join("\n    ")}
+    ${lines.join("\n    ")}
+    ${stores.join("\n    ")}
+  }
+};
+`;
+}
+export function instantiateKernelJS(plan) {
+  const fn = new Function(emitKernelJS(plan))();
+  return { kind: "js", run(rows, count, uniforms = null, execution) { execution?.consume(["kernel"], count); fn(rows, count, uniforms); } };
 }
 
 // ---- WebGPU: a compute pass per run, results a frame later ----------------
