@@ -77,7 +77,7 @@ const api = {
   needsPaint() {}, fps() {}, toggleHUD() {}, page() {}, unmask() {}, mask() {}, blend() {},
   inkrn: () => ink.slice(), clock: { time: () => new Date(), resync() {} }, sound: {},
   gpuFrame: { available: true, probe() {}, sent: false, send: (buffer) => drawFrame(buffer) },
-  wipe(...a) { if (typeof a[0] === "number") ink = [a[0], a[1] ?? a[0], a[2] ?? a[0], 255]; },   // the compiled wipe reads the colour back through inkrn
+  wipe(...a) { const c = Array.isArray(a[0]) ? a[0] : a; if (typeof c[0] === "number") ink = [c[0], c[1] ?? c[0], c[2] ?? c[0], 255]; },   // the interpreter passes its arguments as one array; the compiled wipe reads the colour back through inkrn
   line() {}, box() {}, circle() {}, oval() {}, tri() {}, shape() {}, write() {}, plot() {},
   ink(...a) { if (typeof a[0] === "number") ink = [a[0], a[1] ?? a[0], a[2] ?? a[0], a[3] ?? 255]; return api; },
 };
