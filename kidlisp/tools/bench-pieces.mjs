@@ -63,7 +63,7 @@ async function measure(browser, file, [width, height]) {
     samples: fps.length, fpsMedian: sorted[Math.floor(sorted.length / 2)] ?? 0, fpsMin: sorted[0] ?? 0, fpsMax: sorted.at(-1) ?? 0, errors, shot};
 }
 
-const browser = await puppeteer.launch({headless: true, executablePath: CHROME, args: ['--no-sandbox', '--ignore-certificate-errors', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--autoplay-policy=no-user-gesture-required', '--mute-audio']});
+const browser = await puppeteer.launch({headless: true, executablePath: CHROME, args: ['--no-sandbox', '--ignore-certificate-errors', '--enable-unsafe-webgpu', '--enable-features=WebGPU', '--use-angle=metal', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--autoplay-policy=no-user-gesture-required', '--mute-audio']});
 const results = [];
 try {
   for (const file of files) for (const size of SIZES) {

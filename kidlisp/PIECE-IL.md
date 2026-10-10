@@ -234,6 +234,13 @@ The Wasm and JavaScript numbers agree bit for bit on every operation
 as the raytrace backends are. A host without WebAssembly runs the
 JavaScript; a host without a GPU runs the Wasm; the piece does not change.
 
+`(gpu kernel from [to])` is the same map dispatched to the device as a
+compute pass: the results land in the pool on the next frame that calls
+it, one frame late by design, which the source says by using `gpu` and not
+`run`. Without WebGPU, or while the device warms up, `gpu` is `run`. A
+readback costs about a millisecond regardless of size, so `gpu` pays only
+for pools in the thousands; `run` on Wasm is right for a hundred points.
+
 What this is not: the whole program. Control flow over many small
 polygons, the painter's order, the near-plane clipper with its variable
 output stay in the closure compiler. Kernels take the parts that are
