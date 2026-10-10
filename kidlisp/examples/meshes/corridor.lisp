@@ -5,7 +5,9 @@
 ; host projects. The piece never touches a vertex, so a frame is a few
 ; hundred words of work wherever it runs.
 (def NEAR_PLANE 1)
-(mesh brick (cube 60 26 22 170 86 60))
+; a brick is the face you see: the Xbox draws at most 8,192 triangles a frame
+; and does not cull, so a wall of cubes would be dropped past that.
+(mesh brick (face 0 -13 30 0 -13 -30 0 13 -30 0 13 30 170 86 60))
 (mesh mortar (cube 1200 300 10 74 36 26))
 (mesh pillar (cube 70 300 70 120 90 70))
 (mesh floor (cube 1400 4 4000 46 110 52))
@@ -33,7 +35,7 @@
     (now stag (* (% row 2) 32))
     (repeat 60 col
       (now bz (+ (* col 66) stag -40))
-      (place brick wx by bz 1.5708))))
+      (place brick (+ wx (- 11 (* side 22))) by bz (* side 3.1416)))))
 (repeat 8 pi
   (place pillar -520 0 (+ (* pi 520) 300))
   (place pillar 520 0 (+ (* pi 520) 300)))

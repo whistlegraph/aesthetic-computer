@@ -77,7 +77,8 @@ const api = {
   needsPaint() {}, fps() {}, toggleHUD() {}, page() {}, unmask() {}, mask() {}, blend() {},
   inkrn: () => ink.slice(), clock: { time: () => new Date(), resync() {} }, sound: {},
   gpuFrame: { available: true, probe() {}, sent: false, send: (buffer) => drawFrame(buffer) },
-  wipe() {}, line() {}, box() {}, circle() {}, oval() {}, tri() {}, shape() {}, write() {}, plot() {},
+  wipe(...a) { if (typeof a[0] === "number") ink = [a[0], a[1] ?? a[0], a[2] ?? a[0], 255]; },   // the compiled wipe reads the colour back through inkrn
+  line() {}, box() {}, circle() {}, oval() {}, tri() {}, shape() {}, write() {}, plot() {},
   ink(...a) { if (typeof a[0] === "number") ink = [a[0], a[1] ?? a[0], a[2] ?? a[0], a[3] ?? 255]; return api; },
 };
 // The hosts: wipe(r g b) · box(x y w h r g b) · line(x1 y1 x2 y2 width r g b) · triangle(x1 y1 x2 y2 x3 y3 r g b). No alpha, so faint ops are skipped.
