@@ -5706,9 +5706,9 @@ class KidLisp {
         const then = split < 0 ? args.slice(1) : args.slice(1, split);
         const other = split < 0 ? [] : args.slice(split + 1);
         const run = (forms) => { let out; for (const form of forms) out = this.evaluate(form, api, env); return out; };
-        if (evaled) { if (then.length) run(then); }
-        else if (other.length) run(other);
-        return evaled ? 1 : 0;
+        // The value is the branch's last form, so (def v (if ...)) works.
+        if (evaled) return then.length ? run(then) : 1;
+        return other.length ? run(other) : 0;
       },
       once: (api, args, env) => {
         if (!args || args.length < 1) {
@@ -8439,10 +8439,20 @@ class KidLisp {
           const baseEnv = { ...this.localEnv, ...env };
           const prevLocalEnv = this.localEnv;
 
-          // CORE OPTIMIZATION: Pre-analyze expressions for iterator dependency
+          // CORE OPTIMIZATION: Pre-analyze expressions for iterator dependency.
+          // A form that reads a name the body defines is iteration-bound too,
+          // or it would be hoisted before that name exists (fia.lisp, 2026-10-10).
+          // Only a pure form (arithmetic over values) may be hoisted: anything
+          // that draws, spawns, defines, plays or calls a piece function runs
+          // every turn of the loop, whether or not it names the iterator.
+          const PURE = new Set(["+", "-", "*", "/", "%", "mod", "mul", "max", "min", "sin", "cos", "tan", "abs", "sqrt", "floor", "ceil", "round", "exp", "pow", "sign", "atan2", "hypot", "clamp", "width", "height", "w", "h", "frame", "f", "penx", "peny", "down", ">", "<", "=", ">=", "<=", "not"]);
+          const definedInBody = [];
+          const collectDefs = (form) => { if (!Array.isArray(form)) return; if ((form[0] === "def" || form[0] === "now") && typeof form[1] === "string") definedInBody.push(form[1]); form.forEach(collectDefs); };
+          expressions.forEach(collectDefs);
+          const pure = (form) => !Array.isArray(form) || (PURE.has(form[0]) && form.slice(1).every(pure));
           const expressionAnalysis = expressions.map((expr) => {
             const containsIterator = this.containsVariable
-              ? this.containsVariable(expr, iteratorVar)
+              ? !pure(expr) || this.containsVariable(expr, iteratorVar) || definedInBody.some((name) => this.containsVariable(expr, name))
               : true;
             return { expr, containsIterator };
           });
@@ -11098,7 +11108,8 @@ class KidLisp {
                   head === "trans" ||
                   head === "jump" ||
                   head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" ||
-                  head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad"
+                  head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad" ||
+                  (head === "shape" && args.length === 1 && typeof args[0] === "string" && this.pools?.has(args[0]))
                 ) {
                   processedArgs = args;
                 } else {
@@ -11303,12 +11314,6 @@ class KidLisp {
     if (parsed.body) {
       this.localEnvLevel -= 1;
       this.localEnv = this.localEnvStore[this.localEnvLevel] || {};
-      console.log(
-        "🔙 Restored env level:",
-        this.localEnvLevel,
-        "Environment:",
-        this.localEnv,
-      );
     }
 
     // Clear KidLisp context
