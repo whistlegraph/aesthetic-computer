@@ -82,6 +82,7 @@ struct WhistlegraphScreen: View {
     @State private var chalkDrag: CGFloat = 0
     private var chalkReveal: CGFloat { session.performanceCapture ? 1 : min(1, chalkDrag / 80) }
     @State private var showComposer = false
+    @State private var brainShowing = false
     @State private var showTV = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -208,7 +209,7 @@ struct WhistlegraphScreen: View {
                             .accessibilityLabel("Send chalk").accessibilityIdentifier("drawing-send")
                             .disabled(!canTalk || session.capturePhase != .idle)
                     }
-                    BrainButton(session: session) { showComposer = false }
+                    BrainButton(session: session, showing: $brainShowing) { showComposer = false }
                 }.font(.title3).buttonStyle(.plain).frame(minHeight: 44)
                 if drawing.full { Text("Chalk full · send or undo a stroke").font(.caption) }
                 if session.capturePhase == .recording || session.capturePhase == .opening {
@@ -245,7 +246,7 @@ struct WhistlegraphScreen: View {
             if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
-                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }, keepDraft: { session.command("keepDraft") }, discardDraft: { session.command("discardDraft") }, discardAttempt: { session.command("discardAttempt") }) { narrator.select($0, session: session) }
+                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }, keepDraft: { session.command("keepDraft") }, discardDraft: { session.command("discardDraft") }, discardAttempt: { session.command("discardAttempt") }, openBrain: { showComposer = false; session.command("refreshBraincells"); brainShowing = true }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }
         }
         .padding(.horizontal, narrator.isPlaying ? 0 : session.layout.pageInset)
@@ -390,6 +391,8 @@ struct VersionFeed: View {
     var keepDraft: () -> Void = {}
     var discardDraft: () -> Void = {}
     var discardAttempt: () -> Void = {}
+    /// Opens the braincell meter; a try refused for braincells offers it in place of Try again.
+    var openBrain: () -> Void = {}
     @State private var attemptSwipe: CGFloat = 0
     let select: (Int) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -461,8 +464,15 @@ struct VersionFeed: View {
                             Button { ButtonSounds.play(.pop); keepDraft() } label: { Image(systemName: "checkmark").font(.system(size: 20, weight: .bold)).frame(width: 44, height: 44) }
                                 .disabled(disabled).accessibilityLabel("Keep this try").accessibilityIdentifier("draft-keep")
                         }
+                        if attempt.error.hasPrefix("Out of braincells") {
+                            // Trying again would only fail the same way; the brain is where the fix is.
+                            Button { ButtonSounds.play(.pop); openBrain() } label: {
+                                Image(systemName: "brain").font(.system(size: 22, weight: .bold)).foregroundStyle(.red).frame(width: 44, height: 44)
+                            }.accessibilityLabel("Get braincells").accessibilityIdentifier("attempt-brain")
+                        } else {
                         Button { ButtonSounds.play(.press); retry() } label: { Image(systemName: "arrow.clockwise").font(.system(size: 20, weight: .bold)).frame(width: 44, height: 44) }
                             .disabled(disabled).accessibilityLabel("Try again").accessibilityIdentifier("attempt-retry")
+                        }
                     }
                 }.frame(height: rowHeight).padding(.horizontal, 10)
                 .offset(x: attemptSwipe)

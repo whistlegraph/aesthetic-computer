@@ -62,10 +62,10 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onPro
     const settingsFor = repair => generationProfile('', {repair, model: job.model || '', image: !!job.request.drawing});
     let completed = false, error = '', server = null, checkpointAt = 0, renders = 0, lastPainted = null, repairs = 0, feedback = null, lastProof = null, round = 0, progressAt = 0;
     const checks = [], notes = [];
-    let tail = '', phaseNow = 'Waiting for model…', said = '', steps = [];
+    let tail = '', phaseNow = 'Waiting for model…', said = '', steps = [], tool = '';
     const step = text => { if (steps.at(-1)?.text !== text) steps.push({at: new Date().toISOString(), text: String(text).slice(0, 160)}); };
     step('claimed by ' + WORKER);
-    const progress = (phase, {force = false} = {}) => { phaseNow = phase; const now = Date.now(); if (force || now - progressAt > 2500) { progressAt = now; void onProgress({phase, round, streamed: tail.length, tail: tail.slice(-3000), steps: steps.slice(-16), said}); } };
+    const progress = (phase, {force = false} = {}) => { phaseNow = phase; const now = Date.now(); if (force || now - progressAt > 2500) { progressAt = now; void onProgress({phase, round, streamed: tail.length, tail: tail.slice(-3000), tool, steps: steps.slice(-16), said}); } };
     // Every write is painted at once and the result handed back to the model
     // as runtime feedback, as the phone does: the edit contract tells it to
     // inspect ac_preview, and without that it rewrote one piece twelve rounds
@@ -84,17 +84,20 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onPro
     const generate = async (task, repair) => {
       const settings = settingsFor(repair);
       server = new AcServer({cwd, piece: {file, checkpoint: async () => { source = readFileSync(file, 'utf8'); await paint(); const now = Date.now(); if (now - checkpointAt > 5000) { checkpointAt = now; await onCheckpoint(source); } }},
-        token: async () => 'worker', fetch: workerFetch(job.owner, settings), site: SITE, preview: !!pool, frameCapture: false, model: settings.model,
+        // Edits in place, as on the phone: a full rewrite of a big piece is 16k
+        // output tokens a round at five times the input price, and the round
+        // cap cut those off (2026-10-10).
+        token: async () => 'worker', fetch: workerFetch(job.owner, settings), site: SITE, preview: !!pool, frameCapture: false, model: settings.model, layeredEdits: true,
         rounds: settings.rounds, outputContinuations: settings.outputContinuations, reasoning: settings.reasoning, thinking: settings.thinking,
         developerInstructions: GENERATION_INSTRUCTIONS + '\n' + WARE_INSTRUCTIONS});
       server.runtimeFeedback = () => feedback;
       completed = false; error = '';
       let streamed = 0, lastNote = Date.now(), thinking = false, writing = false, saying = '';
-      tail = ''; said = ''; step(repair ? 'repair round started' : 'asked the model (' + settings.model.split('/').pop() + ')'); progress(repair ? 'Repairing…' : 'Waiting for model…', {force: true});
+      tail = ''; said = ''; tool = ''; step(repair ? 'repair round started' : 'asked the model (' + settings.model.split('/').pop() + ')'); progress(repair ? 'Repairing…' : 'Waiting for model…', {force: true});
       server.on('notification', ({method, params}) => {
         if (method === 'turn/completed') { completed = !params.turn.error && params.turn.status === 'completed'; error = params.turn.error ? String(params.turn.error.message || params.turn.error) : ''; }
         if (method === 'item/reasoning/delta') { if (!thinking) { thinking = true; step('thinking'); } progress('Thinking…'); }
-        if (method === 'item/modelCode/delta') { if (!writing) { writing = true; step(repair ? 'rewriting' : 'writing'); } streamed += params.delta?.length || 0; tail = (tail + (params.delta || '')).slice(-6000); progress(repair ? 'Repairing…' : 'Writing…'); if (Date.now() - lastNote > 20000) { lastNote = Date.now(); log('streaming', job.code, streamed, 'chars', repair ? '(repair)' : ''); } }
+        if (method === 'item/modelCode/delta') { if (params.tool && params.tool !== tool) { tool = params.tool; tail = ''; } if (!writing) { writing = true; step(tool === 'edit_piece' ? 'editing in place' : repair ? 'rewriting' : 'writing'); } streamed += params.delta?.length || 0; tail = (tail + (params.delta || '')).slice(-6000); progress(repair ? 'Repairing…' : 'Writing…'); if (Date.now() - lastNote > 20000) { lastNote = Date.now(); log('streaming', job.code, streamed, 'chars', repair ? '(repair)' : ''); } }
         if (method === 'turn/started') round += 1;
         if (method === 'turn/usage') { log('usage', job.code, params.usage?.output_tokens ?? 0, 'output tokens'); step(`round ${round}: ${(params.usage?.output_tokens ?? 0).toLocaleString('en-US')} tokens out`); thinking = false; writing = false; }
         if (method === 'item/started') log('tool', job.code, params.item?.tool || params.item?.type || '?');

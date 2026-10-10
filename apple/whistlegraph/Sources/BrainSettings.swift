@@ -25,6 +25,8 @@ struct InferenceSnapshot: Decodable {
     let models: [Model]
     let braincells: Braincells?
     let braincellsError: String
+    /// The last turn was refused for braincells, or the wallet reads zero.
+    let empty: Bool?
     let usage: Usage?
     struct ThreadCost: Decodable { let usd: Double; let partial: Bool; let estimated: Bool? }
     let threadCost: ThreadCost?
@@ -32,17 +34,27 @@ struct InferenceSnapshot: Decodable {
 
 struct BrainButton: View {
     @ObservedObject var session: WhistlegraphSession
+    @Binding var showing: Bool
     let beforeOpening: () -> Void
-    @State private var showing = false
+    private var empty: Bool { session.snapshot.inference?.empty == true }
     var body: some View {
         Button {
             beforeOpening(); ButtonSounds.play(.pop)
             session.command("refreshBraincells"); showing = true
         } label: {
+            // An empty brain is not a quiet failure: the icon goes red and wears a badge.
             Image(systemName: "brain").font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(empty ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                .overlay(alignment: .bottomTrailing) {
+                    if empty {
+                        Image(systemName: "exclamationmark.circle.fill").font(.system(size: 13, weight: .bold))
+                            .symbolRenderingMode(.palette).foregroundStyle(.white, .red).offset(x: 4, y: 3)
+                    }
+                }
                 .frame(width: 44, height: 44).contentShape(Rectangle())
         }
-        .accessibilityLabel("Braincells").accessibilityIdentifier("brain-settings")
+        .accessibilityLabel("Braincells").accessibilityValue(empty ? "Empty" : "")
+        .accessibilityIdentifier("brain-settings")
         .sheet(isPresented: $showing) { BrainSettings(session: session) }
     }
 }
@@ -59,7 +71,7 @@ struct BrainSettings: View {
                         Label("Sign in for your daily braincells", systemImage: "brain")
                         Button("Sign in") { dismiss(); session.command("signIn") }
                     } else if let balance = session.snapshot.inference?.braincells {
-                        BraincellMeter(balance: balance)
+                        BraincellMeter(balance: balance, empty: session.snapshot.inference?.empty == true)
                     } else if let message = session.snapshot.inference?.braincellsError, !message.isEmpty {
                         Text(message).foregroundStyle(.secondary)
                         Button("Try again") { session.command("refreshBraincells") }
@@ -117,6 +129,7 @@ struct BrainSettings: View {
 
 private struct BraincellMeter: View {
     let balance: InferenceSnapshot.Braincells
+    var empty = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var unlimited: Bool { balance.unlimited == true }
     private var total: Double { balance.remaining + balance.purchased }
@@ -129,8 +142,8 @@ private struct BraincellMeter: View {
         VStack(spacing: 18) {
             HStack(spacing: 16) {
                 Image(systemName: "brain")
-                    .font(.system(size: 42, weight: .medium)).foregroundStyle(.purple)
-                    .padding(14).background(.purple.opacity(0.1), in: Circle())
+                    .font(.system(size: 42, weight: .medium)).foregroundStyle(empty ? .red : .purple)
+                    .padding(14).background((empty ? Color.red : Color.purple).opacity(0.1), in: Circle())
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(unlimited ? "Unlimited" : cells(total))
@@ -143,6 +156,12 @@ private struct BraincellMeter: View {
                 .accessibilityValue(unlimited ? "Unlimited" : cells(total))
                 .accessibilityIdentifier("brain-balance")
             }.frame(maxWidth: .infinity, alignment: .leading)
+            if empty {
+                Label("Empty. Your last request was refused. Add braincells below" + (reset != nil ? ", or wait for the refill." : "."), systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("brain-empty")
+            }
             if !unlimited {
                 VStack(spacing: 8) {
                     HStack {

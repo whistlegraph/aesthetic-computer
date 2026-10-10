@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {paidCheckout,CREDIT_PACK,reservationSize,fulfillCheckout,reserve,settle,settleDurably,reconcileWallet,DAILY_PAID_BRAINCELL_CAP,refundCheckout,braincellRate} from '../backend/easel-paid-credits.mjs';
+import {paidCheckout,CREDIT_PACK,reservationSize,fulfillCheckout,reserve,settle,settleDurably,reconcileWallet,DAILY_PAID_BRAINCELL_CAP,refundCheckout,braincellRate,inputBraincellRate,holdBraincells} from '../backend/easel-paid-credits.mjs';
 import {createHandler} from '../netlify/functions/easel-checkout.mjs';
 const paid={id:'cs_test_123',mode:'payment',payment_status:'paid',status:'complete',livemode:false,amount_total:500,currency:'usd',client_reference_id:'user1',metadata:{type:'ac-credits',pack:CREDIT_PACK.id,userSub:'user1'}};
 test('only a matching, confirmed server offer can grant credit',()=>{
@@ -78,4 +78,15 @@ test('braincells are one currency with model and long-context consumption rates'
  assert.equal(braincellRate('openai/gpt-5.6-luna',300000),2);
  assert.throws(()=>braincellRate('invented'));
  assert.equal(paidCheckout({...paid,metadata:{...paid.metadata,pack:'luna-1m-v1'}}).credits,1_000_000);
+});
+test('a hold prices input as input and only the output allowance as output',()=>{
+ assert.equal(braincellRate('anthropic/claude-sonnet-5.5'),4);
+ assert.equal(inputBraincellRate('anthropic/claude-sonnet-5.5'),0.8);
+ assert.equal(inputBraincellRate('openai/gpt-5.6-luna'),1,'a fixed tariff has no input price');
+ assert.equal(inputBraincellRate('openai/gpt-5.6-luna',300000),2,'long context keeps its consumption rate');
+ const body={system:'s'.repeat(10000),messages:[{role:'user',content:'x'.repeat(25000)}]};
+ const input=reservationSize(body,0);
+ assert.equal(holdBraincells({model:'anthropic/claude-sonnet-5.5',body,maxTokens:16384}),Math.ceil(input*0.8+16384*4));
+ assert.ok(holdBraincells({model:'anthropic/claude-sonnet-5.5',body,maxTokens:16384})<reservationSize(body,16384)*4/2,'well under half the all-as-output hold');
+ assert.equal(holdBraincells({model:'openai/gpt-5.6-luna',body,maxTokens:100}),reservationSize(body,100),'fixed tariff unchanged');
 });

@@ -66,6 +66,12 @@ const signIn=document.createElement('button');signIn.id='connect-ac';signIn.text
 let accountToken='',accountHandle='',accountPalette=[],accountVerification=Promise.resolve();
 let personalAccess=null,turnPersonalAccess=false;
 let turnHandle='',turnModel='',activeModel='',braincells=null,braincellsError='',creditsRequest=0;
+// The wallet as of the last refusal. A refused turn marks the brain empty
+// until the wallet grows past that or a turn goes through, so the icon says
+// so instead of a row that fails quietly each time.
+let braincellsEmptyAt=null;
+function noteBraincells(message){if(/out of braincells/i.test(String(message||'')))braincellsEmptyAt=braincells&&braincells.unlimited!==true?braincells.remaining+braincells.purchased:0;}
+function braincellsEmpty(){return braincellsEmptyAt!==null||(!!braincells&&braincells.unlimited!==true&&braincells.remaining+braincells.purchased<=0);}
 function selectedModel(handle=accountHandle){try{return localStorage.getItem('whistlegraph-model-'+handle)||'';}catch{return '';}}
 function profile(repair=false){return generationProfile(busy?turnHandle:accountHandle,{repair,image:busy&&!!inputData(turnRequest)?.drawing,personalAccess:busy?turnPersonalAccess:hasPersonalAccess(personalAccess),model:busy?turnModel:selectedModel()});}
 async function refreshBraincells(){
@@ -80,13 +86,13 @@ async function refreshBraincells(){
     const value=await response.json();
     if(![value.remaining,value.used,value.limit,value.purchased].every(v=>Number.isFinite(v)&&v>=0))throw Error('Braincells unavailable');
     if(token!==currentToken||request!==creditsRequest)return;
-    braincells=value;braincellsError='';benchmark('braincellsLoaded');
+    braincells=value;braincellsError='';benchmark('braincellsLoaded');if(braincellsEmptyAt!==null&&(value.unlimited===true||value.remaining+value.purchased>braincellsEmptyAt))braincellsEmptyAt=null;
   }catch{if(token!==currentToken||request!==creditsRequest)return;braincells=null;braincellsError='Could not load braincells. Check your connection and tap Refresh.';benchmark('braincellsFailed');}
   nativeSnapshot();
 }
 function inferenceSnapshot(){
   const model=activeModel||profile().model,receipt=activeReceipt?.value||receipts.rows.at(-1)?.receipt;
-  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?(model.startsWith('openai/')?'Personal Codex':'Personal Claude'):'OpenRouter',selection:profile().model,models:modelChoices(accountHandle,{personalAccess:hasPersonalAccess(personalAccess)}),braincells,braincellsError,threadCost:receipts.cost.snapshot(),
+  return {model,label:MODEL_LABELS[model]||model,provider:profile().personalRelay?(model.startsWith('openai/')?'Personal Codex':'Personal Claude'):'OpenRouter',selection:profile().model,models:modelChoices(accountHandle,{personalAccess:hasPersonalAccess(personalAccess)}),braincells,braincellsError,empty:braincellsEmpty(),threadCost:receipts.cost.snapshot(),
     usage:receipt?{inputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.inputTokens||0),0),outputTokens:receipt.rounds.reduce((n,r)=>n+(r.usage?.outputTokens||0),0),rounds:receipt.rounds.length,repairs:receipt.repairs,status:receipt.status,cost:{usd:receipt.rounds.reduce((n,r)=>n+(r.usage?.costUSD||0),0),partial:receipt.rounds.some(r=>r.usage?.costUSD==null && (r.httpStatus==null || r.httpStatus<400)),estimated:receipt.rounds.some(r=>r.usage?.estimated)}}:null};
 }
 function paintHandle(handle,colors=handleCharacterColors('@'+handle)){
@@ -364,7 +370,7 @@ function compileStream() {
 }
 function saved() { try { localStorage.setItem(storageKey,source); } catch {} updateFeed(); }
 function review(show) { $('speak').disabled=busy; $('speak-label').textContent=busy?'Working…':'Hold to talk'; }
-function end() { clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); if(pendingAdopt){const next=pendingAdopt;pendingAdopt=null;adoptLedger(next);} }
+function end() { if(turnSucceeded)braincellsEmptyAt=null; clearTimeout(compileTimer);compileTimer=null; if(provisional && previewSource!==source){render(source||'export function paint({wipe}) {wipe("black");}');provisional='';} busy=false;activeModel='';void refreshBraincells(); updateFeed(); clearInterval(timer); $('live-stop').hidden=true; review(source!==previous); window.whistlegraphWorkFinished?.(); if(pendingAdopt){const next=pendingAdopt;pendingAdopt=null;adoptLedger(next);} }
 let pendingAdopt=null;
 function adoptLedger(ledger){
   try{
@@ -426,7 +432,7 @@ function makeServer({repair=false}={}){
     if(method==='item/completed' && params.item?.status?.startsWith('failed')) {log(params.item.status);benchmark('toolFailed',{message:params.item.status});}
     if(method==='turn/usage'){log('Usage · '+(params.usage.output_tokens??0)+' output tokens');nativeSnapshot();}
     if(method==='turn/completed'){turnSucceeded=!params.turn.error&&params.turn.status==='completed';turnError=inferenceError(params.turn.error)||(params.turn.status==='interrupted'?'Stopped':'');
-      if(params.turn.error){phase('Could not finish');log(turnError);}
+      if(params.turn.error){noteBraincells(params.turn.error?.message);phase('Could not finish');log(turnError);}
       else if(params.turn.status==='interrupted'){phase('Stopped');log('Stopped by you');}
       else {phase(painted?'Checking picture…':source?'Waiting for preview…':'No piece written');log('Model finished');}
     }
@@ -668,6 +674,7 @@ async function submitRemoteTurn({text,displayText,drawing}){
   }catch(error){remoteFailed(error.message||String(error),null);}
 }
 function remoteFailed(message,draft){
+  noteBraincells(message);message=inferenceError({message})||message;
   lastAttempt={...(lastAttempt||{request:''}),status:message==='Stopped'?'interrupted':'failed',error:message,finishedAt:new Date().toISOString()};
   if(activeAttempt)saveAttempt(localStorage,storageKey,{...activeAttempt,status:'failed'});
   if(draft)try{localStorage.setItem(storageKey+'-draft',JSON.stringify({source:draft,request:lastAttempt.request,error:message,parent:versions.head.id,createdAt:new Date().toISOString()}));}catch{}
@@ -686,7 +693,7 @@ async function watchRemoteTurn(job){
       const p=state.progress;
       turnProgress={phase:state.status==='queued'?'Waiting for a worker…':(p?.phase||'Working on the knot…'),round:p?.round||0,worker:state.claimedBy||p?.worker||'',startedAt:state.claimedAt||state.createdAt||'',steps:[{at:state.createdAt||'',text:'queued on the knot'},...(p?.steps||[])].slice(-16),said:p?.said||''};
       if(state.status==='queued')phase('Waiting for a worker…');
-      else if(p?.phase){phase(p.phase+(p.round>1?' · round '+p.round:''));if(p.tail){outputStream=streamedCode(p.tail,'write_piece').slice(-6000);$('live-code').textContent=outputStream;$('live-details').open=true;}}
+      else if(p?.phase){phase(p.phase+(p.round>1?' · round '+p.round:''));if(p.tail){outputStream=streamedCode(p.tail,p.tool||'write_piece').slice(-6000);$('live-code').textContent=outputStream;$('live-details').open=true;}}
       nativeSnapshot();
       if(Date.now()-startedAt>15*60000){remoteFailed('The knot did not finish in fifteen minutes. Try again.',state.checkpoint||null);return;}
       continue;

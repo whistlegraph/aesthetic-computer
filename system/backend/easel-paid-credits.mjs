@@ -171,12 +171,26 @@ export function braincellRate(model,inputBound=0){
  return base;
 }
 export const OUT_OF_BRAINCELLS='Out of braincells — buy more from the braincell meter in Aesel, or switch provider with /provider. Free braincells reset at midnight UTC.';
-// Hold the worst case this request could cost: its input and its whole output
-// allowance at the model's rate, so a larger max_tokens holds more.
+// Input priced as input. The consumption rate prices every token as output,
+// which is right for the no-cost fallback but holds five times too much for
+// the input of a long piece: a 25,000-character piece needed a 400,000
+// braincell hold for a call that cost 90,000, and a wallet with 386,000 left
+// was refused as empty (2026-10-10). Models with a fixed tariff have no split.
+export function inputBraincellRate(model,inputBound=0){
+ const price=OPEN_PRICES[model];
+ if(!price||braincellRate(model,inputBound)!==BRAINCELL_RATES[model])return braincellRate(model,inputBound);
+ return Math.ceil(price[0]*INFERENCE_MARKUP*BRAINCELLS_PER_USD/1e4)/100;
+}
+// The most this request can cost: its input at the input rate, its whole
+// output allowance at the output rate, so a larger max_tokens holds more.
+export function holdBraincells({model,body,maxTokens}) {
+  const inputBound=reservationSize(body,0);
+  return Math.ceil(inputBound*inputBraincellRate(model,inputBound)+maxTokens*braincellRate(model,inputBound));
+}
 export async function authorizePaidRequest({user,model,body,maxTokens,now=new Date(),withWallets:using=withWallets}) {
   const inputBound=reservationSize(body,0);
   const rate=braincellRate(model,inputBound);
-  const amount=Math.ceil(reservationSize(body,maxTokens)*rate);
+  const amount=holdBraincells({model,body,maxTokens});
   return using(async wallets=>{
     const prior=await wallets.findOne({_id:user});
     await reconcileWallet(prior,wallets,{now});

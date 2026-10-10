@@ -93,7 +93,7 @@ export function mongoTurnQueue(collection, {now = () => new Date()} = {}) {
       const update = {$set: {heartbeatAt: now().toISOString()}};
       if (typeof checkpoint === 'string') update.$set.checkpoint = checkpoint;
       // What the phone shows while it waits: the phase, the round, the tail of the code being written.
-      if (progress && typeof progress === 'object') update.$set.progress = {phase: String(progress.phase || '').slice(0, 80), round: Number(progress.round) || 0, streamed: Number(progress.streamed) || 0, tail: String(progress.tail || '').slice(-3000),
+      if (progress && typeof progress === 'object') update.$set.progress = {phase: String(progress.phase || '').slice(0, 80), round: Number(progress.round) || 0, streamed: Number(progress.streamed) || 0, tail: String(progress.tail || '').slice(-3000), tool: String(progress.tool || '').slice(0, 32),
         steps: (Array.isArray(progress.steps) ? progress.steps : []).slice(-16).map(s => ({at: String(s.at || ''), text: String(s.text || '').slice(0, 160)})),
         said: String(progress.said || '').slice(0, 280), worker, at: now().toISOString()};
       const row = await collection.findOneAndUpdate({_id: id, status: 'running', claimedBy: worker}, update, {returnDocument: 'after'});
