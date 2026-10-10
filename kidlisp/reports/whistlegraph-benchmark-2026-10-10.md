@@ -108,3 +108,15 @@ Same bundle, same pieces, run by the native bios lifecycle (PIECE-IL.md §10).
 
 The Mac shell re-signed without the JIT entitlement ran the same script at
 130 to 230 ms a frame: the entitlement is the difference, not the engine.
+
+## The Xbox, end of night (PIECE-IL.md §10.1)
+
+| per frame on the Xbox | first run, full density | emitted as source, half density |
+|---|---|---|
+| shooter | 1,200 ms | 579 ms |
+| Fía | 1,010 ms | 178 ms |
+| starfield | 645 ms | 124 ms |
+
+Parity: all three pieces draw correctly after a stale post shader was
+reset, boxes went to the triangle layer, and coordinates were clamped to
+the host's range. `node xbox/tools/kidlisp-bench.mjs` reproduces the table.

@@ -319,3 +319,56 @@ vignette; and the shooter's 7,100 filled triangles are counted but not
 seen, where the Mac shell draws them (the host's `triangle` puts every
 vertex at z = 0 under a depth buffer). Both are host-side questions for
 the C++ lane, not evaluator faults.
+
+### 10.1 Later the same night: parity, and the program as source
+
+Three host-side faults explained every missing pixel on the Xbox, none of
+them in the evaluator. A live post shader from an earlier session was
+still applied (`node xbox/tools/live.mjs shader-reset`); the host draws
+its box layer over the GPU triangles, so a filled box larger than a dot is
+now two triangles in the shim; and the host refuses any coordinate beyond
+±32768 with an exception that drops the rest of the frame, so the shim
+clamps (a projected vertex can be far off screen). With those, all three
+pieces draw on the console as they draw in the browser and in the Mac
+shell.
+
+For speed inside the engine, the plan is now emitted as text
+(`lib/kidlisp-emit.mjs`): the closure compiler's scopes, slots and guards,
+written out as one JavaScript function with locals, so QuickJS runs
+bytecode instead of a call per node. It is a trusted-host step: the
+native script tool emits each piece on the Mac and embeds the result; the
+worker never evaluates generated source (`KIDLISP_HOST_SOURCE` gates the
+kernel's JS backend the same way). `node kidlisp/tools/check-emit.mjs
+piece.lisp` runs the emitted program against the closure compiler with
+the evaluator's random seeded and compares the frame buffers number for
+number: all three pieces are the same over 20 frames. Kernels get the
+same treatment (`instantiateKernelJS`), which took the starfield from 645
+to 163 ms a frame on the Xbox before the program emitter.
+
+Dynamic resolution is in the shim (`density`, auto by default: the piece's
+screen is a fraction of the host's and draws are scaled up, moving toward a
+16 ms frame, floor one quarter). It helps a piece whose work scales with
+the screen (Fía's star count follows width; its frame fell from 1,010 to
+250 ms at a quarter) and does nothing for one whose work is per record
+(the shooter clips and projects 3,500 quads a frame at any size).
+
+`node xbox/tools/kidlisp-bench.mjs [seconds] [density|auto]` builds,
+publishes, waits, screenshots each piece through the Device Portal and
+tabulates the telemetry.
+
+Measured on the Xbox at the end of the night, half density, the program
+emitted as source, next to where the evening started:
+
+| per frame on the Xbox | first run, full density | emitted, half density |
+|---|---|---|
+| shooter | 1,200 ms | 579 ms |
+| Fía | 1,010 ms | 178 ms |
+| starfield | 645 ms | 124 ms |
+
+Two to six times faster, and still two to eight frames a second. The
+shooter's profile is its own polygon clipper: four camera calls, four
+spawns and a clip per quad, 3,500 quads a frame, which no interpreter
+without a JIT does in 16 ms. The paths to 60 on the console are the ones
+§10 names: the piece compiled to C into the native bios package, or, for
+a 3D piece, the host's own meshes (`meshUpload`, `meshDraw`,
+`triangle3d`) so the projection leaves JavaScript altogether.
