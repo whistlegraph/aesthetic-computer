@@ -88,11 +88,13 @@ export function mongoTurnQueue(collection, {now = () => new Date()} = {}) {
       if (lapsed) return lapsed;
       return collection.findOneAndUpdate({status: 'queued', threadID: {$nin: running}}, {$set: set, $inc: {attempts: 1}}, {sort: {createdAt: 1}, returnDocument: 'after'});
     },
+    // Returns false when the lease is gone, or 'cancel' when the owner asked for the turn to stop.
     async heartbeat(id, worker, checkpoint) {
       const update = {$set: {heartbeatAt: now().toISOString()}};
       if (typeof checkpoint === 'string') update.$set.checkpoint = checkpoint;
-      const result = await collection.updateOne({_id: id, status: 'running', claimedBy: worker}, update);
-      return result.modifiedCount === 1;
+      const row = await collection.findOneAndUpdate({_id: id, status: 'running', claimedBy: worker}, update, {returnDocument: 'after'});
+      if (!row) return false;
+      return row.cancelRequested ? 'cancel' : true;
     },
     // Only the worker holding the lease can finish a job; a late worker's result is dropped.
     async complete(id, worker, result) {
@@ -104,10 +106,13 @@ export function mongoTurnQueue(collection, {now = () => new Date()} = {}) {
       return r.modifiedCount === 1;
     },
     async read(owner, id) { return collection.findOne({_id: id, owner}); },
-    // A waiting turn can be taken back; a running one finishes (its lease holder decides).
+    // A waiting turn is taken back at once; a running one is asked to stop and
+    // its worker ends it at the next heartbeat (within 30 s), keeping any draft.
     async cancel(owner, id) {
       const r = await collection.updateOne({_id: id, owner, status: 'queued'}, {$set: {status: 'failed', finishedAt: now().toISOString(), result: {error: 'Cancelled', draft: null}}});
-      return r.modifiedCount === 1;
+      if (r.modifiedCount === 1) return true;
+      const running = await collection.updateOne({_id: id, owner, status: 'running'}, {$set: {cancelRequested: true}});
+      return running.modifiedCount === 1;
     },
     async listOpen(owner, threadID) { return collection.find({owner, threadID, status: {$in: ['queued','running']}}).sort({createdAt: 1}).toArray(); },
     async recent(owner, limit = 20) { return collection.find({owner}).sort({createdAt: -1}).limit(Math.min(100, Math.max(1, limit))).toArray(); },

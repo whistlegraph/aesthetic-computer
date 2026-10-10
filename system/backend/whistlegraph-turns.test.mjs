@@ -58,7 +58,7 @@ test('claims go oldest first, one running turn per thread, and a quiet lease is 
   assert.equal((await q.claim('w1'))._id, a._id, 'oldest first');
   assert.equal((await q.claim('w2'))._id, other._id, 'the same thread is skipped while a turn runs on it, so bob goes next');
   assert.equal(await q.claim('w3'), null, 'alice\'s second turn waits for her first');
-  assert.ok(await q.heartbeat(a._id, 'w1', 'export function paint(){}'));
+  assert.equal(await q.heartbeat(a._id, 'w1', 'export function paint(){}'), true);
   assert.equal(!(await q.heartbeat(a._id, 'w9')), true, 'only the lease holder heartbeats');
   t += LEASE_MS + 1;
   assert.equal((await q.claim('w3'))._id, a._id, 'w1 went quiet; w3 takes the job over');
@@ -86,5 +86,9 @@ test('the same request is one row, and a person cannot stack more than the cap',
   assert.equal(await q.cancel('bob', first._id), false, 'only the owner cancels');
   assert.ok(await q.cancel('alice', first._id));
   assert.equal(await q.cancel('alice', first._id), false, 'a cancelled turn is not waiting');
+  const running = await q.claim('w5');
+  assert.equal(running.status, 'running');
+  assert.ok(await q.cancel('alice', running._id), 'a running turn is asked to stop');
+  assert.equal(await q.heartbeat(running._id, 'w5'), 'cancel', 'its worker hears the request at the next heartbeat');
   await q.enqueue('alice', thread('t1', 'wgFeeda'), validateTurnRequest({...good, text: 'room again'}));
 });

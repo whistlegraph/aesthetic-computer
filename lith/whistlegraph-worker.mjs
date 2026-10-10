@@ -163,12 +163,17 @@ export async function commitVersion(store, job, thread, source, notes, {acceptan
 }
 
 async function work(queue, store, job, pool) {
-  let beat = setInterval(() => queue.heartbeat(job._id, WORKER).catch(() => {}), HEARTBEAT_MS);
+  const controller = new AbortController();
+  const beat = async (checkpoint) => {
+    try { const answer = await queue.heartbeat(job._id, WORKER, checkpoint); if (answer === 'cancel' && !controller.signal.aborted) { log('stop requested', job.code); controller.abort(); } }
+    catch {}
+  };
+  const timer = setInterval(() => void beat(), HEARTBEAT_MS);
   const started = Date.now();
   try {
     const thread = await store.read(job.owner, job.code);
     if (!thread) throw Object.assign(Error('Thread unavailable'), {code: 'moved'});
-    const turn = await runTurn({job, thread, pool, onCheckpoint: source => queue.heartbeat(job._id, WORKER, source), log});
+    const turn = await runTurn({job, thread, pool, onCheckpoint: source => beat(source), log, signal: controller.signal});
     const fresh = await store.read(job.owner, job.code);
     const result = await commitVersion(store, job, fresh, turn.source, [...turn.findings.map(f => f.code), ...turn.notes], {acceptance: turn.acceptance, checks: turn.checks});
     await queue.complete(job._id, WORKER, {...result, repairs: turn.repairs, elapsedMs: Date.now() - started});
@@ -181,9 +186,10 @@ async function work(queue, store, job, pool) {
     } catch (error) { log('could not tell lith', job.code, error.message); }
   } catch (error) {
     const draft = error.draft || job.checkpoint || null;
-    await queue.fail(job._id, WORKER, error.message, {draft});
-    log('failed', job.code, error.message);
-  } finally { clearInterval(beat); }
+    const message = controller.signal.aborted ? 'Stopped' : error.message;
+    await queue.fail(job._id, WORKER, message, {draft});
+    log('failed', job.code, message);
+  } finally { clearInterval(timer); }
 }
 
 export async function main() {

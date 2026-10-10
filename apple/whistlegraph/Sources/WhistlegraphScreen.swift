@@ -239,7 +239,7 @@ struct WhistlegraphScreen: View {
             if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
-                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }, keepDraft: { session.command("keepDraft") }, discardDraft: { session.command("discardDraft") }) { narrator.select($0, session: session) }
+                VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }, keepDraft: { session.command("keepDraft") }, discardDraft: { session.command("discardDraft") }, discardAttempt: { session.command("discardAttempt") }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }
         }
         .padding(.horizontal, narrator.isPlaying ? 0 : session.layout.pageInset)
@@ -383,9 +383,16 @@ struct VersionFeed: View {
     let retry: () -> Void
     var keepDraft: () -> Void = {}
     var discardDraft: () -> Void = {}
+    var discardAttempt: () -> Void = {}
+    @State private var attemptSwipe: CGFloat = 0
     let select: (Int) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var focusedVersion: Int?
+    /// The first clause of a failure, short enough to ride on the request's line.
+    static func shortReason(_ error: String) -> String {
+        let head = error.split(whereSeparator: { ":;.".contains($0) }).first.map(String.init) ?? error
+        return String(head.trimmingCharacters(in: .whitespaces).prefix(40))
+    }
     private var rowHeight: CGFloat { max(56, textSize + 28) }
     var body: some View {
         GeometryReader { geometry in
@@ -432,28 +439,37 @@ struct VersionFeed: View {
                     } else if snapshot.busy, let output = snapshot.output, !output.isEmpty {
                         CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"))
                     } else {
-                    VStack(alignment: .trailing, spacing: 0) {
-                        Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
-                            .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
-                            .lineLimit(1).truncationMode(.tail)
-                        // Why it stopped, in the row it belongs to: no separate status line.
-                        if ["failed", "interrupted"].contains(attempt.status), !attempt.error.isEmpty {
-                            Text(attempt.error).font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.58), relativeTo: .footnote))
-                                .opacity(0.72).lineLimit(1).truncationMode(.tail).accessibilityIdentifier("attempt-error")
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .trailing)
+                    // One line: the words, and why it stopped as a dimmed tail on the same line.
+                    (Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
+                        + Text(["failed", "interrupted"].contains(attempt.status) && !attempt.error.isEmpty ? " · " + Self.shortReason(attempt.error) : "").foregroundColor(foreground.opacity(0.6)))
+                        .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+                        .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityValue(attempt.error)
                     }
                     if snapshot.busy {
                         Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
                     } else if attempt.status == "interrupted" || attempt.status == "failed" {
                         if snapshot.draft != nil {
                             // The try painted; only its checks said no. The work is the user's to keep.
-                            Button("Keep") { ButtonSounds.play(.pop); keepDraft() }.disabled(disabled).accessibilityIdentifier("draft-keep")
-                            Button("Discard") { ButtonSounds.play(.tick); discardDraft() }.disabled(disabled).accessibilityIdentifier("draft-discard")
+                            Button { ButtonSounds.play(.pop); keepDraft() } label: { Image(systemName: "checkmark").font(.system(size: 20, weight: .bold)).frame(width: 44, height: 44) }
+                                .disabled(disabled).accessibilityLabel("Keep this try").accessibilityIdentifier("draft-keep")
                         }
-                        Button("Try again") { ButtonSounds.play(.press); retry() }.disabled(disabled)
+                        Button { ButtonSounds.play(.press); retry() } label: { Image(systemName: "arrow.clockwise").font(.system(size: 20, weight: .bold)).frame(width: 44, height: 44) }
+                            .disabled(disabled).accessibilityLabel("Try again").accessibilityIdentifier("attempt-retry")
                     }
                 }.frame(height: rowHeight).padding(.horizontal, 10)
+                .offset(x: attemptSwipe)
+                .background(alignment: .trailing) {
+                    if attemptSwipe < -20 { Image(systemName: "trash").font(.system(size: 20, weight: .bold)).frame(width: 44, height: rowHeight).opacity(min(1, Double(-attemptSwipe) / 80)) }
+                }
+                // Swipe a failed or stopped try off to the left to discard it (the draft goes with it).
+                .gesture(["failed", "interrupted"].contains(attempt.status) && !snapshot.busy ? DragGesture(minimumDistance: 16)
+                    .onChanged { value in attemptSwipe = min(0, value.translation.width) }
+                    .onEnded { value in
+                        if value.translation.width < -80 { ButtonSounds.play(.tick); discardAttempt() }
+                        withAnimation(.easeOut(duration: 0.2)) { attemptSwipe = 0 }
+                    } : nil)
+                .accessibilityAction(named: Text("Discard this try")) { discardAttempt() }
             }
         }
         .scrollDisabled(disabled || holdSelection)

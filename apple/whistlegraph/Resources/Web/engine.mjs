@@ -208,6 +208,7 @@ window.whistlegraphNativeCommand=command=>{
   if(command.action==='endPresentation'){presentedVersion=null;narrationPending=null;}
   if(command.action==='keepDraft'&&!busy)void keepDraft();
   if(command.action==='discardDraft'){localStorage.removeItem(storageKey+'-draft');log('Draft discarded');nativeSnapshot();}
+  if(command.action==='discardAttempt'&&!busy&&!remoteJob){for(const k of ['-inflight','-attempt','-draft'])localStorage.removeItem(storageKey+k);lastAttempt=null;activeAttempt=null;log('Try discarded');updateFeed();threadUpdate();nativeSnapshot();}
   if(command.action==='newPiece'&&!busy){const result=window.whistlegraphNewPiece?.();if(result?.accepted===false)return result;}
   if(command.action==='openPiece'&&!busy&&typeof command.piece==='string'){const result=window.whistlegraphOpenPiece?.(command.piece);if(result?.accepted===false)return result;}
   if(command.action==='deletePiece'&&typeof command.piece==='string'){const result=window.whistlegraphDeletePiece?.(command.piece);if(result?.accepted===false)return result;}

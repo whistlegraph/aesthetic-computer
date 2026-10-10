@@ -325,7 +325,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, ware: String? = nil, onAccepted: (() -> Void)? = nil) {
-        guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) else { return }
+        guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "discardAttempt", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) else { return }
         if ["setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
         }
