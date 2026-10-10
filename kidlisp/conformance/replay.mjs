@@ -5,7 +5,7 @@ import { KidLisp } from "../../system/public/aesthetic.computer/lib/kidlisp.mjs"
 import { KidLispExecution, KidLispExecutionError } from "../../system/public/aesthetic.computer/lib/kidlisp-execution.mjs";
 import { numericOperationNames } from "../../system/public/aesthetic.computer/lib/kidlisp-ops.mjs";
 
-const heads = new Set([...numericOperationNames(), "wipe", "ink", "line", "box", "circle", "point", "write", "clock", "random", "?", "repeat", "def", "tap", "draw", "lift", "if", "once", "frame", "width", "height", "w", "h", "no", "yes", "=", ">", "<", "..."]);
+const heads = new Set([...numericOperationNames(), "abs", "sqrt", "tan", "exp", "sign", "pow", "atan2", "hypot", "clamp", "pool", "spawn", "each", "kill", "alive", "empty", "rank", "shape", "key", "pad", "wipe", "ink", "line", "box", "circle", "point", "write", "clock", "random", "?", "repeat", "def", "tap", "draw", "lift", "if", "once", "frame", "width", "height", "w", "h", "no", "yes", "=", ">", "<", "..."]);
 const traceValue = value => {
   if (typeof value === "number") {
     if (Number.isNaN(value)) return { $number: "NaN" };

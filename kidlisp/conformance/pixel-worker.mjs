@@ -7,7 +7,7 @@ import { cssColors } from "../../system/public/aesthetic.computer/lib/num.mjs";
 import * as graph from "../../system/public/aesthetic.computer/lib/graph.mjs";
 import { validateReplayForms } from "./replay.mjs";
 
-const operations = new Set([...numericOperationNames(), "wipe", "ink", "line", "box", "circle", "point", "clock", "random", "?", "repeat", "def", "tap", "draw", "lift", "if", "once", "frame", "width", "height", "w", "h", "no", "yes", "=", ">", "<", "...", "fill", "outline"]);
+const operations = new Set([...numericOperationNames(), "abs", "sqrt", "tan", "exp", "sign", "pow", "atan2", "hypot", "clamp", "pool", "spawn", "each", "kill", "alive", "empty", "rank", "shape", "key", "pad", "wipe", "ink", "line", "box", "circle", "point", "clock", "random", "?", "repeat", "def", "tap", "draw", "lift", "if", "once", "frame", "width", "height", "w", "h", "no", "yes", "=", ">", "<", "...", "fill", "outline"]);
 const fail = message => { throw new KidLispExecutionError("PIXEL_CAPABILITY", message); };
 const diagnostics = [];
 // The evaluator catches some failures. A warning/error must still fail the run.
@@ -25,6 +25,12 @@ function run(fixture) {
     if (!Array.isArray(form)) return;
     if (form[0] === "def" && typeof form[1] === "string") values.add(form[1]);
     if (form[0] === "repeat" && form.length >= 4 && typeof form[2] === "string") values.add(form[2]);
+    // A pool's name and fields are values inside each; `else` splits an if; `slot` is bound by each.
+    if (form[0] === "pool") { form.slice(1).forEach(v => typeof v === "string" && values.add(v)); values.add("slot"); }
+    if ((form[0] === "spawn" || form[0] === "each" || form[0] === "alive" || form[0] === "empty" || form[0] === "rank" || form[0] === "shape") && typeof form[1] === "string") values.add(form[1]);
+    if (form[0] === "spawn") form.slice(2).forEach(setting => Array.isArray(setting) && typeof setting[0] === "string" && values.add(setting[0]));
+    if (form[0] === "if" && form.includes("else")) values.add("else");
+    if ((form[0] === "key" || form[0] === "pad") && typeof form[1] === "string") values.add(form[1]);
     form.forEach(bindings);
   };
   ast.forEach(bindings);

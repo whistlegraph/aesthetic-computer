@@ -57,6 +57,10 @@ const KIDLISP_FUNCTIONS = new Set([
   // Core drawing
   "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed", "tape",
   "tri", "plot", "shape", "lines", "rect", "ellipse", "arc", "curve", "bezier",
+  // Arithmetic
+  "abs", "sqrt", "tan", "exp", "sign", "pow", "atan2", "hypot", "clamp",
+  // Pools, hums, console input (kidlisp/PIECE-IL.md)
+  "pool", "spawn", "each", "kill", "alive", "empty", "rank", "hum", "tune", "hush", "key", "pad", "else",
   // Output
   "print", "debug", "log", "console",
   // Math
@@ -1249,11 +1253,19 @@ class KidLisp {
     this.globalDef.down = 0; // 1 while pressed
     this.globalDef.penx = 0; // where the hand is
     this.globalDef.peny = 0;
+    // Pools, hums, keys and the pad (kidlisp/PIECE-IL.md): bounded records,
+    // sustained voices, and input a console has, read on the frame.
+    this.pools = new Map();
+    this.hums = new Map();
+    this.killing = false;
+    this.keysDown = new Set();
+    this.padState = {};
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
     this.tapper = null;
+    this.hushAll();
     this.drawer = null;
     this.lifter = null;
     this.frameCount = 0; // Frame counter for timing functions
@@ -2137,6 +2149,13 @@ class KidLisp {
     this.globalDef.down = 0; // 1 while pressed
     this.globalDef.penx = 0; // where the hand is
     this.globalDef.peny = 0;
+    // Pools, hums, keys and the pad (kidlisp/PIECE-IL.md): bounded records,
+    // sustained voices, and input a console has, read on the frame.
+    this.pools = new Map();
+    this.hums = new Map();
+    this.killing = false;
+    this.keysDown = new Set();
+    this.padState = {};
 
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
@@ -4628,6 +4647,19 @@ class KidLisp {
           if (this.lifter)
             withKidlispConsoleCapture(() => this.evaluate(this.lifter, api));
         }
+        // Keys and the pad are state read on the frame by `key` and `pad`,
+        // never callbacks: a plan can carry a boolean, not a closure.
+        if (e.is("keyboard:down") || e.is("keyboard:up")) {
+          const k = String(e.key ?? e.name?.split(":")[2] ?? "").toLowerCase();
+          const name = k === " " ? "space" : k;
+          if (e.is("keyboard:down")) this.keysDown.add(name); else this.keysDown.delete(name);
+          api.needsPaint();
+        }
+        if (e.is("gamepad")) {
+          if (typeof e.axis === "number") this.padState[["leftx", "lefty", "rightx", "righty"][e.axis] || "axis" + e.axis] = Number(e.value) || 0;
+          if (typeof e.button === "number") this.padState[({0: "a", 1: "b", 2: "x", 3: "y", 4: "lb", 5: "rb", 6: "lt", 7: "rt", 8: "back", 9: "start", 10: "ls", 11: "rs", 12: "up", 13: "down", 14: "left", 15: "right"})[e.button] || "button" + e.button] = e.action === "push" ? 1 : 0;
+          api.needsPaint();
+        }
 
         // Check for center tap to hide UI (only if no custom tap/draw handlers)
         if (e.is("touch")) {
@@ -4724,7 +4756,7 @@ class KidLisp {
         }
         this.richFlow?.receive(message, api);
       },
-      leave: () => this.richFlow?.stop(),
+      leave: () => { this.hushAll(); this.richFlow?.stop(); },
     };
   }
 
@@ -5249,6 +5281,13 @@ class KidLisp {
   // Register + start a melody. Shared by the `melody` and `clock` builtins
   // (the latter delegates here when given a string arg — "nice synergy" with
   // the clock piece). Returns the melody string (def-like: re-runs are no-ops).
+  // Stop every sustained voice. Leaving a piece, or reloading it, must not
+  // leave a tone humming.
+  hushAll() {
+    for (const handle of this.hums?.values?.() || []) { try { handle.kill?.(0.05); } catch {} }
+    this.hums?.clear?.();
+  }
+
   runMelody(api, args = []) {
     if (args.length === 0) return;
 
@@ -5661,9 +5700,15 @@ class KidLisp {
           console.error("❗ Invalid `if`. Wrong number of arguments.");
           return false;
         }
-        // No `else`: every form after the condition is body.
+        // (if test then... else other...): the bare word `else` splits the body.
+        const split = args.indexOf("else");
         const evaled = this.evaluate(args[0], api, env);
-        if (evaled && args.length > 1) this.evaluate(args.slice(1), api, env);
+        const then = split < 0 ? args.slice(1) : args.slice(1, split);
+        const other = split < 0 ? [] : args.slice(split + 1);
+        const run = (forms) => { let out; for (const form of forms) out = this.evaluate(form, api, env); return out; };
+        if (evaled) { if (then.length) run(then); }
+        else if (other.length) run(other);
+        return evaled ? 1 : 0;
       },
       once: (api, args, env) => {
         if (!args || args.length < 1) {
@@ -5814,6 +5859,129 @@ class KidLisp {
       floor: (_api, [value = 0]) => typeof value === "number" ? Math.floor(value) : 0,
       ceil: (_api, [value = 0]) => typeof value === "number" ? Math.ceil(value) : 0,
       round: (_api, [value = 0]) => typeof value === "number" ? Math.round(value) : 0,
+      // The rest of the arithmetic Whistlegraph pieces lean on (piece census
+      // 2026-10-10: abs 34%, hypot 13%, exp, pow, atan2, sqrt). Pure, so they
+      // take evaluated numbers; anything else reads as 0.
+      abs: (_api, [value = 0]) => typeof value === "number" ? Math.abs(value) : 0,
+      sqrt: (_api, [value = 0]) => typeof value === "number" && value >= 0 ? Math.sqrt(value) : 0,
+      tan: (_api, [value = 0]) => typeof value === "number" ? Math.tan(value) : 0,
+      exp: (_api, [value = 0]) => typeof value === "number" ? Math.exp(value) : 0,
+      sign: (_api, [value = 0]) => typeof value === "number" ? Math.sign(value) : 0,
+      pow: (_api, [base = 0, power = 1]) => typeof base === "number" && typeof power === "number" ? Math.pow(base, power) : 0,
+      atan2: (_api, [y = 0, x = 0]) => typeof y === "number" && typeof x === "number" ? Math.atan2(y, x) : 0,
+      hypot: (_api, args = []) => Math.hypot(...args.map(v => typeof v === "number" ? v : 0)),
+      clamp: (_api, [value = 0, lo = 0, hi = 1]) => typeof value === "number" ? Math.max(lo, Math.min(hi, value)) : 0,
+      // 🫙 Pools: fixed-capacity records (kidlisp/PIECE-IL.md §3.1). Spawn
+      // fills a free slot, or the oldest when full; each binds the fields as
+      // locals for the body, writes numbers back, and `kill` frees the slot.
+      pool: (api, args = [], env) => {
+        const name = unquoteString(String(args[0] ?? ""));
+        if (!name) return 0;
+        if (this.pools.has(name)) return this.pools.get(name).count;
+        const cap = Math.max(1, Math.min(4096, Math.floor(numArg(api, env, args[1], 16))));
+        const fields = args.slice(2).map((f) => unquoteString(String(f))).filter(Boolean);
+        this.pools.set(name, { name, cap, fields, data: new Float64Array(cap * Math.max(1, fields.length)), alive: new Uint8Array(cap), born: new Uint32Array(cap), count: 0, serial: 0 });
+        return 0;
+      },
+      spawn: (api, args = [], env) => {
+        const pool = this.pools.get(unquoteString(String(args[0] ?? "")));
+        if (!pool) return -1;
+        let slot = -1;
+        for (let i = 0; i < pool.cap; i++) if (!pool.alive[i]) { slot = i; break; }
+        if (slot < 0) { slot = 0; for (let i = 1; i < pool.cap; i++) if (pool.born[i] < pool.born[slot]) slot = i; }
+        else pool.count++;
+        pool.alive[slot] = 1; pool.born[slot] = ++pool.serial;
+        const n = pool.fields.length, base = slot * n;
+        for (let i = 0; i < n; i++) pool.data[base + i] = 0;
+        for (const setting of args.slice(1)) {
+          if (!Array.isArray(setting) || setting.length < 2) continue;
+          const f = pool.fields.indexOf(unquoteString(String(setting[0])));
+          if (f >= 0) pool.data[base + f] = numArg(api, env, setting[1], 0);
+        }
+        this.execution?.consume(["spawn"], 1);
+        return slot;
+      },
+      each: (api, args = [], env) => {
+        const pool = this.pools.get(unquoteString(String(args[0] ?? "")));
+        if (!pool) return 0;
+        const body = args.slice(1), n = pool.fields.length;
+        const prevLocalEnv = this.localEnv;
+        this.localEnvLevel += 1;
+        if (!this.localEnvStore[this.localEnvLevel]) this.localEnvStore[this.localEnvLevel] = Object.create(null);
+        const loopEnv = this.localEnvStore[this.localEnvLevel];
+        for (const key in loopEnv) delete loopEnv[key];
+        const base = { ...prevLocalEnv, ...env };
+        for (const key in base) loopEnv[key] = base[key];
+        this.localEnv = loopEnv;
+        this.execution?.consume(["each"], pool.cap);
+        let result, visited = 0;
+        const order = pool.order && pool.order.length ? pool.order : null;
+        const limit = order ? order.length : pool.cap;
+        try {
+          for (let step = 0; step < limit; step++) {
+            const slot = order ? order[step] : step;
+            if (!pool.alive[slot]) continue;
+            visited++;
+            const at = slot * n;
+            for (let i = 0; i < n; i++) loopEnv[pool.fields[i]] = pool.data[at + i];
+            loopEnv.slot = slot;
+            this.killing = false;
+            for (const form of body) { result = this.evaluate(form, api, this.localEnv); if (this.killing) break; }
+            if (this.killing) { pool.alive[slot] = 0; pool.count = Math.max(0, pool.count - 1); this.killing = false; }
+            else for (let i = 0; i < n; i++) { const v = loopEnv[pool.fields[i]]; if (typeof v === "number") pool.data[at + i] = v; }
+          }
+        } finally { this.localEnvLevel -= 1; this.localEnv = prevLocalEnv; }
+        return visited;
+      },
+      kill: () => { this.killing = true; return 0; },
+      // (rank name field [-1]): the order `each` visits live slots, by a field.
+      // The painter's algorithm in a bounded form: sort once, draw back to front.
+      rank: (api, args = [], env) => {
+        const pool = this.pools.get(unquoteString(String(args[0] ?? "")));
+        if (!pool) return 0;
+        const f = pool.fields.indexOf(unquoteString(String(args[1] ?? "")));
+        if (f < 0) { pool.order = null; return 0; }
+        const sign = numArg(api, env, args[2], 1) < 0 ? -1 : 1, n = pool.fields.length;
+        const live = [];
+        for (let slot = 0; slot < pool.cap; slot++) if (pool.alive[slot]) live.push(slot);
+        live.sort((a, b) => sign * (pool.data[a * n + f] - pool.data[b * n + f]) || a - b);
+        pool.order = live;
+        this.execution?.consume(["rank"], live.length);
+        return live.length;
+      },
+      alive: (api, args = []) => this.pools.get(unquoteString(String(args[0] ?? "")))?.count ?? 0,
+      empty: (api, args = []) => { const pool = this.pools.get(unquoteString(String(args[0] ?? ""))); if (pool) { pool.alive.fill(0); pool.count = 0; } return 0; },
+      // 🎤 Hums: sustained voices with a ceiling (§3.2). `hum` starts one by
+      // name, `tune` moves its tone and volume, `hush` stops it. Leaving hushes all.
+      hum: (api, args = [], env) => {
+        const name = unquoteString(String(args[0] ?? ""));
+        if (!name || this.hums.has(name)) return this.hums.has(name) ? 1 : 0;
+        if (!api.sound?.synth || this.hums.size >= 16) return 0;
+        const toneOf = (raw, fallback) => typeof raw === "string" && /^[a-g][#b]?[0-9]$/i.test(raw) ? raw.toLowerCase() : numArg(api, env, raw, fallback);
+        const handle = api.sound.synth({ type: unquoteString(String(args[1] ?? "sine")), tone: toneOf(args[2], 440), duration: Infinity, volume: numArg(api, env, args[3], 0.5), attack: numArg(api, env, args[4], 0.01), decay: numArg(api, env, args[5], 0.9) });
+        if (handle) this.hums.set(name, handle);
+        return handle ? 1 : 0;
+      },
+      tune: (api, args = [], env) => {
+        const handle = this.hums.get(unquoteString(String(args[0] ?? "")));
+        if (!handle) return 0;
+        const props = {};
+        if (args[1] !== undefined) props.tone = typeof args[1] === "string" && /^[a-g][#b]?[0-9]$/i.test(args[1]) ? args[1].toLowerCase() : numArg(api, env, args[1], 440);
+        if (args[2] !== undefined) props.volume = numArg(api, env, args[2], 0.5);
+        try { handle.update?.(props); } catch {}
+        return 1;
+      },
+      hush: (api, args = []) => {
+        const name = unquoteString(String(args[0] ?? ""));
+        if (!name) { this.hushAll(); return 0; }
+        const handle = this.hums.get(name);
+        if (handle) { try { handle.kill?.(0.05); } catch {} this.hums.delete(name); }
+        return 0;
+      },
+      // 🎮 Input the console has (§3.3): `(key "space")` and `(pad "leftx")` /
+      // `(pad "a")` read the state the last events left, 0 when nothing.
+      key: (api, args = []) => (this.keysDown.has(unquoteString(String(args[0] ?? "")).toLowerCase()) ? 1 : 0),
+      pad: (api, args = []) => { const v = this.padState[unquoteString(String(args[0] ?? "")).toLowerCase()]; return typeof v === "number" ? v : 0; },
       max: (api, args, env) => {
         // Simply evaluate each argument in the current environment
         const nums = args
@@ -6810,6 +6978,15 @@ class KidLisp {
         }
       },
       shape: (api, args = []) => {
+        // (shape pool): the polygon whose vertices are a pool's live slots, first
+        // two fields as x and y, in rank order. A bounded point list.
+        if (args.length === 1 && typeof args[0] === "string" && this.pools?.has(unquoteString(String(args[0])))) {
+          const pool = this.pools.get(unquoteString(String(args[0]))), n = pool.fields.length, points = [];
+          const order = pool.order && pool.order.length ? pool.order : null, limit = order ? order.length : pool.cap;
+          for (let step = 0; step < limit; step++) { const slot = order ? order[step] : step; if (pool.alive[slot]) points.push(pool.data[slot * n], pool.data[slot * n + 1]); }
+          if (points.length >= 6) api.shape({ points, filled: this.fillMode !== false, thickness: 1 });
+          return;
+        }
         // Handle shape arguments - can be flat array of coordinates or array of pairs.
         // (shape)    → random 3–6 vertex polygon
         // (shape n)  → random n-vertex polygon
@@ -10064,14 +10241,6 @@ class KidLisp {
       body = parsed.body;
 
       parsed.params.forEach((param, i) => {
-        console.log(
-          "😉 Binding param:",
-          param,
-          "to value:",
-          inArgs?.[i],
-          "at index:",
-          i,
-        );
         // inArgs are already evaluated arguments, so just bind them directly
         if (i < inArgs.length) {
           newLocalEnv[param] = inArgs[i];
@@ -10094,13 +10263,6 @@ class KidLisp {
         ...newLocalEnv,
       };
       this.localEnv = this.localEnvStore[this.localEnvLevel];
-
-      console.log(
-        "🟠 Local env level:",
-        this.localEnvLevel,
-        "Environment:",
-        this.localEnv,
-      );
 
       if (VERBOSE)
         console.log("Running:", body, "with environment:", this.localEnv);
@@ -10934,7 +11096,9 @@ class KidLisp {
                   head === "hop" ||
                   head === "delay" ||
                   head === "trans" ||
-                  head === "jump"
+                  head === "jump" ||
+                  head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" ||
+                  head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad"
                 ) {
                   processedArgs = args;
                 } else {

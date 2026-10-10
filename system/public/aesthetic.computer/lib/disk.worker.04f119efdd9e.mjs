@@ -15620,6 +15620,30 @@ var KIDLISP_FUNCTIONS = /* @__PURE__ */ new Set([
   "arc",
   "curve",
   "bezier",
+  // Arithmetic
+  "abs",
+  "sqrt",
+  "tan",
+  "exp",
+  "sign",
+  "pow",
+  "atan2",
+  "hypot",
+  "clamp",
+  // Pools, hums, console input (kidlisp/PIECE-IL.md)
+  "pool",
+  "spawn",
+  "each",
+  "kill",
+  "alive",
+  "empty",
+  "rank",
+  "hum",
+  "tune",
+  "hush",
+  "key",
+  "pad",
+  "else",
   // Output
   "print",
   "debug",
@@ -16534,10 +16558,16 @@ var KidLisp = class _KidLisp {
     this.globalDef.down = 0;
     this.globalDef.penx = 0;
     this.globalDef.peny = 0;
+    this.pools = /* @__PURE__ */ new Map();
+    this.hums = /* @__PURE__ */ new Map();
+    this.killing = false;
+    this.keysDown = /* @__PURE__ */ new Set();
+    this.padState = {};
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
     this.tapper = null;
+    this.hushAll();
     this.drawer = null;
     this.lifter = null;
     this.frameCount = 0;
@@ -17186,6 +17216,11 @@ var KidLisp = class _KidLisp {
     this.globalDef.down = 0;
     this.globalDef.penx = 0;
     this.globalDef.peny = 0;
+    this.pools = /* @__PURE__ */ new Map();
+    this.hums = /* @__PURE__ */ new Map();
+    this.killing = false;
+    this.keysDown = /* @__PURE__ */ new Set();
+    this.padState = {};
     this.localEnvStore = [{}];
     this.localEnv = this.localEnvStore[0];
     this.localEnvLevel = 0;
@@ -18779,6 +18814,18 @@ var KidLisp = class _KidLisp {
           if (this.lifter)
             withKidlispConsoleCapture(() => this.evaluate(this.lifter, api));
         }
+        if (e2.is("keyboard:down") || e2.is("keyboard:up")) {
+          const k = String(e2.key ?? e2.name?.split(":")[2] ?? "").toLowerCase();
+          const name = k === " " ? "space" : k;
+          if (e2.is("keyboard:down")) this.keysDown.add(name);
+          else this.keysDown.delete(name);
+          api.needsPaint();
+        }
+        if (e2.is("gamepad")) {
+          if (typeof e2.axis === "number") this.padState[["leftx", "lefty", "rightx", "righty"][e2.axis] || "axis" + e2.axis] = Number(e2.value) || 0;
+          if (typeof e2.button === "number") this.padState[{ 0: "a", 1: "b", 2: "x", 3: "y", 4: "lb", 5: "rb", 6: "lt", 7: "rt", 8: "back", 9: "start", 10: "ls", 11: "rs", 12: "up", 13: "down", 14: "left", 15: "right" }[e2.button] || "button" + e2.button] = e2.action === "push" ? 1 : 0;
+          api.needsPaint();
+        }
         if (e2.is("touch")) {
           const hasTapHandler = this.tapper !== null;
           const hasDrawHandler = this.drawer !== null;
@@ -18850,7 +18897,10 @@ var KidLisp = class _KidLisp {
         }
         this.richFlow?.receive(message, api);
       },
-      leave: () => this.richFlow?.stop()
+      leave: () => {
+        this.hushAll();
+        this.richFlow?.stop();
+      }
     };
   }
   // 🎤 Get fun default mic value when microphone is not connected
@@ -19249,6 +19299,17 @@ ${")".repeat(missingCount)}`;
   // Register + start a melody. Shared by the `melody` and `clock` builtins
   // (the latter delegates here when given a string arg — "nice synergy" with
   // the clock piece). Returns the melody string (def-like: re-runs are no-ops).
+  // Stop every sustained voice. Leaving a piece, or reloading it, must not
+  // leave a tone humming.
+  hushAll() {
+    for (const handle2 of this.hums?.values?.() || []) {
+      try {
+        handle2.kill?.(0.05);
+      } catch {
+      }
+    }
+    this.hums?.clear?.();
+  }
   runMelody(api, args = []) {
     if (args.length === 0) return;
     const isNum = (s2) => /^-?\d*\.?\d+$/.test(s2);
@@ -19597,8 +19658,19 @@ ${")".repeat(missingCount)}`;
           console.error("\u2757 Invalid `if`. Wrong number of arguments.");
           return false;
         }
+        const split = args.indexOf("else");
         const evaled = this.evaluate(args[0], api, env);
-        if (evaled && args.length > 1) this.evaluate(args.slice(1), api, env);
+        const then = split < 0 ? args.slice(1) : args.slice(1, split);
+        const other = split < 0 ? [] : args.slice(split + 1);
+        const run = (forms) => {
+          let out;
+          for (const form2 of forms) out = this.evaluate(form2, api, env);
+          return out;
+        };
+        if (evaled) {
+          if (then.length) run(then);
+        } else if (other.length) run(other);
+        return evaled ? 1 : 0;
       },
       once: (api, args, env) => {
         if (!args || args.length < 1) {
@@ -19707,6 +19779,175 @@ ${")".repeat(missingCount)}`;
       floor: (_api, [value = 0]) => typeof value === "number" ? Math.floor(value) : 0,
       ceil: (_api, [value = 0]) => typeof value === "number" ? Math.ceil(value) : 0,
       round: (_api, [value = 0]) => typeof value === "number" ? Math.round(value) : 0,
+      // The rest of the arithmetic Whistlegraph pieces lean on (piece census
+      // 2026-10-10: abs 34%, hypot 13%, exp, pow, atan2, sqrt). Pure, so they
+      // take evaluated numbers; anything else reads as 0.
+      abs: (_api, [value = 0]) => typeof value === "number" ? Math.abs(value) : 0,
+      sqrt: (_api, [value = 0]) => typeof value === "number" && value >= 0 ? Math.sqrt(value) : 0,
+      tan: (_api, [value = 0]) => typeof value === "number" ? Math.tan(value) : 0,
+      exp: (_api, [value = 0]) => typeof value === "number" ? Math.exp(value) : 0,
+      sign: (_api, [value = 0]) => typeof value === "number" ? Math.sign(value) : 0,
+      pow: (_api, [base = 0, power = 1]) => typeof base === "number" && typeof power === "number" ? Math.pow(base, power) : 0,
+      atan2: (_api, [y = 0, x = 0]) => typeof y === "number" && typeof x === "number" ? Math.atan2(y, x) : 0,
+      hypot: (_api, args = []) => Math.hypot(...args.map((v2) => typeof v2 === "number" ? v2 : 0)),
+      clamp: (_api, [value = 0, lo = 0, hi = 1]) => typeof value === "number" ? Math.max(lo, Math.min(hi, value)) : 0,
+      // 🫙 Pools: fixed-capacity records (kidlisp/PIECE-IL.md §3.1). Spawn
+      // fills a free slot, or the oldest when full; each binds the fields as
+      // locals for the body, writes numbers back, and `kill` frees the slot.
+      pool: (api, args = [], env) => {
+        const name = unquoteString(String(args[0] ?? ""));
+        if (!name) return 0;
+        if (this.pools.has(name)) return this.pools.get(name).count;
+        const cap = Math.max(1, Math.min(4096, Math.floor(numArg(api, env, args[1], 16))));
+        const fields = args.slice(2).map((f2) => unquoteString(String(f2))).filter(Boolean);
+        this.pools.set(name, { name, cap, fields, data: new Float64Array(cap * Math.max(1, fields.length)), alive: new Uint8Array(cap), born: new Uint32Array(cap), count: 0, serial: 0 });
+        return 0;
+      },
+      spawn: (api, args = [], env) => {
+        const pool = this.pools.get(unquoteString(String(args[0] ?? "")));
+        if (!pool) return -1;
+        let slot = -1;
+        for (let i2 = 0; i2 < pool.cap; i2++) if (!pool.alive[i2]) {
+          slot = i2;
+          break;
+        }
+        if (slot < 0) {
+          slot = 0;
+          for (let i2 = 1; i2 < pool.cap; i2++) if (pool.born[i2] < pool.born[slot]) slot = i2;
+        } else pool.count++;
+        pool.alive[slot] = 1;
+        pool.born[slot] = ++pool.serial;
+        const n2 = pool.fields.length, base = slot * n2;
+        for (let i2 = 0; i2 < n2; i2++) pool.data[base + i2] = 0;
+        for (const setting of args.slice(1)) {
+          if (!Array.isArray(setting) || setting.length < 2) continue;
+          const f2 = pool.fields.indexOf(unquoteString(String(setting[0])));
+          if (f2 >= 0) pool.data[base + f2] = numArg(api, env, setting[1], 0);
+        }
+        this.execution?.consume(["spawn"], 1);
+        return slot;
+      },
+      each: (api, args = [], env) => {
+        const pool = this.pools.get(unquoteString(String(args[0] ?? "")));
+        if (!pool) return 0;
+        const body = args.slice(1), n2 = pool.fields.length;
+        const prevLocalEnv = this.localEnv;
+        this.localEnvLevel += 1;
+        if (!this.localEnvStore[this.localEnvLevel]) this.localEnvStore[this.localEnvLevel] = /* @__PURE__ */ Object.create(null);
+        const loopEnv = this.localEnvStore[this.localEnvLevel];
+        for (const key in loopEnv) delete loopEnv[key];
+        const base = { ...prevLocalEnv, ...env };
+        for (const key in base) loopEnv[key] = base[key];
+        this.localEnv = loopEnv;
+        this.execution?.consume(["each"], pool.cap);
+        let result, visited = 0;
+        const order = pool.order && pool.order.length ? pool.order : null;
+        const limit = order ? order.length : pool.cap;
+        try {
+          for (let step = 0; step < limit; step++) {
+            const slot = order ? order[step] : step;
+            if (!pool.alive[slot]) continue;
+            visited++;
+            const at = slot * n2;
+            for (let i2 = 0; i2 < n2; i2++) loopEnv[pool.fields[i2]] = pool.data[at + i2];
+            loopEnv.slot = slot;
+            this.killing = false;
+            for (const form2 of body) {
+              result = this.evaluate(form2, api, this.localEnv);
+              if (this.killing) break;
+            }
+            if (this.killing) {
+              pool.alive[slot] = 0;
+              pool.count = Math.max(0, pool.count - 1);
+              this.killing = false;
+            } else for (let i2 = 0; i2 < n2; i2++) {
+              const v2 = loopEnv[pool.fields[i2]];
+              if (typeof v2 === "number") pool.data[at + i2] = v2;
+            }
+          }
+        } finally {
+          this.localEnvLevel -= 1;
+          this.localEnv = prevLocalEnv;
+        }
+        return visited;
+      },
+      kill: () => {
+        this.killing = true;
+        return 0;
+      },
+      // (rank name field [-1]): the order `each` visits live slots, by a field.
+      // The painter's algorithm in a bounded form: sort once, draw back to front.
+      rank: (api, args = [], env) => {
+        const pool = this.pools.get(unquoteString(String(args[0] ?? "")));
+        if (!pool) return 0;
+        const f2 = pool.fields.indexOf(unquoteString(String(args[1] ?? "")));
+        if (f2 < 0) {
+          pool.order = null;
+          return 0;
+        }
+        const sign2 = numArg(api, env, args[2], 1) < 0 ? -1 : 1, n2 = pool.fields.length;
+        const live = [];
+        for (let slot = 0; slot < pool.cap; slot++) if (pool.alive[slot]) live.push(slot);
+        live.sort((a2, b2) => sign2 * (pool.data[a2 * n2 + f2] - pool.data[b2 * n2 + f2]) || a2 - b2);
+        pool.order = live;
+        this.execution?.consume(["rank"], live.length);
+        return live.length;
+      },
+      alive: (api, args = []) => this.pools.get(unquoteString(String(args[0] ?? "")))?.count ?? 0,
+      empty: (api, args = []) => {
+        const pool = this.pools.get(unquoteString(String(args[0] ?? "")));
+        if (pool) {
+          pool.alive.fill(0);
+          pool.count = 0;
+        }
+        return 0;
+      },
+      // 🎤 Hums: sustained voices with a ceiling (§3.2). `hum` starts one by
+      // name, `tune` moves its tone and volume, `hush` stops it. Leaving hushes all.
+      hum: (api, args = [], env) => {
+        const name = unquoteString(String(args[0] ?? ""));
+        if (!name || this.hums.has(name)) return this.hums.has(name) ? 1 : 0;
+        if (!api.sound?.synth || this.hums.size >= 16) return 0;
+        const toneOf = (raw, fallback) => typeof raw === "string" && /^[a-g][#b]?[0-9]$/i.test(raw) ? raw.toLowerCase() : numArg(api, env, raw, fallback);
+        const handle2 = api.sound.synth({ type: unquoteString(String(args[1] ?? "sine")), tone: toneOf(args[2], 440), duration: Infinity, volume: numArg(api, env, args[3], 0.5), attack: numArg(api, env, args[4], 0.01), decay: numArg(api, env, args[5], 0.9) });
+        if (handle2) this.hums.set(name, handle2);
+        return handle2 ? 1 : 0;
+      },
+      tune: (api, args = [], env) => {
+        const handle2 = this.hums.get(unquoteString(String(args[0] ?? "")));
+        if (!handle2) return 0;
+        const props = {};
+        if (args[1] !== void 0) props.tone = typeof args[1] === "string" && /^[a-g][#b]?[0-9]$/i.test(args[1]) ? args[1].toLowerCase() : numArg(api, env, args[1], 440);
+        if (args[2] !== void 0) props.volume = numArg(api, env, args[2], 0.5);
+        try {
+          handle2.update?.(props);
+        } catch {
+        }
+        return 1;
+      },
+      hush: (api, args = []) => {
+        const name = unquoteString(String(args[0] ?? ""));
+        if (!name) {
+          this.hushAll();
+          return 0;
+        }
+        const handle2 = this.hums.get(name);
+        if (handle2) {
+          try {
+            handle2.kill?.(0.05);
+          } catch {
+          }
+          this.hums.delete(name);
+        }
+        return 0;
+      },
+      // 🎮 Input the console has (§3.3): `(key "space")` and `(pad "leftx")` /
+      // `(pad "a")` read the state the last events left, 0 when nothing.
+      key: (api, args = []) => this.keysDown.has(unquoteString(String(args[0] ?? "")).toLowerCase()) ? 1 : 0,
+      pad: (api, args = []) => {
+        const v2 = this.padState[unquoteString(String(args[0] ?? "")).toLowerCase()];
+        return typeof v2 === "number" ? v2 : 0;
+      },
       max: (api, args, env) => {
         const nums = args.map((arg) => this.evaluate(arg, api, this.localEnv)).filter((value) => typeof value === "number" && !isNaN(value));
         return nums.length > 0 ? Math.max(...nums) : 0;
@@ -20420,6 +20661,16 @@ ${")".repeat(missingCount)}`;
         }
       },
       shape: (api, args = []) => {
+        if (args.length === 1 && typeof args[0] === "string" && this.pools?.has(unquoteString(String(args[0])))) {
+          const pool = this.pools.get(unquoteString(String(args[0]))), n2 = pool.fields.length, points2 = [];
+          const order = pool.order && pool.order.length ? pool.order : null, limit = order ? order.length : pool.cap;
+          for (let step = 0; step < limit; step++) {
+            const slot = order ? order[step] : step;
+            if (pool.alive[slot]) points2.push(pool.data[slot * n2], pool.data[slot * n2 + 1]);
+          }
+          if (points2.length >= 6) api.shape({ points: points2, filled: this.fillMode !== false, thickness: 1 });
+          return;
+        }
         if (args.length === 0 || args.length === 1 && typeof args[0] === "number") {
           const n2 = args.length === 1 ? Math.max(3, Math.floor(args[0])) : 3 + Math.floor(this.seededRandom() * 4);
           const w = api.screen?.width || 256, h = api.screen?.height || 256;
@@ -22816,14 +23067,6 @@ ${")".repeat(missingCount)}`;
       const newLocalEnv = {};
       body = parsed.body;
       parsed.params.forEach((param, i2) => {
-        console.log(
-          "\u{1F609} Binding param:",
-          param,
-          "to value:",
-          inArgs?.[i2],
-          "at index:",
-          i2
-        );
         if (i2 < inArgs.length) {
           newLocalEnv[param] = inArgs[i2];
         } else {
@@ -22842,12 +23085,6 @@ ${")".repeat(missingCount)}`;
         ...newLocalEnv
       };
       this.localEnv = this.localEnvStore[this.localEnvLevel];
-      console.log(
-        "\u{1F7E0} Local env level:",
-        this.localEnvLevel,
-        "Environment:",
-        this.localEnv
-      );
       if (VERBOSE)
         console.log("Running:", body, "with environment:", this.localEnv);
     } else {
@@ -23346,7 +23583,7 @@ ${")".repeat(missingCount)}`;
                   // The voices: their first argument is a NOTE and must arrive
                   // unevaluated, because `c4` is also a color. They evaluate their
                   // own numeric args (see numArg above).
-                  head === "pluck" || head === "bell" || head === "sub" || head === "flute" || head === "hat" || head === "voice" || head === "later" || head === "tap" || head === "draw" || head === "lift" || head === "if" || head === "not" || head === ">" || head === "<" || head === "=" || head === "net" || head === "source" || head === "choose" || head === "?" || head === "repeat" || head === "once" || head === "hop" || head === "delay" || head === "trans" || head === "jump"
+                  head === "pluck" || head === "bell" || head === "sub" || head === "flute" || head === "hat" || head === "voice" || head === "later" || head === "tap" || head === "draw" || head === "lift" || head === "if" || head === "not" || head === ">" || head === "<" || head === "=" || head === "net" || head === "source" || head === "choose" || head === "?" || head === "repeat" || head === "once" || head === "hop" || head === "delay" || head === "trans" || head === "jump" || head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" || head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad"
                 ) {
                   processedArgs = args;
                 } else {
