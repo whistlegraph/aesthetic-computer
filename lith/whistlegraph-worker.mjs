@@ -55,7 +55,7 @@ export async function runTurn({job, thread, onCheckpoint = () => {}, signal}) {
     const generate = async (task, repair) => {
       const settings = generationProfile('', {repair, model: job.model || '', image: !!job.request.drawing});
       server = new AcServer({cwd, piece: {file, checkpoint: async () => { source = readFileSync(file, 'utf8'); const now = Date.now(); if (now - checkpointAt > 5000) { checkpointAt = now; await onCheckpoint(source); } }},
-        token: 'worker', fetch: workerFetch(job.owner, settings), site: SITE, preview: false, frameCapture: false, model: settings.model,
+        token: async () => 'worker', fetch: workerFetch(job.owner, settings), site: SITE, preview: false, frameCapture: false, model: settings.model,
         rounds: settings.rounds, outputContinuations: settings.outputContinuations, reasoning: settings.reasoning, thinking: settings.thinking,
         developerInstructions: GENERATION_INSTRUCTIONS + '\n' + WARE_INSTRUCTIONS});
       completed = false; error = '';
