@@ -558,7 +558,18 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
           turnNotes=verdict.findings.slice(0,4);
           log('Saved with notes · '+turnNotes.join('; '));
         }
-      } catch(error) {turnSucceeded=false;turnError=error.message;phase('Could not verify picture');log(turnError);}
+      } catch(error) {
+        // A review that could not happen — timed out, capture unavailable,
+        // preview moved — is not a verdict on a picture that painted. The
+        // version saves unchecked and says so ('Visual check timed out'
+        // regressed a whole 3D version on 2026-10-10). Only Stop is a stop.
+        if(turnCancelled){turnSucceeded=false;turnError=error.message;phase('Stopped');}
+        else {
+          validationChecks.push({code:'visual-unreviewed',sourceHash:await hashSource(source).catch(()=>null)});
+          turnNotes=[...turnNotes,'Picture not checked: '+String(error.message||error).slice(0,120)];
+          log('Picture not checked; keeping the painted result · '+(error.message||error));
+        }
+      }
     }
     if(turnSucceeded&&!turnCancelled&&!turnRuntimeFailed&&painted&&lastPaintedSource===source){
       try {const version=versions.commit({source,request:turnRequest,layers:checkpoints,parent:turnParent,requestID:activeAttempt?.id});saved();phase(`v${version.id} · ${turnNotes.length?'Saved with notes':'Ready to play'}`);log(`Saved v${version.id} · ${checkpoints} layers`);const drawing=inputData(turnRequest)?.drawing;if(drawing)post({action:'drawingCommitted',drawingID:drawing.id,revision:drawing.revision});benchmark('versionCommitted',{version:version.id,layers:checkpoints});}
