@@ -74,7 +74,7 @@
     "test:flair-fps:headed": "AC_HEADED=1 AC_TEST_URL=https://localhost:8888 node tests/browser/flair-fps.test.mjs",
     "test:kidlisp": "nodemon --watch spec --watch '**/*.lisp' --exec 'jasmine'",
     "test:kidlisp:direct": "jasmine",
-    "test:kidlisp:exact": "node --test tests/kidlisp-pools.test.mjs tests/kidlisp-compile.test.mjs tests/kidlisp-execution.test.mjs tests/kidlisp-plan.test.mjs tests/kidlisp-plan-wasm.test.mjs tests/kidlisp-pixels.test.mjs tests/kidlisp-raytrace.test.mjs tests/kidlisp-raytrace-backends.test.mjs tests/kidlisp-roz-graph.test.mjs",
+    "test:kidlisp:exact": "node --test tests/kidlisp-pools.test.mjs tests/kidlisp-compile.test.mjs tests/kidlisp-kernel.test.mjs tests/kidlisp-execution.test.mjs tests/kidlisp-plan.test.mjs tests/kidlisp-plan-wasm.test.mjs tests/kidlisp-pixels.test.mjs tests/kidlisp-raytrace.test.mjs tests/kidlisp-raytrace-backends.test.mjs tests/kidlisp-roz-graph.test.mjs",
     "bench:kidlisp:raytrace": "node kidlisp/tools/bench-raytrace.mjs",
     "bench:kidlisp:raytrace:browser": "node kidlisp/tools/bench-raytrace-browser.mjs",
     "preview:kidlisp:roz": "node kidlisp/tools/build-roz-preview.mjs",

@@ -18,7 +18,40 @@
 // interpreter as before. Globals live in the interpreter's globalDef so a
 // tap handler the interpreter runs sees the same values.
 
+import { compileKernel, runKernel, instantiateKernelWasm } from "./kidlisp-kernel.mjs";
+
 export class CompileError extends Error {}
+
+// (run kernel from [to]): the kernel over every live slot of a pool. Inputs
+// are the slot's fields, uniforms the program's globals (or width/height/
+// frame), outputs the fields of `to` (default: the same pool). Wasm when the
+// host has it, the JavaScript runner otherwise; the numbers are the same.
+export function runKernelOverPool(plan, backend, lisp, api, fromName, toName) {
+  const from = lisp.pools.get(fromName), to = lisp.pools.get(toName || fromName);
+  if (!from || !to) return 0;
+  const nIn = plan.inputs.length, nUni = plan.uniforms.length, nOut = plan.outputs.length, stride = nIn + nUni + nOut;
+  const inIdx = plan.inputs.map((name) => from.fields.indexOf(name)), outIdx = plan.outputs.map((name) => to.fields.indexOf(name));
+  if (inIdx.includes(-1) || outIdx.includes(-1)) return 0;
+  const uniforms = plan.uniforms.map((name) => { const v = name === "width" ? api.screen?.width : name === "height" ? api.screen?.height : name === "frame" ? api.paintCount : lisp.globalDef[name]; return typeof v === "number" ? v : 0; });
+  const slots = [];
+  for (let s = 0; s < from.cap; s++) if (from.alive[s]) slots.push(s);
+  const count = slots.length;
+  if (!count) return 0;
+  const rows = plan._rows && plan._rows.length >= count * stride ? plan._rows : (plan._rows = new Float64Array(Math.max(count, 64) * stride));
+  const fn = from.fields.length, tn = to.fields.length;
+  for (let r = 0; r < count; r++) {
+    const base = r * stride, at = slots[r] * fn;
+    for (let i = 0; i < nIn; i++) rows[base + i] = from.data[at + inIdx[i]];
+    for (let i = 0; i < nUni; i++) rows[base + nIn + i] = uniforms[i];
+  }
+  if (backend) backend.run(rows, count, uniforms, lisp.execution); else runKernel(plan, rows, count, uniforms, lisp.execution);
+  for (let r = 0; r < count; r++) { const base = r * stride, at = slots[r] * tn; for (let i = 0; i < nOut; i++) to.data[at + outIdx[i]] = rows[base + nIn + nUni + i]; }
+  return count;
+}
+export function kernelBackend(plan) {
+  if (typeof WebAssembly === "undefined") return null;
+  try { return instantiateKernelWasm(plan); } catch (error) { console.warn("Kernel " + plan.name + " runs in JavaScript: " + (error?.message || error)); return null; }
+}
 
 const ARITH = {
   "+": (a) => a.reduce((s, v) => s + v, 0),
@@ -53,7 +86,7 @@ const NOTE = /^[a-g][#b]?[0-9]$/i;
 export function compileProgram(ast, lisp) {
   const g = lisp.globalDef;                                  // shared with the interpreter
   const env = lisp.getGlobalEnv();                            // the drawing and sound table
-  const rt = { killing: false, fns: new Map() };
+  const rt = { killing: false, fns: new Map(), kernels: lisp.kernels || (lisp.kernels = new Map()) };
   const topSlots = new Map();                                 // top-level locals: repeat iterators, each fields
 
   // ---- scopes -------------------------------------------------------------
@@ -200,6 +233,11 @@ export function compileProgram(ast, lisp) {
     if (head === "alive") return () => lisp.pools.get(args[0])?.count ?? 0;
     if (head === "empty") return () => { const pool = lisp.pools.get(args[0]); if (pool) { pool.alive.fill(0); pool.count = 0; } return 0; };
     if (head === "rank") return (f, api) => env.rank(api, args);
+    if (head === "kernel") { const plan = compileKernel(expr); rt.kernels.set(plan.name, { plan, backend: kernelBackend(plan) }); return () => 0; }
+    if (head === "run") {
+      const [kname, fromName, toName] = args;
+      return (f, api) => { const k = rt.kernels.get(kname); return k ? runKernelOverPool(k.plan, k.backend, lisp, api, fromName, toName) : 0; };
+    }
     if (head === "key") return () => (lisp.keysDown.has(String(unquote(args[0] ?? "")).toLowerCase()) ? 1 : 0);
     if (head === "pad") return () => { const v = lisp.padState[String(unquote(args[0] ?? "")).toLowerCase()]; return typeof v === "number" ? v : 0; };
     if (head === "shape" && args.length === 1 && typeof args[0] === "string" && poolDecl(args[0])) return (f, api) => env.shape(api, args);

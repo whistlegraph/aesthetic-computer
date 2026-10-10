@@ -295,6 +295,15 @@
 (pool hp 96 hx hy)
 (pool slices 30 su ssc sz sdepth)
 (pool sp 96 px py)
+(once (repeat 96 ii (spawn sp (px ii) (py 0))))
+; the projection of one slice, as a kernel: per point, inputs from hp, outputs into sp
+(def kssc 1) (def kzz 0)
+(kernel project (in hx hy) (uniform kssc kzz cT sT cP sP foc hcx hcy hdx hdy) (out px py)
+  (def xs (* hx kssc)) (def ys (* hy kssc))
+  (def xr (+ (* xs cT) (* kzz sT))) (def z0 (- (* kzz cT) (* xs sT)))
+  (def yr (- (* ys cP) (* z0 sP))) (def zr (+ (* ys sP) (* z0 cP)))
+  (def ff (/ foc (- foc zr)))
+  (set px (+ hcx (* xr ff) hdx)) (set py (+ hcy (* yr ff) hdy)))
 (later heartOutline
   (empty hp)
   (repeat 96 ii (def aa (* (/ ii 96) 6.2832))
@@ -309,12 +318,12 @@
   (now prx (+ hcx (* xr ff))) (now pry (+ hcy (* yr ff))))
 (later heartExtents
   (now x0s 1000000) (now x1s -1000000) (now y0s 1000000) (now y1s -1000000)
+  (now hdx 0) (now hdy 0)
   (each slices
-    (each hp (hproj (* hx ssc) (* hy ssc) sz)
-      (now x0s (min x0s prx)) (now x1s (max x1s prx)) (now y0s (min y0s pry)) (now y1s (max y1s pry)))))
+    (now kssc ssc) (now kzz sz) (run project hp sp)
+    (each sp (now x0s (min x0s px)) (now x1s (max x1s px)) (now y0s (min y0s py)) (now y1s (max y1s py)))))
 (later heartSlice ssc zz depth
-  (empty sp)
-  (each hp (hproj (* hx ssc) (* hy ssc) zz) (spawn sp (px (+ prx hdx)) (py (+ pry hdy))))
+  (now kssc ssc) (now kzz zz) (run project hp sp)
   (def near (+ 0.5 (* 0.5 (/ depth hr)))) (def cc1 (+ 0.5 (* 0.5 near)))
   (ink (* (+ 215 (* 25 pulse)) cc1) (* (+ 45 (* 25 pulse)) cc1) (* (+ 105 (* 25 pulse)) cc1))
   (shape sp)

@@ -45,7 +45,8 @@ const note = (raw, fallback) => {
 import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
-import { compileProgram } from "./kidlisp-compile.mjs";
+import { compileProgram, runKernelOverPool, kernelBackend } from "./kidlisp-compile.mjs";
+import { compileKernel } from "./kidlisp-kernel.mjs";
 
 // LLM API Specification and examples moved to kidlisp-reference.mjs
 
@@ -61,7 +62,7 @@ const KIDLISP_FUNCTIONS = new Set([
   // Arithmetic
   "abs", "sqrt", "tan", "exp", "sign", "pow", "atan2", "hypot", "clamp",
   // Pools, hums, console input (kidlisp/PIECE-IL.md)
-  "pool", "spawn", "each", "kill", "alive", "empty", "rank", "hum", "tune", "hush", "key", "pad", "else",
+  "pool", "spawn", "each", "kill", "alive", "empty", "rank", "kernel", "run", "set", "uniform", "hum", "tune", "hush", "key", "pad", "else",
   // Output
   "print", "debug", "log", "console",
   // Math
@@ -5944,6 +5945,19 @@ class KidLisp {
         return visited;
       },
       kill: () => { this.killing = true; return 0; },
+      // 🧮 Kernels (kidlisp-kernel.mjs): the WebGPU-safe subset, declared once and run over a pool.
+      kernel: (api, args = []) => {
+        this.kernels ||= new Map();
+        const name = unquoteString(String(args[0] ?? ""));
+        if (this.kernels.has(name)) return 0;
+        try { const plan = compileKernel(["kernel", ...args]); this.kernels.set(plan.name, { plan, backend: kernelBackend(plan) }); }
+        catch (error) { console.warn("Kernel " + name + ": " + (error?.message || error)); }
+        return 0;
+      },
+      run: (api, args = []) => {
+        const k = this.kernels?.get(unquoteString(String(args[0] ?? "")));
+        return k ? runKernelOverPool(k.plan, k.backend, this, api, unquoteString(String(args[1] ?? "")), args[2] ? unquoteString(String(args[2])) : undefined) : 0;
+      },
       // (rank name field [-1]): the order `each` visits live slots, by a field.
       // The painter's algorithm in a bounded form: sort once, draw back to front.
       rank: (api, args = [], env) => {
@@ -11117,7 +11131,7 @@ class KidLisp {
                   head === "delay" ||
                   head === "trans" ||
                   head === "jump" ||
-                  head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" ||
+                  head === "pool" || head === "spawn" || head === "each" || head === "alive" || head === "empty" || head === "rank" || head === "kernel" || head === "run" ||
                   head === "hum" || head === "tune" || head === "hush" || head === "key" || head === "pad" ||
                   (head === "shape" && args.length === 1 && typeof args[0] === "string" && this.pools?.has(args[0]))
                 ) {

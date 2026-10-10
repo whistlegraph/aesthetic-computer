@@ -193,3 +193,50 @@ against their JavaScript in the production runtime on 2026-10-10:
 the reference evaluator is 12 to 30 times slower; both pieces run bounded.
 A closure compiler (`lib/kidlisp-compile.mjs`, `; @compile`) brought that to
 3 to 5 times the same evening, same draw stream.
+
+## 8. The kernel subset: WebGPU-safe by construction
+
+A piece's hot arithmetic can be declared as a kernel, the way Common Lisp
+lets a function drop to the operator level or inline assembly. A kernel is
+a pure function over numbers with declared inputs, uniforms and outputs,
+and a body of `def` locals and `set` outputs over kernel-v1: the audited
+arithmetic, the functions a shader has (`sin cos tan sqrt abs min max exp
+pow sign atan2 hypot clamp`), comparisons as 0/1, and `if … else …` as a
+select. No calls, no drawing, no pools, no clocks, no random. Anything
+else fails at compile time, so what compiles is safe to lower.
+
+```lisp
+(kernel project (in hx hy) (uniform ssc zz cT sT cP sP foc hcx hcy) (out px py)
+  (def xr (+ (* hx ssc cT) (* zz sT)))
+  (def z0 (- (* zz cT) (* hx ssc sT)))
+  (def ff (/ foc (- foc (+ (* hy ssc sP) (* z0 cP)))))
+  (set px (+ hcx (* xr ff)))
+  (set py (+ hcy (* (- (* hy ssc cP) (* z0 sP)) ff))))
+(run project hp sp)
+```
+
+`run` applies the kernel to every live slot of a pool: inputs are the
+slot's fields, uniforms are the program's globals, outputs are fields of the
+same pool or of a second one with the same slots. That is a compute
+dispatch: the pool is the storage buffer, the globals the uniform buffer,
+one invocation per row.
+
+One plan, three backends (`lib/kidlisp-kernel.mjs`):
+
+| backend | what it is | measured, 100,000 rows of the projection above |
+| --- | --- | --- |
+| JavaScript | the reference stack runner | 497 ms |
+| Wasm | one function, a loop over rows in linear memory, transcendental functions imported from the host | 5.9 ms |
+| WGSL | a compute shader emitted from the same plan, f32 | not yet run on a device |
+
+The Wasm and JavaScript numbers agree bit for bit on every operation
+(`tests/kidlisp-kernel.test.mjs`). WGSL is f32, so its profile is tolerant,
+as the raytrace backends are. A host without WebAssembly runs the
+JavaScript; a host without a GPU runs the Wasm; the piece does not change.
+
+What this is not: the whole program. Control flow over many small
+polygons, the painter's order, the near-plane clipper with its variable
+output stay in the closure compiler. Kernels take the parts that are
+already maps over data, which the census says is most of the arithmetic in
+the two big pieces: projection, star fields, the skirt's bands, the
+soldier's boxes.
