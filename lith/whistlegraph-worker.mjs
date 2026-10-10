@@ -18,7 +18,7 @@ import {mongoWhistlegraphStore, sourceHash} from '../system/backend/whistlegraph
 import {AcServer} from '../aesel/src/ac-server.mjs';
 import {sourceChecks, compileEditContract, runEditExperiment, validateCandidate} from '../aesel/src/edit-contract.mjs';
 import {selectedBranch} from '../apple/whistlegraph/Resources/Web/branch-context.mjs';
-import {GENERATION_INSTRUCTIONS, generationProfile} from '../apple/whistlegraph/Resources/Web/generation-policy.mjs';
+import {GENERATION_INSTRUCTIONS, CRITIQUE_INSTRUCTIONS, generationProfile} from '../apple/whistlegraph/Resources/Web/generation-policy.mjs';
 import {WARE_INSTRUCTIONS} from '../apple/whistlegraph/Resources/Web/wares.mjs';
 import {inferenceRequest} from '../apple/whistlegraph/Resources/Web/inference-input.mjs';
 import {reviewVisualResult} from '../apple/whistlegraph/Resources/Web/visual-review.mjs';
@@ -89,7 +89,9 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onPro
         // cap cut those off (2026-10-10).
         token: async () => 'worker', fetch: workerFetch(job.owner, settings), site: SITE, preview: !!pool, frameCapture: false, model: settings.model, layeredEdits: true,
         rounds: settings.rounds, outputContinuations: settings.outputContinuations, reasoning: settings.reasoning, thinking: settings.thinking,
-        developerInstructions: GENERATION_INSTRUCTIONS + '\n' + WARE_INSTRUCTIONS});
+        // The remote addendum: critique is a revision request, never an answer
+        // painted into the piece (wgMurof v7, 2026-10-10).
+        developerInstructions: GENERATION_INSTRUCTIONS + '\n' + CRITIQUE_INSTRUCTIONS + '\n' + WARE_INSTRUCTIONS});
       server.runtimeFeedback = () => feedback;
       completed = false; error = '';
       let streamed = 0, lastNote = Date.now(), thinking = false, writing = false, saying = '';

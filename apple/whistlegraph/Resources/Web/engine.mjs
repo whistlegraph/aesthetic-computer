@@ -27,7 +27,7 @@ const wares=wareControls('piece');
 // The same inference/tool loop as Aesel, with a piece-first streaming renderer.
 import {AcServer} from '/easel/src/ac-server.mjs';
 import {RelayPieceServer} from '/easel/src/relay-piece-server.mjs';
-import {DEFAULT_MODEL,generationProfile,modelChoices,MODEL_LABELS,GENERATION_INSTRUCTIONS} from './generation-policy.mjs';
+import {DEFAULT_MODEL,generationProfile,modelChoices,MODEL_LABELS,GENERATION_INSTRUCTIONS,CRITIQUE_INSTRUCTIONS} from './generation-policy.mjs';
 import {runnablePrefix,partialString,streamedEdits,streamedCode} from './stream-preview.mjs';
 import * as vfs from '/easel/phone/shim/fs.mjs';
 
@@ -425,7 +425,7 @@ function makeServer({repair=false}={}){
       const response=await globalThis.fetch(url,options);if(round)recorder.headers(round,response);
       benchmark('inferenceHeaders',{status:response.status});return response;
     },preview:true,rounds:settings.rounds,outputContinuations:settings.outputContinuations,reasoning:settings.reasoning,thinking:settings.thinking,
-    controls:wares,developerInstructions:GENERATION_INSTRUCTIONS+'\n'+WARE_INSTRUCTIONS});
+    controls:wares,developerInstructions:GENERATION_INSTRUCTIONS+'\n'+CRITIQUE_INSTRUCTIONS+'\n'+WARE_INSTRUCTIONS});
   value.runtimeFeedback=()=>feedback;
   value.on('notification',({method,params})=>{
     activeReceipt?.notify(method,params);
