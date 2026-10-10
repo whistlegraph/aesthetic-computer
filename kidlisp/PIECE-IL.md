@@ -227,7 +227,7 @@ One plan, three backends (`lib/kidlisp-kernel.mjs`):
 | --- | --- | --- |
 | JavaScript | the reference stack runner | 497 ms |
 | Wasm | one function, a loop over rows in linear memory, transcendental functions imported from the host | 5.9 ms |
-| WGSL | a compute shader emitted from the same plan, f32 | not yet run on a device |
+| WGSL | a compute shader emitted from the same plan, f32 | compiles clean and agrees with the CPU to f32 on the Apple adapter (`kidlisp/tools/check-kernel-wgsl.mjs`) |
 
 The Wasm and JavaScript numbers agree bit for bit on every operation
 (`tests/kidlisp-kernel.test.mjs`). WGSL is f32, so its profile is tolerant,
