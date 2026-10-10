@@ -692,6 +692,24 @@ async function watchRemoteTurn(job){
     if(state.status==='failed'){remoteFailed(state.result?.error||'The knot could not finish',state.result?.draft||null);return;}
   }
 }
+// A turn on the knot that this phone did not start (queued from elsewhere, or
+// from before a relaunch that lost its journal) is still this piece's turn:
+// on connect, ask for the thread's open turns and watch the one that is running.
+let openTurnsChecked=false;
+async function watchOpenTurns(){
+  if(openTurnsChecked||remoteJob||busy||!token||!thread?.identity.code)return;
+  openTurnsChecked=true;
+  try{
+    const r=await fetch('https://aesthetic.computer/api/whistlegraph-turn?code='+encodeURIComponent(thread.identity.code),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
+    const open=(await r.json())?.turns||[];
+    const job=open.find(t=>t.status==='running')||open.find(t=>t.status==='queued');
+    if(!job||remoteJob||busy)return;
+    remoteJob={id:job.id,parent:job.baseVersion};
+    lastAttempt={request:job.request?.displayText||job.request?.text?.split('\nINPUT DATA:')[0]||'Request',parent:job.baseVersion,status:'working',startedAt:job.createdAt||new Date().toISOString()};
+    phase('Working on the knot…');log('Watching a turn already on the knot: '+String(job.id).slice(0,8));nativeSnapshot();threadUpdate();
+    void watchRemoteTurn(remoteJob);
+  }catch(error){openTurnsChecked=false;log('Could not read open turns: '+error.message);}
+}
 async function resumeAttempt(manual=false){
   // A turn already on the knot is watched, never rerun here.
   if(!manual){const journal=readAttempt(localStorage,storageKey);if(journal?.remote&&journal.status==='working'&&!remoteJob&&token){remoteJob={id:journal.remote,parent:journal.parent};activeAttempt=journal;lastAttempt={request:journal.displayText||journal.localText||'',parent:journal.parent,status:'working',startedAt:new Date().toISOString()};phase('Working on the knot…');nativeSnapshot();void watchRemoteTurn(remoteJob);return;}}
@@ -726,7 +744,7 @@ window.whistlegraphEngineEvent=event=>{
     if(pendingCapture?.id===event.captureID)pendingCapture.finish(event.error?Error(event.error):null,event);
     return;
   }
-  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token,event.notice||'',event.retry===true);if(token&&pending)void ask(pending);else void resumeAttempt();autoAskIfDue();}
+  if(event.kind==='account') {token=event.token;if(token){if(aiConsent.allowed)musicalSocket.resume();thread?.resume();}else{musicalSocket.suspend();thread?.suspend();}window.whistlegraphAccountReady=!!token;accountIdentity(token,event.notice||'',event.retry===true);if(token&&pending)void ask(pending);else void resumeAttempt();autoAskIfDue();if(token)setTimeout(()=>void watchOpenTurns(),1500);}
   if(event.kind==='error'){phase('Sign-in needed');log(event.text);window.whistlegraphWorkFinished?.();}
   if(event.kind==='previewReady'){ready=true;log('AC runtime ready');}
   if(event.kind==='previewEvent'){
