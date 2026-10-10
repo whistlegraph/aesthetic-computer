@@ -19,6 +19,8 @@ into pools.
 | Fía | closure compiler v2 | 26,412 | 410 | 24 | 16 |
 | Shooter | closure compiler v2 | 22,380 | 383 | 20 | 20 |
 | Fía | compiler v3 + the heart projection as a Wasm kernel | 26,921 | 420 | 28 | 16 |
+| Fía | … and no HUD colouring for the hidden label | 26,921 | 420 | 31 | 20 |
+| Shooter | compiler v3, no HUD colouring | 22,380 | 383 | 22 | 22 |
 
 The compiler rows are the same sources with a `; @compile` first line
 (`lib/kidlisp-compile.mjs`, later the same day): the program compiled once
@@ -36,6 +38,15 @@ per-point projection into a declared kernel the compiler runs as a Wasm
 loop over the pool; the same plan emits WGSL that compiles clean and agrees
 with the CPU on the Apple adapter. At 1280×720 Fía is bound by
 rasterization, not evaluation: the JavaScript version runs 30 there too.
+
+A worker CPU profile of the compiled Fía piece at phone size put about a
+quarter of the frame in the software rasterizer (plot, fillShape) and a
+fifth in colouring the source's tokens for a corner label that nolabel had
+hidden; the compiled closures themselves barely registered. The colouring
+is now skipped for a hidden label (339d671608). The star field in
+`kidlisp/examples/kernels/` shows the `gpu` form losing to `run` on this
+runtime (35 against 60 fps at phone size): a compute pass has to read its
+results back for a CPU rasterizer, and that costs more than the arithmetic.
 
 ## What it says
 
