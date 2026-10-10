@@ -8,7 +8,7 @@
 ; a brick is the face you see: the Xbox draws at most 8,192 triangles a frame
 ; and does not cull, so a wall of cubes would be dropped past that.
 (mesh brick (face 0 -13 30 0 -13 -30 0 13 -30 0 13 30 170 86 60))
-(mesh mortar (cube 1200 300 10 74 36 26))
+(mesh mortar (cube 10 300 4000 74 36 26))   ; the whole corridor's length, behind the bricks
 (mesh pillar (cube 70 300 70 120 90 70))
 (mesh floor (cube 1400 4 4000 46 110 52))
 (mesh ceiling (cube 1400 4 4000 150 150 160))
@@ -29,7 +29,7 @@
 (def wx 0) (def by 0) (def stag 0) (def bz 0) (def cz 0)
 (repeat 2 side
   (now wx (- (* side 1200) 600))
-  (place mortar wx 0 2000 1.5708)
+  (place mortar wx 0 2000)
   (repeat 11 row
     (now by (- (* row 28) 140))
     (now stag (* (% row 2) 32))
