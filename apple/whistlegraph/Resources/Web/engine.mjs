@@ -128,7 +128,13 @@ function log(text) {
   $('live-events').replaceChildren(...events.map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));
 }
 function threadUpdate(){nativeSnapshot();clearTimeout(threadTimer);threadTimer=setTimeout(()=>{try{if(lastAttempt)localStorage.setItem(storageKey+'-attempt',JSON.stringify(lastAttempt));}catch{}thread?.sync();thread?.update();},100);}
-function phase(text) { $('live-phase').textContent = text; updateFeed(); threadUpdate(); }
+let turnSteps=[],turnProgress=null;
+function phase(text) {
+  $('live-phase').textContent = text;
+  // A turn's steps, kept for the phone's progress panel; a turn on the knot brings its own.
+  if((busy||remoteJob)&&!remoteJob&&text&&turnSteps.at(-1)?.text!==text)turnSteps.push({at:new Date().toISOString(),text});
+  updateFeed(); threadUpdate();
+}
 function musicalData(request) {
   try{return JSON.parse(request.split('\nINPUT DATA:\n')[1]);}catch{return null;}
 }
@@ -177,7 +183,7 @@ function nativeSnapshot(){
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
-    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy:busy||!!remoteJob,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
+    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy:busy||!!remoteJob,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,progress:(busy||remoteJob)?(remoteJob?turnProgress:{phase:phaseText,round:0,worker:'this phone',startedAt:lastAttempt?.startedAt||'',steps:turnSteps.slice(-16),said:''}):null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
@@ -450,7 +456,7 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   // and the piece follows the ledger. A recovered checkpoint still finishes here.
   if(remoteTurns()&&!recovered?.checkpoint&&thread?.identity.code){await submitRemoteTurn({text,displayText,drawing:inputData(text)?.drawing||null});return;}
   let noChange=false;
-  validationChecks=[];runtimeErrors.length=0;turnNotes=[];
+  validationChecks=[];runtimeErrors.length=0;turnNotes=[];turnSteps=[{at:new Date().toISOString(),text:'started here'}];turnProgress=null;
   try{
     await accountVerification;if(turnCancelled)throw Error('Stopped');turnHandle=accountToken===token?accountHandle:'';turnPersonalAccess=!!turnHandle&&hasPersonalAccess(personalAccess);turnModel=selectedModel(turnHandle);
     activeReceipt=new AttemptReceipt({requestID:activeAttempt.id,parent:turnParent,parentHash:await hashSource(previous),path:'compiled',model:window.__whistlegraphModel||profile().model,journal:receipts});
@@ -678,6 +684,7 @@ async function watchRemoteTurn(job){
     if(state.status==='queued'||state.status==='running'){
       // The knot's phase and the code it is writing, shown as if the turn ran here.
       const p=state.progress;
+      turnProgress={phase:state.status==='queued'?'Waiting for a worker…':(p?.phase||'Working on the knot…'),round:p?.round||0,worker:state.claimedBy||p?.worker||'',startedAt:state.claimedAt||state.createdAt||'',steps:[{at:state.createdAt||'',text:'queued on the knot'},...(p?.steps||[])].slice(-16),said:p?.said||''};
       if(state.status==='queued')phase('Waiting for a worker…');
       else if(p?.phase){phase(p.phase+(p.round>1?' · round '+p.round:''));if(p.tail){outputStream=streamedCode(p.tail,'write_piece').slice(-6000);$('live-code').textContent=outputStream;$('live-details').open=true;}}
       nativeSnapshot();

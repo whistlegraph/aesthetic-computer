@@ -62,18 +62,21 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onPro
     const settingsFor = repair => generationProfile('', {repair, model: job.model || '', image: !!job.request.drawing});
     let completed = false, error = '', server = null, checkpointAt = 0, renders = 0, lastPainted = null, repairs = 0, feedback = null, lastProof = null, round = 0, progressAt = 0;
     const checks = [], notes = [];
-    let tail = '', phaseNow = 'Waiting for model…';
-    const progress = (phase, {force = false} = {}) => { phaseNow = phase; const now = Date.now(); if (force || now - progressAt > 2500) { progressAt = now; void onProgress({phase, round, streamed: tail.length, tail: tail.slice(-3000)}); } };
+    let tail = '', phaseNow = 'Waiting for model…', said = '', steps = [];
+    const step = text => { if (steps.at(-1)?.text !== text) steps.push({at: new Date().toISOString(), text: String(text).slice(0, 160)}); };
+    step('claimed by ' + WORKER);
+    const progress = (phase, {force = false} = {}) => { phaseNow = phase; const now = Date.now(); if (force || now - progressAt > 2500) { progressAt = now; void onProgress({phase, round, streamed: tail.length, tail: tail.slice(-3000), steps: steps.slice(-16), said}); } };
     // Every write is painted at once and the result handed back to the model
     // as runtime feedback, as the phone does: the edit contract tells it to
     // inspect ac_preview, and without that it rewrote one piece twelve rounds
     // running (85,000 characters) until the round cap stopped it, 2026-10-10.
     const paint = async () => {
       if (!pool) return null;
-      progress('Painting…', {force: true});
+      step(`wrote ${source.length.toLocaleString('en-US')} chars`); progress('Painting…', {force: true});
       const proof = await pool.render({source, renderID: ++renders});
       proof.logs = proof.logs.map(l => ({...l, level: runtimeLevel(l)}));
       lastProof = proof;
+      step(proof.rendered ? 'painted' + (proof.logs.some(l => l.level === 'error') ? ' with runtime errors' : '') : 'did not paint' + (proof.error ? ': ' + proof.error : ''));
       feedback = {rendered: proof.rendered, sourceHash: proof.sourceHash, revision: proof.sourceHash, requestID: proof.renderID, logs: proof.logs, updatedAt: new Date().toISOString()};
       if (proof.rendered && sourceChecks(source).length === 0) lastPainted = {source, proof};
       return proof;
@@ -86,17 +89,17 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onPro
         developerInstructions: GENERATION_INSTRUCTIONS + '\n' + WARE_INSTRUCTIONS});
       server.runtimeFeedback = () => feedback;
       completed = false; error = '';
-      let streamed = 0, lastNote = Date.now(), said = '';
-      tail = ''; progress(repair ? 'Repairing…' : 'Waiting for model…', {force: true});
+      let streamed = 0, lastNote = Date.now(), thinking = false, writing = false, saying = '';
+      tail = ''; said = ''; step(repair ? 'repair round started' : 'asked the model (' + settings.model.split('/').pop() + ')'); progress(repair ? 'Repairing…' : 'Waiting for model…', {force: true});
       server.on('notification', ({method, params}) => {
         if (method === 'turn/completed') { completed = !params.turn.error && params.turn.status === 'completed'; error = params.turn.error ? String(params.turn.error.message || params.turn.error) : ''; }
-        if (method === 'item/reasoning/delta') progress('Thinking…');
-        if (method === 'item/modelCode/delta') { streamed += params.delta?.length || 0; tail = (tail + (params.delta || '')).slice(-6000); progress(repair ? 'Repairing…' : 'Writing…'); if (Date.now() - lastNote > 20000) { lastNote = Date.now(); log('streaming', job.code, streamed, 'chars', repair ? '(repair)' : ''); } }
+        if (method === 'item/reasoning/delta') { if (!thinking) { thinking = true; step('thinking'); } progress('Thinking…'); }
+        if (method === 'item/modelCode/delta') { if (!writing) { writing = true; step(repair ? 'rewriting' : 'writing'); } streamed += params.delta?.length || 0; tail = (tail + (params.delta || '')).slice(-6000); progress(repair ? 'Repairing…' : 'Writing…'); if (Date.now() - lastNote > 20000) { lastNote = Date.now(); log('streaming', job.code, streamed, 'chars', repair ? '(repair)' : ''); } }
         if (method === 'turn/started') round += 1;
-        if (method === 'turn/usage') log('usage', job.code, params.usage?.output_tokens ?? 0, 'output tokens');
+        if (method === 'turn/usage') { log('usage', job.code, params.usage?.output_tokens ?? 0, 'output tokens'); step(`round ${round}: ${(params.usage?.output_tokens ?? 0).toLocaleString('en-US')} tokens out`); thinking = false; writing = false; }
         if (method === 'item/started') log('tool', job.code, params.item?.tool || params.item?.type || '?');
-        if (method === 'item/agentMessage/delta') { said += params.delta || ''; }
-        if (method === 'turn/completed') { if (said.trim()) log('model said', job.code, JSON.stringify(said.trim().slice(0, 400))); said = ''; }
+        if (method === 'item/agentMessage/delta') { saying += params.delta || ''; said = saying.trim().slice(-280); progress(phaseNow); }
+        if (method === 'turn/completed') { if (saying.trim()) { log('model said', job.code, JSON.stringify(saying.trim().slice(0, 400))); step('model: ' + saying.trim().slice(0, 140)); } saying = ''; }
       });
       signal?.addEventListener('abort', () => server?.interrupt(), {once: true});
       await server.startTurn(chalk ? [{type: 'text', text: task}, chalk] : task);
@@ -136,24 +139,26 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onPro
       request: inferenceRequest(job.request.text), history: selectedBranch(thread.ledger), drawing: chalk, model: settingsFor(false).model, token: 'worker', fetch: workerFetch(job.owner, settingsFor(false)), signal});
     let acceptance = 'unreviewed';
     try {
-      progress('Checking picture…', {force: true});
+      step('checking the picture'); progress('Checking picture…', {force: true});
       let verdict = await review(candidate, proof); checks.push(verdict.passed ? 'visual-pass' : 'visual-fail');
       log('picture review', job.code, verdict.passed ? 'passed' : 'findings: ' + verdict.findings.join('; ').slice(0, 200));
+      step(verdict.passed ? 'picture passed' : 'review: ' + (verdict.findings[0] || 'findings').slice(0, 140));
       if (!verdict.passed && repairs === 0 && candidate === source) {
-        repairs = 1; log('repairing picture', job.code); progress('Repairing picture…', {force: true});
+        repairs = 1; log('repairing picture', job.code); step('repairing the picture'); progress('Repairing picture…', {force: true});
         const before = {source: candidate, proof};
         const ok = await generate(prompt + REPAIR_NOTE(verdict.findings), true);
         const again = ok ? await inspect() : null;
-        if (again?.passed) { candidate = source; proof = again.proof; progress('Checking picture…', {force: true}); verdict = await review(candidate, proof); checks.push(verdict.passed ? 'visual-pass' : 'visual-fail'); }
+        if (again?.passed) { candidate = source; proof = again.proof; step('checking the picture again'); progress('Checking picture…', {force: true}); verdict = await review(candidate, proof); checks.push(verdict.passed ? 'visual-pass' : 'visual-fail'); step(verdict.passed ? 'picture passed' : 'review: ' + (verdict.findings[0] || 'findings').slice(0, 140)); }
         else { candidate = before.source; proof = before.proof; notes.push('The repair did not paint; kept the picture before it.'); }
       }
       acceptance = verdict.passed ? 'reviewed' : 'reviewed-with-notes';
       if (!verdict.passed) notes.push(...verdict.findings.slice(0, 4));
     } catch (reviewError) {
       if (signal?.aborted) throw reviewError;
-      checks.push('visual-unreviewed'); notes.push('Review unavailable: ' + String(reviewError.message || reviewError).slice(0, 160));
+      checks.push('visual-unreviewed'); notes.push('Review unavailable: ' + String(reviewError.message || reviewError).slice(0, 160)); step('review unavailable; keeping it unreviewed');
       log('picture review unavailable', job.code, reviewError.message);
     }
+    step('saving'); progress('Saving…', {force: true});
     return {source: candidate, findings, repairs, notes, acceptance, checks};
   } finally { rmSync(cwd, {recursive: true, force: true}); }
 }
