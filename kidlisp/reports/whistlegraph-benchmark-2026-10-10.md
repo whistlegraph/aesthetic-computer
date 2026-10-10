@@ -14,10 +14,13 @@ into pools.
 | Fía | KidLisp | 26,396 | 409 | 5 | 5 |
 | Shooter (wgNirin v7) | JavaScript | 18,586 | 385 | 60 | 56 |
 | Shooter | KidLisp | 22,369 | 382 | 2 | 2 |
-| Fía | KidLisp, closure compiler | 26,412 | 410 | 18 | 13 |
-| Shooter | KidLisp, closure compiler | 22,380 | 383 | 12 | 11 |
+| Fía | KidLisp, closure compiler v1 | 26,412 | 410 | 18 | 13 |
+| Shooter | KidLisp, closure compiler v1 | 22,380 | 383 | 12 | 11 |
+| Fía | closure compiler v2 | 26,412 | 410 | 24 | 16 |
+| Shooter | closure compiler v2 | 22,380 | 383 | 20 | 20 |
+| Fía | compiler v3 + the heart projection as a Wasm kernel | 26,921 | 420 | 28 | 16 |
 
-The last two rows are the same sources with a `; @compile` first line
+The compiler rows are the same sources with a `; @compile` first line
 (`lib/kidlisp-compile.mjs`, later the same day): the program compiled once
 into closures with names resolved to slots, the drawing calls still going
 through the interpreter's own table. In Node the compiled evaluation costs
@@ -27,6 +30,12 @@ interpreted; JavaScript evaluates each in about 2 ms.
 Per frame the KidLisp Fía makes about 2,900 ink, 1,600 line, 730 oval and
 30 shape calls; the shooter about 2,400 ink and 5,000 tri calls. The
 JavaScript pieces make the same calls.
+
+The kernel row (`lib/kidlisp-kernel.mjs`, PIECE-IL.md §8) moves the heart's
+per-point projection into a declared kernel the compiler runs as a Wasm
+loop over the pool; the same plan emits WGSL that compiles clean and agrees
+with the CPU on the Apple adapter. At 1280×720 Fía is bound by
+rasterization, not evaluation: the JavaScript version runs 30 there too.
 
 ## What it says
 
