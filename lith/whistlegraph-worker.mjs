@@ -69,8 +69,11 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signa
         rounds: settings.rounds, outputContinuations: settings.outputContinuations, reasoning: settings.reasoning, thinking: settings.thinking,
         developerInstructions: GENERATION_INSTRUCTIONS + '\n' + WARE_INSTRUCTIONS});
       completed = false; error = '';
+      let streamed = 0, lastNote = Date.now();
       server.on('notification', ({method, params}) => {
         if (method === 'turn/completed') { completed = !params.turn.error && params.turn.status === 'completed'; error = params.turn.error ? String(params.turn.error.message || params.turn.error) : ''; }
+        if (method === 'item/modelCode/delta') { streamed += params.delta?.length || 0; if (Date.now() - lastNote > 20000) { lastNote = Date.now(); log('streaming', job.code, streamed, 'chars', repair ? '(repair)' : ''); } }
+        if (method === 'turn/usage') log('usage', job.code, params.usage?.output_tokens ?? 0, 'output tokens');
       });
       signal?.addEventListener('abort', () => server?.interrupt(), {once: true});
       await server.startTurn(chalk ? [{type: 'text', text: task}, chalk] : task);

@@ -177,7 +177,7 @@ function nativeSnapshot(){
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
-    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
+    const snapshot={ware:'piece',inference:inferenceSnapshot(),output:outputStream,caption,code:thread?.identity.code||'',handle:accountHandle,colors:accountPalette,head:displayVersion?.id||0,hasPiece:!!source.trim(),hasPreview:!!source.trim()||!!provisional.trim(),busy:busy||!!remoteJob,phase:phaseText,error:!busy&&/error|unavailable|could not|sign.in|loading|no piece/i.test(phaseText)?phaseText:'',attempt:lastAttempt?{request:lastAttempt.request.slice(0,1000),status:lastAttempt.status,error:lastAttempt.error||''}:null,draft:(d=>d?{request:d.request.slice(0,1000),error:d.error||'',createdAt:d.createdAt||'',characters:d.source.length}:null)(readDraft())};
     const serialized=JSON.stringify(snapshot);if(serialized===nativeLast&&!historyChanged)return;nativeLast=serialized;
     if(historyChanged)snapshot.versions=nativeRevisions;
     post({action:'snapshot',snapshot});
@@ -445,6 +445,9 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
   lastAttempt={request:displayText.slice(0,20000),parent:turnParent,status:'working',startedAt:new Date().toISOString()};
   document.body.classList.add('live-mode');phase('Sending…');log('Submitted');
   timer=setInterval(()=>$('live-time').textContent=((performance.now()-started)/1000).toFixed(1)+'s',100);
+  // Turns run off the phone (TURNS.md slice 5): the request goes to the knot
+  // and the piece follows the ledger. A recovered checkpoint still finishes here.
+  if(remoteTurns()&&!recovered?.checkpoint&&thread?.identity.code){await submitRemoteTurn({text,displayText,drawing:inputData(text)?.drawing||null});return;}
   let noChange=false;
   validationChecks=[];runtimeErrors.length=0;turnNotes=[];
   try{
@@ -625,7 +628,62 @@ async function keepDraft(){
   }else{source=previous;vfs.mount(file,source);render(source);phase('The draft did not paint this time');}
   busy=false;end();threadUpdate();
 }
+// ---- Turns on the knot (TURNS.md slice 5) ----
+let remoteJob=null;
+function remoteTurns(){
+  try{const pref=localStorage.getItem('whistlegraph-remote-turns');if(pref==='on')return true;if(pref==='off')return false;}catch{}
+  return accountHandle==='jeffrey'; // jeffrey first; everyone with the switch after.
+}
+async function submitRemoteTurn({text,displayText,drawing}){
+  busy=false; // Nothing runs here; the phone is free to follow the ledger.
+  try{
+    const body={code:thread.identity.code,text,displayText:String(displayText||'').slice(0,200),baseVersion:versions.head.id,baseHash:await hashSource(versions.head.source),requestID:crypto.randomUUID()};
+    if(drawing)body.drawing=drawing;
+    const r=await fetch('https://aesthetic.computer/api/whistlegraph-turn',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+    const job=await r.json().catch(()=>({}));
+    if(r.status!==202)throw Error(job.error||('Could not send the request (HTTP '+r.status+')'));
+    remoteJob={id:job.id,parent:versions.head.id};
+    if(activeAttempt)activeAttempt=saveAttempt(localStorage,storageKey,{...activeAttempt,remote:job.id,status:'working'});
+    phase('Working on the knot…');log('Sent to the knot as turn '+String(job.id).slice(0,8));benchmark('remoteDispatched');
+    nativeSnapshot();threadUpdate();
+    void watchRemoteTurn(remoteJob);
+  }catch(error){remoteFailed(error.message||String(error),null);}
+}
+function remoteFailed(message,draft){
+  lastAttempt={...(lastAttempt||{request:''}),status:message==='Stopped'?'interrupted':'failed',error:message,finishedAt:new Date().toISOString()};
+  if(activeAttempt)saveAttempt(localStorage,storageKey,{...activeAttempt,status:'failed'});
+  if(draft)try{localStorage.setItem(storageKey+'-draft',JSON.stringify({source:draft,request:lastAttempt.request,error:message,parent:versions.head.id,createdAt:new Date().toISOString()}));}catch{}
+  remoteJob=null;activeAttempt=null;busy=false;phase(message==='Stopped'?'Stopped':'Could not finish');log(message);
+  $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();
+}
+async function watchRemoteTurn(job){
+  const startedAt=Date.now();
+  while(remoteJob&&remoteJob.id===job.id){
+    await new Promise(r=>setTimeout(r,5000));
+    if(!remoteJob||remoteJob.id!==job.id)return;
+    let state;
+    try{const r=await fetch('https://aesthetic.computer/api/whistlegraph-turn?id='+encodeURIComponent(job.id),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});state=await r.json();}catch{continue;}
+    if(state.status==='queued'||state.status==='running'){
+      if(Date.now()-startedAt>15*60000){remoteFailed('The knot did not finish in fifteen minutes. Try again.',state.checkpoint||null);return;}
+      continue;
+    }
+    if(state.status==='done'){
+      remoteJob=null;localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;
+      // The socket usually delivered the version already; if not, fetch the thread and follow it.
+      if(versions.head.id<(state.result?.versionID||0)){
+        try{const r=await fetch('https://aesthetic.computer/api/whistlegraph?code='+encodeURIComponent(thread.identity.code),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});const t=await r.json();if(t?.ledger&&Number(t.revision)>Number(thread.revision))await thread.follow(t);}
+        catch(error){log('Could not fetch the finished turn: '+error.message);}
+      }
+      const notes=state.result?.notes||[];
+      phase(`v${versions.head.id} · ${state.result?.acceptance==='reviewed'?'Ready to play':'Saved with notes'}`);if(notes.length)log('Notes · '+notes.join('; '));
+      $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();return;
+    }
+    if(state.status==='failed'){remoteFailed(state.result?.error||'The knot could not finish',state.result?.draft||null);return;}
+  }
+}
 async function resumeAttempt(manual=false){
+  // A turn already on the knot is watched, never rerun here.
+  if(!manual){const journal=readAttempt(localStorage,storageKey);if(journal?.remote&&journal.status==='working'&&!remoteJob&&token){remoteJob={id:journal.remote,parent:journal.parent};activeAttempt=journal;lastAttempt={request:journal.displayText||journal.localText||'',parent:journal.parent,status:'working',startedAt:new Date().toISOString()};phase('Working on the knot…');nativeSnapshot();void watchRemoteTurn(remoteJob);return;}}
   const launchRetry=!manual&&launchRetryPending();
   if(launchRetry)manual=true;
   if(busy||!token||!ready||!versions||(!manual&&!recoveryPending))return;
@@ -682,7 +740,9 @@ window.whistlegraphEngineEvent=event=>{
     }
   }
 };
-$('live-stop').onclick=()=>{turnCancelled=true;pending='';visualController?.abort();server?.interrupt();if(!busy){end();phase('Stopped');}};
+$('live-stop').onclick=()=>{
+  if(remoteJob){const id=remoteJob.id;remoteJob=null;fetch('https://aesthetic.computer/api/whistlegraph-turn?id='+encodeURIComponent(id),{method:'DELETE',headers:{Authorization:'Bearer '+token}}).catch(()=>{});remoteFailed('Stopped',null);return;}
+  turnCancelled=true;pending='';visualController?.abort();server?.interrupt();if(!busy){end();phase('Stopped');}};
 window.whistlegraphUndo=()=>{try{source=versions.undo().source;}catch(error){log(error.message);return;}previous=source;vfs.mount(file,source);saved();server?.close();server=null;render(source||'export function paint({wipe}) {wipe("black");}');review(false);phase('Undone');};
 window.whistlegraphAsk=ask;
 window.whistlegraphAskDrawing=(text,drawing)=>{
