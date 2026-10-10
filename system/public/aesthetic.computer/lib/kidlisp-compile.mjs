@@ -89,11 +89,11 @@ export function compileProgram(ast, lisp) {
 
   // ---- expressions ----------------------------------------------------------
   function compile(expr, sc) {
-    if (typeof expr === "number") { const c = () => expr; c.numeric = true; return c; }
+    if (typeof expr === "number") { const c = () => expr; c.numeric = true; c.const = expr; return c; }
     if (typeof expr === "string") {
       if (/^".*"$/s.test(expr)) { const v = expr.slice(1, -1); return () => v; }
       const i = slotFor(sc, expr);
-      if (i >= 0) return (f) => f[i];
+      if (i >= 0) { const r = (f) => f[i]; r.slot = i; return r; }
       if (SCREEN[expr]) { const fn = SCREEN[expr]; return (f, api) => fn(api); }
       // A global the program defines reads straight from the shared store.
       if (globalNames.has(expr)) return () => g[expr];
@@ -129,7 +129,7 @@ export function compileProgram(ast, lisp) {
       const value = compile(args[1], sc);
       const i = slotFor(sc, name);
       if (i >= 0) return (f, api) => (f[i] = value(f, api));
-      if (head === "def") return (f, api) => { if (!Object.prototype.hasOwnProperty.call(g, name)) g[name] = value(f, api); return g[name]; };
+      if (head === "def") return (f, api) => { if (!(name in g)) g[name] = value(f, api); return g[name]; };
       return (f, api) => (g[name] = value(f, api));
     }
     if (head === "repeat") {
@@ -145,15 +145,17 @@ export function compileProgram(ast, lisp) {
     if (head === "spawn") {
       const name = args[0];
       const settings = args.slice(1).filter((s) => Array.isArray(s) && s.length >= 2).map((s) => [s[0], compile(s[1], sc)]);
+      let fieldIdx = null, forPool = null;
       return (f, api) => {
         const pool = lisp.pools.get(name); if (!pool) return -1;
+        if (forPool !== pool) { forPool = pool; fieldIdx = settings.map(([field]) => pool.fields.indexOf(field)); }
         let slot = -1;
         for (let k = 0; k < pool.cap; k++) if (!pool.alive[k]) { slot = k; break; }
         if (slot < 0) { slot = 0; for (let k = 1; k < pool.cap; k++) if (pool.born[k] < pool.born[slot]) slot = k; } else pool.count++;
         pool.alive[slot] = 1; pool.born[slot] = ++pool.serial;
         const n = pool.fields.length, base = slot * n;
         for (let k = 0; k < n; k++) pool.data[base + k] = 0;
-        for (const [field, value] of settings) { const fi = pool.fields.indexOf(field); if (fi >= 0) pool.data[base + fi] = num(value(f, api)); }
+        for (let k = 0; k < settings.length; k++) { const fi = fieldIdx[k]; if (fi >= 0) pool.data[base + fi] = num(settings[k][1](f, api)); }
         lisp.execution?.consume(["spawn"], 1);
         return slot;
       };
@@ -161,25 +163,35 @@ export function compileProgram(ast, lisp) {
     if (head === "each") {
       const name = args[0]; const decl = poolDecl(name); if (!decl) throw new CompileError("each over an undeclared pool " + name);
       const slots = decl.fields.map((field) => slotOf(sc, field)), slotIdx = slotOf(sc, "slot");
+      // Which fields the body mentions, and which it assigns: the rest are neither copied in nor written back.
+      const mentioned = new Set(), assigned = new Set();
+      (function scan(form) { if (typeof form === "string") mentioned.add(form); if (!Array.isArray(form)) return; if ((form[0] === "def" || form[0] === "now") && typeof form[1] === "string") assigned.add(form[1]); form.forEach(scan); })(args.slice(1));
+      const reads = decl.fields.map((field, k) => (mentioned.has(field) ? k : -1)).filter((k) => k >= 0);
+      const writes = decl.fields.map((field, k) => (assigned.has(field) ? k : -1)).filter((k) => k >= 0);
+      const kills = mentioned.has("kill");
       sc.loops++;
       const body = args.slice(1).map((a) => compile(a, sc));
       sc.loops--;
+      const bodyLength = body.length;
       return (f, api) => {
         const pool = lisp.pools.get(name); if (!pool) return 0;
         const n = pool.fields.length, order = pool.order && pool.order.length ? pool.order : null, limit = order ? order.length : pool.cap;
+        const data = pool.data, alive = pool.alive;
         lisp.execution?.consume(["each"], pool.cap);
         let visited = 0;
         for (let step = 0; step < limit; step++) {
           const slot = order ? order[step] : step;
-          if (!pool.alive[slot]) continue;
+          if (!alive[slot]) continue;
           visited++;
           const at = slot * n;
-          for (let k = 0; k < n; k++) f[slots[k]] = pool.data[at + k];
+          for (let r = 0; r < reads.length; r++) { const k = reads[r]; f[slots[k]] = data[at + k]; }
           f[slotIdx] = slot;
-          rt.killing = false;
-          for (const s of body) { s(f, api); if (rt.killing) break; }
-          if (rt.killing) { pool.alive[slot] = 0; pool.count = Math.max(0, pool.count - 1); rt.killing = false; }
-          else for (let k = 0; k < n; k++) { const v = f[slots[k]]; if (typeof v === "number") pool.data[at + k] = v; }
+          if (kills) {
+            rt.killing = false;
+            for (let b = 0; b < bodyLength; b++) { body[b](f, api); if (rt.killing) break; }
+            if (rt.killing) { alive[slot] = 0; pool.count = Math.max(0, pool.count - 1); rt.killing = false; continue; }
+          } else for (let b = 0; b < bodyLength; b++) body[b](f, api);
+          for (let w = 0; w < writes.length; w++) { const k = writes[w], v = f[slots[k]]; if (typeof v === "number") data[at + k] = v; }
         }
         return visited;
       };
@@ -195,11 +207,16 @@ export function compileProgram(ast, lisp) {
     // A piece function.
     if (rt.fns.has(head) || definesFunction(head)) {
       const parts = args.map((a) => compile(a, sc));
+      let fn = null;
+      const arity = parts.length;
       return (f, api) => {
-        const fn = rt.fns.get(head); if (!fn) return undefined;
-        const nf = fn.free.length ? fn.free.pop() : new Array(fn.size);
-        for (let k = 0; k < fn.arity; k++) nf[k] = parts[k] ? parts[k](f, api) : undefined;
-        try { return fn.body(nf, api); } finally { fn.free.push(nf); }
+        if (fn === null) { fn = rt.fns.get(head); if (!fn) return undefined; }
+        const free = fn.free;
+        const nf = free.length ? free.pop() : new Array(fn.size);
+        for (let k = 0; k < arity; k++) nf[k] = parts[k](f, api);
+        const out = fn.body(nf, api);
+        free.push(nf);
+        return out;
       };
     }
     if (RAW_ANYWHERE.has(head)) { const fn = env[head]; if (typeof fn !== "function") throw new CompileError("unknown form " + head); return (f, api) => fn(api, args, undefined); }
@@ -216,6 +233,44 @@ export function compileProgram(ast, lisp) {
   const num = (v) => (typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : 0);
   // The common shapes without an argument array: two-operand + - * / and
   // the one-argument functions, numbers guarded inline.
+  // + - * with a slot or a constant on either side read the value in place:
+  // no getter call for the operand, and the number guard folded in.
+  const G = (v) => (typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : 0);
+  function binary(head, a, b) {
+    const as = a.slot, bs = b.slot, ac = a.const, bc = b.const;
+    const aSlot = as !== undefined, bSlot = bs !== undefined, aConst = ac !== undefined, bConst = bc !== undefined;
+    if (head === "+") {
+      if (aSlot && bSlot) return (f) => G(f[as]) + G(f[bs]);
+      if (aSlot && bConst) return (f) => G(f[as]) + bc;
+      if (aConst && bSlot) return (f) => ac + G(f[bs]);
+      if (aSlot) return (f, api) => G(f[as]) + G(b(f, api));
+      if (bSlot) return (f, api) => G(a(f, api)) + G(f[bs]);
+      if (aConst) return (f, api) => ac + G(b(f, api));
+      if (bConst) return (f, api) => G(a(f, api)) + bc;
+      return (f, api) => G(a(f, api)) + G(b(f, api));
+    }
+    if (head === "-") {
+      if (aSlot && bSlot) return (f) => G(f[as]) - G(f[bs]);
+      if (aSlot && bConst) return (f) => G(f[as]) - bc;
+      if (aConst && bSlot) return (f) => ac - G(f[bs]);
+      if (aSlot) return (f, api) => G(f[as]) - G(b(f, api));
+      if (bSlot) return (f, api) => G(a(f, api)) - G(f[bs]);
+      if (aConst) return (f, api) => ac - G(b(f, api));
+      if (bConst) return (f, api) => G(a(f, api)) - bc;
+      return (f, api) => G(a(f, api)) - G(b(f, api));
+    }
+    if (head === "*") {
+      if (aSlot && bSlot) return (f) => G(f[as]) * G(f[bs]);
+      if (aSlot && bConst) return (f) => G(f[as]) * bc;
+      if (aConst && bSlot) return (f) => ac * G(f[bs]);
+      if (aSlot) return (f, api) => G(f[as]) * G(b(f, api));
+      if (bSlot) return (f, api) => G(a(f, api)) * G(f[bs]);
+      if (aConst) return (f, api) => ac * G(b(f, api));
+      if (bConst) return (f, api) => G(a(f, api)) * bc;
+      return (f, api) => G(a(f, api)) * G(b(f, api));
+    }
+    return null;
+  }
   function arith(head, parts) {
     const [a, b, c] = parts;
     const n = (p) => (p.numeric ? p : (f, api) => { const v = p(f, api); return typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : 0; });
@@ -237,6 +292,8 @@ export function compileProgram(ast, lisp) {
       }
     }
     if (parts.length === 2) {
+      const inlined = binary(head, a, b);
+      if (inlined) return inlined;
       const x = n(a), y = n(b);
       switch (head) {
         case "+": return (f, api) => x(f, api) + y(f, api);
