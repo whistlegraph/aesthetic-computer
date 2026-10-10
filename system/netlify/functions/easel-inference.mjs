@@ -31,6 +31,7 @@
 // real charge when the stream ends.
 
 import { stream } from "@netlify/functions";
+import { timingSafeEqual } from "node:crypto";
 import { inferenceProviderFailure } from "../../backend/easel-provider-error.mjs";
 import { relayInference } from "../../backend/easel-stream.mjs";
 import { EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
@@ -64,7 +65,16 @@ export const handler = stream(async (event) => {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) return fail(503, "Hosted inference is not configured.");
 
-  if (!event.headers?.authorization) {
+  // A turn worker (apple/whistlegraph/TURNS.md) runs turns for people who are
+  // not holding their phone, so it has no user token. It presents the shared
+  // worker secret and names the owner it is working for; everything after
+  // this line — handle, allowance, paid hold, settlement — happens as that
+  // owner, exactly as if the phone had called.
+  const workerSecret = process.env.WHISTLEGRAPH_WORKER_SECRET || "";
+  const presented = String(event.headers?.["x-ac-worker"] || "");
+  const asWorker = workerSecret.length >= 32 && presented.length === workerSecret.length
+    && timingSafeEqual(Buffer.from(presented), Buffer.from(workerSecret));
+  if (!asWorker && !event.headers?.authorization) {
     return fail(401, "Easel's hosted inference needs an Aesthetic Computer handle. Run /login.");
   }
 
@@ -72,13 +82,18 @@ export const handler = stream(async (event) => {
   let handle = "", userSub = "";
   try {
     const { authorize, getHandleOrEmail } = await import("../../backend/authorization.mjs");
-    const user = await Promise.race([
-      authorize(event.headers),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("auth timeout")), AUTH_TIMEOUT_MS)),
-    ]);
-    if (!user?.sub) return fail(401, "That token is not valid.");
-    userSub = user.sub;
-    const handleOrEmail = await getHandleOrEmail(user.sub);
+    if (asWorker) {
+      userSub = String(event.headers?.["x-ac-owner"] || "");
+      if (!userSub || userSub.length > 200) return fail(400, "The worker must name the owner it works for.");
+    } else {
+      const user = await Promise.race([
+        authorize(event.headers),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("auth timeout")), AUTH_TIMEOUT_MS)),
+      ]);
+      if (!user?.sub) return fail(401, "That token is not valid.");
+      userSub = user.sub;
+    }
+    const handleOrEmail = await getHandleOrEmail(userSub);
     if (typeof handleOrEmail === "string" && handleOrEmail.startsWith("@")) {
       handle = handleOrEmail.slice(1);
     }
