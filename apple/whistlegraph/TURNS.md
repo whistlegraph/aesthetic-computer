@@ -78,11 +78,15 @@ reach for `document`. The worker shims those to no-ops the way the
 conformance worker does. Pieces that depend on them still paint; what they
 cannot do headlessly, they do on the phone when the version arrives.
 
-Fallback: a pool of headless Chrome tabs loading
-`https://aesthetic.computer/wipe?…preview=walkieware`, which is exactly how
-the mime feed was verified on 2026-10-09. It is proven and slower; it stays
-as the escape hatch for a piece the isolate cannot run, decided per piece by
-a `needsBrowser` flag the checks can set.
+Built first, 2026-10-10: a pool of warm headless Chrome tabs
+(`lith/whistlegraph-render.mjs`) loading
+`https://aesthetic.computer/wipe?…preview=walkieware`, the runtime the phone
+paints with. A tab comes up in ~2 s; a render is ~3 s including four frames
+over 2.2 s; the same tab rasterizes chalk. A throw before the first paint
+means no painted event (`unverified-render`); a throw after it arrives as a
+warn-level console line with a stack, which the worker reads as a runtime
+error, as the phone does. The graph.mjs isolate above is the lighter path and
+can replace the pool per piece later without touching callers.
 
 ## Scale
 
@@ -101,9 +105,9 @@ A turn is mostly waiting. One worker process holds many turns at once; the
 CPU-bound part is a second or two per candidate. Budget per worker:
 
 - `TURN_CONCURRENCY` model streams in flight (start at 24).
-- `RENDER_CONCURRENCY` isolates at once (start at cores − 1); renders queue
-  inside the worker.
-- Memory: ~60 MB per isolate while it runs, ~5 MB per idle turn.
+- `RENDER_CONCURRENCY` renderers at once (Chrome tabs now, isolates later;
+  start at 2 per 4 GB); renders queue inside the worker.
+- Memory: ~150 MB per warm Chrome tab, ~5 MB per idle turn.
 
 So **100 people iterating at once** is roughly 100 turns in flight, 100 × (2–4
 renders of ~1 s) = a few hundred render-seconds per minute. Two workers on a
