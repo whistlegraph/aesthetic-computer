@@ -372,3 +372,57 @@ without a JIT does in 16 ms. The paths to 60 on the console are the ones
 §10 names: the piece compiled to C into the native bios package, or, for
 a 3D piece, the host's own meshes (`meshUpload`, `meshDraw`,
 `triangle3d`) so the projection leaves JavaScript altogether.
+
+## 11. The 3D layer: the language never touches a vertex
+
+The shooter is slow on the console because the piece does the work of a
+renderer in the language: camera, clip, spawn, fan, 3,500 times a frame.
+The layer that fixes it is the one every engine has: geometry described
+once, a camera and placements per frame, projection in the host. On a
+machine with a JIT this is a courtesy; on QuickJS without one it is the
+difference between one frame a second and sixty.
+
+**Forms.** `(mesh name (cube w h d r g b) (cube x y z w h d r g b)
+(face x1 y1 z1 … x4 y4 z4 r g b) (tri … r g b))` builds geometry once,
+numbers only, as the Xbox's own layout (vertices; ten floats a face: four
+indices, a colour, a normal). `(camera x y z [yaw pitch fov near])` sets
+the frame's eye in the piece's pixels. `(place name x y z [yaw pitch roll
+scale])` draws a mesh at a pose. In the frame buffer (§9) these are
+`CAMERA` and `PLACE` ops; new meshes ride once with the frame that first
+uses them. `lib/kidlisp-mesh.mjs` holds the builder, the camera (the
+Xbox's 27 floats: position, three view rows, centre, focal length,
+perspective, near, viewport, depth base and slope, light) and the
+projector.
+
+**Hosts.** The Xbox draws placements with its retained meshes
+(`meshUpload` once per pose, `meshDraw` per frame, depth-buffered). The
+browser's WebGPU renderer and the Mac shell run the projector in
+JavaScript, a port of the Xbox's SceneMesh, so the pictures agree: view
+transform, near-plane clip in view space, projection, a guard band in
+screen space so nothing projected from just in front of the eye reaches a
+host as a coordinate it refuses, lighting by the face normal, back faces
+dropped, and every face of the frame sorted once, far to near, across all
+placements, so a host without a depth buffer paints in order between
+objects as well as within them. The interpreter draws the same faces with
+`tri` on the CPU, so a piece runs everywhere, slower without the GPU path.
+
+**Measured.** `kidlisp/examples/meshes/corridor.lisp`: a brick corridor
+with pillars, crates and turning guards, the shooter's scene as meshes.
+1,352 placements a frame, about 11,000 lit faces.
+
+| per frame | Xbox Series X, QuickJS, no JIT, 1080p | Mac shell, JavaScriptCore |
+|---|---|---|
+| corridor | 18 ms, 56 fps | 1.1 ms, 60 fps |
+| the shooter, same scene drawn by the piece (§10) | 579 ms | 15 ms |
+
+Thirty times faster on the console, from describing instead of drawing.
+The rest of the frame on the Xbox is the bridge: 1,352 `meshDraw` calls
+at about 7 µs each. Two instancing calls would make that nothing.
+
+**Limits learned.** The Xbox's triangle path takes 8,192 triangles a
+frame and its mesh path does not cull back faces, so a wall of cubes is
+dropped past the cap; describe the face you see (the corridor's bricks are
+single faces, 2 triangles each). The host's mesh store holds 4,096 meshes
+and outlives a hot reload, so a benchmark restarts the app. A mesh whose
+pose changes every frame goes through the projector rather than an upload
+a frame. `def` inside a loop defines once; use `now`.
