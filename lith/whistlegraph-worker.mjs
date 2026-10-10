@@ -60,14 +60,28 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signa
     const prompt = compileEditContract({request: job.request.text, ...selectedBranch(thread.ledger), source}) +
       '\nCurrent preview: 390 × 520 CSS points. Compose for this shape using screen.width and screen.height; keep subjects within the canvas and remain responsive when it resizes.';
     const settingsFor = repair => generationProfile('', {repair, model: job.model || '', image: !!job.request.drawing});
-    let completed = false, error = '', server = null, checkpointAt = 0, renders = 0, lastPainted = null, repairs = 0;
+    let completed = false, error = '', server = null, checkpointAt = 0, renders = 0, lastPainted = null, repairs = 0, feedback = null, lastProof = null;
     const checks = [], notes = [];
+    // Every write is painted at once and the result handed back to the model
+    // as runtime feedback, as the phone does: the edit contract tells it to
+    // inspect ac_preview, and without that it rewrote one piece twelve rounds
+    // running (85,000 characters) until the round cap stopped it, 2026-10-10.
+    const paint = async () => {
+      if (!pool) return null;
+      const proof = await pool.render({source, renderID: ++renders});
+      proof.logs = proof.logs.map(l => ({...l, level: runtimeLevel(l)}));
+      lastProof = proof;
+      feedback = {rendered: proof.rendered, sourceHash: proof.sourceHash, revision: proof.sourceHash, requestID: proof.renderID, logs: proof.logs, updatedAt: new Date().toISOString()};
+      if (proof.rendered && sourceChecks(source).length === 0) lastPainted = {source, proof};
+      return proof;
+    };
     const generate = async (task, repair) => {
       const settings = settingsFor(repair);
-      server = new AcServer({cwd, piece: {file, checkpoint: async () => { source = readFileSync(file, 'utf8'); const now = Date.now(); if (now - checkpointAt > 5000) { checkpointAt = now; await onCheckpoint(source); } }},
-        token: async () => 'worker', fetch: workerFetch(job.owner, settings), site: SITE, preview: false, frameCapture: false, model: settings.model,
+      server = new AcServer({cwd, piece: {file, checkpoint: async () => { source = readFileSync(file, 'utf8'); await paint(); const now = Date.now(); if (now - checkpointAt > 5000) { checkpointAt = now; await onCheckpoint(source); } }},
+        token: async () => 'worker', fetch: workerFetch(job.owner, settings), site: SITE, preview: !!pool, frameCapture: false, model: settings.model,
         rounds: settings.rounds, outputContinuations: settings.outputContinuations, reasoning: settings.reasoning, thinking: settings.thinking,
         developerInstructions: GENERATION_INSTRUCTIONS + '\n' + WARE_INSTRUCTIONS});
+      server.runtimeFeedback = () => feedback;
       completed = false; error = '';
       let streamed = 0, lastNote = Date.now();
       server.on('notification', ({method, params}) => {
@@ -85,8 +99,7 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signa
     const inspect = async () => {
       const hash = sourceHash(source);
       if (!pool) { const findings = sourceChecks(source); return {passed: findings.length === 0, findings, sourceHash: hash, proof: null}; }
-      const proof = await pool.render({source, renderID: ++renders});
-      proof.logs = proof.logs.map(l => ({...l, level: runtimeLevel(l)}));
+      const proof = lastProof?.sourceHash === hash && lastProof.frames?.length ? lastProof : await paint();
       const validation = validateCandidate(source, {rendered: proof.rendered, sourceHash: proof.sourceHash, logs: proof.logs}, hash);
       if (proof.rendered && validation.passed) lastPainted = {source, proof};
       log('paint check', job.code, proof.rendered ? 'painted' : 'not painted', validation.findings.map(f => f.code).join(',') || 'clean');
@@ -94,7 +107,11 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, signa
     };
     const result = await runEditExperiment({prompt, generate, inspect, cancelled: () => signal?.aborted === true, onRepair: () => { repairs = 1; log('repairing', job.code); }});
     if (result.cancelled) throw Object.assign(Error('Stopped'), {code: 'cancelled'});
-    if (!result.completed) throw Object.assign(Error(error || 'The model did not finish'), {draft: source !== head.source ? source : null});
+    if (!result.completed) {
+      // Out of rounds or an upstream error with a working picture in hand: keep it, with a note.
+      if (source !== head.source && lastPainted?.source === source) notes.push('The model stopped early (' + (error || 'did not finish') + '); kept its last working picture.');
+      else throw Object.assign(Error(error || 'The model did not finish'), {draft: source !== head.source ? source : null});
+    }
     if (source.trim() === (head.source || '').trim()) throw Error('No change to the piece');
     let candidate = source, proof = result.validation?.proof || null, findings = result.validation?.findings || [];
     if (!result.validation?.passed) {

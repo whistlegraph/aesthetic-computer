@@ -536,6 +536,10 @@ async function ask(text,displayText=text,advice=null,starter=null,localText=text
       turnSucceeded=painted&&lastPaintedSource===source;turnRuntimeFailed=false;
       if(turnSucceeded){benchmark('refinementFailed',{message:turnError||'Refinement unavailable'});log('Refinement failed; kept the starter');server?.close();server=null;}
     }
+    if(!turnSucceeded&&!turnCancelled&&!turnRuntimeFailed&&source!==previous&&painted&&lastPaintedSource===source&&!sourceChecks(source).length){
+      // Out of rounds, or the model stopped with a working picture on screen: that is the work.
+      turnSucceeded=true;turnNotes=[...turnNotes,'The model stopped early ('+(turnError||'did not finish')+'); kept its last working picture.'];log('Kept the painted candidate after an early stop');
+    }
     if(!turnSucceeded&&!turnCancelled&&activeAttempt?.checkpoint&&activeAttempt.checkpoint!==previous&&activeAttempt.checkpoint!==source){
       // A repair broke the picture (the last candidate never painted). The
       // last candidate that did paint is the work worth keeping, with a note;
