@@ -8,6 +8,7 @@ import {connect} from '../../backend/database.mjs';
 import {authenticateMusical} from './easel-musical-jev.mjs';
 import {whistlegraphStore} from './whistlegraph.mjs';
 import {mongoTurnQueue, validateTurnRequest, publicTurn} from '../../backend/whistlegraph-turns.mjs';
+import {threadUpdated} from '../../backend/whistlegraph-live.mjs';
 let pending;
 export const turnQueue = () => pending ??= (async () => { const {db} = await connect(); return mongoTurnQueue(db.collection('walkieware-turns')); })().catch(error => { pending = null; throw error; });
 export async function handler(event) {
@@ -42,7 +43,12 @@ export async function handler(event) {
     if (!thread) return reply(404, {error: 'Thread unavailable'});
     const head = thread.ledger?.versions.find(v => v.id === thread.ledger.head);
     if (!head || head.id !== request.baseVersion) return reply(409, {error: `The piece is at v${head?.id ?? 0}; the request builds on v${request.baseVersion}. Reopen it and try again.`});
-    try { return reply(202, publicTurn(await queue.enqueue(owner, thread, request))); }
+    try {
+      const row = await queue.enqueue(owner, thread, request);
+      // Whoever is watching this thread (the phone, a stand-in) learns a turn began.
+      threadUpdated(thread._id, {type: 'turn', turn: publicTurn(row)});
+      return reply(202, publicTurn(row));
+    }
     catch (error) { return reply(error.statusCode || 500, {error: error.message}); }
   } catch { return reply(503, {error: 'Turn queue unavailable'}); }
 }

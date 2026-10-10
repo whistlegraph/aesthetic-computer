@@ -13,9 +13,9 @@ export function threadIdentity(storage,key,uuid=()=>crypto.randomUUID()) {
   const value={id:uuid(),code:null};storage.setItem(key+'-thread',JSON.stringify(value));return value;
 }
 export class WhistlegraphThread {
-  constructor({storage,key,token,ledger,state,onStatus,onCommand,onAdopt=null,receipts=null,WebSocketImpl=globalThis.WebSocket,url='wss://aesthetic.computer/api/whistlegraph-stream',heartbeatMs=15000,maxIdleMs=45000,reconnectMs=3000}) {
+  constructor({storage,key,token,ledger,state,onStatus,onCommand,onAdopt=null,onTurn=null,receipts=null,WebSocketImpl=globalThis.WebSocket,url='wss://aesthetic.computer/api/whistlegraph-stream',heartbeatMs=15000,maxIdleMs=45000,reconnectMs=3000}) {
     this.receipts=receipts;
-    Object.assign(this,{storage,key,token,ledger,state,onStatus,onCommand,onAdopt,WebSocketImpl,url,heartbeatMs,maxIdleMs,reconnectMs});
+    Object.assign(this,{storage,key,token,ledger,state,onStatus,onCommand,onAdopt,onTurn,WebSocketImpl,url,heartbeatMs,maxIdleMs,reconnectMs});
     this.identity=threadIdentity(storage,key);this.revision=Number(storage.getItem(key+'-cloud-revision')||0);this.last=storage.getItem(key+'-cloud-ledger')||'';
     this.active=false;this.sending=false;this.ready=false;this.connectURL=url;
   }
@@ -46,6 +46,7 @@ export class WhistlegraphThread {
         if(cloud===local){this.last=local;this.storage.setItem(this.key+'-cloud-revision',String(this.revision));this.storage.setItem(this.key+'-cloud-ledger',local);}
         this.onStatus(this.identity.code,'Connected');this.sync();this.update();this.flushReceipts();
       }
+      if(m.type==='turn'&&m.turn){try{await this.onTurn?.(m.turn);}catch{}}
       if(m.type==='updated'&&m.thread?.ledger) {
         if(this.sending)return;
         const cloud=ledgerText(m.thread.ledger),local=ledgerText(this.ledger());

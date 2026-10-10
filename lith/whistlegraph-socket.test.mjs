@@ -184,3 +184,14 @@ test('a device with nothing unsynced follows a server-side turn; one with local 
  assert.equal(adopted.head,3,'local work is never replaced');assert.ok(statuses.includes('History conflict'));
  phone.suspend();
 });
+
+test('a device hears a turn begin on its thread and hands it to onTurn',async()=>{
+ const values=new Map(),storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+ let sockets=[],heard=null;
+ class FakeSocket{constructor(){sockets.push(this);this.readyState=1;queueMicrotask(()=>this.onopen?.());}send(raw){const m=JSON.parse(raw);if(m.type==='authenticate')queueMicrotask(()=>this.onmessage?.({data:JSON.stringify({type:'ready',thread:{code:'wgTurny',revision:1,ledger}})}));}close(){this.readyState=3;}}
+ const phone=new WhistlegraphThread({storage,key:'k',token:()=>'t',ledger:()=>ledger,state:()=>({}),onStatus:()=>{},onCommand:async()=>({ok:true}),onTurn:async t=>{heard=t;},WebSocketImpl:FakeSocket});
+ await phone.resume();await new Promise(r=>setTimeout(r,20));
+ await sockets[0].onmessage({data:JSON.stringify({type:'turn',turn:{id:'job-1',status:'queued',baseVersion:0,request:{displayText:'a moon'}}})});
+ assert.equal(heard?.id,'job-1');assert.equal(heard?.request.displayText,'a moon');
+ phone.suspend();
+});

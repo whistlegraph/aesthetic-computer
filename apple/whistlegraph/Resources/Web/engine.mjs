@@ -665,7 +665,7 @@ function remoteFailed(message,draft){
   lastAttempt={...(lastAttempt||{request:''}),status:message==='Stopped'?'interrupted':'failed',error:message,finishedAt:new Date().toISOString()};
   if(activeAttempt)saveAttempt(localStorage,storageKey,{...activeAttempt,status:'failed'});
   if(draft)try{localStorage.setItem(storageKey+'-draft',JSON.stringify({source:draft,request:lastAttempt.request,error:message,parent:versions.head.id,createdAt:new Date().toISOString()}));}catch{}
-  remoteJob=null;activeAttempt=null;busy=false;phase(message==='Stopped'?'Stopped':'Could not finish');log(message);
+  remoteJob=null;openTurnsChecked=false;activeAttempt=null;busy=false;phase(message==='Stopped'?'Stopped':'Could not finish');log(message);
   $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();
 }
 async function watchRemoteTurn(job){
@@ -685,7 +685,7 @@ async function watchRemoteTurn(job){
       continue;
     }
     if(state.status==='done'){
-      remoteJob=null;localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;
+      remoteJob=null;openTurnsChecked=false;localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;
       // The socket usually delivered the version already; if not, fetch the thread and follow it.
       if(versions.head.id<(state.result?.versionID||0)){
         try{const r=await fetch('https://aesthetic.computer/api/whistlegraph?code='+encodeURIComponent(thread.identity.code),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});const t=await r.json();if(t?.ledger&&Number(t.revision)>Number(thread.revision))await thread.follow(t);}
@@ -880,6 +880,14 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
     // A turn that ran off the phone: take the server's ledger as our own.
     // While a turn runs here, it waits until that turn ends.
     onAdopt:async ledger=>{if(busy){pendingAdopt=ledger;return;}adoptLedger(ledger);},
+    // A turn began on this thread (from the phone or anywhere else): watch it.
+    onTurn:turn=>{
+      if(!turn||!['queued','running'].includes(turn.status)||remoteJob||busy)return;
+      remoteJob={id:turn.id,parent:turn.baseVersion};
+      lastAttempt={request:turn.request?.displayText||String(turn.request?.text||'').split('\nINPUT DATA:')[0]||'Request',parent:turn.baseVersion,status:'working',startedAt:turn.createdAt||new Date().toISOString()};
+      phase('Working on the knot…');log('A turn began on the knot: '+String(turn.id).slice(0,8));nativeSnapshot();threadUpdate();
+      void watchRemoteTurn(remoteJob);
+    },
     onCommand:async command=>{
       if(command.action==='layout'){
         if(typeof command.css!=='string'||new TextEncoder().encode(command.css).length>100000)throw Error('Invalid layout');
