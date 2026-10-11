@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Band — Windows</title>
+<meta name="description" content="Could Menu Band run on Windows 11? What ports cleanly, what the taskbar forbids, and the one route that works.">
+<link rel="canonical" href="https://aesthetic.computer/menuband/windows.html">
+<link rel="icon" href="/menuband/icon.png">
+<style>
+  :root {
+    --aqua-sky-top: #dfe9f2;
+    --aqua-sky-bot: #b9cfe6;
+    --aqua-blue:    #3d7fd6;
+    --panel-bg:     #ededed;
+    --panel-stripe: #e5e5e5;
+    --panel-edge:   #c4ccd4;
+    --titlebar-top: #e8e8e8;
+    --titlebar-bot: #c8c8c8;
+    --ink-body:     #2b2b2b;
+    --ink-head:     #1a1a1a;
+    --ink-soft:     #5a5f66;
+  }
+  * { box-sizing: border-box; }
+  html { cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
+  html, body {
+    margin: 0; padding: 0;
+    color: var(--ink-body);
+    font-family: "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: linear-gradient(to bottom, var(--aqua-sky-top), var(--aqua-sky-bot)) fixed;
+    min-height: 100vh;
+    padding: 36px 16px 64px;
+  }
+  .window {
+    max-width: 640px; margin: 0 auto;
+    background: #fff;
+    border-radius: 8px 8px 6px 6px;
+    border: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, 0 10px 40px rgba(40,60,90,0.18);
+    overflow: hidden;
+  }
+  .titlebar {
+    height: 22px;
+    background: linear-gradient(to bottom, var(--titlebar-top), var(--titlebar-bot));
+    border-bottom: 1px solid var(--panel-edge);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+    display: flex; align-items: center; padding: 0 9px;
+    position: relative; user-select: none;
+  }
+  .lights { display: flex; gap: 7px; }
+  .light {
+    width: 11px; height: 11px; border-radius: 50%;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.55) inset, 0 0 0 0.5px rgba(0,0,0,0.25);
+  }
+  .light.r { background: radial-gradient(circle at 35% 35%, #ff8a85, #ff5f57); }
+  .light.y { background: radial-gradient(circle at 35% 35%, #ffd68a, #febc2e); }
+  .light.g { background: radial-gradient(circle at 35% 35%, #6fe89d, #28c840); }
+  .titlebar h1 {
+    margin: 0 0 0 10px; font-size: 11px; font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .titlebar h1 a, .titlebar h1 a:visited {
+    color: #4a4a4a; text-decoration: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7); cursor: inherit;
+  }
+  .titlebar h1 a:hover { color: var(--aqua-blue); }
+  .content { padding: 28px 32px 32px; }
+  h2 {
+    margin: 0 0 4px;
+    font-size: 28px; font-weight: 500; letter-spacing: -0.012em;
+    color: var(--ink-head);
+  }
+  .tagline {
+    margin: 0 0 22px;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink-soft);
+  }
+  h3 {
+    margin: 18px 0 6px;
+    font-size: 14px; font-weight: 500; color: var(--ink-head);
+  }
+  p { margin: 0 0 10px; }
+  code {
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12.5px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  a { color: var(--aqua-blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    margin: 18px auto 0;
+    max-width: 640px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.7);
+  }
+  footer a { color: var(--ink-soft); }
+
+  ul.flat { margin: 4px 0 10px; padding-left: 18px; }
+  ul.flat li { margin-bottom: 6px; }
+  pre {
+    margin: 8px 0 12px; padding: 10px 12px; overflow-x: auto;
+    font-family: "SF Mono", Monaco, monospace; font-size: 12px; line-height: 1.5;
+    background: var(--panel-bg); border: 1px solid var(--panel-edge); border-radius: 4px;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; font-size: 13px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--panel-edge); }
+  th { font-weight: 500; color: var(--ink-soft); }
+  .verdict { margin: 0 0 18px; padding: 12px 16px; border-left: 3px solid var(--aqua-blue); background: var(--panel-bg); }
+  .verdict p { margin: 0; }
+  .contact-card {
+    margin: 20px 0 4px; padding: 14px 16px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+  }
+  .contact-card p { margin: 0; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --aqua-sky-top: #0e1a2e;
+      --aqua-sky-bot: #04070d;
+      --aqua-blue:    #4a93ff;
+      --panel-bg:     #2c2c2e;
+      --panel-stripe: #232325;
+      --panel-edge:   #2c2c2e;
+      --titlebar-top: #2c2c2e;
+      --titlebar-bot: #1f1f21;
+      --ink-body:     #ebebf0;
+      --ink-head:     #ffffff;
+      --ink-soft:     #98989d;
+    }
+    .window {
+      background: #1c1c1e;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 40px rgba(0,0,0,0.55);
+    }
+    .titlebar h1 a, .titlebar h1 a:visited { color: #d0d0d2; text-shadow: 0 -1px 0 rgba(0,0,0,0.5); }
+    code { background: #2c2c2e; border-color: #3a3a3c; color: var(--ink-body); }
+    .contact-card, .verdict, pre { background: #232325; border-color: #3a3a3c; }
+    th, td { border-color: #3a3a3c; }
+  }
+</style>
+<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+
+<article class="window">
+  <header class="titlebar" aria-hidden="true">
+    <div class="lights">
+      <div class="light r"></div>
+      <div class="light y"></div>
+      <div class="light g"></div>
+    </div>
+    <h1><a href="/prompt">menuband</a> — windows</h1>
+  </header>
+
+  <div class="content">
+    <h2>Menu Band on Windows 11</h2>
+    <p class="tagline">Setting up a Windows 11 Pro build machine, and whether the tiny piano could live in the taskbar. October 2026.</p>
+
+    <h3>Step 1: let neo in over SSH</h3>
+    <p>Windows 11 Pro ships the OpenSSH client but not the server. Right-click Start, open <b>Terminal (Admin)</b>, paste all of this, press Enter:</p>
+<pre><code>Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Start-Service sshd
+Set-Service -Name sshd -StartupType Automatic
+New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell `
+  -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force
+(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback' }).IPAddress</code></pre>
+    <p>The last line prints the machine's IPv4 address. Hand that to Claude on neo, and the rest of the build-machine setup (keys, git, cmake, Python, Visual Studio Build Tools) happens over SSH. For an administrator account, public keys go in <code>C:\ProgramData\ssh\administrators_authorized_keys</code>, not the home folder.</p>
+
+    <h3>Step 2: check it from the Mac</h3>
+<pre><code>ssh js@&lt;that address&gt;</code></pre>
+
+    <hr style="border:0;border-top:1px solid var(--panel-edge);margin:22px 0 18px">
+    <h3>Why a Windows machine at all</h3>
+
+    <div class="verdict">
+      <p><b>Verdict.</b> Buildable. The sound, the MIDI, and the typing all port, and some of it gets easier. The piano strip in the taskbar is the one part Microsoft gives you no supported way to do, so it would ship as an overlay window that follows the taskbar around.</p>
+    </div>
+
+    <h3>The taskbar piano</h3>
+    <ul class="flat">
+      <li><b>No supported API.</b> Windows 10 had deskbands, the mechanism for putting a custom strip inside the taskbar. Windows 11 removed them and has shipped no replacement through 25H2. Microsoft's own answer is "use a third-party tool", which they also say they don't support. The sanctioned surface is a 16-pixel tray icon plus a flyout on click. That is the popover, not the strip.</li>
+      <li><b>The route that works is an overlay window.</b> A borderless, always-on-top, non-activating window placed over empty taskbar space, with a watchdog that follows the taskbar through moves, auto-hide, full-screen apps and monitor changes. ElevenClock, StartAllBack and RoundedTB all ship this way to large user bases. The window receives hover and mouse events like any other, so hover-to-play survives. It stays a hack a Windows update can jostle, and it sits beside the centered icon cluster rather than inside it.</li>
+    </ul>
+
+    <h3>What maps where</h3>
+    <table>
+      <tr><th>On the Mac</th><th>On Windows 11</th><th>Notes</th></tr>
+      <tr><td>Menu-bar status item</td><td>Overlay window over the taskbar</td><td>Unsupported by Microsoft; proven by shipping tools.</td></tr>
+      <tr><td>Popover</td><td>Tray icon + flyout</td><td>The supported path.</td></tr>
+      <tr><td>GM synth, Fluoddity, WORLD singer</td><td>Same C and C++</td><td>No port needed.</td></tr>
+      <tr><td>AVAudioEngine / CoreAudio</td><td>WASAPI</td><td>Low-latency shared or exclusive mode.</td></tr>
+      <tr><td>CoreMIDI virtual source</td><td>Windows MIDI Services</td><td>Built-in loopback; no loopMIDI driver.</td></tr>
+      <tr><td>CGEvent tap for global typing</td><td>Low-level keyboard hook</td><td>No permission prompt.</td></tr>
+      <tr><td>Carbon hotkeys</td><td>RegisterHotKey</td><td>One call.</td></tr>
+      <tr><td>AppKit, Metal, WebKit views</td><td>Win32 or WinUI, Direct2D, WebView2</td><td>The rewrite.</td></tr>
+    </table>
+
+    <h3>The cost</h3>
+    <p>The app is about 62,000 lines of Swift, and 89 of its files import AppKit. The DSP ports as is. The shell, the strip renderer, the visualizer and the sheet views are new code. The features the Mac App Store forbids, global typing and system hotkeys, are the easy tier on Windows.</p>
+
+    <h3>Sources</h3>
+    <ul class="flat">
+      <li><a href="https://learn.microsoft.com/en-us/answers/questions/3877873/win10-toolbars-in-win11">Microsoft Q&amp;A: Win10 toolbars in Win11</a></li>
+      <li><a href="https://github.com/microsoft/WindowsAppSDK/discussions/2320">Windows App SDK discussion: desk band support</a></li>
+      <li><a href="https://blogs.windows.com/windowsexperience/2026/02/17/making-music-with-midi-just-got-a-real-boost-in-windows-11/">Windows blog: Windows MIDI Services</a></li>
+      <li><a href="https://www.production-expert.com/production-expert-1/windows-11-adds-midi-20-support-with-new-windows-midi-services">Production Expert: Windows 11 adds MIDI 2.0</a></li>
+    </ul>
+  </div>
+</article>
+
+<footer>
+  © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 · <a href="/menuband">back to Menu Band</a>
+</footer>
+
+</body>
+</html>
