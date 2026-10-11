@@ -443,16 +443,29 @@ struct VersionFeed: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
                 VStack(spacing: 4) {
-                HStack(spacing: 12) {
-                    if snapshot.busy { ProgressView().frame(width: 48) }
-                    if snapshot.busy && snapshot.phase.hasPrefix("Checking picture") {
+                if snapshot.busy {
+                    // Working: the request alive letter by letter, Stop beside it,
+                    // then the code as it arrives and what the knot knows so far.
+                    HStack(alignment: .top, spacing: 12) {
+                        GlyphWave(text: attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression),
+                                  size: textSize, color: foreground)
+                            .frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 8)
+                            .accessibilityIdentifier("generation-request")
+                        Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
+                    }.padding(.horizontal, 10).padding(.top, 6)
+                    if snapshot.phase.hasPrefix("Checking picture") {
                         Text("Checking picture…")
-                            .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
-                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .font(.custom("ComicRelief-Regular", size: max(15, textSize * 0.75), relativeTo: .body))
+                            .frame(maxWidth: .infinity, alignment: .trailing).padding(.horizontal, 12)
                             .accessibilityIdentifier("generation-phase")
-                    } else if snapshot.busy, let output = snapshot.output, !output.isEmpty {
-                        CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"))
-                    } else {
+                    }
+                    if let output = snapshot.output, !output.isEmpty {
+                        CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"), fontSize: max(12, textSize * 0.6))
+                            .padding(.horizontal, 12)
+                    }
+                } else {
+                HStack(spacing: 12) {
+                    Group {
                     // One line: the words, and why it stopped as a dimmed tail on the same line.
                     (Text(attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression))
                         + Text(["failed", "interrupted"].contains(attempt.status) && !attempt.error.isEmpty ? " · " + Self.shortReason(attempt.error) : "").foregroundColor(foreground.opacity(0.6)))
@@ -463,9 +476,7 @@ struct VersionFeed: View {
                         .accessibilityValue(attempt.error)
                         .accessibilityHint(attempt.error.isEmpty ? "" : "Shows why it stopped")
                     }
-                    if snapshot.busy {
-                        Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
-                    } else if attempt.status == "interrupted" || attempt.status == "failed" {
+                    if attempt.status == "interrupted" || attempt.status == "failed" {
                         if snapshot.draft != nil {
                             // The try painted; only its checks said no. The work is the user's to keep.
                             Button { ButtonSounds.play(.pop); keepDraft() } label: { Image(systemName: "checkmark").font(.system(size: 20, weight: .bold)).frame(width: 44, height: 44) }
@@ -495,6 +506,7 @@ struct VersionFeed: View {
                     } : nil)
                 .accessibilityAction(named: Text("Discard this try")) { discardAttempt() }
                 .onChange(of: attempt.error) { reasonShown = false }
+                }
                 if reasonShown, !snapshot.busy, ["failed", "interrupted"].contains(attempt.status), !attempt.error.isEmpty {
                     Text(attempt.error)
                         .font(.custom("ComicRelief-Regular", size: max(15, textSize * 0.7), relativeTo: .body))
@@ -754,11 +766,11 @@ struct TurnProgressPanel: View {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(start.flatMap { s in Self.date(step.at).map { "+" + clock($0.timeIntervalSince(s)) } } ?? "")
                             .monospacedDigit().opacity(0.5).frame(width: 48, alignment: .trailing)
-                        Text(step.text).lineLimit(1).truncationMode(.tail)
+                        Text(step.text).fixedSize(horizontal: false, vertical: true)
                     }.font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).opacity(0.85)
                 }
                 if !progress.said.isEmpty {
-                    Text("\u{201C}" + progress.said + "\u{201D}").font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).lineLimit(2).opacity(0.7)
+                    Text("\u{201C}" + progress.said + "\u{201D}").font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).fixedSize(horizontal: false, vertical: true).opacity(0.75)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
