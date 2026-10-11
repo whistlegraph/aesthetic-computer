@@ -40,16 +40,16 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
       await page.setViewportSize(viewport);
       // The reel card is the whole screen; the pack keeps its own 2:3 frame inside it.
       const card = await page.locator('#pack').boundingBox();
-      assert.ok(Math.abs(card.height - viewport.height) < 1, 'the card fills the screen');
+      assert.ok(Math.abs(card.height - (viewport.height - 52)) < 1, 'the first card fills the screen under the banner');
       const box = await page.locator('#pack .piece-preview').boundingBox();
       assert.ok(Math.abs(box.width / box.height - 2 / 3) < .01, JSON.stringify(box));
       assert.ok(box.height <= viewport.height + 1 && box.width <= viewport.width + 1, 'the pack fits on its card');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
-    await page.locator('#pack .media-toggle').click();
+    await page.locator('#pack .reel-command .media-label').click();
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spin tree' }).click();
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spinning', exact: true }).waitFor();
-    await page.locator('#pack .media-toggle').click();
+    await page.locator('#pack .reel-command .media-label').click();
     await page.locator('#pack2 .media-pack').evaluate(el => el.scrollIntoView({ block: 'center' }));
     await page.locator('#pack2 iframe[data-ready]').waitFor();
     assert.equal(await page.locator('.piece-preview iframe').count(), 1, 'only the visible pack runs');

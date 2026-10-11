@@ -24,6 +24,9 @@ const BRAID = ["live", "live", "archive", "live", "live", "live", "archive"];
 // No Paint styles worth surfacing more often than the abstract majority.
 const FAVORED_STYLES = new Set(["portrait", "figurative", "landscape", "mixed", "pattern", "text"]);
 const NOPAINT_PIX = "https://pix.nopaint.art/";
+// For now the feed shows only work signed with an @handle, so anonymous
+// posts and the (unsigned) No Paint archive stay out. Flip to bring them back.
+const HANDLED_ONLY = true;
 // Whistlegraph threads kept their pre-rename collection.
 const WG_THREADS = "walkieware-threads";
 
@@ -228,12 +231,13 @@ async function refresh(db) {
     db.collection(MEDIA_THREADS).find({}, { projection: { replies: 1 } }).toArray(),
   ]);
   const counts = new Map(replies.map((row) => [row._id, row.replies || 0]));
-  const live = [...media, ...posts, ...pieces, ...moodItems];
+  const live = [...media, ...posts, ...pieces, ...moodItems]
+    .filter((item) => !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")));
   for (const item of live) {
     item.dwell = dwell.get(item.code) || 0;
     if (counts.has(item.code)) item.post.replies = counts.get(item.code);
   }
-  const archive = nopaintArchive().map((item) => ({ ...item, dwell: dwell.get(item.code) || 0 }));
+  const archive = HANDLED_ONLY ? [] : nopaintArchive().map((item) => ({ ...item, dwell: dwell.get(item.code) || 0 }));
   return { live, archive, at: Date.now() };
 }
 
