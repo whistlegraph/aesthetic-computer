@@ -1,5 +1,5 @@
 import { activityPiece, accountActivityRoute, SOTCE_ACTIONS } from "./account-activity-model.mjs";
-import { LAKLOK_ACTIONS, LAKLOK_PIECES, LAKLOK_FEATURE_VERSION } from "./laklok-activity.mjs";
+import { LAKLOK_ACTIONS, LAKLOK_PIECES, LAKLOK_FEATURE_VERSION, LAKLOK_PRESENCE } from "./laklok-activity.mjs";
 import { automatedVisit, visitProperty, visitSurface, visitReferrer, VISIT_ACTIONS } from "./visit-model.mjs";
 
 // Authenticated activity has its own short-lived session and endpoint. It does
@@ -10,7 +10,7 @@ export function startAccountActivity(win = window, doc = document, {
 } = {}) {
   if (win.acAccountActivity) return win.acAccountActivity;
   let piece = null, ready = false, owner = null, session = null, generation = 0, sequence = 0, stopped = false;
-  let sent = new Set(), pending = new Set(), retryAt = 0, inFlight = 0;
+  let sent = new Set(), pending = new Set(), retryAt = 0, inFlight = 0, laklokVisibleMs = 0;
   const allowed = action => !stopped && win === win.top && doc.visibilityState === "visible" &&
     !win.acPACK_MODE && !win.acVisitTrackingDisabled &&
     win.navigator.doNotTrack !== "1" && win.doNotTrack !== "1" && !win.navigator.globalPrivacyControl &&
@@ -25,7 +25,7 @@ export function startAccountActivity(win = window, doc = document, {
   }
   async function record(action) {
     syncOwner();
-    const laklok = LAKLOK_ACTIONS.includes(action);
+    const laklok = LAKLOK_ACTIONS.includes(action) || action === LAKLOK_PRESENCE;
     const sotce = SOTCE_ACTIONS.includes(action);
     const repeated = laklok || sotce;
     if (sotce && (visitProperty(win.location.hostname) !== "sotce.net" || piece !== "sotce")) return;
@@ -63,9 +63,13 @@ export function startAccountActivity(win = window, doc = document, {
       return;
     }
     void record("piece_opened");
+    // Count laklok minutes by visible ticks; a sleeping or hidden tab adds none.
+    if (!owner || !ready || !LAKLOK_PIECES.includes(piece) || doc.visibilityState !== "visible") return;
+    laklokVisibleMs += 2000;
+    if (laklokVisibleMs >= 60000) { laklokVisibleMs -= 60000; void record(LAKLOK_PRESENCE); }
   }, 2000);
   const api = {
-    load(path) { piece = activityPiece(path); ready = false; sent = new Set(); pending = new Set(); generation++; },
+    load(path) { piece = activityPiece(path); ready = false; laklokVisibleMs = 0; sent = new Set(); pending = new Set(); generation++; },
     ready() { ready = true; void record("piece_opened"); },
     action(name) { if (VISIT_ACTIONS.includes(name) || SOTCE_ACTIONS.includes(name) || LAKLOK_ACTIONS.includes(name)) void record(name); },
     stop() { stopped = true; generation++; win.clearInterval(timer); if (win.acAccountActivity === api) delete win.acAccountActivity; },

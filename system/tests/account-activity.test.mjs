@@ -139,3 +139,28 @@ test("laklok feature events preserve rapid repeated uses, reject other pieces an
   f.api.action("laklok_settings_opened"); await settle(); assert.equal(f.sent.length, count);
   f.api.stop();
 });
+
+test("laklok reports one presence event per visible signed-in minute, never while hidden or on other pieces", async () => {
+  const body = { ...snapshot(), piece: "laklok", action: "laklok_visible_minute", featureVersion: 1 };
+  assert.equal(validateAccountActivity(body, "https://laklok.com").action, "laklok_visible_minute");
+  assert.equal(validateAccountActivity({ ...body, piece: "notepat" }, "https://aesthetic.computer"), null);
+  const f = browserFixture();
+  const minutes = () => f.sent.filter(row => JSON.parse(row.body).action === "laklok_visible_minute").length;
+  f.api.load("aesthetic.computer/disks/laklok"); f.api.ready();
+  for (let i = 0; i < 30; i++) f.tick();
+  await settle(); assert.equal(minutes(), 0, "anonymous time is not recorded");
+  f.user({ sub: "one" });
+  for (let i = 0; i < 29; i++) f.tick();
+  await settle(); assert.equal(minutes(), 0);
+  f.tick(); await settle(); assert.equal(minutes(), 1, "thirty 2s ticks make one minute");
+  f.doc.visibilityState = "hidden";
+  for (let i = 0; i < 60; i++) f.tick();
+  f.doc.visibilityState = "visible";
+  await settle(); assert.equal(minutes(), 1, "hidden tabs add nothing");
+  for (let i = 0; i < 60; i++) f.tick();
+  await settle(); assert.equal(minutes(), 3);
+  f.api.load("aesthetic.computer/disks/notepat"); f.api.ready();
+  for (let i = 0; i < 60; i++) f.tick();
+  await settle(); assert.equal(minutes(), 3, "other pieces record no laklok minutes");
+  f.api.stop();
+});

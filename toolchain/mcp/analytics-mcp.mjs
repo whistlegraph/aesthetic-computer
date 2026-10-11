@@ -269,7 +269,7 @@ const TOOLS = [
   ...["account_activity", "network_referrers", "feature_usage"].map(name => ({
     name,
     description: name === "feature_usage"
-      ? "Laer Klokken/laklok feature-use counts by authenticated account: ranked controls, per-account counts, UTC daily activity and supported features with no recorded use. Covers canvas and HTML clients from the feature rollout onward. Zero is not proof of non-use. Optional public handle/property filter; up to 35 days, at most 50 accounts. No chat content, page contents or link destinations."
+      ? "Laer Klokken/laklok feature-use counts by authenticated account: ranked controls, per-account counts, UTC daily activity and supported features with no recorded use, plus visibleMinutes (signed-in minutes open in a visible tab, per account and per UTC day, from the presence rollout onward). Covers canvas and HTML clients from the feature rollout onward. Zero is not proof of non-use. Optional public handle/property filter; up to 35 days, at most 50 accounts. No chat content, page contents or link destinations."
       : name === "account_activity"
       ? "Follow server-verified authenticated accounts through public AC/Sotce activity: public handle, runtime session alias, piece opens and action milestones. Optional handle filter. Only records from the account-activity rollout onward; no inferred identities or retroactive joins to anonymous fish. Login does not prove human activity. Private SSH-backed read."
       : "Referral sites across the Aesthetic network: first-party visits plus separately labeled historical AC boot referrals. Domain only, no full referrer URLs. Null is direct-or-unavailable. Excludes known automation; visits and boots are separate instruments and must not be summed.",

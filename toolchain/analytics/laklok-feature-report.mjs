@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { LAKLOK_FEATURES, LAKLOK_ACTIONS, LAKLOK_PIECES, LAKLOK_FEATURE_VERSION } from "../../system/public/aesthetic.computer/lib/laklok-activity.mjs";
+import { LAKLOK_FEATURES, LAKLOK_ACTIONS, LAKLOK_PIECES, LAKLOK_FEATURE_VERSION, LAKLOK_PRESENCE } from "../../system/public/aesthetic.computer/lib/laklok-activity.mjs";
 
 export async function laklokFeatureReport(db, { start, end, scoped, handle, limit }) {
   const query = { ...scoped, at: { $gte: start, $lt: end }, tenant: "aesthetic",
     piece: { $in: LAKLOK_PIECES }, featureVersion: LAKLOK_FEATURE_VERSION,
-    action: { $in: ["piece_opened", ...LAKLOK_ACTIONS] } };
+    action: { $in: ["piece_opened", ...LAKLOK_ACTIONS, LAKLOK_PRESENCE] } };
   if (handle) {
     const rows = await db.collection("@handles").find({ handle: handle.replace(/^@/, "") }, { projection: { _id: 1 } }).limit(10).toArray();
     query.user = { $in: rows.map(row => String(row._id)).filter(id => !id.startsWith("sotce-")) };
@@ -14,7 +14,8 @@ export async function laklokFeatureReport(db, { start, end, scoped, handle, limi
   const rows = await aggregate([
     { $match: query },
     { $group: { _id: "$user", first: { $min: "$at" }, last: { $max: "$at" },
-      pieces: { $addToSet: "$piece" }, opens: { $sum: { $cond: [{ $eq: ["$action", "piece_opened"] }, 1, 0] } } } },
+      pieces: { $addToSet: "$piece" }, opens: { $sum: { $cond: [{ $eq: ["$action", "piece_opened"] }, 1, 0] } },
+      visibleMinutes: { $sum: { $cond: [{ $eq: ["$action", LAKLOK_PRESENCE] }, 1, 0] } } } },
     { $sort: { last: -1, _id: 1 } }, { $limit: limit + 1 },
   ]);
   const selected = rows.slice(0, limit), users = selected.map(row => row._id);
@@ -27,7 +28,8 @@ export async function laklokFeatureReport(db, { start, end, scoped, handle, limi
     { $match: selectedQuery },
     { $group: { _id: { user: "$user", day: { $dateToString: { format: "%Y-%m-%d", date: "$at", timezone: "+00:00" } } },
       opens: { $sum: { $cond: [{ $eq: ["$action", "piece_opened"] }, 1, 0] } },
-      uses: { $sum: { $cond: [{ $ne: ["$action", "piece_opened"] }, 1, 0] } } } },
+      uses: { $sum: { $cond: [{ $in: ["$action", LAKLOK_ACTIONS] }, 1, 0] } },
+      visibleMinutes: { $sum: { $cond: [{ $eq: ["$action", LAKLOK_PRESENCE] }, 1, 0] } } } },
     { $sort: { "_id.day": 1 } },
   ]);
   const topFeatures = await aggregate([
@@ -38,7 +40,7 @@ export async function laklokFeatureReport(db, { start, end, scoped, handle, limi
   ]);
   const names = new Map((await db.collection("@handles").find({ _id: { $in: users } }, { projection: { handle: 1 } }).toArray()).map(row => [String(row._id), row.handle]));
   return { product: "laklok", start, end, featureVersion: LAKLOK_FEATURE_VERSION,
-    note: "Recorded feature uses by authenticated account, not unique people. Only the instrumented rollout is included. Requests are not confirmed playback, message delivery or navigation. Zero means no recorded use of a supported feature during this window, not proof of non-use or exposure. Opt-outs, offline use and dropped events leave gaps. Daily buckets are UTC; absent days are unobserved. Top features cover all matching accounts; account detail is bounded.",
+    note: "Recorded feature uses by authenticated account, not unique people. Only the instrumented rollout is included. Requests are not confirmed playback, message delivery or navigation. Zero means no recorded use of a supported feature during this window, not proof of non-use or exposure. Opt-outs, offline use and dropped events leave gaps. Daily buckets are UTC; absent days are unobserved. visibleMinutes counts whole minutes laklok sat open in a visible tab while signed in (recorded from the presence rollout onward); an open clock on a wall counts, so it is time present, not proof of attention. Top features cover all matching accounts; account detail is bounded.",
     topFeatures: topFeatures.map(row => ({ action: row._id, count: row.count, accounts: row.accounts })),
     truncated: rows.length > limit,
     accounts: selected.map(row => {
@@ -47,9 +49,9 @@ export async function laklokFeatureReport(db, { start, end, scoped, handle, limi
       const features = Object.fromEntries(supported.map(action => [action, 0]));
       for (const item of counts) if (item._id.user === row._id) features[item._id.action] = item.count;
       return { account: names.get(row._id) ? `@${names.get(row._id)}` : `account-${createHash("sha256").update(row._id).digest("hex").slice(0, 12)}`,
-        first: row.first, last: row.last, interfaces, opens: row.opens, features,
+        first: row.first, last: row.last, interfaces, opens: row.opens, visibleMinutes: row.visibleMinutes, features,
         notRecorded: supported.filter(action => !features[action]),
-        daily: daily.filter(item => item._id.user === row._id).map(item => ({ day: item._id.day, opens: item.opens, uses: item.uses })),
+        daily: daily.filter(item => item._id.user === row._id).map(item => ({ day: item._id.day, opens: item.opens, uses: item.uses, visibleMinutes: item.visibleMinutes })),
       };
     }),
   };

@@ -47,6 +47,8 @@ test("feature usage counts repeated actions, excludes uninstrumented history and
     { ...base, action: "laklok_theme_changed" },
     { ...base, action: "laklok_theme_changed" },
     { ...base, action: "laklok_filter_changed", at: new Date(+at - 86400000) },
+    { ...base, action: "laklok_visible_minute" },
+    { ...base, action: "laklok_visible_minute" },
     { ...base, user: "old-user", featureVersion: undefined, action: "piece_opened" },
     { ...base, user: "auth0|two", piece: "laklok", action: "piece_opened" },
   ], "@handles": [{ _id: "auth0|one", handle: "listener" }] };
@@ -58,7 +60,10 @@ test("feature usage counts repeated actions, excludes uninstrumented history and
   assert.ok(account.notRecorded.includes("laklok_message_send_requested"));
   assert.ok(!account.notRecorded.includes("laklok_radio_play_requested"), "vector has no radio control");
   assert.equal(account.daily.length, 2);
-  assert.equal(account.daily.reduce((n, row) => n + row.uses, 0), 3);
+  assert.equal(account.daily.reduce((n, row) => n + row.uses, 0), 3, "presence minutes are not feature uses");
+  assert.equal(account.visibleMinutes, 2);
+  assert.equal(account.daily.at(-1).visibleMinutes, 2);
+  assert.ok(!result.topFeatures.some(row => row.action === "laklok_visible_minute"));
   assert.equal(result.topFeatures[0].count, 2);
   assert.doesNotMatch(JSON.stringify(result), /auth0\||old-user/);
   const bounded = await report("features", { hours: 48, limit: 1 }, data);

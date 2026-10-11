@@ -16,6 +16,8 @@ export const LAKLOK_FEATURES = Object.freeze({
   laklok_media_open_requested: ["vector"],
 });
 export const LAKLOK_ACTIONS = Object.freeze(Object.keys(LAKLOK_FEATURES));
+// One per minute the piece is open in a visible tab: time spent, not a control.
+export const LAKLOK_PRESENCE = "laklok_visible_minute";
 export function laklokAction(api, name) {
   const action = `laklok_${name}`;
   if (LAKLOK_ACTIONS.includes(action)) api.send?.({ type: "account:action", content: { action } });
