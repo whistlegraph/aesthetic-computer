@@ -8,7 +8,7 @@ import { readFrame } from "./gpu-frame.mjs";
 import { sceneCamera, placeMesh, projectMesh, FaceList } from "./kidlisp-mesh.mjs";
 
 const SEGMENTS = 24;                       // an oval's polygon
-const FLOATS_PER_VERTEX = 6;               // x y r g b a
+const FLOATS_PER_VERTEX = 7;               // x y z r g b a — z is depth: 0 for 2D (always in front), (0,1] for placed faces
 
 export async function createFrameRenderer(canvas) {
   if (typeof navigator === "undefined" || !navigator.gpu) return null;
@@ -29,16 +29,19 @@ export async function createFrameRenderer(canvas) {
     struct U { resolution: vec2f, _pad: vec2f }
     @group(0) @binding(0) var<uniform> u: U;
     struct VSOut { @builtin(position) pos: vec4f, @location(0) color: vec4f }
-    @vertex fn vs(@location(0) p: vec2f, @location(1) c: vec4f) -> VSOut {
+    @vertex fn vs(@location(0) p: vec3f, @location(1) c: vec4f) -> VSOut {
       var o: VSOut;
-      o.pos = vec4f(p.x / u.resolution.x * 2.0 - 1.0, 1.0 - p.y / u.resolution.y * 2.0, 0.0, 1.0);
+      o.pos = vec4f(p.x / u.resolution.x * 2.0 - 1.0, 1.0 - p.y / u.resolution.y * 2.0, p.z, 1.0);
       o.color = vec4f(c.rgb * c.a, c.a);   // premultiplied for the blend below
       return o;
     }
     @fragment fn fs(@location(0) c: vec4f) -> @location(0) vec4f { return c; }
   ` });
   const blend = { color: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" }, alpha: { srcFactor: "one", dstFactor: "one-minus-src-alpha", operation: "add" } };
-  const pipeline = device.createRenderPipeline({ layout: "auto", vertex: { module: shader, entryPoint: "vs", buffers: [{ arrayStride: FLOATS_PER_VERTEX * 4, attributes: [{ shaderLocation: 0, offset: 0, format: "float32x2" }, { shaderLocation: 1, offset: 8, format: "float32x4" }] }] }, fragment: { module: shader, entryPoint: "fs", targets: [{ format, blend }] }, primitive: { topology: "triangle-list" } });
+  const depthStencil = { format: "depth24plus", depthWriteEnabled: true, depthCompare: "less-equal" };
+  const pipeline = device.createRenderPipeline({ layout: "auto", vertex: { module: shader, entryPoint: "vs", buffers: [{ arrayStride: FLOATS_PER_VERTEX * 4, attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }, { shaderLocation: 1, offset: 12, format: "float32x4" }] }] }, fragment: { module: shader, entryPoint: "fs", targets: [{ format, blend }] }, primitive: { topology: "triangle-list" }, depthStencil });
+  let depthTexture = null, depthSize = { w: 0, h: 0 };
+  const depthView = () => { if (!depthTexture || depthSize.w !== canvas.width || depthSize.h !== canvas.height) { depthTexture?.destroy(); depthTexture = device.createTexture({ size: [canvas.width, canvas.height], format: "depth24plus", usage: GPUTextureUsage.RENDER_ATTACHMENT }); depthSize = { w: canvas.width, h: canvas.height }; } return depthTexture.createView(); };
   const uniform = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   const bindGroup = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: uniform } }] });
   // The overlay: the CPU buffer as a texture over the scene.
@@ -52,14 +55,14 @@ export async function createFrameRenderer(canvas) {
     }
     @fragment fn fs(@location(0) uv: vec2f) -> @location(0) vec4f { let c = textureSample(t, s, uv); return vec4f(c.rgb * c.a, c.a); }
   ` });
-  const overlayPipeline = device.createRenderPipeline({ layout: "auto", vertex: { module: overlayShader, entryPoint: "vs" }, fragment: { module: overlayShader, entryPoint: "fs", targets: [{ format, blend }] }, primitive: { topology: "triangle-list" } });
+  const overlayPipeline = device.createRenderPipeline({ layout: "auto", vertex: { module: overlayShader, entryPoint: "vs" }, fragment: { module: overlayShader, entryPoint: "fs", targets: [{ format, blend }] }, primitive: { topology: "triangle-list" }, depthStencil: { format: "depth24plus", depthWriteEnabled: false, depthCompare: "always" } });
   const sampler = device.createSampler({ magFilter: "nearest", minFilter: "nearest" });
   let overlayTexture = null, overlayBind = null, overlaySize = { w: 0, h: 0 };
 
   let vertices = new Float32Array(1 << 18), count = 0, vertexBuffer = null, vertexCapacity = 0;
   const need = (n) => { if ((count + n) * FLOATS_PER_VERTEX > vertices.length) { const next = new Float32Array(Math.max(vertices.length * 2, (count + n) * FLOATS_PER_VERTEX)); next.set(vertices.subarray(0, count * FLOATS_PER_VERTEX)); vertices = next; } };
-  const vert = (x, y, r, g, b, a) => { let i = count * FLOATS_PER_VERTEX; vertices[i] = x; vertices[i + 1] = y; vertices[i + 2] = r / 255; vertices[i + 3] = g / 255; vertices[i + 4] = b / 255; vertices[i + 5] = a / 255; count++; };
-  const triangle = (x1, y1, x2, y2, x3, y3, r, g, b, a) => { need(3); vert(x1, y1, r, g, b, a); vert(x2, y2, r, g, b, a); vert(x3, y3, r, g, b, a); };
+  const vert = (x, y, r, g, b, a, z = 0) => { let i = count * FLOATS_PER_VERTEX; vertices[i] = x; vertices[i + 1] = y; vertices[i + 2] = z; vertices[i + 3] = r / 255; vertices[i + 4] = g / 255; vertices[i + 5] = b / 255; vertices[i + 6] = a / 255; count++; };
+  const triangle = (x1, y1, x2, y2, x3, y3, r, g, b, a, z = 0) => { need(3); vert(x1, y1, r, g, b, a, z); vert(x2, y2, r, g, b, a, z); vert(x3, y3, r, g, b, a, z); };
   const quad = (x1, y1, x2, y2, x3, y3, x4, y4, r, g, b, a) => { triangle(x1, y1, x2, y2, x3, y3, r, g, b, a); triangle(x1, y1, x3, y3, x4, y4, r, g, b, a); };
   const strokeLine = (x1, y1, x2, y2, th, r, g, b, a) => {
     // The software rasterizer paints pixel centres; a 1-px line here is a 1-px quad along the segment.
@@ -97,9 +100,10 @@ export async function createFrameRenderer(canvas) {
   // The 3D layer: the projector (kidlisp-mesh.mjs) turns placed meshes into
   // triangles, far to near, through the same vertex buffer. The camera is in
   // canvas pixels; meshes come from the frame's table.
-  let camera27 = null, meshes = null, placed = 0;
+  let camera27 = null, meshes = null, placed = 0, sun = null;
   const faceList = new FaceList();   // every placed face of the frame, sorted once at the end
-  visit.camera = (x, y, z, yaw, pitch, fov, near) => { camera27 = sceneCamera(x, y, z, yaw, pitch, fov, canvas.width, canvas.height, camera27 || new Float32Array(27), near || 1); };
+  visit.camera = (x, y, z, yaw, pitch, fov, near) => { camera27 = sceneCamera(x, y, z, yaw, pitch, fov, canvas.width, canvas.height, camera27 || new Float32Array(27), near || 1); if (sun) { camera27[24] = sun[0]; camera27[25] = sun[1]; camera27[26] = sun[2]; } };
+  visit.light = (x, y, z) => { const l = Math.hypot(x, y, z) || 1; sun = [x / l, y / l, z / l]; if (camera27) { camera27[24] = sun[0]; camera27[25] = sun[1]; camera27[26] = sun[2]; } };
   visit.place = (id, x, y, z, yaw, pitch, roll, scale, a) => {
     const mesh = meshes?.get(id); if (!mesh || !camera27) return;
     placed += projectMesh(camera27, placeMesh(mesh, x, y, z, yaw, pitch, roll, scale), faceList, a);
@@ -116,7 +120,8 @@ export async function createFrameRenderer(canvas) {
       if (meshTable) meshes = meshTable;
       faceList.reset();
       readFrame(frame, visit);
-      faceList.flush((x1, y1, x2, y2, x3, y3, depth, r, g, b, alpha) => triangle(x1, y1, x2, y2, x3, y3, r, g, b, alpha));
+      // the face's depth (the Xbox's -1.4..1.4 range) into the depth buffer's (0, 1]; 2D stays at 0, in front
+      faceList.flush((x1, y1, x2, y2, x3, y3, depth, r, g, b, alpha) => triangle(x1, y1, x2, y2, x3, y3, r, g, b, alpha, Math.min(1, Math.max(0.001, (depth + 1.5) / 3))));
       const bytes = count * FLOATS_PER_VERTEX * 4;
       if (bytes > vertexCapacity) { vertexBuffer?.destroy(); vertexCapacity = Math.max(bytes, 1 << 16); vertexBuffer = device.createBuffer({ size: vertexCapacity, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST }); }
       if (bytes) device.queue.writeBuffer(vertexBuffer, 0, vertices.buffer, 0, bytes);
@@ -133,13 +138,13 @@ export async function createFrameRenderer(canvas) {
         drawOverlay = true;
       }
       const encoder = device.createCommandEncoder();
-      const pass = encoder.beginRenderPass({ colorAttachments: [{ view: context.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: clearColor }] });
+      const pass = encoder.beginRenderPass({ colorAttachments: [{ view: context.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: clearColor }], depthStencilAttachment: { view: depthView(), depthClearValue: 1, depthLoadOp: "clear", depthStoreOp: "store" } });
       if (count) { pass.setPipeline(pipeline); pass.setBindGroup(0, bindGroup); pass.setVertexBuffer(0, vertexBuffer, 0, bytes); pass.draw(count); }
       if (drawOverlay) { pass.setPipeline(overlayPipeline); pass.setBindGroup(0, overlayBind); pass.draw(6); }
       pass.end();
       device.queue.submit([encoder.finish()]);
       return count;
     },
-    destroy() { vertexBuffer?.destroy(); overlayTexture?.destroy(); device.destroy?.(); },
+    destroy() { vertexBuffer?.destroy(); overlayTexture?.destroy(); depthTexture?.destroy(); device.destroy?.(); },
   };
 }

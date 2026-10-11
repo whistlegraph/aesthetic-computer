@@ -16,7 +16,8 @@
 //   SHAPE  n fill r g b a  x1 y1 … xn yn
 //   CAMERA x y z yaw pitch fov near              (the 3D layer, kidlisp-mesh.mjs)
 //   PLACE  mesh x y z yaw pitch roll scale a     mesh = an id in frame.meshes
-export const OP = Object.freeze({ CLEAR: 1, LINE: 2, BOX: 3, OVAL: 4, TRI: 5, SHAPE: 6, CAMERA: 7, PLACE: 8 });
+//   LIGHT  x y z                                 the sun's direction (towards which it shines)
+export const OP = Object.freeze({ CLEAR: 1, LINE: 2, BOX: 3, OVAL: 4, TRI: 5, SHAPE: 6, CAMERA: 7, PLACE: 8, LIGHT: 9 });
 
 export class GpuFrame {
   constructor(capacity = 1 << 16) {
@@ -30,6 +31,7 @@ export class GpuFrame {
   }
   defineMesh(id, mesh) { this.meshes.set(id, mesh); this.meshVersion++; }
   camera(x, y, z, yaw, pitch, fov, near = 1) { this.grow(8); const o = this.buffer; let i = this.length; o[i++] = OP.CAMERA; o[i++] = x; o[i++] = y; o[i++] = z; o[i++] = yaw; o[i++] = pitch; o[i++] = fov; o[i++] = near; this.length = i; this.ops++; }
+  light(x, y, z) { this.grow(4); const o = this.buffer; let i = this.length; o[i++] = OP.LIGHT; o[i++] = x; o[i++] = y; o[i++] = z; this.length = i; this.ops++; }
   place(mesh, x, y, z, yaw = 0, pitch = 0, roll = 0, scale = 1) { this.grow(10); const o = this.buffer; let i = this.length; o[i++] = OP.PLACE; o[i++] = mesh; o[i++] = x; o[i++] = y; o[i++] = z; o[i++] = yaw; o[i++] = pitch; o[i++] = roll; o[i++] = scale; o[i++] = this.a; this.length = i; this.ops++; }
   reset() { this.length = 0; this.ops = 0; this.overlay = false; }
   grow(extra) {
@@ -72,6 +74,7 @@ export function readFrame(buffer, visit) {
     else if (op === OP.SHAPE) { const count = buffer[i]; const fill = buffer[i + 1]; const r = buffer[i + 2], g = buffer[i + 3], b = buffer[i + 4], a = buffer[i + 5]; i += 6; visit.shape?.(buffer.subarray(i, i + count * 2), fill, r, g, b, a); i += count * 2; }
     else if (op === OP.CAMERA) { visit.camera?.(buffer[i], buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]); i += 7; }
     else if (op === OP.PLACE) { visit.place?.(buffer[i], buffer[i + 1], buffer[i + 2], buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6], buffer[i + 7], buffer[i + 8]); i += 9; }
+    else if (op === OP.LIGHT) { visit.light?.(buffer[i], buffer[i + 1], buffer[i + 2]); i += 3; }
     else return i; // unknown op: stop
   }
   return i;

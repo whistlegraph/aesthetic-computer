@@ -46,7 +46,7 @@ import { checkPackMode, getPackMode } from "./pack-mode.mjs";
 import { log } from "./logs.mjs";
 import { captureFrame, formatTimestamp, generateFilename } from "./frame-capture.mjs";
 import { compileProgram, runKernelOverPool, runKernelOnGPU, kernelBackend } from "./kidlisp-compile.mjs";
-import { buildMesh, sceneCamera, placeMesh, projectMesh } from "./kidlisp-mesh.mjs";
+import { buildMesh, sceneCamera, placeMesh, projectMesh, normalize } from "./kidlisp-mesh.mjs";
 import { compileKernel } from "./kidlisp-kernel.mjs";
 import { GpuFrame } from "./gpu-frame.mjs";
 
@@ -66,7 +66,7 @@ const KIDLISP_FUNCTIONS = new Set([
   // Pools, hums, console input (kidlisp/PIECE-IL.md)
   "pool", "spawn", "each", "kill", "alive", "empty", "rank", "kernel", "run", "gpu", "set", "uniform", "hum", "tune", "hush", "key", "pad", "else",
   // The 3D layer (kidlisp-mesh.mjs): geometry once, a camera and placements per frame
-  "mesh", "camera", "place",
+  "mesh", "camera", "place", "light",
   // Output
   "print", "debug", "log", "console",
   // Math
@@ -5919,6 +5919,15 @@ class KidLisp {
       camera: (api, args = [], env) => {
         const v = args.map((a) => numArg(api, env, a, 0));
         this.camera27 = sceneCamera(v[0] ?? 0, v[1] ?? 0, v[2] ?? 0, v[3] ?? 0, v[4] ?? 0, args.length > 5 ? v[5] : 60, api.screen?.width ?? 0, api.screen?.height ?? 0, this.camera27 || new Float32Array(27), args.length > 6 ? v[6] : 1);
+        if (this.lightDir) { this.camera27[24] = this.lightDir[0]; this.camera27[25] = this.lightDir[1]; this.camera27[26] = this.lightDir[2]; }
+        return 0;
+      },
+      // (light x y z): the direction the sun shines towards. The camera carries it.
+      light: (api, args = [], env) => {
+        const v = normalize(args.slice(0, 3).map((a) => numArg(api, env, a, 0)));
+        this.lightDir = v;
+        if (this.gpuActive && this.gpuFrame) { this.gpuFrame.light(v[0], v[1], v[2]); return 0; }
+        if (this.camera27) { this.camera27[24] = v[0]; this.camera27[25] = v[1]; this.camera27[26] = v[2]; }
         return 0;
       },
       // (place name x y z [yaw pitch roll scale]): a mesh at a pose. On the GPU

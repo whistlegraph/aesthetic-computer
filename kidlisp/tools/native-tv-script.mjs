@@ -104,13 +104,18 @@ const visit = {
 // host's retained meshes where it has them (the Xbox: meshUpload/meshDraw
 // with the 27-float camera) and through the projector otherwise, far to near,
 // as triangle3d with depth when the host has it, else as plain triangles.
-const { sceneCamera, placeMesh, projectMesh, FaceList } = KidLispNative;
+const { sceneCamera, placeMesh, projectMesh, FaceList, bakeLighting } = KidLispNative;
+let sun = null;
 const faceList = new FaceList();
 const emitFace = (x1, y1, x2, y2, x3, y3, depth, r, g, b) => { if (host3d) triangle3d(C(x1), C(y1), depth, C(x2), C(y2), depth, C(x3), C(y3), depth, r, g, b); else triangle(C(x1), C(y1), C(x2), C(y2), C(x3), C(y3), r, g, b); };
 let camera27 = null; const handles = new Map(), missesById = new Map(); let meshFaces = 0, uploadsRefused = 0;
 const hostMeshes = typeof meshUpload === "function" && typeof meshDraw === "function";
 const host3d = typeof triangle3d === "function";
-visit.camera = (x, y, z, yaw, pitch, fov, near) => { camera27 = sceneCamera(x * S, y * S, z * S, yaw, pitch, fov, HW, HH, camera27 || new Float32Array(27), (near || 1) * S); };
+visit.camera = (x, y, z, yaw, pitch, fov, near) => { camera27 = sceneCamera(x * S, y * S, z * S, yaw, pitch, fov, HW, HH, camera27 || new Float32Array(27), (near || 1) * S); if (sun) { camera27[24] = sun[0]; camera27[25] = sun[1]; camera27[26] = sun[2]; } };
+visit.light = (x, y, z) => { const l = Math.hypot(x, y, z) || 1; sun = [x / l, y / l, z / l]; if (camera27) { camera27[24] = sun[0]; camera27[25] = sun[1]; camera27[26] = sun[2]; } };
+// A host that lights its own meshes gets pre-lit colours and a camera with its sun off, so every host shows the one light model.
+let hostCamera = null;
+const cameraForHost = () => { hostCamera = hostCamera || new Float32Array(27); hostCamera.set(camera27); hostCamera[24] = 0; hostCamera[25] = 0; hostCamera[26] = 0; return hostCamera; };
 visit.place = (id, x, y, z, yaw, pitch, roll, scale, a) => {
   const mesh = lisp && lisp.gpuFrame && lisp.gpuFrame.meshes.get(id); if (!mesh || !camera27) return;
   if (hostMeshes) {
@@ -120,7 +125,7 @@ visit.place = (id, x, y, z, yaw, pitch, roll, scale, a) => {
     // keyed by a numeric hash of the pose (no string per placement), verified against the stored pose
     let hsh = Math.imul(id, 2654435761);
     hsh = Math.imul(hsh ^ ((x * 1000) | 0), 2246822519); hsh = Math.imul(hsh ^ ((y * 1000) | 0), 3266489917); hsh = Math.imul(hsh ^ ((z * 1000) | 0), 668265263);
-    hsh = Math.imul(hsh ^ ((yaw * 100000) | 0), 2246822519); hsh = Math.imul(hsh ^ ((pitch * 100000) | 0), 3266489917); hsh = Math.imul(hsh ^ ((roll * 100000) | 0), 668265263); hsh = (hsh ^ ((scale * 1000) | 0)) >>> 0;
+    hsh = Math.imul(hsh ^ ((yaw * 100000) | 0), 2246822519); hsh = Math.imul(hsh ^ ((pitch * 100000) | 0), 3266489917); hsh = Math.imul(hsh ^ ((roll * 100000) | 0), 668265263); hsh = Math.imul(hsh ^ ((scale * 1000) | 0), 2246822519); if (sun) hsh = Math.imul(hsh ^ ((sun[0] * 1000) | 0) ^ (((sun[1] * 1000) | 0) << 10) ^ (((sun[2] * 1000) | 0) << 20), 3266489917); hsh = hsh >>> 0;
     let entry = handles.get(hsh);
     if (entry !== undefined && (entry.id !== id || entry.x !== x || entry.y !== y || entry.z !== z || entry.yaw !== yaw || entry.pitch !== pitch || entry.roll !== roll || entry.scale !== scale)) { if (typeof meshFree === "function") meshFree(entry.handle); handles.delete(hsh); entry = undefined; }
     if (entry === undefined) {
@@ -131,18 +136,18 @@ visit.place = (id, x, y, z, yaw, pitch, roll, scale, a) => {
         meshFaces += projectMesh(camera27, placeMesh(mesh, x * S, y * S, z * S, yaw, pitch, roll, scale * S), faceList, a);
         return;
       }
-      const world = placeMesh(mesh, x * S, y * S, z * S, yaw, pitch, roll, scale * S);
+      const world = bakeLighting(placeMesh(mesh, x * S, y * S, z * S, yaw, pitch, roll, scale * S), camera27);
       entry = { id, x, y, z, yaw, pitch, roll, scale, handle: meshUpload(world.verts, world.faces) }; handles.set(hsh, entry);
       if (entry.handle < 0) uploadsRefused++;
       if (handles.size > 3000) { for (const [k, e] of handles) { if (typeof meshFree === "function") meshFree(e.handle); handles.delete(k); if (handles.size <= 2000) break; } }
     }
-    if (entry.handle >= 0) meshFaces += meshDraw(entry.handle, camera27, 1, 1, 1, 1, a / 255) | 0;
+    if (entry.handle >= 0) meshFaces += meshDraw(entry.handle, cameraForHost(), 1, 1, 1, 1, a / 255) | 0;
     return;
   }
   meshFaces += projectMesh(camera27, placeMesh(mesh, x * S, y * S, z * S, yaw, pitch, roll, scale * S), faceList, a);
 };
-const COUNTS = { clear: 0, line: 0, box: 0, oval: 0, tri: 0, shape: 0, camera: 0, place: 0 };
-const counting = { clear: () => COUNTS.clear++, line: () => COUNTS.line++, box: () => COUNTS.box++, oval: () => COUNTS.oval++, tri: () => COUNTS.tri++, shape: () => COUNTS.shape++, camera: () => COUNTS.camera++, place: () => COUNTS.place++ };
+const COUNTS = { clear: 0, line: 0, box: 0, oval: 0, tri: 0, shape: 0, camera: 0, place: 0, light: 0 };
+const counting = { clear: () => COUNTS.clear++, line: () => COUNTS.line++, box: () => COUNTS.box++, oval: () => COUNTS.oval++, tri: () => COUNTS.tri++, shape: () => COUNTS.shape++, camera: () => COUNTS.camera++, place: () => COUNTS.place++, light: () => COUNTS.light++ };
 function drawFrame(buffer) {
   lastOps = buffer.length; for (const k in COUNTS) COUNTS[k] = 0; meshFaces = 0; readFrame(buffer, counting); lastCounts = JSON.stringify(COUNTS);
   S = HW / W; const d0 = Date.now(); faceList.reset(); if (DRAW) { readFrame(buffer, visit); faceList.flush(emitFace); } lastDrawMs = Date.now() - d0;
@@ -186,7 +191,7 @@ function paint() {
   fpsCount++; if (Date.now() - fpsAt >= 1000) { fps = fpsCount; fpsCount = 0; fpsAt = Date.now(); }
   const ms = Date.now() - t0;
   if (DENSITY_AUTO) { if (ms > BUDGET_MS) density = Math.max(0.25, density * Math.max(0.7, Math.sqrt(BUDGET_MS / ms))); else if (ms < BUDGET_MS * 0.7) density = Math.min(1, density * 1.04); }
-  if (frames % 10 === 1) say("KIDLISP", JSON.stringify({ piece: ORDER[current], frame: frames, ms, density: Math.round(density * 100) / 100, drawMs: lastDrawMs, ops: lastOps, counts: lastCounts, meshFaces, uploadsRefused, handles: handles.size, w: W, h: H, err: lastErr }));
+  if (frames % 10 === 1) say("KIDLISP", JSON.stringify({ piece: ORDER[current], frame: frames, ms, density: Math.round(density * 100) / 100, drawMs: lastDrawMs, ops: lastOps, counts: lastCounts, meshFaces, sun: sun ? sun.map((v) => +v.toFixed(2)) : null, uploadsRefused, handles: handles.size, w: W, h: H, err: lastErr }));
   box(6, 6, Math.min(HW - 12, fps * 3), 4, 255, 255, 255); box(6, 12, Math.min(HW - 12, ms), 4, 255, 120, 60);   // fps and ms, as bars, in host pixels
 }
 function act() {}

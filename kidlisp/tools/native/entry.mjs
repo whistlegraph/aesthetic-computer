@@ -6,4 +6,4 @@ export { KidLisp } from '../../../system/public/aesthetic.computer/lib/kidlisp.m
 export { compileProgram } from '../../../system/public/aesthetic.computer/lib/kidlisp-compile.mjs';
 export { programHelpers } from '../../../system/public/aesthetic.computer/lib/kidlisp-emit.mjs';
 export { GpuFrame, readFrame } from '../../../system/public/aesthetic.computer/lib/gpu-frame.mjs';
-export { sceneCamera, placeMesh, projectMesh, buildMesh, FaceList } from '../../../system/public/aesthetic.computer/lib/kidlisp-mesh.mjs';
+export { sceneCamera, placeMesh, projectMesh, buildMesh, FaceList, bakeLighting } from '../../../system/public/aesthetic.computer/lib/kidlisp-mesh.mjs';

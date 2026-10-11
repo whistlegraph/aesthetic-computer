@@ -118,7 +118,7 @@ const DELEGATE_TOP = new Set(["mesh", "tap", "draw", "lift", "once", "melody", "
 // Forms that take their arguments raw and evaluate what they need themselves; usable inside functions.
 const RAW_ANYWHERE = new Set(["hum", "tune", "hush", "pluck", "bell", "sub", "flute", "hat", "voice"]);
 // Drawing heads the GPU frame records (gpu-frame.mjs); ink runs on the CPU too, for its colour parsing.
-const GPU_HEADS = new Set(["wipe", "ink", "line", "box", "circle", "oval", "tri", "shape", "write", "plot", "point", "camera", "place"]);
+const GPU_HEADS = new Set(["wipe", "ink", "line", "box", "circle", "oval", "tri", "shape", "write", "plot", "point", "camera", "place", "light"]);
 const isTimerHead = (head) => typeof head === "number" || (typeof head === "string" && /^\d*\.?\d+s(?:!|\.{2,3})?$/.test(head));
 const unquote = (s) => (typeof s === "string" && /^".*"$/s.test(s) ? s.slice(1, -1) : s);
 const NOTE = /^[a-g][#b]?[0-9]$/i;
@@ -321,6 +321,7 @@ export function compileProgram(ast, lisp) {
           case "tri": if (n >= 6 && v.slice(0, 6).every((x) => typeof x === "number")) { frame.tri(v[0], v[1], v[2], v[3], v[4], v[5], v[6] === "outline" || /^outline/.test(String(v[6] ?? "")) ? 0 : fill); return; } break;
           case "shape": if (n >= 6 && n % 2 === 0 && v.every((x) => typeof x === "number")) { frame.shape(v, fill); return; } break;
           case "camera": if (n >= 3 && v.slice(0, 3).every((x) => typeof x === "number")) { frame.camera(v[0], v[1], v[2], num(v[3]), num(v[4]), typeof v[5] === "number" ? v[5] : 60, typeof v[6] === "number" ? v[6] : 1); return; } break;
+          case "light": if (n >= 3 && v.slice(0, 3).every((x) => typeof x === "number")) { frame.light(v[0], v[1], v[2]); return; } break;
           case "place": { const mesh = lisp.meshes?.get(String(v[0])); if (mesh && n >= 4 && v.slice(1, 4).every((x) => typeof x === "number")) { if (!frame.meshes.has(mesh.id)) frame.defineMesh(mesh.id, mesh); frame.place(mesh.id, v[1], v[2], v[3], num(v[4]), num(v[5]), num(v[6]), typeof v[7] === "number" ? v[7] : 1); } return; }
         }
         // Not a shape the frame takes (a named colour fill, text): the CPU draws it, over the frame.

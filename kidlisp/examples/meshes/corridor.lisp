@@ -4,7 +4,7 @@
 ; geometry is described once, the camera and placements per frame, and the
 ; host projects. The piece never touches a vertex, so a frame is a few
 ; hundred words of work wherever it runs.
-(def NEAR_PLANE 1)
+(def NEAR_PLANE 6)   ; a face closer than this is cut, so the eye never sits on one
 ; a brick is the face you see: the Xbox draws at most 8,192 triangles a frame
 ; and does not cull, so a wall of cubes would be dropped past that.
 (mesh brick (face 0 -13 30 0 -13 -30 0 13 -30 0 13 30 170 86 60))
@@ -27,9 +27,21 @@
   (now camx (* (sin (* tt 0.5)) 80))
   (now camz (+ (% (* tt 220) 3400) 200))
   (now yaw (* (sin (* tt 0.7)) 0.25)))
-(now camx (clamp camx -560 560)) (now camz (clamp camz 100 3900))
+(now camx (clamp camx -470 470)) (now camz (clamp camz 100 3900))
+; the eye stays out of the pillars and crates: pushed off each one it is inside, with a margin
+(def px 0) (def pz 0) (def dx 0) (def dz 0)
+(repeat 8 pi
+  (now pz (+ (* pi 520) 300))
+  (now dz (- camz pz))
+  (if (< (abs dz) 75) (if (< camx -420) (now camx -420)) (if (> camx 420) (now camx 420))))
+(repeat 6 ci
+  (now pz (+ (* ci 650) 500)) (now px (- (* (% ci 3) 200) 200))
+  (now dx (- camx px)) (now dz (- camz pz))
+  (if (if (< (abs dx) 70) (if (< (abs dz) 70) 1 else 0) else 0)
+    (if (> (abs dx) (abs dz)) (now camx (+ px (* (sign dx) 70))) else (now camz (+ pz (* (sign dz) 70))))))
 
 (wipe 90 140 210)
+(light -0.5 -1 0.35)   ; the sun: down, a little left, a little forward
 (camera camx 60 camz yaw pitch 70 NEAR_PLANE)
 (place floor 0 -150 2000)
 (place ceiling 0 150 2000)

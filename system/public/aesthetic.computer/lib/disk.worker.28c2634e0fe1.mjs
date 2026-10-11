@@ -16181,7 +16181,7 @@ var COMPARE = {
 var SCREEN = { width: (api) => api.screen?.width ?? 0, w: (api) => api.screen?.width ?? 0, height: (api) => api.screen?.height ?? 0, h: (api) => api.screen?.height ?? 0, frame: (api) => api.paintCount || 0, f: (api) => api.paintCount || 0 };
 var DELEGATE_TOP = /* @__PURE__ */ new Set(["mesh", "tap", "draw", "lift", "once", "melody", "clock", "later", "jump", "hop", "delay", "trans", "net", "source", "choose", "?", "bake", "embed", "fps", "resolution", "die", "mic", "speaker", "overtone", "amplitude"]);
 var RAW_ANYWHERE = /* @__PURE__ */ new Set(["hum", "tune", "hush", "pluck", "bell", "sub", "flute", "hat", "voice"]);
-var GPU_HEADS = /* @__PURE__ */ new Set(["wipe", "ink", "line", "box", "circle", "oval", "tri", "shape", "write", "plot", "point", "camera", "place"]);
+var GPU_HEADS = /* @__PURE__ */ new Set(["wipe", "ink", "line", "box", "circle", "oval", "tri", "shape", "write", "plot", "point", "camera", "place", "light"]);
 var isTimerHead = (head) => typeof head === "number" || typeof head === "string" && /^\d*\.?\d+s(?:!|\.{2,3})?$/.test(head);
 var unquote = (s2) => typeof s2 === "string" && /^".*"$/s.test(s2) ? s2.slice(1, -1) : s2;
 function compileProgram(ast, lisp) {
@@ -16558,6 +16558,12 @@ function compileProgram(ast, lisp) {
               return;
             }
             break;
+          case "light":
+            if (n3 >= 3 && v2.slice(0, 3).every((x) => typeof x === "number")) {
+              frame2.light(v2[0], v2[1], v2[2]);
+              return;
+            }
+            break;
           case "place": {
             const mesh = lisp.meshes?.get(String(v2[0]));
             if (mesh && n3 >= 4 && v2.slice(1, 4).every((x) => typeof x === "number")) {
@@ -16794,10 +16800,17 @@ function compileProgram(ast, lisp) {
 var DEPTH_BASE = -1.4;
 var DEPTH_SLOPE = 2.8 / 16e3;
 var NEAR = 1;
-var LIGHT = normalize5([-0.42, 1, -0.28]);
+var LIGHT = normalize5([-0.42, -1, -0.28]);
+var AMBIENT = 0.34;
 function normalize5(v2) {
   const l2 = Math.hypot(v2[0], v2[1], v2[2]) || 1;
   return [v2[0] / l2, v2[1] / l2, v2[2] / l2];
+}
+function lightFor(nx, ny, nz, m) {
+  const lx = m[24], ly = m[25], lz = m[26];
+  const diffuse = Math.max(0, -(nx * lx + ny * ly + nz * lz));
+  const bounce = Math.max(0, -ny) * 0.12;
+  return Math.min(1.25, AMBIENT + (1 - AMBIENT) * diffuse + bounce);
 }
 function buildMesh(forms) {
   const verts = [], faces = [];
@@ -16941,8 +16954,8 @@ function projectMesh(m, world2, emitOrList, alpha = 255) {
     if (poly2.length < 3) continue;
     poly2 = clip(poly2, (p) => p[2] - near);
     if (poly2.length < 3) continue;
-    const light = 0.72 + Math.max(0, -(nx * m[24] + ny * m[25] + nz * m[26])) * 0.28;
-    const r2 = Math.round(faces[f2 + 4] * light), g = Math.round(faces[f2 + 5] * light), b2 = Math.round(faces[f2 + 6] * light);
+    const light = lightFor(nx, ny, nz, m);
+    const r2 = Math.min(255, Math.round(faces[f2 + 4] * light)), g = Math.min(255, Math.round(faces[f2 + 5] * light)), b2 = Math.min(255, Math.round(faces[f2 + 6] * light));
     let depthSum = 0;
     let screen2 = poly2.map((p) => {
       const k = m[14] + (m[15] / p[2] - m[14]) * m[16];
@@ -16977,7 +16990,7 @@ function clip(poly2, dist5) {
 }
 
 // public/aesthetic.computer/lib/gpu-frame.mjs
-var OP = Object.freeze({ CLEAR: 1, LINE: 2, BOX: 3, OVAL: 4, TRI: 5, SHAPE: 6, CAMERA: 7, PLACE: 8 });
+var OP = Object.freeze({ CLEAR: 1, LINE: 2, BOX: 3, OVAL: 4, TRI: 5, SHAPE: 6, CAMERA: 7, PLACE: 8, LIGHT: 9 });
 var GpuFrame = class {
   constructor(capacity = 1 << 16) {
     this.buffer = new Float32Array(capacity);
@@ -17007,6 +17020,17 @@ var GpuFrame = class {
     o2[i2++] = pitch;
     o2[i2++] = fov;
     o2[i2++] = near;
+    this.length = i2;
+    this.ops++;
+  }
+  light(x, y, z) {
+    this.grow(4);
+    const o2 = this.buffer;
+    let i2 = this.length;
+    o2[i2++] = OP.LIGHT;
+    o2[i2++] = x;
+    o2[i2++] = y;
+    o2[i2++] = z;
     this.length = i2;
     this.ops++;
   }
@@ -17219,6 +17243,7 @@ var KIDLISP_FUNCTIONS = /* @__PURE__ */ new Set([
   "mesh",
   "camera",
   "place",
+  "light",
   // Output
   "print",
   "debug",
@@ -21412,6 +21437,26 @@ ${")".repeat(missingCount)}`;
       camera: (api, args = [], env) => {
         const v2 = args.map((a2) => numArg(api, env, a2, 0));
         this.camera27 = sceneCamera(v2[0] ?? 0, v2[1] ?? 0, v2[2] ?? 0, v2[3] ?? 0, v2[4] ?? 0, args.length > 5 ? v2[5] : 60, api.screen?.width ?? 0, api.screen?.height ?? 0, this.camera27 || new Float32Array(27), args.length > 6 ? v2[6] : 1);
+        if (this.lightDir) {
+          this.camera27[24] = this.lightDir[0];
+          this.camera27[25] = this.lightDir[1];
+          this.camera27[26] = this.lightDir[2];
+        }
+        return 0;
+      },
+      // (light x y z): the direction the sun shines towards. The camera carries it.
+      light: (api, args = [], env) => {
+        const v2 = normalize5(args.slice(0, 3).map((a2) => numArg(api, env, a2, 0)));
+        this.lightDir = v2;
+        if (this.gpuActive && this.gpuFrame) {
+          this.gpuFrame.light(v2[0], v2[1], v2[2]);
+          return 0;
+        }
+        if (this.camera27) {
+          this.camera27[24] = v2[0];
+          this.camera27[25] = v2[1];
+          this.camera27[26] = v2[2];
+        }
         return 0;
       },
       // (place name x y z [yaw pitch roll scale]): a mesh at a pose. On the GPU

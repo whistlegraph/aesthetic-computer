@@ -16,8 +16,32 @@
 // 22-23 depth base and slope; 24-26 light direction.
 
 export const DEPTH_BASE = -1.4, DEPTH_SLOPE = 2.8 / 16000, NEAR = 1;
-export const LIGHT = normalize([-0.42, 1, -0.28]);
-function normalize(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+export const LIGHT = normalize([-0.42, -1, -0.28]);     // the sun shines down and a little to the left and back (y is up here)
+export const AMBIENT = 0.34;                                  // the light model: ambient + diffuse, one sun
+export function normalize(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+// How much light a face with this normal gets from the sun in m[24..26]:
+// ambient, plus diffuse from the side the sun shines from, plus a little
+// from below (the floor's bounce) so undersides are not black. The same
+// number on every host: the projector applies it, and a host that lights
+// its own meshes (the Xbox) is handed pre-lit colours with its sun off.
+export function lightFor(nx, ny, nz, m) {
+  const lx = m[24], ly = m[25], lz = m[26];
+  const diffuse = Math.max(0, -(nx * lx + ny * ly + nz * lz));
+  const bounce = Math.max(0, -ny) * 0.12;
+  return Math.min(1.25, AMBIENT + (1 - AMBIENT) * diffuse + bounce);
+}
+export const HOST_SUN_OFF = 0.72;                             // what the Xbox multiplies by when its light is zero
+// A world-space mesh with the lighting baked into its face colours, for a
+// host that lights by itself: its sun is set to zero and these colours are
+// divided by what it then multiplies by.
+export function bakeLighting(world, m) {
+  const faces = new Float32Array(world.faces);
+  for (let f = 0; f < faces.length; f += 10) {
+    const light = lightFor(faces[f + 7], faces[f + 8], faces[f + 9], m) / HOST_SUN_OFF;
+    faces[f + 4] = Math.min(255, Math.round(faces[f + 4] * light)); faces[f + 5] = Math.min(255, Math.round(faces[f + 5] * light)); faces[f + 6] = Math.min(255, Math.round(faces[f + 6] * light));
+  }
+  return { verts: world.verts, faces };
+}
 
 // ---- building ---------------------------------------------------------------
 // forms: [["cube", w, h, d, r, g, b] | ["cube", x, y, z, w, h, d, r, g, b] |
@@ -153,8 +177,8 @@ export function projectMesh(m, world, emitOrList, alpha = 255) {
     if (poly.length < 3) continue;
     poly = clip(poly, (p) => p[2] - near);                                // near plane, view space
     if (poly.length < 3) continue;
-    const light = 0.72 + Math.max(0, -(nx * m[24] + ny * m[25] + nz * m[26])) * 0.28;
-    const r = Math.round(faces[f + 4] * light), g = Math.round(faces[f + 5] * light), b = Math.round(faces[f + 6] * light);
+    const light = lightFor(nx, ny, nz, m);
+    const r = Math.min(255, Math.round(faces[f + 4] * light)), g = Math.min(255, Math.round(faces[f + 5] * light)), b = Math.min(255, Math.round(faces[f + 6] * light));
     let depthSum = 0;
     let screen = poly.map((p) => { const k = m[14] + (m[15] / p[2] - m[14]) * m[16]; depthSum += p[2]; return [m[12] + p[0] * k, m[13] - p[1] * k, Math.max(-1.499, Math.min(1.4, m[22] + p[2] * m[23]))]; });
     screen = clip(screen, (p) => p[0] - gl); if (screen.length < 3) continue;   // the guard band, screen space

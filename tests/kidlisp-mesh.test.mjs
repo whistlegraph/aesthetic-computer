@@ -26,7 +26,7 @@ test('a cube in front of the camera projects inside the viewport, lit, far faces
   const tris = [];
   const faces = projectMesh(cam, world, (...t) => tris.push(t));
   assert.equal(faces, 1, 'only the facing side of a cube seen head-on survives culling');
-  for (const t of tris) { for (const i of [0, 2, 4]) assert.ok(t[i] > 150 && t[i] < 250, 'x inside'); for (const i of [1, 3, 5]) assert.ok(t[i] > 100 && t[i] < 200, 'y inside'); assert.ok(t[7] <= 255 && t[7] >= 183, 'lit colour'); }
+  for (const t of tris) { for (const i of [0, 2, 4]) assert.ok(t[i] > 150 && t[i] < 250, 'x inside'); for (const i of [1, 3, 5]) assert.ok(t[i] > 100 && t[i] < 200, 'y inside'); assert.ok(t[7] <= 255 && t[7] >= Math.floor(255 * 0.34), 'lit colour: at least the ambient share'); }
   // a second cube behind the first is emitted before it
   const far = placeMesh(buildMesh([['cube', 10, 10, 10, 255, 0, 0]]), 0, 0, 90);
   const order = [];
