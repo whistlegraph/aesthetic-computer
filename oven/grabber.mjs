@@ -1297,7 +1297,7 @@ async function getBrowser() {
   // Check if existing browser is still usable
   if (browser) {
     try {
-      if (browser.isConnected()) {
+      if (browser.connected) {
         return browser;
       } else {
         console.log('⚠️ Browser disconnected, will relaunch...');
