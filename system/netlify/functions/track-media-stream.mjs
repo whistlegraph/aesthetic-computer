@@ -55,7 +55,9 @@ export const handler = stream(async (event) => {
   const close = async () => {
     if (!closed) {
       closed = true;
-      await writer.close();
+      // The reader may cancel as soon as it receives the complete event.
+      // Its cancellation already closes the writer, so cleanup is best-effort.
+      await writer.close().catch(() => {});
     }
   };
 
@@ -273,14 +275,19 @@ export const handler = stream(async (event) => {
       });
     } catch (err) {
       console.error("track-media-stream error:", err);
-      await send("error", { error: err?.message || String(err) });
+      // A disconnected reader also rejects writes, including this error event.
+      await send("error", { error: err?.message || String(err) }).catch(() => {});
     } finally {
-      if (database) {
-        await database.disconnect().catch(() => {});
+      try {
+        if (database) await database.disconnect();
+      } finally {
+        await close();
       }
-      await close();
     }
-  })();
+  })().catch((err) => {
+    // The response is already streaming; never leave producer cleanup unhandled.
+    console.error("track-media-stream cleanup error:", err);
+  });
 
   return {
     statusCode: 200,
