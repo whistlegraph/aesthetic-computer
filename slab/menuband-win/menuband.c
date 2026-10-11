@@ -681,7 +681,7 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
     if (code == HC_ACTION && g_typing) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
-        if (!(k->flags & LLKHF_INJECTED) && k->vkCode < 256) {
+        if (k->vkCode < 256) {
             if (k->vkCode == VK_ESCAPE) { if (down) PostMessageW(g_strip, WM_TYPEESC, 0, 0); return 1; }
             if (k->vkCode == VK_OEM_COMMA || k->vkCode == VK_OEM_PERIOD) {
                 if (down) PostMessageW(g_strip, WM_OCTAVE, k->vkCode == VK_OEM_PERIOD ? 1 : (WPARAM)-1, 0);
@@ -797,6 +797,19 @@ static const wchar_t *GM_FAMILIES[16] = { L"Piano", L"Chromatic Percussion", L"O
 
 static NOTIFYICONDATAW g_nid;
 
+// Player settings survive restarts: HKCU\Software\Aesthetic Computer\Menu Band.
+static const wchar_t *SETTINGS_KEY = L"Software\\Aesthetic Computer\\Menu Band";
+static DWORD setting_get(const wchar_t *name, DWORD fallback) {
+    HKEY k; DWORD v = fallback, size = sizeof v, type;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, SETTINGS_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return fallback;
+    if (RegQueryValueExW(k, name, NULL, &type, (BYTE *)&v, &size) != ERROR_SUCCESS || type != REG_DWORD) v = fallback;
+    RegCloseKey(k); return v;
+}
+static void setting_set(const wchar_t *name, DWORD v) {
+    HKEY k; if (RegCreateKeyExW(HKEY_CURRENT_USER, SETTINGS_KEY, 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) return;
+    RegSetValueExW(k, name, 0, REG_DWORD, (const BYTE *)&v, sizeof v); RegCloseKey(k);
+}
+
 static int autostart_enabled(void) {
     HKEY k; if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_READ, &k) != ERROR_SUCCESS) return 0;
     DWORD type, size = 0; int present = RegQueryValueExW(k, L"MenuBand", NULL, &type, NULL, &size) == ERROR_SUCCESS;
@@ -877,7 +890,7 @@ static void poll_play_file(HWND hwnd) {
     char line[512] = {0}; fgets(line, sizeof line, f); fclose(f); DeleteFileW(path);
     g_playCount = 0; g_playIndex = 0; g_playMs = 400;
     for (char *tok = strtok(line, " \t\r\n"); tok; tok = strtok(NULL, " \t\r\n")) {
-        if (tok[0] == '@') { g_program = atoi(tok + 1) & 127; midi_program(); continue; }
+        if (tok[0] == '@') { g_program = atoi(tok + 1) & 127; midi_program(); setting_set(L"program", (DWORD)g_program); continue; }
         int v = atoi(tok);
         if (v >= 200) g_playMs = v; else if (v >= 0 && v < 128 && g_playCount < 64) g_playNotes[g_playCount++] = v;
     }
@@ -891,6 +904,7 @@ static void shift_octave(HWND hwnd, int dir) {
     mouse_up(hwnd);
     release_typed(hwnd);
     g_firstMidi = next; build_keys(); push_frame(hwnd);
+    setting_set(L"firstMidi", (DWORD)g_firstMidi);
 }
 
 static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -921,6 +935,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetCapture(hwnd);
         int midi = key_at(x, y);
         mouse_down(hwnd, midi);
+        if (midi >= 0) mb_log(L"click: x=%d -> midi %d (program %d)", x, midi, g_program);
         if (midi >= 0 && !g_typing) typing_set(hwnd, 1);   // a click focuses, as on the Mac
         return 0;
     }
@@ -931,7 +946,15 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CAPTURECHANGED:
         mouse_up(hwnd);
         return 0;
+    case WM_RBUTTONDOWN:
+        mb_log(L"right button down");
+        return 0;
     case WM_RBUTTONUP:
+        mb_log(L"right button up -> menu");
+        show_menu(hwnd);
+        return 0;
+    case WM_CONTEXTMENU:
+        mb_log(L"WM_CONTEXTMENU -> menu");
         show_menu(hwnd);
         return 0;
     case WM_MOUSEWHEEL:
@@ -944,6 +967,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         int vk = (int)wp, down = (int)lp;
         if (vk < 0 || vk > 255) return 0;
         int midi = 60 + g_semitoneByVk[vk] + (g_firstMidi - 60);
+        if (down) mb_log(L"type: vk %d -> midi %d (program %d)", vk, midi, g_program);
         if (down) { if (!g_vkDown[vk]) { g_vkDown[vk] = 1; lit_on(hwnd, midi, 100); } }
         else if (g_vkDown[vk]) { g_vkDown[vk] = 0; lit_off(hwnd, midi); }
         return 0;
@@ -959,7 +983,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_QUIT) { mb_log(L"menu: quit"); DestroyWindow(hwnd); return 0; }
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
-        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); }
+        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         return 0;
     }
@@ -1013,6 +1037,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     HANDLE single = CreateMutexW(NULL, TRUE, L"computer.aesthetic.menuband.windows");
     if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
+    g_program = (int)setting_get(L"program", AC_WHISTLE_PROGRAM) & 127;
+    g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
     build_keys();
     build_keymap();
     if (!audio_start()) { mb_log(L"audio_start FAILED"); MessageBoxW(NULL, L"Menu Band could not open the audio output.", L"Menu Band", MB_ICONWARNING); }
