@@ -42,6 +42,7 @@
 
 (wipe 90 140 210)
 (light -0.5 -1 0.35)   ; the sun: down, a little left, a little forward
+(ink 255 255 255 255)  ; placements take the ink's alpha, and the HUD below leaves it at 120
 (camera camx 60 camz yaw pitch 70 NEAR_PLANE)
 (place floor 0 -150 2000)
 (place ceiling 0 150 2000)

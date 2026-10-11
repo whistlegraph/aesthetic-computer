@@ -288,7 +288,7 @@ export function programHelpers(lisp) {
       if (!lisp.gpuActive) return cpu(api, v, undefined);
       const frame = lisp.gpuFrame, fill = lisp.fillMode !== false ? 1 : 0, n = v.length;
       switch (head) {
-        case "wipe": { cpu(api, v, undefined); const c = api.inkrn?.() || [0, 0, 0, 255]; frame.clear(c[0], c[1], c[2], 255); api.wipe?.(0, 0, 0, 0); return; }
+        case "wipe": { cpu(api, v, undefined); const prev = api.inkrn?.(); api.ink?.(...v); const c = api.inkrn?.() || [0, 0, 0, 255]; if (prev) api.ink?.(...prev); frame.clear(c[0], c[1], c[2], 255); api.wipe?.(0, 0, 0, 0); return; }   // the colour resolves through ink (names, fades), then the ink is put back
         case "ink": { const out = cpu(api, v, undefined); const c = api.inkrn?.(); if (c) frame.ink(c[0], c[1], c[2], c[3] ?? 255); return out; }
         case "line": if (n >= 4 && numbers(v, 4)) { frame.line(v[0], v[1], v[2], v[3], typeof v[4] === "number" ? v[4] : 1); return; } break;
         case "box": if (n >= 4 && numbers(v, 4)) { frame.box(v[0], v[1], v[2], v[3], outline(v[4]) ? 0 : fill); return; } break;

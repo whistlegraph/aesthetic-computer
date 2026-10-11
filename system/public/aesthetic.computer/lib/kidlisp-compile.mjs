@@ -312,7 +312,7 @@ export function compileProgram(ast, lisp) {
         if (!lisp.gpuActive) return cpu(api, v, undefined);
         const frame = lisp.gpuFrame, fill = lisp.fillMode !== false ? 1 : 0;
         switch (head) {
-          case "wipe": { cpu(api, v, undefined); const c = api.inkrn?.() || [0, 0, 0, 255]; frame.clear(c[0], c[1], c[2], 255); api.wipe?.(0, 0, 0, 0); return; }
+          case "wipe": { cpu(api, v, undefined); const prev = api.inkrn?.(); api.ink?.(...v); const c = api.inkrn?.() || [0, 0, 0, 255]; if (prev) api.ink?.(...prev); frame.clear(c[0], c[1], c[2], 255); api.wipe?.(0, 0, 0, 0); return; }   // the colour resolves through ink (names, fades), then the ink is put back
           case "ink": { const out = cpu(api, v, undefined); const c = api.inkrn?.(); if (c) frame.ink(c[0], c[1], c[2], c[3] ?? 255); return out; }
           case "line": if (n >= 4 && v.slice(0, 4).every((x) => typeof x === "number")) { frame.line(v[0], v[1], v[2], v[3], typeof v[4] === "number" ? v[4] : 1); return; } break;
           case "box": if (n >= 4 && v.slice(0, 4).every((x) => typeof x === "number")) { frame.box(v[0], v[1], v[2], v[3], v[4] === "outline" || /^outline/.test(String(v[4] ?? "")) ? 0 : fill); return; } break;

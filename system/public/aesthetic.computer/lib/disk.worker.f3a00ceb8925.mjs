@@ -16505,11 +16505,15 @@ function compileProgram(ast, lisp) {
         switch (head) {
           case "wipe": {
             cpu(api, v2, void 0);
+            const prev = api.inkrn?.();
+            api.ink?.(...v2);
             const c4 = api.inkrn?.() || [0, 0, 0, 255];
+            if (prev) api.ink?.(...prev);
             frame2.clear(c4[0], c4[1], c4[2], 255);
             api.wipe?.(0, 0, 0, 0);
             return;
           }
+          // the colour resolves through ink (names, fades), then the ink is put back
           case "ink": {
             const out = cpu(api, v2, void 0);
             const c4 = api.inkrn?.();
