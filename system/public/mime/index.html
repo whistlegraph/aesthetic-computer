@@ -32,6 +32,7 @@
   <link rel="preconnect" href="https://oven.aesthetic.computer" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap" />
   <style>
 
     :root {
@@ -227,6 +228,70 @@
     @media (prefers-reduced-motion: reduce) {
       header, header h1, .wordmark svg { transition: none; }
     }
+
+    /* The feed as reels: each post is one screen, and a swipe, wheel step or
+       arrow key moves exactly one card. The window still scrolls, so the focus,
+       playback and engagement code keeps measuring the same way. Caption and
+       actions float over the media on a dark fade, light in either theme. */
+    html:has(body.feed) { scroll-snap-type: y mandatory; scroll-padding-top: 0; }
+    body.feed { background: var(--media); }
+    body.feed header { position: fixed; left: 0; right: 0; max-width: none; height: calc(52px + env(safe-area-inset-top));
+      background: linear-gradient(rgba(10, 8, 20, .55), transparent); border-bottom: 0; pointer-events: none; }
+    /* The wordmark sits top and center, as on Instagram, and nothing else
+       crowds the reel; saved and sign in wait on the thread pages. */
+    body.feed header h1, body.feed header.compact h1 { left: 50%; transform: translateX(-50%); top: calc(4px + env(safe-area-inset-top)); pointer-events: auto; }
+    body.feed .account { display: none; }
+    /* "mime" alone is centered; .ac hangs off its right edge, light and outlined over any card. */
+    body.feed .wordmark { position: relative; }
+    body.feed .wordmark .domain-suffix { position: absolute; left: 100%; top: 4px; margin: 0 0 0 1px; font-size: 17px;
+      color: #fff; -webkit-text-stroke: .6px #141414; paint-order: stroke fill; text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
+    body.feed main { max-width: none; padding: 0; }
+    body.feed .feed-list { gap: 0; }
+    body.feed .feed-post { --author: var(--author-dark); position: relative; height: 100vh; height: 100dvh;
+      scroll-snap-align: start; scroll-snap-stop: always;
+      display: grid; grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-rows: minmax(0, 1fr) auto auto auto max(14px, env(safe-area-inset-bottom));
+      border: 0; border-radius: 0; box-shadow: none; background: var(--media); overflow: hidden; color: #fff; }
+    @media (min-width: 760px) { body.feed .feed-post { width: min(100%, 720px); margin-inline: auto; } }
+    body.feed .feed-post > .feed-media { grid-area: 1 / 1 / -1 / -1; width: 100%; height: 100%; max-height: none;
+      aspect-ratio: auto; margin: 0; border: 0; }
+    body.feed .feed-post > .feed-media.media-flow { overflow: auto; overscroll-behavior: contain; }
+    body.feed .feed-post::after { content: ""; grid-area: 1 / 1 / -1 / -1; align-self: end; height: 45%; z-index: 3;
+      background: linear-gradient(transparent, rgba(10, 8, 20, .82)); pointer-events: none; }
+    body.feed .feed-post > :is(.meta, .body, .comment-preview, .post-actions) { position: relative; z-index: 4; }
+    body.feed .feed-post > :is(.meta, .body, .comment-preview) { grid-column: 1; max-width: 620px; }
+    body.feed .feed-post > .meta { grid-row: 2; padding: 0 12px 4px 14px; background: none; border-top: 0; color: rgba(255, 255, 255, .78); }
+    body.feed .feed-post .media-label, body.feed .feed-post .save-ribbon { color: #fff; }
+    body.feed .feed-post :is(.media-origin, .mime-type) { color: rgba(255, 255, 255, .72); }
+    body.feed .feed-post > .body { grid-row: 3; max-height: 22vh; overflow: auto; padding: 2px 14px 4px; }
+    body.feed .feed-post > .body a { color: #7de3d7; }
+    body.feed .feed-post > .body .gt { color: #a6e6b3; }
+    body.feed .feed-post > .comment-preview { grid-row: 4; padding: 0 14px 2px; }
+    body.feed .feed-post > .comment-preview .all-comments { color: rgba(255, 255, 255, .72); }
+    body.feed .feed-post > .post-actions { grid-column: 2; grid-row: 2 / 5; align-self: end;
+      flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; padding: 0 10px 4px 0; }
+    body.feed .feed-post > .post-actions > * { margin-left: 0; min-height: 40px; padding: 8px 12px; font-size: 12px;
+      color: #fff; background: rgba(20, 16, 30, .55); border: 1px solid rgba(255, 255, 255, .25); border-radius: 22px;
+      box-shadow: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    /* A post with no media is its words, centered on the card. */
+    body.feed .feed-post:not(:has(> .feed-media)) > .body { grid-row: 1; align-self: center; max-height: none; font-size: 20px; }
+    body.feed .feed-media > .media-toggle { top: calc(60px + env(safe-area-inset-top)); bottom: auto; }
+    body.feed .feed-media.media-flow > .media-toggle { position: sticky; top: calc(60px + env(safe-area-inset-top)); bottom: auto; margin: 0 10px -42px 0; order: -1; }
+    body.feed .feed-more { min-height: 40vh; scroll-snap-align: end; }
+    /* Captions in AC's comic voice, outlined like the Whistlegraph app's titles:
+       Comic Relief Bold, a dark stroke painted under the fill, and a
+       pink-purple-cyan offset. Plain DOM text, so it selects and reads aloud. */
+    body.feed .feed-post > :is(.meta, .body, .comment-preview) { font-family: "Comic Relief", "Comic Sans MS", cursive;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .8); cursor: pointer; }
+    body.feed .feed-post :is(.name, .media-label) { font-weight: 700;
+      -webkit-text-stroke: .6px #141414; paint-order: stroke fill; text-shadow: .75px .75px #ed629d, 1px 1px #a478df, 2px 2px #55cdd9; }
+    body.feed .feed-post .name { font-size: 20px; }
+    body.feed .feed-post .media-label { font-size: 17px; }
+    body.feed .feed-post > .body { font-size: 17px; }
+    body.feed .feed-post :is(.media-origin, time) { font-size: 13px; }
+    body.feed .feed-post :is(.avatar, .mime-type), body.feed .feed-post > .post-actions { display: none; }
+    /* A feed video plays muted and looping like a reel; its controls appear with Interact. */
+    body.feed .feed-media:not([data-interacting]) > video::-webkit-media-controls { display: none !important; }
   </style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -358,8 +423,11 @@ syncTabAnimation();
 const API = "/api/mime";
 const view = document.getElementById("view");
 const header = document.querySelector("header");
+// On the reel feed the header floats over the cards, so cards measure from the
+// top of the screen; elsewhere they measure from under the header.
+const chromeTop = () => document.body.classList.contains("feed") ? 0 : header.getBoundingClientRect().bottom;
 function syncHeader() {
-  if (window.scrollY > 80) header.classList.add("compact");
+  if (document.body.classList.contains("feed") || window.scrollY > 80) header.classList.add("compact");
   else if (window.scrollY < 8) header.classList.remove("compact");
 }
 window.addEventListener("scroll", syncHeader, { passive: true });
@@ -367,11 +435,11 @@ let routeController;
 let feedCache, activeFeed, feedObserver, playbackObserver;
 history.scrollRestoration = "manual";
 function feedTop(node) {
-  return node.getBoundingClientRect().top + window.scrollY - header.getBoundingClientRect().bottom;
+  return node.getBoundingClientRect().top + window.scrollY - chromeTop();
 }
 function rememberFeed() {
   if (!activeFeed) return;
-  const edge = header.getBoundingClientRect().bottom;
+  const edge = chromeTop();
   const index = activeFeed.nodes.findIndex((node) => node.getBoundingClientRect().bottom > edge + 1);
   activeFeed.index = Math.max(0, index);
   const node = activeFeed.nodes[activeFeed.index];
@@ -414,7 +482,7 @@ function sampleEngagement() {
   exposure = [];
   delete view.dataset.focusedPost;
   if (!activeFeed || !engagementActive) return;
-  const bounds = { top: header.getBoundingClientRect().bottom, bottom: innerHeight, left: 0, right: document.documentElement.clientWidth };
+  const bounds = { top: chromeTop(), bottom: innerHeight, left: 0, right: document.documentElement.clientWidth };
   for (const node of activeFeed.nodes) {
     const box = node.getBoundingClientRect();
     const width = Math.max(0, Math.min(box.right, bounds.right) - Math.max(box.left, bounds.left));
@@ -471,6 +539,21 @@ window.addEventListener("pagehide", () => engagementForeground(false));
 window.addEventListener("pageshow", () => engagementForeground(!document.hidden && document.hasFocus()));
 setInterval(sampleEngagement, 1000);
 setInterval(() => flushEngagement(), 15000);
+// On the reel feed the caption is the way in: a tap anywhere on it that is not
+// already a link or button opens the post's comments.
+view.addEventListener("click", (event) => {
+  if (!document.body.classList.contains("feed") || event.target.closest("a, button")) return;
+  const caption = event.target.closest(".feed-post > :is(.meta, .body, .comment-preview)");
+  if (!caption) return;
+  const post = caption.parentElement;
+  if (event.isTrusted) {
+    sampleEngagement();
+    const record = engagementRecord(post.id);
+    record.commentOpens = Math.min(10000, record.commentOpens + 1);
+    record.dirty = true;
+  }
+  location.hash = "#/t/" + post.id;
+});
 view.addEventListener("click", (event) => {
   const link = event.target.closest("a");
   const post = link?.closest(".feed-post");
@@ -578,7 +661,7 @@ window.addEventListener("keydown", event => {
 function syncVideoPlayback() {
   if (!activeFeed) return;
   const videos = [...view.querySelectorAll(".feed-media > video")];
-  const top = header.getBoundingClientRect().bottom;
+  const top = chromeTop();
   let selected = null, largest = 0;
   if (!document.hidden && document.hasFocus()) for (const frame of view.querySelectorAll(".feed-media")) {
     const box = frame.getBoundingClientRect();
@@ -605,7 +688,7 @@ function stopPiece() {
 }
 function syncPieceFocus() {
   if (document.hidden || !document.hasFocus()) { stopPiece(); return; }
-  const top = header.getBoundingClientRect().bottom;
+  const top = chromeTop();
   if (interactingMedia) {
     const box = interactingMedia.getBoundingClientRect();
     if (!interactingMedia.isConnected || box.bottom <= top || box.top >= innerHeight) exitMediaInteraction();
@@ -1345,10 +1428,10 @@ async function route() {
   routeController = new AbortController();
   const { signal } = routeController;
   window.scrollTo(0, 0);
-  syncHeader();
   document.ondragover = document.ondragleave = document.ondrop = document.onpaste = null;
   const [hash, query] = location.hash.replace(/^#\/?/, "").split("?");
   document.body.classList.toggle("feed", !hash);
+  syncHeader();
   const params = new URLSearchParams(query);
   const page = Math.max(0, parseInt(params.get("page")) || 0);
   view.replaceChildren(el("p", null, "loading…"));
