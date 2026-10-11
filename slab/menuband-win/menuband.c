@@ -1132,13 +1132,13 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         int isCtrl = (k->vkCode == VK_LCONTROL || k->vkCode == VK_RCONTROL);
-        // Fn-free media keys (MiniBook X: the bare keys arrive as F3/F4/F5; with
-        // Fn they send VK_VOLUME_*). With no modifier held, the bare key becomes
-        // the media key it is printed with, and the F-key never reaches the app.
-        if (g_fnFree && !(k->flags & LLKHF_INJECTED) && (k->vkCode == VK_F3 || k->vkCode == VK_F4 || k->vkCode == VK_F5)
+        // Fn-free media keys while armed (MiniBook X: the bare keys arrive as
+        // F3/F4/F5; with Fn they send VK_VOLUME_*). Only while Menu Band holds the
+        // keyboard, so the rest of Windows keeps its F-keys.
+        if (g_fnFree && g_typing && !(k->flags & LLKHF_INJECTED) && (k->vkCode == VK_F3 || k->vkCode == VK_F4 || k->vkCode == VK_F5)
             && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000) && !(GetAsyncKeyState(VK_LWIN) & 0x8000) && !(GetAsyncKeyState(VK_SHIFT) & 0x8000)) {
             if (down) {
-                WORD media = k->vkCode == VK_F3 ? VK_VOLUME_MUTE : k->vkCode == VK_F4 ? VK_VOLUME_DOWN : VK_VOLUME_UP;
+                WORD media = k->vkCode == VK_F3 ? VK_VOLUME_DOWN : k->vkCode == VK_F4 ? VK_VOLUME_MUTE : VK_VOLUME_UP;   // the MiniBook X legend: F3 ↓, F4 mute, F5 ↑
                 INPUT in[2]; memset(in, 0, sizeof in);
                 in[0].type = INPUT_KEYBOARD; in[0].ki.wVk = media;
                 in[1].type = INPUT_KEYBOARD; in[1].ki.wVk = media; in[1].ki.dwFlags = KEYEVENTF_KEYUP;
@@ -1767,7 +1767,7 @@ static void show_menu(HWND hwnd) {
     for (int i = 0; i < 4; i++) { wchar_t pl[48]; swprintf(pl, 48, L"%s%s", PAGE_NAMES[i], i == PAGE_SKIN ? L"  (TrackDrum)" : L""); AppendMenuW(pages, MF_STRING | (i == g_page ? MF_CHECKED : 0), IDM_PAGE_BASE + i, pl); }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)pages, L"Trackpad page  (Tab / Shift+Tab)");
     AppendMenuW(menu, MF_STRING | (g_lowLatency ? MF_CHECKED : 0), IDM_LOWLAT, L"Lowest latency while armed  (takes the speakers; other apps pause)");
-    AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn  (F3 mute, F4 down, F5 up)");
+    AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn while armed  (F3 down, F4 mute, F5 up)");
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(menu, MF_STRING, IDM_QUIT, L"Quit Menu Band");
