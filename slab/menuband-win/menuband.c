@@ -63,6 +63,7 @@ typedef struct {
     uint8_t midi;
     double freq;
     double velocityGain;
+    float panL, panR;
     double attack, release;   // seconds
     double env;
     int releasing;
@@ -84,6 +85,24 @@ static volatile int g_program = 78;       // GM program for new notes: 79 Whistl
 static volatile LONG g_audioRunning = 0;
 
 static double midi_freq(int midi) { return 440.0 * pow(2.0, (midi - 69) / 12.0); }
+
+// Stereo placement: the Mac centres every voice (0.707/0.707) and lets MIDI
+// CC 10 pan a channel. Here each note sits where it would on a piano — low
+// notes a little left, high a little right, ±35 % of full width, constant
+// power — so chords open up without anything leaving the middle.
+static void pan_for_midi(int midi, float *l, float *r) {
+    double x = (midi - 60) / 36.0; if (x < -1) x = -1; if (x > 1) x = 1;
+    double theta = (M_PI / 4) * (1 + 0.35 * x);          // 0 = hard left … π/2 = hard right
+    *l = (float)cos(theta); *r = (float)sin(theta);
+}
+
+// Master: a soft knee that catches a fistful of notes without the pumping of
+// a hard clip. Transparent below -6 dBFS, 1.0 in → ~0.76 out, never past 1.
+static float soft_limit(float x) {
+    float a = fabsf(x); if (a < 0.5f) return x;
+    float y = 0.5f + 0.5f * tanhf((a - 0.5f) * 2.0f);
+    return x < 0 ? -y : y;
+}
 static void wh_note_on(int midi, int velocity); static void wh_note_off(int midi); static void wh_panic(void); static void wh_render(float *out, int frames);
 
 static void synth_push(Cmd c) {
@@ -133,6 +152,7 @@ static void synth_render(float *out, int frames) {
                 Voice *v = &g_voices[slot];
                 v->midi = c->midi; v->freq = f;
                 v->velocityGain = fmax(0.05, fmin(1.0, c->velocity / 127.0));
+                pan_for_midi(c->midi, &v->panL, &v->panR);
                 v->attack = 0.004; v->release = 0.18;
                 v->env = 0; v->releasing = 0; v->active = 1;
             } else {
@@ -169,12 +189,13 @@ static void synth_render(float *out, int frames) {
             }
             double s = gm_voice_render(core, g_sampleRate, env, v->freq);
             if (!isfinite(s)) { active = 0; break; }
-            float amp = (float)(s * v->velocityGain * g_masterGain * 0.707);
-            out[2 * i] += amp; out[2 * i + 1] += amp;
+            float amp = (float)(s * v->velocityGain * g_masterGain);
+            out[2 * i] += amp * v->panL; out[2 * i + 1] += amp * v->panR;
         }
         v->env = env; v->active = active;
     }
     wh_render(out, frames);
+    for (int i = 0; i < 2 * frames; i++) out[i] = soft_limit(out[i]);
 }
 
 // ─────────────── the AC whistle (`79), ported from MenuBandWhistleVoice.swift ───────────────
@@ -186,7 +207,7 @@ static void synth_render(float *out, int frames) {
 
 #define WH_VOICES 12
 typedef struct {
-    int midi; double f0; float gain;
+    int midi; double f0; float gain; float panL, panR;
     double phase, age, env; int releasing, active; uint32_t seed;
     double r1, r2, hpz, lpz;
 } WVoice;
@@ -217,6 +238,7 @@ static void wh_note_on(int midi, int velocity) {
     double vel = fmax(0.05, fmin(1.0, velocity / 127.0));
     v.gain = (float)(WH_TONE * (0.55 + 0.45 * vel));
     v.seed = g_whSeedCounter | 1u; v.active = 1;
+    pan_for_midi(midi, &v.panL, &v.panR);
     g_wv[slot] = v;
 }
 
@@ -270,7 +292,7 @@ static void wh_render(float *out, int frames) {
             double air = (y * WH_AIR * (0.6 + 0.4 * breath) + v->lpz * WH_HISS * breath) * airScale;
             float amp = (float)(v->env * (0.78 + 0.22 * breath));
             float smp = (float)(tone + air) * amp * v->gain;
-            g_whBus[2 * i] += smp * 0.7071f; g_whBus[2 * i + 1] += smp * 0.7071f;
+            g_whBus[2 * i] += smp * v->panL; g_whBus[2 * i + 1] += smp * v->panR;
         }
         v->active = active;
     }
@@ -453,7 +475,7 @@ static void layout_for_taskbar_height(int taskbarH) {
     g_blackH = (g_keyH * 6) / 10;
     g_padY = (taskbarH - g_keyH) / 2;
     g_padX = pt(6.0);
-    g_chipW = pt(24.0);
+    g_chipW = pt(30.0);
     g_pianoX = g_padX + g_chipW + pt(6.0);
     g_stripW = g_pianoX + g_keyW * WHITE_COUNT + g_padX;
     g_stripH = taskbarH;
@@ -585,13 +607,13 @@ static uint8_t *g_numMask = NULL;  static int g_numW = 0, g_numH = 0;
 static wchar_t g_numText[8] = L"";
 
 static void render_chip_mask(void) {
-    free(g_noteMask); g_noteMask = text_mask(L"\x266A", L"Segoe UI Symbol", pt(14.0), FW_NORMAL, &g_noteW, &g_noteH);
+    free(g_noteMask); g_noteMask = text_mask(L"\x266A", L"Segoe UI Symbol", pt(17.0), FW_NORMAL, &g_noteW, &g_noteH);
     free(g_numMask); g_numMask = NULL; g_numText[0] = 0;
 }
 
 static void ensure_number_mask(const wchar_t *text) {
     if (g_numMask && !wcscmp(text, g_numText)) return;
-    free(g_numMask); g_numMask = text_mask(text, L"Segoe UI", pt(7.0), FW_HEAVY, &g_numW, &g_numH);
+    free(g_numMask); g_numMask = text_mask(text, L"Segoe UI", pt(10.0), FW_HEAVY, &g_numW, &g_numH);
     wcscpy_s(g_numText, 8, text);
 }
 
@@ -614,19 +636,19 @@ static void paint(void) {
     const RGB8 blackHi = neutral ? slateHi : hsv_boost(g_accent, 0.55, 0.45), blackLo = neutral ? slateLo : hsv_boost(g_accent, 0.30, 0.20);
     const RGB8 black = { 0, 0, 0 }, white = { 255, 255, 255 };
     const RGB8 glyph = { 235, 238, 242 };
-    int stripeH = pt(2.0), r = pt(3.0);
+    int stripeH = pt(2.0);
 
     // ♪ chip: the note glyph with the program number as a heavy subscript, as
     // on the Mac; while digits are being typed, the subscript shows them lit.
     RECT cr = chip_rect();
     if (g_typing) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, FOCUS_BLUE, blend(FOCUS_BLUE, black, 0.25), 0.9); }
     else if (g_hoverChip) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, white, white, 0.10); }
-    int gx = cr.left + pt(1.0), gy = cr.top + (g_keyH - g_noteH) / 2 - pt(1.0);
+    int gx = cr.left, gy = cr.top - pt(2.0);
     blit_mask(g_noteMask, g_noteW, g_noteH, gx, gy, glyph, 1.0);
     wchar_t num[8]; int pending = g_pendingDigits[0] != 0;
     if (pending) wcscpy_s(num, 8, g_pendingDigits); else swprintf(num, 8, L"%d", g_program + 1);
     ensure_number_mask(num);
-    int nx = gx + g_noteW - pt(3.0), ny = cr.bottom - g_numH + pt(1.0);
+    int nx = cr.right - g_numW, ny = cr.bottom - g_numH + pt(1.0);
     blit_mask(g_numMask, g_numW, g_numH, nx, ny, pending ? CHROMA[4] : glyph, 1.0);
 
     // Backplate: the groove colour shows between keys and as a hairline frame.
@@ -661,20 +683,9 @@ static void paint(void) {
             if (m >= 0 && m < 128 && g_lit[m] > 0) { hi = white; lo = blend(white, blackHi, 0.4); }
             else if (m == g_hoverMidi && !sliding) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
             fill(br, hi, lo, 1.0);
-            if (br.left >= g_clipL) g_pixels[(br.bottom - 1) * g_stripW + br.left] = 0;
-            if (br.right - 1 < g_clipR) g_pixels[(br.bottom - 1) * g_stripW + br.right - 1] = 0;
         }
     }
     g_clipOn = 0;
-    // Rounded outer corners of the key run.
-    int L = g_pianoX - 1, R = g_pianoX + g_keyW * WHITE_COUNT - 1, T = g_padY - 1, B = g_padY + g_keyH;
-    for (int dy = 0; dy < r; dy++) for (int dx = 0; dx < r; dx++) {
-        double cx = r - 0.5 - dx, cy = r - 0.5 - dy;
-        if (cx * cx + cy * cy > (double)r * r) {
-            g_pixels[(T + dy) * g_stripW + (L + dx)] = 0; g_pixels[(T + dy) * g_stripW + (R - dx)] = 0;
-            g_pixels[(B - dy) * g_stripW + (L + dx)] = 0; g_pixels[(B - dy) * g_stripW + (R - dx)] = 0;
-        }
-    }
 }
 
 static int g_posX = 0, g_posY = 0;
@@ -768,6 +779,8 @@ static void build_keymap(void) {
 }
 
 #define WM_CTRLTRIPLE (WM_APP + 6)
+#define WM_PEDAL (WM_APP + 7)
+#define WM_SURF (WM_APP + 8)
 static DWORD g_ctrlTapTimes[3]; static int g_ctrlTaps = 0; static int g_ctrlSolo = 0;
 
 static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
@@ -775,14 +788,14 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         int isCtrl = (k->vkCode == VK_LCONTROL || k->vkCode == VK_RCONTROL);
-        // Ctrl ×3: three solo taps (down, up, nothing else between) inside 600 ms.
+        // Ctrl ×2: two solo taps (down, up, nothing else between) inside 450 ms.
         if (isCtrl) {
             if (down) g_ctrlSolo = 1;
             else if (g_ctrlSolo) {
                 DWORD now = GetTickCount();
-                if (g_ctrlTaps && now - g_ctrlTapTimes[0] > 600) g_ctrlTaps = 0;
+                if (g_ctrlTaps && now - g_ctrlTapTimes[0] > 450) g_ctrlTaps = 0;
                 if (g_ctrlTaps < 3) g_ctrlTapTimes[g_ctrlTaps++] = now;
-                if (g_ctrlTaps == 3) { g_ctrlTaps = 0; PostMessageW(g_strip, WM_CTRLTRIPLE, 0, 0); }
+                if (g_ctrlTaps == 2) { g_ctrlTaps = 0; PostMessageW(g_strip, WM_CTRLTRIPLE, 0, 0); }
                 g_ctrlSolo = 0;
             }
         } else { g_ctrlSolo = 0; if (down) g_ctrlTaps = 0; }
@@ -790,6 +803,11 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
     if (code == HC_ACTION && g_typing) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
+        if (k->vkCode == VK_LSHIFT || k->vkCode == VK_RSHIFT || k->vkCode == VK_CAPITAL) { PostMessageW(g_strip, WM_PEDAL, 0, 0); return CallNextHookEx(g_hook, code, wp, lp); }
+        if (k->vkCode == VK_LEFT || k->vkCode == VK_RIGHT || k->vkCode == VK_UP || k->vkCode == VK_DOWN) {
+            if (down) PostMessageW(g_strip, WM_SURF, k->vkCode == VK_RIGHT ? 1 : k->vkCode == VK_LEFT ? (WPARAM)-1 : k->vkCode == VK_UP ? 8 : (WPARAM)-8, 0);
+            return 1;
+        }
         if (k->vkCode < 256) {
             if (k->vkCode == VK_ESCAPE) { if (down) PostMessageW(g_strip, WM_TYPEESC, 0, 0); return 1; }
             if (k->vkCode >= '0' && k->vkCode <= '9') { if (down) PostMessageW(g_strip, WM_DIGIT, k->vkCode - '0', 0); return 1; }
@@ -806,8 +824,30 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
     return CallNextHookEx(g_hook, code, wp, lp);
 }
 
-static void lit_on(HWND hwnd, int midi, int vel) { if (midi < 0 || midi > 127) return; if (g_lit[midi]++ == 0) play_on(midi, vel); push_frame(hwnd); }
-static void lit_off(HWND hwnd, int midi) { if (midi < 0 || midi > 127 || g_lit[midi] == 0) return; if (--g_lit[midi] == 0) play_off(midi); push_frame(hwnd); }
+static int g_sustained[128];       // note released while its pedal was down; sounds until pedal-up
+static int pedal_holds(int midi) {
+    int caps = (GetKeyState(VK_CAPITAL) & 1) != 0;
+    int lshift = (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0, rshift = (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
+    if (caps || (lshift && rshift)) return 1;
+    int split = g_firstMidi + 12;
+    return (lshift && midi < split) || (rshift && midi >= split);
+}
+static void lit_on(HWND hwnd, int midi, int vel) {
+    if (midi < 0 || midi > 127) return;
+    if (g_sustained[midi]) { g_sustained[midi] = 0; play_off(midi); g_lit[midi] = 0; }   // retrigger a pedalled note
+    if (g_lit[midi]++ == 0) play_on(midi, vel);
+    push_frame(hwnd);
+}
+static void lit_off(HWND hwnd, int midi) {
+    if (midi < 0 || midi > 127 || g_lit[midi] == 0) return;
+    if (--g_lit[midi] == 0) { if (pedal_holds(midi)) g_sustained[midi] = 1; else play_off(midi); }
+    push_frame(hwnd);
+}
+static void pedal_release(HWND hwnd) {
+    int changed = 0;
+    for (int m = 0; m < 128; m++) if (g_sustained[m] && !pedal_holds(m)) { g_sustained[m] = 0; play_off(m); changed = 1; }
+    if (changed) push_frame(hwnd);
+}
 
 static void release_typed(HWND hwnd) {
     for (int vk = 0; vk < 256; vk++) if (g_vkDown[vk]) { g_vkDown[vk] = 0; lit_off(hwnd, 60 + g_semitoneByVk[vk] + (g_firstMidi - 60)); }
@@ -918,6 +958,29 @@ static const wchar_t *GM_FAMILIES[16] = { L"Piano", L"Chromatic Percussion", L"O
 
 
 static NOTIFYICONDATAW g_nid;
+
+// A ♪ tray icon built from the same glyph mask the chip uses.
+static HICON make_note_icon(void) {
+    int sz = GetSystemMetrics(SM_CXSMICON) * 2; if (sz < 32) sz = 32;
+    int mw, mh; uint8_t *mask = text_mask(L"\x266A", L"Segoe UI Symbol", sz - 4, FW_NORMAL, &mw, &mh);
+    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); bi.bmiHeader.biWidth = sz; bi.bmiHeader.biHeight = -sz;
+    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+    uint32_t *bits = NULL; HBITMAP color = CreateDIBSection(NULL, &bi, DIB_RGB_COLORS, (void **)&bits, NULL, 0);
+    if (!color) { free(mask); return LoadIcon(NULL, IDI_APPLICATION); }
+    memset(bits, 0, (size_t)sz * sz * 4);
+    int ox = (sz - mw) / 2, oy = (sz - mh) / 2;
+    for (int y = 0; y < mh && mask; y++) for (int x = 0; x < mw; x++) {
+        int X = ox + x, Y = oy + y; if (X < 0 || Y < 0 || X >= sz || Y >= sz) continue;
+        uint8_t a = mask[y * mw + x]; bits[Y * sz + X] = ((uint32_t)a << 24) | ((uint32_t)a << 16) | ((uint32_t)a << 8) | a;   // white, premultiplied
+    }
+    free(mask);
+    HBITMAP maskBm = CreateBitmap(sz, sz, 1, 1, NULL);
+    ICONINFO ii = { TRUE, 0, 0, maskBm, color };
+    HICON icon = CreateIconIndirect(&ii);
+    DeleteObject(maskBm); DeleteObject(color);
+    return icon ? icon : LoadIcon(NULL, IDI_APPLICATION);
+}
 
 // Player settings survive restarts: HKCU\Software\Aesthetic Computer\Menu Band.
 static const wchar_t *SETTINGS_KEY = L"Software\\Aesthetic Computer\\Menu Band";
@@ -1128,8 +1191,19 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TYPEESC:
         typing_set(hwnd, 0);
         return 0;
+    case WM_PEDAL:
+        pedal_release(hwnd);
+        return 0;
+    case WM_SURF: {
+        // Arrow keys surf the instruments: ←/→ one program, ↑/↓ one family.
+        int next = g_program + (int)(intptr_t)wp; if (next < 0) next += 128; if (next > 127) next -= 128;
+        g_program = next; midi_program(); setting_set(L"program", (DWORD)g_program);
+        mb_log(L"surf -> %d (%s)", g_program + 1, GM_NAMES[g_program]);
+        push_frame(hwnd);
+        return 0;
+    }
     case WM_CTRLTRIPLE:
-        mb_log(L"ctrl x3 -> %s", g_typing ? L"release" : L"focus");
+        mb_log(L"ctrl x2 -> %s", g_typing ? L"release" : L"focus");
         typing_set(hwnd, !g_typing);
         return 0;
     case WM_TRAY:
@@ -1220,7 +1294,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     memset(&g_nid, 0, sizeof g_nid);
     g_nid.cbSize = sizeof g_nid; g_nid.hWnd = hwnd; g_nid.uID = 1;
     g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP; g_nid.uCallbackMessage = WM_TRAY;
-    g_nid.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    g_nid.hIcon = make_note_icon();
     wcscpy_s(g_nid.szTip, 128, L"Menu Band");
     Shell_NotifyIconW(NIM_ADD, &g_nid);
 

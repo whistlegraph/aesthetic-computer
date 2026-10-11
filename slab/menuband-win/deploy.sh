@@ -19,6 +19,8 @@ scp -q "$here/menuband.c" "$here/build.ps1" \
 ssh "$host" "powershell -NoProfile -ExecutionPolicy Bypass -File \$HOME\\src\\menuband-win\\build.ps1"
 if [[ "${1:-}" == "--run" ]]; then
   # A process started from the ssh session has no desktop. Relaunch through
-  # the ac-desk scheduled task, which runs inside the signed-in session.
-  ssh "$host" "Set-Content \$HOME\\desk-cmd.ps1 'Get-Process MenuBand -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 400; Start-Process \$HOME\\src\\menuband-win\\build\\MenuBand.exe; Start-Sleep 2; \"menuband running: \$((Get-Process MenuBand -ErrorAction SilentlyContinue) -ne \$null)\"'; Start-ScheduledTask ac-desk; Start-Sleep 4; Get-Content \$HOME\\desk.log | Select -Last 1"
+  # the ac-desk scheduled task, which runs queued scripts inside the signed-in
+  # session (~\desk-queue\*.ps1, so other agents' launches don't collide).
+  stamp="$(date +%s)-menuband"
+  ssh "$host" "Set-Content \$HOME\\desk-queue\\$stamp.ps1 'Get-Process MenuBand -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 400; Start-Process \$HOME\\src\\menuband-win\\build\\MenuBand.exe; Start-Sleep 2; \"menuband running: \$((Get-Process MenuBand -ErrorAction SilentlyContinue) -ne \$null)\"'; Start-ScheduledTask ac-desk; Start-Sleep 4; Get-Content \$HOME\\desk.log | Select -Last 1"
 fi
