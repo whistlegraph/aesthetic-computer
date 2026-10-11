@@ -300,7 +300,27 @@
     body.feed .feed-post .media-label { font-size: 17px; }
     body.feed .feed-post > .body { font-size: 17px; }
     body.feed .feed-post :is(.media-origin, time) { font-size: 13px; }
-    body.feed .feed-post :is(.avatar, .mime-type), body.feed .feed-post > .post-actions { display: none; }
+    /* Mime is about the type: the caption names the work and its MIME type, nothing else. */
+    body.feed .feed-post :is(.avatar, .media-origin), body.feed .feed-post > .post-actions { display: none; }
+    body.feed .feed-post .mime-type { font-size: 13px; color: rgba(255, 255, 255, .8); }
+    /* The code you can enter in AC and its type read as one line, top-left on the card: #52w image/png */
+    .reel-command { display: none; }
+    body.feed .feed-post > .reel-command { display: block; grid-area: 1 / 1; align-self: start; justify-self: start; z-index: 4;
+      margin: calc(56px + env(safe-area-inset-top)) 0 0 14px; max-width: calc(100% - 28px); text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+    body.feed .feed-post > .reel-command .media-label { display: inline; font: 700 20px/1.3 "Comic Relief", "Comic Sans MS", cursive; color: #fff;
+      -webkit-text-stroke: .6px #141414; paint-order: stroke fill; text-shadow: .75px .75px #ed629d, 1px 1px #a478df, 2px 2px #55cdd9; }
+    body.feed .feed-post > .meta .byline :is(.media-label, .mime-type), body.feed .feed-post > .meta > :is(time, .save-ribbon) { display: none; }
+    body.feed .feed-post > .meta > .reel-type { margin-left: auto; align-self: flex-end; }
+    /* The type is a little chip, tinted by what kind of thing it is. */
+    body.feed .feed-post .reel-type { --chip: #a478df; margin-left: .55em; padding: 1px 8px 2px; border-radius: 999px;
+      font: 700 12px/1.4 "Comic Relief", "Comic Sans MS", cursive; color: #141414; text-shadow: none;
+      background: var(--chip); border: 1.5px solid #141414; box-shadow: 1.5px 1.5px 0 #141414; vertical-align: 2px; white-space: nowrap; }
+    body.feed .feed-post .reel-type[data-top="image"] { --chip: #ff91c5; }
+    body.feed .feed-post .reel-type[data-top="video"] { --chip: #c5a1ff; }
+    body.feed .feed-post .reel-type[data-top="audio"] { --chip: #a6e6b3; }
+    body.feed .feed-post .reel-type:is([data-top="text"], [data-top="application"]) { --chip: #7de3d7; }
+    body.feed .feed-post .reel-type[data-type="text/html"] { --chip: #ffc585; }
+    body.feed .feed-post .byline > .name { display: block; }
     /* A feed video plays muted and looping like a reel; its controls appear with Interact. */
     body.feed .feed-media:not([data-interacting]) > video::-webkit-media-controls { display: none !important; }
   </style>
@@ -979,7 +999,10 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   const byline = el("div", "byline");
   byline.append(authorName(post.name));
   if (root) {
-    const source = el("a", "media-label", post.media?.title || (post.media ? post.media.kind + (post.media.code ? " " + post.media.code : "") : post.file?.name || "post " + post.code));
+    // AC's own notation names the work: #painting, !tape, $kidlisp, a piece by its code.
+    const sigil = { painting: "#", tape: "!", kidlisp: "$" }[post.media?.kind];
+    const label = post.media?.title || (post.media?.code ? (sigil ?? "") + post.media.code : post.media ? post.media.kind : post.file?.name || "post " + post.code);
+    const source = el("a", "media-label", label);
     source.href = post.media?.url || "#/t/" + post.code;
     byline.append(source);
     if (post.origin) {
@@ -988,6 +1011,8 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       byline.append(origin);
     }
     const mime = el("span", "mime-type", post.file?.type || post.board || "text/plain");
+    mime.dataset.type = mime.textContent;
+    mime.dataset.top = mime.textContent.split("/")[0];
     byline.append(mime);
   }
   const time = el("time", null, ago(post.when));
@@ -995,6 +1020,16 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   time.title = new Date(post.when).toLocaleString();
   time.setAttribute("aria-label", time.title);
   meta.append(avatar, byline, time);
+  // On the reel: the enterable AC code rides the top-left corner, the handle
+  // the bottom-left, and the type chip the bottom-right.
+  if (root && inFeed) {
+    const command = el("div", "reel-command");
+    command.append(byline.querySelector(".media-label").cloneNode(true));
+    div.append(command);
+    const type = byline.querySelector(".mime-type").cloneNode(true);
+    type.classList.add("reel-type");
+    meta.append(type);
+  }
   if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
   if (post.file) {

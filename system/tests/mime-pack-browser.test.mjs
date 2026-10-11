@@ -26,9 +26,9 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     await page.goto('https://mime.ac/?ac-automation=1');
     await page.locator('#pack iframe[data-ready]').waitFor();
     assert.equal(await page.locator('#pack .name').textContent(), '@artist');
-    assert.equal(await page.locator('#pack .media-label').textContent(), 'Spinning tree');
-    assert.equal(await page.locator('#pack .media-origin').textContent(), 'Whistlegraph');
-    assert.equal(await page.locator('#pack .mime-type').textContent(), 'text/html');
+    assert.equal(await page.locator('#pack .reel-command .media-label').textContent(), 'Spinning tree');
+    assert.equal(await page.locator('#pack .media-origin').isVisible(), false, 'the reel names the type, not the source');
+    assert.equal(await page.locator('#pack .reel-type').textContent(), 'text/html');
     assert.equal(await page.locator('#pack time').getAttribute('datetime'), post.when);
     assert.equal(await page.locator('#pack iframe').getAttribute('sandbox'), 'allow-scripts');
     assert.equal(await page.locator('#pack .token-link').getAttribute('href'), post.media.tokenUrl);
