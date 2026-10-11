@@ -426,3 +426,27 @@ single faces, 2 triangles each). The host's mesh store holds 4,096 meshes
 and outlives a hot reload, so a benchmark restarts the app. A mesh whose
 pose changes every frame goes through the projector rather than an upload
 a frame. `def` inside a loop defines once; use `now`.
+
+### 11.1 Light, depth, and the same picture on three hosts
+
+One light model, `lightFor` in `lib/kidlisp-mesh.mjs`: ambient 0.34, diffuse
+from one sun, a little bounce from below so undersides are not black. The
+projector applies it in the browser and the Mac shell. The Xbox lights its
+own meshes with a fixed formula, so the native shim hands it pre-lit
+colours with its sun set to zero, divided by what it then multiplies by;
+the pose cache keys on the sun too. `(light x y z)` sets the sun's
+direction (the way it shines) and rides in the frame as `LIGHT`; the
+default shines down, a little left and back, for a y-up world.
+
+The browser renderer has a depth buffer now: the vertex carries z, placed
+faces land in (0, 1] from the Xbox's depth range, 2D ops stay at 0 and are
+always in front, and the CPU overlay ignores depth. The painter's sort
+remains for hosts without depth. The Mac shell draws through `triangle3d`
+with the same depth values into its own depth test.
+
+Near-field clipping is the piece's: the corridor's near plane is 6 units
+and the eye is kept out of pillars and crates by the piece. No collision is
+in the layer.
+
+Measured: the lit corridor at 59 fps in the Mac shell (2.9 to 4.5 ms of
+JavaScript a frame); the browser number is in the report.
