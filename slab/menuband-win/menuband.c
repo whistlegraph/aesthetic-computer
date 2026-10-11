@@ -33,6 +33,10 @@
 #include <mmsystem.h>
 #include <avrt.h>
 #include <dwmapi.h>
+#include <winternl.h>
+#include <hidusage.h>
+#include <hidpi.h>
+#include "percussion.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -56,9 +60,34 @@ static void unlatch(HWND hwnd, int all);
 static void latch_note(int midi);
 static void audio_set_exclusive(int want);
 static void surface_reset(HWND hwnd);
+static void set_page(HWND hwnd, int page);
+static void cursor_hide(void); static void cursor_show(void);
+static void cue(HWND hwnd, int a, int b);
+// Shared state used across sections (declared early; defined where it lives).
+enum { PAGE_FX = 0, PAGE_SKIN = 1, PAGE_MOUSE = 2, PAGE_SPLIT = 3 };
+static int g_page = PAGE_SKIN;
+static int page_takes_pad(void) { return g_page == PAGE_SKIN || g_page == PAGE_SPLIT; }
+#define IDT_FX 7
+static float g_puckAlpha = 0;
+static DWORD g_lastTouch = 0;
+#define MAX_CONTACTS 10
+typedef struct { int id, down, struck; double x, y; uint64_t group; } Contact;
+static Contact g_contacts[MAX_CONTACTS];
+static void puck_show(void);
+static void pad_paint(void); static void puck_paint(void);
+#ifndef HID_USAGE_DIGITIZER_CONTACT_ID
+#define HID_USAGE_DIGITIZER_CONTACT_ID 0x51
+#endif
+#ifndef HID_USAGE_DIGITIZER_TIP_SWITCH
+#define HID_USAGE_DIGITIZER_TIP_SWITCH 0x42
+#endif
+#ifndef HID_USAGE_DIGITIZER_TOUCH_PAD
+#define HID_USAGE_DIGITIZER_TOUCH_PAD 0x05
+#endif
 static int g_enterLatch;
 static int g_latched[128];           // Enter-latched notes (drawn lit, sound until unlatched)
 static int g_vkRoot[256]; static int g_vkExt[256][2];   // chord bookkeeping per held typing key
+static uint64_t g_touchGroup = 1;                       // press/contact groups for the percussion engine
 static int g_fnFree = 1;             // bare F3/F4/F5 act as mute / volume down / volume up
 static const wchar_t *GM_NAMES[128];
 static volatile LONG g_dbgNoteOns;
@@ -275,6 +304,8 @@ static void synth_render(float *out, int frames) {
     wh_render(out, frames);
     piano_render(out, frames);
     fx_process(out, frames);
+    perc_set_pitch(g_glidePitch);
+    perc_render(out, frames);
     for (int i = 0; i < 2 * frames; i++) out[i] = soft_limit(out[i]);
 }
 
@@ -574,7 +605,7 @@ static int audio_start_exclusive(void) {
         BYTE *data = NULL;
         if (SUCCEEDED(g_render->lpVtbl->GetBuffer(g_render, g_bufferFrames, &data))) { memset(data, 0, (size_t)g_bufferFrames * 2 * tries[t].bits / 8); g_render->lpVtbl->ReleaseBuffer(g_render, g_bufferFrames, 0); }
         mb_log(L"audio: EXCLUSIVE %d-bit (%d valid) @%lu, period %.2f ms (device min %.2f, default %.2f), buffer %u frames", tries[t].bits, tries[t].valid, rate, period / 10000.0, minP / 10000.0, defP / 10000.0, g_bufferFrames);
-        gm_synth_init();
+        gm_synth_init(); perc_init(g_sampleRate);
         InterlockedExchange(&g_audioRunning, 1);
         g_audioThread = CreateThread(NULL, 0, audio_thread, NULL, 0, NULL);
         g_client->lpVtbl->Start(g_client);
@@ -653,7 +684,7 @@ initialized:
         memset(data, 0, g_bufferFrames * 8);
         g_render->lpVtbl->ReleaseBuffer(g_render, g_bufferFrames, 0);
     }
-    gm_synth_init();
+    gm_synth_init(); perc_init(g_sampleRate);
     InterlockedExchange(&g_audioRunning, 1);
     g_audioThread = CreateThread(NULL, 0, audio_thread, NULL, 0, NULL);
     g_client->lpVtbl->Start(g_client);
@@ -801,6 +832,11 @@ typedef struct { uint8_t r, g, b; } RGB8;
 static const RGB8 CHROMA[12] = {
     {255, 50, 50}, {0,0,0}, {255,160,0}, {0,0,0}, {255,230,0}, {50,200,50},
     {0,0,0}, {50,120,255}, {0,0,0}, {130,50,200}, {0,0,0}, {180,80,255}
+};
+// The Mac's percussion pad colours by pitch class (percussionColorByPitchClass).
+static const RGB8 DRUM_COLOR[12] = {
+    {220, 90, 40}, {220,150,240}, {220,180,110}, {240,160,220}, {240,220,130}, {220,240,140},
+    {200,150, 80}, {120,220,180}, {190,120, 70}, {120,200,240}, {230,210,170}, {180,180,230}
 };
 static const RGB8 FOCUS_BLUE = { 15, 107, 255 };
 static const RGB8 STOP_RED = { 255, 31, 41 };
@@ -970,17 +1006,20 @@ static void paint(void) {
             if (kr.right < g_clipL || kr.left >= g_clipR) continue;
             RGB8 hi = whiteHi, lo = whiteLo;
             int lit = m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m]);
-            if (lit) { RGB8 l = blend(CHROMA[mv], black, 0.22); hi = l; lo = l; }
+            int drums = g_page == PAGE_SKIN && g_typing;
+            if (lit) { RGB8 l = drums ? blend(DRUM_COLOR[mv], white, 0.45) : blend(CHROMA[mv], black, 0.22); hi = l; lo = l; }
             else if (m == g_hoverMidi && !sliding) { hi = blend(whiteHi, white, 0.12); lo = blend(whiteLo, white, 0.12); }
             fill(kr, hi, lo, 1.0);
+            if (drums && !lit) fill(kr, DRUM_COLOR[mv], DRUM_COLOR[mv], 0.50);
             RECT st = { kr.left + 1, kr.bottom - stripeH, kr.right - 1, kr.bottom };
-            if (!lit) fill(st, CHROMA[mv], CHROMA[mv], 0.95);
+            if (!lit && !drums) fill(st, CHROMA[mv], CHROMA[mv], 0.95);
         }
         for (int i = 0; i < g_blackCount; i++) {
             int m = g_blackMidi[i] + dm;
             RECT br = black_rect(g_blackMidi[i]); br.left += dx; br.right += dx;
             if (br.right < g_clipL || br.left >= g_clipR) continue;
             RGB8 hi = blackHi, lo = blackLo;
+            if (g_page == PAGE_SKIN && g_typing) { int mv2 = ((m % 12) + 12) % 12; hi = blend(blackHi, DRUM_COLOR[mv2], 0.6); lo = blend(blackLo, DRUM_COLOR[mv2], 0.6); }
             if (m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m])) { hi = white; lo = blend(white, blackHi, 0.4); }
             else if (m == g_hoverMidi && !sliding) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
             fill(br, hi, lo, 1.0);
@@ -1084,6 +1123,7 @@ static void build_keymap(void) {
 #define WM_SURF (WM_APP + 8)
 #define WM_LATCH (WM_APP + 9)
 #define WM_CHORDMOD (WM_APP + 11)
+#define WM_PAGE (WM_APP + 13)
 #define WM_UNLATCH (WM_APP + 10)
 static DWORD g_ctrlTapTimes[3]; static int g_ctrlTaps = 0; static int g_ctrlSolo = 0;
 
@@ -1122,6 +1162,7 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         if (k->vkCode == VK_LSHIFT || k->vkCode == VK_RSHIFT || k->vkCode == VK_CAPITAL) { PostMessageW(g_strip, WM_PEDAL, 0, 0); return CallNextHookEx(g_hook, code, wp, lp); }
+        if (k->vkCode == VK_TAB) { if (down) PostMessageW(g_strip, WM_PAGE, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0, 0); return 1; }
         if (k->vkCode == VK_RETURN) { PostMessageW(g_strip, WM_LATCH, down, 0); return 1; }
         if (k->vkCode == VK_BACK) { if (down && !(k->flags & LLKHF_UP)) PostMessageW(g_strip, WM_UNLATCH, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0, 0); return 1; }
         if (k->vkCode == VK_LEFT || k->vkCode == VK_RIGHT || k->vkCode == VK_UP || k->vkCode == VK_DOWN) {
@@ -1159,14 +1200,22 @@ static int pedal_holds(int midi) {
     int split = g_firstMidi + 12;
     return (lshift && midi < split) || (rshift && midi >= split);
 }
+static uint64_t g_keyGroup[128];
 static void lit_on(HWND hwnd, int midi, int vel) {
     if (midi < 0 || midi > 127) return;
+    if (g_page == PAGE_SKIN && g_typing) {
+        g_keyGroup[midi] = ++g_touchGroup;
+        double pan = ((midi - g_firstMidi) / 24.0 - 0.5) * 0.8;
+        perc_hit_drum((PercDrum)(((midi % 12) + 12) % 12), vel / 127.0, pan, g_keyGroup[midi]);
+        g_lit[midi]++; push_frame(hwnd); return;
+    }
     if (g_sustained[midi] || g_latched[midi]) { g_sustained[midi] = 0; g_latched[midi] = 0; play_off(midi); g_lit[midi] = 0; }   // retrigger a held note
     if (g_lit[midi]++ == 0) play_on(midi, vel);
     push_frame(hwnd);
 }
 static void lit_off(HWND hwnd, int midi) {
     if (midi < 0 || midi > 127 || g_lit[midi] == 0) return;
+    if (g_keyGroup[midi]) { perc_release(g_keyGroup[midi]); g_keyGroup[midi] = 0; if (--g_lit[midi] < 0) g_lit[midi] = 0; push_frame(hwnd); return; }
     if (--g_lit[midi] == 0) { if (g_enterLatch) latch_note(midi); else if (g_latched[midi]) { } else if (pedal_holds(midi)) g_sustained[midi] = 1; else play_off(midi); }
     push_frame(hwnd);
 }
@@ -1267,7 +1316,9 @@ static void cursor_show(void) {
 
 static void typing_set(HWND hwnd, int on) {
     if (on == g_typing) return;
-    if (on) cursor_hide(); else cursor_show();
+    if (on && g_page != PAGE_MOUSE) cursor_hide(); else cursor_show();
+    if (on && page_takes_pad()) { g_puckAlpha = 1; g_lastTouch = GetTickCount(); SetTimer(hwnd, IDT_FX, 16, NULL); }
+    if (!on) { for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down && g_contacts[i].struck) { perc_release(g_contacts[i].group); g_contacts[i].struck = 0; } }
     g_typing = on;
     if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); surface_reset(hwnd); }
     g_pendingDigits[0] = 0;
@@ -1277,6 +1328,14 @@ static void typing_set(HWND hwnd, int on) {
     push_frame(hwnd);
 }
 
+// ──────────────────────── trackpad pages (Tab / ⇧Tab) ────────────────────────
+// As on the Mac: Tab cycles slide → drum pad → pointer → slide; ⇧Tab cycles
+// split → drum pad → pointer → split. The drum pad (TrackDrum) is the page
+// Menu Band lands on when armed.
+static const wchar_t *PAGE_NAMES[4] = { L"slide", L"drum pad", L"pointer", L"split" };
+static int page_after_tab(int p) { return p == PAGE_FX ? PAGE_SKIN : p == PAGE_SKIN ? PAGE_MOUSE : PAGE_FX; }
+static int page_after_shift_tab(int p) { return p == PAGE_SPLIT ? PAGE_SKIN : p == PAGE_SKIN ? PAGE_MOUSE : PAGE_SPLIT; }
+
 // ──────────────── the FX surface (pointer while armed) + puck overlay ────────────────
 // Relative, like the Mac's trackpad page: pointer deltas move bend (vertical,
 // 80 px per octave, ±2 octaves) and the fx axis (horizontal: right = echo,
@@ -1284,16 +1343,19 @@ static void typing_set(HWND hwnd, int on) {
 // moving; 0.4 s after the last move with nothing sounding they ease home over
 // 0.48 s. Moves over the strip itself don't count (that's for clicking keys).
 #define WM_SURFACE (WM_APP + 12)
-#define IDT_FX 7
 static float g_bendUnits = 0, g_fxX = 0;           // live values (octaves; -1…1)
 static DWORD g_lastSurfaceMove = 0;
 static int g_fxRamping = 0; static float g_rampFromBend = 0, g_rampFromX = 0; static DWORD g_rampStart = 0;
 static HWND g_puck = NULL; static uint32_t *g_puckPixels = NULL; static HBITMAP g_puckDib = NULL; static HDC g_puckDC = NULL; static int g_puckSize = 0;
-static float g_puckAlpha = 0;
 static HHOOK g_mouseHook = NULL;
 static POINT g_lastPt = { -1, -1 };
 
 static LRESULT CALLBACK ll_mouse(int code, WPARAM wp, LPARAM lp) {
+    if (code == HC_ACTION && g_typing && page_takes_pad()) {
+        MSLLHOOKSTRUCT *m = (MSLLHOOKSTRUCT *)lp;
+        RECT strip = { g_posX, g_posY, g_posX + g_stripW, g_posY + g_stripH };
+        if (!PtInRect(&strip, m->pt) && wp != WM_MOUSEWHEEL) return 1;
+    }
     if (code == HC_ACTION && g_typing && wp == WM_MOUSEMOVE) {
         MSLLHOOKSTRUCT *m = (MSLLHOOKSTRUCT *)lp;
         if (g_lastPt.x >= 0) {
@@ -1304,6 +1366,69 @@ static LRESULT CALLBACK ll_mouse(int code, WPARAM wp, LPARAM lp) {
         g_lastPt = m->pt;
     } else if (code == HC_ACTION && wp == WM_MOUSEMOVE) { g_lastPt = ((MSLLHOOKSTRUCT *)lp)->pt; }
     return CallNextHookEx(g_mouseHook, code, wp, lp);
+}
+
+// Precision-touchpad contacts through Raw Input: absolute finger positions,
+// independent of the pointer. Each down contact strikes the membrane once at
+// landing; resting contacts are anchors; lifting articulates and releases.
+static PHIDP_PREPARSED_DATA g_padPreparsed = NULL; static HANDLE g_padDevice = NULL;
+static HIDP_VALUE_CAPS g_padValueCaps[64]; static USHORT g_padValueCount = 0;
+static int g_padReportsSeen = 0;
+
+static void touch_register(HWND hwnd) {
+    RAWINPUTDEVICE rid = { HID_USAGE_PAGE_DIGITIZER, HID_USAGE_DIGITIZER_TOUCH_PAD, RIDEV_INPUTSINK, hwnd };
+    if (!RegisterRawInputDevices(&rid, 1, sizeof rid)) mb_log(L"touchpad: RegisterRawInputDevices failed %lu", GetLastError());
+}
+
+static int pad_prepare(HANDLE dev) {
+    if (dev == g_padDevice && g_padPreparsed) return 1;
+    UINT size = 0; GetRawInputDeviceInfoW(dev, RIDI_PREPARSEDDATA, NULL, &size);
+    if (!size) return 0;
+    free(g_padPreparsed); g_padPreparsed = (PHIDP_PREPARSED_DATA)malloc(size);
+    if (GetRawInputDeviceInfoW(dev, RIDI_PREPARSEDDATA, g_padPreparsed, &size) == (UINT)-1) { free(g_padPreparsed); g_padPreparsed = NULL; return 0; }
+    g_padDevice = dev;
+    g_padValueCount = 64;
+    if (HidP_GetValueCaps(HidP_Input, g_padValueCaps, &g_padValueCount, g_padPreparsed) != HIDP_STATUS_SUCCESS) g_padValueCount = 0;
+    mb_log(L"touchpad: device %p, %u value caps", dev, g_padValueCount);
+    return 1;
+}
+
+static Contact *contact_slot(int id) {
+    for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down && g_contacts[i].id == id) return &g_contacts[i];
+    for (int i = 0; i < MAX_CONTACTS; i++) if (!g_contacts[i].down) { g_contacts[i].id = id; g_contacts[i].struck = 0; return &g_contacts[i]; }
+    return NULL;
+}
+
+static void pad_contact(HWND hwnd, int id, int tip, double x, double y);
+
+static void touch_input(HWND hwnd, HRAWINPUT h) {
+    UINT size = 0; GetRawInputData(h, RID_INPUT, NULL, &size, sizeof(RAWINPUTHEADER));
+    if (!size || size > 65536) return;
+    static BYTE buf[65536]; if (GetRawInputData(h, RID_INPUT, buf, &size, sizeof(RAWINPUTHEADER)) != size) return;
+    RAWINPUT *ri = (RAWINPUT *)buf;
+    if (ri->header.dwType != RIM_TYPEHID) return;
+    if (!pad_prepare(ri->header.hDevice)) return;
+    for (DWORD r = 0; r < ri->data.hid.dwCount; r++) {
+        PCHAR report = (PCHAR)(ri->data.hid.bRawData + r * ri->data.hid.dwSizeHid); ULONG len = ri->data.hid.dwSizeHid;
+        g_padReportsSeen++;
+        int seen[32]; int nseen = 0;
+        for (USHORT c = 0; c < g_padValueCount; c++) {
+            HIDP_VALUE_CAPS *vc = &g_padValueCaps[c];
+            if (vc->UsagePage != HID_USAGE_PAGE_GENERIC || (vc->IsRange ? vc->Range.UsageMin : vc->NotRange.Usage) != HID_USAGE_GENERIC_X) continue;
+            USHORT link = vc->LinkCollection; int dup = 0; for (int k = 0; k < nseen; k++) if (seen[k] == link) dup = 1; if (dup || nseen >= 32) continue; seen[nseen++] = link;
+            ULONG xv = 0, yv = 0, idv = 0;
+            if (HidP_GetUsageValue(HidP_Input, HID_USAGE_PAGE_GENERIC, link, HID_USAGE_GENERIC_X, &xv, g_padPreparsed, report, len) != HIDP_STATUS_SUCCESS) continue;
+            if (HidP_GetUsageValue(HidP_Input, HID_USAGE_PAGE_GENERIC, link, HID_USAGE_GENERIC_Y, &yv, g_padPreparsed, report, len) != HIDP_STATUS_SUCCESS) continue;
+            HidP_GetUsageValue(HidP_Input, HID_USAGE_PAGE_DIGITIZER, link, HID_USAGE_DIGITIZER_CONTACT_ID, &idv, g_padPreparsed, report, len);
+            USAGE usages[8]; ULONG nu = 8; int tip = 0;
+            if (HidP_GetUsages(HidP_Input, HID_USAGE_PAGE_DIGITIZER, link, usages, &nu, g_padPreparsed, report, len) == HIDP_STATUS_SUCCESS)
+                for (ULONG u = 0; u < nu; u++) if (usages[u] == HID_USAGE_DIGITIZER_TIP_SWITCH) tip = 1;
+            double xmin = vc->LogicalMin, xmax = vc->LogicalMax, ymin = 0, ymax = 1;
+            for (USHORT k = 0; k < g_padValueCount; k++) { HIDP_VALUE_CAPS *yc = &g_padValueCaps[k]; if (yc->LinkCollection == link && yc->UsagePage == HID_USAGE_PAGE_GENERIC && (yc->IsRange ? yc->Range.UsageMin : yc->NotRange.Usage) == HID_USAGE_GENERIC_Y) { ymin = yc->LogicalMin; ymax = yc->LogicalMax; } }
+            double x = xmax > xmin ? (xv - xmin) / (xmax - xmin) : 0, y = ymax > ymin ? (yv - ymin) / (ymax - ymin) : 0;
+            pad_contact(hwnd, (int)idv, tip, x, y);
+        }
+    }
 }
 
 static void apply_fx(void) {
@@ -1357,14 +1482,76 @@ static void puck_show(void) {
         bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); bi.bmiHeader.biWidth = g_puckSize; bi.bmiHeader.biHeight = -g_puckSize; bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
         g_puckDib = CreateDIBSection(g_puckDC, &bi, DIB_RGB_COLORS, (void **)&g_puckPixels, NULL, 0); SelectObject(g_puckDC, g_puckDib);
     }
-    puck_paint();
+    if (page_takes_pad()) pad_paint(); else puck_paint();
     POINT dst = { g_posX + g_pianoX, g_posY - g_puckSize - pt(8.0) }, src = { 0, 0 }; SIZE size = { g_puckSize, g_puckSize };
     BLENDFUNCTION bf = { AC_SRC_OVER, 0, (BYTE)(g_puckAlpha * 255), AC_SRC_ALPHA };
     HDC screen = GetDC(NULL); UpdateLayeredWindow(g_puck, screen, &dst, &size, g_puckDC, &src, 0, &bf, ULW_ALPHA); ReleaseDC(NULL, screen);
     SetWindowPos(g_puck, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | (g_puckAlpha > 0.01f ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
 }
 
+static PercDrum g_lastPulse = PERC_KICK; static DWORD g_lastPulseAt = 0;
+static void pad_contact(HWND hwnd, int id, int tip, double x, double y) {
+    if (!g_typing || !page_takes_pad()) return;
+    Contact *c = contact_slot(id); if (!c) return;
+    int onPad = 1;
+    if (g_page == PAGE_SPLIT) { if (x < 0.5) onPad = 0; }
+    if (tip && !c->down) {
+        c->down = 1; c->x = x; c->y = y; c->group = ++g_touchGroup;
+        if (onPad) {
+            double anchors[2 * MAX_CONTACTS]; int n = 0;
+            for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down && &g_contacts[i] != c && g_contacts[i].struck) { anchors[2 * n] = g_contacts[i].x; anchors[2 * n + 1] = g_contacts[i].y; n++; }
+            g_lastPulse = perc_strike_pad(x, y, 0.85, anchors, n, c->group); g_lastPulseAt = GetTickCount();
+            c->struck = 1;
+        }
+        g_lastTouch = GetTickCount(); g_puckAlpha = 1; SetTimer(hwnd, IDT_FX, 16, NULL); puck_show();
+    } else if (tip && c->down) {
+        if (g_page == PAGE_SPLIT && !onPad) {
+            float dx = (float)((x - c->x) * 2.0), dy = (float)(y - c->y);
+            g_bendUnits -= dy * 4.0f; if (g_bendUnits > 2) g_bendUnits = 2; if (g_bendUnits < -2) g_bendUnits = -2;
+            g_fxX += dx; if (g_fxX > 1) g_fxX = 1; if (g_fxX < -1) g_fxX = -1;
+            apply_fx(); g_lastSurfaceMove = GetTickCount();
+        }
+        c->x = x; c->y = y; g_lastTouch = GetTickCount();
+    } else if (!tip && c->down) {
+        if (c->struck) { perc_lift_pad(c->x, c->y, c->group); perc_release(c->group); }
+        c->down = 0; c->struck = 0; g_lastTouch = GetTickCount();
+    }
+    puck_show();
+}
+
+static void pad_paint(void) {
+    int S = g_puckSize; memset(g_puckPixels, 0, sizeof(uint32_t) * S * S);
+    const RGB8 panel = { 18, 22, 30 }, line = { 140, 155, 165 }, white = { 255, 255, 255 }, splitBlue = { 15, 107, 255 };
+    const RGB8 kickC = { 220, 90, 40 }, tomC = { 190, 120, 70 }, snareC = { 220, 180, 110 }, hatC = { 120, 220, 180 }, clickC = { 200, 200, 210 };
+    double W = S * 0.96, H = W * (0.50 / 0.82); int x0 = (S - (int)W) / 2, y0 = (S - (int)H) / 2;
+    for (int y = 0; y < (int)H; y++) for (int x = 0; x < (int)W; x++) {
+        double sx = (x / W) * 2 - 1, sy = (y / H) * 2 - 1;
+        double hw = 0.82, hh = 0.50, corner = 0.055, px = fabs(sx) * hw, py = fabs(sy) * hh, qx = px - (hw - corner), qy = py - (hh - corner);
+        double outside = hypot(fmax(qx, 0), fmax(qy, 0)), inside = fmin(fmax(qx, qy), 0), sd = outside + inside - corner; if (sd > 0) continue;
+        double radius = 1.0 - fmin(1.0, fmax(0, -sd) / hh);
+        RGB8 c = panel;
+        if (radius < 0.23) c = blend(panel, kickC, 0.35 * (1 - radius / 0.23) + 0.08);
+        else if (radius < 0.44) c = blend(panel, tomC, 0.16);
+        else if (radius < 0.66) c = blend(panel, snareC, 0.16);
+        else if (radius < 0.92) c = blend(panel, hatC, 0.14);
+        else c = blend(panel, clickC, 0.22);
+        if (g_page == PAGE_SPLIT && sx < 0) c = blend(panel, splitBlue, 0.14);
+        puck_put(x0 + x, y0 + y, c, 0.82);
+        double seams[] = { 0.23, 0.44, 0.66, 0.92 };
+        for (int k = 0; k < 4; k++) if (fabs(radius - seams[k]) < 0.012) puck_put(x0 + x, y0 + y, line, 0.35);
+    }
+    if (g_page == PAGE_SPLIT) for (int y = y0; y < y0 + (int)H; y++) puck_put(x0 + (int)(W / 2), y, white, 0.5);
+    for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down) {
+        double px = x0 + g_contacts[i].x * W, py = y0 + g_contacts[i].y * H; int pr = pt(7.0);
+        for (int y = (int)py - pr - 1; y <= (int)py + pr + 1; y++) for (int x = (int)px - pr - 1; x <= (int)px + pr + 1; x++) {
+            double d = sqrt((x + 0.5 - px) * (x + 0.5 - px) + (y + 0.5 - py) * (y + 0.5 - py));
+            if (d < pr) puck_put(x, y, white, 0.9); else if (d < pr + 1.5) puck_put(x, y, white, 0.9 * (pr + 1.5 - d) / 1.5);
+        }
+    }
+}
+
 static void surface_move(HWND hwnd, int dx, int dy) {
+    if (g_page != PAGE_FX) return;
     POINT p; GetCursorPos(&p);
     RECT strip = { g_posX, g_posY, g_posX + g_stripW, g_posY + g_stripH };
     if (PtInRect(&strip, p) || g_mouseMidi >= 0) return;            // the strip is for clicking keys
@@ -1388,10 +1575,22 @@ static void surface_tick(HWND hwnd) {
         apply_fx();
         if (t >= 1) { g_fxRamping = 0; g_bendUnits = 0; g_fxX = 0; apply_fx(); }
     }
-    if (idle > 1500 && settled) g_puckAlpha -= 16.0f / 400.0f; else if (idle > 1500 && !g_typing) g_puckAlpha -= 16.0f / 400.0f;
+    if (page_takes_pad()) { DWORD tIdle = GetTickCount() - g_lastTouch; if (tIdle > 2000 || !g_typing) g_puckAlpha -= 16.0f / 400.0f; }
+    else if (idle > 1500 && settled) g_puckAlpha -= 16.0f / 400.0f; else if (idle > 1500 && !g_typing) g_puckAlpha -= 16.0f / 400.0f;
     if (g_puckAlpha < 0) g_puckAlpha = 0;
     puck_show();
     if (g_puckAlpha <= 0 && settled && !g_fxRamping) KillTimer(hwnd, IDT_FX);
+}
+
+static void set_page(HWND hwnd, int page) {
+    if (page == g_page) return;
+    g_page = page; setting_set(L"page", (DWORD)page);
+    mb_log(L"page -> %s", PAGE_NAMES[page]);
+    for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down && g_contacts[i].struck) { perc_release(g_contacts[i].group); g_contacts[i].struck = 0; }
+    if (g_typing) { if (page == PAGE_MOUSE) cursor_show(); else cursor_hide(); }
+    cue(hwnd, 67, 60);
+    g_puckAlpha = 1; g_lastTouch = GetTickCount(); SetTimer(hwnd, IDT_FX, 16, NULL); puck_show();
+    push_frame(hwnd);
 }
 
 static void surface_reset(HWND hwnd) {
@@ -1461,6 +1660,7 @@ static void track(HWND hwnd, int force) {
 #define IDM_AUTOSTART 102
 #define IDM_FNFREE 103
 #define IDM_LOWLAT 104
+#define IDM_PAGE_BASE 110
 #define IDM_PROGRAM_BASE 200
 #define IDM_MIDI_BASE 400
 #define IDT_TRACK 1
@@ -1563,6 +1763,9 @@ static void show_menu(HWND hwnd) {
         AppendMenuW(midi, MF_STRING | ((int)i == g_midiDevice ? MF_CHECKED : 0), IDM_MIDI_BASE + 1 + i, caps.szPname);
     }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)midi, L"MIDI out");
+    HMENU pages = CreatePopupMenu();
+    for (int i = 0; i < 4; i++) { wchar_t pl[48]; swprintf(pl, 48, L"%s%s", PAGE_NAMES[i], i == PAGE_SKIN ? L"  (TrackDrum)" : L""); AppendMenuW(pages, MF_STRING | (i == g_page ? MF_CHECKED : 0), IDM_PAGE_BASE + i, pl); }
+    AppendMenuW(menu, MF_POPUP, (UINT_PTR)pages, L"Trackpad page  (Tab / Shift+Tab)");
     AppendMenuW(menu, MF_STRING | (g_lowLatency ? MF_CHECKED : 0), IDM_LOWLAT, L"Lowest latency while armed  (takes the speakers; other apps pause)");
     AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn  (F3 mute, F4 down, F5 up)");
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
@@ -1740,6 +1943,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_SURFACE:
         surface_move(hwnd, (int)(short)wp, (int)(short)lp);
         return 0;
+    case WM_PAGE:
+        set_page(hwnd, wp ? page_after_shift_tab(g_page) : page_after_tab(g_page));
+        return 0;
+    case WM_INPUT:
+        touch_input(hwnd, (HRAWINPUT)lp);
+        return DefWindowProcW(hwnd, msg, wp, lp);
     }
     case WM_TYPEESC:
         typing_set(hwnd, 0);
@@ -1774,6 +1983,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
         if (id == IDM_FNFREE) { g_fnFree = !g_fnFree; setting_set(L"fnFree", (DWORD)g_fnFree); return 0; }
+        if (id >= IDM_PAGE_BASE && id < IDM_PAGE_BASE + 4) { set_page(hwnd, id - IDM_PAGE_BASE); return 0; }
         if (id == IDM_LOWLAT) { g_lowLatency = !g_lowLatency; setting_set(L"lowLatency", (DWORD)g_lowLatency); audio_set_exclusive(g_typing); return 0; }
         if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
@@ -1838,6 +2048,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     g_program = (int)setting_get(L"program", AC_WHISTLE_PROGRAM) & 127;
     g_fnFree = setting_get(L"fnFree", 1) ? 1 : 0;
     g_lowLatency = setting_get(L"lowLatency", 1) ? 1 : 0;
+    g_page = (int)setting_get(L"page", PAGE_SKIN); if (g_page < 0 || g_page > 3) g_page = PAGE_SKIN;
     g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
     build_keys();
     build_keymap();
@@ -1872,6 +2083,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
                              L"MenuBandPuck", L"", WS_POPUP, 0, 0, 10, 10, NULL, NULL, hInst, NULL);
     g_hook = SetWindowsHookExW(WH_KEYBOARD_LL, ll_keyboard, hInst, 0);
     g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, ll_mouse, hInst, 0);
+    touch_register(hwnd);
     mb_log(L"start: strip=%p flash=%p hook=%p audio=%d (lastErr=%lu)", (void *)hwnd, (void *)g_flash, (void *)g_hook, (int)g_audioRunning, GetLastError());
     track(hwnd, 1);
     mb_log(L"start: placed at %d,%d size %dx%d taskbarH=%d", g_posX, g_posY, g_stripW, g_stripH, g_lastTaskbarH);

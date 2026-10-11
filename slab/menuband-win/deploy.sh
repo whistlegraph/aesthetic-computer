@@ -13,9 +13,10 @@ host="${MB_HOST:-minibook}"
 dest='src/menuband-win'
 
 ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\menuband-win | Out-Null"
-scp -q "$here/menuband.c" "$here/build.ps1" \
+scp -q "$here/menuband.c" "$here/build.ps1" "$here/percussion.h" "$here/percussion_stub.c" \
        "$root/fedac/native/src/gm_synth.c" "$root/fedac/native/src/gm_synth.h" \
        "$host:$dest/"
+[[ -f "$here/percussion.c" ]] && scp -q "$here/percussion.c" "$host:$dest/"
 # The AC grand piano bank (fedac/native/samples/piano, 14 MB) sits beside the exe; copy once.
 if ! ssh "$host" "Test-Path \$HOME\\src\\menuband-win\\build\\samples\\piano\\60.raw" | grep -q True; then
   ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\menuband-win\\build\\samples\\piano | Out-Null"

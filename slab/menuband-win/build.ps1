@@ -20,9 +20,11 @@ $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvars64.bat'
 New-Item -ItemType Directory -Force build | Out-Null
 # The running strip holds its own exe open; the linker can't overwrite it.
 Get-Process MenuBand -ErrorAction SilentlyContinue | Stop-Process -Force
+# The percussion engine: the real port when present, else the silent stub.
+$perc = if (Test-Path 'percussion.c') { 'percussion.c' } else { 'percussion_stub.c' }
 $cmd = "call `"$vcvars`" >nul && cl /nologo /O2 /W3 /std:c17 " +
-       "/Fo:build\ /Fe:build\MenuBand.exe menuband.c gm_synth.c " +
-       "/link /MAP:build\MenuBand.map /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup user32.lib gdi32.lib shell32.lib ole32.lib avrt.lib winmm.lib advapi32.lib dwmapi.lib"
+       "/Fo:build\ /Fe:build\MenuBand.exe menuband.c gm_synth.c $perc " +
+       "/link /MAP:build\MenuBand.map /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup user32.lib gdi32.lib shell32.lib ole32.lib avrt.lib winmm.lib advapi32.lib dwmapi.lib hid.lib"
 cmd /c $cmd
 if ($LASTEXITCODE -ne 0) { throw "build failed ($LASTEXITCODE)" }
 Write-Host "built build\MenuBand.exe"
