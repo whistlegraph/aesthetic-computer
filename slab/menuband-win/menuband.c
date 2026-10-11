@@ -1246,8 +1246,28 @@ static void step_cue(HWND hwnd) {
 }
 static void cue(HWND hwnd, int a, int b) { g_cueNotes[0] = a; g_cueNotes[1] = b; g_cueIndex = 0; SetTimer(hwnd, IDT_CUE, 150, NULL); step_cue(hwnd); }
 
+// Pointer hidden while armed, as on the Mac: swap every system cursor for a
+// blank one; SPI_SETCURSORS reloads the user's set on release, quit or crash.
+static int g_cursorHidden = 0;
+static void cursor_hide(void) {
+    if (g_cursorHidden) return;
+    static const int ids[] = { 32512, 32513, 32514, 32515, 32516, 32642, 32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651 };
+    BYTE andMask[32 * 4], xorMask[32 * 4]; memset(andMask, 0xFF, sizeof andMask); memset(xorMask, 0x00, sizeof xorMask);
+    for (size_t i = 0; i < sizeof ids / sizeof ids[0]; i++) {
+        HCURSOR blank = CreateCursor(GetModuleHandleW(NULL), 0, 0, 32, 32, andMask, xorMask);
+        if (blank) SetSystemCursor(blank, (DWORD)ids[i]);   // SetSystemCursor consumes the handle
+    }
+    g_cursorHidden = 1;
+}
+static void cursor_show(void) {
+    if (!g_cursorHidden) return;
+    SystemParametersInfoW(SPI_SETCURSORS, 0, NULL, 0);
+    g_cursorHidden = 0;
+}
+
 static void typing_set(HWND hwnd, int on) {
     if (on == g_typing) return;
+    if (on) cursor_hide(); else cursor_show();
     g_typing = on;
     if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); surface_reset(hwnd); }
     g_pendingDigits[0] = 0;
@@ -1550,12 +1570,14 @@ static void show_menu(HWND hwnd) {
     AppendMenuW(menu, MF_STRING, IDM_QUIT, L"Quit Menu Band");
     // TPM_RETURNCMD: a non-activating tool window is not a reliable WM_COMMAND
     // target, so take the choice back directly and dispatch it ourselves.
+    int wasHidden = g_cursorHidden; if (wasHidden) cursor_show();
     SetForegroundWindow(hwnd);
     int chosen = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN | TPM_RETURNCMD | TPM_NONOTIFY, p.x, p.y, 0, hwnd, NULL);
     PostMessageW(hwnd, WM_NULL, 0, 0);
     DestroyMenu(menu);
     mb_log(L"menu: chose %d", chosen);
     if (chosen) SendMessageW(hwnd, WM_COMMAND, (WPARAM)chosen, 0);
+    if (wasHidden && g_typing) cursor_hide();
 }
 
 static int g_mouseExt[2] = { -1, -1 };
@@ -1768,6 +1790,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_DESTROY:
         mb_log(L"WM_DESTROY on strip");
         typing_set(hwnd, 0);
+        cursor_show();
         Shell_NotifyIconW(NIM_DELETE, &g_nid);
         if (g_hook) UnhookWindowsHookEx(g_hook);
         if (g_mouseHook) UnhookWindowsHookEx(g_mouseHook);
@@ -1791,6 +1814,7 @@ static void mb_log(const wchar_t *fmt, ...) {
 // Last-resort crash note: Windows Error Reporting is off on the lean install,
 // so write the exception code and address to %TEMP%\menuband-crash.txt.
 static LONG WINAPI crash_filter(EXCEPTION_POINTERS *ep) {
+    SystemParametersInfoW(SPI_SETCURSORS, 0, NULL, 0);   // never leave the pointer hidden
     wchar_t path[MAX_PATH]; GetTempPathW(MAX_PATH, path); wcscat_s(path, MAX_PATH, L"menuband-crash.txt");
     FILE *f = NULL; _wfopen_s(&f, path, L"a");
     if (f) {
