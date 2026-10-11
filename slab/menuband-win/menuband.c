@@ -57,6 +57,7 @@ static void latch_note(int midi);
 static void audio_set_exclusive(int want);
 static int g_enterLatch;
 static int g_latched[128];           // Enter-latched notes (drawn lit, sound until unlatched)
+static int g_vkRoot[256]; static int g_vkExt[256][2];   // chord bookkeeping per held typing key
 static int g_fnFree = 1;             // bare F3/F4/F5 act as mute / volume down / volume up
 static const wchar_t *GM_NAMES[128];
 static volatile LONG g_dbgNoteOns;
@@ -1016,6 +1017,7 @@ static void build_keymap(void) {
 #define WM_PEDAL (WM_APP + 7)
 #define WM_SURF (WM_APP + 8)
 #define WM_LATCH (WM_APP + 9)
+#define WM_CHORDMOD (WM_APP + 11)
 #define WM_UNLATCH (WM_APP + 10)
 static DWORD g_ctrlTapTimes[3]; static int g_ctrlTaps = 0; static int g_ctrlSolo = 0;
 
@@ -1067,7 +1069,13 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
                 if (down) PostMessageW(g_strip, WM_OCTAVE, k->vkCode == VK_OEM_PERIOD ? 1 : (WPARAM)-1, 0);
                 return 1;
             }
-            if (g_semitoneByVk[k->vkCode] != -128 && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_LWIN) & 0x8000)) {
+            if (k->vkCode == VK_LCONTROL || k->vkCode == VK_RCONTROL || k->vkCode == VK_LMENU || k->vkCode == VK_RMENU) {
+                PostMessageW(g_strip, WM_CHORDMOD, 0, 0);
+                return CallNextHookEx(g_hook, code, wp, lp);
+            }
+            // Mapped note keys: Ctrl = major, Alt = minor, Ctrl+Alt = sus4 — the
+            // Mac's ⌘ / ⌥ / ⌘⌥ chords — and they shadow Cut/Copy etc. while armed.
+            if (g_semitoneByVk[k->vkCode] != -128 && !(GetAsyncKeyState(VK_LWIN) & 0x8000) && !(GetAsyncKeyState(VK_RWIN) & 0x8000)) {
                 PostMessageW(g_strip, WM_TYPEKEY, k->vkCode, down);
                 return 1;
             }
@@ -1110,6 +1118,38 @@ static void unlatch(HWND hwnd, int all) {
     }
     push_frame(hwnd);
 }
+// Chord quality for a root from the modifiers held on that root's side of the
+// split (left Ctrl/Alt for the lower octave, right for the upper), so one hand
+// can hold a triad while the other rings single notes. Intervals above the
+// root, root excluded, as in MenuBandController.chordIntervals.
+static int chord_quality(int midi) {
+    int left = midi < g_firstMidi + 12;
+    int ctrl = (GetAsyncKeyState(left ? VK_LCONTROL : VK_RCONTROL) & 0x8000) != 0;
+    int alt = (GetAsyncKeyState(left ? VK_LMENU : VK_RMENU) & 0x8000) != 0;
+    if (ctrl && alt) return 6;   // sus4
+    if (alt) return 2;           // minor
+    if (ctrl) return 1;          // major
+    return 0;
+}
+static int chord_intervals(int quality, int *iv) {
+    switch (quality) {
+    case 1: iv[0] = 4; iv[1] = 7; return 2;
+    case 2: iv[0] = 3; iv[1] = 7; return 2;
+    case 3: iv[0] = 2; iv[1] = 7; return 2;
+    case 4: iv[0] = 4; iv[1] = 8; return 2;
+    case 5: iv[0] = 3; iv[1] = 6; return 2;
+    case 6: iv[0] = 5; iv[1] = 7; return 2;
+    default: return 0;
+    }
+}
+// Re-voice a held key's extensions to the current modifiers, touching only
+// the tones that change (the shared fifth stays put).
+static void revoice(HWND hwnd, int vk) {
+    int root = g_vkRoot[vk], iv[2], n = chord_intervals(chord_quality(root), iv), want[2] = { -1, -1 };
+    for (int i = 0; i < n; i++) want[i] = root + iv[i];
+    for (int i = 0; i < 2; i++) { int m = g_vkExt[vk][i]; if (m >= 0 && m != want[0] && m != want[1]) { lit_off(hwnd, m); g_vkExt[vk][i] = -1; } }
+    for (int i = 0; i < 2; i++) { int m = want[i]; if (m < 0 || m == g_vkExt[vk][0] || m == g_vkExt[vk][1]) continue; int slot = g_vkExt[vk][0] < 0 ? 0 : 1; g_vkExt[vk][slot] = m; lit_on(hwnd, m, 92); }
+}
 static void pedal_release(HWND hwnd) {
     int changed = 0;
     for (int m = 0; m < 128; m++) if (g_sustained[m] && !pedal_holds(m)) { g_sustained[m] = 0; play_off(m); changed = 1; }
@@ -1117,7 +1157,11 @@ static void pedal_release(HWND hwnd) {
 }
 
 static void release_typed(HWND hwnd) {
-    for (int vk = 0; vk < 256; vk++) if (g_vkDown[vk]) { g_vkDown[vk] = 0; lit_off(hwnd, 60 + g_semitoneByVk[vk] + (g_firstMidi - 60)); }
+    for (int vk = 0; vk < 256; vk++) if (g_vkDown[vk]) {
+        g_vkDown[vk] = 0;
+        for (int i = 0; i < 2; i++) if (g_vkExt[vk][i] >= 0) { lit_off(hwnd, g_vkExt[vk][i]); g_vkExt[vk][i] = -1; }
+        lit_off(hwnd, g_vkRoot[vk]);
+    }
 }
 
 // Little ear-cue on focus change, like the Mac: up a fifth on arm, down on Esc.
@@ -1324,15 +1368,18 @@ static void show_menu(HWND hwnd) {
     if (chosen) SendMessageW(hwnd, WM_COMMAND, (WPARAM)chosen, 0);
 }
 
+static int g_mouseExt[2] = { -1, -1 };
+static void mouse_up(HWND hwnd) {
+    for (int i = 0; i < 2; i++) if (g_mouseExt[i] >= 0) { lit_off(hwnd, g_mouseExt[i]); g_mouseExt[i] = -1; }
+    if (g_mouseMidi >= 0) { lit_off(hwnd, g_mouseMidi); g_mouseMidi = -1; }
+}
 static void mouse_down(HWND hwnd, int midi) {
     if (midi < 0 || midi == g_mouseMidi) return;
-    if (g_mouseMidi >= 0) lit_off(hwnd, g_mouseMidi);
+    mouse_up(hwnd);
     g_mouseMidi = midi;
     lit_on(hwnd, midi, 100);
-}
-
-static void mouse_up(HWND hwnd) {
-    if (g_mouseMidi >= 0) { lit_off(hwnd, g_mouseMidi); g_mouseMidi = -1; }
+    int iv[2], n = chord_intervals(chord_quality(midi), iv);
+    for (int i = 0; i < n; i++) { g_mouseExt[i] = midi + iv[i]; lit_on(hwnd, g_mouseExt[i], 92); }
 }
 
 // Remote autoplay for install debugging (the Mac has a distributed-notification
@@ -1461,9 +1508,21 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         int vk = (int)wp, down = (int)lp;
         if (vk < 0 || vk > 255) return 0;
         int midi = 60 + g_semitoneByVk[vk] + (g_firstMidi - 60);
-        if (down) mb_log(L"type: vk %d -> midi %d (program %d)", vk, midi, g_program);
-        if (down) { if (!g_vkDown[vk]) { g_vkDown[vk] = 1; lit_on(hwnd, midi, 100); } }
-        else if (g_vkDown[vk]) { g_vkDown[vk] = 0; lit_off(hwnd, midi); }
+        if (down) {
+            if (!g_vkDown[vk]) {
+                g_vkDown[vk] = 1; g_vkRoot[vk] = midi; g_vkExt[vk][0] = g_vkExt[vk][1] = -1;
+                lit_on(hwnd, midi, 100);
+                revoice(hwnd, vk);
+                mb_log(L"type: vk %d -> midi %d q%d (program %d)", vk, midi, chord_quality(midi), g_program);
+            }
+        } else if (g_vkDown[vk]) {
+            g_vkDown[vk] = 0;
+            for (int i = 0; i < 2; i++) if (g_vkExt[vk][i] >= 0) { lit_off(hwnd, g_vkExt[vk][i]); g_vkExt[vk][i] = -1; }
+            lit_off(hwnd, midi);
+        }
+        return 0;
+    case WM_CHORDMOD:
+        for (int v = 0; v < 256; v++) if (g_vkDown[v]) revoice(hwnd, v);
         return 0;
     }
     case WM_TYPEESC:
