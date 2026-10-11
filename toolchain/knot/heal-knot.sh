@@ -26,16 +26,19 @@ set -euo pipefail
 echo "== git pack memory caps on the bare repos"
 for r in /home/git/repositories/*/ /home/git/repositories/*/*/; do
   [ -d "$r" ] || continue
-  if git -C "$r" rev-parse --is-bare-repository >/dev/null 2>&1; then
-    git -C "$r" config pack.threads 1
-    git -C "$r" config pack.windowMemory 128m
-    git -C "$r" config pack.deltaCacheSize 64m
-    git -C "$r" config pack.packSizeLimit 512m
-    git -C "$r" config core.packedGitWindowSize 32m
-    git -C "$r" config core.packedGitLimit 256m
-    git -C "$r" config core.bigFileThreshold 4m
-    chown git:git "$r/config" 2>/dev/null || true
-    echo "  capped $r"
+  # The repos belong to `git`; root gets "dubious ownership", so act as git.
+  g() { runuser -u git -- git -C "$r" "$@"; }
+  if g rev-parse --is-bare-repository >/dev/null 2>&1; then
+    g config pack.threads 1
+    g config pack.windowMemory 128m
+    g config pack.deltaCacheSize 64m
+    g config pack.packSizeLimit 512m
+    g config core.packedGitWindowSize 32m
+    g config core.packedGitLimit 256m
+    g config core.bigFileThreshold 4m
+    echo "  capped $r (pack.windowMemory=$(g config --get pack.windowMemory))"
+  else
+    echo "  skipped $r: $(g rev-parse --is-bare-repository 2>&1 | head -1)"
   fi
 done
 echo "== cgroup: more room, and Restart=always"
