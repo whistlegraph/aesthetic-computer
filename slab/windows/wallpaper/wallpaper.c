@@ -24,6 +24,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <wtsapi32.h>
+#include <shellscalingapi.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -218,12 +219,27 @@ static BOOL CALLBACK find_worker(HWND top, LPARAM lp) {
     return TRUE;
 }
 
+static BOOL CALLBACK log_monitor(HMONITOR mon, HDC dc, LPRECT r, LPARAM lp) {
+    (void)dc; (void)lp;
+    MONITORINFOEXW mi; mi.cbSize = sizeof mi; GetMonitorInfoW(mon, (MONITORINFO *)&mi);
+    UINT dx = 96, dy = 96; GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &dx, &dy);
+    wp_log(L"monitor %s rect=%d,%d,%d,%d (%dx%d) work=%d,%d,%d,%d dpi=%u%s", mi.szDevice, r->left, r->top, r->right, r->bottom, r->right - r->left, r->bottom - r->top,
+           mi.rcWork.left, mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom, dx, (mi.dwFlags & MONITORINFOF_PRIMARY) ? L" primary" : L"");
+    return TRUE;
+}
+
+// Physical pixels: the process is PER_MONITOR_AWARE_V2, so these metrics are
+// the real panel (1920x1200 on the MiniBook), not the 150 %-virtualised
+// 1280x800, and the virtual-screen rect is the full monitor, not the work area.
 static void measure(void) {
     g_vx = GetSystemMetrics(SM_XVIRTUALSCREEN); g_vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
     g_w = GetSystemMetrics(SM_CXVIRTUALSCREEN); g_h = GetSystemMetrics(SM_CYVIRTUALSCREEN);
     if (g_w < 16) g_w = 16; if (g_h < 16) g_h = 16;
     UINT dpi = GetDpiForWindow(g_hwnd ? g_hwnd : GetDesktopWindow()); if (dpi < 72) dpi = 96;
     g_scale = dpi / 96.0;
+    DPI_AWARENESS_CONTEXT ctx = GetThreadDpiAwarenessContext();
+    wp_log(L"measure: virtual screen %d,%d %dx%d, window dpi %u, per-monitor-v2=%d", g_vx, g_vy, g_w, g_h, dpi, AreDpiAwarenessContextsEqual(ctx, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2));
+    EnumDisplayMonitors(NULL, NULL, log_monitor, 0);
 }
 
 static void attach(void) {
@@ -261,6 +277,7 @@ static void attach(void) {
         wp_log(L"attach: classic layout, child of %s %p", g_workerW ? L"WorkerW" : L"Progman", (void *)host);
     }
     log_children(progman, 1);
+    { RECT wr; GetWindowRect(g_hwnd, &wr); wp_log(L"window rect on screen: %d,%d,%d,%d (%dx%d)", wr.left, wr.top, wr.right, wr.bottom, wr.right - wr.left, wr.bottom - wr.top); }
     InvalidateRect(g_hwnd, NULL, FALSE);
 }
 
