@@ -76,7 +76,7 @@ typedef struct {
 } Voice;
 
 typedef struct { int kind; uint8_t midi; uint8_t velocity; int program; uint32_t seed; } Cmd;
-enum { CMD_ON = 1, CMD_OFF = 2, CMD_PANIC = 3, CMD_WON = 4, CMD_WOFF = 5 };
+enum { CMD_ON = 1, CMD_OFF = 2, CMD_PANIC = 3, CMD_WON = 4, CMD_WOFF = 5, CMD_PON = 6, CMD_POFF = 7 };
 
 static GMVoice g_cores[MAX_VOICES];       // ~80 KB each: keep them static, never on a stack
 static Voice g_voices[MAX_VOICES];
@@ -109,6 +109,7 @@ static float soft_limit(float x) {
     return x < 0 ? -y : y;
 }
 static void wh_note_on(int midi, int velocity); static void wh_note_off(int midi); static void wh_panic(void); static void wh_render(float *out, int frames);
+static void piano_note_on(int midi, int velocity); static void piano_note_off(int midi); static void piano_panic(void); static void piano_render(float *out, int frames); static int piano_available(void);
 
 static void synth_push(Cmd c) {
     EnterCriticalSection(&g_lock);
@@ -169,11 +170,15 @@ static void synth_render(float *out, int frames) {
                     g_voices[i].releasing = 1;
         } else if (c->kind == CMD_PANIC) {
             for (int i = 0; i < MAX_VOICES; i++) g_voices[i].active = 0;
-            wh_panic();
+            wh_panic(); piano_panic();
         } else if (c->kind == CMD_WON) {
             wh_note_on(c->midi, c->velocity);
         } else if (c->kind == CMD_WOFF) {
             wh_note_off(c->midi);
+        } else if (c->kind == CMD_PON) {
+            piano_note_on(c->midi, c->velocity);
+        } else if (c->kind == CMD_POFF) {
+            piano_note_off(c->midi);
         }
     }
 
@@ -200,7 +205,89 @@ static void synth_render(float *out, int frames) {
         v->env = env; v->active = active;
     }
     wh_render(out, frames);
+    piano_render(out, frames);
     for (int i = 0; i < 2 * frames; i++) out[i] = soft_limit(out[i]);
+}
+
+// ─────────── the AC grand piano (`1), ported from MenuBandACPianoVoice.swift ───────────
+// The Salamander Grand Piano V3 anchors AC OS plays (fedac/native/samples/piano,
+// CC0 Alexander Holm): 26 notes every three semitones, header-less float32
+// mono at 48 kHz, played the way audio.c plays them — nearest anchor by MIDI
+// distance, step 2^(semitones/12), linear interpolation, the note running out
+// at the end of its own recorded decay, and a short exponential damper on
+// key-up. Program 1 routes here when the bank is beside the exe.
+
+#define PI_VOICES 24
+typedef struct { int midi; float *data; int count; } Anchor;
+static Anchor g_anchors[32]; static int g_anchorCount = 0;
+typedef struct { int midi, anchor; double pos, step; float gain, panL, panR, env; int releasing, active; } PVoice;
+static PVoice g_pv[PI_VOICES];
+static const float PI_VOICE_AMP = 2.4f, PI_MASTER = 0.9f;
+static const double PI_RELEASE = 0.07, PI_BANK_RATE = 48000.0;
+static float g_piBus[2 * 8192];
+
+static void piano_load_bank(void) {
+    wchar_t dir[MAX_PATH]; GetModuleFileNameW(NULL, dir, MAX_PATH);
+    wchar_t *slash = wcsrchr(dir, L'\\'); if (slash) *slash = 0;
+    wcscat_s(dir, MAX_PATH, L"\\samples\\piano\\");
+    for (int midi = 0; midi < 128 && g_anchorCount < 32; midi++) {
+        wchar_t path[MAX_PATH]; swprintf(path, MAX_PATH, L"%s%d.raw", dir, midi);
+        FILE *f = NULL; if (_wfopen_s(&f, path, L"rb") != 0 || !f) continue;
+        fseek(f, 0, SEEK_END); long bytes = ftell(f); fseek(f, 0, SEEK_SET);
+        if (bytes < 8) { fclose(f); continue; }
+        float *data = (float *)malloc((size_t)bytes + sizeof(float));
+        size_t n = fread(data, 1, (size_t)bytes, f); fclose(f);
+        int count = (int)(n / sizeof(float)); data[count] = 0;
+        g_anchors[g_anchorCount].midi = midi; g_anchors[g_anchorCount].data = data; g_anchors[g_anchorCount].count = count; g_anchorCount++;
+    }
+    mb_log(L"piano bank: %d anchors from %s", g_anchorCount, dir);
+}
+static int piano_available(void) { return g_anchorCount > 0; }
+
+static int piano_allocate(void) {
+    for (int i = 0; i < PI_VOICES; i++) if (!g_pv[i].active) return i;
+    int best = 0; float bestScore = 1e30f;
+    for (int i = 0; i < PI_VOICES; i++) { float sc = (g_pv[i].releasing ? 0 : 1000) + g_pv[i].env; if (sc < bestScore) { bestScore = sc; best = i; } }
+    return best;
+}
+static void piano_note_on(int midi, int velocity) {
+    if (!g_anchorCount) return;
+    int a = 0, bestD = 999;
+    for (int i = 0; i < g_anchorCount; i++) { int d = abs(midi - g_anchors[i].midi); if (d < bestD) { bestD = d; a = i; } }
+    int slot = piano_allocate();
+    PVoice *v = &g_pv[slot]; memset(v, 0, sizeof *v);
+    v->midi = midi; v->anchor = a; v->pos = 0;
+    v->step = pow(2.0, (midi - g_anchors[a].midi) / 12.0) * (PI_BANK_RATE / g_sampleRate);
+    v->gain = PI_VOICE_AMP * (float)fmax(0.05, fmin(1.0, velocity / 127.0));
+    pan_for_midi(midi, &v->panL, &v->panR);
+    v->env = 1; v->active = 1;
+}
+static void piano_note_off(int midi) { for (int i = 0; i < PI_VOICES; i++) if (g_pv[i].active && !g_pv[i].releasing && g_pv[i].midi == midi) g_pv[i].releasing = 1; }
+static void piano_panic(void) { for (int i = 0; i < PI_VOICES; i++) g_pv[i].active = 0; }
+
+static void piano_render(float *out, int frames) {
+    if (frames > 8192) frames = 8192;
+    int any = 0; for (int i = 0; i < PI_VOICES; i++) if (g_pv[i].active) { any = 1; break; }
+    if (!any) return;
+    memset(g_piBus, 0, sizeof(float) * 2 * frames);
+    const float rel = (float)exp(-1.0 / (g_sampleRate * PI_RELEASE));
+    for (int idx = 0; idx < PI_VOICES; idx++) {
+        PVoice *v = &g_pv[idx]; if (!v->active) continue;
+        const Anchor *a = &g_anchors[v->anchor];
+        double pos = v->pos; float env = v->env; int active = 1;
+        for (int i = 0; i < frames; i++) {
+            int ip = (int)pos;
+            if (ip + 1 >= a->count) { active = 0; break; }          // the recording ran out
+            float frac = (float)(pos - ip);
+            float s = a->data[ip] + (a->data[ip + 1] - a->data[ip]) * frac;
+            if (v->releasing) { env *= rel; if (env < 0.001f) { active = 0; break; } }
+            float o = s * v->gain * env;
+            g_piBus[2 * i] += o * v->panL; g_piBus[2 * i + 1] += o * v->panR;
+            pos += v->step;
+        }
+        v->pos = pos; v->env = env; v->active = active;
+    }
+    for (int i = 0; i < 2 * frames; i++) out[i] += tanhf(g_piBus[i] * PI_MASTER);
 }
 
 // ─────────────── the AC whistle (`79), ported from MenuBandWhistleVoice.swift ───────────────
@@ -422,17 +509,20 @@ static void midi_program(void) {
 // as on the Mac; the other 127 are gm_synth. A note remembers who owns it so
 // a program change mid-hold still releases it in the right place.
 #define AC_WHISTLE_PROGRAM 78
+#define AC_PIANO_PROGRAM 0
 static uint8_t g_noteOwner[128];   // 0 gm, 1 whistle, 2 midi out
 static void play_on(int midi, int vel) {
     if (midi < 0 || midi > 127) return;
     if (g_midiOut) { g_noteOwner[midi] = 2; midiOutShortMsg(g_midiOut, 0x90 | ((DWORD)midi << 8) | ((DWORD)vel << 16)); }
     else if (g_program == AC_WHISTLE_PROGRAM) { g_noteOwner[midi] = 1; Cmd c = { CMD_WON, (uint8_t)midi, (uint8_t)vel, 0, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns); }
+    else if (g_program == AC_PIANO_PROGRAM && piano_available()) { g_noteOwner[midi] = 3; Cmd c = { CMD_PON, (uint8_t)midi, (uint8_t)vel, 0, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns); }
     else { g_noteOwner[midi] = 0; synth_note_on(midi, vel); }
 }
 static void play_off(int midi) {
     if (midi < 0 || midi > 127) return;
     if (g_noteOwner[midi] == 2 && g_midiOut) midiOutShortMsg(g_midiOut, 0x80 | ((DWORD)midi << 8));
     else if (g_noteOwner[midi] == 1) { Cmd c = { CMD_WOFF, (uint8_t)midi, 0, 0, 0 }; synth_push(c); }
+    else if (g_noteOwner[midi] == 3) { Cmd c = { CMD_POFF, (uint8_t)midi, 0, 0, 0 }; synth_push(c); }
     else synth_note_off(midi);
 }
 
@@ -1350,6 +1440,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
     build_keys();
     build_keymap();
+    piano_load_bank();
     if (!audio_start()) { mb_log(L"audio_start FAILED"); MessageBoxW(NULL, L"Menu Band could not open the audio output.", L"Menu Band", MB_ICONWARNING); }
 
     WNDCLASSW wc; memset(&wc, 0, sizeof wc);

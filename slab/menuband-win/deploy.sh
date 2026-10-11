@@ -16,6 +16,11 @@ ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\menuband-win | Out
 scp -q "$here/menuband.c" "$here/build.ps1" \
        "$root/fedac/native/src/gm_synth.c" "$root/fedac/native/src/gm_synth.h" \
        "$host:$dest/"
+# The AC grand piano bank (fedac/native/samples/piano, 14 MB) sits beside the exe; copy once.
+if ! ssh "$host" "Test-Path \$HOME\\src\\menuband-win\\build\\samples\\piano\\60.raw" | grep -q True; then
+  ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\menuband-win\\build\\samples\\piano | Out-Null"
+  scp -q "$root"/fedac/native/samples/piano/*.raw "$host:$dest/build/samples/piano/"
+fi
 ssh "$host" "powershell -NoProfile -ExecutionPolicy Bypass -File \$HOME\\src\\menuband-win\\build.ps1"
 if [[ "${1:-}" == "--run" ]]; then
   # A process started from the ssh session has no desktop. Relaunch through
