@@ -169,10 +169,12 @@
     <p class="tagline">Setting up a Windows 11 Pro build machine, and whether the tiny piano could live in the taskbar. October 2026.</p>
 
     <h3>Step 1: let neo in over SSH</h3>
-    <p>Windows 11 Pro ships the OpenSSH client but not the server. Right-click Start, open <b>Terminal (Admin)</b>, paste all of this, press Enter:</p>
-<pre><code>Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+    <p>Windows 11 Pro ships the OpenSSH client but not the server. The usual <code>Add-WindowsCapability</code> route pulls from Windows Update and can hang for minutes with no output, so this installs the same server from Microsoft's GitHub release through winget instead. Right-click Start, open <b>Terminal (Admin)</b>, paste all of this, press Enter:</p>
+<pre><code>winget install Microsoft.OpenSSH.Preview --accept-package-agreements --accept-source-agreements
 Start-Service sshd
 Set-Service -Name sshd -StartupType Automatic
+New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server (sshd)' -Enabled True `
+  -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -Profile Any
 New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell `
   -Value "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -PropertyType String -Force
 (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notmatch 'Loopback' }).IPAddress</code></pre>
