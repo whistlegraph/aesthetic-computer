@@ -51,6 +51,10 @@ static const GUID  MB_SUBTYPE_IEEE_FLOAT       = {0x00000003,0x0000,0x0010,{0x80
 
 static void mb_log(const wchar_t *fmt, ...);
 static void setting_set(const wchar_t *name, DWORD v);
+static void unlatch(HWND hwnd, int all);
+static void latch_note(int midi);
+static int g_enterLatch;
+static int g_latched[128];           // Enter-latched notes (drawn lit, sound until unlatched)
 static const wchar_t *GM_NAMES[128];
 static volatile LONG g_dbgNoteOns;
 
@@ -689,7 +693,7 @@ static void paint(void) {
             RECT kr = white_rect(i); kr.left += dx; kr.right += dx;
             if (kr.right < g_clipL || kr.left >= g_clipR) continue;
             RGB8 hi = whiteHi, lo = whiteLo;
-            int lit = m >= 0 && m < 128 && g_lit[m] > 0;
+            int lit = m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m]);
             if (lit) { RGB8 l = blend(CHROMA[mv], black, 0.22); hi = l; lo = l; }
             else if (m == g_hoverMidi && !sliding) { hi = blend(whiteHi, white, 0.12); lo = blend(whiteLo, white, 0.12); }
             fill(kr, hi, lo, 1.0);
@@ -701,7 +705,7 @@ static void paint(void) {
             RECT br = black_rect(g_blackMidi[i]); br.left += dx; br.right += dx;
             if (br.right < g_clipL || br.left >= g_clipR) continue;
             RGB8 hi = blackHi, lo = blackLo;
-            if (m >= 0 && m < 128 && g_lit[m] > 0) { hi = white; lo = blend(white, blackHi, 0.4); }
+            if (m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m])) { hi = white; lo = blend(white, blackHi, 0.4); }
             else if (m == g_hoverMidi && !sliding) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
             fill(br, hi, lo, 1.0);
         }
@@ -802,6 +806,8 @@ static void build_keymap(void) {
 #define WM_CTRLTRIPLE (WM_APP + 6)
 #define WM_PEDAL (WM_APP + 7)
 #define WM_SURF (WM_APP + 8)
+#define WM_LATCH (WM_APP + 9)
+#define WM_UNLATCH (WM_APP + 10)
 static DWORD g_ctrlTapTimes[3]; static int g_ctrlTaps = 0; static int g_ctrlSolo = 0;
 
 static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
@@ -828,6 +834,8 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         if (k->vkCode == VK_LSHIFT || k->vkCode == VK_RSHIFT || k->vkCode == VK_CAPITAL) { PostMessageW(g_strip, WM_PEDAL, 0, 0); return CallNextHookEx(g_hook, code, wp, lp); }
+        if (k->vkCode == VK_RETURN) { PostMessageW(g_strip, WM_LATCH, down, 0); return 1; }
+        if (k->vkCode == VK_BACK) { if (down && !(k->flags & LLKHF_UP)) PostMessageW(g_strip, WM_UNLATCH, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0, 0); return 1; }
         if (k->vkCode == VK_LEFT || k->vkCode == VK_RIGHT || k->vkCode == VK_UP || k->vkCode == VK_DOWN) {
             if (down) PostMessageW(g_strip, WM_SURF, k->vkCode == VK_RIGHT ? 1 : k->vkCode == VK_LEFT ? (WPARAM)-1 : k->vkCode == VK_UP ? 8 : (WPARAM)-8, 0);
             return 1;
@@ -849,6 +857,7 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
 }
 
 static int g_sustained[128];       // note released while its pedal was down; sounds until pedal-up
+static int g_latchOrder[128], g_latchCount = 0;   // Enter-latch order
 static int pedal_holds(int midi) {
     int caps = (GetKeyState(VK_CAPITAL) & 1) != 0;
     int lshift = (GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0, rshift = (GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
@@ -858,13 +867,27 @@ static int pedal_holds(int midi) {
 }
 static void lit_on(HWND hwnd, int midi, int vel) {
     if (midi < 0 || midi > 127) return;
-    if (g_sustained[midi]) { g_sustained[midi] = 0; play_off(midi); g_lit[midi] = 0; }   // retrigger a pedalled note
+    if (g_sustained[midi] || g_latched[midi]) { g_sustained[midi] = 0; g_latched[midi] = 0; play_off(midi); g_lit[midi] = 0; }   // retrigger a held note
     if (g_lit[midi]++ == 0) play_on(midi, vel);
     push_frame(hwnd);
 }
 static void lit_off(HWND hwnd, int midi) {
     if (midi < 0 || midi > 127 || g_lit[midi] == 0) return;
-    if (--g_lit[midi] == 0) { if (pedal_holds(midi)) g_sustained[midi] = 1; else play_off(midi); }
+    if (--g_lit[midi] == 0) { if (g_enterLatch) latch_note(midi); else if (g_latched[midi]) { } else if (pedal_holds(midi)) g_sustained[midi] = 1; else play_off(midi); }
+    push_frame(hwnd);
+}
+// Enter-latch: while Return is held, a note you release stays on until
+// Backspace pops it (newest first) or Shift+Backspace clears them all.
+static void latch_note(int midi) {
+    if (g_latched[midi]) return;
+    g_latched[midi] = 1; if (g_latchCount < 128) g_latchOrder[g_latchCount++] = midi;
+}
+static void unlatch(HWND hwnd, int all) {
+    while (g_latchCount > 0) {
+        int m = g_latchOrder[--g_latchCount];
+        if (g_latched[m]) { g_latched[m] = 0; if (g_lit[m] == 0 && !g_sustained[m]) play_off(m); }
+        if (!all) break;
+    }
     push_frame(hwnd);
 }
 static void pedal_release(HWND hwnd) {
@@ -896,7 +919,7 @@ static void cue(HWND hwnd, int a, int b) { g_cueNotes[0] = a; g_cueNotes[1] = b;
 static void typing_set(HWND hwnd, int on) {
     if (on == g_typing) return;
     g_typing = on;
-    if (!on) release_typed(hwnd);
+    if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); }
     g_pendingDigits[0] = 0;
     flash(on ? FOCUS_BLUE : STOP_RED);
     cue(hwnd, on ? 84 : 79, on ? 91 : 72);
@@ -1223,6 +1246,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_PEDAL:
         pedal_release(hwnd);
+        return 0;
+    case WM_LATCH:
+        g_enterLatch = (int)wp;
+        return 0;
+    case WM_UNLATCH:
+        unlatch(hwnd, (int)wp);
         return 0;
     case WM_SURF: {
         // Arrow keys surf the instruments: ←/→ one program, ↑/↓ one family.
