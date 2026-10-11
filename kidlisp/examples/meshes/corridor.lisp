@@ -16,12 +16,21 @@
 (mesh guard (cube 36 90 20 60 120 200))
 
 (def tt 0) (now tt (/ frame 60))
-(def camx 0) (now camx (* (sin (* tt 0.5)) 80))
-(def camz 0) (now camz (+ (% (* tt 220) 3400) 200))   ; the walk loops before the corridor ends
-(def yaw 0) (now yaw (* (sin (* tt 0.7)) 0.25))
+; the left stick walks, the right stick looks; with no pad the camera walks itself
+(def camx 0) (def camz 200) (def yaw 0) (def pitch 0)
+(def held 0) (now held (+ (abs (pad leftx)) (abs (pad lefty)) (abs (pad rightx)) (abs (pad righty))))
+(if (> held 0.05)
+  (now yaw (+ yaw (* (pad rightx) 0.04)))
+  (now pitch (clamp (- pitch (* (pad righty) 0.03)) -0.8 0.8))
+  (now camx (+ camx (* (pad leftx) 6 (cos yaw)) (* (pad lefty) -6 (sin yaw))))
+  (now camz (+ camz (* (pad lefty) -6 (cos yaw)) (* (pad leftx) -6 (sin yaw)))) else
+  (now camx (* (sin (* tt 0.5)) 80))
+  (now camz (+ (% (* tt 220) 3400) 200))
+  (now yaw (* (sin (* tt 0.7)) 0.25)))
+(now camx (clamp camx -560 560)) (now camz (clamp camz 100 3900))
 
 (wipe 90 140 210)
-(camera camx 60 camz yaw 0 70 NEAR_PLANE)
+(camera camx 60 camz yaw pitch 70 NEAR_PLANE)
 (place floor 0 -150 2000)
 (place ceiling 0 150 2000)
 ; two long walls of bricks, staggered rows. Inside a loop a value is set

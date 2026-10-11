@@ -160,7 +160,22 @@ function load(index) {
   frames = 0; lastSwitch = Date.now();
 }
 function boot() { try { bench(); } catch (_) {} screen(); api.screen.width = W; api.screen.height = H; load(0); }
-function sim() {}
+// The host's pad into the piece's pad: sticks and triggers as numbers, the
+// down list as 0/1 under the evaluator's names (a b x y lb rb lt rt back
+// start ls rs up down left right).
+const PAD_NAMES = { A: "a", B: "b", X: "x", Y: "y", LeftShoulder: "lb", RightShoulder: "rb", LeftTrigger: "lt", RightTrigger: "rt", View: "back", Menu: "start", LeftThumbstick: "ls", RightThumbstick: "rs", DPadUp: "up", DPadDown: "down", DPadLeft: "left", DPadRight: "right" };
+const PAD_BUTTONS = ["a", "b", "x", "y", "lb", "rb", "lt", "rt", "back", "start", "ls", "rs", "up", "down", "left", "right"];
+function readPad() {
+  if (!lisp || typeof gamepad !== "function") return;
+  let p = null; try { p = gamepad(0); } catch (_) { return; }
+  const st = lisp.padState;
+  if (!p || !p.connected) { for (const k of PAD_BUTTONS) st[k] = 0; st.leftx = st.lefty = st.rightx = st.righty = 0; return; }
+  st.leftx = +p.leftX || 0; st.lefty = +p.leftY || 0; st.rightx = +p.rightX || 0; st.righty = +p.rightY || 0;
+  st.lt = +p.leftTrigger || 0; st.rt = +p.rightTrigger || 0;
+  for (const k of PAD_BUTTONS) if (k !== "lt" && k !== "rt") st[k] = 0;
+  if (Array.isArray(p.down)) for (const name of p.down) { const k = PAD_NAMES[name]; if (k) st[k] = 1; }
+}
+function sim() { readPad(); }
 function paint() {
   screen(); api.screen.width = W; api.screen.height = H;
   if (Date.now() - lastSwitch > SWITCH_EVERY) load((current + 1) % ORDER.length);
