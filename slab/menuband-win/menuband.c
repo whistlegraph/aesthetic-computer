@@ -475,7 +475,7 @@ static void layout_for_taskbar_height(int taskbarH) {
     g_blackH = (g_keyH * 6) / 10;
     g_padY = (taskbarH - g_keyH) / 2;
     g_padX = pt(6.0);
-    g_chipW = pt(30.0);
+    g_chipW = pt(36.0);
     g_pianoX = g_padX + g_chipW + pt(6.0);
     g_stripW = g_pianoX + g_keyW * WHITE_COUNT + g_padX;
     g_stripH = taskbarH;
@@ -602,18 +602,35 @@ static void blit_mask(const uint8_t *mask, int mw, int mh, int x0, int y0, RGB8 
     for (int y = 0; y < mh; y++) for (int x = 0; x < mw; x++) { uint8_t m = mask[y * mw + x]; if (m) put(x0 + x, y0 + y, c, m / 255.0 * alpha); }
 }
 
+// Crop a mask to its ink so glyph placement works from what is visible,
+// not from the font's em box (♪ sits in a small corner of its box).
+static uint8_t *trim_mask(uint8_t *m, int w, int h, int *outW, int *outH) {
+    if (!m) { *outW = *outH = 0; return NULL; }
+    int x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) if (m[y * w + x] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) { *outW = *outH = 0; free(m); return NULL; }
+    int tw = x1 - x0 + 1, th = y1 - y0 + 1;
+    uint8_t *t = (uint8_t *)malloc((size_t)tw * th);
+    for (int y = 0; y < th; y++) memcpy(t + y * tw, m + (y0 + y) * w + x0, tw);
+    free(m); *outW = tw; *outH = th; return t;
+}
+
 static uint8_t *g_noteMask = NULL; static int g_noteW = 0, g_noteH = 0;
 static uint8_t *g_numMask = NULL;  static int g_numW = 0, g_numH = 0;
 static wchar_t g_numText[8] = L"";
 
 static void render_chip_mask(void) {
-    free(g_noteMask); g_noteMask = text_mask(L"\x266A", L"Segoe UI Symbol", pt(17.0), FW_NORMAL, &g_noteW, &g_noteH);
+    // Render once to learn the ink height, then again so the ink is ~88 % of the key height.
+    int w0, h0; uint8_t *probe = trim_mask(text_mask(L"\x266A", L"Segoe UI Symbol", 64, FW_NORMAL, &w0, &h0), w0, h0, &w0, &h0);
+    free(probe);
+    int px = h0 > 0 ? (int)(64.0 * (g_keyH * 0.88) / h0) : g_keyH;
+    free(g_noteMask); g_noteMask = trim_mask(text_mask(L"\x266A", L"Segoe UI Symbol", px, FW_NORMAL, &g_noteW, &g_noteH), g_noteW, g_noteH, &g_noteW, &g_noteH);
     free(g_numMask); g_numMask = NULL; g_numText[0] = 0;
 }
 
 static void ensure_number_mask(const wchar_t *text) {
     if (g_numMask && !wcscmp(text, g_numText)) return;
-    free(g_numMask); g_numMask = text_mask(text, L"Segoe UI", pt(10.0), FW_HEAVY, &g_numW, &g_numH);
+    free(g_numMask); g_numMask = trim_mask(text_mask(text, L"Segoe UI", pt(11.0), FW_HEAVY, &g_numW, &g_numH), g_numW, g_numH, &g_numW, &g_numH);
     wcscpy_s(g_numText, 8, text);
 }
 
@@ -643,12 +660,16 @@ static void paint(void) {
     RECT cr = chip_rect();
     if (g_typing) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, FOCUS_BLUE, blend(FOCUS_BLUE, black, 0.25), 0.9); }
     else if (g_hoverChip) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, white, white, 0.10); }
-    int gx = cr.left, gy = cr.top - pt(2.0);
-    blit_mask(g_noteMask, g_noteW, g_noteH, gx, gy, glyph, 1.0);
+    // ♪ as tall as the keys, the number hugging its lower right like a subscript.
     wchar_t num[8]; int pending = g_pendingDigits[0] != 0;
     if (pending) wcscpy_s(num, 8, g_pendingDigits); else swprintf(num, 8, L"%d", g_program + 1);
     ensure_number_mask(num);
-    int nx = cr.right - g_numW, ny = cr.bottom - g_numH + pt(1.0);
+    int gap = pt(1.0);
+    int unitW = g_noteW + gap + g_numW;
+    int gx = cr.left + (g_chipW - unitW) / 2; if (gx < cr.left) gx = cr.left;
+    int gy = g_padY + (g_keyH - g_noteH) / 2;
+    blit_mask(g_noteMask, g_noteW, g_noteH, gx, gy, glyph, 1.0);
+    int nx = gx + g_noteW + gap, ny = g_padY + g_keyH - g_numH - pt(1.0);
     blit_mask(g_numMask, g_numW, g_numH, nx, ny, pending ? CHROMA[4] : glyph, 1.0);
 
     // Backplate: the groove colour shows between keys and as a hairline frame.
@@ -788,6 +809,9 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         int isCtrl = (k->vkCode == VK_LCONTROL || k->vkCode == VK_RCONTROL);
+        // Key probe for the Fn-free media-key mapping: what arrives for F-keys and volume keys.
+        if (down && ((k->vkCode >= VK_F1 && k->vkCode <= VK_F12) || k->vkCode == VK_VOLUME_UP || k->vkCode == VK_VOLUME_DOWN || k->vkCode == VK_VOLUME_MUTE || k->vkCode == VK_MEDIA_PLAY_PAUSE))
+            mb_log(L"probe: vk 0x%02X scan 0x%02X flags 0x%02X", k->vkCode, k->scanCode, k->flags);
         // Ctrl ×2: two solo taps (down, up, nothing else between) inside 450 ms.
         if (isCtrl) {
             if (down) g_ctrlSolo = 1;
@@ -856,12 +880,18 @@ static void release_typed(HWND hwnd) {
 // Little ear-cue on focus change, like the Mac: up a fifth on arm, down on Esc.
 #define IDT_CUE 5
 static int g_cueNotes[2], g_cueIndex = 0, g_cueSounding = -1;
-static void step_cue(HWND hwnd) {
-    if (g_cueSounding >= 0) { play_off(g_cueSounding); g_cueSounding = -1; }
-    if (g_cueIndex >= 2) { KillTimer(hwnd, IDT_CUE); return; }
-    g_cueSounding = g_cueNotes[g_cueIndex++]; play_on(g_cueSounding, 70);
+#define CUE_PROGRAM 9   // glockenspiel: reads as interface, not as the instrument you're playing
+static void cue_note(int midi, int on) {
+    if (g_midiOut) { midiOutShortMsg(g_midiOut, (on ? 0x99 : 0x89) | ((DWORD)midi << 8) | (on ? 0x5A0000 : 0)); return; }   // channel 10 percussion slot on a DAW
+    if (on) { g_seedCounter = g_seedCounter * 1664525u + 1013904223u; Cmd c = { CMD_ON, (uint8_t)midi, 96, CUE_PROGRAM, g_seedCounter }; synth_push(c); }
+    else { Cmd c = { CMD_OFF, (uint8_t)midi, 0, 0, 0 }; synth_push(c); }
 }
-static void cue(HWND hwnd, int a, int b) { g_cueNotes[0] = a; g_cueNotes[1] = b; g_cueIndex = 0; SetTimer(hwnd, IDT_CUE, 90, NULL); step_cue(hwnd); }
+static void step_cue(HWND hwnd) {
+    if (g_cueSounding >= 0) { cue_note(g_cueSounding, 0); g_cueSounding = -1; }
+    if (g_cueIndex >= 2) { KillTimer(hwnd, IDT_CUE); return; }
+    g_cueSounding = g_cueNotes[g_cueIndex++]; cue_note(g_cueSounding, 1);
+}
+static void cue(HWND hwnd, int a, int b) { g_cueNotes[0] = a; g_cueNotes[1] = b; g_cueIndex = 0; SetTimer(hwnd, IDT_CUE, 150, NULL); step_cue(hwnd); }
 
 static void typing_set(HWND hwnd, int on) {
     if (on == g_typing) return;
@@ -1132,7 +1162,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_LBUTTONDOWN: {
         int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp);
-        if (chip_at(x, y)) { typing_set(hwnd, !g_typing); return 0; }
+        if (chip_at(x, y)) { show_menu(hwnd); return 0; }
         SetCapture(hwnd);
         int midi = key_at(x, y);
         mouse_down(hwnd, midi);
