@@ -230,7 +230,8 @@ function Produce([string]$mode) {
   Trace "pixels"
   # Pixels.
   $t = [System.Diagnostics.Stopwatch]::StartNew()
-  $bmp = New-Object System.Drawing.Bitmap $region.Width, $region.Height
+  # 24-bit: CopyFromScreen leaves alpha at 0 in a 32-bit surface and the OCR engine then sees nothing.
+  $bmp = New-Object System.Drawing.Bitmap $region.Width, $region.Height, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.CopyFromScreen($region.Location, [System.Drawing.Point]::Empty, $region.Size); $g.Dispose()
   $tm.capture = $t.ElapsedMilliseconds
@@ -251,7 +252,20 @@ function Produce([string]$mode) {
   Trace "ocr"
   # OCR.
   $t.Restart()
-  if ($flags['noocr']) { $fr.ocr = @() } else { $fr.ocr = [object[]](Ocr-Bitmap $bmp $region.X $region.Y) }
+  if ($flags['noocr']) { $fr.ocr = @() } else {
+    $ocrW = [Math]::Min(1568, $bmp.Width); $k = $bmp.Width / $ocrW
+    $small = if ($k -gt 1) { New-Object System.Drawing.Bitmap $bmp, $ocrW, ([int]($bmp.Height / $k)) } else { $bmp }
+    $boxes = @(Ocr-Bitmap $small 0 0)
+    if ($small -ne $bmp) { $small.Dispose() }
+    $scaled = New-Object System.Collections.ArrayList
+    foreach ($b in $boxes) {
+      if ($b -isnot [System.Collections.IDictionary]) { continue }
+      $r = $b['r']
+      [void]$scaled.Add([ordered]@{ t = $b['t']; cx = [int]($region.X + $b['cx'] * $k); cy = [int]($region.Y + $b['cy'] * $k);
+        r = @([int]($region.X + $r[0] * $k), [int]($region.Y + $r[1] * $k), [int]($r[2] * $k), [int]($r[3] * $k)) })
+    }
+    $fr.ocr = [object[]]$scaled.ToArray()
+  }
   $tm.ocr = $t.ElapsedMilliseconds
 
   Trace "uia"
@@ -278,6 +292,16 @@ function Produce([string]$mode) {
   [IO.File]::WriteAllText($json, ($fr | ConvertTo-Json -Depth 8 -Compress), $utf8)
   Trace "done $($tm.wall)ms"
 }
+
+# Warm the OCR engine and UIA once so the first real request isn't the slow one
+# (the frame client gives a cold agent only ~4 s).
+try {
+  $warm = New-Object System.Drawing.Bitmap 320, 120
+  $wg = [System.Drawing.Graphics]::FromImage($warm); $wg.Clear([System.Drawing.Color]::White)
+  $wg.DrawString('slab agent warm-up 0123', (New-Object System.Drawing.Font 'Segoe UI', 18), [System.Drawing.Brushes]::Black, 8, 40); $wg.Dispose()
+  [void](Ocr-Bitmap $warm 0 0); $warm.Dispose()
+  [void](Walk-Uia ([SlabNative]::GetForegroundWindow()) 20 200)
+} catch {}
 
 # ── request loop ────────────────────────────────────────────────────────
 $req = "$state\frame.req"; $done = "$state\frame.done"

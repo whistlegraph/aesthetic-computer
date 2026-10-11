@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "gm_synth.h"
 
 // The MIDL-generated audio headers only declare these; in C nothing defines
@@ -45,6 +46,8 @@ static const IID   MB_IID_IMMDeviceEnumerator  = {0xA95664D2,0x9614,0x4F35,{0xA7
 static const IID   MB_IID_IAudioClient         = {0x1CB9AD4C,0xDBFA,0x4C32,{0xB1,0x78,0xC2,0xF5,0x68,0xA7,0x03,0xB2}};
 static const IID   MB_IID_IAudioRenderClient   = {0xF294ACFC,0x3146,0x4483,{0xA7,0xBF,0xAD,0xDC,0xA7,0xC2,0x60,0xE2}};
 static const GUID  MB_SUBTYPE_IEEE_FLOAT       = {0x00000003,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}};
+
+static void mb_log(const wchar_t *fmt, ...);
 
 // ───────────────────────────── synth ─────────────────────────────
 
@@ -508,9 +511,12 @@ static void flash(RGB8 c) {
     if (!g_flash) return;
     g_flashColor = RGB(c.r, c.g, c.b);
     g_flashAlpha = 0.35;
+    // Inset by a pixel: a topmost window that exactly covers the monitor reads
+    // as a full-screen app to the shell (QUNS_BUSY), and the strip would hide
+    // itself for the length of its own flash.
     int w = GetSystemMetrics(SM_CXSCREEN), h = GetSystemMetrics(SM_CYSCREEN);
     SetLayeredWindowAttributes(g_flash, 0, (BYTE)(g_flashAlpha * 255), LWA_ALPHA);
-    SetWindowPos(g_flash, HWND_TOPMOST, 0, 0, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    SetWindowPos(g_flash, HWND_TOPMOST, 1, 1, w - 2, h - 2, SWP_NOACTIVATE | SWP_SHOWWINDOW);
     InvalidateRect(g_flash, NULL, TRUE);
     SetTimer(g_flash, IDT_FLASH, 16, NULL);
 }
@@ -598,9 +604,17 @@ static int fullscreen_app_in_front(void) {
     return 0;
 }
 
+static int g_hiddenWhy = 0;
 static void track(HWND hwnd, int force) {
     int x, y, h;
-    if (!find_slot(&x, &y, &h) || fullscreen_app_in_front()) { ShowWindow(hwnd, SW_HIDE); return; }
+    int flashing = g_flash && IsWindowVisible(g_flash);
+    int noSlot = !find_slot(&x, &y, &h), fs = (noSlot || flashing) ? 0 : fullscreen_app_in_front();
+    if (noSlot || fs) {
+        int why = noSlot ? 1 : 2;
+        if (why != g_hiddenWhy) { g_hiddenWhy = why; mb_log(L"track: hide (%s)", noSlot ? L"no taskbar slot" : L"fullscreen app in front"); }
+        ShowWindow(hwnd, SW_HIDE); return;
+    }
+    if (g_hiddenWhy) { g_hiddenWhy = 0; mb_log(L"track: show again"); }
     if (h != g_lastTaskbarH || force) {
         g_lastTaskbarH = h;
         layout_for_taskbar_height(h);
@@ -773,7 +787,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_COMMAND: {
         int id = LOWORD(wp);
-        if (id == IDM_QUIT) { DestroyWindow(hwnd); return 0; }
+        if (id == IDM_QUIT) { mb_log(L"menu: quit"); DestroyWindow(hwnd); return 0; }
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
         if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); }
@@ -786,6 +800,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         track(hwnd, 1);
         return 0;
     case WM_DESTROY:
+        mb_log(L"WM_DESTROY on strip");
         typing_set(hwnd, 0);
         Shell_NotifyIconW(NIM_DELETE, &g_nid);
         if (g_hook) UnhookWindowsHookEx(g_hook);
@@ -797,8 +812,32 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+static void mb_log(const wchar_t *fmt, ...) {
+    wchar_t path[MAX_PATH]; GetTempPathW(MAX_PATH, path); wcscat_s(path, MAX_PATH, L"menuband.log");
+    FILE *f = NULL; _wfopen_s(&f, path, L"a"); if (!f) return;
+    SYSTEMTIME st; GetLocalTime(&st);
+    fwprintf(f, L"%02d:%02d:%02d.%03d ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+    va_list ap; va_start(ap, fmt); vfwprintf(f, fmt, ap); va_end(ap);
+    fwprintf(f, L"\n"); fclose(f);
+}
+
+// Last-resort crash note: Windows Error Reporting is off on the lean install,
+// so write the exception code and address to %TEMP%\menuband-crash.txt.
+static LONG WINAPI crash_filter(EXCEPTION_POINTERS *ep) {
+    wchar_t path[MAX_PATH]; GetTempPathW(MAX_PATH, path); wcscat_s(path, MAX_PATH, L"menuband-crash.txt");
+    FILE *f = NULL; _wfopen_s(&f, path, L"a");
+    if (f) {
+        SYSTEMTIME st; GetLocalTime(&st);
+        fwprintf(f, L"%04d-%02d-%02d %02d:%02d:%02d code=0x%08lX addr=%p module=%p\n", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
+                 ep->ExceptionRecord->ExceptionCode, ep->ExceptionRecord->ExceptionAddress, (void *)GetModuleHandleW(NULL));
+        fclose(f);
+    }
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     (void)prev; (void)cmdline; (void)show;
+    SetUnhandledExceptionFilter(crash_filter);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
     InitializeCriticalSection(&g_lock);
@@ -831,7 +870,9 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     Shell_NotifyIconW(NIM_ADD, &g_nid);
 
     g_hook = SetWindowsHookExW(WH_KEYBOARD_LL, ll_keyboard, hInst, 0);
+    mb_log(L"start: strip=%p flash=%p hook=%p audio=%d (lastErr=%lu)", (void *)hwnd, (void *)g_flash, (void *)g_hook, (int)g_audioRunning, GetLastError());
     track(hwnd, 1);
+    mb_log(L"start: placed at %d,%d size %dx%d taskbarH=%d", g_posX, g_posY, g_stripW, g_stripH, g_lastTaskbarH);
 
     MSG m;
     while (GetMessageW(&m, NULL, 0, 0)) { TranslateMessage(&m); DispatchMessageW(&m); }
