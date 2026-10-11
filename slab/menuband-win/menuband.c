@@ -48,11 +48,13 @@ static const IID   MB_IID_IMMDeviceEnumerator  = {0xA95664D2,0x9614,0x4F35,{0xA7
 static const IID   MB_IID_IAudioClient         = {0x1CB9AD4C,0xDBFA,0x4C32,{0xB1,0x78,0xC2,0xF5,0x68,0xA7,0x03,0xB2}};
 static const IID   MB_IID_IAudioRenderClient   = {0xF294ACFC,0x3146,0x4483,{0xA7,0xBF,0xAD,0xDC,0xA7,0xC2,0x60,0xE2}};
 static const GUID  MB_SUBTYPE_IEEE_FLOAT       = {0x00000003,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}};
+static const IID   MB_IID_IAudioClient3        = {0x7ED4EE07,0x8E67,0x4CD4,{0x8C,0x1A,0x2B,0x7A,0x59,0x87,0xAD,0x42}};
 
 static void mb_log(const wchar_t *fmt, ...);
 static void setting_set(const wchar_t *name, DWORD v);
 static void unlatch(HWND hwnd, int all);
 static void latch_note(int midi);
+static void audio_set_exclusive(int want);
 static int g_enterLatch;
 static int g_latched[128];           // Enter-latched notes (drawn lit, sound until unlatched)
 static int g_fnFree = 1;             // bare F3/F4/F5 act as mute / volume down / volume up
@@ -395,8 +397,19 @@ static void wh_render(float *out, int frames) {
 
 static IAudioClient *g_client = NULL;
 static IAudioRenderClient *g_render = NULL;
-static HANDLE g_audioEvent = NULL;
+static HANDLE g_audioEvent = NULL, g_audioThread = NULL;
 static UINT32 g_bufferFrames = 0;
+static int g_sampleFormat = 0;      // 0 float32, 1 int16, 2 int24-in-32, 3 int32
+static int g_exclusive = 0;         // current stream is exclusive
+static int g_lowLatency = 1;        // policy: exclusive while armed
+static float g_scratch[2 * 8192];
+
+static void write_frames(BYTE *data, int frames) {
+    if (g_sampleFormat == 0) { synth_render((float *)data, frames); return; }
+    synth_render(g_scratch, frames);
+    if (g_sampleFormat == 1) { short *o = (short *)data; for (int i = 0; i < 2 * frames; i++) { float v = g_scratch[i]; if (v > 1) v = 1; if (v < -1) v = -1; o[i] = (short)(v * 32767.0f); } }
+    else { int *o = (int *)data; float sc = g_sampleFormat == 2 ? 8388607.0f * 256.0f : 2147483647.0f; for (int i = 0; i < 2 * frames; i++) { float v = g_scratch[i]; if (v > 1) v = 1; if (v < -1) v = -1; o[i] = (int)(v * sc); } }
+}
 
 static volatile LONG g_dbgCallbacks = 0, g_dbgFrames = 0;
 static volatile float g_dbgPeak = 0;
@@ -408,23 +421,28 @@ static DWORD WINAPI audio_thread(LPVOID arg) {
     DWORD lastLog = GetTickCount(); int timeouts = 0;
     while (g_audioRunning) {
         if (WaitForSingleObject(g_audioEvent, 2000) != WAIT_OBJECT_0) { timeouts++; mb_log(L"audio: event timeout #%d", timeouts); continue; }
-        UINT32 padding = 0;
-        HRESULT hr = g_client->lpVtbl->GetCurrentPadding(g_client, &padding);
-        if (FAILED(hr)) { mb_log(L"audio: GetCurrentPadding 0x%08lX", hr); continue; }
-        UINT32 frames = g_bufferFrames - padding;
-        if (frames == 0) continue;
+        UINT32 frames = g_bufferFrames;
+        if (!g_exclusive) {
+            UINT32 padding = 0;
+            HRESULT hp = g_client->lpVtbl->GetCurrentPadding(g_client, &padding);
+            if (FAILED(hp)) { mb_log(L"audio: GetCurrentPadding 0x%08lX", hp); continue; }
+            frames = g_bufferFrames - padding;
+            if (frames == 0) continue;
+        }
         BYTE *data = NULL;
-        hr = g_render->lpVtbl->GetBuffer(g_render, frames, &data);
-        if (FAILED(hr)) { mb_log(L"audio: GetBuffer 0x%08lX", hr); continue; }
-        synth_render((float *)data, (int)frames);
-        float *f = (float *)data; float peak = g_dbgPeak;
-        for (UINT32 i = 0; i < frames * 2; i++) { float a = fabsf(f[i]); if (a > peak) peak = a; }
+        HRESULT hr = g_render->lpVtbl->GetBuffer(g_render, frames, &data);
+        if (FAILED(hr)) { if (hr != AUDCLNT_E_BUFFER_TOO_LARGE) mb_log(L"audio: GetBuffer 0x%08lX", hr); continue; }
+        if (frames > 8192) frames = 8192;
+        write_frames(data, (int)frames);
+        float peak = g_dbgPeak;
+        if (g_sampleFormat == 0) { float *f = (float *)data; for (UINT32 i = 0; i < frames * 2; i++) { float a = fabsf(f[i]); if (a > peak) peak = a; } }
+        else { for (UINT32 i = 0; i < frames * 2; i++) { float a = fabsf(g_scratch[i]); if (a > peak) peak = a; } }
         g_dbgPeak = peak; InterlockedIncrement(&g_dbgCallbacks); InterlockedAdd(&g_dbgFrames, (LONG)frames);
         g_render->lpVtbl->ReleaseBuffer(g_render, frames, 0);
         if (GetTickCount() - lastLog > 2000) {
             int active = 0; for (int i = 0; i < MAX_VOICES; i++) if (g_voices[i].active) active++;
             for (int i = 0; i < WH_VOICES; i++) if (g_wv[i].active) active++;
-            mb_log(L"audio: callbacks=%ld frames=%ld peak=%.4f active=%d noteOns=%ld sr=%.0f buf=%u", g_dbgCallbacks, g_dbgFrames, g_dbgPeak, active, g_dbgNoteOns, g_sampleRate, g_bufferFrames);
+            mb_log(L"audio: callbacks=%ld frames=%ld peak=%.4f active=%d noteOns=%ld sr=%.0f buf=%u %s", g_dbgCallbacks, g_dbgFrames, g_dbgPeak, active, g_dbgNoteOns, g_sampleRate, g_bufferFrames, g_exclusive ? L"exclusive" : L"shared");
             g_dbgPeak = 0; lastLog = GetTickCount();
         }
     }
@@ -432,22 +450,109 @@ static DWORD WINAPI audio_thread(LPVOID arg) {
     return 0;
 }
 
-static int audio_start(void) {
-    IMMDeviceEnumerator *enumerator = NULL;
-    IMMDevice *device = NULL;
-    HRESULT hr = CoCreateInstance(&MB_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
-                                  &MB_IID_IMMDeviceEnumerator, (void **)&enumerator);
-    if (FAILED(hr)) return 0;
-    hr = enumerator->lpVtbl->GetDefaultAudioEndpoint(enumerator, eRender, eConsole, &device);
+static void audio_stop(void) {
+    if (!g_audioRunning && !g_client) return;
+    InterlockedExchange(&g_audioRunning, 0);
+    if (g_audioEvent) SetEvent(g_audioEvent);
+    if (g_audioThread) { WaitForSingleObject(g_audioThread, 2000); CloseHandle(g_audioThread); g_audioThread = NULL; }
+    if (g_client) g_client->lpVtbl->Stop(g_client);
+    if (g_render) { g_render->lpVtbl->Release(g_render); g_render = NULL; }
+    if (g_client) { g_client->lpVtbl->Release(g_client); g_client = NULL; }
+    if (g_audioEvent) { CloseHandle(g_audioEvent); g_audioEvent = NULL; }
+}
+
+static IAudioClient *open_client(void) {
+    IMMDeviceEnumerator *enumerator = NULL; IMMDevice *device = NULL; IAudioClient *c = NULL;
+    if (FAILED(CoCreateInstance(&MB_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &MB_IID_IMMDeviceEnumerator, (void **)&enumerator))) return NULL;
+    if (SUCCEEDED(enumerator->lpVtbl->GetDefaultAudioEndpoint(enumerator, eRender, eConsole, &device))) { device->lpVtbl->Activate(device, &MB_IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&c); device->lpVtbl->Release(device); }
     enumerator->lpVtbl->Release(enumerator);
-    if (FAILED(hr)) return 0;
-    hr = device->lpVtbl->Activate(device, &MB_IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&g_client);
-    device->lpVtbl->Release(device);
-    if (FAILED(hr)) return 0;
+    return c;
+}
+
+// Exclusive mode at the device's minimum period: bypasses the mixer and the
+// Realtek effects, usually ~3 ms. Tries float, 24-in-32, 32, then 16-bit.
+static int audio_start_exclusive(void) {
+    g_client = open_client(); if (!g_client) return 0;
+    REFERENCE_TIME defP = 0, minP = 0;
+    g_client->lpVtbl->GetDevicePeriod(g_client, &defP, &minP);
+    WAVEFORMATEX *mix = NULL; g_client->lpVtbl->GetMixFormat(g_client, &mix);
+    DWORD rate = mix ? mix->nSamplesPerSec : 48000; if (mix) CoTaskMemFree(mix);
+    const struct { int fmt; WORD bits, valid; GUID sub; } tries[] = {
+        { 0, 32, 32, {0x00000003,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}} },
+        { 2, 32, 24, {0x00000001,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}} },
+        { 3, 32, 32, {0x00000001,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}} },
+        { 1, 16, 16, {0x00000001,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}} },
+    };
+    for (int t = 0; t < 4; t++) {
+        WAVEFORMATEXTENSIBLE fmt; memset(&fmt, 0, sizeof fmt);
+        fmt.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE; fmt.Format.nChannels = 2; fmt.Format.nSamplesPerSec = rate;
+        fmt.Format.wBitsPerSample = tries[t].bits; fmt.Format.nBlockAlign = (WORD)(2 * tries[t].bits / 8);
+        fmt.Format.nAvgBytesPerSec = rate * fmt.Format.nBlockAlign; fmt.Format.cbSize = 22;
+        fmt.Samples.wValidBitsPerSample = tries[t].valid; fmt.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT; fmt.SubFormat = tries[t].sub;
+        if (g_client->lpVtbl->IsFormatSupported(g_client, AUDCLNT_SHAREMODE_EXCLUSIVE, (WAVEFORMATEX *)&fmt, NULL) != S_OK) continue;
+        REFERENCE_TIME period = minP > 0 ? minP : defP;
+        HRESULT hr = g_client->lpVtbl->Initialize(g_client, AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, period, period, (WAVEFORMATEX *)&fmt, NULL);
+        if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) {
+            UINT32 n = 0; g_client->lpVtbl->GetBufferSize(g_client, &n);
+            period = (REFERENCE_TIME)(10000.0 * 1000 / rate * n + 0.5);
+            g_client->lpVtbl->Release(g_client); g_client = open_client(); if (!g_client) return 0;
+            hr = g_client->lpVtbl->Initialize(g_client, AUDCLNT_SHAREMODE_EXCLUSIVE, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, period, period, (WAVEFORMATEX *)&fmt, NULL);
+        }
+        if (FAILED(hr)) { mb_log(L"audio: exclusive init (%d-bit) 0x%08lX", tries[t].bits, hr); g_client->lpVtbl->Release(g_client); g_client = open_client(); if (!g_client) return 0; continue; }
+        g_sampleFormat = tries[t].fmt; g_sampleRate = rate; g_exclusive = 1;
+        g_client->lpVtbl->GetBufferSize(g_client, &g_bufferFrames);
+        g_audioEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
+        g_client->lpVtbl->SetEventHandle(g_client, g_audioEvent);
+        if (FAILED(g_client->lpVtbl->GetService(g_client, &MB_IID_IAudioRenderClient, (void **)&g_render))) return 0;
+        BYTE *data = NULL;
+        if (SUCCEEDED(g_render->lpVtbl->GetBuffer(g_render, g_bufferFrames, &data))) { memset(data, 0, (size_t)g_bufferFrames * 2 * tries[t].bits / 8); g_render->lpVtbl->ReleaseBuffer(g_render, g_bufferFrames, 0); }
+        mb_log(L"audio: EXCLUSIVE %d-bit (%d valid) @%lu, period %.2f ms (device min %.2f, default %.2f), buffer %u frames", tries[t].bits, tries[t].valid, rate, period / 10000.0, minP / 10000.0, defP / 10000.0, g_bufferFrames);
+        gm_synth_init();
+        InterlockedExchange(&g_audioRunning, 1);
+        g_audioThread = CreateThread(NULL, 0, audio_thread, NULL, 0, NULL);
+        g_client->lpVtbl->Start(g_client);
+        return 1;
+    }
+    mb_log(L"audio: no exclusive format accepted");
+    g_client->lpVtbl->Release(g_client); g_client = NULL;
+    return 0;
+}
+
+static int audio_start(void) {
+    g_exclusive = 0; g_sampleFormat = 0;
+    g_client = open_client(); if (!g_client) return 0;
+    HRESULT hr;
 
     WAVEFORMATEX *mix = NULL;
     g_client->lpVtbl->GetMixFormat(g_client, &mix);
     g_sampleRate = mix ? mix->nSamplesPerSec : 48000.0;
+
+    // Low-latency shared mode (IAudioClient3, Windows 10+): run at the engine's
+    // minimum period instead of the default 10 ms. Needs the mix format itself
+    // (float32 at the mix rate on every machine seen so far); falls back below.
+    IAudioClient3 *c3 = NULL;
+    int mixIsFloat = mix && ((mix->wFormatTag == WAVE_FORMAT_IEEE_FLOAT) || (mix->wFormatTag == WAVE_FORMAT_EXTENSIBLE && ((WAVEFORMATEXTENSIBLE *)mix)->SubFormat.Data1 == 3)) && mix->nChannels == 2 && mix->wBitsPerSample == 32;
+    if (mixIsFloat && SUCCEEDED(g_client->lpVtbl->QueryInterface(g_client, &MB_IID_IAudioClient3, (void **)&c3))) {
+        UINT32 defP = 0, fundP = 0, minP = 0, maxP = 0;
+        if (SUCCEEDED(c3->lpVtbl->GetSharedModeEnginePeriod(c3, mix, &defP, &fundP, &minP, &maxP))) {
+            HRESULT h3 = c3->lpVtbl->InitializeSharedAudioStream(c3, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, minP, mix, NULL);
+            if (SUCCEEDED(h3)) {
+                mb_log(L"audio: low-latency shared stream, period %u frames (%.2f ms; default %u, min %u, max %u)", minP, minP * 1000.0 / g_sampleRate, defP, minP, maxP);
+                c3->lpVtbl->Release(c3); CoTaskMemFree(mix);
+                goto initialized;
+            }
+            mb_log(L"audio: InitializeSharedAudioStream failed 0x%08lX, falling back", h3);
+        }
+        c3->lpVtbl->Release(c3);
+        // A failed Initialize leaves the client unusable; get a fresh one.
+        g_client->lpVtbl->Release(g_client); g_client = NULL;
+        IMMDeviceEnumerator *e2 = NULL; IMMDevice *d2 = NULL;
+        if (SUCCEEDED(CoCreateInstance(&MB_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL, &MB_IID_IMMDeviceEnumerator, (void **)&e2))) {
+            if (SUCCEEDED(e2->lpVtbl->GetDefaultAudioEndpoint(e2, eRender, eConsole, &d2))) { d2->lpVtbl->Activate(d2, &MB_IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&g_client); d2->lpVtbl->Release(d2); }
+            e2->lpVtbl->Release(e2);
+        }
+        if (!g_client) { CoTaskMemFree(mix); return 0; }
+    }
     if (mix) CoTaskMemFree(mix);
 
     WAVEFORMATEXTENSIBLE fmt; memset(&fmt, 0, sizeof fmt);
@@ -467,7 +572,10 @@ static int audio_start(void) {
             AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
             dur, 0, (WAVEFORMATEX *)&fmt, NULL);
     if (FAILED(hr)) return 0;
+    mb_log(L"audio: default shared stream (20 ms request)");
+initialized:
     g_client->lpVtbl->GetBufferSize(g_client, &g_bufferFrames);
+    { REFERENCE_TIME lat = 0; g_client->lpVtbl->GetStreamLatency(g_client, &lat); mb_log(L"audio: buffer %u frames (%.2f ms), stream latency %.2f ms", g_bufferFrames, g_bufferFrames * 1000.0 / g_sampleRate, lat / 10000.0); }
     g_audioEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
     g_client->lpVtbl->SetEventHandle(g_client, g_audioEvent);
     hr = g_client->lpVtbl->GetService(g_client, &MB_IID_IAudioRenderClient, (void **)&g_render);
@@ -480,9 +588,19 @@ static int audio_start(void) {
     }
     gm_synth_init();
     InterlockedExchange(&g_audioRunning, 1);
-    CreateThread(NULL, 0, audio_thread, NULL, 0, NULL);
+    g_audioThread = CreateThread(NULL, 0, audio_thread, NULL, 0, NULL);
     g_client->lpVtbl->Start(g_client);
     return 1;
+}
+
+// Policy: exclusive (lowest latency, other apps muted) only while armed.
+static void audio_set_exclusive(int want) {
+    if (!g_lowLatency) want = 0;
+    if (want == g_exclusive) return;
+    audio_stop();
+    if (want && audio_start_exclusive()) return;
+    if (want) mb_log(L"audio: exclusive unavailable, staying shared");
+    if (!audio_start()) mb_log(L"audio: shared restart FAILED");
 }
 
 // ───────────────────────────── MIDI out ──────────────────────────
@@ -1023,6 +1141,7 @@ static void typing_set(HWND hwnd, int on) {
     g_typing = on;
     if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); }
     g_pendingDigits[0] = 0;
+    audio_set_exclusive(on);
     flash(on ? FOCUS_BLUE : STOP_RED);
     cue(hwnd, on ? 84 : 79, on ? 91 : 72);
     push_frame(hwnd);
@@ -1087,6 +1206,7 @@ static void track(HWND hwnd, int force) {
 #define IDM_TYPING 101
 #define IDM_AUTOSTART 102
 #define IDM_FNFREE 103
+#define IDM_LOWLAT 104
 #define IDM_PROGRAM_BASE 200
 #define IDM_MIDI_BASE 400
 #define IDT_TRACK 1
@@ -1189,6 +1309,7 @@ static void show_menu(HWND hwnd) {
         AppendMenuW(midi, MF_STRING | ((int)i == g_midiDevice ? MF_CHECKED : 0), IDM_MIDI_BASE + 1 + i, caps.szPname);
     }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)midi, L"MIDI out");
+    AppendMenuW(menu, MF_STRING | (g_lowLatency ? MF_CHECKED : 0), IDM_LOWLAT, L"Lowest latency while armed  (takes the speakers; other apps pause)");
     AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn  (F3 mute, F4 down, F5 up)");
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
@@ -1378,6 +1499,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
         if (id == IDM_FNFREE) { g_fnFree = !g_fnFree; setting_set(L"fnFree", (DWORD)g_fnFree); return 0; }
+        if (id == IDM_LOWLAT) { g_lowLatency = !g_lowLatency; setting_set(L"lowLatency", (DWORD)g_lowLatency); audio_set_exclusive(g_typing); return 0; }
         if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         return 0;
@@ -1437,6 +1559,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
 
     g_program = (int)setting_get(L"program", AC_WHISTLE_PROGRAM) & 127;
     g_fnFree = setting_get(L"fnFree", 1) ? 1 : 0;
+    g_lowLatency = setting_get(L"lowLatency", 1) ? 1 : 0;
     g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
     build_keys();
     build_keymap();
@@ -1471,7 +1594,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
 
     MSG m;
     while (GetMessageW(&m, NULL, 0, 0)) { TranslateMessage(&m); DispatchMessageW(&m); }
-    if (g_client) g_client->lpVtbl->Stop(g_client);
+    audio_stop();
     CloseHandle(single);
     return 0;
 }
