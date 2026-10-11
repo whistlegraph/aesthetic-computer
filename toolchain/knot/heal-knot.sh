@@ -14,9 +14,14 @@
 #   2. loosen the cgroup to what the 3.9 GB box can spare;
 #   3. a watchdog timer that restarts knotserver when 5555 stops answering;
 #   4. Restart=always so a crash never leaves it down.
+#   5. drop the one client that was found doing 2 GB shallow clones of core
+#      every few minutes (136.243.149.102, a Hetzner box; not tangled.sh,
+#      not the appview, not any of our hosts). Override with
+#      KNOT_BLOCK="" to skip, or KNOT_BLOCK="ip1 ip2" to change the list.
 # Run from a Mac:  bash toolchain/knot/heal-knot.sh
 set -euo pipefail
-ssh -o BatchMode=yes aesthetic-pds 'bash -s' <<'REMOTE'
+KNOT_BLOCK="${KNOT_BLOCK-136.243.149.102}"
+ssh -o BatchMode=yes aesthetic-pds "KNOT_BLOCK='$KNOT_BLOCK' bash -s" <<'REMOTE'
 set -euo pipefail
 echo "== git pack memory caps on the bare repos"
 for r in /home/git/repositories/*/ /home/git/repositories/*/*/; do
@@ -70,6 +75,28 @@ AccuracySec=5
 [Install]
 WantedBy=timers.target
 UNIT
+echo "== block the runaway cloner(s): ${KNOT_BLOCK:-none}"
+if [ -n "${KNOT_BLOCK:-}" ]; then
+  printf '#!/bin/bash\n' > /usr/local/bin/knot-blocklist.sh
+  for ip in $KNOT_BLOCK; do
+    printf 'iptables -C INPUT -s %s -j DROP 2>/dev/null || iptables -I INPUT -s %s -j DROP\n' "$ip" "$ip" >> /usr/local/bin/knot-blocklist.sh
+  done
+  chmod +x /usr/local/bin/knot-blocklist.sh
+  cat > /etc/systemd/system/knot-blocklist.service <<'UNIT'
+[Unit]
+Description=Drop clients that hammer the knot with clones
+After=network.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/knot-blocklist.sh
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable --now knot-blocklist.service
+  iptables -S INPUT | grep DROP || true
+fi
 systemctl daemon-reload
 systemctl enable --now knot-watchdog.timer
 systemctl restart knotserver.service
