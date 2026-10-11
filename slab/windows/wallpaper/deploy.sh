@@ -14,6 +14,9 @@ dest='src/wallpaper'
 
 ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\wallpaper | Out-Null"
 scp -q "$here/wallpaper.c" "$here/pals_sprite.h" "$here/build.ps1" "$here/app.manifest" "$host:$dest/"
+# The still composition: ~\Pictures\ac-wallpaper.png (rendered on neo) as a BMP,
+# which the program loads with one LoadImage call. Converted on the box.
+ssh "$host" "Add-Type -AssemblyName System.Drawing; \$png = \$HOME + '\\Pictures\\ac-wallpaper.png'; \$bmp = \$HOME + '\\Pictures\\ac-wallpaper.bmp'; if ((Test-Path \$png) -and -not (Test-Path \$bmp)) { \$i = [System.Drawing.Image]::FromFile(\$png); \$i.Save(\$bmp, [System.Drawing.Imaging.ImageFormat]::Bmp); \$i.Dispose(); 'composition bmp written' } else { 'composition bmp: ' + (Test-Path \$bmp) }"
 ssh "$host" "powershell -NoProfile -ExecutionPolicy Bypass -File \$HOME\\src\\wallpaper\\build.ps1"
 if [[ "${1:-}" == "--run" ]]; then
   # A process started from the ssh session has no desktop. Relaunch through
