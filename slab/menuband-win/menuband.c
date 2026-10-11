@@ -48,6 +48,7 @@ static const IID   MB_IID_IAudioRenderClient   = {0xF294ACFC,0x3146,0x4483,{0xA7
 static const GUID  MB_SUBTYPE_IEEE_FLOAT       = {0x00000003,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}};
 
 static void mb_log(const wchar_t *fmt, ...);
+static volatile LONG g_dbgNoteOns;
 
 // ───────────────────────────── synth ─────────────────────────────
 
@@ -87,7 +88,8 @@ static void synth_push(Cmd c) {
 }
 
 static void synth_note_on(int midi, int velocity) {
-    if (!gm_program_implemented(g_program)) return;
+    if (!gm_program_implemented(g_program)) { mb_log(L"noteOn: program %d not implemented", g_program); return; }
+    InterlockedIncrement(&g_dbgNoteOns);
     g_seedCounter = g_seedCounter * 1664525u + 1013904223u;
     Cmd c = { CMD_ON, (uint8_t)midi, (uint8_t)velocity, g_program, g_seedCounter };
     synth_push(c);
@@ -171,20 +173,34 @@ static IAudioRenderClient *g_render = NULL;
 static HANDLE g_audioEvent = NULL;
 static UINT32 g_bufferFrames = 0;
 
+static volatile LONG g_dbgCallbacks = 0, g_dbgFrames = 0;
+static volatile float g_dbgPeak = 0;
+
 static DWORD WINAPI audio_thread(LPVOID arg) {
     (void)arg;
     DWORD taskIndex = 0;
     HANDLE mmcss = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
+    DWORD lastLog = GetTickCount(); int timeouts = 0;
     while (g_audioRunning) {
-        if (WaitForSingleObject(g_audioEvent, 2000) != WAIT_OBJECT_0) continue;
+        if (WaitForSingleObject(g_audioEvent, 2000) != WAIT_OBJECT_0) { timeouts++; mb_log(L"audio: event timeout #%d", timeouts); continue; }
         UINT32 padding = 0;
-        if (FAILED(g_client->lpVtbl->GetCurrentPadding(g_client, &padding))) continue;
+        HRESULT hr = g_client->lpVtbl->GetCurrentPadding(g_client, &padding);
+        if (FAILED(hr)) { mb_log(L"audio: GetCurrentPadding 0x%08lX", hr); continue; }
         UINT32 frames = g_bufferFrames - padding;
         if (frames == 0) continue;
         BYTE *data = NULL;
-        if (FAILED(g_render->lpVtbl->GetBuffer(g_render, frames, &data))) continue;
+        hr = g_render->lpVtbl->GetBuffer(g_render, frames, &data);
+        if (FAILED(hr)) { mb_log(L"audio: GetBuffer 0x%08lX", hr); continue; }
         synth_render((float *)data, (int)frames);
+        float *f = (float *)data; float peak = g_dbgPeak;
+        for (UINT32 i = 0; i < frames * 2; i++) { float a = fabsf(f[i]); if (a > peak) peak = a; }
+        g_dbgPeak = peak; InterlockedIncrement(&g_dbgCallbacks); InterlockedAdd(&g_dbgFrames, (LONG)frames);
         g_render->lpVtbl->ReleaseBuffer(g_render, frames, 0);
+        if (GetTickCount() - lastLog > 2000) {
+            int active = 0; for (int i = 0; i < MAX_VOICES; i++) if (g_voices[i].active) active++;
+            mb_log(L"audio: callbacks=%ld frames=%ld peak=%.4f active=%d noteOns=%ld sr=%.0f buf=%u", g_dbgCallbacks, g_dbgFrames, g_dbgPeak, active, g_dbgNoteOns, g_sampleRate, g_bufferFrames);
+            g_dbgPeak = 0; lastLog = GetTickCount();
+        }
     }
     if (mmcss) AvRevertMmThreadCharacteristics(mmcss);
     return 0;
@@ -301,7 +317,7 @@ static int g_chipW = 0, g_pianoX = 0;   // ♪ chip at the left, then the keys
 
 static void layout_for_taskbar_height(int taskbarH) {
     // Keys stand a little taller than the taskbar's app icons, centred.
-    g_keyH = (taskbarH * 72) / 100; if (g_keyH < 16) g_keyH = 16;
+    g_keyH = (taskbarH * 60) / 100; if (g_keyH < 16) g_keyH = 16;
     g_padY = (taskbarH - g_keyH) / 2;
     g_keyW = g_keyH / 2; if (g_keyW < 9) g_keyW = 9; if (g_keyW > 30) g_keyW = 30;
     g_blackW = (g_keyW * 6) / 10; if (g_blackW < 5) g_blackW = 5;
@@ -586,13 +602,17 @@ static int find_slot(int *outX, int *outY, int *outTaskbarH) {
     HWND tray = FindWindowW(L"Shell_TrayWnd", NULL);
     if (!tray || !IsWindowVisible(tray)) return 0;
     RECT tr; GetWindowRect(tray, &tr);
+    // Shell_TrayWnd is taller than what you see (108 px for a 72 px bar at 150 %);
+    // the visible band is what the work area leaves out at the bottom.
+    RECT wa; SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+    if (wa.bottom < screenH && screenH - wa.bottom <= 200) { tr.top = wa.bottom; tr.bottom = screenH; }
     int taskbarH = tr.bottom - tr.top;
     if (taskbarH <= 0 || taskbarH > 200) return 0;
-    RECT nr = tr;
-    HWND notify = FindWindowExW(tray, NULL, L"TrayNotifyWnd", NULL);
-    if (notify) GetWindowRect(notify, &nr); else nr.left = tr.right - 300;
+    // Flush left: Windows 11 centres its icons, so the left end of the
+    // taskbar is the empty field, like the menu bar's right end on the Mac.
     *outTaskbarH = taskbarH;
-    *outX = nr.left - 14 - g_stripW;
+    *outX = tr.left + 12;
     *outY = tr.top;
     return 1;
 }
@@ -717,6 +737,32 @@ static void mouse_up(HWND hwnd) {
     if (g_mouseMidi >= 0) { lit_off(hwnd, g_mouseMidi); g_mouseMidi = -1; }
 }
 
+// Remote autoplay for install debugging (the Mac has a distributed-notification
+// hook; here a file poke works across sessions): write
+//   %TEMP%\menuband-play.txt   e.g. "60 64 67 72 @78 350"
+// midi notes in order, optional @program, optional ms per note (default 400).
+#define IDT_PLAY 3
+static int g_playNotes[64], g_playCount = 0, g_playIndex = 0, g_playMs = 400, g_playSounding = -1;
+static void step_play(HWND hwnd) {
+    if (g_playSounding >= 0) { lit_off(hwnd, g_playSounding); g_playSounding = -1; }
+    if (g_playIndex >= g_playCount) { KillTimer(hwnd, IDT_PLAY); mb_log(L"play: done"); return; }
+    g_playSounding = g_playNotes[g_playIndex++];
+    lit_on(hwnd, g_playSounding, 100);
+}
+static void poll_play_file(HWND hwnd) {
+    wchar_t path[MAX_PATH]; GetTempPathW(MAX_PATH, path); wcscat_s(path, MAX_PATH, L"menuband-play.txt");
+    FILE *f = NULL; if (_wfopen_s(&f, path, L"r") != 0 || !f) return;
+    char line[512] = {0}; fgets(line, sizeof line, f); fclose(f); DeleteFileW(path);
+    g_playCount = 0; g_playIndex = 0; g_playMs = 400;
+    for (char *tok = strtok(line, " \t\r\n"); tok; tok = strtok(NULL, " \t\r\n")) {
+        if (tok[0] == '@') { g_program = atoi(tok + 1) & 127; midi_program(); continue; }
+        int v = atoi(tok);
+        if (v >= 200) g_playMs = v; else if (v >= 0 && v < 128 && g_playCount < 64) g_playNotes[g_playCount++] = v;
+    }
+    mb_log(L"play: %d notes, program %d, %d ms each", g_playCount, g_program, g_playMs);
+    if (g_playCount) { SetTimer(hwnd, IDT_PLAY, g_playMs, NULL); step_play(hwnd); }
+}
+
 static void shift_octave(HWND hwnd, int dir) {
     int next = g_firstMidi + 12 * dir;
     if (next < 36 || next > 84) return;
@@ -731,7 +777,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         SetTimer(hwnd, IDT_TRACK, 400, NULL);
         return 0;
     case WM_TIMER:
-        if (wp == IDT_TRACK) track(hwnd, 0);
+        if (wp == IDT_TRACK) { track(hwnd, 0); poll_play_file(hwnd); }
+        if (wp == IDT_PLAY) step_play(hwnd);
         return 0;
     case WM_MOUSEACTIVATE:
         return MA_NOACTIVATE;
@@ -846,7 +893,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
 
     build_keys();
     build_keymap();
-    if (!audio_start()) MessageBoxW(NULL, L"Menu Band could not open the audio output.", L"Menu Band", MB_ICONWARNING);
+    if (!audio_start()) { mb_log(L"audio_start FAILED"); MessageBoxW(NULL, L"Menu Band could not open the audio output.", L"Menu Band", MB_ICONWARNING); }
 
     WNDCLASSW wc; memset(&wc, 0, sizeof wc);
     wc.lpfnWndProc = wndproc; wc.hInstance = hInst; wc.lpszClassName = L"MenuBandStrip";
