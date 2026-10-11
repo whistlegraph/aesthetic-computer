@@ -154,6 +154,22 @@ else if not rg -q '^DEPLOY_SECRET=' $SERVICE_ENV
     exit 1
 end
 
+# The upload replaces the server's env wholesale, so a key set by hand on lith
+# and never written to the vault dies on the next deploy (the Whistlegraph
+# turn worker's secret did, 2026-10-11). lith/.env.keys names every key that
+# must survive; refuse rather than ship an env that is missing one.
+set ENV_KEYS "$VAULT_DIR/lith/.env.keys"
+if test "$UPLOAD_ENV" = true; and test -f $ENV_KEYS
+    set missing_keys
+    for key in (string match -rv '^\s*(#|$)' < $ENV_KEYS | string trim)
+        rg -q "^$key=." $SERVICE_ENV; or set -a missing_keys $key
+    end
+    if test (count $missing_keys) -gt 0
+        echo -e "$RED x $SERVICE_ENV is missing keys that lith/.env.keys requires: $missing_keys$NC"
+        exit 1
+    end
+end
+
 # Test SSH connection
 echo -e "$GREEN-> Testing SSH connection to $TARGET_HOST...$NC"
 if not ssh_ok $TARGET_HOST
