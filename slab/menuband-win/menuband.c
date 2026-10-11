@@ -9,7 +9,13 @@
 // Sound is the same GM synthesis core the Mac app and AC OS run
 // (gm_synth.c, shared verbatim), rendered over WASAPI in shared mode with
 // the outer attack/release contour, polyphony and voice stealing copied
-// from MenuBandGMSynth.swift.
+// from MenuBandGMSynth.swift. Notes can also go out to any Windows MIDI
+// port instead (a Windows MIDI Services loopback reaches a DAW).
+//
+// Typing: clicking a key (or the ♪ chip) focuses Menu Band — a blue
+// full-screen flash, as on the Mac — and a low-level keyboard hook turns
+// the Notepat letter layout into notes, swallowing those keys so the app
+// underneath doesn't see them. Escape leaves (red flash).
 //
 // Build: build.ps1 (cl.exe from the VS 2022 Build Tools). No dependencies
 // beyond the Windows SDK.
@@ -23,11 +29,12 @@
 #include <shellapi.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
-#include <ksmedia.h>
+#include <mmsystem.h>
 #include <avrt.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "gm_synth.h"
 
@@ -70,25 +77,21 @@ static volatile LONG g_audioRunning = 0;
 
 static double midi_freq(int midi) { return 440.0 * pow(2.0, (midi - 69) / 12.0); }
 
-static void synth_note_on(int midi, int velocity) {
-    if (!gm_program_implemented(g_program)) return;
+static void synth_push(Cmd c) {
     EnterCriticalSection(&g_lock);
-    if (g_pendingCount < PENDING_MAX) {
-        g_seedCounter = g_seedCounter * 1664525u + 1013904223u;
-        Cmd c = { CMD_ON, (uint8_t)midi, (uint8_t)velocity, g_program, g_seedCounter };
-        g_pending[g_pendingCount++] = c;
-    }
+    if (g_pendingCount < PENDING_MAX) g_pending[g_pendingCount++] = c;
     LeaveCriticalSection(&g_lock);
 }
 
-static void synth_note_off(int midi) {
-    EnterCriticalSection(&g_lock);
-    if (g_pendingCount < PENDING_MAX) {
-        Cmd c = { CMD_OFF, (uint8_t)midi, 0, 0, 0 };
-        g_pending[g_pendingCount++] = c;
-    }
-    LeaveCriticalSection(&g_lock);
+static void synth_note_on(int midi, int velocity) {
+    if (!gm_program_implemented(g_program)) return;
+    g_seedCounter = g_seedCounter * 1664525u + 1013904223u;
+    Cmd c = { CMD_ON, (uint8_t)midi, (uint8_t)velocity, g_program, g_seedCounter };
+    synth_push(c);
 }
+
+static void synth_note_off(int midi) { Cmd c = { CMD_OFF, (uint8_t)midi, 0, 0, 0 }; synth_push(c); }
+static void synth_panic(void) { Cmd c = { CMD_PANIC, 0, 0, 0, 0 }; synth_push(c); }
 
 static int allocate_voice(void) {
     for (int i = 0; i < MAX_VOICES; i++) if (!g_voices[i].active) return i;
@@ -202,8 +205,6 @@ static int audio_start(void) {
     g_sampleRate = mix ? mix->nSamplesPerSec : 48000.0;
     if (mix) CoTaskMemFree(mix);
 
-    // Ask for float32 stereo at the mix rate; the engine converts if the
-    // endpoint wants something else (AUTOCONVERTPCM).
     WAVEFORMATEXTENSIBLE fmt; memset(&fmt, 0, sizeof fmt);
     fmt.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
     fmt.Format.nChannels = 2;
@@ -227,7 +228,6 @@ static int audio_start(void) {
     hr = g_client->lpVtbl->GetService(g_client, &MB_IID_IAudioRenderClient, (void **)&g_render);
     if (FAILED(hr)) return 0;
 
-    // Prime with silence so the first callback has a clean start.
     BYTE *data = NULL;
     if (SUCCEEDED(g_render->lpVtbl->GetBuffer(g_render, g_bufferFrames, &data))) {
         memset(data, 0, g_bufferFrames * 8);
@@ -240,6 +240,36 @@ static int audio_start(void) {
     return 1;
 }
 
+// ───────────────────────────── MIDI out ──────────────────────────
+// -1 = built-in synth; otherwise a winmm device index.
+
+static int g_midiDevice = -1;
+static HMIDIOUT g_midiOut = NULL;
+
+static void midi_select(int device) {
+    if (g_midiOut) { midiOutReset(g_midiOut); midiOutClose(g_midiOut); g_midiOut = NULL; }
+    g_midiDevice = -1;
+    if (device >= 0 && midiOutOpen(&g_midiOut, (UINT)device, 0, 0, CALLBACK_NULL) == MMSYSERR_NOERROR) {
+        g_midiDevice = device;
+        midiOutShortMsg(g_midiOut, 0xC0 | ((DWORD)g_program << 8));
+    }
+    synth_panic();
+}
+
+static void midi_program(void) {
+    if (g_midiOut) midiOutShortMsg(g_midiOut, 0xC0 | ((DWORD)g_program << 8));
+}
+
+// Every note on/off funnels through here.
+static void play_on(int midi, int vel) {
+    if (g_midiOut) midiOutShortMsg(g_midiOut, 0x90 | ((DWORD)midi << 8) | ((DWORD)vel << 16));
+    else synth_note_on(midi, vel);
+}
+static void play_off(int midi) {
+    if (g_midiOut) midiOutShortMsg(g_midiOut, 0x80 | ((DWORD)midi << 8));
+    else synth_note_off(midi);
+}
+
 // ───────────────────────────── strip ─────────────────────────────
 
 #define WHITE_COUNT 14              // C4..B5, two octaves, like the Mac default
@@ -247,6 +277,7 @@ static int g_firstMidi = 60;        // C4
 static int g_whiteMidi[WHITE_COUNT];
 static int g_blackMidi[10];
 static int g_blackCount = 0;
+static int g_lit[128];              // held count per note (mouse + typing)
 
 static int is_white(int midi) { int pc = ((midi % 12) + 12) % 12; return pc == 0 || pc == 2 || pc == 4 || pc == 5 || pc == 7 || pc == 9 || pc == 11; }
 
@@ -263,30 +294,34 @@ static int g_stripW = 0, g_stripH = 0;  // whole window
 static int g_keyW = 0, g_keyH = 0;      // white key
 static int g_blackW = 0, g_blackH = 0;
 static int g_padX = 0, g_padY = 0;
+static int g_chipW = 0, g_pianoX = 0;   // ♪ chip at the left, then the keys
 
 static void layout_for_taskbar_height(int taskbarH) {
-    // Keys stand about as tall as the taskbar's app icons, centred.
-    g_keyH = (taskbarH * 62) / 100; if (g_keyH < 16) g_keyH = 16;
+    // Keys stand a little taller than the taskbar's app icons, centred.
+    g_keyH = (taskbarH * 72) / 100; if (g_keyH < 16) g_keyH = 16;
     g_padY = (taskbarH - g_keyH) / 2;
-    g_keyW = g_keyH / 2; if (g_keyW < 9) g_keyW = 9; if (g_keyW > 22) g_keyW = 22;
+    g_keyW = g_keyH / 2; if (g_keyW < 9) g_keyW = 9; if (g_keyW > 30) g_keyW = 30;
     g_blackW = (g_keyW * 6) / 10; if (g_blackW < 5) g_blackW = 5;
     g_blackH = (g_keyH * 6) / 10;
     g_padX = 6;
-    g_stripW = g_padX * 2 + g_keyW * WHITE_COUNT;
+    g_chipW = (g_keyH * 9) / 10;
+    g_pianoX = g_padX + g_chipW + 8;
+    g_stripW = g_pianoX + g_keyW * WHITE_COUNT + g_padX;
     g_stripH = taskbarH;
 }
 
 static int white_index_of(int midi) { for (int i = 0; i < WHITE_COUNT; i++) if (g_whiteMidi[i] == midi) return i; return -1; }
 
+static RECT chip_rect(void) { RECT r = { g_padX, g_padY, g_padX + g_chipW, g_padY + g_keyH }; return r; }
+
 static RECT white_rect(int i) {
-    RECT r = { g_padX + i * g_keyW, g_padY, g_padX + (i + 1) * g_keyW - 1, g_padY + g_keyH };
+    RECT r = { g_pianoX + i * g_keyW, g_padY, g_pianoX + (i + 1) * g_keyW - 1, g_padY + g_keyH };
     return r;
 }
 
 static RECT black_rect(int midi) {
-    // Sits astride the groove after the white key below it.
     int below = white_index_of(midi - 1);
-    int cx = g_padX + (below + 1) * g_keyW;
+    int cx = g_pianoX + (below + 1) * g_keyW;
     RECT r = { cx - g_blackW / 2, g_padY, cx - g_blackW / 2 + g_blackW, g_padY + g_blackH };
     return r;
 }
@@ -298,6 +333,8 @@ static int key_at(int x, int y) {
     return -1;
 }
 
+static int chip_at(int x, int y) { POINT p = { x, y }; RECT r = chip_rect(); return PtInRect(&r, p); }
+
 // ─────────────────────────── painting ────────────────────────────
 // Software rendering into a premultiplied BGRA buffer, pushed with
 // UpdateLayeredWindow so the strip can have transparent padding and
@@ -306,6 +343,7 @@ static int key_at(int x, int y) {
 static uint32_t *g_pixels = NULL;
 static HBITMAP g_dib = NULL;
 static HDC g_memDC = NULL;
+static uint8_t *g_chipMask = NULL;      // ♪ glyph coverage, g_chipW × g_keyH
 
 typedef struct { uint8_t r, g, b; } RGB8;
 
@@ -313,13 +351,14 @@ static const RGB8 CHROMA[12] = {
     {255, 50, 50}, {0,0,0}, {255,160,0}, {0,0,0}, {255,230,0}, {50,200,50},
     {0,0,0}, {50,120,255}, {0,0,0}, {130,50,200}, {0,0,0}, {180,80,255}
 };
+static const RGB8 FOCUS_BLUE = { 15, 107, 255 };
+static const RGB8 STOP_RED = { 255, 31, 41 };
 
 static RGB8 blend(RGB8 a, RGB8 b, double t) { RGB8 c = { (uint8_t)(a.r + (b.r - a.r) * t), (uint8_t)(a.g + (b.g - a.g) * t), (uint8_t)(a.b + (b.b - a.b) * t) }; return c; }
 
 static void put(int x, int y, RGB8 c, double alpha) {
     if (x < 0 || y < 0 || x >= g_stripW || y >= g_stripH) return;
     uint32_t *p = &g_pixels[y * g_stripW + x];
-    // premultiplied over
     double a = alpha;
     uint8_t db = (uint8_t)(*p & 0xFF), dg = (uint8_t)((*p >> 8) & 0xFF), dr = (uint8_t)((*p >> 16) & 0xFF), da = (uint8_t)(*p >> 24);
     uint8_t nb = (uint8_t)(c.b * a + db * (1 - a)), ng = (uint8_t)(c.g * a + dg * (1 - a)), nr = (uint8_t)(c.r * a + dr * (1 - a));
@@ -335,8 +374,34 @@ static void fill(RECT r, RGB8 top, RGB8 bottom, double alpha) {
     }
 }
 
+// Rasterise the ♪ once per layout: GDI text into a scratch DIB, luminance → mask.
+static void render_chip_mask(void) {
+    free(g_chipMask); g_chipMask = (uint8_t *)calloc((size_t)g_chipW * g_keyH, 1);
+    HDC dc = CreateCompatibleDC(NULL);
+    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bi.bmiHeader.biWidth = g_chipW; bi.bmiHeader.biHeight = -g_keyH;
+    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+    uint32_t *bits = NULL;
+    HBITMAP bm = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, (void **)&bits, NULL, 0);
+    if (!bm) { DeleteDC(dc); return; }
+    HGDIOBJ oldBm = SelectObject(dc, bm);
+    memset(bits, 0, (size_t)g_chipW * g_keyH * 4);
+    HFONT font = CreateFontW(-(g_keyH * 70) / 100, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET,
+                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, L"Segoe UI Symbol");
+    HGDIOBJ oldFont = SelectObject(dc, font);
+    SetBkMode(dc, TRANSPARENT); SetTextColor(dc, RGB(255, 255, 255));
+    RECT r = { 0, 0, g_chipW, g_keyH };
+    DrawTextW(dc, L"\x266A", 1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP);
+    for (int i = 0; i < g_chipW * g_keyH; i++) g_chipMask[i] = (uint8_t)((bits[i] >> 8) & 0xFF);
+    SelectObject(dc, oldFont); DeleteObject(font);
+    SelectObject(dc, oldBm); DeleteObject(bm); DeleteDC(dc);
+}
+
 static int g_hoverMidi = -1;
-static int g_downMidi = -1;
+static int g_hoverChip = 0;
+static int g_mouseMidi = -1;
+static int g_typing = 0;
 
 static void paint(void) {
     memset(g_pixels, 0, sizeof(uint32_t) * g_stripW * g_stripH);
@@ -345,42 +410,55 @@ static void paint(void) {
     const RGB8 blackHi = { 170, 100, 255 }, blackLo = { 120, 60, 210 };
     const RGB8 black = { 0, 0, 0 }, white = { 255, 255, 255 };
 
-    // Backplate: the groove colour shows between keys and as a hairline frame.
-    RECT plate = { g_padX - 1, g_padY - 1, g_padX + g_keyW * WHITE_COUNT, g_padY + g_keyH + 1 };
-    fill(plate, groove, groove, 0.55);
+    // ♪ chip: slate normally, focus blue while typing is live.
+    RECT cr = chip_rect();
+    RGB8 chipTop = g_typing ? FOCUS_BLUE : whiteHi, chipBot = g_typing ? blend(FOCUS_BLUE, black, 0.25) : whiteLo;
+    if (g_hoverChip && !g_typing) { chipTop = blend(chipTop, white, 0.12); chipBot = blend(chipBot, white, 0.12); }
+    RECT cframe = { cr.left - 1, cr.top - 1, cr.right + 1, cr.bottom + 1 };
+    fill(cframe, groove, groove, 0.55);
+    fill(cr, chipTop, chipBot, 1.0);
+    if (g_chipMask)
+        for (int y = 0; y < g_keyH; y++) for (int x = 0; x < g_chipW; x++) {
+            uint8_t m = g_chipMask[y * g_chipW + x];
+            if (m) put(cr.left + x, cr.top + y, white, m / 255.0 * 0.95);
+        }
+
+    // Backplate: the groove colour shows between keys and as a hairline frame;
+    // it turns focus blue while typing so the whole strip reads as armed.
+    RECT plate = { g_pianoX - 1, g_padY - 1, g_pianoX + g_keyW * WHITE_COUNT, g_padY + g_keyH + 1 };
+    fill(plate, g_typing ? FOCUS_BLUE : groove, g_typing ? FOCUS_BLUE : groove, g_typing ? 0.9 : 0.55);
 
     for (int i = 0; i < WHITE_COUNT; i++) {
         int m = g_whiteMidi[i];
         RECT r = white_rect(i);
         RGB8 hi = whiteHi, lo = whiteLo;
-        if (m == g_downMidi) { RGB8 lit = blend(CHROMA[m % 12], black, 0.22); hi = lit; lo = lit; }
+        int lit = g_lit[m] > 0;
+        if (lit) { RGB8 l = blend(CHROMA[m % 12], black, 0.22); hi = l; lo = l; }
         else if (m == g_hoverMidi) { hi = blend(whiteHi, white, 0.12); lo = blend(whiteLo, white, 0.12); }
         fill(r, hi, lo, 1.0);
-        // Chromatic stripe along the foot of each natural, as on the Mac strip.
         RECT s = { r.left + 2, r.bottom - 3, r.right - 2, r.bottom - 1 };
-        fill(s, CHROMA[m % 12], CHROMA[m % 12], m == g_downMidi ? 0.0 : 0.9);
+        fill(s, CHROMA[m % 12], CHROMA[m % 12], lit ? 0.0 : 0.9);
     }
     for (int i = 0; i < g_blackCount; i++) {
         int m = g_blackMidi[i];
         RECT r = black_rect(m);
         RGB8 hi = blackHi, lo = blackLo;
-        if (m == g_downMidi) { hi = white; lo = blend(white, blackHi, 0.4); }
+        if (g_lit[m] > 0) { hi = white; lo = blend(white, blackHi, 0.4); }
         else if (m == g_hoverMidi) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
         RECT shadow = { r.left, r.top, r.right, r.bottom + 1 };
         fill(shadow, black, black, 0.35);
         fill(r, hi, lo, 1.0);
     }
-    // Round the strip's outer corners by knocking out two pixels.
-    int L = g_padX - 1, R = g_padX + g_keyW * WHITE_COUNT - 1, T = g_padY - 1, B = g_padY + g_keyH;
-    int corners[4][2] = { {L, T}, {R, T}, {L, B}, {R, B} };
-    for (int c = 0; c < 4; c++) {
-        g_pixels[corners[c][1] * g_stripW + corners[c][0]] = 0;
-    }
+    int L = g_pianoX - 1, R = g_pianoX + g_keyW * WHITE_COUNT - 1, T = g_padY - 1, B = g_padY + g_keyH;
+    int corners[8][2] = { {L, T}, {R, T}, {L, B}, {R, B}, {cframe.left, cframe.top}, {cframe.right - 1, cframe.top}, {cframe.left, cframe.bottom - 1}, {cframe.right - 1, cframe.bottom - 1} };
+    for (int c = 0; c < 8; c++) g_pixels[corners[c][1] * g_stripW + corners[c][0]] = 0;
 }
 
-static void push_frame(HWND hwnd, int x, int y) {
+static int g_posX = 0, g_posY = 0;
+
+static void push_frame(HWND hwnd) {
     paint();
-    POINT dst = { x, y }, src = { 0, 0 };
+    POINT dst = { g_posX, g_posY }, src = { 0, 0 };
     SIZE size = { g_stripW, g_stripH };
     BLENDFUNCTION bf = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
     HDC screen = GetDC(NULL);
@@ -397,15 +475,102 @@ static void ensure_surface(void) {
     bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
     g_dib = CreateDIBSection(g_memDC, &bi, DIB_RGB_COLORS, (void **)&g_pixels, NULL, 0);
     SelectObject(g_memDC, g_dib);
+    render_chip_mask();
 }
 
-// ────────────────────── taskbar tracking ─────────────────────────
+// ───────────────────── full-screen focus flash ───────────────────
+// A click-through layered window over the primary monitor: blue when Menu
+// Band takes the keyboard, red when it lets go. Peaks then fades in ~170 ms,
+// like FocusFlashOverlay.swift.
 
-static int g_posX = 0, g_posY = 0;
+static HWND g_flash = NULL;
+static COLORREF g_flashColor = 0;
+static double g_flashAlpha = 0;
+#define IDT_FLASH 2
+
+static LRESULT CALLBACK flashproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (msg == WM_ERASEBKGND) {
+        RECT r; GetClientRect(hwnd, &r);
+        HBRUSH b = CreateSolidBrush(g_flashColor);
+        FillRect((HDC)wp, &r, b); DeleteObject(b);
+        return 1;
+    }
+    if (msg == WM_TIMER && wp == IDT_FLASH) {
+        g_flashAlpha -= 0.35 * (16.0 / 170.0);
+        if (g_flashAlpha <= 0.01) { KillTimer(hwnd, IDT_FLASH); ShowWindow(hwnd, SW_HIDE); return 0; }
+        SetLayeredWindowAttributes(hwnd, 0, (BYTE)(g_flashAlpha * 255), LWA_ALPHA);
+        return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+static void flash(RGB8 c) {
+    if (!g_flash) return;
+    g_flashColor = RGB(c.r, c.g, c.b);
+    g_flashAlpha = 0.35;
+    int w = GetSystemMetrics(SM_CXSCREEN), h = GetSystemMetrics(SM_CYSCREEN);
+    SetLayeredWindowAttributes(g_flash, 0, (BYTE)(g_flashAlpha * 255), LWA_ALPHA);
+    SetWindowPos(g_flash, HWND_TOPMOST, 0, 0, w, h, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    InvalidateRect(g_flash, NULL, TRUE);
+    SetTimer(g_flash, IDT_FLASH, 16, NULL);
+}
+
+// ────────────────────── typing (Notepat keymap) ──────────────────
+// Semitone from middle C per virtual key; mirrors MenuBandLayout's table
+// (and NOTE_TO_KEYBOARD_KEY in notepat.mjs).
+
+static int g_semitoneByVk[256];
+static int g_vkDown[256];
+static HHOOK g_hook = NULL;
+static HWND g_strip = NULL;
+#define WM_TYPEKEY (WM_APP + 2)
+#define WM_TYPEESC (WM_APP + 3)
+
+static void build_keymap(void) {
+    for (int i = 0; i < 256; i++) g_semitoneByVk[i] = -128;
+    const struct { int vk; int st; } map[] = {
+        {'Z', -2}, {'X', -1}, {'C', 0}, {'V', 1}, {'D', 2}, {'S', 3}, {'E', 4}, {'F', 5}, {'W', 6},
+        {'G', 7}, {'R', 8}, {'A', 9}, {'Q', 10}, {'B', 11}, {'H', 12}, {'T', 13}, {'I', 14}, {'Y', 15},
+        {'J', 16}, {'K', 17}, {'U', 18}, {'L', 19}, {'O', 20}, {'M', 21}, {'P', 22}, {'N', 23},
+        {VK_OEM_1, 24}, {VK_OEM_7, 25},
+    };
+    for (size_t i = 0; i < sizeof map / sizeof map[0]; i++) g_semitoneByVk[map[i].vk] = map[i].st;
+}
+
+static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
+    if (code == HC_ACTION && g_typing) {
+        KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
+        int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
+        if (!(k->flags & LLKHF_INJECTED) && k->vkCode < 256) {
+            if (k->vkCode == VK_ESCAPE) { if (down) PostMessageW(g_strip, WM_TYPEESC, 0, 0); return 1; }
+            if (g_semitoneByVk[k->vkCode] != -128 && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_LWIN) & 0x8000)) {
+                PostMessageW(g_strip, WM_TYPEKEY, k->vkCode, down);
+                return 1;
+            }
+        }
+    }
+    return CallNextHookEx(g_hook, code, wp, lp);
+}
+
+static void lit_on(HWND hwnd, int midi, int vel) { if (midi < 0 || midi > 127) return; if (g_lit[midi]++ == 0) play_on(midi, vel); push_frame(hwnd); }
+static void lit_off(HWND hwnd, int midi) { if (midi < 0 || midi > 127 || g_lit[midi] == 0) return; if (--g_lit[midi] == 0) play_off(midi); push_frame(hwnd); }
+
+static void release_typed(HWND hwnd) {
+    for (int vk = 0; vk < 256; vk++) if (g_vkDown[vk]) { g_vkDown[vk] = 0; lit_off(hwnd, 60 + g_semitoneByVk[vk] + (g_firstMidi - 60)); }
+}
+
+static void typing_set(HWND hwnd, int on) {
+    if (on == g_typing) return;
+    g_typing = on;
+    if (!on) release_typed(hwnd);
+    flash(on ? FOCUS_BLUE : STOP_RED);
+    push_frame(hwnd);
+}
+
+// ──────────────────── taskbar tracking ───────────────────────────
+
 static int g_lastTaskbarH = 0;
 
-// Find the taskbar and tray, pick our slot: left of the tray with a gap,
-// vertically centred. Returns 0 when there is no taskbar to sit on.
 static int find_slot(int *outX, int *outY, int *outTaskbarH) {
     HWND tray = FindWindowW(L"Shell_TrayWnd", NULL);
     if (!tray || !IsWindowVisible(tray)) return 0;
@@ -439,14 +604,17 @@ static void track(HWND hwnd, int force) {
     }
     g_posX = x; g_posY = y;
     SetWindowPos(hwnd, HWND_TOPMOST, x, y, g_stripW, g_stripH, SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    push_frame(hwnd, x, y);
+    push_frame(hwnd);
 }
 
 // ─────────────────────────── window ──────────────────────────────
 
 #define WM_TRAY (WM_APP + 1)
 #define IDM_QUIT 100
+#define IDM_TYPING 101
+#define IDM_AUTOSTART 102
 #define IDM_PROGRAM_BASE 200
+#define IDM_MIDI_BASE 300
 #define IDT_TRACK 1
 
 static const struct { const wchar_t *name; int program; } PROGRAMS[] = {
@@ -458,11 +626,38 @@ static const struct { const wchar_t *name; int program; } PROGRAMS[] = {
 
 static NOTIFYICONDATAW g_nid;
 
+static int autostart_enabled(void) {
+    HKEY k; if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_READ, &k) != ERROR_SUCCESS) return 0;
+    DWORD type, size = 0; int present = RegQueryValueExW(k, L"MenuBand", NULL, &type, NULL, &size) == ERROR_SUCCESS;
+    RegCloseKey(k); return present;
+}
+
+static void autostart_set(int on) {
+    HKEY k; if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, NULL, 0, KEY_WRITE, NULL, &k, NULL) != ERROR_SUCCESS) return;
+    if (on) {
+        wchar_t path[MAX_PATH + 2]; path[0] = L'"'; GetModuleFileNameW(NULL, path + 1, MAX_PATH); wcscat_s(path, MAX_PATH + 2, L"\"");
+        RegSetValueExW(k, L"MenuBand", 0, REG_SZ, (const BYTE *)path, (DWORD)((wcslen(path) + 1) * sizeof(wchar_t)));
+    } else RegDeleteValueW(k, L"MenuBand");
+    RegCloseKey(k);
+}
+
 static void show_menu(HWND hwnd) {
     POINT p; GetCursorPos(&p);
     HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING | (g_typing ? MF_CHECKED : 0), IDM_TYPING, L"Type to play  (Esc leaves)");
+    AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     for (int i = 0; i < (int)(sizeof PROGRAMS / sizeof PROGRAMS[0]); i++)
         AppendMenuW(menu, MF_STRING | (PROGRAMS[i].program == g_program ? MF_CHECKED : 0), IDM_PROGRAM_BASE + i, PROGRAMS[i].name);
+    AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
+    HMENU midi = CreatePopupMenu();
+    AppendMenuW(midi, MF_STRING | (g_midiDevice < 0 ? MF_CHECKED : 0), IDM_MIDI_BASE, L"Built-in synth");
+    UINT n = midiOutGetNumDevs();
+    for (UINT i = 0; i < n && i < 32; i++) {
+        MIDIOUTCAPSW caps; if (midiOutGetDevCapsW(i, &caps, sizeof caps) != MMSYSERR_NOERROR) continue;
+        AppendMenuW(midi, MF_STRING | ((int)i == g_midiDevice ? MF_CHECKED : 0), IDM_MIDI_BASE + 1 + i, caps.szPname);
+    }
+    AppendMenuW(menu, MF_POPUP, (UINT_PTR)midi, L"MIDI out");
+    AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(menu, MF_STRING, IDM_QUIT, L"Quit Menu Band");
     SetForegroundWindow(hwnd);
@@ -470,16 +665,15 @@ static void show_menu(HWND hwnd) {
     DestroyMenu(menu);
 }
 
-static void note_down(HWND hwnd, int midi) {
-    if (midi < 0 || midi == g_downMidi) return;
-    if (g_downMidi >= 0) synth_note_off(g_downMidi);
-    g_downMidi = midi;
-    synth_note_on(midi, 100);
-    push_frame(hwnd, g_posX, g_posY);
+static void mouse_down(HWND hwnd, int midi) {
+    if (midi < 0 || midi == g_mouseMidi) return;
+    if (g_mouseMidi >= 0) lit_off(hwnd, g_mouseMidi);
+    g_mouseMidi = midi;
+    lit_on(hwnd, midi, 100);
 }
 
-static void note_up(HWND hwnd) {
-    if (g_downMidi >= 0) { synth_note_off(g_downMidi); g_downMidi = -1; push_frame(hwnd, g_posX, g_posY); }
+static void mouse_up(HWND hwnd) {
+    if (g_mouseMidi >= 0) { lit_off(hwnd, g_mouseMidi); g_mouseMidi = -1; }
 }
 
 static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -493,25 +687,31 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_MOUSEACTIVATE:
         return MA_NOACTIVATE;
     case WM_MOUSEMOVE: {
-        int midi = key_at(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
+        int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp);
+        int midi = key_at(x, y), chip = chip_at(x, y);
         TRACKMOUSEEVENT tme = { sizeof tme, TME_LEAVE, hwnd, 0 }; TrackMouseEvent(&tme);
-        if (wp & MK_LBUTTON) { if (midi >= 0) note_down(hwnd, midi); }
-        if (midi != g_hoverMidi) { g_hoverMidi = midi; push_frame(hwnd, g_posX, g_posY); }
+        if ((wp & MK_LBUTTON) && midi >= 0) mouse_down(hwnd, midi);
+        if (midi != g_hoverMidi || chip != g_hoverChip) { g_hoverMidi = midi; g_hoverChip = chip; push_frame(hwnd); }
         return 0;
     }
     case WM_MOUSELEAVE:
-        if (g_hoverMidi != -1) { g_hoverMidi = -1; push_frame(hwnd, g_posX, g_posY); }
+        if (g_hoverMidi != -1 || g_hoverChip) { g_hoverMidi = -1; g_hoverChip = 0; push_frame(hwnd); }
         return 0;
-    case WM_LBUTTONDOWN:
+    case WM_LBUTTONDOWN: {
+        int x = GET_X_LPARAM(lp), y = GET_Y_LPARAM(lp);
+        if (chip_at(x, y)) { typing_set(hwnd, !g_typing); return 0; }
         SetCapture(hwnd);
-        note_down(hwnd, key_at(GET_X_LPARAM(lp), GET_Y_LPARAM(lp)));
+        int midi = key_at(x, y);
+        mouse_down(hwnd, midi);
+        if (midi >= 0 && !g_typing) typing_set(hwnd, 1);   // a click focuses, as on the Mac
         return 0;
+    }
     case WM_LBUTTONUP:
         ReleaseCapture();
-        note_up(hwnd);
+        mouse_up(hwnd);
         return 0;
     case WM_CAPTURECHANGED:
-        note_up(hwnd);
+        mouse_up(hwnd);
         return 0;
     case WM_RBUTTONUP:
         show_menu(hwnd);
@@ -519,17 +719,36 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_MOUSEWHEEL: {
         int delta = GET_WHEEL_DELTA_WPARAM(wp);
         int next = g_firstMidi + (delta > 0 ? 12 : -12);
-        if (next >= 36 && next <= 84) { note_up(hwnd); g_firstMidi = next; build_keys(); push_frame(hwnd, g_posX, g_posY); }
+        if (next >= 36 && next <= 84) {
+            mouse_up(hwnd);
+            release_typed(hwnd);
+            g_firstMidi = next; build_keys(); push_frame(hwnd);
+        }
         return 0;
     }
+    case WM_TYPEKEY: {
+        int vk = (int)wp, down = (int)lp;
+        if (vk < 0 || vk > 255) return 0;
+        int midi = 60 + g_semitoneByVk[vk] + (g_firstMidi - 60);
+        if (down) { if (!g_vkDown[vk]) { g_vkDown[vk] = 1; lit_on(hwnd, midi, 100); } }
+        else if (g_vkDown[vk]) { g_vkDown[vk] = 0; lit_off(hwnd, midi); }
+        return 0;
+    }
+    case WM_TYPEESC:
+        typing_set(hwnd, 0);
+        return 0;
     case WM_TRAY:
         if (LOWORD(lp) == WM_RBUTTONUP || LOWORD(lp) == WM_LBUTTONUP) show_menu(hwnd);
         return 0;
     case WM_COMMAND: {
         int id = LOWORD(wp);
         if (id == IDM_QUIT) { DestroyWindow(hwnd); return 0; }
-        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + (int)(sizeof PROGRAMS / sizeof PROGRAMS[0]))
-            g_program = PROGRAMS[id - IDM_PROGRAM_BASE].program;
+        if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
+        if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
+        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + (int)(sizeof PROGRAMS / sizeof PROGRAMS[0])) {
+            g_program = PROGRAMS[id - IDM_PROGRAM_BASE].program; midi_program();
+        }
+        if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         return 0;
     }
     case WM_DISPLAYCHANGE:
@@ -538,8 +757,11 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         track(hwnd, 1);
         return 0;
     case WM_DESTROY:
+        typing_set(hwnd, 0);
         Shell_NotifyIconW(NIM_DELETE, &g_nid);
+        if (g_hook) UnhookWindowsHookEx(g_hook);
         InterlockedExchange(&g_audioRunning, 0);
+        if (g_midiOut) { midiOutReset(g_midiOut); midiOutClose(g_midiOut); }
         PostQuitMessage(0);
         return 0;
     }
@@ -555,14 +777,22 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
     build_keys();
+    build_keymap();
     if (!audio_start()) MessageBoxW(NULL, L"Menu Band could not open the audio output.", L"Menu Band", MB_ICONWARNING);
 
     WNDCLASSW wc; memset(&wc, 0, sizeof wc);
     wc.lpfnWndProc = wndproc; wc.hInstance = hInst; wc.lpszClassName = L"MenuBandStrip";
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     RegisterClassW(&wc);
+    WNDCLASSW fc; memset(&fc, 0, sizeof fc);
+    fc.lpfnWndProc = flashproc; fc.hInstance = hInst; fc.lpszClassName = L"MenuBandFlash";
+    RegisterClassW(&fc);
+
     HWND hwnd = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED,
                                 L"MenuBandStrip", L"Menu Band", WS_POPUP, 0, 0, 10, 10, NULL, NULL, hInst, NULL);
+    g_strip = hwnd;
+    g_flash = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED | WS_EX_TRANSPARENT,
+                              L"MenuBandFlash", L"", WS_POPUP, 0, 0, 10, 10, NULL, NULL, hInst, NULL);
 
     memset(&g_nid, 0, sizeof g_nid);
     g_nid.cbSize = sizeof g_nid; g_nid.hWnd = hwnd; g_nid.uID = 1;
@@ -571,6 +801,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     wcscpy_s(g_nid.szTip, 128, L"Menu Band");
     Shell_NotifyIconW(NIM_ADD, &g_nid);
 
+    g_hook = SetWindowsHookExW(WH_KEYBOARD_LL, ll_keyboard, hInst, 0);
     track(hwnd, 1);
 
     MSG m;
