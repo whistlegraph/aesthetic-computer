@@ -96,6 +96,7 @@
     @media (prefers-reduced-motion: reduce) {
       .mime-letter, .mime-face, .mime-shine { animation: none; }
     }
+    .wordmark .suffix-dot { color: #ff91c3; }
     .wordmark .domain-suffix { align-self: flex-start; margin: 3px 0 0 2px; color: var(--link); font: 16px/1 "YWFTProcessing-Regular", sans-serif; }
     .wordmark:hover, .wordmark:focus-visible { color: var(--link); }
     .wordmark:active .mime-letter, .wordmark:active .mime-face, .wordmark:active .mime-shine { animation-play-state: paused; }
@@ -238,19 +239,29 @@
     /* Like Instagram: the wordmark rides a banner above the first post, slides
        away as you scroll down and slides back whenever you scroll up. A spacer
        holds its place at the top so the first screen is banner plus first post. */
+    /* As the first post scrolls up, the banner fades out and the wordmark slides
+       with the scroll to the top-right corner, where it floats over the cards.
+       --corner runs 0 → 1 over the first screen (set in syncHeader). */
     body.feed header { position: fixed; top: 0; left: 0; right: 0; max-width: none; height: calc(52px + env(safe-area-inset-top));
-      background: var(--paper); border-bottom: 1px solid var(--card-edge); transition: transform 220ms ease; }
-    body.feed header.tucked { transform: translateY(-100%); }
-    body.feed main::before { content: ""; display: block; height: calc(52px + env(safe-area-inset-top)); scroll-snap-align: start; }
-    @media (prefers-reduced-motion: reduce) { body.feed header { transition: none; } }
-    /* The wordmark sits top and center, as on Instagram, and nothing else
+      background: color-mix(in srgb, var(--paper) calc((1 - var(--corner, 0)) * 100%), transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--card-edge) calc((1 - var(--corner, 0)) * 100%), transparent);
+      pointer-events: none; overflow: hidden; /* .ac rides off the right edge and is clipped */ }
+    /* MIME locks 14px from the right edge, shrinking and fading into a watermark. */
+    html body.feed header.compact h1 { transition: none; transform-origin: right center;
+      transform: translateX(calc((100vw - 100% - 28px) * var(--corner, 0))) scale(calc(1 - .25 * var(--corner, 0)));
+      opacity: calc(1 - .45 * var(--corner, 0)); }
+    /* The wordmark sits top-left on its banner, as on Instagram, and nothing else
        crowds the reel; saved and sign in wait on the thread pages. */
-    body.feed header h1, body.feed header.compact h1 { left: 50%; transform: translateX(-50%); top: calc(4px + env(safe-area-inset-top)); pointer-events: auto; }
+    body.feed header h1, body.feed header.compact h1 { left: 14px; transform: none; top: calc(4px + env(safe-area-inset-top)); pointer-events: auto; }
     body.feed .account { display: none; }
     /* "mime" alone is centered; .ac hangs off its right edge, light and outlined over any card. */
     body.feed .wordmark { position: relative; }
-    body.feed .wordmark .domain-suffix { position: absolute; left: 100%; top: 4px; margin: 0 0 0 1px; font-size: 17px;
-      color: #fff; -webkit-text-stroke: .6px #141414; paint-order: stroke fill; text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
+    body.feed .wordmark .domain-suffix { position: absolute; left: 100%; top: auto; bottom: 7px; margin: 0 0 0 2px;
+      font: 700 19px/1 "Comic Relief", "Comic Sans MS", cursive; color: #fff;
+      -webkit-text-stroke: .13em #141414; paint-order: stroke fill; text-shadow: 2px 2px 0 #141414; }
+    body.feed .wordmark .suffix-dot { color: #ff91c3; font-size: 1.25em; }
+    /* .ac leaves as MIME slides into the corner: gone by halfway, then clipped by the edge. */
+    body.feed .wordmark .domain-suffix { opacity: clamp(0, 1 - 2 * var(--corner, 0), 1); }
     body.feed main { max-width: none; padding: 0; }
     body.feed .feed-list { gap: 0; }
     body.feed .feed-post { --author: var(--author-dark); position: relative; height: 100vh; height: 100dvh;
@@ -259,8 +270,21 @@
       grid-template-rows: minmax(0, 1fr) auto auto auto max(14px, env(safe-area-inset-bottom));
       border: 0; border-radius: 0; box-shadow: none; background: var(--media); overflow: hidden; color: #fff; }
     @media (min-width: 760px) { body.feed .feed-post { width: min(100%, 720px); margin-inline: auto; } }
-    /* The first screen is the banner and the first post exactly; the banner is its snap point. */
-    body.feed .feed-post:first-child { height: calc(100vh - 52px - env(safe-area-inset-top)); height: calc(100dvh - 52px - env(safe-area-inset-top)); scroll-snap-align: none; }
+    /* The opening screen is a splash: who mime is and what to do; one swipe brings up the first post. */
+    .reel-splash { display: none; }
+    body.feed .reel-splash { display: grid; place-items: center; height: 100vh; height: 100dvh; scroll-snap-align: start;
+      padding: calc(64px + env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom)); }
+    body.feed .reel-splash .splash-swipe { margin: 0; display: grid; justify-items: center; gap: 6px;
+      animation: splash-nudge 1.6s ease-in-out infinite; }
+    body.feed .reel-splash .splash-arrow { font: 700 44px/1 "Comic Relief", "Comic Sans MS", cursive; color: #ff91c3;
+      -webkit-text-stroke: .1em #141414; paint-order: stroke fill; text-shadow: 3px 3px 0 #141414; }
+    body.feed .reel-splash .pal-text { position: relative; --pal-accent: #ff91c3;
+      font: 700 clamp(30px, 9vw, 52px)/1.2 "Comic Relief", "Comic Sans MS", cursive; color: #fff; white-space: pre;
+      -webkit-text-stroke: .13em #141414; paint-order: stroke fill; text-shadow: 3px 3px 0 var(--pal-accent); }
+    body.feed .reel-splash .pal-text span span { display: inline-block; }
+    body.feed .reel-splash .pal-over { position: absolute; left: 0; top: 0; -webkit-text-stroke: 0; text-shadow: none; }
+    @keyframes splash-nudge { 50% { transform: translateY(-5px); } }
+    @media (prefers-reduced-motion: reduce) { body.feed .reel-splash .splash-swipe { animation: none; } }
     body.feed .feed-post > .feed-media { grid-area: 1 / 1 / -1 / -1; width: 100%; height: 100%; max-height: none;
       aspect-ratio: auto; margin: 0; border: 0; }
     /* A long document shows what fits, fading out; a swipe always means the next card.
@@ -314,6 +338,16 @@
     body.feed .feed-post :is(.media-origin, time) { font-size: 13px; }
     /* Mime is about the type: the caption names the work and its MIME type, nothing else. */
     body.feed .feed-post :is(.avatar, .media-origin), body.feed .feed-post > .post-actions { display: none; }
+    /* MacPal title lettering (see palLetters): white, outlined, a hard accent shadow, jittered letters. */
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text { font: 700 21px/1.3 "Comic Relief", "Comic Sans MS", cursive; color: #fff; white-space: pre;
+      -webkit-text-stroke: .13em #141414; paint-order: stroke fill; text-shadow: 2px 2px 0 var(--pal-accent, #a478df);
+      text-decoration: none; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text { position: relative; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text span span { display: inline-block; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-over { position: absolute; left: 0; top: 0;
+      -webkit-text-stroke: 0; text-shadow: none; pointer-events: none; }
+    /* No descriptions or version labels on the reel; a mood's words are the post, so they stay. */
+    body.feed .feed-post:not(.mood-post) > .body { display: none; }
     body.feed .feed-post .mime-type { font-size: 13px; color: rgba(255, 255, 255, .8); }
     /* The code you can enter in AC and its type read as one line, top-left on the card: #52w image/png */
     .reel-command { display: none; }
@@ -370,71 +404,74 @@
               <stop offset="1" stop-color="#40317b"/>
             </linearGradient>
             <path id="mime-m" fill-rule="evenodd" d="M0 9H9V12C13 8 19 8 22 12C26 8 33 8 33 17V31H36V35H25V31H28V18C28 11 21 12 21 18V31H24V35H13V31H16V18C16 11 9 12 9 18V31H12V35H0V31H4V13H0Z"/>
+            <path id="mime-M" fill-rule="evenodd" d="M0 0H10L18 19L26 0H36V4H33V31H36V35H25V31H28V12L20 31H16L8 12V31H11V35H0V31H3V4H0Z"/>
+            <path id="mime-I" fill-rule="evenodd" d="M0 0H15V4H10V31H15V35H0V31H5V4H0Z"/>
+            <path id="mime-E" fill-rule="evenodd" d="M0 0H26V10H22V4H9V15H19V19H9V31H22V25H26V35H0V31H4V4H0Z"/>
             <path id="mime-i" fill-rule="evenodd" d="M4 0H10V6H4ZM0 9H10V31H15V35H0V31H5V13H0Z"/>
             <path id="mime-e" fill-rule="evenodd" d="M26 23H6C6 29 9 32 14 32C18 32 21 30 23 28L26 31C23 35 18 37 13 36C5 36 0 30 0 23C0 15 5 9 13 9C21 9 26 15 26 21ZM6 19H20C19 15 17 13 13 13C9 13 7 15 6 19Z"/>
           </defs>
           <g transform="translate(0 0)">
             <g class="mime-letter" style="--period: 4.7s; --phase: -0.6s">
-              <use href="#mime-m" x="7" y="7" fill="#ff91c3" stroke="#ff91c3" stroke-width="1" stroke-linejoin="round"/>
+              <use href="#mime-M" x="7" y="7" fill="#ff91c3" stroke="#ff91c3" stroke-width="1" stroke-linejoin="round"/>
               <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-m" x="6" y="6"/>
-                <use href="#mime-m" x="5" y="5"/>
-                <use href="#mime-m" x="4" y="4"/>
-                <use href="#mime-m" x="3" y="3"/>
-                <use href="#mime-m" x="2" y="2"/>
-                <use href="#mime-m" x="1" y="1"/>
+                <use href="#mime-M" x="6" y="6"/>
+                <use href="#mime-M" x="5" y="5"/>
+                <use href="#mime-M" x="4" y="4"/>
+                <use href="#mime-M" x="3" y="3"/>
+                <use href="#mime-M" x="2" y="2"/>
+                <use href="#mime-M" x="1" y="1"/>
               </g>
-              <use class="mime-face" href="#mime-m" fill="url(#mime-face-0)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <path class="mime-shine" d="M1 9.7H8M1 31.7H11M14 31.7H23M26 31.7H35" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+              <use class="mime-face" href="#mime-M" fill="url(#mime-face-0)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M1 0.7H9M27 0.7H35M1 31.7H10M26 31.7H35" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
             </g>
           </g>
           <g transform="translate(43 0)">
             <g class="mime-letter" style="--period: 3.9s; --phase: -2.1s">
-              <use href="#mime-i" x="7" y="7" fill="#ffc585" stroke="#ffc585" stroke-width="1" stroke-linejoin="round"/>
+              <use href="#mime-I" x="7" y="7" fill="#ffc585" stroke="#ffc585" stroke-width="1" stroke-linejoin="round"/>
               <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-i" x="6" y="6"/>
-                <use href="#mime-i" x="5" y="5"/>
-                <use href="#mime-i" x="4" y="4"/>
-                <use href="#mime-i" x="3" y="3"/>
-                <use href="#mime-i" x="2" y="2"/>
-                <use href="#mime-i" x="1" y="1"/>
+                <use href="#mime-I" x="6" y="6"/>
+                <use href="#mime-I" x="5" y="5"/>
+                <use href="#mime-I" x="4" y="4"/>
+                <use href="#mime-I" x="3" y="3"/>
+                <use href="#mime-I" x="2" y="2"/>
+                <use href="#mime-I" x="1" y="1"/>
               </g>
-              <use class="mime-face" href="#mime-i" fill="url(#mime-face-1)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <path class="mime-shine" d="M5 0.7H9M1 9.7H9M1 31.7H14" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+              <use class="mime-face" href="#mime-I" fill="url(#mime-face-1)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M1 0.7H14M1 31.7H14" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
             </g>
           </g>
           <g transform="translate(65 0)">
             <g class="mime-letter" style="--period: 5.3s; --phase: -3.4s">
-              <use href="#mime-m" x="7" y="7" fill="#b7a4ff" stroke="#b7a4ff" stroke-width="1" stroke-linejoin="round"/>
+              <use href="#mime-M" x="7" y="7" fill="#b7a4ff" stroke="#b7a4ff" stroke-width="1" stroke-linejoin="round"/>
               <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-m" x="6" y="6"/>
-                <use href="#mime-m" x="5" y="5"/>
-                <use href="#mime-m" x="4" y="4"/>
-                <use href="#mime-m" x="3" y="3"/>
-                <use href="#mime-m" x="2" y="2"/>
-                <use href="#mime-m" x="1" y="1"/>
+                <use href="#mime-M" x="6" y="6"/>
+                <use href="#mime-M" x="5" y="5"/>
+                <use href="#mime-M" x="4" y="4"/>
+                <use href="#mime-M" x="3" y="3"/>
+                <use href="#mime-M" x="2" y="2"/>
+                <use href="#mime-M" x="1" y="1"/>
               </g>
-              <use class="mime-face" href="#mime-m" fill="url(#mime-face-2)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <path class="mime-shine" d="M1 9.7H8M1 31.7H11M14 31.7H23M26 31.7H35" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+              <use class="mime-face" href="#mime-M" fill="url(#mime-face-2)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M1 0.7H9M27 0.7H35M1 31.7H10M26 31.7H35" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
             </g>
           </g>
           <g transform="translate(108 0)">
             <g class="mime-letter" style="--period: 4.3s; --phase: -1.3s">
-              <use href="#mime-e" x="7" y="7" fill="#7ae7ce" stroke="#7ae7ce" stroke-width="1" stroke-linejoin="round"/>
+              <use href="#mime-E" x="7" y="7" fill="#7ae7ce" stroke="#7ae7ce" stroke-width="1" stroke-linejoin="round"/>
               <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-e" x="6" y="6"/>
-                <use href="#mime-e" x="5" y="5"/>
-                <use href="#mime-e" x="4" y="4"/>
-                <use href="#mime-e" x="3" y="3"/>
-                <use href="#mime-e" x="2" y="2"/>
-                <use href="#mime-e" x="1" y="1"/>
+                <use href="#mime-E" x="6" y="6"/>
+                <use href="#mime-E" x="5" y="5"/>
+                <use href="#mime-E" x="4" y="4"/>
+                <use href="#mime-E" x="3" y="3"/>
+                <use href="#mime-E" x="2" y="2"/>
+                <use href="#mime-E" x="1" y="1"/>
               </g>
-              <use class="mime-face" href="#mime-e" fill="url(#mime-face-3)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <path class="mime-shine" d="M7 23.7H24" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+              <use class="mime-face" href="#mime-E" fill="url(#mime-face-3)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M1 0.7H25M1 31.7H25" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
             </g>
           </g>
         </svg>
-        <sup class="domain-suffix" aria-hidden="true">.ac</sup>
+        <sup class="domain-suffix" aria-hidden="true"><span class="suffix-dot">.</span>ac</sup>
       </a>
     </h1>
   </header>
@@ -472,12 +509,13 @@ const header = document.querySelector("header");
 const chromeTop = () => document.body.classList.contains("feed") ? 0 : header.getBoundingClientRect().bottom;
 let lastScrollY = 0;
 function syncHeader() {
-  // On the reel the banner tucks away going down and returns going up.
+  // On the reel the wordmark lives on its banner at the top, and in the
+  // top-right corner once you have swiped past the first post.
   const y = window.scrollY;
-  if (!document.body.classList.contains("feed") || y < 8) header.classList.remove("tucked");
-  else if (y > lastScrollY + 4) header.classList.add("tucked");
-  else if (y < lastScrollY - 4 && !interactingMedia) header.classList.remove("tucked"); // never over a piece in play
-  if (Math.abs(y - lastScrollY) > 4 || y < 8) lastScrollY = y;
+  const corner = document.body.classList.contains("feed") ? Math.min(1, Math.max(0, y / innerHeight)) : 0;
+  header.style.setProperty("--corner", corner.toFixed(3));
+  header.classList.toggle("cornered", corner > 0.5);
+  lastScrollY = y;
   if (document.body.classList.contains("feed") || window.scrollY > 80) header.classList.add("compact");
   else if (window.scrollY < 8) header.classList.remove("compact");
 }
@@ -684,7 +722,6 @@ function shieldMedia(frame, content, interactive) {
     exitMediaInteraction();
     interactingMedia = frame;
     frame.dataset.interacting = "true";
-    if (document.body.classList.contains("feed") && window.scrollY > 8) header.classList.add("tucked");
     content.inert = false;
     if (frame.dataset.tape) {
       if (content.tagName === "VIDEO") content.pause();
@@ -732,6 +769,14 @@ function syncVideoPlayback() {
 }
 
 let pieceFocused = null, piecePending = null, pieceFocusTimer = 0;
+// Ask the running piece to start its audio. Browsers allow it once the viewer
+// has tapped the page, so every tap asks again; packed HTML pieces ignore it.
+function askForSound() {
+  const frame = pieceFocused?.querySelector("iframe");
+  if (frame && pieceFocused.dataset.packed !== "true") frame.contentWindow?.postMessage({ type: "ac:start-audio" }, "*");
+}
+window.addEventListener("pointerdown", () => setTimeout(askForSound), { passive: true });
+window.addEventListener("keydown", () => setTimeout(askForSound));
 function stopPiece() {
   clearTimeout(pieceFocusTimer);
   pieceFocusTimer = 0;
@@ -769,8 +814,9 @@ function syncPieceFocus() {
     iframe.title = focused.dataset.title;
     iframe.setAttribute("sandbox", focused.dataset.packed === "true" ? "allow-scripts" : "allow-scripts allow-same-origin");
     iframe.referrerPolicy = "no-referrer";
-    iframe.setAttribute("allow", "autoplay 'none'; camera 'none'; microphone 'none'");
-    iframe.addEventListener("load", () => { iframe.dataset.ready = "true"; }, { once: true });
+    // Pieces and KidLisp may sound: autoplay is delegated, and the runtime is asked to start its audio.
+    iframe.setAttribute("allow", "autoplay; camera 'none'; microphone 'none'");
+    iframe.addEventListener("load", () => { iframe.dataset.ready = "true"; askForSound(); }, { once: true });
     iframe.src = focused.dataset.player;
     focused.append(iframe);
     pieceFocused = focused;
@@ -1010,6 +1056,32 @@ function authorName(name) {
   if (node.tagName === "A") node.href = "https://aesthetic.computer/" + encodeURIComponent(label);
   return node;
 }
+// MacPal's title lettering, in the DOM: each character its own box with the
+// same small bob and tilt MacPal hashes from "char<i>" (PalCore.swift jitter),
+// a white fill over a near-black outline, and a hard accent shadow.
+function palLetters(node, accent) {
+  const text = node.textContent;
+  node.setAttribute("aria-label", text);
+  node.classList.add("pal-text");
+  if (accent) node.style.setProperty("--pal-accent", accent);
+  // Two stacked copies: outlines and shadows underneath, fills on top, so a
+  // letter's outline never cuts into its neighbour's fill.
+  const row = (cls) => {
+    const layer = el("span", cls);
+    layer.setAttribute("aria-hidden", "true");
+    layer.append(...[...text].map((char, i) => {
+      let h = 2166136261;
+      for (const byte of new TextEncoder().encode("char" + i)) h = Math.imul(h ^ byte, 16777619) >>> 0;
+      const dy = (h % 7) / 2 - 1.5, rot = (((h >>> 8) % 9) - 4) * 0.6;
+      const span = el("span", null, char);
+      span.style.transform = `translateY(${-dy}px) rotate(${-rot}deg)`;
+      return span;
+    }));
+    return layer;
+  };
+  node.replaceChildren(row("pal-under"), row("pal-over"));
+  return node;
+}
 function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) {
   const root = !post.parent;
   const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (post.media?.kind === "mood" ? " mood-post" : ""));
@@ -1061,6 +1133,11 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     const type = byline.querySelector(".mime-type").cloneNode(true);
     type.classList.add("reel-type");
     meta.append(type);
+    const kindTint = { image: "#ff91c5", video: "#c5a1ff", audio: "#a6e6b3", text: "#55cdd9", application: "#55cdd9" };
+    palLetters(code, "#ed629d");
+    palLetters(type, type.dataset.type === "text/html" ? "#ffc585" : kindTint[type.dataset.top] || "#a478df");
+    const name = meta.querySelector(".byline > .name");
+    if (name) palLetters(name, "var(--author-dark)");
   }
   if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
@@ -1364,6 +1441,15 @@ const feedSeed = (() => {
     return fresh;
   } catch { return crypto.randomUUID(); }
 })();
+// The reel's opening screen: the wordmark on its banner and one instruction.
+function splash() {
+  const section = el("section", "reel-splash");
+  section.setAttribute("aria-label", "Welcome to mime");
+  const swipe = el("p", "splash-swipe");
+  swipe.append(el("span", "splash-arrow", "↑"), palLetters(el("span", null, "swipe up")));
+  section.append(swipe);
+  return section;
+}
 async function home(page = 0, signal) {
   let state = feedCache?.startPage === page ? feedCache : null;
   if (!state) {
@@ -1383,7 +1469,7 @@ async function home(page = 0, signal) {
   const list = el("div", "feed-list");
   list.setAttribute("aria-label", "Media feed");
   list.append(...state.nodes);
-  view.replaceChildren(list);
+  view.replaceChildren(splash(), list);
   const firstImage = state.nodes[0]?.querySelector(".feed-media > img");
   if (firstImage) { firstImage.loading = "eager"; firstImage.fetchPriority = "high"; }
   if (!state.nodes.length) list.append(el("p", null, "no media yet"));

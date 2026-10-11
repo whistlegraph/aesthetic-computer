@@ -24,11 +24,13 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
   });
   try {
     await page.goto('https://mime.ac/?ac-automation=1');
+    // The reel opens on its splash; the first post is one swipe down.
+    await page.locator('#pack').evaluate(el => el.scrollIntoView({ block: 'start' }));
     await page.locator('#pack iframe[data-ready]').waitFor();
-    assert.equal(await page.locator('#pack .name').textContent(), '@artist');
-    assert.equal(await page.locator('#pack .reel-command .media-label').textContent(), 'Spinning tree');
+    assert.equal(await page.locator('#pack .name').getAttribute('aria-label'), '@artist');
+    assert.equal(await page.locator('#pack .reel-command .media-label').getAttribute('aria-label'), 'Spinning tree');
     assert.equal(await page.locator('#pack .media-origin').isVisible(), false, 'the reel names the type, not the source');
-    assert.equal(await page.locator('#pack .reel-type').textContent(), 'text/html');
+    assert.equal(await page.locator('#pack .reel-type').getAttribute('aria-label'), 'text/html');
     assert.equal(await page.locator('#pack time').getAttribute('datetime'), post.when);
     assert.equal(await page.locator('#pack iframe').getAttribute('sandbox'), 'allow-scripts');
     assert.equal(await page.locator('#pack .token-link').getAttribute('href'), post.media.tokenUrl);
@@ -40,7 +42,7 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
       await page.setViewportSize(viewport);
       // The reel card is the whole screen; the pack keeps its own 2:3 frame inside it.
       const card = await page.locator('#pack').boundingBox();
-      assert.ok(Math.abs(card.height - (viewport.height - 52)) < 1, 'the first card fills the screen under the banner');
+      assert.ok(Math.abs(card.height - viewport.height) < 1, 'the card fills the screen');
       const box = await page.locator('#pack .piece-preview').boundingBox();
       assert.ok(Math.abs(box.width / box.height - 2 / 3) < .01, JSON.stringify(box));
       assert.ok(box.height <= viewport.height + 1 && box.width <= viewport.width + 1, 'the pack fits on its card');

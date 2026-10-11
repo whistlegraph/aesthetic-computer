@@ -4349,6 +4349,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.acReportFpsToParent = true;
     }
     // Navigate to a new piece (device.html slideshow jump)
+    // An embedding page (mime.ac's feed) asks the piece in view to sound. The
+    // browser still decides: it needs a user gesture and delegated autoplay.
+    if (e.data?.type === 'ac:start-audio') {
+      window.AC?.startAudio?.();
+      return;
+    }
     if (e.data?.type === 'ac:navigate' && typeof e.data.to === 'string') {
       console.log('🧭 bios: relaying ac:navigate →', e.data.to);
       send({ type: 'navigate', content: { to: e.data.to } });

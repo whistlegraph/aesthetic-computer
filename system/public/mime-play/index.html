@@ -27,7 +27,7 @@ const run = async () => {
   if (typeof source !== "string" || !source) throw new Error("this piece has no code yet");
   const frame = document.createElement("iframe");
   frame.title = "Whistlegraph piece " + code;
-  frame.allow = "autoplay 'none'; camera 'none'; microphone 'none'";
+  frame.allow = "autoplay; camera 'none'; microphone 'none'";
   frame.src = "/wipe?noauth=true&noplot=true&nogap=true&nolabel=true&preview=walkieware";
   document.body.append(frame);
   // The runtime is same-origin: wait for it to boot, then hand it the piece.
@@ -36,10 +36,15 @@ const run = async () => {
     if (!win?.preloaded || !win.acSEND) return;
     clearInterval(poll);
     note.remove();
+    win.AC?.startAudio?.();
     win.acSEND({ type: "dropped:piece", content: { name: "mime", source,
       search: "noauth=true&noplot=true&nogap=true&nolabel=true", isKidLisp: false } });
   }, 100);
 };
+// mime.ac asks for sound after a tap; pass it to the runtime inside.
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "ac:start-audio") document.querySelector("iframe")?.contentWindow?.AC?.startAudio?.();
+});
 run().catch((error) => { note.textContent = error.message || "could not play this piece"; });
 </script>
 </body>
