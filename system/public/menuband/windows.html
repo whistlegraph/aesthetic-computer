@@ -113,6 +113,17 @@
     background: var(--panel-bg); border: 1px solid var(--panel-edge); border-radius: 4px;
   }
   pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+  pre { position: relative; padding-right: 72px; }
+  .copy {
+    position: absolute; top: 6px; right: 6px;
+    font: 500 11px/1 "Lucida Grande", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    padding: 5px 9px; border-radius: 4px; cursor: pointer;
+    color: #fff; background: var(--aqua-blue); border: 1px solid rgba(0,0,0,0.15);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.35) inset;
+  }
+  .copy:hover { filter: brightness(1.08); }
+  .copy.done { background: #28c840; }
+  pre code { user-select: all; }
   table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; font-size: 13px; }
   th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--panel-edge); }
   th { font-weight: 500; color: var(--ink-soft); }
@@ -226,5 +237,22 @@ New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell `
   © <a href="https://aesthetic.computer">aesthetic.computer</a> · 2026 · <a href="/menuband">back to Menu Band</a>
 </footer>
 
+<script>
+  for (const pre of document.querySelectorAll("pre")) {
+    const b = document.createElement("button");
+    b.className = "copy"; b.type = "button"; b.textContent = "Copy";
+    b.addEventListener("click", async () => {
+      const text = pre.querySelector("code").innerText;
+      try { await navigator.clipboard.writeText(text); }
+      catch (e) {
+        const r = document.createRange(); r.selectNodeContents(pre.querySelector("code"));
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); document.execCommand("copy");
+      }
+      b.textContent = "Copied"; b.classList.add("done");
+      setTimeout(() => { b.textContent = "Copy"; b.classList.remove("done"); }, 1600);
+    });
+    pre.appendChild(b);
+  }
+</script>
 </body>
 </html>
