@@ -10,6 +10,7 @@ struct WhistlegraphApp: App {
     @UIApplicationDelegateAdaptor(WhistlegraphAppDelegate.self) private var delegate
     @Environment(\.scenePhase) private var phase
     @AppStorage("whistlegraph-appearance") private var appearance = "system"
+    @ObservedObject private var update = TestFlightUpdate.shared
     init() {
         let defaults = UserDefaults.standard
         if defaults.object(forKey: "whistlegraph-appearance") == nil,
@@ -57,6 +58,14 @@ struct WhistlegraphApp: App {
                 if !voice.isConsentFixture && !voice.accountEntryTest { await voice.braincells.accountChanged() }
             } }
             .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
+            .alert("A new Whistlegraph is ready", isPresented: Binding(
+                get: { update.offer != nil }, set: { if !$0 && update.offer != nil { update.later() } }
+            ), presenting: update.offer) { _ in
+                Button("Update") { update.update() }
+                Button("Later", role: .cancel) { update.later() }
+            } message: { offer in
+                Text("Build \(offer.build) is waiting in TestFlight. You have build \(TestFlightUpdate.installedBuild).")
+            }
             .onChange(of: voice.snapshot.versions.count) { old, new in
                 // Version 0 is the starting piece; the first saved one is a good moment to ask.
                 if new > old && new > 1 && !voice.isConsentFixture && !voice.accountEntryTest {
@@ -71,6 +80,7 @@ struct WhistlegraphApp: App {
                     delegate.session = voice
                     DeviceRegistry.report(.open, account: voice.account)
                     Task { await WhistlegraphNotifications.refresh(account: voice.account) }
+                    Task { await update.check() }
                 }
                 if value == .active && !voice.isConsentFixture && !voice.accountEntryTest {
                     Task {

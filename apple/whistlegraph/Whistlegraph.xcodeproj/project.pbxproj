@@ -69,6 +69,7 @@
 		AF90A4AEA7F08A553D48A9AB /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = E38DD74717D0CE306D97D1CC /* Fixtures */; };
 		AFDE98CF6460438CE2205674 /* WhistlegraphAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060870DF76C6FC078A48A276 /* WhistlegraphAccount.swift */; };
 		B35A82E6CD62E5D1D9460EE3 /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */; };
+		C36B7C74BF057594F82E8E08 /* TestFlightUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BE58C6B5AB35412AC7C0F0 /* TestFlightUpdate.swift */; };
 		C4390906B03E8E8666BC54A3 /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */; };
 		D11B40EF1D4055DB59CC565D /* VerifiedAccountIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */; };
 		D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */; };
@@ -154,6 +155,7 @@
 		AA986555CACCC8B8B978CFB5 /* WhistlegraphWare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWare.swift; sourceTree = "<group>"; };
 		B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
 		B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
+		B6BE58C6B5AB35412AC7C0F0 /* TestFlightUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFlightUpdate.swift; sourceTree = "<group>"; };
 		B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
 		B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCardsTests.swift; sourceTree = "<group>"; };
 		BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphApp.swift; sourceTree = "<group>"; };
@@ -237,6 +239,7 @@
 				03AEEA7D7E12C650CB618757 /* StoryTape.swift */,
 				49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */,
 				4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */,
+				B6BE58C6B5AB35412AC7C0F0 /* TestFlightUpdate.swift */,
 				458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */,
 				8F9B92C3457F07429C8C2600 /* UtteranceRecording.swift */,
 				8056005299D13BFB52B7D3E4 /* VerifiedAccountIdentity.swift */,
@@ -460,6 +463,7 @@
 				E55F422280707B98E1D3E842 /* StoryTape.swift in Sources */,
 				15EE658816EEA4B8BE6AAF5A /* StoryVoice.swift in Sources */,
 				D8E8FFEA41DF3B0073DC5373 /* TalkHoldInput.swift in Sources */,
+				C36B7C74BF057594F82E8E08 /* TestFlightUpdate.swift in Sources */,
 				E5B597B1518B1DB4512EBF31 /* TezosBraincells.swift in Sources */,
 				49D6E6ED3128002039D4F931 /* UtteranceRecording.swift in Sources */,
 				D11B40EF1D4055DB59CC565D /* VerifiedAccountIdentity.swift in Sources */,

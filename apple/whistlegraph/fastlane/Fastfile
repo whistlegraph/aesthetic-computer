@@ -80,6 +80,13 @@ platform :ios do
                          groups: [TESTER_GROUP], notify_external_testers: true,
                          submit_beta_review: true,
                          changelog: ENV.fetch("WHISTLEGRAPH_TEST_NOTES", "Test voice, typing and drawing, piece revisions, version history, and story-video export. Sign in with your Aesthetic Computer account and allow AI creation in Brain > AI & privacy."))
+    # Beta review may still be pending; announce says so and is safe to rerun.
+    sh("node", File.join(__dir__, "announce-release.mjs"), VERSION, BUILD) { |status, output| UI.important(output) unless status.success? }
+  end
+
+  desc "Tell lith this build is installable, so older copies offer the update"
+  lane :announce do
+    sh("node", File.join(__dir__, "announce-release.mjs"), VERSION, BUILD)
   end
 
   desc "Add one external tester: fastlane ios invite email:<email> name:<first-name>"
