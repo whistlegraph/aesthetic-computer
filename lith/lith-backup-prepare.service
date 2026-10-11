@@ -1,0 +1,12 @@
+[Unit]
+Description=Prepare consistent PostgreSQL exports for Lith disk backups
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/lith-backup-prepare
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=20min

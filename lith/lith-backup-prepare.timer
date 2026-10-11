@@ -1,0 +1,10 @@
+[Unit]
+Description=Export Lith databases before the 08:00 UTC DigitalOcean backup window
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 UTC
+Persistent=true
+Unit=lith-backup-prepare.service
+
+[Install]
+WantedBy=timers.target
