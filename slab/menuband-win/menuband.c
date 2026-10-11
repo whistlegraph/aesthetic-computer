@@ -55,6 +55,7 @@ static void setting_set(const wchar_t *name, DWORD v);
 static void unlatch(HWND hwnd, int all);
 static void latch_note(int midi);
 static void audio_set_exclusive(int want);
+static void surface_reset(HWND hwnd);
 static int g_enterLatch;
 static int g_latched[128];           // Enter-latched notes (drawn lit, sound until unlatched)
 static int g_vkRoot[256]; static int g_vkExt[256][2];   // chord bookkeeping per held typing key
@@ -93,6 +94,69 @@ static volatile int g_program = 78;       // GM program for new notes: 79 Whistl
 static volatile LONG g_audioRunning = 0;
 
 static double midi_freq(int midi) { return 440.0 * pow(2.0, (midi - 69) / 12.0); }
+
+// ── the FX surface: bend (octaves), echo and space (0…1) ──
+// Written by the main thread, read by the render thread. Pitch is smoothed
+// per sample (4 ms time constant, as MenuBandGMSynth's glide) so a fast
+// slide never steps more than a fraction of a quarter-tone per frame.
+static volatile float g_bendTarget = 0, g_echoTarget = 0, g_spaceTarget = 0;
+static double g_glidePitch = 1.0;
+static double g_pitchBuf[8192];
+static float g_fxDry[2 * 8192];
+
+static void pitch_block(int frames) {
+    double target = pow(2.0, (double)g_bendTarget), coeff = 1.0 - exp(-1.0 / (g_sampleRate * 0.004)), p = g_glidePitch;
+    for (int i = 0; i < frames; i++) { p += (target - p) * coeff; g_pitchBuf[i] = p; }
+    g_glidePitch = p;
+}
+
+// Tape echo: 300 ms, 58 % feedback, 3.6 kHz low-pass in the loop, 100 % wet
+// on a send whose gain is pow(a, 1.12) × 0.42 (MenuBandSynth.setEcho).
+#define ECHO_MAX 96000
+static float g_echoL[ECHO_MAX], g_echoR[ECHO_MAX]; static int g_echoW = 0; static float g_echoLpL = 0, g_echoLpR = 0;
+// Hall: a small Schroeder — four damped combs + two all-passes per side —
+// on a send of pow(space, 1.10) × 0.52, plus the echo's bloom pow(echo, 1.15) × 0.14.
+#define RV_COMBS 4
+static const int RV_COMB_LEN[RV_COMBS] = { 1557, 1617, 1491, 1422 };
+static float g_rvComb[2][RV_COMBS][2048]; static int g_rvCombW[2][RV_COMBS]; static float g_rvCombLp[2][RV_COMBS];
+static float g_rvAp1[2][1024], g_rvAp2[2][512]; static int g_rvAp1W[2], g_rvAp2W[2];   // lengths scale with the rate (605/245 at 48 k)
+static float g_echoGain = 0, g_spaceGain = 0;
+
+static float reverb_sample(int ch, float in) {
+    float acc = 0; double k = g_sampleRate / 44100.0;
+    for (int c = 0; c < RV_COMBS; c++) {
+        int len = (int)(RV_COMB_LEN[c] * k) + ch * 23; if (len > 2047) len = 2047;
+        int w = g_rvCombW[ch][c] % len; float y = g_rvComb[ch][c][w];
+        g_rvCombLp[ch][c] += (y - g_rvCombLp[ch][c]) * 0.35f;             // damping
+        g_rvComb[ch][c][w] = in + g_rvCombLp[ch][c] * 0.84f;
+        g_rvCombW[ch][c] = (w + 1) % len; acc += y;
+    }
+    acc *= 0.25f;
+    { int len = (int)(556 * k); if (len > 1023) len = 1023; int w = g_rvAp1W[ch] % len; float b = g_rvAp1[ch][w]; float y = -acc + b; g_rvAp1[ch][w] = acc + b * 0.5f; g_rvAp1W[ch] = (w + 1) % len; acc = y; }
+    { int len = (int)(225 * k); if (len > 511) len = 511; int w = g_rvAp2W[ch] % len; float b = g_rvAp2[ch][w]; float y = -acc + b; g_rvAp2[ch][w] = acc + b * 0.5f; g_rvAp2W[ch] = (w + 1) % len; acc = y; }
+    return acc;
+}
+
+static void fx_process(float *out, int frames) {
+    float echoT = powf(fmaxf(0, fminf(1, g_echoTarget)), 1.12f) * 0.42f;
+    float hallT = fmaxf(powf(fmaxf(0, fminf(1, g_spaceTarget)), 1.10f) * 0.52f, powf(fmaxf(0, fminf(1, g_echoTarget)), 1.15f) * 0.14f);
+    int echoLen = (int)(g_sampleRate * 0.30); if (echoLen > ECHO_MAX) echoLen = ECHO_MAX;
+    float lp = 1.0f - expf(-2.0f * 3.14159f * 3600.0f / (float)g_sampleRate);
+    int quiet = echoT < 0.0005f && g_echoGain < 0.0005f && hallT < 0.0005f && g_spaceGain < 0.0005f;
+    for (int i = 0; i < frames; i++) {
+        g_echoGain += (echoT - g_echoGain) * 0.0008f; g_spaceGain += (hallT - g_spaceGain) * 0.0008f;
+        float dl = out[2 * i], dr = out[2 * i + 1];
+        // echo
+        float el = g_echoL[g_echoW], er = g_echoR[g_echoW];
+        g_echoLpL += (el - g_echoLpL) * lp; g_echoLpR += (er - g_echoLpR) * lp;
+        g_echoL[g_echoW] = dl * g_echoGain + g_echoLpL * 0.58f; g_echoR[g_echoW] = dr * g_echoGain + g_echoLpR * 0.58f;
+        g_echoW = (g_echoW + 1) % echoLen;
+        // hall (fed by dry + echo)
+        float rl = 0, rr = 0;
+        if (!quiet) { rl = reverb_sample(0, (dl + el) * g_spaceGain); rr = reverb_sample(1, (dr + er) * g_spaceGain); }
+        out[2 * i] = dl + el + rl; out[2 * i + 1] = dr + er + rr;
+    }
+}
 
 // Stereo placement: the Mac centres every voice (0.707/0.707) and lets MIDI
 // CC 10 pan a channel. Here each note sits where it would on a piano — low
@@ -185,6 +249,7 @@ static void synth_render(float *out, int frames) {
         }
     }
 
+    pitch_block(frames);
     const double dt = 1.0 / g_sampleRate;
     for (int idx = 0; idx < MAX_VOICES; idx++) {
         Voice *v = &g_voices[idx];
@@ -200,7 +265,7 @@ static void synth_render(float *out, int frames) {
             } else if (env < 1.0) {
                 env += attackInc; if (env > 1.0) env = 1.0;
             }
-            double s = gm_voice_render(core, g_sampleRate, env, v->freq);
+            double s = gm_voice_render(core, g_sampleRate, env, v->freq * g_pitchBuf[i]);
             if (!isfinite(s)) { active = 0; break; }
             float amp = (float)(s * v->velocityGain * g_masterGain);
             out[2 * i] += amp * v->panL; out[2 * i + 1] += amp * v->panR;
@@ -209,6 +274,7 @@ static void synth_render(float *out, int frames) {
     }
     wh_render(out, frames);
     piano_render(out, frames);
+    fx_process(out, frames);
     for (int i = 0; i < 2 * frames; i++) out[i] = soft_limit(out[i]);
 }
 
@@ -286,7 +352,7 @@ static void piano_render(float *out, int frames) {
             if (v->releasing) { env *= rel; if (env < 0.001f) { active = 0; break; } }
             float o = s * v->gain * env;
             g_piBus[2 * i] += o * v->panL; g_piBus[2 * i + 1] += o * v->panR;
-            pos += v->step;
+            pos += v->step * g_pitchBuf[i];
         }
         v->pos = pos; v->env = env; v->active = active;
     }
@@ -372,7 +438,7 @@ static void wh_render(float *out, int frames) {
             double scoop = WH_SCOOP * exp(-v->age / WH_SCOOP_TAU);
             double droop = v->releasing ? -14.0 * (1 - v->env) : 0;
             double cents = scoop + g_whCents[i] + droop;
-            double f = v->f0 * pow(2.0, cents / 1200.0);
+            double f = v->f0 * pow(2.0, cents / 1200.0) * g_pitchBuf[i];
             v->phase += f * dt; if (v->phase >= 1) v->phase -= 1;
             double ph = v->phase * 2 * M_PI;
             double tone = sin(ph) + sin(2 * ph) * WH_OVERTONE * breath;
@@ -1183,12 +1249,136 @@ static void cue(HWND hwnd, int a, int b) { g_cueNotes[0] = a; g_cueNotes[1] = b;
 static void typing_set(HWND hwnd, int on) {
     if (on == g_typing) return;
     g_typing = on;
-    if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); }
+    if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); surface_reset(hwnd); }
     g_pendingDigits[0] = 0;
     audio_set_exclusive(on);
     flash(on ? FOCUS_BLUE : STOP_RED);
     cue(hwnd, on ? 84 : 79, on ? 91 : 72);
     push_frame(hwnd);
+}
+
+// ──────────────── the FX surface (pointer while armed) + puck overlay ────────────────
+// Relative, like the Mac's trackpad page: pointer deltas move bend (vertical,
+// 80 px per octave, ±2 octaves) and the fx axis (horizontal: right = echo,
+// left = space). Values hold while anything sounds or the pointer keeps
+// moving; 0.4 s after the last move with nothing sounding they ease home over
+// 0.48 s. Moves over the strip itself don't count (that's for clicking keys).
+#define WM_SURFACE (WM_APP + 12)
+#define IDT_FX 7
+static float g_bendUnits = 0, g_fxX = 0;           // live values (octaves; -1…1)
+static DWORD g_lastSurfaceMove = 0;
+static int g_fxRamping = 0; static float g_rampFromBend = 0, g_rampFromX = 0; static DWORD g_rampStart = 0;
+static HWND g_puck = NULL; static uint32_t *g_puckPixels = NULL; static HBITMAP g_puckDib = NULL; static HDC g_puckDC = NULL; static int g_puckSize = 0;
+static float g_puckAlpha = 0;
+static HHOOK g_mouseHook = NULL;
+static POINT g_lastPt = { -1, -1 };
+
+static LRESULT CALLBACK ll_mouse(int code, WPARAM wp, LPARAM lp) {
+    if (code == HC_ACTION && g_typing && wp == WM_MOUSEMOVE) {
+        MSLLHOOKSTRUCT *m = (MSLLHOOKSTRUCT *)lp;
+        if (g_lastPt.x >= 0) {
+            int dx = m->pt.x - g_lastPt.x, dy = m->pt.y - g_lastPt.y;
+            if ((dx || dy) && dx > -32000 && dx < 32000 && dy > -32000 && dy < 32000)
+                PostMessageW(g_strip, WM_SURFACE, (WPARAM)(short)dx, (LPARAM)(short)dy);
+        }
+        g_lastPt = m->pt;
+    } else if (code == HC_ACTION && wp == WM_MOUSEMOVE) { g_lastPt = ((MSLLHOOKSTRUCT *)lp)->pt; }
+    return CallNextHookEx(g_mouseHook, code, wp, lp);
+}
+
+static void apply_fx(void) {
+    g_bendTarget = g_bendUnits;
+    g_echoTarget = g_fxX > 0 ? g_fxX : 0;
+    g_spaceTarget = g_fxX < 0 ? -g_fxX : 0;
+}
+
+static int anything_sounding(void) {
+    for (int i = 0; i < 128; i++) if (g_lit[i] || g_sustained[i] || g_latched[i]) return 1;
+    return 0;
+}
+
+static void puck_put(int x, int y, RGB8 c, double a) {
+    if (x < 0 || y < 0 || x >= g_puckSize || y >= g_puckSize) return;
+    uint32_t *p = &g_puckPixels[y * g_puckSize + x];
+    uint8_t db = *p & 0xFF, dg = (*p >> 8) & 0xFF, dr = (*p >> 16) & 0xFF, da = *p >> 24;
+    *p = ((uint8_t)(255 * a + da * (1 - a)) << 24) | ((uint8_t)(c.r * a + dr * (1 - a)) << 16) | ((uint8_t)(c.g * a + dg * (1 - a)) << 8) | (uint8_t)(c.b * a + db * (1 - a));
+}
+
+static void puck_paint(void) {
+    int S = g_puckSize; memset(g_puckPixels, 0, sizeof(uint32_t) * S * S);
+    const RGB8 panel = { 18, 22, 30 }, grid = { 140, 155, 165 }, white = { 255, 255, 255 }, echoC = { 255, 160, 0 }, spaceC = { 90, 220, 230 };
+    int r = pt(6.0);
+    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) {
+        double cx = x < r ? r - 0.5 - x : (x >= S - r ? x - (S - r - 0.5) : 0), cy = y < r ? r - 0.5 - y : (y >= S - r ? y - (S - r - 0.5) : 0);
+        if (cx * cx + cy * cy > (double)r * r) continue;
+        puck_put(x, y, panel, 0.78);
+    }
+    for (int k = 1; k < 4; k++) { int g = S * k / 4; for (int i = r; i < S - r; i++) { puck_put(g, i, grid, 0.18); puck_put(i, g, grid, 0.18); } }
+    for (int i = r; i < S - r; i++) { puck_put(S / 2, i, grid, 0.45); puck_put(i, S / 2, grid, 0.45); }
+    // the fx axis tint: right half warms with echo, left half cools with space
+    if (g_fxX > 0.01f) { RECT a = { S / 2, r, S - r, S - r }; for (int y = a.top; y < a.bottom; y++) for (int x = a.left; x < a.right; x++) puck_put(x, y, echoC, 0.10 * g_fxX); }
+    if (g_fxX < -0.01f) { RECT a = { r, r, S / 2, S - r }; for (int y = a.top; y < a.bottom; y++) for (int x = a.left; x < a.right; x++) puck_put(x, y, spaceC, 0.10 * -g_fxX); }
+    // puck
+    double px = S / 2.0 + (g_fxX * (S / 2.0 - r - 2)), py = S / 2.0 - (g_bendUnits / 2.0) * (S / 2.0 - r - 2);
+    int pr = pt(6.0);
+    RGB8 pc = g_fxX > 0.01f ? echoC : (g_fxX < -0.01f ? spaceC : white);
+    for (int y = (int)py - pr - 1; y <= (int)py + pr + 1; y++) for (int x = (int)px - pr - 1; x <= (int)px + pr + 1; x++) {
+        double d = sqrt((x + 0.5 - px) * (x + 0.5 - px) + (y + 0.5 - py) * (y + 0.5 - py));
+        if (d < pr) puck_put(x, y, pc, 0.95); else if (d < pr + 1.5) puck_put(x, y, pc, 0.95 * (pr + 1.5 - d) / 1.5);
+    }
+}
+
+static void puck_show(void) {
+    if (!g_puck) return;
+    if (!g_puckDC || !g_puckPixels) {
+        g_puckSize = pt(120.0);
+        g_puckDC = CreateCompatibleDC(NULL);
+        BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+        bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); bi.bmiHeader.biWidth = g_puckSize; bi.bmiHeader.biHeight = -g_puckSize; bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+        g_puckDib = CreateDIBSection(g_puckDC, &bi, DIB_RGB_COLORS, (void **)&g_puckPixels, NULL, 0); SelectObject(g_puckDC, g_puckDib);
+    }
+    puck_paint();
+    POINT dst = { g_posX + g_pianoX, g_posY - g_puckSize - pt(8.0) }, src = { 0, 0 }; SIZE size = { g_puckSize, g_puckSize };
+    BLENDFUNCTION bf = { AC_SRC_OVER, 0, (BYTE)(g_puckAlpha * 255), AC_SRC_ALPHA };
+    HDC screen = GetDC(NULL); UpdateLayeredWindow(g_puck, screen, &dst, &size, g_puckDC, &src, 0, &bf, ULW_ALPHA); ReleaseDC(NULL, screen);
+    SetWindowPos(g_puck, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | (g_puckAlpha > 0.01f ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
+}
+
+static void surface_move(HWND hwnd, int dx, int dy) {
+    POINT p; GetCursorPos(&p);
+    RECT strip = { g_posX, g_posY, g_posX + g_stripW, g_posY + g_stripH };
+    if (PtInRect(&strip, p) || g_mouseMidi >= 0) return;            // the strip is for clicking keys
+    g_fxRamping = 0;
+    g_bendUnits -= dy / (80.0f * (float)g_dpi); if (g_bendUnits > 2) g_bendUnits = 2; if (g_bendUnits < -2) g_bendUnits = -2;
+    g_fxX += dx / (160.0f * (float)g_dpi); if (g_fxX > 1) g_fxX = 1; if (g_fxX < -1) g_fxX = -1;
+    g_lastSurfaceMove = GetTickCount();
+    apply_fx();
+    g_puckAlpha = 1; puck_show();
+    SetTimer(hwnd, IDT_FX, 16, NULL);
+}
+
+static void surface_tick(HWND hwnd) {
+    DWORD now = GetTickCount(), idle = now - g_lastSurfaceMove;
+    int settled = fabsf(g_bendUnits) < 0.002f && fabsf(g_fxX) < 0.002f;
+    if (!settled && !g_fxRamping && idle > 400 && !anything_sounding()) { g_fxRamping = 1; g_rampStart = now; g_rampFromBend = g_bendUnits; g_rampFromX = g_fxX; }
+    if (g_fxRamping) {
+        float t = (now - g_rampStart) / 480.0f; if (t > 1) t = 1;
+        float e = 1 - (1 - t) * (1 - t);
+        g_bendUnits = g_rampFromBend * (1 - e); g_fxX = g_rampFromX * (1 - e);
+        apply_fx();
+        if (t >= 1) { g_fxRamping = 0; g_bendUnits = 0; g_fxX = 0; apply_fx(); }
+    }
+    if (idle > 1500 && settled) g_puckAlpha -= 16.0f / 400.0f; else if (idle > 1500 && !g_typing) g_puckAlpha -= 16.0f / 400.0f;
+    if (g_puckAlpha < 0) g_puckAlpha = 0;
+    puck_show();
+    if (g_puckAlpha <= 0 && settled && !g_fxRamping) KillTimer(hwnd, IDT_FX);
+}
+
+static void surface_reset(HWND hwnd) {
+    // Focus loss ramps everything to neutral, as on the Mac.
+    if (fabsf(g_bendUnits) > 0.002f || fabsf(g_fxX) > 0.002f) { g_fxRamping = 1; g_rampStart = GetTickCount(); g_rampFromBend = g_bendUnits; g_rampFromX = g_fxX; }
+    g_lastSurfaceMove = 0;
+    SetTimer(hwnd, IDT_FX, 16, NULL);
 }
 
 // ──────────────────── taskbar tracking ───────────────────────────
@@ -1441,6 +1631,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (wp == IDT_DIGITS) { KillTimer(hwnd, IDT_DIGITS); g_pendingDigits[0] = 0; push_frame(hwnd); }
         if (wp == IDT_CUE) step_cue(hwnd);
         if (wp == IDT_SLIDE) step_slide(hwnd);
+        if (wp == IDT_FX) surface_tick(hwnd);
         return 0;
     case WM_MOUSEACTIVATE:
         return MA_NOACTIVATE;
@@ -1524,6 +1715,9 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CHORDMOD:
         for (int v = 0; v < 256; v++) if (g_vkDown[v]) revoice(hwnd, v);
         return 0;
+    case WM_SURFACE:
+        surface_move(hwnd, (int)(short)wp, (int)(short)lp);
+        return 0;
     }
     case WM_TYPEESC:
         typing_set(hwnd, 0);
@@ -1576,6 +1770,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         typing_set(hwnd, 0);
         Shell_NotifyIconW(NIM_DELETE, &g_nid);
         if (g_hook) UnhookWindowsHookEx(g_hook);
+        if (g_mouseHook) UnhookWindowsHookEx(g_mouseHook);
         InterlockedExchange(&g_audioRunning, 0);
         if (g_midiOut) { midiOutReset(g_midiOut); midiOutClose(g_midiOut); }
         PostQuitMessage(0);
@@ -1646,7 +1841,13 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     wcscpy_s(g_nid.szTip, 128, L"Menu Band");
     Shell_NotifyIconW(NIM_ADD, &g_nid);
 
+    WNDCLASSW pc; memset(&pc, 0, sizeof pc);
+    pc.lpfnWndProc = DefWindowProcW; pc.hInstance = hInst; pc.lpszClassName = L"MenuBandPuck";
+    RegisterClassW(&pc);
+    g_puck = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_LAYERED | WS_EX_TRANSPARENT,
+                             L"MenuBandPuck", L"", WS_POPUP, 0, 0, 10, 10, NULL, NULL, hInst, NULL);
     g_hook = SetWindowsHookExW(WH_KEYBOARD_LL, ll_keyboard, hInst, 0);
+    g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, ll_mouse, hInst, 0);
     mb_log(L"start: strip=%p flash=%p hook=%p audio=%d (lastErr=%lu)", (void *)hwnd, (void *)g_flash, (void *)g_hook, (int)g_audioRunning, GetLastError());
     track(hwnd, 1);
     mb_log(L"start: placed at %d,%d size %dx%d taskbarH=%d", g_posX, g_posY, g_stripW, g_stripH, g_lastTaskbarH);

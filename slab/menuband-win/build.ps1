@@ -22,7 +22,7 @@ New-Item -ItemType Directory -Force build | Out-Null
 Get-Process MenuBand -ErrorAction SilentlyContinue | Stop-Process -Force
 $cmd = "call `"$vcvars`" >nul && cl /nologo /O2 /W3 /std:c17 " +
        "/Fo:build\ /Fe:build\MenuBand.exe menuband.c gm_synth.c " +
-       "/link /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup user32.lib gdi32.lib shell32.lib ole32.lib avrt.lib winmm.lib advapi32.lib dwmapi.lib"
+       "/link /MAP:build\MenuBand.map /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup user32.lib gdi32.lib shell32.lib ole32.lib avrt.lib winmm.lib advapi32.lib dwmapi.lib"
 cmd /c $cmd
 if ($LASTEXITCODE -ne 0) { throw "build failed ($LASTEXITCODE)" }
 Write-Host "built build\MenuBand.exe"
