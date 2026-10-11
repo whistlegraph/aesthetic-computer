@@ -32,6 +32,7 @@
 #include <audioclient.h>
 #include <mmsystem.h>
 #include <avrt.h>
+#include <dwmapi.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -49,6 +50,8 @@ static const IID   MB_IID_IAudioRenderClient   = {0xF294ACFC,0x3146,0x4483,{0xA7
 static const GUID  MB_SUBTYPE_IEEE_FLOAT       = {0x00000003,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}};
 
 static void mb_log(const wchar_t *fmt, ...);
+static void setting_set(const wchar_t *name, DWORD v);
+static const wchar_t *GM_NAMES[128];
 static volatile LONG g_dbgNoteOns;
 
 // ───────────────────────────── synth ─────────────────────────────
@@ -432,23 +435,34 @@ static int g_blackW = 0, g_blackH = 0;
 static int g_padX = 0, g_padY = 0;
 static int g_chipW = 0, g_pianoX = 0;   // ♪ chip at the left, then the keys
 
+static double g_dpi = 1.5;   // physical px per Mac point; from the taskbar's monitor
+static int g_blackTop = 0;
+
+// Metrics lifted from KeyboardIconRenderer.swift (regular layout):
+// whiteW 23, whiteH 21, blackW 13.5, blackH 12, pad 0.5, stripe 2, menubar 22.
+static int pt(double v) { int r = (int)(v * g_dpi + 0.5); return r < 1 ? 1 : r; }
+
 static void layout_for_taskbar_height(int taskbarH) {
-    // Keys stand a little taller than the taskbar's app icons, centred.
-    g_keyH = (taskbarH * 60) / 100; if (g_keyH < 16) g_keyH = 16;
-    g_padY = (taskbarH - g_keyH) / 2;
-    g_keyW = g_keyH / 2; if (g_keyW < 9) g_keyW = 9; if (g_keyW > 30) g_keyW = 30;
+    HWND tray = FindWindowW(L"Shell_TrayWnd", NULL);
+    UINT dpi = tray ? GetDpiForWindow(tray) : 96; if (dpi < 72) dpi = 96;
+    g_dpi = dpi / 96.0;
+    // Taller, narrower keys than the Mac's: 2:1, two thirds of the visible band.
+    g_keyH = (taskbarH * 66) / 100; if (g_keyH < 16) g_keyH = 16;
+    g_keyW = g_keyH / 2; if (g_keyW < 9) g_keyW = 9;
     g_blackW = (g_keyW * 6) / 10; if (g_blackW < 5) g_blackW = 5;
     g_blackH = (g_keyH * 6) / 10;
-    g_padX = 6;
-    g_chipW = (g_keyH * 9) / 10;
-    g_pianoX = g_padX + g_chipW + 8;
+    g_padY = (taskbarH - g_keyH) / 2;
+    g_padX = pt(6.0);
+    g_chipW = pt(24.0);
+    g_pianoX = g_padX + g_chipW + pt(6.0);
     g_stripW = g_pianoX + g_keyW * WHITE_COUNT + g_padX;
     g_stripH = taskbarH;
+    g_blackTop = g_padY;
 }
 
 static int white_index_of(int midi) { for (int i = 0; i < WHITE_COUNT; i++) if (g_whiteMidi[i] == midi) return i; return -1; }
 
-static RECT chip_rect(void) { RECT r = { g_padX, g_padY, g_padX + g_chipW, g_padY + g_keyH }; return r; }
+static RECT chip_rect(void) { RECT r = { g_padX, g_padY - 1, g_padX + g_chipW, g_padY + g_keyH + 1 }; return r; }
 
 static RECT white_rect(int i) {
     RECT r = { g_pianoX + i * g_keyW, g_padY, g_pianoX + (i + 1) * g_keyW - 1, g_padY + g_keyH };
@@ -479,7 +493,6 @@ static int chip_at(int x, int y) { POINT p = { x, y }; RECT r = chip_rect(); ret
 static uint32_t *g_pixels = NULL;
 static HBITMAP g_dib = NULL;
 static HDC g_memDC = NULL;
-static uint8_t *g_chipMask = NULL;      // ♪ glyph coverage, g_chipW × g_keyH
 
 typedef struct { uint8_t r, g, b; } RGB8;
 
@@ -490,10 +503,39 @@ static const RGB8 CHROMA[12] = {
 static const RGB8 FOCUS_BLUE = { 15, 107, 255 };
 static const RGB8 STOP_RED = { 255, 31, 41 };
 
+// Windows' accent colour, boosted the way the Mac boosts its system accent for
+// the sharps in dark mode (saturation +0.55/+0.30, brightness +0.45/+0.20).
+static RGB8 g_accent = { 150, 80, 255 };
+static void read_accent(void) {
+    HKEY k; DWORD v = 0, size = sizeof v, type;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\DWM", 0, KEY_READ, &k) == ERROR_SUCCESS) {
+        if (RegQueryValueExW(k, L"AccentColor", NULL, &type, (BYTE *)&v, &size) == ERROR_SUCCESS && type == REG_DWORD) {
+            g_accent.r = v & 0xFF; g_accent.g = (v >> 8) & 0xFF; g_accent.b = (v >> 16) & 0xFF;   // ABGR
+            RegCloseKey(k); return;
+        }
+        RegCloseKey(k);
+    }
+    DWORD c = 0; BOOL opaque = FALSE;
+    if (SUCCEEDED(DwmGetColorizationColor(&c, &opaque))) { g_accent.r = (c >> 16) & 0xFF; g_accent.g = (c >> 8) & 0xFF; g_accent.b = c & 0xFF; }
+}
+static RGB8 hsv_boost(RGB8 c, double satBoost, double briBoost) {
+    double r = c.r / 255.0, g = c.g / 255.0, b = c.b / 255.0;
+    double mx = fmax(r, fmax(g, b)), mn = fmin(r, fmin(g, b)), d = mx - mn, h = 0;
+    if (d > 1e-6) { if (mx == r) h = fmod((g - b) / d, 6); else if (mx == g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; if (h < 0) h += 1; }
+    double sat = mx > 0 ? d / mx : 0, v = mx;
+    sat = fmin(1, sat + (1 - sat) * satBoost); v = fmin(1, v + (1 - v) * briBoost);
+    double C = v * sat, X = C * (1 - fabs(fmod(h * 6, 2) - 1)), m = v - C, rr = 0, gg = 0, bb = 0;
+    int sec = (int)(h * 6) % 6;
+    switch (sec) { case 0: rr = C; gg = X; break; case 1: rr = X; gg = C; break; case 2: gg = C; bb = X; break; case 3: gg = X; bb = C; break; case 4: rr = X; bb = C; break; default: rr = C; bb = X; }
+    RGB8 o = { (uint8_t)((rr + m) * 255), (uint8_t)((gg + m) * 255), (uint8_t)((bb + m) * 255) }; return o;
+}
+
 static RGB8 blend(RGB8 a, RGB8 b, double t) { RGB8 c = { (uint8_t)(a.r + (b.r - a.r) * t), (uint8_t)(a.g + (b.g - a.g) * t), (uint8_t)(a.b + (b.b - a.b) * t) }; return c; }
 
+static int g_clipOn = 0, g_clipL = 0, g_clipR = 0;
 static void put(int x, int y, RGB8 c, double alpha) {
     if (x < 0 || y < 0 || x >= g_stripW || y >= g_stripH) return;
+    if (g_clipOn && (x < g_clipL || x >= g_clipR)) return;
     uint32_t *p = &g_pixels[y * g_stripW + x];
     double a = alpha;
     uint8_t db = (uint8_t)(*p & 0xFF), dg = (uint8_t)((*p >> 8) & 0xFF), dr = (uint8_t)((*p >> 16) & 0xFF), da = (uint8_t)(*p >> 24);
@@ -510,30 +552,51 @@ static void fill(RECT r, RGB8 top, RGB8 bottom, double alpha) {
     }
 }
 
-// Rasterise the ♪ once per layout: GDI text into a scratch DIB, luminance → mask.
-static void render_chip_mask(void) {
-    free(g_chipMask); g_chipMask = (uint8_t *)calloc((size_t)g_chipW * g_keyH, 1);
+// Text masks via GDI: draw white text on black into a scratch DIB, read the
+// green channel back as coverage.
+static uint8_t *text_mask(const wchar_t *text, const wchar_t *face, int px, int weight, int *outW, int *outH) {
     HDC dc = CreateCompatibleDC(NULL);
-    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
-    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bi.bmiHeader.biWidth = g_chipW; bi.bmiHeader.biHeight = -g_keyH;
-    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
-    uint32_t *bits = NULL;
-    HBITMAP bm = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, (void **)&bits, NULL, 0);
-    if (!bm) { DeleteDC(dc); return; }
-    HGDIOBJ oldBm = SelectObject(dc, bm);
-    memset(bits, 0, (size_t)g_chipW * g_keyH * 4);
-    HFONT font = CreateFontW(-(g_keyH * 70) / 100, 0, 0, 0, FW_NORMAL, 0, 0, 0, DEFAULT_CHARSET,
-                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, L"Segoe UI Symbol");
+    HFONT font = CreateFontW(-px, 0, 0, 0, weight, 0, 0, 0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, DEFAULT_PITCH, face);
     HGDIOBJ oldFont = SelectObject(dc, font);
+    SIZE sz; GetTextExtentPoint32W(dc, text, (int)wcslen(text), &sz);
+    int w = sz.cx + 2, h = sz.cy + 2;
+    BITMAPINFO bi; memset(&bi, 0, sizeof bi);
+    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER); bi.bmiHeader.biWidth = w; bi.bmiHeader.biHeight = -h;
+    bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
+    uint32_t *bits = NULL; HBITMAP bm = CreateDIBSection(dc, &bi, DIB_RGB_COLORS, (void **)&bits, NULL, 0);
+    if (!bm) { SelectObject(dc, oldFont); DeleteObject(font); DeleteDC(dc); *outW = *outH = 0; return NULL; }
+    HGDIOBJ oldBm = SelectObject(dc, bm); SelectObject(dc, font);
+    memset(bits, 0, (size_t)w * h * 4);
     SetBkMode(dc, TRANSPARENT); SetTextColor(dc, RGB(255, 255, 255));
-    RECT r = { 0, 0, g_chipW, g_keyH };
-    DrawTextW(dc, L"\x266A", 1, &r, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOCLIP);
-    for (int i = 0; i < g_chipW * g_keyH; i++) g_chipMask[i] = (uint8_t)((bits[i] >> 8) & 0xFF);
-    SelectObject(dc, oldFont); DeleteObject(font);
-    SelectObject(dc, oldBm); DeleteObject(bm); DeleteDC(dc);
+    TextOutW(dc, 1, 1, text, (int)wcslen(text));
+    uint8_t *mask = (uint8_t *)malloc((size_t)w * h);
+    for (int i = 0; i < w * h; i++) mask[i] = (uint8_t)((bits[i] >> 8) & 0xFF);
+    SelectObject(dc, oldBm); DeleteObject(bm); SelectObject(dc, oldFont); DeleteObject(font); DeleteDC(dc);
+    *outW = w; *outH = h; return mask;
 }
 
+static void blit_mask(const uint8_t *mask, int mw, int mh, int x0, int y0, RGB8 c, double alpha) {
+    if (!mask) return;
+    for (int y = 0; y < mh; y++) for (int x = 0; x < mw; x++) { uint8_t m = mask[y * mw + x]; if (m) put(x0 + x, y0 + y, c, m / 255.0 * alpha); }
+}
+
+static uint8_t *g_noteMask = NULL; static int g_noteW = 0, g_noteH = 0;
+static uint8_t *g_numMask = NULL;  static int g_numW = 0, g_numH = 0;
+static wchar_t g_numText[8] = L"";
+
+static void render_chip_mask(void) {
+    free(g_noteMask); g_noteMask = text_mask(L"\x266A", L"Segoe UI Symbol", pt(14.0), FW_NORMAL, &g_noteW, &g_noteH);
+    free(g_numMask); g_numMask = NULL; g_numText[0] = 0;
+}
+
+static void ensure_number_mask(const wchar_t *text) {
+    if (g_numMask && !wcscmp(text, g_numText)) return;
+    free(g_numMask); g_numMask = text_mask(text, L"Segoe UI", pt(7.0), FW_HEAVY, &g_numW, &g_numH);
+    wcscpy_s(g_numText, 8, text);
+}
+
+static wchar_t g_pendingDigits[4] = L"";   // instrument number being typed
+static int g_slide = 0;                     // octave slide offset in px, eases to 0
 static int g_hoverMidi = -1;
 static int g_hoverChip = 0;
 static int g_mouseMidi = -1;
@@ -543,51 +606,75 @@ static void paint(void) {
     memset(g_pixels, 0, sizeof(uint32_t) * g_stripW * g_stripH);
     const RGB8 whiteHi = { 62, 72, 82 }, whiteLo = { 44, 54, 62 };
     const RGB8 groove = { 140, 155, 165 };
-    const RGB8 blackHi = { 170, 100, 255 }, blackLo = { 120, 60, 210 };
+    // A near-grey accent (Windows' automatic pick from a dark wallpaper) gets
+    // cool slate sharps instead of a warm smear; a real accent gets the Mac boost.
+    double amx = fmax(g_accent.r, fmax(g_accent.g, g_accent.b)) / 255.0, amn = fmin(g_accent.r, fmin(g_accent.g, g_accent.b)) / 255.0;
+    int neutral = amx < 0.02 || (amx - amn) / amx < 0.12;
+    const RGB8 slateHi = { 176, 186, 196 }, slateLo = { 128, 138, 148 };
+    const RGB8 blackHi = neutral ? slateHi : hsv_boost(g_accent, 0.55, 0.45), blackLo = neutral ? slateLo : hsv_boost(g_accent, 0.30, 0.20);
     const RGB8 black = { 0, 0, 0 }, white = { 255, 255, 255 };
+    const RGB8 glyph = { 235, 238, 242 };
+    int stripeH = pt(2.0), r = pt(3.0);
 
-    // ♪ chip: slate normally, focus blue while typing is live.
+    // ♪ chip: the note glyph with the program number as a heavy subscript, as
+    // on the Mac; while digits are being typed, the subscript shows them lit.
     RECT cr = chip_rect();
-    RGB8 chipTop = g_typing ? FOCUS_BLUE : whiteHi, chipBot = g_typing ? blend(FOCUS_BLUE, black, 0.25) : whiteLo;
-    if (g_hoverChip && !g_typing) { chipTop = blend(chipTop, white, 0.12); chipBot = blend(chipBot, white, 0.12); }
-    RECT cframe = { cr.left - 1, cr.top - 1, cr.right + 1, cr.bottom + 1 };
-    fill(cframe, groove, groove, 0.55);
-    fill(cr, chipTop, chipBot, 1.0);
-    if (g_chipMask)
-        for (int y = 0; y < g_keyH; y++) for (int x = 0; x < g_chipW; x++) {
-            uint8_t m = g_chipMask[y * g_chipW + x];
-            if (m) put(cr.left + x, cr.top + y, white, m / 255.0 * 0.95);
-        }
+    if (g_typing) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, FOCUS_BLUE, blend(FOCUS_BLUE, black, 0.25), 0.9); }
+    else if (g_hoverChip) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, white, white, 0.10); }
+    int gx = cr.left + pt(1.0), gy = cr.top + (g_keyH - g_noteH) / 2 - pt(1.0);
+    blit_mask(g_noteMask, g_noteW, g_noteH, gx, gy, glyph, 1.0);
+    wchar_t num[8]; int pending = g_pendingDigits[0] != 0;
+    if (pending) wcscpy_s(num, 8, g_pendingDigits); else swprintf(num, 8, L"%d", g_program + 1);
+    ensure_number_mask(num);
+    int nx = gx + g_noteW - pt(3.0), ny = cr.bottom - g_numH + pt(1.0);
+    blit_mask(g_numMask, g_numW, g_numH, nx, ny, pending ? CHROMA[4] : glyph, 1.0);
 
-    // Backplate: the groove colour shows between keys and as a hairline frame;
-    // it turns focus blue while typing so the whole strip reads as armed.
+    // Backplate: the groove colour shows between keys and as a hairline frame.
     RECT plate = { g_pianoX - 1, g_padY - 1, g_pianoX + g_keyW * WHITE_COUNT, g_padY + g_keyH + 1 };
-    fill(plate, g_typing ? FOCUS_BLUE : groove, g_typing ? FOCUS_BLUE : groove, g_typing ? 0.9 : 0.55);
+    fill(plate, groove, groove, 0.55);
 
-    for (int i = 0; i < WHITE_COUNT; i++) {
-        int m = g_whiteMidi[i];
-        RECT r = white_rect(i);
-        RGB8 hi = whiteHi, lo = whiteLo;
-        int lit = g_lit[m] > 0;
-        if (lit) { RGB8 l = blend(CHROMA[m % 12], black, 0.22); hi = l; lo = l; }
-        else if (m == g_hoverMidi) { hi = blend(whiteHi, white, 0.12); lo = blend(whiteLo, white, 0.12); }
-        fill(r, hi, lo, 1.0);
-        RECT s = { r.left + 2, r.bottom - 3, r.right - 2, r.bottom - 1 };
-        fill(s, CHROMA[m % 12], CHROMA[m % 12], lit ? 0.0 : 0.9);
+    // Keys: one tile normally; during an octave slide the run is drawn at the
+    // slide offset with the neighbouring octave's tiles on either side, clipped
+    // to the plate, so the piano reads as sliding past a window cut in the bar.
+    g_clipOn = 1; g_clipL = g_pianoX; g_clipR = g_pianoX + g_keyW * WHITE_COUNT;
+    int sliding = g_slide != 0;
+    int tileW = g_keyW * WHITE_COUNT;
+    for (int t = (sliding ? -1 : 0); t <= (sliding ? 1 : 0); t++) {
+        int dx = g_slide + t * tileW, dm = t * 24;   // 14 whites = 2 octaves = 24 semitones
+        for (int i = 0; i < WHITE_COUNT; i++) {
+            int m = g_whiteMidi[i] + dm, mv = ((m % 12) + 12) % 12;
+            RECT kr = white_rect(i); kr.left += dx; kr.right += dx;
+            if (kr.right < g_clipL || kr.left >= g_clipR) continue;
+            RGB8 hi = whiteHi, lo = whiteLo;
+            int lit = m >= 0 && m < 128 && g_lit[m] > 0;
+            if (lit) { RGB8 l = blend(CHROMA[mv], black, 0.22); hi = l; lo = l; }
+            else if (m == g_hoverMidi && !sliding) { hi = blend(whiteHi, white, 0.12); lo = blend(whiteLo, white, 0.12); }
+            fill(kr, hi, lo, 1.0);
+            RECT st = { kr.left + 1, kr.bottom - stripeH, kr.right - 1, kr.bottom };
+            if (!lit) fill(st, CHROMA[mv], CHROMA[mv], 0.95);
+        }
+        for (int i = 0; i < g_blackCount; i++) {
+            int m = g_blackMidi[i] + dm;
+            RECT br = black_rect(g_blackMidi[i]); br.left += dx; br.right += dx;
+            if (br.right < g_clipL || br.left >= g_clipR) continue;
+            RGB8 hi = blackHi, lo = blackLo;
+            if (m >= 0 && m < 128 && g_lit[m] > 0) { hi = white; lo = blend(white, blackHi, 0.4); }
+            else if (m == g_hoverMidi && !sliding) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
+            fill(br, hi, lo, 1.0);
+            if (br.left >= g_clipL) g_pixels[(br.bottom - 1) * g_stripW + br.left] = 0;
+            if (br.right - 1 < g_clipR) g_pixels[(br.bottom - 1) * g_stripW + br.right - 1] = 0;
+        }
     }
-    for (int i = 0; i < g_blackCount; i++) {
-        int m = g_blackMidi[i];
-        RECT r = black_rect(m);
-        RGB8 hi = blackHi, lo = blackLo;
-        if (g_lit[m] > 0) { hi = white; lo = blend(white, blackHi, 0.4); }
-        else if (m == g_hoverMidi) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
-        RECT shadow = { r.left, r.top, r.right, r.bottom + 1 };
-        fill(shadow, black, black, 0.35);
-        fill(r, hi, lo, 1.0);
-    }
+    g_clipOn = 0;
+    // Rounded outer corners of the key run.
     int L = g_pianoX - 1, R = g_pianoX + g_keyW * WHITE_COUNT - 1, T = g_padY - 1, B = g_padY + g_keyH;
-    int corners[8][2] = { {L, T}, {R, T}, {L, B}, {R, B}, {cframe.left, cframe.top}, {cframe.right - 1, cframe.top}, {cframe.left, cframe.bottom - 1}, {cframe.right - 1, cframe.bottom - 1} };
-    for (int c = 0; c < 8; c++) g_pixels[corners[c][1] * g_stripW + corners[c][0]] = 0;
+    for (int dy = 0; dy < r; dy++) for (int dx = 0; dx < r; dx++) {
+        double cx = r - 0.5 - dx, cy = r - 0.5 - dy;
+        if (cx * cx + cy * cy > (double)r * r) {
+            g_pixels[(T + dy) * g_stripW + (L + dx)] = 0; g_pixels[(T + dy) * g_stripW + (R - dx)] = 0;
+            g_pixels[(B - dy) * g_stripW + (L + dx)] = 0; g_pixels[(B - dy) * g_stripW + (R - dx)] = 0;
+        }
+    }
 }
 
 static int g_posX = 0, g_posY = 0;
@@ -611,6 +698,7 @@ static void ensure_surface(void) {
     bi.bmiHeader.biPlanes = 1; bi.bmiHeader.biBitCount = 32; bi.bmiHeader.biCompression = BI_RGB;
     g_dib = CreateDIBSection(g_memDC, &bi, DIB_RGB_COLORS, (void **)&g_pixels, NULL, 0);
     SelectObject(g_memDC, g_dib);
+    read_accent();
     render_chip_mask();
 }
 
@@ -665,6 +753,8 @@ static HWND g_strip = NULL;
 #define WM_TYPEKEY (WM_APP + 2)
 #define WM_TYPEESC (WM_APP + 3)
 #define WM_OCTAVE (WM_APP + 4)
+#define WM_DIGIT (WM_APP + 5)
+#define IDT_DIGITS 4
 
 static void build_keymap(void) {
     for (int i = 0; i < 256; i++) g_semitoneByVk[i] = -128;
@@ -677,12 +767,32 @@ static void build_keymap(void) {
     for (size_t i = 0; i < sizeof map / sizeof map[0]; i++) g_semitoneByVk[map[i].vk] = map[i].st;
 }
 
+#define WM_CTRLTRIPLE (WM_APP + 6)
+static DWORD g_ctrlTapTimes[3]; static int g_ctrlTaps = 0; static int g_ctrlSolo = 0;
+
 static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
+    if (code == HC_ACTION) {
+        KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
+        int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
+        int isCtrl = (k->vkCode == VK_LCONTROL || k->vkCode == VK_RCONTROL);
+        // Ctrl ×3: three solo taps (down, up, nothing else between) inside 600 ms.
+        if (isCtrl) {
+            if (down) g_ctrlSolo = 1;
+            else if (g_ctrlSolo) {
+                DWORD now = GetTickCount();
+                if (g_ctrlTaps && now - g_ctrlTapTimes[0] > 600) g_ctrlTaps = 0;
+                if (g_ctrlTaps < 3) g_ctrlTapTimes[g_ctrlTaps++] = now;
+                if (g_ctrlTaps == 3) { g_ctrlTaps = 0; PostMessageW(g_strip, WM_CTRLTRIPLE, 0, 0); }
+                g_ctrlSolo = 0;
+            }
+        } else { g_ctrlSolo = 0; if (down) g_ctrlTaps = 0; }
+    }
     if (code == HC_ACTION && g_typing) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         if (k->vkCode < 256) {
             if (k->vkCode == VK_ESCAPE) { if (down) PostMessageW(g_strip, WM_TYPEESC, 0, 0); return 1; }
+            if (k->vkCode >= '0' && k->vkCode <= '9') { if (down) PostMessageW(g_strip, WM_DIGIT, k->vkCode - '0', 0); return 1; }
             if (k->vkCode == VK_OEM_COMMA || k->vkCode == VK_OEM_PERIOD) {
                 if (down) PostMessageW(g_strip, WM_OCTAVE, k->vkCode == VK_OEM_PERIOD ? 1 : (WPARAM)-1, 0);
                 return 1;
@@ -703,11 +813,23 @@ static void release_typed(HWND hwnd) {
     for (int vk = 0; vk < 256; vk++) if (g_vkDown[vk]) { g_vkDown[vk] = 0; lit_off(hwnd, 60 + g_semitoneByVk[vk] + (g_firstMidi - 60)); }
 }
 
+// Little ear-cue on focus change, like the Mac: up a fifth on arm, down on Esc.
+#define IDT_CUE 5
+static int g_cueNotes[2], g_cueIndex = 0, g_cueSounding = -1;
+static void step_cue(HWND hwnd) {
+    if (g_cueSounding >= 0) { play_off(g_cueSounding); g_cueSounding = -1; }
+    if (g_cueIndex >= 2) { KillTimer(hwnd, IDT_CUE); return; }
+    g_cueSounding = g_cueNotes[g_cueIndex++]; play_on(g_cueSounding, 70);
+}
+static void cue(HWND hwnd, int a, int b) { g_cueNotes[0] = a; g_cueNotes[1] = b; g_cueIndex = 0; SetTimer(hwnd, IDT_CUE, 90, NULL); step_cue(hwnd); }
+
 static void typing_set(HWND hwnd, int on) {
     if (on == g_typing) return;
     g_typing = on;
     if (!on) release_typed(hwnd);
+    g_pendingDigits[0] = 0;
     flash(on ? FOCUS_BLUE : STOP_RED);
+    cue(hwnd, on ? 84 : 79, on ? 91 : 72);
     push_frame(hwnd);
 }
 
@@ -898,12 +1020,25 @@ static void poll_play_file(HWND hwnd) {
     if (g_playCount) { SetTimer(hwnd, IDT_PLAY, g_playMs, NULL); step_play(hwnd); }
 }
 
+#define IDT_SLIDE 6
+static double g_slideF = 0;
+static void step_slide(HWND hwnd) {
+    g_slideF *= 0.76;                       // ease-out, ~220 ms to settle at 16 ms ticks
+    if (fabs(g_slideF) < 0.8) { g_slideF = 0; g_slide = 0; KillTimer(hwnd, IDT_SLIDE); }
+    else g_slide = (int)(g_slideF + (g_slideF > 0 ? 0.5 : -0.5));
+    push_frame(hwnd);
+}
 static void shift_octave(HWND hwnd, int dir) {
     int next = g_firstMidi + 12 * dir;
     if (next < 36 || next > 84) return;
     mouse_up(hwnd);
     release_typed(hwnd);
-    g_firstMidi = next; build_keys(); push_frame(hwnd);
+    g_firstMidi = next; build_keys();
+    // The new octave starts where it just was (one octave of keys to the side)
+    // and glides home, like the Mac's octaveSlideDistance animation.
+    g_slideF += dir * 7.0 * g_keyW; g_slide = (int)g_slideF;
+    SetTimer(hwnd, IDT_SLIDE, 16, NULL);
+    push_frame(hwnd);
     setting_set(L"firstMidi", (DWORD)g_firstMidi);
 }
 
@@ -915,6 +1050,9 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TIMER:
         if (wp == IDT_TRACK) { track(hwnd, 0); poll_play_file(hwnd); }
         if (wp == IDT_PLAY) step_play(hwnd);
+        if (wp == IDT_DIGITS) { KillTimer(hwnd, IDT_DIGITS); g_pendingDigits[0] = 0; push_frame(hwnd); }
+        if (wp == IDT_CUE) step_cue(hwnd);
+        if (wp == IDT_SLIDE) step_slide(hwnd);
         return 0;
     case WM_MOUSEACTIVATE:
         return MA_NOACTIVATE;
@@ -963,6 +1101,21 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_OCTAVE:
         shift_octave(hwnd, (int)(intptr_t)wp);
         return 0;
+    case WM_DIGIT: {
+        // Live entry like the Mac: each digit extends the number and applies it
+        // at once ("7" → 7 Harpsichord, then "79" → 79 Whistle); a pause of
+        // 900 ms, a third digit, or a number that can't grow ends the entry.
+        size_t n = wcslen(g_pendingDigits);
+        if (n >= 3) n = 0;
+        g_pendingDigits[n] = (wchar_t)(L'0' + (int)wp); g_pendingDigits[n + 1] = 0;
+        int value = _wtoi(g_pendingDigits);
+        if (value >= 1 && value <= 128) { g_program = value - 1; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"typed program %d (%s)", value, GM_NAMES[g_program]); }
+        if (value > 128 || value == 0) { g_pendingDigits[0] = 0; }
+        else if (value * 10 > 128 || n + 1 >= 3) { SetTimer(hwnd, IDT_DIGITS, 350, NULL); }
+        else SetTimer(hwnd, IDT_DIGITS, 900, NULL);
+        push_frame(hwnd);
+        return 0;
+    }
     case WM_TYPEKEY: {
         int vk = (int)wp, down = (int)lp;
         if (vk < 0 || vk > 255) return 0;
@@ -975,6 +1128,10 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TYPEESC:
         typing_set(hwnd, 0);
         return 0;
+    case WM_CTRLTRIPLE:
+        mb_log(L"ctrl x3 -> %s", g_typing ? L"release" : L"focus");
+        typing_set(hwnd, !g_typing);
+        return 0;
     case WM_TRAY:
         if (LOWORD(lp) == WM_RBUTTONUP || LOWORD(lp) == WM_LBUTTONUP) show_menu(hwnd);
         return 0;
@@ -983,10 +1140,13 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_QUIT) { mb_log(L"menu: quit"); DestroyWindow(hwnd); return 0; }
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
-        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); }
+        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         return 0;
     }
+    case WM_DWMCOLORIZATIONCOLORCHANGED:
+        read_accent(); push_frame(hwnd);
+        return 0;
     case WM_DISPLAYCHANGE:
     case WM_DPICHANGED:
     case WM_SETTINGCHANGE:
