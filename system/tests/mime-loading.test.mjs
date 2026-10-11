@@ -22,7 +22,8 @@ test('poster listing exposes a checked endpoint and rejects arbitrary storage ho
 });
 test('feed-only reads skip the global MIME census, normal inventory retains it',async()=>{
  let census=0;
- const db={collection(){return {aggregate(pipeline){if(pipeline.some(s=>s.$unionWith))census++;return {async toArray(){return []}}}}}};
+ const none={sort(){return none},limit(){return none},async toArray(){return []}};
+ const db={collection(){return {aggregate(pipeline){if(pipeline.some(s=>s.$unionWith))census++;return {async toArray(){return []}}},find(){return none},async findOne(){return null}}}};
  const handler=createHandler(async()=>({db}));
  let r=await handler({httpMethod:'GET',queryStringParameters:{feed:'1'}});assert.equal(r.statusCode,200);assert.equal(census,0);
  r=await handler({httpMethod:'GET',queryStringParameters:{}});assert.equal(r.statusCode,200);assert.equal(census,1);

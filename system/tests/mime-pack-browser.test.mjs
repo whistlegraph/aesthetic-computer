@@ -17,6 +17,7 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
   await context.route('**/*', route => {
     const u = new URL(route.request().url());
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
+    if (u.pathname === '/api/mime' && u.searchParams.get('thread')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ op: post, replies: [] }) });
     if (u.pathname === '/api/mime') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ recent: [post, { ...post, code: 'pack2' }], hasMore: false }) });
     if (u.pathname === '/ipfs/fixture' || u.pathname === '/artifact.html') return route.fulfill({ contentType: 'text/html', body: artifact });
     return route.fulfill({ status: 200, body: '' });
@@ -37,23 +38,29 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     assert.equal(await page.evaluate(() => document.body.dataset.escaped || localStorage.getItem('escape')), null);
     for (const viewport of [{ width: 390, height: 844 }, { width: 900, height: 900 }]) {
       await page.setViewportSize(viewport);
-      const box = await page.locator('#pack .media-pack').boundingBox();
+      // The reel card is the whole screen; the pack keeps its own 2:3 frame inside it.
+      const card = await page.locator('#pack').boundingBox();
+      assert.ok(Math.abs(card.height - viewport.height) < 1, 'the card fills the screen');
+      const box = await page.locator('#pack .piece-preview').boundingBox();
       assert.ok(Math.abs(box.width / box.height - 2 / 3) < .01, JSON.stringify(box));
-      assert.ok(box.height <= viewport.height * .56, 'preview leaves room for feed metadata');
+      assert.ok(box.height <= viewport.height + 1 && box.width <= viewport.width + 1, 'the pack fits on its card');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
     await page.locator('#pack .media-toggle').click();
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spin tree' }).click();
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spinning', exact: true }).waitFor();
     await page.locator('#pack .media-toggle').click();
+    await page.locator('#pack2 .media-pack').evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await page.locator('#pack2 iframe[data-ready]').waitFor();
+    assert.equal(await page.locator('.piece-preview iframe').count(), 1, 'only the visible pack runs');
+    // The reel keeps its chrome off the card; the exact HTML download lives on the thread.
+    assert.equal(await page.locator('#pack .download-pack').isVisible(), false);
+    await page.evaluate(() => { location.hash = '#/t/pack'; });
     const downloaded = page.waitForEvent('download');
     await page.locator('#pack .download-pack').click();
     const download = await downloaded;
     assert.equal(download.suggestedFilename(), 'wgDefen-v7.html');
     assert.equal(await readFile(await download.path(), 'utf8'), artifact);
-    await page.locator('#pack2 .media-pack').evaluate(el => el.scrollIntoView({ block: 'center' }));
-    await page.locator('#pack2 iframe[data-ready]').waitFor();
-    assert.equal(await page.locator('.piece-preview iframe').count(), 1, 'only the visible pack runs');
     if (process.env.MIME_SCREENSHOT_DIR) {
       await mkdir(process.env.MIME_SCREENSHOT_DIR, { recursive: true });
       await page.setViewportSize({ width: 390, height: 844 });

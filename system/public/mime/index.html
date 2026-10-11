@@ -255,7 +255,13 @@
     @media (min-width: 760px) { body.feed .feed-post { width: min(100%, 720px); margin-inline: auto; } }
     body.feed .feed-post > .feed-media { grid-area: 1 / 1 / -1 / -1; width: 100%; height: 100%; max-height: none;
       aspect-ratio: auto; margin: 0; border: 0; }
-    body.feed .feed-post > .feed-media.media-flow { overflow: auto; overscroll-behavior: contain; }
+    /* A long document shows what fits, fading out; a swipe always means the next card.
+       The full text opens from the caption, and Interact lets it scroll in place. */
+    body.feed .feed-post > .feed-media.media-flow { overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+    body.feed .feed-post > .feed-media.media-flow[data-interacting] { overflow: auto; -webkit-mask-image: none; mask-image: none; }
+    /* A packed piece was made for its own frame (2:3 and so on): it keeps that shape, centered on the card. */
+    body.feed .feed-media.media-pack > .piece-preview { width: min(100%, calc(100dvh * var(--pack-ratio, .666667)));
+      height: auto; aspect-ratio: var(--media-ratio, 2 / 3); max-height: 100%; }
     body.feed .feed-post::after { content: ""; grid-area: 1 / 1 / -1 / -1; align-self: end; height: 45%; z-index: 3;
       background: linear-gradient(transparent, rgba(10, 8, 20, .82)); pointer-events: none; }
     body.feed .feed-post > :is(.meta, .body, .comment-preview, .post-actions) { position: relative; z-index: 4; }
@@ -275,6 +281,11 @@
       box-shadow: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
     /* A post with no media is its words, centered on the card. */
     body.feed .feed-post:not(:has(> .feed-media)) > .body { grid-row: 1; align-self: center; max-height: none; font-size: 20px; }
+    /* A mood is someone's words, big, in the comic voice, on their own color. */
+    body.feed .feed-post.mood-post { background: color-mix(in srgb, var(--author) 30%, #171526); }
+    body.feed .feed-post.mood-post > .body { justify-self: center; text-align: center; max-width: 18ch; padding: 0 24px;
+      font: 700 clamp(28px, 8vw, 46px)/1.2 "Comic Relief", "Comic Sans MS", cursive; overflow-wrap: anywhere;
+      -webkit-text-stroke: 1px #141414; paint-order: stroke fill; text-shadow: 1px 1px #ed629d, 2px 2px #a478df, 3px 3px #55cdd9; }
     body.feed .feed-media > .media-toggle { top: calc(60px + env(safe-area-inset-top)); bottom: auto; }
     body.feed .feed-media.media-flow > .media-toggle { position: sticky; top: calc(60px + env(safe-area-inset-top)); bottom: auto; margin: 0 10px -42px 0; order: -1; }
     body.feed .feed-more { min-height: 40vh; scroll-snap-align: end; }
@@ -740,6 +751,8 @@ const RUNNABLE = {
   kidlisp: { prefix: "$", label: "KidLisp $", poster: true },
   piece: { prefix: "", label: "piece ", poster: false },
   whistlegraph: { prefix: "", label: "Whistlegraph ", poster: true },
+  // A piece someone made in the Whistlegraph app and published; it runs in AC's /mime-play.
+  wgpiece: { prefix: "", label: "Whistlegraph piece ", poster: false },
 };
 
 function renderRunnable(post) {
@@ -752,6 +765,7 @@ function renderRunnable(post) {
   // a card can never act as the signed-in user.
   preview.dataset.player = "https://aesthetic.computer/" + address + "?nogap=true&nolabel=true&noauth=true";
   preview.dataset.title = kind.label + code + (post.name ? " by " + post.name : "");
+  if (post.media.kind === "wgpiece") preview.dataset.player = post.media.url;
   if (post.media.kind === "whistlegraph") {
     preview.dataset.packed = "true";
     preview.dataset.player = post.media.url;
@@ -783,7 +797,7 @@ function renderFile(file) {
   if (top === "image") {
     media = el("img");
     media.src = file.url;
-    media.alt = file.name;
+    media.alt = file.alt || file.name;
     media.loading = "lazy";
     media.decoding = "async";
   } else if (top === "audio") {
@@ -956,7 +970,7 @@ function authorName(name) {
 }
 function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) {
   const root = !post.parent;
-  const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : ""));
+  const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (post.media?.kind === "mood" ? " mood-post" : ""));
   div.id = post.code;
   tintAuthor(div, post.name);
   const meta = el("div", "meta");
@@ -1273,10 +1287,20 @@ function pages(page, hasMore, path) {
   return links;
 }
 
+// Each visit gets its own order of the network; it holds while this tab is open.
+const feedSeed = (() => {
+  try {
+    const kept = sessionStorage.getItem("mime-feed-seed");
+    if (kept) return kept;
+    const fresh = crypto.randomUUID();
+    sessionStorage.setItem("mime-feed-seed", fresh);
+    return fresh;
+  } catch { return crypto.randomUUID(); }
+})();
 async function home(page = 0, signal) {
   let state = feedCache?.startPage === page ? feedCache : null;
   if (!state) {
-    const data = await read(API + "?feed=1&page=" + page, signal);
+    const data = await read(API + "?feed=1&page=" + page + "&seed=" + feedSeed, signal);
     state = { startPage: page, nextPage: page + 1,
       hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0, offset: null };
     for (const post of data.recent) {
@@ -1328,7 +1352,7 @@ async function home(page = 0, signal) {
     list.setAttribute("aria-busy", "true");
     feedObserver?.disconnect();
     try {
-      const data = await read(API + "?feed=1&page=" + state.nextPage, signal);
+      const data = await read(API + "?feed=1&page=" + state.nextPage + "&seed=" + feedSeed, signal);
       if (signal.aborted) return;
       for (const post of data.recent) {
         if (state.codes.has(post.code)) continue;

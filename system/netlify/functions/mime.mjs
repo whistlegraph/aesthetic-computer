@@ -7,6 +7,7 @@ import {
   MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, parseMediaThread,
   mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile, publicMediaUrl, packedMediaUrl,
 } from "../../backend/mime-media.mjs";
+import { feedPage, feedOnlyOp } from "../../backend/mime-feed-engine.mjs";
 
 const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cache-Control": "no-store", ...headers });
 
@@ -74,7 +75,10 @@ export function createHandler(connectDb = connect, authorizeUser = authorize) {
         }
         if (q.thread) return await getThread(db, posts, q.thread);
         const page = Math.max(0, Math.min(10000, parseInt(q.page) || 0));
-        return q.board ? await getBoard(db, posts, q.board, page) : await getIndex(db, posts, page, q.feed === "1");
+        if (q.board) return await getBoard(db, posts, q.board, page);
+        // The home feed is the ranked network; the board index keeps its own listing.
+        if (q.feed === "1") return await getFeed(db, posts, page, q.seed);
+        return await getIndex(db, posts, page);
       }
       let body;
       try { body = JSON.parse(event.body || "{}"); }
@@ -93,7 +97,20 @@ export const handler = createHandler();
 
 async function findOp(db, posts, code) {
   const ref = parseMediaThread(code);
-  return ref ? mediaThread(db, ref.kind, { _id: ref.id }) : posts.findOne({ code, parent: null }, NO_DATA);
+  if (ref) return mediaThread(db, ref.kind, { _id: ref.id });
+  return await feedOnlyOp(db, code) || posts.findOne({ code, parent: null }, NO_DATA);
+}
+
+// Feed visits carry a random seed so each one gets its own stable order.
+async function getFeed(db, posts, page, seed) {
+  const visit = typeof seed === "string" && /^[A-Za-z0-9-]{1,64}$/.test(seed) ? seed : String(Date.now());
+  const { recent, hasMore } = await feedPage(db, { seed: visit, page, pageSize: PAGE_SIZE });
+  await Promise.all(recent.map(async (op) => {
+    if (!op.replies) return;
+    const first = await posts.find({ parent: op.code }, NO_DATA).sort({ when: 1, _id: 1 }).limit(1).toArray();
+    op.preview = (await publicPosts(db, first)).map(({ name, text }) => ({ name, text }));
+  }));
+  return respond(200, { boards: [], recent, page, seed: visit, hasMore }, { "Cache-Control": "no-store" });
 }
 
 async function serveFile(db, posts, code) {
@@ -205,7 +222,9 @@ async function getThread(db, posts, code) {
   const op = await findOp(db, posts, code);
   if (!op) return respond(404, { error: "thread not found" });
   const replies = await posts.find({ parent: code }, NO_DATA).sort({ when: 1, _id: 1 }).toArray();
-  const [publicOp, ...publicReplies] = await publicPosts(db, [op, ...replies]);
+  const [convertedOp, ...publicReplies] = await publicPosts(db, [op, ...replies]);
+  // Feed-only threads (archive paintings, moods, Whistlegraph pieces) arrive already public.
+  const publicOp = op._public ? (({ _media, _public, ...rest }) => rest)(op) : convertedOp;
   return respond(200, { op: publicOp, replies: publicReplies, metadata: { engagement: await engagementTotals(db, code) } }, { "Cache-Control": "no-store" });
 }
 

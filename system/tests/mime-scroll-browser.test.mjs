@@ -36,8 +36,10 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
     await page.locator('#wide img').waitFor();
     await page.waitForFunction(() => document.querySelector('#wide img')?.naturalWidth === 800);
     assert.ok(!requests.includes('/fixture/deferred'), 'offscreen text does not load eagerly');
+    // Reel cards fill the screen; the image letterboxes inside at its own proportions.
     const imageBox = await page.locator('#wide .feed-media').boundingBox();
-    assert.ok(Math.abs(imageBox.width / (imageBox.height - 2) - 800 / 300) < .05, 'image uses natural proportions');
+    assert.ok(Math.abs(imageBox.height - page.viewportSize().height) < 2, 'the media fills the card');
+    assert.equal(await page.locator('#wide img').evaluate(img => getComputedStyle(img).objectFit), 'contain', 'image keeps natural proportions');
     for (const id of ['program', 'document', 'longtext']) {
       const frame = page.locator(`#${id} .feed-media`);
       await frame.evaluate(el => el.scrollIntoView({ block: 'center' }));
@@ -61,9 +63,8 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
     assert.equal(await program.getAttribute('data-interacting'), null);
     assert.deepEqual(await page.evaluate(() => window.mimeActions), ['mime_interact', 'mime_scroll_feed']);
     assert.equal(await page.locator('#program .piece-preview').evaluate(el => el.inert), true);
-    await page.locator('#program .source-button').evaluate(el => el.addEventListener('click', event => event.preventDefault()));
-    await page.locator('#program .source-button').click();
-    assert.equal(await page.evaluate(() => window.mimeActions.at(-1)), 'mime_original_open');
+    // The reel carries no open/comment buttons; the caption opens the thread.
+    assert.equal(await page.locator('#program .source-button').isVisible(), false);
     await page.locator('#document .media-toggle').click();
     await page.locator('#longtext').evaluate(el => el.scrollIntoView({ block: 'start' }));
     await page.waitForTimeout(1100);
@@ -77,7 +78,7 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
       assert.equal(await page.locator(`#${id} .feed-media`).getAttribute('data-media-state'), 'ready');
       assert.equal(await page.locator('video').evaluateAll(videos => videos.filter(v => !v.paused).length), 1, 'one dominant tape plays');
       const box = await page.locator(`#${id} .feed-media`).boundingBox();
-      assert.ok(Math.abs(box.width / (box.height - 2) - 16 / 9) < .05);
+      assert.ok(Math.abs(box.height - page.viewportSize().height) < 2, 'a tape fills its card');
       await page.locator(`#${id} .media-toggle`).click();
       await page.locator(`#${id} video`).evaluate(video => video.pause());
       await page.waitForTimeout(1100);
