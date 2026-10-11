@@ -163,7 +163,7 @@ function boot() { try { bench(); } catch (_) {} screen(); api.screen.width = W; 
 // The host's pad into the piece's pad: sticks and triggers as numbers, the
 // down list as 0/1 under the evaluator's names (a b x y lb rb lt rt back
 // start ls rs up down left right).
-const PAD_NAMES = { A: "a", B: "b", X: "x", Y: "y", LeftShoulder: "lb", RightShoulder: "rb", LeftTrigger: "lt", RightTrigger: "rt", View: "back", Menu: "start", LeftThumbstick: "ls", RightThumbstick: "rs", DPadUp: "up", DPadDown: "down", DPadLeft: "left", DPadRight: "right" };
+const PAD_NAMES = { A: "a", B: "b", X: "x", Y: "y", LeftShoulder: "lb", RightShoulder: "rb", LeftTrigger: "lt", RightTrigger: "rt", View: "back", Menu: "start", LeftStick: "ls", RightStick: "rs", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };   // the Xbox host's names (App.cpp button table)
 const PAD_BUTTONS = ["a", "b", "x", "y", "lb", "rb", "lt", "rt", "back", "start", "ls", "rs", "up", "down", "left", "right"];
 function readPad() {
   if (!lisp || typeof gamepad !== "function") return;
