@@ -17,6 +17,8 @@ const REFRESH_MS = 60_000;
 const PER_SOURCE = 200; // newest items read from each live source per refresh
 const HALF_LIFE_DAYS = 3;
 const LOOKAHEAD = 6; // how far the diversity pass may reach for a different author/app
+const WINDOW = 6; // recent cards a kind is damped by
+const VARIETY = 0.35; // each recent appearance of a kind multiplies its next score by this
 // Live and archive slots, repeating: 2.5 live cards per archive card on average.
 const BRAID = ["live", "live", "archive", "live", "live", "live", "archive"];
 // No Paint styles worth surfacing more often than the abstract majority.
@@ -72,18 +74,49 @@ function takeDiverse(queue, previous) {
   return queue.shift();
 }
 
+/** The kind a card is (painting, tape, mood, nopaint…), for variety across the feed. */
+const kindOf = (item) => item.post?.media?.kind || item.app;
+
 /**
- * The visit's feed up to `count` cards: live work ranked by score, archive
- * braided in, then archive alone once live work runs out.
+ * Pick the next live card: each kind keeps its own ranked queue, and a kind
+ * seen in the last few cards is damped, so a burst of one kind (a day of
+ * paintings) cannot bury the others (a week-old mood still gets its turn).
+ */
+function takeLive(queues, recent, previous) {
+  let best = null, bestScore = -1;
+  for (const [kind, queue] of queues) {
+    if (!queue.length) continue;
+    const seen = recent.filter((item) => kindOf(item) === kind).length;
+    const head = queue.find((item) => !previous || (item.author || item.code) !== (previous.author || previous.code)) || queue[0];
+    const score = head.score * Math.pow(VARIETY, seen) * (kind === kindOf(previous || {}) ? 0.2 : 1);
+    if (score > bestScore) { best = [queue, head]; bestScore = score; }
+  }
+  const [queue, head] = best;
+  queue.splice(queue.indexOf(head), 1);
+  return head;
+}
+
+/**
+ * The visit's feed up to `count` cards: live work ranked within its kind and
+ * mixed across kinds, archive braided in, then archive alone once live work
+ * runs out.
  */
 export function rankFeed({ live, archive }, seed, count, now = Date.now()) {
-  const liveQueue = live.map((item) => [liveScore(item, seed, now), item]).sort((a, b) => b[0] - a[0]).map(([, item]) => item);
+  const queues = new Map();
+  for (const item of live) {
+    const scored = { ...item, score: liveScore(item, seed, now) };
+    const kind = kindOf(item);
+    if (!queues.has(kind)) queues.set(kind, []);
+    queues.get(kind).push(scored);
+  }
+  for (const queue of queues.values()) queue.sort((a, b) => b.score - a.score);
+  let liveLeft = live.length;
   const archiveQueue = archiveOrder(archive, seed);
   const out = [];
-  for (let slot = 0; out.length < count && (liveQueue.length || archiveQueue.length); slot++) {
-    const want = BRAID[slot % BRAID.length];
-    const queue = want === "live" && liveQueue.length ? liveQueue : archiveQueue.length ? archiveQueue : liveQueue;
-    out.push(takeDiverse(queue, out.at(-1)));
+  for (let slot = 0; out.length < count && (liveLeft || archiveQueue.length); slot++) {
+    const wantLive = BRAID[slot % BRAID.length] === "live" ? liveLeft > 0 : !archiveQueue.length;
+    if (wantLive) { out.push(takeLive(queues, out.slice(-WINDOW), out.at(-1))); liveLeft--; }
+    else out.push(takeDiverse(archiveQueue, out.at(-1)));
   }
   return out;
 }

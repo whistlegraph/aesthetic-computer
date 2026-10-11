@@ -59,3 +59,15 @@ test("seeded values spread across 0..1", () => {
   const values = Array.from({ length: 1000 }, (_, i) => seeded("s", i));
   assert.ok(Math.min(...values) < 0.05 && Math.max(...values) > 0.95);
 });
+
+test("a burst of one kind cannot bury the others", () => {
+  const burst = Array.from({ length: 40 }, (_, i) => ({ code: "painting_b" + i, app: "aesthetic", author: "@p" + (i % 5),
+    when: new Date(now - i * 600000), post: { media: { kind: "painting" } } }));
+  const quiet = [
+    { code: "mood_q1", app: "mood", author: "@m", when: new Date(now - 10 * day), post: { media: { kind: "mood" } } },
+    { code: "tape_q1", app: "aesthetic", author: "@t", when: new Date(now - 20 * day), post: { media: { kind: "tape" } } },
+  ];
+  const feed = rankFeed({ live: [...burst, ...quiet], archive: [] }, "s", 12, now).map((x) => x.code);
+  assert.ok(feed.includes("mood_q1") && feed.includes("tape_q1"), feed.join(" "));
+  assert.ok(feed[0].startsWith("painting_"), "fresh work still leads");
+});
