@@ -55,6 +55,7 @@ static void unlatch(HWND hwnd, int all);
 static void latch_note(int midi);
 static int g_enterLatch;
 static int g_latched[128];           // Enter-latched notes (drawn lit, sound until unlatched)
+static int g_fnFree = 1;             // bare F3/F4/F5 act as mute / volume down / volume up
 static const wchar_t *GM_NAMES[128];
 static volatile LONG g_dbgNoteOns;
 
@@ -815,9 +816,20 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         int isCtrl = (k->vkCode == VK_LCONTROL || k->vkCode == VK_RCONTROL);
-        // Key probe for the Fn-free media-key mapping: what arrives for F-keys and volume keys.
-        if (down && ((k->vkCode >= VK_F1 && k->vkCode <= VK_F12) || k->vkCode == VK_VOLUME_UP || k->vkCode == VK_VOLUME_DOWN || k->vkCode == VK_VOLUME_MUTE || k->vkCode == VK_MEDIA_PLAY_PAUSE))
-            mb_log(L"probe: vk 0x%02X scan 0x%02X flags 0x%02X", k->vkCode, k->scanCode, k->flags);
+        // Fn-free media keys (MiniBook X: the bare keys arrive as F3/F4/F5; with
+        // Fn they send VK_VOLUME_*). With no modifier held, the bare key becomes
+        // the media key it is printed with, and the F-key never reaches the app.
+        if (g_fnFree && !(k->flags & LLKHF_INJECTED) && (k->vkCode == VK_F3 || k->vkCode == VK_F4 || k->vkCode == VK_F5)
+            && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000) && !(GetAsyncKeyState(VK_LWIN) & 0x8000) && !(GetAsyncKeyState(VK_SHIFT) & 0x8000)) {
+            if (down) {
+                WORD media = k->vkCode == VK_F3 ? VK_VOLUME_MUTE : k->vkCode == VK_F4 ? VK_VOLUME_DOWN : VK_VOLUME_UP;
+                INPUT in[2]; memset(in, 0, sizeof in);
+                in[0].type = INPUT_KEYBOARD; in[0].ki.wVk = media;
+                in[1].type = INPUT_KEYBOARD; in[1].ki.wVk = media; in[1].ki.dwFlags = KEYEVENTF_KEYUP;
+                SendInput(2, in, sizeof(INPUT));
+            }
+            return 1;
+        }
         // Ctrl ×2: two solo taps (down, up, nothing else between) inside 450 ms.
         if (isCtrl) {
             if (down) g_ctrlSolo = 1;
@@ -984,6 +996,7 @@ static void track(HWND hwnd, int force) {
 #define IDM_QUIT 100
 #define IDM_TYPING 101
 #define IDM_AUTOSTART 102
+#define IDM_FNFREE 103
 #define IDM_PROGRAM_BASE 200
 #define IDM_MIDI_BASE 400
 #define IDT_TRACK 1
@@ -1086,6 +1099,7 @@ static void show_menu(HWND hwnd) {
         AppendMenuW(midi, MF_STRING | ((int)i == g_midiDevice ? MF_CHECKED : 0), IDM_MIDI_BASE + 1 + i, caps.szPname);
     }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)midi, L"MIDI out");
+    AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn  (F3 mute, F4 down, F5 up)");
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(menu, MF_STRING, IDM_QUIT, L"Quit Menu Band");
@@ -1273,6 +1287,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_QUIT) { mb_log(L"menu: quit"); DestroyWindow(hwnd); return 0; }
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
+        if (id == IDM_FNFREE) { g_fnFree = !g_fnFree; setting_set(L"fnFree", (DWORD)g_fnFree); return 0; }
         if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         return 0;
@@ -1331,6 +1346,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
     g_program = (int)setting_get(L"program", AC_WHISTLE_PROGRAM) & 127;
+    g_fnFree = setting_get(L"fnFree", 1) ? 1 : 0;
     g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
     build_keys();
     build_keymap();
