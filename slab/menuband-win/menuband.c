@@ -72,7 +72,7 @@ static CRITICAL_SECTION g_lock;
 static uint32_t g_seedCounter = 0x9E3779B9u;
 static double g_sampleRate = 48000.0;
 static const double g_masterGain = 0.5;
-static volatile int g_program = 0;        // GM program for new notes (Acoustic Grand)
+static volatile int g_program = 78;       // GM program for new notes: 79 Whistle (zero-based 78), as on the Mac
 static volatile LONG g_audioRunning = 0;
 
 static double midi_freq(int midi) { return 440.0 * pow(2.0, (midi - 69) / 12.0); }
@@ -525,6 +525,7 @@ static HHOOK g_hook = NULL;
 static HWND g_strip = NULL;
 #define WM_TYPEKEY (WM_APP + 2)
 #define WM_TYPEESC (WM_APP + 3)
+#define WM_OCTAVE (WM_APP + 4)
 
 static void build_keymap(void) {
     for (int i = 0; i < 256; i++) g_semitoneByVk[i] = -128;
@@ -543,6 +544,10 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         if (!(k->flags & LLKHF_INJECTED) && k->vkCode < 256) {
             if (k->vkCode == VK_ESCAPE) { if (down) PostMessageW(g_strip, WM_TYPEESC, 0, 0); return 1; }
+            if (k->vkCode == VK_OEM_COMMA || k->vkCode == VK_OEM_PERIOD) {
+                if (down) PostMessageW(g_strip, WM_OCTAVE, k->vkCode == VK_OEM_PERIOD ? 1 : (WPARAM)-1, 0);
+                return 1;
+            }
             if (g_semitoneByVk[k->vkCode] != -128 && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_LWIN) & 0x8000)) {
                 PostMessageW(g_strip, WM_TYPEKEY, k->vkCode, down);
                 return 1;
@@ -614,15 +619,30 @@ static void track(HWND hwnd, int force) {
 #define IDM_TYPING 101
 #define IDM_AUTOSTART 102
 #define IDM_PROGRAM_BASE 200
-#define IDM_MIDI_BASE 300
+#define IDM_MIDI_BASE 400
 #define IDT_TRACK 1
 
-static const struct { const wchar_t *name; int program; } PROGRAMS[] = {
-    { L"Acoustic Grand Piano", 0 }, { L"Electric Piano", 4 }, { L"Harpsichord", 6 },
-    { L"Vibraphone", 11 }, { L"Drawbar Organ", 16 }, { L"Nylon Guitar", 24 },
-    { L"Electric Bass", 33 }, { L"Strings", 48 }, { L"Choir", 52 }, { L"Flute", 73 },
-    { L"Square Lead", 80 }, { L"Warm Pad", 89 },
+// All 128 General MIDI programs, grouped in the 16 GM families for the menu.
+static const wchar_t *GM_NAMES[128] = {
+    L"Acoustic Grand Piano", L"Bright Acoustic Piano", L"Electric Grand Piano", L"Honky-tonk Piano", L"Electric Piano 1", L"Electric Piano 2", L"Harpsichord", L"Clavinet",
+    L"Celesta", L"Glockenspiel", L"Music Box", L"Vibraphone", L"Marimba", L"Xylophone", L"Tubular Bells", L"Dulcimer",
+    L"Drawbar Organ", L"Percussive Organ", L"Rock Organ", L"Church Organ", L"Reed Organ", L"Accordion", L"Harmonica", L"Tango Accordion",
+    L"Nylon Guitar", L"Steel Guitar", L"Jazz Guitar", L"Clean Guitar", L"Muted Guitar", L"Overdriven Guitar", L"Distortion Guitar", L"Guitar Harmonics",
+    L"Acoustic Bass", L"Fingered Bass", L"Picked Bass", L"Fretless Bass", L"Slap Bass 1", L"Slap Bass 2", L"Synth Bass 1", L"Synth Bass 2",
+    L"Violin", L"Viola", L"Cello", L"Contrabass", L"Tremolo Strings", L"Pizzicato Strings", L"Orchestral Harp", L"Timpani",
+    L"String Ensemble 1", L"String Ensemble 2", L"Synth Strings 1", L"Synth Strings 2", L"Choir Aahs", L"Voice Oohs", L"Synth Voice", L"Orchestra Hit",
+    L"Trumpet", L"Trombone", L"Tuba", L"Muted Trumpet", L"French Horn", L"Brass Section", L"Synth Brass 1", L"Synth Brass 2",
+    L"Soprano Sax", L"Alto Sax", L"Tenor Sax", L"Baritone Sax", L"Oboe", L"English Horn", L"Bassoon", L"Clarinet",
+    L"Piccolo", L"Flute", L"Recorder", L"Pan Flute", L"Blown Bottle", L"Shakuhachi", L"Whistle", L"Ocarina",
+    L"Square Lead", L"Sawtooth Lead", L"Calliope Lead", L"Chiff Lead", L"Charang Lead", L"Voice Lead", L"Fifths Lead", L"Bass + Lead",
+    L"New Age Pad", L"Warm Pad", L"Polysynth Pad", L"Choir Pad", L"Bowed Pad", L"Metallic Pad", L"Halo Pad", L"Sweep Pad",
+    L"Rain", L"Soundtrack", L"Crystal", L"Atmosphere", L"Brightness", L"Goblins", L"Echoes", L"Sci-Fi",
+    L"Sitar", L"Banjo", L"Shamisen", L"Koto", L"Kalimba", L"Bagpipe", L"Fiddle", L"Shanai",
+    L"Tinkle Bell", L"Agogo", L"Steel Drums", L"Woodblock", L"Taiko Drum", L"Melodic Tom", L"Synth Drum", L"Reverse Cymbal",
+    L"Guitar Fret Noise", L"Breath Noise", L"Seashore", L"Bird Tweet", L"Telephone Ring", L"Helicopter", L"Applause", L"Gunshot",
 };
+static const wchar_t *GM_FAMILIES[16] = { L"Piano", L"Chromatic Percussion", L"Organ", L"Guitar", L"Bass", L"Strings", L"Ensemble", L"Brass", L"Reed", L"Pipe", L"Synth Lead", L"Synth Pad", L"Synth Effects", L"Ethnic", L"Percussive", L"Sound Effects" };
+
 
 static NOTIFYICONDATAW g_nid;
 
@@ -646,8 +666,15 @@ static void show_menu(HWND hwnd) {
     HMENU menu = CreatePopupMenu();
     AppendMenuW(menu, MF_STRING | (g_typing ? MF_CHECKED : 0), IDM_TYPING, L"Type to play  (Esc leaves)");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
-    for (int i = 0; i < (int)(sizeof PROGRAMS / sizeof PROGRAMS[0]); i++)
-        AppendMenuW(menu, MF_STRING | (PROGRAMS[i].program == g_program ? MF_CHECKED : 0), IDM_PROGRAM_BASE + i, PROGRAMS[i].name);
+    for (int f = 0; f < 16; f++) {
+        HMENU fam = CreatePopupMenu();
+        for (int i = f * 8; i < f * 8 + 8; i++) {
+            wchar_t label[64]; swprintf(label, 64, L"%d  %s", i + 1, GM_NAMES[i]);
+            AppendMenuW(fam, MF_STRING | (i == g_program ? MF_CHECKED : 0), IDM_PROGRAM_BASE + i, label);
+        }
+        wchar_t famLabel[64]; swprintf(famLabel, 64, L"%s%s", GM_FAMILIES[f], (g_program / 8 == f) ? L"  \x2713" : L"");
+        AppendMenuW(menu, MF_POPUP, (UINT_PTR)fam, famLabel);
+    }
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     HMENU midi = CreatePopupMenu();
     AppendMenuW(midi, MF_STRING | (g_midiDevice < 0 ? MF_CHECKED : 0), IDM_MIDI_BASE, L"Built-in synth");
@@ -674,6 +701,14 @@ static void mouse_down(HWND hwnd, int midi) {
 
 static void mouse_up(HWND hwnd) {
     if (g_mouseMidi >= 0) { lit_off(hwnd, g_mouseMidi); g_mouseMidi = -1; }
+}
+
+static void shift_octave(HWND hwnd, int dir) {
+    int next = g_firstMidi + 12 * dir;
+    if (next < 36 || next > 84) return;
+    mouse_up(hwnd);
+    release_typed(hwnd);
+    g_firstMidi = next; build_keys(); push_frame(hwnd);
 }
 
 static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -716,16 +751,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_RBUTTONUP:
         show_menu(hwnd);
         return 0;
-    case WM_MOUSEWHEEL: {
-        int delta = GET_WHEEL_DELTA_WPARAM(wp);
-        int next = g_firstMidi + (delta > 0 ? 12 : -12);
-        if (next >= 36 && next <= 84) {
-            mouse_up(hwnd);
-            release_typed(hwnd);
-            g_firstMidi = next; build_keys(); push_frame(hwnd);
-        }
+    case WM_MOUSEWHEEL:
+        shift_octave(hwnd, GET_WHEEL_DELTA_WPARAM(wp) > 0 ? 1 : -1);
         return 0;
-    }
+    case WM_OCTAVE:
+        shift_octave(hwnd, (int)(intptr_t)wp);
+        return 0;
     case WM_TYPEKEY: {
         int vk = (int)wp, down = (int)lp;
         if (vk < 0 || vk > 255) return 0;
@@ -745,9 +776,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_QUIT) { DestroyWindow(hwnd); return 0; }
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
-        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + (int)(sizeof PROGRAMS / sizeof PROGRAMS[0])) {
-            g_program = PROGRAMS[id - IDM_PROGRAM_BASE].program; midi_program();
-        }
+        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         return 0;
     }
