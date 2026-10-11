@@ -24,6 +24,7 @@
 #define _UNICODE
 #define WIN32_LEAN_AND_MEAN
 #define _USE_MATH_DEFINES
+#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <windowsx.h>
 #include <shellapi.h>
@@ -66,7 +67,7 @@ typedef struct {
 } Voice;
 
 typedef struct { int kind; uint8_t midi; uint8_t velocity; int program; uint32_t seed; } Cmd;
-enum { CMD_ON = 1, CMD_OFF = 2, CMD_PANIC = 3 };
+enum { CMD_ON = 1, CMD_OFF = 2, CMD_PANIC = 3, CMD_WON = 4, CMD_WOFF = 5 };
 
 static GMVoice g_cores[MAX_VOICES];       // ~80 KB each: keep them static, never on a stack
 static Voice g_voices[MAX_VOICES];
@@ -80,6 +81,7 @@ static volatile int g_program = 78;       // GM program for new notes: 79 Whistl
 static volatile LONG g_audioRunning = 0;
 
 static double midi_freq(int midi) { return 440.0 * pow(2.0, (midi - 69) / 12.0); }
+static void wh_note_on(int midi, int velocity); static void wh_note_off(int midi); static void wh_panic(void); static void wh_render(float *out, int frames);
 
 static void synth_push(Cmd c) {
     EnterCriticalSection(&g_lock);
@@ -139,6 +141,11 @@ static void synth_render(float *out, int frames) {
                     g_voices[i].releasing = 1;
         } else if (c->kind == CMD_PANIC) {
             for (int i = 0; i < MAX_VOICES; i++) g_voices[i].active = 0;
+            wh_panic();
+        } else if (c->kind == CMD_WON) {
+            wh_note_on(c->midi, c->velocity);
+        } else if (c->kind == CMD_WOFF) {
+            wh_note_off(c->midi);
         }
     }
 
@@ -164,6 +171,107 @@ static void synth_render(float *out, int frames) {
         }
         v->env = env; v->active = active;
     }
+    wh_render(out, frames);
+}
+
+// ─────────────── the AC whistle (`79), ported from MenuBandWhistleVoice.swift ───────────────
+// A human whistle, not a tin whistle: a sine core with an onset scoop, 1/f-ish
+// jitter and a vibrato that grows in; one gentle second harmonic; "air" from
+// white noise through a high-Q resonator on the fundamental plus a quiet hiss
+// band; and a shared breath that drifts and flutters. Program 78 routes here,
+// everything else to gm_synth.
+
+#define WH_VOICES 12
+typedef struct {
+    int midi; double f0; float gain;
+    double phase, age, env; int releasing, active; uint32_t seed;
+    double r1, r2, hpz, lpz;
+} WVoice;
+static WVoice g_wv[WH_VOICES];
+static double g_whDrift = 0, g_whFlutter = 0, g_whJitter = 0, g_whVibPhase = 0;
+static const double g_whVibRate = 5.2;
+static uint32_t g_whBreathSeed = 0x2545F491u, g_whSeedCounter = 0x12345678u;
+static double g_whBreath[8192], g_whCents[8192];
+static float g_whBus[2 * 8192];
+static const float WH_MASTER = 0.9f, WH_TONE = 0.30f;
+static const double WH_OVERTONE = 0.05, WH_AIR = 0.09, WH_HISS = 0.014;
+static const double WH_ATTACK = 0.035, WH_RELEASE = 0.09, WH_SCOOP = -45.0, WH_SCOOP_TAU = 0.045, WH_JITTER = 6.0, WH_VIB = 5.0;
+
+static double wh_noise(uint32_t *st) { *st ^= *st << 13; *st ^= *st >> 17; *st ^= *st << 5; return (double)(*st) / 4294967295.0 * 2.0 - 1.0; }
+
+static int wh_allocate(void) {
+    for (int i = 0; i < WH_VOICES; i++) if (!g_wv[i].active) return i;
+    int best = 0; double bestScore = 1e300;
+    for (int i = 0; i < WH_VOICES; i++) { double sc = (g_wv[i].releasing ? 0 : 1000) + g_wv[i].env; if (sc < bestScore) { bestScore = sc; best = i; } }
+    return best;
+}
+
+static void wh_note_on(int midi, int velocity) {
+    int slot = wh_allocate();
+    g_whSeedCounter = g_whSeedCounter * 1664525u + 1013904223u;
+    WVoice v; memset(&v, 0, sizeof v);
+    v.midi = midi; v.f0 = midi_freq(midi);
+    double vel = fmax(0.05, fmin(1.0, velocity / 127.0));
+    v.gain = (float)(WH_TONE * (0.55 + 0.45 * vel));
+    v.seed = g_whSeedCounter | 1u; v.active = 1;
+    g_wv[slot] = v;
+}
+
+static void wh_note_off(int midi) { for (int i = 0; i < WH_VOICES; i++) if (g_wv[i].active && !g_wv[i].releasing && g_wv[i].midi == midi) g_wv[i].releasing = 1; }
+static void wh_panic(void) { for (int i = 0; i < WH_VOICES; i++) g_wv[i].active = 0; }
+
+// Adds the whistle bus (soft-clipped like the Mac node) into `out`.
+static void wh_render(float *out, int frames) {
+    if (frames > 8192) frames = 8192;
+    int sounding = 0; double vibGrow = 0;
+    for (int i = 0; i < WH_VOICES; i++) if (g_wv[i].active) { sounding++; if (g_wv[i].age > vibGrow) vibGrow = g_wv[i].age; }
+    if (!sounding) return;
+    const double sr = g_sampleRate, dt = 1.0 / sr;
+    const double attackInc = dt / WH_ATTACK, releaseMul = exp(-dt / WH_RELEASE);
+    const double driftCoeff = 1 - exp(-dt * 2 * M_PI * 0.7), flutterCoeff = 1 - exp(-dt * 2 * M_PI * 18), jitterCoeff = 1 - exp(-dt * 2 * M_PI * 7);
+    const double hpCoeff = exp(-dt * 2 * M_PI * 1800), lpCoeff = exp(-dt * 2 * M_PI * 5000);
+    for (int i = 0; i < frames; i++) {
+        double n1 = wh_noise(&g_whBreathSeed); g_whDrift += (n1 * 0.14 - g_whDrift) * driftCoeff;
+        double n2 = wh_noise(&g_whBreathSeed); g_whFlutter += (n2 * 0.06 - g_whFlutter) * flutterCoeff;
+        double b = 0.82 + g_whDrift + g_whFlutter; g_whBreath[i] = b < 0.35 ? 0.35 : (b > 1.15 ? 1.15 : b);
+        double n3 = wh_noise(&g_whBreathSeed); g_whJitter += (n3 * WH_JITTER - g_whJitter) * jitterCoeff;
+        double vibDepth = WH_VIB * fmin(1.0, vibGrow / 0.45) * g_whBreath[i];
+        g_whVibPhase += g_whVibRate * dt; if (g_whVibPhase >= 1) g_whVibPhase -= 1;
+        g_whCents[i] = g_whJitter + sin(g_whVibPhase * 2 * M_PI) * vibDepth;
+    }
+    memset(g_whBus, 0, sizeof(float) * 2 * frames);
+    double airScale = 1.0 / sqrt((double)sounding);
+    for (int idx = 0; idx < WH_VOICES; idx++) {
+        WVoice *v = &g_wv[idx]; if (!v->active) continue;
+        int active = 1;
+        for (int i = 0; i < frames; i++) {
+            if (v->releasing) { v->env *= releaseMul; if (v->env < 0.0008) { active = 0; break; } }
+            else if (v->env < 1) { v->env += attackInc; if (v->env > 1) v->env = 1; }
+            v->age += dt;
+            double breath = g_whBreath[i];
+            double scoop = WH_SCOOP * exp(-v->age / WH_SCOOP_TAU);
+            double droop = v->releasing ? -14.0 * (1 - v->env) : 0;
+            double cents = scoop + g_whCents[i] + droop;
+            double f = v->f0 * pow(2.0, cents / 1200.0);
+            v->phase += f * dt; if (v->phase >= 1) v->phase -= 1;
+            double ph = v->phase * 2 * M_PI;
+            double tone = sin(ph) + sin(2 * ph) * WH_OVERTONE * breath;
+            double w = 2 * M_PI * fmin(f, sr * 0.45) / sr;
+            double alpha = sin(w) / (2 * 28.0), a0 = 1 + alpha;
+            double x = wh_noise(&v->seed);
+            double y = (alpha * x - (-2 * cos(w)) * v->r1 - (1 - alpha) * v->r2) / a0;
+            v->r2 = v->r1; v->r1 = y;
+            v->hpz = hpCoeff * (v->hpz + x) - x;
+            double hp = x + v->hpz;
+            v->lpz = v->lpz * lpCoeff + hp * (1 - lpCoeff);
+            double air = (y * WH_AIR * (0.6 + 0.4 * breath) + v->lpz * WH_HISS * breath) * airScale;
+            float amp = (float)(v->env * (0.78 + 0.22 * breath));
+            float smp = (float)(tone + air) * amp * v->gain;
+            g_whBus[2 * i] += smp * 0.7071f; g_whBus[2 * i + 1] += smp * 0.7071f;
+        }
+        v->active = active;
+    }
+    for (int i = 0; i < 2 * frames; i++) out[i] += tanhf(g_whBus[i] * WH_MASTER);
 }
 
 // ───────────────────────────── WASAPI ────────────────────────────
@@ -198,6 +306,7 @@ static DWORD WINAPI audio_thread(LPVOID arg) {
         g_render->lpVtbl->ReleaseBuffer(g_render, frames, 0);
         if (GetTickCount() - lastLog > 2000) {
             int active = 0; for (int i = 0; i < MAX_VOICES; i++) if (g_voices[i].active) active++;
+            for (int i = 0; i < WH_VOICES; i++) if (g_wv[i].active) active++;
             mb_log(L"audio: callbacks=%ld frames=%ld peak=%.4f active=%d noteOns=%ld sr=%.0f buf=%u", g_dbgCallbacks, g_dbgFrames, g_dbgPeak, active, g_dbgNoteOns, g_sampleRate, g_bufferFrames);
             g_dbgPeak = 0; lastLog = GetTickCount();
         }
@@ -279,13 +388,21 @@ static void midi_program(void) {
     if (g_midiOut) midiOutShortMsg(g_midiOut, 0xC0 | ((DWORD)g_program << 8));
 }
 
-// Every note on/off funnels through here.
+// Every note on/off funnels through here. Program 78 is the AC whistle voice,
+// as on the Mac; the other 127 are gm_synth. A note remembers who owns it so
+// a program change mid-hold still releases it in the right place.
+#define AC_WHISTLE_PROGRAM 78
+static uint8_t g_noteOwner[128];   // 0 gm, 1 whistle, 2 midi out
 static void play_on(int midi, int vel) {
-    if (g_midiOut) midiOutShortMsg(g_midiOut, 0x90 | ((DWORD)midi << 8) | ((DWORD)vel << 16));
-    else synth_note_on(midi, vel);
+    if (midi < 0 || midi > 127) return;
+    if (g_midiOut) { g_noteOwner[midi] = 2; midiOutShortMsg(g_midiOut, 0x90 | ((DWORD)midi << 8) | ((DWORD)vel << 16)); }
+    else if (g_program == AC_WHISTLE_PROGRAM) { g_noteOwner[midi] = 1; Cmd c = { CMD_WON, (uint8_t)midi, (uint8_t)vel, 0, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns); }
+    else { g_noteOwner[midi] = 0; synth_note_on(midi, vel); }
 }
 static void play_off(int midi) {
-    if (g_midiOut) midiOutShortMsg(g_midiOut, 0x80 | ((DWORD)midi << 8));
+    if (midi < 0 || midi > 127) return;
+    if (g_noteOwner[midi] == 2 && g_midiOut) midiOutShortMsg(g_midiOut, 0x80 | ((DWORD)midi << 8));
+    else if (g_noteOwner[midi] == 1) { Cmd c = { CMD_WOFF, (uint8_t)midi, 0, 0, 0 }; synth_push(c); }
     else synth_note_off(midi);
 }
 
@@ -721,9 +838,14 @@ static void show_menu(HWND hwnd) {
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(menu, MF_STRING, IDM_QUIT, L"Quit Menu Band");
+    // TPM_RETURNCMD: a non-activating tool window is not a reliable WM_COMMAND
+    // target, so take the choice back directly and dispatch it ourselves.
     SetForegroundWindow(hwnd);
-    TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, p.x, p.y, 0, hwnd, NULL);
+    int chosen = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN | TPM_RETURNCMD | TPM_NONOTIFY, p.x, p.y, 0, hwnd, NULL);
+    PostMessageW(hwnd, WM_NULL, 0, 0);
     DestroyMenu(menu);
+    mb_log(L"menu: chose %d", chosen);
+    if (chosen) SendMessageW(hwnd, WM_COMMAND, (WPARAM)chosen, 0);
 }
 
 static void mouse_down(HWND hwnd, int midi) {
@@ -837,7 +959,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_QUIT) { mb_log(L"menu: quit"); DestroyWindow(hwnd); return 0; }
         if (id == IDM_TYPING) { typing_set(hwnd, !g_typing); return 0; }
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
-        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); }
+        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         return 0;
     }
