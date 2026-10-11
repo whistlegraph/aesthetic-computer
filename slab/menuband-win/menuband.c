@@ -71,7 +71,7 @@ static int page_takes_pad(void) { return g_page == PAGE_SKIN || g_page == PAGE_S
 static float g_puckAlpha = 0;
 static DWORD g_lastTouch = 0;
 #define MAX_CONTACTS 10
-typedef struct { int id, down, struck; double x, y; uint64_t group; } Contact;
+typedef struct { int id, down, struck; double x, y; uint64_t group; DWORD liftedAt; } Contact;
 static Contact g_contacts[MAX_CONTACTS];
 static void puck_show(void);
 static void pad_paint(void); static void puck_paint(void);
@@ -1395,7 +1395,8 @@ static int pad_prepare(HANDLE dev) {
 
 static Contact *contact_slot(int id) {
     for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down && g_contacts[i].id == id) return &g_contacts[i];
-    for (int i = 0; i < MAX_CONTACTS; i++) if (!g_contacts[i].down) { g_contacts[i].id = id; g_contacts[i].struck = 0; return &g_contacts[i]; }
+    for (int i = 0; i < MAX_CONTACTS; i++) if (!g_contacts[i].down && g_contacts[i].id == id) { g_contacts[i].struck = 0; return &g_contacts[i]; }
+    for (int i = 0; i < MAX_CONTACTS; i++) if (!g_contacts[i].down) { g_contacts[i].id = id; g_contacts[i].struck = 0; g_contacts[i].liftedAt = 0; return &g_contacts[i]; }
     return NULL;
 }
 
@@ -1412,6 +1413,7 @@ static void touch_input(HWND hwnd, HRAWINPUT h) {
         PCHAR report = (PCHAR)(ri->data.hid.bRawData + r * ri->data.hid.dwSizeHid); ULONG len = ri->data.hid.dwSizeHid;
         g_padReportsSeen++;
         int seen[32]; int nseen = 0;
+        struct { int id; double x, y; } tipped[MAX_CONTACTS]; int ntip = 0;
         for (USHORT c = 0; c < g_padValueCount; c++) {
             HIDP_VALUE_CAPS *vc = &g_padValueCaps[c];
             if (vc->UsagePage != HID_USAGE_PAGE_GENERIC || (vc->IsRange ? vc->Range.UsageMin : vc->NotRange.Usage) != HID_USAGE_GENERIC_X) continue;
@@ -1426,8 +1428,16 @@ static void touch_input(HWND hwnd, HRAWINPUT h) {
             double xmin = vc->LogicalMin, xmax = vc->LogicalMax, ymin = 0, ymax = 1;
             for (USHORT k = 0; k < g_padValueCount; k++) { HIDP_VALUE_CAPS *yc = &g_padValueCaps[k]; if (yc->LinkCollection == link && yc->UsagePage == HID_USAGE_PAGE_GENERIC && (yc->IsRange ? yc->Range.UsageMin : yc->NotRange.Usage) == HID_USAGE_GENERIC_Y) { ymin = yc->LogicalMin; ymax = yc->LogicalMax; } }
             double x = xmax > xmin ? (xv - xmin) / (xmax - xmin) : 0, y = ymax > ymin ? (yv - ymin) / (ymax - ymin) : 0;
-            pad_contact(hwnd, (int)idv, tip, x, y);
+            if (tip && ntip < MAX_CONTACTS) { tipped[ntip].id = (int)idv; tipped[ntip].x = x; tipped[ntip].y = y; ntip++; }
         }
+        // Per report, the fingers with the tip down are the truth: new ids land,
+        // known ids move, ids no longer present lift. Slots the pad pads out
+        // with stale data never count as lifts.
+        for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down) {
+            int still = 0; for (int t = 0; t < ntip; t++) if (tipped[t].id == g_contacts[i].id) still = 1;
+            if (!still) pad_contact(hwnd, g_contacts[i].id, 0, g_contacts[i].x, g_contacts[i].y);
+        }
+        for (int t = 0; t < ntip; t++) pad_contact(hwnd, tipped[t].id, 1, tipped[t].x, tipped[t].y);
     }
 }
 
@@ -1496,12 +1506,15 @@ static void pad_contact(HWND hwnd, int id, int tip, double x, double y) {
     int onPad = 1;
     if (g_page == PAGE_SPLIT) { if (x < 0.5) onPad = 0; }
     if (tip && !c->down) {
+        DWORD now = GetTickCount();
+        if (now - c->liftedAt < 40 && c->liftedAt) { c->down = 1; c->x = x; c->y = y; return; }   // debounce a flicker
         c->down = 1; c->x = x; c->y = y; c->group = ++g_touchGroup;
         if (onPad) {
             double anchors[2 * MAX_CONTACTS]; int n = 0;
             for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down && &g_contacts[i] != c && g_contacts[i].struck) { anchors[2 * n] = g_contacts[i].x; anchors[2 * n + 1] = g_contacts[i].y; n++; }
             g_lastPulse = perc_strike_pad(x, y, 0.85, anchors, n, c->group); g_lastPulseAt = GetTickCount();
             c->struck = 1;
+            mb_log(L"pad: strike id %d at %.2f,%.2f -> %S (%d anchors)", id, x, y, perc_label(g_lastPulse), n);
         }
         g_lastTouch = GetTickCount(); g_puckAlpha = 1; SetTimer(hwnd, IDT_FX, 16, NULL); puck_show();
     } else if (tip && c->down) {
@@ -1514,7 +1527,7 @@ static void pad_contact(HWND hwnd, int id, int tip, double x, double y) {
         c->x = x; c->y = y; g_lastTouch = GetTickCount();
     } else if (!tip && c->down) {
         if (c->struck) { perc_lift_pad(c->x, c->y, c->group); perc_release(c->group); }
-        c->down = 0; c->struck = 0; g_lastTouch = GetTickCount();
+        c->down = 0; c->struck = 0; c->liftedAt = GetTickCount(); g_lastTouch = c->liftedAt;
     }
     puck_show();
 }
