@@ -16,7 +16,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "117"
+    CURRENT_PROJECT_VERSION: "118"
 targets:
   Whistlegraph:
     type: application
@@ -43,6 +43,9 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: WhistlegraphNotifications
+        embed: true
     entitlements:
       path: Whistlegraph.entitlements
       properties:
@@ -57,6 +60,22 @@ targets:
         basedOnDependencyAnalysis: false
     scheme:
       gatherCoverageData: false
+
+  # Attaches the piece's own still to its "is ready" push (NotificationService/).
+  WhistlegraphNotifications:
+    type: app-extension
+    platform: iOS
+    sources:
+      - NotificationService
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.walkieware.notifications
+        PRODUCT_NAME: WhistlegraphNotifications
+        INFOPLIST_FILE: NotificationService/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
 
   WhistlegraphUITests:
     type: bundle.ui-testing

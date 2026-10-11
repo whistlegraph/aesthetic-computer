@@ -164,7 +164,9 @@ export async function runTurn({job, thread, pool, onCheckpoint = () => {}, onPro
       log('picture review unavailable', job.code, reviewError.message);
     }
     step('saving'); progress('Saving…', {force: true});
-    return {source: candidate, findings, repairs, notes, acceptance, checks};
+    // The last frame of the saved candidate's own paint: the push shows it.
+    const still = proof?.rendered && proof.sourceHash === sourceHash(candidate) ? proof.frames?.at(-1)?.png || '' : '';
+    return {source: candidate, findings, repairs, notes, acceptance, checks, still};
   } finally { rmSync(cwd, {recursive: true, force: true}); }
 }
 
@@ -198,7 +200,7 @@ async function work(queue, store, job, pool) {
     // Best effort: lith broadcasts the new revision to the thread's room and pushes the owner.
     try {
       const r = await fetch(`${SITE}/api/whistlegraph-turn-done`, {method: 'POST', headers: {'Content-Type': 'application/json', 'x-ac-worker': process.env.WHISTLEGRAPH_WORKER_SECRET},
-        body: JSON.stringify({owner: job.owner, code: job.code, versionID: result.versionID, displayText: job.request.displayText || ''}), signal: AbortSignal.timeout(15000)});
+        body: JSON.stringify({owner: job.owner, code: job.code, versionID: result.versionID, displayText: job.request.displayText || '', ...(turn.still && turn.still.length <= 600_000 ? {still: turn.still} : {})}), signal: AbortSignal.timeout(15000)});
       log('told lith', job.code, r.status, (await r.text()).slice(0, 120));
     } catch (error) { log('could not tell lith', job.code, error.message); }
   } catch (error) {

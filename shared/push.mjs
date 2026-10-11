@@ -321,7 +321,8 @@ function apnsPayload(note) {
   };
   if (note.urgent) aps["interruption-level"] = "time-sensitive";
   if (note.thread) aps["thread-id"] = note.thread;
-  return JSON.stringify({ aps, ...(note.data || {}) });
+  // An app's notification service extension attaches `image` (an https URL).
+  return JSON.stringify({ aps, ...(note.data || {}), ...(note.image ? { image: note.image } : {}) });
 }
 
 // Send to many APNs tokens over the warm session for `host`, as `topic`

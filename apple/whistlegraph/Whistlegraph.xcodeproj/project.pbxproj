@@ -75,6 +75,7 @@
 		D3D16A0333764D0E5C3B620D /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A25F803FAC121BFECC1AD7 /* SpeechCapture.swift */; };
 		D8E8FFEA41DF3B0073DC5373 /* TalkHoldInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4728CB634CB3E4AED4F4D353 /* TalkHoldInput.swift */; };
 		D9E54D2F66B9FC35483A8F45 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3B156A3435E646EE0E6EEA /* PlaybackCaption.swift */; };
+		DA7F0618A6AE034B18D778AC /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E73B9017B0CCB6A07EC828 /* NotificationService.swift */; };
 		E55F422280707B98E1D3E842 /* StoryTape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AEEA7D7E12C650CB618757 /* StoryTape.swift */; };
 		E5B597B1518B1DB4512EBF31 /* TezosBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458C9CB2E8C0FD09BF96501D /* TezosBraincells.swift */; };
 		E81F2B275AC7E65EC667E67F /* RecordedTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */; };
@@ -83,9 +84,17 @@
 		EE469E48E164A4E317B262F4 /* AccountEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2014384D32064E6DABEAB7 /* AccountEntryTests.swift */; };
 		F160CBA0E689C1B29B1C38FB /* WhistlegraphDebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15699BE38BA8C0B44DDABDD3 /* WhistlegraphDebugLog.swift */; };
 		FAC2911EFFCA887527D2415F /* WhistlegraphDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D9A8C801D3B9D1192D1143 /* WhistlegraphDrawing.swift */; };
+		FFE685E65AD4ACA73095B4C2 /* WhistlegraphNotifications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5CFCF41BBEA94C34B37D9FD3 /* WhistlegraphNotifications.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1E065D225C42D771A56B5A54 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 56FDF3DA4FBDD22D86E4AC5D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3953AB1B28DC7EBEFBD9188B;
+			remoteInfo = WhistlegraphNotifications;
+		};
 		327D3C34113B84475F7B6DDF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 56FDF3DA4FBDD22D86E4AC5D /* Project object */;
@@ -94,6 +103,20 @@
 			remoteInfo = Whistlegraph;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9252918B3F0C80EDCF6B870E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				FFE685E65AD4ACA73095B4C2 /* WhistlegraphNotifications.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		03AEEA7D7E12C650CB618757 /* StoryTape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryTape.swift; sourceTree = "<group>"; };
@@ -128,6 +151,7 @@
 		4E61EF96840670F2F894F970 /* BrainSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainSettings.swift; sourceTree = "<group>"; };
 		5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonSounds.swift; sourceTree = "<group>"; };
 		5B20A9A8612C57068C67239A /* NativeScreenFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenFixture.swift; sourceTree = "<group>"; };
+		5CFCF41BBEA94C34B37D9FD3 /* WhistlegraphNotifications.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = WhistlegraphNotifications.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D233DBB6F87184A91C13D41 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
 		5DACE2604B34CCB5EB3EE8AC /* WhistlegraphTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTV.swift; sourceTree = "<group>"; };
 		5DF0A171A5771A7A1FD56852 /* VisualCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualCapture.swift; sourceTree = "<group>"; };
@@ -153,6 +177,7 @@
 		A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMint.swift; sourceTree = "<group>"; };
 		AA82C05C15B77B528BFFA05F /* WaresTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaresTests.swift; sourceTree = "<group>"; };
 		AA986555CACCC8B8B978CFB5 /* WhistlegraphWare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWare.swift; sourceTree = "<group>"; };
+		B136AE25B77A11AF107A5319 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
 		B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
 		B6BE58C6B5AB35412AC7C0F0 /* TestFlightUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFlightUpdate.swift; sourceTree = "<group>"; };
@@ -160,6 +185,7 @@
 		B8B4655A00B6DC810F7203D1 /* StoryCardsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCardsTests.swift; sourceTree = "<group>"; };
 		BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphApp.swift; sourceTree = "<group>"; };
 		BDF9805E6F3EA99293F95943 /* MimeFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeFeed.swift; sourceTree = "<group>"; };
+		C0E73B9017B0CCB6A07EC828 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		C534DE3AC6E813F8BDFE5244 /* WhistlegraphDeleteAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDeleteAccount.swift; sourceTree = "<group>"; };
 		CB5E6AF3AF51BAA89BAC231E /* RecordedTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordedTranscription.swift; sourceTree = "<group>"; };
 		CC1EFF8BAE7678E320E3DCA0 /* RecordingTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTrim.swift; sourceTree = "<group>"; };
@@ -177,6 +203,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		153121C0D9E7288A1FE44118 /* NotificationService */ = {
+			isa = PBXGroup;
+			children = (
+				B136AE25B77A11AF107A5319 /* Info.plist */,
+				C0E73B9017B0CCB6A07EC828 /* NotificationService.swift */,
+			);
+			path = NotificationService;
+			sourceTree = "<group>";
+		};
 		1D6DE83AE1574DDAA01368DE /* Resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -191,6 +226,7 @@
 			children = (
 				E38DD74717D0CE306D97D1CC /* Fixtures */,
 				4BA75145769FC4401A11BBE8 /* Web */,
+				153121C0D9E7288A1FE44118 /* NotificationService */,
 				1D6DE83AE1574DDAA01368DE /* Resources */,
 				90190872F8D95875E1FFF827 /* Sources */,
 				BCA8AB62D544DD3CEB0F7DF9 /* Sources */,
@@ -297,6 +333,7 @@
 			isa = PBXGroup;
 			children = (
 				A542DD3D25782F331540474E /* Whistlegraph.app */,
+				5CFCF41BBEA94C34B37D9FD3 /* WhistlegraphNotifications.appex */,
 				A5904655414F61AE746DF6D5 /* WhistlegraphUITests.xctest */,
 			);
 			name = Products;
@@ -312,10 +349,12 @@
 				A546C79E4679B373B57A7AE0 /* Reject internal payment archives */,
 				08FE7DA642D63309620A8BA1 /* Sources */,
 				75BBEA53DD88C313F97FB28E /* Resources */,
+				9252918B3F0C80EDCF6B870E /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				560C54C3AC439B6B3FC6A26D /* PBXTargetDependency */,
 			);
 			name = Whistlegraph;
 			packageProductDependencies = (
@@ -323,6 +362,23 @@
 			productName = Whistlegraph;
 			productReference = A542DD3D25782F331540474E /* Whistlegraph.app */;
 			productType = "com.apple.product-type.application";
+		};
+		3953AB1B28DC7EBEFBD9188B /* WhistlegraphNotifications */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F8E7B3D7D148008241AD8093 /* Build configuration list for PBXNativeTarget "WhistlegraphNotifications" */;
+			buildPhases = (
+				60FEAD73BE94FE498F4A19A2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WhistlegraphNotifications;
+			packageProductDependencies = (
+			);
+			productName = WhistlegraphNotifications;
+			productReference = 5CFCF41BBEA94C34B37D9FD3 /* WhistlegraphNotifications.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		C8A0961E27B5AB970CE50E2A /* WhistlegraphUITests */ = {
 			isa = PBXNativeTarget;
@@ -355,6 +411,10 @@
 						DevelopmentTeam = FB5948YR3S;
 						ProvisioningStyle = Automatic;
 					};
+					3953AB1B28DC7EBEFBD9188B = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+					};
 					C8A0961E27B5AB970CE50E2A = {
 						DevelopmentTeam = FB5948YR3S;
 						ProvisioningStyle = Automatic;
@@ -377,6 +437,7 @@
 			projectRoot = "";
 			targets = (
 				047F10E01C5220A6A2287419 /* Whistlegraph */,
+				3953AB1B28DC7EBEFBD9188B /* WhistlegraphNotifications */,
 				C8A0961E27B5AB970CE50E2A /* WhistlegraphUITests */,
 			);
 		};
@@ -490,6 +551,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		60FEAD73BE94FE498F4A19A2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DA7F0618A6AE034B18D778AC /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		99EB6954AC1E520A17BEACA4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -508,6 +577,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		560C54C3AC439B6B3FC6A26D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3953AB1B28DC7EBEFBD9188B /* WhistlegraphNotifications */;
+			targetProxy = 1E065D225C42D771A56B5A54 /* PBXContainerItemProxy */;
+		};
 		E1D11BB127FC9479BF540404 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 047F10E01C5220A6A2287419 /* Whistlegraph */;
@@ -516,6 +590,25 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		191BAFD98350FE0468350506 /* Internal */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.notifications;
+				PRODUCT_NAME = WhistlegraphNotifications;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Internal;
+		};
 		705782A745A264DF1E9255C5 /* Internal */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -551,6 +644,25 @@
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Internal;
+		};
+		9FDD8A7618ABDEAFB527F446 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.notifications;
+				PRODUCT_NAME = WhistlegraphNotifications;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
 		};
 		A4F9F566CE43BDCE24ADFC22 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -671,6 +783,25 @@
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
+		};
+		C1F54544DB03EA696D844D1B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				INFOPLIST_FILE = NotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.walkieware.notifications;
+				PRODUCT_NAME = WhistlegraphNotifications;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
 		};
 		DF6FB2365BDDD57C0133CB5D /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -847,6 +978,16 @@
 				A4F9F566CE43BDCE24ADFC22 /* Debug */,
 				9A5BCF9CC2FE71CE97306D40 /* Internal */,
 				DF6FB2365BDDD57C0133CB5D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F8E7B3D7D148008241AD8093 /* Build configuration list for PBXNativeTarget "WhistlegraphNotifications" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9FDD8A7618ABDEAFB527F446 /* Debug */,
+				191BAFD98350FE0468350506 /* Internal */,
+				C1F54544DB03EA696D844D1B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
