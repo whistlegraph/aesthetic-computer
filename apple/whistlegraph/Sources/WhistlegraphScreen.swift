@@ -396,6 +396,8 @@ struct VersionFeed: View {
     /// Opens the braincell meter; a try refused for braincells offers it in place of Try again.
     var openBrain: () -> Void = {}
     @State private var attemptSwipe: CGFloat = 0
+    /// The one-line row cuts the reason short; a tap lays the whole of it out underneath.
+    @State private var reasonShown = false
     let select: (Int) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var focusedVersion: Int?
@@ -456,7 +458,10 @@ struct VersionFeed: View {
                         + Text(["failed", "interrupted"].contains(attempt.status) && !attempt.error.isEmpty ? " · " + Self.shortReason(attempt.error) : "").foregroundColor(foreground.opacity(0.6)))
                         .font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
                         .lineLimit(1).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .trailing)
+                        .contentShape(Rectangle())
+                        .onTapGesture { if !attempt.error.isEmpty { ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { reasonShown.toggle() } } }
                         .accessibilityValue(attempt.error)
+                        .accessibilityHint(attempt.error.isEmpty ? "" : "Shows why it stopped")
                     }
                     if snapshot.busy {
                         Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
@@ -489,6 +494,14 @@ struct VersionFeed: View {
                         withAnimation(.easeOut(duration: 0.2)) { attemptSwipe = 0 }
                     } : nil)
                 .accessibilityAction(named: Text("Discard this try")) { discardAttempt() }
+                .onChange(of: attempt.error) { reasonShown = false }
+                if reasonShown, !snapshot.busy, ["failed", "interrupted"].contains(attempt.status), !attempt.error.isEmpty {
+                    Text(attempt.error)
+                        .font(.custom("ComicRelief-Regular", size: max(15, textSize * 0.7), relativeTo: .body))
+                        .foregroundStyle(foreground.opacity(0.75)).textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14).padding(.bottom, 6)
+                        .accessibilityIdentifier("attempt-reason")
+                }
                 // Not just a spinner: the phase, the clock, who is working, each step, and what the model says.
                 if snapshot.busy, let progress = snapshot.progress {
                     TurnProgressPanel(progress: progress, textSize: textSize).padding(.horizontal, 12).padding(.bottom, 6)

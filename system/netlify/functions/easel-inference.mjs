@@ -74,6 +74,13 @@ export const handler = stream(async (event) => {
   const presented = String(event.headers?.["x-ac-worker"] || "");
   const asWorker = workerSecret.length >= 32 && presented.length === workerSecret.length
     && timingSafeEqual(Buffer.from(presented), Buffer.from(workerSecret));
+  // A worker that is turned away must hear so plainly: "Run /login" would send
+  // the person holding the phone after a fault that is on the server.
+  if (presented && !asWorker) {
+    return fail(workerSecret.length >= 32 ? 401 : 503, workerSecret.length >= 32
+      ? "The turn worker's secret does not match this server's."
+      : "This server cannot accept turn workers: WHISTLEGRAPH_WORKER_SECRET is not set.");
+  }
   if (!asWorker && !event.headers?.authorization) {
     return fail(401, "Easel's hosted inference needs an Aesthetic Computer handle. Run /login.");
   }
