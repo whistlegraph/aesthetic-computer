@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mongoWhistlegraphStore, sourceHash} from '../system/backend/whistlegraph.mjs';
-import {commitVersion, runTurn} from './whistlegraph-worker.mjs';
+import {commitVersion, runTurn, droppedConnection} from './whistlegraph-worker.mjs';
 
 function collection() {
   const rows = [];
@@ -32,4 +32,14 @@ test('a worker commit appends the next version and loses the race if the phone m
 test('a turn refuses to run on a piece that moved past its base', async () => {
   const thread = {_id: 't', revision: 3, ledger: ledger(2, 'export function paint({wipe}){wipe(1);}')};
   await assert.rejects(runTurn({job: {baseVersion: 1, baseHash: 'x', request: {text: 'x'}}, thread}), {code: 'moved'});
+});
+
+test('a dropped connection is retried; a refusal from the model is not', () => {
+  assert.ok(droppedConnection(Error('terminated')), 'undici\'s word for a body cut off mid-stream');
+  assert.ok(droppedConnection(Object.assign(Error('fetch failed'), {cause: {code: 'ECONNRESET'}})));
+  assert.ok(droppedConnection(Object.assign(Error('Bad gateway'), {status: 502})), 'Caddy answers 502 while lith restarts');
+  assert.ok(droppedConnection(Error('Inference provider could not be reached.')));
+  assert.ok(!droppedConnection(Error('No change to the piece')));
+  assert.ok(!droppedConnection(Object.assign(Error('Out of braincells'), {status: 402})));
+  assert.ok(!droppedConnection(Error('The piece moved on before this turn ran')));
 });

@@ -86,7 +86,7 @@ export function mongoTurnQueue(collection, {now = () => new Date()} = {}) {
       const set = {status: 'running', claimedBy: worker, claimedAt: at.toISOString(), heartbeatAt: at.toISOString()};
       const lapsed = await collection.findOneAndUpdate({status: 'running', heartbeatAt: {$lt: stale}}, {$set: set, $inc: {attempts: 1}}, {sort: {heartbeatAt: 1}, returnDocument: 'after'});
       if (lapsed) return lapsed;
-      return collection.findOneAndUpdate({status: 'queued', threadID: {$nin: running}}, {$set: set, $inc: {attempts: 1}}, {sort: {createdAt: 1}, returnDocument: 'after'});
+      return collection.findOneAndUpdate({status: 'queued', threadID: {$nin: running}, $or: [{notBefore: null}, {notBefore: {$lte: at.toISOString()}}]}, {$set: set, $inc: {attempts: 1}}, {sort: {createdAt: 1}, returnDocument: 'after'});
     },
     // Returns false when the lease is gone, or 'cancel' when the owner asked for the turn to stop.
     async heartbeat(id, worker, checkpoint, progress) {
@@ -103,6 +103,15 @@ export function mongoTurnQueue(collection, {now = () => new Date()} = {}) {
     // Only the worker holding the lease can finish a job; a late worker's result is dropped.
     async complete(id, worker, result) {
       const r = await collection.updateOne({_id: id, status: 'running', claimedBy: worker}, {$set: {status: 'done', finishedAt: now().toISOString(), result}});
+      return r.modifiedCount === 1;
+    },
+    // A turn cut off by the network (lith restarting under a deploy) goes back
+    // in line instead of failing; it waits delayMs so the server can come back.
+    async requeue(id, worker, reason, {delayMs = 20000} = {}) {
+      const at = now();
+      const r = await collection.updateOne({_id: id, status: 'running', claimedBy: worker, cancelRequested: {$ne: true}}, {$set: {status: 'queued', claimedBy: null, claimedAt: null, heartbeatAt: null,
+        notBefore: new Date(+at + delayMs).toISOString(), lastError: String(reason).slice(0, 500),
+        progress: {phase: 'Connection dropped · trying again…', round: 0, streamed: 0, tail: '', tool: '', steps: [{at: at.toISOString(), text: 'connection dropped: ' + String(reason).slice(0, 120)}], said: '', worker, at: at.toISOString()}}});
       return r.modifiedCount === 1;
     },
     async fail(id, worker, error, {draft = null} = {}) {

@@ -204,11 +204,25 @@ async function work(queue, store, job, pool) {
       log('told lith', job.code, r.status, (await r.text()).slice(0, 120));
     } catch (error) { log('could not tell lith', job.code, error.message); }
   } catch (error) {
+    if (!controller.signal.aborted && droppedConnection(error) && job.attempts < MAX_ATTEMPTS && await queue.requeue(job._id, WORKER, error.message).catch(() => false)) {
+      log('requeued', job.code, `attempt ${job.attempts} cut off:`, error.message);
+      return;
+    }
     const draft = error.draft || job.checkpoint || null;
     const message = controller.signal.aborted ? 'Stopped' : error.message;
     await queue.fail(job._id, WORKER, message, {draft});
     log('failed', job.code, message);
   } finally { clearInterval(timer); }
+}
+
+// A turn cut off mid-stream ("terminated", a reset socket, a 502 while lith
+// restarts under a deploy) is the network's fault, not the request's: it goes
+// back in line. Two such turns died on 2026-10-11 to deploys of unrelated work.
+const MAX_ATTEMPTS = 3;
+export function droppedConnection(error) {
+  const text = `${error?.message || ''} ${error?.cause?.code || ''} ${error?.cause?.message || ''}`;
+  return [502, 503, 504].includes(error?.status) ||
+    /\bterminated\b|fetch failed|ECONNRESET|ECONNREFUSED|EPIPE|socket hang up|other side closed|UND_ERR_SOCKET|could not be reached|connection timed out/i.test(text);
 }
 
 export async function main() {

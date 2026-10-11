@@ -7,12 +7,16 @@ function collection() {
   const rows = [];
   const get = (row, key) => key.split('.').reduce((o, k) => o?.[k], row);
   const matches = (row, query) => Object.entries(query).every(([key, value]) => {
+    if (key === '$or') return value.some(q => matches(row, q));
     const actual = get(row, key);
+    if (value === null) return actual == null;
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       if ('$in' in value && !value.$in.includes(actual)) return false;
       if ('$nin' in value && value.$nin.includes(actual)) return false;
       if ('$lt' in value && !(actual != null && actual < value.$lt)) return false;
       if ('$gte' in value && !(actual != null && actual >= value.$gte)) return false;
+      if ('$lte' in value && !(actual != null && actual <= value.$lte)) return false;
+      if ('$ne' in value && actual === value.$ne) return false;
       return true;
     }
     return actual === value;
@@ -91,4 +95,22 @@ test('the same request is one row, and a person cannot stack more than the cap',
   assert.ok(await q.cancel('alice', running._id), 'a running turn is asked to stop');
   assert.equal(await q.heartbeat(running._id, 'w5'), 'cancel', 'its worker hears the request at the next heartbeat');
   await q.enqueue('alice', thread('t1', 'wgFeeda'), validateTurnRequest({...good, text: 'room again'}));
+});
+
+test('a turn cut off by the network goes back in line and waits before it runs again', async () => {
+  let t = 0; const clock = () => new Date(1_700_000_000_000 + t);
+  const c = collection(), q = mongoTurnQueue(c, {now: clock});
+  const a = await q.enqueue('alice', thread('t1', 'wgFeeda'), validateTurnRequest(good));
+  assert.equal((await q.claim('w1'))._id, a._id);
+  assert.equal(await q.requeue(a._id, 'w2', 'terminated'), false, 'only the lease holder can requeue');
+  assert.ok(await q.requeue(a._id, 'w1', 'terminated', {delayMs: 20000}));
+  const row = c.rows.find(r => r._id === a._id);
+  assert.equal(row.status, 'queued'); assert.equal(row.claimedBy, null); assert.match(row.progress.phase, /trying again/);
+  t += 10000;
+  assert.equal(await q.claim('w1'), null, 'it waits out the delay so lith can come back');
+  t += 10001;
+  const again = await q.claim('w1');
+  assert.equal(again._id, a._id); assert.equal(again.attempts, 2, 'the second run counts as a second attempt');
+  await q.cancel('alice', a._id);
+  assert.equal(await q.requeue(a._id, 'w1', 'terminated'), false, 'a turn the owner stopped is never requeued');
 });
