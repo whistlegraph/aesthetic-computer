@@ -43,4 +43,6 @@ if result.get('keys') != 60 or result.get('inputLength') != 60:
     raise SystemExit('FAIL: native keys did not arrive intact')
 if not result.get('keyToRendered'):
     raise SystemExit('FAIL: no rendered input samples; confirm deployed runtime has probe markers')
+if result.get('editingCheck') is not True:
+    raise SystemExit('FAIL: native backspace / arrow / insertion check failed (or installed app needs rebuilding)')
 print(f'Results: {args.output}\nSnapshot: {args.output}.png')

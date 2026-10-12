@@ -38,6 +38,7 @@ test('edits coalesce behind an in-flight frame and resume once it returns', () =
 
 test('background, paused, resizing, and non-text pieces do not force frames', () => {
   for (const extra of [{ document: { hidden: true } }, { window: { __acLoopPaused: true } },
+    { window: { acInputLatencyProbe: { animationFrameOnly: true } } },
     { needsReframe: true }, { currentPieceHasKeyboard: false }]) {
     const h = harness(extra);
     h.run('requestPromptRender()');

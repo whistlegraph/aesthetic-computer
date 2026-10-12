@@ -18,9 +18,12 @@ struct aesthetic_computerApp: App {
     var body: some Scene {
         #if os(macOS)
         Window(Text(verbatim: navigation.windowTitle), id: "prompt") {
-            ContentView().frame(minWidth: 0, minHeight: 0)
+            ContentView()
+                .frame(width: MacPromptLatencyProbe.enabled ? 640 : nil,
+                       height: MacPromptLatencyProbe.enabled ? 480 : nil)
+                .frame(minWidth: 0, minHeight: 0)
         }
-        .windowResizability(.contentMinSize)
+        .windowResizability(MacPromptLatencyProbe.enabled ? .contentSize : .contentMinSize)
         .defaultSize(width: 900, height: 700)
         .commands {
             CommandGroup(after: .newItem) {

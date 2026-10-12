@@ -34,6 +34,22 @@ local Mac installation; App Store submission and provisioned Mac push remain
 separate release work. Electron retains the other desktop integrations and
 Windows/Linux distribution.
 
+Mac warms the audio graph at boot, preserves the AC SVG cursor through native
+editor focus, and uses desktop keyboard shortcuts instead of Enter/Paste
+buttons. The unfocused prompt caret is hollow; the focused caret is solid.
+Prompt edits request an immediate render, coalesced behind any frame already
+in flight, without advancing simulation. Async bitmap uploads discard stale
+frames per canvas and release their GPU resources after drawing.
+
+Run `python3 apple/scripts/compare-prompt-latency.py` for paired native-app
+benchmarks at ordinary and held-key rates. It launches isolated, sandboxed
+instances of the installed app, sends real AppKit key events, checks all 60
+characters arrive, and saves JSON timings plus canvas snapshots under
+`/tmp/ac-prompt-performance`. The baseline switch restores RAF-only input
+scheduling. Measurements cover DOM keydown through canvas submission and the
+next RAF opportunity, not physical keyboard or display latency. Normal app
+sessions do not enable the probe or record keystrokes.
+
 ## 1.1 (4) — 2026-09-11 (in progress)
 
 Builds 1.1 (2) and 1.1 (3) were uploaded in April and May but never attached

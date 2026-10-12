@@ -43,7 +43,6 @@ typealias ACImage = NSImage
                 window.title = "prompt · input latency test"
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
-                window.setContentSize(NSSize(width: 640, height: 480))
                 window.makeFirstResponder(webView)
                 try await Task.sleep(for: .milliseconds(300))
                 for index in 0..<60 {
@@ -60,8 +59,25 @@ typealias ACImage = NSImage
                 }
                 try await Task.sleep(for: .seconds(1))
                 let result = try await webView.evaluateJavaScript("JSON.stringify(window.acInputLatencyProbe.result())")
-                guard let json = result as? String else { throw CocoaError(.coderInvalidValue) }
-                try json.write(toFile: resultPath, atomically: true, encoding: .utf8)
+                guard let json = result as? String, let data = json.data(using: .utf8),
+                      var report = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                else { throw CocoaError(.coderInvalidValue) }
+                // Verify editing through the same native event path. This
+                // runs after timing collection and never submits a command.
+                for (characters, code) in [("\u{7F}", 51), ("\u{7F}", 51), ("\u{7F}", 51),
+                                           ("\u{F702}", 123), ("b", 11)] {
+                    for type in [NSEvent.EventType.keyDown, .keyUp] {
+                        if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                            context: nil, characters: characters, charactersIgnoringModifiers: characters,
+                            isARepeat: false, keyCode: UInt16(code)) { NSApp.sendEvent(event) }
+                    }
+                    try await Task.sleep(for: .milliseconds(150))
+                }
+                report["editingCheck"] = try await webView.evaluateJavaScript(
+                    "document.querySelector('#software-keyboard-input').value === 'a'.repeat(56) + 'ba'")
+                let reportData = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+                try reportData.write(to: URL(fileURLWithPath: resultPath), options: .atomic)
                 let snapshot = try await webView.takeSnapshot(configuration: nil)
                 if let tiff = snapshot.tiffRepresentation,
                    let bitmap = NSBitmapImageRep(data: tiff),
