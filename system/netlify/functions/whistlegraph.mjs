@@ -3,7 +3,7 @@ import {authenticateMusical} from './easel-musical-jev.mjs';
 import {mongoWhistlegraphStore,publicThread,threadSummary} from '../../backend/whistlegraph.mjs';
 export {authenticateMusical as authenticateWhistlegraph};
 let pending;
-export const whistlegraphStore=()=>pending??=(async()=>{const {db}=await connect();return mongoWhistlegraphStore(db.collection('walkieware-threads'));})().catch(error=>{pending=null;throw error;});
+export const whistlegraphStore=()=>pending??=(async()=>{const {db}=await connect();return mongoWhistlegraphStore(db.collection('walkieware-threads'),{handles:db.collection('@handles')});})().catch(error=>{pending=null;throw error;});
 export async function handler(event) {
   const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Allow-Methods':'GET, DELETE, OPTIONS'};
   const reply=(statusCode,value)=>({statusCode,headers,body:JSON.stringify(value)});

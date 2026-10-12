@@ -73,3 +73,20 @@ test('only published threads with a made version feed, newest first, paged by pu
   assert.equal(publicThread(c.rows.find(r=>r._id===ids[0])).published,false);
   assert.equal((await store.feed({limit:10})).length,2);
 });
+
+test('a new piece is public from its first made version, with its owner handle; older and declined pieces are left alone',async()=>{
+  const c=collection(),handles={findOne:async({_id})=>_id==='alice'?{handle:'alice'}:null};
+  const store=mongoWhistlegraphStore(c,{handles,name:(()=>{let i=0;return()=>'wgnewer'+String.fromCharCode(97+i++);})()});
+  const ids=[1,2,3].map(n=>'22222222-2222-4222-8222-22222222222'+n);
+  for(const id of ids)await store.open('alice',id);
+  await store.save('alice',ids[0],0,ledger(0,null));
+  assert.equal(c.rows[0].published,undefined,'nothing made yet');
+  await store.save('alice',ids[0],0,ledger(1,'a moon')); // the fake leaves revision alone
+  assert.equal(c.rows[0].published,true);assert.equal(c.rows[0].handle,'@alice');assert.ok(c.rows[0].publishedAt);
+  await store.publish('alice',c.rows[1].code,false);
+  await store.save('alice',ids[1],0,ledger(1,'a sun'));
+  assert.equal(c.rows[1].published,false,'a private choice holds');
+  await store.save('alice',ids[2],0,ledger(1,'a comet'));c.rows[2].published=undefined;delete c.rows[2].publishedAt;
+  await store.save('alice',ids[2],0,ledger(2,'a comet'));
+  assert.equal(c.rows[2].published,undefined,'a piece made before the default stays private');
+});

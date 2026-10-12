@@ -19,6 +19,11 @@ const HALF_LIFE_DAYS = 3;
 const LOOKAHEAD = 6; // how far the diversity pass may reach for a different author/app
 const WINDOW = 6; // recent cards a kind is damped by
 const VARIETY = 0.35; // each recent appearance of a kind multiplies its next score by this
+// New work leads every visit: each author's newest card from the last few
+// hours, newest first. Whistlegraph pieces count as four times younger, so a
+// new mime stays up top for two days instead of half of one.
+const LEAD_HOURS = 12;
+const LEAD_YOUTH = { whistlegraph: 4 };
 // Live and archive slots, repeating: 2.5 live cards per archive card on average.
 const BRAID = ["live", "live", "archive", "live", "live", "live", "archive"];
 // No Paint styles worth surfacing more often than the abstract majority.
@@ -99,12 +104,27 @@ function takeLive(queues, recent, previous) {
   return head;
 }
 
+/** Each author's newest recent card, newest (Whistlegraph counted younger) first. */
+export function leadCards(live, now = Date.now()) {
+  const age = (item) => (now - new Date(item.when).getTime()) / 3600000 / (LEAD_YOUTH[item.app] || 1);
+  const newest = new Map();
+  for (const item of live) {
+    const hours = age(item), author = item.author || item.code;
+    if (hours < 0 || hours > LEAD_HOURS) continue;
+    if (!newest.has(author) || hours < newest.get(author)[0]) newest.set(author, [hours, item]);
+  }
+  return [...newest.values()].sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+}
+
 /**
- * The visit's feed up to `count` cards: live work ranked within its kind and
- * mixed across kinds, archive braided in, then archive alone once live work
- * runs out.
+ * The visit's feed up to `count` cards: new work first, then live work ranked
+ * within its kind and mixed across kinds, archive braided in, then archive
+ * alone once live work runs out.
  */
 export function rankFeed({ live, archive }, seed, count, now = Date.now()) {
+  const out = leadCards(live, now).slice(0, count);
+  const led = new Set(out.map((item) => item.code));
+  live = live.filter((item) => !led.has(item.code));
   const queues = new Map();
   for (const item of live) {
     const scored = { ...item, score: liveScore(item, seed, now) };
@@ -115,7 +135,6 @@ export function rankFeed({ live, archive }, seed, count, now = Date.now()) {
   for (const queue of queues.values()) queue.sort((a, b) => b.score - a.score);
   let liveLeft = live.length;
   const archiveQueue = archiveOrder(archive, seed);
-  const out = [];
   for (let slot = 0; out.length < count && (liveLeft || archiveQueue.length); slot++) {
     const wantLive = BRAID[slot % BRAID.length] === "live" ? liveLeft > 0 : !archiveQueue.length;
     if (wantLive) { out.push(takeLive(queues, out.slice(-WINDOW), out.at(-1))); liveLeft--; }
@@ -148,17 +167,25 @@ async function mimePosts(db) {
   return (await publicPosts(db, docs)).map((post) => feedItem(post, "mime"));
 }
 
-/** Pieces people made in Whistlegraph and published under their handle. */
+/**
+ * Pieces people made in Whistlegraph and published under their handle. A
+ * piece is as new as its latest version, so one still being made stays up
+ * top; one published by default (no handle stamped yet) takes its owner's.
+ */
 async function whistlegraphPieces(db) {
   const rows = await db.collection(WG_THREADS).find(
     { published: true, publishedAt: { $ne: null }, "ledger.head": { $gt: 0 } },
-    { projection: { code: 1, handle: 1, publishedAt: 1, "ledger.head": 1, "ledger.versions.id": 1, "ledger.versions.request": 1 } },
-  ).sort({ publishedAt: -1 }).limit(PER_SOURCE).toArray();
+    { projection: { code: 1, owner: 1, handle: 1, publishedAt: 1, updatedAt: 1, "ledger.head": 1, "ledger.versions.id": 1,
+      "ledger.versions.request": 1, "ledger.versions.createdAt": 1 } },
+  ).sort({ updatedAt: -1 }).limit(PER_SOURCE).toArray();
+  const owners = await handleMap(db, rows.filter((row) => !row.handle?.startsWith?.("@")).map((row) => row.owner));
   return rows.filter((row) => typeof row.code === "string" && /^wg[A-Za-z0-9]+$/.test(row.code)).map((row) => {
     const made = (row.ledger?.versions || []).filter((v) => v.id > 0);
     const caption = made.length ? captionOf(made.at(-1).request) : "";
-    const handle = typeof row.handle === "string" && row.handle.startsWith("@") ? row.handle : null;
-    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), row.publishedAt), "whistlegraph");
+    const handle = typeof row.handle === "string" && row.handle.startsWith("@") ? row.handle : owners.get(row.owner) || null;
+    const latest = made.at(-1)?.createdAt;
+    const when = latest && latest > row.publishedAt ? latest : row.publishedAt;
+    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), when), "whistlegraph");
   });
 }
 
@@ -248,6 +275,11 @@ export async function feedPool(db) {
     .catch((error) => { if (!pool) throw error; console.error("mime feed refresh:", error); return pool; })
     .finally(() => { refreshing = null; });
   return pool && Date.now() - pool.at < REFRESH_MS * 5 ? pool : refreshing;
+}
+
+/** Re-read the pool on the next request, so a just-published piece shows at once. */
+export function freshenFeed() {
+  if (pool) pool.at = 0;
 }
 
 /** One page of a visit's feed, as client-ready posts. */

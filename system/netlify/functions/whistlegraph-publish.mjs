@@ -5,6 +5,7 @@ import {whistlegraphStore} from './whistlegraph.mjs';
 import {authenticateMusical} from './easel-musical-jev.mjs';
 import {getHandleOrEmail} from '../../backend/authorization.mjs';
 import {feedEntry} from '../../backend/whistlegraph.mjs';
+import {freshenFeed} from '../../backend/mime-feed-engine.mjs';
 export async function handler(event) {
   const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Allow-Methods':'POST, OPTIONS'};
   const reply=(statusCode,value)=>({statusCode,headers,body:JSON.stringify(value)});
@@ -19,6 +20,7 @@ export async function handler(event) {
     const handle=body.published?await getHandleOrEmail(owner):undefined;
     const row=await store.publish(owner,body.code,body.published,handle);
     if(!row)return reply(404,{error:'Thread unavailable'});
+    freshenFeed();
     return reply(200,{published:row.published===true,mime:row.published?feedEntry(row):null});
   }catch{return reply(503,{error:'Thread storage unavailable'});}
 }

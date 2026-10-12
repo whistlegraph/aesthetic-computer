@@ -24,7 +24,9 @@ export function validateLedger(ledger) {
   return {format:1,head:ledger.head,versions:ledger.versions.map(({id,parent,source,request,createdAt,layers})=>({id,parent,source,request:request??null,createdAt:typeof createdAt==='string'?createdAt:'',layers:Number.isInteger(layers)?layers:0}))};
 }
 // A single Mongo document makes head + immutable version additions atomic.
-export function mongoWhistlegraphStore(collection, {name=pronounceableCode}={}) {
+// `handles` (the @handles collection) lets a piece published by default carry
+// its owner's handle, as one published by hand does.
+export function mongoWhistlegraphStore(collection, {name=pronounceableCode,handles=null}={}) {
   let indexes;
   const ready=()=>indexes??=collection.createIndex({codeKey:1},{unique:true});
   return {
@@ -92,8 +94,17 @@ export function mongoWhistlegraphStore(collection, {name=pronounceableCode}={}) 
         const next=ledger.versions.find(n=>n.id===v.id);
         if(!next||JSON.stringify(next)!==JSON.stringify(v))throw Error('Saved versions are immutable');
       }
-      const result=await collection.updateOne({_id:id,owner,revision},{$set:{ledger,updatedAt:new Date().toISOString()},$inc:{revision:1}});
-      return result.modifiedCount?{...previous,ledger,revision:revision+1}:null;
+      // New work is public by default: a thread's first made version puts it
+      // on mime.ac unless its owner already chose. Threads made before this
+      // default (they have versions already) keep their private state.
+      const set={ledger,updatedAt:new Date().toISOString()};
+      const firstMade=!(previous.ledger?.head>0)&&ledger.head>0;
+      if(firstMade&&typeof previous.published!=='boolean') {
+        const handle=(await handles?.findOne({_id:owner},{projection:{handle:1}}).catch(()=>null))?.handle;
+        Object.assign(set,{published:true,publishedAt:set.updatedAt},typeof handle==='string'&&handle?{handle:'@'+handle.replace(/^@/,'')}:{});
+      }
+      const result=await collection.updateOne({_id:id,owner,revision},{$set:set,$inc:{revision:1}});
+      return result.modifiedCount?{...previous,...set,revision:revision+1}:null;
     }
   };
 }

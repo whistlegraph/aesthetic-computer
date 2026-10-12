@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rankFeed, archiveOrder, nopaintArchive, seeded } from "./mime-feed-engine.mjs";
+import { rankFeed, leadCards, archiveOrder, nopaintArchive, seeded } from "./mime-feed-engine.mjs";
 
 const now = Date.parse("2026-10-11T12:00:00Z");
 const day = 86400000;
@@ -70,4 +70,20 @@ test("a burst of one kind cannot bury the others", () => {
   const feed = rankFeed({ live: [...burst, ...quiet], archive: [] }, "s", 12, now).map((x) => x.code);
   assert.ok(feed.includes("mood_q1") && feed.includes("tape_q1"), feed.join(" "));
   assert.ok(feed[0].startsWith("painting_"), "fresh work still leads");
+});
+
+test("new work leads every visit, one card per author, Whistlegraph counted younger", () => {
+  const fresh = [
+    { code: "painting_new", app: "aesthetic", author: "@ana", when: new Date(now - 2 * 3600000) },
+    { code: "painting_newer", app: "aesthetic", author: "@ana", when: new Date(now - 1 * 3600000) },
+    { code: "wgpiece_new", app: "whistlegraph", author: "@fifi", when: new Date(now - 6 * 3600000) },
+    { code: "mood_new", app: "mood", author: "@bo", when: new Date(now - 3 * 3600000) },
+    { code: "wgpiece_stale", app: "whistlegraph", author: "@cy", when: new Date(now - 3 * day) },
+  ];
+  assert.deepEqual(leadCards(fresh, now).map((x) => x.code), ["painting_newer", "wgpiece_new", "mood_new"]);
+  for (const seed of ["a", "b", "c"]) {
+    const feed = rankFeed({ live: [...live.filter((x) => x.app === "whistlegraph"), ...fresh], archive }, seed, 6, now).map((x) => x.code);
+    assert.deepEqual(feed.slice(0, 3), ["painting_newer", "wgpiece_new", "mood_new"], seed);
+    assert.equal(new Set(feed).size, feed.length);
+  }
 });

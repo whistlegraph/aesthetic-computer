@@ -231,7 +231,7 @@ export async function main() {
   await client.connect();
   const db = client.db(process.env.MONGODB_NAME);
   const queue = mongoTurnQueue(db.collection('walkieware-turns'));
-  const store = mongoWhistlegraphStore(db.collection('walkieware-threads'));
+  const store = mongoWhistlegraphStore(db.collection('walkieware-threads'), {handles: db.collection('@handles')});
   const pool = new RenderPool({site: SITE, size: RENDERERS, log});
   await pool.start();
   let running = 0, stopping = false;

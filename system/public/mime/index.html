@@ -195,6 +195,9 @@
     .comment-preview p { margin: 4px 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .comment-preview .name { font-size: inherit; margin-right: 8px; }
     .comment-preview .all-comments { display: inline-block; padding-top: 4px; color: var(--dim); font-size: 13px; }
+    .new-pill { position: fixed; top: calc(14px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 30;
+      padding: 9px 16px; border-radius: 22px; color: #fff; background: rgba(20, 16, 30, .78); border: 1px solid rgba(255, 255, 255, .3);
+      font: 700 15px "Comic Relief", "Comic Sans MS", cursive; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: pointer; }
     .feed-more { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 24px 8px 8px; }
     .feed-more [role="status"], .omitted { color: var(--dim); font-size: 13px; }
     .back { margin: 0 0 16px; font-size: 14px; }
@@ -1547,6 +1550,28 @@ async function home(page = 0, signal) {
     sampleEngagement();
     if (state.hasMore) feedObserver?.observe(state.nodes.at(-1) || more);
   });
+  watchForNew(state, signal);
+}
+
+// While the feed is open, look for work published since it loaded; new work
+// leads page one, so a code there we haven't shown means something just landed.
+function watchForNew(state, signal) {
+  let pill = null;
+  const check = async () => {
+    if (document.hidden || pill || activeFeed !== state) return;
+    try {
+      const data = await read(API + "?feed=1&page=0&seed=" + feedSeed, signal);
+      const fresh = data.recent.slice(0, 6).filter((post) => !state.codes.has(post.code));
+      if (!fresh.length || signal.aborted) return;
+      pill = el("button", "new-pill", "↑ new" + (fresh[0].name ? " from " + fresh[0].name : ""));
+      pill.type = "button";
+      pill.onclick = () => { feedCache = null; route(); };
+      document.body.append(pill);
+    } catch {}
+  };
+  const timer = setInterval(check, 45000);
+  document.addEventListener("visibilitychange", check, { signal });
+  signal.addEventListener("abort", () => { clearInterval(timer); pill?.remove(); });
 }
 
 async function board(name, page = 0, signal) {
