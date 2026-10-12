@@ -10,10 +10,11 @@ test('freeform sectors produce real BSP, custom textures/flats and complete spri
  assert.equal(map.things[1].type,2014);assert.equal(lumps.filter(l=>l.name==='S_START').length,1);
 });
 test('project edits preserve unrelated maps/art and failed edits never stage',async()=>{
- let current=lollipopProject(),saved=0;const editor=createProjectTools({get:()=>current,set:p=>{current=p;saved++;},base});
+ let current=lollipopProject(),saved=0;current.graphics[3].name='BON1A0';const editor=createProjectTools({get:()=>current,set:p=>{current=p;saved++;},base});
  await editor.run('map',{map:{...projectFromLevel(starterLevel()).maps[0],name:'E1M2'}});assert.equal(current.maps.length,2);assert.equal(current.graphics.length,4);
  await editor.run('graphic',{graphic:{...current.graphics[3],names:['BON1A0'],background:'#ff0088',layers:[]}});
  assert.ok(current.graphics.some(g=>g.names?.includes('BON1B0')),'editing one frame preserves sibling frames');
+ assert.equal((await editor.run('read',{kind:'graphic',name:'BON1A0'})).background,'#ff0088','reading the replaced frame returns its new artwork');
  const before=JSON.stringify(current),count=saved;await assert.rejects(editor.run('map',{map:{...current.maps[1],vertices:[[0,0]]}}));assert.equal(JSON.stringify(current),before);assert.equal(saved,count);
  await assert.rejects(editor.run('level',{level:starterLevel()}),/custom maps/);
  await editor.run('text',{name:'DEHACKED',text:'Patch File for DeHackEd v3.0\nDoom version = 19\nPatch format = 6\n'});assert.ok(current.lumps.some(l=>l.name==='DEHACKED'));
