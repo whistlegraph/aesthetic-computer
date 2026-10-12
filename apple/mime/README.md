@@ -13,6 +13,20 @@ The feed is the same ranked network feed as https://mime.ac (`GET /api/mime?feed
 
 XcodeGen generates `Mime.xcodeproj` from `project.yml`. Bundle `computer.aesthetic.mime`, team `FB5948YR3S`.
 
+Native SwiftUI and the website share `system/public/mime-layout.json`, served
+at `https://aesthetic.computer/mime-layout.json`. Build 2 reads schema 1 when
+opening or foregrounding the app. Font sizes, spacing, captions and optional
+titles can change through a web deploy. Invalid settings retain the last
+valid layout; offline launches use that cached layout or the bundled JSON.
+The global code always remains top-left, handle bottom-left, type bottom-right.
+New native controls or schema capabilities require another app build.
+
+After committing and pushing main, `bash apple/mime/release-mime.sh device`
+deploys and verifies the website/config, then builds, installs and launches
+the native app on the connected iPhone (`DEVICE` selects it). Use `testflight`
+to archive/upload instead, or `web` for production presentation updates only.
+Both releases use the same source revision.
+
 ## TestFlight
 
 From this directory: `fastlane ios status`, `fastlane ios build`, `fastlane ios upload`, `fastlane ios distribute` (which makes the private **MIME.ac Friends** group if needed), and `fastlane ios invite email:<email> name:<first-name>`. These use the same Admin API key as AC, Whistlegraph, Oskiewar and Menu Band.

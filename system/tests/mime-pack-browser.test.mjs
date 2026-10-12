@@ -8,6 +8,8 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
   const page = await context.newPage();
   const html = await readFile(new URL('../public/mime/index.html', import.meta.url), 'utf8');
+  const defaultLayout = JSON.parse(await readFile(new URL('../public/mime-layout.json', import.meta.url), 'utf8'));
+  let layout = defaultLayout;
   const artifact = `<!doctype html><style>body{margin:0;background:#234;color:white;display:grid;place-items:center;height:100vh}button{padding:24px}</style><button onclick="this.textContent='Spinning'">Spin tree</button><script>try { parent.document.body.dataset.escaped='yes'; } catch {} try { localStorage.setItem('escape','yes'); } catch {} document.body.dataset.running='yes';</script>`;
   const post = { code: 'pack', parent: null, name: '@artist', when: '2026-10-05T22:00:00Z', replies: 0,
     origin: { name: 'Whistlegraph', url: 'https://whistlegraph.app/' },
@@ -16,6 +18,7 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
       url: 'https://ipfs.aesthetic.computer/ipfs/fixture', tokenUrl: 'https://teia.art/objkt/885469' } };
   await context.route('**/*', route => {
     const u = new URL(route.request().url());
+    if (u.pathname === '/mime-layout.json') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(layout) });
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
     if (u.pathname === '/api/mime' && u.searchParams.get('thread')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ op: post, replies: [] }) });
     if (u.pathname === '/api/mime') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ recent: [post, { ...post, code: 'pack2' }], hasMore: false }) });
@@ -28,7 +31,20 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     await page.locator('#pack').evaluate(el => el.scrollIntoView({ block: 'start' }));
     await page.locator('#pack iframe[data-ready]').waitFor();
     assert.equal(await page.locator('#pack .name').getAttribute('aria-label'), '@artist');
-    assert.equal(await page.locator('#pack .reel-command .media-label').getAttribute('aria-label'), 'Spinning tree');
+    assert.equal(await page.locator('#pack .reel-command .media-label').getAttribute('aria-label'), 'wgDefen');
+    await page.waitForFunction(revision => document.documentElement.dataset.mimeLayoutRevision === revision, defaultLayout.revision);
+    const identifierBox = await page.locator('#pack .reel-command').boundingBox();
+    const handleBox = await page.locator('#pack .meta .name').boundingBox();
+    const typeBox = await page.locator('#pack .reel-type').boundingBox();
+    assert.ok(identifierBox.y < handleBox.y && handleBox.x < typeBox.x, 'global code above; handle and MIME type at opposite footer edges');
+    layout = { ...defaultLayout, revision: 'remote-layout-check', identifierSize: 28 };
+    await page.evaluate(() => refreshMimeLayout());
+    assert.equal(await page.locator('#pack .reel-command .pal-text').evaluate(el => getComputedStyle(el).fontSize), '28px');
+    layout = { ...defaultLayout, schemaVersion: 2, identifierSize: 1000 };
+    await page.evaluate(() => refreshMimeLayout());
+    assert.equal(await page.locator('#pack .reel-command .pal-text').evaluate(el => getComputedStyle(el).fontSize), '28px', 'unsupported config preserves last valid layout');
+    layout = defaultLayout;
+    await page.evaluate(() => refreshMimeLayout());
     assert.equal(await page.locator('#pack .media-origin').isVisible(), false, 'the reel names the type, not the source');
     assert.equal(await page.locator('#pack .reel-type').getAttribute('aria-label'), 'text/html');
     assert.equal(await page.locator('#pack time').getAttribute('datetime'), post.when);
@@ -66,7 +82,9 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     if (process.env.MIME_SCREENSHOT_DIR) {
       await mkdir(process.env.MIME_SCREENSHOT_DIR, { recursive: true });
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.evaluate(() => scrollTo(0, 0));
+      await page.evaluate(() => { location.hash = '#/'; });
+      await page.locator('#pack .reel-command').waitFor({ state: 'visible' });
+      await page.locator('#pack').evaluate(el => el.scrollIntoView({ block: 'start' }));
       await page.screenshot({ path: `${process.env.MIME_SCREENSHOT_DIR}/mime-pack-mobile.png` });
     }
   } finally { await context.close(); await browser.close(); }

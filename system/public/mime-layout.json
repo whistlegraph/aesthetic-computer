@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-10-12.1",
+  "identifierSize": 21,
+  "handleSize": 21,
+  "mimeTypeSize": 21,
+  "captionSize": 17,
+  "titleSize": 14,
+  "padding": 14,
+  "showCaption": false,
+  "showTitle": false,
+  "showOrigin": true
+}

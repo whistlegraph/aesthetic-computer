@@ -373,6 +373,18 @@
     body.feed .feed-post .byline > .name { display: block; }
     /* A feed video plays muted and looping like a reel; its controls appear with Interact. */
     body.feed .feed-media:not([data-interacting]) > video::-webkit-media-controls { display: none !important; }
+    /* Shared presentation settings; identity corners are part of the contract. */
+    html body.feed .feed-post .reel-command .pal-text { font-size: var(--mime-identifier-size, 21px); }
+    html body.feed .feed-post .meta .byline > .name.pal-text { font-size: var(--mime-handle-size, 21px); }
+    html body.feed .feed-post .meta > .reel-type.pal-text { font-size: var(--mime-type-size, 21px); }
+    html body.feed .feed-post > .reel-command { margin-left: var(--mime-padding, 14px); }
+    html body.feed .feed-post > .meta { padding-inline: var(--mime-padding, 14px); }
+    .media-title { display: none; font-size: var(--mime-title-size, 14px); }
+    html[data-mime-show-title="true"] .media-title { display: block; }
+    html[data-mime-show-title="false"] .media-title,
+    html[data-mime-show-origin="false"] .media-origin { display: none; }
+    html body.feed .feed-post > .body { font-size: var(--mime-caption-size, 17px); }
+    html[data-mime-show-caption="true"] body.feed .feed-post:not(.mood-post) > .body { display: block; }
   </style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -487,6 +499,30 @@
     </div>
 
 <script>
+async function refreshMimeLayout() {
+  try {
+    const response = await fetch("https://aesthetic.computer/mime-layout.json", { cache: "no-cache", signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return;
+    const text = await response.text();
+    if (text.length > 4096) return;
+    const layout = JSON.parse(text);
+    const sizes = ["identifierSize", "handleSize", "captionSize", "titleSize"];
+    const within = (key, min, max) => typeof layout[key] === "number" && Number.isFinite(layout[key]) && layout[key] >= min && layout[key] <= max;
+    if (layout.schemaVersion !== 1 || typeof layout.revision !== "string" || !layout.revision.length || layout.revision.length > 80 ||
+        !sizes.every(key => within(key, 12, 32)) || !within("mimeTypeSize", 10, 24) || !within("padding", 8, 32) ||
+        !["showCaption", "showTitle", "showOrigin"].every(key => typeof layout[key] === "boolean")) return;
+    const root = document.documentElement;
+    for (const [key, css] of Object.entries({ identifierSize: "identifier-size", handleSize: "handle-size", mimeTypeSize: "type-size", titleSize: "title-size", captionSize: "caption-size", padding: "padding" })) {
+      root.style.setProperty("--mime-" + css, layout[key] + "px");
+    }
+    root.dataset.mimeShowTitle = layout.showTitle;
+    root.dataset.mimeShowOrigin = layout.showOrigin;
+    root.dataset.mimeShowCaption = layout.showCaption;
+    root.dataset.mimeLayoutRevision = layout.revision;
+  } catch { /* Keep the default layout when offline or receiving an unsupported schema. */ }
+}
+refreshMimeLayout();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshMimeLayout(); });
 // Like Oskiewar's shifting tab lettering, with a stable title for reduced motion.
 const tabTitles = ["mime.ac", "𝗺𝗶𝗺𝗲.ac", "𝚖𝚒𝚖𝚎.ac", "𝘮𝘪𝘮𝘦.ac"];
 const tabMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -1098,10 +1134,11 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   if (root) {
     // AC's own notation names the work: #painting, !tape, $kidlisp, a piece by its code.
     const sigil = { painting: "#", tape: "!", kidlisp: "$" }[post.media?.kind];
-    const label = post.media?.title || (post.media?.code ? (sigil ?? "") + post.media.code : post.media ? post.media.kind : post.file?.name || "post " + post.code);
+    const label = post.media?.code ? (sigil ?? "") + post.media.code : post.code;
     const source = el("a", "media-label", label);
     source.href = post.media?.url || "#/t/" + post.code;
     byline.append(source);
+    if (post.media?.title && post.media.title !== label) byline.append(el("span", "media-title", post.media.title));
     if (post.origin) {
       const origin = el("a", "media-origin", post.origin.name);
       origin.href = post.origin.url;

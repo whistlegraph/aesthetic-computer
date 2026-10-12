@@ -277,6 +277,19 @@ npm run test:kidlisp
 
 ### Adding a Piece
 
+**Published identity:** Whistlegraph Pad and MIME publications must have a stable
+identifier in the global AC namespace, independent of the author's handle.
+Use the content's canonical code, with its prefix or sigil where applicable;
+titles and `@handle/name` aliases do not replace it. Handle changes must not
+change the identifier. MIME cards place the global identifier at top left,
+author handle at bottom left, and MIME type at bottom right.
+
+**Clubs:** A user-administered club is an AC primitive with a global identity,
+a goal or place, membership, and shared content. MIME is its first visual
+interface; the AC prompt must expose the same club and member operations
+through shared records and permissions. Pieces may belong to multiple clubs
+without changing their global identifiers.
+
 Every piece is a single `.mjs` (JS) or `.lisp` (KidLisp) file in
 [`system/public/aesthetic.computer/disks/`](system/public/aesthetic.computer/disks/).
 Scaffold from the template:

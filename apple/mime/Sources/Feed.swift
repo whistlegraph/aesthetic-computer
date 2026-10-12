@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// One card of the network feed, as GET mime.ac/api/mime?feed=1 returns it.
 struct Post: Decodable, Identifiable, Equatable {
@@ -18,8 +19,7 @@ struct Post: Decodable, Identifiable, Equatable {
 
     /// The code you can enter in AC: #painting, !tape, $kidlisp, a piece by name.
     var command: String {
-        if let title = media?.title, !title.isEmpty { return title }
-        guard let code = media?.code else { return media?.kind ?? "post" }
+        guard let code = media?.code, !code.isEmpty else { return self.code }
         switch media?.kind {
         case "painting": return "#" + code
         case "tape": return "!" + code
@@ -57,10 +57,24 @@ struct Post: Decodable, Identifiable, Equatable {
 @MainActor final class Feed: ObservableObject {
     @Published private(set) var posts: [Post] = []
     @Published private(set) var failed = false
+    @Published private(set) var layout: MimeLayout = {
+        if let data = UserDefaults.standard.data(forKey: "mime-layout-v1"), let cached = MimeLayout.decode(data) { return cached }
+        return .bundled
+    }()
     private var page = 0, hasMore = true, loading = false
     private let seed = UUID().uuidString
 
     private struct Page: Decodable { let recent: [Post]; let hasMore: Bool }
+
+    func refreshLayout() async {
+        let url = URL(string: "https://aesthetic.computer/mime-layout.json")!
+        do {
+            let (data, response) = try await URLSession.shared.data(for: URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8))
+            guard (response as? HTTPURLResponse)?.statusCode == 200, let value = MimeLayout.decode(data) else { return }
+            layout = value
+            UserDefaults.standard.set(data, forKey: "mime-layout-v1")
+        } catch { /* Preserve the last valid layout when offline. */ }
+    }
 
     func loadMore() async {
         guard hasMore, !loading else { return }

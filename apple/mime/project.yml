@@ -9,13 +9,15 @@ settings:
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
 targets:
   Mime:
     type: application
     platform: iOS
     sources:
       - Sources
+      - path: ../../system/public/mime-layout.json
+        buildPhase: resources
       - path: Resources/PrivacyInfo.xcprivacy
         buildPhase: resources
       - path: Resources/Assets.xcassets
@@ -30,3 +32,17 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    scheme:
+      testTargets:
+        - MimeUITests
+  MimeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: Mime
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.mime.uitests
+        GENERATE_INFOPLIST_FILE: YES

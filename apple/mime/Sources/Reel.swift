@@ -10,6 +10,7 @@ struct Reel: View {
     @State private var current: String?
     @State private var interacting: String?
     @State private var corner: CGFloat = 0 // 0 on the splash, 1 from the first post on
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         GeometryReader { screen in
@@ -25,7 +26,7 @@ struct Reel: View {
                                 Color.clear.preference(key: SplashOffset.self, value: proxy.frame(in: .named("reel")).minY)
                             })
                         ForEach(feed.posts) { post in
-                            Card(post: post, pool: pool, focused: current == post.id, interacting: interacting == post.id) {
+                            Card(post: post, layout: feed.layout, pool: pool, focused: current == post.id, interacting: interacting == post.id) {
                                 interacting = interacting == post.id ? nil : post.id
                             }
                             .containerRelativeFrame([.horizontal, .vertical])
@@ -59,7 +60,14 @@ struct Reel: View {
                     prepare()
                 }
                 .onChange(of: feed.posts) { _, _ in prepare() }
-                .task { await feed.loadMore() }
+                .task {
+                    async let posts: Void = feed.loadMore()
+                    async let layout: Void = feed.refreshLayout()
+                    _ = await (posts, layout)
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { Task { await feed.refreshLayout() } }
+                }
 
                 Banner(corner: corner, width: screen.size.width)
             }
@@ -127,6 +135,7 @@ private struct Splash: View {
 /// bottom-left and the type bottom-right.
 private struct Card: View {
     let post: Post
+    let layout: MimeLayout
     @ObservedObject var pool: RuntimePool
     let focused: Bool
     let interacting: Bool
@@ -144,22 +153,32 @@ private struct Card: View {
         }
         .overlay(alignment: .topLeading) {
             Button(action: { playable ? toggleInteract() : open() }) {
-                PalText(text: post.command, size: 21, accent: Color(hex: 0xED629D))
+                PalText(text: post.command, size: CGFloat(layout.identifierSize), accent: Color(hex: 0xED629D))
                     .overlay(alignment: .bottom) {
                         if interacting { WavyUnderline().offset(y: 6) }
                     }
             }
             .buttonStyle(.plain)
-            .padding(.leading, 14).padding(.top, 62)
+            .padding(.leading, layout.padding).padding(.top, 62)
+            .accessibilityIdentifier("mime-global-identifier")
             .accessibilityHint(playable ? (interacting ? "Back to scrolling" : "Play with this piece") : "Open in Aesthetic Computer")
         }
         .overlay(alignment: .bottom) {
-            HStack(alignment: .bottom) {
-                if let name = post.name { PalText(text: name, size: 21, accent: Color.author(name)) }
-                Spacer(minLength: 12)
-                PalText(text: post.mimeType, size: 21, accent: Color.tint(forType: post.mimeType))
+            VStack(alignment: .leading, spacing: 8) {
+                if layout.showTitle, let title = post.media?.title, !title.isEmpty, title != post.command {
+                    PalText(text: title, size: CGFloat(layout.titleSize))
+                }
+                if layout.showCaption, !post.isMood, let text = post.text, !text.isEmpty {
+                    Text(text).font(.custom("ComicRelief-Bold", size: layout.captionSize, relativeTo: .body)).foregroundStyle(.white)
+                        .lineLimit(3)
+                }
+                HStack(alignment: .bottom) {
+                    if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name)).accessibilityIdentifier("mime-author") }
+                    Spacer(minLength: 12)
+                    PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType)).accessibilityIdentifier("mime-type")
+                }
             }
-            .padding(.horizontal, 14).padding(.bottom, 34)
+            .padding(.horizontal, layout.padding).padding(.bottom, 34)
         }
         .clipped()
     }

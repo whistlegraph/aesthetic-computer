@@ -7,20 +7,36 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		08974F5171F35F094F7327E4 /* MimeLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168A6C9243E8440D4AA0540D /* MimeLayout.swift */; };
 		281F7D98DB348812604E3F7C /* PalText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9E95AD6C8A0008A32859C9 /* PalText.swift */; };
 		3DF224678BA4E78F77CC1694 /* Reel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */; };
 		40DD64EAF414F65D237DD6C2 /* Feed.swift in Sources */ = {isa = PBXBuildFile; fileRef = B559B7E4F8BDAA1266C2F25E /* Feed.swift */; };
 		588640B0BAF9E751CA66AD7F /* Wordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0684191A5DE792274EC1BA5E /* Wordmark.swift */; };
 		64BBEE1AD009DA97BF0127A0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2157C136E1C07791FD2E1B3 /* Assets.xcassets */; };
 		7C2B054BB62E5C4211527F39 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C4EFEF2199B636DD617353D6 /* PrivacyInfo.xcprivacy */; };
+		7CCD35632873A9FDB6D7EB4C /* mime-layout.json in Resources */ = {isa = PBXBuildFile; fileRef = 734DD159B0A7A852809CB969 /* mime-layout.json */; };
+		7F01CC3EEEF3245FCAC8B84E /* MimeLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E25F410099969571779C02B /* MimeLayoutTests.swift */; };
 		BA41C9DC59CB9BCD4EE6A5DA /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = C77429657CEAFAEDDC559105 /* Fonts */; };
 		E85D3019326A7A128E7850F5 /* MimeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A463A20C599B1521E9D635A5 /* MimeApp.swift */; };
 		F2D888DA9BAE1AB798573514 /* PieceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		DFFBD43FB474E4D58619BA06 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 88F03ED2707BA22B3F0A7D76 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4600B0C27E7BD2BB507C96F9;
+			remoteInfo = Mime;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		0684191A5DE792274EC1BA5E /* Wordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Wordmark.swift; sourceTree = "<group>"; };
+		168A6C9243E8440D4AA0540D /* MimeLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeLayout.swift; sourceTree = "<group>"; };
 		3EE24985AB02083C864395AA /* Mime.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mime.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		734DD159B0A7A852809CB969 /* mime-layout.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "mime-layout.json"; sourceTree = "<group>"; };
+		7E25F410099969571779C02B /* MimeLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeLayoutTests.swift; sourceTree = "<group>"; };
 		7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reel.swift; sourceTree = "<group>"; };
 		7F9E95AD6C8A0008A32859C9 /* PalText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PalText.swift; sourceTree = "<group>"; };
 		A2157C136E1C07791FD2E1B3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -28,6 +44,7 @@
 		B559B7E4F8BDAA1266C2F25E /* Feed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feed.swift; sourceTree = "<group>"; };
 		C4EFEF2199B636DD617353D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C77429657CEAFAEDDC559105 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = Resources/Fonts; sourceTree = SOURCE_ROOT; };
+		CD5CFFAB6A78C428AFA84C98 /* MimeUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MimeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceRuntime.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -41,10 +58,20 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		30858985AF44E54CD897ADA3 /* public */ = {
+			isa = PBXGroup;
+			children = (
+				734DD159B0A7A852809CB969 /* mime-layout.json */,
+			);
+			name = public;
+			path = ../../system/public;
+			sourceTree = "<group>";
+		};
 		534404109515C4916AEC434C /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				3EE24985AB02083C864395AA /* Mime.app */,
+				CD5CFFAB6A78C428AFA84C98 /* MimeUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -53,8 +80,10 @@
 			isa = PBXGroup;
 			children = (
 				C77429657CEAFAEDDC559105 /* Fonts */,
+				30858985AF44E54CD897ADA3 /* public */,
 				06DBD18A3643C15D05007F63 /* Resources */,
 				8F7C06E2A1457AFC2F543656 /* Sources */,
+				F25EE194C1D582945BA20818 /* UITests */,
 				534404109515C4916AEC434C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,12 +93,21 @@
 			children = (
 				B559B7E4F8BDAA1266C2F25E /* Feed.swift */,
 				A463A20C599B1521E9D635A5 /* MimeApp.swift */,
+				168A6C9243E8440D4AA0540D /* MimeLayout.swift */,
 				7F9E95AD6C8A0008A32859C9 /* PalText.swift */,
 				FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */,
 				7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */,
 				0684191A5DE792274EC1BA5E /* Wordmark.swift */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		F25EE194C1D582945BA20818 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				7E25F410099969571779C02B /* MimeLayoutTests.swift */,
+			);
+			path = UITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -93,6 +131,24 @@
 			productReference = 3EE24985AB02083C864395AA /* Mime.app */;
 			productType = "com.apple.product-type.application";
 		};
+		F2591425774B0C2E03C11CC1 /* MimeUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B16E76F69C6F82B3D61A359F /* Build configuration list for PBXNativeTarget "MimeUITests" */;
+			buildPhases = (
+				E25E5515570B9C7FED509873 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				8E6AAFABFED734EFB523E8D3 /* PBXTargetDependency */,
+			);
+			name = MimeUITests;
+			packageProductDependencies = (
+			);
+			productName = MimeUITests;
+			productReference = CD5CFFAB6A78C428AFA84C98 /* MimeUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -105,6 +161,11 @@
 					4600B0C27E7BD2BB507C96F9 = {
 						DevelopmentTeam = FB5948YR3S;
 						ProvisioningStyle = Automatic;
+					};
+					F2591425774B0C2E03C11CC1 = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 4600B0C27E7BD2BB507C96F9;
 					};
 				};
 			};
@@ -123,6 +184,7 @@
 			projectRoot = "";
 			targets = (
 				4600B0C27E7BD2BB507C96F9 /* Mime */,
+				F2591425774B0C2E03C11CC1 /* MimeUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -135,6 +197,7 @@
 				64BBEE1AD009DA97BF0127A0 /* Assets.xcassets in Resources */,
 				BA41C9DC59CB9BCD4EE6A5DA /* Fonts in Resources */,
 				7C2B054BB62E5C4211527F39 /* PrivacyInfo.xcprivacy in Resources */,
+				7CCD35632873A9FDB6D7EB4C /* mime-layout.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +210,7 @@
 			files = (
 				40DD64EAF414F65D237DD6C2 /* Feed.swift in Sources */,
 				E85D3019326A7A128E7850F5 /* MimeApp.swift in Sources */,
+				08974F5171F35F094F7327E4 /* MimeLayout.swift in Sources */,
 				281F7D98DB348812604E3F7C /* PalText.swift in Sources */,
 				F2D888DA9BAE1AB798573514 /* PieceRuntime.swift in Sources */,
 				3DF224678BA4E78F77CC1694 /* Reel.swift in Sources */,
@@ -154,7 +218,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E25E5515570B9C7FED509873 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7F01CC3EEEF3245FCAC8B84E /* MimeLayoutTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		8E6AAFABFED734EFB523E8D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4600B0C27E7BD2BB507C96F9 /* Mime */;
+			targetProxy = DFFBD43FB474E4D58619BA06 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1222962504DF3BFE0B995157 /* Release */ = {
@@ -192,7 +272,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -252,7 +332,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -281,6 +361,40 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		41AAF9A96FB39E674D411417 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.mime.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Mime;
+			};
+			name = Release;
+		};
+		711B670CDA0CDD71C994682B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.mime.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Mime;
 			};
 			name = Debug;
 		};
@@ -328,6 +442,15 @@
 			buildConfigurations = (
 				3A6420CD856A65E435D7822D /* Debug */,
 				1222962504DF3BFE0B995157 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B16E76F69C6F82B3D61A359F /* Build configuration list for PBXNativeTarget "MimeUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				711B670CDA0CDD71C994682B /* Debug */,
+				41AAF9A96FB39E674D411417 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
