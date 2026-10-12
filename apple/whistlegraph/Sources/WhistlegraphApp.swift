@@ -576,6 +576,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var startupFailure: String?
     private var startupTimeout: Task<Void, Never>?
     private var recoveryCount = 0
+    private var startupRetries = 0
     weak var webView: WKWebView?
 
     func reloadWorkspace() {
@@ -586,8 +587,10 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         startupTimeout = Task { [weak self] in
             try? await Task.sleep(for: .seconds(12))
             guard !Task.isCancelled, let self, !(self.workspaceReady && self.engineReady) else { return }
-            self.startupFailure = "The workspace did not finish opening. Tap Reload to try again."
             DeviceActionLog.shared.record(.workspace, .failed)
+            // One quiet second try before anything is said; a cold WebKit is usually all it was.
+            if self.startupRetries < 1 { self.startupRetries += 1; self.reloadWorkspace(); return }
+            self.startupFailure = self.workspaceReady ? "Whistlegraph’s engine didn’t start." : "Whistlegraph couldn’t open."
         }
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -820,8 +823,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 value["inference"] = inference
             }
             #endif
-            guard let data = try? JSONSerialization.data(withJSONObject: value), data.count < 2_000_000,
-                  var next = try? JSONDecoder().decode(PieceSnapshot.self, from: data),
+            let decoded = Result { try JSONDecoder().decode(PieceSnapshot.self, from: JSONSerialization.data(withJSONObject: value)) }
+            if case .failure(let error) = decoded, !engineReady {
+                startupTimeout?.cancel()
+                startupFailure = "The workspace could not read its first state: " + String(describing: error).prefix(300)
+                DeviceActionLog.shared.recordError(.workspace, error)
+            }
+            guard case .success(var next) = decoded,
                   next.versions.count <= 256, next.code.count <= 32, next.handle.count <= 100 else { return }
             if next.revisions == nil { next.versions = snapshot.versions }
             #if DEBUG
@@ -839,7 +847,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             }
             #endif
             traceSnapshot(next)
-            snapshot = next; tv.updateProgress(next); engineReady = true
+            snapshot = next; tv.updateProgress(next); engineReady = true; startupRetries = 0
             if workspaceReady { startupTimeout?.cancel() }
         case "voiceIdle":
             performanceCapture = false

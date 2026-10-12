@@ -23,8 +23,34 @@ struct PieceSnapshot: Decodable {
     var progress: TurnProgress?
     var revisions: [PieceRevision]? = []
     var versions: [PieceRevision] { get { revisions ?? [] } set { revisions = newValue } }
-    enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, remote, phase, attempt; case revisions = "versions" }
+    enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, remote, phase, attempt, draft, progress; case revisions = "versions" }
     var hasHistory: Bool { versions.count > 1 }
+    init() {}
+    // Every field is optional on the wire: each ware's engine posts its own subset,
+    // and a key one engine lacks (the Roblox room has no `remote`) must not drop the
+    // whole snapshot, which leaves the workspace never ready.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        ware = try c.decodeIfPresent(String.self, forKey: .ware)
+        roblox = try? c.decodeIfPresent(RobloxRoomSnapshot.self, forKey: .roblox)
+        code = try c.decodeIfPresent(String.self, forKey: .code) ?? ""
+        caption = try c.decodeIfPresent(String.self, forKey: .caption)
+        output = try c.decodeIfPresent(String.self, forKey: .output)
+        inference = try? c.decodeIfPresent(InferenceSnapshot.self, forKey: .inference)
+        handle = try c.decodeIfPresent(String.self, forKey: .handle) ?? ""
+        colors = try c.decodeIfPresent([[Double]].self, forKey: .colors) ?? []
+        head = try c.decodeIfPresent(Int.self, forKey: .head) ?? 0
+        hasPiece = try c.decodeIfPresent(Bool.self, forKey: .hasPiece) ?? false
+        hasPreview = try c.decodeIfPresent(Bool.self, forKey: .hasPreview) ?? false
+        error = try c.decodeIfPresent(String.self, forKey: .error) ?? ""
+        busy = try c.decodeIfPresent(Bool.self, forKey: .busy) ?? false
+        remote = try c.decodeIfPresent(Bool.self, forKey: .remote) ?? false
+        phase = try c.decodeIfPresent(String.self, forKey: .phase) ?? ""
+        attempt = try? c.decodeIfPresent(PieceAttempt.self, forKey: .attempt)
+        draft = try? c.decodeIfPresent(PieceDraft.self, forKey: .draft)
+        progress = try? c.decodeIfPresent(TurnProgress.self, forKey: .progress)
+        revisions = try c.decodeIfPresent([PieceRevision].self, forKey: .revisions)
+    }
 }
 struct PieceAttempt: Decodable { let request: String; let status: String; let error: String }
 /// What a turn is doing right now: on the knot or on this phone, with its steps so far.

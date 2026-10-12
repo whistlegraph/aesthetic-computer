@@ -191,17 +191,18 @@ struct IdentityHeader: View {
     @State private var showingPieces = false
     @State private var showingAccount = false
     private var signedIn: Bool { !session.snapshot.handle.isEmpty }
-    private var handleText: String { signedIn ? "@" + session.snapshot.handle : "Log in" }
+    private var handleText: String { "@" + session.snapshot.handle }
     var body: some View {
         HStack(spacing: 0) {
-            // Signed out, the whole corner is one plain "Log in" that starts the
-            // login; the piece code and the account sheet wait for a handle.
-            Button {
-                beforeOpening(); ButtonSounds.play(signedIn ? .pop : .press)
-                if signedIn { showingAccount = true } else { session.command("signIn") }
-            } label: {
-                ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
-            }.buttonStyle(.plain).accessibilityLabel(signedIn ? handleText + ", account" : "Log in").accessibilityIdentifier("workspace-account")
+            // Signing in happens on the entry screen; until the engine names the
+            // handle the corner stays empty rather than offering a second login.
+            if signedIn {
+                Button {
+                    beforeOpening(); ButtonSounds.play(.pop); showingAccount = true
+                } label: {
+                    ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
+                }.buttonStyle(.plain).accessibilityLabel(handleText + ", account").accessibilityIdentifier("workspace-account")
+            }
             if session.snapshot.wareID == "piece" && signedIn && !session.snapshot.code.isEmpty {
                 Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: {
                     ComicTitle(text: "/" + session.snapshot.code, size: size)

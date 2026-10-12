@@ -172,7 +172,7 @@ final class HeaderSheetsTests: XCTestCase {
         app.launchEnvironment["WHISTLEGRAPH_NATIVE_SCREEN_FIXTURE"] = "history"
         app.launchEnvironment["WHISTLEGRAPH_BRAINCELLS_FIXTURE"] = "ready"
         app.launch()
-        // The button exists as "Log in" before the engine has loaded the fixture.
+        // The corner stays empty until the engine has loaded the fixture.
         let account = app.buttons.matching(identifier: "workspace-account")
             .matching(NSPredicate(format: "label == %@", "@preview, account")).firstMatch
         XCTAssertTrue(account.waitForExistence(timeout: 25), "the signed-in fixture is ready")

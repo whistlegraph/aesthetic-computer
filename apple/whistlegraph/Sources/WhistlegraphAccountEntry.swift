@@ -10,7 +10,7 @@ struct WhistlegraphAccountEntry: View {
 
     private func action(_ title: String, signUp: Bool = false, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
-            Text(title).font(.system(size: 20, design: .monospaced))
+            Text(title).font(.custom("ComicRelief-Bold", size: 22, relativeTo: .title3))
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
         }.buttonStyle(CurtainAccountButtonStyle(signUp: signUp))
     }
