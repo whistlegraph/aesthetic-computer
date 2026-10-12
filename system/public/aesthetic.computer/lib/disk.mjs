@@ -15474,7 +15474,7 @@ async function makeFrame({ data: { type, content } }) {
                 const uy = hudTextY - 4;
                 $.box(ux + 1, uy, 1, 1);
                 $.box(ux, uy + 1, 3, 1);
-                $.box(ux + 1, uy + 2, 1, 1);
+                $.box(ux + 1, uy + 2, 1, 2);
               }
             }
 
