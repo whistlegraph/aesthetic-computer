@@ -1356,7 +1356,6 @@ async function boot({
       //                          elsewhere.
     }
     system.prompt.input.showButton(api, {
-      nocopy: true,
       nopaste: false, // Always show paste button
     });
   }

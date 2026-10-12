@@ -3107,8 +3107,23 @@ function lineh(x0, x1, y) {
     }
     // Alpha blending.
   } else if (c[3] !== 0) {
+    if (blendingMode !== "blend") {
+      for (let i = startIndex; i <= endIndex; i += 4) blend(pixels, c, 0, i);
+      return;
+    }
+    // `blend`'s opaque-destination case, hoisted out of the per-pixel call:
+    // the same integer math, so results match pixel for pixel.
+    const alpha = c[3] + 1;
+    const invAlpha = 256 - alpha;
+    const r = alpha * c[0], g = alpha * c[1], b = alpha * c[2];
     for (let i = startIndex; i <= endIndex; i += 4) {
-      blend(pixels, c, 0, i);
+      if (pixels[i + 3] === 255) {
+        pixels[i] = (r + invAlpha * pixels[i]) >> 8;
+        pixels[i + 1] = (g + invAlpha * pixels[i + 1]) >> 8;
+        pixels[i + 2] = (b + invAlpha * pixels[i + 2]) >> 8;
+      } else {
+        blend(pixels, c, 0, i);
+      }
     }
   }
 }

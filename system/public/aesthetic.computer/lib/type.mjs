@@ -1596,8 +1596,9 @@ class TextInput {
     this.enter.btn.noEdgeDetection = true; // Prevent cancellation from edge detection
     this.copy = new TB(this.scheme.buttons?.copy.label || "Copy");
     this.paste = new TB(this.scheme.buttons?.paste?.label || "Paste");
-    this.copy.btn.disabled = true; // Copy is disabled by default,
-    this.paste.btn.disabled = true; // as is Paste.
+    // 📋 Copy is deprecated: it stays disabled and Paste keeps its slot.
+    this.copy.btn.disabled = true;
+    this.paste.btn.disabled = true; // Paste is disabled by default.
 
     if (this.text.length === 0) {
       this.enter.btn.disabled = true;
@@ -2194,14 +2195,9 @@ class TextInput {
     }
   }
 
-  showButton($, { nocopy, nopaste } = { nocopy: false, nopaste: false }) {
+  showButton($, { nopaste } = { nopaste: false }) {
     this.enter.btn.disabled = !this.touchButtons;
-    if (!nocopy && this.text.length > 0) {
-      this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
-      this.copy.btn.disabled = false;
-      this.paste.btn.disabled = true; // Disable paste button.
-      this.paste.btn.removeFromDom($, "paste");
-    } else if (nopaste) {
+    if (nopaste) {
       // Force turning off the paste button.
       this.paste.btn.disabled = true; // Disable paste button.
       this.paste.btn.removeFromDom($, "paste");
@@ -2822,13 +2818,6 @@ class TextInput {
 
       ti.text = ti.#lastPrintedText || ti.text;
 
-      if (ti.#lastPrintedText.length > 0 && ti.commandSentOnce) {
-        ti.copy.btn.disabled = false;
-        ti.#coatedCopy = ti.#coatCopy(ti.text); // Wrap text to be copied.
-
-        ti.paste.btn.disabled = true; // Disable paste button.
-        ti.paste.btn.removeFromDom($, "paste");
-      }
 
       $.act("text-input:uneditable");
       needsPaint();
@@ -3113,7 +3102,6 @@ class TextInput {
       needsPaint();
       clearTimeout(this.#copyPasteTimeout);
       this.#copyPasteTimeout = setTimeout(() => {
-        this.copy.btn.disabled = false;
         this.copy.txt = this.scheme.buttons?.copy?.label || "Copy";
         this.#copyPasteScheme = undefined;
         needsPaint();
