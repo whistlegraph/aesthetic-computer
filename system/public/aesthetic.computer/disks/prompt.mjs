@@ -79,7 +79,7 @@ const forgetful = true;
 
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 
-import { AestheticIOSApp, Android, MacOS, MetaBrowser, iOS } from "../lib/platform.mjs";
+import { AestheticIOSApp, Android, MacOS, MetaBrowser, Website, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
 import { commandDescriptions } from "../lib/prompt-commands.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
@@ -1146,7 +1146,7 @@ async function boot({
   if (colon?.includes("noflair")) flairEnabled = false;
   if (colon?.includes("flair")) flairEnabled = true;
   if (colon?.includes("nostars")) starsEnabled = false; // disable starfield + cube only
-  if (colon?.includes("products")) productsEnabled = true; // re-enable the product carousel
+  if (Website && colon?.includes("products")) productsEnabled = true; // re-enable the product carousel
   // `prompt:noglaze` skips the glaze post-effect — a quick way to isolate the
   // glaze's (GPU) cost from everything else when diagnosing frame rate.
   if (dark && !colon?.includes("noglaze")) glaze({ on: true });
@@ -5692,7 +5692,7 @@ function paint($) {
   // 🎰 Top-right corner slot: cycles between GIVE, SO SOFT ad, OS, and products
 
   // 💰 GIVE button
-  if (topRightBtnChoice === "give" && showLoginCurtain && flairEnabled) {
+  if (Website && topRightBtnChoice === "give" && showLoginCurtain && flairEnabled) {
     const now = Date.now();
     const t = performance.now() / 1000;
     const emotionPhase = Math.floor(now / 3000) % 3;
@@ -5803,7 +5803,7 @@ function paint($) {
   }
 
   // 🎨 SO SOFT AD - Two buttons with wavy line connector
-  if (topRightBtnChoice === "ad" && showLoginCurtain && flairEnabled) {
+  if (Website && topRightBtnChoice === "ad" && showLoginCurtain && flairEnabled) {
     const now = Date.now();
     const t = performance.now() / 1000;
     soSoftBlinkPhase = Math.floor(t * 2) % 2;
@@ -5918,7 +5918,7 @@ function paint($) {
   }
 
   // 💻 OS button — blue, blinky, computery
-  if (topRightBtnChoice === "os" && showLoginCurtain && flairEnabled) {
+  if (Website && topRightBtnChoice === "os" && showLoginCurtain && flairEnabled) {
     const t = performance.now() / 1000;
     const btnPaddingTop = 3;
     const btnPaddingRight = 3;
@@ -5986,7 +5986,7 @@ function paint($) {
   }
 
   // 💻 Blank laptop ad — loud, color-cycling bumper
-  if (topRightBtnChoice === "blank" && showLoginCurtain && flairEnabled) {
+  if (Website && topRightBtnChoice === "blank" && showLoginCurtain && flairEnabled) {
     const t = performance.now() / 1000;
     const btnPaddingTop = 3;
     const btnPaddingRight = 3;
@@ -6086,7 +6086,7 @@ function paint($) {
   }
 
   // The selected promo occupies the curtain's ad slot; typing clears its hit area.
-  if (topRightBtnChoice === "mime" && !productsEnabled && showLoginCurtain && flairEnabled &&
+  if (Website && topRightBtnChoice === "mime" && !productsEnabled && showLoginCurtain && flairEnabled &&
       !$.system.prompt.input.canType && !$.system.prompt.input.text && screen.width >= 112) {
     const label = promptPromo.label;
     const pos = { right: 3, top: 3, screen };
@@ -8397,7 +8397,7 @@ function act({
   }
 
   // Both promos use the same external-link handling as other curtain ads.
-  if (promoAdBtn && !promoAdBtn.btn.disabled && curtainVisible && flairEnabled &&
+  if (Website && promoAdBtn && !promoAdBtn.btn.disabled && curtainVisible && flairEnabled &&
       !system.prompt.input.canType && !system.prompt.input.text) {
     promoAdBtn.btn.act(e, {
       down: () => downSound(),

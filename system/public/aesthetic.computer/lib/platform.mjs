@@ -26,3 +26,9 @@ export function isAestheticIOSAppUserAgent(userAgent) {
   return /^Aesthetic$/i.test(String(userAgent || "").trim());
 }
 export const AestheticIOSApp = isAestheticIOSAppUserAgent(nav.userAgent);
+
+// Promotions belong to browser visits, never to an installed AC host.
+export function isWebsiteUserAgent(userAgent) {
+  return !/Aesthetic|Electron/i.test(String(userAgent || ""));
+}
+export const Website = isWebsiteUserAgent(nav.userAgent);

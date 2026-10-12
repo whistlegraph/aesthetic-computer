@@ -17132,8 +17132,8 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 📦 Top-right update-ready badge — appears in any piece when
-      // /api/version detects a new deployment. Tap to reload.
+      // 📦 Pieces use the corner updater. The prompt owns its bottom hash/update
+      // button, leaving its top-right website promotion unobstructed.
       // An embedded view takes the update instead of advertising it. The
       // message still goes — it is what arms the reload on the other side —
       // but it carries no picture, so nothing is drawn over the piece and
@@ -17142,6 +17142,7 @@ async function makeFrame({ data: { type, content } }) {
         sendData.updateBadge = { silent: true, auto: true };
       } else if (
         globalUpdateReady &&
+        $commonApi.slug !== "prompt" &&
         !PREVIEW_OR_ICON &&
         !DEVICE_MODE &&
         !hudAnimationState.qrFullscreen
