@@ -38,7 +38,7 @@ final class PopPlayer: ObservableObject {
     @Published private(set) var elapsed: Double = 0
     @Published private(set) var duration: Double = 0
     @Published private(set) var loadError: String? = nil
-    @Published private(set) var artwork: [String: UIImage] = [:]
+    @Published private(set) var artwork: [String: ACImage] = [:]
 
     var current: PopTrack? { index.map { tracks[$0] } }
 
@@ -49,6 +49,7 @@ final class PopPlayer: ObservableObject {
     private var endObserver: NSObjectProtocol?
     private var pendingSlug: String?
     private var loading = false
+    private var localFile: URL?
 
     private init() {
         if let data = UserDefaults.standard.data(forKey: catalogKey),
@@ -60,12 +61,14 @@ final class PopPlayer: ObservableObject {
         ) { [weak self] time in
             MainActor.assumeIsolated { self?.tick(time) }
         }
+        #if os(iOS)
         NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
         ) { [weak self] note in
             let info = note.userInfo
             MainActor.assumeIsolated { self?.interrupted(info) }
         }
+        #endif
         registerRemoteCommands()
     }
 
@@ -74,8 +77,33 @@ final class PopPlayer: ObservableObject {
     func open(slug: String?) {
         isPresented = true
         pendingSlug = slug
+        if current?.audio.isFileURL == true {
+            player.pause()
+            player.replaceCurrentItem(with: nil)
+            localFile?.stopAccessingSecurityScopedResource()
+            localFile = nil
+            tracks = []; index = nil; isPlaying = false
+        }
         if !tracks.isEmpty { playPending() }
         refresh()
+    }
+
+    func openFile(_ url: URL) {
+        guard url.isFileURL,
+              ["mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "aiff"].contains(url.pathExtension.lowercased()) else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        let previous = localFile
+        localFile = scoped ? url : nil
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        previous?.stopAccessingSecurityScopedResource()
+        tracks = [PopTrack(slug: "local", title: url.deletingPathExtension().lastPathComponent,
+                           artist: "", album: nil, duration: nil, cover: nil, audio: url)]
+        index = nil
+        pendingSlug = nil
+        loadError = nil
+        isPresented = true
+        play(at: 0)
     }
 
     func refresh() {
@@ -88,6 +116,7 @@ final class PopPlayer: ObservableObject {
                 let (data, _) = try await URLSession.shared.data(for: request)
                 let catalog = try JSONDecoder().decode(PopCatalog.self, from: data)
                 UserDefaults.standard.set(data, forKey: catalogKey)
+                guard current?.audio.isFileURL != true else { return }
                 let playing = current?.slug
                 tracks = catalog.tracks
                 index = playing.flatMap { slug in tracks.firstIndex { $0.slug == slug } }
@@ -109,9 +138,11 @@ final class PopPlayer: ObservableObject {
 
     func play(at i: Int) {
         guard tracks.indices.contains(i) else { return }
+        #if os(iOS)
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
+        #endif
 
         index = i
         elapsed = 0
@@ -137,7 +168,9 @@ final class PopPlayer: ObservableObject {
 
     func resume() {
         guard index != nil else { return }
+        #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(true)
+        #endif
         player.play()
         isPlaying = true
         updateNowPlaying()
@@ -178,6 +211,7 @@ final class PopPlayer: ObservableObject {
         }
     }
 
+    #if os(iOS)
     private func interrupted(_ info: [AnyHashable: Any]?) {
         guard let raw = info?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
@@ -193,6 +227,8 @@ final class PopPlayer: ObservableObject {
             break
         }
     }
+
+    #endif
 
     // MARK: lock screen + Control Center
 
@@ -250,7 +286,7 @@ final class PopPlayer: ObservableObject {
         guard artwork[track.slug] == nil, let url = track.cover else { return }
         Task {
             guard let (data, _) = try? await URLSession.shared.data(from: url),
-                  let image = UIImage(data: data) else { return }
+                  let image = ACImage(data: data) else { return }
             artwork[track.slug] = image
             if current == track { updateNowPlaying() }
         }
@@ -267,6 +303,12 @@ private func timecode(_ seconds: Double) -> String {
     return String(format: "%d:%02d", s / 60, s % 60)
 }
 
+#if os(macOS)
+struct AirPlayButton: NSViewRepresentable {
+    func makeNSView(context: Context) -> AVRoutePickerView { AVRoutePickerView() }
+    func updateNSView(_ view: AVRoutePickerView, context: Context) {}
+}
+#else
 struct AirPlayButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
@@ -277,6 +319,8 @@ struct AirPlayButton: UIViewRepresentable {
     func updateUIView(_ view: AVRoutePickerView, context: Context) {}
 }
 
+#endif
+
 struct PopCover: View {
     @ObservedObject var player: PopPlayer
     let track: PopTrack
@@ -286,7 +330,7 @@ struct PopCover: View {
         ZStack {
             Color.black.opacity(0.4)
             if let image = player.artwork[track.slug] {
-                Image(uiImage: image).resizable().scaledToFill()
+                Image(acImage: image).resizable().scaledToFill()
             }
         }
         .frame(width: size, height: size)

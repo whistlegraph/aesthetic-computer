@@ -207,3 +207,14 @@ struct AppUsageScenes {
     }
 }
 #endif
+
+#if os(macOS)
+// Native Mac usage reporting has not been enabled for this local build.
+@MainActor enum LaunchPing {
+    static func active(scene: UUID) {}
+    static func inactive(scene: UUID, background: Bool) {}
+    static func remove(scene: UUID) {}
+    static func loaded(_ ready: Bool) {}
+    static func interacted() {}
+}
+#endif

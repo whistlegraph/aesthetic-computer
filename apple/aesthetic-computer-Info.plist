@@ -17,5 +17,16 @@
 		<key>UIImageName</key>
 		<string>Launch</string>
 	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>aesthetic.computer</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>aesthetic</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

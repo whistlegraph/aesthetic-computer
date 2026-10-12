@@ -5,6 +5,28 @@ Append a new section on top for each App Store build.
 
 ---
 
+## Shared Apple app — native Mac build, 2026-10-12
+
+`AestheticComputerMac` now builds the same Swift sources as the iPhone/iPad
+target, with bundle ID `aesthetic.computer`. Run `./apple/install-mac.sh` to
+build the signed Intel/Apple Silicon app, install it in Applications, and pin
+it to the Dock. The installer retains the previous app and Dock preferences.
+
+Both platforms open `/prompt` with `nogap=true`, share recovery and the native
+music player, and accept `aesthetic://` piece links. Mac adds Command-L for the
+prompt, Command-R to reload, Command-O for audio files, and a title bar colored
+by the runtime's visible-buffer wipe color. Local Mac usage telemetry is off.
+
+The runtime reserves promotions for website visitors. Updates appear in the
+piece's top-left label (tap to refresh first) and the prompt's bottom git-hash
+button. Separate top-right update controls are removed.
+
+Validation: signed universal Mac build, iOS device build without signing,
+route and usage-state checks, and runtime update/color-bridge tests. This is a
+local Mac installation; App Store submission and provisioned Mac push remain
+separate release work. Electron retains the other desktop integrations and
+Windows/Linux distribution.
+
 ## 1.1 (4) — 2026-09-11 (in progress)
 
 Builds 1.1 (2) and 1.1 (3) were uploaded in April and May but never attached

@@ -128,7 +128,7 @@ final class BootStatus: ObservableObject {
 // success/failure), WKUIDelegate (media permissions). Holds a weak ref to
 // BootStatus so heartbeats / errors flow upward.
 
-class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationDelegate {
+@MainActor class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationDelegate {
     weak var bootStatus: BootStatus?
     private(set) var lastLoadedKey: String? = nil
 
@@ -144,7 +144,7 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
                  decideMediaCapturePermissionsFor origin: WKSecurityOrigin,
                  initiatedBy frame: WKFrameInfo,
                  type: WKMediaCaptureType) async -> WKPermissionDecision {
-        return .grant
+        return origin.protocol == "https" && origin.host == "aesthetic.computer" ? .prompt : .deny
     }
 
     // MARK: navigation
@@ -167,6 +167,17 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
         bootStatus?.setError("Cannot reach aesthetic.computer\n\(error.localizedDescription)")
     }
 
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        #if os(macOS)
+        webView.window?.makeFirstResponder(webView)
+        #endif
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        bootStatus?.setError("The page stopped. Reload to continue.")
+    }
+
+    #if os(iOS)
     // MARK: pull-to-refresh
     @objc func handleRefresh(_ sender: UIRefreshControl) {
         bootStatus?.requestReload()
@@ -175,10 +186,12 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
         }
     }
 
+    #endif
+
     // MARK: JS → native messages
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "iOSAppLog" {
-            print("JavaScript Log: \(message.body)")
+            NSLog("AC WebKit: %@", String(describing: message.body))
             return
         }
 
@@ -192,6 +205,11 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
         guard let type = dictionary["type"] as? String else { return }
 
         switch type {
+        case "window:color":
+            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer",
+                  let webView = message.webView, let rgb = dictionary["body"] as? [Double] else { return }
+            ApplePlatform.colorWindow(rgb, webView: webView)
         case "boot:heartbeat":
             bootStatus?.heartbeat()
         case "boot:ready":
@@ -229,7 +247,7 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
             Task { @MainActor in PopPlayer.shared.open(slug: slug) }
         case "url":
             if let urlString = dictionary["body"] as? String, let url = URL(string: urlString) {
-                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                ApplePlatform.openExternal(url)
             }
         default:
             print("Unhandled type: \(type)")
@@ -240,7 +258,7 @@ class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationD
 
 // MARK: - WebView
 
-struct WebView: UIViewRepresentable {
+struct WebView: ACWebViewRepresentable {
     var url: String
     var reloadTrigger: Int
     let bootStatus: BootStatus
@@ -249,14 +267,27 @@ struct WebView: UIViewRepresentable {
         Coordinator(bootStatus: bootStatus)
     }
 
-    func makeUIView(context: Context) -> WKWebView {
+    func makeWebView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let userScript = WKUserScript(
-            source: "console.log = function() { window.webkit.messageHandlers.iOSAppLog.postMessage([...arguments].join(' ')); }",
+            source: """
+                for (const level of ['log', 'warn', 'error', 'info']) {
+                    const original = console[level].bind(console);
+                    console[level] = (...args) => {
+                        original(...args);
+                        window.webkit.messageHandlers.iOSAppLog.postMessage(level + ': ' + args.map(String).join(' '));
+                    };
+                }
+                window.addEventListener('error', event => console.error(event.message));
+                window.addEventListener('unhandledrejection', event => console.error(event.reason));
+                """,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false
         )
+        #if os(iOS)
         config.allowsInlineMediaPlayback = true
+        #endif
+        config.mediaTypesRequiringUserActionForPlayback = []
         config.userContentController.addUserScript(userScript)
         config.userContentController.add(context.coordinator, name: "iOSAppLog")
         config.userContentController.add(context.coordinator, name: "iOSApp")
@@ -292,11 +323,24 @@ struct WebView: UIViewRepresentable {
         ) {}
         URLCache.shared.removeAllCachedResponses()
 
+        #if os(macOS)
+        config.applicationNameForUserAgent = "AestheticMac"
+        config.userContentController.addUserScript(WKUserScript(
+            source: "window.acNativeWindowColor = true;",
+            injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        #endif
         let webView = WKWebView(frame: .zero, configuration: config)
+        #if os(iOS)
         webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
         webView.isOpaque = false
+        #endif
         webView.uiDelegate = context.coordinator
         webView.navigationDelegate = context.coordinator
+        #if os(macOS)
+        // Keep WebKit's desktop identity; exact "Aesthetic" means iPhone in AC.
+        webView.customUserAgent = nil
+        webView.underPageBackgroundColor = NSColor(white: grey, alpha: 1)
+        #else
         webView.customUserAgent = "Aesthetic"
 
         // 👆 Forward touches immediately (default UIScrollView behaviour
@@ -314,11 +358,12 @@ struct WebView: UIViewRepresentable {
         webView.scrollView.bounces = true
         webView.scrollView.alwaysBounceVertical = true
 
+        #endif
         AppDelegate.shared?.appWebView = webView
         return webView
     }
 
-    func updateUIView(_ webView: WKWebView, context: Context) {
+    func updateWebView(_ webView: WKWebView, context: Context) {
         // Gate reloads to actual changes so flipping unrelated SwiftUI state
         // (overlay visibility, etc.) doesn't kick a fresh load every time.
         let key = "\(url)|\(reloadTrigger)"
@@ -331,6 +376,8 @@ struct WebView: UIViewRepresentable {
         guard var components = URLComponents(string: url) else { return }
         if components.scheme == "http" || components.scheme == "https" {
             var items = components.queryItems ?? []
+            items.removeAll { $0.name == "nogap" }
+            items.append(URLQueryItem(name: "nogap", value: "true"))
             items.append(URLQueryItem(
                 name: "_iosbust",
                 value: String(Int(Date().timeIntervalSince1970))
@@ -387,6 +434,7 @@ struct StalledOverlay: View {
 // MARK: - ContentView
 
 struct ContentView: View {
+    @ObservedObject private var navigation = AppNavigation.shared
     @StateObject private var monitor = AppNetworkMonitor()
     @StateObject private var bootStatus = BootStatus()
     @ObservedObject private var pop = PopPlayer.shared
@@ -395,7 +443,7 @@ struct ContentView: View {
     @State private var lastForceLiveTrigger: Int = 0
     @State private var usageScene = UUID()
 
-    private let liveURL = "https://aesthetic.computer"
+    private var liveURL: String { navigation.url }
     private var offlineURL: String {
         Bundle.main.url(forResource: "offline", withExtension: "html", subdirectory: "html")?.absoluteString ?? ""
     }
@@ -418,7 +466,7 @@ struct ContentView: View {
                 if monitor.isOnline != nil || bootStatus.forceLiveTrigger > 0 {
                     WebView(
                         url: resolvedURL,
-                        reloadTrigger: bootStatus.reloadTrigger,
+                        reloadTrigger: bootStatus.reloadTrigger + navigation.revision,
                         bootStatus: bootStatus
                     )
                 }
@@ -434,7 +482,18 @@ struct ContentView: View {
             .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 24 : 0)
             .background(Color(red: grey, green: grey, blue: grey))
             .ignoresSafeArea(.keyboard, edges: .bottom)
-            .sheet(isPresented: $pop.isPresented) { PopPlayerView() }
+            .sheet(isPresented: $pop.isPresented) {
+                PopPlayerView()
+                    #if os(macOS)
+                    .frame(minWidth: 440, minHeight: 500)
+                    #endif
+            }
+            #if os(iOS)
+            .onOpenURL { url in
+                if url.isFileURL { pop.openFile(url) }
+                else { navigation.open(url) }
+            }
+            #endif
             .onAppear { handleScenePhase(scenePhase) }
             .onDisappear { LaunchPing.remove(scene: usageScene) }
             .onChange(of: scenePhase) { newPhase in

@@ -1,15 +1,43 @@
 import SwiftUI
 import UserNotifications
 import WebKit
+#if os(macOS)
+import AppKit
+import UniformTypeIdentifiers
+#endif
 
 @main
 struct aesthetic_computerApp: App {
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    #else
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    #endif
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        #if os(macOS)
+        Window("Aesthetic Computer", id: "prompt") {
+            ContentView().frame(minWidth: 360, minHeight: 320)
         }
+        .defaultSize(width: 900, height: 700)
+        .commands {
+            CommandGroup(after: .newItem) {
+                Button("Prompt") { AppNavigation.shared.prompt() }
+                    .keyboardShortcut("l")
+                Button("Reload") { AppNavigation.shared.revision += 1 }
+                    .keyboardShortcut("r")
+                Button("Open Audio…") {
+                    let panel = NSOpenPanel()
+                    panel.allowedContentTypes = [.audio]
+                    panel.begin { response in
+                        if response == .OK, let url = panel.url { PopPlayer.shared.openFile(url) }
+                    }
+                }.keyboardShortcut("o")
+            }
+        }
+        #else
+        WindowGroup { ContentView() }
+        #endif
     }
 
 }
@@ -17,7 +45,7 @@ struct aesthetic_computerApp: App {
 // Push permission is requested only by `notifs`. Native opt-out also stops APNs
 // immediately; the web bridge retries server cleanup if the device is offline.
 @MainActor
-class AppDelegate: NSObject, UIApplicationDelegate {
+class AppDelegate: NSObject, ACApplicationDelegate {
     static var shared: AppDelegate?
     weak var appWebView: WKWebView?
     private let webViews = NSHashTable<WKWebView>.weakObjects()
@@ -39,10 +67,39 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         AppDelegate.shared = self
     }
 
+    #if os(macOS)
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        startNotifications()
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if let window = sender.windows.first(where: { $0.canBecomeMain }) {
+            window.deminiaturize(nil)
+            window.makeKeyAndOrderFront(nil)
+        }
+        return true
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if url.isFileURL { PopPlayer.shared.openFile(url) }
+            else { AppNavigation.shared.open(url) }
+        }
+        _ = applicationShouldHandleReopen(application, hasVisibleWindows: false)
+        application.activate(ignoringOtherApps: true)
+    }
+    #else
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
+        startNotifications()
+        return true
+    }
+    #endif
+
+    private func startNotifications() {
         UNUserNotificationCenter.current().delegate = self
         if optedIn {
             // Refresh an existing opt-in silently. Never request permission here.
@@ -51,21 +108,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 let settings = await UNUserNotificationCenter.current().notificationSettings()
                 guard revision == current, optedIn else { return }
                 if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
-                    application.registerForRemoteNotifications()
+                    ACApplication.shared.registerForRemoteNotifications()
                 }
             }
         } else {
             // Includes upgrades from the former automatic launch-time subscription.
-            application.unregisterForRemoteNotifications()
+            ACApplication.shared.unregisterForRemoteNotifications()
         }
-        return true
     }
 
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    func application(_ application: ACApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         finishSubscribe(ok: false)
     }
 
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    func application(_ application: ACApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         apnsToken = deviceToken.map { String(format: "%02x", $0) }.joined()
         if let webView = appWebView { synchronizePush(in: webView) }
     }
@@ -96,13 +152,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             guard granted else {
                 optedIn = false
                 pendingSubscribe = nil
-                UIApplication.shared.unregisterForRemoteNotifications()
+                ACApplication.shared.unregisterForRemoteNotifications()
                 for view in webViews.allObjects { synchronizePush(in: view) }
-                notificationAlert("Notifications are off", "Allow notifications in iOS Settings, then enter ‘notifs’ again.", settings: true)
+                notificationAlert("Notifications are off", "Allow notifications in system settings, then enter ‘notifs’ again.", settings: true)
                 return
             }
             optedIn = true
-            UIApplication.shared.registerForRemoteNotifications()
+            ACApplication.shared.registerForRemoteNotifications()
             // A missing APNs callback must not leave the command stuck forever.
             try? await Task.sleep(nanoseconds: 25_000_000_000)
             if pendingSubscribe == current { finishSubscribe(ok: false) }
@@ -116,7 +172,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let current = revision
         pendingSubscribe = nil
         optedIn = false
-        UIApplication.shared.unregisterForRemoteNotifications()
+        ACApplication.shared.unregisterForRemoteNotifications()
         Task {
             var cleaned = true
             for view in webViews.allObjects {
@@ -171,6 +227,14 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     private func notificationAlert(_ title: String, _ message: String, settings: Bool = false) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        if let window = appWebView?.window { alert.beginSheetModal(for: window) }
+        else { alert.runModal() }
+        #else
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .cancel))
         if settings {
@@ -181,6 +245,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         var controller = appWebView?.window?.rootViewController
         while let presented = controller?.presentedViewController { controller = presented }
         controller?.present(alert, animated: true)
+        #endif
     }
 }
 
