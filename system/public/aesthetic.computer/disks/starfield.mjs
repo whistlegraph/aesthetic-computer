@@ -16,9 +16,12 @@ export function sim($) {
 }
 
 // 🎨 Paint
+// `backdrop: false` plots only the stars, over whatever is already there.
 export function paint($, options) {
-  if (!nowipe) $.wipe(0);
-  if (nowipe) $.ink(0, 32).box(0, 0, $.screen.width, $.screen.height);
+  if (options?.backdrop !== false) {
+    if (!nowipe) $.wipe(0);
+    if (nowipe) $.ink(0, 32).box(0, 0, $.screen.width, $.screen.height);
+  }
   starfield.paint($, options);
 }
 

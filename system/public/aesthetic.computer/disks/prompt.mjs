@@ -6390,12 +6390,16 @@ function paint($) {
   }
 
   if (showLoginCurtain) {
-    // Starfield — hidden.
-    if (false)
+    // ✨ Starfield on the backdrop layer, under everything else on the curtain.
+    if (flairEnabled && starsEnabled && theme === "default") {
+      $.layer(0);
       starfield.paint($, {
         alpha: $.dark ? 0.3 : 0.9,
         color: $.hud.currentStatusColor() || [255, 0, 200],
+        backdrop: false,
       });
+      $.layer(1);
+    }
 
     // Spinning wireframe cube — hidden.
     if (false) {
@@ -8047,8 +8051,8 @@ function sim($) {
     $.sound.speaker.poll();
   }
 
-  // Starfield sim — hidden (no update, no forced repaint).
-  if (false && flairEnabled && starsEnabled && theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
+  // ✨ Starfield sim, while the curtain shows it.
+  if (flairEnabled && starsEnabled && theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
     starfield.sim($);
     $.needsPaint();
   }
