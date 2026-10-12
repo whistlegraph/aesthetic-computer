@@ -7,7 +7,7 @@ const server=createServer(async(req,res)=>{try{let file=resolve(root,'.'+new URL
  try{
   const page=await browser.newPage(),errors=[],logs=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>logs.push(m.text()));
   await page.setViewport({width:430,height:800});
-  await page.goto(base+'/doom-player/?file='+encodeURIComponent(base+'/doom-player/examples/first-arena.wad'));
+  await page.goto(base+'/doom-player/?file='+encodeURIComponent(base+'/doom-player/examples/'+(process.env.DOOM_TEST_WAD||'first-arena.wad')));
   await page.waitForFunction(()=>document.body.dataset.state==='ready',{timeout:60000});
   assert.ok(await page.evaluate(()=>window.__mimeReady));await page.click('#start');
   await page.waitForFunction(()=>document.body.dataset.state==='playing');
