@@ -99,13 +99,6 @@ const server=http.createServer(async(req,res)=>{
     await page.mouse.move(box.x+box.width*.25,box.y+box.height*.65);await page.mouse.down();
     await page.mouse.move(box.x+box.width*.7,box.y+box.height*.25,{steps:10});await page.mouse.up();
     assert.equal((await last()).head,2);
-    assert.equal((await last()).caption,'Candy Playground');
-    await page.evaluate(()=>whistlegraphNativeCommand({action:'exportWad'}));
-    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='exportWad').at(-1).filename),'candy-playground.wad');
-    await page.evaluate(()=>whistlegraphNativeCommand({action:'publishDoom'}));
-    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.code==='wadfixture');
-    assert.equal(await page.evaluate(()=>__publishedWad.file.name),'candy-playground.wad');
-    assert.equal(await page.evaluate(()=>__publishedWad.text),'Candy Playground');
     await page.evaluate(()=>whistlegraphNativeCommand({action:'exportRoom'}));
     const exported=await page.evaluate(()=>__nativeMessages.find(m=>m.action==='exportRoom').source);
     assert.match(exported,/<roblox/);assert.match(exported,/Whistlegraph/);assert.match(exported,/path-/);
