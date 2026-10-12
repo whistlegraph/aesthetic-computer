@@ -61,7 +61,7 @@ export async function handler(event) {
     if (event.httpMethod === "POST") {
       let body;
       try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
-      if (!me.handle) return no(403, "Pick a handle on aesthetic.computer first");
+      if (!me.handle) return no(403, "Choose your @name first");
       const row = await store.post(me.sub, me.handle, body);
       return ok({ post: publicPost(row) });
     }

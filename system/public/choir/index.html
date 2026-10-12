@@ -101,7 +101,7 @@
 <div class="sheet" id="signin">
   <div class="card">
     <h2>Sign in</h2>
-    <p>Your aesthetic.computer account. No password: we email you six digits.</p>
+    <p>No password. We email you a six digit code.</p>
     <div id="step-email">
       <input id="email" type="email" autocomplete="email" placeholder="you@gallery.org" />
       <div class="row"><button id="send-code" class="primary">Send code</button><button id="cancel-signin">Cancel</button></div>
@@ -123,7 +123,7 @@
       <button id="signout">Sign out</button>
       <button id="close-menu">Done</button>
     </div>
-    <p id="no-handle" hidden style="margin-top:12px">You have an account but no handle yet. <a href="https://aesthetic.computer/prompt~handle" target="_blank" rel="noopener">Pick one on aesthetic.computer</a>, then reload.</p>
+    <p id="no-handle" hidden style="margin-top:12px">You're signed in but don't have a name yet. <a href="https://aesthetic.computer/prompt~handle" target="_blank" rel="noopener">Choose your @name</a>, then come back and reload.</p>
   </div>
 </div>
 
@@ -140,7 +140,8 @@ let otp, me = null, tags = [], picked = new Set(), view = { tag: null, thread: n
 async function door() {
   if (!otp) {
     const { otpSignIn } = await import(AC + "/aesthetic.computer/lib/auth0-otp.mjs");
-    otp = otpSignIn({ clientId: CLIENT_ID, redirectUri: location.origin + location.pathname });
+    // The silent leg's redirect_uri must be a registered callback; the bare origin is.
+    otp = otpSignIn({ clientId: CLIENT_ID });
   }
   return otp;
 }
@@ -179,7 +180,7 @@ $("send-code").onclick = async () => {
 $("verify").onclick = async () => {
   $("signin-status").textContent = "";
   try { await (await door()).verify($("email").value, $("code").value); $("signin").removeAttribute("open"); await whoami(); }
-  catch (e) { $("signin-status").textContent = e.detail || e.message || "That code did not work"; }
+  catch (e) { console.warn("choir sign-in", e.code, e.message); $("signin-status").textContent = e.hint || e.message || "That code did not work"; }
 };
 $("signout").onclick = async () => { (await door()).forget(); me = null; paintAccount(); $("menu-sheet").removeAttribute("open"); };
 $("notify").onchange = async (e) => { try { me.prefs = (await api("?prefs=1", { method: "PUT", body: JSON.stringify({ notifications: e.target.checked }) })).prefs; } catch { e.target.checked = !e.target.checked; } };
