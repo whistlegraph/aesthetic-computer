@@ -52,7 +52,7 @@ const server=http.createServer(async(req,res)=>{
             if(!match)throw Error('Missing current WAD context');
             const level=JSON.parse(match[1]);
             if(window.__doomBadLevel)level.width=1;
-            else if(level.width===768)level.width=1024;
+            else if(level.width===768){level.width=1024;level.title='Candy Playground';}
             else level.things.push({type:2001,x:0,y:0,angle:0});
             events=[{type:'content_block_start',index:0,content_block:{type:'tool_use',id:'fixture-edit',name:'artifact_level'}},
               {type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({level})}},
@@ -99,6 +99,13 @@ const server=http.createServer(async(req,res)=>{
     await page.mouse.move(box.x+box.width*.25,box.y+box.height*.65);await page.mouse.down();
     await page.mouse.move(box.x+box.width*.7,box.y+box.height*.25,{steps:10});await page.mouse.up();
     assert.equal((await last()).head,2);
+    assert.equal((await last()).caption,'Candy Playground');
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'exportWad'}));
+    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='exportWad').at(-1).filename),'candy-playground.wad');
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'publishDoom'}));
+    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.code==='wadfixture');
+    assert.equal(await page.evaluate(()=>__publishedWad.file.name),'candy-playground.wad');
+    assert.equal(await page.evaluate(()=>__publishedWad.text),'Candy Playground');
     await page.evaluate(()=>whistlegraphNativeCommand({action:'exportRoom'}));
     const exported=await page.evaluate(()=>__nativeMessages.find(m=>m.action==='exportRoom').source);
     assert.match(exported,/<roblox/);assert.match(exported,/Whistlegraph/);assert.match(exported,/path-/);
@@ -121,10 +128,13 @@ const server=http.createServer(async(req,res)=>{
     assert.equal(JSON.parse(JSON.parse(doomBefore).versions[1].source).light,160);
     await page.evaluate(()=>whistlegraphNativeCommand({action:'exportWad'}));
     const wad=await page.evaluate(()=>atob(__nativeMessages.find(m=>m.action==='exportWad').data));
+    assert.equal((await last()).caption,'Untitled');
+    assert.equal(await page.evaluate(()=>__nativeMessages.find(m=>m.action==='exportWad').filename),'untitled.wad');
     assert.equal(wad.slice(0,4),'PWAD');assert.ok(wad.includes('E1M1'));assert.ok(wad.includes('BLOCKMAP'));
     await page.evaluate(()=>whistlegraphNativeCommand({action:'publishDoom'}));
     await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.code==='wadfixture');
     assert.equal(await page.evaluate(()=>__publishedWad.file.type),'application/x-doom-wad');
+    assert.equal(await page.evaluate(()=>__publishedWad.file.name),'untitled.wad');
     await change('piece');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),pieceBefore);
     await change('doom');
     assert.equal((await last()).code,'wadfixture','published identity survives restarting and switching');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions')),doomBefore);
@@ -132,6 +142,13 @@ const server=http.createServer(async(req,res)=>{
     await page.evaluate(()=>whistlegraphAsk('widen this room'));
     await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);
     assert.equal((await last()).head,2);
+    assert.equal((await last()).caption,'Candy Playground');
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'exportWad'}));
+    assert.equal(await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='exportWad').at(-1).filename),'candy-playground.wad');
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'publishDoom'}));
+    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.code==='wadfixture');
+    assert.equal(await page.evaluate(()=>__publishedWad.file.name),'candy-playground.wad');
+    assert.equal(await page.evaluate(()=>__publishedWad.text),'Candy Playground');
     await page.evaluate(()=>whistlegraphAsk('add a shotgun'));
     await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);
     const edited=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-doom-versions')));

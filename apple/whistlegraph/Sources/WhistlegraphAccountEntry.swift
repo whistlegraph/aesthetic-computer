@@ -20,6 +20,9 @@ struct WhistlegraphAccountEntry: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 30) {
+                    Image("WhistlegraphButterfly")
+                        .renderingMode(.template).resizable().interpolation(.none).scaledToFit()
+                        .frame(width: 128, height: 176).accessibilityHidden(true)
                     ComicTitle(text: "whistlegraph", size: 36)
                     VStack(spacing: 18) {
                         if let failure = session.startupFailure {
@@ -40,7 +43,7 @@ struct WhistlegraphAccountEntry: View {
                             // Exploring needs no account: the feed is the front door.
                             action("Explore mimes") { ButtonSounds.play(.play); showingFeed = true }.accessibilityIdentifier("account-entry-explore")
                             // Logging in is the AI permission (App Review 5.1.2(i)); the policy names who sees what.
-                            Text("By continuing, what you say, type and draw goes to AI helpers. [Privacy](https://aesthetic.computer/privacy-policy.html)")
+                            Text("Voice, text and drawings go to AI. [Privacy](https://aesthetic.computer/privacy-policy.html)")
                                 .font(.custom("ComicRelief-Regular", size: 14, relativeTo: .footnote))
                                 .multilineTextAlignment(.center).tint(theme.foreground)
                                 .accessibilityIdentifier("account-entry-ai-line")

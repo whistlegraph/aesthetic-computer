@@ -768,7 +768,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                let file = directory.appendingPathComponent("Whistlegraph.wad")
+                let proposed = body["filename"] as? String ?? "untitled.wad"
+                let filename = proposed.range(of: "^[a-z0-9][a-z0-9-]{0,79}\\.wad$", options: .regularExpression) != nil ? proposed : "untitled.wad"
+                let file = directory.appendingPathComponent(filename)
                 try data.write(to: file, options: .atomic)
                 let share = UIActivityViewController(activityItems: [file], applicationActivities: nil)
                 share.popoverPresentationController?.sourceView = webView

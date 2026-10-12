@@ -193,23 +193,39 @@ struct IdentityHeader: View {
     private var signedIn: Bool { !session.snapshot.handle.isEmpty }
     private var handleText: String { "@" + session.snapshot.handle }
     var body: some View {
-        HStack(spacing: 0) {
-            // Signing in happens on the entry screen; until the engine names the
-            // handle the corner stays empty rather than offering a second login.
-            if signedIn {
+        VStack(alignment: .leading, spacing: 4) {
+            if session.snapshot.wareID == "doom" && signedIn {
+                HStack(spacing: 0) {
+                    ComicTitle(text: session.snapshot.code.isEmpty ? (session.snapshot.caption ?? "Untitled") : "doom~" + session.snapshot.code, size: size)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .accessibilityIdentifier("wad-name")
+                    WarePicker(session: session, size: size, beforeSwitch: beforeOpening)
+                }
                 Button {
                     beforeOpening(); ButtonSounds.play(.pop); showingAccount = true
                 } label: {
-                    ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
+                    Text(handleText).font(.custom("ComicRelief-Regular", size: 16, relativeTo: .subheadline))
                 }.buttonStyle(.plain).accessibilityLabel(handleText + ", account").accessibilityIdentifier("workspace-account")
+            } else {
+                HStack(spacing: 0) {
+                    // Signing in happens on the entry screen; until the engine names the
+                    // handle the corner stays empty rather than offering a second login.
+                    if signedIn {
+                        Button {
+                            beforeOpening(); ButtonSounds.play(.pop); showingAccount = true
+                        } label: {
+                            ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
+                        }.buttonStyle(.plain).accessibilityLabel(handleText + ", account").accessibilityIdentifier("workspace-account")
+                    }
+                    if session.snapshot.wareID == "piece" && signedIn && !session.snapshot.code.isEmpty {
+                        Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: {
+                            ComicTitle(text: "/" + session.snapshot.code, size: size)
+                        }.buttonStyle(.plain).accessibilityLabel(session.snapshot.code + ", pieces").accessibilityIdentifier("workspace-settings")
+                    }
+                    // The ware is the extension: /code.ac is an AC piece, .rbx a Roblox room. Tap to switch.
+                    if signedIn { WarePicker(session: session, size: size, beforeSwitch: beforeOpening) }
+                }
             }
-            if session.snapshot.wareID == "piece" && signedIn && !session.snapshot.code.isEmpty {
-                Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: {
-                    ComicTitle(text: "/" + session.snapshot.code, size: size)
-                }.buttonStyle(.plain).accessibilityLabel(session.snapshot.code + ", pieces").accessibilityIdentifier("workspace-settings")
-            }
-            // The ware is the extension: /code.ac is an AC piece, .rbx a Roblox room. Tap to switch.
-            if signedIn { WarePicker(session: session, size: size, beforeSwitch: beforeOpening) }
         }
         .onChange(of: showingAccount) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .account) }
         .onChange(of: showingPieces) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .pieces) }
