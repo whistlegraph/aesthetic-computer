@@ -19612,13 +19612,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // If we return early (pixel mismatch) or throw during compositing, bios can stop
     // requesting frames entirely (frameAlreadyRequested stays true).
     if (!(type === "render" || type === "update")) return;
-    if (type === "render") window.acInputLatencyProbe?.received(content.inputLatencySequence);
     if (!content) {
       frameAlreadyRequested = false;
       clearFrameStallWatchdog();
       return;
     }
 
+    if (type === "render") window.acInputLatencyProbe?.received(content.inputLatencySequence);
+    let probeAsyncRender = false;
     try {
 
     // Mark first render message from worker
@@ -20488,6 +20489,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
             // Force sync rendering during tape playback for immediate UI updates
             ctx.putImageData(imageData, 0, bumperOffset);
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {
               if (canvas.style.visibility !== "visible") {
@@ -20504,7 +20506,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 overlayCan.style.display = "none";
               }
               // Non-blocking async rendering
+              probeAsyncRender = true;
               window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                 // Paint overlays after async fallback rendering completes
                 if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first (at the top)
                 if (paintOverlays["label"]) paintOverlays["label"]();
@@ -20518,6 +20522,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }).catch(err => {
                 console.warn('🟡 Fallback async rendering failed:', err);
                 ctx.putImageData(imageData, 0, bumperOffset);
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                 skipImmediateOverlays = false;
               });
               skipImmediateOverlays = true; // Skip immediate overlays; they'll paint in async callback
@@ -20536,6 +20541,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 overlayCan.style.display = "none";
               }
               ctx.putImageData(imageData, 0, bumperOffset);
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
               skipImmediateOverlays = false;
             }
           } else {
@@ -20553,6 +20559,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             ctx.putImageData(imageData, 0, bumperOffset);
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
             skipImmediateOverlays = false;
           }
         } else {
@@ -20596,7 +20603,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 const forceSynchronousRendering = isRecording || needs$creenshot;
                 if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
                   try {
-                    window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
+                    probeAsyncRender = true;
+              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                       if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first
                       if (paintOverlays["label"]) paintOverlays["label"]();
                       if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();
@@ -20609,16 +20618,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                     }).catch(err => {
                       console.warn('🟡 Async rendering failed:', err);
                       ctx.putImageData(imageData, 0, bumperOffset);
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                       skipImmediateOverlays = false;
                     });
                     skipImmediateOverlays = true; // Skip immediate overlays; they'll paint in async callback
                   } catch (err) {
                     console.warn('🟡 Async render setup failed, using fallback:', err);
                     ctx.putImageData(imageData, 0, bumperOffset);
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                     skipImmediateOverlays = false;
                   }
                 } else {
                   ctx.putImageData(imageData, 0, bumperOffset);
+                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                   skipImmediateOverlays = false;
                 }
               }
@@ -21253,7 +21265,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
-      if (type === "render") window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
+      if (type === "render" && !probeAsyncRender) window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
     } catch (err) {
       console.error("🛑 BIOS compositing error (render/update):", err);
     } finally {
