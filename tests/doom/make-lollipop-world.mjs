@@ -14,6 +14,9 @@ function patch(w,h,pixel,left=0,top=0){
 }
 const level=JSON.parse(await readFile(root+'/examples/lollipop-world.json','utf8'));
 const map=compileWad(level),lumps=inspectWad(map).lumps.map(l=>[l.name,map.slice(l.offset,l.offset+l.size)]);
+// Bonus health stays collectible at full starting health. Override its complete sprite family below.
+const things=lumps.find(([name])=>name==='THINGS')[1],thingsView=new DataView(things.buffer);
+for(let at=10;at<things.length;at+=10)thingsView.setInt16(at+6,2014,true);
 const names=get('PNAMES'),count=new DataView(names.buffer).getInt32(0,true),pnames=new Uint8Array(names.length+8);pnames.set(names);new DataView(pnames.buffer).setInt32(0,count+1,true);pnames.set(new TextEncoder().encode('LOLLIWAL'),names.length);
 const textures=get('TEXTURE1'),tv=new DataView(textures.buffer),num=tv.getInt32(0,true);let entry=-1;
 for(let i=0;i<num;i++){const at=tv.getInt32(4+i*4,true),name=new TextDecoder().decode(textures.slice(at,at+8)).replace(/\0.*$/s,'');if(name==='STARTAN3')entry=4+i*4;}
@@ -28,6 +31,6 @@ const wall=patch(128,128,(x,y)=>{
 });
 const candy=patch(48,80,(x,y)=>{const dx=x-24,dy=y-23,r=Math.hypot(dx,dy);if(r<22)return Math.floor(r*.65+Math.atan2(dy,dx)*2)%2===0?pink:cream;if(Math.abs(dx)<3&&y>=23&&y<78)return cream;return null;},24,80);
 const flat=(a,b)=>Uint8Array.from({length:4096},(_,i)=>(Math.floor((i%64)/16)+Math.floor(Math.floor(i/64)/16))%2?a:b);
-lumps.push(['PNAMES',pnames],['TEXTURE1',texture],['LOLLIWAL',wall],['F_START',new Uint8Array()],['FLOOR0_1',flat(pink,cream)],['CEIL3_5',flat(blue,cream)],['F_END',new Uint8Array()],['S_START',new Uint8Array()],...info.lumps.slice(info.lumps.findIndex(l=>l.name==='S_START')+1,info.lumps.findIndex(l=>l.name==='S_END')).map(l=>[l.name,l.name==='STIMA0'?candy:base.slice(l.offset,l.offset+l.size)]),['S_END',new Uint8Array()]);
+lumps.push(['PNAMES',pnames],['TEXTURE1',texture],['LOLLIWAL',wall],['F_START',new Uint8Array()],['FLOOR0_1',flat(pink,cream)],['CEIL3_5',flat(blue,cream)],['F_END',new Uint8Array()],['S_START',new Uint8Array()],...info.lumps.slice(info.lumps.findIndex(l=>l.name==='S_START')+1,info.lumps.findIndex(l=>l.name==='S_END')).map(l=>[l.name,/^BON1[A-Z]0$/.test(l.name)?candy:base.slice(l.offset,l.offset+l.size)]),['S_END',new Uint8Array()]);
 const dir=12+lumps.reduce((n,[,d])=>n+d.length,0),out=new Uint8Array(dir+lumps.length*16),dv=new DataView(out.buffer);out.set(new TextEncoder().encode('PWAD'));dv.setInt32(4,lumps.length,true);dv.setInt32(8,dir,true);let offset=12;lumps.forEach(([name,data],i)=>{out.set(data,offset);dv.setInt32(dir+i*16,offset,true);dv.setInt32(dir+i*16+4,data.length,true);out.set(new TextEncoder().encode(name),dir+i*16+8);offset+=data.length;});
 inspectWad(out);await writeFile(root+'/examples/lollipop-world.wad',out);console.log(out.length+' bytes, '+level.things.length+' candy pickups');
