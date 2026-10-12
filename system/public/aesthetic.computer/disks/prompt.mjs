@@ -6379,8 +6379,8 @@ function paint($) {
         $.layer(3);
 
 
-        // Draw filled cursor box with subtle transparency (no outline)
-        ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
+        // A hollow caret indicates that the curtain is not focused.
+        ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h, "inline");
 
 
         // Reset to default layer
@@ -7489,7 +7489,7 @@ function paint($) {
 
         // Dim blinking cursor
         const blinkAlpha = Math.floor(Math.sin(motdFrame * 0.08) * 40 + 50); // 10-90
-        ink(...fg, blinkAlpha).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
+        ink(...fg, blinkAlpha).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h, "inline");
 
         // Subtle border around cursor
         const borderAlpha = Math.floor(Math.sin(motdFrame * 0.06) * 20 + 30); // 10-50

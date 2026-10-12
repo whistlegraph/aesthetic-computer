@@ -10642,7 +10642,7 @@ async function makeFrame({ data: { type, content } }) {
     promptInput.runnable = text.trim().length > 0;
     promptInput.canType = content?.active !== false;
     if (promptInput.enter?.btn) {
-      promptInput.enter.btn.disabled = !promptInput.runnable;
+      promptInput.enter.btn.disabled = !promptInput.touchButtons || !promptInput.runnable;
     }
     promptInput.snap?.();
     $commonApi.needsPaint?.();

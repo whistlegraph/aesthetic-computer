@@ -7,6 +7,41 @@ typealias ACApplication = NSApplication
 typealias ACApplicationDelegate = NSApplicationDelegate
 typealias ACImage = NSImage
 
+// WebKit can reset AppKit's cursor when the invisible prompt editor gains
+// focus, even while CSS still reports the SVG cursor. Reassert the same image
+// after mouse dispatch so native focus changes cannot replace it.
+final class ACNativeWebView: WKWebView {
+    private var cursorMonitor: Any?
+    private lazy var acCursor = NSCursor(image: NSImage(named: "ACCursor")!,
+                                        hotSpot: NSPoint(x: 12, y: 12))
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let cursorMonitor { NSEvent.removeMonitor(cursorMonitor) }
+        cursorMonitor = nil
+        guard window != nil else { return }
+        cursorMonitor = NSEvent.addLocalMonitorForEvents(matching: [
+            .mouseMoved, .leftMouseDown, .leftMouseUp, .leftMouseDragged,
+            .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp
+        ]) { [weak self] event in
+            guard let self, event.window === self.window else { return event }
+            self.restoreACCursor()
+            DispatchQueue.main.async { [weak self] in self?.restoreACCursor() }
+            return event
+        }
+    }
+
+    private func restoreACCursor() {
+        guard let window, window.isKeyWindow,
+              bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)) else { return }
+        acCursor.set()
+    }
+
+    deinit {
+        if let cursorMonitor { NSEvent.removeMonitor(cursorMonitor) }
+    }
+}
+
 protocol ACWebViewRepresentable: NSViewRepresentable where NSViewType == WKWebView {
     func makeWebView(context: Context) -> WKWebView
     func updateWebView(_ view: WKWebView, context: Context)

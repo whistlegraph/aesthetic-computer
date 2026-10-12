@@ -356,7 +356,11 @@ struct WebView: ACWebViewRepresentable {
             document.documentElement.appendChild(acCursorStyle);
             """, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         #endif
+        #if os(macOS)
+        let webView = ACNativeWebView(frame: .zero, configuration: config)
+        #else
         let webView = WKWebView(frame: .zero, configuration: config)
+        #endif
         #if os(iOS)
         webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
         webView.isOpaque = false

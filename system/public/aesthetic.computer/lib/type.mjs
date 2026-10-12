@@ -13,7 +13,7 @@ import { KidLisp, tokenize } from "./kidlisp.mjs";
 import { cssColors } from "./num.mjs";
 import { log } from "./logs.mjs";
 import { openDB } from "../dep/idb.js";
-import { Aesthetic } from "./platform.mjs";
+import { Aesthetic, Desktop, AestheticIOSApp } from "./platform.mjs";
 
 // 🗄️ Global Glyph Cache System (IndexedDB-backed)
 // Provides fast glyph loading on subsequent visits
@@ -1522,6 +1522,10 @@ class TextInput {
 
     this.closeOnEmptyEnter = options.closeOnEmptyEnter || false;
     this.hideGutter = options.hideGutter || false;
+    // Desktop has physical Enter and clipboard shortcuts. Keep touch controls
+    // for iOS's custom UA and iPadOS's desktop-style UA as well.
+    this.touchButtons = options.touchButtons ?? (!Desktop || AestheticIOSApp ||
+      (typeof navigator !== "undefined" && /Macintosh/.test(navigator.userAgent) && (navigator.maxTouchPoints > 1 || /Mobile/.test(navigator.userAgent))));
     this.poe = options.poe || false; // 🪶 Presentational writing mode: skip
     //                                   gutter, focus border, and buttons in
     //                                   favor of a bare full-screen caret + text.
@@ -1586,6 +1590,7 @@ class TextInput {
     } = $;
 
     this.enter = new TB(this.scheme.buttons?.enter || "Enter");
+    this.enter.btn.disabled = !this.touchButtons;
     this.enter.stickyScrubbing = true; // Prevent drag-between-button behavior
     this.enter.btn.stickyScrubbing = true; // Also set on the actual button object
     this.enter.btn.noEdgeDetection = true; // Prevent cancellation from edge detection
@@ -2039,7 +2044,7 @@ class TextInput {
         }
       }
     } else {
-      if (this.cursor === "blink" && this.showBlink && this.canType) {
+      if (this.cursor === "blink" && (this.showBlink || $.inFocus === false) && this.canType) {
         // Use green cursor only for actual KidLisp code, not for nopaint brushes
         const cursorColor = $.system?.prompt?.actualKidlisp
           ? $.dark
@@ -2052,10 +2057,12 @@ class TextInput {
           const cp = prompt.pos(undefined, true);
           $.ink(this.pal.cursor || cursorColor).box(cp.x, cp.y, 2, cp.h);
         } else {
-          $.ink(cursorColor).box(prompt.pos(undefined, true)); // Draw blinking cursor.
+          const caret = prompt.pos(undefined, true);
+          if ($.inFocus === false) $.ink(cursorColor).box(caret.x, caret.y, caret.w, caret.h, "inline");
+          else $.ink(cursorColor).box(caret);
           const char = this.text[this.#prompt.textPos()];
           // Only draw inverted character if there's actually a character there
-          if (char !== undefined && char !== "") {
+          if ($.inFocus !== false && char !== undefined && char !== "") {
             const pic = this.typeface.glyphs[char];
             if (pic)
               $.ink(this.pal.highlight).draw(pic, prompt.pos(undefined, true));
@@ -2188,7 +2195,7 @@ class TextInput {
   }
 
   showButton($, { nocopy, nopaste } = { nocopy: false, nopaste: false }) {
-    this.enter.btn.disabled = false;
+    this.enter.btn.disabled = !this.touchButtons;
     if (!nocopy && this.text.length > 0) {
       this.#coatedCopy = this.#coatCopy(this.text); // Wrap text to be copied.
       this.copy.btn.disabled = false;
@@ -2199,7 +2206,7 @@ class TextInput {
       this.paste.btn.disabled = true; // Disable paste button.
       this.paste.btn.removeFromDom($, "paste");
     } else {
-      this.paste.btn.disabled = false; // Enable paste button.
+      this.paste.btn.disabled = !this.touchButtons; // Enable paste button.
     }
   }
 
@@ -2584,7 +2591,7 @@ class TextInput {
         // Only manage Enter button disabled state when TextInput is active
         if (this.canType) {
           if (this.text.length > 0) {
-            this.enter.btn.disabled = false;
+            this.enter.btn.disabled = !this.touchButtons;
             this.runnable = true;
           } else {
             this.enter.btn.disabled = true;
@@ -2756,7 +2763,7 @@ class TextInput {
       if (ti.#lastUserText.length > 0) {
         ti.text = ti.#lastUserText;
         ti.runnable = true;
-        ti.paste.btn.disabled = false;
+        ti.paste.btn.disabled = !ti.touchButtons;
       } else {
         if (ti.#lastPrintedText) {
           ti.blank("blink");
@@ -2764,7 +2771,7 @@ class TextInput {
 
         // ti.enter.btn.disabled = true;
         ti.runnable = false; // Explicitly set runnable to false when no text
-        ti.paste.btn.disabled = false;
+        ti.paste.btn.disabled = !ti.touchButtons;
       }
       
       //ti.inputStarted = true;
@@ -2806,8 +2813,8 @@ class TextInput {
 
       ti.activated?.($, false);
 
-      ti.enter.btn.disabled = false; // Always enable Enter button when deactivated so user can reactivate
-      ti.paste.btn.disabled = false;
+      ti.enter.btn.disabled = !ti.touchButtons; // Always enable Enter button when deactivated so user can reactivate
+      ti.paste.btn.disabled = !ti.touchButtons;
       ti.canType = false;
       ti.runnable = false;
       ti.#lastUserText = ti.text;
@@ -3132,7 +3139,7 @@ class TextInput {
       needsPaint();
       clearTimeout(this.#copyPasteTimeout);
       this.#copyPasteTimeout = setTimeout(() => {
-        this.paste.btn.disabled = false;
+        this.paste.btn.disabled = !this.touchButtons;
         this.paste.txt = this.scheme.buttons?.paste?.label || "Paste";
         this.#copyPasteScheme = undefined;
         needsPaint();
@@ -3154,7 +3161,7 @@ class TextInput {
       this.selection = null;
 
       if (this.text.length > 0) {
-        this.enter.btn.disabled = false;
+        this.enter.btn.disabled = !this.touchButtons;
         this.runnable = true;
       } else {
         this.enter.btn.disabled = true;
