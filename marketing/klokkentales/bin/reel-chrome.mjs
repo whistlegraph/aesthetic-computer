@@ -38,6 +38,11 @@ const DIR = resolve(flags.dir || ".");
 const NAME = flags.name || "reel";
 const MUSIC = flags.music ? resolve(flags.music) : null;
 const MUSIC_VOL = parseFloat(flags["music-vol"] || "0.15");
+// --music-until <sec>: bed is gone by this time (e.g. where the reel's own
+// music takes over), instead of running under the whole video.
+// --no-stamps: skip the pals marks + laklok columns (clean cut for posting).
+const NO_STAMPS = argv.includes("--no-stamps");
+const MUSIC_UNTIL = flags["music-until"] ? parseFloat(flags["music-until"]) : null;
 
 const VIDEO = `${DIR}/reel-en-dub.mp4`;
 const VOICE = `${DIR}/dub-audio.mp3`;
@@ -434,7 +439,7 @@ for await (const raw of frames()) {
   ctx.globalAlpha = 1;
   ctx.drawImage(vig, 0, 0);
 
-  drawPals(t, e);
+  if (!NO_STAMPS) drawPals(t, e);
   drawSubs(t, e);
 
   if (!enc.stdin.write(canvas.toBuffer("raw"))) await once(enc.stdin, "drain");
@@ -454,7 +459,7 @@ if (MUSIC) {
   // atrim clamps the mix to the video's exact length — otherwise the audio
   // track outlives the last frame by ~50ms and players flash black at the end.
   mixArgs.push("-i", MUSIC, "-filter_complex",
-    `[2:a]volume=${MUSIC_VOL},afade=t=in:st=0:d=0.8,afade=t=out:st=${(DUR - 1.4).toFixed(2)}:d=1.4[m];` +
+    `[2:a]volume=${MUSIC_VOL},afade=t=in:st=0:d=0.8,afade=t=out:st=${((MUSIC_UNTIL ?? DUR) - 1.4).toFixed(2)}:d=1.4[m];` +
     `[1:a][m]amix=inputs=2:duration=first:normalize=0,atrim=end=${DUR.toFixed(3)}[a]`,
     "-map", "0:v", "-map", "[a]");
 } else {
