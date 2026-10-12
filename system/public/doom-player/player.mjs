@@ -1,13 +1,14 @@
-import {compileWad,starterLevel,validateLevel,inspectWad,WAD_MIME} from './wad.mjs';
+import {compileWad,starterLevel,validateLevel,inspectWad,WAD_MIME} from './wad.mjs?v=2026-10-12.3';
 const canvas=document.querySelector('#canvas'),status=document.querySelector('#status'),start=document.querySelector('#start'),boot=document.querySelector('#boot');
-const query=new URLSearchParams(location.search);
+const query=new URLSearchParams(location.search),preview=query.get('preview')==='1';
+if(preview)document.body.classList.add('preview');
 let level=starterLevel(),wad,started=false,downloadURL,playing=true;
 function loadWad(next){const info=inspectWad(next);if(info.kind!=='PWAD')throw Error('Open a patch WAD for Freedoom; the base game is already included.');const marker=info.lumps.find(l=>/^E[1-4]M[1-9]$/.test(l.name));if(!marker)throw Error('This player supports Doom 1 maps (E1M1–E4M9).');wad=next;map=marker.name;}
 
 try{if(query.has('level'))level=validateLevel(JSON.parse(query.get('level')));wad=compileWad(level);}catch(error){status.textContent=error.message;throw error;}
 function download(){if(downloadURL)URL.revokeObjectURL(downloadURL);downloadURL=URL.createObjectURL(new Blob([wad],{type:WAD_MIME}));document.querySelector('#download').href=downloadURL;}
 download();
-const cfg='fullscreen 0\ngrabmouse 0\nuse_mouse 0\nuse_joystick 0\nscreenblocks 10\nsfx_volume 8\nmusic_volume 6\nsnd_musicdevice 3\nsnd_sfxdevice 3\nkey_up 72\nkey_down 80\nkey_left 75\nkey_right 77\nkey_fire 29\nkey_use 57\nkey_strafeleft 51\nkey_straferight 52\n';
+const cfg='fullscreen 0\ngrabmouse 0\nuse_mouse 0\nuse_joystick 0\nscreenblocks '+(preview?11:10)+'\nsfx_volume 8\nmusic_volume 6\nsnd_musicdevice 3\nsnd_sfxdevice 3\nkey_up 72\nkey_down 80\nkey_left 75\nkey_right 77\nkey_fire 29\nkey_use 57\nkey_strafeleft 51\nkey_straferight 52\n';
 let map='E1M1';
 document.querySelector('#file').onchange=async event=>{
   try{
@@ -31,22 +32,26 @@ window.Module={canvas,noInitialRun:true,noExitRuntime:true,locateFile:path=>new 
   preMainLoop:()=>{if(!playing||document.hidden){Module.pauseMainLoop();return false;}},
   print:text=>console.log('[doom]',text),printErr:text=>console.warn('[doom]',text),onAbort:fail,
   preRun:()=>{Module.FS.mkdir('/savefiles');Module.FS.writeFile('/freedoom1.wad',base);Module.FS.writeFile('/level.wad',wad);Module.FS.writeFile('/default.cfg',cfg);},
-  onRuntimeInitialized:()=>{status.textContent=level.title;start.disabled=false;document.body.dataset.state='ready';window.__mimeReady=true;document.querySelector('#file').disabled=false;},onExit:code=>fail('Doom stopped ('+code+')')};
+  onRuntimeInitialized:()=>{status.textContent=level.title;start.disabled=false;document.body.dataset.state='ready';if(!preview)window.__mimeReady=true;document.querySelector('#file').disabled=false;if(preview)queueMicrotask(startGame);},onExit:code=>fail('Doom stopped ('+code+')')};
 let base;
 try{
   if(query.has('file')){const url=new URL(query.get('file'),location.href);if(!['http:','https:'].includes(url.protocol))throw Error('Invalid WAD URL');const file=await fetch(url);if(!file.ok)throw Error('WAD unavailable');loadWad(new Uint8Array(await file.arrayBuffer()));download();}
   const response=await fetch('./vendor/freedoom1.wad');if(!response.ok)throw Error('Could not load Freedoom');base=new Uint8Array(await response.arrayBuffer());
   const script=document.createElement('script');script.src='./vendor/websockets-doom.js';script.onerror=()=>fail('Could not load the Doom engine');document.body.append(script);
 }catch(error){fail(error.message);}
-start.onclick=()=>{
+function startGame(){
   if(started)return;started=true;playing=true;start.disabled=true;canvas.focus();
   try{
     const warp=map.startsWith('E')?[map[1],map[3]]:[String(Number(map.slice(3)))];
     window.callMain(['-iwad','freedoom1.wad','-file','level.wad','-warp',...warp,'-skill','3','-window','-nogui','-nomusic','-config','default.cfg','-savedir','/savefiles']);
-    boot.hidden=true;document.querySelector('#controls').hidden=false;document.body.dataset.state='playing';
-    parent.postMessage({type:'doom:ready'},'*');
+    boot.hidden=true;document.querySelector('#controls').hidden=false;document.body.dataset.state=preview?'booting':'playing';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{
+      document.body.dataset.state='playing';window.__mimeReady=true;canvas.setAttribute('aria-label',level.things.length?'Doom room':'Empty Doom room');
+      parent.postMessage({type:'doom:ready'},'*');
+    },preview?2500:250)));
   }catch(error){started=false;fail(error.message);}
-};
+}
+start.onclick=startGame;
 
 window.__mimePlayerSettle=play=>{
   const wasPlaying=playing;playing=play;

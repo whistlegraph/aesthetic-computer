@@ -32,3 +32,15 @@ test('MIME upload recognizes .wad, normalizes its alias, and rejects invalid byt
   assert.match(JSON.parse((await request()).body).code,/^[A-Za-z0-9]+$/);
   const count=saved.length;assert.equal((await request('application/x-doom-wad',new Uint8Array(12))).statusCode,400);assert.equal(saved.length,count);
 });
+
+test('new WADs are empty rooms and only the untouched legacy seed is migrated',async()=>{
+  const {emptySeedHistory}=await import('../../system/public/doom-player/wad.mjs');
+  const empty=starterLevel();assert.deepEqual(empty.things,[]);assert.notEqual(empty.title,'First arena');
+  assert.equal(inspectWad(compileWad(empty)).lumps.find(l=>l.name==='THINGS').size,10,'only the player start');
+  const old={...empty,title:'First arena',things:[{x:-192,y:128,type:3004,angle:270},{x:192,y:128,type:3001,angle:270},{x:128,y:-224,type:2001,angle:0},{x:-128,y:-224,type:2008,angle:0},{x:0,y:256,type:2012,angle:0}]};
+  const history={format:1,head:0,versions:[{id:0,parent:null,request:null,source:JSON.stringify(old),createdAt:'saved-date'}]};
+  const migrated=emptySeedHistory(history);assert.deepEqual(JSON.parse(migrated.versions[0].source),empty);assert.equal(migrated.versions[0].createdAt,'saved-date');
+  assert.equal(emptySeedHistory({...history,head:1}),null);
+  assert.equal(emptySeedHistory({...history,versions:[{...history.versions[0],request:'My first map'}]}),null);
+  assert.equal(emptySeedHistory({...history,versions:[{...history.versions[0],source:JSON.stringify({...old,light:64})}]}),null);
+});

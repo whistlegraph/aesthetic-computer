@@ -4,7 +4,14 @@ export const WALLS = ['STARTAN3','STONE2','BROWN1','COMPTALL','TEKWALL1'];
 export const FLOORS = ['FLOOR0_1','FLOOR4_8','FLAT5_4','CEIL3_5'];
 export const THINGS = [3004,3001,9,2001,2002,2003,2007,2008,2011,2012,2018,2019,2022];
 export function starterLevel() {
-  return {version:1,title:'First arena',width:768,depth:768,height:128,light:192,wall:'STARTAN3',floor:'FLOOR0_1',ceiling:'CEIL3_5',things:[{x:-192,y:128,type:3004,angle:270},{x:192,y:128,type:3001,angle:270},{x:128,y:-224,type:2001,angle:0},{x:-128,y:-224,type:2008,angle:0},{x:0,y:256,type:2012,angle:0}]};
+  return {version:1,title:'Untitled',width:768,depth:768,height:128,light:192,wall:'STARTAN3',floor:'FLOOR0_1',ceiling:'CEIL3_5',things:[]};
+}
+// Only replace the untouched seed from the first release. Edited histories stay intact.
+export function emptySeedHistory(history) {
+  if(history?.head!==0||history.versions?.length!==1||history.versions[0].request!==null)return null;
+  const legacy={...starterLevel(),title:'First arena',things:[{x:-192,y:128,type:3004,angle:270},{x:192,y:128,type:3001,angle:270},{x:128,y:-224,type:2001,angle:0},{x:-128,y:-224,type:2008,angle:0},{x:0,y:256,type:2012,angle:0}]};
+  if(history.versions[0].source!==JSON.stringify(legacy))return null;
+  return {...history,versions:[{...history.versions[0],source:JSON.stringify(starterLevel())}]};
 }
 export const LEVEL_SCHEMA = {type:'object',additionalProperties:false,required:['version','title','width','depth','height','light','wall','floor','ceiling','things'],properties:{version:{type:'integer',enum:[1]},title:{type:'string',maxLength:80},width:{type:'integer',minimum:384,maximum:2048},depth:{type:'integer',minimum:384,maximum:2048},height:{type:'integer',minimum:64,maximum:512},light:{type:'integer',minimum:32,maximum:255},wall:{type:'string',enum:WALLS},floor:{type:'string',enum:FLOORS},ceiling:{type:'string',enum:FLOORS},things:{type:'array',maxItems:64,items:{type:'object',additionalProperties:false,required:['x','y','type','angle'],properties:{x:{type:'integer'},y:{type:'integer'},type:{type:'integer',enum:THINGS},angle:{type:'integer',minimum:0,maximum:359}}}}}};
 function integer(value,min,max,label){if(!Number.isInteger(value)||value<min||value>max)throw Error(`Invalid ${label}`);return value;}

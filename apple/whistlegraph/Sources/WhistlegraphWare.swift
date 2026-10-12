@@ -65,14 +65,15 @@ struct DoomControls: View {
     @ObservedObject var session: WhistlegraphSession
     var body: some View {
         HStack {
-            Button("Restart Doom") { session.command("playDoom") }.buttonStyle(.borderedProminent).accessibilityIdentifier("play-doom")
             Spacer()
             Menu {
                 Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoDoom") }
+                Button("New empty WAD", systemImage: "plus") { session.command("newDoom") }
+                Button("Restart", systemImage: "arrow.clockwise") { session.command("playDoom") }
                 Button("Export WAD", systemImage: "square.and.arrow.up") { session.command("exportWad") }
                 Button("Publish to MIME", systemImage: "globe") { session.command("publishDoom") }
             } label: { Image(systemName: "ellipsis.circle").font(.title2).frame(width: 44, height: 44) }
-            .accessibilityLabel("Doom actions")
+            .accessibilityLabel("Doom actions").accessibilityIdentifier("doom-actions")
         }.disabled(session.snapshot.busy || session.capturePhase != .idle)
     }
 }

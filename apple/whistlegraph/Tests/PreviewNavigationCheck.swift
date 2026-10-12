@@ -26,6 +26,8 @@ import Foundation
         precondition(allowed("about:blank"))
         let doom = "https://aesthetic.computer/doom-player/?level=%7B%22version%22%3A1%7D"
         precondition(allowed(doom))
+        precondition(allowed(doom + "&preview=1"))
+        precondition(!allowed(doom + "&preview=2"))
         precondition(!allowed(doom, main: true))
         precondition(!allowed(doom, document: .story))
         precondition(!allowed(doom + "&file=https://evil.invalid/wad"))

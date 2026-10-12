@@ -4,17 +4,19 @@ import {verifyAccount} from '/easel/src/account-access.mjs';
 import {FLASH_MODEL} from './generation-policy.mjs';
 import {PieceVersions} from './piece-versions.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
-import {starterLevel,validateLevel,compileWad,LEVEL_SCHEMA,WAD_MIME} from './doom-wad.mjs';
+import {starterLevel,validateLevel,compileWad,emptySeedHistory,LEVEL_SCHEMA,WAD_MIME} from './doom-wad.mjs';
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'doom',...body});
 const account=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state})});
 const versions=new PieceVersions(localStorage,'whistlegraph-doom-versions',JSON.stringify(starterLevel()));
+const codes=JSON.parse(localStorage.getItem('whistlegraph-doom-codes')||'{}');
+const emptySeed=!codes[0]&&emptySeedHistory(versions.value);if(emptySeed)versions.persist(emptySeed);
 let level=validateLevel(JSON.parse(versions.head.source)),staged=null,token='',handle='',busy=false,server=null,cancelled=false,successful=false,error='',output='',attempt=null,code='';
-const codes=JSON.parse(localStorage.getItem('whistlegraph-doom-codes')||'{}');code=codes[versions.head.id]||'';
+code=codes[versions.head.id]||'';
 const wares=wareControls('doom');
 document.body.classList.add('live-mode','live-preview');document.getElementById('initial').hidden=true;
 const box=document.createElement('div');box.id='live-preview-box';document.getElementById('stage').prepend(box);
 const frame=document.createElement('iframe');frame.title='Playable Doom WAD';frame.allow='autoplay';frame.style.cssText='width:100%;height:100%;border:0';box.append(frame);
-function render(){frame.src='https://aesthetic.computer/doom-player/?level='+encodeURIComponent(JSON.stringify(level));}
+function render(){frame.src='https://aesthetic.computer/doom-player/?preview=1&level='+encodeURIComponent(JSON.stringify(level));}
 function snapshot(){post({action:'snapshot',snapshot:{ware:'doom',code,handle,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
 function commit(next,request){
   if(versions.value.versions.length>=100)throw Error('Export this WAD before starting another history.');
@@ -56,6 +58,7 @@ window.whistlegraphNativeCommand=command=>{
     if(command.action==='checkout')checkout(command.version);
     if(command.action==='undoDoom'&&versions.head.parent!==null)checkout(versions.head.parent);
     if(command.action==='retry'&&attempt?.request)void ask(attempt.request);
+    if(command.action==='newDoom')commit(starterLevel(),'New empty WAD');
     if(command.action==='exportWad')post({action:'exportWad',data:base64()});
     if(command.action==='publishDoom')void publish();
     if(command.action==='playDoom')render();

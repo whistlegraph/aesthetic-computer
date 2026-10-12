@@ -17,6 +17,12 @@ const server=createServer(async(req,res)=>{try{let file=resolve(root,'.'+new URL
   await page.evaluate(()=>__mimeSettle(true));await page.keyboard.down('ArrowUp');await new Promise(r=>setTimeout(r,550));await page.keyboard.up('ArrowUp');await page.keyboard.down('Control');await new Promise(r=>setTimeout(r,250));await page.keyboard.up('Control');
   await page.evaluate(()=>__mimeSettle(false));assert.notEqual(await hash(),paused,'running engine advances after movement and fire');
   await page.screenshot({path:'/tmp/ac-doom-playable.png'});assert.deepEqual(errors,[]);
+  await page.goto(base+'/doom-player/?preview=1');
+  await page.waitForFunction(()=>document.body.dataset.state==='playing'&&window.__mimeReady,{timeout:60000});
+  assert.equal(await page.$eval('#boot',el=>getComputedStyle(el).display),'none');
+  assert.equal(await page.$eval('#controls',el=>getComputedStyle(el).display),'none');
+  assert.equal(await page.$eval('canvas',el=>el.getAttribute('aria-label')),'Empty Doom room');
+  await page.screenshot({path:'/tmp/ac-doom-empty-room.png'});
   console.log('PASS Doom: real exported PWAD loaded in WASM, rendered, movement/fire, pause/resume');
  }finally{await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close();});

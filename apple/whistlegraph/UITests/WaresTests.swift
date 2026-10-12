@@ -10,13 +10,11 @@ final class WaresTests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 30), .completed)
         picker.tap()
         app.buttons["ware-doom"].tap()
-        XCTAssertTrue(app.buttons["play-doom"].waitForExistence(timeout: 20))
-        let play = app.webViews.buttons["Play"]
-        XCTAssertTrue(play.waitForExistence(timeout: 60))
-        let loaded = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: play)
-        XCTAssertEqual(XCTWaiter().wait(for: [loaded], timeout: 60), .completed)
-        play.tap()
-        XCTAssertTrue(app.webViews.buttons["Fire"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["doom-actions"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.webViews.otherElements["Empty Doom room"].waitForExistence(timeout: 60))
+        XCTAssertFalse(app.webViews.buttons["Play"].exists)
+        XCTAssertFalse(app.webViews.buttons["Fire"].exists)
+        XCTAssertFalse(app.webViews.staticTexts["First arena"].exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Whistlegraph playable Doom WAD"
         screenshot.lifetime = .keepAlways
