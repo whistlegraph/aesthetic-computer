@@ -15705,7 +15705,7 @@ async function makeFrame({ data: { type, content } }) {
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
       if (platform.Aesthetic && platform.MacOS) {
-        sendData.windowColor = nativeWindowWipe?.slug === $commonApi.slug
+        sendData.windowColor = nativeWindowWipe && nativeWindowWipe.slug === $commonApi.slug
           ? nativeWindowWipe.rgb : Array.from(screen.pixels.subarray(0, 3));
       }
 

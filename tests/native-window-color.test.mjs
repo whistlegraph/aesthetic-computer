@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import { createWindowColorReporter } from "../system/public/aesthetic.computer/lib/native-window-color.mjs";
+
+test("native frames have a color before a piece or wipe exists", () => {
+  const source = readFileSync(new URL("../system/public/aesthetic.computer/lib/disk.mjs", import.meta.url), "utf8");
+  const assignment = source.match(/sendData\.windowColor = [\s\S]*?;/)[0];
+  const context = { sendData: {}, nativeWindowWipe: null, $commonApi: {}, screen: { pixels: new Uint8ClampedArray([32, 40, 50, 255]) } };
+  vm.runInNewContext(assignment, context);
+  assert.deepEqual(Array.from(context.sendData.windowColor), [32, 40, 50]);
+  context.$commonApi.slug = "prompt";
+  context.nativeWindowWipe = { slug: "prompt", rgb: [240, 220, 200] };
+  vm.runInNewContext(assignment, context);
+  assert.deepEqual(context.sendData.windowColor, [240, 220, 200]);
+  context.$commonApi.slug = "notepat";
+  vm.runInNewContext(assignment, context);
+  assert.deepEqual(Array.from(context.sendData.windowColor), [32, 40, 50]);
+});
 
 test("window colors coalesce to the newest frame and send the final static color", () => {
   const sent = [], timers = [];

@@ -79,7 +79,11 @@ const forgetful = true;
 
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 
-import { AestheticIOSApp, Android, MacOS, MetaBrowser, Website, iOS } from "../lib/platform.mjs";
+import * as hostPlatform from "../lib/platform.mjs";
+const { AestheticIOSApp, Android, MacOS, MetaBrowser, iOS } = hostPlatform;
+// An already-cached platform module may predate the website-only flag.
+const Website = hostPlatform.Website ??
+  (!hostPlatform.Aesthetic && !/Electron/i.test(globalThis.navigator?.userAgent || ""));
 import { validateHandle } from "../lib/text.mjs";
 import { commandDescriptions } from "../lib/prompt-commands.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";

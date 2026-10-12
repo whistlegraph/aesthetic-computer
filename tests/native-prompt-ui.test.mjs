@@ -13,6 +13,17 @@ test("promotions are enabled for websites and disabled for installed hosts", () 
   }
 });
 
+test("the prompt supports a cached platform module from before the website flag", () => {
+  const prompt = readFileSync(new URL("../system/public/aesthetic.computer/disks/prompt.mjs", import.meta.url), "utf8");
+  const start = prompt.indexOf("const { AestheticIOSApp, Android, MacOS, MetaBrowser, iOS } = hostPlatform;");
+  const declaration = prompt.slice(start, prompt.indexOf('import { validateHandle }', start));
+  for (const native of [true, false]) {
+    assert.equal(vm.runInNewContext(declaration + "\nWebsite", {
+      hostPlatform: { Aesthetic: native }, navigator: { userAgent: native ? "Aesthetic" : "Safari" },
+    }), !native);
+  }
+});
+
 const source = readFileSync(new URL("../system/public/aesthetic.computer/lib/disk.mjs", import.meta.url), "utf8");
 const start = source.indexOf("      // Update availability still reaches BIOS");
 const badgeSource = source.slice(start, source.indexOf("      let transferredPixels;", start));
