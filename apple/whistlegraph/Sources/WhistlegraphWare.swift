@@ -1,11 +1,11 @@
 import SwiftUI
 
 enum Ware: String, CaseIterable, Identifiable {
-    case piece, roblox
+    case piece, roblox, doom
     var id: String { rawValue }
-    var title: String { self == .piece ? "Aesthetic.Computer Piece" : "Roblox Room" }
+    var title: String { self == .piece ? "Aesthetic.Computer Piece" : self == .doom ? "Doom WAD" : "Roblox Room" }
     /// The file-extension spelling in the top bar: /code.ac, /code.rbx.
-    var fileExtension: String { self == .piece ? "ac" : "rbx" }
+    var fileExtension: String { self == .piece ? "ac" : self == .doom ? "wad" : "rbx" }
 }
 
 struct RobloxRoomSnapshot: Decodable {
@@ -57,6 +57,22 @@ struct RobloxRoomControls: View {
             if let notice = session.snapshot.roblox?.notice, !notice.isEmpty {
                 Text(notice).font(.footnote).fixedSize(horizontal: false, vertical: true)
             }
+        }.disabled(session.snapshot.busy || session.capturePhase != .idle)
+    }
+}
+
+struct DoomControls: View {
+    @ObservedObject var session: WhistlegraphSession
+    var body: some View {
+        HStack {
+            Button("Restart Doom") { session.command("playDoom") }.buttonStyle(.borderedProminent).accessibilityIdentifier("play-doom")
+            Spacer()
+            Menu {
+                Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoDoom") }
+                Button("Export WAD", systemImage: "square.and.arrow.up") { session.command("exportWad") }
+                Button("Publish to MIME", systemImage: "globe") { session.command("publishDoom") }
+            } label: { Image(systemName: "ellipsis.circle").font(.title2).frame(width: 44, height: 44) }
+            .accessibilityLabel("Doom actions")
         }.disabled(session.snapshot.busy || session.capturePhase != .idle)
     }
 }

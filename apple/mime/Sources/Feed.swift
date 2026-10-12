@@ -47,6 +47,11 @@ struct Post: Decodable, Identifiable, Equatable {
             }
         }
         guard let file, let url = absolute(file.url) else { return .words(text ?? "") }
+        if ["application/x-doom-wad", "application/x-doom"].contains(file.type) {
+            var player = URLComponents(string: "https://aesthetic.computer/doom-player/")!
+            player.queryItems = [.init(name: "file", value: url.absoluteString)]
+            return .runtime(player.url!, kind: "doom")
+        }
         if file.type.hasPrefix("image/") { return .image(url) }
         if file.type.hasPrefix("video/") { return .video(url) }
         return .document(url)

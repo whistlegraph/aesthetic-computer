@@ -29,6 +29,11 @@ import Foundation
         older["loadingBreakupSeconds"] = 100
         let invalidDuration = try JSONSerialization.data(withJSONObject: older)
         precondition(MimeLayout.decode(invalidDuration) == nil)
+        let wad = try JSONDecoder().decode(Post.self, from: Data("{\"code\":\"abc\",\"file\":{\"name\":\"arena.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"/api/mime?file=abc\"}}".utf8))
+        if case let .runtime(url, kind) = wad.body {
+            precondition(kind == "doom" && url.path == "/doom-player")
+            precondition(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first?.value == "https://mime.ac/api/mime?file=abc")
+        } else { fatalError("WADs must use the shared playable runtime") }
         for (kind, code, expected) in [("piece", "q7f", "q7f"), ("kidlisp", "abc", "$abc"), ("painting", "abc", "#abc"), ("tape", "abc", "!abc"), ("wgpiece", "wgDuck", "wgDuck")] {
             let postData = try JSONSerialization.data(withJSONObject: ["code": "thread_123", "name": "@artist", "media": ["kind": kind, "code": code, "title": "@artist/ducks"]])
             let post = try JSONDecoder().decode(Post.self, from: postData)

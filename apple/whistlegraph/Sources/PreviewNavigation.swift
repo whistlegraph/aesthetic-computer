@@ -9,6 +9,7 @@ enum PreviewNavigation {
     static func bridge(_ url: URL?, mainFrame: Bool, document: Document) -> BridgeScope {
         guard allows(url, mainFrame: mainFrame, document: document) else { return .none }
         if mainFrame { return document == .workspace ? .workspace : .none }
+        if url?.path == "/doom-player" { return .none }
         return url?.scheme == "https" ? .artwork : .none
     }
 
@@ -26,6 +27,12 @@ enum PreviewNavigation {
         // dropped), so the artwork frame is known by host + the private preview flags, never by
         // the exact URL: matching the launch URL alone dropped every message after boot (2026-10-09).
         guard url.scheme == "https", url.host == "aesthetic.computer", let flags = query(url) else { return false }
+        if url.path == "/doom-player" {
+            guard document == .workspace, flags.count == 1, let level = flags["level"],
+                  level.utf8.count <= 12_000, let data = level.data(using: .utf8),
+                  (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else { return false }
+            return true
+        }
         let piece = url.path.dropFirst()
         guard url.path.hasPrefix("/"), !piece.contains("/"),
               piece.allSatisfy({ $0.isLetter || $0.isNumber || "._-".contains($0) }) else { return false }

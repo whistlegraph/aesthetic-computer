@@ -35,6 +35,7 @@ const server=http.createServer(async(req,res)=>{
           __roomRequests.push({method:init.method,...(init.body?{body:JSON.parse(init.body)}:{})});
           return Promise.resolve(Response.json(init.method==='GET'?{available:__roomConfigured}:{revision:++__roomRevision,launchURL:'https://www.roblox.com/share?code=fixture&type=ExperienceDetails'}));
         }
+        if(String(url).includes('/api/mime')&&init?.method==='POST'){window.__publishedWad=JSON.parse(init.body);return Promise.resolve(Response.json({code:'wadfixture'}));}
         if(String(url).includes('/api/easel-inference'))throw Error('Local edits must not use paid inference');
         return original(url,init);
       };
@@ -91,6 +92,20 @@ const server=http.createServer(async(req,res)=>{
     await change('piece');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),pieceBefore);
     await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.evaluate(()=>whistlegraphAsk('switch to Roblox'))]);await ready('roblox');
     assert.equal((await last()).head,2,'room work survives switching away');
+    await change('doom');await checkAccount();assert.equal((await last()).head,0);
+    await page.evaluate(()=>whistlegraphAsk('make it darker'));assert.equal((await last()).head,1);
+    const doomBefore=await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions'));
+    assert.equal(JSON.parse(JSON.parse(doomBefore).versions[1].source).light,160);
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'exportWad'}));
+    const wad=await page.evaluate(()=>atob(__nativeMessages.find(m=>m.action==='exportWad').data));
+    assert.equal(wad.slice(0,4),'PWAD');assert.ok(wad.includes('E1M1'));assert.ok(wad.includes('BLOCKMAP'));
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'publishDoom'}));
+    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.code==='wadfixture');
+    assert.equal(await page.evaluate(()=>__publishedWad.file.type),'application/x-doom-wad');
+    await change('piece');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),pieceBefore);
+    await change('doom');
+    assert.equal((await last()).code,'wadfixture','published identity survives restarting and switching');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions')),doomBefore);
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'undoDoom'}));assert.equal((await last()).head,0);
     assert.deepEqual(errors,[]);console.log('PASS ware bridge: account entry, retries, sign-out, migration, switching, drawing, versions, export, durable save and launch gating');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;server.close();});

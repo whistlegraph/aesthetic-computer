@@ -273,6 +273,7 @@ struct WhistlegraphScreen: View {
             if !session.snapshot.error.isEmpty && !narrator.isPlaying && session.snapshot.attempt == nil { QuietNote(text: session.snapshot.error, ink: paper).accessibilityIdentifier("workspace-error") }
             if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
+            if !narrator.isPlaying && session.snapshot.wareID == "doom" { DoomControls(session: session) }
             if !narrator.isPlaying && (session.snapshot.hasPiece || session.snapshot.hasHistory || session.snapshot.busy || session.snapshot.attempt?.status == "failed") {
                 VersionFeed(snapshot: session.snapshot, foreground: paper, selectionColor: paper, textSize: session.layout.historySize, disabled: session.snapshot.busy || session.capturePhase != .idle, holdSelection: drawing.hasInk, stop: { session.command("stop") }, retry: { session.command("retry") }, keepDraft: { session.command("keepDraft") }, discardDraft: { session.command("discardDraft") }, discardAttempt: { session.command("discardAttempt") }, openBrain: { showComposer = false; session.command("refreshBraincells"); brainShowing = true }) { narrator.select($0, session: session) }
             } else if !narrator.isPlaying { Spacer(minLength: 0) }

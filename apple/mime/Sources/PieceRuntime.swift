@@ -89,12 +89,17 @@ import WebKit
             return w?.acPAUSE && w.preloaded && !document.getElementById('note') ? w : null; };
           let playing = false, drawn = false;
           window.__mimeSettle = (play) => {
-            playing = play; const w = runtime(); if (!w || !drawn) return;
+            playing = play; if (window.__mimePlayerSettle) { window.__mimePlayerSettle(play); return; }
+            const w = runtime(); if (!w || !drawn) return;
             if (play) { w.acRESUME(); w.AC?.startAudio?.(); window.postMessage({type: 'ac:start-audio'}, '*'); }
             else w.acPAUSE();
           };
           const started = Date.now();
           const poll = setInterval(() => {
+            if (window.__mimeReady) {
+              clearInterval(poll); drawn = true; window.__mimeSettle(playing);
+              window.webkit.messageHandlers.mime.postMessage(\(String(reflecting: id))); return;
+            }
             const w = runtime();
             // A page with no AC loop (or a slow one) still shows after a while; it just cannot hold.
             if (!w && Date.now() - started < 12000) return;

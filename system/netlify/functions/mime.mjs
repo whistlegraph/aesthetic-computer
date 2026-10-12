@@ -7,6 +7,7 @@ import {
   MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, parseMediaThread,
   mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile, publicMediaUrl, packedMediaUrl,
 } from "../../backend/mime-media.mjs";
+import { inspectWad } from "../../public/doom-player/wad.mjs";
 import { feedPage, feedOnlyOp } from "../../backend/mime-feed-engine.mjs";
 
 const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cache-Control": "no-store", ...headers });
@@ -28,7 +29,7 @@ const EXT_TYPES = {
   gif: "image/gif", webp: "image/webp", svg: "image/svg+xml", mp3: "audio/mpeg",
   wav: "audio/wav", ogg: "audio/ogg", mid: "audio/midi", midi: "audio/midi",
   mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
-  pdf: "application/pdf", zip: "application/zip", wasm: "application/wasm",
+  wad: "application/x-doom-wad", pdf: "application/pdf", zip: "application/zip", wasm: "application/wasm",
   ttf: "font/ttf", otf: "font/otf", woff: "font/woff", woff2: "font/woff2",
 };
 
@@ -36,8 +37,9 @@ const NO_DATA = { projection: { "file.data": 0 } }; // Never ship bytes in listi
 
 function sniffType(declared, filename) {
   const t = (declared || "").toLowerCase().trim();
-  if (MIME_RX.test(t)) return t;
   const ext = (filename || "").split(".").pop()?.toLowerCase();
+  if (ext === "wad" && (!t || t === "application/octet-stream")) return "application/x-doom-wad";
+  if (MIME_RX.test(t)) return t;
   return EXT_TYPES[ext] || "application/octet-stream";
 }
 
@@ -294,7 +296,11 @@ async function createPost(db, posts, body, user) {
     const bytes = Buffer.from(data, "base64");
     if (bytes.length === 0) return respond(400, { error: "empty file" });
     if (bytes.length > MAX_FILE) return respond(400, { error: "file over 8 MB" });
-    file = { name: (f.name || "file").slice(0, 128), type: sniffType(f.type, f.name), size: bytes.length, data };
+    const type = sniffType(f.type, f.name);
+    if (["application/x-doom-wad", "application/x-doom"].includes(type)) {
+      try { inspectWad(bytes); } catch { return respond(400, { error: "invalid WAD" }); }
+    }
+    file = { name: (f.name || "file").slice(0, 128), type: type === "application/x-doom" ? "application/x-doom-wad" : type, size: bytes.length, data };
   }
   const op = parent ? await findOp(db, posts, parent) : null;
   if (parent && !op) return respond(404, { error: "thread not found" });

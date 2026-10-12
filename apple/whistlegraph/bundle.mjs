@@ -1,5 +1,6 @@
 import {readFile,writeFile,copyFile,cp,mkdir} from 'node:fs/promises';
 const base=new URL('./',import.meta.url),root=new URL('../../',base);
+await copyFile(new URL('system/public/doom-player/wad.mjs',root),new URL('Resources/Web/doom-wad.mjs',base));
 await copyFile(new URL('shared/roblox-room.mjs',root),new URL('Resources/Web/room-schema.mjs',base));
 await writeFile(new URL('Resources/Web/roblox-runtime.mjs',base),'export const ROOM_RUNTIME = '+JSON.stringify(await readFile(new URL('roblox/rooms/src/server/Room.luau',root),'utf8'))+';\n');
 let html=await readFile(new URL('Resources/Web/shell.html',base),'utf8');

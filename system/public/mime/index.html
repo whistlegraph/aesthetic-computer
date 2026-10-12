@@ -941,6 +941,17 @@ function renderFile(file) {
       if (file.poster) media.poster = file.poster;
       media.src = file.url;
     });
+  } else if (["application/x-doom-wad", "application/x-doom"].includes(file.type)) {
+    media = el("iframe", "doc doom-player");
+    media.title = file.name;
+    media.allow = "autoplay";
+    const url = new URL("https://aesthetic.computer/doom-player/");
+    url.searchParams.set("file", new URL(file.url, location.href).href);
+    nearViewport(media, () => { media.src = url.href; });
+    const observer = new IntersectionObserver(entries => {
+      media.contentWindow?.postMessage({ type: "mime:playing", playing: entries[0].isIntersecting && !document.hidden }, "https://aesthetic.computer");
+    });
+    observer.observe(media);
   } else if (file.type === "text/html") {
     // Same-origin srcdoc with scripts still off, so the frame can be measured and
     // grown to its full height: the feed scrolls through it, nothing scrolls inside.

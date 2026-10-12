@@ -335,8 +335,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     }
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, ware: String? = nil, onAccepted: (() -> Void)? = nil) {
-        guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "discardAttempt", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) else { return }
-        if ["setWare", "playRoblox", "exportRoom", "undoRoom"].contains(action) {
+        guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "discardAttempt", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom"].contains(action) else { return }
+        if ["setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom"].contains(action) {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
         }
         let control = DeviceActionLog.Control(rawValue: action)
@@ -760,6 +760,21 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             UIApplication.shared.open(url, options: [:]) { [weak self] opened in
                 self?.emitEngine(["kind": "robloxLaunch", "opened": opened])
             }
+        case "exportWad":
+            guard let encoded = body["data"] as? String, encoded.utf8.count <= 100_000,
+                  let data = Data(base64Encoded: encoded), data.count >= 12,
+                  String(data: data.prefix(4), encoding: .ascii) == "PWAD",
+                  let host = webView?.window?.rootViewController else { return }
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let file = directory.appendingPathComponent("Whistlegraph.wad")
+                try data.write(to: file, options: .atomic)
+                let share = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+                share.popoverPresentationController?.sourceView = webView
+                share.completionWithItemsHandler = { _, _, _, _ in try? FileManager.default.removeItem(at: directory) }
+                host.present(share, animated: true)
+            } catch { emitEngine(["kind": "error", "text": "Could not export the WAD."]) }
         case "exportRoom":
             guard let source = body["source"] as? String, source.utf8.count <= 300_000,
                   let host = webView?.window?.rootViewController else { return }

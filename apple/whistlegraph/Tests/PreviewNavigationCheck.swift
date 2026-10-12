@@ -24,6 +24,13 @@ import Foundation
         precondition(!allowed("https://aesthetic.computer/wipe/extra?nogap=true&nolabel=true&noauth=true&preview=walkieware"))
         precondition(PreviewNavigation.bridge(URL(string: rewritten), mainFrame: false, document: .workspace) == .artwork)
         precondition(allowed("about:blank"))
+        let doom = "https://aesthetic.computer/doom-player/?level=%7B%22version%22%3A1%7D"
+        precondition(allowed(doom))
+        precondition(!allowed(doom, main: true))
+        precondition(!allowed(doom, document: .story))
+        precondition(!allowed(doom + "&file=https://evil.invalid/wad"))
+        precondition(!allowed("https://aesthetic.computer/doom-player/?level=invalid"))
+        precondition(PreviewNavigation.bridge(URL(string: doom), mainFrame: false, document: .workspace) == .none, "The Doom player has no native command bridge")
         for value in ["walkieware://app/easel/phone/host.html", "https://aesthetic.computer/braincells/",
                       "https://aesthetic.computer/mint/#secret", "https://checkout.stripe.com/c/pay",
                       "https://pay.aesthetic.computer/", "temple://connect", "javascript:alert(1)",
