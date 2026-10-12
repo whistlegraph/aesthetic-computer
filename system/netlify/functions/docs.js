@@ -3807,7 +3807,7 @@ void draw() {
       },
       chat: {
         sig: "chat",
-        desc: "Chat with handles.",
+        desc: "Ask @jeffrey for help in public.",
         done: false,
         hidden: false,
       },
@@ -4117,7 +4117,7 @@ void draw() {
       },
       laklok: {
         sig: "laklok",
-        desc: "Learn the 'clock'! (laklok.com)",
+        desc: "Read along or say hi in the community conversation.",
         done: false
       },
       "legacy-prompt": {

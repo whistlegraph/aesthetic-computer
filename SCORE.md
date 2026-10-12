@@ -147,9 +147,9 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 
 **Getting started:**
 1. Enter `imnew` to register
-2. Verify your email
-3. Set a @handle via `handle your-name`
-4. Enter `chat` to say hi
+2. Pick your @handle
+3. Enter the six-digit code sent to your email
+4. Read along or say hi in `laklok`; enter `help` to ask @jeffrey a question
 
 **Recipes:** See [USER-GUIDE.md](USER-GUIDE.md) for making paintings, playing melodies, and joining the community.
 

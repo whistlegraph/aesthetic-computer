@@ -16,7 +16,7 @@ Return to the prompt by pressing the name at the top left corner, your browser's
 
 Enter `list` at the prompt for a scrollable index of pieces and commands.
 
-Most of AC is open to anonymous users. Some pieces like `chat` or `moods` require a registered @handle to fully participate and post data.
+Most of AC is open to anonymous users. Some pieces like `laklok` or `moods` require a registered @handle to fully participate and post data.
 
 Every piece on AC is URL addressable. For example, users who enjoy using `notepat` can skip the prompt entirely by bookmarking https://aesthetic.computer/notepat.
 
@@ -44,13 +44,15 @@ Here are a some recipes to try:
 4. Record a `notepat` performance as a 7s looping, downloadable video by entering `tape notepat`.
 5. Play `notepat` in person with others by generating a QR code via `share notepat`.
 
-### C. Say "hi" in `chat` 🗨️
+### C. Join Laklok 🗨️
 
-1. Enter `imnew` or press [I'm New] on a deactivated prompt to register.
-2. Verify your email.
-3. Set a @handle by entering `handle ur-handle-here`.
-4. First-time handle setters are automatically routed to `chat`.
-5. Say "hi" and request technical help from myself (@jeffrey) and others.
+1. Enter `imnew` or `signup` at the prompt.
+2. Pick your @handle and enter your email.
+3. Enter the six-digit code from your email.
+4. Homepage signups arrive in `laklok`. Signing up from a piece returns you there.
+5. Read along or say hi. You can also visit https://laklok.com without an account to read.
+
+For help with AC, enter `help` (also available at `chat`) to ask @jeffrey in public.
 
 To dive in more you can read the technical history [2] or try coding your own AC
 piece[3].

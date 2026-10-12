@@ -10,6 +10,10 @@ async function fixture(options = {}) {
   const state = { verified: false, handle: null, taken: true, statusFailure: false, requests: [], events: [], resends: 0 };
   await context.route("**/*", async route => {
     const request = route.request(), url = new URL(request.url());
+    const authHeaders = { "Access-Control-Allow-Origin": "https://aesthetic.computer",
+      "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Headers": "content-type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS" };
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: authHeaders });
     if (url.pathname === "/style.css") return route.fulfill({ contentType: "text/css", body: await readFile(new URL("../public/aesthetic.computer/style.css", import.meta.url), "utf8") });
     if (url.pathname === "/api/signup-track") {
       state.events.push(JSON.parse(request.postData()));
@@ -22,6 +26,21 @@ async function fixture(options = {}) {
       if (request.method() === "POST") { state.resends++; return route.fulfill({ json: { sent: true } }); }
       return route.fulfill({ json: { verified: state.verified, handle: state.handle } });
     }
+    if (url.pathname === "/api/handle-hold") return route.fulfill({ json: request.method() === "POST"
+      ? { held: true, until: new Date(Date.now() + 600000).toISOString() } : { status: "free" } });
+    if (url.pathname === "/passwordless/start") return route.fulfill({ headers: authHeaders, json: { sent: true } });
+    if (url.pathname === "/co/authenticate") {
+      if (JSON.parse(request.postData()).otp !== "123456")
+        return route.fulfill({ status: 400, headers: authHeaders, json: { error: "access_denied", error_description: "Wrong email or verification code." } });
+      return route.fulfill({ headers: authHeaders, json: { login_ticket: "fixture-ticket" } });
+    }
+    if (url.pathname === "/authorize") return route.fulfill({ contentType: "text/html", body:
+      `<script>parent.postMessage({type:"authorization_response",response:{code:"fixture-code",state:${JSON.stringify(url.searchParams.get("state"))}}},"https://aesthetic.computer")</script>` });
+    if (url.pathname === "/oauth/token") return route.fulfill({ headers: authHeaders, json: {
+      access_token: "fixture-token", expires_in: 3600,
+      id_token: `fixture.${Buffer.from(JSON.stringify({ sub: "auth0|fixture", email: "new@example.test" })).toString("base64url")}.fixture`,
+    } });
+    if (url.pathname === "/handle" && request.method() === "GET") return route.fulfill({ json: { handle: state.handle } });
     if (url.pathname === "/handle" && request.method() === "POST") {
       state.requests.push(JSON.parse(request.postData()));
       if (state.taken) return route.fulfill({ status: 500, json: { message: "taken" } });
@@ -30,23 +49,56 @@ async function fixture(options = {}) {
     }
     if (url.pathname.endsWith(".mjs")) {
       const filename = url.pathname.split("/").at(-1);
-      assert.ok(["signup-flow.mjs", "signup-model.mjs", "visit-model.mjs", "text.mjs"].includes(filename));
+      assert.ok(["signup-flow.mjs", "signup-model.mjs", "visit-model.mjs", "text.mjs", "auth0-otp.mjs"].includes(filename));
       return route.fulfill({ contentType: "text/javascript", body: await readFile(new URL(`../public/aesthetic.computer/lib/${filename}`, import.meta.url), "utf8") });
     }
     return route.fulfill({ contentType: "text/html", body: `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><style>body{background:#cdc9a3;font:18px system-ui;margin:32px}button{font:inherit;padding:12px}</style><main><h1>AC test piece</h1><button id="join">I'm new</button></main><script type="module">
       import {createSignupFlow} from '/aesthetic.computer/lib/signup-flow.mjs';
-      window.acSignup = createSignupFlow(window, document);
+      window.acSignup = createSignupFlow(window, document, {clientId: 'fixture-client'});
       window.auth = {getTokenSilently: async () => 'fixture-token'};
       window.addEventListener('ac:handle-created', () => sessionStorage.setItem('fixture:handle-created', 'yes'));
-      document.querySelector('#join').onclick=()=>acSignup.start('signup');
+      document.querySelector('#join').onclick=()=>acSignup.${options.codeFlow ? "open" : "start"}('signup');
       window.ready = true;
     </script>` });
   });
   const page = await context.newPage();
-  await page.goto("https://aesthetic.computer/laer-klokken");
+  await page.goto("https://aesthetic.computer" + (options.path || "/laer-klokken"));
   await page.waitForFunction(() => window.ready);
   return { browser, context, page, state };
 }
+
+test("email-code signup reaches Laklok from home, keeps a starting piece, and recovers from a wrong code", async () => {
+  for (const [path, destination, viewport] of [
+    ["/", "/laklok", { width: 390, height: 844 }],
+    ["/laklok", "/laklok", { width: 1280, height: 900 }],
+    ["/notepat", "/notepat", { width: 390, height: 844 }],
+  ]) {
+    const f = await fixture({ codeFlow: true, path, viewport });
+    try {
+      const { page, state } = f;
+      state.taken = false;
+      await page.getByRole("button", { name: "I'm new" }).click();
+      await page.getByRole("heading", { name: "Pick your @handle" }).waitFor();
+      assert.match(await page.locator("dialog .description").textContent(), /Laklok/);
+      await page.getByLabel("Handle", { exact: true }).fill("new.pal");
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      await page.getByLabel("Email", { exact: true }).fill("new@example.test");
+      await page.getByRole("button", { name: "Send code", exact: true }).click();
+      if (path === "/") {
+        await page.getByLabel("Code", { exact: true }).fill("000000");
+        await page.getByRole("status").filter({ hasText: /that code doesn.t match/ }).waitFor();
+        assert.equal(new URL(page.url()).pathname, "/");
+      }
+      await page.getByLabel("Code", { exact: true }).fill("123456");
+      await page.waitForURL(`https://aesthetic.computer${destination}`);
+      await page.waitForFunction(() => sessionStorage.getItem('fixture:handle-created') === 'yes');
+      assert.equal(state.handle, "new.pal");
+      assert.equal(await page.evaluate(() => sessionStorage.getItem('ac:signup:v1')), null);
+      assert.ok(state.events.some(event => event.stages.includes("completed")));
+      assert.equal(await page.getByRole("dialog").count(), 0);
+    } finally { await f.browser.close(); }
+  }
+});
 
 test("signup survives the redirect, verifies email, handles a taken name and returns to the original piece", async () => {
   const f = await fixture();

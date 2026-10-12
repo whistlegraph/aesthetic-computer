@@ -1,5 +1,5 @@
 // Chat, 2024.3.23.16.35.00.043
-// Chat with other handles.
+// Ask @jeffrey for help in public.
 
 /* #region 📚 README
 #endregion */
@@ -73,6 +73,7 @@ let handleColorsFetches = 0; // count of asks made (the e2e test reads this)
 let chatTestChannel = null;
 let chatTestFrame = 0;
 let chatClient = null; // the room this piece is showing (set in boot)
+let helpRoom = false, communityButton = null;
 
 // Convert a handle to colored text using \color\ syntax
 function colorizeHandle(handle, colors) {
@@ -823,6 +824,8 @@ async function boot(
   otherChat,
   options,
 ) {
+  helpRoom = !otherChat;
+  communityButton = helpRoom ? new ui.Button() : null;
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
   handleColorsInFlight.clear();
@@ -842,12 +845,14 @@ async function boot(
   netPreload = net.preload;
   
   // Set clean label without params
-  if (params && params.length > 0) {
+  if (helpRoom) {
+    hud.label("help");
+  } else if (params && params.length > 0) {
     hud.label("chat");
   }
 
   // 📱 QR code in the top-left corner, to the left of the HUD label.
-  hud.qr("https://prompt.ac/chat");
+  hud.qr(helpRoom ? null : "https://prompt.ac/chat");
 
   rowHeight = typeface.blockHeight + 1;
 
@@ -1253,6 +1258,15 @@ function paint(
   options,
 ) {
   const client = options?.otherChat || chat;
+  if (helpRoom) options = {
+    hideChrome: true,
+    topMargin: 60,
+    presenceOverride: "Public help with @jeffrey",
+    presenceColor: [255, 255, 255],
+    presenceTop: 28,
+    inputPlaceholder: "Ask for help...",
+    ...options,
+  };
 
   // Per-piece top chrome height (laklok shrinks it). Reset every frame so the
   // override never leaks to other chat pieces in the same session.
@@ -1331,6 +1345,14 @@ function paint(
   // over the chrome panel but UNDER the online counter + ticker, so it can
   // fill the whole header without hiding them. Receives (api, topMargin).
   options?.paintHeader?.(api, topMargin);
+
+  if (helpRoom && communityButton) {
+    communityButton.box = new Box(6, 41, Math.min(110, screen.width - 12), 15);
+    const hot = communityButton.over || communityButton.down;
+    ink(hot ? "yellow" : "white").box(communityButton.box, "outline");
+    ink(hot ? "yellow" : "white").write("Conversation: Laklok", { x: 10, y: 45 },
+      false, undefined, false, "MatrixChunky8");
+  }
 
   // Interface
   {
@@ -2615,7 +2637,7 @@ function paint(
     const matrixChunky8Height = 8;
     const maxPresenceY = topMargin - matrixChunky8Height - 2;
     const presenceY = options?.presenceTop ?? Math.min(hudLabelBottom + 3, maxPresenceY);
-    const onlineFgColor = theme?.timestamp || 160;
+    const onlineFgColor = options?.presenceColor || theme?.timestamp || 160;
     ink(0, 0, 0, 180).write(line, {
       x: presenceX + 1,
       top: presenceY + 1,
@@ -3220,6 +3242,7 @@ function paint(
       return pen.x >= b.x && pen.x < b.x + w && pen.y >= b.y && pen.y < b.y + h;
     };
     const boxes = [
+      communityButton?.box,
       handleBtn?.btn?.box,
       attachBtnBounds,
       inputBtn?.box,
@@ -3257,6 +3280,9 @@ function act(
 ) {
   const client = otherChat || chat;
   const typefaceName = options?.typeface;
+  if (helpRoom && communityButton) {
+    communityButton.act(e, { push: () => jump("laklok") });
+  }
   if (options?.allowDelete === false) deleteAllowed = false;
 
   // Calculate rowHeight based on the typeface being used

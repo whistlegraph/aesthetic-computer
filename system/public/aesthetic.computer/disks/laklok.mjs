@@ -1,5 +1,5 @@
 // laklok, 2025.5.08.16.31.51.182
-// Learn the 'clock'! (formerly `laer-klokken`; that path still aliases here.)
+// Read along or say hi in the community conversation.
 // 🌐 Backed by the branded domain laklok.com.
 
 /* 📝 Notes
@@ -369,6 +369,7 @@ function paint($) {
   // The widgets themselves are shared with `lairk` — see lakChatOptions.
   chat.paint($, lakChatOptions(lakTheme, {
     otherChat: chatView(),
+    inputPlaceholder: "Say hi...",
     hideInput: lakTV, // 📺 broadcast face drops the login/message footer
     // QR box + gear + breathing room, and the envelope when it's drawn.
     presenceRightInset: 50 + (mailBox ? mailBox.w + 2 : 0),

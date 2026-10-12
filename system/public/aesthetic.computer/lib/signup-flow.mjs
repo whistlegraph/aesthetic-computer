@@ -111,7 +111,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
   }
   function handleForm() {
     track("verified"); track("handle_shown");
-    const view = frame("Choose your @handle", "Your name for sharing art and joining chat.");
+    const view = frame("Choose your @handle", "Your name in Laklok and on everything you make.");
     view.querySelector(".content").innerHTML = `<form><label for="ac-signup-handle">Handle</label><input id="ac-signup-handle" name="handle" autocomplete="nickname" autocapitalize="none" spellcheck="false" maxlength="17" required aria-describedby="ac-signup-hint"><p id="ac-signup-hint">1–16 letters or numbers. Dots and underscores can go between them.</p><button class="primary" type="submit">Create handle</button></form>`;
     const input = view.querySelector("input"), button = view.querySelector(".primary"), status = view.querySelector("[role=status]"), mine = generation;
     input.addEventListener("input", () => { status.textContent = ""; });
@@ -218,7 +218,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
   // 1. The @handle, checked as it is typed and held before anything else is asked.
   function handleStep({ message = "", claimNow = false } = {}) {
     const view = frame(claimNow ? "Choose your @handle" : "Pick your @handle",
-      "It’s how you show up in chat and on everything you make.");
+      "Your name in Laklok and on everything you make.");
     view.querySelector(".content").innerHTML = `<form novalidate><label for="ac-signup-handle">Handle</label>
       <div class="at"><span aria-hidden="true">@</span><input id="ac-signup-handle" name="handle" autocomplete="nickname" autocapitalize="none" spellcheck="false" maxlength="17" required aria-describedby="ac-signup-check"></div>
       <p class="check" id="ac-signup-check" aria-live="polite">1–16 letters or numbers. Dots and underscores can go between them.</p>
