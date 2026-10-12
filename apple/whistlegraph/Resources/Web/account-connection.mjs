@@ -1,9 +1,12 @@
-// Both wares report account progress to the visible native entry screen.
+// Account progress and optional handle palettes for the native entry screen.
 // An old verification must never reopen the workspace after sign-out/retry.
 export class AccountConnection {
-  constructor({verify, changed = () => {}} = {}) {
+  constructor({verify, changed = () => {}, paletteChanged = null, loadColors = null, initialColors = () => []} = {}) {
     this.verify = verify;
     this.changed = changed;
+    this.paletteChanged = paletteChanged;
+    this.loadColors = loadColors;
+    this.initialColors = initialColors;
     this.revision = 0;
   }
   async connect(token, notice = '') {
@@ -17,7 +20,15 @@ export class AccountConnection {
       const account = await this.verify(token);
       if (revision !== this.revision) return null;
       this.changed({status: account.handle ? 'ready' : 'needsHandle', notice: ''});
-      return account;
+      const result = {...account, colors: account.handle ? this.initialColors('@' + account.handle) : []};
+      if (account.handle && this.paletteChanged && this.loadColors) {
+        void this.loadColors('@' + account.handle).then(colors => {
+          if (revision !== this.revision) return;
+          result.colors = colors;
+          this.paletteChanged({handle: account.handle, colors});
+        }).catch(() => {});
+      }
+      return result;
     } catch (error) {
       if (revision !== this.revision) return null;
       this.changed({status: 'failed', notice: error.code === 'offline'

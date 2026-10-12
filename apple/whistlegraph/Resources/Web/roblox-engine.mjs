@@ -1,4 +1,5 @@
 import {AccountConnection} from './account-connection.mjs';
+import {fetchHandleColors,handleCharacterColors} from '/easel/src/handle-colors.mjs';
 import {AcServer} from '/easel/src/ac-server.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
 import {FLASH_MODEL} from './generation-policy.mjs';
@@ -10,10 +11,10 @@ import {roomPlace} from './roblox-export.mjs';
 import {saveForLaunch} from './roblox-connection.mjs';
 
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'roblox',...body});
-const accountConnection=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state})});
+const accountConnection=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state}),loadColors:fetchHandleColors,initialColors:handleCharacterColors,paletteChanged:state=>{if(handle===state.handle){colors=state.colors;snapshot();}}});
 const key='whistlegraph-roblox-room',endpoint='https://aesthetic.computer/api/whistlegraph-roblox';
 const versions=new PieceVersions(localStorage,key+'-versions',JSON.stringify(starterRoom()));
-let room=validateRoom(JSON.parse(versions.head.source)),selected='bridge',token='',handle='',owner='',busy=false,server=null;
+let room=validateRoom(JSON.parse(versions.head.source)),selected='bridge',token='',handle='',colors=[],owner='',busy=false,server=null;
 let notice='Saved on this phone.',error='',output='',attempt=null,staged=null,cancelled=false,successful=false;
 const wares=wareControls('roblox');
 document.body.classList.add('live-mode');
@@ -22,7 +23,7 @@ const box=document.createElement('div');box.id='live-preview-box';document.getEl
 const preview=roomPreview(box,{getRoom:()=>staged||room,canEdit:()=>!busy&&!window.whistlegraphRecording?.(),
   onPath:points=>commit(drawPath(room,points),'Draw a path'),onSelect:id=>{selected=id;snapshot();},onError:message=>{error=message;snapshot();}});
 function snapshot(){
-  post({action:'snapshot',snapshot:{ware:'roblox',roblox:{selected,notice:error||notice},code:'',handle,colors:[],head:versions.head.id,
+  post({action:'snapshot',snapshot:{ware:'roblox',roblox:{selected,notice:error||notice},code:'',handle,colors,head:versions.head.id,
     hasPiece:true,hasPreview:true,busy,phase:busy?'Building room…':'Room plan',error,output:output.slice(-6000),attempt,
     versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt})),
   }});
@@ -126,10 +127,10 @@ window.whistlegraphNativeCommand=command=>{
 window.whistlegraphEngineEvent=event=>{
   if(event.kind==='account'){
     if(event.token&&event.token===token&&handle&&!event.retry)return;
-    token=event.token||'';handle='';owner='';window.whistlegraphAccountReady=!!token;
+    token=event.token||'';handle='';colors=[];owner='';window.whistlegraphAccountReady=!!token;
     if(!token&&busy){cancelled=true;server?.interrupt();}
     const expected=token;
-    void accountConnection.connect(token,event.notice||'').then(account=>{if(account&&token===expected){handle=account.handle||'';owner=account.sub;snapshot();}});
+    void accountConnection.connect(token,event.notice||'').then(account=>{if(account&&token===expected){handle=account.handle||'';colors=account.colors;owner=account.sub;snapshot();}});
     snapshot();
   }
   if(event.kind==='error'){error=event.text||'Sign-in failed';snapshot();window.whistlegraphWorkFinished?.();}

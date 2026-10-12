@@ -34,7 +34,7 @@ const server=http.createServer(async(req,res)=>{
         if(this!==window)throw TypeError("Can only call Window.fetch on instances of Window");
         if(String(url).includes('/userinfo')){if(window.__accountFailure)return Promise.reject(Object.assign(Error('offline fixture'),{name:'TypeError'}));return Promise.resolve(Response.json({sub:'fixture-maker'}));}
         if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:window.__noHandle?'':'fixture'}));
-        if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[]}));
+        if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:Array.from({length:8},(_,i)=>({r:i*20,g:180,b:255-i*20}))}));
         if(String(url).includes('/api/whistlegraph-roblox')){
           __roomRequests.push({method:init.method,...(init.body?{body:JSON.parse(init.body)}:{})});
           return Promise.resolve(Response.json(init.method==='GET'?{available:__roomConfigured}:{revision:++__roomRevision,launchURL:'https://www.roblox.com/share?code=fixture&type=ExperienceDetails'}));
@@ -68,6 +68,10 @@ const server=http.createServer(async(req,res)=>{
       await page.evaluate(()=>{whistlegraphEngineEvent({kind:'previewReady'});whistlegraphEngineEvent({kind:'account',token:'fixture'});});
     };
     const accountStates=()=>page.evaluate(()=>__nativeMessages.filter(m=>m.action==='accountState').map(m=>m.status));
+    const checkPalette=async()=>{
+      await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.colors?.[0]?.[1]===180);
+      assert.deepEqual((await last()).colors,Array.from({length:8},(_,i)=>[i*20,180,255-i*20]),'every handle character uses the saved palette');
+    };
     const checkAccount=async()=>{
       await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.handle==='fixture');
       assert.equal((await accountStates()).at(-1),'ready');
@@ -87,11 +91,11 @@ const server=http.createServer(async(req,res)=>{
     };
     const last=()=>page.evaluate(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot);
     const change=async ware=>{await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.evaluate(ware=>whistlegraphNativeCommand({action:'setWare',ware}),ware)]);await ready(ware);};
-    await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?whistlegraph=1');await ready('piece');await checkAccount();
+    await page.goto('http://127.0.0.1:'+server.address().port+'/index.html?whistlegraph=1');await ready('piece');await checkAccount();await checkPalette();
     assert.equal((await last()).head,1);
     const pieceBefore=await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions'));
     assert.deepEqual(JSON.parse(pieceBefore),ledger,'legacy history migrated without source changes');
-    await change('roblox');await checkAccount();assert.equal((await last()).head,0);
+    await change('roblox');await checkAccount();await checkPalette();assert.equal((await last()).head,0);
     await page.evaluate(()=>whistlegraphAsk('make it bounce'));assert.equal((await last()).head,1);
     const bouncing=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-roblox-room-versions')));
     assert.ok(JSON.parse(bouncing.versions[1].source).objects.find(o=>o.id==='bridge').bounce>0);
@@ -115,7 +119,7 @@ const server=http.createServer(async(req,res)=>{
     await change('piece');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),pieceBefore);
     await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.evaluate(()=>whistlegraphAsk('switch to Roblox'))]);await ready('roblox');
     assert.equal((await last()).head,2,'room work survives switching away');
-    await change('doom');await checkAccount();assert.equal((await last()).head,0);
+    await change('doom');await checkAccount();await checkPalette();assert.equal((await last()).head,0);
     await page.evaluate(()=>whistlegraphAsk('make it darker'));assert.equal((await last()).head,1);
     const doomBefore=await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions'));
     assert.equal(JSON.parse(JSON.parse(doomBefore).versions[1].source).light,160);
@@ -131,7 +135,7 @@ const server=http.createServer(async(req,res)=>{
     await change('piece');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-source-versions')),pieceBefore);
     await change('doom');
     assert.equal((await last()).code,'wadfixture','published identity survives restarting and switching');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions')),doomBefore);
-    await page.evaluate(()=>whistlegraphNativeCommand({action:'undoDoom'}));assert.equal((await last()).head,0);
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'undoDoom'}));await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);assert.equal((await last()).head,0);
     await page.evaluate(()=>whistlegraphAsk('widen this room'));
     await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);
     assert.equal((await last()).head,2);

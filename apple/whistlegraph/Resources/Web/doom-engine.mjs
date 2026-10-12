@@ -1,4 +1,5 @@
 import {AccountConnection} from './account-connection.mjs';
+import {fetchHandleColors,handleCharacterColors} from '/easel/src/handle-colors.mjs';
 import {AcServer} from '/easel/src/ac-server.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
 import {FLASH_MODEL} from './generation-policy.mjs';
@@ -8,12 +9,12 @@ import {starterLevel,validateLevel,emptySeedHistory,WAD_MIME} from './doom-wad.m
 import {compileDocument,compileProject,asProject,validateProject,encode64,documentSummary} from './doom-project.mjs';
 import {createProjectTools,PROJECT_INSTRUCTIONS} from './doom-project-tools.mjs';
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'doom',...body});
-const account=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state})});
+const account=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state}),loadColors:fetchHandleColors,initialColors:handleCharacterColors,paletteChanged:state=>{if(handle===state.handle){colors=state.colors;snapshot();}}});
 const versions=new PieceVersions(localStorage,'whistlegraph-doom-versions',JSON.stringify(starterLevel()));
 const codes=JSON.parse(localStorage.getItem('whistlegraph-doom-codes')||'{}');
 const emptySeed=!codes[0]&&emptySeedHistory(versions.value);if(emptySeed)versions.persist(emptySeed);
 const validate=value=>value.format===2?validateProject(value):validateLevel(value);
-let level=validate(JSON.parse(versions.head.source)),wad=null,staged=null,token='',handle='',busy=false,server=null,cancelled=false,successful=false,error='',output='',attempt=readAttempt(),code='';
+let level=validate(JSON.parse(versions.head.source)),wad=null,staged=null,token='',handle='',colors=[],busy=false,server=null,cancelled=false,successful=false,error='',output='',attempt=readAttempt(),code='';
 function readAttempt(){try{const value=JSON.parse(localStorage.getItem('whistlegraph-doom-attempt')||'null');if(value?.status==='working')return {...value,status:'interrupted',error:'Editing was interrupted. The saved WAD is unchanged.'};return value;}catch{return null;}}
 let savedAttempt='';
 code=codes[versions.head.id]||'';
@@ -35,7 +36,7 @@ window.addEventListener('message',event=>{
  if(event.data?.type==='doom:request'){frameReady=true;for(const ready of frameWaiters.splice(0))ready();sendWad();}
  if(event.data?.type==='doom:compiled'){const call=compileCalls.get(event.data.id);if(!call)return;clearTimeout(call.timer);compileCalls.delete(event.data.id);if(event.data.error)call.reject(Error(event.data.error));else if(event.data.catalog)call.resolve(event.data.catalog);else if(event.data.wad instanceof ArrayBuffer)call.resolve(new Uint8Array(event.data.wad));else call.reject(Error('Invalid Doom compiler reply'));}
 });
-function snapshot(){const pending=JSON.stringify(attempt);if(pending!==savedAttempt){try{localStorage.setItem('whistlegraph-doom-attempt',pending);savedAttempt=pending;}catch{}}post({action:'snapshot',snapshot:{ware:'doom',code,caption:level.title,handle,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
+function snapshot(){const pending=JSON.stringify(attempt);if(pending!==savedAttempt){try{localStorage.setItem('whistlegraph-doom-attempt',pending);savedAttempt=pending;}catch{}}post({action:'snapshot',snapshot:{ware:'doom',code,caption:level.title,handle,colors,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
 async function commit(next,request){
   if(versions.value.versions.length>=100)throw Error('Export this WAD before starting another history.');
   const value=validate(next),source=JSON.stringify(value);if(source===versions.head.source)return false;
@@ -90,7 +91,7 @@ window.whistlegraphNativeCommand=command=>{
   }catch(failure){error=failure.message;snapshot();}
 };
 window.whistlegraphEngineEvent=event=>{
-  if(event.kind==='account'){if(event.token&&event.token===token&&handle&&!event.retry)return;token=event.token||'';handle='';window.whistlegraphAccountReady=!!token;if(!token&&busy){cancelled=true;server?.interrupt();}const expected=token;void account.connect(token,event.notice||'').then(result=>{if(result&&token===expected){handle=result.handle||'';snapshot();}});snapshot();}
+  if(event.kind==='account'){if(event.token&&event.token===token&&handle&&!event.retry)return;token=event.token||'';handle='';colors=[];window.whistlegraphAccountReady=!!token;if(!token&&busy){cancelled=true;server?.interrupt();}const expected=token;void account.connect(token,event.notice||'').then(result=>{if(result&&token===expected){handle=result.handle||'';colors=result.colors;snapshot();}});snapshot();}
   if(event.kind==='error'){error=event.text||'Sign-in failed';snapshot();window.whistlegraphWorkFinished?.();}
 };
 window.whistlegraphAsk=ask;window.whistlegraphAskSound=input=>ask(input.transcript?.trim()||'');window.whistlegraphIsBusy=()=>busy;

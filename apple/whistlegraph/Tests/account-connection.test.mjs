@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {AccountConnection} from '../Resources/Web/account-connection.mjs';
+import {handleCharacterColors} from '../../../aesel/src/handle-colors.mjs';
 
 test('signed out, verified, missing handle, failure, and retry all finish checking', async () => {
   const states = [];
@@ -42,4 +43,30 @@ test('late verification cannot undo sign-out or replace a newer retry', async ()
   pending[1].reject(Error('late failure'));
   assert.equal(await first, null);
   assert.equal(states.at(-1).status, 'ready');
+});
+
+test('saved palettes update the current handle without surviving sign-out or failed fetches', async () => {
+  const pending = [], palettes = [], states = [];
+  const connection = new AccountConnection({
+    verify: async token => ({sub: token, handle: token}), changed: state => states.push(state),
+    loadColors: () => new Promise((resolve, reject) => pending.push({resolve, reject})),
+    initialColors: handleCharacterColors, paletteChanged: palette => palettes.push(palette),
+  });
+  const old = await connection.connect('old');
+  assert.equal(old.colors.length, 4, 'the @ character gets a fallback color too');
+  await connection.connect('');
+  pending[0].resolve([[1,2,3]]);
+  await Promise.resolve();
+  assert.deepEqual(palettes, [], 'an old palette cannot paint a signed-out account');
+  const current = await connection.connect('new');
+  const colors = [[1,2,3],[4,5,6],[7,8,9],[10,11,12]];
+  pending[1].resolve(colors);
+  await Promise.resolve();
+  assert.deepEqual(current.colors, colors);
+  assert.deepEqual(palettes, [{handle:'new', colors}]);
+  const fallback = await connection.connect('retry');
+  pending[2].reject(Error('palette unavailable'));
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(fallback.colors.length, 6);
+  assert.equal(states.at(-1).status, 'ready', 'palette errors do not turn into sign-in errors');
 });
