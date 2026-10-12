@@ -4703,7 +4703,7 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text === "help") {
-    // Go to the Discord for now if anyone types help.
+    // Ask @jeffrey for help in the human chat.
     makeFlash($);
     jump("chat");
     return true;

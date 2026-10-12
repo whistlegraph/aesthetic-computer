@@ -66,7 +66,15 @@ ssh -i $SSH_KEY -o StrictHostKeyChecking=no $HELP_USER@$HELP_HOST '
     # Caddy config
     cat > /etc/caddy/Caddyfile <<CADDY
 help.aesthetic.computer {
-    reverse_proxy localhost:3004
+    handle /api/help/chat {
+        respond "The AI helper has retired." 410
+    }
+    handle /api/aesel/* {
+        reverse_proxy 127.0.0.1:3006
+    }
+    handle {
+        reverse_proxy localhost:3004
+    }
 }
 CADDY
 

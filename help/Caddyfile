@@ -1,0 +1,12 @@
+help.aesthetic.computer {
+    handle /api/help/chat {
+        header Content-Type application/json
+        respond `{"error":"The AI helper has retired.","helpUrl":"https://aesthetic.computer/chat"}` 410
+    }
+    handle /api/aesel/* {
+        reverse_proxy 127.0.0.1:3006
+    }
+    handle {
+        reverse_proxy localhost:3004
+    }
+}

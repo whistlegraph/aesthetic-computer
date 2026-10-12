@@ -3583,8 +3583,8 @@ void draw() {
       },
       help: {
         sig: "help",
-        desc: "Join a help channel.",
-        done: false,
+        desc: "Ask @jeffrey for help.",
+        done: true,
       },
       shillball: {
         sig: "shillball",
