@@ -5,19 +5,20 @@ export const kind = (b) => SECTIONS.find(s => b >= s.start && b < s.start + s.ba
 export const MIX_DB = { drums: -10.5, bass: -17.5, pad: -9, keys: -9.5, whistle: -11.5 };
 export const OFFSET = (AT.r1 - 1) * beat - 0.35;
 export const DURATION = TOTAL_BEATS * beat + 2.5 - OFFSET;
-export function instrumentEvents() {
+export function instrumentEvents({ dance = false } = {}) {
  const events = [], secs = b => b * beat, T = b => b * beat;
  const drums = "drums", bass = "bass", pad = "pad", keys = "keys", whistle = "whistle";
  const place = (bus, sound, t, gain = 1, pan = 0) => events.push({ bus, ...sound, t, gain, pan });
  const kick = (velocity = 1) => ({ type: "kick", velocity, duration: .42 });
  const tap = (velocity = 1) => ({ type: "tap", velocity, duration: .16 });
+ const hat = (velocity = 1) => ({ type: "hat", velocity, duration: .09 });
  const tick = (velocity = 1, frequency = 3150) => ({ type: "tick", velocity, frequency, duration: .03 });
  const bassTone = (midi, duration) => ({ type: "bass", midi, duration });
  const padTone = (midi, duration) => ({ type: "pad", midi, duration });
  const whistleTone = (midi, duration) => ({ type: "whistle", midi, duration });
  const fmKey = (midi, duration, velocity = 1) => ({ type: "keys", midi, duration, velocity });
  const toks = n => n.split(/\s+/).map(t => { const [k,d] = t.split(":"); return {k,d:Number(d)}; });
-const SW = 0.06;                                                 // swing on the off eighths
+const SW = dance ? 0.02 : 0.06;                                  // swing on the off eighths (nearly straight for the dance cut)
 const swung = (b) => (Math.abs((b % 1) - 0.5) < 1e-6 ? b + SW : b);
 const chordAt = (b) => { const s = SECTIONS.find((s) => b >= s.start && b < s.start + s.bars * 4); return s.chords[Math.floor((b - s.start) / 4) % s.chords.length]; };
 const isRefrain = (id) => id.startsWith("r");
@@ -33,7 +34,20 @@ for (let bar = 0; bar < TOTAL_BEATS / 4; bar++) {
     if (off && !inRef) continue;
     place(drums, tick(off ? 0.35 : intro || bridge ? 0.7 : 0.55), T(swung(b)), 0.32, (e % 4 < 2 ? -1 : 1) * 0.25);
   }
-  if (!bridge && !intro && !opening && !(outro && bar === 1)) {
+  if (dance && !bridge && !intro && !opening && !(outro && bar === 1)) {
+    // the dance cut (jeffrey 2026-10-12): four on the floor, open hat on every "and", taps on 2 and 4
+    // the floor arrives in stages (jeffrey: "slower / more subtle", "more quiet"): one kick a bar under
+    // the first refrain, rising; two a bar in the crash; four on the floor only from the second refrain
+    const r1bar = id === "r1" ? bar - SECTIONS[1].start / 4 : 0;
+    const beats = id === "r1" ? [0] : id === "v2" ? [0, 2] : [0, 1, 2, 3];
+    const kg = id === "r1" ? 0.3 + 0.05 * r1bar : id === "v2" ? 0.5 : 0.58;
+    for (const q of beats) place(drums, kick(q % 2 ? 0.92 : 1), T(b0 + q), kg);
+    for (let q = 0; q < 4; q++) place(drums, hat(q % 2 ? 0.8 : 0.65), T(b0 + q + 0.5), 0.42, 0.18);
+    place(drums, tap(1), T(b0 + 1), 0.8, 0.1);
+    place(drums, tap(1), T(b0 + 3), 0.8, 0.1);
+    place(drums, tap(0.3), T(b0 + 3.75), 0.5, 0.2);
+    if (inRef) place(drums, tap(0.35), T(b0 + 2.75), 0.45, -0.1);
+  } else if (!bridge && !intro && !opening && !(outro && bar === 1)) {
     place(drums, kick(1), T(b0), 0.95);
     place(drums, kick(0.9), T(b0 + 2.5), 0.85);
     if (inRef) place(drums, kick(0.75), T(b0 + 1.5), 0.7);

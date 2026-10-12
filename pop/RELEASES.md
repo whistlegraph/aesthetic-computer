@@ -139,7 +139,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## eight gigabytes — RENDER (first cut 2026-09-26; @jeffrey ear-check next)
+## eight gigabytes — PACKET (dance cut approved 2026-10-12; DistroKid upload next)
 
 - **Lane:** `pop/eightgigabytes/` · the pop cut of the MacNeoPolitan Trio's
   *IV. The Ballad of neo* (`grants/culturehub-la-2026/macneopolitan/members/neo/ballad.md`)
@@ -158,7 +158,14 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   Pitch: neo 230/232 notes within 50 c (mean 9 c), blueberry 87/87, frisbee 78/83.
   Whisper small.en 12 % mean WER on the lead (digits and *the system* → *this*).
 - **Artist:** Aesthetic Dot Computer (intended) · title `eight gigabytes` lowercase.
-- **Next:** @jeffrey hears it → tune by ear · cover (no wordmark) · DistroKid packet.
+- **Dance cut (2026-10-12, @jeffrey: "this is good"):** `node pop/eightgigabytes/bin/render.mjs --dance --no-sing`
+  → `out/eightgigabytes-dance.{wav,mp3}`. The kick arrives in stages (one a bar under refrain 1, two in the
+  crash, four on the floor from refrain 2; none in XI), open hats on the offbeats, swing 2 %, sidechain on
+  bass/pad/keys/whistle/vox/reverb, pop polish (mud cut, presence, air, bus glue) · −13.4 LUFS · LRA 2.4 · −1.0 dBTP.
+  Voices re-sung 2026-10-12 (the Oct 10 wipe took the stems; singrender built on blueberry, neo's disk guard).
+- **Release files:** `out/release/eightgigabytes.flac` (16-bit/44.1, 9.4 MB, under the ~10 MB browser cap) ·
+  `out/release/cover-3000.jpg` from `marketing/campaigns/eightgigabytes/gens/v6.png` (three Neos facing out, each singing its own face on a 16:10 screen, Menu Band semitone keycaps; v1 kept as cover-3000-v1.jpg).
+- **Next:** cover v6 approved 2026-10-12 → DistroKid upload as Aesthetic Dot Computer.
 
 ---
 

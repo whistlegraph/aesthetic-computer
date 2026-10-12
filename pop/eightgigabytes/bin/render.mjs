@@ -32,6 +32,8 @@ const SING = process.env.SINGRENDER || resolve(REPO, "slab/menuband/.build/relea
 const WHISPER_MODEL = process.env.WHISPER_MODEL
   || [resolve(REPO, "recap/models/ggml-small.en.bin"), resolve(REPO, "recap/models/ggml-base.en.bin")].find(existsSync);
 const flags = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/, "").split("=")).map(([k, v]) => [k, v ?? true]));
+const DANCE = !!flags.dance;                                   // --dance: four on the floor, sidechain, pop master
+const NAME = DANCE ? "eightgigabytes-dance" : "eightgigabytes";
 mkdirSync(STEMS, { recursive: true });
 
 const SR = 48000;
@@ -180,6 +182,18 @@ function kick(vel = 1) {
   for (let i = 0; i < n; i++) { const t = i / SR, f = 46 + 90 * Math.exp(-t * 28); ph += 2 * Math.PI * f / SR; y[i] = Math.tanh(1.6 * Math.sin(ph)) * Math.exp(-t * 7.5) * vel + (t < 0.004 ? rnd() * 0.25 * (1 - t / 0.004) : 0); }
   return y;
 }
+function kickDance(vel = 1) {                                  // the floor: longer sweep, a click on top
+  const n = Math.round(0.42 * SR), y = new Float32Array(n); let ph = 0;
+  for (let i = 0; i < n; i++) { const t = i / SR, f = 50 + 120 * Math.exp(-t * 32); ph += 2 * Math.PI * f / SR; y[i] = (Math.tanh(2.1 * Math.sin(ph)) * Math.exp(-t * 6.5) + Math.sin(2 * Math.PI * 1900 * t) * Math.exp(-t * 400) * 0.22) * vel; }
+  return y;
+}
+function hat(vel = 1) {                                        // open hat, short
+  const n = Math.round(0.09 * SR), noise = new Float32Array(n);
+  for (let i = 0; i < n; i++) noise[i] = rnd();
+  const bp = biquadBP(noise, 9000, 0.8), y = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const t = i / SR; y[i] = bp[i] * Math.exp(-t * 38) * Math.min(1, t / 0.002) * vel * 1.4; }
+  return y;
+}
 function tap(vel = 1) {                                          // fingers on a trackpad
   const n = Math.round(0.16 * SR), noise = new Float32Array(n);
   for (let i = 0; i < n; i++) noise[i] = rnd();
@@ -217,8 +231,9 @@ const padTone = (m, dur) => tone(m, dur, { partials: [[1, 1], [2, 0.3], [3, 0.12
 const bassTone = (m, dur) => tone(m, dur, { partials: [[1, 1], [2, 0.35], [3, 0.08]], a: 0.006, r: 0.05, sat: 1.4 });
 const whistleTone = (m, dur) => tone(m, dur, { partials: [[1, 1], [2, 0.05]], a: 0.045, r: 0.12, vib: 22, vibHz: 5.2, breath: 0.035 });
 
-for (const e of instrumentEvents()) {
-  const synth = { kick: () => kick(e.velocity), tap: () => tap(e.velocity),
+const EVENTS = instrumentEvents({ dance: DANCE });
+for (const e of EVENTS) {
+  const synth = { kick: () => (DANCE ? kickDance : kick)(e.velocity), tap: () => tap(e.velocity), hat: () => hat(e.velocity),
     tick: () => tick(e.velocity, e.frequency), bass: () => bassTone(e.midi, e.duration),
     pad: () => padTone(e.midi, e.duration), keys: () => fmKey(e.midi, e.duration, e.velocity),
     whistle: () => whistleTone(e.midi, e.duration) };
@@ -266,32 +281,48 @@ const rvL = reverb(vmono, [0.0297, 0.0371, 0.0411, 0.0437], dB(-15)), rvR = reve
 
 // ── mix ────────────────────────────────────────────────────────────────
 // 2026-09-26 jeffrey: "the instruments are a bit too loud vs the voices" → bed −3.5 dB, harmonies up
-const MIX = { drums: dB(-10.5), bass: dB(-17.5), pad: dB(-9), keys: dB(-9.5), whistle: dB(-11.5), vox: dB(0.5) };
+const MIX = DANCE
+  ? { drums: dB(-9.5), bass: dB(-16), pad: dB(-9.5), keys: dB(-10), whistle: dB(-11.5), vox: dB(1.5) }
+  : { drums: dB(-10.5), bass: dB(-17.5), pad: dB(-9), keys: dB(-9.5), whistle: dB(-11.5), vox: dB(0.5) };
+// sidechain (dance cut): everything but the drums ducks on each kick and swells back over ~a beat;
+// the voices duck least so the words stay forward
+const DUCK = DANCE ? { bass: 0.7, pad: 0.6, keys: 0.5, whistle: 0.35, vox: 0.22 } : {};
+const sc = new Float32Array(N);
+if (DANCE) {
+  for (const e of EVENTS) if (e.type === "kick") {
+    const i0 = Math.round((PRE + e.t) * SR), att = Math.round(0.004 * SR), len = Math.round(beat * SR);
+    for (let k = 0; k < len && i0 + k < N; k++) { if (i0 + k < 0) continue; const t = k / SR, v = k < att ? k / att : Math.exp(-t / (beat * 0.28)); if (v > sc[i0 + k]) sc[i0 + k] = v; }
+  }
+}
 // the bed breathes: quieter under the intro, the bridge and the outro
 const bedScale = (i) => { const b = (i / SR - PRE) / beat, id = b < 0 ? "intro" : kind(Math.min(b, TOTAL_BEATS - 1e-6)); return id === "bridge" ? 0.6 : id === "intro" ? 0.72 : id === "outro" ? 0.75 : 1; };
 const BED = new Set(["drums", "bass", "pad", "keys"]);
 const L = new Float32Array(N), Rr = new Float32Array(N);
 const scale = new Float32Array(N); { let cur = bedScale(0); for (let i = 0; i < N; i++) { const want = bedScale(i); cur += (want - cur) * 0.00004; scale[i] = cur; } }
-for (const [name, b] of Object.entries({ drums, bass, pad, keys, whistle, vox })) { const bed = BED.has(name); for (let i = 0; i < N; i++) { const g = MIX[name] * (bed ? scale[i] : 1); L[i] += b.L[i] * g; Rr[i] += b.R[i] * g; } }
-for (let i = 0; i < N; i++) { L[i] += rvL[i] * MIX.vox; Rr[i] += rvR[i] * MIX.vox; }
+for (const [name, b] of Object.entries({ drums, bass, pad, keys, whistle, vox })) { const bed = BED.has(name), d = DUCK[name] || 0; for (let i = 0; i < N; i++) { const g = MIX[name] * (bed ? scale[i] : 1) * (1 - d * sc[i]); L[i] += b.L[i] * g; Rr[i] += b.R[i] * g; } }
+for (let i = 0; i < N; i++) { const g = MIX.vox * (1 - (DANCE ? 0.5 : 0) * sc[i]); L[i] += rvL[i] * g; Rr[i] += rvR[i] * g; }
 // gentle bus saturation + peak guard
 let peak = 0; for (let i = 0; i < N; i++) { L[i] = Math.tanh(L[i] * 1.1); Rr[i] = Math.tanh(Rr[i] * 1.1); peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rr[i])); }
 const norm = dB(-1) / Math.max(peak, 1e-6); for (let i = 0; i < N; i++) { L[i] *= norm; Rr[i] *= norm; }
-const RAW = resolve(OUT, "eightgigabytes-mix.wav");
+const RAW = resolve(OUT, `${NAME}-mix.wav`);
 writeWavF32(RAW, L, Rr);
-for (const [name, b] of Object.entries({ drums, bass, pad, keys, whistle, vox })) writeWavF32(resolve(STEMS, `${name}.wav`), b.L, b.R);
-for (const [m, b] of Object.entries(voxBy)) writeWavF32(resolve(STEMS, `vox-${m}.wav`), b.L, b.R);
+if (!DANCE) {
+  for (const [name, b] of Object.entries({ drums, bass, pad, keys, whistle, vox })) writeWavF32(resolve(STEMS, `${name}.wav`), b.L, b.R);
+  for (const [m, b] of Object.entries(voxBy)) writeWavF32(resolve(STEMS, `vox-${m}.wav`), b.L, b.R);
+}
 
 // the record starts on the voice (jeffrey 2026-09-26): trim to a third of
 // a second before neo's pickup, the wake chord caught mid-swell
 const TRIM = Math.max(0, PRE + secs(AT.r1 - 1) - 0.35);
 // master: two-pass loudnorm → 24-bit wav + 320k mp3
-const WAV = resolve(OUT, "eightgigabytes.wav"), MP3 = resolve(OUT, "eightgigabytes.mp3");
+const WAV = resolve(OUT, `${NAME}.wav`), MP3 = resolve(OUT, `${NAME}.mp3`);
+// pop polish (dance cut): clear the mud, lift presence and air, glue the bus before the loudness pass
+const POLISH = DANCE ? "highpass=f=30,equalizer=f=280:t=q:w=1:g=-2,equalizer=f=3200:t=q:w=1.2:g=1.5,treble=g=2.5:f=10000,acompressor=threshold=0.125:ratio=2.5:attack=15:release=180:makeup=1.4," : "";
 const ln = "loudnorm=I=-14:TP=-1.5:LRA=9";
-const m1 = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", RAW, "-af", `${ln}:print_format=json`, "-f", "null", "-"], { encoding: "utf8" });
+const m1 = spawnSync("ffmpeg", ["-hide_banner", "-nostats", ...(DANCE ? ["-ss", TRIM.toFixed(3)] : []), "-i", RAW, "-af", `${POLISH}${ln}:print_format=json`, "-f", "null", "-"], { encoding: "utf8" });
 const js = JSON.parse((m1.stderr.match(/\{[\s\S]*\}/) || ["{}"])[0]);
 const ln2 = js.input_i ? `${ln}:measured_I=${js.input_i}:measured_TP=${js.input_tp}:measured_LRA=${js.input_lra}:measured_thresh=${js.input_thresh}:offset=${js.target_offset}:linear=true` : ln;
-spawnSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-ss", TRIM.toFixed(3), "-i", RAW, "-af", `afade=t=in:d=0.3,${ln2},alimiter=limit=0.94:attack=3:release=60`, "-ar", "48000", "-c:a", "pcm_s24le", WAV]);
+spawnSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-ss", TRIM.toFixed(3), "-i", RAW, "-af", `afade=t=in:d=0.3,${POLISH}${ln2},alimiter=limit=0.94:attack=3:release=60`, "-ar", "48000", "-c:a", "pcm_s24le", WAV]);
 spawnSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-i", WAV, "-c:a", "libmp3lame", "-b:a", "320k", "-metadata", `title=${TITLE}`, "-metadata", "artist=Aesthetic Dot Computer", MP3]);
 const meas = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", WAV, "-af", "ebur128=peak=true", "-f", "null", "-"], { encoding: "utf8" }).stderr;
 const last = (re) => { const all = [...meas.matchAll(re)]; return all.length ? all[all.length - 1][1] : "?"; };
@@ -300,7 +331,7 @@ console.log(`✓ ${MP3}\n  ${(N / SR).toFixed(1)} s · ${lufs} LUFS · LRA ${lra
 // excerpts for judging: the opening chorus alone, and the front of the
 // record (intro → chorus → the crash → chorus)
 for (const [name, endBeat] of [["chorus", AT.v2], ["front", AT.bridge]]) {
-  const end = PRE - TRIM + secs(endBeat) + 0.3, CH = resolve(OUT, `eightgigabytes-${name}`);
+  const end = PRE - TRIM + secs(endBeat) + 0.3, CH = resolve(OUT, `${NAME}-${name}`);
   spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-t", end.toFixed(3), "-i", WAV, "-af", `afade=t=out:st=${(end - 0.6).toFixed(3)}:d=0.6`, "-c:a", "pcm_s24le", `${CH}.wav`]);
   spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", `${CH}.wav`, "-c:a", "libmp3lame", "-b:a", "320k", "-metadata", `title=${TITLE} (${name})`, `${CH}.mp3`]);
   console.log(`✓ ${CH}.mp3 (${end.toFixed(1)} s)`);
@@ -314,7 +345,7 @@ function wer(ref, hyp) {
   for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
   return d[a.length][b.length] / a.length;
 }
-if (!flags["no-hear"] && WHISPER_MODEL && spawnSync("which", ["whisper-cli"]).status === 0) {
+if (!DANCE && !flags["no-hear"] && WHISPER_MODEL && spawnSync("which", ["whisper-cli"]).status === 0) {
   const rows = [];
   for (const p of placedLines.filter((l) => l.role !== "hum" && l.role !== "echo")) {
     const w16 = p.wav.replace(/\.wav$/, ".16k.wav");
@@ -330,4 +361,4 @@ if (!flags["no-hear"] && WHISPER_MODEL && spawnSync("which", ["whisper-cli"]).st
   console.log(`\n♪ heard back (${WHISPER_MODEL.split("/").pop()}) — mean WER ${(mean * 100).toFixed(0)}%`);
   for (const r of rows) console.log(`  ${String(r.wer).padEnd(4)} ${r.m.padEnd(9)} ${r.text}\n       → ${r.heard}`);
 }
-writeFileSync(resolve(OUT, "timeline.json"), JSON.stringify({ title: TITLE, bpm: BPM, key: KEY, seconds: N / SR - TRIM, pre: PRE - TRIM, trim: TRIM, totalBeats: TOTAL_BEATS, sections: SECTIONS.map((s) => ({ id: s.id, at: +(PRE - TRIM + secs(s.start)).toFixed(2), bars: s.bars })), lines: placedLines }, null, 1));
+writeFileSync(resolve(OUT, DANCE ? "timeline-dance.json" : "timeline.json"), JSON.stringify({ title: TITLE, bpm: BPM, key: KEY, seconds: N / SR - TRIM, pre: PRE - TRIM, trim: TRIM, totalBeats: TOTAL_BEATS, sections: SECTIONS.map((s) => ({ id: s.id, at: +(PRE - TRIM + secs(s.start)).toFixed(2), bars: s.bars })), lines: placedLines }, null, 1));

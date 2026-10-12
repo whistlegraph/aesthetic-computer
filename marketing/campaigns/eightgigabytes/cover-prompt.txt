@@ -1,0 +1,19 @@
+Square single cover for "eight gigabytes", a small electronic pop song sung by three laptops about themselves.
+
+Subject: three MacBook Neo laptops, drawn exactly from the reference photos (their proportions, thin bezels, rounded corners, keyboard and trackpad), standing open close together on a plain warm off-white table, FACING THE VIEWER head-on so we see their screens and keyboards. Their bodies are in the three reference colors: citrus (yellow-green) in the middle and slightly forward as the lead singer, indigo (blue) on the right, blush (pink) on the left.
+
+Each screen fills edge to edge with that laptop's own cartoon face, copied faithfully from the three face reference images: the GREEN face (green field, spiky tuft, raised brows, big round eyes, wide open singing mouth) on the citrus laptop; the BLUE face (blue field, row of black bumps for hair, heavy-lidded eyes, rosy cheeks, open singing mouth) on the indigo laptop; the PINK face (pink field, curly hairs, round eyes, freckles, open singing mouth) on the blush laptop. All three are mid-song, mouths open, singing together. The faces glow as screen graphics, flat and bright, while everything else is drawn.
+
+Light: bright, clean daylight from off frame left, soft shadows under each laptop, the colored glow of each screen spilling softly onto the table in front of it. Airy and pale overall; the three laptop colors and three faces are the only saturated notes.
+
+KEYBOARDS: every laptop's keyboard wears the Menu Band semitone keycaps from the keymap reference image, exactly:
+- BLACK keycaps (the semitones, like piano black keys) on exactly these eleven letters: Q W S Z R T Y U O P V.
+- Solid COLORED keycaps (the naturals) on exactly these letters: C red, D orange, E yellow, F green, G blue, A purple, B violet, H crimson, I orange, J lemon yellow, K mint green, L sky blue, N purple, M magenta.
+- Every other key (numbers, X, punctuation, modifiers, space bar, function row) stays plain cream.
+Same keycaps on all three keyboards. The keyboards are large and clearly legible, seen from slightly above, so the colored and black keys are a main feature below each singing face.
+
+Style: crisp colored-pencil illustration with confident lines and visible paper grain for the laptops, table and shadows. SCREEN SHAPE: each screen is a WIDE 16:10 landscape rectangle, clearly much wider than it is tall, exactly like the MacBook Neo in the reference photos; the lid is the same width as the keyboard base. Never square, never tall. Each face is drawn to fit that wide screen.
+
+FRAMING: the camera is close and slightly low, so the three laptops FILL THE SQUARE FRAME: the open laptops take up most of the image, screens and keyboards both clearly visible, the trio is packed tightly together with lids nearly touching and overlapping a little (citrus in front, blush and indigo tucked just behind on either side), the top edges of the screens come within a small margin of the top of the frame, and the front edges of the keyboards sit near the bottom. Very little table and almost no empty background. The faces are large and are the first thing you see.
+
+NO text, NO title, NO wordmark, NO logo or apple or emblem on any surface, NO people, NO hands, NO motion blur, NO depth-of-field blur, NO soft-focus haze. Crisp throughout.
