@@ -28,6 +28,7 @@ enum PreviewNavigation {
         // the exact URL: matching the launch URL alone dropped every message after boot (2026-10-09).
         guard url.scheme == "https", url.host == "aesthetic.computer", let flags = query(url) else { return false }
         if url.path == "/doom-player" {
+            if document == .workspace, flags == ["preview": "1", "bridge": "1"] { return true }
             guard document == .workspace, (flags.count == 1 || (flags.count == 2 && flags["preview"] == "1")), let level = flags["level"],
                   level.utf8.count <= 12_000, let data = level.data(using: .utf8),
                   (try? JSONSerialization.jsonObject(with: data)) is [String: Any] else { return false }

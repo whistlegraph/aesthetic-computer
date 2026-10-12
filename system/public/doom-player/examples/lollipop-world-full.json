@@ -1,0 +1,605 @@
+{
+  "format": 2,
+  "title": "Lollipop World",
+  "game": "doom",
+  "maps": [
+    {
+      "name": "E1M1",
+      "rooms": [
+        {
+          "polygon": [
+            [
+              -512,
+              -640
+            ],
+            [
+              -512,
+              0
+            ],
+            [
+              512,
+              0
+            ],
+            [
+              512,
+              -640
+            ]
+          ],
+          "floor": 0,
+          "ceiling": 240,
+          "floorTexture": "CANDYFLR",
+          "ceilingTexture": "CANDYSKY",
+          "wall": "CANDYWAL",
+          "light": 240,
+          "special": 0,
+          "tag": 0
+        },
+        {
+          "polygon": [
+            [
+              -256,
+              0
+            ],
+            [
+              -256,
+              64
+            ],
+            [
+              256,
+              64
+            ],
+            [
+              256,
+              0
+            ]
+          ],
+          "floor": 16,
+          "ceiling": 240,
+          "floorTexture": "CANDYFLR",
+          "ceilingTexture": "CANDYSKY",
+          "wall": "CANDYWAL",
+          "light": 240,
+          "special": 0,
+          "tag": 0
+        },
+        {
+          "polygon": [
+            [
+              -256,
+              64
+            ],
+            [
+              -256,
+              128
+            ],
+            [
+              256,
+              128
+            ],
+            [
+              256,
+              64
+            ]
+          ],
+          "floor": 32,
+          "ceiling": 240,
+          "floorTexture": "CANDYFLR",
+          "ceilingTexture": "CANDYSKY",
+          "wall": "CANDYWAL",
+          "light": 240,
+          "special": 0,
+          "tag": 0
+        },
+        {
+          "polygon": [
+            [
+              -512,
+              128
+            ],
+            [
+              -512,
+              640
+            ],
+            [
+              512,
+              640
+            ],
+            [
+              512,
+              128
+            ]
+          ],
+          "floor": 48,
+          "ceiling": 240,
+          "floorTexture": "CANDYFLR",
+          "ceilingTexture": "CANDYSKY",
+          "wall": "CANDYWAL",
+          "light": 240,
+          "special": 0,
+          "tag": 0
+        }
+      ],
+      "things": [
+        {
+          "x": 0,
+          "y": -480,
+          "angle": 90,
+          "type": 1,
+          "flags": 7
+        },
+        {
+          "x": -200,
+          "y": -200,
+          "angle": 0,
+          "type": 2014,
+          "flags": 7
+        },
+        {
+          "x": 200,
+          "y": -200,
+          "angle": 0,
+          "type": 2014,
+          "flags": 7
+        },
+        {
+          "x": -200,
+          "y": 320,
+          "angle": 0,
+          "type": 2014,
+          "flags": 7
+        },
+        {
+          "x": 200,
+          "y": 320,
+          "angle": 0,
+          "type": 2014,
+          "flags": 7
+        },
+        {
+          "x": 0,
+          "y": 500,
+          "angle": 0,
+          "type": 2014,
+          "flags": 7
+        }
+      ]
+    }
+  ],
+  "graphics": [
+    {
+      "kind": "texture",
+      "name": "CANDYWAL",
+      "width": 128,
+      "height": 128,
+      "background": "#fff5dd",
+      "layers": [
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              -128,
+              0
+            ],
+            [
+              -112,
+              0
+            ],
+            [
+              16,
+              128
+            ],
+            [
+              0,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              -96,
+              0
+            ],
+            [
+              -80,
+              0
+            ],
+            [
+              48,
+              128
+            ],
+            [
+              32,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              -64,
+              0
+            ],
+            [
+              -48,
+              0
+            ],
+            [
+              80,
+              128
+            ],
+            [
+              64,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              -32,
+              0
+            ],
+            [
+              -16,
+              0
+            ],
+            [
+              112,
+              128
+            ],
+            [
+              96,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              16,
+              0
+            ],
+            [
+              144,
+              128
+            ],
+            [
+              128,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              32,
+              0
+            ],
+            [
+              48,
+              0
+            ],
+            [
+              176,
+              128
+            ],
+            [
+              160,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              64,
+              0
+            ],
+            [
+              80,
+              0
+            ],
+            [
+              208,
+              128
+            ],
+            [
+              192,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              96,
+              0
+            ],
+            [
+              112,
+              0
+            ],
+            [
+              240,
+              128
+            ],
+            [
+              224,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              128,
+              0
+            ],
+            [
+              144,
+              0
+            ],
+            [
+              272,
+              128
+            ],
+            [
+              256,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              160,
+              0
+            ],
+            [
+              176,
+              0
+            ],
+            [
+              304,
+              128
+            ],
+            [
+              288,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              192,
+              0
+            ],
+            [
+              208,
+              0
+            ],
+            [
+              336,
+              128
+            ],
+            [
+              320,
+              128
+            ]
+          ]
+        },
+        {
+          "shape": "polygon",
+          "color": "#ff77aa",
+          "points": [
+            [
+              224,
+              0
+            ],
+            [
+              240,
+              0
+            ],
+            [
+              368,
+              128
+            ],
+            [
+              352,
+              128
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "flat",
+      "name": "CANDYFLR",
+      "width": 64,
+      "height": 64,
+      "background": "#fff5dd",
+      "layers": [
+        {
+          "shape": "rect",
+          "x": 16,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        },
+        {
+          "shape": "rect",
+          "x": 48,
+          "y": 0,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        },
+        {
+          "shape": "rect",
+          "x": 0,
+          "y": 16,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        },
+        {
+          "shape": "rect",
+          "x": 32,
+          "y": 16,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        },
+        {
+          "shape": "rect",
+          "x": 16,
+          "y": 32,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        },
+        {
+          "shape": "rect",
+          "x": 48,
+          "y": 32,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        },
+        {
+          "shape": "rect",
+          "x": 0,
+          "y": 48,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        },
+        {
+          "shape": "rect",
+          "x": 32,
+          "y": 48,
+          "width": 16,
+          "height": 16,
+          "color": "#ff99bb"
+        }
+      ]
+    },
+    {
+      "kind": "flat",
+      "name": "CANDYSKY",
+      "width": 64,
+      "height": 64,
+      "background": "#99ddff",
+      "layers": []
+    },
+    {
+      "kind": "sprite",
+      "names": [
+        "BON1A0",
+        "BON1B0",
+        "BON1C0",
+        "BON1D0"
+      ],
+      "width": 64,
+      "height": 96,
+      "left": 32,
+      "top": 96,
+      "background": "transparent",
+      "layers": [
+        {
+          "shape": "rect",
+          "x": 29,
+          "y": 24,
+          "width": 6,
+          "height": 70,
+          "color": "#fff5dd"
+        },
+        {
+          "shape": "ellipse",
+          "x": 7,
+          "y": 3,
+          "width": 50,
+          "height": 50,
+          "color": "#ff4488"
+        },
+        {
+          "shape": "ellipse",
+          "x": 11,
+          "y": 7,
+          "width": 42,
+          "height": 42,
+          "color": "#fff5dd"
+        },
+        {
+          "shape": "ellipse",
+          "x": 15,
+          "y": 11,
+          "width": 34,
+          "height": 34,
+          "color": "#ff4488"
+        },
+        {
+          "shape": "ellipse",
+          "x": 19,
+          "y": 15,
+          "width": 26,
+          "height": 26,
+          "color": "#fff5dd"
+        },
+        {
+          "shape": "ellipse",
+          "x": 23,
+          "y": 19,
+          "width": 18,
+          "height": 18,
+          "color": "#ff4488"
+        },
+        {
+          "shape": "ellipse",
+          "x": 27,
+          "y": 23,
+          "width": 10,
+          "height": 10,
+          "color": "#fff5dd"
+        },
+        {
+          "shape": "ellipse",
+          "x": 31,
+          "y": 27,
+          "width": 2,
+          "height": 2,
+          "color": "#ff4488"
+        }
+      ]
+    }
+  ],
+  "lumps": []
+}

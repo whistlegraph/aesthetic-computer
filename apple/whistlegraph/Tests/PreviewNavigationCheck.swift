@@ -25,6 +25,12 @@ import Foundation
         precondition(PreviewNavigation.bridge(URL(string: rewritten), mainFrame: false, document: .workspace) == .artwork)
         precondition(allowed("about:blank"))
         let doom = "https://aesthetic.computer/doom-player/?level=%7B%22version%22%3A1%7D"
+        let transferred = "https://aesthetic.computer/doom-player/?preview=1&bridge=1"
+        precondition(allowed(transferred))
+        precondition(!allowed(transferred, main: true))
+        precondition(!allowed(transferred, document: .story))
+        precondition(!allowed(transferred + "&file=evil.wad"))
+        precondition(!allowed(transferred.replacingOccurrences(of: "bridge=1", with: "bridge=2")))
         precondition(allowed(doom))
         precondition(allowed(doom + "&preview=1"))
         precondition(!allowed(doom + "&preview=2"))

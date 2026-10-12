@@ -1,6 +1,9 @@
 import {readFile,writeFile,copyFile,cp,mkdir} from 'node:fs/promises';
 const base=new URL('./',import.meta.url),root=new URL('../../',base);
 await copyFile(new URL('system/public/doom-player/wad.mjs',root),new URL('Resources/Web/doom-wad.mjs',base));
+for(const name of ['project','project-tools']){const source=await readFile(new URL('system/public/doom-player/'+name+'.mjs',root),'utf8');await writeFile(new URL('Resources/Web/doom-'+name+'.mjs',base),source.replaceAll("'./wad.mjs'","'./doom-wad.mjs'").replaceAll("'./project.mjs'","'./doom-project.mjs'"));}
+await mkdir(new URL('Resources/Web/vendor/',base),{recursive:true});
+for(const name of ['Zdbsp.mjs','zdbsp.wasm','ZDBSP-COPYING','zdbsp-source.tar.gz','zdbsp-wasm-source.tar.gz'])await copyFile(new URL('system/public/doom-player/vendor/'+name,root),new URL('Resources/Web/vendor/'+name,base));
 await copyFile(new URL('shared/roblox-room.mjs',root),new URL('Resources/Web/room-schema.mjs',base));
 await writeFile(new URL('Resources/Web/roblox-runtime.mjs',base),'export const ROOM_RUNTIME = '+JSON.stringify(await readFile(new URL('roblox/rooms/src/server/Room.luau',root),'utf8'))+';\n');
 let html=await readFile(new URL('Resources/Web/shell.html',base),'utf8');

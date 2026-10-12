@@ -761,8 +761,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 self?.emitEngine(["kind": "robloxLaunch", "opened": opened])
             }
         case "exportWad":
-            guard let encoded = body["data"] as? String, encoded.utf8.count <= 100_000,
-                  let data = Data(base64Encoded: encoded), data.count >= 12,
+            guard let encoded = body["data"] as? String, encoded.utf8.count <= 44_739_244,
+                  let data = Data(base64Encoded: encoded), data.count >= 12, data.count <= 32 * 1024 * 1024,
                   String(data: data.prefix(4), encoding: .ascii) == "PWAD",
                   let host = webView?.window?.rootViewController else { return }
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -27,7 +27,7 @@ final class WaresTests: XCTestCase {
         let editor = app.descendants(matching: .any)["typed-request"].firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
-        editor.typeText("Make Lollipop World: a bright spacious room, health pickups in a ring, no monsters.")
+        editor.typeText("Make a lollipop world with custom candy textures and sprites, connected rooms and stairs.")
         app.buttons["request-send"].tap()
         let generated = expectation(for: NSPredicate { _, _ in
             let version = app.buttons.matching(current).firstMatch
@@ -40,6 +40,10 @@ final class WaresTests: XCTestCase {
         screenshot.name = "WAD generated through Whistlegraph prompt"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+        app.buttons["doom-actions"].tap()
+        app.buttons["Export WAD"].tap()
+        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 15), "A full WAD must reach the native share sheet")
+        app.buttons["Close"].tap()
     }
 
     func testDoomWarePlaysRealWad() {
