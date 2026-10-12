@@ -13668,7 +13668,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
     if (type === "onboarding:complete") {
       if (window.acSignup && !window.acTOKEN) window.acSignup.complete();
-      else send({ type: "jump", content: { piece: "chat" } });
+      else send({ type: "jump", content: { piece: "laklok" } });
       return;
     }
 

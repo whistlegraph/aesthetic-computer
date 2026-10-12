@@ -67,7 +67,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     attempt = null;
     try { win.sessionStorage.removeItem(KEY); } catch {}
   }
-  function complete(fallback = "/chat") {
+  function complete(fallback = "/laklok") {
     const destination = signupReturnPath(read()?.returnTo, win.location.origin) || fallback;
     track("completed");
     clear(); close();

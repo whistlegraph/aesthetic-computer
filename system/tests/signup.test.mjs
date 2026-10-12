@@ -5,9 +5,35 @@ import { signupReturnPath, validateSignupEvent, signupUpdate } from "../public/a
 import { createSignupTrackingHandler } from "../backend/signup-tracking.mjs";
 import { createSignupStatusHandler } from "../backend/signup-status.mjs";
 import { readSignupAccounts, summarizeSignupCohort } from "../backend/signup-report.mjs";
+import { createSignupFlow } from "../public/aesthetic.computer/lib/signup-flow.mjs";
 
 const origin = "https://aesthetic.computer";
 const snapshot = () => ({ version: 1, id: randomUUID(), mode: "signup", source: "prompt", stages: ["started"], automated: false });
+
+test("signup defaults to Laklok, preserves a starting piece, and retains returning-login fallback", () => {
+  for (const [path, fallback, expected] of [
+    ["/", undefined, "/laklok"],
+    ["/prompt", undefined, "/laklok"],
+    ["/notepat", undefined, "/notepat"],
+    ["/laklok", undefined, "/laklok"],
+    ["/", "/prompt", "/prompt"],
+  ]) {
+    const storage = new Map();
+    let destination;
+    const win = {
+      location: { href: origin + path, origin, pathname: path, assign: value => { destination = value; } },
+      navigator: { doNotTrack: "1" },
+      sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
+      clearInterval() {},
+    };
+    win.top = win;
+    const flow = createSignupFlow(win, { referrer: "" });
+    flow.start("signup");
+    flow.complete(fallback);
+    assert.equal(destination, expected, path);
+    assert.equal(storage.size, 0);
+  }
+});
 
 test("return targets preserve pieces but cannot redirect externally or retain secrets", () => {
   assert.equal(signupReturnPath("/laer-klokken?token=secret#private", origin), "/laer-klokken");
