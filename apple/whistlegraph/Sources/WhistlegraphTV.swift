@@ -242,6 +242,7 @@ struct WhistlegraphTVSheet: View {
                 if tv.devices.isEmpty { Text("Looking for AC OS on your Wi-Fi…").foregroundStyle(.secondary) }
                 if !tv.status.isEmpty { Text(tv.status).accessibilityIdentifier("tv-status") }
                 if tv.selected != nil { Button("Stop projecting", role: .destructive) { tv.disconnect() } }
+                AirPlaySection()
                 Section {
                     HStack {
                         TextField("Letters on the screen", text: $tv.pairing)

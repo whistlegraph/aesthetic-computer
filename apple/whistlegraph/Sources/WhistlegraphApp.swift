@@ -626,6 +626,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     override init() {
         super.init()
         tv.token = { [weak self] in try? await self?.account.token() }
+        AirPlayProjector.shared.onProjectingChanged = { [weak self] in self?.applyProjectionVolume() }
         #if DEBUG
         if isConsentFixture, ProcessInfo.processInfo.environment["WALKIE_RESET_AI_CONSENT"] == "1" {
             UserDefaults.standard.removeObject(forKey: AIConsentRecord.key(subject: "fixture:ai-consent"))
@@ -714,12 +715,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 #endif
                 previewFrame = message.frameInfo
                 renderPreview()
+                applyProjectionVolume()
                 emitEngine(["kind": "previewReady"])
             } else if body["action"] as? String == "previewEvent" {
                 if let event = body["event"] as? [String: Any],
                    event["requestID"] as? Int == previewRequestID,
                    event["sourceHash"] as? String == VisualCapture.hash(previewSource) {
-                    if event["kind"] as? String == "painted" { DeviceActionLog.shared.record(.preview, .painted); paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource) }
+                    if event["kind"] as? String == "painted" { DeviceActionLog.shared.record(.preview, .painted); paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource); AirPlayProjector.shared.update(previewSource) }
                     if event["kind"] as? String == "invalidated" { DeviceActionLog.shared.record(.preview, .invalidated); paintedPreviewHash = nil }
                 }
                 #if DEBUG
@@ -950,6 +952,15 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         }
     }
 
+    /// While the piece plays on an AirPlay screen the phone's copy is silent, so
+    /// exactly one instance is heard. A story presentation's own mute is kept intact.
+    func applyProjectionVolume() {
+        guard let frame = previewFrame else { return }
+        let script = AirPlayProjector.shared.projecting
+            ? "if (window.__storyPreviousVolume !== undefined) window.__storyPreviousVolume = 0; window.AC?.setMasterVolume(0);"
+            : (presentingStory ? "window.__storyPreviousVolume = 1;" : "window.AC?.setMasterVolume(1);")
+        Task { _ = try? await webView?.callAsyncJavaScript(script, arguments: [:], in: frame, contentWorld: .page) }
+    }
     private func renderPreview() {
         guard let frame = previewFrame, !previewSource.isEmpty else { return }
         let source = previewSource

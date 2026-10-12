@@ -60,6 +60,14 @@ final class WhistlegraphAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         return true
     }
 
+    // A mirrored Apple TV or AirPlay screen gets its own scene showing only the
+    // piece (AirPlayProjector); every other role stays SwiftUI's.
+    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        if connectingSceneSession.role == .windowExternalDisplayNonInteractive { configuration.delegateClass = AirPlaySceneDelegate.self }
+        return configuration
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Task { @MainActor in WhistlegraphNotifications.registered(token: deviceToken, account: session?.account) }
     }

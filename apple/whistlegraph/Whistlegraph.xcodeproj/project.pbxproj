@@ -20,6 +20,7 @@
 		15EE658816EEA4B8BE6AAF5A /* StoryVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49854384EFBA11ABDE4F70C6 /* StoryVoice.swift */; };
 		19717448D7598ADAABBF739E /* HeaderSheetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F98F7D3CE551FC6458D1F37 /* HeaderSheetsTests.swift */; };
 		1B101CD76675E76E3CADEF17 /* MimeFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF9805E6F3EA99293F95943 /* MimeFeed.swift */; };
+		20D56ABBEF012A23EDDE4B22 /* AirPlayProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B06B796B1AFF1ED50ADF618C /* AirPlayProjector.swift */; };
 		24D22223CEEE7F360CEAEADC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FCE365B860DBD53E42DB2824 /* PrivacyInfo.xcprivacy */; };
 		26D07334E2DEBA6705671BB0 /* WhistlegraphApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5F188938A81E704BB7F9F9 /* WhistlegraphApp.swift */; };
 		275555C74507A6F62B0F037B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF5F023E15041FF61F9FD358 /* Assets.xcassets */; };
@@ -177,6 +178,7 @@
 		A95FEBB51736F61D93DD1A7A /* WhistlegraphMint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMint.swift; sourceTree = "<group>"; };
 		AA82C05C15B77B528BFFA05F /* WaresTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaresTests.swift; sourceTree = "<group>"; };
 		AA986555CACCC8B8B978CFB5 /* WhistlegraphWare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWare.swift; sourceTree = "<group>"; };
+		B06B796B1AFF1ED50ADF618C /* AirPlayProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPlayProjector.swift; sourceTree = "<group>"; };
 		B136AE25B77A11AF107A5319 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B4F9A906C6B2232BD07BEFE5 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
 		B55FB4AA387E716F9FEE0F83 /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
@@ -240,6 +242,7 @@
 			children = (
 				725C2A9ACD0323F49EFFDFC1 /* AccountDeletionClient.swift */,
 				FD07129E1ECC6AC505F2FD72 /* AIConsentRecord.swift */,
+				B06B796B1AFF1ED50ADF618C /* AirPlayProjector.swift */,
 				1CC14C186FE1CB5B19AD1D72 /* AudioBenchmark.swift */,
 				4E61EF96840670F2F894F970 /* BrainSettings.swift */,
 				5ABFC6C11146A1540B635EE6 /* ButtonSounds.swift */,
@@ -487,6 +490,7 @@
 				6AB03522A9C86406EB456624 /* AIConsentRecord.swift in Sources */,
 				4A8B9BCE5403659FFB71EA65 /* AccountDeletionClient.swift in Sources */,
 				8395B3E4B12986EAE391B9C8 /* AeselButtonStyle.swift in Sources */,
+				20D56ABBEF012A23EDDE4B22 /* AirPlayProjector.swift in Sources */,
 				2F15D5A580A90A18E92D90F1 /* AudioBenchmark.swift in Sources */,
 				0438F503606B4A37262B7CCC /* BrainSettings.swift in Sources */,
 				2F01E350A7FF55359B002344 /* ButtonSounds.swift in Sources */,
