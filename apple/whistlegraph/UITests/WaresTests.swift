@@ -27,12 +27,14 @@ final class WaresTests: XCTestCase {
         let editor = app.descendants(matching: .any)["typed-request"].firstMatch
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         editor.tap()
-        editor.typeText("Make a lollipop world with custom candy textures and sprites, connected rooms and stairs.")
+        let prompt = ProcessInfo.processInfo.environment["WHISTLEGRAPH_LIVE_WAD_PROMPT"] ?? "Make a lollipop world with custom candy textures and sprites, connected rooms and stairs."
+        XCTAssertLessThanOrEqual(prompt.count, 96)
+        editor.typeText(prompt)
         app.buttons["request-send"].tap()
         var failureReason: String?
         let generated = expectation(for: NSPredicate { _, _ in
             if app.buttons["attempt-retry"].exists {
-                let row = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Make a lollipop world")).firstMatch
+                let row = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", prompt)).firstMatch
                 failureReason = (row.exists ? row.value as? String : nil) ?? "The app reported a failed WAD request"
                 return true
             }

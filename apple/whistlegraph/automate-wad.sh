@@ -1,7 +1,8 @@
 #!/bin/bash
 # Submit one real WAD request through Whistlegraph's iPhone UI.
 set -euo pipefail
-device=${1:?Usage: automate-wad.sh DEVICE_UDID}
+device=${1:?Usage: automate-wad.sh DEVICE_UDID [PROMPT]}
+prompt=${2:-"Make a lollipop world with custom candy textures and sprites, connected rooms and stairs."}
 repo=$(cd "$(dirname "$0")/../.." && pwd)
 derived=${AC_WAD_AUTOMATION_DERIVED_DATA:-/tmp/whistlegraph-doom-test-dd}
 cd "$repo"
@@ -10,7 +11,7 @@ xcrun devicectl device process launch --device "$device" computer.aesthetic.walk
 xcodebuild -project apple/whistlegraph/Whistlegraph.xcodeproj -scheme WhistlegraphUITests \
   -configuration Debug -destination "id=$device" -derivedDataPath "$derived" \
   -allowProvisioningUpdates -jobs 2 build-for-testing
-run=$(python3 - "$derived/Build/Products" <<'PY'
+run=$(python3 - "$derived/Build/Products" "$prompt" <<'PY'
 import pathlib, plistlib, sys
 products = pathlib.Path(sys.argv[1])
 candidates = sorted(products.glob('WhistlegraphUITests_iphoneos*.xctestrun'), key=lambda p: p.stat().st_mtime)
@@ -22,6 +23,8 @@ for key, target in data.items():
         continue
     target.setdefault('EnvironmentVariables', {})['WHISTLEGRAPH_LIVE_WAD_AUTOMATION'] = '1'
     target.setdefault('TestingEnvironmentVariables', {})['WHISTLEGRAPH_LIVE_WAD_AUTOMATION'] = '1'
+    for key in ['EnvironmentVariables', 'TestingEnvironmentVariables']:
+        target[key]['WHISTLEGRAPH_LIVE_WAD_PROMPT'] = sys.argv[2]
 # Keep __TESTROOT__ relative paths beside the original runner.
 output = products / 'WhistlegraphLiveWad.xctestrun'
 output.write_bytes(plistlib.dumps(data))

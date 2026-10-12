@@ -22,4 +22,4 @@ node apple/whistlegraph/Tests/ware-bridge.test.cjs
 
 `examples/lollipop-world-full.wad` has custom candy walls, flats and sprites, four connected sectors and traversable steps. Rebuild it with `node tests/doom/make-full-world.mjs`. `examples/lollipop-world-full.json` contains its editable project. `examples/lollipop-world.wad` is the earlier single-room candy fixture; its separate generator is `tests/doom/make-lollipop-world.mjs`.
 
-With an unlocked iPhone, `apple/whistlegraph/automate-wad.sh DEVICE_UDID` sends one real signed-in request through the native app and verifies a new playable version and native WAD export. It uses the phone's existing account and saves a screenshot in its xcresult bundle. Ordinary tests skip live generation unless explicitly enabled.
+With an unlocked iPhone, `apple/whistlegraph/automate-wad.sh DEVICE_UDID [PROMPT]` sends one real signed-in request through the native app and verifies a new playable version and native WAD export. It uses the phone's existing account and saves a screenshot in its xcresult bundle. Ordinary tests skip live generation unless explicitly enabled.
