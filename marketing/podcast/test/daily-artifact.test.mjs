@@ -59,11 +59,11 @@ test("an unminted legacy receipt cannot resume into another HTML mint", () => {
   assert.doesNotThrow(() => checkPinnedArtifact({ artifact: "zip", artifactMimeType: "application/x-directory", metadataUri: "ipfs://QmNew" }, "zip"));
 });
 
-test("gif metadata is exactly what the daily minted before the switch", () => {
+test("gif metadata retains its format and includes the Laklok invitation", () => {
   const m = tokenMetadata({ ...episode, artifact: "gif" });
   assert.deepEqual(m, {
     name: episode.title,
-    description: `${episode.body}\n\n— Aesthetic Dot Computer, ${episode.date}. Listen: ${episode.episodeUrl}\nThe page as a live KidLisp piece: https://aesthetic.computer/dly`,
+    description: `${episode.body}\n\n— Aesthetic Dot Computer, ${episode.date}. Listen: ${episode.episodeUrl}\nThe page as a live KidLisp piece: https://aesthetic.computer/dly\n\nCome say hi at https://laklok.com.`,
     tags: ["aesthetic.computer", "kidlisp", "podcast", "devlog", "pixelfont"],
     symbol: "OBJKT",
     artifactUri: uris.gif,

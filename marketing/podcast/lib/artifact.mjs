@@ -152,7 +152,7 @@ export function tokenMetadata({ title, body, date, episodeUrl, code, creator, ar
   const directory = { uri: uris.directory, mimeType: TEIA_FORMAT, dimensions: { value: "responsive", unit: "viewport" } };
   return {
     name: title,
-    description: `${body}\n\n— Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nThe page as a live KidLisp piece: ${ac}/${code}`,
+    description: `${body}\n\n— Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nThe page as a live KidLisp piece: ${ac}/${code}\n\nCome say hi at https://laklok.com.`,
     tags: ["aesthetic.computer", "kidlisp", "podcast", "devlog", "pixelfont"],
     symbol: "OBJKT",
     artifactUri: live ? uris.directory : uris.gif,
