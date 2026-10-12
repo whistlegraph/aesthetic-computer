@@ -30,6 +30,7 @@ import Foundation
         let invalidDuration = try JSONSerialization.data(withJSONObject: older)
         precondition(MimeLayout.decode(invalidDuration) == nil)
         let wad = try JSONDecoder().decode(Post.self, from: Data("{\"code\":\"abc\",\"file\":{\"name\":\"arena.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"/api/mime?file=abc\"}}".utf8))
+        precondition(wad.command == "doom~abc", "WAD identifiers must resolve in the AC prompt namespace")
         if case let .runtime(url, kind) = wad.body {
             precondition(kind == "doom" && url.path == "/doom-player")
             precondition(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first?.value == "https://mime.ac/api/mime?file=abc")

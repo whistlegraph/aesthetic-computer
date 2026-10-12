@@ -19,6 +19,7 @@ struct Post: Decodable, Identifiable, Equatable {
 
     /// The code you can enter in AC: #painting, !tape, $kidlisp, a piece by name.
     var command: String {
+        if ["application/x-doom-wad", "application/x-doom"].contains(mimeType) { return "doom~" + self.code }
         guard let code = media?.code, !code.isEmpty else { return self.code }
         switch media?.kind {
         case "painting": return "#" + code

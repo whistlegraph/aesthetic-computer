@@ -1143,9 +1143,10 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   if (root) {
     // AC's own notation names the work: #painting, !tape, $kidlisp, a piece by its code.
     const sigil = { painting: "#", tape: "!", kidlisp: "$" }[post.media?.kind];
-    const label = post.media?.code ? (sigil ?? "") + post.media.code : post.code;
+    const doom = ["application/x-doom-wad", "application/x-doom"].includes(post.file?.type);
+    const label = doom ? "doom~" + post.code : post.media?.code ? (sigil ?? "") + post.media.code : post.code;
     const source = el("a", "media-label", label);
-    source.href = post.media?.url || "#/t/" + post.code;
+    source.href = doom ? "https://aesthetic.computer/doom~" + encodeURIComponent(post.code) : post.media?.url || "#/t/" + post.code;
     byline.append(source);
     if (post.media?.title && post.media.title !== label) byline.append(el("span", "media-title", post.media.title));
     if (post.origin) {
