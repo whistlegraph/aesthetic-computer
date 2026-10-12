@@ -23,7 +23,7 @@ import WebKit
         config.mediaTypesRequiringUserActionForPlayback = []
         config.allowsInlineMediaPlayback = true
         config.preferences.inactiveSchedulingPolicy = .none
-        config.userContentController.add(self, name: "walkie")
+        config.userContentController.add(self, name: "whistlegraph")
         config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphPixelSize = \(WhistlegraphPreview.savedPixelSize);", injectionTime: .atDocumentStart, forMainFrameOnly: false))
         config.userContentController.addUserScript(WKUserScript(source: WhistlegraphPreview.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         config.userContentController.addUserScript(WKUserScript(source: StoryTape.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))

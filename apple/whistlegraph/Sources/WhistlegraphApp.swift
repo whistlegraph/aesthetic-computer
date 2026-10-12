@@ -628,6 +628,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         tv.token = { [weak self] in try? await self?.account.token() }
         AirPlayProjector.shared.onProjectingChanged = { [weak self] in self?.applyProjectionVolume() }
         #if DEBUG
+        Task { @MainActor in try? await Task.sleep(for: .seconds(2)); AirPlayProjector.shared.streamTest() }
+        #endif
+        #if DEBUG
         if isConsentFixture, ProcessInfo.processInfo.environment["WALKIE_RESET_AI_CONSENT"] == "1" {
             UserDefaults.standard.removeObject(forKey: AIConsentRecord.key(subject: "fixture:ai-consent"))
         }
