@@ -1453,6 +1453,48 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     statsOverlay.textContent = lines.join("\n");
   }
 
+  // 📊 Frame meter for the macOS app's title bar. Off until the app asks;
+  // reports display frames, painted frames and worker frame time at 4 Hz.
+  const frameMeter = { on: false, sentAt: 0, rafs: 0, paints: 0, frames: 0, total: 0, worst: 0 };
+  window.acFrameMeter = (on) => {
+    on = on === true;
+    if (on === frameMeter.on) return;
+    frameMeter.on = on;
+    clearInterval(frameMeter.timer);
+    if (!on) return;
+    let since = performance.now();
+    const tick = () => {
+      if (!frameMeter.on) return;
+      frameMeter.rafs += 1;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    frameMeter.timer = setInterval(() => {
+      const now = performance.now(), seconds = (now - since) / 1000;
+      since = now;
+      window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({
+        type: "frame:meter",
+        body: {
+          fps: frameMeter.rafs / seconds,
+          paints: frameMeter.paints / seconds,
+          frameMs: frameMeter.frames ? frameMeter.total / frameMeter.frames : 0,
+          worstMs: frameMeter.worst,
+        },
+      }));
+      Object.assign(frameMeter, { rafs: 0, paints: 0, frames: 0, total: 0, worst: 0 });
+    }, 250);
+  };
+
+  function meterFrameReturned(painted) {
+    if (!frameMeter.on || !frameMeter.sentAt) return;
+    const ms = performance.now() - frameMeter.sentAt;
+    frameMeter.sentAt = 0;
+    frameMeter.frames += 1;
+    frameMeter.total += ms;
+    if (ms > frameMeter.worst) frameMeter.worst = ms;
+    if (painted) frameMeter.paints += 1;
+  }
+
   function shouldUseWebGLComposite(content) {
     if (!content) return false;
     if (content.webgpuEnabled) return false;
@@ -5659,6 +5701,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     promptRenderPending = false;
     frameAlreadyRequested = true;
+    if (frameMeter.on) frameMeter.sentAt = performance.now();
     frameCount += 1n;
     armFrameStallWatchdog();
 
@@ -14346,6 +14389,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           }
         });
 
+        // Prompt keys that travel as keyboard events (history, completion,
+        // escape) go out now rather than on the next display tick. Registered
+        // after `Keyboard`, so its listener has already queued the event.
+        window.addEventListener("keydown", (e) => {
+          if (document.activeElement !== input) return;
+          if (["ArrowUp", "ArrowDown", "Tab", "Escape"].includes(e.key)) requestPromptRender();
+        });
+
         window.addEventListener("blur", (e) => {
           input.blur();
         });
@@ -15170,6 +15221,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       input.value = content.text;
       if (content.cursor && document.activeElement === keyboard.input)
         input.setSelectionRange(content.cursor, content.cursor);
+      requestPromptRender(); // History and completions repaint without a display tick.
       return;
     }
 
@@ -19646,6 +19698,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "render") window.acInputLatencyProbe?.received(content.inputLatencySequence);
+    meterFrameReturned(type === "render" && content.paintChanged === true);
     let probeAsyncRender = false;
     try {
 

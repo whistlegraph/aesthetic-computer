@@ -3172,6 +3172,7 @@ class TextInput {
     }
 
     if (e.is("prompt:text:cursor") && this.#lock === false) {
+      const before = `${this.#prompt.cursor.x},${this.#prompt.cursor.y},${this.selection}`;
       if (e.cursor === this.text.length) {
         // this.snap();
         this.#prompt.snapTo(this.text);
@@ -3202,6 +3203,19 @@ class TextInput {
 
       this.#ensureBlink();
       this.blink?.flip(true);
+
+      // Same click as dragging the caret, only when something moved.
+      const after = `${this.#prompt.cursor.x},${this.#prompt.cursor.y},${this.selection}`;
+      if (!this.mute && after !== before) {
+        sound.synth({
+          type: "sine",
+          tone: 800,
+          attack: 0.01,
+          decay: 0.95,
+          volume: 0.25,
+          duration: 0.008,
+        });
+      }
     }
 
     if (e.is("touch") && !this.#lock) {

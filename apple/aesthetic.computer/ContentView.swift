@@ -226,6 +226,13 @@ final class BootStatus: ObservableObject {
                   message.frameInfo.securityOrigin.host == "aesthetic.computer",
                   let webView = message.webView, let rgb = dictionary["body"] as? [Double] else { return }
             ApplePlatform.colorWindow(rgb, webView: webView)
+        #if os(macOS)
+        case "frame:meter":
+            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer",
+                  let body = dictionary["body"] as? [String: Any] else { return }
+            FrameMeter.shared.update(body)
+        #endif
         case "boot:heartbeat":
             bootStatus?.heartbeat()
         case "boot:ready":
@@ -241,6 +248,7 @@ final class BootStatus: ObservableObject {
                     if let error { NSLog("AC audio startup: %@", error.localizedDescription) }
                 }
                 MacPromptLatencyProbe.run(in: message.webView)
+                FrameMeter.shared.sync(message.webView)
                 #endif
             }
         case "usage:canvas":

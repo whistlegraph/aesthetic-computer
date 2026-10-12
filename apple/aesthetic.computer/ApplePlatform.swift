@@ -103,6 +103,70 @@ typealias ACImage = NSImage
     }
 }
 
+// 📊 Frame meter: the runtime reports display frames, painted frames and the
+// worker's frame time at 4 Hz while enabled; the title bar draws them as a bar.
+@MainActor final class FrameMeter: ObservableObject {
+    static let shared = FrameMeter()
+    private static let key = "acFrameMeter"
+    @Published var enabled = UserDefaults.standard.bool(forKey: key) {
+        didSet {
+            UserDefaults.standard.set(enabled, forKey: Self.key)
+            if !enabled { fps = 0; paints = 0; frameMs = 0; worstMs = 0 }
+            sync(AppDelegate.shared?.appWebView)
+        }
+    }
+    @Published private(set) var fps = 0.0
+    @Published private(set) var paints = 0.0
+    @Published private(set) var frameMs = 0.0
+    @Published private(set) var worstMs = 0.0
+
+    func sync(_ webView: WKWebView?) {
+        webView?.evaluateJavaScript("window.acFrameMeter?.(\(enabled))") { _, _ in }
+    }
+
+    func update(_ body: [String: Any]) {
+        guard enabled else { return }
+        func value(_ name: String) -> Double {
+            let number = (body[name] as? Double) ?? 0
+            return number.isFinite ? max(0, min(number, 1000)) : 0
+        }
+        fps = value("fps"); paints = value("paints")
+        frameMs = value("frameMs"); worstMs = value("worstMs")
+    }
+}
+
+// A horizontal bar in the title bar: its length is painted frames against the
+// display's rate, tinted from the window's own backdrop color.
+struct FrameMeterView: View {
+    @ObservedObject private var meter = FrameMeter.shared
+    @ObservedObject private var theme = AppleWindowTheme.shared
+
+    var body: some View {
+        let ink: Color = theme.colorScheme == .dark ? .white : .black
+        let rate = Double(NSScreen.main?.maximumFramesPerSecond ?? 60)
+        HStack(spacing: 6) {
+            Text(verbatim: "\(Int(meter.paints.rounded()))/\(Int(meter.fps.rounded()))")
+                .frame(width: 44, alignment: .trailing)
+            GeometryReader { bar in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(ink.opacity(0.12))
+                    Capsule().fill(ink.opacity(0.45))
+                        .frame(width: bar.size.width * min(meter.paints / rate, 1))
+                }
+            }
+            .frame(width: 96, height: 4)
+            Text(verbatim: String(format: "%.1f ms", meter.frameMs))
+                .frame(width: 48, alignment: .leading)
+        }
+        .font(.system(size: 10, design: .monospaced))
+        .foregroundStyle(ink.opacity(0.6))
+        .padding(.horizontal, 10)
+        .frame(height: 28)
+        .opacity(meter.enabled ? 1 : 0)
+        .help("Painted frames / display frames per second; worker frame time")
+    }
+}
+
 // WebKit can reset AppKit's cursor when the invisible prompt editor gains
 // focus, even while CSS still reports the SVG cursor. Reassert the same image
 // after mouse dispatch so native focus changes cannot replace it.
@@ -116,7 +180,14 @@ final class ACNativeWebView: WKWebView {
         super.viewDidMoveToWindow()
         if let cursorMonitor { NSEvent.removeMonitor(cursorMonitor) }
         cursorMonitor = nil
-        guard window != nil else { return }
+        guard let window else { return }
+        if !window.titlebarAccessoryViewControllers.contains(where: { $0.view is NSHostingView<FrameMeterView> }) {
+            let accessory = NSTitlebarAccessoryViewController()
+            accessory.view = NSHostingView(rootView: FrameMeterView())
+            accessory.view.frame.size = accessory.view.fittingSize
+            accessory.layoutAttribute = .trailing
+            window.addTitlebarAccessoryViewController(accessory)
+        }
         cursorMonitor = NSEvent.addLocalMonitorForEvents(matching: [
             .mouseMoved, .leftMouseDown, .leftMouseUp, .leftMouseDragged,
             .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp

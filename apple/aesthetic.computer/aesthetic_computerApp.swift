@@ -11,6 +11,7 @@ struct aesthetic_computerApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @ObservedObject private var navigation = AppNavigation.shared
+    @ObservedObject private var frameMeter = FrameMeter.shared
     #else
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     #endif
@@ -38,6 +39,10 @@ struct aesthetic_computerApp: App {
                         if response == .OK, let url = panel.url { PopPlayer.shared.openFile(url) }
                     }
                 }.keyboardShortcut("o")
+            }
+            CommandGroup(after: .toolbar) {
+                Toggle("Frame Meter", isOn: $frameMeter.enabled)
+                    .keyboardShortcut("f", modifiers: [.command, .option])
             }
         }
         #else
