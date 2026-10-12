@@ -6,6 +6,7 @@ import AVKit
 /// to the top-right corner, shrinking and fading into a watermark.
 struct Reel: View {
     @StateObject private var feed = Feed()
+    @StateObject private var pool = RuntimePool()
     @State private var current: String?
     @State private var interacting: String?
     @State private var corner: CGFloat = 0 // 0 on the splash, 1 from the first post on
@@ -13,6 +14,7 @@ struct Reel: View {
     var body: some View {
         GeometryReader { screen in
             ZStack(alignment: .top) {
+                RuntimeParking(pool: pool).ignoresSafeArea()
                 Color.paper.ignoresSafeArea()
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
@@ -23,7 +25,7 @@ struct Reel: View {
                                 Color.clear.preference(key: SplashOffset.self, value: proxy.frame(in: .named("reel")).minY)
                             })
                         ForEach(feed.posts) { post in
-                            Card(post: post, focused: current == post.id, interacting: interacting == post.id) {
+                            Card(post: post, pool: pool, focused: current == post.id, interacting: interacting == post.id) {
                                 interacting = interacting == post.id ? nil : post.id
                             }
                             .containerRelativeFrame([.horizontal, .vertical])
@@ -54,13 +56,23 @@ struct Reel: View {
                 .onChange(of: current) { _, id in
                     interacting = nil
                     if let id, id != "splash" { corner = 1 }
+                    prepare()
                 }
+                .onChange(of: feed.posts) { _, _ in prepare() }
                 .task { await feed.loadMore() }
 
                 Banner(corner: corner, width: screen.size.width)
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+extension Reel {
+    /// Load the runtimes around the card in view; the first ones load under the splash.
+    private func prepare() {
+        pool.prepare(feed.posts, around: feed.posts.firstIndex { $0.id == current } ?? 0)
+        pool.focus(current)
     }
 }
 
@@ -115,6 +127,7 @@ private struct Splash: View {
 /// bottom-left and the type bottom-right.
 private struct Card: View {
     let post: Post
+    @ObservedObject var pool: RuntimePool
     let focused: Bool
     let interacting: Bool
     let toggleInteract: () -> Void
@@ -162,9 +175,8 @@ private struct Card: View {
             .accessibilityLabel(post.file?.alt ?? post.command)
         case .video(let url):
             LoopingVideo(url: url, playing: focused)
-        case .runtime(let url, _), .packed(let url):
-            if focused { PieceRuntime(url: url, interactive: interacting).id(url) }
-            else { ProgressView().tint(.white) }
+        case .runtime, .packed:
+            PieceRuntime(pool: pool, id: post.id, interactive: interacting)
         case .words(let words):
             Text(words)
                 .font(.custom("ComicRelief-Bold", size: 40)).multilineTextAlignment(.center)
