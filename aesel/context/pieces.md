@@ -184,6 +184,41 @@ When a request names a sound (roar, bray, bark, wind), design it as a pitch
 contour plus a noise layer plus an envelope — never a fixed-pitch stab. Layer
 two or three voices at most.
 
+## Speech
+
+When a character should say, recite, read or announce real words, speak them
+with `speak` — never imitate words with `sound.howl` vowels. Write the words in
+the language's own script (`"古池や 蛙飛び込む 水の音"`, not romaji or an English
+translation); the cloud voices are multilingual and pronounce what they are given.
+
+```javascript
+let talking = false;
+function boot({ speak }) {
+  speak("古池や 蛙飛び込む 水の音", "female:1", "cloud", { provider: "openai" });
+}
+function act({ event }) {
+  if (event.is("speech:started")) talking = true;   // open the mouth
+  if (event.is("speech:completed")) talking = false;
+}
+```
+
+- `speak(words, voice = "female:18", mode = "cloud", opts)` — `voice` is
+  `"female:N"`, `"male:N"` or `"neutral:N"` (N picks a voice from the set).
+- `mode: "local"` is free, on-device and immediate: use it for text the piece
+  generates as it runs, or lines that change every time. It picks a device voice
+  for the text's script (Japanese, Korean, Chinese, Russian, Arabic, Hebrew,
+  Hindi, Thai, Greek); set `opts.lang` (`"fr-FR"`, `"es-ES"`) for Latin-script
+  languages. `opts.queue: true` lines up behind the current line instead of
+  being dropped; `opts.interrupt: true` cuts it off. `opts.rate` sets speed.
+  Device voices differ between phones and computers; `"cloud"` sounds the same
+  everywhere and is better for a fixed script.
+- `opts.provider`: `"openai"` (default) or `"eleven"`, both multilingual;
+  `"jeffrey"` is @jeffrey's own voice, also multilingual. `opts.instructions`
+  (openai only) sets the delivery: `"slow, hushed, like reading a haiku"`.
+- `opts.pitch` (Hz, relative to middle C), `opts.speed`, `opts.volume`, `opts.pan`.
+- Each line is fetched once and cached, so speak a poem a line at a time and
+  start the next line on `speech:completed`. Don't call `speak` every frame.
+
 ## Event Handling
 
 Events use a string-based pattern matching system:

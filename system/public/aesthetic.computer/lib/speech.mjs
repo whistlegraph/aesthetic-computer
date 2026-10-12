@@ -35,6 +35,30 @@ if (synth?.onvoiceschanged !== undefined) {
   synth.onvoiceschanged = populateVoiceList;
 }
 
+// The language a line is written in, judged from its script, so local speech
+// can pick a voice that can actually say it. Latin-script lines return null.
+function scriptLanguage(words) {
+  if (/[\u3040-\u30ff]/.test(words)) return "ja"; // kana
+  if (/[\uac00-\ud7af]/.test(words)) return "ko";
+  if (/[\u4e00-\u9fff]/.test(words)) return "zh";
+  if (/[\u0400-\u04ff]/.test(words)) return "ru";
+  if (/[\u0600-\u06ff]/.test(words)) return "ar";
+  if (/[\u0590-\u05ff]/.test(words)) return "he";
+  if (/[\u0900-\u097f]/.test(words)) return "hi";
+  if (/[\u0e00-\u0e7f]/.test(words)) return "th";
+  if (/[\u0370-\u03ff]/.test(words)) return "el";
+  return null;
+}
+
+// A device voice for `lang` ("ja", "ja-JP"); `set` picks among several.
+function voiceFor(lang, set) {
+  const want = lang.toLowerCase().replace("_", "-");
+  const base = want.split("-")[0];
+  const exact = voices.filter((v) => v.lang.toLowerCase().replace("_", "-") === want);
+  const same = exact.length ? exact : voices.filter((v) => v.lang.toLowerCase().split(/[-_]/)[0] === base);
+  return same.length ? same[set % same.length] : null;
+}
+
 // The mode can either be "local", which uses
 // the web speech synth API or "server" which uses google cloud
 // and returns a mp3 file.
@@ -46,7 +70,9 @@ function speak(words, voice, mode = "local", opts = {}) {
     return;
   }
   if (mode === "local") {
-    if (synth.speaking) {
+    // `queue` lines up behind what is being said; `interrupt` cuts it off.
+    if (opts.interrupt) synth.cancel();
+    else if (synth.speaking && !opts.queue) {
       console.error("🗣️ Already speaking...");
       return;
     }
@@ -57,8 +83,13 @@ function speak(words, voice, mode = "local", opts = {}) {
     if (voice.startsWith("female")) voiceIndex = 9;
     if (voice.startsWith("male")) voiceIndex = 10;
 
-    utterance.voice = voices.find(v => v.name === voice) || voices[voiceIndex] || voices.find(v => v.default) || voices[0];
-    if(opts.lang)utterance.lang=opts.lang;
+    // A line in another language gets a voice for that language: free,
+    // on-device and immediate, so pieces can speak text they generate live.
+    const lang = opts.lang || scriptLanguage(words);
+    const native = lang && voiceFor(lang, parseInt(voice.split(":")[1]) || 0);
+    utterance.voice = voices.find(v => v.name === voice) || native || voices[voiceIndex] || voices.find(v => v.default) || voices[0];
+    if (native) utterance.lang = native.lang;
+    if (opts.lang) utterance.lang = opts.lang;
     if(Number.isFinite(opts.rate))utterance.rate=Math.max(0.1,Math.min(10,opts.rate));
     let caption;
     utterance.onstart = () => {
