@@ -22,6 +22,11 @@ typealias ACImage = NSImage
         guard let path = argument("--ac-input-probe"),
               let script = try? String(contentsOfFile: path, encoding: .utf8) else { return }
         configuration.websiteDataStore = .nonPersistent()
+        if ProcessInfo.processInfo.arguments.contains("--ac-input-baseline") {
+            configuration.userContentController.addUserScript(WKUserScript(
+                source: "window.acInputLatencyBaseline = true;",
+                injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         configuration.userContentController.addUserScript(WKUserScript(
             source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
     }
@@ -38,7 +43,9 @@ typealias ACImage = NSImage
                 window.title = "prompt · input latency test"
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
+                window.setContentSize(NSSize(width: 640, height: 480))
                 window.makeFirstResponder(webView)
+                try await Task.sleep(for: .milliseconds(300))
                 for index in 0..<60 {
                     for type in [NSEvent.EventType.keyDown, .keyUp] {
                         guard let event = NSEvent.keyEvent(

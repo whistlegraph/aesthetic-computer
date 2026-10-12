@@ -6,9 +6,9 @@ export class PixelBufferOptimizer {
     this.asyncRenderingSupported = this.checkAsyncRenderingSupport();
     this.sharedArrayBufferSupported = this.checkSharedArrayBufferSupport();
     
-    // Pre-allocated ImageBitmap cache for reuse
-    this.bitmapCache = new Map();
-    this.pendingBitmaps = new Map();
+    // Each canvas owns its newest pending frame. Equal dimensions do not
+    // imply equal pixels, so never reuse another frame's bitmap promise.
+    this.renderTickets = new WeakMap();
     
     // Performance counters
     this.stats = {
@@ -59,54 +59,33 @@ export class PixelBufferOptimizer {
     }
   }
 
-  // Async bitmap rendering with caching
+  // Upload the newest frame for this canvas and release every GPU bitmap.
   async renderImageDataAsync(imageData, ctx, x = 0, y = 0) {
+    const ticket = {};
+    this.renderTickets.set(ctx, ticket);
+    const current = () => this.renderTickets.get(ctx) === ticket;
     if (!this.asyncRenderingSupported) {
-      // Fallback to synchronous rendering
       ctx.putImageData(imageData, x, y);
-      return;
+      return true;
     }
 
     const startTime = performance.now();
-    const cacheKey = `${imageData.width}x${imageData.height}`;
-    
+    let bitmap;
     try {
-      // Check if we have a pending bitmap creation for this size
-      if (this.pendingBitmaps.has(cacheKey)) {
-        const bitmap = await this.pendingBitmaps.get(cacheKey);
-        this.pendingBitmaps.delete(cacheKey);
-        
-        // Use transferFromImageBitmap for zero-copy GPU upload
-        if (ctx.transferFromImageBitmap) {
-          ctx.transferFromImageBitmap(bitmap);
-        } else {
-          ctx.drawImage(bitmap, x, y);
-        }
-        
-        this.stats.asyncRenderCount++;
-      } else {
-        // Create new bitmap asynchronously
-        const bitmapPromise = createImageBitmap(imageData);
-        this.pendingBitmaps.set(cacheKey, bitmapPromise);
-        
-        const bitmap = await bitmapPromise;
-        this.pendingBitmaps.delete(cacheKey);
-        
-        // Render immediately
-        if (ctx.transferFromImageBitmap) {
-          ctx.transferFromImageBitmap(bitmap);
-        } else {
-          ctx.drawImage(bitmap, x, y);
-        }
-        
-        this.stats.asyncRenderCount++;
-      }
-      
-      this.stats.totalRenderTime += performance.now() - startTime;
-      
+      bitmap = await createImageBitmap(imageData);
+      // A slower earlier upload must never overwrite more recent input.
+      if (!current()) return false;
+      if (ctx.transferFromImageBitmap) ctx.transferFromImageBitmap(bitmap);
+      else ctx.drawImage(bitmap, x, y);
+      this.stats.asyncRenderCount++;
+      return true;
     } catch (error) {
+      if (!current()) return false;
       console.warn('🟡 Async bitmap rendering failed, falling back to putImageData:', error);
       ctx.putImageData(imageData, x, y);
+      return true;
+    } finally {
+      bitmap?.close();
       this.stats.totalRenderTime += performance.now() - startTime;
     }
   }

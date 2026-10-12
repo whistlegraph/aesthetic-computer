@@ -5555,7 +5555,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // waiting another display tick, or coalesce behind the one in-flight frame.
   // Zero simulation steps keeps the regular RAF clock authoritative.
   function requestPromptRender() {
-    if (!currentPieceHasKeyboard) return;
+    if (!currentPieceHasKeyboard || window.acInputLatencyProbe?.animationFrameOnly) return;
     promptRenderPending = true;
     flushPromptRender();
   }
@@ -20526,7 +20526,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               }
               // Non-blocking async rendering
               probeAsyncRender = true;
-              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
+              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then((rendered) => {
+                if (rendered === false) return;
                 window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                 // Paint overlays after async fallback rendering completes
                 if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first (at the top)
@@ -20623,8 +20624,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
                   try {
                     probeAsyncRender = true;
-              window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then(() => {
-                window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
+                    window.pixelOptimizer.renderImageDataAsync(imageData, ctx, 0, bumperOffset).then((rendered) => {
+                      if (rendered === false) return;
+                      window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
                       if (paintOverlays["bumperOverlay"]) paintOverlays["bumperOverlay"](); // Paint bumper first
                       if (paintOverlays["label"]) paintOverlays["label"]();
                       if (paintOverlays["qrOverlay"]) paintOverlays["qrOverlay"]();

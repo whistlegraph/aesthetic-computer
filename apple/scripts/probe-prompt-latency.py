@@ -9,6 +9,7 @@ import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--interval', type=int, default=80, help='Milliseconds between keys; 16 tests held-key pressure')
+parser.add_argument('--baseline', action='store_true', help='Use the prior animation-frame-only input scheduling for an A/B comparison')
 parser.add_argument('--output', type=Path, default=Path('/tmp/ac-input-latency.json'))
 parser.add_argument('--app', type=Path, default=Path('/Applications/Aesthetic Computer.app'))
 args = parser.parse_args()
@@ -28,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix='probe-', dir=container) as directory:
     with args.output.with_suffix('.log').open('w') as log:
         subprocess.run([str(executable), '--ac-input-probe', str(staged / 'probe.js'),
                         '--ac-input-result', str(native_result),
-                        '--ac-input-interval-ms', str(args.interval)],
+                        '--ac-input-interval-ms', str(args.interval)] + (['--ac-input-baseline'] if args.baseline else []),
                        stdout=log, stderr=log, timeout=120, check=True)
     if not native_result.exists():
         raise SystemExit(f'Probe produced no result; see {args.output.with_suffix(".log")}')
