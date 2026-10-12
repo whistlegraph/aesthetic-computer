@@ -344,6 +344,17 @@ struct WebView: ACWebViewRepresentable {
         config.userContentController.addUserScript(WKUserScript(
             source: "window.acNativeWindowColor = true;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // The native canvas always uses AC's SVG pointer, including after
+        // focus/click handlers request `auto`, `pointer`, or `none` inline.
+        config.userContentController.addUserScript(WKUserScript(source: """
+            const acCursorStyle = document.createElement('style');
+            acCursorStyle.textContent = `
+              html, body, body * {
+                cursor: url('/aesthetic.computer/cursors/precise.svg') 12 12, crosshair !important;
+              }
+            `;
+            document.documentElement.appendChild(acCursorStyle);
+            """, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         #endif
         let webView = WKWebView(frame: .zero, configuration: config)
         #if os(iOS)
