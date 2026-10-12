@@ -12,6 +12,7 @@ typealias ACImage = NSImage
 // after mouse dispatch so native focus changes cannot replace it.
 final class ACNativeWebView: WKWebView {
     private var cursorMonitor: Any?
+    private var cursorTrackingArea: NSTrackingArea?
     private lazy var acCursor = NSCursor(image: NSImage(named: "ACCursor")!,
                                         hotSpot: NSPoint(x: 12, y: 12))
 
@@ -27,8 +28,33 @@ final class ACNativeWebView: WKWebView {
             guard let self, event.window === self.window else { return event }
             self.restoreACCursor()
             DispatchQueue.main.async { [weak self] in self?.restoreACCursor() }
+            if event.type == .leftMouseUp || event.type == .leftMouseDown {
+                // WebKit's editor focus reply crosses a process boundary and
+                // may arrive after AppKit has finished dispatching the click.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    self?.restoreACCursor()
+                }
+            }
             return event
         }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let cursorTrackingArea { removeTrackingArea(cursorTrackingArea) }
+        let area = NSTrackingArea(rect: bounds,
+                                 options: [.activeInKeyWindow, .inVisibleRect, .cursorUpdate, .mouseEnteredAndExited],
+                                 owner: self, userInfo: nil)
+        addTrackingArea(area)
+        cursorTrackingArea = area
+    }
+
+    override func cursorUpdate(with event: NSEvent) { restoreACCursor() }
+    override func mouseEntered(with event: NSEvent) { restoreACCursor() }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: acCursor)
     }
 
     private func restoreACCursor() {
