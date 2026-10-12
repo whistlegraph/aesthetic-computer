@@ -22,6 +22,13 @@ import Foundation
         }
         precondition(MimeLayout.decode(Data("not JSON".utf8)) == nil)
         precondition(MimeLayout.decode(Data(repeating: 32, count: 4097)) == nil)
+        var older = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        older.removeValue(forKey: "loadingBreakupSeconds")
+        let compatible = try JSONSerialization.data(withJSONObject: older)
+        precondition(MimeLayout.decode(compatible) != nil, "Existing schema-1 layouts remain supported")
+        older["loadingBreakupSeconds"] = 100
+        let invalidDuration = try JSONSerialization.data(withJSONObject: older)
+        precondition(MimeLayout.decode(invalidDuration) == nil)
         for (kind, code, expected) in [("piece", "q7f", "q7f"), ("kidlisp", "abc", "$abc"), ("painting", "abc", "#abc"), ("tape", "abc", "!abc"), ("wgpiece", "wgDuck", "wgDuck")] {
             let postData = try JSONSerialization.data(withJSONObject: ["code": "thread_123", "name": "@artist", "media": ["kind": kind, "code": code, "title": "@artist/ducks"]])
             let post = try JSONDecoder().decode(Post.self, from: postData)

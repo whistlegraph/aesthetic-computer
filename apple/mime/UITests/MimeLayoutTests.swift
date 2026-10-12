@@ -4,10 +4,9 @@ final class MimeLayoutTests: XCTestCase {
     func testNativeIdentityCorners() {
         let app = XCUIApplication()
         app.launch()
-        XCTAssertTrue(app.staticTexts["Swipe up for the feed"].waitForExistence(timeout: 20))
-        app.swipeUp()
         let code = app.buttons["mime-global-identifier"].firstMatch
-        XCTAssertTrue(code.waitForExistence(timeout: 35))
+        XCTAssertTrue(code.waitForExistence(timeout: 45), "first piece opens without a swipe")
+        XCTAssertFalse(app.staticTexts["Swipe up for the feed"].exists)
         let author = app.descendants(matching: .any).matching(identifier: "mime-author").firstMatch
         let type = app.descendants(matching: .any).matching(identifier: "mime-type").firstMatch
         XCTAssertTrue(author.exists)

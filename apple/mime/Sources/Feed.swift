@@ -57,6 +57,7 @@ struct Post: Decodable, Identifiable, Equatable {
 @MainActor final class Feed: ObservableObject {
     @Published private(set) var posts: [Post] = []
     @Published private(set) var failed = false
+    @Published private(set) var loaded = false
     @Published private(set) var layout: MimeLayout = {
         if let data = UserDefaults.standard.data(forKey: "mime-layout-v1"), let cached = MimeLayout.decode(data) { return cached }
         return .bundled
@@ -65,6 +66,13 @@ struct Post: Decodable, Identifiable, Equatable {
     private let seed = UUID().uuidString
 
     private struct Page: Decodable { let recent: [Post]; let hasMore: Bool }
+
+    func retry() async {
+        guard !loading else { return }
+        hasMore = true
+        if posts.isEmpty { page = 0 }
+        await loadMore()
+    }
 
     func refreshLayout() async {
         let url = URL(string: "https://aesthetic.computer/mime-layout.json")!
@@ -87,7 +95,7 @@ struct Post: Decodable, Identifiable, Equatable {
             let next = try JSONDecoder().decode(Page.self, from: data)
             let known = Set(posts.map(\.code))
             posts += next.recent.filter { !known.contains($0.code) }
-            hasMore = next.hasMore; page += 1; failed = false
+            hasMore = next.hasMore; page += 1; failed = false; loaded = true
         } catch { failed = posts.isEmpty }
     }
 }

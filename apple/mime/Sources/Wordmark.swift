@@ -15,6 +15,8 @@ struct Wordmark: View {
         Letter(path: "M0 0H26V10H22V4H9V15H19V19H9V31H22V25H26V35H0V31H4V4H0Z", x: 108, back: 0x7AE7CE, face: [0xE5FFF6, 0x7AE7CE, 0x259CAA], shine: "M1 0.7H25M1 31.7H25", period: 4.3, phase: -1.3),
     ]
     var height: CGFloat = 37
+    var breakupAt: Date?
+    var breakupDuration: Double = 0.8
 
     var body: some View {
         TimelineView(.animation) { timeline in
@@ -23,11 +25,35 @@ struct Wordmark: View {
                 let scale = size.height / 52
                 context.scaleBy(x: scale, y: scale)
                 context.translateBy(x: 4, y: 5) // the SVG viewBox starts at (-4, -5)
-                for letter in Self.letters { draw(letter, in: &context, t: t) }
+                let progress = breakupAt.map { min(1, max(0, timeline.date.timeIntervalSince($0) / breakupDuration)) } ?? 0
+                for (index, letter) in Self.letters.enumerated() {
+                    if progress == 0 { draw(letter, in: &context, t: t) }
+                    else { fragments(letter, index: index, in: context, t: t, progress: progress) }
+                }
             }
         }
         .frame(width: height * 151 / 52, height: height)
         .accessibilityLabel("MIME.ac")
+    }
+
+    private func fragments(_ letter: Letter, index: Int, in context: GraphicsContext, t: Double, progress: Double) {
+        let box = SVGPath(letter.path).boundingRect.insetBy(dx: -8, dy: -8)
+        let travel = CGFloat(progress * progress)
+        for row in 0..<4 {
+            for column in 0..<2 {
+                let tile = CGRect(x: letter.x + box.minX + CGFloat(column) * box.width / 2,
+                                  y: box.minY + CGFloat(row) * box.height / 4,
+                                  width: box.width / 2, height: box.height / 4)
+                var shard = context
+                shard.opacity = 1 - progress
+                shard.translateBy(x: tile.midX + (tile.midX - 72) * travel,
+                                  y: tile.midY + CGFloat(row * 22 - 33) * travel)
+                shard.rotate(by: .degrees(Double((index * 7 + row * 5 + column * 3) % 11 - 5) * 25 * progress))
+                shard.translateBy(x: -tile.midX, y: -tile.midY)
+                shard.clip(to: Path(tile))
+                draw(letter, in: &shard, t: t)
+            }
+        }
     }
 
     private func draw(_ letter: Letter, in context: inout GraphicsContext, t: Double) {

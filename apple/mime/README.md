@@ -5,7 +5,7 @@ The iPhone app for watching what everyone makes across Aesthetic Computer, KidLi
 The feed is the same ranked network feed as https://mime.ac (`GET /api/mime?feed=1&seed=…`, `system/backend/mime-feed-engine.mjs`), with a random seed per launch, so each launch gets its own order.
 
 - `Sources/Feed.swift`: the feed model and how each post draws (image, video, live runtime, packed HTML, words, document).
-- `Sources/Reel.swift`: the "swipe up" splash, the vertical pager, and the cards. The code sits top-left and is the Interact control, the handle bottom-left, the MIME type bottom-right. The wordmark follows the first swipe from its banner into a top-right watermark.
+- `Sources/Reel.swift`: the loading wordmark, vertical pager, and cards. The first piece loads behind MIME; the lettering breaks apart when its content is ready, revealing the feed without a swipe. The code sits top-left and is the Interact control, the handle bottom-left, the MIME type bottom-right. A small wordmark stays top-right.
 - `Sources/PieceRuntime.swift`: one live web runtime for the card in view. KidLisp and pieces load aesthetic.computer, Whistlegraph pieces load `/mime-play`. Autoplay is allowed and the runtime is asked to start audio. A non-persistent website data store keeps pieces from seeing any session.
 - `Sources/PalText.swift`: MacPal's title lettering (macpal/Sources/PalCore.swift), with outlines under fills.
 - `Sources/Wordmark.swift`: the MIME wordmark, drawn from the same letter paths as mime.ac's SVG.
@@ -20,6 +20,11 @@ titles can change through a web deploy. Invalid settings retain the last
 valid layout; offline launches use that cached layout or the bundled JSON.
 The global code always remains top-left, handle bottom-left, type bottom-right.
 New native controls or schema capabilities require another app build.
+Build 3 adds the automatic loading transition. `loadingBreakupSeconds` adjusts
+its duration from production (0.15–2 seconds, default 0.8); older schema-1
+configs remain valid. Reduced Motion uses a brief fade. Images, documents,
+video readiness and runtime first-frame signals release the loading screen;
+failed or empty feeds provide a retry instead of trapping the user.
 
 After committing and pushing main, `bash apple/mime/release-mime.sh device`
 deploys and verifies the website/config, then builds, installs and launches

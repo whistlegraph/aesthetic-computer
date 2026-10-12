@@ -273,21 +273,18 @@
       grid-template-rows: minmax(0, 1fr) auto auto auto max(14px, env(safe-area-inset-bottom));
       border: 0; border-radius: 0; box-shadow: none; background: var(--media); overflow: hidden; color: #fff; }
     @media (min-width: 760px) { body.feed .feed-post { width: min(100%, 720px); margin-inline: auto; } }
-    /* The opening screen is a splash: who mime is and what to do; one swipe brings up the first post. */
-    .reel-splash { display: none; }
-    body.feed .reel-splash { display: grid; place-items: center; height: 100vh; height: 100dvh; scroll-snap-align: start;
-      padding: calc(64px + env(safe-area-inset-top)) 24px max(28px, env(safe-area-inset-bottom)); }
-    body.feed .reel-splash .splash-swipe { margin: 0; display: grid; justify-items: center; gap: 6px;
-      animation: splash-nudge 1.6s ease-in-out infinite; }
-    body.feed .reel-splash .splash-arrow { font: 700 44px/1 "Comic Relief", "Comic Sans MS", cursive; color: #ff91c3;
-      -webkit-text-stroke: .1em #141414; paint-order: stroke fill; text-shadow: 3px 3px 0 #141414; }
-    body.feed .reel-splash .pal-text { position: relative; --pal-accent: #ff91c3;
-      font: 700 clamp(30px, 9vw, 52px)/1.2 "Comic Relief", "Comic Sans MS", cursive; color: #fff; white-space: pre;
-      -webkit-text-stroke: .13em #141414; paint-order: stroke fill; text-shadow: 3px 3px 0 var(--pal-accent); }
-    body.feed .reel-splash .pal-text span span { display: inline-block; }
-    body.feed .reel-splash .pal-over { position: absolute; left: 0; top: 0; -webkit-text-stroke: 0; text-shadow: none; }
-    @keyframes splash-nudge { 50% { transform: translateY(-5px); } }
-    @media (prefers-reduced-motion: reduce) { body.feed .reel-splash .splash-swipe { animation: none; } }
+    /* The loading mark gives way to the first picture; there is no extra page. */
+    html.mime-starting { overflow: hidden; }
+    .mime-startup { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--paper); }
+    .mime-startup > svg { width: min(80vw, 320px); height: auto; overflow: visible; }
+    .mime-startup.breaking { background: transparent; transition: background var(--mime-breakup-duration, .8s) ease-out; pointer-events: none; }
+    .mime-startup.breaking .mime-letter { animation: none; opacity: 0;
+      transform: translate(var(--break-x), var(--break-y)) rotate(var(--break-angle));
+      transition: transform var(--mime-breakup-duration, .8s) ease-in, opacity var(--mime-breakup-duration, .8s) ease-out; }
+    @media (prefers-reduced-motion: reduce) {
+      .mime-startup.breaking .mime-letter { transform: none; transition: opacity .2s; }
+      .mime-startup.breaking { transition-duration: .2s; }
+    }
     body.feed .feed-post > .feed-media { grid-area: 1 / 1 / -1 / -1; width: 100%; height: 100%; max-height: none;
       aspect-ratio: auto; margin: 0; border: 0; }
     /* A long document shows what fits, fading out; a swipe always means the next card.
@@ -510,11 +507,13 @@ async function refreshMimeLayout() {
     const within = (key, min, max) => typeof layout[key] === "number" && Number.isFinite(layout[key]) && layout[key] >= min && layout[key] <= max;
     if (layout.schemaVersion !== 1 || typeof layout.revision !== "string" || !layout.revision.length || layout.revision.length > 80 ||
         !sizes.every(key => within(key, 12, 32)) || !within("mimeTypeSize", 10, 24) || !within("padding", 8, 32) ||
-        !["showCaption", "showTitle", "showOrigin"].every(key => typeof layout[key] === "boolean")) return;
+        !["showCaption", "showTitle", "showOrigin"].every(key => typeof layout[key] === "boolean") ||
+        layout.loadingBreakupSeconds != null && !within("loadingBreakupSeconds", 0.15, 2)) return;
     const root = document.documentElement;
     for (const [key, css] of Object.entries({ identifierSize: "identifier-size", handleSize: "handle-size", mimeTypeSize: "type-size", titleSize: "title-size", captionSize: "caption-size", padding: "padding" })) {
       root.style.setProperty("--mime-" + css, layout[key] + "px");
     }
+    root.style.setProperty("--mime-breakup-duration", (layout.loadingBreakupSeconds ?? 0.8) + "s");
     root.dataset.mimeShowTitle = layout.showTitle;
     root.dataset.mimeShowOrigin = layout.showOrigin;
     root.dataset.mimeShowCaption = layout.showCaption;
@@ -548,10 +547,9 @@ const header = document.querySelector("header");
 const chromeTop = () => document.body.classList.contains("feed") ? 0 : header.getBoundingClientRect().bottom;
 let lastScrollY = 0;
 function syncHeader() {
-  // On the reel the wordmark lives on its banner at the top, and in the
-  // top-right corner once you have swiped past the first post.
+  // The loading mark departs; a small watermark stays above the feed.
   const y = window.scrollY;
-  const corner = document.body.classList.contains("feed") ? Math.min(1, Math.max(0, y / innerHeight)) : 0;
+  const corner = document.body.classList.contains("feed") ? 1 : 0;
   header.style.setProperty("--corner", corner.toFixed(3));
   header.classList.toggle("cornered", corner > 0.5);
   lastScrollY = y;
@@ -1481,19 +1479,56 @@ const feedSeed = (() => {
     return fresh;
   } catch { return crypto.randomUUID(); }
 })();
-// The reel's opening screen: the wordmark on its banner and one instruction.
-function splash() {
-  const section = el("section", "reel-splash");
-  section.setAttribute("aria-label", "Welcome to mime");
-  const swipe = el("p", "splash-swipe");
-  swipe.append(el("span", "splash-arrow", "↑"), palLetters(el("span", null, "swipe up")));
-  section.append(swipe);
-  return section;
+// Load the first card underneath MIME, then scatter the mark when its media is ready.
+function loadingMark(signal) {
+  const overlay = el("div", "mime-startup");
+  overlay.setAttribute("role", "status");
+  overlay.setAttribute("aria-label", "Loading MIME");
+  const graphic = header.querySelector("svg").cloneNode(true);
+  // Prefix the cloned SVG's IDs so its gradients cannot collide with the header.
+  for (const node of graphic.querySelectorAll("[id]")) node.id = "startup-" + node.id;
+  for (const node of graphic.querySelectorAll("*")) for (const attr of [...node.attributes]) {
+    if (attr.value.includes("url(#")) node.setAttribute(attr.name, attr.value.replaceAll("url(#", "url(#startup-"));
+  }
+  [...graphic.querySelectorAll(".mime-letter")].forEach((letter, i) => {
+    letter.style.setProperty("--break-x", ((i - 1.5) * 65) + "px");
+    letter.style.setProperty("--break-y", (i % 2 ? 65 : -65) + "px");
+    letter.style.setProperty("--break-angle", ((i - 1.5) * 35) + "deg");
+  });
+  overlay.append(graphic);
+  document.body.append(overlay);
+  document.documentElement.classList.add("mime-starting");
+  let observer, timer, breaking = false;
+  const remove = () => {
+    observer?.disconnect(); clearTimeout(timer); overlay.remove();
+    document.documentElement.classList.remove("mime-starting");
+  };
+  signal.addEventListener("abort", remove, { once: true });
+  const reveal = () => {
+    if (breaking || signal.aborted) return;
+    breaking = true; observer?.disconnect();
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const seconds = reduced ? 0.2 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mime-breakup-duration")) || 0.8;
+    requestAnimationFrame(() => { overlay.classList.add("breaking"); timer = setTimeout(remove, seconds * 1000); });
+  };
+  const watch = node => {
+    const media = node?.querySelector(".feed-media");
+    const check = () => {
+      if (!media || !media.dataset.mediaState || ["ready", "error"].includes(media.dataset.mediaState)) reveal();
+    };
+    if (media) {
+      observer = new MutationObserver(check);
+      observer.observe(media, { attributes: true, attributeFilter: ["data-media-state"] });
+    }
+    check();
+  };
+  return { watch, remove };
 }
 async function home(page = 0, signal) {
+  const entrance = !feedCache ? loadingMark(signal) : null;
   let state = feedCache?.startPage === page ? feedCache : null;
   if (!state) {
-    const data = await read(API + "?feed=1&page=" + page + "&seed=" + feedSeed, signal);
+    const data = await read(API + "?feed=1&page=" + page + "&seed=" + feedSeed, signal).catch(error => { entrance?.remove(); throw error; });
     state = { startPage: page, nextPage: page + 1,
       hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0, offset: null };
     for (const post of data.recent) {
@@ -1509,7 +1544,8 @@ async function home(page = 0, signal) {
   const list = el("div", "feed-list");
   list.setAttribute("aria-label", "Media feed");
   list.append(...state.nodes);
-  view.replaceChildren(splash(), list);
+  view.replaceChildren(list);
+  entrance?.watch(state.nodes[0]);
   const firstImage = state.nodes[0]?.querySelector(".feed-media > img");
   if (firstImage) { firstImage.loading = "eager"; firstImage.fetchPriority = "high"; }
   if (!state.nodes.length) list.append(el("p", null, "no media yet"));

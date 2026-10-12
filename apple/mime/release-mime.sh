@@ -13,20 +13,27 @@ git diff --quiet HEAD -- "${paths[@]}" || { echo 'Commit MIME changes before rel
 revision=$(git rev-parse HEAD)
 ac-deploy
 node --input-type=module - "$revision" <<'JS'
-import {readFile} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 const sha = process.argv[2];
 const origin = 'https://aesthetic.computer';
 const response = await fetch(`${origin}/mime-layout.json?release=${sha}`, {headers: {'cache-control': 'no-cache'}});
 assert.equal(response.status, 200);
 const have = await response.json();
-const want = JSON.parse(await readFile('system/public/mime-layout.json', 'utf8'));
+const want = JSON.parse(execFileSync('git', ['show', `${sha}:system/public/mime-layout.json`], {encoding: 'utf8'}));
 assert.deepEqual(have, want, 'Production must serve this revision’s layout before iOS ships');
 const commit = await (await fetch(`${origin}/.commit-ref?release=${sha}`)).text();
 assert.equal(commit.trim(), sha, 'Production and app source revisions must match');
 console.log(`MIME layout ${have.revision} verified on production`);
 JS
-[[ $(git rev-parse HEAD) == "$revision" ]] || { echo 'HEAD moved during deployment; release again from the new revision.' >&2; exit 1; }
+if [[ "$mode" != web ]]; then
+  # Other seat work can advance the checkout while lith deploys. Build only
+  # the revision just verified on production, with its bundled config.
+  release_source_dir=$(mktemp -d /tmp/mime-release-source.XXXXXX)
+  trap 'rm -rf "$release_source_dir"' EXIT
+  git archive "$revision" apple/mime system/public/mime-layout.json | tar -x -C "$release_source_dir"
+  app_dir="$release_source_dir/apple/mime"
+fi
 if [[ "$mode" == device ]]; then
   bash "$app_dir/run.sh" device
 elif [[ "$mode" == testflight ]]; then

@@ -1,15 +1,16 @@
 import SwiftUI
 import AVKit
 
-/// mime.ac as a native reel: a "swipe up" splash, then one post per screen.
-/// The wordmark rides the splash's banner top-left and follows the first swipe
-/// to the top-right corner, shrinking and fading into a watermark.
+/// MIME loads the first post behind its wordmark, then breaks the mark apart
+/// to reveal the native reel. No introductory swipe is required.
 struct Reel: View {
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
     @State private var current: String?
     @State private var interacting: String?
-    @State private var corner: CGFloat = 0 // 0 on the splash, 1 from the first post on
+    @State private var revealed = false
+    @State private var breakupAt: Date?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -19,14 +20,8 @@ struct Reel: View {
                 Color.paper.ignoresSafeArea()
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
-                        Splash()
-                            .containerRelativeFrame([.horizontal, .vertical])
-                            .id("splash")
-                            .background(GeometryReader { proxy in
-                                Color.clear.preference(key: SplashOffset.self, value: proxy.frame(in: .named("reel")).minY)
-                            })
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: current == post.id, interacting: interacting == post.id) {
+                            Card(post: post, layout: feed.layout, pool: pool, focused: current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }) {
                                 interacting = interacting == post.id ? nil : post.id
                             }
                             .containerRelativeFrame([.horizontal, .vertical])
@@ -46,20 +41,20 @@ struct Reel: View {
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $current)
                 .scrollIndicators(.hidden)
-                .scrollDisabled(interacting != nil && interacting == current)
+                .scrollDisabled(!revealed || interacting != nil && interacting == current)
+                .accessibilityHidden(!revealed)
                 .ignoresSafeArea()
-                .onPreferenceChange(SplashOffset.self) { y in
-                    // The lazy stack lets go of the splash once it scrolls away;
-                    // then there is no offset, and the mark stays where it went.
-                    guard let y else { return }
-                    corner = min(1, max(0, -y / max(1, screen.size.height + screen.safeAreaInsets.top + screen.safeAreaInsets.bottom)))
-                }
                 .onChange(of: current) { _, id in
                     interacting = nil
-                    if let id, id != "splash" { corner = 1 }
                     prepare()
                 }
-                .onChange(of: feed.posts) { _, _ in prepare() }
+                .onChange(of: feed.posts) { _, posts in
+                    if current == nil { current = posts.first?.id }
+                    prepare()
+                }
+                .onChange(of: pool.ready) { _, ready in
+                    if let first = feed.posts.first, ready.contains(first.id) { firstContentReady(first.id) }
+                }
                 .task {
                     async let posts: Void = feed.loadMore()
                     async let layout: Void = feed.refreshLayout()
@@ -69,7 +64,25 @@ struct Reel: View {
                     if phase == .active { Task { await feed.refreshLayout() } }
                 }
 
-                Banner(corner: corner, width: screen.size.width)
+                Banner(corner: 1, width: screen.size.width)
+                if !revealed {
+                    ZStack {
+                        Color.paper.opacity(breakupAt == nil ? 1 : 0)
+                            .animation(.easeOut(duration: breakupDuration), value: breakupAt)
+                        Wordmark(height: min(110, screen.size.width * 0.8 * 52 / 151), breakupAt: reduceMotion ? nil : breakupAt, breakupDuration: breakupDuration)
+                            .opacity(reduceMotion && breakupAt != nil ? 0 : 1)
+                            .animation(.easeOut(duration: breakupDuration), value: breakupAt)
+                        if feed.failed || feed.loaded && feed.posts.isEmpty {
+                            VStack(spacing: 12) {
+                                Text(feed.failed ? "Could not reach mime.ac." : "No pieces yet.")
+                                Button("Try again") { Task { await feed.retry() } }
+                            }.font(.custom("ComicRelief-Bold", size: 18))
+                                .padding(.top, 180)
+                        }
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity).ignoresSafeArea()
+                        .accessibilityIdentifier("mime-loading")
+                        .accessibilityLabel("Loading MIME")
+                }
             }
         }
         .preferredColorScheme(.dark)
@@ -77,16 +90,23 @@ struct Reel: View {
 }
 
 extension Reel {
-    /// Load the runtimes around the card in view; the first ones load under the splash.
+    private var breakupDuration: Double { reduceMotion ? 0.2 : feed.layout.loadingBreakupSeconds ?? 0.8 }
+
+    private func firstContentReady(_ id: String) {
+        guard !revealed, breakupAt == nil, id == feed.posts.first?.id else { return }
+        breakupAt = Date()
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(breakupDuration))
+            revealed = true
+        }
+    }
+
+    /// Load runtimes around the card in view, including the first under the loading mark.
     private func prepare() {
+        guard !feed.posts.isEmpty else { return }
         pool.prepare(feed.posts, around: feed.posts.firstIndex { $0.id == current } ?? 0)
         pool.focus(current)
     }
-}
-
-private struct SplashOffset: PreferenceKey {
-    static var defaultValue: CGFloat? = nil
-    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) { value = nextValue() ?? value }
 }
 
 /// The wordmark on its banner; `corner` slides it into a top-right watermark.
@@ -113,23 +133,6 @@ private struct Banner: View {
     }
 }
 
-private struct Splash: View {
-    @State private var nudge = false
-    var body: some View {
-        VStack(spacing: 6) {
-            PalText(text: "↑", size: 44, accent: Color(white: 0.08), fill: .pink)
-            PalText(text: "swipe up", size: 46, accent: .pink)
-        }
-        .offset(y: nudge ? -5 : 0)
-        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: nudge)
-        .onAppear { nudge = true }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(hex: 0xE7E1ED))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Swipe up for the feed")
-    }
-}
-
 /// One post: its media fills the screen; the code sits top-left (and is the
 /// Interact control where there is something to play with), the handle
 /// bottom-left and the type bottom-right.
@@ -139,6 +142,7 @@ private struct Card: View {
     @ObservedObject var pool: RuntimePool
     let focused: Bool
     let interacting: Bool
+    let ready: () -> Void
     let toggleInteract: () -> Void
     @Environment(\.openURL) private var openURL
 
@@ -187,13 +191,13 @@ private struct Card: View {
         switch post.body {
         case .image(let url):
             AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                if let image = phase.image { image.resizable().interpolation(.none).scaledToFit() }
-                else if phase.error != nil { Text("Preview unavailable").font(.custom("ComicRelief-Bold", size: 16)).foregroundStyle(.white.opacity(0.6)) }
+                if let image = phase.image { image.resizable().interpolation(.none).scaledToFit().onAppear(perform: ready) }
+                else if phase.error != nil { Text("Preview unavailable").font(.custom("ComicRelief-Bold", size: 16)).foregroundStyle(.white.opacity(0.6)).onAppear(perform: ready) }
                 else { ProgressView() }
             }
             .accessibilityLabel(post.file?.alt ?? post.command)
         case .video(let url):
-            LoopingVideo(url: url, playing: focused)
+            LoopingVideo(url: url, playing: focused, ready: ready)
         case .runtime, .packed:
             PieceRuntime(pool: pool, id: post.id, interactive: interacting)
         case .words(let words):
@@ -202,8 +206,9 @@ private struct Card: View {
                 .foregroundStyle(.white).shadow(color: Color(white: 0.08), radius: 0, x: 3, y: 3)
                 .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.author(post.name).opacity(0.3))
+                .onAppear(perform: ready)
         case .document(let url):
-            DocumentText(url: url)
+            DocumentText(url: url, ready: ready)
         }
     }
 
@@ -242,6 +247,8 @@ private struct WavyUnderline: View {
 private struct LoopingVideo: View {
     let url: URL
     let playing: Bool
+    let ready: () -> Void
+    @State private var observation: NSKeyValueObservation?
     @State private var player: AVQueuePlayer?
     @State private var looper: AVPlayerLooper?
     var body: some View {
@@ -252,16 +259,20 @@ private struct LoopingVideo: View {
                 let queue = AVQueuePlayer()
                 looper = AVPlayerLooper(player: queue, templateItem: AVPlayerItem(url: url))
                 player = queue
+                observation = queue.currentItem?.observe(\.status, options: [.initial, .new]) { item, _ in
+                    if item.status != .unknown { Task { @MainActor in ready() } }
+                }
                 if playing { queue.play() }
             }
             .onChange(of: playing) { _, now in now ? player?.play() : player?.pause() }
-            .onDisappear { player?.pause() }
+            .onDisappear { player?.pause(); observation?.invalidate(); observation = nil }
     }
 }
 
 /// Text and code posts read in place, scrolling inside the card.
 private struct DocumentText: View {
     let url: URL
+    let ready: () -> Void
     @State private var text = "…"
     var body: some View {
         ScrollView {
@@ -270,8 +281,9 @@ private struct DocumentText: View {
         }
         .scrollDisabled(true)
         .task {
-            guard let (data, _) = try? await URLSession.shared.data(from: url), let body = String(data: data, encoding: .utf8) else { text = "file unavailable"; return }
+            guard let (data, _) = try? await URLSession.shared.data(from: url), let body = String(data: data, encoding: .utf8) else { text = "file unavailable"; ready(); return }
             text = body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body
+            ready()
         }
     }
 }

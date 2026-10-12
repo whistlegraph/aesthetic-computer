@@ -12,6 +12,8 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
   const html = await readFile(new URL('../public/mime/index.html', import.meta.url), 'utf8');
   const videoFixture = await readFile(new URL('./fixtures/mime-video.webm', import.meta.url));
   const requests = [];
+  let releaseImage;
+  const firstImageHeld = new Promise(resolve => { releaseImage = resolve; });
   const context = await browser.newContext({ viewport: { width: 900, height: 900 }, hasTouch: true });
   const fixture = (code, type, media) => ({ code, when: new Date().toISOString(), name: '@test', replies: 0,
     file: { name: code, type, url: `https://mime.ac/fixture/${code}` }, ...(media ? { media } : {}) });
@@ -19,6 +21,7 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
     fixture('document', 'text/html'), fixture('longtext', 'text/plain'), fixture('below1', 'image/svg+xml'), fixture('below2', 'image/svg+xml'), fixture('deferred', 'text/plain'), fixture('video1', 'video/webm'), fixture('video2', 'video/webm'), fixture('tape', 'video/webm', { kind: 'tape', code: 'fixture-tape', url: 'https://aesthetic.computer/!fixture-tape' })];
   await context.route('**/*', async route => {
     const u = new URL(route.request().url()); requests.push(u.pathname);
+    if (u.pathname === '/fixture/wide') await firstImageHeld;
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
     if (u.pathname === '/api/mime') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ recent: posts, hasMore: false }) });
     if (u.pathname === '/fixture/longtext' || u.pathname === '/fixture/deferred') return route.fulfill({ body: 'A long line of text\n'.repeat(200) });
@@ -34,7 +37,18 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
   try {
     await page.goto('https://mime.ac/?ac-automation=1');
     await page.locator('#wide img').waitFor();
+    assert.equal(await page.locator('.mime-startup').isVisible(), true, 'MIME holds until the first image loads');
+    assert.equal(await page.evaluate(() => scrollY), 0, 'first card is already in place without a swipe');
+    assert.equal(await page.locator('.reel-splash').count(), 0);
+    if (process.env.MIME_SCREENSHOT_DIR) {
+      await mkdir(process.env.MIME_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ path: `${process.env.MIME_SCREENSHOT_DIR}/mime-loading.png` });
+    }
+    releaseImage();
     await page.waitForFunction(() => document.querySelector('#wide img')?.naturalWidth === 800);
+    await page.waitForFunction(() => document.querySelector('.mime-startup')?.classList.contains('breaking'));
+    if (process.env.MIME_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.MIME_SCREENSHOT_DIR}/mime-breaking.png` });
+    await page.locator('.mime-startup').waitFor({ state: 'detached' });
     assert.ok(!requests.includes('/fixture/deferred'), 'offscreen text does not load eagerly');
     // Reel cards fill the screen; the image letterboxes inside at its own proportions.
     const imageBox = await page.locator('#wide .feed-media').boundingBox();
