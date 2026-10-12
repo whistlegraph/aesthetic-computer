@@ -5549,6 +5549,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Update & Render
   let frameAlreadyRequested = false;
+  let promptRenderPending = false;
+
+  // Text changes already reach disk immediately. Submit their paint without
+  // waiting another display tick, or coalesce behind the one in-flight frame.
+  // Zero simulation steps keeps the regular RAF clock authoritative.
+  function requestPromptRender() {
+    if (!currentPieceHasKeyboard) return;
+    promptRenderPending = true;
+    flushPromptRender();
+  }
+
+  function flushPromptRender() {
+    if (!promptRenderPending || frameAlreadyRequested || needsReframe ||
+        document.hidden || window.__acLoopPaused || !screen?.pixels || !keyboard || !gamepad) return;
+    requestFrame(true, 0, performance.now());
+  }
 
   // 🛑 Frame pump stall watchdog
   // If bios requests a frame and the worker never replies with render/update,
@@ -5641,6 +5657,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (frameAlreadyRequested) return;
 
+    promptRenderPending = false;
     frameAlreadyRequested = true;
     frameCount += 1n;
     armFrameStallWatchdog();
@@ -14257,6 +14274,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           });
 
           input.addEventListener("input", handleInput);
+          requestPromptRender();
         }
 
         input.addEventListener("input", handleInput);
@@ -14316,6 +14334,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 end,
               },
             });
+            requestPromptRender();
           }
         });
 
@@ -21271,6 +21290,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } finally {
       frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.
       clearFrameStallWatchdog();
+      flushPromptRender();
     }
     // if (lastRender) console.log(performance.now() - lastRender)
     // lastRender = performance.now()

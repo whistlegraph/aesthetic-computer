@@ -4,6 +4,8 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+import shutil
+import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--interval', type=int, default=80, help='Milliseconds between keys; 16 tests held-key pressure')
@@ -15,11 +17,25 @@ script = Path(__file__).with_name('prompt-latency.js').resolve()
 executable = args.app / 'Contents/MacOS/Aesthetic Computer'
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.unlink(missing_ok=True)
-with args.output.with_suffix('.log').open('w') as log:
-    subprocess.run([str(executable), '--ac-input-probe', str(script),
-                    '--ac-input-result', str(args.output),
-                    '--ac-input-interval-ms', str(args.interval)],
-                   stdout=log, stderr=log, timeout=120, check=True)
+# Keep App Sandbox enabled. Stage this explicit test's script/results inside
+# the app's own container instead of granting the app arbitrary file access.
+container = Path.home() / 'Library/Containers/aesthetic.computer/Data/Library/Application Support/InputLatency'
+container.mkdir(parents=True, exist_ok=True)
+with tempfile.TemporaryDirectory(prefix='probe-', dir=container) as directory:
+    staged = Path(directory)
+    shutil.copyfile(script, staged / 'probe.js')
+    native_result = staged / 'result.json'
+    with args.output.with_suffix('.log').open('w') as log:
+        subprocess.run([str(executable), '--ac-input-probe', str(staged / 'probe.js'),
+                        '--ac-input-result', str(native_result),
+                        '--ac-input-interval-ms', str(args.interval)],
+                       stdout=log, stderr=log, timeout=120, check=True)
+    if not native_result.exists():
+        raise SystemExit(f'Probe produced no result; see {args.output.with_suffix(".log")}')
+    shutil.copyfile(native_result, args.output)
+    snapshot = Path(str(native_result) + '.png')
+    if snapshot.exists():
+        shutil.copyfile(snapshot, str(args.output) + '.png')
 result = json.loads(args.output.read_text())
 print(json.dumps({k: v for k, v in result.items() if k != 'samples'}, indent=2))
 if result.get('keys') != 60 or result.get('inputLength') != 60:
