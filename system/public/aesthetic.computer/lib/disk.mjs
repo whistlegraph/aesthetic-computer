@@ -10271,7 +10271,11 @@ async function load(
     iconMode = false;
     if (parsed.search) {
       const searchParams = new URLSearchParams(parsed.search);
-      previewMode = searchParams.has("preview");
+      // `?preview` or `?preview=1200x630` asks for a thumbnail; any other value
+      // is a flag (`preview=walkieware` only hushes telemetry) and must not
+      // reframe the piece, or the thumbnail's resolution brings back the gap.
+      const preview = searchParams.get("preview");
+      previewMode = preview === "" || /^\d+x\d+$/.test(preview ?? "");
       iconMode = searchParams.has("icon");
     }
 
