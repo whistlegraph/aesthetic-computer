@@ -29,21 +29,22 @@ function fixture(t, query = {}, reply = { url: "https://pay.aesthetic.computer/t
   return {api,labels,requests,jumps,render,click};
 }
 
-test("Give shows live count and sends one checkout with chosen amount, frequency and homepage attribution", async t => {
+test("Give shows live count and sends one $8 monthly checkout with homepage attribution", async t => {
   const f=fixture(t,{source:"homepage"}); await tick(); f.render();
   assert.ok(f.labels.some(x=>x.label==="5"));
-  f.click("16"); f.click("Once"); f.click("Give $16"); f.click("Opening..."); await tick();
-  assert.deepEqual(f.requests,[{amount:1600,currency:"usd",recurring:false,source:"homepage",surface:"piece"}]);
+  f.click("Give $8 / month"); f.click("Opening..."); await tick();
+  assert.deepEqual(f.requests,[{amount:800,currency:"usd",recurring:true,source:"homepage",surface:"piece"}]);
   assert.deepEqual(f.jumps,["https://pay.aesthetic.computer/test"]);
 });
 
-test("Give keeps custom amounts within currency limits and resets presets on currency change", async t => {
-  const f=fixture(t,{amount:"1",source:"private-unreviewed-value"}); await tick();
-  f.click("-"); f.click("Give $1 / month"); await tick();
-  assert.equal(f.requests[0].amount,100);
-  assert.equal(f.requests[0].source,"give-piece");
-  f.click("USD"); f.click("100"); f.click("+"); f.click("Give 101 kr / month"); await tick();
-  assert.equal(f.requests[1].currency,"dkk"); assert.equal(f.requests[1].amount,10100);
+test("Give keeps its $8 monthly price on old custom gift links and offers other ways to give", async t => {
+  const f=fixture(t,{amount:"1",currency:"dkk",frequency:"once",source:"private-unreviewed-value"}); await tick();
+  f.click("Give $8 / month"); await tick();
+  assert.deepEqual(f.requests,[{amount:800,currency:"usd",recurring:true,source:"give-piece",surface:"piece"}]);
+  f.click("Other ways");
+  assert.equal(f.jumps.at(-1),"https://give.aesthetic.computer/?source=give-piece");
+  f.click("Bills");
+  assert.equal(f.jumps.at(-1),"https://bills.aesthetic.computer");
 });
 
 test("Give rejects an unsafe checkout destination and offers retry", async t => {
