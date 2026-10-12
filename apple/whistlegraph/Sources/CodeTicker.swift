@@ -158,8 +158,10 @@ struct CodeTicker: View {
                         }
                     }
                 }
-                .frame(height: CGFloat(visibleLines) * (fontSize + 3), alignment: .bottom).clipped()
-                .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.3)], startPoint: .top, endPoint: .bottom))
+                // Grows with the code until it holds the latest lines; only then do
+                // older lines scroll off the top behind a fade.
+                .frame(maxHeight: CGFloat(visibleLines) * (fontSize + 3), alignment: .bottom).clipped()
+                .mask(LinearGradient(stops: [.init(color: first > 0 ? .clear : .black, location: 0), .init(color: .black, location: 0.3)], startPoint: .top, endPoint: .bottom))
             }
             .opacity(thinking ? 0.6 : 1)
         }
