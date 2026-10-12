@@ -29,12 +29,19 @@ final class WaresTests: XCTestCase {
         editor.tap()
         editor.typeText("Make a lollipop world with custom candy textures and sprites, connected rooms and stairs.")
         app.buttons["request-send"].tap()
+        var failureReason: String?
         let generated = expectation(for: NSPredicate { _, _ in
+            if app.buttons["attempt-retry"].exists {
+                let row = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Make a lollipop world")).firstMatch
+                failureReason = (row.exists ? row.value as? String : nil) ?? "The app reported a failed WAD request"
+                return true
+            }
             let version = app.buttons.matching(current).firstMatch
             return version.exists && version.identifier != oldVersion
         }, evaluatedWith: nil)
         XCTAssertEqual(XCTWaiter().wait(for: [generated], timeout: 180), .completed,
                        "A real inference turn must save a new WAD version")
+        if let failureReason { XCTFail("WAD generation: \(failureReason)") }
         XCTAssertTrue(app.webViews.otherElements["Doom room"].waitForExistence(timeout: 60))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "WAD generated through Whistlegraph prompt"

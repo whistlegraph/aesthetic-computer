@@ -157,6 +157,10 @@
     header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
     header @cacheable ?Access-Control-Allow-Origin * # set-if-absent — see @code note
 
+    # Native WAD authoring reads public IWAD/WASM assets across origins.
+    @doomData path /doom-player/vendor/* /doom-player/examples/*
+    header @doomData ?Access-Control-Allow-Origin *
+
     # Shared native/web presentation settings must revalidate on each opening.
     @mimeLayout path /mime-layout.json
     header @mimeLayout Cache-Control "no-cache"

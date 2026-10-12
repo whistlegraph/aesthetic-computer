@@ -13,7 +13,9 @@ const versions=new PieceVersions(localStorage,'whistlegraph-doom-versions',JSON.
 const codes=JSON.parse(localStorage.getItem('whistlegraph-doom-codes')||'{}');
 const emptySeed=!codes[0]&&emptySeedHistory(versions.value);if(emptySeed)versions.persist(emptySeed);
 const validate=value=>value.format===2?validateProject(value):validateLevel(value);
-let level=validate(JSON.parse(versions.head.source)),wad=null,staged=null,token='',handle='',busy=false,server=null,cancelled=false,successful=false,error='',output='',attempt=null,code='';
+let level=validate(JSON.parse(versions.head.source)),wad=null,staged=null,token='',handle='',busy=false,server=null,cancelled=false,successful=false,error='',output='',attempt=readAttempt(),code='';
+function readAttempt(){try{const value=JSON.parse(localStorage.getItem('whistlegraph-doom-attempt')||'null');if(value?.status==='working')return {...value,status:'interrupted',error:'Editing was interrupted. The saved WAD is unchanged.'};return value;}catch{return null;}}
+let savedAttempt='';
 code=codes[versions.head.id]||'';
 const wares=wareControls('doom');
 document.body.classList.add('live-mode','live-preview');document.getElementById('initial').hidden=true;
@@ -21,7 +23,7 @@ const box=document.createElement('div');box.id='live-preview-box';document.getEl
 const frame=document.createElement('iframe');frame.title='Playable Doom WAD';frame.allow='autoplay';frame.style.cssText='width:100%;height:100%;border:0';box.append(frame);
 function render(){frame.src='https://aesthetic.computer/doom-player/?preview=1&bridge=1';}
 window.addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!=='https://aesthetic.computer')return;if(event.data?.type==='doom:error'){error='Doom preview: '+event.data.message;snapshot();}if(event.data?.type==='doom:request'&&wad){const copy=wad.slice();frame.contentWindow.postMessage({type:'doom:wad',wad:copy.buffer,title:level.title},'https://aesthetic.computer',[copy.buffer]);}});
-function snapshot(){post({action:'snapshot',snapshot:{ware:'doom',code,handle,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
+function snapshot(){const pending=JSON.stringify(attempt);if(pending!==savedAttempt){try{localStorage.setItem('whistlegraph-doom-attempt',pending);savedAttempt=pending;}catch{}}post({action:'snapshot',snapshot:{ware:'doom',code,handle,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
 async function commit(next,request){
   if(versions.value.versions.length>=100)throw Error('Export this WAD before starting another history.');
   const value=validate(next),source=JSON.stringify(value);if(source===versions.head.source)return false;
@@ -32,7 +34,7 @@ const projectTools=createProjectTools({get:()=>staged||level,set:(value)=>{if(ca
 const artifacts={
  context:async()=>PROJECT_INSTRUCTIONS+'\nCurrent level: '+documentSummary(staged||level),
  tools:projectTools.tools,
- run:async(name,input)=>{if(cancelled||wares.pending)throw Error('Doom edit stopped');return projectTools.run(name,input);}
+ run:async(name,input)=>{if(cancelled||wares.pending)throw Error('Doom edit stopped');try{return await projectTools.run(name,input);}catch(failure){if(failure.name==='DoomAssetError'){error=failure.message;cancelled=true;server?.interrupt();}throw failure;}}
 };
 async function ask(text){
   if(busy)return;const target=requestedWare(text);if(target){window.whistlegraphWorkFinished?.();window.whistlegraphSelectWare?.(target);return;}
