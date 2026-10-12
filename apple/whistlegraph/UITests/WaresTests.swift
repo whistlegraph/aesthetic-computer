@@ -51,8 +51,33 @@ final class WaresTests: XCTestCase {
         add(screenshot)
         app.buttons["doom-actions"].tap()
         app.buttons["Export WAD"].tap()
-        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 15), "A full WAD must reach the native share sheet")
-        app.buttons["Close"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Copy"].firstMatch.waitForExistence(timeout: 15), "A full WAD must reach the native share sheet")
+        if app.buttons["Close"].exists {
+            app.buttons["Close"].tap()
+        } else {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+                .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        }
+    }
+
+    func testExistingDoomExportShowsShareSheet() {
+        let app = XCUIApplication()
+        app.launch()
+        let picker = app.buttons["ware-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 30))
+        let ready = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: picker)
+        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 30), .completed)
+        picker.tap()
+        app.buttons["ware-doom"].tap()
+        XCTAssertTrue(app.buttons["doom-actions"].waitForExistence(timeout: 30))
+        let compiled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["doom-actions"])
+        XCTAssertEqual(XCTWaiter().wait(for: [compiled], timeout: 60), .completed)
+        app.buttons["doom-actions"].tap()
+        app.buttons["Export WAD"].tap()
+        let copy = app.descendants(matching: .any)["Copy"].firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 15))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
     }
 
     func testDoomWarePlaysRealWad() {
