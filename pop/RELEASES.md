@@ -139,7 +139,7 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## eight gigabytes — PACKET (dance cut approved 2026-10-12; DistroKid upload next)
+## eight gigabytes — SUBMITTED (DistroKid 2026-10-12, release date 2026-10-12)
 
 - **Lane:** `pop/eightgigabytes/` · the pop cut of the MacNeoPolitan Trio's
   *IV. The Ballad of neo* (`grants/culturehub-la-2026/macneopolitan/members/neo/ballad.md`)
@@ -165,7 +165,12 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   Voices re-sung 2026-10-12 (the Oct 10 wipe took the stems; singrender built on blueberry, neo's disk guard).
 - **Release files:** `out/release/eightgigabytes.flac` (16-bit/44.1, 9.4 MB, under the ~10 MB browser cap) ·
   `out/release/cover-3000.jpg` from `marketing/campaigns/eightgigabytes/gens/v6.png` (three Neos facing out, each singing its own face on a 16:10 screen, Menu Band semitone keycaps; v1 kept as cover-3000-v1.jpg).
-- **Next:** cover v6 approved 2026-10-12 → DistroKid upload as Aesthetic Dot Computer.
+- **Submitted 2026-10-12** to DistroKid as Aesthetic Dot Computer (grouped with the existing artist on Spotify,
+  Apple Music, YouTube Music, Instagram) · Pop / Electronic (Indie Dance / Nu Disco) · original, not explicit,
+  AI-generated: No · performer (synthesizer) + producer credits · no paid extras.
+  HyperFollow: https://distrokid.com/hyperfollow/aestheticdotcomputer/eight-gigabytes
+- **Next:** stores go live over ~a week (Spotify ≥ 5 business days); add lyrics + credits/liner notes on DistroKid;
+  Apple may capitalize the title ("Eight Gigabytes").
 
 ---
 
