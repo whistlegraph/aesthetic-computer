@@ -1,5 +1,5 @@
 // ⌨ Keyboard
-import { MetaBrowser } from "./platform.mjs";
+import { MetaBrowser, Aesthetic, MacOS } from "./platform.mjs";
 
 // TODO: Add more of these properties as needed:
 //       https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent
@@ -90,6 +90,15 @@ export class Keyboard {
         e.key !== "ArrowRight"
       )
         return;
+
+      // Canvas keys belong to the piece. Let WebKit deliver the real event,
+      // then cancel its text/scroll fallback so AppKit does not beep on each
+      // unhandled note or repeat. DOM editors and Command shortcuts keep their
+      // native editing behavior.
+      const editing = e.target?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+      if (Aesthetic && MacOS && !e.metaKey && !e.isComposing && !editing) {
+        e.preventDefault();
+      }
 
       // TODO: Debug keyboard prompt on every device again.
       // console.log(piece, e.key, document.activeElement);

@@ -14660,6 +14660,10 @@ async function makeFrame({ data: { type, content } }) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
 
+            // A wipe belongs to this rendered frame, never to the previous piece
+            // or an earlier prompt frame with a different/transparent backing.
+            nativeWindowWipe = null;
+
             // Always call paint() - piece paints underneath, GOL overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             if (paint !== defaults.paint) previewEvidence.paint();

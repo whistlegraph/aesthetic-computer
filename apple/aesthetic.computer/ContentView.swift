@@ -181,8 +181,10 @@ final class BootStatus: ObservableObject {
         bootStatus?.setError("Cannot reach aesthetic.computer\n\(error.localizedDescription)")
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         #if os(macOS)
+        // Give the live document keyboard focus without waiting for every
+        // subresource to finish (audio/streams can keep a piece loading).
         webView.window?.makeFirstResponder(webView)
         #endif
     }
