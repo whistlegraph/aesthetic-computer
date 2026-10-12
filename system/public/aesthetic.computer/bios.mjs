@@ -1,3 +1,4 @@
+import { createWindowColorReporter } from "./lib/native-window-color.mjs";
 import { installIOSPushBridge } from "./lib/ios-push.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintHistoryTarget } from "./lib/nopaint-navigation.mjs";
 import { visitMediaAction } from "./lib/visit-model.mjs";
@@ -48,6 +49,12 @@ import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backen
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import * as CaptureSession from "./lib/capture-session.mjs";
 import * as SoundOnFilm from "./lib/sound-on-film.mjs";
+
+const reportNativeWindowColor = createWindowColorReporter(message => {
+  if (window.acNativeWindowColor) {
+    window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify(message));
+  }
+});
 
 window.addEventListener("ac:handle-created", () => captureProductAction("handle_created"));
 
@@ -13412,26 +13419,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             send({ type: "qr:toggle-fullscreen" });
           }
 
-          // 📦 Update-ready badge tap → full reload (new deployment available).
-          if (content.label === "update-corner") {
-            console.log("🔘 Update badge tapped — reloading");
-            window.location.reload();
-          }
-
-          // 📦 Auto-reload checkbox. It toggles the flag we hold rather than
-          // re-reading storage, so one tap always flips what the box shows.
-          if (content.label === "update-auto-corner") {
-            const enabled = !updateAutoReload;
-            setUpdateAutoReload(enabled);
-            send({ type: "update:auto-state", content: enabled });
-            if (enabled) {
-              armUpdateReload(2500);
-            } else if (window.acUpdateReloadTimer) {
-              clearTimeout(window.acUpdateReloadTimer);
-              window.acUpdateReloadTimer = null;
-            }
-          }
-
           if (content.label === "copy") {
             try {
               await navigator.clipboard.writeText(content.message);
@@ -19940,6 +19927,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     pixelsDidChange = content.paintChanged || false;
+    if (window.acNativeWindowColor && content.windowColor) {
+      reportNativeWindowColor(content.windowColor);
+    }
 
     const useWebGLComposite = shouldUseWebGLComposite(content);
     const webglCompositeActive = useWebGLComposite && webglBlitter?.isReady();
@@ -20283,11 +20273,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         armUpdateReload(1250, content.updateBadge.silent === true);
       }
     }
-    // A silent badge carries no image — it exists only to say an update is
-    // ready, so the arm above can take it.
-    if (!content.updateBadge?.silent) {
-      buildOverlay("updateBadge", content.updateBadge); // 📦 Update-ready ↑ badge (top-right)
-    }
     buildOverlay("merryProgressBar", content.merryProgressBar); // 🎄 Merry pipeline progress bar
     buildOverlay("demoplayCard", content.demoplayCard); // 🎬 Demoplay text card overlay
     buildOverlay("tapeProgressBar", content.tapeProgressBar);
@@ -20526,7 +20511,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                 if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
                 if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                 if (paintOverlays["authorOverlay"]) paintOverlays["authorOverlay"]();
-                if (paintOverlays["updateBadge"]) paintOverlays["updateBadge"](); // 📦 Update-ready badge (top-right)
                 if (paintOverlays["tapeProgressBar"] && !window.currentRecordingOptions?.cleanMode) paintOverlays["tapeProgressBar"]();
                 if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                 if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"](); // Debug overlay (green hitbox)
@@ -20618,7 +20602,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
                       if (paintOverlays["qrCornerLabel"]) paintOverlays["qrCornerLabel"]();
                       if (paintOverlays["qrFullscreenLabel"]) paintOverlays["qrFullscreenLabel"]();
                       if (paintOverlays["authorOverlay"]) paintOverlays["authorOverlay"]();
-                      if (paintOverlays["updateBadge"]) paintOverlays["updateBadge"](); // 📦 Update-ready badge
                       if (paintOverlays["tapeProgressBar"] && !window.currentRecordingOptions?.cleanMode) paintOverlays["tapeProgressBar"]();
                       if (paintOverlays["durationProgressBar"]) paintOverlays["durationProgressBar"]();
                       if (paintOverlays["hitboxDebug"]) paintOverlays["hitboxDebug"]();
@@ -20726,12 +20709,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // 👤 Paint author overlay (bottom-left attribution for KidLisp pieces)
         if (!skipImmediateOverlays && paintOverlays["authorOverlay"]) {
           paintOverlays["authorOverlay"]();
-        }
-
-        // 📦 Update-ready badge (top-right) — drawn after corner overlays so
-        // it sits on top of everything else.
-        if (!skipImmediateOverlays && paintOverlays["updateBadge"]) {
-          paintOverlays["updateBadge"]();
         }
 
         // Paint hitbox debug overlay immediately (green, shows button hitbox)

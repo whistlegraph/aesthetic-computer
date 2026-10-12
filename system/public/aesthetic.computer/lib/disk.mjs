@@ -2102,8 +2102,6 @@ let globalVersionInfo = null; // { deployed, latest, status, behindBy, recentCom
 let globalRecentCommits = [];
 let updatePollStarted = false;
 let updatePollController = null;
-let updateBadgeBoxScreen = null; // {x, y, w, h} of the rendered badge for hitbox bookkeeping
-let updateBadgeHitboxRegistered = false;
 let globalAutoReload = false;
 // Whether this frame wants updates taken rather than offered. Same shape,
 // and same reason, as `hideLabelForFrame`: it describes the view, it arrives
@@ -2482,6 +2480,7 @@ const imageCache = {
 };
 
 let screen;
+let nativeWindowWipe = null;
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
 
 // 🖼️ HD layer — an OffscreenCanvas 2D surface at native device resolution,
@@ -3911,7 +3910,7 @@ const $commonApi = {
     droppedFile: null,
     // 📦 Global update poll state — `ready` flips true when /api/version
     // long-poll detects a new deployment. Pieces can read this to render
-    // their own update UI; the corner ↑ badge in disk.mjs is automatic.
+    // their own update UI; the HUD label refreshes the current piece first.
     update: {
       get ready() { return globalUpdateReady; },
       get versionInfo() { return globalVersionInfo; },
@@ -6626,6 +6625,13 @@ const $paintApiUnwrapped = {
       ink(255, 255, 255);
     } else {
       ink(...arguments);
+    }
+
+    // Only a wipe of the visible buffer owns the native window color.
+    // Offscreen UI paintings must not tint the application's title bar.
+    if (graph.getBuffer().pixels === screen?.pixels &&
+        graph.c.slice(0, 3).every(Number.isFinite) && (graph.c[3] ?? 255) === 255) {
+      nativeWindowWipe = { slug: $commonApi.slug, rgb: graph.c.slice(0, 3) };
     }
 
     // 🎨 WebGPU clear if enabled
@@ -13933,6 +13939,16 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.15,
                 });
 
+                // Update the current piece before returning to the prompt.
+                // Share/edit scrubs above retain their own actions.
+                if (globalUpdateReady && $commonApi.slug !== "prompt") {
+                  currentHUDScrub = 0;
+                  currentHUDScrubReadyState = null;
+                  masked = false;
+                  send({ type: "window:reload" });
+                  return;
+                }
+
                 // 🌐 Branded domain: tapping HUD label navigates to aesthetic.computer
                 if (redirectIfBrandedDomain()) return;
 
@@ -15263,7 +15279,9 @@ async function makeFrame({ data: { type, content } }) {
 
         if (piece === "video") w = screen.width;
 
-        const baseLabelWidth = w + shareWidth;
+        const labelUpdateReady = globalUpdateReady && $commonApi.slug !== "prompt";
+        const updateLabelWidth = labelUpdateReady ? 9 : 0;
+        const baseLabelWidth = w + shareWidth + updateLabelWidth;
 
         // Use natural text dimensions for buffer - preserve original layout
         // Add QR code width to buffer if present
@@ -15437,6 +15455,18 @@ async function makeFrame({ data: { type, content } }) {
                 bounds: wrapBounds,
                 // wordWrap defaults to true when bounds is set, enabling character wrapping
               });
+            }
+
+            // The update arrow belongs to this label and its existing hit area.
+            if (labelUpdateReady) {
+              const ux = baseLabelWidth - updateLabelWidth + 2 + Math.max(0, currentHUDScrub);
+              const uy = hudTextY;
+              $.ink(30, 70, 30).box(ux - 1, uy - 1, 8, 11);
+              $.ink(150, 255, 160);
+              $.box(ux + 2, uy, 1, 1);
+              $.box(ux + 1, uy + 1, 3, 1);
+              $.box(ux, uy + 2, 5, 1);
+              $.box(ux + 2, uy + 3, 1, 5);
             }
 
             // ✨ Custom Superscript (e.g. ".com") - draw after the text in cyan
@@ -15674,6 +15704,10 @@ async function makeFrame({ data: { type, content } }) {
 
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
+      if (platform.Aesthetic && platform.MacOS) {
+        sendData.windowColor = nativeWindowWipe?.slug === $commonApi.slug
+          ? nativeWindowWipe.rgb : Array.from(screen.pixels.subarray(0, 3));
+      }
 
       // Tack on the merry progress bar at the TOP if a pipeline is running
       if ($api.system.merry && $api.system.merry.running) {
@@ -17132,109 +17166,10 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 📦 Pieces use the corner updater. The prompt owns its bottom hash/update
-      // button, leaving its top-right website promotion unobstructed.
-      // An embedded view takes the update instead of advertising it. The
-      // message still goes — it is what arms the reload on the other side —
-      // but it carries no picture, so nothing is drawn over the piece and
-      // there is no green arrow waiting for a tap that cannot come.
-      if (globalUpdateReady && autoUpdateForFrame) {
-        sendData.updateBadge = { silent: true, auto: true };
-      } else if (
-        globalUpdateReady &&
-        $commonApi.slug !== "prompt" &&
-        !PREVIEW_OR_ICON &&
-        !DEVICE_MODE &&
-        !hudAnimationState.qrFullscreen
-      ) {
-        const badgeSize = 13;
-        const badgeWidth = badgeSize * 2 + 3;
-        const margin = 4;
-        const startX = screen.width - badgeWidth - margin;
-        const startY = margin;
-
-        // Pulse for attention.
-        const tBadge = Number($api.paintCount || 0n);
-        const pulse = 0.5 + 0.5 * Math.sin(tBadge * 0.15);
-        const fillBoost = Math.round(40 * pulse);
-        const outlineBoost = Math.round(60 * pulse);
-
-        const badge = $api.painting(badgeWidth, badgeSize, ($) => {
-          $.unpan();
-          $.unmask();
-          // Filled square w/ pulsing green.
-          $.ink(20 + fillBoost, 80 + fillBoost, 30, 230).box(
-            0, 0, badgeSize, badgeSize,
-          );
-          $.ink(60 + outlineBoost, 180 + outlineBoost, 70, 255).box(
-            0, 0, badgeSize, badgeSize, "outline",
-          );
-          // Up arrow ↑ in pixels.
-          const cx = Math.floor(badgeSize / 2);
-          $.ink(255, 255, 255, 255);
-          $.box(cx, 3, 1, 1);         // tip
-          $.box(cx - 1, 4, 3, 1);     // wing 1
-          $.box(cx - 2, 5, 5, 1);     // wing 2
-          $.box(cx, 6, 1, 4);         // shaft
-          // Auto-reload toggle: check means reload after the short grace
-          // period; X means updates wait for a manual arrow tap.
-          const bx = badgeSize + 3;
-          $.ink(8, 30, 12, 230).box(bx, 0, badgeSize, badgeSize);
-          $.ink(80, 210, 90, 255).box(bx, 0, badgeSize, badgeSize, "outline");
-          $.ink(255, 255, 255, 255);
-          if (globalAutoReload) {
-            $.box(bx + 3, 6, 2, 1);
-            $.box(bx + 4, 7, 2, 1);
-            $.box(bx + 5, 5, 1, 2);
-            $.box(bx + 6, 4, 1, 2);
-            $.box(bx + 7, 3, 2, 1);
-          } else {
-            $.box(bx + 3, 3, 1, 1); $.box(bx + 8, 3, 1, 1);
-            $.box(bx + 4, 4, 1, 1); $.box(bx + 7, 4, 1, 1);
-            $.box(bx + 5, 5, 2, 2);
-            $.box(bx + 4, 7, 1, 1); $.box(bx + 7, 7, 1, 1);
-            $.box(bx + 3, 8, 1, 1); $.box(bx + 8, 8, 1, 1);
-          }
-        });
-
-        sendData.updateBadge = {
-          x: startX,
-          y: startY,
-          opacity: 1,
-          auto: globalAutoReload, // What the checkbox is actually drawing.
-          img: (({ width, height, pixels }) => ({ width, height, pixels }))(
-            badge,
-          ),
-        };
-
-        const boxKey = `${startX},${startY},${badgeWidth},${globalAutoReload}`;
-        if (!updateBadgeBoxScreen || updateBadgeBoxScreen.key !== boxKey) {
-          send({
-            type: "button:hitbox:add",
-            content: {
-              label: "update-corner",
-              box: { x: startX, y: startY, w: badgeSize, h: badgeSize },
-              message: "update-corner-tap",
-            },
-          });
-          send({
-            type: "button:hitbox:add",
-            content: {
-              label: "update-auto-corner",
-              box: { x: startX + badgeSize + 3, y: startY, w: badgeSize, h: badgeSize },
-              message: "update-auto-corner-tap",
-            },
-          });
-          updateBadgeBoxScreen = {
-            x: startX, y: startY, w: badgeSize, h: badgeSize, key: boxKey,
-          };
-          updateBadgeHitboxRegistered = true;
-        }
-      } else if (updateBadgeHitboxRegistered) {
-        send({ type: "button:hitbox:remove", content: "update-corner" });
-        send({ type: "button:hitbox:remove", content: "update-auto-corner" });
-        updateBadgeHitboxRegistered = false;
-        updateBadgeBoxScreen = null;
+      // Update availability still reaches BIOS for opted-in auto reloads.
+      // Interactive updates live in the HUD label or prompt's bottom hash button.
+      if (globalUpdateReady) {
+        sendData.updateBadge = { silent: true, auto: autoUpdateForFrame || globalAutoReload };
       }
 
       let transferredPixels;
