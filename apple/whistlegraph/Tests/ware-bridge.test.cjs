@@ -9,7 +9,7 @@ const server=http.createServer(async(req,res)=>{
     const path=resolve(root,'.'+new URL(req.url,'http://local').pathname);
     if(!path.startsWith(root+'/'))throw Error('bad path');
     const data=await readFile(path);
-    res.setHeader('Content-Type',({'.html':'text/html','.mjs':'text/javascript','.js':'text/javascript','.json':'application/json'})[extname(path)]||'application/octet-stream');res.end(data);
+    res.setHeader('Content-Type',({'.html':'text/html','.mjs':'text/javascript','.js':'text/javascript','.json':'application/json','.wasm':'application/wasm'})[extname(path)]||'application/octet-stream');res.end(data);
   }catch{res.writeHead(404);res.end();}
 });
 (async()=>{
@@ -18,7 +18,8 @@ const server=http.createServer(async(req,res)=>{
   try{
     const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.setViewport({width:430,height:322,deviceScaleFactor:2});
-    await page.setRequestInterception(true);page.on('request',r=>r.url().startsWith('http://127.0.0.1:')?r.continue():r.respond({status:200,contentType:'text/html',body:'Preview fixture'}));
+    const doomBase=await readFile(resolve(__dirname,'../../../system/public/doom-player/vendor/freedoom1.wad'));
+    await page.setRequestInterception(true);page.on('request',r=>r.url().startsWith('http://127.0.0.1:')?r.continue():r.url().endsWith('/doom-player/vendor/freedoom1.wad')?r.respond({status:200,contentType:'application/x-doom-wad',headers:{'Access-Control-Allow-Origin':'*'},body:doomBase}):r.respond({status:200,contentType:'text/html',body:'Preview fixture'}));
     const ledger={format:1,head:1,versions:[{id:0,parent:null,source:'// Walkieware v0 — base color.',request:null,createdAt:'2026-10-05T00:00:00Z'},{id:1,parent:0,source:'export function paint({wipe}) {wipe("pink");}',request:'Pink piece',createdAt:'2026-10-05T00:01:00Z'}]};
     const guides=Object.fromEntries(await Promise.all(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(async n=>['/easel/context/'+n,await readFile(resolve(root,'easel/context',n),'utf8')])));
     await page.evaluateOnNewDocument((ledger,guides)=>{

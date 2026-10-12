@@ -44,6 +44,15 @@ const server=createServer(async(req,res)=>{try{let file=resolve(root,'.'+new URL
   await page.evaluate(()=>{__touch('pointerup',1,145,100);__touch('pointercancel',2,285,140);});
   assert.equal(await page.evaluate(()=>__touchKeys.some(k=>k[0]==='down'&&k[1]==='ControlLeft')),false,'drag and multi-touch never fire');
   assert.ok(await page.evaluate(()=>__touchKeys.some(k=>k[0]==='up'&&k[1]==='ArrowDown')),'cancel releases movement');
+  await page.evaluate(()=>{__touchKeys=[];__touch('pointerdown',1,100,100);__touch('pointerdown',2,250,100);__touch('pointerup',2,250,100);__touch('pointerup',1,100,100);});
+  await new Promise(r=>setTimeout(r,160));
+  assert.ok(await page.evaluate(()=>__touchKeys.some(k=>k[0]==='down'&&k[1]==='Space')),'quick second finger uses doors');
+  assert.equal(await page.evaluate(()=>__touchKeys.some(k=>k[0]==='down'&&k[1]==='ControlLeft')),false,'two-finger use does not fire');
+  await page.evaluate(()=>{__touchKeys=[];__touch('pointerdown',1,100,100);__touch('pointerdown',2,250,100);__touch('pointermove',1,140,100);__touch('pointerup',1,140,100);});
+  await new Promise(r=>setTimeout(r,360));
+  await page.evaluate(()=>{__touch('pointerdown',3,100,100);__touch('pointerup',3,100,100);});
+  assert.ok(await page.evaluate(()=>__touchKeys.some(k=>k[0]==='down'&&k[1]==='ControlLeft')),'tap fires while second finger keeps moving');
+  await page.evaluate(()=>__touch('pointerup',2,250,100));
   assert.deepEqual(errors,[]);
 
   console.log('PASS Doom: real exported PWAD loaded in WASM, rendered, movement/fire, pause/resume');

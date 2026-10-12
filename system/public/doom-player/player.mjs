@@ -1,4 +1,4 @@
-import {installTouchControls} from './touch-controls.mjs?v=2026-10-12.5';
+import {installTouchControls} from './touch-controls.mjs?v=2026-10-12.6';
 import {compileWad,starterLevel,validateLevel,inspectWad,WAD_MIME} from './wad.mjs?v=2026-10-12.3';
 const canvas=document.querySelector('#canvas'),status=document.querySelector('#status'),start=document.querySelector('#start'),boot=document.querySelector('#boot');
 const query=new URLSearchParams(location.search),preview=query.get('preview')==='1';

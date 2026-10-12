@@ -35,9 +35,9 @@ export function installTouchControls(canvas,key,active=()=>true){
     const finger=fingers.get(event.pointerId);if(!finger)return;
     event.preventDefault();fingers.delete(event.pointerId);
     if(event.pointerId===look){look=null;for(const code of ['ArrowLeft','ArrowRight']){clearTimeout(timers.get(code));timers.delete(code);set(code,false);}
-      if(event.type==='pointerup'&&active()&&!finger.dragged&&!finger.multi&&performance.now()-finger.at<350)pulse('ControlLeft',120);
+      if(event.type==='pointerup'&&active()&&!finger.dragged&&(!finger.multi||(move!==null&&performance.now()-fingers.get(move).at>=350))&&performance.now()-finger.at<350)pulse('ControlLeft',120);
     }
-    if(event.pointerId===move){move=null;for(const code of ['ArrowUp','ArrowDown','Comma','Period'])set(code,false);}
+    if(event.pointerId===move){move=null;for(const code of ['ArrowUp','ArrowDown','Comma','Period'])set(code,false);if(event.type==='pointerup'&&active()&&!finger.dragged&&performance.now()-finger.at<350)pulse('Space',120);}
   }
   for(const name of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(name,end);
   return {reset};

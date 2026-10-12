@@ -103,7 +103,7 @@ export async function buildNodes(data){
 }
 const baseCache=new Map();
 export async function baseWad(game='doom'){
- if(!baseCache.has(game))baseCache.set(game,(async()=>{const response=await fetch('https://aesthetic.computer/doom-player/vendor/freedoom'+(game==='doom2'?'2':'1')+'.wad');if(!response.ok)throw Error('Could not load Freedoom assets');return new Uint8Array(await response.arrayBuffer());})().catch(e=>{baseCache.delete(game);throw Object.assign(Error('Could not load Freedoom assets: '+e.message),{name:'DoomAssetError'});}));return baseCache.get(game);
+ if(!baseCache.has(game))baseCache.set(game,(async()=>{const response=await fetch('https://aesthetic.computer/doom-player/vendor/freedoom'+(game==='doom2'?'2':'1')+'.wad',{signal:AbortSignal.timeout(20000)});if(!response.ok)throw Error('Could not load Freedoom assets');return new Uint8Array(await response.arrayBuffer());})().catch(e=>{baseCache.delete(game);throw Object.assign(Error('Could not load Freedoom assets: '+e.message),{name:'DoomAssetError'});}));return baseCache.get(game);
 }
 function lumpNamed(lumps,n){const l=lumps.find(l=>l.name===n);if(!l)throw Error('Base asset unavailable: '+n);return l.data;}
 function rgb(s){if(typeof s!=='string'||!/^#[0-9a-f]{6}$/i.test(s))throw Error('Colors use #RRGGBB');return [parseInt(s.slice(1,3),16),parseInt(s.slice(3,5),16),parseInt(s.slice(5,7),16)];}

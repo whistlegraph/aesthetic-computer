@@ -5,7 +5,7 @@ import {FLASH_MODEL} from './generation-policy.mjs';
 import {PieceVersions} from './piece-versions.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 import {starterLevel,validateLevel,emptySeedHistory,WAD_MIME} from './doom-wad.mjs';
-import {compileDocument,validateProject,encode64,documentSummary} from './doom-project.mjs';
+import {compileDocument,compileProject,asProject,validateProject,encode64,documentSummary} from './doom-project.mjs';
 import {createProjectTools,PROJECT_INSTRUCTIONS} from './doom-project-tools.mjs';
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'doom',...body});
 const account=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state})});
@@ -45,6 +45,8 @@ async function ask(text){
     if(level.format!==2&&/^(?:remove |no )(?:all )?(?:enemies|monsters)[.!]?$/i.test(text)){await commit({...level,things:level.things.filter(t=>![3004,3001,9].includes(t.type))},text);return;}
     if(!token){error='Sign in to ask the brain to edit this WAD.';post({action:'signIn'});return;}
     busy=true;attempt={request:text,status:'working',error:''};snapshot();
+    // Verify native asset access and the node builder before paid inference.
+    await compileProject(asProject(level));if(cancelled)return;
     server=new AcServer({token:()=>token,model:window.__whistlegraphModel||FLASH_MODEL,artifacts,controls:wares,preview:false,frameCapture:false,rounds:16,reasoning:{effort:'none'},thinking:{type:'disabled'},developerInstructions:'This is Whistlegraph. Build and iteratively edit the requested Doom world using the project tools. Use custom graphics and actual freeform sector geometry for requests that need them. Preserve existing artwork and maps during edits. Do not claim to have play-tested, exported, or published a staged WAD. No preamble. '+WARE_INSTRUCTIONS});
     server.on('notification',({method,params})=>{if(method==='item/agentMessage/delta'){output+=params.delta;snapshot();}if(method==='turn/completed'){successful=params.turn.status==='completed'&&!params.turn.error;if(!successful&&!cancelled)error=params.turn.error?.message||'Could not finish the WAD';}});
     await server.startTurn(text);if(!cancelled&&successful&&!wares.pending&&staged)await commit(staged,text);
