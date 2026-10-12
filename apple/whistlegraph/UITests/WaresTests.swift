@@ -67,12 +67,21 @@ final class WaresTests: XCTestCase {
         XCTAssertTrue(picker.waitForExistence(timeout: 30))
         let ready = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: picker)
         XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 30), .completed)
+        let banner = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .descendants(matching: .any)["NotificationShortLookView"].firstMatch
+        if banner.exists { banner.swipeUp() }
         picker.tap()
-        app.buttons["ware-doom"].tap()
+        let doom = app.buttons["ware-doom"]
+        if !doom.waitForExistence(timeout: 2) {
+            if banner.exists { banner.swipeUp() }
+            picker.tap()
+        }
+        XCTAssertTrue(doom.waitForExistence(timeout: 5))
+        doom.tap()
         XCTAssertTrue(app.buttons["doom-actions"].waitForExistence(timeout: 30))
         let compiled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["doom-actions"])
         XCTAssertEqual(XCTWaiter().wait(for: [compiled], timeout: 60), .completed)
-        app.buttons["doom-actions"].tap()
+        app.buttons["workspace-settings"].tap()
         app.buttons["Export WAD"].tap()
         let copy = app.descendants(matching: .any)["Copy"].firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 15))

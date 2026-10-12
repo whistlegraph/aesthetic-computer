@@ -192,39 +192,43 @@ struct IdentityHeader: View {
     @State private var showingAccount = false
     private var signedIn: Bool { !session.snapshot.handle.isEmpty }
     private var handleText: String { "@" + session.snapshot.handle }
+    private var mediaName: String {
+        if !session.snapshot.code.isEmpty { return session.snapshot.code }
+        guard session.snapshot.wareID != "piece", let title = session.snapshot.caption else { return "untitled" }
+        let name = title.folding(options: .diacriticInsensitive, locale: Locale(identifier: "en_US_POSIX"))
+            .lowercased().replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        return name.isEmpty ? "untitled" : String(name.prefix(80))
+    }
+    private var nameLabel: some View { ComicTitle(text: "/" + mediaName, size: size) }
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if session.snapshot.wareID == "doom" && signedIn {
-                HStack(spacing: 0) {
-                    ComicTitle(text: session.snapshot.code.isEmpty ? (session.snapshot.caption ?? "Untitled") : "doom~" + session.snapshot.code, size: size)
-                        .lineLimit(1).minimumScaleFactor(0.6)
-                        .accessibilityIdentifier("wad-name")
-                    WarePicker(session: session, size: size, beforeSwitch: beforeOpening)
-                }
+        HStack(spacing: 0) {
+            if signedIn {
                 Button {
                     beforeOpening(); ButtonSounds.play(.pop); showingAccount = true
                 } label: {
-                    Text(handleText).font(.custom("ComicRelief-Regular", size: 16, relativeTo: .subheadline))
+                    ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
                 }.buttonStyle(.plain).accessibilityLabel(handleText + ", account").accessibilityIdentifier("workspace-account")
-            } else {
-                HStack(spacing: 0) {
-                    // Signing in happens on the entry screen; until the engine names the
-                    // handle the corner stays empty rather than offering a second login.
-                    if signedIn {
-                        Button {
-                            beforeOpening(); ButtonSounds.play(.pop); showingAccount = true
-                        } label: {
-                            ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
-                        }.buttonStyle(.plain).accessibilityLabel(handleText + ", account").accessibilityIdentifier("workspace-account")
-                    }
-                    if session.snapshot.wareID == "piece" && signedIn && !session.snapshot.code.isEmpty {
-                        Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: {
-                            ComicTitle(text: "/" + session.snapshot.code, size: size)
-                        }.buttonStyle(.plain).accessibilityLabel(session.snapshot.code + ", pieces").accessibilityIdentifier("workspace-settings")
-                    }
-                    // The ware is the extension: /code.ac is an AC piece, .rbx a Roblox room. Tap to switch.
-                    if signedIn { WarePicker(session: session, size: size, beforeSwitch: beforeOpening) }
+                if session.snapshot.wareID == "piece" {
+                    Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: { nameLabel }
+                        .buttonStyle(.plain).accessibilityLabel(mediaName + ", pieces").accessibilityIdentifier("workspace-settings")
+                } else {
+                    Menu {
+                        if session.snapshot.wareID == "doom" {
+                            Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoDoom") }
+                            Button("New empty WAD", systemImage: "plus") { session.command("newDoom") }
+                            Button("Restart", systemImage: "arrow.clockwise") { session.command("playDoom") }
+                            Button("Export WAD", systemImage: "square.and.arrow.up") { session.command("exportWad") }
+                            Button("Publish to MIME", systemImage: "globe") { session.command("publishDoom") }
+                        } else {
+                            Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoRoom") }
+                            Button("Export Roblox place", systemImage: "square.and.arrow.up") { session.command("exportRoom") }
+                        }
+                    } label: { nameLabel }
+                        .disabled(session.snapshot.busy || session.capturePhase != .idle)
+                        .accessibilityLabel(mediaName + ", actions").accessibilityIdentifier("workspace-settings")
                 }
+                WarePicker(session: session, size: size, beforeSwitch: beforeOpening)
             }
         }
         .onChange(of: showingAccount) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .account) }
