@@ -233,6 +233,15 @@ final class BootStatus: ObservableObject {
             if message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
                message.frameInfo.securityOrigin.host == "aesthetic.computer" {
                 LaunchPing.loaded(true)
+                #if os(macOS)
+                // Autoplay is allowed in our native host. Warm the worklet
+                // before the first curtain click or key so its feedback isn't
+                // lost while the audio graph is still being constructed.
+                message.webView?.evaluateJavaScript("window.AC?.startAudio?.()") { _, error in
+                    if let error { NSLog("AC audio startup: %@", error.localizedDescription) }
+                }
+                MacPromptLatencyProbe.run(in: message.webView)
+                #endif
             }
         case "usage:canvas":
             if message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
@@ -285,6 +294,9 @@ struct WebView: ACWebViewRepresentable {
 
     func makeWebView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        #if os(macOS)
+        MacPromptLatencyProbe.configure(config)
+        #endif
         let userScript = WKUserScript(
             source: """
                 for (const level of ['log', 'warn', 'error', 'info']) {
@@ -333,7 +345,7 @@ struct WebView: ACWebViewRepresentable {
             WKWebsiteDataTypeIndexedDBDatabases,
             WKWebsiteDataTypeWebSQLDatabases,
         ]
-        WKWebsiteDataStore.default().removeData(
+        config.websiteDataStore.removeData(
             ofTypes: cacheTypes,
             modifiedSince: .distantPast
         ) {}

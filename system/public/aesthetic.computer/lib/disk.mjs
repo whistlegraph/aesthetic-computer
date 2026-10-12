@@ -2481,6 +2481,7 @@ const imageCache = {
 
 let screen;
 let nativeWindowWipe = null;
+let inputLatencySequence; // Set only by the opt-in native benchmark.
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
 
 // 🖼️ HD layer — an OffscreenCanvas 2D surface at native device resolution,
@@ -11364,6 +11365,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "prompt:text:select" ||
     type === "prompt:text:cursor"
   ) {
+    if (Number.isSafeInteger(content.inputLatencySequence)) inputLatencySequence = content.inputLatencySequence;
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
@@ -15717,6 +15719,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
+      if (inputLatencySequence !== undefined) sendData.inputLatencySequence = inputLatencySequence;
       if (platform.Aesthetic && platform.MacOS) {
         sendData.windowColor = nativeWindowWipe && nativeWindowWipe.slug === $commonApi.slug
           ? nativeWindowWipe.rgb : Array.from(screen.pixels.subarray(0, 3));

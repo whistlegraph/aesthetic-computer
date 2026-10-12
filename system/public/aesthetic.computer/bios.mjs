@@ -19612,6 +19612,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // If we return early (pixel mismatch) or throw during compositing, bios can stop
     // requesting frames entirely (frameAlreadyRequested stays true).
     if (!(type === "render" || type === "update")) return;
+    if (type === "render") window.acInputLatencyProbe?.received(content.inputLatencySequence);
     if (!content) {
       frameAlreadyRequested = false;
       clearFrameStallWatchdog();
@@ -21252,6 +21253,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
     }
 
+      if (type === "render") window.acInputLatencyProbe?.rendered(content.inputLatencySequence);
     } catch (err) {
       console.error("🛑 BIOS compositing error (render/update):", err);
     } finally {

@@ -7,6 +7,70 @@ typealias ACApplication = NSApplication
 typealias ACApplicationDelegate = NSApplicationDelegate
 typealias ACImage = NSImage
 
+// Explicit local automation only: the normal app never reads scripts or records
+// keystrokes. A probe uses an ephemeral website store and exits its own process.
+@MainActor enum MacPromptLatencyProbe {
+    static func argument(_ flag: String) -> String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let index = args.firstIndex(of: flag), args.indices.contains(index + 1) else { return nil }
+        return args[index + 1]
+    }
+    static var enabled: Bool { argument("--ac-input-probe") != nil }
+    private static var started = false
+
+    static func configure(_ configuration: WKWebViewConfiguration) {
+        guard let path = argument("--ac-input-probe"),
+              let script = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.userContentController.addUserScript(WKUserScript(
+            source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    }
+
+    static func run(in webView: WKWebView?) {
+        guard enabled, !started, let webView else { return }
+        started = true
+        let interval = max(8, min(1000, Int(argument("--ac-input-interval-ms") ?? "80") ?? 80))
+        let resultPath = argument("--ac-input-result") ?? "/tmp/ac-input-latency.json"
+        Task { @MainActor in
+            do {
+                try await Task.sleep(for: .seconds(1))
+                guard let window = webView.window else { throw CocoaError(.coderInvalidValue) }
+                window.title = "prompt · input latency test"
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                window.makeFirstResponder(webView)
+                for index in 0..<60 {
+                    for type in [NSEvent.EventType.keyDown, .keyUp] {
+                        guard let event = NSEvent.keyEvent(
+                            with: type, location: .zero, modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: window.windowNumber, context: nil,
+                            characters: "a", charactersIgnoringModifiers: "a",
+                            isARepeat: index > 0 && interval < 30, keyCode: 0) else { continue }
+                        NSApp.sendEvent(event)
+                    }
+                    try await Task.sleep(for: .milliseconds(interval))
+                }
+                try await Task.sleep(for: .seconds(1))
+                let result = try await webView.evaluateJavaScript("JSON.stringify(window.acInputLatencyProbe.result())")
+                guard let json = result as? String else { throw CocoaError(.coderInvalidValue) }
+                try json.write(toFile: resultPath, atomically: true, encoding: .utf8)
+                let snapshot = try await webView.takeSnapshot(configuration: nil)
+                if let tiff = snapshot.tiffRepresentation,
+                   let bitmap = NSBitmapImageRep(data: tiff),
+                   let png = bitmap.representation(using: .png, properties: [:]) {
+                    try png.write(to: URL(fileURLWithPath: resultPath + ".png"))
+                }
+                print("AC input benchmark: \(resultPath)")
+            } catch {
+                try? "{\"error\":\"Native input probe failed\"}".write(toFile: resultPath, atomically: true, encoding: .utf8)
+                NSLog("AC input benchmark failed: %@", error.localizedDescription)
+            }
+            NSApp.terminate(nil)
+        }
+    }
+}
+
 // WebKit can reset AppKit's cursor when the invisible prompt editor gains
 // focus, even while CSS still reports the SVG cursor. Reassert the same image
 // after mouse dispatch so native focus changes cannot replace it.
