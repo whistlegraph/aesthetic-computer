@@ -3541,6 +3541,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // AC Electron preview windows are frameless (non-standard subrole).
             let acpane = AXTiler.windows(bundleId: "computer.aesthetic.app",
                                          requireStandardSubrole: false)
+                + AXTiler.windows(bundleId: "aesthetic.computer")
                 + AXTiler.easelWindows()
             let all = iterm + term + acpane
             NSLog("🎲 [scatter] iterm=\(iterm.count) term=\(term.count) acpane=\(acpane.count)")
