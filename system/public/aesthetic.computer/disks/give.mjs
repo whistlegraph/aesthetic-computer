@@ -60,8 +60,8 @@ function paint($) {
   scrollMax = Math.max(0, total + 28 - screen.height);
   scroll = Math.max(0, Math.min(scrollMax, scroll));
   const top = Math.max(24, Math.floor((screen.height - total) / 2)) - scroll;
-  const line = (text, y, color = colors.text, size = 1, small = false) => {
-    ink(color).write(text, { x: cx, y, center: "x", size }, undefined, undefined, false, small ? "MatrixChunky8" : undefined);
+  const line = (text, y, color = colors.text, size = 1) => {
+    ink(color).write(text, { x: cx, y, center: "x", size }, undefined, undefined, false, "MatrixChunky8");
   };
   const button = (id, label, x, y, w, h, action, selected = false, primary = false) => {
     const item = buttons[id] ||= { button: new ui.Button() };
@@ -75,21 +75,21 @@ function paint($) {
     ink(fill).box(b.box, "fill");
     ink(active ? colors.text : selected ? colors.mint : primary ? colors.pink : colors.muted).box(b.box, "outline");
     ink(primary || selected ? colors.ground : colors.text).write(label,
-      { x: x + w / 2, y: y + Math.floor((h - 10) / 2), center: "x" });
+      { x: x + w / 2, y: y + Math.floor((h - 10) / 2), center: "x" }, undefined, undefined, false, "MatrixChunky8");
   };
   // The live count is the picture: oversized native pixels, a gently moving shadow.
   const countText = count === null ? countFailed ? "?" : "..." : count.toLocaleString();
   const size = Math.min(compact ? 4 : 6, width / (countText.length * 7));
   const sway = Math.round(Math.sin(frame / 90));
-  ink(colors.shadow).write(countText, { x: cx + 3 + sway, y: top + 3, center: "x", size });
+  ink(colors.shadow).write(countText, { x: cx + 3 + sway, y: top + 3, center: "x", size }, undefined, undefined, false, "MatrixChunky8");
   line(countText, top, colors.pink, size);
   line(countFailed ? "Count unavailable" : `monthly supporter${count === 1 ? "" : "s"}`, top + hero + 3);
-  line(thanks ? "Thank you for supporting AC!" : "Keep AC online & free.", top + hero + 21, colors.muted, 1, true);
+  line(thanks ? "Thank you for supporting AC!" : "Keep AC online & free.", top + hero + 21, colors.muted);
   button("give", busy ? "Opening..." : "Give $8 / month", left, top + hero + 47, width, 34,
     () => checkout($), false, true);
   line(error || "Renews monthly. Cancel anytime.", top + hero + 91,
-    error ? colors.pink : colors.muted, 1, true);
-  line("Not tax deductible.", top + hero + 103, colors.muted, 1, true);
+    error ? colors.pink : colors.muted);
+  line("Not tax deductible.", top + hero + 103, colors.muted);
   const half = Math.floor((width - 6) / 2), y = top + hero + 125;
   button("bills", "Bills", left, y, half, 20, () => open($, "https://bills.aesthetic.computer"));
   button("more-options", "Other ways", left + half + 6, y, width - half - 6, 20,
