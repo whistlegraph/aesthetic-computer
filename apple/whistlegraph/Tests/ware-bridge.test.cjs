@@ -27,7 +27,8 @@ const server=http.createServer(async(req,res)=>{
       window.__nativeMessages=[];window.__roomRequests=[];window.__roomConfigured=false;window.__roomRevision=0;
       window.webkit={messageHandlers:{whistlegraph:{postMessage:m=>{__nativeMessages.push(m);if(m.action==='render')setTimeout(()=>window.whistlegraphEngineEvent({kind:'previewEvent',event:{kind:'painted'}}),10);}}}};
       const original=fetch.bind(window);
-      window.fetch=(url,init)=>{
+      window.fetch=function(url,init){
+        if(this!==window)throw TypeError("Can only call Window.fetch on instances of Window");
         if(String(url).includes('/userinfo')){if(window.__accountFailure)return Promise.reject(Object.assign(Error('offline fixture'),{name:'TypeError'}));return Promise.resolve(Response.json({sub:'fixture-maker'}));}
         if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:window.__noHandle?'':'fixture'}));
         if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[]}));
@@ -36,7 +37,26 @@ const server=http.createServer(async(req,res)=>{
           return Promise.resolve(Response.json(init.method==='GET'?{available:__roomConfigured}:{revision:++__roomRevision,launchURL:'https://www.roblox.com/share?code=fixture&type=ExperienceDetails'}));
         }
         if(String(url).includes('/api/mime')&&init?.method==='POST'){window.__publishedWad=JSON.parse(init.body);return Promise.resolve(Response.json({code:'wadfixture'}));}
-        if(String(url).includes('/api/easel-inference'))throw Error('Local edits must not use paid inference');
+        if(String(url).includes('/api/easel-inference')){
+          const request=JSON.parse(init.body);(window.__doomInference ||= []).push(request);
+          if(window.__doomNetworkFailure)return Promise.reject(TypeError('fixture offline'));
+          const last=request.messages.at(-1);
+          const isResult=Array.isArray(last.content)&&last.content.some(b=>b.type==='tool_result');
+          let events=[{type:'message_delta',delta:{stop_reason:'end_turn'}}];
+          if(!isResult){
+            const context=typeof request.system==='string'?request.system:request.system.map(b=>b.text).join('\n');
+            const match=context.match(/Current level: (\{[^\n]*\})/);
+            if(!match)throw Error('Missing current WAD context');
+            const level=JSON.parse(match[1]);
+            if(window.__doomBadLevel)level.width=1;
+            else if(level.width===768)level.width=1024;
+            else level.things.push({type:2001,x:0,y:0,angle:0});
+            events=[{type:'content_block_start',index:0,content_block:{type:'tool_use',id:'fixture-edit',name:'artifact_level'}},
+              {type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({level})}},
+              {type:'content_block_stop',index:0},{type:'message_delta',delta:{stop_reason:'tool_use'}}];
+          }
+          return Promise.resolve(new Response(events.map(e=>'data: '+JSON.stringify(e)+'\n\n').join(''),{headers:{'Content-Type':'text/event-stream'}}));
+        }
         return original(url,init);
       };
     },ledger,guides);
@@ -106,6 +126,22 @@ const server=http.createServer(async(req,res)=>{
     await change('doom');
     assert.equal((await last()).code,'wadfixture','published identity survives restarting and switching');assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions')),doomBefore);
     await page.evaluate(()=>whistlegraphNativeCommand({action:'undoDoom'}));assert.equal((await last()).head,0);
-    assert.deepEqual(errors,[]);console.log('PASS ware bridge: account entry, retries, sign-out, migration, switching, drawing, versions, export, durable save and launch gating');
+    await page.evaluate(()=>whistlegraphAsk('widen this room'));
+    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);
+    assert.equal((await last()).head,2);
+    await page.evaluate(()=>whistlegraphAsk('add a shotgun'));
+    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);
+    const edited=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-doom-versions')));
+    const current=JSON.parse(edited.versions.find(v=>v.id===edited.head).source);
+    assert.equal(current.width,1024,'second AI edit preserves the first edit');assert.equal(current.things[0].type,2001);
+    const head=(await last()).head;
+    await page.evaluate(()=>{window.__doomNetworkFailure=true;return whistlegraphAsk('change the walls');});
+    assert.equal((await last()).head,head,'failed inference retains current WAD');assert.match((await last()).error,/offline/);
+    await page.evaluate(()=>{window.__doomNetworkFailure=false;window.__doomBadLevel=true;return whistlegraphAsk('invalid edit');});
+    assert.equal((await last()).head,head,'invalid generated geometry retains current WAD');
+    await page.evaluate(()=>whistlegraphNativeCommand({action:'undoDoom'}));
+    const undone=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-doom-versions')));
+    assert.equal(JSON.parse(undone.versions.find(v=>v.id===undone.head).source).things.length,0,'undo restores previous generated WAD');
+    assert.deepEqual(errors,[]);console.log('PASS ware bridge: iterative AI WAD edits, failure preservation, undo,  account entry, retries, sign-out, migration, switching, drawing, versions, export, durable save and launch gating');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;server.close();});

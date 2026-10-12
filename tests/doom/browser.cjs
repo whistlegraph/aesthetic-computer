@@ -23,6 +23,29 @@ const server=createServer(async(req,res)=>{try{let file=resolve(root,'.'+new URL
   assert.equal(await page.$eval('#controls',el=>getComputedStyle(el).display),'none');
   assert.equal(await page.$eval('canvas',el=>el.getAttribute('aria-label')),'Empty Doom room');
   await page.screenshot({path:'/tmp/ac-doom-empty-room.png'});
+  await page.evaluate(()=>{
+    window.__touchKeys=[];window.addEventListener('keydown',e=>__touchKeys.push(['down',e.code]));window.addEventListener('keyup',e=>__touchKeys.push(['up',e.code]));
+    window.__touch=(type,id,x,y)=>canvas.dispatchEvent(new PointerEvent(type,{pointerType:'touch',pointerId:id,clientX:x,clientY:y,bubbles:true,cancelable:true}));
+    // Synthetic pointers cannot acquire native capture; gesture events still exercise the runtime.
+    canvas.setPointerCapture=()=>{};
+    __touch('pointerdown',1,100,100);__touch('pointerup',1,100,100);
+  });
+  await new Promise(r=>setTimeout(r,160));
+  assert.deepEqual(await page.evaluate(()=>__touchKeys),[['down','ControlLeft'],['up','ControlLeft']],'tap fires and releases');
+  await page.evaluate(()=>{
+    __touchKeys=[];__touch('pointerdown',1,100,100);__touch('pointermove',1,145,100);
+    __touch('pointerdown',2,250,100);__touch('pointermove',2,285,140);
+  });
+  const keys=await page.evaluate(()=>__touchKeys);
+  assert.ok(keys.some(k=>k[0]==='down'&&k[1]==='ArrowRight'),'drag looks right');
+  assert.ok(keys.some(k=>k[0]==='down'&&k[1]==='ArrowUp'),'second finger moves forward');
+  assert.ok(keys.some(k=>k[0]==='down'&&k[1]==='ArrowDown'),'second finger drags backward');
+  assert.ok(keys.some(k=>k[0]==='down'&&k[1]==='Period'),'second finger strafes');
+  await page.evaluate(()=>{__touch('pointerup',1,145,100);__touch('pointercancel',2,285,140);});
+  assert.equal(await page.evaluate(()=>__touchKeys.some(k=>k[0]==='down'&&k[1]==='ControlLeft')),false,'drag and multi-touch never fire');
+  assert.ok(await page.evaluate(()=>__touchKeys.some(k=>k[0]==='up'&&k[1]==='ArrowDown')),'cancel releases movement');
+  assert.deepEqual(errors,[]);
+
   console.log('PASS Doom: real exported PWAD loaded in WASM, rendered, movement/fire, pause/resume');
  }finally{await browser.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;server.close();});

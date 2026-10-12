@@ -1,3 +1,4 @@
+import {installTouchControls} from './touch-controls.mjs?v=2026-10-12.4';
 import {compileWad,starterLevel,validateLevel,inspectWad,WAD_MIME} from './wad.mjs?v=2026-10-12.3';
 const canvas=document.querySelector('#canvas'),status=document.querySelector('#status'),start=document.querySelector('#start'),boot=document.querySelector('#boot');
 const query=new URLSearchParams(location.search),preview=query.get('preview')==='1';
@@ -18,7 +19,8 @@ document.querySelector('#file').onchange=async event=>{
 };
 const held=new Set(),keyCodes={ArrowLeft:37,ArrowUp:38,ArrowRight:39,ArrowDown:40,Comma:188,Period:190,ControlLeft:17,Space:32,Enter:13,Escape:27};
 function key(code,down){if(down)held.add(code);else held.delete(code);const key=code==='Space'?' ':code==='ControlLeft'?'Control':code==='Comma'?',':code==='Period'?'.':code;window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{key,code,keyCode:keyCodes[code],which:keyCodes[code],bubbles:true}));}
-function release(){for(const code of [...held])key(code,false);}
+const touchControls=installTouchControls(canvas,key,()=>started&&playing&&!document.hidden);
+function release(){touchControls.reset();for(const code of [...held])key(code,false);}
 for(const button of document.querySelectorAll('[data-code]')){
   button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);key(button.dataset.code,true);};
   button.onpointerup=button.onpointercancel=()=>key(button.dataset.code,false);

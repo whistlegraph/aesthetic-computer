@@ -106,7 +106,7 @@ export class AcServer extends EventEmitter {
     // Optional surface controls: tools(), has(name), run(name, input).
     controls = null,
     token = null,
-    fetch = globalThis.fetch,
+    fetch = globalThis.fetch.bind(globalThis),
     site = SITE,
     jev = configuredJev(),
     networkTimeouts = {},
