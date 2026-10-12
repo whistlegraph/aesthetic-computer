@@ -14086,6 +14086,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // input.autofocus = true;
         // input.type = "text";
         input.autocomplete = "off";
+        // The prompt is a command line. In the macOS app, keep the text checker
+        // out of every keystroke; quotes are straightened in `handleInput`
+        // regardless. iOS keeps its keyboard's suggestion bar.
+        if (window.acNativeWindowColor) {
+          input.spellcheck = false;
+          input.setAttribute("autocorrect", "off");
+          input.setAttribute("writingsuggestions", "false");
+        }
         input.style.opacity = 0;
         input.style.width = 0 + "px";
         input.style.height = 0 + "px";

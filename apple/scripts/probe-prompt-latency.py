@@ -38,7 +38,9 @@ with tempfile.TemporaryDirectory(prefix='probe-', dir=container) as directory:
     if snapshot.exists():
         shutil.copyfile(snapshot, str(args.output) + '.png')
 result = json.loads(args.output.read_text())
-print(json.dumps({k: v for k, v in result.items() if k != 'samples'}, indent=2))
+print(json.dumps({k: v for k, v in result.items() if k not in ('samples', 'nativeToKeydown')}, indent=2))
+if native := sorted(result.get('nativeToKeydown', [])):
+    print(f'nativeToKeydown: median {native[len(native)//2]:.2f} ms, max {native[-1]:.2f} ms')
 if result.get('keys') != 60 or result.get('inputLength') != 60:
     raise SystemExit('FAIL: native keys did not arrive intact')
 if not result.get('keyToRendered'):

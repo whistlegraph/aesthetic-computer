@@ -53,5 +53,8 @@ for name, results in groups.items():
         'keyToNextRAFMs': stats([s['visibleRAF']-s['keydown'] for s in samples]),
         'firstKeyMs': [r['firstKey'] for r in results],
     }
+    native = [d for r in results for d in r.get('nativeToKeydown', [])]
+    if native:  # Older app builds do not report the native send time.
+        summary[name]['nativeToKeydownMs'] = stats(native)
 (args.output / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
 print(json.dumps(summary, indent=2))

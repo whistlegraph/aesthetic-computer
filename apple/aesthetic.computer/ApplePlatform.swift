@@ -45,7 +45,9 @@ typealias ACImage = NSImage
                 NSApp.activate(ignoringOtherApps: true)
                 window.makeFirstResponder(webView)
                 try await Task.sleep(for: .milliseconds(300))
+                var sentEpochMs: [Double] = []
                 for index in 0..<60 {
+                    sentEpochMs.append(Date().timeIntervalSince1970 * 1000)
                     for type in [NSEvent.EventType.keyDown, .keyUp] {
                         guard let event = NSEvent.keyEvent(
                             with: type, location: .zero, modifierFlags: [],
@@ -62,6 +64,13 @@ typealias ACImage = NSImage
                 guard let json = result as? String, let data = json.data(using: .utf8),
                       var report = try JSONSerialization.jsonObject(with: data) as? [String: Any]
                 else { throw CocoaError(.coderInvalidValue) }
+                // Native send -> DOM keydown: the AppKit, input-context and
+                // WebContent IPC hop that the page clock cannot see.
+                if let samples = report["samples"] as? [[String: Any]], samples.count == sentEpochMs.count {
+                    report["nativeToKeydown"] = zip(sentEpochMs, samples).compactMap { sent, sample in
+                        (sample["keydownEpoch"] as? Double).map { $0 - sent }
+                    }
+                }
                 // Verify editing through the same native event path. This
                 // runs after timing collection and never submits a command.
                 for (characters, code) in [("\u{7F}", 51), ("\u{7F}", 51), ("\u{7F}", 51),

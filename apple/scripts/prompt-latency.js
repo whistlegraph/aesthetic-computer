@@ -11,7 +11,9 @@
   requestAnimationFrame(frame);
   document.addEventListener('keydown', e => {
     if (!e.isTrusted || e.key.length !== 1) return;
-    active = { sequence: ++sequence, keydown: now(), trusted: true, repeat: e.repeat };
+    // Wall-clock copy pairs this key with the native send time (same machine).
+    active = { sequence: ++sequence, keydown: now(), keydownEpoch: performance.timeOrigin + now(),
+               trusted: true, repeat: e.repeat };
     samples.push(active);
   }, true);
   document.addEventListener('input', e => {
