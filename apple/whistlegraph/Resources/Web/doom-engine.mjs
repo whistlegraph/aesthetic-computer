@@ -21,16 +21,28 @@ const wares=wareControls('doom');
 document.body.classList.add('live-mode','live-preview');document.getElementById('initial').hidden=true;
 const box=document.createElement('div');box.id='live-preview-box';document.getElementById('stage').prepend(box);
 const frame=document.createElement('iframe');frame.title='Playable Doom WAD';frame.allow='autoplay';frame.style.cssText='width:100%;height:100%;border:0';box.append(frame);
-function render(){frame.src='https://aesthetic.computer/doom-player/?preview=1&bridge=1';}
-window.addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!=='https://aesthetic.computer')return;if(event.data?.type==='doom:error'){error='Doom preview: '+event.data.message;snapshot();}if(event.data?.type==='doom:request'&&wad){const copy=wad.slice();frame.contentWindow.postMessage({type:'doom:wad',wad:copy.buffer,title:level.title},'https://aesthetic.computer',[copy.buffer]);}});
+let frameReady=false,compileId=0;const compileCalls=new Map(),frameWaiters=[];
+function render(){frameReady=false;frame.src='https://aesthetic.computer/doom-player/?preview=1&bridge=1';}
+function sendWad(){if(!wad||!frameReady)return;const copy=wad.slice();frame.contentWindow.postMessage({type:'doom:wad',wad:copy.buffer,title:level.title},'https://aesthetic.computer',[copy.buffer]);}
+async function compileRPC(operation,project,game){
+ if(!frameReady)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Doom compiler preview did not load')),30000);frameWaiters.push(()=>{clearTimeout(timer);resolve();});});
+ const id=++compileId;return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{compileCalls.delete(id);reject(Error('Doom compiler did not reply'));},30000);compileCalls.set(id,{resolve,reject,timer});frame.contentWindow.postMessage({type:'doom:compile',id,operation,project,game},'https://aesthetic.computer');});
+}
+async function compileNative(value){if(value.format!==2)return compileDocument(value);validateProject(value);return compileRPC('project',value);}
+window.addEventListener('message',event=>{
+ if(event.source!==frame.contentWindow||event.origin!=='https://aesthetic.computer')return;
+ if(event.data?.type==='doom:error'){error='Doom preview: '+event.data.message;snapshot();}
+ if(event.data?.type==='doom:request'){frameReady=true;for(const ready of frameWaiters.splice(0))ready();sendWad();}
+ if(event.data?.type==='doom:compiled'){const call=compileCalls.get(event.data.id);if(!call)return;clearTimeout(call.timer);compileCalls.delete(event.data.id);if(event.data.error)call.reject(Error(event.data.error));else if(event.data.catalog)call.resolve(event.data.catalog);else if(event.data.wad instanceof ArrayBuffer)call.resolve(new Uint8Array(event.data.wad));else call.reject(Error('Invalid Doom compiler reply'));}
+});
 function snapshot(){const pending=JSON.stringify(attempt);if(pending!==savedAttempt){try{localStorage.setItem('whistlegraph-doom-attempt',pending);savedAttempt=pending;}catch{}}post({action:'snapshot',snapshot:{ware:'doom',code,handle,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
 async function commit(next,request){
   if(versions.value.versions.length>=100)throw Error('Export this WAD before starting another history.');
   const value=validate(next),source=JSON.stringify(value);if(source===versions.head.source)return false;
-  const compiled=await compileDocument(value);if(cancelled) return false;versions.commit({source,request,layers:1});level=value;wad=compiled;code='';error='';render();snapshot();return true;
+  const compiled=await compileNative(value);if(cancelled) return false;versions.commit({source,request,layers:1});level=value;wad=compiled;code='';error='';render();snapshot();return true;
 }
-async function checkout(id){const version=versions.value.versions.find(v=>v.id===id);if(!version)throw Error('Version unavailable');const next=validate(JSON.parse(version.source)),compiled=await compileDocument(next);versions.checkout(id);level=next;wad=compiled;code=codes[versions.head.id]||'';error='';render();snapshot();}
-const projectTools=createProjectTools({get:()=>staged||level,set:(value)=>{if(cancelled||wares.pending)throw Error('Doom edit stopped');staged=value;}});
+async function checkout(id){const version=versions.value.versions.find(v=>v.id===id);if(!version)throw Error('Version unavailable');const next=validate(JSON.parse(version.source)),compiled=await compileNative(next);versions.checkout(id);level=next;wad=compiled;code=codes[versions.head.id]||'';error='';render();snapshot();}
+const projectTools=createProjectTools({get:()=>staged||level,compile:compileNative,catalog:game=>compileRPC('catalog',null,game),set:(value)=>{if(cancelled||wares.pending)throw Error('Doom edit stopped');staged=value;}});
 const artifacts={
  context:async()=>PROJECT_INSTRUCTIONS+'\nCurrent level: '+documentSummary(staged||level),
  tools:projectTools.tools,
@@ -46,7 +58,7 @@ async function ask(text){
     if(!token){error='Sign in to ask the brain to edit this WAD.';post({action:'signIn'});return;}
     busy=true;attempt={request:text,status:'working',error:''};snapshot();
     // Verify native asset access and the node builder before paid inference.
-    await compileProject(asProject(level));if(cancelled)return;
+    await compileNative(asProject(level));if(cancelled)return;
     server=new AcServer({token:()=>token,model:window.__whistlegraphModel||FLASH_MODEL,artifacts,controls:wares,preview:false,frameCapture:false,rounds:16,reasoning:{effort:'none'},thinking:{type:'disabled'},developerInstructions:'This is Whistlegraph. Build and iteratively edit the requested Doom world using the project tools. Use custom graphics and actual freeform sector geometry for requests that need them. Preserve existing artwork and maps during edits. Do not claim to have play-tested, exported, or published a staged WAD. No preamble. '+WARE_INSTRUCTIONS});
     server.on('notification',({method,params})=>{if(method==='item/agentMessage/delta'){output+=params.delta;snapshot();}if(method==='turn/completed'){successful=params.turn.status==='completed'&&!params.turn.error;if(!successful&&!cancelled)error=params.turn.error?.message||'Could not finish the WAD';}});
     await server.startTurn(text);if(!cancelled&&successful&&!wares.pending&&staged)await commit(staged,text);
@@ -84,4 +96,4 @@ window.whistlegraphAsk=ask;window.whistlegraphAskSound=input=>ask(input.transcri
 window.whistlegraphUndo=()=>{if(!busy&&versions.head.parent!==null)void change(()=>checkout(versions.head.parent));};
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&busy){cancelled=true;server?.interrupt();}});
 snapshot();post({action:'account'});
-void change(async()=>{wad=await compileDocument(level);render();});
+render();void change(async()=>{wad=await compileNative(level);sendWad();});

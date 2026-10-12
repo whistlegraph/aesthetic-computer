@@ -1,8 +1,15 @@
-import {installTouchControls} from './touch-controls.mjs?v=2026-10-12.6';
+import {installTouchControls} from './touch-controls.mjs?v=2026-10-12.8';
 import {compileWad,starterLevel,validateLevel,inspectWad,WAD_MIME} from './wad.mjs?v=2026-10-12.3';
 const canvas=document.querySelector('#canvas'),status=document.querySelector('#status'),start=document.querySelector('#start'),boot=document.querySelector('#boot');
 const query=new URLSearchParams(location.search),preview=query.get('preview')==='1';
 if(preview)document.body.classList.add('preview');
+// Compile in a shared HTTPS worker; the app keeps native controls/history.
+let compilerWorker;
+window.addEventListener('message',event=>{
+ if(!preview||query.get('bridge')!=='1'||event.source!==parent||event.data?.type!=='doom:compile')return;
+ if(!compilerWorker){compilerWorker=new Worker(new URL('./compile-worker.mjs?v=2026-10-12.8',import.meta.url),{type:'module'});compilerWorker.onmessage=reply=>{if(reply.data.wad)parent.postMessage(reply.data,'*',[reply.data.wad]);else parent.postMessage(reply.data,'*');};compilerWorker.onerror=()=>parent.postMessage({type:'doom:compiled',id:event.data.id,error:'Doom compiler worker failed to load'},'*');}
+ compilerWorker.postMessage(event.data);
+});
 let level=starterLevel(),wad,started=false,downloadURL,playing=true,game='doom';
 function loadWad(next){const info=inspectWad(next);if(info.kind!=='PWAD')throw Error('Open a patch WAD for Freedoom; the base game is already included.');const marker=info.lumps.find(l=>/^(?:E[1-4]M[1-9]|MAP(?:0[1-9]|[12][0-9]|3[0-2]))$/.test(l.name));if(!marker)throw Error('WAD needs a classic Doom or Doom II map.');wad=next;map=marker.name;game=map.startsWith('MAP')?'doom2':'doom';const things=info.lumps.slice(info.lumps.indexOf(marker)+1).find(l=>l.name==='THINGS');level.things=things?.size>10?[{}]:[];}
 

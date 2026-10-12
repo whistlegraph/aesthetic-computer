@@ -30,6 +30,6 @@ PY
 )
 xcodebuild test-without-building -xctestrun "$run" -destination "id=$device" \
   -only-testing:WhistlegraphUITests/WaresTests/testGenerateWadThroughLiveAccount \
-  -parallel-testing-enabled NO -resultBundlePath "/tmp/whistlegraph-live-wad-$(date +%Y%m%d-%H%M%S).xcresult"
+  -parallel-testing-enabled NO -collect-test-diagnostics never -resultBundlePath "/tmp/whistlegraph-live-wad-$(date +%Y%m%d-%H%M%S).xcresult"
 # XCTest closes its app session; leave the resulting WAD open.
 xcrun devicectl device process launch --device "$device" computer.aesthetic.walkieware
