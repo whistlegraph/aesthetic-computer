@@ -1742,6 +1742,11 @@ class TextInput {
       this.scheme["dark"] ||
       this.scheme;
 
+    // The native host owns the viewport's rounded frame. Inset fields keep
+    // their own focus/hover outline, while full-window prompts use the cursor.
+    const nativeViewport = Aesthetic && !frame.x && !frame.y &&
+      frame.width === $.screen.width && frame.height === $.screen.height;
+
     // Check if mouse is hovering over the prompt frame
     const pen = $.pen;
     const isHovering = pen && 
@@ -1762,7 +1767,7 @@ class TextInput {
         // Draw a subtle inner border highlight
         const borderColor = this.pal.promptHoverBorder ||
           ($.dark ? [150, 100, 200, 80] : [140, 100, 180, 60]);
-        $.ink(borderColor).box(frame.x, frame.y, frame.width, frame.height, "inline");
+        if (!nativeViewport) $.ink(borderColor).box(frame.x, frame.y, frame.width, frame.height, "inline");
       }
     }
     const ti = this;
@@ -2002,7 +2007,7 @@ class TextInput {
           frame.height - 1,
         ); // Ruler
       }
-      $.ink($.dark ? 127 : "teal").box(
+      if (!nativeViewport) $.ink($.dark ? 127 : "teal").box(
         0,
         0,
         frame.width,
@@ -2082,8 +2087,6 @@ class TextInput {
     if (!this.enter.btn.disabled && !this.poe) {
       // Native window corners clip a screen-edge outline. Keep the input's
       // cursor/button feedback; inset text fields still retain their outline.
-      const nativeViewport = Aesthetic && !frame.x && !frame.y &&
-        frame.width === $.screen.width && frame.height === $.screen.height;
       if (this.#activatingPress && !nativeViewport) {
         const color =
           pal.focusOutline ||

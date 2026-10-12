@@ -41,6 +41,22 @@ extension Image {
     }
 }
 
+#if os(macOS)
+@MainActor final class AppleWindowTheme: ObservableObject {
+    static let shared = AppleWindowTheme()
+    @Published var color = NSColor(white: 32 / 255, alpha: 1)
+    var colorScheme: ColorScheme {
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        func linear(_ value: CGFloat) -> CGFloat {
+            value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        let luminance = 0.2126 * linear(rgb.redComponent)
+            + 0.7152 * linear(rgb.greenComponent) + 0.0722 * linear(rgb.blueComponent)
+        return luminance < 0.179 ? .dark : .light
+    }
+}
+#endif
+
 @MainActor enum ApplePlatform {
     static func colorWindow(_ rgb: [Double], webView: WKWebView) {
         #if os(macOS)
@@ -48,12 +64,15 @@ extension Image {
               let window = webView.window else { return }
         let color = NSColor(srgbRed: rgb[0] / 255, green: rgb[1] / 255,
                             blue: rgb[2] / 255, alpha: 1)
+        if AppleWindowTheme.shared.color != color { AppleWindowTheme.shared.color = color }
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
         window.backgroundColor = color
         // Keep the native title and traffic lights legible on either backing.
-        let luminance = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255
-        window.appearance = NSAppearance(named: luminance < 0.55 ? .darkAqua : .aqua)
+        // Theme only the title bar. Changing the window appearance also changes
+        // WKWebView's prefers-color-scheme and feeds its next wipe back here.
+        window.standardWindowButton(.closeButton)?.superview?.appearance =
+            NSAppearance(named: AppleWindowTheme.shared.colorScheme == .dark ? .darkAqua : .aqua)
         webView.underPageBackgroundColor = color
         #endif
     }
@@ -72,6 +91,7 @@ extension Image {
     static let shared = AppNavigation()
     @Published var url = AppRoute.prompt
     @Published var revision = 0
+    @Published var windowTitle = "aesthetic.computer"
 
     func open(_ incoming: URL) {
         guard let destination = AppRoute.destination(for: incoming) else { return }

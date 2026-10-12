@@ -2,6 +2,10 @@ import Foundation
 
 @main struct AppRouteChecks {
     static func main() {
+        precondition(AppRoute.windowTitle(for: nil) == "aesthetic.computer")
+        precondition(AppRoute.windowTitle(for: URL(string: AppRoute.prompt)) == "prompt")
+        precondition(AppRoute.windowTitle(for: URL(string: "https://aesthetic.computer/notepat?nogap=true")) == "notepat")
+        precondition(AppRoute.windowTitle(for: URL(string: "https://aesthetic.computer/@Bash/hub")) == "@Bash/hub")
         func route(_ input: String) -> String? {
             AppRoute.destination(for: URL(string: input)!)
         }

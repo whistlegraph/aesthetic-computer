@@ -3,6 +3,14 @@ import Foundation
 enum AppRoute {
     static let prompt = "https://aesthetic.computer/prompt"
 
+    static func windowTitle(for url: URL?) -> String {
+        guard let url, url.scheme == "https", url.host == "aesthetic.computer" else {
+            return "aesthetic.computer"
+        }
+        let piece = String(url.path.drop(while: { $0 == "/" }))
+        return piece.isEmpty ? "prompt" : piece
+    }
+
     static func destination(for url: URL) -> String? {
         if url.scheme?.lowercased() == "aesthetic" {
             // Preserve piece case and sigils instead of using URL.host, which

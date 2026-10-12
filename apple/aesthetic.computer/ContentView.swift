@@ -131,6 +131,20 @@ final class BootStatus: ObservableObject {
 @MainActor class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationDelegate {
     weak var bootStatus: BootStatus?
     private(set) var lastLoadedKey: String? = nil
+    #if os(macOS)
+    private var urlObservation: NSKeyValueObservation?
+
+    func observePiece(in webView: WKWebView) {
+        urlObservation = webView.observe(\.url, options: [.initial, .new]) { [weak webView] _, _ in
+            Task { @MainActor in
+                guard let webView else { return }
+                let title = AppRoute.windowTitle(for: webView.url)
+                AppNavigation.shared.windowTitle = title
+                webView.window?.title = title
+            }
+        }
+    }
+    #endif
 
     init(bootStatus: BootStatus) {
         self.bootStatus = bootStatus
@@ -339,6 +353,8 @@ struct WebView: ACWebViewRepresentable {
         #if os(macOS)
         // Keep WebKit's desktop identity; exact "Aesthetic" means iPhone in AC.
         webView.customUserAgent = nil
+        webView.focusRingType = .none
+        context.coordinator.observePiece(in: webView)
         webView.underPageBackgroundColor = NSColor(white: grey, alpha: 1)
         #else
         webView.customUserAgent = "Aesthetic"
@@ -434,6 +450,9 @@ struct StalledOverlay: View {
 // MARK: - ContentView
 
 struct ContentView: View {
+    #if os(macOS)
+    @ObservedObject private var windowTheme = AppleWindowTheme.shared
+    #endif
     @ObservedObject private var navigation = AppNavigation.shared
     @StateObject private var monitor = AppNetworkMonitor()
     @StateObject private var bootStatus = BootStatus()
@@ -444,6 +463,13 @@ struct ContentView: View {
     @State private var usageScene = UUID()
 
     private var liveURL: String { navigation.url }
+    private var backdrop: Color {
+        #if os(macOS)
+        Color(nsColor: windowTheme.color)
+        #else
+        Color(red: grey, green: grey, blue: grey)
+        #endif
+    }
     private var offlineURL: String {
         Bundle.main.url(forResource: "offline", withExtension: "html", subdirectory: "html")?.absoluteString ?? ""
     }
@@ -461,7 +487,7 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                Color(red: grey, green: grey, blue: grey).ignoresSafeArea()
+                backdrop.ignoresSafeArea()
 
                 if monitor.isOnline != nil || bootStatus.forceLiveTrigger > 0 {
                     WebView(
@@ -480,7 +506,10 @@ struct ContentView: View {
                 }
             }
             .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 24 : 0)
-            .background(Color(red: grey, green: grey, blue: grey))
+            .background(backdrop)
+            #if os(macOS)
+            .navigationTitle(navigation.windowTitle)
+            #endif
             .ignoresSafeArea(.keyboard, edges: .bottom)
             .sheet(isPresented: $pop.isPresented) {
                 PopPlayerView()

@@ -10,15 +10,17 @@ import UniformTypeIdentifiers
 struct aesthetic_computerApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @ObservedObject private var navigation = AppNavigation.shared
     #else
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     #endif
 
     var body: some Scene {
         #if os(macOS)
-        Window("Aesthetic Computer", id: "prompt") {
-            ContentView().frame(minWidth: 360, minHeight: 320)
+        Window(Text(verbatim: navigation.windowTitle), id: "prompt") {
+            ContentView().frame(minWidth: 0, minHeight: 0)
         }
+        .windowResizability(.contentMinSize)
         .defaultSize(width: 900, height: 700)
         .commands {
             CommandGroup(after: .newItem) {

@@ -17,9 +17,16 @@ music player, and accept `aesthetic://` piece links. Mac adds Command-L for the
 prompt, Command-R to reload, Command-O for audio files, and a title bar colored
 by the runtime's visible-buffer wipe color. Local Mac usage telemetry is off.
 
+Window titles follow the active piece; the application remains Aesthetic
+Computer. The window has no custom size floor (verified at 180 × 150) and
+joins Slab tiling, scatter, and directional navigation. Title-bar contrast is
+scoped to the native title bar, leaving the page's color scheme stable.
+
 The runtime reserves promotions for website visitors. Updates appear in the
-piece's top-left label (tap to refresh first) and the prompt's bottom git-hash
-button. Separate top-right update controls are removed.
+piece's top-left label as a faint letter glow and two tiny arrows (tap to
+refresh first), and in the prompt's bottom git-hash button. Native full-window
+prompt outlines are omitted so the macOS corner mask does not clip them.
+Separate top-right update controls are removed.
 
 Validation: signed universal Mac build, iOS device build without signing,
 route and usage-state checks, and runtime update/color-bridge tests. This is a
