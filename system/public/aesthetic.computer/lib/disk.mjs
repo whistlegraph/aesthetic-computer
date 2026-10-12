@@ -15280,8 +15280,7 @@ async function makeFrame({ data: { type, content } }) {
         if (piece === "video") w = screen.width;
 
         const labelUpdateReady = globalUpdateReady && $commonApi.slug !== "prompt";
-        const updateLabelWidth = labelUpdateReady ? 9 : 0;
-        const baseLabelWidth = w + shareWidth + updateLabelWidth;
+        const baseLabelWidth = w + shareWidth;
 
         // Use natural text dimensions for buffer - preserve original layout
         // Add QR code width to buffer if present
@@ -15424,6 +15423,16 @@ async function makeFrame({ data: { type, content } }) {
             // Subtract the left margin since text starts at x=HUD_LABEL_TEXT_MARGIN
             const wrapBounds = isKidlispPiece ? ($api.screen.width - 6 - HUD_LABEL_TEXT_MARGIN) : undefined;
 
+            // A quiet glow on the opening letters, inside the existing label.
+            if (labelUpdateReady) {
+              const opening = Array.from(stripColorCodes(text).split("\n")[0]).slice(0, 3).join("");
+              for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                $.ink(150, 255, 180, 48).write(opening,
+                  { x: hudTextX + dx, y: hudTextY + dy },
+                  undefined, undefined, false, typefaceNameForWrite);
+              }
+            }
+
             // Drift places glyphs itself, so it takes any label that fits on
             // one line — including kidlisp-flagged ones (a piece named after
             // a kidlisp word, like `line`, gets wrapBounds too). A label that
@@ -15457,16 +15466,16 @@ async function makeFrame({ data: { type, content } }) {
               });
             }
 
-            // The update arrow belongs to this label and its existing hit area.
+            // Two tiny upward arrows nest above the label's first letters.
             if (labelUpdateReady) {
-              const ux = baseLabelWidth - updateLabelWidth + 2 + Math.max(0, currentHUDScrub);
-              const uy = hudTextY;
-              $.ink(30, 70, 30).box(ux - 1, uy - 1, 8, 11);
-              $.ink(150, 255, 160);
-              $.box(ux + 2, uy, 1, 1);
-              $.box(ux + 1, uy + 1, 3, 1);
-              $.box(ux, uy + 2, 5, 1);
-              $.box(ux + 2, uy + 3, 1, 5);
+              $.ink(180, 255, 200, 180);
+              for (const dx of [0, 5]) {
+                const ux = hudTextX + dx;
+                const uy = hudTextY - 4;
+                $.box(ux + 1, uy, 1, 1);
+                $.box(ux, uy + 1, 3, 1);
+                $.box(ux + 1, uy + 2, 1, 1);
+              }
             }
 
             // ✨ Custom Superscript (e.g. ".com") - draw after the text in cyan

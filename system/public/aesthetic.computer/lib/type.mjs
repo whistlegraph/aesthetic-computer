@@ -13,6 +13,7 @@ import { KidLisp, tokenize } from "./kidlisp.mjs";
 import { cssColors } from "./num.mjs";
 import { log } from "./logs.mjs";
 import { openDB } from "../dep/idb.js";
+import { Aesthetic } from "./platform.mjs";
 
 // 🗄️ Global Glyph Cache System (IndexedDB-backed)
 // Provides fast glyph loading on subsequent visits
@@ -2079,8 +2080,11 @@ class TextInput {
 
     // Enter Button
     if (!this.enter.btn.disabled && !this.poe) {
-      // Outline the whole screen.
-      if (this.#activatingPress) {
+      // Native window corners clip a screen-edge outline. Keep the input's
+      // cursor/button feedback; inset text fields still retain their outline.
+      const nativeViewport = Aesthetic && !frame.x && !frame.y &&
+        frame.width === $.screen.width && frame.height === $.screen.height;
+      if (this.#activatingPress && !nativeViewport) {
         const color =
           pal.focusOutline ||
           (Array.isArray(pal.text)
