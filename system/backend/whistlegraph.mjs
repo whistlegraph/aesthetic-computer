@@ -130,10 +130,11 @@ export function captionOf(request) {
   return String(text||'Starting piece').replace(/ · [\d.]+ seconds$/,'').trim().slice(0,160);
 }
 // What the feed shows for one published mime: enough to render it and say
-// who made it. Receipts, diagnostics and the full ledger stay private.
+// who made it. Receipts, diagnostics and the full ledger stay private. It
+// plays the newest version made, not whichever one the owner has selected.
 export function feedEntry(row) {
   if(!row)return null;
   const versions=row.ledger?.versions||[];
   const head=versions.find(v=>v.id===row.ledger?.head),made=versions.filter(v=>v.id>0),last=made.at(-1);
-  return {code:row.code,handle:row.handle||'',caption:last?captionOf(last.request):'',source:head?.source||'',versions:made.length,publishedAt:row.publishedAt||null,updatedAt:row.updatedAt};
+  return {code:row.code,handle:row.handle||'',caption:last?captionOf(last.request):'',source:(last||head)?.source||'',versions:made.length,publishedAt:row.publishedAt||null,updatedAt:row.updatedAt};
 }
