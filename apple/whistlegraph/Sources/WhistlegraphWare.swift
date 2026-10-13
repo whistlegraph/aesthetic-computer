@@ -93,12 +93,6 @@ struct PaintingControls: View {
     @State private var importing = false
     var body: some View {
         HStack {
-            if let painting = session.snapshot.painting, painting.pixelSize != nil {
-                Text("\(painting.width) × \(painting.height) px")
-                    .font(.custom("ComicRelief-Regular", size: 18)).opacity(0.75)
-                    .accessibilityLabel("\(painting.width) by \(painting.height) pixels")
-                    .accessibilityIdentifier("painting-resolution")
-            }
             Spacer()
             Menu {
                 Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoPainting") }

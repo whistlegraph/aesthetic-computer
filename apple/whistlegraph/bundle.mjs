@@ -9,7 +9,9 @@ await writeFile(new URL('Resources/Web/roblox-runtime.mjs',base),'export const R
 let html=await readFile(new URL('Resources/Web/shell.html',base),'utf8');
 const host=await readFile(new URL('aesel/phone/host.html',root),'utf8');
 const importMap=host.match(/<script type="importmap">[\s\S]*?<\/script>/)[0];
-html=html.replace('<head>', '<head><script src="/easel/phone/shim/globals.js"></script>'+importMap);
+// The native preview must never paint the HTML app's controls during reload.
+const nativeHead = `<script>if(window.__whistlegraphNativeShell)document.documentElement.classList.add('native-shell')</script><style>html.native-shell body>*:not(#stage){display:none!important}html.native-shell #stage{position:fixed;inset:0}html.native-shell #stage>*:not(#live-preview-box){display:none!important}html.native-shell #whistlegraph-identity{display:none!important}</style>`;
+html=html.replace('<head>', '<head>'+nativeHead+'<script src="/easel/phone/shim/globals.js"></script>'+importMap);
 html=html.replace('</body></html>','<script src="native.js"></script><script type="module" src="ware-engine.mjs"></script></body></html>');
 await writeFile(new URL('Resources/Web/index.html',base),html);
 await copyFile(new URL('system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf',root),new URL('Resources/Web/ComicRelief-Regular.ttf',base));

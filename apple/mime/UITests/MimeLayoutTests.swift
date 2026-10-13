@@ -32,8 +32,24 @@ final class MimeLayoutTests: XCTestCase {
         let opened = app.buttons["painting-actions"].waitForExistence(timeout: 40)
         if !opened { print(app.debugDescription) }
         XCTAssertTrue(opened)
-        XCTAssertTrue(app.staticTexts["painting-resolution"].waitForExistence(timeout: 10))
-        XCTAssertEqual(app.staticTexts["painting-resolution"].label, "768 by 768 pixels")
+        waitForEditor(in: app)
+        XCTAssertFalse(app.staticTexts["Checking your account…"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["account-entry"].firstMatch.exists)
+        let card = app.descendants(matching: .any)["mime-creation"].firstMatch.frame
+        XCTAssertGreaterThan(card.minX, 8); XCTAssertGreaterThan(card.minY, 80)
+        XCTAssertLessThan(card.width, app.frame.width)
+        let chalk = app.buttons["draw-control"], typeButton = app.buttons["type-control"], talk = app.descendants(matching: .any)["talk-control"].firstMatch
+        XCTAssertGreaterThan(chalk.frame.midX, typeButton.frame.midX)
+        XCTAssertLessThan(chalk.frame.midX, talk.frame.midX)
+        XCTAssertEqual(chalk.frame.midY, typeButton.frame.midY, accuracy: 4)
+        XCTAssertFalse(app.descendants(matching: .any)["painting-resolution"].firstMatch.exists)
+        app.buttons["brain-settings"].tap()
+        app.buttons["brain-canvas"].tap()
+        let resolution = app.descendants(matching: .any)["painting-resolution"].firstMatch
+        XCTAssertTrue(resolution.waitForExistence(timeout: 10))
+        XCTAssertEqual(resolution.label, "768 by 768 pixels")
+        app.navigationBars["Canvas"].buttons.firstMatch.tap()
+        app.buttons["Done"].tap()
         app.buttons["workspace-settings"].tap()
         XCTAssertTrue(app.buttons["piece-legacy"].waitForExistence(timeout: 10), "Starting from the type preserves the prior project")
         app.buttons["Done"].tap()
@@ -51,6 +67,7 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertTrue(ac.waitForExistence(timeout: 10)); ac.tap()
         let picker = app.buttons["ware-picker"]
         XCTAssertTrue(picker.waitForExistence(timeout: 30))
+        waitForEditor(in: app)
         XCTAssertTrue(picker.label.contains("Aesthetic.Computer Piece"))
         XCTAssertTrue(app.buttons["type-control"].waitForExistence(timeout: 10))
         let piece = XCTAttachment(screenshot: app.screenshot())
@@ -66,7 +83,11 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertTrue(type.waitForExistence(timeout: 30)); openType(type, in: app)
         XCTAssertTrue(app.buttons["account-entry-login"].waitForExistence(timeout: 30))
         XCTAssertFalse(app.buttons["type-control"].isHittable, "Creation controls remain inaccessible until sign-in")
-        app.buttons["mime-creation-back"].tap()
+        let handle = app.buttons["mime-creation-back"]
+        let start = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 180)))
+        let dismissed = expectation(for: NSPredicate(format: "isHittable == false"), evaluatedWith: handle)
+        XCTAssertEqual(XCTWaiter().wait(for: [dismissed], timeout: 10), .completed)
         XCTAssertTrue(type.waitForExistence(timeout: 10))
     }
 
@@ -82,6 +103,13 @@ final class MimeLayoutTests: XCTestCase {
             if banner.exists { banner.swipeUp() }
             type.tap()
         }
+    }
+
+    private func waitForEditor(in app: XCUIApplication) {
+        let ready = expectation(for: NSPredicate { _, _ in
+            !app.descendants(matching: .any)["mime-creation-loading"].firstMatch.exists
+        }, evaluatedWith: app)
+        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 60), .completed)
     }
 
     private func waitForReveal(in app: XCUIApplication) {

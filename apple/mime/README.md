@@ -7,7 +7,7 @@ The feed is the same ranked network feed as https://mime.ac (`GET /api/mime?feed
 - `Sources/Feed.swift`: the feed model and how each post draws (image, video, live runtime, packed HTML, words, document).
 - `Sources/Reel.swift`: the loading wordmark, vertical pager, and cards. The first piece loads behind MIME; the lettering breaks apart when its content is ready, revealing the feed without a swipe. The code sits top-left and is the Interact control, the handle bottom-left, and the MIME type bottom-right. Supported type labels open creation after sign-in. A small wordmark stays top-right.
 - `Sources/PieceRuntime.swift`: one live web runtime for the card in view. KidLisp and pieces load aesthetic.computer, Whistlegraph pieces load `/mime-play`. Autoplay is allowed and the runtime is asked to start audio. A non-persistent website data store keeps pieces from seeing any session.
-- `Sources/MimeCreation.swift`: overlays the existing Whistlegraph editor on the paused feed. Each type tap starts a new v0 project; the close control and Projects’ “Explore mimes” return to the same feed position. Local work lives in MIME’s own app container; AC account-backed piece synchronization uses the existing service.
+- `Sources/MimeCreation.swift`: keeps the existing Whistlegraph editor warm and presents it as a smaller card over the paused feed. Each type tap starts a new v0 project; dragging its grabber down and Projects’ “Explore mimes” return to the same feed position. Local work lives in MIME’s own app container; AC account-backed piece synchronization uses the existing service.
 - `Sources/PalText.swift`: MacPal's title lettering (macpal/Sources/PalCore.swift), with outlines under fills.
 - `Sources/Wordmark.swift`: the same Comic Relief Bold lettering and four letter colors as mime.ac. Handle and MIME type share a baseline on both interfaces.
 - `Artwork/icon.html`: the app icon's source. Render it at 1024×1024 into `Resources/Assets.xcassets/AppIcon.appiconset/icon.png`.
@@ -21,7 +21,10 @@ titles can change through a web deploy. Invalid settings retain the last
 valid layout; offline launches use that cached layout or the bundled JSON.
 The global code always remains top-left, handle bottom-left, type bottom-right.
 New native controls or schema capabilities require another app build.
-Build 6 overlays creation on the feed and autoplays Doom WADs through the same
+Build 8 slides the editor up as an opaque card, with the wooden artwork frame,
+a chalk icon between Type and Talk, and image resolution under Brain → Canvas.
+The account and engine initialize behind the feed; reloads conceal the HTML
+controls until native preview styling is ready. Doom WADs autoplay through the same
 `preview=1&mime=1` player mode used by the website.
 Build 3 adds the automatic loading transition. `loadingBreakupSeconds` adjusts
 its duration from production (0.15–2 seconds, default 0.8); older schema-1

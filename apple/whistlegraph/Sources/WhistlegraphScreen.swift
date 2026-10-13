@@ -105,8 +105,11 @@ struct WhistlegraphScreen: View {
     @ObservedObject var session: WhistlegraphSession
     @ObservedObject private var drawing: DrawingDraft
     let overlaysFeed: Bool
-    init(session: WhistlegraphSession, overlaysFeed: Bool = false) {
-        self.session = session; self.drawing = session.drawing; self.overlaysFeed = overlaysFeed
+    var availableSize: CGSize?
+    private var screenWidth: CGFloat { availableSize?.width ?? UIScreen.main.bounds.width }
+    private var screenHeight: CGFloat { availableSize?.height ?? UIScreen.main.bounds.height }
+    init(session: WhistlegraphSession, overlaysFeed: Bool = false, availableSize: CGSize? = nil) {
+        self.session = session; self.drawing = session.drawing; self.overlaysFeed = overlaysFeed; self.availableSize = availableSize
     }
     @StateObject private var narrator = VersionNarrator()
     @StateObject private var exporter = StoryExport()
@@ -141,8 +144,8 @@ struct WhistlegraphScreen: View {
     }
     private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
     private var previewSize: CGSize {
-        let width = UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12
-        let height = min(380, UIScreen.main.bounds.height * 0.4)
+        let width = screenWidth - session.layout.pageInset * 2 - 12
+        let height = min(380, screenHeight * 0.4)
         if session.snapshot.wareID == "painting", let pixels = session.snapshot.painting?.pixelSize {
             let scale = min(width / pixels.width, height / pixels.height)
             return CGSize(width: pixels.width * scale, height: pixels.height * scale)
@@ -154,7 +157,7 @@ struct WhistlegraphScreen: View {
     // would resize the piece) so the sketch stays visible above the composer.
     private var composeScale: CGFloat {
         guard showComposer, !narrator.isPlaying else { return 1 }
-        return min(1, UIScreen.main.bounds.height * 0.2 / (previewSize.height + 12))
+        return min(1, screenHeight * 0.2 / (previewSize.height + 12))
     }
     var body: some View {
         VStack(spacing: narrator.isPlaying ? 0 : session.layout.spacing) {
@@ -180,7 +183,7 @@ struct WhistlegraphScreen: View {
             GeometryReader { geometry in
             ZStack {
                 Workspace(voice: session)
-                    .opacity(session.snapshot.hasPreview ? 1 : 0)
+                    .opacity(session.snapshot.hasPreview && session.workspaceReady && session.engineReady ? 1 : 0)
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
                     .accessibilityHidden(!session.snapshot.hasPreview || narrator.isPlaying)
                 if narrator.isPlaying { StoryWorkspace(player: session.storyPreview) }
@@ -207,7 +210,7 @@ struct WhistlegraphScreen: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
             }
             .frame(width: narrator.isPlaying ? nil : previewSize.width,
-                   height: narrator.isPlaying ? max(1, (UIScreen.main.bounds.width - 12) * 3 / 4) : previewSize.height)
+                   height: narrator.isPlaying ? max(1, (screenWidth - 12) * 3 / 4) : previewSize.height)
             .overlay { if !overlaysFeed { WhistlegraphPreviewInset() } }
             .padding(overlaysFeed ? 0 : 6)
             .background { if !overlaysFeed { WhistlegraphWoodFrame() } }
@@ -231,10 +234,6 @@ struct WhistlegraphScreen: View {
                         Button { session.cancelHold() } label: { Image(systemName: "xmark") }
                             .accessibilityLabel("Cancel recording, keep drawing")
                     }
-                    Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
-                        Label { Text("Chalk") } icon: { ChalkStickIcon(lit: drawing.enabled) }
-                    }.accessibilityIdentifier("draw-control").accessibilityValue(drawing.enabled ? "On" : "Off")
-                        .disabled(!canTalk)
                     if drawing.hasInk {
                         Button { drawing.undo() } label: { Image(systemName: "arrow.uturn.backward") }
                             .accessibilityLabel("Undo stroke").accessibilityIdentifier("drawing-undo").disabled(!canTalk)
@@ -273,7 +272,7 @@ struct WhistlegraphScreen: View {
             .padding(.top, narrator.isPlaying ? 100 : 0)
             .padding(.bottom, narrator.isPlaying ? 150 : 0)
             .frame(maxWidth: .infinity)
-            .frame(height: narrator.isPlaying ? UIScreen.main.bounds.width * 16 / 9 : nil)
+            .frame(height: narrator.isPlaying ? screenWidth * 16 / 9 : nil)
             .background(narrator.isPlaying ? storyBackground : Color.clear)
             // No orange status line. A failed try explains itself in its own row (beside Keep, Discard and
             // Try again); the few notices that have no row speak quietly in the page's own ink.
@@ -281,7 +280,7 @@ struct WhistlegraphScreen: View {
             if let notice = session.speechNotice { QuietNote(text: notice, ink: paper).accessibilityIdentifier("speech-fallback-notice") }
             if let failure = session.captureError, !narrator.isPlaying { QuietNote(text: failure, ink: paper) }
             if !session.snapshot.error.isEmpty && !narrator.isPlaying && session.snapshot.attempt == nil { QuietNote(text: session.snapshot.error, ink: paper).accessibilityIdentifier("workspace-error") }
-            if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
+            if session.verifyingAIAccount { ProgressView().accessibilityLabel("Checking your account").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
             if !narrator.isPlaying && session.snapshot.wareID == "doom" { DoomControls(session: session) }
             if !narrator.isPlaying && session.snapshot.wareID == "painting" { PaintingControls(session: session) }
@@ -310,8 +309,16 @@ struct WhistlegraphScreen: View {
                                 .background(Color(red: 0.40, green: 0.83, blue: 0.95), in: RoundedRectangle(cornerRadius: 34, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
                         }.buttonStyle(.plain).disabled(!canTalk || session.capturePhase != .idle).accessibilityLabel("Type").accessibilityIdentifier("type-control")
-                        .frame(width: max(0, (UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12) / 2 * (1 - chalkReveal)))
+                        .frame(width: max(0, (screenWidth - session.layout.pageInset * 2 - 44 - 24) / 2 * (1 - chalkReveal)))
                         .clipped().opacity(1 - chalkReveal).allowsHitTesting(chalkReveal == 0).accessibilityHidden(chalkReveal > 0.9)
+                        Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
+                            ChalkStickIcon(lit: drawing.enabled).frame(width: 28, height: 28)
+                                .frame(width: 44, height: 54).contentShape(Rectangle())
+                        }.buttonStyle(.plain).disabled(!canTalk)
+                            .accessibilityLabel("Chalk").accessibilityIdentifier("draw-control")
+                            .accessibilityValue(drawing.enabled ? "On" : "Off")
+                            .frame(width: 44 * (1 - chalkReveal)).clipped().opacity(1 - chalkReveal)
+                            .allowsHitTesting(chalkReveal == 0).accessibilityHidden(chalkReveal > 0.9)
                         talkControl
                     }
                 }

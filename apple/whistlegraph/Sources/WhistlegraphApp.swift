@@ -316,6 +316,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var narratedFrame = 0
     var narratedVersion: Int?
     @Published var workspaceReady = false
+    @Published private(set) var previewPainted = false
     #if DEBUG
     @Published var audioTestResult = "Waiting for piece audio"
     @Published var consentFixtureRequests = 0
@@ -636,7 +637,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
 
     func reloadWorkspace() {
         DeviceActionLog.shared.record(.workspace, .opening)
-        workspaceReady = false; engineReady = false; startupFailure = nil
+        workspaceReady = false; engineReady = false; previewPainted = false; startupFailure = nil
         startupTimeout?.cancel()
         webView?.load(URLRequest(url: URL(string: "\(WhistlegraphBundle.storageScheme)://app/index.html?whistlegraph=1")!))
         startupTimeout = Task { [weak self] in
@@ -647,6 +648,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             if self.startupRetries < 1 { self.startupRetries += 1; self.reloadWorkspace(); return }
             self.startupFailure = self.workspaceReady ? "Whistlegraph’s engine didn’t start." : "Whistlegraph couldn’t open."
         }
+    }
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        workspaceReady = false; engineReady = false; previewPainted = false
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         print("[whistlegraph] main page loaded")
@@ -782,7 +786,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 if let event = body["event"] as? [String: Any],
                    event["requestID"] as? Int == previewRequestID,
                    event["sourceHash"] as? String == VisualCapture.hash(previewSource) {
-                    if event["kind"] as? String == "painted" { DeviceActionLog.shared.record(.preview, .painted); paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource); AirPlayProjector.shared.update(previewSource) }
+                    if event["kind"] as? String == "painted" { if !previewPainted { previewPainted = true }; DeviceActionLog.shared.record(.preview, .painted); paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource); AirPlayProjector.shared.update(previewSource) }
                     if event["kind"] as? String == "invalidated" { DeviceActionLog.shared.record(.preview, .invalidated); paintedPreviewHash = nil }
                 }
                 #if DEBUG
@@ -1016,7 +1020,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             if let id = body["drawingID"] as? String, let revision = body["revision"] as? Int { drawing.consume(id: id, revision: revision) }
         case "render":
             guard let source = body["source"] as? String, source.utf8.count < 500_000 else { return }
-            visualCaptureTask?.cancel(); paintedPreviewHash = nil
+            visualCaptureTask?.cancel(); paintedPreviewHash = nil; previewPainted = false
             if let id = body["threadID"] as? String, UUID(uuidString: id) != nil { previewThreadID = id }
             previewRequestID = body["renderID"] as? Int ?? 0
             previewSource = source; renderPreview()
