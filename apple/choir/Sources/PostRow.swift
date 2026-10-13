@@ -12,20 +12,27 @@ struct PostRow: View {
 
     var body: some View {
         DeskWindow(title: post.handle, detail: post.date.formatted(.relative(presentation: .numeric, unitsStyle: .narrow)), call: Samples.isSample(post) ? "sample" : post.replyTo == nil ? Dewey.call(post) : "") {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 12) {
                 if post.deleted {
                     Text("deleted").italic().foregroundStyle(.secondary)
                 } else {
-                    Text(linked(post.text)).font(Theme.type(16)).lineSpacing(6).foregroundStyle(Theme.ink).textSelection(.enabled)
+                    let words = shownText
+                    if !words.isEmpty {
+                        Text(linked(words)).font(.system(size: 17, design: .serif)).lineSpacing(4)
+                            .foregroundStyle(Theme.ink).textSelection(.enabled)
+                    }
                     if let link = post.links.first, let url = URL(string: link) { LinkPreview(url: url).frame(minHeight: 60) }
                 }
                 if post.replyTo == nil {
-                    HStack(spacing: 6) {
-                        ForEach(post.tags, id: \.self) { t in Chip(label: "#\(t)", on: false) { onTag(t) } }
+                    HStack(spacing: 10) {
+                        ForEach(post.tags, id: \.self) { t in
+                            Button("#\(t)") { onTag(t) }.buttonStyle(.plain)
+                                .font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.55))
+                        }
                         Spacer()
                         if !inThread {
                             Text(post.replies == 0 ? "reply" : "\(post.replies) \(post.replies == 1 ? "reply" : "replies")")
-                                .font(Theme.chrome(11, .regular)).foregroundStyle(Theme.ink.opacity(0.7))
+                                .font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.55))
                         }
                     }
                 }
@@ -45,6 +52,12 @@ struct PostRow: View {
                 Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); onChange(); await room.load() }
             }
         }
+    }
+
+    /// The words without the link the preview card already shows.
+    var shownText: String {
+        guard let first = post.links.first else { return post.text }
+        return post.text.replacingOccurrences(of: first, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var report: URL {

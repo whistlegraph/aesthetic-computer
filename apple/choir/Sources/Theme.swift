@@ -21,7 +21,7 @@ struct RuledPaper: View {
     var body: some View { Theme.desk.ignoresSafeArea() }
 }
 
-/// A library catalog card: name and call number above a red rule, blue lines below.
+/// A library catalog card, quietly: name and call number over a red hairline.
 struct DeskWindow<Content: View>: View {
     let title: String
     var detail: String = ""
@@ -29,29 +29,25 @@ struct DeskWindow<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title).font(Theme.type(15, bold: true))
-                Spacer()
-                VStack(alignment: .trailing, spacing: 0) {
-                    if !call.isEmpty { Text(call).font(Theme.type(12)) }
-                    Text(detail).font(Theme.type(11)).opacity(0.6)
+            HStack(alignment: .center) {
+                if title == "@choir" {
+                    Image("Mark").renderingMode(.template).resizable().scaledToFit().frame(height: 18)
+                        .accessibilityLabel("choir")
+                } else {
+                    Text(title).font(.system(size: 13, weight: .semibold)).tracking(0.3)
                 }
+                Spacer()
+                Text([call, detail].filter { !$0.isEmpty }.joined(separator: "  ·  "))
+                    .font(Theme.type(11)).opacity(0.45)
             }
             .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 6)
-            Rectangle().fill(Theme.head).frame(height: 1.5)
-            content.padding(.horizontal, 14).padding(.vertical, 10)
+            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 10)
+            Rectangle().fill(Theme.head.opacity(0.55)).frame(height: 0.75).padding(.horizontal, 18)
+            content.padding(.horizontal, 18).padding(.top, 12).padding(.bottom, 16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(alignment: .top) {
-                    Canvas { ctx, size in
-                        var y: CGFloat = 30
-                        while y < size.height { ctx.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)), with: .color(Theme.rule)); y += 24 }
-                    }
-                }
         }
-        .background(Theme.paper)
-        .shadow(color: .black.opacity(0.18), radius: 0, x: 0, y: 2)
-        .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
+        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 3))
+        .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 4)
     }
 }
 
@@ -92,16 +88,17 @@ extension View {
 /// A rounder, friendlier take on AC's two doors: same blue and green.
 struct CuteDoorStyle: ButtonStyle {
     var new = false
+    var small = false
     func makeBody(configuration: Configuration) -> some View {
         let fill = new ? Color(red: 0.2, green: 0.63, blue: 0.2) : Color(red: 0.24, green: 0.47, blue: 0.86)
         configuration.label
-            .font(Theme.type(19, bold: true))
+            .font(Theme.type(small ? 15 : 19, bold: true))
             .foregroundStyle(.white)
-            .padding(.horizontal, 22).padding(.vertical, 12)
+            .padding(.horizontal, small ? 16 : 22).padding(.vertical, small ? 8 : 12)
             .background(fill, in: Capsule())
             .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 2))
-            .background(Capsule().fill(Theme.ink).offset(y: configuration.isPressed ? 1 : 4))
-            .offset(y: configuration.isPressed ? 3 : 0)
+            .background(Capsule().fill(Theme.ink).offset(y: configuration.isPressed ? 1 : (small ? 3 : 4)))
+            .offset(y: configuration.isPressed ? (small ? 2 : 3) : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.5), value: configuration.isPressed)
     }
 }

@@ -269,7 +269,8 @@ function card(p, inThread = false) {
   const when = new Date(p.when);
   el.innerHTML = `<div class="meta"><b></b><time datetime="${p.when}" title="${when.toLocaleString()}">${ago(when)}</time></div>
     <p class="text${p.deleted ? " gone" : ""}"></p><div class="foot"></div>`;
-  el.querySelector("b").textContent = p.handle;
+  if (p.handle === "@choir") el.querySelector("b").innerHTML = '<img src="../mark.png" alt="choir" style="height:16px;vertical-align:middle">';
+  else el.querySelector("b").textContent = p.handle;
   const text = el.querySelector(".text");
   if (p.deleted) text.textContent = "deleted"; else linkify(text, p.text);
   if (p.links?.[0] && !p.deleted) preview(p.links[0]).then((n) => n && text.after(n));

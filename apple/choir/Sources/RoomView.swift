@@ -9,9 +9,15 @@ struct RoomView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 16) {
+                LazyVStack(spacing: 18) {
                     if account.signedIn {
-                        SingingMark(height: 100, energy: 0.5).padding(.top, 4).onTapGesture { pick(nil) }
+                        SingingMark(height: 64, energy: 0.5).onTapGesture { pick(nil) }
+                    }
+                    if let tag = room.tag {
+                        Button { pick(nil) } label: {
+                            HStack(spacing: 6) { Text("#\(tag)"); Image(systemName: "xmark").font(.caption2.bold()) }
+                        }
+                        .buttonStyle(GlassChipStyle(on: true))
                     }
                     if !account.signedIn {
                         Entry { door in sheet = door == .login ? .login : .new }
@@ -32,7 +38,6 @@ struct RoomView: View {
             .background(RuledPaper())
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Post.self) { ThreadView(rootID: $0.id) }
-            .safeAreaInset(edge: .top, spacing: 0) { TagBar(selected: room.tag, tags: room.tags, onPick: pick) }
             .refreshable { await room.load() }
             .toolbar {
                 if account.signedIn {
