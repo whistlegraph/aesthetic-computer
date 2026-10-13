@@ -1,0 +1,84 @@
+From ca7fc6a8ae28eaec8c194dc5f8db03f928b2e454 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?= <ville.syrjala@linux.intel.com>
+Date: Thu, 26 Mar 2026 13:18:11 +0200
+Subject: [PATCH] drm/i915/dsi: s/eotp_pkt/eot_pkt/
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+eotp == "End of Transmission Packet". Drop the redundant
+extra 'p' from 'eotp_pkt', and make the thing a boolean
+while at it.
+
+Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Link: https://patch.msgid.link/20260326111814.9800-3-ville.syrjala@linux.intel.com
+Reviewed-by: Jani Nikula <jani.nikula@intel.com>
+---
+ drivers/gpu/drm/i915/display/icl_dsi.c       | 2 +-
+ drivers/gpu/drm/i915/display/intel_dsi.h     | 3 +--
+ drivers/gpu/drm/i915/display/intel_dsi_vbt.c | 4 ++--
+ drivers/gpu/drm/i915/display/vlv_dsi.c       | 2 +-
+ 4 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/icl_dsi.c b/drivers/gpu/drm/i915/display/icl_dsi.c
+index a763f2b13ff2da..6ea37929198cd7 100644
+--- a/drivers/gpu/drm/i915/display/icl_dsi.c
++++ b/drivers/gpu/drm/i915/display/icl_dsi.c
+@@ -711,7 +711,7 @@ gen11_dsi_configure_transcoder(struct intel_encoder *encoder,
+ 		dsi_trans = dsi_port_to_transcoder(port);
+ 		tmp = intel_de_read(display, DSI_TRANS_FUNC_CONF(dsi_trans));
+ 
+-		if (intel_dsi->eotp_pkt)
++		if (intel_dsi->eot_pkt)
+ 			tmp &= ~EOTP_DISABLED;
+ 		else
+ 			tmp |= EOTP_DISABLED;
+diff --git a/drivers/gpu/drm/i915/display/intel_dsi.h b/drivers/gpu/drm/i915/display/intel_dsi.h
+index 489d26ffd23540..8e39d2b52c5471 100644
+--- a/drivers/gpu/drm/i915/display/intel_dsi.h
++++ b/drivers/gpu/drm/i915/display/intel_dsi.h
+@@ -80,8 +80,7 @@ struct intel_dsi {
+ 	/* NON_BURST_SYNC_PULSE, NON_BURST_SYNC_EVENTS, or BURST_MODE */
+ 	int video_mode;
+ 
+-	/* eot for MIPI_EOT_DISABLE register */
+-	u8 eotp_pkt;
++	bool eot_pkt;
+ 	u8 clock_stop;
+ 
+ 	u8 escape_clk_div;
+diff --git a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+index 18755a8e613d59..51f6a5b82cb23a 100644
+--- a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
++++ b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+@@ -718,7 +718,7 @@ void intel_dsi_log_params(struct intel_dsi *intel_dsi)
+ 		   "burst" : "<unknown>");
+ 	drm_printf(&p, "Burst mode ratio %d\n", intel_dsi->burst_mode_ratio);
+ 	drm_printf(&p, "Reset timer %d\n", intel_dsi->rst_timer_val);
+-	drm_printf(&p, "Eot %s\n", str_enabled_disabled(intel_dsi->eotp_pkt));
++	drm_printf(&p, "EoT packet %s\n", str_enabled_disabled(intel_dsi->eot_pkt));
+ 	drm_printf(&p, "Clockstop %s\n", str_enabled_disabled(!intel_dsi->clock_stop));
+ 	drm_printf(&p, "Mode %s\n", intel_dsi->operation_mode ? "command" : "video");
+ 	if (intel_dsi->dual_link == DSI_DUAL_LINK_FRONT_BACK)
+@@ -770,7 +770,7 @@ bool intel_dsi_vbt_init(struct intel_dsi *intel_dsi, u16 panel_id)
+ 
+ 	drm_dbg_kms(display->drm, "\n");
+ 
+-	intel_dsi->eotp_pkt = mipi_config->eot_pkt_disabled ? 0 : 1;
++	intel_dsi->eot_pkt = !mipi_config->eot_pkt_disabled;
+ 	intel_dsi->clock_stop = mipi_config->enable_clk_stop ? 1 : 0;
+ 	intel_dsi->lane_count = mipi_config->lane_cnt + 1;
+ 	intel_dsi->pixel_format =
+diff --git a/drivers/gpu/drm/i915/display/vlv_dsi.c b/drivers/gpu/drm/i915/display/vlv_dsi.c
+index 36591d7246389b..d4db73c184e5c2 100644
+--- a/drivers/gpu/drm/i915/display/vlv_dsi.c
++++ b/drivers/gpu/drm/i915/display/vlv_dsi.c
+@@ -1367,7 +1367,7 @@ static void intel_dsi_prepare(struct intel_encoder *encoder,
+ 	}
+ 
+ 	tmp = 0;
+-	if (intel_dsi->eotp_pkt == 0)
++	if (!intel_dsi->eot_pkt)
+ 		tmp |= EOT_DISABLE;
+ 	if (intel_dsi->clock_stop)
+ 		tmp |= CLOCKSTOP;

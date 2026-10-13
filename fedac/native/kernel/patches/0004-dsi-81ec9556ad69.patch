@@ -1,0 +1,64 @@
+From 81ec9556ad69444899e8255652ec80972c09df14 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?= <ville.syrjala@linux.intel.com>
+Date: Thu, 26 Mar 2026 13:18:12 +0200
+Subject: [PATCH] drm/i915/dsi: Make 'clock_stop' boolean
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The DSI 'clock_stop' parameter is a boolean, so use a real
+'bool' for it. And pimp the debug print while at it.
+
+Note that we also remove the incorrect negation of the value
+in the debug print. That has been there since the code was
+introduced in commit 2ab8b458c6a1 ("drm/i915: Add support for
+Generic MIPI panel driver"). An earlier version of the patch
+https://lore.kernel.org/intel-gfx/1397454507-10273-5-git-send-email-shobhit.kumar@intel.com/
+got it right, but looks like it got fumbled while dealing
+with other review comments.
+
+v2: Highlight the removal of the '!' (Jani)
+
+Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Link: https://patch.msgid.link/20260326111814.9800-4-ville.syrjala@linux.intel.com
+Reviewed-by: Jani Nikula <jani.nikula@intel.com>
+---
+ drivers/gpu/drm/i915/display/intel_dsi.h     | 2 +-
+ drivers/gpu/drm/i915/display/intel_dsi_vbt.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_dsi.h b/drivers/gpu/drm/i915/display/intel_dsi.h
+index 8e39d2b52c5471..0023ac341aa02d 100644
+--- a/drivers/gpu/drm/i915/display/intel_dsi.h
++++ b/drivers/gpu/drm/i915/display/intel_dsi.h
+@@ -81,7 +81,7 @@ struct intel_dsi {
+ 	int video_mode;
+ 
+ 	bool eot_pkt;
+-	u8 clock_stop;
++	bool clock_stop;
+ 
+ 	u8 escape_clk_div;
+ 	u8 dual_link;
+diff --git a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+index 51f6a5b82cb23a..23da7f5f95782c 100644
+--- a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
++++ b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+@@ -719,7 +719,7 @@ void intel_dsi_log_params(struct intel_dsi *intel_dsi)
+ 	drm_printf(&p, "Burst mode ratio %d\n", intel_dsi->burst_mode_ratio);
+ 	drm_printf(&p, "Reset timer %d\n", intel_dsi->rst_timer_val);
+ 	drm_printf(&p, "EoT packet %s\n", str_enabled_disabled(intel_dsi->eot_pkt));
+-	drm_printf(&p, "Clockstop %s\n", str_enabled_disabled(!intel_dsi->clock_stop));
++	drm_printf(&p, "Clock stop during BLLP %s\n", str_enabled_disabled(intel_dsi->clock_stop));
+ 	drm_printf(&p, "Mode %s\n", intel_dsi->operation_mode ? "command" : "video");
+ 	if (intel_dsi->dual_link == DSI_DUAL_LINK_FRONT_BACK)
+ 		drm_printf(&p, "Dual link: DSI_DUAL_LINK_FRONT_BACK\n");
+@@ -771,7 +771,7 @@ bool intel_dsi_vbt_init(struct intel_dsi *intel_dsi, u16 panel_id)
+ 	drm_dbg_kms(display->drm, "\n");
+ 
+ 	intel_dsi->eot_pkt = !mipi_config->eot_pkt_disabled;
+-	intel_dsi->clock_stop = mipi_config->enable_clk_stop ? 1 : 0;
++	intel_dsi->clock_stop = mipi_config->enable_clk_stop;
+ 	intel_dsi->lane_count = mipi_config->lane_cnt + 1;
+ 	intel_dsi->pixel_format =
+ 		vbt_to_dsi_pixel_format(mipi_config->videomode_color_format);

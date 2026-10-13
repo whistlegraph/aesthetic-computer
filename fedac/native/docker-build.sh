@@ -909,6 +909,21 @@ if [ ! -f "$LINUX_DIR/Makefile" ]; then
     echo "$KVER" > "$SENTINEL"
 fi
 
+# Kernel patches (kernel/patches/*.patch, applied in name order). The build
+# tree persists between builds, so each applied patch is recorded in the tree
+# and only new ones are applied. Removing a patch needs a fresh tree (bump
+# KVER or wipe $KBUILD_ROOT) — the record only grows.
+PATCH_LOG="$LINUX_DIR/.ac-patches-applied"
+touch "$PATCH_LOG"
+for p in "$NATIVE"/kernel/patches/*.patch; do
+    [ -f "$p" ] || continue
+    name="$(basename "$p")"
+    grep -qxF "$name" "$PATCH_LOG" && continue
+    log "  Applying kernel patch $name"
+    (cd "$LINUX_DIR" && GIT_CEILING_DIRECTORIES="$(dirname "$LINUX_DIR")" git apply --whitespace=nowarn "$p") || { err "Kernel patch $name failed"; exit 1; }   # the image has git, not patch
+    echo "$name" >> "$PATCH_LOG"
+done
+
 # Copy config only if it differs — overwriting touches mtime and invalidates
 # large swaths of kbuild's dependency graph, forcing full rebuilds.
 if ! cmp -s "$NATIVE/kernel/config-minimal" "$LINUX_DIR/.config"; then

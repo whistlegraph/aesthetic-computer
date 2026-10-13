@@ -1,0 +1,85 @@
+From e8a7efa81d734e1c8f4d91e658a162ea32f39dcb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?= <ville.syrjala@linux.intel.com>
+Date: Thu, 26 Mar 2026 13:18:14 +0200
+Subject: [PATCH] drm/i915/dsi: Place clock into LP during LPM if requested
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+TGL/ADL DSI can be configured to place the clock lane into
+LP state during LPM, if otherwise configured for continuous
+HS clock.
+
+Hook that up. VBT tells us whether this should be done.
+
+Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Link: https://patch.msgid.link/20260326111814.9800-6-ville.syrjala@linux.intel.com
+Reviewed-by: Jani Nikula <jani.nikula@intel.com>
+---
+ drivers/gpu/drm/i915/display/icl_dsi.c       | 6 ++++++
+ drivers/gpu/drm/i915/display/icl_dsi_regs.h  | 1 +
+ drivers/gpu/drm/i915/display/intel_dsi.h     | 1 +
+ drivers/gpu/drm/i915/display/intel_dsi_vbt.c | 2 ++
+ 4 files changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/i915/display/icl_dsi.c b/drivers/gpu/drm/i915/display/icl_dsi.c
+index 45ba02486c56ff..afbaa0465842ac 100644
+--- a/drivers/gpu/drm/i915/display/icl_dsi.c
++++ b/drivers/gpu/drm/i915/display/icl_dsi.c
+@@ -729,6 +729,12 @@ gen11_dsi_configure_transcoder(struct intel_encoder *encoder,
+ 		else
+ 			tmp |= CLK_HS_CONTINUOUS;
+ 
++		if (DISPLAY_VER(display) >= 12 &&
++		    intel_dsi->lp_clock_during_lpm)
++			tmp |= LP_CLK_DURING_LPM;
++		else
++			tmp &= ~LP_CLK_DURING_LPM;
++
+ 		/* configure buffer threshold limit to minimum */
+ 		tmp &= ~PIX_BUF_THRESHOLD_MASK;
+ 		tmp |= PIX_BUF_THRESHOLD_1_4;
+diff --git a/drivers/gpu/drm/i915/display/icl_dsi_regs.h b/drivers/gpu/drm/i915/display/icl_dsi_regs.h
+index 641e8f0b8cdbaf..55ab57adcb0f7d 100644
+--- a/drivers/gpu/drm/i915/display/icl_dsi_regs.h
++++ b/drivers/gpu/drm/i915/display/icl_dsi_regs.h
+@@ -227,6 +227,7 @@
+ #define  CLK_ENTER_LP_AFTER_DATA	(0x0 << 8)
+ #define  CLK_HS_OR_LP			(0x2 << 8)
+ #define  CLK_HS_CONTINUOUS		(0x3 << 8)
++#define  LP_CLK_DURING_LPM		(1 << 7) /* tgl+ */
+ #define  LINK_CALIBRATION_MASK		(0x3 << 4)
+ #define  LINK_CALIBRATION_SHIFT		4
+ #define  CALIBRATION_DISABLED		(0x0 << 4)
+diff --git a/drivers/gpu/drm/i915/display/intel_dsi.h b/drivers/gpu/drm/i915/display/intel_dsi.h
+index f55d48e43af1a5..9fcdabbf3740fc 100644
+--- a/drivers/gpu/drm/i915/display/intel_dsi.h
++++ b/drivers/gpu/drm/i915/display/intel_dsi.h
+@@ -80,6 +80,7 @@ struct intel_dsi {
+ 	/* NON_BURST_SYNC_PULSE, NON_BURST_SYNC_EVENTS, or BURST_MODE */
+ 	int video_mode;
+ 
++	bool lp_clock_during_lpm;
+ 	bool blanking_pkt;
+ 	bool eot_pkt;
+ 	bool clock_stop;
+diff --git a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+index c544871dac0bd3..fe12041e913cd4 100644
+--- a/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
++++ b/drivers/gpu/drm/i915/display/intel_dsi_vbt.c
+@@ -718,6 +718,7 @@ void intel_dsi_log_params(struct intel_dsi *intel_dsi)
+ 		   "burst" : "<unknown>");
+ 	drm_printf(&p, "Burst mode ratio %d\n", intel_dsi->burst_mode_ratio);
+ 	drm_printf(&p, "Reset timer %d\n", intel_dsi->rst_timer_val);
++	drm_printf(&p, "LP clock during LPM %s\n", str_enabled_disabled(intel_dsi->lp_clock_during_lpm));
+ 	drm_printf(&p, "Blanking packets during BLLP %s\n", str_enabled_disabled(intel_dsi->blanking_pkt));
+ 	drm_printf(&p, "EoT packet %s\n", str_enabled_disabled(intel_dsi->eot_pkt));
+ 	drm_printf(&p, "Clock stop during BLLP %s\n", str_enabled_disabled(intel_dsi->clock_stop));
+@@ -771,6 +772,7 @@ bool intel_dsi_vbt_init(struct intel_dsi *intel_dsi, u16 panel_id)
+ 
+ 	drm_dbg_kms(display->drm, "\n");
+ 
++	intel_dsi->lp_clock_during_lpm = mipi_config->lp_clock_during_lpm;
+ 	intel_dsi->blanking_pkt = mipi_config->blanking_packets_during_bllp;
+ 	intel_dsi->eot_pkt = !mipi_config->eot_pkt_disabled;
+ 	intel_dsi->clock_stop = mipi_config->enable_clk_stop;
