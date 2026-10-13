@@ -6,12 +6,15 @@ final class MimeLayoutTests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["MIME_CREATION_FIXTURE"] = "remix"
         app.launch()
-        let badge = app.buttons["mime-remix-version"].firstMatch
-        XCTAssertTrue(badge.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["mime-remix-version"].firstMatch.waitForExistence(timeout: 30))
         waitForReveal(in: app)
         for (version, author, ware) in [(7, "original", "Aesthetic.Computer Piece"), (3, "painter", "Painting"), (2, "builder", "Doom")] {
+            let badge = app.buttons.matching(identifier: "mime-remix-version").matching(NSPredicate(format: "label == %@", "v\(version)")).firstMatch
+            let settled = expectation(for: NSPredicate { _, _ in badge.exists && badge.isHittable && badge.frame.midY < 150 }, evaluatedWith: app)
+            XCTAssertEqual(XCTWaiter().wait(for: [settled], timeout: 15), .completed)
             XCTAssertEqual(badge.label, "v\(version)")
-            let identifier = app.buttons["mime-global-identifier"].firstMatch
+            let code = version == 7 ? "fixture-remix-piece" : version == 3 ? "fixture-remix-png" : "doom~fixture-remix-wad"
+            let identifier = app.buttons.matching(identifier: "mime-global-identifier").matching(NSPredicate(format: "label == %@", code)).firstMatch
             XCTAssertGreaterThan(badge.frame.minX, identifier.frame.maxX)
             let feed = XCTAttachment(screenshot: app.screenshot())
             feed.name = "MIME remix feed v\(version)"; feed.lifetime = .keepAlways; add(feed)

@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ObjectId } from "mongodb";
-import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts } from "./mime-media.mjs";
+import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts, publicHandleColors } from "./mime-media.mjs";
 import { ensureMoodCode, moodIdForCode } from "./mood-code.mjs";
 import { ensureChatCode, chatIdForCode } from "./chat-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
@@ -180,21 +180,22 @@ async function whistlegraphPieces(db) {
     { projection: { code: 1, owner: 1, handle: 1, publishedAt: 1, updatedAt: 1, "ledger.head": 1, "ledger.versions.id": 1,
       "ledger.versions.request": 1, "ledger.versions.createdAt": 1 } },
   ).sort({ updatedAt: -1 }).limit(PER_SOURCE).toArray();
-  const owners = await handleMap(db, rows.filter((row) => !row.handle?.startsWith?.("@")).map((row) => row.owner));
+  const owners = await wgProfiles(db, rows.map(row => row.owner));
   return rows.filter((row) => typeof row.code === "string" && /^wg[A-Za-z0-9]+$/.test(row.code)).map((row) => {
     const made = (row.ledger?.versions || []).filter((v) => v.id > 0);
     const caption = made.length ? captionOf(made.at(-1).request) : "";
-    const handle = typeof row.handle === "string" && row.handle.startsWith("@") ? row.handle : owners.get(row.owner) || null;
+    const profile = owners.get(row.owner);
+    const handle = typeof row.handle === "string" && row.handle.startsWith("@") ? row.handle : profile?.handle || null;
     const latest = made.at(-1)?.createdAt;
     const when = latest && latest > row.publishedAt ? latest : row.publishedAt;
-    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), when, made.at(-1)?.id), "whistlegraph");
+    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), when, made.at(-1)?.id, profile?.handle === handle ? profile.colors : null), "whistlegraph");
   });
 }
 
-export function wgPiecePost(code, handle, caption, when, version) {
+export function wgPiecePost(code, handle, caption, when, version, nameColors = null) {
   return {
     code: "wgpiece_" + code, parent: null, board: "text/javascript", name: handle, text: caption || "", when,
-    replies: 0, file: { name: code + ".mjs", type: "text/javascript", size: null, url: "/api/mime-feed?code=" + code },
+    replies: 0, nameColors, file: { name: code + ".mjs", type: "text/javascript", size: null, url: "/api/mime-feed?code=" + code },
     origin: { name: "Whistlegraph", url: "https://whistlegraph.app/" },
     media: { kind: "wgpiece", id: code, code, version, url: "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code) + (Number.isSafeInteger(version) ? "&version=" + version : ""), author: handle },
   };
@@ -254,6 +255,13 @@ export async function currentChatPosts(db, posts) {
     }
   }));
   return posts.flatMap(p => p.media?.kind !== "chat" ? [p] : current.has(p.code) ? [current.get(p.code)] : []);
+}
+
+async function wgProfiles(db, users) {
+  const ids = [...new Set(users.filter(Boolean))];
+  if (!ids.length) return new Map();
+  const rows = await db.collection("@handles").find({ _id: { $in: ids } }, { projection: { handle: 1, colors: 1 } }).toArray();
+  return new Map(rows.filter(row => typeof row.handle === "string").map(row => [row._id, {handle: "@" + row.handle.replace(/^@/, ""), colors: publicHandleColors(row.colors)}]));
 }
 
 async function handleMap(db, users) {
@@ -370,8 +378,10 @@ export async function feedOnlyOp(db, code) {
   if (match) {
     const pieces = (await feedPool(db)).live.filter((item) => item.code === code);
     if (pieces[0]) return withThread(db, pieces[0].post);
-    const row = await db.collection(WG_THREADS).findOne({ code: match[1], published: true }, { projection: { code: 1, handle: 1, publishedAt: 1, "ledger.versions.id": 1 } });
-    return row ? withThread(db, wgPiecePost(row.code, row.handle?.startsWith?.("@") ? row.handle : null, "", row.publishedAt, row.ledger?.versions.at(-1)?.id)) : null;
+    const row = await db.collection(WG_THREADS).findOne({ code: match[1], published: true }, { projection: { code: 1, owner: 1, handle: 1, publishedAt: 1, "ledger.versions.id": 1 } });
+    if (!row) return null;
+    const profile = (await wgProfiles(db, [row.owner])).get(row.owner), handle = row.handle?.startsWith?.("@") ? row.handle : profile?.handle || null;
+    return withThread(db, wgPiecePost(row.code, handle, "", row.publishedAt, row.ledger?.versions.at(-1)?.id, profile?.handle === handle ? profile.colors : null));
   }
   return null;
 }

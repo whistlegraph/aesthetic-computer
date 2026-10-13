@@ -114,15 +114,18 @@ export async function sourceRecord(db, code) {
   return db.collection(MEDIA_KINDS[ref.kind]).findOne({ ...sourceVisibility(ref.kind), _id: ref.id });
 }
 
+export function publicHandleColors(colors) {
+  return Array.isArray(colors) ? colors.slice(0, 65).map(c => c && [c.r, c.g, c.b].every(Number.isFinite)
+    ? Object.fromEntries(["r", "g", "b"].map(k => [k, Math.max(0, Math.min(255, c[k]))])) : null) : null;
+}
+
 export async function publicPosts(db, docs) {
   const users = [...new Set(docs.map((doc) => doc._media?.user || doc.user).filter(Boolean))];
   const handles = users.length ? await db.collection("@handles")
     .find({ _id: { $in: users } }, { projection: { handle: 1, colors: 1 } }).toArray() : [];
   const byUser = new Map(handles.filter((h) => typeof h.handle === "string")
     .map((h) => [h._id, "@" + h.handle.replace(/^@/, "")]));
-  const colorsByUser = new Map(handles.map(h => [h._id, Array.isArray(h.colors)
-    ? h.colors.slice(0, 65).map(c => c && [c.r, c.g, c.b].every(Number.isFinite)
-      ? Object.fromEntries(["r", "g", "b"].map(k => [k, Math.max(0, Math.min(255, c[k]))])) : null) : null]));
+  const colorsByUser = new Map(handles.map(h => [h._id, publicHandleColors(h.colors)]));
   return docs.map((doc) => {
     const media = doc._media;
     const handle = byUser.get(media?.user || doc.user) || null;
