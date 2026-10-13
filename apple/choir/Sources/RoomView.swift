@@ -10,6 +10,10 @@ struct RoomView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 16) {
+                    Image("Mark").renderingMode(.template).resizable().scaledToFit()
+                        .frame(height: 110).foregroundStyle(Theme.ink)
+                        .padding(.top, 4).accessibilityLabel("choir")
+                        .onTapGesture { pick(nil) }
                     if !account.signedIn {
                         Entry { door in sheet = door == .login ? .login : .new }
                     }
@@ -28,10 +32,6 @@ struct RoomView: View {
             .safeAreaInset(edge: .top, spacing: 0) { TagBar(selected: room.tag, tags: room.tags, onPick: pick) }
             .refreshable { await room.load() }
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Image("Mark").renderingMode(.template).resizable().scaledToFit()
-                        .frame(height: 30).foregroundStyle(Theme.ink).accessibilityLabel("choir")
-                }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.chrome(13)).tint(Theme.ink)
