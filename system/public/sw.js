@@ -141,9 +141,22 @@ self.addEventListener('fetch', (event) => {
   // wave. The shell fetches it at parse time, long before the worker exists:
   // read its imports on the way through and start revalidating the closure.
   // The piece itself still goes straight to the network, uncached.
+  // When the shell's fetch hasn't landed by the time the worker wants the piece,
+  // the worker asks again (with a ?v= bust); hand it the shell's response
+  // instead of a second round trip.
   if (url.origin === self.location.origin && PIECE_SOURCE.test(url.pathname)) {
+    const joined = inflight.get(url.pathname);
+    if (joined) {
+      event.respondWith(joined.then((r) => r.clone(), () => fetch(event.request)));
+      return;
+    }
+    // Joinable only while in flight: a settled piece is never handed out again.
+    const piece = fetch(event.request);
+    inflight.set(url.pathname, piece);
+    const drop = () => { if (inflight.get(url.pathname) === piece) inflight.delete(url.pathname); };
+    piece.then(drop, drop);
     event.respondWith(
-      fetch(event.request).then((response) => {
+      piece.then((r) => r.clone()).then((response) => {
         if (response.ok && !walked.has(url.pathname)) {
           markWalked(url.pathname);
           event.waitUntil(
