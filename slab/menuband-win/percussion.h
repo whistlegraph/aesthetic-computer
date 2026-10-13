@@ -57,8 +57,8 @@ void perc_flush(void);
 // Kit-wide pitch multiplier (the FX surface's bend), 1.0 = none.
 void perc_set_pitch(double scale);
 
-// Percussion trim 0…3 (the Mac's outputLevel is 0.90 at unity; above 1 is
-// make-up gain, which the output soft limiter keeps from clipping).
+// Percussion trim 0…3 (the Mac's outputLevel, fresh installs 0.90; past 1 is
+// make-up gain against loudness-normalized notes, guarded by the soft limiter).
 void perc_set_level(double level);
 
 // Render `frames` of interleaved stereo float32, ADDED into `out`.

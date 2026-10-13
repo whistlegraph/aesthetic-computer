@@ -44,6 +44,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <share.h>
+#include <wctype.h>
 #include "gm_synth.h"
 // TinySoundFont (MIT, schellingb/TinySoundFont @853a0a1): the SoundFont engine.
 #define TSF_IMPLEMENTATION
@@ -938,9 +939,15 @@ static uint8_t g_noteProgram[128]; // the program a SoundFont note started on
 enum { ENGINE_SOUNDFONT = 0, ENGINE_AC = 1 };
 static int g_engine = ENGINE_SOUNDFONT;
 static volatile LONG g_sfReady = 0;   // a bank is loaded and handed to the audio thread
+// Backtick instruments (the Mac's ` prefix): `1 = AC Grand Piano, `79 = AC
+// Whistle. They outrank the engine choice; picking any GM program clears them.
+static int g_custom = 0;
+static int g_tickEntry = 0;
 static void play_on(int midi, int vel) {
     if (midi < 0 || midi > 127) return;
     if (g_midiOut) { g_noteOwner[midi] = 2; midiOutShortMsg(g_midiOut, 0x90 | ((DWORD)midi << 8) | ((DWORD)vel << 16)); }
+    else if (g_custom == 1 && piano_available()) { g_noteOwner[midi] = 3; Cmd c = { CMD_PON, (uint8_t)midi, (uint8_t)vel, 0, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns); }
+    else if (g_custom == 79) { g_noteOwner[midi] = 1; Cmd c = { CMD_WON, (uint8_t)midi, (uint8_t)vel, 0, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns); }
     else if (g_engine == ENGINE_SOUNDFONT && g_sfReady) {
         g_noteOwner[midi] = 4; g_noteProgram[midi] = (uint8_t)g_program;
         int sv = (int)(vel * powf(10.0f, (note_db(g_sfDb[g_program], midi) - g_sfMaxDb[g_program]) / 20.0f) + 0.5f); if (sv < 1) sv = 1;
@@ -1028,6 +1035,17 @@ static RECT black_rect(int midi) {
     int cx = g_pianoX + (below + 1) * g_keyW;
     RECT r = { cx - g_blackW / 2, g_padY, cx - g_blackW / 2 + g_blackW, g_padY + g_blackH };
     return r;
+}
+
+// Slots past either end, for the ghost keys: white slot i (negative = left of
+// the first C, ≥ WHITE_COUNT = right of the last B), and the sharp hanging on
+// the boundary after slot i.
+static RECT white_slot_rect(int i) { RECT r = { g_pianoX + i * g_keyW, g_padY, g_pianoX + (i + 1) * g_keyW - 1, g_padY + g_keyH }; return r; }
+static RECT black_after_slot(int i) { int cx = g_pianoX + (i + 1) * g_keyW; RECT r = { cx - g_blackW / 2, g_padY, cx - g_blackW / 2 + g_blackW, g_padY + g_blackH }; return r; }
+static int white_slot_of(int m) {   // m must be a white key
+    int n = 0;
+    if (m >= g_firstMidi) { for (int k = g_firstMidi; k < m; k++) n += is_white(k); return n; }
+    for (int k = m; k < g_firstMidi; k++) n += is_white(k); return -n;
 }
 
 static int key_at(int x, int y) {
@@ -1186,6 +1204,54 @@ static int g_hoverChip = 0;
 static int g_mouseMidi = -1;
 static int g_typing = 0;
 
+// ── key letters, as KeyboardIconRenderer draws them ──
+// A pressed key wears its typing letter at full strength (dark ink on the lit
+// cap); while playing, the letters around the key you just struck ripple in
+// and fade (the Mac's letterAlpha wave). A side held with Shift — or every key
+// under Caps Lock — shows its letters uppercase, as the linger side does.
+static int g_semitoneByVk[256];
+static int pedal_holds(int midi);
+static int g_rippleMidi = -1; static DWORD g_rippleAt = 0;
+// Ghost-key lean (KeyboardIconRenderer.leanOffset): while a reach key (Z X
+// below, ; ' above) is lit, the piano leans just far enough to show that key
+// in its real slot, and eases back on release.
+static double g_leanCur = 0, g_leanTarget = 0;
+#define IDT_LEAN 9
+static int note_is_lit(int m) { return m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m]); }
+static double lean_target(void) {
+    int lo = g_firstMidi, hi = g_firstMidi + 23; double sharpReach = g_blackW / (2.0 * g_keyW) + 0.12, left = 0, right = 0;
+    for (int m = lo - 12; m < lo; m++) if (m >= 0 && note_is_lit(m)) { double n = 0; for (int k = m; k < lo; k++) n += is_white(k); if (!is_white(m)) n += sharpReach; if (n > left) left = n; }
+    for (int m = hi + 1; m <= hi + 12 && m < 128; m++) if (note_is_lit(m)) { double n = 0; for (int k = hi + 1; k <= m; k++) n += is_white(k); if (!is_white(m)) n += sharpReach; if (n > right) right = n; }
+    return (left - right) * g_keyW;
+}
+#define IDT_LETTERS 8
+static const DWORD RIPPLE_MS = 900;
+static uint8_t *g_glyph[2][2][128]; static int g_glyphW[2][2][128], g_glyphH[2][2][128], g_glyphPx[2] = { 0, 0 };
+static wchar_t key_letter(int midi) {
+    int st = midi - g_firstMidi;
+    for (int vk = 0; vk < 256; vk++) if (g_semitoneByVk[vk] == st) {
+        if (vk >= 'A' && vk <= 'Z') return (wchar_t)(vk - 'A' + 'a');
+        if (vk == VK_OEM_1) return L';';
+        if (vk == VK_OEM_7) return L'\'';
+    }
+    return 0;
+}
+// Cached ink masks per glyph: [white/black][lower/upper][char].
+static void glyph_for(int black, int upper, wchar_t ch, uint8_t **m, int *w, int *h) {
+    int px = black ? (int)(g_blackW * 0.62) : (int)(g_keyW * 0.46); if (px < 7) px = 7;
+    if (g_glyphPx[black] != px) { for (int u = 0; u < 2; u++) for (int c = 0; c < 128; c++) { free(g_glyph[black][u][c]); g_glyph[black][u][c] = NULL; } g_glyphPx[black] = px; }
+    int c = ch & 127;
+    if (!g_glyph[black][upper][c]) { wchar_t t[2] = { upper ? towupper(ch) : ch, 0 }; int gw, gh; g_glyph[black][upper][c] = trim_mask(text_mask(t, L"Segoe UI", px, FW_HEAVY, &gw, &gh), gw, gh, &g_glyphW[black][upper][c], &g_glyphH[black][upper][c]); }
+    *m = g_glyph[black][upper][c]; *w = g_glyphW[black][upper][c]; *h = g_glyphH[black][upper][c];
+}
+static double letter_alpha(int midi, int lit) {
+    if (lit) return 1.0;
+    if (!g_typing || g_rippleMidi < 0) return 0;
+    double t = (GetTickCount() - g_rippleAt) / (double)RIPPLE_MS, d = abs(midi - g_rippleMidi) / 12.0;
+    double a = (1.0 - t) - d * 0.9; if (a < 0) a = 0;
+    return a * 0.85;
+}
+
 static void paint(void) {
     memset(g_pixels, 0, sizeof(uint32_t) * g_stripW * g_stripH);
     // KeyboardIconRenderer's two palettes: slate naturals and glowing sharps in
@@ -1218,7 +1284,10 @@ static void paint(void) {
     if (g_hoverChip) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, g_light ? black : white, g_light ? black : white, g_light ? 0.08 : 0.10); }
     // ♪ as tall as the keys, the number hugging its lower right like a subscript.
     wchar_t num[8]; int pending = g_pendingDigits[0] != 0;
-    if (pending) wcscpy_s(num, 8, g_pendingDigits); else swprintf(num, 8, L"%d", g_program + 1);
+    if (pending) { if (g_tickEntry) swprintf(num, 8, L"`%s", g_pendingDigits); else wcscpy_s(num, 8, g_pendingDigits); }
+    else if (g_tickEntry) wcscpy_s(num, 8, L"`");
+    else if (g_custom) swprintf(num, 8, L"`%d", g_custom);
+    else swprintf(num, 8, L"%d", g_program + 1);
     ensure_number_mask(num);
     int gap = pt(1.0);
     int unitW = g_noteW + gap + g_numW;
@@ -1239,7 +1308,7 @@ static void paint(void) {
     int sliding = g_slide != 0;
     int tileW = g_keyW * WHITE_COUNT;
     for (int t = (sliding ? -1 : 0); t <= (sliding ? 1 : 0); t++) {
-        int dx = g_slide + t * tileW, dm = t * 24;   // 14 whites = 2 octaves = 24 semitones
+        int dx = g_slide + t * tileW + (int)(g_leanCur + (g_leanCur >= 0 ? 0.5 : -0.5)), dm = t * 24;   // 14 whites = 2 octaves = 24 semitones
         for (int i = 0; i < WHITE_COUNT; i++) {
             int m = g_whiteMidi[i] + dm, mv = ((m % 12) + 12) % 12;
             RECT kr = white_rect(i); kr.left += dx; kr.right += dx;
@@ -1264,6 +1333,52 @@ static void paint(void) {
             else if (m == g_hoverMidi && !sliding) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
             fill(br, hi, lo, 1.0);
         }
+        if (t != 0) continue;
+        // ghost keys: the reach notes past either end, drawn while one is lit
+        // (with every key between it and the edge), translucent until pressed
+        {
+            int lo = g_firstMidi, hi = g_firstMidi + 23, gLo = lo, gHi = hi;
+            for (int m = lo - 12; m < lo; m++) if (m >= 0 && note_is_lit(m)) { gLo = m; while (!is_white(gLo)) gLo--; break; }
+            for (int m = hi + 12; m > hi; m--) if (m < 128 && note_is_lit(m)) { gHi = m; while (!is_white(gHi)) gHi++; break; }
+            const double ghostA = g_light ? 0.60 : 0.55;
+            for (int pass = 0; pass < 2; pass++) for (int m = gLo; m <= gHi; m++) {
+                if (m >= lo && m <= hi) continue;
+                int nat = is_white(m); if (nat != (pass == 0)) continue;   // naturals first, sharps over them
+                int lit = note_is_lit(m), mv = ((m % 12) + 12) % 12;
+                RECT r; if (nat) r = white_slot_rect(white_slot_of(m)); else { int lw = m - 1; while (!is_white(lw)) lw--; r = black_after_slot(white_slot_of(lw)); }
+                r.left += dx; r.right += dx;
+                if (nat) {
+                    if (lit) { RGB8 l = g_light ? CHROMA[mv] : blend(CHROMA[mv], black, 0.22); fill(r, l, l, 1.0); }
+                    else fill(r, whiteHi, whiteLo, ghostA);
+                } else {
+                    if (lit) fill(r, sharpLit, g_light ? sharpLit : blend(white, blackHi, 0.4), 1.0); else fill(r, blackHi, blackLo, ghostA);
+                }
+                wchar_t ch = key_letter(m); if (!ch) continue;
+                double a = lit ? 1.0 : letter_alpha(m, 0) * ghostA; if (a < 0.02) continue;
+                uint8_t *mk; int mw, mh; glyph_for(!nat, pedal_holds(m), ch, &mk, &mw, &mh);
+                RGB8 ink = nat ? (lit ? (RGB8){ 31, 31, 31 } : (g_light ? (RGB8){ 71, 71, 71 } : (RGB8){ 235, 235, 235 })) : ((lit != !g_light) ? (RGB8){ 26, 26, 26 } : (RGB8){ 255, 255, 255 });
+                int gy = nat ? r.bottom - stripeH - pt(2.0) - mh : r.top + (r.bottom - r.top - mh) / 2;
+                blit_mask(mk, mw, mh, r.left + (r.right - r.left - mw) / 2, gy, ink, a);
+            }
+        }
+        // letters — white keys sit just above the stripe, sharps centred
+        for (int i = 0; i < WHITE_COUNT; i++) {
+            int m = g_whiteMidi[i]; wchar_t ch = key_letter(m); if (!ch) continue;
+            int lit = g_lit[m] > 0 || g_latched[m]; double a = letter_alpha(m, lit); if (a < 0.02) continue;
+            uint8_t *mk; int mw, mh; glyph_for(0, pedal_holds(m), ch, &mk, &mw, &mh);
+            RECT kr = white_rect(i); kr.left += dx; kr.right += dx;
+            RGB8 ink = lit ? (RGB8){ 31, 31, 31 } : (g_light ? (RGB8){ 71, 71, 71 } : (RGB8){ 235, 235, 235 });
+            blit_mask(mk, mw, mh, kr.left + (kr.right - kr.left - mw) / 2, kr.bottom - stripeH - pt(2.0) - mh, ink, a);
+        }
+        for (int i = 0; i < g_blackCount; i++) {
+            int m = g_blackMidi[i]; wchar_t ch = key_letter(m); if (!ch) continue;
+            int lit = g_lit[m] > 0 || g_latched[m]; double a = letter_alpha(m, lit); if (a < 0.02) continue;
+            uint8_t *mk; int mw, mh; glyph_for(1, pedal_holds(m), ch, &mk, &mw, &mh);
+            RECT br = black_rect(m); br.left += dx; br.right += dx;
+            int onBright = lit != !g_light;
+            RGB8 ink = onBright ? (RGB8){ 26, 26, 26 } : (RGB8){ 255, 255, 255 };
+            blit_mask(mk, mw, mh, br.left + (br.right - br.left - mw) / 2, br.top + (br.bottom - br.top - mh) / 2, ink, a * 0.96);
+        }
     }
     g_clipOn = 0;
 }
@@ -1281,8 +1396,10 @@ static void push_frame(HWND hwnd) {
     SIZE size = { g_stripW, g_stripH };
     BLENDFUNCTION bf = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
     HDC screen = GetDC(NULL);
-    UpdateLayeredWindow(hwnd, screen, &dst, &size, g_memDC, &src, 0, &bf, ULW_ALPHA);
+    BOOL ok = UpdateLayeredWindow(hwnd, screen, &dst, &size, g_memDC, &src, 0, &bf, ULW_ALPHA);
     ReleaseDC(NULL, screen);
+    static int logged = 0;
+    if (logged < 4) { int ink = 0; for (int i = 0; i < g_stripW * g_stripH; i++) if (g_pixels[i] >> 24) ink++; mb_log(L"frame: %dx%d at %d,%d ulw=%d err=%lu inked=%d lean=%.2f", g_stripW, g_stripH, g_posX, g_posY, ok, ok ? 0 : GetLastError(), ink, g_leanCur); logged++; }
 }
 
 static void ensure_surface(void) {
@@ -1372,6 +1489,12 @@ static void build_keymap(void) {
 #define WM_PAGE (WM_APP + 13)
 #define WM_UNLATCH (WM_APP + 10)
 #define WM_PERCLATCH (WM_APP + 14)
+// Hook-tracked modifier/bracket state: keys the hook swallows never reach the
+// async key state, so it remembers them itself.
+static volatile int g_winHeld = 0;          // Win = the Mac's ⌃ while armed (swallowed, so Start stays shut)
+static volatile int g_bracketHeld[2] = { 0, 0 };   // [0] = ], [1] = [
+#define WM_PERCVOL (WM_APP + 17)
+#define WM_BACKTICK (WM_APP + 18)
 static DWORD g_ctrlTapTimes[3]; static int g_ctrlTaps = 0; static int g_ctrlSolo = 0;
 
 static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
@@ -1409,17 +1532,21 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         KBDLLHOOKSTRUCT *k = (KBDLLHOOKSTRUCT *)lp;
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         if (k->vkCode == VK_LSHIFT || k->vkCode == VK_RSHIFT || k->vkCode == VK_CAPITAL) { PostMessageW(g_strip, WM_PEDAL, 0, 0); return CallNextHookEx(g_hook, code, wp, lp); }
+        if (k->vkCode == VK_LWIN || k->vkCode == VK_RWIN) { g_winHeld = down; PostMessageW(g_strip, WM_CHORDMOD, 0, 0); return 1; }
+        if (k->vkCode == VK_OEM_3) { if (down && !(k->flags & LLKHF_UP)) PostMessageW(g_strip, WM_BACKTICK, 0, 0); return 1; }
         if (k->vkCode == VK_TAB) { if (down) PostMessageW(g_strip, WM_PAGE, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0, 0); return 1; }
         if (k->vkCode == VK_RETURN) { PostMessageW(g_strip, WM_LATCH, down, 0); return 1; }
         // [ / ] latch a side to the classic kit; Shift ({ / }) to the TrackDrum kit.
         if ((k->vkCode == VK_OEM_4 || k->vkCode == VK_OEM_6) && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000)) {
-            static int bracketDown[2]; int side = k->vkCode == VK_OEM_4;
-            if (down && !bracketDown[side]) PostMessageW(g_strip, WM_PERCLATCH, side, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0);
-            bracketDown[side] = down;   // auto-repeat never re-toggles
+            int side = k->vkCode == VK_OEM_4;
+            if (down && !g_bracketHeld[side]) PostMessageW(g_strip, WM_PERCLATCH, side, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0);
+            g_bracketHeld[side] = down;   // auto-repeat never re-toggles
             return 1;
         }
         if (k->vkCode == VK_BACK) { if (down && !(k->flags & LLKHF_UP)) PostMessageW(g_strip, WM_UNLATCH, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0, 0); return 1; }
         if (k->vkCode == VK_LEFT || k->vkCode == VK_RIGHT || k->vkCode == VK_UP || k->vkCode == VK_DOWN) {
+            // Holding [ or ] makes ↑/↓ the percussion volume, as on the Mac.
+            if ((g_bracketHeld[0] || g_bracketHeld[1]) && (k->vkCode == VK_UP || k->vkCode == VK_DOWN)) { if (down) PostMessageW(g_strip, WM_PERCVOL, k->vkCode == VK_UP ? 1 : (WPARAM)-1, 0); return 1; }
             if (down) PostMessageW(g_strip, WM_SURF, k->vkCode == VK_RIGHT ? 1 : k->vkCode == VK_LEFT ? (WPARAM)-1 : k->vkCode == VK_UP ? 8 : (WPARAM)-8, 0);
             return 1;
         }
@@ -1476,6 +1603,7 @@ static void key_strike(int pc, int left, double *x, double *y) {
     else { *x = 0.5 + hand * 0.14; *y = map[pc].dir == 0 ? 0.5 + d * 0.5 : 0.5 - d * 0.5; }
 }
 
+static void lean_kick(HWND hwnd) { double t = lean_target(); if (fabs(t - g_leanTarget) > 0.5 || fabs(t - g_leanCur) > 0.5) { g_leanTarget = t; SetTimer(hwnd, IDT_LEAN, 16, NULL); } }
 static void lit_on(HWND hwnd, int midi, int vel) {
     if (midi < 0 || midi > 127) return;
     if (g_keyQpc) { g_queuedQpc = g_keyQpc; g_keyQpc = 0; }
@@ -1496,6 +1624,7 @@ static void lit_on(HWND hwnd, int midi, int vel) {
     }
     if (g_sustained[midi] || g_latched[midi]) { g_sustained[midi] = 0; g_latched[midi] = 0; play_off(midi); g_lit[midi] = 0; }   // retrigger a held note
     if (g_lit[midi]++ == 0) play_on(midi, vel);
+    lean_kick(hwnd);
     push_frame(hwnd);
 }
 static void lit_off(HWND hwnd, int midi) {
@@ -1505,6 +1634,7 @@ static void lit_off(HWND hwnd, int midi) {
         perc_release(g_keyGroup[midi]); g_keyGroup[midi] = 0; if (--g_lit[midi] < 0) g_lit[midi] = 0; push_frame(hwnd); return;
     }
     if (--g_lit[midi] == 0) { if (g_enterLatch) latch_note(midi); else if (g_latched[midi]) { } else if (pedal_holds(midi)) g_sustained[midi] = 1; else play_off(midi); }
+    lean_kick(hwnd);
     push_frame(hwnd);
 }
 // Enter-latch: while Return is held, a note you release stays on until
@@ -1525,13 +1655,21 @@ static void unlatch(HWND hwnd, int all) {
 // split (left Ctrl/Alt for the lower octave, right for the upper), so one hand
 // can hold a triad while the other rings single notes. Intervals above the
 // root, root excluded, as in MenuBandController.chordIntervals.
+// The Mac's chord grammar with Ctrl = ⌘, Alt = ⌥, Win = ⌃ (Win counts for
+// both sides; Ctrl and Alt are per side). ⌃ alters the shape already held:
+// major's fifth goes up (augmented), minor's down (diminished), sus2 lifts
+// to sus4.
 static int chord_quality(int midi) {
     int left = midi < g_firstMidi + 12;
-    int ctrl = (GetAsyncKeyState(left ? VK_LCONTROL : VK_RCONTROL) & 0x8000) != 0;
-    int alt = (GetAsyncKeyState(left ? VK_LMENU : VK_RMENU) & 0x8000) != 0;
-    if (ctrl && alt) return 6;   // sus4
-    if (alt) return 2;           // minor
-    if (ctrl) return 1;          // major
+    int cmd = (GetAsyncKeyState(left ? VK_LCONTROL : VK_RCONTROL) & 0x8000) != 0;
+    int opt = (GetAsyncKeyState(left ? VK_LMENU : VK_RMENU) & 0x8000) != 0;
+    int ctl = g_winHeld;
+    if (cmd && opt && ctl) return 6;   // sus4
+    if (cmd && opt) return 3;          // sus2
+    if (opt && ctl) return 5;          // diminished
+    if (ctl) return 4;                 // augmented (⌃ alone, or ⌘⌃)
+    if (opt) return 2;                 // minor
+    if (cmd) return 1;                 // major
     return 0;
 }
 static int chord_intervals(int quality, int *iv) {
@@ -1608,7 +1746,7 @@ static void typing_set(HWND hwnd, int on) {
     if (on && page_takes_pad()) { g_puckAlpha = 1; g_lastTouch = GetTickCount(); SetTimer(hwnd, IDT_FX, 16, NULL); }
     if (!on) { for (int i = 0; i < MAX_CONTACTS; i++) if (g_contacts[i].down && g_contacts[i].struck) { perc_release(g_contacts[i].group); g_contacts[i].struck = 0; } }
     g_typing = on;
-    if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); surface_reset(hwnd); }
+    if (!on) { release_typed(hwnd); g_enterLatch = 0; unlatch(hwnd, 1); surface_reset(hwnd); g_winHeld = 0; g_bracketHeld[0] = g_bracketHeld[1] = 0; }
     g_pendingDigits[0] = 0;
     audio_set_exclusive(on);
     flash(on ? FOCUS_BLUE : STOP_RED);
@@ -1919,10 +2057,16 @@ static int find_slot(int *outX, int *outY, int *outTaskbarH) {
     if (wa.bottom < screenH && screenH - wa.bottom <= 200) { tr.top = wa.bottom; tr.bottom = screenH; }
     int taskbarH = tr.bottom - tr.top;
     if (taskbarH <= 0 || taskbarH > 200) return 0;
-    // Flush left: Windows 11 centres its icons, so the left end of the
-    // taskbar is the empty field, like the menu bar's right end on the Mac.
+    // Just left of the system tray, where Windows' own taskbar add-ons (the
+    // input indicator, the old deskbands) have always lived. The left end is
+    // the system's too: Widgets when the icons are centred, Start when they
+    // are left-aligned. The tray's edge comes from TrayNotifyWnd when the
+    // shell still exposes it, else an estimate for Windows 11's tray width.
     *outTaskbarH = taskbarH;
-    *outX = tr.left + 12;
+    int trayLeft = tr.right - (int)(taskbarH * 4.2);
+    HWND notify = FindWindowExW(tray, NULL, L"TrayNotifyWnd", NULL);
+    if (notify) { RECT nr; GetWindowRect(notify, &nr); if (nr.right > nr.left && nr.left > tr.left) trayLeft = nr.left; }
+    *outX = trayLeft - (g_stripW > 0 ? g_stripW : 400) - taskbarH / 6;
     *outY = tr.top;
     return 1;
 }
@@ -1968,7 +2112,6 @@ static void track(HWND hwnd, int force) {
 #define IDM_ENGINE_AC 120
 #define IDM_SF_FOLDER 121
 #define IDM_SF_BASE 130
-#define IDM_DRUMS_BASE 180
 #define IDM_PROGRAM_BASE 200
 #define IDM_MIDI_BASE 400
 #define IDT_TRACK 1
@@ -2022,11 +2165,6 @@ static HICON make_note_icon(void) {
 
 // Player settings survive restarts: HKCU\Software\Aesthetic Computer\Menu Band.
 static const wchar_t *SETTINGS_KEY = L"Software\\Aesthetic Computer\\Menu Band";
-// Drums against notes, as a percent of the Mac's own percussion level (0.90).
-// Windows' notes are normalized up to the SoundFont's level, so the kit starts above unity.
-static const int DRUMS_LEVELS[] = { 50, 75, 100, 125, 150, 200, 250 };
-static int g_drumsPct = 150;
-static void drums_apply(void) { perc_set_level(0.90 * g_drumsPct / 100.0); }
 static DWORD setting_get(const wchar_t *name, DWORD fallback) {
     HKEY k; DWORD v = fallback, size = sizeof v, type;
     if (RegOpenKeyExW(HKEY_CURRENT_USER, SETTINGS_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return fallback;
@@ -2086,12 +2224,6 @@ static void show_menu(HWND hwnd) {
     HMENU pages = CreatePopupMenu();
     for (int i = 0; i < 4; i++) { wchar_t pl[48]; swprintf(pl, 48, L"%s%s", PAGE_NAMES[i], i == PAGE_SKIN ? L"  (TrackDrum)" : L""); AppendMenuW(pages, MF_STRING | (i == g_page ? MF_CHECKED : 0), IDM_PAGE_BASE + i, pl); }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)pages, L"Trackpad page  (Tab / Shift+Tab)");
-    HMENU drums = CreatePopupMenu();
-    for (int i = 0; i < (int)(sizeof DRUMS_LEVELS / sizeof *DRUMS_LEVELS); i++) {
-        wchar_t dl[24]; swprintf(dl, 24, L"%d%%", DRUMS_LEVELS[i]);
-        AppendMenuW(drums, MF_STRING | (DRUMS_LEVELS[i] == g_drumsPct ? MF_CHECKED : 0), IDM_DRUMS_BASE + i, dl);
-    }
-    AppendMenuW(menu, MF_POPUP, (UINT_PTR)drums, L"Drums level");
     AppendMenuW(menu, MF_STRING | (g_lowLatency ? MF_CHECKED : 0), IDM_LOWLAT, L"Lowest latency while armed  (takes the speakers; other apps pause)");
     AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn while armed  (F2 mute, F3 down, F4 up)");
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
@@ -2177,6 +2309,7 @@ static void type_key(HWND hwnd, int vk, int down) {
     if (down) {
         if (!g_vkDown[vk]) {
             g_vkDown[vk] = 1; g_vkRoot[vk] = midi; g_vkExt[vk][0] = g_vkExt[vk][1] = -1;
+            g_rippleMidi = midi; g_rippleAt = GetTickCount(); SetTimer(hwnd, IDT_LETTERS, 33, NULL);
             lit_on(hwnd, midi, 100);
             revoice(hwnd, vk);
             mb_log(L"type: vk %d -> midi %d q%d (program %d)", vk, midi, chord_quality(midi), g_program);
@@ -2206,9 +2339,11 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_TIMER:
         if (wp == IDT_TRACK) { track(hwnd, 0); poll_play_file(hwnd); mb_log_flush(); if (g_sfRetire) { tsf *old = g_sfRetire; g_sfRetire = NULL; tsf_close(old); } }
         if (wp == IDT_PLAY) step_play(hwnd);
-        if (wp == IDT_DIGITS) { KillTimer(hwnd, IDT_DIGITS); g_pendingDigits[0] = 0; push_frame(hwnd); }
+        if (wp == IDT_DIGITS) { KillTimer(hwnd, IDT_DIGITS); g_pendingDigits[0] = 0; g_tickEntry = 0; push_frame(hwnd); }
         if (wp == IDT_CUE) step_cue(hwnd);
         if (wp == IDT_SLIDE) step_slide(hwnd);
+        if (wp == IDT_LEAN) { g_leanCur += (g_leanTarget - g_leanCur) * 0.32; if (fabs(g_leanTarget - g_leanCur) < 0.5) { g_leanCur = g_leanTarget; KillTimer(hwnd, IDT_LEAN); } push_frame(hwnd); }
+        if (wp == IDT_LETTERS) { if (GetTickCount() - g_rippleAt > RIPPLE_MS + 50) { KillTimer(hwnd, IDT_LETTERS); g_rippleMidi = -1; } push_frame(hwnd); }
         if (wp == IDT_FX) surface_tick(hwnd);
         return 0;
     case WM_MOUSEACTIVATE:
@@ -2266,6 +2401,15 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (n >= 3) n = 0;
         g_pendingDigits[n] = (wchar_t)(L'0' + (int)wp); g_pendingDigits[n + 1] = 0;
         int value = _wtoi(g_pendingDigits);
+        if (g_tickEntry) {
+            // ` then 1 = AC Grand Piano, ` then 7 9 = AC Whistle.
+            if (value == 1 || value == 79) { synth_panic(); g_custom = value; setting_set(L"custom", (DWORD)value); g_tickEntry = 0; g_pendingDigits[0] = 0; mb_log(L"custom instrument `%d", value); }
+            else if (value == 7) SetTimer(hwnd, IDT_DIGITS, 900, NULL);
+            else { g_tickEntry = 0; g_pendingDigits[0] = 0; }
+            push_frame(hwnd);
+            return 0;
+        }
+        g_custom = 0; setting_set(L"custom", 0);
         if (value >= 1 && value <= 128) { g_program = value - 1; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"typed program %d (%s)", value, GM_NAMES[g_program]); }
         if (value > 128 || value == 0) { g_pendingDigits[0] = 0; }
         else if (value * 10 > 128 || n + 1 >= 3) { SetTimer(hwnd, IDT_DIGITS, 350, NULL); }
@@ -2294,6 +2438,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_PEDAL:
         pedal_release(hwnd);
+        push_frame(hwnd);   // Shift / Caps flip the letters' case
         return 0;
     case WM_LATCH:
         g_enterLatch = (int)wp;
@@ -2301,6 +2446,16 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_UNLATCH:
         unlatch(hwnd, (int)wp);
         return 0;
+    case WM_BACKTICK:
+        g_tickEntry = 1; g_pendingDigits[0] = 0; SetTimer(hwnd, IDT_DIGITS, 1200, NULL); push_frame(hwnd);
+        return 0;
+    case WM_PERCVOL: {
+        int lvl = (int)setting_get(L"percLevel", 90) + 10 * (int)(intptr_t)wp; if (lvl < 0) lvl = 0; if (lvl > 250) lvl = 250;   // past 100 is make-up gain: the notes are loudness-normalized up
+        setting_set(L"percLevel", (DWORD)lvl); perc_set_level(lvl / 100.0);
+        perc_hit_drum(PERC_HAT_CLOSED, 0.8, 0, 0);   // hear the new level
+        mb_log(L"percussion level %d%%", lvl);
+        return 0;
+    }
     case WM_PERCLATCH: {
         // MenuBandController.pressPercussionLatch: plain = off <-> classic;
         // shifted = off/classic -> TrackDrum, TrackDrum -> off.
@@ -2320,7 +2475,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_SURF: {
         // Arrow keys surf the instruments: ←/→ one program, ↑/↓ one family.
         int next = g_program + (int)(intptr_t)wp; if (next < 0) next += 128; if (next > 127) next -= 128;
-        g_program = next; midi_program(); setting_set(L"program", (DWORD)g_program);
+        g_program = next; g_custom = 0; setting_set(L"custom", 0); midi_program(); setting_set(L"program", (DWORD)g_program);
         mb_log(L"surf -> %d (%s)", g_program + 1, GM_NAMES[g_program]);
         push_frame(hwnd);
         return 0;
@@ -2339,12 +2494,8 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
         if (id == IDM_FNFREE) { g_fnFree = !g_fnFree; setting_set(L"fnFree", (DWORD)g_fnFree); return 0; }
         if (id >= IDM_PAGE_BASE && id < IDM_PAGE_BASE + 4) { set_page(hwnd, id - IDM_PAGE_BASE); return 0; }
-        if (id >= IDM_DRUMS_BASE && id < IDM_DRUMS_BASE + (int)(sizeof DRUMS_LEVELS / sizeof *DRUMS_LEVELS)) {
-            g_drumsPct = DRUMS_LEVELS[id - IDM_DRUMS_BASE]; drums_apply(); setting_set(L"drumsLevel", (DWORD)g_drumsPct);
-            mb_log(L"drums level -> %d%%", g_drumsPct); return 0;
-        }
         if (id == IDM_LOWLAT) { g_lowLatency = !g_lowLatency; setting_set(L"lowLatency", (DWORD)g_lowLatency); audio_set_exclusive(g_typing); return 0; }
-        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
+        if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_custom = 0; setting_set(L"custom", 0); g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
         if (id == IDM_ENGINE_AC) { synth_panic(); g_engine = ENGINE_AC; setting_set(L"engine", ENGINE_AC); push_frame(hwnd); }
         if (id >= IDM_SF_BASE && id < IDM_SF_BASE + SF_MAX && id - IDM_SF_BASE < g_sfCount) {
@@ -2415,6 +2566,7 @@ static LONG WINAPI crash_filter(EXCEPTION_POINTERS *ep) {
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     (void)prev; (void)cmdline; (void)show;
     SetUnhandledExceptionFilter(crash_filter);
+    SystemParametersInfoW(SPI_SETCURSORS, 0, NULL, 0);   // a previous run killed while armed leaves the pointer blank
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
     InitializeCriticalSection(&g_lock);
@@ -2432,9 +2584,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
 
     g_program = (int)setting_get(L"program", AC_WHISTLE_PROGRAM) & 127;
     g_fnFree = setting_get(L"fnFree", 1) ? 1 : 0;
-    g_drumsPct = (int)setting_get(L"drumsLevel", 150); if (g_drumsPct < 25 || g_drumsPct > 300) g_drumsPct = 150;
-    drums_apply();
     g_lowLatency = setting_get(L"lowLatency", 1) ? 1 : 0;
+    g_custom = (int)setting_get(L"custom", 0); if (g_custom != 1 && g_custom != 79) g_custom = 0;
     g_kitL = (int)setting_get(L"kitLeft", KIT_OFF) % 3; g_kitR = (int)setting_get(L"kitRight", KIT_OFF) % 3;
     g_page = (int)setting_get(L"page", PAGE_SKIN); if (g_page < 0 || g_page > 3) g_page = PAGE_SKIN;
     g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
@@ -2444,6 +2595,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     g_engine = setting_get(L"engine", ENGINE_SOUNDFONT) == ENGINE_AC ? ENGINE_AC : ENGINE_SOUNDFONT;
     sf_scan();
     g_sfIndex = (int)setting_get(L"soundfont", 0); if (g_sfIndex >= g_sfCount) g_sfIndex = 0;
+    perc_set_level(setting_get(L"percLevel", 90) / 100.0);
     if (!audio_start()) { mb_log(L"audio_start FAILED"); MessageBoxW(NULL, L"Menu Band could not open the audio output.", L"Menu Band", MB_ICONWARNING); }
 
     WNDCLASSW wc; memset(&wc, 0, sizeof wc);
