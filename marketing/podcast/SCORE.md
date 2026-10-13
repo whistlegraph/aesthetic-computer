@@ -225,7 +225,8 @@ seek bar flush to the bottom edge. A tap or Space starts sound at the current
 word; there is no pause control. Dragging, wheeling, or arrow keys scrub the
 recording through its text: the audio position and highlighted word move
 together, including within a line. The active word has a solid, contrasting
-background and light letters within the passage's palette.
+background and light letters within the passage's palette. Its background
+fades into the page over 240ms after the cue, keeping quick words connected.
 Up scratches backward, down runs forward, with speed changing pitch.
 The gesture uses Stample's sample synth (`sampleSpeed`), including its existing
 interpolation and seek declicking. After 140ms without movement, speed eases
