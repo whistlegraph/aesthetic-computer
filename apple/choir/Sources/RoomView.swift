@@ -25,8 +25,6 @@ struct RoomView: View {
                         if !account.signedIn {
                             Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
                                 .frame(maxWidth: .infinity)
-                            Link("@333_choir", destination: URL(string: "https://instagram.com/333_choir")!)
-                                .font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.6)).frame(maxWidth: .infinity)
                         }
                         if account.signedIn, let h = room.here { PresenceLine(here: h).frame(maxWidth: .infinity) }
                         if let error = room.error {
@@ -223,7 +221,8 @@ struct ChatRow: View {
                 Button("Report", systemImage: "flag") { reporting = true }
             }
         }
-        .reportDialog($reporting, post: post)
+        // Its own view: two dialogs on one view and only one ever shows (Delete broke).
+        .background(Color.clear.reportDialog($reporting, post: post))
         .confirmationDialog("Delete this message?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) {
                 Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); await room.load() }

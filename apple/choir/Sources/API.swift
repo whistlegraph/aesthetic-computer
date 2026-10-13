@@ -14,7 +14,8 @@ struct Post: Codable, Identifiable, Hashable {
     var preview: ArticleMeta? = nil   // news items arrive with their card
     var kind: String? = nil           // "opportunity" for open calls
     var attachments: [Attachment]? = nil
-    var date: Date { Post.iso.date(from: when) ?? .distantPast }
+    /// Never in the future: a phone clock a little behind the server read "in 0s".
+    var date: Date { min(Post.iso.date(from: when) ?? .distantPast, .now) }
     private static let iso: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
 }
 /// A file in the "choir" Spaces bucket, attached to a post.

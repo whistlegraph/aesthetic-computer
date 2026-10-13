@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- choir — pointer to the iPhone app. The web room lives at ./room/. -->
+<!-- choir — pointer to the iPhone app. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -18,7 +18,6 @@
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Four hand-drawn black Cs forming half a daisy, over the words Comments on culture." />
   <meta name="twitter:card" content="summary_large_image" />
-  <link rel="me" href="https://instagram.com/333_choir" />
   <meta name="twitter:title" content="choir" />
   <meta name="twitter:description" content="Comments on culture." />
   <meta name="twitter:image" content="https://choir.ac/social.png" />
@@ -60,8 +59,6 @@
   <p>Comments on culture</p>
   <p class="invite" id="invite" hidden></p>
   <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Get the iPhone app</a>
-  <p class="small">Invite only, in testing. <a href="room/">Open the web room</a>.</p>
-  <p class="small"><a href="https://instagram.com/333_choir" rel="me noopener" target="_blank" id="ig">@333_choir</a> on Instagram</p>
 </main>
 <script type="module" src="/aesthetic.computer/lib/visit-tracker.mjs"></script>
 <script type="module">
@@ -82,7 +79,6 @@ const track = (name, props = {}) => fetch("/api/choir?event=1", { method: "POST"
 track("pointer:open", { ref: document.referrer ? new URL(document.referrer).hostname : "" });
 document.getElementById("get").onclick = () => track("pointer:get-app");
 document.querySelector(".small a").onclick = () => track("pointer:web-room");
-document.getElementById("ig").onclick = () => track("pointer:instagram");
 
 // The same singing as the app (apple/choir/Sources/SingingMark.swift): each C
 // rides sin(t·speed + phase); bob 4.5% of the mark's height, sway ±4°, and a
