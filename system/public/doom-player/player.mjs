@@ -24,24 +24,32 @@ document.querySelector('#file').onchange=async event=>{
     if(started)throw Error('Restart the player before opening another WAD');loadWad(new Uint8Array(await file.arrayBuffer()));const response=await fetch('./vendor/freedoom'+(game==='doom2'?'2':'1')+'.wad');if(!response.ok)throw Error('Could not load Freedoom');base=new Uint8Array(await response.arrayBuffer());Module.FS.writeFile('/base.wad',base);Module.FS.writeFile('/level.wad',wad);download();status.textContent=file.name;
   }catch(error){status.textContent=error.message;}
 };
+const engineKeys=new WeakSet();
 const held=new Set(),keyCodes={ArrowLeft:37,ArrowUp:38,ArrowRight:39,ArrowDown:40,Comma:188,Period:190,ControlLeft:17,Space:32,Enter:13,Escape:27};
-function key(code,down){if(down)held.add(code);else held.delete(code);const key=code==='Space'?' ':code==='ControlLeft'?'Control':code==='Comma'?',':code==='Period'?'.':code;window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{key,code,keyCode:keyCodes[code],which:keyCodes[code],bubbles:true}));}
-const movementKeys={KeyW:'ArrowUp',KeyS:'ArrowDown',KeyA:'Comma',KeyD:'Period'},keyboardHeld=new Set();
+function key(code,down){if(down)held.add(code);else held.delete(code);const key=code==='Space'?' ':code==='ControlLeft'?'Control':code==='Comma'?',':code==='Period'?'.':code;const event=new KeyboardEvent(down?'keydown':'keyup',{key,code,keyCode:keyCodes[code],which:keyCodes[code],bubbles:true});engineKeys.add(event);window.dispatchEvent(event);}
+const movementKeys={KeyW:'ArrowUp',KeyS:'ArrowDown',KeyA:'Comma',KeyD:'Period',...(query.get('mime')==='1'?{Space:'ControlLeft',Enter:'ControlLeft',KeyE:'Space'}:{})},keyboardHeld=new Set();
+if(query.get('mime')==='1')canvas.setAttribute('aria-description','WASD move and strafe; left/right arrows turn; Space or Enter shoot; E opens doors; Escape goes to the next post.');
 for(const type of ['keydown','keyup'])window.addEventListener(type,event=>{
   if(query.get('mime')==='1'&&event.code==='Escape'){
     event.preventDefault();event.stopImmediatePropagation();
-    if(type==='keydown'&&!event.repeat){release();location.reload();}
+    if(type==='keydown'&&!event.repeat){release();parent.postMessage({type:'mime:next'},'*');}
     return;
   }
+  if(engineKeys.has(event))return;
   const code=movementKeys[event.code];if(!code)return;
   const down=type==='keydown';
   if(down&&(!started||!playing||document.hidden||event.metaKey||event.ctrlKey||event.altKey||event.target.closest?.('input,textarea,select,[contenteditable]')))return;
   if(!down&&!keyboardHeld.has(event.code))return;
   event.preventDefault();event.stopImmediatePropagation();
   if(down){if(keyboardHeld.has(event.code))return;keyboardHeld.add(event.code);}
-  else keyboardHeld.delete(event.code);
+  else {keyboardHeld.delete(event.code);if([...keyboardHeld].some(physical=>movementKeys[physical]===code))return;}
   key(code,down);
 },true);
+window.addEventListener('wheel',event=>{
+  if(query.get('mime')!=='1'||event.ctrlKey)return;
+  event.preventDefault();release();
+  parent.postMessage({type:'mime:scroll',deltaY:event.deltaY,deltaMode:event.deltaMode},'*');
+},{passive:false});
 const touchControls=installTouchControls(canvas,key,()=>started&&playing&&!document.hidden);
 function release(){keyboardHeld.clear();touchControls.reset();for(const code of [...held])key(code,false);}
 for(const button of document.querySelectorAll('[data-code]')){
@@ -96,7 +104,7 @@ window.__mimePlayerSettle=play=>{
 window.__mimeSettle=window.__mimePlayerSettle;
 window.addEventListener('message',event=>{if(event.source===parent&&event.data?.type==='mime:playing')window.__mimeSettle(event.data.playing===true);});
 window.addEventListener('message',event=>{
-  if(query.get('mime')!=='1'||event.source!==parent||event.data?.type!=='mime:key'||!['KeyW','KeyA','KeyS','KeyD','Escape'].includes(event.data.code))return;
+  if(query.get('mime')!=='1'||event.source!==parent||event.data?.type!=='mime:key'||![...Object.keys(movementKeys),'Escape'].includes(event.data.code))return;
   window.dispatchEvent(new KeyboardEvent(event.data.down===false?'keyup':'keydown',{code:event.data.code,repeat:event.data.repeat===true,bubbles:true,cancelable:true}));
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden){release();if(started){Module.pauseMainLoop();window.SDL2?.audioContext?.suspend();}}else if(playing&&started){if(!window.Asyncify?.currData)Module.resumeMainLoop();window.SDL2?.audioContext?.resume();}});

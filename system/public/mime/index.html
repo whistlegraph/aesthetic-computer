@@ -281,13 +281,10 @@
     html.mime-starting { overflow: hidden; }
     .mime-startup { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: var(--paper); }
     .mime-startup > svg { width: min(80vw, 320px); height: auto; overflow: visible; }
-    .mime-startup.breaking { background: transparent; transition: background var(--mime-breakup-duration, .8s) ease-out; pointer-events: none; }
-    .mime-startup.breaking .mime-letter { animation: none; opacity: 0;
-      transform: translate(var(--break-x), var(--break-y)) rotate(var(--break-angle));
-      transition: transform var(--mime-breakup-duration, .8s) ease-in, opacity var(--mime-breakup-duration, .8s) ease-out; }
+    .mime-startup.breaking { background: transparent; transition: background .45s ease-out; pointer-events: none; }
+    .mime-fragment { transform-box: fill-box; transform-origin: 50% 65%; will-change: transform, opacity; }
     @media (prefers-reduced-motion: reduce) {
-      .mime-startup.breaking .mime-letter { transform: none; transition: opacity .2s; }
-      .mime-startup.breaking { transition-duration: .2s; }
+      .mime-startup.breaking { transition-duration: .16s; }
     }
     body.feed .feed-post > .feed-media { grid-area: 1 / 1 / -1 / -1; width: 100%; height: 100%; max-height: none;
       aspect-ratio: auto; margin: 0; border: 0; }
@@ -345,11 +342,11 @@
     /* MacPal title lettering (see palLetters): white, outlined, a hard accent shadow, jittered letters. */
     html body.feed .feed-post :is(.reel-command, .meta) .pal-text { font: 700 21px/1.3 "MIME Comic", "Comic Relief", "Comic Sans MS", cursive;
       --pal-outline: max(1.2px, .075em); --pal-diagonal: calc(var(--pal-outline) * .70710678);
-      display: inline-grid; position: relative; vertical-align: bottom; color: #fff; white-space: pre;
+      display: inline-grid; grid-template-columns: minmax(0, 1fr); max-width: 100%; min-width: 0; position: relative; vertical-align: bottom; color: #fff; white-space: pre;
       -webkit-text-stroke: 0; text-shadow: none; text-decoration: none; }
     /* Shared grid geometry keeps both copies aligned for links, handles and types.
        Eight offset glyphs match PalText.swift's outline; each shadow rotates with its letter. */
-    html body.feed .feed-post :is(.reel-command, .meta) .pal-text > span { grid-area: 1 / 1; display: flex; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text > span { grid-area: 1 / 1; display: flex; flex-wrap: wrap; }
     html body.feed .feed-post :is(.reel-command, .meta) .pal-text > span > span { display: block; flex: none; }
     html body.feed .feed-post :is(.reel-command, .meta) .pal-under { color: #141414;
       text-shadow: var(--pal-outline) 0 #141414, var(--pal-diagonal) var(--pal-diagonal) #141414,
@@ -364,12 +361,15 @@
     /* The code you can enter in AC and its type read as one line, top-left on the card: #52w image/png */
     .reel-command { display: none; }
     body.feed .feed-post > .reel-command { display: block; grid-area: 1 / 1; align-self: start; justify-self: start; z-index: 4;
-      margin: calc(10px + env(safe-area-inset-top)) 0 0 14px; max-width: calc(100% - 28px);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+      margin: calc(10px + env(safe-area-inset-top)) 0 0 14px; max-width: calc(100% - 124px);
+      overflow: visible; white-space: normal; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+    @media (min-width: 960px) { body.feed .feed-post > .reel-command { max-width: calc(100% - 28px); } }
     body.feed .feed-post > .reel-command .media-label { display: inline; font: 700 20px/1.3 "Comic Relief", "Comic Sans MS", cursive; color: #fff;
       -webkit-text-stroke: .6px #141414; paint-order: stroke fill; text-shadow: .75px .75px #ed629d, 1px 1px #a478df, 2px 2px #55cdd9; }
     body.feed .feed-post > .meta .byline :is(.media-label, .mime-type), body.feed .feed-post > .meta > :is(time, .save-ribbon) { display: none; }
-    body.feed .feed-post > .meta > .reel-type { margin-left: auto; align-self: flex-end; }
+    body.feed .feed-post > .meta > .reel-type { margin-left: auto; align-self: flex-end; min-width: 0; max-width: 70%; }
+    body.feed .feed-post > .meta > .byline { flex: 0 1 auto; max-width: 50%; align-self: flex-end; }
+    body.feed .feed-post .reel-type.pal-text > span { justify-content: flex-end; }
     /* The type matches the code and the handle: the same outlined comic, its fill tinted by kind. */
     body.feed .feed-post .reel-type { --chip: #c5a1ff; display: inline; width: auto; margin: 0; padding: 0; background: none; border: 0;
       font: 700 20px/1.3 "Comic Relief", "Comic Sans MS", cursive; color: var(--chip); white-space: nowrap;
@@ -803,7 +803,7 @@ function shieldMedia(frame, content, interactive) {
 // before moving focus: postMessage and native iframe input can arrive out of order.
 const doomBridgeKeys = new Map();
 window.addEventListener("keydown", event => {
-  if (!activeFeed || !["KeyW", "KeyA", "KeyS", "KeyD", "Escape"].includes(event.code) ||
+  if (!activeFeed || !["KeyW", "KeyA", "KeyS", "KeyD", "KeyE", "Space", "Enter", "Escape"].includes(event.code) ||
       event.altKey || event.ctrlKey || event.metaKey ||
       event.target.closest?.("input, textarea, button, [contenteditable]")) return;
   const middle = (chromeTop() + innerHeight) / 2;
@@ -812,6 +812,7 @@ window.addEventListener("keydown", event => {
   if (!player) return;
   event.preventDefault();
   event.stopImmediatePropagation();
+  if (event.code === "Escape") { if (!event.repeat) nextFeedPost(node); return; }
   const frame = player.parentElement;
   if (interactingMedia !== frame) frame.querySelector(".media-toggle").onclick(event);
   doomBridgeKeys.set(event.code, player);
@@ -830,8 +831,35 @@ window.addEventListener("blur", () => {
   for (const [code, player] of doomBridgeKeys) player.contentWindow?.postMessage({ type: "mime:key", code, down: false }, "https://aesthetic.computer");
   doomBridgeKeys.clear();
 });
+async function nextFeedPost(node = activeFeed?.nodes[activeFeed.index]) {
+  const state = activeFeed;
+  if (!state || !node) return;
+  exitMediaInteraction();
+  document.activeElement?.blur();
+  const index = state.nodes.indexOf(node);
+  if (index === state.nodes.length - 1 && state.hasMore) await state.loadMore?.();
+  if (activeFeed !== state || !state.nodes[index + 1]) return;
+  window.scrollTo({ top: feedTop(state.nodes[index + 1]),
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+}
+window.addEventListener("message", event => {
+  if (!activeFeed || event.origin !== "https://aesthetic.computer" || !["mime:next", "mime:scroll"].includes(event.data?.type)) return;
+  const node = activeFeed.nodes.find(node => node.querySelector(".doom-player")?.contentWindow === event.source);
+  if (!node) return;
+  const box = node.getBoundingClientRect(), middle = (chromeTop() + innerHeight) / 2;
+  if (box.top > middle || box.bottom <= middle) return;
+  if (event.data.type === "mime:next") { nextFeedPost(node); return; }
+  const { deltaY, deltaMode } = event.data;
+  if (!Number.isFinite(deltaY) || deltaY === 0 || ![0, 1, 2].includes(deltaMode)) return;
+  exitMediaInteraction();
+  document.activeElement?.blur();
+  const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? innerHeight : 1;
+  window.scrollBy({ top: Math.max(-innerHeight, Math.min(innerHeight, deltaY * unit)), behavior: "instant" });
+});
 window.addEventListener("keydown", event => {
-  if (event.key === "Escape" && interactingMedia) {
+  if (event.key !== "Escape" || event.repeat) return;
+  if (activeFeed) { event.preventDefault(); nextFeedPost(); }
+  else if (interactingMedia) {
     const button = interactingMedia.querySelector(".media-toggle");
     exitMediaInteraction();
     button.focus({ preventScroll: true });
@@ -1559,17 +1587,23 @@ function loadingMark(signal) {
   for (const node of graphic.querySelectorAll("*")) for (const attr of [...node.attributes]) {
     if (attr.value.includes("url(#")) node.setAttribute(attr.name, attr.value.replaceAll("url(#", "url(#startup-"));
   }
-  [...graphic.querySelectorAll(".mime-letter")].forEach((letter, i) => {
-    letter.style.setProperty("--break-x", ((i - 1.5) * 65) + "px");
-    letter.style.setProperty("--break-y", (i % 2 ? 65 : -65) + "px");
-    letter.style.setProperty("--break-angle", ((i - 1.5) * 35) + "deg");
+  // Break apart on outer groups so each letter keeps its current floating pose.
+  // Cancelling the inner animation here would snap it back before departure.
+  const fragments = [...graphic.querySelectorAll(".mime-letter")].map(letter => {
+    const fragment = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    fragment.classList.add("mime-fragment");
+    letter.replaceWith(fragment); fragment.append(letter);
+    return fragment;
   });
   overlay.append(graphic);
   document.body.append(overlay);
   document.documentElement.classList.add("mime-starting");
-  let observer, timer, breaking = false;
+  let observer, breaking = false, removed = false;
+  const departures = [];
   const remove = () => {
-    observer?.disconnect(); clearTimeout(timer); overlay.remove();
+    if (removed) return;
+    removed = true;
+    observer?.disconnect(); departures.forEach(animation => animation.cancel()); overlay.remove();
     document.documentElement.classList.remove("mime-starting");
   };
   signal.addEventListener("abort", remove, { once: true });
@@ -1578,7 +1612,23 @@ function loadingMark(signal) {
     breaking = true; observer?.disconnect();
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const seconds = reduced ? 0.2 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mime-breakup-duration")) || 0.8;
-    requestAnimationFrame(() => { overlay.classList.add("breaking"); timer = setTimeout(remove, seconds * 1000); });
+    requestAnimationFrame(() => {
+      if (signal.aborted) return;
+      overlay.classList.add("breaking");
+      document.documentElement.classList.remove("mime-starting");
+      const paths = [ [-98, -72, -39, 0, 1.08], [-24, 92, 24, .18, .91], [38, -95, -18, .07, 1.17], [112, 66, 47, .28, 1] ];
+      fragments.forEach((fragment, i) => {
+        const [x, y, angle, delay, duration] = paths[i];
+        const frames = reduced ? [{ opacity: 1 }, { opacity: 0 }] : [
+          { transform: "translate(0px, 0px) rotate(0deg) scale(1)", opacity: 1 },
+          { opacity: 1, offset: .25 },
+          { transform: `translate(${x}px, ${y}px) rotate(${angle}deg) scale(.86)`, opacity: 0 },
+        ];
+        departures.push(fragment.animate(frames, { duration: reduced ? 160 : seconds * 1000 * duration,
+          delay: reduced ? 0 : seconds * 1000 * delay, easing: "cubic-bezier(.4, 0, .2, 1)", fill: "forwards" }));
+      });
+      Promise.allSettled(departures.map(animation => animation.finished)).then(remove);
+    });
   };
   const watch = node => {
     const media = node?.querySelector(".feed-media");
@@ -1692,6 +1742,7 @@ async function home(page = 0, signal, target) {
       list.removeAttribute("aria-busy");
     }
   };
+  state.loadMore = loadMore;
   button.onclick = loadMore;
   if ("IntersectionObserver" in window) {
     feedObserver = new IntersectionObserver((entries) => {

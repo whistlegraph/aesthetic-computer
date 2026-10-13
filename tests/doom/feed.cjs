@@ -5,7 +5,7 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  page.on('request',async request=>{const u=new URL(request.url());
   if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')))return request.respond({contentType:'text/html',body:html});
   if(u.pathname==='/api/mime'&&u.searchParams.has('file'))return request.respond({contentType:'application/x-doom-wad',headers:{'Access-Control-Allow-Origin':'*'},body:await readFile('system/public/doom-player/examples/first-arena.wad')});
-  if(u.pathname==='/api/mime')return request.respond({contentType:'application/json',body:JSON.stringify({recent:[{code:'wadfixture',parent:null,name:'@maker',when:new Date().toISOString(),file:{name:'arena.wad',type:'application/x-doom-wad',url:'/api/mime?file=wadfixture'}}],hasMore:false})});
+  if(u.pathname==='/api/mime')return request.respond({contentType:'application/json',body:JSON.stringify({recent:[{code:'wadfixture',parent:null,name:'@maker',when:new Date().toISOString(),file:{name:'arena.wad',type:'application/x-doom-wad',url:'/api/mime?file=wadfixture'}},{code:'nextfixture',parent:null,name:'@maker',board:'text/plain',text:'Next post',when:new Date().toISOString()}],hasMore:false})});
   if(u.pathname.startsWith('/doom-player/')){
    const path=resolve('system/public','.'+u.pathname+(u.pathname.endsWith('/')?'index.html':''));
    try{return request.respond({contentType:({'.html':'text/html','.mjs':'text/javascript','.js':'text/javascript','.wasm':'application/wasm'})[extname(path)]||'application/octet-stream',body:await readFile(path)});}catch{return request.respond({status:404,body:''});}
@@ -40,19 +40,29 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  await page.click('.media-shield');
  assert.equal(await page.$eval('.doom-player',el=>el.inert),false,'clicking the game itself enables play');
  assert.equal(await page.evaluate(()=>document.activeElement?.classList.contains('doom-player')),true,'clicking game focuses it');
- const originalURL=page.url(),playerURL=player.url();assert.equal(new URL(playerURL).searchParams.get('mime'),'1');
- for(const stopped of [false,true,'parent']){
-  if(stopped==='parent')await page.evaluate(()=>document.body.focus());
-  if(stopped===true)await player.evaluate(()=>Module.onExit(0));
-  if(stopped===true)assert.equal(await player.$eval('#status',el=>el.textContent),'Doom stopped (0)');
-  const navigation=player.waitForNavigation({waitUntil:'domcontentloaded'});
-  await page.keyboard.press('Escape');await navigation;
-  await player.waitForFunction(()=>document.body.dataset.state==='playing'&&window.__mimeReady,{timeout:60000});
-  assert.equal(player.url(),playerURL,'Escape reloads the same WAD');
-  assert.equal(page.url(),originalURL,'Escape keeps the same MIME post');
-  assert.equal(await player.$eval('#boot',el=>getComputedStyle(el).display),'none','restart clears the stopped screen');
-  assert.equal(await page.$eval('.doom-player',el=>el.inert),false,'restart keeps interaction enabled');
+ const playerURL=player.url();assert.equal(new URL(playerURL).searchParams.get('mime'),'1');
+ await player.evaluate(()=>{window.actionKeys=[];window.originalModule=Module;for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(['ControlLeft','Space'].includes(e.code))actionKeys.push([type,e.code]);});});
+ for(const code of ['Space','Enter','KeyE'])await page.keyboard.press(code);
+ assert.deepEqual(await player.evaluate(()=>actionKeys),['ControlLeft','ControlLeft','Space'].flatMap(code=>[['keydown',code],['keyup',code]]),'Space/Enter fire and E uses doors');
+ for(const method of ['escape','parent','wheel','stopped']){
+  if(method==='parent')await page.evaluate(()=>document.body.focus());
+  if(method==='stopped')await player.evaluate(()=>Module.onExit(0));
+  if(method==='wheel'){
+   const bounds=await frame.boundingBox();await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
+   await page.mouse.wheel({deltaY:180});
+  }else await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>location.pathname==='/p/nextfixture');
+  assert.equal(player.url(),playerURL,'leaving Doom keeps the player URL');
+  assert.equal(await player.evaluate(()=>Module===originalModule),true,'Escape/wheel never reload Doom');
+  assert.equal(await page.$eval('.doom-player',el=>el.inert),true,'leaving returns control to the feed');
+  if(method==='stopped')break;
+  await page.evaluate(()=>document.querySelector('#wadfixture').scrollIntoView({block:'start'}));
+  await page.waitForFunction(()=>location.pathname==='/p/wadfixture');
+  await page.evaluate(()=>document.body.focus());await page.keyboard.press('KeyW');
+  await page.waitForFunction(()=>document.activeElement?.classList.contains('doom-player'));
  }
+ await page.evaluate(()=>document.querySelector('#wadfixture').scrollIntoView({block:'start'}));
+ await page.waitForFunction(()=>location.pathname==='/p/wadfixture');
  for(const viewport of [{width:430,height:800},{width:700,height:334},{width:1200,height:800}]){
   await page.setViewport(viewport);
   const corner=await page.$eval('.reel-type',el=>{const label=el.getBoundingClientRect(),card=el.closest('.feed-post').getBoundingClientRect();return {right:card.right-label.right,bottom:card.bottom-label.bottom};});
@@ -60,5 +70,5 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  }
  await page.setViewport({width:700,height:334});
  await page.screenshot({path:'/tmp/ac-mime-doom-autoplay.png'});assert.deepEqual(errors,[]);
- console.log('PASS MIME WAD: global identifier, published WAD auto-starts in WASM, full-frame canvas, no file picker or controls');
+ console.log('PASS MIME Doom: autoplay, WASD, Space/Enter fire, E use, Escape advances without reload, wheel scrolling, return to play, corner labels');
  }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
