@@ -134,8 +134,9 @@ test('readalong highlights measured word offsets after seek, skips gaps, and sto
   assert.ok(calls.some(c=>c[0]==='ink'&&JSON.stringify(c[1])===JSON.stringify(flow.inkColors.highlight)));
   assert.ok(calls.some(c=>c[0]==='write'&&c[1]==='A'&&c[6]==='unifont'));
   flow.receive({type:'stream:time-data',content:{id:flow.streamId,currentTime:2.5,duration:3,paused:true}},api);
+  for(let i=0;i<5;i++){flow.lastFrame=performance.now()-50;flow.paint(api,values)}
   calls.length=0;flow.paint(api,values);
-  // Only the progress bar retains the highlight during a gap.
+  // The word fades into the page; only the progress bar remains after 240ms.
   assert.equal(calls.filter(c=>c[0]==='ink'&&JSON.stringify(c[1])===JSON.stringify(flow.inkColors.highlight)).length,1);
   flow.stop();assert.ok(calls.some(c=>c[1]?.type==='stream:stop'));
 });
