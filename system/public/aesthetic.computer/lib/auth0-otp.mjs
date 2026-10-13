@@ -106,9 +106,10 @@ function readFault(status, body) {
   // now be unreachable from here. Kept because it costs a line and it is the
   // answer anyone pointing this module at a differently-typed client would get.
   if (name === "unauthorized_client") return fault("grant-off", detail);
-  // A ticket that Auth0 does not recognise is a spent or timed-out one, which
-  // reads to a person exactly like an expired code: ask for another.
-  if (/login ticket/i.test(detail)) return fault("expired");
+  // The email code already succeeded before a login ticket exists. A rejected
+  // ticket is a failure to complete browser sign-in, not an expired email code.
+  // Offer the visible sign-in fallback instead of an endless resend loop.
+  if (/login ticket/i.test(detail)) return fault("silent-blocked");
   // The silent /authorize refusing to proceed without a visible page. Nothing
   // typed in the form can fix it.
   if (name === "login_required" || name === "interaction_required" ||

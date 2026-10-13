@@ -147,10 +147,16 @@ async function claimDevice(token) {
     });
     const data = await response.json();
     if (!response.ok || !data.handle) {
-      const message = response.status === 404 || response.status === 410
+      const missingHandle = data.code === "handle-missing" || data.message === "No handle found for this account";
+      const expired = !missingHandle && (data.code === "pair-expired" || data.code === "pair-unavailable" ||
+        response.status === 410 || response.status === 404 && /^Code not found/.test(data.message || ""));
+      const message = missingHandle
+        ? "You're signed in, but this account has no AC handle. Use the email for your existing handle, or create a handle at aesthetic.computer/imnew."
+        : expired
         ? "This screen code expired. Scan the current code on your device."
         : "Could not connect this account. Try again.";
-      status(message,true);el("retry-pair").hidden = response.status === 404 || response.status === 410;
+      status(message,true);el("retry-pair").hidden = expired;
+      if (missingHandle) el("popup-btn").hidden = false;
       return;
     }
     paired = true;

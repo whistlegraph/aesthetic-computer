@@ -146,7 +146,7 @@ export async function handler(event) {
         if (!user) return respond(401, { message: "unauthorized" });
 
         const pair = await pairs.findOne({ _id: code });
-        if (!pair) return respond(404, { message: "Code not found or expired" });
+        if (!pair) return respond(404, { code: "pair-expired", message: "Code not found or expired" });
         // Browser pairing carries only this sign-in's token. An email-code
         // identity may display its verified handle without acquiring native
         // device credentials belonging to a different Auth0 subject.
@@ -159,7 +159,7 @@ export async function handler(event) {
             .findOne({ _id: user.sub }, { projection: { handle: 1 } });
         }
         if (!handleDoc?.handle)
-          return respond(404, { message: "No handle found for this account" });
+          return respond(404, { code: "handle-missing", message: "No handle found for this account" });
 
         const creds = pair.kind === "browser" ? null : await getDeviceCreds(database.db, user.sub);
 
@@ -189,6 +189,7 @@ export async function handler(event) {
 
         if (result.matchedCount === 0) {
           return respond(404, {
+            code: "pair-unavailable",
             message: "Code not found, expired, or already claimed",
           });
         }
