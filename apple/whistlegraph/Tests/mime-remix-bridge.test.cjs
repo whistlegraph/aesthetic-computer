@@ -40,6 +40,10 @@ const server=createServer(async(req,res)=>{
     await page.waitForFunction(()=>document.getElementById('painting-preview')?.width===32);
     assert.deepEqual(await page.evaluate(()=>Array.from(document.getElementById('painting-preview').getContext('2d').getImageData(16,24,1,1).data)),[30,90,210,255]);
    }
+   if(ware==='doom'){
+    const runtime=await page.waitForFrame(frame=>frame.url().includes('/doom-player/'));
+    await runtime.waitForFunction(()=>document.body.dataset.state==='playing');
+   }
    console.log('PASS '+ware+' native engine remix saves and reloads v0 with original attribution');
    await context.close();
   }

@@ -18,7 +18,7 @@ final class MimeLayoutTests: XCTestCase {
             XCTAssertGreaterThan(badge.frame.minX, identifier.frame.maxX)
             let feed = XCTAttachment(screenshot: app.screenshot())
             feed.name = "MIME remix feed v\(version)"; feed.lifetime = .keepAlways; add(feed)
-            badge.tap()
+            openType(badge, in: app)
             XCTAssertTrue(app.buttons["ware-picker"].waitForExistence(timeout: 60))
             waitForEditor(in: app)
             XCTAssertTrue(app.buttons["ware-picker"].label.contains(ware), app.buttons["ware-picker"].label)
@@ -34,6 +34,7 @@ final class MimeLayoutTests: XCTestCase {
                 XCTAssertEqual(resolution.label, "32 by 48 pixels")
                 app.navigationBars["Canvas"].buttons.firstMatch.tap(); app.buttons["Done"].tap()
             }
+            if version == 2 { XCTAssertTrue(app.webViews.otherElements["Empty Doom room"].waitForExistence(timeout: 90), "The remixed WAD reaches its first game frame") }
             let editor = XCTAttachment(screenshot: app.screenshot())
             editor.name = "MIME remixed \(ware) v0"; editor.lifetime = .keepAlways; add(editor)
             app.buttons["mime-creation-back"].tap()
