@@ -21,7 +21,7 @@ struct ComposeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     PadPage {
-                        TextField("Make notes on culture", text: $text, axis: .vertical)
+                        TextField("Notes on culture", text: $text, axis: .vertical)
                             .font(Theme.type(18)).lineSpacing(9).lineLimit(6...14)
                             .foregroundStyle(Theme.ink).focused($focused)
                     }

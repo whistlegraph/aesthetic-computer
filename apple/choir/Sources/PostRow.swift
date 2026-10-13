@@ -11,7 +11,7 @@ struct PostRow: View {
     @State private var confirmDelete = false
 
     var body: some View {
-        DeskWindow(title: post.handle, detail: post.date.formatted(.relative(presentation: .numeric, unitsStyle: .narrow)), call: post.replyTo == nil ? Dewey.call(post) : "") {
+        DeskWindow(title: post.handle, detail: post.date.formatted(.relative(presentation: .numeric, unitsStyle: .narrow)), call: Samples.isSample(post) ? "sample" : post.replyTo == nil ? Dewey.call(post) : "") {
             VStack(alignment: .leading, spacing: 8) {
                 if post.deleted {
                     Text("deleted").italic().foregroundStyle(.secondary)

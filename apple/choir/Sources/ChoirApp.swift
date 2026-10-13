@@ -43,5 +43,9 @@ final class Room: ObservableObject {
         Trail.send("hide")
     }
     func unhideAll() { hidden = []; UserDefaults.standard.removeObject(forKey: "hidden") }
-    var visible: [Post] { posts.filter { !hidden.contains($0.handle) } }
+    /// Real posts, or faux sample cards while the whole room is still empty.
+    var visible: [Post] {
+        if posts.isEmpty && tag == nil && error == nil { return Samples.posts() }
+        return posts.filter { !hidden.contains($0.handle) }
+    }
 }

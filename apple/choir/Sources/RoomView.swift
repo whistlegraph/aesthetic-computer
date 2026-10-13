@@ -10,10 +10,9 @@ struct RoomView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    Image("Mark").renderingMode(.template).resizable().scaledToFit()
-                        .frame(height: 110).foregroundStyle(Theme.ink)
-                        .padding(.top, 4).accessibilityLabel("choir")
-                        .onTapGesture { pick(nil) }
+                    if account.signedIn {
+                        SingingMark(height: 100, energy: 0.5).padding(.top, 4).onTapGesture { pick(nil) }
+                    }
                     if !account.signedIn {
                         Entry { door in sheet = door == .login ? .login : .new }
                     }
@@ -21,7 +20,11 @@ struct RoomView: View {
                         Text(error).font(Theme.chrome(12, .regular)).foregroundStyle(Theme.ink)
                     }
                     ForEach(room.visible) { post in
-                        NavigationLink(value: post) { PostRow(post: post, onTag: pick) }.buttonStyle(.plain)
+                        if Samples.isSample(post) {
+                            PostRow(post: post, onTag: pick).opacity(0.85)
+                        } else {
+                            NavigationLink(value: post) { PostRow(post: post, onTag: pick) }.buttonStyle(.plain)
+                        }
                     }
                 }
                 .padding(.horizontal, 16).padding(.vertical, 16)
