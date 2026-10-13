@@ -18,6 +18,7 @@ import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
 import { bootPreloads, workerBundleFilename, builtinPieceUrl } from "../../backend/boot-preloads.mjs";
+import { profilePage } from "../../backend/profile-page.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
@@ -95,6 +96,11 @@ function redirectToKidlispCode(event, code) {
 
 async function fun(event, context) {
   const _startTime = Date.now();
+  const profileHost = (event.headers?.host || "").split(":")[0];
+  if (["aesthetic.computer", "www.aesthetic.computer", "localhost", "127.0.0.1"].includes(profileHost)) {
+    const page = profilePage(event.path);
+    if (page) return respond(200, page, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+  }
   
   // 🐛 DEBUG: Log the actual path resolution for troubleshooting
   console.log(`🔍 DEBUG index.mjs: path=${event.path}, dev=${dev}, __dirname=${typeof __dirname !== 'undefined' ? __dirname : 'N/A'}`);

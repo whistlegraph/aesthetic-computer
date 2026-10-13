@@ -26,6 +26,7 @@ import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import { respond } from "../../backend/http.mjs";
 import { paintingWipPixels } from "../../backend/painting-wips.mjs";
+import { paintingStorageUrl } from "../../backend/painting-storage.mjs";
 const dev = process.env.CONTEXT === "dev";
 let nopaintArchiveIds;
 
@@ -146,21 +147,7 @@ async function fun(event, context) {
           const picture = await paintingWipPixels(database.db, painting);
           wipImage = await sharp(picture.pixels, { raw: { width: picture.width, height: picture.height, channels: 4 } }).png().toBuffer();
         } else if (painting) {
-          // Build slug from painting data
-          // Handle combined slugs (split to get image slug only)
-          let imageSlug = painting.slug;
-          if (imageSlug.includes(':')) {
-            [imageSlug] = imageSlug.split(':');
-          }
-          
-          // Construct DO Spaces URL directly (same logic as media.js edge function)
-          const bucket = painting.user 
-            ? "user-aesthetic-computer" 
-            : "art-aesthetic-computer";
-          const key = painting.user 
-            ? `${encodeURIComponent(painting.user)}/painting/${imageSlug}.png`
-            : `${imageSlug}.png`;
-          imageUrl = `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`;
+          imageUrl = paintingStorageUrl(painting);
           console.log(`✅ Resolved code ${code} to DO Spaces URL: ${imageUrl}`);
         } else {
           // No DB record - try guest art bucket directly (anonymous uploads)
