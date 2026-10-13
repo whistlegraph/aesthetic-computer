@@ -128,13 +128,14 @@ test('readalong highlights measured word offsets after seek, skips gaps, and sto
   const values=[{kind:'listen',data}];flow.paint(api,values);
   flow.act(event('touch',8,116),api);flow.act(event('lift',8,116),api);
   assert.ok(calls.some(c=>c[1]?.type==='stream:play'));
+  flow.receive({type:'stream:playing',content:{id:flow.streamId}},api);
   flow.receive({type:'stream:time-data',content:{id:flow.streamId,currentTime:1.5,duration:3,paused:false}},api);
   calls.length=0;flow.paint(api,values);
   assert.ok(calls.some(c=>c[0]==='ink'&&JSON.stringify(c[1])===JSON.stringify(flow.inkColors.highlight)));
   assert.ok(calls.some(c=>c[0]==='write'&&c[1]==='A'&&c[6]==='unifont'));
   flow.receive({type:'stream:time-data',content:{id:flow.streamId,currentTime:2.5,duration:3,paused:true}},api);
   calls.length=0;flow.paint(api,values);
-  // Only the tiny progress line retains the highlight during a gap.
+  // Only the progress bar retains the highlight during a gap.
   assert.equal(calls.filter(c=>c[0]==='ink'&&JSON.stringify(c[1])===JSON.stringify(flow.inkColors.highlight)).length,1);
   flow.stop();assert.ok(calls.some(c=>c[1]?.type==='stream:stop'));
 });
@@ -154,15 +155,26 @@ test('episode lowering is reused across ticks and rebuilt on resize or resource 
  assert.throws(()=>flow.paint(api,[{kind:'listen',data:{...data,value:bad}}]),/nonoverlapping/);
 });
 
-test('reader loops, retries blocked autoplay, and never pauses on Space or a tap',()=>{
+test('reader loops silently, joins audio at the current word on tap, and retries failures',()=>{
  const {api,calls}=recorder(),flow=new RichTextFlow();
  const values=[{kind:'listen',data:{kidlispData:true,url:'https://example.com/episode.json',value:{title:'today',body:'hello',audio:{url:'episode.mp3'},words:[]}}}];
  flow.paint(api,values);
+ assert.equal(flow.started,false);
+ assert.ok(!calls.some(c=>c[1]?.type?.startsWith('stream:')));
+ flow.duration=3;
+ assert.ok(Math.abs(flow.mediaTime(flow.silentAt+4250)-1.25)<.001,'silent playback loops without media permission');
+ flow.silentAt=performance.now()-1500;
+ const silent=flow.mediaTime();
+ flow.receive({type:'stream:time-data',content:{id:flow.streamId,currentTime:0,paused:true}},api);
+ assert.ok(flow.mediaTime()>=silent,'loading audio cannot reset the silent clock');
+ flow.act(event('touch',30,30),api);
  const start=calls.find(c=>c[1]?.type==='stream:play')[1];assert.equal(start.content.loop,true);assert.equal(start.content.scrubbable,true);
+ assert.ok(Math.abs(start.content.startTime-silent)<.1,'sound joins the current word');
  flow.receive({type:'stream:error',content:{id:flow.streamId,error:'NotAllowedError'}},api);
  calls.length=0;flow.act(event('touch',30,30),api);
  assert.ok(calls.some(c=>c[1]?.type==='stream:play'));
  flow.receive({type:'stream:playing',content:{id:flow.streamId}},api);
+ assert.equal(flow.silentAt,null);
  flow.act(event('lift',30,30),api);flow.act(event('keyboard:down:space'),api);
  assert.equal(flow.autoplayPending,false);assert.equal(flow.playing,true);
  calls.length=0;flow.act(event('touch',30,30),api);
@@ -172,6 +184,8 @@ test('reader loops, retries blocked autoplay, and never pauses on Space or a tap
 test('scroll and drag scratch in both directions with an automatic speed release',()=>{
  const {api,calls}=recorder(),flow=new RichTextFlow();
  flow.paint(api,[{kind:'listen',data:{kidlispData:true,url:'https://example.com/episode.json',value:{title:'today',body:'hello',audio:{url:'episode.mp3'},words:[]}}}]);
+ flow.act(event('touch',30,30),api);flow.act(event('lift',30,30),api);
+ flow.receive({type:'stream:playing',content:{id:flow.streamId}},api);
  flow.act(event('scroll',0,-100),api);flow.act(event('scroll',0,100),api);
  flow.act(event('touch',30,60),api);flow.act(event('draw',30,40),api);flow.act(event('lift',30,40),api);
  const rates=calls.filter(c=>c[1]?.type==='stream:speed').map(c=>c[1].content);
@@ -198,7 +212,10 @@ test('scrolling the transcript seeks the corresponding words and release follows
  const body=Array.from({length:12},(_,i)=>`word${i}`).join('\n\n');
  const words=[...body.matchAll(/word\d+/g)].map((m,i)=>({start:m.index,end:m.index+m[0].length,fromMs:i*2000,toMs:(i+1)*2000}));
  const values=[{kind:'listen',data:{kidlispData:true,url:'https://example.com/episode.json',value:{title:'today',body,audio:{url:'episode.mp3'},durationMs:24000,words}}}];
- flow.paint(api,values);flow.act(event('scroll',0,110),api);
+ flow.paint(api,values);
+ flow.act(event('touch',30,30),api);flow.act(event('lift',30,30),api);
+ flow.receive({type:'stream:playing',content:{id:flow.streamId}},api);
+ flow.act(event('scroll',0,110),api);
  const forward=flow.time;assert.ok(forward>4,'scrolling reaches later sentences immediately');
  assert.equal(calls.filter(c=>c[1]?.type==='stream:seek').at(-1)[1].content.time,forward);
  flow.act(event('scroll',0,-50),api);assert.ok(flow.time<forward,'reverse scroll seeks earlier speech');
@@ -220,6 +237,7 @@ test('letter motion keeps source layout stable; clock interpolation stops when b
  const snapshot=()=>calls.filter(c=>c[0]==='write').slice(0,5).map(c=>[c[2].x,c[2].y]);
  const baseline=snapshot();calls.length=0;flow.act(event('move',24,18),api);flow.paint(api,values);
  assert.notDeepEqual(snapshot(),baseline);assert.deepEqual(line.characters.map(c=>c.x),positions);
+ flow.receive({type:'stream:playing',content:{id:flow.streamId}},api);
  flow.receive({type:'stream:time-data',content:{id:flow.streamId,currentTime:2,duration:3,paused:false}},api);
  assert.ok(Math.abs(flow.mediaTime(flow.sampleAt+50)-2.05)<.001);
  flow.receive({type:'stream:state',content:{id:flow.streamId,state:'buffering'}},api);

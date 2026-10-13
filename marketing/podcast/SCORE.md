@@ -220,10 +220,12 @@ pinning, storing a $code, or minting. Verify the resulting ZIP with
 
 `(def episode (fetch "episode.json"))` followed by `(flow (listen episode))`
 loads canonical prose, optional named link blocks, the actual mastered podcast,
-and word timings. The Unifont reader starts a loop with just a thin seek line;
-there is no pause control. Browsers that block autoplay need a first tap or
-Space. Dragging, wheeling, or arrow keys scrub the recording through its text:
-the audio position and yellow word move together, including within a line.
+and word timings. The Unifont reader starts looping silently, with a thick
+seek bar flush to the bottom edge. A tap or Space starts sound at the current
+word; there is no pause control. Dragging, wheeling, or arrow keys scrub the
+recording through its text: the audio position and highlighted word move
+together, including within a line. The active word has a solid, contrasting
+background and light letters within the passage's palette.
 Up scratches backward, down runs forward, with speed changing pitch.
 The gesture uses Stample's sample synth (`sampleSpeed`), including its existing
 interpolation and seek declicking. After 140ms without movement, speed eases

@@ -45,6 +45,7 @@ export class RichTextFlow {
     this.focus = -1;
     this.peekUntil = 0;
     this.pointer = null;
+    this.silentAt = null;
   }
   paint(api, values) {
     this.api = api;
@@ -73,13 +74,17 @@ export class RichTextFlow {
           this.duration = Number.isFinite(episode.durationMs) ? episode.durationMs / 1000 : 0;
           this.peekUntil = 0;
           this.autoplayPending = true;
-          this.play(api);
+          // The reading starts silently, without waiting for audio permission.
+          // A tap joins the sound to this clock instead of restarting the page.
+          this.silentAt = now;
         }
         values = this.episodeValues;
       }
     }
-    const width = api.screen.width, height = api.screen.height - (this.episode ? 7 : 0);
+    const width = api.screen.width;
     const scale = Math.max(1, Math.floor(width / (this.episode ? 48 * 8 : 24 * 6)));
+    const progressHeight = this.episode ? 6 * scale : 0;
+    const height = Math.max(0, api.screen.height - progressHeight);
     const margin = (this.episode ? 10 : 4) * scale;
     const bounds = Math.max(8, Math.min(width - 2 * margin, this.episode ? 48 * 8 * scale : width));
     const left = Math.max(margin, Math.floor((width - bounds) / 2));
@@ -179,6 +184,10 @@ export class RichTextFlow {
     // Interpolate only between recent media-clock samples; never drift through
     // buffering or a background-tab suspension.
     const timeMs = this.mediaTime(now) * 1000;
+    if (this.silentAt !== null && this.silentAt !== undefined) {
+      this.time = timeMs / 1000;
+      this.silentAt = now;
+    }
     let low = 0, high = words.length;
     while (low < high) {
       const middle = (low + high) >>> 1;
@@ -221,6 +230,12 @@ export class RichTextFlow {
       if (y < 0 || y + glyphHeight > height) continue;
       if (this.episode) {
         for (const link of line.links) this.regions.push({ ...link, y });
+        for (const fragment of fragments) {
+          if (fragment.line !== line) continue;
+          api.ink(this.inkColors.highlight);
+          api.box(fragment.x - 3 * scale, Math.round(y) - 3 * scale,
+            fragment.w + 6 * scale, glyphHeight + 6 * scale);
+        }
         for (const char of line.characters) {
           if (/\s/u.test(char.text)) continue;
           const offset = line.bodyOffset === null ? -1 : line.bodyOffset + line.map[char.index];
@@ -231,7 +246,7 @@ export class RichTextFlow {
           const amount = (active ? 0.85 : 0) + hover * 2.4;
           const dx = Math.round(Math.sin(now / 95 + char.phase) * amount * scale);
           const dy = Math.round(Math.cos(now / 120 + char.phase * 1.3) * amount * scale);
-          api.ink(active ? this.inkColors.highlight : link ? this.inkColors.link : this.inkColors.foreground);
+          api.ink(active ? this.inkColors.background : link ? this.inkColors.link : this.inkColors.foreground);
           api.write(char.text, { x: char.x + dx, y: Math.round(y) + dy, size: scale }, undefined, undefined, false, line.font);
           if (link && this.focus === link.id) api.box(char.x, Math.round(y) + glyphHeight, char.w, 1);
         }
@@ -257,10 +272,10 @@ export class RichTextFlow {
     }
     if (this.episode) {
       this.controlsY = height;
-      this.seekX = 4; this.seekWidth = Math.max(1, width - 8);
-      api.ink(this.inkColors.background.map((v, i) => Math.round(v * 0.7 + this.inkColors.foreground[i] * 0.3))); api.box(this.seekX, height + 3, this.seekWidth, 1);
+      this.seekX = 0; this.seekWidth = width;
+      api.ink(this.inkColors.background.map((v, i) => Math.round(v * 0.7 + this.inkColors.foreground[i] * 0.3))); api.box(0, height, width, progressHeight);
       api.ink(this.speed < 0 ? this.inkColors.link : this.inkColors.highlight);
-      api.box(this.seekX, height + 3, Math.max(1, this.seekWidth * Math.min(1, (this.time || 0) / (this.duration || 1))), 1);
+      api.box(0, height, Math.max(1, width * Math.min(1, timeMs / 1000 / (this.duration || 1))), progressHeight);
       if (this.started && now - (this.lastPoll ?? -Infinity) > 40) {
         this.lastPoll = now; api.send({ type: "stream:time", content: { id: this.streamId } });
       }
@@ -274,21 +289,29 @@ export class RichTextFlow {
   stop() {
     if (this.started) this.api?.send({ type: "stream:stop", content: { id: this.streamId } });
     this.started = false; this.playing = false;
+    this.starting = false; this.silentAt = null;
     this.sampleAt = null; this.buffering = false; this.error = null;
     this.samplerReady = false;
   }
   mediaTime(now = performance.now()) {
-    const advance = this.playing && !this.buffering && this.sampleAt !== null
+    const silent = this.silentAt !== null && this.silentAt !== undefined;
+    const advance = silent ? Math.max(0, now - this.silentAt) / 1000
+      : this.playing && !this.buffering && this.sampleAt !== null
       ? Math.max(0, Math.min(120, now - this.sampleAt)) / 1000 : 0;
-    const time = (this.time || 0) + advance * (this.speed ?? 1);
+    const time = (this.time || 0) + advance * (silent ? 1 : (this.speed ?? 1));
     return this.duration > 0 ? (time % this.duration + this.duration) % this.duration : Math.max(0, time);
   }
   play(api) {
-    api.send({ type: this.started && !this.error ? "stream:resume" : "stream:play", content: { id: this.streamId, url: this.audioUrl, volume: 0.8, loop: true, scrubbable: true } });
+    if (this.starting) return;
+    this.time = this.mediaTime();
+    if (this.silentAt !== null) this.silentAt = performance.now();
+    this.starting = true;
+    if (this.started && !this.error) api.send({ type: "stream:seek", content: { id: this.streamId, time: this.time } });
+    api.send({ type: this.started && !this.error ? "stream:resume" : "stream:play", content: { id: this.streamId, url: this.audioUrl, volume: 0.8, loop: true, scrubbable: true, startTime: this.time } });
     this.started = true;
   }
   scratch(delta, api, speed = Math.max(-4, Math.min(4, delta * 0.06))) {
-    if (!this.episode || !Number.isFinite(delta) || delta === 0) return;
+    if (!this.episode || !this.started || !Number.isFinite(delta) || delta === 0) return;
     // Like Stample, pointer motion controls the signed speed of the sample.
     // The BIOS restores normal speed after the gesture, even if paint stops.
     api.send({ type: "stream:speed", content: { id: this.streamId,
@@ -327,8 +350,9 @@ export class RichTextFlow {
       Math.min(this.wordPositions.at(-1).position, this.scrubPosition + delta));
     this.scroll = this.scrubPosition - this.scrubAnchor;
     this.time = this.timelineAt(this.scrubPosition, "position", "time");
+    if (this.silentAt !== null) this.silentAt = now;
     this.sampleAt = null;
-    api.send({ type: "stream:seek", content: { id: this.streamId, time: this.time } });
+    if (this.started) api.send({ type: "stream:seek", content: { id: this.streamId, time: this.time } });
     // Scratching against the beginning must not wrap to the closing words.
     this.scratch(delta, api, this.time === 0 && delta < 0 ? 0 : undefined);
   }
@@ -337,7 +361,14 @@ export class RichTextFlow {
   }
   receive({ type, content }, api) {
     if (content?.id !== this.streamId) return;
-    if (type === "stream:playing") { this.playing = true; this.buffering = false; this.error = null; this.autoplayPending = false; }
+    if (type === "stream:playing") {
+      this.time = Number.isFinite(content.currentTime) ? content.currentTime : this.mediaTime();
+      this.silentAt = null; this.sampleAt = performance.now(); this.starting = false;
+      this.playing = true; this.buffering = false; this.error = null; this.autoplayPending = false;
+    }
+    if (type === "stream:error") {
+      this.time = this.mediaTime(); this.silentAt = performance.now(); this.starting = false;
+    }
     if (type === "stream:paused" || type === "stream:error") this.playing = false;
     if (type === "stream:error") this.error = content.error || "Audio error";
     if (type === "stream:speed-data" && Number.isFinite(content.speed)) {
@@ -350,6 +381,8 @@ export class RichTextFlow {
       if (this.buffering) this.sampleAt = null;
     }
     if (type === "stream:time-data") {
+      // Paused/loading audio must not overwrite the independent silent clock.
+      if (this.silentAt !== null) return;
       this.time = content.currentTime; this.duration = content.duration || this.duration;
       if (Number.isFinite(content.speed)) this.speed = content.speed;
       this.sampleAt = performance.now();
@@ -390,10 +423,11 @@ export class RichTextFlow {
       this.gesture.lastY = event.y;
     } else if (event.is("lift")) {
       if (this.gesture?.control && !this.gesture.dragged && event.y >= this.controlsY) {
-        if (this.started) {
+        if (this.episode) {
           this.time = Math.max(0, Math.min(1, (event.x - this.seekX) / this.seekWidth)) * this.duration;
+          if (this.silentAt !== null) this.silentAt = performance.now();
           this.sampleAt = null; this.peekUntil = 0;
-          api.send({ type: "stream:seek", content: { id: this.streamId, time: this.time } });
+          if (this.started) api.send({ type: "stream:seek", content: { id: this.streamId, time: this.time } });
         }
       }
       const link = this.hit(event.x, event.y);
