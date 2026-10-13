@@ -1,0 +1,130 @@
+# Choir TestFlight. Same Admin API key as AC, Whistlegraph, Oskiewar and Menu
+# Band. Creating the app record once needs an Apple ID session (Apple's API
+# cannot create apps); everything after that runs on the key.
+require "shellwords"
+require "yaml"
+
+APP_DIR = File.expand_path("..", __dir__)
+REPO_DIR = File.expand_path("../..", APP_DIR)
+SETTINGS = YAML.load_file(File.join(APP_DIR, "project.yml")).fetch("settings").fetch("base")
+VERSION = SETTINGS.fetch("MARKETING_VERSION").to_s
+BUILD = SETTINGS.fetch("CURRENT_PROJECT_VERSION").to_s
+BUNDLE = "computer.aesthetic.choir"
+TESTER_GROUP = "Choir Friends"
+TEAM = "FB5948YR3S"
+KEY_ID = "S4TQKG6U99"
+ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
+KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{KEY_ID}.p8")
+RELEASE_DIR = File.expand_path(ENV.fetch("CHOIR_RELEASE_DIR", "~/Library/Developer/Choir-Releases/#{VERSION}-#{BUILD}"))
+IPA = File.join(RELEASE_DIR, "export/Choir.ipa")
+NOTES = ENV.fetch("CHOIR_TEST_NOTES", "Sign in with your email (no password, you get a 6 digit code). Post to the room with at least two tags, tap a tag to filter, tap a post to reply in its thread, and paste a link to see its preview.")
+
+def asc_key
+  app_store_connect_api_key(key_id: KEY_ID, issuer_id: ISSUER, key_filepath: KEY_PATH, in_house: false)
+end
+
+def store_app
+  Spaceship::ConnectAPI::App.find(BUNDLE)
+end
+
+platform :ios do
+  desc "Register the bundle id with the API key"
+  lane :bundle do
+    asc_key
+    if Spaceship::ConnectAPI::BundleId.find(BUNDLE)
+      UI.success("#{BUNDLE} is registered")
+    else
+      Spaceship::ConnectAPI::BundleId.create(name: "Choir", identifier: BUNDLE, platform: "IOS")
+      UI.success("Registered #{BUNDLE}")
+    end
+  end
+
+  desc "Create the app record (once): FASTLANE_USER=<Apple ID> fastlane ios create"
+  lane :create do
+    asc_key
+    if (app = store_app)
+      UI.success("Choir already exists: #{app.id}")
+      next
+    end
+    sh("node", File.join(__dir__, "refresh-service-key.mjs"))
+    Spaceship::ConnectAPI.token = nil
+    produce(username: ENV["FASTLANE_USER"], app_identifier: BUNDLE,
+            app_name: ENV.fetch("CHOIR_STORE_NAME", "choir"), app_version: VERSION, sku: "choir",
+            language: "en-US", platform: "ios", skip_devcenter: true)
+  end
+
+  desc "Archive Release and export a signed IPA"
+  lane :build do
+    sh("xcodegen", "generate", "--spec", File.join(APP_DIR, "project.yml"), "--project", APP_DIR)
+    auth = "-allowProvisioningUpdates -authenticationKeyPath #{KEY_PATH.shellescape} " \
+           "-authenticationKeyID #{KEY_ID} -authenticationKeyIssuerID #{ISSUER}"
+    build_ios_app(project: File.join(APP_DIR, "Choir.xcodeproj"), scheme: "Choir", configuration: "Release",
+                  archive_path: File.join(RELEASE_DIR, "Choir.xcarchive"),
+                  export_method: "app-store", export_team_id: TEAM,
+                  xcargs: "-jobs 2 #{auth}", export_xcargs: "-allowProvisioningUpdates",
+                  output_directory: File.dirname(IPA), output_name: File.basename(IPA))
+  end
+
+  desc "Upload the IPA to TestFlight"
+  lane :upload do
+    key = asc_key
+    UI.user_error!("No app record yet. Run FASTLANE_USER=<Apple ID> fastlane ios create once.") unless store_app
+    UI.user_error!("Missing #{IPA}; run fastlane ios build first.") unless File.file?(IPA)
+    upload_to_testflight(api_key: key, app_identifier: BUNDLE, ipa: IPA,
+                         skip_waiting_for_build_processing: true, distribute_external: false)
+  end
+
+  desc "Make the private external group if missing, then submit this build to it"
+  lane :distribute do
+    asc_key
+    app = store_app
+    UI.user_error!("Create the app record first") unless app
+    unless app.get_beta_groups.any? { |g| g.name == TESTER_GROUP && !g.is_internal_group }
+      app.create_beta_group(group_name: TESTER_GROUP, public_link_enabled: false, public_link_limit: 100, public_link_limit_enabled: false)
+    end
+    upload_to_testflight(api_key: asc_key, app_identifier: BUNDLE, app_platform: "ios",
+                         app_version: VERSION, build_number: BUILD,
+                         distribute_only: true, distribute_external: true,
+                         groups: [TESTER_GROUP], notify_external_testers: true, submit_beta_review: true,
+                         changelog: NOTES,
+                         beta_app_review_info: { contact_email: "mail@aesthetic.computer", contact_first_name: "Jeffrey",
+                                                 contact_last_name: "Scudder", contact_phone: ENV.fetch("CHOIR_REVIEW_PHONE", ""),
+                                                 demo_account_required: false,
+                                                 notes: "Sign-in is passwordless: enter any email you can read and type the 6 digit code we send." },
+                         beta_app_description: "choir is a tagged room for people who work in art: news, discussion, free and for sale, by city.",
+                         beta_app_feedback_email: "mail@aesthetic.computer")
+  end
+
+  desc "Add one external tester: fastlane ios invite email:<email> name:<first-name>"
+  lane :invite do |options|
+    email = options[:email].to_s.strip
+    UI.user_error!("Provide email:<tester email>") if email.empty?
+    asc_key
+    app = store_app
+    UI.user_error!("Create the app record first") unless app
+    group = app.get_beta_groups(includes: "betaTesters").find { |g| g.name == TESTER_GROUP && !g.is_internal_group }
+    UI.user_error!("Run fastlane ios distribute first; it makes #{TESTER_GROUP}") unless group
+    if group.beta_testers.to_a.any? { |t| t.email.casecmp?(email) }
+      UI.success("Tester is already in #{TESTER_GROUP}")
+      next
+    end
+    tester = Spaceship::ConnectAPI::BetaTester.find(email: email)
+    if tester
+      group.add_beta_testers(beta_tester_ids: [tester.id])
+    else
+      attributes = { email: email }
+      attributes[:firstName] = options[:name] if options[:name]
+      Spaceship::ConnectAPI.post_beta_tester_assignment(beta_group_ids: [group.id], attributes: attributes)
+    end
+    UI.success("Added to #{TESTER_GROUP}; TestFlight emails the invite once a build is approved.")
+  end
+
+  desc "App Store Connect state for this build"
+  lane :status do
+    asc_key
+    app = store_app
+    next UI.important("No Choir app record yet") unless app
+    build = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: VERSION, build_number: BUILD, platform: "IOS").first
+    UI.message("Choir #{VERSION} (#{BUILD}): #{build ? build.processing_state : 'not uploaded'} / #{build&.build_beta_detail&.external_build_state}")
+  end
+end

@@ -1,325 +1,44 @@
 <!doctype html>
-<!-- choir — a tagged room for art-world professionals. API: /api/choir (system/netlify/functions/choir.mjs) -->
+<!-- choir — pointer to the iPhone app. The web room lives at ./room/. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>choir</title>
-  <meta name="description" content="A room for people who work in art. News, discussion, free and for sale, by city." />
-  <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#15151a" media="(prefers-color-scheme: dark)" />
+  <meta name="description" content="A room for people who work in art. News, discussion, free and for sale, by city. On iPhone." />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <link rel="icon" href="icon.png" />
   <style>
-    :root {
-      color-scheme: light dark;
-      --paper: #f6f4ef; --card: #fffdf8; --line: #d9d4c7; --ink: #1a1917; --dim: #6f6a60;
-      --accent: #b3261e; --chip: #ebe7dd; --chip-on: #1a1917; --chip-on-ink: #f6f4ef; --link: #1d4ed8;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) {
-        --paper: #15151a; --card: #1e1e25; --line: #34343d; --ink: #f1efe9; --dim: #9a978f;
-        --accent: #ff7b72; --chip: #2a2a33; --chip-on: #f1efe9; --chip-on-ink: #15151a; --link: #8ab4ff;
-      }
-    }
-    :root[data-theme="dark"] {
-      --paper: #15151a; --card: #1e1e25; --line: #34343d; --ink: #f1efe9; --dim: #9a978f;
-      --accent: #ff7b72; --chip: #2a2a33; --chip-on: #f1efe9; --chip-on-ink: #15151a; --link: #8ab4ff;
-    }
+    :root { color-scheme: light dark; --paper: #f6f4ef; --ink: #1a1917; --dim: #6f6a60; --line: #d9d4c7; --accent: #b3261e; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: #15151a; --ink: #f1efe9; --dim: #9a978f; --line: #34343d; --accent: #ff7b72; } }
+    :root[data-theme="dark"] { --paper: #15151a; --ink: #f1efe9; --dim: #9a978f; --line: #34343d; --accent: #ff7b72; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--paper); color: var(--ink);
-      font: 16px/1.5 system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
-    a { color: var(--link); }
-    button { font: inherit; color: inherit; background: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
-    button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-    button:disabled { opacity: .45; cursor: default; }
-    input, textarea { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; }
-    textarea { min-height: 88px; resize: vertical; }
-    header { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--line); }
-    .bar { max-width: 680px; margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) 16px 8px; display: flex; align-items: center; gap: 12px; }
-    .bar h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
-    .bar h1 a { color: inherit; text-decoration: none; }
-    .bar .spacer { flex: 1; }
-    .tags { max-width: 680px; margin: 0 auto; padding: 0 16px 10px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-    .tags::-webkit-scrollbar { display: none; }
-    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: var(--chip); border: 1px solid transparent; font-size: 13px; white-space: nowrap; cursor: pointer; color: inherit; }
-    .chip[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); }
-    .chip small { color: inherit; opacity: .6; }
-    main { max-width: 680px; margin: 0 auto; padding: 16px 16px calc(40px + env(safe-area-inset-bottom)); }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
-    .meta { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--dim); flex-wrap: wrap; }
-    .meta b { color: var(--ink); font-weight: 600; }
-    .meta time { margin-left: auto; }
-    .text { margin: 6px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .text.gone { color: var(--dim); font-style: italic; }
-    .foot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .foot .replies { margin-left: auto; font-size: 13px; color: var(--dim); text-decoration: none; }
-    .preview { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 6px 0 10px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; text-decoration: none; color: inherit; }
-    .preview img { width: 100%; max-height: 240px; object-fit: cover; display: block; }
-    .preview div { padding: 8px 12px 10px; font-size: 14px; }
-    .preview small { display: block; color: var(--dim); }
-    .compose { margin-bottom: 18px; }
-    .compose .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
-    .compose .row .status { font-size: 13px; color: var(--dim); flex: 1; min-width: 160px; }
-    .compose .row .status.bad { color: var(--accent); }
-    .pick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
-    .pick input { width: 150px; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
-    .sheet { position: fixed; inset: 0; background: rgb(0 0 0 / .35); display: none; align-items: flex-end; justify-content: center; z-index: 20; }
-    .sheet[open] { display: flex; }
-    .sheet .card { width: min(100%, 440px); margin: 0 0 env(safe-area-inset-bottom); border-radius: 16px 16px 0 0; }
-    .sheet h2 { margin: 0 0 8px; font-size: 18px; }
-    .sheet p { margin: 0 0 12px; color: var(--dim); font-size: 14px; }
-    .sheet .row { display: flex; gap: 8px; margin-top: 10px; }
-    .sheet .status { color: var(--accent); font-size: 13px; min-height: 1.2em; margin-top: 8px; }
-    .menu { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .menu label { font-size: 14px; display: flex; gap: 6px; align-items: center; }
-    .empty { color: var(--dim); text-align: center; padding: 40px 0; }
-    .back { margin-bottom: 12px; display: inline-block; }
-    @media (min-width: 560px) { .preview:has(img) { grid-template-columns: 160px 1fr; } .preview img { height: 100%; max-height: none; } }
+    body { margin: 0; min-height: 100dvh; background: var(--paper); color: var(--ink); display: grid; place-items: center;
+      font: 17px/1.5 system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; padding: 24px 16px; }
+    main { max-width: 420px; text-align: center; }
+    img { width: 112px; height: 112px; border-radius: 26px; border: 1px solid var(--line); }
+    h1 { margin: 16px 0 4px; font-size: 40px; font-weight: 600; letter-spacing: -.03em; }
+    p { margin: 0 0 20px; color: var(--dim); }
+    .get { display: inline-block; background: var(--ink); color: var(--paper); text-decoration: none; padding: 12px 22px; border-radius: 999px; font-weight: 600; }
+    .small { margin-top: 28px; font-size: 14px; }
+    .small a { color: var(--dim); }
   </style>
 </head>
 <body>
-<header>
-  <div class="bar">
-    <h1><a href="./">choir</a></h1>
-    <span class="spacer"></span>
-    <span id="who" class="meta"></span>
-    <button id="account">Sign in</button>
-  </div>
-  <nav class="tags" id="tagbar" aria-label="Tags"></nav>
-</header>
 <main>
-  <section id="compose" class="card compose" hidden>
-    <textarea id="text" placeholder="What's happening? Links get a preview." maxlength="2000"></textarea>
-    <div class="pick" id="pick"></div>
-    <div class="row">
-      <span class="status" id="compose-status">Tag it at least two ways.</span>
-      <button class="primary" id="send" disabled>Post</button>
-    </div>
-  </section>
-  <section id="feed"></section>
+  <img src="icon.png" alt="" />
+  <h1>choir</h1>
+  <p>A room for people who work in art. News, discussion, free and for sale, by city.</p>
+  <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Ask for an iPhone invite</a>
+  <p class="small">It's in private testing on TestFlight. <a href="room/">Or use the web room</a>.</p>
 </main>
-
-<div class="sheet" id="signin">
-  <div class="card">
-    <h2>Sign in</h2>
-    <p>No password. We email you a six digit code.</p>
-    <div id="step-email">
-      <input id="email" type="email" autocomplete="email" placeholder="you@gallery.org" />
-      <div class="row"><button id="send-code" class="primary">Send code</button><button id="cancel-signin">Cancel</button></div>
-    </div>
-    <div id="step-code" hidden>
-      <input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="6" />
-      <div class="row"><button id="verify" class="primary">Enter</button><button id="back-email">Other email</button></div>
-    </div>
-    <div class="status" id="signin-status"></div>
-  </div>
-</div>
-
-<div class="sheet" id="menu-sheet">
-  <div class="card">
-    <h2 id="menu-handle"></h2>
-    <div class="menu">
-      <label><input type="checkbox" id="notify" /> Notifications</label>
-      <span class="spacer" style="flex:1"></span>
-      <button id="signout">Sign out</button>
-      <button id="close-menu">Done</button>
-    </div>
-    <p id="no-handle" hidden style="margin-top:12px">You're signed in but don't have a name yet. <a href="https://aesthetic.computer/prompt~handle" target="_blank" rel="noopener">Choose your @name</a>, then come back and reload.</p>
-  </div>
-</div>
-
 <script type="module" src="/aesthetic.computer/lib/visit-tracker.mjs"></script>
 <script type="module">
-// Same origin while this lives at aesthetic.computer/choir/; a proxied /api on its own domain later.
-const API = "/api/choir";
-const AC = location.hostname.endsWith("aesthetic.computer") || location.hostname === "localhost" ? "" : "https://aesthetic.computer";
-const CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt"; // the aesthetic SPA, same as boot.mjs
-const MIN_TAGS = 2;
-const $ = (id) => document.getElementById(id);
-
-// The trail: a per-tab session id ties client events to the server's.
-const SESSION = (() => { try { return sessionStorage.choirSession ??= crypto.randomUUID(); } catch { return crypto.randomUUID(); } })();
-function track(name, props = {}) {
-  try { fetch(API + "?event=1", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, props, session: SESSION, surface: "web" }) }); } catch {}
-}
-let otp, me = null, tags = [], picked = new Set(), view = { tag: null, thread: null }, timer;
-
-async function door() {
-  if (!otp) {
-    const { otpSignIn } = await import(AC + "/aesthetic.computer/lib/auth0-otp.mjs");
-    // The silent leg's redirect_uri must be a registered callback; the bare origin is.
-    otp = otpSignIn({ clientId: CLIENT_ID });
-  }
-  return otp;
-}
-async function token() { return (await door()).token(); }
-async function api(path = "", init = {}) {
-  const t = await token();
-  const headers = { "x-choir-session": SESSION, ...(init.body ? { "Content-Type": "application/json" } : {}), ...(t ? { Authorization: "Bearer " + t } : {}) };
-  const r = await fetch(API + path, { ...init, headers });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw Error(data.error || r.statusText);
-  return data;
-}
-
-// --- identity
-async function whoami() {
-  if (!(await token())) { me = null; return paintAccount(); }
-  try { me = await api("?me=1"); } catch { me = null; }
-  paintAccount();
-}
-function paintAccount() {
-  $("account").textContent = me ? (me.handle || "no handle") : "Sign in";
-  $("compose").hidden = !me?.handle;
-  $("no-handle").hidden = !(me && !me.handle);
-  $("menu-handle").textContent = me?.handle || "Your account";
-  $("notify").checked = me?.prefs?.notifications !== false;
-}
-$("account").onclick = () => (me ? $("menu-sheet") : $("signin")).setAttribute("open", "");
-$("cancel-signin").onclick = () => $("signin").removeAttribute("open");
-$("close-menu").onclick = () => $("menu-sheet").removeAttribute("open");
-$("back-email").onclick = () => { $("step-code").hidden = true; $("step-email").hidden = false; };
-$("send-code").onclick = async () => {
-  $("signin-status").textContent = "";
-  try { await (await door()).sendCode($("email").value); track("signin:code-sent"); $("step-email").hidden = true; $("step-code").hidden = false; $("code").focus(); }
-  catch (e) { track("signin:send-failed", { code: e.code || "", why: e.message }); $("signin-status").textContent = e.hint || e.message || "Could not send the code"; }
-};
-$("verify").onclick = async () => {
-  $("signin-status").textContent = "";
-  try { await (await door()).verify($("email").value, $("code").value); track("signin:ok"); $("signin").removeAttribute("open"); await whoami(); }
-  catch (e) { track("signin:failed", { code: e.code || "", why: e.message }); console.warn("choir sign-in", e.code, e.message); $("signin-status").textContent = e.hint || e.message || "That code did not work"; }
-};
-$("signout").onclick = async () => { (await door()).forget(); me = null; paintAccount(); $("menu-sheet").removeAttribute("open"); };
-$("notify").onchange = async (e) => { try { me.prefs = (await api("?prefs=1", { method: "PUT", body: JSON.stringify({ notifications: e.target.checked }) })).prefs; } catch { e.target.checked = !e.target.checked; } };
-
-// --- tags
-async function loadTags() { tags = (await api("?tags=1")).tags; paintTagbar(); paintPicker(); }
-function chip(tag, count, on, onclick) {
-  const b = document.createElement("button");
-  b.className = "chip"; b.type = "button"; b.setAttribute("aria-pressed", String(on));
-  b.innerHTML = `#${tag}${count ? ` <small>${count}</small>` : ""}`;
-  b.onclick = onclick;
-  return b;
-}
-function paintTagbar() {
-  const bar = $("tagbar"); bar.replaceChildren();
-  const all = chip("all", 0, !view.tag, () => go({ tag: null })); all.textContent = "all"; bar.append(all);
-  for (const { tag, count } of tags) bar.append(chip(tag, count, view.tag === tag, () => go({ tag })));
-}
-function paintPicker() {
-  const pick = $("pick"); pick.replaceChildren();
-  for (const t of [...new Set([...tags.map((x) => x.tag), ...picked])]) {
-    pick.append(chip(t, 0, picked.has(t), () => { picked.has(t) ? picked.delete(t) : picked.add(t); paintPicker(); }));
-  }
-  const input = document.createElement("input");
-  input.placeholder = "+ new tag"; input.maxLength = 32;
-  input.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); const t = normalize(input.value); if (t) { picked.add(t); input.value = ""; paintPicker(); } } };
-  pick.append(input);
-  readyToPost();
-}
-const normalize = (s) => s.trim().toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32);
-function readyToPost() {
-  const words = $("text").value.trim().length > 0;
-  const reply = !!view.thread;
-  const enough = reply || picked.size >= MIN_TAGS;
-  $("send").disabled = !(words && enough);
-  const s = $("compose-status"); s.className = "status";
-  s.textContent = reply ? "Replying in this thread." : enough ? `${picked.size} tag${picked.size === 1 ? "" : "s"}.` : `Tag it at least ${MIN_TAGS} ways.`;
-}
-$("text").oninput = readyToPost;
-$("send").onclick = async () => {
-  const s = $("compose-status"); s.className = "status"; s.textContent = "Posting…"; $("send").disabled = true;
-  try {
-    await api("", { method: "POST", body: JSON.stringify({ text: $("text").value, tags: [...picked], replyTo: view.thread }) });
-    $("text").value = ""; if (!view.thread) picked.clear();
-    await Promise.all([refresh(), view.thread ? null : loadTags()]);
-    readyToPost();
-  } catch (e) { track("post:failed", { why: e.message }); s.className = "status bad"; s.textContent = e.message; $("send").disabled = false; }
-};
-
-// --- feed and threads
-function go(next) {
-  view = { tag: null, thread: null, ...next };
-  const u = new URL(location); u.search = "";
-  if (view.tag) u.searchParams.set("tag", view.tag);
-  if (view.thread) u.searchParams.set("thread", view.thread);
-  history.pushState(null, "", u);
-  paintTagbar(); $("pick").hidden = !!view.thread; readyToPost(); refresh();
-}
-addEventListener("popstate", () => { readView(); paintTagbar(); refresh(); });
-function readView() { const p = new URLSearchParams(location.search); view = { tag: p.get("tag"), thread: p.get("thread") }; $("pick").hidden = !!view.thread; }
-
-async function refresh() {
-  const feed = $("feed");
-  try {
-    if (view.thread) {
-      const { root, replies } = await api(`?thread=${view.thread}`);
-      feed.replaceChildren(back(), card(root, true), ...replies.map((p) => card(p, true)));
-    } else {
-      const { posts } = await api(view.tag ? `?tag=${encodeURIComponent(view.tag)}` : "");
-      feed.replaceChildren(...(posts.length ? posts.map((p) => card(p)) : [empty()]));
-    }
-  } catch (e) { feed.replaceChildren(Object.assign(document.createElement("p"), { className: "empty", textContent: e.message })); }
-}
-function back() { const a = document.createElement("a"); a.href = "./"; a.className = "back"; a.textContent = "← back to the room"; a.onclick = (e) => { e.preventDefault(); go({ tag: null }); }; return a; }
-function empty() { const p = document.createElement("p"); p.className = "empty"; p.textContent = view.tag ? `Nothing under #${view.tag} yet.` : "Quiet in here. Say the first thing."; return p; }
-
-function card(p, inThread = false) {
-  const el = document.createElement("article"); el.className = "card";
-  const when = new Date(p.when);
-  el.innerHTML = `<div class="meta"><b></b><time datetime="${p.when}" title="${when.toLocaleString()}">${ago(when)}</time></div>
-    <p class="text${p.deleted ? " gone" : ""}"></p><div class="foot"></div>`;
-  el.querySelector("b").textContent = p.handle;
-  const text = el.querySelector(".text");
-  if (p.deleted) text.textContent = "deleted"; else linkify(text, p.text);
-  if (p.links?.[0] && !p.deleted) preview(p.links[0]).then((n) => n && text.after(n));
-  const foot = el.querySelector(".foot");
-  if (!p.replyTo) for (const t of p.tags) foot.append(chip(t, 0, false, () => go({ tag: t })));
-  if (!p.replyTo && !inThread) {
-    const a = document.createElement("a"); a.className = "replies"; a.href = `?thread=${p.id}`;
-    a.textContent = p.replies ? `${p.replies} repl${p.replies === 1 ? "y" : "ies"}` : "reply";
-    a.onclick = (e) => { e.preventDefault(); go({ thread: p.id }); };
-    foot.append(a);
-  }
-  if (me?.handle === p.handle && !p.deleted) {
-    const d = document.createElement("button"); d.className = "chip"; d.textContent = "delete";
-    d.onclick = async () => { if (!d.dataset.sure) { d.dataset.sure = "1"; d.textContent = "really delete?"; return; } await api(`?id=${p.id}`, { method: "DELETE" }); refresh(); };
-    foot.append(d);
-  }
-  return el;
-}
-function linkify(node, text) {
-  const re = /https?:\/\/[^\s<>()"']+/g; let last = 0, m;
-  while ((m = re.exec(text))) {
-    node.append(text.slice(last, m.index));
-    const a = document.createElement("a"); a.href = m[0]; a.textContent = m[0].replace(/^https?:\/\/(www\.)?/, ""); a.target = "_blank"; a.rel = "noopener";
-    node.append(a); last = m.index + m[0].length;
-  }
-  node.append(text.slice(last));
-}
-const previews = new Map();
-async function preview(url) {
-  if (!previews.has(url)) previews.set(url, fetch(`${AC}/api/og-preview?url=${encodeURIComponent(url)}`).then((r) => r.json()).catch(() => null));
-  const d = await previews.get(url);
-  if (!d?.title || d.title === new URL(url).hostname) return null;
-  const a = document.createElement("a"); a.className = "preview"; a.href = url; a.target = "_blank"; a.rel = "noopener";
-  if (d.image) { const img = document.createElement("img"); img.src = d.image; img.alt = ""; img.loading = "lazy"; a.append(img); }
-  const box = document.createElement("div"); box.textContent = d.title;
-  const s = document.createElement("small"); s.textContent = d.siteName || new URL(url).hostname; box.append(s);
-  a.append(box); return a;
-}
-function ago(d) {
-  const s = (Date.now() - d) / 1000;
-  if (s < 60) return "now"; if (s < 3600) return `${Math.floor(s / 60)}m`; if (s < 86400) return `${Math.floor(s / 3600)}h`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-// --- boot
-track("open", { path: location.pathname + location.search, ref: document.referrer ? new URL(document.referrer).hostname : "" });
-readView();
-await Promise.all([whoami(), loadTags().catch(() => { tags = []; paintTagbar(); paintPicker(); })]);
-paintTagbar(); refresh();
-timer = setInterval(() => document.visibilityState === "visible" && refresh(), 15000); // Live sockets come later.
+const track = (name, props = {}) => fetch("/api/choir?event=1", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name, props, surface: "web" }) }).catch(() => {});
+track("pointer:open", { ref: document.referrer ? new URL(document.referrer).hostname : "" });
+document.getElementById("get").onclick = () => track("pointer:get-app");
+document.querySelector(".small a").onclick = () => track("pointer:web-room");
 </script>
 </body>
 </html>

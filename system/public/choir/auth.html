@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- choir sign-in bridge: the iOS app loads this invisibly and drives the
+     email-code flow through window.choir. Nothing renders. -->
+<meta charset="utf-8"><title>choir</title>
+<script type="module">
+import { otpSignIn } from "/aesthetic.computer/lib/auth0-otp.mjs";
+const otp = otpSignIn({ clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt", store: null });
+const fail = (e) => ({ error: e.hint || e.message || "Sign-in failed", code: e.code || "unknown" });
+window.choir = {
+  async send(email) { try { await otp.sendCode(email); return { ok: true }; } catch (e) { return fail(e); } },
+  async verify(email, code) {
+    try { const s = await otp.verify(email, code); return { access: s.access, refresh: s.refresh, expires: s.expires }; }
+    catch (e) { return fail(e); }
+  },
+};
+window.webkit?.messageHandlers?.choirReady?.postMessage(true);
+</script>

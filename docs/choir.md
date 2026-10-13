@@ -11,11 +11,15 @@ no uploads. Notifications are a per-account switch.
 | --- | --- |
 | store logic (pure, tested) | `system/backend/choir.mjs` + `choir.test.mjs` |
 | HTTP door | `system/netlify/functions/choir.mjs` → `/api/choir` |
-| web client | `system/public/choir/index.html` → `aesthetic.computer/choir/` |
+| iPhone app (the main way in) | `apple/choir` (SwiftUI, xcodegen, `fastlane ios …`) |
+| pointer page | `system/public/choir/index.html` → `aesthetic.computer/choir/` |
+| web room (fallback) | `system/public/choir/room/index.html` → `/choir/room/` |
+| app sign-in bridge | `system/public/choir/auth.html` (invisible web view) |
+| live trail | `system/backend/choir-events.mjs` → `choir-events`, read at `/api/choir?events=1` (admin) |
 | link previews | existing `/api/og-preview` |
 | sign-in | aesthetic tenant, passwordless, `lib/auth0-otp.mjs` (email + six digits) |
 
-Mongo collections: `choir-posts`, `choir-tags`, `choir-prefs`. Post ids are
+Mongo collections: `choir-posts`, `choir-tags`, `choir-prefs`, `choir-events`. Post ids are
 24-hex strings. A reply carries `replyTo` = the root's id and inherits its tags;
 the main chat lists roots only. Deleting blanks the words and keeps the row so
 threads keep their shape.
@@ -53,3 +57,34 @@ node --test system/backend/choir.test.mjs
 - Setting a handle from inside choir.
 - Moderation beyond the rate brake: blocking, reporting, admin delete.
 - The paid iOS shell.
+
+## Accounts
+
+An email-code sign-in is its own Auth0 account (`email|…`), apart from the
+password or social account that already holds someone's @handle. With the same
+verified email, choir posts as the handle-holding account
+(`handleBySharedEmail` in `system/backend/authorization.mjs`). Account deletion
+from the app deletes the account that signed in, not that sibling.
+
+## iPhone app
+
+Native SwiftUI. Sign-in UI is native; the email-code exchange runs in an
+invisible web view on `aesthetic.computer/choir/auth.html`, because Auth0 ends
+the flow in an iframe that must return to a registered origin. Refresh is a
+plain token call. Hide and Report live in each post's long-press menu.
+
+```
+cd apple/choir
+fastlane ios bundle                                  # done 2026-10-12
+FASTLANE_USER=<Apple ID> fastlane ios create         # once, needs 2FA
+fastlane ios build && fastlane ios upload
+fastlane ios distribute                              # makes "Choir Friends", submits beta review
+fastlane ios invite email:<email> name:<name>
+fastlane ios status
+```
+
+Watch the trail:
+
+```
+curl -s -H "Authorization: Bearer $AC_TOKEN" "https://aesthetic.computer/api/choir?events=1&limit=50"
+```

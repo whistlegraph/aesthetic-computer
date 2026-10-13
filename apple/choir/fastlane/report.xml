@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="fastlane.lanes">
+    
+    
+    
+      
+      <testcase classname="fastlane.lanes" name="0: xcodegen generate --spec /Users/jas/aesthetic-computer/apple/choir/project.yml --project /Users/jas/aesthetic-computer/apple/choir" time="0.063548">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="1: build_ios_app" time="26.781895">
+        
+      </testcase>
+    
+  </testsuite>
+</testsuites>
