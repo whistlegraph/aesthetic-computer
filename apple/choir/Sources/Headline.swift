@@ -31,8 +31,22 @@ struct HeadlineCard: View {
 
     var host: String { URL(string: link)?.host()?.replacingOccurrences(of: "www.", with: "") ?? link }
     var headline: String {
-        let t = meta?.title?.trimmingCharacters(in: .whitespaces) ?? ""
+        let t = Self.trim(meta?.title ?? "", site: meta?.siteName, host: host)
         return t.isEmpty || t == host ? (words.isEmpty ? host : words) : t
+    }
+
+    /// "Torkwase Dyson - Announcements - e-flux" → "Torkwase Dyson". Drops trailing
+    /// " - " / " | " pieces that name the site or a section of it.
+    static func trim(_ title: String, site: String?, host: String) -> String {
+        var parts = title.components(separatedBy: CharacterSet(charactersIn: "|")).flatMap { $0.components(separatedBy: " - ") }
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let names = [site, host, host.components(separatedBy: ".").first].compactMap { $0?.lowercased() }
+        let sections: Set<String> = ["announcements", "criticism", "notes", "news", "reviews", "features", "opinion", "magazine"]
+        while parts.count > 1, let last = parts.last?.lowercased(),
+              names.contains(where: { last.contains($0) || $0.contains(last) }) || sections.contains(last) || last.hasPrefix("journal #") {
+            parts.removeLast()
+        }
+        return parts.joined(separator: " - ")
     }
 
     var body: some View {
