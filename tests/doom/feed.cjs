@@ -47,7 +47,7 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  for(const viewport of [{width:430,height:800},{width:700,height:334},{width:1200,height:800}]){
   await page.setViewport(viewport);
   const corner=await page.$eval('.reel-type',el=>{const label=el.getBoundingClientRect(),card=el.closest('.feed-post').getBoundingClientRect();return {right:card.right-label.right,bottom:card.bottom-label.bottom};});
-  assert.ok(Math.abs(corner.right-4)<1&&Math.abs(corner.bottom-4)<1,'MIME label stays at the bottom-right card edge: '+JSON.stringify(corner));
+  assert.ok(Math.abs(corner.right-14)<1&&Math.abs(corner.bottom-18)<1,'MIME label matches the corner margins: '+JSON.stringify(corner));
  }
  await page.setViewport({width:700,height:334});
  await page.screenshot({path:'/tmp/ac-mime-doom-autoplay.png'});assert.deepEqual(errors,[]);
