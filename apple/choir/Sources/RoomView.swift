@@ -157,9 +157,9 @@ struct ChatRow: View {
                     }
                 }
             }
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(mine ? Color(red: 0.86, green: 0.91, blue: 1.0) : Theme.paper, in: RoundedRectangle(cornerRadius: 14))
-            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+            .padding(.horizontal, mediaOnly ? 0 : 12).padding(.vertical, mediaOnly ? 0 : 9)
+            .background(mediaOnly ? Color.clear : (mine ? Color(red: 0.86, green: 0.91, blue: 1.0) : Theme.paper), in: RoundedRectangle(cornerRadius: 14))
+            .shadow(color: .black.opacity(mediaOnly ? 0.12 : 0.06), radius: mediaOnly ? 6 : 4, y: 2)
             .frame(maxWidth: 320, alignment: mine ? .trailing : .leading)
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
@@ -177,6 +177,12 @@ struct ChatRow: View {
                 Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); await room.load() }
             }
         }
+    }
+
+    /// Just pictures, no words or links: the photos are the bubble.
+    var mediaOnly: Bool {
+        guard let files = post.attachments, !files.isEmpty else { return false }
+        return files.allSatisfy(\.isImage) && post.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !post.deleted
     }
 
     var shownText: String {
