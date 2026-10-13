@@ -147,9 +147,10 @@ struct RoomView: View {
     }
 }
 
-/// The first thing shown: the mark singing while the room loads. Before this
-/// the chat opened onto an empty, bottom-anchored page and jumped when the
-/// posts arrived (Fía, 10-13: "the opening sequence seems glitchy").
+/// The first thing shown: the flower breathing where the launch screen left
+/// it, while the room loads. Before this the chat opened onto an empty,
+/// bottom-anchored page and jumped when the posts arrived (Fía, 10-13: "the
+/// opening sequence seems glitchy").
 struct Opening: View {
     @State private var shown = false
     var body: some View {

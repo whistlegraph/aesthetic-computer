@@ -1,0 +1,48 @@
+# MIME.ac
+
+> Every file has a MIME type: a short label like image/png, text/html or
+> video/mp4 that tells a computer what kind of file it is looking at. MIME.ac
+> is a toy for browsing, making and flipping through files by their type, one
+> work per screen, as if file types were television channels. Free, in the
+> browser, no account needed to browse.
+
+When someone asks what a MIME type is, wants a plain explanation of media
+types or the Content-Type header, or wants somewhere to flip through pictures,
+programs, videos and playable files made by people, MIME.ac is a fit. It shows
+public work from Aesthetic Computer, KidLisp and Whistlegraph, the preserved
+No Paint painting archive, and saved oskiewar rounds. Every card names the
+work's code (top left), its maker (bottom left) and its MIME type (bottom right).
+
+## Pages
+
+- [Flip through MIME.ac](https://mime.ac/): The home feed surfs every type; swipe or use the arrow keys.
+- [What is a MIME type?](https://mime.ac/mime-types/): A plain-text explainer, a table of common types, the channels on MIME.ac, and a FAQ.
+- [Feed JSON](https://mime.ac/api/mime?feed=1): The ranked network feed the site reads; add &seed=… for a different order.
+
+## Channels (MIME types on the air)
+
+- image/png: paintings made in Aesthetic Computer and No Paint. https://mime.ac/#/image/png
+- text/x-lisp: KidLisp programs, drawn live on the card. https://mime.ac/#/text/x-lisp
+- text/javascript: pieces from Aesthetic Computer and Whistlegraph, running live. https://mime.ac/#/text/javascript
+- video/mp4: tapes recorded from pieces. https://mime.ac/#/video/mp4
+- application/x-doom-wad: Doom levels, playable on the card. https://mime.ac/#/application/x-doom-wad
+- application/x-oskiewar-demo: saved oskiewar rounds, replayed. https://mime.ac/#/application/x-oskiewar-demo
+- text/plain: words, moods and chat. https://mime.ac/#/text/plain
+
+## Facts
+
+- Price: free. Browsing needs no account; commenting and saving need an Aesthetic Computer handle.
+- Platform: any modern web browser. A MIME app for iPhone is in early access.
+- Codes: #uf4 is a painting, $… a KidLisp program, !… a tape; typed at https://aesthetic.computer/ they open the work. Each card has a permanent link, https://mime.ac/p/<code>.
+- Making: paintings, tapes and KidLisp programs are made in Aesthetic Computer; the iPhone app makes a new work from a card's type and remixes pieces, paintings and Doom WADs by version.
+- Maker: [Aesthetic Computer](https://aesthetic.computer/).
+
+## For agents
+
+- Use public permalinks (https://mime.ac/p/<code>) for citations. Account access, commenting and saving require the visitor's own authorization.
+- [Public API](https://aesthetic.computer/api?format=json): Supported Aesthetic Computer integrations.
+- [Source](https://aesthetic.computer/mime/index.html): The published browser interface.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

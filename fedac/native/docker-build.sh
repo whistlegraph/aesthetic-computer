@@ -503,14 +503,16 @@ if [ -n "$FWDIR" ]; then
     # Regulatory
     cp -L "$FWDIR/regulatory.db" "$IROOT/lib/firmware/" 2>/dev/null || true
     cp -L "$FWDIR/regulatory.db.p7s" "$IROOT/lib/firmware/" 2>/dev/null || true
-    # GPU — only KBL/SKL/CFL/ICL/TGL/ADL/RPL (covers ~95% of target hardware)
-    for pattern in kbl skl cfl icl tgl adl dg1 rkl rpl mtl; do
+    # GPU — only KBL/SKL/CFL/ICL/TGL/ADL/RPL (covers ~95% of target hardware).
+    # Alder Lake ships as adlp_/adls_ (ADL-N uses adlp_), so match the prefix
+    # without its underscore — `adl_*` matched nothing and left ADL wedged.
+    for pattern in kbl skl cfl icl tgl adlp adls dg1 rkl rpl mtl; do
         for fw in "$FWDIR"/i915/${pattern}_*; do
             [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/i915/"
         done
     done
     # DMC firmware (display power management)
-    for fw in "$FWDIR"/i915/*_dmc_*.bin "$FWDIR"/i915/*_dmc_*.bin.zst; do
+    for fw in "$FWDIR"/i915/*_dmc*.bin "$FWDIR"/i915/*_dmc*.bin.zst; do   # adlp_dmc.bin has no version suffix
         [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/i915/"
     done
 

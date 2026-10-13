@@ -451,18 +451,28 @@
     },
     {
       "url": "https://mime.ac/",
-      "title": "MIME",
-      "summary": "Comments on Aesthetic Computer media: paintings, tapes, pieces and their creators.",
+      "title": "MIME.ac",
+      "summary": "Every file has a MIME type. A toy for browsing, making and flipping through them all, one work per screen, as if file types were TV channels.",
       "llms": "https://mime.ac/llms.txt",
       "aliases": [
         "www.mime.ac"
       ],
-      "note": "Use public media permalinks for citations. Account access and posting require the visitor's own authorization.",
+      "note": "Use public permalinks (https://mime.ac/p/<code>) for citations. Account access, commenting and saving require the visitor's own authorization.",
       "resources": [
         {
           "title": "Website",
           "url": "https://mime.ac/",
           "description": "Public entry point."
+        },
+        {
+          "title": "What is a MIME type",
+          "url": "https://mime.ac/mime-types/",
+          "description": "Plain-text explainer, common types, the channels on MIME.ac, FAQ."
+        },
+        {
+          "title": "Feed JSON",
+          "url": "https://mime.ac/api/mime?feed=1",
+          "description": "The ranked network feed the site and app read."
         },
         {
           "title": "Public API",

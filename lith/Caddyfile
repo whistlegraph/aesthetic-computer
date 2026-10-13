@@ -26,7 +26,7 @@
         ~(?i)^learn[.]kidlisp[.]com$ machine/learn.kidlisp.com.txt
         ~(?i)^menuband[.]app$ machine/menuband.app.txt
         ~(?i)^midi[.]oskiewar[.]com$ oskiewar.com/llms.txt
-        ~(?i)^mime[.]ac$ machine/mime.ac.txt
+        ~(?i)^mime[.]ac$ mime/llms.txt
         ~(?i)^nela[.]aesthetic[.]computer$ machine/nela.aesthetic.computer.txt
         ~(?i)^news[.]aesthetic[.]computer$ machine/news.aesthetic.computer.txt
         ~(?i)^nft[.]aesthetic[.]computer$ machine/nft.aesthetic.computer.txt
@@ -60,7 +60,7 @@
         ~(?i)^www[.]kidlisp[.]com$ machine/kidlisp.com.txt
         ~(?i)^www[.]laklok[.]com$ machine/laklok.com.txt
         ~(?i)^www[.]menuband[.]app$ machine/menuband.app.txt
-        ~(?i)^www[.]mime[.]ac$ machine/mime.ac.txt
+        ~(?i)^www[.]mime[.]ac$ mime/llms.txt
         ~(?i)^www[.]nopaint[.]art$ machine/nopaint.art.txt
         ~(?i)^www[.]notepat[.]com$ machine/notepat.com.txt
         ~(?i)^www[.]oskiewar[.]com$ oskiewar.com/llms.txt
@@ -1483,6 +1483,21 @@ mime.ac {
     handle @mime_brand {
         root * /opt/ac/system/public/mime
         header Cache-Control "public, max-age=86400"
+        file_server
+    }
+    # Search: the crawlable guide, plus robots and sitemap for this host (the
+    # catch-all proxy would otherwise answer with aesthetic.computer's).
+    @mime_guide path /mime-types /mime-types/
+    handle @mime_guide {
+        root * /opt/ac/system/public/mime
+        rewrite * /mime-types/index.html
+        header Cache-Control "no-cache"
+        file_server
+    }
+    @mime_crawl path /robots.txt /sitemap.xml
+    handle @mime_crawl {
+        root * /opt/ac/system/public/mime
+        header Cache-Control "public, max-age=3600"
         file_server
     }
     handle /mime {

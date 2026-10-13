@@ -48,7 +48,7 @@ try {
     svg { width: 790px; height: 272px; overflow: visible; }
     sup { font: 66px/1 ywft; color: #7de3d7; margin: 12px 0 0 0; }
     p { margin: 32px 0 0; font: 28px/1.5 mono; color: #eee5f4; }
-  </style></head><body><main><div class="brand">${logo}<sup>.ac</sup></div><p>Comments on Aesthetic Computer media.</p></main></body></html>`);
+  </style></head><body><main><div class="brand">${logo}<sup>.ac</sup></div><p>Every file has a type. Flip through them all.</p></main></body></html>`);
   await page.evaluate(() => document.fonts.ready);
   await mkdir(new URL("social/", root), { recursive: true });
   await page.screenshot({ path: fileURLToPath(new URL("social/mime.jpg", root)), type: "jpeg", quality: 94 });

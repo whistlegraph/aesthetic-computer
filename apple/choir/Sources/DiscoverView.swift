@@ -6,7 +6,9 @@ struct DiscoverView: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var phase
     @State private var news: [Post] = []
+    @State private var fetched = Date.distantPast
     @State private var error: String?
     @State private var open: Post?
     @State private var detent: PresentationDetent = .medium
@@ -60,10 +62,18 @@ struct DiscoverView: View {
                     .onAppear { detent = .medium }
                     .presentationBackground(.regularMaterial)
             }
-            .task {
-                Trail.send("discover:open")
-                do { news = try await API.news() } catch { self.error = error.localizedDescription }
+            .task { Trail.send("discover:open"); await load() }
+            // Morning coffee: left open overnight, the slate reloads when the
+            // phone wakes up to it (Fía, 10-13). Pull down to refresh any time.
+            .onChange(of: phase) { _, p in
+                if p == .active, fetched.timeIntervalSinceNow < -300 { Task { await load() } }
             }
+            .refreshable { await load() }
         }
+    }
+
+    func load() async {
+        do { news = try await API.news(); error = nil; fetched = Date() }
+        catch { if news.isEmpty { self.error = error.localizedDescription } }
     }
 }
