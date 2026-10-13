@@ -682,3 +682,24 @@ async function getAccessToken(got, tenant = "aesthetic") {
 
   return token;
 }
+
+// Passwordless email sign-in makes its own `email|…` account, apart from the
+// password or social account that already holds a person's @handle. Same
+// tenant, same verified email: find the sibling that owns the handle.
+// Returns { sub, handle } or null. Both accounts must have a verified email.
+export async function handleBySharedEmail(user, database) {
+  if (!user?.email || !user.email_verified) return null;
+  const { got } = await import("got");
+  const token = await getAccessToken(got);
+  const siblings = (await got(`${aestheticBaseURI}/api/v2/users-by-email`, {
+    searchParams: { email: user.email, fields: "user_id,email_verified", include_fields: true },
+    headers: { Authorization: `Bearer ${token}` }, responseType: "json",
+  })).body;
+  const handles = database.db.collection("@handles");
+  for (const s of siblings) {
+    if (s.user_id === user.sub || !s.email_verified) continue;
+    const row = await handles.findOne({ _id: s.user_id });
+    if (row?.handle) return { sub: s.user_id, handle: row.handle };
+  }
+  return null;
+}
