@@ -184,6 +184,23 @@ build_slice() {
     printf '%s' "${out}"
 }
 
+if [[ -n "${MENUBAND_PREBUILT_DIR:-}" ]]; then
+    # A compute Mac can supply its SwiftPM products when this seat lacks
+    # build headroom. Signing and the atomic installation still happen here.
+    PRODUCTS_DIR="${MENUBAND_PREBUILT_DIR}"
+    BUILT="${PRODUCTS_DIR}/MenuBand"
+    BUILT_LAUNCHER="${PRODUCTS_DIR}/MenuBandLauncher"
+    for product in "${BUILT}" "${BUILT_LAUNCHER}"; do
+        [[ -x "${product}" ]] || { echo "Missing prebuilt executable: ${product}" >&2; exit 1; }
+        [[ "$(lipo -archs "${product}")" == *"$(uname -m)"* ]] || {
+            echo "Prebuilt executable cannot run on $(uname -m): ${product}" >&2; exit 1;
+        }
+    done
+    [[ -d "${PRODUCTS_DIR}/MenuBand_MenuBand.bundle" ]] || {
+        echo "Missing prebuilt MenuBand resource bundle" >&2; exit 1;
+    }
+    ok "using prebuilt products (no local compile): ${PRODUCTS_DIR}"
+else
 say "building MenuBand arm64 slice"
 ARM_BIN="$(build_slice "${ARM_TRIPLE}" arm64 MenuBand)"
 
@@ -219,6 +236,7 @@ say "lipo'ing launcher slices"
 BUILT_LAUNCHER="${SCRIPT_DIR}/.build/universal/MenuBandLauncher"
 lipo -create -output "${BUILT_LAUNCHER}" "${ARM_LAUNCHER}" "${X86_LAUNCHER}"
 ok "built universal launcher: ${BUILT_LAUNCHER}"
+fi
 
 # NOTE: we deliberately do NOT unload the launch agents here. A launchctl
 # unload/load (or bootout/bootstrap) cycle re-registers the background item,
@@ -342,7 +360,12 @@ fi
 # renders the animated graphic score. Signed below (inner-to-outer) and thus
 # covered by the notarized outer seal. Skipped gracefully on CLT-only machines.
 QL_DIR="${SCRIPT_DIR}/quicklook"
-if [[ -d "${QL_DIR}" ]] && command -v xcodegen >/dev/null 2>&1 && xcodebuild -version >/dev/null 2>&1; then
+if [[ -n "${MENUBAND_PREBUILT_DIR:-}" ]]; then
+    if [[ -d "${INSTALLED_APP_DIR}/Contents/PlugIns" ]]; then
+        cp -R "${INSTALLED_APP_DIR}/Contents/PlugIns" "${APP_DIR}/Contents/"
+        ok "preserved installed QuickLook extensions (no local compile)"
+    fi
+elif [[ -d "${QL_DIR}" ]] && command -v xcodegen >/dev/null 2>&1 && xcodebuild -version >/dev/null 2>&1; then
     say "building QuickLook extension"
     if ( cd "${QL_DIR}" \
          && xcodegen generate >/dev/null 2>&1 \

@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T01:55:22.613Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/gens/liquid-glass.png",
+  "promptPath": null,
+  "promptHash": "66c6819aef3764094869f7feda80efd9ca0b086d54152d5431782186c21388da",
+  "references": [
+    "/Users/jas/aesthetic-computer/marketing/choir/refs/fia-half-daisy.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 176.049,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1393,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 369
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 8417
+  }
+}

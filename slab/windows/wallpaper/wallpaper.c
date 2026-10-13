@@ -35,6 +35,16 @@
 
 typedef struct { uint8_t r, g, b; } RGB8;
 static const RGB8 LAVENDER = { 200, 160, 255 };
+static const RGB8 VIOLET_INK = { 118, 74, 206 };   // the mark on the light ground
+static int g_light = 0;                            // Windows light theme (SystemUsesLightTheme)
+
+static void read_theme(void) {
+    HKEY k; DWORD v = 0, size = sizeof v, type; g_light = 0;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0, KEY_READ, &k) == ERROR_SUCCESS) {
+        if (RegQueryValueExW(k, L"SystemUsesLightTheme", NULL, &type, (BYTE *)&v, &size) == ERROR_SUCCESS && type == REG_DWORD) g_light = v != 0;
+        RegCloseKey(k);
+    }
+}
 static const double MARK_ALPHA = 0.55;
 static const double MARK_WIDTH_PT = 110;     // Mac points; × DPI scale
 static const double MARK_CX = 0.86, MARK_CY = 0.80;   // fraction of the screen
@@ -66,19 +76,49 @@ static void wp_log(const wchar_t *fmt, ...) {
 }
 
 // ─────────────────────── background ──────────────────────────────
-static void draw_gradient(uint32_t *dst) {
-    const double top[3] = { 0.045, 0.09, 0.16 }, bot[3] = { 0.12, 0.07, 0.19 };
+// The slab gradient. Dark: night blue to plum with a violet glow low in the
+// middle. Light: the same shape in daylight — paper white to pale lilac.
+static void draw_gradient_as(uint32_t *dst, int light) {
+    const double topD[3] = { 0.045, 0.09, 0.16 }, botD[3] = { 0.12, 0.07, 0.19 }, glowD[3] = { 120 / 255.0, 60 / 255.0, 190 / 255.0 };
+    const double topL[3] = { 0.968, 0.962, 0.985 }, botL[3] = { 0.930, 0.910, 0.968 }, glowL[3] = { 206 / 255.0, 176 / 255.0, 246 / 255.0 };
+    const double *top = light ? topL : topD, *bot = light ? botL : botD, *glow = light ? glowL : glowD;
+    const double glowA = (light ? 110.0 : 70.0) / 255.0;
     const double gcx = 0.5 * g_w, gcy = 0.95 * g_h, grx = 0.42 * g_w, gry = 0.49 * g_h;
     for (int y = 0; y < g_h; y++) {
         double t = (double)y / (g_h > 1 ? g_h - 1 : 1);
         double r0 = top[0] + (bot[0] - top[0]) * t, g0 = top[1] + (bot[1] - top[1]) * t, b0 = top[2] + (bot[2] - top[2]) * t;
         for (int x = 0; x < g_w; x++) {
             double dx = (x - gcx) / grx, dy = (y - gcy) / gry, d = dx * dx + dy * dy;
-            double a = d >= 1.0 ? 0.0 : (70.0 / 255.0) * (1.0 - d) * (1.0 - d);
-            double r = r0 * (1 - a) + (120 / 255.0) * a, g = g0 * (1 - a) + (60 / 255.0) * a, b = b0 * (1 - a) + (190 / 255.0) * a;
+            double a = d >= 1.0 ? 0.0 : glowA * (1.0 - d) * (1.0 - d);
+            double r = r0 * (1 - a) + glow[0] * a, g = g0 * (1 - a) + glow[1] * a, b = b0 * (1 - a) + glow[2] * a;
             dst[y * g_w + x] = 0xFF000000u | ((uint32_t)(r * 255 + 0.5) << 16) | ((uint32_t)(g * 255 + 0.5) << 8) | (uint32_t)(b * 255 + 0.5);
         }
     }
+}
+
+static void draw_gradient(uint32_t *dst) { draw_gradient_as(dst, g_light); }
+
+// Daylight: the composition is the dark gradient plus the pals' outlines, so
+// subtracting the gradient recovers the ink. Lay that ink, deepened, onto the
+// light gradient — same pals, same places, dark lines on paper.
+static void lighten_composition(void) {
+    size_t n = (size_t)g_w * g_h;
+    uint32_t *dark = (uint32_t *)malloc(n * 4), *light = (uint32_t *)malloc(n * 4);
+    if (!dark || !light) { free(dark); free(light); return; }
+    draw_gradient_as(dark, 0); draw_gradient_as(light, 1);
+    for (size_t i = 0; i < n; i++) {
+        uint32_t p = g_bg[i], d = dark[i], l = light[i];
+        int pr = (p >> 16) & 0xFF, pg = (p >> 8) & 0xFF, pb = p & 0xFF;
+        int dr = pr - (int)((d >> 16) & 0xFF), dg = pg - (int)((d >> 8) & 0xFF), db = pb - (int)(d & 0xFF);
+        int dev = dr > dg ? dr : dg; if (db > dev) dev = db; dev -= 6;
+        if (dev <= 0) { g_bg[i] = l; continue; }
+        double a = dev / 100.0; if (a > 1) a = 1;
+        double ir = pr * 0.62, ig = pg * 0.62, ib = pb * 0.62;               // deepen the ink for paper
+        double lr = (l >> 16) & 0xFF, lg = (l >> 8) & 0xFF, lb = l & 0xFF;
+        g_bg[i] = 0xFF000000u | ((uint32_t)(lr + (ir - lr) * a) << 16) | ((uint32_t)(lg + (ig - lg) * a) << 8) | (uint32_t)(lb + (ib - lb) * a);
+    }
+    free(dark); free(light);
+    wp_log(L"composition: lightened for the light theme");
 }
 
 // ~\Pictures\ac-wallpaper.bmp stretched to the screen; the gradient if absent.
@@ -109,7 +149,9 @@ static void ensure_surface(void) {
     g_dib = CreateDIBSection(g_memDC, &bi, DIB_RGB_COLORS, (void **)&g_fb, NULL, 0);
     SelectObject(g_memDC, g_dib);
     free(g_bg); g_bg = (uint32_t *)malloc((size_t)g_w * g_h * 4);
+    read_theme();
     if (!load_composition()) draw_gradient(g_bg);
+    else if (g_light) lighten_composition();
     memcpy(g_fb, g_bg, (size_t)g_w * g_h * 4);
     g_markBox.left = g_markBox.right = 0;
 }
@@ -140,7 +182,8 @@ static RECT draw_mark(double cx, double cy, double width, double angle) {
     // Sprite-space steps per destination pixel, 16.16.
     int32_t du = (int32_t)(c * inv * 65536.0), dv = (int32_t)(-sn * inv * 65536.0);
     const int wgt = (int)(MARK_ALPHA * 256 + 0.5);                 // 141: the mark's 55 %
-    const int tr = LAVENDER.r, tg = LAVENDER.g, tb = LAVENDER.b;
+    const RGB8 ink = g_light ? VIOLET_INK : LAVENDER;
+    const int tr = ink.r, tg = ink.g, tb = ink.b;
     // Valid sampling window in padded coordinates: iu in [0, PW-2], iv in [0, PH-2].
     const int32_t uMin = 0, uMax = (PW - 2) << 16, vMin = 0, vMax = (PH - 2) << 16;
     for (int y = y0; y < y1; y++) {
@@ -318,6 +361,9 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             g_paused = g_locked || g_displayOff || fullscreen_app_in_front();
             choose_fps(hwnd);
             if (!g_float && (!g_parent || !IsWindow(g_parent))) { measure(); attach(); }   // Explorer restarted
+            // As a child of Progman this window never sees the ImmersiveColorSet
+            // broadcast (those reach top-level windows only), so the watch polls.
+            { int was = g_light; read_theme(); if (was != g_light) { wp_log(L"theme -> %s", g_light ? L"light" : L"dark"); ensure_surface(); InvalidateRect(hwnd, NULL, FALSE); } }
             return 0;
         }
         return 0;
@@ -332,6 +378,13 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         if (wp == PBT_APMPOWERSTATUSCHANGE) choose_fps(hwnd);
         return TRUE;
+    case WM_SETTINGCHANGE:
+        // Light/dark flips arrive as ImmersiveColorSet: rebuild the ground.
+        if (lp && !wcscmp((const wchar_t *)lp, L"ImmersiveColorSet")) {
+            int was = g_light; read_theme();
+            if (was != g_light) { wp_log(L"theme -> %s", g_light ? L"light" : L"dark"); ensure_surface(); InvalidateRect(hwnd, NULL, FALSE); }
+        }
+        return 0;
     case WM_DISPLAYCHANGE:
     case WM_DPICHANGED:
         measure(); ensure_surface(); attach();

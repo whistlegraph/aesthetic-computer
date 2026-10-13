@@ -20,3 +20,9 @@ Register the machine in `~/.config/slab/puppet.json` with an `sshHost`.
 Windows PowerShell 5.1 only; it is the one with WinRT.
 
 Timings on a MiniBook X: ~0.7 s warm (OCR dominates), ~4 s cold.
+
+`touchpad-sensitivity.ps1` reports the current Precision Touchpad sensitivity
+on Windows 11 24H2+. Run it in the signed-in desktop session with `-Apply` to
+choose Most sensitive so keyboard activity does not suppress pointer input.
+It saves the previous sensitivity under `%LOCALAPPDATA%\Slab`; `-Restore`
+restores it. From SSH, use the `ac-desk` queue to run in that desktop session.

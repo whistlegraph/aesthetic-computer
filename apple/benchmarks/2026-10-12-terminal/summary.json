@@ -1,0 +1,101 @@
+{
+  "windowSize": [
+    348,
+    279
+  ],
+  "apps": {
+    "Aesthetic Computer": {
+      "runs": 3,
+      "all": {
+        "n": 180,
+        "medianMs": 48.28,
+        "p95Ms": 65.86,
+        "minMs": 22.71,
+        "maxMs": 76.22
+      },
+      "insert": {
+        "n": 90,
+        "medianMs": 46.93,
+        "p95Ms": 66.52,
+        "minMs": 22.71,
+        "maxMs": 76.22
+      },
+      "delete": {
+        "n": 90,
+        "medianMs": 49.29,
+        "p95Ms": 64.41,
+        "minMs": 25.83,
+        "maxMs": 67.36
+      },
+      "captureFrameIntervals": {
+        "n": 1905,
+        "medianMs": 33.92,
+        "p95Ms": 36.61,
+        "minMs": 31.15,
+        "maxMs": 221.43
+      },
+      "perRunMedianMs": [
+        47.64,
+        50.2,
+        47.75
+      ]
+    },
+    "Terminal": {
+      "runs": 3,
+      "all": {
+        "n": 180,
+        "medianMs": 39.58,
+        "p95Ms": 68.38,
+        "minMs": 10.22,
+        "maxMs": 90.36
+      },
+      "insert": {
+        "n": 90,
+        "medianMs": 42.34,
+        "p95Ms": 64.56,
+        "minMs": 10.22,
+        "maxMs": 83.44
+      },
+      "delete": {
+        "n": 90,
+        "medianMs": 35.47,
+        "p95Ms": 73.67,
+        "minMs": 14.47,
+        "maxMs": 90.36
+      },
+      "captureFrameIntervals": {
+        "n": 1880,
+        "medianMs": 33.91,
+        "p95Ms": 36.31,
+        "minMs": 31.29,
+        "maxMs": 42.84
+      },
+      "perRunMedianMs": [
+        35.75,
+        40.63,
+        44.28
+      ]
+    }
+  },
+  "measurement": "CGEvent.postToPid to SCStreamFrameInfo.displayTime of first matching glyph frame; excludes hardware keyboard and panel scanout",
+  "environment": {
+    "chip": "Apple A18 Pro",
+    "macOS": "27.0.1 (26A434)",
+    "runtimeCommit": "6240a5e36d",
+    "terminalShell": "/bin/zsh -f, clean environment",
+    "order": [
+      "ac-1",
+      "terminal-1",
+      "terminal-2",
+      "ac-2",
+      "ac-3",
+      "terminal-3"
+    ]
+  },
+  "limitations": [
+    "Capture cadence approximately 34 ms; small median differences are approximate.",
+    "Warm focused prompts, alternating a/Backspace, 130\u2013270 ms jitter before each event; not a held-key or first-focus test.",
+    "This is native event injection to a captured WindowServer glyph frame, not physical key-to-photon latency.",
+    "Typing glyph masks exclude new cursor cells and autocomplete; all 360 events matched."
+  ]
+}

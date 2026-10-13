@@ -16,7 +16,7 @@ New-Item -ItemType Directory -Force build | Out-Null
 Get-Process SlabWallpaper -ErrorAction SilentlyContinue | Stop-Process -Force
 $cmd = "call `"$vcvars`" >nul && cl /nologo /O2 /W3 /std:c17 " +
        "/Fo:build\ /Fe:build\SlabWallpaper.exe wallpaper.c " +
-       "/link /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup /MANIFEST:EMBED /MANIFESTINPUT:app.manifest user32.lib gdi32.lib shell32.lib wtsapi32.lib shcore.lib"
+       "/link /SUBSYSTEM:WINDOWS /ENTRY:wWinMainCRTStartup /MANIFEST:EMBED /MANIFESTINPUT:app.manifest user32.lib gdi32.lib shell32.lib wtsapi32.lib shcore.lib advapi32.lib"
 cmd /c $cmd
 if ($LASTEXITCODE -ne 0) { throw "build failed ($LASTEXITCODE)" }
 Write-Host "built build\SlabWallpaper.exe"

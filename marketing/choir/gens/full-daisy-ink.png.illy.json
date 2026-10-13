@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T01:54:54.232Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/gens/full-daisy-ink.png",
+  "promptPath": null,
+  "promptHash": "e8335b3e3e946fb5c56946f418c91c76414e823828c35a429709abff87b3b480",
+  "references": [
+    "/Users/jas/aesthetic-computer/marketing/choir/refs/fia-half-daisy.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 87.305,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1395,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 371
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 8419
+  }
+}

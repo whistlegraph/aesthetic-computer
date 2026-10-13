@@ -368,6 +368,16 @@ enum AXTiler {
         return best.0
     }
 
+    /// Window Server geometry avoids AX round trips during a mouse gesture.
+    static func visibleFrames() -> [CGWindowID: CGRect] {
+        Dictionary(liveWindowList().map { ($0.id, $0.frame) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    static func windowAt(_ point: CGPoint) -> (id: CGWindowID, frame: CGRect)? {
+        guard let window = liveWindowList().first(where: { $0.frame.contains(point) }) else { return nil }
+        return (window.id, window.frame)
+    }
+
     private static func liveWindowList() -> [LiveWindow] {
         // The tiler owns only the active Space. `optionAll` also returns
         // off-Space and closing Terminal surfaces; intersecting AX against

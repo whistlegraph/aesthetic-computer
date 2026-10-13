@@ -50,6 +50,33 @@ scheduling. Measurements cover DOM keydown through canvas submission and the
 next RAF opportunity, not physical keyboard or display latency. Normal app
 sessions do not enable the probe or record keystrokes.
 
+For a comparison with Terminal.app, build the external capture probe:
+
+```sh
+xcrun swiftc -O -parse-as-library apple/scripts/compare-terminal-latency.swift -o /tmp/ac-visible-latency
+# Use dedicated EMPTY test prompts; PID and WindowServer ID must both match.
+# ROI is x,y,width,height in the captured image, covering only the first glyph.
+/tmp/ac-visible-latency PID WINDOW_ID /tmp/capture-preview 0
+/tmp/ac-visible-latency PID WINDOW_ID /tmp/capture-run 60 X,Y,WIDTH,HEIGHT
+python3 apple/scripts/summarize-terminal-latency.py /tmp/ac-*/result.json /tmp/terminal-*/result.json
+```
+
+The capture probe injects only `a` and Backspace, checks window focus before
+measured keys, and detects a calibrated glyph mask in ScreenCaptureKit frames.
+Inspect `empty.png`, `typed.png`, and `mask.png` before trusting a run. Use the
+same window dimensions, alternate app order, and aggregate repeated runs.
+This endpoint is WindowServer's captured frame time, including native event
+delivery and composition. It excludes physical keyboard and panel latency and
+must not be compared directly with the DOM-to-canvas timings above. Capture
+cadence limits the measurement's resolution. The tool requires existing
+Accessibility and Screen Recording access and never requests it automatically.
+
+The [2026-10-12 comparison](benchmarks/2026-10-12-terminal/summary.json)
+recorded all 360 events across three runs per app at 348 × 279. Typing medians
+were AC 47 ms / Terminal 42 ms; Backspace medians were 49 / 35 ms. Capture
+cadence was about 34 ms, so treat small differences as approximate. Terminal
+used a clean `zsh -f` prompt. Raw samples accompany the summary.
+
 ## 1.1 (4) — 2026-09-11 (in progress)
 
 Builds 1.1 (2) and 1.1 (3) were uploaded in April and May but never attached

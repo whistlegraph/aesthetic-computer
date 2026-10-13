@@ -96,6 +96,21 @@
       "index": 1,
       "slot": 265,
       "segment": "code"
+    },
+    {
+      "mediaId": "18092558246680372",
+      "containerId": "18051111377809746",
+      "publishedAt": "2026-10-12T21:12:16.234Z",
+      "permalink": "https://www.instagram.com/reel/DeaKzyGCkEv/",
+      "caption": "@laerklokken",
+      "source": "marketing/klokkentales/out/reels/fiktive-planeter-2026-10/fiktive-planeter-2026-10-post-chrome.mp4",
+      "audioName": "laklok.com",
+      "collaborators": null,
+      "trial": "MANUAL",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-10-12/21-10-50/fiktive-planeter-2026-10-post-chrome.mp4"
+      },
+      "insights": null
     }
   ]
 }

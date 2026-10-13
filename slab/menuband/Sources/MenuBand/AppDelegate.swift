@@ -642,6 +642,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         guard self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive
+            || (keyCode == 48 && self.pianoWaveformWindowDelegate.isKeyboardFocused)
         else { return false }
 
         let slashAction = Self.trackDrumSlashAction(
@@ -1277,6 +1278,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pianoWaveformWindowDelegate.onFocusRelease = { [weak self] in
             debugLog("focus exit via piano window release")
             self?.exitPerformanceFocusFromEscape()
+        }
+        pianoWaveformWindowDelegate.onTrackpadModeToggle = { [weak self] split in
+            self?.toggleTrackpadPadMode(split: split)
         }
         pianoWaveformWindowDelegate.onToggleKeymap = { [weak self] in
             self?.toggleKeyboardLayoutShortcut()
@@ -2435,6 +2439,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pianoWaveformWindowDelegate.showExpandedForPopover(
             restoringTo: previousApp
         )
+        // KeyMap starts with ordinary pointing and melodic FX. Its first Tab
+        // hands that surface to TrackDrum, even before a note opens the slider.
+        trackpadPadMode = .fx
     }
 
     private func toggleFocusCaptureFromShortcut() {
@@ -2568,12 +2575,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             restoreFocusedPitchSlider()
         }
         #endif
-        // Focus owns the pointer in every mode, and the hidden, pinned cursor
-        // is what says so. This lands after the mode branch because local FX
-        // idles with an ordinary pointer when unfocused, showing and
-        // unlocking on the way in, and would otherwise undo both.
-        hideSystemCursorIfNeeded()
-        lockSystemCursorIfNeeded()
+        // KeyMap's FX page keeps the pointer usable while notes are held.
+        // Explicit percussion focus owns it until Tab or Escape releases it.
+        if Self.shouldKeepKeymapPointerLive(keymapShown: pianoWaveformWindowDelegate.isShown,
+                                          mode: trackpadPadMode) {
+            unlockSystemCursorIfNeeded()
+            showSystemCursorIfNeeded()
+        } else {
+            hideSystemCursorIfNeeded()
+            lockSystemCursorIfNeeded()
+        }
         startFocusCursorWatchdog()
         updateIcon()
         updatePianoWaveformWindow()
@@ -6686,15 +6697,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Tab walks slider ↔ drum. ⇧Tab (`split`) bisects the pad instead,
     /// and a second ⇧Tab puts the whole pad back on the drum.
     private func toggleTrackpadPadMode(split: Bool = false) {
-        if pianoWaveformWindowDelegate.isShown {
-            trackpadPadMode = .fx
-            #if !MAC_APP_STORE
-            stopTrackpadPercussionSystemClickShield()
-            stopTrackpadPercussionLocalClickShield()
-            #endif
-            updatePitchBendOverlayImage()
-            return
-        }
         #if MAC_APP_STORE
         focusedInputMode = Self.focusedInputModeAfterTab(focusedInputMode)
         UserDefaults.standard.set(
@@ -6789,7 +6791,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             debugLog("trackpad pad mode = mouse (trackpad released)")
             return
         }
+        // Tab is an explicit surface choice, including from KeyMap's
+        // transient FX page. Arm the selected surface even with no key held.
+        pitchBendModeLatched = true
+        trackpadPerformanceSessionActive = true
+        pitchBendCursorPushed = true
+        menuBand.setTrackpadPerformanceActive(true)
+        localCapture.keepsCaptureArmedOnResign = trackpadPadMode != .fx
+        if Self.shouldKeepKeymapPointerLive(keymapShown: pianoWaveformWindowDelegate.isShown,
+                                          mode: trackpadPadMode) {
+            unlockSystemCursorIfNeeded()
+            showSystemCursorIfNeeded()
+        } else {
+            lockSystemCursorIfNeeded()
+            hideSystemCursorIfNeeded()
+        }
         if trackpadPadMode != .fx {
+            startTrackpadEnergyDisplay()
             pitchBendEndTimer?.invalidate()
             pitchBendEndTimer = nil
             pitchBendReleaseGraceUntil = nil
@@ -6805,6 +6823,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             #if !MAC_APP_STORE
             _ = startTrackpadPercussionSystemClickShield()
             #endif
+            startTrackpadPercussionLocalClickShield()
             if trackpadPadMode == .kit {
                 #if !MAC_APP_STORE
                 trackpadAudioLane.setMode(.kit)
@@ -6837,6 +6856,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             #if !MAC_APP_STORE
             stopTrackpadPercussionSystemClickShield()
             #endif
+            stopTrackpadPercussionLocalClickShield()
             if Self.shouldAutoEndTrackpadFX(
                 performanceSessionActive: trackpadPerformanceSessionActive,
                 keyboardNotesHeld: menuBand.keyboardNotesHeld
@@ -6844,13 +6864,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 scheduleGraphicEndIfNoKeyHeld()
             }
         }
-        // The off page faded the overlay out; coming back needs it re-shown,
-        // not just redrawn.
-        if leavingMouse {
-            showPitchBendOverlay()
-        } else {
-            updatePitchBendOverlayImage()
-        }
+        // An explicit handoff must be visible even if the previous surface
+        // faded out or KeyMap had not shown its FX overlay yet.
+        showPitchBendOverlay()
         debugLog("trackpad pad mode = \(trackpadPadMode)")
     }
 
@@ -6996,6 +7012,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keymapShown: Bool
     ) -> Bool {
         !keymapShown
+    }
+
+    static func shouldKeepKeymapPointerLive(keymapShown: Bool,
+                                             mode: TrackpadPadMode) -> Bool {
+        keymapShown && mode == .fx
     }
 
     static func shouldPersistKeyboardOpenedTrackpadSurface(
@@ -7353,6 +7374,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // In mouse mode the pointer is MEANT to be visible — the trackpad was
             // handed back on purpose, so a visible cursor is not a lost focus.
             guard self.trackpadPadMode != .mouse else { return }
+            guard !Self.shouldKeepKeymapPointerLive(
+                keymapShown: self.pianoWaveformWindowDelegate.isShown,
+                mode: self.trackpadPadMode
+            ) else { return }
             guard CACurrentMediaTime() >= self.focusCursorGraceUntil,
                   !self.pitchBendSystemCursorHidden else { return }
             debugLog("focus cursor watchdog: cursor visible while armed — exiting focus")

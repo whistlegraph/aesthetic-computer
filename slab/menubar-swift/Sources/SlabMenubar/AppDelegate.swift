@@ -83,6 +83,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var tilePopulationCandidate: [CGWindowID]?
     private var tilePopulationCandidateSamples = 0
     private var lastTiledWindowSignature: [CGWindowID]?
+    private var manualTileOverride = ManualTileOverride()
+    private var tileMouseMonitor: Any?
+    private var automaticTilingActive: Bool { state.autoTile && !manualTileOverride.suspended }
     private var tilePopulationLastProbeAt = Date.distantPast
     private var tilePopulationFastUntil = Date.distantPast
     /// Coalesce launch/close/wake bursts before they reach AX. All geometry
@@ -323,7 +326,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // grid source, filtering the transient empty AX replies Terminal emits
         // while its font menu is being automated.
         tileWindowObserver = TilePopulationObserver { [weak self] in self?.beginFastTilePopulationWatch() }
+        tileMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
+            self?.handleTileMouseEvent(event)
+        }
         let populationTimer = Timer(timeInterval: 0.20, repeats: true) { [weak self] _ in
+            self?.observeManualTileGesture()
             self?.probeTilePopulation()
         }
         populationTimer.tolerance = 0.035
@@ -457,6 +464,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         terminalFontZoomGuard?.stop()
         imsgTimer?.invalidate()
         tilePopulationTimer?.invalidate()
+        if let tileMouseMonitor { NSEvent.removeMonitor(tileMouseMonitor) }
         tileRequestWorkItem?.cancel()
         zoomLensTap?.stop()
         navHoldTap?.stop()
@@ -1863,7 +1871,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func restoreRecentThreads(_ sender: NSMenuItem) {
         guard let n = sender.representedObject as? Int, n > 0 else { return }
         let liveIds = Set(state.claudeSessions.map { $0.sessionId })
-        let tile = state.autoTile
+        let tile = automaticTilingActive
         let textSize = state.textSize
         // Snapshot screen geometry on main; NSScreen reads off-main can
         // return nil on first hit and were the silent failure mode for the
@@ -1920,7 +1928,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             (sid: $0.sessionId, providerSid: $0.providerSessionId,
              agent: $0.agentType, cwd: $0.cwd, pid: $0.claudePid)
         }
-        let geom = state.autoTile ? Self.screenGeom() : nil
+        let geom = automaticTilingActive ? Self.screenGeom() : nil
         let layout = geom.flatMap { Self.computeTileLayout(count: payloads.count, geom: $0, size: state.textSize) }
         DispatchQueue.global(qos: .userInitiated).async {
             // Resolve the target terminal before the SIGTERM — once the old
@@ -2015,6 +2023,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // The snapshot gather is asynchronous. Reflect the preference now so
         // the population monitor cannot spend one cycle observing stale state.
         state.autoTile = enabling
+        manualTileOverride.resume()
         tilePopulationCandidate = nil
         tilePopulationCandidateSamples = 0
         if enabling {
@@ -2464,6 +2473,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func applyTerminalDecor() {
+        // Profile changes restore captured bounds; defer them during a drag.
+        guard NSEvent.pressedMouseButtons & 1 == 0 else { return }
         publishSharedTheme()
         guard state.themeByStatus else { return }
         struct Assignment {
@@ -3311,7 +3322,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// un-themed (the iTerm2-only port intentionally dropped Terminal decor).
     /// Menu / hotkey entry point: an explicit tile, which DOES reset each
     /// Terminal window's font zoom so the grid-derived size actually lands.
-    @objc func tileNow() { tileNowImpl(resetZoom: true) }
+    @objc func tileNow() {
+        manualTileOverride.resume()
+        tileNowImpl(resetZoom: true)
+    }
+
+    private func handleTileMouseEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown {
+            manualTileOverride.end()
+            guard !manualTileOverride.suspended,
+                  let ids = lastTiledWindowSignature,
+                  let point = CGEvent(source: nil)?.location,
+                  let window = AXTiler.windowAt(point), ids.contains(window.id) else { return }
+            manualTileOverride.begin(id: window.id, frame: window.frame)
+        } else {
+            observeManualTileGesture()
+            manualTileOverride.end()
+        }
+    }
+
+    private func observeManualTileGesture() {
+        guard manualTileOverride.isTracking, !manualTileOverride.suspended,
+              manualTileOverride.observe(frames: AXTiler.visibleFrames()) else { return }
+        // Cancel pending layouts and their font/settle continuations as soon
+        // as the drag changes geometry. Only an explicit tile resumes them.
+        tileRequestGeneration &+= 1
+        tileRequestWorkItem?.cancel()
+        pendingTileResetZoom = false
+        pendingTileExpectedSignature = nil
+        pendingTileIsUnconditional = false
+        tilePopulationCandidate = nil
+        tilePopulationCandidateSamples = 0
+        lastTiledFontSize = nil
+        NSLog("[tile] manual move/resize — automatic tiling paused until Tile now")
+    }
 
     @objc func focusPromptRocks() {
         PromptSigilOverlayController.shared.beginKeyboardFocus()
@@ -3331,7 +3375,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// expensive AX + Window Server census runs only every 0.75 s; a known or
     /// newly observed change temporarily restores the 0.2 s confirmation loop.
     private func probeTilePopulation(force: Bool = false) {
-        guard state.autoTile, AXTiler.trusted, !tilePopulationProbeInFlight else { return }
+        guard automaticTilingActive, AXTiler.trusted, !tilePopulationProbeInFlight,
+              NSEvent.pressedMouseButtons & 1 == 0 else { return }
         let now = Date()
         // Window launches get a short responsive burst; a stable wall needs
         // only a low-frequency safety census. AX enumeration is surprisingly
@@ -3340,11 +3385,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard force || now.timeIntervalSince(tilePopulationLastProbeAt) >= interval else { return }
         tilePopulationLastProbeAt = now
         tilePopulationProbeInFlight = true
+        let generation = tileRequestGeneration
         tilePopulationQueue.async { [weak self] in
             let signature = AXTiler.signature()
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.tilePopulationProbeInFlight = false
+                guard self.automaticTilingActive, generation == self.tileRequestGeneration,
+                      NSEvent.pressedMouseButtons & 1 == 0 else { return }
                 if signature == self.tilePopulationCandidate {
                     self.tilePopulationCandidateSamples += 1
                 } else {
@@ -3392,6 +3440,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return
         }
+        guard !manualTileOverride.suspended else { return }
         guard let geom = Self.screenGeom() else { return }
         scatterMode = false  // tiling supersedes a prior scatter; restore tile font
         let textSize = state.textSize
@@ -3448,6 +3497,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
                 return
             }
+            guard self.tileGenerationIsCurrent(generation) else { return }
             let pass = Self.axTilePass(snapshot: snapshot, geom: geom, textSize: textSize)
             DispatchQueue.main.async {
                 guard generation == self.tileRequestGeneration else { return }
@@ -3494,6 +3544,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                         guard self.tileRequestGeneration == generation else { return }
                         self.tileQueue.async {
+                            guard self.tileGenerationIsCurrent(generation) else { return }
                             Self.repin(pass, includeTerminal: false)
                             DispatchQueue.main.async {
                                 guard self.tileRequestGeneration == generation else { return }

@@ -1,0 +1,2276 @@
+[
+  {
+    "run": "ac-1",
+    "app": "Aesthetic Computer",
+    "windowSize": [
+      348,
+      279
+    ],
+    "roi": [
+      12,
+      45,
+      12,
+      20
+    ],
+    "maskPixels": 56,
+    "trials": 60,
+    "timeouts": 0,
+    "samples": [
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 43.694541666666666,
+        "keyToWindowServerMs": 42.339708333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.81925,
+        "keyToWindowServerMs": 32.339416666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 67.67404166666667,
+        "keyToWindowServerMs": 66.13416666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 31.99641666666667,
+        "keyToWindowServerMs": 31.363916666666668,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 49.422666666666665,
+        "keyToWindowServerMs": 48.8385,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 51.575583333333334,
+        "keyToWindowServerMs": 50.912125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 47.628875,
+        "keyToWindowServerMs": 46.779666666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 62.73941666666666,
+        "keyToWindowServerMs": 62.122166666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 41.728291666666664,
+        "keyToWindowServerMs": 40.998916666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 50.70475,
+        "keyToWindowServerMs": 49.54904166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 40.798833333333334,
+        "keyToWindowServerMs": 40.18958333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 37.50395833333334,
+        "keyToWindowServerMs": 36.373875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 40.458666666666666,
+        "keyToWindowServerMs": 39.97658333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 64.53495833333334,
+        "keyToWindowServerMs": 63.86929166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 28.818458333333332,
+        "keyToWindowServerMs": 28.29733333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 51.5485,
+        "keyToWindowServerMs": 50.14695833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 64.06558333333334,
+        "keyToWindowServerMs": 63.155125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 50.35154166666666,
+        "keyToWindowServerMs": 49.478208333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 46.37383333333334,
+        "keyToWindowServerMs": 45.85429166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 47.16654166666667,
+        "keyToWindowServerMs": 46.514,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 39.239583333333336,
+        "keyToWindowServerMs": 38.805,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 67.33925,
+        "keyToWindowServerMs": 66.16475,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 76.884375,
+        "keyToWindowServerMs": 76.2195,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 35.892125,
+        "keyToWindowServerMs": 34.64975,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 43.407333333333334,
+        "keyToWindowServerMs": 42.83875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 65.843125,
+        "keyToWindowServerMs": 63.954166666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 35.00116666666666,
+        "keyToWindowServerMs": 34.11654166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 58.29691666666666,
+        "keyToWindowServerMs": 57.46125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 62.89570833333334,
+        "keyToWindowServerMs": 62.43179166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 61.978833333333334,
+        "keyToWindowServerMs": 59.44258333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 54.512375,
+        "keyToWindowServerMs": 53.95183333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 29.57329166666667,
+        "keyToWindowServerMs": 29.138625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 50.2025,
+        "keyToWindowServerMs": 49.496,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 48.23166666666666,
+        "keyToWindowServerMs": 47.555958333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 47.80266666666667,
+        "keyToWindowServerMs": 47.28933333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 42.31458333333334,
+        "keyToWindowServerMs": 41.386208333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 45.038583333333335,
+        "keyToWindowServerMs": 44.66583333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 46.00825,
+        "keyToWindowServerMs": 44.99316666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 38.21483333333334,
+        "keyToWindowServerMs": 37.71604166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 45.00925,
+        "keyToWindowServerMs": 44.541916666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.889,
+        "keyToWindowServerMs": 58.24,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 28.7875,
+        "keyToWindowServerMs": 26.460583333333332,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 52.71691666666666,
+        "keyToWindowServerMs": 51.920833333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 57.50329166666666,
+        "keyToWindowServerMs": 56.584041666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 52.02220833333334,
+        "keyToWindowServerMs": 50.994458333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 54.293375,
+        "keyToWindowServerMs": 53.607083333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 23.318125,
+        "keyToWindowServerMs": 22.70670833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 49.732125,
+        "keyToWindowServerMs": 49.25525,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 42.85695833333334,
+        "keyToWindowServerMs": 42.362208333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 48.260416666666664,
+        "keyToWindowServerMs": 47.725791666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 69.88641666666668,
+        "keyToWindowServerMs": 69.22804166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 48.373375,
+        "keyToWindowServerMs": 47.83495833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 62.9625,
+        "keyToWindowServerMs": 61.89304166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 58.769333333333336,
+        "keyToWindowServerMs": 57.908208333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 34.846041666666665,
+        "keyToWindowServerMs": 33.227,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 36.058458333333334,
+        "keyToWindowServerMs": 34.19179166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.477333333333334,
+        "keyToWindowServerMs": 32.897125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 54.80529166666666,
+        "keyToWindowServerMs": 54.00025,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 69.69020833333333,
+        "keyToWindowServerMs": 68.92358333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 33.146625,
+        "keyToWindowServerMs": 30.37025,
+        "matchingPixels": 1
+      }
+    ]
+  },
+  {
+    "run": "terminal-1",
+    "app": "Terminal",
+    "windowSize": [
+      348,
+      279
+    ],
+    "roi": [
+      40,
+      40,
+      6,
+      10
+    ],
+    "maskPixels": 45,
+    "trials": 60,
+    "timeouts": 0,
+    "samples": [
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 48.39329166666666,
+        "keyToWindowServerMs": 47.99845833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 56.79004166666667,
+        "keyToWindowServerMs": 56.408,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 69.58566666666667,
+        "keyToWindowServerMs": 68.38254166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 46.590291666666666,
+        "keyToWindowServerMs": 46.11729166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 53.106,
+        "keyToWindowServerMs": 52.227,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 44.547041666666665,
+        "keyToWindowServerMs": 44.009166666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 50.38420833333333,
+        "keyToWindowServerMs": 49.4805,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 16.412375,
+        "keyToWindowServerMs": 14.853833333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 39.3855,
+        "keyToWindowServerMs": 38.9675,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 34.074708333333334,
+        "keyToWindowServerMs": 33.41954166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 70.63841666666667,
+        "keyToWindowServerMs": 70.11333333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 28.40745833333333,
+        "keyToWindowServerMs": 27.920291666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 38.133833333333335,
+        "keyToWindowServerMs": 37.722625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.10154166666667,
+        "keyToWindowServerMs": 31.54125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 27.91229166666667,
+        "keyToWindowServerMs": 27.32316666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 18.64695833333333,
+        "keyToWindowServerMs": 18.185333333333332,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 22.307458333333333,
+        "keyToWindowServerMs": 21.88308333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 22.20916666666667,
+        "keyToWindowServerMs": 21.455375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 18.49925,
+        "keyToWindowServerMs": 18.02720833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 47.771375,
+        "keyToWindowServerMs": 47.300333333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 39.722625,
+        "keyToWindowServerMs": 39.09608333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 52.19475,
+        "keyToWindowServerMs": 51.71929166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 35.76629166666667,
+        "keyToWindowServerMs": 35.3155,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.34725,
+        "keyToWindowServerMs": 31.95925,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 39.866,
+        "keyToWindowServerMs": 39.461,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 56.376583333333336,
+        "keyToWindowServerMs": 56.020875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 42.53516666666666,
+        "keyToWindowServerMs": 42.12991666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 18.247833333333332,
+        "keyToWindowServerMs": 17.804,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 55.277125,
+        "keyToWindowServerMs": 54.82304166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 34.49908333333334,
+        "keyToWindowServerMs": 33.605875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 20.695625,
+        "keyToWindowServerMs": 20.300416666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 26.382916666666667,
+        "keyToWindowServerMs": 26.01020833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 43.945375,
+        "keyToWindowServerMs": 42.620041666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 23.80620833333333,
+        "keyToWindowServerMs": 23.43841666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 45.83870833333334,
+        "keyToWindowServerMs": 45.30466666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 14.907458333333334,
+        "keyToWindowServerMs": 14.472875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 52.920541666666665,
+        "keyToWindowServerMs": 52.20608333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 41.206833333333336,
+        "keyToWindowServerMs": 40.531375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 36.736583333333336,
+        "keyToWindowServerMs": 36.178666666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 29.89591666666667,
+        "keyToWindowServerMs": 29.4475,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.12075,
+        "keyToWindowServerMs": 32.66354166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 24.231791666666666,
+        "keyToWindowServerMs": 23.44758333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 55.98433333333334,
+        "keyToWindowServerMs": 55.48675,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 34.053958333333334,
+        "keyToWindowServerMs": 33.55716666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 46.18504166666666,
+        "keyToWindowServerMs": 45.59675,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 26.182125,
+        "keyToWindowServerMs": 25.572875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 54.915375,
+        "keyToWindowServerMs": 51.19566666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 19.95825,
+        "keyToWindowServerMs": 19.540125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 20.116833333333332,
+        "keyToWindowServerMs": 19.673791666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 41.152375,
+        "keyToWindowServerMs": 40.67604166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 36.82783333333334,
+        "keyToWindowServerMs": 36.174625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 41.589708333333334,
+        "keyToWindowServerMs": 41.06820833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 32.32633333333333,
+        "keyToWindowServerMs": 31.944791666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 30.207666666666668,
+        "keyToWindowServerMs": 29.344708333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 52.64975,
+        "keyToWindowServerMs": 51.83904166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.015,
+        "keyToWindowServerMs": 31.33716666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 40.32729166666667,
+        "keyToWindowServerMs": 39.80158333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 21.467791666666667,
+        "keyToWindowServerMs": 21.121458333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 28.92441666666667,
+        "keyToWindowServerMs": 28.578166666666668,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 15.965958333333335,
+        "keyToWindowServerMs": 15.530666666666667,
+        "matchingPixels": 1
+      }
+    ]
+  },
+  {
+    "run": "terminal-2",
+    "app": "Terminal",
+    "windowSize": [
+      348,
+      279
+    ],
+    "roi": [
+      40,
+      40,
+      6,
+      10
+    ],
+    "maskPixels": 45,
+    "trials": 60,
+    "timeouts": 0,
+    "samples": [
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 36.099916666666665,
+        "keyToWindowServerMs": 35.629625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 16.103708333333334,
+        "keyToWindowServerMs": 15.319291666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 25.720125,
+        "keyToWindowServerMs": 25.18720833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 22.57829166666667,
+        "keyToWindowServerMs": 21.98995833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 25.044875,
+        "keyToWindowServerMs": 24.155,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 78.45304166666668,
+        "keyToWindowServerMs": 78.08258333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 49.334625,
+        "keyToWindowServerMs": 48.94804166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 74.41970833333333,
+        "keyToWindowServerMs": 71.94920833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 15.7245,
+        "keyToWindowServerMs": 15.311125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 45.903125,
+        "keyToWindowServerMs": 43.98683333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 65.41466666666666,
+        "keyToWindowServerMs": 64.56441666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 42.959375,
+        "keyToWindowServerMs": 41.110083333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 39.638041666666666,
+        "keyToWindowServerMs": 39.01858333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 31.17204166666667,
+        "keyToWindowServerMs": 30.43929166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 31.562541666666668,
+        "keyToWindowServerMs": 29.92591666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 85.01541666666667,
+        "keyToWindowServerMs": 84.23183333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 64.76408333333333,
+        "keyToWindowServerMs": 60.35070833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 64.848875,
+        "keyToWindowServerMs": 51.262541666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 31.65825,
+        "keyToWindowServerMs": 30.89675,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 66.29708333333333,
+        "keyToWindowServerMs": 55.821041666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 28.978416666666668,
+        "keyToWindowServerMs": 27.296125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.30929166666667,
+        "keyToWindowServerMs": 31.161,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 41.50875,
+        "keyToWindowServerMs": 38.798375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 33.908458333333336,
+        "keyToWindowServerMs": 23.36254166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 24.0565,
+        "keyToWindowServerMs": 23.132,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 27.886958333333332,
+        "keyToWindowServerMs": 27.131208333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 60.78841666666666,
+        "keyToWindowServerMs": 60.200375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 69.96358333333333,
+        "keyToWindowServerMs": 67.27491666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 41.974333333333334,
+        "keyToWindowServerMs": 39.692166666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 92.64854166666667,
+        "keyToWindowServerMs": 90.36245833333332,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 53.070083333333336,
+        "keyToWindowServerMs": 49.609208333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 64.71395833333334,
+        "keyToWindowServerMs": 63.996208333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 41.30433333333334,
+        "keyToWindowServerMs": 40.15304166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 24.17975,
+        "keyToWindowServerMs": 21.988916666666668,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 63.82691666666666,
+        "keyToWindowServerMs": 62.709208333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 39.909166666666664,
+        "keyToWindowServerMs": 39.384083333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 39.74425,
+        "keyToWindowServerMs": 38.996625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 58.9505,
+        "keyToWindowServerMs": 56.80470833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 37.235166666666665,
+        "keyToWindowServerMs": 36.58525,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 37.20591666666667,
+        "keyToWindowServerMs": 36.68508333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 25.346333333333334,
+        "keyToWindowServerMs": 23.22704166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 66.54475,
+        "keyToWindowServerMs": 65.10395833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 49.714166666666664,
+        "keyToWindowServerMs": 48.20016666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 28.766291666666667,
+        "keyToWindowServerMs": 27.83620833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.782333333333334,
+        "keyToWindowServerMs": 58.265208333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 31.206916666666668,
+        "keyToWindowServerMs": 29.72975,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 50.763666666666666,
+        "keyToWindowServerMs": 48.732625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 23.756,
+        "keyToWindowServerMs": 23.207083333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 43.245916666666666,
+        "keyToWindowServerMs": 41.44808333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.31679166666667,
+        "keyToWindowServerMs": 50.821875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.249583333333334,
+        "keyToWindowServerMs": 57.69020833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 40.40270833333334,
+        "keyToWindowServerMs": 38.80766666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 60.85041666666667,
+        "keyToWindowServerMs": 60.042541666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 31.71025,
+        "keyToWindowServerMs": 30.940833333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 64.5175,
+        "keyToWindowServerMs": 61.791041666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 64.21070833333333,
+        "keyToWindowServerMs": 57.40904166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 52.1215,
+        "keyToWindowServerMs": 46.27041666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 52.074875,
+        "keyToWindowServerMs": 51.47716666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 55.46520833333334,
+        "keyToWindowServerMs": 52.947208333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 24.950833333333332,
+        "keyToWindowServerMs": 15.52275,
+        "matchingPixels": 1
+      }
+    ]
+  },
+  {
+    "run": "ac-2",
+    "app": "Aesthetic Computer",
+    "windowSize": [
+      348,
+      279
+    ],
+    "roi": [
+      12,
+      45,
+      12,
+      20
+    ],
+    "maskPixels": 56,
+    "trials": 60,
+    "timeouts": 0,
+    "samples": [
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 30.987625,
+        "keyToWindowServerMs": 30.31504166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 65.29479166666667,
+        "keyToWindowServerMs": 64.63608333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 27.62908333333333,
+        "keyToWindowServerMs": 26.908708333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 39.99008333333334,
+        "keyToWindowServerMs": 39.04175,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 55.895375,
+        "keyToWindowServerMs": 55.368208333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 55.927708333333335,
+        "keyToWindowServerMs": 55.40920833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 50.616083333333336,
+        "keyToWindowServerMs": 50.173791666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 42.599291666666666,
+        "keyToWindowServerMs": 40.00504166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 44.44370833333333,
+        "keyToWindowServerMs": 43.96875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 62.60433333333334,
+        "keyToWindowServerMs": 61.93745833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 57.63458333333334,
+        "keyToWindowServerMs": 50.651833333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.3485,
+        "keyToWindowServerMs": 52.88616666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 36.74766666666667,
+        "keyToWindowServerMs": 35.84954166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 27.458041666666666,
+        "keyToWindowServerMs": 25.83220833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 36.17854166666667,
+        "keyToWindowServerMs": 35.324666666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 31.74866666666667,
+        "keyToWindowServerMs": 31.03395833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 53.78479166666666,
+        "keyToWindowServerMs": 53.013,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 52.04954166666666,
+        "keyToWindowServerMs": 50.220416666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 57.86304166666667,
+        "keyToWindowServerMs": 57.2635,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 44.753416666666666,
+        "keyToWindowServerMs": 44.090583333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 61.18333333333334,
+        "keyToWindowServerMs": 60.14991666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 36.80954166666666,
+        "keyToWindowServerMs": 36.443333333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 40.98645833333334,
+        "keyToWindowServerMs": 40.574625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 60.6735,
+        "keyToWindowServerMs": 59.94145833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.92883333333334,
+        "keyToWindowServerMs": 33.36620833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 36.846833333333336,
+        "keyToWindowServerMs": 36.375791666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 65.652625,
+        "keyToWindowServerMs": 64.91058333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 57.3675,
+        "keyToWindowServerMs": 56.624208333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 68.45216666666667,
+        "keyToWindowServerMs": 67.73175,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 33.52829166666667,
+        "keyToWindowServerMs": 33.09883333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 61.111916666666666,
+        "keyToWindowServerMs": 60.446,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 61.83020833333334,
+        "keyToWindowServerMs": 61.34725,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 28.785416666666666,
+        "keyToWindowServerMs": 27.51125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 56.37591666666666,
+        "keyToWindowServerMs": 55.47054166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 67.73720833333333,
+        "keyToWindowServerMs": 66.52033333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 51.368125,
+        "keyToWindowServerMs": 50.801,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 65.42004166666666,
+        "keyToWindowServerMs": 64.67108333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 48.165333333333336,
+        "keyToWindowServerMs": 47.41683333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 44.47320833333334,
+        "keyToWindowServerMs": 44.00929166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 43.03041666666667,
+        "keyToWindowServerMs": 42.20283333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.73320833333334,
+        "keyToWindowServerMs": 33.28183333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 64.757125,
+        "keyToWindowServerMs": 63.49254166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 65.49016666666667,
+        "keyToWindowServerMs": 63.90570833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 33.55875,
+        "keyToWindowServerMs": 32.676875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 50.89779166666666,
+        "keyToWindowServerMs": 49.552625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 56.655541666666664,
+        "keyToWindowServerMs": 56.33925,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 42.309333333333335,
+        "keyToWindowServerMs": 41.446041666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 49.974625,
+        "keyToWindowServerMs": 49.345083333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 54.17075,
+        "keyToWindowServerMs": 53.01275,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.64666666666666,
+        "keyToWindowServerMs": 52.875166666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 37.03758333333334,
+        "keyToWindowServerMs": 36.462666666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 45.6835,
+        "keyToWindowServerMs": 44.927625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 30.49095833333333,
+        "keyToWindowServerMs": 29.71108333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 27.85891666666667,
+        "keyToWindowServerMs": 27.418333333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 51.801208333333335,
+        "keyToWindowServerMs": 51.17283333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 58.716166666666666,
+        "keyToWindowServerMs": 57.842958333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 63.631875,
+        "keyToWindowServerMs": 59.301541666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.06825,
+        "keyToWindowServerMs": 52.368541666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 28.447375,
+        "keyToWindowServerMs": 27.880625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 55.189166666666665,
+        "keyToWindowServerMs": 54.80433333333334,
+        "matchingPixels": 1
+      }
+    ]
+  },
+  {
+    "run": "ac-3",
+    "app": "Aesthetic Computer",
+    "windowSize": [
+      348,
+      279
+    ],
+    "roi": [
+      12,
+      45,
+      12,
+      20
+    ],
+    "maskPixels": 56,
+    "trials": 60,
+    "timeouts": 0,
+    "samples": [
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.57975,
+        "keyToWindowServerMs": 32.302875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 66.56625,
+        "keyToWindowServerMs": 65.93766666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 61.02254166666666,
+        "keyToWindowServerMs": 60.550333333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 54.241125,
+        "keyToWindowServerMs": 53.836708333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 54.498416666666664,
+        "keyToWindowServerMs": 54.10583333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 47.91983333333334,
+        "keyToWindowServerMs": 47.5295,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 48.493875,
+        "keyToWindowServerMs": 47.970125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.404875,
+        "keyToWindowServerMs": 31.775625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 49.83479166666667,
+        "keyToWindowServerMs": 49.284666666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 39.381,
+        "keyToWindowServerMs": 38.942625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 37.833416666666665,
+        "keyToWindowServerMs": 37.32808333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 37.976791666666664,
+        "keyToWindowServerMs": 37.55883333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 34.24870833333333,
+        "keyToWindowServerMs": 31.646708333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 59.06641666666666,
+        "keyToWindowServerMs": 58.65354166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 61.92520833333334,
+        "keyToWindowServerMs": 60.53725,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 55.69408333333334,
+        "keyToWindowServerMs": 53.624625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 54.41166666666666,
+        "keyToWindowServerMs": 53.876375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.662875,
+        "keyToWindowServerMs": 53.20941666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 25.0285,
+        "keyToWindowServerMs": 24.380125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 40.52408333333334,
+        "keyToWindowServerMs": 39.88429166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 44.59104166666666,
+        "keyToWindowServerMs": 43.87375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 68.14766666666667,
+        "keyToWindowServerMs": 67.35720833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 46.67966666666666,
+        "keyToWindowServerMs": 45.864041666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 63.657625,
+        "keyToWindowServerMs": 63.18329166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 66.46329166666666,
+        "keyToWindowServerMs": 65.86329166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 36.105625,
+        "keyToWindowServerMs": 35.68658333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 36.81633333333333,
+        "keyToWindowServerMs": 36.317791666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 51.629125,
+        "keyToWindowServerMs": 51.099583333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.395375,
+        "keyToWindowServerMs": 57.891958333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 58.06345833333334,
+        "keyToWindowServerMs": 57.658541666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 52.482166666666664,
+        "keyToWindowServerMs": 51.607375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.83733333333333,
+        "keyToWindowServerMs": 52.90679166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 55.89145833333333,
+        "keyToWindowServerMs": 55.39554166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 57.821958333333335,
+        "keyToWindowServerMs": 57.27625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 38.55716666666667,
+        "keyToWindowServerMs": 38.010375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 50.042833333333334,
+        "keyToWindowServerMs": 48.95916666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 32.964708333333334,
+        "keyToWindowServerMs": 32.459916666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 42.758125,
+        "keyToWindowServerMs": 42.114916666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 35.623041666666666,
+        "keyToWindowServerMs": 35.16025,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 37.54004166666667,
+        "keyToWindowServerMs": 34.961083333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 57.221625,
+        "keyToWindowServerMs": 56.534416666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 30.16391666666667,
+        "keyToWindowServerMs": 29.485916666666668,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 55.43020833333333,
+        "keyToWindowServerMs": 54.95216666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.44295833333333,
+        "keyToWindowServerMs": 31.94995833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 47.76320833333334,
+        "keyToWindowServerMs": 47.07075,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 64.77158333333334,
+        "keyToWindowServerMs": 64.40891666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 44.160125,
+        "keyToWindowServerMs": 43.80970833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 49.78033333333334,
+        "keyToWindowServerMs": 49.307625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 37.64116666666666,
+        "keyToWindowServerMs": 36.918375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 46.215583333333335,
+        "keyToWindowServerMs": 45.797625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 49.070083333333336,
+        "keyToWindowServerMs": 48.588791666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 38.44616666666666,
+        "keyToWindowServerMs": 37.966541666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 32.50770833333333,
+        "keyToWindowServerMs": 32.110625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 33.95316666666666,
+        "keyToWindowServerMs": 33.52854166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 35.98158333333333,
+        "keyToWindowServerMs": 35.50216666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 37.926875,
+        "keyToWindowServerMs": 37.174791666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 50.19075,
+        "keyToWindowServerMs": 49.713541666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 57.512791666666665,
+        "keyToWindowServerMs": 56.79841666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.637166666666666,
+        "keyToWindowServerMs": 32.98741666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 49.95275,
+        "keyToWindowServerMs": 49.267041666666664,
+        "matchingPixels": 1
+      }
+    ]
+  },
+  {
+    "run": "terminal-3",
+    "app": "Terminal",
+    "windowSize": [
+      348,
+      279
+    ],
+    "roi": [
+      40,
+      40,
+      6,
+      10
+    ],
+    "maskPixels": 45,
+    "trials": 60,
+    "timeouts": 0,
+    "samples": [
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 98.05304166666667,
+        "keyToWindowServerMs": 71.35825,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 86.67625,
+        "keyToWindowServerMs": 76.92233333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 88.28054166666668,
+        "keyToWindowServerMs": 83.43795833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 35.42008333333334,
+        "keyToWindowServerMs": 34.543166666666664,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.749583333333334,
+        "keyToWindowServerMs": 57.31516666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.526583333333335,
+        "keyToWindowServerMs": 53.07675,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 46.91054166666667,
+        "keyToWindowServerMs": 44.60808333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 74.56795833333332,
+        "keyToWindowServerMs": 73.66741666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 44.3015,
+        "keyToWindowServerMs": 43.944541666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 40.09191666666666,
+        "keyToWindowServerMs": 38.474041666666665,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 12.5335,
+        "keyToWindowServerMs": 10.215458333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 29.803416666666667,
+        "keyToWindowServerMs": 27.736208333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.18383333333333,
+        "keyToWindowServerMs": 32.327875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.825916666666664,
+        "keyToWindowServerMs": 32.17970833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 31.675833333333333,
+        "keyToWindowServerMs": 31.086916666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 50.123625,
+        "keyToWindowServerMs": 49.44741666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 27.006958333333333,
+        "keyToWindowServerMs": 26.47525,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 50.524791666666665,
+        "keyToWindowServerMs": 49.90445833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 49.647125,
+        "keyToWindowServerMs": 48.149375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 24.500958333333333,
+        "keyToWindowServerMs": 20.692125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 45.62975,
+        "keyToWindowServerMs": 45.26691666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 36.125,
+        "keyToWindowServerMs": 35.42129166666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 21.158583333333333,
+        "keyToWindowServerMs": 20.763916666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 57.80370833333333,
+        "keyToWindowServerMs": 56.983375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 60.943666666666665,
+        "keyToWindowServerMs": 60.545125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 42.581916666666665,
+        "keyToWindowServerMs": 41.959208333333336,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 30.026833333333332,
+        "keyToWindowServerMs": 29.525,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 55.454791666666665,
+        "keyToWindowServerMs": 54.67545833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 28.12154166666667,
+        "keyToWindowServerMs": 27.60108333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.703875,
+        "keyToWindowServerMs": 32.12470833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 20.697375,
+        "keyToWindowServerMs": 19.799,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.770375,
+        "keyToWindowServerMs": 52.95679166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.07866666666666,
+        "keyToWindowServerMs": 57.65420833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 53.94133333333333,
+        "keyToWindowServerMs": 53.411125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 47.2895,
+        "keyToWindowServerMs": 46.79895833333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 17.93283333333333,
+        "keyToWindowServerMs": 17.245375,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 43.32866666666666,
+        "keyToWindowServerMs": 42.552708333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 47.39083333333333,
+        "keyToWindowServerMs": 46.874833333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 44.363708333333335,
+        "keyToWindowServerMs": 43.32833333333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 36.067625,
+        "keyToWindowServerMs": 35.37016666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 60.57625,
+        "keyToWindowServerMs": 60.047333333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 33.556333333333335,
+        "keyToWindowServerMs": 32.866125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 32.161,
+        "keyToWindowServerMs": 30.29566666666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.85666666666667,
+        "keyToWindowServerMs": 32.154291666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 61.181958333333334,
+        "keyToWindowServerMs": 59.99229166666667,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 51.102583333333335,
+        "keyToWindowServerMs": 50.718625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 50.59979166666666,
+        "keyToWindowServerMs": 50.078125,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 49.225375,
+        "keyToWindowServerMs": 48.387458333333335,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.74966666666666,
+        "keyToWindowServerMs": 56.080875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 47.560375,
+        "keyToWindowServerMs": 46.8875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 36.111375,
+        "keyToWindowServerMs": 35.39241666666666,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 49.266041666666666,
+        "keyToWindowServerMs": 48.234625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 45.25633333333334,
+        "keyToWindowServerMs": 44.74883333333334,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 31.41329166666667,
+        "keyToWindowServerMs": 30.88875,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 33.834041666666664,
+        "keyToWindowServerMs": 33.10720833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 36.018625,
+        "keyToWindowServerMs": 35.51945833333333,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 58.301291666666664,
+        "keyToWindowServerMs": 57.5595,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 32.09475,
+        "keyToWindowServerMs": 31.583625,
+        "matchingPixels": 1
+      },
+      {
+        "action": "insert",
+        "keyToCaptureCallbackMs": 21.10695833333333,
+        "keyToWindowServerMs": 20.582541666666668,
+        "matchingPixels": 1
+      },
+      {
+        "action": "delete",
+        "keyToCaptureCallbackMs": 50.70429166666666,
+        "keyToWindowServerMs": 49.760125,
+        "matchingPixels": 1
+      }
+    ]
+  }
+]
