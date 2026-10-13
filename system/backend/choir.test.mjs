@@ -133,3 +133,12 @@ test("notifications default on and can be turned off", async () => {
   assert.deepEqual(await s.prefsOf("sub-a"), { notifications: false });
   await assert.rejects(s.setPrefs("sub-a", { notifications: "no" }), /true or false/);
 });
+
+test("news lives in Discover, not the chat", async () => {
+  const { s, posts } = store();
+  const chat = await s.post("sub-a", "@a", { text: "hello", tags: [] });
+  await posts.insertOne({ _id: "a".repeat(24), owner: "choir|editor", handle: "@choir", text: "Headline https://x.y", tags: [], links: ["https://x.y"], replyTo: null, replies: 0, when: "2026-10-12T00:00:00.000Z", news: true });
+  assert.deepEqual((await s.feed()).map((p) => p._id), [chat._id]);
+  assert.deepEqual((await s.feed({ news: true })).map((p) => p._id), ["a".repeat(24)]);
+  assert.ok(await s.thread("a".repeat(24)), "a news item still has a comment thread");
+});

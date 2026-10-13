@@ -94,14 +94,16 @@ export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = 
     },
 
     // The main chat: root posts, newest first, optionally under one tag.
-    async feed({ tag, before, limit = 30 } = {}) {
+    // News items (news: true) live in Discover instead of the chat.
+    async feed({ tag, before, limit = 30, news = false } = {}) {
       await ready();
       const q = { replyTo: null };
+      if (news) q.news = true;
       if (tag) q.tags = normalizeTag(tag);
       if (before) q.when = { $lt: before };
       const rows = await posts.find(q).sort({ when: -1 }).limit(Math.min(Math.max(limit, 1), 100)).toArray();
       // A deleted message with no replies has no thread to hold together.
-      return rows.filter((r) => !(r.deleted && !r.replies));
+      return rows.filter((r) => !(r.deleted && !r.replies) && (news || r.news !== true));
     },
 
     async thread(rootID) {

@@ -2,6 +2,7 @@
 // The room's HTTP door. Store logic lives in backend/choir.mjs.
 //
 //   GET    /api/choir                      main chat  ?tag=&before=<when>&limit=
+//   GET    /api/choir?news=1               Discover: news items, newest first
 //   GET    /api/choir?thread=<id>          one root with its replies
 //   GET    /api/choir?tags=1               tags by activity, starters included
 //   GET    /api/choir?me=1                 {handle, prefs}            (Bearer)
@@ -73,7 +74,7 @@ export async function handler(event) {
         const t = await store.thread(q.thread);
         return t ? ok({ root: publicPost(t.root), replies: t.replies.map(publicPost) }, "public, max-age=5") : no(404, "No such thread");
       }
-      const rows = await store.feed({ tag: q.tag, before: q.before, limit: Number(q.limit) || 30 });
+      const rows = await store.feed({ tag: q.tag, before: q.before, limit: Number(q.limit) || 30, news: !!q.news });
       return ok({ posts: rows.map(publicPost), next: rows.length ? rows.at(-1).when : null }, "public, max-age=5");
     }
 

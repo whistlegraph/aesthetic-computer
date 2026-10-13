@@ -16,6 +16,7 @@
 		5E5868DBFCBE06631751028F /* PostRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF5B9D04957C667E8E468AE /* PostRow.swift */; };
 		7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */; };
 		80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */; };
+		AEE8EAF0D7C34DD16D5DB1DD /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */; };
 		B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2713237B6298811227FAC1D /* AccountView.swift */; };
 		B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6C29368504A99625509573 /* Samples.swift */; };
 		BD427551196A57E6A6249462 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB5F83E9F2FFDF39A7CE23A /* API.swift */; };
@@ -33,6 +34,7 @@
 		224AC79DF9F2580E605A15F9 /* Headline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Headline.swift; sourceTree = "<group>"; };
 		2588F98D446498A5D78162A2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoirApp.swift; sourceTree = "<group>"; };
+		39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
 		3EB5F83E9F2FFDF39A7CE23A /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 		4795E20D2523AB8C8C6B203A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
@@ -55,6 +57,7 @@
 				B2713237B6298811227FAC1D /* AccountView.swift */,
 				3EB5F83E9F2FFDF39A7CE23A /* API.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
+				39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */,
 				817102FC4DE130FB7D70ECAC /* Entry.swift */,
 				224AC79DF9F2580E605A15F9 /* Headline.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
@@ -183,6 +186,7 @@
 				EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */,
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,
 				ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */,
+				AEE8EAF0D7C34DD16D5DB1DD /* DiscoverView.swift in Sources */,
 				FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */,
 				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,

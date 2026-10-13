@@ -7,6 +7,7 @@ struct RoomView: View {
     @EnvironmentObject var room: Room
     @State private var sheet: Sheet?
     @State private var open: Post?
+    @State private var discover = false
     enum Sheet: String, Identifiable { case login, new, account; var id: String { rawValue } }
 
     var body: some View {
@@ -55,11 +56,18 @@ struct RoomView: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { discover = true } label: { Image(systemName: "newspaper") }
+                        .tint(Theme.ink).accessibilityLabel("Discover")
+                }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.type(14)).tint(Theme.ink)
                     }
                 }
+            }
+            .fullScreenCover(isPresented: $discover) {
+                DiscoverView().environmentObject(account).environmentObject(room)
             }
             .sheet(item: $open) { post in
                 NavigationStack { ThreadView(rootID: post.id) }

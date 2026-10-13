@@ -65,6 +65,7 @@ enum API {
         let f: Feed = try await get(q); return f.posts
     }
     static func thread(_ id: String) async throws -> Thread { try await get("?thread=\(id)") }
+    static func news() async throws -> [Post] { let f: Feed = try await get("?news=1&limit=50"); return f.posts }
     static func tags() async throws -> [TagCount] { let t: Tags = try await get("?tags=1"); return t.tags }
 
     struct NewPost: Encodable { let text: String; let tags: [String]; let replyTo: String? }
