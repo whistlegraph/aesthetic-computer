@@ -67,13 +67,19 @@ page.on("request", (r) => {
 });
 await page.goto(HOST);
 await new Promise((r) => setTimeout(r, 5000));
-let scrubbed = !readalong, audioPlaying = !readalong;
+let scrubbed = !readalong, audioPlaying = !readalong, silentPlayback = !readalong;
 if (readalong) {
   const frame = page.frames().find(frame => frame.url() === ART);
   if (!frame) throw new Error('Missing artifact iframe');
+  const silent = await frame.evaluate(() => {
+    const f = window.__acGlobalKidLispInstance.richFlow;
+    return { time: f.mediaTime(), started: f.started, playing: f.playing };
+  });
+  silentPlayback = silent.time > 1 && !silent.started && !silent.playing;
   await page.mouse.click(width / 2, height / 2);
   await frame.waitForFunction(() => window.__acGlobalKidLispInstance?.richFlow?.samplerReady, { timeout: 15000 });
   const before = await frame.evaluate(() => window.__acGlobalKidLispInstance.richFlow.time);
+  silentPlayback &&= before >= silent.time - 0.3 && before < silent.time + 5;
   await page.mouse.wheel({ deltaY: 600 });
   await new Promise(resolve => setTimeout(resolve, 300));
   const state = await frame.evaluate(() => {
@@ -132,11 +138,11 @@ if (reader) {
   scrolled = !before.equals(after);
   if (shotsDir) writeFileSync(resolve(shotsDir, `${basename(file, '.html')}-scroll.png`), after);
 }
-const ok = lit > 500 && (reader ? scrolled && linked : moving) && !leaked.length && scrubbed && audioPlaying;
+const ok = lit > 500 && (reader ? scrolled && linked : moving) && !leaked.length && scrubbed && audioPlaying && silentPlayback;
 await browser.close();
 console.log(`${ok ? "✓" : "✗"} ${basename(file)}: ${frames.size}/${shots} distinct frames in 4 s, ${lit} lit px, ${leaked.length} network requests`);
 for (const u of leaked) console.log(`    leaked: ${u}`);
 if (reader) console.log(`    scroll changes the rendered page: ${scrolled}`);
-if (readalong) console.log(`    audio playing: ${audioPlaying}; transcript scroll seeks the recording: ${scrubbed}`);
+if (readalong) console.log(`    silent autoplay joins sound on tap: ${silentPlayback}; audio playing: ${audioPlaying}; transcript scroll seeks the recording: ${scrubbed}`);
 if (expectedURL) console.log(`    link opens a separate tab and preserves the reader: ${linked}`);
 process.exit(ok ? 0 : 1);

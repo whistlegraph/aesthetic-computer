@@ -19310,7 +19310,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🎵 Streaming Audio (Radio, etc.)
     // Start playing a streaming audio URL
     if (type === "stream:play") {
-      const { id, url, volume, cors, loop, scrubbable } = content;
+      const { id, url, volume, cors, loop, scrubbable, startTime } = content;
 
       // Stop any existing stream with this id
       if (streamAudio[id]) {
@@ -19366,6 +19366,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         audio.src = bustedUrl;
         audio.volume = baseVolume * masterVolume;
         audio.loop = loop === true;
+        if (Number.isFinite(startTime) && startTime > 0) {
+          // Set the initial playback position before sound starts, including
+          // browsers that defer the seek until the recording metadata arrives.
+          audio.currentTime = startTime;
+          audio.addEventListener("loadedmetadata", () => {
+            audio.currentTime = Number.isFinite(audio.duration)
+              ? Math.min(startTime, Math.max(0, audio.duration - 0.001)) : startTime;
+          }, { once: true });
+        }
 
         attachTelemetry(audio);
 
@@ -19391,7 +19400,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         send({ type: "stream:state", content: { id, state: "connecting" } });
 
         return audio.play().then(() => {
-          send({ type: "stream:playing", content: { id } });
+          send({ type: "stream:playing", content: { id, currentTime: audio.currentTime } });
         });
       };
 
