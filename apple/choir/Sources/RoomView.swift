@@ -125,7 +125,7 @@ struct ChatRow: View {
                 } else {
                     let words = shownText
                     if let link = post.links.first {
-                        HeadlineCard(link: link, words: words, stored: post.preview)
+                        HeadlineCard(link: link, words: words, stored: post.preview, opportunity: post.kind == "opportunity")
                     } else if !words.isEmpty {
                         Text(linked(words)).font(.system(size: 16, design: .serif)).lineSpacing(2)
                             .foregroundStyle(Theme.ink).textSelection(.enabled)

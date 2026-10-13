@@ -23,7 +23,7 @@ struct DiscoverView: View {
                             VStack(alignment: .leading, spacing: 16) {
                                 Spacer(minLength: 0)
                                 if let link = post.links.first {
-                                    HeadlineCard(link: link, words: PostRow(post: post).shownText, large: true, stored: post.preview)
+                                    HeadlineCard(link: link, words: PostRow(post: post).shownText, large: true, stored: post.preview, opportunity: post.kind == "opportunity")
                                 }
                                 Button { open = post; Trail.send("discover:comments") } label: {
                                     HStack(spacing: 6) {

@@ -27,6 +27,7 @@ struct HeadlineCard: View {
     var words: String = ""        // what the poster wrote, if anything
     var large = false
     var stored: ArticleMeta? = nil // a news item's own card, when it has one
+    var opportunity = false
     @State private var fetched: ArticleMeta?
     var meta: ArticleMeta? { stored ?? fetched }
     @Environment(\.openURL) private var openURL
@@ -58,19 +59,26 @@ struct HeadlineCard: View {
                     .frame(height: large ? 200 : 140).frame(maxWidth: .infinity).clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
-            Text((meta?.siteName ?? host).uppercased()).font(.system(size: 10, weight: .semibold)).tracking(1.2)
-                .foregroundStyle(Theme.ink.opacity(0.5))
+            HStack(spacing: 8) {
+                if opportunity {
+                    Text("OPEN CALL").font(.system(size: 10, weight: .bold)).tracking(1.2)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Color(red: 0.2, green: 0.63, blue: 0.2), in: Capsule()).foregroundStyle(.white)
+                }
+                Text((meta?.siteName ?? host).uppercased()).font(.system(size: 10, weight: .semibold)).tracking(1.2)
+                    .foregroundStyle(Theme.ink.opacity(0.5))
+            }
             Text(headline).font(.system(size: large ? 24 : 19, weight: .bold, design: .serif))
                 .foregroundStyle(Theme.ink).fixedSize(horizontal: false, vertical: true)
             if let summary = meta?.description, !summary.isEmpty, summary != headline {
                 Text(summary).font(.system(size: large ? 16 : 14, design: .serif)).foregroundStyle(Theme.ink.opacity(0.75))
-                    .lineLimit(large ? 8 : 3)
+                    .lineLimit(large ? (opportunity ? 10 : 8) : 3)
             }
             if !words.isEmpty && words != headline && stored == nil {
                 Text(words).font(.system(size: 15, design: .serif)).italic().foregroundStyle(Theme.ink.opacity(0.85))
             }
             Button { if let u = URL(string: link) { Trail.send("article:open"); openURL(u) } } label: {
-                HStack(spacing: 4) { Text("Read the article"); Image(systemName: "arrow.up.right") }
+                HStack(spacing: 4) { Text(opportunity ? "See the call" : "Read the article"); Image(systemName: "arrow.up.right") }
                     .font(Theme.type(13, bold: true))
             }
             .buttonStyle(GlassChipStyle(on: false))

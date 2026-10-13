@@ -14,7 +14,7 @@ struct ThreadView: View {
             LazyVStack(spacing: 16) {
                 if let thread {
                     if let link = thread.root.links.first {
-                        HeadlineCard(link: link, words: PostRow(post: thread.root).shownText, large: true, stored: thread.root.preview)
+                        HeadlineCard(link: link, words: PostRow(post: thread.root).shownText, large: true, stored: thread.root.preview, opportunity: thread.root.kind == "opportunity")
                             .padding(18).background(Theme.paper, in: RoundedRectangle(cornerRadius: 10))
                         Text("\(thread.replies.count) \(thread.replies.count == 1 ? "comment" : "comments")")
                             .font(Theme.type(13)).foregroundStyle(Theme.ink.opacity(0.6)).frame(maxWidth: .infinity, alignment: .leading)

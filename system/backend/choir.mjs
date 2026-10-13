@@ -55,6 +55,7 @@ export function publicPost(row) {
     // News items carry their card (title, summary, image) so it never depends
     // on fetching a site that blocks previews.
     ...(row.preview && !row.deleted ? { preview: row.preview } : {}),
+    ...(row.kind ? { kind: row.kind } : {}), // "opportunity" for open calls in Discover
   };
 }
 
