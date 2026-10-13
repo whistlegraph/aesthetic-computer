@@ -3986,6 +3986,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           if (msg.type === "progress") {
             sfxProgress[msg.content.id] = msg.content;
+            // Readalong streams use the same reversible sampler as Stample.
+            const streamId = msg.content.id?.startsWith("stream-sample:") ? msg.content.id.slice(14) : null;
+            const stream = streamId && streamAudio[streamId];
+            if (stream?.sampleId === msg.content.id && Number.isFinite(msg.content.progress)) {
+              stream.samplePosition = msg.content.progress;
+              send({ type: "stream:time-data", content: {
+                id: streamId, currentTime: stream.samplePosition * stream.sampleDuration,
+                duration: stream.sampleDuration, speed: stream.sampleSpeed,
+                paused: stream.samplePaused || audioContext?.state !== "running", ended: false, sampler: true,
+              } });
+              return;
+            }
             // Send sound progress to the disk.
             // console.log("Received progress for:", msg);
             send({
@@ -4613,6 +4625,83 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (pos > 0) sfxPlaying[id]?.update({ samplePosition: pos });
     });
     return id;
+  }
+
+  function disposeStreamSample(entry) {
+    if (!entry.sampleLabel) return;
+    entry.sampleAbort?.abort();
+    clearTimeout(entry.sampleRelease);
+    if (entry.sampleId) sfxPlaying[entry.sampleId]?.kill(0.015);
+    // Drop only this recording's memoized PCM. Fading voices retain their
+    // own buffer reference; other pieces' sample caches remain available.
+    speakerProcessorNode?.port.postMessage({ type: "cache:clear", label: entry.sampleLabel });
+    delete sfx[entry.sampleLabel];
+    delete sfxLoaded[entry.sampleLabel];
+    delete sfxProgress[entry.sampleId];
+  }
+
+  function prepareStreamSample(id, entry, url) {
+    entry.sampleLabel = `stream-audio:${id}`;
+    entry.sampleSpeed = 1;
+    entry.sampleAbort = new AbortController();
+    // HTML audio starts immediately. Decode this finite, opted-in recording
+    // for Stample's worklet; radio streams keep their existing transport.
+    startSound();
+    fetch(url, { signal: entry.sampleAbort.signal }).then(async response => {
+      if (!response.ok) throw new Error(`Audio ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      const decoded = await audioContext.decodeAudioData(bytes);
+      if (streamAudio[id] !== entry) return;
+      sfx[entry.sampleLabel] = decoded;
+      entry.sampleDuration = decoded.duration;
+      entry.sampleReady = true;
+      activateStreamSample(id, entry);
+    }).catch(error => {
+      if (streamAudio[id] === entry && error.name !== "AbortError") {
+        send({ type: "stream:sampler-error", content: { id, error: error.message } });
+      }
+    });
+  }
+
+  async function activateStreamSample(id, entry) {
+    if (!entry.sampleReady || entry.sampleId || entry.sampleStarting || entry.audio.paused ||
+        !window.audioWorkletReady || audioContext?.state !== "running") return;
+    entry.sampleStarting = true;
+    const sampleId = `stream-sample:${id}`;
+    try {
+      // Launch silently, position the full-range loop, then hand off. Using
+      // `from` here would incorrectly make the rest of the episode the loop.
+      await playSfx(sampleId, entry.sampleLabel, { loop: true, volume: 0 });
+      if (streamAudio[id] !== entry) { sfxPlaying[sampleId]?.kill(); disposeStreamSample(entry); return; }
+      const voice = sfxPlaying[sampleId];
+      if (!voice) return;
+      entry.samplePosition = entry.audio.currentTime / entry.sampleDuration;
+      entry.sampleId = sampleId;
+      entry.samplePaused = false;
+      voice.update({ samplePosition: entry.samplePosition, sampleSpeed: entry.sampleSpeed, volume: entry.baseVolume, duration: 0.015 });
+      entry.audio.pause();
+      send({ type: "stream:sampler-ready", content: { id } });
+      send({ type: "stream:speed-data", content: { id, speed: entry.sampleSpeed } });
+      send({ type: "stream:playing", content: { id } });
+    } catch (error) {
+      entry.sampleReady = false;
+      if (streamAudio[id] === entry) send({ type: "stream:sampler-error", content: { id, error: error.message } });
+    } finally { entry.sampleStarting = false; }
+  }
+
+  function setStreamSampleSpeed(id, entry, speed) {
+    entry.sampleSpeed = speed;
+    if (entry.sampleId) {
+      if (!entry.samplePaused) sfxPlaying[entry.sampleId]?.update({ sampleSpeed: speed });
+      send({ type: "stream:speed-data", content: { id, speed } });
+    }
+  }
+
+  function releaseStreamScratch(id, entry) {
+    if (streamAudio[id] !== entry) return;
+    const next = 1 + (entry.sampleSpeed - 1) * 0.65;
+    setStreamSampleSpeed(id, entry, Math.abs(next - 1) < 0.02 ? 1 : next);
+    if (entry.sampleSpeed !== 1) entry.sampleRelease = setTimeout(() => releaseStreamScratch(id, entry), 24);
   }
 
   function stopTapeAudioLoops() {
@@ -19221,10 +19310,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🎵 Streaming Audio (Radio, etc.)
     // Start playing a streaming audio URL
     if (type === "stream:play") {
-      const { id, url, volume, cors } = content;
+      const { id, url, volume, cors, loop, scrubbable } = content;
 
       // Stop any existing stream with this id
       if (streamAudio[id]) {
+        disposeStreamSample(streamAudio[id]);
         streamAudio[id].audio.pause();
         streamAudio[id].audio.src = "";
         delete streamAudio[id];
@@ -19251,7 +19341,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // "Connecting…" → "Buffering…" → "● LIVE" with real detail.
       const attachTelemetry = (audio) => {
         const emitState = (state, extra) =>
-          send({
+          !streamAudio[id]?.sampleId && send({
             type: "stream:state",
             content: { id, state, ...(extra || {}) },
           });
@@ -19275,6 +19365,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (withCors) audio.crossOrigin = "anonymous";
         audio.src = bustedUrl;
         audio.volume = baseVolume * masterVolume;
+        audio.loop = loop === true;
 
         attachTelemetry(audio);
 
@@ -19296,6 +19387,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         streamAudio[id] = entry;
+        if (scrubbable && loop) prepareStreamSample(id, entry, url);
         send({ type: "stream:state", content: { id, state: "connecting" } });
 
         return audio.play().then(() => {
@@ -19323,6 +19415,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           err?.message || err,
         );
         if (streamAudio[id]) {
+          disposeStreamSample(streamAudio[id]);
           try {
             streamAudio[id].audio.pause();
             streamAudio[id].audio.src = "";
@@ -19344,6 +19437,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Pause a streaming audio
     if (type === "stream:pause") {
       const { id } = content;
+      if (streamAudio[id]?.sampleId) {
+        const entry = streamAudio[id]; entry.samplePaused = true;
+        sfxPlaying[entry.sampleId]?.update({ sampleSpeed: 0 });
+        send({ type: "stream:paused", content: { id } });
+        return;
+      }
       if (streamAudio[id]?.audio) {
         streamAudio[id].audio.pause();
         send({ type: "stream:paused", content: { id } });
@@ -19354,6 +19453,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Resume a paused streaming audio
     if (type === "stream:resume") {
       const { id } = content;
+      if (streamAudio[id]?.sampleId) {
+        const entry = streamAudio[id]; entry.samplePaused = false;
+        resumeAudioContext("stream-sample-resume", { force: true });
+        setStreamSampleSpeed(id, entry, 1);
+        send({ type: "stream:playing", content: { id } });
+        return;
+      }
       if (streamAudio[id]?.audio) {
         streamAudio[id].audio.play().then(() => {
           send({ type: "stream:playing", content: { id } });
@@ -19368,6 +19474,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "stream:stop") {
       const { id } = content;
       if (streamAudio[id]) {
+        disposeStreamSample(streamAudio[id]);
         streamAudio[id].audio.pause();
         streamAudio[id].audio.src = "";
         delete streamAudio[id];
@@ -19383,6 +19490,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         const baseVolume = clampVolume(volume);
         streamAudio[id].baseVolume = baseVolume;
         streamAudio[id].audio.volume = baseVolume * masterVolume;
+        if (streamAudio[id].sampleId) sfxPlaying[streamAudio[id].sampleId]?.update({ volume: baseVolume, duration: 0.03 });
       }
       return;
     }
@@ -19418,6 +19526,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Seek streaming audio to a specific time position
     if (type === "stream:seek") {
       const { id, time } = content;
+      if (streamAudio[id]?.sampleId && Number.isFinite(time)) {
+        const entry = streamAudio[id];
+        entry.samplePosition = Math.max(0, Math.min(0.999999, time / entry.sampleDuration));
+        sfxPlaying[entry.sampleId]?.update({ samplePosition: entry.samplePosition });
+        send({ type: "stream:seeked", content: { id, time: entry.samplePosition * entry.sampleDuration } });
+        return;
+      }
       if (streamAudio[id]?.audio) {
         streamAudio[id].audio.currentTime = time;
         send({ type: "stream:seeked", content: { id, time } });
@@ -19425,13 +19540,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // Set playback rate (dj pitch fader / scratch). preservesPitch is turned
-    // off so speed bends pitch like vinyl. HTMLMediaElement can't run in
-    // reverse, so the rate floors just above zero — backward scratching is
-    // the piece's job (silent seeks).
+    // Finite, opted-in recordings use Stample's sampler for signed speed.
+    // Other streams retain HTML playback with pitch correction disabled;
+    // those can bend pitch forward but cannot play backward.
     if (type === "stream:speed") {
       const { id, speed } = content;
       const entry = streamAudio[id];
+      if (!Number.isFinite(speed)) return;
+      if (entry?.sampleReady) {
+        clearTimeout(entry.sampleRelease);
+        setStreamSampleSpeed(id, entry, Math.max(-4, Math.min(4, speed)));
+        activateStreamSample(id, entry);
+        if (content.releaseAfter > 0) entry.sampleRelease = setTimeout(() => releaseStreamScratch(id, entry), Math.min(500, content.releaseAfter));
+        return;
+      }
+      // A readalong stays at normal speed while its reversible sample loads.
+      if (entry?.sampleLabel) return;
       if (entry?.audio) {
         const rate = Math.min(4, Math.max(0.0625, speed));
         entry.audio.preservesPitch = false;
@@ -19505,6 +19629,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Get current playback time, duration, and buffer state
     if (type === "stream:time") {
       const { id } = content;
+      const entry = streamAudio[id];
+      if (entry?.sampleReady) activateStreamSample(id, entry);
+      if (entry?.sampleId) {
+        sfxPlaying[entry.sampleId]?.progress();
+        return;
+      }
       if (streamAudio[id]?.audio) {
         const audio = streamAudio[id].audio;
         const buffered = audio.buffered.length > 0

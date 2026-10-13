@@ -143,7 +143,7 @@ test("rerunning a produced daily skips writing and narration, retries delivery, 
   const f = fixture(t), slug = "daily-2026-10-04";
   const source = fileURLToPath(new URL("../", import.meta.url));
   mkdirSync(resolve(f.root, "bin")); mkdirSync(resolve(f.root, "lib")); mkdirSync(resolve(f.out, "daily"));
-  for (const file of ["bin/daily.mjs", "lib/daily-delivery.mjs", "lib/publishing-queue.mjs", "lib/hosted.mjs"]) cpSync(resolve(source, file), resolve(f.root, file));
+  for (const file of ["bin/daily.mjs", "lib/daily-delivery.mjs", "lib/publishing-queue.mjs", "lib/hosted.mjs", "lib/radio.mjs"]) cpSync(resolve(source, file), resolve(f.root, file));
   f.produce(slug);
   const script = resolve(f.out, "daily", `${slug}.md`);
   writeFileSync(script, "already produced script");

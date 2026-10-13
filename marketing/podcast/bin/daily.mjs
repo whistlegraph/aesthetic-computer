@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// daily.mjs — the automated ~2-minute daily episode ("the daily").
+// daily.mjs — the automated ~2-minute Aesthetic Computer Radio episode.
 //
 //   gather  — the last day of commit subjects (filtered, deduped, REDACTED)
 //   write   — a ~300-word spoken script via `claude -p` in the monthly-essay
@@ -24,6 +24,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync, spawnSync } from "node:child_process";
 import { deliverDaily } from "../lib/daily-delivery.mjs";
 import { publishingQueue } from "../lib/publishing-queue.mjs";
+import { RADIO_NAME } from "../lib/radio.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -99,7 +100,7 @@ const subjects = raw.split("\n")
 console.log(`▸ ${slug}: ${subjects.length} commit subjects after filtering`);
 
 // ── 2. write ─────────────────────────────────────────────────────────────
-const PROMPT = `You are writing today's episode of "the daily" — a ~2-minute spoken update
+const PROMPT = `You are writing today's episode of "${RADIO_NAME}" — a ~2-minute spoken update
 from the Aesthetic Dot Computer podcast, voiced by @jeffrey (first person).
 
 Below are the day's git commit subjects from the aesthetic.computer monorepo.

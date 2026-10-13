@@ -5699,7 +5699,8 @@ class KidLisp {
         this.lifter = args;
       },
       fetch: (api, args) => {
-        const url = unquoteString(String(args[0]));
+        // A packed work may carry a local copy of its public JSON resource.
+        const url = unquoteString(String(checkPackMode() && args[1] !== undefined ? args[1] : args[0]));
         this.jsonData ||= new Map();
         if (!this.jsonData.has(url)) {
           const handle = { kidlispData: true, status: "loading", url, id: `json-${Date.now()}-${Math.random()}` };

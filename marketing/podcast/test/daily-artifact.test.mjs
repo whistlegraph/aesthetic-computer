@@ -4,7 +4,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { artifactMode, tokenMetadata, crawlBundle, checkBundle, crawlPackage, dailyPackage, contentFiles, checkPublishedContent, checkPinnedArtifact, CRAWL_STYLE } from "../lib/artifact.mjs";
+import { artifactMode, dailyRenderer, tokenMetadata, crawlBundle, checkBundle, crawlPackage, dailyPackage, contentFiles, checkPublishedContent, checkPinnedArtifact, CRAWL_STYLE } from "../lib/artifact.mjs";
+import { readAlongSource, readAlongAssets } from '../lib/read-along-pack.mjs';
+import { createHash } from 'node:crypto';
 import AdmZip from "adm-zip";
 import { crawlLayout, crawlPiece, readablePeriod } from "../lib/crawl.mjs";
 
@@ -26,6 +28,31 @@ test("the switch: ZIP by default and for legacy HTML configs, GIF on request", (
   assert.equal(artifactMode({ DAILY_ARTIFACT: "gif" }), "gif");
   assert.equal(artifactMode({ DAILY_ARTIFACT: " HTML " }), "zip");
   assert.throws(() => artifactMode({ DAILY_ARTIFACT: "svg" }), /zip or gif/);
+});
+
+test('readalong starts with new receipts; retries preserve saved artifacts',()=>{
+ const enabled={DAILY_READALONG:'1'};
+ assert.equal(dailyRenderer({},enabled),'readalong');
+ assert.equal(dailyRenderer({code:'old'},enabled),'crawl');
+ assert.equal(dailyRenderer({renderer:'readalong',code:'new'},{}),'readalong');
+ assert.equal(dailyRenderer({}, {...enabled,DAILY_ARTIFACT:'gif'}),'crawl');
+});
+
+test('a readalong package preserves every spoken section and rejects substituted audio or source',()=>{
+ const audio=Buffer.from('measured recording');
+ const readalong={version:1,title:'Radio',body:'Opening.\n\nStory.\n\nClosing.',words:[],audio:{url:'episode.mp3',sha256:createHash('sha256').update(audio).digest('hex')}};
+ const assets=readAlongAssets(readalong,audio);
+ const source=readAlongSource(readalong,'https://ipfs.aesthetic.computer/ipfs/QmData/episode.json');
+ const e={title:readalong.title,body:readalong.body,date:'2026-10-13',code:'radio',source,readalong};
+ const files=contentFiles(e);
+ assert.ok(files[0].content.toString().includes('Opening.\n\nStory.\n\nClosing.'));
+ assert.throws(()=>readAlongAssets(readalong,Buffer.from('different recording')),/differs/);
+ assert.throws(()=>contentFiles({...e,source:source.replace('listen episode','paragraph "missing"')}),/differs/);
+ const packed=dailyPackage('<html><head></head><body></body></html>',{gif:Buffer.from('gif'),thumbnail:Buffer.from('png'),frames:2},e,assets);
+ const zip=new AdmZip(packed.zip);
+ assert.equal(JSON.parse(zip.readAsText('episode.json')).body,readalong.body);
+ assert.deepEqual(zip.readFile('episode.mp3'),audio);
+ assert.ok(zip.getEntry('UNIFONT-OFL-1.1.txt'));
 });
 
 test("HEN metadata selects the directory viewer, with the GIF as display", () => {

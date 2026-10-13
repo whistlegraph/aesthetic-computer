@@ -12,18 +12,24 @@ import { createHash } from "node:crypto";
 import AdmZip from "adm-zip";
 import { crawlLayout } from "./crawl.mjs";
 import { readRichDailySource } from "./daily-richtext.mjs";
+import { readAlongSource } from "./read-along-pack.mjs";
+import { validateReadAlong } from "../../../system/public/aesthetic.computer/lib/rich-text.mjs";
 import { teiaPackage, TEIA_FORMAT } from "../../../system/backend/whistlegraph-teia.mjs";
 
 export { teiaPackage as crawlPackage, TEIA_FORMAT };
 
 // Preserve canonical prose outside the compressed canvas runtime. These
 // files can be read without JavaScript, OCR, fonts, or a running browser.
-export function contentFiles({ title, body, date, code, source }) {
+export function contentFiles({ title, body, date, code, source, readalong }) {
   if (![title, body, date, code, source].every(v => typeof v === "string" && v.trim())) {
     throw new Error("Daily content needs a title, body, date, code and source");
   }
   const prose = lines => lines.join(" ").replace(/\s+/g, " ").trim();
-  if (/^\(flow\b/m.test(source)) {
+  if (readalong) {
+    validateReadAlong(readalong);
+    const url = source.match(/\(fetch ("(?:[^"\\]|\\.)*") "episode.json"\)/)?.[1];
+    if (!url || source !== readAlongSource(readalong, JSON.parse(url)) || readalong.title !== title || readalong.body !== body) throw new Error('Readalong differs from the episode');
+  } else if (/^\(flow\b/m.test(source)) {
     const document = readRichDailySource(source);
     if (document.title !== title || prose([document.body]) !== prose([body])) throw new Error("Rich text differs from the episode");
   } else {
@@ -31,7 +37,7 @@ export function contentFiles({ title, body, date, code, source }) {
     const intended = crawlLayout({ title, body, date }).lines.filter(Boolean).map(l => l.text.replace(/\\/g, ""));
     if (prose(written) !== prose(intended)) throw new Error("Crawl text differs from the episode");
   }
-  const content = { title, body, date, code, source, bodySha256: createHash("sha256").update(body).digest("hex") };
+  const content = { title, body, date, code, source, audio: readalong?.audio, bodySha256: createHash("sha256").update(body).digest("hex") };
   return [
     { name: "transcript.txt", mime: "text/plain", content: Buffer.from(`${title}\n\n${body}\n`) },
     { name: "content.json", mime: "application/json", content: Buffer.from(JSON.stringify(content, null, 2) + "\n") },
@@ -39,12 +45,13 @@ export function contentFiles({ title, body, date, code, source }) {
   ];
 }
 
-export function dailyPackage(html, preview, episode) {
+export function dailyPackage(html, preview, episode, assets = []) {
   const prose = contentFiles(episode);
   const structured = JSON.stringify({ "@context": "https://schema.org", "@type": "CreativeWork", name: episode.title, text: episode.body, dateCreated: episode.date }).replace(/</g, "\\u003c");
   const readable = html.replace(/<head(?:\s[^>]*)?>/i, head => `${head}\n<link rel="alternate" type="text/plain" href="transcript.txt">\n<script type="application/ld+json">${structured}</script>`);
   const base = teiaPackage(readable, preview);
-  const files = [...base.files, ...prose];
+  const files = [...base.files, ...prose, ...assets];
+  if (new Set(files.map(file => file.name)).size !== files.length) throw new Error('Duplicate package filename');
   const zip = new AdmZip();
   for (const file of files) zip.addFile(file.name, file.content);
   return { files, zip: zip.toBuffer() };
@@ -83,6 +90,11 @@ export function artifactMode(env = process.env) {
   if (mode === "html") return "zip";
   if (!ARTIFACTS.includes(mode)) throw new Error(`DAILY_ARTIFACT must be ${ARTIFACTS.join(" or ")}, not "${mode}"`);
   return mode;
+}
+
+export function dailyRenderer(receipt, env = process.env, artifact = artifactMode(env)) {
+  if (receipt.renderer && !['readalong', 'crawl'].includes(receipt.renderer)) throw new Error('Unknown saved daily renderer');
+  return receipt.renderer || (!receipt.code && artifact === 'zip' && env.DAILY_READALONG === '1' ? 'readalong' : 'crawl');
 }
 
 // A saved metadata URI is immutable once submitted. Never resume an unminted
@@ -139,6 +151,10 @@ export function checkBundle(html, { code, source }) {
   for (const f of REQUIRED_FILES) if (!vfs[f]) problems.push(`VFS lacks ${f}`);
   if (vfs[`disks/${code}.lisp`]?.content !== source) problems.push("VFS crawl source differs from the stored $code");
   if (/^\(flow\b/m.test(source) && (!vfs["lib/rich-text.mjs"] || !/flow:\s*\(/.test(vfs["lib/kidlisp.mjs"]?.content || ""))) problems.push("VFS lacks rich-text support");
+  if (/\(flow \(listen\b/.test(source)) {
+    if (!/scrollAudio\(/.test(vfs['lib/rich-text.mjs']?.content || '') || !/stream:sampler-ready/.test(vfs['bios.mjs']?.content || '')) problems.push('VFS lacks readalong scrubbing');
+    if (!inner.includes('unifont')) problems.push('Bundle lacks Unifont');
+  }
   if (!Object.keys(vfs).some((f) => f.startsWith("disks/drawings/font_1/"))) problems.push("VFS lacks the font_1 glyphs");
   const kidlisp = vfs["lib/kidlisp.mjs"]?.content || "";
   for (const [fix, mark] of Object.entries(RUNTIME_MARKS)) if (!mark.test(kidlisp)) problems.push(`runtime lacks the ${fix}`);

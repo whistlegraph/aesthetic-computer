@@ -1,0 +1,4 @@
+GNU Unifont 16.0.03. https://unifoundry.com/unifont/
+Copyright (C) 1998-2024 Roman Czyborra, Paul Hardy, Qianqian Fang, Andrew Miller, Johnnie Weaver, David Corbett, Rebecca Bettencourt, et al.
+Distributed under the SIL Open Font License 1.1. See UNIFONT-OFL-1.1.txt.
+Bitmap subset for this reading; original glyph designs preserved.

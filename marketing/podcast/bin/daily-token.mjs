@@ -22,7 +22,7 @@
 // Secrets come from the environment or --env <file> (repeatable):
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
 //   AC_TOKEN or ~/.ac-token            an @jeffrey AC session, for /api/ipfs-add
-// Tuning: DAILY_EDITIONS (1), DAILY_PRICE_XTZ (3), DAILY_ROYALTIES_PERMILLE (150),
+// Tuning: DAILY_EDITIONS (1), DAILY_PRICE_XTZ (5), DAILY_ROYALTIES_PERMILLE (150),
 //         DAILY_ARTIFACT (zip | gif; legacy html also uses ZIP packaging).
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
@@ -30,6 +30,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { freshSession } from "../../../shared/ac-token.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -69,11 +70,11 @@ const AC = process.env.AC_URL || "https://aesthetic.computer";
 const SHOW = "https://www.buzzsprout.com/2628235";
 
 const EDITIONS = Number(process.env.DAILY_EDITIONS || 1);
-const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 3);
+const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 5);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
-const { artifactMode, crawlBundle, checkBundle, dailyPackage, contentFiles, checkPublishedContent, checkPinnedArtifact, tokenMetadata, TEIA_FORMAT } = await import(resolve(ROOT, "lib", "artifact.mjs"));
+const { artifactMode, dailyRenderer, crawlBundle, checkBundle, dailyPackage, contentFiles, checkPublishedContent, checkPinnedArtifact, tokenMetadata, TEIA_FORMAT } = await import(resolve(ROOT, "lib", "artifact.mjs"));
 let ARTIFACT;
 try { ARTIFACT = artifactMode(); } catch (err) { console.error(`✗ ${err.message}`); process.exit(1); }
 
@@ -89,13 +90,21 @@ async function acToken() {
   if (!record.refresh_token) return null;
   return (await freshSession({ file })).access_token;
 }
-const AC_TOKEN = await acToken();
+const AC_TOKEN = flags.dry ? null : await acToken();
 
-const dailyDir = resolve(ROOT, "out", "daily");
+if (flags['out-dir'] && !flags.dry) throw new Error('--out-dir is only supported for isolated dry runs');
+const outDir = resolve(flags['out-dir'] || resolve(ROOT, 'out'));
+const dailyDir = resolve(outDir, "daily");
 mkdirSync(dailyDir, { recursive: true });
 const receiptPath = resolve(dailyDir, `${slug}.token.json`);
 const receipt = existsSync(receiptPath) ? JSON.parse(readFileSync(receiptPath, "utf8")) : { slug, date };
+if (receipt.dryRun && !flags.dry) {
+  if (receipt.metadataUri || receipt.mintOp || receipt.tokenId !== undefined) throw new Error('Dry receipt unexpectedly contains a published operation');
+  for (const key of ['code', 'source', 'renderer', 'dataUri', 'dataHash', 'dryRun']) delete receipt[key];
+}
 const save = () => writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + "\n");
+const READALONG = dailyRenderer(receipt, process.env, ARTIFACT) === 'readalong';
+if (READALONG && ARTIFACT !== 'zip') throw new Error('Readalong receipts require the interactive directory format');
 
 if (receipt.listed) {
   console.log(`✓ ${slug} already minted and listed: ${receipt.objktUrl}`);
@@ -113,9 +122,27 @@ const fm = md.match(/^---\n[\s\S]*?\btitle:\s*(.+?)\n[\s\S]*?\n---\n([\s\S]+)$/)
 if (!fm) { console.error("✗ episode script has no frontmatter"); process.exit(1); }
 const title = fm[1].trim();
 const body = fm[2].trim();
-const buzz = resolve(ROOT, "out", `${slug}.buzzsprout.json`);
+const buzz = resolve(outDir, `${slug}.buzzsprout.json`);
 const episodeUrl = existsSync(buzz) ? `${SHOW}/${JSON.parse(readFileSync(buzz, "utf8")).id}` : SHOW;
 console.log(`▸ ${slug}: "${title}"`);
+let readalong, readerAssets, readerSource;
+if (READALONG) {
+  const { prepareReadAlong } = await import('../lib/read-along-build.mjs');
+  const { readAlongAssets, readAlongSource } = await import('../lib/read-along-pack.mjs');
+  const audioFile = resolve(outDir, `${slug}.mp3`);
+  readalong = prepareReadAlong({ markdown: mdPath, audioFile, directory: resolve(dailyDir, `${slug}-reader`) });
+  readerAssets = readAlongAssets(readalong, readFileSync(audioFile));
+  const dataHash = createHash('sha256').update(readerAssets[0].content).update(readerAssets[1].content).digest('hex');
+  if (receipt.dataHash && receipt.dataHash !== dataHash) throw new Error('Previously pinned readalong data differs; inspect the release before resuming');
+  if (!receipt.dataUri && !flags.dry) {
+    if (!AC_TOKEN) throw new Error('An AC session is required to pin the readalong data');
+    receipt.dataUri = await pin({ files: readerAssets.filter(f => f.name.startsWith('episode.')).map(({ name, mime, content }) => ({ name, mimeType: mime, base64: content.toString('base64') })) });
+    receipt.renderer = 'readalong'; receipt.dataHash = dataHash; save();
+  }
+  const url = receipt.dataUri ? `https://ipfs.aesthetic.computer/ipfs/${receipt.dataUri.slice(7)}/episode.json` : `https://ipfs.aesthetic.computer/ipfs/preview-${slug}/episode.json`;
+  readerSource = readAlongSource(readalong, url);
+  if (receipt.source && receipt.source !== readerSource) throw new Error('Saved readalong differs; inspect before replacing a release');
+}
 
 // ── 1. page ──────────────────────────────────────────────────────────────
 // The token's image is the update itself, as a Star Wars crawl in AC's pixel
@@ -136,6 +163,15 @@ async function store(source) {
 }
 
 if (!receipt.code) {
+  if (READALONG) {
+    const { renderReadAlongCover } = await import('../lib/read-along-cover.mjs');
+    const code = flags.dry ? `preview-${date}` : await store(readerSource);
+    const gifPath = resolve(dailyDir, `${slug}.gif`);
+    const frames = await renderReadAlongCover(readalong, gifPath, resolve(dailyDir, `${slug}-thumb.png`));
+    Object.assign(receipt, { renderer: 'readalong', dryRun: Boolean(flags.dry), code, source: readerSource, frames, gifBytes: readFileSync(gifPath).length, palette: readalong.themes.map(t => t.name), priceXtz: PRICE_XTZ });
+    save();
+    console.log(`  ✓ readalong: ${readalong.words.length} timed words, ${PRICE_XTZ} XTZ`);
+  } else {
   const layout = crawlLayout({ title, body, date });
   // Whole-pixel text remains readable in AC's default tiled view.
   const source = process.env.DAILY_RICH_TEXT === "1"
@@ -154,6 +190,7 @@ if (!receipt.code) {
   Object.assign(receipt, { code, source, gifBytes, frames, palette: layout.palette });
   save();
   console.log(`  ✓ $${code} · crawl ${frames} frames (${(gifBytes / 1024).toFixed(0)} KB) → out/daily/${slug}.gif`);
+  }
 }
 
 // ── 1b. bundle ───────────────────────────────────────────────────────────
@@ -163,12 +200,14 @@ if (!receipt.code) {
 // that fails is rebuilt once from this checkout's runtime, and if it still
 // fails the night refuses to mint HTML rather than mint a broken artifact.
 const htmlPath = resolve(dailyDir, `${slug}.html`);
-const episodeContent = { title, body, date, code: receipt.code, source: receipt.source };
+const episodeContent = { title, body: readalong?.body || body, date, code: receipt.code, source: receipt.source, readalong };
 contentFiles(episodeContent); // Also check GIF-mode source against the script.
 let packaged;
 if (ARTIFACT === "zip") {
   const pack = async () => {
-    const html = await crawlBundle(receipt.code, receipt.source);
+    const html = READALONG
+      ? (await (await import('../lib/read-along-pack.mjs')).readAlongBundle(readalong, { code: receipt.code, source: receipt.source })).html
+      : await crawlBundle(receipt.code, receipt.source);
     writeFileSync(htmlPath, html);
     receipt.htmlBytes = Buffer.byteLength(html);
     save();
@@ -192,12 +231,12 @@ if (ARTIFACT === "zip") {
     gif: readFileSync(resolve(dailyDir, `${slug}.gif`)),
     thumbnail: readFileSync(resolve(dailyDir, `${slug}-thumb.png`)),
     frames: receipt.frames,
-  }, episodeContent);
+  }, episodeContent, readerAssets);
   writeFileSync(resolve(dailyDir, `${slug}.zip`), packaged.zip);
   console.log(`  ✓ HEN/Teia package → out/daily/${slug}.zip (page, covers, transcript, JSON, source)`);
 }
 
-const metadataFor = (uris) => tokenMetadata({ title, body, date, episodeUrl, code: receipt.code, creator: SIGNER, artifact: ARTIFACT, uris, ac: AC });
+const metadataFor = (uris) => tokenMetadata({ title, body: episodeContent.body, date, episodeUrl, code: receipt.code, creator: SIGNER, artifact: ARTIFACT, uris, ac: AC });
 
 if (flags.dry) {
   const dry = (f) => `ipfs://<${f}>`;

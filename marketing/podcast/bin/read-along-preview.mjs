@@ -5,8 +5,8 @@ import { statSync, createReadStream } from 'node:fs';
 import { resolve } from 'node:path';
 const directory = resolve(process.argv[2] || '.');
 const port = Number(process.argv[3] || 8898);
-const files = new Map(['index.html', 'episode.json', 'episode.mp3', 'source.lisp'].map(name => [name, resolve(directory, name)]));
-const mime = { html: 'text/html', json: 'application/json', mp3: 'audio/mpeg', lisp: 'text/plain' };
+const files = new Map(['index.html', 'episode.json', 'episode.mp3', 'source.lisp', 'UNIFONT-COPYRIGHT.txt', 'UNIFONT-OFL-1.1.txt'].map(name => [name, resolve(directory, name)]));
+const mime = { html: 'text/html', json: 'application/json', mp3: 'audio/mpeg', lisp: 'text/plain', txt: 'text/plain' };
 createServer((request, response) => {
   const name = new URL(request.url, 'http://localhost').pathname.slice(1) || 'index.html';
   const file = files.get(name);

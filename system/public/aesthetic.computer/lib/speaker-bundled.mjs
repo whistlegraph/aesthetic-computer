@@ -2423,7 +2423,8 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         return;
       }
       if (msg.type === "cache:clear") {
-        for (const k in sampleStore) delete sampleStore[k];
+        if (typeof msg.label === "string") delete sampleStore[msg.label];
+        else for (const k in sampleStore) delete sampleStore[k];
         return;
       }
       if (msg.type === "sound") {

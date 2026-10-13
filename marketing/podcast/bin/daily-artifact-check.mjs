@@ -37,8 +37,9 @@ const zip = file.endsWith(".zip") ? new (need("adm-zip"))(readFileSync(file)) : 
 const bundle = zip ? zip.readFile("index.html") : readFileSync(file);
 if (!bundle) throw new Error("ZIP is missing root index.html");
 const ART = "https://art.test/index.html", HOST = "https://host.test/";
-const reader = rest.includes("--reader");
-const host = `<!doctype html><body style="margin:0;background:#222"><iframe sandbox="allow-scripts${reader ? ' allow-popups allow-popups-to-escape-sandbox' : ''}" src="${ART}" style="border:0;width:${width}px;height:${height}px"></iframe>`;
+const readalong = rest.includes('--readalong');
+const reader = rest.includes("--reader") || readalong;
+const host = `<!doctype html><body style="margin:0;background:#222"><iframe allow="autoplay" sandbox="allow-scripts${reader ? ' allow-popups allow-popups-to-escape-sandbox' : ''}" src="${ART}" style="border:0;width:${width}px;height:${height}px"></iframe>`;
 
 const browser = await puppeteer.launch({ headless: "new" });
 const page = await browser.newPage();
@@ -49,9 +50,16 @@ page.on("request", (r) => {
   const u = r.url();
   if (u === ART) return r.respond({ status: 200, contentType: "text/html", body: bundle });
   if (u === HOST) return r.respond({ status: 200, contentType: "text/html", body: host });
-  if (zip && ["https://art.test/cover.gif", "https://art.test/thumbnail.png"].includes(u)) {
+  if (zip && u.startsWith('https://art.test/')) {
     const name = new URL(u).pathname.slice(1);
-    return r.respond({ status: 200, contentType: name.endsWith("gif") ? "image/gif" : "image/png", body: zip.readFile(name) });
+    const bytes = zip.readFile(name);
+    if (bytes) {
+      const mime = { gif: 'image/gif', png: 'image/png', json: 'application/json', mp3: 'audio/mpeg', txt: 'text/plain', lisp: 'text/plain' }[name.split('.').at(-1)];
+      const range = r.headers().range?.match(/^bytes=(\d+)-(\d*)$/);
+      const start = range ? Number(range[1]) : 0, end = range?.[2] ? Math.min(Number(range[2]), bytes.length - 1) : bytes.length - 1;
+      return r.respond({ status: range ? 206 : 200, contentType: mime,
+        headers: { 'Access-Control-Allow-Origin': '*', 'Accept-Ranges': 'bytes', ...(range ? { 'Content-Range': `bytes ${start}-${end}/${bytes.length}` } : {}) }, body: bytes.subarray(start, end + 1) });
+    }
   }
   if (u.startsWith("blob:") || u.startsWith("data:")) return r.continue();
   if (!u.endsWith("/favicon.ico")) leaked.push(u);
@@ -59,6 +67,22 @@ page.on("request", (r) => {
 });
 await page.goto(HOST);
 await new Promise((r) => setTimeout(r, 5000));
+let scrubbed = !readalong, audioPlaying = !readalong;
+if (readalong) {
+  const frame = page.frames().find(frame => frame.url() === ART);
+  if (!frame) throw new Error('Missing artifact iframe');
+  await page.mouse.click(width / 2, height / 2);
+  await frame.waitForFunction(() => window.__acGlobalKidLispInstance?.richFlow?.samplerReady, { timeout: 15000 });
+  const before = await frame.evaluate(() => window.__acGlobalKidLispInstance.richFlow.time);
+  await page.mouse.wheel({ deltaY: 600 });
+  await new Promise(resolve => setTimeout(resolve, 300));
+  const state = await frame.evaluate(() => {
+    const f = window.__acGlobalKidLispInstance.richFlow;
+    return { time: f.time, playing: f.playing, words: f.episode.words.length, sections: f.episode.sections.length };
+  });
+  scrubbed = state.time > before + 5 && state.words > 0 && state.sections === 3;
+  audioPlaying = state.playing;
+}
 
 const frames = new Set();
 let shots = 0, lit = 0;
@@ -108,10 +132,11 @@ if (reader) {
   scrolled = !before.equals(after);
   if (shotsDir) writeFileSync(resolve(shotsDir, `${basename(file, '.html')}-scroll.png`), after);
 }
-const ok = lit > 500 && (reader ? scrolled && linked : moving) && !leaked.length;
+const ok = lit > 500 && (reader ? scrolled && linked : moving) && !leaked.length && scrubbed && audioPlaying;
 await browser.close();
 console.log(`${ok ? "✓" : "✗"} ${basename(file)}: ${frames.size}/${shots} distinct frames in 4 s, ${lit} lit px, ${leaked.length} network requests`);
 for (const u of leaked) console.log(`    leaked: ${u}`);
 if (reader) console.log(`    scroll changes the rendered page: ${scrolled}`);
+if (readalong) console.log(`    audio playing: ${audioPlaying}; transcript scroll seeks the recording: ${scrubbed}`);
 if (expectedURL) console.log(`    link opens a separate tab and preserves the reader: ${linked}`);
 process.exit(ok ? 0 : 1);
