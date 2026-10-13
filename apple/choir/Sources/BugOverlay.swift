@@ -8,6 +8,8 @@ import UIKit
 @MainActor final class BugOverlay {
     static let shared = BugOverlay()
     private var window: PassthroughWindow?
+    /// Where the bug is now, in window points; the only spot that takes touches.
+    var bugFrame: CGRect = .zero
 
     func update(for account: Account) {
         if account.handle == "@fifi" { show(account) } else { hide() }
@@ -37,10 +39,14 @@ import UIKit
 }
 
 /// Only the bug (and its sheet) take touches; the rest falls through.
+/// SwiftUI answers every hit test with its hosting view, so the bug can't be
+/// told from empty space by the view returned; test against its frame instead
+/// (Fía, 10-12: "the bug tap is still not working").
 final class PassthroughWindow: UIWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        let hit = super.hitTest(point, with: event)
-        return hit === rootViewController?.view ? nil : hit
+        if rootViewController?.presentedViewController != nil { return super.hitTest(point, with: event) }
+        guard BugOverlay.shared.bugFrame.insetBy(dx: -10, dy: -10).contains(point) else { return nil }
+        return super.hitTest(point, with: event)
     }
 }
 
@@ -66,6 +72,7 @@ struct FloatingBug: View {
                 .background(Circle().fill(.white).shadow(color: .black.opacity(0.25), radius: dragging ? 10 : 5, y: dragging ? 5 : 2))
                 .overlay(Circle().strokeBorder(.red.opacity(0.25), lineWidth: 1))
                 .scaleEffect(dragging ? 1.12 : 1)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { BugOverlay.shared.bugFrame = $0 }
                 .position(x: base.x + drag.width, y: base.y + drag.height)
                 .gesture(
                     DragGesture(minimumDistance: 4)
