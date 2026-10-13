@@ -6,6 +6,7 @@ final class MimeLayoutTests: XCTestCase {
         app.launch()
         let code = app.buttons["mime-global-identifier"].firstMatch
         XCTAssertTrue(code.waitForExistence(timeout: 45), "first piece opens without a swipe")
+        waitForReveal(in: app)
         XCTAssertFalse(app.staticTexts["Swipe up for the feed"].exists)
         let author = app.descendants(matching: .any).matching(identifier: "mime-author").firstMatch
         let type = app.descendants(matching: .any).matching(identifier: "mime-type").firstMatch
@@ -73,10 +74,7 @@ final class MimeLayoutTests: XCTestCase {
         let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let banner = spring.otherElements.matching(identifier: "NotificationShortLookView").firstMatch
         if banner.exists { banner.swipeUp() }
-        let revealed = expectation(for: NSPredicate { _, _ in
-            !app.descendants(matching: .any)["mime-loading"].firstMatch.exists
-        }, evaluatedWith: app)
-        XCTAssertEqual(XCTWaiter().wait(for: [revealed], timeout: 90), .completed)
+        waitForReveal(in: app)
         let visible = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: type)
         XCTAssertEqual(XCTWaiter().wait(for: [visible], timeout: 90), .completed)
         type.tap()
@@ -84,6 +82,13 @@ final class MimeLayoutTests: XCTestCase {
             if banner.exists { banner.swipeUp() }
             type.tap()
         }
+    }
+
+    private func waitForReveal(in app: XCUIApplication) {
+        let revealed = expectation(for: NSPredicate { _, _ in
+            !app.descendants(matching: .any)["mime-loading"].firstMatch.exists
+        }, evaluatedWith: app)
+        XCTAssertEqual(XCTWaiter().wait(for: [revealed], timeout: 90), .completed)
     }
 
     func testDoomFeedPlaysAndItsTypeCreatesWad() {
@@ -96,6 +101,7 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertEqual(type.label, "application/x-doom-wad")
         XCTAssertEqual(app.buttons["mime-global-identifier"].firstMatch.label, "doom~fixture-wad")
         XCTAssertTrue(app.webViews.otherElements["Empty Doom room"].waitForExistence(timeout: 90), "The WAD feed reaches its first game frame")
+        waitForReveal(in: app)
         XCTAssertFalse(app.webViews.buttons["Play"].exists)
         XCTAssertFalse(app.webViews.buttons["Fire"].exists)
         let reel = XCTAttachment(screenshot: app.screenshot())
