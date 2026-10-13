@@ -227,6 +227,9 @@ void main()
         pos = ro + rd * nearIntersectionDist;
         pos += traceDist * refractionDir * (float(i)+headStartCam) / float(fogIterations);
         vec4 colorValue = getColor(pos);
+        // Empty volume contributes neither absorption nor light. Skip the
+        // shadow march for these samples without changing the accumulated color.
+        if (colorValue.w == 0.0) continue;
         stepAbs = exp(-colorValue.w * length(pos - previousPos) * colorValue.xyz);
         stepCol = vec3(1.) - stepAbs;
         volCol += stepCol * volAbs * directLight(pos, refractionDir, headStartShadow);

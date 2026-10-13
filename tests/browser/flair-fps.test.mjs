@@ -1,38 +1,44 @@
 // flair-fps.test, 2026.05.31
 // Compares the prompt attract-screen frame rate with "flair" on vs off.
-// Flair = the starfield, spinning cube, polychrome border, tap/touch/type hint,
-// version+notepat buttons, and the live product carousel — the last of which is
-// the dominant per-frame cost. Turning flair off should never *lower* the frame
-// rate (and on real hardware should raise it noticeably).
+// Flair includes the starfield and the attract screen's decorative cues.
+// All three modes must keep the browser animation rate at or above 30 fps.
 //
 //   AC_TEST_URL=https://localhost:8888 node tests/browser/flair-fps.test.mjs
 //   AC_HEADED=1 AC_TEST_URL=https://localhost:8888 node tests/browser/flair-fps.test.mjs
 //
 // Flair is toggled deterministically via a URL colon param (`prompt:noflair`)
 // rather than a window hook — the prompt piece runs in a worker, so window
-// hooks don't bridge to the page. Two clean navigations, one FPS sample each.
+// hooks don't bridge to the page. Three clean navigations, one FPS sample each.
 //
-// ⚠️ Headless Chrome renders WebGL in software (SwiftShader) and may throttle
-// requestAnimationFrame, so the GPU cost of the glaze won't show and the delta
-// can be muddy. For real numbers run with AC_HEADED=1 on a machine with a GPU.
-// By default the test only hard-fails on a clear regression (flair-off slower);
-// set FLAIR_FPS_STRICT=1 to require a measurable speedup.
+// This measures requestAnimationFrame callbacks, not distinct canvas paints.
+// Headless Chrome can use hardware acceleration; its actual GPU is reported.
+// Glaze stays enabled in every mode, including noflair. Set FLAIR_FPS_STRICT=1
+// to additionally require a measurable speedup when flair is disabled.
 
 import { ACSession, scenario, report, CONFIG } from "./ac-harness.mjs";
 
 const SAMPLE_MS = parseInt(process.env.FLAIR_FPS_SAMPLE_MS || "5000", 10);
 const STRICT = process.env.FLAIR_FPS_STRICT === "1";
+const FLOOR = parseFloat(process.env.FLAIR_FPS_FLOOR || "30");
+if (!Number.isFinite(SAMPLE_MS) || SAMPLE_MS < 1000 || !Number.isFinite(FLOOR) || FLOOR <= 0) {
+  throw new Error("FPS samples must run for at least 1000 ms with a positive FPS floor");
+}
 
-// Count real animation frames over `ms` and return the average FPS.
+// Count animation-frame intervals over `ms` and return the average FPS.
 async function sampleFps(page, ms) {
   return await page.evaluate(
     (dur) =>
       new Promise((resolve) => {
         let frames = 0;
-        const t0 = performance.now();
-        const tick = () => {
+        let t0;
+        const tick = (now) => {
+          if (t0 === undefined) {
+            t0 = now;
+            requestAnimationFrame(tick);
+            return;
+          }
           frames += 1;
-          const elapsed = performance.now() - t0;
+          const elapsed = now - t0;
           if (elapsed < dur) requestAnimationFrame(tick);
           else resolve((frames * 1000) / elapsed);
         };
@@ -47,22 +53,15 @@ let fpsOn = null;
 let fpsOff = null;
 let fpsNoStars = null;
 
-// Resilient navigation: the live Shopify carousel keeps connections open, so
-// puppeteer's networkidle2 (used by ACSession.boot) can time out. Wait for the
-// AC boot marker (which IS on the main window) instead, then settle.
-async function bootLoose(piece, settleMs = 3500) {
+// A boot-start timestamp alone could let a broken page pass at 60 fps.
+async function bootPrompt(piece, settleMs = 3500) {
   const url = `${CONFIG.baseURL}/${piece}`;
   console.log(`  → ${url}`);
-  try {
-    await ac.page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-  } catch (e) {
-    console.warn(`  ⚠️  goto: ${e.message} (continuing)`);
-  }
-  try {
-    await ac.page.waitForFunction(() => window.acBOOT_START_TIME, { timeout: 20000 });
-  } catch {
-    console.warn("  ⚠️  no boot marker — continuing on timer");
-  }
+  await ac.page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await ac.page.waitForFunction(
+    () => window.acBOOTED && window.preloaded && document.querySelector("#aesthetic-computer canvas"),
+    { timeout: 20000 },
+  );
   await ac.wait(settleMs);
 }
 
@@ -76,26 +75,29 @@ async function safeShot(name) {
 }
 
 try {
-  await scenario("fps with carousel ON (prompt:products)", async (expect) => {
-    // The product carousel is off by default now, so explicitly enable it to
-    // measure the heavy path.
-    await bootLoose("prompt:products");
+  const diagnostics = await ac.browser.target().createCDPSession();
+  const { gpu } = await diagnostics.send("SystemInfo.getInfo");
+  console.log(`  GPU: ${gpu.devices.map((device) => device.deviceString).join(", ")}`);
+  await diagnostics.detach();
+
+  await scenario("fps with flair ON (prompt:flair)", async (expect) => {
+    await bootPrompt("prompt:flair");
     await safeShot("flair-on");
     fpsOn = await sampleFps(ac.page, SAMPLE_MS);
-    console.log(`  📊 carousel ON → ${fpsOn.toFixed(1)} fps`);
-    expect(fpsOn > 0, "measured a frame rate with the carousel on");
+    console.log(`  📊 flair ON → ${fpsOn.toFixed(1)} fps`);
+    expect(fpsOn > 0, "measured a frame rate with flair on");
   });
 
-  await scenario("fps with starfield+cube OFF (prompt:nostars)", async (expect) => {
-    await bootLoose("prompt:nostars");
+  await scenario("fps with starfield OFF (prompt:nostars)", async (expect) => {
+    await bootPrompt("prompt:nostars");
     await safeShot("flair-nostars");
     fpsNoStars = await sampleFps(ac.page, SAMPLE_MS);
-    console.log(`  📊 no stars  → ${fpsNoStars.toFixed(1)} fps (products still on)`);
-    expect(fpsNoStars > 0, "measured a frame rate with starfield+cube off");
+    console.log(`  📊 no stars  → ${fpsNoStars.toFixed(1)} fps`);
+    expect(fpsNoStars > 0, "measured a frame rate with starfield off");
   });
 
   await scenario("fps with flair OFF (prompt:noflair)", async (expect) => {
-    await bootLoose("prompt:noflair");
+    await bootPrompt("prompt:noflair");
     await safeShot("flair-off");
     fpsOff = await sampleFps(ac.page, SAMPLE_MS);
     console.log(`  📊 flair OFF → ${fpsOff.toFixed(1)} fps`);
@@ -103,8 +105,8 @@ try {
   });
 
   await scenario("frame-rate health + flair comparison", async (expect) => {
-    if (fpsOn == null || fpsOff == null) {
-      expect(false, "both samples present");
+    if (fpsOn == null || fpsOff == null || fpsNoStars == null) {
+      expect(false, "all three samples present");
       return;
     }
     const pct = ((fpsOff - fpsOn) / fpsOn) * 100;
@@ -117,9 +119,7 @@ try {
     // catches real regressions (flair breaking the render loop) while staying
     // green despite headless rAF noise. The on/off *ordering* is only asserted
     // in STRICT mode (meaningful on real hardware via test:flair-fps:headed),
-    // because in headless the GPU/worker cost doesn't surface and run-to-run
-    // jitter routinely exceeds the real delta.
-    const FLOOR = parseFloat(process.env.FLAIR_FPS_FLOOR || "30");
+    // because display cadence and run-to-run jitter can mask the difference.
     expect(fpsOn >= FLOOR, `flair-on renders ≥ ${FLOOR}fps (${fpsOn.toFixed(1)})`);
     expect(fpsOff >= FLOOR, `flair-off renders ≥ ${FLOOR}fps (${fpsOff.toFixed(1)})`);
     if (fpsNoStars != null) {
