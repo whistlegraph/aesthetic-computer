@@ -1,21 +1,35 @@
 <!doctype html>
-<!-- Mime — discussion on media. -->
+<!-- MIME.ac — every file has a type; flip through them all. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>mime.ac</title>
-  <meta name="description" content="Comments on Aesthetic Computer media. Paintings, tapes, pieces, and the people around them." />
+  <title>MIME.ac — every file has a type. Flip through them all.</title>
+  <meta name="description" content="Every file has a MIME type. MIME.ac is a toy for browsing, making and flipping through them all, one work per screen, as if file types were TV channels: paintings as image/png, KidLisp as text/x-lisp, tapes as video/mp4, Doom levels, pieces and more." />
+  <!-- /p/<code> and /wg… permalinks all serve this page; one canonical keeps
+       every card's link out of the index as a duplicate. The guide at
+       /mime-types/ is the crawlable prose. -->
   <link rel="canonical" href="https://mime.ac/" />
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "WebApplication",
+   "@id": "https://mime.ac/#app", "name": "MIME.ac", "url": "https://mime.ac/",
+   "description": "Every file has a MIME type. MIME.ac is a toy for browsing, making and flipping through files by their type, one work per screen, as if file types were TV channels: paintings as image/png, KidLisp programs as text/x-lisp, tapes as video/mp4, Doom levels as application/x-doom-wad and more.",
+   "image": "https://mime.ac/social/mime.jpg",
+   "applicationCategory": "EntertainmentApplication", "operatingSystem": "Any (web browser)",
+   "browserRequirements": "Requires JavaScript", "inLanguage": "en", "isAccessibleForFree": true,
+   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+   "author": {"@type": "Organization", "name": "Aesthetic Computer", "url": "https://aesthetic.computer/"},
+   "potentialAction": {"@type": "ViewAction", "target": "https://mime.ac/"}}
+  </script>
   <link rel="icon" href="https://mime.ac/favicon.svg?v=3" type="image/svg+xml" />
   <link id="mime-favicon" rel="icon" href="https://mime.ac/favicon-32.png?v=3" type="image/png" sizes="32x32" />
   <link rel="apple-touch-icon" href="https://mime.ac/apple-touch-icon.png?v=3" sizes="180x180" />
   <meta name="theme-color" content="#eee9f1" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#171526" media="(prefers-color-scheme: dark)" />
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="MIME" />
-  <meta property="og:title" content="mime.ac" />
-  <meta property="og:description" content="Comments on Aesthetic Computer media." />
+  <meta property="og:site_name" content="MIME.ac" />
+  <meta property="og:title" content="MIME.ac — every file has a type. Flip through them all." />
+  <meta property="og:description" content="A toy for browsing, making and flipping through files by MIME type, as if file types were TV channels." />
   <meta property="og:url" content="https://mime.ac/" />
   <meta property="og:image" content="https://mime.ac/social/mime.jpg?v=1" />
   <meta property="og:image:secure_url" content="https://mime.ac/social/mime.jpg?v=1" />
@@ -24,8 +38,8 @@
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="mime.ac" />
-  <meta name="twitter:description" content="Comments on Aesthetic Computer media." />
+  <meta name="twitter:title" content="MIME.ac — every file has a type. Flip through them all." />
+  <meta name="twitter:description" content="A toy for browsing, making and flipping through files by MIME type, as if file types were TV channels." />
   <meta name="twitter:image" content="https://mime.ac/social/mime.jpg?v=1" />
   <meta name="twitter:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac." />
   <link rel="preconnect" href="https://aesthetic.computer" />
@@ -454,6 +468,12 @@
       </a>
     </h1>
   </header>
+  <!-- The feed is built by script, so this is the page's only prose: what a
+       screen reader announces first and what a crawler can follow. Never drawn. -->
+  <p id="about-mime" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap">
+    Every file has a MIME type. MIME.ac is a toy for browsing, making and flipping
+    through them all, one work per screen, as if file types were TV channels.
+    <a href="/mime-types/">What is a MIME type, and the channels on MIME.ac</a>.</p>
   <main id="view"></main>
     <div class="account">
       <a id="account-handle" aria-label="Your AC profile"></a>
@@ -510,14 +530,20 @@ async function refreshMimeLayout() {
 refreshMimeLayout();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshMimeLayout(); });
 // Like Oskiewar's shifting tab lettering, with a stable title for reduced motion.
+// The wobble waits for the first press: until someone flips, the tab keeps the
+// head's <title>, which is what search engines index from the rendered page;
+// a crawler never presses anything.
+const pageTitle = document.title;
 const tabTitles = ["mime.ac", "𝗺𝗶𝗺𝗲.ac", "𝚖𝚒𝚖𝚎.ac", "𝘮𝘪𝘮𝘦.ac"];
 const tabMotion = matchMedia("(prefers-reduced-motion: reduce)");
-let tabTimer;
+let tabTimer, tabTitleAwake = false;
+for (const type of ["keydown", "pointerdown"]) addEventListener(type,
+  () => { tabTitleAwake = true; syncTabAnimation(); }, { once: true, capture: true, passive: true });
 function syncTabAnimation() {
   clearInterval(tabTimer);
   document.documentElement.toggleAttribute("data-page-hidden", document.hidden);
-  document.title = tabTitles[0];
-  if (document.hidden || tabMotion.matches) return;
+  document.title = tabTitleAwake ? tabTitles[0] : pageTitle;
+  if (document.hidden || tabMotion.matches || !tabTitleAwake) return;
   let frame = 0;
   tabTimer = setInterval(() => { document.title = tabTitles[++frame % tabTitles.length]; }, 1250);
 }

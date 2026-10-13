@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What is a MIME type? Every file has one — MIME.ac</title>
+<meta name="description" content="A MIME type is the short label, like image/png or text/html, that tells a computer what kind of file it is looking at. MIME.ac is a toy for browsing, making and flipping through files by type, as if file types were TV channels.">
+<link rel="canonical" href="https://mime.ac/mime-types/">
+<link rel="icon" href="https://mime.ac/favicon.svg?v=1" type="image/svg+xml">
+<link rel="icon" href="https://mime.ac/favicon-32.png?v=1" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="https://mime.ac/apple-touch-icon.png?v=1" sizes="180x180">
+<meta name="theme-color" content="#eee9f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171526" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="MIME.ac">
+<meta property="og:title" content="What is a MIME type? Every file has one">
+<meta property="og:description" content="image/png, text/html, video/mp4: the labels that tell a computer what a file is. MIME.ac flips through them all like TV channels.">
+<meta property="og:url" content="https://mime.ac/mime-types/">
+<meta property="og:image" content="https://mime.ac/social/mime.jpg?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What is a MIME type? Every file has one">
+<meta name="twitter:description" content="image/png, text/html, video/mp4: the labels that tell a computer what a file is. MIME.ac flips through them all like TV channels.">
+<meta name="twitter:image" content="https://mime.ac/social/mime.jpg?v=1">
+<link rel="preconnect" href="https://aesthetic.computer">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://mime.ac/#app",
+      "name": "MIME.ac",
+      "url": "https://mime.ac/",
+      "description": "Every file has a MIME type. MIME.ac is a toy for browsing, making and flipping through files by their type, one work per screen, as if file types were TV channels: paintings as image/png, KidLisp programs as text/x-lisp, tapes as video/mp4, Doom levels as application/x-doom-wad and more.",
+      "image": "https://mime.ac/social/mime.jpg",
+      "applicationCategory": "EntertainmentApplication",
+      "operatingSystem": "Any (web browser)",
+      "browserRequirements": "Requires JavaScript",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+      "author": {"@type": "Organization", "name": "Aesthetic Computer", "url": "https://aesthetic.computer/"},
+      "potentialAction": {"@type": "ViewAction", "target": "https://mime.ac/"}
+    },
+    {
+      "@type": "Article",
+      "@id": "https://mime.ac/mime-types/#article",
+      "headline": "What is a MIME type? Every file has one",
+      "url": "https://mime.ac/mime-types/",
+      "image": "https://mime.ac/social/mime.jpg",
+      "inLanguage": "en",
+      "about": {"@type": "DefinedTerm", "name": "MIME type", "alternateName": "media type",
+        "description": "A two-part label, type/subtype, such as image/png, that identifies the format of a file or message body."},
+      "author": {"@type": "Organization", "name": "Aesthetic Computer", "url": "https://aesthetic.computer/"},
+      "publisher": {"@type": "Organization", "name": "Aesthetic Computer", "url": "https://aesthetic.computer/"},
+      "isPartOf": {"@id": "https://mime.ac/#app"}
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question", "name": "What is a MIME type?",
+         "acceptedAnswer": {"@type": "Answer", "text": "A MIME type is a short two-part label, type/subtype, that says what kind of data a file holds: image/png is a PNG picture, text/html is a web page, video/mp4 is an MP4 video. Web servers send it in the Content-Type header and browsers use it to decide how to show the file. The official name today is media type; MIME stands for Multipurpose Internet Mail Extensions, the 1992 email standard where the labels were invented."}},
+        {"@type": "Question", "name": "Is a MIME type the same as a file extension?",
+         "acceptedAnswer": {"@type": "Answer", "text": "No. An extension like .png is part of a file's name and anyone can rename it. The MIME type describes the contents and travels with the file when it is sent over the web, in a Content-Type header. They usually agree, which is why MIME.ac guesses the type from the extension when a browser hands over a file with no type."}},
+        {"@type": "Question", "name": "What does the x- in application/x-doom-wad mean?",
+         "acceptedAnswer": {"@type": "Answer", "text": "An x- prefix marks a type that nobody registered with IANA, the body that keeps the official media type list. It is the old convention for experimental or private formats. MIME.ac uses a few of them for formats that have no official type, like Doom WAD files and saved oskiewar rounds."}},
+        {"@type": "Question", "name": "Is MIME.ac free?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open mime.ac and start flipping. No account is needed to browse. Signing in with an Aesthetic Computer handle lets you comment on a work and save it."}},
+        {"@type": "Question", "name": "Where do the files on MIME.ac come from?",
+         "acceptedAnswer": {"@type": "Answer", "text": "From public work made across Aesthetic Computer, KidLisp and Whistlegraph, plus the preserved No Paint painting archive and saved oskiewar rounds. Only work that is public shows up, and every card names the person who made it."}},
+        {"@type": "Question", "name": "Can I make something on MIME.ac?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every card shows a short code; type it at aesthetic.computer to open the work and make your own paintings, tapes and KidLisp programs there. In the MIME app for iPhone, which is in early access, tapping a card's type starts a new work of that type, and tapping a version number remixes a piece, a painting or a Doom WAD."}},
+        {"@type": "Question", "name": "Why is MIME.ac like television?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Each MIME type is a channel. The home feed surfs across all of them, one work per screen, and you flip with a swipe or the arrow keys. Open a single type, like image/png, and you are watching one channel."}}
+      ]
+    }
+  ]
+}
+</script>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #eee9f1; --card: #fffafc; --card-edge: #b6a5bd;
+    --ink: #a52b72; --body: #30253e; --dim: #74667c; --link: #087980;
+    --accent: #bd3851; --shine: #fff; --shadow: #86738f;
+    --primary: #bbefb8; --primary-ink: #204e37; --media: #e7e1ed;
+    --image: #e93587; --video: #8460d7; --audio: #257b55; --text: #259caa; --app: #ed765d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --paper: #171526; --card: #272237; --card-edge: #625271;
+      --ink: #ff91c5; --body: #f5eefa; --dim: #b4a5c2; --link: #7de3d7;
+      --accent: #ff969a; --shine: #796687; --shadow: #0b0915;
+      --primary: #afdcb6; --primary-ink: #173b2e; --media: #1b1729;
+      --image: #ff91c5; --video: #c5a1ff; --audio: #a6e6b3; --text: #7de3d7; --app: #ffc585;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--paper); color: var(--body);
+    font: 16px/1.55 "Berkeley Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    padding: 28px 16px 56px; }
+  main { width: 100%; max-width: 660px; margin: 0 auto; }
+  a { color: var(--link); text-underline-offset: 3px; }
+  a:hover { color: var(--ink); }
+  :focus-visible { outline: 3px solid var(--link); outline-offset: 3px; }
+  h1, h2 { font-family: "Comic Relief", "Comic Sans MS", "Chalkboard SE", cursive; color: var(--ink); line-height: 1.12; }
+  h1 { font-size: clamp(30px, 7.5vw, 44px); margin: 0 0 10px; }
+  h2 { font-size: 23px; margin: 36px 0 10px; }
+  .tag { color: var(--dim); font-size: 17px; margin: 0 0 22px; }
+  p, li { margin: 0 0 10px; }
+  ul, ol { padding-left: 22px; }
+  .hero { display: block; border: 1px solid var(--card-edge); border-radius: 12px; overflow: hidden;
+    background: var(--card); box-shadow: 0 4px 0 var(--shadow); }
+  .hero img { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; }
+  .open { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; margin: 20px 0 4px;
+    padding: 10px 22px; border: 1px solid var(--card-edge); border-radius: 8px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 76%, white), var(--primary));
+    color: var(--primary-ink); font-weight: 700; font-size: 19px; text-decoration: none;
+    box-shadow: inset 1px 1px 0 var(--shine), inset -1px -1px 0 var(--card-edge), 0 3px 0 var(--shadow); }
+  .open:hover { filter: brightness(1.06); color: var(--primary-ink); }
+  .open:active { transform: translateY(2px); box-shadow: inset 1px 1px 0 var(--shine), 0 1px 0 var(--shadow); }
+  .note { color: var(--dim); font-size: 14px; }
+  code { font-family: inherit; font-weight: 600; white-space: nowrap; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 14px; background: var(--card);
+    border: 1px solid var(--card-edge); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--media); vertical-align: top; overflow-wrap: anywhere; }
+  tr:last-child td { border-bottom: 0; }
+  th { color: var(--dim); font-weight: 600; }
+  .type { font-weight: 700; white-space: nowrap; }
+  .type.image { color: var(--image); } .type.video { color: var(--video); } .type.audio { color: var(--audio); }
+  .type.text { color: var(--text); } .type.app { color: var(--app); }
+  .channels { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+  .channels li { background: var(--card); border: 1px solid var(--card-edge); border-radius: 10px; padding: 10px 12px; margin: 0; }
+  .channels a.type { text-decoration: none; font-size: 17px; }
+  .channels a.type:hover { text-decoration: underline; }
+  .channels span { display: block; color: var(--body); margin-top: 2px; }
+  details { background: var(--card); border: 1px solid var(--card-edge); border-radius: 10px;
+    padding: 10px 14px; margin: 0 0 10px; }
+  summary { font-weight: 700; cursor: pointer; color: var(--ink); }
+  details p { margin: 8px 0 2px; }
+  .card { background: var(--card); border: 1px solid var(--card-edge); border-radius: 12px; padding: 14px 16px; margin: 8px 0 14px; }
+  .corners { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 0; padding: 0; list-style: none; font-size: 15px; }
+  .corners li { margin: 0; }
+  .corners b { color: var(--ink); }
+  footer { margin-top: 44px; color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Every file has a MIME type.</h1>
+  <p class="tag">MIME.ac is a toy for browsing, making and flipping through them all, one work per screen, as if file types were TV channels.</p>
+
+  <a class="hero" href="/"><img src="/social/mime.jpg?v=1" width="1200" height="630"
+    alt="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac."></a>
+  <a class="open" href="/">Open MIME.ac</a>
+  <p class="note">Free, in your browser. No account needed to flip.</p>
+
+  <h2>What is a MIME type?</h2>
+  <p>A MIME type is a short label that tells a computer what kind of file it is looking at.
+    It has two parts, a type and a subtype, joined by a slash:
+    <code class="type image">image/png</code> is a PNG picture,
+    <code class="type text">text/html</code> is a web page,
+    <code class="type video">video/mp4</code> is a video.</p>
+  <p>Every time a browser fetches a file, the server sends this label along in a header called
+    <code>Content-Type</code>. The browser reads it and decides whether to draw a picture, play a
+    video, run a program or show you plain words. The label is about what's inside, so it still
+    works when the file has no name at all.</p>
+  <p>The name is a leftover from email. MIME stands for Multipurpose Internet Mail Extensions, a
+    1992 standard that let email carry attachments. The web borrowed its labels, and the official
+    list of them is kept by IANA under the plainer name <em>media types</em>. Both names are in use;
+    MIME.ac uses the one everyone says.</p>
+
+  <h2>Common MIME types</h2>
+  <table>
+    <tr><th>Type</th><th>What it is</th></tr>
+    <tr><td><code class="type text">text/html</code></td><td>a web page</td></tr>
+    <tr><td><code class="type text">text/plain</code></td><td>plain words</td></tr>
+    <tr><td><code class="type text">text/css</code></td><td>a stylesheet</td></tr>
+    <tr><td><code class="type text">text/javascript</code></td><td>a JavaScript program</td></tr>
+    <tr><td><code class="type app">application/json</code></td><td>structured data</td></tr>
+    <tr><td><code class="type image">image/png</code></td><td>a PNG picture, with transparency</td></tr>
+    <tr><td><code class="type image">image/jpeg</code></td><td>a JPEG photo</td></tr>
+    <tr><td><code class="type image">image/gif</code></td><td>a GIF, often animated</td></tr>
+    <tr><td><code class="type image">image/svg+xml</code></td><td>a vector drawing</td></tr>
+    <tr><td><code class="type audio">audio/mpeg</code></td><td>an MP3</td></tr>
+    <tr><td><code class="type video">video/mp4</code></td><td>an MP4 video</td></tr>
+    <tr><td><code class="type app">application/pdf</code></td><td>a PDF document</td></tr>
+    <tr><td><code class="type app">application/zip</code></td><td>a zip archive</td></tr>
+    <tr><td><code class="type app">font/woff2</code></td><td>a web font</td></tr>
+    <tr><td><code class="type app">application/octet-stream</code></td><td>bytes of an unknown kind</td></tr>
+  </table>
+  <p class="note">A type nobody registered gets an <code>x-</code> in front, like <code>application/x-doom-wad</code>.</p>
+
+  <h2>The channels on MIME.ac</h2>
+  <p>On MIME.ac each type is a channel. The home feed surfs across all of them; open one type and
+    you're watching that channel. These are on the air now:</p>
+  <ul class="channels">
+    <li><a class="type image" href="/#/image/png">image/png</a><span>paintings, made pixel by pixel in Aesthetic Computer and No Paint</span></li>
+    <li><a class="type text" href="/#/text/x-lisp">text/x-lisp</a><span>KidLisp programs, tiny Lisp pieces that draw and animate live on the card</span></li>
+    <li><a class="type text" href="/#/text/javascript">text/javascript</a><span>pieces: interactive programs from Aesthetic Computer and Whistlegraph, running live</span></li>
+    <li><a class="type video" href="/#/video/mp4">video/mp4</a><span>tapes, recorded from pieces</span></li>
+    <li><a class="type app" href="/#/application/x-doom-wad">application/x-doom-wad</a><span>Doom levels you can play right on the card</span></li>
+    <li><a class="type app" href="/#/application/x-oskiewar-demo">application/x-oskiewar-demo</a><span>saved rounds of <a href="https://oskiewar.com/">oskiewar</a>, replayed</span></li>
+    <li><a class="type text" href="/#/text/plain">text/plain</a><span>words: moods and chat</span></li>
+  </ul>
+
+  <h2>How to flip</h2>
+  <div class="card">
+    <p>One work fills the screen. Swipe up for the next one, down for the last one, or use the
+      <code>↑</code> <code>↓</code> keys. Every card is labeled in its corners:</p>
+    <ul class="corners">
+      <li><b>top left</b> the work's code</li>
+      <li><b>top right</b> a small MIME wordmark</li>
+      <li><b>bottom left</b> who made it</li>
+      <li><b>bottom right</b> its MIME type</li>
+    </ul>
+  </div>
+  <p>The code is an address. <code>#uf4</code> is a painting, <code>$</code> starts a KidLisp program,
+    <code>!</code> starts a tape. Type one at <a href="https://aesthetic.computer/">aesthetic.computer</a>
+    and the work opens there, where you can make your own. Tap the code on MIME.ac to share the card; every
+    work has a permanent link like <code>mime.ac/p/…</code>.</p>
+
+  <h2>Making</h2>
+  <p>Browsing is the front; making is the back. Paintings, tapes and KidLisp programs are made in
+    Aesthetic Computer and show up on MIME.ac when they're public. In the MIME app for iPhone, which is
+    in early access, tapping a card's type starts a new work of that type, and tapping a version number
+    like <code>v0</code> remixes a piece, a painting or a Doom WAD into your own.</p>
+
+  <h2>Questions</h2>
+  <details open><summary>What is a MIME type?</summary>
+    <p>A short two-part label, type/subtype, that says what kind of data a file holds: <code>image/png</code> is a PNG picture, <code>text/html</code> is a web page, <code>video/mp4</code> is an MP4 video. Web servers send it in the <code>Content-Type</code> header and browsers use it to decide how to show the file. The official name today is media type; MIME stands for Multipurpose Internet Mail Extensions, the 1992 email standard where the labels were invented.</p></details>
+  <details><summary>Is a MIME type the same as a file extension?</summary>
+    <p>No. An extension like <code>.png</code> is part of a file's name and anyone can rename it. The MIME type describes the contents and travels with the file when it is sent over the web. They usually agree, which is why MIME.ac guesses the type from the extension when a browser hands over a file with no type.</p></details>
+  <details><summary>What does the x- in application/x-doom-wad mean?</summary>
+    <p>An <code>x-</code> prefix marks a type that nobody registered with IANA, the body that keeps the official media type list. It is the old convention for experimental or private formats. MIME.ac uses a few of them for formats that have no official type, like Doom WAD files and saved oskiewar rounds.</p></details>
+  <details><summary>Is MIME.ac free?</summary>
+    <p>Yes. Open mime.ac and start flipping. No account is needed to browse. Signing in with an Aesthetic Computer handle lets you comment on a work and save it.</p></details>
+  <details><summary>Where do the files come from?</summary>
+    <p>From public work made across Aesthetic Computer, KidLisp and Whistlegraph, plus the preserved No Paint painting archive and saved oskiewar rounds. Only work that is public shows up, and every card names the person who made it.</p></details>
+  <details><summary>Can I make something?</summary>
+    <p>Yes. Every card shows a short code; type it at aesthetic.computer to open the work and make your own paintings, tapes and KidLisp programs there. In the MIME app for iPhone, which is in early access, tapping a card's type starts a new work of that type, and tapping a version number remixes a piece, a painting or a Doom WAD.</p></details>
+  <details><summary>Why is it like television?</summary>
+    <p>Each MIME type is a channel. The home feed surfs across all of them, one work per screen, and you flip with a swipe or the arrow keys. Open a single type, like <code>image/png</code>, and you are watching one channel.</p></details>
+
+  <a class="open" href="/">Start flipping</a>
+
+  <footer>
+    <p>MIME.ac is made by <a href="https://aesthetic.computer/">Aesthetic Computer</a>.
+      Doom is a trademark of id Software; MIME.ac plays WAD files people make and is not affiliated with id Software.</p>
+  </footer>
+</main>
+</body>
+</html>
