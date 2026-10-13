@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate } from "./choir.mjs";
+import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate, UPLOAD_BASE } from "./choir.mjs";
 
 // The smallest Mongo choir needs: find/sort/limit, findOne, insertOne,
 // updateOne with $set/$inc/upsert, countDocuments.
@@ -166,4 +166,15 @@ test("the curator adds new links, skips repeats and Artforum, and retires closed
   const g = posts.rows.find((p) => p.links[0] === "https://grants.example/g");
   assert.equal(g.kind, "opportunity"); assert.equal(g.deadline, "2026-11-15"); assert.equal(g.news, true);
   assert.equal(posts.rows.find((p) => p.links[0] === "https://e-flux.com/a").preview.via, "e-flux");
+});
+
+test("attachments must be choir uploads of allowed types and sizes; a photo alone is a post", () => {
+  const pdf = { url: UPLOAD_BASE + "u/fifi/2026-10/ab12/cv.pdf", type: "application/pdf", size: 120000, name: "cv.pdf" };
+  const pic = { url: UPLOAD_BASE + "u/fifi/2026-10/cd34/show.jpg", type: "image/jpeg", size: 900000, width: 1200, height: 900 };
+  assert.deepEqual(validatePost({ text: "", tags: [], attachments: [pic] }).attachments, [{ ...pic, name: "show.jpg" }]);
+  assert.equal(validatePost({ text: "my cv", tags: [], attachments: [pdf] }).attachments[0].name, "cv.pdf");
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pic, url: "https://evil.example/x.jpg" }] }), /choir uploads/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pdf, type: "application/x-msdownload" }] }), /type/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pdf, size: 30 * 1024 * 1024 }] }), /25 MB/);
+  assert.throws(() => validatePost({ text: "", tags: [] }), /Say something/);
 });

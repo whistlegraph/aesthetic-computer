@@ -30,16 +30,38 @@ export function linksIn(text) {
   return [...new Set((String(text ?? "").match(URL_RE) || []).map((u) => u.replace(/[.,;:!?]+$/, "")))].slice(0, 4);
 }
 
-export function validatePost({ text, tags, replyTo }) {
+// Uploads live in the "choir" Spaces bucket; attachments must point there.
+export const UPLOAD_BASE = "https://choir.sfo3.digitaloceanspaces.com/";
+export const UPLOAD_MAX = 25 * 1024 * 1024;
+export const UPLOAD_TYPES = /^(image\/(jpeg|png|gif|webp|heic|heif)|application\/pdf|audio\/(mpeg|mp4|x-m4a|aac|wav|x-wav)|video\/(mp4|quicktime)|text\/plain|application\/zip)$/;
+
+export function cleanAttachments(list) {
+  if (list == null) return [];
+  if (!Array.isArray(list) || list.length > 6) throw Error("At most 6 attachments");
+  return list.map((a) => {
+    const url = String(a?.url || "");
+    if (!url.startsWith(UPLOAD_BASE) || /\s/.test(url)) throw Error("Attachments must be choir uploads");
+    const type = String(a.type || "");
+    if (!UPLOAD_TYPES.test(type)) throw Error("That file type isn't supported");
+    const size = Number(a.size) || 0;
+    if (size < 0 || size > UPLOAD_MAX) throw Error("Files can be up to 25 MB");
+    const out = { url, type, size, name: String(a.name || url.split("/").pop()).slice(0, 120) };
+    if (Number.isFinite(a.width) && Number.isFinite(a.height)) { out.width = Math.round(a.width); out.height = Math.round(a.height); }
+    return out;
+  });
+}
+
+export function validatePost({ text, tags, replyTo, attachments }) {
   const body = String(text ?? "").trim();
-  if (!body) throw Error("Say something");
+  const files = cleanAttachments(attachments);
+  if (!body && !files.length) throw Error("Say something");
   if (body.length > MAX_CHARS) throw Error(`Keep it under ${MAX_CHARS} characters`);
   const clean = normalizeTags(tags);
   // A reply lives inside its root's tags, so it needs none of its own.
   if (!replyTo && clean.length < MIN_TAGS) throw Error(`Tag it at least ${MIN_TAGS} ways`);
   if (clean.length > MAX_TAGS) throw Error(`At most ${MAX_TAGS} tags`);
   if (replyTo != null && !validID(replyTo)) throw Error("Bad thread");
-  return { text: body, tags: clean, links: linksIn(body), replyTo: replyTo ?? null };
+  return { text: body, tags: clean, links: linksIn(body), replyTo: replyTo ?? null, ...(files.length ? { attachments: files } : {}) };
 }
 
 export const validID = (v) => typeof v === "string" && /^[a-f0-9]{24}$/i.test(v);
@@ -56,6 +78,7 @@ export function publicPost(row) {
     // on fetching a site that blocks previews.
     ...(row.preview && !row.deleted ? { preview: row.preview } : {}),
     ...(row.kind ? { kind: row.kind } : {}), // "opportunity" for open calls in Discover
+    ...(row.attachments?.length && !row.deleted ? { attachments: row.attachments } : {}),
   };
 }
 

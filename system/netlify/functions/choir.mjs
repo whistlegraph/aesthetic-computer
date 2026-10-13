@@ -11,6 +11,8 @@
 //   PUT    /api/choir?prefs=1 {notifications}                         (Bearer)
 //   POST   /api/choir?event=1 {name,props,session,surface}   a trail event
 //   GET    /api/choir?events=1&since=<iso>                   the trail (admin)
+//   POST   /api/choir?upload=1 {name, type, size} → {uploadUrl, url, headers}  (Bearer, has @name)
+//          then PUT the file to uploadUrl and post with attachments:[{url,name,type,size,…}]
 //   POST   /api/choir?bug=1 {text, image (base64 jpeg), context}  a bug report (Bearer)
 //   GET    /api/choir?bugs=1  ·  ?bug=<id>&image=1   the bug list / one screenshot (admin)
 //   PUT    /api/choir?bug=<id> {status, note}        open | fixed | wontfix (admin)
@@ -26,7 +28,9 @@ import { cleanEvent, record, recent } from "../../backend/choir-events.mjs";
 import { noteMember, notifyChoir } from "../../backend/choir-push.mjs";
 import { sendToTarget } from "../../../shared/push.mjs";
 import { respond } from "../../backend/http.mjs";
-import { mongoChoirStore, publicPost, curate } from "../../backend/choir.mjs";
+import { mongoChoirStore, publicPost, curate, UPLOAD_MAX, UPLOAD_TYPES, UPLOAD_BASE } from "../../backend/choir.mjs";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { timingSafeEqual, createHash } from "node:crypto";
 
 let pending;
@@ -138,6 +142,26 @@ export async function handler(event) {
 
     const me = await whoami(event.headers || {}, db);
     if (!me) return no(401, "Sign in");
+
+    if (event.httpMethod === "POST" && q.upload) {
+      if (!me.handle) return no(403, "Choose your @name first");
+      let body;
+      try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
+      const type = String(body.type || ""), size = Number(body.size) || 0;
+      if (!UPLOAD_TYPES.test(type)) return no(400, "That file type isn't supported");
+      if (size <= 0 || size > UPLOAD_MAX) return no(400, "Files can be up to 25 MB");
+      if (!process.env.CHOIR_SPACES_KEY) return no(503, "Uploads aren't set up");
+      const safe = String(body.name || "file").normalize("NFKD").replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "").slice(-80) || "file";
+      const who = me.handle.replace(/^@/, "").replace(/[^\w-]/g, "");
+      const key = `u/${who}/${new Date().toISOString().slice(0, 7)}/${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, "0")).join("")}/${safe}`;
+      const s3 = new S3Client({ region: "us-east-1", endpoint: `https://${process.env.CHOIR_SPACES_ENDPOINT || "sfo3.digitaloceanspaces.com"}`,
+        credentials: { accessKeyId: process.env.CHOIR_SPACES_KEY, secretAccessKey: process.env.CHOIR_SPACES_SECRET } });
+      const headers = { "Content-Type": type, "x-amz-acl": "public-read" };
+      const uploadUrl = await getSignedUrl(s3, new PutObjectCommand({ Bucket: process.env.CHOIR_SPACES_BUCKET || "choir", Key: key,
+        ContentType: type, ACL: "public-read", ContentLength: size }), { expiresIn: 900 });
+      trail(db, "upload:signed", { handle: me.handle, type, size }, event.headers);
+      return ok({ uploadUrl, url: UPLOAD_BASE + key, headers, key });
+    }
 
     if (event.httpMethod === "PUT" && q.bug) {
       if (!(await hasAdmin(me.user))) return no(401, "Admins only");
