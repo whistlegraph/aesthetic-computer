@@ -348,6 +348,7 @@ struct WhistlegraphScreen: View {
         .onChange(of: showTV) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .tv) }
         .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
         .onChange(of: session.localDataRevision) { _, _ in exporter.cancel(); narrator.stop(); showComposer = false }
+        .onChange(of: session.previewPlaybackActive) { _, active in if !active { exporter.cancel(); narrator.stop() } }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion); if narrator.isPlaying { exporter.capturePoster(for: session.narratedVersion, from: session.storyPreview.view) } }
         .onChange(of: exporter.movie?.id) { _, value in if value != nil { narrator.setPaused(true) } }
         .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }

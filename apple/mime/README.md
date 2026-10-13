@@ -28,6 +28,10 @@ between Type and Talk, and Brain → Canvas image resolution remain shared with
 Whistlegraph. The account and engine initialize behind the feed; reloads conceal
 the HTML controls until native preview styling is ready. Doom WADs autoplay through the same
 `preview=1&mime=1` player mode used by the website.
+Build 10 gives the editor explicit playback ownership. Leaving for the feed
+suspends its Web Audio contexts and media, including late render/speech resumes
+and new preview frames. Reopening resumes the existing work. Native story
+narration stops on exit; generation keeps running.
 Build 3 adds the automatic loading transition. `loadingBreakupSeconds` adjusts
 its duration from production (0.15–2 seconds, default 0.8); older schema-1
 configs remain valid. Reduced Motion uses a brief fade. Images, documents,

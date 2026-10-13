@@ -44,6 +44,12 @@ struct MimeRoot: View {
                     .offset(x: reduceMotion ? 0 : creating ? editorDrag : -geometry.size.width)
                     .opacity(creating ? 1 : 0)
                     .allowsHitTesting(creating).accessibilityHidden(!creating)
+                #if DEBUG
+                if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "audio" {
+                    Text(workspace.playbackTestResult).font(.caption).allowsHitTesting(false)
+                        .accessibilityIdentifier("mime-preview-audio-state")
+                }
+                #endif
             }
             .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.88), value: creating)
         }.preferredColorScheme(.dark)

@@ -137,6 +137,35 @@ final class MimeLayoutTests: XCTestCase {
         app.buttons["mime-creation-back"].tap()
     }
 
+    func testPreviewAudioStopsInFeedAndResumesInEditor() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "audio"
+        app.launch()
+        XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
+        waitForReveal(in: app)
+        let state = app.staticTexts["mime-preview-audio-state"]
+        func waitForAudio(_ label: String) {
+            let expected = expectation(for: NSPredicate(format: "label == %@", label), evaluatedWith: state)
+            XCTAssertEqual(XCTWaiter().wait(for: [expected], timeout: 45), .completed)
+        }
+        waitForAudio("Preview suspended") // Warm editor behind the feed is silent.
+        app.buttons["mime-resume-editor"].tap()
+        waitForEditor(in: app)
+        waitForAudio("Preview audible")
+        app.buttons["mime-creation-back"].tap()
+        waitForAudio("Preview suspended")
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        waitForAudio("Preview suspended") // Foregrounding the feed must not resume it.
+        app.buttons["mime-resume-editor"].tap()
+        waitForEditor(in: app)
+        waitForAudio("Preview audible")
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.5))
+        edge.press(forDuration: 0.1, thenDragTo: edge.withOffset(CGVector(dx: -260, dy: 0)))
+        waitForAudio("Preview suspended")
+    }
+
     private func openType(_ type: XCUIElement, in app: XCUIApplication) {
         let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let banner = spring.otherElements.matching(identifier: "NotificationShortLookView").firstMatch

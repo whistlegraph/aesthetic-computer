@@ -112,6 +112,15 @@ struct Workspace: UIViewRepresentable {
     func makeCoordinator() -> WorkspaceCoordinator { WorkspaceCoordinator(session: voice) }
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        #if MIME_APP
+        config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphPlaybackActive = false;", injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        #endif
+        #if MIME_APP && DEBUG
+        if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "audio" {
+            config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphPlaybackTest = true;", injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        }
+        #endif
+        config.userContentController.addUserScript(WKUserScript(source: WhistlegraphPreview.playbackScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         #if DEBUG
         if voice.accountEntryTest || ProcessInfo.processInfo.environment["WHISTLEGRAPH_PAINTING_TEST"] == "1" { config.websiteDataStore = .nonPersistent() }
         #endif
@@ -121,6 +130,7 @@ struct Workspace: UIViewRepresentable {
             config.userContentController.addUserScript(WKUserScript(source: """
             window.__whistlegraphDisableThread=true;
             if(\(fixture != "empty-piece") && !localStorage.getItem('whistlegraph-source'))localStorage.setItem('whistlegraph-source','export function paint({wipe}) { wipe("#253a80"); }');
+            if(\(fixture == "audio"))localStorage.setItem('whistlegraph-source','let ticks=0; export function sim({sound}) { if(ticks++%15===0)sound.synth({type:"sine",tone:440,duration:0.5,volume:0.15}); } export function paint({wipe}) { wipe("#253a80"); }');
             const original=window.fetch.bind(window);
             window.fetch=function(url,init){
                 if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-maker'}));
@@ -319,6 +329,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var workspaceReady = false
     #if DEBUG
     @Published var audioTestResult = "Waiting for piece audio"
+    @Published var playbackTestResult = "Waiting for preview"
     @Published var consentFixtureRequests = 0
     private let consentFixtureIdentity = VerifiedAccountIdentity { request in
         let fails = ProcessInfo.processInfo.environment["WALKIE_IDENTITY_FAILURE"] == "1"
@@ -347,7 +358,22 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     let tv = WhistlegraphTV()
     private var speechStartedAt: TimeInterval?
 
+    #if MIME_APP
+    @Published private(set) var previewPlaybackActive = false
+    #else
+    @Published private(set) var previewPlaybackActive = true
+    #endif
+
+    /// Navigation owns playback; generation and speech callbacks cannot reopen it.
+    func setPreviewPlaybackActive(_ active: Bool) {
+        previewPlaybackActive = active
+        webView?.setAllMediaPlaybackSuspended(!active, completionHandler: nil)
+        webView?.evaluateJavaScript("window.whistlegraphSetPlaybackActive?.(\(active));", completionHandler: nil)
+        if active { resumePieceAudio() }
+    }
+
     func resumePieceAudio() {
+        guard previewPlaybackActive else { return }
         PieceAudio.activate()
         guard let frame = previewFrame else { return }
         Task { _ = try? await webView?.callAsyncJavaScript("window.AC?.startAudio?.();", arguments: [:], in: frame, contentWorld: .page) }
@@ -750,9 +776,22 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     #endif
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if let body = message.body as? [String: Any], body["action"] as? String == "playbackReady",
+           PreviewNavigation.allows(message.frameInfo.request.url, mainFrame: message.frameInfo.isMainFrame, document: .workspace) {
+            // Frame-local delivery also handles cross-origin previews and a
+            // new result's frame arriving while its owner is off-screen.
+            Task { _ = try? await webView?.callAsyncJavaScript("window.whistlegraphSetPlaybackActive?.(active);", arguments: ["active": previewPlaybackActive], in: message.frameInfo, contentWorld: .page) }
+            webView?.setAllMediaPlaybackSuspended(!previewPlaybackActive, completionHandler: nil)
+            return
+        }
         if PreviewNavigation.bridge(message.frameInfo.request.url, mainFrame: message.frameInfo.isMainFrame, document: .workspace) == .artwork,
            let body = message.body as? [String: Any] {
             #if DEBUG
+            if body["action"] as? String == "playbackProbe", let states = body["states"] as? [String], !states.isEmpty {
+                let peak = body["peak"] as? Double ?? 0
+                playbackTestResult = states.allSatisfy { $0 == "suspended" } ? "Preview suspended" : states.contains("running") && peak > 0.001 ? "Preview audible" : "Preview \(states.joined(separator: ","))"
+                return
+            }
             if NativeScreenFixture.mode == "audio", body["action"] as? String == "audioProbe" {
                 let peak = body["peak"] as? Double ?? 0
                 let gestures = body["gestures"] as? Int ?? -1

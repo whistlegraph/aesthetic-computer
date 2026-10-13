@@ -155,6 +155,8 @@ final class WhistlegraphBundle: NSObject, WKURLSchemeHandler {
 }
 
 struct WhistlegraphPreview {
+    static let playbackScript = Bundle.main.url(forResource: "native-playback", withExtension: "js", subdirectory: "Web")
+        .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
     static let pixelSizeKey = "walkieware-pixel-size"
     // bios.mjs defaults to two CSS points per framebuffer pixel on iPhone.
     static var savedPixelSize: Int {

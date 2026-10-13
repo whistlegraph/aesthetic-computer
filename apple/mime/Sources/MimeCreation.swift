@@ -53,12 +53,12 @@ struct MimeCreation: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("mime-creation")
         .task {
-            session.webView?.setAllMediaPlaybackSuspended(!active, completionHandler: nil)
+            session.setPreviewPlaybackActive(active && phase == .active)
             await session.braincells.start(session: session); startRequestedWork()
         }
         .onChange(of: requested) { _, _ in startRequestedWork() }
         .onChange(of: session.engineReady) { _, _ in
-            session.webView?.setAllMediaPlaybackSuspended(!active, completionHandler: nil)
+            session.setPreviewPlaybackActive(active && phase == .active)
             startRequestedWork()
         }
         .onChange(of: session.accountReady) { _, _ in startRequestedWork() }
@@ -66,13 +66,13 @@ struct MimeCreation: View {
         .onChange(of: session.snapshot.wareID) { _, _ in startRequestedWork() }
         .onChange(of: session.snapshot.handle) { _, _ in Task { await session.syncAIAccount(); await session.braincells.accountChanged() } }
         .onChange(of: active) { _, visible in
-            session.webView?.setAllMediaPlaybackSuspended(!visible, completionHandler: nil)
-            if visible { switching = nil; session.resumePieceAudio(); startRequestedWork() }
+            session.setPreviewPlaybackActive(visible && phase == .active)
+            if visible { switching = nil; startRequestedWork() }
             else { drag = 0 }
         }
         .onChange(of: phase) { _, phase in
             if phase == .background { session.cancelHold() }
-            if phase == .active && active { session.resumePieceAudio() }
+            session.setPreviewPlaybackActive(active && phase == .active)
         }
     }
 
@@ -82,7 +82,7 @@ struct MimeCreation: View {
         if session.capturePhase == .opening || session.capturePhase == .recording { session.cancelHold() }
         session.webView?.endEditing(true)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        session.webView?.setAllMediaPlaybackSuspended(true, completionHandler: nil)
+        session.setPreviewPlaybackActive(false)
         requested = nil
         switching = nil
         active = false
