@@ -25,7 +25,10 @@ struct Attachment: Codable, Hashable {
     let name: String
     var width: Int? = nil
     var height: Int? = nil
+    var duration: Double? = nil      // voice notes
+    var transcript: String? = nil    // voice notes, transcribed on the phone
     var isImage: Bool { type.hasPrefix("image/") }
+    var isVoice: Bool { type.hasPrefix("audio/") && duration != nil }
 }
 
 struct TagCount: Codable, Hashable { let tag: String; let count: Int }
@@ -85,7 +88,8 @@ enum API {
     struct NewPost: Encodable { let text: String; let tags: [String]; let replyTo: String?; var attachments: [Attachment]? = nil }
 
     /// Ask for a 15-minute upload link, PUT the bytes to the choir bucket, return the attachment.
-    static func upload(_ data: Data, name: String, type: String, width: Int? = nil, height: Int? = nil, token: String?) async throws -> Attachment {
+    static func upload(_ data: Data, name: String, type: String, width: Int? = nil, height: Int? = nil,
+                       duration: Double? = nil, transcript: String? = nil, token: String?) async throws -> Attachment {
         struct Ask: Encodable { let name: String; let type: String; let size: Int }
         struct Signed: Decodable { let uploadUrl: String; let url: String; let headers: [String: String] }
         let signed: Signed = try await send("POST", "?upload=1", Ask(name: name, type: type, size: data.count), token: token)
@@ -94,7 +98,8 @@ enum API {
         for (k, v) in signed.headers { put.setValue(v, forHTTPHeaderField: k) }
         let (_, resp) = try await URLSession.shared.upload(for: put, from: data)
         guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw Failure.status((resp as? HTTPURLResponse)?.statusCode ?? 0, "Upload failed") }
-        return Attachment(url: signed.url, type: type, size: data.count, name: name, width: width, height: height)
+        return Attachment(url: signed.url, type: type, size: data.count, name: name, width: width, height: height,
+                          duration: duration, transcript: transcript)
     }
     struct Posted: Decodable { let post: Post }
     static func post(_ p: NewPost, token: String?) async throws -> Post {

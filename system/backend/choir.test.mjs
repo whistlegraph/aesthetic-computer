@@ -177,4 +177,7 @@ test("attachments must be choir uploads of allowed types and sizes; a photo alon
   assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pdf, type: "application/x-msdownload" }] }), /type/);
   assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pdf, size: 30 * 1024 * 1024 }] }), /25 MB/);
   assert.throws(() => validatePost({ text: "", tags: [] }), /Say something/);
+  const voice = { url: UPLOAD_BASE + "u/fifi/2026-10/ef56/voice.m4a", type: "audio/mp4", size: 300000, duration: 12.34, transcript: "  hi everyone  " };
+  assert.deepEqual(validatePost({ text: "", tags: [], attachments: [voice] }).attachments[0], { url: voice.url, type: "audio/mp4", size: 300000, name: "voice.m4a", duration: 12.3, transcript: "hi everyone" });
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...voice, duration: 75 }] }), /a minute/);
 });

@@ -208,7 +208,8 @@ export async function handler(event) {
         // Everyone else in the room hears about it; replies say where.
         notifyChoir(db, {
           title: body.replyTo ? `${me.handle} replied` : me.handle,
-          body: row.text.replace(/https?:\/\/\S+/g, "🔗").slice(0, 180),
+          body: (row.text.replace(/https?:\/\/\S+/g, "🔗") ||
+            (row.attachments?.some((a) => a.type.startsWith("audio/")) ? "🎙 voice note" : row.attachments?.length ? "📷 photo" : "")).slice(0, 180),
           thread: "choir", collapse: body.replyTo ? `choir-${row.replyTo}` : undefined,
           data: { url: `/thread/${row.replyTo || row._id}` },
         }, { except: me.sub, channel: "chat" }).then((t) => trail(db, "push:post", t, {})).catch(() => {});

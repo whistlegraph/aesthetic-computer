@@ -47,6 +47,12 @@ export function cleanAttachments(list) {
     if (size < 0 || size > UPLOAD_MAX) throw Error("Files can be up to 25 MB");
     const out = { url, type, size, name: String(a.name || url.split("/").pop()).slice(0, 120) };
     if (Number.isFinite(a.width) && Number.isFinite(a.height)) { out.width = Math.round(a.width); out.height = Math.round(a.height); }
+    // Voice notes (Fía, 10-12): up to a minute, with an on-device transcript.
+    if (type.startsWith("audio/")) {
+      const d = Number(a.duration);
+      if (Number.isFinite(d)) { if (d > 61) throw Error("Voice notes can be up to a minute"); out.duration = Math.round(d * 10) / 10; }
+      if (typeof a.transcript === "string" && a.transcript.trim()) out.transcript = a.transcript.trim().slice(0, 2000);
+    }
     return out;
   });
 }

@@ -13,6 +13,8 @@ struct Pending: Identifiable {
     var width: Int? = nil
     var height: Int? = nil
     var thumbnail: UIImage? = nil
+    var duration: Double? = nil
+    var transcript: String? = nil
 }
 
 enum Picks {
@@ -74,6 +76,9 @@ struct PendingStrip: View {
                     ZStack(alignment: .topTrailing) {
                         Group {
                             if let t = p.thumbnail { Image(uiImage: t).resizable().scaledToFill() }
+                            else if let d = p.duration {
+                                VStack(spacing: 2) { Image(systemName: "waveform"); Text(RecordingBar.clock(d)).font(.system(size: 10, weight: .semibold)) }.foregroundStyle(Theme.ink)
+                            }
                             else { VStack(spacing: 2) { Image(systemName: p.type == "application/pdf" ? "doc.richtext" : "doc"); Text(p.name).font(.system(size: 9)).lineLimit(2) }.padding(4).foregroundStyle(Theme.ink) }
                         }
                         .frame(width: 56, height: 56).background(Theme.paper).clipShape(RoundedRectangle(cornerRadius: 8))
@@ -113,7 +118,8 @@ struct AttachmentsView: View {
     @Environment(\.openURL) private var openURL
     @State private var viewing: Attachment?
     var images: [Attachment] { items.filter(\.isImage) }
-    var files: [Attachment] { items.filter { !$0.isImage } }
+    var files: [Attachment] { items.filter { !$0.isImage && !$0.isVoice } }
+    var voices: [Attachment] { items.filter(\.isVoice) }
 
     /// One photo: 240 pt wide, height from its aspect, at most 300 pt.
     static func size(_ a: Attachment) -> CGSize {
@@ -133,6 +139,7 @@ struct AttachmentsView: View {
                     ForEach(images, id: \.url) { photo($0).frame(width: 118, height: 118) }
                 }
             }
+            ForEach(voices, id: \.url) { VoiceNoteView(note: $0) }
             ForEach(files, id: \.url) { a in
                 Button { if let u = URL(string: a.url) { Trail.send("attachment:open"); openURL(u) } } label: {
                     HStack(spacing: 8) {

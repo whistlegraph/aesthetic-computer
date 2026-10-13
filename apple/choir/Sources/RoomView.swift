@@ -223,11 +223,17 @@ struct ChatInput: View {
     @State private var pickingPhotos = false
     @State private var pickingFiles = false
     @State private var shooting = false
+    @StateObject private var recorder = VoiceRecorder()
 
     var body: some View {
         VStack(spacing: 8) {
             if !pending.isEmpty { PendingStrip(items: $pending) }
+            if recorder.working { HStack(spacing: 8) { FlowerSpinner(size: 18); Text("Transcribing…").font(Theme.type(12)) }.foregroundStyle(Theme.ink.opacity(0.7)) }
+            if let p = recorder.problem { Text(p).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
+            if recorder.recording {
+                RecordingBar(recorder: recorder)
+            } else {
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
                     Button("Camera", systemImage: "camera") { shooting = true }
@@ -240,13 +246,19 @@ struct ChatInput: View {
                     .focused($typing)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
                     .onChange(of: typing) { _, on in if on { onFocus() } }
+                if text.isEmpty && pending.isEmpty {
+                    Button { Task { await recorder.start() } } label: { Image(systemName: "mic.fill").font(.system(size: 17, weight: .semibold)) }
+                        .buttonStyle(GlassChipStyle()).accessibilityLabel("Record a voice note")
+                }
                 Button { Task { await send() } } label: { Hand("HandSend", height: 22) }
                     .buttonStyle(SendStyle(ready: ready)).disabled(!ready)
                     .accessibilityLabel("Send")
             }
             .padding(.horizontal, 12)
+            }
         }
         .padding(.top, 8).padding(.bottom, 6)
+        .onAppear { recorder.onFinished = { p in if pending.count < 6 { pending.append(p) } } }
         .fullScreenCover(isPresented: $shooting) {
             CameraView { image, filter in if let p = Picks.shot(image, filter: filter), pending.count < 6 { pending.append(p) } }
         }
@@ -292,7 +304,8 @@ struct ChatInput: View {
             let token = await account.token()
             var files: [Attachment] = []
             for p in pending {
-                files.append(try await API.upload(p.data, name: p.name, type: p.type, width: p.width, height: p.height, token: token))
+                files.append(try await API.upload(p.data, name: p.name, type: p.type, width: p.width, height: p.height,
+                                                  duration: p.duration, transcript: p.transcript, token: token))
             }
             _ = try await API.post(.init(text: text, tags: [], replyTo: nil, attachments: files.isEmpty ? nil : files), token: token)
             Trail.send("chat:send", ["files": files.count])
