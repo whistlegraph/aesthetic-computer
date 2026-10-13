@@ -35,6 +35,7 @@ Paper color everywhere: `#E2DBCC` (`Theme.desk` in the app, `--desk` on choir.ac
 | Browser tab icon | `system/public/choir/favicon.png` (64 px), linked from every choir page | cutout |
 | Home-screen web icon | `system/public/choir/icon.png` (512 px, `apple-touch-icon`) | master |
 | Splash logo | `system/public/choir/logo.png`, breathing like the app | cutout |
+| Legal pages header (privacy, terms, support), web-room @choir badge | `system/public/choir/mark.png` (256 px) | cutout |
 | Link preview | `system/public/choir/social.png` (1200×630: flower, "choir", "Comments on culture") | cutout |
 | Instagram avatar (@333_choir, posted by Fía) | `~/Desktop/choir-brand/instagram-avatar-1080.png` | master |
 | Hand-offs | `~/Desktop/choir-brand/` `icon-1024.png`, `flower-cutout.png` | both |

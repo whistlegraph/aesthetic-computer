@@ -16,6 +16,7 @@
 		48C5F9223AE901913991AA5F /* Headline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224AC79DF9F2580E605A15F9 /* Headline.swift */; };
 		5E5868DBFCBE06631751028F /* PostRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF5B9D04957C667E8E468AE /* PostRow.swift */; };
 		64FD522A337B0E85E4E7FBAF /* Voice.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E81B41A1CF642F265F8327 /* Voice.swift */; };
+		6707EB5B23792B4183F0E833 /* Video.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FBCA7008D996AF6A4B6E39F /* Video.swift */; };
 		6E1D2AE0D0D7A731B363AEF9 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC326112F245442C5C63787 /* Camera.swift */; };
 		7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */; };
 		7DBC8597D8F3EB082404BB72 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9636E56DAB1B4B71016A62 /* ShareViewController.swift */; };
@@ -77,6 +78,7 @@
 		28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugOverlay.swift; sourceTree = "<group>"; };
 		39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
 		3EB5F83E9F2FFDF39A7CE23A /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
+		3FBCA7008D996AF6A4B6E39F /* Video.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Video.swift; sourceTree = "<group>"; };
 		4795E20D2523AB8C8C6B203A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
 		53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
@@ -135,6 +137,7 @@
 				E4974653737A8CA133A08CA1 /* SingingMark.swift */,
 				0D900063294E7ECA08C63242 /* Theme.swift */,
 				077F334C80A6DC5CA677DB4A /* ThreadView.swift */,
+				3FBCA7008D996AF6A4B6E39F /* Video.swift */,
 				E4E81B41A1CF642F265F8327 /* Voice.swift */,
 			);
 			path = Sources;
@@ -313,6 +316,7 @@
 				E505E744ABF3566423E83853 /* SingingMark.swift in Sources */,
 				1AEE805CB6AA133AA7D241B2 /* Theme.swift in Sources */,
 				00F1489F90B50100DEC1802C /* ThreadView.swift in Sources */,
+				6707EB5B23792B4183F0E833 /* Video.swift in Sources */,
 				64FD522A337B0E85E4E7FBAF /* Voice.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

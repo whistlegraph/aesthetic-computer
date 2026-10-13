@@ -231,7 +231,7 @@ struct ChatRow: View {
     /// Just pictures, no words or links: the photos are the bubble.
     var mediaOnly: Bool {
         guard let files = post.attachments, !files.isEmpty else { return false }
-        return files.allSatisfy(\.isImage) && post.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !post.deleted
+        return files.allSatisfy { $0.isImage || $0.isVideo } && post.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !post.deleted
     }
 
     var shownText: String {
@@ -263,7 +263,8 @@ struct ChatInput: View {
         stored = p.joined(separator: ",")
     }
     var all: [String] { (room.tags.map(\.tag) + picked).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
-    var ready: Bool { (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty || room.about != nil) && picked.count >= Self.minTags && !sending }
+    var ready: Bool { (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty || room.about != nil) && picked.count >= Self.minTags && !sending
+        && !pending.contains(where: \.working) }
 
     @State private var showTags = false
     @State private var pending: [Pending] = []
@@ -271,12 +272,15 @@ struct ChatInput: View {
     @State private var pickingPhotos = false
     @State private var pickingFiles = false
     @State private var shooting = false
+    @State private var filming = false
+    @State private var note: String?
     @StateObject private var recorder = VoiceRecorder()
 
     var body: some View {
         VStack(spacing: 8) {
             if let about = room.about { AboutChip(post: about) { room.about = nil } }
-            if !pending.isEmpty { PendingStrip(items: $pending) }
+            if !pending.isEmpty { PendingStrip(items: $pending, uploading: sending) }
+            if let note { Text(note).font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.7)).padding(.horizontal, 14) }
             if recorder.working { HStack(spacing: 8) { FlowerSpinner(size: 18); Text("Transcribing…").font(Theme.type(12)) }.foregroundStyle(Theme.ink.opacity(0.7)) }
             if let p = recorder.problem { Text(p).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
@@ -289,6 +293,7 @@ struct ChatInput: View {
                     .buttonStyle(CircleChipStyle()).accessibilityLabel("Record a voice note")
                 Menu {
                     Button("Camera", systemImage: "camera") { shooting = true }
+                    Button("Record video", systemImage: "video") { filming = true }
                     Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
                     Button("Files and PDFs", systemImage: "doc") { pickingFiles = true }
                 } label: { Hand("HandPlus", height: 17).frame(width: 40, height: 40).glass(Circle()).foregroundStyle(Theme.ink) }
@@ -311,18 +316,31 @@ struct ChatInput: View {
         .fullScreenCover(isPresented: $shooting) {
             CameraView { image, filter in if let p = Picks.shot(image, filter: filter), pending.count < 6 { pending.append(p) } }
         }
-        .photosPicker(isPresented: $pickingPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
+        .fullScreenCover(isPresented: $filming) {
+            VideoRecorderView { url in Trail.send("video:recorded"); addVideo(url) }.ignoresSafeArea()
+        }
+        .photosPicker(isPresented: $pickingPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .any(of: [.images, .videos]))
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }
             Task {
-                for item in items { if let p = await Picks.photo(item), pending.count < 6 { pending.append(p) } }
+                for item in items {
+                    let types = item.supportedContentTypes
+                    if types.contains(where: { $0.conforms(to: .movie) }) && !types.contains(where: { $0.conforms(to: .image) }) {
+                        if let movie = try? await item.loadTransferable(type: PickedMovie.self) { addVideo(movie.url) }
+                        else { error = "That video couldn't be opened." }
+                    } else if let p = await Picks.photo(item), pending.count < 6 { pending.append(p) }
+                }
                 photoItems = []
             }
         }
         .fileImporter(isPresented: $pickingFiles, allowedContentTypes: Picks.fileTypes, allowsMultipleSelection: true) { result in
             guard case .success(let urls) = result else { return }
             for url in urls {
-                if let p = Picks.file(url) { if pending.count < 6 { pending.append(p) } }
+                if Picks.isMovie(url) {
+                    let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                    let copy = FileManager.default.temporaryDirectory.appendingPathComponent("choir-file-\(UUID().uuidString).\(url.pathExtension)")
+                    if (try? FileManager.default.copyItem(at: url, to: copy)) != nil { addVideo(copy) } else { error = "\(url.lastPathComponent) couldn't be opened." }
+                } else if let p = Picks.file(url) { if pending.count < 6 { pending.append(p) } }
                 else { error = "\(url.lastPathComponent) is over 25 MB" }
             }
         }
@@ -347,14 +365,43 @@ struct ChatInput: View {
             }
     }
 
+    /// A video joins the strip at once with its poster and a spinner, then is
+    /// squeezed to an MP4 under the upload limit (first minute only).
+    func addVideo(_ url: URL) {
+        guard pending.count < 6 else { try? FileManager.default.removeItem(at: url); return }
+        var slot = Pending(data: Data(), name: url.lastPathComponent, type: "video/mp4")
+        slot.working = true
+        let id = slot.id
+        pending.append(slot); error = nil; note = nil
+        Task {
+            defer { try? FileManager.default.removeItem(at: url) }
+            if let poster = await Videos.poster(url), let i = pending.firstIndex(where: { $0.id == id }) { pending[i].thumbnail = poster }
+            do {
+                let made = try await Videos.prepare(url)
+                guard let i = pending.firstIndex(where: { $0.id == id }) else { return } // removed while it worked
+                pending[i] = made.pending
+                if made.trimmed { note = "Videos can be up to a minute, so this one was cut to its first 60 seconds." }
+            } catch {
+                pending.removeAll { $0.id == id }
+                self.error = error.localizedDescription
+                Trail.send("video:failed", ["why": error.localizedDescription])
+            }
+        }
+    }
+
     func send() async {
         sending = true; defer { sending = false }
         do {
             let token = await account.token()
             var files: [Attachment] = []
             for p in pending {
+                var poster: String?
+                if let frame = p.posterData {
+                    let name = (p.name as NSString).deletingPathExtension + "-poster.jpg"
+                    poster = try await API.upload(frame, name: name, type: "image/jpeg", width: p.width, height: p.height, token: token).url
+                }
                 files.append(try await API.upload(p.data, name: p.name, type: p.type, width: p.width, height: p.height,
-                                                  duration: p.duration, transcript: p.transcript, token: token))
+                                                  duration: p.duration, transcript: p.transcript, poster: poster, token: token))
             }
             // Talking about a Discover item: the message carries its link, so the chat shows the card.
             let link = room.about?.links.first
@@ -362,7 +409,7 @@ struct ChatInput: View {
             _ = try await API.post(.init(text: body, tags: [], replyTo: nil, attachments: files.isEmpty ? nil : files), token: token)
             if link != nil { Trail.send("discover:talked"); room.about = nil }
             Trail.send("chat:send", ["files": files.count])
-            text = ""; pending = []; error = nil; onSent()
+            text = ""; pending = []; error = nil; note = nil; onSent()
             typing = true // keep the keyboard up for the next line
         } catch { self.error = error.localizedDescription; Trail.send("post:failed", ["why": error.localizedDescription]) }
     }

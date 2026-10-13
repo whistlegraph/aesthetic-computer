@@ -40,7 +40,7 @@ import { createInvite, myInvites, peekInvite, claimInvite, stats } from "../../b
 import { fileReport, resolveReport, acceptTerms, termsOf, REPORT_COLLECTION } from "../../backend/choir-moderation.mjs";
 import { sendToTarget } from "../../../shared/push.mjs";
 import { respond } from "../../backend/http.mjs";
-import { mongoChoirStore, publicPost, curate, greet, UPLOAD_MAX, UPLOAD_TYPES, UPLOAD_BASE } from "../../backend/choir.mjs";
+import { mongoChoirStore, publicPost, curate, greet, attachmentsLabel, UPLOAD_MAX, UPLOAD_TYPES, UPLOAD_BASE } from "../../backend/choir.mjs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { timingSafeEqual, createHash } from "node:crypto";
@@ -298,7 +298,7 @@ export async function handler(event) {
         notifyChoir(db, {
           title: body.replyTo ? `${me.handle} replied` : me.handle,
           body: (row.text.replace(/https?:\/\/\S+/g, "🔗") ||
-            (row.attachments?.some((a) => a.type.startsWith("audio/")) ? "🎙 voice note" : row.attachments?.length ? "📷 photo" : "")).slice(0, 180),
+            attachmentsLabel(row.attachments)).slice(0, 180),
           thread: "choir", collapse: body.replyTo ? `choir-${row.replyTo}` : undefined,
           data: { url: `/thread/${row.replyTo || row._id}` },
         }, { except: me.sub, channel: "chat" }).then((t) => trail(db, "push:post", t, {})).catch(() => {});

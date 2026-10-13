@@ -29,16 +29,16 @@
     body { margin: 0; min-height: 100dvh; background: var(--desk); color: var(--ink); display: grid; place-items: center;
       padding: 24px 16px; font: 17px/1.5 "American Typewriter", "Courier New", ui-monospace, monospace; text-align: center; }
     main { width: min(100%, 420px); }
-    .choir { position: relative; width: min(56vw, 230px); aspect-ratio: 1; margin: 0 auto 18px; }
+    .choir { position: relative; width: min(40vw, 168px); aspect-ratio: 1; margin: 0 auto 14px; }
     .choir img { position: absolute; inset: 0; width: 100%; height: 100%; will-change: transform; }
     /* The app's entrance: spring(response 0.7, damping 0.7) after 0.1 s. */
-    .choir, main > p, main > .get { transition: opacity .7s ease-out .1s, transform .7s cubic-bezier(.34, 1.4, .64, 1) .1s; }
+    .choir, h1, main > p, main > .get { transition: opacity .7s ease-out .1s, transform .7s cubic-bezier(.34, 1.4, .64, 1) .1s; }
     body:not(.shown) .choir { opacity: 0; transform: scale(.85); }
-    body:not(.shown) main > p:first-of-type { opacity: 0; transform: translateY(8px); }
+    body:not(.shown) main > p:first-of-type, body:not(.shown) h1 { opacity: 0; transform: translateY(8px); }
     body:not(.shown) main > .get, body:not(.shown) main > p.small { opacity: 0; transform: translateY(14px); }
     @media (prefers-reduced-motion: reduce) { .choir, main > p, main > .get { transition: none; } }
-    h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-    p { margin: 0 0 22px; font-size: 18px; }
+    h1 { margin: 0 0 6px; font-size: 40px; line-height: 1; font-weight: 700; letter-spacing: .5px; }
+    p { margin: 0 0 26px; font-size: 16px; opacity: .8; }
     .get { display: inline-block; background: #3d78dc; color: #fff; text-decoration: none; padding: 11px 24px; border: 2px solid var(--ink);
       border-radius: 999px; box-shadow: 0 4px 0 var(--ink); font-weight: 700; }
     .get:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
@@ -49,8 +49,8 @@
 </head>
 <body>
 <main>
-  <h1>choir</h1>
   <div class="choir" aria-hidden="true"><img src="logo.png" alt=""></div>
+  <h1>choir</h1>
   <p>Comments on culture</p>
   <p class="invite" id="invite" hidden></p>
   <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Get the iPhone app</a>

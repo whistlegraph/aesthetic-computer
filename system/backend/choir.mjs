@@ -56,8 +56,26 @@ export function cleanAttachments(list) {
       if (Number.isFinite(d)) { if (d > 61) throw Error("Voice notes can be up to a minute"); out.duration = Math.round(d * 10) / 10; }
       if (typeof a.transcript === "string" && a.transcript.trim()) out.transcript = a.transcript.trim().slice(0, 2000);
     }
+    // Videos (Fía, 10-12): up to a minute, with a poster frame from the same bucket.
+    if (type.startsWith("video/")) {
+      const d = Number(a.duration);
+      if (Number.isFinite(d)) { if (d > 61) throw Error("Videos can be up to a minute"); out.duration = Math.round(d * 10) / 10; }
+      if (a.poster != null) {
+        const poster = String(a.poster);
+        if (!poster.startsWith(UPLOAD_BASE) || /\s/.test(poster)) throw Error("Attachments must be choir uploads");
+        out.poster = poster;
+      }
+    }
     return out;
   });
+}
+
+// What a push says for a post with no words: its first kind of attachment.
+export function attachmentsLabel(attachments) {
+  if (!attachments?.length) return "";
+  if (attachments.some((a) => String(a.type).startsWith("video/"))) return "🎬 video";
+  if (attachments.some((a) => String(a.type).startsWith("audio/"))) return "🎙 voice note";
+  return "📷 photo";
 }
 
 export function validatePost({ text, tags, replyTo, attachments }) {

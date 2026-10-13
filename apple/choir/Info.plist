@@ -11,9 +11,9 @@
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>NSMicrophoneUsageDescription</key><string>Record voice notes for the choir chat.</string>
+	<key>NSMicrophoneUsageDescription</key><string>Record voice notes and videos for the choir chat.</string>
 	<key>NSSpeechRecognitionUsageDescription</key><string>Write out your voice notes so everyone can read them.</string>
-	<key>NSCameraUsageDescription</key><string>Take a picture to share in choir, with a filter if you like.</string>
+	<key>NSCameraUsageDescription</key><string>Take a picture or record a video to share in choir.</string>
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<key>LSRequiresIPhoneOS</key><true/>
 	<key>UILaunchScreen</key><dict><key>UIColorName</key><string>LaunchBackground</string><key>UIImageName</key><string>LaunchLogo</string><key>UIImageRespectsSafeAreaInsets</key><false/></dict>

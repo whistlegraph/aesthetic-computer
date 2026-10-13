@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate, UPLOAD_BASE, greet } from "./choir.mjs";
+import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate, UPLOAD_BASE, greet, attachmentsLabel } from "./choir.mjs";
 
 // The smallest Mongo choir needs: find/sort/limit, findOne, insertOne,
 // updateOne with $set/$inc/upsert, countDocuments.
@@ -186,6 +186,24 @@ test("attachments must be choir uploads of allowed types and sizes; a photo alon
   const voice = { url: UPLOAD_BASE + "u/fifi/2026-10/ef56/voice.m4a", type: "audio/mp4", size: 300000, duration: 12.34, transcript: "  hi everyone  " };
   assert.deepEqual(validatePost({ text: "", tags: [], attachments: [voice] }).attachments[0], { url: voice.url, type: "audio/mp4", size: 300000, name: "voice.m4a", duration: 12.3, transcript: "hi everyone" });
   assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...voice, duration: 75 }] }), /a minute/);
+});
+
+test("a video keeps its size, length and poster through to the public post; its push says video", () => {
+  const video = { url: UPLOAD_BASE + "u/fifi/2026-10/aa11/video.mp4", type: "video/mp4", size: 8000000, width: 720, height: 1280,
+    duration: 41.26, poster: UPLOAD_BASE + "u/fifi/2026-10/bb22/video-poster.jpg", transcript: "not for videos" };
+  const [clean] = validatePost({ text: "", tags: [], attachments: [video] }).attachments;
+  assert.deepEqual(clean, { url: video.url, type: "video/mp4", size: 8000000, name: "video.mp4", width: 720, height: 1280, duration: 41.3, poster: video.poster });
+  assert.deepEqual(publicPost({ _id: "a".repeat(24), handle: "@fifi", text: "", tags: [], when: "2026-10-12T00:00:00.000Z", attachments: [clean] }).attachments, [clean]);
+  assert.equal(publicPost({ _id: "a".repeat(24), handle: "@fifi", text: "", tags: [], when: "x", deleted: true, attachments: [clean] }).attachments, undefined);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...video, duration: 90 }] }), /a minute/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...video, poster: "https://evil.example/p.jpg" }] }), /choir uploads/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...video, size: 26 * 1024 * 1024 }] }), /25 MB/);
+  assert.equal("poster" in validatePost({ text: "", tags: [], attachments: [{ ...video, type: "image/jpeg", url: video.poster }] }).attachments[0], false);
+  assert.equal(attachmentsLabel([clean]), "🎬 video");
+  assert.equal(attachmentsLabel([{ type: "audio/mp4" }]), "🎙 voice note");
+  assert.equal(attachmentsLabel([{ type: "image/jpeg" }]), "📷 photo");
+  assert.equal(attachmentsLabel([]), "");
+  assert.equal(attachmentsLabel(undefined), "");
 });
 
 test("a newcomer is welcomed once; members already greeted are not", async () => {
