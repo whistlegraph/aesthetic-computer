@@ -27,13 +27,18 @@ struct RoomView: View {
                             Link("@333_choir", destination: URL(string: "https://instagram.com/333_choir")!)
                                 .font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.6)).frame(maxWidth: .infinity)
                         }
+                        if account.signedIn, let h = room.here { PresenceLine(here: h).frame(maxWidth: .infinity) }
                         if let error = room.error {
                             Text(error).font(Theme.type(12)).foregroundStyle(Theme.ink)
                         }
                         ForEach(room.chat) { post in
+                          if post.kind == "greeting" {
+                            GreetingLine(post: post)
+                          } else {
                             ChatRow(post: post, mine: post.handle == account.handle, onTag: pick)
                                 .contentShape(Rectangle())
                                 .onTapGesture { Trail.send("thread:sheet"); open = post }
+                          }
                         }
                         Color.clear.frame(height: 1).id("bottom")
                     }
@@ -105,8 +110,14 @@ struct RoomView: View {
             .onChange(of: router.discover) { _, go in if go { discover = true; router.discover = false } }
             .task {
                 await room.load()
-                // Live sockets come later; a quick poll while the chat is open.
-                while !Task.isCancelled { try? await Task.sleep(for: .seconds(5)); await room.load() }
+                // Live sockets come later; a quick poll while the chat is open,
+                // and every 30 s a heartbeat that also counts who's here.
+                var beat = 0
+                while !Task.isCancelled {
+                    if beat % 6 == 0 { room.here = try? await API.here(token: await account.token()) }
+                    beat += 1
+                    try? await Task.sleep(for: .seconds(5)); await room.load()
+                }
             }
         }
     }
@@ -115,6 +126,30 @@ struct RoomView: View {
         room.tag = tag
         Trail.send("tag", ["tag": tag ?? "all"])
         Task { await room.load() }
+    }
+}
+
+/// "🌼 Welcome @lou — say hi!", centered, when someone joins.
+struct GreetingLine: View {
+    let post: Post
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(post.text).font(Theme.type(13)).foregroundStyle(Theme.ink.opacity(0.8))
+            Text(post.date, format: .relative(presentation: .numeric, unitsStyle: .narrow)).font(Theme.type(10)).opacity(0.4)
+        }
+        .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 6)
+    }
+}
+
+/// "2 here · 5 members · 3 invited"
+struct PresenceLine: View {
+    let here: API.Here
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(Color.green).frame(width: 6, height: 6)
+            Text("\(here.here) here · \(here.members) \(here.members == 1 ? "member" : "members") · \(here.invited) invited")
+        }
+        .font(Theme.type(11)).foregroundStyle(Theme.ink.opacity(0.6))
     }
 }
 

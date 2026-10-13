@@ -105,6 +105,25 @@ enum API {
     static func post(_ p: NewPost, token: String?) async throws -> Post {
         let r: Posted = try await send("POST", "", p, token: token); return r.post
     }
+    /// "2 here · 3 members · 4 invited". Signed in, it also says you're here.
+    struct Here: Decodable { let members: Int; let here: Int; let invited: Int; let joined: Int }
+    static func here(token: String?) async throws -> Here { try await get("?here=1", token: token) }
+
+    /// Each member has a few invites (Fía, unlimited): a code and a choir.ac link.
+    struct Invite: Decodable, Identifiable, Hashable { let code: String; let url: String; let name: String?; let at: String; let joined: String?; var id: String { code } }
+    struct Invites: Decodable { let invites: [Invite]; let left: Int? }
+    static func invites(token: String?) async throws -> Invites { try await get("?invites=1", token: token) }
+    struct Made: Decodable { let _id: String; let url: String; let left: Int? }
+    static func invite(name: String, token: String?) async throws -> Made {
+        struct Ask: Encodable { let name: String }
+        return try await send("POST", "?invite=1", Ask(name: name), token: token)
+    }
+    struct Claimed: Decodable { let from: String }
+    static func claim(_ code: String, token: String?) async throws -> Claimed {
+        struct Ask: Encodable { let code: String }
+        return try await send("POST", "?claim=1", Ask(code: code), token: token)
+    }
+
     struct Deleted: Decodable { let deleted: Bool }
     static func delete(_ id: String, token: String?) async throws {
         let _: Deleted = try await run(request("DELETE", "?id=\(id)", token: token))

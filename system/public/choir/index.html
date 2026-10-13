@@ -45,6 +45,7 @@
     .get:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
     .small { margin: 22px 0 0; font-size: 13px; opacity: .75; }
     .small a { color: var(--ink); }
+    .invite { font-size: 15px; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -57,11 +58,24 @@
     <img src="mark4.png" alt="">
   </div>
   <p>Comments on culture</p>
+  <p class="invite" id="invite" hidden></p>
   <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Get the iPhone app</a>
   <p class="small">Invite only, in testing. <a href="room/">Open the web room</a>.</p>
   <p class="small"><a href="https://instagram.com/333_choir" rel="me noopener" target="_blank" id="ig">@333_choir</a> on Instagram</p>
 </main>
 <script type="module" src="/aesthetic.computer/lib/visit-tracker.mjs"></script>
+<script type="module">
+  // choir.ac/?invite=CODE: say who sent it, and carry the code into the ask.
+  const code = new URLSearchParams(location.search).get("invite");
+  if (code) fetch("/api/choir?invite=" + encodeURIComponent(code))
+    .then((r) => r.ok ? r.json() : null).then((i) => {
+      if (!i) return;
+      const el = document.getElementById("invite");
+      el.textContent = i.claimed ? "This invite has been used." : `${i.from} invited you. Your code is ${i.code}.`;
+      el.hidden = false;
+      if (!i.claimed) document.getElementById("get").href = `mailto:mail@aesthetic.computer?subject=${encodeURIComponent("choir invite " + i.code)}`;
+    }).catch(() => {});
+</script>
 <script type="module">
 const track = (name, props = {}) => fetch("/api/choir?event=1", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ name, props, surface: "web" }) }).catch(() => {});

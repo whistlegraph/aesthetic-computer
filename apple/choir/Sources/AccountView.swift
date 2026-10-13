@@ -20,6 +20,7 @@ struct AccountView: View {
                         Button("I chose one") { Task { await account.refreshMe() } }
                     }
                 }
+                if account.handle != nil { InviteSection() }
                 Section("Notifications") {
                     Toggle("New messages in the chat", isOn: Binding(get: { account.notifyChat }, set: { on in Task { await account.setNotifications(.chat, on) } }))
                     Toggle("New in Discover", isOn: Binding(get: { account.notifyDiscover }, set: { on in Task { await account.setNotifications(.discover, on) } }))

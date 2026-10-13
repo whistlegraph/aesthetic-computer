@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate, UPLOAD_BASE } from "./choir.mjs";
+import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate, UPLOAD_BASE, greet } from "./choir.mjs";
 
 // The smallest Mongo choir needs: find/sort/limit, findOne, insertOne,
 // updateOne with $set/$inc/upsert, countDocuments.
@@ -180,4 +180,23 @@ test("attachments must be choir uploads of allowed types and sizes; a photo alon
   const voice = { url: UPLOAD_BASE + "u/fifi/2026-10/ef56/voice.m4a", type: "audio/mp4", size: 300000, duration: 12.34, transcript: "  hi everyone  " };
   assert.deepEqual(validatePost({ text: "", tags: [], attachments: [voice] }).attachments[0], { url: voice.url, type: "audio/mp4", size: 300000, name: "voice.m4a", duration: 12.3, transcript: "hi everyone" });
   assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...voice, duration: 75 }] }), /a minute/);
+});
+
+test("a newcomer is welcomed once; members already greeted are not", async () => {
+  const posts = collection(), prefs = collection();
+  prefs.findOneAndUpdate = async (q, u) => {
+    const row = prefs.rows.find((r) => r._id === q._id);
+    if (row && row.greeted === true) return null;
+    if (row) { Object.assign(row, u.$set); return row; }
+    return null;
+  };
+  await prefs.insertOne({ _id: "auth0|new", subs: ["auth0|new"] });
+  await prefs.insertOne({ _id: "auth0|old", greeted: true });
+  const first = await greet(posts, prefs, "auth0|new", "@newbie", { id: () => "e".repeat(24) });
+  assert.equal(first.text, "🌼 Welcome @newbie — say hi!");
+  assert.equal(first.kind, "greeting");
+  assert.equal(await greet(posts, prefs, "auth0|new", "@newbie"), null, "only once");
+  assert.equal(await greet(posts, prefs, "auth0|old", "@fifi"), null, "existing members are not greeted");
+  assert.equal(await greet(posts, prefs, "auth0|x", null), null, "no @name, no greeting yet");
+  assert.equal(posts.rows.length, 1);
 });

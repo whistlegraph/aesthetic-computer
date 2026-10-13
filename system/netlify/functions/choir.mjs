@@ -11,6 +11,11 @@
 //   PUT    /api/choir?prefs=1 {notifications}                         (Bearer)
 //   POST   /api/choir?event=1 {name,props,session,surface}   a trail event
 //   GET    /api/choir?events=1&since=<iso>                   the trail (admin)
+//   GET    /api/choir?here=1                 {members, here, invited, joined}; with Bearer, counts you as here
+//   GET    /api/choir?invites=1 (Bearer)     your invites + how many are left
+//   POST   /api/choir?invite=1 {name?}       make an invite code (Bearer, has @name)
+//   GET    /api/choir?invite=<code>          who sent it (public, for the choir.ac page)
+//   POST   /api/choir?claim=1 {code}         a newcomer redeems an invite (Bearer)
 //   POST   /api/choir?upload=1 {name, type, size} → {uploadUrl, url, headers}  (Bearer, has @name)
 //          then PUT the file to uploadUrl and post with attachments:[{url,name,type,size,…}]
 //   POST   /api/choir?bug=1 {text, image (base64 jpeg), context}  a bug report (Bearer)
@@ -26,9 +31,10 @@ import { connect } from "../../backend/database.mjs";
 import { authorize, handleBySharedEmail, hasAdmin } from "../../backend/authorization.mjs";
 import { cleanEvent, record, recent } from "../../backend/choir-events.mjs";
 import { noteMember, notifyChoir } from "../../backend/choir-push.mjs";
+import { createInvite, myInvites, peekInvite, claimInvite, stats } from "../../backend/choir-invites.mjs";
 import { sendToTarget } from "../../../shared/push.mjs";
 import { respond } from "../../backend/http.mjs";
-import { mongoChoirStore, publicPost, curate, UPLOAD_MAX, UPLOAD_TYPES, UPLOAD_BASE } from "../../backend/choir.mjs";
+import { mongoChoirStore, publicPost, curate, greet, UPLOAD_MAX, UPLOAD_TYPES, UPLOAD_BASE } from "../../backend/choir.mjs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { timingSafeEqual, createHash } from "node:crypto";
@@ -84,7 +90,14 @@ export async function handler(event) {
         if (!me) { trail(db, "me:anonymous", {}, event.headers); return no(401, "Sign in"); }
         trail(db, me.handle ? (me.via ? "me:linked" : "me:handle") : "me:no-handle",
           { handle: me.handle || "", conn: me.user.sub.split("|")[0] }, event.headers);
-        noteMember(db, me.sub, me.user.sub, me.handle).catch(() => {});
+        // Remember the member, then welcome them in the chat the first time they arrive with an @name.
+        noteMember(db, me.sub, me.user.sub, me.handle).then(() => me.handle && greet(db.collection("choir-posts"), db.collection("choir-prefs"), me.sub, me.handle))
+          .then((row) => {
+            if (!row) return;
+            trail(db, "member:welcomed", { handle: me.handle }, event.headers);
+            notifyChoir(db, { title: "choir 🌼", body: `${me.handle} just joined — say hi!`, thread: "choir", data: { url: "/" } },
+              { except: me.sub, channel: "chat" }).catch(() => {});
+          }).catch(() => {});
         return ok({ handle: me.handle, prefs: await store.prefsOf(me.sub) });
       }
       if (q.bugs || q.bug) {
@@ -105,6 +118,23 @@ export async function handler(event) {
         return ok({ events: await recent(db, { since: q.since, limit: Number(q.limit) || 200 }) });
       }
       if (q.tags) return ok({ tags: await store.tagList() }, "public, max-age=30");
+      if (q.here) {
+        const prefs = db.collection("choir-prefs"), invites = db.collection("choir-invites");
+        if (event.headers?.authorization) {
+          const me = await whoami(event.headers, db).catch(() => null);
+          if (me) await prefs.updateOne({ _id: me.sub }, { $set: { lastSeenAt: new Date().toISOString(), ...(me.handle ? { handle: me.handle } : {}) } }, { upsert: true });
+        }
+        return ok(await stats(prefs, invites));
+      }
+      if (q.invite && q.invite !== "1") {
+        const p = await peekInvite(db.collection("choir-invites"), q.invite);
+        return p ? ok(p, "public, max-age=60") : no(404, "No such invite");
+      }
+      if (q.invites) {
+        const me = await whoami(event.headers || {}, db);
+        if (!me) return no(401, "Sign in");
+        return ok(await myInvites(db.collection("choir-invites"), me.sub, me.handle));
+      }
       if (q.thread) {
         const t = await store.thread(q.thread);
         return t ? ok({ root: publicPost(t.root), replies: t.replies.map(publicPost) }, "public, max-age=5") : no(404, "No such thread");
@@ -142,6 +172,19 @@ export async function handler(event) {
 
     const me = await whoami(event.headers || {}, db);
     if (!me) return no(401, "Sign in");
+
+    if (event.httpMethod === "POST" && q.invite) {
+      let body = {}; try { body = JSON.parse(event.body || "{}"); } catch {}
+      const inv = await createInvite(db.collection("choir-invites"), { member: me.sub, handle: me.handle, name: body.name });
+      trail(db, "invite:made", { handle: me.handle || "" }, event.headers);
+      return ok(inv);
+    }
+    if (event.httpMethod === "POST" && q.claim) {
+      let body = {}; try { body = JSON.parse(event.body || "{}"); } catch {}
+      const r = await claimInvite(db.collection("choir-invites"), db.collection("choir-prefs"), { code: body.code, member: me.sub, handle: me.handle });
+      trail(db, "invite:claimed", { handle: me.handle || "", from: r.from }, event.headers);
+      return ok(r);
+    }
 
     if (event.httpMethod === "POST" && q.upload) {
       if (!me.handle) return no(403, "Choose your @name first");

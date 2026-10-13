@@ -51,7 +51,9 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
         while n == daisyIndex { n = Int.random(in: 0..<daisies.count) }
         daisyIndex = n
     }
-    static func daisy(_ input: CIImage, blurredFrame: Bool = false) -> CIImage? {
+    // Fía (10-12, 22:21): no black outline on the flower once it's a PNG in the
+    // chat. The live camera still inks it, so you can see the frame you're shooting.
+    static func daisy(_ input: CIImage, blurredFrame: Bool = false, inked: Bool = false) -> CIImage? {
         guard !daisies.isEmpty else { return input }
         let (mask, outline) = daisies[daisyIndex % daisies.count]
         let e = input.extent, side = min(e.width, e.height)
@@ -69,6 +71,7 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
         }
         let blend = CIFilter.blendWithAlphaMask()
         blend.inputImage = square; blend.backgroundImage = frame; blend.maskImage = fit(mask)
+        guard inked else { return blend.outputImage?.cropped(to: rect) }
         let ink = CIImage(color: CIColor(red: 0.11, green: 0.094, blue: 0.086)).cropped(to: rect)
         let inked = CIFilter.blendWithAlphaMask(); inked.inputImage = ink; inked.backgroundImage = blend.outputImage; inked.maskImage = fit(outline)
         return inked.outputImage?.cropped(to: rect)

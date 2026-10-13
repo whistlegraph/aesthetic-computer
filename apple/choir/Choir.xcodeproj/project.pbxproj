@@ -19,6 +19,7 @@
 		6E1D2AE0D0D7A731B363AEF9 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC326112F245442C5C63787 /* Camera.swift */; };
 		7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */; };
 		7DBC8597D8F3EB082404BB72 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9636E56DAB1B4B71016A62 /* ShareViewController.swift */; };
+		800667C4ACEC5E0FE8DA11F9 /* Invites.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D9CF4C07B36A2B2A49773D /* Invites.swift */; };
 		80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */; };
 		890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99A28D4E33FF58F77C4E460 /* BugReport.swift */; };
 		9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */; };
@@ -86,6 +87,7 @@
 		B2713237B6298811227FAC1D /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
 		B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachments.swift; sourceTree = "<group>"; };
 		B7CE789EE6424CA774A4E938 /* Filters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Filters.swift; sourceTree = "<group>"; };
+		B7D9CF4C07B36A2B2A49773D /* Invites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Invites.swift; sourceTree = "<group>"; };
 		C06DC681F35E20B4A942D602 /* Devices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Devices.swift; sourceTree = "<group>"; };
 		C99A28D4E33FF58F77C4E460 /* BugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReport.swift; sourceTree = "<group>"; };
 		D6997CB6FF6534FFA1E6EEEF /* Choir.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Choir.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -116,6 +118,7 @@
 				E739D1E84BD1FA13C93DD128 /* Hand.swift */,
 				224AC79DF9F2580E605A15F9 /* Headline.swift */,
 				E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */,
+				B7D9CF4C07B36A2B2A49773D /* Invites.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
 				4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */,
 				AF6C29368504A99625509573 /* Samples.swift */,
@@ -290,6 +293,7 @@
 				145518959B0AEBB5F8066326 /* Hand.swift in Sources */,
 				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
 				B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */,
+				800667C4ACEC5E0FE8DA11F9 /* Invites.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,
 				7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */,
 				B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */,

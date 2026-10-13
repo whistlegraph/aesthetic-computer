@@ -233,3 +233,16 @@ export async function curate(posts, archive, items, { now = new Date(), id = () 
   }
   return { added, skipped, expired: expired.map((r) => r.links?.[0]) };
 }
+
+// A newcomer's first look at choir: one welcome line in the main chat, once per
+// member (the `greeted` flag on their choir-prefs row is claimed atomically).
+export async function greet(posts, prefs, member, handle, { now = new Date(), id = () => hex24() } = {}) {
+  if (!member || !handle) return null;
+  const claimed = await prefs.findOneAndUpdate({ _id: member, greeted: { $ne: true } }, { $set: { greeted: true, greetedAt: now.toISOString() } });
+  const row0 = claimed?.value !== undefined ? claimed.value : claimed;   // driver v4 vs v5+ shapes
+  if (!row0) return null;
+  const row = { _id: id(), owner: "choir|greeter", handle: "@choir", text: `🌼 Welcome ${handle} — say hi!`, tags: [], links: [],
+    replyTo: null, when: now.toISOString(), replies: 0, kind: "greeting", welcomes: handle };
+  await posts.insertOne(row);
+  return row;
+}

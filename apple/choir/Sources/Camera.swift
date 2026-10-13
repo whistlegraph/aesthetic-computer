@@ -64,7 +64,7 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePh
         var image = CIImage(cvPixelBuffer: buffer)
         let scale = 720 / max(image.extent.width, image.extent.height) // a light preview
         image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        let filtered = (liveFilter == .daisyIris ? PhotoFilter.daisy(image, blurredFrame: true) : liveFilter.filtered(image)) ?? image
+        let filtered = (liveFilter == .daisyIris ? PhotoFilter.daisy(image, blurredFrame: true, inked: true) : liveFilter.filtered(image)) ?? image
         guard let cg = Self.previewContext.createCGImage(filtered, from: filtered.extent) else { return }
         Task { @MainActor in self.frame = cg }
     }
