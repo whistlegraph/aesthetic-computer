@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:27:57.119Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/juicy-navy.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/juicy.prompt.txt",
+  "promptHash": "f2470b76bf3620eecef1b0d989be5cf7522c773de2fe91b091cdb83ec1b1b380",
+  "references": [
+    "/Users/jas/Desktop/choir-flowers/rose-9.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 19.242,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 880,
+    "input_tokens_details": {
+      "image_tokens": 400,
+      "text_tokens": 480
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 2636
+  }
+}

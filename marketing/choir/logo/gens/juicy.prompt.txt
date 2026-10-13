@@ -1,0 +1,9 @@
+An iPhone app icon: a full-bleed square image (no rounded corners, no border, iOS masks it).
+
+Keep the exact hand-drawn flower line from the reference image: the same loops, the same overall shape, the same small center mark, the same proportions and placement. Do not redraw it, simplify it, add petals or add anything else. It is one continuous artist's pen line.
+
+Render that line as a thick, juicy, glossy raised stroke, like puffy paint or a soft jelly gel piped onto the surface: rounded and plump in cross-section, a little translucent at the edges, with a soft bright highlight running along its crest and a gentle contact shadow where it meets the ground. Real depth, delicious and tactile, but calm and minimal.
+
+The ground is a soft matte surface in the background color from the reference, lit by diffuse, cloudy daylight from the upper left, with the faintest airy gradient. Front-on, centered, generous margin around the flower. No text, no letters, no extra objects, no frame.
+
+Colors: keep the line and ground colors of the reference.
