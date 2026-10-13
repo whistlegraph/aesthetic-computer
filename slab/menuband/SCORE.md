@@ -48,6 +48,50 @@ silent, fades smoothly, and follows System volume including mute. Its color is r
 This masks distracting noise; it does not remove hiss from speakers or cables.
 The pitched ⇧Space Air instrument remains separate.
 
+## Drum kits
+
+Right-click the headphone button and choose **Drum Kit**: Menu Band, Electro,
+Salamander, or Hand Percussion. While playing, **⇧←/→** always cycles kits.
+Plain ←/→ also cycles kits when either keyboard drum side is enabled or the
+last hit was percussion; otherwise it selects melodic instruments.
+The choice is remembered and shared by ordinary [ / ] keyboard percussion,
+⇧[ / ⇧] TrackDrum keyboard layouts, and the trackpad. Brackets change the
+playing layout without changing the kit. Each arrow press advances once;
+holding an arrow does not run through the kits.
+Each switch shows the number and name for two seconds: **1 · Menu Band**,
+**2 · Electro**, **3 · Salamander**, **4 · Hand Percussion**. The same labels
+appear in the menu.
+
+Salamander maps the five zones, center outward, to acoustic kick, low tom,
+snare, closed hi-hat, and ride. Hand Percussion maps them to cajón, conga,
+bongo, shaker, and claves. Each pad alternates two recorded hits. This is a
+curated one-shot bank, not an SFZ importer or the full velocity-layer library.
+The five sounds cover all twelve keyboard slots, with related slots sharing
+a pad: kick → center, block → tom/conga, snare/clap → snare/bongo, hats →
+hat/shaker. Menu Band retains its original twelve synthesized keyboard drums.
+Samples are decoded before audio starts, folded to mono for positional pan,
+and loudness-matched against the original membrane. No downloads occur in
+Menu Band. Sample credits, licenses, source URLs, and original filenames ship
+in `Sources/MenuBand/Resources/drum-kits/`.
+
+## Piano sources inside `1
+
+The custom piano slot stays **`1**. Click its displayed name (or its `1 cell
+again) to choose **1 · Salamander Grand**, **2 · Steinway B**, or
+**3 · Yamaha Upright**. **Option-←/→** cycles and auditions the sources while
+`1 is active, including with a keyboard drum side enabled. **Shift-←/→**
+still changes only the drum kit. Each source change shows its name, plays the
+same C-major chord, and is remembered across instrument changes and relaunch.
+The source menu's **All Instruments…** returns to the complete chooser.
+
+Steinway and Yamaha use VCSL CC0 recordings, prepared as mono 48 kHz float32
+anchors with one velocity layer and three-second decays, matching the existing
+Salamander format. The 42 Steinway and 13 Yamaha anchors retain their sample
+pitch mappings; one gain per bank matches middle-register attacks to Salamander.
+This is a bundled preview selection. It does not import arbitrary SFZ/SF2 packs.
+`bin/prepare-piano-sources.py` rebuilds the pinned sources and their checksum
+manifest in `Sources/MenuBand/Resources/piano-sources/`.
+
 ## Juke
 
 The full JukeWizard listening surface now ships as **Juke** inside the

@@ -11,6 +11,8 @@ import Foundation
 /// the end of its own recorded decay — so a C4 here is the C4 the native
 /// `piano` wave gives. Key-up adds the one thing a struck sample needs from
 /// the player: a damper, a short exponential release.
+/// PianoSource adds prepared VCSL banks to the same voice. Source switches
+/// atomically clear old voices; decoded banks remain alive for the renderer.
 ///
 /// Same chassis as `MenuBandFluoddityVoice`: an `AVAudioSourceNode` whose
 /// render callback owns a fixed voice pool; the control thread stages note
@@ -27,10 +29,13 @@ final class MenuBandACPianoVoice {
         let data: UnsafeMutablePointer<Float>
         let count: Int
     }
-    /// Written once by `ensureLoaded` under `lock`; the render thread takes
+    /// Swapped by `selectSource` under `lock`; the render thread takes
     /// a snapshot of the array under the same lock each block.
     private var anchors: [Anchor] = []
-    private var loadAttempted = false
+    // Retain decoded banks until deinit: an in-flight render may still hold
+    // the previous bank's pointer snapshot when the control thread switches.
+    private var bankCache: [PianoSource: [Anchor]] = [:]
+    private(set) var source: PianoSource = .salamander
     /// Anchors were recorded at 48 kHz; the engine may run elsewhere.
     private let bankRate: Double = 48_000
 
@@ -99,7 +104,9 @@ final class MenuBandACPianoVoice {
     }
 
     deinit {
-        for a in anchors { a.data.deallocate() }
+        for bank in bankCache.values {
+            for a in bank { a.data.deallocate() }
+        }
     }
 
     func attach(to engine: AVAudioEngine, output: AVAudioNode) {
@@ -155,19 +162,28 @@ final class MenuBandACPianoVoice {
     /// Read the anchors into memory. Idempotent; a few milliseconds for the
     /// 14 MB bank. Called before the voice is routed to, never from audio.
     func ensureLoaded() {
-        lock.lock()
-        let done = loadAttempted
-        loadAttempted = true
-        lock.unlock()
-        if done { return }
+        if !isLoaded { _ = selectSource(source) }
+    }
+
+    /// Load on the control thread, then atomically hand the new bank and a
+    /// panic to the renderer. A missing/damaged bank leaves the old one live.
+    @discardableResult
+    func selectSource(_ next: PianoSource) -> Bool {
+        if let cached = bankCache[next] {
+            activate(cached, source: next)
+            return true
+        }
+        guard next.isAvailable else { return false }
         var loaded: [Anchor] = []
-        for url in Self.bankURLs() {
-            guard let midi = Int(url.deletingPathExtension().lastPathComponent),
+        for url in next.bankURLs() {
+            guard let midi = PianoSource.midiNote(in: url),
                   (0...127).contains(midi),
                   let data = try? Data(contentsOf: url),
                   data.count >= MemoryLayout<Float>.size * 2,
+                  data.count <= 48_000 * 15 * MemoryLayout<Float>.size,
                   data.count % MemoryLayout<Float>.size == 0 else { continue }
             let count = data.count / MemoryLayout<Float>.size
+            guard data.withUnsafeBytes({ $0.bindMemory(to: Float.self).allSatisfy { $0.isFinite } }) else { continue }
             let buf = UnsafeMutablePointer<Float>.allocate(capacity: count)
             data.withUnsafeBytes { raw in
                 buf.initialize(from: raw.bindMemory(to: Float.self).baseAddress!,
@@ -176,10 +192,23 @@ final class MenuBandACPianoVoice {
             loaded.append(Anchor(midi: midi, data: buf, count: count))
         }
         loaded.sort { $0.midi < $1.midi }
+        guard loaded.map({ $0.midi }) == next.anchorNotes else {
+            for a in loaded { a.data.deallocate() }
+            return false
+        }
+        bankCache[next] = loaded
+        activate(loaded, source: next)
+        NSLog("MenuBand piano: %@, %d anchors", next.label, loaded.count)
+        return true
+    }
+
+    private func activate(_ bank: [Anchor], source next: PianoSource) {
         lock.lock()
-        anchors = loaded
+        anchors = bank
+        source = next
+        pending.removeAll(keepingCapacity: true)
+        pending.append(.panic)
         lock.unlock()
-        NSLog("MenuBand ACPiano: loaded %d anchors", loaded.count)
     }
 
     // MARK: Public API (control thread)
@@ -241,7 +270,7 @@ final class MenuBandACPianoVoice {
 
     // MARK: Render thread
 
-    private func render(frameCount: Int, abl: UnsafeMutablePointer<AudioBufferList>) {
+    func render(frameCount: Int, abl: UnsafeMutablePointer<AudioBufferList>) {
         let buffers = UnsafeMutableAudioBufferListPointer(abl)
         let left = buffers[0].mData!.assumingMemoryBound(to: Float.self)
         let right = (buffers.count > 1 ? buffers[1].mData! : buffers[0].mData!)

@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreGraphics
 import Foundation
 import QuartzCore
@@ -45,6 +46,7 @@ extension MenuBandPercussion {
         /// Deliberate offset from the role's matched loudness, in dB.
         var trimDB: Double = 0
         let layers: [Layer]
+        var recordings: [RecordedHit] = []
     }
 
     /// Pads in zone order, center out: kick, tom, snare, hat, click.
@@ -56,8 +58,79 @@ extension MenuBandPercussion {
         switch kit {
         case .menuBand: return nil
         case .electro: return electro
+        case .salamander: return salamander
+        case .handPercussion: return handPercussion
         }
     }
+
+    /// Original sample rates are retained; nextSample interpolates at the
+    /// device clock. Stereo recordings are folded to mono for the pad's pan.
+    final class RecordedHit {
+        let frames: [Float]
+        let sampleRate: Double
+        var duration: Double { Double(frames.count) / sampleRate }
+
+        init(frames: [Float], sampleRate: Double) {
+            self.frames = frames
+            self.sampleRate = sampleRate
+        }
+
+        static func load(_ name: String) -> RecordedHit? {
+            guard let url = Bundle.appResources.url(forResource: name, withExtension: "wav") else {
+                NSLog("MenuBand: missing drum sample %@", name)
+                return nil
+            }
+            do {
+                let file = try AVAudioFile(forReading: url)
+                guard file.length > 1, file.length <= 4_800_000,
+                      let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat,
+                                                   frameCapacity: AVAudioFrameCount(file.length)) else { return nil }
+                try file.read(into: buffer)
+                guard let channels = buffer.floatChannelData, buffer.frameLength > 1 else { return nil }
+                let count = Int(buffer.frameLength)
+                let channelCount = Int(buffer.format.channelCount)
+                var frames = [Float](repeating: 0, count: count)
+                for channel in 0..<channelCount {
+                    for frame in 0..<count {
+                        frames[frame] += channels[channel][frame] / Float(channelCount)
+                    }
+                }
+                guard frames.allSatisfy({ $0.isFinite }),
+                      frames.contains(where: { abs($0) > 0.0001 }) else { return nil }
+                return RecordedHit(frames: frames, sampleRate: buffer.format.sampleRate)
+            } catch {
+                NSLog("MenuBand: drum sample %@: %@", name, String(describing: error))
+                return nil
+            }
+        }
+    }
+
+    private static func recordedKit(_ pads: [(String, Role, String)]) -> KitSpec? {
+        var result: [KitPad] = []
+        for (name, role, prefix) in pads {
+            let recordings = (1...2).compactMap { RecordedHit.load("\(prefix)-\($0)") }
+            // A damaged bank falls back as a whole, never to silent pad zones.
+            guard recordings.count == 2 else { return nil }
+            result.append(KitPad(name: name, role: role, layers: [], recordings: recordings))
+        }
+        return KitSpec(pads: result)
+    }
+
+    private static let salamander = recordedKit([
+        ("KICK", .kick, "salamander-kick"),
+        ("TOM", .tom, "salamander-tom"),
+        ("SNARE", .snare, "salamander-snare"),
+        ("HAT", .hat, "salamander-hat"),
+        ("RIDE", .click, "salamander-ride"),
+    ])
+
+    private static let handPercussion = recordedKit([
+        ("CAJON", .kick, "vcsl-cajon"),
+        ("CONGA", .tom, "vcsl-conga"),
+        ("BONGO", .snare, "vcsl-bongo"),
+        ("SHAKER", .hat, "vcsl-shaker"),
+        ("CLAVE", .click, "vcsl-clave"),
+    ])
 
     // MARK: Electro — the 808 as electro used it (Planet Rock, Newcleus,
     // Egyptian Lover, Drexciya). Every zone is chosen to contrast: a sine
@@ -111,6 +184,30 @@ extension MenuBandPercussion {
 
     // MARK: Playing a kit
 
+    /// The keyboard keeps its familiar kick/snare/hat keys. These curated
+    /// banks have five sounds, so related slots share a pad (e.g. the acoustic
+    /// cymbal keys use the ride). The original Menu Band kit retains all 12.
+    static func keyboardPadIndex(for drum: Drum, kit: DrumKit) -> Int {
+        switch drum {
+        case .kick: return 0
+        case .block: return 1
+        case .snare, .clap: return 2
+        case .hatClosed, .hatOpen: return 3
+        case .crash, .splash, .ride: return kit == .salamander ? 4 : 3
+        case .snap, .cowbell: return 4
+        case .tambo: return kit == .handPercussion ? 3 : 4
+        }
+    }
+
+    func keyboardKitVoices(for drum: Drum, velocity: Double, pan: Double) -> [Voice]? {
+        let selected = kit
+        guard let spec = Self.spec(for: selected) else { return nil }
+        let index = Self.keyboardPadIndex(for: drum, kit: selected)
+        let gain = padGains(for: selected)[index]
+        return padVoices(spec.pads[index], gain: gain * velocity, pan: pan,
+                         accent: max(0, min(1, velocity - 0.5)))
+    }
+
     /// Zone weights for kick, tom, snare, hat, click — the membrane's own
     /// contours, so a kit blends exactly where the default does.
     func ringWeights(at point: CGPoint) -> [Double] {
@@ -134,8 +231,25 @@ extension MenuBandPercussion {
     /// just louder. 0.5 is the loudness-matched reference.
     func padVoices(_ pad: KitPad, gain: Double, pan: Double,
                    tension: Double = 1, damping: Double = 1,
-                   accent: Double = 0.5, jitter: Bool = true) -> [Voice] {
-        pad.layers.map { layer in
+                   accent: Double = 0.5, jitter: Bool = true,
+                   variation: Int = 0) -> [Voice] {
+        if !pad.recordings.isEmpty {
+            var index = variation
+            if jitter {
+                lock.lock()
+                index = sampleRoundRobin[pad.name, default: 0]
+                sampleRoundRobin[pad.name] = (index + 1) % pad.recordings.count
+                lock.unlock()
+            }
+            let recording = pad.recordings[index % pad.recordings.count]
+            var voice = makeVoice(.sine, 1, recording.duration, gain, 0,
+                                  min(0.005, recording.duration * 0.1), pan)
+            voice.recording = recording
+            voice.samplePitch = tension
+            if damping < 1 { voice.tau = max(0.02, recording.duration * damping * 0.3) }
+            return [voice]
+        }
+        return pad.layers.map { layer in
             let tonal = layer.wave != .noise && layer.wave != .metal
             let tune = tonal ? tension : 1
             let tau = layer.tau * damping
@@ -238,7 +352,8 @@ extension MenuBandPercussion {
     func averagedLoudness(of pad: KitPad, renders: Int = 8) -> Double {
         var energy = 0.0
         for render in 0..<renders {
-            let voices = Self.seeded(padVoices(pad, gain: 1, pan: 0, jitter: false), render)
+            let voices = Self.seeded(padVoices(pad, gain: 1, pan: 0, jitter: false,
+                                              variation: render), render)
             energy += pow(10, loudness(of: voices) / 10)
         }
         return 10 * log10(energy / Double(renders))

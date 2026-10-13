@@ -25,6 +25,14 @@ enum TrackDrumKitArt {
             return dark
                 ? [0x7A1466, 0x4B2390, 0x1F4FA8, 0x0F7C8C, 0x5F8A12].map { rgb($0) }
                 : [0xE0409F, 0x8E5BE0, 0x4A86F0, 0x3CC6D4, 0xA6D63A].map { rgb($0) }
+        case .salamander:
+            return dark
+                ? [0x594535, 0x765844, 0x807969, 0x88703A, 0xAD9254].map { rgb($0) }
+                : [0xB39672, 0xC9AC84, 0xDED5BF, 0xC7A357, 0xE2C47A].map { rgb($0) }
+        case .handPercussion:
+            return dark
+                ? [0x63382A, 0x875034, 0xA36943, 0x455F46, 0x947749].map { rgb($0) }
+                : [0xAE6445, 0xD28A54, 0xE8B377, 0x7BA379, 0xC4A264].map { rgb($0) }
         }
     }
 
@@ -32,6 +40,8 @@ enum TrackDrumKitArt {
         switch kit {
         case .menuBand: return .clear
         case .electro: return dark ? rgb(0x0A0A14) : rgb(0x18182A)
+        case .salamander: return rgb(0x332C25)
+        case .handPercussion: return rgb(0x3F2A20)
         }
     }
 
@@ -58,6 +68,7 @@ enum TrackDrumKitArt {
             zone.lineWidth = 0.7
             zone.stroke()
         }
+        guard kit == .electro else { return }
         NSGraphicsContext.saveGraphicsState()
         body.addClip()
         let lines = NSBezierPath()

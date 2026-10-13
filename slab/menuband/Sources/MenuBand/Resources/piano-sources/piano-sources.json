@@ -1,0 +1,522 @@
+{
+  "library": "Versilian Community Sample Library",
+  "author": "Versilian Studios LLC",
+  "license": "CC0-1.0",
+  "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+  "rate": 48000,
+  "channels": 1,
+  "preparation": "First 3 seconds, 10 ms tail fade; one attack-RMS gain per bank",
+  "banks": [
+    {
+      "id": "steinway",
+      "name": "Steinway B",
+      "gain": 0.5668570280387402,
+      "filename_pitch_shift": 0,
+      "anchors": [
+        {
+          "midi": 22,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_A#0_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_A%230_vl3_rr1.wav",
+          "original_sha256": "2e19425000a50cbdf4c693bc41c592940715c7707d7232c5dd0580c4eeff3547",
+          "file": "piano-steinway-22.raw",
+          "sha256": "7eb97ff1271af3ff00f8bc87655cb262641bd1fa30b6537dfa78715bc4344daa",
+          "frames": 144000
+        },
+        {
+          "midi": 24,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C1_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C1_vl3_rr1.wav",
+          "original_sha256": "98e677aa940a3de595c25d13896f5ff14a5955d34fb647400ae7276851ca7937",
+          "file": "piano-steinway-24.raw",
+          "sha256": "c7763ae3ee06ba05628e42199a4291a9966c1e84ea0aba47220d7d4ffe4df08f",
+          "frames": 144000
+        },
+        {
+          "midi": 26,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_D1_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_D1_vl3_rr1.wav",
+          "original_sha256": "531db136c82062bfcd9ab25567377aa3d5ba770e71381aab32fe735dfc0f9f0d",
+          "file": "piano-steinway-26.raw",
+          "sha256": "dbc66fab6093d702c1851ad3b69371f8fbe4a4567be2b30eaabf8b2d701683c8",
+          "frames": 144000
+        },
+        {
+          "midi": 28,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E1_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_E1_vl3_rr1.wav",
+          "original_sha256": "d28de24121d1ec81005365ecd62395a3e22990a3e9f7b632a77945abeab27fe5",
+          "file": "piano-steinway-28.raw",
+          "sha256": "8575250d21ffdeb56f898411467ea2bc89b9e02e1a319f1250ea792fc56335c3",
+          "frames": 144000
+        },
+        {
+          "midi": 30,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_F#1_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_F%231_vl3_rr1.wav",
+          "original_sha256": "6e1b08c4ad4a1a51b13a5714adc1c7ddb99333743268d2302d76e5e4ef350261",
+          "file": "piano-steinway-30.raw",
+          "sha256": "4f63b4ae50cedc24b54398987ed3a1be7b8abbb13a52f4569a4e35abbb23cbcb",
+          "frames": 144000
+        },
+        {
+          "midi": 32,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#1_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_G%231_vl3_rr1.wav",
+          "original_sha256": "79d5536322400b0b3d71b9806c8ae8b8cb5515e75448738d327f66e05664440f",
+          "file": "piano-steinway-32.raw",
+          "sha256": "ad02d071e27aa1eb41d46351d4a41f239b8953a1b1302cc3d2a8283a11eadd14",
+          "frames": 144000
+        },
+        {
+          "midi": 34,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_A#1_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_A%231_vl3_rr1.wav",
+          "original_sha256": "ce1dd3fa29d86a0f4789d55182dcedc26788340eea2be90c056409ba2650d838",
+          "file": "piano-steinway-34.raw",
+          "sha256": "a68a27c943eb1973a2308dd6dfd3f4b8693850ff039456b2766ba98338caaae6",
+          "frames": 144000
+        },
+        {
+          "midi": 36,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C2_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C2_vl3_rr1.wav",
+          "original_sha256": "49ca04c3bbfac8e7faa49e7968fbb15292669b51c0a4a5eb156057cb7dc115e2",
+          "file": "piano-steinway-36.raw",
+          "sha256": "cc08e682aecc4a5c9cbb891d6fac153fe3d073cab48b58ca796fe067393f3eb8",
+          "frames": 144000
+        },
+        {
+          "midi": 38,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_D2_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_D2_vl3_rr1.wav",
+          "original_sha256": "99df5ec92d05610b2f84cb0d21c409e970c9bf2dd817a5549ca61ea8e4ec2b70",
+          "file": "piano-steinway-38.raw",
+          "sha256": "2e2b0041fb183c8aa174fee6ddff28c42c1c19e35114c2634d2bb75bf13937b7",
+          "frames": 144000
+        },
+        {
+          "midi": 40,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E2_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_E2_vl3_rr1.wav",
+          "original_sha256": "7850260b76184d63ed8b3b590456a3fd0caec6e4a22d3a8c145712b83ec81c34",
+          "file": "piano-steinway-40.raw",
+          "sha256": "8cec1a4c7614b1bf3004d50f39970eef6d70e6f308179e9b09225bd8576114e5",
+          "frames": 144000
+        },
+        {
+          "midi": 42,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_F#2_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_F%232_vl3_rr1.wav",
+          "original_sha256": "cdfbe2db6e68fa942024b8fda35e98b15e93ecec2fccf588179dd08a44594c76",
+          "file": "piano-steinway-42.raw",
+          "sha256": "0610de40f8d3581f7c8f595e0876302058e670dc9772b8caafb0ebbc50ecd0b3",
+          "frames": 144000
+        },
+        {
+          "midi": 44,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#2_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_G%232_vl3_rr1.wav",
+          "original_sha256": "9098363fa072da122f7dfe84409a4c88a50c7e41a2794a0a71d9739727c99219",
+          "file": "piano-steinway-44.raw",
+          "sha256": "95dd0fff7024d3f78539561c3e523d5bc909d29eafb0dd41a6076a76ac659aab",
+          "frames": 144000
+        },
+        {
+          "midi": 46,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_A#2_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_A%232_vl3_rr1.wav",
+          "original_sha256": "fe69a9ecfb1e6cb25864ba60cc0461cbae781b7453aa775c5d27a29901f9c1be",
+          "file": "piano-steinway-46.raw",
+          "sha256": "e78fd8416dae49bc46a6e57f04fe67ac9dc1439a25e7f93693ecfc65469ccea8",
+          "frames": 144000
+        },
+        {
+          "midi": 48,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C3_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C3_vl3_rr1.wav",
+          "original_sha256": "3b7a3780b620c8a698b41e52dd1b444ee8f648949663a26bd448fcbe8068e39e",
+          "file": "piano-steinway-48.raw",
+          "sha256": "ebcb72687db28d5cda8b59afd652f2bff52bf929b615ec563649a62bf6e4abba",
+          "frames": 144000
+        },
+        {
+          "midi": 50,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_D3_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_D3_vl3_rr1.wav",
+          "original_sha256": "9cf0436bb941433d15bb1686b337af231d8de0b22da5d046942b12614a5498c0",
+          "file": "piano-steinway-50.raw",
+          "sha256": "698e4c76facdda0ab15066ace0efdc884228fbcf4955849aa546decf4eb0d515",
+          "frames": 144000
+        },
+        {
+          "midi": 52,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E3_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_E3_vl3_rr1.wav",
+          "original_sha256": "2b70fb0d25ecceb1310ec97d1b02e95662e5c3031cdf6e5a4ab8fbf505d30720",
+          "file": "piano-steinway-52.raw",
+          "sha256": "531fba127ec95cb70a471db2b5f24217f117cfa87a7004f884a2f5b851d65706",
+          "frames": 144000
+        },
+        {
+          "midi": 54,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_F#3_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_F%233_vl3_rr1.wav",
+          "original_sha256": "d3ef8589520d933c6a0214456cd3d0b15f1520cfc6656a86d5a0254fa737ba5e",
+          "file": "piano-steinway-54.raw",
+          "sha256": "2f067d721013f81ca80a56f3a3fc845dcc6fe575d8ef4c92c86e230d27a82f9d",
+          "frames": 144000
+        },
+        {
+          "midi": 56,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#3_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_G%233_vl3_rr1.wav",
+          "original_sha256": "6912105cb58a3cd802a8ab4b20d4d44b550375f0467338dfcf0e10cd4faca6ef",
+          "file": "piano-steinway-56.raw",
+          "sha256": "9708d3f02d979ff2d305dace80c3bed2698f2c136407651040e3e4ca8548db14",
+          "frames": 144000
+        },
+        {
+          "midi": 58,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_A#3_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_A%233_vl3_rr1.wav",
+          "original_sha256": "c51e3fa1df64033a475ae3af13c7a0b9538a6201ee7071a81fb75bdbedda0d2c",
+          "file": "piano-steinway-58.raw",
+          "sha256": "660a2050dc148f86475545a9b0f27dcbc4aef887210960ea528385881dff3563",
+          "frames": 144000
+        },
+        {
+          "midi": 60,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C4_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C4_vl3_rr1.wav",
+          "original_sha256": "238d6f0ed77d5696997e8be45e8d157389868cbd7396a59ad272c315fc464e5b",
+          "file": "piano-steinway-60.raw",
+          "sha256": "62edba49bc012fc34b4f8515634006d1ee60ec6636c9030963a7a790e71542f9",
+          "frames": 144000
+        },
+        {
+          "midi": 62,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_D4_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_D4_vl3_rr1.wav",
+          "original_sha256": "821742374023797282d0ca15dcb525d6c4cbb074dda18494a568e445e373d405",
+          "file": "piano-steinway-62.raw",
+          "sha256": "4a18f2b5679e952374100e6c524837d57ac0077f4051097c7c8c7bd8138a6f24",
+          "frames": 144000
+        },
+        {
+          "midi": 64,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E4_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_E4_vl3_rr1.wav",
+          "original_sha256": "b72f237661b97ed173208001cee95df9841529d980471c13a7eefb87ae8f6af2",
+          "file": "piano-steinway-64.raw",
+          "sha256": "6f85044559c89e8712e99f73e0f4b98b6c0817d046ed9f0399770c6ef59acc72",
+          "frames": 144000
+        },
+        {
+          "midi": 66,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_F#4_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_F%234_vl3_rr1.wav",
+          "original_sha256": "bd6cc480542e394575d34f7fcbbe359ab9b1f02427df77201f6f4759cdcbf569",
+          "file": "piano-steinway-66.raw",
+          "sha256": "4644fd8ff2cb2cd393268de20c1096bd35e419b0df1fd174ccec68fe8ad812b2",
+          "frames": 144000
+        },
+        {
+          "midi": 68,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#4_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_G%234_vl3_rr1.wav",
+          "original_sha256": "ff4f726d2d1a78972cf4b651a66f24309faf37c304b92149edf00234e659ddea",
+          "file": "piano-steinway-68.raw",
+          "sha256": "a043aa87da853c156dd6a8f93cdb3f929e81cd8e563f465baf522dd223b7bb5b",
+          "frames": 144000
+        },
+        {
+          "midi": 70,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_A#4_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_A%234_vl3_rr1.wav",
+          "original_sha256": "907e10f0c97058eba735a09759277666b89d8bbc8b19d66c973ee12283d891f7",
+          "file": "piano-steinway-70.raw",
+          "sha256": "84d35e38eee69c5b5885c6f884118474fbfdc382c42f3f092f5a60ea6fcfc31b",
+          "frames": 144000
+        },
+        {
+          "midi": 72,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C5_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C5_vl3_rr1.wav",
+          "original_sha256": "6635c5cfc5fcb95d476e7a6556d3e346b3ed32a85c814e953045e957c7d1217a",
+          "file": "piano-steinway-72.raw",
+          "sha256": "4e49f4ca376fefb9a4d681d1799337acbbe9e58fcb46f5313dda6d87289f7742",
+          "frames": 144000
+        },
+        {
+          "midi": 74,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_D5_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_D5_vl3_rr1.wav",
+          "original_sha256": "8d94fdbf6a52fd010892b8855aeda8f6a2d605fa2b5d7b933725e768081a2f8f",
+          "file": "piano-steinway-74.raw",
+          "sha256": "8f2694211b4c5a5eede847f6c56f4a8dac3f64f5adaf342851e98f41ac569abf",
+          "frames": 144000
+        },
+        {
+          "midi": 76,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E5_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_E5_vl3_rr1.wav",
+          "original_sha256": "b1dc2962d5c2e46a2788a84a7e2204400278878e87ed5a4b713756a82649ac3f",
+          "file": "piano-steinway-76.raw",
+          "sha256": "07bb0c01f53ce0a2e8964ffe11eee1d79933251d029c83e4a839ac3153f2967c",
+          "frames": 144000
+        },
+        {
+          "midi": 78,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_F#5_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_F%235_vl3_rr1.wav",
+          "original_sha256": "284811ea2aeea0099ccf0af601d487e1b1a51de8545bf9388594c0579918d676",
+          "file": "piano-steinway-78.raw",
+          "sha256": "bfb30462d75d656eb65c93087580683a642e8dbdf7d079535cbe9bfb44868fc1",
+          "frames": 144000
+        },
+        {
+          "midi": 80,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#5_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_G%235_vl3_rr1.wav",
+          "original_sha256": "3da8bb7bb50be92e91af8325184b399cb7e091d9506c1fe66028351e35ec27dc",
+          "file": "piano-steinway-80.raw",
+          "sha256": "45b5223d59c79fe931ddb09b9ed2a1f0d1aace844462ae254e895c2ecd57f9b4",
+          "frames": 144000
+        },
+        {
+          "midi": 82,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_A#5_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_A%235_vl3_rr1.wav",
+          "original_sha256": "a1f2707d9fcbd749f69979c4327daf7f878d3ceb0f64bf68ef1b1eb807bfc68b",
+          "file": "piano-steinway-82.raw",
+          "sha256": "5115258920e1bf4c75d149bc236f5f03975f2afe0ff9bfda22b565ab5320be0c",
+          "frames": 144000
+        },
+        {
+          "midi": 84,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C6_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C6_vl3_rr1.wav",
+          "original_sha256": "6316e80fc8acb3b4f0b844da60d1ed07989e764b5ff3d30b073be0759abd5aa1",
+          "file": "piano-steinway-84.raw",
+          "sha256": "57809f1384b099d9b4fb8156a596529ff381864bdab0ec500db6fd1410764c92",
+          "frames": 144000
+        },
+        {
+          "midi": 86,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_D6_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_D6_vl3_rr1.wav",
+          "original_sha256": "f3a943ba9c28c2305f97271d98d25a911d6ca6ba389348a05afa0d8e469b85a3",
+          "file": "piano-steinway-86.raw",
+          "sha256": "6a641b5798c05714102fa1069915e6ad99871f7eca55d16eff6f472835457cdc",
+          "frames": 144000
+        },
+        {
+          "midi": 88,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E6_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_E6_vl3_rr1.wav",
+          "original_sha256": "480f2e11a46647e74a8a71e94bf07a45505f86437cdfe7d3ec810ec09d7dc1ff",
+          "file": "piano-steinway-88.raw",
+          "sha256": "147459f14e08bfed6603ef0e64204fed29fe9eda39600d849a7e43934b8f0a14",
+          "frames": 144000
+        },
+        {
+          "midi": 90,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_F#6_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_F%236_vl3_rr1.wav",
+          "original_sha256": "6fadd3877797644b3931af5360d445f8a09f25a9900d5687cebc0c85549ec909",
+          "file": "piano-steinway-90.raw",
+          "sha256": "f9d484bccdfca4f33c129c8e8b61129c3e45cf00aab1862f5519470a1b18794e",
+          "frames": 144000
+        },
+        {
+          "midi": 92,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#6_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_G%236_vl3_rr1.wav",
+          "original_sha256": "e1c1a7a091fc9ba280ab1ddbeb24588984af6733669d09dbbf81e6a3fd1dfc91",
+          "file": "piano-steinway-92.raw",
+          "sha256": "abc77712c9e5cfeecaae941e91fd89716614b3c161ea221aeb34b376b05132a8",
+          "frames": 144000
+        },
+        {
+          "midi": 94,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_A#6_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_A%236_vl3_rr1.wav",
+          "original_sha256": "016107e6c28ba40a8be6cd3c21aac6d48ee3a80c51c3a8823f9c6e93840469f4",
+          "file": "piano-steinway-94.raw",
+          "sha256": "85cb7db0806da54b4bf1435f70907cc0e33e4df3a7f0e65b3c9fd21c5f1e16de",
+          "frames": 134404
+        },
+        {
+          "midi": 96,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_C7_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_C7_vl3_rr1.wav",
+          "original_sha256": "3a46d7d880983af2b950cac6ec87586bce95c94588d48b584669a69571eb4e6f",
+          "file": "piano-steinway-96.raw",
+          "sha256": "1e9d54a0b5eb55c97d3f6c7e20db37dba9a88421ca1c3254af82f51772b7eea5",
+          "frames": 135203
+        },
+        {
+          "midi": 98,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_D7_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_D7_vl3_rr1.wav",
+          "original_sha256": "c6456d6b19961c53e659bf6c2e12d6fd311c02ee26be241b83e76742024af0b1",
+          "file": "piano-steinway-98.raw",
+          "sha256": "f130fd18c604073c30f3fd9bca41dc9951db8a20b5570374818c34759be010a8",
+          "frames": 112913
+        },
+        {
+          "midi": 100,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_E7_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_E7_vl3_rr1.wav",
+          "original_sha256": "4de2c170a9d82e34e7bef3712496c52ad88bd161d34120a829806339ec58759c",
+          "file": "piano-steinway-100.raw",
+          "sha256": "db191522b78ed360653dfdd86f687f5e598f114e2b516ac79f0dfb5de0649dc9",
+          "frames": 144000
+        },
+        {
+          "midi": 102,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_F#7_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_F%237_vl3_rr1.wav",
+          "original_sha256": "296994f819e0e593f30e01e779efc8391a63e2459f63fc4ad71075072cf4619e",
+          "file": "piano-steinway-102.raw",
+          "sha256": "59b34c0ed8edeb60b5fc3617f855379a54a9e4357cd7023c6c338d6c7ee7fbe7",
+          "frames": 108312
+        },
+        {
+          "midi": 104,
+          "original": "Chordophones/Zithers/Grand Piano, Steinway B/NoSus/JHPiano_NoSus_Close_G#7_vl3_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Grand%20Piano%2C%20Steinway%20B/NoSus/JHPiano_NoSus_Close_G%237_vl3_rr1.wav",
+          "original_sha256": "7a41d6613d4d4b3ded24f43617f343cc30d686a16098cc30e9a8abbfe12bc8ba",
+          "file": "piano-steinway-104.raw",
+          "sha256": "a875e171faca75a911ec1773122d2ca589d69d9778286db68f6436af64e60a83",
+          "frames": 107709
+        }
+      ]
+    },
+    {
+      "id": "yamaha",
+      "name": "Yamaha Upright",
+      "gain": 2.501736115722593,
+      "filename_pitch_shift": 12,
+      "anchors": [
+        {
+          "midi": 24,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_C0_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_C0_vl2_rr1.wav",
+          "original_sha256": "b709f4e1c9ce8648bd3886dd71a3ec8f3bc97d361f445e85c86f97e5c1ba5eaf",
+          "file": "piano-yamaha-24.raw",
+          "sha256": "977aea6340f223f72f6310c1200514e390208c03e3c620e3743ea201e3296b81",
+          "frames": 144000
+        },
+        {
+          "midi": 31,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_G0_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_G0_vl2_rr1.wav",
+          "original_sha256": "281c2ceae2a47a95759c1cf4c8490129840e13116225d47e6b05ca657e6f2298",
+          "file": "piano-yamaha-31.raw",
+          "sha256": "3fd87f9d058cd59019a36de477a91005f5707f582584e587866e614a4a733469",
+          "frames": 144000
+        },
+        {
+          "midi": 36,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_C1_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_C1_vl2_rr1.wav",
+          "original_sha256": "7d5b5ff2f5e279ef55d30ff5b7327145f8fa877b2bdf5f6a8526dd97a840b07e",
+          "file": "piano-yamaha-36.raw",
+          "sha256": "3e230ce69de2e7c68fce7190aedc517a8b42e3483812825539ef034dbbbe8caa",
+          "frames": 144000
+        },
+        {
+          "midi": 43,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_G1_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_G1_vl2_rr1.wav",
+          "original_sha256": "519df94cc97f304bd307d31400f3c29ef98cbd6768bf6cf5162ecb9f97734151",
+          "file": "piano-yamaha-43.raw",
+          "sha256": "9cef93cf97702083e46f9700668817fb15c1fe2f73c201611419d0e5dc5ed1c8",
+          "frames": 144000
+        },
+        {
+          "midi": 48,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_C2_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_C2_vl2_rr1.wav",
+          "original_sha256": "d2dee43a796d36a1e58d958ba850ed2db87080ca86c0b7c584c2ff00eaf8a449",
+          "file": "piano-yamaha-48.raw",
+          "sha256": "637f63ca0f2ad47d85147d0b354639df0093fb4a526012a0c3c0718a31309009",
+          "frames": 144000
+        },
+        {
+          "midi": 55,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_G2_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_G2_vl2_rr1.wav",
+          "original_sha256": "31a9a00b88d9c4d07e59356942d3e9ed83cef4fba37039c10d493baabfa6b94b",
+          "file": "piano-yamaha-55.raw",
+          "sha256": "863d3901aa184617cf93bd8564e046104edc877616f2658455eca0f38e144f79",
+          "frames": 144000
+        },
+        {
+          "midi": 60,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_C3_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_C3_vl2_rr1.wav",
+          "original_sha256": "d55c119de6e7d92bcdfe94ceb9237eeb2eb06d8103b574ac80a53d871af3e526",
+          "file": "piano-yamaha-60.raw",
+          "sha256": "187efe530257c2cabf91558dfea13f1a88d1a8ac021ae7709293a5683ffce6fc",
+          "frames": 144000
+        },
+        {
+          "midi": 67,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_G3_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_G3_vl2_rr1.wav",
+          "original_sha256": "482ed7d196fbcc7d7e5cdd35163b1a65ea8ad9809ea6c286a6aabad66a1bd3a2",
+          "file": "piano-yamaha-67.raw",
+          "sha256": "f78fdfcdb399a4bb8b4e717a9de026661aa0a3375e9f923c6b0f521e7d52b38a",
+          "frames": 144000
+        },
+        {
+          "midi": 72,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_C4_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_C4_vl2_rr1.wav",
+          "original_sha256": "39fdc55747ce7c0bd09215a357b577274c4c02928bf48972441ba6f47ec6e0a4",
+          "file": "piano-yamaha-72.raw",
+          "sha256": "84c4f05225f0aaa6ad5660042e081f2cf3f9e731a5b838c2407732fb3c5c7be7",
+          "frames": 144000
+        },
+        {
+          "midi": 79,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_G4_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_G4_vl2_rr1.wav",
+          "original_sha256": "f6a8647d92a28553b596b7f072b1e4c2d79b5ecccbfd8a62dd20fdfce2490c16",
+          "file": "piano-yamaha-79.raw",
+          "sha256": "9ba0c51db81a7f22a48b17d99254ee24c26be652a28d06d12a3c880505df684e",
+          "frames": 144000
+        },
+        {
+          "midi": 84,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_C5_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_C5_vl2_rr1.wav",
+          "original_sha256": "e3a2e18257e012e5488459f1cf4391ac72bba29ed868cd4d1fad5995f3942280",
+          "file": "piano-yamaha-84.raw",
+          "sha256": "9e021c828c897faf2c4965de99e1aef3d57b4a4c3629242a11fa503aeca4eec3",
+          "frames": 144000
+        },
+        {
+          "midi": 91,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_G5_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_G5_vl2_rr1.wav",
+          "original_sha256": "8299f3ba89beef5cab1e3d0248be5a9643d136ad8772858c14fefe72e21238ae",
+          "file": "piano-yamaha-91.raw",
+          "sha256": "34aa95ed3ac0344ac64e3f3f523675338577283acea8275ab7af98460b2d4d05",
+          "frames": 144000
+        },
+        {
+          "midi": 96,
+          "original": "Chordophones/Zithers/Upright Piano, Yamaha/Sustains/Upright1_Sus_C6_vl2_rr1.wav",
+          "url": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Chordophones/Zithers/Upright%20Piano%2C%20Yamaha/Sustains/Upright1_Sus_C6_vl2_rr1.wav",
+          "original_sha256": "79c10a36a4dddd5bb118ebac9ec73af83d05f49c771401bfaaf90c1e66667b19",
+          "file": "piano-yamaha-96.raw",
+          "sha256": "1bf9659b7d5445d26246ebdc6a6126337e55b1bb7008c71b65a72e0259f38787",
+          "frames": 91303
+        }
+      ]
+    }
+  ]
+}

@@ -409,7 +409,7 @@ final class MenuBandController {
     private(set) var lastPlayedNote: UInt8 = 60 {
         didSet {
             lastPlayedChord = [lastPlayedNote]
-            lastSoundWasTrackDrum = false   // arrows go back to instruments
+            lastSoundWasPercussion = false
         }
     }
     /// The last thing played, as pitches: one note, or a root and the
@@ -746,6 +746,7 @@ final class MenuBandController {
     /// the way out. Survives relaunch (the bank is in the app).
     func setACPianoBackend(_ enabled: Bool) {
         if enabled {
+            guard synth.selectPianoSource(pianoSource) else { return }
             UserDefaults.standard.set("acpiano", forKey: instrumentBackendKey)
             synth.setSampleBackend(false)
             synth.setFluoddityVoice(false)
@@ -759,6 +760,37 @@ final class MenuBandController {
         }
         onChange?()
         onInstrumentVisualChange?()
+    }
+
+    private let pianoSourceKey = "notepat.pianoSource"
+    private var pianoPreviewGeneration: UInt64 = 0
+
+    var pianoSource: PianoSource {
+        let saved = PianoSource(rawValue: UserDefaults.standard.integer(forKey: pianoSourceKey)) ?? .salamander
+        return saved.isAvailable ? saved : .salamander
+    }
+
+    func selectPianoSource(_ source: PianoSource) {
+        guard synth.selectPianoSource(source) else { return }
+        if midiMode { toggleMIDIMode() }
+        UserDefaults.standard.set(source.rawValue, forKey: pianoSourceKey)
+        if instrumentBackend != .acPiano { selectCustomInstrument(1) }
+        pianoPreviewGeneration &+= 1
+        let generation = pianoPreviewGeneration
+        // Identical chord on an audition channel makes sources comparable.
+        for note in [UInt8(60), 64, 67] { synth.noteOn(note, velocity: 85, channel: 15) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+            guard let self, self.pianoPreviewGeneration == generation,
+                  self.instrumentBackend == .acPiano else { return }
+            for note in [UInt8(60), 64, 67] { self.synth.noteOff(note, channel: 15) }
+        }
+        NotificationCenter.default.post(name: PianoSource.didChange, object: source)
+        onChange?()
+        onInstrumentVisualChange?()
+    }
+
+    func stepPianoSource(delta: Int) {
+        selectPianoSource(pianoSource.stepped(by: delta))
     }
 
     /// Switch to (or away from) the AC whistle — custom instrument `79, our
@@ -1106,7 +1138,7 @@ final class MenuBandController {
         return octaveShift > 0 ? "+\(octaveShift)" : "\(octaveShift)"
     }
 
-    /// Sided percussion. Each half of the board latches to the AC-native
+    /// Sided percussion. Each half of the board latches to the selected
     /// drum kit independently: tap `[` for the LEFT half, `]` for the
     /// RIGHT half (both → whole board). A latched half fires drums instead
     /// of melodic notes; the other half stays melodic. Off by default.
@@ -1158,9 +1190,10 @@ final class MenuBandController {
         set { UserDefaults.standard.set(newValue, forKey: percussionRightTrackDrumKey); onChange?() }
     }
 
-    /// Bracket press for one side. Plain `[`/`]`: off ↔ on with the classic
-    /// kit. ⇧`[`/⇧`]` (`{`/`}`): off → on with the TrackDrum kit; on with the
-    /// classic kit → switch kits (stay on); on with TrackDrum → off. Returns
+    /// Bracket press for one side. Plain `[`/`]`: off ↔ on with the keyboard
+    /// drum layout. ⇧`[`/⇧`]` (`{`/`}`): off → on with the TrackDrum layout;
+    /// on with the keyboard layout → change layout; on with TrackDrum → off.
+    /// Both layouts play the shared selected drum kit. Returns
     /// whether the side ended up latched, for the cue.
     @discardableResult
     func pressPercussionLatch(left: Bool, trackDrum: Bool) -> Bool {
@@ -1186,6 +1219,7 @@ final class MenuBandController {
     /// (pitch class and hand), so the matching key-up can lift the finger
     /// from the same spot — every key has a down and an up, as on the pad.
     private static let trackDrumLiftBit: UInt64 = 1 << 63
+    private var drumKitGeneration: UInt64 = 0
 
     /// One drum hit for a split key, by the side's kit. Classic returns the
     /// hat-pedal group token; the TrackDrum membrane returns a lift token
@@ -1200,9 +1234,11 @@ final class MenuBandController {
             let strike = MenuBandPercussion.keyStrike(pitchClass: pc, left: left)
             let v = UInt8(min(127, Int(velocity) + (accent ? 18 : 0)))
             mixAnalysis.mark("skin-key-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
-            lastSoundWasTrackDrum = true
+            lastSoundWasPercussion = true
             synth.playDrumSkin(strike: strike, anchors: [], velocity: v)
-            return Self.trackDrumLiftBit | UInt64(pc << 1) | (left ? 1 : 0)
+            guard drumKit == .menuBand else { return 0 }
+            return Self.trackDrumLiftBit | (drumKitGeneration << 5)
+                | UInt64(pc << 1) | (left ? 1 : 0)
         }
         return percussionNoteOn(percussionDrum(forDisplayNote: displayNote),
                                 velocity: velocity, pan: pan, accent: accent)
@@ -1256,6 +1292,7 @@ final class MenuBandController {
     func percussionNoteOn(_ drum: MenuBandPercussion.Drum,
                           velocity: UInt8, pan: UInt8, accent: Bool = false) -> UInt64 {
         mixAnalysis.mark("kit-\(drum)")
+        lastSoundWasPercussion = true
         return synth.percussionNoteOn(drum, velocity: velocity, pan: pan, accent: accent)
     }
 
@@ -1278,13 +1315,22 @@ final class MenuBandController {
     /// classic kit, the finger lift in the TrackDrum kit.
     func percussionNoteOff(_ group: UInt64) {
         if group & Self.trackDrumLiftBit != 0 {
-            let pc = Int((group >> 1) & 0xF)
-            let left = group & 1 == 1
-            let point = MenuBandPercussion.keyStrike(pitchClass: pc, left: left)
-            synth.playSurfaceLift(at: point, anchors: [], velocity: 64, synthetic: true)
+            guard let point = trackDrumLiftPoint(for: group) else { return }
+            // Sample banks have no synthetic finger-lift layer. Keep the
+            // membrane's lift only when that is the selected kit.
+            synth.playSurfaceLift(at: point, anchors: [], velocity: 64, synthetic: false)
             return
         }
         synth.percussionNoteOff(group)
+    }
+
+    /// A key held across a kit change must not produce the old kit's lift,
+    /// even if the player cycles back to that kit before releasing it.
+    func trackDrumLiftPoint(for group: UInt64) -> CGPoint? {
+        guard group & Self.trackDrumLiftBit != 0, drumKit == .menuBand,
+              (group & (Self.trackDrumLiftBit - 1)) >> 5 == drumKitGeneration else { return nil }
+        let pc = Int((group >> 1) & 0xF)
+        return MenuBandPercussion.keyStrike(pitchClass: pc, left: group & 1 == 1)
     }
 
     /// Fire a finite drum hit from the trackpad pad. Bass drum and snare do
@@ -1293,6 +1339,7 @@ final class MenuBandController {
     func trackpadPercussionHit(_ drum: MenuBandPercussion.Drum,
                                velocity: UInt8, pan: UInt8) {
         mixAnalysis.mark("kit-\(drum)")
+        lastSoundWasPercussion = true
         synth.playPercussion(drum, velocity: velocity, pan: pan)
     }
 
@@ -1302,18 +1349,22 @@ final class MenuBandController {
 
     func trackpadDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         mixAnalysis.mark("skin-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
-        lastSoundWasTrackDrum = true
+        lastSoundWasPercussion = true
         synth.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
     }
 
-    // MARK: - TrackDrum kits
+    // MARK: - Shared drum kits
 
     private let drumKitKey = "notepat.trackDrumKit"
 
-    /// True while the most recent sound came off the TrackDrum skin. Then
-    /// ←/→ step drum kits instead of the melodic instrument; the next played
-    /// note hands the arrows back.
-    private(set) var lastSoundWasTrackDrum = false
+    /// Both keyboard and trackpad drum hits claim plain arrows. An enabled
+    /// keyboard drum side keeps that ownership even while the other hand
+    /// plays melody. Shift-arrows explicitly select kits in either mode.
+    private(set) var lastSoundWasPercussion = false
+
+    func arrowsSelectDrumKit(shift: Bool) -> Bool {
+        shift || percussionLeft || percussionRight || lastSoundWasPercussion
+    }
 
     var drumKit: MenuBandPercussion.DrumKit {
         get {
@@ -1322,6 +1373,9 @@ final class MenuBandController {
             ) ?? .menuBand
         }
         set {
+            if drumKit != newValue {
+                drumKitGeneration = (drumKitGeneration &+ 1) & ((Self.trackDrumLiftBit - 1) >> 5)
+            }
             UserDefaults.standard.set(newValue.rawValue, forKey: drumKitKey)
             synth.percussion.kit = newValue
             MenuBandPercussion.DrumKit.current = newValue
@@ -1332,13 +1386,19 @@ final class MenuBandController {
 
     /// Step the kit and audition it: kick, then snare, on the new voicing.
     func stepDrumKit(delta: Int) {
-        let kit = drumKit.stepped(by: delta)
+        selectDrumKit(drumKit.stepped(by: delta))
+    }
+
+    func selectDrumKit(_ kit: MenuBandPercussion.DrumKit) {
+        guard kit.isAvailable else { return }
         drumKit = kit
-        debugLog("TrackDrum kit = \(kit.label)")
+        lastSoundWasPercussion = true
+        debugLog("Drum kit = \(kit.label)")
         synth.playDrumSkin(strike: CGPoint(x: 0.5, y: 0.5), anchors: [], velocity: 96)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in
-            self?.synth.playDrumSkin(strike: CGPoint(x: 0.5, y: 0.775),
-                                     anchors: [], velocity: 90)
+            guard let self, self.drumKit == kit else { return }
+            self.synth.playDrumSkin(strike: CGPoint(x: 0.5, y: 0.775),
+                                    anchors: [], velocity: 90)
         }
         onChange?()
     }
@@ -2321,7 +2381,7 @@ final class MenuBandController {
         case .fluoddity:
             return "Fluoddity"
         case .acPiano:
-            return "`1 AC Grand Piano"
+            return "`1 Piano · \(pianoSource.numberedLabel)"
         case .whistle:
             return "`79 AC Whistle"
         case .composite:
@@ -2634,6 +2694,7 @@ final class MenuBandController {
         }
         // So does the AC grand piano — its bank ships in the app.
         if instrumentBackend == .acPiano {
+            _ = synth.selectPianoSource(pianoSource)
             synth.setACPianoVoice(true)
         }
         if instrumentBackend == .whistle {
@@ -3870,7 +3931,8 @@ final class MenuBandController {
                             chordSus: chord.sus,
                             chordAug: chord.aug,
                             control: flags.contains(.maskControl),
-                            shift: flags.contains(.maskShift))
+                            shift: flags.contains(.maskShift),
+                            optionOnly: flags.intersection([.maskAlternate, .maskCommand, .maskControl, .maskShift]) == .maskAlternate)
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -3918,7 +3980,8 @@ final class MenuBandController {
                             chordSus: chord.sus,
                             chordAug: chord.aug,
                             control: flags.contains(.control),
-                            shift: flags.contains(.shift))
+                            shift: flags.contains(.shift),
+                            optionOnly: flags.intersection([.option, .command, .control, .shift]) == .option)
     }
 
     /// Shared note logic for both the global CGEventTap path and the
@@ -3928,7 +3991,17 @@ final class MenuBandController {
     /// past key-up so it rings on its release envelope (sustained
     /// voices) rather than cutting on release.
     @discardableResult
-    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false, chordAug: Bool = false, control: Bool = false, shift: Bool = false) -> Bool {
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false, chordAug: Bool = false, control: Bool = false, shift: Bool = false, optionOnly: Bool = false) -> Bool {
+        // Source selection stays inside `1, even with a keyboard drum side
+        // enabled. Shift-arrows remain the separate drum-kit selector.
+        if optionOnly, instrumentBackend == .acPiano, keyCode == 123 || keyCode == 124 {
+            if isDown && !isRepeat {
+                DispatchQueue.main.async { [weak self] in
+                    self?.stepPianoSource(delta: keyCode == 123 ? -1 : 1)
+                }
+            }
+            return true
+        }
         // Modifier-chord: holding ⌘/⌥/⌃ + a note key plays & HOLDS that
         // key's triad (the pressed note is the root), lingering on release
         // just like Shift. ⌘ = major, ⌥ = minor, ⌘+⌥ = sus, ⌃ = augmented
@@ -4017,8 +4090,8 @@ final class MenuBandController {
         // Brackets latch the sided percussion split on the first key-down:
         // `[` (33) flips the LEFT half of the board to drums, `]` (30) the
         // RIGHT half — `]` gave up its old ++d note for this. Shifted (`{`
-        // / `}`) latches the side to the TrackDrum kit instead — the
-        // membrane with its clicks — see `pressPercussionLatch`. Holding
+        // / `}`) uses the TrackDrum layout for the same selected kit —
+        // see `pressPercussionLatch`. Holding
         // either bracket still makes Up/Down a percussion-volume trim, but
         // release never changes the latched state. Bare or shifted presses
         // only (a ⌘/⌥ bracket passed through above). Consumed both ways.
@@ -4116,10 +4189,10 @@ final class MenuBandController {
         // while the user drags through cells — so the user can scan
         // voices by ear, not just by name. Auto-repeat is allowed so
         // holding an arrow streams through voices.
-        // …unless the last sound came off TrackDrum: then ←/→ flip between
-        // the Menu Band and Electro kits instead. Held
-        // arrows don't auto-repeat through kits — one press, one kit.
-        if (keyCode == 123 || keyCode == 124) && lastSoundWasTrackDrum {
+        // Shared drum selector: a latched keyboard side, a recent percussion
+        // hit, or explicit Shift-arrows selects the kit in BOTH layouts.
+        // Held arrows don't auto-repeat through kits — one press, one kit.
+        if (keyCode == 123 || keyCode == 124) && arrowsSelectDrumKit(shift: shift) {
             if isDown && !isRepeat {
                 let delta = keyCode == 123 ? -1 : 1
                 DispatchQueue.main.async { [weak self] in

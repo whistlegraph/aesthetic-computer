@@ -129,6 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var isPopoverPanelShown: Bool { popoverPanel?.isVisible == true }
     private lazy var pianoWaveformWindowDelegate = PianoWaveformWindowDelegate(menuBand: menuBand)
     private lazy var reverseWaveformHUD = ReverseWaveformHUD(menuBand: menuBand)
+    private lazy var soundSelectionHUD = SoundSelectionHUD()
     private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
     private var keyboardPerformanceFocusActive = false {
@@ -1372,6 +1373,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 self.reverseWaveformHUD.hide()
             }
+        }
+        NotificationCenter.default.addObserver(
+            forName: MenuBandPercussion.DrumKit.didChange, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self, let kit = note.object as? MenuBandPercussion.DrumKit else { return }
+            self.soundSelectionHUD.show("Drums \(kit.numberedLabel)",
+                                        on: self.statusItem?.button?.window?.screen)
+        }
+        NotificationCenter.default.addObserver(
+            forName: PianoSource.didChange, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self, let source = note.object as? PianoSource else { return }
+            self.soundSelectionHUD.show("Piano \(source.numberedLabel)",
+                                        on: self.statusItem?.button?.window?.screen)
         }
         updateIcon()
 

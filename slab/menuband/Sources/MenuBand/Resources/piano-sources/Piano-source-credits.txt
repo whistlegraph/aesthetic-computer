@@ -1,0 +1,6 @@
+Steinway B and Yamaha Upright recordings: Versilian Studios LLC, VCSL (CC0-1.0).
+https://github.com/sgossner/VCSL
+Revision: c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e
+The included VCSL-CC0.txt applies to these recordings.
+Prepared as mono 48 kHz float32, one velocity layer, three-second decays.
+Original paths, source and prepared checksums, pitch mapping, and gains: piano-sources.json.

@@ -2855,6 +2855,20 @@ final class MenuBandPopoverViewController: NSViewController {
                                         target: self, action: #selector(tonesFaderChanged(_:))))
         menu.addItem(Self.faderMenuItem("Percussion", value: Double(menuBand?.percussionVolume ?? 0.9), max: 1,
                                         target: self, action: #selector(percussionFaderChanged(_:))))
+        let kitItem = NSMenuItem(title: "Drum Kit", action: nil, keyEquivalent: "")
+        let kits = NSMenu(title: "Drum Kit")
+        kits.autoenablesItems = false
+        for kit in MenuBandPercussion.DrumKit.allCases {
+            let item = NSMenuItem(title: kit.numberedLabel, action: #selector(pickDrumKit(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = kit.rawValue
+            item.state = kit == menuBand?.drumKit ? .on : .off
+            item.isEnabled = kit.isAvailable
+            item.toolTip = "Keyboard and trackpad drums · Shift-Left/Right to switch kits"
+            kits.addItem(item)
+        }
+        kitItem.submenu = kits
+        menu.addItem(kitItem)
         menu.addItem(Self.faderMenuItem("Mic", value: Double(menuBand?.monitorGain ?? 1), max: 2,
                                         target: self, action: #selector(micFaderChanged(_:))))
         let resetMix = NSMenuItem(title: "Reset Mix (tones 100 · drums 90 · mic 100 · master 100)",
@@ -2963,6 +2977,12 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func resetAudioInterface(_ sender: NSMenuItem) {
         menuBand?.resetAudioInterface()
+    }
+
+    @objc private func pickDrumKit(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? Int,
+              let kit = MenuBandPercussion.DrumKit(rawValue: value) else { return }
+        menuBand?.selectDrumKit(kit)
     }
 
     @objc private func pickMonitorLatency(_ sender: NSMenuItem) {

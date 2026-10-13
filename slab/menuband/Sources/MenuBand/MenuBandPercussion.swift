@@ -50,17 +50,21 @@ final class MenuBandPercussion {
 
     /// Which voicing the TrackDrum skin speaks with. `.menuBand` is the
     /// original modal membrane; the genre kits keep the same five concentric
-    /// zones (kick, tom, snare, hat, click) but swap what each zone sounds
-    /// like. ←/→ steps through them when the last sound was a TrackDrum hit.
+    /// zones (kick, tom, snare, hat, click) and share their sounds with the
+    /// keyboard percussion layout. ⇧←/→ always steps through the kits.
     enum DrumKit: Int, CaseIterable {
-        case menuBand = 0, electro
+        case menuBand = 0, electro, salamander, handPercussion
 
         var label: String {
             switch self {
             case .menuBand: return "Menu Band"
             case .electro: return "Electro"
+            case .salamander: return "Salamander"
+            case .handPercussion: return "Hand Percussion"
             }
         }
+
+        var numberedLabel: String { "\(rawValue + 1) · \(label)" }
 
         /// Main-thread mirror of the chosen kit for the pad artwork, plus the
         /// notification the overlay listens to (rebuild texture, flash name).
@@ -68,14 +72,22 @@ final class MenuBandPercussion {
         static let didChange = Notification.Name("MenuBandDrumKitDidChange")
 
         func stepped(by delta: Int) -> DrumKit {
-            let n = Self.allCases.count
-            return DrumKit(rawValue: ((rawValue + delta) % n + n) % n) ?? .menuBand
+            let available = Self.allCases.filter { $0.isAvailable }
+            let index = available.firstIndex(of: self) ?? 0
+            let n = available.count
+            return available[((index + delta) % n + n) % n]
         }
+
+        var isAvailable: Bool { self == .menuBand || MenuBandPercussion.spec(for: self) != nil }
     }
 
     /// Written from the main thread, read on the control thread that builds
     /// voices — a plain enum load/store, same as `pitchScale`.
-    var kit: DrumKit = .menuBand
+    var kit: DrumKit = .menuBand {
+        didSet {
+            if kit != oldValue { silence() }
+        }
+    }
 
     /// `metal` is the TR-808 cymbal/hat source: six detuned square
     /// oscillators summed, then shaped by the voice's filter like noise.
@@ -141,6 +153,10 @@ final class MenuBandPercussion {
         var q: Double = 1.0
         var metalScale: Double = 1.0  // multiplies the six metal oscillators
         var filtered = false          // run a tonal wave through the biquad
+        // Immutable PCM is retained by the kit bank for the process lifetime;
+        // the audio callback only reads it, and never loads or frees a bank.
+        var recording: RecordedHit?
+        var samplePitch: Double = 1
     }
 
     // MARK: Audio graph
@@ -196,6 +212,7 @@ final class MenuBandPercussion {
     /// each render cycle. Guarded by a tiny critical section.
     var pending: [Voice] = []
     let lock = NSLock()
+    var sampleRoundRobin: [String: Int] = [:]
 
     /// Which surface axis the stereo image follows, as a unit vector over the
     /// centered coordinates (sx, sy). A Mac trackpad pans along its long axis —
@@ -278,6 +295,8 @@ final class MenuBandPercussion {
     init() {
         active.reserveCapacity(maxVoices)
         pending.reserveCapacity(maxVoices)
+        // Decode the small bundled banks before the audio graph starts.
+        for kit in DrumKit.allCases { _ = Self.spec(for: kit) }
     }
 
     /// Attach into the synth graph — mirrors MenuBandTape / radio / sample
@@ -354,7 +373,7 @@ final class MenuBandPercussion {
     /// the membrane from the outer edge, where short noise/square modes become
     /// the hat.
     func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
-        if kit != .menuBand {
+        if kit != .menuBand, Self.spec(for: kit) != nil {
             playKit(kit, strike: strike, anchors: anchors, velocity: velocity)
             return
         }
@@ -686,7 +705,7 @@ final class MenuBandPercussion {
                             synthetic: Bool = false) {
         // Head friction belongs to the membrane; the drum machine stays dry
         // under a dragging finger.
-        if !synthetic, kit == .electro {
+        if !synthetic, kit != .menuBand {
             stopDrumSkinScratch()
             return
         }
@@ -933,7 +952,10 @@ final class MenuBandPercussion {
             // snare, brighter hats… It's the percussion analogue of the
             // melodic linger: shift = more.
             for i in down.indices { down[i].volume *= 1.30 }
-            down.append(contentsOf: accentLayers(for: drum, v: v, basePan: pan))
+            // Sampled/genre kits keep their own timbre under an accented hit.
+            if Self.spec(for: kit) == nil {
+                down.append(contentsOf: accentLayers(for: drum, v: v, basePan: pan))
+            }
         }
         let now = CACurrentMediaTime()
         let level = min(1.0, max(0.0, Double(velocity) / 127.0))
@@ -1005,9 +1027,9 @@ final class MenuBandPercussion {
         pending.removeAll(keepingCapacity: true)
         releaseStore.removeAll(keepingCapacity: true)
         pendingReleases.removeAll(keepingCapacity: true)
-        lock.unlock()
         // active is cleared lazily by the render thread; mark a flush.
         flushRequested = true
+        lock.unlock()
     }
     private var flushRequested = false
 
@@ -1082,6 +1104,9 @@ final class MenuBandPercussion {
 
     private func build(for drum: Drum, v: Double, basePan: Double,
                        group: UInt64) -> DrumVoices {
+        if let voices = keyboardKitVoices(for: drum, velocity: v, pan: basePan) {
+            return DrumVoices(down: voices)
+        }
         var dv = DrumVoices()
         // addHit: finite one-shot. sustain(): finite one-shot for cymbals
         // that ring out regardless of key (ride/crash). heldSustain(): rings
@@ -1303,6 +1328,21 @@ final class MenuBandPercussion {
         }
         let relGain = v.releasing
             ? max(0.0, 1.0 - v.releaseElapsed / v.releaseFade) : 1.0
+        if let recording = v.recording {
+            let position = t * recording.sampleRate
+            let index = Int(position)
+            var sample = 0.0
+            if index >= 0, index < recording.frames.count {
+                let a = Double(recording.frames[index])
+                let b = index + 1 < recording.frames.count
+                    ? Double(recording.frames[index + 1]) : 0
+                sample = a + (b - a) * (position - Double(index))
+            }
+            // Source time follows pitch, so a lowered hit plays its full tail.
+            v.elapsed += dt * max(0.01, pitch * v.samplePitch)
+            if v.releasing { v.releaseElapsed += dt }
+            return sample * env * relGain * v.volume
+        }
         var s: Double
         switch v.wave {
         case .sine:

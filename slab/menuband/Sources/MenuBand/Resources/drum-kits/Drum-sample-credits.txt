@@ -1,0 +1,20 @@
+Salamander Drumkit — Alexander Holm
+https://archive.org/details/SalamanderDrumkit
+CC BY-SA 3.0: https://creativecommons.org/licenses/by-sa/3.0/
+
+Ten original recordings are included, renamed without altering their WAV data.
+Menu Band folds stereo to mono during playback, applies per-pad loudness trim,
+and alternates two hits per pad. Those sample adaptations remain CC BY-SA 3.0.
+The desktop audition recordings derived from this kit are also CC BY-SA 3.0.
+The original is a handmade birch-stave drum kit with rope tuning (2009).
+
+VCSL — Versilian Studios LLC
+https://github.com/sgossner/VCSL
+CC0 1.0: https://creativecommons.org/publicdomain/zero/1.0/
+
+Ten original recordings: cajon, conga, bongo, shaker, claves.
+WAV data is unchanged; playback uses the same mono fold and loudness trim.
+
+Original paths, download URLs, source revision, and SHA-256 checksums are in
+drum-kits-sources.json. Full CC0 and CC BY-SA license texts are included.
+These licenses cover the samples, independently of Menu Band's source code.

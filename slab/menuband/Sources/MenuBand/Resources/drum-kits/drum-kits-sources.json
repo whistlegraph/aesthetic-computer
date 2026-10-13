@@ -1,0 +1,146 @@
+{
+  "VCSL": {
+    "creator": "Versilian Studios LLC",
+    "revision": "c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e",
+    "url": "https://github.com/sgossner/VCSL",
+    "license": "CC0-1.0"
+  },
+  "files": [
+    {
+      "file": "vcsl-cajon-1.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Cajon/Cajon_hit1_f_rr1.wav",
+      "license": "CC0-1.0",
+      "sha256": "18241c7c9f73dc9edfe6402371fefba5584ed5f9bc6fe827d3bba945841301d6"
+    },
+    {
+      "file": "vcsl-cajon-2.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Cajon/Cajon_hit1_f_rr2.wav",
+      "license": "CC0-1.0",
+      "sha256": "62ddc0aca63f93c6dd30d4dca7bb7debfc65ce6f576e5d5c201423bb81fb03d2"
+    },
+    {
+      "file": "vcsl-conga-1.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Conga/Conga_HitN_v3_rr1_Sum.wav",
+      "license": "CC0-1.0",
+      "sha256": "664365ac735d819c69cabbbae8a78d225fa73059e698ad8ca292c46cc03c6961"
+    },
+    {
+      "file": "vcsl-conga-2.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Conga/Conga_HitN_v3_rr2_Sum.wav",
+      "license": "CC0-1.0",
+      "sha256": "d968cd98a8cf8238f244515a302b77adec88dae365bc9de9146ae8938225d142"
+    },
+    {
+      "file": "vcsl-bongo-1.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Bongos/BongoH_Hit1_v3_rr1_Mid.wav",
+      "license": "CC0-1.0",
+      "sha256": "e93ed5c0fbafc3f122ced7c56c3f08021d8616e96c81c42aa62c5f368111d001"
+    },
+    {
+      "file": "vcsl-bongo-2.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Membranophones/Struck%20Membranophones/Bongos/BongoH_Hit1_v3_rr2_Mid.wav",
+      "license": "CC0-1.0",
+      "sha256": "e0c143a2d32aca5430ffe2254c699b772ecfeaf6eef9d4c414365b538f693916"
+    },
+    {
+      "file": "vcsl-shaker-1.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Shaker%2C%20Small/Mid_ShakerDouble_Down_rr1.wav",
+      "license": "CC0-1.0",
+      "sha256": "0df7c271e1dba4de7304f7df81886390dd9ae698bfdd6df570026af4f2223574"
+    },
+    {
+      "file": "vcsl-shaker-2.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Shaker%2C%20Small/Mid_ShakerDouble_Down_rr2.wav",
+      "license": "CC0-1.0",
+      "sha256": "1bf11b6a055ace8b6fbe2c158f7bea449c91e4d72f97b9464b4856184aaf186d"
+    },
+    {
+      "file": "vcsl-clave-1.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Claves/Claves1_Hit_v3_rr1_Mid.wav",
+      "license": "CC0-1.0",
+      "sha256": "12285f65ed125f4140d1e8a86b2d6a08bf3283b7bf30c10d68290b8e8230a927"
+    },
+    {
+      "file": "vcsl-clave-2.wav",
+      "source": "https://raw.githubusercontent.com/sgossner/VCSL/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e/Idiophones/Struck%20Idiophones/Claves/Claves2_Hit_v3_rr1_Mid.wav",
+      "license": "CC0-1.0",
+      "sha256": "04954891896d00559d4b59ef468d9f1f51a5c42cb23de6f08af8e8eaaf764a8a"
+    },
+    {
+      "file": "salamander-kick-1.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/kick_OH_FF_1.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "f3c3272a7d0623b6d9b7cb028b08b5b3812c650fd22f4739e43e77e9faf69b28"
+    },
+    {
+      "file": "salamander-kick-2.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/kick_OH_FF_2.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "d7a5c50cdd03cf985b330397030dada2a4ce4350b6a6db43fa1b8a3db48c9a75"
+    },
+    {
+      "file": "salamander-tom-1.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/loTom_OH_FF_1.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "bfb74d255554c2965bf012452bc3717dee88a44aa04d120f2a1b86b9b6a7082d"
+    },
+    {
+      "file": "salamander-tom-2.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/loTom_OH_FF_2.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "656d624bd176a593056d2d00e3cfe3ddce34d15b2d2902a8aa63e9ed31c041b9"
+    },
+    {
+      "file": "salamander-snare-1.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/snare_OH_F_1.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "502b42305ae9c82c34060b1664d5ab5bf9d23dc7afacedbafaf92bb7047b7457"
+    },
+    {
+      "file": "salamander-snare-2.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/snare_OH_F_2.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "4daaefe7f43a7e8a2d9a45f9bb1ef35502122ec95191cf9dbf6a55776f401ff3"
+    },
+    {
+      "file": "salamander-hat-1.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/hihatClosed_OH_F_1.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "bd485de70450f68bb4692557a4ae909caaa965f5739693317365ebe85c986cbb"
+    },
+    {
+      "file": "salamander-hat-2.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/hihatClosed_OH_F_2.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "bab25cdfc2e7a79b8f6713a2f3bea280ccaf9db42c52f67bf6875f7a05c008fa"
+    },
+    {
+      "file": "salamander-ride-1.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/ride1_OH_MP_1.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "9e9135d595edf9f41ee3bd5caa9c797233422f62a3fb2c63ea542c58fb5ba155"
+    },
+    {
+      "file": "salamander-ride-2.wav",
+      "source": "https://archive.org/download/SalamanderDrumkit/salamanderDrumkit.tar.bz2",
+      "member": "OH/ride1_OH_MP_2.wav",
+      "license": "CC-BY-SA-3.0",
+      "sha256": "97a1190257bb90081bebc9fb1360cdb9feccbbe210d042cae685aad067fc0ad0"
+    }
+  ],
+  "Salamander": {
+    "creator": "Alexander Holm",
+    "url": "https://archive.org/details/SalamanderDrumkit",
+    "license": "CC-BY-SA-3.0",
+    "archiveSHA256": "34e746ec1721bb530b1caf5b17443ae3cde45a2cce1a80e2637e4c11d6f1e3f5"
+  }
+}

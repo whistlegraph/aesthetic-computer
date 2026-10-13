@@ -463,6 +463,10 @@ final class MenuBandSynth {
         if !on { acPiano.panic() }
     }
 
+    func selectPianoSource(_ source: PianoSource) -> Bool {
+        acPiano.selectSource(source)
+    }
+
     /// True while the AC whistle owns melodic notes.
     private(set) var usingWhistleVoice = false
 

@@ -49,7 +49,21 @@ REQUIRED_RESOURCES=(
     "countin-1.mp3"
     "countin-2.mp3"
     "countin-3.mp3"
+    salamander-{kick,tom,snare,hat,ride}-{1,2}.wav
+    vcsl-{cajon,conga,bongo,shaker,clave}-{1,2}.wav
+    "drum-kits-sources.json"
+    "Drum-sample-credits.txt"
+    "Salamander-CC-BY-SA-3.0.txt"
+    "VCSL-CC0.txt"
+    "piano-sources.json"
+    "Piano-source-credits.txt"
 )
+for ((piano_note = 22; piano_note <= 104; piano_note += 2)); do
+    REQUIRED_RESOURCES+=("piano-steinway-$piano_note.raw")
+done
+for piano_note in 24 31 36 43 48 55 60 67 72 79 84 91 96; do
+    REQUIRED_RESOURCES+=("piano-yamaha-$piano_note.raw")
+done
 
 verify_app() {
     local APP="$1"
