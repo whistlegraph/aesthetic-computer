@@ -193,6 +193,11 @@
     #game-menu { position: fixed; z-index: 6; left: 50%; translate: -50% 0;
       bottom: max(14px, env(safe-area-inset-bottom), var(--inset-bottom, 0px)); }
     body:not(.game-open) #game-menu, body.social-preview #game-menu { display: none; }
+    /* A keyboard opens the menu with Esc; the button only earns the bottom of
+       the screen where there is no key to press. */
+    body:not(.touch-enabled) #game-menu { display: none; }
+    /* The theme follows the clock and the system; no button for it. */
+    #theme-toggle { display: none !important; }
     /* Scoring from a DAW is anonymous dummy play, so the account door is shut
        and the corner it occupied is free for the midi lamp. */
     body.midi-out #logout { display: none; }
@@ -1878,7 +1883,11 @@
       url.searchParams.set("practice", "");
       return url.pathname + url.search;
     };
-    if (!socialPreview && !inPackagedApp && !offlineRuntime)
+    // "add yourself" is retired for now (@jeffrey, 2026-10-13). The game only
+    // draws the ring over a mounted wizard, so leaving it unmounted is the
+    // whole switch; flip this back to bring it home.
+    const addYourselfDoor = false;
+    if (addYourselfDoor && !socialPreview && !inPackagedApp && !offlineRuntime)
       globalThis.__oskiewarWizard = mountWizard({
         sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
         bearer: () => globalThis.__oskiewarAccount.bearer(),
