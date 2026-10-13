@@ -1,0 +1,2 @@
+# The 32 MB bank stays out of git; deploy.sh copies it to the laptop once.
+*.sf2

@@ -18,7 +18,7 @@ progress() { ssh "$host" "Add-Content \$HOME\\ac-progress.log ((Get-Date -Format
 progress "menu band: copying sources"
 
 ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\menuband-win | Out-Null"
-scp -q "$here/menuband.c" "$here/build.ps1" "$here/percussion.h" "$here/percussion_stub.c" \
+scp -q "$here/menuband.c" "$here/build.ps1" "$here/percussion.h" "$here/percussion_stub.c" "$here/tsf.h" \
        "$root/fedac/native/src/gm_synth.c" "$root/fedac/native/src/gm_synth.h" \
        "$host:$dest/"
 [[ -f "$here/percussion.c" ]] && scp -q "$here/percussion.c" "$host:$dest/"
@@ -26,6 +26,11 @@ scp -q "$here/menuband.c" "$here/build.ps1" "$here/percussion.h" "$here/percussi
 if ! ssh "$host" "Test-Path \$HOME\\src\\menuband-win\\build\\samples\\piano\\60.raw" | grep -q True; then
   ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\menuband-win\\build\\samples\\piano | Out-Null"
   scp -q "$root"/fedac/native/samples/piano/*.raw "$host:$dest/build/samples/piano/"
+fi
+# SoundFont banks (GeneralUser GS, 32 MB) sit in build\soundfonts beside the exe; copy once.
+if ! ssh "$host" "Test-Path \$HOME\\src\\menuband-win\\build\\soundfonts\\GeneralUser-GS.sf2" | grep -q True; then
+  ssh "$host" "New-Item -ItemType Directory -Force \$HOME\\src\\menuband-win\\build\\soundfonts | Out-Null"
+  scp -q "$here"/soundfonts/* "$host:$dest/build/soundfonts/"
 fi
 progress "menu band: compiling"
 # The build's own lines stream into the progress log as they come, and back here.

@@ -43,7 +43,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <share.h>
 #include "gm_synth.h"
+// TinySoundFont (MIT, schellingb/TinySoundFont @853a0a1): the SoundFont engine.
+#define TSF_IMPLEMENTATION
+#include "tsf.h"
 
 // The MIDL-generated audio headers only declare these; in C nothing defines
 // them, so spell out the well-known values here.
@@ -54,7 +58,7 @@ static const IID   MB_IID_IAudioRenderClient   = {0xF294ACFC,0x3146,0x4483,{0xA7
 static const GUID  MB_SUBTYPE_IEEE_FLOAT       = {0x00000003,0x0000,0x0010,{0x80,0x00,0x00,0xAA,0x00,0x38,0x9B,0x71}};
 static const IID   MB_IID_IAudioClient3        = {0x7ED4EE07,0x8E67,0x4CD4,{0x8C,0x1A,0x2B,0x7A,0x59,0x87,0xAD,0x42}};
 
-static void mb_log(const wchar_t *fmt, ...);
+static void mb_log(const wchar_t *fmt, ...); static void mb_log_flush(void);
 static void setting_set(const wchar_t *name, DWORD v);
 static void unlatch(HWND hwnd, int all);
 static void latch_note(int midi);
@@ -63,6 +67,7 @@ static void surface_reset(HWND hwnd);
 static void set_page(HWND hwnd, int page);
 static void cursor_hide(void); static void cursor_show(void);
 static void cue(HWND hwnd, int a, int b);
+static void type_key(HWND hwnd, int vk, int down);
 // Shared state used across sections (declared early; defined where it lives).
 enum { PAGE_FX = 0, PAGE_SKIN = 1, PAGE_MOUSE = 2, PAGE_SPLIT = 3 };
 static int g_page = PAGE_SKIN;
@@ -88,9 +93,24 @@ static int g_enterLatch;
 static int g_latched[128];           // Enter-latched notes (drawn lit, sound until unlatched)
 static int g_vkRoot[256]; static int g_vkExt[256][2];   // chord bookkeeping per held typing key
 static uint64_t g_touchGroup = 1;                       // press/contact groups for the percussion engine
-static int g_fnFree = 1;             // bare F3/F4/F5 act as mute / volume down / volume up
+static int g_fnFree = 1;
+// Per-side percussion latch, as on the Mac: `[` / `]` latch the lower / upper
+// octave to the classic twelve-drum kit, `{` / `}` to the TrackDrum membrane
+// (clicks included). 0 off, 1 classic, 2 TrackDrum. The trackpad page never
+// changes what the keys play.
+enum { KIT_OFF = 0, KIT_CLASSIC = 1, KIT_TRACKDRUM = 2 };
+static int g_kitL = KIT_OFF, g_kitR = KIT_OFF;
+static int g_light = 0;              // Windows light theme: light keys, light panels             // bare F2/F3/F4 act as mute / volume down / volume up
 static const wchar_t *GM_NAMES[128];
 static volatile LONG g_dbgNoteOns;
+// Latency probe. The hook stamps each key-down (QPC) and how late Windows
+// delivered it (tick now − the event's own tick); lit_on hands the stamp on
+// once the note is queued; the audio thread closes it when the callback that
+// renders the note starts. Every 2 s the log reports hook→render (software)
+// and the output side (buffer + stream latency), so the chain is measured.
+static volatile LONGLONG g_keyQpc = 0, g_queuedQpc = 0; static LONGLONG g_qpcFreq = 1;
+static double g_latSum = 0, g_latMax = 0, g_hookLagSum = 0, g_hookLagMax = 0; static int g_latN = 0, g_hookLagN = 0;
+static double g_outMs = 0;
 
 // ───────────────────────────── synth ─────────────────────────────
 
@@ -109,7 +129,7 @@ typedef struct {
 } Voice;
 
 typedef struct { int kind; uint8_t midi; uint8_t velocity; int program; uint32_t seed; } Cmd;
-enum { CMD_ON = 1, CMD_OFF = 2, CMD_PANIC = 3, CMD_WON = 4, CMD_WOFF = 5, CMD_PON = 6, CMD_POFF = 7 };
+enum { CMD_ON = 1, CMD_OFF = 2, CMD_PANIC = 3, CMD_WON = 4, CMD_WOFF = 5, CMD_PON = 6, CMD_POFF = 7, CMD_SON = 8, CMD_SOFF = 9 };
 
 static GMVoice g_cores[MAX_VOICES];       // ~80 KB each: keep them static, never on a stack
 static Voice g_voices[MAX_VOICES];
@@ -204,6 +224,16 @@ static float soft_limit(float x) {
     float y = 0.5f + 0.5f * tanhf((a - 0.5f) * 2.0f);
     return x < 0 ? -y : y;
 }
+// Loudness normalization: per-program gains measured at startup (see
+// sf_loader), so every instrument lands at the same RMS whichever engine
+// plays it. 1.0 until the measurement thread finishes.
+static float g_sfDb[128][3], g_acDb[128][3], g_sfMaxDb[128];   // loudness gains (dB) at C3/C4/C5; 0 until measured
+static float note_db(const float t[3], int key);
+// The SoundFont engine. All tsf calls happen on the audio thread; a newly
+// loaded bank is handed over through g_sfPending and the old one retired back
+// to the UI thread to free.
+static tsf *g_sf = NULL; static tsf *volatile g_sfPending = NULL; static tsf *volatile g_sfRetire = NULL;
+static int g_sfBendLast = 8192;
 static void wh_note_on(int midi, int velocity); static void wh_note_off(int midi); static void wh_panic(void); static void wh_render(float *out, int frames);
 static void piano_note_on(int midi, int velocity); static void piano_note_off(int midi); static void piano_panic(void); static void piano_render(float *out, int frames); static int piano_available(void);
 
@@ -253,7 +283,7 @@ static void synth_render(float *out, int frames) {
             if (gm_voice_init(&g_cores[slot], c->program, f, g_sampleRate, c->seed) == 0) {
                 Voice *v = &g_voices[slot];
                 v->midi = c->midi; v->freq = f;
-                v->velocityGain = fmax(0.05, fmin(1.0, c->velocity / 127.0));
+                v->velocityGain = fmax(0.05, fmin(1.0, c->velocity / 127.0)) * pow(10.0, note_db(g_acDb[c->program & 127], c->midi) / 20.0);
                 pan_for_midi(c->midi, &v->panL, &v->panR);
                 v->attack = 0.004; v->release = 0.18;
                 v->env = 0; v->releasing = 0; v->active = 1;
@@ -267,6 +297,13 @@ static void synth_render(float *out, int frames) {
         } else if (c->kind == CMD_PANIC) {
             for (int i = 0; i < MAX_VOICES; i++) g_voices[i].active = 0;
             wh_panic(); piano_panic();
+            if (g_sf) tsf_note_off_all(g_sf);
+        } else if (c->kind == CMD_SON) {
+            // One channel per GM program: preset, normalized volume and a ±24
+            // semitone wheel are set once at load, so a note-on is just this.
+            if (g_sf) tsf_channel_note_on(g_sf, c->program & 127, c->midi, c->velocity / 127.0f);
+        } else if (c->kind == CMD_SOFF) {
+            if (g_sf) tsf_channel_note_off(g_sf, c->program & 127, c->midi);
         } else if (c->kind == CMD_WON) {
             wh_note_on(c->midi, c->velocity);
         } else if (c->kind == CMD_WOFF) {
@@ -277,6 +314,9 @@ static void synth_render(float *out, int frames) {
             piano_note_off(c->midi);
         }
     }
+
+    // Bank handover from the loader (rare: startup or a menu pick).
+    if (g_sfPending) { tsf *old = g_sf; g_sf = g_sfPending; g_sfPending = NULL; if (old) { tsf_note_off_all(old); g_sfRetire = old; } }
 
     pitch_block(frames);
     const double dt = 1.0 / g_sampleRate;
@@ -303,6 +343,14 @@ static void synth_render(float *out, int frames) {
     }
     wh_render(out, frames);
     piano_render(out, frames);
+    if (g_sf) {
+        // The FX surface's bend, per block (≤3 ms), as a pitch wheel on every
+        // channel: 2 octaves = the full ±24 semitone wheel.
+        double semis = 12.0 * log2(g_glidePitch); int wheel = 8192 + (int)(semis / 24.0 * 8192.0);
+        if (wheel < 0) wheel = 0; if (wheel > 16383) wheel = 16383;
+        if (wheel != g_sfBendLast) { for (int ch = 0; ch < 128; ch++) tsf_channel_set_pitchwheel(g_sf, ch, wheel); g_sfBendLast = wheel; }
+        tsf_render_float(g_sf, out, frames, 1);
+    }
     fx_process(out, frames);
     perc_set_pitch(g_glidePitch);
     perc_render(out, frames);
@@ -491,6 +539,157 @@ static void wh_render(float *out, int frames) {
     for (int i = 0; i < 2 * frames; i++) out[i] += tanhf(g_whBus[i] * WH_MASTER);
 }
 
+// ─────────────── SoundFont banks + loudness normalization ───────────────
+// Banks are the .sf2 files in soundfonts\ beside the exe (GeneralUser GS
+// v2.0.3 ships there; drop in FluidR3 GM, MuseScore General or any GM bank).
+// Loading runs on a worker thread: read the file, give each of the 128 GM
+// programs its own channel, then measure every program's loudness offline —
+// a 350 ms note at a register that suits it, RMS over the sustained part —
+// and set each channel's volume so all of them land on one target. The same
+// measurement runs over AC's own synth, so switching engines keeps the level.
+
+#define SF_MAX 16
+static wchar_t g_sfFiles[SF_MAX][MAX_PATH]; static int g_sfCount = 0, g_sfIndex = 0;
+static wchar_t g_sfName[64] = L"";
+#define WM_SFREADY (WM_APP + 16)
+static HWND g_sfNotify = NULL;
+
+static void sf_dir(wchar_t *dir) {
+    GetModuleFileNameW(NULL, dir, MAX_PATH);
+    wchar_t *slash = wcsrchr(dir, L'\\'); if (slash) *slash = 0;
+    wcscat_s(dir, MAX_PATH, L"\\soundfonts");
+}
+static void sf_scan(void) {
+    wchar_t dir[MAX_PATH], pat[MAX_PATH]; sf_dir(dir); swprintf(pat, MAX_PATH, L"%s\\*.sf2", dir);
+    WIN32_FIND_DATAW fd; HANDLE h = FindFirstFileW(pat, &fd); g_sfCount = 0;
+    if (h == INVALID_HANDLE_VALUE) return;
+    do { if (g_sfCount < SF_MAX) swprintf(g_sfFiles[g_sfCount++], MAX_PATH, L"%s\\%s", dir, fd.cFileName); } while (FindNextFileW(h, &fd));
+    FindClose(h);
+    // GeneralUser GS first, so a fresh install lands on it.
+    for (int i = 1; i < g_sfCount; i++) if (wcsstr(g_sfFiles[i], L"GeneralUser")) { wchar_t t[MAX_PATH]; wcscpy_s(t, MAX_PATH, g_sfFiles[0]); wcscpy_s(g_sfFiles[0], MAX_PATH, g_sfFiles[i]); wcscpy_s(g_sfFiles[i], MAX_PATH, t); }
+}
+static const wchar_t *sf_label(int i) { const wchar_t *b = wcsrchr(g_sfFiles[i], L'\\'); return b ? b + 1 : g_sfFiles[i]; }
+
+// Loudness, the way the offline comparison (cmp/compare.c) settled it: BS.1770
+// K-weighted, the mean in dB of a short-note window (10–510 ms) and a held-note
+// window (50 ms–1 s), measured at C3, C4 and C5 and interpolated per note —
+// which also flattens each instrument's loudness across the keyboard. Every
+// program in both engines is pulled to the SoundFont's median at C4, ±18 dB.
+static const int LOUD_ANCHOR[3] = { 48, 60, 72 };
+typedef struct { double x1, x2, y1, y2; } KBiquad;
+static double kbq(KBiquad *q, const double *b, const double *a, double x) {
+    double y = b[0] * x + b[1] * q->x1 + b[2] * q->x2 - a[1] * q->y1 - a[2] * q->y2;
+    q->x2 = q->x1; q->x1 = x; q->y2 = q->y1; q->y1 = y; return y;
+}
+// K-weighted loudness of a stereo buffer over [from, to); coefficients for 48 kHz.
+static double k_loudness(const float *buf, int frames, int from, int to) {
+    static const double B1[3] = { 1.53512485958697, -2.69169618940638, 1.19839281085285 }, A1[3] = { 1, -1.69065929318241, 0.73248077421585 };
+    static const double B2[3] = { 1, -2, 1 }, A2[3] = { 1, -1.99004745483398, 0.99007225036621 };
+    KBiquad q[2][2]; memset(q, 0, sizeof q); double acc = 0; int n = 0;
+    for (int i = 0; i < frames; i++) for (int c = 0; c < 2; c++) {
+        double y = kbq(&q[c][1], B2, A2, kbq(&q[c][0], B1, A1, buf[2 * i + c]));
+        if (i >= from && i < to) { acc += y * y; if (c == 0) n++; }
+    }
+    return n && acc > 1e-12 ? -0.691 + 10 * log10(acc / n) : -120;
+}
+static double note_loudness(const float *buf, int frames, double sr) {
+    double s = k_loudness(buf, frames, (int)(sr * 0.01), (int)(sr * 0.51)), l = k_loudness(buf, frames, (int)(sr * 0.05), frames);
+    return s < -100 || l < -100 ? -120 : 0.5 * (s + l);
+}
+static float note_db(const float t[3], int key) {
+    if (key <= LOUD_ANCHOR[0]) return t[0]; if (key >= LOUD_ANCHOR[2]) return t[2];
+    int i = key < LOUD_ANCHOR[1] ? 0 : 1; return t[i] + (t[i + 1] - t[i]) * (key - LOUD_ANCHOR[i]) / 12.0f;
+}
+static int cmp_double(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
+
+static tsf *sf_open(const wchar_t *path) {
+    FILE *f = NULL; if (_wfopen_s(&f, path, L"rb") != 0 || !f) return NULL;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+    void *mem = malloc((size_t)n); if (!mem) { fclose(f); return NULL; }
+    size_t got = fread(mem, 1, (size_t)n, f); fclose(f);
+    tsf *t = got == (size_t)n ? tsf_load_memory(mem, (int)n) : NULL;
+    free(mem);
+    return t;
+}
+
+// The measurement takes seconds on the MiniBook, so it is cached per bank and
+// build: %LOCALAPPDATA%\Menu Band\loudness-<bank size>-<exe write time>.bin.
+#define LOUD_CACHE_VERSION 3
+static void loud_cache_path(int index, wchar_t *out) {
+    WIN32_FILE_ATTRIBUTE_DATA sfa, exa; wchar_t exe[MAX_PATH]; GetModuleFileNameW(NULL, exe, MAX_PATH);
+    memset(&sfa, 0, sizeof sfa); memset(&exa, 0, sizeof exa);
+    GetFileAttributesExW(g_sfFiles[index], GetFileExInfoStandard, &sfa); GetFileAttributesExW(exe, GetFileExInfoStandard, &exa);
+    wchar_t dir[MAX_PATH]; DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", dir, MAX_PATH); if (!n) wcscpy_s(dir, MAX_PATH, L".");
+    wcscat_s(dir, MAX_PATH, L"\\Menu Band"); CreateDirectoryW(dir, NULL);
+    swprintf(out, MAX_PATH, L"%s\\loudness-v%d-%lu-%08lx%08lx.bin", dir, LOUD_CACHE_VERSION, sfa.nFileSizeLow, exa.ftLastWriteTime.dwHighDateTime, exa.ftLastWriteTime.dwLowDateTime);
+}
+
+static DWORD WINAPI sf_loader(LPVOID arg) {
+    int index = (int)(intptr_t)arg;
+    DWORD t0 = GetTickCount();
+    tsf *t = sf_open(g_sfFiles[index]);
+    if (!t) { mb_log(L"soundfont: could not load %s", g_sfFiles[index]); return 0; }
+    double sr = g_sampleRate;
+    tsf_set_output(t, TSF_STEREO_INTERLEAVED, (int)sr, 0);
+    for (int p = 0; p < 128; p++) { tsf_channel_set_presetnumber(t, p, p, 0); tsf_channel_set_pitchrange(t, p, 24.0f); }
+    wchar_t cache[MAX_PATH]; loud_cache_path(index, cache);
+    float sfDb[128][3], acDb[128][3]; int cached = 0;
+    { FILE *f = NULL; if (_wfopen_s(&f, cache, L"rb") == 0 && f) { cached = fread(sfDb, sizeof sfDb, 1, f) == 1 && fread(acDb, sizeof acDb, 1, f) == 1; fclose(f); } }
+    if (!cached) {
+        const int frames = (int)(sr * 1.0);
+        float *buf = (float *)malloc(sizeof(float) * 2 * frames);
+        GMVoice *gv = (GMVoice *)malloc(sizeof(GMVoice));
+        static double sfL[128][3], acL[128][3];
+        for (int p = 0; p < 128; p++) for (int a = 0; a < 3; a++) {
+            int key = LOUD_ANCHOR[a];
+            memset(buf, 0, sizeof(float) * 2 * frames);
+            tsf_channel_note_on(t, p, key, 100 / 127.0f);
+            tsf_render_float(t, buf, frames, 0);
+            tsf_channel_sounds_off_all(t, p);
+            sfL[p][a] = note_loudness(buf, frames, sr);
+            acL[p][a] = -120;
+            double f0 = midi_freq(key);
+            if (gv && gm_program_implemented(p) && gm_voice_init(gv, p, f0, sr, 0x9E3779B9u ^ (uint32_t)p) == 0) {
+                double env = 0, att = 1.0 / (sr * 0.004); int ok = 1;
+                for (int i = 0; i < frames; i++) {
+                    env += att; if (env > 1) env = 1;
+                    double smp = gm_voice_render(gv, sr, env, f0);
+                    if (!isfinite(smp)) { ok = 0; break; }
+                    float x = (float)(smp * (100 / 127.0) * g_masterGain * 0.70710678);   // as the render loop plays it, centred
+                    buf[2 * i] = x; buf[2 * i + 1] = x;
+                }
+                if (ok) acL[p][a] = note_loudness(buf, frames, sr);
+            }
+        }
+        double med[128]; for (int p = 0; p < 128; p++) med[p] = sfL[p][1];
+        qsort(med, 128, sizeof(double), cmp_double);
+        double target = med[64];
+        for (int p = 0; p < 128; p++) for (int a = 0; a < 3; a++) {
+            sfDb[p][a] = (float)(sfL[p][a] > -100 ? fmax(-18, fmin(18, target - sfL[p][a])) : 0);
+            acDb[p][a] = (float)(acL[p][a] > -100 ? fmax(-18, fmin(18, target - acL[p][a])) : 0);
+        }
+        free(buf); free(gv);
+        FILE *f = NULL; if (_wfopen_s(&f, cache, L"wb") == 0 && f) { fwrite(sfDb, sizeof sfDb, 1, f); fwrite(acDb, sizeof acDb, 1, f); fclose(f); }
+        mb_log(L"loudness: measured %s + AC synth, target %.1f LUFS", sf_label(index), target);
+    }
+    // Each channel sits at its loudest anchor; quieter notes come down through
+    // their velocity (TinySoundFont's velocity is linear amplitude).
+    for (int p = 0; p < 128; p++) {
+        float mx = fmaxf(sfDb[p][0], fmaxf(sfDb[p][1], sfDb[p][2]));
+        g_sfMaxDb[p] = mx; for (int a = 0; a < 3; a++) { g_sfDb[p][a] = sfDb[p][a]; g_acDb[p][a] = acDb[p][a]; }
+        tsf_channel_set_volume(t, p, powf(10.0f, mx / 20.0f));
+    }
+    tsf_set_max_voices(t, 96);   // preallocated: no allocation on the audio thread
+    mb_log(L"soundfont: %s ready (%s), %lu ms", sf_label(index), cached ? L"cached loudness" : L"fresh measurement", GetTickCount() - t0);
+    PostMessageW(g_sfNotify, WM_SFREADY, (WPARAM)index, (LPARAM)t);
+    return 0;
+}
+static void sf_load(int index) {
+    if (index < 0 || index >= g_sfCount) return;
+    HANDLE th = CreateThread(NULL, 0, sf_loader, (LPVOID)(intptr_t)index, 0, NULL);
+    if (th) { SetThreadPriority(th, THREAD_PRIORITY_BELOW_NORMAL); CloseHandle(th); }
+}
+
 // ───────────────────────────── WASAPI ────────────────────────────
 
 static IAudioClient *g_client = NULL;
@@ -531,6 +730,8 @@ static DWORD WINAPI audio_thread(LPVOID arg) {
         HRESULT hr = g_render->lpVtbl->GetBuffer(g_render, frames, &data);
         if (FAILED(hr)) { if (hr != AUDCLNT_E_BUFFER_TOO_LARGE) mb_log(L"audio: GetBuffer 0x%08lX", hr); continue; }
         if (frames > 8192) frames = 8192;
+        LONGLONG queued = g_queuedQpc;
+        if (queued) { g_queuedQpc = 0; LARGE_INTEGER q; QueryPerformanceCounter(&q); double ms = (q.QuadPart - queued) * 1000.0 / g_qpcFreq; if (ms >= 0 && ms < 500) { g_latSum += ms; if (ms > g_latMax) g_latMax = ms; g_latN++; } }
         write_frames(data, (int)frames);
         float peak = g_dbgPeak;
         if (g_sampleFormat == 0) { float *f = (float *)data; for (UINT32 i = 0; i < frames * 2; i++) { float a = fabsf(f[i]); if (a > peak) peak = a; } }
@@ -542,6 +743,11 @@ static DWORD WINAPI audio_thread(LPVOID arg) {
             for (int i = 0; i < WH_VOICES; i++) if (g_wv[i].active) active++;
             mb_log(L"audio: callbacks=%ld frames=%ld peak=%.4f active=%d noteOns=%ld sr=%.0f buf=%u %s", g_dbgCallbacks, g_dbgFrames, g_dbgPeak, active, g_dbgNoteOns, g_sampleRate, g_bufferFrames, g_exclusive ? L"exclusive" : L"shared");
             g_dbgPeak = 0; lastLog = GetTickCount();
+            if (g_latN) {
+                mb_log(L"latency: key->render avg %.2f max %.2f ms (n=%d) | windows key delivery avg %.1f max %.0f ms | output buffer+stream %.2f ms | est. key->DAC %.1f ms",
+                       g_latSum / g_latN, g_latMax, g_latN, g_hookLagN ? g_hookLagSum / g_hookLagN : 0, g_hookLagMax, g_outMs, g_latSum / g_latN + g_outMs);
+                g_latSum = g_latMax = 0; g_latN = 0; g_hookLagSum = g_hookLagMax = 0; g_hookLagN = 0;
+            }
         }
     }
     if (mmcss) AvRevertMmThreadCharacteristics(mmcss);
@@ -604,6 +810,7 @@ static int audio_start_exclusive(void) {
         if (FAILED(g_client->lpVtbl->GetService(g_client, &MB_IID_IAudioRenderClient, (void **)&g_render))) return 0;
         BYTE *data = NULL;
         if (SUCCEEDED(g_render->lpVtbl->GetBuffer(g_render, g_bufferFrames, &data))) { memset(data, 0, (size_t)g_bufferFrames * 2 * tries[t].bits / 8); g_render->lpVtbl->ReleaseBuffer(g_render, g_bufferFrames, 0); }
+        g_outMs = 2.0 * g_bufferFrames * 1000.0 / rate;
         mb_log(L"audio: EXCLUSIVE %d-bit (%d valid) @%lu, period %.2f ms (device min %.2f, default %.2f), buffer %u frames", tries[t].bits, tries[t].valid, rate, period / 10000.0, minP / 10000.0, defP / 10000.0, g_bufferFrames);
         gm_synth_init(); perc_init(g_sampleRate);
         InterlockedExchange(&g_audioRunning, 1);
@@ -673,7 +880,7 @@ static int audio_start(void) {
     mb_log(L"audio: default shared stream (20 ms request)");
 initialized:
     g_client->lpVtbl->GetBufferSize(g_client, &g_bufferFrames);
-    { REFERENCE_TIME lat = 0; g_client->lpVtbl->GetStreamLatency(g_client, &lat); mb_log(L"audio: buffer %u frames (%.2f ms), stream latency %.2f ms", g_bufferFrames, g_bufferFrames * 1000.0 / g_sampleRate, lat / 10000.0); }
+    { REFERENCE_TIME lat = 0; g_client->lpVtbl->GetStreamLatency(g_client, &lat); g_outMs = g_bufferFrames * 1000.0 / g_sampleRate + lat / 10000.0; mb_log(L"audio: buffer %u frames (%.2f ms), stream latency %.2f ms", g_bufferFrames, g_bufferFrames * 1000.0 / g_sampleRate, lat / 10000.0); }
     g_audioEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
     g_client->lpVtbl->SetEventHandle(g_client, g_audioEvent);
     hr = g_client->lpVtbl->GetService(g_client, &MB_IID_IAudioRenderClient, (void **)&g_render);
@@ -726,10 +933,19 @@ static void midi_program(void) {
 // a program change mid-hold still releases it in the right place.
 #define AC_WHISTLE_PROGRAM 78
 #define AC_PIANO_PROGRAM 0
-static uint8_t g_noteOwner[128];   // 0 gm, 1 whistle, 2 midi out
+static uint8_t g_noteOwner[128];   // 0 gm, 1 whistle, 2 midi out, 3 AC piano, 4 SoundFont
+static uint8_t g_noteProgram[128]; // the program a SoundFont note started on
+enum { ENGINE_SOUNDFONT = 0, ENGINE_AC = 1 };
+static int g_engine = ENGINE_SOUNDFONT;
+static volatile LONG g_sfReady = 0;   // a bank is loaded and handed to the audio thread
 static void play_on(int midi, int vel) {
     if (midi < 0 || midi > 127) return;
     if (g_midiOut) { g_noteOwner[midi] = 2; midiOutShortMsg(g_midiOut, 0x90 | ((DWORD)midi << 8) | ((DWORD)vel << 16)); }
+    else if (g_engine == ENGINE_SOUNDFONT && g_sfReady) {
+        g_noteOwner[midi] = 4; g_noteProgram[midi] = (uint8_t)g_program;
+        int sv = (int)(vel * powf(10.0f, (note_db(g_sfDb[g_program], midi) - g_sfMaxDb[g_program]) / 20.0f) + 0.5f); if (sv < 1) sv = 1;
+        Cmd c = { CMD_SON, (uint8_t)midi, (uint8_t)sv, g_program, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns);
+    }
     else if (g_program == AC_WHISTLE_PROGRAM) { g_noteOwner[midi] = 1; Cmd c = { CMD_WON, (uint8_t)midi, (uint8_t)vel, 0, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns); }
     else if (g_program == AC_PIANO_PROGRAM && piano_available()) { g_noteOwner[midi] = 3; Cmd c = { CMD_PON, (uint8_t)midi, (uint8_t)vel, 0, 0 }; synth_push(c); InterlockedIncrement(&g_dbgNoteOns); }
     else { g_noteOwner[midi] = 0; synth_note_on(midi, vel); }
@@ -739,6 +955,7 @@ static void play_off(int midi) {
     if (g_noteOwner[midi] == 2 && g_midiOut) midiOutShortMsg(g_midiOut, 0x80 | ((DWORD)midi << 8));
     else if (g_noteOwner[midi] == 1) { Cmd c = { CMD_WOFF, (uint8_t)midi, 0, 0, 0 }; synth_push(c); }
     else if (g_noteOwner[midi] == 3) { Cmd c = { CMD_POFF, (uint8_t)midi, 0, 0, 0 }; synth_push(c); }
+    else if (g_noteOwner[midi] == 4) { Cmd c = { CMD_SOFF, (uint8_t)midi, 0, g_noteProgram[midi], 0 }; synth_push(c); }
     else synth_note_off(midi);
 }
 
@@ -753,6 +970,9 @@ static int g_lit[128];              // held count per note (mouse + typing)
 
 static int is_white(int midi) { int pc = ((midi % 12) + 12) % 12; return pc == 0 || pc == 2 || pc == 4 || pc == 5 || pc == 7 || pc == 9 || pc == 11; }
 
+// Which kit a key plays: the side's latch (lower octave = left, as the pedal split).
+static int kit_for(int midi) { return midi < g_firstMidi + 12 ? g_kitL : g_kitR; }
+
 static void build_keys(void) {
     int w = 0; g_blackCount = 0;
     for (int m = g_firstMidi; w < WHITE_COUNT; m++) {
@@ -766,7 +986,7 @@ static int g_stripW = 0, g_stripH = 0;  // whole window
 static int g_keyW = 0, g_keyH = 0;      // white key
 static int g_blackW = 0, g_blackH = 0;
 static int g_padX = 0, g_padY = 0;
-static int g_chipW = 0, g_pianoX = 0;   // ♪ chip at the left, then the keys
+static int g_chipW = 0, g_pianoX = 0, g_chipX = 0;   // the keys, then the ♪ chip at their right
 
 static double g_dpi = 1.5;   // physical px per Mac point; from the taskbar's monitor
 static int g_blackTop = 0;
@@ -787,15 +1007,16 @@ static void layout_for_taskbar_height(int taskbarH) {
     g_padY = (taskbarH - g_keyH) / 2;
     g_padX = pt(6.0);
     g_chipW = pt(36.0);
-    g_pianoX = g_padX + g_chipW + pt(6.0);
-    g_stripW = g_pianoX + g_keyW * WHITE_COUNT + g_padX;
+    g_pianoX = g_padX;
+    g_chipX = g_pianoX + g_keyW * WHITE_COUNT + pt(6.0);
+    g_stripW = g_chipX + g_chipW + g_padX;
     g_stripH = taskbarH;
     g_blackTop = g_padY;
 }
 
 static int white_index_of(int midi) { for (int i = 0; i < WHITE_COUNT; i++) if (g_whiteMidi[i] == midi) return i; return -1; }
 
-static RECT chip_rect(void) { RECT r = { g_padX, g_padY - 1, g_padX + g_chipW, g_padY + g_keyH + 1 }; return r; }
+static RECT chip_rect(void) { RECT r = { g_chipX, g_padY - 1, g_chipX + g_chipW, g_padY + g_keyH + 1 }; return r; }
 
 static RECT white_rect(int i) {
     RECT r = { g_pianoX + i * g_keyW, g_padY, g_pianoX + (i + 1) * g_keyW - 1, g_padY + g_keyH };
@@ -855,6 +1076,14 @@ static void read_accent(void) {
     }
     DWORD c = 0; BOOL opaque = FALSE;
     if (SUCCEEDED(DwmGetColorizationColor(&c, &opaque))) { g_accent.r = (c >> 16) & 0xFF; g_accent.g = (c >> 8) & 0xFF; g_accent.b = c & 0xFF; }
+}
+// The taskbar follows SystemUsesLightTheme; the strip sits on it, so match that.
+static void read_theme(void) {
+    HKEY k; DWORD v = 0, size = sizeof v, type; g_light = 0;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 0, KEY_READ, &k) == ERROR_SUCCESS) {
+        if (RegQueryValueExW(k, L"SystemUsesLightTheme", NULL, &type, (BYTE *)&v, &size) == ERROR_SUCCESS && type == REG_DWORD) g_light = v != 0;
+        RegCloseKey(k);
+    }
 }
 static RGB8 hsv_boost(RGB8 c, double satBoost, double briBoost) {
     double r = c.r / 255.0, g = c.g / 255.0, b = c.b / 255.0;
@@ -959,23 +1188,34 @@ static int g_typing = 0;
 
 static void paint(void) {
     memset(g_pixels, 0, sizeof(uint32_t) * g_stripW * g_stripH);
-    const RGB8 whiteHi = { 62, 72, 82 }, whiteLo = { 44, 54, 62 };
-    const RGB8 groove = { 140, 155, 165 };
+    // KeyboardIconRenderer's two palettes: slate naturals and glowing sharps in
+    // dark mode; pale naturals and shadowed-accent sharps in light mode.
+    const RGB8 black = { 0, 0, 0 }, white = { 255, 255, 255 };
+    const RGB8 whiteHi = g_light ? (RGB8){ 215, 225, 230 } : (RGB8){ 62, 72, 82 };
+    const RGB8 whiteLo = g_light ? (RGB8){ 195, 205, 210 } : (RGB8){ 44, 54, 62 };
+    const RGB8 groove = g_light ? (RGB8){ 50, 65, 75 } : (RGB8){ 140, 155, 165 };
     // A near-grey accent (Windows' automatic pick from a dark wallpaper) gets
     // cool slate sharps instead of a warm smear; a real accent gets the Mac boost.
     double amx = fmax(g_accent.r, fmax(g_accent.g, g_accent.b)) / 255.0, amn = fmin(g_accent.r, fmin(g_accent.g, g_accent.b)) / 255.0;
     int neutral = amx < 0.02 || (amx - amn) / amx < 0.12;
-    const RGB8 slateHi = { 176, 186, 196 }, slateLo = { 128, 138, 148 };
-    const RGB8 blackHi = neutral ? slateHi : hsv_boost(g_accent, 0.55, 0.45), blackLo = neutral ? slateLo : hsv_boost(g_accent, 0.30, 0.20);
-    const RGB8 black = { 0, 0, 0 }, white = { 255, 255, 255 };
-    const RGB8 glyph = { 235, 238, 242 };
+    const RGB8 slateHi = g_light ? (RGB8){ 84, 96, 108 } : (RGB8){ 176, 186, 196 }, slateLo = g_light ? (RGB8){ 52, 62, 72 } : (RGB8){ 128, 138, 148 };
+    RGB8 blackHi, blackLo;
+    if (neutral) { blackHi = slateHi; blackLo = slateLo; }
+    else if (g_light) { blackHi = blend(g_accent, black, 0.30); blackLo = blend(g_accent, black, 0.55); }
+    else { blackHi = hsv_boost(g_accent, 0.55, 0.45); blackLo = hsv_boost(g_accent, 0.30, 0.20); }
+    const RGB8 glyph = g_light ? (RGB8){ 71, 71, 71 } : (RGB8){ 235, 238, 242 };
+    const RGB8 sharpLit = g_light ? blend(neutral ? slateHi : g_accent, white, 0.30) : white;
     int stripeH = pt(2.0);
 
     // ♪ chip: the note glyph with the program number as a heavy subscript, as
     // on the Mac; while digits are being typed, the subscript shows them lit.
     RECT cr = chip_rect();
-    if (g_typing) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, FOCUS_BLUE, blend(FOCUS_BLUE, black, 0.25), 0.9); }
-    else if (g_hoverChip) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, white, white, 0.10); }
+    // No pill behind the ♪: it sits straight on the taskbar. The ground is
+    // alpha 1/255 — invisible, but a layered window only takes clicks where
+    // alpha is non-zero, so the whole chip stays clickable. The glyph is light
+    // on a dark taskbar and dark on a light one; arming shows in the flash.
+    { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, black, black, 1.0 / 255.0 + 0.0001); }
+    if (g_hoverChip) { RECT pill = { cr.left, cr.top, cr.right, cr.bottom }; fill(pill, g_light ? black : white, g_light ? black : white, g_light ? 0.08 : 0.10); }
     // ♪ as tall as the keys, the number hugging its lower right like a subscript.
     wchar_t num[8]; int pending = g_pendingDigits[0] != 0;
     if (pending) wcscpy_s(num, 8, g_pendingDigits); else swprintf(num, 8, L"%d", g_program + 1);
@@ -990,7 +1230,7 @@ static void paint(void) {
 
     // Backplate: the groove colour shows between keys and as a hairline frame.
     RECT plate = { g_pianoX - 1, g_padY - 1, g_pianoX + g_keyW * WHITE_COUNT, g_padY + g_keyH + 1 };
-    fill(plate, groove, groove, 0.55);
+    fill(plate, groove, groove, g_light ? 0.75 : 0.55);
 
     // Keys: one tile normally; during an octave slide the run is drawn at the
     // slide offset with the neighbouring octave's tiles on either side, clipped
@@ -1006,21 +1246,21 @@ static void paint(void) {
             if (kr.right < g_clipL || kr.left >= g_clipR) continue;
             RGB8 hi = whiteHi, lo = whiteLo;
             int lit = m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m]);
-            int drums = g_page == PAGE_SKIN && g_typing;
-            if (lit) { RGB8 l = drums ? blend(DRUM_COLOR[mv], white, 0.45) : blend(CHROMA[mv], black, 0.22); hi = l; lo = l; }
+            int drums = m >= 0 && m < 128 && kit_for(m) != KIT_OFF;
+            if (lit) { RGB8 l = drums ? blend(DRUM_COLOR[mv], white, 0.45) : (g_light ? CHROMA[mv] : blend(CHROMA[mv], black, 0.22)); hi = l; lo = l; }
             else if (m == g_hoverMidi && !sliding) { hi = blend(whiteHi, white, 0.12); lo = blend(whiteLo, white, 0.12); }
             fill(kr, hi, lo, 1.0);
-            if (drums && !lit) fill(kr, DRUM_COLOR[mv], DRUM_COLOR[mv], 0.50);
+            if (drums && !lit) fill(kr, DRUM_COLOR[mv], DRUM_COLOR[mv], g_light ? 0.62 : 0.50);
             RECT st = { kr.left + 1, kr.bottom - stripeH, kr.right - 1, kr.bottom };
-            if (!lit && !drums) fill(st, CHROMA[mv], CHROMA[mv], 0.95);
+            if (!lit && !drums) { RGB8 sc = g_light ? CHROMA[mv] : blend(CHROMA[mv], black, 0.18); fill(st, sc, sc, 0.95); }
         }
         for (int i = 0; i < g_blackCount; i++) {
             int m = g_blackMidi[i] + dm;
             RECT br = black_rect(g_blackMidi[i]); br.left += dx; br.right += dx;
             if (br.right < g_clipL || br.left >= g_clipR) continue;
             RGB8 hi = blackHi, lo = blackLo;
-            if (g_page == PAGE_SKIN && g_typing) { int mv2 = ((m % 12) + 12) % 12; hi = blend(blackHi, DRUM_COLOR[mv2], 0.6); lo = blend(blackLo, DRUM_COLOR[mv2], 0.6); }
-            if (m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m])) { hi = white; lo = blend(white, blackHi, 0.4); }
+            if (m >= 0 && m < 128 && kit_for(m) != KIT_OFF) { int mv2 = ((m % 12) + 12) % 12; hi = blend(blackHi, DRUM_COLOR[mv2], 0.6); lo = blend(blackLo, DRUM_COLOR[mv2], 0.6); }
+            if (m >= 0 && m < 128 && (g_lit[m] > 0 || g_latched[m])) { hi = sharpLit; lo = g_light ? sharpLit : blend(white, blackHi, 0.4); }
             else if (m == g_hoverMidi && !sliding) { hi = blend(blackHi, white, 0.18); lo = blend(blackLo, white, 0.18); }
             fill(br, hi, lo, 1.0);
         }
@@ -1030,7 +1270,12 @@ static void paint(void) {
 
 static int g_posX = 0, g_posY = 0;
 
+// While a note is being played from inside the keyboard hook, painting is
+// deferred to one posted repaint: the sound goes first, the pixels after.
+static int g_deferPaint = 0, g_paintQueued = 0;
+#define WM_REPAINT (WM_APP + 15)
 static void push_frame(HWND hwnd) {
+    if (g_deferPaint) { if (!g_paintQueued) { g_paintQueued = 1; PostMessageW(hwnd, WM_REPAINT, 0, 0); } return; }
     paint();
     POINT dst = { g_posX, g_posY }, src = { 0, 0 };
     SIZE size = { g_stripW, g_stripH };
@@ -1050,6 +1295,7 @@ static void ensure_surface(void) {
     g_dib = CreateDIBSection(g_memDC, &bi, DIB_RGB_COLORS, (void **)&g_pixels, NULL, 0);
     SelectObject(g_memDC, g_dib);
     read_accent();
+    read_theme();
     render_chip_mask();
 }
 
@@ -1125,6 +1371,7 @@ static void build_keymap(void) {
 #define WM_CHORDMOD (WM_APP + 11)
 #define WM_PAGE (WM_APP + 13)
 #define WM_UNLATCH (WM_APP + 10)
+#define WM_PERCLATCH (WM_APP + 14)
 static DWORD g_ctrlTapTimes[3]; static int g_ctrlTaps = 0; static int g_ctrlSolo = 0;
 
 static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
@@ -1133,12 +1380,12 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         int down = (wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN);
         int isCtrl = (k->vkCode == VK_LCONTROL || k->vkCode == VK_RCONTROL);
         // Fn-free media keys while armed (MiniBook X: the bare keys arrive as
-        // F3/F4/F5; with Fn they send VK_VOLUME_*). Only while Menu Band holds the
+        // F2/F3/F4 — mute, down, up; with Fn they send VK_VOLUME_*). Only while Menu Band holds the
         // keyboard, so the rest of Windows keeps its F-keys.
-        if (g_fnFree && g_typing && !(k->flags & LLKHF_INJECTED) && (k->vkCode == VK_F3 || k->vkCode == VK_F4 || k->vkCode == VK_F5)
+        if (g_fnFree && g_typing && !(k->flags & LLKHF_INJECTED) && (k->vkCode == VK_F2 || k->vkCode == VK_F3 || k->vkCode == VK_F4)
             && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000) && !(GetAsyncKeyState(VK_LWIN) & 0x8000) && !(GetAsyncKeyState(VK_SHIFT) & 0x8000)) {
             if (down) {
-                WORD media = k->vkCode == VK_F3 ? VK_VOLUME_DOWN : k->vkCode == VK_F4 ? VK_VOLUME_MUTE : VK_VOLUME_UP;   // the MiniBook X legend: F3 ↓, F4 mute, F5 ↑
+                WORD media = k->vkCode == VK_F2 ? VK_VOLUME_MUTE : k->vkCode == VK_F3 ? VK_VOLUME_DOWN : VK_VOLUME_UP;   // the MiniBook X legend: F2 mute, F3 ↓, F4 ↑
                 INPUT in[2]; memset(in, 0, sizeof in);
                 in[0].type = INPUT_KEYBOARD; in[0].ki.wVk = media;
                 in[1].type = INPUT_KEYBOARD; in[1].ki.wVk = media; in[1].ki.dwFlags = KEYEVENTF_KEYUP;
@@ -1164,6 +1411,13 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
         if (k->vkCode == VK_LSHIFT || k->vkCode == VK_RSHIFT || k->vkCode == VK_CAPITAL) { PostMessageW(g_strip, WM_PEDAL, 0, 0); return CallNextHookEx(g_hook, code, wp, lp); }
         if (k->vkCode == VK_TAB) { if (down) PostMessageW(g_strip, WM_PAGE, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0, 0); return 1; }
         if (k->vkCode == VK_RETURN) { PostMessageW(g_strip, WM_LATCH, down, 0); return 1; }
+        // [ / ] latch a side to the classic kit; Shift ({ / }) to the TrackDrum kit.
+        if ((k->vkCode == VK_OEM_4 || k->vkCode == VK_OEM_6) && !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000)) {
+            static int bracketDown[2]; int side = k->vkCode == VK_OEM_4;
+            if (down && !bracketDown[side]) PostMessageW(g_strip, WM_PERCLATCH, side, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0);
+            bracketDown[side] = down;   // auto-repeat never re-toggles
+            return 1;
+        }
         if (k->vkCode == VK_BACK) { if (down && !(k->flags & LLKHF_UP)) PostMessageW(g_strip, WM_UNLATCH, (GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 1 : 0, 0); return 1; }
         if (k->vkCode == VK_LEFT || k->vkCode == VK_RIGHT || k->vkCode == VK_UP || k->vkCode == VK_DOWN) {
             if (down) PostMessageW(g_strip, WM_SURF, k->vkCode == VK_RIGHT ? 1 : k->vkCode == VK_LEFT ? (WPARAM)-1 : k->vkCode == VK_UP ? 8 : (WPARAM)-8, 0);
@@ -1183,7 +1437,12 @@ static LRESULT CALLBACK ll_keyboard(int code, WPARAM wp, LPARAM lp) {
             // Mapped note keys: Ctrl = major, Alt = minor, Ctrl+Alt = sus4 — the
             // Mac's ⌘ / ⌥ / ⌘⌥ chords — and they shadow Cut/Copy etc. while armed.
             if (g_semitoneByVk[k->vkCode] != -128 && !(GetAsyncKeyState(VK_LWIN) & 0x8000) && !(GetAsyncKeyState(VK_RWIN) & 0x8000)) {
-                PostMessageW(g_strip, WM_TYPEKEY, k->vkCode, down);
+                if (down) { LARGE_INTEGER q; QueryPerformanceCounter(&q); g_keyQpc = q.QuadPart; double lag = (double)(GetTickCount() - k->time); if (lag >= 0 && lag < 1000) { g_hookLagSum += lag; if (lag > g_hookLagMax) g_hookLagMax = lag; g_hookLagN++; } }
+                // Played right here, not posted: the hook runs on the strip's own
+                // thread, so this is the same code WM_TYPEKEY ran, minus the wait
+                // in the message queue behind repaints and touchpad frames (the
+                // latency probe saw 18–44 ms spikes from that queue).
+                g_deferPaint = 1; type_key(g_strip, (int)k->vkCode, down); g_deferPaint = 0;
                 return 1;
             }
         }
@@ -1201,12 +1460,38 @@ static int pedal_holds(int midi) {
     return (lshift && midi < split) || (rshift && midi >= split);
 }
 static uint64_t g_keyGroup[128];
+static double g_keyStrikeXY[128][2];     // TrackDrum-kit keys: where they struck, to lift from the same spot
+
+// Where a key strikes the TrackDrum membrane (MenuBandPercussion.keyStrike),
+// laid out for the hand: C kick dead centre, D snare, G hat, A the hat's
+// other side, E / F / B three kinds of rim click (top, side — panned to the
+// hand — and bottom), the sharps in between. d is the radius 0…1.
+static void key_strike(int pc, int left, double *x, double *y) {
+    static const struct { double d; int dir; } map[12] = {   // dir: 0 up, 1 down, 2 side
+        { 0.00, 0 }, { 0.20, 0 }, { 0.54, 0 }, { 0.40, 1 }, { 0.92, 0 }, { 1.00, 2 },
+        { 0.62, 1 }, { 0.78, 0 }, { 0.86, 0 }, { 0.84, 1 }, { 0.44, 0 }, { 0.96, 1 },
+    };
+    double d = map[pc].d, hand = left ? -1 : 1;
+    if (map[pc].dir == 2) { double sx = fmax(0.40, 1 - (1 - d) / 1.64); *x = 0.5 + hand * sx * 0.5; *y = 0.5; }
+    else { *x = 0.5 + hand * 0.14; *y = map[pc].dir == 0 ? 0.5 + d * 0.5 : 0.5 - d * 0.5; }
+}
+
 static void lit_on(HWND hwnd, int midi, int vel) {
     if (midi < 0 || midi > 127) return;
-    if (g_page == PAGE_SKIN && g_typing) {
+    if (g_keyQpc) { g_queuedQpc = g_keyQpc; g_keyQpc = 0; }
+    int kit = kit_for(midi);
+    if (kit != KIT_OFF) {
+        int pc = ((midi % 12) + 12) % 12, left = midi < g_firstMidi + 12;
+        if (g_keyGroup[midi]) perc_release(g_keyGroup[midi]);
         g_keyGroup[midi] = ++g_touchGroup;
-        double pan = ((midi - g_firstMidi) / 24.0 - 0.5) * 0.8;
-        perc_hit_drum((PercDrum)(((midi % 12) + 12) % 12), vel / 127.0, pan, g_keyGroup[midi]);
+        if (kit == KIT_TRACKDRUM) {
+            key_strike(pc, left, &g_keyStrikeXY[midi][0], &g_keyStrikeXY[midi][1]);
+            perc_strike_pad(g_keyStrikeXY[midi][0], g_keyStrikeXY[midi][1], vel / 127.0, NULL, 0, g_keyGroup[midi]);
+        } else {
+            double pan = ((midi - g_firstMidi) / 24.0 - 0.5) * 0.8;
+            g_keyStrikeXY[midi][0] = -1;
+            perc_hit_drum((PercDrum)pc, vel / 127.0, pan, g_keyGroup[midi]);
+        }
         g_lit[midi]++; push_frame(hwnd); return;
     }
     if (g_sustained[midi] || g_latched[midi]) { g_sustained[midi] = 0; g_latched[midi] = 0; play_off(midi); g_lit[midi] = 0; }   // retrigger a held note
@@ -1215,7 +1500,10 @@ static void lit_on(HWND hwnd, int midi, int vel) {
 }
 static void lit_off(HWND hwnd, int midi) {
     if (midi < 0 || midi > 127 || g_lit[midi] == 0) return;
-    if (g_keyGroup[midi]) { perc_release(g_keyGroup[midi]); g_keyGroup[midi] = 0; if (--g_lit[midi] < 0) g_lit[midi] = 0; push_frame(hwnd); return; }
+    if (g_keyGroup[midi]) {
+        if (g_keyStrikeXY[midi][0] >= 0) perc_lift_pad(g_keyStrikeXY[midi][0], g_keyStrikeXY[midi][1], g_keyGroup[midi]);   // every TrackDrum key lifts, as on the pad
+        perc_release(g_keyGroup[midi]); g_keyGroup[midi] = 0; if (--g_lit[midi] < 0) g_lit[midi] = 0; push_frame(hwnd); return;
+    }
     if (--g_lit[midi] == 0) { if (g_enterLatch) latch_note(midi); else if (g_latched[midi]) { } else if (pedal_holds(midi)) g_sustained[midi] = 1; else play_off(midi); }
     push_frame(hwnd);
 }
@@ -1461,12 +1749,13 @@ static void puck_put(int x, int y, RGB8 c, double a) {
 
 static void puck_paint(void) {
     int S = g_puckSize; memset(g_puckPixels, 0, sizeof(uint32_t) * S * S);
-    const RGB8 panel = { 18, 22, 30 }, grid = { 140, 155, 165 }, white = { 255, 255, 255 }, echoC = { 255, 160, 0 }, spaceC = { 90, 220, 230 };
+    const RGB8 panel = g_light ? (RGB8){ 246, 247, 249 } : (RGB8){ 18, 22, 30 }, grid = g_light ? (RGB8){ 60, 72, 84 } : (RGB8){ 140, 155, 165 }, echoC = { 255, 160, 0 }, spaceC = { 90, 220, 230 };
+    const RGB8 white = g_light ? (RGB8){ 30, 36, 44 } : (RGB8){ 255, 255, 255 };   // the neutral puck: dark on a light panel
     int r = pt(6.0);
     for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) {
         double cx = x < r ? r - 0.5 - x : (x >= S - r ? x - (S - r - 0.5) : 0), cy = y < r ? r - 0.5 - y : (y >= S - r ? y - (S - r - 0.5) : 0);
         if (cx * cx + cy * cy > (double)r * r) continue;
-        puck_put(x, y, panel, 0.78);
+        puck_put(x, y, panel, g_light ? 0.92 : 0.78);
     }
     for (int k = 1; k < 4; k++) { int g = S * k / 4; for (int i = r; i < S - r; i++) { puck_put(g, i, grid, 0.18); puck_put(i, g, grid, 0.18); } }
     for (int i = r; i < S - r; i++) { puck_put(S / 2, i, grid, 0.45); puck_put(i, S / 2, grid, 0.45); }
@@ -1534,7 +1823,8 @@ static void pad_contact(HWND hwnd, int id, int tip, double x, double y) {
 
 static void pad_paint(void) {
     int S = g_puckSize; memset(g_puckPixels, 0, sizeof(uint32_t) * S * S);
-    const RGB8 panel = { 18, 22, 30 }, line = { 140, 155, 165 }, white = { 255, 255, 255 }, splitBlue = { 15, 107, 255 };
+    const RGB8 panel = g_light ? (RGB8){ 246, 247, 249 } : (RGB8){ 18, 22, 30 }, line = g_light ? (RGB8){ 60, 72, 84 } : (RGB8){ 140, 155, 165 }, splitBlue = { 15, 107, 255 };
+    const RGB8 white = g_light ? (RGB8){ 30, 36, 44 } : (RGB8){ 255, 255, 255 };   // finger dots + split line
     const RGB8 kickC = { 220, 90, 40 }, tomC = { 190, 120, 70 }, snareC = { 220, 180, 110 }, hatC = { 120, 220, 180 }, clickC = { 200, 200, 210 };
     double W = S * 0.96, H = W * (0.50 / 0.82); int x0 = (S - (int)W) / 2, y0 = (S - (int)H) / 2;
     for (int y = 0; y < (int)H; y++) for (int x = 0; x < (int)W; x++) {
@@ -1543,13 +1833,14 @@ static void pad_paint(void) {
         double outside = hypot(fmax(qx, 0), fmax(qy, 0)), inside = fmin(fmax(qx, qy), 0), sd = outside + inside - corner; if (sd > 0) continue;
         double radius = 1.0 - fmin(1.0, fmax(0, -sd) / hh);
         RGB8 c = panel;
-        if (radius < 0.23) c = blend(panel, kickC, 0.35 * (1 - radius / 0.23) + 0.08);
-        else if (radius < 0.44) c = blend(panel, tomC, 0.16);
-        else if (radius < 0.66) c = blend(panel, snareC, 0.16);
-        else if (radius < 0.92) c = blend(panel, hatC, 0.14);
-        else c = blend(panel, clickC, 0.22);
+        double k = g_light ? 1.8 : 1.0;
+        if (radius < 0.23) c = blend(panel, kickC, fmin(1, k * (0.35 * (1 - radius / 0.23) + 0.08)));
+        else if (radius < 0.44) c = blend(panel, tomC, k * 0.16);
+        else if (radius < 0.66) c = blend(panel, snareC, k * 0.16);
+        else if (radius < 0.92) c = blend(panel, hatC, k * 0.14);
+        else c = blend(panel, g_light ? (RGB8){ 120, 120, 135 } : clickC, k * 0.22);
         if (g_page == PAGE_SPLIT && sx < 0) c = blend(panel, splitBlue, 0.14);
-        puck_put(x0 + x, y0 + y, c, 0.82);
+        puck_put(x0 + x, y0 + y, c, g_light ? 0.94 : 0.82);
         double seams[] = { 0.23, 0.44, 0.66, 0.92 };
         for (int k = 0; k < 4; k++) if (fabs(radius - seams[k]) < 0.012) puck_put(x0 + x, y0 + y, line, 0.35);
     }
@@ -1674,7 +1965,10 @@ static void track(HWND hwnd, int force) {
 #define IDM_FNFREE 103
 #define IDM_LOWLAT 104
 #define IDM_PAGE_BASE 110
-#define IDM_DRUMS_BASE 120
+#define IDM_ENGINE_AC 120
+#define IDM_SF_FOLDER 121
+#define IDM_SF_BASE 130
+#define IDM_DRUMS_BASE 180
 #define IDM_PROGRAM_BASE 200
 #define IDM_MIDI_BASE 400
 #define IDT_TRACK 1
@@ -1729,7 +2023,7 @@ static HICON make_note_icon(void) {
 // Player settings survive restarts: HKCU\Software\Aesthetic Computer\Menu Band.
 static const wchar_t *SETTINGS_KEY = L"Software\\Aesthetic Computer\\Menu Band";
 // Drums against notes, as a percent of the Mac's own percussion level (0.90).
-// Windows' GM notes sit hotter than the Mac's, so the kit starts above unity.
+// Windows' notes are normalized up to the SoundFont's level, so the kit starts above unity.
 static const int DRUMS_LEVELS[] = { 50, 75, 100, 125, 150, 200, 250 };
 static int g_drumsPct = 150;
 static void drums_apply(void) { perc_set_level(0.90 * g_drumsPct / 100.0); }
@@ -1782,6 +2076,13 @@ static void show_menu(HWND hwnd) {
         AppendMenuW(midi, MF_STRING | ((int)i == g_midiDevice ? MF_CHECKED : 0), IDM_MIDI_BASE + 1 + i, caps.szPname);
     }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)midi, L"MIDI out");
+    HMENU snd = CreatePopupMenu();
+    for (int i = 0; i < g_sfCount; i++) { wchar_t l[MAX_PATH + 16]; swprintf(l, MAX_PATH + 16, L"SoundFont: %s", sf_label(i)); AppendMenuW(snd, MF_STRING | (g_engine == ENGINE_SOUNDFONT && i == g_sfIndex ? MF_CHECKED : 0), IDM_SF_BASE + i, l); }
+    if (!g_sfCount) AppendMenuW(snd, MF_STRING | MF_GRAYED, 0, L"(no .sf2 in the soundfonts folder)");
+    AppendMenuW(snd, MF_STRING | (g_engine == ENGINE_AC ? MF_CHECKED : 0), IDM_ENGINE_AC, L"AC synth (Menu Band's own voices)");
+    AppendMenuW(snd, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(snd, MF_STRING, IDM_SF_FOLDER, L"Open soundfonts folder");
+    AppendMenuW(menu, MF_POPUP, (UINT_PTR)snd, L"Sound");
     HMENU pages = CreatePopupMenu();
     for (int i = 0; i < 4; i++) { wchar_t pl[48]; swprintf(pl, 48, L"%s%s", PAGE_NAMES[i], i == PAGE_SKIN ? L"  (TrackDrum)" : L""); AppendMenuW(pages, MF_STRING | (i == g_page ? MF_CHECKED : 0), IDM_PAGE_BASE + i, pl); }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)pages, L"Trackpad page  (Tab / Shift+Tab)");
@@ -1792,7 +2093,7 @@ static void show_menu(HWND hwnd) {
     }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)drums, L"Drums level");
     AppendMenuW(menu, MF_STRING | (g_lowLatency ? MF_CHECKED : 0), IDM_LOWLAT, L"Lowest latency while armed  (takes the speakers; other apps pause)");
-    AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn while armed  (F3 down, F4 mute, F5 up)");
+    AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn while armed  (F2 mute, F3 down, F4 up)");
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(menu, MF_STRING, IDM_QUIT, L"Quit Menu Band");
@@ -1870,13 +2171,40 @@ static void shift_octave(HWND hwnd, int dir) {
     setting_set(L"firstMidi", (DWORD)g_firstMidi);
 }
 
+static void type_key(HWND hwnd, int vk, int down) {
+    if (vk < 0 || vk > 255) return;
+    int midi = 60 + g_semitoneByVk[vk] + (g_firstMidi - 60);
+    if (down) {
+        if (!g_vkDown[vk]) {
+            g_vkDown[vk] = 1; g_vkRoot[vk] = midi; g_vkExt[vk][0] = g_vkExt[vk][1] = -1;
+            lit_on(hwnd, midi, 100);
+            revoice(hwnd, vk);
+            mb_log(L"type: vk %d -> midi %d q%d (program %d)", vk, midi, chord_quality(midi), g_program);
+        }
+    } else if (g_vkDown[vk]) {
+        g_vkDown[vk] = 0;
+        for (int i = 0; i < 2; i++) if (g_vkExt[vk][i] >= 0) { lit_off(hwnd, g_vkExt[vk][i]); g_vkExt[vk][i] = -1; }
+        lit_off(hwnd, midi);
+    }
+}
+
 static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
+    case WM_REPAINT:
+        g_paintQueued = 0; push_frame(hwnd);
+        return 0;
+    case WM_SFREADY: {
+        tsf *t = (tsf *)lp;
+        if ((int)wp != g_sfIndex) { tsf_close(t); return 0; }     // superseded by a later pick
+        wcsncpy_s(g_sfName, 64, sf_label((int)wp), _TRUNCATE);
+        g_sfPending = t; InterlockedExchange(&g_sfReady, 1);
+        return 0;
+    }
     case WM_CREATE:
         SetTimer(hwnd, IDT_TRACK, 400, NULL);
         return 0;
     case WM_TIMER:
-        if (wp == IDT_TRACK) { track(hwnd, 0); poll_play_file(hwnd); }
+        if (wp == IDT_TRACK) { track(hwnd, 0); poll_play_file(hwnd); mb_log_flush(); if (g_sfRetire) { tsf *old = g_sfRetire; g_sfRetire = NULL; tsf_close(old); } }
         if (wp == IDT_PLAY) step_play(hwnd);
         if (wp == IDT_DIGITS) { KillTimer(hwnd, IDT_DIGITS); g_pendingDigits[0] = 0; push_frame(hwnd); }
         if (wp == IDT_CUE) step_cue(hwnd);
@@ -1946,21 +2274,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_TYPEKEY: {
-        int vk = (int)wp, down = (int)lp;
-        if (vk < 0 || vk > 255) return 0;
-        int midi = 60 + g_semitoneByVk[vk] + (g_firstMidi - 60);
-        if (down) {
-            if (!g_vkDown[vk]) {
-                g_vkDown[vk] = 1; g_vkRoot[vk] = midi; g_vkExt[vk][0] = g_vkExt[vk][1] = -1;
-                lit_on(hwnd, midi, 100);
-                revoice(hwnd, vk);
-                mb_log(L"type: vk %d -> midi %d q%d (program %d)", vk, midi, chord_quality(midi), g_program);
-            }
-        } else if (g_vkDown[vk]) {
-            g_vkDown[vk] = 0;
-            for (int i = 0; i < 2; i++) if (g_vkExt[vk][i] >= 0) { lit_off(hwnd, g_vkExt[vk][i]); g_vkExt[vk][i] = -1; }
-            lit_off(hwnd, midi);
-        }
+        type_key(hwnd, (int)wp, (int)lp);
         return 0;
     case WM_CHORDMOD:
         for (int v = 0; v < 256; v++) if (g_vkDown[v]) revoice(hwnd, v);
@@ -1987,6 +2301,22 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_UNLATCH:
         unlatch(hwnd, (int)wp);
         return 0;
+    case WM_PERCLATCH: {
+        // MenuBandController.pressPercussionLatch: plain = off <-> classic;
+        // shifted = off/classic -> TrackDrum, TrackDrum -> off.
+        int left = (int)wp, wantTrack = (int)lp, *kit = left ? &g_kitL : &g_kitR;
+        release_typed(hwnd); mouse_up(hwnd);
+        if (wantTrack) *kit = *kit == KIT_TRACKDRUM ? KIT_OFF : KIT_TRACKDRUM;
+        else *kit = *kit == KIT_OFF ? KIT_CLASSIC : KIT_OFF;
+        setting_set(left ? L"kitLeft" : L"kitRight", (DWORD)*kit);
+        mb_log(L"perc latch %s -> %s", left ? L"left" : L"right", *kit == KIT_OFF ? L"off" : *kit == KIT_CLASSIC ? L"classic" : L"trackdrum");
+        double pan = left ? -0.5 : 0.5;
+        if (*kit == KIT_TRACKDRUM) { double x, y; key_strike(11, left, &x, &y); perc_strike_pad(x, y, 96 / 127.0, NULL, 0, 0); }   // arm cue in the kit's own voice: a rim click
+        else if (*kit == KIT_CLASSIC) perc_hit_drum(PERC_HAT_CLOSED, 0.7, pan, 0);
+        else perc_hit_drum(PERC_BLOCK, 0.45, pan, 0);
+        push_frame(hwnd);
+        return 0;
+    }
     case WM_SURF: {
         // Arrow keys surf the instruments: ←/→ one program, ↑/↓ one family.
         int next = g_program + (int)(intptr_t)wp; if (next < 0) next += 128; if (next > 127) next -= 128;
@@ -2016,6 +2346,12 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_LOWLAT) { g_lowLatency = !g_lowLatency; setting_set(L"lowLatency", (DWORD)g_lowLatency); audio_set_exclusive(g_typing); return 0; }
         if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
+        if (id == IDM_ENGINE_AC) { synth_panic(); g_engine = ENGINE_AC; setting_set(L"engine", ENGINE_AC); push_frame(hwnd); }
+        if (id >= IDM_SF_BASE && id < IDM_SF_BASE + SF_MAX && id - IDM_SF_BASE < g_sfCount) {
+            synth_panic(); g_engine = ENGINE_SOUNDFONT; setting_set(L"engine", ENGINE_SOUNDFONT);
+            if (id - IDM_SF_BASE != g_sfIndex || !g_sfReady) { g_sfIndex = id - IDM_SF_BASE; setting_set(L"soundfont", (DWORD)g_sfIndex); sf_load(g_sfIndex); }
+        }
+        if (id == IDM_SF_FOLDER) { wchar_t dir[MAX_PATH]; sf_dir(dir); CreateDirectoryW(dir, NULL); ShellExecuteW(NULL, L"open", dir, NULL, NULL, SW_SHOWNORMAL); }
         return 0;
     }
     case WM_DWMCOLORIZATIONCOLORCHANGED:
@@ -2025,6 +2361,7 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_DPICHANGED:
     case WM_SETTINGCHANGE:
         track(hwnd, 1);
+        if (g_puckAlpha > 0.01f) puck_show();
         return 0;
     case WM_DESTROY:
         mb_log(L"WM_DESTROY on strip");
@@ -2041,14 +2378,24 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+// The log stays open and is flushed on the 400 ms track tick: opening and
+// closing a file per keypress (with Defender scanning each open) cost the UI
+// thread milliseconds right when the next note wanted it. The audio thread
+// logs too, so writes are serialized.
+static FILE *g_logFile = NULL; static CRITICAL_SECTION g_logLock; static int g_logLockReady = 0;
 static void mb_log(const wchar_t *fmt, ...) {
-    wchar_t path[MAX_PATH]; GetTempPathW(MAX_PATH, path); wcscat_s(path, MAX_PATH, L"menuband.log");
-    FILE *f = NULL; _wfopen_s(&f, path, L"a"); if (!f) return;
-    SYSTEMTIME st; GetLocalTime(&st);
-    fwprintf(f, L"%02d:%02d:%02d.%03d ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
-    va_list ap; va_start(ap, fmt); vfwprintf(f, fmt, ap); va_end(ap);
-    fwprintf(f, L"\n"); fclose(f);
+    if (!g_logLockReady) { InitializeCriticalSection(&g_logLock); g_logLockReady = 1; }
+    EnterCriticalSection(&g_logLock);
+    if (!g_logFile) { wchar_t path[MAX_PATH]; GetTempPathW(MAX_PATH, path); wcscat_s(path, MAX_PATH, L"menuband.log"); g_logFile = _wfsopen(path, L"a", _SH_DENYNO); }
+    if (g_logFile) {
+        SYSTEMTIME st; GetLocalTime(&st);
+        fwprintf(g_logFile, L"%02d:%02d:%02d.%03d ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+        va_list ap; va_start(ap, fmt); vfwprintf(g_logFile, fmt, ap); va_end(ap);
+        fwprintf(g_logFile, L"\n");
+    }
+    LeaveCriticalSection(&g_logLock);
 }
+static void mb_log_flush(void) { if (!g_logLockReady) return; EnterCriticalSection(&g_logLock); if (g_logFile) fflush(g_logFile); LeaveCriticalSection(&g_logLock); }
 
 // Last-resort crash note: Windows Error Reporting is off on the lean install,
 // so write the exception code and address to %TEMP%\menuband-crash.txt.
@@ -2071,6 +2418,15 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     CoInitializeEx(NULL, COINIT_MULTITHREADED);
     InitializeCriticalSection(&g_lock);
+    { LARGE_INTEGER f; QueryPerformanceFrequency(&f); g_qpcFreq = f.QuadPart; }
+    InitializeCriticalSection(&g_logLock); g_logLockReady = 1;
+    // The keyboard hook runs on this thread: keep it ahead of everything else
+    // on the box so a keypress becomes a queued note without waiting its turn.
+    // Launched from a scheduled task (ac-desk) the process starts BelowNormal;
+    // lift the whole process to High first, then the hook thread within it.
+    SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+    timeBeginPeriod(1);
     HANDLE single = CreateMutexW(NULL, TRUE, L"computer.aesthetic.menuband.windows");
     if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
@@ -2079,11 +2435,15 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     g_drumsPct = (int)setting_get(L"drumsLevel", 150); if (g_drumsPct < 25 || g_drumsPct > 300) g_drumsPct = 150;
     drums_apply();
     g_lowLatency = setting_get(L"lowLatency", 1) ? 1 : 0;
+    g_kitL = (int)setting_get(L"kitLeft", KIT_OFF) % 3; g_kitR = (int)setting_get(L"kitRight", KIT_OFF) % 3;
     g_page = (int)setting_get(L"page", PAGE_SKIN); if (g_page < 0 || g_page > 3) g_page = PAGE_SKIN;
     g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
     build_keys();
     build_keymap();
     piano_load_bank();
+    g_engine = setting_get(L"engine", ENGINE_SOUNDFONT) == ENGINE_AC ? ENGINE_AC : ENGINE_SOUNDFONT;
+    sf_scan();
+    g_sfIndex = (int)setting_get(L"soundfont", 0); if (g_sfIndex >= g_sfCount) g_sfIndex = 0;
     if (!audio_start()) { mb_log(L"audio_start FAILED"); MessageBoxW(NULL, L"Menu Band could not open the audio output.", L"Menu Band", MB_ICONWARNING); }
 
     WNDCLASSW wc; memset(&wc, 0, sizeof wc);
@@ -2116,12 +2476,15 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
     g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, ll_mouse, hInst, 0);
     touch_register(hwnd);
     mb_log(L"start: strip=%p flash=%p hook=%p audio=%d (lastErr=%lu)", (void *)hwnd, (void *)g_flash, (void *)g_hook, (int)g_audioRunning, GetLastError());
+    g_sfNotify = hwnd;
+    sf_load(g_sfIndex);   // measures AC's voices too, so it runs even when the AC engine is chosen
     track(hwnd, 1);
     mb_log(L"start: placed at %d,%d size %dx%d taskbarH=%d", g_posX, g_posY, g_stripW, g_stripH, g_lastTaskbarH);
 
     MSG m;
     while (GetMessageW(&m, NULL, 0, 0)) { TranslateMessage(&m); DispatchMessageW(&m); }
     audio_stop();
+    mb_log_flush(); timeEndPeriod(1);
     CloseHandle(single);
     return 0;
 }
