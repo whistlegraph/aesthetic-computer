@@ -139,7 +139,10 @@ platform :ios do
   desc "Listing text, categories, review notes and age rating (creates the App Store version if missing)"
   lane :meta do
     UI.user_error!("No app record yet. Run FASTLANE_USER=<Apple ID> fastlane ios create once.") unless (asc_key && store_app)
-    deliver(**deliver_defaults, app_version: VERSION, app_rating_config_path: AGE_JSON,
+    # The review phone stays out of the repo: CHOIR_REVIEW_PHONE (or ~/.choir-review-phone).
+    phone = ENV["CHOIR_REVIEW_PHONE"] || (File.read(File.expand_path("~/.choir-review-phone")).strip rescue nil)
+    review = phone ? { app_review_information: { phone_number: phone } } : {}
+    deliver(**deliver_defaults, **review, app_version: VERSION, app_rating_config_path: AGE_JSON,
             skip_screenshots: true, skip_binary_upload: true)
   end
 
