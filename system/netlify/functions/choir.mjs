@@ -11,14 +11,18 @@
 //   PUT    /api/choir?prefs=1 {notifications}                         (Bearer)
 //   POST   /api/choir?event=1 {name,props,session,surface}   a trail event
 //   GET    /api/choir?events=1&since=<iso>                   the trail (admin)
+//   POST   /api/choir?curate=1 {items:[…]}   x-choir-editor: <CHOIR_EDITOR_SECRET>
+//          the jasellite curator adds to Discover and retires closed calls
 //
 // Sign-in is the aesthetic tenant's: the client uses lib/auth0-otp.mjs
 // (email + six digits) and the token is the one `authorize()` already reads.
 import { connect } from "../../backend/database.mjs";
 import { authorize, handleBySharedEmail, hasAdmin } from "../../backend/authorization.mjs";
 import { cleanEvent, record, recent } from "../../backend/choir-events.mjs";
+import { noteMember, notifyChoir } from "../../backend/choir-push.mjs";
 import { respond } from "../../backend/http.mjs";
-import { mongoChoirStore, publicPost } from "../../backend/choir.mjs";
+import { mongoChoirStore, publicPost, curate } from "../../backend/choir.mjs";
+import { timingSafeEqual, createHash } from "node:crypto";
 
 let pending;
 export const choirStore = () => pending ??= (async () => {
@@ -45,6 +49,15 @@ async function whoami(headers, db) {
 const trail = (db, name, props, headers) => record(db, cleanEvent(
   { name, props, surface: "server", session: headers?.["x-choir-session"] }, {})).catch(() => {});
 
+// Constant-time check of the curator's shared secret (vault lith/.env).
+function editor(headers) {
+  const want = process.env.CHOIR_EDITOR_SECRET || "";
+  const got = headers["x-choir-editor"] || headers["X-Choir-Editor"] || "";
+  if (want.length < 32 || !got) return false;
+  const h = (v) => createHash("sha256").update(v).digest();
+  return timingSafeEqual(h(want), h(got));
+}
+
 const ok = (v, cache = "no-store") => respond(200, v, { "Cache-Control": cache, "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS" });
 const no = (code, error) => respond(code, { error }, { "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS" });
 
@@ -62,6 +75,7 @@ export async function handler(event) {
         if (!me) { trail(db, "me:anonymous", {}, event.headers); return no(401, "Sign in"); }
         trail(db, me.handle ? (me.via ? "me:linked" : "me:handle") : "me:no-handle",
           { handle: me.handle || "", conn: me.user.sub.split("|")[0] }, event.headers);
+        noteMember(db, me.sub, me.user.sub, me.handle).catch(() => {});
         return ok({ handle: me.handle, prefs: await store.prefsOf(me.sub) });
       }
       if (q.events) {
@@ -76,6 +90,24 @@ export async function handler(event) {
       }
       const rows = await store.feed({ tag: q.tag, before: q.before, limit: Number(q.limit) || 30, news: !!q.news });
       return ok({ posts: rows.map(publicPost), next: rows.length ? rows.at(-1).when : null }, "public, max-age=5");
+    }
+
+    if (event.httpMethod === "POST" && q.curate) {
+      if (!editor(event.headers || {})) return no(401, "Editors only");
+      let body;
+      try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
+      const result = await curate(db.collection("choir-posts"), db.collection("choir-posts-archive"), body.items);
+      if (result.added.length) {
+        const first = (Array.isArray(body.items) ? body.items : []).find((it) => it?.url === result.added[0]);
+        const more = result.added.length - 1;
+        notifyChoir(db, {
+          title: "New in Discover",
+          body: `${first?.title || "Fresh news and open calls"}${more ? ` and ${more} more` : ""}`.slice(0, 180),
+          thread: "choir-discover", collapse: "choir-discover", data: { url: "/discover" },
+        }).then((t) => trail(db, "push:discover", t, {})).catch(() => {});
+      }
+      await record(db, { name: "curate", props: { added: result.added.length, skipped: result.skipped.length, expired: result.expired.length }, surface: "server", session: null, at: new Date() }).catch(() => {});
+      return ok(result);
     }
 
     if (event.httpMethod === "POST" && q.event) {
@@ -97,6 +129,13 @@ export async function handler(event) {
       try {
         const row = await store.post(me.sub, me.handle, body);
         trail(db, body.replyTo ? "post:reply" : "post:root", { handle: me.handle, tags: (row.tags || []).join(",") }, event.headers);
+        // Everyone else in the room hears about it; replies say where.
+        notifyChoir(db, {
+          title: body.replyTo ? `${me.handle} replied` : me.handle,
+          body: row.text.replace(/https?:\/\/\S+/g, "🔗").slice(0, 180),
+          thread: "choir", collapse: body.replyTo ? `choir-${row.replyTo}` : undefined,
+          data: { url: `/thread/${row.replyTo || row._id}` },
+        }, { except: me.sub }).then((t) => trail(db, "push:post", t, {})).catch(() => {});
         return ok({ post: publicPost(row) });
       } catch (error) {
         trail(db, "post:refused", { handle: me.handle, why: error.message }, event.headers);

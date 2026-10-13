@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS } from "./choir.mjs";
+import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate } from "./choir.mjs";
 
 // The smallest Mongo choir needs: find/sort/limit, findOne, insertOne,
 // updateOne with $set/$inc/upsert, countDocuments.
@@ -20,6 +20,7 @@ function collection() {
     rows,
     createIndex: async () => {},
     insertOne: async (row) => { rows.push({ ...row }); },
+    deleteOne: async (q) => { const i = rows.findIndex((r) => matches(r, q)); if (i >= 0) rows.splice(i, 1); return { deletedCount: i >= 0 ? 1 : 0 }; },
     findOne: async (q) => rows.find((r) => matches(r, q)) || null,
     countDocuments: async (q) => rows.filter((r) => matches(r, q)).length,
     updateOne: async (q, u, o = {}) => {
@@ -141,4 +142,25 @@ test("news lives in Discover, not the chat", async () => {
   assert.deepEqual((await s.feed()).map((p) => p._id), [chat._id]);
   assert.deepEqual((await s.feed({ news: true })).map((p) => p._id), ["a".repeat(24)]);
   assert.ok(await s.thread("a".repeat(24)), "a news item still has a comment thread");
+});
+
+test("the curator adds new links, skips repeats and Artforum, and retires closed calls", async () => {
+  const posts = collection(), archive = collection();
+  let n = 0; const id = () => String(++n).padStart(24, "c");
+  const now = new Date("2026-10-13T12:00:00Z");
+  await posts.insertOne({ _id: "b".repeat(24), owner: "choir|editor", links: ["https://old.example/x"], kind: "opportunity", deadline: "2026-10-01", replies: 0, news: true, when: "2026-09-01T00:00:00Z", replyTo: null });
+  const r = await curate(posts, archive, [
+    { url: "https://e-flux.com/a", title: "A show", description: "About it.", siteName: "e-flux", via: "e-flux" },
+    { url: "https://e-flux.com/a", title: "A show again" },
+    { url: "https://www.artforum.com/x", title: "Nope" },
+    { url: "https://grants.example/g", title: "A grant", kind: "opportunity", deadline: "2026-11-15" },
+    { url: "https://grants.example/closed", title: "Closed", kind: "opportunity", deadline: "2026-10-01" },
+  ], { now, id });
+  assert.deepEqual(r.added, ["https://e-flux.com/a", "https://grants.example/g"]);
+  assert.equal(r.skipped.length, 3);
+  assert.deepEqual(r.expired, ["https://old.example/x"]);
+  assert.equal(archive.rows.length, 1);
+  const g = posts.rows.find((p) => p.links[0] === "https://grants.example/g");
+  assert.equal(g.kind, "opportunity"); assert.equal(g.deadline, "2026-11-15"); assert.equal(g.news, true);
+  assert.equal(posts.rows.find((p) => p.links[0] === "https://e-flux.com/a").preview.via, "e-flux");
 });

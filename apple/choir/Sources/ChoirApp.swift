@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct ChoirApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var account = Account()
     @StateObject private var room = Room()
     @Environment(\.scenePhase) private var phase
@@ -13,8 +14,13 @@ struct ChoirApp: App {
                 .environmentObject(room)
                 .preferredColorScheme(.light)
                 .tint(Theme.ink)
-                .task { Trail.send("open", ["signedIn": account.signedIn]); await account.refreshMe() }
-                .onChange(of: phase) { _, p in if p == .active { Task { await room.load() } } }
+                .environmentObject(Router.shared)
+                .task { Devices.account = account; Trail.send("open", ["signedIn": account.signedIn]); await account.refreshMe() }
+                .onChange(of: phase) { _, p in
+                    guard p == .active else { return }
+                    Devices.report(.open)
+                    Task { await room.load(); await Devices.refresh() }
+                }
         }
     }
 }

@@ -150,3 +150,42 @@ function hex24() {
   while (s.length < 24) s += Math.floor(Math.random() * 16).toString(16);
   return s;
 }
+
+// The curator's door (toolchain/choir/curator.mjs on jasellite): add news and
+// open calls to Discover, skipping links already there, and archive open calls
+// whose deadline has passed. Items are already chosen; this only shapes them.
+export async function curate(posts, archive, items, { now = new Date(), id = () => hex24() } = {}) {
+  const today = now.toISOString().slice(0, 10);
+  const added = [], skipped = [];
+  for (const [i, it] of (Array.isArray(items) ? items : []).slice(0, 30).entries()) {
+    const url = String(it?.url || "");
+    if (!/^https:\/\/[^\s]+$/.test(url) || /artforum\.com/i.test(url)) { skipped.push(url || "(no url)"); continue; }
+    if (await posts.findOne({ links: url })) { skipped.push(url); continue; }
+    const title = String(it.title || "").replace(/\s+/g, " ").trim().slice(0, 200);
+    if (!title) { skipped.push(url); continue; }
+    const kind = it.kind === "opportunity" ? "opportunity" : null;
+    const deadline = /^\d{4}-\d{2}-\d{2}$/.test(it.deadline || "") ? it.deadline : null;
+    if (kind && deadline && deadline < today) { skipped.push(url); continue; }
+    const v = validatePost({ text: `${title}\n${url}`, tags: [] });
+    const row = {
+      _id: id(), owner: "choir|editor", handle: "@choir", ...v, links: [url],
+      when: new Date(now.getTime() - i * 60_000).toISOString(), replies: 0, news: true,
+      ...(kind ? { kind } : {}), ...(deadline ? { deadline } : {}),
+      preview: {
+        title, description: String(it.description || "").slice(0, 600) || null,
+        image: /^https:\/\//.test(it.image || "") ? it.image : null,
+        siteName: String(it.siteName || new URL(url).hostname.replace(/^www\./, "")).slice(0, 80),
+        ...(it.via ? { via: String(it.via).slice(0, 80) } : {}),
+      },
+    };
+    await posts.insertOne(row);
+    added.push(url);
+  }
+  // Calls that have closed leave Discover for the archive (replies keep them).
+  const expired = await posts.find({ kind: "opportunity", deadline: { $lt: today }, replies: 0 }).toArray();
+  for (const r of expired) {
+    await archive.updateOne({ _id: r._id }, { $set: { ...r, archivedAt: now.toISOString(), archivedWhy: "deadline passed" } }, { upsert: true });
+    await posts.deleteOne({ _id: r._id });
+  }
+  return { added, skipped, expired: expired.map((r) => r.links?.[0]) };
+}

@@ -5,6 +5,7 @@ import SwiftUI
 struct RoomView: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
+    @EnvironmentObject var router: Router
     @State private var sheet: Sheet?
     @State private var open: Post?
     @State private var discover = false
@@ -84,6 +85,14 @@ struct RoomView: View {
                 case .account: AccountView()
                 }
             }
+            .onChange(of: router.thread) { _, id in
+                guard let id else { return }
+                Task {
+                    if let t = try? await API.thread(id) { open = t.root }
+                    router.thread = nil
+                }
+            }
+            .onChange(of: router.discover) { _, go in if go { discover = true; router.discover = false } }
             .task {
                 await room.load()
                 // Live sockets come later; a quick poll while the chat is open.

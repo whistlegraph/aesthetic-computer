@@ -33,9 +33,13 @@ final class Account: ObservableObject {
         save(Tokens(access: access, refresh: r["refresh"] as? String ?? "", expires: Date(timeIntervalSince1970: expires / 1000)))
         Trail.send("signin:ok")
         await refreshMe()
+        Devices.report(.login)
+        // Ask once someone can actually join in, never at launch.
+        if handle != nil && notifications { await Devices.ask() }
     }
 
     func signOut() {
+        if tokens != nil { Devices.report(.logout) }
         tokens = nil; handle = nil
         SecItemDelete(Self.query as CFDictionary)
         Trail.send("signout")
@@ -62,6 +66,7 @@ final class Account: ObservableObject {
 
     func setNotifications(_ on: Bool) async {
         notifications = on
+        if on { await Devices.ask() }
         struct Body: Encodable { let notifications: Bool }
         struct Reply: Decodable { let prefs: Me.Prefs }
         if let r: Reply = try? await API.send("PUT", "?prefs=1", Body(notifications: on), token: await token()) { notifications = r.prefs.notifications }
