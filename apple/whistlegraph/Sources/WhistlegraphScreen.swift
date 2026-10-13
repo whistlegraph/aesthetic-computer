@@ -464,63 +464,12 @@ struct VersionFeed: View {
     }
     private var rowHeight: CGFloat { max(56, textSize + 28) }
     var body: some View {
-        GeometryReader { geometry in
-        ScrollView {
-
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(snapshot.versions.filter { $0.id > 0 || $0.remixURL != nil }.reversed()) { version in
-                    Button {
-                        ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
-                    } label: {
-                        VersionRow(version: version, foreground: foreground, selected: version.id == snapshot.head, textSize: textSize, rowHeight: rowHeight)
-                    }.buttonStyle(.plain).disabled(disabled || holdSelection)
-                        .id(version.id)
-                        .visualEffect { content, geometry in
-                            let distance = max(0, geometry.frame(in: .scrollView(axis: .vertical)).minY)
-                            return content.opacity(Double(max(0.22, 1 - distance / 280)))
-                        }
-                        .accessibilityAddTraits(version.id == snapshot.head ? [.isSelected] : [])
-                        .accessibilityIdentifier("version-\(version.id)")
-                        .accessibilityValue(version.id == snapshot.head ? "Current version" : "")
-                        .contextMenu { if let text = version.remixURL, let url = URL(string: text), url.scheme == "https", url.host == "mime.ac" { Link("Original work", destination: url) } }
-                }
-            }.scrollTargetLayout().font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+        VStack(spacing: 0) {
+        if snapshot.busy {
+            GenerationStatusStrip(snapshot: snapshot, foreground: foreground, stop: stop)
         }
-        .safeAreaPadding(.bottom, max(0, geometry.size.height - rowHeight))
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $focusedVersion, anchor: .top)
-        .overlay(alignment: .top) {
-            if snapshot.versions.contains(where: { $0.id > 0 || $0.remixURL != nil }) {
-            Rectangle().fill(foreground.opacity(0.055))
-                .overlay(alignment: .bottom) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
-                .overlay(alignment: .top) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
-                .frame(height: rowHeight).allowsHitTesting(false).accessibilityHidden(true)
-            }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
+        else if let attempt = snapshot.attempt, ["failed", "unchanged", "interrupted"].contains(attempt.status) {
                 VStack(spacing: 4) {
-                if snapshot.busy {
-                    // Working: the request alive letter by letter, Stop beside it,
-                    // then the code as it arrives and what the knot knows so far.
-                    HStack(alignment: .top, spacing: 12) {
-                        GlyphWave(text: attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression),
-                                  size: textSize, color: foreground)
-                            .frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 8)
-                            .accessibilityIdentifier("generation-request")
-                        Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
-                    }.padding(.horizontal, 10).padding(.top, 6)
-                    if snapshot.phase.hasPrefix("Checking picture") {
-                        Text("Checking picture…")
-                            .font(.custom("ComicRelief-Regular", size: max(15, textSize * 0.75), relativeTo: .body))
-                            .frame(maxWidth: .infinity, alignment: .trailing).padding(.horizontal, 12)
-                            .accessibilityIdentifier("generation-phase")
-                    }
-                    if let output = snapshot.output, !output.isEmpty {
-                        CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"), fontSize: max(12, textSize * 0.6))
-                            .padding(.horizontal, 12)
-                    }
-                } else {
                 HStack(spacing: 12) {
                     Group {
                     // One line: the words, and why it stopped as a dimmed tail on the same line.
@@ -563,7 +512,6 @@ struct VersionFeed: View {
                     } : nil)
                 .accessibilityAction(named: Text("Discard this try")) { discardAttempt() }
                 .onChange(of: attempt.error) { reasonShown = false }
-                }
                 if reasonShown, !snapshot.busy, ["failed", "interrupted"].contains(attempt.status), !attempt.error.isEmpty {
                     Text(attempt.error)
                         .font(.custom("ComicRelief-Regular", size: max(15, textSize * 0.7), relativeTo: .body))
@@ -571,11 +519,39 @@ struct VersionFeed: View {
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14).padding(.bottom, 6)
                         .accessibilityIdentifier("attempt-reason")
                 }
-                // Not just a spinner: the phase, the clock, who is working, each step, and what the model says.
-                if snapshot.busy, let progress = snapshot.progress {
-                    TurnProgressPanel(progress: progress, textSize: textSize).padding(.horizontal, 12).padding(.bottom, 6)
                 }
+            }
+        GeometryReader { geometry in
+        ScrollView {
+
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(snapshot.versions.filter { $0.id > 0 || $0.remixURL != nil }.reversed()) { version in
+                    Button {
+                        ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
+                    } label: {
+                        VersionRow(version: version, foreground: foreground, selected: version.id == snapshot.head, textSize: textSize, rowHeight: rowHeight)
+                    }.buttonStyle(.plain).disabled(disabled || holdSelection)
+                        .id(version.id)
+                        .visualEffect { content, geometry in
+                            let distance = max(0, geometry.frame(in: .scrollView(axis: .vertical)).minY)
+                            return content.opacity(Double(max(0.22, 1 - distance / 280)))
+                        }
+                        .accessibilityAddTraits(version.id == snapshot.head ? [.isSelected] : [])
+                        .accessibilityIdentifier("version-\(version.id)")
+                        .accessibilityValue(version.id == snapshot.head ? "Current version" : "")
+                        .contextMenu { if let text = version.remixURL, let url = URL(string: text), url.scheme == "https", url.host == "mime.ac" { Link("Original work", destination: url) } }
                 }
+            }.scrollTargetLayout().font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+        }
+        .safeAreaPadding(.bottom, max(0, geometry.size.height - rowHeight))
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $focusedVersion, anchor: .top)
+        .overlay(alignment: .top) {
+            if snapshot.versions.contains(where: { $0.id > 0 || $0.remixURL != nil }) {
+            Rectangle().fill(foreground.opacity(0.055))
+                .overlay(alignment: .bottom) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
+                .overlay(alignment: .top) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
+                .frame(height: rowHeight).allowsHitTesting(false).accessibilityHidden(true)
             }
         }
         .scrollDisabled(disabled || holdSelection)
@@ -587,6 +563,7 @@ struct VersionFeed: View {
             select(focusedVersion)
         }
         .accessibilityLabel("Version history").accessibilityIdentifier("version-rolodex")
+        }
         }
     }
 }
@@ -804,40 +781,5 @@ struct QuietNote: View {
     var body: some View {
         Text(text).font(.custom("ComicRelief-Regular", size: 15, relativeTo: .footnote))
             .foregroundStyle(ink.opacity(0.72)).frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-struct TurnProgressPanel: View {
-    let progress: TurnProgress
-    let textSize: CGFloat
-    private static let withFraction: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
-    private static let plain = ISO8601DateFormatter()
-    static func date(_ value: String) -> Date? { withFraction.date(from: value) ?? plain.date(from: value) }
-    private func clock(_ seconds: Double) -> String { let s = max(0, Int(seconds)); return String(format: "%d:%02d", s / 60, s % 60) }
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let start = Self.date(progress.startedAt)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(progress.phase).font(.custom("ComicRelief-Bold", size: max(13, textSize * 0.7), relativeTo: .subheadline))
-                    if progress.round > 1 { Text("round \(progress.round)").opacity(0.7) }
-                    Spacer(minLength: 0)
-                    if let start { Text(clock(context.date.timeIntervalSince(start))).monospacedDigit() }
-                    if !progress.worker.isEmpty { Text(progress.worker).opacity(0.55).lineLimit(1) }
-                }.font(.custom("ComicRelief-Regular", size: max(12, textSize * 0.6), relativeTo: .footnote))
-                ForEach(progress.steps.suffix(5)) { step in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(start.flatMap { s in Self.date(step.at).map { "+" + clock($0.timeIntervalSince(s)) } } ?? "")
-                            .monospacedDigit().opacity(0.5).frame(width: 48, alignment: .trailing)
-                        Text(step.text).fixedSize(horizontal: false, vertical: true)
-                    }.font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).opacity(0.85)
-                }
-                if !progress.said.isEmpty {
-                    Text("\u{201C}" + progress.said + "\u{201D}").font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).fixedSize(horizontal: false, vertical: true).opacity(0.75)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine).accessibilityIdentifier("turn-progress")
-        }
     }
 }

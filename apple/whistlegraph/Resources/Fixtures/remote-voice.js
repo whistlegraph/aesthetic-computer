@@ -8,7 +8,7 @@
   // The HTTP completion path also works when the thread socket is offline.
   window.WebSocket = class extends EventTarget { readyState=0; send() {} close() {} };
   const original = window.fetch.bind(window);
-  let turn=0, outcome='done', finished=false;
+  let turn=0, outcome='done', finished=false, polls=0;
   window.__remoteVoiceOutcome = 'done';
   window.fetch = async (input,init={}) => {
     const url=String(input);
@@ -18,11 +18,20 @@
     if(url.includes('/api/easel-credits'))return Response.json({remaining:100000,used:0,limit:100000,purchased:0});
     if(url.includes('/api/whistlegraph-turn')) {
       if(init.method==='POST') {
-        turn++;outcome=window.__remoteVoiceOutcome;finished=false;
+        turn++;outcome=window.__remoteVoiceOutcome;finished=false;polls=0;
         return outcome==='rejected'?Response.json({error:'Fixture rejected'},{status:503}):Response.json({id:'fixture-'+turn},{status:202});
       }
       if(init.method==='DELETE')return Response.json({ok:true});
       if(url.includes('?code='))return Response.json({turns:[]});
+      if(outcome==='progress') {
+        polls++;
+        return Response.json({status:'running',createdAt:new Date().toISOString(),progress:{
+          phase:polls===1?'Waiting for model…':polls>5?'Checking picture…':'Writing…',round:3,worker:'fixture worker',
+          steps:Array.from({length:8},(_,i)=>({at:new Date().toISOString(),text:'Long diagnostic step '+i+' with implementation detail'})),
+          said:'Verbose generation commentary that should stay out of the interface.',
+          tool:'write_piece',tail:JSON.stringify({source:Array.from({length:80},(_,i)=>'ink("pink").circle('+i+',30,12);').join('\n')+'\n// update '+polls})
+        }});
+      }
       if(outcome==='stalled')return new Promise(resolve=>window.__releaseRemotePoll=()=>resolve(Response.json({status:'failed',result:{error:'Late result'}})));
       if(outcome==='waiting')return Response.json({status:'running'});
       finished=true;

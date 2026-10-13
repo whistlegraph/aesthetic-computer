@@ -148,10 +148,10 @@ struct Workspace: UIViewRepresentable {
             config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphAIConsent = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
         #if MIME_APP && DEBUG
-        if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remote-voice",
+        if let fixture = ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"], ["remote-voice", "progress"].contains(fixture),
            let url = Bundle.main.url(forResource: "remote-voice", withExtension: "js", subdirectory: "Fixtures"),
            let script = try? String(contentsOf: url, encoding: .utf8) {
-            config.userContentController.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            config.userContentController.addUserScript(WKUserScript(source: script + (fixture == "progress" ? "\nwindow.__remoteVoiceOutcome='progress';" : ""), injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
         #endif
         config.userContentController.add(context.coordinator, name: "whistlegraph")
@@ -1088,7 +1088,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             previewSource = source; renderPreview()
         case "start":
             #if MIME_APP && DEBUG
-            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remote-voice" {
+            if ["remote-voice", "progress"].contains(ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] ?? "") {
                 emit("listening", id: id)
                 Task { try? await Task.sleep(for: .milliseconds(300)); self.emit("final", text: "Add three people", id: id) }
                 return

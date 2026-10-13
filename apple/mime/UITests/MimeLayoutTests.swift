@@ -1,6 +1,52 @@
 import XCTest
 
 final class MimeLayoutTests: XCTestCase {
+    func testGenerationStaysOneLineWithOptionalLiveBuffer() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "progress"
+        app.launch()
+        XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
+        waitForReveal(in: app)
+        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        let preview = app.descendants(matching: .any)["story-picture"].firstMatch
+        let picture = preview.frame
+        app.buttons["mime-fixture-voice"].tap()
+        let strip = app.descendants(matching: .any)["generation-strip"].firstMatch
+        XCTAssertTrue(strip.waitForExistence(timeout: 10))
+        let toggle = app.buttons["generation-buffer-toggle"]
+        if toggle.label == "Hide data buffer" { toggle.tap() }
+        let status = app.staticTexts["generation-status"]
+        let starting = expectation(for: NSPredicate(format: "label == %@", "Starting"), evaluatedWith: status)
+        XCTAssertEqual(XCTWaiter().wait(for: [starting], timeout: 12), .completed)
+        XCTAssertLessThanOrEqual(strip.frame.height, 45)
+        XCTAssertEqual(preview.frame, picture, "Generation leaves the preview in place")
+        XCTAssertFalse(app.descendants(matching: .any)["generation-request"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any)["turn-progress"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Waiting for model…"].exists)
+        let statusShot = XCTAttachment(screenshot: app.screenshot())
+        statusShot.name = "MIME compact generation status"; statusShot.lifetime = .keepAlways; add(statusShot)
+        toggle.tap()
+        let buffer = app.descendants(matching: .any)["code-ticker"].firstMatch
+        XCTAssertTrue(buffer.waitForExistence(timeout: 5))
+        let before = buffer.value as? String ?? ""
+        let live = expectation(for: NSPredicate { _, _ in (buffer.value as? String ?? "") != before }, evaluatedWith: app)
+        XCTAssertEqual(XCTWaiter().wait(for: [live], timeout: 12), .completed)
+        XCTAssertFalse((buffer.value as? String ?? "").contains("\n"))
+        XCTAssertLessThanOrEqual(strip.frame.height, 45)
+        XCTAssertLessThanOrEqual(buffer.frame.height, 24)
+        XCTAssertEqual(preview.frame, picture)
+        let bufferShot = XCTAttachment(screenshot: app.screenshot())
+        bufferShot.name = "MIME single-line live data buffer"; bufferShot.lifetime = .keepAlways; add(bufferShot)
+        toggle.tap()
+        let checking = expectation(for: NSPredicate(format: "label == %@", "Checking"), evaluatedWith: status)
+        XCTAssertEqual(XCTWaiter().wait(for: [checking], timeout: 25), .completed)
+        app.buttons["generation-stop"].tap()
+        let stopped = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: strip)
+        XCTAssertEqual(XCTWaiter().wait(for: [stopped], timeout: 10), .completed)
+        XCTAssertTrue(app.buttons["type-control"].isEnabled)
+        XCTAssertTrue(app.buttons["attempt-retry"].exists)
+    }
     func testRemoteVoiceUnlocksAndReturnsFromPreviewGutter() {
         continueAfterFailure = false
         let app = XCUIApplication()
