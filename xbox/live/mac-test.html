@@ -1848,6 +1848,10 @@
     globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
     globalThis.__oskiewarInsetsChanged();
     // Offline and packaged runtimes have no account service.
+    // Sign-in is offered on the web but not required: both web doors failed
+    // in production on 2026-10-13 (code send unreachable, callback URL not
+    // allowed for oskiewar.com) and the required gate left the site unplayable.
+    globalThis.__oskiewarAccount.loginRequired = false;
     // No door mounted means no way to sign in, so the game must not wait for one.
     if (mimeReplay || inPackagedApp || offlineRuntime) globalThis.__oskiewarAccount.loginOffered = false;
     const accountDoor = mimeReplay || inPackagedApp || offlineRuntime ? null : mountAccount({

@@ -136,7 +136,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 282;
+const buildVersion = 283;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -6547,14 +6547,14 @@ const accountHandle = () => String(accountState()?.handle || "");
 // wire has always been whatever the client says it is, and a console can set
 // any global it likes. Enforcement would mean the relay verifying a token on
 // the seat, and that is a different piece of work.
-const versusAllowed = () => !versusRequiresAccount ||
+const versusAllowed = () => !versusRequiresAccount || !loginRequired() ||
   (accountReady() && accountState().signedIn === true &&
     Boolean(accountHandle()));
 
 // Which door, if any, stands between this visitor and a fight. Empty while the
 // shell is still asking, and empty for anyone already through.
 function versusDoor() {
-  if (!versusRequiresAccount) return "";
+  if (!versusRequiresAccount || !loginRequired()) return "";
   if (!accountState() || !accountReady()) return "";
   if (accountState().signedIn !== true) return "login";
   if (!accountHandle()) return "handle";
@@ -6573,7 +6573,10 @@ let loginStartPending = false, loginPrevious = [], loginFocusAt = 0;
 // login nobody can give. Only a host that offers the door may hold it shut.
 const loginOffered = () => !!nativeAccount ||
   (!!accountState() && accountState().loginOffered !== false);
-const playAllowed = () => !loginOffered() ||
+// A shell can offer sign-in without demanding it (the web, while its
+// sign-in doors are being mended); only a hard requirement holds the title.
+const loginRequired = () => loginOffered() && accountState()?.loginRequired !== false;
+const playAllowed = () => !loginRequired() ||
   (accountReady() && accountState().signedIn === true && !!accountHandle());
 function requestPlayLogin() {
   loginFocusAt = runtime().monotonicUs;
