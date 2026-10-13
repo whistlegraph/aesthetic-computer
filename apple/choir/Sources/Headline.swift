@@ -28,9 +28,21 @@ struct HeadlineCard: View {
     var large = false
     var stored: ArticleMeta? = nil // a news item's own card, when it has one
     var opportunity = false
+    var opening = false
     @State private var fetched: ArticleMeta?
     var meta: ArticleMeta? { stored ?? fetched }
     @Environment(\.openURL) private var openURL
+
+    /// A site's front page is not an article (Fía, bug c786c7a3b9ba).
+    var isHomepage: Bool {
+        guard let u = URL(string: link) else { return false }
+        return u.path.isEmpty || u.path == "/" || u.path.lowercased() == "/index.html"
+    }
+    var buttonLabel: String {
+        if opportunity { return "See the call" }
+        if opening { return "See the show" }
+        return isHomepage ? "Visit site" : "Read the article"
+    }
 
     var host: String { URL(string: link)?.host()?.replacingOccurrences(of: "www.", with: "") ?? link }
     var headline: String {
@@ -60,6 +72,11 @@ struct HeadlineCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
             HStack(spacing: 8) {
+                if opening {
+                    Text("OPENING").font(.system(size: 10, weight: .bold)).tracking(1.2)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(Color(red: 0.24, green: 0.47, blue: 0.86), in: Capsule()).foregroundStyle(.white)
+                }
                 if opportunity {
                     Text("OPEN CALL").font(.system(size: 10, weight: .bold)).tracking(1.2)
                         .padding(.horizontal, 7).padding(.vertical, 3)
@@ -78,7 +95,7 @@ struct HeadlineCard: View {
                 Text(words).font(.system(size: 15, design: .serif)).italic().foregroundStyle(Theme.ink.opacity(0.85))
             }
             Button { if let u = URL(string: link) { Trail.send("article:open"); openURL(u) } } label: {
-                HStack(spacing: 4) { Text(opportunity ? "See the call" : "Read the article"); Image(systemName: "arrow.up.right") }
+                HStack(spacing: 4) { Text(buttonLabel); Image(systemName: "arrow.up.right") }
                     .font(Theme.type(13, bold: true))
             }
             .buttonStyle(GlassChipStyle(on: false))

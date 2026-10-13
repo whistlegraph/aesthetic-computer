@@ -155,8 +155,10 @@ test("the curator adds new links, skips repeats and Artforum, and retires closed
     { url: "https://www.artforum.com/x", title: "Nope" },
     { url: "https://grants.example/g", title: "A grant", kind: "opportunity", deadline: "2026-11-15" },
     { url: "https://grants.example/closed", title: "Closed", kind: "opportunity", deadline: "2026-10-01" },
+    { url: "https://gallery.example/show", title: "A show opens", kind: "opening", deadline: "2026-11-30" },
   ], { now, id });
-  assert.deepEqual(r.added, ["https://e-flux.com/a", "https://grants.example/g"]);
+  assert.deepEqual(r.added, ["https://e-flux.com/a", "https://grants.example/g", "https://gallery.example/show"]);
+  assert.equal(posts.rows.find((p) => p.links[0] === "https://gallery.example/show").kind, "opening");
   assert.equal(r.skipped.length, 3);
   assert.deepEqual(r.expired, ["https://old.example/x"]);
   assert.equal(archive.rows.length, 1);

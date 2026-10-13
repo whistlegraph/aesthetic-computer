@@ -163,7 +163,7 @@ export async function curate(posts, archive, items, { now = new Date(), id = () 
     if (await posts.findOne({ links: url })) { skipped.push(url); continue; }
     const title = String(it.title || "").replace(/\s+/g, " ").trim().slice(0, 200);
     if (!title) { skipped.push(url); continue; }
-    const kind = it.kind === "opportunity" ? "opportunity" : null;
+    const kind = ["opportunity", "opening"].includes(it.kind) ? it.kind : null;
     const deadline = /^\d{4}-\d{2}-\d{2}$/.test(it.deadline || "") ? it.deadline : null;
     if (kind && deadline && deadline < today) { skipped.push(url); continue; }
     const v = validatePost({ text: `${title}\n${url}`, tags: [] });
@@ -181,8 +181,12 @@ export async function curate(posts, archive, items, { now = new Date(), id = () 
     await posts.insertOne(row);
     added.push(url);
   }
-  // Calls that have closed leave Discover for the archive (replies keep them).
-  const expired = await posts.find({ kind: "opportunity", deadline: { $lt: today }, replies: 0 }).toArray();
+  // Calls that have closed and shows that have ended leave Discover for the
+  // archive (replies keep them). For an opening, `deadline` is its last day.
+  const expired = [
+    ...await posts.find({ kind: "opportunity", deadline: { $lt: today }, replies: 0 }).toArray(),
+    ...await posts.find({ kind: "opening", deadline: { $lt: today }, replies: 0 }).toArray(),
+  ];
   for (const r of expired) {
     await archive.updateOne({ _id: r._id }, { $set: { ...r, archivedAt: now.toISOString(), archivedWhy: "deadline passed" } }, { upsert: true });
     await posts.deleteOne({ _id: r._id });

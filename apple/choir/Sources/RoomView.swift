@@ -148,7 +148,7 @@ struct ChatRow: View {
                         InstagramCard(link: link)
                         if !words.isEmpty { Text(linked(words)).font(.system(size: 16, design: .serif)).foregroundStyle(Theme.ink) }
                     } else if let link = post.links.first {
-                        HeadlineCard(link: link, words: words, stored: post.preview, opportunity: post.kind == "opportunity")
+                        HeadlineCard(link: link, words: words, stored: post.preview, opportunity: post.kind == "opportunity", opening: post.kind == "opening")
                     } else if !words.isEmpty {
                         Text(linked(words)).font(.system(size: 16, design: .serif)).lineSpacing(2)
                             .foregroundStyle(Theme.ink).textSelection(.enabled)

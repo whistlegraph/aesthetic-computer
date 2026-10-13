@@ -42,6 +42,21 @@ const OPP_QUERIES = [
   "opportunities listings Hyperallergic BOMB NYFA Res Artis this month",
 ];
 
+// Fía (bug 6f2e3b34f7ec): "Can we add openings in LA? … Look at See Saw, Culture LA."
+const OPENING_QUERIES = [
+  "Los Angeles gallery openings and opening receptions this week",
+  "See Saw gallery guide Los Angeles openings this weekend",
+  "Culture LA art openings this week",
+  "new exhibitions opening in Los Angeles galleries this month",
+];
+const OPENING_SCHEMA = { type: "object", required: ["isOpening", "show", "venue", "openingDate"], properties: {
+  isOpening: { type: "boolean", description: "true only for a specific exhibition opening or reception at a named venue, in or near Los Angeles" },
+  show: { type: "string", description: "exhibition title" }, artists: { type: "string" }, venue: { type: "string" },
+  neighborhood: { type: "string" }, openingDate: { type: "string", description: "opening reception date YYYY-MM-DD" },
+  openingTime: { type: "string" }, closingDate: { type: "string", description: "last day YYYY-MM-DD or empty" },
+  officialUrl: { type: "string", description: "the venue's own page for this show if this page is a listing, else empty" },
+} };
+
 const OPP_SCHEMA = { type: "object", required: ["isOpportunity", "name", "deadline", "eligibility", "offers", "location"], properties: {
   isOpportunity: { type: "boolean", description: "true only for an open call, grant, residency, fellowship, prize or commission artists can apply to" },
   name: { type: "string" }, organizer: { type: "string" },
@@ -120,27 +135,34 @@ async function main() {
     .filter((x) => x.isNews && !BLOCK.test(x.url) && !existing.has(x.url));
   const opps = (await inBatches(OPP_QUERIES, (q) => exa(q, { schema: OPP_SCHEMA, sinceDays: 60 }))).flat()
     .filter((x) => x.isOpportunity && !BLOCK.test(x.url) && !existing.has(x.url) && !existing.has(x.officialUrl) && (!x.deadline || x.deadline >= today));
+  const openings = (await inBatches(OPENING_QUERIES, (q) => exa(q, { schema: OPENING_SCHEMA, sinceDays: 21 }))).flat()
+    .filter((x) => x.isOpening && !BLOCK.test(x.url) && !existing.has(x.url) && !existing.has(x.officialUrl) &&
+      ((x.closingDate || x.openingDate || "") >= today));
   const uniq = (list) => [...new Map(list.map((x) => [x.url, x])).values()];
-  const pool = [...uniq(news).map((x, i) => ({ id: `n${i}`, kind: "news", ...x })), ...uniq(opps).map((x, i) => ({ id: `o${i}`, kind: "opportunity", ...x }))];
-  log("candidates:", pool.filter((x) => x.kind === "news").length, "news,", pool.filter((x) => x.kind === "opportunity").length, "opportunities");
+  const pool = [...uniq(news).map((x, i) => ({ id: `n${i}`, kind: "news", ...x })), ...uniq(opps).map((x, i) => ({ id: `o${i}`, kind: "opportunity", ...x })),
+    ...uniq(openings).map((x, i) => ({ id: `s${i}`, kind: "opening", ...x }))];
+  log("candidates:", pool.filter((x) => x.kind === "news").length, "news,", pool.filter((x) => x.kind === "opportunity").length, "opportunities,",
+    pool.filter((x) => x.kind === "opening").length, "LA openings");
   if (!pool.length) return log("nothing new");
 
   const brief = pool.map((x) => ({ id: x.id, kind: x.kind, url: x.url, site: host(x.url), title: x.title, published: x.published,
     ...(x.kind === "news" ? { headline: x.headline, summary: x.summary, location: x.location } :
+      x.kind === "opening" ? { show: x.show, artists: x.artists, venue: x.venue, neighborhood: x.neighborhood, openingDate: x.openingDate, openingTime: x.openingTime, closingDate: x.closingDate, officialUrl: x.officialUrl } :
       { name: x.name, organizer: x.organizer, deadline: x.deadline, eligibility: x.eligibility, offers: x.offers, location: x.location, officialUrl: x.officialUrl }) }));
   const prompt = `You curate Discover for "choir", an invite-only chat app Fía Benitez started for her artist friends: mostly women, mostly in Los Angeles. Fía is an LA installation and performance artist and writer (artist books, editing), a citizen of Mexico and Spain. Tagline: "Comments on culture".
 
-Today is ${today}. From the CANDIDATES below, pick at most 4 news items and at most 4 opportunities that this group would genuinely want. Prefer: LA and California; women and non-binary artists; installation, site/place, performance, artist books and art writing; Latin America and Spain; free-to-apply calls with real money or time. Skip: anything already stale, paywalled teasers, art-market gossip, pay-to-enter juried shows, calls restricted to places this group can't apply from, and duplicates of the same story.
+Today is ${today}. From the CANDIDATES below, pick at most 4 news items, at most 4 opportunities, and at most 4 Los Angeles gallery openings that this group would genuinely want. Prefer: LA and California; women and non-binary artists; installation, site/place, performance, artist books and art writing; Latin America and Spain; free-to-apply calls with real money or time. Skip: anything already stale, paywalled teasers, art-market gossip, pay-to-enter juried shows, calls restricted to places this group can't apply from, and duplicates of the same story.
 
 Rules from Fía: never include Artforum. If a candidate is a listing page (BOMB, Hyperallergic, NYFA, Res Artis, ArtDeadline, an aggregator) and it names the organizer's own page in officialUrl, use the official page as url and put the listing's name in "via". Never invent facts, dates, money or images: use only what the candidate says.
 
 Write each title as a clean human headline (no site names or section suffixes). For news, description = one or two plain factual sentences. For opportunities, description must start "Deadline: <Mon D>." (or "Rolling.") followed by who can apply and what it offers, in two short sentences.
+For openings, title = "<Show> at <Venue>"; description must start "Opens <Day Mon D>[, <time>]." then the artists and neighborhood in one short sentence; set deadline to the closing date if known, else the opening date. Prefer openings in the next 10 days, spread across different galleries.
 
 ALREADY IN DISCOVER (never pick the same story or call again, even at a different URL):
 ${JSON.stringify(already)}
 
 Reply with ONLY this JSON, no prose:
-{"items":[{"id":"<candidate id>","kind":"news|opportunity","url":"...","title":"...","description":"...","siteName":"<publication or organizer>","via":"<listing name or empty>","deadline":"YYYY-MM-DD or empty","why":"<a few words>"}]}
+{"items":[{"id":"<candidate id>","kind":"news|opportunity|opening","url":"...","title":"...","description":"...","siteName":"<publication or organizer>","via":"<listing name or empty>","deadline":"YYYY-MM-DD or empty","why":"<a few words>"}]}
 
 CANDIDATES:
 ${JSON.stringify(brief)}`;
@@ -157,11 +179,11 @@ ${JSON.stringify(brief)}`;
     if (p.url && p.url === c.officialUrl && p.url !== c.url) url = (await loads(p.url)) ? p.url : c.url; // official only if real
     if (LISTINGS.test(host(url) + new URL(url).pathname)) { log("skip listing without a working official page:", url); continue; }
     if (existing.has(url)) continue;
-    items.push({ url, title: p.title, description: p.description, kind: p.kind === "opportunity" ? "opportunity" : "news",
+    items.push({ url, title: p.title, description: p.description, kind: ["opportunity", "opening"].includes(p.kind) ? p.kind : "news",
       deadline: /^\d{4}-\d{2}-\d{2}$/.test(p.deadline || "") ? p.deadline : null,
       image: url === c.url ? c.image : null, siteName: p.siteName || host(url), via: p.via || (url !== c.url ? host(c.url) : null) });
   }
-  for (const it of items) log(it.kind === "opportunity" ? "📮" : "📰", it.title, "·", host(it.url), it.via ? `(via ${it.via})` : "");
+  for (const it of items) log({ opportunity: "📮", opening: "🖼️" }[it.kind] || "📰", it.title, "·", host(it.url), it.via ? `(via ${it.via})` : "");
   if (DRY) return log("dry run: posted nothing");
   const r = await fetch(`${API}?curate=1`, { method: "POST", headers: { "content-type": "application/json", "x-choir-editor": process.env.CHOIR_EDITOR_SECRET }, body: JSON.stringify({ items }) });
   const d = await r.json().catch(() => ({}));
