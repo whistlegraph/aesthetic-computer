@@ -32,6 +32,7 @@
 		BFCCAEC15AE7FB1E8741C3EF /* Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */; };
 		C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0924D441BB67623D92EF8ACD /* AccountDeletion.swift */; };
 		E505E744ABF3566423E83853 /* SingingMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4974653737A8CA133A08CA1 /* SingingMark.swift */; };
+		E840B2BA42E33E78735F8D3C /* Oracle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F824EFD19DD07458BB1C5FCB /* Oracle.swift */; };
 		ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */; };
 		EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F6B2BA21EA37E78011CE54 /* AeselButtonStyle.swift */; };
 		F7A58E620FDB554A1DEF97C9 /* ChoirShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A37363CC8E86CD058B944505 /* ChoirShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -95,6 +96,7 @@
 		E4E81B41A1CF642F265F8327 /* Voice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Voice.swift; sourceTree = "<group>"; };
 		E739D1E84BD1FA13C93DD128 /* Hand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hand.swift; sourceTree = "<group>"; };
 		E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstagramCard.swift; sourceTree = "<group>"; };
+		F824EFD19DD07458BB1C5FCB /* Oracle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Oracle.swift; sourceTree = "<group>"; };
 		F8C62B3296D4987EDFC99DE7 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 		FB73C8C8158579CA49ADE726 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -119,6 +121,7 @@
 				224AC79DF9F2580E605A15F9 /* Headline.swift */,
 				E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */,
 				B7D9CF4C07B36A2B2A49773D /* Invites.swift */,
+				F824EFD19DD07458BB1C5FCB /* Oracle.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
 				4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */,
 				AF6C29368504A99625509573 /* Samples.swift */,
@@ -294,6 +297,7 @@
 				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
 				B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */,
 				800667C4ACEC5E0FE8DA11F9 /* Invites.swift in Sources */,
+				E840B2BA42E33E78735F8D3C /* Oracle.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,
 				7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */,
 				B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */,

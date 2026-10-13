@@ -11,6 +11,7 @@ struct RoomView: View {
     @State private var open: Post?
     @State private var detent: PresentationDetent = .medium
     @State private var discover = false
+    @State private var oracle = false
     enum Sheet: String, Identifiable { case login, new, account; var id: String { rawValue } }
 
     var body: some View {
@@ -73,6 +74,11 @@ struct RoomView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Fía (22:29): a card to pull, like tarot or Co–Star.
+                    Button { oracle = true } label: { Image(systemName: "die.face.5") }
+                        .tint(Theme.ink).accessibilityLabel("Pull a card")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     // Fía preferred the news icon to the handwritten "discover" (10-12).
                     Button { discover = true } label: { Image(systemName: "newspaper") }
                         .tint(Theme.ink).accessibilityLabel("Discover")
@@ -82,6 +88,9 @@ struct RoomView: View {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.type(14)).tint(Theme.ink)
                     }
                 }
+            }
+            .sheet(isPresented: $oracle) {
+                OracleView().environmentObject(account).environmentObject(room).presentationDragIndicator(.visible)
             }
             .fullScreenCover(isPresented: $discover) {
                 DiscoverView().environmentObject(account).environmentObject(room)
@@ -286,7 +295,7 @@ struct ChatInput: View {
                     .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 40)
                     .glass(RoundedRectangle(cornerRadius: 20))
                     .onChange(of: typing) { _, on in if on { onFocus() } }
-                Button { Task { await send() } } label: { Hand("HandSend", height: 20) }
+                Button { Task { await send() } } label: { Text("Send") }
                     .buttonStyle(SendStyle(ready: ready)).disabled(!ready)
                     .accessibilityLabel("Send")
             }
