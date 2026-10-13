@@ -70,7 +70,7 @@ async function tick() {
     const revision = createHash('sha256').update(source).digest('hex').slice(0, 16);
     if (revision !== observed) { observed = revision; changedAt = Date.now(); return; }
     if (revision === accepted?.revision || Date.now() - changedAt < 500) return;
-    const payload = '// @bundle-qr\nglobalThis.__oskiewarOpponent = "freeskate";\n' +
+    const payload = '// @bundle-qr\n' +
       `globalThis.__oskiewarLiveRevision = "${revision}";\n` + source;
     const candidate = join(stateDir, 'candidate.js');
     await writeFile(candidate, payload);

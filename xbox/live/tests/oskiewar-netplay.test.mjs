@@ -449,7 +449,7 @@ test("rounds roll over inside the fight and both seats agree on the score", () =
     assert.ok(seat.fight.fixtureKnockouts().includes(500), "the scheduled KO occurred");
   assert.ok(equalize(host, guest, wire));
   assert.equal(host.fight.netplayHash(), guest.fight.netplayHash());
-  assert.notEqual(host.fight.roundState().map, "HALFPIPE");
+  assert.notEqual(host.fight.roundState().map, "DOJO");
   assert.equal(host.fight.roundState().map, guest.fight.roundState().map);
   const hostState = host.fight.netplayState();
   assert.equal(hostState.stats.desyncs, 0);

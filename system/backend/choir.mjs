@@ -99,9 +99,7 @@ export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = 
       const q = { replyTo: null };
       if (tag) q.tags = normalizeTag(tag);
       if (before) q.when = { $lt: before };
-      const rows = await posts.find(q).sort({ when: -1 }).limit(Math.min(Math.max(limit, 1), 100)).toArray();
-      // A deleted message with no replies has no thread to hold together.
-      return rows.filter((r) => !(r.deleted && !r.replies));
+      return posts.find(q).sort({ when: -1 }).limit(Math.min(Math.max(limit, 1), 100)).toArray();
     },
 
     async thread(rootID) {
