@@ -8,7 +8,7 @@ struct Entry: View {
         VStack(spacing: 24) {
             SingingMark(height: 170)
                 .scaleEffect(shown ? 1 : 0.85).opacity(shown ? 1 : 0)
-            Text("Notes on culture").font(Theme.type(24)).foregroundStyle(Theme.ink)
+            Text("Comments on culture").font(Theme.type(24)).foregroundStyle(Theme.ink)
                 .opacity(shown ? 1 : 0).offset(y: shown ? 0 : 8)
             HStack(spacing: 14) {
                 Button("Log in") { onDoor(.login) }.buttonStyle(CuteDoorStyle())
