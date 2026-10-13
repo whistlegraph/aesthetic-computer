@@ -7,15 +7,13 @@ struct RoomView: View {
     @EnvironmentObject var room: Room
     @State private var sheet: Sheet?
     @State private var open: Post?
-    enum Sheet: String, Identifiable { case login, new, account; var id: String { rawValue } }
+    enum Sheet: String, Identifiable { case login, new, account, discover; var id: String { rawValue } }
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { scroller in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
-                        SingingMark(height: account.signedIn ? 56 : 84, energy: account.signedIn ? 0.5 : 1)
-                            .frame(maxWidth: .infinity).onTapGesture { pick(nil) }
                         if !account.signedIn {
                             Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
                                 .frame(maxWidth: .infinity)
@@ -33,7 +31,7 @@ struct RoomView: View {
                     .padding(.horizontal, 14).padding(.vertical, 12)
                 }
                 .defaultScrollAnchor(.bottom)
-                .background(RuledPaper())
+                .background { ZStack { RuledPaper(); DeskDoodads() } }
                 .navigationBarTitleDisplayMode(.inline)
                 .refreshable { await room.load() }
                 .onChange(of: room.chat.last?.id) { _, _ in withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } }
@@ -55,10 +53,18 @@ struct RoomView: View {
                 }
             }
             .toolbar {
+                // The mark stays pinned top centre while the chat scrolls under it.
+                ToolbarItem(placement: .principal) {
+                    ChoirLogo(height: 30).onTapGesture { pick(nil) }
+                }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.type(14)).tint(Theme.ink)
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { sheet = .discover } label: { Drawn(name: "WordDiscover", height: 18, label: "discover") }
+                        .tint(Theme.ink)
                 }
             }
             .sheet(item: $open) { post in
@@ -72,6 +78,7 @@ struct RoomView: View {
                 case .login: SignInView(door: .login)
                 case .new: SignInView(door: .new)
                 case .account: AccountView()
+                case .discover: DiscoverView().environmentObject(room)
                 }
             }
             .task {
@@ -123,7 +130,11 @@ struct ChatRow: View {
                 }
                 HStack(spacing: 8) {
                     if post.replies > 0 {
-                        Text("\(post.replies) \(post.replies == 1 ? "reply" : "replies")").font(Theme.type(11).bold()).foregroundStyle(Theme.ink.opacity(0.7))
+                        HStack(spacing: 4) {
+                            Drawn(name: "WordReply", height: 14, label: post.replies == 1 ? "reply" : "replies")
+                            Text("\(post.replies)").font(Theme.type(11).bold())
+                        }
+                        .foregroundStyle(Theme.ink.opacity(0.7))
                     }
                 }
             }
@@ -187,7 +198,7 @@ struct ChatInput: View {
                 TextField("Comments on culture", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...5)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
-                Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }
+                Button { Task { await send() } } label: { Drawn(name: "WordSend", height: 18, label: "send") }
                     .buttonStyle(GlassChipStyle(on: true)).disabled(!ready).opacity(ready ? 1 : 0.4)
             }
             .padding(.horizontal, 12)
@@ -207,7 +218,7 @@ struct ChatInput: View {
                             .onSubmit { let t = Tag.normalize(newTag); if !t.isEmpty && !picked.contains(t) { toggle(t) }; newTag = ""; adding = false }
                             .padding(.horizontal, 10).padding(.vertical, 6).glass(Capsule())
                     } else {
-                        Button { adding = true } label: { Image(systemName: "plus") }.buttonStyle(GlassChipStyle())
+                        Button { adding = true } label: { Drawn(name: "GlyphPlus", height: 14, label: "add a tag") }.buttonStyle(GlassChipStyle())
                     }
                 }
                 .padding(.horizontal, 14)

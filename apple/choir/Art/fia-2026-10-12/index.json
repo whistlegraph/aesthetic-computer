@@ -1,0 +1,851 @@
+[
+ {
+  "name": "choir-daisy-loop-01",
+  "kind": "daisy-loop",
+  "source": "img_8398-07",
+  "photo": "IMG_8398.png",
+  "duplicates": [],
+  "px": [
+   850,
+   911
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-02",
+  "kind": "daisy-loop",
+  "source": "img_8397-11",
+  "photo": "IMG_8397.png",
+  "duplicates": [],
+  "px": [
+   775,
+   626
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-03",
+  "kind": "daisy-loop",
+  "source": "img_8397-08",
+  "photo": "IMG_8397.png",
+  "duplicates": [],
+  "px": [
+   760,
+   671
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-04",
+  "kind": "daisy-loop",
+  "source": "img_8396-12",
+  "photo": "IMG_8396.png",
+  "duplicates": [
+   "img_8398-06",
+   "img_8397-06"
+  ],
+  "px": [
+   752,
+   634
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-05",
+  "kind": "daisy-loop",
+  "source": "img_8398-10",
+  "photo": "IMG_8398.png",
+  "duplicates": [],
+  "px": [
+   747,
+   642
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-06",
+  "kind": "daisy-loop",
+  "source": "img_8396-02",
+  "photo": "IMG_8396.png",
+  "duplicates": [],
+  "px": [
+   706,
+   597
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-07",
+  "kind": "daisy-loop",
+  "source": "img_8396-09",
+  "photo": "IMG_8396.png",
+  "duplicates": [
+   "img_8398-04",
+   "img_8397-03"
+  ],
+  "px": [
+   691,
+   549
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-08",
+  "kind": "daisy-loop",
+  "source": "img_8396-03",
+  "photo": "IMG_8396.png",
+  "duplicates": [],
+  "px": [
+   629,
+   534
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-09",
+  "kind": "daisy-loop",
+  "source": "img_8396-05",
+  "photo": "IMG_8396.png",
+  "duplicates": [],
+  "px": [
+   622,
+   549
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-10",
+  "kind": "daisy-loop",
+  "source": "img_8398-09",
+  "photo": "IMG_8398.png",
+  "duplicates": [
+   "img_8397-09"
+  ],
+  "px": [
+   619,
+   611
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-11",
+  "kind": "daisy-loop",
+  "source": "img_8398-00",
+  "photo": "IMG_8398.png",
+  "duplicates": [],
+  "px": [
+   612,
+   399
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-12",
+  "kind": "daisy-loop",
+  "source": "img_8397-00",
+  "photo": "IMG_8397.png",
+  "duplicates": [],
+  "px": [
+   605,
+   451
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-13",
+  "kind": "daisy-loop",
+  "source": "img_8398-12",
+  "photo": "IMG_8398.png",
+  "duplicates": [
+   "img_8397-12"
+  ],
+  "px": [
+   600,
+   542
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-14",
+  "kind": "daisy-loop",
+  "source": "img_8396-11",
+  "photo": "IMG_8396.png",
+  "duplicates": [
+   "img_8398-05"
+  ],
+  "px": [
+   593,
+   514
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-15",
+  "kind": "daisy-loop",
+  "source": "img_8396-01",
+  "photo": "IMG_8396.png",
+  "duplicates": [],
+  "px": [
+   591,
+   455
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-16",
+  "kind": "daisy-loop",
+  "source": "img_8396-04",
+  "photo": "IMG_8396.png",
+  "duplicates": [],
+  "px": [
+   573,
+   508
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-17",
+  "kind": "daisy-loop",
+  "source": "img_8396-08",
+  "photo": "IMG_8396.png",
+  "duplicates": [
+   "img_8398-03"
+  ],
+  "px": [
+   572,
+   554
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-18",
+  "kind": "daisy-loop",
+  "source": "img_8397-04",
+  "photo": "IMG_8397.png",
+  "duplicates": [],
+  "px": [
+   537,
+   493
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-19",
+  "kind": "daisy-loop",
+  "source": "img_8397-02",
+  "photo": "IMG_8397.png",
+  "duplicates": [],
+  "px": [
+   509,
+   419
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-20",
+  "kind": "daisy-loop",
+  "source": "img_8402-20",
+  "photo": "IMG_8402.png",
+  "duplicates": [
+   "img_8395-38"
+  ],
+  "px": [
+   504,
+   501
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-21",
+  "kind": "daisy-loop",
+  "source": "img_8396-07",
+  "photo": "IMG_8396.png",
+  "duplicates": [],
+  "px": [
+   492,
+   433
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-22",
+  "kind": "daisy-loop",
+  "source": "img_8397-05",
+  "photo": "IMG_8397.png",
+  "duplicates": [],
+  "px": [
+   442,
+   475
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-23",
+  "kind": "daisy-loop",
+  "source": "img_8402-13",
+  "photo": "IMG_8402.png",
+  "duplicates": [],
+  "px": [
+   456,
+   424
+  ]
+ },
+ {
+  "name": "choir-daisy-loop-24",
+  "kind": "daisy-loop",
+  "source": "img_8396-06",
+  "photo": "IMG_8396.png",
+  "duplicates": [
+   "img_8398-02",
+   "img_8397-01"
+  ],
+  "px": [
+   431,
+   422
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-dot-01",
+  "kind": "daisy-petal-dot",
+  "source": "img_8401-07",
+  "photo": "IMG_8401.png",
+  "duplicates": [],
+  "px": [
+   637,
+   577
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-dot-02",
+  "kind": "daisy-petal-dot",
+  "source": "img_8395-32",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   335,
+   338
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-dot-03",
+  "kind": "daisy-petal-dot",
+  "source": "img_8395-35",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   301,
+   320
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-o-01",
+  "kind": "daisy-petal-o",
+  "source": "img_8400-12",
+  "photo": "IMG_8400.png",
+  "duplicates": [
+   "img_8395-18"
+  ],
+  "px": [
+   660,
+   639
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-o-02",
+  "kind": "daisy-petal-o",
+  "source": "img_8401-08",
+  "photo": "IMG_8401.png",
+  "duplicates": [],
+  "px": [
+   585,
+   577
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-o-03",
+  "kind": "daisy-petal-o",
+  "source": "img_8399-13",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8402-00",
+   "img_8400-11",
+   "img_8395-16"
+  ],
+  "px": [
+   460,
+   451
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-o-04",
+  "kind": "daisy-petal-o",
+  "source": "img_8395-31",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   360,
+   332
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-star-01",
+  "kind": "daisy-petal-star",
+  "source": "img_8401-10",
+  "photo": "IMG_8401.png",
+  "duplicates": [],
+  "px": [
+   518,
+   557
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-star-02",
+  "kind": "daisy-petal-star",
+  "source": "img_8399-20",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8400-14",
+   "img_8401-02",
+   "img_8402-07",
+   "img_8395-24"
+  ],
+  "px": [
+   526,
+   453
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-x-01",
+  "kind": "daisy-petal-x",
+  "source": "img_8401-04",
+  "photo": "IMG_8401.png",
+  "duplicates": [],
+  "px": [
+   700,
+   636
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-x-02",
+  "kind": "daisy-petal-x",
+  "source": "img_8402-10",
+  "photo": "IMG_8402.png",
+  "duplicates": [
+   "img_8395-26"
+  ],
+  "px": [
+   608,
+   540
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-x-03",
+  "kind": "daisy-petal-x",
+  "source": "img_8401-05",
+  "photo": "IMG_8401.png",
+  "duplicates": [
+   "img_8402-12",
+   "img_8395-29"
+  ],
+  "px": [
+   589,
+   553
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-x-04",
+  "kind": "daisy-petal-x",
+  "source": "img_8402-16",
+  "photo": "IMG_8402.png",
+  "duplicates": [
+   "img_8395-33"
+  ],
+  "px": [
+   580,
+   563
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-x-05",
+  "kind": "daisy-petal-x",
+  "source": "img_8402-14",
+  "photo": "IMG_8402.png",
+  "duplicates": [],
+  "px": [
+   528,
+   571
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-x-06",
+  "kind": "daisy-petal-x",
+  "source": "img_8401-12",
+  "photo": "IMG_8401.png",
+  "duplicates": [
+   "img_8402-21",
+   "img_8395-39"
+  ],
+  "px": [
+   421,
+   420
+  ]
+ },
+ {
+  "name": "choir-daisy-petal-x-07",
+  "kind": "daisy-petal-x",
+  "source": "img_8395-27",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   398,
+   362
+  ]
+ },
+ {
+  "name": "choir-glyph-asterisk-01",
+  "kind": "glyph-asterisk",
+  "source": "img_8399-08",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8400-07"
+  ],
+  "px": [
+   171,
+   136
+  ]
+ },
+ {
+  "name": "choir-glyph-asterisk-02",
+  "kind": "glyph-asterisk",
+  "source": "img_8395-09",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   81,
+   74
+  ]
+ },
+ {
+  "name": "choir-glyph-bang-01",
+  "kind": "glyph-bang",
+  "source": "img_8399-21",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8401-03",
+   "img_8400-15",
+   "img_8402-09"
+  ],
+  "px": [
+   57,
+   194
+  ]
+ },
+ {
+  "name": "choir-glyph-c-arrow-01",
+  "kind": "glyph-c-arrow",
+  "source": "img_8400-06",
+  "photo": "IMG_8400.png",
+  "duplicates": [
+   "img_8395-11"
+  ],
+  "px": [
+   452,
+   348
+  ]
+ },
+ {
+  "name": "choir-glyph-c-arrow-02",
+  "kind": "glyph-c-arrow",
+  "source": "img_8402-18",
+  "photo": "IMG_8402.png",
+  "duplicates": [
+   "img_8401-11",
+   "img_8395-36"
+  ],
+  "px": [
+   392,
+   358
+  ]
+ },
+ {
+  "name": "choir-glyph-c-arrow-03",
+  "kind": "glyph-c-arrow",
+  "source": "img_8402-17",
+  "photo": "IMG_8402.png",
+  "duplicates": [
+   "img_8395-34"
+  ],
+  "px": [
+   383,
+   321
+  ]
+ },
+ {
+  "name": "choir-glyph-c-cross-01",
+  "kind": "glyph-c-cross",
+  "source": "img_8402-19",
+  "photo": "IMG_8402.png",
+  "duplicates": [
+   "img_8395-37"
+  ],
+  "px": [
+   356,
+   370
+  ]
+ },
+ {
+  "name": "choir-glyph-plus-01",
+  "kind": "glyph-plus",
+  "source": "img_8399-14",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8402-01",
+   "img_8395-17"
+  ],
+  "px": [
+   172,
+   146
+  ]
+ },
+ {
+  "name": "choir-glyph-question-01",
+  "kind": "glyph-question",
+  "source": "img_8402-11",
+  "photo": "IMG_8402.png",
+  "duplicates": [
+   "img_8395-28"
+  ],
+  "px": [
+   141,
+   153
+  ]
+ },
+ {
+  "name": "choir-glyph-question-02",
+  "kind": "glyph-question",
+  "source": "img_8399-22",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8395-25",
+   "img_8395-23"
+  ],
+  "px": [
+   135,
+   140
+  ]
+ },
+ {
+  "name": "choir-glyph-question-03",
+  "kind": "glyph-question",
+  "source": "img_8399-19",
+  "photo": "IMG_8399.png",
+  "duplicates": [],
+  "px": [
+   107,
+   120
+  ]
+ },
+ {
+  "name": "choir-glyph-x-01",
+  "kind": "glyph-x",
+  "source": "img_8399-18",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8402-05",
+   "img_8395-22"
+  ],
+  "px": [
+   126,
+   125
+  ]
+ },
+ {
+  "name": "choir-glyph-x-02",
+  "kind": "glyph-x",
+  "source": "img_8400-10",
+  "photo": "IMG_8400.png",
+  "duplicates": [
+   "img_8399-12",
+   "img_8395-15"
+  ],
+  "px": [
+   120,
+   113
+  ]
+ },
+ {
+  "name": "choir-glyph-x-03",
+  "kind": "glyph-x",
+  "source": "img_8399-17",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8402-04",
+   "img_8395-21"
+  ],
+  "px": [
+   112,
+   117
+  ]
+ },
+ {
+  "name": "choir-glyph-x-04",
+  "kind": "glyph-x",
+  "source": "img_8399-15",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8402-02",
+   "img_8395-19"
+  ],
+  "px": [
+   105,
+   99
+  ]
+ },
+ {
+  "name": "choir-glyph-x-05",
+  "kind": "glyph-x",
+  "source": "img_8400-13",
+  "photo": "IMG_8400.png",
+  "duplicates": [],
+  "px": [
+   101,
+   103
+  ]
+ },
+ {
+  "name": "choir-glyph-x-06",
+  "kind": "glyph-x",
+  "source": "img_8395-10",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   54,
+   56
+  ]
+ },
+ {
+  "name": "choir-word-chat-01",
+  "kind": "word-chat",
+  "source": "img_8399-10",
+  "photo": "IMG_8399.png",
+  "duplicates": [],
+  "px": [
+   544,
+   247
+  ]
+ },
+ {
+  "name": "choir-word-chat-02",
+  "kind": "word-chat",
+  "source": "img_8399-16",
+  "photo": "IMG_8399.png",
+  "duplicates": [],
+  "px": [
+   496,
+   270
+  ]
+ },
+ {
+  "name": "choir-word-chat-03",
+  "kind": "word-chat",
+  "source": "img_8399-11",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8395-14"
+  ],
+  "px": [
+   481,
+   220
+  ]
+ },
+ {
+  "name": "choir-word-chat-04",
+  "kind": "word-chat",
+  "source": "img_8395-20",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   259,
+   146
+  ]
+ },
+ {
+  "name": "choir-word-discover-01",
+  "kind": "word-discover",
+  "source": "img_8399-04",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8395-05"
+  ],
+  "px": [
+   891,
+   229
+  ]
+ },
+ {
+  "name": "choir-word-discover-02",
+  "kind": "word-discover",
+  "source": "img_8399-07",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8400-00",
+   "img_8395-08",
+   "img_8395-01"
+  ],
+  "px": [
+   879,
+   227
+  ]
+ },
+ {
+  "name": "choir-word-discover-03",
+  "kind": "word-discover",
+  "source": "img_8399-06",
+  "photo": "IMG_8399.png",
+  "duplicates": [],
+  "px": [
+   826,
+   267
+  ]
+ },
+ {
+  "name": "choir-word-reply-01",
+  "kind": "word-reply",
+  "source": "img_8399-02",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8395-03"
+  ],
+  "px": [
+   497,
+   301
+  ]
+ },
+ {
+  "name": "choir-word-reply-02",
+  "kind": "word-reply",
+  "source": "img_8400-04",
+  "photo": "IMG_8400.png",
+  "duplicates": [
+   "img_8395-06"
+  ],
+  "px": [
+   481,
+   258
+  ]
+ },
+ {
+  "name": "choir-word-send-01",
+  "kind": "word-send",
+  "source": "img_8400-02",
+  "photo": "IMG_8400.png",
+  "duplicates": [],
+  "px": [
+   515,
+   206
+  ]
+ },
+ {
+  "name": "choir-word-send-02",
+  "kind": "word-send",
+  "source": "img_8399-01",
+  "photo": "IMG_8399.png",
+  "duplicates": [
+   "img_8400-01",
+   "img_8395-02"
+  ],
+  "px": [
+   483,
+   230
+  ]
+ },
+ {
+  "name": "choir-word-send-03",
+  "kind": "word-send",
+  "source": "img_8395-04",
+  "photo": "IMG_8395.png",
+  "duplicates": [],
+  "px": [
+   257,
+   111
+  ]
+ }
+]

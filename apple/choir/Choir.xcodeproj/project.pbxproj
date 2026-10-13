@@ -20,6 +20,7 @@
 		B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6C29368504A99625509573 /* Samples.swift */; };
 		BD427551196A57E6A6249462 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB5F83E9F2FFDF39A7CE23A /* API.swift */; };
 		C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0924D441BB67623D92EF8ACD /* AccountDeletion.swift */; };
+		DC86D92FBA87B4915491F10B /* Drawn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2A983B4A2A7BB500D17C5F /* Drawn.swift */; };
 		E505E744ABF3566423E83853 /* SingingMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4974653737A8CA133A08CA1 /* SingingMark.swift */; };
 		ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */; };
 		EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F6B2BA21EA37E78011CE54 /* AeselButtonStyle.swift */; };
@@ -37,6 +38,7 @@
 		4795E20D2523AB8C8C6B203A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
 		53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
+		5A2A983B4A2A7BB500D17C5F /* Drawn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Drawn.swift; sourceTree = "<group>"; };
 		6AF5B9D04957C667E8E468AE /* PostRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRow.swift; sourceTree = "<group>"; };
 		817102FC4DE130FB7D70ECAC /* Entry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entry.swift; sourceTree = "<group>"; };
 		99F6B2BA21EA37E78011CE54 /* AeselButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselButtonStyle.swift; sourceTree = "<group>"; };
@@ -55,6 +57,7 @@
 				B2713237B6298811227FAC1D /* AccountView.swift */,
 				3EB5F83E9F2FFDF39A7CE23A /* API.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
+				5A2A983B4A2A7BB500D17C5F /* Drawn.swift */,
 				817102FC4DE130FB7D70ECAC /* Entry.swift */,
 				224AC79DF9F2580E605A15F9 /* Headline.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
@@ -183,6 +186,7 @@
 				EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */,
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,
 				ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */,
+				DC86D92FBA87B4915491F10B /* Drawn.swift in Sources */,
 				FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */,
 				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,

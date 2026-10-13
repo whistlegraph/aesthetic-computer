@@ -7,6 +7,7 @@ struct AccountView: View {
     @State private var confirmDelete = false
     @State private var deleting = false
     @State private var note: String?
+    @AppStorage("logo") private var logo = Logo.cs.rawValue
 
     var body: some View {
         NavigationStack {
@@ -19,6 +20,13 @@ struct AccountView: View {
                         Link("Choose your @name", destination: URL(string: "https://aesthetic.computer/handle")!)
                         Button("I chose one") { Task { await account.refreshMe() } }
                     }
+                }
+                // Fía's new daisies, to try at the top of the room.
+                Section("Logo") {
+                    Picker("Logo", selection: $logo) {
+                        ForEach(Logo.allCases) { Text($0.title).tag($0.rawValue) }
+                    }
+                    .pickerStyle(.segmented)
                 }
                 Section {
                     Toggle("Notifications", isOn: Binding(get: { account.notifications }, set: { on in Task { await account.setNotifications(on) } }))

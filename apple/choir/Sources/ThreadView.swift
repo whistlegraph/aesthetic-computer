@@ -40,7 +40,7 @@ struct ThreadView: View {
                 if account.handle != nil {
                     TextField("Add a comment", text: $reply, axis: .vertical).lineLimit(1...5).font(Theme.type(16))
                         .padding(.horizontal, 12).padding(.vertical, 8).glass(RoundedRectangle(cornerRadius: 18))
-                    Button("Send") { Task { await send() } }.buttonStyle(GlassChipStyle(on: true))
+                    Button { Task { await send() } } label: { Drawn(name: "WordSend", height: 18, label: "send") }.buttonStyle(GlassChipStyle(on: true))
                         .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
                 } else {
                     Button(account.signedIn ? "Choose your @name to reply" : "Log in to reply") { signIn = true }
