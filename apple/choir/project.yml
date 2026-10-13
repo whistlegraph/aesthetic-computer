@@ -33,3 +33,25 @@ targets:
       path: Choir.entitlements
       properties:
         aps-environment: development
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)computer.aesthetic.choir.shared
+    dependencies:
+      - target: ChoirShare
+        embed: true
+  ChoirShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Share
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.choir.share
+        PRODUCT_NAME: ChoirShare
+        INFOPLIST_FILE: Share/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+    entitlements:
+      path: Share/ChoirShare.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)computer.aesthetic.choir.shared

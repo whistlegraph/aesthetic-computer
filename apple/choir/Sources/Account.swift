@@ -74,11 +74,28 @@ final class Account: ObservableObject {
 
     // Keychain
 
-    private static var query: [String: Any] { [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey] }
+    /// Shared with the share extension (ChoirShare), so posting from another app's
+    /// share sheet uses the same sign-in. Older installs saved outside the group;
+    /// those tokens are moved in on first load.
+    static let accessGroup = "FB5948YR3S.computer.aesthetic.choir.shared"
+    private static var query: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey, kSecAttrAccessGroup as String: accessGroup]
+    }
     private static func load() -> Tokens? {
         var q = query; q[kSecReturnData as String] = true
         var out: AnyObject?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data {
+            return try? JSONDecoder().decode(Tokens.self, from: data)
+        }
+        // Migrate a pre-group token.
+        let legacy: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey, kSecReturnData as String: true]
+        guard SecItemCopyMatching(legacy as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        var add = query; add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        if SecItemAdd(add as CFDictionary, nil) == errSecSuccess {
+            SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey] as CFDictionary)
+            SecItemAdd(add as CFDictionary, nil)
+        }
         return try? JSONDecoder().decode(Tokens.self, from: data)
     }
     private func save(_ t: Tokens) {

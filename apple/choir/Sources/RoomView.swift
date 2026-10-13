@@ -64,6 +64,9 @@ struct RoomView: View {
                         .tint(Theme.ink).accessibilityLabel("Discover")
                 }
                 if account.signedIn {
+                    ToolbarItem(placement: .topBarTrailing) { BugButton() }
+                }
+                if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.type(14)).tint(Theme.ink)
                     }
@@ -133,7 +136,10 @@ struct ChatRow: View {
                     Text("deleted").italic().foregroundStyle(.secondary)
                 } else {
                     let words = shownText
-                    if let link = post.links.first {
+                    if let link = post.links.first, InstagramCard.isInstagram(link) {
+                        InstagramCard(link: link)
+                        if !words.isEmpty { Text(linked(words)).font(.system(size: 16, design: .serif)).foregroundStyle(Theme.ink) }
+                    } else if let link = post.links.first {
                         HeadlineCard(link: link, words: words, stored: post.preview, opportunity: post.kind == "opportunity")
                     } else if !words.isEmpty {
                         Text(linked(words)).font(.system(size: 16, design: .serif)).lineSpacing(2)
@@ -203,7 +209,7 @@ struct ChatInput: View {
         VStack(spacing: 8) {
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("Tell us how you really feel", text: $text, axis: .vertical)
+                TextField("Comments on culture", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...5)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
                 Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }

@@ -11,6 +11,8 @@
 //   PUT    /api/choir?prefs=1 {notifications}                         (Bearer)
 //   POST   /api/choir?event=1 {name,props,session,surface}   a trail event
 //   GET    /api/choir?events=1&since=<iso>                   the trail (admin)
+//   POST   /api/choir?bug=1 {text, image (base64 jpeg), context}  a bug report (Bearer)
+//   GET    /api/choir?bugs=1  ·  ?bug=<id>&image=1   the bug list / one screenshot (admin)
 //   POST   /api/choir?curate=1 {items:[…]}   x-choir-editor: <CHOIR_EDITOR_SECRET>
 //          the jasellite curator adds to Discover and retires closed calls
 //
@@ -20,6 +22,7 @@ import { connect } from "../../backend/database.mjs";
 import { authorize, handleBySharedEmail, hasAdmin } from "../../backend/authorization.mjs";
 import { cleanEvent, record, recent } from "../../backend/choir-events.mjs";
 import { noteMember, notifyChoir } from "../../backend/choir-push.mjs";
+import { sendToTarget } from "../../../shared/push.mjs";
 import { respond } from "../../backend/http.mjs";
 import { mongoChoirStore, publicPost, curate } from "../../backend/choir.mjs";
 import { timingSafeEqual, createHash } from "node:crypto";
@@ -78,6 +81,18 @@ export async function handler(event) {
         noteMember(db, me.sub, me.user.sub, me.handle).catch(() => {});
         return ok({ handle: me.handle, prefs: await store.prefsOf(me.sub) });
       }
+      if (q.bugs || q.bug) {
+        const me = await whoami(event.headers || {}, db);
+        if (!me || !(await hasAdmin(me.user))) return no(401, "Admins only");
+        const bugs = db.collection("choir-bugs");
+        if (q.bug && q.image) {
+          const row = await bugs.findOne({ _id: q.bug }, { projection: { image: 1 } });
+          if (!row?.image) return no(404, "No screenshot");
+          return { statusCode: 200, headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=3600" }, body: row.image, isBase64Encoded: true };
+        }
+        const rows = await bugs.find(q.bug ? { _id: q.bug } : {}, { projection: { image: 0 } }).sort({ at: -1 }).limit(100).toArray();
+        return ok({ bugs: rows.map((r) => ({ ...r, screenshot: r.hasImage ? `/api/choir?bug=${r._id}&image=1` : null })) });
+      }
       if (q.events) {
         const me = await whoami(event.headers || {}, db);
         if (!me || !(await hasAdmin(me.user))) return no(401, "Admins only");
@@ -121,6 +136,29 @@ export async function handler(event) {
 
     const me = await whoami(event.headers || {}, db);
     if (!me) return no(401, "Sign in");
+
+    if (event.httpMethod === "POST" && q.bug) {
+      let body;
+      try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
+      const text = String(body.text || "").trim().slice(0, 4000);
+      const image = typeof body.image === "string" && /^[A-Za-z0-9+/=]+$/.test(body.image) && body.image.length < 4_000_000 ? body.image : null;
+      if (!text && !image) return no(400, "Say what happened or include a screenshot");
+      const ctx = body.context && typeof body.context === "object" ? body.context : {};
+      const clean = (v) => (typeof v === "string" ? v.slice(0, 200) : typeof v === "number" || typeof v === "boolean" ? v : undefined);
+      const context = Object.fromEntries(Object.entries(ctx).slice(0, 20).map(([k, v]) => [k.slice(0, 40), clean(v)]).filter(([, v]) => v !== undefined));
+      const id = [...crypto.getRandomValues(new Uint8Array(6))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      await db.collection("choir-bugs").insertOne({ _id: id, at: new Date(), handle: me.handle, member: me.sub, signedInAs: me.user.sub,
+        text, hasImage: !!image, ...(image ? { image } : {}), context, status: "open" });
+      trail(db, "bug:filed", { id, handle: me.handle || "", hasImage: !!image }, event.headers);
+      // Tell the admins' own choir devices.
+      if (process.env.ADMIN_SUB) {
+        sendToTarget(db, { user: process.env.ADMIN_SUB, app: "choir" }, {
+          title: `🐞 ${me.handle || "someone"} filed a bug`, body: (text || "Screenshot only").slice(0, 160),
+          thread: "choir-bugs", data: { url: `/bug/${id}` },
+        }).catch(() => {});
+      }
+      return ok({ id });
+    }
 
     if (event.httpMethod === "POST") {
       let body;
