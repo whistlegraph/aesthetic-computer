@@ -1,6 +1,43 @@
 import XCTest
 
 final class MimeLayoutTests: XCTestCase {
+    func testRemoteVoiceUnlocksAndReturnsFromPreviewGutter() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "remote-voice"
+        app.launch()
+        XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
+        waitForReveal(in: app)
+        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        for version in 1...2 {
+            app.buttons["mime-fixture-voice"].tap()
+            let row = app.buttons["version-\(version)"]
+            XCTAssertTrue(row.waitForExistence(timeout: 30))
+            let usable = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["type-control"])
+            XCTAssertEqual(XCTWaiter().wait(for: [usable], timeout: 10), .completed)
+            XCTAssertTrue(row.isEnabled, "Voice completion also releases version selection")
+        }
+        app.buttons["type-control"].tap()
+        XCTAssertTrue(app.textFields["typed-request"].waitForExistence(timeout: 5))
+        app.buttons["request-cancel"].tap()
+        let keyboardGone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.keyboards.firstMatch)
+        XCTAssertEqual(XCTWaiter().wait(for: [keyboardGone], timeout: 10), .completed)
+        let arrow = app.buttons["mime-creation-back"], preview = app.descendants(matching: .any)["story-picture"].firstMatch
+        let aligned = expectation(for: NSPredicate { _, _ in abs(arrow.frame.midY - preview.frame.midY) < 2 }, evaluatedWith: app)
+        XCTAssertEqual(XCTWaiter().wait(for: [aligned], timeout: 5), .completed)
+        XCTAssertEqual(arrow.frame.midY, preview.frame.midY, accuracy: 2)
+        XCTAssertLessThanOrEqual(arrow.frame.maxX, preview.frame.minX + 1)
+        XCTAssertLessThan(app.buttons["workspace-settings"].frame.minY, 110, "No extra navigation row")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "MIME voice request complete with preview return arrow"; screenshot.lifetime = .keepAlways; add(screenshot)
+        let gutter = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: arrow.frame.midX, dy: arrow.frame.midY))
+        gutter.press(forDuration: 0.1, thenDragTo: gutter.withOffset(CGVector(dx: -35, dy: 0)), withVelocity: .fast, thenHoldForDuration: 0)
+        XCTAssertTrue(app.buttons["mime-resume-editor"].waitForExistence(timeout: 10))
+        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        XCTAssertTrue(app.buttons["version-2"].isEnabled)
+        arrow.tap()
+        XCTAssertTrue(app.buttons["mime-resume-editor"].waitForExistence(timeout: 10))
+    }
     func testVersionRemixesPiecePaintingAndWadAsNewV0() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -143,8 +180,7 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertTrue(app.buttons["account-entry-login"].waitForExistence(timeout: 30))
         XCTAssertFalse(app.buttons["type-control"].isHittable, "Creation controls remain inaccessible until sign-in")
         let handle = app.buttons["mime-creation-back"]
-        let header = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0)).withOffset(CGVector(dx: 0, dy: handle.frame.midY))
-        header.press(forDuration: 0.1, thenDragTo: header.withOffset(CGVector(dx: -200, dy: 0)))
+        handle.tap()
         let dismissed = expectation(for: NSPredicate(format: "isHittable == false"), evaluatedWith: handle)
         XCTAssertEqual(XCTWaiter().wait(for: [dismissed], timeout: 10), .completed)
         XCTAssertTrue(type.waitForExistence(timeout: 10))

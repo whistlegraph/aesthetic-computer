@@ -48,6 +48,11 @@ struct MimeRoot: View {
                     .opacity(creating ? 1 : 0)
                     .allowsHitTesting(creating).accessibilityHidden(!creating)
                 #if DEBUG
+                if creating && ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remote-voice" {
+                    Button("Fixture voice request") { workspace.webView?.evaluateJavaScript("voiceStart()") }
+                        .accessibilityIdentifier("mime-fixture-voice")
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                }
                 if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "audio" {
                     Text(workspace.playbackTestResult).font(.caption).allowsHitTesting(false)
                         .accessibilityIdentifier("mime-preview-audio-state")

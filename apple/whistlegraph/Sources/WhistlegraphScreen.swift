@@ -115,6 +115,7 @@ struct WhistlegraphScreen: View {
     @StateObject private var narrator = VersionNarrator()
     @StateObject private var exporter = StoryExport()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.exploreMimes) private var exploreMimes
     @State private var held = false
     @State private var chalkDrag: CGFloat = 0
     private var chalkReveal: CGFloat { session.performanceCapture ? 1 : min(1, chalkDrag / 80) }
@@ -145,7 +146,8 @@ struct WhistlegraphScreen: View {
     }
     private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
     private var previewSize: CGSize {
-        let width = screenWidth - session.layout.pageInset * 2 - 12
+        // MIME keeps a touchable return gutter beside every preview aspect ratio.
+        let width = screenWidth - max(session.layout.pageInset * 2, exploreMimes == nil ? 0 : 88) - 12
         let height = min(380, screenHeight * 0.4)
         if session.snapshot.wareID == "painting", let pixels = session.snapshot.painting?.pixelSize {
             let scale = min(width / pixels.width, height / pixels.height)
@@ -219,6 +221,7 @@ struct WhistlegraphScreen: View {
             .frame(height: composeScale < 1 ? (previewSize.height + 12) * composeScale : nil, alignment: .top)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: showComposer)
             .accessibilityIdentifier("story-picture")
+            .anchorPreference(key: WhistlegraphPreviewBounds.self, value: .bounds) { $0 }
             .overlay {
                 if narrator.isPlaying && !exporter.requested {
                     HStack {
@@ -427,6 +430,11 @@ struct WhistlegraphScreen: View {
             .accessibilityAction { if session.capturePhase == .recording { session.endHold() } else if canTalk { session.beginHold() } }
         }
     }
+}
+
+struct WhistlegraphPreviewBounds: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = nextValue() ?? value }
 }
 
 struct VersionFeed: View {
@@ -726,7 +734,7 @@ struct InlineRequestComposer: View {
                 .onChange(of: text) { old, value in edited(from: old, to: value) }
                 .accessibilityLabel("Request, up to 96 characters").accessibilityIdentifier("typed-request")
             HStack {
-                Button("Cancel") { DeviceActionLog.shared.record(.typeSend, .cancelled); cancel() }.accessibilityIdentifier("request-cancel")
+                Button("Cancel") { focused = false; DeviceActionLog.shared.record(.typeSend, .cancelled); cancel() }.accessibilityIdentifier("request-cancel")
                 Spacer()
                 Text("\(text.count) / 96").accessibilityIdentifier("request-count").monospacedDigit().foregroundStyle(.secondary)
                 Spacer()

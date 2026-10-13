@@ -147,6 +147,13 @@ struct Workspace: UIViewRepresentable {
         if let data = try? JSONSerialization.data(withJSONObject: voice.aiConsent.bridge), let json = String(data: data, encoding: .utf8) {
             config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphAIConsent = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
+        #if MIME_APP && DEBUG
+        if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remote-voice",
+           let url = Bundle.main.url(forResource: "remote-voice", withExtension: "js", subdirectory: "Fixtures"),
+           let script = try? String(contentsOf: url, encoding: .utf8) {
+            config.userContentController.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+        #endif
         config.userContentController.add(context.coordinator, name: "whistlegraph")
         config.setURLSchemeHandler(WhistlegraphBundle(), forURLScheme: WhistlegraphBundle.storageScheme)
         // Custom-scheme fetch responses have status 0 on device. Seed the
@@ -1005,6 +1012,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         case "voiceIdle":
             performanceCapture = false
             capturePhase = .idle; captureStarted = nil
+            DeviceActionLog.shared.record(.speech, .ready)
         case "pieces":
             guard let value = body["pieces"] as? [[String: Any]], value.count <= 256,
                   let data = try? JSONSerialization.data(withJSONObject: value),
@@ -1079,6 +1087,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             previewRequestID = body["renderID"] as? Int ?? 0
             previewSource = source; renderPreview()
         case "start":
+            #if MIME_APP && DEBUG
+            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remote-voice" {
+                emit("listening", id: id)
+                Task { try? await Task.sleep(for: .milliseconds(300)); self.emit("final", text: "Add three people", id: id) }
+                return
+            }
+            #endif
             DeviceActionLog.shared.record(.speech, .opening)
             capturePhase = .opening; captureError = nil; transcript = ""
             microphoneLevels = Array(repeating: 0, count: 28)

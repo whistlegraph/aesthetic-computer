@@ -21,33 +21,45 @@ struct MimeCreation: View {
         session.workspaceReady && session.accountStatus != .checking && !session.accountReady
     }
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button(action: close) { Label("Feed", systemImage: "chevron.left").frame(minWidth: 72, minHeight: 44) }
-                    .buttonStyle(.plain).accessibilityIdentifier("mime-creation-back")
-                Spacer()
-            }
-                .font(.custom("ComicRelief-Bold", size: 17)).foregroundStyle(surface.foreground)
-                .padding(.horizontal, 16).frame(height: 44).contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 12, coordinateSpace: .global).onChanged { value in
-                    if abs(value.translation.width) > abs(value.translation.height) { drag = min(0, value.translation.width) }
-                }.onEnded { value in finishSwipe(value.translation.width, predicted: value.predictedEndTranslation.width) })
-            ZStack {
-                WhistlegraphScreen(session: session, availableSize: CGSize(width: size.width, height: size.height - 44))
-                    .allowsHitTesting(editorReady).accessibilityHidden(!editorReady)
-                // Keep WebKit rendering under the cover; opacity zero can suspend its first frame.
-                if !editorReady { surface.background }
-                if let failure = session.startupFailure {
-                    VStack(spacing: 16) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding()
-                } else if needsAccount {
-                    WhistlegraphAccountEntry(session: session, onExplore: close)
-                } else if !editorReady {
-                    ProgressView().tint(.white).accessibilityLabel("Opening editor")
-                        .accessibilityIdentifier("mime-creation-loading")
-                }
+        ZStack {
+            WhistlegraphScreen(session: session, availableSize: size)
+                .allowsHitTesting(editorReady).accessibilityHidden(!editorReady)
+            // Keep WebKit rendering under the cover; opacity zero can suspend its first frame.
+            if !editorReady { surface.background }
+            if let failure = session.startupFailure {
+                VStack(spacing: 16) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding()
+            } else if needsAccount {
+                WhistlegraphAccountEntry(session: session, onExplore: close)
+            } else if !editorReady {
+                ProgressView().tint(.white).accessibilityLabel("Opening editor")
+                    .accessibilityIdentifier("mime-creation-loading")
             }
         }
         .background(surface.background.ignoresSafeArea())
+        .overlayPreferenceValue(WhistlegraphPreviewBounds.self) { anchor in
+            GeometryReader { geometry in
+                let picture = anchor.map { geometry[$0] } ?? CGRect(x: 44, y: 80, width: size.width - 88, height: 280)
+                let gutter = max(44, picture.minX)
+                Button(action: close) {
+                    Image(systemName: "chevron.left").font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(surface.foreground.opacity(0.65))
+                        .frame(width: 44, height: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).accessibilityLabel("Return to feed")
+                .accessibilityIdentifier("mime-creation-back")
+                .frame(width: gutter, height: picture.height).contentShape(Rectangle())
+                .simultaneousGesture(DragGesture(minimumDistance: 12, coordinateSpace: .global).onChanged { value in
+                    if abs(value.translation.width) > abs(value.translation.height) { drag = min(0, value.translation.width) }
+                }.onEnded { value in
+                    if abs(value.translation.width) > abs(value.translation.height) {
+                        // The gutter is narrow; a short leftward flick is enough.
+                        if value.translation.width < -24 || value.predictedEndTranslation.width < -70 { close() }
+                    }
+                    finishSwipe(0, predicted: 0)
+                })
+                .position(x: gutter / 2, y: picture.midY)
+            }
+        }
         .onPreferenceChange(WhistlegraphThemePreference.self) { if let theme = $0 { surface = theme } }
         .background(MimeReturnSwipe(enabled: active, moved: { drag = min(0, $0) }, ended: finishSwipe))
         .accessibilityAction(.escape, close)

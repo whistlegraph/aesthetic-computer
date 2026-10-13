@@ -692,6 +692,7 @@ function remoteFailed(message,draft){
   if(draft)try{localStorage.setItem(storageKey+'-draft',JSON.stringify({source:draft,request:lastAttempt.request,error:message,parent:versions.head.id,createdAt:new Date().toISOString()}));}catch{}
   remoteJob=null;openTurnsChecked=false;activeAttempt=null;busy=false;phase(message==='Stopped'?'Stopped':'Could not finish');log(message);void refreshKnotPieces();
   $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();
+  window.whistlegraphWorkFinished?.();
 }
 async function watchRemoteTurn(job){
   const startedAt=Date.now();
@@ -700,6 +701,9 @@ async function watchRemoteTurn(job){
     if(!remoteJob||remoteJob.id!==job.id)return;
     let state;
     try{const r=await fetch('https://aesthetic.computer/api/whistlegraph-turn?id='+encodeURIComponent(job.id),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});state=await r.json();}catch{continue;}
+    // Stop may have returned the controls while this poll was in flight. Its
+    // late result must not finish a newer voice request.
+    if(!remoteJob||remoteJob.id!==job.id)return;
     if(state.status==='queued'||state.status==='running'){
       // The knot's phase and the code it is writing, shown as if the turn ran here.
       const p=state.progress;
@@ -719,7 +723,8 @@ async function watchRemoteTurn(job){
       }
       const notes=state.result?.notes||[];
       phase(`v${versions.head.id} · ${state.result?.acceptance==='reviewed'?'Ready to play':'Saved with notes'}`);if(notes.length)log('Notes · '+notes.join('; '));
-      $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();return;
+      $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();
+      window.whistlegraphWorkFinished?.();return;
     }
     if(state.status==='failed'){remoteFailed(state.result?.error||'The knot could not finish',state.result?.draft||null);return;}
   }
@@ -828,7 +833,7 @@ window.whistlegraphForgetLocalData = () => {
   visualController?.abort(); server?.interrupt(); musicalAdvisor.cancel(); musicalSocket.suspend(); thread?.suspend();
   token=accountToken=accountHandle=''; localStorage.clear();
 };
-window.whistlegraphIsBusy=()=>busy;
+window.whistlegraphIsBusy=()=>busy||!!remoteJob;
 window.whistlegraphHasReview=()=>false;
 if(!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!window.__whistlegraphLocalSequence&&!window.__whistlegraphDisableThread)try{if(initializeBasePiece(localStorage,storageKey))lastAttempt=null;}catch(error){phase('Could not initialize piece');log(error.message);}
 try{source=window.__whistlegraphSpace&&window.__whistlegraphSequenceStart===1?'':window.__whistlegraphLocalSequence?'':window.__whistlegraphSequence?((window.__whistlegraphSequenceStart>1?localStorage.getItem(storageKey):'')||localStorage.getItem('whistlegraph-benchmark-source')||''):window.__whistlegraphBenchmark?'':localStorage.getItem(storageKey)||'';if(source){previous=source;ui.hidden=false;document.body.classList.add('live-mode','live-preview');$('initial').hidden=true;render(source);}}catch{}
