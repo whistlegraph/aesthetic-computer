@@ -41,6 +41,17 @@ test("Oskiewar cards play in the feed, pause offscreen, and retain their permali
     assert.equal(await second.evaluate(() => playing), false);
     assert.equal(await page.locator("#ow-zimmu299 .reel-command .media-label").getAttribute("aria-label"), "ow-zimmu299");
     assert.equal(await page.locator("#ow-zimmu299 .reel-type").getAttribute("aria-label"), "application/x-oskiewar-demo");
+    // Watched, not played: no toggle, the frame stays inert, a tap changes
+    // nothing, and the wheel over the card moves the feed on.
+    assert.equal(await page.locator("#ow-zimmu299 .media-toggle").count(), 0);
+    assert.equal(await page.locator("#ow-zimmu299 .piece-preview").evaluate(el => el.inert), true);
+    await page.locator("#ow-zimmu299 .media-shield").click();
+    assert.equal(await page.locator("#ow-zimmu299 .feed-media").getAttribute("data-interacting"), null);
+    assert.equal(await page.locator("#ow-zimmu299 .piece-preview").evaluate(el => el.inert), true);
+    const card = await page.locator("#ow-zimmu299 .feed-media").boundingBox();
+    await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+    await page.mouse.wheel(0, 180);
+    await page.waitForFunction(() => scrollY > 60);
     await page.locator("#ow-chette767").evaluate(e => e.scrollIntoView());
     await second.waitForFunction(() => playing);
     await first.waitForFunction(() => !playing);

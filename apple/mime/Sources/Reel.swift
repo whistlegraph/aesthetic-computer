@@ -166,8 +166,13 @@ private struct Card: View {
     let toggleInteract: () -> Void
     @Environment(\.openURL) private var openURL
 
+    /// A saved Oskiewar round is watched, never played with.
     private var playable: Bool {
-        switch post.body { case .runtime, .packed, .video: return true; default: return false }
+        switch post.body {
+        case .runtime(_, kind: "oskiewar"): return false
+        case .runtime, .packed, .video: return true
+        default: return false
+        }
     }
 
     var body: some View {

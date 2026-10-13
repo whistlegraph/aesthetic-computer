@@ -317,10 +317,11 @@
     body.feed .feed-post:not(:has(> .feed-media)) > .body { grid-row: 1; align-self: center; max-height: none; font-size: 20px; }
     /* A mood is someone's words, big, in the comic voice, on their own color. */
     body.feed .feed-post.mood-post { background: color-mix(in srgb, var(--author) 30%, #171526); }
-    /* Tap media to interact; the identifier always shares the post. Keep the
-       interaction control available to keyboards and visible while playing. */
+    /* Tap media to interact; the identifier always shares the post. The reel
+       never shows the toggle: a card in interaction wears its outline, and Escape,
+       a press off the card (its caption, say) or scrolling on returns to the feed.
+       Only keyboard focus reveals the button. */
     body.feed .feed-media > .media-toggle { opacity: 0; pointer-events: none; }
-    body.feed .feed-media[data-interacting] > .media-toggle,
     body.feed .feed-media > .media-toggle:focus-visible { opacity: 1; pointer-events: auto; }
     body.feed .feed-media > .media-toggle { top: calc(6px + env(safe-area-inset-top)); right: 50%; transform: translateX(50%); bottom: auto; z-index: 11; }
     body.feed .feed-media.media-flow > .media-toggle { position: sticky; top: calc(6px + env(safe-area-inset-top)); bottom: auto; margin: 0 12px -42px 0; order: -1; }
@@ -790,13 +791,14 @@ function exitMediaInteraction() {
   delete frame.dataset.interacting;
   frame.firstElementChild.inert = true;
   if (frame.closest(".feed-post") && frame.firstElementChild.tagName === "VIDEO") frame.firstElementChild.muted = true;
-  const button = frame.querySelector(".media-toggle");
-  button.textContent = "Interact";
-  button.setAttribute("aria-pressed", "false");
+  frame.querySelector(".media-toggle").setAttribute("aria-pressed", "false");
   interactingMedia = null;
 }
 function shieldMedia(frame, content, interactive) {
-  content.inert = Boolean(interactive);
+  // A program stays inert until Interact. A watched program (a saved Oskiewar
+  // round) never gets one, so it stays inert for good and the feed's scroll
+  // passes straight over it.
+  content.inert = Boolean(interactive) || content.classList.contains("piece-preview");
   const shield = el("div", "media-shield");
   shield.setAttribute("aria-hidden", "true");
   frame.append(shield);
@@ -804,7 +806,7 @@ function shieldMedia(frame, content, interactive) {
   const button = el("button", "media-toggle", "Interact");
   button.type = "button";
   button.setAttribute("aria-pressed", "false");
-  button.setAttribute("aria-label", "Interact with this media; toggle to return to scrolling");
+  button.setAttribute("aria-label", "Interact with this media; press again to return to scrolling");
   button.onclick = (event) => {
     if (interactingMedia === frame) {
       if (event.isTrusted) window.acVisits?.action("mime_scroll_feed");
@@ -826,7 +828,6 @@ function shieldMedia(frame, content, interactive) {
       player.src = "https://aesthetic.computer/video~!" + encodeURIComponent(frame.dataset.tape) + "?nogap=true&nolabel=true&noauth=true" + (window.acAutomation || new URLSearchParams(location.search).has("ac-automation") ? "&ac-automation=1" : "");
       frame.append(player);
     }
-    button.textContent = "Scroll feed";
     button.setAttribute("aria-pressed", "true");
     syncPieceFocus();
   };
@@ -891,6 +892,24 @@ window.addEventListener("message", event => {
   // wheel's direction to the neighbouring snap point instead.
   stepFeedPost(node, Math.sign(deltaY));
 });
+// A press anywhere off the interacting card ends the interaction, and is spent
+// on that: the click it would land (the caption opening comments, say) goes
+// nowhere. Presses inside the frame never reach this document; the program
+// keeps them.
+let spentPress = false;
+window.addEventListener("pointerdown", event => {
+  spentPress = false;
+  if (!interactingMedia || interactingMedia.contains(event.target)) return;
+  if (event.isTrusted) window.acVisits?.action("mime_scroll_feed");
+  exitMediaInteraction();
+  spentPress = true;
+}, { passive: true });
+window.addEventListener("click", event => {
+  if (!spentPress) return;
+  spentPress = false;
+  event.preventDefault();
+  event.stopPropagation();
+}, true);
 window.addEventListener("keydown", event => {
   if (event.key !== "Escape" || event.repeat || document.querySelector("dialog[open]")) return;
   if (activeFeed) { event.preventDefault(); stepFeedPost(); }
@@ -1529,7 +1548,9 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     if (file.tagName === "PRE" || "flow" in file.dataset) frame.classList.add("media-flow");
     if ("page" in file.dataset) frame.classList.add("media-page");
     // Plain text has nothing to shield; it reads and selects in place.
-    if (file.tagName !== "PRE") shieldMedia(frame, file, Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "A"].includes(file.tagName));
+    // A saved Oskiewar round is watched, not played: no Interact, no toggle.
+    const watched = post.media?.kind === "oskiewar";
+    if (file.tagName !== "PRE") shieldMedia(frame, file, !watched && (Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "A"].includes(file.tagName)));
     div.append(frame);
   }
   if (post.text) div.append(inFeed && ["mood", "chat"].includes(post.media?.kind) ? renderMood(post.text) : renderText(post.text));

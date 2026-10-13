@@ -27,7 +27,8 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
   });
   const interact = async (id) => {
     const frame = page.locator('#' + id + ' .feed-media');
-    if (await frame.getAttribute('data-interacting')) await frame.locator(':scope > .media-toggle').click();
+    // The reel shows no toggle; a press off the card (its caption) returns to the feed.
+    if (await frame.getAttribute('data-interacting')) await page.locator('#' + id + ' .meta').click({ position: { x: 2, y: 2 } });
     else await frame.locator(':scope > .media-shield').click();
   };
   try {
