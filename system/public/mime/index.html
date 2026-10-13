@@ -946,6 +946,7 @@ function renderFile(file) {
     media.title = file.name;
     media.allow = "autoplay";
     const url = new URL("https://aesthetic.computer/doom-player/");
+    url.searchParams.set("preview", "1");
     url.searchParams.set("file", new URL(file.url, location.href).href);
     nearViewport(media, () => { media.src = url.href; });
     const observer = new IntersectionObserver(entries => {
