@@ -43,6 +43,7 @@ export const defaults = {
   sway: .016,             // rhythm side bend per joint (radians)
   wring: .18,             // rhythm twist at the ends (radians)
   react: 8,               // how fast muscles move toward what's asked (1/s)
+  rise: 14,               // how fast the legs bring the hips back to standing (1/s)
   shoulder: 20,           // half the shoulders
   hipWidth: 11,           // half the hips
   arm: [34, 32],          // upper arm, forearm
@@ -305,7 +306,7 @@ export function stepSpine(spine, dt = step) {
   // A driven root belongs to someone else (the game): they say where it is,
   // how it moves and whether it's flying; the body only stands on it.
   if (root.driven) {
-    root.y += (stand - root.y) * (1 - Math.exp(-14 * dt));
+    root.y += (stand - root.y) * (1 - Math.exp(-(o.rise ?? 14) * dt));
     carryAlong(spine);
   }
   else if (root.air) {
@@ -314,7 +315,7 @@ export function stepSpine(spine, dt = step) {
       spine.landed = -root.vy; root.air = false; root.vy = 0; root.y = stand;
       land(spine, spine.landed * .6);
     }
-  } else root.y += (stand - root.y) * (1 - Math.exp(-14 * dt));
+  } else root.y += (stand - root.y) * (1 - Math.exp(-(o.rise ?? 14) * dt));
   if (!root.driven) { root.x += root.vx * dt; root.z += root.vz * dt; }
 
   const h = dt / o.substeps;
