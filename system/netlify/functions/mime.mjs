@@ -100,7 +100,7 @@ export const handler = createHandler();
 async function findOp(db, posts, code) {
   const ref = parseMediaThread(code);
   if (ref) return mediaThread(db, ref.kind, { _id: ref.id });
-  return await feedOnlyOp(db, code) || posts.findOne({ code, parent: null }, NO_DATA);
+  return await feedOnlyOp(db, code) || (/^wg[A-Za-z0-9]+$/.test(code) ? await resolveMedia(db, "whistlegraph", code) : null) || posts.findOne({ code, parent: null }, NO_DATA);
 }
 
 // Feed visits carry a random seed so each one gets its own stable order.

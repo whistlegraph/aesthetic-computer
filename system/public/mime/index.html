@@ -183,6 +183,8 @@
     .feed-media.media-flow > iframe.doc { height: 240px; background: var(--card); }
     .feed-media.media-flow > .media-toggle { position: sticky; bottom: 84px; align-self: flex-end; margin: -42px 10px 10px 0; } /* rides along a tall document, clear of the account bar */
     .feed-media.media-page { aspect-ratio: 17 / 22; max-height: 85vh; } /* a PDF sits in a letter-shaped box; its viewer pages inside */
+    .piece-preview:not([data-packed="true"]) > iframe:not([data-ready="true"]) { opacity: 0; pointer-events: none;
+      position: fixed; top: 0; left: 0; width: var(--warm-width, 100vw); height: var(--warm-height, 100dvh); }
     .piece-preview { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
     .piece-preview > img, .piece-preview > iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
     .piece-preview > iframe { position: absolute; inset: 0; background: var(--media); }
@@ -256,7 +258,7 @@
     /* MIME locks 14px from the right edge, shrinking and fading into a watermark. */
     html body.feed header.compact h1 { transition: none; transform-origin: right center;
       transform: translateX(calc((100vw - 100% - 28px) * var(--corner, 0))) scale(calc(1 - .25 * var(--corner, 0)));
-      opacity: calc(1 - .45 * var(--corner, 0)); }
+      opacity: 1; }
     /* The wordmark sits top-left on its banner, as on Instagram, and nothing else
        crowds the reel; saved and sign in wait on the thread pages. */
     body.feed header h1, body.feed header.compact h1 { left: 14px; transform: none; top: calc(4px + env(safe-area-inset-top)); pointer-events: auto; }
@@ -578,15 +580,34 @@ function feedTop(node) {
   return node.getBoundingClientRect().top + window.scrollY - chromeTop();
 }
 let routedPath = location.pathname;
+function shakeCardLetters(node) {
+  if (!node || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const shake = (letter, i) => {
+    // Outline/fill copies share a motion; the logo keeps its floating pose.
+    letter.getAnimations().filter(animation => animation.id === "mime-hop").forEach(animation => animation.cancel());
+    const direction = i % 2 ? 1 : -1, delay = ((i * 47) % 130);
+    const animation = letter.animate([{ translate: "0 0", rotate: "0deg" },
+      { translate: `${direction * 2}px -2px`, rotate: `${direction * 5}deg`, offset: .2 },
+      { translate: `${-direction}px 1px`, rotate: `${-direction * 3}deg`, offset: .5 },
+      { translate: "0 0", rotate: "0deg" }], { duration: 420 + (i % 3) * 45, delay, easing: "ease-out" });
+    animation.id = "mime-hop";
+  };
+  for (const label of node.querySelectorAll(".pal-text")) {
+    for (const layer of label.children) [...layer.children].forEach(shake);
+  }
+  header.querySelectorAll(".mime-letter").forEach(shake);
+}
 function rememberFeed(updateAddress = true) {
   if (!activeFeed) return;
   const edge = (chromeTop() + innerHeight) / 2;
   const index = activeFeed.nodes.findIndex((node) => node.getBoundingClientRect().bottom > edge + 1);
+  const previous = activeFeed.index;
   activeFeed.index = Math.max(0, index);
   const node = activeFeed.nodes[activeFeed.index];
   activeFeed.offset = node ? window.scrollY - feedTop(node) : 0;
+  if (updateAddress && previous !== activeFeed.index) shakeCardLetters(node);
   if (updateAddress && node && (!location.hash || location.hash === "#/")) {
-    const path = "/p/" + encodeURIComponent(node.dataset.permalink);
+    const path = /^wg[A-Za-z0-9]+$/.test(node.dataset.permalink) ? "/" + node.dataset.permalink : "/p/" + encodeURIComponent(node.dataset.permalink);
     if (location.pathname !== path || location.hash) history.replaceState(null, "", path + location.search);
     routedPath = path;
   }
@@ -812,7 +833,7 @@ window.addEventListener("keydown", event => {
   if (!player) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  if (event.code === "Escape") { if (!event.repeat) nextFeedPost(node); return; }
+  if (event.code === "Escape") { if (!event.repeat) stepFeedPost(node); return; }
   const frame = player.parentElement;
   if (interactingMedia !== frame) frame.querySelector(".media-toggle").onclick(event);
   doomBridgeKeys.set(event.code, player);
@@ -831,15 +852,16 @@ window.addEventListener("blur", () => {
   for (const [code, player] of doomBridgeKeys) player.contentWindow?.postMessage({ type: "mime:key", code, down: false }, "https://aesthetic.computer");
   doomBridgeKeys.clear();
 });
-async function nextFeedPost(node = activeFeed?.nodes[activeFeed.index]) {
+async function stepFeedPost(node = activeFeed?.nodes[activeFeed.index], step = 1) {
   const state = activeFeed;
   if (!state || !node) return;
   exitMediaInteraction();
   document.activeElement?.blur();
   const index = state.nodes.indexOf(node);
-  if (index === state.nodes.length - 1 && state.hasMore) await state.loadMore?.();
-  if (activeFeed !== state || !state.nodes[index + 1]) return;
-  window.scrollTo({ top: feedTop(state.nodes[index + 1]),
+  if (step > 0 && index === state.nodes.length - 1 && state.hasMore) await state.loadMore?.();
+  const target = Math.max(0, index + step);
+  if (activeFeed !== state || !state.nodes[target]) return;
+  window.scrollTo({ top: feedTop(state.nodes[target]),
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 }
 window.addEventListener("message", event => {
@@ -848,17 +870,16 @@ window.addEventListener("message", event => {
   if (!node) return;
   const box = node.getBoundingClientRect(), middle = (chromeTop() + innerHeight) / 2;
   if (box.top > middle || box.bottom <= middle) return;
-  if (event.data.type === "mime:next") { nextFeedPost(node); return; }
+  if (event.data.type === "mime:next") { stepFeedPost(node); return; }
   const { deltaY, deltaMode } = event.data;
   if (!Number.isFinite(deltaY) || deltaY === 0 || ![0, 1, 2].includes(deltaMode)) return;
-  exitMediaInteraction();
-  document.activeElement?.blur();
-  const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? innerHeight : 1;
-  window.scrollBy({ top: Math.max(-innerHeight, Math.min(innerHeight, deltaY * unit)), behavior: "instant" });
+  // A small programmatic pixel scroll can snap back to this card. Carry the
+  // wheel's direction to the neighbouring snap point instead.
+  stepFeedPost(node, Math.sign(deltaY));
 });
 window.addEventListener("keydown", event => {
   if (event.key !== "Escape" || event.repeat) return;
-  if (activeFeed) { event.preventDefault(); nextFeedPost(); }
+  if (activeFeed) { event.preventDefault(); stepFeedPost(); }
   else if (interactingMedia) {
     const button = interactingMedia.querySelector(".media-toggle");
     exitMediaInteraction();
@@ -887,29 +908,64 @@ function syncVideoPlayback() {
   }
 }
 
-let pieceFocused = null, piecePending = null, pieceFocusTimer = 0;
-// Ask the running piece to start its audio. Browsers allow it once the viewer
-// has tapped the page, so every tap asks again; packed HTML pieces ignore it.
+let pieceFocused = null;
+const piecePool = new Map();
 function askForSound() {
-  const frame = pieceFocused?.querySelector("iframe");
-  if (frame && pieceFocused.dataset.packed !== "true") frame.contentWindow?.postMessage({ type: "ac:start-audio" }, "*");
+  const entry = piecePool.get(pieceFocused);
+  if (entry && pieceFocused.dataset.packed !== "true") entry.iframe.contentWindow?.postMessage({ type: "ac:start-audio" }, "*");
 }
 window.addEventListener("pointerdown", () => setTimeout(askForSound), { passive: true });
 window.addEventListener("keydown", () => setTimeout(askForSound));
-function stopPiece() {
-  clearTimeout(pieceFocusTimer);
-  pieceFocusTimer = 0;
-  piecePending = null;
-  pieceFocused?.querySelector("iframe")?.remove();
-  pieceFocused = null;
+function settlePiece(preview, playing, force = false) {
+  const entry = piecePool.get(preview);
+  if (!entry || (!force && entry.playing === playing)) return;
+  entry.playing = playing;
+  entry.iframe.contentWindow?.postMessage({ type: "mime:playing", playing }, "*");
 }
+function stopPiece() {
+  for (const { iframe } of piecePool.values()) iframe.remove();
+  piecePool.clear(); pieceFocused = null;
+}
+function preparePiece(preview) {
+  if (piecePool.has(preview)) return;
+  const iframe = el("iframe");
+  const bounds = preview.getBoundingClientRect();
+  iframe.style.setProperty("--warm-width", bounds.width + "px");
+  iframe.style.setProperty("--warm-height", bounds.height + "px");
+  iframe.title = preview.dataset.title;
+  iframe.setAttribute("sandbox", preview.dataset.packed === "true" ? "allow-scripts" : "allow-scripts allow-same-origin");
+  iframe.referrerPolicy = "no-referrer";
+  iframe.allow = "autoplay; camera 'none'; microphone 'none'";
+  iframe.addEventListener("load", () => {
+    if (preview.dataset.packed === "true") iframe.dataset.ready = "true";
+    settlePiece(preview, preview === pieceFocused, true);
+  });
+  iframe.src = preview.dataset.player;
+  piecePool.set(preview, { iframe, playing: null });
+  preview.append(iframe);
+}
+window.addEventListener("message", event => {
+  if (event.origin !== "https://aesthetic.computer" || event.data?.type !== "mime:ready") return;
+  for (const [preview, entry] of piecePool) if (entry.iframe.contentWindow === event.source) {
+    entry.iframe.dataset.ready = "true";
+    settlePiece(preview, preview === pieceFocused && !document.hidden && document.hasFocus(), true);
+    if (preview === pieceFocused) askForSound();
+    break;
+  }
+});
 function syncPieceFocus() {
-  if (document.hidden || !document.hasFocus()) { stopPiece(); return; }
+  if (document.hidden || !document.hasFocus()) {
+    pieceFocused = null;
+    for (const [preview, entry] of piecePool) {
+      if (preview.dataset.packed === "true") { entry.iframe.remove(); piecePool.delete(preview); }
+      else settlePiece(preview, false);
+    }
+    return;
+  }
   const top = chromeTop();
   if (interactingMedia) {
     const box = interactingMedia.getBoundingClientRect();
     if (!interactingMedia.isConnected || box.bottom <= top || box.top >= innerHeight) exitMediaInteraction();
-    else if (interactingMedia.querySelector(".piece-preview") === pieceFocused && pieceFocused) return;
   }
   let focused = null, largest = 0, nearest = Infinity;
   for (const frame of view.querySelectorAll(".feed-media")) {
@@ -921,25 +977,21 @@ function syncPieceFocus() {
       focused = frame.querySelector(".piece-preview"); largest = area; nearest = distance;
     }
   }
-  if ((focused === pieceFocused && !piecePending) || (focused && focused === piecePending)) return;
-  stopPiece();
-  if (!focused) return;
-  piecePending = focused;
-  // Let a scroll settle before booting a runtime.
-  pieceFocusTimer = setTimeout(() => {
-    piecePending = null;
-    if (!focused.isConnected || document.hidden || !document.hasFocus()) return;
-    const iframe = el("iframe");
-    iframe.title = focused.dataset.title;
-    iframe.setAttribute("sandbox", focused.dataset.packed === "true" ? "allow-scripts" : "allow-scripts allow-same-origin");
-    iframe.referrerPolicy = "no-referrer";
-    // Pieces and KidLisp may sound: autoplay is delegated, and the runtime is asked to start its audio.
-    iframe.setAttribute("allow", "autoplay; camera 'none'; microphone 'none'");
-    iframe.addEventListener("load", () => { iframe.dataset.ready = "true"; askForSound(); }, { once: true });
-    iframe.src = focused.dataset.player;
-    focused.append(iframe);
-    pieceFocused = focused;
-  }, 350);
+  pieceFocused = focused;
+  const keep = new Set(focused ? [focused] : []);
+  if (activeFeed) {
+    const index = activeFeed.index;
+    for (const node of activeFeed.nodes.slice(Math.max(0, index - 1), index + 3)) {
+      const preview = node.querySelector(".piece-preview");
+      // Only our AC host can pause and mute a warmed runtime. Unknown packed
+      // pages retain their previous active-only lifetime.
+      if (preview && preview.dataset.packed !== "true") keep.add(preview);
+    }
+  }
+  for (const [preview, entry] of piecePool) if (!keep.has(preview) || !preview.isConnected) {
+    entry.iframe.remove(); piecePool.delete(preview);
+  }
+  for (const preview of keep) { preparePiece(preview); settlePiece(preview, preview === focused); }
 }
 // Both kinds are programs AC can run, booting the same runtime; they differ in
 // how they are addressed and whether a thumbnail is worth asking for.
@@ -970,9 +1022,10 @@ function renderRunnable(post) {
   // nogap/nolabel strip AC's chrome. noauth is load-bearing, not cosmetic:
   // a feed boots these unattended, and it withholds the viewer's session so
   // a card can never act as the signed-in user.
-  preview.dataset.player = "https://aesthetic.computer/" + address + "?nogap=true&nolabel=true&noauth=true";
+  preview.dataset.player = "https://aesthetic.computer/mime-play/?piece=" + encodeURIComponent(kind.prefix + code) + "&warm=1";
   preview.dataset.title = kind.label + code + (post.name ? " by " + post.name : "");
-  if (post.media.kind === "wgpiece") preview.dataset.player = post.media.url;
+  if (post.media.kind === "wgpiece") preview.dataset.player = "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code) + "&warm=1";
+  if (new URLSearchParams(location.search).has("ac-automation")) preview.dataset.player += "&ac-automation=1";
   if (post.media.kind === "whistlegraph") {
     preview.dataset.packed = "true";
     preview.dataset.player = post.media.url;
@@ -1218,7 +1271,8 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   const root = !post.parent;
   const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (post.media?.kind === "mood" ? " mood-post" : ""));
   div.id = post.code;
-  div.dataset.permalink = post.media?.kind === "mood" && post.media.code ? "mood~" + post.media.code : post.code;
+  div.dataset.permalink = post.media?.kind === "mood" && post.media.code ? "mood~" + post.media.code
+    : ["wgpiece", "whistlegraph"].includes(post.media?.kind) && /^wg[A-Za-z0-9]+$/.test(post.media.code) ? post.media.code : post.code;
   tintAuthor(div, post.name);
   const meta = el("div", "meta");
   const avatar = el("span", "avatar", (post.name || "?").replace(/^@/, "").slice(0, 1).toLowerCase());
@@ -1764,18 +1818,37 @@ async function home(page = 0, signal, target) {
 // While the feed is open, look for work published since it loaded; new work
 // leads page one, so a code there we haven't shown means something just landed.
 function watchForNew(state, signal) {
-  let pill = null;
+  let pill = null, checking = false;
   const check = async () => {
-    if (document.hidden || pill || activeFeed !== state) return;
+    if (document.hidden || pill || checking || activeFeed !== state) return;
+    checking = true;
     try {
       const data = await read(API + "?feed=1&page=0&seed=" + feedSeed, signal);
       const fresh = data.recent.slice(0, 6).filter((post) => !state.codes.has(post.code));
-      if (!fresh.length || signal.aborted) return;
+      if (!fresh.length || signal.aborted || activeFeed !== state) return;
       pill = el("button", "new-pill", "↑ new" + (fresh[0].name ? " from " + fresh[0].name : ""));
       pill.type = "button";
-      pill.onclick = () => { feedCache = null; history.replaceState(null, "", "/" + location.search); route(); };
+      pill.onclick = () => {
+        if (signal.aborted || activeFeed !== state) return;
+        const posts = fresh.filter(post => !state.codes.has(post.code));
+        const nodes = posts.map(post => renderPost(post, false, false, undefined, true));
+        const list = view.querySelector(".feed-list");
+        if (!nodes.length || !list) { pill.remove(); pill = null; return; }
+        exitMediaInteraction();
+        document.activeElement?.blur();
+        list.prepend(...nodes);
+        state.nodes.unshift(...nodes);
+        posts.forEach(post => state.codes.add(post.code));
+        nodes.forEach(node => playbackObserver?.observe(node.querySelector(".feed-media") || node));
+        state.index = 0; state.offset = 0;
+        pill.remove(); pill = null;
+        // Use the posts already found by the poll. A second fetch can reorder
+        // the feed, and rebuilding it discards every running program.
+        window.scrollTo({ top: feedTop(nodes[0]), behavior: "instant" });
+        rememberFeed(); shakeCardLetters(nodes[0]); sampleEngagement();
+      };
       document.body.append(pill);
-    } catch {}
+    } catch {} finally { checking = false; }
   };
   const timer = setInterval(check, 45000);
   document.addEventListener("visibilitychange", check, { signal });
@@ -1847,7 +1920,7 @@ async function route() {
   const page = Math.max(0, parseInt(params.get("page")) || 0);
   view.replaceChildren(el("p", null, "loading…"));
   try {
-    if (!hash) await home(page, signal, location.pathname.startsWith("/p/") ? decodeURIComponent(location.pathname.slice(3)) : null);
+    if (!hash) await home(page, signal, location.pathname.startsWith("/p/") ? decodeURIComponent(location.pathname.slice(3)) : /^\/wg[A-Za-z0-9]+$/.test(location.pathname) ? location.pathname.slice(1) : null);
     else if (hash === "saved") await savedPosts(page, signal);
     else if (hash.startsWith("t/")) await thread(hash.slice(2), undefined, signal);
     else if (hash.startsWith("media/")) {

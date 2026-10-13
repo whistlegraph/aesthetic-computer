@@ -16,36 +16,6 @@
 </head>
 <body>
   <p id="note">loading…</p>
-<script>
-const note = document.getElementById("note");
-const code = new URLSearchParams(location.search).get("code") || "";
-const run = async () => {
-  if (!/^wg[A-Za-z0-9]{1,32}$/.test(code)) throw new Error("no such piece");
-  const response = await fetch("/api/mime-feed?code=" + encodeURIComponent(code));
-  if (!response.ok) throw new Error("no such piece");
-  const { source } = await response.json();
-  if (typeof source !== "string" || !source) throw new Error("this piece has no code yet");
-  const frame = document.createElement("iframe");
-  frame.title = "Whistlegraph piece " + code;
-  frame.allow = "autoplay; camera 'none'; microphone 'none'";
-  frame.src = "/wipe?noauth=true&noplot=true&nogap=true&nolabel=true&preview=walkieware";
-  document.body.append(frame);
-  // The runtime is same-origin: wait for it to boot, then hand it the piece.
-  const poll = setInterval(() => {
-    const win = frame.contentWindow;
-    if (!win?.preloaded || !win.acSEND) return;
-    clearInterval(poll);
-    note.remove();
-    win.AC?.startAudio?.();
-    win.acSEND({ type: "dropped:piece", content: { name: "mime", source,
-      search: "noauth=true&noplot=true&nogap=true&nolabel=true", isKidLisp: false } });
-  }, 100);
-};
-// mime.ac asks for sound after a tap; pass it to the runtime inside.
-window.addEventListener("message", (event) => {
-  if (event.data?.type === "ac:start-audio") document.querySelector("iframe")?.contentWindow?.AC?.startAudio?.();
-});
-run().catch((error) => { note.textContent = error.message || "could not play this piece"; });
-</script>
+<script type="module" src="player.mjs?v=2026-10-13.1"></script>
 </body>
 </html>

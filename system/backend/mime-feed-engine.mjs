@@ -295,6 +295,7 @@ export async function feedPage(db, { seed, page, pageSize }) {
 /** Resolve a feed-only thread (archive painting, mood, Whistlegraph piece) for comments and engagement. */
 export async function feedOnlyOp(db, code) {
   if (typeof code !== "string") return null;
+  if (/^wg[A-Za-z0-9]+$/.test(code)) code = "wgpiece_" + code;
   let match = /^nopaint_([A-Za-z0-9]{4,16})$/.exec(code);
   if (match) {
     const item = nopaintArchive().find((entry) => entry.code === code);

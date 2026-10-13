@@ -846,7 +846,9 @@ if (!window.acDISK_SEND) {
 
 // 🔊 Master volume control (for desktop app sliders, etc.)
 // NOTE: These must be at module scope so window.AC.setMasterVolume works before boot()
-let masterVolume = 1;
+// MIME warms programs silently before their first frame. The embedding player
+// restores volume only for the card in view.
+let masterVolume = new URLSearchParams(location.search).get("mime") === "1" ? 0 : 1;
 let masterClockRate = 1;
 let speakerProcessorNode = null; // Will be set by boot()
 let backgroundMusicEl = null; // Will be set by boot()
