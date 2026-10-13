@@ -29,6 +29,7 @@ struct PalText: View {
         }
         .font(font)
         .fixedSize()
+        .alignmentGuide(.lastTextBaseline) { _ in size * 0.98 }
         .accessibilityElement()
         .accessibilityLabel(text)
     }

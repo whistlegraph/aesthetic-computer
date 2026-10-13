@@ -5,6 +5,7 @@ enum AccountEntryStatus: String { case checking, signedOut, needsHandle, ready, 
 struct WhistlegraphAccountEntry: View {
     @ObservedObject var session: WhistlegraphSession
     var onExplore: (() -> Void)? = nil
+    var overlaysFeed = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.openURL) private var openURL
     @State private var showingFeed = false
@@ -67,7 +68,7 @@ struct WhistlegraphAccountEntry: View {
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }.scrollIndicators(.hidden)
         }
-        .foregroundStyle(theme.foreground).background(theme.background.ignoresSafeArea())
+        .foregroundStyle(theme.foreground).background((overlaysFeed ? Color.clear : theme.background).ignoresSafeArea())
         .accessibilityIdentifier("account-entry")
         .fullScreenCover(isPresented: $showingFeed) { MimeFeedView { showingFeed = false; session.signIn() } }
     }

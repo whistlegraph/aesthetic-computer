@@ -1,5 +1,15 @@
 import SwiftUI
 
+private struct ExploreMimesActionKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+extension EnvironmentValues {
+    var exploreMimes: (() -> Void)? {
+        get { self[ExploreMimesActionKey.self] }
+        set { self[ExploreMimesActionKey.self] = newValue }
+    }
+}
+
 // What the engine knows about every piece on this phone: the one that is open
 // and the ones archived by "New piece". The engine posts the list on load and
 // whenever it changes; opening one swaps the archives and reloads.
@@ -36,6 +46,7 @@ struct PiecesSheet: View {
     var session: WhistlegraphSession? = nil
     @Environment(\.dismiss) private var dismiss
     @StateObject private var publishing = MimePublishModel()
+    @Environment(\.exploreMimes) private var exploreMimes
     @State private var showingFeed = false
     var body: some View {
         NavigationStack {
@@ -56,9 +67,12 @@ struct PiecesSheet: View {
                 }
                 #endif
                 Section("mime.ac") {
-                    Button { ButtonSounds.play(.play); showingFeed = true } label: {
+                    Button {
+                        ButtonSounds.play(.play)
+                        if let exploreMimes { dismiss(); exploreMimes() } else { showingFeed = true }
+                    } label: {
                         Label("Explore mimes", systemImage: "play.rectangle.on.rectangle")
-                    }.accessibilityIdentifier("pieces-explore")
+                    }.disabled(disabled).accessibilityIdentifier("pieces-explore")
                     if let session, session.snapshot.wareID == "piece", let current = pieces.first(where: { $0.current }), !current.code.isEmpty {
                         Toggle(isOn: Binding(get: { publishing.published == true },
                                              set: { value in Task { await publishing.set(value, account: session.account) } })) {

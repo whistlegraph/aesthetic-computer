@@ -11,29 +11,31 @@ struct MimeCreation: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Button("Back to MIME", systemImage: "chevron.left") {
-                    session.cancelHold()
-                    session.webView?.setAllMediaPlaybackSuspended(true, completionHandler: nil)
-                    active = false
-                }
-                .disabled(session.snapshot.busy || session.capturePhase != .idle)
-                .accessibilityIdentifier("mime-creation-back")
                 Spacer()
-            }.padding(.horizontal, 18).padding(.vertical, 10)
+                Button(action: close) {
+                    Image(systemName: "xmark").font(.title3)
+                        .frame(width: 44, height: 44)
+                        .background(.ultraThinMaterial, in: Circle())
+                }.buttonStyle(.plain).foregroundStyle(.white)
+                    .disabled(session.snapshot.busy || session.capturePhase != .idle)
+                    .accessibilityLabel("Explore mimes")
+                    .accessibilityIdentifier("mime-creation-back")
+            }.padding(.horizontal, 18).padding(.vertical, 4)
             ZStack {
-                WhistlegraphScreen(session: session)
+                WhistlegraphScreen(session: session, overlaysFeed: true)
                     .opacity(session.accountReady && requested == nil ? 1 : 0)
                     .allowsHitTesting(session.accountReady && requested == nil)
                     .accessibilityElement(children: session.accountReady && requested == nil ? .contain : .ignore)
                     .accessibilityHidden(!session.accountReady || requested != nil)
                 if !session.accountReady {
-                    WhistlegraphAccountEntry(session: session, onExplore: { active = false })
+                    WhistlegraphAccountEntry(session: session, onExplore: close, overlaysFeed: true)
                 } else if requested != nil {
                     ProgressView("Opening new work…")
                 }
             }
         }
-        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .background(Color.black.opacity(0.58).ignoresSafeArea())
+        .environment(\.exploreMimes, close)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("mime-creation")
         .task { await session.braincells.start(session: session); startRequestedWork() }
@@ -50,6 +52,13 @@ struct MimeCreation: View {
             if phase == .background { session.cancelHold() }
             if phase == .active && active { session.resumePieceAudio() }
         }
+    }
+
+    private func close() {
+        guard !session.snapshot.busy, session.capturePhase == .idle else { return }
+        session.cancelHold()
+        session.webView?.setAllMediaPlaybackSuspended(true, completionHandler: nil)
+        active = false
     }
 
     private func startRequestedWork() {

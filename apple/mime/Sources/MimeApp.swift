@@ -30,7 +30,7 @@ struct MimeRoot: View {
             }
             Reel(active: !creating) { ware in
                 requested = ware; creationStarted = true; creating = true
-            }.opacity(creating ? 0 : 1).allowsHitTesting(!creating).accessibilityHidden(creating).zIndex(creating ? 0 : 1)
+            }.allowsHitTesting(!creating).accessibilityHidden(creating).zIndex(creating ? 0 : 1)
         }.preferredColorScheme(.dark)
     }
 }

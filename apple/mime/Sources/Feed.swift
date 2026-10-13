@@ -51,7 +51,7 @@ struct Post: Decodable, Identifiable, Equatable {
         guard let file, let url = absolute(file.url) else { return .words(text ?? "") }
         if ["application/x-doom-wad", "application/x-doom"].contains(file.type) {
             var player = URLComponents(string: "https://aesthetic.computer/doom-player/")!
-            player.queryItems = [.init(name: "file", value: url.absoluteString)]
+            player.queryItems = [.init(name: "preview", value: "1"), .init(name: "mime", value: "1"), .init(name: "file", value: url.absoluteString)]
             return .runtime(player.url!, kind: "doom")
         }
         if file.type.hasPrefix("image/") { return .image(url) }
@@ -77,6 +77,9 @@ struct Post: Decodable, Identifiable, Equatable {
         if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] != nil {
             let data = Data("[{\"code\":\"fixture-png\",\"name\":\"@fixture\",\"board\":\"image/png\",\"text\":\"PNG\"},{\"code\":\"fixture-piece\",\"name\":\"@fixture\",\"board\":\"text/javascript\",\"text\":\"AC piece\"}]".utf8)
             posts = try! JSONDecoder().decode([Post].self, from: data)
+            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "doom" {
+                posts = [try! JSONDecoder().decode(Post.self, from: Data("{\"code\":\"fixture-wad\",\"name\":\"@fixture\",\"file\":{\"name\":\"empty-room.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"https://aesthetic.computer/doom-player/examples/empty-room.wad\"}}".utf8))]
+            }
             loaded = true; hasMore = false
         }
         #endif

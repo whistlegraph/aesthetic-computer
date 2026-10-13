@@ -64,6 +64,8 @@ struct Reel: View {
                     async let posts: Void = feed.loadMore()
                     async let layout: Void = feed.refreshLayout()
                     _ = await (posts, layout)
+                    if current == nil { current = feed.posts.first?.id }
+                    prepare()
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { Task { await feed.refreshLayout() } }
@@ -182,13 +184,13 @@ private struct Card: View {
                     Text(text).font(.custom("ComicRelief-Bold", size: layout.captionSize, relativeTo: .body)).foregroundStyle(.white)
                         .lineLimit(3)
                 }
-                HStack(alignment: .bottom) {
+                HStack(alignment: .lastTextBaseline) {
                     if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name)).accessibilityIdentifier("mime-author") }
                     Spacer(minLength: 12)
                     if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
                         Button { makeWork(ware) } label: {
                             PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType))
-                                .padding(.vertical, 8).contentShape(Rectangle())
+                                .contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
                             .accessibilityHint("Make a new " + ware.title)
                     } else {

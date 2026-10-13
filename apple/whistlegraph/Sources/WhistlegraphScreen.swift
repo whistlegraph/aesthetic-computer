@@ -104,7 +104,10 @@ struct NativeLayout {
 struct WhistlegraphScreen: View {
     @ObservedObject var session: WhistlegraphSession
     @ObservedObject private var drawing: DrawingDraft
-    init(session: WhistlegraphSession) { self.session = session; self.drawing = session.drawing }
+    let overlaysFeed: Bool
+    init(session: WhistlegraphSession, overlaysFeed: Bool = false) {
+        self.session = session; self.drawing = session.drawing; self.overlaysFeed = overlaysFeed
+    }
     @StateObject private var narrator = VersionNarrator()
     @StateObject private var exporter = StoryExport()
     @Environment(\.scenePhase) private var scenePhase
@@ -205,9 +208,9 @@ struct WhistlegraphScreen: View {
             }
             .frame(width: narrator.isPlaying ? nil : previewSize.width,
                    height: narrator.isPlaying ? max(1, (UIScreen.main.bounds.width - 12) * 3 / 4) : previewSize.height)
-            .overlay { WhistlegraphPreviewInset() }
-            .padding(6)
-            .background(WhistlegraphWoodFrame())
+            .overlay { if !overlaysFeed { WhistlegraphPreviewInset() } }
+            .padding(overlaysFeed ? 0 : 6)
+            .background { if !overlaysFeed { WhistlegraphWoodFrame() } }
             .scaleEffect(composeScale, anchor: .top)
             .frame(height: composeScale < 1 ? (previewSize.height + 12) * composeScale : nil, alignment: .top)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: showComposer)
@@ -313,7 +316,7 @@ struct WhistlegraphScreen: View {
                     }
                 }
             }.padding(.horizontal, session.layout.pageInset).foregroundStyle(paper)
-                .background(narrator.isPlaying ? storyBackground : theme.background)
+                .background(narrator.isPlaying ? storyBackground : overlaysFeed ? Color.clear : theme.background)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
@@ -342,7 +345,7 @@ struct WhistlegraphScreen: View {
         .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }
         .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() }; if value == .idle || value == .processing { chalkDrag = 0; held = false } }
         .onDisappear { exporter.cancel(); narrator.stop() }
-        .background((narrator.isPlaying ? storyBackground : theme.background).ignoresSafeArea())
+        .background((narrator.isPlaying ? storyBackground : overlaysFeed ? Color.clear : theme.background).ignoresSafeArea())
         .tint(paper)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
     }

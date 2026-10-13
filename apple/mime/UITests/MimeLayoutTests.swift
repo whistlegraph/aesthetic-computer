@@ -15,6 +15,8 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertTrue(type.label.contains("/"))
         XCTAssertLessThan(code.frame.maxY, author.frame.minY)
         XCTAssertLessThan(author.frame.maxX, type.frame.minX)
+        XCTAssertEqual(author.frame.maxY, type.frame.maxY, accuracy: 3)
+        XCTAssertTrue(app.descendants(matching: .any)["mime-comic-logo"].firstMatch.exists)
         let image = XCTAttachment(screenshot: app.screenshot())
         image.name = "MIME native identity layout"; image.lifetime = .keepAlways; add(image)
     }
@@ -37,8 +39,12 @@ final class MimeLayoutTests: XCTestCase {
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "MIME creates PNG with shared Whistlegraph editor"
         screenshot.lifetime = .keepAlways; add(screenshot)
-        app.buttons["mime-creation-back"].tap()
+        app.buttons["workspace-settings"].tap()
+        let explore = app.buttons["pieces-explore"]
+        XCTAssertTrue(explore.waitForExistence(timeout: 10)); explore.tap()
         XCTAssertTrue(type.waitForExistence(timeout: 10))
+        XCTAssertEqual(type.label, "image/png", "Explore returns to the existing feed position")
+        XCTAssertFalse(app.buttons["mime-creation-back"].isHittable)
         app.swipeUp()
         let ac = app.buttons.matching(identifier: "mime-type").matching(NSPredicate(format: "label == %@", "text/javascript")).firstMatch
         XCTAssertTrue(ac.waitForExistence(timeout: 10)); ac.tap()
@@ -67,11 +73,38 @@ final class MimeLayoutTests: XCTestCase {
         let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let banner = spring.otherElements.matching(identifier: "NotificationShortLookView").firstMatch
         if banner.exists { banner.swipeUp() }
+        let revealed = expectation(for: NSPredicate { _, _ in
+            !app.descendants(matching: .any)["mime-loading"].firstMatch.exists
+        }, evaluatedWith: app)
+        XCTAssertEqual(XCTWaiter().wait(for: [revealed], timeout: 90), .completed)
+        let visible = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: type)
+        XCTAssertEqual(XCTWaiter().wait(for: [visible], timeout: 90), .completed)
         type.tap()
         if !app.buttons["mime-creation-back"].waitForExistence(timeout: 3), type.isHittable {
             if banner.exists { banner.swipeUp() }
             type.tap()
         }
+    }
+
+    func testDoomFeedPlaysAndItsTypeCreatesWad() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "doom"
+        app.launch()
+        let type = app.buttons["mime-type"].firstMatch
+        XCTAssertTrue(type.waitForExistence(timeout: 90))
+        XCTAssertEqual(type.label, "application/x-doom-wad")
+        XCTAssertEqual(app.buttons["mime-global-identifier"].firstMatch.label, "doom~fixture-wad")
+        XCTAssertTrue(app.webViews.otherElements["Empty Doom room"].waitForExistence(timeout: 90), "The WAD feed reaches its first game frame")
+        XCTAssertFalse(app.webViews.buttons["Play"].exists)
+        XCTAssertFalse(app.webViews.buttons["Fire"].exists)
+        let reel = XCTAttachment(screenshot: app.screenshot())
+        reel.name = "MIME native playable WAD reel"; reel.lifetime = .keepAlways; add(reel)
+        openType(type, in: app)
+        XCTAssertTrue(app.buttons["doom-actions"].waitForExistence(timeout: 90))
+        XCTAssertTrue(app.webViews.otherElements["Empty Doom room"].waitForExistence(timeout: 90))
+        let editor = XCTAttachment(screenshot: app.screenshot())
+        editor.name = "MIME WAD editor overlay"; editor.lifetime = .keepAlways; add(editor)
     }
 
 }

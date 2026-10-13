@@ -381,6 +381,10 @@
     body.feed .feed-post .byline > .name { display: block; }
     /* A feed video plays muted and looping like a reel; its controls appear with Interact. */
     body.feed .feed-media:not([data-interacting]) > video::-webkit-media-controls { display: none !important; }
+    body.feed .wordmark svg { width: calc(37px * 151 / 52); height: 37px; }
+    html body.feed .feed-post > .meta { align-items: baseline; }
+    html body.feed .feed-post > .meta > :is(.byline, .reel-type) { align-self: baseline; }
+    html body.feed .feed-post > .meta > .byline { display: flex; align-items: baseline; }
     /* Shared presentation settings; identity corners are part of the contract. */
     html body.feed .feed-post .reel-command .pal-text { font-size: var(--mime-identifier-size, 21px); }
     html body.feed .feed-post .meta .byline > .name.pal-text { font-size: var(--mime-handle-size, 21px); }
@@ -440,102 +444,7 @@
   <header>
     <h1>
       <a class="wordmark" href="#/" aria-label="MIME feed">
-        <svg class="mime-sculpture" xmlns="http://www.w3.org/2000/svg" viewBox="-4 -5 151 52" aria-hidden="true" focusable="false">
-          <defs>
-            <linearGradient id="mime-face-0" x1="0" y1="0" x2="0.3" y2="1">
-              <stop stop-color="#ffe7f4"/>
-              <stop offset="0.35" stop-color="#ff91c3"/>
-              <stop offset="1" stop-color="#e93587"/>
-            </linearGradient>
-            <linearGradient id="mime-face-1" x1="0" y1="0" x2="0.3" y2="1">
-              <stop stop-color="#fff4d9"/>
-              <stop offset="0.35" stop-color="#ffc585"/>
-              <stop offset="1" stop-color="#ed765d"/>
-            </linearGradient>
-            <linearGradient id="mime-face-2" x1="0" y1="0" x2="0.3" y2="1">
-              <stop stop-color="#eee8ff"/>
-              <stop offset="0.35" stop-color="#b7a4ff"/>
-              <stop offset="1" stop-color="#8460d7"/>
-            </linearGradient>
-            <linearGradient id="mime-face-3" x1="0" y1="0" x2="0.3" y2="1">
-              <stop stop-color="#e5fff6"/>
-              <stop offset="0.35" stop-color="#7ae7ce"/>
-              <stop offset="1" stop-color="#259caa"/>
-            </linearGradient>
-            <linearGradient id="mime-shine-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop stop-color="#fff5fc"/>
-              <stop offset="0.45" stop-color="#fff5fc" stop-opacity="0"/>
-            </linearGradient>
-            <linearGradient id="mime-depth" x1="0" y1="0" x2="0.6" y2="1">
-              <stop stop-color="#8b388a"/>
-              <stop offset="1" stop-color="#40317b"/>
-            </linearGradient>
-            <!-- Comic Relief Bold outlines, matching the UI font; cap height 35. -->
-            <path id="mime-M" fill-rule="evenodd" d="M18.075 35.428Q19.832 35.518 20.823 34.64Q22.106 33.536 22.782 31.486L28.007 15.901L31.003 32.59Q31.318 34.437 32.647 35.495Q33.705 36.351 35.53 36.194Q37.106 36.081 37.715 35.36Q38.435 34.505 38.233 33.063Q38.165 32.68 38.097 32.297L32.782 4.527Q32.061 0.766 28.751 0.698Q26.949 0.653 25.913 1.509Q24.606 2.568 24.066 4.369L18.548 22.725L14.043 3.243Q13.796 2.14 12.602 1.509Q11.611 0.991 10.012 1.126Q8.435 1.284 7.557 2.072Q6.476 3.041 6.16 4.482L0.26 30.563Q-0.236 32.523 0.215 33.964Q0.575 35.09 2.039 35.721Q3.12 36.194 4.224 36.014Q5.44 35.811 5.98 35.135Q6.453 34.527 6.678 33.536L10.395 16.622L14.021 31.757Q15.102 35.27 18.075 35.428Z"/>
-            <path id="mime-I" fill-rule="evenodd" d="M1.441 1.982Q0.315 2.748 0.315 4.279Q0.315 5.901 1.374 6.847Q2.41 7.77 4.122 7.77L7.207 7.77L6.532 29.369L4.009 29.369Q2.23 29.369 1.126 30.135Q0 30.901 0 32.432Q0 34.099 0.518 34.561Q1.036 35.023 1.554 35.484Q2.072 35.946 3.806 35.946L18.536 35.946Q20.293 35.946 21.351 35.113Q22.41 34.302 22.387 32.748Q22.365 31.149 21.858 30.698Q21.351 30.248 20.845 29.809Q20.338 29.369 18.671 29.369L13.761 29.369L14.437 7.77L18.851 7.77Q20.608 7.77 21.667 6.937Q22.725 6.126 22.703 4.572Q22.68 2.973 22.173 2.523Q21.667 2.072 21.16 1.633Q20.653 1.194 18.986 1.194L4.302 1.194Q2.545 1.194 1.441 1.982Z"/>
-            <path id="mime-E" fill-rule="evenodd" d="M4.665 1.126Q4.282 1.081 3.809 1.059Q2.457 1.081 2.041 1.441Q1.624 1.802 1.196 2.162Q0.768 2.523 0.746 3.761L0.003 32.793Q-0.043 34.144 0.723 34.977Q1.512 35.856 2.908 35.878L3.201 35.878Q3.493 35.901 3.786 35.901L20.746 35.833Q22.548 35.811 23.696 35.09Q24.845 34.392 24.8 32.95Q24.755 31.351 23.606 30.495Q22.457 29.662 20.588 29.662L6.534 29.73L6.849 19.167L19.507 19.122Q21.444 19.122 22.615 18.378Q23.741 17.658 23.696 16.239Q23.651 14.64 23.077 14.212Q22.503 13.784 21.928 13.367Q21.354 12.95 19.327 12.95L7.007 13.018L7.187 7.252Q13.764 7.207 22.142 7.162Q23.944 7.162 24.518 6.802Q25.093 6.441 25.667 6.092Q26.241 5.743 26.196 4.302Q26.151 2.703 25.577 2.275Q25.003 1.847 24.428 1.419Q23.854 0.991 21.984 0.991L5.16 1.081Q4.912 1.104 4.665 1.126Z"/>
-          </defs>
-          <g transform="translate(0 0)">
-            <g class="mime-letter" style="--period: 4.7s; --phase: -0.6s">
-              <use href="#mime-M" x="7" y="7" fill="#ff91c3" stroke="#ff91c3" stroke-width="1" stroke-linejoin="round"/>
-              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-M" x="6" y="6"/>
-                <use href="#mime-M" x="5" y="5"/>
-                <use href="#mime-M" x="4" y="4"/>
-                <use href="#mime-M" x="3" y="3"/>
-                <use href="#mime-M" x="2" y="2"/>
-                <use href="#mime-M" x="1" y="1"/>
-              </g>
-              <use class="mime-face" href="#mime-M" fill="url(#mime-face-0)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <use class="mime-shine" href="#mime-M" fill="none" stroke="url(#mime-shine-gradient)" stroke-width="0.9"/>
-            </g>
-          </g>
-          <g transform="translate(41.277 0)">
-            <g class="mime-letter" style="--period: 3.9s; --phase: -2.1s">
-              <use href="#mime-I" x="7" y="7" fill="#ffc585" stroke="#ffc585" stroke-width="1" stroke-linejoin="round"/>
-              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-I" x="6" y="6"/>
-                <use href="#mime-I" x="5" y="5"/>
-                <use href="#mime-I" x="4" y="4"/>
-                <use href="#mime-I" x="3" y="3"/>
-                <use href="#mime-I" x="2" y="2"/>
-                <use href="#mime-I" x="1" y="1"/>
-              </g>
-              <use class="mime-face" href="#mime-I" fill="url(#mime-face-1)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <use class="mime-shine" href="#mime-I" fill="none" stroke="url(#mime-shine-gradient)" stroke-width="0.9"/>
-            </g>
-          </g>
-          <g transform="translate(66.98 0)">
-            <g class="mime-letter" style="--period: 5.3s; --phase: -3.4s">
-              <use href="#mime-M" x="7" y="7" fill="#b7a4ff" stroke="#b7a4ff" stroke-width="1" stroke-linejoin="round"/>
-              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-M" x="6" y="6"/>
-                <use href="#mime-M" x="5" y="5"/>
-                <use href="#mime-M" x="4" y="4"/>
-                <use href="#mime-M" x="3" y="3"/>
-                <use href="#mime-M" x="2" y="2"/>
-                <use href="#mime-M" x="1" y="1"/>
-              </g>
-              <use class="mime-face" href="#mime-M" fill="url(#mime-face-2)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <use class="mime-shine" href="#mime-M" fill="none" stroke="url(#mime-shine-gradient)" stroke-width="0.9"/>
-            </g>
-          </g>
-          <g transform="translate(108.257 0)">
-            <g class="mime-letter" style="--period: 4.3s; --phase: -1.3s">
-              <use href="#mime-E" x="7" y="7" fill="#7ae7ce" stroke="#7ae7ce" stroke-width="1" stroke-linejoin="round"/>
-              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-                <use href="#mime-E" x="6" y="6"/>
-                <use href="#mime-E" x="5" y="5"/>
-                <use href="#mime-E" x="4" y="4"/>
-                <use href="#mime-E" x="3" y="3"/>
-                <use href="#mime-E" x="2" y="2"/>
-                <use href="#mime-E" x="1" y="1"/>
-              </g>
-              <use class="mime-face" href="#mime-E" fill="url(#mime-face-3)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
-              <use class="mime-shine" href="#mime-E" fill="none" stroke="url(#mime-shine-gradient)" stroke-width="0.9"/>
-            </g>
-          </g>
-        </svg>
+        <svg class="mime-sculpture" xmlns="http://www.w3.org/2000/svg" viewBox="-4 -5 151 52" aria-hidden="true" focusable="false" style="font-family: &quot;MIME Comic&quot;;font-size:44px;font-weight:700"><g transform="translate(0 0)"><g class="mime-letter" style="--period:4.7s;--phase:-0.6s"><text x="2" y="37" fill="#141414">M</text><text x="0" y="35" fill="#ff91c3" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">M</text></g></g><g transform="translate(43 0)"><g class="mime-letter" style="--period:3.9s;--phase:-2.1s"><text x="2" y="37" fill="#141414">I</text><text x="0" y="35" fill="#ffc585" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">I</text></g></g><g transform="translate(65 0)"><g class="mime-letter" style="--period:5.3s;--phase:-1.3s"><text x="2" y="37" fill="#141414">M</text><text x="0" y="35" fill="#b7a4ff" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">M</text></g></g><g transform="translate(108 0)"><g class="mime-letter" style="--period:4.3s;--phase:-3.4s"><text x="2" y="37" fill="#141414">E</text><text x="0" y="35" fill="#7ae7ce" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">E</text></g></g></svg>
         <sup class="domain-suffix" aria-hidden="true"><span class="suffix-dot">.</span>ac</sup>
       </a>
     </h1>
