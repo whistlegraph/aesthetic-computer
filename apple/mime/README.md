@@ -1,12 +1,13 @@
 # MIME.ac
 
-The iPhone app for watching what everyone makes across Aesthetic Computer, KidLisp and Whistlegraph, one piece per screen. Creation happens in those apps; this one only watches: N apps for making, one for watching.
+The iPhone app for watching what everyone makes across Aesthetic Computer, KidLisp and Whistlegraph, one piece per screen. Tap a supported MIME type at bottom-right to create a new work directly in MIME. AC pieces, PNG paintings, Doom WADs and Roblox rooms use Whistlegraph’s shared native editor and bundled Aesel engine, with AC sign-in, prompts, drawings, voice, projects, version history, undo and export. Other media types remain read-only.
 
 The feed is the same ranked network feed as https://mime.ac (`GET /api/mime?feed=1&seed=…`, `system/backend/mime-feed-engine.mjs`), with a random seed per launch, so each launch gets its own order.
 
 - `Sources/Feed.swift`: the feed model and how each post draws (image, video, live runtime, packed HTML, words, document).
-- `Sources/Reel.swift`: the loading wordmark, vertical pager, and cards. The first piece loads behind MIME; the lettering breaks apart when its content is ready, revealing the feed without a swipe. The code sits top-left and is the Interact control, the handle bottom-left, the MIME type bottom-right. A small wordmark stays top-right.
+- `Sources/Reel.swift`: the loading wordmark, vertical pager, and cards. The first piece loads behind MIME; the lettering breaks apart when its content is ready, revealing the feed without a swipe. The code sits top-left and is the Interact control, the handle bottom-left, and the MIME type bottom-right. Supported type labels open creation after sign-in. A small wordmark stays top-right.
 - `Sources/PieceRuntime.swift`: one live web runtime for the card in view. KidLisp and pieces load aesthetic.computer, Whistlegraph pieces load `/mime-play`. Autoplay is allowed and the runtime is asked to start audio. A non-persistent website data store keeps pieces from seeing any session.
+- `Sources/MimeCreation.swift`: hosts the existing Whistlegraph editor without a separate editing/versioning implementation. Each type tap starts a new v0 project; returning to the feed pauses creator playback, and feed runtimes remain anonymous. Local work lives in MIME’s own app container; AC account-backed piece synchronization uses the existing service.
 - `Sources/PalText.swift`: MacPal's title lettering (macpal/Sources/PalCore.swift), with outlines under fills.
 - `Sources/Wordmark.swift`: the MIME wordmark, drawn from the same letter paths as mime.ac's SVG.
 - `Artwork/icon.html`: the app icon's source. Render it at 1024×1024 into `Resources/Assets.xcassets/AppIcon.appiconset/icon.png`.

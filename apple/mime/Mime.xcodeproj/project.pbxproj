@@ -7,18 +7,87 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03770BA8B4CD71682E974976 /* PlaybackWord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 674CCE1EAE264308042E24D0 /* PlaybackWord.swift */; };
+		041A6640DCDA71F5D20CF248 /* StoryExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 344BF9DC2C496D63F1384C30 /* StoryExport.swift */; };
 		08974F5171F35F094F7327E4 /* MimeLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168A6C9243E8440D4AA0540D /* MimeLayout.swift */; };
+		0B960D9A78625EF96E21355D /* StoreCreditDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADCA4FE6BBA6B53882F52E75 /* StoreCreditDelivery.swift */; };
+		0C4146F258B6D5E3DD58B48A /* WhistlegraphTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA920C9BB1F843762284A64 /* WhistlegraphTheme.swift */; };
+		0D790DCABB3D75B310818832 /* CostDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE6E76BCA4EFB770A1BB8FD4 /* CostDisplay.swift */; };
+		1177686C32815AE2E6140D81 /* SpeechCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD9E796453F72F86A38E2B9E /* SpeechCapture.swift */; };
+		131082B035BA8FDCD046E89B /* WhistlegraphWare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E0C852D113012B75A03EC0 /* WhistlegraphWare.swift */; };
+		158BEDC9E686294D912E03E0 /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 837C01081E70CB3C67D8412B /* NativeScreenFixture.swift */; };
+		1ADD06A0385644AB1E8C2A83 /* StoryTape.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D8E31BBD9CFD8931BC4A68 /* StoryTape.swift */; };
+		1E7123A9BD856C2502558F96 /* StoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A78E8ED6DBBCCFBDA6F9DE04 /* StoryCache.swift */; };
+		211AFF07C335D1731900B0BB /* MimeCreation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 642A49DEC848BACD504317CB /* MimeCreation.swift */; };
+		21ECBF1ECAA363B3253AC3F3 /* VersionNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5741F857A219DDC684A0F07 /* VersionNarrator.swift */; };
+		22824B7F1F35754AFB127A7D /* WhistlegraphWoodFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B9ED2B010C12CBB18998C4 /* WhistlegraphWoodFrame.swift */; };
+		26D1EF8FEFD4AE64B096FF96 /* AirPlayProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9EABF94E59EBA980DFCAD15 /* AirPlayProjector.swift */; };
 		281F7D98DB348812604E3F7C /* PalText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9E95AD6C8A0008A32859C9 /* PalText.swift */; };
+		3271F464BD9EEAB40EF975D7 /* DeviceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F6EED1262263460F912A8E /* DeviceRegistry.swift */; };
+		3715A66435F9109CB5C3F586 /* StoryVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63A750E7DF5945706EB1AEB9 /* StoryVoice.swift */; };
+		3D3B156892FAB81D43F6B42A /* StoryMovieSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3060AE0D829C7620EEFDB0 /* StoryMovieSheet.swift */; };
 		3DF224678BA4E78F77CC1694 /* Reel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */; };
 		40DD64EAF414F65D237DD6C2 /* Feed.swift in Sources */ = {isa = PBXBuildFile; fileRef = B559B7E4F8BDAA1266C2F25E /* Feed.swift */; };
+		4202DD4F90D9F34FEE67677F /* ButtonSounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E7EC05FDE382B0FC236724 /* ButtonSounds.swift */; };
+		42AC872DF4BE487AE1D03032 /* LiveStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E9D8C3ABE400FAF3F2A99D6 /* LiveStream.swift */; };
+		43E422C4B5D1E08B15628CB7 /* WhistlegraphNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 762151950DB23030BBC8260B /* WhistlegraphNotifications.swift */; };
+		49E1ED0023D12E26E5298FE1 /* WhistlegraphSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A74554429E7D6BBD7B83EF04 /* WhistlegraphSource.swift */; };
+		4F90232A49C5FB98131571A7 /* StoryControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9C37CA09135685041B3828D /* StoryControls.swift */; };
+		51D46B3ACA196C68FB825F78 /* BrainSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF8DCD9642E8C35FFEE7E89 /* BrainSettings.swift */; };
+		56B890E2CBDA4F4C63A7843D /* StoryPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4658158B89D3A654FA3EE6FB /* StoryPreview.swift */; };
 		588640B0BAF9E751CA66AD7F /* Wordmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0684191A5DE792274EC1BA5E /* Wordmark.swift */; };
+		62D94335BD26365D3D088011 /* AudioBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E51635765F66A54A36280B05 /* AudioBenchmark.swift */; };
 		64BBEE1AD009DA97BF0127A0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2157C136E1C07791FD2E1B3 /* Assets.xcassets */; };
+		6D9370383E4760093410C644 /* LiveTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3556799829A58A1650197CF0 /* LiveTranscription.swift */; };
+		711B5F1CB8494A98934A2855 /* PlaybackCaption.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22BF737B3E45471B2443AC9 /* PlaybackCaption.swift */; };
+		72088C6FE37E0590F2DF24A7 /* PieceAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF9E802BDA64188F722AE068 /* PieceAudio.swift */; };
+		747503D9EF47E4592231F7B3 /* MimeFeed.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8D18C24E625C39D433ED4B /* MimeFeed.swift */; };
+		74E552102F131962F25F450E /* WhistlegraphScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = F313E4106C5145179B8CADEF /* WhistlegraphScreen.swift */; };
+		788493428D40699544272F13 /* TestFlightUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C34212EAA1790F037DA88641 /* TestFlightUpdate.swift */; };
 		7C2B054BB62E5C4211527F39 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C4EFEF2199B636DD617353D6 /* PrivacyInfo.xcprivacy */; };
 		7CCD35632873A9FDB6D7EB4C /* mime-layout.json in Resources */ = {isa = PBXBuildFile; fileRef = 734DD159B0A7A852809CB969 /* mime-layout.json */; };
+		7D01215BBBB34B1B358091CD /* TezosBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2DEB11D4A3185284861BC6 /* TezosBraincells.swift */; };
 		7F01CC3EEEF3245FCAC8B84E /* MimeLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E25F410099969571779C02B /* MimeLayoutTests.swift */; };
+		82A16A7E6064569BC1B383E7 /* SequenceBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7993A6890E0189DD1499FB /* SequenceBenchmark.swift */; };
+		867CA3B0AE6CC5A16C6334F4 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 34D7AC195AF925CFE6A5A2F3 /* Fixtures */; };
+		87EAEBB271BBEB8F0DFBA7CF /* PaymentBuild.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D30D13D5365A4562C1DC61 /* PaymentBuild.swift */; };
+		88F8A8E29344E2F46898D95A /* WhistlegraphDebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D19454DC95F7E1D8C3138AE /* WhistlegraphDebugLog.swift */; };
+		8BC11A7FA6B9A4E750BEF7D1 /* WhistlegraphAccountEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2B56EE08E78230B2446157 /* WhistlegraphAccountEntry.swift */; };
+		92FD902365F2B9E196290527 /* CodeSyntax.swift in Sources */ = {isa = PBXBuildFile; fileRef = F07719C63F7EB91CC27DEDE6 /* CodeSyntax.swift */; };
+		955AFD882CF8785590FD565E /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209003EFC3D10E36EA7FF220 /* NativeSignIn.swift */; };
+		97C1B1F40EDC690F96E3C703 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E420CA6F1568B9CDA4DCA6 /* AeselButtonStyle.swift */; };
+		99C6B5E462877D8788CBAC93 /* CodeTicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D678F68732FB1A87AFA40BE1 /* CodeTicker.swift */; };
+		9C89403C7CDA7A705B6DEE58 /* WhistlegraphMint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17BA2608A892AABD75A1B3B9 /* WhistlegraphMint.swift */; };
+		9E7FD697A2E3A0DD87A06CC9 /* AIConsentRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F4B2761CA8515A05CF4B4EF /* AIConsentRecord.swift */; };
+		9EBF5AE2BB9703D033DBB4F2 /* MusicalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9F4B0488E0C9186D568E49 /* MusicalInput.swift */; };
+		9F74F5651D7BE4FE1EFD101A /* PromptKeySounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5D4D4A76C5A256C81A4AD6 /* PromptKeySounds.swift */; };
+		A5621BA396252B5639A5F9CF /* WhistlegraphHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44FE69016F03819DFB41D42B /* WhistlegraphHeader.swift */; };
+		A66B888B1DFC2E7BF08548CA /* RecordingTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF2C2C71C8B3524DED19811 /* RecordingTrim.swift */; };
+		A70006088A9052CEFE991BCD /* PreviewNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9205FF044C3B0D3B5CB1FF9B /* PreviewNavigation.swift */; };
+		A7659A0F6E55EE728392F5B9 /* WhistlegraphApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2961DAD5B2C0AEF066FF4F /* WhistlegraphApp.swift */; };
+		A7B4B6962850EE40F4339091 /* VisualCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9571BF72A2D82DD59588C089 /* VisualCapture.swift */; };
+		AA1150A8B72F399E40FCAD67 /* StoryCardStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290B81342EA648E1C51AC91A /* StoryCardStyle.swift */; };
+		AB8D0201D437B8A8DFD9016A /* PreviewFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93FC78F05911584237C7DAF /* PreviewFormat.swift */; };
+		AC8614897E12210DC8483180 /* WhistlegraphDeleteAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD104D2C61F3F8E13D58D8 /* WhistlegraphDeleteAccount.swift */; };
+		B2EDED30D9DFF446DBBD3F37 /* WhistlegraphTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101DD791B2AD55DA82A81C26 /* WhistlegraphTV.swift */; };
+		B46956A780DD49FFF682D426 /* VerifiedAccountIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B29B2A4301FE28C7DCB245 /* VerifiedAccountIdentity.swift */; };
 		BA41C9DC59CB9BCD4EE6A5DA /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = C77429657CEAFAEDDC559105 /* Fonts */; };
+		BDFB438A4A83BC0AEFE62399 /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 519F47BDE564013AECB135AF /* Web */; };
+		BF92824609A2035D04FFEAE1 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBB076980A6D4B4607CD5EA /* UtteranceRecording.swift */; };
+		C1648F0648F4509DBC95BE9B /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AD25F62118B6B6D64A54FD /* CurtainAccountButtonStyle.swift */; };
+		C333B07957F4AB84BAEF939B /* RecordedTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB3456ADC1B373BCC0A0FE6 /* RecordedTranscription.swift */; };
+		C74F883BC113A489AE3D8289 /* AccountDeletionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9BB578155DDDA464781C84 /* AccountDeletionClient.swift */; };
+		D2BC22D7AD3D433FCF8C7D98 /* WhistlegraphPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21BD54449CEBFFFD763BD97 /* WhistlegraphPrivacy.swift */; };
+		DBB1A2E13AB46EF8DCF8C3CE /* DeviceActionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D029E496EEDA337E0DF4303 /* DeviceActionLog.swift */; };
+		E55273136D45445756F603CC /* NetworkBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305C47FEBF7E6009AEC584F2 /* NetworkBenchmark.swift */; };
 		E85D3019326A7A128E7850F5 /* MimeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A463A20C599B1521E9D635A5 /* MimeApp.swift */; };
+		EE661D18F6C8D15625D92C87 /* InputButtonLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 707C41A3060A85EF619EE78D /* InputButtonLabels.swift */; };
+		EE7E3F9156C8115D88F29661 /* WhistlegraphDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B21CDD12E9D0F28FC6F23A /* WhistlegraphDrawing.swift */; };
+		F157E1C2E9465E0BD2CC0FDD /* TalkHoldInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85AADBC60B41DEED7F995EB7 /* TalkHoldInput.swift */; };
+		F26052359FC8669C53E3CF1B /* WorkspaceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741ADE7095A3790C089AE95F /* WorkspaceCoordinator.swift */; };
 		F2D888DA9BAE1AB798573514 /* PieceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */; };
+		F6BAC6D62D61738E0D8DA5C6 /* WhistlegraphAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712B9F34818496E3CD60A2D1 /* WhistlegraphAccount.swift */; };
+		F8CF2327FCB23B7444F63224 /* WhistlegraphBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A89F6E41F3E31FE3BE85BF /* WhistlegraphBraincells.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,18 +102,87 @@
 
 /* Begin PBXFileReference section */
 		0684191A5DE792274EC1BA5E /* Wordmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Wordmark.swift; sourceTree = "<group>"; };
+		0D2961DAD5B2C0AEF066FF4F /* WhistlegraphApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphApp.swift; sourceTree = "<group>"; };
+		0E9F4B0488E0C9186D568E49 /* MusicalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalInput.swift; sourceTree = "<group>"; };
+		0FF8DCD9642E8C35FFEE7E89 /* BrainSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrainSettings.swift; sourceTree = "<group>"; };
+		101DD791B2AD55DA82A81C26 /* WhistlegraphTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTV.swift; sourceTree = "<group>"; };
+		15E0C852D113012B75A03EC0 /* WhistlegraphWare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWare.swift; sourceTree = "<group>"; };
 		168A6C9243E8440D4AA0540D /* MimeLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeLayout.swift; sourceTree = "<group>"; };
+		17BA2608A892AABD75A1B3B9 /* WhistlegraphMint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMint.swift; sourceTree = "<group>"; };
+		1BBB076980A6D4B4607CD5EA /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
+		1D029E496EEDA337E0DF4303 /* DeviceActionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceActionLog.swift; sourceTree = "<group>"; };
+		1D19454DC95F7E1D8C3138AE /* WhistlegraphDebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDebugLog.swift; sourceTree = "<group>"; };
+		209003EFC3D10E36EA7FF220 /* NativeSignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSignIn.swift; sourceTree = "<group>"; };
+		290B81342EA648E1C51AC91A /* StoryCardStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCardStyle.swift; sourceTree = "<group>"; };
+		305C47FEBF7E6009AEC584F2 /* NetworkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkBenchmark.swift; sourceTree = "<group>"; };
+		344BF9DC2C496D63F1384C30 /* StoryExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryExport.swift; sourceTree = "<group>"; };
+		34D7AC195AF925CFE6A5A2F3 /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = ../whistlegraph/Resources/Fixtures; sourceTree = SOURCE_ROOT; };
+		3556799829A58A1650197CF0 /* LiveTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscription.swift; sourceTree = "<group>"; };
+		35B29B2A4301FE28C7DCB245 /* VerifiedAccountIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifiedAccountIdentity.swift; sourceTree = "<group>"; };
 		3EE24985AB02083C864395AA /* Mime.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mime.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		44FE69016F03819DFB41D42B /* WhistlegraphHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphHeader.swift; sourceTree = "<group>"; };
+		4658158B89D3A654FA3EE6FB /* StoryPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPreview.swift; sourceTree = "<group>"; };
+		49E420CA6F1568B9CDA4DCA6 /* AeselButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselButtonStyle.swift; sourceTree = "<group>"; };
+		4D9BB578155DDDA464781C84 /* AccountDeletionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionClient.swift; sourceTree = "<group>"; };
+		519F47BDE564013AECB135AF /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = ../whistlegraph/Resources/Web; sourceTree = SOURCE_ROOT; };
+		5FB3456ADC1B373BCC0A0FE6 /* RecordedTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordedTranscription.swift; sourceTree = "<group>"; };
+		63A750E7DF5945706EB1AEB9 /* StoryVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryVoice.swift; sourceTree = "<group>"; };
+		642A49DEC848BACD504317CB /* MimeCreation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeCreation.swift; sourceTree = "<group>"; };
+		674CCE1EAE264308042E24D0 /* PlaybackWord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWord.swift; sourceTree = "<group>"; };
+		6E9D8C3ABE400FAF3F2A99D6 /* LiveStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStream.swift; sourceTree = "<group>"; };
+		6F4B2761CA8515A05CF4B4EF /* AIConsentRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIConsentRecord.swift; sourceTree = "<group>"; };
+		707C41A3060A85EF619EE78D /* InputButtonLabels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputButtonLabels.swift; sourceTree = "<group>"; };
+		712B9F34818496E3CD60A2D1 /* WhistlegraphAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphAccount.swift; sourceTree = "<group>"; };
 		734DD159B0A7A852809CB969 /* mime-layout.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "mime-layout.json"; sourceTree = "<group>"; };
+		741ADE7095A3790C089AE95F /* WorkspaceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceCoordinator.swift; sourceTree = "<group>"; };
+		762151950DB23030BBC8260B /* WhistlegraphNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphNotifications.swift; sourceTree = "<group>"; };
+		7D8D18C24E625C39D433ED4B /* MimeFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeFeed.swift; sourceTree = "<group>"; };
 		7E25F410099969571779C02B /* MimeLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeLayoutTests.swift; sourceTree = "<group>"; };
+		7E3060AE0D829C7620EEFDB0 /* StoryMovieSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryMovieSheet.swift; sourceTree = "<group>"; };
 		7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reel.swift; sourceTree = "<group>"; };
 		7F9E95AD6C8A0008A32859C9 /* PalText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PalText.swift; sourceTree = "<group>"; };
+		80FD104D2C61F3F8E13D58D8 /* WhistlegraphDeleteAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDeleteAccount.swift; sourceTree = "<group>"; };
+		837C01081E70CB3C67D8412B /* NativeScreenFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeScreenFixture.swift; sourceTree = "<group>"; };
+		83B21CDD12E9D0F28FC6F23A /* WhistlegraphDrawing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphDrawing.swift; sourceTree = "<group>"; };
+		85AADBC60B41DEED7F995EB7 /* TalkHoldInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkHoldInput.swift; sourceTree = "<group>"; };
+		85F6EED1262263460F912A8E /* DeviceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistry.swift; sourceTree = "<group>"; };
+		8F5D4D4A76C5A256C81A4AD6 /* PromptKeySounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptKeySounds.swift; sourceTree = "<group>"; };
+		9205FF044C3B0D3B5CB1FF9B /* PreviewNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewNavigation.swift; sourceTree = "<group>"; };
+		93D30D13D5365A4562C1DC61 /* PaymentBuild.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentBuild.swift; sourceTree = "<group>"; };
+		9571BF72A2D82DD59588C089 /* VisualCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualCapture.swift; sourceTree = "<group>"; };
+		A1A89F6E41F3E31FE3BE85BF /* WhistlegraphBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphBraincells.swift; sourceTree = "<group>"; };
 		A2157C136E1C07791FD2E1B3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A22BF737B3E45471B2443AC9 /* PlaybackCaption.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackCaption.swift; sourceTree = "<group>"; };
 		A463A20C599B1521E9D635A5 /* MimeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeApp.swift; sourceTree = "<group>"; };
+		A5741F857A219DDC684A0F07 /* VersionNarrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionNarrator.swift; sourceTree = "<group>"; };
+		A6E7EC05FDE382B0FC236724 /* ButtonSounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonSounds.swift; sourceTree = "<group>"; };
+		A74554429E7D6BBD7B83EF04 /* WhistlegraphSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphSource.swift; sourceTree = "<group>"; };
+		A78E8ED6DBBCCFBDA6F9DE04 /* StoryCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCache.swift; sourceTree = "<group>"; };
+		A9EABF94E59EBA980DFCAD15 /* AirPlayProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPlayProjector.swift; sourceTree = "<group>"; };
+		ADCA4FE6BBA6B53882F52E75 /* StoreCreditDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreCreditDelivery.swift; sourceTree = "<group>"; };
 		B559B7E4F8BDAA1266C2F25E /* Feed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feed.swift; sourceTree = "<group>"; };
+		C0D8E31BBD9CFD8931BC4A68 /* StoryTape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryTape.swift; sourceTree = "<group>"; };
+		C21BD54449CEBFFFD763BD97 /* WhistlegraphPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphPrivacy.swift; sourceTree = "<group>"; };
+		C34212EAA1790F037DA88641 /* TestFlightUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFlightUpdate.swift; sourceTree = "<group>"; };
+		C3B9ED2B010C12CBB18998C4 /* WhistlegraphWoodFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWoodFrame.swift; sourceTree = "<group>"; };
 		C4EFEF2199B636DD617353D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C77429657CEAFAEDDC559105 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = Resources/Fonts; sourceTree = SOURCE_ROOT; };
+		C7AD25F62118B6B6D64A54FD /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
+		C9C37CA09135685041B3828D /* StoryControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryControls.swift; sourceTree = "<group>"; };
 		CD5CFFAB6A78C428AFA84C98 /* MimeUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MimeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE2DEB11D4A3185284861BC6 /* TezosBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TezosBraincells.swift; sourceTree = "<group>"; };
+		CE6E76BCA4EFB770A1BB8FD4 /* CostDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostDisplay.swift; sourceTree = "<group>"; };
+		CFA920C9BB1F843762284A64 /* WhistlegraphTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTheme.swift; sourceTree = "<group>"; };
+		D678F68732FB1A87AFA40BE1 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
+		D93FC78F05911584237C7DAF /* PreviewFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormat.swift; sourceTree = "<group>"; };
+		E51635765F66A54A36280B05 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
+		EAF2C2C71C8B3524DED19811 /* RecordingTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTrim.swift; sourceTree = "<group>"; };
+		EF9E802BDA64188F722AE068 /* PieceAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceAudio.swift; sourceTree = "<group>"; };
+		F07719C63F7EB91CC27DEDE6 /* CodeSyntax.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeSyntax.swift; sourceTree = "<group>"; };
+		F313E4106C5145179B8CADEF /* WhistlegraphScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphScreen.swift; sourceTree = "<group>"; };
+		FB2B56EE08E78230B2446157 /* WhistlegraphAccountEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphAccountEntry.swift; sourceTree = "<group>"; };
+		FD9E796453F72F86A38E2B9E /* SpeechCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechCapture.swift; sourceTree = "<group>"; };
+		FF7993A6890E0189DD1499FB /* SequenceBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceBenchmark.swift; sourceTree = "<group>"; };
 		FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceRuntime.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -58,6 +196,17 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		1342115106D0D98C0986E133 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				49E420CA6F1568B9CDA4DCA6 /* AeselButtonStyle.swift */,
+				C7AD25F62118B6B6D64A54FD /* CurtainAccountButtonStyle.swift */,
+				209003EFC3D10E36EA7FF220 /* NativeSignIn.swift */,
+			);
+			name = Sources;
+			path = ../aesel/Sources;
+			sourceTree = "<group>";
+		};
 		30858985AF44E54CD897ADA3 /* public */ = {
 			isa = PBXGroup;
 			children = (
@@ -65,6 +214,77 @@
 			);
 			name = public;
 			path = ../../system/public;
+			sourceTree = "<group>";
+		};
+		418DBF3B14A4B35380EEF7B0 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				4D9BB578155DDDA464781C84 /* AccountDeletionClient.swift */,
+				6F4B2761CA8515A05CF4B4EF /* AIConsentRecord.swift */,
+				A9EABF94E59EBA980DFCAD15 /* AirPlayProjector.swift */,
+				E51635765F66A54A36280B05 /* AudioBenchmark.swift */,
+				0FF8DCD9642E8C35FFEE7E89 /* BrainSettings.swift */,
+				A6E7EC05FDE382B0FC236724 /* ButtonSounds.swift */,
+				F07719C63F7EB91CC27DEDE6 /* CodeSyntax.swift */,
+				D678F68732FB1A87AFA40BE1 /* CodeTicker.swift */,
+				CE6E76BCA4EFB770A1BB8FD4 /* CostDisplay.swift */,
+				1D029E496EEDA337E0DF4303 /* DeviceActionLog.swift */,
+				85F6EED1262263460F912A8E /* DeviceRegistry.swift */,
+				707C41A3060A85EF619EE78D /* InputButtonLabels.swift */,
+				6E9D8C3ABE400FAF3F2A99D6 /* LiveStream.swift */,
+				3556799829A58A1650197CF0 /* LiveTranscription.swift */,
+				7D8D18C24E625C39D433ED4B /* MimeFeed.swift */,
+				0E9F4B0488E0C9186D568E49 /* MusicalInput.swift */,
+				837C01081E70CB3C67D8412B /* NativeScreenFixture.swift */,
+				305C47FEBF7E6009AEC584F2 /* NetworkBenchmark.swift */,
+				93D30D13D5365A4562C1DC61 /* PaymentBuild.swift */,
+				EF9E802BDA64188F722AE068 /* PieceAudio.swift */,
+				A22BF737B3E45471B2443AC9 /* PlaybackCaption.swift */,
+				674CCE1EAE264308042E24D0 /* PlaybackWord.swift */,
+				D93FC78F05911584237C7DAF /* PreviewFormat.swift */,
+				9205FF044C3B0D3B5CB1FF9B /* PreviewNavigation.swift */,
+				8F5D4D4A76C5A256C81A4AD6 /* PromptKeySounds.swift */,
+				5FB3456ADC1B373BCC0A0FE6 /* RecordedTranscription.swift */,
+				EAF2C2C71C8B3524DED19811 /* RecordingTrim.swift */,
+				FF7993A6890E0189DD1499FB /* SequenceBenchmark.swift */,
+				FD9E796453F72F86A38E2B9E /* SpeechCapture.swift */,
+				ADCA4FE6BBA6B53882F52E75 /* StoreCreditDelivery.swift */,
+				A78E8ED6DBBCCFBDA6F9DE04 /* StoryCache.swift */,
+				290B81342EA648E1C51AC91A /* StoryCardStyle.swift */,
+				C9C37CA09135685041B3828D /* StoryControls.swift */,
+				344BF9DC2C496D63F1384C30 /* StoryExport.swift */,
+				7E3060AE0D829C7620EEFDB0 /* StoryMovieSheet.swift */,
+				4658158B89D3A654FA3EE6FB /* StoryPreview.swift */,
+				C0D8E31BBD9CFD8931BC4A68 /* StoryTape.swift */,
+				63A750E7DF5945706EB1AEB9 /* StoryVoice.swift */,
+				85AADBC60B41DEED7F995EB7 /* TalkHoldInput.swift */,
+				C34212EAA1790F037DA88641 /* TestFlightUpdate.swift */,
+				CE2DEB11D4A3185284861BC6 /* TezosBraincells.swift */,
+				1BBB076980A6D4B4607CD5EA /* UtteranceRecording.swift */,
+				35B29B2A4301FE28C7DCB245 /* VerifiedAccountIdentity.swift */,
+				A5741F857A219DDC684A0F07 /* VersionNarrator.swift */,
+				9571BF72A2D82DD59588C089 /* VisualCapture.swift */,
+				712B9F34818496E3CD60A2D1 /* WhistlegraphAccount.swift */,
+				FB2B56EE08E78230B2446157 /* WhistlegraphAccountEntry.swift */,
+				0D2961DAD5B2C0AEF066FF4F /* WhistlegraphApp.swift */,
+				A1A89F6E41F3E31FE3BE85BF /* WhistlegraphBraincells.swift */,
+				1D19454DC95F7E1D8C3138AE /* WhistlegraphDebugLog.swift */,
+				80FD104D2C61F3F8E13D58D8 /* WhistlegraphDeleteAccount.swift */,
+				83B21CDD12E9D0F28FC6F23A /* WhistlegraphDrawing.swift */,
+				44FE69016F03819DFB41D42B /* WhistlegraphHeader.swift */,
+				17BA2608A892AABD75A1B3B9 /* WhistlegraphMint.swift */,
+				762151950DB23030BBC8260B /* WhistlegraphNotifications.swift */,
+				C21BD54449CEBFFFD763BD97 /* WhistlegraphPrivacy.swift */,
+				F313E4106C5145179B8CADEF /* WhistlegraphScreen.swift */,
+				A74554429E7D6BBD7B83EF04 /* WhistlegraphSource.swift */,
+				CFA920C9BB1F843762284A64 /* WhistlegraphTheme.swift */,
+				101DD791B2AD55DA82A81C26 /* WhistlegraphTV.swift */,
+				15E0C852D113012B75A03EC0 /* WhistlegraphWare.swift */,
+				C3B9ED2B010C12CBB18998C4 /* WhistlegraphWoodFrame.swift */,
+				741ADE7095A3790C089AE95F /* WorkspaceCoordinator.swift */,
+			);
+			name = Sources;
+			path = ../whistlegraph/Sources;
 			sourceTree = "<group>";
 		};
 		534404109515C4916AEC434C /* Products */ = {
@@ -79,10 +299,14 @@
 		5D30B3F8C97F3655ADC4972F = {
 			isa = PBXGroup;
 			children = (
+				34D7AC195AF925CFE6A5A2F3 /* Fixtures */,
 				C77429657CEAFAEDDC559105 /* Fonts */,
+				519F47BDE564013AECB135AF /* Web */,
 				30858985AF44E54CD897ADA3 /* public */,
 				06DBD18A3643C15D05007F63 /* Resources */,
 				8F7C06E2A1457AFC2F543656 /* Sources */,
+				1342115106D0D98C0986E133 /* Sources */,
+				418DBF3B14A4B35380EEF7B0 /* Sources */,
 				F25EE194C1D582945BA20818 /* UITests */,
 				534404109515C4916AEC434C /* Products */,
 			);
@@ -93,6 +317,7 @@
 			children = (
 				B559B7E4F8BDAA1266C2F25E /* Feed.swift */,
 				A463A20C599B1521E9D635A5 /* MimeApp.swift */,
+				642A49DEC848BACD504317CB /* MimeCreation.swift */,
 				168A6C9243E8440D4AA0540D /* MimeLayout.swift */,
 				7F9E95AD6C8A0008A32859C9 /* PalText.swift */,
 				FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */,
@@ -195,8 +420,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				64BBEE1AD009DA97BF0127A0 /* Assets.xcassets in Resources */,
+				867CA3B0AE6CC5A16C6334F4 /* Fixtures in Resources */,
 				BA41C9DC59CB9BCD4EE6A5DA /* Fonts in Resources */,
 				7C2B054BB62E5C4211527F39 /* PrivacyInfo.xcprivacy in Resources */,
+				BDFB438A4A83BC0AEFE62399 /* Web in Resources */,
 				7CCD35632873A9FDB6D7EB4C /* mime-layout.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -208,13 +435,80 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9E7FD697A2E3A0DD87A06CC9 /* AIConsentRecord.swift in Sources */,
+				C74F883BC113A489AE3D8289 /* AccountDeletionClient.swift in Sources */,
+				97C1B1F40EDC690F96E3C703 /* AeselButtonStyle.swift in Sources */,
+				26D1EF8FEFD4AE64B096FF96 /* AirPlayProjector.swift in Sources */,
+				62D94335BD26365D3D088011 /* AudioBenchmark.swift in Sources */,
+				51D46B3ACA196C68FB825F78 /* BrainSettings.swift in Sources */,
+				4202DD4F90D9F34FEE67677F /* ButtonSounds.swift in Sources */,
+				92FD902365F2B9E196290527 /* CodeSyntax.swift in Sources */,
+				99C6B5E462877D8788CBAC93 /* CodeTicker.swift in Sources */,
+				0D790DCABB3D75B310818832 /* CostDisplay.swift in Sources */,
+				C1648F0648F4509DBC95BE9B /* CurtainAccountButtonStyle.swift in Sources */,
+				DBB1A2E13AB46EF8DCF8C3CE /* DeviceActionLog.swift in Sources */,
+				3271F464BD9EEAB40EF975D7 /* DeviceRegistry.swift in Sources */,
 				40DD64EAF414F65D237DD6C2 /* Feed.swift in Sources */,
+				EE661D18F6C8D15625D92C87 /* InputButtonLabels.swift in Sources */,
+				42AC872DF4BE487AE1D03032 /* LiveStream.swift in Sources */,
+				6D9370383E4760093410C644 /* LiveTranscription.swift in Sources */,
 				E85D3019326A7A128E7850F5 /* MimeApp.swift in Sources */,
+				211AFF07C335D1731900B0BB /* MimeCreation.swift in Sources */,
+				747503D9EF47E4592231F7B3 /* MimeFeed.swift in Sources */,
 				08974F5171F35F094F7327E4 /* MimeLayout.swift in Sources */,
+				9EBF5AE2BB9703D033DBB4F2 /* MusicalInput.swift in Sources */,
+				158BEDC9E686294D912E03E0 /* NativeScreenFixture.swift in Sources */,
+				955AFD882CF8785590FD565E /* NativeSignIn.swift in Sources */,
+				E55273136D45445756F603CC /* NetworkBenchmark.swift in Sources */,
 				281F7D98DB348812604E3F7C /* PalText.swift in Sources */,
+				87EAEBB271BBEB8F0DFBA7CF /* PaymentBuild.swift in Sources */,
+				72088C6FE37E0590F2DF24A7 /* PieceAudio.swift in Sources */,
 				F2D888DA9BAE1AB798573514 /* PieceRuntime.swift in Sources */,
+				711B5F1CB8494A98934A2855 /* PlaybackCaption.swift in Sources */,
+				03770BA8B4CD71682E974976 /* PlaybackWord.swift in Sources */,
+				AB8D0201D437B8A8DFD9016A /* PreviewFormat.swift in Sources */,
+				A70006088A9052CEFE991BCD /* PreviewNavigation.swift in Sources */,
+				9F74F5651D7BE4FE1EFD101A /* PromptKeySounds.swift in Sources */,
+				C333B07957F4AB84BAEF939B /* RecordedTranscription.swift in Sources */,
+				A66B888B1DFC2E7BF08548CA /* RecordingTrim.swift in Sources */,
 				3DF224678BA4E78F77CC1694 /* Reel.swift in Sources */,
+				82A16A7E6064569BC1B383E7 /* SequenceBenchmark.swift in Sources */,
+				1177686C32815AE2E6140D81 /* SpeechCapture.swift in Sources */,
+				0B960D9A78625EF96E21355D /* StoreCreditDelivery.swift in Sources */,
+				1E7123A9BD856C2502558F96 /* StoryCache.swift in Sources */,
+				AA1150A8B72F399E40FCAD67 /* StoryCardStyle.swift in Sources */,
+				4F90232A49C5FB98131571A7 /* StoryControls.swift in Sources */,
+				041A6640DCDA71F5D20CF248 /* StoryExport.swift in Sources */,
+				3D3B156892FAB81D43F6B42A /* StoryMovieSheet.swift in Sources */,
+				56B890E2CBDA4F4C63A7843D /* StoryPreview.swift in Sources */,
+				1ADD06A0385644AB1E8C2A83 /* StoryTape.swift in Sources */,
+				3715A66435F9109CB5C3F586 /* StoryVoice.swift in Sources */,
+				F157E1C2E9465E0BD2CC0FDD /* TalkHoldInput.swift in Sources */,
+				788493428D40699544272F13 /* TestFlightUpdate.swift in Sources */,
+				7D01215BBBB34B1B358091CD /* TezosBraincells.swift in Sources */,
+				BF92824609A2035D04FFEAE1 /* UtteranceRecording.swift in Sources */,
+				B46956A780DD49FFF682D426 /* VerifiedAccountIdentity.swift in Sources */,
+				21ECBF1ECAA363B3253AC3F3 /* VersionNarrator.swift in Sources */,
+				A7B4B6962850EE40F4339091 /* VisualCapture.swift in Sources */,
+				F6BAC6D62D61738E0D8DA5C6 /* WhistlegraphAccount.swift in Sources */,
+				8BC11A7FA6B9A4E750BEF7D1 /* WhistlegraphAccountEntry.swift in Sources */,
+				A7659A0F6E55EE728392F5B9 /* WhistlegraphApp.swift in Sources */,
+				F8CF2327FCB23B7444F63224 /* WhistlegraphBraincells.swift in Sources */,
+				88F8A8E29344E2F46898D95A /* WhistlegraphDebugLog.swift in Sources */,
+				AC8614897E12210DC8483180 /* WhistlegraphDeleteAccount.swift in Sources */,
+				EE7E3F9156C8115D88F29661 /* WhistlegraphDrawing.swift in Sources */,
+				A5621BA396252B5639A5F9CF /* WhistlegraphHeader.swift in Sources */,
+				9C89403C7CDA7A705B6DEE58 /* WhistlegraphMint.swift in Sources */,
+				43E422C4B5D1E08B15628CB7 /* WhistlegraphNotifications.swift in Sources */,
+				D2BC22D7AD3D433FCF8C7D98 /* WhistlegraphPrivacy.swift in Sources */,
+				74E552102F131962F25F450E /* WhistlegraphScreen.swift in Sources */,
+				49E1ED0023D12E26E5298FE1 /* WhistlegraphSource.swift in Sources */,
+				B2EDED30D9DFF446DBBD3F37 /* WhistlegraphTV.swift in Sources */,
+				0C4146F258B6D5E3DD58B48A /* WhistlegraphTheme.swift in Sources */,
+				131082B035BA8FDCD046E89B /* WhistlegraphWare.swift in Sources */,
+				22824B7F1F35754AFB127A7D /* WhistlegraphWoodFrame.swift in Sources */,
 				588640B0BAF9E751CA66AD7F /* Wordmark.swift in Sources */,
+				F26052359FC8669C53E3CF1B /* WorkspaceCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -272,7 +566,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -332,7 +626,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -412,6 +706,7 @@
 				PRODUCT_NAME = Mime;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) MIME_APP";
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -430,6 +725,7 @@
 				PRODUCT_NAME = Mime;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) MIME_APP";
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;

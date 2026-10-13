@@ -4,6 +4,8 @@ import AVKit
 /// MIME loads the first post behind its wordmark, then breaks the mark apart
 /// to reveal the native reel. No introductory swipe is required.
 struct Reel: View {
+    var active = true
+    let makeWork: (Ware) -> Void
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
     @State private var current: String?
@@ -21,7 +23,7 @@ struct Reel: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }) {
+                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }, makeWork: makeWork) {
                                 interacting = interacting == post.id ? nil : post.id
                             }
                             .containerRelativeFrame([.horizontal, .vertical])
@@ -44,6 +46,9 @@ struct Reel: View {
                 .scrollDisabled(!revealed || interacting != nil && interacting == current)
                 .accessibilityHidden(!revealed)
                 .ignoresSafeArea()
+                .onChange(of: active) { _, visible in
+                    if visible { prepare() } else { pool.focus(nil) }
+                }
                 .onChange(of: current) { _, id in
                     interacting = nil
                     prepare()
@@ -105,7 +110,7 @@ extension Reel {
     private func prepare() {
         guard !feed.posts.isEmpty else { return }
         pool.prepare(feed.posts, around: feed.posts.firstIndex { $0.id == current } ?? 0)
-        pool.focus(current)
+        pool.focus(active ? current : nil)
     }
 }
 
@@ -143,6 +148,7 @@ private struct Card: View {
     let focused: Bool
     let interacting: Bool
     let ready: () -> Void
+    let makeWork: (Ware) -> Void
     let toggleInteract: () -> Void
     @Environment(\.openURL) private var openURL
 
@@ -179,7 +185,15 @@ private struct Card: View {
                 HStack(alignment: .bottom) {
                     if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name)).accessibilityIdentifier("mime-author") }
                     Spacer(minLength: 12)
-                    PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType)).accessibilityIdentifier("mime-type")
+                    if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
+                        Button { makeWork(ware) } label: {
+                            PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType))
+                                .padding(.vertical, 8).contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
+                            .accessibilityHint("Make a new " + ware.title)
+                    } else {
+                        PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType)).accessibilityIdentifier("mime-type")
+                    }
                 }
             }
             .padding(.horizontal, layout.padding).padding(.bottom, 34)

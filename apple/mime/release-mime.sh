@@ -7,7 +7,7 @@ cd "$repo_dir"
 mode=${1:-device}
 case "$mode" in device|testflight|web) ;; *) echo 'Usage: release-mime.sh device|testflight|web' >&2; exit 1 ;; esac
 [[ $(git branch --show-current) == main ]] || { echo 'Release MIME from main.' >&2; exit 1; }
-paths=(apple/mime system/public/mime system/public/mime-layout.json system/backend/whistlegraph.mjs lith/Caddyfile)
+paths=(apple/mime apple/whistlegraph/Sources apple/whistlegraph/Resources/Web system/public/mime system/public/mime-layout.json system/backend/whistlegraph.mjs lith/Caddyfile)
 git diff --quiet HEAD -- "${paths[@]}" || { echo 'Commit MIME changes before releasing.' >&2; exit 1; }
 [[ -z $(git ls-files --others --exclude-standard -- "${paths[@]}") ]] || { echo 'Commit new MIME files before releasing.' >&2; exit 1; }
 revision=$(git rev-parse HEAD)
@@ -31,7 +31,7 @@ if [[ "$mode" != web ]]; then
   # the revision just verified on production, with its bundled config.
   release_source_dir=$(mktemp -d /tmp/mime-release-source.XXXXXX)
   trap 'rm -rf "$release_source_dir"' EXIT
-  git archive "$revision" apple/mime system/public/mime-layout.json | tar -x -C "$release_source_dir"
+  git archive "$revision" apple/mime apple/whistlegraph apple/aesel/Sources apple/aesel/Resources/ComicRelief-Bold.ttf system/public/mime-layout.json system/public/doom-player system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf system/public/aesthetic.computer/lib/canvas-tape.mjs shared/roblox-room.mjs roblox/rooms/src/server/Room.luau aesel | tar -x -C "$release_source_dir"
   app_dir="$release_source_dir/apple/mime"
 fi
 if [[ "$mode" == device ]]; then

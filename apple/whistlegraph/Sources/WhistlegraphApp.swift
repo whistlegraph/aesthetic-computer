@@ -5,6 +5,7 @@ import AVFoundation
 import CoreText
 import ImageIO
 
+#if !MIME_APP
 @main
 struct WhistlegraphApp: App {
     @StateObject private var voice = WhistlegraphSession()
@@ -104,6 +105,8 @@ struct WhistlegraphApp: App {
     }
 }
 
+#endif
+
 struct Workspace: UIViewRepresentable {
     let voice: WhistlegraphSession
     func makeCoordinator() -> WorkspaceCoordinator { WorkspaceCoordinator(session: voice) }
@@ -111,6 +114,22 @@ struct Workspace: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         #if DEBUG
         if voice.accountEntryTest || ProcessInfo.processInfo.environment["WHISTLEGRAPH_PAINTING_TEST"] == "1" { config.websiteDataStore = .nonPersistent() }
+        #endif
+        #if MIME_APP && DEBUG
+        if let fixture = ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] {
+            config.websiteDataStore = .nonPersistent()
+            config.userContentController.addUserScript(WKUserScript(source: """
+            window.__whistlegraphDisableThread=true;
+            const original=window.fetch.bind(window);
+            window.fetch=function(url,init){
+                if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-maker'}));
+                if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:'fixture'}));
+                if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[]}));
+                return original(url,init);
+            };
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            _ = fixture
+        }
         #endif
         config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphNativeShell = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if let data = try? JSONSerialization.data(withJSONObject: voice.aiConsent.bridge), let json = String(data: data, encoding: .utf8) {
@@ -975,6 +994,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             accountStatus = status
             accountNotice = String((body["notice"] as? String ?? "").prefix(500))
         case "account":
+            #if MIME_APP && DEBUG
+            if let fixture = ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] {
+                emitEngine(["kind": "account", "token": fixture == "signed-out" ? "" : "fixture-token"]); return
+            }
+            #endif
             if isConsentFixture { emitEngine(["kind": "account", "token": ""]); return }
             #if DEBUG
             if accountEntryTest { emitEngine(["kind": "account", "token": ""]); return }

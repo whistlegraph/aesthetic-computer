@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
+node ../whistlegraph/bundle.mjs
 xcodegen generate >/dev/null
 derived=${DERIVED:-/tmp/mime-dd}
 xcodebuild -project Mime.xcodeproj -scheme Mime -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath "$derived" -allowProvisioningUpdates -jobs 2 build

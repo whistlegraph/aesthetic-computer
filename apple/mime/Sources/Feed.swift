@@ -72,6 +72,16 @@ struct Post: Decodable, Identifiable, Equatable {
     private var page = 0, hasMore = true, loading = false
     private let seed = UUID().uuidString
 
+    init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] != nil {
+            let data = Data("[{\"code\":\"fixture-png\",\"name\":\"@fixture\",\"board\":\"image/png\",\"text\":\"PNG\"},{\"code\":\"fixture-piece\",\"name\":\"@fixture\",\"board\":\"text/javascript\",\"text\":\"AC piece\"}]".utf8)
+            posts = try! JSONDecoder().decode([Post].self, from: data)
+            loaded = true; hasMore = false
+        }
+        #endif
+    }
+
     private struct Page: Decodable { let recent: [Post]; let hasMore: Bool }
 
     func retry() async {

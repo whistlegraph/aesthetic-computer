@@ -16,6 +16,11 @@
   <key>UIStatusBarStyle</key><string>UIStatusBarStyleLightContent</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>UIAppFonts</key><array><string>Fonts/ComicRelief-Bold.ttf</string></array>
+  <key>NSMicrophoneUsageDescription</key><string>Record your voice to make and edit work in MIME.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>Turn your spoken instructions into text for your work.</string>
+  <key>NSPhotoLibraryAddUsageDescription</key><string>Save your exported work to Photos.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>Send your work to a nearby display.</string>
+  <key>NSBonjourServices</key><array><string>_http._tcp</string></array>
   <!-- "made with" opens the creation app when it is installed. -->
   <key>LSApplicationQueriesSchemes</key><array><string>whistlegraph</string></array>
 </dict>
