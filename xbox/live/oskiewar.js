@@ -17242,14 +17242,31 @@ const spineBody = (() => {
         // is what keeps a planted foot from sliding; the bias and the width
         // cut the slide, 22 -> 16 u/s at a walk.)
         const f = Math.max(.3, frequency(body)), stride = Math.min(110, speed / (4 * f)), lift = 18 + 14 * drive;
+        // A fighter's stance (actor.stance === "fight", set by a flat side-on
+        // arena): standing still, the feet split along the line of travel — lead
+        // forward, rear back — and the hands come up to guard, lead hand further
+        // out than the rear. Seen from the side, level feet and hanging hands
+        // stack into one leg and no arms. It fades in as the walk stops, and
+        // breathes: the chest rises, the guard bobs, the weight shifts.
+        const fight = actor.stance === "fight" ? 1 - Math.min(1, drive * 2) : 0;
+        const breath = Math.sin(actor.time * 2.1), shift = Math.sin(actor.time * .9);
+        if (fight) {
+          pose.crouch += 12 * fight; pose.curl += .07 * fight;
+          pose.arch += .05 * breath * fight; pose.side += .05 * shift * fight;
+        }
         for (const [name, s] of [["left", -1], ["right", 1]]) {
           const phase = body.rhythm.phase + (s > 0 ? Math.PI : 0), { along: sweep, up: rise } = footCycle(phase);
-          const along = stride * sweep + stride * .3 * drive, up = rise * lift * drive;
+          const stagger = fight * (s > 0 ? 20 : -18) + fight * 3 * shift;
+          const along = stride * sweep + stride * .3 * drive + stagger, up = rise * lift * drive;
           // A planted foot is pinned where it stands; a swinging one chases.
           pose.feet[name] = { goal: travelPoint(body, along, s * (o.hipWidth + (input.crouch ? 12 : 8)), 3 + up), stiff: .55, pin: !body.root.air && up === 0 && drive > .05 };
           // Arms swing against the legs, loose: a gentle goal, gravity does the rest.
           const chest = chestFrame(body);
-          pose.hands[name] = { goal: place(chest, -stride * .7 * Math.sin(phase) * drive + 6, -58 + 10 * drive, s * (o.shoulder + 6)), stiff: .05 };
+          const swing = place(chest, -stride * .7 * Math.sin(phase) * drive + 6, -58 + 10 * drive, s * (o.shoulder + 6));
+          if (!fight) { pose.hands[name] = { goal: swing, stiff: .05 }; continue; }
+          const guard = s > 0 ? place(chest, 34, 4 + 3 * breath, s * 10) : place(chest, 18, 14 + 3 * breath, s * 14);
+          pose.hands[name] = { goal: { x: lerp(swing.x, guard.x, fight), y: lerp(swing.y, guard.y, fight), z: lerp(swing.z, guard.z, fight) },
+            stiff: .05 + .15 * fight };
         }
         if (body.root.air) airPose(pose, body);
       } else if (mode === "board") {
@@ -17507,6 +17524,8 @@ function updateSpineBodies(now) {
       o.rise = rest.rise * (1 - .8 * d); o.hold = rest.hold * (1 - .6 * d);
       o.carry = rest.carry * (1 - .55 * d); }
     const mode = p.goKart ? "kart" : p.skateboard || p.onewheel ? "board" : "foot";
+    // Side-on in the arena: stand in a fighter's stance (actions.mjs).
+    actor.stance = poolOnly() ? "" : "fight";
     if (mode !== actor.mode) spineBody.setMode(actor, mode);
     actor.speed = Math.hypot(p.vx || 0, p.vz || 0);
     // The park steers with the stick; the arena only runs forward, at its
