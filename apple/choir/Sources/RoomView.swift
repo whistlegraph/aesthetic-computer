@@ -185,8 +185,29 @@ struct ChatInput: View {
     var all: [String] { (room.tags.map(\.tag) + picked).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
     var ready: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && picked.count >= Self.minTags && !sending }
 
+    @State private var showTags = false
+
     var body: some View {
         VStack(spacing: 8) {
+            if showTags { tagRow }
+            if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
+            HStack(alignment: .bottom, spacing: 8) {
+                Button { withAnimation(.snappy) { showTags.toggle() } } label: {
+                    Text(picked.isEmpty ? "#" : "#\(picked.count)").font(Theme.type(15, bold: true))
+                }
+                .buttonStyle(GlassChipStyle(on: showTags || !picked.isEmpty)).accessibilityLabel("Tags")
+                TextField("Comments on culture", text: $text, axis: .vertical)
+                    .font(.system(size: 16, design: .serif)).lineLimit(1...5)
+                    .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
+                Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }
+                    .buttonStyle(GlassChipStyle(on: true)).disabled(!ready).opacity(ready ? 1 : 0.4)
+            }
+            .padding(.horizontal, 12)
+        }
+        .padding(.top, 8).padding(.bottom, 6)
+    }
+
+    var tagRow: some View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(all, id: \.self) { t in
@@ -203,17 +224,6 @@ struct ChatInput: View {
                 }
                 .padding(.horizontal, 14)
             }
-            if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
-            HStack(alignment: .bottom, spacing: 8) {
-                TextField("Comments on culture", text: $text, axis: .vertical)
-                    .font(.system(size: 16, design: .serif)).lineLimit(1...5)
-                    .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
-                Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }
-                    .buttonStyle(GlassChipStyle(on: true)).disabled(!ready).opacity(ready ? 1 : 0.4)
-            }
-            .padding(.horizontal, 12)
-        }
-        .padding(.top, 8).padding(.bottom, 6)
     }
 
     func send() async {
