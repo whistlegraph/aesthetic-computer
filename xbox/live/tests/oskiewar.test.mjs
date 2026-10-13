@@ -1658,7 +1658,7 @@ test("web UI drums route through the unlocked procedural sound bank", () => {
 
 test("debug off hides safe-zone boxes including frozen round impacts", () => {
   assert.match(source,
-    /function drawSafeZones\(\) \{\n  if \(!debugHitboxes \|\| renderFlags\.hud === false\) return;/);
+    /function drawSafeZones\(\) \{\n  if \(!debugHitboxes \|\| renderFlags\.hud === false \|\| globalThis\.__oskiewarDebugOverlay !== true\) return;/);
   const draw=source.match(/function drawDebugHitboxes[\s\S]*?\n}\n/)[0];
   assert.match(draw,/!debugHitboxes/);
   assert.match(draw,/sampleCombatBoxes/);

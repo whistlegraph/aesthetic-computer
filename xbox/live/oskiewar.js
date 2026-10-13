@@ -5724,12 +5724,20 @@ function dumpTokenInk(token) {
   return [112, 234, 255];
 }
 
+// Neighbouring tokens of one ink go out as one write (spaces ride along with
+// the run they sit in): the console draws at most 128 texts a frame, and a
+// line of debug read-out one token at a time was spending that budget fast.
 function writeTokens(write, text, x, y, size) {
-  let cursor = x;
+  let cursor = x, run = "", runX = x, runInk = null;
+  const flush = () => { if (run.trim()) write(run, runX, y, size, ...runInk); run = ""; };
   for (const token of dumpTokens(text)) {
-    if (token.trim()) write(token, cursor, y, size, ...dumpTokenInk(token));
+    if (!token.trim()) { if (run) run += token; cursor += handleWidth(token, size); continue; }
+    const ink = dumpTokenInk(token);
+    if (!runInk || ink.join() !== runInk.join()) { flush(); runX = cursor; runInk = ink; }
+    run += token;
     cursor += handleWidth(token, size);
   }
+  flush();
 }
 
 const writeDumpLine = (text, x, y, size) =>
@@ -5738,9 +5746,8 @@ const writeDumpLine = (text, x, y, size) =>
 // The HUD sits over sky and ground, so each token carries its own contrast
 // shadow the way a handle glyph does.
 function writeHudLine(text, x, y, size) {
-  writeTokens((token, tx, ty, ts, ...color) =>
-    typeWrite(token, tx + 3, ty + 4, ts, ...runShadow(color)),
-    text, x, y, size);
+  // One shadow for the whole line: per-token shadows doubled the text count.
+  typeWrite(String(text), x + 3, y + 4, size, ...runShadow([188, 204, 230]));
   writeTokens(typeWrite, text, x, y, size);
 }
 
@@ -19913,7 +19920,6 @@ function drawTopLeftHud(ink, quiet = false) {
         [moveCapArrows[name] || name, padButtonInk[name] || keyInk]];
       for (const [text, color] of pieces) {
         if (!text) continue;
-        typeWrite(text, kx + 1, y + 2, size, ...contrastShadow(ink));
         typeWrite(text, kx, y, size, ...color);
         kx += handleWidth(text, size);
       }
@@ -21896,7 +21902,8 @@ function drawFrameMeter() {
   // the bug and the opponent label all live along that edge, and the first
   // placement laid the meter straight across them.
   const left = poolOnly()?safe.left+36:Math.round((safe.left + safe.right - width) / 2);
-  const top = poolOnly()?safe.top+124:safe.bottom-rowHeight*shown.length-58;
+  // Lifted well clear of the bug and the session name under it.
+  const top = poolOnly()?safe.top+124:safe.bottom-rowHeight*shown.length-100;
   for (const [row,player] of shown.entries()) {
     const meter = frameMeters[player.pad];
     const y = top + row * (rowHeight + 3);
@@ -25240,8 +25247,10 @@ function drawDetachedPart(fragment) {
     fragment.paletteCoordinate || 0, fragment.color);
 }
 
+// The safe-zone crops are for framing reels (the harness's debug overlay);
+// on a console's debug screen they were only clutter.
 function drawSafeZones() {
-  if (!debugHitboxes || renderFlags.hud === false) return;
+  if (!debugHitboxes || renderFlags.hud === false || globalThis.__oskiewarDebugOverlay !== true) return;
   drawCornerCrops(hudSafeRect(), 46, 3, [255, 214, 84]);
   drawCornerCrops(actionSafeRect(), 34, 2, [105, 255, 118]);
 }
@@ -25734,6 +25743,11 @@ function gamePaint() {
   // self-play and marketing reels have no learner to serve.
   if (!replayOven && !selfPlay && renderFlags.keys !== false)
     drawControlLegend(titleInk);
+  // The room, the move list and the frame rate go out before the per-player
+  // read-outs: the console draws at most 128 texts a frame and drops the
+  // rest, so whatever is written last is what vanishes in debug mode.
+  drawTopLeftHud(titleInk, replayOven);
+  if (!replayOven) drawDebugPerformance(titleInk);
   if (freeskateActive() && shellMode === "GAME") {
     drawFreeskateSpeed(titleInk);
     if(!freeskateActive())drawTrickWindows();
@@ -25831,13 +25845,12 @@ function gamePaint() {
   if (!survivalActive() && replayOven && capabilities().reelFullUi === true &&
       shellMode === "GAME")
     drawReelSectionProgress(run.monotonicUs, titleInk);
-  if (!replayOven) drawDebugPerformance(titleInk);
   drawDeathFlash();
   if (shellMode === "MENU") {
     const transitionAge = titleTransitionAt !== null
       ? (run.monotonicUs - titleTransitionAt) / 1000000 : -1;
     drawTitleScreen(t, menuInk, transitionAge);
-    if (transitionAge >= 0) { drawTopLeftHud(titleInk, replayOven); return; }
+    if (transitionAge >= 0) return;
   }
   if (!replayOven) {
     // Over the fighters, deliberately: the lobby's lone body stands center
@@ -25856,7 +25869,6 @@ function gamePaint() {
       typeWrite(label, left, top, size, 255, 235, 130);
     }
   }
-  drawTopLeftHud(titleInk, replayOven);
 }
 
 // The raw pad words remember() files between real moves. The training floor
