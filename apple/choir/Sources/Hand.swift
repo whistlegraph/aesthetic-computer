@@ -17,10 +17,11 @@ struct FlowerSpinner: View {
     var size: CGFloat = 28
     @State private var turn = false
     var body: some View {
-        Hand("FlowerSmall", height: size)
+        // Fía (23:44): the loading icon is the new logo too.
+        Image("Logo").resizable().scaledToFit().frame(width: size, height: size)
             .rotationEffect(.degrees(turn ? 360 : 0))
             .animation(.linear(duration: 3).repeatForever(autoreverses: false), value: turn)
             .onAppear { turn = true }
-            .foregroundStyle(Theme.ink.opacity(0.5))
+            .accessibilityHidden(true)
     }
 }
