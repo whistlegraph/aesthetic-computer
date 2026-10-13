@@ -32,6 +32,18 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  await player.evaluate(()=>window.dispatchEvent(new Event('blur')));
  assert.deepEqual(await player.evaluate(()=>movementEvents.slice(-2)),[['keyup','ArrowUp'],['keyup','Period']],'losing focus releases diagonal movement');
  await page.keyboard.up('KeyW');await page.keyboard.up('KeyD');
+ const originalURL=page.url(),playerURL=player.url();assert.equal(new URL(playerURL).searchParams.get('mime'),'1');
+ for(const stopped of [false,true]){
+  if(stopped)await player.evaluate(()=>Module.onExit(0));
+  if(stopped)assert.equal(await player.$eval('#status',el=>el.textContent),'Doom stopped (0)');
+  const navigation=player.waitForNavigation({waitUntil:'domcontentloaded'});
+  await page.keyboard.press('Escape');await navigation;
+  await player.waitForFunction(()=>document.body.dataset.state==='playing'&&window.__mimeReady,{timeout:60000});
+  assert.equal(player.url(),playerURL,'Escape reloads the same WAD');
+  assert.equal(page.url(),originalURL,'Escape keeps the same MIME post');
+  assert.equal(await player.$eval('#boot',el=>getComputedStyle(el).display),'none','restart clears the stopped screen');
+  assert.equal(await page.$eval('.doom-player',el=>el.inert),false,'restart keeps interaction enabled');
+ }
  for(const viewport of [{width:430,height:800},{width:700,height:334},{width:1200,height:800}]){
   await page.setViewport(viewport);
   const corner=await page.$eval('.reel-type',el=>{const label=el.getBoundingClientRect(),card=el.closest('.feed-post').getBoundingClientRect();return {right:card.right-label.right,bottom:card.bottom-label.bottom};});
