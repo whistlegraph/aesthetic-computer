@@ -76,6 +76,19 @@ const IMMUTABLE_PATTERNS = [
   /\/aesthetic\.computer\/lib\/disk\.worker\.[a-f0-9]+\.mjs$/,
 ];
 
+// Revalidations in flight, by URL. Network-first keeps every module one round
+// trip to lith, and a worker's import graph is several waves deep (the prompt's
+// is three: ~155 ms each, warm, every boot). When the first module of a graph
+// arrives here, its cached dependency closure is read out of the cached bodies
+// and revalidated all at once; later imports join these fetches instead of
+// starting their own. Every module is still checked against the network, so
+// the piece/lib lockstep holds. Entries leave the map shortly after settling.
+const inflight = new Map();
+const INFLIGHT_LINGER_MS = 5000;
+const depsMemo = new Map(); // url → { tag, deps: Promise<urls> }
+const PIECE_SOURCE = /^\/aesthetic\.computer\/disks\/.*\.mjs$/;
+const STATIC_IMPORT = /\b(?:import|export)\s*(?:[\w*{}\s,$]*?\s*from\s*)?["']([^"'\n]+\.m?js)["']/g;
+
 // Never cache these (always network)
 const NEVER_CACHE = [
   /\/api\//,
@@ -124,6 +137,27 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
   
+  // A piece's source names the modules its worker is about to import, wave by
+  // wave. The shell fetches it at parse time, long before the worker exists:
+  // read its imports on the way through and start revalidating the closure.
+  // The piece itself still goes straight to the network, uncached.
+  if (url.origin === self.location.origin && PIECE_SOURCE.test(url.pathname)) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        if (response.ok && !walked.has(url.pathname)) {
+          markWalked(url.pathname);
+          event.waitUntil(
+            response.clone().text()
+              .then(async (source) => prefetchFrom(await caches.open(CACHE_NAME), importsOf(source, url.href)))
+              .catch(() => {}),
+          );
+        }
+        return response;
+      }),
+    );
+    return;
+  }
+
   // Skip never-cache patterns
   if (NEVER_CACHE.some((pattern) => pattern.test(url.pathname) || pattern.test(url.href))) {
     return;
@@ -189,55 +223,20 @@ self.addEventListener('fetch', (event) => {
         // Use clean cache key for core modules to ignore query params
         return cache.match(cacheKey).then(async (cachedResponse) => {
           if (cacheOnly) return cachedResponse || fetch(event.request);
-          // Use `cache: 'no-cache'` so the browser sends a conditional request
-          // (If-None-Match / If-Modified-Since) instead of serving from the HTTP
-          // cache. Origin returns 304 when unchanged (cheap) or 200 with fresh
-          // content. Without this, stale-while-revalidate can loop on a stale
-          // response for up to max-age even after the origin has updated.
-          const revalidateRequest = new Request(event.request, { cache: 'no-cache' });
-          const fetchPromise = fetch(revalidateRequest)
-            .then(async (networkResponse) => {
-              // Only cache successful, complete responses
-              if (networkResponse.ok && networkResponse.status === 200) {
-                try {
-                  // Clone and verify the response is complete
-                  const responseToCache = networkResponse.clone();
-                  // Read the body to verify it's complete (catches ERR_CONTENT_LENGTH_MISMATCH)
-                  const body = await responseToCache.clone().text();
-                  if (body && body.length > 0) {
-                    // Cache with clean key so future requests match
-                    await cache.put(cacheKey, responseToCache);
-                  }
-                } catch (e) {
-                  // Response was incomplete/corrupted - use cache if available (silent)
-                  if (cachedResponse) return cachedResponse;
-                }
-              }
-              return networkResponse;
-            })
-            .catch(async (err) => {
-              // Return cached version if network fails (silent)
-              if (cachedResponse) return cachedResponse;
-              // No cache available - retry before giving up
-              for (let attempt = 1; attempt <= 2; attempt++) {
-                try {
-                  await new Promise(r => setTimeout(r, 500 * attempt));
-                  const retryResponse = await fetch(revalidateRequest);
-                  if (retryResponse.ok) {
-                    try {
-                      const clone = retryResponse.clone();
-                      const body = await clone.clone().text();
-                      if (body && body.length > 0) {
-                        await cache.put(cacheKey, clone);
-                      }
-                    } catch {}
-                  }
-                  return retryResponse;
-                } catch {}
-              }
-              throw err;
-            });
-          
+          if (preferNetwork) {
+            // Only a worker's imports arrive in waves: the page's module graph
+            // is modulepreloaded flat by the shell.
+            if (cachedResponse) {
+              self.clients.get(event.clientId).then((client) => {
+                if (client?.type === 'worker') prefetchClosure(cache, url.href);
+              }, () => {});
+            }
+            const joined = inflight.get(url.href);
+            if (joined) return withTimeout(joined.then((r) => r.clone()), cachedResponse, event);
+          }
+          const fetchPromise = revalidate(cache, cacheKey, event.request, cachedResponse);
+          if (preferNetwork) track(url.href, fetchPromise);
+
           // Network-first modules wait for the (conditional, usually-304)
           // fetch — its catch already falls back to cachedResponse offline —
           // but only for NETWORK_FIRST_TIMEOUT_MS when a cached copy exists.
@@ -248,19 +247,8 @@ self.addEventListener('fetch', (event) => {
           // healthy link answers in well under the timeout and sees no change.
           // Everything else returns the cached response immediately (SWR).
           if (preferNetwork) {
-            if (!cachedResponse) return fetchPromise;
-            let timer;
-            const timeout = new Promise((resolve) => {
-              timer = setTimeout(() => resolve(null), NETWORK_FIRST_TIMEOUT_MS);
-            });
-            const fromNetwork = await Promise.race([
-              fetchPromise.then((response) => response, () => null),
-              timeout,
-            ]);
-            clearTimeout(timer);
-            if (fromNetwork) return fromNetwork;
-            event.waitUntil(fetchPromise.catch(() => {}));
-            return cachedResponse;
+            if (!cachedResponse) return fetchPromise.then((r) => r.clone());
+            return withTimeout(fetchPromise.then((r) => r.clone()), cachedResponse, event);
           }
           if (cachedResponse) {
             // Keep the worker alive until the background revalidation lands.
@@ -273,6 +261,159 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// Race a network-first fetch against NETWORK_FIRST_TIMEOUT_MS, then hand out
+// the cached copy and let the fetch finish in the background.
+async function withTimeout(fromNetworkPromise, cachedResponse, event) {
+  if (!cachedResponse) return fromNetworkPromise;
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), NETWORK_FIRST_TIMEOUT_MS);
+  });
+  const fromNetwork = await Promise.race([
+    fromNetworkPromise.then((response) => response, () => null),
+    timeout,
+  ]);
+  clearTimeout(timer);
+  if (fromNetwork) return fromNetwork;
+  event.waitUntil(fromNetworkPromise.catch(() => {}));
+  return cachedResponse;
+}
+
+function track(href, promise) {
+  inflight.set(href, promise);
+  const drop = () => setTimeout(() => {
+    if (inflight.get(href) === promise) inflight.delete(href);
+  }, INFLIGHT_LINGER_MS);
+  promise.then(drop, drop);
+}
+
+// Static imports in `source` that are themselves network-first modules.
+function importsOf(source, href) {
+  const deps = [];
+  for (const [, spec] of source.matchAll(STATIC_IMPORT)) {
+    if (!spec.startsWith('.') && !spec.startsWith('/')) continue;
+    const dep = new URL(spec, href);
+    if (dep.origin !== self.location.origin || dep.search) continue;
+    if (NETWORK_FIRST_PATTERNS.some((pattern) => pattern.test(dep.pathname))) deps.push(dep.href);
+  }
+  return deps;
+}
+
+// Static imports of a cached module, parsed once per module per service-worker
+// lifetime; a copy refreshed with a new ETag (revalidate below) drops its entry.
+function cachedDeps(cache, href) {
+  if (!depsMemo.has(href)) {
+    const entry = { tag: undefined, deps: null };
+    depsMemo.set(href, entry);
+    entry.deps = (async () => {
+      const cached = await cache.match(href);
+      if (!cached) return [];
+      entry.tag = cached.headers.get('etag');
+      return importsOf(await cached.text(), href);
+    })().catch(() => []);
+  }
+  return depsMemo.get(href).deps;
+}
+
+// Modules (and piece paths) already walked during this burst are skipped, so a
+// boot's dozens of imports cost one walk of the graph, not one each.
+const walked = new Set();
+function markWalked(key) {
+  walked.add(key);
+  setTimeout(() => walked.delete(key), INFLIGHT_LINGER_MS);
+}
+
+// Start revalidating every cached module reachable from `href`, in parallel.
+async function prefetchClosure(cache, href) {
+  if (walked.has(href)) return;
+  markWalked(href);
+  return prefetchFrom(cache, await cachedDeps(cache, href));
+}
+
+async function prefetchFrom(cache, roots) {
+  try {
+    let frontier = roots;
+    while (frontier.length) {
+      const next = [];
+      for (const dep of new Set(frontier)) {
+        if (walked.has(dep)) continue;
+        markWalked(dep);
+        next.push(dep);
+        if (inflight.has(dep)) continue;
+        const cachedResponse = await cache.match(dep);
+        if (cachedResponse) track(dep, revalidate(cache, new Request(dep), new Request(dep), cachedResponse));
+      }
+      frontier = (await Promise.all(next.map((h) => cachedDeps(cache, h)))).flat();
+    }
+  } catch (e) {
+    // A prefetch is only a head start; the import itself still fetches.
+  }
+}
+
+// Conditional fetch that refreshes the cache. Resolves to a response that
+// callers clone, so several imports can share one fetch.
+function revalidate(cache, cacheKey, request, cachedResponse) {
+  // Use `cache: 'no-cache'` so the browser sends a conditional request
+  // (If-None-Match / If-Modified-Since) instead of serving from the HTTP
+  // cache. Origin returns 304 when unchanged (cheap) or 200 with fresh
+  // content. Without this, stale-while-revalidate can loop on a stale
+  // response for up to max-age even after the origin has updated.
+  const revalidateRequest = new Request(request, { cache: 'no-cache' });
+  return fetch(revalidateRequest)
+    .then(async (networkResponse) => {
+      // An unchanged module (a 304 surfaces here as the HTTP cache's 200)
+      // is already in the cache; skip re-reading and re-storing its body.
+      const etag = networkResponse.headers.get('etag');
+      if (etag && cachedResponse?.headers?.get('etag') === etag) return networkResponse;
+      // Only cache successful, complete responses
+      if (networkResponse.ok && networkResponse.status === 200) {
+        try {
+          // Clone and verify the response is complete
+          const responseToCache = networkResponse.clone();
+          // Read the body to verify it's complete (catches ERR_CONTENT_LENGTH_MISMATCH)
+          const body = await responseToCache.clone().text();
+          if (body && body.length > 0) {
+            // Cache with clean key so future requests match
+            await cache.put(cacheKey, responseToCache);
+            const memo = depsMemo.get(new URL(revalidateRequest.url).href);
+            if (memo && memo.tag !== networkResponse.headers.get('etag')) {
+              depsMemo.delete(new URL(revalidateRequest.url).href);
+            }
+          }
+        } catch (e) {
+          // Response was incomplete/corrupted - use cache if available (silent)
+          if (cachedResponse) return (await cache.match(cacheKey)) || networkResponse;
+        }
+      }
+      return networkResponse;
+    })
+    .catch(async (err) => {
+      // Return cached version if network fails (silent). A fresh read:
+      // callers share and clone this result, and the copy they were
+      // handed earlier may already have been read.
+      const fallback = cachedResponse && (await cache.match(cacheKey));
+      if (fallback) return fallback;
+      // No cache available - retry before giving up
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          await new Promise(r => setTimeout(r, 500 * attempt));
+          const retryResponse = await fetch(revalidateRequest);
+          if (retryResponse.ok) {
+            try {
+              const clone = retryResponse.clone();
+              const body = await clone.clone().text();
+              if (body && body.length > 0) {
+                await cache.put(cacheKey, clone);
+              }
+            } catch {}
+          }
+          return retryResponse;
+        } catch {}
+      }
+      throw err;
+    });
+}
 
 // Handle messages from main thread
 self.addEventListener('message', (event) => {
