@@ -3,6 +3,7 @@ import Combine
 
 /// One card of the network feed, as GET mime.ac/api/mime?feed=1 returns it.
 struct Post: Decodable, Identifiable, Equatable {
+    struct LetterRGB: Decodable, Equatable { let r: Double; let g: Double; let b: Double }
     struct File: Decodable, Equatable { let name: String?; let type: String; let url: String; let poster: String?; let alt: String? }
     struct Media: Decodable, Equatable {
         let kind: String; let code: String?; let title: String?; let url: String?
@@ -10,6 +11,7 @@ struct Post: Decodable, Identifiable, Equatable {
     }
     let code: String
     let name: String?
+    let nameColors: [LetterRGB?]?
     let text: String?
     let when: String?
     let board: String?

@@ -185,16 +185,16 @@ private struct Card: View {
                         .lineLimit(3)
                 }
                 HStack(alignment: .lastTextBaseline) {
-                    if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name)).accessibilityIdentifier("mime-author") }
+                    if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name), colors: (post.nameColors ?? []).map(Color.savedLetter)).accessibilityIdentifier("mime-author") }
                     Spacer(minLength: 12)
                     if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
                         Button { makeWork(ware) } label: {
-                            PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType))
+                            PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType), colors: Color.letters(forType: post.mimeType))
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
                             .accessibilityHint("Make a new " + ware.title)
                     } else {
-                        PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType)).accessibilityIdentifier("mime-type")
+                        PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType), colors: Color.letters(forType: post.mimeType)).accessibilityIdentifier("mime-type")
                     }
                 }
             }

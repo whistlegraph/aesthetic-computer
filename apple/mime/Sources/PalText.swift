@@ -9,13 +9,14 @@ struct PalText: View {
     var size: CGFloat = 21
     var accent: Color = Color(hex: 0xA478DF)
     var fill: Color = .white
+    var colors: [Color?] = []
 
     private var font: Font { .custom("ComicRelief-Bold", size: size) }
     private var outline: CGFloat { max(1.2, size * 0.075) }
 
     var body: some View {
         ZStack(alignment: .leading) {
-            letters { char in
+            letters { _, char in
                 ZStack {
                     Text(char).foregroundStyle(accent).offset(x: 2, y: 2)
                     ForEach(0..<8, id: \.self) { i in
@@ -25,7 +26,7 @@ struct PalText: View {
                     }
                 }
             }
-            letters { char in Text(char).foregroundStyle(fill) }
+            letters { index, char in Text(char).foregroundStyle(index < colors.count ? colors[index] ?? fill : fill) }
         }
         .font(font)
         .fixedSize()
@@ -34,11 +35,11 @@ struct PalText: View {
         .accessibilityLabel(text)
     }
 
-    private func letters<Glyph: View>(@ViewBuilder _ glyph: @escaping (String) -> Glyph) -> some View {
+    private func letters<Glyph: View>(@ViewBuilder _ glyph: @escaping (Int, String) -> Glyph) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(text.enumerated()), id: \.offset) { index, char in
                 let j = Self.jitter(index)
-                glyph(String(char))
+                glyph(index, String(char))
                     .rotationEffect(.degrees(-j.rot))
                     .offset(y: -j.dy)
             }
@@ -54,6 +55,25 @@ struct PalText: View {
 }
 
 extension Color {
+    static func savedLetter(_ rgb: Post.LetterRGB?) -> Color? {
+        guard let rgb, [rgb.r, rgb.g, rgb.b].allSatisfy(\.isFinite) else { return nil }
+        return Color(red: min(255, max(0, rgb.r)) / 255, green: min(255, max(0, rgb.g)) / 255, blue: min(255, max(0, rgb.b)) / 255)
+    }
+
+    /// Matches mime.ac's family/slash/subtype lettering.
+    static func letters(forType type: String) -> [Color?] {
+        let families: [String: UInt32] = ["text": 0x65DDD6, "image": 0xFF91C5, "video": 0xC5A1FF, "audio": 0xA6E6B3,
+            "application": 0x8FB9FF, "x-application": 0x8FB9FF, "font": 0xFFC585, "model": 0xF1D66D, "multipart": 0xB9C4D0]
+        let subtypes: [String: UInt32] = ["plain": 0xF7E9C5, "html": 0xFFC585, "javascript": 0xFFE16B, "x-javascript": 0xFFE16B,
+            "x-lisp": 0xF5A8ED, "x-lua": 0xA6BCFF, "css": 0xA5C9FF, "json": 0xB8E889, "xml": 0xB8E889,
+            "png": 0xFFE8A1, "jpeg": 0xFFC3A1, "gif": 0xE9A7EE, "webp": 0xACE5C2, "svg+xml": 0xFFBC80,
+            "mp4": 0xF7B8DC, "webm": 0xB6A8FF, "mpeg": 0xF2D58C, "wav": 0xABE8BD, "ogg": 0xA4DBED,
+            "zip": 0xF2CE8B, "pdf": 0xFF9A93, "x-doom-wad": 0xFF947D, "octet-stream": 0xBDC8D6]
+        let chars = Array(type), slash = chars.firstIndex(of: "/") ?? -1
+        let parts = type.lowercased().split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        let family = String(parts.first ?? ""), subtype = parts.count > 1 ? String(parts[1].split(separator: ";").first ?? "") : ""
+        return chars.indices.map { i in Color(hex: i < slash ? families[family] ?? 0xBDC8D6 : i == slash ? 0xFFFFFF : subtypes[subtype] ?? 0xD9C7F3) }
+    }
     init(hex: UInt32, opacity: Double = 1) {
         self.init(.sRGB, red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255,
                   blue: Double(hex & 0xFF) / 255, opacity: opacity)
