@@ -11,31 +11,26 @@ struct PostRow: View {
     @State private var confirmDelete = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(post.handle).font(.subheadline.weight(.semibold))
-                Spacer()
-                Text(post.date, format: .relative(presentation: .numeric, unitsStyle: .narrow))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if post.deleted {
-                Text("deleted").italic().foregroundStyle(.secondary)
-            } else {
-                Text(linked(post.text)).textSelection(.enabled)
-                if let link = post.links.first, let url = URL(string: link) { LinkPreview(url: url).frame(minHeight: 60) }
-            }
-            if post.replyTo == nil {
-                HStack(spacing: 6) {
-                    ForEach(post.tags, id: \.self) { t in Chip(label: "#\(t)", on: false) { onTag(t) } }
-                    Spacer()
-                    if !inThread {
-                        Text(post.replies == 0 ? "reply" : "\(post.replies) \(post.replies == 1 ? "reply" : "replies")")
-                            .font(.caption).foregroundStyle(.secondary)
+        DeskWindow(title: post.handle, detail: post.date.formatted(.relative(presentation: .numeric, unitsStyle: .narrow))) {
+            VStack(alignment: .leading, spacing: 8) {
+                if post.deleted {
+                    Text("deleted").italic().foregroundStyle(.secondary)
+                } else {
+                    Text(linked(post.text)).foregroundStyle(Theme.ink).textSelection(.enabled)
+                    if let link = post.links.first, let url = URL(string: link) { LinkPreview(url: url).frame(minHeight: 60) }
+                }
+                if post.replyTo == nil {
+                    HStack(spacing: 6) {
+                        ForEach(post.tags, id: \.self) { t in Chip(label: "#\(t)", on: false) { onTag(t) } }
+                        Spacer()
+                        if !inThread {
+                            Text(post.replies == 0 ? "reply" : "\(post.replies) \(post.replies == 1 ? "reply" : "replies")")
+                                .font(Theme.chrome(11, .regular)).foregroundStyle(Theme.ink.opacity(0.7))
+                        }
                     }
                 }
             }
         }
-        .padding(.vertical, 4)
         .contextMenu {
             if !post.deleted, let url = post.links.first.flatMap(URL.init) { ShareLink(item: url) }
             if post.handle == account.handle && !post.deleted {
@@ -66,7 +61,7 @@ struct PostRow: View {
             guard let url = m.url, let r = Range(m.range, in: text), let ar = Range(r, in: out) else { continue }
             out[ar].link = url
             out[ar].underlineStyle = .single
-            out[ar].foregroundColor = .accentColor
+            out[ar].foregroundColor = Color(red: 0.12, green: 0.3, blue: 0.75)
         }
         return out
     }

@@ -11,6 +11,8 @@ struct ChoirApp: App {
             RoomView()
                 .environmentObject(account)
                 .environmentObject(room)
+                .preferredColorScheme(.light)
+                .tint(Theme.ink)
                 .task { Trail.send("open", ["signedIn": account.signedIn]); await account.refreshMe() }
                 .onChange(of: phase) { _, p in if p == .active { Task { await room.load() } } }
         }

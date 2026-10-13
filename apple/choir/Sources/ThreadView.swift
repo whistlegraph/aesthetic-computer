@@ -10,17 +10,21 @@ struct ThreadView: View {
     @State private var signIn = false
 
     var body: some View {
-        List {
-            if let thread {
-                PostRow(post: thread.root, inThread: true, onChange: load)
-                ForEach(thread.replies) { PostRow(post: $0, inThread: true, onChange: load).padding(.leading, 12) }
-            } else if let error {
-                Text(error).foregroundStyle(.secondary)
-            } else {
-                ProgressView().frame(maxWidth: .infinity)
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                if let thread {
+                    PostRow(post: thread.root, inThread: true, onChange: load)
+                    ForEach(thread.replies) { PostRow(post: $0, inThread: true, onChange: load).padding(.leading, 18) }
+                } else if let error {
+                    Text(error).font(Theme.chrome(12, .regular))
+                } else {
+                    ProgressView().frame(maxWidth: .infinity)
+                }
             }
+            .padding(.leading, 34).padding(.trailing, 14).padding(.vertical, 14)
         }
-        .listStyle(.plain)
+        .background(RuledPaper())
+        .toolbarBackground(Theme.panel, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
         .navigationTitle("Thread")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await fetch() }
@@ -29,14 +33,15 @@ struct ThreadView: View {
             HStack(alignment: .bottom) {
                 if account.handle != nil {
                     TextField("Reply", text: $reply, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder)
-                    Button("Send") { Task { await send() } }
+                    Button("Send") { Task { await send() } }.buttonStyle(DeskButtonStyle())
                         .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
                 } else {
                     Button(account.signedIn ? "Choose your @name to reply" : "Log in to reply") { signIn = true }
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(12).background(.bar)
+            .padding(12).background(Theme.panel)
+            .overlay(alignment: .top) { Rectangle().fill(Theme.ink).frame(height: Theme.line) }
         }
         .sheet(isPresented: $signIn) { if account.signedIn { AccountView() } else { SignInView(door: .login) } }
     }

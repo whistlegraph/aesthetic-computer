@@ -8,35 +8,37 @@ struct RoomView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if !account.signedIn {
-                    Entry { door in sheet = door == .login ? .login : .new }.listRowSeparator(.hidden)
+            ScrollView {
+                LazyVStack(spacing: 16) {
+                    if !account.signedIn {
+                        Entry { door in sheet = door == .login ? .login : .new }
+                    }
+                    if let error = room.error {
+                        Text(error).font(Theme.chrome(12, .regular)).foregroundStyle(Theme.ink)
+                    }
+                    ForEach(room.visible) { post in
+                        NavigationLink(value: post) { PostRow(post: post, onTag: pick) }.buttonStyle(.plain)
+                    }
                 }
-                if let error = room.error {
-                    Text(error).foregroundStyle(.secondary).font(.footnote)
-                }
-                if room.visible.isEmpty && room.error == nil {
-                    Text(room.tag.map { "Nothing under #\($0) yet." } ?? "Quiet in here. Say the first thing.")
-                        .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 40)
-                        .listRowSeparator(.hidden)
-                }
-                ForEach(room.visible) { post in
-                    NavigationLink(value: post) { PostRow(post: post, onTag: pick) }
-                }
+                .padding(.leading, 34).padding(.trailing, 14).padding(.vertical, 14)
             }
-            .listStyle(.plain)
-            .navigationTitle(room.tag.map { "#\($0)" } ?? "choir")
+            .background(RuledPaper())
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Theme.panel, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
             .navigationDestination(for: Post.self) { ThreadView(rootID: $0.id) }
             .safeAreaInset(edge: .top, spacing: 0) { TagBar(selected: room.tag, tags: room.tags, onPick: pick) }
             .refreshable { await room.load() }
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Image("Mark").renderingMode(.template).resizable().scaledToFit()
+                        .frame(height: 30).foregroundStyle(Theme.ink).accessibilityLabel("choir")
+                }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button(account.handle ?? "you") { sheet = .account }
+                        Button(account.handle ?? "you") { sheet = .account }.font(Theme.chrome(13)).tint(Theme.ink)
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button { sheet = account.handle == nil ? .account : .compose } label: { Image(systemName: "square.and.pencil") }
+                        Button { sheet = account.handle == nil ? .account : .compose } label: { Image(systemName: "square.and.pencil") }.tint(Theme.ink)
                             .accessibilityLabel("New post")
                     }
                 }
@@ -78,7 +80,8 @@ struct TagBar: View {
             }
             .padding(.horizontal, 16).padding(.vertical, 8)
         }
-        .background(.bar)
+        .background(Theme.panel)
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.ink).frame(height: Theme.line) }
     }
 }
 
@@ -93,11 +96,7 @@ struct Chip: View {
                 Text(label)
                 if count > 0 { Text("\(count)").opacity(0.6) }
             }
-            .font(.footnote)
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(on ? Color.primary : Color.secondary.opacity(0.15), in: Capsule())
-            .foregroundStyle(on ? Color(.systemBackground) : .primary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DeskButtonStyle(on: on))
     }
 }

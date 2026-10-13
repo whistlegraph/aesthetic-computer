@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>choir</title>
-  <meta name="description" content="A room for people who work in art. News, discussion, free and for sale, by city." />
+  <meta name="description" content="News, discussion, free and for sale, by city." />
   <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#15151a" media="(prefers-color-scheme: dark)" />
   <style>
@@ -262,7 +262,7 @@ async function refresh() {
   } catch (e) { feed.replaceChildren(Object.assign(document.createElement("p"), { className: "empty", textContent: e.message })); }
 }
 function back() { const a = document.createElement("a"); a.href = "./"; a.className = "back"; a.textContent = "← back to the room"; a.onclick = (e) => { e.preventDefault(); go({ tag: null }); }; return a; }
-function empty() { const p = document.createElement("p"); p.className = "empty"; p.textContent = view.tag ? `Nothing under #${view.tag} yet.` : "Quiet in here. Say the first thing."; return p; }
+function empty() { const p = document.createElement("p"); p.className = "empty"; p.textContent = view.tag ? `Nothing under #${view.tag} yet.` : ""; return p; }
 
 function card(p, inThread = false) {
   const el = document.createElement("article"); el.className = "card";

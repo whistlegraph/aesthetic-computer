@@ -32,6 +32,7 @@ struct AccountView: View {
                 }
                 if let note { Section { Text(note).foregroundStyle(.secondary) } }
             }
+            .onPad()
             .navigationTitle("You")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

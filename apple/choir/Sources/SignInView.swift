@@ -41,6 +41,7 @@ struct SignInView: View {
                 }
                 if busy { ProgressView().frame(maxWidth: .infinity) }
             }
+            .onPad()
             .navigationTitle(door == .new ? "I'm new" : "Log in")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }

@@ -39,6 +39,7 @@ struct ComposeView: View {
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
             }
+            .onPad()
             .navigationTitle("New post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
