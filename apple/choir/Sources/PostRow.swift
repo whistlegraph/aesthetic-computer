@@ -8,6 +8,7 @@ struct PostRow: View {
     var inThread = false
     var onTag: (String?) -> Void = { _ in }
     var onChange: () -> Void = {}
+    @State private var reporting = false
     @State private var confirmDelete = false
 
     var body: some View {
@@ -39,10 +40,11 @@ struct PostRow: View {
             if post.handle == account.handle && !post.deleted {
                 Button("Delete", systemImage: "trash", role: .destructive) { confirmDelete = true }
             } else {
-                Button("Hide \(post.handle)", systemImage: "eye.slash") { room.hide(post.handle) }
-                Link(destination: report) { Label("Report", systemImage: "flag") }
+                Button("Hide \(post.handle)", systemImage: "eye.slash") { Moderation.block(post, room: room, account: account) }
+                Button("Report", systemImage: "flag") { reporting = true }
             }
         }
+        .reportDialog($reporting, post: post)
         .confirmationDialog("Delete this post?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) {
                 Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); onChange(); await room.load() }

@@ -12,7 +12,11 @@ final class Account: ObservableObject {
     @Published private(set) var tokens: Tokens?
     @Published var handle: String?
     @Published var notifications = true
+    @Published var notifyChat = true
+    @Published var notifyDiscover = true
     @Published var checked = false
+    /// Agreed to the current choir.ac/terms (assumed until the server says otherwise).
+    @Published var termsCurrent = true
     var signedIn: Bool { tokens != nil }
 
     private let bridge = OTPBridge()
@@ -33,9 +37,13 @@ final class Account: ObservableObject {
         save(Tokens(access: access, refresh: r["refresh"] as? String ?? "", expires: Date(timeIntervalSince1970: expires / 1000)))
         Trail.send("signin:ok")
         await refreshMe()
+        Devices.report(.login)
+        // Ask once someone can actually join in, never at launch.
+        if handle != nil && (notifyChat || notifyDiscover) { await Devices.ask() }
     }
 
     func signOut() {
+        if tokens != nil { Devices.report(.logout) }
         tokens = nil; handle = nil
         SecItemDelete(Self.query as CFDictionary)
         Trail.send("signout")
@@ -57,23 +65,50 @@ final class Account: ObservableObject {
         do {
             let me: Me = try await API.get("?me=1", token: await token())
             handle = me.handle; notifications = me.prefs.notifications
+            notifyChat = me.prefs.chat ?? me.prefs.notifications
+            notifyDiscover = me.prefs.discover ?? me.prefs.notifications
+            termsCurrent = me.terms?.current ?? true
         } catch API.Failure.status(401, _) { signOut() } catch {}
     }
 
-    func setNotifications(_ on: Bool) async {
-        notifications = on
-        struct Body: Encodable { let notifications: Bool }
+    /// Chat and Discover switch separately (Fía, 10-12).
+    enum Channel: String { case chat, discover }
+    func setNotifications(_ channel: Channel, _ on: Bool) async {
+        if channel == .chat { notifyChat = on } else { notifyDiscover = on }
+        if on { await Devices.ask() }
         struct Reply: Decodable { let prefs: Me.Prefs }
-        if let r: Reply = try? await API.send("PUT", "?prefs=1", Body(notifications: on), token: await token()) { notifications = r.prefs.notifications }
+        let body = [channel.rawValue: on]
+        if let r: Reply = try? await API.send("PUT", "?prefs=1", body, token: await token()) {
+            notifications = r.prefs.notifications
+            notifyChat = r.prefs.chat ?? r.prefs.notifications
+            notifyDiscover = r.prefs.discover ?? r.prefs.notifications
+        }
     }
 
     // Keychain
 
-    private static var query: [String: Any] { [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey] }
+    /// Shared with the share extension (ChoirShare), so posting from another app's
+    /// share sheet uses the same sign-in. Older installs saved outside the group;
+    /// those tokens are moved in on first load.
+    static let accessGroup = "FB5948YR3S.computer.aesthetic.choir.shared"
+    private static var query: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey, kSecAttrAccessGroup as String: accessGroup]
+    }
     private static func load() -> Tokens? {
         var q = query; q[kSecReturnData as String] = true
         var out: AnyObject?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data {
+            return try? JSONDecoder().decode(Tokens.self, from: data)
+        }
+        // Migrate a pre-group token.
+        let legacy: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey, kSecReturnData as String: true]
+        guard SecItemCopyMatching(legacy as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        var add = query; add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        if SecItemAdd(add as CFDictionary, nil) == errSecSuccess {
+            SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrAccount as String: keychainKey] as CFDictionary)
+            SecItemAdd(add as CFDictionary, nil)
+        }
         return try? JSONDecoder().decode(Tokens.self, from: data)
     }
     private func save(_ t: Tokens) {

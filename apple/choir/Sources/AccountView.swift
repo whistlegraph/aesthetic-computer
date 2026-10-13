@@ -7,7 +7,6 @@ struct AccountView: View {
     @State private var confirmDelete = false
     @State private var deleting = false
     @State private var note: String?
-    @AppStorage("logo") private var logo = Logo.cs.rawValue
 
     var body: some View {
         NavigationStack {
@@ -21,15 +20,15 @@ struct AccountView: View {
                         Button("I chose one") { Task { await account.refreshMe() } }
                     }
                 }
-                // Fía's new daisies, to try at the top of the room.
-                Section("Logo") {
-                    Picker("Logo", selection: $logo) {
-                        ForEach(Logo.allCases) { Text($0.title).tag($0.rawValue) }
-                    }
-                    .pickerStyle(.segmented)
+                if account.handle != nil { InviteSection() }
+                Section("Notifications") {
+                    Toggle("New messages in the chat", isOn: Binding(get: { account.notifyChat }, set: { on in Task { await account.setNotifications(.chat, on) } }))
+                    Toggle("New in Discover", isOn: Binding(get: { account.notifyDiscover }, set: { on in Task { await account.setNotifications(.discover, on) } }))
                 }
                 Section {
-                    Toggle("Notifications", isOn: Binding(get: { account.notifications }, set: { on in Task { await account.setNotifications(on) } }))
+                    Link(destination: URL(string: "https://instagram.com/333_choir")!) {
+                        Label("@333_choir on Instagram", systemImage: "camera")
+                    }
                 }
                 if !room.hidden.isEmpty {
                     Section { Button("Show \(room.hidden.count) hidden \(room.hidden.count == 1 ? "person" : "people") again") { room.unhideAll() } }

@@ -9,44 +9,100 @@
 /* Begin PBXBuildFile section */
 		00F1489F90B50100DEC1802C /* ThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 077F334C80A6DC5CA677DB4A /* ThreadView.swift */; };
 		0DAF52A1D1AABB01D76F1B71 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8C62B3296D4987EDFC99DE7 /* Account.swift */; };
+		0FCF09EDD52BEA373395C2CD /* RemoteImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02A7CD25695F44A528B97CE0 /* RemoteImage.swift */; };
+		145518959B0AEBB5F8066326 /* Hand.swift in Sources */ = {isa = PBXBuildFile; fileRef = E739D1E84BD1FA13C93DD128 /* Hand.swift */; };
 		1AEE805CB6AA133AA7D241B2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D900063294E7ECA08C63242 /* Theme.swift */; };
 		2C119D06D3B442C2034BB478 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2588F98D446498A5D78162A2 /* Assets.xcassets */; };
 		3C00A378256E29A4A9DCCCE5 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4795E20D2523AB8C8C6B203A /* SignInView.swift */; };
 		48C5F9223AE901913991AA5F /* Headline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224AC79DF9F2580E605A15F9 /* Headline.swift */; };
 		5E5868DBFCBE06631751028F /* PostRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF5B9D04957C667E8E468AE /* PostRow.swift */; };
+		64FD522A337B0E85E4E7FBAF /* Voice.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E81B41A1CF642F265F8327 /* Voice.swift */; };
+		6E1D2AE0D0D7A731B363AEF9 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC326112F245442C5C63787 /* Camera.swift */; };
 		7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */; };
+		7DBC8597D8F3EB082404BB72 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9636E56DAB1B4B71016A62 /* ShareViewController.swift */; };
+		800667C4ACEC5E0FE8DA11F9 /* Invites.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D9CF4C07B36A2B2A49773D /* Invites.swift */; };
 		80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */; };
+		890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99A28D4E33FF58F77C4E460 /* BugReport.swift */; };
+		9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */; };
+		AEE8EAF0D7C34DD16D5DB1DD /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */; };
+		B1BE0D81A53D79564B95709E /* Filters.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CE789EE6424CA774A4E938 /* Filters.swift */; };
+		B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */; };
 		B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2713237B6298811227FAC1D /* AccountView.swift */; };
 		B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6C29368504A99625509573 /* Samples.swift */; };
 		BD427551196A57E6A6249462 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB5F83E9F2FFDF39A7CE23A /* API.swift */; };
+		BFCCAEC15AE7FB1E8741C3EF /* Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */; };
 		C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0924D441BB67623D92EF8ACD /* AccountDeletion.swift */; };
-		DC86D92FBA87B4915491F10B /* Drawn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2A983B4A2A7BB500D17C5F /* Drawn.swift */; };
+		C8640F60516A9081989FDB04 /* Moderation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA763036BF3A7402B172BD0 /* Moderation.swift */; };
 		E505E744ABF3566423E83853 /* SingingMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4974653737A8CA133A08CA1 /* SingingMark.swift */; };
+		E840B2BA42E33E78735F8D3C /* Oracle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F824EFD19DD07458BB1C5FCB /* Oracle.swift */; };
 		ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */; };
 		EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F6B2BA21EA37E78011CE54 /* AeselButtonStyle.swift */; };
+		F7A58E620FDB554A1DEF97C9 /* ChoirShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A37363CC8E86CD058B944505 /* ChoirShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817102FC4DE130FB7D70ECAC /* Entry.swift */; };
+		FF84E71C630A7E734A844A40 /* Devices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06DC681F35E20B4A942D602 /* Devices.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		FDE3C55068849D2A631D6CE4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CDA71D4EFAD6D0E541DFAF8F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D86898E219692E75FC84088C;
+			remoteInfo = ChoirShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5FB25B47789F57D239791685 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F7A58E620FDB554A1DEF97C9 /* ChoirShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		02A7CD25695F44A528B97CE0 /* RemoteImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteImage.swift; sourceTree = "<group>"; };
 		077F334C80A6DC5CA677DB4A /* ThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadView.swift; sourceTree = "<group>"; };
 		0924D441BB67623D92EF8ACD /* AccountDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletion.swift; sourceTree = "<group>"; };
 		0D900063294E7ECA08C63242 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		1D9636E56DAB1B4B71016A62 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		224AC79DF9F2580E605A15F9 /* Headline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Headline.swift; sourceTree = "<group>"; };
 		2588F98D446498A5D78162A2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoirApp.swift; sourceTree = "<group>"; };
+		28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugOverlay.swift; sourceTree = "<group>"; };
+		39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
 		3EB5F83E9F2FFDF39A7CE23A /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 		4795E20D2523AB8C8C6B203A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
 		53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
-		5A2A983B4A2A7BB500D17C5F /* Drawn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Drawn.swift; sourceTree = "<group>"; };
+		6AC326112F245442C5C63787 /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
 		6AF5B9D04957C667E8E468AE /* PostRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRow.swift; sourceTree = "<group>"; };
+		7EA763036BF3A7402B172BD0 /* Moderation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Moderation.swift; sourceTree = "<group>"; };
 		817102FC4DE130FB7D70ECAC /* Entry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entry.swift; sourceTree = "<group>"; };
+		8BAC435F86F8B8EB14D10E6E /* ChoirShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ChoirShare.entitlements; sourceTree = "<group>"; };
 		99F6B2BA21EA37E78011CE54 /* AeselButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselButtonStyle.swift; sourceTree = "<group>"; };
+		A37363CC8E86CD058B944505 /* ChoirShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ChoirShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF6C29368504A99625509573 /* Samples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Samples.swift; sourceTree = "<group>"; };
 		B2713237B6298811227FAC1D /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachments.swift; sourceTree = "<group>"; };
+		B7CE789EE6424CA774A4E938 /* Filters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Filters.swift; sourceTree = "<group>"; };
+		B7D9CF4C07B36A2B2A49773D /* Invites.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Invites.swift; sourceTree = "<group>"; };
+		C06DC681F35E20B4A942D602 /* Devices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Devices.swift; sourceTree = "<group>"; };
+		C99A28D4E33FF58F77C4E460 /* BugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReport.swift; sourceTree = "<group>"; };
 		D6997CB6FF6534FFA1E6EEEF /* Choir.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Choir.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4974653737A8CA133A08CA1 /* SingingMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingingMark.swift; sourceTree = "<group>"; };
+		E4E81B41A1CF642F265F8327 /* Voice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Voice.swift; sourceTree = "<group>"; };
+		E739D1E84BD1FA13C93DD128 /* Hand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hand.swift; sourceTree = "<group>"; };
+		E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstagramCard.swift; sourceTree = "<group>"; };
+		F824EFD19DD07458BB1C5FCB /* Oracle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Oracle.swift; sourceTree = "<group>"; };
 		F8C62B3296D4987EDFC99DE7 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
+		FB73C8C8158579CA49ADE726 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -56,17 +112,30 @@
 				F8C62B3296D4987EDFC99DE7 /* Account.swift */,
 				B2713237B6298811227FAC1D /* AccountView.swift */,
 				3EB5F83E9F2FFDF39A7CE23A /* API.swift */,
+				B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */,
+				28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */,
+				C99A28D4E33FF58F77C4E460 /* BugReport.swift */,
+				6AC326112F245442C5C63787 /* Camera.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
-				5A2A983B4A2A7BB500D17C5F /* Drawn.swift */,
+				C06DC681F35E20B4A942D602 /* Devices.swift */,
+				39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */,
 				817102FC4DE130FB7D70ECAC /* Entry.swift */,
+				B7CE789EE6424CA774A4E938 /* Filters.swift */,
+				E739D1E84BD1FA13C93DD128 /* Hand.swift */,
 				224AC79DF9F2580E605A15F9 /* Headline.swift */,
+				E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */,
+				B7D9CF4C07B36A2B2A49773D /* Invites.swift */,
+				7EA763036BF3A7402B172BD0 /* Moderation.swift */,
+				F824EFD19DD07458BB1C5FCB /* Oracle.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
+				02A7CD25695F44A528B97CE0 /* RemoteImage.swift */,
 				4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */,
 				AF6C29368504A99625509573 /* Samples.swift */,
 				4795E20D2523AB8C8C6B203A /* SignInView.swift */,
 				E4974653737A8CA133A08CA1 /* SingingMark.swift */,
 				0D900063294E7ECA08C63242 /* Theme.swift */,
 				077F334C80A6DC5CA677DB4A /* ThreadView.swift */,
+				E4E81B41A1CF642F265F8327 /* Voice.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -83,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				D6997CB6FF6534FFA1E6EEEF /* Choir.app */,
+				A37363CC8E86CD058B944505 /* ChoirShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,6 +161,7 @@
 			isa = PBXGroup;
 			children = (
 				0EDD33C90FE056DBD713057F /* Resources */,
+				9EBE834DD761B7AD59563B53 /* Share */,
 				0199085E2A9DA9170978E9BD /* Sources */,
 				670A69FD77E89A4A4AADEFFC /* Sources */,
 				27B5619596D92FB093BFD8AF /* Products */,
@@ -108,19 +179,48 @@
 			path = ../aesel/Sources;
 			sourceTree = "<group>";
 		};
+		9EBE834DD761B7AD59563B53 /* Share */ = {
+			isa = PBXGroup;
+			children = (
+				8BAC435F86F8B8EB14D10E6E /* ChoirShare.entitlements */,
+				FB73C8C8158579CA49ADE726 /* Info.plist */,
+				1D9636E56DAB1B4B71016A62 /* ShareViewController.swift */,
+			);
+			path = Share;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		D86898E219692E75FC84088C /* ChoirShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 952D4AC2909D73339A9038E3 /* Build configuration list for PBXNativeTarget "ChoirShare" */;
+			buildPhases = (
+				6BDEFAC1414A3C07DD7598EF /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ChoirShare;
+			packageProductDependencies = (
+			);
+			productName = ChoirShare;
+			productReference = A37363CC8E86CD058B944505 /* ChoirShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		F5F02511D9CD8CBB69A2B89B /* Choir */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AFF5B49FE7753D1C672ACA40 /* Build configuration list for PBXNativeTarget "Choir" */;
 			buildPhases = (
 				460E7AA43F03C6BEB1EFD34E /* Sources */,
 				757AB0D739324354706100EF /* Resources */,
+				5FB25B47789F57D239791685 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5DB7ACEE7E8FEC42B0E39911 /* PBXTargetDependency */,
 			);
 			name = Choir;
 			packageProductDependencies = (
@@ -138,6 +238,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					D86898E219692E75FC84088C = {
+						DevelopmentTeam = FB5948YR3S;
+						ProvisioningStyle = Automatic;
+					};
 					F5F02511D9CD8CBB69A2B89B = {
 						DevelopmentTeam = FB5948YR3S;
 						ProvisioningStyle = Automatic;
@@ -159,6 +263,7 @@
 			projectRoot = "";
 			targets = (
 				F5F02511D9CD8CBB69A2B89B /* Choir */,
+				D86898E219692E75FC84088C /* ChoirShare */,
 			);
 		};
 /* End PBXProject section */
@@ -184,22 +289,51 @@
 				C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */,
 				B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */,
 				EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */,
+				BFCCAEC15AE7FB1E8741C3EF /* Attachments.swift in Sources */,
+				9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */,
+				890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */,
+				6E1D2AE0D0D7A731B363AEF9 /* Camera.swift in Sources */,
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,
 				ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */,
-				DC86D92FBA87B4915491F10B /* Drawn.swift in Sources */,
+				FF84E71C630A7E734A844A40 /* Devices.swift in Sources */,
+				AEE8EAF0D7C34DD16D5DB1DD /* DiscoverView.swift in Sources */,
 				FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */,
+				B1BE0D81A53D79564B95709E /* Filters.swift in Sources */,
+				145518959B0AEBB5F8066326 /* Hand.swift in Sources */,
 				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
+				B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */,
+				800667C4ACEC5E0FE8DA11F9 /* Invites.swift in Sources */,
+				C8640F60516A9081989FDB04 /* Moderation.swift in Sources */,
+				E840B2BA42E33E78735F8D3C /* Oracle.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,
+				0FCF09EDD52BEA373395C2CD /* RemoteImage.swift in Sources */,
 				7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */,
 				B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */,
 				3C00A378256E29A4A9DCCCE5 /* SignInView.swift in Sources */,
 				E505E744ABF3566423E83853 /* SingingMark.swift in Sources */,
 				1AEE805CB6AA133AA7D241B2 /* Theme.swift in Sources */,
 				00F1489F90B50100DEC1802C /* ThreadView.swift in Sources */,
+				64FD522A337B0E85E4E7FBAF /* Voice.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6BDEFAC1414A3C07DD7598EF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7DBC8597D8F3EB082404BB72 /* ShareViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5DB7ACEE7E8FEC42B0E39911 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D86898E219692E75FC84088C /* ChoirShare */;
+			targetProxy = FDE3C55068849D2A631D6CE4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0B915F9CDA914C2A6F7BDC45 /* Release */ = {
@@ -207,6 +341,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Choir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -256,7 +391,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -270,7 +405,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -281,11 +416,30 @@
 			};
 			name = Release;
 		};
+		DFE8E3F21A0819188E68E0C8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Share/ChoirShare.entitlements;
+				INFOPLIST_FILE = Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.choir.share;
+				PRODUCT_NAME = ChoirShare;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 		E28BE44230D0368C9E32F554 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Choir.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -299,6 +453,24 @@
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
+		};
+		E40B7E357F1367A6132B78E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Share/ChoirShare.entitlements;
+				INFOPLIST_FILE = Share/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.choir.share;
+				PRODUCT_NAME = ChoirShare;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
 		};
 		F22272C89B24B9F91E39C784 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -335,7 +507,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -355,7 +527,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -370,6 +542,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		952D4AC2909D73339A9038E3 /* Build configuration list for PBXNativeTarget "ChoirShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DFE8E3F21A0819188E68E0C8 /* Debug */,
+				E40B7E357F1367A6132B78E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		AFF5B49FE7753D1C672ACA40 /* Build configuration list for PBXNativeTarget "Choir" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

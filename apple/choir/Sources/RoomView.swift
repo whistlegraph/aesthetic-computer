@@ -1,43 +1,65 @@
 import SwiftUI
+import PhotosUI
 
 /// The main thing is a chat: oldest at the top, newest at the bottom, the
 /// input always there. Tapping a message opens its thread.
 struct RoomView: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
+    @EnvironmentObject var router: Router
     @State private var sheet: Sheet?
     @State private var open: Post?
-    enum Sheet: String, Identifiable { case login, new, account, discover; var id: String { rawValue } }
+    @State private var detent: PresentationDetent = .medium
+    @State private var discover = false
+    @State private var oracle = false
+    enum Sheet: String, Identifiable { case login, new, account; var id: String { rawValue } }
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { scroller in
+              VStack(spacing: 0) {
+                if !room.loaded {
+                    Opening().frame(maxWidth: .infinity, maxHeight: .infinity).transition(.opacity)
+                } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
+                        SingingMark(height: account.signedIn ? 56 : 84, energy: account.signedIn ? 0.5 : 1)
+                            .frame(maxWidth: .infinity).onTapGesture { pick(nil) }
                         if !account.signedIn {
                             Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
                                 .frame(maxWidth: .infinity)
+                            Link("@333_choir", destination: URL(string: "https://instagram.com/333_choir")!)
+                                .font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.6)).frame(maxWidth: .infinity)
                         }
+                        if account.signedIn, let h = room.here { PresenceLine(here: h).frame(maxWidth: .infinity) }
                         if let error = room.error {
                             Text(error).font(Theme.type(12)).foregroundStyle(Theme.ink)
                         }
                         ForEach(room.chat) { post in
+                          if post.kind == "greeting" {
+                            GreetingLine(post: post)
+                          } else {
                             ChatRow(post: post, mine: post.handle == account.handle, onTag: pick)
                                 .contentShape(Rectangle())
                                 .onTapGesture { Trail.send("thread:sheet"); open = post }
+                          }
                         }
                         Color.clear.frame(height: 1).id("bottom")
                     }
                     .padding(.horizontal, 14).padding(.vertical, 12)
                 }
                 .defaultScrollAnchor(.bottom)
-                .background { ZStack { RuledPaper(); DeskDoodads() } }
-                .navigationBarTitleDisplayMode(.inline)
+                .scrollDismissesKeyboard(.interactively)
                 .refreshable { await room.load() }
                 .onChange(of: room.chat.last?.id) { _, _ in withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
+                .transition(.opacity)
+                }
+
+                // A real bottom bar (not an overlay), so the keyboard pushes it up.
+                Group {
                     if account.handle != nil {
-                        ChatInput(onSent: { Task { await room.load(); withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } } })
+                        ChatInput(onSent: { Task { await room.load(); withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } } },
+                                  onFocus: { withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } })
                     } else {
                         HStack(spacing: 10) {
                             if account.signedIn {
@@ -51,26 +73,44 @@ struct RoomView: View {
                         .glass(Rectangle())
                     }
                 }
+              }
+              .animation(.easeOut(duration: 0.4), value: room.loaded)
+              .background(RuledPaper().ignoresSafeArea())
+              .navigationBarTitleDisplayMode(.inline)
             }
             .toolbar {
-                // The mark stays pinned top centre while the chat scrolls under it.
-                ToolbarItem(placement: .principal) {
-                    ChoirLogo(height: 30).onTapGesture { pick(nil) }
+                if Deck.shown {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        // Fía (22:29): a daily card to pull, like tarot or Co–Star.
+                        Button { oracle = true } label: { Image(systemName: "die.face.5") }
+                            .tint(Theme.ink).accessibilityLabel("Pull your daily card")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    // Fía preferred the news icon to the handwritten "discover" (10-12).
+                    Button { discover = true } label: { Image(systemName: "newspaper") }
+                        .tint(Theme.ink).accessibilityLabel("Discover")
                 }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.type(14)).tint(Theme.ink)
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { sheet = .discover } label: { Drawn(name: "WordDiscover", height: 18, label: "discover") }
-                        .tint(Theme.ink)
-                }
+            }
+            .sheet(isPresented: $oracle) {
+                OracleView().environmentObject(account).environmentObject(room).presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: Binding(get: { account.handle != nil && !account.termsCurrent }, set: { _ in })) {
+                TermsSheet().environmentObject(account)
+            }
+            .fullScreenCover(isPresented: $discover) {
+                DiscoverView().environmentObject(account).environmentObject(room)
             }
             .sheet(item: $open) { post in
-                NavigationStack { ThreadView(rootID: post.id) }
+                NavigationStack { ThreadView(rootID: post.id, expand: { detent = .large }) }
                     .environmentObject(account).environmentObject(room)
-                    .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+                    .presentationDetents([.medium, .large], selection: $detent).presentationDragIndicator(.visible)
+                    .onAppear { detent = .medium }
                     .presentationBackground(.regularMaterial)
             }
             .sheet(item: $sheet) { s in
@@ -78,13 +118,26 @@ struct RoomView: View {
                 case .login: SignInView(door: .login)
                 case .new: SignInView(door: .new)
                 case .account: AccountView()
-                case .discover: DiscoverView().environmentObject(room)
                 }
             }
+            .onChange(of: router.thread) { _, id in
+                guard let id else { return }
+                Task {
+                    if let t = try? await API.thread(id) { open = t.root }
+                    router.thread = nil
+                }
+            }
+            .onChange(of: router.discover) { _, go in if go { discover = true; router.discover = false } }
             .task {
                 await room.load()
-                // Live sockets come later; a quick poll while the chat is open.
-                while !Task.isCancelled { try? await Task.sleep(for: .seconds(5)); await room.load() }
+                // Live sockets come later; a quick poll while the chat is open,
+                // and every 30 s a heartbeat that also counts who's here.
+                var beat = 0
+                while !Task.isCancelled {
+                    if beat % 6 == 0 { room.here = try? await API.here(token: await account.token()) }
+                    beat += 1
+                    try? await Task.sleep(for: .seconds(5)); await room.load()
+                }
             }
         }
     }
@@ -96,6 +149,46 @@ struct RoomView: View {
     }
 }
 
+/// The first thing shown: the mark singing while the room loads. Before this
+/// the chat opened onto an empty, bottom-anchored page and jumped when the
+/// posts arrived (Fía, 10-13: "the opening sequence seems glitchy").
+struct Opening: View {
+    @State private var shown = false
+    var body: some View {
+        VStack(spacing: 12) {
+            SingingMark(height: 84)
+            Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
+            FlowerSpinner(size: 20).padding(.top, 6)
+        }
+        .opacity(shown ? 1 : 0).scaleEffect(shown ? 1 : 0.96)
+        .onAppear { withAnimation(.easeOut(duration: 0.5)) { shown = true } }
+    }
+}
+
+/// "🌼 Welcome @lou — say hi!", centered, when someone joins.
+struct GreetingLine: View {
+    let post: Post
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(post.text).font(Theme.type(13)).foregroundStyle(Theme.ink.opacity(0.8))
+            Text(post.date, format: .relative(presentation: .numeric, unitsStyle: .narrow)).font(Theme.type(10)).opacity(0.4)
+        }
+        .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 6)
+    }
+}
+
+/// "2 here · 5 members · 3 invited"
+struct PresenceLine: View {
+    let here: API.Here
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(Color.green).frame(width: 6, height: 6)
+            Text("\(here.here) here · \(here.members) \(here.members == 1 ? "member" : "members") · \(here.invited) invited")
+        }
+        .font(Theme.type(11)).foregroundStyle(Theme.ink.opacity(0.6))
+    }
+}
+
 /// One chat message: name and time, the words, a link card, its tags and replies.
 struct ChatRow: View {
     @EnvironmentObject var account: Account
@@ -104,6 +197,7 @@ struct ChatRow: View {
     let mine: Bool
     var onTag: (String?) -> Void
     @State private var confirmDelete = false
+    @State private var reporting = false
 
     var body: some View {
         VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
@@ -121,8 +215,10 @@ struct ChatRow: View {
                     Text("deleted").italic().foregroundStyle(.secondary)
                 } else {
                     let words = shownText
+                    if let files = post.attachments, !files.isEmpty { AttachmentsView(items: files) }
                     if let link = post.links.first {
-                        HeadlineCard(link: link, words: words)
+                        if !words.isEmpty { Text(linked(words)).font(.system(size: 16, design: .serif)).foregroundStyle(Theme.ink) }
+                        CompactLink(link: link, stored: post.preview, kind: post.kind)
                     } else if !words.isEmpty {
                         Text(linked(words)).font(.system(size: 16, design: .serif)).lineSpacing(2)
                             .foregroundStyle(Theme.ink).textSelection(.enabled)
@@ -130,18 +226,14 @@ struct ChatRow: View {
                 }
                 HStack(spacing: 8) {
                     if post.replies > 0 {
-                        HStack(spacing: 4) {
-                            Drawn(name: "WordReply", height: 14, label: post.replies == 1 ? "reply" : "replies")
-                            Text("\(post.replies)").font(Theme.type(11).bold())
-                        }
-                        .foregroundStyle(Theme.ink.opacity(0.7))
+                        Text("\(post.replies) \(post.replies == 1 ? "reply" : "replies")").font(Theme.type(11).bold()).foregroundStyle(Theme.ink.opacity(0.7))
                     }
                 }
             }
-            .padding(.horizontal, 12).padding(.vertical, 9)
-            .background(mine ? Color(red: 0.86, green: 0.91, blue: 1.0) : Theme.paper, in: RoundedRectangle(cornerRadius: 14))
-            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-            .frame(maxWidth: post.links.isEmpty ? 320 : 380, alignment: mine ? .trailing : .leading)
+            .padding(.horizontal, mediaOnly ? 0 : 12).padding(.vertical, mediaOnly ? 0 : 9)
+            .background(mediaOnly ? Color.clear : (mine ? Color(red: 0.86, green: 0.91, blue: 1.0) : Theme.paper), in: RoundedRectangle(cornerRadius: 14))
+            .shadow(color: .black.opacity(mediaOnly ? 0.12 : 0.06), radius: mediaOnly ? 6 : 4, y: 2)
+            .frame(maxWidth: 320, alignment: mine ? .trailing : .leading)
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
         .contextMenu {
@@ -149,15 +241,22 @@ struct ChatRow: View {
             if mine && !post.deleted {
                 Button("Delete", systemImage: "trash", role: .destructive) { confirmDelete = true }
             } else if !Samples.isSample(post) {
-                Button("Hide \(post.handle)", systemImage: "eye.slash") { room.hide(post.handle) }
-                Link(destination: PostRow(post: post).report) { Label("Report", systemImage: "flag") }
+                Button("Hide \(post.handle)", systemImage: "eye.slash") { Moderation.block(post, room: room, account: account) }
+                Button("Report", systemImage: "flag") { reporting = true }
             }
         }
+        .reportDialog($reporting, post: post)
         .confirmationDialog("Delete this message?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) {
                 Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); await room.load() }
             }
         }
+    }
+
+    /// Just pictures, no words or links: the photos are the bubble.
+    var mediaOnly: Bool {
+        guard let files = post.attachments, !files.isEmpty else { return false }
+        return files.allSatisfy(\.isImage) && post.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !post.deleted
     }
 
     var shownText: String {
@@ -172,6 +271,8 @@ struct ChatInput: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
     var onSent: () -> Void
+    var onFocus: () -> Void = {}
+    @FocusState private var typing: Bool
     @AppStorage("chatTags") private var stored = ""
     @State private var text = ""
     @State private var newTag = ""
@@ -187,23 +288,69 @@ struct ChatInput: View {
         stored = p.joined(separator: ",")
     }
     var all: [String] { (room.tags.map(\.tag) + picked).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
-    var ready: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && picked.count >= Self.minTags && !sending }
+    var ready: Bool { (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty || room.about != nil) && picked.count >= Self.minTags && !sending }
 
     @State private var showTags = false
+    @State private var pending: [Pending] = []
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var pickingPhotos = false
+    @State private var pickingFiles = false
+    @State private var shooting = false
+    @StateObject private var recorder = VoiceRecorder()
 
     var body: some View {
         VStack(spacing: 8) {
+            if let about = room.about { AboutChip(post: about) { room.about = nil } }
+            if !pending.isEmpty { PendingStrip(items: $pending) }
+            if recorder.working { HStack(spacing: 8) { FlowerSpinner(size: 18); Text("Transcribing…").font(Theme.type(12)) }.foregroundStyle(Theme.ink.opacity(0.7)) }
+            if let p = recorder.problem { Text(p).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
+            if recorder.recording {
+                RecordingBar(recorder: recorder)
+            } else {
+            // Fía (22:05): line the buttons up, voice on the left.
             HStack(alignment: .bottom, spacing: 8) {
+                Button { Task { await recorder.start() } } label: { Image(systemName: "mic.fill").font(.system(size: 17, weight: .semibold)) }
+                    .buttonStyle(CircleChipStyle()).accessibilityLabel("Record a voice note")
+                Menu {
+                    Button("Camera", systemImage: "camera") { shooting = true }
+                    Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
+                    Button("Files and PDFs", systemImage: "doc") { pickingFiles = true }
+                } label: { Hand("HandPlus", height: 17).frame(width: 40, height: 40).glass(Circle()).foregroundStyle(Theme.ink) }
+                .accessibilityLabel("Attach")
                 TextField("Comments on culture", text: $text, axis: .vertical)
-                    .font(.system(size: 16, design: .serif)).lineLimit(1...5)
-                    .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
-                Button { Task { await send() } } label: { Drawn(name: "WordSend", height: 18, label: "send") }
-                    .buttonStyle(GlassChipStyle(on: true)).disabled(!ready).opacity(ready ? 1 : 0.4)
+                    .font(.system(size: 16, design: .serif)).lineLimit(1...6)
+                    .focused($typing)
+                    .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 40)
+                    .glass(RoundedRectangle(cornerRadius: 20))
+                    .onChange(of: typing) { _, on in if on { onFocus() } }
+                Button { Task { await send() } } label: { Text("Send") }
+                    .buttonStyle(SendStyle(ready: ready)).disabled(!ready)
+                    .accessibilityLabel("Send")
             }
             .padding(.horizontal, 12)
+            }
         }
         .padding(.top, 8).padding(.bottom, 6)
+        .onAppear { recorder.onFinished = { p in if pending.count < 6 { pending.append(p) } } }
+        .fullScreenCover(isPresented: $shooting) {
+            CameraView { image, filter in if let p = Picks.shot(image, filter: filter), pending.count < 6 { pending.append(p) } }
+        }
+        .photosPicker(isPresented: $pickingPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
+        .onChange(of: photoItems) { _, items in
+            guard !items.isEmpty else { return }
+            Task {
+                for item in items { if let p = await Picks.photo(item), pending.count < 6 { pending.append(p) } }
+                photoItems = []
+            }
+        }
+        .fileImporter(isPresented: $pickingFiles, allowedContentTypes: Picks.fileTypes, allowsMultipleSelection: true) { result in
+            guard case .success(let urls) = result else { return }
+            for url in urls {
+                if let p = Picks.file(url) { if pending.count < 6 { pending.append(p) } }
+                else { error = "\(url.lastPathComponent) is over 25 MB" }
+            }
+        }
     }
 
     var tagRow: some View {
@@ -218,7 +365,7 @@ struct ChatInput: View {
                             .onSubmit { let t = Tag.normalize(newTag); if !t.isEmpty && !picked.contains(t) { toggle(t) }; newTag = ""; adding = false }
                             .padding(.horizontal, 10).padding(.vertical, 6).glass(Capsule())
                     } else {
-                        Button { adding = true } label: { Drawn(name: "GlyphPlus", height: 14, label: "add a tag") }.buttonStyle(GlassChipStyle())
+                        Button { adding = true } label: { Image(systemName: "plus") }.buttonStyle(GlassChipStyle())
                     }
                 }
                 .padding(.horizontal, 14)
@@ -228,8 +375,39 @@ struct ChatInput: View {
     func send() async {
         sending = true; defer { sending = false }
         do {
-            _ = try await API.post(.init(text: text, tags: [], replyTo: nil), token: await account.token())
-            text = ""; error = nil; Trail.send("chat:send"); onSent()
+            let token = await account.token()
+            var files: [Attachment] = []
+            for p in pending {
+                files.append(try await API.upload(p.data, name: p.name, type: p.type, width: p.width, height: p.height,
+                                                  duration: p.duration, transcript: p.transcript, token: token))
+            }
+            // Talking about a Discover item: the message carries its link, so the chat shows the card.
+            let link = room.about?.links.first
+            let body = [text.trimmingCharacters(in: .whitespacesAndNewlines), link ?? ""].filter { !$0.isEmpty }.joined(separator: "\n")
+            _ = try await API.post(.init(text: body, tags: [], replyTo: nil, attachments: files.isEmpty ? nil : files), token: token)
+            if link != nil { Trail.send("discover:talked"); room.about = nil }
+            Trail.send("chat:send", ["files": files.count])
+            text = ""; pending = []; error = nil; onSent()
+            typing = true // keep the keyboard up for the next line
         } catch { self.error = error.localizedDescription; Trail.send("post:failed", ["why": error.localizedDescription]) }
+    }
+}
+
+/// "About: <headline>" above the chat box while talking about a Discover item.
+struct AboutChip: View {
+    let post: Post
+    var clear: () -> Void
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "newspaper").font(.caption)
+            Text("About: " + (post.preview?.title ?? post.text.split(separator: "\n").first.map(String.init) ?? "this"))
+                .font(Theme.type(12, bold: true)).lineLimit(1)
+            Spacer(minLength: 0)
+            Button(action: clear) { Hand("HandX", height: 10) }.accessibilityLabel("Not about this")
+        }
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .glass(Capsule())
+        .padding(.horizontal, 14)
     }
 }

@@ -159,6 +159,36 @@ extension View {
     }
 }
 
+/// Send, louder than the other chips: Fía found the dimmed one hard to see
+/// (10-12). Ink at rest, the red head rule once there is something to send.
+struct SendStyle: ButtonStyle {
+    var ready: Bool
+    // Fía (22:05): "higher contrast … it's still hard to read"; (22:28) "the send
+    // needs to be legible!" → plain bold type, never faded: white on ink when
+    // ready, ink on pale paper when there's nothing to send yet.
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 16, weight: .bold, design: .rounded))
+            .foregroundStyle(ready ? Color.white : Theme.ink)
+            .frame(height: 40).padding(.horizontal, 18)
+            .background(Capsule().fill(ready ? Theme.ink : Color(white: 0.88)))
+            .shadow(color: .black.opacity(ready ? 0.2 : 0), radius: 4, y: 2)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.easeOut(duration: 0.15), value: ready)
+    }
+}
+
+/// Round glass buttons beside the text box, all the same size so they line up.
+struct CircleChipStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Theme.ink)
+            .frame(width: 40, height: 40)
+            .glass(Circle())
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+    }
+}
+
 struct GlassChipStyle: ButtonStyle {
     var on = false
     func makeBody(configuration: Configuration) -> some View {
