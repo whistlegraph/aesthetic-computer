@@ -44,7 +44,7 @@ struct WarePicker: View {
             ComicTitle(text: "." + (Ware(rawValue: session.snapshot.wareID) ?? .piece).fileExtension, size: size)
                 .opacity(0.75)
         }
-        .disabled(!session.engineReady || session.snapshot.busy || session.capturePhase != .idle)
+        .disabled(!session.canLeaveWork)
         .accessibilityLabel("Ware, " + (Ware(rawValue: session.snapshot.wareID)?.title ?? Ware.piece.title))
         .accessibilityIdentifier("ware-picker")
     }

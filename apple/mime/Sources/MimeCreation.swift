@@ -9,6 +9,8 @@ struct MimeCreation: View {
     @Binding var active: Bool
     let size: CGSize
     @Binding var drag: CGFloat
+    let opened: () -> Void
+    let failed: (String) -> Void
     @State private var switching: Ware?
     @State private var remixTask: Task<Void, Never>?
     @State private var surface = WhistlegraphTheme(phase: .ready, dark: true)
@@ -78,6 +80,7 @@ struct MimeCreation: View {
         }
         .onChange(of: session.accountReady) { _, _ in startRequestedWork() }
         .onChange(of: session.snapshot.busy) { _, _ in startRequestedWork() }
+        .onChange(of: session.canLeaveWork) { _, _ in startRequestedWork() }
         .onChange(of: session.snapshot.wareID) { _, _ in startRequestedWork() }
         .onChange(of: session.snapshot.handle) { _, _ in Task { await session.syncAIAccount(); await session.braincells.accountChanged() } }
         .onChange(of: active) { _, visible in
@@ -112,7 +115,7 @@ struct MimeCreation: View {
     private func startRequestedWork() {
         if let remix {
             guard active, session.accountReady, session.engineReady, remixTask == nil, let ware = remix.remixWare else { return }
-            if session.snapshot.busy || session.capturePhase != .idle { self.remix = nil; session.actionError = "Finish or stop the current work before remixing another."; return }
+            guard session.canLeaveWork else { return }
             if session.snapshot.wareID != ware.rawValue {
                 guard switching != ware else { return }
                 switching = ware; session.command("setWare", ware: ware.rawValue); return
@@ -124,25 +127,22 @@ struct MimeCreation: View {
                     try Task.checkCancellation()
                     guard active, self.remix?.id == remix.id else { return }
                     try await session.remixWork(payload)
-                    self.remix = nil; switching = nil
+                    self.remix = nil; switching = nil; opened()
                 } catch {
-                    if !Task.isCancelled { self.remix = nil; switching = nil; session.actionError = error.localizedDescription }
+                    if !Task.isCancelled { self.remix = nil; switching = nil; failed(error.localizedDescription) }
                 }
             }
             return
         }
         guard active, let ware = requested, session.accountReady, session.engineReady else { return }
-        if session.snapshot.busy || session.capturePhase != .idle {
-            requested = nil; switching = nil
-            return
-        }
+        guard session.canLeaveWork else { return }
         if session.snapshot.wareID != ware.rawValue {
             guard switching != ware else { return }
             switching = ware
             session.command("setWare", ware: ware.rawValue)
         } else {
             requested = nil
-            session.command("newPiece")
+            session.command("newPiece", onAccepted: opened)
         }
     }
 }

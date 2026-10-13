@@ -424,8 +424,14 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         } catch { emitEngine(["kind": "error", "text": "Use a PNG under 2 MB, with dimensions of 16–2048 pixels."]) }
     }
 
+    /// A server turn owns its project, not the phone's editor. Speech processing
+    /// may remain active until that turn finishes; an actual recording cannot move.
+    var canLeaveWork: Bool {
+        engineReady && (!snapshot.busy || snapshot.remote) &&
+        (capturePhase == .idle || (snapshot.remote && capturePhase == .processing))
+    }
     func remixWork(_ payload: [String: Any]) async throws {
-        guard accountReady, engineReady, !snapshot.busy, capturePhase == .idle, let webView else { throw NativeSignIn.failure("Wait for the editor to finish opening.") }
+        guard accountReady, canLeaveWork, let webView else { throw NativeSignIn.failure("The editor is still opening.") }
         let result = try await webView.callAsyncJavaScript("if (!window.whistlegraphRemix) throw Error('This type cannot be remixed yet.'); return await window.whistlegraphRemix(payload);", arguments: ["payload": payload], in: nil, contentWorld: .page)
         guard let result = result as? [String: Any], result["accepted"] as? Bool == true else { throw NativeSignIn.failure("The remix could not be saved.") }
         engineReady = false // The accepted import has durably saved v0 and scheduled its reload.
@@ -433,7 +439,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, ware: String? = nil, onAccepted: (() -> Void)? = nil) {
         guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "discardAttempt", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) else { return }
-        if ["setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) {
+        if action == "setWare" { guard canLeaveWork else { return } }
+        if ["playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
         }
         let control = DeviceActionLog.Control(rawValue: action)
@@ -444,7 +451,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             return
         }
         if action == "newPiece" || action == "openPiece" {
-            guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
+            guard canLeaveWork else { return }
             if action == "openPiece" { guard let piece, pieces.contains(where: { $0.id == piece && !$0.current }) else { return } }
             // The navigation delegate resets readiness only when a reload
             // actually starts. A refused or unavailable command keeps this work usable.

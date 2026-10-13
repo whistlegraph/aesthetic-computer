@@ -3,13 +3,18 @@
   window.__whistlegraphDisableThread = false;
   window.__whistlegraphAIConsent = {creation:true,handle:'fixture'};
   localStorage.setItem('whistlegraph-remote-turns','on');
-  localStorage.setItem('whistlegraph-source-thread',JSON.stringify({id:'00000000-0000-4000-8000-000000000012',code:'wgFixture'}));
-  localStorage.setItem('whistlegraph-source','export function paint({wipe}) {wipe("navy");}');
+  if(!localStorage.getItem('whistlegraph-source-thread')) {
+    const first=!localStorage.getItem('remote-voice-initialized');
+    localStorage.setItem('remote-voice-initialized','yes');
+    localStorage.setItem('whistlegraph-source-thread',JSON.stringify({id:first?'00000000-0000-4000-8000-000000000012':crypto.randomUUID(),code:first?'wgFixture':'wgFixtureTwo'}));
+    if(first)localStorage.setItem('whistlegraph-source','export function paint({wipe}) {wipe("navy");}');
+  }
   // The HTTP completion path also works when the thread socket is offline.
   window.WebSocket = class extends EventTarget { readyState=0; send() {} close() {} };
   const original = window.fetch.bind(window);
   let turn=0, outcome='done', finished=false, polls=0;
   window.__remoteVoiceOutcome = 'done';
+  window.__remoteVoiceCancels = 0;
   window.fetch = async (input,init={}) => {
     const url=String(input);
     if(url.includes('/userinfo'))return Response.json({sub:'fixture-maker'});
@@ -21,7 +26,7 @@
         turn++;outcome=window.__remoteVoiceOutcome;finished=false;polls=0;
         return outcome==='rejected'?Response.json({error:'Fixture rejected'},{status:503}):Response.json({id:'fixture-'+turn},{status:202});
       }
-      if(init.method==='DELETE')return Response.json({ok:true});
+      if(init.method==='DELETE'){window.__remoteVoiceCancels++;return Response.json({ok:true});}
       if(url.includes('?code='))return Response.json({turns:[]});
       if(outcome==='progress') {
         polls++;

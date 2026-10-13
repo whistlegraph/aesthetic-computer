@@ -1,7 +1,7 @@
 import XCTest
 
 final class MimeLayoutTests: XCTestCase {
-    func testGenerationStaysOneLineWithOptionalLiveBuffer() {
+    func testConstructingVersionStagesAndLiveSourceShareOneLine() {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchEnvironment["MIME_CREATION_FIXTURE"] = "progress"
@@ -14,20 +14,21 @@ final class MimeLayoutTests: XCTestCase {
         app.buttons["mime-fixture-voice"].tap()
         let strip = app.descendants(matching: .any)["generation-strip"].firstMatch
         XCTAssertTrue(strip.waitForExistence(timeout: 10))
-        let toggle = app.buttons["generation-buffer-toggle"]
-        if toggle.label == "Hide data buffer" { toggle.tap() }
-        let status = app.staticTexts["generation-status"]
-        let starting = expectation(for: NSPredicate(format: "label == %@", "Starting"), evaluatedWith: status)
+        let status = app.buttons["generation-status"]
+        let version = app.staticTexts["generation-version"]
+        let starting = expectation(for: NSPredicate(format: "value == %@", "Starting"), evaluatedWith: status)
         XCTAssertEqual(XCTWaiter().wait(for: [starting], timeout: 12), .completed)
+        XCTAssertEqual(version.label, "v1")
+        XCTAssertEqual(version.value as? String, "Under construction")
         XCTAssertLessThanOrEqual(strip.frame.height, 45)
         XCTAssertEqual(preview.frame, picture, "Generation leaves the preview in place")
         XCTAssertFalse(app.descendants(matching: .any)["generation-request"].firstMatch.exists)
         XCTAssertFalse(app.descendants(matching: .any)["turn-progress"].firstMatch.exists)
         XCTAssertFalse(app.staticTexts["Waiting for model…"].exists)
         let statusShot = XCTAttachment(screenshot: app.screenshot())
-        statusShot.name = "MIME compact generation status"; statusShot.lifetime = .keepAlways; add(statusShot)
-        toggle.tap()
+        statusShot.name = "MIME ghost version and generation stages"; statusShot.lifetime = .keepAlways; add(statusShot)
         let buffer = app.descendants(matching: .any)["code-ticker"].firstMatch
+        if !buffer.exists { status.tap() }
         XCTAssertTrue(buffer.waitForExistence(timeout: 5))
         let before = buffer.value as? String ?? ""
         let live = expectation(for: NSPredicate { _, _ in (buffer.value as? String ?? "") != before }, evaluatedWith: app)
@@ -35,17 +36,28 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertFalse((buffer.value as? String ?? "").contains("\n"))
         XCTAssertLessThanOrEqual(strip.frame.height, 45)
         XCTAssertLessThanOrEqual(buffer.frame.height, 24)
+        XCTAssertLessThanOrEqual(version.frame.maxX, status.frame.minX)
+        XCTAssertLessThanOrEqual(status.frame.maxX, buffer.frame.minX)
         XCTAssertEqual(preview.frame, picture)
         let bufferShot = XCTAttachment(screenshot: app.screenshot())
-        bufferShot.name = "MIME single-line live data buffer"; bufferShot.lifetime = .keepAlways; add(bufferShot)
-        toggle.tap()
-        let checking = expectation(for: NSPredicate(format: "label == %@", "Checking"), evaluatedWith: status)
+        bufferShot.name = "MIME constructing version with flying source"; bufferShot.lifetime = .keepAlways; add(bufferShot)
+        let checking = expectation(for: NSPredicate(format: "value == %@", "Checking"), evaluatedWith: status)
         XCTAssertEqual(XCTWaiter().wait(for: [checking], timeout: 25), .completed)
+        XCTAssertEqual(version.label, "v1", "Checking keeps the same provisional version")
+        status.tap()
+        XCTAssertFalse(buffer.exists)
+        XCTAssertTrue(app.staticTexts["Checking"].exists)
+        status.tap()
+        XCTAssertTrue(buffer.exists)
         app.buttons["generation-stop"].tap()
         let stopped = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: strip)
         XCTAssertEqual(XCTWaiter().wait(for: [stopped], timeout: 10), .completed)
         XCTAssertTrue(app.buttons["type-control"].isEnabled)
         XCTAssertTrue(app.buttons["attempt-retry"].exists)
+        app.buttons["attempt-retry"].tap()
+        XCTAssertTrue(strip.waitForExistence(timeout: 10))
+        XCTAssertEqual(version.label, "v1", "A stopped try does not consume a version")
+        app.buttons["generation-stop"].tap()
     }
     func testRemoteVoiceUnlocksAndReturnsFromPreviewGutter() {
         continueAfterFailure = false
@@ -57,6 +69,9 @@ final class MimeLayoutTests: XCTestCase {
         app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
         for version in 1...2 {
             app.buttons["mime-fixture-voice"].tap()
+            let constructing = app.staticTexts["generation-version"]
+            XCTAssertTrue(constructing.waitForExistence(timeout: 5))
+            XCTAssertEqual(constructing.label, "v\(version)")
             let row = app.buttons["version-\(version)"]
             XCTAssertTrue(row.waitForExistence(timeout: 30))
             let usable = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["type-control"])
@@ -254,13 +269,53 @@ final class MimeLayoutTests: XCTestCase {
         edge.press(forDuration: 0.1, thenDragTo: edge.withOffset(CGVector(dx: -260, dy: 0)))
         let returned = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: app.buttons["mime-resume-editor"])
         XCTAssertEqual(XCTWaiter().wait(for: [returned], timeout: 10), .completed)
-        // Tapping a type during work resumes that work; it must not queue a
-        // project switch behind a loading cover or overwrite the active piece.
+        // A local turn keeps its engine; a new-work tap waits in a visible queue.
         app.buttons["mime-type"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["mime-work-queue"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["mime-creation-loading"].firstMatch.exists)
+        app.buttons["mime-work-queue"].tap()
+        XCTAssertTrue(app.buttons["queued-work-painting"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        app.buttons["mime-resume-editor"].tap()
+        // A system banner can cover the top-right wordmark during the tap.
+        if !app.buttons["mime-creation-back"].isHittable {
+            let available = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: app.buttons["mime-resume-editor"])
+            XCTAssertEqual(XCTWaiter().wait(for: [available], timeout: 10), .completed)
+            app.buttons["mime-resume-editor"].tap()
+        }
         waitForEditor(in: app)
         XCTAssertTrue(app.buttons["ware-picker"].label.contains("Aesthetic.Computer Piece"))
         XCTAssertFalse(app.buttons["type-control"].isEnabled)
         app.buttons["mime-creation-back"].tap()
+    }
+
+    func testRemixCanLeaveServerTurnAndReturnToItsProject() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "progress"
+        app.launch()
+        XCTAssertTrue(app.buttons["mime-remix-version"].firstMatch.waitForExistence(timeout: 30))
+        waitForReveal(in: app)
+        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        app.buttons["mime-fixture-voice"].tap()
+        let readyToLeave = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["ware-picker"])
+        XCTAssertEqual(XCTWaiter().wait(for: [readyToLeave], timeout: 15), .completed)
+        XCTAssertTrue(app.buttons["generation-stop"].exists)
+        app.buttons["mime-creation-back"].tap()
+        XCTAssertTrue(app.buttons["mime-remix-version"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["mime-remix-version"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["version-0"].waitForExistence(timeout: 30))
+        waitForEditor(in: app)
+        XCTAssertTrue(app.buttons["version-0"].label.contains("Stole from"))
+        XCTAssertTrue(app.buttons["type-control"].isEnabled)
+        XCTAssertFalse(app.alerts.firstMatch.exists)
+        app.buttons["workspace-settings"].tap()
+        let original = app.buttons["piece-wgFixture"]
+        if !original.exists { app.collectionViews.firstMatch.swipeUp() }
+        XCTAssertTrue(original.waitForExistence(timeout: 10))
+        original.tap(); waitForEditor(in: app)
+        XCTAssertTrue(app.buttons["generation-stop"].waitForExistence(timeout: 15), "The archived turn resumes watching the server")
+        app.buttons["generation-stop"].tap()
     }
 
     func testPreviewAudioStopsInFeedAndResumesInEditor() {
@@ -308,7 +363,7 @@ final class MimeLayoutTests: XCTestCase {
 
     private func waitForEditor(in app: XCUIApplication) {
         let ready = expectation(for: NSPredicate { _, _ in
-            !app.descendants(matching: .any)["mime-creation-loading"].firstMatch.exists
+            !app.descendants(matching: .any)["mime-creation-loading"].firstMatch.exists && app.buttons["mime-creation-back"].isHittable
         }, evaluatedWith: app)
         XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 60), .completed)
     }

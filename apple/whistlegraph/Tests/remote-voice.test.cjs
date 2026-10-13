@@ -58,6 +58,37 @@ const server=createServer(async(req,res)=>{
   await page.evaluate(()=>whistlegraphNativeCommand({action:'stop'}));
   await page.waitForFunction(()=>!whistlegraphRecording());
   console.log('PASS stale result leaves the next voice request running');
+  await page.evaluate(()=>{
+   window.__remoteVoiceOutcome='stalled';delete window.__releaseRemotePoll;__nativeMessages.length=0;voiceStart();
+   const id=__nativeMessages.find(m=>m.action==='start').id;
+   whistlegraphNativeEvent({id,kind:'listening'});voiceEnd();whistlegraphNativeEvent({id,kind:'final',text:'Keep making the original'});
+  });
+  await page.waitForFunction(()=>typeof __releaseRemotePoll==='function');
+  const reload=page.waitForNavigation();
+  const parked=await page.evaluate(async()=>{
+   const identity=JSON.parse(localStorage.getItem('whistlegraph-source-thread'));
+   const cancels=__remoteVoiceCancels;
+   const result=await whistlegraphRemix({ware:'piece',source:'export function paint({wipe}){wipe("orange");}',reference:{code:'original',handle:'@artist',version:7,url:'https://mime.ac/p/original',hash:'a'.repeat(64)}});
+   __releaseRemotePoll();await new Promise(r=>setTimeout(r,25));
+   const archive=JSON.parse(localStorage.getItem('whistlegraph-archive-'+identity.id));
+   return {accepted:result.accepted,archive,ledger:JSON.parse(localStorage.getItem('whistlegraph-source-versions')),cancelled:__remoteVoiceCancels-cancels,recording:whistlegraphRecording()};
+  });
+  assert.equal(parked.accepted,true);assert.equal(parked.cancelled,0);assert.equal(parked.recording,false);
+  assert.ok(JSON.parse(parked.archive.extras['-inflight']).remote,'The parked project retains its server job');
+  assert.equal(parked.ledger.head,0);assert.match(parked.ledger.versions[0].source,/orange/);
+  assert.equal(parked.ledger.versions.length,1,'A late old result cannot overwrite the remix');
+  await reload;
+  console.log('PASS remix parks a server turn without cancelling it or accepting its late result');
+  await page.waitForFunction(()=>typeof whistlegraphNativeCommand==='function');
+  await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture-only'}));
+  const back=page.waitForNavigation();
+  const opened=await page.evaluate(id=>whistlegraphNativeCommand({action:'openPiece',piece:id}),parked.archive.identity.id);
+  assert.notEqual(opened?.accepted,false);await back;
+  await page.waitForFunction(()=>typeof whistlegraphNativeCommand==='function');
+  await page.evaluate(()=>{window.__remoteVoiceOutcome='waiting';whistlegraphEngineEvent({kind:'account',token:'fixture-only'});});
+  await page.waitForFunction(()=>whistlegraphIsBusy());
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-source-thread')).code),'wgFixture');
+  console.log('PASS reopening the original project resumes its pending server turn');
   assert.deepEqual(errors,[]);
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

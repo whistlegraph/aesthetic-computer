@@ -235,7 +235,7 @@ struct IdentityHeader: View {
             PiecesSheet(pieces: session.pieces, colors: session.snapshot.colors,
                         inference: session.snapshot.inference,
                         // A turn on the knot does not pin the phone to its piece; a local one does.
-                        disabled: (session.snapshot.busy && !session.snapshot.remote) || session.capturePhase != .idle,
+                        disabled: !session.canLeaveWork,
                         open: { session.command("openPiece", piece: $0) },
                         newPiece: { session.command("newPiece") },
                         delete: { session.command("deletePiece", piece: $0) }, mintSession: session, session: session)

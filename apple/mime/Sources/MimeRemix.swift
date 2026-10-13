@@ -24,7 +24,7 @@ extension Post {
         guard let ware = remixWare, let edition else { throw MimeRemix.failure("This work has no editable version available.") }
         var source: String?, bytes: Data, author = name ?? ""
         #if DEBUG
-        if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remix", code.hasPrefix("fixture-remix-") {
+        if ["remix", "progress"].contains(ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] ?? ""), code.hasPrefix("fixture-remix-") {
             if ware == .piece {
                 source = "export function paint({wipe,ink,screen}){wipe('#76d17b');ink('purple').circle(screen.width/2,screen.height/2,30);}"
                 bytes = Data(source!.utf8)

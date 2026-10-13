@@ -20,6 +20,9 @@ struct MimeApp: App {
 
 struct MimeRoot: View {
     @StateObject private var workspace = WhistlegraphSession()
+    @StateObject private var queue = MimeWorkQueue()
+    @State private var openingWork: UUID?
+    @State private var showingQueue = false
     @State private var creating = false
     @State private var editorDrag: CGFloat = 0
     @State private var requested: Ware?
@@ -33,20 +36,25 @@ struct MimeRoot: View {
                     requested = nil
                     creating = true
                 }, remixWork: openRemix) { ware in
-                    // A running turn owns the workspace. Reopen it rather than
-                    // hiding it behind a pending New command until it finishes.
-                    requested = workspace.snapshot.busy || workspace.capturePhase != .idle ? nil : ware
-                    creating = true
+                    openQueued(queue.enqueue(ware: ware, owner: workspace.snapshot.handle))
                 }
                     .offset(x: creating && !reduceMotion ? geometry.size.width + editorDrag : 0)
                     .allowsHitTesting(!creating).accessibilityHidden(creating)
                 // Stay mounted so account, fonts and engine warm up while the feed is open.
-                MimeCreation(session: workspace, requested: $requested, remix: $remix, active: $creating, size: geometry.size, drag: $editorDrag)
+                MimeCreation(session: workspace, requested: $requested, remix: $remix, active: $creating, size: geometry.size, drag: $editorDrag, opened: workOpened, failed: workFailed)
                     .environment(\.mimeLettersActive, creating)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .offset(x: reduceMotion ? 0 : creating ? editorDrag : -geometry.size.width)
                     .opacity(creating ? 1 : 0)
                     .allowsHitTesting(creating).accessibilityHidden(!creating)
+                if !creating, !queued.isEmpty {
+                    Button { showingQueue = true } label: {
+                        Label("\(queued.count) queued", systemImage: "square.stack.3d.up")
+                            .font(.custom("ComicRelief-Bold", size: 16)).padding(12)
+                            .background(.ultraThinMaterial, in: Capsule())
+                    }.buttonStyle(.plain).accessibilityIdentifier("mime-work-queue")
+                        .frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, 78)
+                }
                 #if DEBUG
                 if creating && ["remote-voice", "progress"].contains(ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] ?? "") {
                     Button("Fixture voice request") { workspace.webView?.evaluateJavaScript("voiceStart()") }
@@ -61,6 +69,11 @@ struct MimeRoot: View {
             }
             .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.88), value: creating)
         }.preferredColorScheme(.dark)
+            .sheet(isPresented: $showingQueue) { MimeWorkQueueSheet(items: queued, open: openQueued, remove: queue.remove) }
+            .onChange(of: workspace.canLeaveWork) { _, ready in
+                if ready, !creating, openingWork == nil, let next = queued.first(where: { $0.issue == nil }) { openQueued(next) }
+            }
+            .onChange(of: creating) { _, visible in if !visible { openingWork = nil } }
             .onOpenURL { url in
                 guard url.scheme == "mime", url.host == "remix", let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
                       let code = query.first(where: { $0.name == "post" })?.value, code.range(of: "^[A-Za-z0-9_-]{1,100}$", options: .regularExpression) != nil,
@@ -76,14 +89,27 @@ struct MimeRoot: View {
                     } catch { remixError = error.localizedDescription }
                 }
             }
-            .alert("Could not remix", isPresented: Binding(get: { remixError != nil }, set: { if !$0 { remixError = nil } })) {
+            .alert("Remix unavailable", isPresented: Binding(get: { remixError != nil }, set: { if !$0 { remixError = nil } })) {
                 Button("OK") { remixError = nil }
             } message: { Text(remixError ?? "") }
     }
     private func openRemix(_ post: Post) {
-        guard !workspace.snapshot.busy, workspace.capturePhase == .idle else {
-            remixError = "Finish or stop your current work before remixing another."; return
-        }
-        requested = nil; remix = post; creating = true
+        guard let ware = post.remixWare else { return }
+        openQueued(queue.enqueue(post: post, ware: ware, owner: workspace.snapshot.handle))
+    }
+    private var queued: [MimeWorkQueue.Item] { queue.available(to: workspace.snapshot.handle) }
+    private func openQueued(_ item: MimeWorkQueue.Item) {
+        queue.setIssue(nil, for: item.id)
+        guard openingWork == nil, workspace.canLeaveWork || (!workspace.engineReady && !workspace.snapshot.busy) else { return }
+        openingWork = item.id; requested = item.post == nil ? Ware(rawValue: item.ware) : nil
+        remix = item.post; creating = true
+    }
+    private func workOpened() {
+        if let id = openingWork { queue.remove(id) }
+        openingWork = nil
+    }
+    private func workFailed(_ issue: String) {
+        if let id = openingWork { queue.setIssue(issue, for: id) }
+        openingWork = nil; creating = false
     }
 }

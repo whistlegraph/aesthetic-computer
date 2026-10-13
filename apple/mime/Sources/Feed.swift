@@ -2,10 +2,10 @@ import Foundation
 import Combine
 
 /// One card of the network feed, as GET mime.ac/api/mime?feed=1 returns it.
-struct Post: Decodable, Identifiable, Equatable {
-    struct LetterRGB: Decodable, Equatable { let r: Double; let g: Double; let b: Double }
-    struct File: Decodable, Equatable { let name: String?; let type: String; let url: String; let poster: String?; let alt: String? }
-    struct Media: Decodable, Equatable {
+struct Post: Codable, Identifiable, Equatable {
+    struct LetterRGB: Codable, Equatable { let r: Double; let g: Double; let b: Double }
+    struct File: Codable, Equatable { let name: String?; let type: String; let url: String; let poster: String?; let alt: String? }
+    struct Media: Codable, Equatable {
         let kind: String; let code: String?; let title: String?; let url: String?
         let packed: Bool?; let aspect: String?
         let version: Int?
@@ -85,7 +85,7 @@ struct Post: Decodable, Identifiable, Equatable {
                 posts = [try! JSONDecoder().decode(Post.self, from: Data("{\"code\":\"fixture-wad\",\"name\":\"@fixture\",\"file\":{\"name\":\"empty-room.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"https://aesthetic.computer/doom-player/examples/empty-room.wad\"}}".utf8))]
             }
             loaded = true; hasMore = false
-            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remix" {
+            if ["remix", "progress"].contains(ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] ?? "") {
                 let json = """
                 [{"code":"fixture-remix-piece","name":"@original","version":7,"text":"Source piece","file":{"name":"original.ac","type":"text/javascript","url":"https://example.invalid/original.ac"}},
                  {"code":"fixture-remix-png","name":"@painter","version":3,"file":{"name":"Blue.png","type":"image/png","url":"https://example.invalid/blue.png"}},
