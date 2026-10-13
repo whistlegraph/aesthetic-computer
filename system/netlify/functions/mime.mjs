@@ -311,6 +311,7 @@ async function createPost(db, posts, body, user) {
   const now = new Date();
   let code;
   const doc = { parent, board, name, text, file, when: now };
+  if (!parent && Number.isSafeInteger(body.version) && body.version >= 0 && body.version <= 100000) doc.version = body.version;
   if (user) doc.user = user.sub;
   if (!parent) { doc.bumped = now; doc.replies = 0; }
   for (let attempt = 0; attempt < 5; attempt++) {

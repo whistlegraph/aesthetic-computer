@@ -22,6 +22,7 @@ import {MusicalInputSocket} from '/easel/src/musical-input-socket.mjs';
 import {MusicalInputAdvisor} from '/easel/src/musical-input-advisor.mjs';
 import {musicalPrompt} from './musical-input.mjs';
 import {PieceVersions} from './piece-versions.mjs';
+import {remixLedger,remixOf,replacePieceForRemix} from './mime-remix.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 const wares=wareControls('piece');
 // The same inference/tool loop as Aesel, with a piece-first streaming renderer.
@@ -196,7 +197,7 @@ function nativeSnapshot(){
   nativeTimer=setTimeout(()=>{
     nativeTimer=null;
     const historyChanged=nativeLedger!==versions?.value;
-    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,hasDrawing:!!musicalData(v.request)?.drawing,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
+    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,remixURL:remixOf(v.request)?.url||null,hasDrawing:!!musicalData(v.request)?.drawing,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
@@ -1023,6 +1024,17 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   postPieces();
   $('info').append(newPiece);
 }
+window.whistlegraphRemix=async payload=>{
+  if(busy||remoteJob||window.whistlegraphRecording?.())throw Error('Finish or stop the current work before remixing another.');
+  const identity=thread?.identity||(window.__whistlegraphDisableThread&&window.__whistlegraphRemixFixtureIdentity);
+  if(!identity||!versions||!token)throw Error('Sign in and wait for the editor to open.');
+  if(payload?.ware!=='piece'||typeof payload.source!=='string'||new TextEncoder().encode(payload.source).length>500000)throw Error('This source cannot be remixed as an AC piece.');
+  const next=remixLedger(payload.source,payload.reference);
+  replacePieceForRemix(localStorage,storageKey,identity,versions.value,source,next);
+  thread?.suspend();server?.close();
+  setTimeout(()=>location.reload(),100);
+  return {accepted:true};
+};
 post({action:'account'});
 // Opt-in capture smoke test: replay the current piece without generating,
 // reviewing, checking out or committing anything. Native debug code saves proof.

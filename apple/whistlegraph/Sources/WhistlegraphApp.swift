@@ -129,6 +129,7 @@ struct Workspace: UIViewRepresentable {
             config.websiteDataStore = .nonPersistent()
             config.userContentController.addUserScript(WKUserScript(source: """
             window.__whistlegraphDisableThread=true;
+            window.__whistlegraphRemixFixtureIdentity={id:'00000000-0000-4000-8000-000000000001',code:'fixture-old'};
             if(\(fixture != "empty-piece") && !localStorage.getItem('whistlegraph-source'))localStorage.setItem('whistlegraph-source','export function paint({wipe}) { wipe("#253a80"); }');
             if(\(fixture == "audio"))localStorage.setItem('whistlegraph-source','let ticks=0; export function sim({sound}) { if(ticks++%15===0)sound.synth({type:"sine",tone:440,duration:0.5,volume:0.15}); } export function paint({wipe}) { wipe("#253a80"); }');
             const original=window.fetch.bind(window);
@@ -414,6 +415,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                   (16...2048).contains(width), (16...2048).contains(height) else { throw CocoaError(.fileReadCorruptFile) }
             emitEngine(["kind": "importPng", "name": url.lastPathComponent, "data": data.base64EncodedString()])
         } catch { emitEngine(["kind": "error", "text": "Use a PNG under 2 MB, with dimensions of 16–2048 pixels."]) }
+    }
+
+    func remixWork(_ payload: [String: Any]) async throws {
+        guard accountReady, engineReady, !snapshot.busy, capturePhase == .idle, let webView else { throw NativeSignIn.failure("Wait for the editor to finish opening.") }
+        let result = try await webView.callAsyncJavaScript("if (!window.whistlegraphRemix) throw Error('This type cannot be remixed yet.'); return await window.whistlegraphRemix(payload);", arguments: ["payload": payload], in: nil, contentWorld: .page)
+        guard let result = result as? [String: Any], result["accepted"] as? Bool == true else { throw NativeSignIn.failure("The remix could not be saved.") }
+        engineReady = false // The accepted import has durably saved v0 and scheduled its reload.
     }
 
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, ware: String? = nil, onAccepted: (() -> Void)? = nil) {

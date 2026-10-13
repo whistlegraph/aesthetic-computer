@@ -5,15 +5,17 @@ import SwiftUI
 struct MimeCreation: View {
     @ObservedObject var session: WhistlegraphSession
     @Binding var requested: Ware?
+    @Binding var remix: Post?
     @Binding var active: Bool
     let size: CGSize
     @Binding var drag: CGFloat
     @State private var switching: Ware?
+    @State private var remixTask: Task<Void, Never>?
     @State private var surface = WhistlegraphTheme(phase: .ready, dark: true)
     @Environment(\.scenePhase) private var phase
 
     private var editorReady: Bool {
-        session.accountReady && session.engineReady && session.workspaceReady && requested == nil
+        session.accountReady && session.engineReady && session.workspaceReady && requested == nil && remix == nil
     }
     private var needsAccount: Bool {
         session.workspaceReady && session.accountStatus != .checking && !session.accountReady
@@ -57,6 +59,7 @@ struct MimeCreation: View {
             await session.braincells.start(session: session); startRequestedWork()
         }
         .onChange(of: requested) { _, _ in startRequestedWork() }
+        .onChange(of: remix?.id) { _, _ in startRequestedWork() }
         .onChange(of: session.engineReady) { _, _ in
             session.setPreviewPlaybackActive(active && phase == .active)
             startRequestedWork()
@@ -83,6 +86,7 @@ struct MimeCreation: View {
         session.webView?.endEditing(true)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         session.setPreviewPlaybackActive(false)
+        remixTask?.cancel(); remixTask = nil; remix = nil
         requested = nil
         switching = nil
         active = false
@@ -94,6 +98,27 @@ struct MimeCreation: View {
     }
 
     private func startRequestedWork() {
+        if let remix {
+            guard active, session.accountReady, session.engineReady, remixTask == nil, let ware = remix.remixWare else { return }
+            if session.snapshot.busy || session.capturePhase != .idle { self.remix = nil; session.actionError = "Finish or stop the current work before remixing another."; return }
+            if session.snapshot.wareID != ware.rawValue {
+                guard switching != ware else { return }
+                switching = ware; session.command("setWare", ware: ware.rawValue); return
+            }
+            remixTask = Task { @MainActor in
+                defer { remixTask = nil }
+                do {
+                    let payload = try await remix.remixPayload()
+                    try Task.checkCancellation()
+                    guard active, self.remix?.id == remix.id else { return }
+                    try await session.remixWork(payload)
+                    self.remix = nil; switching = nil
+                } catch {
+                    if !Task.isCancelled { self.remix = nil; switching = nil; session.actionError = error.localizedDescription }
+                }
+            }
+            return
+        }
         guard active, let ware = requested, session.accountReady, session.engineReady else { return }
         if session.snapshot.busy || session.capturePhase != .idle {
             requested = nil; switching = nil

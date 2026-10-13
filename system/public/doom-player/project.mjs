@@ -4,6 +4,7 @@ const encoder=new TextEncoder(),decoder=new TextDecoder();
 const MAP=/^(?:E[1-4]M[1-9]|MAP(?:0[1-9]|[12][0-9]|3[0-2]))$/;
 const DERIVED=new Set(['SEGS','SSECTORS','NODES','REJECT','BLOCKMAP']);
 const RESERVED=new Set(['THINGS','LINEDEFS','SIDEDEFS','VERTEXES','SECTORS',...DERIVED,'PNAMES','TEXTURE1','TEXTURE2','S_START','S_END','F_START','F_END']);
+const MAP_DATA=new Set(['THINGS','LINEDEFS','SIDEDEFS','VERTEXES','SECTORS',...DERIVED]);
 function integer(n,min,max,label){if(!Number.isInteger(n)||n<min||n>max)throw Error(`Invalid ${label}`);return n;}
 function named(n){if(typeof n!=='string'||!/^[-A-Z0-9_\[\]\\]{1,8}$/.test(n))throw Error('WAD names use 1–8 uppercase ASCII characters');return n;}
 function array(a,max,label){if(!Array.isArray(a)||a.length>max)throw Error(`Invalid ${label}`);return a;}
@@ -65,6 +66,7 @@ export function validateProject(p){
  const maps=array(p.maps,36,'maps');if(!maps.length)throw Error('A project needs a map');const names=new Set();
  for(const m of maps){mapData(m);if(names.has(m.name))throw Error('Duplicate map');names.add(m.name);if((p.game==='doom2')!==m.name.startsWith('MAP'))throw Error('Map marker does not match game');}
  array(p.graphics??[],256,'graphics');array(p.lumps??[],256,'lumps');
+ for(const l of array(p.assets??[],4096,'imported assets')){named(l.name);if(MAP_DATA.has(l.name)||MAP.test(l.name))throw Error('Imported assets cannot replace map geometry');decode64(l.data);}
  if(JSON.stringify(p).length>4*1024*1024)throw Error('Editable project exceeds 4 MB');
  for(const g of p.graphics??[])validateGraphic(g);
  const assetNames=new Set();for(const g of p.graphics??[])for(const n of g.names??[g.name]){if(assetNames.has(n))throw Error('Duplicate custom graphic');assetNames.add(n);}
@@ -75,6 +77,29 @@ export function projectFromLevel(l){
  const value=validateLevel(l),lumps=wadLumps(compileWad(value));return {format:2,title:value.title,game:'doom',maps:[decodeMap(lumps,'E1M1')],graphics:[],lumps:[]};
 }
 export function asProject(value){return value.format===2?validateProject(value):projectFromLevel(value);}
+export function projectFromWad(data,title='Remix',{base}={}){
+ const lumps=wadLumps(data),names=lumps.filter(l=>MAP.test(l.name)).map(l=>l.name);
+ if(!names.length||lumps.some(l=>['BEHAVIOR','TEXTMAP','ENDMAP'].includes(l.name)))throw Error('Remix supports classic Doom maps.');
+ const shared=new Map(base?wadLumps(base).map(l=>[l.name,l.data]):[]);
+ const assets=lumps.filter(l=>!MAP.test(l.name)&&!MAP_DATA.has(l.name)).filter(l=>{
+  if(/^(S|F)\1?_(START|END)$/.test(l.name))return true;
+  const original=shared.get(l.name);return !original||original.length!==l.data.length||!original.every((byte,i)=>byte===l.data[i]);
+ });
+ return validateProject({format:2,title:title.slice(0,80)||'Remix',game:names[0].startsWith('MAP')?'doom2':'doom',maps:names.map(name=>decodeMap(lumps,name)),graphics:[],lumps:[],
+  assets:assets.map(l=>({name:l.name,data:encode64(l.data)}))});
+}
+export async function importWad(data,title){
+ const game=wadLumps(data).some(l=>/^MAP\d\d$/.test(l.name))?'doom2':'doom';
+ return projectFromWad(data,title,{base:await baseWad(game)});
+}
+
+// Imported art keeps its original bytes. Build one effective asset namespace
+// for validation and later edits, with the imported overrides taking priority.
+function mergedAssets(base,added){
+ const ordinary=new Map(),groups={S:new Map(),F:new Map()};
+ for(const list of [base,added]){let group=null;for(const lump of list){const marker=/^(S|F)\1?_((?:START)|(?:END))$/.exec(lump.name);if(marker){group=marker[2]==='START'?marker[1]:null;continue;}if(group)groups[group].set(lump.name,lump);else ordinary.set(lump.name,lump);}}
+ return [...ordinary.values(),...Object.entries(groups).flatMap(([name,items])=>items.size?[{name:name+'_START',data:new Uint8Array()},...items.values(),{name:name+'_END',data:new Uint8Array()}]:[])];
+}
 export function decodeMap(lumps,name){
  const start=lumps.findIndex(l=>l.name===name);if(start<0)throw Error('Map unavailable');
  const get=n=>{const l=lumps.slice(start+1,start+11).find(l=>l.name===n);if(!l)throw Error('Missing '+n);return l.data;};
@@ -151,7 +176,7 @@ function graphicLumps(project,base){
  return out;
 }
 export async function compileProject(input,{base,build=buildNodes}={}){
- const p=validateProject(input),baseLumps=wadLumps(base??await baseWad(p.game));
+ const p=validateProject(input),imported=(p.assets??[]).map(l=>({name:l.name,data:decode64(l.data)})),original=wadLumps(base??await baseWad(p.game)),baseLumps=imported.length?mergedAssets(original,imported):original;
  const walls=new Set(textures(lumpNamed(baseLumps,'TEXTURE1')).map(t=>t.name));const t2=baseLumps.find(l=>l.name==='TEXTURE2');if(t2)for(const t of textures(t2.data))walls.add(t.name);
  const flatStart=baseLumps.findIndex(l=>l.name==='F_START'),flatEnd=baseLumps.findIndex(l=>l.name==='F_END'),flats=new Set(baseLumps.slice(flatStart+1,flatEnd).map(l=>l.name));flats.add('F_SKY1');
  for(const g of p.graphics)for(const name of g.names??[g.name]){if(g.kind==='texture')walls.add(name);if(g.kind==='flat')flats.add(name);}
@@ -159,8 +184,14 @@ export async function compileProject(input,{base,build=buildNodes}={}){
  const built=await build(packWad(p.maps.flatMap(mapLumps))),lumps=wadLumps(built);
  // The current engine reads classic nodes, not ZDoom's extended/compressed node formats.
  for(const l of lumps)if(l.name==='NODES'&&(l.data.length%28||['XNOD','ZNOD','XGLN','ZGLN'].includes(decoder.decode(l.data.slice(0,4)))))throw Error('Map exceeds classic Doom BSP limits');
- return packWad([...lumps,...graphicLumps(p,baseLumps),...p.lumps.map(l=>({name:l.name,data:decode64(l.data)}))]);
+ // Vanilla reads one sprite namespace. Reconstitute shared frames omitted
+ // from the saved project and merge later artwork edits into that namespace.
+ const art=graphicLumps(p,baseLumps);
+ if(imported.some(l=>/^SS?_START$/.test(l.name))&&!art.some(l=>l.name==='S_START')){
+  art.push(...baseLumps.slice(baseLumps.findIndex(l=>l.name==='S_START'),baseLumps.findIndex(l=>l.name==='S_END')+1));
+ }
+ return packWad([...lumps,...mergedAssets(imported,art),...p.lumps.map(l=>({name:l.name,data:decode64(l.data)}))]);
 }
 export async function compileDocument(value,options){return value.format===2?compileProject(value,options):compileWad(validateLevel(value));}
-export function documentSummary(value){if(value.format!==2)return JSON.stringify(value);const p=validateProject(value);return JSON.stringify({...p,maps:p.maps.map(m=>({name:m.name,rooms:m.rooms,vertices:m.vertices?.length,sectors:m.sectors?.length,lines:m.lines?.length,things:m.things})),graphics:p.graphics.map(g=>({kind:g.kind,names:g.names??[g.name],width:g.width,height:g.height})),lumps:p.lumps.map(l=>({name:l.name,bytes:l.data.length*3/4}))});}
+export function documentSummary(value){if(value.format!==2)return JSON.stringify(value);const p=validateProject(value);return JSON.stringify({...p,assets:(p.assets??[]).map(l=>({name:l.name,bytes:l.data.length*3/4})),maps:p.maps.map(m=>({name:m.name,rooms:m.rooms,vertices:m.vertices?.length,sectors:m.sectors?.length,lines:m.lines?.length,things:m.things})),graphics:p.graphics.map(g=>({kind:g.kind,names:g.names??[g.name],width:g.width,height:g.height})),lumps:p.lumps.map(l=>({name:l.name,bytes:l.data.length*3/4}))});}
 export async function assetCatalog(game,base){const lumps=wadLumps(base??await baseWad(game));return {textures:textures(lumpNamed(lumps,'TEXTURE1')).map(t=>t.name),flats:lumps.slice(lumps.findIndex(l=>l.name==='F_START')+1,lumps.findIndex(l=>l.name==='F_END')).map(l=>l.name),sprites:lumps.slice(lumps.findIndex(l=>l.name==='S_START')+1,lumps.findIndex(l=>l.name==='S_END')).map(l=>l.name),sounds:lumps.filter(l=>l.name.startsWith('DS')).map(l=>l.name),music:lumps.filter(l=>l.name.startsWith('D_')).map(l=>l.name)};}

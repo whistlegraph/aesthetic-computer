@@ -1,6 +1,46 @@
 import XCTest
 
 final class MimeLayoutTests: XCTestCase {
+    func testVersionRemixesPiecePaintingAndWadAsNewV0() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "remix"
+        app.launch()
+        let badge = app.buttons["mime-remix-version"].firstMatch
+        XCTAssertTrue(badge.waitForExistence(timeout: 30))
+        waitForReveal(in: app)
+        for (version, author, ware) in [(7, "original", "Aesthetic.Computer Piece"), (3, "painter", "Painting"), (2, "builder", "Doom")] {
+            XCTAssertEqual(badge.label, "v\(version)")
+            let identifier = app.buttons["mime-global-identifier"].firstMatch
+            XCTAssertGreaterThan(badge.frame.minX, identifier.frame.maxX)
+            let feed = XCTAttachment(screenshot: app.screenshot())
+            feed.name = "MIME remix feed v\(version)"; feed.lifetime = .keepAlways; add(feed)
+            badge.tap()
+            XCTAssertTrue(app.buttons["ware-picker"].waitForExistence(timeout: 60))
+            waitForEditor(in: app)
+            XCTAssertTrue(app.buttons["ware-picker"].label.contains(ware), app.buttons["ware-picker"].label)
+            let v0 = app.buttons["version-0"]
+            XCTAssertTrue(v0.waitForExistence(timeout: 20))
+            XCTAssertTrue(v0.label.contains("Stole from @\(author)"), v0.label)
+            XCTAssertTrue(v0.label.contains("v\(version)"), v0.label)
+            XCTAssertFalse(app.buttons["version-1"].exists)
+            if version == 3 {
+                app.buttons["brain-settings"].tap(); app.buttons["brain-canvas"].tap()
+                let resolution = app.descendants(matching: .any)["painting-resolution"].firstMatch
+                XCTAssertTrue(resolution.waitForExistence(timeout: 10))
+                XCTAssertEqual(resolution.label, "32 by 48 pixels")
+                app.navigationBars["Canvas"].buttons.firstMatch.tap(); app.buttons["Done"].tap()
+            }
+            let editor = XCTAttachment(screenshot: app.screenshot())
+            editor.name = "MIME remixed \(ware) v0"; editor.lifetime = .keepAlways; add(editor)
+            app.buttons["mime-creation-back"].tap()
+            XCTAssertTrue(badge.waitForExistence(timeout: 10))
+            app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+            XCTAssertTrue(v0.waitForExistence(timeout: 10), "Resuming keeps the remix")
+            app.buttons["mime-creation-back"].tap()
+            if version != 2 { app.swipeUp() }
+        }
+    }
     func testNativeIdentityCorners() {
         let app = XCUIApplication()
         app.launch()

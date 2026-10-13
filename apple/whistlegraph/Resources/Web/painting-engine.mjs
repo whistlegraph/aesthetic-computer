@@ -5,6 +5,7 @@ import {verifyAccount} from '/easel/src/account-access.mjs';
 import {FLASH_MODEL} from './generation-policy.mjs';
 import {PieceVersions} from './piece-versions.mjs';
 import {WareProjects} from './ware-projects.mjs';
+import {remixRequest,remixCaption,remixOf} from './mime-remix.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 import {savePaintingAsset,loadPaintingAsset,removePaintingAsset} from './painting-assets.mjs';
 import {withDrawing} from './drawing-input.mjs';
@@ -23,9 +24,21 @@ const canvas=document.createElement('canvas');canvas.id='painting-preview';canva
 function snapshot(){
  const displayed=staged||painting;
  post({action:'pieces',pieces:projects.list({ledger:versions.value,name:painting.title,code:codes[versions.head.id]||''})});
- post({action:'snapshot',snapshot:{ware:'painting',painting:{width:displayed.width,height:displayed.height},caption:painting.title,code:codes[versions.head.id]||'',handle,colors,head:versions.head.id,hasPiece:true,hasPreview:true,busy,error,phase:busy?'Painting…':'Painting',output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});
+ post({action:'snapshot',snapshot:{ware:'painting',painting:{width:displayed.width,height:displayed.height},caption:painting.title,code:codes[versions.head.id]||'',handle,colors,head:versions.head.id,hasPiece:true,hasPreview:true,busy,error,phase:busy?'Painting…':'Painting',output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:remixCaption(v.request),remixURL:remixOf(v.request)?.url||null,createdAt:v.createdAt}))}});
 }
 async function paint(value=painting){await renderPainting(canvas,value,loadPaintingAsset);}
+window.whistlegraphRemix=async payload=>{
+ if(busy||window.whistlegraphRecording?.())throw Error('Finish or stop the current work before remixing another.');
+ if(payload?.ware!=='painting'||!token)throw Error('Sign in to remix this painting.');
+ const request=remixRequest(payload.reference);
+ busy=true;snapshot();let asset;
+ try{
+  const image=new Image();image.src='data:image/png;base64,'+payload.data;await image.decode();
+  const next=validatePainting({format:1,title:String(payload.title||'Remix').slice(0,80),width:image.naturalWidth,height:image.naturalHeight,background:'transparent',layers:[]});
+  asset=await savePaintingAsset(payload.data);next.layers=[{id:'remixed-png',kind:'raster',asset,x:0,y:0,width:next.width,height:next.height}];
+  projects.new(JSON.stringify(next),request);setTimeout(()=>location.reload(),100);return {accepted:true};
+ }catch(error){if(asset)await removePaintingAsset(asset);throw error;}finally{busy=false;snapshot();}
+};
 async function commit(value,request){
  const next=validatePainting(value),source=JSON.stringify(next);if(source===versions.head.source)return false;
  if(versions.value.versions.length>=100)throw Error('This painting has reached its version limit. Start another painting.');
@@ -100,7 +113,7 @@ window.whistlegraphNativeCommand=command=>{
    if(!token){post({action:'signIn'});return;}
    const credential=token,head=versions.head.id;
    void run(async()=>{
-    const response=await window.fetch('https://aesthetic.computer/api/mime',{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':'application/json'},body:JSON.stringify({name:painting.title,text:'',file:{name:paintingFilename(painting),type:'image/png',data:png()}}),signal:AbortSignal.timeout(30000)});
+    const response=await window.fetch('https://aesthetic.computer/api/mime',{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':'application/json'},body:JSON.stringify({name:painting.title,text:'',version:head,file:{name:paintingFilename(painting),type:'image/png',data:png()}}),signal:AbortSignal.timeout(30000)});
     const result=await response.json();if(!response.ok)throw Error(result.error||'Could not publish the painting.');
     if(token!==credential)throw Error('Account changed during publishing.');
     const next={...codes,[head]:result.code};localStorage.setItem(key+'-codes',JSON.stringify(next));codes=next;

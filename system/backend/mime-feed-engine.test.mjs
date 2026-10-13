@@ -90,7 +90,7 @@ test("new work leads every visit, one card per author, Whistlegraph counted youn
 
 test('public wg codes resolve the existing Whistlegraph thread identity', async () => {
   const { feedOnlyOp } = await import('./mime-feed-engine.mjs');
-  const row = { code: 'wgNirin', handle: '@jeffrey', publishedAt: new Date(), ledger: { head: 1, versions: [] } };
+  const row = { code: 'wgNirin', handle: '@jeffrey', publishedAt: new Date(), ledger: { head: 1, versions: [{id:1},{id:7}] } };
   const cursor = rows => ({ sort() { return this; }, limit() { return this; }, toArray: async () => rows });
   const db = { collection(name) { return {
     find: () => cursor(name === 'walkieware-threads' ? [row] : []),
@@ -100,6 +100,8 @@ test('public wg codes resolve the existing Whistlegraph thread identity', async 
   const publicPost = await feedOnlyOp(db, 'wgNirin');
   assert.equal(publicPost.code, 'wgpiece_wgNirin');
   assert.equal(publicPost.media.code, 'wgNirin');
+  assert.equal(publicPost.media.version, 7);
+  assert.equal(new URL(publicPost.media.url).searchParams.get('version'), '7');
   assert.equal(publicPost.replies, 3);
   assert.deepEqual(await feedOnlyOp(db, 'wgpiece_wgNirin'), publicPost);
   assert.equal(await feedOnlyOp(db, 'wgMissing'), null);

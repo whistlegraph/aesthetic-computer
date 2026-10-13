@@ -71,6 +71,7 @@ struct PieceRevision: Decodable, Identifiable {
     let createdAt: String
     let sound: PieceSound?
     var hasDrawing: Bool? = nil
+    var remixURL: String? = nil
     var date: Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -459,7 +460,7 @@ struct VersionFeed: View {
         ScrollView {
 
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(snapshot.versions.filter { $0.id > 0 }.reversed()) { version in
+                ForEach(snapshot.versions.filter { $0.id > 0 || $0.remixURL != nil }.reversed()) { version in
                     Button {
                         ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
                     } label: {
@@ -473,6 +474,7 @@ struct VersionFeed: View {
                         .accessibilityAddTraits(version.id == snapshot.head ? [.isSelected] : [])
                         .accessibilityIdentifier("version-\(version.id)")
                         .accessibilityValue(version.id == snapshot.head ? "Current version" : "")
+                        .contextMenu { if let text = version.remixURL, let url = URL(string: text), url.scheme == "https", url.host == "mime.ac" { Link("Original work", destination: url) } }
                 }
             }.scrollTargetLayout().font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
         }
@@ -480,7 +482,7 @@ struct VersionFeed: View {
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $focusedVersion, anchor: .top)
         .overlay(alignment: .top) {
-            if snapshot.versions.contains(where: { $0.id > 0 }) {
+            if snapshot.versions.contains(where: { $0.id > 0 || $0.remixURL != nil }) {
             Rectangle().fill(foreground.opacity(0.055))
                 .overlay(alignment: .bottom) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
                 .overlay(alignment: .top) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
@@ -667,6 +669,11 @@ struct ComicTitle: View {
         return result
     }
     var body: some View {
+        #if MIME_APP
+        PalText(text: text, size: size, fill: Color(red: 1, green: 0.96, blue: 0.91), colors: colors.map { rgb in
+            rgb.count == 3 ? Color(red: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255) : nil
+        })
+        #else
         ZStack {
             Text(text).foregroundStyle(.cyan).offset(x: 2, y: 2)
             Text(text).foregroundStyle(.pink).offset(x: 1, y: 1)
@@ -674,6 +681,7 @@ struct ComicTitle: View {
             Text(colored)
         }.font(.custom("ComicRelief-Bold", size: size, relativeTo: .title3)).lineLimit(1).minimumScaleFactor(0.65)
             .accessibilityElement(children: .ignore).accessibilityLabel(text)
+        #endif
     }
 }
 

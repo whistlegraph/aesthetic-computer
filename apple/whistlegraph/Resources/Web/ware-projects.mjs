@@ -21,12 +21,13 @@ export class WareProjects {
  }
  list(live){return [this.summary(this.current,live),...this.index.projects.filter(p=>p.id!==this.current).map(p=>({...p,current:false}))];}
  save(next){this.storage.setItem(this.indexKey,JSON.stringify(next));this.index=next;}
- new(initialSource){
+ new(initialSource,request=null){
   if(this.index.projects.length>=128)throw Error('This phone has reached its project limit. Export and remove an older project first.');
   const parked=this.summary(this.current);let id;
   do{id=globalThis.crypto?.randomUUID?.()??('p-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));}while(this.index.projects.some(p=>p.id===id));
   const key=this.root+'-project-'+id;
   const versions=new PieceVersions(this.storage,key+'-versions',initialSource);
+  if(request!==null)try{versions.persist({...versions.value,versions:[{...versions.head,request}]});}catch(error){this.storage.removeItem(key+'-versions');throw error;}
   const next={...this.index,current:id,projects:[...this.index.projects.map(p=>p.id===parked.id?parked:p),{id}]};
   try{this.save(next);}catch(error){this.storage.removeItem(key+'-versions');throw error;}
   return versions;

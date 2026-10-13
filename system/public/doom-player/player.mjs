@@ -7,7 +7,7 @@ if(preview)document.body.classList.add('preview');
 let compilerWorker;
 window.addEventListener('message',event=>{
  if(!preview||query.get('bridge')!=='1'||event.source!==parent||event.data?.type!=='doom:compile')return;
- if(!compilerWorker){compilerWorker=new Worker(new URL('./compile-worker.mjs?v=2026-10-12.8',import.meta.url),{type:'module'});compilerWorker.onmessage=reply=>{if(reply.data.wad)parent.postMessage(reply.data,'*',[reply.data.wad]);else parent.postMessage(reply.data,'*');};compilerWorker.onerror=()=>parent.postMessage({type:'doom:compiled',id:event.data.id,error:'Doom compiler worker failed to load'},'*');}
+ if(!compilerWorker){compilerWorker=new Worker(new URL('./compile-worker.mjs?v=2026-10-12.13',import.meta.url),{type:'module'});compilerWorker.onmessage=reply=>{if(reply.data.wad)parent.postMessage(reply.data,'*',[reply.data.wad]);else parent.postMessage(reply.data,'*');};compilerWorker.onerror=()=>parent.postMessage({type:'doom:compiled',id:event.data.id,error:'Doom compiler worker failed to load'},'*');}
  compilerWorker.postMessage(event.data);
 });
 let level=starterLevel(),wad,started=false,downloadURL,playing=true,game='doom';

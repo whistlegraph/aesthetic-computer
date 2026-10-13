@@ -6,6 +6,7 @@ import AVKit
 struct Reel: View {
     var active = true
     let resumeEditor: () -> Void
+    let remixWork: (Post) -> Void
     let makeWork: (Ware) -> Void
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
@@ -24,11 +25,12 @@ struct Reel: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }, makeWork: makeWork) {
+                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }, makeWork: makeWork, remixWork: remixWork) {
                                 interacting = interacting == post.id ? nil : post.id
                             }
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(post.id)
+                            .environment(\.mimeLettersActive, active && current == post.id)
                             .onAppear { if post.id == feed.posts.dropLast(3).last?.id || feed.posts.count < 4 { Task { await feed.loadMore() } } }
                         }
                         if feed.failed {
@@ -101,6 +103,7 @@ struct Reel: View {
             }
         }
         .preferredColorScheme(.dark)
+        .environment(\.mimeLettersActive, active)
     }
 }
 
@@ -159,6 +162,7 @@ private struct Card: View {
     let interacting: Bool
     let ready: () -> Void
     let makeWork: (Ware) -> Void
+    let remixWork: (Post) -> Void
     let toggleInteract: () -> Void
     @Environment(\.openURL) private var openURL
 
@@ -172,6 +176,7 @@ private struct Card: View {
             media
         }
         .overlay(alignment: .topLeading) {
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
             Button(action: { playable ? toggleInteract() : open() }) {
                 PalText(text: post.command, size: CGFloat(layout.identifierSize), accent: Color(hex: 0xED629D))
                     .overlay(alignment: .bottom) {
@@ -179,9 +184,16 @@ private struct Card: View {
                     }
             }
             .buttonStyle(.plain)
-            .padding(.leading, layout.padding).padding(.top, 62)
             .accessibilityIdentifier("mime-global-identifier")
             .accessibilityHint(playable ? (interacting ? "Back to scrolling" : "Play with this piece") : "Open in Aesthetic Computer")
+            if let version = post.edition, post.remixWare != nil {
+                Button { remixWork(post) } label: {
+                    PalText(text: "v\(version)", size: CGFloat(layout.identifierSize), accent: Color(hex: 0x55CDD9))
+                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityIdentifier("mime-remix-version")
+                    .accessibilityLabel("v\(version)").accessibilityHint("Remix this version")
+            }
+            }.padding(.leading, layout.padding).padding(.top, 52)
         }
         .overlay(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 8) {

@@ -187,16 +187,16 @@ async function whistlegraphPieces(db) {
     const handle = typeof row.handle === "string" && row.handle.startsWith("@") ? row.handle : owners.get(row.owner) || null;
     const latest = made.at(-1)?.createdAt;
     const when = latest && latest > row.publishedAt ? latest : row.publishedAt;
-    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), when), "whistlegraph");
+    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), when, made.at(-1)?.id), "whistlegraph");
   });
 }
 
-export function wgPiecePost(code, handle, caption, when) {
+export function wgPiecePost(code, handle, caption, when, version) {
   return {
     code: "wgpiece_" + code, parent: null, board: "text/javascript", name: handle, text: caption || "", when,
     replies: 0, file: { name: code + ".mjs", type: "text/javascript", size: null, url: "/api/mime-feed?code=" + code },
     origin: { name: "Whistlegraph", url: "https://whistlegraph.app/" },
-    media: { kind: "wgpiece", id: code, code, url: "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code), author: handle },
+    media: { kind: "wgpiece", id: code, code, version, url: "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code) + (Number.isSafeInteger(version) ? "&version=" + version : ""), author: handle },
   };
 }
 
@@ -370,8 +370,8 @@ export async function feedOnlyOp(db, code) {
   if (match) {
     const pieces = (await feedPool(db)).live.filter((item) => item.code === code);
     if (pieces[0]) return withThread(db, pieces[0].post);
-    const row = await db.collection(WG_THREADS).findOne({ code: match[1], published: true }, { projection: { code: 1, handle: 1, publishedAt: 1 } });
-    return row ? withThread(db, wgPiecePost(row.code, row.handle?.startsWith?.("@") ? row.handle : null, "", row.publishedAt)) : null;
+    const row = await db.collection(WG_THREADS).findOne({ code: match[1], published: true }, { projection: { code: 1, handle: 1, publishedAt: 1, "ledger.versions.id": 1 } });
+    return row ? withThread(db, wgPiecePost(row.code, row.handle?.startsWith?.("@") ? row.handle : null, "", row.publishedAt, row.ledger?.versions.at(-1)?.id)) : null;
   }
   return null;
 }

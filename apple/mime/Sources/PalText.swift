@@ -10,13 +10,20 @@ struct PalText: View {
     var accent: Color = Color(hex: 0xA478DF)
     var fill: Color = .white
     var colors: [Color?] = []
+    var animated = true
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.mimeLettersActive) private var onstage
+    @State private var started = Date()
 
     private var font: Font { .custom("ComicRelief-Bold", size: size) }
     private var outline: CGFloat { max(1.2, size * 0.075) }
 
     var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !animated || reduced || !onstage || scenePhase != .active)) { timeline in
+        let time = animated && !reduced && onstage ? timeline.date.timeIntervalSince(started) : nil
         ZStack(alignment: .leading) {
-            letters { _, char in
+            letters(time: time) { _, char in
                 ZStack {
                     Text(char).foregroundStyle(accent).offset(x: 2, y: 2)
                     ForEach(0..<8, id: \.self) { i in
@@ -26,32 +33,59 @@ struct PalText: View {
                     }
                 }
             }
-            letters { index, char in Text(char).foregroundStyle(index < colors.count ? colors[index] ?? fill : fill) }
+            letters(time: time) { index, char in Text(char).foregroundStyle(index < colors.count ? colors[index] ?? fill : fill) }
         }
         .font(font)
         .fixedSize()
         .alignmentGuide(.lastTextBaseline) { _ in size * 0.98 }
         .accessibilityElement()
         .accessibilityLabel(text)
+        }
     }
 
-    private func letters<Glyph: View>(@ViewBuilder _ glyph: @escaping (Int, String) -> Glyph) -> some View {
+    private func letters<Glyph: View>(time: Double?, @ViewBuilder _ glyph: @escaping (Int, String) -> Glyph) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(text.enumerated()), id: \.offset) { index, char in
                 let j = Self.jitter(index)
+                let motion = time.map { Self.breathe(index, time: $0) } ?? 0
                 glyph(index, String(char))
-                    .rotationEffect(.degrees(-j.rot))
-                    .offset(y: -j.dy)
+                    .rotationEffect(.degrees(-j.rot + motion * 2))
+                    .offset(y: -j.dy + motion * 1.5)
             }
         }
     }
 
     /// PalCore's jitter: FNV-1a over "char<i>", a bob of ±1.5 pt and a tilt of ±2.4°.
     static func jitter(_ i: Int) -> (dy: CGFloat, rot: Double) {
-        var h: UInt32 = 2166136261
-        for b in "char\(i)".utf8 { h = (h ^ UInt32(b)) &* 16777619 }
+        let h = hash(i)
         return (CGFloat(Int(h % 7)) / 2 - 1.5, (Double(Int((h >> 8) % 9)) - 4) * 0.6)
     }
+
+    private static func hash(_ i: Int) -> UInt32 {
+        var h: UInt32 = 2166136261
+        for b in "char\(i)".utf8 { h = (h ^ UInt32(b)) &* 16777619 }
+        return h
+    }
+
+    /// mime.ac's pal-breathe: identical per-letter period, negative delay and
+    /// CSS ease-in-out curve, shared by the outline and fill layers.
+    static func breathe(_ i: Int, time: Double) -> Double {
+        let h = hash(i), period = 3.1 + Double(h % 23) / 10
+        let phase = (max(0, time) + Double(h % 47) / 10).truncatingRemainder(dividingBy: period) / period
+        let x = phase < 0.5 ? phase * 2 : (1 - phase) * 2
+        var low = 0.0, high = 1.0
+        for _ in 0..<12 {
+            let t = (low + high) / 2, u = 1 - t
+            if 3 * u * u * t * 0.42 + 3 * u * t * t * 0.58 + t * t * t < x { low = t } else { high = t }
+        }
+        let t = (low + high) / 2
+        return (3 * (1 - t) * t * t + t * t * t) * 2 - 1
+    }
+}
+
+private struct MimeLettersActive: EnvironmentKey { static let defaultValue = true }
+extension EnvironmentValues {
+    var mimeLettersActive: Bool { get { self[MimeLettersActive.self] } set { self[MimeLettersActive.self] = newValue } }
 }
 
 extension Color {

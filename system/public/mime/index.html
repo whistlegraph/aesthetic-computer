@@ -355,10 +355,10 @@
         2px 2px var(--pal-accent, #a478df); }
     html body.feed .feed-post :is(.reel-command, .meta) .pal-over { color: #fff; text-shadow: none; pointer-events: none; }
     html body.feed .feed-post :is(.reel-command, .meta) .pal-over > span { color: var(--letter-fill, #fff); }
-    /* No descriptions or version labels on the reel; a mood's words are the post, so they stay. */
+    /* A mood's words are its media; other captions are optional. */
     body.feed .feed-post:not(.mood-post) > .body { display: none; }
     body.feed .feed-post .mime-type { font-size: 13px; color: rgba(255, 255, 255, .8); }
-    /* The code you can enter in AC and its type read as one line, top-left on the card: #52w image/png */
+    /* The global code and its remix version share the top-left corner. */
     .reel-command { display: none; }
     body.feed .feed-post > .reel-command { display: block; grid-area: 1 / 1; align-self: start; justify-self: start; z-index: 4;
       margin: calc(10px + env(safe-area-inset-top)) 0 0 14px; max-width: calc(100% - 124px);
@@ -388,6 +388,11 @@
     html body.feed .feed-post > .meta > .byline { display: flex; align-items: baseline; }
     /* Shared presentation settings; identity corners are part of the contract. */
     html body.feed .feed-post .reel-command .pal-text { font-size: var(--mime-identifier-size, 21px); }
+    html body.feed .feed-post > .reel-command { display: flex; align-items: baseline; gap: 12px; }
+    html body.feed .feed-post .reel-command .reel-version.pal-text { display: inline-grid; flex-shrink: 0; min-width: 44px; min-height: 44px; align-content: center; padding: 0; background: none; border: 0; box-shadow: none; cursor: pointer; }
+    #remix-dialog { color: var(--body); background: var(--paper); border: 2px solid #55cdd9; border-radius: 12px; padding: 24px; max-width: min(360px, calc(100vw - 40px)); font: 700 20px/1.4 "MIME Comic", "Comic Relief", sans-serif; }
+    #remix-dialog::backdrop { background: #141024bb; }
+    #remix-dialog a, #remix-dialog button { display: block; margin-top: 16px; min-height: 44px; font: inherit; color: inherit; }
     html body.feed .feed-post .meta .byline > .name.pal-text { font-size: var(--mime-handle-size, 21px); }
     html body.feed .feed-post .meta > .reel-type.pal-text { font-size: var(--mime-type-size, 21px); }
     html body.feed .feed-post > .reel-command { margin-left: var(--mime-padding, 14px); }
@@ -398,7 +403,7 @@
     html[data-mime-show-origin="false"] .media-origin { display: none; }
     html body.feed .feed-post > .body { font-size: var(--mime-caption-size, 17px); }
     html[data-mime-show-caption="true"] body.feed .feed-post:not(.mood-post) > .body { display: block; }
-    html body.feed .feed-post :is(.reel-command, .meta) .pal-text > span > span {
+    html body.feed .feed-post :where(.reel-command, .meta) .pal-text > span > span {
       transform: translateY(var(--letter-y)) rotate(var(--letter-tilt));
       animation: pal-breathe var(--letter-period) ease-in-out var(--letter-phase) infinite paused;
     }
@@ -833,7 +838,7 @@ function shieldMedia(frame, content, interactive) {
 // before moving focus: postMessage and native iframe input can arrive out of order.
 const doomBridgeKeys = new Map();
 window.addEventListener("keydown", event => {
-  if (!activeFeed || !["KeyW", "KeyA", "KeyS", "KeyD", "KeyE", "Space", "Enter", "Escape"].includes(event.code) ||
+  if (document.querySelector("dialog[open]") || !activeFeed || !["KeyW", "KeyA", "KeyS", "KeyD", "KeyE", "Space", "Enter", "Escape"].includes(event.code) ||
       event.altKey || event.ctrlKey || event.metaKey ||
       event.target.closest?.("input, textarea, button, [contenteditable]")) return;
   const middle = (chromeTop() + innerHeight) / 2;
@@ -887,7 +892,7 @@ window.addEventListener("message", event => {
   stepFeedPost(node, Math.sign(deltaY));
 });
 window.addEventListener("keydown", event => {
-  if (event.key !== "Escape" || event.repeat) return;
+  if (event.key !== "Escape" || event.repeat || document.querySelector("dialog[open]")) return;
   if (activeFeed) { event.preventDefault(); stepFeedPost(); }
   else if (interactingMedia) {
     const button = interactingMedia.querySelector(".media-toggle");
@@ -1433,6 +1438,28 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
         .catch(() => { location.href = code.href; });
     });
     command.append(code);
+    const remixType = post.file?.type || post.board;
+    const editable = post.file && ["text/javascript", "application/javascript", "application/x-aesthetic-computer-piece", "image/png", "application/x-doom-wad", "application/x-doom"].includes(remixType);
+    const revision = post.media?.version ?? post.version ?? (post.media?.kind === "wgpiece" ? null : 0);
+    if (editable && Number.isSafeInteger(revision) && revision >= 0) {
+      const version = el("button", "reel-version", "v" + revision);
+      version.type = "button"; version.title = "Remix this version";
+      version.setAttribute("aria-label", "Remix v" + revision); version.setAttribute("aria-haspopup", "dialog");
+      version.addEventListener("click", event => {
+        event.stopPropagation();
+        document.getElementById("remix-dialog")?.remove();
+        const dialog = el("dialog"); dialog.id = "remix-dialog";
+        const title = el("div", null, "Remix " + (code.getAttribute("aria-label") || code.textContent) + " · v" + revision);
+        title.id = "remix-title"; dialog.setAttribute("aria-labelledby", title.id);
+        const open = el("a", null, "Open in MIME");
+        open.href = "mime://remix?" + new URLSearchParams({post: post.code, version: revision});
+        const close = el("button", null, "Back"); close.type = "button"; close.onclick = () => dialog.close();
+        dialog.append(title, open, close); document.body.append(dialog);
+        dialog.addEventListener("close", () => { dialog.remove(); version.focus(); });
+        dialog.showModal();
+      });
+      command.append(version); palLetters(version, "#55cdd9");
+    }
     div.append(command);
     const type = byline.querySelector(".mime-type").cloneNode(true);
     type.classList.add("reel-type");
@@ -1869,7 +1896,7 @@ async function home(page = 0, signal, target) {
   if ("IntersectionObserver" in window) {
     playbackObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        entry.target.closest(".feed-post")?.toggleAttribute("data-onstage", entry.isIntersecting);
+        entry.target.closest(".feed-post")?.toggleAttribute("data-onstage", entry.isIntersecting && entry.intersectionRatio >= 0.6);
         for (const media of entry.target.querySelectorAll("video, audio")) {
           if (!entry.isIntersecting || entry.intersectionRatio < 0.6) media.pause();
 
@@ -2074,7 +2101,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 window.addEventListener("keydown", (event) => {
-  if (!activeFeed?.nodes.length || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+  if (document.querySelector("dialog[open]") || !activeFeed?.nodes.length || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
       event.target.closest("input, textarea, button, a, audio, video, pre, [contenteditable]")) return;
   const step = { ArrowDown: 1, PageDown: 1, ArrowUp: -1, PageUp: -1 }[event.key];
   if (!step) return;

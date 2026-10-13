@@ -8,6 +8,7 @@ struct Post: Decodable, Identifiable, Equatable {
     struct Media: Decodable, Equatable {
         let kind: String; let code: String?; let title: String?; let url: String?
         let packed: Bool?; let aspect: String?
+        let version: Int?
     }
     let code: String
     let name: String?
@@ -17,6 +18,7 @@ struct Post: Decodable, Identifiable, Equatable {
     let board: String?
     let file: File?
     let media: Media?
+    let version: Int?
     var id: String { code }
 
     /// The code you can enter in AC: #painting, !tape, $kidlisp, a piece by name.
@@ -83,6 +85,14 @@ struct Post: Decodable, Identifiable, Equatable {
                 posts = [try! JSONDecoder().decode(Post.self, from: Data("{\"code\":\"fixture-wad\",\"name\":\"@fixture\",\"file\":{\"name\":\"empty-room.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"https://aesthetic.computer/doom-player/examples/empty-room.wad\"}}".utf8))]
             }
             loaded = true; hasMore = false
+            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "remix" {
+                let json = """
+                [{"code":"fixture-remix-piece","name":"@original","version":7,"text":"Source piece","file":{"name":"original.ac","type":"text/javascript","url":"https://example.invalid/original.ac"}},
+                 {"code":"fixture-remix-png","name":"@painter","version":3,"file":{"name":"Blue.png","type":"image/png","url":"https://example.invalid/blue.png"}},
+                 {"code":"fixture-remix-wad","name":"@builder","version":2,"file":{"name":"Room.wad","type":"application/x-doom-wad","url":"https://aesthetic.computer/doom-player/examples/empty-room.wad"}}]
+                """
+                posts = try! JSONDecoder().decode([Post].self, from: Data(json.utf8))
+            }
         }
         #endif
     }

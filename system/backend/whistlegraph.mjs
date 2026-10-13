@@ -136,5 +136,6 @@ export function feedEntry(row) {
   if(!row)return null;
   const versions=row.ledger?.versions||[];
   const head=versions.find(v=>v.id===row.ledger?.head),made=versions.filter(v=>v.id>0),last=made.at(-1);
-  return {code:row.code,handle:row.handle||'',caption:last?captionOf(last.request):'',source:(last||head)?.source||'',versions:made.length,publishedAt:row.publishedAt||null,updatedAt:row.updatedAt};
+  const shown=last||head;
+  return {code:row.code,handle:row.handle||'',caption:last?captionOf(last.request):'',source:shown?.source||'',version:shown?.id??0,sourceHash:shown?sourceHash(shown.source):null,versions:made.length,publishedAt:row.publishedAt||null,updatedAt:row.updatedAt};
 }

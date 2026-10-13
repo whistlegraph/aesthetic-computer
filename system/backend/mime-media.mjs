@@ -149,6 +149,7 @@ export async function publicPosts(db, docs) {
       code: doc.code, parent: doc.parent, board: doc.board,
       name: media || doc.user ? handle : doc.name, text: doc.text, when: doc.when,
       nameColors: colorsByUser.get(media?.user || doc.user) || null,
+      ...(Number.isSafeInteger(doc.version) ? {version:doc.version} : {}),
       replies: doc.replies || 0, file,
       origin: origins[media?.kind] || { name: "Mime", url: "https://mime.ac/" },
       ...(media ? { media: {

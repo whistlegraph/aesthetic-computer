@@ -24,6 +24,7 @@
 		26D1EF8FEFD4AE64B096FF96 /* AirPlayProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9EABF94E59EBA980DFCAD15 /* AirPlayProjector.swift */; };
 		281F7D98DB348812604E3F7C /* PalText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9E95AD6C8A0008A32859C9 /* PalText.swift */; };
 		3271F464BD9EEAB40EF975D7 /* DeviceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F6EED1262263460F912A8E /* DeviceRegistry.swift */; };
+		34C43A9844F5E09F106C156B /* MimeRemix.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176B29950AB5504870085169 /* MimeRemix.swift */; };
 		3715A66435F9109CB5C3F586 /* StoryVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63A750E7DF5945706EB1AEB9 /* StoryVoice.swift */; };
 		3D3B156892FAB81D43F6B42A /* StoryMovieSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3060AE0D829C7620EEFDB0 /* StoryMovieSheet.swift */; };
 		3DF224678BA4E78F77CC1694 /* Reel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */; };
@@ -108,6 +109,7 @@
 		101DD791B2AD55DA82A81C26 /* WhistlegraphTV.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTV.swift; sourceTree = "<group>"; };
 		15E0C852D113012B75A03EC0 /* WhistlegraphWare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphWare.swift; sourceTree = "<group>"; };
 		168A6C9243E8440D4AA0540D /* MimeLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeLayout.swift; sourceTree = "<group>"; };
+		176B29950AB5504870085169 /* MimeRemix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeRemix.swift; sourceTree = "<group>"; };
 		17BA2608A892AABD75A1B3B9 /* WhistlegraphMint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphMint.swift; sourceTree = "<group>"; };
 		1BBB076980A6D4B4607CD5EA /* UtteranceRecording.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtteranceRecording.swift; sourceTree = "<group>"; };
 		1D029E496EEDA337E0DF4303 /* DeviceActionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceActionLog.swift; sourceTree = "<group>"; };
@@ -319,6 +321,7 @@
 				A463A20C599B1521E9D635A5 /* MimeApp.swift */,
 				642A49DEC848BACD504317CB /* MimeCreation.swift */,
 				168A6C9243E8440D4AA0540D /* MimeLayout.swift */,
+				176B29950AB5504870085169 /* MimeRemix.swift */,
 				7F9E95AD6C8A0008A32859C9 /* PalText.swift */,
 				FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */,
 				7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */,
@@ -456,6 +459,7 @@
 				211AFF07C335D1731900B0BB /* MimeCreation.swift in Sources */,
 				747503D9EF47E4592231F7B3 /* MimeFeed.swift in Sources */,
 				08974F5171F35F094F7327E4 /* MimeLayout.swift in Sources */,
+				34C43A9844F5E09F106C156B /* MimeRemix.swift in Sources */,
 				9EBF5AE2BB9703D033DBB4F2 /* MusicalInput.swift in Sources */,
 				158BEDC9E686294D912E03E0 /* NativeScreenFixture.swift in Sources */,
 				955AFD882CF8785590FD565E /* NativeSignIn.swift in Sources */,
@@ -566,7 +570,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -626,7 +630,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

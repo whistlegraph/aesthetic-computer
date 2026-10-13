@@ -94,5 +94,7 @@ test('a new piece is public from its first made version, with its owner handle; 
 test('the feed plays the newest version made, even when the owner has an older one selected',()=>{
   const row={code:'wgolder',ledger:{...ledger(3,'a comet'),head:1}};
   assert.match(feedEntry(row).source,/wipe\(3\)/);
+  assert.equal(feedEntry(row).version,3,'feed version identifies the displayed source, not the selected head');
+  assert.match(feedEntry(row).sourceHash,/^[a-f0-9]{64}$/);
   assert.equal(feedEntry({code:'wgempty',ledger:ledger(0,null)}).source,'export function paint({wipe}){wipe(0);}');
 });
