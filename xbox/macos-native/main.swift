@@ -117,12 +117,25 @@ private final class NativeInput {
     /// Whichever device was touched last names the control scheme the hints
     /// draw (keycaps or pad buttons), not whether a controller is plugged in.
     private(set) var lastFamily: String?
+    /// One keyboard, two people — the web shell's `keyboardVersus`. A press
+    /// on player two's cluster claims the second seat as a local controller
+    /// and holds it while their hands rest; without the claim, letting go of
+    /// a key read as player two unplugging and the fight stopped on
+    /// "reconnect player 2". Let go once the game leaves local versus.
+    private var keyboardVersus = false
+    private var keyboardVersusSeen = false
+
+    func noteLocalVersus(_ active: Bool) {
+        if active { keyboardVersusSeen = true }
+        else if keyboardVersusSeen { keyboardVersus = false; keyboardVersusSeen = false }
+    }
 
     func setKey(_ event: NSEvent, down: Bool) {
         guard let mapping = keyMapping(event.keyCode) else { return }
         if down { lastFamily = "keyboard" }
         if down { keyboard[mapping.0].insert(mapping.1) }
         else { keyboard[mapping.0].remove(mapping.1) }
+        if down && mapping.0 == 1 { keyboardVersus = true }
     }
 
     /// Shift and Option never arrive as keyDown — AppKit reports a bare
@@ -196,7 +209,8 @@ private final class NativeInput {
         }
         return [
             "index": index,
-            "connected": index == 0 || !down.isEmpty || controller != nil,
+            "connected": index == 0 || !down.isEmpty || controller != nil || keyboardVersus,
+            "localController": index == 0 || controller != nil || keyboardVersus,
             "down": Array(down).sorted(),
             "leftX": leftX, "leftY": leftY,
             "rightX": rightX, "rightY": rightY,
@@ -1014,7 +1028,11 @@ private final class NativeGameHost {
                 "orientation": size.width < size.height ? "portrait" : "landscape"] as NSDictionary
         }
         let gamepad: @convention(block) (Int32) -> NSDictionary = { [weak self] index in
-            self?.input.pad(Int(index)) ?? [:]
+            if index == 0, let self {
+                self.input.noteLocalVersus(self.javascript
+                    .objectForKeyedSubscript("__oskiewarLocalVersus")?.toBool() ?? false)
+            }
+            return self?.input.pad(Int(index)) ?? [:]
         }
         let controllers: @convention(block) () -> NSArray = { [weak self] in
             self?.input.inventory() ?? []

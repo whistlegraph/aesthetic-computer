@@ -969,6 +969,18 @@
     let sampledPads = [null, null];
     let oddPads = [];
 
+    // One keyboard, two people: a press on player two's cluster seats a
+    // second fighter the way a second pad arriving does, and the claim holds
+    // through every idle moment of the fight. A held key alone never counted
+    // (it reads connected only while down), so the claim is what makes the
+    // keyboard a controller. It lets go once the game leaves local versus,
+    // or the title would walk straight back into it.
+    let keyboardVersus = false;
+    let keyboardVersusSeen = false;
+    function claimKeyboardSeat(seat) {
+      if (seat === 1) keyboardVersus = true;
+    }
+
     // The W3C standard layout. It only describes a pad that says it speaks
     // standard; anything else arranges its buttons its own way, and a guess
     // there hands the fighter the wrong punch.
@@ -1073,8 +1085,8 @@
       // a verification code also throws a kick. The seat stays connected so a
       // versus room does not read the pause as somebody walking away.
       if (globalThis.__oskiewarAccountOpen)
-        return { connected: Boolean(source) || seat === 0,
-          localController: Boolean(source), down: [],
+        return { connected: Boolean(source) || seat === 0 || keyboardVersus,
+          localController: Boolean(source) || keyboardVersus, down: [],
           leftX: 0, leftY: 0, rightX: 0, rightY: 0,
           leftTrigger: 0, rightTrigger: 0,
           analogTriggers: hasAnalogTriggers(source) };
@@ -1095,8 +1107,8 @@
         if (!spatial && padAliases[name]) down.add(padAliases[name]);
       });
       return {
-        connected: Boolean(source) || down.size > 0 || seat === 0,
-        localController: Boolean(source),
+        connected: Boolean(source) || down.size > 0 || seat === 0 || keyboardVersus,
+        localController: Boolean(source) || keyboardVersus,
         down: [...down],
         // Sticks stay raw. `quantizedInput` gates at .48, the same number the
         // console reads, so a deadzone here would only stack onto that one.
@@ -1113,6 +1125,8 @@
     // The device touched last: "keyboard", "xbox", or "" before either.
     let lastInputFamily = "";
     function sampleGamepads() {
+      if (globalThis.__oskiewarLocalVersus) keyboardVersusSeen = true;
+      else if (keyboardVersusSeen) keyboardVersus = keyboardVersusSeen = false;
       const live = scanPads();
       sampledPads = [readBrowserPad(0, live), readBrowserPad(1, live)];
       // A pressed button or a pushed stick makes the pad the scheme the hints
@@ -1572,6 +1586,7 @@
       event.preventDefault();
       dismissTitle();
       keys[mapped[0]].add(mapped[1]);
+      claimKeyboardSeat(mapped[0]);
       unlockAudio();
     });
     addEventListener("keyup", (event) => {

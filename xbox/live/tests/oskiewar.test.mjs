@@ -310,9 +310,9 @@ function createPadHost({ pads = [], touch = false, agent = "Mac" } = {}) {
   const status = { textContent: "" };
   const host = new Function("navigator", "keys", "touchEnabled", "matchMedia",
     "location", "document", "addEventListener", "mouseFighting",
-    `const jevDemo = false;\n${webShell.slice(opens, closes)}
+    `const jevDemo = false;\nconst mimeReplay = false;\nconst touchStick = { active: false, x: 0, y: 0 };\n${webShell.slice(opens, closes)}
      return { scanPads, sampleGamepads, gamepad, controllers, capabilities,
-       seats: () => padSeats.slice() };`)(
+       claimKeyboardSeat, seats: () => padSeats.slice() };`)(
     { userAgent: agent, getGamepads: () => pads },
     keys, touch, () => ({ matches: false }), { search: "" },
     { querySelector: () => status,
@@ -534,6 +534,34 @@ test("either local player can orbit, zoom and reset the shared camera", () => {
     assert.equal(fight.cameraInputState().zoom, 1, "digital shoulder never zooms");
     pads[seat].leftTrigger = 0;
   }
+});
+
+test("player two's keys seat a second fighter on one keyboard", () => {
+  const host = createPadHost();
+  host.sampleGamepads();
+  assert.equal(host.gamepad(1).localController, false);
+  host.keys[1].add("ArrowLeft");
+  host.claimKeyboardSeat(1);
+  host.sampleGamepads();
+  host.keys[1].clear();
+  host.sampleGamepads();
+  assert.equal(host.gamepad(0).localController, true);
+  assert.equal(host.gamepad(1).localController, true,
+    "the claim outlives the key that made it");
+  assert.equal(host.gamepad(1).connected, true);
+  const { fight, pads, tick } = createFight(false, false, "web");
+  Object.assign(pads[0], host.gamepad(0));
+  Object.assign(pads[1], host.gamepad(1));
+  tick();
+  assert.equal(fight.lobbyState().lane, "local");
+  assert.deepEqual(fight.players.map((p) => p.name), ["PLAYER 1", "PLAYER 2"]);
+  globalThis.__oskiewarLocalVersus = true;
+  host.sampleGamepads();
+  globalThis.__oskiewarLocalVersus = false;
+  host.sampleGamepads();
+  assert.equal(host.gamepad(1).localController, false,
+    "leaving local versus lets the keyboard go");
+  delete globalThis.__oskiewarLocalVersus;
 });
 
 test("a browser pad takes a player seat from whatever index it landed on", () => {
