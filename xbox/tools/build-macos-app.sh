@@ -51,6 +51,14 @@ codesign --force --deep --options runtime \
 
 if [ "$install" -eq 1 ]; then
   destination="/Applications/oskiewar.app"
+  # A running copy keeps its old binary and runtime in memory, and `open` on
+  # it below only brings that old process forward — the new build never
+  # shows. Quit it first (an Apple event, not a keystroke), then wait it out.
+  if pgrep -x oskiewar >/dev/null; then
+    osascript -e 'tell application id "computer.aesthetic.oskiewar" to quit' >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -x oskiewar >/dev/null || break; sleep .5; done
+    pkill -x oskiewar 2>/dev/null || true
+  fi
   rm -rf "$destination"
   ditto "$app" "$destination"
   # Replacing the bundle in place leaves LaunchServices and the Dock holding
