@@ -59,6 +59,9 @@ final class Room: ObservableObject {
     @Published var tags: [TagCount] = []
     @Published var tag: String?
     @Published var error: String?
+    /// True once the first load has answered, so the room can open onto a
+    /// chat instead of onto a blank page that then jumps (Fía, 10-13).
+    @Published var loaded = false
     /// A Discover item someone wants to talk about in the main chat (Fía, 22:12).
     @Published var about: Post?
     @Published var here: API.Here?
@@ -71,6 +74,7 @@ final class Room: ObservableObject {
             (posts, tags) = try await (p, t)
             error = nil
         } catch { self.error = error.localizedDescription }
+        loaded = true
     }
 
     func hide(_ handle: String) {

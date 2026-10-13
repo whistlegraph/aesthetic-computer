@@ -72,7 +72,7 @@ struct InstagramCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Group {
                 if let image = meta?.image, let url = URL(string: image) {
-                    AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.desk }
+                    RemoteImage(url: url, maxPixels: 800) { $0.resizable().scaledToFill() } placeholder: { _ in Theme.desk }
                 } else {
                     Theme.desk.overlay(Image(systemName: "camera").font(.largeTitle).foregroundStyle(Theme.ink.opacity(0.3)))
                 }

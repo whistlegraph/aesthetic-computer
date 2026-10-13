@@ -137,9 +137,8 @@ struct VideoTile: View {
     var body: some View {
         ZStack {
             if let p = video.poster, let u = URL(string: p) {
-                AsyncImage(url: u, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                    if let image = phase.image { image.resizable().scaledToFill() }
-                    else { Theme.desk.opacity(0.6).overlay(FlowerSpinner(size: 26).opacity(phase.error == nil ? 1 : 0)) }
+                RemoteImage(url: u, maxPixels: 900) { $0.resizable().scaledToFill() } placeholder: { failed in
+                    Theme.desk.opacity(0.6).overlay(FlowerSpinner(size: 26).opacity(failed ? 0 : 1))
                 }
             } else {
                 Theme.ink.opacity(0.85).overlay(Image(systemName: "film").font(.title).foregroundStyle(.white.opacity(0.5)))

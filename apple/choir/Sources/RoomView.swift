@@ -18,6 +18,9 @@ struct RoomView: View {
         NavigationStack {
             ScrollViewReader { scroller in
               VStack(spacing: 0) {
+                if !room.loaded {
+                    Opening().frame(maxWidth: .infinity, maxHeight: .infinity).transition(.opacity)
+                } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         SingingMark(height: account.signedIn ? 56 : 84, energy: account.signedIn ? 0.5 : 1)
@@ -47,6 +50,8 @@ struct RoomView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .refreshable { await room.load() }
                 .onChange(of: room.chat.last?.id) { _, _ in withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } }
+                .transition(.opacity)
+                }
 
                 // A real bottom bar (not an overlay), so the keyboard pushes it up.
                 Group {
@@ -67,6 +72,7 @@ struct RoomView: View {
                     }
                 }
               }
+              .animation(.easeOut(duration: 0.4), value: room.loaded)
               .background(RuledPaper().ignoresSafeArea())
               .navigationBarTitleDisplayMode(.inline)
             }
@@ -138,6 +144,23 @@ struct RoomView: View {
         room.tag = tag
         Trail.send("tag", ["tag": tag ?? "all"])
         Task { await room.load() }
+    }
+}
+
+/// The first thing shown: the flower breathing where the launch screen left
+/// it, while the room loads. Before this the chat opened onto an empty,
+/// bottom-anchored page and jumped when the posts arrived (Fía, 10-13: "the
+/// opening sequence seems glitchy").
+struct Opening: View {
+    @State private var shown = false
+    var body: some View {
+        VStack(spacing: 12) {
+            SingingMark(height: 84)
+            Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
+            FlowerSpinner(size: 20).padding(.top, 6)
+        }
+        .opacity(shown ? 1 : 0).scaleEffect(shown ? 1 : 0.96)
+        .onAppear { withAnimation(.easeOut(duration: 0.5)) { shown = true } }
     }
 }
 

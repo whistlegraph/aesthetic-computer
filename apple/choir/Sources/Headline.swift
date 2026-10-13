@@ -70,7 +70,7 @@ struct HeadlineCard: View {
                 // The frame sets the size; the image only fills it (a wide image used to
                 // push the whole card past the screen edge — Fía's 22:09 screenshot).
                 Theme.desk.frame(maxWidth: .infinity).frame(height: large ? 200 : 140)
-                    .overlay { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear } }
+                    .overlay { RemoteImage(url: url, maxPixels: 800) { $0.resizable().scaledToFill() } placeholder: { _ in Color.clear } }
                     .clipped().clipShape(RoundedRectangle(cornerRadius: 8))
             }
             HStack(spacing: 8) {
@@ -133,7 +133,7 @@ struct CompactLink: View {
             ZStack {
                 Theme.desk
                 if let image = meta?.image, let url = URL(string: image) {
-                    AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear }
+                    RemoteImage(url: url, maxPixels: 400) { $0.resizable().scaledToFill() } placeholder: { _ in Color.clear }
                 } else {
                     Image(systemName: isInstagram ? "camera" : "link").foregroundStyle(Theme.ink.opacity(0.35))
                 }

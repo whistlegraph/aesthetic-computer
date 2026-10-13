@@ -38,6 +38,7 @@ const APPS = {
   softwallpaper: "1390237091",
   aestheticcomputer: "6450940883",
   whistlegraph: "6820297686",
+  choir: "6822165424",
 };
 
 // --app / --platform are pulled out before the positional args are read, so

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		00F1489F90B50100DEC1802C /* ThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 077F334C80A6DC5CA677DB4A /* ThreadView.swift */; };
 		0DAF52A1D1AABB01D76F1B71 /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8C62B3296D4987EDFC99DE7 /* Account.swift */; };
+		0FCF09EDD52BEA373395C2CD /* RemoteImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02A7CD25695F44A528B97CE0 /* RemoteImage.swift */; };
 		145518959B0AEBB5F8066326 /* Hand.swift in Sources */ = {isa = PBXBuildFile; fileRef = E739D1E84BD1FA13C93DD128 /* Hand.swift */; };
 		1AEE805CB6AA133AA7D241B2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D900063294E7ECA08C63242 /* Theme.swift */; };
 		2C119D06D3B442C2034BB478 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2588F98D446498A5D78162A2 /* Assets.xcassets */; };
@@ -68,6 +69,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		02A7CD25695F44A528B97CE0 /* RemoteImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteImage.swift; sourceTree = "<group>"; };
 		077F334C80A6DC5CA677DB4A /* ThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadView.swift; sourceTree = "<group>"; };
 		0924D441BB67623D92EF8ACD /* AccountDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletion.swift; sourceTree = "<group>"; };
 		0D900063294E7ECA08C63242 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 				7EA763036BF3A7402B172BD0 /* Moderation.swift */,
 				F824EFD19DD07458BB1C5FCB /* Oracle.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
+				02A7CD25695F44A528B97CE0 /* RemoteImage.swift */,
 				4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */,
 				AF6C29368504A99625509573 /* Samples.swift */,
 				4795E20D2523AB8C8C6B203A /* SignInView.swift */,
@@ -310,6 +313,7 @@
 				C8640F60516A9081989FDB04 /* Moderation.swift in Sources */,
 				E840B2BA42E33E78735F8D3C /* Oracle.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,
+				0FCF09EDD52BEA373395C2CD /* RemoteImage.swift in Sources */,
 				7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */,
 				B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */,
 				3C00A378256E29A4A9DCCCE5 /* SignInView.swift in Sources */,
@@ -395,7 +399,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -511,7 +515,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

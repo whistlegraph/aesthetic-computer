@@ -44,10 +44,11 @@ enum Picks {
                        type: type, width: Int(filtered.size.width), height: Int(filtered.size.height), thumbnail: filtered)
     }
 
-    /// The daisy keeps its transparency (PNG, ≤1440 px); everything else is JPEG.
+    /// The daisy keeps its transparency (PNG, ≤1080 px: a 1440 one weighed
+    /// 1.5 MB and crawled in over cellular); everything else is JPEG.
     static func encode(_ image: UIImage, filter: PhotoFilter) -> (Data, String, String)? {
         if filter == .daisyIris {
-            let side = min(1440, image.size.width * image.scale)
+            let side = min(1080, image.size.width * image.scale)
             let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = false
             let small = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
                 .image { _ in image.draw(in: CGRect(x: 0, y: 0, width: side, height: side)) }
@@ -188,9 +189,8 @@ struct AttachmentsView: View {
     }
 
     func still(_ a: Attachment) -> some View {
-        AsyncImage(url: URL(string: a.url), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-            if let image = phase.image { image.resizable().scaledToFill() }
-            else { Theme.desk.opacity(0.6).overlay(FlowerSpinner(size: 26).opacity(phase.error == nil ? 1 : 0)) }
+        RemoteImage(url: URL(string: a.url), maxPixels: 900) { $0.resizable().scaledToFill() } placeholder: { failed in
+            Theme.desk.opacity(0.6).overlay(FlowerSpinner(size: 26).opacity(failed ? 0 : 1))
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .contentShape(RoundedRectangle(cornerRadius: 12))
@@ -211,8 +211,8 @@ struct PhotoViewer: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.opacity(1 - min(abs(drag.height) / 400, 0.6)).ignoresSafeArea()
-            AsyncImage(url: URL(string: attachment.url)) { phase in
-                if let image = phase.image { image.resizable().scaledToFit() } else { ProgressView().tint(.white) }
+            RemoteImage(url: URL(string: attachment.url), maxPixels: 3000) { $0.resizable().scaledToFit() } placeholder: { _ in
+                ProgressView().tint(.white)
             }
             .scaleEffect(zoom).offset(y: zoom == 1 ? drag.height : 0)
             .gesture(MagnificationGesture()
