@@ -1,0 +1,5 @@
+An iPhone app icon: a full-bleed square image (no rounded corners, no border, iOS masks it).
+
+Keep the flower exactly as it is in the reference image: the same glossy, juicy navy-blue puffy-paint line, the same loops, shape, center mark, thickness, highlights and size. Do not redraw, simplify or add anything.
+
+Change only the ground: make it a warm oat beige, like unbleached paper (#E6DDCD), a soft matte surface with the faintest paper tooth, lit by diffuse cloudy daylight from the upper left, with a gentle contact shadow under the raised navy line. Warm, calm, minimal. No text, no letters, no extra objects, no frame.

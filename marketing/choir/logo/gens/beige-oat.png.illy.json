@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:36:06.605Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-oat.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-oat.prompt.txt",
+  "promptHash": "94805263d7b865e4bad42f99c86ccda3d09ae94ffbb5e57cdc08671c0a25fcff",
+  "references": [
+    "/Users/jas/Desktop/choir-flowers/appicon-ai-1024.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 20.124,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1425,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 401
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3181
+  }
+}

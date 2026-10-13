@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:36:41.946Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-sand.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-sand.prompt.txt",
+  "promptHash": "fd75c8d36037b9d0dca7170407f4f29da5dc8a80379e5b9bf09ede3f3db6da45",
+  "references": [
+    "/Users/jas/Desktop/choir-flowers/appicon-ai-1024.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 17.049,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1422,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 398
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3178
+  }
+}

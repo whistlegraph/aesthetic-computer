@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:38:46.834Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/oil-tan.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige2-oil-tan.prompt.txt",
+  "promptHash": "147a75c7f455bd180610ebb81e32787f2330e414fb9b16eed41552cb3c2b6c5a",
+  "references": [
+    "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-oat.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 22.877,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1491,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 467
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3247
+  }
+}

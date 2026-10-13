@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:38:23.872Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/oil-oat.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige2-oil-oat.prompt.txt",
+  "promptHash": "05f4897c2f449c4ea83107633bd0fab4b17a4cfc6f1b06f6cf108c7308a776fb",
+  "references": [
+    "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-oat.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 19.591,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1486,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 462
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3242
+  }
+}
