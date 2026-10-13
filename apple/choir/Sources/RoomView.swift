@@ -20,6 +20,8 @@ struct RoomView: View {
                         if !account.signedIn {
                             Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
                                 .frame(maxWidth: .infinity)
+                            Link("@333_choir", destination: URL(string: "https://instagram.com/333_choir")!)
+                                .font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.6)).frame(maxWidth: .infinity)
                         }
                         if let error = room.error {
                             Text(error).font(Theme.type(12)).foregroundStyle(Theme.ink)

@@ -23,6 +23,11 @@ struct AccountView: View {
                 Section {
                     Toggle("Notifications", isOn: Binding(get: { account.notifications }, set: { on in Task { await account.setNotifications(on) } }))
                 }
+                Section {
+                    Link(destination: URL(string: "https://instagram.com/333_choir")!) {
+                        Label("@333_choir on Instagram", systemImage: "camera")
+                    }
+                }
                 if !room.hidden.isEmpty {
                     Section { Button("Show \(room.hidden.count) hidden \(room.hidden.count == 1 ? "person" : "people") again") { room.unhideAll() } }
                 }
