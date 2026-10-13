@@ -67,13 +67,14 @@ struct PendingStrip: View {
                         .frame(width: 56, height: 56).background(Theme.paper).clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(alignment: .bottomLeading) {
                             if p.original != nil {
-                                Image(systemName: p.filter == .original ? "camera.filters" : "sparkles")
-                                    .font(.system(size: 10, weight: .bold)).padding(3)
+                                Hand(p.filter == .original ? "FlowerO" : "FlowerDot", height: 12).foregroundStyle(Theme.ink).padding(3)
                                     .background(.white.opacity(0.85), in: Circle()).padding(3)
                             }
                         }
                         .onTapGesture { if p.original != nil { filtering = p } }
-                        Button { items.removeAll { $0.id == p.id } } label: { Image(systemName: "xmark.circle.fill").symbolRenderingMode(.palette).foregroundStyle(.white, .black.opacity(0.6)) }
+                        Button { items.removeAll { $0.id == p.id } } label: {
+                            Hand("HandX", height: 9).foregroundStyle(.white).padding(5).background(.black.opacity(0.6), in: Circle())
+                        }
                             .offset(x: 6, y: -6).accessibilityLabel("Remove")
                     }
                 }
@@ -141,7 +142,7 @@ struct AttachmentsView: View {
     func photo(_ a: Attachment) -> some View {
         AsyncImage(url: URL(string: a.url), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
             if let image = phase.image { image.resizable().scaledToFill() }
-            else { Theme.desk.opacity(0.6).overlay(ProgressView().opacity(phase.error == nil ? 1 : 0)) }
+            else { Theme.desk.opacity(0.6).overlay(FlowerSpinner(size: 26).opacity(phase.error == nil ? 1 : 0)) }
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .contentShape(RoundedRectangle(cornerRadius: 12))
@@ -175,8 +176,9 @@ struct PhotoViewer: View {
             .onTapGesture(count: 2) { withAnimation(.spring) { zoom = zoom > 1 ? 1 : 2.5; lastZoom = zoom } }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             HStack(spacing: 10) {
-                ShareLink(item: URL(string: attachment.url)!) { Image(systemName: "square.and.arrow.up") }.buttonStyle(GlassChipStyle())
-                Button { dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(GlassChipStyle())
+                ShareLink(item: URL(string: attachment.url)!) { Hand("HandArrow", height: 16) }.buttonStyle(GlassChipStyle())
+                    .accessibilityLabel("Share")
+                Button { dismiss() } label: { Hand("HandX", height: 16) }.buttonStyle(GlassChipStyle()).accessibilityLabel("Close")
             }
             .padding()
         }

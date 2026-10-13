@@ -68,8 +68,8 @@ struct RoomView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { discover = true } label: { Image(systemName: "newspaper") }
-                        .tint(Theme.ink).accessibilityLabel("Discover")
+                    Button { discover = true } label: { Hand("HandDiscover", height: 17).foregroundStyle(Theme.ink) }
+                        .accessibilityLabel("Discover")
                 }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
@@ -232,15 +232,16 @@ struct ChatInput: View {
                     Button("Camera", systemImage: "camera") { shooting = true }
                     Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
                     Button("Files and PDFs", systemImage: "doc") { pickingFiles = true }
-                } label: { Image(systemName: "plus").font(.body.bold()) }
+                } label: { Hand("HandPlus", height: 17) }
                 .buttonStyle(GlassChipStyle()).accessibilityLabel("Attach")
                 TextField("Comments on culture", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...6)
                     .focused($typing)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
                     .onChange(of: typing) { _, on in if on { onFocus() } }
-                Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }
+                Button { Task { await send() } } label: { Hand("HandSend", height: 17) }
                     .buttonStyle(GlassChipStyle(on: true)).disabled(!ready).opacity(ready ? 1 : 0.4)
+                    .accessibilityLabel("Send")
             }
             .padding(.horizontal, 12)
         }

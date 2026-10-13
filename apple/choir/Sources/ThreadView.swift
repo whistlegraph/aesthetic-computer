@@ -47,7 +47,8 @@ struct ThreadView: View {
                         .focused($typing)
                         .onChange(of: typing) { _, on in if on { expand() } }
                         .padding(.horizontal, 12).padding(.vertical, 8).glass(RoundedRectangle(cornerRadius: 18))
-                    Button("Send") { Task { await send() } }.buttonStyle(GlassChipStyle(on: true))
+                    Button { Task { await send() } } label: { Hand("HandReply", height: 18) }.buttonStyle(GlassChipStyle(on: true))
+                        .accessibilityLabel("Reply")
                         .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
                 } else {
                     Button(account.signedIn ? "Choose your @name to reply" : "Log in to reply") { signIn = true }

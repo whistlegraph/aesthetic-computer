@@ -6,14 +6,14 @@ import CoreImage
 /// chat. The photo arrives filtered, with its original kept for re-filtering.
 @MainActor final class CameraModel: NSObject, ObservableObject {
     @Published var frame: CGImage?
-    @Published var filter: PhotoFilter = .paper
+    @Published var filter: PhotoFilter = .daisyIris   // the camera's one filter (Fía)
     @Published var denied = false
     @Published var front = false
     private let session = AVCaptureSession()
     private let video = AVCaptureVideoDataOutput()
     private let photo = AVCapturePhotoOutput()
     private let queue = DispatchQueue(label: "choir.camera")
-    nonisolated(unsafe) private var liveFilter: PhotoFilter = .paper
+    nonisolated(unsafe) private var liveFilter: PhotoFilter = .daisyIris
     nonisolated static let previewContext = CIContext(options: [.useSoftwareRenderer: false]) // one, shared across frames
     private var onPhoto: ((UIImage) -> Void)?
 
@@ -65,7 +65,7 @@ extension CameraModel: AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePh
         let scale = 720 / max(image.extent.width, image.extent.height) // a light preview
         image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         let filtered = liveFilter.filtered(image) ?? image
-        guard let cg = Self.previewContext.createCGImage(filtered, from: image.extent) else { return }
+        guard let cg = Self.previewContext.createCGImage(filtered, from: filtered.extent) else { return }
         Task { @MainActor in self.frame = cg }
     }
 
@@ -83,10 +83,10 @@ struct CameraView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color(red: 0.965, green: 0.945, blue: 0.894).ignoresSafeArea()
             if camera.denied {
                 VStack(spacing: 12) {
-                    Text("choir needs the camera to take a picture.").foregroundStyle(.white)
+                    Text("choir needs the camera to take a picture.").foregroundStyle(Theme.ink)
                     Button("Open Settings") { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
                         .buttonStyle(GlassChipStyle(on: true))
                 }
@@ -96,24 +96,15 @@ struct CameraView: View {
             if flash { Color.white.ignoresSafeArea().transition(.opacity) }
             VStack {
                 HStack {
-                    Button { camera.stop(); dismiss() } label: { Image(systemName: "xmark") }.buttonStyle(GlassChipStyle())
+                    Button { camera.stop(); dismiss() } label: { Hand("HandX", height: 16) }.buttonStyle(GlassChipStyle())
+                        .accessibilityLabel("Close")
                     Spacer()
-                    Text(camera.filter.rawValue).font(Theme.type(14, bold: true)).foregroundStyle(.white)
-                        .padding(.horizontal, 10).padding(.vertical, 5).background(.black.opacity(0.4), in: Capsule())
+                    Hand("FlowerO", height: 22).foregroundStyle(.white)
                     Spacer()
                     Button { camera.flip() } label: { Image(systemName: "arrow.triangle.2.circlepath.camera") }.buttonStyle(GlassChipStyle())
                 }
                 .padding()
                 Spacer()
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(PhotoFilter.choirSet + PhotoFilter.photoSet) { f in
-                            Button(f.rawValue) { camera.setFilter(f); Trail.send("camera:filter", ["filter": f.rawValue]) }
-                                .buttonStyle(GlassChipStyle(on: camera.filter == f))
-                        }
-                    }
-                    .padding(.horizontal)
-                }
                 Button {
                     withAnimation(.easeOut(duration: 0.12)) { flash = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { withAnimation { flash = false } }

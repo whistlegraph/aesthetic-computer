@@ -17,8 +17,11 @@ struct DiscoverView: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         if news.isEmpty {
-                            Text(error ?? "Nothing new yet.").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.6))
-                                .frame(width: geo.size.width, height: geo.size.height)
+                            VStack(spacing: 12) {
+                                if error == nil { FlowerSpinner(size: 40) }
+                                Text(error ?? "Gathering news…").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.6))
+                            }
+                            .frame(width: geo.size.width, height: geo.size.height)
                         }
                         ForEach(news) { post in
                             VStack(alignment: .leading, spacing: 16) {
@@ -48,7 +51,9 @@ struct DiscoverView: View {
             .background(RuledPaper())
             .navigationTitle("Discover")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(Theme.ink) } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) {
+                Button { dismiss() } label: { Hand("HandChat", height: 18).foregroundStyle(Theme.ink) }.accessibilityLabel("Back to chat")
+            } }
             .sheet(item: $open) { post in
                 NavigationStack { ThreadView(rootID: post.id, expand: { detent = .large }) }
                     .environmentObject(account).environmentObject(room)

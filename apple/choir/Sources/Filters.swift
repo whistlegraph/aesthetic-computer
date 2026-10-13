@@ -6,6 +6,7 @@ import CoreImage.CIFilterBuiltins
 /// Aesthetic Computer spirit — Pixel (chunky pixels) and Riso (two-ink print).
 enum PhotoFilter: String, CaseIterable, Identifiable {
     // The choir set comes first: built from the app's own paper, inks and daisy.
+    case daisyIris = "Daisy Iris"
     case original = "Original", paper = "Paper", daisy = "Daisy", riso = "Riso", risoBlue = "Riso Blue",
          halftone = "Halftone", pixel = "Pixel",
          mono = "Mono", noir = "Noir", warm = "Warm", fade = "Fade", instant = "Instant", chrome = "Chrome"
@@ -25,8 +26,29 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
 
     func apply(_ image: UIImage) -> UIImage {
         guard self != .original, let input = CIImage(image: image)?.oriented(.init(image.imageOrientation)) else { return image }
-        guard let out = filtered(input), let cg = Self.context.createCGImage(out, from: input.extent) else { return image }
+        guard let out = filtered(input), let cg = Self.context.createCGImage(out, from: out.extent) else { return image }
         return UIImage(cgImage: cg)
+    }
+
+    // Fía (10-12): "one filter for camera photos: kind of like an iris shot, but
+    // it's the outline of the logo (the new daisy)". The photo shows through her
+    // hand-drawn daisy (DaisyMask, filled from her outline) on cream paper, with
+    // her outline (DaisyOutline) inked on top. Always square.
+    nonisolated(unsafe) private static let daisyMask: CIImage? = UIImage(named: "DaisyMask")?.cgImage.map { CIImage(cgImage: $0) }
+    nonisolated(unsafe) private static let daisyOutline: CIImage? = UIImage(named: "DaisyOutline")?.cgImage.map { CIImage(cgImage: $0) }
+    private static func daisy(_ input: CIImage) -> CIImage? {
+        guard let mask = daisyMask, let outline = daisyOutline else { return input }
+        let e = input.extent, side = min(e.width, e.height)
+        let square = input.cropped(to: CGRect(x: e.midX - side / 2, y: e.midY - side / 2, width: side, height: side))
+            .transformed(by: CGAffineTransform(translationX: -(e.midX - side / 2), y: -(e.midY - side / 2)))
+        let rect = CGRect(x: 0, y: 0, width: side, height: side)
+        let fit = { (img: CIImage) in img.transformed(by: CGAffineTransform(scaleX: side / img.extent.width, y: side / img.extent.height)) }
+        let paper = CIImage(color: CIColor(red: 0.965, green: 0.945, blue: 0.894)).cropped(to: rect)
+        let blend = CIFilter.blendWithAlphaMask()
+        blend.inputImage = square; blend.backgroundImage = paper; blend.maskImage = fit(mask)
+        let ink = CIImage(color: CIColor(red: 0.11, green: 0.094, blue: 0.086)).cropped(to: rect)
+        let inked = CIFilter.blendWithAlphaMask(); inked.inputImage = ink; inked.backgroundImage = blend.outputImage; inked.maskImage = fit(outline)
+        return inked.outputImage?.cropped(to: rect)
     }
 
     /// The filter on a CIImage (also used live by the camera preview).
@@ -34,6 +56,7 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
         let out: CIImage?
         switch self {
         case .original: out = input
+        case .daisyIris: return Self.daisy(input)
         case .paper:
             out = Self.duotone(input, ink: CIColor(red: 0.11, green: 0.094, blue: 0.086), paper: CIColor(red: 0.97, green: 0.95, blue: 0.89), levels: 6)
         case .daisy:
@@ -102,7 +125,7 @@ struct FilterSheet: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10)).frame(maxHeight: .infinity).padding(.horizontal)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(PhotoFilter.choirSet + PhotoFilter.photoSet) { f in
+                        ForEach([PhotoFilter.daisyIris] + PhotoFilter.choirSet + PhotoFilter.photoSet) { f in
                             Button {
                                 chosen = f; Trail.send("photo:filter", ["filter": f.rawValue])
                                 Task { preview = f.apply(original) }
