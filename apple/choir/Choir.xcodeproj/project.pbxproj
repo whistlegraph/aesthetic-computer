@@ -24,6 +24,7 @@
 		B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2713237B6298811227FAC1D /* AccountView.swift */; };
 		B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6C29368504A99625509573 /* Samples.swift */; };
 		BD427551196A57E6A6249462 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB5F83E9F2FFDF39A7CE23A /* API.swift */; };
+		BFCCAEC15AE7FB1E8741C3EF /* Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */; };
 		C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0924D441BB67623D92EF8ACD /* AccountDeletion.swift */; };
 		E505E744ABF3566423E83853 /* SingingMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4974653737A8CA133A08CA1 /* SingingMark.swift */; };
 		ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */; };
@@ -78,6 +79,7 @@
 		A37363CC8E86CD058B944505 /* ChoirShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ChoirShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF6C29368504A99625509573 /* Samples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Samples.swift; sourceTree = "<group>"; };
 		B2713237B6298811227FAC1D /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachments.swift; sourceTree = "<group>"; };
 		C06DC681F35E20B4A942D602 /* Devices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Devices.swift; sourceTree = "<group>"; };
 		C99A28D4E33FF58F77C4E460 /* BugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReport.swift; sourceTree = "<group>"; };
 		D6997CB6FF6534FFA1E6EEEF /* Choir.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Choir.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -94,6 +96,7 @@
 				F8C62B3296D4987EDFC99DE7 /* Account.swift */,
 				B2713237B6298811227FAC1D /* AccountView.swift */,
 				3EB5F83E9F2FFDF39A7CE23A /* API.swift */,
+				B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */,
 				28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */,
 				C99A28D4E33FF58F77C4E460 /* BugReport.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
@@ -262,6 +265,7 @@
 				C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */,
 				B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */,
 				EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */,
+				BFCCAEC15AE7FB1E8741C3EF /* Attachments.swift in Sources */,
 				9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */,
 				890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */,
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,

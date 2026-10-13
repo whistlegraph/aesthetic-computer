@@ -13,9 +13,21 @@ struct Post: Codable, Identifiable, Hashable {
     let deleted: Bool
     var preview: ArticleMeta? = nil   // news items arrive with their card
     var kind: String? = nil           // "opportunity" for open calls
+    var attachments: [Attachment]? = nil
     var date: Date { Post.iso.date(from: when) ?? .distantPast }
     private static let iso: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
 }
+/// A file in the "choir" Spaces bucket, attached to a post.
+struct Attachment: Codable, Hashable {
+    let url: String
+    let type: String
+    let size: Int
+    let name: String
+    var width: Int? = nil
+    var height: Int? = nil
+    var isImage: Bool { type.hasPrefix("image/") }
+}
+
 struct TagCount: Codable, Hashable { let tag: String; let count: Int }
 struct Me: Codable {
     struct Prefs: Codable { let notifications: Bool; var chat: Bool? = nil; var discover: Bool? = nil }
@@ -70,7 +82,20 @@ enum API {
     static func news() async throws -> [Post] { let f: Feed = try await get("?news=1&limit=50"); return f.posts }
     static func tags() async throws -> [TagCount] { let t: Tags = try await get("?tags=1"); return t.tags }
 
-    struct NewPost: Encodable { let text: String; let tags: [String]; let replyTo: String? }
+    struct NewPost: Encodable { let text: String; let tags: [String]; let replyTo: String?; var attachments: [Attachment]? = nil }
+
+    /// Ask for a 15-minute upload link, PUT the bytes to the choir bucket, return the attachment.
+    static func upload(_ data: Data, name: String, type: String, width: Int? = nil, height: Int? = nil, token: String?) async throws -> Attachment {
+        struct Ask: Encodable { let name: String; let type: String; let size: Int }
+        struct Signed: Decodable { let uploadUrl: String; let url: String; let headers: [String: String] }
+        let signed: Signed = try await send("POST", "?upload=1", Ask(name: name, type: type, size: data.count), token: token)
+        var put = URLRequest(url: URL(string: signed.uploadUrl)!)
+        put.httpMethod = "PUT"; put.timeoutInterval = 120
+        for (k, v) in signed.headers { put.setValue(v, forHTTPHeaderField: k) }
+        let (_, resp) = try await URLSession.shared.upload(for: put, from: data)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw Failure.status((resp as? HTTPURLResponse)?.statusCode ?? 0, "Upload failed") }
+        return Attachment(url: signed.url, type: type, size: data.count, name: name, width: width, height: height)
+    }
     struct Posted: Decodable { let post: Post }
     static func post(_ p: NewPost, token: String?) async throws -> Post {
         let r: Posted = try await send("POST", "", p, token: token); return r.post

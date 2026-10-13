@@ -26,6 +26,7 @@ struct ThreadView: View {
                             .font(Theme.type(13)).foregroundStyle(Theme.ink.opacity(0.6)).frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         PostRow(post: thread.root, inThread: true, onChange: load)
+                        if let files = thread.root.attachments, !files.isEmpty { AttachmentsView(items: files) }
                     }
                     ForEach(thread.replies) { ChatRow(post: $0, mine: $0.handle == account.handle, onTag: { _ in }) }
                 } else if let error {

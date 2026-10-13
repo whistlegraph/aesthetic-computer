@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// The main thing is a chat: oldest at the top, newest at the bottom, the
 /// input always there. Tapping a message opens its thread.
@@ -141,6 +142,7 @@ struct ChatRow: View {
                     Text("deleted").italic().foregroundStyle(.secondary)
                 } else {
                     let words = shownText
+                    if let files = post.attachments, !files.isEmpty { AttachmentsView(items: files) }
                     if let link = post.links.first {
                         if !words.isEmpty { Text(linked(words)).font(.system(size: 16, design: .serif)).foregroundStyle(Theme.ink) }
                         CompactLink(link: link, stored: post.preview, kind: post.kind)
@@ -206,14 +208,24 @@ struct ChatInput: View {
         stored = p.joined(separator: ",")
     }
     var all: [String] { (room.tags.map(\.tag) + picked).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
-    var ready: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && picked.count >= Self.minTags && !sending }
+    var ready: Bool { (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty) && picked.count >= Self.minTags && !sending }
 
     @State private var showTags = false
+    @State private var pending: [Pending] = []
+    @State private var photoItems: [PhotosPickerItem] = []
+    @State private var pickingPhotos = false
+    @State private var pickingFiles = false
 
     var body: some View {
         VStack(spacing: 8) {
+            if !pending.isEmpty { PendingStrip(items: $pending) }
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             HStack(alignment: .bottom, spacing: 8) {
+                Menu {
+                    Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
+                    Button("Files and PDFs", systemImage: "doc") { pickingFiles = true }
+                } label: { Image(systemName: "plus").font(.body.bold()) }
+                .buttonStyle(GlassChipStyle()).accessibilityLabel("Attach")
                 TextField("Comments on culture", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...6)
                     .focused($typing)
@@ -225,6 +237,21 @@ struct ChatInput: View {
             .padding(.horizontal, 12)
         }
         .padding(.top, 8).padding(.bottom, 6)
+        .photosPicker(isPresented: $pickingPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
+        .onChange(of: photoItems) { _, items in
+            guard !items.isEmpty else { return }
+            Task {
+                for item in items { if let p = await Picks.photo(item), pending.count < 6 { pending.append(p) } }
+                photoItems = []
+            }
+        }
+        .fileImporter(isPresented: $pickingFiles, allowedContentTypes: Picks.fileTypes, allowsMultipleSelection: true) { result in
+            guard case .success(let urls) = result else { return }
+            for url in urls {
+                if let p = Picks.file(url) { if pending.count < 6 { pending.append(p) } }
+                else { error = "\(url.lastPathComponent) is over 25 MB" }
+            }
+        }
     }
 
     var tagRow: some View {
@@ -249,8 +276,14 @@ struct ChatInput: View {
     func send() async {
         sending = true; defer { sending = false }
         do {
-            _ = try await API.post(.init(text: text, tags: [], replyTo: nil), token: await account.token())
-            text = ""; error = nil; Trail.send("chat:send"); onSent()
+            let token = await account.token()
+            var files: [Attachment] = []
+            for p in pending {
+                files.append(try await API.upload(p.data, name: p.name, type: p.type, width: p.width, height: p.height, token: token))
+            }
+            _ = try await API.post(.init(text: text, tags: [], replyTo: nil, attachments: files.isEmpty ? nil : files), token: token)
+            Trail.send("chat:send", ["files": files.count])
+            text = ""; pending = []; error = nil; onSent()
             typing = true // keep the keyboard up for the next line
         } catch { self.error = error.localizedDescription; Trail.send("post:failed", ["why": error.localizedDescription]) }
     }
