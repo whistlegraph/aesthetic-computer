@@ -49,7 +49,10 @@ async function run() {
     if (typeof source !== 'string' || !source) throw new Error('this piece has no code yet');
     address = 'wipe';
   } else {
-    if (!/^\$?[A-Za-z0-9_-]{1,64}$/.test(piece || '')) throw new Error('no such piece');
+    // A KidLisp code ($abc), a system piece (prompt) or a registered piece at
+    // its handle address (@jeffrey/loredi). The characters admitted here are
+    // all safe in a path, so the address goes into the URL as it is.
+    if (!/^(\$?[A-Za-z0-9_-]{1,64}|@[A-Za-z0-9_.-]{1,64}\/[A-Za-z0-9_-]{1,100})$/.test(piece || '')) throw new Error('no such piece');
     address = piece;
   }
   frame = document.createElement('iframe');
@@ -58,7 +61,7 @@ async function run() {
   const query = new URLSearchParams({ noauth: 'true', noplot: 'true', nogap: 'true', nolabel: 'true', mime: '1' });
   if (source) query.set('preview', 'walkieware');
   if (params.has('ac-automation')) query.set('ac-automation', '1');
-  frame.src = '/' + (address.startsWith('$') ? '$' + encodeURIComponent(address.slice(1)) : encodeURIComponent(address)) + '?' + query;
+  frame.src = '/' + (address.startsWith('$') ? '$' + encodeURIComponent(address.slice(1)) : address) + '?' + query;
   document.body.append(frame);
 }
 run().catch(error => {

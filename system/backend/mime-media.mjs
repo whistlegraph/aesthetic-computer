@@ -146,6 +146,10 @@ export async function publicPosts(db, docs) {
         : media.kind === "painting" ? `https://aesthetic.computer/#${code}`
         : media.kind === "tape" ? `https://aesthetic.computer/!${code}`
         : media.kind === "kidlisp" ? `https://aesthetic.computer/$${code}`
+        : media.kind === "piece" && handle && typeof media.slug === "string" && media.slug.split("/").pop()
+          // A registered piece runs at its handle address (@jeffrey/loredi);
+          // the runtime does not boot its short code, which only names it.
+          ? `https://aesthetic.computer/${handle}/${encodeURIComponent(media.slug.split("/").pop())}`
         : `https://aesthetic.computer/${code}`;
     }
     return {

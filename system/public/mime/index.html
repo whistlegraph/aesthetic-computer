@@ -1059,6 +1059,13 @@ function renderRunnable(post) {
   preview.dataset.player = "https://aesthetic.computer/mime-play/?piece=" + encodeURIComponent(kind.prefix + code) + "&warm=1";
   preview.dataset.title = kind.label + code + (post.name ? " by " + post.name : "");
   if (post.media.kind === "wgpiece") preview.dataset.player = "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code) + "&warm=1";
+  if (post.media.kind === "piece") {
+    // A registered piece runs at its handle address (@jeffrey/loredi), which
+    // the feed hands over as the post's URL; the short code alone does not boot.
+    const home = new URL(post.media.url || "", "https://aesthetic.computer");
+    const runs = home.origin === "https://aesthetic.computer" && home.pathname.length > 1 ? decodeURIComponent(home.pathname.slice(1)) : code;
+    preview.dataset.player = "https://aesthetic.computer/mime-play/?piece=" + encodeURIComponent(runs) + "&warm=1";
+  }
   if (post.media.kind === "oskiewar") {
     const player = new URL(post.media.url);
     if (player.origin === "https://oskiewar.com") {

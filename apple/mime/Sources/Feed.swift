@@ -45,7 +45,11 @@ struct Post: Codable, Identifiable, Equatable {
         if let media, let code = media.code {
             switch media.kind {
             case "kidlisp": return .runtime(URL(string: "https://aesthetic.computer/$\(code)?nogap=true&nolabel=true&noauth=true")!, kind: "kidlisp")
-            case "piece": return .runtime(URL(string: "https://aesthetic.computer/\(code)?nogap=true&nolabel=true&noauth=true")!, kind: "piece")
+            case "piece":
+                // A registered piece runs at its handle address (@jeffrey/loredi),
+                // which the feed hands over as the post's URL; the code alone does not boot.
+                let path = media.url.flatMap { URL(string: $0) }.flatMap { $0.host == "aesthetic.computer" && $0.path.count > 1 ? $0.path : nil } ?? "/" + code
+                return .runtime(URL(string: "https://aesthetic.computer\(path)?nogap=true&nolabel=true&noauth=true")!, kind: "piece")
             case "wgpiece": return .runtime(absolute(media.url ?? "") ?? base, kind: "wgpiece")
             case "oskiewar":
                 if var player = media.url.flatMap({ URLComponents(string: $0) }),

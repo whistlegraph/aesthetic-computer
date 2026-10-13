@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import { MongoClient, ObjectId } from "mongodb";
 import { createHandler, handler as canonicalHandler } from "../../netlify/functions/mime.mjs";
 import { handler as legacyHandler } from "../../netlify/functions/mimechan.mjs";
-import { mediaFile } from "../mime-media.mjs";
+import { mediaFile, publicPosts } from "../mime-media.mjs";
 
 // Run against a disposable local MongoDB. Never populate a production database.
 const uri = process.env.MIME_TEST_MONGO_URI;
@@ -70,6 +70,19 @@ test("media storage preserves owner prefixes and anonymous recording slugs", () 
     "https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/auth0%7Cu/painting/x.png");
   assert.throws(() => mediaFile("tape", { mp4Status: "complete", mp4Url: "https://evil.example/file" }));
   assert.throws(() => mediaFile("painting", { slug: "../private" }));
+});
+
+test("a registered piece's post points at its handle address, where the runtime boots it", async () => {
+  const db = { collection: () => ({ find: () => ({ toArray: async () => [{ _id: "auth0|u", handle: "jeffrey" }] }) }) };
+  const doc = (media) => ({ code: "piece_" + "a".repeat(24), parent: null, board: "text/javascript", text: "", when, replies: 0,
+    _media: { kind: "piece", id: "a".repeat(24), code: "bmt", user: "auth0|u", size: 7047, ...media } });
+  const [registered, legacy, orphan] = await publicPosts(db, [
+    doc({ slug: "piece/loredi" }), doc({ slug: "auth0|u/piece/loredi" }), doc({ slug: "piece/loredi", user: "auth0|nobody" }),
+  ]);
+  assert.equal(registered.media.url, "https://aesthetic.computer/@jeffrey/loredi");
+  assert.equal(legacy.media.url, "https://aesthetic.computer/@jeffrey/loredi");
+  assert.equal(orphan.media.url, "https://aesthetic.computer/bmt", "no handle, no address: the code stands in");
+  assert.equal(registered.file.name, "bmt.mjs");
 });
 
 test("public media automatically become attributed posts without writes", { skip: !uri }, async () => {
