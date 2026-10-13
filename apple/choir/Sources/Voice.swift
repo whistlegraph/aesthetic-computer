@@ -138,10 +138,13 @@ struct VoiceNoteView: View {
     func toggle() {
         if player == nil, let u = URL(string: note.url) {
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-            let p = AVPlayer(url: u); player = p
+            let p = AVPlayer(url: u); p.actionAtItemEnd = .pause; player = p
             observer = p.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.2, preferredTimescale: 600), queue: .main) { t in
-                position = t.seconds
-                if length > 0, t.seconds >= length - 0.15 { playing = false; position = 0; p.seek(to: .zero) }
+                if playing { position = t.seconds }
+            }
+            // Play once: at the end, stop and rewind (seeking alone kept it playing — a loop).
+            NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: p.currentItem, queue: .main) { _ in
+                Task { @MainActor in p.pause(); p.seek(to: .zero); playing = false; position = 0 }
             }
         }
         if playing { player?.pause() } else { player?.play(); Trail.send("voice:play") }
