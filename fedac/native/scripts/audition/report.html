@@ -1,0 +1,266 @@
+<title>Sampled Instrument Audition</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --ground: #EDF0F2; --panel: #FFFFFF; --ink: #14202A; --muted: #5B6873; --rule: #D3DAE0;
+  --accent: #0B7A75; --accent-soft: #D5ECEA; --wave: #9FB3BF; --warn: #9A5B00; --warn-soft: #F6E7CC;
+  --bad: #A8231B; --bad-soft: #F6DAD7;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0F161C; --panel: #172129; --ink: #E4EAEE; --muted: #93A1AC; --rule: #2A3741;
+    --accent: #4CC7BE; --accent-soft: #143A39; --wave: #4B6070; --warn: #E7B45C; --warn-soft: #3A2B12;
+    --bad: #F08A80; --bad-soft: #3D1A17;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0F161C; --panel: #172129; --ink: #E4EAEE; --muted: #93A1AC; --rule: #2A3741;
+  --accent: #4CC7BE; --accent-soft: #143A39; --wave: #4B6070; --warn: #E7B45C; --warn-soft: #3A2B12;
+  --bad: #F08A80; --bad-soft: #3D1A17;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.55 var(--body); }
+main { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; display: grid; gap: 48px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(32px, 6vw, 54px); line-height: 1; font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 24px; font-weight: 600; }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 18px; }
+.lede { font-size: 17px; }
+.facts { display: flex; flex-wrap: wrap; gap: 10px 28px; font: 13px var(--mono); color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 500; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.controls button { font: 500 13px var(--body); border: 1px solid var(--rule); background: var(--panel); color: var(--ink);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.controls button[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+
+section.family { display: grid; gap: 12px; }
+.family-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  border-bottom: 2px solid var(--ink); padding-bottom: 8px; }
+.family-head .eyebrow { text-transform: none; letter-spacing: 0; }
+.rows { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.row { background: var(--panel); display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) auto; gap: 16px;
+  align-items: center; padding: 14px 16px; }
+.row.ref { background: var(--accent-soft); }
+.row > * { min-width: 0; }
+.who { display: grid; gap: 4px; min-width: 0; }
+.who strong { font-weight: 600; font-size: 15px; }
+.who .src { font-size: 13px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 500 11px var(--mono); padding: 2px 7px; border-radius: 4px; background: var(--ground); color: var(--muted); white-space: nowrap; }
+.chip.ok { background: var(--accent-soft); color: var(--accent); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.wave { position: relative; height: 54px; cursor: pointer; border-radius: 4px; }
+.wave canvas { width: 100%; height: 100%; display: block; }
+.wave:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stats { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 4px; }
+.play { display: flex; gap: 6px; }
+.play button { font: 500 12px var(--body); border: 1px solid var(--rule); background: transparent; color: var(--ink);
+  border-radius: 4px; padding: 6px 10px; cursor: pointer; min-width: 64px; }
+.play button.on { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.err { color: var(--bad); font-size: 13px; }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+.notes div { display: grid; gap: 6px; align-content: start; }
+.notes h3 { margin: 0; font: 600 15px var(--body); }
+.notes p { color: var(--muted); font-size: 14px; }
+code { font: 13px var(--mono); }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 500 12px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+td.why { color: var(--bad); }
+a { color: var(--accent); }
+
+@media (max-width: 720px) {
+  .row { grid-template-columns: 1fr; gap: 10px; }
+  .play button { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">AC OS · Menu Band · sourcing round 1 · 2026-10-13</div>
+    <h1>Sampled Instrument Audition</h1>
+    <p class="lede">Open-licensed acoustic sample libraries, each rendered the way the <code>`1</code> grand piano plays: nearest anchor, pitch-shifted, linear interpolation, a 70&nbsp;ms damper. Each one plays a C-major arpeggio and then a held chord. <b>Raw note</b> plays one recorded sample untouched.</p>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <nav class="controls" id="filters" aria-label="Filter by family"></nav>
+  <div id="families" style="display:grid;gap:40px"></div>
+
+  <section style="display:grid;gap:16px">
+    <h2>What the audition turned up</h2>
+    <div class="notes">
+      <div><h3>Octave names disagree</h3><p>Much of VCSL and VSCO 2 CE names middle C “C3”, so those files sound an octave above their names. This was measured with YIN pitch detection and spectral peaks. Steinway, harp, Meatbass, solo violin and Iowa follow C4 = middle C. Corrections are recorded per library as <code>shift</code>.</p></div>
+      <div><h3>Iowa files start late</h3><p>Iowa MIS samples leave room tone before each attack. Trimming everything below −50&nbsp;dB is what makes the phrase land in time. Iowa's prep step needs the same trim.</p></div>
+      <div><h3>Struck and plucked fit today</h3><p>Our engine plays every sample through to its end. Mallets, harps, kalimba, harpsichord and pianos work as they are. Bowed and blown instruments only hold as long as their recording, so they need loop points first.</p></div>
+      <div><h3>The organ reads both ways</h3><p>One organ anchor measures at its labelled pitch and another an octave up, probably a strong 4′ rank. Check it by ear before choosing a shift.</p></div>
+    </div>
+  </section>
+
+  <section style="display:grid;gap:16px">
+    <h2>Ruled out</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Library</th><th>Has</th><th>Why not</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://philharmonia.co.uk/resources/sound-samples/">Philharmonia</a></td><td>Full orchestra, guitar, mandolin, banjo</td><td class="why">The samples can't be sold “as is” or as a sampler instrument, which is what Menu Band is</td></tr>
+        <tr><td><a href="https://www.pianobook.co.uk/terms-conditions/">Pianobook</a></td><td>Hundreds of community packs</td><td class="why">Personal license; redistribution forbidden</td></tr>
+        <tr><td><a href="https://sfzinstruments.github.io/pianos/jrhodes3d/">jRhodes3</a></td><td>1977 Rhodes Mk I</td><td class="why">Samples are CC-BY-NC</td></tr>
+        <tr><td><a href="https://github.com/benjamindehli/MidnightWurli">Midnight Wurli</a></td><td>Wurlitzer 200A, 2,332 samples</td><td class="why">GPL-3 would apply to the shipped app</td></tr>
+        <tr><td><a href="https://musical-artifacts.com/artifacts/645">Musical Artifacts Wurlitzer</a></td><td>Wurlitzer, 5 layers</td><td class="why">Source and license unknown</td></tr>
+        <tr><td><a href="https://sfzinstruments.github.io/orchestra/vpo/">Virtual Playing Orchestra</a>, <a href="https://sfzinstruments.github.io/melodic-percussion/terkelsen_marimba/">Terkelsen Marimba</a></td><td>Orchestra; 3-layer marimba</td><td class="why">No license stated; VCSL and VSCO cover the same ground under CC0</td></tr>
+      </tbody>
+    </table></div>
+    <p style="color:var(--muted);font-size:14px">Electric piano is the gap. No Rhodes or Wurlitzer turned up that we can ship cleanly.</p>
+  </section>
+
+  <section style="display:grid;gap:10px">
+    <h2>Rebuild</h2>
+    <p style="color:var(--muted);font-size:14px">Candidates, picks and licenses: <code>fedac/native/samples/CANDIDATES.md</code>. Render: <code>python3 fedac/native/scripts/audition/audition-sample-libraries.py</code>. Downloads only the anchors each phrase needs and caches them in <code>~/.cache/ac-sample-audition</code>.</p>
+  </section>
+</main>
+
+<script>
+const MANIFEST = /*MANIFEST*/[];
+const SOURCES = {
+  "salamander": ["Salamander Grand Piano V3", "https://github.com/sfzinstruments/SalamanderGrandPiano"],
+  "vcsl": ["VCSL · Versilian", "https://github.com/sgossner/VCSL"],
+  "vsco": ["VSCO 2 CE · Versilian", "https://github.com/sgossner/VSCO-2-CE"],
+  "iowa": ["Univ. of Iowa MIS", "https://theremin.music.uiowa.edu/MIS.html"],
+  "freepats": ["FreePats", "https://freepats.zenvoid.org/"],
+  "karoryfer": ["Karoryfer Samples", "https://github.com/sfzinstruments/karoryfer.meatbass"],
+  "celesta": ["echo~parallax", "https://gitlab.com/echoparallax/a-sampled-celesta"],
+};
+const PLAYBACK = { ring: ["rings out", "ok"], damped: ["damped on key-up", "ok"], sustain: ["needs loops", "warn"] };
+
+const audio = new Audio();
+let current = null;
+function stop() {
+  audio.pause();
+  if (!current) return;
+  const { btn, label, entry } = current;
+  current = null;
+  btn.classList.remove("on"); btn.textContent = label;
+  if (entry._canvas) drawWave(entry._canvas, entry.peaks, 0);
+}
+function play(entry, kind, btn) {
+  const same = current && current.btn === btn;
+  stop();
+  if (same) return;
+  audio.src = `audio/${entry.id}-${kind}.mp3`;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+  current = { btn, label: btn.textContent, entry, kind };
+  btn.classList.add("on"); btn.textContent = "Stop";
+}
+audio.addEventListener("ended", stop);
+
+function drawWave(canvas, peaks, progress) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w) return;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const g = canvas.getContext("2d"); g.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement);
+  const bar = w / peaks.length;
+  peaks.forEach((p, i) => {
+    g.fillStyle = (i / peaks.length) < progress ? css.getPropertyValue("--accent") : css.getPropertyValue("--wave");
+    const ph = Math.max(1, p * (h - 4));
+    g.fillRect(i * bar, (h - ph) / 2, Math.max(1, bar - 1), ph);
+  });
+}
+
+function source(id) {
+  const key = Object.keys(SOURCES).find(k => id.startsWith(k));
+  return SOURCES[key] || [id, "#"];
+}
+
+function row(e) {
+  const el = document.createElement("div");
+  el.className = "row" + (e.id === "salamander" ? " ref" : "");
+  const [srcName, srcUrl] = source(e.id);
+  if (e.error) {
+    el.innerHTML = `<div class="who"><strong>${e.name}</strong><span class="src">${srcName}</span></div><div class="err">Render failed: ${e.error}</div><div></div>`;
+    return el;
+  }
+  const [pbText, pbTone] = PLAYBACK[e.playback];
+  const stats = e.anchors
+    ? `${e.anchors} anchors · ${e.range} · every ${e.spacing} st`
+    : `SF2 preset · rendered with TinySoundFont`;
+  el.innerHTML = `
+    <div class="who">
+      <strong>${e.name}</strong>
+      <a class="src" href="${srcUrl}">${srcName}</a>
+      <div class="chips"><span class="chip ${e.license.startsWith("CC0") ? "ok" : "warn"}">${e.license}</span><span class="chip ${pbTone}">${pbText}</span></div>
+    </div>
+    <div>
+      <div class="wave" tabindex="0" role="button" aria-label="Play ${e.name} phrase"><canvas></canvas></div>
+      <div class="stats">${stats}${e.note ? " · " + e.note : ""}</div>
+    </div>
+    <div class="play"><button type="button" data-kind="phrase">Phrase</button><button type="button" data-kind="note">Raw note</button></div>`;
+  const [bPhrase, bNote] = el.querySelectorAll(".play button");
+  bPhrase.onclick = () => play(e, "phrase", bPhrase);
+  bNote.onclick = () => play(e, "note", bNote);
+  const wave = el.querySelector(".wave");
+  wave.onclick = () => play(e, "phrase", bPhrase);
+  wave.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); play(e, "phrase", bPhrase); } };
+  e._canvas = el.querySelector("canvas");
+  return el;
+}
+
+const families = [...new Set(MANIFEST.map(e => e.family))];
+const host = document.getElementById("families");
+const sections = {};
+for (const fam of families) {
+  const list = MANIFEST.filter(e => e.family === fam);
+  const s = document.createElement("section");
+  s.className = "family";
+  s.innerHTML = `<div class="family-head"><h2>${fam}</h2><span class="eyebrow">${list.length} sets</span></div><div class="rows"></div>`;
+  list.forEach(e => s.querySelector(".rows").appendChild(row(e)));
+  host.appendChild(s);
+  sections[fam] = s;
+}
+
+const filters = document.getElementById("filters");
+for (const fam of ["All", ...families]) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = fam; b.setAttribute("aria-pressed", fam === "All");
+  b.onclick = () => {
+    filters.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    for (const f of families) sections[f].hidden = fam !== "All" && fam !== f;
+    redraw();
+  };
+  filters.appendChild(b);
+}
+
+const ok = MANIFEST.filter(e => !e.error);
+const cc0 = ok.filter(e => e.license.startsWith("CC0")).length;
+const fits = ok.filter(e => e.playback !== "sustain").length;
+document.getElementById("facts").innerHTML =
+  `<span><b>${ok.length}</b> sets auditioned</span><span><b>${cc0}</b> CC0</span>` +
+  `<span><b>${fits}</b> fit the engine today</span><span><b>${ok.length - fits}</b> need loop points</span>`;
+
+function redraw() {
+  for (const e of MANIFEST) if (e._canvas) {
+    const p = current && current.entry === e && current.kind === "phrase" && audio.duration ? audio.currentTime / audio.duration : 0;
+    drawWave(e._canvas, e.peaks, p);
+  }
+}
+(function tick() { if (current && current.kind === "phrase") drawWave(current.entry._canvas, current.entry.peaks, audio.currentTime / (audio.duration || 1)); requestAnimationFrame(tick); })();
+addEventListener("resize", redraw);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+document.fonts.ready.then(redraw);
+redraw();
+</script>
