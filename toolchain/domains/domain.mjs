@@ -38,6 +38,10 @@ const flags = new Set(rest.filter((a) => a.startsWith("--")));
 const args = rest.filter((a) => !a.startsWith("--"));
 
 const money = (v) => (v == null ? "—" : `$${Number(v).toFixed(2)}`);
+// Porkbun writes big prices with thousands separators ("1,912.20"); Number()
+// reads those as NaN, which used to slip past the balance check in `buy`.
+const dollars = (v) => Number(String(v ?? "").replace(/[$,\s]/g, ""));
+const premiumNote = (a) => (a.premium === "yes" ? `  ⚠️ PREMIUM (regular ${money(dollars(a.regularPrice))}, renews ${money(dollars(a.additional?.renewal?.price))})` : "");
 
 async function confirm(question) {
   if (flags.has("--yes")) return true;
@@ -90,9 +94,9 @@ async function checkOne(domain, retried = false) {
     const r = await pb.check(domain);
     const a = r.response || {};
     const avail = a.avail === "yes";
-    const price = a.price ?? a.firstYearPromo ?? null;
+    const price = a.price == null ? null : dollars(a.price);
     console.log(
-      `${avail ? "🟢 available" : "🔴 taken    "}  ${domain.padEnd(22)} ${avail ? money(price) : ""}`,
+      `${avail ? "🟢 available" : "🔴 taken    "}  ${domain.padEnd(22)} ${avail ? money(price) + premiumNote(a) : ""}`,
     );
   } catch (e) {
     if (/within \d+ seconds/i.test(e.message) && !retried) {
@@ -120,7 +124,9 @@ async function cmdBuy(domains) {
     const r = await pb.check(domain);
     const a = r.response || {};
     if (a.avail !== "yes") { console.log(`🔴 ${domain} is not available — skipping.`); continue; }
-    const price = Number(a.price ?? a.firstYearPromo ?? 0);
+    const price = dollars(a.price);
+    if (!Number.isFinite(price) || price <= 0) { console.log(`⚠️  ${domain}: unreadable price ${JSON.stringify(a.price)} — not buying.`); continue; }
+    if (a.premium === "yes") console.log(`⚠️  ${domain} is a premium name.${premiumNote(a)}`);
     if (price > credit) {
       console.log(
         `💸 ${domain} costs ${money(price)} but the balance is ${money(credit)}.` +
