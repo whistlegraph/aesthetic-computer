@@ -326,6 +326,7 @@ struct WhistlegraphScreen: View {
                 .background(narrator.isPlaying ? storyBackground : overlaysFeed ? Color.clear : theme.background)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .preference(key: WhistlegraphThemePreference.self, value: theme)
         .overlay {
             if narrator.isPlaying {
                 StoryControls(narrator: narrator, exporter: exporter, export: exportStory, close: { exporter.cancel(); narrator.stop() })

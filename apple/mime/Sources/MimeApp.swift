@@ -19,26 +19,29 @@ struct MimeApp: App {
 }
 
 struct MimeRoot: View {
+    @StateObject private var workspace = WhistlegraphSession()
     @State private var creating = false
-    @State private var cardDrag: CGFloat = 0
+    @State private var editorDrag: CGFloat = 0
     @State private var requested: Ware?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { geometry in
-            let card = CGSize(width: min(620, geometry.size.width - 24), height: geometry.size.height * 0.88)
-            ZStack(alignment: .bottom) {
-                Reel(active: !creating) { ware in
-                    requested = ware
+            ZStack {
+                Reel(active: !creating, resumeEditor: {
+                    requested = nil
                     creating = true
-                }.allowsHitTesting(!creating).accessibilityHidden(creating)
-                Color.black.opacity(creating ? 0.3 : 0).ignoresSafeArea().allowsHitTesting(false)
+                }) { ware in
+                    // A running turn owns the workspace. Reopen it rather than
+                    // hiding it behind a pending New command until it finishes.
+                    requested = workspace.snapshot.busy || workspace.capturePhase != .idle ? nil : ware
+                    creating = true
+                }
+                    .offset(x: creating && !reduceMotion ? geometry.size.width + editorDrag : 0)
+                    .allowsHitTesting(!creating).accessibilityHidden(creating)
                 // Stay mounted so account, fonts and engine warm up while the feed is open.
-                MimeCreation(requested: $requested, active: $creating, size: card, drag: $cardDrag)
-                    .frame(width: card.width, height: card.height)
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                    .shadow(color: .black.opacity(0.45), radius: 24, y: 10)
-                    .padding(.bottom, 8)
-                    .offset(y: creating || reduceMotion ? cardDrag : geometry.size.height + 100)
+                MimeCreation(session: workspace, requested: $requested, active: $creating, size: geometry.size, drag: $editorDrag)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .offset(x: reduceMotion ? 0 : creating ? editorDrag : -geometry.size.width)
                     .opacity(creating ? 1 : 0)
                     .allowsHitTesting(creating).accessibilityHidden(!creating)
             }

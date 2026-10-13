@@ -35,9 +35,10 @@ final class MimeLayoutTests: XCTestCase {
         waitForEditor(in: app)
         XCTAssertFalse(app.staticTexts["Checking your account…"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["account-entry"].firstMatch.exists)
-        let card = app.descendants(matching: .any)["mime-creation"].firstMatch.frame
-        XCTAssertGreaterThan(card.minX, 8); XCTAssertGreaterThan(card.minY, 80)
-        XCTAssertLessThan(card.width, app.frame.width)
+        let editor = app.descendants(matching: .any)["mime-creation"].firstMatch.frame
+        XCTAssertEqual(editor.minX, 0, accuracy: 1)
+        XCTAssertEqual(editor.width, app.frame.width, accuracy: 1)
+        XCTAssertGreaterThan(editor.height, app.frame.height * 0.85)
         let chalk = app.buttons["draw-control"], typeButton = app.buttons["type-control"], talk = app.descendants(matching: .any)["talk-control"].firstMatch
         XCTAssertGreaterThan(chalk.frame.midX, typeButton.frame.midX)
         XCTAssertLessThan(chalk.frame.midX, talk.frame.midX)
@@ -98,11 +99,42 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertTrue(app.buttons["account-entry-login"].waitForExistence(timeout: 30))
         XCTAssertFalse(app.buttons["type-control"].isHittable, "Creation controls remain inaccessible until sign-in")
         let handle = app.buttons["mime-creation-back"]
-        let start = handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 180)))
+        let header = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0)).withOffset(CGVector(dx: 0, dy: handle.frame.midY))
+        header.press(forDuration: 0.1, thenDragTo: header.withOffset(CGVector(dx: -200, dy: 0)))
         let dismissed = expectation(for: NSPredicate(format: "isHittable == false"), evaluatedWith: handle)
         XCTAssertEqual(XCTWaiter().wait(for: [dismissed], timeout: 10), .completed)
         XCTAssertTrue(type.waitForExistence(timeout: 10))
+    }
+
+    func testWorkingPieceCanReturnToFeedAndResume() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "busy"
+        app.launch()
+        XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
+        waitForReveal(in: app)
+        app.buttons["mime-resume-editor"].tap()
+        XCTAssertTrue(app.buttons["ware-picker"].waitForExistence(timeout: 30))
+        waitForEditor(in: app)
+        XCTAssertFalse(app.buttons["type-control"].isEnabled, "The fixture is still generating")
+        app.buttons["mime-creation-back"].tap()
+        XCTAssertTrue(app.buttons["mime-resume-editor"].waitForExistence(timeout: 10))
+        app.buttons["mime-resume-editor"].tap()
+        waitForEditor(in: app)
+        XCTAssertFalse(app.buttons["type-control"].isEnabled, "Returning did not stop the turn")
+        let editor = XCTAttachment(screenshot: app.screenshot())
+        editor.name = "MIME full screen editor while generating"; editor.lifetime = .keepAlways; add(editor)
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.5))
+        edge.press(forDuration: 0.1, thenDragTo: edge.withOffset(CGVector(dx: -260, dy: 0)))
+        let returned = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: app.buttons["mime-resume-editor"])
+        XCTAssertEqual(XCTWaiter().wait(for: [returned], timeout: 10), .completed)
+        // Tapping a type during work resumes that work; it must not queue a
+        // project switch behind a loading cover or overwrite the active piece.
+        app.buttons["mime-type"].firstMatch.tap()
+        waitForEditor(in: app)
+        XCTAssertTrue(app.buttons["ware-picker"].label.contains("Aesthetic.Computer Piece"))
+        XCTAssertFalse(app.buttons["type-control"].isEnabled)
+        app.buttons["mime-creation-back"].tap()
     }
 
     private func openType(_ type: XCUIElement, in app: XCUIApplication) {

@@ -317,7 +317,6 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var narratedFrame = 0
     var narratedVersion: Int?
     @Published var workspaceReady = false
-    @Published private(set) var previewPainted = false
     #if DEBUG
     @Published var audioTestResult = "Waiting for piece audio"
     @Published var consentFixtureRequests = 0
@@ -406,8 +405,8 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         if action == "newPiece" || action == "openPiece" {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
             if action == "openPiece" { guard let piece, pieces.contains(where: { $0.id == piece && !$0.current }) else { return } }
-            drawing.clear(); drawing.enabled = false
-            previewSource = ""; engineReady = false
+            // The navigation delegate resets readiness only when a reload
+            // actually starts. A refused or unavailable command keeps this work usable.
         }
         if action == "presentVersion" || action == "endPresentation" {
             presentingStory = action == "presentVersion"
@@ -638,7 +637,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
 
     func reloadWorkspace() {
         DeviceActionLog.shared.record(.workspace, .opening)
-        workspaceReady = false; engineReady = false; previewPainted = false; startupFailure = nil
+        workspaceReady = false; engineReady = false; startupFailure = nil
         startupTimeout?.cancel()
         webView?.load(URLRequest(url: URL(string: "\(WhistlegraphBundle.storageScheme)://app/index.html?whistlegraph=1")!))
         startupTimeout = Task { [weak self] in
@@ -651,7 +650,9 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         }
     }
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        workspaceReady = false; engineReady = false; previewPainted = false
+        workspaceReady = false; engineReady = false
+        previewSource = ""; previewFrame = nil
+        drawing.clear(); drawing.enabled = false
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         print("[whistlegraph] main page loaded")
@@ -787,7 +788,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
                 if let event = body["event"] as? [String: Any],
                    event["requestID"] as? Int == previewRequestID,
                    event["sourceHash"] as? String == VisualCapture.hash(previewSource) {
-                    if event["kind"] as? String == "painted" { if !previewPainted { previewPainted = true }; DeviceActionLog.shared.record(.preview, .painted); paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource); AirPlayProjector.shared.update(previewSource) }
+                    if event["kind"] as? String == "painted" { DeviceActionLog.shared.record(.preview, .painted); paintedPreviewHash = event["sourceHash"] as? String; tv.update(previewSource); AirPlayProjector.shared.update(previewSource) }
                     if event["kind"] as? String == "invalidated" { DeviceActionLog.shared.record(.preview, .invalidated); paintedPreviewHash = nil }
                 }
                 #if DEBUG
@@ -932,6 +933,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             guard case .success(var next) = decoded,
                   next.versions.count <= 256, next.code.count <= 32, next.handle.count <= 100 else { return }
             if next.revisions == nil { next.versions = snapshot.versions }
+            #if MIME_APP && DEBUG
+            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "busy" {
+                next.busy = true; next.phase = "Working on the knot…"
+            }
+            #endif
             #if DEBUG
             if NativeScreenFixture.enabled {
                 next.handle = "preview"; next.code = "wwDemo"
@@ -1021,7 +1027,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             if let id = body["drawingID"] as? String, let revision = body["revision"] as? Int { drawing.consume(id: id, revision: revision) }
         case "render":
             guard let source = body["source"] as? String, source.utf8.count < 500_000 else { return }
-            visualCaptureTask?.cancel(); paintedPreviewHash = nil; previewPainted = false
+            visualCaptureTask?.cancel(); paintedPreviewHash = nil
             if let id = body["threadID"] as? String, UUID(uuidString: id) != nil { previewThreadID = id }
             previewRequestID = body["renderID"] as? Int ?? 0
             previewSource = source; renderPreview()

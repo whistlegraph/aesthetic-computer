@@ -1,7 +1,7 @@
 import SwiftUI
 
 // Slab's status palette, expressed as native colors across the whole workspace.
-struct WhistlegraphTheme {
+struct WhistlegraphTheme: Equatable {
     enum Phase { case ready, listening, working, rendering, error }
     let background: Color
     let foreground: Color
@@ -31,5 +31,13 @@ struct WhistlegraphTheme {
             foreground = dark ? rgb(62000,44000,54000) : rgb(26000,2500,15000)
             accent = rgb(60000,33000,46000)
         }
+    }
+}
+
+/// Lets a containing native editor use the same surface through every phase.
+struct WhistlegraphThemePreference: PreferenceKey {
+    static let defaultValue: WhistlegraphTheme? = nil
+    static func reduce(value: inout WhistlegraphTheme?, nextValue: () -> WhistlegraphTheme?) {
+        value = nextValue() ?? value
     }
 }

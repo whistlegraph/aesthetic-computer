@@ -5,6 +5,7 @@ import AVKit
 /// to reveal the native reel. No introductory swipe is required.
 struct Reel: View {
     var active = true
+    let resumeEditor: () -> Void
     let makeWork: (Ware) -> Void
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
@@ -72,6 +73,13 @@ struct Reel: View {
                 }
 
                 Banner(corner: 1, width: screen.size.width)
+                    .overlay(alignment: .topTrailing) {
+                        Button(action: resumeEditor) { Color.clear.frame(width: 115, height: 44).contentShape(Rectangle()) }
+                            .buttonStyle(.plain).accessibilityLabel("Open editor")
+                            .accessibilityHint("Resume your current work")
+                            .accessibilityIdentifier("mime-resume-editor")
+                            .padding(.trailing, 10)
+                    }
                 if !revealed {
                     ZStack {
                         Color.paper.opacity(breakupAt == nil ? 1 : 0)

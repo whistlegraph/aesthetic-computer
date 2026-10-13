@@ -3,40 +3,38 @@ import SwiftUI
 /// MIME hosts Whistlegraph's native editor, account, engine and version library.
 /// The feed's untrusted runtimes keep their separate, anonymous WebKit stores.
 struct MimeCreation: View {
+    @ObservedObject var session: WhistlegraphSession
     @Binding var requested: Ware?
     @Binding var active: Bool
     let size: CGSize
     @Binding var drag: CGFloat
     @State private var switching: Ware?
-    @State private var previewRevealed = false
-    @StateObject private var session = WhistlegraphSession()
+    @State private var surface = WhistlegraphTheme(phase: .ready, dark: true)
     @Environment(\.scenePhase) private var phase
 
     private var editorReady: Bool {
         session.accountReady && session.engineReady && session.workspaceReady && requested == nil
-            && (previewRevealed || session.snapshot.wareID != "piece" || !session.snapshot.hasPreview || session.previewPainted)
     }
     private var needsAccount: Bool {
         session.workspaceReady && session.accountStatus != .checking && !session.accountReady
     }
     var body: some View {
         VStack(spacing: 0) {
-            Capsule().fill(.white.opacity(0.4)).frame(width: 40, height: 5)
-                .frame(maxWidth: .infinity).frame(height: 28).contentShape(Rectangle())
-                .onTapGesture(perform: close)
-                .gesture(DragGesture(minimumDistance: 8).onChanged { value in
-                    if !session.snapshot.busy && session.capturePhase == .idle { drag = max(0, value.translation.height) }
-                }.onEnded { value in
-                    if value.translation.height > 64 || value.predictedEndTranslation.height > 120 { close() }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { drag = 0 }
-                })
-                .accessibilityLabel("Close editor").accessibilityAddTraits(.isButton)
-                .accessibilityIdentifier("mime-creation-back")
+            HStack {
+                Button(action: close) { Label("Feed", systemImage: "chevron.left").frame(minWidth: 72, minHeight: 44) }
+                    .buttonStyle(.plain).accessibilityIdentifier("mime-creation-back")
+                Spacer()
+            }
+                .font(.custom("ComicRelief-Bold", size: 17)).foregroundStyle(surface.foreground)
+                .padding(.horizontal, 16).frame(height: 44).contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 12, coordinateSpace: .global).onChanged { value in
+                    if abs(value.translation.width) > abs(value.translation.height) { drag = min(0, value.translation.width) }
+                }.onEnded { value in finishSwipe(value.translation.width, predicted: value.predictedEndTranslation.width) })
             ZStack {
-                WhistlegraphScreen(session: session, availableSize: CGSize(width: size.width, height: size.height - 40))
+                WhistlegraphScreen(session: session, availableSize: CGSize(width: size.width, height: size.height - 44))
                     .allowsHitTesting(editorReady).accessibilityHidden(!editorReady)
                 // Keep WebKit rendering under the cover; opacity zero can suspend its first frame.
-                if !editorReady { WhistlegraphTheme(phase: .ready, dark: true).background }
+                if !editorReady { surface.background }
                 if let failure = session.startupFailure {
                     VStack(spacing: 16) { Text(failure); Button("Reload") { session.reloadWorkspace() } }.padding()
                 } else if needsAccount {
@@ -45,9 +43,11 @@ struct MimeCreation: View {
                     ProgressView().tint(.white).accessibilityLabel("Opening editor")
                         .accessibilityIdentifier("mime-creation-loading")
                 }
-            }.padding(.bottom, 12)
+            }
         }
-        .background(WhistlegraphTheme(phase: .ready, dark: true).background)
+        .background(surface.background.ignoresSafeArea())
+        .onPreferenceChange(WhistlegraphThemePreference.self) { if let theme = $0 { surface = theme } }
+        .background(MimeReturnSwipe(enabled: active, moved: { drag = min(0, $0) }, ended: finishSwipe))
         .accessibilityAction(.escape, close)
         .environment(\.exploreMimes, close)
         .accessibilityElement(children: .contain)
@@ -56,21 +56,18 @@ struct MimeCreation: View {
             session.webView?.setAllMediaPlaybackSuspended(!active, completionHandler: nil)
             await session.braincells.start(session: session); startRequestedWork()
         }
-        .onChange(of: requested) { _, ware in
-            if ware != nil { previewRevealed = false }
-            startRequestedWork()
-        }
-        .onChange(of: editorReady) { _, ready in if ready { previewRevealed = true } }
+        .onChange(of: requested) { _, _ in startRequestedWork() }
         .onChange(of: session.engineReady) { _, _ in
             session.webView?.setAllMediaPlaybackSuspended(!active, completionHandler: nil)
             startRequestedWork()
         }
         .onChange(of: session.accountReady) { _, _ in startRequestedWork() }
         .onChange(of: session.snapshot.busy) { _, _ in startRequestedWork() }
+        .onChange(of: session.snapshot.wareID) { _, _ in startRequestedWork() }
         .onChange(of: session.snapshot.handle) { _, _ in Task { await session.syncAIAccount(); await session.braincells.accountChanged() } }
         .onChange(of: active) { _, visible in
             session.webView?.setAllMediaPlaybackSuspended(!visible, completionHandler: nil)
-            if visible { previewRevealed = false; switching = nil; session.resumePieceAudio(); startRequestedWork() }
+            if visible { switching = nil; session.resumePieceAudio(); startRequestedWork() }
             else { drag = 0 }
         }
         .onChange(of: phase) { _, phase in
@@ -80,16 +77,28 @@ struct MimeCreation: View {
     }
 
     private func close() {
-        guard !session.snapshot.busy, session.capturePhase == .idle else { return }
-        session.cancelHold()
+        // Navigation never waits for inference or a preview. A dispatched turn
+        // keeps its session; only an unfinished microphone hold is cancelled.
+        if session.capturePhase == .opening || session.capturePhase == .recording { session.cancelHold() }
+        session.webView?.endEditing(true)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         session.webView?.setAllMediaPlaybackSuspended(true, completionHandler: nil)
         requested = nil
+        switching = nil
         active = false
     }
 
+    private func finishSwipe(_ translation: CGFloat, predicted: CGFloat) {
+        if translation < -70 || predicted < -150 { close() }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { drag = 0 }
+    }
+
     private func startRequestedWork() {
-        guard active, let ware = requested, session.accountReady, session.engineReady,
-              !session.snapshot.busy, session.capturePhase == .idle else { return }
+        guard active, let ware = requested, session.accountReady, session.engineReady else { return }
+        if session.snapshot.busy || session.capturePhase != .idle {
+            requested = nil; switching = nil
+            return
+        }
         if session.snapshot.wareID != ware.rawValue {
             guard switching != ware else { return }
             switching = ware
@@ -97,6 +106,53 @@ struct MimeCreation: View {
         } else {
             requested = nil
             session.command("newPiece")
+        }
+    }
+}
+
+/// A native right-edge pan leaves canvas drags, Doom gestures and vertical
+/// history scrolling alone. It is disabled whenever MIME shows the feed.
+private struct MimeReturnSwipe: UIViewRepresentable {
+    var enabled: Bool
+    let moved: (CGFloat) -> Void
+    let ended: (CGFloat, CGFloat) -> Void
+    func makeUIView(context: Context) -> Host { Host() }
+    func updateUIView(_ view: Host, context: Context) {
+        view.moved = moved; view.ended = ended; view.pan.isEnabled = enabled
+    }
+    static func dismantleUIView(_ view: Host, coordinator: ()) { view.detach() }
+
+    final class Host: UIView, UIGestureRecognizerDelegate {
+        var moved: ((CGFloat) -> Void)?
+        var ended: ((CGFloat, CGFloat) -> Void)?
+        private weak var attachedWindow: UIWindow?
+        lazy var pan: UIScreenEdgePanGestureRecognizer = {
+            let value = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(changed))
+            value.edges = .right; value.delegate = self
+            return value
+        }()
+        init() { super.init(frame: .zero); isUserInteractionEnabled = false }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            detach()
+            attachedWindow = window
+            window?.addGestureRecognizer(pan)
+        }
+        func detach() { attachedWindow?.removeGestureRecognizer(pan); attachedWindow = nil }
+        override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let window = attachedWindow, window.rootViewController?.presentedViewController == nil else { return false }
+            let velocity = pan.velocity(in: window)
+            return velocity.x < 0 && abs(velocity.x) > abs(velocity.y)
+        }
+        @objc private func changed() {
+            let x = pan.translation(in: attachedWindow).x
+            switch pan.state {
+            case .changed: moved?(x)
+            case .ended: ended?(x, x + pan.velocity(in: attachedWindow).x * 0.18)
+            case .cancelled, .failed: ended?(0, 0)
+            default: break
+            }
         }
     }
 }

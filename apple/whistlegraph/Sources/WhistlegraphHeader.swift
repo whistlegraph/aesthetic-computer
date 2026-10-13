@@ -72,7 +72,7 @@ struct PiecesSheet: View {
                         if let exploreMimes { dismiss(); exploreMimes() } else { showingFeed = true }
                     } label: {
                         Label("Explore mimes", systemImage: "play.rectangle.on.rectangle")
-                    }.disabled(disabled).accessibilityIdentifier("pieces-explore")
+                    }.accessibilityIdentifier("pieces-explore")
                     if let session, session.snapshot.wareID == "piece", let current = pieces.first(where: { $0.current }), !current.code.isEmpty {
                         Toggle(isOn: Binding(get: { publishing.published == true },
                                              set: { value in Task { await publishing.set(value, account: session.account) } })) {
