@@ -457,7 +457,11 @@ async function runBuildJob(job) {
       addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
       try {
         await runPhase(job, "prune", "bash", ["-c",
-          "docker container prune -f && docker image prune -af --filter until=2h && docker builder prune -af --filter until=30m && docker volume prune -f",
+          // Keep a week of image + build cache. 2h / 30m meant any build more than
+          // half an hour after the last one re-ran the Dockerfile's clone/npm/
+          // installer steps and re-exported every layer (~2.5 min). The
+          // <10 GB emergency prune below still guards the disk.
+          "docker container prune -f && docker image prune -af --filter until=168h && docker builder prune -af --filter until=168h && docker volume prune -f",
         ], repoDir);
         const dfOut = await runSync("bash", ["-c", "df --output=avail / | tail -1"], repoDir);
         const availKB = parseInt(dfOut, 10) || 0;

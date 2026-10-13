@@ -14,6 +14,7 @@
 #                                                  (inputs checked with --metafile)
 #   system/public/aesthetic.computer/disks         web pieces copied into the image
 #   system/public/install-firmware.sh              the offline firmware updater
+#   xbox/live/{oskiewar,lan-test}.js, ComicRelief  scripts/bundle-oskiewar.sh
 # If the build starts reading something new, add it here — a missing path
 # fails the copy step loudly, but the esbuild bundles end in `|| true`, so
 # check their "bytes" log lines after changing this list.
@@ -24,6 +25,10 @@
 !system/public/aesthetic.computer/dep
 !system/public/aesthetic.computer/disks
 !system/public/install-firmware.sh
+# scripts/bundle-oskiewar.sh: the shared game, its LAN test, and the font.
+!xbox/live/oskiewar.js
+!xbox/live/lan-test.js
+!system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf
 
 # Generated or reinstalled inside the allowed trees.
 fedac/native/build
