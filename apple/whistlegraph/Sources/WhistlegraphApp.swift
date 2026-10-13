@@ -120,6 +120,7 @@ struct Workspace: UIViewRepresentable {
             config.websiteDataStore = .nonPersistent()
             config.userContentController.addUserScript(WKUserScript(source: """
             window.__whistlegraphDisableThread=true;
+            if(\(fixture != "empty-piece") && !localStorage.getItem('whistlegraph-source'))localStorage.setItem('whistlegraph-source','export function paint({wipe}) { wipe("#253a80"); }');
             const original=window.fetch.bind(window);
             window.fetch=function(url,init){
                 if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-maker'}));

@@ -14,7 +14,7 @@ struct MimeCreation: View {
 
     private var editorReady: Bool {
         session.accountReady && session.engineReady && session.workspaceReady && requested == nil
-            && (previewRevealed || session.snapshot.wareID != "piece" || session.previewPainted)
+            && (previewRevealed || session.snapshot.wareID != "piece" || !session.snapshot.hasPreview || session.previewPainted)
     }
     private var needsAccount: Bool {
         session.workspaceReady && session.accountStatus != .checking && !session.accountReady

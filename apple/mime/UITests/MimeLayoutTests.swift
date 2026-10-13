@@ -75,6 +75,20 @@ final class MimeLayoutTests: XCTestCase {
         piece.lifetime = .keepAlways; add(piece)
     }
 
+    func testEmptyPieceOpensWithoutWaitingForFrame() {
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_CREATION_FIXTURE"] = "empty-piece"
+        app.launch()
+        XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
+        waitForReveal(in: app)
+        app.swipeUp()
+        let ac = app.buttons.matching(identifier: "mime-type").matching(NSPredicate(format: "label == %@", "text/javascript")).firstMatch
+        XCTAssertTrue(ac.waitForExistence(timeout: 10)); ac.tap()
+        XCTAssertTrue(app.buttons["ware-picker"].waitForExistence(timeout: 30))
+        waitForEditor(in: app)
+        XCTAssertTrue(app.buttons["type-control"].isHittable)
+    }
+
     func testTypeCreationRequiresSignIn() {
         let app = XCUIApplication()
         app.launchEnvironment["MIME_CREATION_FIXTURE"] = "signed-out"
