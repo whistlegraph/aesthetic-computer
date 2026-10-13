@@ -1345,10 +1345,11 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     if (post.media?.kind === "tape" && post.media.code) frame.dataset.tape = post.media.code;
     frame.append(file);
     if (["IMG", "VIDEO", "IFRAME", "PRE"].includes(file.tagName) || runnable) {
-      const label = file.tagName === "VIDEO" ? "video" : file.tagName === "IMG" ? "image" : runnable ? "program" : "preview";
-      const loading = el("span", "media-loading", `Loading ${label}…`);
       frame.dataset.mediaState = "loading";
-      frame.append(loading);
+      if (!runnable) {
+        const label = file.tagName === "VIDEO" ? "video" : file.tagName === "IMG" ? "image" : "preview";
+        frame.append(el("span", "media-loading", `Loading ${label}…`));
+      }
       const ready = () => {
         frame.dataset.mediaState = "ready";
         if (file.dataset.loadStarted) frame.dataset.mediaLoadMs = Math.round(performance.now() - Number(file.dataset.loadStarted));
