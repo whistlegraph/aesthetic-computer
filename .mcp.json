@@ -120,6 +120,12 @@
       "args": [
         "toolchain/mcp/crypto-mcp.mjs"
       ]
+    },
+    "choir": {
+      "command": "node",
+      "args": [
+        "toolchain/mcp/choir-mcp.mjs"
+      ]
     }
   }
 }

@@ -13,6 +13,8 @@
 //   GET    /api/choir?events=1&since=<iso>                   the trail (admin)
 //   POST   /api/choir?bug=1 {text, image (base64 jpeg), context}  a bug report (Bearer)
 //   GET    /api/choir?bugs=1  ·  ?bug=<id>&image=1   the bug list / one screenshot (admin)
+//   PUT    /api/choir?bug=<id> {status, note}        open | fixed | wontfix (admin)
+//   (filing is for @fifi and admins only — Fía's tester button)
 //   POST   /api/choir?curate=1 {items:[…]}   x-choir-editor: <CHOIR_EDITOR_SECRET>
 //          the jasellite curator adds to Discover and retires closed calls
 //
@@ -137,7 +139,19 @@ export async function handler(event) {
     const me = await whoami(event.headers || {}, db);
     if (!me) return no(401, "Sign in");
 
+    if (event.httpMethod === "PUT" && q.bug) {
+      if (!(await hasAdmin(me.user))) return no(401, "Admins only");
+      let body;
+      try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
+      if (!["open", "fixed", "wontfix"].includes(body.status)) return no(400, "status must be open, fixed or wontfix");
+      const r = await db.collection("choir-bugs").updateOne({ _id: String(q.bug) },
+        { $set: { status: body.status, updatedAt: new Date(), ...(body.note ? { note: String(body.note).slice(0, 2000) } : {}) } });
+      return r.matchedCount ? ok({ id: q.bug, status: body.status }) : no(404, "No such bug");
+    }
+
     if (event.httpMethod === "POST" && q.bug) {
+      // Fía's tester button: only her account (and admins, for testing) can file.
+      if (me.handle !== "@fifi" && !(await hasAdmin(me.user))) return no(403, "Bug reports are for testers");
       let body;
       try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
       const text = String(body.text || "").trim().slice(0, 4000);

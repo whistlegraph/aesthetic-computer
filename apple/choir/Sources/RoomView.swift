@@ -8,12 +8,14 @@ struct RoomView: View {
     @EnvironmentObject var router: Router
     @State private var sheet: Sheet?
     @State private var open: Post?
+    @State private var detent: PresentationDetent = .medium
     @State private var discover = false
     enum Sheet: String, Identifiable { case login, new, account; var id: String { rawValue } }
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { scroller in
+              VStack(spacing: 0) {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         SingingMark(height: account.signedIn ? 56 : 84, energy: account.signedIn ? 0.5 : 1)
@@ -37,13 +39,15 @@ struct RoomView: View {
                     .padding(.horizontal, 14).padding(.vertical, 12)
                 }
                 .defaultScrollAnchor(.bottom)
-                .background(RuledPaper())
-                .navigationBarTitleDisplayMode(.inline)
+                .scrollDismissesKeyboard(.interactively)
                 .refreshable { await room.load() }
                 .onChange(of: room.chat.last?.id) { _, _ in withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
+
+                // A real bottom bar (not an overlay), so the keyboard pushes it up.
+                Group {
                     if account.handle != nil {
-                        ChatInput(onSent: { Task { await room.load(); withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } } })
+                        ChatInput(onSent: { Task { await room.load(); withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } } },
+                                  onFocus: { withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } })
                     } else {
                         HStack(spacing: 10) {
                             if account.signedIn {
@@ -57,13 +61,16 @@ struct RoomView: View {
                         .glass(Rectangle())
                     }
                 }
+              }
+              .background(RuledPaper())
+              .navigationBarTitleDisplayMode(.inline)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { discover = true } label: { Image(systemName: "newspaper") }
                         .tint(Theme.ink).accessibilityLabel("Discover")
                 }
-                if account.signedIn {
+                if account.handle == "@fifi" { // Fía's tester button
                     ToolbarItem(placement: .topBarTrailing) { BugButton() }
                 }
                 if account.signedIn {
@@ -76,9 +83,10 @@ struct RoomView: View {
                 DiscoverView().environmentObject(account).environmentObject(room)
             }
             .sheet(item: $open) { post in
-                NavigationStack { ThreadView(rootID: post.id) }
+                NavigationStack { ThreadView(rootID: post.id, expand: { detent = .large }) }
                     .environmentObject(account).environmentObject(room)
-                    .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+                    .presentationDetents([.medium, .large], selection: $detent).presentationDragIndicator(.visible)
+                    .onAppear { detent = .medium }
                     .presentationBackground(.regularMaterial)
             }
             .sheet(item: $sheet) { s in
@@ -186,6 +194,8 @@ struct ChatInput: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
     var onSent: () -> Void
+    var onFocus: () -> Void = {}
+    @FocusState private var typing: Bool
     @AppStorage("chatTags") private var stored = ""
     @State private var text = ""
     @State private var newTag = ""
@@ -210,8 +220,10 @@ struct ChatInput: View {
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             HStack(alignment: .bottom, spacing: 8) {
                 TextField("Comments on culture", text: $text, axis: .vertical)
-                    .font(.system(size: 16, design: .serif)).lineLimit(1...5)
+                    .font(.system(size: 16, design: .serif)).lineLimit(1...6)
+                    .focused($typing)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
+                    .onChange(of: typing) { _, on in if on { onFocus() } }
                 Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }
                     .buttonStyle(GlassChipStyle(on: true)).disabled(!ready).opacity(ready ? 1 : 0.4)
             }
@@ -244,6 +256,7 @@ struct ChatInput: View {
         do {
             _ = try await API.post(.init(text: text, tags: [], replyTo: nil), token: await account.token())
             text = ""; error = nil; Trail.send("chat:send"); onSent()
+            typing = true // keep the keyboard up for the next line
         } catch { self.error = error.localizedDescription; Trail.send("post:failed", ["why": error.localizedDescription]) }
     }
 }

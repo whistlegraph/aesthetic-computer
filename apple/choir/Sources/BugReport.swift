@@ -51,21 +51,23 @@ struct BugSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                if let shot {
-                    Section {
-                        Image(uiImage: shot).resizable().scaledToFit().frame(maxHeight: 260)
-                            .clipShape(RoundedRectangle(cornerRadius: 8)).opacity(includeShot ? 1 : 0.3)
-                            .frame(maxWidth: .infinity)
-                        Toggle("Include this screenshot", isOn: $includeShot)
-                    }
-                }
+                // The note comes first so the keyboard never covers it.
                 Section {
                     TextField("What's going on, or what did you notice?", text: $text, axis: .vertical)
-                        .lineLimit(4...10).focused($focused)
+                        .lineLimit(3...8).focused($focused)
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 if let sent { Section { Text("Thank you. Filed as bug \(sent).").foregroundStyle(.secondary) } }
+                if let shot {
+                    Section {
+                        Toggle("Include this screenshot", isOn: $includeShot)
+                        Image(uiImage: shot).resizable().scaledToFit().frame(maxHeight: 220)
+                            .clipShape(RoundedRectangle(cornerRadius: 8)).opacity(includeShot ? 1 : 0.3)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Report a bug")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

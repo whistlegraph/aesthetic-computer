@@ -9,6 +9,7 @@ struct DiscoverView: View {
     @State private var news: [Post] = []
     @State private var error: String?
     @State private var open: Post?
+    @State private var detent: PresentationDetent = .medium
 
     var body: some View {
         NavigationStack {
@@ -49,9 +50,10 @@ struct DiscoverView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.tint(Theme.ink) } }
             .sheet(item: $open) { post in
-                NavigationStack { ThreadView(rootID: post.id) }
+                NavigationStack { ThreadView(rootID: post.id, expand: { detent = .large }) }
                     .environmentObject(account).environmentObject(room)
-                    .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+                    .presentationDetents([.medium, .large], selection: $detent).presentationDragIndicator(.visible)
+                    .onAppear { detent = .medium }
                     .presentationBackground(.regularMaterial)
             }
             .task {
