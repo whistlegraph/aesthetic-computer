@@ -168,8 +168,11 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 - **Canvas (2026-10-13):** `out/eightgigabytes-canvas.mp4` (also `out/release/`) — 1080×1920, 4.8 s, silent, seamless, no text:
   the three singing faces, decorative. A zigzag column of member-colored laptops on cream paper (frisbee, neo lead
   a touch larger, blueberry), each screen holding its singer from Menu Band's own face rig, looping the last refrain's
-  hook *I have eight gigabytes* (record 67.5–72.3 s, where all three sing). Laptops bounce on the kick, the twelve
-  semitone keycaps light in turn, the paper breathes once a bar; every period divides the loop. `bin/canvas.py`
+  hook *I have eight gigabytes* (record 67.5–72.3 s, where all three sing). The keyboards are notepat's, key for key
+  (`disks/notepat.mjs` rows + `lib/note-colors.mjs` palettes: sharps black rimmed in their natural, base octave ROYGBIV,
+  upper octave dayglo, ext olive/cream, octave keys lilac), and each one lights the key of the note its singer is
+  singing, read off the stems' manifests (blueberry's low part shown an octave up where it falls off the keys).
+  Laptops bounce on the kick, the paper breathes once a bar; every period divides the loop. `bin/canvas.py`
   composites `bin/faces.sh 30 960 600 66.5 72.8 -canvas` (faces.sh now takes a start/end/tag window); the loop's
   start was picked where neo and blueberry are about to sing and frisbee is 0.6 s behind at both ends, so the
   4-frame seam fade has nothing to hide. Sep 26 stems/timeline fetched back from poorslice's offload for the mouth cues.
