@@ -165,4 +165,65 @@ extension WaresTests {
         screenshot.lifetime = .keepAlways
         add(screenshot)
     }
+    func testPaintingPickerAndPngExport() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launch()
+        let picker = app.buttons["ware-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 30))
+        let ready = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: picker)
+        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 30), .completed)
+        let spring = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let banner = spring.otherElements.matching(identifier: "NotificationShortLookView").firstMatch
+        if banner.exists { banner.swipeUp() }
+        picker.tap()
+        let painting = app.buttons["ware-painting"]
+        if !painting.waitForExistence(timeout: 2) { if banner.exists { banner.swipeUp() }; picker.tap() }
+        XCTAssertTrue(painting.waitForExistence(timeout: 5)); painting.tap()
+        let actions = app.buttons["painting-actions"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 20))
+        let available = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: actions)
+        XCTAssertEqual(XCTWaiter().wait(for: [available], timeout: 20), .completed)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Whistlegraph PNG painting workspace"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        actions.tap()
+        XCTAssertTrue(app.buttons["Import PNG"].waitForExistence(timeout: 5))
+        let export = app.buttons["Export PNG"]
+        XCTAssertTrue(export.waitForExistence(timeout: 5)); export.tap()
+        let copy = app.descendants(matching: .any)["Copy"].firstMatch
+        XCTAssertTrue(copy.waitForExistence(timeout: 10), "A native share sheet opens for the PNG")
+        let shared = XCTAttachment(screenshot: app.screenshot())
+        shared.name = "Native PNG share sheet"
+        shared.lifetime = .keepAlways
+        add(shared)
+        copy.tap()
+    }
+
+    func testImportedPaintingPixelsPersistThroughReload() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["WHISTLEGRAPH_PAINTING_TEST"] = "1"
+        app.launch()
+        let name = app.buttons["workspace-settings"]
+        XCTAssertTrue(name.waitForExistence(timeout: 30))
+        let imported = expectation(for: NSPredicate(format: "label CONTAINS %@", "moon-test"), evaluatedWith: name)
+        XCTAssertEqual(XCTWaiter().wait(for: [imported], timeout: 30), .completed)
+        let actions = app.buttons["painting-actions"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 10))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Imported PNG after project reload"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        actions.tap()
+        app.buttons["Export PNG"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["Copy"].firstMatch.waitForExistence(timeout: 10))
+        let export = XCTAttachment(screenshot: app.screenshot())
+        export.name = "Imported PNG native export"
+        export.lifetime = .keepAlways
+        add(export)
+        app.descendants(matching: .any)["Copy"].firstMatch.tap()
+    }
+
 }

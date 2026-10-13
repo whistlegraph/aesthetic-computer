@@ -1,11 +1,12 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum Ware: String, CaseIterable, Identifiable {
-    case piece, roblox, doom
+    case piece, roblox, doom, painting
     var id: String { rawValue }
-    var title: String { self == .piece ? "Aesthetic.Computer Piece" : self == .doom ? "Doom WAD" : "Roblox Room" }
+    var title: String { self == .painting ? "PNG Painting" : self == .piece ? "Aesthetic.Computer Piece" : self == .doom ? "Doom WAD" : "Roblox Room" }
     /// The file-extension spelling in the top bar: /code.ac, /code.rbx.
-    var fileExtension: String { self == .piece ? "ac" : self == .doom ? "wad" : "rbx" }
+    var fileExtension: String { self == .painting ? "png" : self == .piece ? "ac" : self == .doom ? "wad" : "rbx" }
 }
 
 struct RobloxRoomSnapshot: Decodable {
@@ -75,5 +76,29 @@ struct DoomControls: View {
             } label: { Image(systemName: "ellipsis.circle").font(.title2).frame(width: 44, height: 44) }
             .accessibilityLabel("Doom actions").accessibilityIdentifier("doom-actions")
         }.disabled(session.snapshot.busy || session.capturePhase != .idle)
+    }
+}
+
+struct PaintingControls: View {
+    @ObservedObject var session: WhistlegraphSession
+    @State private var importing = false
+    var body: some View {
+        HStack {
+            Spacer()
+            Menu {
+                Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoPainting") }
+                Button("Import PNG", systemImage: "photo") { importing = true }
+                Button("Export PNG", systemImage: "square.and.arrow.up") { session.command("exportPng") }
+                Button("Publish to MIME", systemImage: "globe") { session.command("publishPainting") }
+            } label: { Image(systemName: "ellipsis.circle").font(.title2).frame(width: 44, height: 44) }
+            .accessibilityLabel("Painting actions").accessibilityIdentifier("painting-actions")
+        }
+        .disabled(session.snapshot.busy || session.capturePhase != .idle)
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.png]) { result in
+            switch result {
+            case .success(let url): session.importPainting(url)
+            case .failure: session.emitEngine(["kind": "error", "text": "Could not open the PNG."])
+            }
+        }
     }
 }

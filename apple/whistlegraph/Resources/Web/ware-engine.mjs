@@ -14,7 +14,7 @@ window.whistlegraphSelectWare=id=>{
   } catch(error) {window.toast?.(error.message);return false;}
 };
 try {
-  await import(({piece:'./engine.mjs',roblox:'./roblox-engine.mjs',doom:'./doom-engine.mjs'})[currentWare(localStorage)]);
+  await import(({piece:'./engine.mjs',roblox:'./roblox-engine.mjs',doom:'./doom-engine.mjs',painting:'./painting-engine.mjs'})[currentWare(localStorage)]);
 } catch (error) {
   window.webkit.messageHandlers.whistlegraph.postMessage({action:'startupError',text:String(error?.message||error)});
 }

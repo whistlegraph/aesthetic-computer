@@ -12,6 +12,10 @@ test('ware defaults to Piece, retains selection, and rejects incidental mentions
   assert.equal(requestedWare('Draw the Roblox logo'),null);
   assert.equal(requestedWare('switch to Doom WAD'),'doom');selectWare(s,'doom');assert.equal(currentWare(s),'doom');
   assert.equal(requestedWare('draw Doom characters'),null);
+  assert.equal(requestedWare('switch to PNG painting'),'painting');
+  assert.equal(requestedWare('open still image'),'painting');
+  assert.equal(requestedWare('paint a PNG logo'),null);
+  selectWare(s,'painting');assert.equal(currentWare(s),'painting');
 });
 test('brain switching queues without overwriting artwork or changing the current ware',()=>{
   const controls=wareControls('piece');assert.equal(controls.run('whistlegraph_ware',{action:'switch',ware:'roblox'}).status,'queued');

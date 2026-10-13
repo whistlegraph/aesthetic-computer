@@ -3,6 +3,7 @@ import WebKit
 import Speech
 import AVFoundation
 import CoreText
+import ImageIO
 
 @main
 struct WhistlegraphApp: App {
@@ -109,7 +110,7 @@ struct Workspace: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         #if DEBUG
-        if voice.accountEntryTest { config.websiteDataStore = .nonPersistent() }
+        if voice.accountEntryTest || ProcessInfo.processInfo.environment["WHISTLEGRAPH_PAINTING_TEST"] == "1" { config.websiteDataStore = .nonPersistent() }
         #endif
         config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphNativeShell = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if let data = try? JSONSerialization.data(withJSONObject: voice.aiConsent.bridge), let json = String(data: data, encoding: .utf8) {
@@ -210,6 +211,21 @@ struct Workspace: UIViewRepresentable {
               window.whistlegraphStartFixture();
             }, 100);
             """, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        }
+        if ProcessInfo.processInfo.environment["WHISTLEGRAPH_PAINTING_TEST"] == "1" {
+            config.userContentController.addUserScript(WKUserScript(source: """
+            localStorage.setItem('whistlegraph-ware','painting');
+            if (!sessionStorage.getItem('painting-test-imported')) {
+                const check = setInterval(() => {
+                    if (!window.whistlegraphEngineEvent || !document.getElementById('painting-preview')) return;
+                    clearInterval(check);sessionStorage.setItem('painting-test-imported','1');
+                    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
+                    const c=canvas.getContext('2d');c.fillStyle='#102030';c.fillRect(0,0,128,128);
+                    c.fillStyle='#ff6699';c.beginPath();c.arc(64,64,32,0,Math.PI*2);c.fill();
+                    window.whistlegraphEngineEvent({kind:'importPng',name:'Moon Test.png',data:canvas.toDataURL('image/png').split(',')[1]});
+                },100);
+            }
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
         if ProcessInfo.processInfo.environment["WHISTLEGRAPH_PREVIEW_CHECK"] == "1" {
             config.userContentController.addUserScript(WKUserScript(source: """
@@ -334,9 +350,28 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         // and the normalized chalk strokes instead of reloading the runtime.
     }
 
+    func importPainting(_ url: URL) {
+        guard engineReady, snapshot.wareID == "painting", !snapshot.busy, capturePhase == .idle else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size > 0, size <= 2 * 1024 * 1024 else { throw CocoaError(.fileReadTooLarge) }
+            let data = try Data(contentsOf: url)
+            guard data.count <= 2 * 1024 * 1024,
+                  data.prefix(8) == Data([137,80,78,71,13,10,26,10]),
+                  let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                  let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                  let height = properties[kCGImagePropertyPixelHeight] as? Int,
+                  (16...2048).contains(width), (16...2048).contains(height) else { throw CocoaError(.fileReadCorruptFile) }
+            emitEngine(["kind": "importPng", "name": url.lastPathComponent, "data": data.base64EncodedString()])
+        } catch { emitEngine(["kind": "error", "text": "Use a PNG under 2 MB, with dimensions of 16–2048 pixels."]) }
+    }
+
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, ware: String? = nil, onAccepted: (() -> Void)? = nil) {
-        guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "discardAttempt", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom"].contains(action) else { return }
-        if ["setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom"].contains(action) {
+        guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "discardAttempt", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) else { return }
+        if ["setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
         }
         let control = DeviceActionLog.Control(rawValue: action)
@@ -760,6 +795,29 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             UIApplication.shared.open(url, options: [:]) { [weak self] opened in
                 self?.emitEngine(["kind": "robloxLaunch", "opened": opened])
             }
+        case "exportPng":
+            guard snapshot.wareID == "painting", !snapshot.busy,
+                  let encoded = body["data"] as? String, encoded.utf8.count <= 28_000_000,
+                  let data = Data(base64Encoded: encoded), data.count <= 20 * 1024 * 1024,
+                  data.prefix(8) == Data([137,80,78,71,13,10,26,10]),
+                  let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                  let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                  let height = properties[kCGImagePropertyPixelHeight] as? Int,
+                  (16...2048).contains(width), (16...2048).contains(height),
+                  let host = webView?.window?.rootViewController else { return }
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let proposed = body["filename"] as? String ?? "untitled.png"
+                let filename = proposed.range(of: "^[a-z0-9][a-z0-9-]{0,79}\\.png$", options: .regularExpression) != nil ? proposed : "untitled.png"
+                let file = directory.appendingPathComponent(filename)
+                try data.write(to: file, options: .atomic)
+                let share = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+                share.popoverPresentationController?.sourceView = webView
+                share.completionWithItemsHandler = { _, _, _, _ in try? FileManager.default.removeItem(at: directory) }
+                host.present(share, animated: true)
+            } catch { emitEngine(["kind": "error", "text": "Could not export the PNG."]) }
         case "exportWad":
             guard let encoded = body["data"] as? String, encoded.utf8.count <= 44_739_244,
                   let data = Data(base64Encoded: encoded), data.count >= 12, data.count <= 32 * 1024 * 1024,

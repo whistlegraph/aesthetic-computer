@@ -57,7 +57,7 @@ export class WareProjects {
  remove(id){
   if(id===this.current)throw Error('Open another project before removing this one');
   const key=this.key(id);this.save({...this.index,projects:this.index.projects.filter(p=>p.id!==id)});
-  for(const suffix of ['-versions','-codes','-attempt'])this.storage.removeItem(key+suffix);
+  for(const suffix of ['-versions','-codes','-attempt','-image-job'])this.storage.removeItem(key+suffix);
  }
 }
 export const requestsNewProject=(text,ware='doom')=>ware==='roblox'?/^(?:please\s+)?(?:(?:make|create|start)\s+)?(?:a\s+)?new\s+(?:empty\s+)?(?:roblox\s+)?room[.!]?$/i.test(String(text).trim()):/^(?:please\s+)?(?:(?:make|create|start)\s+)?(?:a\s+)?new\s+(?:empty\s+)?(?:doom\s+)?wad[.!]?$/i.test(String(text).trim());

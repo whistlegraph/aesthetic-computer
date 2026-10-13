@@ -42,7 +42,7 @@ struct PiecesSheet: View {
             List {
                 Section {
                     Button { ButtonSounds.play(.pop); newPiece(); dismiss() } label: {
-                        Label(session?.snapshot.wareID == "doom" ? "New empty WAD" : session?.snapshot.wareID == "roblox" ? "New Roblox room" : "New piece", systemImage: "plus")
+                        Label(session?.snapshot.wareID == "painting" ? "New painting" : session?.snapshot.wareID == "doom" ? "New empty WAD" : session?.snapshot.wareID == "roblox" ? "New Roblox room" : "New piece", systemImage: "plus")
                             .font(.custom("ComicRelief-Bold", size: 20, relativeTo: .title3))
                     }.disabled(disabled).accessibilityIdentifier("pieces-new")
                 }
