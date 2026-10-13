@@ -26,8 +26,19 @@ document.querySelector('#file').onchange=async event=>{
 };
 const held=new Set(),keyCodes={ArrowLeft:37,ArrowUp:38,ArrowRight:39,ArrowDown:40,Comma:188,Period:190,ControlLeft:17,Space:32,Enter:13,Escape:27};
 function key(code,down){if(down)held.add(code);else held.delete(code);const key=code==='Space'?' ':code==='ControlLeft'?'Control':code==='Comma'?',':code==='Period'?'.':code;window.dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{key,code,keyCode:keyCodes[code],which:keyCodes[code],bubbles:true}));}
+const movementKeys={KeyW:'ArrowUp',KeyS:'ArrowDown',KeyA:'Comma',KeyD:'Period'},keyboardHeld=new Set();
+for(const type of ['keydown','keyup'])window.addEventListener(type,event=>{
+  const code=movementKeys[event.code];if(!code)return;
+  const down=type==='keydown';
+  if(down&&(!started||!playing||document.hidden||event.metaKey||event.ctrlKey||event.altKey||event.target.closest?.('input,textarea,select,[contenteditable]')))return;
+  if(!down&&!keyboardHeld.has(event.code))return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(down){if(keyboardHeld.has(event.code))return;keyboardHeld.add(event.code);}
+  else keyboardHeld.delete(event.code);
+  key(code,down);
+},true);
 const touchControls=installTouchControls(canvas,key,()=>started&&playing&&!document.hidden);
-function release(){touchControls.reset();for(const code of [...held])key(code,false);}
+function release(){keyboardHeld.clear();touchControls.reset();for(const code of [...held])key(code,false);}
 for(const button of document.querySelectorAll('[data-code]')){
   button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);key(button.dataset.code,true);};
   button.onpointerup=button.onpointercancel=()=>key(button.dataset.code,false);

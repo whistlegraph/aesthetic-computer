@@ -1,6 +1,6 @@
 # Doom on Aesthetic Computer
 
-Enter `doom` at the AC prompt or open `/doom-player/`. Whistlegraph starts directly in an empty room. Keyboard: arrows move/turn, Control fires, Space uses doors/switches, comma/period strafe. Touch: tap to fire, drag horizontally to look, hold a second finger to move forward; drag it down to reverse or sideways to strafe. A quick second-finger tap uses doors and switches; tapping the look finger while the movement finger is held fires.
+Enter `doom` at the AC prompt or open `/doom-player/`. Whistlegraph starts directly in an empty room. Keyboard: W/S move forward/back, A/D strafe, arrows move/turn, Control fires, Space uses doors/switches, comma/period strafe. Touch: tap to fire, drag horizontally to look, hold a second finger to move forward; drag it down to reverse or sideways to strafe. A quick second-finger tap uses doors and switches; tapping the look finger while the movement finger is held fires.
 
 Whistlegraph's `.wad` ware authors editable classic Doom and Doom II projects: multiple maps, arbitrary vertices/linedefs/sidedefs/sectors, adjoining polygon rooms, floor and ceiling heights, doors, stairs, lifts, triggers, things, custom wall textures, flats, sprite frames, generated DMX sound effects, MIDI music data, DEHACKED behavior patches, and nonstructural binary/text lumps. Project tools preserve untouched maps and assets across edits. A completed turn saves one version; failed requests keep the current version. Undo restores its parent. The old rectangular-room format remains readable.
 

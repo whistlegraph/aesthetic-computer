@@ -23,6 +23,17 @@ const server=createServer(async(req,res)=>{try{let file=resolve(root,'.'+new URL
   assert.equal(await page.$eval('#controls',el=>getComputedStyle(el).display),'none');
   assert.equal(await page.$eval('canvas',el=>el.getAttribute('aria-label')),'Empty Doom room');
   await page.screenshot({path:'/tmp/ac-doom-empty-room.png'});
+  // Exercise real keyboard input against the running engine in the empty room.
+  await page.click('#canvas');
+  const room=await page.$('canvas'),roomHash=async()=>createHash('sha256').update(await room.screenshot()).digest('hex');
+  await page.evaluate(()=>__mimeSettle(false));await new Promise(r=>setTimeout(r,300));
+  for(const code of ['KeyW','KeyS','KeyA','KeyD']){
+    const before=await roomHash();await page.evaluate(()=>__mimeSettle(true));
+    await page.keyboard.down(code);await new Promise(r=>setTimeout(r,350));await page.keyboard.up(code);
+    await new Promise(r=>setTimeout(r,300));await page.evaluate(()=>__mimeSettle(false));await new Promise(r=>setTimeout(r,300));
+    assert.notEqual(await roomHash(),before,code+' moves the player in the empty room');
+  }
+  await page.evaluate(()=>__mimeSettle(true));
   await page.evaluate(()=>{
     window.__touchKeys=[];window.addEventListener('keydown',e=>__touchKeys.push(['down',e.code]));window.addEventListener('keyup',e=>__touchKeys.push(['up',e.code]));
     window.__touch=(type,id,x,y)=>canvas.dispatchEvent(new PointerEvent(type,{pointerType:'touch',pointerId:id,clientX:x,clientY:y,bubbles:true,cancelable:true}));

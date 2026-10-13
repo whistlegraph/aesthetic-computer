@@ -22,6 +22,22 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  const dimensions=await player.$eval('canvas',el=>({width:el.clientWidth,height:el.clientHeight,viewportWidth:innerWidth,viewportHeight:innerHeight}));
  assert.equal(dimensions.width,dimensions.viewportWidth);assert.equal(dimensions.height,dimensions.viewportHeight);
  const loaded=await player.evaluate(()=>Array.from(Module.FS.readFile('/level.wad')));assert.deepEqual(Buffer.from(loaded),await readFile('system/public/doom-player/examples/first-arena.wad'),'plays the published WAD');
+ await page.click('.reel-command .media-label');
+ assert.equal(await page.$eval('.doom-player',el=>el.inert),false,'entering interaction enables the game');
+ assert.equal(await page.evaluate(()=>document.activeElement?.classList.contains('doom-player')),true,'entering interaction focuses the game');
+ await player.evaluate(()=>{window.movementEvents=[];for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(['ArrowUp','ArrowDown','Comma','Period'].includes(e.code))movementEvents.push([type,e.code]);});});
+ for(const code of ['KeyW','KeyS','KeyA','KeyD']){await page.keyboard.down(code);await page.keyboard.up(code);}
+ assert.deepEqual(await player.evaluate(()=>movementEvents),['ArrowUp','ArrowDown','Comma','Period'].flatMap(code=>[['keydown',code],['keyup',code]]),'WASD reaches the embedded player');
+ await page.keyboard.down('KeyW');await page.keyboard.down('KeyD');
+ await player.evaluate(()=>window.dispatchEvent(new Event('blur')));
+ assert.deepEqual(await player.evaluate(()=>movementEvents.slice(-2)),[['keyup','ArrowUp'],['keyup','Period']],'losing focus releases diagonal movement');
+ await page.keyboard.up('KeyW');await page.keyboard.up('KeyD');
+ for(const viewport of [{width:430,height:800},{width:700,height:334},{width:1200,height:800}]){
+  await page.setViewport(viewport);
+  const corner=await page.$eval('.reel-type',el=>{const label=el.getBoundingClientRect(),card=el.closest('.feed-post').getBoundingClientRect();return {right:card.right-label.right,bottom:card.bottom-label.bottom};});
+  assert.ok(Math.abs(corner.right-4)<1&&Math.abs(corner.bottom-4)<1,'MIME label stays at the bottom-right card edge: '+JSON.stringify(corner));
+ }
+ await page.setViewport({width:700,height:334});
  await page.screenshot({path:'/tmp/ac-mime-doom-autoplay.png'});assert.deepEqual(errors,[]);
  console.log('PASS MIME WAD: global identifier, published WAD auto-starts in WASM, full-frame canvas, no file picker or controls');
  }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

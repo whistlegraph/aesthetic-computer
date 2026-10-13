@@ -373,9 +373,10 @@
     /* Shared presentation settings; identity corners are part of the contract. */
     html body.feed .feed-post .reel-command .pal-text { font-size: var(--mime-identifier-size, 21px); }
     html body.feed .feed-post .meta .byline > .name.pal-text { font-size: var(--mime-handle-size, 21px); }
-    html body.feed .feed-post .meta > .reel-type.pal-text { font-size: var(--mime-type-size, 21px); }
+    html body.feed .feed-post .meta > .reel-type.pal-text { font-size: var(--mime-type-size, 21px);
+      position: absolute; right: max(4px, env(safe-area-inset-right)); bottom: max(4px, env(safe-area-inset-bottom)); }
     html body.feed .feed-post > .reel-command { margin-left: var(--mime-padding, 14px); }
-    html body.feed .feed-post > .meta { padding-inline: var(--mime-padding, 14px); }
+    html body.feed .feed-post > .meta { position: static; max-width: none; padding-inline: var(--mime-padding, 14px); }
     .media-title { display: none; font-size: var(--mime-title-size, 14px); }
     html[data-mime-show-title="true"] .media-title { display: block; }
     html[data-mime-show-title="false"] .media-title,
@@ -760,6 +761,7 @@ function shieldMedia(frame, content, interactive) {
     interactingMedia = frame;
     frame.dataset.interacting = "true";
     content.inert = false;
+    if (content.classList.contains("doom-player")) content.focus({ preventScroll: true });
     if (frame.dataset.tape) {
       if (content.tagName === "VIDEO") content.pause();
       content.inert = true;
