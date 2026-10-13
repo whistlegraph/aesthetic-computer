@@ -14,12 +14,14 @@
 		3C00A378256E29A4A9DCCCE5 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4795E20D2523AB8C8C6B203A /* SignInView.swift */; };
 		48C5F9223AE901913991AA5F /* Headline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224AC79DF9F2580E605A15F9 /* Headline.swift */; };
 		5E5868DBFCBE06631751028F /* PostRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF5B9D04957C667E8E468AE /* PostRow.swift */; };
+		6E1D2AE0D0D7A731B363AEF9 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC326112F245442C5C63787 /* Camera.swift */; };
 		7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */; };
 		7DBC8597D8F3EB082404BB72 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9636E56DAB1B4B71016A62 /* ShareViewController.swift */; };
 		80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */; };
 		890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99A28D4E33FF58F77C4E460 /* BugReport.swift */; };
 		9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */; };
 		AEE8EAF0D7C34DD16D5DB1DD /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */; };
+		B1BE0D81A53D79564B95709E /* Filters.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CE789EE6424CA774A4E938 /* Filters.swift */; };
 		B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */; };
 		B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2713237B6298811227FAC1D /* AccountView.swift */; };
 		B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF6C29368504A99625509573 /* Samples.swift */; };
@@ -72,6 +74,7 @@
 		4795E20D2523AB8C8C6B203A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
 		53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
+		6AC326112F245442C5C63787 /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
 		6AF5B9D04957C667E8E468AE /* PostRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRow.swift; sourceTree = "<group>"; };
 		817102FC4DE130FB7D70ECAC /* Entry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entry.swift; sourceTree = "<group>"; };
 		8BAC435F86F8B8EB14D10E6E /* ChoirShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ChoirShare.entitlements; sourceTree = "<group>"; };
@@ -80,6 +83,7 @@
 		AF6C29368504A99625509573 /* Samples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Samples.swift; sourceTree = "<group>"; };
 		B2713237B6298811227FAC1D /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
 		B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Attachments.swift; sourceTree = "<group>"; };
+		B7CE789EE6424CA774A4E938 /* Filters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Filters.swift; sourceTree = "<group>"; };
 		C06DC681F35E20B4A942D602 /* Devices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Devices.swift; sourceTree = "<group>"; };
 		C99A28D4E33FF58F77C4E460 /* BugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugReport.swift; sourceTree = "<group>"; };
 		D6997CB6FF6534FFA1E6EEEF /* Choir.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Choir.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -99,10 +103,12 @@
 				B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */,
 				28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */,
 				C99A28D4E33FF58F77C4E460 /* BugReport.swift */,
+				6AC326112F245442C5C63787 /* Camera.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
 				C06DC681F35E20B4A942D602 /* Devices.swift */,
 				39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */,
 				817102FC4DE130FB7D70ECAC /* Entry.swift */,
+				B7CE789EE6424CA774A4E938 /* Filters.swift */,
 				224AC79DF9F2580E605A15F9 /* Headline.swift */,
 				E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
@@ -268,11 +274,13 @@
 				BFCCAEC15AE7FB1E8741C3EF /* Attachments.swift in Sources */,
 				9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */,
 				890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */,
+				6E1D2AE0D0D7A731B363AEF9 /* Camera.swift in Sources */,
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,
 				ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */,
 				FF84E71C630A7E734A844A40 /* Devices.swift in Sources */,
 				AEE8EAF0D7C34DD16D5DB1DD /* DiscoverView.swift in Sources */,
 				FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */,
+				B1BE0D81A53D79564B95709E /* Filters.swift in Sources */,
 				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
 				B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,

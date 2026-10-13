@@ -215,6 +215,7 @@ struct ChatInput: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var pickingPhotos = false
     @State private var pickingFiles = false
+    @State private var shooting = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -222,6 +223,7 @@ struct ChatInput: View {
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
+                    Button("Camera", systemImage: "camera") { shooting = true }
                     Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
                     Button("Files and PDFs", systemImage: "doc") { pickingFiles = true }
                 } label: { Image(systemName: "plus").font(.body.bold()) }
@@ -237,6 +239,9 @@ struct ChatInput: View {
             .padding(.horizontal, 12)
         }
         .padding(.top, 8).padding(.bottom, 6)
+        .fullScreenCover(isPresented: $shooting) {
+            CameraView { image, filter in if let p = Picks.shot(image, filter: filter), pending.count < 6 { pending.append(p) } }
+        }
         .photosPicker(isPresented: $pickingPhotos, selection: $photoItems, maxSelectionCount: 6, matching: .images)
         .onChange(of: photoItems) { _, items in
             guard !items.isEmpty else { return }

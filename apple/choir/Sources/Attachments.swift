@@ -5,7 +5,9 @@ import UniformTypeIdentifiers
 /// Something picked but not yet sent.
 struct Pending: Identifiable {
     let id = UUID()
-    let data: Data
+    var data: Data
+    var original: UIImage? = nil     // unfiltered, so filters can be swapped
+    var filter: PhotoFilter = .original
     let name: String
     let type: String
     var width: Int? = nil
@@ -23,9 +25,21 @@ enum Picks {
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
         guard let jpg = resized.jpegData(compressionQuality: 0.85) else { return nil }
-        return Pending(data: jpg, name: "photo-\(Int(Date().timeIntervalSince1970)).jpg", type: "image/jpeg",
+        return Pending(data: jpg, original: resized, name: "photo-\(Int(Date().timeIntervalSince1970)).jpg", type: "image/jpeg",
                        width: Int(size.width), height: Int(size.height), thumbnail: resized)
     }
+    /// A camera shot: kept unfiltered as the original, sent with its filter baked in.
+    static func shot(_ image: UIImage, filter: PhotoFilter) -> Pending? {
+        let long = max(image.size.width, image.size.height), scale = min(1, 2048 / max(long, 1))
+        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+        let filtered = filter.apply(resized)
+        guard let jpg = filtered.jpegData(compressionQuality: 0.85) else { return nil }
+        return Pending(data: jpg, original: resized, filter: filter, name: "choir-\(Int(Date().timeIntervalSince1970)).jpg",
+                       type: "image/jpeg", width: Int(size.width), height: Int(size.height), thumbnail: filtered)
+    }
+
     static func file(_ url: URL) -> Pending? {
         let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         guard let data = try? Data(contentsOf: url), data.count <= maxBytes else { return nil }
@@ -40,6 +54,7 @@ enum Picks {
 /// Chips above the text box for what will be sent.
 struct PendingStrip: View {
     @Binding var items: [Pending]
+    @State private var filtering: Pending?
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -50,12 +65,28 @@ struct PendingStrip: View {
                             else { VStack(spacing: 2) { Image(systemName: p.type == "application/pdf" ? "doc.richtext" : "doc"); Text(p.name).font(.system(size: 9)).lineLimit(2) }.padding(4).foregroundStyle(Theme.ink) }
                         }
                         .frame(width: 56, height: 56).background(Theme.paper).clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(alignment: .bottomLeading) {
+                            if p.original != nil {
+                                Image(systemName: p.filter == .original ? "camera.filters" : "sparkles")
+                                    .font(.system(size: 10, weight: .bold)).padding(3)
+                                    .background(.white.opacity(0.85), in: Circle()).padding(3)
+                            }
+                        }
+                        .onTapGesture { if p.original != nil { filtering = p } }
                         Button { items.removeAll { $0.id == p.id } } label: { Image(systemName: "xmark.circle.fill").symbolRenderingMode(.palette).foregroundStyle(.white, .black.opacity(0.6)) }
                             .offset(x: 6, y: -6).accessibilityLabel("Remove")
                     }
                 }
             }
             .padding(.horizontal, 14).padding(.top, 6)
+        }
+        .sheet(item: $filtering) { p in
+            if let original = p.original {
+                FilterSheet(original: original, current: p.filter) { image, filter in
+                    guard let i = items.firstIndex(where: { $0.id == p.id }), let jpg = image.jpegData(compressionQuality: 0.85) else { return }
+                    items[i].data = jpg; items[i].thumbnail = image; items[i].filter = filter
+                }
+            }
         }
     }
 }
