@@ -163,14 +163,27 @@ extension View {
 /// (10-12). Ink at rest, the red head rule once there is something to send.
 struct SendStyle: ButtonStyle {
     var ready: Bool
+    // Fía (22:05): "higher contrast … it's still hard to read" → white on near-black, always.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .padding(.horizontal, 14).padding(.vertical, 9)
             .foregroundStyle(Color.white)
-            .background(Capsule().fill(ready ? Theme.head : Theme.ink.opacity(0.75)))
-            .shadow(color: .black.opacity(ready ? 0.18 : 0), radius: 4, y: 2)
+            .frame(height: 40).padding(.horizontal, 16)
+            .background(Capsule().fill(Theme.ink))
+            .opacity(ready ? 1 : 0.55)
+            .shadow(color: .black.opacity(ready ? 0.2 : 0), radius: 4, y: 2)
             .scaleEffect(configuration.isPressed ? 0.94 : 1)
             .animation(.easeOut(duration: 0.15), value: ready)
+    }
+}
+
+/// Round glass buttons beside the text box, all the same size so they line up.
+struct CircleChipStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(Theme.ink)
+            .frame(width: 40, height: 40)
+            .glass(Circle())
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
     }
 }
 

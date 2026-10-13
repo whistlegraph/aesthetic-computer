@@ -67,9 +67,11 @@ struct HeadlineCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let image = meta?.image, let url = URL(string: image) {
-                AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.desk }
-                    .frame(height: large ? 200 : 140).frame(maxWidth: .infinity).clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                // The frame sets the size; the image only fills it (a wide image used to
+                // push the whole card past the screen edge — Fía's 22:09 screenshot).
+                Theme.desk.frame(maxWidth: .infinity).frame(height: large ? 200 : 140)
+                    .overlay { AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear } }
+                    .clipped().clipShape(RoundedRectangle(cornerRadius: 8))
             }
             HStack(spacing: 8) {
                 if opening {

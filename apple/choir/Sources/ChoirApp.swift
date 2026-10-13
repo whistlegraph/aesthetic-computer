@@ -42,6 +42,8 @@ final class Room: ObservableObject {
     @Published var tags: [TagCount] = []
     @Published var tag: String?
     @Published var error: String?
+    /// A Discover item someone wants to talk about in the main chat (Fía, 22:12).
+    @Published var about: Post?
     @Published var hidden: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "hidden") ?? [])
 
     func load() async {

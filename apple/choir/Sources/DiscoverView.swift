@@ -29,12 +29,11 @@ struct DiscoverView: View {
                                 if let link = post.links.first {
                                     HeadlineCard(link: link, words: PostRow(post: post).shownText, large: true, stored: post.preview, opportunity: post.kind == "opportunity", opening: post.kind == "opening")
                                 }
-                                Button { open = post; Trail.send("discover:comments") } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "bubble.left")
-                                        Text(post.replies == 0 ? "Comment" : "\(post.replies) \(post.replies == 1 ? "comment" : "comments")")
-                                    }
-                                    .font(Theme.type(14, bold: true))
+                                // Fía (22:12): comments go to the main chat, linking the article,
+                                // so everyone sees what you're referring to.
+                                Button { room.about = post; Trail.send("discover:talk"); dismiss() } label: {
+                                    HStack(spacing: 6) { Image(systemName: "bubble.left"); Text("Talk about it in chat") }
+                                        .font(Theme.type(14, bold: true))
                                 }
                                 .buttonStyle(GlassChipStyle())
                                 Spacer(minLength: 0)

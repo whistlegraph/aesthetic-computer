@@ -56,6 +56,14 @@ struct InstagramCard: View {
 
     static func decode(_ s: String) -> String {
         var out = s
+        // Numeric entities, decimal and hex (Instagram writes emoji as &#x1f994;).
+        if let re = try? NSRegularExpression(pattern: #"&#(x?)([0-9a-fA-F]+);"#) {
+            for m in re.matches(in: out, range: NSRange(out.startIndex..., in: out)).reversed() {
+                guard let r = Range(m.range, in: out), let hexR = Range(m.range(at: 1), in: out), let numR = Range(m.range(at: 2), in: out),
+                      let v = UInt32(out[numR], radix: out[hexR].isEmpty ? 10 : 16), let scalar = Unicode.Scalar(v) else { continue }
+                out.replaceSubrange(r, with: String(Character(scalar)))
+            }
+        }
         for (k, v) in ["&#064;": "@", "&amp;": "&", "&quot;": "\"", "&#039;": "'", "&#x27;": "'", "&lt;": "<", "&gt;": ">"] { out = out.replacingOccurrences(of: k, with: v) }
         return out
     }

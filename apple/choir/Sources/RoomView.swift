@@ -215,7 +215,7 @@ struct ChatInput: View {
         stored = p.joined(separator: ",")
     }
     var all: [String] { (room.tags.map(\.tag) + picked).reduce(into: []) { if !$0.contains($1) { $0.append($1) } } }
-    var ready: Bool { (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty) && picked.count >= Self.minTags && !sending }
+    var ready: Bool { (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty || room.about != nil) && picked.count >= Self.minTags && !sending }
 
     @State private var showTags = false
     @State private var pending: [Pending] = []
@@ -227,6 +227,7 @@ struct ChatInput: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            if let about = room.about { AboutChip(post: about) { room.about = nil } }
             if !pending.isEmpty { PendingStrip(items: $pending) }
             if recorder.working { HStack(spacing: 8) { FlowerSpinner(size: 18); Text("Transcribing…").font(Theme.type(12)) }.foregroundStyle(Theme.ink.opacity(0.7)) }
             if let p = recorder.problem { Text(p).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
@@ -234,23 +235,23 @@ struct ChatInput: View {
             if recorder.recording {
                 RecordingBar(recorder: recorder)
             } else {
+            // Fía (22:05): line the buttons up, voice on the left.
             HStack(alignment: .bottom, spacing: 8) {
+                Button { Task { await recorder.start() } } label: { Image(systemName: "mic.fill").font(.system(size: 17, weight: .semibold)) }
+                    .buttonStyle(CircleChipStyle()).accessibilityLabel("Record a voice note")
                 Menu {
                     Button("Camera", systemImage: "camera") { shooting = true }
                     Button("Photos", systemImage: "photo.on.rectangle") { pickingPhotos = true }
                     Button("Files and PDFs", systemImage: "doc") { pickingFiles = true }
-                } label: { Hand("HandPlus", height: 17) }
-                .buttonStyle(GlassChipStyle()).accessibilityLabel("Attach")
+                } label: { Hand("HandPlus", height: 17).frame(width: 40, height: 40).glass(Circle()).foregroundStyle(Theme.ink) }
+                .accessibilityLabel("Attach")
                 TextField("Comments on culture", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...6)
                     .focused($typing)
-                    .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
+                    .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 40)
+                    .glass(RoundedRectangle(cornerRadius: 20))
                     .onChange(of: typing) { _, on in if on { onFocus() } }
-                if text.isEmpty && pending.isEmpty {
-                    Button { Task { await recorder.start() } } label: { Image(systemName: "mic.fill").font(.system(size: 17, weight: .semibold)) }
-                        .buttonStyle(GlassChipStyle()).accessibilityLabel("Record a voice note")
-                }
-                Button { Task { await send() } } label: { Hand("HandSend", height: 22) }
+                Button { Task { await send() } } label: { Hand("HandSend", height: 20) }
                     .buttonStyle(SendStyle(ready: ready)).disabled(!ready)
                     .accessibilityLabel("Send")
             }
@@ -307,10 +308,33 @@ struct ChatInput: View {
                 files.append(try await API.upload(p.data, name: p.name, type: p.type, width: p.width, height: p.height,
                                                   duration: p.duration, transcript: p.transcript, token: token))
             }
-            _ = try await API.post(.init(text: text, tags: [], replyTo: nil, attachments: files.isEmpty ? nil : files), token: token)
+            // Talking about a Discover item: the message carries its link, so the chat shows the card.
+            let link = room.about?.links.first
+            let body = [text.trimmingCharacters(in: .whitespacesAndNewlines), link ?? ""].filter { !$0.isEmpty }.joined(separator: "\n")
+            _ = try await API.post(.init(text: body, tags: [], replyTo: nil, attachments: files.isEmpty ? nil : files), token: token)
+            if link != nil { Trail.send("discover:talked"); room.about = nil }
             Trail.send("chat:send", ["files": files.count])
             text = ""; pending = []; error = nil; onSent()
             typing = true // keep the keyboard up for the next line
         } catch { self.error = error.localizedDescription; Trail.send("post:failed", ["why": error.localizedDescription]) }
+    }
+}
+
+/// "About: <headline>" above the chat box while talking about a Discover item.
+struct AboutChip: View {
+    let post: Post
+    var clear: () -> Void
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "newspaper").font(.caption)
+            Text("About: " + (post.preview?.title ?? post.text.split(separator: "\n").first.map(String.init) ?? "this"))
+                .font(Theme.type(12, bold: true)).lineLimit(1)
+            Spacer(minLength: 0)
+            Button(action: clear) { Hand("HandX", height: 10) }.accessibilityLabel("Not about this")
+        }
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .glass(Capsule())
+        .padding(.horizontal, 14)
     }
 }
