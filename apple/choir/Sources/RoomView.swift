@@ -163,8 +163,7 @@ struct ChatRow: View {
     func linked(_ text: String) -> AttributedString { PostRow(post: post).linked(text) }
 }
 
-/// The always-there input. Tags stick between messages, so after picking two
-/// once you just type.
+/// The always-there input. Tags are optional and stick between messages.
 struct ChatInput: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
@@ -175,7 +174,7 @@ struct ChatInput: View {
     @State private var adding = false
     @State private var error: String?
     @State private var sending = false
-    static let minTags = 2
+    static let minTags = 0
 
     var picked: [String] { stored.split(separator: ",").map(String.init) }
     func toggle(_ t: String) {
@@ -206,7 +205,7 @@ struct ChatInput: View {
             }
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             HStack(alignment: .bottom, spacing: 8) {
-                TextField(picked.count >= Self.minTags ? "Comments on culture" : "Pick \(Self.minTags) tags, then write", text: $text, axis: .vertical)
+                TextField("Comments on culture", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...5)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
                 Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }

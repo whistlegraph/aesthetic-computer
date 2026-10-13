@@ -57,8 +57,9 @@ test("tags are one spelling, links are pulled out of the words", () => {
   assert.deepEqual(linksIn("see https://award.art/, and https://award.art/ again (https://x.y/z)."), ["https://award.art/", "https://x.y/z"]);
 });
 
-test("a root post needs two tags; a reply needs none", () => {
-  assert.throws(() => validatePost({ text: "hi", tags: ["news"] }), /at least 2/);
+test("tags are optional; a reply takes its root's", () => {
+  assert.deepEqual(validatePost({ text: "hi", tags: [] }).tags, []);
+  assert.deepEqual(validatePost({ text: "hi", tags: ["news"] }).tags, ["news"]);
   assert.throws(() => validatePost({ text: "   ", tags: ["news", "la"] }), /Say something/);
   assert.throws(() => validatePost({ text: "hi", tags: ["a", "b", "c", "d", "e", "f", "g"] }), /At most/);
   assert.deepEqual(validatePost({ text: "ok", tags: [], replyTo: "0".repeat(24) }).tags, []);

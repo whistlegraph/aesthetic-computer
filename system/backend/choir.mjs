@@ -1,12 +1,12 @@
 // choir, 26.10.12
-// A tagged room for art-world professionals. One main chat; any post can grow
-// a thread; every post carries at least two tags; anyone can start a tag.
+// A room for art-world professionals. One main chat; any post can grow a
+// thread; tags are optional (Fía, 10-12); anyone can start a tag.
 //
 // Pure store logic over a Mongo collection so it tests without a database
 // (see choir.test.mjs). The lith route is netlify/functions/choir.mjs.
 
 export const MAX_CHARS = 2000;
-export const MIN_TAGS = 2;
+export const MIN_TAGS = 0;
 export const MAX_TAGS = 6;
 export const STARTER_TAGS = ["news", "discussion", "free-and-for-sale", "los-angeles", "new-york"];
 

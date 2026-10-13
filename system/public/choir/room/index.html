@@ -91,7 +91,7 @@
     <textarea id="text" placeholder="What's happening? Links get a preview." maxlength="2000"></textarea>
     <div class="pick" id="pick"></div>
     <div class="row">
-      <span class="status" id="compose-status">Tag it at least two ways.</span>
+      <span class="status" id="compose-status">Tags are optional.</span>
       <button class="primary" id="send" disabled>Post</button>
     </div>
   </section>
@@ -133,7 +133,7 @@
 const API = "/api/choir";
 const AC = location.hostname.endsWith("aesthetic.computer") || location.hostname === "localhost" ? "" : "https://aesthetic.computer";
 const CLIENT_ID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt"; // the aesthetic SPA, same as boot.mjs
-const MIN_TAGS = 2;
+const MIN_TAGS = 0;
 const $ = (id) => document.getElementById(id);
 
 // The trail: a per-tab session id ties client events to the server's.
@@ -224,7 +224,7 @@ function readyToPost() {
   const enough = reply || picked.size >= MIN_TAGS;
   $("send").disabled = !(words && enough);
   const s = $("compose-status"); s.className = "status";
-  s.textContent = reply ? "Replying in this thread." : enough ? `${picked.size} tag${picked.size === 1 ? "" : "s"}.` : `Tag it at least ${MIN_TAGS} ways.`;
+  s.textContent = reply ? "Replying in this thread." : picked.size ? `${picked.size} tag${picked.size === 1 ? "" : "s"}.` : "Tags are optional.";
 }
 $("text").oninput = readyToPost;
 $("send").onclick = async () => {
