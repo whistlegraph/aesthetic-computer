@@ -26,7 +26,7 @@ export async function boot(context) {
   target = characterHandle(context.colon?.[0] || context.params?.[0]);
   owner = ''; revision = 0; selected = 'head'; mode = 'body';
   appearance = defaultCharacter(); editable = false; status = 'Loading';
-  context.hud?.label?.('oskiewarchar');
+  context.hud?.label?.(''); // The editor draws its handle header in this corner.
   await load();
 }
 
