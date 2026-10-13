@@ -90,7 +90,7 @@ struct TermsSheet: View {
                 .font(Theme.type(14)).tint(Theme.ink)
             if let error { Text(error).font(Theme.type(13)).foregroundStyle(Theme.head) }
             Spacer()
-            Button(busy ? "One moment…" : "I agree") { Task { await agree() } }
+            Button(busy ? "One moment…" : "Sounds good")   // Fía, 23:06 { Task { await agree() } }
                 .buttonStyle(SendStyle(ready: !busy)).disabled(busy).frame(maxWidth: .infinity)
         }
         .padding(26)
