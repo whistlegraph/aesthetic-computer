@@ -1466,6 +1466,12 @@ mime.ac {
         header Cache-Control "no-cache"
         file_server
     }
+    handle /p/* {
+        root * /opt/ac/system/public/mime
+        rewrite * /index.html
+        header Cache-Control "no-cache"
+        file_server
+    }
     @mime_brand path /favicon.svg /favicon-32.png /apple-touch-icon.png /social/mime.jpg
     handle @mime_brand {
         root * /opt/ac/system/public/mime

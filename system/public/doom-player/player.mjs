@@ -95,4 +95,8 @@ window.__mimePlayerSettle=play=>{
 };
 window.__mimeSettle=window.__mimePlayerSettle;
 window.addEventListener('message',event=>{if(event.source===parent&&event.data?.type==='mime:playing')window.__mimeSettle(event.data.playing===true);});
+window.addEventListener('message',event=>{
+  if(query.get('mime')!=='1'||event.source!==parent||event.data?.type!=='mime:key'||!['KeyW','KeyA','KeyS','KeyD','Escape'].includes(event.data.code))return;
+  window.dispatchEvent(new KeyboardEvent(event.data.down===false?'keyup':'keydown',{code:event.data.code,repeat:event.data.repeat===true,bubbles:true,cancelable:true}));
+});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){release();if(started){Module.pauseMainLoop();window.SDL2?.audioContext?.suspend();}}else if(playing&&started){if(!window.Asyncify?.currData)Module.resumeMainLoop();window.SDL2?.audioContext?.resume();}});

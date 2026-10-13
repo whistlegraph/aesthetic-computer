@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ObjectId } from "mongodb";
 import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts } from "./mime-media.mjs";
+import { ensureMoodCode, moodIdForCode } from "./mood-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
 
 const REFRESH_MS = 60_000;
@@ -203,14 +204,15 @@ async function moods(db) {
   const rows = await db.collection("moods").find({ deleted: { $ne: true }, mood: { $type: "string", $ne: "" } },
     { projection: { user: 1, mood: 1, when: 1 } }).sort({ when: -1 }).limit(PER_SOURCE).toArray();
   const handles = await handleMap(db, rows.map((row) => row.user));
-  return rows.filter((row) => handles.has(row.user)).map((row) => feedItem(moodPost(row, handles.get(row.user)), "mood"));
+  return Promise.all(rows.filter((row) => handles.has(row.user)).map(async (row) =>
+    feedItem(moodPost(row, handles.get(row.user), await ensureMoodCode(db, row._id)), "mood")));
 }
 
-export function moodPost(row, handle) {
+export function moodPost(row, handle, code) {
   return {
     code: "mood_" + String(row._id), parent: null, board: "text/plain", name: handle, text: row.mood.slice(0, 500),
     when: row.when, replies: 0, file: null, origin: { name: "mood", url: "https://aesthetic.computer/" + encodeURIComponent(handle) },
-    media: { kind: "mood", id: String(row._id), code: null, url: "https://aesthetic.computer/" + encodeURIComponent(handle), author: handle },
+    media: { kind: "mood", id: String(row._id), code, url: "https://aesthetic.computer/" + encodeURIComponent(handle), author: handle },
   };
 }
 
@@ -298,11 +300,17 @@ export async function feedOnlyOp(db, code) {
     const item = nopaintArchive().find((entry) => entry.code === code);
     return item ? withThread(db, item.post) : null;
   }
+  const moodAlias = /^mood~([A-Za-z0-9]{3,16})$/.exec(code);
+  if (moodAlias) {
+    const id = await moodIdForCode(db, moodAlias[1]);
+    if (!id) return null;
+    code = "mood_" + id;
+  }
   match = /^mood_([a-f0-9]{24})$/.exec(code);
   if (match) {
     const row = await db.collection("moods").findOne({ _id: new ObjectId(match[1]), deleted: { $ne: true } });
     const handle = row && (await handleMap(db, [row.user])).get(row.user);
-    return handle ? withThread(db, moodPost(row, handle)) : null;
+    return handle ? withThread(db, moodPost(row, handle, await ensureMoodCode(db, row._id))) : null;
   }
   match = /^wgpiece_(wg[A-Za-z0-9]+)$/.exec(code);
   if (match) {

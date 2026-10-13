@@ -223,6 +223,7 @@ async function getBoard(db, posts, board, page) {
 async function getThread(db, posts, code) {
   const op = await findOp(db, posts, code);
   if (!op) return respond(404, { error: "thread not found" });
+  code = op.code; // Short aliases share the original thread and engagement.
   const replies = await posts.find({ parent: code }, NO_DATA).sort({ when: 1, _id: 1 }).toArray();
   const [convertedOp, ...publicReplies] = await publicPosts(db, [op, ...replies]);
   // Feed-only threads (archive paintings, moods, Whistlegraph pieces) arrive already public.

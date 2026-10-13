@@ -577,13 +577,19 @@ history.scrollRestoration = "manual";
 function feedTop(node) {
   return node.getBoundingClientRect().top + window.scrollY - chromeTop();
 }
-function rememberFeed() {
+let routedPath = location.pathname;
+function rememberFeed(updateAddress = true) {
   if (!activeFeed) return;
-  const edge = chromeTop();
+  const edge = (chromeTop() + innerHeight) / 2;
   const index = activeFeed.nodes.findIndex((node) => node.getBoundingClientRect().bottom > edge + 1);
   activeFeed.index = Math.max(0, index);
   const node = activeFeed.nodes[activeFeed.index];
   activeFeed.offset = node ? window.scrollY - feedTop(node) : 0;
+  if (updateAddress && node && (!location.hash || location.hash === "#/")) {
+    const path = "/p/" + encodeURIComponent(node.dataset.permalink);
+    if (location.pathname !== path || location.hash) history.replaceState(null, "", path + location.search);
+    routedPath = path;
+  }
 }
 window.addEventListener("scroll", () => {
   if (activeFeed?.viewportWidth === view.clientWidth) rememberFeed();
@@ -774,7 +780,7 @@ function shieldMedia(frame, content, interactive) {
     interactingMedia = frame;
     frame.dataset.interacting = "true";
     content.inert = false;
-    if (content.classList.contains("doom-player")) content.focus({ preventScroll: true });
+    if (content.classList.contains("doom-player") && event.type !== "keydown") content.focus({ preventScroll: true });
     if (frame.dataset.tape) {
       if (content.tagName === "VIDEO") content.pause();
       content.inert = true;
@@ -790,7 +796,40 @@ function shieldMedia(frame, content, interactive) {
     syncPieceFocus();
   };
   frame.append(button);
+  if (content.classList.contains("doom-player")) shield.addEventListener("click", event => button.onclick(event));
 }
+// A visible Doom card accepts movement directly, even after a page reload or
+// returning from another card. Keep each initial down/up pair in one window
+// before moving focus: postMessage and native iframe input can arrive out of order.
+const doomBridgeKeys = new Map();
+window.addEventListener("keydown", event => {
+  if (!activeFeed || !["KeyW", "KeyA", "KeyS", "KeyD", "Escape"].includes(event.code) ||
+      event.altKey || event.ctrlKey || event.metaKey ||
+      event.target.closest?.("input, textarea, button, [contenteditable]")) return;
+  const middle = (chromeTop() + innerHeight) / 2;
+  const node = activeFeed.nodes.find(node => { const box = node.getBoundingClientRect(); return box.top <= middle && box.bottom > middle; });
+  const player = node?.querySelector(".doom-player");
+  if (!player) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const frame = player.parentElement;
+  if (interactingMedia !== frame) frame.querySelector(".media-toggle").onclick(event);
+  doomBridgeKeys.set(event.code, player);
+  player.contentWindow?.postMessage({ type: "mime:playing", playing: true }, "https://aesthetic.computer");
+  player.contentWindow?.postMessage({ type: "mime:key", code: event.code, down: true, repeat: event.repeat }, "https://aesthetic.computer");
+});
+window.addEventListener("keyup", event => {
+  const player = doomBridgeKeys.get(event.code);
+  if (!player) return;
+  event.preventDefault();
+  doomBridgeKeys.delete(event.code);
+  player.contentWindow?.postMessage({ type: "mime:key", code: event.code, down: false }, "https://aesthetic.computer");
+  if (!doomBridgeKeys.size && player.parentElement === interactingMedia) player.focus({ preventScroll: true });
+});
+window.addEventListener("blur", () => {
+  for (const [code, player] of doomBridgeKeys) player.contentWindow?.postMessage({ type: "mime:key", code, down: false }, "https://aesthetic.computer");
+  doomBridgeKeys.clear();
+});
 window.addEventListener("keydown", event => {
   if (event.key === "Escape" && interactingMedia) {
     const button = interactingMedia.querySelector(".media-toggle");
@@ -1151,6 +1190,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   const root = !post.parent;
   const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (post.media?.kind === "mood" ? " mood-post" : ""));
   div.id = post.code;
+  div.dataset.permalink = post.media?.kind === "mood" && post.media.code ? "mood~" + post.media.code : post.code;
   tintAuthor(div, post.name);
   const meta = el("div", "meta");
   const avatar = el("span", "avatar", (post.name || "?").replace(/^@/, "").slice(0, 1).toLowerCase());
@@ -1159,7 +1199,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   byline.append(authorName(post.name));
   if (root) {
     // AC's own notation names the work: #painting, !tape, $kidlisp, a piece by its code.
-    const sigil = { painting: "#", tape: "!", kidlisp: "$" }[post.media?.kind];
+    const sigil = { painting: "#", tape: "!", kidlisp: "$", mood: "mood~" }[post.media?.kind];
     const doom = ["application/x-doom-wad", "application/x-doom"].includes(post.file?.type);
     const label = doom ? "doom~" + post.code : post.media?.code ? (sigil ?? "") + post.media.code : post.code;
     const source = el("a", "media-label", label);
@@ -1553,7 +1593,7 @@ function loadingMark(signal) {
   };
   return { watch, remove };
 }
-async function home(page = 0, signal) {
+async function home(page = 0, signal, target) {
   const entrance = !feedCache ? loadingMark(signal) : null;
   let state = feedCache?.startPage === page ? feedCache : null;
   if (!state) {
@@ -1567,6 +1607,21 @@ async function home(page = 0, signal) {
     }
     feedCache = state;
   }
+  if (target) {
+    let index = state.nodes.findIndex(node => node.dataset.permalink === target || node.id === target);
+    if (index < 0) {
+      const data = await read(API + "?thread=" + encodeURIComponent(target), signal).catch(error => { entrance?.remove(); throw error; });
+      if (signal.aborted) return;
+      index = state.nodes.findIndex(node => node.id === data.op.code);
+      if (index < 0) {
+        state.nodes.unshift(renderPost(data.op, false, false, undefined, true));
+        state.codes.add(data.op.code);
+        index = 0;
+      }
+    }
+    if (state.index !== index || state.offset === null) state.offset = 0;
+    state.index = index;
+  }
   if (signal.aborted) return;
   const restoreIndex = state.index;
   const restoreOffset = state.offset;
@@ -1574,8 +1629,8 @@ async function home(page = 0, signal) {
   list.setAttribute("aria-label", "Media feed");
   list.append(...state.nodes);
   view.replaceChildren(list);
-  entrance?.watch(state.nodes[0]);
-  const firstImage = state.nodes[0]?.querySelector(".feed-media > img");
+  entrance?.watch(state.nodes[restoreIndex]);
+  const firstImage = state.nodes[restoreIndex]?.querySelector(".feed-media > img");
   if (firstImage) { firstImage.loading = "eager"; firstImage.fetchPriority = "high"; }
   if (!state.nodes.length) list.append(el("p", null, "no media yet"));
   const more = el("div", "feed-more");
@@ -1667,7 +1722,7 @@ function watchForNew(state, signal) {
       if (!fresh.length || signal.aborted) return;
       pill = el("button", "new-pill", "↑ new" + (fresh[0].name ? " from " + fresh[0].name : ""));
       pill.type = "button";
-      pill.onclick = () => { feedCache = null; route(); };
+      pill.onclick = () => { feedCache = null; history.replaceState(null, "", "/" + location.search); route(); };
       document.body.append(pill);
     } catch {}
   };
@@ -1719,7 +1774,8 @@ async function read(url, signal) {
 async function route() {
   exitMediaInteraction();
   stopPiece();
-  rememberFeed();
+  rememberFeed(false);
+  routedPath = location.pathname;
   activeFeed = null;
   sampleEngagement();
   flushEngagement();
@@ -1740,7 +1796,7 @@ async function route() {
   const page = Math.max(0, parseInt(params.get("page")) || 0);
   view.replaceChildren(el("p", null, "loading…"));
   try {
-    if (!hash) await home(page, signal);
+    if (!hash) await home(page, signal, location.pathname.startsWith("/p/") ? decodeURIComponent(location.pathname.slice(3)) : null);
     else if (hash === "saved") await savedPosts(page, signal);
     else if (hash.startsWith("t/")) await thread(hash.slice(2), undefined, signal);
     else if (hash.startsWith("media/")) {
@@ -1799,6 +1855,7 @@ async function start() {
     } finally { accountAction.disabled = false; }
   }
   window.onhashchange = route;
+  window.addEventListener("popstate", () => { if (location.pathname !== routedPath) route(); });
   await route();
   await updateIdentity();
 }

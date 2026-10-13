@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  const page=await browser.newPage(),html=await readFile('system/public/mime/index.html','utf8');await page.setViewport({width:430,height:800});await page.setRequestInterception(true);
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  page.on('request',async request=>{const u=new URL(request.url());
-  if(u.hostname==='mime.ac'&&u.pathname==='/')return request.respond({contentType:'text/html',body:html});
+  if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')))return request.respond({contentType:'text/html',body:html});
   if(u.pathname==='/api/mime'&&u.searchParams.has('file'))return request.respond({contentType:'application/x-doom-wad',headers:{'Access-Control-Allow-Origin':'*'},body:await readFile('system/public/doom-player/examples/first-arena.wad')});
   if(u.pathname==='/api/mime')return request.respond({contentType:'application/json',body:JSON.stringify({recent:[{code:'wadfixture',parent:null,name:'@maker',when:new Date().toISOString(),file:{name:'arena.wad',type:'application/x-doom-wad',url:'/api/mime?file=wadfixture'}}],hasMore:false})});
   if(u.pathname.startsWith('/doom-player/')){
@@ -22,20 +22,29 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  const dimensions=await player.$eval('canvas',el=>({width:el.clientWidth,height:el.clientHeight,viewportWidth:innerWidth,viewportHeight:innerHeight}));
  assert.equal(dimensions.width,dimensions.viewportWidth);assert.equal(dimensions.height,dimensions.viewportHeight);
  const loaded=await player.evaluate(()=>Array.from(Module.FS.readFile('/level.wad')));assert.deepEqual(Buffer.from(loaded),await readFile('system/public/doom-player/examples/first-arena.wad'),'plays the published WAD');
- await page.click('.reel-command .media-label');
+ await player.evaluate(()=>{window.movementEvents=[];for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(['ArrowUp','ArrowDown','Comma','Period'].includes(e.code))movementEvents.push([type,e.code]);});});
+ await page.evaluate(()=>{document.body.tabIndex=-1;document.body.focus();});
+ await page.keyboard.press('KeyW');
+ await page.waitForFunction(()=>document.activeElement?.classList.contains('doom-player'));
+ assert.deepEqual(await player.evaluate(()=>movementEvents),[['keydown','ArrowUp'],['keyup','ArrowUp']],'first W activates and releases movement without a title click');
  assert.equal(await page.$eval('.doom-player',el=>el.inert),false,'entering interaction enables the game');
  assert.equal(await page.evaluate(()=>document.activeElement?.classList.contains('doom-player')),true,'entering interaction focuses the game');
- await player.evaluate(()=>{window.movementEvents=[];for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(['ArrowUp','ArrowDown','Comma','Period'].includes(e.code))movementEvents.push([type,e.code]);});});
+ await player.evaluate(()=>movementEvents=[]);
  for(const code of ['KeyW','KeyS','KeyA','KeyD']){await page.keyboard.down(code);await page.keyboard.up(code);}
  assert.deepEqual(await player.evaluate(()=>movementEvents),['ArrowUp','ArrowDown','Comma','Period'].flatMap(code=>[['keydown',code],['keyup',code]]),'WASD reaches the embedded player');
  await page.keyboard.down('KeyW');await page.keyboard.down('KeyD');
  await player.evaluate(()=>window.dispatchEvent(new Event('blur')));
  assert.deepEqual(await player.evaluate(()=>movementEvents.slice(-2)),[['keyup','ArrowUp'],['keyup','Period']],'losing focus releases diagonal movement');
  await page.keyboard.up('KeyW');await page.keyboard.up('KeyD');
+ await page.click('.reel-command .media-label');
+ await page.click('.media-shield');
+ assert.equal(await page.$eval('.doom-player',el=>el.inert),false,'clicking the game itself enables play');
+ assert.equal(await page.evaluate(()=>document.activeElement?.classList.contains('doom-player')),true,'clicking game focuses it');
  const originalURL=page.url(),playerURL=player.url();assert.equal(new URL(playerURL).searchParams.get('mime'),'1');
- for(const stopped of [false,true]){
-  if(stopped)await player.evaluate(()=>Module.onExit(0));
-  if(stopped)assert.equal(await player.$eval('#status',el=>el.textContent),'Doom stopped (0)');
+ for(const stopped of [false,true,'parent']){
+  if(stopped==='parent')await page.evaluate(()=>document.body.focus());
+  if(stopped===true)await player.evaluate(()=>Module.onExit(0));
+  if(stopped===true)assert.equal(await player.$eval('#status',el=>el.textContent),'Doom stopped (0)');
   const navigation=player.waitForNavigation({waitUntil:'domcontentloaded'});
   await page.keyboard.press('Escape');await navigation;
   await player.waitForFunction(()=>document.body.dataset.state==='playing'&&window.__mimeReady,{timeout:60000});

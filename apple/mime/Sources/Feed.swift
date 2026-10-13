@@ -25,6 +25,7 @@ struct Post: Decodable, Identifiable, Equatable {
         case "painting": return "#" + code
         case "tape": return "!" + code
         case "kidlisp": return "$" + code
+        case "mood": return "mood~" + code
         default: return code
         }
     }
