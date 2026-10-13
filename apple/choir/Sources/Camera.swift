@@ -110,8 +110,8 @@ struct CameraView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { withAnimation { flash = false } }
                     let f = camera.filter
                     camera.snap { image in
-                        Trail.send("camera:snap", ["filter": f.rawValue])
-                        camera.stop(); onTake(image, f); dismiss()
+                        Trail.send("camera:snap", ["filter": f.rawValue, "daisy": PhotoFilter.daisyIndex])
+                        camera.stop(); onTake(image, f); PhotoFilter.nextDaisy(); dismiss()
                     }
                 } label: {
                     Circle().fill(.white).frame(width: 70, height: 70)

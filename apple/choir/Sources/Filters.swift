@@ -36,10 +36,24 @@ enum PhotoFilter: String, CaseIterable, Identifiable {
     // (DaisyOutline) inked on top. Always square. Outside the daisy is clear, so
     // photos land in the chat as flowers (Fía: "images show up as flowers");
     // the live camera fills it with a soft blur of the scene instead.
-    nonisolated(unsafe) private static let daisyMask: CIImage? = UIImage(named: "DaisyMask")?.cgImage.map { CIImage(cgImage: $0) }
-    nonisolated(unsafe) private static let daisyOutline: CIImage? = UIImage(named: "DaisyOutline")?.cgImage.map { CIImage(cgImage: $0) }
+    // 18 of her hand-drawn flowers (Daisy00…17 Mask/Outline: the outer edge of her
+    // stroke only, centers gone). Each camera shot gets a different one.
+    nonisolated(unsafe) private static let daisies: [(mask: CIImage, outline: CIImage)] = (0..<64).compactMap { i in
+        let n = String(format: "Daisy%02d", i)
+        guard let m = UIImage(named: n + "Mask")?.cgImage, let o = UIImage(named: n + "Outline")?.cgImage else { return nil }
+        return (CIImage(cgImage: m), CIImage(cgImage: o))
+    }
+    nonisolated(unsafe) static var daisyIndex = Int.random(in: 0..<max(daisies.count, 1))
+    /// Deal the next flower (after each shot), never the same one twice in a row.
+    static func nextDaisy() {
+        guard daisies.count > 1 else { return }
+        var n = daisyIndex
+        while n == daisyIndex { n = Int.random(in: 0..<daisies.count) }
+        daisyIndex = n
+    }
     static func daisy(_ input: CIImage, blurredFrame: Bool = false) -> CIImage? {
-        guard let mask = daisyMask, let outline = daisyOutline else { return input }
+        guard !daisies.isEmpty else { return input }
+        let (mask, outline) = daisies[daisyIndex % daisies.count]
         let e = input.extent, side = min(e.width, e.height)
         let square = input.cropped(to: CGRect(x: e.midX - side / 2, y: e.midY - side / 2, width: side, height: side))
             .transformed(by: CGAffineTransform(translationX: -(e.midX - side / 2), y: -(e.midY - side / 2)))
