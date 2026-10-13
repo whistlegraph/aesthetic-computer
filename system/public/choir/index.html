@@ -3,38 +3,36 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="theme-color" content="#fff496" />
+  <meta name="theme-color" content="#e2dbcc" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>choir</title>
-  <meta name="description" content="News, discussion, free and for sale, by city. On iPhone." />
+  <meta name="description" content="Make notes on culture." />
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="icon" href="icon.png" />
   <style>
-    :root { --paper: #fff496; --rule: rgb(120 165 215 / .55); --margin: rgb(214 70 70 / .7); --ink: #1c1816; --panel: #fff; }
+    :root { --desk: #e2dbcc; --rule: rgb(150 185 225 / .6); --head: #cf4040; --ink: #1c1816; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100dvh; color: var(--ink); display: grid; place-items: center; padding: 24px 16px;
-      background: linear-gradient(90deg, transparent 22px, var(--margin) 22px 23px, transparent 23px 26px, var(--margin) 26px 27px, transparent 27px),
-                  repeating-linear-gradient(transparent 0 27px, var(--rule) 27px 28px), var(--paper);
-      font: 16px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
-    main { width: min(100%, 380px); border: 2px solid var(--ink); background: var(--panel); box-shadow: 4px 4px 0 var(--ink); }
-    .title { background: var(--ink); color: var(--paper); font-weight: 700; font-size: 13px; padding: 4px 8px; }
-    .body { padding: 22px 18px 20px; text-align: center; }
-    h1 { margin: 0 0 14px; }
-    h1 img { width: 180px; max-width: 70%; height: auto; display: block; margin: 0 auto; }
+    body { margin: 0; min-height: 100dvh; background: var(--desk); color: var(--ink); display: grid; place-items: center; padding: 24px 16px;
+      font: 17px/1.5 "American Typewriter", "Courier New", ui-monospace, monospace; }
+    main { width: min(100%, 380px); background: #fff; box-shadow: 0 2px 0 rgb(0 0 0 / .18), 0 3px 12px rgb(0 0 0 / .1); }
+    .head { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px 6px; border-bottom: 1.5px solid var(--head); font-size: 13px; }
+    .body { padding: 18px 14px 20px; text-align: center; background: repeating-linear-gradient(transparent 0 23px, var(--rule) 23px 24px); }
+    h1 { margin: 0 0 12px; }
+    h1 img { width: 170px; max-width: 70%; height: auto; display: block; margin: 0 auto; }
     p { margin: 0 0 18px; }
-    .get { display: inline-block; background: #000080; color: #fff; text-decoration: none; padding: 10px 16px; border: 2px solid #fff; outline: 2px solid #000080; font-weight: 700; }
-    .get:active { background: #285ac8; }
-    .small { margin: 18px 0 0; font-size: 13px; }
+    .get { display: inline-block; background: #3d78dc; color: #fff; text-decoration: none; padding: 11px 22px; border: 2px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink); font-weight: 700; }
+    .get:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+    .small { margin: 20px 0 0; font-size: 13px; }
     .small a { color: var(--ink); }
   </style>
 </head>
 <body>
 <main>
-  <div class="title">choir</div>
+  <div class="head"><b>choir</b><span>700.01 C</span></div>
   <div class="body">
     <h1><img src="mark.png" alt="choir" /></h1>
-    <p>News, discussion, free and for sale, by city. On iPhone.</p>
-    <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Ask for an invite</a>
+    <p>Make notes on culture</p>
+    <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Get the iPhone app</a>
     <p class="small">Private testing on TestFlight. <a href="room/">Or use the web room</a>.</p>
   </div>
 </main>

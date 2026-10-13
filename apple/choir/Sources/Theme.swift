@@ -1,49 +1,69 @@
 import SwiftUI
 
-/// Legal pad under a classic desktop: yellow ruled paper, square black frames,
-/// title strips, monospaced chrome. Light only, like paper.
+/// A card catalog on a desk: white index cards with a red head rule and blue
+/// lines, typewritten, each with a call number. Light only, like paper.
 enum Theme {
-    static let paper = Color(red: 1.0, green: 0.957, blue: 0.588)
-    static let rule = Color(red: 0.47, green: 0.65, blue: 0.84).opacity(0.55)
-    static let margin = Color(red: 0.84, green: 0.27, blue: 0.27).opacity(0.7)
+    static let desk = Color(red: 0.886, green: 0.859, blue: 0.80)
+    static let paper = Color.white
+    static let rule = Color(red: 0.59, green: 0.73, blue: 0.88).opacity(0.6)
+    static let head = Color(red: 0.81, green: 0.25, blue: 0.25)
     static let ink = Color(red: 0.11, green: 0.094, blue: 0.086)
     static let panel = Color.white
-    static let line: CGFloat = 2
+    static let line: CGFloat = 1.5
     static func chrome(_ size: CGFloat = 13, _ weight: Font.Weight = .bold) -> Font { .system(size: size, weight: weight, design: .monospaced) }
-}
-
-/// The pad itself: blue rules every line and a red double margin.
-struct RuledPaper: View {
-    var body: some View {
-        Canvas { ctx, size in
-            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Theme.paper))
-            var y: CGFloat = 30
-            while y < size.height { ctx.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)), with: .color(Theme.rule)); y += 28 }
-            for x in [CGFloat(22), 26] { ctx.fill(Path(CGRect(x: x, y: 0, width: 1.2, height: size.height)), with: .color(Theme.margin)) }
-        }
-        .ignoresSafeArea()
+    static func type(_ size: CGFloat = 16, bold: Bool = false) -> Font {
+        .custom(bold ? "AmericanTypewriter-Semibold" : "AmericanTypewriter", size: size, relativeTo: .body)
     }
 }
 
-/// A desktop window: a black title strip and a white body in a square frame.
+/// The desk under the cards.
+struct RuledPaper: View {
+    var body: some View { Theme.desk.ignoresSafeArea() }
+}
+
+/// A library catalog card: name and call number above a red rule, blue lines below.
 struct DeskWindow<Content: View>: View {
     let title: String
     var detail: String = ""
+    var call: String = ""
     @ViewBuilder var content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(title).font(Theme.chrome(13))
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(Theme.type(15, bold: true))
                 Spacer()
-                Text(detail).font(Theme.chrome(11, .regular))
+                VStack(alignment: .trailing, spacing: 0) {
+                    if !call.isEmpty { Text(call).font(Theme.type(12)) }
+                    Text(detail).font(Theme.type(11)).opacity(0.6)
+                }
             }
-            .foregroundStyle(Theme.paper)
-            .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(Theme.ink)
-            content.padding(10).frame(maxWidth: .infinity, alignment: .leading).background(Theme.panel)
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 6)
+            Rectangle().fill(Theme.head).frame(height: 1.5)
+            content.padding(.horizontal, 14).padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(alignment: .top) {
+                    Canvas { ctx, size in
+                        var y: CGFloat = 30
+                        while y < size.height { ctx.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)), with: .color(Theme.rule)); y += 24 }
+                    }
+                }
         }
-        .overlay(Rectangle().strokeBorder(Theme.ink, lineWidth: Theme.line))
-        .background(Rectangle().fill(Theme.ink).offset(x: 3, y: 3)) // the hard drop shadow
+        .background(Theme.paper)
+        .shadow(color: .black.opacity(0.18), radius: 0, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
+    }
+}
+
+/// Dewey-style call number for a post: 700s are the arts, the decimal and the
+/// Cutter letter come from its tags, id and author. Decorative, but stable.
+enum Dewey {
+    static func call(_ post: Post) -> String {
+        func hash(_ s: String) -> Int { s.unicodeScalars.reduce(5381) { ($0 &* 33 &+ Int($1.value)) & 0x7fffffff } }
+        let klass = 700 + hash(post.tags.joined(separator: ",")) % 100
+        let decimal = hash(post.id) % 100
+        let cutter = post.handle.drop(while: { $0 == "@" }).prefix(1).uppercased()
+        return String(format: "%03d.%02d %@%d", klass, decimal, cutter, hash(post.handle) % 90 + 10)
     }
 }
 
@@ -56,8 +76,9 @@ struct DeskButtonStyle: ButtonStyle {
             .font(Theme.chrome(12))
             .padding(.horizontal, 9).padding(.vertical, 5)
             .foregroundStyle(inverted ? Theme.panel : Theme.ink)
-            .background(inverted ? Theme.ink : Theme.panel)
-            .overlay(Rectangle().strokeBorder(Theme.ink, lineWidth: 1.5))
+            .background(inverted ? Theme.ink : Color(red: 0.98, green: 0.96, blue: 0.9))
+            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.ink.opacity(0.75), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 }
 
@@ -65,6 +86,91 @@ extension View {
     /// Forms and sheets sit on the same pad.
     func onPad() -> some View {
         scrollContentBackground(.hidden).background(RuledPaper()).tint(Theme.ink)
-            .toolbarBackground(Theme.panel, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
+    }
+}
+
+/// A rounder, friendlier take on AC's two doors: same blue and green.
+struct CuteDoorStyle: ButtonStyle {
+    var new = false
+    func makeBody(configuration: Configuration) -> some View {
+        let fill = new ? Color(red: 0.2, green: 0.63, blue: 0.2) : Color(red: 0.24, green: 0.47, blue: 0.86)
+        configuration.label
+            .font(Theme.type(19, bold: true))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 22).padding(.vertical, 12)
+            .background(fill, in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.ink, lineWidth: 2))
+            .background(Capsule().fill(Theme.ink).offset(y: configuration.isPressed ? 1 : 4))
+            .offset(y: configuration.isPressed ? 3 : 0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.5), value: configuration.isPressed)
+    }
+}
+
+/// The top of a spiral-bound pad: punched holes with wire coils through them.
+struct Spiral: View {
+    var body: some View {
+        GeometryReader { geo in
+            let n = max(6, Int(geo.size.width / 26))
+            let step = geo.size.width / CGFloat(n)
+            ZStack(alignment: .topLeading) {
+                ForEach(0..<n, id: \.self) { i in
+                    let x = step * (CGFloat(i) + 0.5)
+                    Circle().fill(Theme.desk.opacity(0.9))
+                        .overlay(Circle().strokeBorder(.black.opacity(0.25), lineWidth: 1))
+                        .frame(width: 11, height: 11).position(x: x, y: 26)
+                    Capsule()
+                        .fill(LinearGradient(colors: [Color(white: 0.95), Color(white: 0.55), Color(white: 0.85), Color(white: 0.4)],
+                                             startPoint: .leading, endPoint: .trailing))
+                        .overlay(Capsule().strokeBorder(.black.opacity(0.35), lineWidth: 0.6))
+                        .frame(width: 6, height: 30).position(x: x, y: 15)
+                        .shadow(color: .black.opacity(0.25), radius: 1, x: 1, y: 1)
+                }
+            }
+        }
+        .frame(height: 36)
+    }
+}
+
+/// A notepad page: white, blue lines, red margin, spiral across the top.
+struct PadPage<Content: View>: View {
+    @ViewBuilder var content: Content
+    var body: some View {
+        VStack(spacing: 0) {
+            Spiral()
+            content
+                .padding(.leading, 40).padding(.trailing, 16).padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .background {
+                    Canvas { ctx, size in
+                        var y: CGFloat = 34
+                        while y < size.height { ctx.fill(Path(CGRect(x: 0, y: y, width: size.width, height: 1)), with: .color(Theme.rule)); y += 28 }
+                        ctx.fill(Path(CGRect(x: 30, y: 0, width: 1.2, height: size.height)), with: .color(Theme.head.opacity(0.7)))
+                    }
+                }
+        }
+        .background(Theme.paper)
+        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: 4, bottomTrailingRadius: 4))
+        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+    }
+}
+
+/// Liquid Glass where the system has it (iOS 26+), frosted material before.
+extension View {
+    @ViewBuilder func glass<S: Shape>(_ shape: S) -> some View {
+        if #available(iOS 26.0, *) { glassEffect(.regular, in: shape) }
+        else { background(.ultraThinMaterial, in: shape) }
+    }
+}
+
+struct GlassChipStyle: ButtonStyle {
+    var on = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.type(13, bold: on))
+            .padding(.horizontal, 11).padding(.vertical, 6)
+            .foregroundStyle(on ? Color.white : Theme.ink)
+            .background { if on { Capsule().fill(Theme.ink) } }
+            .glass(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
     }
 }

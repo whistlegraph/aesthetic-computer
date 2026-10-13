@@ -21,10 +21,9 @@ struct ThreadView: View {
                     ProgressView().frame(maxWidth: .infinity)
                 }
             }
-            .padding(.leading, 34).padding(.trailing, 14).padding(.vertical, 14)
+            .padding(.horizontal, 16).padding(.vertical, 16)
         }
         .background(RuledPaper())
-        .toolbarBackground(Theme.panel, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
         .navigationTitle("Thread")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await fetch() }
@@ -32,16 +31,16 @@ struct ThreadView: View {
         .safeAreaInset(edge: .bottom) {
             HStack(alignment: .bottom) {
                 if account.handle != nil {
-                    TextField("Reply", text: $reply, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder)
-                    Button("Send") { Task { await send() } }.buttonStyle(DeskButtonStyle())
+                    TextField("Reply", text: $reply, axis: .vertical).lineLimit(1...5).font(Theme.type(16))
+                        .padding(.horizontal, 12).padding(.vertical, 8).glass(RoundedRectangle(cornerRadius: 18))
+                    Button("Send") { Task { await send() } }.buttonStyle(GlassChipStyle(on: true))
                         .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
                 } else {
                     Button(account.signedIn ? "Choose your @name to reply" : "Log in to reply") { signIn = true }
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(12).background(Theme.panel)
-            .overlay(alignment: .top) { Rectangle().fill(Theme.ink).frame(height: Theme.line) }
+            .padding(12)
         }
         .sheet(isPresented: $signIn) { if account.signedIn { AccountView() } else { SignInView(door: .login) } }
     }

@@ -20,11 +20,10 @@ struct RoomView: View {
                         NavigationLink(value: post) { PostRow(post: post, onTag: pick) }.buttonStyle(.plain)
                     }
                 }
-                .padding(.leading, 34).padding(.trailing, 14).padding(.vertical, 14)
+                .padding(.horizontal, 16).padding(.vertical, 16)
             }
             .background(RuledPaper())
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Theme.panel, for: .navigationBar).toolbarBackground(.visible, for: .navigationBar)
             .navigationDestination(for: Post.self) { ThreadView(rootID: $0.id) }
             .safeAreaInset(edge: .top, spacing: 0) { TagBar(selected: room.tag, tags: room.tags, onPick: pick) }
             .refreshable { await room.load() }
@@ -78,10 +77,10 @@ struct TagBar: View {
                     Chip(label: "#\(t.tag)", count: t.count, on: selected == t.tag) { onPick(t.tag) }
                 }
             }
-            .padding(.horizontal, 16).padding(.vertical, 8)
+            .padding(.horizontal, 10).padding(.vertical, 8)
         }
-        .background(Theme.panel)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.ink).frame(height: Theme.line) }
+        .glass(Capsule())
+        .padding(.horizontal, 12).padding(.top, 4)
     }
 }
 
@@ -97,6 +96,6 @@ struct Chip: View {
                 if count > 0 { Text("\(count)").opacity(0.6) }
             }
         }
-        .buttonStyle(DeskButtonStyle(on: on))
+        .buttonStyle(GlassChipStyle(on: on))
     }
 }

@@ -18,26 +18,29 @@ struct ComposeView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("What's happening? Links get a preview.", text: $text, axis: .vertical)
-                        .lineLimit(4...12).focused($focused)
-                }
-                Section {
-                    FlowTags(tags: all, picked: picked) { t in
-                        if let i = picked.firstIndex(of: t) { picked.remove(at: i) } else { picked.append(t) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    PadPage {
+                        TextField("Make notes on culture", text: $text, axis: .vertical)
+                            .font(Theme.type(18)).lineSpacing(9).lineLimit(6...14)
+                            .foregroundStyle(Theme.ink).focused($focused)
                     }
-                    HStack {
-                        TextField("New tag", text: $newTag).textInputAutocapitalization(.never).autocorrectionDisabled()
-                            .onSubmit(addTag)
-                        Button("Add", action: addTag).disabled(Tag.normalize(newTag).isEmpty)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(picked.count >= Self.minTags ? "\(picked.count) tags" : "Tag it at least \(Self.minTags) ways")
+                            .font(Theme.type(13)).foregroundStyle(Theme.ink.opacity(0.7))
+                        FlowTags(tags: all, picked: picked) { t in
+                            if let i = picked.firstIndex(of: t) { picked.remove(at: i) } else { picked.append(t) }
+                        }
+                        HStack {
+                            TextField("new tag", text: $newTag).font(Theme.type(15))
+                                .textInputAutocapitalization(.never).autocorrectionDisabled().onSubmit(addTag)
+                                .padding(.horizontal, 12).padding(.vertical, 8).glass(Capsule())
+                            Button("Add", action: addTag).buttonStyle(GlassChipStyle()).disabled(Tag.normalize(newTag).isEmpty)
+                        }
+                        if let error { Text(error).font(Theme.type(14)).foregroundStyle(Theme.head) }
                     }
-                } header: {
-                    Text("Tags")
-                } footer: {
-                    Text(picked.count >= Self.minTags ? "\(picked.count) tags." : "Tag it at least \(Self.minTags) ways.")
                 }
-                if let error { Section { Text(error).foregroundStyle(.red) } }
+                .padding(16)
             }
             .onPad()
             .navigationTitle("New post")

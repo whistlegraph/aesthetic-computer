@@ -11,12 +11,12 @@ struct PostRow: View {
     @State private var confirmDelete = false
 
     var body: some View {
-        DeskWindow(title: post.handle, detail: post.date.formatted(.relative(presentation: .numeric, unitsStyle: .narrow))) {
+        DeskWindow(title: post.handle, detail: post.date.formatted(.relative(presentation: .numeric, unitsStyle: .narrow)), call: post.replyTo == nil ? Dewey.call(post) : "") {
             VStack(alignment: .leading, spacing: 8) {
                 if post.deleted {
                     Text("deleted").italic().foregroundStyle(.secondary)
                 } else {
-                    Text(linked(post.text)).foregroundStyle(Theme.ink).textSelection(.enabled)
+                    Text(linked(post.text)).font(Theme.type(16)).lineSpacing(6).foregroundStyle(Theme.ink).textSelection(.enabled)
                     if let link = post.links.first, let url = URL(string: link) { LinkPreview(url: url).frame(minHeight: 60) }
                 }
                 if post.replyTo == nil {

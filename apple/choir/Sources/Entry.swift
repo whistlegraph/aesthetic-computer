@@ -1,15 +1,16 @@
 import SwiftUI
 
-/// The signed-out front: AC's two doors.
+/// The signed-out front: one line and AC's two doors, centered.
 struct Entry: View {
     let onDoor: (SignInView.Door) -> Void
     var body: some View {
-        HStack(spacing: 12) {
-            Button { onDoor(.login) } label: { Text("Log in").font(Theme.chrome(18)) }
-                .buttonStyle(CurtainAccountButtonStyle())
-            Button { onDoor(.new) } label: { Text("I'm new").font(Theme.chrome(18)) }
-                .buttonStyle(CurtainAccountButtonStyle(signUp: true))
+        VStack(spacing: 22) {
+            Text("Make notes on culture").font(Theme.type(22)).foregroundStyle(Theme.ink)
+            HStack(spacing: 14) {
+                Button("Log in") { onDoor(.login) }.buttonStyle(CuteDoorStyle())
+                Button("I'm new") { onDoor(.new) }.buttonStyle(CuteDoorStyle(new: true))
+            }
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 14)
+        .frame(maxWidth: .infinity, minHeight: 240)
     }
 }
