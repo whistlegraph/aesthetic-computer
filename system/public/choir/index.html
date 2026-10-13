@@ -85,7 +85,10 @@ function sing(ms) {
   if (!still.matches) requestAnimationFrame(sing);
 }
 requestAnimationFrame(sing);
-requestAnimationFrame(() => document.body.classList.add("shown"));
+// Reveal on the first frame, or after 60 ms if frames aren't running yet
+// (a background tab or a headless check), so the page is never left blank.
+const show = () => document.body.classList.add("shown");
+requestAnimationFrame(show); setTimeout(show, 60);
 still.addEventListener?.("change", () => requestAnimationFrame(sing));
 </script>
 </body>
