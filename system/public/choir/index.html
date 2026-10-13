@@ -10,31 +10,37 @@
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="icon" href="icon.png" />
   <style>
-    :root { --desk: #e2dbcc; --rule: rgb(150 185 225 / .6); --head: #cf4040; --ink: #1c1816; }
+    :root { --desk: #e2dbcc; --ink: #1c1816; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100dvh; background: var(--desk); color: var(--ink); display: grid; place-items: center; padding: 24px 16px;
-      font: 17px/1.5 "American Typewriter", "Courier New", ui-monospace, monospace; }
-    main { width: min(100%, 380px); background: #fff; box-shadow: 0 2px 0 rgb(0 0 0 / .18), 0 3px 12px rgb(0 0 0 / .1); }
-    .head { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px 6px; border-bottom: 1.5px solid var(--head); font-size: 13px; }
-    .body { padding: 18px 14px 20px; text-align: center; background: repeating-linear-gradient(transparent 0 23px, var(--rule) 23px 24px); }
-    h1 { margin: 0 0 12px; }
-    h1 img { width: 170px; max-width: 70%; height: auto; display: block; margin: 0 auto; }
-    p { margin: 0 0 18px; }
-    .get { display: inline-block; background: #3d78dc; color: #fff; text-decoration: none; padding: 11px 22px; border: 2px solid var(--ink); border-radius: 999px; box-shadow: 0 4px 0 var(--ink); font-weight: 700; }
+    body { margin: 0; min-height: 100dvh; background: var(--desk); color: var(--ink); display: grid; place-items: center;
+      padding: 24px 16px; font: 17px/1.5 "American Typewriter", "Courier New", ui-monospace, monospace; text-align: center; }
+    main { width: min(100%, 420px); }
+    .choir { position: relative; width: min(78vw, 320px); aspect-ratio: 1150 / 705; margin: 0 auto 18px; }
+    .choir img { position: absolute; inset: 0; width: 100%; height: 100%; transform-origin: 50% 100%;
+      animation: sing var(--d) ease-in-out var(--p) infinite alternate; }
+    @keyframes sing { from { transform: translateY(2.5%) rotate(-3deg); } to { transform: translateY(-4.5%) rotate(3deg) scale(1.03); } }
+    @media (prefers-reduced-motion: reduce) { .choir img { animation: none; } }
+    h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    p { margin: 0 0 22px; font-size: 18px; }
+    .get { display: inline-block; background: #3d78dc; color: #fff; text-decoration: none; padding: 11px 24px; border: 2px solid var(--ink);
+      border-radius: 999px; box-shadow: 0 4px 0 var(--ink); font-weight: 700; }
     .get:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
-    .small { margin: 20px 0 0; font-size: 13px; }
+    .small { margin: 22px 0 0; font-size: 13px; opacity: .75; }
     .small a { color: var(--ink); }
   </style>
 </head>
 <body>
 <main>
-  <div class="head"><b>choir</b><span>700.01 C</span></div>
-  <div class="body">
-    <h1><img src="mark.png" alt="choir" /></h1>
-    <p>Comments on culture</p>
-    <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Get the iPhone app</a>
-    <p class="small">Private testing on TestFlight. <a href="room/">Or use the web room</a>.</p>
+  <h1>choir</h1>
+  <div class="choir" aria-hidden="true">
+    <img src="mark1.png" alt="" style="--d:1.6s;--p:0s">
+    <img src="mark2.png" alt="" style="--d:1.35s;--p:-.7s">
+    <img src="mark3.png" alt="" style="--d:1.5s;--p:-1.3s">
+    <img src="mark4.png" alt="" style="--d:1.8s;--p:-.4s">
   </div>
+  <p>Comments on culture</p>
+  <a class="get" id="get" href="mailto:mail@aesthetic.computer?subject=choir%20invite">Get the iPhone app</a>
+  <p class="small">Invite only, in testing. <a href="room/">Open the web room</a>.</p>
 </main>
 <script type="module" src="/aesthetic.computer/lib/visit-tracker.mjs"></script>
 <script type="module">
