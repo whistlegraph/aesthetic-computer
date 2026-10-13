@@ -785,6 +785,17 @@ class Typeface {
           });
       };
       
+      // Packed readers carry their exact glyph subset. Prefer it immediately
+      // so an offline Unifont piece never flashes font_1 fallback glyphs.
+      const bundledGlyphs = globalThis.acBUNDLED_GLYPHS?.[this.name];
+      if (bundledGlyphs) {
+        for (const [hex, glyph] of Object.entries(bundledGlyphs)) {
+          if (!/^[0-9A-F]{4,6}$/i.test(hex)) continue;
+          const code = parseInt(hex, 16);
+          if (code <= 0x10ffff) this.glyphs[String.fromCodePoint(code)] = glyph;
+        }
+      }
+
       // Pre-warm glyph cache from IndexedDB for this font (non-blocking)
       preWarmGlyphCache(this.name).then(count => {
         if (count > 0) {

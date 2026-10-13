@@ -710,12 +710,12 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 // without the trip to /api/store-kidlisp. (the daily token's crawl, packed in
 // node on jasellite.) No $refs are followed and no #paintings are embedded,
 // since a crawl's text can hold either by accident.
-export async function createBundleFromSource(pieceName, source, { authorHandle = "anon", onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = true, keeplabel = false, forceRefresh = false, style = "" } = {}) {
+export async function createBundleFromSource(pieceName, source, { authorHandle = "anon", onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = true, keeplabel = false, forceRefresh = false, style = "", glyphs = {} } = {}) {
   const name = pieceName.replace(/^\$/, "");
-  return packKidLisp({ name, sources: { [name]: source }, authorHandle, userCode: null, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style, paintings: false });
+  return packKidLisp({ name, sources: { [name]: source }, authorHandle, userCode: null, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style, paintings: false, glyphs });
 }
 
-async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources, authorHandle, userCode, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style = "", paintings = true }) {
+async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources, authorHandle, userCode, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style = "", paintings = true, glyphs = {} }) {
   const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
   const mainSource = kidlispSources[PIECE_NAME_NO_DOLLAR];
   const depCount = Object.keys(kidlispSources).length - 1;
@@ -764,7 +764,8 @@ async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources
   const bgColor = extractFirstColor(mainSource);
 
   // Extract BDF glyph maps (not part of VFS)
-  const bdfGlyphs = files.__bdfGlyphs || {};
+  const bdfGlyphs = { ...files.__bdfGlyphs };
+  for (const [font, subset] of Object.entries(glyphs)) bdfGlyphs[font] = { ...bdfGlyphs[font], ...subset };
   delete files.__bdfGlyphs;
 
   const boxArtPNG = noboxart ? null : await generateBoxArtPNG(PIECE_NAME, authorHandle, bgColor, packDate).catch(() => null);

@@ -13,7 +13,7 @@ loudnorm.
 
 ## The dailies (bin/daily.mjs)
 
-Alongside the longform readings, **"the daily"** — an automated ~2-minute
+Alongside the longform readings, **Aesthetic Computer Radio** — an automated ~2-minute
 episode: gather the last day of commit subjects (filtered, deduped, and
 REDACTED — client/confidential lanes never reach the model), write a
 ~300-word script via `claude -p` in the storytelling register, produce with
@@ -53,7 +53,7 @@ over a date-colored starfield, rendered locally as a 512² GIF, with a frame as
 the thumbnail. AC's own IPFS node pins it (`/api/ipfs-add`, admin-only, the
 Kubo node Keeps uses) with TZIP-21 metadata (the script as description, links
 to the episode and the live $code), `mint_OBJKT` mints `DAILY_EDITIONS` (1, a
-daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (3). HEN
+daily unique) and an objkt ask lists it at `DAILY_PRICE_XTZ` (5). HEN
 metadata is immutable, so a minted day can't be renamed or re-imaged.
 Interactive dailies use `DAILY_ARTIFACT=zip` by default (`html` in an older env
 also selects ZIP). The offline crawl is packaged as `index.html`, `cover.gif`
@@ -198,22 +198,78 @@ private paper directory and its slug outside the publish allowlist.
 - Jingle synthesis follows the pop DSP posture (phase-increment sines, exp-decay
   bells) but is self-contained here.
 
-## Readalong data (local prototype)
+## Radio readalong releases
+
+`DAILY_READALONG=1` selects the audio reader for **new** interactive token
+receipts. Saved crawl receipts keep their renderer; already-listed tokens
+return immediately. Jasellite keeps `DAILY_ARTIFACT=zip`, `DAILY_EDITIONS=1`,
+and `DAILY_PRICE_XTZ=5`. The stored $code fetches the pinned JSON/audio;
+its packed copy uses the local `episode.json` and `episode.mp3` in the same
+IPFS directory. GNU Unifont and its license travel with the artifact.
+
+The token stage runs Whisper small on the complete master, caches timings
+by the audio hash, assembles every spoken section, renders a pastel Unifont
+cover without Chrome, and packs the reader. A missing spoken timeline or
+poor alignment stops that stage. Public data is pinned before storing the
+$code; the receipt records its content hash so retries cannot silently
+replace it. Every directory file, including the MP3, is read back before minting.
+
+`--dry --out-dir <temporary directory>` checks copied episode inputs without
+pinning, storing a $code, or minting. Verify the resulting ZIP with
+`daily-artifact-check.mjs --readalong` at 512² and 990×270.
 
 `(def episode (fetch "episode.json"))` followed by `(flow (listen episode))`
 loads canonical prose, optional named link blocks, the actual mastered podcast,
-and word timings. Native Play/Pause and seek use the media clock. Follow scrolls
-the spoken line; dragging or wheeling releases it. Leaving stops playback.
+and word timings. The Unifont reader starts a loop with just a thin seek line;
+there is no pause control. Browsers that block autoplay need a first tap or
+Space. Dragging, wheeling, or arrow keys scrub the recording through its text:
+the audio position and yellow word move together, including within a line.
+Up scratches backward, down runs forward, with speed changing pitch.
+The gesture uses Stample's sample synth (`sampleSpeed`), including its existing
+interpolation and seek declicking. After 140ms without movement, speed eases
+back to 1; after 1.6s the view settles onto the newly selected spoken line.
+Playback continues from there. Active letters wiggle individually;
+pointer movement briefly nudges nearby characters. Leaving stops playback.
+HTML audio starts while the finite recording decodes; the ready audio worklet
+takes over at the current playhead. Normal playback continues if sample decode
+is unavailable. Stopping the reader aborts its decode and kills its sample voice.
+Pack readers at density 2 for smaller pixels; ordinary text flows retain
+their existing font and scrolling behavior.
 
-Build the JSON from an existing daily and Whisper word output (`-ml 1 -sow -oj`):
+Each paragraph selects a stable palette from its subject: paper, music, play,
+network, or garden. Backgrounds stay pastel, text stays dark, and the active
+word and links have distinct contrasting inks. The colors ease between
+passages and follow scrubbing. The choices are stored in `episode.json`,
+so playing a release does not call a model or choose new random colors.
+
+Production saves `<slug>.spoken.json` with every spoken opening, body sentence
+and closing, exact arrangement bounds, and the master audio hash. Readalong
+assembly includes all three sections while preserving canonical body prose.
+The spoken opening supplies the title in the reader. `daily-*` filenames and
+receipts remain stable; the public show name lives in `lib/radio.mjs`.
+
+Run Whisper on the **entire master**, including its opening and closing.
+Prefer `-dtw small -nfa -ml 1 -sow -ojf` with the small model, and include the
+spoken timeline from production to keep highlights out of arranged pauses:
 
 ```sh
-node bin/read-along.mjs daily.md words.json 12384 episode.mp3 episode.json
+node bin/read-along.mjs script.md words.json 0 master.mp3 episode.json master.spoken.json
+node bin/read-along-pack.mjs episode.json episode.mp3 unifont-16.0.03.hex.gz out/reader
+node bin/read-along-preview.mjs out/reader 8898
 ```
 
-The offset is the narration's start in the final master, in milliseconds.
+The offset is zero for full-master transcription. The builder automatically
+finds `<master>.spoken.json` if the last argument is omitted, and rejects a
+mismatched audio hash. An explicit `.srt` argument retains legacy body-only
+alignment for older recordings without a complete spoken timeline.
 Keep episode.json and episode.mp3 beside the packed piece. The audio SHA-256
-is recorded; canonical text is never replaced with ASR spelling. Edit alignment
-records substitutions and omits missing words; boundaries are ASR measurements,
-not phoneme forced alignment. This is an explicit build step; the daily cron
-does not yet produce readalong data or opt into the new runtime.
+is recorded; the packer checks it and embeds only the required Unifont glyphs,
+with the OFL and attribution alongside the page. Supply the upstream
+`unifont-16.0.03.hex.gz` from unifoundry.com; packing needs no glyph service.
+Canonical text is never replaced with ASR spelling. Edit alignment
+records substitutions and omits missing words. DTW token onsets supersede
+heuristic segment boundaries when present; the optional SRT bounds them by
+the exact sentence cuts. They remain approximate ASR alignment, not phoneme
+forced alignment. Playback interpolates between recent media-clock samples
+and freezes during buffering. The readalong token stage performs these steps
+automatically when `DAILY_READALONG=1`.

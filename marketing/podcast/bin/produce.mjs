@@ -28,6 +28,7 @@ import { master } from "./master.mjs";
 import { verifySpeech } from "./verify-speech.mjs";
 import { EPISODE_SUBSTRATE, DEFAULT_SUBSTRATE } from "../lib/substrates.mjs";
 import { hosted } from "../lib/hosted.mjs";
+import { RADIO_NAME, radioIntro } from "../lib/radio.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
@@ -263,7 +264,7 @@ console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_A
 const FRAME = flags.frame || "reading";
 const IS_REPLY = FRAME === "reply";
 const introText = FRAME === "daily"
-  ? `The daily, from Aesthetic Dot Computer. ${script.title}. Approximately ${lengthText}.`
+  ? radioIntro(script.title, lengthText)
   : FRAME === "log"
     ? `From Aesthetic Dot Computer: ${script.title}, by ${speaker}. Approximately ${lengthText}.`
     : `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
@@ -283,6 +284,7 @@ const { intro: introJingle, outro: outroJingle } = IS_REPLY
 // 5. Assemble.
 console.log("\nAssembling…");
 const seq = [];
+const spokenCues = [];
 let n = 0;
 let clock = 0; // absolute seconds, so we can land the body on the bed's grid
 // Each spoken/jingle segment gets a tiny fade in/out so it meets the silence
@@ -303,7 +305,9 @@ const gap = (s) => { if (s <= 0) return; const d = resolve(build, `seg_${String(
 if (!IS_REPLY) {
   add(introJingle);
   gap(0.35);
+  const start = clock;
   add(introVo);
+  spokenCues.push({ role: "intro", start, end: clock, text: introText });
 }
 // Push the body to the next bar boundary so the first VOICED onset lands on
 // the downbeat (its lead consonant just ahead of it), and every later
@@ -318,10 +322,13 @@ for (let i = 0; i < units.length; i++) {
   const startSec = clock;
   add(units[i].wav);
   cues.push({ start: startSec, end: clock, text: units[i].text });
+  spokenCues.push({ role: "body", ...cues.at(-1) });
 }
 if (!IS_REPLY) {
   gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.5) : clock + 0.8) - clock);
+  const start = clock;
   add(outroVo);
+  spokenCues.push({ role: "outro", start, end: clock, text: outroText });
   gap(0.3);
   add(outroJingle);
 }
@@ -486,6 +493,13 @@ execFileSync("ffmpeg", [
 
 console.log(`  cover: ${coverFull}`);
 const total = dur(outMp3);
+// Keep every spoken section on the mastered timeline, tied to these bytes.
+// The body-only SRT remains available for older QA and caption consumers.
+writeFileSync(resolve(ROOT, "out", `${script.slug}.spoken.json`), JSON.stringify({
+  version: 1, title: script.title, show: FRAME === "daily" ? RADIO_NAME : undefined,
+  audioSha256: createHash("sha256").update(readFileSync(outMp3)).digest("hex"),
+  durationMs: Math.round(total * 1000), cues: spokenCues,
+}, null, 2) + "\n");
 
 // Final intelligibility pass: transcribe the delivered body (voice + score)
 // back through local Whisper and compare it with the spoken script. This is a
@@ -520,6 +534,7 @@ if (existsSync(sidecarPath)) {
 writeFileSync(sidecarPath, JSON.stringify({
   slug: script.slug, title: script.title, author: speaker, date: script.date,
   frame: FRAME, voice: VOICE,
+  show: FRAME === "daily" ? RADIO_NAME : undefined,
   status: hosted(script.slug) ? "publish-cleared" : "draft-unpublished",
   description: script.paragraphs[0], lengthText,
   durationSec: Math.round(total), bytes: readFileSync(outMp3).length,
