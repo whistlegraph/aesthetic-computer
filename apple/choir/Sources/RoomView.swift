@@ -155,13 +155,13 @@ struct GreetingLine: View {
     }
 }
 
-/// "2 here · 5 members · 3 invited"
+/// "2 here · 5 members" (Fía, 23:07: not the invited count)
 struct PresenceLine: View {
     let here: API.Here
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(Color.green).frame(width: 6, height: 6)
-            Text("\(here.here) here · \(here.members) \(here.members == 1 ? "member" : "members") · \(here.invited) invited")
+            Text("\(here.here) here · \(here.members) \(here.members == 1 ? "member" : "members")")
         }
         .font(Theme.type(11)).foregroundStyle(Theme.ink.opacity(0.6))
     }
