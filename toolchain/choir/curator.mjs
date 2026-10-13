@@ -126,7 +126,7 @@ const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } 
 
 async function main() {
   for (const k of ["EXA_API_KEY", ...(DRY ? [] : ["CHOIR_EDITOR_SECRET"])]) if (!process.env[k]) throw Error(`missing ${k}`);
-  const current = (await (await fetch(`${API}?news=1&limit=100`)).json()).posts || [];
+  const current = (await (await fetch(`${API}?news=1&all=1&limit=100`)).json()).posts || [];
   const existing = new Set(current.flatMap((p) => p.links || []));
   const already = current.map((p) => (p.preview?.title || p.text.split("\n")[0]).slice(0, 90));
   log("discover has", existing.size, "links");

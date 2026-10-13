@@ -8,6 +8,7 @@
 import { screen as defaultScreen, screenPost } from "./choir-moderation.mjs";
 
 export const MAX_CHARS = 2000;
+export const SLATE_MS = 20 * 60 * 60 * 1000;   // one curator run per day
 export const MIN_TAGS = 0;
 export const MAX_TAGS = 6;
 export const STARTER_TAGS = ["news", "discussion", "free-and-for-sale", "los-angeles", "new-york"];
@@ -132,10 +133,18 @@ export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = 
 
     // The main chat: root posts, newest first, optionally under one tag.
     // News items (news: true) live in Discover instead of the chat.
-    async feed({ tag, before, limit = 30, news = false } = {}) {
+    // Discover is one day's slate (Fía, 10-12 22:47: "a 24 hr cycle … the slate
+    // wipes clean each day"): only what arrived within SLATE_MS of the newest
+    // item, so a day the curator skips keeps yesterday's rather than going blank.
+    // Chat posts that link to old items stay; `all` is for the curator's dedupe.
+    async feed({ tag, before, limit = 30, news = false, all = false } = {}) {
       await ready();
       const q = { replyTo: null };
       if (news) q.news = true;
+      if (news && !all && !before) {
+        const newest = await posts.findOne({ replyTo: null, news: true }, { sort: { when: -1 } });
+        if (newest) q.when = { $gte: new Date(Date.parse(newest.when) - SLATE_MS).toISOString() };
+      }
       if (tag) q.tags = normalizeTag(tag);
       if (before) q.when = { $lt: before };
       const rows = await posts.find(q).sort({ when: -1 }).limit(Math.min(Math.max(limit, 1), 100)).toArray();
