@@ -4,11 +4,29 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import sharp from "sharp";
+import { parse } from "three/examples/jsm/libs/opentype.module.js";
 
 const root = new URL("../public/mime/", import.meta.url);
 const html = await readFile(new URL("index.html", root), "utf8");
 const logo = html.match(/<svg class="mime-sculpture"[\s\S]*?<\/svg>/)?.[0];
 if (!logo) throw new Error("MIME wordmark not found");
+const comicBytes = await readFile(new URL("../public/whistlegraph.app/ComicRelief-Bold.ttf", import.meta.url));
+const comic = parse(comicBytes.buffer.slice(comicBytes.byteOffset, comicBytes.byteOffset + comicBytes.byteLength));
+const letters = [..."MIME"].map((letter, i) => {
+  const path = comic.getPath(letter, 0, 0, 30), box = path.getBoundingBox();
+  const x = i % 2 ? 47 : 17, y = i < 2 ? 16 : 47;
+  const color = ["#ff91c3", "#ffc585", "#b7a4ff", "#7ae7ce"][i];
+  return `<g class="favicon-letter" data-x="${x}" data-y="${y}" transform="translate(${x} ${y})"><g transform="translate(${-(box.x1 + box.x2) / 2} ${-(box.y1 + box.y2) / 2})"><path d="${path.toPathData(2)}" transform="translate(1.5 1.5)" fill="#141414"/><path d="${path.toPathData(2)}" fill="${color}" stroke="#141414" stroke-width="1.2" paint-order="stroke fill"/></g></g>`;
+}).join("");
+const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="13" fill="#211d30"/>${letters}</svg>`;
+await writeFile(new URL("favicon.svg", root), icon + "\n");
+for (const [name, size] of [["favicon-32.png", 32], ["apple-touch-icon.png", 180]]) {
+  await sharp(Buffer.from(icon), { density: 384 }).resize(size, size).png().toFile(fileURLToPath(new URL(name, root)));
+}
+if (process.argv.includes("--icons-only")) {
+  console.log("Built MIME comic favicon and touch icon.");
+  process.exit(0);
+}
 const font = async (name) => (await readFile(new URL(`../public/type/webfonts/${name}`, import.meta.url))).toString("base64");
 const [ywft, mono] = await Promise.all([font("ywft-processing-regular.woff2"), font("BerkeleyMonoVariable-Regular.woff2")]);
 const browser = await puppeteer.launch({ headless: true, executablePath: process.env.CHROME_PATH ||
@@ -17,6 +35,7 @@ try {
   const page = await browser.newPage();
   await page.setViewport({ width: 1200, height: 630, deviceScaleFactor: 1 });
   await page.setContent(`<!doctype html><html><head><style>
+    @font-face { font-family: "MIME Comic"; font-weight: 700; src: url(data:font/ttf;base64,${comicBytes.toString("base64")}); }
     @font-face { font-family: ywft; src: url(data:font/woff2;base64,${ywft}); }
     @font-face { font-family: mono; src: url(data:font/woff2;base64,${mono}); }
     * { box-sizing: border-box; }
@@ -33,14 +52,5 @@ try {
   await page.evaluate(() => document.fonts.ready);
   await mkdir(new URL("social/", root), { recursive: true });
   await page.screenshot({ path: fileURLToPath(new URL("social/mime.jpg", root)), type: "jpeg", quality: 94 });
-  const icon = await page.$eval("svg", (svg) => {
-    const defs = svg.querySelector("defs").outerHTML;
-    const glyph = [...svg.children].find((node) => node.tagName.toLowerCase() === "g").outerHTML;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-7 0 56 56">${defs}<rect x="-7" width="56" height="56" rx="12" fill="#211d30"/><g transform="translate(0 3)">${glyph}</g></svg>`;
-  });
-  await writeFile(new URL("favicon.svg", root), icon + "\n");
-  for (const [name, size] of [["favicon-32.png", 32], ["apple-touch-icon.png", 180]]) {
-    await sharp(Buffer.from(icon), { density: 384 }).resize(size, size).png().toFile(fileURLToPath(new URL(name, root)));
-  }
   console.log("Built MIME favicon, touch icon, and 1200×630 social image.");
 } finally { await browser.close(); }

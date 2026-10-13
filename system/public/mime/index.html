@@ -7,9 +7,9 @@
   <title>mime.ac</title>
   <meta name="description" content="Comments on Aesthetic Computer media. Paintings, tapes, pieces, and the people around them." />
   <link rel="canonical" href="https://mime.ac/" />
-  <link rel="icon" href="https://mime.ac/favicon.svg?v=1" type="image/svg+xml" />
-  <link rel="icon" href="https://mime.ac/favicon-32.png?v=1" type="image/png" sizes="32x32" />
-  <link rel="apple-touch-icon" href="https://mime.ac/apple-touch-icon.png?v=1" sizes="180x180" />
+  <link rel="icon" href="https://mime.ac/favicon.svg?v=3" type="image/svg+xml" />
+  <link id="mime-favicon" rel="icon" href="https://mime.ac/favicon-32.png?v=3" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="https://mime.ac/apple-touch-icon.png?v=3" sizes="180x180" />
   <meta name="theme-color" content="#eee9f1" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#171526" media="(prefers-color-scheme: dark)" />
   <meta property="og:type" content="website" />
@@ -416,14 +416,13 @@
     @keyframes mood-colors { from { transform: translate(-4%, -3%) rotate(-6deg) scale(1); }
       to { transform: translate(4%, 3%) rotate(6deg) scale(1.2); } }
     html body.feed .feed-post.mood-post > .body {
-      grid-area: 1 / 1 / -1 / -1; align-self: center; justify-self: center;
-      width: max-content; max-width: min(94%, 22ch); max-height: calc(100% - 128px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-      padding: .5em .55em .7em; overflow: auto; text-align: center; overflow-wrap: anywhere;
-      font: 700 clamp(26px, min(8vw, 11dvh), 68px)/1.5 "MIME Comic", "Comic Relief", "Comic Sans MS", cursive;
-      -webkit-text-stroke: 1px #141414; paint-order: stroke fill;
-      text-shadow: 1px 1px #ed629d, 2px 2px #a478df, 3px 3px #55cdd9;
+      position: absolute; left: 50%; top: var(--mood-top, 50%); transform: translate(-50%, -50%);
+      width: var(--mood-width, calc(100% - 36px)); max-width: none; max-height: none;
+      padding: calc(.5em + 4px) calc(.55em + 4px) calc(.7em + 4px); overflow: visible; text-align: center; overflow-wrap: anywhere;
+      font: 700 var(--mood-size, 26px)/1.5 "MIME Comic", "Comic Relief", "Comic Sans MS", cursive;
+      -webkit-text-stroke: .02em #141414; paint-order: stroke fill;
+      text-shadow: .02em .02em #ed629d, .04em .04em #a478df, .06em .06em #55cdd9;
     }
-    html body.feed .feed-post.mood-post > .body.long-mood { font-size: clamp(18px, min(5vw, 5dvh), 32px); }
     .mood-accessible { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .mood-word { display: inline-block; max-width: 100%; }
     .mood-letter { display: inline-block; animation: mood-breathe var(--letter-period) ease-in-out var(--letter-phase) infinite paused; }
@@ -500,6 +499,7 @@ async function refreshMimeLayout() {
     root.dataset.mimeShowOrigin = layout.showOrigin;
     root.dataset.mimeShowCaption = layout.showCaption;
     root.dataset.mimeLayoutRevision = layout.revision;
+    scheduleMoodFit();
   } catch { /* Keep the default layout when offline or receiving an unsupported schema. */ }
 }
 refreshMimeLayout();
@@ -521,6 +521,48 @@ document.addEventListener("visibilitychange", syncTabAnimation);
 window.addEventListener("pagehide", () => clearInterval(tabTimer));
 window.addEventListener("pageshow", syncTabAnimation);
 syncTabAnimation();
+
+// Swap cached PNG frames, retaining a normal SVG/PNG icon for bookmarks
+// and clients that do not display favicon updates.
+const favicon = document.getElementById("mime-favicon");
+const staticFavicon = favicon.href;
+let faviconFrames = [], faviconTimer;
+function syncFavicon() {
+  clearInterval(faviconTimer);
+  favicon.href = staticFavicon;
+  if (document.hidden || tabMotion.matches || !faviconFrames.length) return;
+  let frame = 0;
+  faviconTimer = setInterval(() => { favicon.href = faviconFrames[frame++ % faviconFrames.length]; }, 220);
+}
+async function prepareFavicon() {
+  try {
+    const response = await fetch("/favicon.svg?v=3");
+    if (!response.ok) return;
+    const svg = new DOMParser().parseFromString(await response.text(), "image/svg+xml").documentElement;
+    svg.setAttribute("width", "64"); svg.setAttribute("height", "64");
+    const letters = [...svg.querySelectorAll(".favicon-letter")];
+    if (letters.length !== 4) return;
+    const canvas = document.createElement("canvas"); canvas.width = canvas.height = 32;
+    const context = canvas.getContext("2d"), frames = [];
+    for (let frame = 0; frame < 12; frame++) {
+      letters.forEach((letter, i) => {
+        const phase = frame / 12 * Math.PI * 2 + i * 1.7;
+        letter.setAttribute("transform", `translate(${letter.dataset.x} ${Number(letter.dataset.y) + Math.sin(phase) * 1.5}) rotate(${Math.cos(phase) * 5})`);
+      });
+      const picture = new Image();
+      picture.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+      await picture.decode();
+      context.clearRect(0, 0, 32, 32); context.drawImage(picture, 0, 0, 32, 32);
+      frames.push(canvas.toDataURL("image/png"));
+    }
+    faviconFrames = frames; syncFavicon();
+  } catch { /* The static comic icon is already in the document. */ }
+}
+tabMotion.addEventListener("change", syncFavicon);
+document.addEventListener("visibilitychange", syncFavicon);
+window.addEventListener("pagehide", () => { clearInterval(faviconTimer); favicon.href = staticFavicon; });
+window.addEventListener("pageshow", syncFavicon);
+prepareFavicon();
 
 const API = "/api/mime";
 const view = document.getElementById("view");
@@ -1140,7 +1182,6 @@ function renderText(text) {
 function renderMood(text) {
   const body = el("div", "body mood-copy");
   body.append(el("span", "mood-accessible", text));
-  if (text.length > 160) body.classList.add("long-mood");
   let index = 0;
   for (const part of text.split(/(\s+)/u)) {
     const word = el("span", /^\s+$/u.test(part) ? "mood-space" : "mood-word");
@@ -1156,6 +1197,53 @@ function renderMood(text) {
   }
   return body;
 }
+
+// Measure real line wrapping, including the loaded comic font and corner labels.
+// Each mood has one page: shrink the type instead of clipping or adding a scroller.
+let moodFitFrame = 0, moodFontRevision = 0;
+const moodFitGeometry = new WeakMap();
+function fitMood(card) {
+  const body = card.querySelector(":scope > .mood-copy");
+  if (!body || !card.isConnected) return;
+  const box = card.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  const command = card.querySelector(":scope > .reel-command")?.getBoundingClientRect();
+  const logo = header.getBoundingClientRect();
+  const meta = card.querySelector(":scope > .meta")?.getBoundingClientRect();
+  const top = Math.max(48, command ? command.bottom - box.top : 0, logo.height) + 12;
+  const bottom = Math.min(box.height - 32, meta ? meta.top - box.top : box.height - 48) - 12;
+  const height = Math.max(1, bottom - top), width = Math.max(1, Math.min(1100, box.width - 28));
+  const geometry = [width, height, top, moodFontRevision].join(":");
+  if (moodFitGeometry.get(card) === geometry) return;
+  moodFitGeometry.set(card, geometry);
+  body.style.setProperty("--mood-width", width + "px");
+  body.style.setProperty("--mood-top", (top + height / 2) + "px");
+  let low = .1, high = Math.min(68, box.width * .12, box.height * .16);
+  const fits = size => {
+    body.style.setProperty("--mood-size", size + "px");
+    return body.getBoundingClientRect().height <= height && body.scrollWidth <= body.clientWidth;
+  };
+  if (fits(high)) low = high;
+  else for (let i = 0; i < 12; i++) {
+    const mid = (low + high) / 2;
+    if (fits(mid)) low = mid; else high = mid;
+  }
+  body.style.setProperty("--mood-size", low + "px");
+}
+function scheduleMoodFit() {
+  if (moodFitFrame) return;
+  moodFitFrame = requestAnimationFrame(() => {
+    moodFitFrame = 0;
+    view.querySelectorAll(".feed-post.mood-post").forEach(fitMood);
+  });
+}
+new ResizeObserver(scheduleMoodFit).observe(view);
+new MutationObserver(scheduleMoodFit).observe(view, { childList: true, subtree: true });
+window.addEventListener("resize", scheduleMoodFit);
+window.visualViewport?.addEventListener("resize", scheduleMoodFit);
+const moodFontsReady = () => { moodFontRevision++; scheduleMoodFit(); };
+document.fonts.ready.then(moodFontsReady);
+document.fonts.addEventListener("loadingdone", moodFontsReady);
 
 const SAVED_KEY = "mime-saved-v1";
 let savedCodes;

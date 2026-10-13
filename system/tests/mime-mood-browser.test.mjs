@@ -9,13 +9,16 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  const context=await browser.newContext({viewport:{width:704,height:334}}),page=await context.newPage();
  const html=await readFile(new URL('../public/mime/index.html',import.meta.url),'utf8');
  const font=await readFile(new URL('../public/whistlegraph.app/ComicRelief-Bold.ttf',import.meta.url));
+ const icon=await readFile(new URL('../public/mime/favicon.svg',import.meta.url),'utf8');
  const posts=[{code:'mood_fixture',parent:null,name:'@staywoke_zine',text:'even ____ got feelings inside',media:{kind:'mood',code:'h7p'}},
  {code:'chat_clock_fixture',parent:null,name:'@tester',text:'hello from laer-klokken',media:{kind:'chat',code:'xyz'}},
- {code:'mood_long',parent:null,name:'@test',text:'long gyp '.repeat(60),media:{kind:'mood',code:'long'}}].map(p=>({...p,when:new Date().toISOString(),board:'text/plain',file:null}));
+ {code:'mood_lines',parent:null,name:'@test',text:('gyp'.repeat(28)+'\n').repeat(15),media:{kind:'mood',code:'lines'}},
+ {code:'mood_long',parent:null,name:'@test',text:'long gyp '.repeat(150),media:{kind:'mood',code:'long'}}].map(p=>({...p,when:new Date().toISOString(),board:'text/plain',file:null}));
  await context.route('**/*',async route=>{
   const u=new URL(route.request().url());
   if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')))return route.fulfill({contentType:'text/html',body:html});
   if(u.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify({recent:posts,hasMore:false})});
+  if(u.pathname==='/favicon.svg')return route.fulfill({contentType:'image/svg+xml',body:icon});
   if(u.pathname.endsWith('ComicRelief-Bold.ttf'))return route.fulfill({contentType:'font/ttf',body:font});
   return route.fulfill({body:''});
  });
@@ -43,6 +46,28 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  await page.emulateMedia({reducedMotion:'reduce'});
  assert.equal(await page.locator('#chat_clock_fixture .mood-letter').first().evaluate(e=>getComputedStyle(e).animationName),'none');
  await page.locator('#mood_long').evaluate(e=>e.scrollIntoView());
- assert.equal(await page.locator('#mood_long .body').evaluate(e=>e.scrollWidth>e.clientWidth),false);
+ for(const viewport of [{width:390,height:844},{width:320,height:480},{width:844,height:390},{width:704,height:334}]) {
+  await page.setViewportSize(viewport);
+  await page.waitForTimeout(100);
+  const fit=await page.locator('#mood_long').evaluate(e=>{
+   const body=e.querySelector('.body'),b=body.getBoundingClientRect(),card=e.getBoundingClientRect();
+   const corners=e.querySelector('.meta').getBoundingClientRect();
+   return {overflow:getComputedStyle(body).overflow,scroll:body.scrollHeight>body.clientHeight+1||body.scrollWidth>body.clientWidth+1,
+    top:b.top-card.top,bottom:corners.top-b.bottom,text:body.querySelector('.mood-accessible').textContent};
+  });
+  assert.equal(fit.overflow,'visible');assert.equal(fit.scroll,false,JSON.stringify({viewport,fit}));
+  assert.ok(fit.top>=48&&fit.bottom>=10,JSON.stringify({viewport,fit}));assert.equal(fit.text,posts.find(p=>p.code==='mood_long').text);
+ }
+ await page.screenshot({path:'/tmp/mime-long-mood.png'});
+ await page.locator('#mood_lines').evaluate(e=>e.scrollIntoView());
+ await page.setViewportSize({width:320,height:480});await page.waitForTimeout(100);
+ const linesFit=await page.locator('#mood_lines').evaluate(card=>{const e=card.querySelector('.body'),b=e.getBoundingClientRect();return {top:b.top-card.getBoundingClientRect().top,bottom:card.querySelector('.meta').getBoundingClientRect().top-b.bottom,width:e.scrollWidth,available:e.clientWidth};});
+ assert.ok(linesFit.top>=48&&linesFit.bottom>=10&&linesFit.width<=linesFit.available,JSON.stringify(linesFit));
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ await page.waitForFunction(()=>document.querySelector('#mime-favicon').href.startsWith('data:image/png'));
+ const iconBefore=await page.locator('#mime-favicon').getAttribute('href');await page.waitForTimeout(260);
+ assert.notEqual(await page.locator('#mime-favicon').getAttribute('href'),iconBefore);
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.waitForFunction(()=>document.querySelector('#mime-favicon').href.includes('/favicon-32.png?v=3'));
  }finally{await browser.close();}
 });
