@@ -1,6 +1,12 @@
 #version 300 es
 precision highp float;
 
+// Only the default, bounded lighting settings use half-precision color math.
+// Ray positions stay highp; customized settings retain the general highp path.
+#ifndef LIGHT_PRECISION
+#define LIGHT_PRECISION highp
+#endif
+
 in vec2 v_texc;
 out vec4 endColor;
 
@@ -132,18 +138,11 @@ float zPlaneIntersect(vec3 ro, vec3 rd, float z)
     return -(dot(ro, PLANE_NORMAL) + z) / dot(rd, PLANE_NORMAL);
 }
 
-vec3 directLight(vec3 pos, vec3 rd, float headStart)
+vec3 directLight(vec3 pos, vec3 ldir, float headStart)
 {
     vec3 ro = pos;
-    vec3 volAbs = vec3(1.);
-    float stepDist;
-
-    // 🌫️ Fuzzy shadows: jitter the shadow ray direction a touch per pixel so the
-    // penumbra softens instead of casting a hard edge.
-    vec3 ldir = normalize(normLightDirection + vec3(
-        (headStart - 0.5) * SHADOW_SOFTNESS,
-        (random(rd.xy + headStart) - 0.5) * SHADOW_SOFTNESS,
-        0.0));
+    // Multiplying per-step exp(-depth) equals exp(-sum(depth)).
+    LIGHT_PRECISION vec3 opticalDepth = vec3(0.);
 
     float nearIntersectionDist = zPlaneIntersect(ro, ldir, 0.0);
     float farIntersectionDist = zPlaneIntersect(ro, ldir, volumeRadius * 2.0);
@@ -151,15 +150,17 @@ vec3 directLight(vec3 pos, vec3 rd, float headStart)
     float traceDist = max(nearIntersectionDist, farIntersectionDist);
     traceDist = min(traceDist, shadowRange);
 
-    vec3 previousPos;
+    // A straight ray has equal steps; only the first includes the jitter.
+    float sampleDistance = length(ldir * traceDist) / float(shadowIterations);
     for (int i = 1; i < shadowIterations + 1; i += 1)
     {
-        previousPos = pos;
         pos = ro - ldir * (float(i) + headStart) / float(shadowIterations) * traceDist;
-        vec4 colorValue = getColor(pos);
-        volAbs *= vec3(exp(-colorValue.w * length(pos - previousPos) * colorValue.xyz));
+        // Once this monotone ray leaves the slab, all later samples are empty.
+        if (abs(pos.z) > volumeRadius && pos.z * (-ldir.z * traceDist) >= 0.0) break;
+        LIGHT_PRECISION vec4 colorValue = getColor(pos);
+        opticalDepth += colorValue.w * sampleDistance * (i == 1 ? 1.0 + headStart : 1.0) * colorValue.xyz;
     }
-    return lightPower * lightColor * volAbs * hgPhase(-ldir, rd);
+    return exp(-opticalDepth);
 }
 
 vec3 post(vec3 col)
@@ -203,7 +204,7 @@ void main()
     vec3 volCol = vec3(0.);
     vec3 volAbs = vec3(1.);
     vec3 pos = ro + rd * nearIntersectionDist;
-    vec3 previousPos, stepAbs, stepCol;
+    vec3 stepAbs, stepCol;
 
     float offset = iTime;
     if (freezeGrain != 0)
@@ -221,18 +222,28 @@ void main()
 
     vec3 refractionDir = mix(vec3(0, 0, 1), rd, radialBlurAmount);
 
+    // 🌫️ Fuzzy shadows: jitter the shadow ray direction a touch per pixel so the
+    // penumbra softens instead of casting a hard edge.
+    vec3 ldir = normalize(normLightDirection + vec3(
+        (headStartShadow - 0.5) * SHADOW_SOFTNESS,
+        (random(refractionDir.xy + headStartShadow) - 0.5) * SHADOW_SOFTNESS,
+        0.0));
+
+    float phase = hgPhase(-ldir, refractionDir);
+    float fogStepDistance = length(traceDist * refractionDir) / float(fogIterations);
+
     for (int i = 0; i < fogIterations; i++)
     {
-        previousPos = pos;
         pos = ro + rd * nearIntersectionDist;
         pos += traceDist * refractionDir * (float(i)+headStartCam) / float(fogIterations);
-        vec4 colorValue = getColor(pos);
+        if (abs(pos.z) > volumeRadius && pos.z * refractionDir.z >= 0.0) break;
+        LIGHT_PRECISION vec4 colorValue = getColor(pos);
         // Empty volume contributes neither absorption nor light. Skip the
         // shadow march for these samples without changing the accumulated color.
         if (colorValue.w == 0.0) continue;
-        stepAbs = exp(-colorValue.w * length(pos - previousPos) * colorValue.xyz);
+        stepAbs = exp(-colorValue.w * fogStepDistance * (i == 0 ? headStartCam : 1.0) * colorValue.xyz);
         stepCol = vec3(1.) - stepAbs;
-        volCol += stepCol * volAbs * directLight(pos, refractionDir, headStartShadow);
+        volCol += stepCol * volAbs * (lightPower * lightColor * directLight(pos, ldir, headStartShadow) * phase);
         volAbs *= stepAbs;
     }
 

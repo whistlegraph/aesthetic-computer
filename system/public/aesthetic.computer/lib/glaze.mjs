@@ -28,6 +28,16 @@ class Glaze {
   #uniforms;
   #dynamicUniforms = {}; // Store dynamic uniform overrides
 
+  #changedUniforms = new Set();
+
+  get usesDefaultUniforms() { return this.#changedUniforms.size === 0; }
+
+  get specializedFragment() {
+    if (this.type !== "prompt") return this.frag;
+    return this.frag.replace("#version 300 es", "#version 300 es\n#define LIGHT_PRECISION mediump").replace(/uniform int (fogIterations|shadowIterations);/g,
+      (_, name) => `const int ${name} = ${this.#uniforms[`1i:${name}`]};`);
+  }
+
   constructor(type = "prompt", w, h, rect) {
     this.w = w;
     this.h = h;
@@ -59,6 +69,12 @@ class Glaze {
   // Set or update dynamic uniform overrides
   setDynamicUniform(uniformIdentifier, value) {
     this.#dynamicUniforms[uniformIdentifier] = value;
+    const original = this.#uniforms[uniformIdentifier];
+    const unchanged = Array.isArray(original)
+      ? Array.isArray(value) && value.length === original.length && value.every((v, i) => v === original[i])
+      : value === original;
+    if (unchanged) this.#changedUniforms.delete(uniformIdentifier);
+    else this.#changedUniforms.add(uniformIdentifier);
   }
 
   // Export a list of clean uniform names... everything after the ":".
@@ -111,6 +127,7 @@ export function init(wrapper) {
 }
 
 let customProgram, computeProgram, displayProgram;
+let generalCustomProgram, generalCustomLocations;
 let fb; // Frame-buffer.
 let texSurf, texFbSurfA, texFbSurfB; // Original aesthetic.computer surface texture,
 // in addition to a double-buffer.
@@ -141,9 +158,15 @@ let programsCompiled = false; // Track if shaders have been compiled for current
 function compilePrograms() {
   if (!glaze || !glaze.shadersLoaded || !gl) return false;
 
+  if (generalCustomProgram) gl.deleteProgram(generalCustomProgram);
+  generalCustomProgram = null;
+  generalCustomLocations = null;
+
+  // Compile the normal prompt step counts as constants so the GPU can unroll
+  // and simplify the ray marches. Custom settings use a lazy high-precision general program.
   // Create custom shader program.
   const customVert = createShader(gl, gl.VERTEX_SHADER, passthrough);
-  const customFrag = createShader(gl, gl.FRAGMENT_SHADER, glaze.frag);
+  const customFrag = createShader(gl, gl.FRAGMENT_SHADER, glaze.specializedFragment);
   customProgram = createProgram(gl, customVert, customFrag);
 
   // Create compute shader program.
@@ -385,7 +408,9 @@ export async function on(
     glaze.w === w &&
     glaze.h === h &&
     rect.width === glaze.rect.width &&
-    rect.height === glaze.rect.height
+    rect.height === glaze.rect.height &&
+    canvas?.width === nativeWidth * window.devicePixelRatio &&
+    canvas?.height === nativeHeight * window.devicePixelRatio
   ) {
     // Same dimensions & type — no shader reload or texture resize needed. But if
     // the glaze was turned off (e.g. we jumped to another piece and back), it's
@@ -476,12 +501,38 @@ export function setDynamicUniform(uniformIdentifier, value) {
 export function render(time, mouse) {
   if (glaze === undefined || glaze.loaded === false) return;
 
+  // The prompt has no feedback, and its compute/display passes only copy
+  // the result at 1:1 resolution. Draw straight to the canvas in that case.
+  const direct = glaze.type === "prompt" &&
+    gl.canvas.width === postWidth && gl.canvas.height === postHeight;
+
+  let program = customProgram;
+  let locations = customUniformLocations;
+  if (glaze.type === "prompt" && !glaze.usesDefaultUniforms) {
+    if (!generalCustomProgram) {
+      const vert = createShader(gl, gl.VERTEX_SHADER, passthrough);
+      const frag = createShader(gl, gl.FRAGMENT_SHADER, glaze.frag);
+      generalCustomProgram = createProgram(gl, vert, frag);
+      gl.deleteShader(vert);
+      gl.deleteShader(frag);
+      generalCustomLocations = Object.fromEntries(
+        glaze.uniformNames.concat(defaultUniformNames).map((name) =>
+          [name, gl.getUniformLocation(generalCustomProgram, name)]));
+    }
+    program = generalCustomProgram;
+    locations = generalCustomLocations;
+  }
+
+  // Prompt fragments are opaque; blending would needlessly read the old target.
+  if (glaze.type === "prompt") gl.disable(gl.BLEND);
+  else gl.enable(gl.BLEND);
+
   // 🅰️ Render Surface
-  gl.useProgram(customProgram);
+  gl.useProgram(program);
 
-  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, direct ? null : fb);
 
-  gl.framebufferTexture2D(
+  if (!direct) gl.framebufferTexture2D(
     gl.FRAMEBUFFER,
     gl.COLOR_ATTACHMENT0,
     gl.TEXTURE_2D,
@@ -498,16 +549,18 @@ export function render(time, mouse) {
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, texFbSurfB);
 
-  gl.uniform1i(customUniformLocations.iTexture, 0);
-  gl.uniform1i(customUniformLocations.iTexturePost, 1);
-  gl.uniform1f(customUniformLocations.iTime, time);
-  gl.uniform2f(customUniformLocations.iMouse, mouse.x, mouse.y);
-  gl.uniform2f(customUniformLocations.iResolution, postWidth, postHeight);
+  gl.uniform1i(locations.iTexture, 0);
+  gl.uniform1i(locations.iTexturePost, 1);
+  gl.uniform1f(locations.iTime, time);
+  gl.uniform2f(locations.iMouse, mouse.x, mouse.y);
+  gl.uniform2f(locations.iResolution, postWidth, postHeight);
 
-  glaze.setCustomUniforms(customUniformLocations, gl);
+  glaze.setCustomUniforms(locations, gl);
 
   gl.bindVertexArray(vao);
   gl.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, 1);
+
+  if (direct) return;
 
   // 🅱️ Compute Surface
   gl.useProgram(computeProgram);
