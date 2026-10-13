@@ -446,7 +446,7 @@ void perc_init(double sample_rate) {
 }
 
 void perc_set_pitch(double scale) { g_pitch = scale > 0 ? scale : 1.0; }
-void perc_set_level(double level) { g_level = clampd(level, 0, 1); }
+void perc_set_level(double level) { g_level = clampd(level, 0, 3); }
 
 static uint64_t next_group(void) { uint64_t g; EnterCriticalSection(&g_lock); g = ++g_groupCounter; LeaveCriticalSection(&g_lock); return g; }
 

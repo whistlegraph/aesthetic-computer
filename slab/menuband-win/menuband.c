@@ -1674,6 +1674,7 @@ static void track(HWND hwnd, int force) {
 #define IDM_FNFREE 103
 #define IDM_LOWLAT 104
 #define IDM_PAGE_BASE 110
+#define IDM_DRUMS_BASE 120
 #define IDM_PROGRAM_BASE 200
 #define IDM_MIDI_BASE 400
 #define IDT_TRACK 1
@@ -1727,6 +1728,11 @@ static HICON make_note_icon(void) {
 
 // Player settings survive restarts: HKCU\Software\Aesthetic Computer\Menu Band.
 static const wchar_t *SETTINGS_KEY = L"Software\\Aesthetic Computer\\Menu Band";
+// Drums against notes, as a percent of the Mac's own percussion level (0.90).
+// Windows' GM notes sit hotter than the Mac's, so the kit starts above unity.
+static const int DRUMS_LEVELS[] = { 50, 75, 100, 125, 150, 200, 250 };
+static int g_drumsPct = 150;
+static void drums_apply(void) { perc_set_level(0.90 * g_drumsPct / 100.0); }
 static DWORD setting_get(const wchar_t *name, DWORD fallback) {
     HKEY k; DWORD v = fallback, size = sizeof v, type;
     if (RegOpenKeyExW(HKEY_CURRENT_USER, SETTINGS_KEY, 0, KEY_READ, &k) != ERROR_SUCCESS) return fallback;
@@ -1779,6 +1785,12 @@ static void show_menu(HWND hwnd) {
     HMENU pages = CreatePopupMenu();
     for (int i = 0; i < 4; i++) { wchar_t pl[48]; swprintf(pl, 48, L"%s%s", PAGE_NAMES[i], i == PAGE_SKIN ? L"  (TrackDrum)" : L""); AppendMenuW(pages, MF_STRING | (i == g_page ? MF_CHECKED : 0), IDM_PAGE_BASE + i, pl); }
     AppendMenuW(menu, MF_POPUP, (UINT_PTR)pages, L"Trackpad page  (Tab / Shift+Tab)");
+    HMENU drums = CreatePopupMenu();
+    for (int i = 0; i < (int)(sizeof DRUMS_LEVELS / sizeof *DRUMS_LEVELS); i++) {
+        wchar_t dl[24]; swprintf(dl, 24, L"%d%%", DRUMS_LEVELS[i]);
+        AppendMenuW(drums, MF_STRING | (DRUMS_LEVELS[i] == g_drumsPct ? MF_CHECKED : 0), IDM_DRUMS_BASE + i, dl);
+    }
+    AppendMenuW(menu, MF_POPUP, (UINT_PTR)drums, L"Drums level");
     AppendMenuW(menu, MF_STRING | (g_lowLatency ? MF_CHECKED : 0), IDM_LOWLAT, L"Lowest latency while armed  (takes the speakers; other apps pause)");
     AppendMenuW(menu, MF_STRING | (g_fnFree ? MF_CHECKED : 0), IDM_FNFREE, L"Volume keys without Fn while armed  (F3 down, F4 mute, F5 up)");
     AppendMenuW(menu, MF_STRING | (autostart_enabled() ? MF_CHECKED : 0), IDM_AUTOSTART, L"Start at sign-in");
@@ -1997,6 +2009,10 @@ static LRESULT CALLBACK wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (id == IDM_AUTOSTART) { autostart_set(!autostart_enabled()); return 0; }
         if (id == IDM_FNFREE) { g_fnFree = !g_fnFree; setting_set(L"fnFree", (DWORD)g_fnFree); return 0; }
         if (id >= IDM_PAGE_BASE && id < IDM_PAGE_BASE + 4) { set_page(hwnd, id - IDM_PAGE_BASE); return 0; }
+        if (id >= IDM_DRUMS_BASE && id < IDM_DRUMS_BASE + (int)(sizeof DRUMS_LEVELS / sizeof *DRUMS_LEVELS)) {
+            g_drumsPct = DRUMS_LEVELS[id - IDM_DRUMS_BASE]; drums_apply(); setting_set(L"drumsLevel", (DWORD)g_drumsPct);
+            mb_log(L"drums level -> %d%%", g_drumsPct); return 0;
+        }
         if (id == IDM_LOWLAT) { g_lowLatency = !g_lowLatency; setting_set(L"lowLatency", (DWORD)g_lowLatency); audio_set_exclusive(g_typing); return 0; }
         if (id >= IDM_PROGRAM_BASE && id < IDM_PROGRAM_BASE + 128) { g_program = id - IDM_PROGRAM_BASE; midi_program(); setting_set(L"program", (DWORD)g_program); mb_log(L"program -> %d (%s)", g_program, GM_NAMES[g_program]); push_frame(hwnd); }
         if (id >= IDM_MIDI_BASE && id < IDM_MIDI_BASE + 40) midi_select(id - IDM_MIDI_BASE - 1);
@@ -2060,6 +2076,8 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE prev, PWSTR cmdline, int show) {
 
     g_program = (int)setting_get(L"program", AC_WHISTLE_PROGRAM) & 127;
     g_fnFree = setting_get(L"fnFree", 1) ? 1 : 0;
+    g_drumsPct = (int)setting_get(L"drumsLevel", 150); if (g_drumsPct < 25 || g_drumsPct > 300) g_drumsPct = 150;
+    drums_apply();
     g_lowLatency = setting_get(L"lowLatency", 1) ? 1 : 0;
     g_page = (int)setting_get(L"page", PAGE_SKIN); if (g_page < 0 || g_page > 3) g_page = PAGE_SKIN;
     g_firstMidi = (int)setting_get(L"firstMidi", 60); if (g_firstMidi < 36 || g_firstMidi > 84 || g_firstMidi % 12) g_firstMidi = 60;
