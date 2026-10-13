@@ -1,6 +1,8 @@
 // @bundle-qr
 // @bundle-native-account
-globalThis.__oskiewarOpponent = globalThis.__oskiewarPracticeOpponent || "freeskate";
+// Every host opens into the dojo (versus, waiting for a fighter); only an
+// explicit practice lane picks another opponent here.
+if (globalThis.__oskiewarPracticeOpponent) globalThis.__oskiewarOpponent = globalThis.__oskiewarPracticeOpponent;
 // @bundle-qr
 // The console's monotonic clock can hand back a negative number: App.cpp
 // converts QPC ticks with `counter * 1000000`, which overflows int64 past
@@ -4099,8 +4101,8 @@ function mapHash(text) {
   }
   return hash >>> 0;
 }
-let currentMapName = "HALFPIPE";
-let currentMapId = "halfpipe";
+let currentMapName = "DOJO";
+let currentMapId = "dojo";
 let workshopBase = null;
 // Workshop edits are local practice state. They never enter rollback matches
 // or the competitive replay ledger; documents are saved separately.
@@ -4110,44 +4112,8 @@ let workshopHistory = [];
 let workshopHighlight = false;
 let workshopTainted = false;
 
-let localMapIndex = -1;
-let localMapInstalled = false;
-const localMapVariants = [null, {
-  name: "BOWL",
-  features: [
-    { from: 0, to: 12, kind: "flat" },
-    { from: 12, to: 16, kind: "transition", rise: 360, dir: -1, lift: -360 },
-    { from: 16, to: 24, kind: "flat", lift: -360 },
-    { from: 24, to: 28, kind: "transition", rise: 360, dir: 1, lift: -360 },
-    { from: 28, to: 40, kind: "flat" },
-  ],
-  decks: [{ col: 9, cols: 4, row: 3 }, { col: 27, cols: 4, row: 3 }],
-}, {
-  name: "HIGH GROUND",
-  features: [
-    { from: 0, to: 12, kind: "flat" },
-    { from: 12, to: 16, kind: "bank", rise: 270, dir: 1 },
-    { from: 16, to: 24, kind: "flat", lift: 270 },
-    { from: 24, to: 28, kind: "bank", rise: 270, dir: -1 },
-    { from: 28, to: 40, kind: "flat" },
-  ],
-  decks: [{ col: 7, cols: 4, row: 3 }, { col: 18, cols: 4, row: 7 },
-    { col: 29, cols: 4, row: 3 }],
-}];
-
-function rotateLocalMap(keepMap) {
-  if (skateparkMap || !localVersusActive() || workshopTainted ||
-      globalThis.__oskiewarPublishedMap) return;
-  if (!keepMap || localMapIndex < 0)
-    localMapIndex = (localMapIndex + 1) % localMapVariants.length;
-  const variant = localMapVariants[localMapIndex];
-  const map = variant ? { ...workshopBase, ...variant,
-    features: variant.features.map(f => ({ lift: 0, rise: 0, dir: 1, ...f })) }
-    : workshopBase;
-  installWorkshopMap(map, true);
-  currentMapId = ["halfpipe", "bowl", "high-ground"][localMapIndex];
-  localMapInstalled = true;
-}
+// Every fight is on the dojo, the base map. Local rounds used to rotate
+// through BOWL and HIGH GROUND; those layouts are in git history.
 
 function workshopSnapshot() {
   return { format: "ac.oskiewar.map", version: 1,
@@ -4165,7 +4131,6 @@ function workshopSnapshot() {
 
 function installWorkshopMap(map, cycleHandgun = false) {
   if (skateparkMap) { configureWorldMap("station"); resetSkateRopes(); }
-  localMapInstalled = false;
   workshopMap = map;
   parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
     left: gridLeft + f.from * tileSize, right: gridLeft + f.to * tileSize })));
@@ -4270,8 +4235,7 @@ function installMapPickups(target, authored, type) {
 
 function resetWorkshopMap() {
   if (!workshopMap) return;
-  if (!localMapInstalled &&
-      (globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
+  if ((globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
       !survivalActive() && !roundViewer && !resimActive) {
     installWorkshopMap(workshopMap);
     return;
@@ -4281,8 +4245,8 @@ function resetWorkshopMap() {
   workshopMap = null;
   workshopHistory = [];
   workshopRevision++;
-  currentMapName = "HALFPIPE";
-  currentMapId = "halfpipe";
+  currentMapName = "DOJO";
+  currentMapId = "dojo";
   if (versusLane() || survivalActive()) players.forEach((p, i) => { p.spawnX = spawns[i]; });
 }
 
@@ -6382,7 +6346,7 @@ function updateLocalVersus(now) {
     // Restart the interrupted round with the match tally intact. Absolute
     // attack/death timers cannot safely resume after an arbitrary unplug.
     if (matchOver) startLocalVersus(now);
-    else resetRound(now, false, true);
+    else resetRound(now, false);
     startInputPending = true;
     navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
   }
@@ -7156,6 +7120,10 @@ const freeskateCourseNow = () => !skateparkMap ? "station" : poolPainting ? "pai
 // ?park=<name> link (or OSKIEWAR_ROOM) picks a private room instead, and a
 // public room's name picks its course for whoever follows the link.
 const publicParkRooms = { painting: "paint1", desert: "desert1", pool: "park1", indoor: "indoor1", halfpipe: "pipe1", park: "long1" };
+// The dojo: the one versus room every console and browser opens into by
+// default, so a second fighter always knows where the first one is waiting.
+// The relay wants a digit in a room id; the screen just says "dojo".
+const dojoRoom = "dojo1";
 const courseForParkRoom = (name) => Object.keys(publicParkRooms).find((course) => publicParkRooms[course] === name) || "";
 const requestedParkRoom = () => /^[a-z0-9-]{5,24}$/.test(globalThis.__oskiewarParkRoom || "") ? globalThis.__oskiewarParkRoom : "";
 const parkRoomFor = (course) => requestedParkRoom() || publicParkRooms[course] || publicParkRooms.painting;
@@ -7456,7 +7424,7 @@ function beginVersusLobby(now, { title = false } = {}) {
   // there is nobody here to count in against anyway.
   roundStartedAt = now - roundIntroDurationUs();
   spectatorQr = typeof qrcode === "function"
-    ? spectatorCode("https://oskiewar.com/" + versusRoomName) : null;
+    ? spectatorCode("https://oskiewar.com/" + (versusRoomName === dojoRoom ? "dojo" : versusRoomName)) : null;
   emitSignal("versus-lobby", 0, 1, 0);
 }
 
@@ -8438,8 +8406,8 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     } else if (workshopMap) {
       installWorkshopMap(workshopBase, true);
       workshopMap = null;
-      currentMapId = "halfpipe";
-      currentMapName = "HALFPIPE";
+      currentMapId = "dojo";
+      currentMapName = "DOJO";
     }
   }
   if (((state.course || state.map) === "skatepark") !== skateparkMap) {
@@ -10001,6 +9969,14 @@ function replayViewerImpacts(tick, dt) {
 }
 
 function gameBoot() {
+  // The Xbox shell carries rollback netplay natively (oskiewarNetSend /
+  // oskiewarNetPoll), so it waits in the dojo like the web does instead of
+  // falling back to training.
+  if (typeof globalThis.oskiewarNetSend === "function" && !globalThis.__oskiewarSelfPlay &&
+      !String(globalThis.__oskiewarOpponent || "").trim()) {
+    globalThis.__oskiewarNetSend ??= globalThis.oskiewarNetSend;
+    globalThis.__oskiewarVersusCapable ??= true;
+  }
   const showFreeskateTitle = !globalThis.__oskiewarFreeskateMap &&
     !globalThis.__oskiewarParkRoom && !globalThis.__oskiewarSessionName &&
     !globalThis.__oskiewarOw;
@@ -10024,7 +10000,8 @@ function gameBoot() {
     // for is a private room and stays one through course swaps.
     if (asked && courseForParkRoom(asked)) globalThis.__oskiewarFreeskateMap = courseForParkRoom(asked);
     else if (asked) globalThis.__oskiewarParkRoom = asked;
-    sessionName = asked || (freeskateRequested() ? parkRoomFor(freeskateCourse()) : pronounceableMatchName());
+    sessionName = asked || (freeskateRequested() ? parkRoomFor(freeskateCourse())
+      : versusRequested() ? dojoRoom : pronounceableMatchName());
     globalThis.__oskiewarSessionName = sessionName;
   }
   startedAt = runtime().monotonicUs;
@@ -10089,9 +10066,8 @@ function gameBoot() {
   } else beginTraining(startedAt);
 }
 
-function resetRound(now, resetMatch = false, keepMap = false) {
+function resetRound(now, resetMatch = false) {
   resetWorkshopMap();
-  rotateLocalMap(keepMap);
   if (replay) {
     const nextRoundName = pronounceableMatchName();
     // A versus room is one address for a whole match — the link a friend was
@@ -25855,7 +25831,8 @@ function drawVersusHud(t, ink, run) {
   // that takes the email or the handle is the shell's, over the top of this;
   // this is the part that stays legible on a television across a room.
   const headline = door === "login" ? "SIGN IN TO PLAY"
-    : door === "handle" ? "CHOOSE A HANDLE" : "WAITING ROOM";
+    : door === "handle" ? "CHOOSE A HANDLE"
+    : versusRoomName === dojoRoom ? "DOJO" : "WAITING ROOM";
   const headSize = compact ? 30 : 44;
   const pulse = .5 + Math.sin(t * 2.4) * .5;
   const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
@@ -25867,14 +25844,17 @@ function drawVersusHud(t, ink, run) {
   const address = door === "login"
     ? "A FIGHT NEEDS A NAME ON BOTH ENDS"
     : door === "handle" ? "YOUR HANDLE IS WHAT THE FIGHT WRITES DOWN"
+    : versusRoomName === dojoRoom ? ""
     : "FIGHT A FRIEND  OSKIEWAR.COM/" + versusRoomName.toUpperCase();
   const addressSize = compact ? 16 : 23;
   const addressWidth = handleWidth(address, addressSize);
   const addressY = headY + headSize + 10;
-  typeWrite(address, viewCenterX() - addressWidth / 2 + 2, addressY + 2,
-    addressSize, ...contrastShadow(ink));
-  typeWrite(address, viewCenterX() - addressWidth / 2, addressY,
-    addressSize, ...ink);
+  if (address) {
+    typeWrite(address, viewCenterX() - addressWidth / 2 + 2, addressY + 2,
+      addressSize, ...contrastShadow(ink));
+    typeWrite(address, viewCenterX() - addressWidth / 2, addressY,
+      addressSize, ...ink);
+  }
   const player = players[0];
   // The death card owns the middle of the screen for the whole down beat —
   // the loop is die, read it, stand back up whole.

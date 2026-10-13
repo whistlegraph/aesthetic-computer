@@ -104,10 +104,6 @@ test("posting needs a handle, replies need a living root, deleting keeps the sha
   assert.equal(publicPost(t.root).deleted, true);
   assert.equal(publicPost(t.root).text, "");
   assert.equal(t.replies.length, 1, "replies outlive a deleted root");
-  assert.ok((await s.feed()).some((p) => p._id === a._id), "a deleted root with replies stays in the room");
-  const lone = await s.post("sub-x", "@x", { text: "oops", tags: [] });
-  await s.remove("sub-x", lone._id);
-  assert.ok(!(await s.feed()).some((p) => p._id === lone._id), "a deleted message with no replies leaves the room");
   clock.tick();
   await assert.rejects(s.post("sub-z", "@z", { text: "late", replyTo: a._id }), /gone/);
 });

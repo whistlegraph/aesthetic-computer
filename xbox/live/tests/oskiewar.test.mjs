@@ -384,7 +384,7 @@ test("local versus replaces the waiting room and preserves rounds and seats", ()
   tick(30000000);
   assert.equal(fight.lobbyState().lane, "local");
   assert.equal(fight.players[0].roundWins, 2);
-  assert.notEqual(fight.mapState().id, firstMap.id, "next round changes maps");
+  assert.equal(fight.mapState().id, "dojo", "every round is on the dojo");
   assert.equal(fight.roundState().roundResult, "");
   tap(0, "Menu");
   assert.equal(fight.shellState().mode, "MENU");
@@ -396,39 +396,27 @@ test("local versus replaces the waiting room and preserves rounds and seats", ()
   assert.equal(fight.clientErrorState(), "");
 });
 
-test("local rounds rotate distinct terrain and wrap without repeating", () => {
-  const previous = globalThis.__oskiewarWorkshopEnabled;
-  globalThis.__oskiewarWorkshopEnabled = true;
-  try {
-    const { fight, pads, tick } = createFight(false, false, "web");
-    for (const pad of pads) pad.localController = true;
-    tick();
-    const maps = [];
-    for (let i = 0; i < 4; i++) {
-      maps.push(fight.mapState());
-      assert.deepEqual(validateMap(maps.at(-1).map), maps.at(-1).map);
-      assert.ok(fight.players.every(p => Number.isFinite(p.y) &&
-        p.y === fight.terrainFloorAt(p.x)), "both players spawn on the new floor");
-      assert.equal(fight.qrBox(), null);
-      fight.nextRound();
-    }
-    assert.deepEqual(maps.map(m => m.name), ["HALFPIPE", "BOWL", "HIGH GROUND", "HALFPIPE"]);
-    assert.equal(new Set(maps.slice(0, 3).map(m => JSON.stringify(m.map.features))).size, 3);
-    fight.startFightAgainst("dummy");
-    assert.equal(fight.mapState().name, "HALFPIPE", "leaving local play restores the base map");
-    assert.equal(fight.clientErrorState(), "");
-  } finally {
-    if (previous === undefined) delete globalThis.__oskiewarWorkshopEnabled;
-    else globalThis.__oskiewarWorkshopEnabled = previous;
+test("local rounds stay on the dojo", () => {
+  const { fight, pads, tick } = createFight(false, false, "web");
+  for (const pad of pads) pad.localController = true;
+  tick();
+  const maps = [];
+  for (let i = 0; i < 3; i++) {
+    maps.push(fight.mapState());
+    assert.deepEqual(validateMap(maps.at(-1).map), maps.at(-1).map);
+    fight.nextRound();
   }
+  assert.deepEqual(maps.map(m => m.name), ["DOJO", "DOJO", "DOJO"]);
+  assert.equal(new Set(maps.map(m => JSON.stringify(m.map.features))).size, 1);
+  assert.equal(fight.clientErrorState(), "");
 });
 
 test("local maps survive powerup timers and replenish collected pistols", () => {
   const { fight, pads, tick, signals } = createFight(false, false, "web");
   for (const pad of pads) pad.localController = true;
   tick();
-  for (const name of ["HALFPIPE", "BOWL", "HIGH GROUND"]) {
-    assert.equal(fight.mapState().name, name);
+  for (let round = 0; round < 2; round++) {
+    assert.equal(fight.mapState().name, "DOJO");
     tick(3100000);
     for (let i = 0; i < 260; i++) tick(40000);
     assert.ok(fight.roundState().roundElapsedUs >= 10000000);
@@ -440,8 +428,7 @@ test("local maps survive powerup timers and replenish collected pistols", () => 
     assert.ok(fight.roundState().roundElapsedUs >= 20000000);
     assert.equal(pistol.active, true);
     assert.equal(signals.filter(s => s[0] === "powerup").length, before + 1);
-    for (let i = 0; i < 600 && fight.mapState().name === name; i++) tick(40000);
-    assert.notEqual(fight.mapState().name, name, "the completed round advances maps");
+    fight.nextRound();
   }
   fight.startFightAgainst("dummy");
   assert.ok(fight.gunPickups.some(p => p.cycle), "base map restores its pistol cycle");
@@ -2139,6 +2126,28 @@ test("a watcher runs its own sparks and flying limbs, and lets them expire", () 
 // does watching: the link a friend sends has to work for whoever opens it.
 // What a handle buys is the half of the game with another person on the other
 // end of it. The @HOST / RIVAL placeholders were the symptom of its absence.
+// @jeffrey: "always on a single level ... we only run one room ... its in
+// versus mode so its always waiting for a fighter ... call that room / map
+// dojo". An Xbox carries netplay natively, so with no opponent asked for it
+// boots into the dojo's waiting room like the web does, on the one map.
+test("a console with native netplay boots into the dojo", () => {
+  const saved = ["oskiewarNetSend", "__oskiewarNetSend", "__oskiewarVersusCapable",
+    "__oskiewarSessionName", "__oskiewarOpponent"].map((key) => [key, globalThis[key]]);
+  for (const [key] of saved) delete globalThis[key];
+  globalThis.oskiewarNetSend = () => true;
+  globalThis.__oskiewarOpponent = "";
+  try {
+    const { fight } = createFight(false, false);
+    assert.equal(fight.sessionState(), "dojo1");
+    assert.equal(fight.lobbyState().lane, "versus-lobby");
+    assert.equal(fight.mapState().name, "DOJO");
+    assert.equal(globalThis.__oskiewarVersusRoom, "dojo1");
+  } finally {
+    for (const [key, value] of saved)
+      if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+  }
+});
+
 test("a fight against a person needs a handle; training and watching do not", () => {
   const account = globalThis.__oskiewarAccount;
   const capable = globalThis.__oskiewarVersusCapable;

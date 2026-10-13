@@ -39,7 +39,7 @@
     {
       const harness = new URLSearchParams(location.search);
       globalThis.__oskiewarLocalPractice = harness.has("practice");
-      globalThis.__oskiewarPracticeOpponent = harness.has("practice") ? "dummy" : "freeskate";
+      globalThis.__oskiewarPracticeOpponent = harness.has("practice") ? "dummy" : "";
       globalThis.__oskiewarVersusCapable = !offlineRuntime && !harness.has("social-preview") &&
         !harness.has("practice") && !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
     }
@@ -1931,8 +1931,13 @@
     if (accountDoor?.redirectPending) await accountDoor.ready;
     if (defaultCharacterEntry) await defaultFighterReady;
     const workshopRoute = /^\/workshop\/?$/.test(location.pathname);
-    const roundName = roundNameFromPath(location.pathname) || (workshopRoute
-      ? roundNameFromPath("/" + (new URLSearchParams(location.search).get("room") || "")) : "");
+    // /dojo is the one room everyone opens into; the relay calls it dojo1.
+    // The bare root goes there too whenever this shell can take a rival.
+    const dojoPath = /^\/dojo\/?$/.test(location.pathname);
+    const roundName = (dojoPath ? "dojo1" : roundNameFromPath(location.pathname)) || (workshopRoute
+      ? roundNameFromPath("/" + (new URLSearchParams(location.search).get("room") || ""))
+      : location.pathname === "/" && globalThis.__oskiewarVersusCapable === true &&
+        !globalThis.__oskiewarOpponent ? "dojo1" : "");
     // The game module download is the long pole of the whole load, so it
     // starts here, before anything else is awaited. `no-cache` rather than
     // `no-store` lets the browser revalidate: an unchanged module answers
@@ -1940,8 +1945,8 @@
     const pieceSourceFetch = globalThis.__fightPieceSource ? null
       : globalThis.__oskiewarPieceSourceFetch ||
         fetch("/oskiewar.js", { cache: "no-cache" });
-    // The root opens the title. Only an explicit room link joins a fight;
-    // background discovery must not turn a visit or sign-in into a match.
+    // The root opens the title over the dojo; a ?park= link or any harness
+    // lane opts out of it.
     const parkName=roundNameFromPath('/'+(new URLSearchParams(location.search).get('park')||''));
     if(parkName){globalThis.__oskiewarSessionName=parkName;globalThis.__oskiewarOpponent='freeskate';}
     const joinName = globalThis.__oskiewarLocalPractice || parkName ? '' : roundName;
@@ -1969,7 +1974,7 @@
         if (location.pathname !== "/") history.replaceState(null, "", "/" + location.search);
         return;
       }
-      const room = globalThis.__oskiewarVersusRoom;
+      const room = globalThis.__oskiewarVersusRoom === "dojo1" ? "dojo" : globalThis.__oskiewarVersusRoom;
       // The shared address stays bare; the app keeps its query, which is how
       // a reload inside the web view still knows it is the app.
       if (room && !/^\/workshop\/?$/.test(location.pathname) && location.pathname !== "/" + room)
