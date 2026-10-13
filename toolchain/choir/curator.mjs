@@ -50,7 +50,7 @@ const OPENING_QUERIES = [
   "new exhibitions opening in Los Angeles galleries this month",
 ];
 const OPENING_SCHEMA = { type: "object", required: ["isOpening", "show", "venue", "openingDate"], properties: {
-  isOpening: { type: "boolean", description: "true only for a specific exhibition opening or reception at a named venue, in or near Los Angeles" },
+  isOpening: { type: "boolean", description: "true if this page announces a specific exhibition or opening reception at a named venue" },
   show: { type: "string", description: "exhibition title" }, artists: { type: "string" }, venue: { type: "string" },
   neighborhood: { type: "string" }, openingDate: { type: "string", description: "opening reception date YYYY-MM-DD" },
   openingTime: { type: "string" }, closingDate: { type: "string", description: "last day YYYY-MM-DD or empty" },
@@ -136,7 +136,10 @@ async function main() {
   const opps = (await inBatches(OPP_QUERIES, (q) => exa(q, { schema: OPP_SCHEMA, sinceDays: 60 }))).flat()
     .filter((x) => x.isOpportunity && !BLOCK.test(x.url) && !existing.has(x.url) && !existing.has(x.officialUrl) && (!x.deadline || x.deadline >= today));
   const openings = (await inBatches(OPENING_QUERIES, (q) => exa(q, { schema: OPENING_SCHEMA, sinceDays: 21 }))).flat()
-    .filter((x) => x.isOpening && !BLOCK.test(x.url) && !existing.has(x.url) && !existing.has(x.officialUrl) &&
+    // Exa's isOpening flag is erratic (the same show flips true/false between
+    // searches), so keep anything with a show and an upcoming date and let the
+    // model judge what is a real Los Angeles opening.
+    .filter((x) => (x.show || x.venue) && !BLOCK.test(x.url) && !existing.has(x.url) && !existing.has(x.officialUrl) &&
       ((x.closingDate || x.openingDate || "") >= today));
   const uniq = (list) => [...new Map(list.map((x) => [x.url, x])).values()];
   const pool = [...uniq(news).map((x, i) => ({ id: `n${i}`, kind: "news", ...x })), ...uniq(opps).map((x, i) => ({ id: `o${i}`, kind: "opportunity", ...x })),
@@ -156,7 +159,7 @@ Today is ${today}. From the CANDIDATES below, pick at most 4 news items, at most
 Rules from Fía: never include Artforum. If a candidate is a listing page (BOMB, Hyperallergic, NYFA, Res Artis, ArtDeadline, an aggregator) and it names the organizer's own page in officialUrl, use the official page as url and put the listing's name in "via". Never invent facts, dates, money or images: use only what the candidate says.
 
 Write each title as a clean human headline (no site names or section suffixes). For news, description = one or two plain factual sentences. For opportunities, description must start "Deadline: <Mon D>." (or "Rolling.") followed by who can apply and what it offers, in two short sentences.
-For openings, title = "<Show> at <Venue>"; description must start "Opens <Day Mon D>[, <time>]." then the artists and neighborhood in one short sentence; set deadline to the closing date if known, else the opening date. Prefer openings in the next 10 days, spread across different galleries.
+For openings, only pick shows actually in the Los Angeles area (skip other cities, celebrity or brand events, and roundup listicles unless nothing else exists); title = "<Show> at <Venue>"; description must start "Opens <Day Mon D>[, <time>]." then the artists and neighborhood in one short sentence; set deadline to the closing date if known, else the opening date. Prefer openings in the next 10 days, spread across different galleries.
 
 ALREADY IN DISCOVER (never pick the same story or call again, even at a different URL):
 ${JSON.stringify(already)}
