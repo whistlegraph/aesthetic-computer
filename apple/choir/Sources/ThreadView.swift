@@ -32,13 +32,13 @@ struct ThreadView: View {
                     Button("Send") { Task { await send() } }
                         .disabled(reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
                 } else {
-                    Button(account.signedIn ? "Choose your @name to reply" : "Sign in to reply") { signIn = true }
+                    Button(account.signedIn ? "Choose your @name to reply" : "Log in to reply") { signIn = true }
                         .frame(maxWidth: .infinity)
                 }
             }
             .padding(12).background(.bar)
         }
-        .sheet(isPresented: $signIn) { if account.signedIn { AccountView() } else { SignInView() } }
+        .sheet(isPresented: $signIn) { if account.signedIn { AccountView() } else { SignInView(door: .login) } }
     }
 
     func load() { Task { await fetch() } }

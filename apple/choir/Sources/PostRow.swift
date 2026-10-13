@@ -65,6 +65,8 @@ struct PostRow: View {
         for m in detector.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
             guard let url = m.url, let r = Range(m.range, in: text), let ar = Range(r, in: out) else { continue }
             out[ar].link = url
+            out[ar].underlineStyle = .single
+            out[ar].foregroundColor = .accentColor
         }
         return out
     }

@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SignInView: View {
+    enum Door { case login, new }
+    var door: Door = .login
     @EnvironmentObject var account: Account
     @Environment(\.dismiss) private var dismiss
     @State private var email = ""
@@ -27,7 +29,9 @@ struct SignInView: View {
                             .onChange(of: code) { _, c in if c.filter(\.isNumber).count == 6 { Task { await verify() } } }
                     }
                 } footer: {
-                    Text(sent ? "We sent six digits to \(email)." : "No password. We email you a six digit code.")
+                    Text(sent ? "We sent six digits to \(email)." : door == .new
+                         ? "Make an account with your email. No password: we send you a six digit code, then you choose your @name."
+                         : "No password. We email you a six digit code.")
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 Section {
@@ -37,7 +41,7 @@ struct SignInView: View {
                 }
                 if busy { ProgressView().frame(maxWidth: .infinity) }
             }
-            .navigationTitle("Sign in")
+            .navigationTitle(door == .new ? "I'm new" : "Log in")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
             .onAppear { field = .email }
@@ -52,7 +56,7 @@ struct SignInView: View {
     func verify() async {
         guard !busy else { return }
         busy = true; error = nil; defer { busy = false }
-        do { try await account.verify(email: email.trimmingCharacters(in: .whitespaces), code: code.filter(\.isNumber)); dismiss() }
+        do { try await account.verify(email: email.trimmingCharacters(in: .whitespaces), code: code.filter(\.isNumber)); Trail.send(door == .new ? "door:new" : "door:login"); dismiss() }
         catch { self.error = error.localizedDescription; code = "" }
     }
 }

@@ -17,6 +17,8 @@ targets:
     sources:
       - Sources
       - ../aesel/Sources/AccountDeletion.swift
+      - ../aesel/Sources/CurtainAccountButtonStyle.swift
+      - ../aesel/Sources/AeselButtonStyle.swift
       - path: Resources/Assets.xcassets
     settings:
       base:

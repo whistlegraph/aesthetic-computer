@@ -4,11 +4,14 @@ struct RoomView: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
     @State private var sheet: Sheet?
-    enum Sheet: String, Identifiable { case signIn, compose, account; var id: String { rawValue } }
+    enum Sheet: String, Identifiable { case login, new, compose, account; var id: String { rawValue } }
 
     var body: some View {
         NavigationStack {
             List {
+                if !account.signedIn {
+                    Entry { door in sheet = door == .login ? .login : .new }.listRowSeparator(.hidden)
+                }
                 if let error = room.error {
                     Text(error).foregroundStyle(.secondary).font(.footnote)
                 }
@@ -28,17 +31,20 @@ struct RoomView: View {
             .safeAreaInset(edge: .top, spacing: 0) { TagBar(selected: room.tag, tags: room.tags, onPick: pick) }
             .refreshable { await room.load() }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(account.signedIn ? (account.handle ?? "you") : "Sign in") { sheet = account.signedIn ? .account : .signIn }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { sheet = account.handle == nil ? (account.signedIn ? .account : .signIn) : .compose } label: { Image(systemName: "square.and.pencil") }
-                        .accessibilityLabel("New post")
+                if account.signedIn {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(account.handle ?? "you") { sheet = .account }
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { sheet = account.handle == nil ? .account : .compose } label: { Image(systemName: "square.and.pencil") }
+                            .accessibilityLabel("New post")
+                    }
                 }
             }
             .sheet(item: $sheet) { s in
                 switch s {
-                case .signIn: SignInView()
+                case .login: SignInView(door: .login)
+                case .new: SignInView(door: .new)
                 case .compose: ComposeView(onPosted: { Task { await room.load() } })
                 case .account: AccountView()
                 }

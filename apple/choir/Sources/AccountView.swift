@@ -16,7 +16,7 @@ struct AccountView: View {
                         LabeledContent("Posting as", value: handle)
                     } else {
                         Text("You're signed in but don't have a name yet.")
-                        Link("Choose your @name", destination: URL(string: "https://aesthetic.computer/prompt~handle")!)
+                        Link("Choose your @name", destination: URL(string: "https://aesthetic.computer/handle")!)
                         Button("I chose one") { Task { await account.refreshMe() } }
                     }
                 }
