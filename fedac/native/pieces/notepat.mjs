@@ -7183,7 +7183,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     wifi.state !== 3 && wifi.state !== 4;
 
   // Timeout: if connecting for > 180 frames (~3s), disconnect and retry (silent)
-  if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 180) {
+  if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 1200) {   // 20 s: 3 s cut WPA + DHCP short
     wifi.disconnect?.();
     autoConnectFrame = -30; // brief delay before next attempt
   }

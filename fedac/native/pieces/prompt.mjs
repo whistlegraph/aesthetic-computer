@@ -799,8 +799,10 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     const isConnecting = wifi.state === 3 || wifi.state === 4;
     const isIdle = !isConnecting;
 
-    // Timeout connecting after 3s
-    if (isConnecting && frame - connectStartFrame > 180) {
+    // Give a connect 20 s (frames, at up to 60 fps). The old 3 s cut every
+    // WPA handshake + DHCP short on slower networks; the C side has its own
+    // 60 s ceiling.
+    if (isConnecting && frame - connectStartFrame > 1200) {
       wifi.disconnect?.();
       autoConnectFrame = -30;
     }
