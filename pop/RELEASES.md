@@ -165,12 +165,21 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   Voices re-sung 2026-10-12 (the Oct 10 wipe took the stems; singrender built on blueberry, neo's disk guard).
 - **Release files:** `out/release/eightgigabytes.flac` (16-bit/44.1, 9.4 MB, under the ~10 MB browser cap) ·
   `out/release/cover-3000.jpg` from `marketing/campaigns/eightgigabytes/gens/v6.png` (three Neos facing out, each singing its own face on a 16:10 screen, Menu Band semitone keycaps; v1 kept as cover-3000-v1.jpg).
+- **Canvas (2026-10-13):** `out/eightgigabytes-canvas.mp4` (also `out/release/`) — 1080×1920, 4.8 s, silent, seamless, no text:
+  the three singing faces, decorative. A zigzag column of member-colored laptops on cream paper (frisbee, neo lead
+  a touch larger, blueberry), each screen holding its singer from Menu Band's own face rig, looping the last refrain's
+  hook *I have eight gigabytes* (record 67.5–72.3 s, where all three sing). Laptops bounce on the kick, the twelve
+  semitone keycaps light in turn, the paper breathes once a bar; every period divides the loop. `bin/canvas.py`
+  composites `bin/faces.sh 30 960 600 66.5 72.8 -canvas` (faces.sh now takes a start/end/tag window); the loop's
+  start was picked where neo and blueberry are about to sing and frisbee is 0.6 s behind at both ends, so the
+  4-frame seam fade has nothing to hide. Sep 26 stems/timeline fetched back from poorslice's offload for the mouth cues.
+  Attach in Spotify for Artists once the track surfaces.
 - **Submitted 2026-10-12** to DistroKid as Aesthetic Dot Computer (grouped with the existing artist on Spotify,
   Apple Music, YouTube Music, Instagram) · Pop / Electronic (Indie Dance / Nu Disco) · original, not explicit,
   AI-generated: No · performer (synthesizer) + producer credits · no paid extras.
   HyperFollow: https://distrokid.com/hyperfollow/aestheticdotcomputer/eight-gigabytes
 - **Next:** stores go live over ~a week (Spotify ≥ 5 business days); add lyrics + credits/liner notes on DistroKid;
-  Apple may capitalize the title ("Eight Gigabytes").
+  Apple may capitalize the title ("Eight Gigabytes"); upload the Canvas in S4A.
 
 ---
 
