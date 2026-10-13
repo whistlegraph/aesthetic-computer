@@ -7,6 +7,11 @@
     const offlineRuntime = !["https:", "http:"].includes(location.protocol);
     const inPackagedApp = globalThis.__oskiewarPackaged === true;
     const jevDemo = new URLSearchParams(location.search).has('jev-vs-jev');
+    const mimeReplay = new URLSearchParams(location.search).get("mime") === "1";
+    if (mimeReplay) {
+      document.documentElement.classList.add("mime-replay");
+      globalThis.__mimeAudioPlaying = false;
+    }
     // Keep the iOS host marker across room links and authentication redirects.
     // Online iOS uses the same account and saved fighter as the website.
     const inIOSApp = (() => {
@@ -40,7 +45,7 @@
       const harness = new URLSearchParams(location.search);
       globalThis.__oskiewarLocalPractice = harness.has("practice");
       globalThis.__oskiewarPracticeOpponent = harness.has("practice") ? "dummy" : "";
-      globalThis.__oskiewarVersusCapable = !offlineRuntime && !harness.has("social-preview") &&
+      globalThis.__oskiewarVersusCapable = !mimeReplay && !offlineRuntime && !harness.has("social-preview") &&
         !harness.has("practice") && !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
     }
   </script>
@@ -102,6 +107,9 @@
   <meta name="twitter:title" content="oskiewar — a free fighting game in your browser">
   <meta name="twitter:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
   <style>
+    html.mime-replay :is(#account, #account-panel, #game-menu, #theme-toggle, #status) { display: none !important; }
+    html.mime-replay canvas { pointer-events: none; }
+    .mime-replay-error { position: fixed; inset: 45% 0 auto; text-align: center; color: white; font: 18px sans-serif; }
     @font-face {
       font-family: "Comic Relief";
       src: url("./ComicRelief-Regular.woff2") format("woff2"),
@@ -234,7 +242,9 @@
     #account-panel #account-redirect:hover { background: none; color: #f3f6ff; }
     #account-panel.working #account-field { opacity: .6; }
   </style>
-<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script type="module">
+  if (!mimeReplay) await import("https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs");
+</script>
 </head>
 <body>
   <canvas id="screen" width="1920" height="1080" tabindex="-1" aria-label="oskiewar stick fight and lava climb"></canvas>
@@ -522,9 +532,14 @@
 
     function ensureAudio() {
       if (!audioContext) audioContext = new AudioContext();
-      if (audioContext.state === "suspended") audioContext.resume();
+      if (mimeReplay && !globalThis.__mimeAudioPlaying) void audioContext.suspend();
+      else if (audioContext.state === "suspended") void audioContext.resume();
       return audioContext;
     }
+    globalThis.__mimeAudioSettle = (play) => {
+      if (!mimeReplay || !audioContext) return;
+      void (play ? audioContext.resume() : audioContext.suspend()).catch(() => {});
+    };
 
     // Every gesture that can start the game goes through here. Both banks are
     // gesture-locked — the voice doubly so, because iOS only grants
@@ -1112,7 +1127,7 @@
     function browserPad(index) {
       return sampledPads[index] || readBrowserPad(index);
     }
-    function gamepad(index = 0) { return browserPad(index); }
+    function gamepad(index = 0) { return mimeReplay ? { connected: false, down: [] } : browserPad(index); }
     function controllers() {
       const live = scanPads();
       return [0, 1].map((index) => ({ index, connected: browserPad(index).connected,
@@ -1127,8 +1142,8 @@
     let localCountry = "";
     let updateAvailable = false;
     const popsEndpoint = "/api/oskiewar-pops";
-    const socialPreview = jevDemo || new URLSearchParams(location.search).has("social-preview");
-    const replayOven = new URLSearchParams(location.search).has("replay-oven");
+    const socialPreview = mimeReplay || jevDemo || new URLSearchParams(location.search).has("social-preview");
+    const replayOven = mimeReplay || new URLSearchParams(location.search).has("replay-oven");
     const reelHud = new URLSearchParams(location.search).has("reel-hud");
     const reelFullUi = new URLSearchParams(location.search).has("reel-full-ui");
     // Bot self-play from a plain address, so a browser with no puppeteer to
@@ -1385,6 +1400,7 @@
     }
 
     async function saveReplay(payload) {
+      if (mimeReplay) return false;
       if (globalThis.__oskiewarLocalPractice || offlineRuntime) return false;
       if (jevDemo) return true;
       try {
@@ -1426,6 +1442,7 @@
     const liveFrame = (payload) =>
       '{"type":"oskiewar:state","content":' + payload + "}";
     function publishLive(matchId, payload) {
+      if (mimeReplay) return;
       if (globalThis.__oskiewarLocalPractice || offlineRuntime) return;
       if (jevDemo) { parent.__jevArena?.frame(JSON.parse(payload)); return; }
       const retiresRoom = /"nextRoundId":"ow-/.test(payload);
@@ -1796,6 +1813,7 @@
       initProductAnalytics,
     } from "/aesthetic.computer/lib/product-analytics.mjs";
     import { RoundRoom, roundNameFromPath } from "/round-room.mjs";
+    const { createMimeReplay } = mimeReplay ? await import("/mime-replay.mjs") : {};
     const oskiewarSfx = createOskiewarSfx({
       contextFactory: () => ensureAudio(), volume: .64, maxVoices: 72,
     });
@@ -1811,7 +1829,7 @@
     globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
     globalThis.__oskiewarInsetsChanged();
     // Offline and packaged runtimes have no account service.
-    const accountDoor = inPackagedApp || offlineRuntime ? null : mountAccount({
+    const accountDoor = mimeReplay || inPackagedApp || offlineRuntime ? null : mountAccount({
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,
     });
@@ -1825,7 +1843,7 @@
     // draws a picture of the title and must not grow furniture a viewer of the
     // picture could never press.
     if (accountDoor?.redirectPending) await accountDoor.ready;
-    const defaultCharacterEntry = isDefaultCharacterEntry(new URL(location.href));
+    const defaultCharacterEntry = !mimeReplay && isDefaultCharacterEntry(new URL(location.href));
     const practiceUrl = () => {
       const url = new URL(location.href);
       url.pathname = "/"; url.hash = "";
@@ -1929,12 +1947,13 @@
     let analyticsReady = false;
     const analyticsQueue = [];
     const analytics = (action, properties) => {
+      if (mimeReplay) return false;
       if (action === "match_started") globalThis.acVisits?.action("round_started");
       return jevDemo ? false : analyticsReady
         ? captureOskiewarAction(action, properties)
         : analyticsQueue.push([action, properties]) > 0;
     };
-    if (!jevDemo) fetch("/api/product-analytics-config", { cache: "no-store" })
+    if (!jevDemo && !mimeReplay) fetch("/api/product-analytics-config", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
       .catch(() => null)
       .then((config) => {
@@ -1973,16 +1992,19 @@
     // A visitor arriving through a shared address asks for the second chair
     // — first to open the link fights the host, everybody after watches.
     // Harness lanes stay pure spectators.
-    globalThis.__oskiewarRoundBridge = joinName
+    const mimePlayer = mimeReplay ? createMimeReplay(
+      new URLSearchParams(location.search).get("replay")?.replace(/^ow-/, "") ||
+      location.pathname.replace(/^\/+|\/+$/g, "")) : null;
+    globalThis.__oskiewarRoundBridge = mimePlayer || (joinName
       ? new RoundRoom(joinName, { analytics,
           role: globalThis.__oskiewarVersusCapable === true
             ? "challenger" : "viewer" })
-      : null;
+      : null);
     // The versus room's name IS the invitation, so the address bar carries
     // it as soon as the game mints one — copying the URL is sharing the
     // fight.
     setInterval(() => {
-      if (globalThis.__oskiewarLocalPractice || offlineRuntime) return;
+      if (mimeReplay || globalThis.__oskiewarLocalPractice || offlineRuntime) return;
       if (globalThis.__oskiewarTouch?.screen === "title") {
         if (globalThis.__oskiewarRoomUnavailable && !workshopRoute) {
           history.replaceState(null, "", "/" + location.search);
@@ -2083,9 +2105,11 @@
         const response = await pieceSourceFetch;
         loadedVersion = responseVersion(response);
         source = await response.text();
-        setInterval(checkForUpdate, 10000);
-        addEventListener("pageshow", checkForUpdate);
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) void checkForUpdate(); });
+        if (!mimeReplay) {
+          setInterval(checkForUpdate, 10000);
+          addEventListener("pageshow", checkForUpdate);
+          document.addEventListener("visibilitychange", () => { if (!document.hidden) void checkForUpdate(); });
+        }
       }
       performance.mark("oskiewar:source");
       const piece = new Function(
@@ -2106,12 +2130,12 @@
           `${at("oskiewar:booted") - at("oskiewar:source")}ms`,
           "color:#0f0;font-weight:bold", "color:inherit");
       }
-      warmTitleVoice();
+      if (!mimeReplay) warmTitleVoice();
       // The tally is a title-screen ornament, so it is fetched alongside the
       // first frame rather than gating it, and refreshed slowly — the count
       // only has to be roughly true, and the local bump already covers the
       // pop you just earned.
-      readDummyPops();
+      if (!mimeReplay) readDummyPops();
       if (!socialPreview) readLocalCountry();
       if (!socialPreview) setInterval(readDummyPops, 120000);
       let selectionHoverSoundKey = "";
@@ -2208,6 +2232,7 @@
           // the next frame opens with a wipe that would erase it unpainted.
           globalThis.__fightHost.flushFaces();
           globalThis.__fightHost.presentScene();
+          mimePlayer?.painted();
           // The game publishes where each fighter stands on screen; the bank
           // pans that player's cues to match. Centered pairs mean couch
           // multiplayer, and the bank is told so rather than left stale.
@@ -2221,6 +2246,7 @@
         },
       });
       globalThis.__oskiewarFrameStats = driver.stats;
+      mimePlayer?.bind(driver);
       globalThis.__oskiewarSetTimeScale = (value) => {
         const scale = driver.setTimeScale(value);
         globalThis.__oskiewarTimeScale = scale;
@@ -2232,7 +2258,7 @@
         globalThis.__oskiewarOfflineStep = () => driver.stepOffline();
         globalThis.__oskiewarOfflineReady = true;
       }
-      addEventListener("visibilitychange", () =>
+      if (!mimeReplay) addEventListener("visibilitychange", () =>
         driver.setVisible(document.visibilityState === "visible"));
       addEventListener("pointermove", syncSelectionCursor, { passive: true });
       addEventListener("pointerleave", () =>

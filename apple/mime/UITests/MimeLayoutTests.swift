@@ -1,6 +1,32 @@
 import XCTest
 
 final class MimeLayoutTests: XCTestCase {
+    func testSavedOskiewarReplayInProductionFeed() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.buttons["mime-global-identifier"].firstMatch.waitForExistence(timeout: 45))
+        waitForReveal(in: app)
+        let replay = app.buttons.matching(identifier: "mime-global-identifier")
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "ow-")).firstMatch
+        for _ in 0..<3 {
+            if replay.exists && replay.isHittable && replay.frame.midY > 0 && replay.frame.midY < 150 { break }
+            app.swipeUp()
+            let settled = expectation(for: NSPredicate { _, _ in
+                replay.exists && replay.isHittable && replay.frame.midY > 0 && replay.frame.midY < 150
+            }, evaluatedWith: app)
+            if XCTWaiter().wait(for: [settled], timeout: 5) == .completed { break }
+        }
+        XCTAssertTrue(replay.exists)
+        XCTAssertLessThan(replay.frame.midY, 150)
+        replay.tap()
+        XCTAssertTrue(app.webViews.otherElements["oskiewar stick fight and lava climb"].firstMatch.waitForExistence(timeout: 45))
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "MIME saved Oskiewar replay"; shot.lifetime = .keepAlways; add(shot)
+        replay.tap()
+        app.swipeUp()
+        XCTAssertTrue(app.buttons["mime-global-identifier"].firstMatch.exists, "The feed remains scrollable after playback")
+    }
     func testConstructingVersionStagesAndLiveSourceShareOneLine() {
         continueAfterFailure = false
         let app = XCUIApplication()

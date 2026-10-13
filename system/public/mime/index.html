@@ -959,7 +959,7 @@ function preparePiece(preview) {
   preview.append(iframe);
 }
 window.addEventListener("message", event => {
-  if (event.origin !== "https://aesthetic.computer" || event.data?.type !== "mime:ready") return;
+  if (!["https://aesthetic.computer", "https://oskiewar.com"].includes(event.origin) || event.data?.type !== "mime:ready") return;
   for (const [preview, entry] of piecePool) if (entry.iframe.contentWindow === event.source) {
     entry.iframe.dataset.ready = "true";
     settlePiece(preview, preview === pieceFocused && !document.hidden && document.hasFocus(), true);
@@ -1026,6 +1026,7 @@ const RUNNABLE = {
   whistlegraph: { prefix: "", label: "Whistlegraph ", poster: true },
   // A piece someone made in the Whistlegraph app and published; it runs in AC's /mime-play.
   wgpiece: { prefix: "", label: "Whistlegraph piece ", poster: false },
+  oskiewar: { prefix: "", label: "Oskiewar replay ", poster: false },
 };
 
 function renderRunnable(post) {
@@ -1039,6 +1040,12 @@ function renderRunnable(post) {
   preview.dataset.player = "https://aesthetic.computer/mime-play/?piece=" + encodeURIComponent(kind.prefix + code) + "&warm=1";
   preview.dataset.title = kind.label + code + (post.name ? " by " + post.name : "");
   if (post.media.kind === "wgpiece") preview.dataset.player = "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code) + "&warm=1";
+  if (post.media.kind === "oskiewar") {
+    const player = new URL(post.media.url);
+    if (player.origin === "https://oskiewar.com") {
+      player.searchParams.set("warm", "1"); preview.dataset.player = player.href;
+    }
+  }
   if (new URLSearchParams(location.search).has("ac-automation")) preview.dataset.player += "&ac-automation=1";
   if (post.media.kind === "whistlegraph") {
     preview.dataset.packed = "true";

@@ -14,6 +14,7 @@ import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts, publicHandleCol
 import { ensureMoodCode, moodIdForCode } from "./mood-code.mjs";
 import { ensureChatCode, chatIdForCode } from "./chat-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
+import { replayPosts, replayById } from "./mime-oskiewar.mjs";
 
 const REFRESH_MS = 60_000;
 const PER_SOURCE = 200; // newest items read from each live source per refresh
@@ -110,12 +111,21 @@ function takeLive(queues, recent, previous) {
 export function leadCards(live, now = Date.now()) {
   const age = (item) => (now - new Date(item.when).getTime()) / 3600000 / (LEAD_YOUTH[item.app] || 1);
   const newest = new Map();
+  let latestReplay;
   for (const item of live) {
+    if (item.app === "oskiewar") {
+      if (!latestReplay || new Date(item.when) > new Date(latestReplay.when)) latestReplay = item;
+      continue;
+    }
     const hours = age(item), author = item.author || item.code;
     if (hours < 0 || hours > LEAD_HOURS) continue;
     if (!newest.has(author) || hours < newest.get(author)[0]) newest.set(author, [hours, item]);
   }
-  return [...newest.values()].sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+  const leads = [...newest.values()].sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+  // One recent match is always discoverable, even when its players also made
+  // other work. A busy dojo must not fill the entire opening with replays.
+  if (latestReplay) leads.splice(Math.min(1, leads.length), 0, latestReplay);
+  return leads;
 }
 
 /**
@@ -303,13 +313,15 @@ async function dwellTimes(db) {
 let pool = null, refreshing = null;
 
 async function refresh(db) {
-  const [media, posts, pieces, moodItems, chatItems, dwell, replies] = await Promise.all([
-    liveMedia(db), mimePosts(db), whistlegraphPieces(db), moods(db), chatMessages(db), dwellTimes(db),
+  const [media, posts, pieces, moodItems, chatItems, replays, dwell, replies] = await Promise.all([
+    liveMedia(db), mimePosts(db), whistlegraphPieces(db), moods(db), chatMessages(db),
+    replayPosts(db, PER_SOURCE), dwellTimes(db),
     db.collection(MEDIA_THREADS).find({}, { projection: { replies: 1 } }).toArray(),
   ]);
   const counts = new Map(replies.map((row) => [row._id, row.replies || 0]));
-  const live = [...media, ...posts, ...pieces, ...moodItems, ...chatItems]
-    .filter((item) => !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")));
+  const live = [...media, ...posts, ...pieces, ...moodItems, ...chatItems,
+    ...replays.map(post => feedItem(post, "oskiewar"))]
+    .filter((item) => item.app === "oskiewar" || !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")));
   for (const item of live) {
     item.dwell = dwell.get(item.code) || 0;
     if (counts.has(item.code)) item.post.replies = counts.get(item.code);
@@ -343,6 +355,10 @@ export async function feedPage(db, { seed, page, pageSize }) {
 /** Resolve a feed-only thread (archive painting, mood, Whistlegraph piece) for comments and engagement. */
 export async function feedOnlyOp(db, code) {
   if (typeof code !== "string") return null;
+  if (code.startsWith("ow-")) {
+    const post = await replayById(db, code);
+    return post ? withThread(db, post) : null;
+  }
   if (/^wg[A-Za-z0-9]+$/.test(code)) code = "wgpiece_" + code;
   let match = /^nopaint_([A-Za-z0-9]{4,16})$/.exec(code);
   if (match) {

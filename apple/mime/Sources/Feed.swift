@@ -47,6 +47,12 @@ struct Post: Codable, Identifiable, Equatable {
             case "kidlisp": return .runtime(URL(string: "https://aesthetic.computer/$\(code)?nogap=true&nolabel=true&noauth=true")!, kind: "kidlisp")
             case "piece": return .runtime(URL(string: "https://aesthetic.computer/\(code)?nogap=true&nolabel=true&noauth=true")!, kind: "piece")
             case "wgpiece": return .runtime(absolute(media.url ?? "") ?? base, kind: "wgpiece")
+            case "oskiewar":
+                if var player = media.url.flatMap({ URLComponents(string: $0) }),
+                   player.scheme == "https", player.host == "oskiewar.com" {
+                    player.queryItems = (player.queryItems ?? []).filter { $0.name != "warm" } + [.init(name: "warm", value: "1")]
+                    if let url = player.url { return .runtime(url, kind: "oskiewar") }
+                }
             case "whistlegraph" where media.packed == true:
                 if let url = media.url.flatMap(absolute) { return .packed(url) }
             default: break

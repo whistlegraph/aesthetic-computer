@@ -52,6 +52,11 @@ Remixing, new projects, and project/type switching can leave a server turn
 running. Parking preserves its journal and detaches the old viewer before any
 late result can touch the next project. The existing server queue schedules
 generation across projects; PNG, WAD and Roblox generation still run locally.
+Build 15 plays saved Oskiewar rounds in the feed. Their existing `ow-…` IDs
+remain the global identifiers. The newest replay leads beside fresh artwork;
+the latest 200 enter the ranked pool and every saved round has a MIME permalink.
+Guest rounds participate too. Playback uses the recorded checkpoint viewer,
+pauses offscreen, and does not enter a live match or publish another replay.
 Build 3 adds the automatic loading transition. `loadingBreakupSeconds` adjusts
 its duration from production (0.15–2 seconds, default 0.8); older schema-1
 configs remain valid. Reduced Motion uses a brief fade. Images, documents,
