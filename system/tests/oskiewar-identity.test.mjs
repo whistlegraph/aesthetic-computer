@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 
 const handles = [{_id:'auth0|primary',handle:'tester'}];
-let alias = 'tester', locked = false, requests = [];
+let alias = 'tester', locked = false, requests = [], sibling = null, siblingError = null;
 const profiles = new Map([
   ['auth0|primary',{email:'player@example.test',email_verified:true}],
   ['email|otp',{email:'player@example.test',email_verified:true}],
@@ -12,6 +12,7 @@ mock.module('../backend/database.mjs', {exports:{connect:async()=>({db:{collecti
 })}})}});
 mock.module('../backend/authorization.mjs', {exports:{
   handleFor:async()=>alias,
+  handleBySharedEmail:async()=>{if(siblingError)throw siblingError;return sibling;},
   userEmailFromID:async sub=>{requests.push(sub);return profiles.get(sub);},
 }});
 mock.module('../backend/account-lock.mjs', {exports:{accountLocked:async()=>locked}});
@@ -34,5 +35,22 @@ test('email-code sign-in recovers the handle owner only with matching verified a
   locked=false; profiles.delete('email|otp');
   await assert.rejects(fighterIdentity('email|otp'),{status:503});
   alias=undefined;
+  profiles.set('email|new',{email:'new@example.test',email_verified:true});
   assert.deepEqual(await fighterIdentity('email|new'),{sub:'email|new',handle:null});
+});
+
+test('a verified email-code identity without a cached label resolves its existing handle safely',async()=>{
+  alias=undefined;sibling={sub:'auth0|primary',handle:'tester'};
+  profiles.set('email|otp',{email:'player@example.test',email_verified:true});
+  assert.deepEqual(await fighterIdentity('email|otp'),{sub:'auth0|primary',handle:'tester'});
+  profiles.set('auth0|primary',{email:'different@example.test',email_verified:true});
+  await assert.rejects(fighterIdentity('email|otp'),{status:403});
+  profiles.set('auth0|primary',{email:'player@example.test',email_verified:false});
+  await assert.rejects(fighterIdentity('email|otp'),{status:403});
+  profiles.set('auth0|primary',{email:'player@example.test',email_verified:true});
+  locked=true;await assert.rejects(fighterIdentity('email|otp'),{status:401});locked=false;
+  siblingError=Error('offline');await assert.rejects(fighterIdentity('email|otp'),{status:503});siblingError=null;
+  profiles.set('email|otp',{email:'player@example.test',email_verified:false});
+  assert.deepEqual(await fighterIdentity('email|otp'),{sub:'email|otp',handle:null});
+  sibling=null;
 });
