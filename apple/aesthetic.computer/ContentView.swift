@@ -340,16 +340,17 @@ struct WebView: ACWebViewRepresentable {
             })();
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
 
-        // 🧹 Wipe every cache surface that has been observed to keep stale
-        // /aesthetic.computer/*.mjs (boot, bios, disk, ...) alive between
-        // launches. Cookies + localStorage are preserved so the user stays
-        // logged in.
+        // 🧹 Wipe the legacy cache surfaces at launch. Cookies + localStorage
+        // are preserved so the user stays logged in. The HTTP disk cache, the
+        // service worker and its module cache now survive: sw.js revalidates
+        // bios, boot and every lib/ module against lith on each boot (a 304
+        // when unchanged) and never caches pieces, so they no longer pin stale
+        // modules — and wiping them made every launch and refresh a cold boot
+        // (~2.3 s vs ~0.6 s warm), and raced the first page load (a deleted
+        // service worker failing a module import mid-boot).
         let cacheTypes: Set<String> = [
-            WKWebsiteDataTypeDiskCache,
             WKWebsiteDataTypeMemoryCache,
-            WKWebsiteDataTypeFetchCache,
             WKWebsiteDataTypeOfflineWebApplicationCache,
-            WKWebsiteDataTypeServiceWorkerRegistrations,
             WKWebsiteDataTypeIndexedDBDatabases,
             WKWebsiteDataTypeWebSQLDatabases,
         ]
@@ -438,9 +439,12 @@ struct WebView: ACWebViewRepresentable {
             components.queryItems = items
         }
         guard let bustedURL = components.url else { return }
+        // The shell is per-request HTML and _iosbust already makes its URL new;
+        // a reload-ignoring-cache policy would also force every module and
+        // asset of the page past the cache.
         let request = URLRequest(
             url: bustedURL,
-            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
+            cachePolicy: .useProtocolCachePolicy,
             timeoutInterval: 30
         )
         webView.load(request)

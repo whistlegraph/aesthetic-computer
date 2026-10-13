@@ -57,6 +57,10 @@ const NETWORK_FIRST_PATTERNS = [
   // out the last good copy once the link stalls past the timeout. lib/disk.mjs
   // already matches the lib/ pattern above.
   /\/aesthetic\.computer\/bios\.mjs$/,
+  // boot.mjs imports bios; serving it stale-while-revalidate could pair an
+  // old boot with a fresh bios for one load after a deploy. Its check rides
+  // the same parallel wave as bios's, so it costs no extra round trip.
+  /\/aesthetic\.computer\/boot\.mjs$/,
 ];
 
 // How long a network-first module waits for its conditional fetch before the
