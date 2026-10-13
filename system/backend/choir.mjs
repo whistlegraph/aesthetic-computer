@@ -142,7 +142,8 @@ export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = 
       const q = { replyTo: null };
       if (news) q.news = true;
       if (news && !all && !before) {
-        const newest = await posts.findOne({ replyTo: null, news: true }, { sort: { when: -1 } });
+        // Anchor on the newest item that isn't dated ahead (an old hand seed is).
+        const newest = await posts.findOne({ replyTo: null, news: true, when: { $lte: now() } }, { sort: { when: -1 } });
         if (newest) q.when = { $gte: new Date(Date.parse(newest.when) - SLATE_MS).toISOString() };
       }
       if (tag) q.tags = normalizeTag(tag);

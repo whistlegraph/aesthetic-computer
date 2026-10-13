@@ -69,7 +69,7 @@ struct RoomView: View {
                     }
                 }
               }
-              .background(RuledPaper())
+              .background(RuledPaper().ignoresSafeArea())
               .navigationBarTitleDisplayMode(.inline)
             }
             .toolbar {
@@ -93,6 +93,9 @@ struct RoomView: View {
             }
             .sheet(isPresented: $oracle) {
                 OracleView().environmentObject(account).environmentObject(room).presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: Binding(get: { account.handle != nil && !account.termsCurrent }, set: { _ in })) {
+                TermsSheet().environmentObject(account)
             }
             .fullScreenCover(isPresented: $discover) {
                 DiscoverView().environmentObject(account).environmentObject(room)
@@ -172,6 +175,7 @@ struct ChatRow: View {
     let mine: Bool
     var onTag: (String?) -> Void
     @State private var confirmDelete = false
+    @State private var reporting = false
 
     var body: some View {
         VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
@@ -215,10 +219,11 @@ struct ChatRow: View {
             if mine && !post.deleted {
                 Button("Delete", systemImage: "trash", role: .destructive) { confirmDelete = true }
             } else if !Samples.isSample(post) {
-                Button("Hide \(post.handle)", systemImage: "eye.slash") { room.hide(post.handle) }
-                Link(destination: PostRow(post: post).report) { Label("Report", systemImage: "flag") }
+                Button("Hide \(post.handle)", systemImage: "eye.slash") { Moderation.block(post, room: room, account: account) }
+                Button("Report", systemImage: "flag") { reporting = true }
             }
         }
+        .reportDialog($reporting, post: post)
         .confirmationDialog("Delete this message?", isPresented: $confirmDelete) {
             Button("Delete", role: .destructive) {
                 Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); await room.load() }

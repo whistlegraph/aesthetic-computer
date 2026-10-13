@@ -24,6 +24,23 @@ struct ChoirApp: App {
                         UserDefaults.standard.set(true, forKey: "push-asked")
                         await Devices.ask()
                     }
+                    #if DEBUG // App Store screenshots: -choirShot /discover or /thread/<id>
+                    if let shot = UserDefaults.standard.string(forKey: "choirShot") {
+                        try? await Task.sleep(for: .seconds(3)); Router.shared.open(shot)
+                        let page = UserDefaults.standard.integer(forKey: "choirPage") // -choirPage N: Discover card N
+                        if page > 0 {
+                            try? await Task.sleep(for: .seconds(6))
+                            func pager(_ v: UIView) -> UIScrollView? {
+                                if let s = v as? UIScrollView, s.contentSize.height > s.bounds.height * 2 { return s }
+                                return v.subviews.lazy.compactMap(pager).first
+                            }
+                            let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+                            if let s = windows.reversed().lazy.compactMap({ pager($0) }).first {
+                                s.setContentOffset(CGPoint(x: 0, y: (s.bounds.height - s.adjustedContentInset.top - s.adjustedContentInset.bottom) * CGFloat(page) - s.adjustedContentInset.top), animated: false)
+                            }
+                        }
+                    }
+                    #endif
                 }
                 .onChange(of: account.handle) { _, _ in BugOverlay.shared.update(for: account) }
                 .onChange(of: phase) { _, p in

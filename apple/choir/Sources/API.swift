@@ -34,8 +34,10 @@ struct Attachment: Codable, Hashable {
 struct TagCount: Codable, Hashable { let tag: String; let count: Int }
 struct Me: Codable {
     struct Prefs: Codable { let notifications: Bool; var chat: Bool? = nil; var discover: Bool? = nil }
+    struct Agreed: Codable { let current: Bool; var banned: Bool? = nil }
     let handle: String?
     let prefs: Prefs
+    var terms: Agreed? = nil   // choir.ac/terms, once per version
 }
 
 /// The choir API at aesthetic.computer/api/choir (system/netlify/functions/choir.mjs).

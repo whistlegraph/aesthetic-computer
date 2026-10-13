@@ -15,6 +15,8 @@ final class Account: ObservableObject {
     @Published var notifyChat = true
     @Published var notifyDiscover = true
     @Published var checked = false
+    /// Agreed to the current choir.ac/terms (assumed until the server says otherwise).
+    @Published var termsCurrent = true
     var signedIn: Bool { tokens != nil }
 
     private let bridge = OTPBridge()
@@ -65,6 +67,7 @@ final class Account: ObservableObject {
             handle = me.handle; notifications = me.prefs.notifications
             notifyChat = me.prefs.chat ?? me.prefs.notifications
             notifyDiscover = me.prefs.discover ?? me.prefs.notifications
+            termsCurrent = me.terms?.current ?? true
         } catch API.Failure.status(401, _) { signOut() } catch {}
     }
 

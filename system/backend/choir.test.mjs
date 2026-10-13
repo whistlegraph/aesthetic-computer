@@ -12,6 +12,7 @@ function collection() {
       if ("$gt" in v && !(actual > v.$gt)) return false;
       if ("$lt" in v && !(actual < v.$lt)) return false;
       if ("$gte" in v && !(actual >= v.$gte)) return false;
+      if ("$lte" in v && !(actual <= v.$lte)) return false;
       return true;
     }
     if (Array.isArray(actual)) return actual.includes(v);
@@ -208,12 +209,13 @@ test("a newcomer is welcomed once; members already greeted are not", async () =>
 
 test("Discover shows one day's slate; older items stay reachable", async () => {
   const posts = collection();
-  const s = mongoChoirStore(posts);
+  const s = mongoChoirStore(posts, { now: () => "2026-10-12T16:00:00.000Z" });
   const item = (id, when) => posts.insertOne({ _id: id.repeat(24), owner: "choir|editor", handle: "@choir", text: "x", tags: [], links: [], replyTo: null, replies: 0, when, news: true });
   await item("a", "2026-10-11T15:02:00.000Z");   // yesterday's run
   await item("b", "2026-10-12T15:01:00.000Z");   // today's run
   await item("c", "2026-10-12T15:00:00.000Z");
-  assert.deepEqual((await s.feed({ news: true })).map((p) => p._id[0]), ["b", "c"]);
-  assert.deepEqual((await s.feed({ news: true, all: true })).map((p) => p._id[0]), ["b", "c", "a"], "the curator still sees everything");
+  await item("z", "2099-01-01T00:00:00.000Z");   // a hand seed dated ahead
+  assert.deepEqual((await s.feed({ news: true })).map((p) => p._id[0]), ["z", "b", "c"]);
+  assert.deepEqual((await s.feed({ news: true, all: true })).map((p) => p._id[0]), ["z", "b", "c", "a"], "the curator still sees everything");
   assert.ok(await s.thread("a".repeat(24)), "a chat link to yesterday's item still opens");
 });

@@ -31,6 +31,7 @@
 		BD427551196A57E6A6249462 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB5F83E9F2FFDF39A7CE23A /* API.swift */; };
 		BFCCAEC15AE7FB1E8741C3EF /* Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BFEF8AC67ED57D0C3696C3 /* Attachments.swift */; };
 		C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0924D441BB67623D92EF8ACD /* AccountDeletion.swift */; };
+		C8640F60516A9081989FDB04 /* Moderation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA763036BF3A7402B172BD0 /* Moderation.swift */; };
 		E505E744ABF3566423E83853 /* SingingMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4974653737A8CA133A08CA1 /* SingingMark.swift */; };
 		E840B2BA42E33E78735F8D3C /* Oracle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F824EFD19DD07458BB1C5FCB /* Oracle.swift */; };
 		ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */; };
@@ -80,6 +81,7 @@
 		53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
 		6AC326112F245442C5C63787 /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
 		6AF5B9D04957C667E8E468AE /* PostRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRow.swift; sourceTree = "<group>"; };
+		7EA763036BF3A7402B172BD0 /* Moderation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Moderation.swift; sourceTree = "<group>"; };
 		817102FC4DE130FB7D70ECAC /* Entry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Entry.swift; sourceTree = "<group>"; };
 		8BAC435F86F8B8EB14D10E6E /* ChoirShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ChoirShare.entitlements; sourceTree = "<group>"; };
 		99F6B2BA21EA37E78011CE54 /* AeselButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselButtonStyle.swift; sourceTree = "<group>"; };
@@ -121,6 +123,7 @@
 				224AC79DF9F2580E605A15F9 /* Headline.swift */,
 				E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */,
 				B7D9CF4C07B36A2B2A49773D /* Invites.swift */,
+				7EA763036BF3A7402B172BD0 /* Moderation.swift */,
 				F824EFD19DD07458BB1C5FCB /* Oracle.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
 				4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */,
@@ -297,6 +300,7 @@
 				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
 				B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */,
 				800667C4ACEC5E0FE8DA11F9 /* Invites.swift in Sources */,
+				C8640F60516A9081989FDB04 /* Moderation.swift in Sources */,
 				E840B2BA42E33E78735F8D3C /* Oracle.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,
 				7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */,
@@ -397,7 +401,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -519,7 +523,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
