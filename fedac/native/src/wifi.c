@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 #include <dirent.h>
 #include <time.h>
 #include <stdarg.h>
@@ -681,6 +682,28 @@ static void wifi_do_disconnect(ACWifi *wifi) {
 #define AC_SSID "aesthetic.computer"
 #define AC_PASS "aesthetic.computer"
 
+// A network that just failed sits out for a while, so the strongest-but-broken
+// one can't hold every rescan hostage (a rescan interrupts a connect, and the
+// next pass used to start from the top again).
+#define WIFI_COOLDOWN_SLOTS 8
+#define WIFI_COOLDOWN_SECS 300
+static struct { char ssid[WIFI_SSID_MAX]; time_t until; } g_cooldown[WIFI_COOLDOWN_SLOTS];
+static int wifi_cooling(const char *ssid) {
+    time_t now = time(NULL);
+    for (int i = 0; i < WIFI_COOLDOWN_SLOTS; i++)
+        if (g_cooldown[i].until > now && strcmp(g_cooldown[i].ssid, ssid) == 0) return 1;
+    return 0;
+}
+static void wifi_cool(const char *ssid) {
+    time_t now = time(NULL); int slot = 0;
+    for (int i = 0; i < WIFI_COOLDOWN_SLOTS; i++) {
+        if (strcmp(g_cooldown[i].ssid, ssid) == 0) { slot = i; break; }
+        if (g_cooldown[i].until < g_cooldown[slot].until) slot = i;
+    }
+    strncpy(g_cooldown[slot].ssid, ssid, WIFI_SSID_MAX - 1);
+    g_cooldown[slot].until = now + WIFI_COOLDOWN_SECS;
+}
+
 static void wifi_do_autoconnect(ACWifi *wifi) {
     wifi_log(wifi, "Auto-connect: scanning...");
 
@@ -731,6 +754,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     strncpy(creds[cred_count].pass, "LaMama47!", WIFI_PASS_MAX - 1);
     cred_count++;
 
+    int file_start = cred_count;   // creds from the stick's own file begin here
     FILE *fp = fopen("/mnt/wifi_creds.json", "r");
     if (fp) {
         char buf[2048] = "";
@@ -797,7 +821,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
         for (int i = 0; i < wifi->network_count; i++)
             if (strcmp(wifi->networks[i].ssid, want) == 0) { seen = 1; sig = wifi->networks[i].signal; break; }
         pthread_mutex_unlock(&wifi->lock);
-        if (!seen) continue;
+        if (!seen || wifi_cooling(want)) continue;
         wifi_log(wifi, "Trying preferred '%s' (%d dBm)", want, sig);
         wifi_do_connect(wifi, creds[cj].ssid, creds[cj].pass);
         if (wifi->state == WIFI_STATE_CONNECTED) {
@@ -805,7 +829,27 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
             return;
         }
         wifi_log(wifi, "preferred '%s' failed, falling back to signal order", want);
+        wifi_cool(want);
         strncpy(tried_preferred, want, WIFI_SSID_MAX - 1);
+    }
+
+    // Step 2c: the stick's own wifi_creds.json, in file order, before the
+    // built-in presets — whoever wrote that file put the network they want first.
+    for (int j = file_start; j < cred_count; j++) {
+        int seen = 0, sig = 0;
+        pthread_mutex_lock(&wifi->lock);
+        for (int i = 0; i < wifi->network_count; i++)
+            if (strcmp(wifi->networks[i].ssid, creds[j].ssid) == 0) { seen = 1; sig = wifi->networks[i].signal; break; }
+        pthread_mutex_unlock(&wifi->lock);
+        if (!seen || wifi_cooling(creds[j].ssid)) continue;
+        wifi_log(wifi, "Trying saved '%s' (%d dBm)", creds[j].ssid, sig);
+        wifi_do_connect(wifi, creds[j].ssid, creds[j].pass);
+        if (wifi->state == WIFI_STATE_CONNECTED) {
+            wifi_log(wifi, "Auto-connect: success (saved)!");
+            return;
+        }
+        wifi_log(wifi, "saved '%s' failed", creds[j].ssid);
+        wifi_cool(creds[j].ssid);
     }
 
     // Step 3: Match scanned networks against saved creds (by signal strength)
@@ -813,6 +857,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     pthread_mutex_lock(&wifi->lock);
     for (int i = 0; i < wifi->network_count; i++) {
         if (tried_preferred[0] && strcmp(wifi->networks[i].ssid, tried_preferred) == 0) continue;
+        if (wifi_cooling(wifi->networks[i].ssid)) continue;
         for (int j = 0; j < cred_count; j++) {
             if (strcmp(wifi->networks[i].ssid, creds[j].ssid) == 0) {
                 char ssid[WIFI_SSID_MAX], pass[WIFI_PASS_MAX];
@@ -831,6 +876,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
                     return;
                 }
                 wifi_log(wifi, "'%s' failed, trying next...", ssid);
+                wifi_cool(ssid);
                 pthread_mutex_lock(&wifi->lock);
                 break; // Move to next scanned network
             }
