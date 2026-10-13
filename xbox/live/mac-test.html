@@ -561,6 +561,8 @@
     // the hat that rides with it.
     function synth(frequency, duration = .12) {
       if (!audioReady() || !Number.isFinite(frequency) || !Number.isFinite(duration)) return;
+      const rate = Math.max(.125, Math.min(2, globalThis.__oskiewarAudioRate || 1));
+      frequency *= rate; duration /= rate;
       const ac = audioContext;
       const now = ac.currentTime;
       const length = Math.max(.02, Math.min(4, duration));
@@ -1763,8 +1765,10 @@
       // Something under the pointer — a menu option, the title's start word,
       // a grabbable wordmark letter — takes the press as the tap it always
       // was. Empty canvas is the camera's.
+      const bug = touch.bugBox;
+      const overBug = Boolean(bug) && Math.hypot(point.x - bug.x, point.y - bug.y) <= bug.r;
       const overUi = Boolean(touch.hover) || touch.titleHover === true ||
-        (touch.titleGlyph ?? -1) >= 0;
+        (touch.titleGlyph ?? -1) >= 0 || overBug;
       if (overUi) {
         selectTaps.push(point);
         return;
@@ -1844,6 +1848,8 @@
     globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
     globalThis.__oskiewarInsetsChanged();
     // Offline and packaged runtimes have no account service.
+    // No door mounted means no way to sign in, so the game must not wait for one.
+    if (mimeReplay || inPackagedApp || offlineRuntime) globalThis.__oskiewarAccount.loginOffered = false;
     const accountDoor = mimeReplay || inPackagedApp || offlineRuntime ? null : mountAccount({
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,

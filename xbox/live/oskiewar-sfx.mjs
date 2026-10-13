@@ -35,6 +35,7 @@ export const OSKIEWAR_SIGNAL_EVENTS = Object.freeze([
 
 export const OSKIEWAR_DRUM_NAMES = Object.freeze([
   "kick", "snare", "clap", "hat", "bell", "block", "whoosh", "glass", "glass-shard",
+  "body-impact",
 ]);
 
 const ROUTES = Object.freeze({
@@ -93,6 +94,7 @@ const DRUM_ROUTES = Object.freeze({
   whoosh: "drum-whoosh",
   glass: "glass-break",
   "glass-shard": "glass-shard",
+  "body-impact": "body-impact",
 });
 
 function hashText(text) {
@@ -155,6 +157,7 @@ export function createOskiewarSfx(options = {}) {
   let unlocked = false;
   let muted = false;
   let eventCounter = 0;
+  let playbackRate = 1, impactBuffer = options.impactBuffer || null, impactRequested = false;
 
   function parameter(param, value, at) {
     if (!param) return;
@@ -222,6 +225,16 @@ export function createOskiewarSfx(options = {}) {
   }
 
   function panNode(pan) {
+    if (options.spatial !== false && typeof context.createPanner === "function") {
+      const node = context.createPanner(), angle = clamp(pan, -1, 1) * 1.15;
+      node.panningModel = "HRTF";
+      node.distanceModel = "inverse";
+      node.refDistance = 1; node.rolloffFactor = .35;
+      parameter(node.positionX, Math.sin(angle), context.currentTime);
+      parameter(node.positionY, 0, context.currentTime);
+      parameter(node.positionZ, -Math.cos(angle), context.currentTime);
+      return node;
+    }
     if (typeof context.createStereoPanner === "function") {
       const node = context.createStereoPanner();
       parameter(node.pan, clamp(pan, -1, 1), context.currentTime);
@@ -231,8 +244,8 @@ export function createOskiewarSfx(options = {}) {
   }
 
   function tone(cue, spec) {
-    const at = cue.at + (spec.delay || 0);
-    const duration = Math.max(0.004, spec.duration || 0.08);
+    const at = cue.at + (spec.delay || 0) / cue.rate;
+    const duration = Math.max(0.004, spec.duration || 0.08) / cue.rate;
     const source = context.createOscillator();
     const envelope = context.createGain();
     const panner = panNode(cue.pan + (spec.pan || 0));
@@ -243,7 +256,7 @@ export function createOskiewarSfx(options = {}) {
       ramp(source.frequency, Math.max(20, spec.endFrequency * cue.pitch),
         at + duration, spec.exponential !== false);
     const peak = clamp((spec.gain || 0.2) * cue.gain, 0.0001, 1.5);
-    const attack = Math.min(duration * 0.45, spec.attack ?? 0.001);
+    const attack = Math.min(duration * 0.45, (spec.attack ?? 0.001) / cue.rate);
     parameter(envelope.gain, 0.0001, at);
     ramp(envelope.gain, peak, at + attack);
     ramp(envelope.gain, 0.0001, at + duration, true);
@@ -254,28 +267,30 @@ export function createOskiewarSfx(options = {}) {
   }
 
   function noise(cue, spec) {
-    const at = cue.at + (spec.delay || 0);
-    const duration = Math.max(0.004, Math.min(1.2, spec.duration || 0.08));
+    const at = cue.at + (spec.delay || 0) / cue.rate;
+    const baseDuration = Math.max(0.004, Math.min(1.2, spec.duration || 0.08));
+    const duration = baseDuration / cue.rate;
     const source = context.createBufferSource();
     source.buffer = noiseBuffer;
+    parameter(source.playbackRate, cue.rate, at);
     const filter = context.createBiquadFilter();
     const envelope = context.createGain();
     const panner = panNode(cue.pan + (spec.pan || 0));
     filter.type = spec.filter || "bandpass";
-    parameter(filter.frequency, spec.frequency || 1800, at);
+    parameter(filter.frequency, (spec.frequency || 1800) * cue.rate, at);
     parameter(filter.Q, spec.q ?? 0.8, at);
     if (spec.endFrequency)
-      ramp(filter.frequency, Math.max(20, spec.endFrequency), at + duration,
+      ramp(filter.frequency, Math.max(20, spec.endFrequency * cue.rate), at + duration,
         spec.exponential !== false);
     const peak = clamp((spec.gain || 0.2) * cue.gain, 0.0001, 1.5);
-    const attack = Math.min(duration * 0.45, spec.attack ?? 0.001);
+    const attack = Math.min(duration * 0.45, (spec.attack ?? 0.001) / cue.rate);
     parameter(envelope.gain, 0.0001, at);
     ramp(envelope.gain, peak, at + attack);
     ramp(envelope.gain, 0.0001, at + duration, true);
     source.connect(filter).connect(envelope).connect(panner).connect(output);
     register(source, [source, filter, envelope, panner]);
     // A deterministic offset prevents identical transients from phase-locking.
-    source.start(at, cue.random() * Math.max(0.01, 1.25 - duration), duration);
+    source.start(at, cue.random() * Math.max(0.01, 1.25 - baseDuration));
     source.stop(at + duration + 0.008);
   }
 
@@ -368,12 +383,25 @@ export function createOskiewarSfx(options = {}) {
         : context.currentTime + 0.002,
       pan: clamp(meta.pan ?? 0, -1, 1),
       gain: clamp((meta.intensity ?? 1) * (muted ? 0 : 1), 0, 2),
-      pitch: variation,
+      pitch: variation * playbackRate,
+      rate: playbackRate,
       random,
     };
     if (!cue.gain) return true;
 
     switch (recipe) {
+      case "body-impact": {
+        if (!impactBuffer) { kick(cue, .45); snare(cue, .5); break; }
+        const source = context.createBufferSource(), gain = context.createGain(), panner = panNode(cue.pan);
+        source.buffer = impactBuffer;
+        parameter(source.playbackRate, cue.pitch, cue.at);
+        parameter(gain.gain, cue.gain * .65, cue.at);
+        source.connect(gain).connect(panner).connect(output);
+        register(source, [source, gain, panner]);
+        source.start(cue.at);
+        source.stop(cue.at + impactBuffer.duration / cue.pitch + .01);
+        break;
+      }
       case "title-bloom":
         bubble(cue, .82, 0, POP_TONES.marimbaba[0], 2.25);
         bubble(cue, .7, .075, POP_TONES.marimbaba[1], 2.1);
@@ -477,11 +505,19 @@ export function createOskiewarSfx(options = {}) {
       await context.resume();
     if (!output) buildOutput();
     if (!noiseBuffer) buildNoiseBuffer();
+    if (!impactRequested && !impactBuffer && typeof context.decodeAudioData === "function" && typeof fetch === "function") {
+      impactRequested = true;
+      fetch("/sfx/dojo-punch.wav").then(response => {
+        if (!response.ok) throw Error("Impact sample unavailable");
+        return response.arrayBuffer();
+      }).then(bytes => context.decodeAudioData(bytes)).then(buffer => { impactBuffer = buffer; }).catch(() => {});
+    }
     unlocked = options.offline || context.state !== "suspended";
     return unlocked;
   }
 
   function signal(event, player = -1, value = 0, value2 = 0, signalOptions = {}) {
+    if (event === "audio-rate") { setPlaybackRate(value); return true; }
     if (!unlocked || !context || !output) return false;
     const described = describeOskiewarSignal(event, player, value, value2, {
       ...signalOptions,
@@ -537,6 +573,10 @@ export function createOskiewarSfx(options = {}) {
     playerPans.set(player, clamp(Number(pan) || 0, -1, 1));
   }
 
+  function setPlaybackRate(value) {
+    playbackRate = clamp(Number(value) || 1, .125, 2);
+  }
+
   function setVolume(value) {
     if (!output) return false;
     parameter(output.gain, clamp(Number(value) || 0, 0, 1), context.currentTime);
@@ -557,7 +597,7 @@ export function createOskiewarSfx(options = {}) {
 
   return Object.freeze({
     unlock, signal, signalAt, drum, drumAt, connectSignals,
-    setPlayerPan, setVolume, destroy,
+    setPlayerPan, setPlaybackRate, setVolume, destroy,
     mute(value = true) { muted = Boolean(value); },
     get context() { return context; },
     get unlocked() { return unlocked; },

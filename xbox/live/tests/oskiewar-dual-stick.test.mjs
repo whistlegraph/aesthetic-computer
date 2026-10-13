@@ -42,9 +42,11 @@ test('chalk moves up, down and sideways with the view without rotating its tip',
  }
  assert.ok(a.decals.some(d=>d.kind==='chalk'));
 });
-test('right stick has full orbit and normal pitch; pause discards queued look; aiming converges on centre camera ray',()=>{
- const {api:a}=fixture();a.updateLookInput(1,1,null,1);assert.ok(a.yaw < -2);assert.ok(a.pitch>0);
- a.updateLookInput(1,0,null,1);assert.ok(a.yaw>1,'orbit wraps instead of stopping');
+test('right stick leaves camera fixed; explicit pointer orbit works; pause discards queued look',()=>{
+ const {api:a}=fixture(),yaw=a.yaw,pitch=a.pitch;
+ a.updateLookInput(1,1,null,1);a.updateLookInput(-1,-1,null,1);
+ assert.equal(a.yaw,yaw);assert.equal(a.pitch,pitch);
+ a.updateLookInput(0,0,{yaw:1,pitch:.3,zoom:0},1);assert.equal(a.yaw,yaw+1);assert.equal(a.pitch,pitch+.3);
  const before=a.yaw,orbit={yaw:2,pitch:1,zoom:1};a.pause(true);a.updateLookInput(1,1,orbit,1);assert.equal(a.yaw,before);assert.equal(orbit.yaw,0);
  a.aimCamera(Math.PI/2);const p=a.players[0],aim=a.poolAimDirection({x:p.x,y:p.y-100,z:p.z});assert.ok(aim.dz>.9);assert.ok(aim.dy>0);assert.ok(Math.abs(Math.hypot(aim.dx,aim.dy,aim.dz)-1)<1e-9);
 });

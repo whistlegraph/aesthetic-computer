@@ -9,6 +9,7 @@
 #include "../runtime/include/ac/glass_sound.hpp"
 #include "../runtime/include/ac/skate_sound.hpp"
 #include "../runtime/include/ac/chord_sound.hpp"
+#include "../runtime/include/ac/dojo_sound.hpp"
 #include "../runtime/include/ac/decal_atlas.hpp"
 #include "../runtime/include/ac/decal_surface.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
@@ -508,6 +509,7 @@ public:
     };
     m_api->game_signal = [this](std::string_view event, int player, float value,
         float value2) {
+      if (event == "audio-rate") { SetSfxRate(value); return; }
       constexpr std::size_t copies = 3;
       LARGE_INTEGER queuedAt{};
       QueryPerformanceCounter(&queuedAt);
@@ -1474,7 +1476,10 @@ private:
     Check(m_audio->CreateSourceVoice(&m_oscVoice, &format, 0, 64.0f));
     for (auto& voice : m_glassVoices)
       Check(m_audio->CreateSourceVoice(&voice, &format, 0, XAUDIO2_DEFAULT_FREQ_RATIO));
-    for(auto& voice:m_drumVoices)Check(m_audio->CreateSourceVoice(&voice,&format,0,XAUDIO2_DEFAULT_FREQ_RATIO));
+    WAVEFORMATEX stereo = format;
+    stereo.nChannels = 2; stereo.nBlockAlign = 4; stereo.nAvgBytesPerSec = sampleRate * 4;
+    for(auto& voice:m_drumVoices)Check(m_audio->CreateSourceVoice(&voice,&stereo,0,XAUDIO2_DEFAULT_FREQ_RATIO));
+    m_dojoImpactSamples = ac::dojo_pcm(ReadPackageBytes(L"sfx\\dojo-punch.wav"));
     Check(m_audio->CreateSourceVoice(&m_skateVoice, &format, 0, 2.0f));
     for(int i=0;i<4;i++){Check(m_audio->CreateSourceVoice(&m_chordVoices[i],&format,0,XAUDIO2_DEFAULT_FREQ_RATIO));m_chordSamples[i]=ac::synthesize_park_chord(sampleRate,i);}
     m_skateSamples = synthesize_skate_roll(sampleRate);
@@ -1573,6 +1578,9 @@ private:
   }
 
   void PlayDrum(std::string_view name, float velocity, float pan) {
+    if (name == "body-impact" && !m_dojoImpactSamples.empty()) {
+      PlaySpatialDrum(m_dojoImpactSamples, velocity * .65f, pan); return;
+    }
     if(name.size()==5 && name.substr(0,4)=="pad-" && name[4]>='0' && name[4]<='3') {
       const int index=name[4]-'0';auto* voice=m_chordVoices[m_nextChordVoice++%4];
       const auto& samples=m_chordSamples[index];if(!voice||samples.empty())return;
@@ -1689,11 +1697,31 @@ private:
       }
     }
 
-    const auto slot=m_nextDrumVoice++%m_drumVoices.size();auto* voice=m_drumVoices[slot];if(!voice)return;
-    voice->Stop(0);voice->FlushSourceBuffers();auto& samples=m_drumSamples[slot];samples.resize(frames);
-    for(uint32_t i=0;i<frames;i++)samples[i]=static_cast<int16_t>((std::max)(-1.0,(std::min)(1.0,mixed[i]*hit*.28))*32767.0);
+    PlaySpatialDrum(mixed, float(hit * .28), pan);
+  }
+
+  void SetSfxRate(float rate) {
+    if (!std::isfinite(rate)) return;
+    m_sfxRate = (std::max)(.125f, (std::min)(2.f, rate));
+    for (auto* voice : m_drumVoices) if (voice) voice->SetFrequencyRatio(m_sfxRate);
+    for (auto* voice : m_glassVoices) if (voice) voice->SetFrequencyRatio(m_sfxRate);
+    for (auto* voice : m_chordVoices) if (voice) voice->SetFrequencyRatio(m_sfxRate);
+    if (m_voice) m_voice->SetFrequencyRatio(m_sfxRate);
+  }
+
+  void PlaySpatialDrum(const std::vector<double>& mixed, float gain, float pan) {
+    if (!m_master || !m_sampleRate) return;
+    const auto slot = m_nextDrumVoice++ % m_drumVoices.size();
+    auto* voice = m_drumVoices[slot]; if (!voice) return;
+    voice->Stop(0); voice->FlushSourceBuffers();
+    auto& samples = m_drumSamples[slot];
+    samples = ac::dojo_spatial(mixed, m_sampleRate, pan, gain, m_sfxRate);
+    voice->SetFrequencyRatio(m_sfxRate);
     XAUDIO2_VOICE_DETAILS details{};m_master->GetVoiceDetails(&details);
-    if(details.InputChannels>=2){std::vector<float> matrix(details.InputChannels,0);const float p=(std::max)(-1.f,(std::min)(1.f,pan));matrix[0]=std::sqrt((1-p)*.5f);matrix[1]=std::sqrt((1+p)*.5f);voice->SetOutputMatrix(m_master,1,details.InputChannels,matrix.data());}
+    std::vector<float> matrix(details.InputChannels * 2, 0);
+    if (details.InputChannels >= 2) { matrix[0] = 1; matrix[3] = 1; }
+    else { matrix[0] = .5f; matrix[1] = .5f; }
+    voice->SetOutputMatrix(m_master, 2, details.InputChannels, matrix.data());
     XAUDIO2_BUFFER buffer{};buffer.AudioBytes=static_cast<UINT32>(samples.size()*sizeof(int16_t));buffer.pAudioData=reinterpret_cast<const BYTE*>(samples.data());buffer.Flags=XAUDIO2_END_OF_STREAM;
     Check(voice->SubmitSourceBuffer(&buffer));Check(voice->Start(0));
   }
@@ -3303,6 +3331,8 @@ private:
   size_t m_nextChordVoice=0;
   std::array<IXAudio2SourceVoice*,12> m_drumVoices{};
   std::array<std::vector<int16_t>,12> m_drumSamples;
+  std::vector<double> m_dojoImpactSamples;
+  float m_sfxRate = 1;
   std::size_t m_nextDrumVoice=0;
   std::size_t m_nextGlassVoice = 0;
   std::vector<int16_t> m_glassSamples, m_glassShardSamples;

@@ -35,17 +35,17 @@ function arc(mode = 'fight', releaseFrame = Infinity) {
   assert.fail('Jump never landed');
 }
 
-test('fight jumps clear adjacent decks and return in about one real second', () => {
+test('dojo jumps stay low with a gentler, readable gravity arc', () => {
   const jump = arc();
-  assert.ok(jump.peak > 360 && jump.peak < 420, JSON.stringify(jump));
-  assert.ok(jump.airtime > .7 && jump.airtime < .9, JSON.stringify(jump));
+  assert.ok(jump.peak > 140 && jump.peak < 175, JSON.stringify(jump));
+  assert.ok(jump.airtime > .65 && jump.airtime < .85, JSON.stringify(jump));
   assert.ok(jump.wallTime < 1.1, JSON.stringify(jump));
   assert.ok(jump.latency < .09, JSON.stringify(jump));
 });
 
 test('releasing jump produces a lower, shorter hop', () => {
   const held = arc(), tap = arc('fight', 2);
-  assert.ok(tap.peak > 60 && tap.peak < held.peak * .5, JSON.stringify(tap));
+  assert.ok(tap.peak > 20 && tap.peak < held.peak * .5, JSON.stringify(tap));
   assert.ok(tap.airtime < held.airtime * .7, JSON.stringify(tap));
 });
 

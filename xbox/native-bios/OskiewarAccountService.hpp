@@ -11,9 +11,9 @@ namespace NativeBios {
 // and the game never receives the account token. All URLs are fixed here.
 class OskiewarAccountService final : public std::enable_shared_from_this<OskiewarAccountService> {
  public:
-  explicit OskiewarAccountService(ac::xbox::Api& api) {
+  explicit OskiewarAccountService(ac::xbox::Api& api, bool secondSeat = false) {
     m_path = std::wstring(Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data()) +
-      L"\\oskiewar-account.json";
+      (secondSeat ? L"\\oskiewar-account-p2.json" : L"\\oskiewar-account.json");
     try {
       std::ifstream input(m_path.c_str(), std::ios::binary);
       std::string saved((std::istreambuf_iterator<char>(input)), {});
@@ -26,12 +26,17 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
         }
       }
     } catch (...) {}
+    if (secondSeat) return;
+    m_secondSeat = std::make_shared<OskiewarAccountService>(api, true);
     api.account_state = [this]() { return state(); };
     api.account_action = [this](std::string_view action, std::string_view payload) { act(action, payload); };
     api.account_report = [this](std::string_view payload) { return report(payload); };
   }
 
   void act(std::string_view action, std::string_view payload = {}) {
+    if (m_secondSeat && (action == "login-p2" || action == "logout-p2" || action == "cancel-p2")) {
+      m_secondSeat->act(action.substr(0, action.size() - 3)); return;
+    }
     if (action == "leaderboard") { leaderboard(payload); return; }
     if (action != "login" && action != "logout" && action != "cancel") return;
     unsigned generation;
@@ -40,6 +45,8 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
       ++m_generation; generation = m_generation;
       m_busy = false; m_reportBusy = m_leaderboardBusy = false; m_secret.clear(); m_code.clear(); m_error.clear(); m_expires = 0;
       m_fighterBusy = false; m_fighter = "{}"; m_nextFighter = 0;
+      m_colorsBusy = false; m_colors = "[]"; m_nextColors = 0;
+      m_characterBusy = false; m_character = "{}"; m_nextCharacter = 0;
       if (action == "logout") {
         // The game's own private account file only. OS/developer credentials
         // and the phone's login session are deliberately outside this scope.
@@ -74,11 +81,17 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
     if (!poll.empty()) request(generation, false, poll);
     if (!queuedReport.empty()) report(queuedReport);
     refreshFighter();
+    refreshColors();
+    refreshCharacter();
+    const auto second = m_secondSeat ? m_secondSeat->state() : std::string();
     std::lock_guard<std::mutex> lock(m_mutex);
     auto json = ref new Windows::Data::Json::JsonObject();
+    if (!second.empty()) json->Insert(L"localPlayer2", Windows::Data::Json::JsonObject::Parse(wide(second)));
     using Windows::Data::Json::JsonValue;
     json->Insert(L"status", JsonValue::CreateStringValue(wide(m_status)));
     json->Insert(L"handle", JsonValue::CreateStringValue(wide(m_handle)));
+    try { json->Insert(L"colors", Windows::Data::Json::JsonArray::Parse(wide(m_colors))); } catch (...) {}
+    try { json->Insert(L"character", Windows::Data::Json::JsonObject::Parse(wide(m_character))); } catch (...) {}
     json->Insert(L"code", JsonValue::CreateStringValue(wide(m_code)));
     json->Insert(L"pairUrl", JsonValue::CreateStringValue(wide(m_code.empty() ? "" :
       "https://aesthetic.computer/api/device-pair-login?code=" + m_code)));
@@ -92,6 +105,129 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
   }
 
  private:
+  // A manually edited appearance is public, but fetching our own signed-in
+  // identity prevents a renamed handle or stale seat from dressing somebody else.
+  void refreshCharacter() {
+    using namespace Windows::Data::Json;
+    std::string token, handle; unsigned generation;
+    {
+      std::lock_guard<std::mutex> lock(m_mutex);
+      if (m_status != "signed-in" || m_token.empty() || m_characterBusy || GetTickCount64() < m_nextCharacter) return;
+      token = m_token; handle = m_handle; generation = m_generation; m_characterBusy = true;
+      m_nextCharacter = GetTickCount64() + 2000;
+    }
+    const auto lifetime = shared_from_this();
+    auto client = ref new Windows::Web::Http::HttpClient();
+    client->DefaultRequestHeaders->Authorization = ref new Windows::Web::Http::Headers::HttpCredentialsHeaderValue(L"Bearer", wide(token));
+    auto uri = ref new Windows::Foundation::Uri(L"https://aesthetic.computer/api/oskiewar-character");
+    concurrency::create_task(client->GetAsync(uri)).then([client, lifetime](Windows::Web::Http::HttpResponseMessage^ response) {
+      if (!response->IsSuccessStatusCode) throw ref new Platform::FailureException();
+      return response->Content->ReadAsStringAsync();
+    }).then([this, lifetime, generation, handle](concurrency::task<Platform::String^> result) {
+      try {
+        auto body = result.get();
+        if (body->Length() > 8192) throw ref new Platform::FailureException();
+        auto json = JsonObject::Parse(body);
+        if (utf8(json->GetNamedString(L"handle", L"")) != handle) throw ref new Platform::FailureException();
+        const auto revision = json->GetNamedNumber(L"revision", -1);
+        if (!std::isfinite(revision) || revision < 0 || std::floor(revision) != revision) throw ref new Platform::FailureException();
+        auto safe = ref new JsonObject();
+        safe->Insert(L"handle", JsonValue::CreateStringValue(wide(handle)));
+        safe->Insert(L"revision", JsonValue::CreateNumberValue(revision));
+        auto source = json->GetNamedValue(L"appearance", nullptr);
+        if (source && source->ValueType == JsonValueType::Object) {
+          auto value = source->GetObject();
+          if (value->GetNamedNumber(L"version", 0) != 1) throw ref new Platform::FailureException();
+          auto appearance = ref new JsonObject();
+          appearance->Insert(L"version", JsonValue::CreateNumberValue(1));
+          auto colors = ref new JsonObject();
+          auto sourceColors = value->GetNamedObject(L"colors");
+          for (auto part : {L"head", L"torso", L"leftArm", L"rightArm", L"leftLeg", L"rightLeg"})
+            colors->Insert(ref new Platform::String(part), characterRgb(sourceColors->GetNamedArray(ref new Platform::String(part))));
+          appearance->Insert(L"colors", colors);
+          auto face = value->GetNamedObject(L"face");
+          auto eyes = utf8(face->GetNamedString(L"eyes", L""));
+          auto mouth = utf8(face->GetNamedString(L"mouth", L""));
+          if (eyes != "none" && eyes != "dots" && eyes != "wide" && eyes != "sleepy") throw ref new Platform::FailureException();
+          if (mouth != "none" && mouth != "smile" && mouth != "neutral" && mouth != "frown") throw ref new Platform::FailureException();
+          auto safeFace = ref new JsonObject();
+          safeFace->Insert(L"eyes", JsonValue::CreateStringValue(wide(eyes)));
+          safeFace->Insert(L"mouth", JsonValue::CreateStringValue(wide(mouth)));
+          safeFace->Insert(L"color", characterRgb(face->GetNamedArray(L"color")));
+          appearance->Insert(L"face", safeFace);
+          safe->Insert(L"appearance", appearance);
+        } else if (source && source->ValueType == JsonValueType::Null && revision == 0) {
+          safe->Insert(L"appearance", JsonValue::CreateNullValue());
+        } else throw ref new Platform::FailureException();
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation || handle != m_handle) return;
+        m_character = utf8(safe->Stringify()); m_characterBusy = false;
+      } catch (...) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation || handle != m_handle) return;
+        m_characterBusy = false;
+        m_nextCharacter = GetTickCount64() + 5000;
+      }
+    });
+  }
+
+  static Windows::Data::Json::JsonArray^ characterRgb(Windows::Data::Json::JsonArray^ source) {
+    using namespace Windows::Data::Json;
+    if (source->Size != 3) throw ref new Platform::FailureException();
+    auto color = ref new JsonArray();
+    for (unsigned i = 0; i < 3; ++i) {
+      const auto channel = source->GetNumberAt(i);
+      if (!std::isfinite(channel) || channel < 0 || channel > 255 || std::floor(channel) != channel) throw ref new Platform::FailureException();
+      color->Append(JsonValue::CreateNumberValue(channel));
+    }
+    return color;
+  }
+
+  void refreshColors() {
+    using namespace Windows::Data::Json;
+    std::string handle; unsigned generation;
+    {
+      std::lock_guard<std::mutex> lock(m_mutex);
+      if (m_status != "signed-in" || !valid_handle(m_handle) || m_colorsBusy || GetTickCount64() < m_nextColors) return;
+      handle = m_handle; generation = m_generation; m_colorsBusy = true;
+      m_nextColors = GetTickCount64() + 60000;
+    }
+    const auto lifetime = shared_from_this();
+    auto client = ref new Windows::Web::Http::HttpClient();
+    auto uri = ref new Windows::Foundation::Uri(wide("https://aesthetic.computer/api/handle-colors?handle=" + handle));
+    concurrency::create_task(client->GetAsync(uri)).then([client, lifetime](Windows::Web::Http::HttpResponseMessage^ response) {
+      if (!response->IsSuccessStatusCode) throw ref new Platform::FailureException();
+      return response->Content->ReadAsStringAsync();
+    }).then([this, lifetime, generation, handle](concurrency::task<Platform::String^> result) {
+      try {
+        const auto body = result.get();
+        if (body->Length() > 16384) throw ref new Platform::FailureException();
+        auto json = JsonObject::Parse(body);
+        auto colors = ref new JsonArray();
+        auto value = json->GetNamedValue(L"colors", nullptr);
+        if (value && value->ValueType == JsonValueType::Array) {
+          auto source = value->GetArray();
+          for (unsigned i = 0; i < (std::min)(source->Size, 65u); ++i) {
+            auto color = source->GetObjectAt(i);
+            auto safe = ref new JsonObject();
+            for (auto key : { L"r", L"g", L"b" }) {
+              const auto channel = color->GetNamedNumber(ref new Platform::String(key), -1);
+              if (!std::isfinite(channel) || channel < 0 || channel > 255) throw ref new Platform::FailureException();
+              safe->Insert(ref new Platform::String(key), JsonValue::CreateNumberValue(channel));
+            }
+            colors->Append(safe);
+          }
+        }
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation || handle != m_handle) return;
+        m_colors = utf8(colors->Stringify()); m_colorsBusy = false;
+      } catch (...) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation || handle != m_handle) return;
+        m_colorsBusy = false;
+      }
+    });
+  }
   // Only the host holds the paired account credential. The game gets an
   // expiring appearance, revalidated against the same authority as the web.
   void refreshFighter() {
@@ -136,6 +272,8 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
         if (generation != m_generation) return;
         m_fighterBusy = false; m_fighter = "{}";
         if (*status == 401) {
+          ++m_generation; m_colors = "[]"; m_colorsBusy = false; m_nextColors = 0;
+          m_character = "{}"; m_characterBusy = false; m_nextCharacter = 0;
           m_handle.clear(); m_token.clear(); m_status = "error"; m_error = "Sign-in expired. Sign in again.";
           std::ofstream clear(m_path.c_str(), std::ios::binary | std::ios::trunc);
           if (clear) clear << "{}";
@@ -333,11 +471,18 @@ class OskiewarAccountService final : public std::enable_shared_from_this<Oskiewa
     });
     return true;
   }
+  std::shared_ptr<OskiewarAccountService> m_secondSeat;
   std::mutex m_mutex;
   std::wstring m_path;
   std::string m_status = "signed-out", m_handle, m_code, m_secret, m_error, m_token;
   std::string m_reportStatus, m_leaderboardError, m_leaderboard = "{}";
   std::string m_fighter = "{}";
+  std::string m_colors = "[]";
+  std::string m_character = "{}";
+  bool m_characterBusy = false;
+  ULONGLONG m_nextCharacter = 0;
+  bool m_colorsBusy = false;
+  ULONGLONG m_nextColors = 0;
   bool m_fighterBusy = false;
   ULONGLONG m_nextFighter = 0;
   bool m_reportBusy = false, m_leaderboardBusy = false;

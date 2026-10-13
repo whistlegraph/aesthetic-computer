@@ -43,7 +43,7 @@ def face-edge .075
   ; neck is a thin stem from just under it up into the head, set a touch
   ; back so the shoulders cover its base and the head its top
   (ink skin)
-  (nudge 3 (bone (neck 0 -4 0) head 4))
+  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))
   ; the torso: a capsule whose rounded top sits under the shoulder bar (its
   ; top centre a radius below the shoulder line), so nothing domes up above
   ; the shoulders — that dome read as a thick neck — and wide enough that the
@@ -87,6 +87,7 @@ def face-edge .075
     (ball 5 -19 14.8 1.3)))
 
 ; the head, inked in head radii like everything hung on it
+(if (not headless)
 (on head
   (outline .06 20 16 28
     ; hair behind the head, so the face shows in front and a cap round it,
@@ -156,3 +157,5 @@ def face-edge .075
     (scale 1 .38 1 (ring z .24))
     (ink 24 18 26)
     (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))
+
+)

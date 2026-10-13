@@ -82,6 +82,7 @@
        is a stale duplicate of it. Kept only until the packaging change above is
        verified on hardware. -->
   <ItemGroup><Content Include="smoke_piece.js"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
+  <ItemGroup><Content Include="..\live\sfx\dojo-punch.wav"><Link>sfx\dojo-punch.wav</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup><Content Include="Assets\JeffreyTexture.rgba"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>
     <!-- Optional generated photo atlases; themeAssetReady selects the procedural fallback. -->

@@ -153,7 +153,7 @@ const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 function normal(a) {
-  const length = Math.hypot(a.x, a.y, a.z) || 1;
+  const length = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) || 1;
   return { x: a.x / length, y: a.y / length, z: a.z / length };
 }
 
@@ -161,13 +161,15 @@ function normal(a) {
 // that bead's twist.
 function frameAt(spine, i) {
   const a = spine.root.yaw + spine.shape.yaw + spine.twist[i];
-  return { forward: { x: Math.cos(a), y: 0, z: Math.sin(a) }, right: { x: -Math.sin(a), y: 0, z: Math.cos(a) } };
+  const c = Math.cos(a), s = Math.sin(a);
+  return { forward: { x: c, y: 0, z: s }, right: { x: -s, y: 0, z: c } };
 }
 
 // The pelvis points up, tipped forward by its tilt.
 function pelvisUp(spine) {
   const { forward } = frameAt(spine, 0), t = spine.root.tilt + spine.shape.hinge + spine.reflex.hinge;
-  return normal(add(scale({ x: 0, y: 1, z: 0 }, Math.cos(t)), scale(forward, Math.sin(t))));
+  const s = Math.sin(t);
+  return normal({ x: forward.x * s, y: Math.cos(t), z: forward.z * s });
 }
 
 // Continue a rope segment from `below`, bent forward then sideways. The
@@ -175,10 +177,13 @@ function pelvisUp(spine) {
 // folds; built from forward it went degenerate folded over (forward ≈ up)
 // and the shoulders flipped side to side.
 function bendDirection(below, frame, forwardBend, sideBend) {
-  const right = normal(add(frame.right, scale(below, -dot(frame.right, below))));
+  const along = dot(frame.right, below);
+  const right = normal({ x: frame.right.x - below.x * along, y: -below.y * along, z: frame.right.z - below.z * along });
   const ahead = cross(below, right);
-  const pitched = add(scale(below, Math.cos(forwardBend)), scale(ahead, Math.sin(forwardBend)));
-  return normal(add(scale(pitched, Math.cos(sideBend)), scale(right, Math.sin(sideBend))));
+  const fc = Math.cos(forwardBend), fs = Math.sin(forwardBend), sc = Math.cos(sideBend), ss = Math.sin(sideBend);
+  return normal({ x: (below.x * fc + ahead.x * fs) * sc + right.x * ss,
+    y: (below.y * fc + ahead.y * fs) * sc + right.y * ss,
+    z: (below.z * fc + ahead.z * fs) * sc + right.z * ss });
 }
 
 // An orthonormal frame read off the rope at bead i: its own up (along the
@@ -192,7 +197,9 @@ export function bodyFrame(spine, i) {
 }
 // A point in a frame: forward, up, right.
 export const place = (frame, f, u, r) =>
-  add(frame.origin, add(add(scale(frame.forward, f), scale(frame.up, u)), scale(frame.right, r)));
+  ({ x: frame.origin.x + frame.forward.x * f + frame.up.x * u + frame.right.x * r,
+    y: frame.origin.y + frame.forward.y * f + frame.up.y * u + frame.right.y * r,
+    z: frame.origin.z + frame.forward.z * f + frame.up.z * u + frame.right.z * r });
 export const chestFrame = (spine) => bodyFrame(spine, chestIndex(spine));
 export const pelvisFrame = (spine) => bodyFrame(spine, 0);
 // A point on the ground in the travel frame: along the heading, across it.
@@ -201,10 +208,10 @@ export function travelPoint(spine, along, across, height = 0) {
   return { x: root.x + c * along - s * across, y: spine.floor + height, z: root.z + s * along + c * across };
 }
 
-function limbAnchor(spine, limb) {
+function limbAnchor(spine, limb, frame) {
   return limb.kind === "arm"
-    ? place(chestFrame(spine), 0, 4, limb.side * spine.o.shoulder)
-    : place(pelvisFrame(spine), 0, -4, limb.side * spine.o.hipWidth);
+    ? place(frame || chestFrame(spine), 0, 4, limb.side * spine.o.shoulder)
+    : place(frame || pelvisFrame(spine), 0, -4, limb.side * spine.o.hipWidth);
 }
 
 // ——— The inner force ———
@@ -319,19 +326,24 @@ export function stepSpine(spine, dt = step) {
   if (!root.driven) { root.x += root.vx * dt; root.z += root.vz * dt; }
 
   const h = dt / o.substeps;
+  // Intent and rhythm are constant through the constraint substeps.
+  const bends = restBends(spine);
+  const twists = spine.restTwists ||= new Float64Array(n);
+  for (let i = 0; i < n; i++) twists[i] = restTwist(spine, i);
   for (let sub = 0; sub < o.substeps; sub++) {
     integrate(spine, h);
-    stepTwist(spine);
+    stepTwist(spine, twists);
     // Bend springs act once per substep, as springs; only the links (which
     // must never stretch) and the hips are solved to convergence.
     holdPelvis(spine);
-    bendSprings(spine, restBends(spine));
+    bendSprings(spine, bends);
     // The floor is part of the solve, not an afterthought: clamped after the
     // links, a body folded to the ground had its neck pulled out of length.
     const ground = () => { for (let i = 1; i < n; i++) if (spine.y[i] < spine.floor + 6) spine.y[i] = spine.floor + 6; };
     for (let k = 0; k < o.iterations; k++) { holdPelvis(spine); ground(); keepLinks(spine); keepLinks(spine); }
-    for (const limb of spine.arms) stepLimb(spine, limb, h);
-    for (const limb of spine.legs) stepLimb(spine, limb, h);
+    const chest = chestFrame(spine), pelvis = pelvisFrame(spine);
+    for (const limb of spine.arms) stepLimb(spine, limb, h, chest);
+    for (const limb of spine.legs) stepLimb(spine, limb, h, pelvis);
     takePull(spine);
     keepLinks(spine);   // the rope takes the pull without giving length
   }
@@ -378,15 +390,15 @@ function integrate(spine, h) {
 
 // Twist is its own small rope: the pelvis takes it from the hips, each bead
 // above follows the one below, late.
-function stepTwist(spine) {
+function stepTwist(spine, rests) {
   const { o, n, twist, previousTwist } = spine, keep = 1 - o.damping / o.substeps;
   for (let i = 0; i < n; i++) {
     const velocity = (twist[i] - previousTwist[i]) * keep;
     previousTwist[i] = twist[i];
     twist[i] += velocity;
-    const rest = restTwist(spine, i);
+    const rest = rests[i];
     if (i === 0) { twist[0] += (rest - twist[0]) * .6; continue; }
-    const follow = twist[i - 1] + rest - restTwist(spine, i - 1);
+    const follow = twist[i - 1] + rest - rests[i - 1];
     twist[i] += (follow - twist[i]) * o.twistStiff * o.muscle + (rest - twist[i]) * o.twistRest;
   }
 }
@@ -424,7 +436,7 @@ function keepLinks(spine) {
   const { n, links } = spine;
   for (let i = 0; i < n - 1; i++) {
     const dx = spine.x[i + 1] - spine.x[i], dy = spine.y[i + 1] - spine.y[i], dz = spine.z[i + 1] - spine.z[i];
-    const d = Math.hypot(dx, dy, dz) || 1, error = (d - links[i]) / d;
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, error = (d - links[i]) / d;
     const low = i ? .5 : .3;   // the pelvis gives a little (all of a landing on one link tore it)
     spine.x[i] += dx * error * low; spine.y[i] += dy * error * low; spine.z[i] += dz * error * low;
     spine.x[i + 1] -= dx * error * (1 - low); spine.y[i + 1] -= dy * error * (1 - low); spine.z[i + 1] -= dz * error * (1 - low);
@@ -438,9 +450,9 @@ function keepLinks(spine) {
 // stiffness (a pinned end sits on it); the middle bows toward its pole
 // (elbows back and out, knees forward); links keep both bones' lengths. A
 // pinned hand whose arm runs out of length drags the chest bead with it.
-function stepLimb(spine, limb, h) {
+function stepLimb(spine, limb, h, frame) {
   const { o } = spine, keep = 1 - o.limbDamping / o.substeps, fall = o.gravity * h * h;
-  const anchor = limbAnchor(spine, limb), [l1, l2] = limb.lengths;
+  const anchor = limbAnchor(spine, limb, frame), [l1, l2] = limb.lengths;
   limb.x[0] = limb.px[0] = anchor.x; limb.y[0] = limb.py[0] = anchor.y; limb.z[0] = limb.pz[0] = anchor.z;
   for (let i = 1; i < 3; i++) {
     const vx = (limb.x[i] - limb.px[i]) * keep, vy = (limb.y[i] - limb.py[i]) * keep, vz = (limb.z[i] - limb.pz[i]) * keep;
@@ -457,7 +469,6 @@ function stepLimb(spine, limb, h) {
     limb.x[2] += (goal.x - limb.x[2]) * k; limb.y[2] += (goal.y - limb.y[2]) * k; limb.z[2] += (goal.z - limb.z[2]) * k;
   }
   // The joint bows toward its pole.
-  const frame = limb.kind === "arm" ? chestFrame(spine) : pelvisFrame(spine);
   const pole = normal(limb.kind === "arm"
     ? add(add(scale(frame.forward, -.5), scale(frame.right, limb.side * .5)), scale(frame.up, -.3))
     : frame.forward);
@@ -477,18 +488,32 @@ function stepLimb(spine, limb, h) {
   // Bones keep their lengths. The anchor is the body's; a pinned end is
   // mostly the world's, so the arm's pull is handed to the chest (see pull).
   for (let k = 0; k < o.iterations * 2; k++) {
-    const pull = linkLimb(limb, 0, 1, l1, limb.pin && limb.kind === "arm" ? .6 : 0, 1);
+    const pull = linkLimb(limb, 0, 1, l1, limb.pin && limb.kind === "arm" ? .6 : 0, 1, true);
     if (pull) { spine.pull.x += pull.x; spine.pull.y += pull.y; spine.pull.z += pull.z; }
     linkLimb(limb, 1, 2, l2, 1, limb.pin ? .25 : 1);
   }
   // A foot held up by the ground keeps its place; the knee re-fits to it.
   ground();
   for (let k = 0; k < 2; k++) { linkLimb(limb, 1, 2, l2, 1, 0); linkLimb(limb, 0, 1, l1, 0, 1); }
+  if (limb.lock && limb.goal) {
+    // A deck constraint is a fixed endpoint, not a spring aiming below it.
+    // Solve the knee on the two bone intersection circle without moving
+    // either the hip or the planted shoe.
+    const g=limb.goal,dx=g.x-anchor.x,dy=g.y-anchor.y,dz=g.z-anchor.z;
+    const d=Math.max(.001,Math.hypot(dx,dy,dz)),nx=dx/d,ny=dy/d,nz=dz/d;
+    const along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
+    const dotPole=pole.x*nx+pole.y*ny+pole.z*nz;
+    let px=pole.x-nx*dotPole,py=pole.y-ny*dotPole,pz=pole.z-nz*dotPole;
+    const plen=Math.hypot(px,py,pz)||1;px/=plen;py/=plen;pz/=plen;
+    limb.x[1]=anchor.x+nx*along+px*height;limb.y[1]=anchor.y+ny*along+py*height;limb.z[1]=anchor.z+nz*along+pz*height;
+    limb.x[2]=limb.px[2]=g.x;limb.y[2]=limb.py[2]=g.y;limb.z[2]=limb.pz[2]=g.z;
+  }
 }
 
 // What a pinned arm asked of the chest this substep, handed over once and
 // capped, so a hard pull bends the rope instead of tearing its links.
 function takePull(spine) {
+  if (!spine.pull.x && !spine.pull.y && !spine.pull.z) return;
   const { pull } = spine, d = Math.hypot(pull.x, pull.y, pull.z), cap = 1.2, k = d > cap ? cap / d : 1;
   const chest = chestIndex(spine);
   for (const [i, w] of [[chest, 1], [chest - 1, .5]]) {
@@ -499,16 +524,16 @@ function takePull(spine) {
 
 // Hold two limb beads at `length`, moving each by its weight (0 = fixed).
 // Returns how far a movable anchor was asked to go, for the body to take.
-function linkLimb(limb, a, b, length, weightA, weightB) {
+function linkLimb(limb, a, b, length, weightA, weightB, reportPull = false) {
   const dx = limb.x[b] - limb.x[a], dy = limb.y[b] - limb.y[a], dz = limb.z[b] - limb.z[a];
-  const d = Math.hypot(dx, dy, dz) || 1, error = (d - length) / d, total = weightA + weightB;
+  const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, error = (d - length) / d, total = weightA + weightB;
   if (!total) return null;
   const wa = weightA / total, wb = weightB / total;
   limb.x[b] -= dx * error * wb; limb.y[b] -= dy * error * wb; limb.z[b] -= dz * error * wb;
   if (!wa) return null;
-  const pull = { x: dx * error * wa, y: dy * error * wa, z: dz * error * wa };
-  limb.x[a] += pull.x; limb.y[a] += pull.y; limb.z[a] += pull.z;
-  return pull;
+  const x = dx * error * wa, y = dy * error * wa, z = dz * error * wa;
+  limb.x[a] += x; limb.y[a] += y; limb.z[a] += z;
+  return reportPull ? { x, y, z } : null;
 }
 
 // ——— Pokes from outside ———

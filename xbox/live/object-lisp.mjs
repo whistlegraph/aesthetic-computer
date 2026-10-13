@@ -22,13 +22,13 @@
 
 // What the game hands an object each tick. Seconds, world units, radians;
 // `hit` and `land` count seconds since the event (large when it never was).
-// `blink`, `hurt`, `skirt` and `glasses` are a figure's: how its face and
+// `blink`, `hurt`, `skirt`, `glasses` and `headless` are a figure's: how its face and
 // outfit read this tick.
 export const objectInputs = ["time", "distance", "speed", "lean", "heading",
-  "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses"];
-const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0];
+  "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses", "headless"];
+const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0];
 // Switches are 0 or 1, so a baked part that reads one is baked once per value.
-const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses"]);
+const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses", "headless"]);
 // A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
 // 20): the head's centre, a point one head-radius along where it looks, then
 // the body. Shapes hang on these; the host is handed their positions a tick.

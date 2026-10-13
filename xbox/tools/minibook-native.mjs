@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // minibook-native.mjs — build the Xbox app (native-bios, UWP MSIX) on the
-// Windows laptop beside the console and install it, instead of waiting on
+// Choowee, the Windows laptop beside the console and install it, instead of waiting on
 // AppVeyor. Every stage posts to the laptop's on-screen display
 // (~\ac-progress.log, tailed by progress-window.ps1) and is timed here.
 //
 //   node xbox/tools/minibook-native.mjs            sync + build + install
 //   node xbox/tools/minibook-native.mjs --no-install
+//   --force-sync refreshes restored source timestamps; --with-dependencies
+//   also installs framework packages when preparing a fresh console.
 //
 // The laptop's OSD is toolchain/windows/progress-window.ps1.
 //
@@ -21,7 +23,7 @@ import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const host = process.env.MINIBOOK_HOST || "minibook";
+const host = process.env.CHOOWEE_HOST || process.env.MINIBOOK_HOST || "choowee";
 const remoteRoot = "src/ac";                       // under the laptop's $HOME
 const state = join(homedir(), ".cache", "minibook-native");
 const sentPath = join(state, `${host}-sent.json`);
@@ -32,6 +34,7 @@ const roots = [
   "xbox/native-bios", "xbox/runtime/include", "xbox/themes/photorealistic/native",
   "xbox/tools/oskiewar-native-source.mjs",
   "xbox/live/oskiewar.js", "xbox/live/oskiewar-fighter.mjs", "xbox/live/native-account.mjs",
+  "xbox/live/sfx/dojo-punch.wav", "pop/nullabye/c/ac_hrtf.h",
   "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
   "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf",
   "system/public/type/webfonts/ywft-processing-regular.ttf",
@@ -61,7 +64,7 @@ function sync() {
   const changed = [];
   for (const path of files()) {
     now[path] = createHash("sha1").update(readFileSync(join(root, path))).digest("hex");
-    if (sent[path] !== now[path]) changed.push(path);
+    if (args.has("--force-sync") || sent[path] !== now[path]) changed.push(path);
   }
   if (!changed.length) { say("sources unchanged"); return now; }
   say(`syncing ${changed.length} changed file${changed.length === 1 ? "" : "s"}`);
@@ -71,7 +74,9 @@ function sync() {
   execFileSync("tar", ["-cf", tarball, "-C", root, "-T", join(scratch, "list")]);
   ssh(`New-Item -ItemType Directory -Force $HOME\\${remoteRoot.replace("/", "\\")} | Out-Null`);
   execFileSync("scp", ["-q", tarball, `${host}:${remoteRoot}/sync.tar`]);
-  ssh(`tar -xf $HOME\\${remoteRoot.replace("/", "\\")}\\sync.tar -C $HOME\\${remoteRoot.replace("/", "\\")}; Remove-Item $HOME\\${remoteRoot.replace("/", "\\")}\\sync.tar`);
+  // A restored local file may be older than a generated Windows manifest.
+  // Mark changed content fresh; untouched files retain their incremental state.
+  ssh(`$root = "$HOME\\${remoteRoot.replace("/", "\\")}"; $files = tar -tf "$root\\sync.tar"; tar -xf "$root\\sync.tar" -C $root; $now = Get-Date; foreach ($file in $files) { (Get-Item (Join-Path $root $file)).LastWriteTime = $now }; Remove-Item "$root\\sync.tar"`);
   rmSync(scratch, { recursive: true, force: true });
   return now;
 }
@@ -147,12 +152,22 @@ say(`built in ${buildSeconds}s`);
 if (args.has("--no-install")) { say(`done in ${seconds()}`); process.exit(0); }
 const listing = clean(ssh(`Get-ChildItem $HOME\\src\\ac\\artifacts\\native-bios -Recurse -Include *.msix,*.appx | Sort LastWriteTime -Descending | ForEach-Object { $_.FullName.Substring($HOME.Length + 1).Replace('\\','/') }`));
 const all = listing.split("\n").map((line) => line.trim()).filter(Boolean);
-const main = all.find((path) => /NativeBios_.*\.msix$/i.test(path));
+const manifest = readFileSync(join(root, "xbox/native-bios/Package.appxmanifest"), "utf8");
+const version = manifest.match(/<Identity\b[^>]*\bVersion="([^"]+)"/)?.[1];
+if (!version) throw new Error("Native BIOS manifest has no package version");
+const main = all.find((path) => path.endsWith(`/NativeBios_${version}_x64.msix`));
 if (!main) { say("no MSIX produced"); process.exit(1); }
-const deps = all.filter((path) => /Dependencies\/x64\/.*\.appx$/i.test(path));
+// The devkit already has VCLibs. Reposting it with an update made Device Portal
+// return HTTP 500; the same verified MSIX succeeds on its own.
+const deps = args.has("--with-dependencies")
+  ? [...new Map(all.filter((path) => /Dependencies\/x64\/.*\.appx$/i.test(path))
+    .map(path => [path.split("/").pop(), path])).values()] : [];
 const local = mkdtempSync(join(tmpdir(), "minibook-msix-"));
 say("fetching package");
 for (const path of [main, ...deps]) execFileSync("scp", ["-q", `${host}:${path}`, join(local, path.split("/").pop())]);
+const packageManifest = execFileSync("unzip", ["-p", join(local, main.split("/").pop()), "AppxManifest.xml"], { encoding: "utf8" });
+const packagedVersion = packageManifest.match(/<Identity\b[^>]*\bVersion="([^"]+)"/)?.[1];
+if (packagedVersion !== version) throw new Error(`Package contains ${packagedVersion}, expected ${version}; use --force-sync to refresh generated Windows inputs`);
 say("installing on the xbox");
 const installed = spawnSync("node", [join(root, "xbox/tools/live.mjs"), "install",
   join(local, main.split("/").pop()), ...deps.map((path) => join(local, path.split("/").pop()))],

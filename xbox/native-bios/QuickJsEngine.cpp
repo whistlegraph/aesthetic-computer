@@ -67,7 +67,8 @@ JSValue AccountAction(JSContext* context, JSValueConst, int argc, JSValueConst* 
   const char* raw = JS_ToCString(context, argv[0]);
   if (!raw) return JS_EXCEPTION;
   const std::string action(raw); JS_FreeCString(context, raw);
-  if (action != "login" && action != "logout" && action != "cancel" && action != "leaderboard")
+  if (action != "login" && action != "logout" && action != "cancel" && action != "leaderboard" &&
+      action != "login-p2" && action != "logout-p2" && action != "cancel-p2")
     return JS_ThrowRangeError(context, "unknown account action");
   std::string payload;
   if(argc>1) {const char* rawPayload=JS_ToCString(context,argv[1]);

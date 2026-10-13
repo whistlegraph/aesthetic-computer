@@ -1,0 +1,8 @@
+{
+  "tool": "pop/bin/sfx.mjs",
+  "generated": "2026-10-12",
+  "cacheHash": "46de45e959f78608",
+  "prompt": "One short dry punch into a padded martial arts training dummy. A tight leather smack over a low soft body thud, no voice, no music, no reverb, isolated single impact with a clean silent tail.",
+  "requestedDurationSeconds": 0.5,
+  "processing": "Mono PCM16 at 48000 Hz; leading silence trimmed; short tail fade. Spatialization and room returns applied during playback."
+}

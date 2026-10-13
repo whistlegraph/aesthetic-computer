@@ -24,7 +24,7 @@ export const end = "// </objects>";
 // What the game draws, by the name it asks for: the source file each is
 // compiled from. The monowheel is drawn flat, and figures are, behind a flag
 // (OBJECT-DIALECT.md).
-export const objects = { monowheel: "monowheel-flat", figure: "figure-flat" };
+export const objects = { monowheel: "monowheel-flat", figure: "figure-flat", character: "figure-character" };
 
 // A module's source with its `export` keywords taken off, and the names it
 // exported.
@@ -39,6 +39,7 @@ function unexport(source) {
 
 export function generate() {
   const lisp = unexport(read("object-lisp.mjs"));
+  const character = unexport(read("../../system/public/aesthetic.computer/lib/oskiewar-character.mjs"));
   if (/^import /m.test(lisp.body)) throw new Error("object-lisp.mjs: the game can't carry imports");
   // The .ow package reader rides along (xbox/OW-FORMAT.md): a level and its
   // objects arrive as one text, and the game reads it with the same reader.
@@ -53,6 +54,10 @@ export function generate() {
     "// xbox/tools/embed-objects.mjs. Don't edit here: edit those, try them in",
     "// xbox/live/object-lab.html, then rerun the tool.",
     "const gameObjects = (() => {",
+    "  const characterProfiles = (() => {",
+    indent(character.body),
+    `    return { ${character.names.join(", ")} };`,
+    "  })();",
     "  const objectLisp = (() => {",
     indent(lisp.body),
     `    return { ${lisp.names.join(", ")} };`,
@@ -66,11 +71,18 @@ export function generate() {
     "  };",
     "  // Each compiled (and baked) the first time it is asked for, not at load:",
     "  // an object the game never draws costs nothing.",
-    "  const objects = { light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes, read: objectLisp.read, ow: owLisp };",
+    "  const objects = { characterProfiles, light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes, read: objectLisp.read, ow: owLisp };",
     "  const compiled = {};",
     "  const ask = (name) => Object.defineProperty(objects, name, { configurable: true,",
     "    get: () => compiled[name] || (compiled[name] = objectLisp.compile(sources[name], name)) });",
     "  for (const name in sources) ask(name);",
+    "  objects.characterFigure = (eyes, mouth) => {",
+    "    const e = Math.max(0, ['none','dots','wide','sleepy'].indexOf(eyes));",
+    "    const m = Math.max(0, ['none','smile','neutral','frown'].indexOf(mouth));",
+    "    const key = 'character-' + e + '-' + m;",
+    "    return compiled[key] || (compiled[key] = objectLisp.compile(sources.character",
+    "      .replace('def eyes 1', 'def eyes ' + e).replace('def mouth 1', 'def mouth ' + m), key));",
+    "  };",
     "  // A .ow package can bring its own object by a name the game draws: the",
     "  // next ask compiles the new source. `sources()` lists what it carries.",
     "  objects.define = (name, source) => { sources[name] = source; delete compiled[name]; ask(name); };",

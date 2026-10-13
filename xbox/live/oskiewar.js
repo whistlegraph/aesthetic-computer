@@ -108,15 +108,21 @@ const nativeAccount = typeof globalThis.accountState === "function" &&
   globalThis.__oskiewarFighterModel?.validate
   ? globalThis.__oskiewarCreateNativeAccount({ read: globalThis.accountState,
       act: globalThis.accountAction, validate: globalThis.__oskiewarFighterModel.validate }) : null;
+let nativeSecondPublic = { status: "unavailable" };
 let nativeAccountPublic = { status: "signed-out" }, nativeAccountMark = "";
 function syncNativeAccount() {
   if (!nativeAccount) return;
   const { state, fighter } = nativeAccount.refresh();
   nativeAccountPublic = state;
+  nativeSecondPublic = state.localPlayer2 || { status: "unavailable" };
   const handle = state.status === "signed-in" && state.handle
     ? "@" + state.handle.replace(/^@/, "").toUpperCase() : "";
-  globalThis.__oskiewarAccount = { ready: true, signedIn: !!handle, handle, colors: [] };
+  globalThis.__oskiewarAccount = { ready: true, signedIn: !!handle, handle,
+    colors: state.colors?.length ? state.colors : handle ? fighterProfile(handle).colors : [] };
   globalThis.__oskiewarFighterAppearance = fighter;
+  syncCharacterAppearance(players[0], state.character, handle);
+  syncCharacterAppearance(players[1], nativeSecondPublic.character,
+    nativeSecondPublic.status === "signed-in" ? nativeSecondPublic.handle : "");
   globalThis.__oskiewarLocalPractice = !!fighter;
   if (fighter) {
     globalThis.__oskiewarVersus = false;
@@ -130,7 +136,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 281;
+const buildVersion = 282;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -177,7 +183,8 @@ const soloRoom = () => lobbyActive() || freeskateActive();
 // below holds one number per tile so per-tile computation (heat, ownership,
 // weather) has a surface to run on.
 const tileSize = 90;
-let gridCols = 40;
+const dojoCols = 12;
+let gridCols = dojoCols;
 const gridRows = 16;
 // Tile (0, 0) starts flush at the floor-left corner of the PLAYABLE box, so
 // every tile edge lands on a clean multiple of 90. The walls stand outside
@@ -256,19 +263,7 @@ const onGridField = (x, y) =>
 // deliberately flat and deliberately in the middle — that is where the bell
 // rings, and a fight that opens with both fighters sliding down a transition
 // is a fight nobody chose the start of.
-const parkFeatures = [
-  { from: 0,  to: 4,  kind: "transition", rise: 360, dir: -1 },
-  { from: 4,  to: 6,  kind: "flat" },
-  { from: 6,  to: 9,  kind: "transition", rise: 270, dir: -1, lift: -270 },
-  { from: 9,  to: 12, kind: "flat", lift: -270 },
-  { from: 12, to: 15, kind: "transition", rise: 270, dir: 1, lift: -270 },
-  { from: 15, to: 25, kind: "flat" },
-  { from: 25, to: 28, kind: "bank", rise: 180, dir: 1 },
-  { from: 28, to: 30, kind: "flat", lift: 180 },
-  { from: 30, to: 33, kind: "bank", rise: 180, dir: -1 },
-  { from: 33, to: 36, kind: "flat" },
-  { from: 36, to: 40, kind: "transition", rise: 360, dir: 1 },
-];
+const parkFeatures = [{ from: 0, to: dojoCols, kind: "flat" }];
 // Resolved once into world units so the per-frame walk compares numbers
 // rather than rebuilding them. `terrainFloorAt` runs for every foot, every
 // grass blade and every render sample, so it is worth the twenty bytes.
@@ -474,7 +469,7 @@ function configureWorldMap(name, course = poolPainting ? "painting" : poolDesert
   skateBoosts.length = 0;
   if (skateparkMap && !indoor && !halfpipeOnly()) { skateLoops.push(...parkLoops); skateBoosts.push(...parkBoosts); }
   if(indoor)skateLoops.push({x:tileCenterX(44),radius:260});
-  gridCols = !skateparkMap ? 40 : poolOnly() ? (poolDesert ? desertGrid().cols : 96) : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
+  gridCols = !skateparkMap ? dojoCols : poolOnly() ? (poolDesert ? desertGrid().cols : 96) : halfpipeOnly() ? 24 : indoor ? indoorCols : 320;
   gridWidth = gridCols * tileSize;
   if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
   worldRight = gridLeft + gridWidth + wallThickness;
@@ -975,7 +970,7 @@ function drawDecals(surface) {
     }
     if(handle>=0)decalMesh(handle,mainNativeCamera(),gridLeft-parkLotMargin,worldNear-parkLotMargin,gridWidth+parkLotMargin*2,roomDepth+parkLotMargin*2);
   }
-  if (!decals.length && !bloodDrops.length) return;
+  if (!decals.length && !bloodDrops.length && !tearDrops.length) return;
   const now = runtime().monotonicUs;
   const reach = cameraWidth * .8 + 300;
   const lod = sceneLod();
@@ -1011,7 +1006,7 @@ function drawDecals(surface) {
       }finally { setWorldDepth(0); }
       continue;
     }
-    if (raster) { drawRasterDecal(decal); continue; }
+    if (raster && decal.kind !== "water") { drawRasterDecal(decal); continue; }
     const age = persistent ? 0 : (now - decal.at) / 1e6;
     decal.shape ||= decalShape(decal);
     if (decal.kind === "arc") {
@@ -1065,6 +1060,9 @@ function drawDecals(surface) {
       const wet = clamp(1 - age / 30, 0, 1);
       fan(1, mixColor([70, 14, 18], [146, 8, 20], wet));
       if (decal.size > 14) fan(.55, mixColor([54, 10, 14], [112, 4, 14], wet));
+    } else if (decal.kind === "water") {
+      fan(1, mixColor(surface, [64, 135, 176], .52));
+      fan(.62, mixColor(surface, [166, 221, 241], .45));
     } else if (decal.kind === "ding") {
       fan(1.6, mixColor(surface, [48, 30, 24], .8));
       fan(.8, mixColor(surface, [252, 238, 212], .75));
@@ -1083,7 +1081,17 @@ function drawDecals(surface) {
     triangleDepth = point.z;
     const width = Math.max(1.2, drop.size * cameraScale());
     const inkDrop = drop.kind === "wood" ? [226, 188, 136] : [150, 10, 22];
-    screenTriangle(point.x - width, point.y, point.x + width, point.y, tail.x, tail.y, inkDrop[0], inkDrop[1], inkDrop[2]);
+    if (drop.kind === "wood") screenTriangle(point.x - width, point.y, point.x + width, point.y, tail.x, tail.y, ...inkDrop);
+    else drawFluidDrop(point.x,point.y,tail.x,tail.y,width,[180,39,78],[242,115,143]);
+  }
+  for (const drop of tearDrops) {
+    const point = projectPoint(drop.x, drop.y, drop.z);
+    const tail = projectPoint(drop.x - drop.vx * .022,
+      drop.y - drop.vy * .022, drop.z - drop.vz * .022);
+    if (point.behind || tail.behind) continue;
+    triangleDepth = point.z - .002;
+    drawFluidDrop(point.x, point.y, tail.x, tail.y,
+      Math.max(1, drop.size * projectionScaleAt(drop)), [112, 208, 245], [231, 251, 255]);
   }
   triangleDepth = previous;
 }
@@ -1917,13 +1925,7 @@ const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
 // are the high ground above it. The bridge over the halfpipe is reachable
 // from the flat beside the bowl and not from the bottom of it, which is the
 // point of a bowl.
-const parkDeckPlan = [
-  { col: 8,  row: 5, cols: 5 },
-  { col: 15, row: 3, cols: 4 },
-  { col: 21, row: 3, cols: 4 },
-  { col: 18, row: 7, cols: 4 },
-  { col: 31, row: 5, cols: 4 },
-];
+const parkDeckPlan = [];
 const parkDecks = parkDeckPlan.map((deck, index) => ({
   level: index + 1,
   left: gridLeft + deck.col * tileSize,
@@ -1958,14 +1960,14 @@ const activeLedges = (z = 0) => survivalActive() ? platforms
 // is unchanged from the cube: two fighters three tiles apart, astride the
 // centre line. The map's size is where you GO, not where you start, and the
 // corners, the decks and the climb are what spend it.
-const spawnColLeft = 18;
-const spawnColRight = 21;
+const spawnColLeft = 4;
+const spawnColRight = 7;
 // Not corners any more: the ends of this map are quarterpipe transitions, and
 // a pistol resting on a vertical wall is a pistol nobody can pick up. These
 // are the two flat aprons either side of the park instead — still a run away
 // from the bell, still costing you your back to reach.
-const cornerColLeft = 5;
-const cornerColRight = 34;
+const cornerColLeft = 1;
+const cornerColRight = 10;
 const centerX = gridLeft + gridWidth / 2;
 const platformsEnabled = () => survivalActive() || parkDecks.length > 0;
 // Version-one furniture — the wind flag's pole, the store's demos, the tests —
@@ -2138,14 +2140,14 @@ const instantReplayMaxFrames = 240;
 // rolling over a gentle crest does not pop a rider off the ground every time.
 const skatePumpAcceleration = 2600;
 const skateLaunchFloor = 380;
-const walkSpeed = 880;
-const runStartSpeed = 1100;
-const runTopSpeed = 1950;
-const runAcceleration = 690;
+const walkSpeed = 460;
+const runStartSpeed = 620;
+const runTopSpeed = 980;
+const runAcceleration = 360;
 // Momentum, after Runman: speed is the thing a player keeps, not a number
 // the legs reset. Chained dashes build an overdrive past the run's top, which
 // bleeds back slowly unless it is fed; a hit costs a share of it, never all.
-const runOverdriveTop = 2600;
+const runOverdriveTop = 1450;
 const runDashKick = 250;
 const runOverdriveBleed = 300;
 const runHitKeep = .65;
@@ -2166,9 +2168,12 @@ const fallGravityFull = 7200;
 // Survival retains the full-weight arc its rungs were built around.
 const spaceGravityScale = .8;
 const gravityScale = () => survivalActive() ? 1 : spaceGravityScale;
-const riseGravity = () => riseGravityFull * gravityScale();
-const fallGravity = () => fallGravityFull * gravityScale();
+const riseGravity = () => dojoActive() ? 2200 : riseGravityFull * gravityScale();
+const fallGravity = () => dojoActive() ? 2600 : fallGravityFull * gravityScale();
 const jumpVelocity = 1760;
+const dojoActive = () => currentMapId === "dojo" && !skateparkMap && !survivalActive() && !freeskateActive();
+// Lower launch and gentler acceleration preserve a small, readable arc.
+const dojoJumpVelocity = 820, dojoAirJumpVelocity = 720;
 // The park's own air: heavier than it was (a flat 1800 hung a jump ~860
 // units up for two seconds), and heavier still on the way down, so a hop is
 // short and lands with weight. Bowl airs off the coping ride the same curve.
@@ -2191,7 +2196,10 @@ const jumpPoseUs = 75000;
 const crouchJumpPoseUs = 145000;
 const crouchHopPoseUs = 190000;
 const sinkDurationUs = 250000;
-const hudTypeSize = 42;
+const hudTypeSize = 28;
+const dojoTypeSize = 28;
+const standardDojoType = () => currentMapId === "dojo" && !selfPlay;
+const screenTypeSize = size => standardDojoType() ? dojoTypeSize : size;
 // The command stream is a record of what you just did, so it is long enough to
 // hold a whole exchange and it does not start dissolving while you are still
 // playing. Only once the pad goes quiet does it age out, oldest glyph first,
@@ -2972,7 +2980,7 @@ const figureJointEnds = {
   "right-leg thigh": [11, 13], "right-leg shin": [13, 15],
 };
 const figureBone = /(upper-arm|forearm|thigh|shin)$/;
-function figureJoints(player, world) {
+function figureJoints(player, world, keepHeadBasis = false) {
   const J = figureJointsNow;
   J.fill(NaN);
   for (const s of world.segments) {
@@ -2983,7 +2991,7 @@ function figureJoints(player, world) {
     J[ends[1] * 3] = s.x2; J[ends[1] * 3 + 1] = s.y2; J[ends[1] * 3 + 2] = s.z2;
   }
   const h = world.head;
-  if (h && !player.headless && h.radius > 0) {
+  if (h && (!player.headless || keepHeadBasis) && h.radius > 0) {
     J[0] = h.x; J[1] = h.y; J[2] = h.z;
     // Where the head looks. In the pool, the way the skater faces; in an
     // arena, toward the lens and turned partway to the facing side, as the
@@ -3014,27 +3022,38 @@ function figureJoints(player, world) {
 // A player's palette, as the LOOK op carries it: skin hair shirt pants skirt
 // shoe accent iris lip blush. Bare legs under a skirt are skin.
 function figurePaletteOf(player) {
+  const custom = player.characterAppearance;
+  if (custom) {
+    const c=custom.colors;
+    return [c.head, player.hairColor || contrastShadow(c.head), c.torso,
+      c.leftArm, c.rightArm, c.leftLeg, c.rightLeg, custom.face.color,
+      player.shoeColor || [40,36,48], c.head].flat();
+  }
   const skin = player.color || [242, 204, 169];
   const colors = [skin, player.hairColor || contrastShadow(skin), player.shirtColor || skin,
     player.pantsColor || skin, player.skirtColor || [188, 164, 226], player.shoeColor || [40, 36, 48],
     player.accent || skin, player.irisColor || [96, 140, 196], mixColor(skin, [232, 96, 132], .6),
     mixColor(skin, [255, 110, 128], .32)];
+  if (player.pad === 0 && !player.npc && !accountState()?.signedIn)
+    return colors.flatMap(color => { const gray = Math.round((color[0] + color[1] + color[2]) / 3); return [gray, gray, gray]; });
   return colors.flat();
 }
 let nextLookHandle = 1;
 const flatLooks = new WeakMap();   // player → the LOOK this page sent for them
-const figureInputs = { blink: 0, hurt: 0, skirt: 0, glasses: 0 };
+const figureInputs = { blink: 0, hurt: 0, skirt: 0, glasses: 0, headless: 0 };
 const figurePlace = new Float64Array([0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
 let figureVariant = 0;
 const figureVariantOut = { face() {}, sketch: (index) => { figureVariant = index; } };
 // Draws `player` flat; false when this pose has no flat reading (a burst
 // head, debris), and the rig draws as before.
 function drawFlatFigure(player, world, now) {
-  const J = figureJoints(player, world);
+  const J = figureJoints(player, world, true);
   if (Number.isNaN(J[0]) && Number.isNaN(J[6])) return false;
-  const figure = gameObjects.figure, i = figureInputs;
+  const face = player.characterAppearance?.face;
+  const figure = face ? gameObjects.characterFigure(face.eyes, face.mouth) : gameObjects.figure, i = figureInputs;
   i.blink = ((now / 1e6 + (player.pad || 0) * .7) % 3.4) < .12 ? 1 : 0;
   i.hurt = !player.alive || player.hit > .6 ? 1 : 0;
+  i.headless = player.headless ? 1 : 0;
   i.skirt = 0;   // the skirt is retired
   i.glasses = player.parkProfile?.appearance?.glasses ? 1 : 0;
   figure(i, figurePlace, figureVariantOut);
@@ -3379,8 +3398,8 @@ const fighterRoster = [
 // let the glyph walk fall back to it.
 const npcFighter = { handle: "DUMMY", color: [105, 125, 150], colors: [],
   mood: "TRAINING DUMMY · NO BOT AI", lastChat: "" };
-const anonymousFighter = { handle: "", color: [72, 176, 156], colors: [
-  [72,176,156],[118,214,188],[54,128,168],[230,205,92]],
+const anonymousFighter = { handle: "", color: [150, 150, 150], colors: [
+  [150,150,150],[190,190,190],[100,100,100],[215,215,215]],
   mood: "ANONYMOUS", lastChat: "" };
 const spiderDummyFighter = { handle: "SPIDERDUMMY", color: [76, 88, 108],
   colors: [], mood: "GIANT SEGMENTED TRAINING FOE · NO BOT AI", lastChat: "" };
@@ -3609,6 +3628,81 @@ let impactSequence = 0;
 // floor the same way. A fighter's own marks (scars) live on the fighter.
 const decals = [];
 const bloodDrops = [];
+const tearDrops = [];
+const tearEmitAt = new WeakMap();
+
+function clearTears() {
+  tearDrops.length = 0;
+  for (const p of players) tearEmitAt.delete(p);
+}
+
+// The same head/look basis and eye rotations as figure-flat.lisp. Eye
+// positions follow the drawn head through camera tilt, facing and spins.
+function tearSources(player, world, now) {
+  if (!["CRY", "WOE", "SULK"].includes(player.resultReaction) ||
+      anonymousDojoFighter(player) || player.headless || !world?.head ||
+      (!player.alive && player.headBustedAt && now - player.headBustedAt >= 110000)) return [];
+  const h = world.head, J = figureJoints(player, world);
+  const r = h.radius;
+  if (!(r > 0) || !Number.isFinite(J[3])) return [];
+  const f = {x:(J[3]-h.x)/r, y:(J[4]-h.y)/r, z:(J[5]-h.z)/r};
+  const length = Math.hypot(f.x, f.z) || 1;
+  const right = {x:f.z/length, y:0, z:-f.x/length};
+  const up = {x:-right.z*f.y, y:right.z*f.x-right.x*f.z, z:right.x*f.y};
+  const eyes = [];
+  for (const side of [-1, 1]) {
+    const pitch = .0875-side*.0245, yaw = side*.3675;
+    const y = -.16*Math.cos(pitch)-Math.sin(pitch);
+    const z = -.16*Math.sin(pitch)+Math.cos(pitch);
+    const x = Math.sin(yaw)*z, depth = Math.cos(yaw)*z;
+    const normal = {x:right.x*x+up.x*y+f.x*depth,
+      y:up.y*y+f.y*depth, z:right.z*x+up.z*y+f.z*depth};
+    const view = normalize3({x:cameraDoll.position.x-h.x,
+      y:cameraDoll.position.y-h.y,z:cameraDoll.position.z-h.z});
+    if (dot3(normal, view) <= .08) continue;
+    eyes.push({x:h.x+normal.x*r, y:h.y+normal.y*r, z:h.z+normal.z*r,
+      size:Math.max(1.4,r*.07), side});
+  }
+  return eyes;
+}
+
+function updateTears(dt, now) {
+  if (instantReplay) return;
+  for (const p of activePlayers()) {
+    if (!["CRY", "WOE", "SULK"].includes(p.resultReaction)) {
+      tearEmitAt.delete(p); continue;
+    }
+    const world = p.replayGeometry || p.frozenGeometry || runnerWorldGeometry(p, (now-startedAt)/1e6);
+    const eyes = tearSources(p, world, now);
+    if (!eyes.length) { tearEmitAt.delete(p); continue; }
+    if (now < (tearEmitAt.get(p) || 0)) continue;
+    tearEmitAt.set(p, now + 180000);
+    for (const eye of eyes) if (tearDrops.length < 64)
+      tearDrops.push({...eye, vx:(p.vx||0)*.25, vy:18, vz:(p.vz||0)*.25, life:3});
+  }
+  for (let i=tearDrops.length-1;i>=0;i--) {
+    const drop=tearDrops[i];
+    drop.vy += Math.min(1000,fallGravity()*.45)*dt;
+    drop.x += drop.vx*dt; drop.y += drop.vy*dt; drop.z += drop.vz*dt;
+    drop.life -= dt;
+    if (drop.y >= terrainFloorAt(drop.x,drop.z)) {
+      addDecal({kind:"water",x:drop.x,z:drop.z,size:drop.size*2.6,stretch:1.2,angle:0});
+      tearDrops.splice(i,1);
+    } else if (drop.life <= 0) tearDrops.splice(i,1);
+  }
+}
+
+function drawFaceTears(player, world, now) {
+  const saved = triangleDepth;
+  for (const eye of tearSources(player, world, now)) {
+    const p=projectPoint(eye.x,eye.y,eye.z);
+    if(p.behind)continue;
+    triangleDepth=p.z-.004;
+    const r=Math.max(1,eye.size*projectionScaleAt(eye));
+    drawFluidDrop(p.x,p.y,p.x,p.y-r*1.3,r,[112,208,245],[231,251,255]);
+  }
+  triangleDepth=saved;
+}
 const decalCap = 160;
 let poolDecalsNative=null,poolDecalCount=0;
 function clearPoolDecals(){
@@ -3627,7 +3721,7 @@ function addDecal(decal) {
   decal.at = runtime().monotonicUs;
   // The ground under a mark never moves: its height and slope are read once
   // here, not every frame for every corner.
-  decal.ground = terrainFloorAt(decal.x,decal.z) - .9;
+  decal.ground = terrainFloorAt(decal.x,decal.z) - (dojoActive() ? 2.2 : .9);
   const slope = terrainTangentAt(decal.x, 8), norm = Math.hypot(1, slope);
   decal.tx = 1 / norm; decal.ty = slope / norm;
   decal.shape = decalShape(decal);
@@ -3645,10 +3739,10 @@ function addDecal(decal) {
   // Blood landing in blood makes a pool rather than another mark: the
   // splat it lands in grows (and freshens), so the count stays flat however
   // much is spilled.
-  if (decal.kind === "blood") {
+  if (decal.kind === "blood" || decal.kind === "water") {
     for (let index = decals.length - 1; index >= Math.max(0, decals.length - 40); index--) {
       const pool = decals[index];
-      if (pool.kind !== "blood") continue;
+      if (pool.kind !== decal.kind) continue;
       if (Math.hypot(pool.x - decal.x, pool.z - decal.z) < pool.size * 1.25 + 6) {
       pool.size = Math.min(34, Math.hypot(pool.size, decal.size * .55));
       pool.rasterPatches = null;
@@ -3667,13 +3761,15 @@ function addDecal(decal) {
 // surface, jagged by its seed and stretched along its angle, in units of its
 // size so a growing pool keeps its shape.
 function decalShape(decal) {
-  const sides = decal.kind === "wheelmark" ? 4 : decal.size < 8 ? 5 : 7;
+  const fluid = decal.kind === "blood" || decal.kind === "water";
+  const sides = fluid ? 20 : decal.kind === "wheelmark" ? 4 : decal.size < 8 ? 5 : 7;
   const jag = decal.kind === "ding" ? .35 : decal.kind === "wheelmark" ? .1 : .28;
   const cosA = Math.cos(decal.angle || 0), sinA = Math.sin(decal.angle || 0);
   const corners = [];
   for (let corner = 0; corner < sides; corner++) {
     const theta = corner / sides * Math.PI * 2;
-    const wobble = 1 + jag * Math.sin(decal.seed * 1.7 + corner * 2.39) * Math.cos(decal.seed + corner * 1.13);
+    const wobble = fluid ? 1 + .1*Math.sin(theta*3+decal.seed) + .065*Math.cos(theta*5-decal.seed)
+      : 1 + jag * Math.sin(decal.seed * 1.7 + corner * 2.39) * Math.cos(decal.seed + corner * 1.13);
     const u = Math.cos(theta) * wobble * (decal.stretch || 1), v = Math.sin(theta) * wobble;
     corners.push(u * cosA - v * sinA, u * sinA + v * cosA);
   }
@@ -3895,19 +3991,12 @@ const grenades = [];
 const gunPickups = [
   { kind: "HANDGUN", amount: 6, x: tileCenterX(cornerColRight),
     startsActive: true, cycle: true, y: floorY, z: 0 },
-  { kind: "SPACE LASER", amount: 4, x: centerX, startsActive: true,
-    cycle: false, y: parkDecks[3].y, z: 0 },
 ];
 // A saber is not ammunition, so it is not a gun pickup: taking one sets a
 // state a fighter keeps until the arm holding it comes off. Mirrored across
 // the two low decks, centred on each deck rather than on a tile, because the
 // deck is the landmark a player actually reads.
-const saberPickups = [
-  { kind: "LIGHT SABER", x: (parkDecks[1].left + parkDecks[1].right) / 2,
-    y: parkDecks[1].y, z: 0, startsActive: true },
-  { kind: "LIGHT SABER", x: (parkDecks[2].left + parkDecks[2].right) / 2,
-    y: parkDecks[2].y, z: 0, startsActive: true },
-];
+const saberPickups = [];
 const grenadePickups = [];
 // No trees. Two grew out of the tower's side walls and were the only thing
 // in a round that gave a body back; in the cube their ripe fruit read as a
@@ -3994,6 +4083,7 @@ let workshopTainted = false;
 
 function workshopSnapshot() {
   return { format: "ac.oskiewar.map", version: 1,
+    columns: gridCols,
     name: workshopMap?.name || currentMapName,
     features: parkSegments.map(({ from, to, kind, lift, rise, dir }) =>
       ({ from, to, kind, lift: lift || 0, rise: rise || 0, dir: dir || 1 })),
@@ -4008,6 +4098,12 @@ function workshopSnapshot() {
 
 function installWorkshopMap(map, cycleHandgun = false) {
   if (skateparkMap) { configureWorldMap("station"); resetSkateRopes(); }
+  gridCols = map.columns ?? 40;
+  gridWidth = gridCols * tileSize;
+  worldRight = gridLeft + gridWidth + wallThickness;
+  parkRight = gridLeft + gridWidth;
+  terrainSamples = gridCols * 6;
+  gridField = new Float32Array(gridCols * gridRows);
   workshopMap = map;
   parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
     left: gridLeft + f.from * tileSize, right: gridLeft + f.to * tileSize })));
@@ -4148,6 +4244,7 @@ const renderInterpolationFields = {
 function renderInterpolationObjects() {
   return [
     ...players.map((object) => [object, renderInterpolationFields.player]),
+    ...players.filter(p=>p.spin).map(p=>[p.spin,["angle"]]),
     ...bullets.map((object) => [object, renderInterpolationFields.bullet]),
     ...grenades.map((object) => [object, renderInterpolationFields.grenade]),
     ...balls.map((object) => [object, renderInterpolationFields.ball]),
@@ -4166,6 +4263,8 @@ function captureRenderInterpolationState() {
     renderPreviousState.set(object, Object.fromEntries(fields
       .filter((field) => Number.isFinite(object[field]))
       .map((field) => [field, object[field]])));
+  for (const player of players)
+    if (player.replayGeometry) renderPreviousState.get(player).replayGeometry = player.replayGeometry;
 }
 
 // A camera snap is an edit, not motion. If it happens inside a simulation
@@ -4195,6 +4294,10 @@ function beginRenderInterpolation(alpha) {
         continue;
       restore.push([object, field, object[field]]);
       object[field] = lerp(previous[field], object[field], amount);
+    }
+    if (previous.replayGeometry && object.replayGeometry) {
+      restore.push([object, "replayGeometry", object.replayGeometry]);
+      object.replayGeometry = blendReplayGeometry(previous.replayGeometry, object.replayGeometry, amount);
     }
   }
   cameraDoll.dirty = true;
@@ -4409,10 +4512,13 @@ let seriesName = "";
 let sessionName = "";
 let previousRoundName = "";
 let roundReplayFrames = [];
+let pendingReplayAudio = [];
+let lastAudioRate = -1;
 let roundReplayLastAt = 0;
 let instantReplay = null;
 let soloDeathReplayPending = null;
 let replayOfferPrevious = [];
+let automaticRoundReplayPlayed = false;
 let shellMode = "MENU";
 let gameplayStarted = false;
 let shellPrevious = [];
@@ -5107,6 +5213,7 @@ function makeRoundReplayFrame(now) {
   const poseTime = (now - startedAt) / 1000000;
   return {
     ropes: replayCopy(skateRopes),
+    dojoRoof: dojoRoof.map(p=>p.broken), dojoGlass: replayCopy(dojoGlass),
     players: players.map((player) => ({
       present: !lobbyActive() || player.pad === 0,
       x: player.x, y: player.y, z: player.z,
@@ -5117,14 +5224,35 @@ function makeRoundReplayFrame(now) {
       skateRotation: player.skateRotation, skateboard: player.skateboard,
       blocking: player.blocking, blockFlash: player.blockFlash, hit: player.hit,
       attackKind: player.attackKind,
+      removedParts: player.removedParts.slice(), headless: !!player.headless,
+      looseHead: replayCopy(player.looseHead),
+      headBustedOffset: player.headBustedAt ? player.headBustedAt - now : null,
+      frozenOffset: player.frozenAt ? player.frozenAt - now : null,
+      frozenGeometry: replayCopy(player.frozenGeometry),
+      fallenBodyGeometry: replayCopy(player.fallenBodyGeometry),
+      resultReaction: player.resultReaction || "",
+      resultReactionOffset: (player.resultReactionAt || 0) - now,
+      characterAppearance: replayCopy(player.characterAppearance),
+      equipment: Object.fromEntries(['gunAmmo','gunMode','itemArm','strikeArm','gunAimX','gunAimY','gunAimLive','itemAimLocked',
+        'itemAction','swordHeld','axeHeld','grenadeAmmo','skatePitch','skateSpin','skateBoardId','lowKick'].map(k=>[k,player[k]])),
+      spin: replayCopy(player.spin), trucks: replayCopy(player.trucks),
+      itemStartedOffset: (player.itemActionStartedAt||0)-now, itemUntilOffset: (player.itemActionUntil||0)-now,
       attackStartedOffset: player.attackStartedAt - now,
       attackUntilOffset: player.attackUntil - now,
-      geometry: runnerWorldGeometry(player, poseTime),
+      geometry: replayCopy(ragdollBodies.get(player)?.pose) || runnerWorldGeometry(player, poseTime),
     })),
     ball: { x: ball.x, y: ball.y, z: ball.z, vx: ball.vx, vy: ball.vy,
       active: ball.active },
-    balls: balls.map((item) => ({ x: item.x, y: item.y, z: item.z,
-      vx: item.vx, vy: item.vy, active: item.active })),
+    balls: replayCopy(balls),
+    gunPickups: replayCopy(gunPickups),
+    saberPickups: replayCopy(saberPickups),
+    grenadePickups: replayCopy(grenadePickups),
+    // Cached render meshes never belong in the footage. Only the mark's
+    // shape and material do; rebuild its raster cache on playback.
+    decals: decals.map(({rasterPatches, chalkBatch, ...mark}) => replayCopy(mark)),
+    bloodDrops: replayParticleFrame(bloodDrops),
+    tearDrops: replayParticleFrame(tearDrops),
+    waterSplashes: replayParticleFrame(waterSplashes),
     // What was in the air: shots, grenades and rockets, so a replay of a
     // kill shows the thing that made it.
     bullets: replayCopy(bullets),
@@ -5136,6 +5264,29 @@ function makeRoundReplayFrame(now) {
     detachedParts: replayCopy(detachedParts),
     camera: { center: cameraCenter, centerY: cameraCenterY, width: cameraWidth },
   };
+}
+
+const replayParticleIds = new WeakMap();
+let replayParticleSequence = 0;
+function replayParticleFrame(particles) {
+  return particles.map(p => {
+    let id = replayParticleIds.get(p);
+    if (!id) { id = ++replayParticleSequence; replayParticleIds.set(p, id); }
+    return {...replayCopy(p), replayId: id};
+  });
+}
+
+function applyReplayParticles(target, from, to, mix) {
+  if (!from) return; // Older frames leave collections they did not capture alone.
+  syncReplayCollection(target, from, "replayId");
+  if (!(mix > 0) || !to) return;
+  const following = new Map(to.map(p => [p.replayId, p]));
+  for (const p of target) {
+    const b = following.get(p.replayId);
+    if (!b) continue;
+    for (const key of ["x", "y", "z", "vx", "vy", "vz", "life"])
+      if (Number.isFinite(p[key]) && Number.isFinite(b[key])) p[key] = lerp(p[key], b[key], mix);
+  }
 }
 
 // Reconcile a live collection with a frame's copy without replacing the
@@ -5172,8 +5323,8 @@ function syncReplayObject(target, state) {
     if (!(field in state)) delete target[field];
 }
 
-// Frames land every instantReplayStepUs; the sim ticks faster than that and
-// slower still under the action ramp, so a body read straight off the nearer
+// Frames land every instantReplayStepUs; the sim ticks faster than that,
+// so a body read straight off the nearer
 // frame steps while its shadow and position glide. Blend the two neighbouring
 // poses by the cursor's fraction instead — every numeric field, head and
 // segment alike, when both frames describe the same body.
@@ -5188,6 +5339,9 @@ function blendReplayGeometry(from, to, mix) {
     return out;
   };
   return { ...from, head: lerpFields(from.head, to.head),
+    ...(from.spine?.length === to.spine?.length && from.spine ? {
+      spine: from.spine.map((point, index) => lerpFields(point, to.spine[index])),
+    } : {}),
     segments: from.segments.map((segment, index) =>
       lerpFields(segment, to.segments[index])) };
 }
@@ -5196,7 +5350,8 @@ function captureRoundReplay(now, force = false) {
   if (!INSTANT_REPLAY) return;
   if (!force && now - roundReplayLastAt < instantReplayStepUs) return;
   roundReplayLastAt = now;
-  roundReplayFrames.push(makeRoundReplayFrame(now));
+  roundReplayFrames.push({ ...makeRoundReplayFrame(now), at: now, audio: pendingReplayAudio });
+  pendingReplayAudio = [];
   while (roundReplayFrames.length > instantReplayMaxFrames)
     roundReplayFrames.shift();
 }
@@ -5228,6 +5383,15 @@ function captureFrameTelemetry(now, force = false) {
 }
 
 function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
+  if(frame.dojoRoof)dojoRoof.forEach((pane,i)=>pane.broken=!!frame.dojoRoof[i]);
+  if(frame.dojoGlass){
+    syncReplayCollection(dojoGlass,frame.dojoGlass);
+    if(next?.dojoGlass&&mix>0)for(let i=0;i<dojoGlass.length;i++){
+      const a=frame.dojoGlass[i],b=next.dojoGlass[i];
+      if(!b||a.pane!==b.pane||Math.abs(a.life-b.life)>.2)continue;
+      for(const k of ['x','y','z','rotation'])if(Number.isFinite(a[k])&&Number.isFinite(b[k]))dojoGlass[i][k]=lerp(a[k],b[k],mix);
+    }
+  }
   if (frame.ropes) skateRopes.splice(0, skateRopes.length, ...replayCopy(frame.ropes));
   for (let index = 0; index < players.length; index++) {
     const player = players[index];
@@ -5237,6 +5401,29 @@ function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
       "grounded", "ducking", "alive", "blocking", "blockFlash", "hit",
       "attackKind", "ropeIndex", "ropeLink", "skateRotation", "skateboard"]) player[key] = state[key];
     const blend = ahead && mix > 0 && ahead.alive === state.alive;
+    if (state.removedParts) {
+      player.characterAppearance = replayCopy(state.characterAppearance);
+      player.removedParts = state.removedParts.slice();
+      player.headless = state.headless;
+      player.looseHead = replayCopy(state.looseHead);
+      if (blend && player.looseHead && ahead.looseHead)
+        for (const key of ['x','y','z']) player.looseHead[key] = lerp(state.looseHead[key], ahead.looseHead[key], mix);
+      player.headBustedAt = state.headBustedOffset === null ? 0 : now + state.headBustedOffset;
+      player.frozenAt = state.frozenOffset === null ? 0 : now + state.frozenOffset;
+      player.frozenGeometry = replayCopy(state.frozenGeometry);
+      player.fallenBodyGeometry = replayCopy(state.fallenBodyGeometry);
+      player.resultReaction = state.resultReaction;
+      player.resultReactionAt = now + state.resultReactionOffset;
+    }
+    if(state.equipment){
+      Object.assign(player,state.equipment);player.spin=replayCopy(state.spin);player.trucks=replayCopy(state.trucks);
+      player.itemActionStartedAt=now+state.itemStartedOffset;player.itemActionUntil=now+state.itemUntilOffset;
+      if(blend){
+        if(player.spin&&ahead.spin)player.spin.angle=lerp(state.spin.angle,ahead.spin.angle,mix);
+        for(const k of ['skatePitch','skateSpin'])if(Number.isFinite(ahead.equipment?.[k]))player[k]=lerp(state.equipment[k],ahead.equipment[k],mix);
+        if(player.trucks&&ahead.trucks)for(const k of ['front','back','tilt'])if(Number.isFinite(ahead.trucks[k]))player.trucks[k]=lerp(state.trucks[k]||0,ahead.trucks[k],mix);
+      }
+    }
     if (blend)
       for (const key of ["x", "y", "z"])
         player[key] = state[key] + (ahead[key] - state[key]) * mix;
@@ -5249,9 +5436,19 @@ function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
   for (let index = 0; index < balls.length; index++) {
     const state = frameBalls[index];
     if (!state) continue;
-    for (const key of ["x", "y", "z", "vx", "vy", "active"])
-      balls[index][key] = state[key];
+    Object.assign(balls[index], replayCopy(state));
+    const b = next?.balls?.[index];
+    if (mix > 0 && b && state.active === b.active)
+      for (const key of ["x", "y", "z", "rotation", "pitch", "spin"])
+        if (Number.isFinite(state[key]) && Number.isFinite(b[key]))
+          balls[index][key] = lerp(state[key], b[key], mix);
   }
+  for (const [target, source] of [[gunPickups, frame.gunPickups],
+    [saberPickups, frame.saberPickups], [grenadePickups, frame.grenadePickups],
+    [decals, frame.decals]]) if (source) syncReplayCollection(target, source);
+  applyReplayParticles(bloodDrops, frame.bloodDrops, next?.bloodDrops, mix);
+  applyReplayParticles(tearDrops, frame.tearDrops, next?.tearDrops, mix);
+  applyReplayParticles(waterSplashes, frame.waterSplashes, next?.waterSplashes, mix);
   // Frames recorded before a collection rode along leave the live one be.
   if (frame.bullets) syncReplayCollection(bullets, frame.bullets);
   if (frame.grenades) syncReplayCollection(grenades, frame.grenades);
@@ -5265,9 +5462,11 @@ function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
 function finishInstantReplay(now) {
   if (!instantReplay) return;
   const respawn = instantReplay.respawn;
+  const rewind = instantReplay.reverse;
   applyRoundReplayFrame(instantReplay.endFrame, now);
   for (const player of players) delete player.replayGeometry;
   instantReplay = null;
+  syncAudioRate();
   if (respawn) {
     soloDeathReplayPending = null;
     deathCinematic = null;
@@ -5277,6 +5476,12 @@ function finishInstantReplay(now) {
       shellMode = respawn.title ? "MENU" : "GAME";
       gameplayStarted = !respawn.title;
     }
+    return;
+  }
+  if (rewind && dojoActive()) {
+    emitSignal("update-safe", -1, buildVersion, 0);
+    if (localVersusActive() && matchOver) startLocalVersus(now);
+    else resetRound(now, matchOver);
     return;
   }
   roundOverAt = now;
@@ -5335,29 +5540,30 @@ function replayRampStep(speed, action, elapsedSeconds) {
     Math.min(1, Math.max(0, elapsedSeconds) * replayRampPerSecond);
 }
 
-function startInstantReplay(now, respawn = null) {
+function startInstantReplay(now, respawn = null, tailFrames = 0, reverse = false) {
   if (!INSTANT_REPLAY) return false;
   if (roundReplayFrames.length < 2) return false;
-  const frames = respawn ? roundReplayFrames.slice(-90) : roundReplayFrames.slice();
-  instantReplay = { frames, cursor: 0, lastAt: now, startedAt: now, paused: false,
-    respawn,
+  const frames = respawn || tailFrames ? roundReplayFrames.slice(-(tailFrames || 90)) : roundReplayFrames.slice();
+  instantReplay = { frames, cursor: reverse ? frames.length - 1 : 0, lastAt: now, startedAt: now, paused: false,
+    respawn, reverse,
     previous: padSnapshots[0]?.down?.slice() || [],
-    action: replayActionCurve(frames), speed: 1,
-    // Played through once, then wound back to just before the biggest
-    // moment and played through it again — the way a replay is watched.
-    direction: 1, pass: 1,
+    speed: .5, nextAudio: 0,
+    audio: frames.flatMap(frame => frame.audio || []).filter(cue => cue.at >= (frames[0].at || 0)),
     endFrame: frames[frames.length - 1] };
-  const curve = instantReplay.action || [];
-  let peak = -1, peakAction = 0;
-  for (let index = 0; index < curve.length; index++)
-    if (curve[index] > peakAction) { peakAction = curve[index]; peak = index; }
-  instantReplay.rewindTo = peak >= 0 && frames.length > 30
-    ? Math.max(0, peak - 24) : -1;
+  if (reverse) instantReplay.nextAudio = instantReplay.audio.length - 1;
   impacts.length = 0;
   detachedParts.length = 0;
-  applyRoundReplayFrame(frames[0], now);
-  telemetry("ROUND_REPLAY", "start frames=" + frames.length);
+  applyRoundReplayFrame(frames[reverse ? frames.length - 1 : 0], now);
+  syncAudioRate();
+  telemetry("ROUND_REPLAY", (reverse ? "rewind" : "start") + " frames=" + frames.length);
   return true;
+}
+
+function startAutomaticDojoReplay(now) {
+  if (!dojoActive() || !roundResult || automaticRoundReplayPlayed ||
+      roundViewer || netSession || selfPlay || replayOvenActive() || now-roundOverAt < 650000) return false;
+  automaticRoundReplayPlayed = true;
+  return startInstantReplay(now, null, 60, true);
 }
 
 function queueSoloDeathReplay(player, now) {
@@ -5372,45 +5578,34 @@ function queueSoloDeathReplay(player, now) {
 
 function updateInstantReplay(now, dt) {
   if (!instantReplay) return;
-  // A replay is watched, not operated: no pause, no scrub, no skip. It
-  // plays through, winds back to its moment, plays it again and ends.
+  // A steady half-speed pass. applyRoundReplayFrame blends recorded poses.
   const down = padSnapshots[0]?.down || [];
-  const elapsed = Math.max(0, now - instantReplay.lastAt) / 1000000;
-  instantReplay.speed = replayRampStep(instantReplay.speed,
-    instantReplay.action?.[Math.floor(instantReplay.cursor)] || 0, elapsed);
+  instantReplay.speed = .5;
   if (!instantReplay.paused) {
     const step = (now - instantReplay.lastAt) / instantReplayStepUs;
-    // The rewind runs at a steady 2.5× so it reads as a rewind.
-    instantReplay.cursor += instantReplay.direction < 0
-      ? -step * 2.5 : step * instantReplay.speed;
+    instantReplay.cursor += Math.max(0, step) * instantReplay.speed * (instantReplay.reverse ? -1 : 1);
   }
   instantReplay.lastAt = now;
-  // Whatever the footage does, a replay ends: a death replay in eight
-  // seconds, a round's in twenty-five.
-  if (now - instantReplay.startedAt > (instantReplay.respawn ? 8e6 : 25e6)) {
+  if (now - instantReplay.startedAt > instantReplay.frames.length * instantReplayStepUs / .5 + 1e6) {
     finishInstantReplay(now);
     return;
   }
-  if (instantReplay.direction < 0 && instantReplay.cursor <= instantReplay.rewindTo) {
-    instantReplay.cursor = instantReplay.rewindTo;
-    instantReplay.direction = 1;
-  }
-  instantReplay.cursor = clamp(instantReplay.cursor, 0,
-    instantReplay.frames.length);
-  if (instantReplay.cursor >= instantReplay.frames.length) {
-    if (instantReplay.pass === 1 && instantReplay.rewindTo >= 0 && !instantReplay.paused) {
-      instantReplay.pass = 2;
-      instantReplay.direction = -1;
-      instantReplay.cursor = instantReplay.frames.length - 1;
-      emitSignal("replay-rewind", -1, instantReplay.rewindTo, 0);
-    } else {
-      finishInstantReplay(now);
-      return;
-    }
+  if (instantReplay.cursor < 0 || instantReplay.cursor >= instantReplay.frames.length) {
+    finishInstantReplay(now);
+    return;
   }
   const at = Math.floor(instantReplay.cursor);
   applyRoundReplayFrame(instantReplay.frames[at], now,
     instantReplay.frames[at + 1] || null, instantReplay.cursor - at);
+  const audioTime = (instantReplay.frames[0].at || 0) + instantReplay.cursor * instantReplayStepUs;
+  while (instantReplay.nextAudio >= 0 && instantReplay.nextAudio < instantReplay.audio.length &&
+      (instantReplay.reverse ? instantReplay.audio[instantReplay.nextAudio].at >= audioTime
+        : instantReplay.audio[instantReplay.nextAudio].at <= audioTime)) {
+    const cue = instantReplay.audio[instantReplay.nextAudio];
+    instantReplay.nextAudio += instantReplay.reverse ? -1 : 1;
+    if (cue.kind === "drum") playDrum(...cue.args);
+    else playSine(...cue.args);
+  }
   instantReplay.previous = down.slice();
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
   const visible = activePlayers();
@@ -5512,11 +5707,14 @@ function emitSignal(event, player = -1, value = 0, value2 = 0) {
 // fallback bounded until the native package catches up with the live piece.
 function playDrum(name, velocity = 1, pan = 0) {
   if (netSilent || typeof drum !== "function") return;
+  recordReplayAudio("drum", [name, velocity, pan]);
+  syncAudioRate();
   try {
     drum(name, velocity, pan);
   } catch (error) {
     if(name.startsWith('pad-')||name==='bass')return;
     if(name==='gunshot'||name==='smg-shot'){try{drum('snare',velocity,pan);}catch(_){}return;}
+    if (name === "body-impact") { try { drum("kick", velocity, pan); } catch (_) {} return; }
     if (!["bell", "whoosh", "glass", "glass-shard"].includes(name)) throw error;
     if (name === "bell" && typeof synth === "function") {
       try { synth(880, .12); } catch (_) {}
@@ -5529,7 +5727,21 @@ function playDrum(name, velocity = 1, pan = 0) {
 
 function playSine(frequency, duration = .12) {
   if (netSilent || typeof synth !== "function") return;
+  recordReplayAudio("synth", [frequency, duration]);
+  syncAudioRate();
   try { synth(frequency, duration); } catch (_) {}
+}
+
+function recordReplayAudio(kind, args) {
+  if (!INSTANT_REPLAY || instantReplay || shellMode !== "GAME" || pendingReplayAudio.length >= 64) return;
+  pendingReplayAudio.push({ at: runtime().monotonicUs, kind, args });
+}
+function syncAudioRate() {
+  const rate = clamp(gameSpeed * (instantReplay ? .5 : 1), .125, 2);
+  globalThis.__oskiewarAudioRate = rate;
+  if (rate === lastAudioRate) return;
+  lastAudioRate = rate;
+  if (typeof gameSignal === "function") gameSignal("audio-rate", -1, rate, 0);
 }
 
 let clientError = "";
@@ -5932,11 +6144,54 @@ function fighterProfile(handle) {
   };
 }
 
+const secondSeatSignedIn = () => nativeSecondPublic.status === "signed-in" && !!nativeSecondPublic.handle;
+const characterSeatRevisions = new WeakMap();
+function syncCharacterAppearance(player, record, handle) {
+  // Account refresh must not repaint the past while an instant replay runs.
+  if (instantReplay || player.remote || selfPlay || roundViewer) return;
+  const expected = gameObjects.characterProfiles.characterHandle(handle);
+  const actual = gameObjects.characterProfiles.characterHandle(record?.handle);
+  if (!expected || actual !== expected || !record?.appearance) {
+    player.characterAppearance = null;
+    characterSeatRevisions.delete(player);
+    return;
+  }
+  const key = expected + ':' + record.revision;
+  if (characterSeatRevisions.get(player) === key && player.characterAppearance) return;
+  try {
+    player.characterAppearance = gameObjects.characterProfiles.validateCharacter(record.appearance);
+    characterSeatRevisions.set(player, key);
+  } catch {
+    player.characterAppearance = null;
+    characterSeatRevisions.delete(player);
+  }
+}
+// The host signs in; a second physical controller may borrow the gray seat
+// while its owner finishes pairing on their phone.
+const localAccountsReady = () => !nativeAccount || playAllowed();
+function syncSecondFighter() {
+  if (!nativeAccount || players[1].remote || versusActive() || selfPlay || roundViewer) return;
+  const p = players[1], signed = secondSeatSignedIn();
+  p.name = signed ? "@" + nativeSecondPublic.handle.replace(/^@/, "").toUpperCase() : "";
+  const colors = signed ? nativeSecondPublic.colors : null;
+  p.handleColors = colors?.length ? colors.map(c => Array.isArray(c) ? c.slice(0,3) : [c.r,c.g,c.b]) : anonymousFighter.colors;
+  p.color = p.handleColors.reduce((sum,c) => sum.map((v,i) => v+c[i]/p.handleColors.length), [0,0,0]).map(Math.round);
+}
+function anonymousDojoFighter(p) {
+  if (selfPlay || roundViewer || p.remote) return false;
+  if (p.pad === 0) return shellMode === "MENU" && !playAllowed();
+  return !!nativeAccount && p.pad === 1 && !versusActive() && !secondSeatSignedIn();
+}
+
 function syncSignedInFighter() {
-  if (localVersusActive()) return;
-  const identity = nativeAccount ? globalThis.__oskiewarAccount : acFeed?.player;
+  syncSecondFighter();
+  const identity = accountState() || acFeed?.player;
   if (!identity?.handle || players[0].npc) {
-    if (nativeAccount && !players[0].npc && players[0].name.startsWith("@")) applyRoster(players[0], players[0].rosterIndex || 0);
+    if (!players[0].npc || shellMode === "MENU") {
+      players[0].name = "";
+      players[0].handleColors = anonymousFighter.colors;
+      players[0].color = anonymousFighter.color;
+    }
     return;
   }
   const handle = String(identity.handle).toUpperCase();
@@ -6201,6 +6456,7 @@ function startLocalVersus(now) {
   finishReplay();
   fightOpponent = "local";
   for (const player of players) {
+    player.dummy = false;
     player.npc = false;
     player.bot = false;
     player.spiderDummy = false;
@@ -6217,9 +6473,12 @@ function startLocalVersus(now) {
 }
 
 function updateLocalVersus(now) {
-  const paired = localControllerPair();
+  const paired = localControllerPair() && localAccountsReady();
   const arrived = paired && !localControllerPairSeen;
-  localControllerPairSeen = paired;
+  // Local versus only opens from a running game, so an arrival on the title
+  // waits for it rather than being spent there: a second pad (or player
+  // two's keys) pressed on the title used to land in the dummy fight.
+  if (shellMode === "GAME" || !paired) localControllerPairSeen = paired;
   // A second local pad must never take over a remote fight or a recording.
   if (roundViewer || netSession || selfPlay || resimActive || versusActive())
     return false;
@@ -6228,7 +6487,7 @@ function updateLocalVersus(now) {
     localControllerMissing = -1;
     return false;
   }
-  if (arrived && !localVersusActive()) startLocalVersus(now);
+  if (arrived && shellMode === "GAME" && !localVersusActive()) startLocalVersus(now);
   if (!localVersusActive()) { localControllerMissing = -1; return false; }
   if (!paired) {
     localControllerMissing = padSnapshots.findIndex(
@@ -6268,18 +6527,9 @@ function versusRequested() {
 //
 //   __oskiewarAccount      { ready, signedIn, handle, colors }  shell → game
 //   __oskiewarAccountDoor  "" | "login" | "handle"              game → shell
-// The door is built, tested and wired on both sides, and it is held open until
-// the tenant can actually let somebody through it. Native sign-in needs
-// "Passwordless OTP" ticked on the Auth0 application, and as of 26.09.11 the
-// tenant answers `unauthorized_client` — so the only way in is the redirect,
-// which lands on the Universal Login page's Turnstile, which is the loop this
-// whole flow exists to avoid. Requiring an account before there is a working
-// way to make one does not gate the game, it closes it.
-//
-// Flip this to true the moment that grant is on. Everything behind it is
-// already written and covered by tests, which drive it through
-// `setVersusRequiresAccount`.
-let versusRequiresAccount = false;
+// Phone pairing supplies the console account. Keep the title visible until
+// that account is ready; a fresh Start enters the dojo after pairing.
+let versusRequiresAccount = true;
 
 const accountState = () => globalThis.__oskiewarAccount || null;
 // Nobody is turned away before the shell has finished asking. A silent session
@@ -6297,7 +6547,7 @@ const accountHandle = () => String(accountState()?.handle || "");
 // wire has always been whatever the client says it is, and a console can set
 // any global it likes. Enforcement would mean the relay verifying a token on
 // the seat, and that is a different piece of work.
-const versusAllowed = () => !versusRequiresAccount || !accountState() ||
+const versusAllowed = () => !versusRequiresAccount ||
   (accountReady() && accountState().signedIn === true &&
     Boolean(accountHandle()));
 
@@ -6317,9 +6567,44 @@ function versusDoor() {
 // What this file last asked the shell for, so a panel that closes on its own
 // can be told from one that was never open.
 let accountDoorAsked = "";
+let loginStartPending = false, loginPrevious = [], loginFocusAt = 0;
+// A host with no way to sign in at all (the Mac app, a packaged or offline
+// shell) is not a locked-out visitor: the title would wait forever for a
+// login nobody can give. Only a host that offers the door may hold it shut.
+const loginOffered = () => !!nativeAccount ||
+  (!!accountState() && accountState().loginOffered !== false);
+const playAllowed = () => !loginOffered() ||
+  (accountReady() && accountState().signedIn === true && !!accountHandle());
+function requestPlayLogin() {
+  loginFocusAt = runtime().monotonicUs;
+  loginStartPending = true;
+  titleTransitionAt = null;
+  loginPrevious = padSnapshots[0]?.down?.slice() || [];
+  if (nativeAccount && ["signed-out", "error", "unavailable"].includes(nativeAccountPublic.status))
+    nativeAccount.action("login");
+}
+function updatePlayLogin(now) {
+  if (!loginStartPending) return false;
+  const down = padSnapshots[0]?.down || [];
+  const tapped = key => down.includes(key) && !loginPrevious.includes(key);
+  if (playAllowed()) {
+    loginStartPending = false;
+    globalThis.__oskiewarAccountDoor = accountDoorAsked = "";
+    shellPrevious = down.slice();
+    shellRawPrevious = down.slice();
+    shellStickLive = Math.abs(padSnapshots[0]?.leftX || 0) > .5 || Math.abs(padSnapshots[0]?.leftY || 0) > .5;
+  } else if (tapped("Menu") || tapped("Start")) {
+    loginFocusAt = now;
+    if (nativeAccount && ["signed-out", "error", "unavailable"].includes(nativeAccountPublic.status)) nativeAccount.action("login");  } else if (nativeAccount && tapped("A") && ["signed-out", "error", "unavailable"].includes(nativeAccountPublic.status)) {
+    nativeAccount.action("login");
+  }
+  loginPrevious = down.slice();
+  return true;
+}
 
 function updateAccountDoor() {
-  const wanted = shellMode === "GAME" && versusLane() && !roundViewer
+  if (nativeAccount) return;
+  const wanted = (loginStartPending || shellMode === "GAME" && versusLane() && !roundViewer)
     ? versusDoor() : "";
   const showing = globalThis.__oskiewarAccountDoor || "";
   // "never mind" drops every request the panel is holding, this one included.
@@ -6330,6 +6615,7 @@ function updateAccountDoor() {
   // for anything.
   if (accountDoorAsked && wanted && !showing) {
     accountDoorAsked = "";
+    loginStartPending = false;
     returnToTitle(runtime().monotonicUs, "account");
     return;
   }
@@ -6787,39 +7073,171 @@ function updateFreeskateMenu(now) {
 }
 
 let nativeLoginQrUrl = "", nativeLoginQr = null;
-function drawNativeAccountMenu() {
-  const state = nativeAccountPublic, center = viewCenterX();
-  const size = Math.min(32, viewWidth() / 22), gap = size * 1.5;
-  const top = Math.max(30, viewHeight * .14), white = [245, 248, 255];
-  const width = Math.min(720, viewWidth() - 50);
-  hudBox(center - width / 2, top - 20, width, viewHeight * .72, 20, 28, 56);
-  const label = (text, y, color = white, scale = size) =>
-    typeWrite(text, center - handleWidth(text, scale) / 2, y, scale, ...color);
-  if (state.status === "signed-in") {
-    label(accountHandle().toLowerCase(), top + gap);
-    label(globalThis.__oskiewarFighterAppearance ? "saved character loaded" : "signed in", top + gap * 3, white, size * .8);
-    label("A  log out", top + gap * 5, [255, 176, 48]);
-  } else if (state.status === "waiting" && state.pairUrl) {
-    label("scan to sign in", top);
-    if (nativeLoginQrUrl !== state.pairUrl && typeof qrcode === "function") {
-      nativeLoginQrUrl = state.pairUrl;
-      nativeLoginQr = qrcode(state.pairUrl, { errorCorrectLevel: 1 });
-    }
-    if (nativeLoginQr) {
-      const count = nativeLoginQr.getModuleCount();
-      const cell = Math.max(1, Math.floor(Math.min(width - 60, viewHeight * .37) / (count + 8)));
-      const span = (count + 8) * cell, left = center - span / 2, y = top + gap;
-      hudBox(left, y, span, span, 255, 255, 255);
-      for (let row = 0; row < count; row++) for (let col = 0; col < count; col++)
-        if (nativeLoginQr.isDark(row, col)) hudBox(left + (col + 4) * cell, y + (row + 4) * cell, cell, cell, 0, 0, 0);
-      label(String(state.code || ""), y + span + size * .6);
-    }
-  } else {
-    label(state.status === "creating" ? "creating sign-in code..." : "A  sign in", top + gap * 3);
-    if (state.status === "error") label("Sign-in unavailable. Try again.", top + gap * 5, [255, 176, 48], size * .7);
-  }
-  label("B  back", top + viewHeight * .63, [170, 178, 198], size * .75);
+
+// The console's sign-in, worn by the fighter: while nobody is signed in, the
+// pairing code floats over your own fighter's head on a little card that says
+// "Log in" — part of the scene, trailing the head as it moves, rather than a
+// panel bolted to the screen. The code is asked for here and asked again
+// whenever one lapses (they last ten minutes), and the card goes away the
+// moment the console is signed in.
+let headLoginAskedAt = -1e12, headLoginShown = false;
+function headLoginWanted() {
+  return !!nativeAccount && nativeAccountPublic.status !== "signed-in" && !selfPlay &&
+    !globalThis.__oskiewarJevPad;
 }
+let secondLoginAskedAt = -Infinity, secondLoginQrUrl = "", secondLoginQr = null;
+function secondHeadLoginWanted() {
+  return !!nativeAccount && nativeSecondPublic.status !== "unavailable" && !secondSeatSignedIn() &&
+    (shellMode === "MENU" || shellMode === "GAME" && localVersusActive()) &&
+    !selfPlay && !roundViewer && !players[1].remote && !versusActive() && !netSession;
+}
+function updateHeadLogin(now) {
+  if (secondHeadLoginWanted() && ["signed-out", "error"].includes(nativeSecondPublic.status) && now-secondLoginAskedAt>20e6) {
+    secondLoginAskedAt=now; globalThis.accountAction("login-p2");
+  }
+  if (!headLoginWanted()) return;
+  if (["signed-out", "error", "unavailable"].includes(nativeAccountPublic.status) &&
+      now - headLoginAskedAt > 20e6) {
+    headLoginAskedAt = now;
+    nativeAccount.action("login");
+  }
+}
+function headLoginQr() {
+  const state = nativeAccountPublic;
+  if (state.status !== "waiting" || !state.pairUrl || typeof qrcode !== "function") return null;
+  if (nativeLoginQrUrl !== state.pairUrl) {
+    nativeLoginQrUrl = state.pairUrl;
+    nativeLoginQr = qrcode(state.pairUrl, { errorCorrectLevel: 1 });
+  }
+  return nativeLoginQr;
+}
+// A rounded rectangle on the HUD layer: two boxes and four corner discs.
+function hudRoundRect(x, y, w, h, r, color) {
+  hudBox(x + r, y, w - 2 * r, h, ...color);
+  hudBox(x, y + r, w, h - 2 * r, ...color);
+  for (const [cx, cy] of [[x + r, y + r], [x + w - r, y + r], [x + r, y + h - r], [x + w - r, y + h - r]])
+    filledDisc(cx, cy, r, color);
+}
+function drawHeadLogin(t) {
+  headLoginShown = false;
+  if (headLoginWanted()) drawHeadLoginCode(players[localSeat()], headLoginQr(), t, loginFocusAt);
+  if (secondHeadLoginWanted()) {
+    const state=nativeSecondPublic;
+    if(state.status === "waiting" && state.pairUrl && typeof qrcode === "function") {
+      if(secondLoginQrUrl !== state.pairUrl) { secondLoginQrUrl=state.pairUrl;secondLoginQr=qrcode(state.pairUrl,{errorCorrectLevel:1}); }
+      if (shellMode === "MENU") drawHeadLoginCode(players[1],secondLoginQr,t,0);
+      else drawGuestLoginCode(secondLoginQr);
+    }
+  }
+}
+
+const characterEditorCodes = [null, null];
+function characterEditorCode(player) {
+  if (shellMode !== "MENU" || selfPlay || roundViewer || player.remote ||
+      typeof qrcode !== "function") return null;
+  const signed = player.pad === 0 ? playAllowed() : secondSeatSignedIn() && !versusActive();
+  if (!signed) return null;
+  const handle = player.pad === 0 ? accountHandle() : nativeSecondPublic.handle;
+  const url = gameObjects.characterProfiles.characterEditorUrl(handle);
+  if (!url) return null;
+  let cached = characterEditorCodes[player.pad];
+  if (cached?.url !== url) {
+    cached = {url, qr:qrcode(url,{errorCorrectLevel:1})};
+    characterEditorCodes[player.pad] = cached;
+  }
+  return cached;
+}
+function drawCharacterEditorCode(player, side, ink) {
+  const code = characterEditorCode(player);
+  if (!code) return;
+  const safe=hudSafeRect(), handle=playerHandleLayout(player,side), quiet=4;
+  const cell=compactLayout()?2:3, width=(code.qr.getModuleCount()+quiet*2)*cell;
+  const left=side===0?safe.left+8:safe.right-8-width, top=handle.y-width-18;
+  drawLoginQr(code.qr,left,top,cell,quiet);
+  const label="Edit",size=dojoTypeSize;
+  seatHudText(label,left+(width-handleWidth(label,size))/2,top-size-10,size,ink);
+}
+function drawGuestLoginCode(qr) {
+  const safe = hudSafeRect(), quiet = 4, cell = 3;
+  const span = (qr.getModuleCount() + quiet * 2) * cell;
+  const left = safe.right - span, top = safe.bottom - span;
+  const previousDepth = triangleDepth;
+  triangleDepth = hudDepth;
+  drawLoginQr(qr, left, top, cell, quiet);
+  triangleDepth = previousDepth;
+  seatHudText("Log in", left + (span-handleWidth("Log in",dojoTypeSize))/2,
+    top-dojoTypeSize-14, dojoTypeSize, [255,238,249]);
+}
+function drawHeadLoginCode(player, qr, t, focusedAt) {
+  if (!qr || !player?.alive) return;
+  const pose = runnerWorldGeometry(player, t), head = pose.head;
+  const at = projectPoint(head.x, head.y, head.z ?? player.z ?? 0);
+  if (at.behind || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return;
+  const headR = head.radius * cameraScale();
+  const count = qr.getModuleCount(), quiet = 4;
+  const cell = clamp(Math.round(clamp(headR * 2.0, 123, 180) / (count + quiet * 2)), 3, 5);
+  const span = (count + quiet * 2) * cell;
+  const label = "Log in", labelSize = screenTypeSize(Math.round(clamp(span * .2, 22, 34)));
+  // The code is the anonymous face: center it directly on the head.
+  const safe = hudSafeRect();
+  const cx = clamp(at.x, safe.left + span / 2 + 8, safe.right - span / 2 - 8);
+  const cy = clamp(at.y, safe.top + labelSize + span / 2 + 30, safe.bottom - span / 2 - 8);
+  const left = Math.round(cx - span / 2), top = Math.round(cy - span / 2);
+  const previousDepth = triangleDepth;
+  triangleDepth = hudDepth;
+  drawLoginQr(qr, left, top, cell, quiet);
+  triangleDepth = previousDepth;
+  const labelX = Math.round(cx - handleWidth(label, labelSize) / 2), labelY = top - labelSize - 24;
+  const focus = clamp(1 - (runtime().monotonicUs - focusedAt) / 1.1e6, 0, 1);
+  typeWrite(label, labelX + 2, labelY + 3, labelSize, 38, 34, 43);
+  typeWrite(label, labelX, labelY, labelSize, ...mixColor([255, 238, 249], [255, 167, 208], focus));
+  if (focus > 0) hudBox(labelX, labelY + labelSize + 4,
+    handleWidth(label, labelSize), 2 + focus * 2, 255, 167, 208);
+  headLoginShown = true;
+}
+
+// Upload the code once; only its screen position changes as it follows the head.
+const headLoginMeshes = new WeakMap();
+const headLoginCamera = new Float32Array([0,0,0, 1,0,0, 0,1,0, 0,0,1,
+  0,0, 1,1,0,.5, -32200,-32200,32200,32200, 0,0, 0,0,1]);
+function drawLoginQr(qr, left, top, cell, quiet) {
+  const runs = qrRuns(qr), span = qr.getModuleCount() + quiet * 2;
+  const paper = [239, 233, 239], ink = [39, 34, 44];
+  hudRoundRect(left, top, span * cell, span * cell, Math.min(20, quiet * cell), paper);
+  if (nativeRetainedMeshes && !clipView && !programBuffered) {
+    let headLoginMesh = headLoginMeshes.get(qr);
+    if (!headLoginMesh) {
+      const vertices = [], faces = [];
+      const rect = (x, y, w, h, color) => {
+        const at = vertices.length / 3;
+        vertices.push(x,y,1, x+w,y,1, x+w,y+h,1, x,y+h,1);
+        faces.push(at,at+1,at+2,at+3,...color,0,0,-1);
+      };
+      for (let i = 0; i < runs.length; i += 3)
+        rect(runs[i + 1] + quiet, runs[i] + quiet, runs[i + 2], 1, ink);
+      headLoginMesh = { quiet, handle: nativeMeshUpload(new Float32Array(vertices), new Float32Array(faces)) };
+      headLoginMeshes.set(qr, headLoginMesh);
+    }
+    if (headLoginMesh.handle >= 0) {
+      const m = headLoginCamera;
+      m[3] = cell; m[7] = -cell; m[12] = left; m[13] = top; m[22] = hudDepth;
+      nativeMeshDraw(headLoginMesh.handle, m, 0);
+      return;
+    }
+  }
+  for (let i = 0; i < runs.length; i += 3)
+    hudBox(left + (runs[i + 1] + quiet) * cell, top + (runs[i] + quiet) * cell,
+      runs[i + 2] * cell, cell, ...ink);
+}
+
+function drawNativeAccountMenu() {
+  if (nativeAccountPublic.status !== "signed-in") return;
+  const safe = hudSafeRect(), size = Math.min(28, viewWidth() / 24);
+  const left = safe.left + 28, top = safe.bottom - size * 3.8;
+  typeWrite(accountHandle().toLowerCase(), left, top, size, 255, 238, 249);
+  typeWrite("A  log out", left, top + size * 1.6, size * .75, 255, 238, 249);
+}
+
 function drawFreeskateMenu(ink) {
   if (!freeskateMenu) return;
   if (freeskateMenu.account && nativeAccount) { drawNativeAccountMenu(); return; }
@@ -7575,6 +7993,7 @@ function beginSelect(now) {
 }
 
 function resetParkSession(now){
+ clearTears();
  for(const p of [...players,...parkKids,...parkPeers.values()]){
    garmentStates.delete(p);ponytailStates.delete(p);seatHudReadouts.delete(p);
    Object.assign(p,{sparringPartner:undefined,sparringStartedAt:0,poolFightAxis:null,parkEntrance:null,
@@ -7596,6 +8015,7 @@ function resetParkSession(now){
  if(poolOnly()){sessionName=parkRoomFor(freeskateCourseNow());globalThis.__oskiewarSessionName=sessionName;}
 }
 function returnToTitle(now, reason = "back") {
+  clearTears();
   // Park state only: the 2D fight keeps its own health scale and net seats.
   if(poolOnly())resetParkSession(now);
   parkKids.length=0;
@@ -7871,6 +8291,7 @@ function consumeSystemButtons(now) {
 
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
+  if (!roundViewer && !playAllowed()) { requestPlayLogin(); return; }
   startInputPending = true;
   // A freeskate console goes back to freeskate from its title — one rider,
   // no dummy, no weapons — not into a sparring round.
@@ -7880,7 +8301,7 @@ function enterGame(now) {
     shellPrevious = padSnapshots[0]?.down?.slice() || [];
     return;
   }
-  if (localControllerPair() && !roundViewer && !netSession && !versusActive()) {
+  if (localControllerPair() && localAccountsReady() && !roundViewer && !netSession && !versusActive()) {
     startLocalVersus(now);
     return;
   }
@@ -7912,6 +8333,7 @@ function enterGame(now) {
   }
   shellMode = "GAME";
   gameplayStarted = true;
+  if (dojoActive()) { roundStartedAt = now; roundElapsedUs = 0; lastIntroSecond = 0; }
   if (dummyGuideStartedAt === null && players[1].npc && !players[1].bot)
     dummyGuideStartedAt = now;
   shellPrevious = padSnapshots[0]?.down?.slice() || [];
@@ -7931,6 +8353,7 @@ function updateMatchPace(now) {
 }
 
 function updateShell(now, tapped = false) {
+  if (loginStartPending) return;
   const pad = padSnapshots[0] || {};
   // The title screen is where the game's pace is set: +/- on a keyboard
   // step the clock a quarter at a time, from a quarter speed to double.
@@ -7959,6 +8382,7 @@ function updateShell(now, tapped = false) {
   }
   if (tapped || down.some((button) => !shellPrevious.includes(button)) ||
       (stickLive && !shellStickLive)) {
+    if (!roundViewer && !playAllowed()) { requestPlayLogin(); return; }
     playDrum("hat", .55, 0);
     if (typeof titleBeep === "function") titleBeep();
     if (typeof titleVoice === "function") titleVoice();
@@ -9914,6 +10338,7 @@ function gameBoot() {
   roundElapsedUs = 0;
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
+  automaticRoundReplayPlayed = false;
   resultPulseAt = 0;
   resultLaughAt = 0;
   resultLaughStep = 0;
@@ -10002,10 +10427,20 @@ function resetRound(now, resetMatch = false) {
   detachedParts.length = 0;
   bullets.length = 0;
   grenades.length = 0;
+  decals.length = 0;
+  bloodDrops.length = 0;
+  clearTears();
+  lensBlood.length = 0;
+  waterSplashes.length = 0;
+  clearPoolDecals();
+  for(const pane of dojoRoof)pane.broken=false;
+  dojoGlass.length=0;
   roundReplayFrames = [];
+  pendingReplayAudio = [];
   soloDeathReplayPending = null;
   roundReplayLastAt = 0;
   instantReplay = null;
+  automaticRoundReplayPlayed = false;
   replayOfferPrevious = [];
   frameTelemetry = [];
   frameTelemetryFlushAt = now + 1000000;
@@ -10079,6 +10514,9 @@ function resetRound(now, resetMatch = false) {
     // agree about this one.
     player.rig = undefined;
     player.trucks = undefined;
+    player.spineActor = null;
+    delete player.replayGeometry;
+    ragdollBodies.delete(player);
     player.turnFacing = player.facing;
     player.turnAt = -1e12;
     player.skidFrom = null;
@@ -10102,6 +10540,7 @@ function resetRound(now, resetMatch = false) {
     player.hitSegmentUntil = 0;
     player.hitStunUntil = 0;
     player.partDamage = {};
+    player.scars = [];
     player.removedParts = [];
     player.fallenBodyGeometry = null;
     player.pogoHit = false;
@@ -10143,6 +10582,9 @@ function resetRound(now, resetMatch = false) {
     delete player.frozenGeometry;
     delete player.frozenAt;
     delete player.headBustedAt;
+    player.headless = false;
+    player.looseHead = null;
+    ragdollBodies.delete(player);
     player.headRoll = 0;
     player.headRollRate = 0;
     // Only a LOCAL hand can still be leaning on a button across the reset; a
@@ -10157,6 +10599,7 @@ function resetRound(now, resetMatch = false) {
     player.lastButton = "NONE";
     player.lastButtonAt = 0;
   }
+  if (dojoActive() && spineBodiesOn()) updateSpineBodies(now);
   // A blade dropped by a severed arm is round furniture, not map furniture:
   // it exists because a hand stopped existing, and the bell undoes that. Drop
   // the dropped ones rather than parking them inactive forever, so a long
@@ -10202,8 +10645,9 @@ function resetRound(now, resetMatch = false) {
   cameraWidth = 960;
   cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
   cameraContainFloor = 0;
+  previousContainmentWidth = 0;
   const poseTime = (now - startedAt) / 1000000;
-  if (reelGroundCamera()) {
+  if (reelGroundCamera() || dojoActive()) {
     // Frame zero is the face-off, not one isolated portrait. The short reel
     // intro cannot afford to spend half of itself finding the other fighter.
     const target = { x: (players[0].x + players[1].x) / 2,
@@ -10533,7 +10977,9 @@ function poolZoomIndex(){return poolZoomSteps.reduce((best,z,i)=>Math.abs(z-play
 function cyclePoolZoom(){playerCameraZoom=poolZoomSteps[(poolZoomIndex()+1)%poolZoomSteps.length];}
 function updateLookInput(x,y,orbit,dt) {
   if(freeskateMenu || selecting){if(orbit)orbit.yaw=orbit.pitch=orbit.zoom=0;return;}
-  const axis=value=>Math.abs(value)>.12?Math.sign(value)*clamp((Math.abs(value)-.12)/.88,0,1):0;
+  // The right stick belongs to the hands. Only an explicit pointer orbit
+  // changes the camera; the normal shot follows with a restrained drift.
+  const axis = () => 0;
   if(poolOnly()&&freeskateActive()) {
     const precision=players[0].aiming?.5:playerCameraZoom<.5?.6:1;
     poolLookIdle=axis(x)||orbit?.yaw?0:poolLookIdle+dt;
@@ -10685,6 +11131,28 @@ function parkFightFrame(p,rival,axis,t){
     width:Math.max(frameFloorWidth(),rectPackWidth(rect)*1.12)};
 }
 function updateCameraDoll(dt, now) {
+  const dojoCountdown = dojoActive() && shellMode === "GAME" && !roundResult &&
+    now-roundStartedAt < roundIntroDurationUs();
+  if ((shellMode === "MENU" || dojoCountdown) && !selfPlay && !roundViewer && !survivalActive()) {
+    const heads = activePlayers().filter(p => p.alive)
+      .map(p => runnerWorldGeometry(p, (now - startedAt) / 1e6).head);
+    if (heads.length) {
+      const left = Math.min(...heads.map(h => h.x - h.radius));
+      const right = Math.max(...heads.map(h => h.x + h.radius));
+      const top = Math.min(...heads.map(h => h.y - h.radius));
+      const bottom = Math.max(...activePlayers().filter(p => p.alive).map(p => p.y + 12));
+      const width = Math.max(380 * portraitPull(), right - left + 150,
+        (bottom - top) * cameraAspect / .72);
+      const target = { x: (left + right) / 2,
+        y: (top + bottom) / 2,
+        z: heads.reduce((sum, h) => sum + (h.z || 0), 0) / heads.length };
+      cameraCenter = target.x; cameraCenterY = target.y; cameraWidth = width;
+      cameraDoll.track({ target, position: { x: target.x + width * .10,
+        y: target.y - width * .12, z: target.z - Math.max(900, width * 1.35) },
+        width, perspective: 0, fov: 55, roll: -.012 }, dt, 7);
+      return;
+    }
+  }
   if (poolOnly() && freeskateActive()) {
     const p=players[0],heading=p.poolYaw||0,speed=Math.hypot(p.vx,p.vz||0);
     if(p.parkEntrance){
@@ -10997,7 +11465,7 @@ function updateCameraDoll(dt, now) {
       width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
     return;
   }
-  if (introAge < roundIntroDurationUs()) {
+  if (!dojoActive() && introAge < roundIntroDurationUs()) {
     // One elapsed-time story: first fighter, second fighter, title pullback,
     // then the fight.
     // Nothing is counted in rendered frames, so live variable speed and an
@@ -11065,7 +11533,7 @@ function updateCameraDoll(dt, now) {
   // arrive where the fighters actually are rather than where they were. It
   // costs nothing when nothing is moving apart, because the growth is zero and
   // the lead is zero, so a settled fight frames exactly as it always did.
-  const containmentGrowth = dt > 0
+  const containmentGrowth = dt > 0 && previousContainmentWidth > 0
     ? Math.max(0, containmentWidth - previousContainmentWidth) / dt : 0;
   previousContainmentWidth = containmentWidth;
   cameraContainFloor = Math.max(cameraContainFloor,
@@ -11084,17 +11552,18 @@ function updateCameraDoll(dt, now) {
   }
   const framedWidth = Math.max(naturalWidth, cameraContainFloor) *
     (reelCamera() ? 1 : playerCameraZoom);
-  // Automatic framing stays orthographic, preventing camera movement from
-  // bending the arena. The right stick may still rotate the diorama explicitly.
-  const tilt = .026 + playerCameraPitch;
+  // A gently tilted orthographic shot, with slow handheld drift.
+  const time = now / 1e6;
+  const tilt = .24 + playerCameraPitch + Math.sin(time * .41) * .006;
+  const yaw = playerCameraYaw + .10 + Math.sin(time * .29) * .009;
   const dolly = 1.35;
   cameraDoll.track({ target,
     position: {
-      x: cameraCenter + Math.sin(playerCameraYaw) * framedWidth * dolly,
+      x: cameraCenter + Math.sin(yaw) * framedWidth * dolly,
       y: cameraCenterY - framedWidth * tilt,
-      z: -Math.cos(playerCameraYaw) * framedWidth * dolly },
+      z: -Math.cos(yaw) * framedWidth * dolly },
       width: framedWidth, perspective: 0, fov: 55,
-      roll: 0 }, dt, 10);
+      roll: -.018 + Math.sin(time * .37) * .004 }, dt, 7);
 }
 
 function freezeFinalFrame(now, livePad = -1) {
@@ -11276,7 +11745,7 @@ function recordCommand(player, label, now) {
 function fireGun(player, input) {
   const now = runtime().monotonicUs;
   const pose = gunPose(player, now, input);
-  player.gunAimX = pose.dx;
+  player.gunAimX = pose.localAimX ?? pose.dx;
   player.gunAimY = pose.dy;
   const smg = player.gunMode === "RUBBER SMG";
   const rocket = player.gunMode === "ROCKET LAUNCHER";
@@ -11740,8 +12209,18 @@ function updateBullets(dt, now, combat = true) {
     }
     bullet.previousX = bullet.x;
     bullet.previousY = bullet.y;
+    bullet.previousZ = bullet.z || 0;
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
+    bullet.z = (bullet.z || 0) + (bullet.vz || 0) * dt;
+    // Once outside the physical room, a shot keeps travelling and retires.
+    // There is no invisible ceiling or wall extending above the glass.
+    if (dojoActive() && (bullet.y < dojoRoofY - 1600 || bullet.y > floorY + 800 ||
+        bullet.x < worldLeft - 1600 || bullet.x > worldRight + 1600 || Math.abs(bullet.z) > 1600)) { bullet.life = 0; continue; }
+    if(dojoActive() && (bullet.previousY-dojoRoofY)*(bullet.y-dojoRoofY)<=0 && bullet.previousY!==bullet.y){
+      const u=(dojoRoofY-bullet.previousY)/(bullet.y-bullet.previousY),x=lerp(bullet.previousX,bullet.x,u);
+      const pane=dojoPaneAt(x);if(pane&&!pane.broken)breakDojoGlass(pane,x,players[bullet.owner]||players[0]);
+    }
     // Held so the ricochets below can be spotted by the sign they flip.
     const enteredVx = bullet.vx;
     const enteredVy = bullet.vy;
@@ -11753,9 +12232,10 @@ function updateBullets(dt, now, combat = true) {
     // more than twice as fast, each spent outright the moment it touches
     // anything. Fast and honest against slow and haunting, and a laser miss is
     // a miss for good.
-    if (bullet.laser && (bullet.x - 24 <= worldLeft + wallThickness ||
-        bullet.x + 24 >= worldRight - wallThickness ||
-        bullet.y - 24 <= ceilingY + wallThickness ||
+    const roomWalls = !dojoActive() || bullet.y >= dojoRoofY;
+    if (bullet.laser && ((roomWalls && bullet.x - 24 <= worldLeft + wallThickness) ||
+        (roomWalls && bullet.x + 24 >= worldRight - wallThickness) ||
+        (!dojoActive() && bullet.y - 24 <= ceilingY + wallThickness) ||
         bullet.y + 24 >= terrainFloorAt(bullet.x) - wallThickness)) {
       bullet.life = 0;
       spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
@@ -11765,14 +12245,14 @@ function updateBullets(dt, now, combat = true) {
     }
     // Shots have no clock-based expiry. Arena surfaces ricochet them so a
     // long-travelling round remains part of the fight until contact.
-    if (bullet.x - 24 <= worldLeft + wallThickness) {
+    if (roomWalls && bullet.x - 24 <= worldLeft + wallThickness) {
       bullet.x = worldLeft + wallThickness + 24;
       bullet.vx = Math.abs(bullet.vx);
-    } else if (bullet.x + 24 >= worldRight - wallThickness) {
+    } else if (roomWalls && bullet.x + 24 >= worldRight - wallThickness) {
       bullet.x = worldRight - wallThickness - 24;
       bullet.vx = -Math.abs(bullet.vx);
     }
-    if (bullet.y - 24 <= ceilingY + wallThickness) {
+    if (!dojoActive() && bullet.y - 24 <= ceilingY + wallThickness) {
       bullet.y = ceilingY + wallThickness + 24;
       bullet.vy = Math.abs(bullet.vy);
     } else if (bullet.y + 24 >= terrainFloorAt(bullet.x) - wallThickness) {
@@ -11834,7 +12314,7 @@ function updateBullets(dt, now, combat = true) {
   for (const bullet of bullets) {
     if (bullet.life <= 0) continue;
     const shot = { x1: bullet.previousX ?? bullet.x,
-      y1: bullet.previousY ?? bullet.y, z1: bullet.z,
+      y1: bullet.previousY ?? bullet.y, z1: bullet.previousZ ?? bullet.z,
       x2: bullet.x, y2: bullet.y, z2: bullet.z, width: 48 };
     for (const fragment of detachedParts) {
       if (fragment.owner === bullet.owner && now < bullet.safeUntil) continue;
@@ -11864,7 +12344,7 @@ function updateBullets(dt, now, combat = true) {
       const shield = shieldGeometry(target);
       const guard = sampleCombatBoxes(target,now).guard[0];
       if (guard && segmentBoxEntry({x1:bullet.previousX??bullet.x,y1:bullet.previousY??bullet.y,
-          z1:bullet.z,x2:bullet.x,y2:bullet.y,z2:bullet.z},guard,24)!==null) {
+          z1:bullet.previousZ??bullet.z,x2:bullet.x,y2:bullet.y,z2:bullet.z},guard,24)!==null) {
         let nx = bullet.x - shield.x;
         let ny = bullet.y - shield.y;
         const normalLength = Math.hypot(nx, ny);
@@ -11892,7 +12372,7 @@ function updateBullets(dt, now, combat = true) {
     }
     const contact = sweptProjectileContact([{
       x1: bullet.previousX ?? bullet.x, y1: bullet.previousY ?? bullet.y,
-      z1: bullet.z, x2: bullet.x, y2: bullet.y, z2: bullet.z,
+      z1: bullet.previousZ ?? bullet.z, x2: bullet.x, y2: bullet.y, z2: bullet.z,
       width: 48, role: "bullet", part: "bullet",
     }], target, poseTime);
     if (contact && contact.separation <= 3) {
@@ -12033,7 +12513,7 @@ function startMelee(player, kind, now) {
   player.lowKick = kind === "KICK" &&
     (player.ducking || (player.crouchBlend || 0) > .35);
   player.attackStartedAt = now;
-  player.attackUntil = now + spec.windowUs;
+  player.attackUntil = now + (dojoActive() && spineBodiesOn() ? (kind === "KICK" ? 500000 : 360000) : spec.windowUs);
   player.attackHit = false;
   player.attackMomentum = now < player.dashUntil
     ? clamp(Math.abs(player.vx) / walkSpeed, 1.35, 2.25) : 1;
@@ -12099,7 +12579,9 @@ const meleeFrames = {
   BASH: { startup: 0, active: 17, recovery: 0 },
 };
 function meleeFrame(player, now) {
-  const timing = meleeFrames[player.attackKind];
+  const timing = dojoActive() && spineBodiesOn() && player.attackKind
+    ? player.attackKind === "KICK" ? {startup:7,active:11,recovery:12} : {startup:5,active:8,recovery:9}
+    : meleeFrames[player.attackKind];
   if (!timing || now < player.attackStartedAt || now >= player.attackUntil)
     return { frame: 0, phase: 'neutral', startup: 0, active: 0, recovery: 0 };
   const frame = Math.floor((now - player.attackStartedAt) / replayTickUs + 1e-7) + 1;
@@ -12134,6 +12616,12 @@ function itemActionPulse(player, now) {
 }
 
 function itemHandTarget(player, now) {
+  const point = itemHandTargetUnspun(player, now), a = player.spin?.angle || 0;
+  if (poolOnly() || !a) return point;
+  const x=point.x-player.x,z=(point.z||0)-(player.z||0),c=Math.cos(a),sn=Math.sin(a);
+  return {...point,x:player.x+x*c-z*sn,z:(player.z||0)+x*sn+z*c};
+}
+function itemHandTargetUnspun(player, now) {
   // A surviving head grips the pistol at the mouth. It can still aim and fire,
   // but grenades and melee weapons remain limb-dependent.
   if (isHeadOnly(player)) return {
@@ -12187,13 +12675,15 @@ function gunPose(player, now, input = null) {
     aimY = player.gunAimY || 0;
   }
   const length = Math.hypot(aimX, aimY) || 1;
-  const dx = aimX / length;
-  const dy = aimY / length;
-  const hand = itemHandTarget(player, now);
-  return {
-    hand, dx, dy,
-    muzzle: { x: hand.x + dx * 54, y: hand.y + dy * 54, z: hand.z },
-  };
+  const localAimX = aimX / length, dy = aimY / length;
+  const angle = player.spin?.angle || 0, c = Math.cos(angle), sn = Math.sin(angle);
+  const dx = localAimX * c, dz = localAimX * sn;
+  let hand = itemHandTarget(player, now);
+  if(player.spineActor){const arm=itemForearm(player,player.replayGeometry||player.frozenGeometry||spinePose(player));if(arm)hand={x:arm.x2,y:arm.y2,z:arm.z2};}
+  const side=localAimX>=0?1:-1, nx=-dy*side*c, ny=localAimX*side, nz=-dy*side*sn;
+  const along=player.gunMode === "HANDGUN"?36+Math.sin(.32)*11:54;
+  const below=player.gunMode === "HANDGUN"?-5-Math.cos(.32)*11:0;
+  return {hand,dx,dy,dz,localAimX,down:{x:nx,y:ny,z:nz},muzzle:{x:hand.x+dx*along+nx*below,y:hand.y+dy*along+ny*below,z:hand.z+dz*along+nz*below}};
 }
 
 function meleeStrike(player, now) {
@@ -12393,7 +12883,7 @@ function updateBoomerboard(dt, now) {
   for (const player of activePlayers()) {
     const board = boardForRider(player, true);
     // A lone head can call it too, and rides it home.
-    const calling = !poolOnly() && !player.skateboard && player.alive &&
+    const calling = !dojoActive() && !poolOnly() && !player.skateboard && player.alive &&
       Boolean(inputPads[player.pad]?.down?.includes("B"));
     if (!calling) {
       player.boomerSince = 0;
@@ -12763,6 +13253,7 @@ function kickBoard(player, direction, now) {
 }
 
 function directionTap(player, direction, now) {
+  if(dojoActive() && direction === "UP")return false;
   if(freeskateActive() && player.skateboard && !player.grounded && direction === "DOWN")return false;
   const previousTap = player.lastTap[direction] || -10000000;
   const releasedAt = player.lastRelease[direction] || -10000000;
@@ -12935,7 +13426,7 @@ function crouchHop(player, direction, now) {
 }
 
 function killPlayer(target, killerPad, now, cause = "KO") {
-  if(target.dummy){applyBodyHit(target,0,players[killerPad]?.x ?? target.x-1,killerPad,now,1250,360,false);return;}
+  if(target.dummy && !dojoActive()){applyBodyHit(target,0,players[killerPad]?.x ?? target.x-1,killerPad,now,1250,360,false);return;}
   if (!target.alive) return;
   if(freeskateActive() && freeskateSecond && !parkSupply.ko) parkSupply.ko={at:now,until:now+4800000,settled:false,winner:-1,loser:target.pad};
   recordFightHit(killerPad, true);
@@ -12946,9 +13437,22 @@ function killPlayer(target, killerPad, now, cause = "KO") {
         winnerPad: killerPad, cause };
     freezeFinalFrame(now, deathCinematic?.winnerPad ?? -1);
   }
-  startRagdoll(target,{x:target.x,y:target.y-100,z:target.z},[Math.sign(target.x-(players[killerPad]?.x??target.x-1))*400,-180,0]);
+  const away = Math.sign(target.x - (players[killerPad]?.x ?? target.x - 1));
+  const intactHead = cause !== "SHOT";
+  const head = intactHead ? { ...runnerWorldGeometry(target, (now - startedAt) / 1e6).head } : null;
+  startRagdoll(target,{x:target.x,y:target.y-100,z:target.z},[away*400,-180,0],intactHead && dojoActive());
   target.alive = false;
-  target.headBustedAt = now;
+  target.headBustedAt = intactHead ? 0 : now;
+  if (intactHead) {
+    target.headless = true;
+    target.looseHead = { ...head, vx: away * 350, vy: -430, vz: 45 * (target.pad ? 1 : -1) };
+    const body = ragdollBodies.get(target)?.body;
+    if (body) {
+      body.w[body.head] = 0;
+      for (let i = 0; i < body.links; i++)
+        if (body.a[i] === body.head || body.b[i] === body.head) body.enabled[i] = 0;
+    }
+  }
   target.respawnAt = now + (parkSupply.ko ? 6000000 : 1200000);
   target.vx = 0;
   if (!soloRoom()) target.vy = 0;
@@ -13163,7 +13667,7 @@ function resolveMelee(now) {
         breakShield(target, now);
       }
     } else if (headshot) {
-      if (isHeadOnly(target)) {
+      if (dojoActive() || isHeadOnly(target)) {
         killPlayer(target, attacker.pad, now,
           contacts.length >= 2 ? "TRADE" : "KO");
         continue;
@@ -13186,7 +13690,7 @@ function resolveMelee(now) {
       const momentum = attacker.attackMomentum || 1;
       applyBodyHit(target, segmentIndex, attacker.x, attacker.pad, now,
         spec.force * momentum, spec.lift * momentum);
-      playDrum(spec.thud[0], spec.thud[1], panPlayer(target));
+      playDrum(attacker.attackKind === "PUNCH" ? "body-impact" : spec.thud[0], spec.thud[1], panPlayer(target));
     }
   }
 }
@@ -14425,6 +14929,11 @@ function updatePlayer(player, pad, dt, now) {
     }
     player.skateVx = 0;
   }
+  if (player.grounded && !player.skateboard && !player.onewheel && !surfer &&
+      !rollingFoot && now >= player.dashUntil && !player.roll) {
+    const previous = player.vx - player.windVx - player.knockVx;
+    controlledVx = lerp(previous, controlledVx, 1 - Math.exp(-dt * (input.horizontal ? 10 : 14)));
+  }
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
     " pad=" + (player.pad + 1) +
@@ -14466,8 +14975,9 @@ function updatePlayer(player, pad, dt, now) {
     // gravity brings the rider back down sooner.
     const jumpScale = (player.skateboard ? 1.12
       : pogo ? .88 : legCount === 1 ? .78 : 1) * (freeskateActive() ? .9 : 1);
-    player.vy = Math.min(player.vy,
-      -(player.crouchJump ? crouchJumpVelocity : jumpVelocity) * jumpScale);
+    const launch = dojoActive() ? (player.airJumpsUsed ? dojoAirJumpVelocity : player.crouchJump ? 900 : dojoJumpVelocity)
+      : player.crouchJump ? crouchJumpVelocity : jumpVelocity;
+    player.vy = dojoActive() ? -launch * Math.min(1,jumpScale) : Math.min(player.vy,-launch * jumpScale);
     player.jumpHeld = true;
     player.pogoHit = false;
     player.pogoDive = false;
@@ -15417,6 +15927,9 @@ function updateSurvival(dt, now) {
 }
 
 function gameSim() {
+  takeBugTap();
+  updateHeadLogin(runtime().monotonicUs);
+  syncNativeAccount();
   captureRenderInterpolationState();
   syncGameView();
   const now = runtime().monotonicUs;
@@ -15480,6 +15993,15 @@ function gameSim() {
   padSnapshots[1] = samplePad(1);
   inputPads[0] = padSnapshots[0];
   inputPads[1] = padSnapshots[1];
+  if (updatePlayLogin(now)) {
+    if (shellMode === "MENU") updateCameraDoll(dt, now);
+    return;
+  }
+  if (shellMode === "GAME" && !roundViewer && !selfPlay && accountState() && !playAllowed()) {
+    returnToTitle(now, "account");
+    requestPlayLogin();
+    return;
+  }
   if (updateLocalVersus(now)) {
     consumeSystemButtons(now);
     return;
@@ -15511,6 +16033,13 @@ function gameSim() {
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now, titleTapped);
   else updateMatchPace(now);
+  // The title is a resting preview. Keep its camera alive without running
+  // two unattended fighters through physics behind the login code.
+  if (shellMode === "MENU" && !selfPlay) {
+    if (activePlayers().some(p => p.alive && !p.spineActor)) updateSpineBodies(now);
+    updateCameraDoll(dt, now);
+    return;
+  }
   // The versus seat watches from the title on — a friend can take the chair
   // while the host is still reading the wordmark, and the fight lifts it.
   updateVersusSeat(now);
@@ -15574,6 +16103,8 @@ function gameSim() {
     return;
   }
   if (roundResult) {
+    if (instantReplay) { updateInstantReplay(now, dt); return; }
+    if (startAutomaticDojoReplay(now)) return;
     // The scored tail. The killcam dwell used to be the reel's quietest
     // seconds under its most dramatic frames, so the dwell keeps a slow
     // heartbeat and the result card lands with a sting of its own. Voice on
@@ -15622,11 +16153,7 @@ function gameSim() {
       resultLaughAt = now + 112000 + resultLaughStep * 24000;
       resultLaughStep++;
     }
-    if (INSTANT_REPLAY && instantReplay) {
-      updateInstantReplay(now, dt);
-      return;
-    }
-    if (INSTANT_REPLAY) {
+    if (INSTANT_REPLAY && !dojoActive()) {
       const replayDown = padSnapshots[0]?.down || [];
       if (replayDown.includes("Y") && !replayOfferPrevious.includes("Y") &&
           startInstantReplay(now)) return;
@@ -15739,7 +16266,9 @@ function gameSim() {
     updateSkateAudio(dt);
     updateSeatHeartbeat(dt,now);
     updateRagdolls(dt);
+    updatePlayerLooseHeads(dt);
     updateWaterSplashes(dt);
+    updateDojoGlass(dt);
     updatePowerups(now);
     updateBodyTrees(dt, now);
     updateBullets(dt, now);
@@ -15755,6 +16284,7 @@ function gameSim() {
     for (const item of balls) if (!item.recalling) updateBall(item, dt, now);
     updateDetachedParts(dt);
     updateBlood(dt);
+    updateTears(dt, now);
     updateBoardState(now);
     updatePonytails(dt,now);
     updateCamera(dt);
@@ -15829,6 +16359,8 @@ function gameSim() {
 }
 
 function updateResultImpactDebris(dt) {
+  updateRagdolls(dt);
+  updatePlayerLooseHeads(dt);
   for (const impact of impacts) {
     if (!impact.debris && !impact.explosion && !impact.object && players.some((player) =>
         Math.abs(player.x - impact.x) < 160 && Math.abs(player.y - 90 - impact.y) < 160)) {
@@ -15861,6 +16393,7 @@ function updateResultImpactDebris(dt) {
     impact.life -= dt;
   }
   updateBlood(dt);
+  updateTears(dt, runtime().monotonicUs);
   while (impacts.length && impacts[0].life <= 0) impacts.shift();
 }
 
@@ -16513,8 +17046,8 @@ function ragdollGeometry(body){
  const p=body.p,at=i=>({x:p[i*3],y:p[i*3+1],z:p[i*3+2]});
  return {head:{...at(body.head),radius:body.r[body.head]},segments:body.bones.map(b=>({role:b.role,part:b.part,width:b.width,x1:p[b.a*3],y1:p[b.a*3+1],z1:p[b.a*3+2],x2:p[b.b*3],y2:p[b.b*3+1],z2:p[b.b*3+2]}))};
 }
-function startRagdoll(player,point,impulse){
- if(!poolOnly())return;
+function startRagdoll(player,point,impulse,dojo=false){
+ if(!poolOnly()&&!dojo)return;
  const source=runnerWorldGeometry(player,(runtime().monotonicUs-startedAt)/1e6),pose={...source,segments:source.segments.filter(s=>hasPart(player,s.part))};
  const body=new OskiewarRagdoll(pose,[player.vx||0,player.vy||0,player.vz||0]);
  if(point&&impulse)body.impulse([point.x,point.y,point.z||0],impulse);
@@ -16525,9 +17058,22 @@ function startRagdoll(player,point,impulse){
 function updateRagdolls(dt){
  for(const [player,state] of ragdollBodies){
   if(player.alive||(!players.includes(player)&&!parkKids.includes(player))){ragdollBodies.delete(player);continue;}
-  if(!state.body.sleeping){state.body.step(dt,poolFloorAt);state.pose=ragdollGeometry(state.body);}
+  if(!state.body.sleeping){state.body.step(dt,poolOnly()?poolFloorAt:terrainFloorAt);state.pose=ragdollGeometry(state.body);}
   const torso=state.pose.segments.find(s=>s.role==='torso');
   if(torso){player.x=torso.x2;player.y=torso.y2;player.z=torso.z2;}
+ }
+}
+function updatePlayerLooseHeads(dt) {
+ for (const player of players) {
+  const h = player.looseHead;
+  if (player.alive || !player.headless || !h) continue;
+  h.vy += Math.min(1100, fallGravity()) * dt;
+  h.x += h.vx * dt; h.y += h.vy * dt; h.z += h.vz * dt;
+  const floor = (poolOnly() ? poolFloorAt(h.x, h.z) : terrainFloorAt(h.x, h.z)) - h.radius;
+  if (h.y > floor) {
+   h.y = floor; h.vy = Math.abs(h.vy) > 65 ? -Math.abs(h.vy) * .45 : 0;
+   h.vx *= Math.exp(-dt * 3); h.vz *= Math.exp(-dt * 3);
+  }
  }
 }
 const renderPoses = new Map();
@@ -16692,7 +17238,7 @@ const spineBody = (() => {
     const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     function normal(a) {
-      const length = Math.hypot(a.x, a.y, a.z) || 1;
+      const length = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z) || 1;
       return { x: a.x / length, y: a.y / length, z: a.z / length };
     }
 
@@ -16700,13 +17246,15 @@ const spineBody = (() => {
     // that bead's twist.
     function frameAt(spine, i) {
       const a = spine.root.yaw + spine.shape.yaw + spine.twist[i];
-      return { forward: { x: Math.cos(a), y: 0, z: Math.sin(a) }, right: { x: -Math.sin(a), y: 0, z: Math.cos(a) } };
+      const c = Math.cos(a), s = Math.sin(a);
+      return { forward: { x: c, y: 0, z: s }, right: { x: -s, y: 0, z: c } };
     }
 
     // The pelvis points up, tipped forward by its tilt.
     function pelvisUp(spine) {
       const { forward } = frameAt(spine, 0), t = spine.root.tilt + spine.shape.hinge + spine.reflex.hinge;
-      return normal(add(scale({ x: 0, y: 1, z: 0 }, Math.cos(t)), scale(forward, Math.sin(t))));
+      const s = Math.sin(t);
+      return normal({ x: forward.x * s, y: Math.cos(t), z: forward.z * s });
     }
 
     // Continue a rope segment from `below`, bent forward then sideways. The
@@ -16714,10 +17262,13 @@ const spineBody = (() => {
     // folds; built from forward it went degenerate folded over (forward ≈ up)
     // and the shoulders flipped side to side.
     function bendDirection(below, frame, forwardBend, sideBend) {
-      const right = normal(add(frame.right, scale(below, -dot(frame.right, below))));
+      const along = dot(frame.right, below);
+      const right = normal({ x: frame.right.x - below.x * along, y: -below.y * along, z: frame.right.z - below.z * along });
       const ahead = cross(below, right);
-      const pitched = add(scale(below, Math.cos(forwardBend)), scale(ahead, Math.sin(forwardBend)));
-      return normal(add(scale(pitched, Math.cos(sideBend)), scale(right, Math.sin(sideBend))));
+      const fc = Math.cos(forwardBend), fs = Math.sin(forwardBend), sc = Math.cos(sideBend), ss = Math.sin(sideBend);
+      return normal({ x: (below.x * fc + ahead.x * fs) * sc + right.x * ss,
+        y: (below.y * fc + ahead.y * fs) * sc + right.y * ss,
+        z: (below.z * fc + ahead.z * fs) * sc + right.z * ss });
     }
 
     // An orthonormal frame read off the rope at bead i: its own up (along the
@@ -16731,7 +17282,9 @@ const spineBody = (() => {
     }
     // A point in a frame: forward, up, right.
     const place = (frame, f, u, r) =>
-      add(frame.origin, add(add(scale(frame.forward, f), scale(frame.up, u)), scale(frame.right, r)));
+      ({ x: frame.origin.x + frame.forward.x * f + frame.up.x * u + frame.right.x * r,
+        y: frame.origin.y + frame.forward.y * f + frame.up.y * u + frame.right.y * r,
+        z: frame.origin.z + frame.forward.z * f + frame.up.z * u + frame.right.z * r });
     const chestFrame = (spine) => bodyFrame(spine, chestIndex(spine));
     const pelvisFrame = (spine) => bodyFrame(spine, 0);
     // A point on the ground in the travel frame: along the heading, across it.
@@ -16740,10 +17293,10 @@ const spineBody = (() => {
       return { x: root.x + c * along - s * across, y: spine.floor + height, z: root.z + s * along + c * across };
     }
 
-    function limbAnchor(spine, limb) {
+    function limbAnchor(spine, limb, frame) {
       return limb.kind === "arm"
-        ? place(chestFrame(spine), 0, 4, limb.side * spine.o.shoulder)
-        : place(pelvisFrame(spine), 0, -4, limb.side * spine.o.hipWidth);
+        ? place(frame || chestFrame(spine), 0, 4, limb.side * spine.o.shoulder)
+        : place(frame || pelvisFrame(spine), 0, -4, limb.side * spine.o.hipWidth);
     }
 
     // ——— The inner force ———
@@ -16858,19 +17411,24 @@ const spineBody = (() => {
       if (!root.driven) { root.x += root.vx * dt; root.z += root.vz * dt; }
 
       const h = dt / o.substeps;
+      // Intent and rhythm are constant through the constraint substeps.
+      const bends = restBends(spine);
+      const twists = spine.restTwists ||= new Float64Array(n);
+      for (let i = 0; i < n; i++) twists[i] = restTwist(spine, i);
       for (let sub = 0; sub < o.substeps; sub++) {
         integrate(spine, h);
-        stepTwist(spine);
+        stepTwist(spine, twists);
         // Bend springs act once per substep, as springs; only the links (which
         // must never stretch) and the hips are solved to convergence.
         holdPelvis(spine);
-        bendSprings(spine, restBends(spine));
+        bendSprings(spine, bends);
         // The floor is part of the solve, not an afterthought: clamped after the
         // links, a body folded to the ground had its neck pulled out of length.
         const ground = () => { for (let i = 1; i < n; i++) if (spine.y[i] < spine.floor + 6) spine.y[i] = spine.floor + 6; };
         for (let k = 0; k < o.iterations; k++) { holdPelvis(spine); ground(); keepLinks(spine); keepLinks(spine); }
-        for (const limb of spine.arms) stepLimb(spine, limb, h);
-        for (const limb of spine.legs) stepLimb(spine, limb, h);
+        const chest = chestFrame(spine), pelvis = pelvisFrame(spine);
+        for (const limb of spine.arms) stepLimb(spine, limb, h, chest);
+        for (const limb of spine.legs) stepLimb(spine, limb, h, pelvis);
         takePull(spine);
         keepLinks(spine);   // the rope takes the pull without giving length
       }
@@ -16917,15 +17475,15 @@ const spineBody = (() => {
 
     // Twist is its own small rope: the pelvis takes it from the hips, each bead
     // above follows the one below, late.
-    function stepTwist(spine) {
+    function stepTwist(spine, rests) {
       const { o, n, twist, previousTwist } = spine, keep = 1 - o.damping / o.substeps;
       for (let i = 0; i < n; i++) {
         const velocity = (twist[i] - previousTwist[i]) * keep;
         previousTwist[i] = twist[i];
         twist[i] += velocity;
-        const rest = restTwist(spine, i);
+        const rest = rests[i];
         if (i === 0) { twist[0] += (rest - twist[0]) * .6; continue; }
-        const follow = twist[i - 1] + rest - restTwist(spine, i - 1);
+        const follow = twist[i - 1] + rest - rests[i - 1];
         twist[i] += (follow - twist[i]) * o.twistStiff * o.muscle + (rest - twist[i]) * o.twistRest;
       }
     }
@@ -16963,7 +17521,7 @@ const spineBody = (() => {
       const { n, links } = spine;
       for (let i = 0; i < n - 1; i++) {
         const dx = spine.x[i + 1] - spine.x[i], dy = spine.y[i + 1] - spine.y[i], dz = spine.z[i + 1] - spine.z[i];
-        const d = Math.hypot(dx, dy, dz) || 1, error = (d - links[i]) / d;
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, error = (d - links[i]) / d;
         const low = i ? .5 : .3;   // the pelvis gives a little (all of a landing on one link tore it)
         spine.x[i] += dx * error * low; spine.y[i] += dy * error * low; spine.z[i] += dz * error * low;
         spine.x[i + 1] -= dx * error * (1 - low); spine.y[i + 1] -= dy * error * (1 - low); spine.z[i + 1] -= dz * error * (1 - low);
@@ -16977,9 +17535,9 @@ const spineBody = (() => {
     // stiffness (a pinned end sits on it); the middle bows toward its pole
     // (elbows back and out, knees forward); links keep both bones' lengths. A
     // pinned hand whose arm runs out of length drags the chest bead with it.
-    function stepLimb(spine, limb, h) {
+    function stepLimb(spine, limb, h, frame) {
       const { o } = spine, keep = 1 - o.limbDamping / o.substeps, fall = o.gravity * h * h;
-      const anchor = limbAnchor(spine, limb), [l1, l2] = limb.lengths;
+      const anchor = limbAnchor(spine, limb, frame), [l1, l2] = limb.lengths;
       limb.x[0] = limb.px[0] = anchor.x; limb.y[0] = limb.py[0] = anchor.y; limb.z[0] = limb.pz[0] = anchor.z;
       for (let i = 1; i < 3; i++) {
         const vx = (limb.x[i] - limb.px[i]) * keep, vy = (limb.y[i] - limb.py[i]) * keep, vz = (limb.z[i] - limb.pz[i]) * keep;
@@ -16996,7 +17554,6 @@ const spineBody = (() => {
         limb.x[2] += (goal.x - limb.x[2]) * k; limb.y[2] += (goal.y - limb.y[2]) * k; limb.z[2] += (goal.z - limb.z[2]) * k;
       }
       // The joint bows toward its pole.
-      const frame = limb.kind === "arm" ? chestFrame(spine) : pelvisFrame(spine);
       const pole = normal(limb.kind === "arm"
         ? add(add(scale(frame.forward, -.5), scale(frame.right, limb.side * .5)), scale(frame.up, -.3))
         : frame.forward);
@@ -17016,18 +17573,32 @@ const spineBody = (() => {
       // Bones keep their lengths. The anchor is the body's; a pinned end is
       // mostly the world's, so the arm's pull is handed to the chest (see pull).
       for (let k = 0; k < o.iterations * 2; k++) {
-        const pull = linkLimb(limb, 0, 1, l1, limb.pin && limb.kind === "arm" ? .6 : 0, 1);
+        const pull = linkLimb(limb, 0, 1, l1, limb.pin && limb.kind === "arm" ? .6 : 0, 1, true);
         if (pull) { spine.pull.x += pull.x; spine.pull.y += pull.y; spine.pull.z += pull.z; }
         linkLimb(limb, 1, 2, l2, 1, limb.pin ? .25 : 1);
       }
       // A foot held up by the ground keeps its place; the knee re-fits to it.
       ground();
       for (let k = 0; k < 2; k++) { linkLimb(limb, 1, 2, l2, 1, 0); linkLimb(limb, 0, 1, l1, 0, 1); }
+      if (limb.lock && limb.goal) {
+        // A deck constraint is a fixed endpoint, not a spring aiming below it.
+        // Solve the knee on the two bone intersection circle without moving
+        // either the hip or the planted shoe.
+        const g=limb.goal,dx=g.x-anchor.x,dy=g.y-anchor.y,dz=g.z-anchor.z;
+        const d=Math.max(.001,Math.hypot(dx,dy,dz)),nx=dx/d,ny=dy/d,nz=dz/d;
+        const along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
+        const dotPole=pole.x*nx+pole.y*ny+pole.z*nz;
+        let px=pole.x-nx*dotPole,py=pole.y-ny*dotPole,pz=pole.z-nz*dotPole;
+        const plen=Math.hypot(px,py,pz)||1;px/=plen;py/=plen;pz/=plen;
+        limb.x[1]=anchor.x+nx*along+px*height;limb.y[1]=anchor.y+ny*along+py*height;limb.z[1]=anchor.z+nz*along+pz*height;
+        limb.x[2]=limb.px[2]=g.x;limb.y[2]=limb.py[2]=g.y;limb.z[2]=limb.pz[2]=g.z;
+      }
     }
 
     // What a pinned arm asked of the chest this substep, handed over once and
     // capped, so a hard pull bends the rope instead of tearing its links.
     function takePull(spine) {
+      if (!spine.pull.x && !spine.pull.y && !spine.pull.z) return;
       const { pull } = spine, d = Math.hypot(pull.x, pull.y, pull.z), cap = 1.2, k = d > cap ? cap / d : 1;
       const chest = chestIndex(spine);
       for (const [i, w] of [[chest, 1], [chest - 1, .5]]) {
@@ -17038,16 +17609,16 @@ const spineBody = (() => {
 
     // Hold two limb beads at `length`, moving each by its weight (0 = fixed).
     // Returns how far a movable anchor was asked to go, for the body to take.
-    function linkLimb(limb, a, b, length, weightA, weightB) {
+    function linkLimb(limb, a, b, length, weightA, weightB, reportPull = false) {
       const dx = limb.x[b] - limb.x[a], dy = limb.y[b] - limb.y[a], dz = limb.z[b] - limb.z[a];
-      const d = Math.hypot(dx, dy, dz) || 1, error = (d - length) / d, total = weightA + weightB;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, error = (d - length) / d, total = weightA + weightB;
       if (!total) return null;
       const wa = weightA / total, wb = weightB / total;
       limb.x[b] -= dx * error * wb; limb.y[b] -= dy * error * wb; limb.z[b] -= dz * error * wb;
       if (!wa) return null;
-      const pull = { x: dx * error * wa, y: dy * error * wa, z: dz * error * wa };
-      limb.x[a] += pull.x; limb.y[a] += pull.y; limb.z[a] += pull.z;
-      return pull;
+      const x = dx * error * wa, y = dy * error * wa, z = dz * error * wa;
+      limb.x[a] += x; limb.y[a] += y; limb.z[a] += z;
+      return reportPull ? { x, y, z } : null;
     }
 
     // ——— Pokes from outside ———
@@ -17186,6 +17757,7 @@ const spineBody = (() => {
     function stepActor(actor) {
       const { body, input } = actor, root = body.root;
       const pose = basePose(actor);
+      spinFootwork(actor, pose);
       if (actor.action) {
         const a = actor.action, spec = actions[a.name];
         layer(actor, pose, a);
@@ -17215,6 +17787,14 @@ const spineBody = (() => {
         pose.hands[which] = { goal: { ...actor.target }, stiff: .3, pin: input.grab && actor.grabbed, reach: true };
       }
       if (!input.grab) actor.grabbed = false;
+      // The host supplies the actual moving deck. Kicks release only their
+      // striking foot; the supporting foot remains locked to the grip tape.
+      if (actor.deckFeet && actor.mode === "board") {
+        for (const [i,name] of [[0,"left"],[1,"right"]]) {
+          const kicking=actor.action?.name === "kick" && i === (actor.action.side>0?1:0);
+          if (!kicking) pose.feet[name]={goal:actor.deckFeet[i],stiff:1,pin:true,lock:true};
+        }
+      }
       body.snap = pose.snap || 1;
       apply(body, pose);
       travel(actor);
@@ -17227,6 +17807,42 @@ const spineBody = (() => {
       }
       if (body.landed && actor.mode !== "kart") actor.landedAt = actor.time;
       actor.time += step;
+    }
+
+    // Turn around a planted foot, then transfer weight to the stepping foot.
+    // Anchors stay in world space; rotating the hips cannot drag both shoes.
+    function spinFootwork(actor, pose) {
+      const {body, input} = actor, root = body.root;
+      if (!input.spin || root.air || actor.mode !== "foot") {
+        actor.spinFeet = null;
+        return;
+      }
+      let state = actor.spinFeet;
+      if (!state) state = actor.spinFeet = { yaw: root.yaw, phase: 0, swing: 1,
+        anchors: body.legs.map(leg => ({...limbEnd(leg), y: 3})) };
+      const delta = Math.atan2(Math.sin(root.yaw - state.yaw), Math.cos(root.yaw - state.yaw));
+      state.yaw = root.yaw;
+      state.phase += Math.abs(delta) / (Math.PI / 2);
+      const support = state.anchors[1 - state.swing];
+      if (Math.hypot(support.x - root.x, support.z - root.z) > 75) state.phase = 1;
+      if (state.phase >= 1) {
+        state.anchors[state.swing] = {...limbEnd(body.legs[state.swing]), y: 3};
+        state.swing = 1 - state.swing;
+        state.phase %= 1;
+        state.anchors[state.swing] = {...limbEnd(body.legs[state.swing]), y: 3};
+      }
+      for (const [i,name] of [[0,"left"],[1,"right"]]) {
+        if (i !== state.swing) {
+          pose.feet[name] = {goal:state.anchors[i], stiff:1, pin:true, lock:true};
+          continue;
+        }
+        const side = i ? 1 : -1, from = state.anchors[i];
+        const to = travelPoint(body, side * 12, side * (body.o.hipWidth + 10), 3);
+        const u = smooth(state.phase);
+        pose.feet[name] = {goal:{x:lerp(from.x,to.x,u), z:lerp(from.z,to.z,u),
+          y:3 + Math.sin(Math.PI * state.phase) * 26}, stiff:.9};
+      }
+      pose.crouch += Math.sin(Math.PI * state.phase) * 5;
     }
 
     // The mode's steady pose: what the spine and limbs do with no one-shot.
@@ -17341,27 +17957,40 @@ const spineBody = (() => {
     // A one-shot laid over the base pose.
     function layer(actor, pose, a) {
       const { body } = actor, o = body.o, t = a.t, s = a.side, chest = chestFrame(body);
-      const guard = (hand, side) => ({ goal: place(chest, 26, 8, side * 12), stiff: .2 });
       if (a.name === "punch") {
-        // Wind: the spine turns the punching shoulder back. Throw: the spine
-        // unwinds past square and the fist rides out on it, a beat behind.
-        // Recover: back to guard.
+        // Aim along the fighter's heading. Following the chest's twisting frame
+        // swept the fist sideways and down just as the arm straightened.
         const name = s > 0 ? "right" : "left", other = s > 0 ? "left" : "right";
-        pose.hands[other] = guard(other, -s);
+        const yaw = body.root.yaw, c = Math.cos(yaw), sn = Math.sin(yaw);
+        const aim = { origin: chest.origin, forward: { x: c, y: 0, z: sn },
+          right: { x: -sn, y: 0, z: c }, up: { x: 0, y: 1, z: 0 } };
+        const reach = (o.arm[0] + o.arm[1]) * .94;
+        const hand = (forward, height, stiff) => ({
+          goal: place(aim, forward, height, s * o.shoulder * .8), stiff });
+        pose.hands[other] = { goal: place(aim, 20, 14, -s * o.shoulder * .8), stiff: .4 };
         pose.snap = 4;
-        if (t < .08) { pose.twist = -s * .4; pose.hands[name] = { goal: place(chest, 10, 2, s * 16), stiff: .25 }; }
-        else if (t < .22) {
-          // The unwind starts at .08; the fist is only thrown at .13, so it is
-          // carried by a spine already turning.
-          pose.twist = s * .6; pose.curl += .15;
-          const u = smooth((t - .13) / .07);
-          pose.hands[name] = t < .13 ? { goal: place(chest, 14, 4, s * 14), stiff: .25 } : { goal: place(chest, lerp(20, 64, u), 10, s * 2), stiff: .7 };
-        } else { pose.twist = s * .6 * (1 - smooth((t - .22) / .14)); pose.hands[name] = guard(name, s); }
+        // Chamber, turn the shoulder, then drive a straight fist. Reach full
+        // extension during the game's 14-frame strike and keep it readable for
+        // several frames before returning to guard.
+        if (t < .05) {
+          pose.twist = -s * .3;
+          pose.hands[name] = hand(12, 10, .45);
+        } else if (t < .20) {
+          pose.twist = s * .38; pose.curl += .06;
+          const u = smooth((t - .083) / .05);
+          pose.hands[name] = hand(lerp(12, reach, u), 12, .85);
+        } else {
+          const u = smooth((t - .20) / .16);
+          pose.twist = s * .38 * (1 - u);
+          pose.hands[name] = hand(lerp(reach, 26, u), lerp(12, 10, u), .55);
+        }
       } else if (a.name === "kick") {
         // Chamber the knee, snap the foot out, pull back; the spine leans away
         // from the kick and the arms go wide to balance it.
         const name = s > 0 ? "right" : "left";
-        const pelvis = pelvisFrame(body);
+        const base = pelvisFrame(body), yaw=body.root.yaw;
+        const pelvis = {origin:base.origin,forward:{x:Math.cos(yaw),y:0,z:Math.sin(yaw)},
+          right:{x:-Math.sin(yaw),y:0,z:Math.cos(yaw)},up:{x:0,y:1,z:0}};
         pose.snap = 3;
         if (t < .12) pose.feet[name] = { goal: place(pelvis, 30, -40, s * o.hipWidth), stiff: .4 };
         else if (t < .3) { pose.feet[name] = { goal: place(pelvis, 82, -8, s * o.hipWidth), stiff: .8 }; pose.arch = .45; }
@@ -17394,7 +18023,7 @@ const spineBody = (() => {
       for (const [name, index] of [["left", 0], ["right", 1]]) {
         for (const [limbs, goals] of [[body.arms, pose.hands], [body.legs, pose.feet]]) {
           const limb = limbs[index], g = goals[name];
-          limb.goal = g?.goal || null; limb.stiff = g?.stiff || 0; limb.pin = !!g?.pin; limb.reach = !!g?.reach;
+          limb.goal = g?.goal || null; limb.stiff = g?.stiff || 0; limb.pin = !!g?.pin; limb.lock = !!g?.lock; limb.reach = !!g?.reach;
         }
       }
     }
@@ -17486,9 +18115,10 @@ function rollSpineBody(p) {
 function liquidBody(body) {
   const l = Number.isFinite(globalThis.__oskiewarLiquid) ? globalThis.__oskiewarLiquid : 1;
   const mix = (value, factor) => value * (1 + (factor - 1) * l);
-  // Twist keeps the lab's stiffness: a soft twist is what set the head
-  // gyrating while the body stood still.
+  // Keep the neck spring below the oscillation threshold for every body seed.
+  // Three substeps retain stable bones while leaving time for contact shadows.
   return { ...body, stiffLow: mix(body.stiffLow, .55), stiffHigh: mix(body.stiffHigh, .55),
+    stiffNeck: Math.min(.65, body.stiffNeck), substeps: 3, iterations: 2,
     damping: mix(body.damping, .8), lag: mix(body.lag, 1.5), sway: mix(body.sway, 1.6),
     react: mix(body.react, .6), rise: mix(14, .55) };
 }
@@ -17520,6 +18150,8 @@ function updateSpineBodies(now) {
     // A teleport (a wrap, a respawn point) re-stands the body rather than
     // whipping it across the park.
     if (Math.hypot(p.x - body.root.x, (p.z || 0) - body.root.z) > 240) { placeSpineRoot(p, actor); spineBody.settle(body); }
+    captureSpineInterpolation(body);
+    body.renderUpdatedAt = now;
     const wasAir = body.root.air;
     placeSpineRoot(p, actor);
     // Daze: a hit or a hard landing knocks the tone out of the body, and it
@@ -17553,7 +18185,7 @@ function updateSpineBodies(now) {
       if (p.attackKind === "KICK") spineBody.trigger(actor, "kick", p.facing < 0 ? -1 : 1);
       else spineBody.trigger(actor, "punch", p.strikeArm === "left-arm" ? -1 : 1);
       // Oomph: the chest throws its weight into the blow.
-      if (!poolOnly()) spineBody.impulse(body, spineBody.chestIndex(body), (p.facing < 0 ? -1 : 1) * 420, 40, 0);
+      if (!poolOnly()) {const yaw=spineYaw(p);spineBody.impulse(body, spineBody.chestIndex(body), Math.cos(yaw)*420, 40, Math.sin(yaw)*420);}
     }
     if ((p.hitStunUntil || 0) > (actor.stunnedUntil || 0) && p.hitStunUntil > now) {
       actor.stunnedUntil = p.hitStunUntil;
@@ -17579,39 +18211,80 @@ function updateSpineBodies(now) {
       // the tip can be far above or below that, so the reach is kept to where
       // a hand could go.
       actor.target = { x: tip.x, y: clamp(p.y - tip.y + 1, 0, 60), z: tip.z };
+    } else if (!poolOnly() && p.gunAmmo > 0 && !p.attackKind) {
+      const target = itemHandTarget(p, now);
+      input.reach = true; input.hand = itemHand(p) === "left-arm" ? -1 : 1;
+      actor.target = { x:target.x, y:clamp(p.y-target.y,30,155), z:target.z||0 };
     } else if (p.parkGrabbing) {
       const yaw = body.root.yaw;
       input.reach = true; input.hand = 1;
       actor.target = { x: p.x + Math.cos(yaw) * 55, y: 115, z: (p.z || 0) + Math.sin(yaw) * 55 };
     }
+    actor.deckFeet = p.skateboard && !p.onewheel ? skateboardFootAnchors(p) : null;
     spineBody.stepActor(actor);
   }
+}
+function skateboardFootAnchors(p) {
+  const at=spunSkateFrame(skateFrame(p.skateStall?stallBoardPlayer(p):p),p);
+  // Shoe radius is 5.4; its sole rests on grip at height -4. Both feet
+  // stay inside the 24-unit-wide grip, directly above the trucks.
+  return [-1,1].map(side=>{
+    const foot=at(-side*(p.facing||1)*skateTruck,-9.4,0);
+    return {x:foot.x,y:p.y-foot.y,z:foot.z};
+  });
 }
 // The body as the game's pose: the same bones the old rig named (so every
 // renderer, hitbox and item reads it unchanged), plus the rope itself for
 // the torso to follow.
+let spineRenderAlpha = 1;
+function captureSpineInterpolation(body) {
+  const previous = body.renderPrevious ||= new Float64Array((body.n + 13) * 3);
+  let at = 0;
+  const point = (x, y, z) => {
+    previous[at++] = x - body.root.x;
+    previous[at++] = y;
+    previous[at++] = z - body.root.z;
+  };
+  for (let i = 0; i < body.n; i++) point(body.x[i], body.y[i], body.z[i]);
+  for (const limb of [...body.arms, ...body.legs])
+    for (let i = 0; i < 3; i++) point(limb.x[i], limb.y[i], limb.z[i]);
+  const head = spineBody.headFrame(body).origin;
+  point(head.x, head.y, head.z);
+}
 function spinePose(p) {
   // Anchored to where the player is now, not where the body was last tick:
   // a move after paint shows at once, and the body can't drift off them.
   // Offsets snap to 1/1024 of a unit (invisible) so adding them to the
   // player's position is exact: moving a player 50 moves every bone 50.
   const body = p.spineActor.body, floor = p.y, root = body.root, snap = (v) => Math.round(v * 1024) / 1024;
-  const at = (x, y, z) => ({ x: p.x + snap(x - root.x), y: floor - snap(y), z: (p.z || 0) + snap(z - root.z) });
-  const bead = (i) => at(body.x[i], body.y[i], body.z[i]);
+  const previous = body.renderPrevious;
+  const alpha = body.renderUpdatedAt === lastSimAt ? spineRenderAlpha : 1;
+  const at = (x, y, z, index) => {
+    x -= root.x; z -= root.z;
+    if (previous && alpha < 1) {
+      x = lerp(previous[index * 3], x, alpha);
+      y = lerp(previous[index * 3 + 1], y, alpha);
+      z = lerp(previous[index * 3 + 2], z, alpha);
+    }
+    return { x: p.x + snap(x), y: floor - snap(y), z: (p.z || 0) + snap(z) };
+  };
+  const bead = (i) => at(body.x[i], body.y[i], body.z[i], i);
   const segments = [];
   const bone = (a, b, width, role, part) => { if (hasPart(p, part)) segments.push({ x1: a.x, y1: a.y, z1: a.z, x2: b.x, y2: b.y, z2: b.z, width, role, part }); };
   const chest = spineBody.chestIndex(body), skull = body.n - 2;
   bone(bead(skull), bead(chest), 10, "neck", "torso");
   bone(bead(chest), bead(0), 10, "torso", "torso");
-  const anchor = (limb) => at(limb.x[0], limb.y[0], limb.z[0]);
-  bone(anchor(body.arms[0]), anchor(body.arms[1]), 10, "shoulders", "torso");
-  for (const [limb, name] of [[body.arms[0], "left"], [body.arms[1], "right"], [body.legs[0], "left"], [body.legs[1], "right"]]) {
-    const points = [0, 1, 2].map((i) => at(limb.x[i], limb.y[i], limb.z[i])), arm = limb.kind === "arm";
+  const anchor = (limb, index) => at(limb.x[0], limb.y[0], limb.z[0], body.n + index * 3);
+  bone(anchor(body.arms[0], 0), anchor(body.arms[1], 1), 10, "shoulders", "torso");
+  const limbs = [body.arms[0], body.arms[1], body.legs[0], body.legs[1]];
+  for (let l = 0; l < limbs.length; l++) {
+    const limb = limbs[l], name = l % 2 ? "right" : "left";
+    const points = [0, 1, 2].map((i) => at(limb.x[i], limb.y[i], limb.z[i], body.n + l * 3 + i)), arm = limb.kind === "arm";
     bone(points[0], points[1], arm ? 10 : 11, name + (arm ? "-upper-arm" : "-thigh"), name + (arm ? "-arm" : "-leg"));
     bone(points[1], points[2], arm ? 10 : 11, name + (arm ? "-forearm" : "-shin"), name + (arm ? "-arm" : "-leg"));
   }
   const h = spineBody.headFrame(body).origin, scale = p.civilian ? (p.bodyScale || 1) : 1;
-  const pose = { head: { ...at(h.x, h.y, h.z), radius: 22 * scale }, segments, spatial: true,
+  const pose = { head: { ...at(h.x, h.y, h.z, body.n + 12), radius: 22 * scale }, segments, spatial: true,
     spine: Array.from({ length: skull + 1 }, (_, i) => bead(i)) };
   pose.flow = { yaw: spineYaw(p), phase: body.rhythm.phase, swing: 0, scale };
   return pose;
@@ -18620,6 +19293,7 @@ function fighterContainmentRequiredWidth(t) {
 // aspect-aware correction recenters their shared frame and moves the dolly
 // back far enough for landscape, portrait, live, and replay projection alike.
 function containFighters(t) {
+  if (shellMode === "MENU" && !selfPlay) return;
   if (skateparkMap && !survivalActive()) return;
   const gameplayContainment = !roundResult &&
     runtime().monotonicUs - roundStartedAt >= roundIntroDurationUs();
@@ -18743,6 +19417,7 @@ function resolveRunnerBounds(player, t) {
     player.dashUntil = 0;
     player.dashVx = 0;
   }
+  resolveDojoRoof(player,t);
   const ceiling = (survivalActive() ? survivalCeilingY : ceilingY) +
     wallThickness;
   const standingTop = runnerBounds(player, t).top;
@@ -18896,11 +19571,11 @@ function sweptProjectileContact(segments,target,t) {
   return result;
 }
 function combatPushbox(player) {
-  const half = isHeadOnly(player) ? 24 : isPogo(player) ? 38 : 69;
+  const half = isHeadOnly(player) ? 24 : isPogo(player) ? 38 : dojoActive() && spineBodiesOn() ? 28 : 69;
   const height = isHeadOnly(player) ? 44 : isPogo(player) ? 116 : player.ducking ? 118 : 180;
   return combatRect('push', player.x-half, player.y-height, player.x+half, player.y, player.z);
 }
-function sampleCombatBoxes(player, now, world = null) {
+function sampleCombatBoxes(player, now, world = null, withTree = true) {
   world ||= runnerWorldGeometry(player, (now-startedAt)/1e6);
   const hurt = [];
   const head = world.head;
@@ -18912,7 +19587,7 @@ function sampleCombatBoxes(player, now, world = null) {
     if(!hasPart(player,s.part))continue;
     // Each independently damageable region has its own rectangle, including
     // limbs extended during recovery. Missing limbs never produce hurtboxes.
-    const radius = poolOnly()?(s.role==='torso'?(looseCartoonEnabled()?15:21)*(player.bodyScale||1):(s.width||10)/2):s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
+    const radius = dojoActive() && world.spine ? (s.role==='torso'?17:(s.width||10)/2+.5) : poolOnly()?(s.role==='torso'?(looseCartoonEnabled()?15:21)*(player.bodyScale||1):(s.width||10)/2):s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
     hurt.push(combatRect(s.role+'-'+i, Math.min(s.x1,s.x2)-radius,
       Math.min(s.y1,s.y2)-radius, Math.max(s.x1,s.x2)+radius,
       Math.max(s.y1,s.y2)+radius, (s.z1+s.z2)/2,
@@ -18928,9 +19603,9 @@ function sampleCombatBoxes(player, now, world = null) {
   if (player.alive && !player.attackHit && !player.blocking && now >= player.hitStunUntil &&
       frame.phase === 'active' && !isHeadOnly(player) && !isPogo(player)) {
     const kick = player.attackKind === 'KICK';
-    const part = kick ? player.facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
+    const part = kick ? player.facing > 0 ? 'right-leg' : 'left-leg' : player.strikeArm || itemHand(player);
     if (part && hasPart(player, part)) {
-      if(poolOnly()){
+      if(poolOnly() || world.spine){
         const limb=world.segments.findLast(s=>s.part===part&&(kick?/shin$/:/forearm$/).test(s.role||''));
         if(limb){const radius=(limb.width||10)/2+4;
           hit.push(combatRect('spatial-strike',Math.min(limb.x1,limb.x2)-radius,Math.min(limb.y1,limb.y2)-radius,
@@ -18954,14 +19629,14 @@ function sampleCombatBoxes(player, now, world = null) {
       shield.x+shield.radius, shield.y+shield.radius, shield.z, shield.radius));
   }
   return { hurt, hit, guard, push: combatPushbox(player), frame,
-    tree: buildBoxTree(hurt) };
+    tree: withTree ? buildBoxTree(hurt) : null };
 }
 function combatBoxContact(attacker, target) {
   let result = null;
   for (const hit of attacker.hit) {
     const overlaps = queryBoxTree(target.tree, hit).sort((a,b) =>
       (a.part === 'head' ? -1 : b.part === 'head' ? 1 : a.segmentIndex-b.segmentIndex));
-    const hurt = overlaps.find(h=>!poolOnly()||!hit.capsule||!h.capsule||
+    const hurt = overlaps.find(h=>!hit.capsule||!h.capsule||
       segmentSegmentClosest(hit.capsule,h.capsule).distance<=(hit.capsule.width+h.capsule.width)/2);
     if (!hurt) continue;
     result = { x:(Math.max(hit.left,hurt.left)+Math.min(hit.right,hurt.right))/2,
@@ -19423,6 +20098,7 @@ const comicAdvanceEm = {
 };
 
 function comicGlyphAdvance(character, size) {
+  size = screenTypeSize(size);
   return size * (comicAdvanceEm[String(character).toLowerCase()] ?? .58);
 }
 
@@ -19432,6 +20108,7 @@ function comicGlyphAdvance(character, size) {
 // changes every frame would otherwise grow the map for the whole visit.
 const handleWidths = new Map();
 function handleWidth(handle, size) {
+  size = screenTypeSize(size);
   const key = size + "\u0000" + handle;
   let width = handleWidths.get(key);
   if (width === undefined) {
@@ -19451,6 +20128,7 @@ const comicAscentEm = 2160 / 2048, comicCapEm = 1554 / 2048, comicXHeightEm = 11
 const comicTop = (cy, size, capitals = false) =>
   cy - size * (comicAscentEm - (capitals ? comicCapEm : comicXHeightEm) / 2);
 function typeWrite(text, x, y, size, ...color) {
+  size = screenTypeSize(size);
   const visibleText = String(text).toLowerCase();
   if (hostComicWrite) hostComicWrite(visibleText, x, y, size, ...color);
   else if (hostYwftWrite) hostYwftWrite(visibleText, x, y, size, ...color);
@@ -19494,7 +20172,7 @@ function moveList() {
     [["Q", "E"], "PUNCH", "B"], ["SHIFT", "KICK", "A"],
     [["Q", "+E"], "GRAB", "B"], [["SHIFT", "+Q"], "BUBBLE", "X"]];
   return [
-    [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"], [["RIGHT", "RIGHT"], "DASH", "ArrowRight"],
+    [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"], [">*2", "DASH", "ArrowRight"],
     ["DOWN", "CROUCH", "ArrowDown"], ["B", "JUMP", "ArrowUp"],
     [["X", "Y"], "PUNCH", "B"], ["A", "KICK", "A"],
     [["X", "+Y"], "GRAB", "B"], [["A", "+X"], "BUBBLE", "X"]];
@@ -19812,6 +20490,7 @@ function drawM30Cluster(x, y, size, held, directionActive, ink) {
 // logout button now sit in that corner and the legend used to run straight
 // through them on a narrow view.
 function drawControlLegend(ink) {
+  if(standardDojoType())return;
   if(freeskateActive())return;
   const device = typeof capabilities === "function" ? capabilities() : {};
   if (device.showControlLegend === false || device.inputFamily === "touch") return;
@@ -19866,7 +20545,8 @@ function drawControlLegend(ink) {
   const side = held.includes("ArrowLeft") ? "LEFT" : held.includes("ArrowRight") ? "RIGHT" : "";
   const move = downHeld && side && nearGround && !legendFighter.skateboard ? "CRAWL " + side
     : latest === "DOWN" ? (nearGround ? "CROUCH" : "TUCK") : latest;
-  if (move) {
+  // The training room already captions the move in drawVersusHud.
+  if (!dojoMetersVisible() && move && !versusLabelNoise.has(move) && shellMode === "GAME" && !roundResult && !instantReplay && !(versusLane() && lobbyActive() && shellMode === "GAME")) {
     const moveSize = Math.round(size * 1.6);
     const moveInk = moveColor(move);
     const moveX = Math.round(viewCenterX() - handleWidth(move, moveSize) / 2);
@@ -19882,52 +20562,39 @@ function drawControlLegend(ink) {
   drawStickGate(x, legendBottom, size, pad, ink);
 }
 
-// Top left, over everything: the room you are in, and under it the one move
-// list. A row lights in its move's colour while that move is happening.
+// One horizontal move list. Each move lights while it is happening.
 function drawTopLeftHud(ink, quiet = false) {
   if (quiet || selfPlay || renderFlags.keys === false || freeskateActive()) return;
   const device = typeof capabilities === "function" ? capabilities() : {};
-  const safe = hudSafeRect();
-  const compact = compactLayout();
-  const x = safe.left + 8;
-  let y = safe.top + 4;
-  const room = versusRoomName === dojoRoom || sessionName === dojoRoom ? "DOJO"
-    : (versusRoomName || "").toUpperCase();
-  if (room) {
-    const roomSize = compact ? 28 : 38;
-    typeWrite(room, x + 2, y + 3, roomSize, ...contrastShadow(ink));
-    typeWrite(room, x, y, roomSize, ...ink);
-    y += roomSize + 26;
-  }
   if (device.showControlLegend === false || device.inputFamily === "touch") return;
-  const fighter = players[localSeat()];
-  const now = runtime().monotonicUs;
+  const safe = hudSafeRect(), compact = compactLayout();
+  const fighter = players[localSeat()], now = runtime().monotonicUs;
   const latest = fighter && now - (fighter.lastButtonAt || -1e12) < 800000 ? fighter.lastButton : "";
-  const size = compact ? 15 : 20;
-  const keyColumn = Math.max(...moveList().map(([cap]) => handleWidth(moveCapText(cap), size)));
+  const size = screenTypeSize(compact ? 15 : 20), gap = size * .8;
+  const right = shellMode === "MENU" || debugHitboxes ? Math.max(safe.left + 260, safe.right - 300) : safe.right;
+  let x = safe.left + 8, y = safe.top + 4;
   for (const [cap, move] of moveList()) {
     const shown = move === "PUNCH" && fighter ? itemMelee[heldItem(fighter)] || move : move;
+    const keyWidth = handleWidth(moveCapText(cap), size);
+    const width = keyWidth + 10 + handleWidth(shown, size);
+    if (x > safe.left + 8 && x + width > right) { x = safe.left + 8; y += size * 1.8; }
     const lit = latest && (latest === shown || latest.endsWith(" " + shown) || latest.startsWith(shown + " "));
     const moveInk = lit ? moveColor(shown) : ink;
-    // Each key in its own colour — the pad's A/B/X/Y inks; arrows, joins
-    // and keyboard keys stay quiet.
     const keyInk = mixColor(ink, contrastShadow(ink), .35);
     let kx = x;
     (Array.isArray(cap) ? cap : [cap]).forEach((key, index) => {
-      const joined = key.startsWith("+");
-      const name = joined ? key.slice(1) : key;
-      const pieces = [[index && !joined ? " " : "", keyInk], [joined ? "+" : "", keyInk],
-        [moveCapArrows[name] || name, padButtonInk[name] || keyInk]];
-      for (const [text, color] of pieces) {
+      const joined = key.startsWith("+"), name = joined ? key.slice(1) : key;
+      for (const [text, color] of [[index && !joined ? " " : "", keyInk],
+        [joined ? "+" : "", keyInk], [moveCapArrows[name] || name, padButtonInk[name] || keyInk]]) {
         if (!text) continue;
-        typeWrite(text, kx, y, size, ...color);
+        seatHudText(text, kx, y, size, color);
         kx += handleWidth(text, size);
       }
     });
-    const mx = x + keyColumn + 12;
+    const mx = x + keyWidth + 10;
     typeWrite(shown, mx + 1, y + 2, size, ...contrastShadow(moveInk));
     typeWrite(shown, mx, y, size, ...moveInk);
-    y += Math.round(size * 1.35);
+    x += width + gap;
   }
 }
 
@@ -19958,11 +20625,8 @@ function drawStickGate(x, y, size, pad, ink) {
   const live = (dx, dy) => Math.abs(dx) > .12 || Math.abs(dy) > .12;
   const leftX = Number(pad.leftX) || 0;
   const leftY = Number(pad.leftY) || 0;
-  const rightX = Number(pad.rightX) || 0;
-  const rightY = Number(pad.rightY) || 0;
   let column = 0;
   if (live(leftX, leftY)) gate("move", leftX, leftY, column++);
-  if (live(rightX, rightY)) gate("cam", rightX, rightY, column++);
 }
 
 const controlRailWidth = () => compactLayout() ? 138 : 188;
@@ -20428,7 +21092,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
 // polymer frame, a trigger guard, and a grip raked back at the Glock's
 // angle. `hand` is the fist, and the fist closes around the middle of the
 // grip; `toward` is any point along the aim. Returns the muzzle.
-function drawHandgun(hand, toward, facing, scale) {
+function drawHandgun(hand, toward, facing, scale, basis = null) {
   let dx = toward.x - hand.x, dy = toward.y - hand.y;
   const length = Math.hypot(dx, dy);
   if (length < .001) { dx = facing || 1; dy = 0; } else { dx /= length; dy /= length; }
@@ -20436,8 +21100,9 @@ function drawHandgun(hand, toward, facing, scale) {
   const side = dx >= 0 ? 1 : -1;
   const nx = -dy * side, ny = dx * side;
   const s = Math.max(.35, scale);
-  const at = (along, below) => ({ x: gripTop.x + dx * along * s + nx * below * s,
-    y: gripTop.y + dy * along * s + ny * below * s });
+  const at = (along, below) => basis ? basis(along + Math.sin(.32)*11, below - Math.cos(.32)*11) :
+    ({ x: gripTop.x + dx * along * s + nx * below * s,
+      y: gripTop.y + dy * along * s + ny * below * s });
   // The grip rakes back about 18 degrees from square to the slide.
   const rake = .32, gx = nx * Math.cos(rake) - dx * Math.sin(rake),
     gy = ny * Math.cos(rake) - dy * Math.sin(rake);
@@ -20449,8 +21114,9 @@ function drawHandgun(hand, toward, facing, scale) {
   const slide = [34, 36, 42], frame = [52, 54, 60], edge = [92, 96, 106];
   // Grip: a slab from under the slide down past the fist.
   const gripWide = 6.5;
-  const g = (along, down) => ({ x: gripTop.x + dx * along * s + gx * down * s,
-    y: gripTop.y + dy * along * s + gy * down * s });
+  const g = (along, down) => basis ? at(along - Math.sin(rake)*down, Math.cos(rake)*down) :
+    ({ x: gripTop.x + dx * along * s + gx * down * s,
+      y: gripTop.y + dy * along * s + gy * down * s });
   quad(g(-gripWide - 2, 0), g(gripWide, 0), g(gripWide, 27), g(-gripWide, 27), frame);
   // Frame and dust cover under the slide, then the trigger guard.
   quad(at(-8, 0), at(30, 0), at(30, 5), at(-6, 5), frame);
@@ -20570,7 +21236,11 @@ function drawInventory(player, now, geometry) {
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
     if (player.gunMode === "HANDGUN") {
-      barrel = drawHandgun(hand, barrel, player.facing, scale);
+      const aim = projectWeapon(pose.hand.x + pose.dx*54,pose.hand.y + pose.dy*54,pose.hand.z+(pose.dz||0)*54);
+      const down=pose.down || {x:0,y:1,z:0};
+      const basis=(along,below)=>projectWeapon(pose.hand.x+pose.dx*along+down.x*below,
+        pose.hand.y+pose.dy*along+down.y*below,pose.hand.z+(pose.dz||0)*along+down.z*below);
+      barrel = drawHandgun(hand, aim, player.facing, scale, basis);
     } else if (photoThemeActive) {
       // Place the photograph's grip at the solved wrist. Reflect its local X
       // before rotation so aiming left does not turn the grip upside down.
@@ -21496,6 +22166,7 @@ function drawRunner(player,t,showLabel=true){
   figureDrawScale=projectionScaleAt(world.head);
   try{
     drawRunnerAtScale(player,t,showLabel);
+    if (flatFiguresOn() || player.skin) drawFaceTears(player,world,runtime().monotonicUs);
     if(poolOnly()&&player.alive&&player.blocking)drawPlayerBubble(player,t);
     if(player.civilian&&player.alive&&players[0].sparringPartner===player.pad)drawSparringTarget(player,world,t);
   }finally{figureDrawScale=previous;}
@@ -21534,10 +22205,12 @@ function drawRunnerFlat(player, t) {
   if (player.civilian && player.headless) return false;
   const burst = player.headBustedAt ? (runtime().monotonicUs - player.headBustedAt) / 1e6 : -1;
   if (!player.alive && burst >= .11) return false;
+  const fallen = !player.alive && ragdollBodies.get(player)?.pose;
   if (player.dummy) player = dummyView(player);
-  const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
+  const world = player.replayGeometry || fallen || player.frozenGeometry || runnerWorldGeometry(player, t);
   const now = player.frozenAt || runtime().monotonicUs;
   if (!drawFlatFigure(player, world, now)) return false;
+  if (player.headless && player.looseHead) drawCivilianLooseHead(player);
   if (player.skateboard) drawSkateboard(player);
   const geometry = player.replayGeometry ? projectRunnerWorldGeometry(player.replayGeometry)
     : player.frozenGeometry ? projectRunnerWorldGeometry(player.frozenGeometry) : runnerGeometry(player, t);
@@ -21580,8 +22253,17 @@ function drawGeneratedRunner(player, world, appearance, t, geometry) {
   return true;
 }
 function drawRunnerAtScale(player, t, showLabel = true) {
+  if (anonymousDojoFighter(player) && player.alive) {
+    const geometry = player.replayGeometry ? projectRunnerWorldGeometry(player.replayGeometry) : runnerGeometry(player, t);
+    if (!geometry.behind) {
+      if (player.skateboard) drawSkateboard(player);
+      drawFighterSilhouette(geometry, [154, 154, 154], [42, 42, 42]);
+      drawInventory(player, runtime().monotonicUs, geometry);
+    }
+    return;
+  }
   if (!generatedAppearance(player) && flatFiguresOn() && drawRunnerFlat(player, t)) return;
-  const fallen=ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
+  const fallen=!player.replayGeometry&&ragdollBodies.get(player);if(fallen&&!player.alive){drawLooseRunner(player,fallen.pose,t,0);if(player.headless&&player.looseHead)drawCivilianLooseHead(player);return;}
   if(player.civilian && player.headless){drawCivilianDebris(player);return;}
   if(player.dummy)player=dummyView(player);
   // A fighter who is down is still on the stage: they read as the broken body
@@ -21590,24 +22272,6 @@ function drawRunnerAtScale(player, t, showLabel = true) {
     ? Math.max(0, (runtime().monotonicUs - player.headBustedAt) / 1000000) : -1;
   if (!player.alive && headBurstAge >= .11) {
     drawBrokenRunner(player, headBurstAge);
-    if (["CRY", "WOE", "SULK"].includes(player.resultReaction)) {
-      const head = player.frozenGeometry?.head;
-      if (head) {
-        // In screen proportion to the head, not in pixels: the celebration
-        // camera can fill the frame with this face, and fixed-size tears on a
-        // huge head read as dust. Ratios match the old look at the old
-        // distance (a ~22px head wore 7/34/3px tears).
-        const point = projectPoint(head.x, head.y, head.z);
-        const edge = projectPoint(head.x + head.radius, head.y, head.z);
-        const r = Math.max(4, Math.hypot(edge.x - point.x, edge.y - point.y));
-        const sway = Math.sin(t * 11) * r * .22;
-        for (const side of [-1, 1])
-          filledCapsule(point.x + side * r * .32 + sway, point.y,
-            point.x + side * r * .32 - sway,
-            point.y + r * 1.5 + (t * 31) % (r * .8),
-            Math.max(1.5, r * .14), [112, 208, 255]);
-      }
-    }
     return;
   }
   if (player.fallenBodyGeometry) {
@@ -21851,7 +22515,7 @@ function debugCapsule(x1, y1, x2, y2, width, color) {
 function drawDebugHitboxes(player, t) {
   if (renderFlags.hud === false || !debugHitboxes || !player.alive) return;
   const now = player.frozenAt || runtime().simMonotonicUs || runtime().monotonicUs;
-  const boxes = sampleCombatBoxes(player, now);
+  const boxes = sampleCombatBoxes(player, now, player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t), false);
   const hurtColor = [82, 226, 116];
   const pushColor = [255, 158, 54];
   const attackColor = [255, 58, 64];
@@ -21869,10 +22533,28 @@ function drawDebugHitboxes(player, t) {
       debugCapsule(near[i].x,near[i].y,far[i].x,far[i].y,Math.max(1,width-1),color);
     }
   };
-  for (const b of boxes.hurt) draw(b,hurtColor);
-  draw(boxes.push,pushColor);
-  for (const b of boxes.guard) draw(b,guardColor,3);
-  for (const b of boxes.hit) draw(b,attackColor,4);
+  const capsule = (b,color,width) => {
+    const c=b.capsule;if(!c){draw(b,color,width);return;}
+    const a=projectPoint(c.x1,c.y1,c.z1),end=projectPoint(c.x2,c.y2,c.z2);
+    if(a.behind||end.behind)return;
+    const dx=end.x-a.x,dy=end.y-a.y,len=Math.hypot(dx,dy),ux=len?dx/len:1,uy=len?dy/len:0;
+    const radius=c.width/2*projectionScaleAt({x:(c.x1+c.x2)/2,y:(c.y1+c.y2)/2,z:(c.z1+c.z2)/2});
+    debugCapsule(a.x-uy*radius,a.y+ux*radius,end.x-uy*radius,end.y+ux*radius,width,color);
+    debugCapsule(a.x+uy*radius,a.y-ux*radius,end.x+uy*radius,end.y-ux*radius,width,color);
+    for(const [p,sign] of [[a,1],[end,-1]]){
+      let previous=null;
+      for(const [co,sn] of debugArcs[1]){
+        const x=p.x+(co*ux-sn*uy)*radius*sign,y=p.y+(co*uy+sn*ux)*radius*sign;
+        if(previous)debugCapsule(previous[0],previous[1],x,y,width,color);previous=[x,y];
+      }
+    }
+  };
+  // Inspect the same capsules used by narrow-phase collision, so diagonal
+  // arms and spinning fists are not represented as filled bounding boxes.
+  for (const b of boxes.hurt) capsule(b,hurtColor,1.5);
+  draw(boxes.push,pushColor,1);
+  for (const b of boxes.guard) draw(b,guardColor,2);
+  for (const b of boxes.hit) capsule(b,attackColor,3);
 }
 
 // The frame meter. One pip per simulation frame, oldest on the left, the
@@ -21885,7 +22567,29 @@ function drawDebugHitboxes(player, t) {
 // active" off two rows is the whole reason a frame meter exists, and it is
 // why this is a stacked pair rather than one row per player somewhere
 // convenient.
+function drawDojoFrameMeter() {
+ if(!debugHitboxes||shellMode!=="GAME"||renderFlags.hud===false)return;
+ const shown=activePlayers(),safe=hudSafeRect(),size=dojoTypeSize;
+ const width=Math.min(720,(safe.right-safe.left)*.48),left=viewCenterX()-width/2,top=safe.top+138;
+ const step=width/frameMeterLength,rowHeight=12,rowGap=size+10;
+ for(const [row,p] of shown.entries()){
+  const y=top+row*rowGap,meter=frameMeters[p.pad];hudBox(left,y,width,rowHeight,32,34,43);
+  for(let i=0;i<meter.length;){const start=i,state=frameMeterStates[meter[i]]||frameMeterStates.neutral;
+   while(++i<meter.length && meter[i]===meter[start]){}
+   hudBox(left+width-(meter.length-start)*step,y,Math.max(1,(i-start)*step-1),rowHeight,...state.ink);
+  }
+  const label='p'+(p.pad+1);seatHudText(label,left-handleWidth(label,size)-16,y-size*.6,size,p.color);
+ }
+ const seen=new Set(shown.flatMap(p=>frameMeters[p.pad]).filter(key=>frameMeterStates[key]?.label));
+ let x=left,y=top-size-14;
+ for(const key of seen){const state=frameMeterStates[key],widthText=handleWidth(state.label,size)+34;
+  if(x+widthText>left+width)break;
+  hudBox(x,y+13,9,9,...state.ink);seatHudText(state.label,x+16,y,size,[215,222,237]);x+=widthText;
+ }
+}
+
 function drawFrameMeter() {
+  if(standardDojoType()){drawDojoFrameMeter();return;}
   if (!debugHitboxes || renderFlags.hud === false) return;
   const shown=activePlayers();
   if (!shown.some(player=>frameMeters[player.pad].length)) return;
@@ -21984,7 +22688,7 @@ function drawFloatingHandle(player, x, y, size) {
 }
 
 function drawPlayerHandle(player, t, side) {
-  if(freeskateActive())return;
+  if(freeskateActive() && (player.pad !== 0 || !playAllowed()))return;
   const { x, y, size } = playerHandleLayout(player, side);
   const handle = visibleHandle(player);
   const drawGlyphs = (dx, dy, colors, fallback) => {
@@ -22089,6 +22793,7 @@ const statStackHeight = () => debugHitboxes
   ? debugReadoutHeight() + playerStatPanelHeight() + 8 : 0;
 
 function drawPlayerStats(player, side, t) {
+  if(standardDojoType())return;
   if (!debugHitboxes) return;
   const lines = playerStatLines(player);
   const animation = fighterAnimationPhase(player,
@@ -22129,8 +22834,9 @@ function drawHudInventory(player, side) {
   // Commands own the rows immediately above the fighter's name. Inventory
   // starts above whichever of those rows are still visible, so neither can
   // drift over the other as the command history dissolves.
-  const y = handle.y - statStackHeight() - commandStreamStackHeight(player) -
-    size - 7;
+  const guestQr = side === 1 && shellMode === "GAME" && secondHeadLoginWanted() && secondLoginQr;
+  const y = guestQr ? hudSafeRect().bottom-(guestQr.getModuleCount()+8)*3-dojoTypeSize*2-32
+    : standardDojoType() ? handle.y-dojoTypeSize-12 : handle.y - statStackHeight() - commandStreamStackHeight(player) - size - 7;
   const shadow = contrastShadow(player.color);
   typeWrite(text, x + 2, y + 3, size, ...shadow);
   typeWrite(text, x, y, size, ...player.color);
@@ -22171,7 +22877,8 @@ function commandStreamStackHeight(player, now = runtime().monotonicUs) {
 }
 
 function drawCommandStream(player, side) {
-  if(freeskateActive()){drawSeatAction(player);return;}
+  // The pool draws its action rail once, before the rest of the HUD.
+  if(freeskateActive()){if(!poolOnly())drawSeatAction(player);return;}
   const glyph = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
   const buttonFor = { LEFT: "ArrowLeft", RIGHT: "ArrowRight",
     UP: "ArrowUp", DOWN: "ArrowDown", "/": "A", "*": "B", ")": "X",
@@ -22234,6 +22941,12 @@ function drawCommandStream(player, side) {
 }
 
 function drawFightIntro(introSeconds, titleInk, statusShadow) {
+  if (dojoActive()) {
+    const count = String(Math.max(1, Math.ceil(roundIntroDurationUs()/1e6-Math.max(0,introSeconds))));
+    const size = dojoTypeSize, x = viewCenterX()-handleWidth(count,size)/2;
+    seatHudText(count, x, viewHeight*.46, size, titleInk);
+    return;
+  }
   const centerX = viewCenterX();
   const centerY = (stageTop + stageBottom) / 2;
   const touch = typeof capabilities === "function" &&
@@ -22284,6 +22997,20 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
     }
     return;
   }
+}
+
+function drawRoundTimeBar() {
+  if (!roundIsTimed() || roundResult || instantReplay || shellMode !== "GAME" ||
+      runtime().monotonicUs-roundStartedAt < roundIntroDurationUs()) return;
+  const width = viewWidth();
+  const fraction = clamp(1-roundElapsedUs/roundDurationUs,0,1), height = 6;
+  const y = viewHeight-height;
+  const previousDepth = triangleDepth;
+  triangleDepth = hudDepth;
+  hudBox(0,y,width,height,55,51,61);
+  if (fraction > 0) hudBox(0,y,width*fraction,height,
+    ...mixColor([244,113,146],[162,223,198],Math.min(1,fraction*3)));
+  triangleDepth = previousDepth;
 }
 
 function drawSurvivalIntro(titleInk, statusShadow) {
@@ -23213,9 +23940,87 @@ function drawParkBuilding(){
       if(size>6&&size<240)typeWrite('oskiewar',p.x-handleWidth('oskiewar',size)/2,p.y,size,255,218,132);triangleDepth=old;}
   }
 }
+const dojoRoofY=floorY-440;
+const dojoRoof=Array.from({length:3},()=>({broken:false})),dojoGlass=[];
+let dojoRoofMesh=null,dojoRoofKey="";
+function dojoPaneAt(x){if(x<worldLeft||x>worldRight)return null;return dojoRoof[Math.min(2,Math.floor((x-worldLeft)/(worldRight-worldLeft)*3))];}
+function breakDojoGlass(pane,x,player) {
+ if(!pane||pane.broken)return;pane.broken=true;
+ const index=dojoRoof.indexOf(pane),width=(worldRight-worldLeft)/3,left=worldLeft+index*width;
+ for(let i=0;i<12 && dojoGlass.length<60;i++)dojoGlass.push({x:left+hashUnit('glass-x'+index+':'+i)*width,y:dojoRoofY,z:lerp(worldNear,worldFar,hashUnit('glass-z'+i)),vx:(hashUnit('glass-vx'+i)-.5)*180,vy:-90-hashUnit('glass-vy'+i)*160,rotation:i,spin:(i%2?1:-1)*3,size:6+hashUnit('glass-size'+i)*10,life:3});
+ playDrum('glass',.7,panPlayer(player));emitSignal('glass-break',player.pad,index,Math.round(Math.abs(player.vy||0)));
+}
+function resolveDojoRoof(player,t){
+ if(!dojoActive()||!player.alive)return;
+ const pane=dojoPaneAt(player.x);if(!pane||pane.broken)return;
+ const top=runnerBounds(player,t).top;
+ if(top<dojoRoofY && player.y>dojoRoofY && player.vy<0){
+  if(-player.vy>180){breakDojoGlass(pane,player.x,player);player.vy*=.72;}
+  else{player.y+=dojoRoofY-top;player.vy=70;}
+ }
+}
+function updateDojoGlass(dt){
+ if(!dojoActive())return;
+ for(let i=dojoGlass.length-1;i>=0;i--){const p=dojoGlass[i];p.life-=dt;if(p.life<=0){dojoGlass.splice(i,1);continue;}
+  if(p.y<floorY-2){p.vy+=1800*dt;p.x+=p.vx*dt;p.y=Math.min(floorY-2,p.y+p.vy*dt);p.rotation+=p.spin*dt;}
+ }
+}
+function drawDojoRoof(){
+ if(!dojoActive())return;
+ const key=[worldLeft,worldRight,worldNear,worldFar,dojoRoof.map(p=>+p.broken).join('')].join(':');
+ if(key!==dojoRoofKey){releaseQuadMesh(dojoRoofMesh);dojoRoofKey=key;dojoRoofMesh=captureQuadMesh(()=>{
+  const w=(worldRight-worldLeft)/3;
+  dojoRoof.forEach((pane,i)=>{if(pane.broken)return;const l=worldLeft+i*w+4,r=l+w-8;
+   worldQuad({x:l,y:dojoRoofY,z:worldNear},{x:r,y:dojoRoofY,z:worldNear},{x:r,y:dojoRoofY,z:worldFar},{x:l,y:dojoRoofY,z:worldFar},[183,219,230]);
+  });
+ });}
+ drawQuadMesh(dojoRoofMesh,.16);
+ const trim=[137,162,176];
+ for(let i=0;i<=3;i++){const x=worldLeft+(worldRight-worldLeft)*i/3;worldQuad({x:x-2,y:dojoRoofY+1,z:worldNear},{x:x+2,y:dojoRoofY+1,z:worldNear},{x:x+2,y:dojoRoofY+1,z:worldFar},{x:x-2,y:dojoRoofY+1,z:worldFar},trim);}
+ for(const z of [worldNear,worldFar])worldQuad({x:worldLeft,y:dojoRoofY,z:z-2},{x:worldRight,y:dojoRoofY,z:z-2},{x:worldRight,y:dojoRoofY+6,z:z+2},{x:worldLeft,y:dojoRoofY+6,z:z+2},trim);
+ const old=triangleDepth;
+ for(const p of dojoGlass){const at=projectPoint(p.x,p.y,p.z);if(at.behind)continue;triangleDepth=at.z;const r=p.size*cameraScale(),c=Math.cos(p.rotation),sn=Math.sin(p.rotation);
+  const point=(x,y)=>[at.x+(x*c-y*sn)*r,at.y+(x*sn+y*c)*r];
+  screenTriangle(...point(-.8,0),...point(.2,-1),...point(.7,.5),193,230,244);
+ }triangleDepth=old;
+}
+
+let dojoFinishMesh=null,dojoFinishKey="";
+function drawDojoFinish(ground) {
+ const key=[worldLeft,worldRight,worldNear,worldFar,...ground].join(',');
+ if(key!==dojoFinishKey){
+  releaseQuadMesh(dojoFinishMesh);dojoFinishKey=key;
+  dojoFinishMesh=captureQuadMesh(()=>{
+   const seam=mixColor(ground,[75,75,87],.12),grain=mixColor(ground,[185,167,143],.09);
+   const patch=(x,z,w,d,c)=>worldQuad({x,y:floorY-.8,z},{x:x+w,y:floorY-.8,z},{x:x+w,y:floorY-.8,z:z+d},{x,y:floorY-.8,z:z+d},c);
+   for(let z=worldNear+120;z<worldFar;z+=120)patch(worldLeft,z,worldRight-worldLeft,1.4,seam);
+   for(let i=0;i<100;i++){
+    const x=worldLeft+hashUnit('dojo-grain-x'+i)*(worldRight-worldLeft-35),z=worldNear+hashUnit('dojo-grain-z'+i)*(worldFar-worldNear-4);
+    patch(x,z,12+hashUnit('dojo-grain-w'+i)*22,.8,grain);
+   }
+   // A narrow skirting and shaded joins tie the floor to the walls.
+   const ink=mixColor(ground,[48,46,62],.18);
+   patch(worldLeft,worldFar-12,worldRight-worldLeft,12,ink);
+   patch(worldLeft,worldNear,10,worldFar-worldNear,ink);patch(worldRight-10,worldNear,10,worldFar-worldNear,ink);
+  });
+ }
+ drawQuadMesh(dojoFinishMesh);
+}
+
 function drawRoomSurfaces(left, right, top, bottom, color) {
   if(poolOnly()){if(!poolDesert)drawParkBuilding();return;}
   if (halfpipeOnly()) return;
+  if (!skateparkMap && !survivalActive()) {
+    const roomTop = dojoActive()?dojoRoofY:floorY-650;
+    const back = mixColor(color, [145, 148, 158], .25);
+    const side = mixColor(back, [42, 44, 52], .22);
+    worldQuad({x:worldLeft,y:roomTop,z:worldFar}, {x:worldRight,y:roomTop,z:worldFar},
+      {x:worldRight,y:floorY,z:worldFar}, {x:worldLeft,y:floorY,z:worldFar}, back);
+    for (const x of [worldLeft, worldRight])
+      worldQuad({x,y:roomTop,z:worldFar}, {x,y:roomTop,z:worldNear},
+        {x,y:floorY,z:worldNear}, {x,y:floorY,z:worldFar}, side);
+    return;
+  }
   // The station has no room to surface. Every plane this function used to
   // raise — the plaster sheet behind the fighters, the segmented left wall,
   // the ceiling cap — existed because the map was an interior, and the space
@@ -23490,7 +24295,29 @@ function drawBlobShadow(player, color) {
   }
 }
 
+const dojoShadowBuffers=new WeakMap();
+function drawDojoPoseShadow(player,t,color) {
+ const pose=player.replayGeometry||player.frozenGeometry||runnerWorldGeometry(player,t),verts=[],faces=[];
+ const cast=(x,y,z)=>{const h=Math.max(0,floorY-y);return [clamp(x+globalLight.x/globalLight.y*h,worldLeft,worldRight),clamp(z+globalLight.z/globalLight.y*h,worldNear+2,worldFar-2)];};
+ const quad=(a,b,c,d)=>{
+  const i=verts.length/3;
+  for(const p of [a,b,c,d])verts.push(clamp(p[0],worldLeft,worldRight),floorY-1.5,clamp(p[1],worldNear+2,worldFar-2));
+  faces.push(i,i+1,i+2,i+3,...color,0,-1,0);
+ };
+ const cap=(c,r)=>quad([c[0]-r,c[1]],[c[0],c[1]-r],[c[0]+r,c[1]],[c[0],c[1]+r]);
+ for(const s of pose.segments){
+  if(s.hitboxOnly)continue;const a=cast(s.x1,s.y1,s.z1||0),b=cast(s.x2,s.y2,s.z2||0),dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz)||1,r=s.width*.48,nx=-dz/length*r,nz=dx/length*r;
+  quad([a[0]+nx,a[1]+nz],[b[0]+nx,b[1]+nz],[b[0]-nx,b[1]-nz],[a[0]-nx,a[1]-nz]);cap(a,r);cap(b,r);
+ }
+ cap(cast(pose.head.x,pose.head.y,pose.head.z||0),pose.head.radius);
+ if(player.skateboard){const at=spunSkateFrame(skateFrame(player),player),points=[[-60,-10],[60,-10],[60,10],[-60,10]].map(([x,z])=>{const p=at(x,-2,z);return cast(p.x,p.y,p.z);});quad(...points);}
+ let buffers=dojoShadowBuffers.get(player);
+ if(!buffers||buffers.vertices.length!==verts.length){buffers={vertices:new Float32Array(verts.length),faces:new Float32Array(faces.length)};dojoShadowBuffers.set(player,buffers);}
+ buffers.vertices.set(verts);buffers.faces.set(faces);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());
+}
+
 function drawPoseShadow(player, t, color) {
+  if(currentMapId === "dojo" && nativeSceneMesh && !programBuffered && !clipView){drawDojoPoseShadow(player,t,color);return;}
   // Every limb, the head and the board cast their own shape. On the console
   // the floor is read once per ten units and cached for the frame, and caps
   // and the head use fewer sides — the per-vertex floor lookups were what
@@ -23601,6 +24428,7 @@ function updateSceneLighting(now) {
   themeLighting(lights, visualTheme.light);
 }
 
+let dojoSpotMesh=null;
 function drawSpotShadow(x, y, z, radius, color) {
   const surfaceY = shadowSurfaceY(x, y, z);
   const height = Math.max(0, surfaceY - y);
@@ -23615,6 +24443,15 @@ function drawSpotShadow(x, y, z, radius, color) {
   if (caster.behind) return;
   const radiusX = radius * (.5 + .18 * focus);
   const radiusZ = radiusX * (.55 + .2 * focus);
+  if(dojoActive() && nativeRetainedMeshes && !programBuffered && !clipView){
+    if(!dojoSpotMesh)dojoSpotMesh=captureQuadMesh(()=>{
+      for(let i=0;i<12;i+=2){const p=a=>({x:Math.cos(a),y:0,z:Math.sin(a)});
+        worldQuad({x:0,y:0,z:0},p(i*Math.PI/6),p((i+1)*Math.PI/6),p((i+2)*Math.PI/6),[255,255,255]);}
+    });
+    const h=meshHandle(dojoSpotMesh),camera=characterLocalCamera({x:shadowX,y:surfaceY-2,z:shadowZ},
+      [{x:radiusX,y:0,z:0},{x:0,y:1,z:0},{x:0,y:0,z:radiusZ}]);
+    if(h>=0&&camera){nativeMeshDraw(h,camera,0,color[0]/255,color[1]/255,color[2]/255,1);return;}
+  }
   // Bind the shadow to the owning object's depth, then bias it away from the
   // camera. It remains above the terrain pass but can never win against the
   // object that casts it. Restore the depth after — this used to leak, and
@@ -23749,6 +24586,29 @@ function drawSkateboard(player) {
   // rounding off at nose and tail, and kicking up past the trucks. Black grip
   // on top, the maple plies round the edge, the graphic underneath (seen
   // whenever it flips). Trucks and wheels are their own parts below.
+  const nearSide = cameraDoll.position.z < player.z ? -1 : 1;
+  if(nativeRetainedMeshes){
+    const cracks=boardCondition(player.boardObject || balls[player.skateBoardId ?? 1]).cracks;
+    const key=(player.color||[236,76,118]).join(',')+':'+JSON.stringify(cracks);
+    let mesh=skateDeckMeshes.get(key);
+    if(!mesh){
+      mesh=captureQuadMesh(()=>drawSkateDeckGeometry(player,(x,y,z)=>({x,y,z})));
+      if(skateDeckMeshes.size>=24){const first=skateDeckMeshes.keys().next().value;releaseQuadMesh(skateDeckMeshes.get(first));skateDeckMeshes.delete(first);}
+      skateDeckMeshes.set(key,mesh);
+    }
+    const pivot=at(0,-4,0),ends=[at(1,-4,0),at(0,-3,0),at(0,-4,1)];
+    const axes=ends.map(p=>({x:p.x-pivot.x,y:p.y-pivot.y,z:p.z-pivot.z}));
+    const origin={x:pivot.x+4*axes[1].x,y:pivot.y+4*axes[1].y,z:pivot.z+4*axes[1].z};
+    const handle=meshHandle(mesh),camera=characterLocalCamera(origin,axes);
+    if(handle>=0&&camera)nativeMeshDraw(handle,camera,0);
+    else drawSkateDeckGeometry(player,at);
+  } else drawSkateDeckGeometry(player,at);
+  drawBoardRunningGear(player, at, nearSide,
+    photoThemeActive ? [232, 112, 34] : [30, 32, 40]);
+}
+
+const skateDeckMeshes=new Map();
+function drawSkateDeckGeometry(player,at){
   const grip = [30, 30, 36], ply = [222, 182, 128], plyDark = [176, 132, 84];
   const graphic = mixColor(player.color || [236, 76, 118], [236, 76, 118], .35);
   const stations = [-64, -58, -50, -44, 44, 50, 58, 64];
@@ -23782,8 +24642,6 @@ function drawSkateboard(player) {
     const b = at(crack.along + c * crack.length / 2, -4.4 + lift(crack.along), crack.across + s * crack.length / 2);
     worldCapsule(a.x, a.y, a.z, b.x, b.y, b.z, Math.max(.6, 1.6 * cameraScale()), [214, 176, 124]);
   }
-  drawBoardRunningGear(player, at, nearSide,
-    photoThemeActive ? [232, 112, 34] : [30, 32, 40]);
 }
 
 function drawBall(ball) {
@@ -23926,6 +24784,12 @@ function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
+  if (pickup.kind === "HANDGUN") {
+    const hand = projectPoint(pickup.x,bobY,pickup.z), aim = projectPoint(pickup.x+54,bobY,pickup.z);
+    if(hand.behind || aim.behind)return;
+    const old=triangleDepth;triangleDepth=hand.z-.002;
+    drawHandgun(hand,aim,1,scale);triangleDepth=old;return;
+  }
   if (photoThemeActive) {
     const point = projectPoint(pickup.x,bobY,pickup.z);
     const width = (pickup.kind === "ROCKET LAUNCHER" ? 105 : 56) * scale;
@@ -24450,6 +25314,7 @@ function drawDummyPopLine(titleY, titleSize, transitionInk) {
 const titlePrompt = () => freeskateRequested() ? freeskateModeName()
   : versusRoomName === dojoRoom || sessionName === dojoRoom ? "dojo" : "start";
 function titleButtonRect() {
+  if(standardDojoType())return {x:viewCenterX()-140,y:viewHeight*.44+dojoTypeSize+12,width:280,height:48,textSize:dojoTypeSize,textWidth:handleWidth(titlePrompt(),dojoTypeSize)};
   const compact = compactLayout();
   const width = Math.min(viewWidth() - 48, compact ? 320 : 360);
   // "monowheel desert" is a longer word than "start": the size fits the button.
@@ -24458,7 +25323,7 @@ function titleButtonRect() {
   const textWidth = handleWidth(titlePrompt(), textSize);
   const height = 112;
   return { x: viewCenterX() - width / 2,
-    y: viewHeight * (compact ? .61 : .64) - (compact ? 10 : 15),
+    y: viewHeight * (compact ? .38 : .35) + (compact ? 88 : 154) + 12,
     width, height, textSize, textWidth };
 }
 
@@ -24486,6 +25351,17 @@ function strokeBox(x, y, width, height, thickness, color) {
 }
 
 function drawTitleScreen(t, ink, transitionAge = -1) {
+  if(standardDojoType()) {
+    const size=dojoTypeSize,title="oskiewar",y=viewHeight*.44;
+    let x=viewCenterX()-handleWidth(title,size)/2;
+    for(let i=0;i<title.length;i++){seatHudText(title[i],x,y,size,animatedTitleColor(i,t));x+=comicGlyphAdvance(title[i],size);}
+    const button=titleButtonRect(),prompt=titlePrompt();
+    seatHudText(prompt,viewCenterX()-handleWidth(prompt,size)/2,button.y,size,ink);
+    if(globalThis.__oskiewarTouch){globalThis.__oskiewarTouch.titleButton=button;globalThis.__oskiewarTouch.titleHover=false;}
+    const unix=runtime().unixMs||Date.now();
+    drawHudStatusTray(null,ink,unix);
+    return;
+  }
   const compact = compactLayout();
   const socialPreview = typeof capabilities === "function" &&
     capabilities().socialPreview === true;
@@ -24498,9 +25374,9 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   const socialTitleSize = Math.min(220,
     (viewWidth() - 56 - socialLockupGap) /
       (handleWidth(title, 1) + handleWidth(version, .3)));
-  const titleSize = (socialPreview ? socialTitleSize : compact ? 88 : 154) * breath;
+  const titleSize = screenTypeSize((socialPreview ? socialTitleSize : compact ? 88 : 154) * breath);
   const titleWidth = handleWidth(title, titleSize);
-  const versionSize = Math.round(titleSize * .3);
+  const versionSize = screenTypeSize(Math.round(titleSize * .3));
   const versionWidth = handleWidth(version, versionSize);
   const lockupGap = socialPreview ? socialLockupGap : compact ? 10 : 18;
   const lockupWidth = titleWidth + lockupGap + versionWidth;
@@ -24591,7 +25467,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     typeWrite(mode, modeX + 2, modeY + 3, modeSize,
       ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
     typeWrite(mode, modeX, modeY, modeSize, ...(transitionInk || ink));
-  } else drawDummyPopLine(titleY, titleSize, transitionInk);
+  }
   if (glyphCells) {
     strokeBox(titleX, titleY, titleWidth, titleSize, 2, [92, 132, 255]);
     for (const [x, y, advance] of glyphCells) {
@@ -24634,7 +25510,6 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   // and a second copy parked in the middle of the poster only crowded the
   // kerning cells it was sitting next to.
   const clock = hudClockBox(titleUnixMs);
-  drawHudClock(clock, safe.top + 2, ink, titleUnixMs);
   drawHudStatusTray(clock, ink, titleUnixMs);
 }
 
@@ -24774,6 +25649,23 @@ function drawStatusPiano(x, y, lit) {
       23, 27, 40);
 }
 
+// Where the debug bug is, while it is lit: a tap there turns debug off, on
+// every screen (the shell reads it so a press there is a tap, not a camera
+// grab or a click-to-use).
+let debugBugBox = null;
+function takeBugTap() {
+  const touch = globalThis.__oskiewarTouch;
+  if (touch) touch.bugBox = debugBugBox;
+  const taps = touch?.taps;
+  if (!debugBugBox || !Array.isArray(taps) || !taps.length) return;
+  const hit = taps.findIndex((tap) => Math.hypot(tap.x - debugBugBox.x, tap.y - debugBugBox.y) <= debugBugBox.r);
+  if (hit < 0) return;
+  taps.splice(hit, 1);
+  debugHitboxes = !debugHitboxes;
+  debugPerfReported = false;
+  telemetry("FIGHT_DEBUG", debugHitboxes ? "on" : "off");
+}
+
 function drawHudStatusTray(clock, ink, unixMs) {
   const hudPreviousDepth=triangleDepth;
   // The park's supplies are world objects and draw with the world (see the
@@ -24782,14 +25674,21 @@ function drawHudStatusTray(clock, ink, unixMs) {
   drawUnderPipe();
   drawWaterSplashes();
   triangleDepth=hudPreviousDepth;
+  if(standardDojoType()){
+    debugBugBox=null;
+    if(debugHitboxes){const safe=hudSafeRect();debugBugBox={x:safe.right-250,y:safe.top+18,r:24};drawDebugBug(debugBugBox.x,debugBugBox.y,.8);}
+    return;
+  }
   const tray = hudStatusTray(clock);
   const statusCell = statusCellSize();
   // Pool diagnostics stay at the top, clear of the bottom-center meter.
+  debugBugBox = null;
   if (debugHitboxes) {
     const safe = hudSafeRect();
     const top = poolOnly()?safe.top:safe.bottom-statusCell;
     drawDebugBug(viewCenterX(), top + statusCell / 2 + 2,
       statusCell / 26);
+    debugBugBox = { x: viewCenterX(), y: top + statusCell / 2 + 2, r: Math.max(28, statusCell * .8) };
     // The session's name rides beside the bug: it is what a telemetry agent
     // attaches to, and debug mode is exactly the moment somebody wants to
     // read that name off the screen and type it into a terminal.
@@ -24853,7 +25752,8 @@ function drawDebugBugShape(x, y, scale) {
 
 // The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
-  if (globalThis.__oskiewarLocalPractice || freeskateMenu?.account) return null;
+  if (nativeAccount && currentMapId === "dojo") return null;
+  if (globalThis.__oskiewarLocalPractice || freeskateMenu?.account || headLoginShown) return null;
   if (shellMode === "GAME"&&!poolOnly()) return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
@@ -24884,7 +25784,43 @@ function spectatorQrBox() {
 // the bare console read-out from 2026-09-20 is retired; the number lives
 // behind the debug toggle everywhere.
 const bareFrameRateShown = () => false;
+const renderChartSamples=[];
+let renderChartAt=0,renderChartLoggedAt=0,renderChartBatch=null,renderChartBatchKey="";
+function drawRenderChart(ink) {
+ if(!debugHitboxes)return;
+ const run=runtime(),wall=Date.now();
+ if(wall-renderChartAt>=100){renderChartAt=wall;renderChartSamples.push({frame:Number(run.frameMs)||1000/Math.max(1,displayFps),render:Number(run.renderCpuMs)||0});if(renderChartSamples.length>60)renderChartSamples.shift();}
+ const safe=hudSafeRect(),width=220,height=48,x=safe.right-width,y=safe.top+42;
+ const ms=Number(run.frameMs)||1000/Math.max(1,displayFps),fps=Math.round(1000/ms);
+ seatHudText(fps+' fps',safe.right-handleWidth(fps+' fps',dojoTypeSize),safe.top,dojoTypeSize,ink);
+ const key=[renderChartAt,x,y].join(':');
+ const cached=nativeTriangles3d && !clipView && !programBuffered;
+ if(!cached || key!==renderChartBatchKey){
+  const floats=[];
+  const rect=(left,top,w,h,...color)=>{
+   if(!cached){hudBox(left,top,w,h,...color);return;}
+   floats.push(left,top,hudDepth,left+w,top,hudDepth,left+w,top+h,hudDepth,...color,
+     left,top,hudDepth,left+w,top+h,hudDepth,left,top+h,hudDepth,...color);
+  };
+ const targetY=y+height-16.667/50*height;
+ rect(x,targetY,width,1,160,163,180);
+ for(let i=0;i<renderChartSamples.length;i++){
+  const sample=renderChartSamples[i],h=Math.min(height,sample.frame/50*height),rh=Math.min(h,sample.render/50*height),left=x+width-(renderChartSamples.length-i)*width/60;
+  rect(left,y+height-h,2.5,h,...(sample.frame<=17.2?[125,219,182]:sample.frame<25?[240,199,103]:[245,126,154]));
+  if(rh>0)rect(left,y+height-rh,2.5,rh,169,164,255);
+ }
+
+  if(cached){renderChartBatch=new Float32Array(floats);renderChartBatchKey=key;}
+ }
+ if(cached&&renderChartBatch)nativeTriangles3d(renderChartBatch);
+ if(wall-renderChartLoggedAt>2000){
+  renderChartLoggedAt=wall;
+  telemetry('DOJO_PROFILE',JSON.stringify({fps,frameMs:run.frameMs,renderCpuMs:run.renderCpuMs,presentMs:run.presentMs,width:run.renderWidth,height:run.renderHeight,antialiasing:run.antialiasingMode,players:activePlayers().map(playerStatLines)}));
+ }
+}
+
 function drawDebugPerformance(ink) {
+  if(standardDojoType()){drawRenderChart(ink);return;}
   // The wordmark screen used to hide this row, but the title is a running
   // fight with a frame budget of its own — debug mode reads the machine, not
   // the match, so the numbers stay up wherever the bug is lit. Only a round's
@@ -25331,6 +26267,10 @@ function steerPostEffects() {
   postCameraX = cameraCenter; postCameraY = cameraCenterY;
   let top = Infinity, bottom = -Infinity;
   const include = (x, y, z, radius = 0) => {
+    if(dojoActive() && cameraDoll.perspective===0){
+      const point=projectPoint(x,y,z),r=radius*scale;
+      if(!point.behind){top=Math.min(top,point.y-r);bottom=Math.max(bottom,point.y+r);}return;
+    }
     // All three axes matter when the camera is rolled or looking down.
     for (const [dx, dy, dz] of [[-radius,0,0],[radius,0,0],
       [0,-radius,0],[0,radius,0],[0,0,-radius],[0,0,radius]]) {
@@ -25356,7 +26296,7 @@ function steerPostEffects() {
   bottom = clamp(bottom + 24, 0, viewHeight);
   const focusY = visible ? (top + bottom) / (2 * viewHeight) : .5;
   const band = visible ? Math.max(.06, (bottom - top) / (2 * viewHeight)) : 1;
-  nativePostEffects(focusY, band, .2+(poolOnly()?parkMusicPulse()*.015:0), poolOnly()?parkSpeedEffect(players[0])*4:0,
+  nativePostEffects(focusY, band, .2+(poolOnly()?parkMusicPulse()*.015:0), poolOnly()?Math.max(1.5,parkSpeedEffect(players[0])*4):2,
     clamp(moveX, -24, 24), clamp(moveY, -24, 24));
 }
 
@@ -25413,7 +26353,7 @@ function gamePaint() {
   // The remote rival's wardrobe came up the wire, not out of the roster —
   // a profile lookup here would answer empty and strip them every frame.
   for (const player of players)
-    if (!player.remote) player.handleColors = fighterProfile(player.name).colors;
+    if (!player.remote && (player.pad !== 0 || player.npc)) player.handleColors = fighterProfile(player.name).colors;
   refreshPhotoTheme();
   globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
   // The photographic materials ride the ordinary day/night palette. They
@@ -25515,16 +26455,23 @@ function gamePaint() {
   // plywood structure in the foreground, and the hall behind (see
   // `hallPalette`), so the playable surface is the thing that reads.
   const hall = indoorSkate() || halfpipeOnly() ? hallPalette() : null;
-  drawTerrainBackWall(spanLeft, spanRight, worldFar, hall ? hall.structure : ground);
-  drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, hall ? hall.ramp : ground);
-  drawTerrainFrontWall(spanLeft, spanRight, groundNear, hall ? hall.structure : ground);
+  if (!skateparkMap && !survivalActive() && currentMapId === "dojo") {
+    worldQuad({x:worldLeft,y:floorY,z:worldNear}, {x:worldRight,y:floorY,z:worldNear},
+      {x:worldRight,y:floorY,z:worldFar}, {x:worldLeft,y:floorY,z:worldFar}, ground);
+  } else {
+    drawTerrainBackWall(spanLeft, spanRight, worldFar, hall ? hall.structure : ground);
+    drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, hall ? hall.ramp : ground);
+    drawTerrainFrontWall(spanLeft, spanRight, groundNear, hall ? hall.structure : ground);
+  }
+  if(currentMapId === "dojo" && !skateparkMap && !survivalActive())drawDojoFinish(ground);
+  drawDojoRoof();
   drawDecals(hall ? hall.ramp : ground);
   drawSkateParkFeatures(ground);
   // No grass in vacuum. The blades were the tower's lawn and the cube kept
   // them out of habit; on a hull they read as moss on a spaceship.
   if (renderFlags.grass !== false && !space)
     drawTerrainGrass(spanLeft, spanRight, ground);
-  if (!halfpipeOnly()) drawBoosterPad(t);
+  if (skateparkMap && !halfpipeOnly()) drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
   // A rung wants to be a slab, but the stage paints in order with no depth
@@ -25570,13 +26517,14 @@ function gamePaint() {
   if (renderFlags.shadows !== false) {
     for (const player of activePlayers())
       if (!closeDrawingView(player)&&(player.alive || roundResult || deathCinematic)) {
-        if (renderFlags.poseShadows !== false && !consoleHost()) drawPoseShadow(player, t, shadowInk);
+        if (renderFlags.poseShadows !== false) drawPoseShadow(player, t, mixColor(ground, shadowInk, .42));
         drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
-          shadowInk);
+          mixColor(ground, shadowInk, .5));
       }
     for (const item of balls)
       if (item.active)
-        drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, shadowInk);
+        drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, mixColor(ground,shadowInk,.45));
+    for (const item of gunPickups) if(item.active) drawSpotShadow(item.x,item.y,item.z,32,mixColor(ground,shadowInk,.4));
   }
   const windInk = windDirection < 0
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
@@ -25594,7 +26542,8 @@ function gamePaint() {
       : timedRound ? String(remainingSeconds).padStart(2, "0") : "";
     const hud = hudSafeRect();
     const timerSize = hudTypeSize;
-    if (timerText) {
+    if (dojoActive()) drawRoundTimeBar();
+    else if (timerText) {
       const timerWidth = handleWidth(timerText, timerSize);
       const timerDanger = timedRound && remainingSeconds > 0 &&
         remainingSeconds <= 10;
@@ -25747,7 +26696,9 @@ function gamePaint() {
   // read-outs: the console draws at most 128 texts a frame and drops the
   // rest, so whatever is written last is what vanishes in debug mode.
   drawTopLeftHud(titleInk, replayOven);
+  if (!replayOven) drawHeadLogin(t);
   if (!replayOven) drawDebugPerformance(titleInk);
+  if (!replayOven && dojoMetersVisible()) drawDojoMeters();
   if (freeskateActive() && shellMode === "GAME") {
     drawFreeskateSpeed(titleInk);
     if(!freeskateActive())drawTrickWindows();
@@ -25793,11 +26744,9 @@ function gamePaint() {
       winnerSize, champion, t);
   } else if (matchHud && roundResult && resultUiReady) {
     if (INSTANT_REPLAY && instantReplay) {
-      const frame = Math.min(instantReplay.frames.length,
-        Math.floor(instantReplay.cursor) + 1);
-      const replayLabel = "REPLAY  " + frame + "/" + instantReplay.frames.length;
-      typeWrite(replayLabel, viewCenterX() - replayLabel.length * 10,
-        820, 30, ...titleInk);
+      const replayLabel = instantReplay.reverse ? "rewind" : "replay";
+      typeWrite(replayLabel, viewCenterX() - handleWidth(replayLabel, 30) / 2,
+        hudSafeRect().top + 50, 30, ...titleInk);
       // Watch-only: no control hints under a replay.
     } else {
       const result = resultCardText();
@@ -25810,20 +26759,21 @@ function gamePaint() {
       const headline = resultHeadline(result);
       const winnerWidth = handleWidth(headline, winnerSize);
       const resultY = Math.round(viewHeight * .17);
-      typeWrite(headline, viewCenterX() - winnerWidth / 2 + 5, resultY + 6,
+      if (roundResult !== "TIE") typeWrite(headline, viewCenterX() - winnerWidth / 2 + 5, resultY + 6,
         winnerSize, ...statusShadow);
       typeWrite(headline, viewCenterX() - winnerWidth / 2, resultY,
         winnerSize, ...titleInk);
       if (result.action) {
         const actionSize = Math.min(44, winnerSize * .54);
         const actionWidth = handleWidth(result.action, actionSize);
-        typeWrite(result.action, viewCenterX() - actionWidth / 2 + 3, 900,
+        const actionY = hudSafeRect().bottom - actionSize * 3.8;
+        typeWrite(result.action, viewCenterX() - actionWidth / 2 + 3, actionY + 4,
           actionSize, ...statusShadow);
-        typeWrite(result.action, viewCenterX() - actionWidth / 2, 896,
+        typeWrite(result.action, viewCenterX() - actionWidth / 2, actionY,
           actionSize, ...titleInk);
       }
-      if (!roundViewer && INSTANT_REPLAY) {
-        drawCenteredKeycapRun(replayOfferKeys(), 940, 19,
+      if (!dojoActive() && !roundViewer && INSTANT_REPLAY) {
+        drawCenteredKeycapRun(replayOfferKeys(), hudSafeRect().bottom - 70, 19,
           inputPads[0]?.down || [], titleInk);
       }
     }
@@ -25833,13 +26783,14 @@ function gamePaint() {
   if (!survivalActive() && matchHud && !reelMinimal && shellMode === "GAME" &&
       ((roundResult && resultUiReady) ||
       (!roundResult && introAge >= roundIntroDurationUs()))) {
-    const hudPlayers = freeskateActive() ? activePlayers() : spatialHudPlayers();
+    const hudPlayers = playAllowed() ? activePlayers().slice().sort((a, b) => a.pad - b.pad)
+      : freeskateActive() ? activePlayers() : spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {
       const player = hudPlayers[side];
       drawPlayerHandle(player, t, side);
       drawPlayerStats(player, side, t);
       drawHudInventory(player, side);
-      drawCommandStream(player, side);
+      if (!dojoMetersVisible()) drawCommandStream(player, side);
     }
   }
   if (!survivalActive() && replayOven && capabilities().reelFullUi === true &&
@@ -25850,6 +26801,10 @@ function gamePaint() {
     const transitionAge = titleTransitionAt !== null
       ? (run.monotonicUs - titleTransitionAt) / 1000000 : -1;
     drawTitleScreen(t, menuInk, transitionAge);
+    if (playAllowed() && !selfPlay) drawPlayerHandle(players[0], t, 0);
+    if (secondSeatSignedIn() && !selfPlay && !versusActive()) drawPlayerHandle(players[1], t, 1);
+    drawCharacterEditorCode(players[0],0,menuInk);
+    drawCharacterEditorCode(players[1],1,menuInk);
     if (transitionAge >= 0) return;
   }
   if (!replayOven) {
@@ -25931,6 +26886,7 @@ function drawVersusHud(t, ink, run) {
       ...mixColor(ink, [235, 38, 58], .8));
     return;
   }
+  if (dojoMetersVisible()) return;
   if (!player.lastButtonAt || versusLabelNoise.has(player.lastButton)) return;
   const age = (run.monotonicUs - player.lastButtonAt) / 1000000;
   if (age < 0 || age > .9) return;
@@ -25984,7 +26940,8 @@ function paint() {
       catch (_) { drawClientErrorFallback(); }
       return;
     }
-    const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
+    spineRenderAlpha = clamp(runtime().renderAlpha ?? 1, 0, 1);
+    const restore = beginRenderInterpolation(spineRenderAlpha);
     sharingRenderPoses = true;
     try {
       gamePaint();
@@ -25994,6 +26951,7 @@ function paint() {
       catch (_) { drawClientErrorFallback(); }
     } finally {
       sharingRenderPoses = false;
+      spineRenderAlpha = 1;
       renderPoses.clear();
       restore();
     }
@@ -26085,6 +27043,63 @@ const monowheelPlace=new Float64Array(12);
 // xbox/tools/embed-objects.mjs. Don't edit here: edit those, try them in
 // xbox/live/object-lab.html, then rerun the tool.
 const gameObjects = (() => {
+  const characterProfiles = (() => {
+    // Hand-edited Oskiewar colors and facial marks. No account data or generated likeness.
+    const CHARACTER_PARTS = Object.freeze([
+      'head', 'torso', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg',
+    ]);
+    const CHARACTER_EYES = Object.freeze(['none', 'dots', 'wide', 'sleepy']);
+    const CHARACTER_MOUTHS = Object.freeze(['none', 'smile', 'neutral', 'frown']);
+
+    function characterHandle(value) {
+      const handle = String(value || '').replace(/^@/, '').toLowerCase();
+      return /^[a-z0-9][a-z0-9._-]{0,63}$/.test(handle) ? handle : '';
+    }
+
+    function characterEditorUrl(handle) {
+      const name = characterHandle(handle);
+      return name ? `https://aesthetic.computer/oskiewarchar:@${name}` : '';
+    }
+
+    function defaultCharacter(color = [190, 190, 198]) {
+      return { version: 1, colors: Object.fromEntries(CHARACTER_PARTS.map(part =>
+        [part, color.slice()])), face: { eyes: 'dots', mouth: 'smile', color: [36, 30, 47] } };
+    }
+
+    function rgb(value) {
+      if (!Array.isArray(value) || value.length !== 3 ||
+          !value.every(channel => Number.isInteger(channel) && channel >= 0 && channel <= 255))
+        throw new Error('Colors need three whole numbers from 0 to 255.');
+      return value.slice();
+    }
+
+    function keys(value, allowed) {
+      if (!value || typeof value !== 'object' || Array.isArray(value) ||
+          Object.keys(value).length !== allowed.length ||
+          Object.keys(value).some(key => !allowed.includes(key)))
+        throw new Error('Invalid character fields.');
+    }
+
+    function validateCharacter(value) {
+      keys(value, ['version', 'colors', 'face']);
+      if (value.version !== 1) throw new Error('Unsupported character version.');
+      keys(value.colors, CHARACTER_PARTS);
+      keys(value.face, ['eyes', 'mouth', 'color']);
+      if (!CHARACTER_EYES.includes(value.face.eyes) || !CHARACTER_MOUTHS.includes(value.face.mouth))
+        throw new Error('Choose a supported face.');
+      return { version: 1,
+        colors: Object.fromEntries(CHARACTER_PARTS.map(part => [part, rgb(value.colors[part])])),
+        face: { eyes: value.face.eyes, mouth: value.face.mouth, color: rgb(value.face.color) } };
+    }
+
+    // Player part names are authoritative; animation roles vary by held object.
+    function characterPartColor(appearance, part, fallback) {
+      const key = { head: 'head', torso: 'torso', 'left-arm': 'leftArm',
+        'right-arm': 'rightArm', 'left-leg': 'leftLeg', 'right-leg': 'rightLeg' }[part];
+      return appearance?.colors?.[key] || fallback;
+    }
+    return { CHARACTER_PARTS, CHARACTER_EYES, CHARACTER_MOUTHS, characterHandle, characterEditorUrl, defaultCharacter, validateCharacter, characterPartColor };
+  })();
   const objectLisp = (() => {
     // object-lisp.mjs — oskiewar objects written in KidLisp, compiled once.
     //
@@ -26110,13 +27125,13 @@ const gameObjects = (() => {
 
     // What the game hands an object each tick. Seconds, world units, radians;
     // `hit` and `land` count seconds since the event (large when it never was).
-    // `blink`, `hurt`, `skirt` and `glasses` are a figure's: how its face and
+    // `blink`, `hurt`, `skirt`, `glasses` and `headless` are a figure's: how its face and
     // outfit read this tick.
     const objectInputs = ["time", "distance", "speed", "lean", "heading",
-      "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses"];
-    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0];
+      "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses", "headless"];
+    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0];
     // Switches are 0 or 1, so a baked part that reads one is baked once per value.
-    const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses"]);
+    const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses", "headless"]);
     // A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
     // 20): the head's centre, a point one head-radius along where it looks, then
     // the body. Shapes hang on these; the host is handed their positions a tick.
@@ -27527,15 +28542,23 @@ const gameObjects = (() => {
   })();
   const sources = {
     monowheel: "; monowheel-flat — the freeskate onewheel, drawn flat: world-anchored 2D shapes\n; with ink outlines, no lighting. The same rig as monowheel.lisp: x forward,\n; y up, z to the rider's right, the axle at the origin, a 24 radius tire.\n; Three parts bake — the shadow, the rolling wheel, the leaning deck — so a\n; tick is three SKETCH ops, and the host projects and fills the shapes.\n; Only the silhouettes (tire, deck) carry ink: the details sit on fills that\n; already contrast, and every outline doubles what the host draws.\n\ndef r 24\ndef half 13\ndef ink-edge 1.4\n\n(let roll (/ distance r))\n(let squash (* .14 (max 0 (- 1 (* land 5)))))\n(let rattle (* 2.5 (max 0 (- 1 (* hit 4))) (sin (* time 70))))\n\n; the shadow stays flat on the ground, behind everything: 103 units back is\n; the depth the game gives its own spot shadows (caster + .018), so it sits\n; on the floor the same way theirs do, in about their grey\n(nudge 103\n  (ink 54 58 66)\n  (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))\n\n(move 0 (- r) rattle\n  (rotate x lean\n    (scale (+ 1 squash) (- 1 squash) 1\n      (move 0 r 0\n        ; the wheel rolls as one: the tire (round, so turning it changes\n        ; nothing), then the face you can see — rim, web, spokes, hub\n        (rotate z (- roll)\n          (ink 40 36 48)\n          (outline ink-edge 20 16 28 (drum z r (* half 2)))\n          (toward z\n            (move 0 0 half\n              (ink (mix 214 236 turbo) (mix 216 190 turbo) (mix 226 255 turbo))\n              (ring z 17)\n              (ink 58 52 66)\n              (move 0 0 .2 (ring z 13.5))\n              (ink (mix 232 190 turbo) (mix 72 90 turbo) (mix 130 255 turbo))\n              ; spokes as flat bars: two triangles each where a round end costs eight\n              (plate -13 -1.4 .4  13 -1.4 .4  13 1.4 .4  -13 1.4 .4)\n              (plate -1.4 -13 .4  1.4 -13 .4  1.4 13 .4  -1.4 13 .4)\n              (ink 70 64 80)\n              (ball 0 0 .6 3.5))))\n        ; one deck, fore to aft, the tire poking through it; lamps at the\n        ; ends, white ahead and red behind\n        (nudge 14\n          (ink (mix 44 102 turbo) (mix 42 35 turbo) (mix 54 163 turbo))\n          (outline ink-edge 20 16 28 (slab -60 2 -19 60 8 19)))\n        (ink 240 244 250)\n        (ball 62 5 0 3.2)\n        (ink 240 70 70)\n        (ball -62 5 0 3.2)))))\n",
-    figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head.\n; A limb wears one ink silhouette, not one per bone: the whole leg's or\n; arm's ink goes down first, a touch further back, and the bones fill over\n; it, so the knee and the elbow carry no line across them. The torso, the\n; skirt, the shoes and the neck keep their own edge.\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (if (not skirt)\n      (bone hip-l knee-l (+ 5.6 edge))\n      (bone hip-r knee-r (+ 5.6 edge)))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l shoulder-r (+ 4.6 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (on hand-l (ball 0 0 0 (+ 4.6 edge)))\n    (on hand-r (ball 0 0 0 (+ 4.6 edge))))\n  ; legs: thighs unless a skirt hides them; shins show below its hem\n  (ink pants)\n  (if (not skirt)\n    (bone hip-l knee-l 5.6)\n    (bone hip-r knee-r 5.6))\n  (bone knee-l foot-l 5)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  ; the neck joint sits at the shoulder line (the torso bone's top), so the\n  ; neck is a thin stem from just under it up into the head, set a touch\n  ; back so the shoulders cover its base and the head its top\n  (ink skin)\n  (nudge 3 (bone (neck 0 -4 0) head 4))\n  ; the torso: a capsule whose rounded top sits under the shoulder bar (its\n  ; top centre a radius below the shoulder line), so nothing domes up above\n  ; the shoulders — that dome read as a thick neck — and wide enough that the\n  ; shoulders do not hang past it. Its hem sits under the skirt.\n  (ink shirt)\n  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)\n  (if skirt\n    ; a skirt over the hem: a waist a shade narrower than the torso, flaring\n    ; to a hem past the knees (x runs to her left hip, so +x is out on the left)\n    (ink skirt)\n    (nudge -.5 (skin (hip-l 3 6 0) (hip-r -3 6 0) (knee-r -20 -16 0) (knee-l 20 -16 0))))\n  (ink shoe)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  ; the shoulders are a bar at the sleeves' own width, one ink with the arms\n  ; (the limb silhouette above), so a sleeve continues the shoulder with no\n  ; step and no line\n  (ink shirt)\n  (outline 0\n    (bone shoulder-l shoulder-r 4.6)\n    (bone shoulder-l elbow-l 4.6)\n    (bone shoulder-r elbow-r 4.6)\n    (ink skin)\n    (bone elbow-l hand-l 4)\n    (bone elbow-r hand-r 4)\n    (on hand-l (ball 0 0 0 4.6))\n    (on hand-r (ball 0 0 0 4.6))))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n",
+    figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head.\n; A limb wears one ink silhouette, not one per bone: the whole leg's or\n; arm's ink goes down first, a touch further back, and the bones fill over\n; it, so the knee and the elbow carry no line across them. The torso, the\n; skirt, the shoes and the neck keep their own edge.\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (if (not skirt)\n      (bone hip-l knee-l (+ 5.6 edge))\n      (bone hip-r knee-r (+ 5.6 edge)))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l shoulder-r (+ 4.6 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (on hand-l (ball 0 0 0 (+ 4.6 edge)))\n    (on hand-r (ball 0 0 0 (+ 4.6 edge))))\n  ; legs: thighs unless a skirt hides them; shins show below its hem\n  (ink pants)\n  (if (not skirt)\n    (bone hip-l knee-l 5.6)\n    (bone hip-r knee-r 5.6))\n  (bone knee-l foot-l 5)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  ; the neck joint sits at the shoulder line (the torso bone's top), so the\n  ; neck is a thin stem from just under it up into the head, set a touch\n  ; back so the shoulders cover its base and the head its top\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  ; the torso: a capsule whose rounded top sits under the shoulder bar (its\n  ; top centre a radius below the shoulder line), so nothing domes up above\n  ; the shoulders — that dome read as a thick neck — and wide enough that the\n  ; shoulders do not hang past it. Its hem sits under the skirt.\n  (ink shirt)\n  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)\n  (if skirt\n    ; a skirt over the hem: a waist a shade narrower than the torso, flaring\n    ; to a hem past the knees (x runs to her left hip, so +x is out on the left)\n    (ink skirt)\n    (nudge -.5 (skin (hip-l 3 6 0) (hip-r -3 6 0) (knee-r -20 -16 0) (knee-l 20 -16 0))))\n  (ink shoe)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  ; the shoulders are a bar at the sleeves' own width, one ink with the arms\n  ; (the limb silhouette above), so a sleeve continues the shoulder with no\n  ; step and no line\n  (ink shirt)\n  (outline 0\n    (bone shoulder-l shoulder-r 4.6)\n    (bone shoulder-l elbow-l 4.6)\n    (bone shoulder-r elbow-r 4.6)\n    (ink skin)\n    (bone elbow-l hand-l 4)\n    (bone elbow-r hand-r 4)\n    (on hand-l (ball 0 0 0 4.6))\n    (on hand-r (ball 0 0 0 4.6))))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n\n)\n",
+    character: "; Hand-edited figure: same joints and native palette size as figure-flat.\n; Palette: skin=head, shirt=torso, pants=left arm, skirt=right arm,\n; shoe=left leg, accent=right leg, iris=face, lip=shoes, hair=hair.\n; The compiler substitutes these two constants once per chosen face.\ndef eyes 1\ndef mouth 1\ndef edge 1.3\n\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (bone hip-l knee-l (+ 5.6 edge))\n    (bone hip-r knee-r (+ 5.6 edge))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l shoulder-r (+ 4.6 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (on hand-l (ball 0 0 0 (+ 4.6 edge)))\n    (on hand-r (ball 0 0 0 (+ 4.6 edge))))\n  (ink shoe)\n  (bone hip-l knee-l 5.6)\n  (bone knee-l foot-l 5)\n  (ink accent)\n  (bone hip-r knee-r 5.6)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  (ink shirt)\n  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)\n  (ink lip)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  (outline 0\n    (ink shirt)\n    (bone shoulder-l shoulder-r 4.6)\n    (ink pants)\n    (bone shoulder-l elbow-l 4.6)\n    (bone elbow-l hand-l 4)\n    (on hand-l (ball 0 0 0 4.6))\n    (ink skirt)\n    (bone shoulder-r elbow-r 4.6)\n    (bone elbow-r hand-r 4)\n    (on hand-r (ball 0 0 0 4.6))))\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34 -.8 .4 -.25 -.86 -.3 -.3)\n    (stroke .34 .8 .4 -.25 .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2 0 1.05 -.4 .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n(on head\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  (if (> eyes 0)\n    (repeat 2 side\n      (let s (- (* side 2) 1))\n      (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 1.01\n        (surface\n          (ink iris)\n          (if hurt\n            (stroke .09 -.13 .13 0 .13 -.13 0)\n            (stroke .09 -.13 -.13 0 .13 .13 0))\n          (if (not hurt)\n            (if (or blink (= eyes 3))\n              (stroke .075 -.16 0 0 -.07 -.06 0 .07 -.06 0 .16 0 0))\n            (if (not blink)\n              (if (= eyes 1) (ring z .11))\n              (if (= eyes 2)\n                (ink 248 248 250)\n                (scale 1 1.35 1 (ring z .19))\n                (ink iris)\n                (move 0 0 .02 (ring z .09)))))))))))\n  (if (> mouth 0)\n    (rotate x .57 (move 0 0 1.01\n      (surface\n        (ink iris)\n        (if (= mouth 1) (stroke .06 -.24 .045 0 -.12 -.07 0 0 -.1 0 .12 -.07 0 .24 .045 0))\n        (if (= mouth 2) (stroke .06 -.22 0 0 .22 0 0))\n        (if (= mouth 3) (stroke .06 -.24 -.045 0 -.12 .07 0 0 .1 0 .12 .07 0 .24 -.045 0)))))))\n\n)\n",
   };
   // Each compiled (and baked) the first time it is asked for, not at load:
   // an object the game never draws costs nothing.
-  const objects = { light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes, read: objectLisp.read, ow: owLisp };
+  const objects = { characterProfiles, light: objectLisp.objectLight, drawFigureShapes: objectLisp.drawFigureShapes, read: objectLisp.read, ow: owLisp };
   const compiled = {};
   const ask = (name) => Object.defineProperty(objects, name, { configurable: true,
     get: () => compiled[name] || (compiled[name] = objectLisp.compile(sources[name], name)) });
   for (const name in sources) ask(name);
+  objects.characterFigure = (eyes, mouth) => {
+    const e = Math.max(0, ['none','dots','wide','sleepy'].indexOf(eyes));
+    const m = Math.max(0, ['none','smile','neutral','frown'].indexOf(mouth));
+    const key = 'character-' + e + '-' + m;
+    return compiled[key] || (compiled[key] = objectLisp.compile(sources.character
+      .replace('def eyes 1', 'def eyes ' + e).replace('def mouth 1', 'def mouth ' + m), key));
+  };
   // A .ow package can bring its own object by a name the game draws: the
   // next ask compiles the new source. `sources()` lists what it carries.
   objects.define = (name, source) => { sources[name] = source; delete compiled[name]; ask(name); };
@@ -28090,7 +29113,26 @@ function spawnWaterSplash(p,y){
  playBubbleSound(p,true);
 }
 function updateWaterSplashes(dt){for(let i=waterSplashes.length-1;i>=0;i--){const p=waterSplashes[i];p.life-=dt;if(p.life<=0){waterSplashes.splice(i,1);continue;}p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=850*dt;}}
-function drawWaterSplashes(){drawTurboParticles();for(const p of waterSplashes){const a=projectPoint(p.x,p.y,p.z);const old=triangleDepth;triangleDepth=a.z;filledDisc(a.x,a.y,Math.max(1,4*cameraScale()*p.life/.7),[187,236,252]);triangleDepth=old;}}
+function drawFluidDrop(x,y,tx,ty,r,ink,shine) {
+ const dx=tx-x,dy=ty-y,len=Math.hypot(dx,dy),ux=len>.01?dx/len:0,uy=len>.01?dy/len:-1;
+ const stretch=Math.min(r*2.4,Math.max(r*.7,len));
+ let px=x+r*(-uy),py=y+r*ux;
+ for(let i=1;i<=12;i++) {
+  const a=i/12*Math.PI*2,c=Math.cos(a),s=Math.sin(a);
+  const along=s*(s>0?stretch:r),across=c*r*(1-.28*Math.max(0,s));
+  const nx=x-uy*across+ux*along,ny=y+ux*across+uy*along;
+  screenTriangle(x,y,px,py,nx,ny,...ink);px=nx;py=ny;
+ }
+ if(r>2)filledCapsule(x-r*.3,y-r*.4,x-r*.1,y-r*.5,Math.max(.7,r*.16),shine);
+}
+function drawWaterSplashes(){
+ drawTurboParticles();const old=triangleDepth;
+ for(const p of waterSplashes){
+  const a=projectPoint(p.x,p.y,p.z),b=projectPoint(p.x-(p.vx||0)*.016,p.y-(p.vy||0)*.016,p.z-(p.vz||0)*.016);
+  if(a.behind||b.behind)continue;triangleDepth=a.z;
+  drawFluidDrop(a.x,a.y,b.x,b.y,Math.max(1,4*cameraScale()*p.life/.7),[132,214,244],[230,250,255]);
+ }triangleDepth=old;
+}
 
 let skateAudioLevel=0;
 function updateSkateAudio(dt){
@@ -28258,7 +29300,7 @@ function drawXboxController(p,safe){
    hudBox(x+dx-5,y+24,50,8,...(held.includes(bumper)?active:edge));
    if(tool)seatHudText(tool.color.name,x+dx-10,y-49,18,tool.color.rgb);
  }
- seatHudText('MOVE',x+26,y+h-15,20,edge);seatHudText('LOOK',x+155,y+h-15,20,edge);
+ seatHudText('MOVE',x+26,y+h-15,20,edge);seatHudText('ZOOM',x+155,y+h-15,20,edge);
  seatHudText('R3 '+poolZoomLabels[poolZoomIndex()],x+65,y-112,20,[219,229,240]);
  const action=chalkHands(p).length?'triggers draw · bumpers drop':p.gunAmmo>0?'LT aim   RT fire':'RT use   A jump';
  seatHudText(action,x-70,y-82,22,[219,229,240]);
@@ -28299,17 +29341,37 @@ function drawSeatPlayerHud(ink){
  }
  triangleDepth=old;
 }
+function dojoMetersVisible() { return !freeskateActive() && !survivalActive() && shellMode === "GAME" && !roundResult && !instantReplay && !selfPlay; }
+function drawDojoMeters() {
+ const safe=hudSafeRect(),now=runtime().monotonicUs,old=triangleDepth;triangleDepth=hudDepth;
+ const seats=activePlayers().filter(p=>p.alive&&!p.npc&&!p.dummy);
+ for(const p of seats){
+  const side=p.pad===1?1:0,limit=(safe.right-safe.left)*.46;
+  const action=seatActionRuns(p,now),measure=seatHudReadout(p,now).metrics.slice();
+  if(!measure.some(m=>m.text.endsWith(' mph')))measure.push({text:'0 mph',color:[110,220,255]});
+  for(const [row,runs] of [action,measure].entries()){
+   const gap=row?24:0,base=dojoTypeSize;
+   const natural=runs.reduce((w,r)=>w+handleWidth(r.text,base),0)+gap*Math.max(0,runs.length-1);
+   const size=Math.max(16,Math.min(base,base*limit/Math.max(1,natural)));
+   const width=runs.reduce((w,r)=>w+handleWidth(r.text,size),0)+gap*Math.max(0,runs.length-1);
+   const center=seats.length===1?viewCenterX():lerp(safe.left,safe.right,side?.7:.3);
+   let x=center-width/2;const y=safe.bottom-132+row*40;
+   for(const r of runs){seatHudText(r.text,x,y,size,r.color);x+=handleWidth(r.text,size)+gap;}
+  }
+ }triangleDepth=old;
+}
 function seatActionText(p,now){
- const speed=Math.hypot(p.vx,p.vz||0),states=[p.goKart?'DRIVING GO-KART':p.raceLoop?'LOOPING':p.poolPipeLocked?'HALFPIPING':statusVerb(p,speed,false)[0].toUpperCase()];
+ const speed=Math.hypot(p.vx,p.vz||0),states=[p.goKart?'DRIVING GO-KART':p.raceLoop?'LOOPING':p.poolPipeLocked?'HALFPIPING':(!p.grounded&&!p.swimming?'JUMPING':statusVerb(p,speed,false)[0].toUpperCase())];
  if(p.poolPipeLocked)states.push('LOCKED IN');
  if(p.chalkDrawing)states.push('DRAWING');
  if(p.sparringPartner!==undefined)states.push('SPARRING');
  if(now<(p.dashUntil||0))states.push(now<(p.poolPipeEscapeUntil||0)&&p.skateboard?'DASHING OUT':'DASHING');
- if(Math.abs(p.inputX||0)>.18)states.push(p.skateboard||p.onewheel||p.goKart?(p.inputX>0?'TURNING RIGHT':'TURNING LEFT'):(p.inputX>0?'STRAFING RIGHT':'STRAFING LEFT'));
- if(p.spin)states.push('SPINNING');
+ if(!poolOnly() && now-(p.turnAt||-1e12)<220000)states.push('TURNING');
+ if(poolOnly() && Math.abs(p.inputX||0)>.18)states.push(p.skateboard||p.onewheel||p.goKart?(p.inputX>0?'TURNING RIGHT':'TURNING LEFT'):(p.inputX>0?'STRAFING RIGHT':'STRAFING LEFT'));
+ if(p.spin&&!states.includes('SPINNING'))states.push('SPINNING');
  if(p.wheelTurbo)states.push('SUPER TURBO');
  const recent=now-(p.lastButtonAt||0)<850000?p.lastButton:'';
- if(recent&&!['NONE','LEFT','RIGHT','UP','DOWN','SPIN','SUPER TURBO','SKATEBOARD','MONOWHEEL','DASH','DASH OUT'].includes(recent)&&!states.includes(recent))states.push(recent);
+ if(recent && !(recent==='JUMP' && !p.grounded) && !['NONE','VIEW','MENU','START','LEFT','RIGHT','UP','DOWN','SPIN','SUPER TURBO','SKATEBOARD','MONOWHEEL','DASH','DASH OUT'].includes(recent)&&!states.includes(recent))states.push(recent);
  const held=[];
  if(p.axeHeld)held.push('AXE');if(p.swordHeld)held.push('SWORD');if(p.gunAmmo>0)held.push(p.gunMode==='RUBBER SMG'?'SMG':'PISTOL');
  for(const {color} of chalkHands(p))held.push(color.name+' '+(color.paint?'PAINT':color.tool||'CHALK'));
@@ -28319,7 +29381,7 @@ function seatActionText(p,now){
 const actionColors={
  'STANDING':[237,202,255],'WALKING':[145,232,179],'RUNNING':[71,236,147],
  'CRAWLING':[240,172,98],'CROUCHING':[220,167,255],'SPINNING':[255,215,80],
- 'IN THE AIR':[110,220,255],'SWIMMING':[130,238,231],'SKATING':[167,197,255],
+ 'JUMPING':[110,220,255],'TURNING':[179,174,255],'IN THE AIR':[110,220,255],'SWIMMING':[130,238,231],'SKATING':[167,197,255],
  'BALANCING':[199,167,255],'RIDING ELECTRIC':[203,155,255],'SUPER TURBO':[244,133,245],
  'TURNING LEFT':[179,174,255],'TURNING RIGHT':[143,207,255],
  'LOOPING':[168,255,123],'LOOP COMPLETE':[255,242,112],
@@ -28369,7 +29431,7 @@ function quadMeshBounds(mesh){
  const b={minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity,minZ:Infinity,maxZ:-Infinity};
  const grow=(x,y,z)=>{if(x<b.minX)b.minX=x;if(x>b.maxX)b.maxX=x;if(y<b.minY)b.minY=y;if(y>b.maxY)b.maxY=y;if(z<b.minZ)b.minZ=z;if(z>b.maxZ)b.maxZ=z;};
  for(const p of mesh.vertices)grow(p.x,p.y,p.z);
- for(const a of mesh.capsules||[]){grow(a[0],a[1],a[2]);grow(a[3],a[4],a[5]);}
+ for(const a of mesh.capsules||[]){const r=Math.abs(a[6]||0);for(const i of [0,3]){grow(a[i]-r,a[i+1]-r,a[i+2]-r);grow(a[i]+r,a[i+1]+r,a[i+2]+r);}}
  mesh.bounds=b.minX===Infinity?null:b;
 }
 // The native handle for a captured mesh: uploaded on first use, freed when the
@@ -28461,7 +29523,7 @@ function releaseQuadMesh(mesh){
  if(mesh)mesh.nativeHandle=-1;
 }
 function drawQuadMesh(mesh,opacity=1){
- if(!mesh||(!nativeRetainedMeshes&&!sceneBoundsVisible(mesh.bounds)))return;
+ if(!mesh||!sceneBoundsVisible(mesh.bounds))return;
  if(nativeRetainedMeshes){
   const handle=meshHandle(mesh);
   if(handle>=0){nativeMeshDraw(handle,mainNativeCamera(),clipView?0:cameraScale(),1,1,1,opacity);return;}
@@ -28708,10 +29770,16 @@ function drawCivilianDebris(kid){
  }
  drawCivilianLooseHead(kid);triangleDepth=old;
 }
+const looseHeadViews = new WeakMap();
 function drawCivilianLooseHead(kid){
  const old=triangleDepth,h=kid.looseHead,p=projectPoint(h.x,h.y,h.z),r=h.radius*projectionScaleAt(h);triangleDepth=p.z-.00002;
+ if (!anonymousDojoFighter(kid) && flatFiguresOn()) {
+  let view = looseHeadViews.get(kid);
+  if (!view) { view = Object.create(kid); view.headless = false; looseHeadViews.set(kid, view); }
+  if (drawFlatFigure(view,{head:h,segments:[]},runtime().monotonicUs)) {triangleDepth=old;return;}
+ }
  filledDisc(p.x,p.y,r+1,[24,20,30]);filledDisc(p.x,p.y,r,kid.color);
- drawFace({...kid,dummy:true},{x:p.x,y:p.y,radius:r},kid.color,0);
+ if (!anonymousDojoFighter(kid)) drawFace({...kid,dummy:true},{x:p.x,y:p.y,radius:r},kid.color,0);
  triangleDepth=old;
 }
 

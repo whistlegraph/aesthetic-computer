@@ -66,6 +66,7 @@ export function setMode(actor, mode) {
 export function stepActor(actor) {
   const { body, input } = actor, root = body.root;
   const pose = basePose(actor);
+  spinFootwork(actor, pose);
   if (actor.action) {
     const a = actor.action, spec = actions[a.name];
     layer(actor, pose, a);
@@ -95,6 +96,14 @@ export function stepActor(actor) {
     pose.hands[which] = { goal: { ...actor.target }, stiff: .3, pin: input.grab && actor.grabbed, reach: true };
   }
   if (!input.grab) actor.grabbed = false;
+  // The host supplies the actual moving deck. Kicks release only their
+  // striking foot; the supporting foot remains locked to the grip tape.
+  if (actor.deckFeet && actor.mode === "board") {
+    for (const [i,name] of [[0,"left"],[1,"right"]]) {
+      const kicking=actor.action?.name === "kick" && i === (actor.action.side>0?1:0);
+      if (!kicking) pose.feet[name]={goal:actor.deckFeet[i],stiff:1,pin:true,lock:true};
+    }
+  }
   body.snap = pose.snap || 1;
   apply(body, pose);
   travel(actor);
@@ -107,6 +116,42 @@ export function stepActor(actor) {
   }
   if (body.landed && actor.mode !== "kart") actor.landedAt = actor.time;
   actor.time += step;
+}
+
+// Turn around a planted foot, then transfer weight to the stepping foot.
+// Anchors stay in world space; rotating the hips cannot drag both shoes.
+function spinFootwork(actor, pose) {
+  const {body, input} = actor, root = body.root;
+  if (!input.spin || root.air || actor.mode !== "foot") {
+    actor.spinFeet = null;
+    return;
+  }
+  let state = actor.spinFeet;
+  if (!state) state = actor.spinFeet = { yaw: root.yaw, phase: 0, swing: 1,
+    anchors: body.legs.map(leg => ({...limbEnd(leg), y: 3})) };
+  const delta = Math.atan2(Math.sin(root.yaw - state.yaw), Math.cos(root.yaw - state.yaw));
+  state.yaw = root.yaw;
+  state.phase += Math.abs(delta) / (Math.PI / 2);
+  const support = state.anchors[1 - state.swing];
+  if (Math.hypot(support.x - root.x, support.z - root.z) > 75) state.phase = 1;
+  if (state.phase >= 1) {
+    state.anchors[state.swing] = {...limbEnd(body.legs[state.swing]), y: 3};
+    state.swing = 1 - state.swing;
+    state.phase %= 1;
+    state.anchors[state.swing] = {...limbEnd(body.legs[state.swing]), y: 3};
+  }
+  for (const [i,name] of [[0,"left"],[1,"right"]]) {
+    if (i !== state.swing) {
+      pose.feet[name] = {goal:state.anchors[i], stiff:1, pin:true, lock:true};
+      continue;
+    }
+    const side = i ? 1 : -1, from = state.anchors[i];
+    const to = travelPoint(body, side * 12, side * (body.o.hipWidth + 10), 3);
+    const u = smooth(state.phase);
+    pose.feet[name] = {goal:{x:lerp(from.x,to.x,u), z:lerp(from.z,to.z,u),
+      y:3 + Math.sin(Math.PI * state.phase) * 26}, stiff:.9};
+  }
+  pose.crouch += Math.sin(Math.PI * state.phase) * 5;
 }
 
 // The mode's steady pose: what the spine and limbs do with no one-shot.
@@ -221,27 +266,40 @@ function airPose(pose, body) {
 // A one-shot laid over the base pose.
 function layer(actor, pose, a) {
   const { body } = actor, o = body.o, t = a.t, s = a.side, chest = chestFrame(body);
-  const guard = (hand, side) => ({ goal: place(chest, 26, 8, side * 12), stiff: .2 });
   if (a.name === "punch") {
-    // Wind: the spine turns the punching shoulder back. Throw: the spine
-    // unwinds past square and the fist rides out on it, a beat behind.
-    // Recover: back to guard.
+    // Aim along the fighter's heading. Following the chest's twisting frame
+    // swept the fist sideways and down just as the arm straightened.
     const name = s > 0 ? "right" : "left", other = s > 0 ? "left" : "right";
-    pose.hands[other] = guard(other, -s);
+    const yaw = body.root.yaw, c = Math.cos(yaw), sn = Math.sin(yaw);
+    const aim = { origin: chest.origin, forward: { x: c, y: 0, z: sn },
+      right: { x: -sn, y: 0, z: c }, up: { x: 0, y: 1, z: 0 } };
+    const reach = (o.arm[0] + o.arm[1]) * .94;
+    const hand = (forward, height, stiff) => ({
+      goal: place(aim, forward, height, s * o.shoulder * .8), stiff });
+    pose.hands[other] = { goal: place(aim, 20, 14, -s * o.shoulder * .8), stiff: .4 };
     pose.snap = 4;
-    if (t < .08) { pose.twist = -s * .4; pose.hands[name] = { goal: place(chest, 10, 2, s * 16), stiff: .25 }; }
-    else if (t < .22) {
-      // The unwind starts at .08; the fist is only thrown at .13, so it is
-      // carried by a spine already turning.
-      pose.twist = s * .6; pose.curl += .15;
-      const u = smooth((t - .13) / .07);
-      pose.hands[name] = t < .13 ? { goal: place(chest, 14, 4, s * 14), stiff: .25 } : { goal: place(chest, lerp(20, 64, u), 10, s * 2), stiff: .7 };
-    } else { pose.twist = s * .6 * (1 - smooth((t - .22) / .14)); pose.hands[name] = guard(name, s); }
+    // Chamber, turn the shoulder, then drive a straight fist. Reach full
+    // extension during the game's 14-frame strike and keep it readable for
+    // several frames before returning to guard.
+    if (t < .05) {
+      pose.twist = -s * .3;
+      pose.hands[name] = hand(12, 10, .45);
+    } else if (t < .20) {
+      pose.twist = s * .38; pose.curl += .06;
+      const u = smooth((t - .083) / .05);
+      pose.hands[name] = hand(lerp(12, reach, u), 12, .85);
+    } else {
+      const u = smooth((t - .20) / .16);
+      pose.twist = s * .38 * (1 - u);
+      pose.hands[name] = hand(lerp(reach, 26, u), lerp(12, 10, u), .55);
+    }
   } else if (a.name === "kick") {
     // Chamber the knee, snap the foot out, pull back; the spine leans away
     // from the kick and the arms go wide to balance it.
     const name = s > 0 ? "right" : "left";
-    const pelvis = pelvisFrame(body);
+    const base = pelvisFrame(body), yaw=body.root.yaw;
+    const pelvis = {origin:base.origin,forward:{x:Math.cos(yaw),y:0,z:Math.sin(yaw)},
+      right:{x:-Math.sin(yaw),y:0,z:Math.cos(yaw)},up:{x:0,y:1,z:0}};
     pose.snap = 3;
     if (t < .12) pose.feet[name] = { goal: place(pelvis, 30, -40, s * o.hipWidth), stiff: .4 };
     else if (t < .3) { pose.feet[name] = { goal: place(pelvis, 82, -8, s * o.hipWidth), stiff: .8 }; pose.arch = .45; }
@@ -274,7 +332,7 @@ function apply(body, pose) {
   for (const [name, index] of [["left", 0], ["right", 1]]) {
     for (const [limbs, goals] of [[body.arms, pose.hands], [body.legs, pose.feet]]) {
       const limb = limbs[index], g = goals[name];
-      limb.goal = g?.goal || null; limb.stiff = g?.stiff || 0; limb.pin = !!g?.pin; limb.reach = !!g?.reach;
+      limb.goal = g?.goal || null; limb.stiff = g?.stiff || 0; limb.pin = !!g?.pin; limb.lock = !!g?.lock; limb.reach = !!g?.reach;
     }
   }
 }

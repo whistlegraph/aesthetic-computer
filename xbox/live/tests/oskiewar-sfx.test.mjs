@@ -23,6 +23,7 @@ class FakeNode {
 
 class FakeSource extends FakeNode {
   frequency = new FakeParam();
+  playbackRate = new FakeParam();
   started = [];
   stopped = [];
   start(...args) { this.started.push(args); }
@@ -172,4 +173,32 @@ test('glass layers a fracture and overlapping shard rings through a falling tail
   assert.ok(starts.filter(at => at === starts[0]).length >= 3, 'initial modes overlap');
   assert.ok(context.oscillators.every(n => n.frequency.value < context.sampleRate / 2));
   assert.ok(context.panners.every(n => n.pan.value === -.4));
+});
+
+test('half-speed effects halve pitch and double envelopes and delayed cue spacing', async () => {
+  const render = async rate => {
+    const context = new FakeAudioContext(), bank = createOskiewarSfx({ context });
+    await bank.unlock(); bank.setPlaybackRate(rate); bank.drum('kick');
+    return context;
+  };
+  const live = await render(1), slow = await render(.5);
+  const a = live.oscillators[0], b = slow.oscillators[0];
+  assert.equal(b.frequency.events[0][1], a.frequency.events[0][1] / 2);
+  assert.ok(Math.abs((b.stopped[0][0] - b.started[0][0] - .008) /
+    (a.stopped[0][0] - a.started[0][0] - .008) - 2) < 1e-8);
+  assert.equal(slow.bufferSources[0].playbackRate.value, .5);
+});
+
+test('spatial-capable audio uses HRTF and mirrored source positions', async () => {
+  const context = new FakeAudioContext();
+  context.createPanner = () => {
+    const node = new FakeNode();
+    for (const key of ['positionX','positionY','positionZ']) node[key] = new FakeParam();
+    context.panners.push(node); return node;
+  };
+  const bank = createOskiewarSfx({ context }); await bank.unlock();
+  bank.drum('kick',1,-.7);bank.drum('kick',1,.7);
+  assert.ok(context.panners.every(p => p.panningModel === 'HRTF'));
+  assert.ok(context.panners.some(p => p.positionX.value < 0));
+  assert.ok(context.panners.some(p => p.positionX.value > 0));
 });
