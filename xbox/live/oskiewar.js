@@ -3587,7 +3587,9 @@ const players = [
 // is parked off the map until somebody takes it.
 const activePlayers = () =>
   freeskateActive() ? (freeskateSecond ? players : [players[0]])
-    : survivalActive() || lobbyActive() ? [players[0]] : players;
+    : survivalActive() ? [players[0]]
+    // The waiting room is one body, plus the training dummy in the chair.
+    : lobbyActive() ? (players[1].dummy ? players : [players[0]]) : players;
 const impacts = [];
 
 // Every impact gets a number, in order, for the life of the run. A watcher
@@ -6023,7 +6025,16 @@ function applyRoster(player, index) {
 // The seam the sign-in actually landed on is `versusAllowed()`, because versus
 // is the door that opened first: see `startVersusFight`. When bot and ppl open,
 // they gate here on the same reader.
+// The lobby's dummy leaves the chair whenever anything else takes it.
+function releaseLobbyDummy(now) {
+  const chair = players[1];
+  if (!chair.lobbyDummy) return;
+  chair.lobbyDummy = false;
+  setSeatDummy(chair, false, now);
+}
+
 function startFightAgainst(kind, now) {
+  releaseLobbyDummy(now);
   gameMode = "fight";
   selfPlay = false;
   players[0].spawnX = tileCenterX(spawnColLeft);
@@ -6179,6 +6190,7 @@ let localControllerPairSeen = false;
 let localControllerMissing = -1;
 
 function startLocalVersus(now) {
+  releaseLobbyDummy(now);
   finishReplay();
   fightOpponent = "local";
   for (const player of players) {
@@ -6319,6 +6331,7 @@ function updateAccountDoor() {
 }
 
 function startSurvivalRun(now, botControlled = false) {
+  releaseLobbyDummy(now);
   gameMode = "survival";
   selfPlay = botControlled;
   fightOpponent = "survival";
@@ -7100,6 +7113,7 @@ function freeskateRequested() {
 // Freeskate starts on the painting with chalk in both hands.
 // The existing hall and long park remain explicit host options.
 function beginFreeskate(now, seededLayout = false) {
+  releaseLobbyDummy(now);
   applyPendingOw();
   freeskateSecond = false;
   gameMode = "fight";
@@ -7285,10 +7299,14 @@ function beginVersusLobby(now, { title = false } = {}) {
   gameplayStarted = !title;
   titleTransitionAt = null;
   resetRound(now, true);
-  chair.alive = false;
-  chair.respawnAt = Infinity;
-  chair.x = worldRight + gridWidth;
-  chair.y = floorY;
+  // While the room waits, the chair holds a training dummy: something to
+  // bash around. A "kill" on a dummy is only a big hit, so it never goes
+  // down; the first real fighter to sit takes its place (startVersusFight).
+  chair.dummy = false;
+  setSeatDummy(chair, true, now);
+  chair.lobbyDummy = true;
+  chair.x = chair.spawnX;
+  chair.y = terrainFloorAt(chair.x);
   // An empty chair wears no dummy's name — the wire calls it NOBODY. And the
   // room forgets who was last in it, so the next person to sit down is dressed
   // from their own offer rather than inheriting the last one's.
@@ -7322,6 +7340,7 @@ function startVersusFight(now, resetMatch = true) {
   local.remote = false;
   applyRoster(local, local.rosterIndex);
   const rival = players[1];
+  releaseLobbyDummy(now);
   rival.spawnX = tileCenterX(spawnColRight);
   rival.npc = false;
   rival.bot = false;
@@ -7625,6 +7644,7 @@ function returnToTitle(now, reason = "back") {
 // `__oskiewarSelfPlay` before boot or by calling this — never from a button,
 // so normal play cannot fall into it.
 function startSelfPlay(now) {
+  releaseLobbyDummy(now);
   gameMode = "fight";
   selfPlay = true;
   // Self-play drives reels and mechanical tests: it keeps the base park so a
@@ -11278,9 +11298,10 @@ function fireGun(player, input) {
   for (let shot = 0; shot < shots; shot++) {
     bullets.push({
       x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
-      vx: pose.dx * (laser ? 9600 : smg ? 5000 : 4200),
-      vy: pose.dy * (laser ? 9600 : smg ? 5000 : 4200),
-      vz:(pose.dz||0)*(laser?9600:smg?5000:4200),
+      // Slow enough to see coming: about two thirds of what they were.
+      vx: pose.dx * (laser ? 6400 : smg ? 3400 : 2800),
+      vy: pose.dy * (laser ? 6400 : smg ? 3400 : 2800),
+      vz:(pose.dz||0)*(laser?6400:smg?3400:2800),
       owner: player.pad, life: 1, rubber: smg, laser,
       safeUntil: now + 100000,
     });
@@ -24016,9 +24037,15 @@ function drawBullet(bullet) {
       Math.max(.6, 3.5 * scale), core);
     return;
   }
+  // A dark rim around the tracer and the round: the core blinks white, and
+  // white on a pale arena was a bullet you could not see.
+  const rim = [22, 24, 34];
   filledCapsule(previous.x, previous.y, point.x, point.y,
-    Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
-  filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
+    Math.max(1.6, (bullet.rubber ? 9 : 8) * scale), rim);
+  filledCapsule(previous.x, previous.y, point.x, point.y,
+    Math.max(.9, (bullet.rubber ? 6 : 5) * scale), trail);
+  filledDisc(point.x, point.y, Math.max(2, 13 * scale), rim);
+  filledDisc(point.x, point.y, Math.max(1.4, 10 * scale), core);
 }
 
 // The ghost of where a round has been. Walked oldest to newest so the fade
@@ -24773,6 +24800,12 @@ function drawHudStatusTray(clock, ink, unixMs) {
 }
 
 function drawDebugBug(x, y, scale = 1) {
+  // HUD depth: on the world layer the console's motion blur smeared it.
+  const previousDepth = triangleDepth;
+  triangleDepth = hudDepth;
+  try { drawDebugBugShape(x, y, scale); } finally { triangleDepth = previousDepth; }
+}
+function drawDebugBugShape(x, y, scale) {
   const shell = [255, 86, 126];
   const detail = [22, 12, 34];
   const limb = (x1, y1, x2, y2, width, color) =>
@@ -24877,7 +24910,9 @@ function drawDebugPerformance(ink) {
   // measuring 38 Hz on a 26 ms frame.
   const hostRate = frameMs ? Math.round(1000 / frameMs) + " fps" : rate;
   const safeTop = hudSafeRect();
-  const lane = { x: 0, y: safeTop.top + metaSize + 40 };
+  // Under the corner's QR code (or the connection meter), not behind it.
+  const corner = spectatorQrBox() || netHealthBox();
+  const lane = { x: 0, y: corner ? Math.max(safeTop.top, (corner.top ?? safeTop.top) + (corner.size ?? corner.tall ?? 0) + 14) : safeTop.top };
   let y = lane.y;
   // One line of proof per debug toggle: the console renders this read-out
   // where no devtools can confirm it, so the Device Portal log gets told the
@@ -25375,7 +25410,9 @@ function gamePaint() {
   const space = !survivalActive();
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
-  const sky = space ? mixColor([6, 8, 22], [235, 241, 248], visualTheme.light)
+  // A neutral middle gray, not near-white: bright rounds and white text
+  // both have to read against it.
+  const sky = space ? mixColor([6, 8, 22], [168, 169, 172], visualTheme.light)
     : mixColor([7, 8, 28], skyDay, visualTheme.light);
   // Match the clear color to the arena sky. Camera framing can reveal the
   // clear layer during a jump; a different clear color looked like a flash.
@@ -25390,7 +25427,7 @@ function gamePaint() {
   const groundDay = mixColor([142, 184, 116], [190, 151, 103],
     visualTheme.sunset * .38);
   const ground = space
-    ? mixColor([16, 22, 38], [177, 193, 215], visualTheme.light)
+    ? mixColor([16, 22, 38], [150, 151, 155], visualTheme.light)
     : mixColor([13, 25, 29], groundDay, visualTheme.light);
   // The floating decks are steel with a lit edge. The plate itself stays
   // near the hull's own value — a near-white slab against vacuum reads as a
@@ -25400,7 +25437,7 @@ function gamePaint() {
   // the pale thing and the lip is the dark line under it, because there the
   // background is what is bright.
   const platformColor = space
-    ? mixColor([26, 36, 60], [158, 179, 210], visualTheme.light)
+    ? mixColor([26, 36, 60], [132, 134, 140], visualTheme.light)
     : mixColor([24, 29, 46], [211, 198, 171], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   const statusShadow = contrastShadow(titleInk);
