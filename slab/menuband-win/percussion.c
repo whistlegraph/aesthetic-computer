@@ -448,6 +448,19 @@ void perc_init(double sample_rate) {
 void perc_set_pitch(double scale) { g_pitch = scale > 0 ? scale : 1.0; }
 void perc_set_level(double level) { g_level = clampd(level, 0, 1); }
 
+// Windows level trims, in dB. The kit came over from the Mac at the Mac's
+// levels, but here the melodic engines are loudness-normalized to the
+// SoundFont median, so the drums sat ~11 dB under a piano note (peak 100 ms
+// K-weighted loudness at velocity 100, measured offline). Each drum is lifted
+// to its own target rather than by one flat gain: the kick already peaks near
+// full scale while the clap and closed hat are ~16 dB down. Targets against
+// the piano's −12.6 LUFS: kick −13, hats −17, everything else −15.
+static const double DRUM_TRIM_DB[PERC_DRUM_COUNT] = {
+    2.7, 6.0, 6.7, 8.1, 14.8, 6.7, 6.9, 13.0, 10.5, 7.0, 10.1, 8.9,   // BAS CRS SNR SPL CLP SNP CBL HHC BLK HHO TMB RDE
+};
+static const double PAD_TRIM_DB = 4.0;   // the TrackDrum membrane: centre −18 → −14
+static double db_gain(double db) { return pow(10.0, db / 20.0); }
+
 static uint64_t next_group(void) { uint64_t g; EnterCriticalSection(&g_lock); g = ++g_groupCounter; LeaveCriticalSection(&g_lock); return g; }
 
 void perc_hit_drum(PercDrum drum, double velocity, double pan, uint64_t group) {
@@ -456,6 +469,9 @@ void perc_hit_drum(PercDrum drum, double velocity, double pan, uint64_t group) {
     double v = velocity_law(velocity);
     if (group == 0) group = next_group();
     DrumVoices d; build_drum(&d, drum, v, pan, group);
+    double trim = db_gain(DRUM_TRIM_DB[drum]);
+    for (int i = 0; i < d.downCount; i++) d.down[i].volume *= trim;
+    for (int i = 0; i < d.relCount; i++) d.rel[i].volume *= trim;
     EnterCriticalSection(&g_lock);
     for (int i = 0; i < d.downCount; i++) stage(&d.down[i]);
     for (int i = 0; i < d.relCount; i++) store_release(group, &d.rel[i]);
@@ -467,6 +483,7 @@ PercDrum perc_strike_pad(double x, double y, double velocity, const double *anch
     if (!g_lockReady) return PERC_KICK;
     Voice voices[64]; int n = 0;
     PercDrum pulse = membrane_strike(x, y, velocity_law(velocity), anchors_xy, anchor_count < 0 ? 0 : anchor_count, voices, &n);
+    for (int i = 0; i < n; i++) voices[i].volume *= db_gain(PAD_TRIM_DB);
     EnterCriticalSection(&g_lock);
     for (int i = 0; i < n; i++) stage(&voices[i]);
     LeaveCriticalSection(&g_lock);
@@ -477,6 +494,7 @@ void perc_lift_pad(double x, double y, uint64_t group) {
     (void)group;
     if (!g_lockReady) return;
     Voice voices[24]; int n = membrane_lift(x, y, 0.5, voices);   // the Swift's lift velocity 64/127, clamped 0.08…1
+    for (int i = 0; i < n; i++) voices[i].volume *= db_gain(PAD_TRIM_DB);
     EnterCriticalSection(&g_lock);
     for (int i = 0; i < n; i++) stage(&voices[i]);
     LeaveCriticalSection(&g_lock);
