@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free Online Fighting Game in Your Browser — oskiewar</title>
+<meta name="description" content="oskiewar is a free 1v1 fighting game you play in your browser. Punch, kick, block, grab and throw. Two players on one keyboard, two gamepads, or online with a link. No download.">
+<link rel="canonical" href="https://oskiewar.com/free-fighting-game/">
+<meta name="theme-color" content="#ebf1f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#07081c" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="oskiewar — a free fighting game in your browser">
+<meta property="og:description" content="Punch, kick, block, grab, throw. Two players, one keyboard — or send a friend the room link. No download.">
+<meta property="og:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://oskiewar.com/free-fighting-game/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preload" href="/ComicRelief-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": ["VideoGame", "WebApplication"],
+      "@id": "https://oskiewar.com/#game",
+      "name": "oskiewar",
+      "url": "https://oskiewar.com/",
+      "description": "A free 1v1 fighting game that runs in the browser. Punch, kick, block, grab and throw; play two players on one keyboard, with two gamepads, or online by sharing a room link.",
+      "image": "https://oskiewar.com/social/oskiewar-title.jpg",
+      "genre": ["Fighting", "Versus"],
+      "playMode": ["MultiPlayer", "SinglePlayer"],
+      "numberOfPlayers": {"@type": "QuantitativeValue", "minValue": 1, "maxValue": 2},
+      "gamePlatform": ["Web browser"],
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Any (web browser)",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+      "author": {"@type": "Organization", "name": "Aesthetic Computer", "url": "https://aesthetic.computer/"}
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question", "name": "Is oskiewar free?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Yes. The whole game plays free at oskiewar.com. There is nothing to buy to fight."}},
+        {"@type": "Question", "name": "Do I need to download anything?",
+         "acceptedAnswer": {"@type": "Answer", "text": "No. oskiewar runs in a web browser. Open oskiewar.com and you are in a fight. No account is needed to play."}},
+        {"@type": "Question", "name": "Can I play against a friend online?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every match has a room, and the room is a web address. Send it to a friend and they join the fight from their own browser."}},
+        {"@type": "Question", "name": "Can two people play on one computer?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Yes. Player one uses W A S D, player two uses I J K L, both on the same keyboard. Two connected gamepads also work, one each."}},
+        {"@type": "Question", "name": "Does it work with a controller?",
+         "acceptedAnswer": {"@type": "Answer", "text": "Yes. Plug in or pair a standard gamepad and press a button on it while the game is open."}},
+        {"@type": "Question", "name": "Is oskiewar like Street Fighter?",
+         "acceptedAnswer": {"@type": "Answer", "text": "It is a different game in the same tradition: two fighters, rounds, punches, kicks, blocks, grabs and throws, played head to head. It is free, runs in a browser and is not affiliated with Capcom or Street Fighter."}}
+      ]
+    }
+  ]
+}
+</script>
+<style>
+  @font-face { font-family: "Comic Relief"; src: url(/ComicRelief-Regular.woff2) format("woff2"); font-display: swap; }
+  :root {
+    --bg: #ebf1f8; --panel: #ffffff; --ink: #171b28; --soft: #4d566f;
+    --line: #6e768d; --key: #e3e8f2; --accent: #c4245a; --button: #e6cd5c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #07081c; --panel: #171b28; --ink: #f3f6ff; --soft: #b0b8ca;
+      --line: #6e768d; --key: #0b0e1a; --accent: #ff8fb4; --button: #e6cd5c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 17px/1.6 "Comic Relief", "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+    padding: 32px 16px 48px;
+  }
+  main { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: clamp(30px, 7vw, 44px); line-height: 1.1; margin: 0 0 10px; }
+  .tag { color: var(--soft); margin: 0 0 22px; font-size: 19px; }
+  h2 { font-size: 22px; margin: 34px 0 8px; }
+  p, li { margin: 0 0 10px; }
+  ul { padding-left: 22px; }
+  a { color: var(--accent); }
+  .hero { display: block; border: 3px solid var(--line); border-radius: 14px; overflow: hidden;
+    box-shadow: 5px 7px 0 rgba(4, 7, 18, .35); }
+  .hero img { display: block; width: 100%; height: auto; aspect-ratio: 1200 / 630; }
+  .play { display: inline-block; margin: 22px 0 6px; padding: 14px 26px;
+    background: var(--button); color: #171b28; text-decoration: none;
+    border: 3px solid #171b28; border-radius: 10px; font-weight: 700; font-size: 22px;
+    box-shadow: 4px 5px 0 rgba(4, 7, 18, .4); }
+  .play:hover { transform: translate(-1px, -2px); box-shadow: 5px 7px 0 rgba(4, 7, 18, .45); }
+  .play:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .note { color: var(--soft); font-size: 15px; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; background: var(--panel);
+    border: 2px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--key); vertical-align: top; }
+  kbd { background: var(--key); border: 1px solid var(--line); border-radius: 4px;
+    padding: 0 6px; font: 14px ui-monospace, Menlo, monospace; white-space: nowrap; }
+  details { background: var(--panel); border: 2px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin: 0 0 10px; }
+  summary { font-weight: 700; cursor: pointer; }
+  details p { margin: 8px 0 2px; }
+  footer { margin-top: 40px; color: var(--soft); font-size: 15px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>A free fighting game you play in your browser</h1>
+  <p class="tag">pick a pal. pick a fight. Punch, kick, block, grab and throw: one on one, best of the rounds. No download, nothing to buy.</p>
+
+  <a class="hero" href="/"><img src="/social/oskiewar-title.jpg" width="1200" height="630"
+    alt="The oskiewar title screen: a multicolor hand-drawn wordmark over the arena"></a>
+  <a class="play" href="/">Play oskiewar now</a>
+  <p class="note">Opens straight into a fight at oskiewar.com. No account needed.</p>
+
+  <h2>For Street Fighter fans</h2>
+  <p>If you grew up on head-to-head fighting games, oskiewar is built for you. Two fighters
+    face off in rounds. You read your opponent, guard, and punish. It keeps the parts that make
+    versus games great:</p>
+  <ul>
+    <li><strong>One on one, in rounds.</strong> Win rounds to win the match.</li>
+    <li><strong>Punches, kicks, blocks, grabs and throws</strong>, plus jumps and dashes.</li>
+    <li><strong>Couch versus.</strong> Two players on one keyboard, or a gamepad each.</li>
+    <li><strong>Online versus with a link.</strong> Every match has a room, and the room is a web
+      address. Send it and your friend joins from their own browser.</li>
+  </ul>
+  <p>And it drops the parts that keep people out: it's free, it loads in a tab, and it works on
+    the laptop you already have.</p>
+
+  <h2>Controls</h2>
+  <table>
+    <tr><th></th><th>Player one</th><th>Player two</th></tr>
+    <tr><td>Move</td><td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or arrows</td><td><kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd></td></tr>
+    <tr><td>Punch</td><td><kbd>Q</kbd> <kbd>E</kbd></td><td><kbd>;</kbd> <kbd>'</kbd></td></tr>
+    <tr><td>Kick</td><td><kbd>Shift</kbd></td><td><kbd>U</kbd></td></tr>
+    <tr><td>Jump</td><td><kbd>Space</kbd></td><td><kbd>O</kbd></td></tr>
+    <tr><td>Menu</td><td><kbd>Esc</kbd></td><td></td></tr>
+  </table>
+  <p>Any standard gamepad works too: plug it in or pair it, then press a button while the game is open.</p>
+
+  <h2>Questions</h2>
+  <details open><summary>Is oskiewar free?</summary>
+    <p>Yes. The whole game plays free at oskiewar.com. There is nothing to buy to fight.</p></details>
+  <details><summary>Do I need to download anything?</summary>
+    <p>No. oskiewar runs in a web browser. Open oskiewar.com and you are in a fight. No account is needed to play.</p></details>
+  <details><summary>Can I play against a friend online?</summary>
+    <p>Yes. Every match has a room, and the room is a web address. Send it to a friend and they join the fight from their own browser.</p></details>
+  <details><summary>Can two people play on one computer?</summary>
+    <p>Yes. Player one uses <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, player two uses <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd>, both on the same keyboard. Two connected gamepads also work, one each.</p></details>
+  <details><summary>Does it work with a controller?</summary>
+    <p>Yes. Plug in or pair a standard gamepad and press a button on it while the game is open.</p></details>
+  <details><summary>Is oskiewar like Street Fighter?</summary>
+    <p>It is a different game in the same tradition: two fighters, rounds, punches, kicks, blocks, grabs and throws, played head to head. It is free, runs in a browser and is not affiliated with Capcom or Street Fighter.</p></details>
+
+  <a class="play" href="/">Start a fight</a>
+
+  <footer>
+    <p>oskiewar is made by <a href="https://aesthetic.computer/">Aesthetic Computer</a>.
+      <a href="/support.html">Support</a> · <a href="/privacy.html">Privacy</a></p>
+    <p>Street Fighter is a trademark of Capcom. oskiewar is an independent game and is not
+      affiliated with or endorsed by Capcom.</p>
+  </footer>
+</main>
+</body>
+</html>

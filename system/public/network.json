@@ -509,8 +509,8 @@
     },
     {
       "url": "https://oskiewar.com/",
-      "title": "Oskie War",
-      "summary": "A live shared music interface with durable round URLs and a MIDI view.",
+      "title": "oskiewar",
+      "summary": "A free 1v1 fighting game in the browser: two players on one keyboard, two gamepads, or online with a room link.",
       "llms": "https://oskiewar.com/llms.txt",
       "aliases": [
         "www.oskiewar.com",
@@ -522,6 +522,11 @@
           "title": "Website",
           "url": "https://oskiewar.com/",
           "description": "Public entry point."
+        },
+        {
+          "title": "How to play",
+          "url": "https://oskiewar.com/free-fighting-game/",
+          "description": "Controls and FAQ for new players."
         },
         {
           "title": "MIDI view",

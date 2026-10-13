@@ -25,14 +25,14 @@
         ~(?i)^laklok[.]com$ machine/laklok.com.txt
         ~(?i)^learn[.]kidlisp[.]com$ machine/learn.kidlisp.com.txt
         ~(?i)^menuband[.]app$ machine/menuband.app.txt
-        ~(?i)^midi[.]oskiewar[.]com$ machine/oskiewar.com.txt
+        ~(?i)^midi[.]oskiewar[.]com$ oskiewar.com/llms.txt
         ~(?i)^mime[.]ac$ machine/mime.ac.txt
         ~(?i)^nela[.]aesthetic[.]computer$ machine/nela.aesthetic.computer.txt
         ~(?i)^news[.]aesthetic[.]computer$ machine/news.aesthetic.computer.txt
         ~(?i)^nft[.]aesthetic[.]computer$ machine/nft.aesthetic.computer.txt
         ~(?i)^nopaint[.]art$ machine/nopaint.art.txt
         ~(?i)^notepat[.]com$ machine/notepat.com.txt
-        ~(?i)^oskiewar[.]com$ machine/oskiewar.com.txt
+        ~(?i)^oskiewar[.]com$ oskiewar.com/llms.txt
         ~(?i)^p5[.]aesthetic[.]computer$ machine/p5.aesthetic.computer.txt
         ~(?i)^p5[.]prompt[.]ac$ machine/p5.aesthetic.computer.txt
         ~(?i)^pals[.]aesthetic[.]computer$ machine/pals.aesthetic.computer.txt
@@ -63,7 +63,7 @@
         ~(?i)^www[.]mime[.]ac$ machine/mime.ac.txt
         ~(?i)^www[.]nopaint[.]art$ machine/nopaint.art.txt
         ~(?i)^www[.]notepat[.]com$ machine/notepat.com.txt
-        ~(?i)^www[.]oskiewar[.]com$ machine/oskiewar.com.txt
+        ~(?i)^www[.]oskiewar[.]com$ oskiewar.com/llms.txt
         ~(?i)^www[.]prompt[.]ac$ machine/prompt.ac.txt
         ~(?i)^www[.]quiltnet[.]org$ machine/quiltnet.org.txt
         ~(?i)^www[.]sotce[.]net$ machine/sotce.net.txt
