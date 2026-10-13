@@ -10,8 +10,8 @@ export const MIN_TAGS = 2;
 export const MAX_TAGS = 6;
 export const STARTER_TAGS = ["news", "discussion", "free-and-for-sale", "los-angeles", "new-york"];
 
-// Fia's brake on over-posting: a burst cap and an hourly cap, per account.
-export const RATE = { burst: { count: 3, ms: 5 * 60_000 }, hourly: { count: 12, ms: 60 * 60_000 } };
+// Fía's brake on over-posting, sized for chat: a burst cap and an hourly cap, per account.
+export const RATE = { burst: { count: 8, ms: 60_000 }, hourly: { count: 60, ms: 60 * 60_000 } };
 
 // "Free and for sale" → "free-and-for-sale". Tags are the navigation, so they
 // are kept to one spelling.

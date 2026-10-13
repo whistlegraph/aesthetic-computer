@@ -107,14 +107,13 @@ test("posting needs a handle, replies need a living root, deleting keeps the sha
   await assert.rejects(s.post("sub-z", "@z", { text: "late", replyTo: a._id }), /gone/);
 });
 
-test("the brake: three in five minutes, twelve an hour", async () => {
+test("the brake: a burst cap a minute, an hourly cap", async () => {
   const { s, clock } = store();
   const say = (i) => s.post("sub-h", "@harry", { text: "news " + i, tags: ["news", "discussion"] });
-  await say(1); clock.tick(1000); await say(2); clock.tick(1000); await say(3);
-  await assert.rejects(say(4), /Slow down/);
+  let made = 0;
+  while (made < RATE.burst.count) { await say(++made); clock.tick(1000); }
+  await assert.rejects(say(99), /Slow down/);
   clock.tick(RATE.burst.ms + 1000);
-  await say(4);
-  let made = 4;
   while (made < RATE.hourly.count) { clock.tick(RATE.burst.ms + 1000); await say(++made); }
   clock.tick(RATE.burst.ms + 1000);
   await assert.rejects(say(99), /this hour/);

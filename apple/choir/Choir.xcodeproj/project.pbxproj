@@ -22,7 +22,6 @@
 		E505E744ABF3566423E83853 /* SingingMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4974653737A8CA133A08CA1 /* SingingMark.swift */; };
 		ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53CD6DE22C893252D16A3D6B /* CurtainAccountButtonStyle.swift */; };
 		EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F6B2BA21EA37E78011CE54 /* AeselButtonStyle.swift */; };
-		F541770900702B16E35E1552 /* ComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DFF59F2488FAE3BE076551A /* ComposeView.swift */; };
 		FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817102FC4DE130FB7D70ECAC /* Entry.swift */; };
 /* End PBXBuildFile section */
 
@@ -32,7 +31,6 @@
 		0D900063294E7ECA08C63242 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		2588F98D446498A5D78162A2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoirApp.swift; sourceTree = "<group>"; };
-		3DFF59F2488FAE3BE076551A /* ComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposeView.swift; sourceTree = "<group>"; };
 		3EB5F83E9F2FFDF39A7CE23A /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 		4795E20D2523AB8C8C6B203A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
 		4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomView.swift; sourceTree = "<group>"; };
@@ -55,7 +53,6 @@
 				B2713237B6298811227FAC1D /* AccountView.swift */,
 				3EB5F83E9F2FFDF39A7CE23A /* API.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
-				3DFF59F2488FAE3BE076551A /* ComposeView.swift */,
 				817102FC4DE130FB7D70ECAC /* Entry.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
 				4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */,
@@ -182,7 +179,6 @@
 				B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */,
 				EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */,
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,
-				F541770900702B16E35E1552 /* ComposeView.swift in Sources */,
 				ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */,
 				FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,

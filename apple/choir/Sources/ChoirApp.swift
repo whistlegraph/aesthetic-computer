@@ -44,6 +44,8 @@ final class Room: ObservableObject {
     }
     func unhideAll() { hidden = []; UserDefaults.standard.removeObject(forKey: "hidden") }
     /// Real posts, or faux sample cards while the whole room is still empty.
+    /// The chat reads top to bottom: oldest first.
+    var chat: [Post] { visible.reversed() }
     var visible: [Post] {
         if posts.isEmpty && tag == nil && error == nil { return Samples.posts() }
         return posts.filter { !hidden.contains($0.handle) }
