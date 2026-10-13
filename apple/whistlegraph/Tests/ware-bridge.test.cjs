@@ -159,6 +159,23 @@ const server=http.createServer(async(req,res)=>{
     await page.evaluate(()=>whistlegraphNativeCommand({action:'undoDoom'}));
     const undone=await page.evaluate(()=>JSON.parse(localStorage.getItem('whistlegraph-doom-versions')));
     assert.equal(JSON.parse(undone.versions.find(v=>v.id===undone.head).source).things.length,0,'undo restores previous generated WAD');
+    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);
+    const oldWad=await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions'));
+    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.evaluate(()=>whistlegraphAsk('new empty wad'))]);
+    await ready('doom');await checkPalette();
+    await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1)?.snapshot.busy===false);
+    assert.equal((await last()).head,0);assert.equal((await last()).code,'');assert.equal((await last()).caption,'Untitled');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-doom-versions')),oldWad,'new WAD leaves the old project intact');
+    const projects=await page.evaluate(()=>__nativeMessages.filter(m=>m.action==='pieces').at(-1).pieces);
+    assert.equal(projects.length,2);assert.notEqual(projects.find(p=>p.current).id,'legacy');
+    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.evaluate(()=>whistlegraphNativeCommand({action:'openPiece',piece:'legacy'}))]);
+    await ready('doom');await checkPalette();
+    assert.equal((await last()).head,undone.head,'opening the original project restores its own version');
+    await change('roblox');await checkPalette();
+    const oldRoom=await page.evaluate(()=>localStorage.getItem('whistlegraph-roblox-room-versions'));
+    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}),page.evaluate(()=>whistlegraphAsk('new empty Roblox room'))]);
+    await ready('roblox');await checkPalette();assert.equal((await last()).head,0);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('whistlegraph-roblox-room-versions')),oldRoom,'new Roblox project preserves its prior history');
     assert.deepEqual(errors,[]);console.log('PASS ware bridge: iterative AI WAD edits, failure preservation, undo,  account entry, retries, sign-out, migration, switching, drawing, versions, export, durable save and launch gating');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;server.close();});

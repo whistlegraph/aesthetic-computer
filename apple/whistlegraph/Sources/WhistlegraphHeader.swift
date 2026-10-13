@@ -6,6 +6,7 @@ import SwiftUI
 struct PieceSummary: Decodable, Identifiable {
     let id: String
     let code: String
+    var name: String? = nil
     let utterance: String
     let versions: Int
     let updatedAt: String
@@ -19,7 +20,7 @@ struct PieceSummary: Decodable, Identifiable {
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.date(from: updatedAt) ?? ISO8601DateFormatter().date(from: updatedAt)
     }
-    var title: String { code.isEmpty ? "untitled" : code }
+    var title: String { code.isEmpty ? (name ?? "untitled") : code }
 }
 
 // Tapping the piece name: every piece, newest first, and a way to start one.
@@ -41,12 +42,12 @@ struct PiecesSheet: View {
             List {
                 Section {
                     Button { ButtonSounds.play(.pop); newPiece(); dismiss() } label: {
-                        Label("New piece", systemImage: "plus")
+                        Label(session?.snapshot.wareID == "doom" ? "New empty WAD" : session?.snapshot.wareID == "roblox" ? "New Roblox room" : "New piece", systemImage: "plus")
                             .font(.custom("ComicRelief-Bold", size: 20, relativeTo: .title3))
                     }.disabled(disabled).accessibilityIdentifier("pieces-new")
                 }
                 #if WHISTLEGRAPH_INTERNAL_PAYMENTS && DEBUG
-                if let session = mintSession, session.snapshot.handle == "jeffrey", session.snapshot.hasPiece {
+                if let session = mintSession, session.snapshot.wareID == "piece", session.snapshot.handle == "jeffrey", session.snapshot.hasPiece {
                     Section {
                         NavigationLink { WhistlegraphMintSheet(session: session) } label: {
                             Label("Mint on HEN", systemImage: "seal")
@@ -58,7 +59,7 @@ struct PiecesSheet: View {
                     Button { ButtonSounds.play(.play); showingFeed = true } label: {
                         Label("Explore mimes", systemImage: "play.rectangle.on.rectangle")
                     }.accessibilityIdentifier("pieces-explore")
-                    if let session, let current = pieces.first(where: { $0.current }), !current.code.isEmpty {
+                    if let session, session.snapshot.wareID == "piece", let current = pieces.first(where: { $0.current }), !current.code.isEmpty {
                         Toggle(isOn: Binding(get: { publishing.published == true },
                                              set: { value in Task { await publishing.set(value, account: session.account) } })) {
                             Label("Publish /" + current.code, systemImage: "antenna.radiowaves.left.and.right")
@@ -69,7 +70,7 @@ struct PiecesSheet: View {
                         else if !publishing.notice.isEmpty { Text(publishing.notice).font(.footnote).foregroundStyle(.secondary) }
                     }
                 }
-                Section(pieces.count == 1 ? "Your piece" : "Your pieces") {
+                Section("Your projects") {
                     ForEach(pieces) { piece in
                         Button {
                             ButtonSounds.play(piece.current ? .tick : .pop)
@@ -90,7 +91,7 @@ struct PiecesSheet: View {
                             }
                         }
                         .disabled(disabled && !piece.current)
-                        .accessibilityIdentifier("piece-" + piece.title)
+                        .accessibilityIdentifier("piece-" + (session?.snapshot.wareID == "piece" ? piece.title : piece.id))
                         // Deleting frees this phone's 5 MB piece store; the open piece stays.
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             // A knot piece is not in this phone's store; nothing here to delete.
@@ -102,10 +103,10 @@ struct PiecesSheet: View {
                     }
                 }
             }
-            .navigationTitle("Pieces")
+            .navigationTitle("Projects")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .task { if let session, let current = pieces.first(where: { $0.current }) { await publishing.load(code: current.code, account: session.account) } }
+            .task { if let session, session.snapshot.wareID == "piece", let current = pieces.first(where: { $0.current }) { await publishing.load(code: current.code, account: session.account) } }
             .fullScreenCover(isPresented: $showingFeed) { MimeFeedView { showingFeed = false; dismiss() } }
         }
         .presentationDetents([.medium, .large])
@@ -209,25 +210,8 @@ struct IdentityHeader: View {
                 } label: {
                     ComicTitle(text: handleText, colors: session.snapshot.colors, size: size)
                 }.buttonStyle(.plain).accessibilityLabel(handleText + ", account").accessibilityIdentifier("workspace-account")
-                if session.snapshot.wareID == "piece" {
-                    Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: { nameLabel }
-                        .buttonStyle(.plain).accessibilityLabel(mediaName + ", pieces").accessibilityIdentifier("workspace-settings")
-                } else {
-                    Menu {
-                        if session.snapshot.wareID == "doom" {
-                            Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoDoom") }
-                            Button("New empty WAD", systemImage: "plus") { session.command("newDoom") }
-                            Button("Restart", systemImage: "arrow.clockwise") { session.command("playDoom") }
-                            Button("Export WAD", systemImage: "square.and.arrow.up") { session.command("exportWad") }
-                            Button("Publish to MIME", systemImage: "globe") { session.command("publishDoom") }
-                        } else {
-                            Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoRoom") }
-                            Button("Export Roblox place", systemImage: "square.and.arrow.up") { session.command("exportRoom") }
-                        }
-                    } label: { nameLabel }
-                        .disabled(session.snapshot.busy || session.capturePhase != .idle)
-                        .accessibilityLabel(mediaName + ", actions").accessibilityIdentifier("workspace-settings")
-                }
+                Button { beforeOpening(); ButtonSounds.play(.pop); showingPieces = true } label: { nameLabel }
+                    .buttonStyle(.plain).accessibilityLabel(mediaName + ", projects").accessibilityIdentifier("workspace-settings")
                 WarePicker(session: session, size: size, beforeSwitch: beforeOpening)
             }
         }

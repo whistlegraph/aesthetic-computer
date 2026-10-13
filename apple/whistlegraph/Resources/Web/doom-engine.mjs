@@ -4,18 +4,20 @@ import {AcServer} from '/easel/src/ac-server.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
 import {FLASH_MODEL} from './generation-policy.mjs';
 import {PieceVersions} from './piece-versions.mjs';
+import {WareProjects,requestsNewProject} from './ware-projects.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 import {starterLevel,validateLevel,emptySeedHistory,WAD_MIME} from './doom-wad.mjs';
 import {compileDocument,compileProject,asProject,validateProject,encode64,documentSummary} from './doom-project.mjs';
 import {createProjectTools,PROJECT_INSTRUCTIONS} from './doom-project-tools.mjs';
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'doom',...body});
 const account=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state}),loadColors:fetchHandleColors,initialColors:handleCharacterColors,paletteChanged:state=>{if(handle===state.handle){colors=state.colors;snapshot();}}});
-const versions=new PieceVersions(localStorage,'whistlegraph-doom-versions',JSON.stringify(starterLevel()));
-const codes=JSON.parse(localStorage.getItem('whistlegraph-doom-codes')||'{}');
+const projects=new WareProjects(localStorage,'whistlegraph-doom'),projectKey=projects.key();
+const versions=new PieceVersions(localStorage,projectKey+'-versions',JSON.stringify(starterLevel()));
+const codes=JSON.parse(localStorage.getItem(projectKey+'-codes')||'{}');
 const emptySeed=!codes[0]&&emptySeedHistory(versions.value);if(emptySeed)versions.persist(emptySeed);
 const validate=value=>value.format===2?validateProject(value):validateLevel(value);
 let level=validate(JSON.parse(versions.head.source)),wad=null,staged=null,token='',handle='',colors=[],busy=false,server=null,cancelled=false,successful=false,error='',output='',attempt=readAttempt(),code='';
-function readAttempt(){try{const value=JSON.parse(localStorage.getItem('whistlegraph-doom-attempt')||'null');if(value?.status==='working')return {...value,status:'interrupted',error:'Editing was interrupted. The saved WAD is unchanged.'};return value;}catch{return null;}}
+function readAttempt(){try{const value=JSON.parse(localStorage.getItem(projectKey+'-attempt')||'null');if(value?.status==='working')return {...value,status:'interrupted',error:'Editing was interrupted. The saved WAD is unchanged.'};return value;}catch{return null;}}
 let savedAttempt='';
 code=codes[versions.head.id]||'';
 const wares=wareControls('doom');
@@ -36,7 +38,7 @@ window.addEventListener('message',event=>{
  if(event.data?.type==='doom:request'){frameReady=true;for(const ready of frameWaiters.splice(0))ready();sendWad();}
  if(event.data?.type==='doom:compiled'){const call=compileCalls.get(event.data.id);if(!call)return;clearTimeout(call.timer);compileCalls.delete(event.data.id);if(event.data.error)call.reject(Error(event.data.error));else if(event.data.catalog)call.resolve(event.data.catalog);else if(event.data.wad instanceof ArrayBuffer)call.resolve(new Uint8Array(event.data.wad));else call.reject(Error('Invalid Doom compiler reply'));}
 });
-function snapshot(){const pending=JSON.stringify(attempt);if(pending!==savedAttempt){try{localStorage.setItem('whistlegraph-doom-attempt',pending);savedAttempt=pending;}catch{}}post({action:'snapshot',snapshot:{ware:'doom',code,caption:level.title,handle,colors,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
+function snapshot(){post({action:'pieces',pieces:projects.list({ledger:versions.value,name:level.title,code})});const pending=JSON.stringify(attempt);if(pending!==savedAttempt){try{localStorage.setItem(projectKey+'-attempt',pending);savedAttempt=pending;}catch{}}post({action:'snapshot',snapshot:{ware:'doom',code,caption:level.title,handle,colors,head:versions.head.id,hasPiece:true,hasPreview:true,busy,phase:busy?'Building WAD…':'Doom arena',error,output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});}
 async function commit(next,request){
   if(versions.value.versions.length>=100)throw Error('Export this WAD before starting another history.');
   const value=validate(next),source=JSON.stringify(value);if(source===versions.head.source)return false;
@@ -49,8 +51,9 @@ const artifacts={
  tools:projectTools.tools,
  run:async(name,input)=>{if(cancelled||wares.pending)throw Error('Doom edit stopped');try{return await projectTools.run(name,input);}catch(failure){if(failure.name==='DoomAssetError'){error=failure.message;cancelled=true;server?.interrupt();}throw failure;}}
 };
+function newProject(){projects.new(JSON.stringify(starterLevel()));location.reload();}
 async function ask(text){
-  if(busy)return;const target=requestedWare(text);if(target){window.whistlegraphWorkFinished?.();window.whistlegraphSelectWare?.(target);return;}
+  if(busy)return;if(requestsNewProject(text)){try{newProject();}catch(failure){error=failure.message;snapshot();}window.whistlegraphWorkFinished?.();return;}const target=requestedWare(text);if(target){window.whistlegraphWorkFinished?.();window.whistlegraphSelectWare?.(target);return;}
   error='';output='';staged=null;cancelled=false;successful=false;wares.clear();
   try{
     // A few deterministic edits work offline and make the initial ware useful.
@@ -72,7 +75,7 @@ function base64(){if(!wad)throw Error('WAD is still compiling');return encode64(
 async function publish(){
   if(code){output='Published: '+code;snapshot();return;}
   if(!token){post({action:'signIn'});return;}const credential=token,head=versions.head.id;busy=true;error='';snapshot();
-  try{const response=await fetch('https://aesthetic.computer/api/mime',{method:'POST',headers:{Authorization:`Bearer ${credential}`,'Content-Type':'application/json'},body:JSON.stringify({text:level.title,file:{name:wadFilename(),type:WAD_MIME,data:base64()}})});const result=await response.json();if(!response.ok)throw Error(result.error||'Could not publish WAD');if(token===credential&&versions.head.id===head){code=result.code;codes[head]=code;localStorage.setItem('whistlegraph-doom-codes',JSON.stringify(codes));output='Published: '+code;}}
+  try{const response=await fetch('https://aesthetic.computer/api/mime',{method:'POST',headers:{Authorization:`Bearer ${credential}`,'Content-Type':'application/json'},body:JSON.stringify({text:level.title,file:{name:wadFilename(),type:WAD_MIME,data:base64()}})});const result=await response.json();if(!response.ok)throw Error(result.error||'Could not publish WAD');if(token===credential&&versions.head.id===head){code=result.code;codes[head]=code;localStorage.setItem(projectKey+'-codes',JSON.stringify(codes));output='Published: '+code;}}
   catch(failure){error=failure.message;}finally{busy=false;snapshot();}
 }
 async function change(operation){busy=true;cancelled=false;snapshot();try{await operation();}catch(failure){error=failure.message;}finally{busy=false;snapshot();}}
@@ -84,7 +87,9 @@ window.whistlegraphNativeCommand=command=>{
     if(command.action==='checkout')void change(()=>checkout(command.version));
     if(command.action==='undoDoom'&&versions.head.parent!==null)void change(()=>checkout(versions.head.parent));
     if(command.action==='retry'&&attempt?.request)void ask(attempt.request);
-    if(command.action==='newDoom')void change(()=>commit(starterLevel(),'New empty WAD'));
+    if(command.action==='newDoom'||command.action==='newPiece')newProject();
+    if(command.action==='openPiece'){projects.open(command.piece);location.reload();}
+    if(command.action==='deletePiece'){projects.remove(command.piece);snapshot();}
     if(command.action==='exportWad')post({action:'exportWad',filename:wadFilename(),data:base64()});
     if(command.action==='publishDoom')void publish();
     if(command.action==='playDoom')render();

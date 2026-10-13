@@ -81,7 +81,7 @@ final class WaresTests: XCTestCase {
         XCTAssertTrue(app.buttons["doom-actions"].waitForExistence(timeout: 30))
         let compiled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["doom-actions"])
         XCTAssertEqual(XCTWaiter().wait(for: [compiled], timeout: 60), .completed)
-        app.buttons["workspace-settings"].tap()
+        app.buttons["doom-actions"].tap()
         app.buttons["Export WAD"].tap()
         let copy = app.descendants(matching: .any)["Copy"].firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 15))
@@ -127,5 +127,42 @@ final class WaresTests: XCTestCase {
         app.buttons["ware-piece"].tap()
         XCTAssertTrue(app.buttons["workspace-settings"].waitForExistence(timeout: 20))
         XCTAssertFalse(app.buttons["play-roblox"].exists)
+    }
+}
+
+extension WaresTests {
+    func testNewWadHasItsOwnHistoryAndKeepsThePreviousProject() {
+        let app = XCUIApplication()
+        app.launch()
+        let picker = app.buttons["ware-picker"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 30))
+        let ready = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: picker)
+        XCTAssertEqual(XCTWaiter().wait(for: [ready], timeout: 30), .completed)
+        let banner = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .descendants(matching: .any)["NotificationShortLookView"].firstMatch
+        if banner.exists { banner.swipeUp() }
+        picker.tap()
+        let doom = app.buttons["ware-doom"]
+        if !doom.waitForExistence(timeout: 2) { if banner.exists { banner.swipeUp() }; picker.tap() }
+        XCTAssertTrue(doom.waitForExistence(timeout: 5)); doom.tap()
+        let compiled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["doom-actions"])
+        XCTAssertEqual(XCTWaiter().wait(for: [compiled], timeout: 60), .completed)
+        let current = NSPredicate(format: "identifier BEGINSWITH %@ AND value == %@", "version-", "Current version")
+        let old = app.buttons.matching(current).firstMatch
+        let oldVersion = old.exists ? old.identifier : ""
+        app.buttons["workspace-settings"].tap()
+        XCTAssertTrue(app.buttons["pieces-new"].waitForExistence(timeout: 10))
+        app.buttons["pieces-new"].tap()
+        XCTAssertTrue(app.webViews.otherElements["Empty Doom room"].waitForExistence(timeout: 60))
+        XCTAssertFalse(app.buttons.matching(current).firstMatch.exists, "A fresh v0 project has no made versions")
+        app.buttons["workspace-settings"].tap()
+        let previous = app.buttons["piece-legacy"]
+        XCTAssertTrue(previous.waitForExistence(timeout: 10), "The original WAD remains in the project picker")
+        previous.tap()
+        if !oldVersion.isEmpty { XCTAssertTrue(app.buttons[oldVersion].waitForExistence(timeout: 60)) }
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Original WAD restored after New empty WAD"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 }

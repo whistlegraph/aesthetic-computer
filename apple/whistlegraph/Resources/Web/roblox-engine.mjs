@@ -4,6 +4,7 @@ import {AcServer} from '/easel/src/ac-server.mjs';
 import {verifyAccount} from '/easel/src/account-access.mjs';
 import {FLASH_MODEL} from './generation-policy.mjs';
 import {PieceVersions} from './piece-versions.mjs';
+import {WareProjects,requestsNewProject} from './ware-projects.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 import {starterRoom,validateRoom,drawPath,localRoomEdit,ROOM_SCHEMA,ROOM_LIMITS} from './room-schema.mjs';
 import {roomPreview} from './roblox-preview.mjs';
@@ -12,7 +13,8 @@ import {saveForLaunch} from './roblox-connection.mjs';
 
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'roblox',...body});
 const accountConnection=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state}),loadColors:fetchHandleColors,initialColors:handleCharacterColors,paletteChanged:state=>{if(handle===state.handle){colors=state.colors;snapshot();}}});
-const key='whistlegraph-roblox-room',endpoint='https://aesthetic.computer/api/whistlegraph-roblox';
+const projects=new WareProjects(localStorage,'whistlegraph-roblox-room');
+const key=projects.key(),endpoint='https://aesthetic.computer/api/whistlegraph-roblox';
 const versions=new PieceVersions(localStorage,key+'-versions',JSON.stringify(starterRoom()));
 let room=validateRoom(JSON.parse(versions.head.source)),selected='bridge',token='',handle='',colors=[],owner='',busy=false,server=null;
 let notice='Saved on this phone.',error='',output='',attempt=null,staged=null,cancelled=false,successful=false;
@@ -22,7 +24,7 @@ document.getElementById('initial').hidden=true;
 const box=document.createElement('div');box.id='live-preview-box';document.getElementById('stage').prepend(box);
 const preview=roomPreview(box,{getRoom:()=>staged||room,canEdit:()=>!busy&&!window.whistlegraphRecording?.(),
   onPath:points=>commit(drawPath(room,points),'Draw a path'),onSelect:id=>{selected=id;snapshot();},onError:message=>{error=message;snapshot();}});
-function snapshot(){
+function snapshot(){post({action:'pieces',pieces:projects.list({ledger:versions.value,name:'untitled',code:''})});
   post({action:'snapshot',snapshot:{ware:'roblox',roblox:{selected,notice:error||notice},code:'',handle,colors,head:versions.head.id,
     hasPiece:true,hasPreview:true,busy,phase:busy?'Building room…':'Room plan',error,output:output.slice(-6000),attempt,
     versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt})),
@@ -52,7 +54,7 @@ const artifacts={
   },
 };
 async function ask(text){
-  if(busy)return;
+  if(busy)return;if(requestsNewProject(text,'roblox')){try{projects.new(JSON.stringify(starterRoom()));location.reload();}catch(failure){error=failure.message;snapshot();}window.whistlegraphWorkFinished?.();return;}
   if(!String(text).trim()){error='Say what should change in the room.';snapshot();window.whistlegraphWorkFinished?.();return;}
   const target=requestedWare(text);
   if(target){window.whistlegraphWorkFinished?.();window.whistlegraphSelectWare?.(target);return;}
@@ -115,6 +117,9 @@ window.whistlegraphNativeCommand=command=>{
   if(command.action==='stop'){cancelled=true;server?.interrupt();return;}
   if(busy)return;
   try {
+    if(command.action==='newPiece'||command.action==='newRoom'){projects.new(JSON.stringify(starterRoom()));location.reload();}
+    if(command.action==='openPiece'){projects.open(command.piece);location.reload();}
+    if(command.action==='deletePiece'){projects.remove(command.piece);snapshot();}
     if(command.action==='setWare')window.whistlegraphSelectWare?.(command.ware);
     if(command.action==='ask'&&typeof command.text==='string'&&command.text.trim()&&Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(command.text)).length<=96)void ask(command.text.trim());
     if(command.action==='checkout')checkout(command.version);
