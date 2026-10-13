@@ -1949,31 +1949,13 @@ function ac-lith
     node --watch server.mjs
 end
 
-function ac-deploy --description 'Deploy lith: push + pull + restart on droplet'
-    cd ~/aesthetic-computer
-    set LITH_IP "209.38.133.33"
-
-    echo "🪨 Deploying to lith ($LITH_IP)..."
-
-    # Push local changes if any
-    set -l status_output (git status --porcelain)
-    if test -n "$status_output"
-        echo "⚠️  You have uncommitted changes. Commit first."
-        return 1
-    end
-
-    echo "📤 Pushing to origin..."
-    git push origin main; or begin; echo "❌ Push failed"; return 1; end
-
-    echo "🔄 Pulling on droplet..."
-    ssh -o StrictHostKeyChecking=no root@$LITH_IP "cd /opt/ac && git pull origin main && git rev-parse --short HEAD > system/public/.commit-ref && cat system/public/.commit-ref"
-
-    echo "🔁 Restarting lith..."
-    ssh root@$LITH_IP "systemctl restart lith"
-
-    sleep 3
-    set -l version (curl -s "https://aesthetic.computer/api/version" | python3 -c "import json,sys; print(json.load(sys.stdin)['deployed'])" 2>/dev/null)
-    echo "✅ Deployed: $version"
+function ac-deploy --description 'Deploy lith from the knot: slab/bin/ac-deploy'
+    # This used to push local main and `git pull` on lith by hand, and it shadowed
+    # the real command on every Mac whose fish sources this file. Production is
+    # deployed from the knot's main by slab/bin/ac-deploy: it checks the identity,
+    # runs lith/deploy.fish, then verifies the bytes production serves.
+    set -l root (test -n "$AC_ROOT"; and echo $AC_ROOT; or echo ~/aesthetic-computer)
+    node $root/slab/bin/ac-deploy $argv
 end
 
 function ac-media
