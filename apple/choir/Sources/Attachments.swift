@@ -8,8 +8,8 @@ struct Pending: Identifiable {
     var data: Data
     var original: UIImage? = nil     // unfiltered, so filters can be swapped
     var filter: PhotoFilter = .original
-    let name: String
-    let type: String
+    var name: String
+    var type: String
     var width: Int? = nil
     var height: Int? = nil
     var thumbnail: UIImage? = nil
@@ -35,9 +35,21 @@ enum Picks {
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
         let filtered = filter.apply(resized)
-        guard let jpg = filtered.jpegData(compressionQuality: 0.85) else { return nil }
-        return Pending(data: jpg, original: resized, filter: filter, name: "choir-\(Int(Date().timeIntervalSince1970)).jpg",
-                       type: "image/jpeg", width: Int(size.width), height: Int(size.height), thumbnail: filtered)
+        guard let (data, type, ext) = encode(filtered, filter: filter) else { return nil }
+        return Pending(data: data, original: resized, filter: filter, name: "choir-\(Int(Date().timeIntervalSince1970)).\(ext)",
+                       type: type, width: Int(filtered.size.width), height: Int(filtered.size.height), thumbnail: filtered)
+    }
+
+    /// The daisy keeps its transparency (PNG, ≤1440 px); everything else is JPEG.
+    static func encode(_ image: UIImage, filter: PhotoFilter) -> (Data, String, String)? {
+        if filter == .daisyIris {
+            let side = min(1440, image.size.width * image.scale)
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = false
+            let small = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+                .image { _ in image.draw(in: CGRect(x: 0, y: 0, width: side, height: side)) }
+            return small.pngData().map { ($0, "image/png", "png") }
+        }
+        return image.jpegData(compressionQuality: 0.85).map { ($0, "image/jpeg", "jpg") }
     }
 
     static func file(_ url: URL) -> Pending? {
@@ -84,8 +96,10 @@ struct PendingStrip: View {
         .sheet(item: $filtering) { p in
             if let original = p.original {
                 FilterSheet(original: original, current: p.filter) { image, filter in
-                    guard let i = items.firstIndex(where: { $0.id == p.id }), let jpg = image.jpegData(compressionQuality: 0.85) else { return }
-                    items[i].data = jpg; items[i].thumbnail = image; items[i].filter = filter
+                    guard let i = items.firstIndex(where: { $0.id == p.id }), let (data, type, ext) = Picks.encode(image, filter: filter) else { return }
+                    items[i].data = data; items[i].thumbnail = image; items[i].filter = filter; items[i].type = type
+                    items[i].width = Int(image.size.width); items[i].height = Int(image.size.height)
+                    items[i].name = (items[i].name as NSString).deletingPathExtension + "." + ext
                 }
             }
         }
