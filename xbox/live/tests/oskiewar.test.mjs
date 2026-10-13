@@ -612,7 +612,9 @@ test("a detected pad swaps the round legend onto gamepad wording", () => {
   assert.equal(host.capabilities().inputFamily, "xbox");
   const { fight } = createFight(false, false, "xbox-uwp");
   assert.equal(fight.combatLegend(fight.players[0]),
-    "LEFT,RIGHT MOVE   RIGHT,RIGHT >> DASH   A KICK   B PUNCH   X SHIELD   Y USE ITEM   STICK AIR");
+    "< > MOVE   > > DASH   v CROUCH   B JUMP   X Y PUNCH   A KICK   X+Y GRAB   A+X BUBBLE");
+  assert.equal(fight.controlLocale().combat, fight.combatLegend(fight.players[0]),
+    "one move list: the locale and the legend read the same rows");
 });
 
 test("every instructional keyboard key uses the shared gray keycap renderer", () => {

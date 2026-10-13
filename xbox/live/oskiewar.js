@@ -130,7 +130,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 273;
+const buildVersion = 276;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -1392,8 +1392,7 @@ function drawBow(player, layer = "all") {
 
 // The skater's clothes, drawn over the figure in its own style (flat colour,
 // the dark outline): a white T-shirt with short sleeves and a daisy on the
-// chest, and a pleated skirt — alternating panels flaring to the hem — that
-// swings with the rider's movement.
+// chest.
 function drawOutfit(player, geometry) {
   const torso = geometry.segments.find((segment) => segment.role === "torso");
   if (!torso || !hasPart(player, "torso")) return;
@@ -1401,7 +1400,6 @@ function drawOutfit(player, geometry) {
   const edge = Math.max(1.25, Math.min(3, scale * 1.8));
   const outline = [8, 12, 24];
   const shirt = player.shirtColor || [252, 252, 250];
-  const skirt = player.skirtColor || [188, 164, 226];
   const neck = { x: torso.x1, y: torso.y1 }, hip = { x: torso.x2, y: torso.y2 };
   const ux = neck.x - hip.x, uy = neck.y - hip.y, length = Math.hypot(ux, uy) || 1;
   const up = { x: ux / length, y: uy / length }, across = { x: -up.y, y: up.x };
@@ -1451,131 +1449,8 @@ function drawOutfit(player, geometry) {
   }
   filledDisc(daisy.x, daisy.y, petal * 1.1 + edge * .6, [200, 150, 40]);
   filledDisc(daisy.x, daisy.y, petal * 1.1, [252, 206, 72]);
-  if(!player.pantsColor)drawSkirt(player, skirt, outline, edge, scale, geometry);
 }
 
-// Each pleat has several movable points so contact can bend the fabric
-// between the waistband and hem. This is visual cloth, independent of play.
-const skirtPleats = 5;
-const skirtRows = 3;
-function drawSkirt(player, skirt, outline, edge, scale, geometry) {
-  if(player.civilian){
-    // The projected pose the outfit was handed — the same one this used to
-    // constrain and project again, per kid, per frame.
-    const torso=geometry.segments.find(s=>s.role==='torso');
-    if(!torso)return;
-    const x=torso.x2,y=torso.y2,w=18*scale,h=32*scale;
-    screenTriangle(x-w*.5,y,x+w*.5,y,x+w,y+h,...skirt);
-    screenTriangle(x-w*.5,y,x+w,y+h,x-w,y+h,...skirt);
-    for(let i=-1;i<=1;i++)stroke(x+i*w*.25,y,x+i*w*.5,y+h,1.2,outline);
-    return;
-  }
-  const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, 0);
-  const torso = world.segments.find((segment) => segment.role === "torso");
-  if (!torso) return;
-  const now = runtime().monotonicUs;
-  const hip = { x: torso.x2, y: torso.y2, z: torso.z2 ?? player.z ?? 0 };
-  const waistHalf = 9, drop = 38, flare = 22;
-  const thighs = world.segments.filter((bone) => /thigh$/.test(bone.role || "") && hasPart(player, bone.part));
-  const anchors = Array.from({ length: skirtPleats + 1 }, (_, index) => {
-    const side = index / skirtPleats * 2 - 1;
-    return { x: hip.x + side * waistHalf, y: hip.y - 3, z: hip.z - 5 };
-  });
-  let cloth = player.skirtCloth;
-  if (!cloth?.nodes || Math.hypot(hip.x - cloth.hip.x, hip.y - cloth.hip.y) > 150) {
-    cloth = player.skirtCloth = { at: now, hip, nodes: anchors.map((anchor, index) =>
-      Array.from({ length: skirtRows + 1 }, (_, row) => {
-        const t = row / skirtRows, side = index / skirtPleats * 2 - 1;
-        const x = anchor.x + side * flare * t, y = anchor.y + drop * t;
-        const z = anchor.z - Math.sin(index / skirtPleats * Math.PI) * 3;
-        return { x, y, z, px: x, py: y, pz: z };
-      })) };
-  }
-  const dt = clamp((now - cloth.at) / 1e6, 0, .05);
-  cloth.at = now;
-  cloth.hip = hip;
-  const nodes = cloth.nodes;
-  for (let col = 0; col <= skirtPleats; col++) {
-    Object.assign(nodes[col][0], anchors[col]);
-    for (let row = 1; row <= skirtRows; row++) {
-      const point = nodes[col][row];
-      if (dt > 0) {
-        const drag = Math.exp(-dt * 5);
-        const vx = (point.x - point.px) * drag, vy = (point.y - point.py) * drag;
-        const vz = (point.z - point.pz) * drag;
-        point.px = point.x; point.py = point.y; point.pz = point.z;
-        point.z += vz;
-        point.x += vx; point.y += vy + 1800 * dt * dt;
-      }
-    }
-  }
-  const separate = (point, bone) => {
-    const dx = bone.x2 - bone.x1, dy = bone.y2 - bone.y1;
-    const z1 = bone.z1 ?? hip.z, dz = (bone.z2 ?? hip.z) - z1;
-    const t = clamp(((point.x - bone.x1) * dx + (point.y - bone.y1) * dy +
-      (point.z - z1) * dz) / (dx * dx + dy * dy + dz * dz || 1), 0, 1);
-    const x = bone.x1 + dx * t, y = bone.y1 + dy * t, z = z1 + dz * t;
-    const ox = point.x - x, oy = point.y - y;
-    // This is the front of the skirt. Give an initially embedded point the
-    // front-facing normal, so it drapes over a thigh instead of parting into
-    // two strips or flipping through to the back of the leg.
-    const oz = Math.min(-.5, point.z - z);
-    const distance = Math.hypot(ox, oy, oz), radius = (bone.width || 10) / 2 + 3;
-    if (distance >= radius) return;
-    point.x = x + ox / distance * radius;
-    point.y = y + oy / distance * radius;
-    point.z = z + oz / distance * radius;
-  };
-  const link = (a, b, limit, pinned = false, taut = false) => {
-    const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
-    const length = Math.hypot(dx, dy, dz);
-    if (length < .00001 || (!taut && length <= limit)) return;
-    const pull = (length - limit) / length;
-    const share = pinned ? 1 : .5;
-    b.x -= dx * pull * share; b.y -= dy * pull * share; b.z -= dz * pull * share;
-    if (!pinned) { a.x += dx * pull * .5; a.y += dy * pull * .5; a.z += dz * pull * .5; }
-  };
-  // Alternate stretch and capsule contact. Contact is last, so a neighbour
-  // cannot pull a fold back inside the leg after the collision pass.
-  for (let pass = 0; pass < 3; pass++) {
-    for (let col = 0; col <= skirtPleats; col++) {
-      const side = col / skirtPleats * 2 - 1;
-      const length = Math.hypot(drop, side * flare) / skirtRows;
-      for (let row = 1; row <= skirtRows; row++) {
-        link(nodes[col][row - 1], nodes[col][row], length, row === 1);
-        if (col > 0) link(nodes[col - 1][row], nodes[col][row],
-          (waistHalf * 2 + flare * 2 * row / skirtRows) / skirtPleats, false, true);
-      }
-    }
-    for (let col = 0; col <= skirtPleats; col++)
-      for (let row = 1; row <= skirtRows; row++)
-        for (const bone of thighs) separate(nodes[col][row], bone, col < skirtPleats / 2 ? -1 : 1);
-  }
-  const points = nodes.map((column, col) => column.map((p, row) =>
-    projectPoint(p.x, p.y, p.z - (col % 2) * 1.5 * row / skirtRows)));
-  if (!points.flat().every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) return;
-  for (let col = 0; col < skirtPleats; col++) {
-    for (let row = 0; row < skirtRows; row++) {
-      const a = points[col][row], b = points[col + 1][row];
-      const c = points[col + 1][row + 1], d = points[col][row + 1];
-      const fold = nodes[col + 1][row].z - nodes[col][row].z;
-      const shade = clamp(.07 + Math.abs(fold) / 35, .07, .3);
-      const ink = mixColor(skirt, col % 2 ? [25, 20, 40] : [255, 255, 255], shade);
-      screenTriangle(a.x, a.y, b.x, b.y, c.x, c.y, ...ink);
-      screenTriangle(a.x, a.y, c.x, c.y, d.x, d.y, ...ink);
-    }
-  }
-  for (let col = 0; col <= skirtPleats; col++)
-    for (let row = 0; row < skirtRows; row++) {
-      const a = points[col][row], b = points[col][row + 1];
-      stroke(a.x, a.y, b.x, b.y, col === 0 || col === skirtPleats ? edge : Math.max(.8, edge * .45),
-        col === 0 || col === skirtPleats ? outline : mixColor(skirt, [0, 0, 0], .3));
-    }
-  for (let col = 0; col < skirtPleats; col++) {
-    const a = points[col][skirtRows], b = points[col + 1][skirtRows];
-    stroke(a.x, a.y, b.x, b.y, edge, outline);
-  }
-}
 
 // A fighter's scars: a raised pink line across the limb where each hit
 // landed, darker down its middle, kept for the rest of the visit.
@@ -3160,7 +3035,7 @@ function drawFlatFigure(player, world, now) {
   const figure = gameObjects.figure, i = figureInputs;
   i.blink = ((now / 1e6 + (player.pad || 0) * .7) % 3.4) < .12 ? 1 : 0;
   i.hurt = !player.alive || player.hit > .6 ? 1 : 0;
-  i.skirt = player.pantsColor ? 0 : 1;
+  i.skirt = 0;   // the skirt is retired
   i.glasses = player.parkProfile?.appearance?.glasses ? 1 : 0;
   figure(i, figurePlace, figureVariantOut);
   const sketch = figure.sketches[figureVariant];
@@ -7711,6 +7586,8 @@ function returnToTitle(now, reason = "back") {
   else beginTraining(now);
   parkKids.length=0;
   shellMode="MENU";gameplayStarted=false;titleTransitionAt=null;
+  // The press that brought you back is not a press to go in again.
+  shellPrevious=(padSnapshots[0]?.down||[]).filter((button)=>button!=="View");
   // Menu is a hard navigation boundary: discard the prior fight's zoom and
   // right-stick diorama angle before the very first title frame is painted.
   playerCameraYaw = 0;
@@ -8037,11 +7914,11 @@ function updateShell(now, tapped = false) {
   const speedTap = (button) => rawDown.includes(button) &&
     !shellRawPrevious.includes(button);
   shellRawPrevious = rawDown.slice();
-  // View and Menu are the system's buttons — View toggles the debug HUD and
-  // must not double as "start the game". Everything else, and a real lean on
-  // the analog stick, says the player wants in.
+  // View toggles the debug HUD and must not double as "start the game".
+  // Everything else — Start included, it is the start button — and a real
+  // lean on the analog stick says the player wants in.
   const down = rawDown
-    .filter((button) => button !== "View" && button !== "Menu" &&
+    .filter((button) => button !== "View" &&
       button !== "SpeedUp" && button !== "SpeedDown");
   const stickLive = Math.abs(pad.leftX || 0) > .5 || Math.abs(pad.leftY || 0) > .5;
   if (titleTransitionAt !== null) {
@@ -16677,6 +16554,7 @@ const spineBody = (() => {
       sway: .016,             // rhythm side bend per joint (radians)
       wring: .18,             // rhythm twist at the ends (radians)
       react: 8,               // how fast muscles move toward what's asked (1/s)
+      rise: 14,               // how fast the legs bring the hips back to standing (1/s)
       shoulder: 20,           // half the shoulders
       hipWidth: 11,           // half the hips
       arm: [34, 32],          // upper arm, forearm
@@ -16939,7 +16817,7 @@ const spineBody = (() => {
       // A driven root belongs to someone else (the game): they say where it is,
       // how it moves and whether it's flying; the body only stands on it.
       if (root.driven) {
-        root.y += (stand - root.y) * (1 - Math.exp(-14 * dt));
+        root.y += (stand - root.y) * (1 - Math.exp(-(o.rise ?? 14) * dt));
         carryAlong(spine);
       }
       else if (root.air) {
@@ -16948,7 +16826,7 @@ const spineBody = (() => {
           spine.landed = -root.vy; root.air = false; root.vy = 0; root.y = stand;
           land(spine, spine.landed * .6);
         }
-      } else root.y += (stand - root.y) * (1 - Math.exp(-14 * dt));
+      } else root.y += (stand - root.y) * (1 - Math.exp(-(o.rise ?? 14) * dt));
       if (!root.driven) { root.x += root.vx * dt; root.z += root.vz * dt; }
 
       const h = dt / o.substeps;
@@ -17543,7 +17421,12 @@ const spineBody = (() => {
 // `__oskiewarBody = "rig"` keeps the old rig.
 // Rollback netplay keeps the old rig for now: a body's springs aren't in the
 // rollback snapshot yet, and bodies are hitboxes, so seats would drift apart.
-const spineBodiesOn = () => poolOnly() && !netSession && globalThis.__oskiewarBody !== "rig";
+// The spine body is the fighter everywhere now — the dojo's flat arena as
+// well as the park — except inside a rollback fight, whose snapshots do not
+// carry it yet. `__oskiewarBody = "rig"` brings back the keyed rig.
+const spineBodiesOn = () => !netSession && globalThis.__oskiewarBody !== "rig";
+// Which way the body faces: the park's heading, or the arena's left/right.
+const spineYaw = (p) => (poolOnly() ? p.poolYaw || 0 : p.facing < 0 ? Math.PI : 0) + (p.spin?.angle || 0);
 // The cast follows the park's own seed (a new layout deals new bodies), so
 // two sims of the same game — and every screen of one — roll the same ones.
 const spineCastSeed = () => (globalThis.__oskiewarBodySeed ?? parkLayoutSeed ?? 0x5eed) >>> 0;
@@ -17551,11 +17434,27 @@ function rollSpineBody(p) {
   p.spineBodies = (p.spineBodies || 0) + 1;
   p.spineActor = null;
 }
+// Looser than the lab's person: softer bends, less damping, more lag and
+// sway, so a move rolls through the whole body like water. The neck keeps
+// its stiffness so the head still reads. `__oskiewarLiquid` (0 = the lab's
+// body, 1 = this) is for tuning on the console.
+function liquidBody(body) {
+  const l = Number.isFinite(globalThis.__oskiewarLiquid) ? globalThis.__oskiewarLiquid : 1;
+  const mix = (value, factor) => value * (1 + (factor - 1) * l);
+  // Twist keeps the lab's stiffness: a soft twist is what set the head
+  // gyrating while the body stood still.
+  return { ...body, stiffLow: mix(body.stiffLow, .55), stiffHigh: mix(body.stiffHigh, .55),
+    damping: mix(body.damping, .8), lag: mix(body.lag, 1.5), sway: mix(body.sway, 1.6),
+    react: mix(body.react, .6), rise: mix(14, .55) };
+}
 function spineActorFor(p) {
   if (p.spineActor) return p.spineActor;
   const seed = (spineCastSeed() ^ Math.imul((p.pad ?? 0) + 1, 2654435761) ^ Math.imul(p.spineBodies || 0, 40503)) >>> 0;
-  const actor = spineBody.createActor(spineBody.randomBody(seed));
+  const actor = spineBody.createActor(liquidBody(spineBody.randomBody(seed)));
   actor.driven = true; actor.body.root.driven = true; actor.seed = seed;
+  const o = actor.body.o;
+  actor.tone = { react: o.react, rise: o.rise, hold: o.hold, carry: o.carry, muscle: o.muscle };
+  actor.daze = 0;
   placeSpineRoot(p, actor);
   spineBody.settle(actor.body);
   return p.spineActor = actor;
@@ -17565,7 +17464,7 @@ function spineActorFor(p) {
 function placeSpineRoot(p, actor) {
   const root = actor.body.root;
   root.x = p.x; root.z = p.z || 0; root.vx = p.vx || 0; root.vz = p.vz || 0;
-  root.yaw = (p.poolYaw || 0) + (p.spin?.angle || 0);
+  root.yaw = spineYaw(p);
   root.air = !p.grounded && !p.goKart;
 }
 function updateSpineBodies(now) {
@@ -17578,23 +17477,50 @@ function updateSpineBodies(now) {
     if (Math.hypot(p.x - body.root.x, (p.z || 0) - body.root.z) > 240) { placeSpineRoot(p, actor); spineBody.settle(body); }
     const wasAir = body.root.air;
     placeSpineRoot(p, actor);
+    // Daze: a hit or a hard landing knocks the tone out of the body, and it
+    // comes back over a second or two — slack, slow muscles, hips that sag
+    // and lag the legs — so standing back up is something the body does.
+    actor.daze = (actor.daze || 0) * Math.exp(-1.3 * spineBody.step);
+    { const d = actor.daze, o = body.o, rest = actor.tone;
+      o.muscle = rest.muscle * (1 - .6 * d); o.react = rest.react * (1 - .75 * d);
+      o.rise = rest.rise * (1 - .8 * d); o.hold = rest.hold * (1 - .6 * d);
+      o.carry = rest.carry * (1 - .55 * d); }
     const mode = p.goKart ? "kart" : p.skateboard || p.onewheel ? "board" : "foot";
     if (mode !== actor.mode) spineBody.setMode(actor, mode);
     actor.speed = Math.hypot(p.vx || 0, p.vz || 0);
-    input.forward = p.inputZ || 0; input.turn = -(p.inputX || 0);
+    // The park steers with the stick; the arena only runs forward, at its
+    // own speed, toward whichever way the fighter faces.
+    if (poolOnly()) { input.forward = p.inputZ || 0; input.turn = -(p.inputX || 0); }
+    else { input.forward = Math.min(1, Math.abs(p.vx || 0) / 420); input.turn = 0; }
     input.crouch = !!p.ducking || (p.crouchBlend || 0) > .35;
     input.spin = !!p.spin && !p.goKart;
     // Landing: the rope takes it, the knees soak it.
-    if (wasAir && !body.root.air) { spineBody.land(body, Math.min(900, Math.abs(p.landingSpeed || 0) * .35 + 200)); actor.landedAt = actor.time; }
+    if (wasAir && !body.root.air) {
+      const fall = Math.abs(p.landingSpeed || 0);
+      spineBody.land(body, Math.min(1400, fall * .6 + 300)); actor.landedAt = actor.time;
+      actor.daze = Math.min(1, actor.daze + clamp((fall - 500) / 1600, 0, .45));
+    }
     // Strikes start the body's own: the spine winds, then throws.
     if (p.attackKind && p.attackStartedAt !== actor.lastAttack) {
       actor.lastAttack = p.attackStartedAt;
       if (p.attackKind === "KICK") spineBody.trigger(actor, "kick", p.facing < 0 ? -1 : 1);
       else spineBody.trigger(actor, "punch", p.strikeArm === "left-arm" ? -1 : 1);
+      // Oomph: the chest throws its weight into the blow.
+      if (!poolOnly()) spineBody.impulse(body, spineBody.chestIndex(body), (p.facing < 0 ? -1 : 1) * 420, 40, 0);
     }
     if ((p.hitStunUntil || 0) > (actor.stunnedUntil || 0) && p.hitStunUntil > now) {
       actor.stunnedUntil = p.hitStunUntil;
       spineBody.trigger(actor, "hit", (actor.hits = (actor.hits || 0) + 1) % 2 ? 1 : -1);
+      // Stumble: in the flat arena the blow lands along x, away from whoever
+      // threw it — chest first, hips after — sized by how long it stuns.
+      if (!poolOnly()) {
+        const other = activePlayers().find((q) => q !== p);
+        const away = other ? (p.x >= other.x ? 1 : -1) : -(p.facing || 1);
+        const force = clamp((p.hitStunUntil - now) / 350000, .5, 1.6);
+        spineBody.impulse(body, spineBody.chestIndex(body), away * 1100 * force, 180 * force, 0, 2.5);
+        spineBody.impulse(body, 1, away * 520 * force, 0, 0, 1.5);
+        actor.daze = Math.min(1, actor.daze + .35 * force);
+      }
     }
     // Chalk: the chalk hand reaches for where the line goes down — the spine
     // hinges and curls and the legs bend until it touches.
@@ -17640,7 +17566,7 @@ function spinePose(p) {
   const h = spineBody.headFrame(body).origin, scale = p.civilian ? (p.bodyScale || 1) : 1;
   const pose = { head: { ...at(h.x, h.y, h.z), radius: 22 * scale }, segments, spatial: true,
     spine: Array.from({ length: skull + 1 }, (_, i) => bead(i)) };
-  pose.flow = { yaw: (p.poolYaw || 0) + (p.spin?.angle || 0), phase: body.rhythm.phase, swing: 0, scale };
+  pose.flow = { yaw: spineYaw(p), phase: body.rhythm.phase, swing: 0, scale };
   return pose;
 }
 
@@ -19507,6 +19433,31 @@ function glyphColor(colors, index, fallback) {
   return colors?.length ? colors[index % colors.length] : fallback;
 }
 
+// The one move list. Every place that names the controls — the top-left
+// list, the locale strings, the legend keys — reads these rows, so a pad, a
+// keyboard and a screen can never disagree about what a button does. Each
+// row is the caps to draw, the move, and the internal button it lights.
+function moveList() {
+  const family = typeof capabilities === "function" ? capabilities().inputFamily : "xbox";
+  if (family === "touch") return [
+    ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "BUBBLE", "X"], ["Y", "USE ITEM", "Y"]];
+  if (family === "keyboard") return [
+    [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], "DASH", "ArrowRight"],
+    ["S", "CROUCH", "ArrowDown"], ["SPACE", "JUMP", "ArrowUp"],
+    [["Q", "E"], "PUNCH", "B"], ["SHIFT", "KICK", "A"],
+    [["Q", "+E"], "GRAB", "B"], [["SHIFT", "+Q"], "BUBBLE", "X"]];
+  return [
+    [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"], [["RIGHT", "RIGHT"], "DASH", "ArrowRight"],
+    ["DOWN", "CROUCH", "ArrowDown"], ["B", "JUMP", "ArrowUp"],
+    [["X", "Y"], "PUNCH", "B"], ["A", "KICK", "A"],
+    [["X", "+Y"], "GRAB", "B"], [["A", "+X"], "BUBBLE", "X"]];
+}
+// ASCII arrows, the command stream's own: the console's face has no arrow glyphs.
+const moveCapArrows = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
+const moveCapText = (cap) => (Array.isArray(cap) ? cap : [cap])
+  .map((key) => moveCapArrows[key] || key).join(" ").replace(/ \+/g, "+");
+const moveListLine = () => moveList().map(([cap, move]) => moveCapText(cap) + " " + move).join("   ");
+
 function controlLocale() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
   const keyboard = caps.inputFamily === "keyboard";
@@ -19514,7 +19465,7 @@ function controlLocale() {
   if (touch) return {
     title: "start", select: "", replayPaused: "paused",
     replayPlaying: "", replay: "",
-    combat: "A KICK   B PUNCH   X BUBBLE   Y USE ITEM",
+    combat: moveListLine(),
   };
   return keyboard ? {
     title: "start",
@@ -19522,14 +19473,14 @@ function controlLocale() {
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
-    combat: "Q E PUNCH   SHIFT KICK   SPACE JUMP   SHIFT+Q BUBBLE",
+    combat: moveListLine(),
   } : {
     title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    combat: "X PUNCH   Y PUNCH   A KICK   B JUMP   A+X BUBBLE",
+    combat: moveListLine(),
   };
 }
 
@@ -19547,18 +19498,7 @@ function combatKeys() {
     [["UP", "DOWN"], "DEPTH", "ArrowUp"],
     ["X", "PUNCH", "B"], ["Y", "PUNCH", "B"], ["A", "KICK", "Y"],
     ["B", "JUMP", "A"], [["A", "X"], "BUBBLE", "RightShoulder"]];
-  if (caps.inputFamily === "keyboard") return [
-    [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], ">> DASH", "ArrowRight"],
-    [["Q", "E"], "PUNCH", "B"], ["SHIFT", "KICK", "A"],
-    ["SPACE", "JUMP", "ArrowUp"], [["SHIFT", "Q"], "BUBBLE", "X"]];
-  if (caps.inputFamily === "touch") return [
-    ["A", "KICK", "A"], ["B", "PUNCH", "B"],
-    ["X", "BUBBLE", "X"], ["Y", "USE ITEM", "Y"]];
-  return [
-    [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
-    [["RIGHT", "RIGHT"], ">> DASH", "ArrowRight"],
-    ["X", "PUNCH", "B"], ["Y", "PUNCH", "B"], ["A", "KICK", "A"],
-    ["B", "JUMP", "ArrowUp"], [["A", "X"], "BUBBLE", "X"]];
+  return moveList();
 }
 
 // What the buttons do, named on the way into a round. B changes meaning with
@@ -19572,8 +19512,7 @@ function combatLegendKeys(player) {
 
 function combatLegend(player) {
   return combatLegendKeys(player)
-    .map(([cap, action]) => (cap === "STICK_UP" ? "STICK" : cap) +
-      " " + action).join("   ");
+    .map(([cap, action]) => moveCapText(cap) + " " + action).join("   ");
 }
 
 function selectionControlKeys() {
@@ -19894,6 +19833,56 @@ function drawControlLegend(ink) {
   if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held,
     directionActive, ink);
   drawStickGate(x, legendBottom, size, pad, ink);
+}
+
+// Top left, over everything: the room you are in, and under it the one move
+// list. A row lights in its move's colour while that move is happening.
+function drawTopLeftHud(ink, quiet = false) {
+  if (quiet || selfPlay || renderFlags.keys === false || freeskateActive()) return;
+  const device = typeof capabilities === "function" ? capabilities() : {};
+  const safe = hudSafeRect();
+  const compact = compactLayout();
+  const x = safe.left + 8;
+  let y = safe.top + 4;
+  const room = versusRoomName === dojoRoom || sessionName === dojoRoom ? "DOJO"
+    : (versusRoomName || "").toUpperCase();
+  if (room) {
+    const roomSize = compact ? 28 : 38;
+    typeWrite(room, x + 2, y + 3, roomSize, ...contrastShadow(ink));
+    typeWrite(room, x, y, roomSize, ...ink);
+    y += roomSize + 26;
+  }
+  if (device.showControlLegend === false || device.inputFamily === "touch") return;
+  const fighter = players[localSeat()];
+  const now = runtime().monotonicUs;
+  const latest = fighter && now - (fighter.lastButtonAt || -1e12) < 800000 ? fighter.lastButton : "";
+  const size = compact ? 15 : 20;
+  const keyColumn = Math.max(...moveList().map(([cap]) => handleWidth(moveCapText(cap), size)));
+  for (const [cap, move] of moveList()) {
+    const shown = move === "PUNCH" && fighter ? itemMelee[heldItem(fighter)] || move : move;
+    const lit = latest && (latest === shown || latest.endsWith(" " + shown) || latest.startsWith(shown + " "));
+    const moveInk = lit ? moveColor(shown) : ink;
+    // Each key in its own colour — the pad's A/B/X/Y inks; arrows, joins
+    // and keyboard keys stay quiet.
+    const keyInk = mixColor(ink, contrastShadow(ink), .35);
+    let kx = x;
+    (Array.isArray(cap) ? cap : [cap]).forEach((key, index) => {
+      const joined = key.startsWith("+");
+      const name = joined ? key.slice(1) : key;
+      const pieces = [[index && !joined ? " " : "", keyInk], [joined ? "+" : "", keyInk],
+        [moveCapArrows[name] || name, padButtonInk[name] || keyInk]];
+      for (const [text, color] of pieces) {
+        if (!text) continue;
+        typeWrite(text, kx + 1, y + 2, size, ...contrastShadow(ink));
+        typeWrite(text, kx, y, size, ...color);
+        kx += handleWidth(text, size);
+      }
+    });
+    const mx = x + keyColumn + 12;
+    typeWrite(shown, mx + 1, y + 2, size, ...contrastShadow(moveInk));
+    typeWrite(shown, mx, y, size, ...moveInk);
+    y += Math.round(size * 1.35);
+  }
 }
 
 // The legend named the stick's directions but never its ANGLE, so a fighter
@@ -20911,8 +20900,7 @@ function garmentTargets(player,world,kind){
 function updateGarments(player,world,dt){
  if(!player.alive||player.dummy||!player.skin){garmentStates.delete(player);return;}
  let state=garmentStates.get(player);if(!state){state={};garmentStates.set(player,state);}
- for(const kind of ['shirt','skirt']){
-  if(kind==='skirt'&&player.pantsColor)continue;
+ for(const kind of ['shirt']){
   const target=garmentTargets(player,world,kind);if(!target)continue;
   const {points:rest,n,rows}=target;let cloth=state[kind];
   if(!cloth||Math.hypot(rest[0].x-cloth.anchor.x,rest[0].y-cloth.anchor.y,rest[0].z-cloth.anchor.z)>250){
@@ -24405,7 +24393,9 @@ function drawDummyPopLine(titleY, titleSize, transitionInk) {
   typeWrite(line, x, y, size, ...ink);
 }
 
-const titlePrompt = () => freeskateRequested() ? freeskateModeName() : "start";
+// The title's button names where START takes you: the dojo, or a course.
+const titlePrompt = () => freeskateRequested() ? freeskateModeName()
+  : versusRoomName === dojoRoom || sessionName === dojoRoom ? "dojo" : "start";
 function titleButtonRect() {
   const compact = compactLayout();
   const width = Math.min(viewWidth() - 48, compact ? 320 : 360);
@@ -25791,7 +25781,7 @@ function gamePaint() {
     const transitionAge = titleTransitionAt !== null
       ? (run.monotonicUs - titleTransitionAt) / 1000000 : -1;
     drawTitleScreen(t, menuInk, transitionAge);
-    if (transitionAge >= 0) return;
+    if (transitionAge >= 0) { drawTopLeftHud(titleInk, replayOven); return; }
   }
   if (!replayOven) {
     // Over the fighters, deliberately: the lobby's lone body stands center
@@ -25810,6 +25800,7 @@ function gamePaint() {
       typeWrite(label, left, top, size, 255, 235, 130);
     }
   }
+  drawTopLeftHud(titleInk, replayOven);
 }
 
 // The raw pad words remember() files between real moves. The training floor
@@ -25832,15 +25823,17 @@ function drawVersusHud(t, ink, run) {
   // this is the part that stays legible on a television across a room.
   const headline = door === "login" ? "SIGN IN TO PLAY"
     : door === "handle" ? "CHOOSE A HANDLE"
-    : versusRoomName === dojoRoom ? "DOJO" : "WAITING ROOM";
+    : versusRoomName === dojoRoom ? "" : "WAITING ROOM";
   const headSize = compact ? 30 : 44;
   const pulse = .5 + Math.sin(t * 2.4) * .5;
   const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
   const headWidth = handleWidth(headline, headSize);
   const headX = viewCenterX() - headWidth / 2;
   const headY = hud.top + (compact ? 30 : 42);
-  typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
-  typeWrite(headline, headX, headY, headSize, ...headInk);
+  if (headline) {
+    typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
+    typeWrite(headline, headX, headY, headSize, ...headInk);
+  }
   const address = door === "login"
     ? "A FIGHT NEEDS A NAME ON BOTH ENDS"
     : door === "handle" ? "YOUR HANDLE IS WHAT THE FIGHT WRITES DOWN"
