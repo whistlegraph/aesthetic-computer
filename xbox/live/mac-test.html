@@ -65,8 +65,22 @@
   <link rel="modulepreload" href="/aesthetic.computer/lib/auth0-otp.mjs">
   <link rel="preload" href="/ComicRelief-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="icon" href="data:,">
-  <title>oskiewar</title>
-  <meta name="description" content="Play oskiewar in your browser with a keyboard or two gamepads.">
+  <title>oskiewar — free online fighting game in your browser</title>
+  <meta name="description" content="A free 1v1 fighting game in your browser. Punch, kick, block, grab and throw. Two players on one keyboard, two gamepads, or online with a link. No download.">
+  <!-- Round URLs, /3d and /workshop all serve this page; one canonical keeps
+       throwaway room links out of the index. -->
+  <link rel="canonical" href="https://oskiewar.com/">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": ["VideoGame", "WebApplication"],
+   "@id": "https://oskiewar.com/#game", "name": "oskiewar", "url": "https://oskiewar.com/",
+   "description": "A free 1v1 fighting game that runs in the browser. Punch, kick, block, grab and throw; play two players on one keyboard, with two gamepads, or online by sharing a room link.",
+   "image": "https://oskiewar.com/social/oskiewar-title.jpg",
+   "genre": ["Fighting", "Versus"], "playMode": ["MultiPlayer", "SinglePlayer"],
+   "gamePlatform": ["Web browser"], "applicationCategory": "GameApplication",
+   "operatingSystem": "Any (web browser)", "isAccessibleForFree": true,
+   "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+   "author": {"@type": "Organization", "name": "Aesthetic Computer", "url": "https://aesthetic.computer/"}}
+  </script>
   <meta name="theme-color" content="#ebf1f8" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#07081c" media="(prefers-color-scheme: dark)">
   <meta property="og:title" content="oskiewar">
@@ -85,7 +99,7 @@
   <meta property="og:url" content="https://oskiewar.com/">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="oskiewar">
+  <meta name="twitter:title" content="oskiewar — a free fighting game in your browser">
   <meta name="twitter:image" content="https://oskiewar.com/social/oskiewar-title.jpg">
   <style>
     @font-face {
@@ -227,6 +241,12 @@
   <canvas id="scene" width="1920" height="1080" aria-hidden="true"></canvas>
   <canvas id="text" width="1920" height="1080" aria-hidden="true"></canvas>
   <div id="inset-probe" aria-hidden="true"></div>
+  <!-- The canvas is the whole game, so this is the page's only prose: what a
+       screen reader announces and what a crawler can follow. Never drawn. -->
+  <p id="about-game" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap">
+    oskiewar is a free fighting game in your browser: punch, kick, block, grab
+    and throw, two players on one keyboard or online with a room link.
+    <a href="/free-fighting-game/">How to play and controls</a>.</p>
   <button id="theme-toggle" class="oskiewar-button" type="button">auto theme</button>
   <button id="game-menu" class="oskiewar-button" type="button" aria-label="Pause menu">menu</button>
   <div id="status" role="alert" aria-live="polite"></div>
@@ -2100,7 +2120,14 @@
       const tabTitles = ["oskiewar", "oskie war", "os ki ewar", "osk ie war",
         "o skie war", "oskie w ar"];
       let previousTabTitle = -1;
+      // The wobble waits for the first press. Until someone plays, the tab
+      // keeps the head's <title>, which is the one search engines index from
+      // the rendered page; a crawler never presses anything.
+      let tabTitleAwake = false;
+      for (const type of ["keydown", "pointerdown"]) addEventListener(type,
+        () => { tabTitleAwake = true; }, { once: true, capture: true });
       const syncTabTitle = () => {
+        if (!tabTitleAwake && !navigator.getGamepads?.().some(Boolean)) return;
         const index = Math.floor(performance.now() / 1250) % tabTitles.length;
         if (index === previousTabTitle) return;
         previousTabTitle = index;
