@@ -1,6 +1,11 @@
 // Composable canvas prose, laid out with the same text.box API chat uses.
 export const richNode = (kind, parts) => ({ richText: true, kind, parts });
 export const richString = value => String(value ?? "");
+const luminance = color => color.reduce((sum, value, i) => {
+  const channel = value / 255;
+  return sum + (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4) * [0.2126, 0.7152, 0.0722][i];
+}, 0);
+const contrast = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 export function richLink(label, destination) {
   const href = richString(destination);
   const url = new URL(href);
@@ -65,6 +70,7 @@ export class RichTextFlow {
           this.layoutKey = null;
           this.episode = episode;
           this.colors = null;
+          this.wordHighlights = new Map();
           this.fontCharacters = [...new Set(episode.title + episode.body)].join("");
           this.audioUrl = new URL(episode.audio.url, handle.url).href;
           if (!["http:", "https:"].includes(new URL(this.audioUrl).protocol)) throw new Error("Expected http(s) audio");
@@ -209,6 +215,26 @@ export class RichTextFlow {
       api.wipe(...this.inkColors.background);
     }
     const fragments = this.wordFragments.get(word) || [];
+    const fadingFragments = [];
+    if (this.episode) {
+      // Keep the last word's color briefly after its measured cue, so short
+      // gaps and quick syllables feel connected without shifting the audio.
+      for (const [previous, strength] of this.wordHighlights) {
+        const next = strength - elapsed / 240;
+        if (next > 0) this.wordHighlights.set(previous, next);
+        else this.wordHighlights.delete(previous);
+      }
+      if (word) this.wordHighlights.set(word, 1);
+      const light = luminance(this.inkColors.background), dark = luminance(this.inkColors.foreground);
+      for (const [highlighted, strength] of this.wordHighlights) {
+        const background = this.inkColors.background.map((v, i) => Math.round(v + (this.inkColors.highlight[i] - v) * strength));
+        const level = luminance(background);
+        const foreground = contrast(level, light) >= contrast(level, dark) ? this.inkColors.background : this.inkColors.foreground;
+        for (const fragment of this.wordFragments.get(highlighted) || []) {
+          fadingFragments.push({ ...fragment, strength, background, foreground });
+        }
+      }
+    }
     const followLine = (this.wordFragments.get(candidate) || [])[0]?.line;
     if (this.episode && now >= this.peekUntil && !this.gesture) {
       const target = Math.max(0, Math.min(this.maxScroll, followLine ? followLine.y - height * 0.43 + glyphHeight / 2 : 0));
@@ -230,23 +256,22 @@ export class RichTextFlow {
       if (y < 0 || y + glyphHeight > height) continue;
       if (this.episode) {
         for (const link of line.links) this.regions.push({ ...link, y });
-        for (const fragment of fragments) {
-          if (fragment.line !== line) continue;
-          api.ink(this.inkColors.highlight);
+        const highlights = fadingFragments.filter(fragment => fragment.line === line);
+        for (const fragment of highlights) {
+          api.ink(fragment.background);
           api.box(fragment.x - 3 * scale, Math.round(y) - 3 * scale,
             fragment.w + 6 * scale, glyphHeight + 6 * scale);
         }
         for (const char of line.characters) {
           if (/\s/u.test(char.text)) continue;
-          const offset = line.bodyOffset === null ? -1 : line.bodyOffset + line.map[char.index];
-          const active = word && offset >= word.start && offset < word.end;
+          const highlight = highlights.find(fragment => char.index >= fragment.a && char.index < fragment.b);
           const link = line.links.find(link => char.x >= link.x && char.x < link.x + link.w);
           const distance = this.pointer ? Math.hypot(char.x + char.w / 2 - this.pointer.x, y + glyphHeight / 2 - this.pointer.y) : Infinity;
           const hover = Math.max(0, 1 - distance / (28 * scale)) * Math.max(0, 1 - (now - (this.pointer?.at || 0)) / 900);
-          const amount = (active ? 0.85 : 0) + hover * 2.4;
+          const amount = (highlight?.strength || 0) * 0.85 + hover * 2.4;
           const dx = Math.round(Math.sin(now / 95 + char.phase) * amount * scale);
           const dy = Math.round(Math.cos(now / 120 + char.phase * 1.3) * amount * scale);
-          api.ink(active ? this.inkColors.background : link ? this.inkColors.link : this.inkColors.foreground);
+          api.ink(highlight ? highlight.foreground : link ? this.inkColors.link : this.inkColors.foreground);
           api.write(char.text, { x: char.x + dx, y: Math.round(y) + dy, size: scale }, undefined, undefined, false, line.font);
           if (link && this.focus === link.id) api.box(char.x, Math.round(y) + glyphHeight, char.w, 1);
         }
