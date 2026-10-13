@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { ObjectId } from "mongodb";
 import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts } from "./mime-media.mjs";
 import { ensureMoodCode, moodIdForCode } from "./mood-code.mjs";
+import { ensureChatCode, chatIdForCode } from "./chat-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
 
 const REFRESH_MS = 60_000;
@@ -216,6 +217,45 @@ export function moodPost(row, handle, code) {
   };
 }
 
+// Only the two public chats participate; collection names never come from a URL.
+const PUBLIC_CHATS = ["system", "clock"];
+const PUBLIC_CHAT_TEXT = { deleted: { $ne: true }, text: { $type: "string", $ne: "" } };
+async function chatMessages(db) {
+  const groups = await Promise.all(PUBLIC_CHATS.map(async instance => {
+    const rows = await db.collection("chat-" + instance).find(PUBLIC_CHAT_TEXT,
+      { projection: { user: 1, text: 1, when: 1 } }).sort({ when: -1 }).limit(60).toArray();
+    const handles = await handleMap(db, rows.map(row => row.user));
+    return Promise.all(rows.filter(row => handles.has(row.user)).map(async row =>
+      feedItem(chatPost(row, handles.get(row.user), instance, await ensureChatCode(db, instance, row._id)), "chat")));
+  }));
+  return groups.flat();
+}
+
+export function chatPost(row, handle, instance, code) {
+  const url = "https://aesthetic.computer/" + (instance === "clock" ? "laer-klokken" : "chat");
+  return { code: "chat_" + instance + "_" + String(row._id), parent: null, board: "text/plain", name: handle,
+    text: row.text, when: row.when, replies: 0, file: null,
+    origin: { name: instance === "clock" ? "laer-klokken" : "chat", url },
+    media: { kind: "chat", id: String(row._id), instance, code, url, author: handle } };
+}
+
+// Edits/deletes must be read through even while the ranking pool is cached.
+export async function currentChatPosts(db, posts) {
+  const current = new Map();
+  await Promise.all(PUBLIC_CHATS.map(async instance => {
+    const cards = posts.filter(p => p.media?.kind === "chat" && p.media.instance === instance);
+    if (!cards.length) return;
+    const rows = await db.collection("chat-" + instance).find({ ...PUBLIC_CHAT_TEXT,
+      _id: { $in: cards.map(p => new ObjectId(p.media.id)) } }).toArray();
+    const handles = await handleMap(db, rows.map(row => row.user));
+    for (const row of rows) {
+      const handle = handles.get(row.user), card = cards.find(p => p.media.id === String(row._id));
+      if (handle && card) current.set(card.code, { ...card, ...chatPost(row, handle, instance, card.media.code), replies: card.replies });
+    }
+  }));
+  return posts.flatMap(p => p.media?.kind !== "chat" ? [p] : current.has(p.code) ? [current.get(p.code)] : []);
+}
+
 async function handleMap(db, users) {
   const ids = [...new Set(users.filter(Boolean))];
   if (!ids.length) return new Map();
@@ -255,12 +295,12 @@ async function dwellTimes(db) {
 let pool = null, refreshing = null;
 
 async function refresh(db) {
-  const [media, posts, pieces, moodItems, dwell, replies] = await Promise.all([
-    liveMedia(db), mimePosts(db), whistlegraphPieces(db), moods(db), dwellTimes(db),
+  const [media, posts, pieces, moodItems, chatItems, dwell, replies] = await Promise.all([
+    liveMedia(db), mimePosts(db), whistlegraphPieces(db), moods(db), chatMessages(db), dwellTimes(db),
     db.collection(MEDIA_THREADS).find({}, { projection: { replies: 1 } }).toArray(),
   ]);
   const counts = new Map(replies.map((row) => [row._id, row.replies || 0]));
-  const live = [...media, ...posts, ...pieces, ...moodItems]
+  const live = [...media, ...posts, ...pieces, ...moodItems, ...chatItems]
     .filter((item) => !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")));
   for (const item of live) {
     item.dwell = dwell.get(item.code) || 0;
@@ -289,7 +329,7 @@ export async function feedPage(db, { seed, page, pageSize }) {
   const current = await feedPool(db);
   const end = (page + 1) * pageSize;
   const ranked = rankFeed(current, seed, end + 1);
-  return { recent: ranked.slice(page * pageSize, end).map((item) => item.post), hasMore: ranked.length > end };
+  return { recent: await currentChatPosts(db, ranked.slice(page * pageSize, end).map((item) => item.post)), hasMore: ranked.length > end };
 }
 
 /** Resolve a feed-only thread (archive painting, mood, Whistlegraph piece) for comments and engagement. */
@@ -312,6 +352,19 @@ export async function feedOnlyOp(db, code) {
     const row = await db.collection("moods").findOne({ _id: new ObjectId(match[1]), deleted: { $ne: true } });
     const handle = row && (await handleMap(db, [row.user])).get(row.user);
     return handle ? withThread(db, moodPost(row, handle, await ensureMoodCode(db, row._id))) : null;
+  }
+  const chatAlias = /^chat~([A-Za-z0-9]{3,16})$/.exec(code);
+  if (chatAlias) {
+    const record = await chatIdForCode(db, chatAlias[1]);
+    if (!record) return null;
+    code = "chat_" + record.instance + "_" + record.id;
+  }
+  match = /^chat_(system|clock)_([a-f0-9]{24})$/.exec(code);
+  if (match) {
+    const instance = match[1];
+    const row = await db.collection("chat-" + instance).findOne({ ...PUBLIC_CHAT_TEXT, _id: new ObjectId(match[2]) });
+    const handle = row && (await handleMap(db, [row.user])).get(row.user);
+    return handle ? withThread(db, chatPost(row, handle, instance, await ensureChatCode(db, instance, row._id))) : null;
   }
   match = /^wgpiece_(wg[A-Za-z0-9]+)$/.exec(code);
   if (match) {

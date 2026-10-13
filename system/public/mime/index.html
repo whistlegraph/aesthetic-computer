@@ -317,9 +317,6 @@
     body.feed .feed-post:not(:has(> .feed-media)) > .body { grid-row: 1; align-self: center; max-height: none; font-size: 20px; }
     /* A mood is someone's words, big, in the comic voice, on their own color. */
     body.feed .feed-post.mood-post { background: color-mix(in srgb, var(--author) 30%, #171526); }
-    body.feed .feed-post.mood-post > .body { justify-self: center; text-align: center; max-width: 18ch; padding: 0 24px;
-      font: 700 clamp(28px, 8vw, 46px)/1.2 "Comic Relief", "Comic Sans MS", cursive; overflow-wrap: anywhere;
-      -webkit-text-stroke: 1px #141414; paint-order: stroke fill; text-shadow: 1px 1px #ed629d, 2px 2px #a478df, 3px 3px #55cdd9; }
     /* The reel has no Interact button: the code in the corner is the control. */
     body.feed .feed-media > .media-toggle { display: none; }
     body.feed .feed-post:has(> .feed-media .media-toggle) > .reel-command .media-label { cursor: pointer; }
@@ -396,6 +393,46 @@
     html[data-mime-show-origin="false"] .media-origin { display: none; }
     html body.feed .feed-post > .body { font-size: var(--mime-caption-size, 17px); }
     html[data-mime-show-caption="true"] body.feed .feed-post:not(.mood-post) > .body { display: block; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text > span > span {
+      transform: translateY(var(--letter-y)) rotate(var(--letter-tilt));
+      animation: pal-breathe var(--letter-period) ease-in-out var(--letter-phase) infinite paused;
+    }
+    @keyframes pal-breathe {
+      0%, 100% { transform: translateY(calc(var(--letter-y) - 1.5px)) rotate(calc(var(--letter-tilt) - 2deg)); }
+      50% { transform: translateY(calc(var(--letter-y) + 1.5px)) rotate(calc(var(--letter-tilt) + 2deg)); }
+    }
+    html body.feed .feed-post.mood-post { width: 100%; isolation: isolate; }
+    .feed-post.mood-post::before, .feed-post.mood-post::after { content: ""; position: absolute; inset: -60%; z-index: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 25% 35%, color-mix(in srgb, var(--author) 60%, transparent), transparent 55%),
+        radial-gradient(ellipse at 75% 70%, #55cdd942, transparent 55%);
+      animation: mood-colors 19s ease-in-out infinite alternate paused; }
+    .feed-post.mood-post::after { background: radial-gradient(ellipse at 65% 25%, #ed629d38, transparent 50%);
+      animation-duration: 27s; animation-delay: -11s; animation-direction: alternate-reverse; }
+    @keyframes mood-colors { from { transform: translate(-4%, -3%) rotate(-6deg) scale(1); }
+      to { transform: translate(4%, 3%) rotate(6deg) scale(1.2); } }
+    html body.feed .feed-post.mood-post > .body {
+      grid-area: 1 / 1 / -1 / -1; align-self: center; justify-self: center;
+      width: max-content; max-width: min(94%, 22ch); max-height: calc(100% - 128px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      padding: .5em .55em .7em; overflow: auto; text-align: center; overflow-wrap: anywhere;
+      font: 700 clamp(26px, min(8vw, 11dvh), 68px)/1.5 "MIME Comic", "Comic Relief", "Comic Sans MS", cursive;
+      -webkit-text-stroke: 1px #141414; paint-order: stroke fill;
+      text-shadow: 1px 1px #ed629d, 2px 2px #a478df, 3px 3px #55cdd9;
+    }
+    html body.feed .feed-post.mood-post > .body.long-mood { font-size: clamp(18px, min(5vw, 5dvh), 32px); }
+    .mood-accessible { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .mood-word { display: inline-block; max-width: 100%; }
+    .mood-letter { display: inline-block; animation: mood-breathe var(--letter-period) ease-in-out var(--letter-phase) infinite paused; }
+    @keyframes mood-breathe { 0%, 100% { transform: translateY(-.055em) rotate(-2deg); }
+      50% { transform: translateY(.055em) rotate(2deg); } }
+    html body.feed .feed-post[data-onstage] :is(.pal-text > span > span, .mood-letter),
+    html body.feed .mood-post[data-onstage]::before, html body.feed .mood-post[data-onstage]::after { animation-play-state: running; }
+    html[data-page-hidden] body.feed .feed-post :is(.pal-text > span > span, .mood-letter),
+    html[data-page-hidden] body.feed .feed-post.mood-post::before, html[data-page-hidden] body.feed .feed-post.mood-post::after { animation-play-state: paused; }
+    @media (prefers-reduced-motion: reduce) {
+      html body.feed .feed-post :is(.pal-text > span > span, .mood-letter),
+      html body.feed .feed-post.mood-post::before, html body.feed .feed-post.mood-post::after { animation: none; }
+    }
+
   </style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -544,6 +581,7 @@ const tabMotion = matchMedia("(prefers-reduced-motion: reduce)");
 let tabTimer;
 function syncTabAnimation() {
   clearInterval(tabTimer);
+  document.documentElement.toggleAttribute("data-page-hidden", document.hidden);
   document.title = tabTitles[0];
   if (document.hidden || tabMotion.matches) return;
   let frame = 0;
@@ -1170,6 +1208,26 @@ function renderText(text) {
   return body;
 }
 
+function renderMood(text) {
+  const body = el("div", "body mood-copy");
+  body.append(el("span", "mood-accessible", text));
+  if (text.length > 160) body.classList.add("long-mood");
+  let index = 0;
+  for (const part of text.split(/(\s+)/u)) {
+    const word = el("span", /^\s+$/u.test(part) ? "mood-space" : "mood-word");
+    word.setAttribute("aria-hidden", "true");
+    if (/^\s+$/u.test(part)) word.textContent = part;
+    else for (const char of part) {
+      const letter = el("span", "mood-letter", char), i = index++;
+      letter.style.setProperty("--letter-phase", `${-(i * 0.37) % 6}s`);
+      letter.style.setProperty("--letter-period", `${3.5 + (i % 7) * .3}s`);
+      word.append(letter);
+    }
+    body.append(word);
+  }
+  return body;
+}
+
 const SAVED_KEY = "mime-saved-v1";
 let savedCodes;
 try {
@@ -1259,7 +1317,10 @@ function palLetters(node, accent) {
       for (const byte of new TextEncoder().encode("char" + i)) h = Math.imul(h ^ byte, 16777619) >>> 0;
       const dy = (h % 7) / 2 - 1.5, rot = (((h >>> 8) % 9) - 4) * 0.6;
       const span = el("span", null, char);
-      span.style.transform = `translateY(${-dy}px) rotate(${-rot}deg)`;
+      span.style.setProperty("--letter-y", `${-dy}px`);
+      span.style.setProperty("--letter-tilt", `${-rot}deg`);
+      span.style.setProperty("--letter-period", `${3.1 + (h % 23) / 10}s`);
+      span.style.setProperty("--letter-phase", `${-(h % 47) / 10}s`);
       return span;
     }));
     return layer;
@@ -1269,9 +1330,9 @@ function palLetters(node, accent) {
 }
 function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) {
   const root = !post.parent;
-  const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (post.media?.kind === "mood" ? " mood-post" : ""));
+  const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (["mood", "chat"].includes(post.media?.kind) ? " mood-post" : ""));
   div.id = post.code;
-  div.dataset.permalink = post.media?.kind === "mood" && post.media.code ? "mood~" + post.media.code
+  div.dataset.permalink = ["mood", "chat"].includes(post.media?.kind) && post.media.code ? post.media.kind + "~" + post.media.code
     : ["wgpiece", "whistlegraph"].includes(post.media?.kind) && /^wg[A-Za-z0-9]+$/.test(post.media.code) ? post.media.code : post.code;
   tintAuthor(div, post.name);
   const meta = el("div", "meta");
@@ -1281,7 +1342,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   byline.append(authorName(post.name));
   if (root) {
     // AC's own notation names the work: #painting, !tape, $kidlisp, a piece by its code.
-    const sigil = { painting: "#", tape: "!", kidlisp: "$", mood: "mood~" }[post.media?.kind];
+    const sigil = { painting: "#", tape: "!", kidlisp: "$", mood: "mood~", chat: "chat~" }[post.media?.kind];
     const doom = ["application/x-doom-wad", "application/x-doom"].includes(post.file?.type);
     const label = doom ? "doom~" + post.code : post.media?.code ? (sigil ?? "") + post.media.code : post.code;
     const source = el("a", "media-label", label);
@@ -1383,7 +1444,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     if (file.tagName !== "PRE") shieldMedia(frame, file, Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "A"].includes(file.tagName));
     div.append(frame);
   }
-  if (post.text) div.append(renderText(post.text));
+  if (post.text) div.append(inFeed && ["mood", "chat"].includes(post.media?.kind) ? renderMood(post.text) : renderText(post.text));
   if (root) {
     const actions = el("div", "post-actions");
     if (!inThread) {
@@ -1752,6 +1813,7 @@ async function home(page = 0, signal, target) {
   if ("IntersectionObserver" in window) {
     playbackObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
+        entry.target.closest(".feed-post")?.toggleAttribute("data-onstage", entry.isIntersecting);
         for (const media of entry.target.querySelectorAll("video, audio")) {
           if (!entry.isIntersecting || entry.intersectionRatio < 0.6) media.pause();
 
