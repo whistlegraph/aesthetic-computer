@@ -449,6 +449,7 @@ ACDisplay *drm_init(void) {
         if (!conn) hdmi_only = 0; // Unplugged TV: keep the laptop usable.
     }
     // First pass: look for internal panel
+    int internal = 0;
     for (int i = 0; !conn && i < res->count_connectors; i++) {
         drmModeConnector *c = drmModeGetConnector(d->fd, res->connectors[i]);
         if (!c) continue;
@@ -456,7 +457,7 @@ ACDisplay *drm_init(void) {
             (c->connector_type == DRM_MODE_CONNECTOR_eDP ||
              c->connector_type == DRM_MODE_CONNECTOR_LVDS ||
              c->connector_type == DRM_MODE_CONNECTOR_DSI)) {
-            conn = c;
+            conn = c; internal = 1;
             fprintf(stderr, "[drm] Using internal panel (type %d)\n", c->connector_type);
             break;
         }
@@ -527,6 +528,21 @@ ACDisplay *drm_init(void) {
     }
 
     d->saved_crtc = drmModeGetCrtc(d->fd, d->crtc_id);
+
+    // An internal panel the firmware already lit keeps the firmware's exact
+    // timings when they're the same size. A DSI panel re-timed from the VBT's
+    // fixed mode forces a full modeset that some panels never come back from
+    // (CHUWI MiniBook X: "DSI link not ready", the screen in horizontal stripes).
+    if (internal && d->saved_crtc && d->saved_crtc->mode_valid) {
+        drmModeModeInfo *fw = &d->saved_crtc->mode;
+        fprintf(stderr, "[drm] firmware mode %dx%d @ %dHz clock=%u htotal=%d vtotal=%d; connector mode clock=%u htotal=%d vtotal=%d\n",
+                fw->hdisplay, fw->vdisplay, fw->vrefresh, fw->clock, fw->htotal, fw->vtotal,
+                d->mode.clock, d->mode.htotal, d->mode.vtotal);
+        if (fw->hdisplay == d->mode.hdisplay && fw->vdisplay == d->mode.vdisplay) {
+            d->mode = *fw;
+            fprintf(stderr, "[drm] keeping the firmware's mode\n");
+        }
+    }
 
     drmModeFreeEncoder(enc);
     drmModeFreeConnector(conn);
