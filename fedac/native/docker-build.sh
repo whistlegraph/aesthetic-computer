@@ -737,6 +737,10 @@ mkdir -p "$IROOT/etc"
 printf '%s\n%s\n%s\nc\n' "$BUILD_NAME" "$GIT_HASH" "$BUILD_TS" > "$IROOT/etc/ac-build"
 
 # ── Embed SBCL + Swank for live CL development ──
+# Only the CL variant (AC_BUILD_LISP=1, set by the oven's cl job) needs
+# libquickjs.so + the Swank image; ac-native links QuickJS statically. This
+# step cost ~38 s on every C build and its Swank half failed anyway.
+if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
 log "Step 2b: Embedding SBCL + Swank..."
 
 # Build libquickjs.so for CL CFFI bindings
@@ -763,9 +767,6 @@ ldconfig 2>/dev/null || true
 # Copy shared libs into initramfs
 cp /lib64/libquickjs.so "$IROOT/lib64/"
 cp /lib64/libquickjs-shim.so "$IROOT/lib64/"
-for lib in /lib64/libzstd.so*; do
-    [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
-done
 
 # Build SBCL Swank server image (standalone binary with Swank preloaded)
 export LD_LIBRARY_PATH="/lib64:${LD_LIBRARY_PATH:-}"
@@ -788,6 +789,13 @@ if [ -f "$BUILD/ac-swank" ]; then
 else
     log "  SBCL Swank: skipped (build failed, C-only build)"
 fi
+else
+    log "Step 2b: SBCL + Swank skipped (C build; AC_BUILD_LISP=1 for the CL variant)"
+fi
+
+for lib in /lib64/libzstd.so*; do
+    [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
+done
 
 # Copy CL pieces (only runnable .lisp pieces from pieces/ dir, not cl/ library)
 if ls "$NATIVE/pieces/"*.lisp 1>/dev/null 2>&1; then
@@ -861,8 +869,14 @@ done
 cp "$NATIVE/initramfs-stub/init" "$STUB_ROOT/init"
 chmod 755 "$STUB_ROOT/init"
 sh -n "$STUB_ROOT/init" || { err "initramfs-stub/init has a syntax error"; exit 1; }
-(cd "$STUB_ROOT" && find . -print0 | cpio --null -o -H newc --quiet > "$STUB_CPIO")
-[ -s "$STUB_CPIO" ] || { err "stub initramfs cpio is empty"; exit 1; }
+# Reproducible: sorted names, fixed mtimes, --reproducible (no inode/dev
+# numbers). The new bytes replace the old cpio only when they differ, so the
+# kernel's view of CONFIG_INITRAMFS_SOURCE stays unchanged across builds that
+# didn't touch the stub — a fresh cpio used to relink vmlinux every build.
+find "$STUB_ROOT" -exec touch -h -d @0 {} +
+(cd "$STUB_ROOT" && find . -print0 | LC_ALL=C sort -z | cpio --null -o -H newc --reproducible --quiet > "$STUB_CPIO.new")
+[ -s "$STUB_CPIO.new" ] || { err "stub initramfs cpio is empty"; exit 1; }
+if cmp -s "$STUB_CPIO.new" "$STUB_CPIO"; then rm -f "$STUB_CPIO.new"; else mv "$STUB_CPIO.new" "$STUB_CPIO"; fi
 log "  Stub: $(($(stat -c%s "$STUB_CPIO") / 1024))KB (busybox + init), embedded via CONFIG_INITRAMFS_SOURCE"
 
 # ══════════════════════════════════════════════
@@ -911,17 +925,26 @@ fi
 
 # Kernel patches (kernel/patches/*.patch, applied in name order). The build
 # tree persists between builds, so each applied patch is recorded in the tree
-# and only new ones are applied. Removing a patch needs a fresh tree (bump
-# KVER or wipe $KBUILD_ROOT) — the record only grows.
+# (name + content hash) and only new ones are applied. Editing or removing an
+# applied patch needs a fresh tree (bump KVER or wipe $KBUILD_ROOT); an edited
+# one stops the build rather than being skipped.
 PATCH_LOG="$LINUX_DIR/.ac-patches-applied"
 touch "$PATCH_LOG"
 for p in "$NATIVE"/kernel/patches/*.patch; do
     [ -f "$p" ] || continue
     name="$(basename "$p")"
-    grep -qxF "$name" "$PATCH_LOG" && continue
+    entry="$name $(sha256sum "$p" | cut -c1-16)"
+    grep -qxF "$entry" "$PATCH_LOG" && continue
+    if grep -qxF "$name" "$PATCH_LOG"; then   # recorded before hashes were kept: adopt it
+        sed -i "s|^$name\$|$entry|" "$PATCH_LOG"; continue
+    fi
+    if grep -q "^$name\( \|$\)" "$PATCH_LOG"; then
+        err "Kernel patch $name changed after it was applied to this tree — wipe the build tree (docker volume rm ac-os-kbuild) and rebuild"
+        exit 1
+    fi
     log "  Applying kernel patch $name"
     (cd "$LINUX_DIR" && GIT_CEILING_DIRECTORIES="$(dirname "$LINUX_DIR")" git apply --whitespace=nowarn "$p") || { err "Kernel patch $name failed"; exit 1; }   # the image has git, not patch
-    echo "$name" >> "$PATCH_LOG"
+    echo "$entry" >> "$PATCH_LOG"
 done
 
 # Copy config only if it differs — overwriting touches mtime and invalidates
@@ -1001,6 +1024,27 @@ fi
 [ -f "$BUILD/initramfs.cpio.gz" ] || { err "initramfs.cpio.gz missing after pack"; exit 1; }
 cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz"
 log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB → \$OUT"
+
+# Kernel reuse. The kernel's inputs are the source version, config-minimal,
+# kernel/patches/, the Chromebook stub cpio, and this script (which edits the
+# config below). When none of them changed since the last kernel built in
+# this persistent tree, reuse that bzImage + kpart instead of relinking —
+# userland-only commits (pieces, ac-native, initramfs) skip ~90 s.
+KCACHE="$KBUILD_ROOT/.ac-kernel-cache"
+KINPUTS=$( { echo "$KVER ${AC_SKIP_KPART:-0}"; sha256sum "$NATIVE/kernel/config-minimal" "$STUB_CPIO" "$0"; \
+             cat "$NATIVE"/kernel/patches/*.patch 2>/dev/null | sha256sum; } | sha256sum | cut -c1-16)
+KERNEL_REUSED=0
+if [ "${AC_FORCE_KERNEL:-0}" != "1" ] && [ -f "$KCACHE/inputs" ] && [ "$(cat "$KCACHE/inputs")" = "$KINPUTS" ] \
+   && [ -f "$KCACHE/bzImage" ] && { [ "${AC_SKIP_KPART:-0}" = "1" ] || [ -f "$KCACHE/vmlinuz.kpart" ]; }; then
+    log "  Kernel inputs unchanged ($KINPUTS) — reusing the cached kernel (AC_FORCE_KERNEL=1 to rebuild)"
+    for f in vmlinuz vmlinuz-slim; do cp "$KCACHE/bzImage" "$BUILD/$f"; cp "$KCACHE/bzImage" "$OUT/$f"; done
+    if [ -f "$KCACHE/vmlinuz.kpart" ] && [ "${AC_SKIP_KPART:-0}" != "1" ]; then
+        cp "$KCACHE/vmlinuz.kpart" "$BUILD/vmlinuz.kpart"; cp "$KCACHE/vmlinuz.kpart" "$OUT/vmlinuz.kpart"
+        KPART_SIZE=$(stat -c%s "$BUILD/vmlinuz.kpart"); KPART_SHA=$(sha256sum "$BUILD/vmlinuz.kpart" | awk '{print $1}')
+    fi
+    KERNEL_REUSED=1
+fi
+if [ "$KERNEL_REUSED" != "1" ]; then
 
 # Configure — force-disable bloated GPU drivers that olddefconfig enables
 cd "$LINUX_DIR"
@@ -1220,6 +1264,12 @@ if [ -n "$MISSING_DRVS" ]; then
     exit 1
 fi
 log "  ✓ All critical driver symbols present in vmlinux"
+
+mkdir -p "$KCACHE"
+cp arch/x86/boot/bzImage "$KCACHE/bzImage"
+[ -f "$BUILD/vmlinuz.kpart" ] && [ "${AC_SKIP_KPART:-0}" != "1" ] && cp "$BUILD/vmlinuz.kpart" "$KCACHE/vmlinuz.kpart"
+echo "$KINPUTS" > "$KCACHE/inputs"
+fi   # KERNEL_REUSED
 
 VMLINUZ_SIZE=$(stat -c%s "$BUILD/vmlinuz")
 SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')

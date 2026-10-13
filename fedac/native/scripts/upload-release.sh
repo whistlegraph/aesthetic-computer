@@ -181,10 +181,34 @@ if [ "$IMAGE_ONLY" = "1" ]; then
   exit 0
 fi
 
-# Upload files (vmlinuz last — it's large, others are the canary)
-do_upload "$TMP/version.txt"  "os/${CHANNEL_PREFIX}native-notepat-latest.version"  "text/plain"
-do_upload "$TMP/sha256.txt"   "os/${CHANNEL_PREFIX}native-notepat-latest.sha256"   "text/plain"
+# Payloads first, pointers last. Devices and `ac-os pull` read .version /
+# .sha256 / releases.json to decide what to fetch, so those go up only after
+# every file they describe is in place — uploading the pointers first used to
+# advertise a new kernel over the previous initramfs whenever a later upload
+# failed (and for the minute the 400 MB initramfs took on every release).
 do_upload "$VMLINUZ"          "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"  "application/octet-stream"
+
+# Upload slim kernel + initramfs for universal Mac/ThinkPad boot
+SLIM_SIBLING="$(dirname "$VMLINUZ")/vmlinuz-slim"
+INITRAMFS_SIBLING="$(dirname "$VMLINUZ")/initramfs.cpio.gz"
+if [ -f "$SLIM_SIBLING" ]; then
+  echo "  Uploading slim kernel ($(du -sh "$SLIM_SIBLING" | cut -f1))..."
+  do_upload "$SLIM_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz-slim" "application/octet-stream"
+fi
+if [ -f "$INITRAMFS_SIBLING" ]; then
+  echo "  Uploading initramfs ($(du -sh "$INITRAMFS_SIBLING" | cut -f1))..."
+  do_upload "$INITRAMFS_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz" "application/octet-stream"
+fi
+
+# Chromebook kernel partition image (vboot-packed vmlinuz; see docs/chromebook-boot.md)
+KPART_SIBLING="$(dirname "$VMLINUZ")/vmlinuz.kpart"
+if [ -f "$KPART_SIBLING" ]; then
+  echo "  Uploading Chromebook kpart ($(du -sh "$KPART_SIBLING" | cut -f1))..."
+  do_upload "$KPART_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz.kpart" "application/octet-stream"
+fi
+
+do_upload "$TMP/sha256.txt"   "os/${CHANNEL_PREFIX}native-notepat-latest.sha256"   "text/plain"
+do_upload "$TMP/version.txt"  "os/${CHANNEL_PREFIX}native-notepat-latest.version"  "text/plain"
 
 # Fetch existing releases.json (or start fresh)
 RELEASES_JSON="$TMP/releases.json"
@@ -227,25 +251,6 @@ if command -v node &>/dev/null; then
   BUILD_NUM_JSON="${BUILD_NUM:-null}"
   echo "{\"name\":\"$BUILD_NAME\",\"buildNum\":$BUILD_NUM_JSON,\"version\":\"$FULL_VERSION\",\"sha256\":\"$SHA256\",\"size\":$SIZE,\"git_hash\":\"$GIT_HASH\",\"build_ts\":\"$BUILD_TS\",\"url\":\"${BASE_URL}/os/native-notepat-latest.vmlinuz\"}" \
     | node "$SCRIPT_DIR/track-build.mjs" record 2>&1 || true
-fi
-
-# Upload slim kernel + initramfs for universal Mac/ThinkPad boot
-SLIM_SIBLING="$(dirname "$VMLINUZ")/vmlinuz-slim"
-INITRAMFS_SIBLING="$(dirname "$VMLINUZ")/initramfs.cpio.gz"
-if [ -f "$SLIM_SIBLING" ]; then
-  echo "  Uploading slim kernel ($(du -sh "$SLIM_SIBLING" | cut -f1))..."
-  do_upload "$SLIM_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz-slim" "application/octet-stream"
-fi
-if [ -f "$INITRAMFS_SIBLING" ]; then
-  echo "  Uploading initramfs ($(du -sh "$INITRAMFS_SIBLING" | cut -f1))..."
-  do_upload "$INITRAMFS_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz" "application/octet-stream"
-fi
-
-# Chromebook kernel partition image (vboot-packed vmlinuz; see docs/chromebook-boot.md)
-KPART_SIBLING="$(dirname "$VMLINUZ")/vmlinuz.kpart"
-if [ -f "$KPART_SIBLING" ]; then
-  echo "  Uploading Chromebook kpart ($(du -sh "$KPART_SIBLING" | cut -f1))..."
-  do_upload "$KPART_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz.kpart" "application/octet-stream"
 fi
 
 # Also upload a template disk image if it exists (non-fatal)
