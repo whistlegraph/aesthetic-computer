@@ -36,6 +36,24 @@ export class WareProjects {
   this.key(id);const parked=this.summary(this.current);this.summary(id);
   this.save({...this.index,current:id,projects:this.index.projects.map(p=>p.id===parked.id?parked:p)});
  }
+ recoverLastReset(initialSource,request){
+  if(this.current!=='legacy')return false;
+  const key=this.key(),raw=this.storage.getItem(key+'-versions');if(!raw)return false;
+  const ledger=JSON.parse(raw),head=ledger.versions.find(v=>v.id===ledger.head);
+  if(!head||head.parent===null||head.id!==Math.max(...ledger.versions.map(v=>v.id))||head.request!==request||head.source!==initialSource)return false;
+  // Keep the original ledger before moving its accidental reset to a project.
+  this.storage.setItem(this.root+'-reset-backup-'+head.id,raw);
+  const candidate=this.index.projects.find(p=>{
+   if(p.id==='legacy')return false;const k=this.key(p.id),value=JSON.parse(this.storage.getItem(k+'-versions')||'null');
+   return value?.head===0&&value.versions.length===1&&value.versions[0].source===initialSource&&Object.keys(JSON.parse(this.storage.getItem(k+'-codes')||'{}')).length===0;
+  });
+  if(candidate)this.open(candidate.id);else this.new(initialSource);
+  const published=JSON.parse(this.storage.getItem(key+'-codes')||'{}')[head.id];
+  if(published)this.storage.setItem(this.key()+'-codes',JSON.stringify({0:published}));
+  this.storage.setItem(key+'-versions',JSON.stringify({...ledger,head:head.parent,versions:ledger.versions.filter(v=>v.id!==head.id)}));
+  const restored=this.summary('legacy');this.save({...this.index,projects:this.index.projects.map(p=>p.id==='legacy'?restored:p)});
+  return true;
+ }
  remove(id){
   if(id===this.current)throw Error('Open another project before removing this one');
   const key=this.key(id);this.save({...this.index,projects:this.index.projects.filter(p=>p.id!==id)});

@@ -11,12 +11,15 @@ import {compileDocument,compileProject,asProject,validateProject,encode64,docume
 import {createProjectTools,PROJECT_INSTRUCTIONS} from './doom-project-tools.mjs';
 const post=body=>window.webkit.messageHandlers.whistlegraph.postMessage({id:'doom',...body});
 const account=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state}),loadColors:fetchHandleColors,initialColors:handleCharacterColors,paletteChanged:state=>{if(handle===state.handle){colors=state.colors;snapshot();}}});
-const projects=new WareProjects(localStorage,'whistlegraph-doom'),projectKey=projects.key();
+const projects=new WareProjects(localStorage,'whistlegraph-doom');
+let recoveryError='';
+try{projects.recoverLastReset(JSON.stringify(starterLevel()),'New empty WAD');}catch{recoveryError='Could not repair the previous reset. Its original history is still saved.';}
+const projectKey=projects.key();
 const versions=new PieceVersions(localStorage,projectKey+'-versions',JSON.stringify(starterLevel()));
 const codes=JSON.parse(localStorage.getItem(projectKey+'-codes')||'{}');
 const emptySeed=!codes[0]&&emptySeedHistory(versions.value);if(emptySeed)versions.persist(emptySeed);
 const validate=value=>value.format===2?validateProject(value):validateLevel(value);
-let level=validate(JSON.parse(versions.head.source)),wad=null,staged=null,token='',handle='',colors=[],busy=false,server=null,cancelled=false,successful=false,error='',output='',attempt=readAttempt(),code='';
+let level=validate(JSON.parse(versions.head.source)),wad=null,staged=null,token='',handle='',colors=[],busy=false,server=null,cancelled=false,successful=false,error=recoveryError,output='',attempt=readAttempt(),code='';
 function readAttempt(){try{const value=JSON.parse(localStorage.getItem(projectKey+'-attempt')||'null');if(value?.status==='working')return {...value,status:'interrupted',error:'Editing was interrupted. The saved WAD is unchanged.'};return value;}catch{return null;}}
 let savedAttempt='';
 code=codes[versions.head.id]||'';

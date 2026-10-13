@@ -19,3 +19,18 @@ test('media libraries are isolated and explicit new commands do not match editin
  const s=storage();new PieceVersions(s,'doom-versions','{}');new PieceVersions(s,'roblox-versions','{}');const doom=new WareProjects(s,'doom'),room=new WareProjects(s,'roblox');doom.new('{}');assert.equal(room.current,'legacy');
  assert.ok(requestsNewProject('new empty wad'));assert.ok(requestsNewProject('please create a new doom wad.'));assert.ok(requestsNewProject('new empty Roblox room','roblox'));assert.ok(!requestsNewProject('add a new room in this wad'));assert.ok(!requestsNewProject('draw a new empty wad logo'));assert.ok(!requestsNewProject('new empty wad','roblox'));
 });
+test('a saved menu reset is recovered as v0 while preserving the original world and backup',()=>{
+ const s=storage(),root='doom',seed=JSON.stringify({title:'Untitled'}),old=new PieceVersions(s,root+'-versions',seed);
+ old.commit({source:JSON.stringify({title:'Candy World'}),request:'Candy'});old.commit({source:seed,request:'New empty WAD'});
+ s.setItem(root+'-codes',JSON.stringify({2:'empty-code'}));
+ const original=s.getItem(root+'-versions'),library=new WareProjects(s,root);assert.ok(library.recoverLastReset(seed,'New empty WAD'));
+ assert.equal(new PieceVersions(s,library.key()+'-versions').head.id,0);assert.equal(library.summary(library.current).code,'empty-code');
+ assert.equal(new PieceVersions(s,root+'-versions').head.id,1);assert.equal(library.list().find(p=>p.id==='legacy').name,'Candy World');
+ assert.equal(s.getItem(root+'-reset-backup-2'),original);assert.equal(library.recoverLastReset(seed,'New empty WAD'),false);
+});
+test('recovery reuses an untouched empty project and fails safely when its backup cannot fit',()=>{
+ const s=storage(),root='doom',seed='{}',old=new PieceVersions(s,root+'-versions',seed);old.commit({source:'{"title":"Candy"}',request:'Candy'});old.commit({source:seed,request:'New empty WAD'});
+ const library=new WareProjects(s,root);library.new(seed);const blank=library.current;library.open('legacy');
+ s.fail=root+'-reset-backup-2';const before=new Map(s.data);assert.throws(()=>library.recoverLastReset(seed,'New empty WAD'),/Quota/);assert.deepEqual(s.data,before);assert.equal(library.current,'legacy');
+ s.fail=null;assert.ok(library.recoverLastReset(seed,'New empty WAD'));assert.equal(library.current,blank);assert.equal(library.list().length,2);
+});
