@@ -19,12 +19,6 @@ struct RoomView: View {
                             Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
                                 .frame(maxWidth: .infinity)
                         }
-                        if let tag = room.tag {
-                            Button { pick(nil) } label: {
-                                HStack(spacing: 6) { Text("#\(tag)"); Image(systemName: "xmark").font(.caption2.bold()) }
-                            }
-                            .buttonStyle(GlassChipStyle(on: true)).frame(maxWidth: .infinity)
-                        }
                         if let error = room.error {
                             Text(error).font(Theme.type(12)).foregroundStyle(Theme.ink)
                         }
@@ -126,9 +120,6 @@ struct ChatRow: View {
                     if let link = post.links.first, let url = URL(string: link) { LinkPreview(url: url).frame(minHeight: 56) }
                 }
                 HStack(spacing: 8) {
-                    ForEach(post.tags, id: \.self) { t in
-                        Button("#\(t)") { onTag(t) }.buttonStyle(.plain).font(Theme.type(11)).foregroundStyle(Theme.ink.opacity(0.5))
-                    }
                     if post.replies > 0 {
                         Text("\(post.replies) \(post.replies == 1 ? "reply" : "replies")").font(Theme.type(11).bold()).foregroundStyle(Theme.ink.opacity(0.7))
                     }
@@ -189,13 +180,8 @@ struct ChatInput: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            if showTags { tagRow }
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             HStack(alignment: .bottom, spacing: 8) {
-                Button { withAnimation(.snappy) { showTags.toggle() } } label: {
-                    Text(picked.isEmpty ? "#" : "#\(picked.count)").font(Theme.type(15, bold: true))
-                }
-                .buttonStyle(GlassChipStyle(on: showTags || !picked.isEmpty)).accessibilityLabel("Tags")
                 TextField("Comments on culture", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...5)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
@@ -229,7 +215,7 @@ struct ChatInput: View {
     func send() async {
         sending = true; defer { sending = false }
         do {
-            _ = try await API.post(.init(text: text, tags: picked, replyTo: nil), token: await account.token())
+            _ = try await API.post(.init(text: text, tags: [], replyTo: nil), token: await account.token())
             text = ""; error = nil; Trail.send("chat:send"); onSent()
         } catch { self.error = error.localizedDescription; Trail.send("post:failed", ["why": error.localizedDescription]) }
     }

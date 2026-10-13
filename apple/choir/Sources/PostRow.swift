@@ -25,10 +25,6 @@ struct PostRow: View {
                 }
                 if post.replyTo == nil {
                     HStack(spacing: 10) {
-                        ForEach(post.tags, id: \.self) { t in
-                            Button("#\(t)") { onTag(t) }.buttonStyle(.plain)
-                                .font(Theme.type(12)).foregroundStyle(Theme.ink.opacity(0.55))
-                        }
                         Spacer()
                         if !inThread {
                             Text(post.replies == 0 ? "reply" : "\(post.replies) \(post.replies == 1 ? "reply" : "replies")")
