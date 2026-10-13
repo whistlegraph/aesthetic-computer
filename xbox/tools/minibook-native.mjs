@@ -158,6 +158,16 @@ const installed = spawnSync("node", [join(root, "xbox/tools/live.mjs"), "install
   join(local, main.split("/").pop()), ...deps.map((path) => join(local, path.split("/").pop()))],
   { encoding: "utf8", stdio: "inherit" });
 if (installed.status !== 0) { say("INSTALL FAILED"); process.exit(1); }
-// An install leaves the app stopped; start it so the edit is on screen.
-spawnSync("node", [join(root, "xbox/tools/live.mjs"), "launch"], { encoding: "utf8", stdio: "inherit" });
+// An install leaves the app stopped; start it so the edit is on screen. A
+// launch can fail where the install "succeeded": on 2026-10-12 a reinstall
+// of the same version left the registration broken (launch 0x8007000B, the
+// console's own 0x8007010b) until `live.mjs uninstall` + a fresh install —
+// which wipes the app's data. Cause not yet pinned; check, don't assume.
+const launched = spawnSync("node", [join(root, "xbox/tools/live.mjs"), "launch"], { encoding: "utf8" });
+if (launched.status !== 0) {
+  say("LAUNCH FAILED after install — the registration may be broken");
+  console.error(launched.stderr.trim());
+  console.error("recover: node xbox/tools/live.mjs uninstall, then install an AppVeyor build (wipes app data)");
+  process.exit(1);
+}
 say(`running on the xbox in ${seconds()}`);

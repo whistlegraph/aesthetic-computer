@@ -48,12 +48,14 @@ const auth = `${username}:${password}`;
 const autoAuth = `auto-${username}:${password}`;
 
 function curl(args, { json = false, input } = {}) {
-  const result = spawnSync("curl", ["-k", "-sS", "--fail", "--connect-timeout", "5",
+  // --fail-with-body: a refusal keeps the portal's own explanation.
+  const result = spawnSync("curl", ["-k", "-sS", "--fail-with-body", "--connect-timeout", "5",
     "--max-time", "30", ...args], {
     encoding: "utf8", maxBuffer: 16 * 1024 * 1024,
     ...(input === undefined ? {} : { input }),
   });
-  if (result.status !== 0) throw new Error(result.stderr.trim() || `curl exited ${result.status}`);
+  if (result.status !== 0)
+    throw new Error([result.stderr.trim(), result.stdout.trim().slice(0, 400)].filter(Boolean).join(" — ") || `curl exited ${result.status}`);
   return json ? JSON.parse(result.stdout || "null") : result.stdout;
 }
 
@@ -108,6 +110,14 @@ function install(packagePath, dependencyPaths = []) {
   if (!ready) throw new Error(`timed out waiting for Native BIOS revision ${revision}`);
   console.log(`installed ${installed().PackageFullName}`);
   prune();
+}
+
+// The last `bytes` of an app file. The portal answers 400 when a suffix
+// range is longer than the file (a fresh install's short log), so a refused
+// range falls back to the whole file.
+function tailFile(url, bytes) {
+  try { return curl(["-u", autoAuth, "-H", `Range: bytes=-${bytes}`, url]); }
+  catch { return curl(["-u", autoAuth, url]); }
 }
 
 function appFileUrl(item, filename) {
@@ -228,15 +238,13 @@ async function deployKidLisp(code) {
 
 function logs(tail = "80") {
   const count = Math.max(1, Math.min(5000, Number.parseInt(tail, 10) || 80));
-  const content = curl(["-u", autoAuth, "-H", "Range: bytes=-1048576",
-    appFileUrl(installed(), "ac-native-bios.log")]);
+  const content = tailFile(appFileUrl(installed(), "ac-native-bios.log"), 1048576);
   console.log(content.trimEnd().split(/\r?\n/).slice(-count).join("\n"));
 }
 
 async function hotDeploy(sourcePath) {
   const item = installed();
-  const readLog = () => curl(["-u", autoAuth, "-H", "Range: bytes=-1048576",
-    appFileUrl(item, "ac-native-bios.log")]);
+  const readLog = () => tailFile(appFileUrl(item, "ac-native-bios.log"), 1048576);
   const before = readLog();
   const published = publish(sourcePath);
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -255,8 +263,7 @@ async function hotDeploy(sourcePath) {
 }
 
 function frameDump(outputPath = "") {
-  const content = curl(["-u", autoAuth, "-H", "Range: bytes=-8388608",
-    appFileUrl(installed(), "ac-native-bios.log")]);
+  const content = tailFile(appFileUrl(installed(), "ac-native-bios.log"), 8388608);
   const marker = "AC_NATIVE_JS FIGHT_TRACE ";
   const chunks = [];
   for (const line of content.split(/\r?\n/)) {
@@ -389,6 +396,26 @@ async function main() {
   else if (command === "launch") launch();
   else if (command === "stop") stop();
   else if (command === "restart") { stop(); launch(); }
+  // The whole console, through the Device Portal: for a launch that keeps
+  // failing (0x8007000B after same-version reinstalls). App data survives.
+  // The whole package, app data and all — the cure for a broken registration
+  // (launch fails 0x8007000B / the console shows 0x8007010b).
+  // What the portal can see of the app's data folders (LocalState by default).
+  else if (command === "files") {
+    const item = installed();
+    const query = new URLSearchParams({ knownfolderid: "LocalAppData", packagefullname: item.PackageFullName, path: argument || "\\LocalState" });
+    console.log(JSON.stringify(curl(["-u", autoAuth, `${base}/api/filesystem/apps/files?${query}`], { json: true }), null, 1));
+  }
+  else if (command === "uninstall") {
+    const item = installed();
+    curl(["-u", autoAuth, "-X", "DELETE",
+      `${base}/api/app/packagemanager/package?${new URLSearchParams({ package: item.PackageFullName })}`]);
+    console.log(JSON.stringify({ uninstalled: item.PackageFullName }));
+  }
+  else if (command === "reboot") {
+    curl(["-u", autoAuth, "-X", "POST", "-H", "Content-Length: 0", `${base}/api/control/restart`]);
+    console.log("xbox restarting");
+  }
   else if (command === "remove") {
     // delete one file from the app's LocalState (a stale live-post.hlsl survives shader-reset across restarts)
     if (!argument) throw new Error("usage: xbox-live remove <filename>");
