@@ -147,21 +147,13 @@ struct RoomView: View {
     }
 }
 
-/// The first thing shown: the flower breathing where the launch screen left
-/// it, while the room loads. Before this the chat opened onto an empty,
-/// bottom-anchored page and jumped when the posts arrived (Fía, 10-13: "the
-/// opening sequence seems glitchy").
+/// The first thing shown: the one flower from the launch screen, come alive
+/// and breathing while the room loads. Nothing else, so launch, opening and
+/// chat read as a single flower (Fía, 10-13: "too many flowers in the startup
+/// sequence, less or more"). Before this the chat opened onto an empty,
+/// bottom-anchored page and jumped when the posts arrived.
 struct Opening: View {
-    @State private var shown = false
-    var body: some View {
-        VStack(spacing: 12) {
-            SingingMark(height: 84)
-            Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
-            FlowerSpinner(size: 20).padding(.top, 6)
-        }
-        .opacity(shown ? 1 : 0).scaleEffect(shown ? 1 : 0.96)
-        .onAppear { withAnimation(.easeOut(duration: 0.5)) { shown = true } }
-    }
+    var body: some View { SingingMark(height: 84) }
 }
 
 /// "🌼 Welcome @lou — say hi!", centered, when someone joins.

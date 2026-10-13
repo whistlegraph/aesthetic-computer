@@ -16,7 +16,7 @@
 	<key>NSCameraUsageDescription</key><string>Take a picture or record a video to share in choir.</string>
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<key>LSRequiresIPhoneOS</key><true/>
-	<key>UILaunchScreen</key><dict><key>UIColorName</key><string>Desk</string></dict>
+	<key>UILaunchScreen</key><dict><key>UIColorName</key><string>LaunchBackground</string><key>UIImageName</key><string>LaunchLogo</string><key>UIImageRespectsSafeAreaInsets</key><false/></dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
 	<key>UISupportedInterfaceOrientations</key>
