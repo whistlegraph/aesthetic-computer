@@ -194,7 +194,7 @@ struct ChatInput: View {
         VStack(spacing: 8) {
             if let error { Text(error).font(Theme.type(12)).foregroundStyle(Theme.head).padding(.horizontal, 14) }
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("Comments on culture", text: $text, axis: .vertical)
+                TextField("Tell us how you really feel", text: $text, axis: .vertical)
                     .font(.system(size: 16, design: .serif)).lineLimit(1...5)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
                 Button { Task { await send() } } label: { Image(systemName: "arrow.up").font(.body.bold()) }
