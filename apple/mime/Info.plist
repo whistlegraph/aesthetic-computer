@@ -10,12 +10,18 @@
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
   <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>computer.aesthetic.mime.remix</string><key>CFBundleURLSchemes</key><array><string>mime</string></array></dict></array>
   <key>UILaunchScreen</key><dict><key>UIColorName</key><string>LaunchBackground</string></dict>
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
   <key>UIUserInterfaceStyle</key><string>Dark</string>
   <key>UIStatusBarStyle</key><string>UIStatusBarStyleLightContent</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>UIAppFonts</key><array><string>Fonts/ComicRelief-Bold.ttf</string></array>
+  <key>NSMicrophoneUsageDescription</key><string>Record your voice to make and edit work in MIME.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>Turn your spoken instructions into text for your work.</string>
+  <key>NSPhotoLibraryAddUsageDescription</key><string>Save your exported work to Photos.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>Send your work to a nearby display.</string>
+  <key>NSBonjourServices</key><array><string>_http._tcp</string></array>
   <!-- "made with" opens the creation app when it is installed. -->
   <key>LSApplicationQueriesSchemes</key><array><string>whistlegraph</string></array>
 </dict>

@@ -53,6 +53,8 @@ test('short and legacy mood links resolve the same thread; deleted moods stay un
   const response = await handler({ httpMethod: 'GET', queryStringParameters: { thread: 'mood~' + code } });
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(JSON.parse(response.body).replies[0].code, 'reply');
+  f.mood.mood = 'full mood gyp '.repeat(100);
+  assert.equal((await feedOnlyOp(f.db, 'mood~' + code)).text, f.mood.mood, 'long moods are not truncated');
   f.mood.deleted = true;
   assert.equal(await feedOnlyOp(f.db, 'mood~' + code), null);
   assert.equal(await feedOnlyOp(f.db, 'mood~missing'), null);

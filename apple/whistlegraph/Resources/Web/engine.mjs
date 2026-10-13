@@ -22,6 +22,7 @@ import {MusicalInputSocket} from '/easel/src/musical-input-socket.mjs';
 import {MusicalInputAdvisor} from '/easel/src/musical-input-advisor.mjs';
 import {musicalPrompt} from './musical-input.mjs';
 import {PieceVersions} from './piece-versions.mjs';
+import {remixLedger,remixOf,replacePieceForRemix} from './mime-remix.mjs';
 import {wareControls,WARE_INSTRUCTIONS,requestedWare} from './wares.mjs';
 const wares=wareControls('piece');
 // The same inference/tool loop as Aesel, with a piece-first streaming renderer.
@@ -196,7 +197,7 @@ function nativeSnapshot(){
   nativeTimer=setTimeout(()=>{
     nativeTimer=null;
     const historyChanged=nativeLedger!==versions?.value;
-    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,hasDrawing:!!musicalData(v.request)?.drawing,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
+    if(historyChanged){nativeLedger=versions?.value;nativeRevisions=(versions?.value.versions||[]).map(v=>{const sound=musicalData(v.request)?.sound;return {id:v.id,parent:v.parent,remixURL:remixOf(v.request)?.url||null,hasDrawing:!!musicalData(v.request)?.drawing,utterance:(v.id===0&&!v.request?'':utterance(v.request)).slice(0,1000),createdAt:v.createdAt,recordingID:sound?.recordingID||null,words:(musicalData(v.request)?.words||[]).slice(0,256),sound:sound?{durationMs:sound.durationMs,frames:sound.frames.filter((_,i)=>i%Math.max(1,Math.ceil(sound.frames.length/64))===0)}:null};});}
     const displayVersion=presentedVersion===null?versions?.head:versions?.value.versions.find(v=>v.id===presentedVersion);
     if(captionSource!==displayVersion?.source){captionSource=displayVersion?.source;caption=pieceCaption(captionSource||'');}
     const phaseText=$('live-phase').textContent;
@@ -670,7 +671,8 @@ function remoteTurns(){
   return accountHandle==='jeffrey'; // jeffrey first; everyone with the switch after.
 }
 async function submitRemoteTurn({text,displayText,drawing}){
-  busy=false; // Nothing runs here; the phone is free to follow the ledger.
+  // Keep the editor attached until the server acknowledges ownership. Otherwise
+  // a switch during POST can lose a request which has not reached the queue yet.
   try{
     const body={code:thread.identity.code,text,displayText:String(displayText||'').slice(0,200),baseVersion:versions.head.id,baseHash:await hashSource(versions.head.source),requestID:crypto.randomUUID()};
     if(drawing)body.drawing=drawing;
@@ -679,6 +681,7 @@ async function submitRemoteTurn({text,displayText,drawing}){
     if(r.status!==202)throw Error(job.error||('Could not send the request (HTTP '+r.status+')'));
     remoteJob={id:job.id,parent:versions.head.id};
     if(activeAttempt)activeAttempt=saveAttempt(localStorage,storageKey,{...activeAttempt,remote:job.id,status:'working'});
+    busy=false;
     phase('Working on the knot…');log('Sent to the knot as turn '+String(job.id).slice(0,8));benchmark('remoteDispatched');void refreshKnotPieces();
     nativeSnapshot();threadUpdate();
     void watchRemoteTurn(remoteJob);
@@ -691,6 +694,7 @@ function remoteFailed(message,draft){
   if(draft)try{localStorage.setItem(storageKey+'-draft',JSON.stringify({source:draft,request:lastAttempt.request,error:message,parent:versions.head.id,createdAt:new Date().toISOString()}));}catch{}
   remoteJob=null;openTurnsChecked=false;activeAttempt=null;busy=false;phase(message==='Stopped'?'Stopped':'Could not finish');log(message);void refreshKnotPieces();
   $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();
+  window.whistlegraphWorkFinished?.();
 }
 async function watchRemoteTurn(job){
   const startedAt=Date.now();
@@ -699,6 +703,9 @@ async function watchRemoteTurn(job){
     if(!remoteJob||remoteJob.id!==job.id)return;
     let state;
     try{const r=await fetch('https://aesthetic.computer/api/whistlegraph-turn?id='+encodeURIComponent(job.id),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});state=await r.json();}catch{continue;}
+    // Stop may have returned the controls while this poll was in flight. Its
+    // late result must not finish a newer voice request.
+    if(!remoteJob||remoteJob.id!==job.id)return;
     if(state.status==='queued'||state.status==='running'){
       // The knot's phase and the code it is writing, shown as if the turn ran here.
       const p=state.progress;
@@ -710,15 +717,17 @@ async function watchRemoteTurn(job){
       continue;
     }
     if(state.status==='done'){
-      remoteJob=null;openTurnsChecked=false;localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;
       // The socket usually delivered the version already; if not, fetch the thread and follow it.
       if(versions.head.id<(state.result?.versionID||0)){
-        try{const r=await fetch('https://aesthetic.computer/api/whistlegraph?code='+encodeURIComponent(thread.identity.code),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});const t=await r.json();if(t?.ledger&&Number(t.revision)>Number(thread.revision))await thread.follow(t);}
+        try{const r=await fetch('https://aesthetic.computer/api/whistlegraph?code='+encodeURIComponent(thread.identity.code),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});const t=await r.json();if(!remoteJob||remoteJob.id!==job.id)return;if(t?.ledger&&Number(t.revision)>Number(thread.revision))await thread.follow(t);}
         catch(error){log('Could not fetch the finished turn: '+error.message);}
       }
+      if(!remoteJob||remoteJob.id!==job.id)return;
+      remoteJob=null;openTurnsChecked=false;localStorage.removeItem(storageKey+'-inflight');activeAttempt=null;
       const notes=state.result?.notes||[];
       phase(`v${versions.head.id} · ${state.result?.acceptance==='reviewed'?'Ready to play':'Saved with notes'}`);if(notes.length)log('Notes · '+notes.join('; '));
-      $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();return;
+      $('live-stop').hidden=true;clearInterval(timer);updateFeed();threadUpdate();nativeSnapshot();
+      window.whistlegraphWorkFinished?.();return;
     }
     if(state.status==='failed'){remoteFailed(state.result?.error||'The knot could not finish',state.result?.draft||null);return;}
   }
@@ -827,7 +836,13 @@ window.whistlegraphForgetLocalData = () => {
   visualController?.abort(); server?.interrupt(); musicalAdvisor.cancel(); musicalSocket.suspend(); thread?.suspend();
   token=accountToken=accountHandle=''; localStorage.clear();
 };
-window.whistlegraphIsBusy=()=>busy;
+window.whistlegraphIsBusy=()=>busy||!!remoteJob;
+window.whistlegraphCanPark=()=>!busy&&(!window.whistlegraphRecording?.()||!!remoteJob);
+window.whistlegraphPark=()=>{
+  if(!window.whistlegraphCanPark())return false;
+  // Only detach this viewer. The server job and its durable journal survive.
+  remoteJob=null;thread?.suspend();window.whistlegraphWorkFinished?.();return true;
+};
 window.whistlegraphHasReview=()=>false;
 if(!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!window.__whistlegraphLocalSequence&&!window.__whistlegraphDisableThread)try{if(initializeBasePiece(localStorage,storageKey))lastAttempt=null;}catch(error){phase('Could not initialize piece');log(error.message);}
 try{source=window.__whistlegraphSpace&&window.__whistlegraphSequenceStart===1?'':window.__whistlegraphLocalSequence?'':window.__whistlegraphSequence?((window.__whistlegraphSequenceStart>1?localStorage.getItem(storageKey):'')||localStorage.getItem('whistlegraph-benchmark-source')||''):window.__whistlegraphBenchmark?'':localStorage.getItem(storageKey)||'';if(source){previous=source;ui.hidden=false;document.body.classList.add('live-mode','live-preview');$('initial').hidden=true;render(source);}}catch{}
@@ -948,15 +963,16 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   };
   // Every piece on this phone: the open one plus the archives "New piece" left.
   // Opening another swaps archives, so the current one is never lost.
-  const ARCHIVE='whistlegraph-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts','-receipt-cost','-attempt','-inflight'];
+  const ARCHIVE='whistlegraph-archive-',ARCHIVE_SUFFIXES=['-cloud-revision','-cloud-ledger','-receipts','-receipt-cost','-attempt','-inflight','-draft'];
   // The archive write comes first: when the phone's 5 MB store is full it
   // throws, nothing is removed, and the open piece stays exactly as it was.
   function archiveCurrentPiece(){
+    if(!window.whistlegraphCanPark())return {accepted:false,reason:'busy'};
     const extras={};for(const suffix of ARCHIVE_SUFFIXES){const v=localStorage.getItem(storageKey+suffix);if(v!==null)extras[suffix]=v;}
     try{localStorage.setItem(ARCHIVE+thread.identity.id,JSON.stringify({identity:thread.identity,ledger:versions.value,source,extras,archivedAt:new Date().toISOString()}));}
     catch{phase('This phone has no room to put the open piece away');return {accepted:false,reason:'storageFull'};}
-    thread.suspend();
-    for(const suffix of ['', '-versions','-thread','-cloud-revision','-cloud-ledger','-attempt','-inflight','-receipts','-receipt-cost'])localStorage.removeItem(storageKey+suffix);
+    window.whistlegraphPark();
+    for(const suffix of ['', '-versions','-thread',...ARCHIVE_SUFFIXES])localStorage.removeItem(storageKey+suffix);
     return {accepted:true};
   }
   function pieceSummary(id,identity,ledger,current){
@@ -1023,6 +1039,17 @@ if(versions&&!window.__whistlegraphSequence&&!window.__whistlegraphBenchmark&&!w
   postPieces();
   $('info').append(newPiece);
 }
+window.whistlegraphRemix=async payload=>{
+  if(!window.whistlegraphCanPark())throw Error('The current work is still being saved on this phone.');
+  const identity=thread?.identity||(window.__whistlegraphDisableThread&&window.__whistlegraphRemixFixtureIdentity);
+  if(!identity||!versions||!token)throw Error('Sign in and wait for the editor to open.');
+  if(payload?.ware!=='piece'||typeof payload.source!=='string'||new TextEncoder().encode(payload.source).length>500000)throw Error('This source cannot be remixed as an AC piece.');
+  const next=remixLedger(payload.source,payload.reference);
+  replacePieceForRemix(localStorage,storageKey,identity,versions.value,source,next);
+  window.whistlegraphPark();server?.close();
+  setTimeout(()=>location.reload(),100);
+  return {accepted:true};
+};
 post({action:'account'});
 // Opt-in capture smoke test: replay the current piece without generating,
 // reviewing, checking out or committing anything. Native debug code saves proof.

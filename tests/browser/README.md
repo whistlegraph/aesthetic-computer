@@ -15,6 +15,38 @@ Env overrides: `AC_TEST_URL`, `AC_HEADED=1`, `AC_SLOWMO=<ms>`, `AC_SHOT_DIR`.
 
 Screenshots land in `tests/browser/__screens__/` (gitignored).
 
+## Prompt performance
+
+`flair-fps.test.mjs` requires **60 fps** with flair on, stars off, flair off,
+and the active prompt. It checks successful boot and command navigation, and
+writes `frame-performance.json` beside its screenshots. The GPU, viewport,
+frame count and p95 frame interval are included. This measures browser animation
+callbacks, not distinct canvas paints or physical display latency.
+
+```bash
+AC_TEST_URL=http://localhost:8889 node tests/browser/flair-fps.test.mjs
+AC_TEST_URL=http://localhost:8889 node tests/browser/glaze-parity.test.mjs
+AC_TEST_URL=http://localhost:8889 node tests/browser/prompt-interface-performance.mjs
+```
+
+Use hardware acceleration and an otherwise idle browser. Set
+`PUPPETEER_EXECUTABLE_PATH` to system Chrome if the bundled browser is unavailable.
+`FLAIR_FPS_SAMPLE_MS` defaults to 5000; `FLAIR_FPS_FLOOR` may raise the 60 fps
+requirement. The gate discards only the final fractional expected frame to
+account for timestamp quantization; it has no percentage performance allowance.
+
+The glaze comparison renders the previous shader through the original three
+passes, then compares the optimized pipeline at fixed input/time. It covers
+portrait, high DPI, DPI-only changes, custom uniforms and restoring defaults.
+RGB differences are limited to two levels out of 255 with mean error below 0.01;
+ray positions, texture resolution and ray-march sample counts remain unchanged.
+
+The interface benchmark records cache-disabled boot, idle/active frame timing,
+and steady typing to tagged canvas submission. `AC_BASELINE_URL` enables
+alternating comparisons with a second server; `AC_PERF_RUNS` defaults to three.
+It excludes first-key audio activation and requires worker mode. Its next-RAF
+timing is a presentation opportunity, not a physical display measurement.
+
 ## No Paint 3.0: tests become tutorials
 
 The canonical first-run journey has two synchronized surfaces:

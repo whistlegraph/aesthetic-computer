@@ -113,3 +113,19 @@ test('palette failures retain successful login and readable plain handle',async(
   assert.equal(f.nodes.get('status').className,'ok');assert.match(f.nodes.get('status').textContent,/Paired as @alice/);
   assert.equal(f.nodes.get('retry-pair').hidden,true);
 });
+
+test('an account without an AC handle is not mislabeled as an expired screen code',async()=>{
+ for(const data of [{code:'handle-missing',message:'No handle found for this account'},{message:'No handle found for this account'}]){
+  const f=await browser({otpToken:'private',fetch:async()=>({ok:false,status:404,json:async()=>data})});
+  assert.match(f.nodes.get('status').textContent,/no AC handle/);
+  assert.doesNotMatch(f.nodes.get('status').textContent,/expired/);
+  assert.equal(f.nodes.get('popup-btn').hidden,false);
+  assert.equal(f.nodes.get('retry-pair').hidden,false);
+ }
+});
+test('an expired pairing asks for a fresh scan without sending another email',async()=>{
+ const f=await browser({otpToken:'private',fetch:async()=>({ok:false,status:404,json:async()=>({code:'pair-expired',message:'Code not found or expired'})})});
+ assert.match(f.nodes.get('status').textContent,/screen code expired/);
+ assert.equal(f.nodes.get('retry-pair').hidden,true);
+ assert.equal(f.calls.some(c=>c[0]==='sendCode'),false);
+});

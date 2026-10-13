@@ -48,6 +48,7 @@ platform :ios do
 
   desc "XcodeGen, archive Release with two compiler jobs, and export a signed IPA"
   lane :build do
+    sh("node", File.join(APP_DIR, "../whistlegraph/bundle.mjs"))
     sh("xcodegen", "generate", "--spec", File.join(APP_DIR, "project.yml"), "--project", APP_DIR)
     auth = "-allowProvisioningUpdates -authenticationKeyPath #{KEY_PATH.shellescape} " \
            "-authenticationKeyID #{KEY_ID} -authenticationKeyIssuerID #{ISSUER}"

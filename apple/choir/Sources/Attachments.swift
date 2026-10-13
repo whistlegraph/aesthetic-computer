@@ -15,6 +15,8 @@ struct Pending: Identifiable {
     var thumbnail: UIImage? = nil
     var duration: Double? = nil
     var transcript: String? = nil
+    var posterData: Data? = nil      // videos: uploaded first, its URL rides on the video
+    var working = false              // a video still being squeezed down to size
 }
 
 enum Picks {
@@ -64,11 +66,13 @@ enum Picks {
                        width: image.map { Int($0.size.width) }, height: image.map { Int($0.size.height) }, thumbnail: image)
     }
     static let fileTypes: [UTType] = [.pdf, .image, .audio, .movie, .plainText, .zip]
+    static func isMovie(_ url: URL) -> Bool { UTType(filenameExtension: url.pathExtension)?.conforms(to: .movie) == true }
 }
 
 /// Chips above the text box for what will be sent.
 struct PendingStrip: View {
     @Binding var items: [Pending]
+    var uploading = false
     @State private var filtering: Pending?
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -77,12 +81,21 @@ struct PendingStrip: View {
                     ZStack(alignment: .topTrailing) {
                         Group {
                             if let t = p.thumbnail { Image(uiImage: t).resizable().scaledToFill() }
+                            else if p.type.hasPrefix("video/") { Theme.ink.opacity(0.85) }
                             else if let d = p.duration {
                                 VStack(spacing: 2) { Image(systemName: "waveform"); Text(RecordingBar.clock(d)).font(.system(size: 10, weight: .semibold)) }.foregroundStyle(Theme.ink)
                             }
                             else { VStack(spacing: 2) { Image(systemName: p.type == "application/pdf" ? "doc.richtext" : "doc"); Text(p.name).font(.system(size: 9)).lineLimit(2) }.padding(4).foregroundStyle(Theme.ink) }
                         }
                         .frame(width: 56, height: 56).background(Theme.paper).clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay {
+                            if p.working || (uploading && p.type.hasPrefix("video/")) {
+                                RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.35)).overlay(FlowerSpinner(size: 24))
+                            } else if p.type.hasPrefix("video/") {
+                                Image(systemName: "play.fill").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                                    .frame(width: 24, height: 24).background(Theme.ink.opacity(0.75), in: Circle())
+                            }
+                        }
                         .overlay(alignment: .bottomLeading) {
                             if p.original != nil {
                                 Hand(p.filter == .original ? "FlowerO" : "FlowerDot", height: 12).foregroundStyle(Theme.ink).padding(3)
@@ -112,14 +125,16 @@ struct PendingStrip: View {
     }
 }
 
-/// Attachments inside a message: photos sized from their own proportions,
-/// files as rows. Tapping a photo opens it full screen.
+/// Attachments inside a message: photos and videos sized from their own
+/// proportions, files as rows. Tapping a photo opens it full screen; tapping a
+/// video plays it full screen.
 struct AttachmentsView: View {
     let items: [Attachment]
     @Environment(\.openURL) private var openURL
     @State private var viewing: Attachment?
-    var images: [Attachment] { items.filter(\.isImage) }
-    var files: [Attachment] { items.filter { !$0.isImage && !$0.isVoice } }
+    @State private var playing: Attachment?
+    var images: [Attachment] { items.filter { $0.isImage || $0.isVideo } }
+    var files: [Attachment] { items.filter { !$0.isImage && !$0.isVideo && !$0.isVoice } }
     var voices: [Attachment] { items.filter(\.isVoice) }
 
     /// One photo: 240 pt wide, height from its aspect, at most 300 pt.
@@ -144,7 +159,7 @@ struct AttachmentsView: View {
             ForEach(files, id: \.url) { a in
                 Button { if let u = URL(string: a.url) { Trail.send("attachment:open"); openURL(u) } } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: a.type == "application/pdf" ? "doc.richtext.fill" : a.type.hasPrefix("audio/") ? "waveform" : a.type.hasPrefix("video/") ? "film" : "doc.fill")
+                        Image(systemName: a.type == "application/pdf" ? "doc.richtext.fill" : a.type.hasPrefix("audio/") ? "waveform" : "doc.fill")
                             .font(.title3).foregroundStyle(Theme.head)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(a.name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
@@ -159,9 +174,21 @@ struct AttachmentsView: View {
             }
         }
         .fullScreenCover(item: $viewing) { PhotoViewer(attachment: $0) }
+        .fullScreenCover(item: $playing) { VideoViewer(attachment: $0) }
     }
 
-    func photo(_ a: Attachment) -> some View {
+    @ViewBuilder func photo(_ a: Attachment) -> some View {
+        if a.isVideo {
+            VideoTile(video: a)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .contentShape(RoundedRectangle(cornerRadius: 12))
+                .onTapGesture { Trail.send("video:view"); playing = a }
+        } else {
+            still(a)
+        }
+    }
+
+    func still(_ a: Attachment) -> some View {
         RemoteImage(url: URL(string: a.url), maxPixels: 900) { $0.resizable().scaledToFill() } placeholder: { failed in
             Theme.desk.opacity(0.6).overlay(FlowerSpinner(size: 26).opacity(failed ? 0 : 1))
         }

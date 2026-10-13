@@ -110,7 +110,7 @@ async function getFeed(db, posts, page, seed) {
   await Promise.all(recent.map(async (op) => {
     if (!op.replies) return;
     const first = await posts.find({ parent: op.code }, NO_DATA).sort({ when: 1, _id: 1 }).limit(1).toArray();
-    op.preview = (await publicPosts(db, first)).map(({ name, text }) => ({ name, text }));
+    op.preview = (await publicPosts(db, first)).map(({ name, text, nameColors }) => ({ name, text, nameColors }));
   }));
   return respond(200, { boards: [], recent, page, seed: visit, hasMore }, { "Cache-Control": "no-store" });
 }
@@ -198,7 +198,7 @@ async function getIndex(db, posts, page, feedOnly = false) {
   await Promise.all(publicRecent.map(async (op) => {
     if (!op.replies) return;
     const first = await posts.find({ parent: op.code }, NO_DATA).sort({ when: 1, _id: 1 }).limit(1).toArray();
-    op.preview = (await publicPosts(db, first)).map(({ name, text }) => ({ name, text }));
+    op.preview = (await publicPosts(db, first)).map(({ name, text, nameColors }) => ({ name, text, nameColors }));
   }));
   return respond(200, {
     boards: boards.map((b) => ({ board: b._id, threads: b.threads, bumped: b.bumped })),
@@ -311,6 +311,7 @@ async function createPost(db, posts, body, user) {
   const now = new Date();
   let code;
   const doc = { parent, board, name, text, file, when: now };
+  if (!parent && Number.isSafeInteger(body.version) && body.version >= 0 && body.version <= 100000) doc.version = body.version;
   if (user) doc.user = user.sub;
   if (!parent) { doc.bumped = now; doc.replies = 0; }
   for (let attempt = 0; attempt < 5; attempt++) {

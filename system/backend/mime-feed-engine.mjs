@@ -10,9 +10,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ObjectId } from "mongodb";
-import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts } from "./mime-media.mjs";
+import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts, publicHandleColors } from "./mime-media.mjs";
 import { ensureMoodCode, moodIdForCode } from "./mood-code.mjs";
+import { ensureChatCode, chatIdForCode } from "./chat-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
+import { replayPosts, replayById } from "./mime-oskiewar.mjs";
 
 const REFRESH_MS = 60_000;
 const PER_SOURCE = 200; // newest items read from each live source per refresh
@@ -109,12 +111,21 @@ function takeLive(queues, recent, previous) {
 export function leadCards(live, now = Date.now()) {
   const age = (item) => (now - new Date(item.when).getTime()) / 3600000 / (LEAD_YOUTH[item.app] || 1);
   const newest = new Map();
+  let latestReplay;
   for (const item of live) {
+    if (item.app === "oskiewar") {
+      if (!latestReplay || new Date(item.when) > new Date(latestReplay.when)) latestReplay = item;
+      continue;
+    }
     const hours = age(item), author = item.author || item.code;
     if (hours < 0 || hours > LEAD_HOURS) continue;
     if (!newest.has(author) || hours < newest.get(author)[0]) newest.set(author, [hours, item]);
   }
-  return [...newest.values()].sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+  const leads = [...newest.values()].sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+  // One recent match is always discoverable, even when its players also made
+  // other work. A busy dojo must not fill the entire opening with replays.
+  if (latestReplay) leads.splice(Math.min(1, leads.length), 0, latestReplay);
+  return leads;
 }
 
 /**
@@ -179,23 +190,24 @@ async function whistlegraphPieces(db) {
     { projection: { code: 1, owner: 1, handle: 1, publishedAt: 1, updatedAt: 1, "ledger.head": 1, "ledger.versions.id": 1,
       "ledger.versions.request": 1, "ledger.versions.createdAt": 1 } },
   ).sort({ updatedAt: -1 }).limit(PER_SOURCE).toArray();
-  const owners = await handleMap(db, rows.filter((row) => !row.handle?.startsWith?.("@")).map((row) => row.owner));
+  const owners = await wgProfiles(db, rows.map(row => row.owner));
   return rows.filter((row) => typeof row.code === "string" && /^wg[A-Za-z0-9]+$/.test(row.code)).map((row) => {
     const made = (row.ledger?.versions || []).filter((v) => v.id > 0);
     const caption = made.length ? captionOf(made.at(-1).request) : "";
-    const handle = typeof row.handle === "string" && row.handle.startsWith("@") ? row.handle : owners.get(row.owner) || null;
+    const profile = owners.get(row.owner);
+    const handle = typeof row.handle === "string" && row.handle.startsWith("@") ? row.handle : profile?.handle || null;
     const latest = made.at(-1)?.createdAt;
     const when = latest && latest > row.publishedAt ? latest : row.publishedAt;
-    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), when), "whistlegraph");
+    return feedItem(wgPiecePost(row.code, handle, caption.slice(0, 300), when, made.at(-1)?.id, profile?.handle === handle ? profile.colors : null), "whistlegraph");
   });
 }
 
-export function wgPiecePost(code, handle, caption, when) {
+export function wgPiecePost(code, handle, caption, when, version, nameColors = null) {
   return {
     code: "wgpiece_" + code, parent: null, board: "text/javascript", name: handle, text: caption || "", when,
-    replies: 0, file: { name: code + ".mjs", type: "text/javascript", size: null, url: "/api/mime-feed?code=" + code },
+    replies: 0, nameColors, file: { name: code + ".mjs", type: "text/javascript", size: null, url: "/api/mime-feed?code=" + code },
     origin: { name: "Whistlegraph", url: "https://whistlegraph.app/" },
-    media: { kind: "wgpiece", id: code, code, url: "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code), author: handle },
+    media: { kind: "wgpiece", id: code, code, version, url: "https://aesthetic.computer/mime-play/?code=" + encodeURIComponent(code) + (Number.isSafeInteger(version) ? "&version=" + version : ""), author: handle },
   };
 }
 
@@ -210,10 +222,56 @@ async function moods(db) {
 
 export function moodPost(row, handle, code) {
   return {
-    code: "mood_" + String(row._id), parent: null, board: "text/plain", name: handle, text: row.mood.slice(0, 500),
+    code: "mood_" + String(row._id), parent: null, board: "text/plain", name: handle, text: row.mood,
     when: row.when, replies: 0, file: null, origin: { name: "mood", url: "https://aesthetic.computer/" + encodeURIComponent(handle) },
     media: { kind: "mood", id: String(row._id), code, url: "https://aesthetic.computer/" + encodeURIComponent(handle), author: handle },
   };
+}
+
+// Only the two public chats participate; collection names never come from a URL.
+const PUBLIC_CHATS = ["system", "clock"];
+const PUBLIC_CHAT_TEXT = { deleted: { $ne: true }, text: { $type: "string", $ne: "" } };
+async function chatMessages(db) {
+  const groups = await Promise.all(PUBLIC_CHATS.map(async instance => {
+    const rows = await db.collection("chat-" + instance).find(PUBLIC_CHAT_TEXT,
+      { projection: { user: 1, text: 1, when: 1 } }).sort({ when: -1 }).limit(60).toArray();
+    const handles = await handleMap(db, rows.map(row => row.user));
+    return Promise.all(rows.filter(row => handles.has(row.user)).map(async row =>
+      feedItem(chatPost(row, handles.get(row.user), instance, await ensureChatCode(db, instance, row._id)), "chat")));
+  }));
+  return groups.flat();
+}
+
+export function chatPost(row, handle, instance, code) {
+  const url = "https://aesthetic.computer/" + (instance === "clock" ? "laer-klokken" : "chat");
+  return { code: "chat_" + instance + "_" + String(row._id), parent: null, board: "text/plain", name: handle,
+    text: row.text, when: row.when, replies: 0, file: null,
+    origin: { name: instance === "clock" ? "laer-klokken" : "chat", url },
+    media: { kind: "chat", id: String(row._id), instance, code, url, author: handle } };
+}
+
+// Edits/deletes must be read through even while the ranking pool is cached.
+export async function currentChatPosts(db, posts) {
+  const current = new Map();
+  await Promise.all(PUBLIC_CHATS.map(async instance => {
+    const cards = posts.filter(p => p.media?.kind === "chat" && p.media.instance === instance);
+    if (!cards.length) return;
+    const rows = await db.collection("chat-" + instance).find({ ...PUBLIC_CHAT_TEXT,
+      _id: { $in: cards.map(p => new ObjectId(p.media.id)) } }).toArray();
+    const handles = await handleMap(db, rows.map(row => row.user));
+    for (const row of rows) {
+      const handle = handles.get(row.user), card = cards.find(p => p.media.id === String(row._id));
+      if (handle && card) current.set(card.code, { ...card, ...chatPost(row, handle, instance, card.media.code), replies: card.replies });
+    }
+  }));
+  return posts.flatMap(p => p.media?.kind !== "chat" ? [p] : current.has(p.code) ? [current.get(p.code)] : []);
+}
+
+async function wgProfiles(db, users) {
+  const ids = [...new Set(users.filter(Boolean))];
+  if (!ids.length) return new Map();
+  const rows = await db.collection("@handles").find({ _id: { $in: ids } }, { projection: { handle: 1, colors: 1 } }).toArray();
+  return new Map(rows.filter(row => typeof row.handle === "string").map(row => [row._id, {handle: "@" + row.handle.replace(/^@/, ""), colors: publicHandleColors(row.colors)}]));
 }
 
 async function handleMap(db, users) {
@@ -255,13 +313,15 @@ async function dwellTimes(db) {
 let pool = null, refreshing = null;
 
 async function refresh(db) {
-  const [media, posts, pieces, moodItems, dwell, replies] = await Promise.all([
-    liveMedia(db), mimePosts(db), whistlegraphPieces(db), moods(db), dwellTimes(db),
+  const [media, posts, pieces, moodItems, chatItems, replays, dwell, replies] = await Promise.all([
+    liveMedia(db), mimePosts(db), whistlegraphPieces(db), moods(db), chatMessages(db),
+    replayPosts(db, PER_SOURCE), dwellTimes(db),
     db.collection(MEDIA_THREADS).find({}, { projection: { replies: 1 } }).toArray(),
   ]);
   const counts = new Map(replies.map((row) => [row._id, row.replies || 0]));
-  const live = [...media, ...posts, ...pieces, ...moodItems]
-    .filter((item) => !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")));
+  const live = [...media, ...posts, ...pieces, ...moodItems, ...chatItems,
+    ...replays.map(post => feedItem(post, "oskiewar"))]
+    .filter((item) => item.app === "oskiewar" || !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")));
   for (const item of live) {
     item.dwell = dwell.get(item.code) || 0;
     if (counts.has(item.code)) item.post.replies = counts.get(item.code);
@@ -289,12 +349,16 @@ export async function feedPage(db, { seed, page, pageSize }) {
   const current = await feedPool(db);
   const end = (page + 1) * pageSize;
   const ranked = rankFeed(current, seed, end + 1);
-  return { recent: ranked.slice(page * pageSize, end).map((item) => item.post), hasMore: ranked.length > end };
+  return { recent: await currentChatPosts(db, ranked.slice(page * pageSize, end).map((item) => item.post)), hasMore: ranked.length > end };
 }
 
 /** Resolve a feed-only thread (archive painting, mood, Whistlegraph piece) for comments and engagement. */
 export async function feedOnlyOp(db, code) {
   if (typeof code !== "string") return null;
+  if (code.startsWith("ow-")) {
+    const post = await replayById(db, code);
+    return post ? withThread(db, post) : null;
+  }
   if (/^wg[A-Za-z0-9]+$/.test(code)) code = "wgpiece_" + code;
   let match = /^nopaint_([A-Za-z0-9]{4,16})$/.exec(code);
   if (match) {
@@ -313,12 +377,27 @@ export async function feedOnlyOp(db, code) {
     const handle = row && (await handleMap(db, [row.user])).get(row.user);
     return handle ? withThread(db, moodPost(row, handle, await ensureMoodCode(db, row._id))) : null;
   }
+  const chatAlias = /^chat~([A-Za-z0-9]{3,16})$/.exec(code);
+  if (chatAlias) {
+    const record = await chatIdForCode(db, chatAlias[1]);
+    if (!record) return null;
+    code = "chat_" + record.instance + "_" + record.id;
+  }
+  match = /^chat_(system|clock)_([a-f0-9]{24})$/.exec(code);
+  if (match) {
+    const instance = match[1];
+    const row = await db.collection("chat-" + instance).findOne({ ...PUBLIC_CHAT_TEXT, _id: new ObjectId(match[2]) });
+    const handle = row && (await handleMap(db, [row.user])).get(row.user);
+    return handle ? withThread(db, chatPost(row, handle, instance, await ensureChatCode(db, instance, row._id))) : null;
+  }
   match = /^wgpiece_(wg[A-Za-z0-9]+)$/.exec(code);
   if (match) {
     const pieces = (await feedPool(db)).live.filter((item) => item.code === code);
     if (pieces[0]) return withThread(db, pieces[0].post);
-    const row = await db.collection(WG_THREADS).findOne({ code: match[1], published: true }, { projection: { code: 1, handle: 1, publishedAt: 1 } });
-    return row ? withThread(db, wgPiecePost(row.code, row.handle?.startsWith?.("@") ? row.handle : null, "", row.publishedAt)) : null;
+    const row = await db.collection(WG_THREADS).findOne({ code: match[1], published: true }, { projection: { code: 1, owner: 1, handle: 1, publishedAt: 1, "ledger.versions.id": 1 } });
+    if (!row) return null;
+    const profile = (await wgProfiles(db, [row.owner])).get(row.owner), handle = row.handle?.startsWith?.("@") ? row.handle : profile?.handle || null;
+    return withThread(db, wgPiecePost(row.code, handle, "", row.publishedAt, row.ledger?.versions.at(-1)?.id, profile?.handle === handle ? profile.colors : null));
   }
   return null;
 }

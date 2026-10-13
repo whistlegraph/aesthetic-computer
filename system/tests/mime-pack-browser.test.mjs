@@ -25,6 +25,11 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     if (u.pathname === '/ipfs/fixture' || u.pathname === '/artifact.html') return route.fulfill({ contentType: 'text/html', body: artifact });
     return route.fulfill({ status: 200, body: '' });
   });
+  const interact = async (id) => {
+    const frame = page.locator('#' + id + ' .feed-media');
+    if (await frame.getAttribute('data-interacting')) await frame.locator(':scope > .media-toggle').click();
+    else await frame.locator(':scope > .media-shield').click();
+  };
   try {
     await page.goto('https://mime.ac/?ac-automation=1');
     // The reel opens on its splash; the first post is one swipe down.
@@ -64,10 +69,10 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
       assert.ok(box.height <= viewport.height + 1 && box.width <= viewport.width + 1, 'the pack fits on its card');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
-    await page.locator('#pack .reel-command .media-label').click();
+    await interact('pack');
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spin tree' }).click();
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spinning', exact: true }).waitFor();
-    await page.locator('#pack .reel-command .media-label').click();
+    await interact('pack');
     await page.locator('#pack2 .media-pack').evaluate(el => el.scrollIntoView({ block: 'center' }));
     await page.locator('#pack2 iframe[data-ready]').waitFor();
     assert.equal(await page.locator('.piece-preview iframe').count(), 1, 'only the visible pack runs');

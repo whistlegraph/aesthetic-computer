@@ -36,7 +36,8 @@ const assert=require('node:assert/strict'),{readFile}=require('node:fs/promises'
  await player.evaluate(()=>window.dispatchEvent(new Event('blur')));
  assert.deepEqual(await player.evaluate(()=>movementEvents.slice(-2)),[['keyup','ArrowUp'],['keyup','Period']],'losing focus releases diagonal movement');
  await page.keyboard.up('KeyW');await page.keyboard.up('KeyD');
- await page.click('.reel-command .media-label');
+ // The global identifier opens Share; the player control exits interaction.
+ await page.$eval('.feed-media[data-interacting] .media-toggle',button=>button.click());
  await page.click('.media-shield');
  assert.equal(await page.$eval('.doom-player',el=>el.inert),false,'clicking the game itself enables play');
  assert.equal(await page.evaluate(()=>document.activeElement?.classList.contains('doom-player')),true,'clicking game focuses it');

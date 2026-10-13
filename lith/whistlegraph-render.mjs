@@ -78,6 +78,17 @@ export class RenderPool {
   }
   // {rendered, sourceHash, renderID, logs, frames, error} — frames only when it painted.
   async render({source, renderID}, {timeoutMs = 20_000, spanMs = 2200, frames = 4} = {}) {
+    const first = await this.#renderOnce({source, renderID}, {timeoutMs, spanMs, frames});
+    // A silent tab can stay stuck across every later job. Recycle it and
+    // replay this exact source once before asking the model to repair it.
+    if (!first.rendered && first.error?.startsWith('Nothing painted within') &&
+        !first.logs.some(l => l.level === 'error' || /^(?:Type|Reference|Range|Syntax)?Error\b|\bat paint \(/.test(l.text))) {
+      this.#log('retrying silent renderer', renderID);
+      return this.#renderOnce({source, renderID}, {timeoutMs, spanMs, frames});
+    }
+    return first;
+  }
+  async #renderOnce({source, renderID}, {timeoutMs, spanMs, frames}) {
     const tab = await this.#acquire(); let broken = false;
     try {
       await tab.page.waitForFunction('window.__wg && window.__wg.ready', {timeout: 90_000});
@@ -92,7 +103,10 @@ export class RenderPool {
       const started = Date.now();
       while (Date.now() - started < timeoutMs) { await drain(); if (painted || invalidated) break; await sleep(100); }
       const out = {rendered: painted && !invalidated, sourceHash: hash, renderID, logs, frames: []};
-      if (!painted && !invalidated) out.error = `Nothing painted within ${timeoutMs / 1000} s`;
+      if (!painted && !invalidated) {
+        broken = true;
+        out.error = `Nothing painted within ${timeoutMs / 1000} s`;
+      }
       if (out.rendered) {
         const first = Date.now();
         for (let i = 0; i < frames; i++) {

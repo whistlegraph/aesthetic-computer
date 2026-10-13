@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="theme-color" content="#e2dbcc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>choir privacy</title>
+  <meta name="description" content="What choir keeps, why, and how to delete it." />
+  <link rel="canonical" href="https://choir.ac/privacy/" />
+  <link rel="apple-touch-icon" href="/icon.png" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    :root { --desk: #e2dbcc; --ink: #1c1816; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--desk); color: var(--ink); padding: 32px 16px 48px;
+      font: 17px/1.55 "American Typewriter", "Courier New", ui-monospace, monospace; }
+    main { max-width: 36em; margin: 0 auto; }
+    .home { display: inline-block; margin-bottom: 20px; }
+    .home img { width: 56px; height: auto; display: block; }
+    h1 { font-size: 26px; margin: 0 0 4px; }
+    .when { font-size: 13px; opacity: .7; margin: 0 0 28px; }
+    h2 { font-size: 18px; margin: 30px 0 8px; }
+    p, li { margin: 0 0 12px; }
+    ul { padding-left: 1.2em; margin: 0 0 12px; }
+    a { color: var(--ink); }
+    footer { margin-top: 40px; font-size: 13px; opacity: .75; overflow-wrap: anywhere; }
+    footer a { margin-right: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <a class="home" href="/" aria-label="choir home"><img src="/mark.png" alt="choir" /></a>
+  <h1>Privacy</h1>
+  <p class="when">Updated October 12, 2026</p>
+
+  <p>choir is an invite-only chat for artists, made by Fía Benitez (@fifi) and run on Aesthetic Computer's servers. This page lists what choir keeps, why, and how to remove it. Questions go to <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>.</p>
+
+  <h2>What choir keeps</h2>
+  <ul>
+    <li><b>Your account.</b> The email address you sign in with and your @handle. Sign-in is a six-digit code sent by email through Auth0; there is no password.</li>
+    <li><b>What you post.</b> Messages, replies, tags, photos, camera pictures, PDFs and other files, and voice notes with their written transcripts. Transcripts are made by Apple's speech recognition, on your phone when your phone supports it.</li>
+    <li><b>Your phone.</b> An app-specific device ID, the phone model, iOS and app version, and a notification token if you allow notifications.</li>
+    <li><b>How the app is used.</b> A record of actions such as opening the app, signing in, posting, or a post being refused, kept for 30 days to find problems. Visits to choir.ac are counted, except when your browser sends Do Not Track or Global Privacy Control.</li>
+    <li><b>Reports and settings.</b> Posts you report and why, the invites you send, your notification choices, the people you hide (kept on your phone only), and when you agreed to the <a href="/terms/">terms</a>.</li>
+  </ul>
+
+  <h2>Who can see it</h2>
+  <p>Posts and your @handle are visible to choir members. Uploaded files are stored at addresses that are hard to guess but not locked: anyone holding a file's link can open it. Your email address is never shown to other members.</p>
+  <p>When a message contains a link, your phone fetches a preview from that website.</p>
+
+  <h2>What choir does not do</h2>
+  <p>No ads, no tracking across other apps or websites, no selling or sharing of your data for marketing, and no third-party analytics kits in the app.</p>
+
+  <h2>Who handles it for us</h2>
+  <p>Auth0 (sign-in emails), DigitalOcean (servers and file storage), our database host, and Apple (notifications). They process data only to run choir.</p>
+
+  <h2>Deleting your account</h2>
+  <p>In the app, open your account and tap <b>Delete account</b>. The account locks right away and is erased after 14 days, along with your choir posts, files, invites, device records and settings. Until then an emailed link lets you change your mind. You can also delete any single post yourself, or write to us and we will remove your data.</p>
+
+  <h2>Age</h2>
+  <p>choir is for adults. It is not meant for anyone under 18, and we delete accounts we learn belong to children.</p>
+
+  <h2>Changes</h2>
+  <p>If this page changes in a way that matters, the app will tell you before it applies.</p>
+  <footer><a href="/terms/">Terms</a><a href="/privacy/">Privacy</a><a href="/support/">Support</a><a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a></footer>
+</main>
+</body>
+</html>

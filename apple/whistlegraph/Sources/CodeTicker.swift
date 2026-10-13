@@ -1,183 +1,149 @@
 import SwiftUI
 
-// What the working row shows while a turn runs: the request, alive letter by
-// letter, and the code arriving as real lines rather than one scrolling strip.
+/// The provisional version, its stages, and the arriving source share one row.
+struct GenerationStatusStrip: View {
+    let snapshot: PieceSnapshot
+    let foreground: Color
+    let stop: () -> Void
+    @AppStorage("whistlegraph-generation-stream") private var showsBuffer = true
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    @Environment(\.scenePhase) private var scenePhase
+    #if MIME_APP
+    @Environment(\.mimeLettersActive) private var onstage
+    #else
+    private let onstage = true
+    #endif
+    @State private var visible = true
+    @State private var began = Date()
+    @State private var version: Int
+    private let ember = Color(red: 1, green: 0.48, blue: 0.25)
+    private let symbols = ["hourglass", "pencil.tip", "eye", "square.and.arrow.down"]
 
-/// The request while it is being worked on. Letters pop in one after another,
-/// then bob in a slow wave with a glint passing through. Wraps by word, so no
-/// glyph is ever cut off.
-struct GlyphWave: View {
-    let text: String
-    let size: CGFloat
-    var color: Color = .primary
-    var alignment: HorizontalAlignment = .trailing
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var born = Date()
-    private struct Word: Identifiable { let id: Int; let start: Int; let glyphs: [Character] }
-    private var words: [Word] {
-        var result: [Word] = [], index = 0
-        for (n, piece) in text.split(separator: " ", omittingEmptySubsequences: true).enumerated() {
-            result.append(Word(id: n, start: index, glyphs: Array(piece)))
-            index += piece.count + 1
-        }
-        return result
+    init(snapshot: PieceSnapshot, foreground: Color, stop: @escaping () -> Void) {
+        self.snapshot = snapshot; self.foreground = foreground; self.stop = stop
+        // Pin the proposed number for the whole turn, including the commit
+        // snapshot. Editing an older version still appends after the latest ID.
+        let makesVersion = snapshot.attempt?.status == "working" || snapshot.draft != nil
+        _version = State(initialValue: makesVersion ? max(snapshot.head, snapshot.versions.map(\.id).max() ?? 0) + 1 : snapshot.head)
+    }
+
+    private var status: (step: Int, label: String) {
+        let reported = snapshot.progress?.phase ?? ""
+        let phase = (reported.isEmpty ? snapshot.phase : reported).lowercased()
+        if phase.contains("sav") || phase.contains("commit") || phase.contains("sync") { return (3, "Saving") }
+        if phase.contains("check") || phase.contains("evaluat") || phase.contains("review") || phase.contains("validat") { return (2, "Checking") }
+        if phase.contains("preview") || phase.contains("render") || phase.contains("compil") { return (2, "Previewing") }
+        if phase.contains("queue") || phase.contains("worker") { return (0, "Queued") }
+        if phase.contains("wait") || phase.contains("connect") || phase.contains("send") || phase.contains("guides") { return (0, "Starting") }
+        if phase.contains("think") { return (1, "Thinking") }
+        if phase.contains("paint") { return (1, "Painting") }
+        if phase.contains("build") { return (1, "Building") }
+        return (1, "Making")
+    }
+    private var buffer: String {
+        let candidates = [snapshot.output, snapshot.progress?.steps.last?.text, snapshot.progress?.said]
+        let newest = candidates.compactMap { $0 }.first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ?? status.label
+        // Bound layout work even for a large source delta, and never wrap.
+        return String(newest.suffix(512)).split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { context in
-            let t = reduceMotion ? 10_000 : context.date.timeIntervalSince(born)
-            WordFlow(spacing: size * 0.3, lineSpacing: 0, alignment: alignment) {
-                ForEach(words) { word in
-                    HStack(spacing: 0) {
-                        ForEach(Array(word.glyphs.enumerated()), id: \.offset) { i, glyph in
-                            let n = Double(word.start + i)
-                            let appear = min(1, max(0, (t - n * 0.035) / 0.3))
-                            let glint = pow(max(0, sin(t * 1.6 - n * 0.22)), 12)
-                            Text(String(glyph))
-                                .font(.custom("ComicRelief-Regular", size: size, relativeTo: .title3))
-                                .foregroundStyle(color)
-                                .brightness(glint * 0.45)
-                                .opacity(appear)
-                                .scaleEffect(0.3 + 0.7 * appear, anchor: .bottom)
-                                .offset(y: -sin(t * 3.2 - n * 0.5) * size * 0.08 - (1 - appear) * size * 0.4)
-                        }
-                    }
+        HStack(spacing: 6) {
+            TimelineView(.animation(minimumInterval: 1 / 20, paused: reduced || scenePhase != .active || !visible || !onstage)) { clock in
+                let pulse = reduced ? 0.8 : 0.55 + 0.35 * (sin(clock.date.timeIntervalSince(began) * 4) + 1) / 2
+                HStack(spacing: 8) {
+                    Text("v\(version)").font(.custom("ComicRelief-Bold", size: 22))
+                        .foregroundStyle(ember).opacity(pulse)
+                        .shadow(color: ember.opacity(0.35), radius: 3)
+                        .fixedSize().accessibilityLabel("v\(version)")
+                        .accessibilityValue("Under construction")
+                        .accessibilityIdentifier("generation-version")
+                    Button { showsBuffer.toggle() } label: {
+                        HStack(spacing: 3) {
+                            ForEach(symbols.indices, id: \.self) { step in
+                                if step > 0 { Image(systemName: "chevron.right").font(.system(size: 6, weight: .medium)).opacity(0.3) }
+                                Image(systemName: symbols[step])
+                                    .font(.system(size: 12, weight: step == status.step ? .bold : .regular))
+                                    .frame(width: 16)
+                                    .foregroundStyle(step == status.step ? ember : foreground)
+                                    .opacity(step == status.step ? pulse : step < status.step ? 0.7 : 0.25)
+                            }
+                        }.frame(height: 44).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                        .accessibilityLabel("Generation stages").accessibilityValue(status.label)
+                        .accessibilityHint(showsBuffer ? "Hide data buffer" : "Show data buffer")
+                        .accessibilityIdentifier("generation-status")
                 }
-            }
+            }.fixedSize(horizontal: true, vertical: false)
+            Group {
+                if showsBuffer { CodeTicker(output: buffer, active: visible && onstage) }
+                else {
+                    Text(status.label).font(.custom("ComicRelief-Regular", size: 16))
+                        .lineLimit(1).truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).clipped()
+            Button { ButtonSounds.play(.stop); stop() } label: {
+                Image(systemName: "stop.fill").font(.system(size: 16)).foregroundStyle(Color(red: 1, green: 0.42, blue: 0.43))
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }.buttonStyle(.plain).accessibilityLabel("Stop generation").accessibilityIdentifier("generation-stop")
         }
-        .accessibilityElement().accessibilityLabel(text)
+        .padding(.leading, 10).frame(height: 44).foregroundStyle(foreground)
+        .overlay(alignment: .bottom) { Rectangle().fill(foreground.opacity(0.15)).frame(height: 1).accessibilityHidden(true) }
+        .accessibilityElement(children: .contain).accessibilityLabel("Generation: \(status.label)")
+        .accessibilityIdentifier("generation-strip")
+        .onAppear { visible = true }.onDisappear { visible = false }
+        .onChange(of: snapshot.busy) { _, busy in if busy { began = Date() } }
     }
 }
 
-/// Lays words out left to right and wraps whole words onto new lines.
-struct WordFlow: Layout {
-    var spacing: CGFloat
-    var lineSpacing: CGFloat
-    var alignment: HorizontalAlignment = .leading
-    private func lines(_ subviews: Subviews, width: CGFloat) -> [[(index: Int, size: CGSize)]] {
-        var lines: [[(index: Int, size: CGSize)]] = [[]], used: CGFloat = 0
-        for (index, view) in subviews.enumerated() {
-            let size = view.sizeThatFits(.unspecified)
-            if !lines[lines.count - 1].isEmpty, used + spacing + size.width > width { lines.append([]); used = 0 }
-            used += (lines[lines.count - 1].isEmpty ? 0 : spacing) + size.width
-            lines[lines.count - 1].append((index, size))
-        }
-        return lines
-    }
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? .infinity
-        let rows = lines(subviews, width: width)
-        let height = rows.reduce(0) { $0 + ($1.map(\.size.height).max() ?? 0) } + lineSpacing * CGFloat(max(0, rows.count - 1))
-        let widest = rows.map { row in row.reduce(0) { $0 + $1.size.width } + spacing * CGFloat(max(0, row.count - 1)) }.max() ?? 0
-        return CGSize(width: width.isFinite ? width : widest, height: height)
-    }
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var y = bounds.minY
-        for row in lines(subviews, width: bounds.width) {
-            let rowWidth = row.reduce(0) { $0 + $1.size.width } + spacing * CGFloat(max(0, row.count - 1))
-            let rowHeight = row.map(\.size.height).max() ?? 0
-            var x = alignment == .trailing ? bounds.maxX - rowWidth : alignment == .center ? bounds.midX - rowWidth / 2 : bounds.minX
-            for item in row {
-                subviews[item.index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(item.size))
-                x += item.size.width + spacing
-            }
-            y += rowHeight + lineSpacing
-        }
-    }
-}
-
-/// The code as it arrives: the latest lines, numbered and wrapped, typed out
-/// smoothly even when the worker sends it in bursts, with the newest characters
-/// fading up behind a cursor.
+/// A live, single-line tail. The scroll follows incoming bytes, but stays still
+/// between updates so it doesn't suggest activity when the stream has stalled.
 struct CodeTicker: View {
     let output: String
-    /// Reasoning scrolls dimmed and plain; code is colored and full strength.
-    var thinking = false
-    var visibleLines = 7
-    var fontSize: CGFloat = 14
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var active = true
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var stream = ""
     @State private var from = 0
-    @State private var to = 0
-    @State private var revealStart = Date()
-    @State private var revealSeconds = 0.3
-    private static let paper = UIColor(red: 0.96, green: 0.94, blue: 0.87, alpha: 1)
-    private static let trail = 18
-    private func revealed(at date: Date) -> Int {
-        if reduceMotion { return output.count }
-        let progress = min(1, max(0, date.timeIntervalSince(revealStart) / revealSeconds))
-        return min(output.count, from + Int(Double(to - from) * progress))
+    @State private var arrived = Date()
+    @State private var duration = 0.0
+    @State private var moving = false
+
+    private func displayed(at date: Date) -> String {
+        guard moving, !reduced, duration > 0 else { return String(stream.suffix(512)) }
+        let progress = min(1, max(0, date.timeIntervalSince(arrived) / duration))
+        let count = from + Int(Double(stream.count - from) * progress)
+        return String(stream.prefix(count).suffix(512))
     }
-    private func styled(_ source: String) -> AttributedString {
-        let styled = NSMutableAttributedString(string: source, attributes: [.foregroundColor: Self.paper])
-        if !thinking {
-            for token in CodeSyntax.tokens(source) {
-                let color: UIColor
-                switch token.kind {
-                case "keyword": color = UIColor(red: 1, green: 0.56, blue: 0.83, alpha: 1)
-                case "string": color = UIColor(red: 0.67, green: 0.9, blue: 0.57, alpha: 1)
-                case "number": color = UIColor(red: 1, green: 0.8, blue: 0.47, alpha: 1)
-                case "call": color = UIColor(red: 0.48, green: 0.88, blue: 0.94, alpha: 1)
-                default: color = UIColor(red: 0.7, green: 0.65, blue: 0.76, alpha: 1)
-                }
-                styled.addAttribute(.foregroundColor, value: color, range: token.range)
-            }
-        }
-        // The newest characters fade up, oldest of them strongest.
-        let length = styled.length, fade = min(Self.trail, length)
-        for k in 0..<fade {
-            let location = length - fade + k
-            let color = (styled.attribute(.foregroundColor, at: location, effectiveRange: nil) as? UIColor) ?? Self.paper
-            styled.addAttribute(.foregroundColor, value: color.withAlphaComponent(1 - CGFloat(k + 1) / CGFloat(fade + 2)), range: NSRange(location: location, length: 1))
-        }
-        return (try? AttributedString(styled, including: \.uiKit)) ?? AttributedString(source)
+
+    private func receive() async {
+        let previous = Array(displayed(at: .now)), next = Array(output)
+        // Join consecutive tails at their real overlap. Replacement/status text
+        // begins a new line instead of replaying old source to imply progress.
+        var overlap = min(previous.count, next.count)
+        while overlap > 0 && !previous.suffix(overlap).elementsEqual(next.prefix(overlap)) { overlap -= 1 }
+        stream = overlap > 0 ? String(previous) + String(next.dropFirst(overlap)) : output
+        from = overlap > 0 ? previous.count : 0
+        duration = min(1.2, max(0.15, Double(stream.count - from) / 180))
+        arrived = .now; moving = !reduced && active && scenePhase == .active
+        guard moving else { return }
+        do { try await Task.sleep(for: .seconds(duration)) } catch { return }
+        moving = false
     }
+
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { context in
-            let count = revealed(at: context.date)
-            let shown = String(output.prefix(count))
-            let all = shown.split(separator: "\n", omittingEmptySubsequences: false)
-            let first = max(0, all.count - visibleLines)
-            let blink = Int(context.date.timeIntervalSinceReferenceDate * 2.5) % 2 == 0
-            VStack(alignment: .leading, spacing: 4) {
-                if !thinking {
-                    Text(output.count >= 6000 ? "\(all.count)+ lines" : all.count == 1 ? "1 line" : "\(all.count) lines")
-                        .font(.custom("Courier", size: fontSize - 2, relativeTo: .caption)).monospacedDigit()
-                        .foregroundStyle(Color(Self.paper).opacity(0.5))
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(first..<all.count, id: \.self) { n in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            if !thinking {
-                                Text(output.count >= 6000 ? "" : "\(n + 1)")
-                                    .font(.custom("Courier", size: fontSize - 2, relativeTo: .caption)).monospacedDigit()
-                                    .foregroundStyle(Color(Self.paper).opacity(0.3)).frame(width: 24, alignment: .trailing)
-                            }
-                            (Text(styled(String(all[n]))) + Text(n == all.count - 1 && blink ? "▍" : " ").foregroundColor(Color(Self.paper).opacity(0.8)))
-                                .font(.custom(thinking ? "Courier" : "Courier-Bold", size: fontSize, relativeTo: .body))
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                }
-                // Grows with the code until it holds the latest lines; only then do
-                // older lines scroll off the top behind a fade.
-                .frame(maxHeight: CGFloat(visibleLines) * (fontSize + 3), alignment: .bottom).clipped()
-                .mask(LinearGradient(stops: [.init(color: first > 0 ? .clear : .black, location: 0), .init(color: .black, location: 0.3)], startPoint: .top, endPoint: .bottom))
+        GeometryReader { geometry in
+            TimelineView(.animation(minimumInterval: 1 / 30, paused: reduced || !active || scenePhase != .active || !moving)) { clock in
+                Text(verbatim: displayed(at: clock.date)).font(.system(size: 13, design: .monospaced))
+                    .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                    .frame(width: geometry.size.width, height: 24, alignment: .trailing)
             }
-            .opacity(thinking ? 0.6 : 1)
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.28)))
-        .onAppear { from = 0; to = output.count; revealStart = .now; revealSeconds = 0.4 }
-        .onChange(of: output) { old, new in
-            // Bursts (a remote turn sends its tail every few seconds) type out
-            // over about the time until the next one; anything else just shows.
-            let now = revealed(at: .now)
-            if new.hasPrefix(String(old.prefix(now))), new.count > now {
-                from = now; to = new.count; revealStart = .now
-                revealSeconds = min(2.4, max(0.2, Double(new.count - now) / 260))
-            } else { from = new.count; to = new.count }
-        }
-        .accessibilityElement().accessibilityLabel(thinking ? "Model thinking" : "Live code").accessibilityValue(output.suffix(400).description)
-        .accessibilityIdentifier("code-ticker")
+            .accessibilityRepresentation {
+                Text("Data buffer").frame(width: geometry.size.width, height: 24)
+                    .accessibilityValue(output).accessibilityIdentifier("code-ticker")
+            }
+        }.frame(height: 24).clipped()
+            .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12)], startPoint: .leading, endPoint: .trailing))
+            .task(id: output) { await receive() }
     }
 }

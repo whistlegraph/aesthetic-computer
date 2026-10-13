@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS } from "./choir.mjs";
+import { mongoChoirStore, normalizeTag, linksIn, validatePost, publicPost, RATE, STARTER_TAGS, curate, UPLOAD_BASE, greet, attachmentsLabel } from "./choir.mjs";
 
 // The smallest Mongo choir needs: find/sort/limit, findOne, insertOne,
 // updateOne with $set/$inc/upsert, countDocuments.
@@ -11,6 +11,8 @@ function collection() {
     if (v && typeof v === "object" && !Array.isArray(v)) {
       if ("$gt" in v && !(actual > v.$gt)) return false;
       if ("$lt" in v && !(actual < v.$lt)) return false;
+      if ("$gte" in v && !(actual >= v.$gte)) return false;
+      if ("$lte" in v && !(actual <= v.$lte)) return false;
       return true;
     }
     if (Array.isArray(actual)) return actual.includes(v);
@@ -20,7 +22,12 @@ function collection() {
     rows,
     createIndex: async () => {},
     insertOne: async (row) => { rows.push({ ...row }); },
-    findOne: async (q) => rows.find((r) => matches(r, q)) || null,
+    deleteOne: async (q) => { const i = rows.findIndex((r) => matches(r, q)); if (i >= 0) rows.splice(i, 1); return { deletedCount: i >= 0 ? 1 : 0 }; },
+    findOne: async (q, o = {}) => {
+      const hits = rows.filter((r) => matches(r, q));
+      if (o.sort) { const [[k, d]] = Object.entries(o.sort); hits.sort((a, b) => (a[k] > b[k] ? 1 : a[k] < b[k] ? -1 : 0) * d); }
+      return hits[0] || null;
+    },
     countDocuments: async (q) => rows.filter((r) => matches(r, q)).length,
     updateOne: async (q, u, o = {}) => {
       let row = rows.find((r) => matches(r, q));
@@ -126,10 +133,107 @@ test("the brake: a burst cap a minute, an hourly cap", async () => {
   assert.doesNotReject(s.post("sub-other", "@other", { text: "fine", tags: ["news", "discussion"] }), "the brake is per account");
 });
 
-test("notifications default on and can be turned off", async () => {
+test("chat and Discover notifications switch separately", async () => {
   const { s } = store();
-  assert.deepEqual(await s.prefsOf("sub-a"), { notifications: true });
-  await s.setPrefs("sub-a", { notifications: false });
-  assert.deepEqual(await s.prefsOf("sub-a"), { notifications: false });
-  await assert.rejects(s.setPrefs("sub-a", { notifications: "no" }), /true or false/);
+  assert.deepEqual(await s.prefsOf("sub-a"), { notifications: true, chat: true, discover: true });
+  assert.deepEqual(await s.setPrefs("sub-a", { discover: false }), { notifications: true, chat: true, discover: false });
+  assert.deepEqual(await s.setPrefs("sub-a", { notifications: false }), { notifications: false, chat: false, discover: false });
+  assert.deepEqual(await s.setPrefs("sub-a", { chat: true }), { notifications: true, chat: true, discover: false });
+  await assert.rejects(s.setPrefs("sub-a", { chat: "no" }), /true or false/);
+});
+
+test("news lives in Discover, not the chat", async () => {
+  const { s, posts } = store();
+  const chat = await s.post("sub-a", "@a", { text: "hello", tags: [] });
+  await posts.insertOne({ _id: "a".repeat(24), owner: "choir|editor", handle: "@choir", text: "Headline https://x.y", tags: [], links: ["https://x.y"], replyTo: null, replies: 0, when: "2026-10-12T00:00:00.000Z", news: true });
+  assert.deepEqual((await s.feed()).map((p) => p._id), [chat._id]);
+  assert.deepEqual((await s.feed({ news: true })).map((p) => p._id), ["a".repeat(24)]);
+  assert.ok(await s.thread("a".repeat(24)), "a news item still has a comment thread");
+});
+
+test("the curator adds new links, skips repeats and Artforum, and retires closed calls", async () => {
+  const posts = collection(), archive = collection();
+  let n = 0; const id = () => String(++n).padStart(24, "c");
+  const now = new Date("2026-10-13T12:00:00Z");
+  await posts.insertOne({ _id: "b".repeat(24), owner: "choir|editor", links: ["https://old.example/x"], kind: "opportunity", deadline: "2026-10-01", replies: 0, news: true, when: "2026-09-01T00:00:00Z", replyTo: null });
+  const r = await curate(posts, archive, [
+    { url: "https://e-flux.com/a", title: "A show", description: "About it.", siteName: "e-flux", via: "e-flux" },
+    { url: "https://e-flux.com/a", title: "A show again" },
+    { url: "https://www.artforum.com/x", title: "Nope" },
+    { url: "https://grants.example/g", title: "A grant", kind: "opportunity", deadline: "2026-11-15" },
+    { url: "https://grants.example/closed", title: "Closed", kind: "opportunity", deadline: "2026-10-01" },
+    { url: "https://gallery.example/show", title: "A show opens", kind: "opening", deadline: "2026-11-30" },
+  ], { now, id });
+  assert.deepEqual(r.added, ["https://e-flux.com/a", "https://grants.example/g", "https://gallery.example/show"]);
+  assert.equal(posts.rows.find((p) => p.links[0] === "https://gallery.example/show").kind, "opening");
+  assert.equal(r.skipped.length, 3);
+  assert.deepEqual(r.expired, ["https://old.example/x"]);
+  assert.equal(archive.rows.length, 1);
+  const g = posts.rows.find((p) => p.links[0] === "https://grants.example/g");
+  assert.equal(g.kind, "opportunity"); assert.equal(g.deadline, "2026-11-15"); assert.equal(g.news, true);
+  assert.equal(posts.rows.find((p) => p.links[0] === "https://e-flux.com/a").preview.via, "e-flux");
+});
+
+test("attachments must be choir uploads of allowed types and sizes; a photo alone is a post", () => {
+  const pdf = { url: UPLOAD_BASE + "u/fifi/2026-10/ab12/cv.pdf", type: "application/pdf", size: 120000, name: "cv.pdf" };
+  const pic = { url: UPLOAD_BASE + "u/fifi/2026-10/cd34/show.jpg", type: "image/jpeg", size: 900000, width: 1200, height: 900 };
+  assert.deepEqual(validatePost({ text: "", tags: [], attachments: [pic] }).attachments, [{ ...pic, name: "show.jpg" }]);
+  assert.equal(validatePost({ text: "my cv", tags: [], attachments: [pdf] }).attachments[0].name, "cv.pdf");
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pic, url: "https://evil.example/x.jpg" }] }), /choir uploads/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pdf, type: "application/x-msdownload" }] }), /type/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...pdf, size: 30 * 1024 * 1024 }] }), /25 MB/);
+  assert.throws(() => validatePost({ text: "", tags: [] }), /Say something/);
+  const voice = { url: UPLOAD_BASE + "u/fifi/2026-10/ef56/voice.m4a", type: "audio/mp4", size: 300000, duration: 12.34, transcript: "  hi everyone  " };
+  assert.deepEqual(validatePost({ text: "", tags: [], attachments: [voice] }).attachments[0], { url: voice.url, type: "audio/mp4", size: 300000, name: "voice.m4a", duration: 12.3, transcript: "hi everyone" });
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...voice, duration: 75 }] }), /a minute/);
+});
+
+test("a video keeps its size, length and poster through to the public post; its push says video", () => {
+  const video = { url: UPLOAD_BASE + "u/fifi/2026-10/aa11/video.mp4", type: "video/mp4", size: 8000000, width: 720, height: 1280,
+    duration: 41.26, poster: UPLOAD_BASE + "u/fifi/2026-10/bb22/video-poster.jpg", transcript: "not for videos" };
+  const [clean] = validatePost({ text: "", tags: [], attachments: [video] }).attachments;
+  assert.deepEqual(clean, { url: video.url, type: "video/mp4", size: 8000000, name: "video.mp4", width: 720, height: 1280, duration: 41.3, poster: video.poster });
+  assert.deepEqual(publicPost({ _id: "a".repeat(24), handle: "@fifi", text: "", tags: [], when: "2026-10-12T00:00:00.000Z", attachments: [clean] }).attachments, [clean]);
+  assert.equal(publicPost({ _id: "a".repeat(24), handle: "@fifi", text: "", tags: [], when: "x", deleted: true, attachments: [clean] }).attachments, undefined);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...video, duration: 90 }] }), /a minute/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...video, poster: "https://evil.example/p.jpg" }] }), /choir uploads/);
+  assert.throws(() => validatePost({ text: "", tags: [], attachments: [{ ...video, size: 26 * 1024 * 1024 }] }), /25 MB/);
+  assert.equal("poster" in validatePost({ text: "", tags: [], attachments: [{ ...video, type: "image/jpeg", url: video.poster }] }).attachments[0], false);
+  assert.equal(attachmentsLabel([clean]), "🎬 video");
+  assert.equal(attachmentsLabel([{ type: "audio/mp4" }]), "🎙 voice note");
+  assert.equal(attachmentsLabel([{ type: "image/jpeg" }]), "📷 photo");
+  assert.equal(attachmentsLabel([]), "");
+  assert.equal(attachmentsLabel(undefined), "");
+});
+
+test("a newcomer is welcomed once; members already greeted are not", async () => {
+  const posts = collection(), prefs = collection();
+  prefs.findOneAndUpdate = async (q, u) => {
+    const row = prefs.rows.find((r) => r._id === q._id);
+    if (row && row.greeted === true) return null;
+    if (row) { Object.assign(row, u.$set); return row; }
+    return null;
+  };
+  await prefs.insertOne({ _id: "auth0|new", subs: ["auth0|new"] });
+  await prefs.insertOne({ _id: "auth0|old", greeted: true });
+  const first = await greet(posts, prefs, "auth0|new", "@newbie", { id: () => "e".repeat(24) });
+  assert.equal(first.text, "🌼 Welcome @newbie — say hi!");
+  assert.equal(first.kind, "greeting");
+  assert.equal(await greet(posts, prefs, "auth0|new", "@newbie"), null, "only once");
+  assert.equal(await greet(posts, prefs, "auth0|old", "@fifi"), null, "existing members are not greeted");
+  assert.equal(await greet(posts, prefs, "auth0|x", null), null, "no @name, no greeting yet");
+  assert.equal(posts.rows.length, 1);
+});
+
+test("Discover shows one day's slate; older items stay reachable", async () => {
+  const posts = collection();
+  const s = mongoChoirStore(posts, { now: () => "2026-10-12T16:00:00.000Z" });
+  const item = (id, when) => posts.insertOne({ _id: id.repeat(24), owner: "choir|editor", handle: "@choir", text: "x", tags: [], links: [], replyTo: null, replies: 0, when, news: true });
+  await item("a", "2026-10-11T15:02:00.000Z");   // yesterday's run
+  await item("b", "2026-10-12T15:01:00.000Z");   // today's run
+  await item("c", "2026-10-12T15:00:00.000Z");
+  await item("z", "2099-01-01T00:00:00.000Z");   // a hand seed dated ahead
+  assert.deepEqual((await s.feed({ news: true })).map((p) => p._id[0]), ["z", "b", "c"]);
+  assert.deepEqual((await s.feed({ news: true, all: true })).map((p) => p._id[0]), ["z", "b", "c", "a"], "the curator still sees everything");
+  assert.ok(await s.thread("a".repeat(24)), "a chat link to yesterday's item still opens");
 });

@@ -44,11 +44,10 @@ struct PostRow: View {
                 Button("Report", systemImage: "flag") { reporting = true }
             }
         }
-        .reportDialog($reporting, post: post)
-        .confirmationDialog("Delete this post?", isPresented: $confirmDelete) {
-            Button("Delete", role: .destructive) {
-                Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); onChange(); await room.load() }
-            }
+        // Its own view: two dialogs on one view and only one ever shows (Delete broke).
+        .background(Color.clear.reportDialog($reporting, post: post))
+        .confirm($confirmDelete, "Delete this message?", detail: "It's removed for everyone.", action: "Delete") {
+            Task { try? await API.delete(post.id, token: await account.token()); Trail.send("post:delete"); onChange(); await room.load() }
         }
     }
 

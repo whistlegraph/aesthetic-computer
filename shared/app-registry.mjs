@@ -16,6 +16,7 @@ export const APPS = Object.freeze({
   oskiewar:          { tenant: "aesthetic", apns: ["computer.aesthetic.oskiewar"],   web: true,  wired: false },
   menuband:          { tenant: "aesthetic", apns: ["computer.aesthetic.menuband"],   web: false, wired: false },
   "sotce-net":       { tenant: "sotce",     apns: [],                              web: true,  wired: false },
+  choir:             { tenant: "aesthetic", apns: ["computer.aesthetic.choir"],     web: false, wired: true },
 });
 
 export const PLATFORMS = Object.freeze(["ios", "ipados", "mac", "web", "windows", "xbox", "linux", "android"]);

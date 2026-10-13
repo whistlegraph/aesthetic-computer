@@ -30,10 +30,15 @@ import Foundation
         let invalidDuration = try JSONSerialization.data(withJSONObject: older)
         precondition(MimeLayout.decode(invalidDuration) == nil)
         let wad = try JSONDecoder().decode(Post.self, from: Data("{\"code\":\"abc\",\"file\":{\"name\":\"arena.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"/api/mime?file=abc\"}}".utf8))
+        let colored = try JSONDecoder().decode(Post.self, from: Data("{\"code\":\"colors\",\"name\":\"@artist\",\"nameColors\":[{\"r\":24,\"g\":128,\"b\":240},null]}".utf8))
+        precondition(colored.nameColors?.count == 2 && colored.nameColors?[0]?.g == 128 && colored.nameColors?[1] == nil)
         precondition(wad.command == "doom~abc", "WAD identifiers must resolve in the AC prompt namespace")
         if case let .runtime(url, kind) = wad.body {
             precondition(kind == "doom" && url.path == "/doom-player")
-            precondition(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first?.value == "https://mime.ac/api/mime?file=abc")
+            let flags = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            precondition(flags.contains { $0.name == "preview" && $0.value == "1" })
+            precondition(flags.contains { $0.name == "mime" && $0.value == "1" })
+            precondition(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "file" })?.value == "https://mime.ac/api/mime?file=abc")
         } else { fatalError("WADs must use the shared playable runtime") }
         for (kind, code, expected) in [("piece", "q7f", "q7f"), ("kidlisp", "abc", "$abc"), ("painting", "abc", "#abc"), ("tape", "abc", "!abc"), ("wgpiece", "wgDuck", "wgDuck")] {
             let postData = try JSONSerialization.data(withJSONObject: ["code": "thread_123", "name": "@artist", "media": ["kind": kind, "code": code, "title": "@artist/ducks"]])

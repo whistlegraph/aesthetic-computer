@@ -434,6 +434,8 @@ function boot({
         `;
       })
       .catch((err) => {
+        interim = `Could not load ${paintingCode ? "#" + paintingCode : "painting"}.`;
+        net.preloaded(); // Release the loading gate so a failed image cannot hang the piece.
         console.error("⚠️ Could not load painting.", err);
       });
 

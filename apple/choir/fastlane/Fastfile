@@ -18,8 +18,8 @@ KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_#{KEY_ID}.p
 RELEASE_DIR = File.expand_path(ENV.fetch("CHOIR_RELEASE_DIR", "~/Library/Developer/Choir-Releases/#{VERSION}-#{BUILD}"))
 IPA = File.join(RELEASE_DIR, "export/Choir.ipa")
 NOTES = ENV.fetch("CHOIR_TEST_NOTES", "Sign in with your email (no password, you get a 6 digit code). Post to the room, tap a post to reply in its thread, try a photo or a voice note, and look through Discover.")
-PRIVACY_JSON = File.join(__dir__, "app_privacy_details.json")
-AGE_JSON = File.join(__dir__, "age_rating.json")
+PRIVACY_JSON = File.join(APP_DIR, "fastlane", "app_privacy_details.json")
+AGE_JSON = File.join(APP_DIR, "fastlane", "age_rating.json")
 # asc.mjs attaches the newest VALID build and opens the review submission
 # idempotently; it is the AC app's and Menu Band's last mile too.
 ASC = File.join(REPO_DIR, "slab/menuband/bin/asc.mjs")
@@ -38,7 +38,7 @@ end
 def deliver_defaults
   { api_key: asc_key, platform: "ios", app_identifier: BUNDLE, submit_for_review: false, force: true,
     run_precheck_before_submit: false,
-    metadata_path: File.join(__dir__, "metadata/ios"), screenshots_path: File.join(__dir__, "screenshots/ios") }
+    metadata_path: File.join(APP_DIR, "fastlane/metadata/ios"), screenshots_path: File.join(APP_DIR, "fastlane/screenshots/ios") }
 end
 
 # README.md is written by hand (the release order); keep fastlane from regenerating it.
@@ -63,7 +63,7 @@ platform :ios do
       UI.success("Choir already exists: #{app.id}")
       next
     end
-    sh("node", File.join(__dir__, "refresh-service-key.mjs"))
+    sh("node", File.join(APP_DIR, "fastlane/refresh-service-key.mjs"))
     Spaceship::ConnectAPI.token = nil
     produce(username: ENV["FASTLANE_USER"], app_identifier: BUNDLE,
             app_name: ENV.fetch("CHOIR_STORE_NAME", "choir"), app_version: VERSION, sku: "choir",
@@ -139,7 +139,13 @@ platform :ios do
   desc "Listing text, categories, review notes and age rating (creates the App Store version if missing)"
   lane :meta do
     UI.user_error!("No app record yet. Run FASTLANE_USER=<Apple ID> fastlane ios create once.") unless (asc_key && store_app)
-    deliver(**deliver_defaults, app_version: VERSION, app_rating_config_path: AGE_JSON,
+    # The review phone stays out of the repo: CHOIR_REVIEW_PHONE (or ~/.choir-review-phone).
+    phone = ENV["CHOIR_REVIEW_PHONE"] || (File.read(File.expand_path("~/.choir-review-phone")).strip rescue nil)
+    info = File.join(APP_DIR, "fastlane/metadata/ios/review_information")
+    field = ->(f) { File.read(File.join(info, f)).strip rescue nil }
+    review = phone ? { app_review_information: { first_name: field.("first_name.txt"), last_name: field.("last_name.txt"),
+      email_address: field.("email_address.txt"), notes: field.("notes.txt"), phone_number: phone, demo_required: false } } : {}
+    deliver(**deliver_defaults, **review, app_version: VERSION, app_rating_config_path: AGE_JSON,
             skip_screenshots: true, skip_binary_upload: true)
   end
 
@@ -151,7 +157,7 @@ platform :ios do
   desc "Publish the App Privacy label from app_privacy_details.json"
   lane :privacy do
     asc_key
-    upload_app_privacy_details(api_key: asc_key, app_identifier: BUNDLE, json_path: PRIVACY_JSON)
+    upload_app_privacy_details_to_app_store(username: ENV.fetch("FASTLANE_USER"), app_identifier: BUNDLE, json_path: PRIVACY_JSON)   # needs an Apple ID session; the API key cannot
   end
 
   desc "Submit VERSION for App Review. Irreversible; run only by name."

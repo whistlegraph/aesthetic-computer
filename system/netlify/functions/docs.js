@@ -3424,12 +3424,6 @@ void draw() {
         done: false,
         hidden: true,
       },
-      product: {
-        sig: "product [key]",
-        desc: "Switch or view active shop product.",
-        done: false,
-        hidden: true,
-      },
       2022: {
         sig: "2022",
         desc: "",

@@ -1511,6 +1511,47 @@ www.mime.ac {
     redir https://mime.ac{uri} 308
 }
 
+# --- choir.ac ---
+# Fía's room for art-world people. Porkbun DNS points straight at lith, so it
+# needs its own public TLS policy (see the origin-cert catch-all note above).
+# The site is a pointer to the iPhone app; the web room stays on
+# aesthetic.computer until Auth0 lists choir.ac as an origin.
+choir.ac {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+        protocols tls1.2 tls1.3
+    }
+    encode zstd gzip
+    handle /api/* {
+        import lith_proxy
+    }
+    handle /aesthetic.computer/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    @choir_room path /room /room/*
+    handle @choir_room {
+        redir https://aesthetic.computer/choir{uri} 302
+    }
+    handle {
+        root * /opt/ac/system/public/choir
+        header Cache-Control "no-cache"
+        file_server
+    }
+}
+
+www.choir.ac {
+    tls {
+        protocols tls1.2 tls1.3
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+    }
+    redir https://choir.ac{uri} 308
+}
+
 # Aesel uses Cloudflare DNS-only records and its own public certificate.
 aesel.app {
     import machine_discovery

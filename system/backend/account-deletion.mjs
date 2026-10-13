@@ -371,6 +371,11 @@ const DELETE = [
   ["ai-usage", (sub, ctx) => ({ handle: { $in: ctx.handles } })],
   ["products", (sub) => ({ "source.user": sub })],
   ["mail-nudges", (sub) => ({ user: sub })],
+  // choir (choir.ac): a member's posts, settings, invites and reports.
+  ["choir-posts", (sub) => ({ owner: sub })],
+  ["choir-prefs", (sub) => ({ $or: [{ _id: sub }, { subs: sub }] })],
+  ["choir-invites", (sub) => ({ from: sub })],
+  ["choir-reports", (sub) => ({ member: sub })],
   // Secrets the account saved for its own devices.
   ["device-creds", (sub) => ({ _id: sub })],
   ["device-tokens", (sub) => ({ _id: sub })],
@@ -568,6 +573,15 @@ export const STEPS = [
     name: "storage-user",
     async run({ deps, sub }) {
       return { objects: await deps.storage.deletePrefix("user", `${sub}/`) };
+    },
+  },
+  {
+    // choir uploads live under u/<handle>/ in their own bucket.
+    name: "storage-choir",
+    async run({ deps, snap }) {
+      const who = bareHandle(snap.handle || "").replace(/[^\w-]/g, "");
+      if (!who) return { objects: 0 };
+      return { objects: await deps.storage.deletePrefix("choir", `u/${who}/`) };
     },
   },
   {

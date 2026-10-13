@@ -1,0 +1,9 @@
+An iPhone app icon: a full-bleed square image (no rounded corners, no border, iOS masks it).
+
+Keep the flower drawing exactly as it is in the reference image: the same loops, shape, center mark, size and placement of the line. Do not redraw, simplify or add anything.
+
+Paint that line as thick navy-blue oil paint, impasto: laid on with a loaded brush following the line, raised off the surface, with visible bristle ridges and soft peaks along the stroke and slightly irregular painterly edges, a low satin oil sheen, the soft glow of fresh oil paint. A slightly muted, deep navy.
+
+The ground is a warm beige primed canvas (#DDD0BA) with a fine, visible linen weave, lit by diffuse cloudy daylight from the upper left, with a gentle shadow where the paint stands up off the canvas.
+
+Warm, calm, minimal, like a close-up of a small painting. No text, no letters, no extra objects, no frame, no stretcher bars.

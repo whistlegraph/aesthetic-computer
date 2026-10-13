@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:39:14.038Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/oil-linen.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige2-oil-linen.prompt.txt",
+  "promptHash": "416823bef44dedd45115801a28e56e42505211465b32e40cc94ac511a4f318f8",
+  "references": [
+    "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-oat.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 26.599,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1491,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 467
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3247
+  }
+}

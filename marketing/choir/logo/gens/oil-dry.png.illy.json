@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:39:31.752Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/oil-dry.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige2-oil-dry.prompt.txt",
+  "promptHash": "3640609f123ebb049417147f76bf6f6cd6bccfef354397d734194afe215ad9a2",
+  "references": [
+    "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-oat.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 17.504,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1485,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 461
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3241
+  }
+}

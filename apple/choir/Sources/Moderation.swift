@@ -83,13 +83,15 @@ struct TermsSheet: View {
                 rule("Be kind. No harassment, hate, threats or bullying.")
                 rule("Nothing sexual, violent or illegal, and no spam.")
                 rule("Post what's yours to share.")
-                rule("Report or hide anyone with a long press. We act on reports within 24 hours, and people who break the rules lose their place here.")
+                rule("To report or hide someone, long-press their @name.")
+                rule("We look at every report within 24 hours. People who break the rules lose their place here.")
             }
             Link("Read the full rules at choir.ac/terms", destination: URL(string: "https://choir.ac/terms/")!)
                 .font(Theme.type(14)).tint(Theme.ink)
             if let error { Text(error).font(Theme.type(13)).foregroundStyle(Theme.head) }
             Spacer()
-            Button(busy ? "One moment…" : "I agree") { Task { await agree() } }
+            // Fía (23:06): "sounds good" rather than "I agree".
+            Button(busy ? "One moment…" : "Sounds good") { Task { await agree() } }
                 .buttonStyle(SendStyle(ready: !busy)).disabled(busy).frame(maxWidth: .infinity)
         }
         .padding(26)
@@ -98,7 +100,8 @@ struct TermsSheet: View {
     }
 
     func rule(_ s: String) -> some View {
-        HStack(alignment: .top, spacing: 8) { Text("🌼"); Text(s).font(.system(size: 16, design: .serif)).foregroundStyle(Theme.ink) }
+        // Fía (23:04): her hand-drawn asterisks, not flower emoji.
+        HStack(alignment: .top, spacing: 10) { Hand("HandStar", height: 15).foregroundStyle(Theme.ink).padding(.top, 2); Text(s).font(.system(size: 16, design: .serif)).foregroundStyle(Theme.ink) }
     }
 
     func agree() async {

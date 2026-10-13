@@ -4,6 +4,8 @@ enum AccountEntryStatus: String { case checking, signedOut, needsHandle, ready, 
 
 struct WhistlegraphAccountEntry: View {
     @ObservedObject var session: WhistlegraphSession
+    var onExplore: (() -> Void)? = nil
+    var overlaysFeed = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.openURL) private var openURL
     @State private var showingFeed = false
@@ -20,10 +22,14 @@ struct WhistlegraphAccountEntry: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 30) {
+                    #if MIME_APP
+                    Wordmark(height: 90).accessibilityHidden(true)
+                    #else
                     Image("WhistlegraphButterfly")
                         .renderingMode(.template).resizable().interpolation(.none).scaledToFit()
                         .frame(width: 128, height: 176).accessibilityHidden(true)
                     ComicTitle(text: "whistlegraph", size: 36)
+                    #endif
                     VStack(spacing: 18) {
                         if let failure = session.startupFailure {
                             Text(failure).multilineTextAlignment(.center)
@@ -41,7 +47,7 @@ struct WhistlegraphAccountEntry: View {
                                 action("I'm new", signUp: true) { session.signIn(signUp: true) }.accessibilityIdentifier("account-entry-signup")
                             }
                             // Exploring needs no account: the feed is the front door.
-                            action("Explore mimes") { ButtonSounds.play(.play); showingFeed = true }.accessibilityIdentifier("account-entry-explore")
+                            action("Explore mimes") { ButtonSounds.play(.play); if let onExplore { onExplore() } else { showingFeed = true } }.accessibilityIdentifier("account-entry-explore")
                             // Logging in is the AI permission (App Review 5.1.2(i)); the policy names who sees what.
                             Text("Voice, text and drawings go to AI. [Privacy](https://aesthetic.computer/privacy-policy.html)")
                                 .font(.custom("ComicRelief-Regular", size: 14, relativeTo: .footnote))
@@ -62,7 +68,7 @@ struct WhistlegraphAccountEntry: View {
                 .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }.scrollIndicators(.hidden)
         }
-        .foregroundStyle(theme.foreground).background(theme.background.ignoresSafeArea())
+        .foregroundStyle(theme.foreground).background((overlaysFeed ? Color.clear : theme.background).ignoresSafeArea())
         .accessibilityIdentifier("account-entry")
         .fullScreenCover(isPresented: $showingFeed) { MimeFeedView { showingFeed = false; session.signIn() } }
     }

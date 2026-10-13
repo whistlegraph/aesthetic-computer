@@ -2,19 +2,23 @@ import Foundation
 import Combine
 
 /// One card of the network feed, as GET mime.ac/api/mime?feed=1 returns it.
-struct Post: Decodable, Identifiable, Equatable {
-    struct File: Decodable, Equatable { let name: String?; let type: String; let url: String; let poster: String?; let alt: String? }
-    struct Media: Decodable, Equatable {
+struct Post: Codable, Identifiable, Equatable {
+    struct LetterRGB: Codable, Equatable { let r: Double; let g: Double; let b: Double }
+    struct File: Codable, Equatable { let name: String?; let type: String; let url: String; let poster: String?; let alt: String? }
+    struct Media: Codable, Equatable {
         let kind: String; let code: String?; let title: String?; let url: String?
         let packed: Bool?; let aspect: String?
+        let version: Int?
     }
     let code: String
     let name: String?
+    let nameColors: [LetterRGB?]?
     let text: String?
     let when: String?
     let board: String?
     let file: File?
     let media: Media?
+    let version: Int?
     var id: String { code }
 
     /// The code you can enter in AC: #painting, !tape, $kidlisp, a piece by name.
@@ -43,6 +47,12 @@ struct Post: Decodable, Identifiable, Equatable {
             case "kidlisp": return .runtime(URL(string: "https://aesthetic.computer/$\(code)?nogap=true&nolabel=true&noauth=true")!, kind: "kidlisp")
             case "piece": return .runtime(URL(string: "https://aesthetic.computer/\(code)?nogap=true&nolabel=true&noauth=true")!, kind: "piece")
             case "wgpiece": return .runtime(absolute(media.url ?? "") ?? base, kind: "wgpiece")
+            case "oskiewar":
+                if var player = media.url.flatMap({ URLComponents(string: $0) }),
+                   player.scheme == "https", player.host == "oskiewar.com" {
+                    player.queryItems = (player.queryItems ?? []).filter { $0.name != "warm" } + [.init(name: "warm", value: "1")]
+                    if let url = player.url { return .runtime(url, kind: "oskiewar") }
+                }
             case "whistlegraph" where media.packed == true:
                 if let url = media.url.flatMap(absolute) { return .packed(url) }
             default: break
@@ -51,7 +61,7 @@ struct Post: Decodable, Identifiable, Equatable {
         guard let file, let url = absolute(file.url) else { return .words(text ?? "") }
         if ["application/x-doom-wad", "application/x-doom"].contains(file.type) {
             var player = URLComponents(string: "https://aesthetic.computer/doom-player/")!
-            player.queryItems = [.init(name: "file", value: url.absoluteString)]
+            player.queryItems = [.init(name: "preview", value: "1"), .init(name: "mime", value: "1"), .init(name: "file", value: url.absoluteString)]
             return .runtime(player.url!, kind: "doom")
         }
         if file.type.hasPrefix("image/") { return .image(url) }
@@ -71,6 +81,27 @@ struct Post: Decodable, Identifiable, Equatable {
     }()
     private var page = 0, hasMore = true, loading = false
     private let seed = UUID().uuidString
+
+    init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] != nil {
+            let data = Data("[{\"code\":\"fixture-png\",\"name\":\"@fixture\",\"board\":\"image/png\",\"text\":\"PNG\"},{\"code\":\"fixture-piece\",\"name\":\"@fixture\",\"board\":\"text/javascript\",\"text\":\"AC piece\"}]".utf8)
+            posts = try! JSONDecoder().decode([Post].self, from: data)
+            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "doom" {
+                posts = [try! JSONDecoder().decode(Post.self, from: Data("{\"code\":\"fixture-wad\",\"name\":\"@fixture\",\"file\":{\"name\":\"empty-room.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"https://aesthetic.computer/doom-player/examples/empty-room.wad\"}}".utf8))]
+            }
+            loaded = true; hasMore = false
+            if ["remix", "progress"].contains(ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] ?? "") {
+                let json = """
+                [{"code":"fixture-remix-piece","name":"@original","version":7,"text":"Source piece","file":{"name":"original.ac","type":"text/javascript","url":"https://example.invalid/original.ac"}},
+                 {"code":"fixture-remix-png","name":"@painter","version":3,"file":{"name":"Blue.png","type":"image/png","url":"https://example.invalid/blue.png"}},
+                 {"code":"fixture-remix-wad","name":"@builder","version":2,"file":{"name":"Room.wad","type":"application/x-doom-wad","url":"https://aesthetic.computer/doom-player/examples/empty-room.wad"}}]
+                """
+                posts = try! JSONDecoder().decode([Post].self, from: Data(json.utf8))
+            }
+        }
+        #endif
+    }
 
     private struct Page: Decodable { let recent: [Post]; let hasMore: Bool }
 

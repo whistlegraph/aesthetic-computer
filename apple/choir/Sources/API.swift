@@ -14,7 +14,8 @@ struct Post: Codable, Identifiable, Hashable {
     var preview: ArticleMeta? = nil   // news items arrive with their card
     var kind: String? = nil           // "opportunity" for open calls
     var attachments: [Attachment]? = nil
-    var date: Date { Post.iso.date(from: when) ?? .distantPast }
+    /// Never in the future: a phone clock a little behind the server read "in 0s".
+    var date: Date { min(Post.iso.date(from: when) ?? .distantPast, .now) }
     private static let iso: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
 }
 /// A file in the "choir" Spaces bucket, attached to a post.
@@ -25,9 +26,11 @@ struct Attachment: Codable, Hashable {
     let name: String
     var width: Int? = nil
     var height: Int? = nil
-    var duration: Double? = nil      // voice notes
+    var duration: Double? = nil      // voice notes and videos
     var transcript: String? = nil    // voice notes, transcribed on the phone
+    var poster: String? = nil        // videos: a JPEG frame in the same bucket
     var isImage: Bool { type.hasPrefix("image/") }
+    var isVideo: Bool { type.hasPrefix("video/") }
     var isVoice: Bool { type.hasPrefix("audio/") && duration != nil }
 }
 
@@ -91,17 +94,17 @@ enum API {
 
     /// Ask for a 15-minute upload link, PUT the bytes to the choir bucket, return the attachment.
     static func upload(_ data: Data, name: String, type: String, width: Int? = nil, height: Int? = nil,
-                       duration: Double? = nil, transcript: String? = nil, token: String?) async throws -> Attachment {
+                       duration: Double? = nil, transcript: String? = nil, poster: String? = nil, token: String?) async throws -> Attachment {
         struct Ask: Encodable { let name: String; let type: String; let size: Int }
         struct Signed: Decodable { let uploadUrl: String; let url: String; let headers: [String: String] }
         let signed: Signed = try await send("POST", "?upload=1", Ask(name: name, type: type, size: data.count), token: token)
         var put = URLRequest(url: URL(string: signed.uploadUrl)!)
-        put.httpMethod = "PUT"; put.timeoutInterval = 120
+        put.httpMethod = "PUT"; put.timeoutInterval = type.hasPrefix("video/") ? 300 : 120
         for (k, v) in signed.headers { put.setValue(v, forHTTPHeaderField: k) }
         let (_, resp) = try await URLSession.shared.upload(for: put, from: data)
         guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw Failure.status((resp as? HTTPURLResponse)?.statusCode ?? 0, "Upload failed") }
         return Attachment(url: signed.url, type: type, size: data.count, name: name, width: width, height: height,
-                          duration: duration, transcript: transcript)
+                          duration: duration, transcript: transcript, poster: poster)
     }
     struct Posted: Decodable { let post: Post }
     static func post(_ p: NewPost, token: String?) async throws -> Post {

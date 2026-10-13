@@ -71,6 +71,7 @@ struct PieceRevision: Decodable, Identifiable {
     let createdAt: String
     let sound: PieceSound?
     var hasDrawing: Bool? = nil
+    var remixURL: String? = nil
     var date: Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -104,10 +105,17 @@ struct NativeLayout {
 struct WhistlegraphScreen: View {
     @ObservedObject var session: WhistlegraphSession
     @ObservedObject private var drawing: DrawingDraft
-    init(session: WhistlegraphSession) { self.session = session; self.drawing = session.drawing }
+    let overlaysFeed: Bool
+    var availableSize: CGSize?
+    private var screenWidth: CGFloat { availableSize?.width ?? UIScreen.main.bounds.width }
+    private var screenHeight: CGFloat { availableSize?.height ?? UIScreen.main.bounds.height }
+    init(session: WhistlegraphSession, overlaysFeed: Bool = false, availableSize: CGSize? = nil) {
+        self.session = session; self.drawing = session.drawing; self.overlaysFeed = overlaysFeed; self.availableSize = availableSize
+    }
     @StateObject private var narrator = VersionNarrator()
     @StateObject private var exporter = StoryExport()
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.exploreMimes) private var exploreMimes
     @State private var held = false
     @State private var chalkDrag: CGFloat = 0
     private var chalkReveal: CGFloat { session.performanceCapture ? 1 : min(1, chalkDrag / 80) }
@@ -138,8 +146,9 @@ struct WhistlegraphScreen: View {
     }
     private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
     private var previewSize: CGSize {
-        let width = UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12
-        let height = min(380, UIScreen.main.bounds.height * 0.4)
+        // MIME keeps a touchable return gutter beside every preview aspect ratio.
+        let width = screenWidth - max(session.layout.pageInset * 2, exploreMimes == nil ? 0 : 88) - 12
+        let height = min(380, screenHeight * 0.4)
         if session.snapshot.wareID == "painting", let pixels = session.snapshot.painting?.pixelSize {
             let scale = min(width / pixels.width, height / pixels.height)
             return CGSize(width: pixels.width * scale, height: pixels.height * scale)
@@ -151,7 +160,7 @@ struct WhistlegraphScreen: View {
     // would resize the piece) so the sketch stays visible above the composer.
     private var composeScale: CGFloat {
         guard showComposer, !narrator.isPlaying else { return 1 }
-        return min(1, UIScreen.main.bounds.height * 0.2 / (previewSize.height + 12))
+        return min(1, screenHeight * 0.2 / (previewSize.height + 12))
     }
     var body: some View {
         VStack(spacing: narrator.isPlaying ? 0 : session.layout.spacing) {
@@ -177,7 +186,7 @@ struct WhistlegraphScreen: View {
             GeometryReader { geometry in
             ZStack {
                 Workspace(voice: session)
-                    .opacity(session.snapshot.hasPreview ? 1 : 0)
+                    .opacity(session.snapshot.hasPreview && session.workspaceReady && session.engineReady ? 1 : 0)
                     .allowsHitTesting(session.snapshot.hasPreview && session.capturePhase == .idle)
                     .accessibilityHidden(!session.snapshot.hasPreview || narrator.isPlaying)
                 if narrator.isPlaying { StoryWorkspace(player: session.storyPreview) }
@@ -204,14 +213,15 @@ struct WhistlegraphScreen: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
             }
             .frame(width: narrator.isPlaying ? nil : previewSize.width,
-                   height: narrator.isPlaying ? max(1, (UIScreen.main.bounds.width - 12) * 3 / 4) : previewSize.height)
-            .overlay { WhistlegraphPreviewInset() }
-            .padding(6)
-            .background(WhistlegraphWoodFrame())
+                   height: narrator.isPlaying ? max(1, (screenWidth - 12) * 3 / 4) : previewSize.height)
+            .overlay { if !overlaysFeed { WhistlegraphPreviewInset() } }
+            .padding(overlaysFeed ? 0 : 6)
+            .background { if !overlaysFeed { WhistlegraphWoodFrame() } }
             .scaleEffect(composeScale, anchor: .top)
             .frame(height: composeScale < 1 ? (previewSize.height + 12) * composeScale : nil, alignment: .top)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: showComposer)
             .accessibilityIdentifier("story-picture")
+            .anchorPreference(key: WhistlegraphPreviewBounds.self, value: .bounds) { $0 }
             .overlay {
                 if narrator.isPlaying && !exporter.requested {
                     HStack {
@@ -228,10 +238,6 @@ struct WhistlegraphScreen: View {
                         Button { session.cancelHold() } label: { Image(systemName: "xmark") }
                             .accessibilityLabel("Cancel recording, keep drawing")
                     }
-                    Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
-                        Label { Text("Chalk") } icon: { ChalkStickIcon(lit: drawing.enabled) }
-                    }.accessibilityIdentifier("draw-control").accessibilityValue(drawing.enabled ? "On" : "Off")
-                        .disabled(!canTalk)
                     if drawing.hasInk {
                         Button { drawing.undo() } label: { Image(systemName: "arrow.uturn.backward") }
                             .accessibilityLabel("Undo stroke").accessibilityIdentifier("drawing-undo").disabled(!canTalk)
@@ -270,7 +276,7 @@ struct WhistlegraphScreen: View {
             .padding(.top, narrator.isPlaying ? 100 : 0)
             .padding(.bottom, narrator.isPlaying ? 150 : 0)
             .frame(maxWidth: .infinity)
-            .frame(height: narrator.isPlaying ? UIScreen.main.bounds.width * 16 / 9 : nil)
+            .frame(height: narrator.isPlaying ? screenWidth * 16 / 9 : nil)
             .background(narrator.isPlaying ? storyBackground : Color.clear)
             // No orange status line. A failed try explains itself in its own row (beside Keep, Discard and
             // Try again); the few notices that have no row speak quietly in the page's own ink.
@@ -278,7 +284,7 @@ struct WhistlegraphScreen: View {
             if let notice = session.speechNotice { QuietNote(text: notice, ink: paper).accessibilityIdentifier("speech-fallback-notice") }
             if let failure = session.captureError, !narrator.isPlaying { QuietNote(text: failure, ink: paper) }
             if !session.snapshot.error.isEmpty && !narrator.isPlaying && session.snapshot.attempt == nil { QuietNote(text: session.snapshot.error, ink: paper).accessibilityIdentifier("workspace-error") }
-            if session.verifyingAIAccount { ProgressView("Checking your account…").accessibilityIdentifier("account-verifying") }
+            if session.verifyingAIAccount { ProgressView().accessibilityLabel("Checking your account").accessibilityIdentifier("account-verifying") }
             if !narrator.isPlaying && session.snapshot.wareID == "roblox" { RobloxRoomControls(session: session) }
             if !narrator.isPlaying && session.snapshot.wareID == "doom" { DoomControls(session: session) }
             if !narrator.isPlaying && session.snapshot.wareID == "painting" { PaintingControls(session: session) }
@@ -307,15 +313,24 @@ struct WhistlegraphScreen: View {
                                 .background(Color(red: 0.40, green: 0.83, blue: 0.95), in: RoundedRectangle(cornerRadius: 34, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(paper, lineWidth: 3))
                         }.buttonStyle(.plain).disabled(!canTalk || session.capturePhase != .idle).accessibilityLabel("Type").accessibilityIdentifier("type-control")
-                        .frame(width: max(0, (UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12) / 2 * (1 - chalkReveal)))
+                        .frame(width: max(0, (screenWidth - session.layout.pageInset * 2 - 44 - 24) / 2 * (1 - chalkReveal)))
                         .clipped().opacity(1 - chalkReveal).allowsHitTesting(chalkReveal == 0).accessibilityHidden(chalkReveal > 0.9)
+                        Button { ButtonSounds.play(.tick); drawing.enabled.toggle() } label: {
+                            ChalkStickIcon(lit: drawing.enabled).frame(width: 28, height: 28)
+                                .frame(width: 44, height: 54).contentShape(Rectangle())
+                        }.buttonStyle(.plain).disabled(!canTalk)
+                            .accessibilityLabel("Chalk").accessibilityIdentifier("draw-control")
+                            .accessibilityValue(drawing.enabled ? "On" : "Off")
+                            .frame(width: 44 * (1 - chalkReveal)).clipped().opacity(1 - chalkReveal)
+                            .allowsHitTesting(chalkReveal == 0).accessibilityHidden(chalkReveal > 0.9)
                         talkControl
                     }
                 }
             }.padding(.horizontal, session.layout.pageInset).foregroundStyle(paper)
-                .background(narrator.isPlaying ? storyBackground : theme.background)
+                .background(narrator.isPlaying ? storyBackground : overlaysFeed ? Color.clear : theme.background)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .preference(key: WhistlegraphThemePreference.self, value: theme)
         .overlay {
             if narrator.isPlaying {
                 StoryControls(narrator: narrator, exporter: exporter, export: exportStory, close: { exporter.cancel(); narrator.stop() })
@@ -337,12 +352,13 @@ struct WhistlegraphScreen: View {
         .onChange(of: showTV) { _, open in DeviceActionLog.shared.record(.screen, open ? .presented : .dismissed, control: .tv) }
         .onChange(of: narrator.isPlaying) { _, playing in if !playing { exporter.cancel() } }
         .onChange(of: session.localDataRevision) { _, _ in exporter.cancel(); narrator.stop(); showComposer = false }
+        .onChange(of: session.previewPlaybackActive) { _, active in if !active { exporter.cancel(); narrator.stop() } }
         .onChange(of: session.narratedFrame) { _, _ in narrator.painted(session.narratedVersion); if narrator.isPlaying { exporter.capturePoster(for: session.narratedVersion, from: session.storyPreview.view) } }
         .onChange(of: exporter.movie?.id) { _, value in if value != nil { narrator.setPaused(true) } }
         .onChange(of: scenePhase) { _, value in if value == .background { exporter.cancel(); narrator.stop() } else if value == .inactive { narrator.setPaused(true) } }
         .onChange(of: session.capturePhase) { _, value in if value != .idle { narrator.stop() }; if value == .idle || value == .processing { chalkDrag = 0; held = false } }
         .onDisappear { exporter.cancel(); narrator.stop() }
-        .background((narrator.isPlaying ? storyBackground : theme.background).ignoresSafeArea())
+        .background((narrator.isPlaying ? storyBackground : overlaysFeed ? Color.clear : theme.background).ignoresSafeArea())
         .tint(paper)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: themePhase)
     }
@@ -416,6 +432,11 @@ struct WhistlegraphScreen: View {
     }
 }
 
+struct WhistlegraphPreviewBounds: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) { value = nextValue() ?? value }
+}
+
 struct VersionFeed: View {
     let snapshot: PieceSnapshot
     var foreground: Color
@@ -443,62 +464,12 @@ struct VersionFeed: View {
     }
     private var rowHeight: CGFloat { max(56, textSize + 28) }
     var body: some View {
-        GeometryReader { geometry in
-        ScrollView {
-
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(snapshot.versions.filter { $0.id > 0 }.reversed()) { version in
-                    Button {
-                        ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
-                    } label: {
-                        VersionRow(version: version, foreground: foreground, selected: version.id == snapshot.head, textSize: textSize, rowHeight: rowHeight)
-                    }.buttonStyle(.plain).disabled(disabled || holdSelection)
-                        .id(version.id)
-                        .visualEffect { content, geometry in
-                            let distance = max(0, geometry.frame(in: .scrollView(axis: .vertical)).minY)
-                            return content.opacity(Double(max(0.22, 1 - distance / 280)))
-                        }
-                        .accessibilityAddTraits(version.id == snapshot.head ? [.isSelected] : [])
-                        .accessibilityIdentifier("version-\(version.id)")
-                        .accessibilityValue(version.id == snapshot.head ? "Current version" : "")
-                }
-            }.scrollTargetLayout().font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+        VStack(spacing: 0) {
+        if snapshot.busy {
+            GenerationStatusStrip(snapshot: snapshot, foreground: foreground, stop: stop)
         }
-        .safeAreaPadding(.bottom, max(0, geometry.size.height - rowHeight))
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $focusedVersion, anchor: .top)
-        .overlay(alignment: .top) {
-            if snapshot.versions.contains(where: { $0.id > 0 }) {
-            Rectangle().fill(foreground.opacity(0.055))
-                .overlay(alignment: .bottom) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
-                .overlay(alignment: .top) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
-                .frame(height: rowHeight).allowsHitTesting(false).accessibilityHidden(true)
-            }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if let attempt = snapshot.attempt, ["working", "failed", "unchanged", "interrupted"].contains(attempt.status) {
+        else if let attempt = snapshot.attempt, ["failed", "unchanged", "interrupted"].contains(attempt.status) {
                 VStack(spacing: 4) {
-                if snapshot.busy {
-                    // Working: the request alive letter by letter, Stop beside it,
-                    // then the code as it arrives and what the knot knows so far.
-                    HStack(alignment: .top, spacing: 12) {
-                        GlyphWave(text: attempt.request.replacingOccurrences(of: #" · [0-9.]+ seconds$"#, with: "", options: .regularExpression),
-                                  size: textSize, color: foreground)
-                            .frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 8)
-                            .accessibilityIdentifier("generation-request")
-                        Button { ButtonSounds.play(.stop); stop() } label: { KidlispStopMark() }.buttonStyle(KidlispStopStyle()).accessibilityLabel("Stop generation")
-                    }.padding(.horizontal, 10).padding(.top, 6)
-                    if snapshot.phase.hasPrefix("Checking picture") {
-                        Text("Checking picture…")
-                            .font(.custom("ComicRelief-Regular", size: max(15, textSize * 0.75), relativeTo: .body))
-                            .frame(maxWidth: .infinity, alignment: .trailing).padding(.horizontal, 12)
-                            .accessibilityIdentifier("generation-phase")
-                    }
-                    if let output = snapshot.output, !output.isEmpty {
-                        CodeTicker(output: output, thinking: snapshot.phase.hasPrefix("Thinking"), fontSize: max(12, textSize * 0.6))
-                            .padding(.horizontal, 12)
-                    }
-                } else {
                 HStack(spacing: 12) {
                     Group {
                     // One line: the words, and why it stopped as a dimmed tail on the same line.
@@ -541,7 +512,6 @@ struct VersionFeed: View {
                     } : nil)
                 .accessibilityAction(named: Text("Discard this try")) { discardAttempt() }
                 .onChange(of: attempt.error) { reasonShown = false }
-                }
                 if reasonShown, !snapshot.busy, ["failed", "interrupted"].contains(attempt.status), !attempt.error.isEmpty {
                     Text(attempt.error)
                         .font(.custom("ComicRelief-Regular", size: max(15, textSize * 0.7), relativeTo: .body))
@@ -549,11 +519,39 @@ struct VersionFeed: View {
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 14).padding(.bottom, 6)
                         .accessibilityIdentifier("attempt-reason")
                 }
-                // Not just a spinner: the phase, the clock, who is working, each step, and what the model says.
-                if snapshot.busy, let progress = snapshot.progress {
-                    TurnProgressPanel(progress: progress, textSize: textSize).padding(.horizontal, 12).padding(.bottom, 6)
                 }
+            }
+        GeometryReader { geometry in
+        ScrollView {
+
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(snapshot.versions.filter { $0.id > 0 || $0.remixURL != nil }.reversed()) { version in
+                    Button {
+                        ButtonSounds.play(.tick); withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.28)) { focusedVersion = version.id }
+                    } label: {
+                        VersionRow(version: version, foreground: foreground, selected: version.id == snapshot.head, textSize: textSize, rowHeight: rowHeight)
+                    }.buttonStyle(.plain).disabled(disabled || holdSelection)
+                        .id(version.id)
+                        .visualEffect { content, geometry in
+                            let distance = max(0, geometry.frame(in: .scrollView(axis: .vertical)).minY)
+                            return content.opacity(Double(max(0.22, 1 - distance / 280)))
+                        }
+                        .accessibilityAddTraits(version.id == snapshot.head ? [.isSelected] : [])
+                        .accessibilityIdentifier("version-\(version.id)")
+                        .accessibilityValue(version.id == snapshot.head ? "Current version" : "")
+                        .contextMenu { if let text = version.remixURL, let url = URL(string: text), url.scheme == "https", url.host == "mime.ac" { Link("Original work", destination: url) } }
                 }
+            }.scrollTargetLayout().font(.custom("ComicRelief-Regular", size: textSize, relativeTo: .title3))
+        }
+        .safeAreaPadding(.bottom, max(0, geometry.size.height - rowHeight))
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $focusedVersion, anchor: .top)
+        .overlay(alignment: .top) {
+            if snapshot.versions.contains(where: { $0.id > 0 || $0.remixURL != nil }) {
+            Rectangle().fill(foreground.opacity(0.055))
+                .overlay(alignment: .bottom) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
+                .overlay(alignment: .top) { Rectangle().fill(foreground.opacity(0.35)).frame(height: 1) }
+                .frame(height: rowHeight).allowsHitTesting(false).accessibilityHidden(true)
             }
         }
         .scrollDisabled(disabled || holdSelection)
@@ -565,6 +563,7 @@ struct VersionFeed: View {
             select(focusedVersion)
         }
         .accessibilityLabel("Version history").accessibilityIdentifier("version-rolodex")
+        }
         }
     }
 }
@@ -655,6 +654,11 @@ struct ComicTitle: View {
         return result
     }
     var body: some View {
+        #if MIME_APP
+        PalText(text: text, size: size, fill: Color(red: 1, green: 0.96, blue: 0.91), colors: colors.map { rgb in
+            rgb.count == 3 ? Color(red: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255) : nil
+        })
+        #else
         ZStack {
             Text(text).foregroundStyle(.cyan).offset(x: 2, y: 2)
             Text(text).foregroundStyle(.pink).offset(x: 1, y: 1)
@@ -662,6 +666,7 @@ struct ComicTitle: View {
             Text(colored)
         }.font(.custom("ComicRelief-Bold", size: size, relativeTo: .title3)).lineLimit(1).minimumScaleFactor(0.65)
             .accessibilityElement(children: .ignore).accessibilityLabel(text)
+        #endif
     }
 }
 
@@ -706,7 +711,7 @@ struct InlineRequestComposer: View {
                 .onChange(of: text) { old, value in edited(from: old, to: value) }
                 .accessibilityLabel("Request, up to 96 characters").accessibilityIdentifier("typed-request")
             HStack {
-                Button("Cancel") { DeviceActionLog.shared.record(.typeSend, .cancelled); cancel() }.accessibilityIdentifier("request-cancel")
+                Button("Cancel") { focused = false; DeviceActionLog.shared.record(.typeSend, .cancelled); cancel() }.accessibilityIdentifier("request-cancel")
                 Spacer()
                 Text("\(text.count) / 96").accessibilityIdentifier("request-count").monospacedDigit().foregroundStyle(.secondary)
                 Spacer()
@@ -776,40 +781,5 @@ struct QuietNote: View {
     var body: some View {
         Text(text).font(.custom("ComicRelief-Regular", size: 15, relativeTo: .footnote))
             .foregroundStyle(ink.opacity(0.72)).frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-struct TurnProgressPanel: View {
-    let progress: TurnProgress
-    let textSize: CGFloat
-    private static let withFraction: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
-    private static let plain = ISO8601DateFormatter()
-    static func date(_ value: String) -> Date? { withFraction.date(from: value) ?? plain.date(from: value) }
-    private func clock(_ seconds: Double) -> String { let s = max(0, Int(seconds)); return String(format: "%d:%02d", s / 60, s % 60) }
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let start = Self.date(progress.startedAt)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(progress.phase).font(.custom("ComicRelief-Bold", size: max(13, textSize * 0.7), relativeTo: .subheadline))
-                    if progress.round > 1 { Text("round \(progress.round)").opacity(0.7) }
-                    Spacer(minLength: 0)
-                    if let start { Text(clock(context.date.timeIntervalSince(start))).monospacedDigit() }
-                    if !progress.worker.isEmpty { Text(progress.worker).opacity(0.55).lineLimit(1) }
-                }.font(.custom("ComicRelief-Regular", size: max(12, textSize * 0.6), relativeTo: .footnote))
-                ForEach(progress.steps.suffix(5)) { step in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(start.flatMap { s in Self.date(step.at).map { "+" + clock($0.timeIntervalSince(s)) } } ?? "")
-                            .monospacedDigit().opacity(0.5).frame(width: 48, alignment: .trailing)
-                        Text(step.text).fixedSize(horizontal: false, vertical: true)
-                    }.font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).opacity(0.85)
-                }
-                if !progress.said.isEmpty {
-                    Text("\u{201C}" + progress.said + "\u{201D}").font(.custom("ComicRelief-Regular", size: max(11, textSize * 0.55), relativeTo: .caption)).fixedSize(horizontal: false, vertical: true).opacity(0.75)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine).accessibilityIdentifier("turn-progress")
-        }
     }
 }

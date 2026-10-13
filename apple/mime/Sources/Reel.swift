@@ -4,6 +4,10 @@ import AVKit
 /// MIME loads the first post behind its wordmark, then breaks the mark apart
 /// to reveal the native reel. No introductory swipe is required.
 struct Reel: View {
+    var active = true
+    let resumeEditor: () -> Void
+    let remixWork: (Post) -> Void
+    let makeWork: (Ware) -> Void
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
     @State private var current: String?
@@ -21,11 +25,12 @@ struct Reel: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }) {
+                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }, makeWork: makeWork, remixWork: remixWork) {
                                 interacting = interacting == post.id ? nil : post.id
                             }
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(post.id)
+                            .environment(\.mimeLettersActive, active && current == post.id)
                             .onAppear { if post.id == feed.posts.dropLast(3).last?.id || feed.posts.count < 4 { Task { await feed.loadMore() } } }
                         }
                         if feed.failed {
@@ -44,6 +49,9 @@ struct Reel: View {
                 .scrollDisabled(!revealed || interacting != nil && interacting == current)
                 .accessibilityHidden(!revealed)
                 .ignoresSafeArea()
+                .onChange(of: active) { _, visible in
+                    if visible { prepare() } else { pool.focus(nil) }
+                }
                 .onChange(of: current) { _, id in
                     interacting = nil
                     prepare()
@@ -59,12 +67,21 @@ struct Reel: View {
                     async let posts: Void = feed.loadMore()
                     async let layout: Void = feed.refreshLayout()
                     _ = await (posts, layout)
+                    if current == nil { current = feed.posts.first?.id }
+                    prepare()
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { Task { await feed.refreshLayout() } }
                 }
 
                 Banner(corner: 1, width: screen.size.width)
+                    .overlay(alignment: .topTrailing) {
+                        Button(action: resumeEditor) { Color.clear.frame(width: 115, height: 44).contentShape(Rectangle()) }
+                            .buttonStyle(.plain).accessibilityLabel("Open editor")
+                            .accessibilityHint("Resume your current work")
+                            .accessibilityIdentifier("mime-resume-editor")
+                            .padding(.trailing, 10)
+                    }
                 if !revealed {
                     ZStack {
                         Color.paper.opacity(breakupAt == nil ? 1 : 0)
@@ -86,6 +103,7 @@ struct Reel: View {
             }
         }
         .preferredColorScheme(.dark)
+        .environment(\.mimeLettersActive, active)
     }
 }
 
@@ -105,7 +123,7 @@ extension Reel {
     private func prepare() {
         guard !feed.posts.isEmpty else { return }
         pool.prepare(feed.posts, around: feed.posts.firstIndex { $0.id == current } ?? 0)
-        pool.focus(current)
+        pool.focus(active ? current : nil)
     }
 }
 
@@ -143,6 +161,8 @@ private struct Card: View {
     let focused: Bool
     let interacting: Bool
     let ready: () -> Void
+    let makeWork: (Ware) -> Void
+    let remixWork: (Post) -> Void
     let toggleInteract: () -> Void
     @Environment(\.openURL) private var openURL
 
@@ -156,6 +176,7 @@ private struct Card: View {
             media
         }
         .overlay(alignment: .topLeading) {
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
             Button(action: { playable ? toggleInteract() : open() }) {
                 PalText(text: post.command, size: CGFloat(layout.identifierSize), accent: Color(hex: 0xED629D))
                     .overlay(alignment: .bottom) {
@@ -163,9 +184,16 @@ private struct Card: View {
                     }
             }
             .buttonStyle(.plain)
-            .padding(.leading, layout.padding).padding(.top, 62)
             .accessibilityIdentifier("mime-global-identifier")
             .accessibilityHint(playable ? (interacting ? "Back to scrolling" : "Play with this piece") : "Open in Aesthetic Computer")
+            if let version = post.edition, post.remixWare != nil {
+                Button { remixWork(post) } label: {
+                    PalText(text: "v\(version)", size: CGFloat(layout.identifierSize), accent: Color(hex: 0x55CDD9))
+                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityIdentifier("mime-remix-version")
+                    .accessibilityLabel("v\(version)").accessibilityHint("Remix this version")
+            }
+            }.padding(.leading, layout.padding).padding(.top, 52)
         }
         .overlay(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 8) {
@@ -176,10 +204,18 @@ private struct Card: View {
                     Text(text).font(.custom("ComicRelief-Bold", size: layout.captionSize, relativeTo: .body)).foregroundStyle(.white)
                         .lineLimit(3)
                 }
-                HStack(alignment: .bottom) {
-                    if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name)).accessibilityIdentifier("mime-author") }
+                HStack(alignment: .lastTextBaseline) {
+                    if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name), colors: (post.nameColors ?? []).map(Color.savedLetter)).accessibilityIdentifier("mime-author") }
                     Spacer(minLength: 12)
-                    PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType)).accessibilityIdentifier("mime-type")
+                    if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
+                        Button { makeWork(ware) } label: {
+                            PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType), colors: Color.letters(forType: post.mimeType))
+                                .contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
+                            .accessibilityHint("Make a new " + ware.title)
+                    } else {
+                        PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType), colors: Color.letters(forType: post.mimeType)).accessibilityIdentifier("mime-type")
+                    }
                 }
             }
             .padding(.horizontal, layout.padding).padding(.bottom, 34)

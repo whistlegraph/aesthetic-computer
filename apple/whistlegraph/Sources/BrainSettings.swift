@@ -204,6 +204,14 @@ private struct BrainCanvasSettings: View {
     private var disabled: Bool { session.snapshot.busy || session.capturePhase != .idle }
     var body: some View {
         List {
+            if session.snapshot.wareID == "painting", let painting = session.snapshot.painting {
+                Section("Image") {
+                    LabeledContent("Resolution", value: "\(painting.width) × \(painting.height) px")
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(painting.width) by \(painting.height) pixels")
+                        .accessibilityIdentifier("painting-resolution")
+                }
+            } else {
             Section("Pixel size") {
                 Picker("Pixel size", selection: Binding(get: { session.pixelSize }, set: { session.setPixelSize($0) })) {
                     ForEach(1...4, id: \.self) { Text("\($0)×").tag($0) }
@@ -213,6 +221,7 @@ private struct BrainCanvasSettings: View {
                 Picker("Aspect ratio", selection: Binding(get: { session.previewFormat }, set: { session.setPreviewFormat($0) })) {
                     ForEach(PreviewFormat.allCases) { Text($0.rawValue).tag($0) }
                 }.pickerStyle(.segmented).disabled(disabled).accessibilityIdentifier("brain-preview-format")
+            }
             }
         }.navigationTitle("Canvas")
     }

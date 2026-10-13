@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-13T06:37:01.426Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2.5-flare",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-parchment.png",
+  "promptPath": "/Users/jas/aesthetic-computer/marketing/choir/logo/gens/beige-parchment.prompt.txt",
+  "promptHash": "521574e28c0d294f19fb1bee7b67982d0a14fd2d729d9582b86fda62ea12fac5",
+  "references": [
+    "/Users/jas/Desktop/choir-flowers/appicon-ai-1024.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 19.447,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1421,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 397
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3177
+  }
+}

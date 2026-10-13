@@ -5,6 +5,7 @@ import AVFoundation
 import CoreText
 import ImageIO
 
+#if !MIME_APP
 @main
 struct WhistlegraphApp: App {
     @StateObject private var voice = WhistlegraphSession()
@@ -104,18 +105,55 @@ struct WhistlegraphApp: App {
     }
 }
 
+#endif
+
 struct Workspace: UIViewRepresentable {
     let voice: WhistlegraphSession
     func makeCoordinator() -> WorkspaceCoordinator { WorkspaceCoordinator(session: voice) }
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        #if MIME_APP
+        config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphPlaybackActive = false;", injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        #endif
+        #if MIME_APP && DEBUG
+        if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "audio" {
+            config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphPlaybackTest = true;", injectionTime: .atDocumentStart, forMainFrameOnly: false))
+        }
+        #endif
+        config.userContentController.addUserScript(WKUserScript(source: WhistlegraphPreview.playbackScript, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         #if DEBUG
         if voice.accountEntryTest || ProcessInfo.processInfo.environment["WHISTLEGRAPH_PAINTING_TEST"] == "1" { config.websiteDataStore = .nonPersistent() }
+        #endif
+        #if MIME_APP && DEBUG
+        if let fixture = ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] {
+            config.websiteDataStore = .nonPersistent()
+            config.userContentController.addUserScript(WKUserScript(source: """
+            window.__whistlegraphDisableThread=true;
+            window.__whistlegraphRemixFixtureIdentity={id:'00000000-0000-4000-8000-000000000001',code:'fixture-old'};
+            if(\(fixture != "empty-piece") && !localStorage.getItem('whistlegraph-source'))localStorage.setItem('whistlegraph-source','export function paint({wipe}) { wipe("#253a80"); }');
+            if(\(fixture == "audio"))localStorage.setItem('whistlegraph-source','let ticks=0; export function sim({sound}) { if(ticks++%15===0)sound.synth({type:"sine",tone:440,duration:0.5,volume:0.15}); } export function paint({wipe}) { wipe("#253a80"); }');
+            const original=window.fetch.bind(window);
+            window.fetch=function(url,init){
+                if(String(url).includes('/userinfo'))return Promise.resolve(Response.json({sub:'fixture-maker'}));
+                if(String(url).includes('/handle?for='))return Promise.resolve(Response.json({handle:'fixture'}));
+                if(String(url).includes('/api/handle-colors'))return Promise.resolve(Response.json({colors:[]}));
+                return original(url,init);
+            };
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            _ = fixture
+        }
         #endif
         config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphNativeShell = true;", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if let data = try? JSONSerialization.data(withJSONObject: voice.aiConsent.bridge), let json = String(data: data, encoding: .utf8) {
             config.userContentController.addUserScript(WKUserScript(source: "window.__whistlegraphAIConsent = \(json);", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         }
+        #if MIME_APP && DEBUG
+        if let fixture = ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"], ["remote-voice", "progress"].contains(fixture),
+           let url = Bundle.main.url(forResource: "remote-voice", withExtension: "js", subdirectory: "Fixtures"),
+           let script = try? String(contentsOf: url, encoding: .utf8) {
+            config.userContentController.addUserScript(WKUserScript(source: script + (fixture == "progress" ? "\nwindow.__remoteVoiceOutcome='progress';" : ""), injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+        #endif
         config.userContentController.add(context.coordinator, name: "whistlegraph")
         config.setURLSchemeHandler(WhistlegraphBundle(), forURLScheme: WhistlegraphBundle.storageScheme)
         // Custom-scheme fetch responses have status 0 on device. Seed the
@@ -299,6 +337,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     @Published var workspaceReady = false
     #if DEBUG
     @Published var audioTestResult = "Waiting for piece audio"
+    @Published var playbackTestResult = "Waiting for preview"
     @Published var consentFixtureRequests = 0
     private let consentFixtureIdentity = VerifiedAccountIdentity { request in
         let fails = ProcessInfo.processInfo.environment["WALKIE_IDENTITY_FAILURE"] == "1"
@@ -327,7 +366,22 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     let tv = WhistlegraphTV()
     private var speechStartedAt: TimeInterval?
 
+    #if MIME_APP
+    @Published private(set) var previewPlaybackActive = false
+    #else
+    @Published private(set) var previewPlaybackActive = true
+    #endif
+
+    /// Navigation owns playback; generation and speech callbacks cannot reopen it.
+    func setPreviewPlaybackActive(_ active: Bool) {
+        previewPlaybackActive = active
+        webView?.setAllMediaPlaybackSuspended(!active, completionHandler: nil)
+        webView?.evaluateJavaScript("window.whistlegraphSetPlaybackActive?.(\(active));", completionHandler: nil)
+        if active { resumePieceAudio() }
+    }
+
     func resumePieceAudio() {
+        guard previewPlaybackActive else { return }
         PieceAudio.activate()
         guard let frame = previewFrame else { return }
         Task { _ = try? await webView?.callAsyncJavaScript("window.AC?.startAudio?.();", arguments: [:], in: frame, contentWorld: .page) }
@@ -370,9 +424,23 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         } catch { emitEngine(["kind": "error", "text": "Use a PNG under 2 MB, with dimensions of 16–2048 pixels."]) }
     }
 
+    /// A server turn owns its project, not the phone's editor. Speech processing
+    /// may remain active until that turn finishes; an actual recording cannot move.
+    var canLeaveWork: Bool {
+        engineReady && (!snapshot.busy || snapshot.remote) &&
+        (capturePhase == .idle || (snapshot.remote && capturePhase == .processing))
+    }
+    func remixWork(_ payload: [String: Any]) async throws {
+        guard accountReady, canLeaveWork, let webView else { throw NativeSignIn.failure("The editor is still opening.") }
+        let result = try await webView.callAsyncJavaScript("if (!window.whistlegraphRemix) throw Error('This type cannot be remixed yet.'); return await window.whistlegraphRemix(payload);", arguments: ["payload": payload], in: nil, contentWorld: .page)
+        guard let result = result as? [String: Any], result["accepted"] as? Bool == true else { throw NativeSignIn.failure("The remix could not be saved.") }
+        engineReady = false // The accepted import has durably saved v0 and scheduled its reload.
+    }
+
     func command(_ action: String, version: Int? = nil, text: String? = nil, piece: String? = nil, ware: String? = nil, onAccepted: (() -> Void)? = nil) {
         guard ["checkout", "newPiece", "openPiece", "deletePiece", "keepDraft", "discardDraft", "discardAttempt", "stop", "signIn", "ask", "retry", "presentVersion", "endPresentation", "setModel", "refreshBraincells", "setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) else { return }
-        if ["setWare", "playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) {
+        if action == "setWare" { guard canLeaveWork else { return } }
+        if ["playRoblox", "exportRoom", "undoRoom", "playDoom", "exportWad", "publishDoom", "undoDoom", "newDoom", "exportPng", "undoPainting", "publishPainting"].contains(action) {
             guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
         }
         let control = DeviceActionLog.Control(rawValue: action)
@@ -383,10 +451,10 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             return
         }
         if action == "newPiece" || action == "openPiece" {
-            guard engineReady, !snapshot.busy, capturePhase == .idle else { return }
+            guard canLeaveWork else { return }
             if action == "openPiece" { guard let piece, pieces.contains(where: { $0.id == piece && !$0.current }) else { return } }
-            drawing.clear(); drawing.enabled = false
-            previewSource = ""; engineReady = false
+            // The navigation delegate resets readiness only when a reload
+            // actually starts. A refused or unavailable command keeps this work usable.
         }
         if action == "presentVersion" || action == "endPresentation" {
             presentingStory = action == "presentVersion"
@@ -629,6 +697,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             self.startupFailure = self.workspaceReady ? "Whistlegraph’s engine didn’t start." : "Whistlegraph couldn’t open."
         }
     }
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        workspaceReady = false; engineReady = false
+        previewSource = ""; previewFrame = nil
+        drawing.clear(); drawing.enabled = false
+    }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         print("[whistlegraph] main page loaded")
         webView.evaluateJavaScript("({controls:!!document.getElementById('speak'),engine:typeof window.whistlegraphAsk,ready:document.readyState})") { value, error in
@@ -725,9 +798,22 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
     #endif
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if let body = message.body as? [String: Any], body["action"] as? String == "playbackReady",
+           PreviewNavigation.allows(message.frameInfo.request.url, mainFrame: message.frameInfo.isMainFrame, document: .workspace) {
+            // Frame-local delivery also handles cross-origin previews and a
+            // new result's frame arriving while its owner is off-screen.
+            Task { _ = try? await webView?.callAsyncJavaScript("window.whistlegraphSetPlaybackActive?.(active);", arguments: ["active": previewPlaybackActive], in: message.frameInfo, contentWorld: .page) }
+            webView?.setAllMediaPlaybackSuspended(!previewPlaybackActive, completionHandler: nil)
+            return
+        }
         if PreviewNavigation.bridge(message.frameInfo.request.url, mainFrame: message.frameInfo.isMainFrame, document: .workspace) == .artwork,
            let body = message.body as? [String: Any] {
             #if DEBUG
+            if body["action"] as? String == "playbackProbe", let states = body["states"] as? [String], !states.isEmpty {
+                let peak = body["peak"] as? Double ?? 0
+                playbackTestResult = states.allSatisfy { $0 == "suspended" } ? "Preview suspended" : states.contains("running") && peak > 0.001 ? "Preview audible" : "Preview \(states.joined(separator: ","))"
+                return
+            }
             if NativeScreenFixture.mode == "audio", body["action"] as? String == "audioProbe" {
                 let peak = body["peak"] as? Double ?? 0
                 let gestures = body["gestures"] as? Int ?? -1
@@ -908,6 +994,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             guard case .success(var next) = decoded,
                   next.versions.count <= 256, next.code.count <= 32, next.handle.count <= 100 else { return }
             if next.revisions == nil { next.versions = snapshot.versions }
+            #if MIME_APP && DEBUG
+            if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] == "busy" {
+                next.busy = true; next.phase = "Working on the knot…"
+            }
+            #endif
             #if DEBUG
             if NativeScreenFixture.enabled {
                 next.handle = "preview"; next.code = "wwDemo"
@@ -928,6 +1019,7 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
         case "voiceIdle":
             performanceCapture = false
             capturePhase = .idle; captureStarted = nil
+            DeviceActionLog.shared.record(.speech, .ready)
         case "pieces":
             guard let value = body["pieces"] as? [[String: Any]], value.count <= 256,
                   let data = try? JSONSerialization.data(withJSONObject: value),
@@ -975,6 +1067,11 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             accountStatus = status
             accountNotice = String((body["notice"] as? String ?? "").prefix(500))
         case "account":
+            #if MIME_APP && DEBUG
+            if let fixture = ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] {
+                emitEngine(["kind": "account", "token": fixture == "signed-out" ? "" : "fixture-token"]); return
+            }
+            #endif
             if isConsentFixture { emitEngine(["kind": "account", "token": ""]); return }
             #if DEBUG
             if accountEntryTest { emitEngine(["kind": "account", "token": ""]); return }
@@ -997,6 +1094,13 @@ final class WhistlegraphSession: NSObject, ObservableObject, WKScriptMessageHand
             previewRequestID = body["renderID"] as? Int ?? 0
             previewSource = source; renderPreview()
         case "start":
+            #if MIME_APP && DEBUG
+            if ["remote-voice", "progress"].contains(ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] ?? "") {
+                emit("listening", id: id)
+                Task { try? await Task.sleep(for: .milliseconds(300)); self.emit("final", text: "Add three people", id: id) }
+                return
+            }
+            #endif
             DeviceActionLog.shared.record(.speech, .opening)
             capturePhase = .opening; captureError = nil; transcript = ""
             microphoneLevels = Array(repeating: 0, count: 28)

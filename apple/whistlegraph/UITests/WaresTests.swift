@@ -213,9 +213,13 @@ extension WaresTests {
         let actions = app.buttons["painting-actions"]
         XCTAssertTrue(actions.waitForExistence(timeout: 10))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
-        let resolution = app.staticTexts["painting-resolution"]
+        app.buttons["brain-settings"].tap()
+        app.buttons["brain-canvas"].tap()
+        let resolution = app.descendants(matching: .any)["painting-resolution"].firstMatch
         XCTAssertTrue(resolution.waitForExistence(timeout: 10))
         XCTAssertEqual(resolution.label, "128 by 128 pixels")
+        app.navigationBars["Canvas"].buttons.firstMatch.tap()
+        app.buttons["Done"].tap()
         let frame = app.webViews.firstMatch.frame
         XCTAssertEqual(frame.width / frame.height, 1, accuracy: 0.02)
         screenshot.name = "Imported PNG after project reload"
@@ -241,9 +245,13 @@ extension WaresTests {
         XCTAssertTrue(name.waitForExistence(timeout: 30))
         let imported = expectation(for: NSPredicate(format: "label CONTAINS %@", "moon-test"), evaluatedWith: name)
         XCTAssertEqual(XCTWaiter().wait(for: [imported], timeout: 30), .completed)
-        let resolution = app.staticTexts["painting-resolution"]
+        app.buttons["brain-settings"].tap()
+        app.buttons["brain-canvas"].tap()
+        let resolution = app.descendants(matching: .any)["painting-resolution"].firstMatch
         XCTAssertTrue(resolution.waitForExistence(timeout: 10))
         XCTAssertEqual(resolution.label, "128 by 256 pixels")
+        app.navigationBars["Canvas"].buttons.firstMatch.tap()
+        app.buttons["Done"].tap()
         let frame = app.webViews.firstMatch.frame
         XCTAssertEqual(frame.width / frame.height, 0.5, accuracy: 0.02)
         let screenshot = XCTAttachment(screenshot: app.screenshot())

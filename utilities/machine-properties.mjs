@@ -69,4 +69,6 @@ export const excludedHosts = {
   "keeps.aesthetic.computer": "Social crawler compatibility, canonical product is keep.kidlisp.com.",
   "duckweedtri.aesthetic.computer": "Redirect-only AC alias.",
   "duckweedtri.prompt.ac": "Redirect-only AC alias.",
+  "choir.ac": "Fía's invite-only choir; pre-launch, not yet listed.",
+  "www.choir.ac": "Redirect-only alias.",
 };

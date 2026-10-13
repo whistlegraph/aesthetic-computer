@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
-import {compileProject,validateProject,projectFromLevel,wadLumps,decodeMap,roomsGeometry,encode64,decode64} from '../../system/public/doom-player/project.mjs';
+import {compileProject,validateProject,projectFromLevel,projectFromWad,wadLumps,decodeMap,roomsGeometry,encode64,decode64} from '../../system/public/doom-player/project.mjs';
 import {createProjectTools} from '../../system/public/doom-player/project-tools.mjs';
 import {starterLevel} from '../../system/public/doom-player/wad.mjs';import {lollipopProject} from './project-fixture.mjs';
 const base=new Uint8Array(await readFile(new URL('../../system/public/doom-player/vendor/freedoom1.wad',import.meta.url)));
@@ -36,3 +36,20 @@ test('Doom II sprites with classic frame letters beyond Z are retained',async()=
  const lumps=wadLumps(await compileProject(p,{base:base2}));assert.ok(lumps.some(l=>l.name==='VILE[0'));assert.ok(lumps.some(l=>l.name==='MAP01'));
 });
 test('player start must occupy an open sector',()=>{const p=lollipopProject();p.maps[0].things[0].x=20000;assert.throws(()=>validateProject(p),/open sector/);});
+
+test('a full WAD remix preserves geometry and custom assets across later edits without duplicating shared sprites',async()=>{
+ const source=lollipopProject();source.lumps.push({name:'DEHACKED',data:encode64(new TextEncoder().encode('Patch File for DeHackEd v3.0\n'))});
+ const original=wadLumps(await compileProject(source,{base}));
+ const imported=projectFromWad(await compileProject(source,{base}),'Candy remix',{base});
+ assert.ok(JSON.stringify(imported).length<500000,'shared Freedoom sprites must not be duplicated in every saved version');
+ assert.deepEqual(imported.maps[0],decodeMap(original,'E1M1'));
+ const roundtrip=wadLumps(await compileProject(imported,{base}));
+ for(const name of ['CANDYWAL','CANDYFLR','CANDYSKY','BON1A0','BON1D0','PNAMES','TEXTURE1','DEHACKED'])assert.deepEqual(roundtrip.find(l=>l.name===name)?.data,original.find(l=>l.name===name)?.data,name);
+ let edited=imported;
+ const tools=createProjectTools({get:()=>edited,set:p=>edited=p,base});
+ await tools.run('graphic',{graphic:{kind:'sprite',names:['BON1A0'],width:16,height:16,background:'#00ff00',layers:[]}});
+ const result=wadLumps(await compileProject(edited,{base}));
+ assert.equal(result.filter(l=>l.name==='S_START').length,1);
+ assert.notDeepEqual(result.find(l=>l.name==='BON1A0').data,original.find(l=>l.name==='BON1A0').data);
+ for(const name of ['BON1D0','CANDYWAL','CANDYFLR','DEHACKED'])assert.deepEqual(result.find(l=>l.name===name).data,original.find(l=>l.name===name).data,name+' survives editing another frame');
+});
