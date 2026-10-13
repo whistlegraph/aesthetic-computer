@@ -457,13 +457,14 @@ async function runBuildJob(job) {
       addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
       try {
         await runPhase(job, "prune", "bash", ["-c",
-          // Dangling images only, and the build cache capped by size, not age.
-          // `image prune -a --filter until=` judges an image by its *creation*
-          // date, so it deleted the weeks-old fedora:43 base before every build;
-          // the re-pull re-ran the Dockerfile's npm/installer/dnf steps and
-          // re-exported every layer (~3 min). The <10 GB emergency prune below
-          // still guards the disk.
-          "docker container prune -f && docker image prune -f && docker builder prune -af --keep-storage 30GB && docker volume prune -f",
+          // Keep a week of dangling images and build cache. With the containerd
+          // image store, the previous ac-os-builder (dangling once the new build
+          // takes the tag) holds the layers the build cache reuses: pruning it
+          // right away — or the cache after 30 min — re-ran the whole Dockerfile
+          // (dnf, coreboot vboot, installers) and re-exported every layer.
+          // Tagged images are never pruned by age here; the <10 GB emergency
+          // prune below still guards the disk.
+          "docker container prune -f && docker image prune -f --filter until=168h && docker builder prune -af --filter until=168h && docker volume prune -f",
         ], repoDir);
         const dfOut = await runSync("bash", ["-c", "df --output=avail / | tail -1"], repoDir);
         const availKB = parseInt(dfOut, 10) || 0;
