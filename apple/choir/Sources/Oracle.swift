@@ -2,14 +2,16 @@ import SwiftUI
 
 /// Fía (10-12, 22:29): "an affirmation/roll of dice option where like co star you
 /// can get a directive or a sort of spiritual guidance kind of like pulling a
-/// tarot card … artists need affirmations." The first pull each day is your card
-/// of the day (the same all day, per person); after that the die re-rolls.
+/// tarot card … artists need affirmations." (22:37) "pull your daily card so it's
+/// just one a day … let's hide it for now": one card per person per day, no
+/// re-rolls, and the button stays off until `shown` flips.
 struct Card: Hashable {
     let title: String
     let words: String
 }
 
 enum Deck {
+    static let shown = false   // Fía, 22:37: hidden for now
     static let cards: [Card] = [
         Card(title: "The Studio", words: "Go in today even if you only sit there. Being in the room is the work."),
         Card(title: "The Edit", words: "Take one thing out. What's left will say it louder."),
@@ -70,13 +72,12 @@ struct OracleView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var card: Card?
     @State private var flipped = false
-    @State private var rolls = 0
     @State private var sharing = false
     @State private var note: String?
 
     var body: some View {
         VStack(spacing: 22) {
-            Text(rolls == 0 ? "Your card for today" : "Rolled again")
+            Text(flipped ? "Your card for today" : "Pull your daily card")
                 .font(Theme.type(14)).foregroundStyle(Theme.ink.opacity(0.6))
             ZStack {
                 back.opacity(flipped ? 0 : 1)
@@ -90,8 +91,7 @@ struct OracleView: View {
 
             if flipped {
                 HStack(spacing: 12) {
-                    Button { roll() } label: { Label("Roll again", systemImage: "die.face.5") }
-                        .buttonStyle(CuteDoorStyle(small: true))
+                    Text("A new one tomorrow").font(Theme.type(13)).foregroundStyle(Theme.ink.opacity(0.55))
                     if account.handle != nil {
                         Button(sharing ? "Sharing…" : "Share to chat") { Task { await share() } }
                             .buttonStyle(CuteDoorStyle(new: true, small: true)).disabled(sharing)
@@ -139,15 +139,7 @@ struct OracleView: View {
 
     func turn() {
         withAnimation(.spring(duration: 0.7, bounce: 0.25)) { flipped = true }
-        Trail.send("oracle:turn", ["card": card?.title ?? "", "rolls": rolls])
-    }
-
-    func roll() {
-        withAnimation(.easeIn(duration: 0.25)) { flipped = false }
-        var next = Deck.cards.randomElement()!
-        while next == card { next = Deck.cards.randomElement()! }
-        rolls += 1; note = nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { card = next; turn() }
+        Trail.send("oracle:turn", ["card": card?.title ?? ""])
     }
 
     func share() async {

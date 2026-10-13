@@ -73,10 +73,12 @@ struct RoomView: View {
               .navigationBarTitleDisplayMode(.inline)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    // Fía (22:29): a card to pull, like tarot or Co–Star.
-                    Button { oracle = true } label: { Image(systemName: "die.face.5") }
-                        .tint(Theme.ink).accessibilityLabel("Pull a card")
+                if Deck.shown {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        // Fía (22:29): a daily card to pull, like tarot or Co–Star.
+                        Button { oracle = true } label: { Image(systemName: "die.face.5") }
+                            .tint(Theme.ink).accessibilityLabel("Pull your daily card")
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     // Fía preferred the news icon to the handwritten "discover" (10-12).
