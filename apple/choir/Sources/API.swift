@@ -11,6 +11,7 @@ struct Post: Codable, Identifiable, Hashable {
     let lastReplyAt: String?
     let when: String
     let deleted: Bool
+    var preview: ArticleMeta? = nil   // news items arrive with their card
     var date: Date { Post.iso.date(from: when) ?? .distantPast }
     private static let iso: ISO8601DateFormatter = { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }()
 }

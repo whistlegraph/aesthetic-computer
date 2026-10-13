@@ -52,6 +52,9 @@ export function publicPost(row) {
     tags: row.tags, links: row.deleted ? [] : row.links || [], replyTo: row.replyTo ? String(row.replyTo) : null,
     replies: row.replies || 0, lastReplyAt: row.lastReplyAt || null,
     when: row.when, deleted: row.deleted === true,
+    // News items carry their card (title, summary, image) so it never depends
+    // on fetching a site that blocks previews.
+    ...(row.preview && !row.deleted ? { preview: row.preview } : {}),
   };
 }
 

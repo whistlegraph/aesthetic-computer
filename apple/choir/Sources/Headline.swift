@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// What a link says about itself, from AC's og-preview (title, summary, image).
-struct ArticleMeta: Decodable, Hashable {
+struct ArticleMeta: Codable, Hashable {
     let url: String?
     let title: String?
     let description: String?
@@ -26,7 +26,9 @@ struct HeadlineCard: View {
     let link: String
     var words: String = ""        // what the poster wrote, if anything
     var large = false
-    @State private var meta: ArticleMeta?
+    var stored: ArticleMeta? = nil // a news item's own card, when it has one
+    @State private var fetched: ArticleMeta?
+    var meta: ArticleMeta? { stored ?? fetched }
     @Environment(\.openURL) private var openURL
 
     var host: String { URL(string: link)?.host()?.replacingOccurrences(of: "www.", with: "") ?? link }
@@ -64,7 +66,7 @@ struct HeadlineCard: View {
                 Text(summary).font(.system(size: large ? 16 : 14, design: .serif)).foregroundStyle(Theme.ink.opacity(0.75))
                     .lineLimit(large ? 8 : 3)
             }
-            if !words.isEmpty && words != headline {
+            if !words.isEmpty && words != headline && stored == nil {
                 Text(words).font(.system(size: 15, design: .serif)).italic().foregroundStyle(Theme.ink.opacity(0.85))
             }
             Button { if let u = URL(string: link) { Trail.send("article:open"); openURL(u) } } label: {
@@ -73,6 +75,6 @@ struct HeadlineCard: View {
             }
             .buttonStyle(GlassChipStyle(on: false))
         }
-        .task { meta = await ArticleMeta.load(link) }
+        .task { if stored == nil { fetched = await ArticleMeta.load(link) } }
     }
 }
