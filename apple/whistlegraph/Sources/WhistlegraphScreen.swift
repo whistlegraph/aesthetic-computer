@@ -3,6 +3,7 @@ import SwiftUI
 struct PieceSnapshot: Decodable {
     var ware: String?
     var roblox: RobloxRoomSnapshot?
+    var painting: PaintingSnapshot?
     var wareID: String { ware ?? "piece" }
     var code = ""
     var caption: String?
@@ -23,7 +24,7 @@ struct PieceSnapshot: Decodable {
     var progress: TurnProgress?
     var revisions: [PieceRevision]? = []
     var versions: [PieceRevision] { get { revisions ?? [] } set { revisions = newValue } }
-    enum CodingKeys: String, CodingKey { case ware, roblox, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, remote, phase, attempt, draft, progress; case revisions = "versions" }
+    enum CodingKeys: String, CodingKey { case ware, roblox, painting, code, caption, output, inference, handle, colors, head, hasPiece, hasPreview, error, busy, remote, phase, attempt, draft, progress; case revisions = "versions" }
     var hasHistory: Bool { versions.count > 1 }
     init() {}
     // Every field is optional on the wire: each ware's engine posts its own subset,
@@ -33,6 +34,7 @@ struct PieceSnapshot: Decodable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         ware = try c.decodeIfPresent(String.self, forKey: .ware)
         roblox = try? c.decodeIfPresent(RobloxRoomSnapshot.self, forKey: .roblox)
+        painting = try? c.decodeIfPresent(PaintingSnapshot.self, forKey: .painting)
         code = try c.decodeIfPresent(String.self, forKey: .code) ?? ""
         caption = try c.decodeIfPresent(String.self, forKey: .caption)
         output = try c.decodeIfPresent(String.self, forKey: .output)
@@ -136,8 +138,13 @@ struct WhistlegraphScreen: View {
     }
     private var chalkActive: Bool { drawing.enabled || held || session.capturePhase == .opening || session.capturePhase == .recording }
     private var previewSize: CGSize {
-        session.previewFormat.fit(width: UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12,
-                                  height: min(380, UIScreen.main.bounds.height * 0.4))
+        let width = UIScreen.main.bounds.width - session.layout.pageInset * 2 - 12
+        let height = min(380, UIScreen.main.bounds.height * 0.4)
+        if session.snapshot.wareID == "painting", let pixels = session.snapshot.painting?.pixelSize {
+            let scale = min(width / pixels.width, height / pixels.height)
+            return CGSize(width: pixels.width * scale, height: pixels.height * scale)
+        }
+        return session.previewFormat.fit(width: width, height: height)
     }
     // With the keyboard and composer up, the full-size preview pushes the text
     // field under the keyboard. Scale the framed preview (not the runtime, which

@@ -15,6 +15,15 @@ struct RobloxRoomSnapshot: Decodable {
     var notice: String?
 }
 
+struct PaintingSnapshot: Decodable {
+    let width: Int
+    let height: Int
+    var pixelSize: CGSize? {
+        guard (16...2048).contains(width), (16...2048).contains(height) else { return nil }
+        return CGSize(width: width, height: height)
+    }
+}
+
 struct WarePicker: View {
     @ObservedObject var session: WhistlegraphSession
     var size: CGFloat = 18
@@ -84,6 +93,12 @@ struct PaintingControls: View {
     @State private var importing = false
     var body: some View {
         HStack {
+            if let painting = session.snapshot.painting, painting.pixelSize != nil {
+                Text("\(painting.width) × \(painting.height) px")
+                    .font(.custom("ComicRelief-Regular", size: 18)).opacity(0.75)
+                    .accessibilityLabel("\(painting.width) by \(painting.height) pixels")
+                    .accessibilityIdentifier("painting-resolution")
+            }
             Spacer()
             Menu {
                 Button("Undo", systemImage: "arrow.uturn.backward") { session.command("undoPainting") }

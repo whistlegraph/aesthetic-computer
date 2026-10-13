@@ -213,15 +213,16 @@ struct Workspace: UIViewRepresentable {
             """, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         }
         if ProcessInfo.processInfo.environment["WHISTLEGRAPH_PAINTING_TEST"] == "1" {
+            let height = min(2048, max(16, Int(ProcessInfo.processInfo.environment["WHISTLEGRAPH_PAINTING_TEST_HEIGHT"] ?? "128") ?? 128))
             config.userContentController.addUserScript(WKUserScript(source: """
             localStorage.setItem('whistlegraph-ware','painting');
             if (!sessionStorage.getItem('painting-test-imported')) {
                 const check = setInterval(() => {
                     if (!window.whistlegraphEngineEvent || !document.getElementById('painting-preview')) return;
                     clearInterval(check);sessionStorage.setItem('painting-test-imported','1');
-                    const canvas=document.createElement('canvas');canvas.width=canvas.height=128;
-                    const c=canvas.getContext('2d');c.fillStyle='#102030';c.fillRect(0,0,128,128);
-                    c.fillStyle='#ff6699';c.beginPath();c.arc(64,64,32,0,Math.PI*2);c.fill();
+                    const canvas=document.createElement('canvas');canvas.width=128;canvas.height=\(height);
+                    const c=canvas.getContext('2d');c.fillStyle='#102030';c.fillRect(0,0,canvas.width,canvas.height);
+                    c.fillStyle='#ff6699';c.beginPath();c.arc(64,canvas.height/2,32,0,Math.PI*2);c.fill();
                     window.whistlegraphEngineEvent({kind:'importPng',name:'Moon Test.png',data:canvas.toDataURL('image/png').split(',')[1]});
                 },100);
             }

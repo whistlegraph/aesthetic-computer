@@ -213,6 +213,11 @@ extension WaresTests {
         let actions = app.buttons["painting-actions"]
         XCTAssertTrue(actions.waitForExistence(timeout: 10))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
+        let resolution = app.staticTexts["painting-resolution"]
+        XCTAssertTrue(resolution.waitForExistence(timeout: 10))
+        XCTAssertEqual(resolution.label, "128 by 128 pixels")
+        let frame = app.webViews.firstMatch.frame
+        XCTAssertEqual(frame.width / frame.height, 1, accuracy: 0.02)
         screenshot.name = "Imported PNG after project reload"
         screenshot.lifetime = .keepAlways
         add(screenshot)
@@ -224,6 +229,27 @@ extension WaresTests {
         export.lifetime = .keepAlways
         add(export)
         app.descendants(matching: .any)["Copy"].firstMatch.tap()
+    }
+
+    func testPortraitPaintingFrameMatchesItsPixels() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["WHISTLEGRAPH_PAINTING_TEST"] = "1"
+        app.launchEnvironment["WHISTLEGRAPH_PAINTING_TEST_HEIGHT"] = "256"
+        app.launch()
+        let name = app.buttons["workspace-settings"]
+        XCTAssertTrue(name.waitForExistence(timeout: 30))
+        let imported = expectation(for: NSPredicate(format: "label CONTAINS %@", "moon-test"), evaluatedWith: name)
+        XCTAssertEqual(XCTWaiter().wait(for: [imported], timeout: 30), .completed)
+        let resolution = app.staticTexts["painting-resolution"]
+        XCTAssertTrue(resolution.waitForExistence(timeout: 10))
+        XCTAssertEqual(resolution.label, "128 by 256 pixels")
+        let frame = app.webViews.firstMatch.frame
+        XCTAssertEqual(frame.width / frame.height, 0.5, accuracy: 0.02)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Portrait PNG fitted to its own aspect ratio"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
 }

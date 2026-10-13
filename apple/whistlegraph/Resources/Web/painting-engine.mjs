@@ -18,11 +18,12 @@ const wares=wareControls('painting');
 const turnAssets=new Set();
 const account=new AccountConnection({verify:verifyAccount,changed:state=>post({action:'accountState',...state}),loadColors:fetchHandleColors,initialColors:handleCharacterColors,paletteChanged:state=>{if(handle===state.handle){colors=state.colors;snapshot();}}});
 document.body.classList.add('live-mode');document.getElementById('initial').hidden=true;
-const box=document.createElement('div');box.id='live-preview-box';box.style.cssText='display:flex;align-items:center;justify-content:center;background:repeating-conic-gradient(#dedede 0% 25%,#fff 0% 50%) 0 / 20px 20px';
+const box=document.createElement('div');box.id='live-preview-box';box.style.cssText='display:flex;align-items:center;justify-content:center;background:#ffffff';
 const canvas=document.createElement('canvas');canvas.id='painting-preview';canvas.setAttribute('aria-label','Painting');canvas.style.cssText='width:100%;height:100%;object-fit:contain';box.append(canvas);document.getElementById('stage').prepend(box);
 function snapshot(){
+ const displayed=staged||painting;
  post({action:'pieces',pieces:projects.list({ledger:versions.value,name:painting.title,code:codes[versions.head.id]||''})});
- post({action:'snapshot',snapshot:{ware:'painting',caption:painting.title,code:codes[versions.head.id]||'',handle,colors,head:versions.head.id,hasPiece:true,hasPreview:true,busy,error,phase:busy?'Painting…':'Painting',output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});
+ post({action:'snapshot',snapshot:{ware:'painting',painting:{width:displayed.width,height:displayed.height},caption:painting.title,code:codes[versions.head.id]||'',handle,colors,head:versions.head.id,hasPiece:true,hasPreview:true,busy,error,phase:busy?'Painting…':'Painting',output:output.slice(-6000),attempt,versions:versions.value.versions.map(v=>({id:v.id,parent:v.parent,utterance:v.request||'',createdAt:v.createdAt}))}});
 }
 async function paint(value=painting){await renderPainting(canvas,value,loadPaintingAsset);}
 async function commit(value,request){

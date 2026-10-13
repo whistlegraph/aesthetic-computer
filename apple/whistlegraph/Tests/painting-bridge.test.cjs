@@ -43,7 +43,8 @@ const server=http.createServer(async(req,res)=>{
   await page.goto(url);await ready();assert.equal((await last()).head,0);
   await page.evaluate(()=>whistlegraphEngineEvent({kind:'account',token:'fixture'}));await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.colors.length===8);
   await page.evaluate(()=>whistlegraphNativeCommand({action:'ask',text:'Paint a pink moon'}));await page.waitForFunction(()=>__nativeMessages.filter(m=>m.action==='snapshot').at(-1).snapshot.head===1&&!whistlegraphIsBusy());
-  assert.equal((await last()).caption,'Pink Moon');
+  assert.equal((await last()).caption,'Pink Moon');assert.deepEqual((await last()).painting,{width:64,height:64});
+  assert.equal(await page.evaluate(()=>getComputedStyle(document.getElementById('live-preview-box')).backgroundImage),'none');
   assert.deepEqual(await page.evaluate(()=>Array.from(document.getElementById('painting-preview').getContext('2d').getImageData(32,32,1,1).data)),[255,102,153,255]);
   await page.screenshot({path:'/tmp/whistlegraph-painting-preview.png'});
   await page.evaluate(()=>whistlegraphNativeCommand({action:'exportPng'}));
