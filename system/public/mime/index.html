@@ -35,6 +35,10 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap" />
   <style>
 
+    /* The identical font file bundled by apple/mime, independent of Google Fonts. */
+    @font-face { font-family: "MIME Comic"; font-style: normal; font-weight: 700; font-display: swap;
+      src: url("https://aesthetic.computer/whistlegraph.app/ComicRelief-Bold.ttf") format("truetype"); }
+
     :root {
       color-scheme: light;
       --paper: #eee9f1; --card: #fffafc; --card-edge: #b6a5bd;
@@ -339,13 +343,21 @@
     /* Mime is about the type: the caption names the work and its MIME type, nothing else. */
     body.feed .feed-post :is(.avatar, .media-origin), body.feed .feed-post > .post-actions { display: none; }
     /* MacPal title lettering (see palLetters): white, outlined, a hard accent shadow, jittered letters. */
-    html body.feed .feed-post :is(.reel-command, .meta) .pal-text { font: 700 21px/1.3 "Comic Relief", "Comic Sans MS", cursive; color: #fff; white-space: pre;
-      -webkit-text-stroke: .13em #141414; paint-order: stroke fill; text-shadow: 2px 2px 0 var(--pal-accent, #a478df);
-      text-decoration: none; }
-    html body.feed .feed-post :is(.reel-command, .meta) .pal-text { position: relative; }
-    html body.feed .feed-post :is(.reel-command, .meta) .pal-text span span { display: inline-block; }
-    html body.feed .feed-post :is(.reel-command, .meta) .pal-over { position: absolute; left: 0; top: 0;
-      -webkit-text-stroke: 0; text-shadow: none; pointer-events: none; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text { font: 700 21px/1.3 "MIME Comic", "Comic Relief", "Comic Sans MS", cursive;
+      --pal-outline: max(1.2px, .075em); --pal-diagonal: calc(var(--pal-outline) * .70710678);
+      display: inline-grid; position: relative; vertical-align: bottom; color: #fff; white-space: pre;
+      -webkit-text-stroke: 0; text-shadow: none; text-decoration: none; }
+    /* Shared grid geometry keeps both copies aligned for links, handles and types.
+       Eight offset glyphs match PalText.swift's outline; each shadow rotates with its letter. */
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text > span { grid-area: 1 / 1; display: flex; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-text > span > span { display: block; flex: none; }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-under { color: #141414;
+      text-shadow: var(--pal-outline) 0 #141414, var(--pal-diagonal) var(--pal-diagonal) #141414,
+        0 var(--pal-outline) #141414, calc(-1 * var(--pal-diagonal)) var(--pal-diagonal) #141414,
+        calc(-1 * var(--pal-outline)) 0 #141414, calc(-1 * var(--pal-diagonal)) calc(-1 * var(--pal-diagonal)) #141414,
+        0 calc(-1 * var(--pal-outline)) #141414, var(--pal-diagonal) calc(-1 * var(--pal-diagonal)) #141414,
+        2px 2px var(--pal-accent, #a478df); }
+    html body.feed .feed-post :is(.reel-command, .meta) .pal-over { color: #fff; text-shadow: none; pointer-events: none; }
     /* No descriptions or version labels on the reel; a mood's words are the post, so they stay. */
     body.feed .feed-post:not(.mood-post) > .body { display: none; }
     body.feed .feed-post .mime-type { font-size: 13px; color: rgba(255, 255, 255, .8); }
