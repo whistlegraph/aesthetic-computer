@@ -48,6 +48,7 @@ import UserNotifications
     /// Asked once a person can post, never at launch. Returns whether allowed.
     @discardableResult
     static func ask() async -> Bool {
+        UserDefaults.standard.set(true, forKey: "push-asked")
         let center = UNUserNotificationCenter.current()
         let status = await center.notificationSettings().authorizationStatus
         if status == .denied { return false }

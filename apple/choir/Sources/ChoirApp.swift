@@ -15,7 +15,15 @@ struct ChoirApp: App {
                 .preferredColorScheme(.light)
                 .tint(Theme.ink)
                 .environmentObject(Router.shared)
-                .task { Devices.account = account; Trail.send("open", ["signedIn": account.signedIn]); await account.refreshMe() }
+                .task {
+                    Devices.account = account; Trail.send("open", ["signedIn": account.signedIn])
+                    await account.refreshMe()
+                    // People who logged in before push existed get asked once, here.
+                    if account.handle != nil, account.notifications, !UserDefaults.standard.bool(forKey: "push-asked") {
+                        UserDefaults.standard.set(true, forKey: "push-asked")
+                        await Devices.ask()
+                    }
+                }
                 .onChange(of: phase) { _, p in
                     guard p == .active else { return }
                     Devices.report(.open)
