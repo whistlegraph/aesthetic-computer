@@ -187,7 +187,7 @@
       box-shadow: 4px 6px 0 rgba(20, 25, 38, .4); }
     .oskiewar-button:active { transform: translate(1px, 2px);
       box-shadow: 1px 1px 0 rgba(20, 25, 38, .35); }
-    body:not(.title-open):not(.menu-open) #account, body.social-preview #account { display: none; }
+    body:not(.title-open):not(.menu-open):not(.piece-title) #account, body.social-preview #account { display: none; }
     body.midi-out #account { display: none; }
     body.social-preview #logout { display: none; }
     #game-menu { position: fixed; z-index: 6; left: 50%; translate: -50% 0;
@@ -2183,6 +2183,10 @@
         const menuOpen = Boolean(globalThis.__oskiewarTouch?.menu);
         document.body.classList.toggle("menu-open", menuOpen);
         document.body.classList.toggle("game-open", pieceScreen === "game");
+        // The first key on the title dismisses it here, but with sign-in
+        // required the piece stays on the title — and the account bar (log
+        // in / log out) went with the dismissal and never came back.
+        document.body.classList.toggle("piece-title", pieceScreen === "title");
         gameMenuButton.textContent = menuOpen ? "resume" : "menu";
         if (pieceScreen === "title" && previousPieceScreen !== "title") {
           if (updateAvailable) {
