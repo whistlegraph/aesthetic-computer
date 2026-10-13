@@ -12,6 +12,7 @@
 		1AEE805CB6AA133AA7D241B2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D900063294E7ECA08C63242 /* Theme.swift */; };
 		2C119D06D3B442C2034BB478 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2588F98D446498A5D78162A2 /* Assets.xcassets */; };
 		3C00A378256E29A4A9DCCCE5 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4795E20D2523AB8C8C6B203A /* SignInView.swift */; };
+		48C5F9223AE901913991AA5F /* Headline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224AC79DF9F2580E605A15F9 /* Headline.swift */; };
 		5E5868DBFCBE06631751028F /* PostRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF5B9D04957C667E8E468AE /* PostRow.swift */; };
 		7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */; };
 		80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */; };
@@ -29,6 +30,7 @@
 		077F334C80A6DC5CA677DB4A /* ThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadView.swift; sourceTree = "<group>"; };
 		0924D441BB67623D92EF8ACD /* AccountDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletion.swift; sourceTree = "<group>"; };
 		0D900063294E7ECA08C63242 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		224AC79DF9F2580E605A15F9 /* Headline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Headline.swift; sourceTree = "<group>"; };
 		2588F98D446498A5D78162A2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoirApp.swift; sourceTree = "<group>"; };
 		3EB5F83E9F2FFDF39A7CE23A /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
@@ -54,6 +56,7 @@
 				3EB5F83E9F2FFDF39A7CE23A /* API.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
 				817102FC4DE130FB7D70ECAC /* Entry.swift */,
+				224AC79DF9F2580E605A15F9 /* Headline.swift */,
 				6AF5B9D04957C667E8E468AE /* PostRow.swift */,
 				4DEE5132EAFF7B7F4D55CE24 /* RoomView.swift */,
 				AF6C29368504A99625509573 /* Samples.swift */,
@@ -181,6 +184,7 @@
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,
 				ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */,
 				FC1BDFB310EEF39D70CBBA4A /* Entry.swift in Sources */,
+				48C5F9223AE901913991AA5F /* Headline.swift in Sources */,
 				5E5868DBFCBE06631751028F /* PostRow.swift in Sources */,
 				7A2BF772AF6C09FCB7852E69 /* RoomView.swift in Sources */,
 				B9452F0585220AB08C5BFAFD /* Samples.swift in Sources */,

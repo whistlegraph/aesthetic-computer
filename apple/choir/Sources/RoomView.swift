@@ -6,6 +6,7 @@ struct RoomView: View {
     @EnvironmentObject var account: Account
     @EnvironmentObject var room: Room
     @State private var sheet: Sheet?
+    @State private var open: Post?
     enum Sheet: String, Identifiable { case login, new, account; var id: String { rawValue } }
 
     var body: some View {
@@ -23,14 +24,9 @@ struct RoomView: View {
                             Text(error).font(Theme.type(12)).foregroundStyle(Theme.ink)
                         }
                         ForEach(room.chat) { post in
-                            if Samples.isSample(post) {
-                                ChatRow(post: post, mine: false, onTag: pick).opacity(0.85)
-                            } else {
-                                NavigationLink(value: post) {
-                                    ChatRow(post: post, mine: post.handle == account.handle, onTag: pick)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                            ChatRow(post: post, mine: post.handle == account.handle, onTag: pick)
+                                .contentShape(Rectangle())
+                                .onTapGesture { Trail.send("thread:sheet"); open = post }
                         }
                         Color.clear.frame(height: 1).id("bottom")
                     }
@@ -39,7 +35,6 @@ struct RoomView: View {
                 .defaultScrollAnchor(.bottom)
                 .background(RuledPaper())
                 .navigationBarTitleDisplayMode(.inline)
-                .navigationDestination(for: Post.self) { ThreadView(rootID: $0.id) }
                 .refreshable { await room.load() }
                 .onChange(of: room.chat.last?.id) { _, _ in withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -65,6 +60,12 @@ struct RoomView: View {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.type(14)).tint(Theme.ink)
                     }
                 }
+            }
+            .sheet(item: $open) { post in
+                NavigationStack { ThreadView(rootID: post.id) }
+                    .environmentObject(account).environmentObject(room)
+                    .presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+                    .presentationBackground(.regularMaterial)
             }
             .sheet(item: $sheet) { s in
                 switch s {
@@ -113,11 +114,12 @@ struct ChatRow: View {
                     Text("deleted").italic().foregroundStyle(.secondary)
                 } else {
                     let words = shownText
-                    if !words.isEmpty {
+                    if let link = post.links.first {
+                        HeadlineCard(link: link, words: words)
+                    } else if !words.isEmpty {
                         Text(linked(words)).font(.system(size: 16, design: .serif)).lineSpacing(2)
                             .foregroundStyle(Theme.ink).textSelection(.enabled)
                     }
-                    if let link = post.links.first, let url = URL(string: link) { LinkPreview(url: url).frame(minHeight: 56) }
                 }
                 HStack(spacing: 8) {
                     if post.replies > 0 {
@@ -128,7 +130,7 @@ struct ChatRow: View {
             .padding(.horizontal, 12).padding(.vertical, 9)
             .background(mine ? Color(red: 0.86, green: 0.91, blue: 1.0) : Theme.paper, in: RoundedRectangle(cornerRadius: 14))
             .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-            .frame(maxWidth: 320, alignment: mine ? .trailing : .leading)
+            .frame(maxWidth: post.links.isEmpty ? 320 : 380, alignment: mine ? .trailing : .leading)
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
         .contextMenu {
