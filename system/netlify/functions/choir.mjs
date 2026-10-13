@@ -22,6 +22,11 @@
 //   GET    /api/choir?bugs=1  ·  ?bug=<id>&image=1   the bug list / one screenshot (admin)
 //   PUT    /api/choir?bug=<id> {status, note}        open | fixed | wontfix (admin)
 //   (filing is for @fifi and admins only — Fía's tester button)
+//   POST   /api/choir?report=1 {id, reason}   report a post (Bearer); the moderator is pushed
+//   GET    /api/choir?reports=1[&status=open]  the report queue (admin)
+//   PUT    /api/choir?report=<id> {status, remove, ban, note}  act on a report (admin)
+//          status: open | actioned | dismissed; remove takes the post down, ban stops its author posting
+//   POST   /api/choir?terms=1 {version}        agree to choir.ac/terms (Bearer); ?me=1 returns `terms`
 //   POST   /api/choir?curate=1 {items:[…]}   x-choir-editor: <CHOIR_EDITOR_SECRET>
 //          the jasellite curator adds to Discover and retires closed calls
 //
@@ -32,6 +37,7 @@ import { authorize, handleBySharedEmail, hasAdmin } from "../../backend/authoriz
 import { cleanEvent, record, recent } from "../../backend/choir-events.mjs";
 import { noteMember, notifyChoir } from "../../backend/choir-push.mjs";
 import { createInvite, myInvites, peekInvite, claimInvite, stats } from "../../backend/choir-invites.mjs";
+import { fileReport, resolveReport, acceptTerms, termsOf, REPORT_COLLECTION } from "../../backend/choir-moderation.mjs";
 import { sendToTarget } from "../../../shared/push.mjs";
 import { respond } from "../../backend/http.mjs";
 import { mongoChoirStore, publicPost, curate, greet, UPLOAD_MAX, UPLOAD_TYPES, UPLOAD_BASE } from "../../backend/choir.mjs";
@@ -98,7 +104,7 @@ export async function handler(event) {
             notifyChoir(db, { title: "choir 🌼", body: `${me.handle} just joined — say hi!`, thread: "choir", data: { url: "/" } },
               { except: me.sub, channel: "chat" }).catch(() => {});
           }).catch(() => {});
-        return ok({ handle: me.handle, prefs: await store.prefsOf(me.sub) });
+        return ok({ handle: me.handle, prefs: await store.prefsOf(me.sub), terms: await termsOf(db.collection("choir-prefs"), me.sub) });
       }
       if (q.bugs || q.bug) {
         const me = await whoami(event.headers || {}, db);
@@ -111,6 +117,12 @@ export async function handler(event) {
         }
         const rows = await bugs.find(q.bug ? { _id: q.bug } : {}, { projection: { image: 0 } }).sort({ at: -1 }).limit(100).toArray();
         return ok({ bugs: rows.map((r) => ({ ...r, screenshot: r.hasImage ? `/api/choir?bug=${r._id}&image=1` : null })) });
+      }
+      if (q.reports) {
+        const me = await whoami(event.headers || {}, db);
+        if (!me || !(await hasAdmin(me.user))) return no(401, "Admins only");
+        const filter = ["open", "actioned", "dismissed"].includes(q.status) ? { status: q.status } : {};
+        return ok({ reports: await db.collection(REPORT_COLLECTION).find(filter).sort({ at: -1 }).limit(200).toArray() });
       }
       if (q.events) {
         const me = await whoami(event.headers || {}, db);
@@ -204,6 +216,40 @@ export async function handler(event) {
         ContentType: type, ACL: "public-read", ContentLength: size }), { expiresIn: 900 });
       trail(db, "upload:signed", { handle: me.handle, type, size }, event.headers);
       return ok({ uploadUrl, url: UPLOAD_BASE + key, headers, key });
+    }
+
+    if (event.httpMethod === "POST" && q.report) {
+      let body;
+      try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
+      const { report, fresh } = await fileReport(db.collection(REPORT_COLLECTION), db.collection("choir-posts"),
+        { postID: String(body.id || ""), reason: body.reason, member: me.sub, handle: me.handle });
+      trail(db, "report:filed", { id: report._id, post: report.postID, by: me.handle || "", fresh }, event.headers);
+      // The 24-hour promise in choir.ac/terms starts here: tell the moderator's devices.
+      if (fresh && process.env.ADMIN_SUB) {
+        sendToTarget(db, { user: process.env.ADMIN_SUB, app: "choir" }, {
+          title: `🚩 ${me.handle || "someone"} reported ${report.post.handle}`, body: (report.reason || report.post.text || "a post").slice(0, 160),
+          thread: "choir-reports", data: { url: `/thread/${report.post.replyTo || report.postID}` },
+        }).catch(() => {});
+      }
+      return ok({ id: report._id, received: true });
+    }
+
+    if (event.httpMethod === "PUT" && q.report) {
+      if (!(await hasAdmin(me.user))) return no(401, "Admins only");
+      let body;
+      try { body = JSON.parse(event.body || "{}"); } catch { return no(400, "Send JSON"); }
+      const r = await resolveReport(db.collection(REPORT_COLLECTION), db.collection("choir-posts"), db.collection("choir-prefs"),
+        { reportID: q.report, status: body.status, remove: body.remove === true, ban: body.ban === true, note: body.note, by: me.handle || me.sub });
+      if (!r) return no(404, "No such report");
+      trail(db, "report:resolved", { id: r._id, status: r.status, removed: r.removed, banned: r.banned }, event.headers);
+      return ok({ report: r });
+    }
+
+    if (event.httpMethod === "POST" && q.terms) {
+      let body = {}; try { body = JSON.parse(event.body || "{}"); } catch {}
+      const t = await acceptTerms(db.collection("choir-prefs"), me.sub, { version: body.version });
+      trail(db, "terms:accepted", { handle: me.handle || "", version: t.termsVersion }, event.headers);
+      return ok(t);
     }
 
     if (event.httpMethod === "PUT" && q.bug) {

@@ -5,6 +5,8 @@
 // Pure store logic over a Mongo collection so it tests without a database
 // (see choir.test.mjs). The lith route is netlify/functions/choir.mjs.
 
+import { screen as defaultScreen, screenPost } from "./choir-moderation.mjs";
+
 export const MAX_CHARS = 2000;
 export const MIN_TAGS = 0;
 export const MAX_TAGS = 6;
@@ -88,7 +90,7 @@ export function publicPost(row) {
   };
 }
 
-export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = () => new Date().toISOString() } = {}) {
+export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = () => new Date().toISOString(), screen = defaultScreen } = {}) {
   let indexes;
   const ready = () => indexes ??= Promise.all([
     posts.createIndex({ when: -1 }), posts.createIndex({ replyTo: 1, when: 1 }),
@@ -108,7 +110,9 @@ export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = 
     async post(owner, handle, input) {
       if (!handle) throw Error("Pick a handle first");
       await ready();
-      const clean = validatePost(input);
+      const clean = screenPost(validatePost(input), screen);
+      // A member the moderator removed (choir-moderation.mjs resolveReport) stays out.
+      if (prefs && (await prefs.findOne({ _id: owner }))?.banned === true) throw Error("Your account can't post in choir. Write to mail@aesthetic.computer.");
       const when = now();
       await paceOf(owner, when);
       let root = null;

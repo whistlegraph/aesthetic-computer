@@ -50,6 +50,10 @@ function buckets() {
       client: spaces(process.env.DO_SPACES_ENDPOINT, key, secret),
       name: "at-blobs-aesthetic-computer",
     },
+    choir: {
+      client: spaces(process.env.CHOIR_SPACES_ENDPOINT, process.env.CHOIR_SPACES_KEY, process.env.CHOIR_SPACES_SECRET),
+      name: process.env.CHOIR_SPACES_BUCKET,
+    },
   };
 }
 
