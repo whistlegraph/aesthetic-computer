@@ -18,6 +18,7 @@
 		7DBC8597D8F3EB082404BB72 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9636E56DAB1B4B71016A62 /* ShareViewController.swift */; };
 		80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */; };
 		890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C99A28D4E33FF58F77C4E460 /* BugReport.swift */; };
+		9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */; };
 		AEE8EAF0D7C34DD16D5DB1DD /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */; };
 		B40A0B1C9F5F2C2C458879C2 /* InstagramCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D5DCF71C163AC1E0A9DFE4 /* InstagramCard.swift */; };
 		B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2713237B6298811227FAC1D /* AccountView.swift */; };
@@ -64,6 +65,7 @@
 		224AC79DF9F2580E605A15F9 /* Headline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Headline.swift; sourceTree = "<group>"; };
 		2588F98D446498A5D78162A2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChoirApp.swift; sourceTree = "<group>"; };
+		28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BugOverlay.swift; sourceTree = "<group>"; };
 		39BDFE250B2CB9A40493AAB5 /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
 		3EB5F83E9F2FFDF39A7CE23A /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 		4795E20D2523AB8C8C6B203A /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
@@ -92,6 +94,7 @@
 				F8C62B3296D4987EDFC99DE7 /* Account.swift */,
 				B2713237B6298811227FAC1D /* AccountView.swift */,
 				3EB5F83E9F2FFDF39A7CE23A /* API.swift */,
+				28E6EBE9A8D41ED7A431CDBE /* BugOverlay.swift */,
 				C99A28D4E33FF58F77C4E460 /* BugReport.swift */,
 				27BE1C6AFE576DDD33DBCA2F /* ChoirApp.swift */,
 				C06DC681F35E20B4A942D602 /* Devices.swift */,
@@ -259,6 +262,7 @@
 				C0A13CE3DA1E79CBDDE47CAC /* AccountDeletion.swift in Sources */,
 				B9086F7028252540C3B8CF9E /* AccountView.swift in Sources */,
 				EE93FD0C9D0D671588DDFE3F /* AeselButtonStyle.swift in Sources */,
+				9A1ADD105DF6DAE88E66A61C /* BugOverlay.swift in Sources */,
 				890B4AD96594B3CD911AB5B7 /* BugReport.swift in Sources */,
 				80B9D586EC437E183689C1BC /* ChoirApp.swift in Sources */,
 				ED6DDF6B0DDDA053E9FBC6D8 /* CurtainAccountButtonStyle.swift in Sources */,

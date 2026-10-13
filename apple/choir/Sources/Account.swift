@@ -12,6 +12,8 @@ final class Account: ObservableObject {
     @Published private(set) var tokens: Tokens?
     @Published var handle: String?
     @Published var notifications = true
+    @Published var notifyChat = true
+    @Published var notifyDiscover = true
     @Published var checked = false
     var signedIn: Bool { tokens != nil }
 
@@ -35,7 +37,7 @@ final class Account: ObservableObject {
         await refreshMe()
         Devices.report(.login)
         // Ask once someone can actually join in, never at launch.
-        if handle != nil && notifications { await Devices.ask() }
+        if handle != nil && (notifyChat || notifyDiscover) { await Devices.ask() }
     }
 
     func signOut() {
@@ -61,15 +63,23 @@ final class Account: ObservableObject {
         do {
             let me: Me = try await API.get("?me=1", token: await token())
             handle = me.handle; notifications = me.prefs.notifications
+            notifyChat = me.prefs.chat ?? me.prefs.notifications
+            notifyDiscover = me.prefs.discover ?? me.prefs.notifications
         } catch API.Failure.status(401, _) { signOut() } catch {}
     }
 
-    func setNotifications(_ on: Bool) async {
-        notifications = on
+    /// Chat and Discover switch separately (Fía, 10-12).
+    enum Channel: String { case chat, discover }
+    func setNotifications(_ channel: Channel, _ on: Bool) async {
+        if channel == .chat { notifyChat = on } else { notifyDiscover = on }
         if on { await Devices.ask() }
-        struct Body: Encodable { let notifications: Bool }
         struct Reply: Decodable { let prefs: Me.Prefs }
-        if let r: Reply = try? await API.send("PUT", "?prefs=1", Body(notifications: on), token: await token()) { notifications = r.prefs.notifications }
+        let body = [channel.rawValue: on]
+        if let r: Reply = try? await API.send("PUT", "?prefs=1", body, token: await token()) {
+            notifications = r.prefs.notifications
+            notifyChat = r.prefs.chat ?? r.prefs.notifications
+            notifyDiscover = r.prefs.discover ?? r.prefs.notifications
+        }
     }
 
     // Keychain

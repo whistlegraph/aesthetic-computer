@@ -35,6 +35,25 @@ struct InstagramCard: View {
         return lines.joined(separator: " ").replacingOccurrences(of: #"\s#\S+"#, with: "", options: .regularExpression)
     }
 
+    static func handleIn(_ description: String?) -> String? {
+        let d = description ?? ""
+        for pattern in [#"- ([A-Za-z0-9._]+) on [A-Z][a-z]+ \d"#, #"^([A-Za-z0-9._]+) on "#] {
+            guard let re = try? NSRegularExpression(pattern: pattern),
+                  let m = re.firstMatch(in: d, range: NSRange(d.startIndex..., in: d)),
+                  let r = Range(m.range(at: 1), in: d) else { continue }
+            return String(d[r])
+        }
+        return nil
+    }
+    static func captionIn(_ title: String?) -> String {
+        var text = decode(title ?? "")
+        if let open = text.firstIndex(of: "\""), let close = text.lastIndex(of: "\""), open < close {
+            text = String(text[text.index(after: open)..<close])
+        }
+        let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !$0.hasPrefix("#") }
+        return lines.joined(separator: " ").replacingOccurrences(of: #"\s#\S+"#, with: "", options: .regularExpression)
+    }
+
     static func decode(_ s: String) -> String {
         var out = s
         for (k, v) in ["&#064;": "@", "&amp;": "&", "&quot;": "\"", "&#039;": "'", "&#x27;": "'", "&lt;": "<", "&gt;": ">"] { out = out.replacingOccurrences(of: k, with: v) }

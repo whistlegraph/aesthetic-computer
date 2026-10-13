@@ -18,7 +18,7 @@ struct Post: Codable, Identifiable, Hashable {
 }
 struct TagCount: Codable, Hashable { let tag: String; let count: Int }
 struct Me: Codable {
-    struct Prefs: Codable { let notifications: Bool }
+    struct Prefs: Codable { let notifications: Bool; var chat: Bool? = nil; var discover: Bool? = nil }
     let handle: String?
     let prefs: Prefs
 }

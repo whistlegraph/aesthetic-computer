@@ -103,3 +103,56 @@ struct HeadlineCard: View {
         .task { if stored == nil { fetched = await ArticleMeta.load(link) } }
     }
 }
+
+/// How a link sits inside a chat bubble: small square thumbnail, source,
+/// one headline line, one line of text. Big cards live in Discover/comments.
+struct CompactLink: View {
+    let link: String
+    var stored: ArticleMeta? = nil
+    var kind: String? = nil
+    @State private var fetched: ArticleMeta?
+    @Environment(\.openURL) private var openURL
+    var meta: ArticleMeta? { stored ?? fetched }
+    var isInstagram: Bool { InstagramCard.isInstagram(link) }
+    var host: String { URL(string: link)?.host()?.replacingOccurrences(of: "www.", with: "") ?? link }
+
+    var line1: String {
+        if isInstagram { return InstagramCard.handleIn(meta?.description).map { "@\($0)" } ?? "Instagram" }
+        let t = HeadlineCard.trim(meta?.title ?? "", site: meta?.siteName, host: host)
+        return t.isEmpty ? host : InstagramCard.decode(t)
+    }
+    var line2: String {
+        if isInstagram { return InstagramCard.captionIn(meta?.title) }
+        return InstagramCard.decode(meta?.description ?? "")
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            ZStack {
+                Theme.desk
+                if let image = meta?.image, let url = URL(string: image) {
+                    AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Color.clear }
+                } else {
+                    Image(systemName: isInstagram ? "camera" : "link").foregroundStyle(Theme.ink.opacity(0.35))
+                }
+            }
+            .frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 5) {
+                    if kind == "opportunity" { Text("OPEN CALL").font(.system(size: 9, weight: .bold)).foregroundStyle(Color(red: 0.2, green: 0.63, blue: 0.2)) }
+                    if kind == "opening" { Text("OPENING").font(.system(size: 9, weight: .bold)).foregroundStyle(Color(red: 0.24, green: 0.47, blue: 0.86)) }
+                    Text((isInstagram ? "INSTAGRAM" : (meta?.siteName ?? host)).uppercased())
+                        .font(.system(size: 9, weight: .semibold)).tracking(1).foregroundStyle(Theme.ink.opacity(0.5)).lineLimit(1)
+                }
+                Text(line1).font(.system(size: 15, weight: .semibold, design: .serif)).foregroundStyle(Theme.ink).lineLimit(2)
+                if !line2.isEmpty {
+                    Text(line2).font(.system(size: 13, design: .serif)).foregroundStyle(Theme.ink.opacity(0.7)).lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) { if let u = URL(string: link) { Trail.send("link:open"); openURL(u) } }
+        .task { if stored == nil { fetched = await ArticleMeta.load(link) } }
+    }
+}

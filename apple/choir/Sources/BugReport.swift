@@ -7,7 +7,7 @@ import UIKit
 enum BugShot {
     /// The key window as it looks right now, before any sheet covers it.
     @MainActor static func capture() -> UIImage? {
-        guard let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first else { return nil }
+        guard let window = BugOverlay.appWindow else { return nil } // the app, without the floating bug
         let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
         return renderer.image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: false) }
     }

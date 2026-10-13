@@ -22,3 +22,10 @@ test("a post reaches everyone but the poster (on any of their accounts) and anyo
   assert.deepEqual((await audience(db(devices, prefs), { except: "auth0|jeffrey" })).sort(), ["auth0|harry", "auth0|stranger", "email|fia-phone"]);
   assert.equal((await audience(db(devices, prefs))).length, 4, "Discover news reaches everyone who has not opted out");
 });
+
+test("chat and Discover pushes respect each member's own switch", async () => {
+  const devices = [{ user: "auth0|a" }, { user: "auth0|b" }];
+  const prefs = [{ _id: "auth0|a", subs: ["auth0|a"], discover: false }, { _id: "auth0|b", subs: ["auth0|b"], chat: false }];
+  assert.deepEqual(await audience(db(devices, prefs), { channel: "chat" }), ["auth0|a"]);
+  assert.deepEqual(await audience(db(devices, prefs), { channel: "discover" }), ["auth0|b"]);
+});

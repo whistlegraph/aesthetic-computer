@@ -127,12 +127,13 @@ test("the brake: a burst cap a minute, an hourly cap", async () => {
   assert.doesNotReject(s.post("sub-other", "@other", { text: "fine", tags: ["news", "discussion"] }), "the brake is per account");
 });
 
-test("notifications default on and can be turned off", async () => {
+test("chat and Discover notifications switch separately", async () => {
   const { s } = store();
-  assert.deepEqual(await s.prefsOf("sub-a"), { notifications: true });
-  await s.setPrefs("sub-a", { notifications: false });
-  assert.deepEqual(await s.prefsOf("sub-a"), { notifications: false });
-  await assert.rejects(s.setPrefs("sub-a", { notifications: "no" }), /true or false/);
+  assert.deepEqual(await s.prefsOf("sub-a"), { notifications: true, chat: true, discover: true });
+  assert.deepEqual(await s.setPrefs("sub-a", { discover: false }), { notifications: true, chat: true, discover: false });
+  assert.deepEqual(await s.setPrefs("sub-a", { notifications: false }), { notifications: false, chat: false, discover: false });
+  assert.deepEqual(await s.setPrefs("sub-a", { chat: true }), { notifications: true, chat: true, discover: false });
+  await assert.rejects(s.setPrefs("sub-a", { chat: "no" }), /true or false/);
 });
 
 test("news lives in Discover, not the chat", async () => {

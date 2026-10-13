@@ -18,12 +18,14 @@ struct ChoirApp: App {
                 .task {
                     Devices.account = account; Trail.send("open", ["signedIn": account.signedIn])
                     await account.refreshMe()
+                    BugOverlay.shared.update(for: account) // Fía's floating ladybug
                     // People who logged in before push existed get asked once, here.
-                    if account.handle != nil, account.notifications, !UserDefaults.standard.bool(forKey: "push-asked") {
+                    if account.handle != nil, account.notifyChat || account.notifyDiscover, !UserDefaults.standard.bool(forKey: "push-asked") {
                         UserDefaults.standard.set(true, forKey: "push-asked")
                         await Devices.ask()
                     }
                 }
+                .onChange(of: account.handle) { _, _ in BugOverlay.shared.update(for: account) }
                 .onChange(of: phase) { _, p in
                     guard p == .active else { return }
                     Devices.report(.open)

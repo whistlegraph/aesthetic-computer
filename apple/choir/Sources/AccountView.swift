@@ -20,8 +20,9 @@ struct AccountView: View {
                         Button("I chose one") { Task { await account.refreshMe() } }
                     }
                 }
-                Section {
-                    Toggle("Notifications", isOn: Binding(get: { account.notifications }, set: { on in Task { await account.setNotifications(on) } }))
+                Section("Notifications") {
+                    Toggle("New messages in the chat", isOn: Binding(get: { account.notifyChat }, set: { on in Task { await account.setNotifications(.chat, on) } }))
+                    Toggle("New in Discover", isOn: Binding(get: { account.notifyDiscover }, set: { on in Task { await account.setNotifications(.discover, on) } }))
                 }
                 Section {
                     Link(destination: URL(string: "https://instagram.com/333_choir")!) {

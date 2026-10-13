@@ -121,7 +121,7 @@ export async function handler(event) {
           title: "New in Discover",
           body: `${first?.title || "Fresh news and open calls"}${more ? ` and ${more} more` : ""}`.slice(0, 180),
           thread: "choir-discover", collapse: "choir-discover", data: { url: "/discover" },
-        }).then((t) => trail(db, "push:discover", t, {})).catch(() => {});
+        }, { channel: "discover" }).then((t) => trail(db, "push:discover", t, {})).catch(() => {});
       }
       await record(db, { name: "curate", props: { added: result.added.length, skipped: result.skipped.length, expired: result.expired.length }, surface: "server", session: null, at: new Date() }).catch(() => {});
       return ok(result);
@@ -187,7 +187,7 @@ export async function handler(event) {
           body: row.text.replace(/https?:\/\/\S+/g, "🔗").slice(0, 180),
           thread: "choir", collapse: body.replyTo ? `choir-${row.replyTo}` : undefined,
           data: { url: `/thread/${row.replyTo || row._id}` },
-        }, { except: me.sub }).then((t) => trail(db, "push:post", t, {})).catch(() => {});
+        }, { except: me.sub, channel: "chat" }).then((t) => trail(db, "push:post", t, {})).catch(() => {});
         return ok({ post: publicPost(row) });
       } catch (error) {
         trail(db, "post:refused", { handle: me.handle, why: error.message }, event.headers);

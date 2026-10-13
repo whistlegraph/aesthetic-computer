@@ -133,14 +133,25 @@ export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = 
       return r.modifiedCount === 1;
     },
 
+    // Fía (10-12): chat and Discover notifications switch separately. An older
+    // single `notifications: false` still silences both.
     async prefsOf(owner) {
       const row = prefs ? await prefs.findOne({ _id: owner }) : null;
-      return { notifications: row?.notifications !== false };
+      const all = row?.notifications !== false;
+      return { notifications: all, chat: all && row?.chat !== false, discover: all && row?.discover !== false };
     },
-    async setPrefs(owner, { notifications }) {
-      if (typeof notifications !== "boolean") throw Error("notifications must be true or false");
-      if (prefs) await prefs.updateOne({ _id: owner }, { $set: { notifications } }, { upsert: true });
-      return { notifications };
+    async setPrefs(owner, body) {
+      const set = {};
+      for (const k of ["notifications", "chat", "discover"]) {
+        if (body[k] === undefined) continue;
+        if (typeof body[k] !== "boolean") throw Error(`${k} must be true or false`);
+        set[k] = body[k];
+      }
+      if (!Object.keys(set).length) throw Error("notifications must be true or false");
+      // Turning a channel on also lifts an old blanket "off".
+      if (set.chat === true || set.discover === true) set.notifications = true;
+      if (prefs) await prefs.updateOne({ _id: owner }, { $set: set }, { upsert: true });
+      return this.prefsOf(owner);
     },
   };
 }

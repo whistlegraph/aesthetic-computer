@@ -70,9 +70,6 @@ struct RoomView: View {
                     Button { discover = true } label: { Image(systemName: "newspaper") }
                         .tint(Theme.ink).accessibilityLabel("Discover")
                 }
-                if account.handle == "@fifi" { // Fía's tester button
-                    ToolbarItem(placement: .topBarTrailing) { BugButton() }
-                }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
                         Button(account.handle ?? "you") { sheet = .account }.font(Theme.type(14)).tint(Theme.ink)
@@ -144,11 +141,9 @@ struct ChatRow: View {
                     Text("deleted").italic().foregroundStyle(.secondary)
                 } else {
                     let words = shownText
-                    if let link = post.links.first, InstagramCard.isInstagram(link) {
-                        InstagramCard(link: link)
+                    if let link = post.links.first {
                         if !words.isEmpty { Text(linked(words)).font(.system(size: 16, design: .serif)).foregroundStyle(Theme.ink) }
-                    } else if let link = post.links.first {
-                        HeadlineCard(link: link, words: words, stored: post.preview, opportunity: post.kind == "opportunity", opening: post.kind == "opening")
+                        CompactLink(link: link, stored: post.preview, kind: post.kind)
                     } else if !words.isEmpty {
                         Text(linked(words)).font(.system(size: 16, design: .serif)).lineSpacing(2)
                             .foregroundStyle(Theme.ink).textSelection(.enabled)
@@ -163,7 +158,7 @@ struct ChatRow: View {
             .padding(.horizontal, 12).padding(.vertical, 9)
             .background(mine ? Color(red: 0.86, green: 0.91, blue: 1.0) : Theme.paper, in: RoundedRectangle(cornerRadius: 14))
             .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
-            .frame(maxWidth: post.links.isEmpty ? 320 : 380, alignment: mine ? .trailing : .leading)
+            .frame(maxWidth: 320, alignment: mine ? .trailing : .leading)
         }
         .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
         .contextMenu {
