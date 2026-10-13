@@ -159,6 +159,21 @@ extension View {
     }
 }
 
+/// Send, louder than the other chips: Fía found the dimmed one hard to see
+/// (10-12). Ink at rest, the red head rule once there is something to send.
+struct SendStyle: ButtonStyle {
+    var ready: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .foregroundStyle(Color.white)
+            .background(Capsule().fill(ready ? Theme.head : Theme.ink.opacity(0.75)))
+            .shadow(color: .black.opacity(ready ? 0.18 : 0), radius: 4, y: 2)
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(.easeOut(duration: 0.15), value: ready)
+    }
+}
+
 struct GlassChipStyle: ButtonStyle {
     var on = false
     func makeBody(configuration: Configuration) -> some View {

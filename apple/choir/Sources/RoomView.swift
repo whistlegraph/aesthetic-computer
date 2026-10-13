@@ -68,8 +68,9 @@ struct RoomView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { discover = true } label: { Hand("HandDiscover", height: 17).foregroundStyle(Theme.ink) }
-                        .accessibilityLabel("Discover")
+                    // Fía preferred the news icon to the handwritten "discover" (10-12).
+                    Button { discover = true } label: { Image(systemName: "newspaper") }
+                        .tint(Theme.ink).accessibilityLabel("Discover")
                 }
                 if account.signedIn {
                     ToolbarItem(placement: .topBarLeading) {
@@ -239,8 +240,8 @@ struct ChatInput: View {
                     .focused($typing)
                     .padding(.horizontal, 14).padding(.vertical, 10).glass(RoundedRectangle(cornerRadius: 20))
                     .onChange(of: typing) { _, on in if on { onFocus() } }
-                Button { Task { await send() } } label: { Hand("HandSend", height: 17) }
-                    .buttonStyle(GlassChipStyle(on: true)).disabled(!ready).opacity(ready ? 1 : 0.4)
+                Button { Task { await send() } } label: { Hand("HandSend", height: 22) }
+                    .buttonStyle(SendStyle(ready: ready)).disabled(!ready)
                     .accessibilityLabel("Send")
             }
             .padding(.horizontal, 12)
