@@ -1494,6 +1494,14 @@ mime.ac {
         header Cache-Control "no-cache"
         file_server
     }
+    # The rules and support pages the App Store listing links to.
+    @mime_page path_regexp mime_page ^/(terms|support)/?$
+    handle @mime_page {
+        root * /opt/ac/system/public/mime
+        rewrite * /{re.mime_page.1}/index.html
+        header Cache-Control "no-cache"
+        file_server
+    }
     @mime_crawl path /robots.txt /sitemap.xml
     handle @mime_crawl {
         root * /opt/ac/system/public/mime

@@ -1,0 +1,9 @@
+Every file has a MIME type: image/png, text/x-lisp, video/mp4, application/x-doom-wad. MIME.ac flips through what people make across Aesthetic Computer, KidLisp and Whistlegraph by type, one work per screen, like TV channels.
+
+Swipe up through paintings, KidLisp programs, interactive pieces, Whistlegraphs, Doom levels, moods and saved Oskiewar rounds. Tap a piece to play with it. Tap its code to get a QR code for another phone.
+
+Tap a type at the bottom right to make your own: a painting, a piece, a Doom level or a room. Talk or type what you want, and every version is kept. Tap a version number to remix someone's work into your own copy, with credit.
+
+Watching needs no account. Making work uses an Aesthetic Computer sign-in.
+
+Rules: mime.ac/terms. Tap anyone's @handle to report a card or hide their work. Every report is reviewed within 24 hours.

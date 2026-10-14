@@ -28,15 +28,18 @@ struct MimeRoot: View {
     @State private var requested: Ware?
     @State private var remix: Post?
     @State private var remixError: String?
+    /// Making work waits once for the rules (mime.ac/terms), App Store guideline 1.2.
+    @AppStorage("mime-rules-agreed") private var agreedRules = false
+    @State private var afterRules: (() -> Void)?
+    @Environment(\.openURL) private var openURL
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 Reel(active: !creating, resumeEditor: {
-                    requested = nil
-                    creating = true
-                }, remixWork: openRemix) { ware in
-                    openQueued(queue.enqueue(ware: ware, owner: workspace.snapshot.handle))
+                    withRules { requested = nil; creating = true }
+                }, remixWork: { post in withRules { openRemix(post) } }) { ware in
+                    withRules { openQueued(queue.enqueue(ware: ware, owner: workspace.snapshot.handle)) }
                 }
                     .offset(x: creating && !reduceMotion ? geometry.size.width + editorDrag : 0)
                     .allowsHitTesting(!creating).accessibilityHidden(creating)
@@ -92,6 +95,16 @@ struct MimeRoot: View {
             .alert("Remix unavailable", isPresented: Binding(get: { remixError != nil }, set: { if !$0 { remixError = nil } })) {
                 Button("OK") { remixError = nil }
             } message: { Text(remixError ?? "") }
+            .alert("Before you make something", isPresented: Binding(get: { afterRules != nil }, set: { if !$0 { afterRules = nil } })) {
+                Button("Sounds good") { agreedRules = true; let next = afterRules; afterRules = nil; next?() }
+                Button("Read the rules") { openURL(URL(string: "https://mime.ac/terms/")!); afterRules = nil }
+                Button("Not now", role: .cancel) { afterRules = nil }
+            } message: {
+                Text("Everything you post shows in everyone’s feed. No harassment, hate, sexual or violent work, or spam. Reports are reviewed within 24 hours, and people who break the rules are removed.")
+            }
+    }
+    private func withRules(_ action: @escaping () -> Void) {
+        if agreedRules { action() } else { afterRules = action }
     }
     private func openRemix(_ post: Post) {
         guard let ware = post.remixWare else { return }
