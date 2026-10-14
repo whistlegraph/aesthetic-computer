@@ -211,7 +211,7 @@ private struct Card: View {
         }
         .overlay(alignment: .topLeading) {
             HStack(alignment: .lastTextBaseline, spacing: 12) {
-            Button(action: { interacting ? toggleInteract() : (showingQR = true) }) {
+            Button(action: { interacting ? toggleInteract() : withAnimation(.spring(duration: 0.4, bounce: 0.3)) { showingQR.toggle() } }) {
                 PalText(text: post.command, size: CGFloat(layout.identifierSize), accent: Color(hex: 0xED629D), swing: 2.2, entrance: true)
                     .overlay(alignment: .bottom) {
                         if interacting { WavyUnderline().offset(y: 6) }
@@ -219,7 +219,7 @@ private struct Card: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("mime-global-identifier")
-            .accessibilityHint(interacting ? "Back to scrolling" : "Show a QR code for this card")
+            .accessibilityHint(interacting ? "Back to scrolling" : showingQR ? "Hide the QR code" : "Show a QR code for this card")
             if let version = post.edition, post.remixWare != nil {
                 Button { remixWork(post) } label: {
                     PalText(text: "v\(version)", size: CGFloat(layout.identifierSize), accent: Color(hex: 0x55CDD9))
@@ -228,6 +228,13 @@ private struct Card: View {
                     .accessibilityLabel("v\(version)").accessibilityHint("Remix this version")
             }
             }.padding(.leading, layout.padding).padding(.top, 52)
+        }
+        .overlay(alignment: .topLeading) {
+            if showingQR {
+                CornerQR(post: post) { withAnimation(.spring(duration: 0.35, bounce: 0.2)) { showingQR = false } }
+                    .padding(.leading, layout.padding).padding(.top, 52 + CGFloat(layout.identifierSize) + 14)
+                    .transition(.scale(scale: 0.05, anchor: .topLeading).combined(with: .opacity))
+            }
         }
         .overlay(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 8) {
@@ -258,7 +265,7 @@ private struct Card: View {
             .padding(.horizontal, layout.padding).padding(.bottom, 34)
         }
         .clipped()
-        .fullScreenCover(isPresented: $showingQR) { MimeQR(post: post) { showingQR = false } }
+        .onChange(of: focused) { _, now in if !now { showingQR = false } }
     }
 
     @ViewBuilder private var media: some View {

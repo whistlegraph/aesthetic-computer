@@ -14,34 +14,27 @@ extension Post {
     }
 }
 
-/// Tapping a card's code: its mime.ac address as a full-screen QR, for another
-/// phone to scan. Tap anywhere to close.
-struct MimeQR: View {
+/// Tapping a card's code slides its mime.ac address out of the top-left
+/// corner as a small QR, like KidLisp's corner QR in AC: crisp cells on a
+/// white quiet zone, the short address under it. Tap it to tuck it away.
+struct CornerQR: View {
     let post: Post
     let close: () -> Void
 
     var body: some View {
-        VStack(spacing: 22) {
-            PalText(text: post.command, size: 30, accent: Color(hex: 0xED629D))
+        VStack(alignment: .leading, spacing: 8) {
             if let image = Self.code(post.shareURL.absoluteString) {
-                Image(uiImage: image).interpolation(.none).resizable().scaledToFit()
-                    .padding(18).background(.white, in: RoundedRectangle(cornerRadius: 18))
-                    .padding(.horizontal, 28)
+                Image(uiImage: image).interpolation(.none).resizable()
+                    .frame(width: 168, height: 168)
+                    .padding(8).background(.white, in: RoundedRectangle(cornerRadius: 6))
+                    .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
                     .accessibilityLabel("QR code for \(post.shareURL.absoluteString)")
             }
-            Text(post.shareURL.absoluteString.replacingOccurrences(of: "https://", with: ""))
-                .font(.custom("ComicRelief-Bold", size: 17)).foregroundStyle(.white.opacity(0.8))
-                .lineLimit(1).minimumScaleFactor(0.6).padding(.horizontal, 28)
-            ShareLink(item: post.shareURL) {
-                Label("Share", systemImage: "square.and.arrow.up").font(.custom("ComicRelief-Bold", size: 17))
-                    .padding(.horizontal, 18).padding(.vertical, 10).background(.white.opacity(0.14), in: Capsule())
-            }.tint(.white)
+            PalText(text: post.shareURL.absoluteString.replacingOccurrences(of: "https://", with: ""), size: 14, accent: Color(hex: 0xED629D), animated: false)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.paper.ignoresSafeArea())
         .contentShape(Rectangle())
         .onTapGesture(perform: close)
-        .accessibilityAction(.escape, close)
+        .contextMenu { ShareLink(item: post.shareURL) }
         .accessibilityIdentifier("mime-qr")
     }
 
