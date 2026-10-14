@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+import ACUI
 
 struct Model: Decodable, Identifiable {
     let id: String
@@ -555,8 +556,7 @@ struct ContentView: View {
         return StatusBand.Content(groups: [modelFields, move, service, identity, capacity], context: game.upscaling ? "Local · 0 Braincells" : model?.location)
     }
     func canvasSide(_ size: CGSize, status: StatusBand.Content, compact: Bool) -> CGFloat {
-        let reserved: CGFloat = compact ? 52 : 76
-        return max(1, floor(min(size.width, size.height - reserved - StatusBand.lineHeight)))
+        InterfaceSpec.noPaint.layout.paintingSide(width: size.width, height: size.height)
     }
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.1)) { time in
@@ -574,17 +574,14 @@ struct ContentView: View {
                             ProgressView(value: game.upscaling ? (game.state?.upscale?.progress ?? 0) : nil).progressViewStyle(.linear).tint(Color(red: 0.85, green: 0.24, blue: 0.44)).frame(width: side, height: 4).accessibilityLabel(game.upscaling ? "Upscaling painting" : game.publishing ? "Publishing painting" : "Generating image")
                         }
                     }
-                    HStack(spacing: 0) {
-                        Button { game.act("no") } label: {
-                            Text("No").frame(width: side / 2, height: buttonHeight).contentShape(Rectangle())
-                        }.buttonStyle(PaintButton(dark: false, height: buttonHeight, fontSize: buttonFont)).disabled(!game.canNo)
-                            .onHover { game.hoverNo($0) }
-                            .help("Hover to preview going back. Click to go back one move or cancel an unfinished move. (N)")
-                        Button { game.act("paint") } label: {
-                            Text("Paint").frame(width: side / 2, height: buttonHeight).contentShape(Rectangle())
-                        }.buttonStyle(PaintButton(dark: true, height: buttonHeight, fontSize: buttonFont)).disabled(!game.canPaint || game.pendingDone)
-                            .accessibilityLabel("Paint: confirm one generation").accessibilityValue(game.generationStatus(time.date).joined(separator: ", "))
-                            .help(game.busy ? "Generating this confirmed move" : game.state?.quote == nil ? (game.state?.account.remote_status ?? "Choose an available model below.") : "Confirm this move and Braincell cost. ~ means estimated time; — means not measured yet. (P)")
+                    DecisionBar { action in
+                        Button { game.act(action.id) } label: {
+                            Text(action.label).frame(width: side / 2, height: buttonHeight).contentShape(Rectangle())
+                        }.buttonStyle(PaintButton(dark: action.id == "paint", height: buttonHeight, fontSize: buttonFont))
+                            .disabled(action.enabled == "canNo" ? !game.canNo : !game.canPaint || game.pendingDone)
+                            .onHover { if action.id == "no" { game.hoverNo($0) } }
+                            .help(action.help ?? "")
+                            .accessibilityLabel(action.label).accessibilityValue(action.id == "paint" ? game.generationStatus(time.date).joined(separator: ", ") : "Go back one move")
                     }.frame(width: side)
                     HStack(spacing: 0) {
                         HintField(game: game).frame(width: min(240, geometry.size.width * 0.36))
@@ -735,6 +732,7 @@ struct CloudNotice: View {
         }
         let done = fileMenu.addItem(withTitle: "Done", action: #selector(donePainting(_:)), keyEquivalent: "d"); done.target = self
         let history = fileMenu.addItem(withTitle: "History…", action: #selector(showHistory(_:)), keyEquivalent: "h"); history.target = self; history.keyEquivalentModifierMask = [.command, .shift]
+        let website = fileMenu.addItem(withTitle: "Connect Website…", action: #selector(connectWebsite(_:)), keyEquivalent: ""); website.target = self
         fileMenu.addItem(.separator())
         let published = fileMenu.addItem(withTitle: "Open Last Painting", action: #selector(openPainting(_:)), keyEquivalent: ""); published.target = self
         let editItem = NSMenuItem(); menu.addItem(editItem)
@@ -755,15 +753,15 @@ struct CloudNotice: View {
         }
         let change = NSMenu(title: "Change")
         let changeItem = options.addItem(withTitle: "Change", action: nil, keyEquivalent: ""); changeItem.submenu = change
-        for (title, value) in [("Small", 0.25), ("Medium", 0.5), ("Large", 0.75)] {
-            choice(title, parent: change, action: #selector(changeStrength(_:)), value: value)
+        for strength in InterfaceSpec.noPaint.strengths {
+            choice(strength.label, parent: change, action: #selector(changeStrength(_:)), value: strength.value)
         }
         options.addItem(.separator())
         choice("Zoom Crop", parent: options, action: #selector(changeDrag(_:)), value: "zoom")
         choice("Inpaint", parent: options, action: #selector(changeDrag(_:)), value: "inpaint")
         let brush = NSMenu(title: "Brush Size")
         let brushItem = options.addItem(withTitle: "Brush Size", action: nil, keyEquivalent: ""); brushItem.submenu = brush
-        for size in [8, 16, 24, 32, 48, 64] {
+        for size in InterfaceSpec.noPaint.brushes {
             choice("\(size) px", parent: brush, action: #selector(changeBrush(_:)), value: size)
         }
         let clear = options.addItem(withTitle: "Clear Mask", action: #selector(clearMask(_:)), keyEquivalent: ""); clear.target = self
@@ -794,6 +792,7 @@ struct CloudNotice: View {
     @objc func freshPainting(_ sender: Any?) { game.fresh() }
     @objc func donePainting(_ sender: Any?) { game.done() }
     @objc func showHistory(_ sender: Any?) { game.history() }
+    @objc func connectWebsite(_ sender: Any?) { NSWorkspace.shared.open(URL(string: "http://127.0.0.1:8767/connect")!) }
     @objc func openPainting(_ sender: Any?) {
         if let value = game.state?.publication?.url, let url = URL(string: value), url.scheme == "https", url.host == "aesthetic.computer" { NSWorkspace.shared.open(url) }
     }

@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "name": "No Paint",
+  "layout": {
+    "canvasPixels": 256,
+    "compactHeight": 500,
+    "compactControls": 52,
+    "controls": 76,
+    "statusHeight": 33
+  },
+  "colors": {
+    "background": ["#eee9df", "#20201d"],
+    "canvas": ["#ddd8ce", "#171715"],
+    "ink": ["#202019", "#eee9df"],
+    "accent": ["#da3d70", "#f17499"]
+  },
+  "components": [
+    { "id": "canvas", "kind": "painting", "label": "Current painting" },
+    {
+      "id": "decisions",
+      "kind": "decisions",
+      "actions": [
+        {
+          "id": "no",
+          "label": "No",
+          "key": "n",
+          "enabled": "canNo",
+          "help": "Go back one move or cancel an unfinished move. Hover to preview."
+        },
+        {
+          "id": "paint",
+          "label": "Paint",
+          "key": "p",
+          "enabled": "canPaint",
+          "help": "Confirm the displayed price and generate one move."
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "kind": "status",
+      "label": "Model and generation status"
+    },
+    { "id": "hint", "kind": "hint", "label": "Hint", "limit": 200 },
+    { "id": "models", "kind": "modelPicker", "label": "Models" },
+    { "id": "account", "kind": "account", "label": "AC account" }
+  ],
+  "strengths": [
+    { "label": "Small", "value": 0.25 },
+    { "label": "Medium", "value": 0.5 },
+    { "label": "Large", "value": 0.75 }
+  ],
+  "brushes": [8, 16, 24, 32, 48, 64],
+  "menus": [
+    {
+      "id": "file",
+      "label": "File",
+      "actions": [
+        { "id": "fresh", "label": "Fresh", "key": "n", "enabled": "canFresh" },
+        {
+          "id": "save",
+          "label": "Save Painting",
+          "key": "s",
+          "enabled": "ready"
+        },
+        {
+          "id": "upscale2",
+          "label": "Save Upscaled 2×",
+          "enabled": "canUpscale"
+        },
+        {
+          "id": "upscale4",
+          "label": "Save Upscaled 4×",
+          "enabled": "canUpscale"
+        },
+        { "id": "done", "label": "Done", "key": "d", "enabled": "canDone" },
+        { "id": "history", "label": "History", "enabled": "ready" },
+        {
+          "id": "published",
+          "label": "Open Last Painting",
+          "enabled": "hasPublished"
+        }
+      ]
+    },
+    {
+      "id": "options",
+      "label": "Options",
+      "actions": [
+        {
+          "id": "settings",
+          "label": "Change and Brush Size",
+          "enabled": "ready"
+        },
+        { "id": "zoom", "label": "Zoom Crop", "enabled": "canChange" },
+        { "id": "inpaint", "label": "Inpaint", "enabled": "canChange" },
+        { "id": "clearMask", "label": "Clear Mask", "enabled": "canChange" },
+        { "id": "models", "label": "Browse Models", "enabled": "ready" },
+        { "id": "account", "label": "AC account", "enabled": "ready" },
+        {
+          "id": "companion",
+          "label": "Connect Desktop",
+          "enabled": "canChange"
+        }
+      ]
+    }
+  ]
+}

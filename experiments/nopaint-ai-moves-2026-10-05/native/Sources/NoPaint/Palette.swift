@@ -1,11 +1,17 @@
 import AppKit
+import ACUI
 
 enum NoPaintPalette {
     // Dynamic AppKit colors follow the window's effective appearance in both
     // SwiftUI and the native views. Painting pixels are never color-adjusted.
-    static let background = adaptive(light: 0xEEE9DF, dark: 0x20201D)
-    static let canvas = adaptive(light: 0xDDD8CE, dark: 0x171715)
-    static let ink = adaptive(light: 0x202019, dark: 0xEEE9DF)
+    static let background = adaptive("background")
+    static let canvas = adaptive("canvas")
+    static let ink = adaptive("ink")
+
+    private static func adaptive(_ name: String) -> NSColor {
+        let colors = InterfaceSpec.noPaint.colors[name]!
+        return adaptive(light: UInt32(colors[0].dropFirst(), radix: 16)!, dark: UInt32(colors[1].dropFirst(), radix: 16)!)
+    }
 
     private static func adaptive(light: UInt32, dark: UInt32) -> NSColor {
         NSColor(name: nil) { appearance in

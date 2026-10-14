@@ -1284,7 +1284,7 @@ www.oskiewar.com {
 # This host's DNS points straight at lith (DigitalOcean zone, no Cloudflare
 # proxy), so it cannot ride the origin cert the :443 block uses — Caddy
 # manages a real ACME cert for it instead. The native remake landed, so the
-# root now serves the new No Paint on AC without leaving nopaint.art.
+# root serves the AI painting studio, sharing its interface with the desktop.
 # /classic stays the permanent home of the preserved 2021 Construct build,
 # and /gallery + the per-painting archive record pages keep serving here.
 nopaint.art {
@@ -1313,8 +1313,9 @@ nopaint.art {
     encode gzip
     @nopaint_root path /
     handle @nopaint_root {
-        rewrite * /nopaint
-        import lith_proxy
+        rewrite * /ai/index.html
+        header Cache-Control "no-cache"
+        file_server
     }
     # The conductor rewrites / to /nopaint:<seed>. Reloads and shared
     # sessions must boot AC again instead of matching an archive record.

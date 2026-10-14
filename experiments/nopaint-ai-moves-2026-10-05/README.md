@@ -1,5 +1,51 @@
 # No Paint model moves
 
+## Website
+
+`https://nopaint.art/` serves `system/public/nopaint.art/ai/`, the browser
+studio. The preserved Construct build remains at `/classic`, its archive at
+`/gallery`, and the AC-runtime version remains at `/nopaint`.
+
+The website shares AC cloud offers, prices, account login, Braincells, hints,
+the pre-move look and billing receipts with the desktop. Paint starts exactly
+one quoted move. No discards a late result without pretending to refund work
+already completed. The browser never replays an interrupted paid request.
+Classic, Pixels, Color and Primitives run locally through browser canvas
+operations. Their seeded implementation is `browser-classic-v1`; it implements
+the same 13 operation families but does not promise Pillow-identical pixels.
+
+IndexedDB keeps browser paintings, accepted steps, rejected moves and receipts.
+Fresh retains earlier tracks. Done publishes accepted steps through the existing
+WIP/upload/seal services, retains retry identity, verifies the public PNG, then
+starts fresh. It never publishes the private decision log. History can export
+that log explicitly. Browser storage stays on this browser; it is not an account
+backup. Another open editor tab is held read-only using the Web Locks API.
+
+Local Stable Diffusion, SD-Turbo, fleet inference and Real-ESRGAN use the running
+desktop companion. Start the updated desktop backend, then choose File → Connect
+Website (or visit `http://127.0.0.1:8767/connect`). Confirm the connection on that
+local page. The site then operates the desktop's existing painting and account;
+its browser painting is retained and returns on Disconnect. It does not copy
+desktop credentials into browser storage. Pairing uses a random session token
+in a URL fragment, promptly removed by the site, and an exact nopaint.art origin
+allowlist. The loopback host check remains mandatory. Browsers may request local
+network permission. Restarting the backend requires pairing again. No fleet
+machine is exposed as a public unauthenticated inference endpoint.
+
+The shared high-level UI document and Swift/DOM renderers live in
+`system/public/aesthetic.computer/lib/ui/`. Native consumes the shared decision
+bar, palette, layout and options while retaining its platform canvas and views.
+The browser uses the same document for its controls and menus.
+
+Focused checks:
+
+```sh
+node --test system/tests/nopaint-web-game.test.mjs system/tests/nopaint-inference.test.mjs
+node tests/browser/nopaint-ai-web.test.mjs
+# In this directory (Pillow and NumPy required for the existing game tests):
+python -m unittest test_web_pairing.py test_play.py test_classic_game.py
+```
+
 ## Native Mac app
 
 `native/build.zsh --install` builds and opens `~/Applications/No Paint.app`.

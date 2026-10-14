@@ -270,7 +270,7 @@ app.use((req, res, next) => {
 });
 
 // --- Host-based rewrites that Netlify previously handled ---
-app.use((req, _res, next) => {
+app.use((req, res, next) => {
   const host = (req.headers.host || "").split(":")[0].toLowerCase();
 
   // Preserve branded notepat.com URLs while serving the /notepat piece.
@@ -278,9 +278,10 @@ app.use((req, _res, next) => {
     req.url = "/notepat" + (req.url === "/" ? "" : req.url.slice(req.path.length));
   }
 
-  // Preserve branded nopaint.art URLs while serving the /nopaint piece.
+  // The AI studio is shared with native No Paint. Legacy AC piece URLs remain.
   if ((host === "nopaint.art" || host === "www.nopaint.art") && req.path === "/") {
-    req.url = "/nopaint" + (req.url === "/" ? "" : req.url.slice(req.path.length));
+    res.setHeader("Cache-Control", "no-cache");
+    return res.sendFile(join(PUBLIC, "nopaint.art", "ai", "index.html"));
   }
 
   // api.aesthetic.computer / api.prompt.ac → api-docs function (public API reference)
