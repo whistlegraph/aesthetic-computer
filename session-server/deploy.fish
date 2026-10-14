@@ -70,6 +70,18 @@ echo "   HTTP $code"
 
 if test $ssh_status -eq 0; and test "$code" = "200"
     echo "✅ deployed and healthy."
+    # The oskiewar lane also runs on standalone relays (relay/relays.json).
+    # They ship with the monolith so no relay is left on older relay code;
+    # each must prove it serves this commit. SKIP_RELAYS=1 skips them.
+    if test -z "$SKIP_RELAYS"
+        echo ""
+        echo "→ oskiewar relays"
+        bash $SCRIPT_DIR/relay/deploy-relays.sh
+        or begin
+            echo "⚠️  a relay did not take this commit — see above."
+            exit 1
+        end
+    end
 else
     echo "⚠️  deploy did not end healthy (ssh=$ssh_status, http=$code) — see the RESULT line above."
     echo "   RESULT=fail:stale* means the box's remote is behind knot, NOT that the"

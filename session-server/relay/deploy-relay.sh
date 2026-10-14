@@ -41,7 +41,7 @@ cat > /etc/systemd/system/oskiewar-relay.service <<UNIT
 Description=oskiewar relay ($REGION)
 After=network.target
 [Service]
-Environment=PORT=8890 RELAY_REGION=$REGION
+Environment=PORT=8890 RELAY_REGION=$REGION RELAY_COMMIT=${RELAY_COMMIT:-}
 WorkingDirectory=/opt/oskiewar-relay/session-server
 ExecStart=/usr/bin/node oskiewar-relay.mjs
 Restart=always

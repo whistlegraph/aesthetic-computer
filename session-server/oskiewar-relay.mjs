@@ -20,6 +20,8 @@ import { OskiewarLiveManager } from "./oskiewar-live-manager.mjs";
 
 const port = Number(process.env.PORT) || 8890;
 const region = String(process.env.RELAY_REGION || "relay");
+// The commit this box was shipped from, so a deploy can prove what it serves.
+const commit = String(process.env.RELAY_COMMIT || "");
 const manager = new OskiewarLiveManager();
 
 const json = (res, status, body) => {
@@ -34,7 +36,7 @@ const server = http.createServer((req, res) => {
     return json(res, 200, manager.roomStatus(url.searchParams.get("match") || ""));
   if (url.pathname === "/oskiewar-open-room") return json(res, 200, manager.openRoom() || {});
   if (url.pathname === "/oskiewar-ping") return json(res, 200, { region, at: Date.now() });
-  if (url.pathname === "/health") return json(res, 200, { ok: true, region, rooms: manager.rooms.size });
+  if (url.pathname === "/health") return json(res, 200, { ok: true, region, commit, rooms: manager.rooms.size });
   json(res, 404, { error: "not found" });
 });
 
