@@ -355,7 +355,8 @@ function paint(api) {
         row.reply = paintChip(api, right, yy - 1, s.reply, { tint: WRITE });
         right -= 4;
       }
-      ink([...c.timestamp, 160]).write(ago(letter.when), { x: right - cw * 4, y: yy }, undefined, undefined, false, face);
+      const when = ago(letter.when);
+      ink([...c.timestamp, 160]).write(when, { x: right - when.length * cw - 2, y: yy }, undefined, undefined, false, face);
       ink(letter.mine ? [...c.messageText, 170] : c.messageText).write(body, { x: lx + 8, y: yy + lh }, undefined, bounds - (lx - x), true, face);
       let my = yy + lh + textH + 2;
       for (const item of media) {
