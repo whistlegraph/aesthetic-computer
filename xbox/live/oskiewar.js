@@ -24433,6 +24433,29 @@ function drawDojoPoseShadow(player,t,color) {
  buffers.vertices.set(verts);buffers.faces.set(faces);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());
 }
 
+// Scratch for the pose shadow: it projects ~150 points per fighter a frame,
+// and each used to allocate the point, its view and its projection, plus a
+// copy per corner to clamp it onto the floor.
+const shadowIn = { x: 0, y: 0, z: 0 }, shadowView = { x: 0, y: 0, z: 0 };
+const shadowA = {}, shadowB = {}, shadowHead = {};
+const shadowCorners = [{}, {}, {}, {}], shadowRing = Array.from({ length: 13 }, () => ({}));
+const shadowFloor = new Map(), shadowTurns = new Map();
+// cos and sin at k / n of a turn, k = 0..n; the last entry is the full turn
+// itself, as the fans always computed it, not a copy of the first.
+function shadowTurn(n) {
+  let turn = shadowTurns.get(n);
+  if (!turn) {
+    turn = { cos: new Float64Array(n + 1), sin: new Float64Array(n + 1) };
+    for (let k = 0; k <= n; k++) {
+      const a = k * Math.PI * 2 / n;
+      turn.cos[k] = Math.cos(a); turn.sin[k] = Math.sin(a);
+    }
+    shadowTurns.set(n, turn);
+  }
+  return turn;
+}
+const shadowDrawable = (value) => Number.isFinite(value) && Math.abs(value) < 12000;
+
 function drawPoseShadow(player, t, color) {
   if(currentMapId === "dojo" && nativeSceneMesh && !programBuffered && !clipView){drawDojoPoseShadow(player,t,color);return;}
   // Every limb, the head and the board cast their own shape. On the console
@@ -24442,8 +24465,8 @@ function drawPoseShadow(player, t, color) {
   const lite = consoleHost();
   const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
   const surface = shadowSurfaceY(player.x, player.y, player.z||0);
-  const behindFighter = projectPoint(player.x, player.y, player.z).z + .004;
-  const floorCache = new Map();
+  const floorCache = shadowFloor;
+  floorCache.clear();
   const floorAt = (x, z) => {
     if (poolOnly()) return poolFloorAt(x,z);
     if (!lite) return shadowSurfaceY(x, surface - 5);
@@ -24452,73 +24475,75 @@ function drawPoseShadow(player, t, color) {
     if (y === undefined) { y = shadowSurfaceY(key * 10, surface - 5); floorCache.set(key, y); }
     return y;
   };
-  const project = (x, y, z) => {
+  // projectPoint, into `out`, for the shadow's spot on the floor.
+  const project = (x, y, z, out) => {
     const height = Math.max(0, surface - y);
     const sx = clamp(x + globalLight.x / globalLight.y * height, worldLeft, worldRight);
     const sz = clamp(z + globalLight.z / globalLight.y * height, worldNear + 4, worldFar - 4);
-    const point = projectPoint(sx, floorAt(sx,sz) - 2, sz);
+    shadowIn.x = sx; shadowIn.y = floorAt(sx,sz) - 2; shadowIn.z = sz;
+    const view = cameraDoll.toView(shadowIn, shadowView);
+    const behind = view.z < cameraNear;
+    view.z = Math.max(cameraPin, view.z);
+    cameraDoll.projectView(view, out);
+    out.behind = behind;
     // On the floor's own surface, just above it. Fighters now stand at the
     // floor's near edge, so a shadow there is still behind them — and it is
     // no longer buried under the near half of the floor.
-    point.z -= .002;
-    return point;
+    out.z -= .002;
+    return out;
   };
-  const drawable = (...values) => values.every(value =>
-    Number.isFinite(value) && Math.abs(value) < 12000);
   // Limb width and caps are laid out in screen space, so near the back edge
   // they spilled past the floor onto the wall. Every vertex stays inside the
   // floor's own band on screen, between its far and near edges.
   const farY = projectPoint(player.x, surface, worldFar - 4).y;
   const nearY = projectPoint(player.x, surface, worldNear + 4).y;
   const top = Math.min(farY, nearY), bottom = Math.max(farY, nearY);
-  const onFloor = (p) => ({ x: p.x, y: clamp(p.y, top, bottom), z: p.z });
-  const face = (a, b, c) => {
-    if (!drawable(a.x, a.y, b.x, b.y, c.x, c.y)) return;
-    a = onFloor(a); b = onFloor(b); c = onFloor(c);
-    emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
+  const face = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
+    if (!(shadowDrawable(ax) && shadowDrawable(ay) && shadowDrawable(bx) &&
+      shadowDrawable(by) && shadowDrawable(cx) && shadowDrawable(cy))) return;
+    emitTriangle(ax, clamp(ay, top, bottom), az, bx, clamp(by, top, bottom), bz,
+      cx, clamp(cy, top, bottom), cz, color[0], color[1], color[2]);
   };
-  const capSides = lite ? 4 : 6;
+  const capTurn = shadowTurn(lite ? 4 : 6);
   const cap = (center, radius) => {
-    for (let side = 0; side < capSides; side++) {
-      const a = side * Math.PI * 2 / capSides, b = (side + 1) * Math.PI * 2 / capSides;
-      face(center,
-        { x: center.x + Math.cos(a) * radius, y: center.y + Math.sin(a) * radius, z: center.z },
-        { x: center.x + Math.cos(b) * radius, y: center.y + Math.sin(b) * radius, z: center.z });
-    }
+    const n = capTurn.cos.length - 1, x = center.x, y = center.y, z = center.z;
+    for (let side = 0; side < n; side++)
+      face(x, y, z,
+        x + capTurn.cos[side] * radius, y + capTurn.sin[side] * radius, z,
+        x + capTurn.cos[side + 1] * radius, y + capTurn.sin[side + 1] * radius, z);
   };
   for (const segment of world.segments) {
     if (segment.hitboxOnly) continue;
-    const a = project(segment.x1, segment.y1, segment.z1);
-    const b = project(segment.x2, segment.y2, segment.z2);
+    const a = project(segment.x1, segment.y1, segment.z1, shadowA);
+    const b = project(segment.x2, segment.y2, segment.z2, shadowB);
     const dx = b.x-a.x, dy = b.y-a.y, length = Math.hypot(dx,dy);
-    if (!drawable(a.x, a.y, b.x, b.y, length) || length < .01) continue;
+    if (!(shadowDrawable(a.x) && shadowDrawable(a.y) && shadowDrawable(b.x) &&
+      shadowDrawable(b.y) && shadowDrawable(length)) || length < .01) continue;
     const radius = Math.max(1, segment.width * cameraScale() * .48);
     const nx = -dy / length * radius, ny = dx / length * radius;
-    const a1 = { x: a.x + nx, y: a.y + ny, z: a.z }, a2 = { x: a.x - nx, y: a.y - ny, z: a.z };
-    const b1 = { x: b.x + nx, y: b.y + ny, z: b.z }, b2 = { x: b.x - nx, y: b.y - ny, z: b.z };
-    face(a1, a2, b1);
-    face(a2, b2, b1);
+    face(a.x + nx, a.y + ny, a.z, a.x - nx, a.y - ny, a.z, b.x + nx, b.y + ny, b.z);
+    face(a.x - nx, a.y - ny, a.z, b.x - nx, b.y - ny, b.z, b.x + nx, b.y + ny, b.z);
     cap(a, radius);
     cap(b, radius);
   }
   if (player.skateboard) {
     // The deck's own shadow: its outline, cast like everything else.
     const deck = skateFrame(player.skateStall ? stallBoardPlayer(player) : player);
-    const corners = [[-60, -10], [60, -10], [60, 10], [-60, 10]]
-      .map(([along, across]) => { const p = deck(along, -2, across); return project(p.x, p.y, p.z); });
-    face(corners[0], corners[1], corners[2]);
-    face(corners[0], corners[2], corners[3]);
+    const c = shadowCorners;
+    for (let k = 0; k < 4; k++) {
+      const p = deck(k === 0 || k === 3 ? -60 : 60, -2, k < 2 ? -10 : 10);
+      project(p.x, p.y, p.z, c[k]);
+    }
+    face(c[0].x, c[0].y, c[0].z, c[1].x, c[1].y, c[1].z, c[2].x, c[2].y, c[2].z);
+    face(c[0].x, c[0].y, c[0].z, c[2].x, c[2].y, c[2].z, c[3].x, c[3].y, c[3].z);
   }
-  const head = project(world.head.x, world.head.y, world.head.z);
-  const headSides = lite ? 8 : 12;
-  for (let side = 0; side < headSides; side++) {
-    const a = side * Math.PI * 2 / headSides, b = (side + 1) * Math.PI * 2 / headSides;
-    face(head,
-      project(world.head.x + Math.cos(a)*world.head.radius,
-        world.head.y, world.head.z + Math.sin(a)*world.head.radius),
-      project(world.head.x + Math.cos(b)*world.head.radius,
-        world.head.y, world.head.z + Math.sin(b)*world.head.radius));
-  }
+  const h = world.head, head = project(h.x, h.y, h.z, shadowHead);
+  const headTurn = shadowTurn(lite ? 8 : 12), sides = headTurn.cos.length - 1, ring = shadowRing;
+  for (let k = 0; k <= sides; k++)
+    project(h.x + headTurn.cos[k]*h.radius, h.y, h.z + headTurn.sin[k]*h.radius, ring[k]);
+  for (let side = 0; side < sides; side++)
+    face(head.x, head.y, head.z, ring[side].x, ring[side].y, ring[side].z,
+      ring[side + 1].x, ring[side + 1].y, ring[side + 1].z);
 }
 
 let dojoSpotMesh=null;
