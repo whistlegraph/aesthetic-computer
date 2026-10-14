@@ -20,7 +20,7 @@ test('shell dependencies are packaged and a module-only change invalidates the r
   verifyRuntime(out,changed);
   writeFileSync(resolve(out,'account.mjs'),'stale');
   assert.throws(()=>verifyRuntime(out,changed),/Bundle asset differs/);
-  for(const url of ['/account.mjs','/oskiewar-wizard.mjs','/oskiewar-fighter.mjs','/release-client.mjs','/render-quality.mjs','/photo-theme.mjs','/aesthetic.computer/lib/auth0-otp.mjs'])assert.ok(changed.files[url],url);
+  for(const url of ['/account.mjs','/oskiewar-wizard.mjs','/oskiewar-fighter.mjs','/release-client.mjs','/render-quality.mjs','/aesthetic.computer/lib/auth0-otp.mjs'])assert.ok(changed.files[url],url);
  } finally {rmSync(root,{recursive:true,force:true});}
 });
 test('touch and presentation options keep the same default; explicit game routes do not',()=>{

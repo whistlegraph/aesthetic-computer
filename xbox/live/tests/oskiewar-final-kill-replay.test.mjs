@@ -122,17 +122,6 @@ test('distant stray debris cannot pull final-kill camera away from combat',()=>{
  f.run('undo();');
 });
 
-test('both themes rotate from shared map state without changing gameplay state',()=>{
- const f=fixture();
- for(let round=0;round<20;round++) {
-  f.run(`installRoundMap(${round}%10);globalThis.before=netStateHash();refreshPhotoTheme();`);
-  assert.equal(f.run('roundGraphicsTheme()'),Math.floor(round/5)%2?'flat':'photorealistic');
-  assert.equal(f.run('netStateHash()===before'),true);
- }
- f.run('globalThis.__oskiewarGraphicsTheme="flat";installRoundMap(0);');
- assert.equal(f.run('roundGraphicsTheme()'),'flat');
-});
-
 test('WIN/LOSE replay never paints the full-screen death flash before or after the hit',()=>{
  const f=fixture();recordKill(f);
  f.run(`globalThis.fullscreenFlashes=[];

@@ -19,7 +19,7 @@ const posterSize = { width: 1200, height: 630 };
 const videoSize = { width: 720, height: 1280 };
 const captureSeconds = 2;
 const loopSeconds = captureSeconds * 2;
-const sources = ["oskiewar.js", "mac-test.html", "frame-driver.mjs", "render-quality.mjs", "photo-theme.mjs"];
+const sources = ["oskiewar.js", "mac-test.html", "frame-driver.mjs", "render-quality.mjs"];
 const sourceHash = createHash("sha256");
 for (const name of sources) sourceHash.update(await readFile(join(live, name)));
 sourceHash.update(await readFile(new URL(import.meta.url)));
@@ -114,7 +114,7 @@ try {
   if (encoded.status !== 0) throw new Error(encoded.stderr || "ffmpeg failed");
   await writeFile(manifestPath, JSON.stringify({
     format: "ac.oskiewar.social-preview", version: 2, build,
-    theme: "photorealistic", imageWidth: posterSize.width, imageHeight: posterSize.height,
+    theme: "flat", imageWidth: posterSize.width, imageHeight: posterSize.height,
     videoWidth: videoSize.width, videoHeight: videoSize.height,
     durationSeconds: loopSeconds, framesPerSecond: 30, audio: false,
     image: "oskiewar-title.jpg", video: "oskiewar-title.mp4",

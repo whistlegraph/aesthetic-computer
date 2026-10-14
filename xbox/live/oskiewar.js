@@ -3245,8 +3245,6 @@ const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null
 const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
 const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
 const hostYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
-const hostThemeReady = typeof themeReady === "function" ? themeReady : null;
-const hostThemeSprite = typeof themeSprite === "function" ? themeSprite : null;
 const hostThemeAssetReady = typeof themeAssetReady === "function" ? themeAssetReady : null;
 const hudDepth = -1.48;
 function hudBox(x, y, width, height, ...color) {
@@ -16715,102 +16713,6 @@ function generatedPartColor(appearance, segment) {
   return appearance.shirt;
 }
 
-// Retained photographic materials use the same projected poses and collision
-// surfaces as the vector theme. Assets are uploaded by the native host once.
-let photoThemeActive = false;
-let photoEffectsActive = false, photoWeaponsActive = false;
-function roundGraphicsTheme() {
-  const requested = globalThis.__oskiewarGraphicsTheme;
-  if (requested === "flat" || requested === "photorealistic") return requested;
-  // Photographs wherever the host can draw them: the Xbox's controller
-  // legend and sprites come from this theme (the ground and walls stay
-  // solid colour either way); a host without theme bindings falls to flat.
-  return "photorealistic";
-}
-function refreshPhotoTheme() {
-  photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
-    hostThemeReady !== null && hostThemeSprite !== null && hostThemeReady();
-  photoEffectsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(2);
-  photoWeaponsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(3);
-}
-const photoExplosionFrames = [[24,64,400,400],[462,53,400,400],
-  [908,34,400,400],[1352,37,400,400],[37,458,400,400],
-  [472,453,400,400],[917,470,400,400],[1368,484,400,400]];
-const photoWeaponRegions = { grenade:[160,82,330,520],
-  launcher:[629,218,610,270], smg:[8,780,624,320], flash:[640,760,606,370] };
-function photoEffectSprite(asset, region, x, y, width, height,
-    angle = 0, flip = false, depth = triangleDepth, depthWrite = true) {
-  if (!(asset === 2 ? photoEffectsActive : photoWeaponsActive) ||
-      ![x,y,width,height,angle,depth].every(Number.isFinite) ||
-      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
-      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
-  return themeSprite(asset,...region,x,y,width,height,angle,flip,
-    clamp(depth,-1.49,1.49),depthWrite) !== false;
-}
-function photoExplosionFrame(age) {
-  return photoExplosionFrames[Math.min(7,Math.floor(clamp(age,0,1)*8))];
-}
-function drawPhotoExplosion(x,y,radius,age,depth=triangleDepth) {
-  if (!photoEffectsActive || !Number.isFinite(age) || !Number.isFinite(radius)) return false;
-  const diameter = Math.min(1800,Math.max(12,radius*2.25));
-  if (x+diameter/2<0 || y+diameter/2<0 || x-diameter/2>viewWidth() || y-diameter/2>viewHeight) return true;
-  return photoEffectSprite(2,photoExplosionFrame(age),x,y,diameter,diameter,0,false,depth,false);
-}
-function drawPhotoHeldWeapon(mode,hand,barrel,flip,depth) {
-  if (!photoWeaponsActive || !["RUBBER SMG","ROCKET LAUNCHER"].includes(mode)) return false;
-  const region = photoWeaponRegions[mode === "ROCKET LAUNCHER" ? "launcher" : "smg"];
-  const dx=barrel.x-hand.x,dy=barrel.y-hand.y;
-  const angle=Math.atan2(dy,dx)-(flip?Math.PI:0),c=Math.cos(angle),s=Math.sin(angle);
-  const width=Math.max(24,Math.hypot(dx,dy)/.58),height=width*region[3]/region[2];
-  const ox=(flip?-1:1)*width*.08,oy=-height*.25;
-  return photoEffectSprite(3,region,hand.x+ox*c-oy*s,hand.y+ox*s+oy*c,
-    width,height,angle,flip,depth,true);
-}
-const photoRegions = {
-  acHead: [80, 104, 285, 285], xboxHead: [524, 104, 285, 285],
-  acLimb: [1058, 48, 104, 372], xboxLimb: [1503, 48, 104, 372],
-  gun: [51, 543, 365, 253], skateboard: [460, 611, 412, 136],
-  // The same photograph cut above the trucks: just the deck, so the trucks
-  // and wheels under it can be their own parts that roll.
-  skateDeck: [460, 611, 412, 62],
-  platform: [900, 606, 418, 162], rocket: [1368, 542, 372, 236],
-  concrete: [970, 625, 270, 43], wall: [930, 698, 350, 55],
-  // The same material as `wall`, for the near skirt, which is drawn in
-  // bands so the strip repeats instead of stretching into a curtain.
-  skirt: [930, 698, 350, 55],
-};
-function photoSprite(region, x, y, width, height, angle = 0, flip = false,
-    depth = triangleDepth) {
-  if (!photoThemeActive || ![x, y, width, height, angle, depth].every(Number.isFinite) ||
-      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
-      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
-  return themeSprite(1, ...photoRegions[region], x, y, width, height,
-    angle, flip, depth) !== false;
-}
-function photoLimb(segment, seat) {
-  const dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1;
-  const length = Math.hypot(dx, dy);
-  if (length < .001) return;
-  const width = Math.max(2, segment.width);
-  photoSprite(seat === 0 ? "acLimb" : "xboxLimb",
-    (segment.x1 + segment.x2) / 2, (segment.y1 + segment.y2) / 2,
-    width, length + width,
-    Math.atan2(dy, dx) - Math.PI / 2);
-}
-function photoSurface(region, a, b, c, d) {
-  // Ground and structure stay solid colour under every theme: the concrete
-  // strip stretched along the terrain read as smeared noise, worst on the
-  // console. Tall faces never took it (they looked like a curtain).
-  if (region === "wall" || region === "concrete" || region === "skirt") return false;
-  if (!photoThemeActive || typeof themeQuad !== "function") return false;
-  const points = [a, b, c, d];
-  if (points.some(p => ![p.x,p.y,p.z].every(Number.isFinite) ||
-      Math.abs(p.x) > 30000 || Math.abs(p.y) > 30000)) return false;
-  // Structural faces use the material atlas, never a stretched skybox crop.
-  return themeQuad(1, ...photoRegions[region],
-    a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z, d.x,d.y,d.z) !== false;
-}
-
 // Limbs as curves: each two-bone limb is one smooth curve through its root,
 // its joint and its end (a quadratic whose control point puts the joint on
 // the curve), drawn as a chain of short strokes with round ends, outline
@@ -16877,11 +16779,6 @@ function drawCurvedLimbs(segments, color, outline, edge, player) {
 
 function drawSkeletonSegments(segments, color, outline, player = null) {
   const appearance = generatedAppearance(player);
-  if (photoThemeActive && player && !player.skin && !appearance) {
-    for (const segment of segments)
-      if (!segment.hitboxOnly) photoLimb(segment, player.pad);
-    return;
-  }
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   if (player?.skin && !appearance) { drawCurvedLimbs(segments, color, outline, edge, player); return; }
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
@@ -16948,15 +16845,6 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
   drawSkeletonSegments(player?.spin ? geometry.segments.filter(s=> !/arm$/.test(s.role||"")) : geometry.segments, color, outline, player);
-  if (photoThemeActive && player && !player.skin && !generatedAppearance(player)) {
-    const head = geometry.head, seat = player.pad === 0 ? 0 : 1;
-    const radius = Math.max(2, head.radius);
-    photoSprite(seat ? "xboxHead" : "acHead", head.x, head.y,
-      radius * 2, radius * 2,
-      isHeadOnly(player) ? player.headRoll || 0 : player.skateRotation || 0,
-      (seat === 0 ? 1 : -1) !== (player.facing || 1), triangleDepth - .01);
-    return;
-  }
   const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   // The neck connector and solid head are emitted into the same triangle
   // silhouette pass, so the head cannot detach as a separate line-layer ring.
@@ -21027,7 +20915,6 @@ function drawTrioFace(player, head, now, cameraYaw = null) {
 }
 
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
-  if (photoThemeActive) color = [20, 12, 26];
   if (head.radius < 5) return;
   const bodyDepth = triangleDepth;
   triangleDepth = bodyDepth - .012;
@@ -21056,7 +20943,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   // saw on their own. A seam on the rim shows the head's own turn.
   const ridingHead = isHeadOnly(player) && player.skateboard;
   const roll = ridingHead ? 0
-    : isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
+    : isHeadOnly(player) ? player.headRoll || 0 : 0;
   const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
   if (ridingHead) {
     const seam = (player.headRoll || 0) - Math.PI / 2;
@@ -21105,10 +20992,10 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     stroke(head.x - r * .08, head.y - r * .18,
       head.x + r * .42, head.y - r * .5, width * .72, hair);
   }
-  const eyeY = head.y - r * (photoThemeActive ? .07 : .18);
-  const eyeGap = r * (photoThemeActive ? .30 : .34);
-  const faceX = head.x + direction * r * (photoThemeActive ? .22 : .08);
-  const eyeWidth = Math.max(1.4, r * (photoThemeActive ? .125 : .1));
+  const eyeY = head.y - r * .18;
+  const eyeGap = r * .34;
+  const faceX = head.x + direction * r * .08;
+  const eyeWidth = Math.max(1.4, r * .1);
   const lineWidth = Math.max(1.2, r * .1);
   const blink = player.alive && !player.blocking && !player.attackKind &&
     Math.sin(t * .73 + player.pad * 2.1) > .985;
@@ -21117,12 +21004,6 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   const inertDummy = player.npc && !player.bot;
   const victoryAmount = deathCinematic?.winnerPad === player.pad
     ? clamp(deathCinematicAge(now) / 1.15, 0, 1) : 0;
-  if (photoThemeActive) {
-    // Cover the photographed eyes completely before drawing live gaze and
-    // expressions. Closed lids are opaque, including the baked pupils.
-    const socket = blink ? (player.pad === 0 ? [135,101,190] : [115,162,53]) : [237,234,221];
-    for (const offset of [-eyeGap,eyeGap]) disc(faceX+offset,eyeY,r*.315,socket);
-  }
   if (!player.alive || player.hit > .6 || inertDummy) {
     for (const offset of [-eyeGap, eyeGap]) {
       stroke(faceX + offset - eyeWidth, eyeY - eyeWidth,
@@ -21413,19 +21294,6 @@ function drawInventory(player, now, geometry) {
       const basis=(along,below)=>projectWeapon(pose.hand.x+pose.dx*along+down.x*below,
         pose.hand.y+pose.dy*along+down.y*below,pose.hand.z+(pose.dz||0)*along+down.z*below);
       barrel = drawHandgun(hand, aim, player.facing, scale, basis);
-    } else if (photoThemeActive) {
-      // Place the photograph's grip at the solved wrist. Reflect its local X
-      // before rotation so aiming left does not turn the grip upside down.
-      const dx = barrel.x - hand.x, dy = barrel.y - hand.y;
-      const length = Math.hypot(dx, dy) || 1;
-      const flip = player.facing < 0;
-      const width = Math.max(18, length / .72), height = width * 253 / 365;
-      const angle = Math.atan2(dy, dx) - (flip ? Math.PI : 0);
-      const ox = (flip ? -1 : 1) * width * .25, oy = -height * .1;
-      const c = Math.cos(angle), s = Math.sin(angle);
-      if (!drawPhotoHeldWeapon(player.gunMode,hand,barrel,flip,triangleDepth-.025))
-        photoSprite("gun", hand.x + ox*c - oy*s, hand.y + ox*s + oy*c,
-          width, height, angle, flip, triangleDepth - .025);
     } else {
     filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
       barrelWidth, gunColor);
@@ -21456,11 +21324,6 @@ function drawInventory(player, now, geometry) {
     if (firing) {
       const flashAngle=Math.atan2(barrel.y-hand.y,barrel.x-hand.x);
       const flashSize=Math.max(18,54*scale);
-      const photoFlash=photoEffectSprite(3,photoWeaponRegions.flash,
-        barrel.x+Math.cos(flashAngle)*flashSize*.43,
-        barrel.y+Math.sin(flashAngle)*flashSize*.43,
-        flashSize,flashSize*.61,flashAngle,false,triangleDepth-.03,false);
-      if (!photoFlash) {
       // A forked flash off the muzzle as drawn, in screen space, so it
       // leaves whichever barrel the weapon actually has.
       const ax = Math.cos(flashAngle), ay = Math.sin(flashAngle);
@@ -21471,16 +21334,13 @@ function drawInventory(player, now, geometry) {
         Math.max(2, 5 * scale), [255, 248, 190]);
       filledCapsule(barrel.x, barrel.y, flashB.x, flashB.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
-      }
     }
   }
   if (throwing || bashing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
-    if (!photoEffectSprite(3,photoWeaponRegions.grenade,hand.x,hand.y,
-        Math.max(8,24*scale),Math.max(12,38*scale),0,false,triangleDepth-.03,true))
-      hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
-        Math.max(2, 5 * scale), grenadeColor);
+    hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
+      Math.max(2, 5 * scale), grenadeColor);
   }
 }
 
@@ -21563,7 +21423,6 @@ function drawBrokenRunner(player, age) {
       (segment.z1 + segment.z2) / 2 + dz).z;
     const width = Math.max(2, segment.width * cameraScale());
     if (player.skin) drawSkeletonSegments([{...segment,x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}],segment.role === "torso" ? player.shirtColor || [252,252,250] : player.color,outline,player);
-    else if (photoThemeActive) photoLimb({x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}, player.pad);
     else {
       filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
       filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
@@ -22478,7 +22337,7 @@ function drawRunnerAtScale(player, t, showLabel = true) {
   if (player.fallenBodyGeometry) {
     const fallen = projectRunnerWorldGeometry(player.fallenBodyGeometry);
     if (!fallen.behind)
-      drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
+      drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], null);
   }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
@@ -23529,7 +23388,7 @@ function terrainVertex(slot, index, x, y, z) {
   vertex.front = view.z >= cameraNear;
   // Buffered on the flat look, the interpreter projects the face; only the
   // camera-space depth is needed here, for the hall's air.
-  if (programBuffered && !photoThemeActive) { vertex.inBand = false; return vertex; }
+  if (programBuffered) { vertex.inBand = false; return vertex; }
   vertex.inBand = vertex.front &&
     bandContains(cameraDoll.projectView(view, vertex.screen));
   return vertex;
@@ -23537,30 +23396,12 @@ function terrainVertex(slot, index, x, y, z) {
 // `bottomY` null: the bottom vertex shares the profile's y (the surface
 // pass, top at z `zTop`, bottom at z `zBottom`). Otherwise a wall: both
 // vertices at `zTop`, the bottom one dropped to `bottomY`.
-// The near skirt fills the bottom of the frame at the TV lens, and a flat
-// shade there read as a blank slab under a photographed floor. Split each
-// segment's drop into `rows` bands, each wearing the whole wall strip, so
-// the material repeats down the face at about the strip's own proportion.
-// Falls back to the shaded quad when the theme cannot draw (no atlas, or a
-// corner off the frame), so the wall is never missing.
-function terrainSkirtTiles(topLeft, topRight, bottomRight, bottomLeft, rows) {
-  for (let row = 0; row < rows; row++) {
-    const from = row / rows, to = (row + 1) / rows;
-    const corner = (top, bottom, mix) => projectPoint(top.x,
-      top.y + (bottom.y - top.y) * mix, top.z);
-    if (!photoSurface("skirt", corner(topLeft, bottomLeft, from),
-        corner(topRight, bottomRight, from), corner(topRight, bottomRight, to),
-        corner(topLeft, bottomLeft, to))) return row > 0;
-  }
-  return true;
-}
-
 // One number for how much detail the scene can afford at this lens: 1 up
 // close, rising with the camera's width to 6 for a whole-course shot.
 const sceneLod = () => cameraDoll.width > 2600
   ? clamp(Math.round(cameraDoll.width / 1800), 1, 6) : 1;
 
-function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1) {
+function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
   const { top, bottom } = terrainScratch;
   const wall = bottomY !== null;
   const terrainProfile = activeTerrainProfile();
@@ -23580,7 +23421,7 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1)
         !(point.x < left || terrainProfile[previous].x > right)) {
       const a1 = top[previous], b1 = bottom[previous];
       const shade = shadeOf(previous);
-      if (programBuffered && !photoThemeActive) {
+      if (programBuffered) {
         const lit = hallAir(litQuadColor(a1, a, b, shade), a1, a);
         emitWorldFace(a1.x, a1.y, a1.z, a.x, a.y, a.z, b.x, b.y, b.z, lit[0], lit[1], lit[2]);
         emitWorldFace(a1.x, a1.y, a1.z, b.x, b.y, b.z, b1.x, b1.y, b1.z, lit[0], lit[1], lit[2]);
@@ -23588,15 +23429,6 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1)
         continue;
       }
       if (a1.front && a.front && b.front && b1.front) {
-        if (wall && tileRows > 1 && photoThemeActive &&
-            terrainSkirtTiles(a1, a, b, b1, tileRows)) {
-          previous = index;
-          continue;
-        }
-        if (photoSurface(wall ? "wall" : "concrete", a1.screen, a.screen, b.screen, b1.screen)) {
-          previous = index;
-          continue;
-        }
         const lit = hallAir(litQuadColor(a1, a, b, shade), a1, a);
         if (a1.inBand && a.inBand && b.inBand && b1.inBand) {
           projectedTriangle(a1.screen, a.screen, b.screen, lit);
@@ -23879,9 +23711,7 @@ function drawTerrainFrontWallGeometry(left, right, near, color) {
   const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = reel ? 55 : near - 2;
   const wallBottom = parkDeepest + (reel ? 9000 : 720);
-  // Four bands down the 720 drop keeps the strip near its own proportion;
-  // the reel's deep skirt stays shaded, its framing is test-enshrined.
-  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall, reel || consoleHost() ? 1 : 4);
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
 function drawTerrainBackWall(left, right, far, color) {
@@ -24605,30 +24435,6 @@ function drawPoseShadow(player, t, color) {
   }
 }
 
-function updateSceneLighting(now) {
-  if (typeof themeLighting !== "function") return;
-  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([], visualTheme.light); return; }
-  const span = worldRight - worldLeft;
-  const lights = [.18,.82].map((part) => {
-    const x = worldLeft + span * part;
-    const point = projectPoint(x, terrainFloorAt(x) - 420, -180);
-    return {x:point.x,y:point.y,radius:Math.max(100,1500*cameraScale()),strength:.65};
-  });
-  for (const impact of impacts) {
-    if (!impact.explosion || lights.length >= 4) continue;
-    const point = projectPoint(impact.x,impact.y,impact.z || 0);
-    lights.push({x:point.x,y:point.y,radius:Math.max(80,700*cameraScale()),strength:1});
-  }
-  for (const player of activePlayers()) {
-    if (lights.length >= 4) break;
-    if (player.itemAction !== "FIRE" || now >= player.itemActionUntil) continue;
-    const pose = gunPose(player, now);
-    const point = projectPoint(pose.muzzle.x,pose.muzzle.y,pose.muzzle.z);
-    lights.push({x:point.x,y:point.y,radius:Math.max(60,450*cameraScale()),strength:.9});
-  }
-  themeLighting(lights, visualTheme.light);
-}
-
 let dojoSpotMesh=null;
 function drawSpotShadow(x, y, z, radius, color) {
   const surfaceY = shadowSurfaceY(x, y, z);
@@ -24682,7 +24488,7 @@ function projectedBallRadius(ball) {
   return Math.max(.5, Math.abs(edge.x - center.x));
 }
 
-// Trucks and wheels as parts of their own under a photographed deck: metal
+// Trucks and wheels as parts of their own under the deck: metal
 // hangers down to each axle, and four wheels that roll — urethane in the
 // photograph's colour, a darker lip, a silver bearing, and a spin mark that
 // turns with the distance the board has covered.
@@ -24804,8 +24610,7 @@ function drawSkateboard(player) {
     if(handle>=0&&camera)nativeMeshDraw(handle,camera,0);
     else drawSkateDeckGeometry(player,at);
   } else drawSkateDeckGeometry(player,at);
-  drawBoardRunningGear(player, at, nearSide,
-    photoThemeActive ? [232, 112, 34] : [30, 32, 40]);
+  drawBoardRunningGear(player, at, nearSide, [30, 32, 40]);
 }
 
 const skateDeckMeshes=new Map();
@@ -24990,15 +24795,6 @@ function drawGunPickup(pickup, t) {
     if(hand.behind || aim.behind)return;
     const old=triangleDepth;triangleDepth=hand.z-.002;
     drawHandgun(hand,aim,1,scale);triangleDepth=old;return;
-  }
-  if (photoThemeActive) {
-    const point = projectPoint(pickup.x,bobY,pickup.z);
-    const width = (pickup.kind === "ROCKET LAUNCHER" ? 105 : 56) * scale;
-    const region=photoWeaponRegions[pickup.kind === "ROCKET LAUNCHER" ? "launcher" : "smg"];
-    if (["ROCKET LAUNCHER","RUBBER SMG"].includes(pickup.kind) &&
-        photoEffectSprite(3,region,point.x,point.y,width,width*region[3]/region[2],0,false,point.z-.02,true)) return;
-    photoSprite("gun", point.x,point.y,width,width * 253 / 365,0,false,point.z-.02);
-    return;
   }
   const metal = mixColor([202, 212, 228], [52, 59, 72], visualTheme.light);
   const grip = mixColor([126, 106, 88], [40, 43, 52], visualTheme.light);
@@ -25190,8 +24986,6 @@ function drawGrenadePickup(pickup, t) {
   const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 8;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
-  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
-      Math.max(7,20*scale),Math.max(11,32*scale),0,false,point.z-.02,true)) return;
   const shell = mixColor([166, 194, 112], [72, 96, 58], visualTheme.light);
   const fuse = mixColor([210, 218, 232], [45, 50, 60], visualTheme.light);
   const radius = Math.max(3, 9 * scale);
@@ -25206,8 +25000,6 @@ function drawGrenadePickup(pickup, t) {
 function drawGrenade(grenade) {
   const point = projectPoint(grenade.x, grenade.y, grenade.z);
   if (grenade.exploding) {
-    if (drawPhotoExplosion(point.x,point.y,grenadeBlastRadius*cameraScale(),
-        grenade.blastAge/grenadeBlastDuration,point.z-.025)) return;
     const radius = grenade.blastRadius * cameraScale();
     const width = Math.max(3, 10 * cameraScale());
     filledRing(point.x, point.y, radius,
@@ -25215,12 +25007,6 @@ function drawGrenade(grenade) {
     return;
   }
   if (grenade.rocket) {
-    if (photoThemeActive) {
-      const scale = cameraScale();
-      const angle = Math.atan2(grenade.vy,grenade.vx);
-      photoSprite("rocket",point.x,point.y,64*scale,41*scale,angle,false,point.z-.02);
-      return;
-    }
     const length = Math.hypot(grenade.vx, grenade.vy) || 1;
     const tail = projectPoint(grenade.x - grenade.vx / length * 54,
       grenade.y - grenade.vy / length * 54, grenade.z);
@@ -25234,9 +25020,6 @@ function drawGrenade(grenade) {
     return;
   }
   const blink = grenade.fuse < .45 && Math.floor(grenade.fuse * 20) % 2 === 0;
-  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
-      Math.max(9,30*cameraScale()),Math.max(14,48*cameraScale()),
-      grenade.fuse*5,grenade.vx<0,point.z-.02,true)) return;
   const color = blink ? [255, 255, 255] : players[grenade.owner].color;
   filledDisc(point.x, point.y, Math.max(4, 22 * cameraScale()), color);
   const tail = projectPoint(grenade.x - Math.sign(grenade.vx) * 90,
@@ -26366,8 +26149,7 @@ function drawImpacts() {
       const edge = projectPoint(impact.x + impact.blastRadius,
         impact.y - 3, impact.z || 0);
       const radius = Math.abs(edge.x - center.x);
-      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000 &&
-          !drawPhotoExplosion(center.x,center.y,radius,age,center.z-.025)) {
+      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000) {
         filledRing(center.x, center.y, radius,
           Math.max(0, radius - Math.max(7, 22 * (1 - age))),
           mixColor([255, 218, 86], [111, 74, 48], age));
@@ -26579,12 +26361,7 @@ function gamePaint() {
   // a profile lookup here would answer empty and strip them every frame.
   for (const player of players)
     if (!player.remote && (player.pad !== 0 || player.npc)) player.handleColors = fighterProfile(player.name).colors;
-  refreshPhotoTheme();
-  globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
-  // The photographic materials ride the ordinary day/night palette. They
-  // used to force night so they would match the underpass photograph behind
-  // them; that plate is retired for a plain sky, and at night the long
-  // park's ground sank into it and read as missing.
+  globalThis.__oskiewarGraphicsThemeStatus = "flat";
   visualTheme = displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
@@ -26638,7 +26415,6 @@ function gamePaint() {
   const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
-  updateSceneLighting(run.monotonicUs);
   wipe(...(poolPainting?[108,111,117]:outside));
   // A plain sky behind every theme. The underpass photograph was busy behind
   // the fighters and painted its own floor wherever a course had none.

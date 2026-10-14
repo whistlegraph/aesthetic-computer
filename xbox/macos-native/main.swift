@@ -914,16 +914,6 @@ private final class NativeGameHost {
               Object.assign({}, globalThis.__oskiewarRenderFlags, content);
         };
         """)
-        // The photographic theme rides the same atlases the website and the
-        // Xbox use. It turns on only if the core pair loaded; otherwise the
-        // engine keeps its vectors. Photographic materials are an explicit opt-in.
-        let theme = resources.appendingPathComponent("live/themes/photorealistic/assets")
-        view.scene.loadTheme(["underpass.png", "props.png", "explosions-v1.png", "weapons-v2.png"]
-            .map { name -> URL? in
-                let url = theme.appendingPathComponent(name)
-                return FileManager.default.fileExists(atPath: url.path) ? url : nil
-            })
-        let wantsPhoto = ProcessInfo.processInfo.environment["OSKIEWAR_GRAPHICS"] == "photorealistic"
         // Match the web front door. Development routes remain explicit through
         // OSKIEWAR_OPPONENT rather than changing the installed app's default.
         if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
@@ -953,9 +943,6 @@ private final class NativeGameHost {
         if let encoded = try? JSONSerialization.data(withJSONObject: [opponent]),
            let literal = String(data: encoded, encoding: .utf8) {
             javascript.evaluateScript("globalThis.__oskiewarOpponent = \(literal)[0];")
-        }
-        if view.scene.themeReady && wantsPhoto {
-            javascript.evaluateScript("globalThis.__oskiewarGraphicsTheme = 'photorealistic';")
         }
         javascript.evaluateScript(qr + "\n" + hello,
             withSourceURL: URL(fileURLWithPath: "oskiewar/oskiewar.js"))
@@ -1358,39 +1345,6 @@ private final class NativeGameHost {
         javascript.setObject(stampDecal, forKeyedSubscript: "decalTint" as NSString)
         javascript.setObject(uploadDecalMesh, forKeyedSubscript: "decalMeshUpload" as NSString)
         javascript.setObject(drawDecalMesh, forKeyedSubscript: "decalMesh" as NSString)
-        // The retained-texture contract. Arguments arrive loose (the sprite's
-        // depthWrite is optional), so these read the call's own argument list.
-        let numbers: () -> [Double] = {
-            (JSContext.currentArguments() as? [JSValue] ?? []).map { $0.toDouble() }
-        }
-        let themeReady: @convention(block) () -> Bool = { [weak self] in
-            self?.view.scene.themeReady ?? false
-        }
-        let themeAssetReady: @convention(block) (Int32) -> Bool = { [weak self] id in
-            self?.view.scene.themeAssetReady(Int(id)) ?? false
-        }
-        let themeSprite: @convention(block) () -> Bool = { [weak self] in
-            let v = numbers()
-            guard let self, v.count >= 12 else { return false }
-            let args = JSContext.currentArguments() as? [JSValue] ?? []
-            let depthWrite = v.count < 13 || args[12].isUndefined || args[12].toBool()
-            return self.view.scene.themeSprite(asset: Int(v[0]),
-                source: CGRect(x: v[1], y: v[2], width: v[3], height: v[4]),
-                x: v[5], y: v[6], width: v[7], height: v[8], angle: v[9],
-                flip: args[10].toBool(), depth: v[11], depthWrite: depthWrite)
-        }
-        let themeQuad: @convention(block) () -> Bool = { [weak self] in
-            let v = numbers()
-            guard let self, v.count >= 17, v.allSatisfy(\.isFinite) else { return false }
-            return self.view.scene.themeQuad(asset: Int(v[0]),
-                source: CGRect(x: v[1], y: v[2], width: v[3], height: v[4]),
-                (v[5], v[6], v[7]), (v[8], v[9], v[10]),
-                (v[11], v[12], v[13]), (v[14], v[15], v[16]))
-        }
-        javascript.setObject(themeReady, forKeyedSubscript: "themeReady" as NSString)
-        javascript.setObject(themeAssetReady, forKeyedSubscript: "themeAssetReady" as NSString)
-        javascript.setObject(themeSprite, forKeyedSubscript: "themeSprite" as NSString)
-        javascript.setObject(themeQuad, forKeyedSubscript: "themeQuad" as NSString)
         javascript.setObject(telemetry, forKeyedSubscript: "telemetry" as NSString)
         javascript.setObject(drum, forKeyedSubscript: "drum" as NSString)
         javascript.setObject(synth, forKeyedSubscript: "synth" as NSString)

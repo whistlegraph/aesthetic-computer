@@ -32,9 +32,6 @@ swiftc -swift-version 5 -O -import-objc-header "$repo_root/xbox/macos-native/Poo
   -o "$contents/MacOS/oskiewar"
 cp "$repo_root/xbox/macos-native/Info.plist" "$contents/Info.plist"
 node "$repo_root/xbox/tools/oskiewar-manifest.mjs" --stage "$contents/Resources/live"
-mkdir -p "$contents/Resources/live/themes/photorealistic/assets"
-cp "$repo_root"/xbox/live/themes/photorealistic/assets/*.png \
-  "$contents/Resources/live/themes/photorealistic/assets/"
 cp "$repo_root/system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs" \
   "$contents/Resources/live/qr.mjs"
 # The second chair: the web shell's room bridge, over the timers, socket and

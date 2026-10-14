@@ -32,10 +32,6 @@ export function runtimeManifest(root=repoRoot){
    if(dependency.origin==='https://oskiewar.com')pending.push(dependency.pathname);
   }
  }
- const art=resolve(root,'xbox/live/themes/photorealistic/assets');
- if(existsSync(art))for(const name of readdirSync(art).sort())if(/\.(png|json)$/.test(name)){
-  const bytes=readFileSync(resolve(art,name));files['/themes/photorealistic/assets/'+name]={sha256:hash(bytes),bytes:bytes.length};
- }
  const sorted=Object.fromEntries(Object.entries(files).sort(([a],[b])=>a.localeCompare(b)));
  const build=Number(readFileSync(assetFile('/oskiewar.js',root),'utf8').match(/const buildVersion = (\d+);/)[1]);
  return {format:'computer.aesthetic.oskiewar-release',version:1,build,release:hash(JSON.stringify(sorted)),game:sorted['/oskiewar.js'].sha256,files:sorted};

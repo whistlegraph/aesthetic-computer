@@ -90,7 +90,7 @@ async function open(path, { phone = false, failed = false, roomStatus = null, as
   });
   assert.deepEqual(pixels.actual, pixels.expected, 'canvas maps to exact display pixels');
   assert.equal(await page.evaluate(() => __oskiewarGraphicsThemeStatus),
-    path.includes('renderer=canvas') && !assetFailure && !path.includes('graphics=flat') ? 'photorealistic' : 'flat');
+    'flat');
   assert.deepEqual(errors, [], 'no browser exceptions');
   assert.deepEqual(discoveries, [], 'startup never discovers an unsolicited match');
   return { page, context };
