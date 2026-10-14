@@ -35,6 +35,7 @@ let fields;
 let note = null; // what went wrong with the last send
 let thread = null; // { who, subject } while answering a letter
 let sending = false;
+let busy = false; // mark-all-read in flight
 let pendingTo = null;
 let expandedId = null;
 const reading = new Set();
@@ -44,6 +45,7 @@ let mediaHits = [];
 let mediaNote = null;
 let scroll = 0;
 let listTop = 0;
+let listBottom = 0; // the bottom bar's top edge — taps below it are the bar's
 let dragged = false;
 let tema = "ler";
 let lang = "en";
@@ -207,6 +209,20 @@ async function markRead(api, letter) {
   }
 }
 
+async function markAllRead(api) {
+  if (busy) return;
+  busy = true;
+  try {
+    const res = await api.net.userRequest("POST", "/api/mail", { action: "read" });
+    if (res.status === 200) {
+      mail.unread = 0;
+      letters.forEach((l) => (l.read = true));
+    }
+  } catch {}
+  busy = false;
+  api.needsPaint();
+}
+
 // 🧮 Sim
 function sim(api) {
   ellipsisTicker?.update(api.clock.time());
@@ -268,19 +284,44 @@ function paint(api) {
     return;
   }
 
-  // The top row belongs to the hud label on the left, and on the right the
-  // one control: write (or close), with the unread envelope beside it.
-  const top = 6;
-  const label = composing ? "×" : s.write;
-  const wx = screen.width - x - chipWidth(label);
-  chip(api, wx, top, label, { type: "write" }, { selected: composing, tint: WRITE });
+  // 🎚️ Two bars. The top one sits behind the hud label and carries the box's
+  // state — unread envelope, and "mark read" while anything is. The bottom one
+  // is where writing happens, like chat: tap it to write; while writing it
+  // holds send and cancel.
+  const BAR = 22;
+  const BOT = 22;
+  const botY = screen.height - BOT;
+  listBottom = botY;
+  ink(t.stripeB).box(0, 0, screen.width, BAR);
+  ink(c.lines).box(0, BAR, screen.width, 1);
+  ink(t.stripeB).box(0, botY, screen.width, BOT);
+  ink(c.lines).box(0, botY - 1, screen.width, 1);
+
+  let tr = screen.width - x;
   if (mail.unread > 0) {
     const n = `${mail.unread}`;
-    const ex = wx - 8 - ENVELOPE.w - badgeWidth(n) + 3;
-    paintEnvelope(api, ex, top, { lit: true });
-    paintBadge(api, ex + ENVELOPE.w - 3, top - 4, n);
+    tr -= chipWidth(s.markRead);
+    chip(api, tr, Math.floor((BAR - CHIP_H) / 2), s.markRead, { type: "read" }, { tint: c.log, dim: busy });
+    tr -= 8 + ENVELOPE.w + badgeWidth(n) - 3;
+    const ey = Math.floor((BAR - ENVELOPE.h) / 2);
+    paintEnvelope(api, tr, ey, { lit: true });
+    paintBadge(api, tr + ENVELOPE.w - 3, ey - 4, n);
   }
-  let y = 28;
+
+  const by = botY + Math.floor((BOT - CHIP_H) / 2);
+  if (composing) {
+    const sendBox = chip(api, x, by, s.send, { type: "send" }, { selected: true, dim: sending });
+    const cancel = chip(api, screen.width - x - chipWidth("×"), by, "×", { type: "write" });
+    if (note) {
+      ink(255, 130, 130).write(note, { x: sendBox.x + sendBox.w + 6, y: by + 2 },
+        undefined, cancel.x - sendBox.x - sendBox.w - 12, false, CHIP_FONT);
+    }
+  } else {
+    hits.push({ x: 0, y: botY, w: screen.width, h: BOT, action: { type: "write" } });
+    ink([...c.timestamp, 200]).write(`${s.write}…`, { x: x + 2, y: by + 2 }, undefined, undefined, false, CHIP_FONT);
+    chip(api, screen.width - x - chipWidth(s.write), by, s.write, { type: "write" }, { tint: WRITE });
+  }
+  let y = BAR + 6;
 
   if (composing) {
     if (thread) {
@@ -289,13 +330,7 @@ function paint(api) {
       ink(c.handle).write(thread.who, { x: subjectX, y }, undefined, undefined, false, CHIP_FONT);
       y += 10;
     }
-    const frame = { x, y, width: wide, height: Math.min(120, Math.max(60, screen.height - y - 30)) };
-    fields.paint(api, frame);
-    const footer = frame.y + frame.height + 4;
-    const sendBox = chip(api, x, footer, s.send, { type: "send" }, { selected: true, dim: sending });
-    if (note) {
-      ink(255, 130, 130).write(note, { x: sendBox.x + sendBox.w + 6, y: footer + 2 }, undefined, wide - sendBox.w - 6, true, CHIP_FONT);
-    }
+    fields.paint(api, { x, y, width: wide, height: Math.max(40, botY - 6 - y) });
     return;
   }
 
@@ -318,7 +353,7 @@ function paint(api) {
   const lh = compact ? 9 : 11;
   const bounds = wide - 12;
   listTop = y;
-  const listH = screen.height - 4 - listTop;
+  const listH = botY - 1 - listTop;
 
   const measured = letters.map((letter) => {
     const open = letter.id === expandedId;
@@ -380,12 +415,13 @@ function act(api) {
   const { event: e, net, needsPaint } = api;
   const hit = (b) => b && e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h;
 
-  const control = e.is("touch") ? hits.find(hit) : null;
+  const control = e.is("touch") ? hits.findLast(hit) : null; // chips paint over the bar
   if (control) {
     const { type } = control.action;
     if (type === "signup") net.signup();
     else if (type === "login") net.login();
     else if (type === "write") composing ? close(api) : write(api);
+    else if (type === "read") markAllRead(api);
     else if (type === "send") {
       fields.sync();
       send(api, { ...fields.values });
@@ -408,7 +444,7 @@ function act(api) {
   }
 
   if (e.is("touch")) dragged = false;
-  if (e.is("draw") && e.y >= listTop) {
+  if (e.is("draw") && e.y >= listTop && e.y < listBottom) {
     scroll -= e.delta.y;
     dragged = true;
     return void needsPaint();
@@ -418,7 +454,7 @@ function act(api) {
     return void needsPaint();
   }
 
-  if (e.is("lift") && !dragged && e.y >= listTop) {
+  if (e.is("lift") && !dragged && e.y >= listTop && e.y < listBottom) {
     const media = mediaHits.find(hit);
     if (media) {
       mediaNote = media.item.file ? S().downloading : null;
