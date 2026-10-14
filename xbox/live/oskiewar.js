@@ -5078,10 +5078,23 @@ function spectatorState(now, nextRoundId = "") {
       // canned mid-pose. Two decimals is all a fade needs.
       hit: Math.round((player.hit || 0) * 100) / 100,
       blockFlash: Math.round((player.blockFlash || 0) * 100) / 100,
+      gunAmmo: player.gunAmmo || 0,
       attackTicks: player.attackKind
         ? Math.max(0, Math.round((now - player.attackStartedAt) / replayTickUs))
         : 0,
     })),
+    // Where the gun fight's one gun is: in a hand, on the ground, or in the
+    // air — what a watcher, and a bot reading the stream, needs to know to
+    // decide whether to run for it, shoot, or get out of the way.
+    gun: gunsOnly() ? (() => {
+      const holder = players.findIndex((player) => player.alive && player.gunAmmo > 0);
+      if (holder >= 0) return { state: "held", holder, x: Math.round(players[holder].x), y: Math.round(players[holder].y) };
+      const flying = grenades.find((item) => item.alive && item.thrownGun);
+      if (flying) return { state: "flying", holder: -1, x: Math.round(flying.x), y: Math.round(flying.y) };
+      const lying = gunPickups.find((pickup) => pickup.active);
+      return lying ? { state: "lying", holder: -1, x: Math.round(lying.x), y: Math.round(lying.y) }
+        : { state: "none", holder: -1, x: 0, y: 0 };
+    })() : undefined,
     // Shots and lobs, the fight's projectiles. These used to stay home: a
     // watcher — and a challenger on an older build — watched fighters flinch
     // and die with nothing visible in the air between them. Flat number rows
@@ -20963,7 +20976,10 @@ function drawTopLeftHud(ink, quiet = false) {
     (Array.isArray(cap) ? cap : [cap]).forEach((key, index) => {
       const joined = key.startsWith("+"), name = joined ? key.slice(1) : key;
       for (const [text, color] of [[index && !joined ? " " : "", keyInk],
-        [joined ? "+" : "", keyInk], [moveCapArrows[name] || name, padButtonInk[name] || keyInk]]) {
+        // Face-button colours belong to a controller's A/B/X/Y. On a keyboard
+        // "A" is just a key, and colouring it green said otherwise.
+        [joined ? "+" : "", keyInk], [moveCapArrows[name] || name,
+          (device.inputFamily !== "keyboard" && padButtonInk[name]) || keyInk]]) {
         if (!text) continue;
         seatHudText(text, kx, y, size, color);
         kx += handleWidth(text, size);

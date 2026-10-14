@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { sleep, log, now } from "./owvs.mjs";
+import { createBrain } from "./bot-brain.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = (name, fallback) => { const i = process.argv.indexOf("--" + name); return i > 0 ? process.argv[i + 1] : fallback; };
@@ -141,17 +142,23 @@ async function match(index) {
   log(`challenger seated ${((seatedAt - tGuest) / 1000).toFixed(1)}s after launch`);
   await sleep(4000);
 
+  // Each seat's bot reads its status off the stream and picks a goal from it
+  // (bot-brain.mjs); here its keys become native key events.
+  const goalTime = [{}, {}];
   async function bot(kb, me, seconds) {
-    const rival = me ? 0 : 1, end = now() + seconds * 1000;
-    let held = null, last = 0;
+    const think = createBrain(me, { log });
+    const end = now() + seconds * 1000, held = new Set();
+    let last = now(), goal = "";
     while (now() < end) {
-      const f = state?.fighters, a = f?.[me], b = f?.[rival];
-      if (a && b) {
-        const dx = b.x - a.x, near = Math.abs(dx) < 320, want = near ? null : (dx > 0 ? K.right : K.left);
-        if (want !== held) { if (held !== null) kb.send(`release ${held}`); if (want !== null) kb.send(`hold ${want}`); held = want; }
-        if (near && now() - last > 380) { kb.send(`press ${K.attack} 170`); last = now(); }
-      }
-      await sleep(120);
+      const t = now();
+      if (goal) goalTime[me][goal] = (goalTime[me][goal] || 0) + (t - last);
+      last = t;
+      const plan = think(state, t);
+      goal = plan.goal;
+      for (const code of held) if (!plan.hold.has(code)) { kb.send(`release ${code}`); held.delete(code); }
+      for (const code of plan.hold) if (!held.has(code)) { kb.send(`hold ${code}`); held.add(code); }
+      for (const code of plan.tap) kb.send(`press ${code} 200`);
+      await sleep(100);
     }
     kb.send("releaseall");
   }
@@ -166,6 +173,8 @@ async function match(index) {
   const streamFps = (seqs - seq0) / ((now() - t0) / 1000);
   const wins = (state?.fighters || []).map((f) => f.roundWins);
   const names = (state?.fighters || []).map((f) => f.name);
+  const share = (g) => Object.entries(g).sort((x, y) => y[1] - x[1]).map(([k, v]) => k + " " + Math.round(v / 10 / SECONDS) + "%").join(", ");
+  log(`goals host: ${share(goalTime[0])} | guest: ${share(goalTime[1])}`);
   log(`stream ${streamFps.toFixed(1)} f/s; phase=${state?.phase} names=${JSON.stringify(names)} KOs host=${deaths[0]} guest=${deaths[1]} wins=${JSON.stringify(wins)}`);
   ws.close(); hk.end(); gk.end();
   await sleep(1500);
