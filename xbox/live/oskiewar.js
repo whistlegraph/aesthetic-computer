@@ -29859,7 +29859,7 @@ function drawSeatFirstPerson(){
  triangleDepth=old;
 }
 
-let mainNativeCameraAt=-1,mainNativeCameraBuffer=null;
+const mainNativeCameraBuffer=new Float32Array(27);
 function nativeMeshBuffers(mesh){
  if(!mesh.nativeBuffers)mesh.nativeBuffers={vertices:new Float32Array(mesh.vertices.flatMap(p=>[p.x,p.y,p.z])),faces:new Float32Array(mesh.faces.flatMap(f=>[...f.ids,...f.color,...f.normal])),
   // Edge capsules as the shell reads them: endpoints, world width, colour, depth bias.
@@ -29874,14 +29874,13 @@ function nativeCameraFor(doll,buffer,minX,minY,maxX,maxY){
  m[18]=minX;m[19]=minY;m[20]=maxX;m[21]=maxY;m[22]=doll.depthBase;m[23]=doll.depthSlope;m[24]=globalLight.x;m[25]=globalLight.y;m[26]=globalLight.z;
  return m;
 }
+// Written fresh on every ask: 27 numbers cost less than one stale lens. It
+// was kept per clock tick, so a doll moved and re-prepared inside a paint
+// (or a stage resized after a projectPoint had already prepared it) handed
+// retained meshes, the sky and the SDF figures the frame's first camera.
 function mainNativeCamera(){
  if(clipView)return nativeCameraFor(cameraDoll,viewNativeCameraBuffer,clipView.x,clipView.y,clipView.x+clipView.w,clipView.y+clipView.h);
- const now=runtime().monotonicUs;
- if(now!==mainNativeCameraAt || cameraDoll.dirty){
-  if(!mainNativeCameraBuffer)mainNativeCameraBuffer=new Float32Array(27);
-  nativeCameraFor(cameraDoll,mainNativeCameraBuffer,0,0,viewWidth(),viewHeight);mainNativeCameraAt=now;
- }
- return mainNativeCameraBuffer;
+ return nativeCameraFor(cameraDoll,mainNativeCameraBuffer,0,0,viewWidth(),viewHeight);
 }
 
 const parkStereo={x:parkHalfPipe3D.x,z:-parkHalfPipe3D.run-130,beat:0};

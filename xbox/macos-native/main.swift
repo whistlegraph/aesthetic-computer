@@ -1189,7 +1189,7 @@ private final class NativeGameHost {
         let triangleAlpha: @convention(block) (Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double) -> Void =
             { [weak self] a,b,c,d,e,f,g,h,i,r,green,blue,alpha in
                 guard let self = self else { return }
-                _ = self.renderer.scene.triangle([a,b,c,d,e,f,g,h,i,r,green,blue,alpha], logicalSize: CGSize(width: 1920, height: 1080))
+                _ = self.renderer.scene.triangle([a,b,c,d,e,f,g,h,i,r,green,blue,alpha])
             }
         let text: (String) -> @convention(block) (String, Double, Double, Double, Double, Double, Double) -> Void =
             { family in { [weak self] value, x, y, size, r, g, b in

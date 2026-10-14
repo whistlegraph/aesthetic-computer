@@ -200,8 +200,13 @@ final class MetalSceneView: MTKView, MTKViewDelegate {
                          into: &glyphVertices)
     }
 
+    /// One face with its own alpha, mapped through the same stage as every
+    /// other face. It used to take the stage from its caller, and the Mac
+    /// passed a fixed 1920×1080, so translucent faces (the dojo's glass roof)
+    /// slid off their frames on any other window shape.
     @discardableResult
-    func triangle(_ values: [Double], logicalSize: CGSize) -> Bool {
+    func triangle(_ values: [Double]) -> Bool {
+        let logicalSize = self.logicalSize
         guard values.count >= 12, logicalSize.width > 0, logicalSize.height > 0,
               values.prefix(12).allSatisfy(\.isFinite) else { return false }
         sceneLock.lock()
