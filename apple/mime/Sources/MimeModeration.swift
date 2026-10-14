@@ -34,7 +34,7 @@ struct HandleButton<Label: View>: View {
             .accessibilityHint("Open their profile")
             .sheet(isPresented: $open) {
                 ProfileCard(post: post) { hide(post); open = false }
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
                     .presentationBackground(Color.paper)
             }
