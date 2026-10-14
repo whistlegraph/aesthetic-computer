@@ -1,10 +1,9 @@
 <!doctype html>
-<!-- MIME.ac — every file has a type; flip through them all. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MIME.ac — every file has a type. Flip through them all.</title>
+  <title>MIME — every file has a type</title>
   <meta name="description" content="Every file has a MIME type. MIME.ac is a toy for browsing, making and flipping through them all, one work per screen, as if file types were TV channels: paintings as image/png, KidLisp as text/x-lisp, tapes as video/mp4, Doom levels, pieces and more." />
   <!-- /<code> permalinks all serve this page; one canonical keeps
        every card's link out of the index as a duplicate. The guide at
@@ -21,27 +20,28 @@
    "author": {"@type": "Organization", "name": "Aesthetic Computer", "url": "https://aesthetic.computer/"},
    "potentialAction": {"@type": "ViewAction", "target": "https://mime.ac/"}}
   </script>
-  <link rel="icon" href="https://mime.ac/favicon.svg?v=3" type="image/svg+xml" />
-  <link id="mime-favicon" rel="icon" href="https://mime.ac/favicon-32.png?v=3" type="image/png" sizes="32x32" />
+  <link id="mime-favicon" rel="icon" href="https://mime.ac/favicon-32.png?v=4" type="image/png" sizes="32x32" />
+  <script type="module" src="/mime/favicon.mjs?v=4"></script>
+  <script src="/mime/interface.js?v=1"></script>
   <link rel="apple-touch-icon" href="https://mime.ac/apple-touch-icon.png?v=3" sizes="180x180" />
   <meta name="theme-color" content="#eee9f1" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#171526" media="(prefers-color-scheme: dark)" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="MIME.ac" />
-  <meta property="og:title" content="MIME.ac — every file has a type. Flip through them all." />
+  <meta property="og:title" content="MIME — every file has a type" />
   <meta property="og:description" content="A toy for browsing, making and flipping through files by MIME type, as if file types were TV channels." />
   <meta property="og:url" content="https://mime.ac/" />
-  <meta property="og:image" content="https://mime.ac/social/mime.jpg?v=2" />
-  <meta property="og:image:secure_url" content="https://mime.ac/social/mime.jpg?v=2" />
+  <meta property="og:image" content="https://mime.ac/social/mime.jpg?v=3" />
+  <meta property="og:image:secure_url" content="https://mime.ac/social/mime.jpg?v=3" />
   <meta property="og:image:type" content="image/jpeg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac." />
+  <meta property="og:image:alt" content="MIME — every file has a type, in pink, peach, purple, and mint lettering." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="MIME.ac — every file has a type. Flip through them all." />
+  <meta name="twitter:title" content="MIME — every file has a type" />
   <meta name="twitter:description" content="A toy for browsing, making and flipping through files by MIME type, as if file types were TV channels." />
-  <meta name="twitter:image" content="https://mime.ac/social/mime.jpg?v=2" />
-  <meta name="twitter:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac." />
+  <meta name="twitter:image" content="https://mime.ac/social/mime.jpg?v=3" />
+  <meta name="twitter:image:alt" content="MIME — every file has a type, in pink, peach, purple, and mint lettering." />
   <link rel="preconnect" href="https://aesthetic.computer" />
   <link rel="preconnect" href="https://oven.aesthetic.computer" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
@@ -85,14 +85,19 @@
       border-bottom: 1px solid var(--card-edge); }
     header h1 { position: absolute; left: 16px; top: calc(10px + env(safe-area-inset-top));
       transform: translateX(0); transition: left 220ms ease, transform 220ms ease, top 220ms ease; margin: 0; color: var(--ink); line-height: 1; }
-    .account { position: fixed; z-index: 20; right: max(12px, env(safe-area-inset-right));
-      bottom: max(12px, env(safe-area-inset-bottom)); max-width: calc(100vw - 24px);
-      padding: 8px; border: 1px solid var(--card-edge); border-radius: 12px;
-      background: var(--card); box-shadow: 0 3px 0 var(--shadow); display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; font-size: 13px; min-width: 0; }
-    #account-handle { overflow-wrap: anywhere; padding: 4px 6px; }
-    #account-handle:empty { display: none; }
-    .account [role="status"] { max-width: 24ch; color: var(--accent); }
-    .account [hidden] { display: none; }
+    #account-dialog { width: min(340px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); box-sizing: border-box;
+      padding: 28px; border: 2px solid var(--card-edge); border-radius: 18px; background: var(--paper); color: var(--body);
+      font: 700 22px/1.4 "MIME Comic", "Comic Relief", sans-serif; text-align: center; }
+    #account-dialog::backdrop { background: #141024bb; }
+    #account-heading { margin: 0 0 20px; font-size: 30px; overflow-wrap: anywhere; }
+    #account-status { margin: 0 0 20px; font-size: 16px; }
+    #account-status:empty { display: none; }
+    #account-actions { display: grid; gap: 12px; }
+    #account-actions button { min-height: 48px; font: inherit; border: 1px solid var(--card-edge); border-radius: 10px;
+      padding: 10px; color: var(--body); background: var(--card); box-shadow: none; }
+    #account-actions button[data-action="account.login"] { background: #b7a4ff; color: #171526; }
+    #account-actions button[data-action="account.signup"] { background: #7ae7ce; color: #171526; }
+    #account-actions button[data-action="feed.open"] { border-color: transparent; background: transparent; font-size: 17px; }
     .wordmark { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
     .wordmark svg { display: block; width: 146px; height: 50px; overflow: visible; transition: width 220ms ease, height 220ms ease; }
     .mime-letter { transform-box: fill-box; transform-origin: 50% 65%; animation: mime-float var(--period) ease-in-out var(--phase) infinite; }
@@ -274,10 +279,8 @@
     html body.feed header.compact h1 { transition: none; transform-origin: right center;
       transform: translateX(calc((100vw - 100% - 28px) * var(--corner, 0))) scale(calc(1 - .25 * var(--corner, 0)));
       opacity: 1; }
-    /* The wordmark sits top-left on its banner, as on Instagram, and nothing else
-       crowds the reel; saved and sign in wait on the thread pages. */
+    /* The wordmark is the account entry; the reel keeps its four corners. */
     body.feed header h1, body.feed header.compact h1 { left: 14px; transform: none; top: calc(4px + env(safe-area-inset-top)); pointer-events: auto; }
-    body.feed .account { display: none; }
     /* "mime" alone is centered; .ac hangs off its right edge, light and outlined over any card. */
     body.feed .wordmark { position: relative; }
     body.feed .wordmark .domain-suffix { position: absolute; left: 100%; top: auto; bottom: 7px; margin: 0 0 0 2px;
@@ -503,10 +506,6 @@
     }
 
 
-    #create-work { position: fixed; left: calc(50% - 22px); top: calc(4px + env(safe-area-inset-top)); width: 44px; height: 44px;
-      padding: 0; border: 0; background: transparent; color: #7ae7ce; font: 30px system-ui; box-shadow: none; pointer-events: auto; }
-    body.feed[data-full] #create-work { opacity: 0; pointer-events: none; }
-
     /* Input belongs to the center. Navigation is a separate edge gesture. */
     body.feed .feed-media[data-direct] > .media-shield { display: none; }
     body.feed .feed-media[data-direct] { touch-action: none; }
@@ -543,26 +542,23 @@
 <body>
   <header>
     <h1>
-      <a class="wordmark" href="#/" aria-label="MIME feed">
+      <a class="wordmark" href="#/account" aria-label="MIME account" aria-haspopup="dialog">
         <svg class="mime-sculpture" xmlns="http://www.w3.org/2000/svg" viewBox="-4 -5 151 52" aria-hidden="true" focusable="false" style="font-family: &quot;MIME Comic&quot;;font-size:44px;font-weight:700"><g transform="translate(0 0)"><g class="mime-letter" style="--period:4.7s;--phase:-0.6s"><text x="2" y="37" fill="#141414">M</text><text x="0" y="35" fill="#ff91c3" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">M</text></g></g><g transform="translate(43 0)"><g class="mime-letter" style="--period:3.9s;--phase:-2.1s"><text x="2" y="37" fill="#141414">I</text><text x="0" y="35" fill="#ffc585" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">I</text></g></g><g transform="translate(65 0)"><g class="mime-letter" style="--period:5.3s;--phase:-1.3s"><text x="2" y="37" fill="#141414">M</text><text x="0" y="35" fill="#b7a4ff" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">M</text></g></g><g transform="translate(108 0)"><g class="mime-letter" style="--period:4.3s;--phase:-3.4s"><text x="2" y="37" fill="#141414">E</text><text x="0" y="35" fill="#7ae7ce" stroke="#141414" stroke-width="1.5" paint-order="stroke fill">E</text></g></g></svg>
         <sup class="domain-suffix" aria-hidden="true"><span class="suffix-dot">.</span>ac</sup>
       </a>
     </h1>
-    <button id="create-work" type="button" aria-label="Open MIME editor" title="Open MIME editor">＋</button>
   </header>
   <!-- The feed is built by script, so this is the page's only prose: what a
        screen reader announces first and what a crawler can follow. Never drawn. -->
   <p id="about-mime" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap">
-    Every file has a MIME type. MIME.ac is a toy for browsing, making and flipping
-    through them all, one work per screen, as if file types were TV channels.
+    MIME — every file has a type.
     <a href="/mime-types/">What is a MIME type, and the channels on MIME.ac</a>.</p>
   <main id="view"></main>
-    <div class="account">
-      <a id="account-handle" aria-label="Your AC profile"></a>
-      <a class="saved-link" href="#/saved">saved</a>
-      <button type="button" id="account-action">sign in</button>
-      <span id="account-status" role="status"></span>
-    </div>
+  <dialog id="account-dialog" aria-labelledby="account-heading">
+    <h2 id="account-heading">MIME</h2>
+    <p id="account-status" role="status"></p>
+    <div id="account-actions"></div>
+  </dialog>
 
 <script>
 // Load the small shared profile component alongside the feed. Links retain a
@@ -612,71 +608,6 @@ async function refreshMimeLayout() {
 refreshMimeLayout();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshMimeLayout(); });
 // Like Oskiewar's shifting tab lettering, with a stable title for reduced motion.
-// The wobble waits for the first press: until someone flips, the tab keeps the
-// head's <title>, which is what search engines index from the rendered page;
-// a crawler never presses anything.
-const pageTitle = document.title;
-const tabTitles = ["mime.ac", "𝗺𝗶𝗺𝗲.ac", "𝚖𝚒𝚖𝚎.ac", "𝘮𝘪𝘮𝘦.ac"];
-const tabMotion = matchMedia("(prefers-reduced-motion: reduce)");
-let tabTimer, tabTitleAwake = false;
-for (const type of ["keydown", "pointerdown"]) addEventListener(type,
-  () => { tabTitleAwake = true; syncTabAnimation(); }, { once: true, capture: true, passive: true });
-function syncTabAnimation() {
-  clearInterval(tabTimer);
-  document.documentElement.toggleAttribute("data-page-hidden", document.hidden);
-  document.title = tabTitleAwake ? tabTitles[0] : pageTitle;
-  if (document.hidden || tabMotion.matches || !tabTitleAwake) return;
-  let frame = 0;
-  tabTimer = setInterval(() => { document.title = tabTitles[++frame % tabTitles.length]; }, 1250);
-}
-tabMotion.addEventListener("change", syncTabAnimation);
-document.addEventListener("visibilitychange", syncTabAnimation);
-window.addEventListener("pagehide", () => clearInterval(tabTimer));
-window.addEventListener("pageshow", syncTabAnimation);
-syncTabAnimation();
-
-// Swap cached PNG frames, retaining a normal SVG/PNG icon for bookmarks
-// and clients that do not display favicon updates.
-const favicon = document.getElementById("mime-favicon");
-const staticFavicon = favicon.href;
-let faviconFrames = [], faviconTimer;
-function syncFavicon() {
-  clearInterval(faviconTimer);
-  favicon.href = staticFavicon;
-  if (document.hidden || tabMotion.matches || !faviconFrames.length) return;
-  let frame = 0;
-  faviconTimer = setInterval(() => { favicon.href = faviconFrames[frame++ % faviconFrames.length]; }, 220);
-}
-async function prepareFavicon() {
-  try {
-    const response = await fetch("/favicon.svg?v=3");
-    if (!response.ok) return;
-    const svg = new DOMParser().parseFromString(await response.text(), "image/svg+xml").documentElement;
-    svg.setAttribute("width", "64"); svg.setAttribute("height", "64");
-    const letters = [...svg.querySelectorAll(".favicon-letter")];
-    if (letters.length !== 4) return;
-    const canvas = document.createElement("canvas"); canvas.width = canvas.height = 32;
-    const context = canvas.getContext("2d"), frames = [];
-    for (let frame = 0; frame < 12; frame++) {
-      letters.forEach((letter, i) => {
-        const phase = frame / 12 * Math.PI * 2 + i * 1.7;
-        letter.setAttribute("transform", `translate(${letter.dataset.x} ${Number(letter.dataset.y) + Math.sin(phase) * 1.5}) rotate(${Math.cos(phase) * 5})`);
-      });
-      const picture = new Image();
-      picture.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
-      await picture.decode();
-      context.clearRect(0, 0, 32, 32); context.drawImage(picture, 0, 0, 32, 32);
-      frames.push(canvas.toDataURL("image/png"));
-    }
-    faviconFrames = frames; syncFavicon();
-  } catch { /* The static comic icon is already in the document. */ }
-}
-tabMotion.addEventListener("change", syncFavicon);
-document.addEventListener("visibilitychange", syncFavicon);
-window.addEventListener("pagehide", () => { clearInterval(faviconTimer); favicon.href = staticFavicon; });
-window.addEventListener("pageshow", syncFavicon);
-prepareFavicon();
-
 const API = "/api/mime";
 const view = document.getElementById("view");
 const header = document.querySelector("header");
@@ -898,7 +829,6 @@ function retreatCorners(node, hidden) {
   node?.querySelectorAll(':scope > .reel-command, :scope > .meta, :scope > .reel-comments').forEach(corner => { corner.inert = hidden; });
   document.body.toggleAttribute('data-full', hidden);
   document.querySelector('header .wordmark').inert = hidden;
-  document.getElementById('create-work').inert = hidden;
 }
 function clearDirectInteraction() {
   if (!directInteraction) return;
@@ -1755,16 +1685,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       version.setAttribute("aria-label", "Remix v" + revision); version.setAttribute("aria-haspopup", "dialog");
       version.addEventListener("click", event => {
         event.stopPropagation();
-        document.getElementById("remix-dialog")?.remove();
-        const dialog = el("dialog"); dialog.id = "remix-dialog";
-        const title = el("div", null, "Remix " + (code.getAttribute("aria-label") || code.textContent) + " · v" + revision);
-        title.id = "remix-title"; dialog.setAttribute("aria-labelledby", title.id);
-        const open = el("a", null, "Open in MIME");
-        open.href = "mime://remix?" + new URLSearchParams({post: post.code, version: revision});
-        const close = el("button", null, "Back"); close.type = "button"; close.onclick = () => dialog.close();
-        dialog.append(title, open, close); document.body.append(dialog);
-        dialog.addEventListener("close", () => { dialog.remove(); version.focus(); });
-        dialog.showModal();
+        interfaceIntent({type: interfaceView().creation.versionAction, post: post.code, version: revision}, version);
       });
       command.append(version); palLetters(version, "#55cdd9");
     }
@@ -1775,7 +1696,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       Object.assign(button.dataset, type.dataset);
       button.type = "button"; button.title = "Make in MIME";
       button.setAttribute("aria-haspopup", "dialog");
-      button.addEventListener("click", () => openEditor(button, post.file?.type || post.board));
+      button.addEventListener("click", () => interfaceIntent({type: interfaceView().creation.typeAction, mimeType: post.file?.type || post.board || "text/plain"}, button));
       type = button;
     }
     type.classList.add("reel-type");
@@ -1911,12 +1832,76 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
 
 const AC_CLIENT = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 const AUTH_REDIRECT = location.origin + (location.hostname === "mime.ac" ? "/" : "/mime/");
-const accountAction = document.getElementById("account-action");
-const accountHandle = document.getElementById("account-handle");
+const accountDialog = document.getElementById("account-dialog");
+const accountHeading = document.getElementById("account-heading");
+const accountActions = document.getElementById("account-actions");
 const accountStatus = document.getElementById("account-status");
 const AC_CACHE_PREFIX = "@@auth0spajs@@::" + AC_CLIENT + "::";
 let identity = { token: null, handle: null };
-let authClientPromise, identityPromise;
+let authClientPromise, identityPromise, authenticating = false, identityEpoch = 0;
+let interfaceState = MimeInterface.dispatch({capabilities: {saved: true}}, {}).state;
+function interfaceView() { return MimeInterface.project(interfaceState); }
+function renderAccount() {
+  const model = interfaceView();
+  document.title = model.brand.title;
+  document.querySelector('header .wordmark').setAttribute('aria-label', model.logo.label);
+  accountHeading.textContent = model.account.title;
+  accountStatus.textContent = model.account.notice;
+  accountActions.replaceChildren(...model.account.actions.map(action => {
+    const button = el('button', null, action.label); button.type = 'button'; button.dataset.action = action.id;
+    button.disabled = authenticating && action.id !== 'feed.open';
+    button.onclick = () => interfaceIntent({type: action.id});
+    return button;
+  }));
+  if (model.screen === 'account' && !accountDialog.open) {
+    clearDirectInteraction(); exitMediaInteraction(); accountDialog.showModal();
+  } else if (model.screen !== 'account' && accountDialog.open) accountDialog.close();
+  syncPieceFocus(); syncVideoPlayback();
+}
+async function interfaceIntent(event, opener) {
+  const result = MimeInterface.dispatch(interfaceState, event); interfaceState = result.state;
+  renderAccount();
+  for (const effect of result.effects) {
+    try {
+      if (effect.type === 'authenticate') await login(effect.signUp);
+      else if (effect.type === 'signOut') {
+        authenticating = true; identityEpoch++; identity = {token: null, handle: null}; showAccount();
+        localStorage.removeItem('session-aesthetic');
+        await (await authClient()).logout({logoutParams: {returnTo: AUTH_REDIRECT}});
+      } else if (effect.type === 'refreshAccount') await updateIdentity();
+      else if (effect.type === 'chooseHandle') window.open('https://aesthetic.computer/handle', '_blank', 'noopener');
+      else if (effect.type === 'openEditor') openEditor(document.querySelector('header .wordmark'));
+      else if (effect.type === 'openSaved') location.hash = '#/saved';
+      else if (effect.type === 'createWork') openEditor(opener, effect.mimeType);
+      else if (effect.type === 'remixWork') openRemix(opener, effect.post, effect.version);
+    } catch (error) {
+      authenticating = false;
+      interfaceState = MimeInterface.dispatch(interfaceState, {type: 'account.changed', account: {
+        status: identity.token ? (identity.handle ? 'ready' : 'needsHandle') : 'failed',
+        handle: identity.handle, notice: error.message || 'Could not sign in.'
+      }}).state;
+      renderAccount();
+    }
+  }
+}
+async function login(signUp = false, resume = {}) {
+  authenticating = true; renderAccount();
+  const form = view.querySelector('#post');
+  if (form) sessionStorage.setItem('mime-comment-draft', JSON.stringify({hash: location.hash, text: form.querySelector('textarea').value}));
+  await (await authClient()).loginWithRedirect({
+    appState: {hash: location.hash || '#/', path: location.pathname, ...resume},
+    authorizationParams: {redirect_uri: AUTH_REDIRECT, ...(signUp ? {screen_hint: 'signup'} : {})}
+  });
+}
+document.querySelector('header .wordmark').onclick = event => {
+  if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault(); interfaceIntent({type: interfaceView().logo.id});
+};
+accountDialog.addEventListener('cancel', event => { event.preventDefault(); interfaceIntent({type: 'feed.open'}); });
+accountDialog.addEventListener('close', () => {
+  if (interfaceState.screen === 'account') interfaceIntent({type: 'feed.open'});
+  document.querySelector('header .wordmark').focus({preventScroll: true});
+});
 
 function hasAcSession() {
   try {
@@ -1959,17 +1944,18 @@ function refreshIdentity() {
     identity = { token: null, handle: null };
     return Promise.resolve();
   }
+  const epoch = identityEpoch;
   identityPromise = (async () => {
     let token = hostToken;
-    if (!token) {
+    if (hasAcSession()) {
       const client = await authClient();
       try { token = await client.getTokenSilently(); }
-      catch { throw new Error("sign in again to use your handle"); }
+      catch { if (!token) throw new Error("sign in again to use your handle"); }
     }
     const response = await fetch(API + "?me=1", { headers: { Authorization: "Bearer " + token } });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "could not verify your handle");
-    identity = { token, handle: data.handle };
+    if (epoch === identityEpoch) identity = { token, handle: data.handle };
   })().finally(() => { identityPromise = null; });
   return identityPromise;
 }
@@ -1985,51 +1971,31 @@ function sendViewer(iframe) {
   if (iframe.dataset.viewerReady !== 'true') return;
   const url = new URL(iframe.src || location.href);
   if (url.origin !== 'https://aesthetic.computer' || url.pathname !== '/mime-play/') return;
-  iframe.contentWindow?.postMessage({type: 'mime:viewer', handle: identity.handle || null}, url.origin);
+  iframe.contentWindow?.postMessage({type: 'mime:viewer', handle: interfaceView().media.viewerHandle}, url.origin);
 }
 window.addEventListener('message', event => {
   if (event.origin !== 'https://aesthetic.computer' || event.data?.type !== 'mime:viewer-request') return;
   for (const {iframe} of piecePool.values()) if (iframe.contentWindow === event.source) { iframe.dataset.viewerReady = 'true'; sendViewer(iframe); break; }
 });
 function showAccount() {
+  interfaceState = MimeInterface.dispatch(interfaceState, {type: 'account.changed', account: {
+    status: identity.token ? (identity.handle ? 'ready' : 'needsHandle') : 'signedOut', handle: identity.handle
+  }}).state;
+  renderAccount();
   for (const {iframe} of piecePool.values()) sendViewer(iframe);
-  accountHandle.textContent = identity.handle || "";
-  accountHandle.dataset.acProfileHandle = identity.handle || "";
-  accountHandle.setAttribute("aria-haspopup", "dialog");
-  if (identity.handle) accountHandle.href = "https://aesthetic.computer/" + encodeURIComponent(identity.handle);
-  else accountHandle.removeAttribute("href");
-  accountAction.textContent = identity.token ? "sign out" : "sign in";
 }
-
-accountAction.onclick = async () => {
-  accountAction.disabled = true;
-  accountStatus.textContent = "";
-  try {
-    const client = await authClient();
-    if (identity.token) {
-      identity = {token: null, handle: null}; showAccount();
-      localStorage.removeItem("session-aesthetic");
-      await client.logout({ logoutParams: { returnTo: AUTH_REDIRECT } });
-    } else {
-      const form = view.querySelector("#post");
-      if (form) sessionStorage.setItem("mime-comment-draft", JSON.stringify({
-        hash: location.hash, text: form.querySelector("textarea").value,
-      }));
-      await client.loginWithRedirect({ appState: { hash: location.hash || "#/" },
-        authorizationParams: { redirect_uri: AUTH_REDIRECT } });
-    }
-  } catch (error) {
-    accountStatus.textContent = error.message || "could not sign in";
-    accountAction.disabled = false;
-  }
-};
 
 function updateIdentity() {
   return refreshIdentity().then(() => {
     showAccount();
     document.querySelectorAll('[name="commenter"]').forEach(showIdentity);
     document.querySelectorAll('.comment-sign-in').forEach(button => { button.hidden = !!identity.token; });
-  }).catch(() => { identity = {token: null, handle: null}; showAccount(); accountStatus.textContent = "sign in again to use your handle"; });
+  }).catch(() => {
+    identity = {token: null, handle: null}; showAccount();
+    interfaceState = MimeInterface.dispatch(interfaceState, {type: 'account.changed', account: {
+      status: 'failed', notice: 'Sign in again to use your handle.'
+    }}).state; renderAccount();
+  });
 }
 window.addEventListener("focus", updateIdentity);
 window.addEventListener("storage", (event) => {
@@ -2037,7 +2003,6 @@ window.addEventListener("storage", (event) => {
 });
 
 // Creation belongs to the app's shared Whistlegraph/Aesel workspace.
-document.getElementById('create-work').onclick = event => openEditor(event.currentTarget);
 function openEditor(opener, type) {
   if (document.getElementById('remix-dialog')) return;
   clearDirectInteraction(); exitMediaInteraction();
@@ -2045,6 +2010,19 @@ function openEditor(opener, type) {
   const title = el('div', null, 'Make in MIME');
   const open = el('a', null, 'Open editor in the app');
   open.href = 'mime://create' + (type ? '?' + new URLSearchParams({type}) : '');
+  const close = el('button', null, 'Back'); close.type = 'button'; close.onclick = () => dialog.close();
+  dialog.append(title, open, close); document.body.append(dialog);
+  dialog.addEventListener('close', () => { dialog.remove(); opener?.focus({preventScroll: true}); syncPieceFocus(); syncVideoPlayback(); });
+  dialog.showModal(); syncPieceFocus(); syncVideoPlayback();
+}
+
+function openRemix(opener, post, version) {
+  if (document.getElementById('remix-dialog')) return;
+  clearDirectInteraction(); exitMediaInteraction();
+  const dialog = el('dialog'); dialog.id = 'remix-dialog'; dialog.setAttribute('aria-label', 'Remix v' + version);
+  const title = el('div', null, 'Remix v' + version);
+  const open = el('a', null, 'Open in MIME');
+  open.href = 'mime://remix?' + new URLSearchParams({post, version});
   const close = el('button', null, 'Back'); close.type = 'button'; close.onclick = () => dialog.close();
   dialog.append(title, open, close); document.body.append(dialog);
   dialog.addEventListener('close', () => { dialog.remove(); opener?.focus({preventScroll: true}); syncPieceFocus(); syncVideoPlayback(); });
@@ -2170,10 +2148,8 @@ function postForm(parent, { overlay = false, onPosted } = {}) {
       signIn.disabled = true; status.textContent = '';
       try {
         sessionStorage.setItem('mime-comment-draft', JSON.stringify({ parent, text: text.value }));
-        const client = await authClient();
-        await client.loginWithRedirect({ appState: { hash: location.hash || '#/', comment: parent, commentPath: location.pathname },
-          authorizationParams: { redirect_uri: AUTH_REDIRECT } });
-      } catch (error) { status.textContent = error.message || 'Could not sign in.'; signIn.disabled = false; }
+        await login(false, {comment: parent, commentPath: location.pathname});
+      } catch (error) { authenticating = false; status.textContent = error.message || 'Could not sign in.'; signIn.disabled = false; }
     };
   }
   refreshIdentity().then(() => { showIdentity(name); signIn.hidden = !!identity.token; }).catch(() => {
@@ -2578,27 +2554,32 @@ window.addEventListener("keydown", (event) => {
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 });
 async function start() {
-  let resumeComments;
+  let resumeComments, authError;
   const params = new URLSearchParams(location.search);
   if (params.has("state") && (params.has("code") || params.has("error"))) {
-    accountAction.disabled = true;
+    authenticating = true;
     try {
       const client = await authClient();
       const { appState } = await client.handleRedirectCallback();
       resumeComments = typeof appState?.comment === 'string' ? appState.comment : null;
       const hash = typeof appState?.hash === "string" && appState.hash.startsWith("#/") ? appState.hash : "#/";
-      const resumedPost = resumeComments && postFromPath(appState?.commentPath || '');
+      const resumedPost = postFromPath(appState?.commentPath || appState?.path || '');
       const path = resumedPost ? postPath(resumedPost) : location.pathname;
       history.replaceState(null, "", path + hash);
     } catch (error) {
-      accountStatus.textContent = error.message || "could not finish sign-in";
+      authError = error.message || "Could not finish sign-in.";
       history.replaceState(null, "", location.pathname + "#/");
-    } finally { accountAction.disabled = false; }
+    } finally { authenticating = false; }
   }
   window.onhashchange = route;
   window.addEventListener("popstate", () => { if (location.pathname !== routedPath) route(); });
+  const openAccountOnStart = location.hash === '#/account';
+  if (openAccountOnStart) history.replaceState(null, '', location.pathname + location.search);
+  if (hostSessionToken() || hasAcSession()) interfaceState = MimeInterface.dispatch(interfaceState, {type: 'account.changed', account: {status: 'checking'}}).state;
   await route();
   await updateIdentity();
+  if (authError) interfaceState = MimeInterface.dispatch(interfaceState, {type: 'account.changed', account: {status: 'failed', notice: authError}}).state;
+  if (authError || openAccountOnStart) await interfaceIntent({type: 'account.open'});
   if (resumeComments) await openComments(resumeComments);
 }
 start();

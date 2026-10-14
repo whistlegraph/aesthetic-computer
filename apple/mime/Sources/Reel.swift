@@ -6,9 +6,10 @@ import AVKit
 struct Reel: View {
     var active = true
     var viewerHandle = ""
-    let resumeEditor: () -> Void
+    let accountActionLabel: String
+    let openAccount: () -> Void
     let remixWork: (Post) -> Void
-    let makeWork: (Ware) -> Void
+    let makeWork: (String) -> Void
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
     @State private var current: String?
@@ -29,7 +30,7 @@ struct Reel: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, edgesReady: edgesReady, topInset: screen.safeAreaInsets.top, bottomInset: screen.safeAreaInsets.bottom, escape: resetInteraction, step: step, ready: { firstContentReady(post.id) }, makeWork: makeWork, resumeEditor: resumeEditor, remixWork: remixWork, hide: hide, activity: { holding in contentActivity(post.id, holding: holding) })
+                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, edgesReady: edgesReady, topInset: screen.safeAreaInsets.top, bottomInset: screen.safeAreaInsets.bottom, escape: resetInteraction, step: step, ready: { firstContentReady(post.id) }, makeWork: makeWork, remixWork: remixWork, hide: hide, activity: { holding in contentActivity(post.id, holding: holding) })
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(post.id)
                             .environment(\.mimeLettersActive, active && current == post.id)
@@ -86,20 +87,14 @@ struct Reel: View {
                     .offset(x: scrolling || interacting != nil ? 180 : 0, y: interacting != nil ? -90 : 0)
                     .animation(reduceMotion ? .linear(duration: 0.1) : .easeInOut(duration: 0.22), value: scrolling || interacting != nil)
                     .overlay(alignment: .topTrailing) {
-                        Button(action: resumeEditor) { Color.clear.frame(width: 115, height: 44).contentShape(Rectangle()) }
-                            .buttonStyle(.plain).accessibilityLabel("Open editor")
-                            .accessibilityHint("Resume your current work")
-                            .accessibilityIdentifier("mime-resume-editor")
+                        Button(action: openAccount) { Color.clear.frame(width: 115, height: 44).contentShape(Rectangle()) }
+                            .buttonStyle(.plain).accessibilityLabel(accountActionLabel)
+                            .accessibilityHint("Log in or manage your account")
+                            .accessibilityIdentifier("mime-account")
                             .padding(.trailing, 10)
                     }
                     .allowsHitTesting(interacting == nil)
                     .accessibilityHidden(interacting != nil)
-                if revealed && active && interacting == nil {
-                    Button(action: resumeEditor) { Image(systemName: "plus").font(.system(size: 23)).frame(width: 44, height: 44) }
-                        .buttonStyle(.plain).foregroundStyle(Color(hex: 0x7AE7CE))
-                        .accessibilityLabel("Open editor").accessibilityIdentifier("mime-create-work")
-                        .padding(.top, 4)
-                }
                 if revealed && active && currentPost?.playable == true {
                     ReelEdges(ready: edgesReady, topInset: 0, bottomInset: 0, escapeOnly: true, escape: resetInteraction, step: step)
                         .ignoresSafeArea()
@@ -302,8 +297,7 @@ private struct Card: View {
     let escape: () -> Void
     let step: (Int) -> Void
     let ready: () -> Void
-    let makeWork: (Ware) -> Void
-    let resumeEditor: () -> Void
+    let makeWork: (String) -> Void
     let remixWork: (Post) -> Void
     let hide: (Post) -> Void
     let activity: (Bool) -> Void
@@ -363,13 +357,13 @@ private struct Card: View {
                     }
                     Spacer(minLength: 12)
                     if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
-                        Button { makeWork(ware) } label: {
+                        Button { makeWork(post.mimeType) } label: {
                             TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
                             .accessibilityHint("Make a new " + ware.title)
                             .modifier(CornerRetreat(hidden: interacting, x: 1, y: 1))
                     } else {
-                        Button(action: resumeEditor) {
+                        Button { makeWork(post.mimeType) } label: {
                             TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
                             .accessibilityHint("Open editor")

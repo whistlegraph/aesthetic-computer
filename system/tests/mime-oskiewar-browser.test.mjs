@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -14,6 +15,7 @@ test("Oskiewar cards play in the feed, pause offscreen, and retain their permali
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", route => {
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const url = new URL(route.request().url());
     if (url.hostname === "mime.ac" && (url.pathname === "/" || url.pathname.startsWith("/p/") || /^\/[A-Za-z0-9_~!-]+$/.test(url.pathname)))
       return route.fulfill({ contentType: "text/html", body: html });

@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -12,6 +13,7 @@ test('MIME shares Comic glyphs and metadata alignment, and WADs use the embedded
   const layout=await readFile(new URL('../public/mime-layout.json',import.meta.url));
   const posts=[{code:'wadfixture',name:'@jeffrey',when:new Date().toISOString(),file:{name:'empty-room.wad',type:'application/x-doom-wad',url:'/fixture/room.wad'}}];
   await page.route('**/*',route=>{
+    const shared = serveMimeInterface(route); if (shared) return shared;
    const url=new URL(route.request().url());
    if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
    if(url.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify({recent:posts,hasMore:false})});

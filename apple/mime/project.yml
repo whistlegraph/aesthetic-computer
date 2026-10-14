@@ -26,6 +26,8 @@ targets:
       - path: ../whistlegraph/Resources/Fixtures
         type: folder
         buildPhase: resources
+      - path: ../../system/public/mime/interface.js
+        buildPhase: resources
       - path: ../../system/public/mime-layout.json
         buildPhase: resources
       - path: Resources/PrivacyInfo.xcprivacy

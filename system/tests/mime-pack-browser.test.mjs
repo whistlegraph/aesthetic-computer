@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -17,6 +18,7 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     media: { kind: 'whistlegraph', code: 'wgDefen', title: 'Spinning tree', version: 7, aspect: '2:3', packed: true,
       url: 'https://ipfs.aesthetic.computer/ipfs/fixture', tokenUrl: 'https://teia.art/objkt/885469' } };
   await context.route('**/*', async route => {
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const u = new URL(route.request().url());
     if (u.pathname === '/mime-layout.json') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(layout) });
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });

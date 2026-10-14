@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -15,6 +16,7 @@ test('MIME new posts preserve runtimes, preloading is bounded and silent, and wg
   const fresh=post('wgNewest'), archived=post('wgNirin');let recent=older, feedReads=0;
   const runtimeLoads=[];
   await context.route('**/*',async route=>{
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const u=new URL(route.request().url());
     if(u.hostname==='mime.ac' && (u.pathname==='/'||u.pathname.startsWith('/p/')||/^\/[A-Za-z0-9_~!-]+$/.test(u.pathname)))return route.fulfill({contentType:'text/html',body:html});
     if(u.pathname==='/api/mime'){

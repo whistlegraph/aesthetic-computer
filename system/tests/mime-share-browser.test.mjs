@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -20,6 +21,7 @@ test('top-left identifiers share only their MIME post, with a scannable QR, visi
       Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copied=text;}}});
     });
     await page.route('**/*',async route=>{
+    const shared = serveMimeInterface(route); if (shared) return shared;
       const u=new URL(route.request().url());
       if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:await readFile(new URL('mime/index.html',publicRoot),'utf8')});
       if(u.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify({recent:posts,hasMore:false})});

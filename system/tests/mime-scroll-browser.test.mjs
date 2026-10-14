@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -20,6 +21,7 @@ test('MIME: edge navigation, native media controls, natural image sizing and def
   const posts = [fixture('wide', 'image/svg+xml'), fixture('program', 'text/javascript', { kind: 'piece', code: 'test', url: 'https://aesthetic.computer/test' }),
     fixture('document', 'text/html'), fixture('longtext', 'text/plain'), fixture('below1', 'image/svg+xml'), fixture('below2', 'image/svg+xml'), fixture('deferred', 'text/plain'), fixture('video1', 'video/webm'), fixture('video2', 'video/webm'), fixture('tape', 'video/webm', { kind: 'tape', code: 'fixture-tape', url: 'https://aesthetic.computer/!fixture-tape' })];
   await context.route('**/*', async route => {
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const u = new URL(route.request().url()); requests.push(u.pathname);
     if (u.pathname === '/fixture/wide') await firstImageHeld;
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });

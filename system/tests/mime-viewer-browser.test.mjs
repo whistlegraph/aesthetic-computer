@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -19,6 +20,7 @@ test('MIME viewer handle follows login and logout, and real AC keeps navigation 
    if(location.hostname==='mime.ac') localStorage.setItem('session-aesthetic',encodeURIComponent(btoa(JSON.stringify({accessToken:'host-only-token',account:{sub:'host-only-id'}}))));
  });
  await page.route('**/*',async route=>{
+    const shared = serveMimeInterface(route); if (shared) return shared;
    const u=new URL(route.request().url());
    if(u.hostname==='mime.ac'&&u.pathname==='/')return route.fulfill({contentType:'text/html',body:await readFile(new URL('mime/index.html',pub))});
    if(u.pathname==='/api/mime')return route.fulfill({json:u.searchParams.has('me')?{handle}:{recent:[{code:'wgpiece_wgViewer',when:new Date().toISOString(),name:'@author',media:{kind:'wgpiece',code:'wgViewer'},file:{type:'text/javascript',name:'viewer',url:'/fixture'}}],hasMore:false}});

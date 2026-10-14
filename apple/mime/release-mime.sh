@@ -22,6 +22,10 @@ assert.equal(response.status, 200);
 const have = await response.json();
 const want = JSON.parse(execFileSync('git', ['show', `${sha}:system/public/mime-layout.json`], {encoding: 'utf8'}));
 assert.deepEqual(have, want, 'Production must serve this revision’s layout before iOS ships');
+const policy = await fetch(`https://mime.ac/mime/interface.js?release=${sha}`, {headers: {'cache-control': 'no-cache'}});
+assert.equal(policy.status, 200);
+assert.equal(await policy.text(), execFileSync('git', ['show', `${sha}:system/public/mime/interface.js`], {encoding: 'utf8'}),
+  'Production and iOS must share the same interface policy');
 const commit = await (await fetch(`${origin}/.commit-ref?release=${sha}`)).text();
 assert.equal(commit.trim(), sha, 'Production and app source revisions must match');
 console.log(`MIME layout ${have.revision} verified on production`);
@@ -31,7 +35,7 @@ if [[ "$mode" != web ]]; then
   # the revision just verified on production, with its bundled config.
   release_source_dir=$(mktemp -d /tmp/mime-release-source.XXXXXX)
   trap 'rm -rf "$release_source_dir"' EXIT
-  git archive "$revision" apple/mime apple/whistlegraph apple/aesel/Sources apple/aesel/Resources/ComicRelief-Bold.ttf system/public/mime-layout.json system/public/doom-player system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf system/public/aesthetic.computer/lib/canvas-tape.mjs shared/roblox-room.mjs roblox/rooms/src/server/Room.luau aesel | tar -x -C "$release_source_dir"
+  git archive "$revision" system/public/mime/interface.js apple/mime apple/whistlegraph apple/aesel/Sources apple/aesel/Resources/ComicRelief-Bold.ttf system/public/mime-layout.json system/public/doom-player system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf system/public/aesthetic.computer/lib/canvas-tape.mjs shared/roblox-room.mjs roblox/rooms/src/server/Room.luau aesel | tar -x -C "$release_source_dir"
   app_dir="$release_source_dir/apple/mime"
 fi
 if [[ "$mode" == device ]]; then

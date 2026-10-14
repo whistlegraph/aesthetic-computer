@@ -1,6 +1,12 @@
-# MIME.ac
+# MIME — every file has a type
 
 The iPhone app for watching what everyone makes across Aesthetic Computer, KidLisp and Whistlegraph, one piece per screen. Tap a supported MIME type at bottom-right to create a new work directly in MIME. AC pieces, PNG paintings, Doom WADs and Roblox rooms use Whistlegraph’s shared native editor and bundled Aesel engine, with AC sign-in, prompts, drawings, voice, projects, version history, undo and export. Other type labels resume the existing editor workspace.
+
+Tap the MIME logo for **Log in / I'm new** or your signed-in account. Type labels create work and version labels remix; there is no separate `+` button.
+
+`system/public/mime/interface.js` is the shared interface middleware: a pure state machine that accepts public account facts and semantic intents, then returns an interface model and bounded effects. The website runs it directly; `Sources/MimeInterface.swift` runs the exact bundled source in JavaScriptCore. Both render its account actions, logo destination, editor intents, playback ownership and viewer handle. Platform adapters perform authentication and open the shared Whistlegraph/Aesel editor; credentials never enter the policy or artwork runtime. Account states include checking, signed out, missing handle, ready and failed. Unknown actions and malformed creation/remix targets have no effect.
+
+This migration covers account/navigation and editor entry. Feed rendering, comments and gesture handling still live in their platform adapters; `mime-layout.json` remains the separate layout contract. New interface policy needs a native build, while supported layout values can still update remotely. `node --test system/tests/mime-interface.test.mjs` replays the same transitions in Node and the actual Swift/JavaScriptCore adapter to catch drift. Browser tests cover login/signup redirects returning to the same post, cancellation, sign-out and handle propagation.
 
 Public chat messages containing a recognized YouTube video link show its poster and an inline YouTube player. The chat identifier, author, source and accompanying words remain intact. Playback pauses offscreen; unavailable embeds retain a YouTube link.
 

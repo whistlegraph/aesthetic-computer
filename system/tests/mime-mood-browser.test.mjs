@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -15,6 +16,7 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  {code:'mood_lines',parent:null,name:'@test',text:('gyp'.repeat(28)+'\n').repeat(15),media:{kind:'mood',code:'lines'}},
  {code:'mood_long',parent:null,name:'@test',text:'long gyp '.repeat(150),media:{kind:'mood',code:'long'}}].map(p=>({...p,when:new Date().toISOString(),board:'text/plain',file:null}));
  await context.route('**/*',async route=>{
+    const shared = serveMimeInterface(route); if (shared) return shared;
   const u=new URL(route.request().url());
   if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')||/^\/[A-Za-z0-9_~!-]+$/.test(u.pathname)))return route.fulfill({contentType:'text/html',body:html});
   if(u.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify({recent:posts,hasMore:false})});
@@ -70,6 +72,6 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  const iconBefore=await page.locator('#mime-favicon').getAttribute('href');await page.waitForTimeout(260);
  assert.notEqual(await page.locator('#mime-favicon').getAttribute('href'),iconBefore);
  await page.emulateMedia({reducedMotion:'reduce'});
- await page.waitForFunction(()=>document.querySelector('#mime-favicon').href.includes('/favicon-32.png?v=3'));
+ await page.waitForFunction(()=>document.querySelector('#mime-favicon').href.includes('/favicon-32.png?v=4'));
  }finally{await browser.close();}
 });

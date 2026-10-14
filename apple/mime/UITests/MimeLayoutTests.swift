@@ -79,7 +79,7 @@ final class MimeLayoutTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
         waitForReveal(in: app)
-        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        openEditorFromAccount(in: app); waitForEditor(in: app)
         let preview = app.descendants(matching: .any)["story-picture"].firstMatch
         let picture = preview.frame
         app.buttons["mime-fixture-voice"].tap()
@@ -137,7 +137,7 @@ final class MimeLayoutTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
         waitForReveal(in: app)
-        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        openEditorFromAccount(in: app); waitForEditor(in: app)
         for version in 1...2 {
             app.buttons["mime-fixture-voice"].tap()
             let constructing = app.staticTexts["generation-version"]
@@ -164,11 +164,11 @@ final class MimeLayoutTests: XCTestCase {
         screenshot.name = "MIME voice request complete with preview return arrow"; screenshot.lifetime = .keepAlways; add(screenshot)
         let gutter = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: arrow.frame.midX, dy: arrow.frame.midY))
         gutter.press(forDuration: 0.1, thenDragTo: gutter.withOffset(CGVector(dx: -35, dy: 0)), withVelocity: .fast, thenHoldForDuration: 0)
-        XCTAssertTrue(app.buttons["mime-resume-editor"].waitForExistence(timeout: 10))
-        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        XCTAssertTrue(app.buttons["mime-account"].waitForExistence(timeout: 10))
+        openEditorFromAccount(in: app); waitForEditor(in: app)
         XCTAssertTrue(app.buttons["version-2"].isEnabled)
         arrow.tap()
-        XCTAssertTrue(app.buttons["mime-resume-editor"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["mime-account"].waitForExistence(timeout: 10))
     }
     func testVersionRemixesPiecePaintingAndWadAsNewV0() {
         continueAfterFailure = false
@@ -208,7 +208,7 @@ final class MimeLayoutTests: XCTestCase {
             editor.name = "MIME remixed \(ware) v0"; editor.lifetime = .keepAlways; add(editor)
             app.buttons["mime-creation-back"].tap()
             XCTAssertTrue(badge.waitForExistence(timeout: 10))
-            app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+            openEditorFromAccount(in: app); waitForEditor(in: app)
             XCTAssertTrue(v0.waitForExistence(timeout: 10), "Resuming keeps the remix")
             app.buttons["mime-creation-back"].tap()
             if version != 2 { app.swipeUp() }
@@ -325,20 +325,20 @@ final class MimeLayoutTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["mime-type"].firstMatch.waitForExistence(timeout: 30))
         waitForReveal(in: app)
-        app.buttons["mime-resume-editor"].tap()
+        openEditorFromAccount(in: app)
         XCTAssertTrue(app.buttons["ware-picker"].waitForExistence(timeout: 30))
         waitForEditor(in: app)
         XCTAssertFalse(app.buttons["type-control"].isEnabled, "The fixture is still generating")
         app.buttons["mime-creation-back"].tap()
-        XCTAssertTrue(app.buttons["mime-resume-editor"].waitForExistence(timeout: 10))
-        app.buttons["mime-resume-editor"].tap()
+        XCTAssertTrue(app.buttons["mime-account"].waitForExistence(timeout: 10))
+        openEditorFromAccount(in: app)
         waitForEditor(in: app)
         XCTAssertFalse(app.buttons["type-control"].isEnabled, "Returning did not stop the turn")
         let editor = XCTAttachment(screenshot: app.screenshot())
         editor.name = "MIME full screen editor while generating"; editor.lifetime = .keepAlways; add(editor)
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.5))
         edge.press(forDuration: 0.1, thenDragTo: edge.withOffset(CGVector(dx: -260, dy: 0)))
-        let returned = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: app.buttons["mime-resume-editor"])
+        let returned = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: app.buttons["mime-account"])
         XCTAssertEqual(XCTWaiter().wait(for: [returned], timeout: 10), .completed)
         // A local turn keeps its engine; a new-work tap waits in a visible queue.
         app.buttons["mime-type"].firstMatch.tap()
@@ -347,12 +347,12 @@ final class MimeLayoutTests: XCTestCase {
         app.buttons["mime-work-queue"].tap()
         XCTAssertTrue(app.buttons["queued-work-painting"].waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
-        app.buttons["mime-resume-editor"].tap()
+        openEditorFromAccount(in: app)
         // A system banner can cover the top-right wordmark during the tap.
         if !app.buttons["mime-creation-back"].isHittable {
-            let available = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: app.buttons["mime-resume-editor"])
+            let available = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: app.buttons["mime-account"])
             XCTAssertEqual(XCTWaiter().wait(for: [available], timeout: 10), .completed)
-            app.buttons["mime-resume-editor"].tap()
+            openEditorFromAccount(in: app)
         }
         waitForEditor(in: app)
         XCTAssertTrue(app.buttons["ware-picker"].label.contains("Aesthetic.Computer Piece"))
@@ -367,7 +367,7 @@ final class MimeLayoutTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["mime-remix-version"].firstMatch.waitForExistence(timeout: 30))
         waitForReveal(in: app)
-        app.buttons["mime-resume-editor"].tap(); waitForEditor(in: app)
+        openEditorFromAccount(in: app); waitForEditor(in: app)
         app.buttons["mime-fixture-voice"].tap()
         let readyToLeave = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: app.buttons["ware-picker"])
         XCTAssertEqual(XCTWaiter().wait(for: [readyToLeave], timeout: 15), .completed)
@@ -402,7 +402,7 @@ final class MimeLayoutTests: XCTestCase {
             XCTAssertEqual(XCTWaiter().wait(for: [expected], timeout: 45), .completed)
         }
         waitForAudio("Preview suspended") // Warm editor behind the feed is silent.
-        app.buttons["mime-resume-editor"].tap()
+        openEditorFromAccount(in: app)
         waitForEditor(in: app)
         waitForAudio("Preview audible")
         app.buttons["mime-creation-back"].tap()
@@ -410,7 +410,7 @@ final class MimeLayoutTests: XCTestCase {
         XCUIDevice.shared.press(.home)
         app.activate()
         waitForAudio("Preview suspended") // Foregrounding the feed must not resume it.
-        app.buttons["mime-resume-editor"].tap()
+        openEditorFromAccount(in: app)
         waitForEditor(in: app)
         waitForAudio("Preview audible")
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.995, dy: 0.5))
@@ -466,6 +466,13 @@ final class MimeLayoutTests: XCTestCase {
         XCTAssertTrue(app.webViews.otherElements["Empty Doom room"].waitForExistence(timeout: 90))
         let editor = XCTAttachment(screenshot: app.screenshot())
         editor.name = "MIME WAD editor overlay"; editor.lifetime = .keepAlways; add(editor)
+    }
+
+    private func openEditorFromAccount(in app: XCUIApplication) {
+        app.buttons["mime-account"].tap()
+        let editor = app.buttons["mime-editor.open"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 30))
+        editor.tap()
     }
 
 }

@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -33,6 +34,7 @@ async function fixture({ login = false, failRead = false } = {}) {
     } };
   });
   await page.route('**/*', async route => {
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const url = new URL(route.request().url());
     if (url.hostname === 'mime.ac' && (url.pathname === '/' || url.pathname.startsWith('/p/')))
       return route.fulfill({ contentType: 'text/html', body: html });

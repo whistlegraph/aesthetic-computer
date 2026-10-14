@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -18,6 +19,7 @@ test('live center, held input, corner cooldown, edge glow, emergency escape and 
     await page.screenshot({path:process.env.MIME_SCREENSHOT_DIR+'/'+name+'.png'});
   };
   await context.route('**/*', async route => {
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const url=new URL(route.request().url());
     const path=url.pathname;
     if (url.hostname==='mime.ac' && (path==='/' || path.startsWith('/p/') || path.startsWith('/wg'))) return route.fulfill({contentType:'text/html',body:await readFile(new URL('mime/index.html',root),'utf8')});

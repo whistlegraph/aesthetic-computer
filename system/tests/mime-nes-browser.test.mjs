@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -8,6 +9,7 @@ const pub = new URL('../public/', import.meta.url);
 async function fixture({ login = false } = {}) {
   const browser = await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL,headless:true});
   const page = await browser.newPage({viewport:{width:390,height:844},hasTouch:true});
+  page.setDefaultTimeout(20000);
   const errors=[], writes=[];
   page.on('pageerror',error=>{errors.push(error.message);console.error('Browser error:',error.message);});
   const worklet = await readFile(new URL('nes-player/audio-worklet.mjs', pub), 'utf8');
@@ -42,6 +44,7 @@ async function fixture({ login = false } = {}) {
     file:{name:'MIME.nes',type:'application/x-nes-rom',url:'/api/mime?file=nes-fixture'}},
     {code:'next',name:'@fixture',board:'text/plain',text:'Next card',media:{kind:'mood',code:'next'}}];
   await page.route('**/*',async route=>{
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const request=route.request(),url=new URL(request.url());
     if(url.pathname==='/api/mime'){
       if(url.searchParams.has('file')) return route.fulfill({body:Buffer.from(inputROM()),contentType:'application/x-nes-rom'});
@@ -125,14 +128,15 @@ test('a real NES ROM renders, accepts keyboard/touch/gamepad, pauses and release
   }finally{await browser.close();}
 });
 
-test('the feed plus opens the shared app editor without a ROM upload form',async()=>{
+test('the MIME type opens the shared app editor without a plus or ROM upload form',async()=>{
   const {browser,page,errors,writes}=await fixture({login:true});
   try{
     await page.goto('https://mime.ac/?ac-automation=1');
     await page.locator('.mime-startup').waitFor({state:'detached'});
-    await page.getByRole('button',{name:'Open MIME editor',exact:true}).click();
+    assert.equal(await page.locator('#create-work').count(),0);
+    await page.locator('#nes-fixture .reel-type').click();
     const dialog=page.getByRole('dialog',{name:'Make in MIME'});
-    assert.equal(await dialog.getByRole('link',{name:'Open editor in the app'}).getAttribute('href'),'mime://create');
+    assert.equal(await dialog.getByRole('link',{name:'Open editor in the app'}).getAttribute('href'),'mime://create?type=application%2Fx-nes-rom');
     assert.equal(await dialog.locator('input[type=file]').count(),0);
     assert.equal(writes.length,0);assert.deepEqual(errors,[]);
     await page.screenshot({path:'/tmp/mime-create-app.png'});

@@ -1,3 +1,4 @@
+import {serveMimeInterface} from './fixtures/mime-interface.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -12,6 +13,7 @@ test('saved handle colors survive animated lettering and MIME family/subtype fil
   const colors=[{r:200,g:90,b:230},{r:40,g:210,b:150},{r:50,g:160,b:255}];
   const posts=['text/plain','text/html','application/x-doom-wad'].map((type,i)=>({code:'color'+i,name:'@ab',nameColors:colors,when:new Date().toISOString(),board:type,text:'Color study',media:{kind:'mood',code:'color'+i}}));
   await page.route('**/*',route=>{
+    const shared = serveMimeInterface(route); if (shared) return shared;
     const u=new URL(route.request().url());
     if(u.pathname==='/')return route.fulfill({contentType:'text/html',body:html});
     if(u.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify({recent:posts,hasMore:false})});

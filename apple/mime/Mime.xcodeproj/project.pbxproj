@@ -18,6 +18,7 @@
 		158BEDC9E686294D912E03E0 /* NativeScreenFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 837C01081E70CB3C67D8412B /* NativeScreenFixture.swift */; };
 		1ADD06A0385644AB1E8C2A83 /* StoryTape.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D8E31BBD9CFD8931BC4A68 /* StoryTape.swift */; };
 		1E7123A9BD856C2502558F96 /* StoryCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A78E8ED6DBBCCFBDA6F9DE04 /* StoryCache.swift */; };
+		1EAD3CB8517A21AF5AA3498A /* interface.js in Resources */ = {isa = PBXBuildFile; fileRef = D68A886131F1EB7806765CE6 /* interface.js */; };
 		211AFF07C335D1731900B0BB /* MimeCreation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 642A49DEC848BACD504317CB /* MimeCreation.swift */; };
 		21ECBF1ECAA363B3253AC3F3 /* VersionNarrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5741F857A219DDC684A0F07 /* VersionNarrator.swift */; };
 		22824B7F1F35754AFB127A7D /* WhistlegraphWoodFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B9ED2B010C12CBB18998C4 /* WhistlegraphWoodFrame.swift */; };
@@ -86,6 +87,7 @@
 		DBB1A2E13AB46EF8DCF8C3CE /* DeviceActionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D029E496EEDA337E0DF4303 /* DeviceActionLog.swift */; };
 		E55273136D45445756F603CC /* NetworkBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305C47FEBF7E6009AEC584F2 /* NetworkBenchmark.swift */; };
 		E85D3019326A7A128E7850F5 /* MimeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A463A20C599B1521E9D635A5 /* MimeApp.swift */; };
+		EC2B8BB001F16723DF34380B /* MimeInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF0F18F19A092FEE969B3B0D /* MimeInterface.swift */; };
 		EE661D18F6C8D15625D92C87 /* InputButtonLabels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 707C41A3060A85EF619EE78D /* InputButtonLabels.swift */; };
 		EE7E3F9156C8115D88F29661 /* WhistlegraphDrawing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B21CDD12E9D0F28FC6F23A /* WhistlegraphDrawing.swift */; };
 		F157E1C2E9465E0BD2CC0FDD /* TalkHoldInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85AADBC60B41DEED7F995EB7 /* TalkHoldInput.swift */; };
@@ -171,6 +173,7 @@
 		A9EABF94E59EBA980DFCAD15 /* AirPlayProjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPlayProjector.swift; sourceTree = "<group>"; };
 		ADCA4FE6BBA6B53882F52E75 /* StoreCreditDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreCreditDelivery.swift; sourceTree = "<group>"; };
 		B559B7E4F8BDAA1266C2F25E /* Feed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feed.swift; sourceTree = "<group>"; };
+		BF0F18F19A092FEE969B3B0D /* MimeInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeInterface.swift; sourceTree = "<group>"; };
 		C0D8E31BBD9CFD8931BC4A68 /* StoryTape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryTape.swift; sourceTree = "<group>"; };
 		C21BD54449CEBFFFD763BD97 /* WhistlegraphPrivacy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphPrivacy.swift; sourceTree = "<group>"; };
 		C34212EAA1790F037DA88641 /* TestFlightUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFlightUpdate.swift; sourceTree = "<group>"; };
@@ -185,6 +188,7 @@
 		CE6E76BCA4EFB770A1BB8FD4 /* CostDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CostDisplay.swift; sourceTree = "<group>"; };
 		CFA920C9BB1F843762284A64 /* WhistlegraphTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTheme.swift; sourceTree = "<group>"; };
 		D678F68732FB1A87AFA40BE1 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
+		D68A886131F1EB7806765CE6 /* interface.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = interface.js; sourceTree = "<group>"; };
 		D93FC78F05911584237C7DAF /* PreviewFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormat.swift; sourceTree = "<group>"; };
 		DAE1E34A16D7480A9EC6E120 /* MimeModeration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeModeration.swift; sourceTree = "<group>"; };
 		E51635765F66A54A36280B05 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
@@ -314,6 +318,7 @@
 				34D7AC195AF925CFE6A5A2F3 /* Fixtures */,
 				C77429657CEAFAEDDC559105 /* Fonts */,
 				519F47BDE564013AECB135AF /* Web */,
+				AADDA071309F9F38B84C7776 /* mime */,
 				30858985AF44E54CD897ADA3 /* public */,
 				06DBD18A3643C15D05007F63 /* Resources */,
 				8F7C06E2A1457AFC2F543656 /* Sources */,
@@ -330,6 +335,7 @@
 				B559B7E4F8BDAA1266C2F25E /* Feed.swift */,
 				A463A20C599B1521E9D635A5 /* MimeApp.swift */,
 				642A49DEC848BACD504317CB /* MimeCreation.swift */,
+				BF0F18F19A092FEE969B3B0D /* MimeInterface.swift */,
 				168A6C9243E8440D4AA0540D /* MimeLayout.swift */,
 				DAE1E34A16D7480A9EC6E120 /* MimeModeration.swift */,
 				C93299BF2FC67AA1FE664830 /* MimeQR.swift */,
@@ -342,6 +348,15 @@
 				0684191A5DE792274EC1BA5E /* Wordmark.swift */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		AADDA071309F9F38B84C7776 /* mime */ = {
+			isa = PBXGroup;
+			children = (
+				D68A886131F1EB7806765CE6 /* interface.js */,
+			);
+			name = mime;
+			path = ../../system/public/mime;
 			sourceTree = "<group>";
 		};
 		F25EE194C1D582945BA20818 /* UITests */ = {
@@ -442,6 +457,7 @@
 				BA41C9DC59CB9BCD4EE6A5DA /* Fonts in Resources */,
 				7C2B054BB62E5C4211527F39 /* PrivacyInfo.xcprivacy in Resources */,
 				BDFB438A4A83BC0AEFE62399 /* Web in Resources */,
+				1EAD3CB8517A21AF5AA3498A /* interface.js in Resources */,
 				7CCD35632873A9FDB6D7EB4C /* mime-layout.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -473,6 +489,7 @@
 				E85D3019326A7A128E7850F5 /* MimeApp.swift in Sources */,
 				211AFF07C335D1731900B0BB /* MimeCreation.swift in Sources */,
 				747503D9EF47E4592231F7B3 /* MimeFeed.swift in Sources */,
+				EC2B8BB001F16723DF34380B /* MimeInterface.swift in Sources */,
 				08974F5171F35F094F7327E4 /* MimeLayout.swift in Sources */,
 				2ADD31A4070B38E32FCBC99A /* MimeModeration.swift in Sources */,
 				CD0E94A85C24BF47F4F023F4 /* MimeQR.swift in Sources */,
