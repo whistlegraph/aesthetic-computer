@@ -16,6 +16,8 @@ try {
       startedAt: { $gte: start, $lt: end }, linkVersion: 1 } },
     { $group: { _id: { property: "$property", automated: "$automated" },
       visitsWithLink: { $sum: 1 }, firstMeasuredVisit: { $min: "$startedAt" },
+      mimeClickVisits: { $sum: { $cond: ["$actions.whistlegraph_mime_clicked", 1, 0] } },
+      referralClickVisits: { $sum: { $cond: [{ $or: ["$actions.whistlegraph_mime_clicked", "$actions.whistlegraph_app_clicked"] }, 1, 0] } },
       appClickVisits: { $sum: { $cond: ["$actions.whistlegraph_app_clicked", 1, 0] } },
       accessClickVisits: { $sum: { $cond: ["$actions.whistlegraph_access_clicked", 1, 0] } },
       referredFromOrg: { $sum: { $cond: [{ $in: ["$referrerHost", ["whistlegraph.org", "tv.whistlegraph.org"]] }, 1, 0] } },
@@ -28,8 +30,8 @@ try {
   const org = rows.find(row => row._id.property === "whistlegraph.org" && !row._id.automated);
   console.log(JSON.stringify({ start, end,
     unit: "page visits with a reviewed link present and link tracking v1; not unique people",
-    note: "Older/unmeasured visits are excluded, not zero clicks. Clicks are once per visit. Referrer arrivals are a separate aggregate, not joined journeys. Access clicks open a mail draft; they do not prove sending or signup.",
-    orgClickThroughPercent: org?.visitsWithLink ? +(100 * org.appClickVisits / org.visitsWithLink).toFixed(2) : null,
+    note: "Older/unmeasured visits are excluded, not zero clicks. Clicks are once per visit. Org click-through includes the current MIME bumper and the former app bumper; destination counts are separate. Referrer arrivals are a separate aggregate, not joined journeys. Access clicks open a mail draft; they do not prove sending or signup.",
+    orgClickThroughPercent: org?.visitsWithLink ? +(100 * org.referralClickVisits / org.visitsWithLink).toFixed(2) : null,
     audience: rows.filter(row => !row._id.automated),
     automation: rows.filter(row => row._id.automated),
   }, null, 2));

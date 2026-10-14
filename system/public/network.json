@@ -52,18 +52,23 @@
     },
     {
       "url": "https://whistlegraph.app/",
-      "title": "Whistlegraph for iPhone",
-      "summary": "Make playful software with drawing, speech and typed requests.",
+      "title": "Whistlegraph → MIME",
+      "summary": "Make whistlegraphs and other new media at mime.ac.",
       "llms": "https://whistlegraph.app/llms.txt",
       "aliases": [
         "www.whistlegraph.app"
       ],
-      "note": "Early access is by invitation. The website offers an email request; no public App Store or TestFlight download is advertised yet.",
+      "note": "This domain redirects permanently to mime.ac; existing paths and query strings are preserved.",
       "resources": [
         {
           "title": "Website",
           "url": "https://whistlegraph.app/",
           "description": "Public entry point."
+        },
+        {
+          "title": "MIME",
+          "url": "https://mime.ac/",
+          "description": "Create and explore new media."
         },
         {
           "title": "Whistlegraph art archive",

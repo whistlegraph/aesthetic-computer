@@ -10,6 +10,13 @@ const snapshot = () => ({ version: 1, id: randomUUID(), surface: "home",
 
 test("Whistlegraph link milestones retain only reviewed actions and measurement coverage", () => {
   assert.equal(visitProperty("www.whistlegraph.app"), "whistlegraph.app");
+  assert.equal(visitLinkAction("www.whistlegraph.org", "https://mime.ac/"), "whistlegraph_mime_clicked");
+  assert.equal(visitLinkAction("whistlegraph.org", "https://www.mime.ac/"), "whistlegraph_mime_clicked");
+  for (const href of ["https://mime.ac.evil.test", "http://mime.ac", "https://mime.ac:1234", "https://secret@mime.ac"])
+    assert.equal(visitLinkAction("whistlegraph.org", href), null);
+  assert.equal(visitLinkAction("jas.life", "https://mime.ac/"), null);
+  const mime = validateVisit({ ...snapshot(), actions: ["whistlegraph_mime_clicked"] }, "https://whistlegraph.org");
+  assert.equal(visitUpdate(mime).$max["actions.whistlegraph_mime_clicked"], true);
   assert.equal(visitLinkAction("www.whistlegraph.org", "https://whistlegraph.app/"), "whistlegraph_app_clicked");
   assert.equal(visitLinkAction("whistlegraph.app", "mailto:mail@aesthetic.computer?body=private"), "whistlegraph_access_clicked");
   for (const href of ["https://whistlegraph.app.evil.test", "http://whistlegraph.app", "https://whistlegraph.app:1234", "https://secret@whistlegraph.app", "https://aesthetic.computer/", "invalid"])

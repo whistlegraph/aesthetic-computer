@@ -40,7 +40,7 @@ export const VISIT_ACTIONS = Object.freeze([
   "mime_interact", "mime_scroll_feed", "mime_original_open",
   "note_played", "painting_edited", "recording_started",
   "painting_saved", "tape_saved",
-  "whistlegraph_app_clicked", "whistlegraph_access_clicked",
+  "whistlegraph_app_clicked", "whistlegraph_access_clicked", "whistlegraph_mime_clicked",
 ]);
 
 // Reviewed link milestones only; never retain destinations or mailto contents.
@@ -51,6 +51,9 @@ export function visitLinkAction(hostname, href) {
   if (property === "whistlegraph.org" && url.protocol === "https:" &&
       !url.port && !url.username && !url.password && visitProperty(url.hostname) === "whistlegraph.app")
     return "whistlegraph_app_clicked";
+  if (property === "whistlegraph.org" && url.protocol === "https:" &&
+      !url.port && !url.username && !url.password && visitProperty(url.hostname) === "mime.ac")
+    return "whistlegraph_mime_clicked";
   if (property === "whistlegraph.app" && url.protocol === "mailto:" &&
       url.pathname.toLowerCase() === "mail@aesthetic.computer")
     return "whistlegraph_access_clicked";

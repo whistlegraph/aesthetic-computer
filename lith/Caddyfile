@@ -1600,7 +1600,7 @@ www.aesel.app {
     redir https://aesel.app{uri} 301
 }
 
-# Whistlegraph's iPhone app. DNS-only records require a public certificate;
+# Whistlegraph's former app site now leads to MIME. DNS-only records need TLS;
 # a distinct TLS policy prevents the origin-certificate catch-all from winning.
 whistlegraph.app {
     import machine_discovery
@@ -1610,13 +1610,7 @@ whistlegraph.app {
             dir https://acme-v02.api.letsencrypt.org/directory
         }
     }
-    encode zstd gzip
-    root * /opt/ac/system/public/whistlegraph.app
-    header X-Content-Type-Options nosniff
-    header Referrer-Policy strict-origin-when-cross-origin
-    header Content-Security-Policy "default-src 'none'; script-src https://aesthetic.computer/aesthetic.computer/lib/; connect-src https://aesthetic.computer/api/visit-track; img-src 'self'; style-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-    header Cache-Control "no-cache"
-    file_server
+    redir https://mime.ac{uri} 308
 }
 www.whistlegraph.app {
     tls {
@@ -1625,5 +1619,5 @@ www.whistlegraph.app {
             dir https://acme-v02.api.letsencrypt.org/directory
         }
     }
-    redir https://whistlegraph.app{uri} 301
+    redir https://mime.ac{uri} 308
 }

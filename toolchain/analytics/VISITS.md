@@ -156,7 +156,17 @@ The tool reads existing data; it adds no browser identifiers or new retention.
 
 ## Coverage
 
-### Whistlegraph app referral route
+### Whistlegraph referral route
+
+From October 14, the org bumper links to MIME and records
+`whistlegraph_mime_clicked` on trusted pointer, keyboard or middle-click
+activation. Whistlegraph.app and its www alias redirect permanently to MIME,
+so the redirect itself does not create a page visit. MIME arrivals use the
+existing MIME visit tracker and may carry a `whistlegraph.org` referrer.
+The Whistlegraph report counts current MIME clicks separately from historical
+app clicks; its overall org click-through rate includes both bumper destinations.
+
+The former route remains readable in historical visits:
 
 Whistlegraph.org → whistlegraph.app records `whistlegraph_app_clicked` on a
 trusted activation of an HTTPS app link (including keyboard and middle-click).
