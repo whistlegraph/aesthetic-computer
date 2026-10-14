@@ -23,6 +23,7 @@
 		22824B7F1F35754AFB127A7D /* WhistlegraphWoodFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B9ED2B010C12CBB18998C4 /* WhistlegraphWoodFrame.swift */; };
 		26D1EF8FEFD4AE64B096FF96 /* AirPlayProjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9EABF94E59EBA980DFCAD15 /* AirPlayProjector.swift */; };
 		281F7D98DB348812604E3F7C /* PalText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9E95AD6C8A0008A32859C9 /* PalText.swift */; };
+		2ADD31A4070B38E32FCBC99A /* MimeModeration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE1E34A16D7480A9EC6E120 /* MimeModeration.swift */; };
 		3271F464BD9EEAB40EF975D7 /* DeviceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F6EED1262263460F912A8E /* DeviceRegistry.swift */; };
 		34C43A9844F5E09F106C156B /* MimeRemix.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176B29950AB5504870085169 /* MimeRemix.swift */; };
 		3715A66435F9109CB5C3F586 /* StoryVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63A750E7DF5945706EB1AEB9 /* StoryVoice.swift */; };
@@ -80,6 +81,7 @@
 		C333B07957F4AB84BAEF939B /* RecordedTranscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB3456ADC1B373BCC0A0FE6 /* RecordedTranscription.swift */; };
 		C74F883BC113A489AE3D8289 /* AccountDeletionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9BB578155DDDA464781C84 /* AccountDeletionClient.swift */; };
 		CA69220227BA8FE68A766A30 /* MimeWorkQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 784E357831CEA18BC34AFBEF /* MimeWorkQueue.swift */; };
+		CD0E94A85C24BF47F4F023F4 /* MimeQR.swift in Sources */ = {isa = PBXBuildFile; fileRef = C93299BF2FC67AA1FE664830 /* MimeQR.swift */; };
 		D2BC22D7AD3D433FCF8C7D98 /* WhistlegraphPrivacy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21BD54449CEBFFFD763BD97 /* WhistlegraphPrivacy.swift */; };
 		DBB1A2E13AB46EF8DCF8C3CE /* DeviceActionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D029E496EEDA337E0DF4303 /* DeviceActionLog.swift */; };
 		E55273136D45445756F603CC /* NetworkBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 305C47FEBF7E6009AEC584F2 /* NetworkBenchmark.swift */; };
@@ -174,6 +176,7 @@
 		C4EFEF2199B636DD617353D6 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C77429657CEAFAEDDC559105 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = Resources/Fonts; sourceTree = SOURCE_ROOT; };
 		C7AD25F62118B6B6D64A54FD /* CurtainAccountButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurtainAccountButtonStyle.swift; sourceTree = "<group>"; };
+		C93299BF2FC67AA1FE664830 /* MimeQR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeQR.swift; sourceTree = "<group>"; };
 		C9C37CA09135685041B3828D /* StoryControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryControls.swift; sourceTree = "<group>"; };
 		CD5CFFAB6A78C428AFA84C98 /* MimeUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MimeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CE2DEB11D4A3185284861BC6 /* TezosBraincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TezosBraincells.swift; sourceTree = "<group>"; };
@@ -181,6 +184,7 @@
 		CFA920C9BB1F843762284A64 /* WhistlegraphTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphTheme.swift; sourceTree = "<group>"; };
 		D678F68732FB1A87AFA40BE1 /* CodeTicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeTicker.swift; sourceTree = "<group>"; };
 		D93FC78F05911584237C7DAF /* PreviewFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewFormat.swift; sourceTree = "<group>"; };
+		DAE1E34A16D7480A9EC6E120 /* MimeModeration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MimeModeration.swift; sourceTree = "<group>"; };
 		E51635765F66A54A36280B05 /* AudioBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBenchmark.swift; sourceTree = "<group>"; };
 		EAF2C2C71C8B3524DED19811 /* RecordingTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTrim.swift; sourceTree = "<group>"; };
 		EF9E802BDA64188F722AE068 /* PieceAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PieceAudio.swift; sourceTree = "<group>"; };
@@ -325,6 +329,8 @@
 				A463A20C599B1521E9D635A5 /* MimeApp.swift */,
 				642A49DEC848BACD504317CB /* MimeCreation.swift */,
 				168A6C9243E8440D4AA0540D /* MimeLayout.swift */,
+				DAE1E34A16D7480A9EC6E120 /* MimeModeration.swift */,
+				C93299BF2FC67AA1FE664830 /* MimeQR.swift */,
 				176B29950AB5504870085169 /* MimeRemix.swift */,
 				784E357831CEA18BC34AFBEF /* MimeWorkQueue.swift */,
 				7F9E95AD6C8A0008A32859C9 /* PalText.swift */,
@@ -465,6 +471,8 @@
 				211AFF07C335D1731900B0BB /* MimeCreation.swift in Sources */,
 				747503D9EF47E4592231F7B3 /* MimeFeed.swift in Sources */,
 				08974F5171F35F094F7327E4 /* MimeLayout.swift in Sources */,
+				2ADD31A4070B38E32FCBC99A /* MimeModeration.swift in Sources */,
+				CD0E94A85C24BF47F4F023F4 /* MimeQR.swift in Sources */,
 				34C43A9844F5E09F106C156B /* MimeRemix.swift in Sources */,
 				CA69220227BA8FE68A766A30 /* MimeWorkQueue.swift in Sources */,
 				9EBF5AE2BB9703D033DBB4F2 /* MusicalInput.swift in Sources */,
@@ -578,7 +586,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -638,7 +646,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;

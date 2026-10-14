@@ -15,6 +15,7 @@ import { ensureMoodCode, moodIdForCode } from "./mood-code.mjs";
 import { ensureChatCode, chatIdForCode } from "./chat-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
 import { replayPosts, replayById } from "./mime-oskiewar.mjs";
+import { REMOVED_COLLECTION, removals, allowed } from "./mime-moderation.mjs";
 
 const REFRESH_MS = 60_000;
 const PER_SOURCE = 200; // newest items read from each live source per refresh
@@ -313,15 +314,17 @@ async function dwellTimes(db) {
 let pool = null, refreshing = null;
 
 async function refresh(db) {
-  const [media, posts, pieces, moodItems, chatItems, replays, dwell, replies] = await Promise.all([
+  const [media, posts, pieces, moodItems, chatItems, replays, dwell, replies, removed] = await Promise.all([
     liveMedia(db), mimePosts(db), whistlegraphPieces(db), moods(db), chatMessages(db),
     replayPosts(db, PER_SOURCE), dwellTimes(db),
     db.collection(MEDIA_THREADS).find({}, { projection: { replies: 1 } }).toArray(),
+    removals(db.collection(REMOVED_COLLECTION)),
   ]);
   const counts = new Map(replies.map((row) => [row._id, row.replies || 0]));
   const live = [...media, ...posts, ...pieces, ...moodItems, ...chatItems,
     ...replays.map(post => feedItem(post, "oskiewar"))]
-    .filter((item) => item.app === "oskiewar" || !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")));
+    .filter((item) => item.app === "oskiewar" || !HANDLED_ONLY || (typeof item.author === "string" && item.author.startsWith("@")))
+    .filter(allowed(removed)); // cards and authors a moderator took down
   for (const item of live) {
     item.dwell = dwell.get(item.code) || 0;
     if (counts.has(item.code)) item.post.replies = counts.get(item.code);

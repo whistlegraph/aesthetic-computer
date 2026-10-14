@@ -1,6 +1,6 @@
 // Mime — discussion on public AC media, organized by MIME type.
 import { connect } from "../../backend/database.mjs";
-import { authorize } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { respond as httpRespond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import {
@@ -8,7 +8,9 @@ import {
   mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile, publicMediaUrl, packedMediaUrl,
 } from "../../backend/mime-media.mjs";
 import { inspectWad } from "../../public/doom-player/wad.mjs";
-import { feedPage, feedOnlyOp } from "../../backend/mime-feed-engine.mjs";
+import { feedPage, feedOnlyOp, feedPool, freshenFeed } from "../../backend/mime-feed-engine.mjs";
+import { fileReport, resolveReport, REPORT_COLLECTION, REMOVED_COLLECTION } from "../../backend/mime-moderation.mjs";
+import { sendToTarget } from "../../../shared/push.mjs";
 
 const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cache-Control": "no-store", ...headers });
 
@@ -49,10 +51,10 @@ async function ensureIndexes(collection) {
   await collection.createIndex({ parent: 1, when: 1 }, { name: "mimechan_thread" });
 }
 
-export function createHandler(connectDb = connect, authorizeUser = authorize) {
+export function createHandler(connectDb = connect, authorizeUser = authorize, isAdmin = hasAdmin) {
   return async function handler(event) {
     if (event.httpMethod === "OPTIONS") return respond(200, {});
-    if (!["GET", "POST"].includes(event.httpMethod)) return respond(405, { error: "method not allowed" });
+    if (!["GET", "POST", "PUT"].includes(event.httpMethod)) return respond(405, { error: "method not allowed" });
     const q = event.queryStringParameters || {};
     try {
       const { db } = await connectDb();
@@ -60,11 +62,16 @@ export function createHandler(connectDb = connect, authorizeUser = authorize) {
       const posts = db.collection("mimechan");
       const authorization = event.headers?.authorization || event.headers?.Authorization;
       let user;
-      if (authorization && (event.httpMethod === "POST" || q.me)) {
+      if (authorization && (event.httpMethod !== "GET" || q.me || q.reports)) {
         user = await authorizeUser({ authorization });
         if (!user?.sub) return respond(401, { error: "sign in again to comment" });
       }
       if (event.httpMethod === "GET") {
+        if (q.reports) {
+          if (!user || !(await isAdmin(user))) return respond(401, { error: "admins only" });
+          const filter = q.status ? { status: q.status } : {};
+          return respond(200, { reports: await db.collection(REPORT_COLLECTION).find(filter).sort({ at: -1 }).limit(200).toArray() });
+        }
         if (q.me) {
           const account = user ? await db.collection("@handles").findOne({ _id: user.sub }) : null;
           return respond(200, { handle: account?.handle ? "@" + account.handle.replace(/^@/, "") : null });
@@ -87,6 +94,9 @@ export function createHandler(connectDb = connect, authorizeUser = authorize) {
       catch { return respond(400, { error: "invalid JSON" }); }
       if (!body || typeof body !== "object" || Array.isArray(body)) return respond(400, { error: "invalid post" });
       if (q.engagement === "1") return await recordEngagement(db, posts, body);
+      if (event.httpMethod === "PUT" && q.report) return await actOnReport(db, q.report, body, user, isAdmin);
+      if (q.report === "1") return await reportCard(db, posts, body, user);
+      if (event.httpMethod !== "POST") return respond(405, { error: "method not allowed" });
       await ensureIndexes(posts);
       return await createPost(db, posts, body, user);
     } catch (err) {
@@ -101,6 +111,39 @@ async function findOp(db, posts, code) {
   const ref = parseMediaThread(code);
   if (ref) return mediaThread(db, ref.kind, { _id: ref.id });
   return await feedOnlyOp(db, code) || (/^wg[A-Za-z0-9]+$/.test(code) ? await resolveMedia(db, "whistlegraph", code) : null) || posts.findOne({ code, parent: null }, NO_DATA);
+}
+
+// Report a card (POST ?report=1 {code, reason, device}). Watching MIME needs
+// no account, so an anonymous viewer reports as their app install. The
+// moderator's devices are pushed: the 24-hour promise starts here.
+async function reportCard(db, posts, body, user) {
+  const code = String(body.code || "");
+  const device = typeof body.device === "string" && /^[A-Za-z0-9-]{8,64}$/.test(body.device) ? body.device : null;
+  const reporter = user?.sub || (device && "device:" + device);
+  if (!reporter) return respond(400, { error: "sign in or send a device id" });
+  const pooled = (await feedPool(db)).live.find((item) => item.code === code)?.post;
+  const post = pooled || (/^[A-Za-z0-9_~.-]{1,96}$/.test(code) ? await findOp(db, posts, code) : null);
+  if (!post) return respond(404, { error: "that card is gone" });
+  const handle = user ? (await db.collection("@handles").findOne({ _id: user.sub }))?.handle : null;
+  const { report, fresh } = await fileReport(db.collection(REPORT_COLLECTION), { code, reason: body.reason, reporter, handle: handle ? "@" + handle.replace(/^@/, "") : null, post });
+  if (fresh && process.env.ADMIN_SUB) {
+    const verb = report.reason === "hidden" ? "hid" : "reported";
+    sendToTarget(db, { user: process.env.ADMIN_SUB, app: "choir" }, {
+      title: `🚩 MIME: ${report.handle || "a viewer"} ${verb} ${report.post.name || code}`,
+      body: `${report.reason} · mime.ac/${code}`.slice(0, 160), thread: "mime-reports", data: { url: `https://mime.ac/${code}` },
+    }).catch(() => {});
+  }
+  return respond(200, { id: report._id, received: true });
+}
+
+// The moderator acts (PUT ?report=<id> {status, remove, ban, note}).
+async function actOnReport(db, id, body, user, isAdmin) {
+  if (!user || !(await isAdmin(user))) return respond(401, { error: "admins only" });
+  const report = await resolveReport(db.collection(REPORT_COLLECTION), db.collection(REMOVED_COLLECTION),
+    { reportID: id, status: body.status, remove: body.remove === true, ban: body.ban === true, note: body.note, by: user.sub });
+  if (!report) return respond(404, { error: "no such report" });
+  if (report.removed || report.banned) freshenFeed();
+  return respond(200, { report });
 }
 
 // Feed visits carry a random seed so each one gets its own stable order.

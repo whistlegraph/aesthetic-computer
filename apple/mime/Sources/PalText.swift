@@ -11,6 +11,10 @@ struct PalText: View {
     var fill: Color = .white
     var colors: [Color?] = []
     var animated = true
+    /// How far each letter sways: 1 is mime.ac's pal-breathe; the card corners swing wider.
+    var swing: CGFloat = 1
+    /// Letters rise in one after another each time the card comes on screen.
+    var entrance = false
     @Environment(\.accessibilityReduceMotion) private var reduced
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.mimeLettersActive) private var onstage
@@ -41,18 +45,31 @@ struct PalText: View {
         .accessibilityElement()
         .accessibilityLabel(text)
         }
+        .onChange(of: onstage) { _, now in if now { started = Date() } }
+        .onAppear { started = Date() }
     }
 
     private func letters<Glyph: View>(time: Double?, @ViewBuilder _ glyph: @escaping (Int, String) -> Glyph) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(text.enumerated()), id: \.offset) { index, char in
                 let j = Self.jitter(index)
-                let motion = time.map { Self.breathe(index, time: $0) } ?? 0
+                let motion = (time.map { Self.breathe(index, time: $0) } ?? 0) * swing
+                let rise = entrance ? Self.rise(index, time: time) : 1
                 glyph(index, String(char))
-                    .rotationEffect(.degrees(-j.rot + motion * 2))
-                    .offset(y: -j.dy + motion * 1.5)
+                    .rotationEffect(.degrees(-j.rot + motion * 2 + (1 - rise) * (index.isMultiple(of: 2) ? -18 : 18)))
+                    .offset(y: -j.dy + motion * 1.5 + (1 - rise) * size * 0.7)
+                    .scaleEffect(0.4 + 0.6 * rise)
+                    .opacity(rise)
             }
         }
+    }
+
+    /// 0 → 1 as a letter lands, each 35 ms after the one before, with a little overshoot.
+    static func rise(_ i: Int, time: Double?) -> Double {
+        guard let time else { return 1 }
+        let t = min(1, max(0, (time - Double(i) * 0.035) / 0.4))
+        let c = 1.7, u = t - 1
+        return 1 + (c + 1) * u * u * u + c * u * u
     }
 
     /// PalCore's jitter: FNV-1a over "char<i>", a bob of ±1.5 pt and a tilt of ±2.4°.

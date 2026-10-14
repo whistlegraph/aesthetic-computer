@@ -86,6 +86,8 @@ struct Post: Codable, Identifiable, Equatable {
         if let data = UserDefaults.standard.data(forKey: "mime-layout-v1"), let cached = MimeLayout.decode(data) { return cached }
         return .bundled
     }()
+    /// Authors this viewer hid; their cards never enter this phone's feed.
+    private var hidden = Set(UserDefaults.standard.stringArray(forKey: "mime-hidden-v1") ?? [])
     private var page = 0, hasMore = true, loading = false
     private let seed = UUID().uuidString
 
@@ -129,6 +131,13 @@ struct Post: Codable, Identifiable, Equatable {
         } catch { /* Preserve the last valid layout when offline. */ }
     }
 
+    func hide(_ name: String) {
+        hidden.insert(name)
+        UserDefaults.standard.set(Array(hidden), forKey: "mime-hidden-v1")
+        posts.removeAll { $0.name == name }
+        if posts.count < 4 { Task { await loadMore() } }
+    }
+
     func loadMore() async {
         guard hasMore, !loading else { return }
         loading = true; defer { loading = false }
@@ -139,7 +148,7 @@ struct Post: Codable, Identifiable, Equatable {
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
             let next = try JSONDecoder().decode(Page.self, from: data)
             let known = Set(posts.map(\.code))
-            posts += next.recent.filter { !known.contains($0.code) }
+            posts += next.recent.filter { !known.contains($0.code) && !hidden.contains($0.name ?? "") }
             hasMore = next.hasMore; page += 1; failed = false; loaded = true
         } catch { failed = posts.isEmpty }
     }

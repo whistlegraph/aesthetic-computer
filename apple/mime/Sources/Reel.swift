@@ -14,6 +14,7 @@ struct Reel: View {
     @State private var interacting: String?
     @State private var revealed = false
     @State private var breakupAt: Date?
+    @State private var scrolling = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -25,7 +26,7 @@ struct Reel: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }, makeWork: makeWork, remixWork: remixWork) {
+                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }, makeWork: makeWork, remixWork: remixWork, hide: hide) {
                                 interacting = interacting == post.id ? nil : post.id
                             }
                             .containerRelativeFrame([.horizontal, .vertical])
@@ -46,6 +47,7 @@ struct Reel: View {
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $current)
                 .scrollIndicators(.hidden)
+                .modifier(ScrollMotion(moving: $scrolling))
                 .scrollDisabled(!revealed || interacting != nil && interacting == current)
                 .accessibilityHidden(!revealed)
                 .ignoresSafeArea()
@@ -74,7 +76,10 @@ struct Reel: View {
                     if phase == .active { Task { await feed.refreshLayout() } }
                 }
 
+                // MIME.ac slides off to the right while the feed moves or a piece is being played.
                 Banner(corner: 1, width: screen.size.width)
+                    .offset(x: scrolling || interacting != nil ? 150 : 0)
+                    .animation(.spring(duration: 0.45, bounce: 0.25), value: scrolling || interacting != nil)
                     .overlay(alignment: .topTrailing) {
                         Button(action: resumeEditor) { Color.clear.frame(width: 115, height: 44).contentShape(Rectangle()) }
                             .buttonStyle(.plain).accessibilityLabel("Open editor")
@@ -119,6 +124,16 @@ extension Reel {
         }
     }
 
+    /// Hide everything by this card's author; the card after it takes its place.
+    private func hide(_ post: Post) {
+        guard let name = post.name else { return }
+        let index = feed.posts.firstIndex { $0.id == current } ?? 0
+        if interacting == post.id { interacting = nil }
+        feed.hide(name)
+        current = feed.posts.dropFirst(min(index, feed.posts.count)).first?.id ?? feed.posts.last?.id
+        prepare()
+    }
+
     /// Load runtimes around the card in view, including the first under the loading mark.
     private func prepare() {
         guard !feed.posts.isEmpty else { return }
@@ -127,17 +142,26 @@ extension Reel {
     }
 }
 
+/// Whether the feed is being dragged or is still settling (iOS 18 and later).
+private struct ScrollMotion: ViewModifier {
+    @Binding var moving: Bool
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollPhaseChange { _, phase in moving = phase.isScrolling }
+        } else { content }
+    }
+}
+
 /// The wordmark on its banner; `corner` slides it into a top-right watermark.
 private struct Banner: View {
     let corner: CGFloat
     let width: CGFloat
     var body: some View {
-        let mark: CGFloat = 37 * 151 / 52
-        HStack(alignment: .lastTextBaseline, spacing: 2) {
+        let mark: CGFloat = 37 * 151 / 52 + 36   // the wordmark and its .ac
+        HStack(alignment: .lastTextBaseline, spacing: -6) {
             Wordmark(height: 37)
-            PalText(text: ".ac", size: 19, accent: Color(white: 0.08))
+            PalText(text: ".ac", size: 22, accent: Color(white: 0.08))
                 .overlay(alignment: .leading) { Circle().fill(Color.pink).frame(width: 6, height: 6).offset(x: 2, y: 6) }
-                .opacity(Double(max(0, 1 - 2 * corner)))
         }
         .scaleEffect(1 - 0.25 * corner, anchor: .trailing)
         .opacity(Double(1 - 0.45 * corner))
@@ -163,8 +187,9 @@ private struct Card: View {
     let ready: () -> Void
     let makeWork: (Ware) -> Void
     let remixWork: (Post) -> Void
+    let hide: (Post) -> Void
     let toggleInteract: () -> Void
-    @Environment(\.openURL) private var openURL
+    @State private var showingQR = false
 
     /// A saved Oskiewar round is watched, never played with.
     private var playable: Bool {
@@ -179,18 +204,22 @@ private struct Card: View {
         ZStack {
             Checker(tint: Color.author(post.name))
             media
+                .overlay {
+                    // Tap a playable card to play with it; its code takes you back.
+                    if playable && !interacting { Color.clear.contentShape(Rectangle()).onTapGesture(perform: toggleInteract) }
+                }
         }
         .overlay(alignment: .topLeading) {
             HStack(alignment: .lastTextBaseline, spacing: 12) {
-            Button(action: { playable ? toggleInteract() : open() }) {
-                PalText(text: post.command, size: CGFloat(layout.identifierSize), accent: Color(hex: 0xED629D))
+            Button(action: { interacting ? toggleInteract() : (showingQR = true) }) {
+                PalText(text: post.command, size: CGFloat(layout.identifierSize), accent: Color(hex: 0xED629D), swing: 2.2, entrance: true)
                     .overlay(alignment: .bottom) {
                         if interacting { WavyUnderline().offset(y: 6) }
                     }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("mime-global-identifier")
-            .accessibilityHint(playable ? (interacting ? "Back to scrolling" : "Play with this piece") : "Open in Aesthetic Computer")
+            .accessibilityHint(interacting ? "Back to scrolling" : "Show a QR code for this card")
             if let version = post.edition, post.remixWare != nil {
                 Button { remixWork(post) } label: {
                     PalText(text: "v\(version)", size: CGFloat(layout.identifierSize), accent: Color(hex: 0x55CDD9))
@@ -210,22 +239,26 @@ private struct Card: View {
                         .lineLimit(3)
                 }
                 HStack(alignment: .lastTextBaseline) {
-                    if let name = post.name { PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name), colors: (post.nameColors ?? []).map(Color.savedLetter)).accessibilityIdentifier("mime-author") }
+                    if let name = post.name {
+                        HandleMenu(post: post, hide: hide) {
+                            PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name), colors: (post.nameColors ?? []).map(Color.savedLetter), swing: 2.2, entrance: true)
+                        }.accessibilityIdentifier("mime-author")
+                    }
                     Spacer(minLength: 12)
                     if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
                         Button { makeWork(ware) } label: {
-                            PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType), colors: Color.letters(forType: post.mimeType))
-                                .contentShape(Rectangle())
+                            TypeLabel(type: post.mimeType, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
                             .accessibilityHint("Make a new " + ware.title)
                     } else {
-                        PalText(text: post.mimeType, size: CGFloat(layout.mimeTypeSize), accent: Color.tint(forType: post.mimeType), colors: Color.letters(forType: post.mimeType)).accessibilityIdentifier("mime-type")
+                        TypeLabel(type: post.mimeType, size: CGFloat(layout.mimeTypeSize)).accessibilityIdentifier("mime-type")
                     }
                 }
             }
             .padding(.horizontal, layout.padding).padding(.bottom, 34)
         }
         .clipped()
+        .fullScreenCover(isPresented: $showingQR) { MimeQR(post: post) { showingQR = false } }
     }
 
     @ViewBuilder private var media: some View {
@@ -243,8 +276,27 @@ private struct Card: View {
             DocumentText(url: url, ready: ready)
         }
     }
+}
 
-    private func open() { if let link = post.media?.url, let url = URL(string: link) { openURL(url) } }
+/// A card's MIME type, bottom-right. A long one (application/x-oskiewar-demo)
+/// breaks after its slash: the family rides small above the subtype, so the
+/// type keeps its size and never crowds the handle.
+private struct TypeLabel: View {
+    let type: String
+    let size: CGFloat
+
+    var body: some View {
+        let colors = Color.letters(forType: type), accent = Color.tint(forType: type)
+        if type.count > 18, let slash = type.firstIndex(of: "/") {
+            let cut = type.distance(from: type.startIndex, to: slash) + 1
+            VStack(alignment: .trailing, spacing: 0) {
+                PalText(text: String(type[..<type.index(after: slash)]), size: size * 0.62, accent: accent, colors: Array(colors.prefix(cut)), swing: 2.2, entrance: true)
+                PalText(text: String(type[type.index(after: slash)...]), size: size, accent: accent, colors: Array(colors.dropFirst(cut)), swing: 2.2, entrance: true)
+            }.accessibilityElement(children: .ignore).accessibilityLabel(type)
+        } else {
+            PalText(text: type, size: size, accent: accent, colors: colors, swing: 2.2, entrance: true)
+        }
+    }
 }
 
 /// mime.ac's drifting checkerboard behind every card, tinted by the author.
