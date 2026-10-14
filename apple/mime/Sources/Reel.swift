@@ -247,7 +247,7 @@ private struct Card: View {
                 }
                 HStack(alignment: .lastTextBaseline) {
                     if let name = post.name {
-                        HandleMenu(post: post, hide: hide) {
+                        HandleButton(post: post, hide: hide) {
                             PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name), colors: (post.nameColors ?? []).map(Color.savedLetter), swing: 2.2, entrance: true)
                         }.accessibilityIdentifier("mime-author")
                     }

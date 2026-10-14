@@ -1,12 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// Reports and hiding (App Store guideline 1.2). Tapping a card's @handle
-/// offers both. A report goes to POST mime.ac/api/mime?report=1, which pushes
-/// the moderator, who acts within 24 hours. Hiding someone removes their cards
-/// from this phone at once and files a quiet "hidden" report, so a block
-/// reaches the moderator too. Watching needs no account: a viewer reports as
-/// this app install.
+/// Reports and hiding (App Store guideline 1.2), from the bottom of a
+/// person's profile card. A report goes to POST mime.ac/api/mime?report=1,
+/// which pushes the moderator, who acts within 24 hours. Hiding someone
+/// removes their cards from this phone at once and files a quiet "hidden"
+/// report, so a block reaches the moderator too. Watching needs no account:
+/// a viewer reports as this app install.
 enum MimeModeration {
     static let reasons = ["Harassment or hate", "Sexual or violent", "Spam or a scam", "Something else"]
 
@@ -21,38 +21,22 @@ enum MimeModeration {
     }
 }
 
-/// The handle, as a menu: report this card, or hide everything by its author.
-struct HandleMenu<Label: View>: View {
+/// The handle opens its person's profile card (the same card mime.ac shows).
+struct HandleButton<Label: View>: View {
     let post: Post
     let hide: (Post) -> Void
     @ViewBuilder let label: () -> Label
-    @State private var done: String?
+    @State private var open = false
 
     var body: some View {
-        Menu {
-            Menu("Report this") {
-                ForEach(MimeModeration.reasons, id: \.self) { reason in
-                    Button(reason) { Task { await send(reason) } }
-                }
+        Button { open = true } label: { label().contentShape(Rectangle()) }
+            .buttonStyle(.plain)
+            .accessibilityHint("Open their profile")
+            .sheet(isPresented: $open) {
+                ProfileCard(post: post) { hide(post); open = false }
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(Color.paper)
             }
-            if let name = post.name {
-                Button("Hide \(name)", systemImage: "eye.slash", role: .destructive) {
-                    hide(post)
-                    Task { try? await MimeModeration.report(post, reason: "hidden") }
-                }
-            }
-        } label: { label().contentShape(Rectangle()) }
-        .menuStyle(.button).buttonStyle(.plain)
-        .accessibilityHint("Report or hide")
-        .alert(done ?? "", isPresented: Binding(get: { done != nil }, set: { if !$0 { done = nil } })) {
-            Button("OK", role: .cancel) {}
-        }
-    }
-
-    private func send(_ reason: String) async {
-        do {
-            try await MimeModeration.report(post, reason: reason)
-            done = "Thanks. We look at every report within 24 hours."
-        } catch { done = "That report didn't go through. Try again in a moment." }
     }
 }
