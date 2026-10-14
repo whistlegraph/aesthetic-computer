@@ -21,7 +21,7 @@ const ROOM_ASKED = arg("room", "");
 // apps' own choice (the room's relay if live, else the nearest).
 const RELAY = arg("relay", "");
 // Key codes the app maps for player one: A/D walk, Q punches, D also leaves the title.
-const K = { left: 0, right: 2, attack: 12, start: 2 };
+const K = { left: 0, right: 2, attack: 14, start: 2 }; // E shoots (the item button)
 const NETLOG = "Library/Containers/computer.aesthetic.oskiewar/Data/tmp/net.log";
 const results = [];
 
@@ -49,7 +49,7 @@ function seatOn(machine) {
     },
     running: () => { try { return sh(`P=$(pgrep -x oskiewar | head -1); [ -n "$P" ] && ps -o command= -p $P || true`).trim(); } catch { return ""; } },
     kill: () => { try { sh(`pkill -x oskiewar; rm -f ~/${NETLOG}; true`); } catch {} },
-    launch: (room) => sh(`open -n '${app}' --env OSKIEWAR_ROOM=${room} --env OSKIEWAR_NETLOG=net.log${RELAY ? ` --env OSKIEWAR_RELAY=${RELAY}` : ""}`),
+    launch: (room) => sh(`open -n '${app}' --env OSKIEWAR_ROOM=${room} --env OSKIEWAR_NETLOG=net.log --env OSKIEWAR_HASHTRACE=1${RELAY ? ` --env OSKIEWAR_RELAY=${RELAY}` : ""}`),
     netlog: () => { try { return remote ? sh(`/bin/cat ~/${NETLOG} 2>/dev/null`) : readFileSync(join(process.env.HOME, NETLOG), "utf8"); } catch { return ""; } },
     keybot: () => {
       const kb = remote ? spawn("ssh", [machine, "~/.local/bin/keybot"], { stdio: ["pipe", "pipe", "inherit"] })

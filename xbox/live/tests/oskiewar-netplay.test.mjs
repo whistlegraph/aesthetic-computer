@@ -229,6 +229,39 @@ function equalize(host, guest, wire, limit = 200) {
   return false;
 }
 
+// Gun fights (2026-10-14): one pistol midway, both seats run for it, shoot
+// to a KO and roll into the next round — on a laggy wire, as one fight.
+// Two laptops through a relay desynced at exactly this moment.
+function gunChoreography(seat, frame) {
+  if (frame < 80) return [seat === 0 ? "ArrowRight" : "ArrowLeft"];
+  const beat = frame % 24;
+  if (beat < 3) return ["B"];
+  if (beat < 14) return [seat === 0 ? "ArrowRight" : "ArrowLeft"];
+  return [];
+}
+test("a gun fight survives KOs and the next round on both seats", () => {
+  const host = createSeat(), guest = createSeat();
+  const wire = createWire(host, guest, { delay: 4, jitter: 2 });
+  beginPair(host, guest, wire);
+  let finished = 0;
+  for (let frame = 0; frame < 2700; frame++) {
+    host.press(...gunChoreography(0, host.fight.netplayState()?.frame ?? frame));
+    guest.press(...gunChoreography(1, guest.fight.netplayState()?.frame ?? frame));
+    host.tick(); guest.tick(); wire.step();
+    // The two Macs paint at their own rates; paint must never feed the sim.
+    host.fight.paint(); if (frame % 3 === 0) guest.fight.paint();
+    if (host.fight.roundState().roundResult) finished++;
+  }
+  host.press(); guest.press();
+  for (let frame = 0; frame < 60; frame++) { host.tick(); guest.tick(); wire.step(); }
+  const a = host.fight.netplayState(), b = guest.fight.netplayState();
+  assert.ok(a && b, "both seats are still in the rollback fight");
+  assert.equal(a.stats.desyncs + b.stats.desyncs, 0, "no desync");
+  assert.ok(finished > 0, "at least one round ended");
+  const wins = (seat) => seat.fight.fighters().map((f) => f.roundWins).join(":");
+  assert.equal(wins(host), wins(guest), "both seats agree on the rounds");
+});
+
 test("a snapshot restores the sim exactly: replaying the same pads reproduces the same state", () => {
   const seat = createSeat();
   seat.fight.startVersus();

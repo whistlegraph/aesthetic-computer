@@ -941,6 +941,9 @@ private final class NativeGameHost {
         if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
             javascript.evaluateScript("globalThis.__oskiewarFreeskateStart = \(x);")
         }
+        if ProcessInfo.processInfo.environment["OSKIEWAR_HASHTRACE"] == "1" {
+            javascript.evaluateScript("globalThis.__oskiewarHashTrace = true;")
+        }
         let opponent = ProcessInfo.processInfo.environment["OSKIEWAR_OPPONENT"] ?? ""
         // The room this app opens into, as a browser tab would: a shared room
         // name from OSKIEWAR_ROOM, else the dojo everyone opens into. The
@@ -1144,8 +1147,16 @@ private final class NativeGameHost {
         let height = max(1, view.bounds.height)
         if stagedBounds.width == width && stagedBounds.height == height { return }
         stagedBounds = CGSize(width: width, height: height)
-        renderer.logicalSize = CGSize(width: max(480, min(2880, round(1080 * width / height))),
-                                      height: 1080)
+        // The stage keeps the window's exact shape so nothing is stretched:
+        // 1080 tall where it can be, and where the width would pass the
+        // engine's 2880 ceiling (or fall under its 480 floor) the height
+        // gives instead. A slab cell can be a 3.6:1 strip; the old fixed
+        // 1080 height clamped its width to 2880 and squashed the room.
+        let aspect = width / height
+        var stageWidth = round(1080 * aspect), stageHeight: CGFloat = 1080
+        if stageWidth > 2880 { stageWidth = 2880; stageHeight = round(2880 / aspect) }
+        if stageWidth < 480 { stageWidth = 480; stageHeight = round(480 / aspect) }
+        renderer.logicalSize = CGSize(width: stageWidth, height: min(2160, max(480, stageHeight)))
     }
 
     private func call(_ name: String) {

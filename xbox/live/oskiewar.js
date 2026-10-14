@@ -6262,6 +6262,12 @@ function anonymousDojoFighter(p) {
 }
 
 function syncSignedInFighter() {
+  // In a rollback fight the deal is the only word on who is who. This used
+  // to re-dress players[0] from the LOCAL account every frame — on the
+  // challenger that is the host's fighter, renamed to the challenger's own
+  // name — and the round result ("<name> WINS ROUND") is simulation state,
+  // so the first KO split the two seats into two fights.
+  if (netSession) return;
   syncSecondFighter();
   const identity = accountState() || acFeed?.player;
   if (!identity?.handle || players[0].npc) {
@@ -8678,7 +8684,7 @@ function resetBalls(now) {
     // for the gun. Putting it on the centre line instead would have made it
     // the only opening move worth making.
     if (item.type === "skateboard") {
-      item.x = tileCenterX(cornerColLeft);
+      item.x = gunsOnly() ? gunsOnlyCenterX() : tileCenterX(cornerColLeft);
       item.y = skateContact(item.x, terrainFloorAt(item.x)).y - skateAxleDrop - skateWheelRadius;
       item.z = 0;
       item.vx = 0;
@@ -9988,7 +9994,12 @@ function netDrainInbox(session) {
     if (packet.t === "bye") { session.peerLeft = true; continue; }
     // The rival noticed the divergence first. Same repair from this side, and
     // no answering packet: a desync that echoed would ping-pong.
-    if (packet.t === "desync") { session.peerDesync = true; continue; }
+    if (packet.t === "desync") {
+      session.peerDesync = true;
+      if (globalThis.__oskiewarHashTrace && Number.isInteger(packet.f))
+        telemetry("NET_DESYNC_STATE", packet.f + " " + String(netHashTexts.get(packet.f) || "").slice(0, 12000));
+      continue;
+    }
     if (packet.t === "i" && Array.isArray(packet.m) &&
         Number.isInteger(packet.f)) {
       // m[k] is the pad for frame f + k; the newest is the last.
@@ -10037,6 +10048,10 @@ function netNotePeerHash(session, frame, hash) {
   if (mine !== hash) {
     session.stats.desyncs++;
     telemetry("NET_DESYNC", "frame " + frame + " mine " + mine + " theirs " + hash);
+    // With the hash trace on, say what this seat hashed, so the two sides'
+    // reports can be laid side by side and the first differing value read.
+    if (globalThis.__oskiewarHashTrace)
+      telemetry("NET_DESYNC_STATE", frame + " " + String(netHashTexts.get(frame) || "").slice(0, 12000));
     netDesyncRepair(session, frame);
   }
 }
@@ -10777,10 +10792,23 @@ function resetRound(now, resetMatch = false) {
   // match cannot walk this array up one entry per lost arm.
   saberPickups.length = saberPickups.filter((pickup) => pickup.startsActive)
     .length;
+  // A gun that was thrown is round furniture, like a dropped blade.
+  gunPickups.length = gunPickups.filter((pickup) => !pickup.thrown).length;
   for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups]) {
     pickup.active = Boolean(pickup.startsActive);
     pickup.respawnAt = 0;
   }
+  if (gunsOnly()) {
+    // Nobody starts armed. The one pistol waits midway; every other gun
+    // pickup on the map stays down this round.
+    const centre = gunsOnlyCenterX();
+    gunPickups.forEach((pickup, index) => {
+      pickup.homeX ??= pickup.x;
+      pickup.x = index === 0 ? centre : pickup.homeX;
+      pickup.active = index === 0;
+      pickup.amount = gunsOnlyAmmo;
+    });
+  } else for (const pickup of gunPickups) if (pickup.homeX !== undefined) pickup.x = pickup.homeX;
   for (const tree of bodyTrees) {
     tree.growth = 0;
     tree.spent = false;
@@ -11913,6 +11941,74 @@ function recordCommand(player, label, now) {
     player.commandStream.shift();
 }
 
+// Gun fights (2026-10-14, @jeffrey): a versus round is guns and boards.
+// Nobody punches, kicks, grabs or bubbles; both fighters stand up holding a
+// pistol, and the buttons that used to strike are the gun's — the strike
+// button shoots, the kick button throws it. A thrown gun is a projectile
+// that knocks the rival back if it lands on them and then lies where it
+// fell, a pickup for whoever reaches it first. Skateboards ride as ever.
+// The dojo only: the skatepark's ropes are climbed with the grab button.
+// And it must read the same on both seats of a rollback fight: the host is in
+// the versus lane, but the challenger simulates the same fight while its own
+// mode says it is watching a room — keyed on versusLane alone, the host fought
+// with guns and the challenger with fists, and the round desynced.
+const gunsOnly = () => (!!netSession || versusLane()) && !skateparkMap;
+const gunsOnlyAmmo = 6;
+// One gun in the room, on the floor halfway between the two spawn marks, and
+// the board under it: the bell rings and both fighters run for it.
+const gunsOnlyCenterX = () => Math.round((players[0].spawnX + players[1].spawnX) / 2);
+function armGunFighter(player) {
+  player.gunAmmo = gunsOnlyAmmo;
+  player.gunMode = "HANDGUN";
+  player.itemArm = availableArm(player) || "right-arm";
+}
+function throwGun(player, input) {
+  if (player.gunAmmo <= 0) return;
+  const now = runtime().monotonicUs;
+  const aimX = input?.horizontal || player.facing;
+  const aimY = input ? -input.vertical * .6 - .35 : -.35;
+  const length = Math.hypot(aimX, aimY) || 1;
+  grenades.push({ thrownGun: true, ammo: player.gunAmmo,
+    x: player.x + player.facing * 110, y: player.y - (player.ducking ? 80 : 150), z: player.z || 0,
+    vx: aimX / length * 2300 + (player.vx || 0) * .5, vy: aimY / length * 2300,
+    owner: player.pad, fuse: 2.4, alive: true, exploding: false, blastAge: 0,
+    blastRadius: 0, hitPlayers: 0, spin: 0 });
+  while (grenades.length > 12) grenades.shift();
+  player.gunAmmo = 0;
+  player.itemAction = "THROW";
+  player.itemActionStartedAt = now;
+  player.itemActionUntil = now + 260000;
+  player.pendingMoveLabel = "THROW GUN";
+  playDrum("whoosh", .7, panPlayer(player));
+  emitSignal("throw", player.pad, 1, 0);
+}
+// A thrown gun in flight: it hits once, then settles into a pickup.
+function updateThrownGun(gun, dt, now, combat) {
+  gun.spin += dt * 14;
+  if (!gun.hitPlayers && combat) {
+    const poseTime = (now - startedAt) / 1000000;
+    for (const target of players) {
+      if (!target.alive || target.pad === gun.owner) continue;
+      const contact = runnerContactToPoint(target, poseTime, gun.x, gun.y, gun.z);
+      if (Math.min(contact.headDistance, contact.bodyDistance) > 46) continue;
+      gun.hitPlayers |= 1 << target.pad;
+      applyBodyHit(target, contact.segmentIndex, gun.x, gun.owner, now, 1150, 240);
+      playDrum("kick", 1, panPlayer(target));
+      gun.vx *= -.3;
+      gun.vy = Math.min(gun.vy, -400);
+      break;
+    }
+  }
+  const floor = terrainFloorAt(gun.x) - 20;
+  const resting = gun.y >= floor - 1 && Math.abs(gun.vx) < 140 && Math.abs(gun.vy) < 180;
+  if (resting || gun.fuse <= 0) {
+    gunPickups.push({ kind: "HANDGUN", amount: Math.max(1, gun.ammo), x: gun.x,
+      y: floorY, z: gun.z, active: true, startsActive: false, thrown: true,
+      safeUntil: now + 250000 });
+    gun.alive = false;
+  }
+}
+
 function fireGun(player, input) {
   const now = runtime().monotonicUs;
   const pose = gunPose(player, now, input);
@@ -12219,6 +12315,28 @@ function drawBodyTree(tree, t) {
 
 function updatePowerups(now) {
   if (freeskateActive()) {updateGunPickups(now);return;}
+  if (gunsOnly()) {
+    // One gun, ever. It comes back to the middle only when it is nowhere:
+    // not in a hand, not on the floor, not in the air — emptied, or held by
+    // a fighter who died.
+    const held = players.some((player) => player.alive && player.gunAmmo > 0);
+    const lying = gunPickups.some((pickup) => pickup.active);
+    const flying = grenades.some((item) => item.alive && item.thrownGun);
+    if (!held && !lying && !flying && gunPickups[0]) {
+      const pistol = gunPickups[0];
+      pistol.x = gunsOnlyCenterX();
+      pistol.y = floorY;
+      pistol.z = 0;
+      pistol.amount = gunsOnlyAmmo;
+      pistol.active = true;
+      pistol.safeUntil = now + 600000;
+      emitSignal("powerup", -1, 0, 0);
+      playDrum("clap", .9, 0);
+    }
+    nextPowerupAtUs = Math.max(nextPowerupAtUs, roundElapsedUs + powerupIntervalUs);
+    updateGunPickups(now);
+    return;
+  }
   while (roundElapsedUs >= nextPowerupAtUs) {
     // Only the slot marked `cycle` is the rotation's business. Asking whether
     // ANY gun pickup is on the map would let an untouched space laser sitting
@@ -12606,6 +12724,8 @@ function updateGrenades(dt, now, combat = true) {
       continue;
     }
     const previousY = grenade.y;
+    if (grenade.thrownGun) updateThrownGun(grenade, dt, now, combat);
+    if (!grenade.alive) continue;
     if (!grenade.rocket) {
       grenade.vx += windAcceleration * .45 * dt;
       grenade.vy += 1800 * dt;
@@ -12650,7 +12770,7 @@ function updateGrenades(dt, now, combat = true) {
       grenade.vx *= .82;
       if (grenade.rocket) grenade.fuse = 0;
     }
-    if (grenade.fuse <= 0) {
+    if (grenade.fuse <= 0 && !grenade.thrownGun) {
       grenade.exploding = true;
       grenade.blastAge = 0;
       grenade.blastRadius = 0;
@@ -14742,7 +14862,7 @@ function updatePlayer(player, pad, dt, now) {
   // spent on attacking rather than on re-guarding by reflex.
   const bubbleButton = spatialControls ? "RightShoulder" : "X";
   if (player.shieldLocked && !pad.down.includes(bubbleButton)) player.shieldLocked = false;
-  player.blocking = !carrying && !headOnly && pad.down.includes(bubbleButton) &&
+  player.blocking = !gunsOnly() && !carrying && !headOnly && pad.down.includes(bubbleButton) &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
     player.attackKind = "";
@@ -14763,7 +14883,7 @@ function updatePlayer(player, pad, dt, now) {
   }
   // Bubbling preserves steering and momentum, including riding the wheel.
   const input = rawInput;
-  const grabHeld = !spatialControls && armCount > 0 && !pogo && !hitStunned && !player.blocking &&
+  const grabHeld = !gunsOnly() && !spatialControls && armCount > 0 && !pogo && !hitStunned && !player.blocking &&
     pad.down.includes("A") && pad.down.includes("B");
   if (skateparkMap && !survivalActive()) {
     const ropeHeld = skateRopeInput(player, input, grabHeld, dt, grabHeld && !player.grabHeld);
@@ -15202,6 +15322,16 @@ function updatePlayer(player, pad, dt, now) {
         continue;
       }
       remember(player, button);
+      if (gunsOnly() && !headOnly) {
+        // Gun fights: the strike and item buttons shoot, the kick button
+        // throws, and nothing else attacks.
+        if (acting && player.gunAmmo > 0 && (button === "B" || button === "Y") &&
+            now >= (player.nextGunShotAt || 0))
+          fireGun(player, input);
+        else if (acting && player.gunAmmo > 0 && button === "A")
+          throwGun(player, input);
+        continue;
+      }
       if (button === "X" && !headOnly) {
         player.pendingMoveLabel = "BUBBLE";
         playBubbleSound(player, false);
@@ -20348,6 +20478,7 @@ function glyphColor(colors, index, fallback) {
 // row is the caps to draw, the move, and the internal button it lights.
 function moveList() {
   const family = typeof capabilities === "function" ? capabilities().inputFamily : "xbox";
+  if (gunsOnly()) return gunMoveList(family);
   if (family === "touch") return [
     ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "BUBBLE", "X"], ["Y", "USE ITEM", "Y"]];
   if (family === "keyboard") return [
@@ -20360,6 +20491,23 @@ function moveList() {
     ["DOWN", "CROUCH", "ArrowDown"], ["B", "JUMP", "ArrowUp"],
     [["X", "Y"], "PUNCH", "B"], ["A", "KICK", "A"],
     [["X", "+Y"], "GRAB", "B"], [["A", "+X"], "BUBBLE", "X"]];
+}
+// In a gun fight the list names only what this fighter can do right now:
+// moving always, the gun's two buttons only while a gun is in hand.
+function gunMoveList(family) {
+  const me = players[localSeat()];
+  const armed = me?.alive && me.gunAmmo > 0;
+  const rows = family === "touch" ? [] : family === "keyboard" ? [
+    [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], "DASH", "ArrowRight"],
+    ["S", "CROUCH", "ArrowDown"], ["SPACE", "JUMP", "ArrowUp"]] : [
+    [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"], [">*2", "DASH", "ArrowRight"],
+    ["DOWN", "CROUCH", "ArrowDown"], ["B", "JUMP", "ArrowUp"]];
+  if (armed) {
+    if (family === "touch") rows.push(["B", "SHOOT", "B"], ["A", "THROW GUN", "A"]);
+    else if (family === "keyboard") rows.push([["Q", "E"], "SHOOT", "B"], ["SHIFT", "THROW GUN", "A"]);
+    else rows.push([["X", "Y"], "SHOOT", "B"], ["A", "THROW GUN", "A"]);
+  }
+  return rows;
 }
 // ASCII arrows, the command stream's own: the console's face has no arrow glyphs.
 const moveCapArrows = { LEFT: "<", RIGHT: ">", UP: "^", DOWN: "v" };
@@ -25216,6 +25364,16 @@ function drawGrenadePickup(pickup, t) {
 }
 
 function drawGrenade(grenade) {
+  if (grenade.thrownGun) {
+    const c = Math.cos(grenade.spin), s = Math.sin(grenade.spin), r = 40;
+    const a = projectPoint(grenade.x - c * r, grenade.y - s * r, grenade.z);
+    const b = projectPoint(grenade.x + c * r, grenade.y + s * r, grenade.z);
+    if (a.behind || b.behind) return;
+    const w = Math.max(3, 15 * cameraScale());
+    filledCapsule(a.x, a.y, b.x, b.y, w + 3, [8, 12, 24]);
+    filledCapsule(a.x, a.y, b.x, b.y, w, [52, 54, 62]);
+    return;
+  }
   const point = projectPoint(grenade.x, grenade.y, grenade.z);
   if (grenade.exploding) {
     if (drawPhotoExplosion(point.x,point.y,grenadeBlastRadius*cameraScale(),
