@@ -257,9 +257,9 @@ test('dojo text shares one font size, with one combined action line and speed me
   assert.ok(f.run('seatHudReadout(players[0],1000000).metrics.some(m=>m.text.endsWith(" mph"))'));
 });
 
-test('floating and held handguns use the same model even in the photo theme', () => {
+test('floating and held handguns use the same model', () => {
   const f=fixture();
-  f.run(`globalThis.guns=0;drawHandgun=()=>guns++;photoThemeActive=true;drawGunPickup(gunPickups[0],0);`);
+  f.run(`globalThis.guns=0;drawHandgun=()=>guns++;drawGunPickup(gunPickups[0],0);`);
   assert.equal(f.run('guns'),1);
 });
 

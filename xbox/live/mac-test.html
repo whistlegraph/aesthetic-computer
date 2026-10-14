@@ -59,9 +59,6 @@
   <link rel="modulepreload" href="/frame-vm.mjs">
   <link rel="modulepreload" href="/scene3d.mjs">
   <link rel="modulepreload" href="/render-quality.mjs">
-  <link rel="modulepreload" href="/photo-theme.mjs">
-  <link rel="preload" as="image" href="/themes/photorealistic/assets/underpass.png">
-  <link rel="preload" as="image" href="/themes/photorealistic/assets/props.png">
   <link rel="modulepreload" href="/account.mjs">
   <link rel="modulepreload" href="/round-room.mjs">
   <link rel="modulepreload" href="/aesthetic.computer/dep/@akamfoad/qr/qr.mjs">
@@ -1823,7 +1820,6 @@
     import WebGLOskiewarScene3D from "/scene3d-webgl.mjs";
     import { createFrameVm } from "/frame-vm.mjs";
     import { renderSurface, nextResolutionScale } from "/render-quality.mjs";
-    import createPhotoTheme from "/photo-theme.mjs";
     import mountAccount from "/account.mjs";
     import mountWizard from "/oskiewar-wizard.mjs";
     import { mountAccountDeletion } from "/account-deletion.mjs";
@@ -2106,15 +2102,10 @@
     }
 
     // The depth-tested WebGL scene is the web's renderer; `?renderer=canvas`
-    // keeps the old Canvas2D path for comparison. Flat shading is the
-    // reference look on every host, so the scene draws flat; the photo
-    // materials stay with the Canvas2D path they were built on.
+    // keeps the old Canvas2D path for comparison. Both draw flat.
     const requestedRenderer = new URLSearchParams(location.search).get("renderer");
     const sceneAttached = requestedRenderer !== "canvas" &&
       globalThis.__fightHost.attachScene(WebGLOskiewarScene3D);
-    const requestedGraphics = new URLSearchParams(location.search).get("graphics");
-    globalThis.__oskiewarGraphicsTheme =
-      requestedGraphics === "flat" || sceneAttached ? "flat" : "photorealistic";
     // The game paints as one program per frame and this shell runs it. The
     // interpreter draws with the same functions the game used to call
     // directly, so the strata (CPU layer, depth scene, text) are unchanged.
@@ -2132,11 +2123,7 @@
         run(program, length, strings);
       };
     }
-    const photoTheme = createPhotoTheme(globalThis.__fightHost.canvasContext,
-      globalThis.__fightHost.flushFaces);
-    Object.assign(globalThis.__fightHost, photoTheme);
     async function start() {
-      if (globalThis.__oskiewarGraphicsTheme === "photorealistic") await photoTheme.ready;
       const owUrl = new URLSearchParams(location.search).get("ow");
       if (owUrl) {
         try { globalThis.__oskiewarOw = await (await fetch(owUrl, { cache: "no-cache" })).text(); }
@@ -2157,11 +2144,11 @@
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "synth", "oscillator", "oscillatorStop", "skateAudio", "wipe", "box",
-        "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting",
+        "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView",
         `${source}\nreturn { boot, sim, paint };`
       )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "synth", "oscillator", "oscillatorStop", "skateAudio", "wipe", "box",
-        "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad", "themeLighting"]
+        "line", "triangle", "triangle3d", "frame", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
       performance.mark("oskiewar:booted");

@@ -75,6 +75,12 @@ private final class NativeRenderer {
         emit(x1, y1, z, x2, y2, z, x3, y3, z, red, green, blue)
     }
 
+    /// `count` faces of twelve floats, straight from the engine's Float32Array.
+    func triangles3d(_ values: UnsafePointer<Float>, count: Int) {
+        sawFace = true
+        _ = scene.triangleBatch(values, count: count)
+    }
+
     func triangle3d(_ x1: Double, _ y1: Double, _ z1: Double,
                     _ x2: Double, _ y2: Double, _ z2: Double,
                     _ x3: Double, _ y3: Double, _ z3: Double,
@@ -945,16 +951,6 @@ private final class NativeGameHost {
               Object.assign({}, globalThis.__oskiewarRenderFlags, content);
         };
         """)
-        // The photographic theme rides the same atlases the website and the
-        // Xbox use. It turns on only if the core pair loaded; otherwise the
-        // engine keeps its vectors. Photographic materials are an explicit opt-in.
-        let theme = resources.appendingPathComponent("live/themes/photorealistic/assets")
-        view.scene.loadTheme(["underpass.png", "props.png", "explosions-v1.png", "weapons-v2.png"]
-            .map { name -> URL? in
-                let url = theme.appendingPathComponent(name)
-                return FileManager.default.fileExists(atPath: url.path) ? url : nil
-            })
-        let wantsPhoto = ProcessInfo.processInfo.environment["OSKIEWAR_GRAPHICS"] == "photorealistic"
         // Match the web front door. Development routes remain explicit through
         // OSKIEWAR_OPPONENT rather than changing the installed app's default.
         if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
@@ -994,9 +990,6 @@ private final class NativeGameHost {
         if let encoded = try? JSONSerialization.data(withJSONObject: [opponent]),
            let literal = String(data: encoded, encoding: .utf8) {
             javascript.evaluateScript("globalThis.__oskiewarOpponent = \(literal)[0];")
-        }
-        if view.scene.themeReady && wantsPhoto {
-            javascript.evaluateScript("globalThis.__oskiewarGraphicsTheme = 'photorealistic';")
         }
         javascript.evaluateScript(qr + "\n" + hello,
             withSourceURL: URL(fileURLWithPath: "oskiewar/oskiewar.js"))
@@ -1251,7 +1244,7 @@ private final class NativeGameHost {
         let triangleAlpha: @convention(block) (Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double) -> Void =
             { [weak self] a,b,c,d,e,f,g,h,i,r,green,blue,alpha in
                 guard let self = self else { return }
-                _ = self.renderer.scene.triangle([a,b,c,d,e,f,g,h,i,r,green,blue,alpha], logicalSize: CGSize(width: 1920, height: 1080))
+                _ = self.renderer.scene.triangle([a,b,c,d,e,f,g,h,i,r,green,blue,alpha])
             }
         let text: (String) -> @convention(block) (String, Double, Double, Double, Double, Double, Double) -> Void =
             { family in { [weak self] value, x, y, size, r, g, b in
@@ -1298,7 +1291,7 @@ private final class NativeGameHost {
                 "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
                 "graphics": "METAL NATIVE", "audio": "AVFOUNDATION",
                 "displayScale": self?.view.window?.backingScaleFactor ?? 1,
-                "online": true, "liveLocalState": true,
+                "online": true, "liveLocalState": true, "batchFaces": true,
                 "width": Int(self?.renderer.logicalSize.width ?? 1920),
                 "height": Int(self?.renderer.logicalSize.height ?? 1080),
             ] as NSDictionary
@@ -1358,6 +1351,19 @@ private final class NativeGameHost {
         javascript.setObject(4096, forKeyedSubscript: "decalSurfaceSize" as NSString)
         javascript.setObject(triangleAlpha, forKeyedSubscript: "triangleAlpha" as NSString)
         javascript.setObject(triangle3d, forKeyedSubscript: "triangle3d" as NSString)
+        // triangles3d(Float32Array, count?): a run of faces, twelve floats
+        // each, read in place. With `batchFaces` the engine gathers every
+        // triangle3d into one and crosses once per run instead of per face.
+        let triangles3d: @convention(block) (JSValue, JSValue) -> Void = { [weak self] buffer, count in
+            guard let self, let context = buffer.context?.jsGlobalContextRef,
+                  let object = JSValueToObject(context, buffer.jsValueRef, nil) else { return }
+            let length = JSObjectGetTypedArrayLength(context, object, nil) / 12
+            let wanted = count.isNumber ? Int(count.toInt32()) : length
+            let faces = min(max(0, wanted), length)
+            guard faces > 0, let values = Self.float32(buffer, minimum: faces * 12) else { return }
+            self.renderer.triangles3d(values, count: faces)
+        }
+        javascript.setObject(triangles3d, forKeyedSubscript: "triangles3d" as NSString)
         javascript.setObject(text("Comic Relief"), forKeyedSubscript: "comicWrite" as NSString)
         javascript.setObject(text("Comic Relief"), forKeyedSubscript: "ywftWrite" as NSString)
         javascript.setObject(text("Helvetica"), forKeyedSubscript: "systemWrite" as NSString)
@@ -1410,39 +1416,6 @@ private final class NativeGameHost {
         javascript.setObject(stampDecal, forKeyedSubscript: "decalTint" as NSString)
         javascript.setObject(uploadDecalMesh, forKeyedSubscript: "decalMeshUpload" as NSString)
         javascript.setObject(drawDecalMesh, forKeyedSubscript: "decalMesh" as NSString)
-        // The retained-texture contract. Arguments arrive loose (the sprite's
-        // depthWrite is optional), so these read the call's own argument list.
-        let numbers: () -> [Double] = {
-            (JSContext.currentArguments() as? [JSValue] ?? []).map { $0.toDouble() }
-        }
-        let themeReady: @convention(block) () -> Bool = { [weak self] in
-            self?.view.scene.themeReady ?? false
-        }
-        let themeAssetReady: @convention(block) (Int32) -> Bool = { [weak self] id in
-            self?.view.scene.themeAssetReady(Int(id)) ?? false
-        }
-        let themeSprite: @convention(block) () -> Bool = { [weak self] in
-            let v = numbers()
-            guard let self, v.count >= 12 else { return false }
-            let args = JSContext.currentArguments() as? [JSValue] ?? []
-            let depthWrite = v.count < 13 || args[12].isUndefined || args[12].toBool()
-            return self.view.scene.themeSprite(asset: Int(v[0]),
-                source: CGRect(x: v[1], y: v[2], width: v[3], height: v[4]),
-                x: v[5], y: v[6], width: v[7], height: v[8], angle: v[9],
-                flip: args[10].toBool(), depth: v[11], depthWrite: depthWrite)
-        }
-        let themeQuad: @convention(block) () -> Bool = { [weak self] in
-            let v = numbers()
-            guard let self, v.count >= 17, v.allSatisfy(\.isFinite) else { return false }
-            return self.view.scene.themeQuad(asset: Int(v[0]),
-                source: CGRect(x: v[1], y: v[2], width: v[3], height: v[4]),
-                (v[5], v[6], v[7]), (v[8], v[9], v[10]),
-                (v[11], v[12], v[13]), (v[14], v[15], v[16]))
-        }
-        javascript.setObject(themeReady, forKeyedSubscript: "themeReady" as NSString)
-        javascript.setObject(themeAssetReady, forKeyedSubscript: "themeAssetReady" as NSString)
-        javascript.setObject(themeSprite, forKeyedSubscript: "themeSprite" as NSString)
-        javascript.setObject(themeQuad, forKeyedSubscript: "themeQuad" as NSString)
         javascript.setObject(telemetry, forKeyedSubscript: "telemetry" as NSString)
         javascript.setObject(drum, forKeyedSubscript: "drum" as NSString)
         javascript.setObject(synth, forKeyedSubscript: "synth" as NSString)

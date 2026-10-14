@@ -2571,12 +2571,61 @@ function flushFrameProgram() {
 // The host's own drawing functions, taken before they are shadowed. The
 // shadows are the emitter: buffered they write an op, immediate they are
 // the old call. Every draw site in the piece keeps calling the old names.
+let flushFaces = () => {};
 {
-  const rawTriangle3d = typeof triangle3d === "function" ? triangle3d : null;
-  const rawTriangle = typeof triangle === "function" ? triangle : null;
+  let rawTriangle3d = typeof triangle3d === "function" ? triangle3d : null;
+  let rawTriangle = typeof triangle === "function" ? triangle : null;
   const rawDisc3d = typeof disc3d === "function" ? disc3d : null;
   const rawCapsule3d = typeof capsule3d === "function" ? capsule3d : null;
-  const rawWipe = wipe, rawBox = box, rawLine = line, rawWrite = write;
+  let rawWipe = wipe, rawBox = box, rawLine = line;
+  const rawWrite = write;
+  // A host that says `batchFaces` (the Mac: JavaScriptCore, where one call
+  // into Swift costs ~1.2 us and a Float32Array write a few ns) gets its
+  // faces gathered into one array and handed over by `triangles3d` when
+  // anything else touches its scene lane (a box, a line, a flat or
+  // translucent face, a wipe, a direct batch) and at the end of the paint,
+  // so the lane's order is exactly the per-call order. The console's QuickJS
+  // is the other way round (see emitTriangle) and keeps one call per face.
+  if (rawTriangle3d && typeof triangles3d === "function" &&
+      typeof capabilities === "function" && capabilities().batchFaces === true) {
+    const send = triangles3d, room = 2048;
+    const faces = new Float32Array(room * 12);
+    let count = 0;
+    flushFaces = () => {
+      if (!count) return;
+      const n = count;
+      count = 0;
+      send(faces, n);
+    };
+    rawTriangle3d = function (x1, y1, z1, x2, y2, z2, x3, y3, z3, r = 255, g = 255, b = 255) {
+      if (count === room) flushFaces();
+      const at = count * 12;
+      faces[at] = x1; faces[at + 1] = y1; faces[at + 2] = z1;
+      faces[at + 3] = x2; faces[at + 4] = y2; faces[at + 5] = z2;
+      faces[at + 6] = x3; faces[at + 7] = y3; faces[at + 8] = z3;
+      faces[at + 9] = r; faces[at + 10] = g; faces[at + 11] = b;
+      count++;
+    };
+    const wipeNow = rawWipe, boxNow = rawBox, lineNow = rawLine, triangleNow = rawTriangle;
+    rawWipe = function (r, g, b) { flushFaces(); return wipeNow(r, g, b); };
+    rawBox = function (x, y, w, h, r, g, b, a) {
+      flushFaces();
+      return arguments.length > 7 ? boxNow(x, y, w, h, r, g, b, a) : boxNow(x, y, w, h, r, g, b);
+    };
+    rawLine = function (x1, y1, x2, y2, width, r, g, b) { flushFaces(); return lineNow(x1, y1, x2, y2, width, r, g, b); };
+    if (triangleNow) rawTriangle = function (x1, y1, x2, y2, x3, y3, r, g, b) {
+      flushFaces();
+      return triangleNow(x1, y1, x2, y2, x3, y3, r, g, b);
+    };
+    if (typeof triangleAlpha === "function") {
+      const alphaNow = triangleAlpha;
+      triangleAlpha = function (x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b, a) {
+        flushFaces();
+        return alphaNow(x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b, a);
+      };
+    }
+    triangles3d = function (buffer, n) { flushFaces(); return send(buffer, n); };
+  }
   const rawSystemWrite = systemWrite;
   const rawComicWrite = typeof comicWrite === "function" ? comicWrite : null;
   const rawYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
@@ -2714,7 +2763,7 @@ function beginFrameProgram() {
   worldDepthValue = 0;
 }
 function endFrameProgram() {
-  try { flushFrameProgram(); } finally { programBuffered = false; }
+  try { flushFaces(); flushFrameProgram(); } finally { programBuffered = false; }
 }
 function emitFrameCamera() {
   const doll = cameraDoll;
@@ -2967,44 +3016,71 @@ const immediateObjectOut = {
 // farthest of them, and every fill after at its own depth, so the fills
 // cover the edges wherever limbs meet and the ink shows only around the
 // silhouette.
-const figureShapes = [];
+// Kept as flat records — kind depth inkWidth inkR inkG inkB, then the
+// shape's own numbers — so a figure's ~60 shapes cost no allocation:
+//   0 ellipse  x y ax ay bx by r g b     1 capsule  x1 y1 x2 y2 width r g b
+//   2 plate    r g b n, then n points (x y)
+let figureRecords = new Float64Array(4096), figureLength = 0;
 let figureFarthest = -Infinity;
+function figureRecord(kind, depth, size) {
+  if (figureLength + size > figureRecords.length) {
+    const next = new Float64Array(Math.max(figureRecords.length * 2, figureLength + size));
+    next.set(figureRecords);
+    figureRecords = next;
+  }
+  const at = figureLength, F = figureRecords;
+  F[at] = kind; F[at + 1] = depth;
+  F[at + 2] = objectInk[0]; F[at + 3] = objectInk[1]; F[at + 4] = objectInk[2]; F[at + 5] = objectInk[3];
+  figureLength = at + size;
+  figureFarthest = Math.max(figureFarthest, depth);
+  return at + 6;
+}
 const figureEdgeOut = {
   view: objectView,
   face: (...args) => immediateObjectOut.face(...args),
   outline: (width, r, g, b) => immediateObjectOut.outline(width, r, g, b),
   ellipse: (x, y, depth, ax, ay, bx, by, r, g, b) => {
-    figureShapes.push({ kind: "ellipse", depth, ink: objectInk.slice(), args: [x, y, ax, ay, bx, by, r, g, b] });
-    figureFarthest = Math.max(figureFarthest, depth);
+    const at = figureRecord(0, depth, 15), F = figureRecords;
+    F[at] = x; F[at + 1] = y; F[at + 2] = ax; F[at + 3] = ay; F[at + 4] = bx; F[at + 5] = by;
+    F[at + 6] = r; F[at + 7] = g; F[at + 8] = b;
   },
   disc: (x, y, depth, radius, r, g, b) => figureEdgeOut.ellipse(x, y, depth, radius, 0, 0, radius, r, g, b),
   capsule: (x1, y1, x2, y2, depth, width, r, g, b) => {
-    figureShapes.push({ kind: "capsule", depth, ink: objectInk.slice(), args: [x1, y1, x2, y2, width, r, g, b] });
-    figureFarthest = Math.max(figureFarthest, depth);
+    const at = figureRecord(1, depth, 14), F = figureRecords;
+    F[at] = x1; F[at + 1] = y1; F[at + 2] = x2; F[at + 3] = y2; F[at + 4] = width;
+    F[at + 5] = r; F[at + 6] = g; F[at + 7] = b;
   },
   plate: (n, points, depth, r, g, b) => {
-    // The emitter reuses its point buffer from shape to shape; keep a copy.
-    figureShapes.push({ kind: "plate", depth, ink: objectInk.slice(), args: [n, Array.from(points).slice(0, n * 2), r, g, b] });
-    figureFarthest = Math.max(figureFarthest, depth);
+    const at = figureRecord(2, depth, 10 + n * 2), F = figureRecords;
+    F[at] = r; F[at + 1] = g; F[at + 2] = b; F[at + 3] = n;
+    for (let k = 0; k < n * 2; k++) F[at + 4 + k] = points[k];
   },
 };
+const figurePlatePoints = [];
+const figureShapeSize = (F, at) => F[at] === 0 ? 15 : F[at] === 1 ? 14 : 10 + F[at + 9] * 2;
+function figurePlate(F, at) {
+  const n = F[at + 9];
+  figurePlatePoints.length = n * 2;
+  for (let k = 0; k < n * 2; k++) figurePlatePoints[k] = F[at + 10 + k];
+  return figurePlatePoints;
+}
 function drawFigureEdged() {
-  const behind = figureFarthest + flatBehind;
-  for (const shape of figureShapes) {
-    const [width, r, g, b] = shape.ink;
+  const behind = figureFarthest + flatBehind, F = figureRecords, end = figureLength;
+  for (let at = 0; at < end; at += figureShapeSize(F, at)) {
+    const width = F[at + 2];
     if (!width) continue;
-    const a = shape.args;
-    if (shape.kind === "ellipse") flatEllipse(a[0], a[1], behind, a[2], a[3], a[4], a[5], r, g, b, width);
-    else if (shape.kind === "capsule") flatCapsule(a[0], a[1], a[2], a[3], behind, a[4] + width * 2, r, g, b);
-    else flatPlate(a[0], a[1], behind, r, g, b, width);
+    const r = F[at + 3], g = F[at + 4], b = F[at + 5], o = at + 6;
+    if (F[at] === 0) flatEllipse(F[o], F[o + 1], behind, F[o + 2], F[o + 3], F[o + 4], F[o + 5], r, g, b, width);
+    else if (F[at] === 1) flatCapsule(F[o], F[o + 1], F[o + 2], F[o + 3], behind, F[o + 4] + width * 2, r, g, b);
+    else flatPlate(F[o + 3], figurePlate(F, at), behind, r, g, b, width);
   }
-  for (const shape of figureShapes) {
-    const a = shape.args;
-    if (shape.kind === "ellipse") flatEllipse(a[0], a[1], shape.depth, a[2], a[3], a[4], a[5], a[6], a[7], a[8]);
-    else if (shape.kind === "capsule") flatCapsule(a[0], a[1], a[2], a[3], shape.depth, a[4], a[5], a[6], a[7]);
-    else flatPlate(a[0], a[1], shape.depth, a[2], a[3], a[4]);
+  for (let at = 0; at < end; at += figureShapeSize(F, at)) {
+    const depth = F[at + 1], o = at + 6;
+    if (F[at] === 0) flatEllipse(F[o], F[o + 1], depth, F[o + 2], F[o + 3], F[o + 4], F[o + 5], F[o + 6], F[o + 7], F[o + 8]);
+    else if (F[at] === 1) flatCapsule(F[o], F[o + 1], F[o + 2], F[o + 3], depth, F[o + 4], F[o + 5], F[o + 6], F[o + 7]);
+    else flatPlate(F[o + 3], figurePlate(F, at), depth, F[o], F[o + 1], F[o + 2]);
   }
-  figureShapes.length = 0;
+  figureLength = 0;
   figureFarthest = -Infinity;
 }
 // Where an object draws this paint: into the program, or here.
@@ -3250,8 +3326,6 @@ const nativeTriangles3d = typeof triangles3d === "function" ? triangles3d : null
 const nativePostEffects = typeof postEffects === "function" ? postEffects : null;
 const hostComicWrite = typeof comicWrite === "function" ? comicWrite : null;
 const hostYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
-const hostThemeReady = typeof themeReady === "function" ? themeReady : null;
-const hostThemeSprite = typeof themeSprite === "function" ? themeSprite : null;
 const hostThemeAssetReady = typeof themeAssetReady === "function" ? themeAssetReady : null;
 const hudDepth = -1.48;
 function hudBox(x, y, width, height, ...color) {
@@ -3940,6 +4014,11 @@ function boardAtContact(x, y, z) {
   return nearest;
 }
 function boardCondition(board) { return board ? (board.condition ||= {health:100,cracks:[],brokenAt:0}) : boardState; }
+// The paint's read of a board's cracks. It must not create `condition` the
+// way boardCondition does: the board is a ball in the rollback snapshot, so
+// a seat that had drawn it hashed a key a seat that had not lacked.
+const noCracks = Object.freeze([]);
+const boardCracks = (board) => board ? board.condition?.cracks ?? noCracks : boardState.cracks;
 function damageBoard(amount, x, y, z, now = runtime().monotonicUs) {
   const board = boardAtContact(x,y,z);
   const state = boardCondition(board);
@@ -4318,20 +4397,74 @@ const renderInterpolationFields = {
   cameraPoint: ["x", "y", "z"],
 };
 
+// The world's things, one row per type: where its instances live (`list`),
+// which of them exist right now (`live`), where one stands (`at`), the
+// fields that tween between ticks (`lerp`), and how it draws. `depth: true`
+// rows are sorted back to front with the fighters; the others are props
+// drawn first, in table order. `draw: null` rows draw in their own pass
+// (the roof's glass, the impacts' debris) and are listed for ids only.
+//
+// Ids are the renderer's: a WeakMap from instance to number, never written
+// onto the instance, so the rollback snapshot (netSimArrays) and the state
+// hash keep their shape. An instance keeps its id while it keeps its object.
+const midpointAt = (o, out) => { out.x = (o.x1 + o.x2) / 2; out.y = (o.y1 + o.y2) / 2; out.z = (o.z1 + o.z2) / 2; return out; };
+const pointAt = (o, out) => { out.x = o.x; out.y = o.y; out.z = o.z; return out; };
+const drawPlayerEntity = (player, t, labels) => {
+  drawDiveMotion(player, t);
+  drawDoubleJumpMotion(player, t);
+  drawDashMotion(player, t);
+  drawRunner(player, t, labels);
+};
+const worldTypes = [
+  { type: "tree", list: () => bodyTrees, at: pointAt, props: true, draw: (o, t) => drawBodyTree(o, t) },
+  { type: "gun-pickup", list: () => gunPickups, at: pointAt, props: true, draw: (o, t) => drawGunPickup(o, t) },
+  { type: "saber-pickup", list: () => saberPickups, at: pointAt, props: true, draw: (o, t) => drawSaberPickup(o, t) },
+  { type: "grenade-pickup", list: () => grenadePickups, at: pointAt, props: true, draw: (o, t) => drawGrenadePickup(o, t) },
+  { type: "bullet", list: () => bullets, at: pointAt, depth: true, lerp: renderInterpolationFields.bullet, draw: (o) => drawBullet(o) },
+  { type: "grenade", list: () => grenades, live: (o) => o.alive, at: pointAt, depth: true, lerp: renderInterpolationFields.grenade, draw: (o) => drawGrenade(o) },
+  { type: "ball", list: () => balls, live: (o) => o.active, at: pointAt, depth: true, lerp: renderInterpolationFields.ball, draw: (o) => drawBall(o) },
+  { type: "detached", list: () => detachedParts, at: midpointAt, depth: true, lerp: renderInterpolationFields.detached, draw: (o) => drawDetachedPart(o) },
+  // Both fighters are always drawn. A fighter is never removed from the
+  // frame to make a camera move work — the shot is what moves.
+  { type: "player", list: () => players, shown: () => activePlayers(), at: pointAt, depth: true, lerp: renderInterpolationFields.player, draw: drawPlayerEntity },
+  { type: "kid", list: () => parkKids, shown: () => freeskateActive() ? parkKids : noItems, at: pointAt, depth: true, visible: (o) => {
+    if (poolOnly() && !parkActorVisible(o)) return false;
+    const p = projectPoint(o.x, o.y - 90, o.z);
+    return p.x > -150 && p.x < viewWidth() + 150 && p.y > -200 && p.y < viewHeight + 200;
+  }, draw: drawPlayerEntity },
+  { type: "monowheel", list: () => [monowheel], live: (o) => o.active, shown: () => freeskateActive() ? [monowheel] : noItems, at: pointAt, depth: true, draw: (o) => drawMonowheel(o) },
+  { type: "glass", list: () => dojoGlass, at: pointAt, draw: null },
+];
+const noItems = [];
+const entityIds = new WeakMap();
+let nextEntityId = 0;
+function entityId(object) {
+  let id = entityIds.get(object);
+  if (id === undefined) entityIds.set(object, id = ++nextEntityId);
+  return id;
+}
+// Every world instance as { id, type, x, y, z }: for tests, the coach and
+// debug readouts. Not on a hot path.
+function worldEntities() {
+  const out = [];
+  for (const kind of worldTypes)
+    for (const item of kind.list())
+      if (!kind.live || kind.live(item))
+        out.push({ id: entityId(item), type: kind.type, ...kind.at(item, {}) });
+  return out;
+}
+
 function renderInterpolationObjects() {
-  return [
-    ...players.map((object) => [object, renderInterpolationFields.player]),
-    ...players.filter(p=>p.spin).map(p=>[p.spin,["angle"]]),
-    ...bullets.map((object) => [object, renderInterpolationFields.bullet]),
-    ...grenades.map((object) => [object, renderInterpolationFields.grenade]),
-    ...balls.map((object) => [object, renderInterpolationFields.ball]),
-    ...detachedParts.map((object) => [object, renderInterpolationFields.detached]),
-    ...impacts.flatMap((impact) => (impact.debris || [])
-      .map((object) => [object, renderInterpolationFields.debris])),
-    [cameraDoll, renderInterpolationFields.camera],
+  const out = [];
+  for (const kind of worldTypes)
+    if (kind.lerp) for (const object of kind.list()) out.push([object, kind.lerp]);
+  for (const player of players) if (player.spin) out.push([player.spin, ["angle"]]);
+  for (const impact of impacts)
+    for (const object of impact.debris || []) out.push([object, renderInterpolationFields.debris]);
+  out.push([cameraDoll, renderInterpolationFields.camera],
     [cameraDoll.position, renderInterpolationFields.cameraPoint],
-    [cameraDoll.target, renderInterpolationFields.cameraPoint],
-  ];
+    [cameraDoll.target, renderInterpolationFields.cameraPoint]);
+  return out;
 }
 
 function captureRenderInterpolationState() {
@@ -6865,18 +6998,6 @@ function statusVerb(rider, speed, includeSpin=true) {
   if (speed < 30) return ["standing", ""];
   if (speed > walkSpeed + 120) return ["running", mphText];
   return ["walking", mphText];
-}
-function drawStatusVerb(rider, speed, ink) {
-  const [verb, measure] = statusVerb(rider, speed);
-  // Bottom right, just left of the big speed, at a size you read at a
-  // glance. The measurement is the big number beside it.
-  const text = verb;
-  const safe = hudSafeRect();
-  const size = 38;
-  const speedText = measure || "0 mph";
-  const x = Math.round(safe.right - handleWidth(speedText, 46) - 24 - handleWidth(text, size)), y = safe.bottom - 102;
-  typeWrite(text, x + 2, y + 3, size, ...contrastShadow(ink));
-  typeWrite(text, x, y, size, ...ink);
 }
 
 function drawBoardHealth(safe, ink) {
@@ -11092,22 +11213,6 @@ function terrainSpan() {
     bottom: Math.min(parkDeepest, cameraCenterY + reach) };
 }
 
-// The long park's features as camera subjects: the half-pipe deck to deck,
-// and each loop with room round it. A rider inside one gets it framed whole.
-function skateSubjects() {
-  const pipeLeft = gridLeft + (halfpipe.leftCoping - 1) * tileSize;
-  const pipeRight = gridLeft + (halfpipe.rightCoping + 1) * tileSize;
-  return [
-    { name: "half-pipe", left: pipeLeft, right: pipeRight,
-      top: floorY - halfpipeRadius - 160, bottom: floorY + 140 },
-    ...parkSegments.filter((segment) => segment.kind === "pond").map((segment) => ({
-      name: "pond", left: segment.left - 300, right: segment.right + 300,
-      top: seaLevelY - segment.lift - 420, bottom: seaLevelY - segment.lift + segment.depth + 120 })),
-    ...skateLoops.map((loop) => ({ name: "loop", left: loop.x - loop.radius - 380,
-      right: loop.x + loop.radius + 380, top: floorY - loop.radius * 2 - 180,
-      bottom: floorY + 140 })),
-  ];
-}
 
 function updateCamera(dt) {
   if (survivalActive() || skateparkMap) return;
@@ -13036,13 +13141,6 @@ function gunPose(player, now, input = null) {
   return {hand,dx,dy,dz,localAimX,down:{x:nx,y:ny,z:nz},muzzle:{x:hand.x+dx*along+nx*below,y:hand.y+dy*along+ny*below,z:hand.z+dz*along+nz*below}};
 }
 
-function meleeStrike(player, now) {
-  const target = meleeTarget(player, now);
-  return {
-    x: target.x, y: target.y, z: target.z,
-    radius: meleeSpecFor(player, player.attackKind).radius,
-  };
-}
 
 function shieldGeometry(player) {
   const aimX = player.shieldAimX || player.facing;
@@ -13762,18 +13860,6 @@ function sink(player, now) {
   emitSignal("sink", player.pad, -1, 0);
 }
 
-// A short low hop out of crouch. Crouching pins horizontal movement, so a
-// direction flick from a tuck has nothing else to mean.
-function crouchHop(player, direction, now) {
-  player.facing = direction;
-  player.vy = -crouchHopVelocity;
-  player.grounded = false;
-  player.jumpHeld = false;
-  player.hopUntil = now + crouchHopPoseUs;
-  player.pendingMoveLabel = "CROUCH HOP";
-  playDrum("block", .58, panPlayer(player));
-  emitSignal("crouchhop", player.pad, direction, 0);
-}
 
 function killPlayer(target, killerPad, now, cause = "KO") {
   if(target.dummy && !dojoActive()){applyBodyHit(target,0,players[killerPad]?.x ?? target.x-1,killerPad,now,1250,360,false);return;}
@@ -16904,102 +16990,6 @@ function generatedPartColor(appearance, segment) {
   return appearance.shirt;
 }
 
-// Retained photographic materials use the same projected poses and collision
-// surfaces as the vector theme. Assets are uploaded by the native host once.
-let photoThemeActive = false;
-let photoEffectsActive = false, photoWeaponsActive = false;
-function roundGraphicsTheme() {
-  const requested = globalThis.__oskiewarGraphicsTheme;
-  if (requested === "flat" || requested === "photorealistic") return requested;
-  // Photographs wherever the host can draw them: the Xbox's controller
-  // legend and sprites come from this theme (the ground and walls stay
-  // solid colour either way); a host without theme bindings falls to flat.
-  return "photorealistic";
-}
-function refreshPhotoTheme() {
-  photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
-    hostThemeReady !== null && hostThemeSprite !== null && hostThemeReady();
-  photoEffectsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(2);
-  photoWeaponsActive = photoThemeActive && hostThemeAssetReady !== null && hostThemeAssetReady(3);
-}
-const photoExplosionFrames = [[24,64,400,400],[462,53,400,400],
-  [908,34,400,400],[1352,37,400,400],[37,458,400,400],
-  [472,453,400,400],[917,470,400,400],[1368,484,400,400]];
-const photoWeaponRegions = { grenade:[160,82,330,520],
-  launcher:[629,218,610,270], smg:[8,780,624,320], flash:[640,760,606,370] };
-function photoEffectSprite(asset, region, x, y, width, height,
-    angle = 0, flip = false, depth = triangleDepth, depthWrite = true) {
-  if (!(asset === 2 ? photoEffectsActive : photoWeaponsActive) ||
-      ![x,y,width,height,angle,depth].every(Number.isFinite) ||
-      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
-      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
-  return themeSprite(asset,...region,x,y,width,height,angle,flip,
-    clamp(depth,-1.49,1.49),depthWrite) !== false;
-}
-function photoExplosionFrame(age) {
-  return photoExplosionFrames[Math.min(7,Math.floor(clamp(age,0,1)*8))];
-}
-function drawPhotoExplosion(x,y,radius,age,depth=triangleDepth) {
-  if (!photoEffectsActive || !Number.isFinite(age) || !Number.isFinite(radius)) return false;
-  const diameter = Math.min(1800,Math.max(12,radius*2.25));
-  if (x+diameter/2<0 || y+diameter/2<0 || x-diameter/2>viewWidth() || y-diameter/2>viewHeight) return true;
-  return photoEffectSprite(2,photoExplosionFrame(age),x,y,diameter,diameter,0,false,depth,false);
-}
-function drawPhotoHeldWeapon(mode,hand,barrel,flip,depth) {
-  if (!photoWeaponsActive || !["RUBBER SMG","ROCKET LAUNCHER"].includes(mode)) return false;
-  const region = photoWeaponRegions[mode === "ROCKET LAUNCHER" ? "launcher" : "smg"];
-  const dx=barrel.x-hand.x,dy=barrel.y-hand.y;
-  const angle=Math.atan2(dy,dx)-(flip?Math.PI:0),c=Math.cos(angle),s=Math.sin(angle);
-  const width=Math.max(24,Math.hypot(dx,dy)/.58),height=width*region[3]/region[2];
-  const ox=(flip?-1:1)*width*.08,oy=-height*.25;
-  return photoEffectSprite(3,region,hand.x+ox*c-oy*s,hand.y+ox*s+oy*c,
-    width,height,angle,flip,depth,true);
-}
-const photoRegions = {
-  acHead: [80, 104, 285, 285], xboxHead: [524, 104, 285, 285],
-  acLimb: [1058, 48, 104, 372], xboxLimb: [1503, 48, 104, 372],
-  gun: [51, 543, 365, 253], skateboard: [460, 611, 412, 136],
-  // The same photograph cut above the trucks: just the deck, so the trucks
-  // and wheels under it can be their own parts that roll.
-  skateDeck: [460, 611, 412, 62],
-  platform: [900, 606, 418, 162], rocket: [1368, 542, 372, 236],
-  concrete: [970, 625, 270, 43], wall: [930, 698, 350, 55],
-  // The same material as `wall`, for the near skirt, which is drawn in
-  // bands so the strip repeats instead of stretching into a curtain.
-  skirt: [930, 698, 350, 55],
-};
-function photoSprite(region, x, y, width, height, angle = 0, flip = false,
-    depth = triangleDepth) {
-  if (!photoThemeActive || ![x, y, width, height, angle, depth].every(Number.isFinite) ||
-      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
-      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
-  return themeSprite(1, ...photoRegions[region], x, y, width, height,
-    angle, flip, depth) !== false;
-}
-function photoLimb(segment, seat) {
-  const dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1;
-  const length = Math.hypot(dx, dy);
-  if (length < .001) return;
-  const width = Math.max(2, segment.width);
-  photoSprite(seat === 0 ? "acLimb" : "xboxLimb",
-    (segment.x1 + segment.x2) / 2, (segment.y1 + segment.y2) / 2,
-    width, length + width,
-    Math.atan2(dy, dx) - Math.PI / 2);
-}
-function photoSurface(region, a, b, c, d) {
-  // Ground and structure stay solid colour under every theme: the concrete
-  // strip stretched along the terrain read as smeared noise, worst on the
-  // console. Tall faces never took it (they looked like a curtain).
-  if (region === "wall" || region === "concrete" || region === "skirt") return false;
-  if (!photoThemeActive || typeof themeQuad !== "function") return false;
-  const points = [a, b, c, d];
-  if (points.some(p => ![p.x,p.y,p.z].every(Number.isFinite) ||
-      Math.abs(p.x) > 30000 || Math.abs(p.y) > 30000)) return false;
-  // Structural faces use the material atlas, never a stretched skybox crop.
-  return themeQuad(1, ...photoRegions[region],
-    a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z, d.x,d.y,d.z) !== false;
-}
-
 // Limbs as curves: each two-bone limb is one smooth curve through its root,
 // its joint and its end (a quadratic whose control point puts the joint on
 // the curve), drawn as a chain of short strokes with round ends, outline
@@ -17066,11 +17056,6 @@ function drawCurvedLimbs(segments, color, outline, edge, player) {
 
 function drawSkeletonSegments(segments, color, outline, player = null) {
   const appearance = generatedAppearance(player);
-  if (photoThemeActive && player && !player.skin && !appearance) {
-    for (const segment of segments)
-      if (!segment.hitboxOnly) photoLimb(segment, player.pad);
-    return;
-  }
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   if (player?.skin && !appearance) { drawCurvedLimbs(segments, color, outline, edge, player); return; }
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
@@ -17137,15 +17122,6 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
   drawSkeletonSegments(player?.spin ? geometry.segments.filter(s=> !/arm$/.test(s.role||"")) : geometry.segments, color, outline, player);
-  if (photoThemeActive && player && !player.skin && !generatedAppearance(player)) {
-    const head = geometry.head, seat = player.pad === 0 ? 0 : 1;
-    const radius = Math.max(2, head.radius);
-    photoSprite(seat ? "xboxHead" : "acHead", head.x, head.y,
-      radius * 2, radius * 2,
-      isHeadOnly(player) ? player.headRoll || 0 : player.skateRotation || 0,
-      (seat === 0 ? 1 : -1) !== (player.facing || 1), triangleDepth - .01);
-    return;
-  }
   const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   // The neck connector and solid head are emitted into the same triangle
   // silhouette pass, so the head cannot detach as a separate line-layer ring.
@@ -19790,19 +19766,6 @@ function resolveRunnerBounds(player, t) {
   }
 }
 
-function pointSegmentDistance(px, py, pz, segment) {
-  const dx = segment.x2 - segment.x1;
-  const dy = segment.y2 - segment.y1;
-  const dz = segment.z2 - segment.z1;
-  const lengthSquared = dx * dx + dy * dy + dz * dz;
-  const amount = lengthSquared > 0
-    ? Math.max(0, Math.min(1,
-      ((px - segment.x1) * dx + (py - segment.y1) * dy +
-        (pz - segment.z1) * dz) / lengthSquared))
-    : 0;
-  return Math.hypot(px - (segment.x1 + dx * amount),
-    py - (segment.y1 + dy * amount), pz - (segment.z1 + dz * amount));
-}
 
 // Closest points for loose debris, independent of the character renderer.
 function segmentSegmentClosest(first, second) {
@@ -21249,7 +21212,6 @@ function drawTrioFace(player, head, now, cameraYaw = null) {
 }
 
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
-  if (photoThemeActive) color = [20, 12, 26];
   if (head.radius < 5) return;
   const bodyDepth = triangleDepth;
   triangleDepth = bodyDepth - .012;
@@ -21278,7 +21240,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   // saw on their own. A seam on the rim shows the head's own turn.
   const ridingHead = isHeadOnly(player) && player.skateboard;
   const roll = ridingHead ? 0
-    : isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
+    : isHeadOnly(player) ? player.headRoll || 0 : 0;
   const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
   if (ridingHead) {
     const seam = (player.headRoll || 0) - Math.PI / 2;
@@ -21327,10 +21289,10 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     stroke(head.x - r * .08, head.y - r * .18,
       head.x + r * .42, head.y - r * .5, width * .72, hair);
   }
-  const eyeY = head.y - r * (photoThemeActive ? .07 : .18);
-  const eyeGap = r * (photoThemeActive ? .30 : .34);
-  const faceX = head.x + direction * r * (photoThemeActive ? .22 : .08);
-  const eyeWidth = Math.max(1.4, r * (photoThemeActive ? .125 : .1));
+  const eyeY = head.y - r * .18;
+  const eyeGap = r * .34;
+  const faceX = head.x + direction * r * .08;
+  const eyeWidth = Math.max(1.4, r * .1);
   const lineWidth = Math.max(1.2, r * .1);
   const blink = player.alive && !player.blocking && !player.attackKind &&
     Math.sin(t * .73 + player.pad * 2.1) > .985;
@@ -21339,12 +21301,6 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   const inertDummy = player.npc && !player.bot;
   const victoryAmount = deathCinematic?.winnerPad === player.pad
     ? clamp(deathCinematicAge(now) / 1.15, 0, 1) : 0;
-  if (photoThemeActive) {
-    // Cover the photographed eyes completely before drawing live gaze and
-    // expressions. Closed lids are opaque, including the baked pupils.
-    const socket = blink ? (player.pad === 0 ? [135,101,190] : [115,162,53]) : [237,234,221];
-    for (const offset of [-eyeGap,eyeGap]) disc(faceX+offset,eyeY,r*.315,socket);
-  }
   if (!player.alive || player.hit > .6 || inertDummy) {
     for (const offset of [-eyeGap, eyeGap]) {
       stroke(faceX + offset - eyeWidth, eyeY - eyeWidth,
@@ -21635,19 +21591,6 @@ function drawInventory(player, now, geometry) {
       const basis=(along,below)=>projectWeapon(pose.hand.x+pose.dx*along+down.x*below,
         pose.hand.y+pose.dy*along+down.y*below,pose.hand.z+(pose.dz||0)*along+down.z*below);
       barrel = drawHandgun(hand, aim, player.facing, scale, basis);
-    } else if (photoThemeActive) {
-      // Place the photograph's grip at the solved wrist. Reflect its local X
-      // before rotation so aiming left does not turn the grip upside down.
-      const dx = barrel.x - hand.x, dy = barrel.y - hand.y;
-      const length = Math.hypot(dx, dy) || 1;
-      const flip = player.facing < 0;
-      const width = Math.max(18, length / .72), height = width * 253 / 365;
-      const angle = Math.atan2(dy, dx) - (flip ? Math.PI : 0);
-      const ox = (flip ? -1 : 1) * width * .25, oy = -height * .1;
-      const c = Math.cos(angle), s = Math.sin(angle);
-      if (!drawPhotoHeldWeapon(player.gunMode,hand,barrel,flip,triangleDepth-.025))
-        photoSprite("gun", hand.x + ox*c - oy*s, hand.y + ox*s + oy*c,
-          width, height, angle, flip, triangleDepth - .025);
     } else {
     filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
       barrelWidth, gunColor);
@@ -21678,11 +21621,6 @@ function drawInventory(player, now, geometry) {
     if (firing) {
       const flashAngle=Math.atan2(barrel.y-hand.y,barrel.x-hand.x);
       const flashSize=Math.max(18,54*scale);
-      const photoFlash=photoEffectSprite(3,photoWeaponRegions.flash,
-        barrel.x+Math.cos(flashAngle)*flashSize*.43,
-        barrel.y+Math.sin(flashAngle)*flashSize*.43,
-        flashSize,flashSize*.61,flashAngle,false,triangleDepth-.03,false);
-      if (!photoFlash) {
       // A forked flash off the muzzle as drawn, in screen space, so it
       // leaves whichever barrel the weapon actually has.
       const ax = Math.cos(flashAngle), ay = Math.sin(flashAngle);
@@ -21693,16 +21631,13 @@ function drawInventory(player, now, geometry) {
         Math.max(2, 5 * scale), [255, 248, 190]);
       filledCapsule(barrel.x, barrel.y, flashB.x, flashB.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
-      }
     }
   }
   if (throwing || bashing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
-    if (!photoEffectSprite(3,photoWeaponRegions.grenade,hand.x,hand.y,
-        Math.max(8,24*scale),Math.max(12,38*scale),0,false,triangleDepth-.03,true))
-      hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
-        Math.max(2, 5 * scale), grenadeColor);
+    hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
+      Math.max(2, 5 * scale), grenadeColor);
   }
 }
 
@@ -21785,7 +21720,6 @@ function drawBrokenRunner(player, age) {
       (segment.z1 + segment.z2) / 2 + dz).z;
     const width = Math.max(2, segment.width * cameraScale());
     if (player.skin) drawSkeletonSegments([{...segment,x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}],segment.role === "torso" ? player.shirtColor || [252,252,250] : player.color,outline,player);
-    else if (photoThemeActive) photoLimb({x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}, player.pad);
     else {
       filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
       filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
@@ -22700,7 +22634,7 @@ function drawRunnerAtScale(player, t, showLabel = true) {
   if (player.fallenBodyGeometry) {
     const fallen = projectRunnerWorldGeometry(player.fallenBodyGeometry);
     if (!fallen.behind)
-      drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
+      drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], null);
   }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
@@ -23751,7 +23685,7 @@ function terrainVertex(slot, index, x, y, z) {
   vertex.front = view.z >= cameraNear;
   // Buffered on the flat look, the interpreter projects the face; only the
   // camera-space depth is needed here, for the hall's air.
-  if (programBuffered && !photoThemeActive) { vertex.inBand = false; return vertex; }
+  if (programBuffered) { vertex.inBand = false; return vertex; }
   vertex.inBand = vertex.front &&
     bandContains(cameraDoll.projectView(view, vertex.screen));
   return vertex;
@@ -23759,30 +23693,12 @@ function terrainVertex(slot, index, x, y, z) {
 // `bottomY` null: the bottom vertex shares the profile's y (the surface
 // pass, top at z `zTop`, bottom at z `zBottom`). Otherwise a wall: both
 // vertices at `zTop`, the bottom one dropped to `bottomY`.
-// The near skirt fills the bottom of the frame at the TV lens, and a flat
-// shade there read as a blank slab under a photographed floor. Split each
-// segment's drop into `rows` bands, each wearing the whole wall strip, so
-// the material repeats down the face at about the strip's own proportion.
-// Falls back to the shaded quad when the theme cannot draw (no atlas, or a
-// corner off the frame), so the wall is never missing.
-function terrainSkirtTiles(topLeft, topRight, bottomRight, bottomLeft, rows) {
-  for (let row = 0; row < rows; row++) {
-    const from = row / rows, to = (row + 1) / rows;
-    const corner = (top, bottom, mix) => projectPoint(top.x,
-      top.y + (bottom.y - top.y) * mix, top.z);
-    if (!photoSurface("skirt", corner(topLeft, bottomLeft, from),
-        corner(topRight, bottomRight, from), corner(topRight, bottomRight, to),
-        corner(topLeft, bottomLeft, to))) return row > 0;
-  }
-  return true;
-}
-
 // One number for how much detail the scene can afford at this lens: 1 up
 // close, rising with the camera's width to 6 for a whole-course shot.
 const sceneLod = () => cameraDoll.width > 2600
   ? clamp(Math.round(cameraDoll.width / 1800), 1, 6) : 1;
 
-function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1) {
+function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
   const { top, bottom } = terrainScratch;
   const wall = bottomY !== null;
   const terrainProfile = activeTerrainProfile();
@@ -23802,7 +23718,7 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1)
         !(point.x < left || terrainProfile[previous].x > right)) {
       const a1 = top[previous], b1 = bottom[previous];
       const shade = shadeOf(previous);
-      if (programBuffered && !photoThemeActive) {
+      if (programBuffered) {
         const lit = hallAir(litQuadColor(a1, a, b, shade), a1, a);
         emitWorldFace(a1.x, a1.y, a1.z, a.x, a.y, a.z, b.x, b.y, b.z, lit[0], lit[1], lit[2]);
         emitWorldFace(a1.x, a1.y, a1.z, b.x, b.y, b.z, b1.x, b1.y, b1.z, lit[0], lit[1], lit[2]);
@@ -23810,15 +23726,6 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1)
         continue;
       }
       if (a1.front && a.front && b.front && b1.front) {
-        if (wall && tileRows > 1 && photoThemeActive &&
-            terrainSkirtTiles(a1, a, b, b1, tileRows)) {
-          previous = index;
-          continue;
-        }
-        if (photoSurface(wall ? "wall" : "concrete", a1.screen, a.screen, b.screen, b1.screen)) {
-          previous = index;
-          continue;
-        }
         const lit = hallAir(litQuadColor(a1, a, b, shade), a1, a);
         if (a1.inBand && a.inBand && b.inBand && b1.inBand) {
           projectedTriangle(a1.screen, a.screen, b.screen, lit);
@@ -24101,9 +24008,7 @@ function drawTerrainFrontWallGeometry(left, right, near, color) {
   const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = reel ? 55 : near - 2;
   const wallBottom = parkDeepest + (reel ? 9000 : 720);
-  // Four bands down the 720 drop keeps the strip near its own proportion;
-  // the reel's deep skirt stays shaded, its framing is test-enshrined.
-  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall, reel || consoleHost() ? 1 : 4);
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
 function drawTerrainBackWall(left, right, far, color) {
@@ -24697,26 +24602,6 @@ function shadowSurfaceY(x, y, z = 0) {
 // fighter's depth still bounds it from the front, so the shadow never
 // draws over the feet it is cast from. Limbs end in round caps, the way the
 // bodies do, instead of notching at every joint.
-// The console's shadow is a blob: one soft oval on the floor under the
-// fighter, smaller and fainter the higher they are. Projecting every limb
-// onto a curved floor point by point cost the Xbox three milliseconds a
-// frame; the web and Mac hosts keep the pose-shaped shadow.
-function drawBlobShadow(player, color) {
-  const floor = shadowSurfaceY(player.x, player.y, player.z||0);
-  const height = Math.max(0, floor - player.y);
-  const fade = clamp(1 - height / 900, .15, 1);
-  const radiusX = 62 * (.55 + .45 * fade), radiusZ = radiusX * .42;
-  const ink = mixColor(visualTheme.light > .5 ? [205, 210, 222] : [24, 28, 40], color, fade);
-  const center = { x: player.x, y: floor - 2, z: player.z };
-  for (let side = 0; side < 10; side++) {
-    const a = side / 10 * Math.PI * 2, b = (side + 1) / 10 * Math.PI * 2;
-    worldTriangle(center,
-      { x: player.x + Math.cos(a) * radiusX, y: shadowSurfaceY(player.x + Math.cos(a) * radiusX, floor, player.z + Math.sin(a) * radiusZ) - 2,
-        z: player.z + Math.sin(a) * radiusZ },
-      { x: player.x + Math.cos(b) * radiusX, y: shadowSurfaceY(player.x + Math.cos(b) * radiusX, floor, player.z + Math.sin(b) * radiusZ) - 2,
-        z: player.z + Math.sin(b) * radiusZ }, ink);
-  }
-}
 
 const dojoShadowBuffers=new WeakMap();
 function drawDojoPoseShadow(player,t,color) {
@@ -24739,6 +24624,29 @@ function drawDojoPoseShadow(player,t,color) {
  buffers.vertices.set(verts);buffers.faces.set(faces);nativeSceneMesh(buffers.vertices,buffers.faces,mainNativeCamera());
 }
 
+// Scratch for the pose shadow: it projects ~150 points per fighter a frame,
+// and each used to allocate the point, its view and its projection, plus a
+// copy per corner to clamp it onto the floor.
+const shadowIn = { x: 0, y: 0, z: 0 }, shadowView = { x: 0, y: 0, z: 0 };
+const shadowA = {}, shadowB = {}, shadowHead = {};
+const shadowCorners = [{}, {}, {}, {}], shadowRing = Array.from({ length: 13 }, () => ({}));
+const shadowFloor = new Map(), shadowTurns = new Map();
+// cos and sin at k / n of a turn, k = 0..n; the last entry is the full turn
+// itself, as the fans always computed it, not a copy of the first.
+function shadowTurn(n) {
+  let turn = shadowTurns.get(n);
+  if (!turn) {
+    turn = { cos: new Float64Array(n + 1), sin: new Float64Array(n + 1) };
+    for (let k = 0; k <= n; k++) {
+      const a = k * Math.PI * 2 / n;
+      turn.cos[k] = Math.cos(a); turn.sin[k] = Math.sin(a);
+    }
+    shadowTurns.set(n, turn);
+  }
+  return turn;
+}
+const shadowDrawable = (value) => Number.isFinite(value) && Math.abs(value) < 12000;
+
 function drawPoseShadow(player, t, color) {
   if(currentMapId === "dojo" && nativeSceneMesh && !programBuffered && !clipView){drawDojoPoseShadow(player,t,color);return;}
   // Every limb, the head and the board cast their own shape. On the console
@@ -24748,8 +24656,8 @@ function drawPoseShadow(player, t, color) {
   const lite = consoleHost();
   const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
   const surface = shadowSurfaceY(player.x, player.y, player.z||0);
-  const behindFighter = projectPoint(player.x, player.y, player.z).z + .004;
-  const floorCache = new Map();
+  const floorCache = shadowFloor;
+  floorCache.clear();
   const floorAt = (x, z) => {
     if (poolOnly()) return poolFloorAt(x,z);
     if (!lite) return shadowSurfaceY(x, surface - 5);
@@ -24758,97 +24666,75 @@ function drawPoseShadow(player, t, color) {
     if (y === undefined) { y = shadowSurfaceY(key * 10, surface - 5); floorCache.set(key, y); }
     return y;
   };
-  const project = (x, y, z) => {
+  // projectPoint, into `out`, for the shadow's spot on the floor.
+  const project = (x, y, z, out) => {
     const height = Math.max(0, surface - y);
     const sx = clamp(x + globalLight.x / globalLight.y * height, worldLeft, worldRight);
     const sz = clamp(z + globalLight.z / globalLight.y * height, worldNear + 4, worldFar - 4);
-    const point = projectPoint(sx, floorAt(sx,sz) - 2, sz);
+    shadowIn.x = sx; shadowIn.y = floorAt(sx,sz) - 2; shadowIn.z = sz;
+    const view = cameraDoll.toView(shadowIn, shadowView);
+    const behind = view.z < cameraNear;
+    view.z = Math.max(cameraPin, view.z);
+    cameraDoll.projectView(view, out);
+    out.behind = behind;
     // On the floor's own surface, just above it. Fighters now stand at the
     // floor's near edge, so a shadow there is still behind them — and it is
     // no longer buried under the near half of the floor.
-    point.z -= .002;
-    return point;
+    out.z -= .002;
+    return out;
   };
-  const drawable = (...values) => values.every(value =>
-    Number.isFinite(value) && Math.abs(value) < 12000);
   // Limb width and caps are laid out in screen space, so near the back edge
   // they spilled past the floor onto the wall. Every vertex stays inside the
   // floor's own band on screen, between its far and near edges.
   const farY = projectPoint(player.x, surface, worldFar - 4).y;
   const nearY = projectPoint(player.x, surface, worldNear + 4).y;
   const top = Math.min(farY, nearY), bottom = Math.max(farY, nearY);
-  const onFloor = (p) => ({ x: p.x, y: clamp(p.y, top, bottom), z: p.z });
-  const face = (a, b, c) => {
-    if (!drawable(a.x, a.y, b.x, b.y, c.x, c.y)) return;
-    a = onFloor(a); b = onFloor(b); c = onFloor(c);
-    emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
+  const face = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
+    if (!(shadowDrawable(ax) && shadowDrawable(ay) && shadowDrawable(bx) &&
+      shadowDrawable(by) && shadowDrawable(cx) && shadowDrawable(cy))) return;
+    emitTriangle(ax, clamp(ay, top, bottom), az, bx, clamp(by, top, bottom), bz,
+      cx, clamp(cy, top, bottom), cz, color[0], color[1], color[2]);
   };
-  const capSides = lite ? 4 : 6;
+  const capTurn = shadowTurn(lite ? 4 : 6);
   const cap = (center, radius) => {
-    for (let side = 0; side < capSides; side++) {
-      const a = side * Math.PI * 2 / capSides, b = (side + 1) * Math.PI * 2 / capSides;
-      face(center,
-        { x: center.x + Math.cos(a) * radius, y: center.y + Math.sin(a) * radius, z: center.z },
-        { x: center.x + Math.cos(b) * radius, y: center.y + Math.sin(b) * radius, z: center.z });
-    }
+    const n = capTurn.cos.length - 1, x = center.x, y = center.y, z = center.z;
+    for (let side = 0; side < n; side++)
+      face(x, y, z,
+        x + capTurn.cos[side] * radius, y + capTurn.sin[side] * radius, z,
+        x + capTurn.cos[side + 1] * radius, y + capTurn.sin[side + 1] * radius, z);
   };
   for (const segment of world.segments) {
     if (segment.hitboxOnly) continue;
-    const a = project(segment.x1, segment.y1, segment.z1);
-    const b = project(segment.x2, segment.y2, segment.z2);
+    const a = project(segment.x1, segment.y1, segment.z1, shadowA);
+    const b = project(segment.x2, segment.y2, segment.z2, shadowB);
     const dx = b.x-a.x, dy = b.y-a.y, length = Math.hypot(dx,dy);
-    if (!drawable(a.x, a.y, b.x, b.y, length) || length < .01) continue;
+    if (!(shadowDrawable(a.x) && shadowDrawable(a.y) && shadowDrawable(b.x) &&
+      shadowDrawable(b.y) && shadowDrawable(length)) || length < .01) continue;
     const radius = Math.max(1, segment.width * cameraScale() * .48);
     const nx = -dy / length * radius, ny = dx / length * radius;
-    const a1 = { x: a.x + nx, y: a.y + ny, z: a.z }, a2 = { x: a.x - nx, y: a.y - ny, z: a.z };
-    const b1 = { x: b.x + nx, y: b.y + ny, z: b.z }, b2 = { x: b.x - nx, y: b.y - ny, z: b.z };
-    face(a1, a2, b1);
-    face(a2, b2, b1);
+    face(a.x + nx, a.y + ny, a.z, a.x - nx, a.y - ny, a.z, b.x + nx, b.y + ny, b.z);
+    face(a.x - nx, a.y - ny, a.z, b.x - nx, b.y - ny, b.z, b.x + nx, b.y + ny, b.z);
     cap(a, radius);
     cap(b, radius);
   }
   if (player.skateboard) {
     // The deck's own shadow: its outline, cast like everything else.
     const deck = skateFrame(player.skateStall ? stallBoardPlayer(player) : player);
-    const corners = [[-60, -10], [60, -10], [60, 10], [-60, 10]]
-      .map(([along, across]) => { const p = deck(along, -2, across); return project(p.x, p.y, p.z); });
-    face(corners[0], corners[1], corners[2]);
-    face(corners[0], corners[2], corners[3]);
+    const c = shadowCorners;
+    for (let k = 0; k < 4; k++) {
+      const p = deck(k === 0 || k === 3 ? -60 : 60, -2, k < 2 ? -10 : 10);
+      project(p.x, p.y, p.z, c[k]);
+    }
+    face(c[0].x, c[0].y, c[0].z, c[1].x, c[1].y, c[1].z, c[2].x, c[2].y, c[2].z);
+    face(c[0].x, c[0].y, c[0].z, c[2].x, c[2].y, c[2].z, c[3].x, c[3].y, c[3].z);
   }
-  const head = project(world.head.x, world.head.y, world.head.z);
-  const headSides = lite ? 8 : 12;
-  for (let side = 0; side < headSides; side++) {
-    const a = side * Math.PI * 2 / headSides, b = (side + 1) * Math.PI * 2 / headSides;
-    face(head,
-      project(world.head.x + Math.cos(a)*world.head.radius,
-        world.head.y, world.head.z + Math.sin(a)*world.head.radius),
-      project(world.head.x + Math.cos(b)*world.head.radius,
-        world.head.y, world.head.z + Math.sin(b)*world.head.radius));
-  }
-}
-
-function updateSceneLighting(now) {
-  if (typeof themeLighting !== "function") return;
-  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([], visualTheme.light); return; }
-  const span = worldRight - worldLeft;
-  const lights = [.18,.82].map((part) => {
-    const x = worldLeft + span * part;
-    const point = projectPoint(x, terrainFloorAt(x) - 420, -180);
-    return {x:point.x,y:point.y,radius:Math.max(100,1500*cameraScale()),strength:.65};
-  });
-  for (const impact of impacts) {
-    if (!impact.explosion || lights.length >= 4) continue;
-    const point = projectPoint(impact.x,impact.y,impact.z || 0);
-    lights.push({x:point.x,y:point.y,radius:Math.max(80,700*cameraScale()),strength:1});
-  }
-  for (const player of activePlayers()) {
-    if (lights.length >= 4) break;
-    if (player.itemAction !== "FIRE" || now >= player.itemActionUntil) continue;
-    const pose = gunPose(player, now);
-    const point = projectPoint(pose.muzzle.x,pose.muzzle.y,pose.muzzle.z);
-    lights.push({x:point.x,y:point.y,radius:Math.max(60,450*cameraScale()),strength:.9});
-  }
-  themeLighting(lights, visualTheme.light);
+  const h = world.head, head = project(h.x, h.y, h.z, shadowHead);
+  const headTurn = shadowTurn(lite ? 8 : 12), sides = headTurn.cos.length - 1, ring = shadowRing;
+  for (let k = 0; k <= sides; k++)
+    project(h.x + headTurn.cos[k]*h.radius, h.y, h.z + headTurn.sin[k]*h.radius, ring[k]);
+  for (let side = 0; side < sides; side++)
+    face(head.x, head.y, head.z, ring[side].x, ring[side].y, ring[side].z,
+      ring[side + 1].x, ring[side + 1].y, ring[side + 1].z);
 }
 
 let dojoSpotMesh=null;
@@ -24904,7 +24790,7 @@ function projectedBallRadius(ball) {
   return Math.max(.5, Math.abs(edge.x - center.x));
 }
 
-// Trucks and wheels as parts of their own under a photographed deck: metal
+// Trucks and wheels as parts of their own under the deck: metal
 // hangers down to each axle, and four wheels that roll — urethane in the
 // photograph's colour, a darker lip, a silver bearing, and a spin mark that
 // turns with the distance the board has covered.
@@ -24942,12 +24828,56 @@ function drawTruck(at,along){
   rod([along,8.8,-11],[along,8.8,11],4,body);
   rod([along,skateAxleDrop,-17],[along,skateAxleDrop,17],2,steel);
 }
+// The trucks and the tyres never change shape: their corners, in the
+// board's own space, are worked out once per wheel colour and only carried
+// through `at` each frame. They were rebuilt from cylinders every frame —
+// ~240 ring points, each a few small arrays. The wheel faces turn with the
+// board, so they stay live below.
+const boardGearShapes = new Map();
+function boardGearShape(urethane) {
+  const key = urethane.join(",");
+  let shape = boardGearShapes.get(key);
+  if (shape) return shape;
+  const points = [], index = new Map(), parts = [];
+  let ops = null;
+  const id = (p) => {
+    let i = index.get(p);
+    if (i === undefined) { index.set(p, i = points.length / 3); points.push(p.x, p.y, p.z); }
+    return i;
+  };
+  const local = (x, y, z) => ({ x, y, z });
+  const quad = worldQuad, triangle = worldTriangle;
+  worldQuad = (a, b, c, d, color) => { ops.push(4, id(a), id(b), id(c), id(d), color); };
+  worldTriangle = (a, b, c, color) => { ops.push(3, id(a), id(b), id(c), color); };
+  try {
+    parts.push(ops = []);
+    for (const along of [-skateTruck, skateTruck]) drawTruck(local, along);
+    const rubber = mixColor(urethane, [90, 36, 10], .45);
+    for (const along of [-skateTruck, skateTruck]) for (const side of [-1, 1]) {
+      const z = side * 15;
+      parts.push(ops = []);
+      boardCylinder(local, [along, skateAxleDrop, z - 3], [along, skateAxleDrop, z + 3], skateWheelRadius, rubber, 12);
+    }
+  } finally { worldQuad = quad; worldTriangle = triangle; }
+  shape = { points, parts, placed: [] };
+  boardGearShapes.set(key, shape);
+  return shape;
+}
+function drawBoardGearPart(ops, placed) {
+  for (let i = 0; i < ops.length;) {
+    if (ops[i] === 4) { worldQuad(placed[ops[i + 1]], placed[ops[i + 2]], placed[ops[i + 3]], placed[ops[i + 4]], ops[i + 5]); i += 6; }
+    else { worldTriangle(placed[ops[i + 1]], placed[ops[i + 2]], placed[ops[i + 3]], ops[i + 4]); i += 5; }
+  }
+}
 function drawBoardRunningGearGeometry(player,at,nearSide,urethane,marks=true){
-  for(const along of [-skateTruck,skateTruck])drawTruck(at,along);
-  const spin=player.skateSpin||0,rubber=mixColor(urethane,[90,36,10],.45);
+  const shape = boardGearShape(urethane), P = shape.points, placed = shape.placed;
+  for (let i = 0; i < P.length; i += 3) placed[i / 3] = at(P[i], P[i + 1], P[i + 2]);
+  drawBoardGearPart(shape.parts[0], placed);
+  const spin=player.skateSpin||0;
+  let wheel = 1;
   for(const along of [-skateTruck,skateTruck])for(const side of [-1,1]){
     const z=side*15;
-    boardCylinder(at,[along,skateAxleDrop,z-3],[along,skateAxleDrop,z+3],skateWheelRadius,rubber,12);
+    drawBoardGearPart(shape.parts[wheel++], placed);
     // The two wheel faces and bearings live on the axle's physical planes.
     for(const cap of [-1,1]){
       const faceZ=z+cap*3.03,center=at(along,skateAxleDrop,faceZ);
@@ -25011,7 +24941,7 @@ function drawSkateboard(player) {
   // whenever it flips). Trucks and wheels are their own parts below.
   const nearSide = cameraDoll.position.z < player.z ? -1 : 1;
   if(nativeRetainedMeshes){
-    const cracks=boardCondition(player.boardObject || balls[player.skateBoardId ?? 1]).cracks;
+    const cracks=boardCracks(player.boardObject || balls[player.skateBoardId ?? 1]);
     const key=(player.color||[236,76,118]).join(',')+':'+JSON.stringify(cracks);
     let mesh=skateDeckMeshes.get(key);
     if(!mesh){
@@ -25026,8 +24956,7 @@ function drawSkateboard(player) {
     if(handle>=0&&camera)nativeMeshDraw(handle,camera,0);
     else drawSkateDeckGeometry(player,at);
   } else drawSkateDeckGeometry(player,at);
-  drawBoardRunningGear(player, at, nearSide,
-    photoThemeActive ? [232, 112, 34] : [30, 32, 40]);
+  drawBoardRunningGear(player, at, nearSide, [30, 32, 40]);
 }
 
 const skateDeckMeshes=new Map();
@@ -25059,7 +24988,7 @@ function drawSkateDeckGeometry(player,at){
   for (const end of [stations[0], stations[stations.length - 1]])
     worldQuad(top(end, -1), top(end, 1), bottom(end, 1), bottom(end, -1), ply);
   // Cracks and chips in the grip, as the board takes damage.
-  for (const crack of boardCondition(player.boardObject || balls[player.skateBoardId ?? 1]).cracks) {
+  for (const crack of boardCracks(player.boardObject || balls[player.skateBoardId ?? 1])) {
     const c = Math.cos(crack.angle), s = Math.sin(crack.angle);
     const a = at(crack.along - c * crack.length / 2, -4.4 + lift(crack.along), crack.across - s * crack.length / 2);
     const b = at(crack.along + c * crack.length / 2, -4.4 + lift(crack.along), crack.across + s * crack.length / 2);
@@ -25212,15 +25141,6 @@ function drawGunPickup(pickup, t) {
     if(hand.behind || aim.behind)return;
     const old=triangleDepth;triangleDepth=hand.z-.002;
     drawHandgun(hand,aim,1,scale);triangleDepth=old;return;
-  }
-  if (photoThemeActive) {
-    const point = projectPoint(pickup.x,bobY,pickup.z);
-    const width = (pickup.kind === "ROCKET LAUNCHER" ? 105 : 56) * scale;
-    const region=photoWeaponRegions[pickup.kind === "ROCKET LAUNCHER" ? "launcher" : "smg"];
-    if (["ROCKET LAUNCHER","RUBBER SMG"].includes(pickup.kind) &&
-        photoEffectSprite(3,region,point.x,point.y,width,width*region[3]/region[2],0,false,point.z-.02,true)) return;
-    photoSprite("gun", point.x,point.y,width,width * 253 / 365,0,false,point.z-.02);
-    return;
   }
   const metal = mixColor([202, 212, 228], [52, 59, 72], visualTheme.light);
   const grip = mixColor([126, 106, 88], [40, 43, 52], visualTheme.light);
@@ -25412,8 +25332,6 @@ function drawGrenadePickup(pickup, t) {
   const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 8;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
-  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
-      Math.max(7,20*scale),Math.max(11,32*scale),0,false,point.z-.02,true)) return;
   const shell = mixColor([166, 194, 112], [72, 96, 58], visualTheme.light);
   const fuse = mixColor([210, 218, 232], [45, 50, 60], visualTheme.light);
   const radius = Math.max(3, 9 * scale);
@@ -25438,8 +25356,6 @@ function drawGrenade(grenade) {
   }
   const point = projectPoint(grenade.x, grenade.y, grenade.z);
   if (grenade.exploding) {
-    if (drawPhotoExplosion(point.x,point.y,grenadeBlastRadius*cameraScale(),
-        grenade.blastAge/grenadeBlastDuration,point.z-.025)) return;
     const radius = grenade.blastRadius * cameraScale();
     const width = Math.max(3, 10 * cameraScale());
     filledRing(point.x, point.y, radius,
@@ -25447,12 +25363,6 @@ function drawGrenade(grenade) {
     return;
   }
   if (grenade.rocket) {
-    if (photoThemeActive) {
-      const scale = cameraScale();
-      const angle = Math.atan2(grenade.vy,grenade.vx);
-      photoSprite("rocket",point.x,point.y,64*scale,41*scale,angle,false,point.z-.02);
-      return;
-    }
     const length = Math.hypot(grenade.vx, grenade.vy) || 1;
     const tail = projectPoint(grenade.x - grenade.vx / length * 54,
       grenade.y - grenade.vy / length * 54, grenade.z);
@@ -25466,9 +25376,6 @@ function drawGrenade(grenade) {
     return;
   }
   const blink = grenade.fuse < .45 && Math.floor(grenade.fuse * 20) % 2 === 0;
-  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
-      Math.max(9,30*cameraScale()),Math.max(14,48*cameraScale()),
-      grenade.fuse*5,grenade.vx<0,point.z-.02,true)) return;
   const color = blink ? [255, 255, 255] : players[grenade.owner].color;
   filledDisc(point.x, point.y, Math.max(4, 22 * cameraScale()), color);
   const tail = projectPoint(grenade.x - Math.sign(grenade.vx) * 90,
@@ -26598,8 +26505,7 @@ function drawImpacts() {
       const edge = projectPoint(impact.x + impact.blastRadius,
         impact.y - 3, impact.z || 0);
       const radius = Math.abs(edge.x - center.x);
-      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000 &&
-          !drawPhotoExplosion(center.x,center.y,radius,age,center.z-.025)) {
+      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000) {
         filledRing(center.x, center.y, radius,
           Math.max(0, radius - Math.max(7, 22 * (1 - age))),
           mixColor([255, 218, 86], [111, 74, 48], age));
@@ -26757,6 +26663,8 @@ function steerPostEffects() {
     clamp(moveX, -24, 24), clamp(moveY, -24, 24));
 }
 
+const renderableList = [], renderablePool = [];
+const byFarthest = (a, b) => b.depth - a.depth;
 function gamePaint() {
   syncNativeAccount();
   governFigureLod(runtime().monotonicUs);
@@ -26811,12 +26719,7 @@ function gamePaint() {
   // a profile lookup here would answer empty and strip them every frame.
   for (const player of players)
     if (!player.remote && (player.pad !== 0 || player.npc)) player.handleColors = fighterProfile(player.name).colors;
-  refreshPhotoTheme();
-  globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
-  // The photographic materials ride the ordinary day/night palette. They
-  // used to force night so they would match the underpass photograph behind
-  // them; that plate is retired for a plain sky, and at night the long
-  // park's ground sank into it and read as missing.
+  globalThis.__oskiewarGraphicsThemeStatus = "flat";
   visualTheme = displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
@@ -26870,7 +26773,6 @@ function gamePaint() {
   const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
-  updateSceneLighting(run.monotonicUs);
   wipe(...(poolPainting?[108,111,117]:outside));
   // A plain sky behind every theme. The underpass photograph was busy behind
   // the fighters and painted its own floor wherever a course had none.
@@ -27046,12 +26948,8 @@ function gamePaint() {
       globalThis.__oskiewarTouch.updateButton = null;
     }
   }
-  if (!survivalActive()) {
-    for (const tree of bodyTrees) drawBodyTree(tree, t);
-    for (const pickup of gunPickups) drawGunPickup(pickup, t);
-    for (const pickup of saberPickups) drawSaberPickup(pickup, t);
-    for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
-  }
+  if (!survivalActive())
+    for (const kind of worldTypes) if (kind.props) for (const item of kind.list()) kind.draw(item, t);
   const showRunnerLabels = matchHud && !reelMinimal &&
     (Boolean(roundResult) || introAge >= roundIntroDurationUs());
   const viewDirection = normalize3({
@@ -27059,33 +26957,24 @@ function gamePaint() {
     y: cameraDoll.target.y - cameraDoll.position.y,
     z: cameraDoll.target.z - cameraDoll.position.z,
   });
-  const renderables = [
-    ...bullets.map((item) => ({
-      kind: "bullet", item, x: item.x, y: item.y, z: item.z })),
-    ...grenades.filter((item) => item.alive).map((item) => ({
-      kind: "grenade", item, x: item.x, y: item.y, z: item.z })),
-    ...balls.filter((item) => item.active).map((item) => ({
-      kind: "ball", item, x: item.x, y: item.y, z: item.z })),
-    ...detachedParts.map((item) => ({ kind: "detached", item,
-      x: (item.x1 + item.x2) / 2, y: (item.y1 + item.y2) / 2,
-      z: (item.z1 + item.z2) / 2 })),
-    // Both fighters are always in this list. A fighter is never removed from
-    // the frame to make a camera move work — the shot is what moves.
-    ...activePlayers().map((item) => ({
-      kind: "player", item, x: item.x, y: item.y, z: item.z })),
-  ];
-  if(freeskateActive())for(const item of parkKids){
-    if(poolOnly()&&!parkActorVisible(item))continue;
-    const p=projectPoint(item.x,item.y-90,item.z);
-    if(p.x>-150 && p.x<viewWidth()+150 && p.y>-200 && p.y<viewHeight+200)renderables.push({kind:"player",item,x:item.x,y:item.y,z:item.z});
+  // Back to front along the lens. Records are pooled: a frame of fighters,
+  // balls and debris used to allocate one object per instance per frame, and
+  // the sort recomputed each depth on every comparison.
+  const renderables = renderableList;
+  renderables.length = 0;
+  const cam = cameraDoll.position;
+  for (const kind of worldTypes) {
+    if (!kind.depth) continue;
+    for (const item of kind.shown ? kind.shown() : kind.list()) {
+      if ((kind.live && !kind.live(item)) || (kind.visible && !kind.visible(item))) continue;
+      const r = renderablePool[renderables.length] ||= { kind: null, item: null, x: 0, y: 0, z: 0, depth: 0 };
+      r.kind = kind; r.item = item; kind.at(item, r);
+      r.depth = (r.x - cam.x) * viewDirection.x + (r.y - cam.y) * viewDirection.y +
+        (r.z - cam.z) * viewDirection.z;
+      renderables.push(r);
+    }
   }
-  if (freeskateActive() && monowheel.active) renderables.push({kind:"monowheel",item:monowheel,x:monowheel.x,y:monowheel.y,z:monowheel.z});
-  const depth = (item) => dot3({
-    x: item.x - cameraDoll.position.x,
-    y: item.y - cameraDoll.position.y,
-    z: item.z - cameraDoll.position.z,
-  }, viewDirection);
-  renderables.sort((a, b) => depth(b) - depth(a));
+  renderables.sort(byFarthest);
   for (const renderable of renderables) {
     const center=projectPoint(renderable.x,renderable.y-80,renderable.z),margin=Math.max(90,260*cameraScale());
     if(center.behind)continue;
@@ -27096,21 +26985,12 @@ function gamePaint() {
     // from a raised lens it cut their legs off at the shins. Standing them at
     // the floor's near edge keeps the whole body in front of the ground they
     // are standing on.
-    if (renderable.kind === "player" && !poolOnly())
+    if (renderable.kind.draw === drawPlayerEntity && !poolOnly())
       triangleDepth = Math.min(triangleDepth,
         projectPoint(renderable.x, renderable.y, worldNear + 2).z);
-    if (renderable.kind === "bullet") drawBullet(renderable.item);
-    else if (renderable.kind === "grenade") drawGrenade(renderable.item);
-    else if (renderable.kind === "ball") drawBall(renderable.item);
-    else if (renderable.kind === "monowheel") drawMonowheel(renderable.item);
-    else if (renderable.kind === "detached") drawDetachedPart(renderable.item);
-    else {
-      drawDiveMotion(renderable.item, t);
-      drawDoubleJumpMotion(renderable.item, t);
-      drawDashMotion(renderable.item, t);
-      drawRunner(renderable.item, t, showRunnerLabels);
-    }
+    renderable.kind.draw(renderable.item, t, showRunnerLabels);
   }
+  renderables.length = 0;
   if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}if(!poolDesert){drawCerealMilk(t);drawParkStereo();}if(!poolPainting)drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
   if(poolOnly())drawLensBlood();
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.
@@ -28641,8 +28521,17 @@ const gameObjects = (() => {
     // projected through `view` (the CAMERA op's numbers) and handed to `out` as
     // ellipse / capsule / plate calls, an ink edge set by `out.outline` before
     // each. `joints` is 48 numbers, `palette` 30, `pin` as the op's.
-    const figureRecordSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
-      : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+    const figureRecordSize = (R, i) => {
+      const k = R[i];
+      if (k >= 11) return 12 + (k === 11 ? 5 : k === 12 ? 9 : k === 13 ? 10 : 1 + 4 * R[i + 12]);
+      return 12 + (k === 0 ? 0 : k === 1 ? 4 : k === 2 ? 7 : k === 3 ? 9 : k === 4 ? 1 + 3 * R[i + 12] : k === 5 ? 12 : NaN);
+    };
+    // Scratch for every figure drawn: a fighter is ~60 shapes a frame, and each
+    // used to allocate its points, turned offsets and colours as fresh arrays.
+    const figHead = new Float64Array(10), figChest = new Float64Array(10);
+    const figP = new Float64Array(16), figFirst = new Float64Array(3), figB = new Float64Array(3);
+    const figU = new Float64Array(3), figW = new Float64Array(3), figN = new Float64Array(3);
+    const figPoly = [];
     function drawFigureShapes(sketch, palette, joints, pin, view, out) {
       const V = view, J = joints;
       const project = (x, y, z, o, dst) => {
@@ -28672,7 +28561,9 @@ const gameObjects = (() => {
       let rx = fz, rz = -fx;
       const rl = Math.hypot(rx, rz);
       if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
-      const H = [rx, 0, rz, -rz * fy, rz * fx - rx * fz, rx * fy, fx, fy, fz, r];
+      const H = figHead;
+      H[0] = rx; H[1] = 0; H[2] = rz; H[3] = -rz * fy; H[4] = rz * fx - rx * fz; H[5] = rx * fy;
+      H[6] = fx; H[7] = fy; H[8] = fz; H[9] = r;
       // The chest: up the spine, forward as the head faces, flattened square to it.
       let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
       const ul = Math.hypot(ux, uy, uz) || 1;
@@ -28688,45 +28579,54 @@ const gameObjects = (() => {
       const sl = Math.hypot(sx, sy, sz);
       if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
       else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
-      const C = [sx, sy, sz, ux, uy, uz, cx, cy, cz, 1];
+      const C = figChest;
+      C[0] = sx; C[1] = sy; C[2] = sz; C[3] = ux; C[4] = uy; C[5] = uz; C[6] = cx; C[7] = cy; C[8] = cz; C[9] = 1;
       const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
-      const turn = (j, x, y, z) => {
+      // An offset turned into joint j's frame, written to dst.
+      const turn = (j, x, y, z, dst) => {
         const F = frameOf(j);
-        return F ? [x * F[0] + y * F[3] + z * F[6], x * F[1] + y * F[4] + z * F[7], x * F[2] + y * F[5] + z * F[8]] : [x, y, z];
+        if (F) { dst[0] = x * F[0] + y * F[3] + z * F[6]; dst[1] = x * F[1] + y * F[4] + z * F[7]; dst[2] = x * F[2] + y * F[5] + z * F[8]; }
+        else { dst[0] = x; dst[1] = y; dst[2] = z; }
+        return dst;
       };
-      const point = (j, x, y, z) => {
-        const F = frameOf(j), s = F ? F[9] : 1, v = turn(j, x * s, y * s, z * s);
-        return [J[j * 3] + v[0], J[j * 3 + 1] + v[1], J[j * 3 + 2] + v[2]];
+      // Joint j plus an offset in its frame and radii, written to dst.
+      const point = (j, x, y, z, dst) => {
+        const F = frameOf(j), s = F ? F[9] : 1;
+        turn(j, x * s, y * s, z * s, dst);
+        dst[0] = J[j * 3] + dst[0]; dst[1] = J[j * 3 + 1] + dst[1]; dst[2] = J[j * 3 + 2] + dst[2];
+        return dst;
       };
-      const paint = (R, o) => R[o] >= 0 || !palette ? [R[o], R[o + 1], R[o + 2]]
-        : [palette[(-1 - R[o]) * 3], palette[(-1 - R[o]) * 3 + 1], palette[(-1 - R[o]) * 3 + 2]];
-      const P = new Float64Array(16), poly = [];
+      const P = figP, first = figFirst, poly = figPoly;
       const R = sketch.records;
       for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
         const kind = R[i];
         if (kind < 11) continue;
         const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a], scale = frameOf(j0)?.[9] ?? 1, nudge = R[i + 5];
-        const first = kind === 14 ? point(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : point(R[a], R[a + 1], R[a + 2], R[a + 3]);
+        if (kind === 14) point(R[a + 1], R[a + 2], R[a + 3], R[a + 4], first);
+        else point(R[a], R[a + 1], R[a + 2], R[a + 3], first);
         if (R[i + 9] || R[i + 10] || R[i + 11]) {
-          const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11]);
+          const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11], figN);
           if (nrm[0] * (first[0] - V[0]) + nrm[1] * (first[1] - V[1]) + nrm[2] * (first[2] - V[2]) > 0) continue;
         }
-        const [cr, cg, cb] = paint(R, i + 6), line = R[i + 1];
+        let cr, cg, cb;
+        if (R[i + 6] >= 0 || !palette) { cr = R[i + 6]; cg = R[i + 7]; cb = R[i + 8]; }
+        else { const q = (-1 - R[i + 6]) * 3; cr = palette[q]; cg = palette[q + 1]; cb = palette[q + 2]; }
+        const line = R[i + 1];
         if (line && project(first[0], first[1], first[2], 12, P) && line * scale * P[15] >= .5) {
-          const [er, eg, eb] = paint(R, i + 2);
-          out.outline(line * scale * P[15], er, eg, eb);
+          if (R[i + 2] >= 0 || !palette) out.outline(line * scale * P[15], R[i + 2], R[i + 3], R[i + 4]);
+          else { const q = (-1 - R[i + 2]) * 3; out.outline(line * scale * P[15], palette[q], palette[q + 1], palette[q + 2]); }
         } else out.outline(0, 0, 0, 0);
         if (kind === 11) {
           if (!project(first[0], first[1], first[2], 0, P)) continue;
           const rad = R[a + 4] * scale * P[3];
           out.ellipse(P[0], P[1], depthAt(P[2], nudge), rad, 0, 0, rad, cr, cg, cb);
         } else if (kind === 12) {
-          const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
+          const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figB);
           if (!project(first[0], first[1], first[2], 0, P) || !project(b[0], b[1], b[2], 4, P)) continue;
           out.capsule(P[0], P[1], P[4], P[5], depthAt((P[2] + P[6]) / 2, nudge), R[a + 8] * scale * (P[3] + P[7]), cr, cg, cb);
         } else if (kind === 13) {
-          const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale);
-          const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale);
+          const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale, figU);
+          const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale, figW);
           if (!project(first[0], first[1], first[2], 0, P) || !project(first[0] + u[0], first[1] + u[1], first[2] + u[2], 4, P) ||
             !project(first[0] + w[0], first[1] + w[1], first[2] + w[2], 8, P)) continue;
           out.ellipse(P[0], P[1], depthAt(P[2], nudge), P[4] - P[0], P[5] - P[1], P[8] - P[0], P[9] - P[1], cr, cg, cb);
@@ -28735,7 +28635,7 @@ const gameObjects = (() => {
           let vz = 0, seenAll = true;
           poly.length = 0;
           for (let k = 0; k < count && seenAll; k++) {
-            const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4]);
+            const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4], figB);
             seenAll = project(q[0], q[1], q[2], 0, P);
             poly.push(P[0], P[1]);
             vz += P[2];
@@ -29712,13 +29612,6 @@ function seatHudReadout(p,now){
  seatHudReadouts.set(p,readout);
  return readout;
 }
-// The park hints are keycaps on a keyboard and button discs on a pad (the
-// shared drawKeycapRun), one short verb each. The third field is the internal
-// button translateButtons produces, which lights the cap while held.
-function parkControlCaps(){
- return keycapFamily()?{punch:['Q','E'],kick:'SHIFT',jump:'SPACE',bubble:['SHIFT','Q'],drop:'R'}
-  :{punch:['X','Y'],kick:'A',jump:'B',bubble:['A','X'],drop:'L3'};
-}
 // Not on a touch screen: the drawn pad carries its own glyphs, and a legend
 // naming X, Y, A and B pointed at letters no button there wears — the same
 // call drawControlLegend makes. It also stood exactly where the pad does.
@@ -30315,7 +30208,7 @@ function drawSeatFirstPerson(){
  triangleDepth=old;
 }
 
-let mainNativeCameraAt=-1,mainNativeCameraBuffer=null;
+const mainNativeCameraBuffer=new Float32Array(27);
 function nativeMeshBuffers(mesh){
  if(!mesh.nativeBuffers)mesh.nativeBuffers={vertices:new Float32Array(mesh.vertices.flatMap(p=>[p.x,p.y,p.z])),faces:new Float32Array(mesh.faces.flatMap(f=>[...f.ids,...f.color,...f.normal])),
   // Edge capsules as the shell reads them: endpoints, world width, colour, depth bias.
@@ -30330,14 +30223,13 @@ function nativeCameraFor(doll,buffer,minX,minY,maxX,maxY){
  m[18]=minX;m[19]=minY;m[20]=maxX;m[21]=maxY;m[22]=doll.depthBase;m[23]=doll.depthSlope;m[24]=globalLight.x;m[25]=globalLight.y;m[26]=globalLight.z;
  return m;
 }
+// Written fresh on every ask: 27 numbers cost less than one stale lens. It
+// was kept per clock tick, so a doll moved and re-prepared inside a paint
+// (or a stage resized after a projectPoint had already prepared it) handed
+// retained meshes, the sky and the SDF figures the frame's first camera.
 function mainNativeCamera(){
  if(clipView)return nativeCameraFor(cameraDoll,viewNativeCameraBuffer,clipView.x,clipView.y,clipView.x+clipView.w,clipView.y+clipView.h);
- const now=runtime().monotonicUs;
- if(now!==mainNativeCameraAt || cameraDoll.dirty){
-  if(!mainNativeCameraBuffer)mainNativeCameraBuffer=new Float32Array(27);
-  nativeCameraFor(cameraDoll,mainNativeCameraBuffer,0,0,viewWidth(),viewHeight);mainNativeCameraAt=now;
- }
- return mainNativeCameraBuffer;
+ return nativeCameraFor(cameraDoll,mainNativeCameraBuffer,0,0,viewWidth(),viewHeight);
 }
 
 const parkStereo={x:parkHalfPipe3D.x,z:-parkHalfPipe3D.run-130,beat:0};

@@ -63,3 +63,18 @@ Image differences are evidence of similarity, not a proof of full visual parity.
 A production decision still needs a complete shell trial preserving text,
 translucency and UI/world ordering, followed by played-session measurements on
 browser, Xbox and Apple targets. See [RESULTS.md](RESULTS.md) for the first run.
+
+## Paint bench (headless, Node)
+
+```sh
+HASH=1 node xbox/live/bench/paint.mjs xbox/live/oskiewar.js mac fight 300
+node --jitless xbox/live/bench/paint-ab.mjs before.js xbox/live/oskiewar.js mac figure
+swiftc -O -framework JavaScriptCore xbox/live/bench/jsc-bridge.swift -o /tmp/jsc-bridge && /tmp/jsc-bridge
+```
+
+`paint.mjs` runs a seeded, scripted fight (or self-play, or freeskate)
+against a counting host and prints faces, texts, native shapes and mesh
+draws per frame. With `HASH=1` it also hashes the scene lane in order:
+two sources with equal hashes handed the host the same frame, which is how
+a refactor of the draw code proves itself. Wall times on a loaded machine
+are noise; `paint-ab.mjs` alternates both sources in one process instead.

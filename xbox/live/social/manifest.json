@@ -2,7 +2,7 @@
   "format": "ac.oskiewar.social-preview",
   "version": 2,
   "build": "789bf49a365cb378",
-  "theme": "photorealistic",
+  "theme": "flat",
   "imageWidth": 1200,
   "imageHeight": 630,
   "videoWidth": 720,

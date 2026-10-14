@@ -4,19 +4,18 @@ import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 const source = readFileSync(new URL('../oskiewar.js', import.meta.url), 'utf8') + '\n' +
   readFileSync(new URL('../lan-test.js', import.meta.url), 'utf8');
-function pair({ expires = 1000000, priorResult = false, differentMath = false, curtain = false, nativeSingleSlot = false, inputSendHz, phaseProfile = false, accounts = false, photo = false } = {}) {
+function pair({ expires = 1000000, priorResult = false, differentMath = false, curtain = false, nativeSingleSlot = false, inputSendHz, phaseProfile = false, accounts = false } = {}) {
   let wall = 10000;
   const queues = [[], []], clients = [], sent = [[], []];
   for (let seat = 0; seat < 2; seat++) {
     let frame = 0;
     let pending = null;
     const noop = () => {};
-    const triangles=[], sprites=[], accountCalls=[], telemetryEvents=[];
+    const triangles=[], accountCalls=[], telemetryEvents=[];
     const account={status:"signed-out"};
     const pad = { connected: true, down: [], leftX: 0, leftY: 0 };
     const ctx = createContext({
       ...(accounts ? {accountState:()=>account, accountAction:(...args)=>{accountCalls.push(args); return true;}, accountReport:body=>{accountCalls.push(["report",JSON.parse(body)]);return true;}} : {}),
-      ...(photo ? {themeReady:()=>true, themeSprite:(...args)=>{sprites.push(args);return true;},themeQuad:()=>true} : {}),
       Math: differentMath && seat === 1 ? Object.assign(Object.create(Math),
         Object.fromEntries(['sin','cos','tan','atan','atan2','asin','exp','hypot']
           .map(name => [name, (...args) => Math[name](...args) * (1 + 1e-12)]))) : Math,
@@ -37,7 +36,7 @@ function pair({ expires = 1000000, priorResult = false, differentMath = false, c
     });
     runInContext(source + '\nboot();', ctx);
     if (priorResult && seat === 0) runInContext('roundOverAt = 571594765;', ctx);
-    clients.push({ ctx, pad, triangles, sprites, account, accountCalls, telemetryEvents, tick() { frame++; ctx.sim(); if(pending){queues[1-seat].push(pending);pending=null;} },
+    clients.push({ ctx, pad, triangles, account, accountCalls, telemetryEvents, tick() { frame++; ctx.sim(); if(pending){queues[1-seat].push(pending);pending=null;} },
       state: () => runInContext('({error:clientError || undefined, count:players.length, names:players.map(p=>p.name), net:globalThis.__oskiewarNetStats, session:netSession && {frame:netSession.frame,stats:netSession.stats}, hash:netStateHash(), x:players.map(p=>p.x)})', ctx) });
   }
   return { clients, queues, sent, tick(n) { for (let i = 0; i < n; i++) { wall += 1000/60; clients.forEach(c=>c.tick()); } } };
@@ -332,20 +331,6 @@ test('device handles stay out of physics and tokens stay out of network packets'
   assert.equal(p.clients[1].ctx.__oskiewarDeviceHandles[1],'');
 });
 
-test('photographic paint uses retained textures without changing simulation state', () => {
-  const p=pair({photo:true});p.tick(300);
-  for(const c of p.clients) {
-    const before=c.state().hash;c.ctx.paint();
-    assert.equal(c.state().error,undefined);
-    assert.equal(c.state().hash,before);
-    assert.equal(c.ctx.__oskiewarGraphicsThemeStatus,'photorealistic');
-    assert.ok(c.sprites.length>5);
-    assert.ok(c.sprites.some(args=>args[0]===0),'background texture');
-    assert.ok(c.sprites.some(args=>args[0]===1),'fighter/prop textures');
-    for(const args of c.sprites) assert.ok(args.every(v=>typeof v==='boolean'||Number.isFinite(v)));
-  }
-});
-
 test('ground map ceiling leaves four ground-grid heights for aerial launches', () => {
   const p=pair();p.tick(240);
   const c=p.clients[0];
@@ -389,18 +374,6 @@ test('USB analog D-pad can select logout once per edge', () => {
   assert.equal(c.accountCalls.filter(x=>x[0]==='logout').length,1);
 });
 
-test('photo faces draw live eyes and distinct mouths without changing physics', () => {
-  const p=pair({photo:true});p.tick(240);const c=p.clients[0];
-  const draw = expression => {
-    c.triangles.length=0;
-    runInContext(`photoThemeActive=true; drawFace({...players[0],hit:0,alive:true,resultReaction:${JSON.stringify(expression)}}, {x:300,y:300,radius:60}, [0,0,0], 1, 1000000)`,c.ctx);
-    return JSON.stringify(c.triangles);
-  };
-  const before=c.state().hash, smile=draw(''), grief=draw('CRY');
-  assert.ok(c.triangles.length>10);assert.notEqual(smile,grief);assert.equal(c.state().hash,before);
-});
-
-
 test('opt-in inclusive phase counters preserve netplay and stay absent by default', () => {
   for (const phaseProfile of [false, true]) {
     const p=pair({phaseProfile,inputSendHz:60});
@@ -421,15 +394,15 @@ test('opt-in inclusive phase counters preserve netplay and stay absent by defaul
 });
 
 test('every round overlays the arena with huge WIN and LOSE for the correct device, or a single TIE',()=>{
-  const p=pair({accounts:true,photo:true});p.tick(240);
+  const p=pair({accounts:true});p.tick(240);
   for(const match of [false,true]) for(const winningSeat of [0,1,-1]) {
     for(const [device,c] of p.clients.entries()) {
       c.ctx.drawn=[];c.ctx.systemWrite=(...args)=>c.ctx.drawn.push(args);
       runInContext(`players[0].score=${winningSeat===0?2:0};players[1].score=${winningSeat===1?2:0};
         roundResult=${JSON.stringify(winningSeat<0?'TIE':'WINS ROUND')};matchOver=${match};roundOverAt=netSession.originUs+netSession.frame*NET_TICK_US;`,c.ctx);
-      c.sprites.length=0;
+      c.triangles.length=0;
       const hash=runInContext('netStateHash()',c.ctx);c.ctx.paint();
-      assert.ok(c.sprites.length>5,'the arena and fighters remain behind the result');
+      assert.ok(c.triangles.length>5,'the arena and fighters remain behind the result');
       const results=c.ctx.drawn.filter(row=>['WIN','LOSE','TIE'].includes(row[0]));
       assert.equal(results.length,1);
       const row=results[0];
@@ -443,14 +416,14 @@ test('every round overlays the arena with huge WIN and LOSE for the correct devi
 });
 
 test('Start overlays the live arena without debug text and colors the signed-in handle per glyph',()=>{
-  const p=pair({accounts:true,photo:true});p.tick(240);
+  const p=pair({accounts:true});p.tick(240);
   const c=p.clients[1], colors=Array.from({length:7},(_,i)=>({r:30+i,g:80+i,b:140+i}));
   Object.assign(c.account,{status:'signed-in',handle:'purple',leaderboard:{players:[{handle:'purple',colors}],top:[]}});
   c.pad.down=['Menu'];p.tick(1);c.pad.down=[];p.tick(1);
   runInContext('debugHitboxes=true',c.ctx);
-  c.ctx.drawn=[];c.ctx.systemWrite=(...args)=>c.ctx.drawn.push(args);c.sprites.length=0;
+  c.ctx.drawn=[];c.ctx.systemWrite=(...args)=>c.ctx.drawn.push(args);c.triangles.length=0;
   const hash=c.state().hash;c.ctx.paint();
-  assert.ok(c.sprites.length>5,'live world and fighters remain behind Start');
+  assert.ok(c.triangles.length>5,'live world and fighters remain behind Start');
   assert.equal(c.state().hash,hash);assert.equal(runInContext('debugHitboxes',c.ctx),true);
   assert.equal(c.ctx.drawn.some(row=>row[0].includes('fps')),false,'game HUD cannot overwrite menu');
   const title=c.ctx.drawn.filter(row=>row[2]===162);

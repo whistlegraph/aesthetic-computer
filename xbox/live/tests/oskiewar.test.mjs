@@ -17,7 +17,6 @@ const replayOven = await readFile(new URL(
   "../marketing/replay-oven.mjs", import.meta.url), "utf8");
 const frameDriverSource = await readFile(new URL("../frame-driver.mjs", import.meta.url));
 const renderQualitySource = await readFile(new URL("../render-quality.mjs", import.meta.url));
-const photoThemeSource = await readFile(new URL("../photo-theme.mjs", import.meta.url));
 const socialRenderer = await readFile(new URL(
   "../render-social-preview.mjs", import.meta.url));
 const socialManifest = JSON.parse(await readFile(new URL(
@@ -134,7 +133,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { configureWorldMap, resetSkateRopes, skateRopes, skateLoops, skateBoosts, skateRopeInput, updateSkateRopes, skateLoopStep, skateBoostStep, spectatorState, netSnapshot, netRestore, netStateHash, get gridCols() { return gridCols; }, get gridWidth() { return gridWidth; }, boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, sampleCombatBoxes, combatBoxContact, jevStrikeOptions, combatRect, buildBoxTree, queryBoxTree, boxesOverlap, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })) }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraInputState: () => ({ yaw: playerCameraYaw, pitch: playerCameraPitch, zoom: playerCameraZoom }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), enterFreeskate: () => beginFreeskate(runtime().monotonicUs), swapCourse: (course) => swapCourse(course, runtime().monotonicUs), installOw: (text, swap = true) => installOw(text, swap ? runtime().monotonicUs : null), courseState: () => ({ course: freeskateCourseNow(), title: courseTitle(freeskateCourseNow()), desert: poolDesert, pool: poolOnly(), home: poolDesert ? { ...desertHome() } : null, room: sessionName }), monowheelState: () => ({ ...monowheel }), paintCans, chalkPickups, objectSources: () => gameObjects.sources(), desertParams: () => desertParams(), halfpipe, halfpipeRadius, tileCenterX, freeskateState: () => freeskateActive(), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, mapState: () => ({ name: currentMapName, id: currentMapId, map: workshopSnapshot() }), versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now), blendReplayGeometry, syncReplayCollection, moveKeys, moveColor, isHeadOnly, photoRegions, terrainSkirtTiles };`
+    `${source}\nreturn { configureWorldMap, resetSkateRopes, skateRopes, skateLoops, skateBoosts, skateRopeInput, updateSkateRopes, skateLoopStep, skateBoostStep, spectatorState, netSnapshot, netRestore, netStateHash, get gridCols() { return gridCols; }, get gridWidth() { return gridWidth; }, boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, sampleCombatBoxes, combatBoxContact, jevStrikeOptions, combatRect, buildBoxTree, queryBoxTree, boxesOverlap, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })) }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraInputState: () => ({ yaw: playerCameraYaw, pitch: playerCameraPitch, zoom: playerCameraZoom }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), enterFreeskate: () => beginFreeskate(runtime().monotonicUs), swapCourse: (course) => swapCourse(course, runtime().monotonicUs), installOw: (text, swap = true) => installOw(text, swap ? runtime().monotonicUs : null), courseState: () => ({ course: freeskateCourseNow(), title: courseTitle(freeskateCourseNow()), desert: poolDesert, pool: poolOnly(), home: poolDesert ? { ...desertHome() } : null, room: sessionName }), monowheelState: () => ({ ...monowheel }), paintCans, chalkPickups, objectSources: () => gameObjects.sources(), desertParams: () => desertParams(), halfpipe, halfpipeRadius, tileCenterX, freeskateState: () => freeskateActive(), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, mapState: () => ({ name: currentMapName, id: currentMapId, map: workshopSnapshot() }), versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now), blendReplayGeometry, syncReplayCollection, moveKeys, moveColor, isHeadOnly };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -792,7 +791,6 @@ test("web uses the realistic theme with shared sun colors as fallback", () => {
     /caps\.platform === "web" \|\| caps\.platform === "macos"/);
   assert.match(source,
     /return \{ \.\.\.sun, light: caps\.colorScheme === "light" \? 1 : 0 \}/);
-  // The photographic materials follow the ordinary day/night palette.
   assert.match(source, /visualTheme = displayTheme\(\);/);
 });
 
@@ -812,7 +810,7 @@ test("Open Graph uses a landscape fallback and silent vertical title loop", () =
   assert.match(webShell, /property="og:image:height" content="630"/);
   assert.match(webShell, /property="og:video:width" content="720"/);
   assert.match(webShell, /property="og:video:height" content="1280"/);
-  assert.equal(socialManifest.theme, "photorealistic");
+  assert.equal(socialManifest.theme, "flat");
   assert.equal(socialManifest.videoWidth, 720);
   assert.equal(socialManifest.videoHeight, 1280);
   assert.equal(socialManifest.durationSeconds, 4);
@@ -828,7 +826,7 @@ test("Open Graph uses a landscape fallback and silent vertical title loop", () =
   assert.ok(socialVideo.length > 60000);
   const expectedBuild = createHash("sha256").update(source).update(webShell)
     .update(frameDriverSource)
-    .update(renderQualitySource).update(photoThemeSource)
+    .update(renderQualitySource)
     .update(socialRenderer).digest("hex").slice(0, 16);
   assert.equal(socialManifest.build, expectedBuild);
   assert.match(lithDeploy, /render-social-preview\.mjs --check/);
@@ -6282,7 +6280,7 @@ test("jump framing cannot reveal a contrasting clear-color flash", () => {
 });
 
 test("facing and opponent mode are visible in fighter faces", () => {
-  assert.match(source, /const faceX = head\.x \+ direction \* r \* \(photoThemeActive \? \.22 : \.08\)/);
+  assert.match(source, /const faceX = head\.x \+ direction \* r \* \.08/);
   assert.match(source, /The facing-side foot is visibly planted forward/);
   assert.match(source, /const inertDummy = player\.npc && !player\.bot/);
   assert.match(source, /player\.bot && player\.alive && !player\.blocking/);
@@ -6379,20 +6377,6 @@ test("a move caption names its keys and wears its own color", () => {
   assert.match(source, /const keys = player\.lastButtonKeys/);
 });
 
-test("the near terrain skirt wears the wall material in bands", () => {
-  const { fight } = createFight();
-  assert.deepEqual(fight.photoRegions.skirt, fight.photoRegions.wall);
-  // The TV skirt is tiled four deep; the reel's deep skirt keeps its shade.
-  assert.match(source, /terrainPass\(left, right, wallZ, wallZ, wallBottom, \(\) => wall, reel \? 1 : 4\)/);
-  assert.match(source, /if \(wall && tileRows > 1 && photoThemeActive &&\s*terrainSkirtTiles\(a1, a, b, b1, tileRows\)\)/);
-  // Without the photo atlas the bands decline and the shaded quad still draws.
-  const corner = (x, y) => ({ x, y, z: 0 });
-  assert.equal(fight.terrainSkirtTiles(corner(0, 0), corner(90, 0),
-    corner(90, 720), corner(0, 720), 4), false);
-  // Tall structural walls still refuse the stretched strip.
-  assert.match(source, /if \(region === "wall"\) return false;/);
-});
-
 test("a sideways dash streaks motion lines and boosts a lone head", () => {
   const { fight, tap, tick, now } = createFight();
   tap(0, "ArrowRight");
@@ -6402,7 +6386,7 @@ test("a sideways dash streaks motion lines and boosts a lone head", () => {
   assert.equal(fight.players[0].dashLinesFacing, 1);
   tick(300000);
   assert.ok(fight.players[0].dashLinesUntil <= now());
-  assert.match(source, /drawDashMotion\(renderable\.item, t\)/);
+  assert.match(source, /drawDashMotion\(player, t\)/);
   // Everything but the head gone, the double-tap still moves it: a shove
   // along the floor with a hop, rather than nothing.
   const player = fight.players[0];
@@ -6566,7 +6550,7 @@ test("automatic cameras remain orthographic and outside the arena", () => {
 test("double jumps leave a brief upward motion-line burst", () => {
   assert.match(source, /player\.doubleJumpLinesUntil = now \+ 280000/);
   assert.match(source, /function drawDoubleJumpMotion/);
-  assert.match(source, /drawDoubleJumpMotion\(renderable\.item, t\)/);
+  assert.match(source, /drawDoubleJumpMotion\(player, t\)/);
 });
 
 test("the Oskiewar wordmark remains visible with start", () => {
@@ -7328,35 +7312,19 @@ test("rollback restores station dimensions after leaving the long course", () =>
   assert.equal(fight.skateRopes.length, 0);
 });
 
-test('realistic armed fighters render every weapon without a client error', () => {
-  const keys = ['__oskiewarGraphicsTheme', 'themeReady', 'themeAssetReady', 'themeSprite', 'themeQuad'];
-  const saved = keys.map(key => globalThis[key]);
-  let sprites = 0;
-  Object.assign(globalThis, {
-    __oskiewarGraphicsTheme: 'photorealistic', themeReady: () => true,
-    themeAssetReady: () => true, themeSprite: () => { sprites++; return true; },
-    themeQuad: () => true,
-  });
-  try {
-    const { fight, tick } = createFight(false, false, 'web');
-    fight.startFight(); tick(3000001);
-    for (const debug of [false, true]) {
-      fight.setDebugHitboxes(debug);
-      for (const gunMode of ['GUN', 'RUBBER SMG', 'ROCKET LAUNCHER', 'SPACE LASER']) {
-        for (const facing of [-1, 1]) {
-          Object.assign(fight.players[0], { gunMode, gunAmmo: 10, facing,
-            itemAction: 'FIRE', itemActionUntil: 1e12 });
-          fight.paint();
-          assert.equal(fight.clientErrorState(), '', JSON.stringify(fight.clientErrorDetailState()));
-        }
+test('armed fighters render every weapon without a client error', () => {
+  const { fight, tick } = createFight(false, false, 'web');
+  fight.startFight(); tick(3000001);
+  for (const debug of [false, true]) {
+    fight.setDebugHitboxes(debug);
+    for (const gunMode of ['GUN', 'RUBBER SMG', 'ROCKET LAUNCHER', 'SPACE LASER']) {
+      for (const facing of [-1, 1]) {
+        Object.assign(fight.players[0], { gunMode, gunAmmo: 10, facing,
+          itemAction: 'FIRE', itemActionUntil: 1e12 });
+        fight.paint();
+        assert.equal(fight.clientErrorState(), '', JSON.stringify(fight.clientErrorDetailState()));
       }
     }
-    assert.ok(sprites > 0, 'the texture renderer was exercised');
-  } finally {
-    keys.forEach((key, index) => {
-      if (saved[index] === undefined) delete globalThis[key];
-      else globalThis[key] = saved[index];
-    });
   }
 });
 
