@@ -107,7 +107,8 @@ Token and megapixel rates are not flat per-move quotes.
 The AC gateway supports configured OpenRouter models alongside fal, sharing the
 same handle validation, Braincells reservations, receipts, and refunds. On the
 hosted server, set `OPENROUTER_API_KEY`, `NOPAINT_REMOTE_ENABLED=true`, and
-`NOPAINT_OPENROUTER_OFFERS=all` for the 50 reviewed raster image-editing models,
+`NOPAINT_OPENROUTER_OFFERS=all` for the 50 reviewed raster image-editing models
+(all three live in the vault's `lith/.env` and are required by `lith/.env.keys`),
 or a JSON array of `{model, usd}` objects for a subset. `usd` is an
 explicit per-move cost basis for the AC tariff, not an estimate inferred from a
 provider's token/MP rate; Braincells use the existing hosted markup. Reviewed
@@ -143,11 +144,26 @@ by provider. Models added to OpenRouter later still require profile review.
 All 50 profiles were checked against the live image-input/output catalog and
 endpoint options; selected models were tested with paid calls, not every model.
 
-`nopaint-move-prompt.mjs` selects a seeded concrete operation instead of asking
-every provider for an abstract painting move. Its 16 operations cover spatial,
-palette, texture, and mark changes. Small/Medium/Large selects the affected
-quarter, half, or whole image in the instruction; only the explicit brush mask
-enforces exact preservation. GPT Image 2 visibly shifted strips in 14.69 s;
+Since prompt version `looked-moves-v3` (October 14), every cloud move begins
+with a look: `nopaint-look.mjs` sends the current painting, the number of kept
+moves, and the hint to a vision model (`anthropic/claude-haiku-5.5` through
+OpenRouter; `NOPAINT_LOOK_MODEL` overrides it, `NOPAINT_LOOK_ENABLED=false`
+turns it off) under a system prompt that holds the game's taste. The look
+answers with the region in the picture's own terms, a scale of corner, half,
+or whole, the one move, and why. `nopaint-move-prompt.mjs` composes the edit
+instruction from that answer, so Small/Medium/Large no longer chooses the
+affected area for cloud moves and no quadrant is picked blind. A hint is read
+against the picture and sets its own scope: "make it a cute bear" is a
+whole-image move that may change subject and style, "add a bear" is local.
+Each receipt keeps the look under `look`. The look costs well under a tenth of
+a cent per paint and adds one to three seconds; it is not billed separately.
+
+When the look is unavailable, `nopaint-move-prompt.mjs` falls back to the
+seeded concrete operation instead of asking every provider for an abstract
+painting move. Its 16 operations cover spatial, palette, texture, and mark
+changes. In the fallback, Small/Medium/Large selects the affected quarter,
+half, or whole image, except that a hinted move always takes the whole image;
+only the explicit brush mask enforces exact preservation. GPT Image 2 visibly shifted strips in 14.69 s;
 GPT-5 Image returned an edit in 11.19 s. Nano Banana largely ignored that strip
 instruction, and Klein mostly softened the input. A shape-addition trial gave
 visible circles and rectangles from both (12.03 s / 7.30 s), so those two models
@@ -303,8 +319,9 @@ Fal currently [lists $0.01 per megapixel](https://fal.ai/models/fal-ai/flux-2/kl
 no paid call has verified its minimums for this 256×256 workflow.
 
 The [Klein endpoint](https://fal.ai/models/fal-ai/flux-2/klein/4b/edit/api) returns
-a completed image. It uses a fixed edit instruction; Small/Medium/Large change
-its wording, not a diffusion strength parameter. The timer runs while waiting.
+a completed image. It uses the same looked edit instruction as the OpenRouter
+models; Small/Medium/Large only matter in the no-look fallback, and never as a
+diffusion strength parameter. The timer runs while waiting.
 AC cloud work continues to settlement after an early No or client disconnect:
 **a completed generation costs Braincells even when rejected**. Failed work
 refunds its reservation. A handle may have one cloud move in progress; rejecting
