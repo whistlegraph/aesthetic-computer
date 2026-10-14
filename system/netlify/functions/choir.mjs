@@ -2,7 +2,7 @@
 // The room's HTTP door. Store logic lives in backend/choir.mjs.
 //
 //   GET    /api/choir                      main chat  ?tag=&before=<when>&limit=
-//   GET    /api/choir?news=1               Discover: today's slate, newest first (&all=1 for every item)
+//   GET    /api/choir?news=1               Discover: today's slate minus openings, pictures first (&all=1 for every item)
 //   GET    /api/choir?thread=<id>          one root with its replies
 //   GET    /api/choir?tags=1               tags by activity, starters included
 //   GET    /api/choir?me=1                 {handle, prefs}            (Bearer)

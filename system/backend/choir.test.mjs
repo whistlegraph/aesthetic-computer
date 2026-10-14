@@ -13,6 +13,7 @@ function collection() {
       if ("$lt" in v && !(actual < v.$lt)) return false;
       if ("$gte" in v && !(actual >= v.$gte)) return false;
       if ("$lte" in v && !(actual <= v.$lte)) return false;
+      if ("$ne" in v && actual === v.$ne) return false;
       return true;
     }
     if (Array.isArray(actual)) return actual.includes(v);
@@ -149,6 +150,17 @@ test("news lives in Discover, not the chat", async () => {
   assert.deepEqual((await s.feed()).map((p) => p._id), [chat._id]);
   assert.deepEqual((await s.feed({ news: true })).map((p) => p._id), ["a".repeat(24)]);
   assert.ok(await s.thread("a".repeat(24)), "a news item still has a comment thread");
+});
+
+test("Discover skips openings and leads with pictures; the curator's dedupe still sees everything", async () => {
+  const { s, posts } = store();
+  const item = (id, extra) => posts.insertOne({ _id: id.repeat(24), owner: "choir|editor", handle: "@choir", text: "x https://x.y/" + id, tags: [], links: ["https://x.y/" + id], replyTo: null, replies: 0, news: true, ...extra });
+  await item("d", { when: "2026-10-13T12:03:00.000Z", kind: "opening", preview: { title: "Show", image: "https://img/d" } });
+  await item("c", { when: "2026-10-13T12:02:00.000Z", kind: "opportunity", preview: { title: "Call", image: null } });
+  await item("b", { when: "2026-10-13T12:01:00.000Z", preview: { title: "News", image: "https://img/b" } });
+  await item("a", { when: "2026-10-13T12:00:00.000Z", kind: "opportunity", preview: { title: "Call", image: "https://img/a" } });
+  assert.deepEqual((await s.feed({ news: true })).map((p) => p._id[0]), ["b", "a", "c"], "no opening; pictures first, newest first within each");
+  assert.deepEqual((await s.feed({ news: true, all: true })).map((p) => p._id[0]), ["d", "c", "b", "a"], "the curator still sees the opening");
 });
 
 test("the curator adds new links, skips repeats and Artforum, and retires closed calls", async () => {

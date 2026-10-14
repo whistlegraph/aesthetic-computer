@@ -166,9 +166,16 @@ export function mongoChoirStore(posts, { tags, prefs, id = () => hex24(), now = 
       }
       if (tag) q.tags = normalizeTag(tag);
       if (before) q.when = { $lt: before };
+      // Fía (10-13 20:32): "could we maybe not include openings in the discover
+      // swipe through?" They stay in the store (a paid openings bulletin may want
+      // them later) and in the curator's dedupe (`all`), but not on the slate.
+      if (news && !all) q.kind = { $ne: "opening" };
       const rows = await posts.find(q).sort({ when: -1 }).limit(Math.min(Math.max(limit, 1), 100)).toArray();
       // A deleted message with no replies has no thread to hold together.
-      return rows.filter((r) => !(r.deleted && !r.replies) && (news || r.news !== true));
+      const kept = rows.filter((r) => !(r.deleted && !r.replies) && (news || r.news !== true));
+      // "fill it with some art news and opportunities with nice imagery":
+      // the slate leads with the items that have a picture, then the rest.
+      return news && !all ? [...kept.filter((r) => r.preview?.image), ...kept.filter((r) => !r.preview?.image)] : kept;
     },
 
     async thread(rootID) {
