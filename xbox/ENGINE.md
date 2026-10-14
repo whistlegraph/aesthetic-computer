@@ -5,6 +5,47 @@ Written 2026-09-26 from four read-only surveys of `xbox/live/oskiewar.js`
 ScenePrimitives.inc). Numbers are Series X `AC_NATIVE_PROFILE hostJsMs`
 unless noted.
 
+## As it runs (2026-10-14)
+
+One source, `xbox/live/oskiewar.js`, is the game on every host. `gameSim`
+advances the state (rollback covers `netSimArrays`); `paint` → `gamePaint`
+draws it through one camera, `cameraDoll`, and one set of draw names
+(`triangle3d`, `box`, `write`, …) that the emitter block near the top of the
+file shadows. What happens next depends on the host:
+
+| host | path | retained | per frame in JS |
+|---|---|---|---|
+| web (`mac-test.html`) | frame program: ops into a Float32Array, run by `frame-vm.mjs` into `scene3d-webgl` | meshes (ASSET/MESH), figure sketches (SHAPES/LOOK) | everything still *computed* in JS; the program is one handover |
+| Mac (`main.swift`, JavaScriptCore) | immediate; faces gathered by `batchFaces` into `triangles3d` | sky camera, SDF bubbles, pool decals | every mesh, figure, shadow and terrain strip projected in JS |
+| Xbox (QuickJS, `QuickJsEngine.cpp`) | immediate, one call per face | `meshUpload`/`meshDraw`, `sceneMesh`, `disc3d`/`capsule3d` fans | figures (shapes), terrain, HUD |
+| AC Native (`fedac/native/lib/oskiewar-host.mjs`) | immediate, one call per face | `disc3d` (sides picked in the adapter) | everything else |
+
+Rebuilt every frame that could be kept: on the Mac every quad mesh (park,
+dojo roof and floor, decks) is re-projected in JS because the Mac has no
+`meshUpload`/`meshDraw` (the Xbox's C++ `MeshDraw` is the model to port);
+terrain strips everywhere; flat figures on every immediate host.
+
+**Projection.** There is one camera, `cameraDoll`, and one stage,
+`viewWidth()` × `viewHeight` from `gameView()` (synced each paint). Every
+consumer derives from it fresh: `projectPoint`/`worldTriangle` in JS,
+`prepareObjectView` for objects and figures, the CAMERA op for the web,
+`mainNativeCamera()` (27 floats, rebuilt on every ask) for meshes, sky,
+decals and SDF on native hosts. A host maps the stage onto its drawable
+with its own live logical size, never a constant (`projection.test.mjs`
+checks 1920×1080 and 2880×800).
+
+**World entities.** `worldTypes` lists every kind of world thing: where its
+instances live, which exist, where one stands, which fields tween, how it
+draws. gamePaint's prop pass and depth-sorted pass and the render
+interpolation all walk it. Ids are renderer-side (a WeakMap); nothing is
+written onto sim objects, so `netSimArrays` keeps its shape.
+`worldEntities()` lists `{ id, type, x, y, z }`. Map furniture (decks, roof
+panes, hall cubes, the grid field) is still map state, not entities.
+
+Bench: `xbox/live/bench/paint.mjs` (counts and a hash of what the host is
+handed), `paint-ab.mjs` (same-process A/B of one draw function),
+`jsc-bridge.swift` (what a JavaScriptCore→Swift call costs).
+
 ## The problem in one line
 
 On the console the game's JavaScript runs interpreted (QuickJS, no JIT) and
