@@ -1,5 +1,7 @@
 // Same-origin host for pooled AC runtimes: boot silently, hold the first frame,
 // and resume in place when MIME selects the card. No signed-in session is used.
+import { observeInteraction } from './interaction.mjs';
+observeInteraction();
 const params = new URLSearchParams(location.search);
 const code = params.get('code'), piece = params.get('piece');
 const note = document.getElementById('note');

@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 
 // MIME_CDP_URL can point at a dedicated remote Chrome (e.g. Poorslice via SSH).
 // All requests are fixtures; this test never posts analytics or changes live data.
-test('MIME: center scrolling, explicit interaction, natural image sizing and deferred content', async () => {
+test('MIME: edge navigation, native media controls, natural image sizing and deferred content', async () => {
   const browser = process.env.MIME_CDP_URL
     ? await chromium.connectOverCDP(process.env.MIME_CDP_URL)
     : await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL, headless: true });
@@ -25,7 +25,7 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
     if (u.pathname === '/api/mime') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ recent: posts, hasMore: false }) });
     if (u.pathname === '/fixture/longtext' || u.pathname === '/fixture/deferred') return route.fulfill({ body: 'A long line of text\n'.repeat(200) });
-    if (u.pathname === '/fixture/document' || u.pathname === '/test' || u.pathname === '/mime-play/') return route.fulfill({ contentType: 'text/html', body: `<style>body{margin:0;background:#264;color:white;height:3000px}button{padding:30px}</style><button onclick="this.textContent='clicked'">Program button</button><script>parent.postMessage({type:'mime:ready'},'*');addEventListener('wheel',e=>e.preventDefault(),{passive:false});addEventListener('touchmove',e=>e.preventDefault(),{passive:false});</script>` });
+    if (u.pathname === '/fixture/document' || u.pathname === '/test' || u.pathname === '/mime-play/') return route.fulfill({ contentType: 'text/html', body: `<style>body{margin:0;background:#264;color:white;height:3000px}button{padding:30px;position:fixed;top:40%;left:30%}</style><button onclick="this.textContent='clicked'">Program button</button><script>parent.postMessage({type:'mime:ready'},'*');addEventListener('wheel',e=>e.preventDefault(),{passive:false});addEventListener('touchmove',e=>e.preventDefault(),{passive:false});</script>` });
     if (u.pathname === '/video~!fixture-tape') return route.fulfill({ contentType: 'text/html', body: '<body style="margin:0;display:grid;place-items:center;height:100vh"><button>Tape scrubber</button></body>' });
     if (/^\/fixture\/(video[12]|tape)$/.test(u.pathname)) return route.fulfill({ contentType: 'video/webm', body: videoFixture });
     if (u.pathname.startsWith('/fixture/')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="300"><rect width="800" height="300" fill="#f9a"/><circle cx="400" cy="150" r="100" fill="#384"/></svg>' });
@@ -34,11 +34,9 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
   const page = await context.newPage();
   await page.addInitScript(() => { window.mimeActions = []; window.acVisits = { action(name) { window.mimeActions.push(name); } }; });
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  const interact = async (id) => {
-    const frame = page.locator('#' + id + ' .feed-media');
-    // The reel shows no toggle; a press off the card (its caption) returns to the feed.
-    if (await frame.getAttribute('data-interacting')) await page.locator('#' + id + ' .meta').click({ position: { x: 2, y: 2 } });
-    else await frame.locator(':scope > .media-shield').click();
+  const show = async id => {
+    await page.evaluate(id => { const node=document.getElementById(id); window.scrollTo({top:node.getBoundingClientRect().top+scrollY,behavior:'instant'}); },id);
+    await page.waitForFunction(id => Math.abs(document.getElementById(id).getBoundingClientRect().top)<1 && document.getElementById(id).hasAttribute('data-onstage'),id);
   };
   try {
     await page.goto('https://mime.ac/?ac-automation=1');
@@ -61,70 +59,40 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
     // The first card shares the opening screen with the 52px banner; later cards fill it.
     assert.ok(Math.abs(imageBox.height - (page.viewportSize().height - 52)) < 2 || Math.abs(imageBox.height - page.viewportSize().height) < 2, 'the media fills the card');
     assert.equal(await page.locator('#wide img').evaluate(img => getComputedStyle(img).objectFit), 'contain', 'image keeps natural proportions');
-    for (const id of ['program', 'document', 'longtext']) {
-      const frame = page.locator(`#${id} .feed-media`);
-      await frame.evaluate(el => el.scrollIntoView({ block: 'center' }));
-      await page.waitForTimeout(450);
-      const box = await frame.boundingBox();
-      const y = Math.min(800, box.y + box.height / 2);
-      await page.mouse.move(box.x + box.width / 2, y);
-      const before = await page.evaluate(() => scrollY);
-      await page.mouse.wheel(0, 180);
-      await page.waitForFunction(previous => scrollY > previous + 60, before);
-    }
     const program = page.locator('#program .feed-media');
-    await program.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await show('program');
     await page.waitForTimeout(500);
-    await interact('program');
-    assert.equal(await program.getAttribute('data-interacting'), 'true');
+    assert.equal(await program.getAttribute('data-direct'), 'true');
     await page.locator('#program iframe').waitFor();
     await page.frameLocator('#program iframe').getByRole('button', { name: 'Program button', exact: true }).click();
     await page.frameLocator('#program iframe').getByRole('button', { name: 'clicked', exact: true }).waitFor();
-    await interact('program');
-    assert.equal(await program.getAttribute('data-interacting'), null);
-    assert.deepEqual(await page.evaluate(() => window.mimeActions), ['mime_interact', 'mime_scroll_feed']);
-    assert.equal(await page.locator('#program .piece-preview').evaluate(el => el.inert), true);
-    // The reel carries no open/comment buttons; the caption opens the thread.
+    assert.equal(await page.locator('#program .piece-preview').evaluate(el => el.inert), false);
     assert.equal(await page.locator('#program .source-button').isVisible(), false);
-    await interact('document');
-    await page.locator('#longtext').evaluate(el => el.scrollIntoView({ block: 'start' }));
-    await page.waitForTimeout(1100);
-    assert.equal(await page.locator('#document .feed-media').getAttribute('data-interacting'), null, 'scrolling away re-locks media');
-    await page.locator('#deferred').scrollIntoViewIfNeeded();
+    await show('deferred');
     await page.waitForFunction(() => document.querySelector('#deferred pre')?.textContent.startsWith('A long'));
     for (const id of ['video1', 'video2']) {
-      await page.locator(`#${id} .feed-media`).evaluate(el => el.scrollIntoView({ block: 'center' }));
+      await show(id);
       await page.waitForFunction(id => document.querySelector(`#${id} video`)?.readyState >= 2, id);
+      await page.mouse.click(2, 400);
       await page.waitForFunction(id => !document.querySelector(`#${id} video`)?.paused, id);
       assert.equal(await page.locator(`#${id} .feed-media`).getAttribute('data-media-state'), 'ready');
       assert.equal(await page.locator('video').evaluateAll(videos => videos.filter(v => !v.paused).length), 1, 'one dominant tape plays');
       const box = await page.locator(`#${id} .feed-media`).boundingBox();
       assert.ok(Math.abs(box.height - page.viewportSize().height) < 2, 'a tape fills its card');
-      await interact(id);
+      await page.locator(`#${id} video`).click({position:{x:100,y:100}});
       await page.locator(`#${id} video`).evaluate(video => video.pause());
       await page.waitForTimeout(1100);
       assert.equal(await page.locator(`#${id} video`).evaluate(video => video.paused), true, 'manual pause survives the autoplay scheduler');
-      await interact(id);
+
     }
-    assert.equal(await page.locator('.tape-player').count(), 0, 'full tape player is not loaded for browsing');
-    await interact('tape');
-    const tapePlayer = page.locator('#tape .tape-player');
-    await tapePlayer.waitFor();
-    assert.match(await tapePlayer.getAttribute('src'), /video~!fixture-tape/);
-    assert.equal(await tapePlayer.getAttribute('allow'), 'autoplay');
-    assert.equal(await page.locator('#tape video').evaluate(v => v.paused && v.inert), true);
-    await page.frameLocator('#tape .tape-player').getByRole('button', { name: 'Tape scrubber' }).click();
-    await interact('tape');
-    assert.equal(await tapePlayer.count(), 0, 'exit destroys the audible player');
-    await interact('tape');
-    await tapePlayer.waitFor();
-    await page.locator('#wide').evaluate(el => el.scrollIntoView({ block: 'start' }));
-    await page.waitForFunction(() => !document.querySelector('.tape-player'));
+    await show('tape');
+    await page.waitForFunction(() => document.querySelector('#tape video')?.readyState >= 2);
+    assert.equal(await page.locator('#tape video').evaluate(v => v.controls && !v.inert), true, 'tape controls are usable immediately');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    await program.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await show('program');
     await page.waitForTimeout(500);
-    const box = await program.boundingBox(); const x = box.x + box.width / 2, y = box.y + box.height / 2;
+    const box = await program.boundingBox(); const x = 2, y = box.y + box.height / 2;
     const before = await page.evaluate(() => scrollY);
     const cdp = await context.newCDPSession(page);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });

@@ -25,6 +25,7 @@ test('MIME new posts preserve runtimes, preloading is bounded and silent, and wg
     }
     if(u.pathname==='/api/mime-feed')return route.fulfill({contentType:'application/json',body:JSON.stringify({source:'export function paint() {}'})});
     if(u.pathname==='/mime-play/')return route.fulfill({contentType:'text/html',body:host});
+    if(u.pathname==='/mime-play/interaction.mjs')return route.fulfill({contentType:'text/javascript',body:await readFile(new URL('../public/mime-play/interaction.mjs',import.meta.url),'utf8')});
     if(u.pathname==='/mime-play/player.mjs')return route.fulfill({contentType:'text/javascript',body:script});
     if(['/wipe','/second','/third','/fourth','/fifth'].includes(u.pathname)){
       runtimeLoads.push(u.pathname);assert.equal(u.searchParams.get('noauth'),'true');assert.equal(u.searchParams.get('mime'),'1');

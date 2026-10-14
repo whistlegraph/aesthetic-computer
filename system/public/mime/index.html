@@ -396,7 +396,7 @@
     body.feed .feed-post .reel-type[data-type="text/html"] { --chip: #ffc585; }
     body.feed .feed-post .byline > .name { display: block; }
     /* A feed video plays muted and looping like a reel; its controls appear with Interact. */
-    body.feed .feed-media:not([data-interacting]) > video::-webkit-media-controls { display: none !important; }
+    body.feed .feed-media:not([data-interacting]):not([data-direct]) > video::-webkit-media-controls { display: none !important; }
     body.feed .wordmark svg { width: calc(37px * 151 / 52); height: 37px; }
     html body.feed .feed-post > .meta { align-items: baseline; }
     html body.feed .feed-post > .meta > :is(.byline, .reel-type) { align-self: baseline; }
@@ -408,6 +408,51 @@
     #remix-dialog { color: var(--body); background: var(--paper); border: 2px solid #55cdd9; border-radius: 12px; padding: 24px; max-width: min(360px, calc(100vw - 40px)); font: 700 20px/1.4 "MIME Comic", "Comic Relief", sans-serif; }
     #remix-dialog::backdrop { background: #141024bb; }
     #remix-dialog a, #remix-dialog button { display: block; margin-top: 16px; min-height: 44px; font: inherit; color: inherit; }
+    #mood-dialog { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
+      border: 2px solid #55cdd9; border-radius: 12px; padding: 20px; color: var(--body); background: var(--paper);
+      font: 700 20px/1.4 "MIME Comic", "Comic Relief", sans-serif; }
+    #mood-dialog::backdrop { background: #0009; }
+    #mood-dialog form { display: grid; gap: 16px; }
+    #mood-dialog textarea { width: 100%; min-height: min(36dvh, 280px); resize: vertical; padding: 12px;
+      font: 700 26px/1.5 "MIME Comic", "Comic Relief", sans-serif; }
+    #mood-dialog .mood-controls { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    #mood-dialog button, #mood-dialog a { font: inherit; min-height: 44px; }
+    #mood-dialog [role="status"]:empty { display: none; }
+    .reel-comments { display: none; }
+    body.feed .feed-post > .reel-comments { display: flex; align-items: center; gap: 5px; position: absolute;
+      right: var(--mime-padding, 14px); bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 5;
+      min-width: 44px; min-height: 44px; padding: 6px; border: 0; box-shadow: none; background: #17152680;
+      border-radius: 18px; color: #fff; font: 700 16px "MIME Comic", "Comic Relief", sans-serif; cursor: pointer; }
+    .reel-comments svg { width: 32px; height: 32px; overflow: visible; filter: drop-shadow(1px 2px 0 #a478df); }
+    .reel-comments [data-comment-count]:empty { display: none; }
+    html.comments-open { overflow: hidden; }
+    #comments-dialog { inset: auto 0 0; margin: 0 auto; width: min(600px, 100%); max-width: 100%;
+      height: min(680px, 78dvh); max-height: calc(100dvh - 12px); padding: 0; overflow: hidden;
+      color: var(--body); background: var(--paper); border: 1px solid var(--card-edge); border-bottom: 0;
+      border-radius: 22px 22px 0 0; box-shadow: 0 -8px 40px #0004;
+      font: 16px/1.45 "MIME Comic", "Comic Relief", sans-serif; }
+    #comments-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+    #comments-dialog [hidden] { display: none; }
+    #comments-dialog::backdrop { background: #14102466; }
+    #comments-dialog .comments-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 8px 12px 8px 20px; border-bottom: 1px solid var(--card-edge); }
+    #comments-dialog h2 { font-size: 19px; margin: 0; }
+    #comments-dialog button { min-width: 44px; min-height: 44px; font: inherit; }
+    #comments-dialog .comments-close { background: transparent; border: 0; box-shadow: none; font-size: 28px; }
+    #comments-dialog .comments-scroll { overflow: auto; overscroll-behavior: contain; padding: 0 20px; }
+    #comments-dialog .replies { margin: 0; }
+    #comments-dialog .replies .post { background: none; border-radius: 0; box-shadow: none; margin: 0; }
+    #comments-dialog .comments-notice { padding-block: 18px; }
+    #comments-dialog form#post { grid-template-columns: minmax(0, 1fr) auto auto; border: 0; border-top: 1px solid var(--card-edge);
+      border-radius: 0; box-shadow: none; gap: 8px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+    #comments-dialog form#post textarea { grid-column: 1 / -1; grid-row: 1; min-height: 64px; max-height: 22dvh; resize: none; }
+    #comments-dialog form#post input { grid-column: 1; grid-row: 2; min-height: 44px; }
+    #comments-dialog form#post .comment-submit { grid-column: 3; grid-row: 2; }
+    #comments-dialog form#post .comment-sign-in { grid-column: 2; grid-row: 2; color: var(--link);
+      background: none; box-shadow: none; border: 0; padding: 0; }
+    #comments-dialog #status { grid-column: 1 / -1; }
+    @media (max-height: 500px) { #comments-dialog { height: calc(100dvh - 12px); } }
+    button.reel-type { background: none; border: 0; box-shadow: none; padding: 0; cursor: pointer; }
     html body.feed .feed-post .meta .byline > .name.pal-text { font-size: var(--mime-handle-size, 21px); }
     html body.feed .feed-post .meta > .reel-type.pal-text { font-size: var(--mime-type-size, 21px); }
     html body.feed .feed-post > .reel-command { margin-left: var(--mime-padding, 14px); }
@@ -459,6 +504,37 @@
       html body.feed .feed-post.mood-post::before, html body.feed .feed-post.mood-post::after { animation: none; }
     }
 
+
+    /* Input belongs to the center. Navigation is a separate edge gesture. */
+    body.feed .feed-media[data-direct] > .media-shield { display: none; }
+    body.feed .feed-media[data-direct] { touch-action: none; }
+    body.feed .feed-post:has([data-direct]) > .meta { pointer-events: none; }
+    body.feed .feed-post:has([data-direct]) > .meta :is(a, button, .reel-type) { pointer-events: auto; }
+    .reel-edge { position: absolute; z-index: 3; touch-action: none; user-select: none; }
+    .reel-edge.top { top: 0; left: 0; right: 0; height: calc(48px + env(safe-area-inset-top)); }
+    .reel-edge.bottom { bottom: 0; left: 0; right: 0; height: calc(48px + env(safe-area-inset-bottom)); }
+    .reel-edge.escape { display: none; z-index: 60; }
+    .feed-post[data-onstage] > .reel-edge.escape { display: block; position: fixed; }
+    .reel-drag-shield { position: fixed; inset: 0; z-index: 70; touch-action: none; }
+    .reel-edge.escape.top, .reel-edge.escape.bottom { height: 8px; }
+    .reel-edge.left { left: 0; top: 0; bottom: 0; width: 8px; }
+    .reel-edge.right { right: 0; top: 0; bottom: 0; width: 8px; }
+    .reel-edge[data-glow] { box-shadow: inset 0 0 18px 3px #a6eaffb3; background: #a6eaff18; }
+    body.feed .feed-post > .reel-command,
+    body.feed .feed-post > .meta > .byline,
+    body.feed .feed-post > .meta > .reel-type,
+    body.feed .feed-post > .reel-comments,
+    body.feed .wordmark { transition: translate .22s ease-in-out, opacity .22s ease-in-out; }
+    body.feed .feed-post[data-full] > .reel-command { translate: calc(-100% - 40px) calc(-100% - 80px); opacity: 0; pointer-events: none; }
+    body.feed .feed-post[data-full] > .meta > .byline { translate: calc(-100% - 40px) calc(100% + 80px); opacity: 0; pointer-events: none; }
+    body.feed .feed-post[data-full] > .meta > .reel-type { translate: calc(100% + 40px) calc(100% + 80px); opacity: 0; pointer-events: none; }
+    body.feed .feed-post[data-full] > .reel-comments { translate: calc(100% + 40px) calc(100% + 100px); opacity: 0; pointer-events: none; }
+    body.feed[data-full] .wordmark { translate: 150vw -110%; opacity: 0; pointer-events: none; }
+    body.feed .feed-post[data-full] > .body { opacity: 0; pointer-events: none; }
+    @media (prefers-reduced-motion: reduce) {
+      body.feed .feed-post > .reel-command, body.feed .feed-post > .meta > .byline,
+      body.feed .feed-post > .meta > .reel-type, body.feed .feed-post > .reel-comments, body.feed .wordmark { transition: opacity .1s; }
+    }
   </style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -618,6 +694,8 @@ function syncHeader() {
 window.addEventListener("scroll", syncHeader, { passive: true });
 let routeController;
 let feedCache, activeFeed, feedObserver, playbackObserver;
+let commentsPanel = null;
+const commentDrafts = new Map();
 history.scrollRestoration = "manual";
 function feedTop(node) {
   return node.getBoundingClientRect().top + window.scrollY - chromeTop();
@@ -641,7 +719,7 @@ function shakeCardLetters(node) {
   header.querySelectorAll(".mime-letter").forEach(shake);
 }
 function rememberFeed(updateAddress = true) {
-  if (!activeFeed) return;
+  if (!activeFeed || commentsPanel) return;
   const edge = (chromeTop() + innerHeight) / 2;
   const index = activeFeed.nodes.findIndex((node) => node.getBoundingClientRect().bottom > edge + 1);
   const previous = activeFeed.index;
@@ -736,7 +814,7 @@ function flushEngagement() {
   }
 }
 function engagementForeground(active) {
-  engagementActive = active && !profileOpen;
+  engagementActive = active && !feedCovered();
   sampleEngagement();
   if (!active) flushEngagement();
 }
@@ -756,17 +834,15 @@ view.addEventListener("click", (event) => {
   const caption = event.target.closest(".feed-post > :is(.meta, .body, .comment-preview)");
   if (!caption) return;
   const post = caption.parentElement;
-  if (event.isTrusted) {
-    sampleEngagement();
-    const record = engagementRecord(post.id);
-    record.commentOpens = Math.min(10000, record.commentOpens + 1);
-    record.dirty = true;
-  }
-  location.hash = "#/t/" + post.id;
+  openComments(post.id, post.querySelector('.reel-comments'), event.isTrusted);
 });
 view.addEventListener("click", (event) => {
   const link = event.target.closest("a");
   const post = link?.closest(".feed-post");
+  if (post && link.matches('.discussion, .all-comments') && !event.button &&
+      !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault(); openComments(post.id, link, event.isTrusted); return;
+  }
   // A click the card already handled (the code toggling Interact) opened nothing.
   if (!post || !event.isTrusted || event.defaultPrevented) return;
   const key = link.matches(".discussion, .all-comments") ? "commentOpens"
@@ -811,6 +887,115 @@ function nearViewport(node, load) {
   deferredMedia.set(node, load);
   mediaLoader.observe(node);
 }
+// A held touch/key keeps the corners away. Release starts the cooldown;
+// the wider strips unlock only after the returning labels finish animating.
+let directInteraction = null;
+function retreatCorners(node, hidden) {
+  node?.toggleAttribute('data-full', hidden);
+  node?.querySelectorAll(':scope > .reel-command, :scope > .meta, :scope > .reel-comments').forEach(corner => { corner.inert = hidden; });
+  document.body.toggleAttribute('data-full', hidden);
+  document.querySelector('header .wordmark').inert = hidden;
+}
+function clearDirectInteraction() {
+  if (!directInteraction) return;
+  clearTimeout(directInteraction.timer);
+  const node = directInteraction.frame.closest('.feed-post');
+  retreatCorners(node, false); node?.removeAttribute('data-cooling');
+  directInteraction = null;
+}
+function directActivity(frame, phase = 'pulse') {
+  const node = frame.closest('.feed-post');
+  if (!frame.hasAttribute('data-direct') || !node?.hasAttribute('data-onstage') || document.hidden) return;
+  if (directInteraction?.frame !== frame) { clearDirectInteraction(); directInteraction = { frame }; }
+  clearTimeout(directInteraction.timer);
+  retreatCorners(node, true); node.setAttribute('data-cooling', '');
+  if (frame.firstElementChild?.tagName === 'VIDEO') frame.dataset.userControlled = 'true';
+  if (phase === 'hold') return;
+  directInteraction.timer = setTimeout(() => {
+    retreatCorners(node, false);
+    directInteraction.timer = setTimeout(() => { node.removeAttribute('data-cooling'); },
+      matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : 250);
+  }, 1000);
+}
+function installDirectMedia(frame, content) {
+  frame.dataset.direct = 'true';
+  content.inert = false;
+  const held = new Set();
+  for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'keydown', 'keyup']) {
+    frame.addEventListener(type, event => {
+      const key = type.startsWith('key') ? event.code : event.pointerId;
+      if (type === 'pointerdown' || type === 'keydown') held.add(key); else held.delete(key);
+      directActivity(frame, held.size ? 'hold' : 'release');
+    }, {capture: true, passive: true});
+  }
+  frame.addEventListener('wheel', event => {
+    directActivity(frame);
+    // Native controls still receive the wheel, but it cannot scroll the reel.
+    event.preventDefault();
+  }, {passive: false});
+}
+function installReelEdges(node) {
+  if (!node.querySelector('[data-direct]')) return;
+  for (const [side, escape] of [['top',false],['bottom',false],['top',true],['bottom',true],['left',true],['right',true]]) {
+    const edge = el('div', 'reel-edge ' + side + (escape ? ' escape' : ''));
+    edge.setAttribute('aria-hidden', 'true');
+    edge.tabIndex = -1;
+    let drag, shield, lastWheel = 0;
+    const available = () => escape || !node.hasAttribute('data-cooling');
+    const finish = () => { drag = null; shield?.remove(); shield = null; edge.removeAttribute('data-glow'); };
+    edge.addEventListener('pointerdown', event => {
+      event.preventDefault(); event.stopPropagation();
+      if (drag) return;
+      const allowed = available();
+      if (allowed) { clearDirectInteraction(); edge.focus({preventScroll: true}); }
+      drag = { y: event.clientY, id: event.pointerId, allowed };
+      // Cover child frames only for this edge gesture. Some browser processes
+      // otherwise retarget a captured drag when it crosses into an iframe.
+      shield = el('div', 'reel-drag-shield'); shield.setAttribute('aria-hidden', 'true');
+      document.body.append(shield);
+      edge.setPointerCapture(event.pointerId);
+      if (allowed) edge.setAttribute('data-glow', '');
+    });
+    edge.addEventListener('pointerup', event => {
+      const distance = drag?.allowed && drag.id === event.pointerId ? drag.y - event.clientY : 0;
+      finish();
+      if (Math.abs(distance) >= 32) stepFeedPost(node, Math.sign(distance));
+    });
+    edge.addEventListener('pointercancel', finish);
+    edge.addEventListener('lostpointercapture', finish);
+    edge.addEventListener('pointerenter', () => { if (available()) edge.setAttribute('data-glow', ''); });
+    edge.addEventListener('pointerleave', () => { if (!drag) edge.removeAttribute('data-glow'); });
+    edge.addEventListener('wheel', event => {
+      event.preventDefault(); event.stopPropagation();
+      if (!available() || Math.abs(event.deltaY) < 4 || performance.now() - lastWheel < 350) return;
+      lastWheel = performance.now(); clearDirectInteraction(); edge.focus({preventScroll: true});
+      stepFeedPost(node, Math.sign(event.deltaY));
+    }, {passive: false});
+    node.append(edge);
+  }
+}
+window.addEventListener('message', event => {
+  if (!activeFeed || event.data?.type !== 'mime:interaction' || !['hold','release','pulse'].includes(event.data.phase)) return;
+  // Match the actual child window, including opaque sandboxed packed pages.
+  const frame = [...view.querySelectorAll('[data-direct]')].find(frame =>
+    [...frame.querySelectorAll('iframe')].some(player => player.contentWindow === event.source));
+  if (frame) directActivity(frame, event.data.phase);
+});
+// Opaque embeds cannot expose input events. Their focus still enters full
+// interaction; a return to the outer document starts the ordinary cooldown.
+window.addEventListener('blur', () => setTimeout(() => {
+  const focused = document.activeElement;
+  if (focused?.tagName === 'IFRAME') directActivity(focused.closest('[data-direct]') || focused, 'release');
+}));
+window.addEventListener('blur', () => {
+  if (directInteraction) directActivity(directInteraction.frame, 'release');
+});
+window.addEventListener('scroll', () => {
+  if (directInteraction) {
+    const box = directInteraction.frame.getBoundingClientRect();
+    if (box.bottom < innerHeight * .6 || box.top > innerHeight * .4) clearDirectInteraction();
+  }
+}, {passive: true});
 let interactingMedia = null;
 function exitMediaInteraction() {
   const frame = interactingMedia;
@@ -822,7 +1007,8 @@ function exitMediaInteraction() {
   frame.querySelector(".media-toggle").setAttribute("aria-pressed", "false");
   interactingMedia = null;
 }
-function shieldMedia(frame, content, interactive) {
+function shieldMedia(frame, content, interactive, inFeed = false) {
+  if (interactive && inFeed) { installDirectMedia(frame, content); return; }
   // A program stays inert until Interact. A watched program (a saved Oskiewar
   // round) never gets one, so it stays inert for good and the feed's scroll
   // passes straight over it.
@@ -878,7 +1064,8 @@ window.addEventListener("keydown", event => {
   event.stopImmediatePropagation();
   if (event.code === "Escape") { if (!event.repeat) stepFeedPost(node); return; }
   const frame = player.parentElement;
-  if (interactingMedia !== frame) frame.querySelector(".media-toggle").onclick(event);
+  if (frame.hasAttribute("data-direct")) directActivity(frame, "hold");
+  else if (interactingMedia !== frame) frame.querySelector(".media-toggle").onclick(event);
   doomBridgeKeys.set(event.code, player);
   player.contentWindow?.postMessage({ type: "mime:playing", playing: true }, "https://aesthetic.computer");
   player.contentWindow?.postMessage({ type: "mime:key", code: event.code, down: true, repeat: event.repeat }, "https://aesthetic.computer");
@@ -888,6 +1075,7 @@ window.addEventListener("keyup", event => {
   if (!player) return;
   event.preventDefault();
   doomBridgeKeys.delete(event.code);
+  if (!doomBridgeKeys.size && player.parentElement.hasAttribute("data-direct")) directActivity(player.parentElement, "release");
   player.contentWindow?.postMessage({ type: "mime:key", code: event.code, down: false }, "https://aesthetic.computer");
   if (!doomBridgeKeys.size && player.parentElement === interactingMedia) player.focus({ preventScroll: true });
 });
@@ -899,6 +1087,7 @@ async function stepFeedPost(node = activeFeed?.nodes[activeFeed.index], step = 1
   const state = activeFeed;
   if (!state || !node) return;
   exitMediaInteraction();
+  clearDirectInteraction();
   document.activeElement?.blur();
   const index = state.nodes.indexOf(node);
   if (step > 0 && index === state.nodes.length - 1 && state.hasMore) await state.loadMore?.();
@@ -914,6 +1103,7 @@ window.addEventListener("message", event => {
   const box = node.getBoundingClientRect(), middle = (chromeTop() + innerHeight) / 2;
   if (box.top > middle || box.bottom <= middle) return;
   if (event.data.type === "mime:next") { stepFeedPost(node); return; }
+  if (node.querySelector("[data-direct]")) return;
   const { deltaY, deltaMode } = event.data;
   if (!Number.isFinite(deltaY) || deltaY === 0 || ![0, 1, 2].includes(deltaMode)) return;
   // A small programmatic pixel scroll can snap back to this card. Carry the
@@ -949,23 +1139,27 @@ window.addEventListener("keydown", event => {
 });
 
 // Only the dominant card auto-plays; nearby tapes warm metadata without competing playback.
+function feedCovered() { return profileOpen || !!document.querySelector("dialog[open]"); }
 function syncVideoPlayback() {
   if (!activeFeed) return;
   const videos = [...view.querySelectorAll(".feed-media > video")];
   const top = chromeTop();
   let selected = null, largest = 0;
-  if (!profileOpen && !document.hidden && document.hasFocus()) for (const frame of view.querySelectorAll(".feed-media")) {
+  if (!feedCovered() && !document.hidden && document.hasFocus()) for (const frame of view.querySelectorAll(".feed-media")) {
     const box = frame.getBoundingClientRect();
     const visible = Math.max(0, Math.min(innerHeight, box.bottom) - Math.max(top, box.top));
     const area = visible * box.width;
     if (area > largest) { selected = frame; largest = area; }
   }
-  if (!profileOpen && !document.hidden && document.hasFocus() && interactingMedia?.isConnected) selected = interactingMedia;
+  if (!feedCovered() && !document.hidden && document.hasFocus() && interactingMedia?.isConnected) selected = interactingMedia;
   for (const video of videos) {
     if (selected?.contains(video)) {
-      if (interactingMedia === selected) continue; // Native pause/play belongs to the viewer in interaction mode.
+      if (interactingMedia === selected || selected.dataset.userControlled) continue; // Native pause/play belongs to the viewer in interaction mode.
       if (video.paused && video.getAttribute("src")) video.play().catch(() => {});
-    } else if (!video.paused) video.pause();
+    } else {
+      delete video.parentElement.dataset.userControlled;
+      if (!video.paused) video.pause();
+    }
   }
 }
 
@@ -984,7 +1178,9 @@ function settlePiece(preview, playing, force = false) {
   entry.iframe.contentWindow?.postMessage({ type: "mime:playing", playing }, "*");
 }
 function stopPiece() {
-  for (const { iframe } of piecePool.values()) iframe.remove();
+  clearDirectInteraction();
+  document.querySelectorAll(".reel-drag-shield").forEach(shield => shield.remove());
+  for (const { iframe, abort } of piecePool.values()) { abort?.abort(); iframe.remove(); }
   piecePool.clear(); pieceFocused = null;
 }
 function preparePiece(preview) {
@@ -997,12 +1193,29 @@ function preparePiece(preview) {
   iframe.setAttribute("sandbox", preview.dataset.packed === "true" ? "allow-scripts" : "allow-scripts allow-same-origin");
   iframe.referrerPolicy = "no-referrer";
   iframe.allow = "autoplay; camera 'none'; microphone 'none'";
+  if (preview.dataset.youtube === 'true') {
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox');
+    iframe.allow += '; fullscreen; encrypted-media; picture-in-picture';
+    iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+  }
   iframe.addEventListener("load", () => {
-    if (preview.dataset.packed === "true") iframe.dataset.ready = "true";
+    if (preview.dataset.packed === "true" && (iframe.hasAttribute("srcdoc") || iframe.hasAttribute("src"))) iframe.dataset.ready = "true";
     settlePiece(preview, preview === pieceFocused, true);
   });
-  iframe.src = preview.dataset.player;
-  piecePool.set(preview, { iframe, playing: null });
+  const abort = new AbortController();
+  piecePool.set(preview, { iframe, playing: null, abort });
+  if (preview.dataset.packed === "true") {
+    // Add input observation inside the existing opaque sandbox. The original
+    // HTML remains the download; it gains no access to MIME or its session.
+    Promise.all([
+      fetch(preview.dataset.player, {signal: abort.signal}).then(response => { if (!response.ok) throw new Error('Pack unavailable'); return response.text(); }),
+      import('/mime-play/interaction.mjs'),
+    ]).then(([html, {observeInteraction}]) => {
+      if (abort.signal.aborted || piecePool.get(preview)?.iframe !== iframe) return;
+      const base = new URL(preview.dataset.player, location.href).href.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      iframe.srcdoc = '<base href="' + base + '"><script>(' + observeInteraction.toString() + ')();<\/script>' + html;
+    }).catch(() => { if (!abort.signal.aborted) iframe.src = preview.dataset.player; });
+  } else iframe.src = preview.dataset.player;
   preview.append(iframe);
 }
 window.addEventListener("message", event => {
@@ -1015,10 +1228,10 @@ window.addEventListener("message", event => {
   }
 });
 function syncPieceFocus() {
-  if (profileOpen || document.hidden || !document.hasFocus()) {
+  if (feedCovered() || document.hidden || (!document.hasFocus() && document.activeElement?.tagName !== "IFRAME")) {
     pieceFocused = null;
     for (const [preview, entry] of piecePool) {
-      if (preview.dataset.packed === "true") { entry.iframe.remove(); piecePool.delete(preview); }
+      if (preview.dataset.packed === "true") { entry.abort?.abort(); entry.iframe.remove(); piecePool.delete(preview); }
       else settlePiece(preview, false);
     }
     return;
@@ -1050,7 +1263,7 @@ function syncPieceFocus() {
     }
   }
   for (const [preview, entry] of piecePool) if (!keep.has(preview) || !preview.isConnected) {
-    entry.iframe.remove(); piecePool.delete(preview);
+    entry.abort?.abort(); entry.iframe.remove(); piecePool.delete(preview);
   }
   for (const preview of keep) { preparePiece(preview); settlePiece(preview, preview === focused); }
 }
@@ -1462,7 +1675,8 @@ function postPath(permalink) {
 }
 function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) {
   const root = !post.parent;
-  const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (["mood", "chat"].includes(post.media?.kind) ? " mood-post" : ""));
+  const youtube = post.embed?.kind === 'youtube' && /^[\w-]{11}$/.test(post.embed.id || '') ? post.embed : null;
+  const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (!youtube && ["mood", "chat"].includes(post.media?.kind) ? " mood-post" : ""));
   div.id = post.code;
   div.dataset.permalink = ["mood", "chat"].includes(post.media?.kind) && post.media.code ? post.media.kind + "~" + post.media.code
     : ["wgpiece", "whistlegraph"].includes(post.media?.kind) && /^wg[A-Za-z0-9]+$/.test(post.media.code) ? post.media.code : post.code;
@@ -1486,9 +1700,12 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       origin.href = post.origin.url;
       byline.append(origin);
     }
-    const mime = el("span", "mime-type", post.file?.type || post.board || "text/plain");
-    mime.dataset.type = mime.textContent;
-    mime.dataset.top = mime.textContent.split("/")[0];
+    const mediaType = post.file?.type || post.board || "text/plain";
+    const kind = post.media?.kind;
+    const mime = el("span", "mime-type", ["mood", "chat"].includes(kind) ? kind : mediaType);
+    mime.dataset.type = mediaType;
+    mime.dataset.top = mediaType.split("/")[0];
+    mime.title = mediaType;
     byline.append(mime);
   }
   const time = el("time", null, ago(post.when));
@@ -1499,6 +1716,12 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   // On the reel: the enterable AC code rides the top-left corner, the handle
   // the bottom-left, and the type chip the bottom-right.
   if (root && inFeed) {
+    const comments = el('button', 'reel-comments'); comments.type = 'button';
+    comments.setAttribute('aria-haspopup', 'dialog'); comments.title = 'Comments';
+    comments.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 4h18a4 4 0 0 1 4 4v13a4 4 0 0 1-4 4H14l-7 5v-5a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Z" fill="#fff" stroke="#171526" stroke-width="2" stroke-linejoin="round"/><g fill="#171526"><circle cx="10" cy="15" r="1.7"/><circle cx="16" cy="15" r="1.7"/><circle cx="22" cy="15" r="1.7"/></g></svg><span data-comment-count aria-hidden="true"></span>';
+    setCommentCount(comments, post.replies || 0);
+    comments.addEventListener('click', event => openComments(post.code, comments, event.isTrusted));
+    div.append(comments);
     const command = el("div", "reel-command");
     const code = byline.querySelector(".media-label").cloneNode(true);
     code.setAttribute("aria-haspopup", "dialog");
@@ -1535,7 +1758,15 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       command.append(version); palLetters(version, "#55cdd9");
     }
     div.append(command);
-    const type = byline.querySelector(".mime-type").cloneNode(true);
+    let type = byline.querySelector(".mime-type").cloneNode(true);
+    if (post.media?.kind === "mood") {
+      const button = el("button", type.className, type.textContent);
+      Object.assign(button.dataset, type.dataset);
+      button.type = "button"; button.title = "Add your own mood";
+      button.setAttribute("aria-haspopup", "dialog");
+      button.addEventListener("click", () => openMoodComposer(button));
+      type = button;
+    }
     type.classList.add("reel-type");
     meta.append(type);
     const kindTint = { image: "#ff91c5", video: "#c5a1ff", audio: "#a6e6b3", text: "#55cdd9", application: "#55cdd9" };
@@ -1546,9 +1777,14 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   }
   if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
-  if (post.file) {
-    const runnable = post.media?.code && Object.hasOwn(RUNNABLE, post.media.kind);
-    const file = runnable ? renderRunnable(post) : renderFile(post.file);
+  if (post.file || youtube) {
+    const runnable = youtube || post.media?.code && Object.hasOwn(RUNNABLE, post.media.kind);
+    const file = youtube ? el('div', 'piece-preview') : runnable ? renderRunnable(post) : renderFile(post.file);
+    if (youtube) {
+      file.dataset.player = 'https://aesthetic.computer/mime-youtube/?' + new URLSearchParams({v: youtube.id, start: Math.max(0, Math.min(86400, Number(youtube.start) || 0)), warm: 1});
+      file.dataset.youtube = 'true';
+      file.dataset.title = 'YouTube video shared by ' + (post.name || 'Anonymous');
+    }
     const frame = el("div", "feed-media");
     if (runnable && post.media.packed) {
       const aspect = ["2:3", "9:16", "1:1", "4:3", "16:9"].includes(post.media.aspect) ? post.media.aspect : "2:3";
@@ -1598,10 +1834,12 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     // Plain text has nothing to shield; it reads and selects in place.
     // A saved Oskiewar round is watched, not played: no Interact, no toggle.
     const watched = post.media?.kind === "oskiewar";
-    if (file.tagName !== "PRE") shieldMedia(frame, file, !watched && (Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "A"].includes(file.tagName)));
+    if (file.tagName !== "PRE") shieldMedia(frame, file, !watched && (Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "A"].includes(file.tagName)), inFeed);
     div.append(frame);
   }
-  if (post.text) div.append(inFeed && ["mood", "chat"].includes(post.media?.kind) ? renderMood(post.text, post) : renderText(post.text));
+  if (inFeed) installReelEdges(div);
+  if (youtube?.caption && inFeed) div.append(renderText(youtube.caption));
+  if (post.text && (!youtube || !inFeed)) div.append(inFeed && ["mood", "chat"].includes(post.media?.kind) ? renderMood(post.text, post) : renderText(post.text));
   if (root) {
     const actions = el("div", "post-actions");
     if (!inThread) {
@@ -1760,8 +1998,8 @@ accountAction.onclick = async () => {
 function updateIdentity() {
   return refreshIdentity().then(() => {
     showAccount();
-    const input = view.querySelector('[name="commenter"]');
-    if (input) showIdentity(input);
+    document.querySelectorAll('[name="commenter"]').forEach(showIdentity);
+    document.querySelectorAll('.comment-sign-in').forEach(button => { button.hidden = !!identity.token; });
   }).catch(() => { accountStatus.textContent = "sign in again to use your handle"; });
 }
 window.addEventListener("focus", updateIdentity);
@@ -1769,7 +2007,168 @@ window.addEventListener("storage", (event) => {
   if (!event.key || event.key === "session-aesthetic" || event.key.startsWith(AC_CACHE_PREFIX)) updateIdentity();
 });
 
-function postForm(parent) {
+let moodDraft = "";
+async function openMoodComposer(opener) {
+  if (document.getElementById("mood-dialog")) return;
+  const dialog = el("dialog"); dialog.id = "mood-dialog";
+  dialog.setAttribute("aria-label", "Add a mood");
+  const form = el("form"), controls = el("div", "mood-controls");
+  const back = el("button", null, "Back"); back.type = "button";
+  const author = el("span"), submit = el("button", null, "Post mood");
+  const text = el("textarea"); text.placeholder = "How are you feeling?";
+  text.setAttribute("aria-label", "Mood"); text.maxLength = 4000; text.value = moodDraft;
+  const status = el("div"); status.setAttribute("role", "status");
+  const handle = el("a", null, "Choose your @handle"); handle.href = "https://aesthetic.computer/handle";
+  handle.target = "_blank"; handle.rel = "noopener"; handle.hidden = true;
+  controls.append(back, submit); form.append(controls, text, author, handle, status); dialog.append(form);
+  let posting = false, checking = true, needsLogin = false;
+  const sync = () => {
+    author.textContent = identity.handle || "";
+    submit.textContent = posting ? "Posting…" : checking ? "Checking account…" : identity.token ? "Post mood" : "Log in to post";
+    submit.disabled = posting || checking || !text.value.trim() || !!identity.token && !identity.handle;
+    handle.hidden = !identity.token || !!identity.handle;
+  };
+  const check = async () => {
+    checking = true; sync();
+    try { await refreshIdentity(); needsLogin = false; showAccount(); }
+    catch { status.textContent = "Sign in again to post your mood."; needsLogin = true; identity = { token: null, handle: null }; }
+    finally { checking = false; sync(); }
+  };
+  text.oninput = () => { moodDraft = text.value; sync(); };
+  back.onclick = () => dialog.close();
+  dialog.addEventListener("cancel", event => { if (posting) event.preventDefault(); });
+  dialog.addEventListener("close", () => {
+    moodDraft = text.value; dialog.remove(); window.removeEventListener("focus", check);
+    engagementForeground(!document.hidden && document.hasFocus()); opener?.focus();
+  });
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (posting || checking || !text.value.trim()) return;
+    posting = true; back.disabled = true; text.disabled = true; status.textContent = ""; sync();
+    try {
+      if (!needsLogin) {
+        try { await refreshIdentity(); }
+        catch { needsLogin = true; identity = { token: null, handle: null }; }
+      }
+      if (!identity.token || needsLogin) {
+        sessionStorage.setItem("mime-mood-draft", text.value);
+        const client = await authClient();
+        await client.loginWithRedirect({ appState: { hash: location.hash || "#/", mood: true }, authorizationParams: { redirect_uri: AUTH_REDIRECT } });
+        return;
+      }
+      if (!identity.handle) throw new Error("Choose a handle before posting your mood.");
+      const response = await fetch("https://aesthetic.computer/api/mood", { method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + identity.token },
+        body: JSON.stringify({ mood: text.value.trim() }), signal: AbortSignal.timeout(60000) });
+      const result = await response.json();
+      if (response.status === 401) { needsLogin = true; identity = { token: null, handle: null }; throw new Error("Sign in again to post your mood."); }
+      if (!response.ok || !result.post?.media?.code) throw new Error("Could not post your mood. Your draft is still here; try again.");
+      const post = result.post;
+      if (feedCache) {
+        feedCache.nodes = feedCache.nodes.filter(node => node.id !== post.code);
+        feedCache.nodes.unshift(renderPost(post, false, false, undefined, true));
+        feedCache.codes.add(post.code); feedCache.index = 0; feedCache.offset = 0;
+      }
+      text.value = ""; moodDraft = ""; sessionStorage.removeItem("mime-mood-draft");
+      dialog.close();
+      history.pushState(null, "", postPath("mood~" + post.media.code) + location.search);
+      await route();
+    } catch (error) { status.textContent = error.message || "Could not post your mood. Try again."; }
+    finally { posting = false; back.disabled = false; text.disabled = false; sync(); }
+  };
+  document.body.append(dialog); dialog.showModal(); text.focus();
+  engagementForeground(false);
+  window.addEventListener("focus", check);
+  await check();
+}
+
+function setCommentCount(button, count) {
+  count = Math.max(0, Number(count) || 0);
+  button.dataset.count = count;
+  button.setAttribute('aria-label', 'Comments' + (count ? ' · ' + count : ''));
+  button.querySelector('[data-comment-count]').textContent = count ? String(count) : '';
+}
+function updateCommentCount(code, count) {
+  for (const node of feedCache?.nodes || []) {
+    if (node.id === code) {
+      const button = node.querySelector('.reel-comments');
+      if (button) setCommentCount(button, count);
+    }
+  }
+}
+function closeComments(fromHistory = false) {
+  const panel = commentsPanel;
+  if (!panel) return;
+  commentsPanel = null;
+  panel.controller.abort(); panel.dialog.close(); panel.dialog.remove();
+  document.documentElement.classList.remove('comments-open');
+  panel.opener?.focus({ preventScroll: true });
+  engagementForeground(!document.hidden && document.hasFocus()); syncPieceFocus();
+  if (!fromHistory && history.state?.mimeComments?.token === panel.token) history.back();
+}
+async function openComments(code, opener, trusted = false, restore = false) {
+  if (commentsPanel) return;
+  clearDirectInteraction(); exitMediaInteraction();
+  const dialog = el('dialog'); dialog.id = 'comments-dialog';
+  dialog.setAttribute('aria-labelledby', 'comments-heading');
+  const bar = el('div', 'comments-bar'), heading = el('h2', null, 'Comments'); heading.id = 'comments-heading';
+  const close = el('button', 'comments-close', '×'); close.type = 'button'; close.setAttribute('aria-label', 'Close comments');
+  const scroll = el('div', 'comments-scroll'), replies = el('div', 'replies');
+  const notice = el('div', 'comments-notice'), status = el('span', null, 'Loading comments…'); status.setAttribute('role', 'status');
+  const retry = el('button', null, 'Retry'); retry.type = 'button'; retry.hidden = true;
+  notice.append(status, retry); scroll.append(replies, notice); bar.append(heading, close); dialog.append(bar, scroll);
+  const controller = new AbortController();
+  const token = restore ? history.state?.mimeComments?.token : crypto.randomUUID();
+  const panel = commentsPanel = { dialog, controller, opener, token };
+  if (!restore) history.pushState({ ...history.state, mimeComments: { code, token } }, '', location.href);
+  let count = 0, form;
+  const load = async () => {
+    retry.hidden = true; status.textContent = 'Loading comments…';
+    try {
+      const data = await read(API + '?thread=' + encodeURIComponent(code), controller.signal);
+      if (commentsPanel !== panel) return;
+      code = data.op.code; count = data.replies.length;
+      heading.textContent = 'Comments' + (count ? ' · ' + count : '');
+      replies.replaceChildren(...data.replies.map(reply => renderPost(reply, false, false, data.op.board)));
+      status.textContent = count ? '' : 'No comments yet.';
+      updateCommentCount(code, count);
+      if (!form) {
+        form = postForm(code, { overlay: true, onPosted: async () => {
+          updateCommentCount(code, ++count);
+          if (commentsPanel !== panel) return;
+          await load();
+          scroll.scrollTop = scroll.scrollHeight;
+        } });
+        dialog.append(form);
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      status.textContent = 'Could not load comments. '; retry.hidden = false;
+    }
+  };
+  retry.onclick = load; close.onclick = () => closeComments();
+  dialog.addEventListener('cancel', event => { event.preventDefault(); closeComments(); });
+  dialog.addEventListener('close', () => { if (commentsPanel === panel) closeComments(); });
+  dialog.addEventListener('click', event => {
+    const box = dialog.getBoundingClientRect();
+    if (event.target === dialog && (event.clientY < box.top || event.clientX < box.left || event.clientX > box.right)) closeComments();
+  });
+  document.body.append(dialog); document.documentElement.classList.add('comments-open');
+  dialog.showModal(); close.focus();
+  if (trusted) {
+    const record = engagementRecord(code); record.commentOpens = Math.min(10000, record.commentOpens + 1); record.dirty = true;
+    window.acVisits?.action('mime_comments_open'); flushEngagement();
+  }
+  engagementForeground(false); syncPieceFocus();
+  await load();
+}
+window.addEventListener('popstate', event => {
+  if (commentsPanel && event.state?.mimeComments?.token !== commentsPanel.token) closeComments(true);
+  else if (!commentsPanel && event.state?.mimeComments?.code && activeFeed)
+    openComments(event.state.mimeComments.code, null, false, true);
+});
+
+function postForm(parent, { overlay = false, onPosted } = {}) {
   const form = el("form");
   form.id = "post";
   const name = el("input");
@@ -1782,27 +2181,45 @@ function postForm(parent) {
   text.setAttribute("aria-label", "Comment");
   text.maxLength = 4000;
   name.name = "commenter";
-  const button = el("button", null, "comment");
+  const button = el("button", "comment-submit", "Post");
   const status = el("span");
   status.id = "status";
   status.setAttribute("role", "status");
   form.append(name, text, button, status);
+  text.value = commentDrafts.get(parent)?.text || '';
+  name.value = commentDrafts.get(parent)?.name || '';
+  const saveDraft = () => commentDrafts.set(parent, { text: text.value, name: name.value });
+  text.addEventListener('input', saveDraft); name.addEventListener('input', saveDraft);
   try {
     const draft = JSON.parse(sessionStorage.getItem("mime-comment-draft"));
-    if (draft?.hash === location.hash && typeof draft.text === "string") text.value = draft.text;
+    if ((draft?.parent ? draft.parent === parent : draft?.hash === location.hash) && typeof draft?.text === "string") text.value = draft.text;
   } catch {}
-  refreshIdentity().then(() => showIdentity(name)).catch(() => {
+  const signIn = el('button', 'comment-sign-in', 'Sign in'); signIn.type = 'button';
+  if (overlay) {
+    form.append(signIn);
+    signIn.onclick = async () => {
+      signIn.disabled = true; status.textContent = '';
+      try {
+        sessionStorage.setItem('mime-comment-draft', JSON.stringify({ parent, text: text.value }));
+        const client = await authClient();
+        await client.loginWithRedirect({ appState: { hash: location.hash || '#/', comment: parent, commentPath: location.pathname },
+          authorizationParams: { redirect_uri: AUTH_REDIRECT } });
+      } catch (error) { status.textContent = error.message || 'Could not sign in.'; signIn.disabled = false; }
+    };
+  }
+  refreshIdentity().then(() => { showIdentity(name); signIn.hidden = !!identity.token; }).catch(() => {
     if (form.isConnected) status.textContent = "sign in again to use your handle";
   });
 
-  document.ondragover = (e) => { e.preventDefault(); };
-  document.ondrop = (e) => { e.preventDefault(); };
+  form.ondragover = form.ondrop = (e) => { e.preventDefault(); };
 
   form.onsubmit = async (e) => {
     e.preventDefault();
+    if (button.disabled) return;
     if (!text.value.trim()) { status.textContent = "empty reply"; return; }
     status.textContent = "posting…";
     button.disabled = true;
+    text.disabled = name.disabled = signIn.disabled = true;
     try {
       await refreshIdentity();
       showIdentity(name);
@@ -1812,14 +2229,17 @@ function postForm(parent) {
         body: JSON.stringify({ name: name.value, text: text.value, parent }),
       });
       const out = await res.json();
-      if (!res.ok) { status.textContent = out.error; return; }
-      sessionStorage.removeItem("mime-comment-draft");
+      if (!res.ok) { status.textContent = out.error || 'Could not post — try again.'; return; }
+      commentDrafts.delete(parent); text.value = ''; status.textContent = '';
+      try { sessionStorage.removeItem("mime-comment-draft"); } catch {}
+      if (onPosted) { await onPosted(out); return; }
       history.replaceState(null, "", "#/t/" + (parent || out.code));
       await route();
     } catch (error) {
       status.textContent = error.message || "could not post — try again";
     } finally {
       button.disabled = false;
+      text.disabled = name.disabled = signIn.disabled = false;
     }
   };
   return form;
@@ -2118,6 +2538,7 @@ async function read(url, signal) {
 }
 
 async function route() {
+  closeComments(true);
   exitMediaInteraction();
   stopPiece();
   rememberFeed(false);
@@ -2173,6 +2594,7 @@ window.addEventListener("resize", () => {
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     exitMediaInteraction();
+    clearDirectInteraction();
     view.querySelectorAll("video, audio").forEach((media) => media.pause());
   }
 });
@@ -2187,14 +2609,18 @@ window.addEventListener("keydown", (event) => {
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 });
 async function start() {
+  let resumeMood = false, resumeComments;
   const params = new URLSearchParams(location.search);
   if (params.has("state") && (params.has("code") || params.has("error"))) {
     accountAction.disabled = true;
     try {
       const client = await authClient();
       const { appState } = await client.handleRedirectCallback();
+      resumeMood = appState?.mood === true;
+      resumeComments = typeof appState?.comment === 'string' ? appState.comment : null;
       const hash = typeof appState?.hash === "string" && appState.hash.startsWith("#/") ? appState.hash : "#/";
-      history.replaceState(null, "", location.pathname + hash);
+      const path = resumeComments && /^\/(?:p\/[^/?#]+|wg[A-Za-z0-9]+)$/.test(appState?.commentPath || '') ? appState.commentPath : location.pathname;
+      history.replaceState(null, "", path + hash);
     } catch (error) {
       accountStatus.textContent = error.message || "could not finish sign-in";
       history.replaceState(null, "", location.pathname + "#/");
@@ -2204,6 +2630,12 @@ async function start() {
   window.addEventListener("popstate", () => { if (location.pathname !== routedPath) route(); });
   await route();
   await updateIdentity();
+  if (resumeComments) await openComments(resumeComments);
+  if (resumeMood) {
+    moodDraft = sessionStorage.getItem("mime-mood-draft") || "";
+    sessionStorage.removeItem("mime-mood-draft");
+    await openMoodComposer();
+  }
 }
 start();
 </script>

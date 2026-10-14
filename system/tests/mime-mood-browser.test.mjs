@@ -26,6 +26,8 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  await page.locator('.mime-startup').waitFor({state:'detached'});await page.evaluate(()=>document.fonts.ready);
  const mood=page.locator('#mood_fixture');
  await page.waitForFunction(()=>document.querySelector('#mood_fixture').hasAttribute('data-onstage'));
+ assert.equal(await mood.locator('.reel-type').getAttribute('aria-label'), 'mood');
+ assert.equal(await page.locator('#chat_clock_fixture .reel-type').getAttribute('aria-label'), 'chat');
  const checks=await mood.evaluate(e=>{
   const body=e.querySelector('.body'),box=body.getBoundingClientRect();
   const letters=[...body.querySelectorAll('.mood-letter')].map(l=>l.getBoundingClientRect());
@@ -70,4 +72,62 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  await page.emulateMedia({reducedMotion:'reduce'});
  await page.waitForFunction(()=>document.querySelector('#mime-favicon').href.includes('/favicon-32.png?v=3'));
  }finally{await browser.close();}
+});
+
+test('a mood draft survives sign-in and failure, then the confirmed post appears in the feed', async () => {
+ const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL,headless:true});
+ try {
+  const page=await browser.newPage({viewport:{width:390,height:844},colorScheme:'dark'}), errors=[], requests=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  const html=await readFile(new URL('../public/mime/index.html',import.meta.url),'utf8');
+  const font=await readFile(new URL('../public/whistlegraph.app/ComicRelief-Bold.ttf',import.meta.url));
+  const original={code:'mood_fixture',name:'@fixture',board:'text/plain',text:'A little room for a mood.',media:{kind:'mood',code:'abc'},when:new Date().toISOString()};
+  const saved={...original,code:'mood_saved',text:'Still curious.',media:{kind:'mood',code:'new'}};
+  await page.addInitScript(()=>{
+   window.auth0={Auth0Client:class {
+    async loginWithRedirect() { location.href='/?code=fixture&state=fixture&ac-automation=1'; }
+    async handleRedirectCallback() {
+     localStorage.setItem('session-aesthetic',encodeURIComponent(btoa(JSON.stringify({accessToken:'fixture',account:{sub:'fixture'}}))));
+     return {appState:{hash:'#/',mood:true}};
+    }
+   }};
+  });
+  await page.route('**/*',route=>{
+   const u=new URL(route.request().url());
+   if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')))return route.fulfill({contentType:'text/html',body:html});
+   if(u.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify(u.searchParams.has('me')?{handle:'@fixture'}:{recent:[original],hasMore:false})});
+   if(u.pathname==='/api/mood') {
+    requests.push({body:route.request().postDataJSON(),auth:route.request().headers().authorization});
+    return route.fulfill({status:requests.length===1?503:200,contentType:'application/json',body:JSON.stringify(requests.length===1?{error:'offline'}:{mood:saved.text,post:saved})});
+   }
+   if(u.pathname.endsWith('ComicRelief-Bold.ttf'))return route.fulfill({contentType:'font/ttf',body:font});
+   return route.fulfill({body:''});
+  });
+  await page.goto('https://mime.ac/?ac-automation=1');
+  await page.locator('.mime-startup').waitFor({state:'detached'});
+  await page.locator('#mood_fixture .reel-type').click();
+  const dialog=page.getByRole('dialog',{name:'Add a mood'}), text=dialog.getByRole('textbox',{name:'Mood'});
+  await text.fill('Still curious.');
+  await dialog.getByRole('button',{name:'Back',exact:true}).click();
+  await page.locator('#mood_fixture .reel-type').click();
+  assert.equal(await text.inputValue(),'Still curious.');
+  await dialog.getByRole('button',{name:'Log in to post',exact:true}).click();
+  await dialog.getByRole('button',{name:'Post mood',exact:true}).waitFor();
+  assert.equal(await text.inputValue(),'Still curious.');
+  await text.fill('   ');
+  assert.equal(await dialog.getByRole('button',{name:'Post mood',exact:true}).isDisabled(),true);
+  await text.fill('Still curious.');
+  await dialog.getByRole('button',{name:'Post mood',exact:true}).click();
+  await dialog.getByRole('status').filter({hasText:'Could not post'}).waitFor();
+  assert.equal(await text.inputValue(),'Still curious.');
+  await page.screenshot({path:'/tmp/mime-mood-composer.png'});
+  await dialog.getByRole('button',{name:'Post mood',exact:true}).click();
+  await page.waitForURL('**/p/mood~new*');
+  await page.waitForFunction(()=>document.querySelector('#mood_saved')?.hasAttribute('data-onstage'));
+  assert.equal(await page.locator('#mood_saved .mood-accessible').textContent(),'Still curious.');
+  assert.equal(await page.locator('#mood_saved .reel-type').getAttribute('aria-label'),'mood');
+  assert.deepEqual(requests,[{body:{mood:'Still curious.'},auth:'Bearer fixture'},{body:{mood:'Still curious.'},auth:'Bearer fixture'}]);
+  assert.deepEqual(errors,[]);
+  await page.screenshot({path:'/tmp/mime-mood-posted.png'});
+ } finally { await browser.close(); }
 });

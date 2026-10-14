@@ -16,21 +16,16 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     file: { name: 'wgDefen-v7.html', type: 'text/html', url: '/artifact.html' },
     media: { kind: 'whistlegraph', code: 'wgDefen', title: 'Spinning tree', version: 7, aspect: '2:3', packed: true,
       url: 'https://ipfs.aesthetic.computer/ipfs/fixture', tokenUrl: 'https://teia.art/objkt/885469' } };
-  await context.route('**/*', route => {
+  await context.route('**/*', async route => {
     const u = new URL(route.request().url());
     if (u.pathname === '/mime-layout.json') return route.fulfill({ contentType: 'application/json', body: JSON.stringify(layout) });
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
     if (u.pathname === '/api/mime' && u.searchParams.get('thread')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ op: post, replies: [] }) });
     if (u.pathname === '/api/mime') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ recent: [post, { ...post, code: 'pack2' }], hasMore: false }) });
-    if (u.pathname === '/ipfs/fixture' || u.pathname === '/artifact.html') return route.fulfill({ contentType: 'text/html', body: artifact });
+    if (u.pathname === '/mime-play/interaction.mjs') return route.fulfill({contentType:'text/javascript',body:await readFile(new URL('../public/mime-play/interaction.mjs',import.meta.url),'utf8')});
+    if (u.pathname === '/ipfs/fixture' || u.pathname === '/artifact.html') return route.fulfill({ contentType: 'text/html', headers:{'access-control-allow-origin':'*'}, body: artifact });
     return route.fulfill({ status: 200, body: '' });
   });
-  const interact = async (id) => {
-    const frame = page.locator('#' + id + ' .feed-media');
-    // The reel shows no toggle; a press off the card (its caption) returns to the feed.
-    if (await frame.getAttribute('data-interacting')) await page.locator('#' + id + ' .meta').click({ position: { x: 2, y: 2 } });
-    else await frame.locator(':scope > .media-shield').click();
-  };
   try {
     await page.goto('https://mime.ac/?ac-automation=1');
     // The reel opens on its splash; the first post is one swipe down.
@@ -56,8 +51,8 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
     assert.equal(await page.locator('#pack time').getAttribute('datetime'), post.when);
     assert.equal(await page.locator('#pack iframe').getAttribute('sandbox'), 'allow-scripts');
     assert.equal(await page.locator('#pack .token-link').getAttribute('href'), post.media.tokenUrl);
-    assert.equal(await page.locator('#pack .piece-preview').evaluate(el => el.inert), true);
-    const framed = page.frames().find(frame => frame.url() === post.media.url);
+    assert.equal(await page.locator('#pack .piece-preview').evaluate(el => el.inert), false);
+    const framed = await (await page.locator('#pack iframe').elementHandle()).contentFrame();
     assert.equal(await framed.evaluate(() => document.body.dataset.running), 'yes', 'pack scripts run');
     assert.equal(await page.evaluate(() => document.body.dataset.escaped || localStorage.getItem('escape')), null);
     for (const viewport of [{ width: 390, height: 844 }, { width: 900, height: 900 }]) {
@@ -70,10 +65,11 @@ test('packed Whistlegraphs retain attribution, aspect, isolated interaction and 
       assert.ok(box.height <= viewport.height + 1 && box.width <= viewport.width + 1, 'the pack fits on its card');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
-    await interact('pack');
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spin tree' }).click();
     await page.frameLocator('#pack iframe').getByRole('button', { name: 'Spinning', exact: true }).waitFor();
-    await interact('pack');
+    assert.equal(await page.locator('#pack').getAttribute('data-full'),'','sandboxed input hides the corners');
+    await page.waitForFunction(()=>!document.getElementById('pack').hasAttribute('data-cooling'));
+    assert.equal(await page.evaluate(() => document.body.dataset.escaped || localStorage.getItem('escape')), null);
     await page.locator('#pack2 .media-pack').evaluate(el => el.scrollIntoView({ block: 'center' }));
     await page.locator('#pack2 iframe[data-ready]').waitFor();
     assert.equal(await page.locator('.piece-preview iframe').count(), 1, 'only the visible pack runs');

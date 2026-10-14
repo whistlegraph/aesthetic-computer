@@ -335,6 +335,19 @@ Automatic re-locking when a card leaves the viewport does not count as a click.
 They use the existing anonymous visit collector, opt-outs, automation flag,
 retention, and Studio scope; no post ID or destination URL is added.
 
+The October 14 MIME audit found incomplete coverage. The website's visits
+include people with and without handles, without identifying either group.
+Its separate `mime-engagement` records measure card visibility and
+comment/original opens. Neither collector is a complete interaction stream:
+embedded-frame input does not automatically reach the parent visit tracker,
+and MIME does not install Laklok's authenticated feature-event collector.
+The native MIME reel has no session or feed-interaction collector. Its shared
+editor has local diagnostics; inherited account login/logout reporting still
+uses the `whistlegraph` device-registry name, which is not evidence of a MIME
+feed session. Do not interpret zero MIME account events or absent native
+usage as zero users. Laklok's detailed feature events require sign-in;
+anonymous Laklok activity only has the broad visit measurements.
+
 For bounded media loading probes, run `node toolchain/analytics/media-speed.mjs
 --all-types --out report.json`. Set `MIME_CDP_URL` to a dedicated Chrome's
 loopback DevTools URL to include video first-frame timing. The public MIME

@@ -48,7 +48,12 @@ test("real Oskiewar replay viewer renders, freezes and resumes without live or a
     assert.equal(await page.evaluate(() => __oskiewarFrameStats.simulationTicks), parked.simulationTicks);
     await page.evaluate(() => __mimePlayerSettle(true));
     await page.waitForFunction(ticks => __oskiewarFrameStats.simulationTicks > ticks + 15, parked.simulationTicks);
-    await page.screenshot({ path: "/tmp/mime15-replay-player.png" });
+    const opening = await page.screenshot({ path: "/tmp/mime15-replay-opening.png" });
+    // Look beyond the three-second countdown, where a feed preview must play
+    // the saved fight rather than merely advance a clock over a static pose.
+    await page.waitForFunction(ticks => __oskiewarFrameStats.simulationTicks > ticks + 240, parked.simulationTicks);
+    const fight = await page.screenshot({ path: "/tmp/mime15-replay-player.png" });
+    assert.notDeepEqual(fight, opening);
     await page.evaluate(() => __mimePlayerSettle(false));
     const ticks = await page.evaluate(() => __oskiewarFrameStats.simulationTicks);
     await page.waitForTimeout(400);

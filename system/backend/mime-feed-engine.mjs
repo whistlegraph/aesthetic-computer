@@ -16,6 +16,7 @@ import { ensureChatCode, chatIdForCode } from "./chat-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
 import { replayPosts, replayById } from "./mime-oskiewar.mjs";
 import { REMOVED_COLLECTION, removals, allowed } from "./mime-moderation.mjs";
+import { youtubeEmbed } from "./mime-youtube.mjs";
 
 const REFRESH_MS = 60_000;
 const PER_SOURCE = 200; // newest items read from each live source per refresh
@@ -115,7 +116,8 @@ export function leadCards(live, now = Date.now()) {
   let latestReplay;
   for (const item of live) {
     if (item.app === "oskiewar") {
-      if (!latestReplay || new Date(item.when) > new Date(latestReplay.when)) latestReplay = item;
+      if (!latestReplay || (item.author && !latestReplay.author) ||
+          (!!item.author === !!latestReplay.author && new Date(item.when) > new Date(latestReplay.when))) latestReplay = item;
       continue;
     }
     const hours = age(item), author = item.author || item.code;
@@ -123,8 +125,8 @@ export function leadCards(live, now = Date.now()) {
     if (!newest.has(author) || hours < newest.get(author)[0]) newest.set(author, [hours, item]);
   }
   const leads = [...newest.values()].sort((a, b) => a[0] - b[0]).map(([, item]) => item);
-  // One recent match is always discoverable, even when its players also made
-  // other work. A busy dojo must not fill the entire opening with replays.
+  // One qualifying match leads, preferring an active named player. A busy
+  // dojo must not fill the entire opening with replays.
   if (latestReplay) leads.splice(Math.min(1, leads.length), 0, latestReplay);
   return leads;
 }
@@ -246,7 +248,7 @@ async function chatMessages(db) {
 export function chatPost(row, handle, instance, code) {
   const url = "https://aesthetic.computer/" + (instance === "clock" ? "laer-klokken" : "chat");
   return { code: "chat_" + instance + "_" + String(row._id), parent: null, board: "text/plain", name: handle,
-    text: row.text, when: row.when, replies: 0, file: null,
+    text: row.text, when: row.when, replies: 0, file: null, embed: youtubeEmbed(row.text),
     origin: { name: instance === "clock" ? "laer-klokken" : "chat", url },
     media: { kind: "chat", id: String(row._id), instance, code, url, author: handle } };
 }

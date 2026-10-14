@@ -35,6 +35,8 @@ import {
 } from "../../backend/authorization.mjs";
 import { connect, moodFor, allMoods, getMoodByRkey } from "../../backend/database.mjs";
 import { respond, pathParams } from "../../backend/http.mjs";
+import { ensureMoodCode } from "../../backend/mood-code.mjs";
+import { moodPost } from "../../backend/mime-feed-engine.mjs";
 import { createMoodOnAtproto } from "../../backend/mood-atproto.mjs";
 import { shouldMirror, postMoodToBluesky } from "../../backend/bluesky-mirror.mjs";
 import { fetchBlueskyEngagement } from "../../backend/bluesky-engagement.mjs";
@@ -122,7 +124,14 @@ async function fetchRecentHandledMoods(database, since) {
   return await collection.aggregate(pipeline).toArray();
 }
 
-export async function handler(event, context) {
+const dependencies = { authorize, connect, getHandleOrEmail, createMoodOnAtproto,
+  shouldMirror, postMoodToBluesky, broadcastToTopic, publishProfileEvent };
+export function createHandler(overrides = {}) {
+  const deps = { ...dependencies, ...overrides };
+  return (event, context) => handle(event, context, deps);
+}
+async function handle(event, context, { authorize, connect, getHandleOrEmail, createMoodOnAtproto,
+  shouldMirror, postMoodToBluesky, broadcastToTopic, publishProfileEvent }) {
   if (event.httpMethod === "GET") {
     // 1. GET: Look up moods for user.
     const database = await connect();
@@ -277,6 +286,7 @@ export async function handler(event, context) {
   try {
     const body = JSON.parse(event.body);
     const user = await authorize(event.headers);
+    if (!user?.sub) return respond(401, { message: "Sign in to post a mood." });
     const handle = await getHandleOrEmail(user.sub);
 
     // console.log("🌙 Posting mood for:", handle, body);
@@ -285,7 +295,11 @@ export async function handler(event, context) {
       const database = await connect();
       const collection = database.db.collection("moods"); // Make tweet-like collection.
       // Assume a mood update.
-      if (body.mood) {
+      if (body.mood !== undefined) {
+        if (typeof body.mood !== "string" || !body.mood.trim()) {
+          await database.disconnect();
+          return respond(400, { message: "Write a mood first." });
+        }
         const mood = filter(body.mood.trim()); // Trim extra whitespace off mood.
 
         // 📕 Database
@@ -293,16 +307,15 @@ export async function handler(event, context) {
         await collection.createIndex({ when: 1 }); // Index for `when`.
 
         const lastMood = await collection.findOne(
-          { user: user.sub },
+          { user: user.sub, deleted: { $ne: true } },
           { sort: { when: -1 } },
         );
 
+        let published = lastMood;
         if (!lastMood || lastMood.mood !== mood) {
-          const insertResult = await collection.insertOne({
-            user: user.sub,
-            mood,
-            when: new Date(),
-          });
+          published = { user: user.sub, mood, when: new Date() };
+          const insertResult = await collection.insertOne(published);
+          published._id = insertResult.insertedId;
 
           publishProfileEvent({
             handle,
@@ -373,8 +386,10 @@ export async function handler(event, context) {
           });
         }
 
+        const code = await ensureMoodCode(database.db, published._id);
+        const post = moodPost(published, handle, code);
         await database.disconnect();
-        return respond(200, { mood }); // Successful mood change.
+        return respond(200, { mood, post }); // Includes the saved card, even on a repeated submission.
       } else if (body.nuke !== undefined) {
         // Flag all a user's moods as deleted.
         const result = await collection.updateMany(
@@ -392,3 +407,5 @@ export async function handler(event, context) {
     return respond(500, { message: error });
   }
 }
+
+export const handler = createHandler();
