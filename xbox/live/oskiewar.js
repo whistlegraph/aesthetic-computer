@@ -2566,12 +2566,61 @@ function flushFrameProgram() {
 // The host's own drawing functions, taken before they are shadowed. The
 // shadows are the emitter: buffered they write an op, immediate they are
 // the old call. Every draw site in the piece keeps calling the old names.
+let flushFaces = () => {};
 {
-  const rawTriangle3d = typeof triangle3d === "function" ? triangle3d : null;
-  const rawTriangle = typeof triangle === "function" ? triangle : null;
+  let rawTriangle3d = typeof triangle3d === "function" ? triangle3d : null;
+  let rawTriangle = typeof triangle === "function" ? triangle : null;
   const rawDisc3d = typeof disc3d === "function" ? disc3d : null;
   const rawCapsule3d = typeof capsule3d === "function" ? capsule3d : null;
-  const rawWipe = wipe, rawBox = box, rawLine = line, rawWrite = write;
+  let rawWipe = wipe, rawBox = box, rawLine = line;
+  const rawWrite = write;
+  // A host that says `batchFaces` (the Mac: JavaScriptCore, where one call
+  // into Swift costs ~1.2 us and a Float32Array write a few ns) gets its
+  // faces gathered into one array and handed over by `triangles3d` when
+  // anything else touches its scene lane (a box, a line, a flat or
+  // translucent face, a wipe, a direct batch) and at the end of the paint,
+  // so the lane's order is exactly the per-call order. The console's QuickJS
+  // is the other way round (see emitTriangle) and keeps one call per face.
+  if (rawTriangle3d && typeof triangles3d === "function" &&
+      typeof capabilities === "function" && capabilities().batchFaces === true) {
+    const send = triangles3d, room = 2048;
+    const faces = new Float32Array(room * 12);
+    let count = 0;
+    flushFaces = () => {
+      if (!count) return;
+      const n = count;
+      count = 0;
+      send(faces, n);
+    };
+    rawTriangle3d = function (x1, y1, z1, x2, y2, z2, x3, y3, z3, r = 255, g = 255, b = 255) {
+      if (count === room) flushFaces();
+      const at = count * 12;
+      faces[at] = x1; faces[at + 1] = y1; faces[at + 2] = z1;
+      faces[at + 3] = x2; faces[at + 4] = y2; faces[at + 5] = z2;
+      faces[at + 6] = x3; faces[at + 7] = y3; faces[at + 8] = z3;
+      faces[at + 9] = r; faces[at + 10] = g; faces[at + 11] = b;
+      count++;
+    };
+    const wipeNow = rawWipe, boxNow = rawBox, lineNow = rawLine, triangleNow = rawTriangle;
+    rawWipe = function (r, g, b) { flushFaces(); return wipeNow(r, g, b); };
+    rawBox = function (x, y, w, h, r, g, b, a) {
+      flushFaces();
+      return arguments.length > 7 ? boxNow(x, y, w, h, r, g, b, a) : boxNow(x, y, w, h, r, g, b);
+    };
+    rawLine = function (x1, y1, x2, y2, width, r, g, b) { flushFaces(); return lineNow(x1, y1, x2, y2, width, r, g, b); };
+    if (triangleNow) rawTriangle = function (x1, y1, x2, y2, x3, y3, r, g, b) {
+      flushFaces();
+      return triangleNow(x1, y1, x2, y2, x3, y3, r, g, b);
+    };
+    if (typeof triangleAlpha === "function") {
+      const alphaNow = triangleAlpha;
+      triangleAlpha = function (x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b, a) {
+        flushFaces();
+        return alphaNow(x1, y1, z1, x2, y2, z2, x3, y3, z3, r, g, b, a);
+      };
+    }
+    triangles3d = function (buffer, n) { flushFaces(); return send(buffer, n); };
+  }
   const rawSystemWrite = systemWrite;
   const rawComicWrite = typeof comicWrite === "function" ? comicWrite : null;
   const rawYwftWrite = typeof ywftWrite === "function" ? ywftWrite : null;
@@ -2709,7 +2758,7 @@ function beginFrameProgram() {
   worldDepthValue = 0;
 }
 function endFrameProgram() {
-  try { flushFrameProgram(); } finally { programBuffered = false; }
+  try { flushFaces(); flushFrameProgram(); } finally { programBuffered = false; }
 }
 function emitFrameCamera() {
   const doll = cameraDoll;

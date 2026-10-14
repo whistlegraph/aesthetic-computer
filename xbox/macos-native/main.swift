@@ -75,6 +75,12 @@ private final class NativeRenderer {
         emit(x1, y1, z, x2, y2, z, x3, y3, z, red, green, blue)
     }
 
+    /// `count` faces of twelve floats, straight from the engine's Float32Array.
+    func triangles3d(_ values: UnsafePointer<Float>, count: Int) {
+        sawFace = true
+        _ = scene.triangleBatch(values, count: count)
+    }
+
     func triangle3d(_ x1: Double, _ y1: Double, _ z1: Double,
                     _ x2: Double, _ y2: Double, _ z2: Double,
                     _ x3: Double, _ y3: Double, _ z3: Double,
@@ -1236,7 +1242,7 @@ private final class NativeGameHost {
                 "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
                 "graphics": "METAL NATIVE", "audio": "AVFOUNDATION",
                 "displayScale": self?.view.window?.backingScaleFactor ?? 1,
-                "online": true, "liveLocalState": true,
+                "online": true, "liveLocalState": true, "batchFaces": true,
                 "width": Int(self?.renderer.logicalSize.width ?? 1920),
                 "height": Int(self?.renderer.logicalSize.height ?? 1080),
             ] as NSDictionary
@@ -1293,6 +1299,19 @@ private final class NativeGameHost {
         javascript.setObject(4096, forKeyedSubscript: "decalSurfaceSize" as NSString)
         javascript.setObject(triangleAlpha, forKeyedSubscript: "triangleAlpha" as NSString)
         javascript.setObject(triangle3d, forKeyedSubscript: "triangle3d" as NSString)
+        // triangles3d(Float32Array, count?): a run of faces, twelve floats
+        // each, read in place. With `batchFaces` the engine gathers every
+        // triangle3d into one and crosses once per run instead of per face.
+        let triangles3d: @convention(block) (JSValue, JSValue) -> Void = { [weak self] buffer, count in
+            guard let self, let context = buffer.context?.jsGlobalContextRef,
+                  let object = JSValueToObject(context, buffer.jsValueRef, nil) else { return }
+            let length = JSObjectGetTypedArrayLength(context, object, nil) / 12
+            let wanted = count.isNumber ? Int(count.toInt32()) : length
+            let faces = min(max(0, wanted), length)
+            guard faces > 0, let values = Self.float32(buffer, minimum: faces * 12) else { return }
+            self.renderer.triangles3d(values, count: faces)
+        }
+        javascript.setObject(triangles3d, forKeyedSubscript: "triangles3d" as NSString)
         javascript.setObject(text("Comic Relief"), forKeyedSubscript: "comicWrite" as NSString)
         javascript.setObject(text("Comic Relief"), forKeyedSubscript: "ywftWrite" as NSString)
         javascript.setObject(text("Helvetica"), forKeyedSubscript: "systemWrite" as NSString)
