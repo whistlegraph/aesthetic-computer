@@ -1,6 +1,7 @@
 // Mail Lite, 2026.10.14
 // A trial of a smaller `mail`: one list of letters in and out, newest first,
-// and a two-field compose — who, and what. Replies carry the thread's subject
+// and a two-field compose — who, and what. Tap a letter to select it and the
+// bottom bar answers it. Replies carry the thread's subject
 // on their own. Tema and language follow laklok's saved choice; there is no
 // settings pane, no tabs, no prefs. `mail-lite~@handle` opens addressed.
 
@@ -162,6 +163,7 @@ async function send(api, { to, body }) {
   if (res.status === 200) {
     fields.reset(api);
     close(api);
+    expandedId = null;
     scroll = 0;
     await refresh(api);
   } else if (res.status === 404) {
@@ -172,13 +174,19 @@ async function send(api, { to, body }) {
   api.needsPaint();
 }
 
+// The other side of a letter — who a reply to it goes to.
+function addressOf(letter) {
+  if (letter.mine) return letter.to || letter.toEmail;
+  return letter.from?.startsWith("@") || PERMA.test(letter.from || "") ? letter.from : letter.fromEmail;
+}
+
 // Open compose; a reply lands on the body with its address filled.
-function write(api, to, subject) {
+function write(api, to, subject, quote = "") {
   composing = true;
   note = null;
   // Only a reply is a thread; an address from the URL is just an address.
   thread = to && subject !== undefined
-    ? { who: to, subject: subject ? (/^re:/i.test(subject) ? subject : `Re: ${subject}`) : "" }
+    ? { who: to, subject: subject ? (/^re:/i.test(subject) ? subject : `Re: ${subject}`) : "", quote }
     : null;
   fields.input.mute = false;
   fields.focus(to ? 1 : 0, api);
@@ -317,17 +325,25 @@ function paint(api) {
         undefined, cancel.x - sendBox.x - sendBox.w - 12, false, CHIP_FONT);
     }
   } else {
-    hits.push({ x: 0, y: botY, w: screen.width, h: BOT, action: { type: "write" } });
-    ink([...c.timestamp, 200]).write(`${s.write}…`, { x: x + 2, y: by + 2 }, undefined, undefined, false, CHIP_FONT);
-    chip(api, screen.width - x - chipWidth(s.write), by, s.write, { type: "write" }, { tint: WRITE });
+    // One line, one target: with a letter selected it answers that letter;
+    // with none it starts a new one.
+    const picked = letters.find((l) => l.id === expandedId);
+    const to = picked && addressOf(picked);
+    hits.push({ x: 0, y: botY, w: screen.width, h: BOT, action: { type: to ? "reply" : "write" } });
+    if (to) ink(...WRITE).write(`${s.reply} ${to}…`, { x: x + 2, y: by + 2 }, undefined, wide, false, CHIP_FONT);
+    else ink([...c.timestamp, 200]).write(`${s.write}…`, { x: x + 2, y: by + 2 }, undefined, undefined, false, CHIP_FONT);
   }
   let y = BAR + 6;
 
   if (composing) {
     if (thread) {
-      ink(c.timestamp).write(s.replyingTo, { x, y }, undefined, undefined, false, CHIP_FONT);
-      const subjectX = x + (s.replyingTo.length + 1) * 4;
-      ink(c.handle).write(thread.who, { x: subjectX, y }, undefined, undefined, false, CHIP_FONT);
+      ink(c.handle).write(`${thread.who}:`, { x, y }, undefined, undefined, false, CHIP_FONT);
+      if (thread.quote) {
+        const room = Math.floor((wide - (thread.who.length + 2) * 4) / 4);
+        const q = thread.quote.replace(/\s+/g, " ");
+        ink([...c.timestamp, 200]).write(q.length > room ? q.slice(0, room - 1) + "…" : q,
+          { x: x + (thread.who.length + 2) * 4, y }, undefined, undefined, false, CHIP_FONT);
+      }
       y += 10;
     }
     fields.paint(api, { x, y, width: wide, height: Math.max(40, botY - 6 - y) });
@@ -378,18 +394,14 @@ function paint(api) {
       const unread = !letter.mine && !letter.read;
       const lx = x + (letter.mine ? 12 : 0);
       ink(unread ? t.stripeB : letter.mine ? [...t.stripeA, 90] : t.stripeA).box(lx, ly, wide - (lx - x), h - 2);
-      const row = { y0: ly, y1: ly + h, letter, reply: null };
+      if (letter.id === expandedId) ink(...WRITE).box(lx, ly, wide - (lx - x), h - 2, "outline");
+      const row = { y0: ly, y1: ly + h, letter };
       rows.push(row);
       const yy = ly + 3;
       if (unread) ink(c.log).box(lx + 2, yy + 2, 3, 3);
       const who = (letter.mine ? "→ " : "") + (letter.who || "someone");
       ink(unread ? c.handle : c.timestamp).write(who, { x: lx + 8, y: yy }, undefined, undefined, false, face);
-      let right = screen.width - x;
-      if (!letter.mine) {
-        right -= chipWidth(s.reply);
-        row.reply = paintChip(api, right, yy - 1, s.reply, { tint: WRITE });
-        right -= 4;
-      }
+      const right = screen.width - x - 2;
       const when = ago(letter.when);
       ink([...c.timestamp, 160]).write(when, { x: right - when.length * cw - 2, y: yy }, undefined, undefined, false, face);
       ink(letter.mine ? [...c.messageText, 170] : c.messageText).write(body, { x: lx + 8, y: yy + lh }, undefined, bounds - (lx - x), true, face);
@@ -422,6 +434,10 @@ function act(api) {
     else if (type === "login") net.login();
     else if (type === "write") composing ? close(api) : write(api);
     else if (type === "read") markAllRead(api);
+    else if (type === "reply") {
+      const letter = letters.find((l) => l.id === expandedId);
+      if (letter) write(api, addressOf(letter), letter.subject || "", letter.text || "");
+    }
     else if (type === "send") {
       fields.sync();
       send(api, { ...fields.values });
@@ -465,14 +481,9 @@ function act(api) {
     }
     const row = rows.find((r) => e.y >= r.y0 && e.y < r.y1);
     if (!row) return;
-    if (hit(row.reply)) {
-      const { letter } = row;
-      const address = letter.from?.startsWith("@") || PERMA.test(letter.from || "") ? letter.from : letter.fromEmail;
-      if (address) write(api, address, letter.subject || "");
-    } else {
-      expandedId = expandedId === row.letter.id ? null : row.letter.id;
-      if (expandedId) markRead(api, row.letter);
-    }
+    // A tap selects one letter (and opens it); tapping it again lets go.
+    expandedId = expandedId === row.letter.id ? null : row.letter.id;
+    if (expandedId) markRead(api, row.letter);
     needsPaint();
   }
 }
