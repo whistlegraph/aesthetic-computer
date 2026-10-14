@@ -149,11 +149,31 @@ test("unaffordable, stale and disabled cloud models never get a quote; local rem
   assert.equal(paintCapacity(0, {}), "∞");
   assert.equal(f.requests.length, 0);
   assert.equal(
-    modelChoices(f.account.models, f.account.value).find(
+    modelChoices(f.account.models, f.account.value).some(
       (m) => m.id === "evolve",
-    ).available,
+    ),
     false,
   );
+});
+
+test("Classic stays free across sign-in, refresh and old Random settings until a cloud model is chosen", async () => {
+  for (const saved of [undefined, "random", "fleet-evolve", "classic-pixels"]) {
+    const f = fixture();
+    if (saved) await f.store.setting("model", saved);
+    f.account.value = { connected: false };
+    await f.game.boot();
+    assert.equal(f.game.engine, saved === "classic-pixels" ? saved : "classic");
+    f.account.value = { connected: true, remaining: 100, purchased: 0 };
+    for (let i = 0; i < 4; i++) {
+      f.game.prepare();
+      assert.equal(f.game.quote.braincells, 0);
+      await f.game.paint();
+    }
+    assert.equal(f.requests.length, 0);
+    await f.game.select("ac-test");
+    await f.game.paint();
+    assert.equal(f.requests.length, 1);
+  }
 });
 test("a failed write to local storage prevents a paid request", async () => {
   const f = fixture();

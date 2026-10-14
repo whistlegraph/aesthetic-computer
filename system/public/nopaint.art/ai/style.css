@@ -27,7 +27,6 @@ select {
   color: inherit;
 }
 button,
-summary,
 select {
   cursor: pointer;
 }
@@ -37,8 +36,7 @@ button {
   padding: 8px 12px;
   touch-action: manipulation;
 }
-button:hover:not(:disabled),
-summary:hover {
+button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--ink) 7%, transparent);
 }
 button:disabled {
@@ -47,7 +45,6 @@ button:disabled {
 }
 button:focus-visible,
 input:focus-visible,
-summary:focus-visible,
 select:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--accent);
@@ -67,48 +64,8 @@ input::placeholder {
   color: inherit;
   opacity: 0.5;
 }
-#menus {
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  font-size: 13px;
-}
-#menus button,
-#menus summary {
-  padding: 6px 12px;
-}
-details {
-  position: relative;
-}
-summary {
-  list-style: none;
-}
-summary::-webkit-details-marker {
-  display: none;
-}
-.menu-items {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 5;
-  width: 210px;
-  padding: 5px;
-  background: var(--background);
-  border: 1px solid var(--ink);
-  box-shadow: 0 4px 14px #0002;
-}
-.menu-items button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-}
 #studio {
-  height: calc(
-    100svh - 34px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
-  );
+  height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -279,6 +236,13 @@ dialog a {
 #search {
   width: 100%;
 }
+#studio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 -8px 14px;
+  font-size: 14px;
+}
 #model-list {
   max-height: 55svh;
   overflow: auto;
@@ -302,8 +266,7 @@ dialog a {
   color: var(--background);
 }
 #model-notice:empty,
-#account-message:empty,
-#companion-message:empty {
+#account-message:empty {
   display: none;
 }
 #history-list {
@@ -338,9 +301,6 @@ dialog a {
   }
 }
 @media (max-width: 420px) {
-  #menus {
-    gap: 6px;
-  }
   #hint {
     max-width: 90px;
   }

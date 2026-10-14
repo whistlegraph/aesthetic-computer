@@ -10,30 +10,20 @@ export const LOCAL_MODELS = [
   braincells: 0,
   available: true,
 }));
-export const DESKTOP_MODELS = [
-  { id: "evolve", name: "Stable Diffusion 1.5" },
-  { id: "turbo", name: "SD-Turbo" },
-  { id: "fleet-evolve", name: "SD 1.5 · Fleet" },
-].map((m) => ({
-  ...m,
-  location: "Desktop companion",
-  braincells: 0,
-  available: false,
-  companion: true,
-}));
 export function modelChoices(offers, account) {
   return [
     ...LOCAL_MODELS,
-    ...DESKTOP_MODELS,
-    ...offers.map((m) => ({
-      ...m,
-      available: Boolean(
-        m.available &&
-          account.connected &&
-          !account.stale &&
-          account.remaining + account.purchased >= m.braincells,
-      ),
-    })),
+    ...offers
+      .filter((m) => m.id.startsWith("ac-"))
+      .map((m) => ({
+        ...m,
+        available: Boolean(
+          m.available &&
+            account.connected &&
+            !account.stale &&
+            account.remaining + account.purchased >= m.braincells,
+        ),
+      })),
   ];
 }
 export function paintCapacity(price, account) {
@@ -58,7 +48,7 @@ export class Game {
     seed = () => crypto.getRandomValues(new Uint32Array(1))[0] % 2 ** 31,
   }) {
     Object.assign(this, { store, images, account, onchange, uuid, now, seed });
-    this.selection = "random";
+    this.selection = "classic";
     this.strength = 0.25;
     this.busy = false;
     this.mask = null;
@@ -94,7 +84,14 @@ export class Game {
     this.readOnly = readOnly;
     const id = await this.store.setting("current");
     this.track = id && (await this.store.get(id));
-    this.selection = (await this.store.setting("model")) || "random";
+    const savedModel = await this.store.setting("model");
+    // Old Random selections could become paid after sign-in. Cloud inference
+    // now always requires choosing a specific model; Classic mixes CPU moves.
+    this.selection =
+      LOCAL_MODELS.some((m) => m.id === savedModel) ||
+      savedModel?.startsWith("ac-")
+        ? savedModel
+        : "classic";
     this.strength = (await this.store.setting("strength")) || 0.25;
     if (!this.track) await this.fresh();
     else if (this.track.pending && !readOnly) {
@@ -126,13 +123,7 @@ export class Game {
   }
   prepare() {
     if (this.busy) return;
-    const eligible = this.models.filter(
-      (m) => m.available && (!m.id.startsWith("ac-") || !this.pendingCloud),
-    );
-    const model =
-      this.selection === "random"
-        ? eligible[this.seed() % Math.max(1, eligible.length)]
-        : this.models.find((m) => m.id === this.selection);
+    const model = this.models.find((m) => m.id === this.selection);
     this.engine = model?.id || this.selection;
     this.quote =
       model?.available && (!model.id.startsWith("ac-") || !this.pendingCloud)
@@ -166,8 +157,7 @@ export class Game {
   }
   async select(id) {
     if (!this.canChange) return;
-    if (id !== "random" && !this.models.some((m) => m.id === id))
-      throw Error("Unknown model.");
+    if (!this.models.some((m) => m.id === id)) throw Error("Unknown model.");
     this.selection = id;
     this.error = null;
     await this.store.setting("model", id);

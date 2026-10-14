@@ -732,7 +732,7 @@ struct CloudNotice: View {
         }
         let done = fileMenu.addItem(withTitle: "Done", action: #selector(donePainting(_:)), keyEquivalent: "d"); done.target = self
         let history = fileMenu.addItem(withTitle: "History…", action: #selector(showHistory(_:)), keyEquivalent: "h"); history.target = self; history.keyEquivalentModifierMask = [.command, .shift]
-        let website = fileMenu.addItem(withTitle: "Connect Website…", action: #selector(connectWebsite(_:)), keyEquivalent: ""); website.target = self
+        let website = fileMenu.addItem(withTitle: "Open Website…", action: #selector(openWebsite(_:)), keyEquivalent: ""); website.target = self
         fileMenu.addItem(.separator())
         let published = fileMenu.addItem(withTitle: "Open Last Painting", action: #selector(openPainting(_:)), keyEquivalent: ""); published.target = self
         let editItem = NSMenuItem(); menu.addItem(editItem)
@@ -792,7 +792,7 @@ struct CloudNotice: View {
     @objc func freshPainting(_ sender: Any?) { game.fresh() }
     @objc func donePainting(_ sender: Any?) { game.done() }
     @objc func showHistory(_ sender: Any?) { game.history() }
-    @objc func connectWebsite(_ sender: Any?) { NSWorkspace.shared.open(URL(string: "http://127.0.0.1:8767/connect")!) }
+    @objc func openWebsite(_ sender: Any?) { NSWorkspace.shared.open(URL(string: "https://nopaint.art/")!) }
     @objc func openPainting(_ sender: Any?) {
         if let value = game.state?.publication?.url, let url = URL(string: value), url.scheme == "https", url.host == "aesthetic.computer" { NSWorkspace.shared.open(url) }
     }
