@@ -574,6 +574,18 @@ export function createFrameVm(host) {
     const R = sketch.records, pal = look || null;
     const paint = (c, o) => c[o] >= 0 || !pal ? [c[o], c[o + 1], c[o + 2]]
       : [pal[(-1 - c[o]) * 3], pal[(-1 - c[o]) * 3 + 1], pal[(-1 - c[o]) * 3 + 2]];
+    // One ink edge around the whole figure, never one per shape. Drawn shape
+    // by shape — edge, fill, edge, fill — the torso's edge landed on the
+    // thighs, the shoes' on the shins and the neck's on the shoulders, each a
+    // line across a joint. Three passes now: measure the figure's farthest
+    // fill, put every edge down just behind it, then every fill.
+    let pass = "measure", back = -Infinity;
+    const gate = (depth, shift) => {
+      if (pass === "measure") { if (depth > back) back = depth; return null; }
+      if (pass === "edges") return back + outlineBehind;
+      return depth + shift;
+    };
+    for (pass of ["measure", "edges", "fills"])
     for (let n = 0, i = 0; n < sketch.count; n++, i += figureSize(R, i)) {
       const kind = R[i];
       if (kind < 11) continue;
@@ -598,11 +610,13 @@ export function createFrameVm(host) {
         if (kind === 11) {
           if (!seeWorld(px, py, pz, 0)) return;
           const rad = R[a + 4] * scale * seen[3];
-          ellipse(seen[0], seen[1], depthAt(seen[2], nudge) + shift, rad, 0, 0, rad, ir, ig, ib, grow);
+          const d = gate(depthAt(seen[2], nudge), shift); if (d === null) return;
+          ellipse(seen[0], seen[1], d, rad, 0, 0, rad, ir, ig, ib, grow);
         } else if (kind === 12) {
           const b = jointPoint(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figureEnd);
           if (!seeWorld(px, py, pz, 0) || !seeWorld(b[0], b[1], b[2], 4)) return;
-          stadium(seen[0], seen[1], seen[4], seen[5], depthAt((seen[2] + seen[6]) / 2, nudge) + shift,
+          const d = gate(depthAt((seen[2] + seen[6]) / 2, nudge), shift); if (d === null) return;
+          stadium(seen[0], seen[1], seen[4], seen[5], d,
             R[a + 8] * scale * (seen[3] + seen[7]) + grow * 2, ir, ig, ib);
         } else if (kind === 13) {
           const ax = R[a + 4] * scale, ay = R[a + 5] * scale, az = R[a + 6] * scale;
@@ -613,7 +627,8 @@ export function createFrameVm(host) {
               pz + x * frame[2] + y * frame[5] + z * frame[8], o)
             : seeWorld(px + x, py + y, pz + z, o);
           if (!seeWorld(px, py, pz, 0) || !turn(ax, ay, az, 4) || !turn(bx, by, bz, 8)) return;
-          ellipse(seen[0], seen[1], depthAt(seen[2], nudge) + shift, seen[4] - seen[0], seen[5] - seen[1],
+          const d = gate(depthAt(seen[2], nudge), shift); if (d === null) return;
+          ellipse(seen[0], seen[1], d, seen[4] - seen[0], seen[5] - seen[1],
             seen[8] - seen[0], seen[9] - seen[1], ir, ig, ib, grow);
         } else {
           const count = R[a];
@@ -623,13 +638,15 @@ export function createFrameVm(host) {
             if (!seeWorld(q[0], q[1], q[2], 0)) return;
             flatPoly[k * 2] = seen[0]; flatPoly[k * 2 + 1] = seen[1]; vz += seen[2];
           }
-          plate(flatPoly, 0, count, depthAt(vz / count, nudge) + shift, ir, ig, ib, grow);
+          const d = gate(depthAt(vz / count, nudge), shift); if (d === null) return;
+          plate(flatPoly, 0, count, d, ir, ig, ib, grow);
         }
       };
       const line = R[i + 1];
-      if (line && seeWorld(px, py, pz, 12) && line * scale * seen[15] >= .5)
-        shape(line * scale * seen[15], outlineBehind, er, eg, eb);
-      shape(0, 0, cr, cg, cb);
+      if (pass === "edges") {
+        if (line && seeWorld(px, py, pz, 12) && line * scale * seen[15] >= .5)
+          shape(line * scale * seen[15], outlineBehind, er, eg, eb);
+      } else shape(0, 0, cr, cg, cb);
     }
   }
   const figureEnd = new Float64Array(3);
