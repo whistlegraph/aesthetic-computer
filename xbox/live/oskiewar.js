@@ -24637,12 +24637,56 @@ function drawTruck(at,along){
   rod([along,8.8,-11],[along,8.8,11],4,body);
   rod([along,skateAxleDrop,-17],[along,skateAxleDrop,17],2,steel);
 }
+// The trucks and the tyres never change shape: their corners, in the
+// board's own space, are worked out once per wheel colour and only carried
+// through `at` each frame. They were rebuilt from cylinders every frame —
+// ~240 ring points, each a few small arrays. The wheel faces turn with the
+// board, so they stay live below.
+const boardGearShapes = new Map();
+function boardGearShape(urethane) {
+  const key = urethane.join(",");
+  let shape = boardGearShapes.get(key);
+  if (shape) return shape;
+  const points = [], index = new Map(), parts = [];
+  let ops = null;
+  const id = (p) => {
+    let i = index.get(p);
+    if (i === undefined) { index.set(p, i = points.length / 3); points.push(p.x, p.y, p.z); }
+    return i;
+  };
+  const local = (x, y, z) => ({ x, y, z });
+  const quad = worldQuad, triangle = worldTriangle;
+  worldQuad = (a, b, c, d, color) => { ops.push(4, id(a), id(b), id(c), id(d), color); };
+  worldTriangle = (a, b, c, color) => { ops.push(3, id(a), id(b), id(c), color); };
+  try {
+    parts.push(ops = []);
+    for (const along of [-skateTruck, skateTruck]) drawTruck(local, along);
+    const rubber = mixColor(urethane, [90, 36, 10], .45);
+    for (const along of [-skateTruck, skateTruck]) for (const side of [-1, 1]) {
+      const z = side * 15;
+      parts.push(ops = []);
+      boardCylinder(local, [along, skateAxleDrop, z - 3], [along, skateAxleDrop, z + 3], skateWheelRadius, rubber, 12);
+    }
+  } finally { worldQuad = quad; worldTriangle = triangle; }
+  shape = { points, parts, placed: [] };
+  boardGearShapes.set(key, shape);
+  return shape;
+}
+function drawBoardGearPart(ops, placed) {
+  for (let i = 0; i < ops.length;) {
+    if (ops[i] === 4) { worldQuad(placed[ops[i + 1]], placed[ops[i + 2]], placed[ops[i + 3]], placed[ops[i + 4]], ops[i + 5]); i += 6; }
+    else { worldTriangle(placed[ops[i + 1]], placed[ops[i + 2]], placed[ops[i + 3]], ops[i + 4]); i += 5; }
+  }
+}
 function drawBoardRunningGearGeometry(player,at,nearSide,urethane,marks=true){
-  for(const along of [-skateTruck,skateTruck])drawTruck(at,along);
-  const spin=player.skateSpin||0,rubber=mixColor(urethane,[90,36,10],.45);
+  const shape = boardGearShape(urethane), P = shape.points, placed = shape.placed;
+  for (let i = 0; i < P.length; i += 3) placed[i / 3] = at(P[i], P[i + 1], P[i + 2]);
+  drawBoardGearPart(shape.parts[0], placed);
+  const spin=player.skateSpin||0;
+  let wheel = 1;
   for(const along of [-skateTruck,skateTruck])for(const side of [-1,1]){
     const z=side*15;
-    boardCylinder(at,[along,skateAxleDrop,z-3],[along,skateAxleDrop,z+3],skateWheelRadius,rubber,12);
+    drawBoardGearPart(shape.parts[wheel++], placed);
     // The two wheel faces and bearings live on the axle's physical planes.
     for(const cap of [-1,1]){
       const faceZ=z+cap*3.03,center=at(along,skateAxleDrop,faceZ);
