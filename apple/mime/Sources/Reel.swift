@@ -231,23 +231,14 @@ private struct Card: View {
     @ViewBuilder private var media: some View {
         switch post.body {
         case .image(let url):
-            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                if let image = phase.image { image.resizable().interpolation(.none).scaledToFit().onAppear(perform: ready) }
-                else if phase.error != nil { Text("Preview unavailable").font(.custom("ComicRelief-Bold", size: 16)).foregroundStyle(.white.opacity(0.6)).onAppear(perform: ready) }
-                else { ProgressView() }
-            }
-            .accessibilityLabel(post.file?.alt ?? post.command)
+            ZoomableImage(url: url, focused: focused, ready: ready)
+                .accessibilityLabel(post.file?.alt ?? post.command)
         case .video(let url):
             LoopingVideo(url: url, playing: focused, ready: ready)
         case .runtime, .packed:
             PieceRuntime(pool: pool, id: post.id, interactive: interacting)
         case .words(let words):
-            Text(words)
-                .font(.custom("ComicRelief-Bold", size: 40)).multilineTextAlignment(.center)
-                .foregroundStyle(.white).shadow(color: Color(white: 0.08), radius: 0, x: 3, y: 3)
-                .padding(28).frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.author(post.name).opacity(0.3))
-                .onAppear(perform: ready)
+            Words(text: words, post: post, padding: CGFloat(layout.padding), ready: ready)
         case .document(let url):
             DocumentText(url: url, ready: ready)
         }
@@ -325,6 +316,230 @@ private struct DocumentText: View {
             guard let (data, _) = try? await URLSession.shared.data(from: url), let body = String(data: data, encoding: .utf8) else { text = "file unavailable"; ready(); return }
             text = body.count > 8000 ? String(body.prefix(8000)) + "\n…" : body
             ready()
+        }
+    }
+}
+
+/// A post that is only words (a mood, a chat line) is drawn the way mime.ac draws
+/// it: big comic lettering that breathes letter by letter, outlined over a
+/// pink-purple-cyan offset, on the author's colour drifting under it. The words
+/// shrink until they fit one page; where and when it was said sits underneath.
+private struct Words: View {
+    let text: String
+    let post: Post
+    let padding: CGFloat
+    let ready: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduced
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.mimeLettersActive) private var onstage
+    @State private var started = Date()
+
+    var body: some View {
+        let moving = !reduced && onstage && scenePhase == .active
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !moving)) { timeline in
+            let time = moving ? timeline.date.timeIntervalSince(started) : nil
+            ZStack {
+                MoodSky(tint: Color.author(post.name), time: time)
+                VStack(spacing: 18) {
+                    lettering(time: time)
+                    if let footer = Self.footer(post, now: timeline.date) {
+                        PalText(text: footer, size: 15, accent: Color.author(post.name), fill: .white.opacity(0.85), animated: false)
+                            .accessibilityIdentifier("mime-words-when")
+                    }
+                }
+                .padding(.horizontal, padding + 8)
+                .padding(.top, 104).padding(.bottom, 92)
+            }
+        }
+        .onAppear(perform: ready)
+    }
+
+    @ViewBuilder private func lettering(time: Double?) -> some View {
+        let words = Text(text).font(.custom("ComicRelief-Bold", size: 46))
+        Group {
+            if #available(iOS 18, *) { words.textRenderer(BreathingLetters(time: time)) }
+            else { words.shadow(color: Color(hex: 0x55CDD9), radius: 0, x: 3, y: 3) }
+        }
+        .foregroundStyle(.white)
+        .multilineTextAlignment(.center).lineSpacing(4)
+        .minimumScaleFactor(0.3)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// "laer-klokken · 5m ago", in mime.ac's own units.
+    static func footer(_ post: Post, now: Date) -> String? {
+        let when = post.when.flatMap(Self.date).map { Self.ago($0, now: now) }
+        let parts = [post.origin?.name, when].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    static func date(_ iso: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return fractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+    }
+
+    static func ago(_ date: Date, now: Date) -> String {
+        let s = now.timeIntervalSince(date)
+        if s < 60 { return "just now" }
+        if s < 3600 { return "\(Int(s / 60))m ago" }
+        if s < 86400 { return "\(Int(s / 3600))h ago" }
+        return "\(Int(s / 86400))d ago"
+    }
+}
+
+/// mime.ac's mood-colors: the author's colour, a cyan and a pink glow, drifting
+/// on 19 s and 27 s cycles over the card's paper.
+private struct MoodSky: View {
+    let tint: Color
+    let time: Double?
+    var body: some View {
+        let t = time ?? 0
+        let a = sin(t * .pi / 19), b = sin((t + 11) * .pi / 27)
+        GeometryReader { geo in
+            let reach = max(geo.size.width, geo.size.height)
+            ZStack {
+                Color.paper
+                tint.opacity(0.3)
+                RadialGradient(colors: [tint.opacity(0.6), .clear], center: UnitPoint(x: 0.25 + 0.06 * a, y: 0.35 + 0.05 * a), startRadius: 0, endRadius: reach * 0.6 * (1 + 0.1 * a))
+                RadialGradient(colors: [Color(hex: 0x55CDD9, opacity: 0.26), .clear], center: UnitPoint(x: 0.75 - 0.06 * a, y: 0.7 - 0.05 * a), startRadius: 0, endRadius: reach * 0.55)
+                RadialGradient(colors: [Color(hex: 0xED629D, opacity: 0.22), .clear], center: UnitPoint(x: 0.65 + 0.07 * b, y: 0.25 - 0.05 * b), startRadius: 0, endRadius: reach * 0.5)
+            }
+        }
+        .ignoresSafeArea()
+    }
+}
+
+/// Each glyph bobs and tilts on PalText's breath (±0.055 em, ±2°), and wears a
+/// near-black outline over a pink-purple-cyan offset. All shadows paint first,
+/// then all outlines, then all fills, so nothing cuts into a neighbour.
+@available(iOS 18, *)
+private struct BreathingLetters: TextRenderer {
+    var time: Double?
+
+    func draw(layout: Text.Layout, in ctx: inout GraphicsContext) {
+        var glyphs: [(slice: Text.Layout.RunSlice, place: GraphicsContext, em: CGFloat)] = []
+        var index = 0
+        for line in layout {
+            for run in line {
+                let em = (run.typographicBounds.ascent + run.typographicBounds.descent) / 1.25
+                for slice in run {
+                    let i = index; index += 1
+                    let motion = time.map { PalText.breathe(i, time: $0) } ?? 0
+                    let jitter = PalText.jitter(i)
+                    let r = slice.typographicBounds.rect
+                    var place = ctx
+                    place.translateBy(x: r.midX, y: r.midY + em * (motion * 0.055 - jitter.dy * 0.012))
+                    place.rotate(by: .degrees(motion * 2 - jitter.rot * 0.6))
+                    place.translateBy(x: -r.midX, y: -r.midY)
+                    glyphs.append((slice, place, em))
+                }
+            }
+        }
+        let shadows: [(CGFloat, UInt32)] = [(0.075, 0x55CDD9), (0.05, 0xA478DF), (0.025, 0xED629D)]
+        for glyph in glyphs {
+            for (step, hex) in shadows {
+                var g = glyph.place
+                g.translateBy(x: glyph.em * step, y: glyph.em * step)
+                g.addFilter(.colorMultiply(Color(hex: hex)))
+                g.draw(glyph.slice)
+            }
+        }
+        for glyph in glyphs {
+            let outline = max(1.2, glyph.em * 0.045)
+            for i in 0..<8 {
+                let angle = Double(i) * .pi / 4
+                var g = glyph.place
+                g.translateBy(x: cos(angle) * outline, y: sin(angle) * outline)
+                g.addFilter(.colorMultiply(Color(white: 0.08)))
+                g.draw(glyph.slice)
+            }
+        }
+        for glyph in glyphs { glyph.place.draw(glyph.slice) }
+    }
+}
+
+/// Paintings and images pinch to zoom, pixels kept sharp, and stay zoomed for
+/// a closer look; a double tap toggles 3x, and leaving the card resets it. At
+/// 1x the inner scroll view has nowhere to go, so a swipe still pages the reel.
+private struct ZoomableImage: UIViewRepresentable {
+    let url: URL
+    let focused: Bool
+    let ready: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scroll = UIScrollView()
+        scroll.minimumZoomScale = 1
+        scroll.maximumZoomScale = 12
+        scroll.showsVerticalScrollIndicator = false
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.contentInsetAdjustmentBehavior = .never
+        scroll.bouncesZoom = true
+        scroll.delegate = context.coordinator
+        let image = context.coordinator.image
+        image.contentMode = .scaleAspectFit
+        image.layer.magnificationFilter = .nearest
+        image.frame = scroll.bounds
+        image.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        scroll.addSubview(image)
+        let spinner = context.coordinator.spinner
+        spinner.color = .white
+        spinner.startAnimating()
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(spinner)
+        NSLayoutConstraint.activate([spinner.centerXAnchor.constraint(equalTo: scroll.frameLayoutGuide.centerXAnchor),
+                                     spinner.centerYAnchor.constraint(equalTo: scroll.frameLayoutGuide.centerYAnchor)])
+        let double = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.toggle(_:)))
+        double.numberOfTapsRequired = 2
+        scroll.addGestureRecognizer(double)
+        context.coordinator.load(url, ready: ready)
+        return scroll
+    }
+
+    func updateUIView(_ scroll: UIScrollView, context: Context) {
+        if !focused, scroll.zoomScale != 1 { scroll.setZoomScale(1, animated: false) }
+    }
+
+    final class Coordinator: NSObject, UIScrollViewDelegate {
+        let image = UIImageView()
+        let spinner = UIActivityIndicatorView(style: .medium)
+        private var task: URLSessionDataTask?
+
+        func load(_ url: URL, ready: @escaping () -> Void) {
+            task = URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+                let picture = data.flatMap(UIImage.init(data:))
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.spinner.stopAnimating()
+                    self.image.image = picture
+                    if picture == nil {
+                        let label = UILabel()
+                        label.text = "Preview unavailable"
+                        label.font = UIFont(name: "ComicRelief-Bold", size: 16)
+                        label.textColor = .white.withAlphaComponent(0.6)
+                        label.textAlignment = .center
+                        label.frame = self.image.bounds
+                        label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                        self.image.addSubview(label)
+                    }
+                    ready()
+                }
+            }
+            task?.resume()
+        }
+
+        deinit { task?.cancel() }
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { image }
+
+        @objc func toggle(_ tap: UITapGestureRecognizer) {
+            guard let scroll = tap.view as? UIScrollView else { return }
+            if scroll.zoomScale > 1 { scroll.setZoomScale(1, animated: true); return }
+            let at = tap.location(in: image), scale: CGFloat = 3
+            let size = CGSize(width: scroll.bounds.width / scale, height: scroll.bounds.height / scale)
+            scroll.zoom(to: CGRect(x: at.x - size.width / 2, y: at.y - size.height / 2, width: size.width, height: size.height), animated: true)
         }
     }
 }

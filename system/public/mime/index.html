@@ -445,6 +445,8 @@
     }
     .mood-accessible { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .mood-word { display: inline-block; max-width: 100%; }
+    html body.feed .feed-post.mood-post > .body .mood-when { display: block; margin-top: .6em; font-size: 15px; line-height: 1.3;
+      color: rgba(255, 255, 255, .85); -webkit-text-stroke: .5px #141414; text-shadow: 1.5px 1.5px var(--author, #a478df); }
     .mood-letter { display: inline-block; animation: mood-breathe var(--letter-period) ease-in-out var(--letter-phase) infinite paused; }
     @keyframes mood-breathe { 0%, 100% { transform: translateY(-.055em) rotate(-2deg); }
       50% { transform: translateY(.055em) rotate(2deg); } }
@@ -1243,7 +1245,7 @@ function renderText(text) {
   return body;
 }
 
-function renderMood(text) {
+function renderMood(text, post) {
   const body = el("div", "body mood-copy");
   body.append(el("span", "mood-accessible", text));
   let index = 0;
@@ -1258,6 +1260,19 @@ function renderMood(text) {
       word.append(letter);
     }
     body.append(word);
+  }
+  // Where and when it was said, under the words: "laer-klokken · 17m ago".
+  if (post?.when || post?.origin?.name) {
+    const when = el("span", "mood-when");
+    if (post.origin?.name) when.append(post.origin.name);
+    if (post.origin?.name && post.when) when.append(" · ");
+    if (post.when) {
+      const time = el("time", null, ago(post.when));
+      time.dateTime = post.when;
+      time.title = new Date(post.when).toLocaleString();
+      when.append(time);
+    }
+    body.append(when);
   }
   return body;
 }
@@ -1586,7 +1601,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     if (file.tagName !== "PRE") shieldMedia(frame, file, !watched && (Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "A"].includes(file.tagName)));
     div.append(frame);
   }
-  if (post.text) div.append(inFeed && ["mood", "chat"].includes(post.media?.kind) ? renderMood(post.text) : renderText(post.text));
+  if (post.text) div.append(inFeed && ["mood", "chat"].includes(post.media?.kind) ? renderMood(post.text, post) : renderText(post.text));
   if (root) {
     const actions = el("div", "post-actions");
     if (!inThread) {

@@ -12,6 +12,7 @@ import WebKit
     /// Cards whose runtime has drawn; a card shows its web view from then on.
     @Published private(set) var ready: Set<String> = []
     private var views: [String: WKWebView] = [:]
+    private var started: [String: Date] = [:]
     private var active: String?
     /// Off-screen parking, behind the reel: a web view parked here still
     /// renders, so a piece can paint its first frame before its card shows.
@@ -70,6 +71,7 @@ import WebKit
         view.isUserInteractionEnabled = false
         view.navigationDelegate = self
         views[id] = view
+        started[id] = Date()
         park(view)
         view.load(URLRequest(url: url))
     }
@@ -116,6 +118,7 @@ import WebKit
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let id = message.body as? String, let view = views[id] else { return }
+        if let start = started.removeValue(forKey: id) { print("[mime] runtime \(id) ready in \(Int(Date().timeIntervalSince(start) * 1000)) ms") }
         ready.insert(id)
         settle(view, playing: id == active)
     }

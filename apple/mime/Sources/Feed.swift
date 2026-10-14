@@ -10,6 +10,7 @@ struct Post: Codable, Identifiable, Equatable {
         let packed: Bool?; let aspect: String?
         let version: Int?
     }
+    struct Origin: Codable, Equatable { let name: String; let url: String? }
     let code: String
     let name: String?
     let nameColors: [LetterRGB?]?
@@ -19,6 +20,7 @@ struct Post: Codable, Identifiable, Equatable {
     let file: File?
     let media: Media?
     let version: Int?
+    let origin: Origin?
     var id: String { code }
 
     /// The code you can enter in AC: #painting, !tape, $kidlisp, a piece by name.
@@ -30,6 +32,7 @@ struct Post: Codable, Identifiable, Equatable {
         case "tape": return "!" + code
         case "kidlisp": return "$" + code
         case "mood": return "mood~" + code
+        case "chat": return "chat~" + code
         default: return code
         }
     }

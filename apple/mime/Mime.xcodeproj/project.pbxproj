@@ -72,6 +72,7 @@
 		AC8614897E12210DC8483180 /* WhistlegraphDeleteAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD104D2C61F3F8E13D58D8 /* WhistlegraphDeleteAccount.swift */; };
 		B2EDED30D9DFF446DBBD3F37 /* WhistlegraphTV.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101DD791B2AD55DA82A81C26 /* WhistlegraphTV.swift */; };
 		B46956A780DD49FFF682D426 /* VerifiedAccountIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B29B2A4301FE28C7DCB245 /* VerifiedAccountIdentity.swift */; };
+		B9D629D2E899EA5B158A61CA /* RemoteDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49DE987213BA822E36454700 /* RemoteDriver.swift */; };
 		BA41C9DC59CB9BCD4EE6A5DA /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = C77429657CEAFAEDDC559105 /* Fonts */; };
 		BDFB438A4A83BC0AEFE62399 /* Web in Resources */ = {isa = PBXBuildFile; fileRef = 519F47BDE564013AECB135AF /* Web */; };
 		BF92824609A2035D04FFEAE1 /* UtteranceRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBB076980A6D4B4607CD5EA /* UtteranceRecording.swift */; };
@@ -125,6 +126,7 @@
 		3EE24985AB02083C864395AA /* Mime.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mime.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		44FE69016F03819DFB41D42B /* WhistlegraphHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphHeader.swift; sourceTree = "<group>"; };
 		4658158B89D3A654FA3EE6FB /* StoryPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPreview.swift; sourceTree = "<group>"; };
+		49DE987213BA822E36454700 /* RemoteDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDriver.swift; sourceTree = "<group>"; };
 		49E420CA6F1568B9CDA4DCA6 /* AeselButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselButtonStyle.swift; sourceTree = "<group>"; };
 		4D9BB578155DDDA464781C84 /* AccountDeletionClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionClient.swift; sourceTree = "<group>"; };
 		519F47BDE564013AECB135AF /* Web */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Web; path = ../whistlegraph/Resources/Web; sourceTree = SOURCE_ROOT; };
@@ -337,6 +339,7 @@
 			isa = PBXGroup;
 			children = (
 				7E25F410099969571779C02B /* MimeLayoutTests.swift */,
+				49DE987213BA822E36454700 /* RemoteDriver.swift */,
 			);
 			path = UITests;
 			sourceTree = "<group>";
@@ -525,6 +528,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7F01CC3EEEF3245FCAC8B84E /* MimeLayoutTests.swift in Sources */,
+				B9D629D2E899EA5B158A61CA /* RemoteDriver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
