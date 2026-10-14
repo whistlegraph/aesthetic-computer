@@ -7,13 +7,14 @@ import WebKit
 /// each draw its first frame, then pauses it silent, so a swipe lands on a
 /// picture that is already there and only has to resume. A runtime stays
 /// hidden until that first frame, so no card shows a loading page. Pieces
-/// never see a signed-in session; touches reach the focused runtime immediately.
+/// receive only the viewer’s public handle; touches reach the focused runtime immediately.
 @MainActor final class RuntimePool: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
     /// Cards whose runtime has drawn; a card shows its web view from then on.
     @Published private(set) var ready: Set<String> = []
     private var views: [String: WKWebView] = [:]
     private var started: [String: Date] = [:]
     private var active: String?
+    private var viewerHandle = ""
     var onInteraction: ((String, Bool) -> Void)?
     /// Off-screen parking, behind the reel: a web view parked here still
     /// renders, so a piece can paint its first frame before its card shows.
@@ -46,6 +47,20 @@ import WebKit
         active = id
         for (key, view) in views { settle(view, playing: key == id) }
     }
+
+    func setViewer(_ handle: String) {
+        viewerHandle = handle
+        for view in views.values { shareViewer(view) }
+    }
+
+    private func shareViewer(_ view: WKWebView) {
+        guard view.url?.host == "aesthetic.computer", view.url?.path == "/mime-play",
+              let data = try? JSONSerialization.data(withJSONObject: [viewerHandle]),
+              let json = String(data: data, encoding: .utf8) else { return }
+        view.evaluateJavaScript("window.__mimeSetViewer?.(\(json)[0])", completionHandler: nil)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { shareViewer(webView) }
 
     func view(for id: String) -> WKWebView? { views[id] }
 
@@ -144,6 +159,7 @@ import WebKit
         }
         guard let id = message.body as? String, let view = views[id] else { return }
         if let start = started.removeValue(forKey: id) { print("[mime] runtime \(id) ready in \(Int(Date().timeIntervalSince(start) * 1000)) ms") }
+        shareViewer(view)
         ready.insert(id)
         settle(view, playing: id == active)
     }

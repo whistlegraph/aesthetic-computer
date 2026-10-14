@@ -12,6 +12,8 @@ writeFileSync(mp3, Buffer.from("ID3 sound"));
 test("a plan names the file, its type and the caption, and refuses what the server would", () => {
   const plan = planMime("climb.mp3", { cwd: dir, caption: "  lift two  " });
   assert.deepEqual({ ...plan, path: path.basename(plan.path) }, { path: "climb.mp3", name: "climb.mp3", type: "audio/mpeg", size: 9, caption: "lift two" });
+  assert.equal(mimeType("x.NES"), "application/x-nes-rom");
+  assert.equal(threadUrl("qst", "application/x-nes-rom"), "https://mime.ac/nes~qst");
   assert.equal(mimeType("x.FLAC"), "audio/flac");
   assert.equal(mimeType("x.unknown"), "application/octet-stream");
   writeFileSync(path.join(dir, "empty.png"), "");
@@ -29,13 +31,13 @@ test("a post is an opening post signed by the session's token, and answers with 
   const fetchImpl = async (url, init) => { sent.push({ url, init }); return { ok: true, status: 200, json: async () => ({ code: "abc", board: "audio/mpeg", parent: null }) }; };
   const session = { signedIn: true, token: async () => "tok" };
   const posted = await postMime(planMime(mp3, { caption: "hi" }), { session, fetchImpl, site: "https://ac.test" });
-  assert.deepEqual(posted, { code: "abc", board: "audio/mpeg", url: "https://mime.ac/#/t/abc" });
+  assert.deepEqual(posted, { code: "abc", board: "audio/mpeg", url: "https://mime.ac/abc" });
   assert.equal(sent[0].url, "https://ac.test/api/mime");
   assert.equal(sent[0].init.headers.Authorization, "Bearer tok");
   const body = JSON.parse(sent[0].init.body);
   assert.deepEqual({ ...body, file: { ...body.file, data: Buffer.from(body.file.data, "base64").toString() } },
     { parent: null, text: "hi", file: { name: "climb.mp3", type: "audio/mpeg", data: "ID3 sound" } });
-  assert.equal(threadUrl("x"), "https://mime.ac/#/t/x");
+  assert.equal(threadUrl("x"), "https://mime.ac/x");
 });
 
 test("signed out or refused, it says why", async () => {

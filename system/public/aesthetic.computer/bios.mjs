@@ -1039,7 +1039,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   
   // Preserve URL-provided view options, never auth callbacks or piece arguments.
   const currentParams = new URLSearchParams(location.search);
-  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon"]) {
+  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon", "mime"]) {
     if (currentParams.has(name)) preservedParams[name] = currentParams.get(name);
   }
 
@@ -4823,6 +4823,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       resolution,
       embeddedSource,
       noauth: window.acNOAUTH || false,
+      mime: new URLSearchParams(location.search).get("mime") === "1",
       bootId: window.acBOOT_ID || null,
       pixelRatio: window.devicePixelRatio, // For the worker's `hd()` layer.
       // The shell may have fetched the piece's source already

@@ -125,29 +125,17 @@ test('a real NES ROM renders, accepts keyboard/touch/gamepad, pauses and release
   }finally{await browser.close();}
 });
 
-test('NES file picker validates locally, keeps a failed upload and opens the published post',async()=>{
+test('the feed plus opens the shared app editor without a ROM upload form',async()=>{
   const {browser,page,errors,writes}=await fixture({login:true});
   try{
     await page.goto('https://mime.ac/?ac-automation=1');
     await page.locator('.mime-startup').waitFor({state:'detached'});
-    await page.getByRole('button',{name:'Add NES ROM',exact:true}).click();
-    const dialog=page.getByRole('dialog',{name:'Add NES ROM'}),input=dialog.getByLabel('NES ROM',{exact:true});
-    await input.setInputFiles({name:'bad.nes',mimeType:'application/octet-stream',buffer:Buffer.alloc(16)});
-    await dialog.getByRole('status').filter({hasText:'Choose an iNES'}).waitFor();
-    assert.equal(await dialog.getByRole('button',{name:'Post ROM',exact:true}).isEnabled(),false);
-    await input.setInputFiles({name:'MIME.nes',mimeType:'application/octet-stream',buffer:Buffer.from(inputROM())});
-    const post=dialog.getByRole('button',{name:'Post ROM',exact:true});
-    await page.waitForFunction(()=>!document.querySelector('#nes-dialog input').disabled);
-    assert.equal(await dialog.getByRole('button',{name:'Log in to post',includeHidden:true}).isVisible(),false);
-    await page.screenshot({path:'/tmp/mime-nes-import.png'});
-    await post.click();await dialog.getByRole('status').filter({hasText:'Try again'}).waitFor();
-    assert.equal(writes.length,1);assert.equal(writes[0].file.type,'application/x-nes-rom');
-    assert.deepEqual(Buffer.from(writes[0].file.data,'base64'),Buffer.from(inputROM()));
-    const uploaded=page.waitForResponse(response=>response.url().endsWith('/api/mime')&&response.request().method()==='POST'&&response.status()===200);
-    await post.click();await uploaded;await dialog.waitFor({state:'detached'});
-    await page.waitForURL('**/nes~nes-fixture?ac-automation=1');
-    await page.locator('#nes-fixture .piece-preview iframe[data-ready="true"]').waitFor();
-    assert.equal(writes.length,2);assert.deepEqual(errors,[]);
+    await page.getByRole('button',{name:'Open MIME editor',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'Make in MIME'});
+    assert.equal(await dialog.getByRole('link',{name:'Open editor in the app'}).getAttribute('href'),'mime://create');
+    assert.equal(await dialog.locator('input[type=file]').count(),0);
+    assert.equal(writes.length,0);assert.deepEqual(errors,[]);
+    await page.screenshot({path:'/tmp/mime-create-app.png'});
   }finally{await browser.close();}
 });
 

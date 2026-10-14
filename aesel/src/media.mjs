@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 export const MEDIA_TYPES = new Map([
+  ["nes", { kind: "game", mime: "application/x-nes-rom", glyph: "🎮" }],
   ["png", { kind: "picture", mime: "image/png", glyph: "🖼" }],
   ["jpg", { kind: "picture", mime: "image/jpeg", glyph: "🖼" }],
   ["jpeg", { kind: "picture", mime: "image/jpeg", glyph: "🖼" }],

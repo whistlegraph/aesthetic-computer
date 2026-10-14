@@ -20,6 +20,7 @@ const TYPES = {
   png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
   mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", flac: "audio/flac", m4a: "audio/mp4", mid: "audio/midi", midi: "audio/midi",
   mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm",
+  nes: "application/x-nes-rom",
   pdf: "application/pdf", zip: "application/zip", json: "application/json", wasm: "application/wasm",
   txt: "text/plain", md: "text/markdown", html: "text/html", css: "text/css",
   js: "text/javascript", mjs: "text/javascript", lisp: "text/x-lisp", lua: "text/x-lua",
@@ -41,7 +42,7 @@ export function planMime(file, { cwd = process.cwd(), caption = "" } = {}) {
   return { path: absolute, name: path.basename(absolute), type: mimeType(absolute), size: info.size, caption: String(caption || "").trim().slice(0, MAX_CAPTION) };
 }
 
-export const threadUrl = (code) => `${MIME_HOME}/#/t/${code}`;
+export const threadUrl = (code, type) => `${MIME_HOME}/${encodeURIComponent(type === "application/x-nes-rom" ? "nes~" + code : code)}`;
 
 // Post it. `session` is an ACSession: its token signs the post, so the
 // server credits the account behind it. Returns the thread's code, board
@@ -57,5 +58,5 @@ export async function postMime(plan, { session, fetchImpl = fetch, site = SITE }
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || !body.code) throw new Error(body.error || body.message || `mime.ac answered ${response.status}`);
-  return { code: body.code, board: body.board, url: threadUrl(body.code) };
+  return { code: body.code, board: body.board, url: threadUrl(body.code, plan.type) };
 }

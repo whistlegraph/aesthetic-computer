@@ -1,7 +1,7 @@
 import XCTest
 
 final class MimeLayoutTests: XCTestCase {
-    func testMoodComposerAndSemanticLabels() {
+    func testMoodLabelOpensSharedEditor() {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchEnvironment["MIME_MOOD_FIXTURE"] = "signed-in"
@@ -11,18 +11,8 @@ final class MimeLayoutTests: XCTestCase {
         let type = app.buttons.matching(identifier: "mime-type").matching(NSPredicate(format: "label == %@", "mood")).firstMatch
         XCTAssertTrue(type.waitForExistence(timeout: 10)); type.tap()
         if app.alerts["Before you make something"].waitForExistence(timeout: 2) { app.alerts.buttons["Sounds good"].tap() }
-        let text = app.textViews["mime-mood-text"], submit = app.buttons["mime-mood-submit"]
-        XCTAssertTrue(text.waitForExistence(timeout: 5)); XCTAssertFalse(submit.isEnabled)
-        text.tap(); text.typeText("Still curious.")
-        app.buttons["mime-mood-back"].tap(); type.tap()
-        XCTAssertEqual(text.value as? String, "Still curious.")
-        let compose = XCTAttachment(screenshot: app.screenshot())
-        compose.name = "MIME mood composer"; compose.lifetime = .keepAlways; add(compose)
-        submit.tap()
-        let saved = app.buttons.matching(identifier: "mime-global-identifier").matching(NSPredicate(format: "label == %@", "mood~new")).firstMatch
-        XCTAssertTrue(saved.waitForExistence(timeout: 5)); XCTAssertLessThan(saved.frame.midY, 150)
-        let posted = XCTAttachment(screenshot: app.screenshot())
-        posted.name = "MIME posted mood"; posted.lifetime = .keepAlways; add(posted)
+        XCTAssertTrue(app.otherElements["mime-creation"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.textViews["mime-mood-text"].exists)
     }
 
     func testLiveCenterAndEdgeEscape() {

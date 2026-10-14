@@ -1,6 +1,6 @@
 # MIME.ac
 
-The iPhone app for watching what everyone makes across Aesthetic Computer, KidLisp and Whistlegraph, one piece per screen. Tap a supported MIME type at bottom-right to create a new work directly in MIME. AC pieces, PNG paintings, Doom WADs and Roblox rooms use Whistlegraph’s shared native editor and bundled Aesel engine, with AC sign-in, prompts, drawings, voice, projects, version history, undo and export. Other media types remain read-only.
+The iPhone app for watching what everyone makes across Aesthetic Computer, KidLisp and Whistlegraph, one piece per screen. Tap a supported MIME type at bottom-right to create a new work directly in MIME. AC pieces, PNG paintings, Doom WADs and Roblox rooms use Whistlegraph’s shared native editor and bundled Aesel engine, with AC sign-in, prompts, drawings, voice, projects, version history, undo and export. Other type labels resume the existing editor workspace.
 
 Public chat messages containing a recognized YouTube video link show its poster and an inline YouTube player. The chat identifier, author, source and accompanying words remain intact. Playback pauses offscreen; unavailable embeds retain a YouTube link.
 
@@ -8,7 +8,7 @@ The feed is the same ranked network feed as https://mime.ac (`GET /api/mime?feed
 
 - `Sources/Feed.swift`: the feed model and how each post draws (image, video, live runtime, packed HTML, words, document).
 - `Sources/Reel.swift`: the loading wordmark, vertical pager, and cards. The first piece loads behind MIME; the lettering breaks apart when its content is ready, revealing the feed without a swipe. The code sits top-left, the handle bottom-left, and the MIME type bottom-right. The center of a playable card accepts input immediately. Held input hides the labels toward their corners; after release, one idle second and the return animation unlock the 48-point top/bottom swipe strips. The outer 8 points always allow a feed swipe, including during cooldown. Edge contact glows before navigation. Reduced Motion fades the labels. Supported type labels open creation after sign-in. A small wordmark stays top-right.
-- `Sources/PieceRuntime.swift`: one live web runtime for the card in view. KidLisp and pieces load aesthetic.computer, Whistlegraph pieces load `/mime-play`. Autoplay is allowed and the runtime is asked to start audio. A non-persistent website data store keeps pieces from seeing any session.
+- `Sources/PieceRuntime.swift`: one live web runtime for the card in view. KidLisp, registered pieces and Whistlegraph pieces share `/mime-play`. Autoplay is allowed and the runtime is asked to start audio. A non-persistent website data store keeps credentials out of pieces. The shared player receives only the current public handle, exposed through `handle()` and cleared on sign-out.
 - `Sources/MimeCreation.swift`: presents the shared Whistlegraph editor as a full-screen mode. The app root owns its persistent session. The arrow or left swipe beside the preview, the right-edge swipe, and Projects’ “Explore mimes” return to the same feed position even during generation. Tapping the MIME wordmark resumes the current work; a type tap starts a new v0 project. Local work lives in MIME’s own app container; AC account-backed piece synchronization uses the existing service.
 - `Sources/MimeWorkQueue.swift`: saves remix and new-work intents until the editor can open them. AC turns already accepted by the server can be parked immediately; jobs running on the phone keep their engine until finished. Queued entries remain available after navigation or relaunch, with removal and retry from the feed.
 - `Sources/PalText.swift`: MacPal's title lettering (macpal/Sources/PalCore.swift), with outlines under fills.
@@ -73,12 +73,10 @@ to archive/upload instead, or `web` for production presentation updates only.
 Both releases use the same source revision.
 
 Mood and chat cards show their meaning as `mood` and `chat`; their underlying
-media type remains `text/plain`. Tap `mood` to write a public mood with the same
-AC account used by the editor. Sign-in and a handle are required to publish.
-The composer retains its draft when closed or when posting fails. A successful
-response includes the saved card and global `mood~` identifier, so it appears
-immediately without waiting for the feed cache. The mood endpoint must ship
-with the native client.
+media type remains `text/plain`. The + button resumes the shared Whistlegraph
+editor. Website creation links use `mime://create`; a supported `type` opens a
+new project in that medium. Unsupported types open the existing workspace.
+There is no separate web or native feed uploader.
 
 ## TestFlight
 
@@ -87,7 +85,7 @@ From this directory: `fastlane ios status`, `fastlane ios build`, `fastlane ios 
 The first app record needs an Apple ID login once, in the terminal (two-factor included): `FASTLANE_USER=<Apple ID> fastlane ios create`. Apple's public API cannot create apps.
 
 NES ROM posts use the shared `/nes-player/` runtime with touch, keyboard and
-standard gamepad controls. The feed’s + button imports `.nes` files from Files;
-posting uses the signed-in handle and existing MIME file endpoint. The runtime
+standard gamepad controls. Aesel’s existing file-publishing path recognizes `.nes` and returns a
+`nes~` permalink. The runtime
 pauses and releases held buttons offscreen; gamepad and keyboard activity also
 hold the corner-label cooldown. NES changes require a new native app release.

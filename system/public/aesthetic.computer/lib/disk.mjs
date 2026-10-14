@@ -3363,7 +3363,7 @@ const $commonApi = {
   canShare: false, // Whether navigator.share is enabled for mobile devices.
   leaving: isLeaving,
   handle: () => {
-    return HANDLE;
+    return globalThis.MIME_MODE ? globalThis.MIME_VIEWER_HANDLE ?? null : HANDLE;
   },
   notice: (msg, color = ["white", "green"], opts) => {
     notice = msg;
@@ -10739,6 +10739,7 @@ async function makeFrame({ data: { type, content } }) {
       sessionStarted = true;
     }
 
+    globalThis.MIME_MODE = content.mime === true && content.noauth === true;
     USER = content.user;
     // if (USER) socket.send("login", { user: USER });
 
@@ -11154,6 +11155,15 @@ async function makeFrame({ data: { type, content } }) {
       act($api);
     } catch (e) {
       console.warn("️ ✒ Act failure...", e);
+    }
+    return;
+  }
+
+  // A display-only identity for MIME cards. Never sets USER, HANDLE, auth or storage.
+  if (type === "mime:viewer") {
+    if (globalThis.MIME_MODE) {
+      globalThis.MIME_VIEWER_HANDLE = typeof content?.handle === "string" && /^@[A-Za-z0-9_.-]{1,64}$/.test(content.handle) ? content.handle : null;
+      $commonApi.needsPaint();
     }
     return;
   }
@@ -12652,7 +12662,7 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if ((data.key === "$" || data.key === "Home") && !getPackMode()) {
+        if ((data.key === "$" || data.key === "Home") && !getPackMode() && !globalThis.MIME_MODE) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
@@ -12678,6 +12688,7 @@ async function makeFrame({ data: { type, content } }) {
         if (
           !getPackMode() && // Disable navigation keys in OBJKT mode
           !SOLO_MODE && // Disable navigation keys in solo mode
+          !globalThis.MIME_MODE && // MIME owns navigation; the piece still receives these keys
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||

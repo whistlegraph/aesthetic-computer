@@ -33,7 +33,7 @@ test('MIME new posts preserve runtimes, preloading is bounded and silent, and wg
         window.volume=0;window.running=true;window.preloaded=true;window.dropped=0;
         window.AC={setMasterVolume:n=>volume=n,startAudio:()=>{}};
         window.acPAUSE=()=>running=false;window.acRESUME=()=>running=true;
-        window.acSEND=()=>{dropped++;preloaded=true;setTimeout(()=>parent.postMessage({type:'ready'},'*'),20)};
+        window.acSEND=message=>{if(message.type!=="dropped:piece")return;dropped++;preloaded=true;setTimeout(()=>parent.postMessage({type:'ready'},'*'),20)};
         setTimeout(()=>parent.postMessage({type:'ready'},'*'),20);
       </script>`});
     }

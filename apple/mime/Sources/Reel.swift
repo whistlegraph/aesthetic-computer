@@ -5,11 +5,9 @@ import AVKit
 /// to reveal the native reel. No introductory swipe is required.
 struct Reel: View {
     var active = true
+    var viewerHandle = ""
     let resumeEditor: () -> Void
     let remixWork: (Post) -> Void
-    let makeMood: () -> Void
-    let makeROM: () -> Void
-    var publishedMood: Post?
     let makeWork: (Ware) -> Void
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
@@ -31,7 +29,7 @@ struct Reel: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, edgesReady: edgesReady, topInset: screen.safeAreaInsets.top, bottomInset: screen.safeAreaInsets.bottom, escape: resetInteraction, step: step, ready: { firstContentReady(post.id) }, makeWork: makeWork, makeMood: makeMood, remixWork: remixWork, hide: hide, activity: { holding in contentActivity(post.id, holding: holding) })
+                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, edgesReady: edgesReady, topInset: screen.safeAreaInsets.top, bottomInset: screen.safeAreaInsets.bottom, escape: resetInteraction, step: step, ready: { firstContentReady(post.id) }, makeWork: makeWork, resumeEditor: resumeEditor, remixWork: remixWork, hide: hide, activity: { holding in contentActivity(post.id, holding: holding) })
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(post.id)
                             .environment(\.mimeLettersActive, active && current == post.id)
@@ -61,10 +59,7 @@ struct Reel: View {
                     resetInteraction()
                     prepare()
                 }
-                .onChange(of: publishedMood) { _, post in
-                    guard let post else { return }
-                    feed.include(post); current = post.id
-                }
+                .onChange(of: viewerHandle) { _, handle in pool.setViewer(handle) }
                 .onChange(of: feed.posts) { _, posts in
                     if current == nil { current = posts.first?.id }
                     prepare()
@@ -73,6 +68,7 @@ struct Reel: View {
                     if let first = feed.posts.first, ready.contains(first.id) { firstContentReady(first.id) }
                 }
                 .task {
+                    pool.setViewer(viewerHandle)
                     pool.onInteraction = { id, holding in contentActivity(id, holding: holding) }
                     async let posts: Void = feed.loadMore()
                     async let layout: Void = feed.refreshLayout()
@@ -99,9 +95,9 @@ struct Reel: View {
                     .allowsHitTesting(interacting == nil)
                     .accessibilityHidden(interacting != nil)
                 if revealed && active && interacting == nil {
-                    Button(action: makeROM) { Image(systemName: "plus").font(.system(size: 23)).frame(width: 44, height: 44) }
+                    Button(action: resumeEditor) { Image(systemName: "plus").font(.system(size: 23)).frame(width: 44, height: 44) }
                         .buttonStyle(.plain).foregroundStyle(Color(hex: 0x7AE7CE))
-                        .accessibilityLabel("Add NES ROM").accessibilityIdentifier("mime-import-rom")
+                        .accessibilityLabel("Open editor").accessibilityIdentifier("mime-create-work")
                         .padding(.top, 4)
                 }
                 if revealed && active && currentPost?.playable == true {
@@ -307,7 +303,7 @@ private struct Card: View {
     let step: (Int) -> Void
     let ready: () -> Void
     let makeWork: (Ware) -> Void
-    let makeMood: () -> Void
+    let resumeEditor: () -> Void
     let remixWork: (Post) -> Void
     let hide: (Post) -> Void
     let activity: (Bool) -> Void
@@ -366,20 +362,17 @@ private struct Card: View {
                             .modifier(CornerRetreat(hidden: interacting, x: -1, y: 1))
                     }
                     Spacer(minLength: 12)
-                    if post.isMood {
-                        Button(action: makeMood) {
-                            TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
-                            .accessibilityHint("Add your own mood")
-                            .modifier(CornerRetreat(hidden: interacting, x: 1, y: 1))
-                    } else if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
+                    if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
                         Button { makeWork(ware) } label: {
                             TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
                             .accessibilityHint("Make a new " + ware.title)
                             .modifier(CornerRetreat(hidden: interacting, x: 1, y: 1))
                     } else {
-                        TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).accessibilityIdentifier("mime-type")
+                        Button(action: resumeEditor) {
+                            TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
+                            .accessibilityHint("Open editor")
                             .modifier(CornerRetreat(hidden: interacting, x: 1, y: 1))
                     }
                 }

@@ -2,7 +2,7 @@
 <!-- Mime player: runs one published Whistlegraph piece, for mime.ac's feed.
      /mime-play/?code=wgXxxxx fetches the piece's source from the public
      /api/mime-feed and drops it into an AC runtime on this same origin, the
-     way the Whistlegraph app's feed does. No account, no session. -->
+     way the Whistlegraph app's feed does. The host may share the viewer’s public handle, without account credentials. -->
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -16,6 +16,6 @@
 </head>
 <body>
   <p id="note">loading…</p>
-<script type="module" src="player.mjs?v=2026-10-14.1"></script>
+<script type="module" src="player.mjs?v=2026-10-14.2"></script>
 </body>
 </html>

@@ -68,7 +68,9 @@ test('three-dot comments overlay pauses the card, posts in place and preserves d
   const { browser, page, writes, errors } = await fixture();
   try {
     const bubble = page.locator('#first .reel-comments');
-    assert.equal(await bubble.locator('svg circle').count(), 3);
+    assert.equal(await bubble.locator('[data-comment-count]').textContent(), '1');
+    assert.equal(await bubble.locator('.comment-dots').isVisible(), false);
+    assert.deepEqual(await bubble.evaluate(b => ({background: getComputedStyle(b).backgroundColor, shadow: getComputedStyle(b).boxShadow, filter: getComputedStyle(b.querySelector('svg')).filter})), {background:'rgba(0, 0, 0, 0)',shadow:'none',filter:'none'});
     const size = await bubble.boundingBox(); assert.ok(size.width >= 44 && size.height >= 44);
     await page.waitForFunction(() => !document.querySelector('#first video').paused);
     const address = page.url(), position = await page.evaluate(() => scrollY);
@@ -91,6 +93,7 @@ test('three-dot comments overlay pauses the card, posts in place and preserves d
     await updated.getByText('A little more motion.', { exact: true }).waitFor();
     assert.equal(await updated.getByRole('textbox', { name: 'Comment', exact: true }).inputValue(), '');
     assert.equal(await bubble.getAttribute('aria-label'), 'Comments · 2');
+    assert.equal(await bubble.locator('[data-comment-count]').textContent(), '2');
     await page.keyboard.press('Escape');
     await page.locator('#comments-dialog').waitFor({ state: 'detached' });
     await page.waitForFunction(() => !history.state?.mimeComments);
@@ -99,6 +102,10 @@ test('three-dot comments overlay pauses the card, posts in place and preserves d
     await page.waitForFunction(() => !document.querySelector('#first video').paused);
     await page.locator('#second').evaluate(e => e.scrollIntoView());
     await page.waitForFunction(() => Math.abs(document.querySelector('#second').getBoundingClientRect().top) < 1);
+    assert.equal(await page.locator('#second .comment-dots').isVisible(), true);
+    assert.equal(await page.locator('#second .comment-dots circle').first().evaluate(c=>getComputedStyle(c).animationName),'comment-bounce');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('#second .comment-dots circle').first().evaluate(c=>getComputedStyle(c).animationName),'none');
     await page.locator('#second .reel-comments').click();
     const empty = page.getByRole('dialog', { name: 'Comments', exact: true });
     await empty.getByText('No comments yet.').waitFor();

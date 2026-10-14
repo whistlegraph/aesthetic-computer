@@ -409,23 +409,20 @@
     #remix-dialog { color: var(--body); background: var(--paper); border: 2px solid #55cdd9; border-radius: 12px; padding: 24px; max-width: min(360px, calc(100vw - 40px)); font: 700 20px/1.4 "MIME Comic", "Comic Relief", sans-serif; }
     #remix-dialog::backdrop { background: #141024bb; }
     #remix-dialog a, #remix-dialog button { display: block; margin-top: 16px; min-height: 44px; font: inherit; color: inherit; }
-    #mood-dialog { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
-      border: 2px solid #55cdd9; border-radius: 12px; padding: 20px; color: var(--body); background: var(--paper);
-      font: 700 20px/1.4 "MIME Comic", "Comic Relief", sans-serif; }
-    #mood-dialog::backdrop { background: #0009; }
-    #mood-dialog form { display: grid; gap: 16px; }
-    #mood-dialog textarea { width: 100%; min-height: min(36dvh, 280px); resize: vertical; padding: 12px;
-      font: 700 26px/1.5 "MIME Comic", "Comic Relief", sans-serif; }
-    #mood-dialog .mood-controls { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-    #mood-dialog button, #mood-dialog a { font: inherit; min-height: 44px; }
-    #mood-dialog [role="status"]:empty { display: none; }
     .reel-comments { display: none; }
     body.feed .feed-post > .reel-comments { display: flex; align-items: center; gap: 5px; position: absolute;
       right: var(--mime-padding, 14px); bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 5;
-      min-width: 44px; min-height: 44px; padding: 6px; border: 0; box-shadow: none; background: #17152680;
+      min-width: 44px; min-height: 44px; padding: 6px; border: 0; box-shadow: none; background: transparent;
       border-radius: 18px; color: #fff; font: 700 16px "MIME Comic", "Comic Relief", sans-serif; cursor: pointer; }
-    .reel-comments svg { width: 32px; height: 32px; overflow: visible; filter: drop-shadow(1px 2px 0 #a478df); }
-    .reel-comments [data-comment-count]:empty { display: none; }
+    .reel-comments svg { width: 32px; height: 32px; overflow: visible; }
+    .reel-comments [data-comment-count] { fill: #171526; font: 700 14px "MIME Comic", "Comic Relief", sans-serif; }
+    .reel-comments[data-count="0"] [data-comment-count], .reel-comments:not([data-count="0"]) .comment-dots { display: none; }
+    .comment-dots circle { animation: comment-bounce 3s ease-in-out infinite; animation-play-state: paused; }
+    .feed-post[data-onstage]:not([data-full]) .comment-dots circle { animation-play-state: running; }
+    .comment-dots circle:nth-child(2) { animation-delay: .12s; }
+    .comment-dots circle:nth-child(3) { animation-delay: .24s; }
+    @keyframes comment-bounce { 0%, 14%, 100% { transform: translateY(0); } 7% { transform: translateY(-2px); } }
+    @media (prefers-reduced-motion: reduce) { .comment-dots circle { animation: none; } }
     html.comments-open { overflow: hidden; }
     #comments-dialog { inset: auto 0 0; margin: 0 auto; width: min(600px, 100%); max-width: 100%;
       height: min(680px, 78dvh); max-height: calc(100dvh - 12px); padding: 0; overflow: hidden;
@@ -506,15 +503,10 @@
     }
 
 
-    #import-nes { position: fixed; left: calc(50% - 22px); top: calc(4px + env(safe-area-inset-top)); width: 44px; height: 44px;
+    #create-work { position: fixed; left: calc(50% - 22px); top: calc(4px + env(safe-area-inset-top)); width: 44px; height: 44px;
       padding: 0; border: 0; background: transparent; color: #7ae7ce; font: 30px system-ui; box-shadow: none; pointer-events: auto; }
-    body.feed[data-full] #import-nes { opacity: 0; pointer-events: none; }
-    #nes-dialog { margin: auto; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
-      padding: 20px; background: var(--paper); color: var(--ink); border: 1px solid var(--card-edge); border-radius: 18px; }
-    #nes-dialog::backdrop { background: #0009; }
-    #nes-dialog [hidden], #nes-dialog p:empty { display: none; }
-    #nes-dialog form { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 0; border: 0; box-shadow: none; }
-    #nes-dialog input { width: 100%; min-height: 44px; } #nes-dialog .rom-actions { display: flex; justify-content: space-between; gap: 10px; }
+    body.feed[data-full] #create-work { opacity: 0; pointer-events: none; }
+
     /* Input belongs to the center. Navigation is a separate edge gesture. */
     body.feed .feed-media[data-direct] > .media-shield { display: none; }
     body.feed .feed-media[data-direct] { touch-action: none; }
@@ -556,7 +548,7 @@
         <sup class="domain-suffix" aria-hidden="true"><span class="suffix-dot">.</span>ac</sup>
       </a>
     </h1>
-    <button id="import-nes" type="button" aria-label="Add NES ROM" title="Add NES ROM">＋</button>
+    <button id="create-work" type="button" aria-label="Open MIME editor" title="Open MIME editor">＋</button>
   </header>
   <!-- The feed is built by script, so this is the page's only prose: what a
        screen reader announces first and what a crawler can follow. Never drawn. -->
@@ -906,7 +898,7 @@ function retreatCorners(node, hidden) {
   node?.querySelectorAll(':scope > .reel-command, :scope > .meta, :scope > .reel-comments').forEach(corner => { corner.inert = hidden; });
   document.body.toggleAttribute('data-full', hidden);
   document.querySelector('header .wordmark').inert = hidden;
-  document.getElementById('import-nes').inert = hidden;
+  document.getElementById('create-work').inert = hidden;
 }
 function clearDirectInteraction() {
   if (!directInteraction) return;
@@ -1737,7 +1729,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   if (root && inFeed) {
     const comments = el('button', 'reel-comments'); comments.type = 'button';
     comments.setAttribute('aria-haspopup', 'dialog'); comments.title = 'Comments';
-    comments.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 4h18a4 4 0 0 1 4 4v13a4 4 0 0 1-4 4H14l-7 5v-5a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Z" fill="#fff" stroke="#171526" stroke-width="2" stroke-linejoin="round"/><g fill="#171526"><circle cx="10" cy="15" r="1.7"/><circle cx="16" cy="15" r="1.7"/><circle cx="22" cy="15" r="1.7"/></g></svg><span data-comment-count aria-hidden="true"></span>';
+    comments.innerHTML = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 4h18a4 4 0 0 1 4 4v13a4 4 0 0 1-4 4H14l-7 5v-5a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Z" fill="#fff" stroke="#171526" stroke-width="2" stroke-linejoin="round"/><g class="comment-dots" fill="#171526"><circle cx="10" cy="15" r="1.7"/><circle cx="16" cy="15" r="1.7"/><circle cx="22" cy="15" r="1.7"/></g><text data-comment-count x="16" y="19" text-anchor="middle"></text></svg>';
     setCommentCount(comments, post.replies || 0);
     comments.addEventListener('click', event => openComments(post.code, comments, event.isTrusted));
     div.append(comments);
@@ -1778,12 +1770,12 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     }
     div.append(command);
     let type = byline.querySelector(".mime-type").cloneNode(true);
-    if (post.media?.kind === "mood") {
+    if (type) {
       const button = el("button", type.className, type.textContent);
       Object.assign(button.dataset, type.dataset);
-      button.type = "button"; button.title = "Add your own mood";
+      button.type = "button"; button.title = "Make in MIME";
       button.setAttribute("aria-haspopup", "dialog");
-      button.addEventListener("click", () => openMoodComposer(button));
+      button.addEventListener("click", () => openEditor(button, post.file?.type || post.board));
       type = button;
     }
     type.classList.add("reel-type");
@@ -1989,7 +1981,18 @@ function showIdentity(input) {
   input.setAttribute("aria-label", identity.token ? "Commenting as" : "Name (optional)");
 }
 
+function sendViewer(iframe) {
+  if (iframe.dataset.viewerReady !== 'true') return;
+  const url = new URL(iframe.src || location.href);
+  if (url.origin !== 'https://aesthetic.computer' || url.pathname !== '/mime-play/') return;
+  iframe.contentWindow?.postMessage({type: 'mime:viewer', handle: identity.handle || null}, url.origin);
+}
+window.addEventListener('message', event => {
+  if (event.origin !== 'https://aesthetic.computer' || event.data?.type !== 'mime:viewer-request') return;
+  for (const {iframe} of piecePool.values()) if (iframe.contentWindow === event.source) { iframe.dataset.viewerReady = 'true'; sendViewer(iframe); break; }
+});
 function showAccount() {
+  for (const {iframe} of piecePool.values()) sendViewer(iframe);
   accountHandle.textContent = identity.handle || "";
   accountHandle.dataset.acProfileHandle = identity.handle || "";
   accountHandle.setAttribute("aria-haspopup", "dialog");
@@ -2004,6 +2007,7 @@ accountAction.onclick = async () => {
   try {
     const client = await authClient();
     if (identity.token) {
+      identity = {token: null, handle: null}; showAccount();
       localStorage.removeItem("session-aesthetic");
       await client.logout({ logoutParams: { returnTo: AUTH_REDIRECT } });
     } else {
@@ -2025,161 +2029,33 @@ function updateIdentity() {
     showAccount();
     document.querySelectorAll('[name="commenter"]').forEach(showIdentity);
     document.querySelectorAll('.comment-sign-in').forEach(button => { button.hidden = !!identity.token; });
-  }).catch(() => { accountStatus.textContent = "sign in again to use your handle"; });
+  }).catch(() => { identity = {token: null, handle: null}; showAccount(); accountStatus.textContent = "sign in again to use your handle"; });
 }
 window.addEventListener("focus", updateIdentity);
 window.addEventListener("storage", (event) => {
   if (!event.key || event.key === "session-aesthetic" || event.key.startsWith(AC_CACHE_PREFIX)) updateIdentity();
 });
 
-document.getElementById('import-nes').onclick = () => openNESComposer();
-let nesDraft;
-async function openNESComposer(selected) {
-  if (document.getElementById('nes-dialog')) return;
+// Creation belongs to the app's shared Whistlegraph/Aesel workspace.
+document.getElementById('create-work').onclick = event => openEditor(event.currentTarget);
+function openEditor(opener, type) {
+  if (document.getElementById('remix-dialog')) return;
   clearDirectInteraction(); exitMediaInteraction();
-  const dialog = el('dialog'); dialog.id = 'nes-dialog'; dialog.setAttribute('aria-label', 'Add NES ROM');
-  const form = el('form'), actions = el('div', 'rom-actions');
-  const back = el('button', null, 'Back'); back.type = 'button';
-  const submit = el('button', null, 'Post ROM'), label = el('label', null, 'NES ROM · up to 8 MB');
-  const input = el('input'); input.type = 'file'; input.accept = '.nes,application/x-nes-rom'; input.setAttribute('aria-label', 'NES ROM');
-  const name = el('p'), status = el('p'); status.setAttribute('role', 'status');
-  const login = el('button', null, 'Log in to post'); login.type = 'button';
-  const handle = el('a', null, 'Choose your @handle'); handle.href = 'https://aesthetic.computer/handle'; handle.target = '_blank'; handle.rel = 'noopener';
-  let checking = true, posting = false;
-  const sync = () => {
-    input.disabled = checking || posting || !identity.handle;
-    submit.disabled = checking || posting || !identity.handle || !nesDraft;
-    submit.textContent = posting ? 'Posting…' : 'Post ROM'; back.disabled = posting;
-    login.hidden = !!identity.token; handle.hidden = !identity.token || !!identity.handle;
-    name.textContent = checking ? 'Checking account…' : nesDraft ? (input.files[0] === nesDraft ? '' : nesDraft.name) : identity.handle || '';
-  };
-  const check = async () => {
-    checking = true; sync();
-    try { await refreshIdentity(); showAccount(); }
-    catch { identity = {token: null, handle: null}; status.textContent = 'Log in again to post.'; }
-    checking = false; sync();
-  };
-  const choose = async file => {
-    if (!file) return;
-    nesDraft = null; status.textContent = ''; checking = true; sync();
-    try {
-      if (file.size > 8 * 1024 * 1024) throw new Error('ROM over 8 MB.');
-      const {inspectROM} = await import('/nes-player/rom.mjs');
-      const bytes = new Uint8Array(await file.arrayBuffer()), info = inspectROM(bytes);
-      if (!info.supported) throw new Error('This ROM’s console or cartridge mapper is not supported yet.');
-      nesDraft = file;
-    } catch (error) { status.textContent = error.message; }
-    checking = false; sync();
-  };
-  input.onchange = () => choose(input.files[0]);
-  back.onclick = () => dialog.close();
-  login.onclick = async () => {
-    try { await (await authClient()).loginWithRedirect({ appState: {hash: location.hash || '#/', nes: true}, authorizationParams: {redirect_uri: AUTH_REDIRECT} }); }
-    catch { status.textContent = 'Could not sign in. Try again.'; }
-  };
-  form.onsubmit = async event => {
-    event.preventDefault(); if (posting || checking || !nesDraft || !identity.handle) return;
-    posting = true; status.textContent = ''; sync();
-    try {
-      await refreshIdentity();
-      if (!identity.token || !identity.handle) throw new Error('Log in again to post.');
-      const bytes = new Uint8Array(await nesDraft.arrayBuffer());
-      let binary = ''; for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-      const response = await fetch(API, { method: 'POST', headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + identity.token},
-        body: JSON.stringify({file: {name: nesDraft.name, type: 'application/x-nes-rom', data: btoa(binary)}}), signal: AbortSignal.timeout(60000) });
-      const result = await response.json();
-      if (!response.ok || !result.code) throw new Error(result.error || 'Could not post your ROM. Try again.');
-      nesDraft = null; dialog.close(); feedCache = null;
-      history.pushState(null, '', postPath(result.code) + location.search); await route();
-    } catch (error) { status.textContent = error.message; }
-    finally { posting = false; sync(); }
-  };
-  dialog.addEventListener('cancel', event => { if (posting) event.preventDefault(); });
-  dialog.addEventListener('close', () => { dialog.remove(); window.removeEventListener('focus', check); engagementForeground(!document.hidden && document.hasFocus()); syncPieceFocus(); });
-  actions.append(back, submit); label.append(input); form.append(actions, label, name, login, handle, status); dialog.append(form);
-  document.body.append(dialog); dialog.showModal(); syncPieceFocus(); engagementForeground(false);
-  window.addEventListener('focus', check); await check(); if (selected) await choose(selected);
-}
-let moodDraft = "";
-async function openMoodComposer(opener) {
-  if (document.getElementById("mood-dialog")) return;
-  const dialog = el("dialog"); dialog.id = "mood-dialog";
-  dialog.setAttribute("aria-label", "Add a mood");
-  const form = el("form"), controls = el("div", "mood-controls");
-  const back = el("button", null, "Back"); back.type = "button";
-  const author = el("span"), submit = el("button", null, "Post mood");
-  const text = el("textarea"); text.placeholder = "How are you feeling?";
-  text.setAttribute("aria-label", "Mood"); text.maxLength = 4000; text.value = moodDraft;
-  const status = el("div"); status.setAttribute("role", "status");
-  const handle = el("a", null, "Choose your @handle"); handle.href = "https://aesthetic.computer/handle";
-  handle.target = "_blank"; handle.rel = "noopener"; handle.hidden = true;
-  controls.append(back, submit); form.append(controls, text, author, handle, status); dialog.append(form);
-  let posting = false, checking = true, needsLogin = false;
-  const sync = () => {
-    author.textContent = identity.handle || "";
-    submit.textContent = posting ? "Posting…" : checking ? "Checking account…" : identity.token ? "Post mood" : "Log in to post";
-    submit.disabled = posting || checking || !text.value.trim() || !!identity.token && !identity.handle;
-    handle.hidden = !identity.token || !!identity.handle;
-  };
-  const check = async () => {
-    checking = true; sync();
-    try { await refreshIdentity(); needsLogin = false; showAccount(); }
-    catch { status.textContent = "Sign in again to post your mood."; needsLogin = true; identity = { token: null, handle: null }; }
-    finally { checking = false; sync(); }
-  };
-  text.oninput = () => { moodDraft = text.value; sync(); };
-  back.onclick = () => dialog.close();
-  dialog.addEventListener("cancel", event => { if (posting) event.preventDefault(); });
-  dialog.addEventListener("close", () => {
-    moodDraft = text.value; dialog.remove(); window.removeEventListener("focus", check);
-    engagementForeground(!document.hidden && document.hasFocus()); opener?.focus();
-  });
-  form.onsubmit = async event => {
-    event.preventDefault();
-    if (posting || checking || !text.value.trim()) return;
-    posting = true; back.disabled = true; text.disabled = true; status.textContent = ""; sync();
-    try {
-      if (!needsLogin) {
-        try { await refreshIdentity(); }
-        catch { needsLogin = true; identity = { token: null, handle: null }; }
-      }
-      if (!identity.token || needsLogin) {
-        sessionStorage.setItem("mime-mood-draft", text.value);
-        const client = await authClient();
-        await client.loginWithRedirect({ appState: { hash: location.hash || "#/", mood: true }, authorizationParams: { redirect_uri: AUTH_REDIRECT } });
-        return;
-      }
-      if (!identity.handle) throw new Error("Choose a handle before posting your mood.");
-      const response = await fetch("https://aesthetic.computer/api/mood", { method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + identity.token },
-        body: JSON.stringify({ mood: text.value.trim() }), signal: AbortSignal.timeout(60000) });
-      const result = await response.json();
-      if (response.status === 401) { needsLogin = true; identity = { token: null, handle: null }; throw new Error("Sign in again to post your mood."); }
-      if (!response.ok || !result.post?.media?.code) throw new Error("Could not post your mood. Your draft is still here; try again.");
-      const post = result.post;
-      if (feedCache) {
-        feedCache.nodes = feedCache.nodes.filter(node => node.id !== post.code);
-        feedCache.nodes.unshift(renderPost(post, false, false, undefined, true));
-        feedCache.codes.add(post.code); feedCache.index = 0; feedCache.offset = 0;
-      }
-      text.value = ""; moodDraft = ""; sessionStorage.removeItem("mime-mood-draft");
-      dialog.close();
-      history.pushState(null, "", postPath("mood~" + post.media.code) + location.search);
-      await route();
-    } catch (error) { status.textContent = error.message || "Could not post your mood. Try again."; }
-    finally { posting = false; back.disabled = false; text.disabled = false; sync(); }
-  };
-  document.body.append(dialog); dialog.showModal(); text.focus();
-  engagementForeground(false);
-  window.addEventListener("focus", check);
-  await check();
+  const dialog = el('dialog'); dialog.id = 'remix-dialog'; dialog.setAttribute('aria-label', 'Make in MIME');
+  const title = el('div', null, 'Make in MIME');
+  const open = el('a', null, 'Open editor in the app');
+  open.href = 'mime://create' + (type ? '?' + new URLSearchParams({type}) : '');
+  const close = el('button', null, 'Back'); close.type = 'button'; close.onclick = () => dialog.close();
+  dialog.append(title, open, close); document.body.append(dialog);
+  dialog.addEventListener('close', () => { dialog.remove(); opener?.focus({preventScroll: true}); syncPieceFocus(); syncVideoPlayback(); });
+  dialog.showModal(); syncPieceFocus(); syncVideoPlayback();
 }
 
 function setCommentCount(button, count) {
-  count = Math.max(0, Number(count) || 0);
+  count = Math.max(0, Math.floor(Number(count) || 0));
   button.dataset.count = count;
   button.setAttribute('aria-label', 'Comments' + (count ? ' · ' + count : ''));
-  button.querySelector('[data-comment-count]').textContent = count ? String(count) : '';
+  button.querySelector('[data-comment-count]').textContent = count ? (count > 99 ? '99+' : String(count)) : '';
 }
 function updateCommentCount(code, count) {
   for (const node of feedCache?.nodes || []) {
@@ -2702,15 +2578,13 @@ window.addEventListener("keydown", (event) => {
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 });
 async function start() {
-  let resumeMood = false, resumeComments, resumeNES = false;
+  let resumeComments;
   const params = new URLSearchParams(location.search);
   if (params.has("state") && (params.has("code") || params.has("error"))) {
     accountAction.disabled = true;
     try {
       const client = await authClient();
       const { appState } = await client.handleRedirectCallback();
-      resumeMood = appState?.mood === true;
-      resumeNES = appState?.nes === true;
       resumeComments = typeof appState?.comment === 'string' ? appState.comment : null;
       const hash = typeof appState?.hash === "string" && appState.hash.startsWith("#/") ? appState.hash : "#/";
       const resumedPost = resumeComments && postFromPath(appState?.commentPath || '');
@@ -2726,12 +2600,6 @@ async function start() {
   await route();
   await updateIdentity();
   if (resumeComments) await openComments(resumeComments);
-  if (resumeNES) await openNESComposer();
-  if (resumeMood) {
-    moodDraft = sessionStorage.getItem("mime-mood-draft") || "";
-    sessionStorage.removeItem("mime-mood-draft");
-    await openMoodComposer();
-  }
 }
 start();
 </script>

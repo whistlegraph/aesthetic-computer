@@ -1,5 +1,5 @@
 // Same-origin host for pooled AC runtimes: boot silently, hold the first frame,
-// and resume in place when MIME selects the card. No signed-in session is used.
+// and resume in place when MIME selects the card. Only the viewer’s public handle is shared; credentials stay in the host.
 import { observeInteraction } from './interaction.mjs';
 observeInteraction();
 const params = new URLSearchParams(location.search);
@@ -7,6 +7,16 @@ const code = params.get('code'), piece = params.get('piece');
 const note = document.getElementById('note');
 let frame, source, injected = false, drawn = false, finishing = false;
 let playing = params.get('warm') !== '1';
+let viewer = null;
+function forwardViewer() {
+  if (frame?.contentWindow?.preloaded) frame.contentWindow.acSEND?.({type: 'mime:viewer', content: {handle: viewer}});
+}
+// Native MIME calls this with the same public handle used by the web host.
+window.__mimeSetViewer = handle => {
+  viewer = typeof handle === 'string' && /^@[A-Za-z0-9_.-]{1,64}$/.test(handle) ? handle : null;
+  forwardViewer();
+};
+if (parent !== window) parent.postMessage({type: 'mime:viewer-request'}, '*');
 function settle(play) {
   playing = play;
   const win = frame?.contentWindow;
@@ -19,12 +29,14 @@ window.__mimePlayerSettle = settle;
 window.__mimeSettle ||= settle;
 window.addEventListener('message', event => {
   if (event.source === parent && parent !== window) {
+    if (event.data?.type === 'mime:viewer' && ['https://mime.ac', location.origin].includes(event.origin)) window.__mimeSetViewer(event.data.handle);
     if (event.data?.type === 'mime:playing') settle(event.data.playing === true);
     if (event.data?.type === 'ac:start-audio' && playing && drawn) frame?.contentWindow?.AC?.startAudio?.();
   }
   if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin || event.data?.type !== 'ready') return;
   const win = frame.contentWindow;
   if (!win.preloaded) return; // Ignore AC's initial blank disk.
+  forwardViewer();
   if (source && !injected) {
     injected = true;
     win.preloaded = false;

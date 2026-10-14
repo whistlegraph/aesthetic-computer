@@ -26,7 +26,7 @@ test('live center, held input, corner cooldown, edge glow, emergency escape and 
     if(path.startsWith('/mime-play/')||path.startsWith('/mime-youtube/'))return route.fulfill({contentType:path.endsWith('.mjs')?'text/javascript':'text/html',body:await readFile(new URL(path.slice(1)+(path.endsWith('/')?'index.html':''),root),'utf8')});
     if(path==='/wipe')return route.fulfill({contentType:'text/html',body:`<style>body{margin:0;height:100vh;display:grid;place-items:center;background:#264;font:30px system-ui}button{font:inherit;padding:35px;background:#ffbada;border:0;border-radius:50%}</style><button onclick="this.textContent='Touched '+(++window.taps)">Touch me</button><script>
       window.taps=0;window.preloaded=true;window.AC={setMasterVolume(){},startAudio(){}};window.acPAUSE=()=>{};window.acRESUME=()=>{};
-      window.acSEND=()=>{window.preloaded=true;parent.postMessage({type:'ready'},'*')};
+      window.acSEND=message=>{if(message.type!=="dropped:piece")return;window.preloaded=true;parent.postMessage({type:'ready'},'*')};
       parent.postMessage({type:'ready'},'*');
     </script>`});
     if(path==='/iframe_api')return route.fulfill({contentType:'text/javascript',body:`window.YT={Player:class{constructor(slot,options){window.ytOptions=options;this.options=options;let f=document.createElement('iframe');f.title='YouTube video player';f.src='https://www.youtube-nocookie.com/embed/'+options.videoId;slot.replaceWith(f);setTimeout(()=>options.events.onReady(),0)}pauseVideo(){window.ytPaused=true}}};window.onYouTubeIframeAPIReady();`});
