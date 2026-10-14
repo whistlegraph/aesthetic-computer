@@ -20,6 +20,8 @@ export function moveInput(body) {
   if (![.25,.5,.75].includes(body.strength) || !Number.isInteger(body.seed) || body.seed < 0 || body.seed >= 2**31) throw fail(400, 'Invalid move settings');
   if (body.hint !== undefined && (typeof body.hint !== 'string' || body.hint.length > 200)) throw fail(400, 'Hint must be text under 200 characters');
   const hint = body.hint?.replace(/\s+/g,' ').trim() || undefined;
+  // How many moves the painter has kept so far; it informs the look, never the price or identity.
+  if (body.paints !== undefined && (!Number.isInteger(body.paints) || body.paints < 0 || body.paints > 100_000)) throw fail(400, 'Paints must be a count');
   try { imageInputBound({messages:[{type:'image',source:{type:'base64',media_type:'image/png',data:body.image}}]}); }
   catch { throw fail(400, 'Expected a complete PNG image'); }
   const png = Buffer.from(body.image,'base64');
@@ -28,10 +30,12 @@ export function moveInput(body) {
   return {...body, hint, hash};
 }
 
-export function createNoPaintProvider({key, fetch=globalThis.fetch, sleep=ms=>new Promise(r=>setTimeout(r,ms))}) {
+export function createNoPaintProvider({key, fetch=globalThis.fetch, sleep=ms=>new Promise(r=>setTimeout(r,ms)), look=null}) {
   return async input => {
     const signal = AbortSignal.timeout(180_000);
     let handle;
+    const seen = look ? await look({image:input.image, hint:input.hint, paints:input.paints}) : null;
+    const prompt = movePrompt({...input, look:seen});
     const request = async (url, method='GET', body) => {
       const target = new URL(url);
       if (target.origin !== 'https://queue.fal.run' || target.username || target.password) throw fail(502, 'Unexpected provider URL');
@@ -43,7 +47,7 @@ export function createNoPaintProvider({key, fetch=globalThis.fetch, sleep=ms=>ne
     };
     try {
       handle = await request('https://queue.fal.run/'+MODEL, 'POST', {
-        prompt:movePrompt(input),
+        prompt,
         image_urls:['data:image/png;base64,'+input.image], image_size:{width:256,height:256},
         seed:input.seed, num_images:1, num_inference_steps:4, output_format:'png',
         sync_mode:true, enable_safety_checker:true,
@@ -64,7 +68,8 @@ export function createNoPaintProvider({key, fetch=globalThis.fetch, sleep=ms=>ne
       const {default:sharp} = await import('sharp');
       const output = await sharp(Buffer.from(image.split(',')[1],'base64'), {limitInputPixels:4_194_304})
         .resize(256,256,{fit:'fill'}).removeAlpha().png().toBuffer();
-      return {image:output.toString('base64'), model:MODEL, width:256, height:256};
+      return {image:output.toString('base64'), model:MODEL, width:256, height:256,
+        prompt_version:PROMPT_VERSION, prompt, ...(seen?{look:seen}:{})};
     } catch (error) {
       if (handle?.cancel_url) {
         try {

@@ -360,7 +360,8 @@ class Game:
         self.job = {"number": self.attempt, "engine": self.engine,
                     "before": self.history[-1], "strength": quote["strength"],
                     "mask": self.mask, "seed": quote["seed"], "cancel": threading.Event(),
-                    "started": False, "cost": self.cost.copy(), "hint": hint}
+                    "started": False, "cost": self.cost.copy(), "hint": hint,
+                    "paints": len(self.history)-1}
         if self.engine.startswith("ac-"):
             self.job["account"] = self.quote_identity
         self.quote = self.quote_identity = None
@@ -399,7 +400,7 @@ class Game:
                     output = self.move(self.pipe, self.embed, *args, cold=number == 1,
                                        observe=observe, cancel=job["cancel"],
                                        **region.kwargs,
-                                       **({"account": self.account, "identity": job["account"], "engine": job["engine"], "hint": job["hint"]} if job["engine"].startswith("ac-") else {}))
+                                       **({"account": self.account, "identity": job["account"], "engine": job["engine"], "hint": job["hint"], "paints": job["paints"]} if job["engine"].startswith("ac-") else {}))
                 output = region.finish(output)
                 with self.lock:
                     check_cancel(job["cancel"])

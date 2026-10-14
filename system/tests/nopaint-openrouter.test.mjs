@@ -102,3 +102,57 @@ test('gateway selects and bills by server quote; mismatched model never calls pr
   assert.equal((await handler(event)).statusCode,200);assert.deepEqual(generated,[offers[1].model]);
   assert.equal(billed[0].braincells,offers[1].braincells);
 });
+
+import {createLook, parseLook, LOOK_SYSTEM, lookUserText} from '../backend/nopaint-look.mjs';
+import {moveInput} from '../backend/nopaint-provider.mjs';
+
+test('a look is parsed strictly from the model text and anything else becomes no look',()=>{
+  const look=parseLook('Sure: {"region":"the swirl in the lower left","scale":"corner","move":"Twist the swirl tighter.","why":"It has the energy."}');
+  assert.deepEqual(look,{region:'the swirl in the lower left',scale:'corner',move:'Twist the swirl tighter.',why:'It has the energy.'});
+  for(const text of [undefined,'','no json',JSON.stringify({region:'x',scale:'huge',move:'y'}),JSON.stringify({scale:'whole',move:'y'}),'[1]'])
+    assert.equal(parseLook(text),null);
+  assert.equal(parseLook(JSON.stringify({region:'a'.repeat(500),scale:'half',move:'m'})).region.length,160);
+});
+test('the look sends the taste, the painting and the hint, and never throws over a bad answer',async()=>{
+  let request;
+  const look=createLook({key:'test-only',fetch:async(url,options)=>{
+    request=[url,JSON.parse(options.body)];
+    return Response.json({choices:[{message:{content:'{"region":"the entire image","scale":"whole","move":"Turn the whole picture into a cute bear.","why":"The painter asked."}'}}],usage:{cost:.0004}});
+  }});
+  const seen=await look({image,hint:'make it a cute bear',paints:3});
+  assert.equal(request[0],'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(request[1].messages[0].content,LOOK_SYSTEM);
+  assert.equal(request[1].messages[1].content[0].text,lookUserText({hint:'make it a cute bear',paints:3}));
+  assert.match(request[1].messages[1].content[0].text,/after 3 kept moves/);
+  assert.match(request[1].messages[1].content[0].text,/"make it a cute bear"/);
+  assert.equal(request[1].messages[1].content[1].image_url.url,'data:image/png;base64,'+image);
+  assert.equal(seen.scale,'whole');assert.equal(seen.cost_usd,.0004);assert.equal(seen.version,'look-v1');
+  for(const fetch of [async()=>new Response('',{status:500}),async()=>Response.json({choices:[{message:{content:'nope'}}]}),async()=>{throw Error('down');}])
+    assert.equal(await createLook({key:'test-only',fetch})({image,paints:0}),null);
+});
+test('a looked move composes the prompt from the picture; a hinted move without a look takes the whole image',()=>{
+  const look={region:'the swirl in the lower left',scale:'corner',move:'Twist the swirl tighter.'};
+  const prompt=movePrompt({seed:1,strength:.25,look});
+  assert.match(prompt,/Twist the swirl tighter\./);assert.match(prompt,/affected region is the swirl in the lower left/);
+  assert.doesNotMatch(prompt,/quarter of the image/);assert.match(prompt,/Retain the existing rendering style/);
+  const whole=movePrompt({seed:1,strength:.25,hint:'make it a cute bear',look:{...look,scale:'whole'}});
+  assert.match(whole,/affected region is the entire image/);assert.match(whole,/may change the subject or the style/);
+  const fallback=movePrompt({seed:1,strength:.25,hint:'make it a cute bear'});
+  assert.match(fallback,/affected region is the entire image/);assert.doesNotMatch(fallback,/quarter/);
+});
+test('OpenRouter moves look first, record the look, and fall back to the seed when the look fails',async()=>{
+  const order=[];
+  const provider=createOpenRouterProvider({key:'test-only',look:async()=>{order.push('look');return {region:'the pale band across the top',scale:'half',move:'Slice the band into ribbons.',model:'m',version:'look-v1',cost_usd:.0003};},
+    fetch:async(url,options)=>{order.push('image');return Response.json({data:[{b64_json:image}],usage:{cost:.04}});}});
+  const result=await provider({image,strength:.25,seed:3,paints:2},offers[0]);
+  assert.deepEqual(order,['look','image']);assert.equal(result.look.region,'the pale band across the top');
+  assert.match(result.prompt,/Slice the band into ribbons\./);assert.equal(result.prompt_version,'looked-moves-v3');
+  const blind=createOpenRouterProvider({key:'test-only',look:async()=>null,fetch:async()=>Response.json({data:[{b64_json:image}]})});
+  const seeded=await blind({image,strength:.25,seed:3},offers[0]);
+  assert.equal(seeded.look,undefined);assert.equal(seeded.prompt,movePrompt({strength:.25,seed:3,model:offers[0].model}));
+});
+test('paints is an optional count that does not change the move identity',()=>{
+  const base={requestId:randomUUID(),image,seed:1,strength:.25,quote:'q'};
+  assert.equal(moveInput({...base,paints:4}).hash,moveInput(base).hash);
+  for(const paints of [-1,1.5,'3',1e9]) assert.throws(()=>moveInput({...base,paints}),/Paints/);
+});

@@ -22,16 +22,19 @@ export function openRouterOffers(configuration='[]') {
   });
 }
 
-export function createOpenRouterProvider({key, fetch=globalThis.fetch}) {
+export function createOpenRouterProvider({key, fetch=globalThis.fetch, look=null}) {
   return async (input, offer)=>{
     const profile=Object.hasOwn(profiles,offer.model)?profiles[offer.model]:null;
     if (!profile) throw Error('Unconfigured image model');
     const {seed,...options}=profile.options;
+    // The look reads the painting first; a missing look leaves the seeded move.
+    const seen=look ? await look({image:input.image, hint:input.hint, paints:input.paints}) : null;
+    const prompt=movePrompt({...input,model:offer.model,look:seen});
     const response=await fetch('https://openrouter.ai/api/v1/images', {
       method:'POST', redirect:'error', signal:AbortSignal.timeout(180_000),
       headers:{Authorization:`Bearer ${key}`, 'Content-Type':'application/json'},
       body:JSON.stringify({model:offer.model, ...options, ...(seed?{seed:input.seed}:{}),
-        prompt:movePrompt({...input,model:offer.model}),
+        prompt,
         input_references:[{type:'image_url',image_url:{url:'data:image/png;base64,'+input.image}}],
       }),
     });
@@ -51,6 +54,6 @@ export function createOpenRouterProvider({key, fetch=globalThis.fetch}) {
       .resize(256,256,{fit:'fill'}).removeAlpha().png().toBuffer();
     return {image:output.toString('base64'), model:offer.model, width:256, height:256,
       provider_cost_usd:Number.isFinite(result.usage?.cost)?result.usage.cost:null,
-      prompt_version:PROMPT_VERSION, prompt:movePrompt({...input,model:offer.model})};
+      prompt_version:PROMPT_VERSION, prompt, ...(seen?{look:seen}:{})};
   };
 }
