@@ -43,7 +43,7 @@ function act(api) { return actOriginal(fixtureApi(api)); }
 function paint(api) {
   paintOriginal(fixtureApi(api));
   testChannel?.postMessage({ layout: { width: api.screen.width, height: api.screen.height,
-    expandedId, rows: rows.map(r => ({ id: r.letter.id, y0: r.y0, y1: r.y1, reply: r.reply })),
+    expandedId, bar: listBottom, rows: rows.map(r => ({ id: r.letter.id, y0: r.y0, y1: r.y1 })),
     links: mediaHits.filter(h => h.item.url).map(({ x, y, w, h }) => ({ x, y, w, h })) } });
 }
 `;
@@ -124,7 +124,7 @@ try {
   assert.equal(await ac.page.evaluate(() => window.mailState.view), "inbox");
   await shot("mail-opening/02-open");
   layout = await ac.page.evaluate(() => window.mailLayout);
-  await tap(layout.rows[0].reply.x + 5, layout.rows[0].reply.y + 5);
+  await tap(25, layout.bar + 8); // the selected letter's reply lives in the bottom bar
   await ac.page.waitForFunction(() => window.mailState?.view === "compose");
   assert.equal(await ac.page.evaluate(() => window.mailState.composeTo), "@reader");
   await shot("mail-opening/03-reply");
