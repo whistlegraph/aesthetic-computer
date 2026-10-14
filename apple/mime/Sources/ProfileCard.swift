@@ -41,20 +41,13 @@ struct ProfileCard: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 22) {
-                license
-                    .rotation3DEffect(.degrees(tilt.x), axis: (1, 0, 0), perspective: 0.6)
-                    .rotation3DEffect(.degrees(tilt.y), axis: (0, 1, 0), perspective: 0.6)
-                    .gesture(DragGesture(minimumDistance: 4)
-                        .onChanged { drag = $0.translation }
-                        .onEnded { _ in withAnimation(.spring(duration: 0.6, bounce: 0.45)) { drag = .zero } })
-                    .animation(.interactiveSpring(response: 0.25), value: motion.roll)
-                    .padding(.top, 18)
-                moderation
-            }
-            .padding(.horizontal, 20).padding(.bottom, 28)
-        }
+        license
+            .rotation3DEffect(.degrees(tilt.x), axis: (1, 0, 0), perspective: 0.6)
+            .rotation3DEffect(.degrees(tilt.y), axis: (0, 1, 0), perspective: 0.6)
+            .gesture(DragGesture(minimumDistance: 4)
+                .onChanged { drag = $0.translation }
+                .onEnded { _ in withAnimation(.spring(duration: 0.6, bounce: 0.45)) { drag = .zero } })
+            .animation(.interactiveSpring(response: 0.25), value: motion.roll)
         .task { await load() }
         .onAppear { if !reduceMotion { motion.start() } }
         .onDisappear { motion.stop() }
@@ -102,6 +95,7 @@ struct ProfileCard: View {
                 Text(failed ? "Couldn’t load this profile." : "Loading…")
                     .font(.system(size: 13, design: .monospaced)).foregroundStyle(Self.label)
             }
+            finePrint
         }
         .padding(.horizontal, 22).padding(.top, 20).padding(.bottom, 16)
         .frame(maxWidth: 420, alignment: .leading)
@@ -161,26 +155,28 @@ struct ProfileCard: View {
             .allowsHitTesting(false)
     }
 
-    // MARK: Under the card
+    // MARK: The fine print
 
-    private var moderation: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    /// Report, Hide and the rules, printed along the card's bottom edge.
+    private var finePrint: some View {
+        HStack(spacing: 14) {
             Menu {
-                ForEach(MimeModeration.reasons, id: \.self) { reason in
-                    Button(reason) { Task { await send(reason) } }
+                Section("Report \(name) — reviewed within 24 hours") {
+                    ForEach(MimeModeration.reasons, id: \.self) { reason in
+                        Button(reason) { Task { await send(reason) } }
+                    }
                 }
-            } label: {
-                Label("Report this card", systemImage: "flag").font(.custom("ComicRelief-Bold", size: 17))
-            }.tint(Color(hex: 0xFF91C3)).accessibilityIdentifier("mime-report")
-            Button(role: .destructive) { confirmingHide = true } label: {
-                Label("Hide \(name)", systemImage: "eye.slash").font(.custom("ComicRelief-Bold", size: 17))
-            }.accessibilityIdentifier("mime-hide")
-            Text("Every report is reviewed within 24 hours. Hiding someone removes their work from your feed.")
-                .font(.custom("ComicRelief-Bold", size: 13)).foregroundStyle(.white.opacity(0.55))
+            } label: { Label("Report", systemImage: "flag") }
+                .accessibilityLabel("Report \(name)").accessibilityIdentifier("mime-report")
+            Button { confirmingHide = true } label: { Label("Hide", systemImage: "eye.slash") }
+                .accessibilityLabel("Hide \(name)").accessibilityIdentifier("mime-hide")
+            Spacer(minLength: 0)
             Link("Rules", destination: URL(string: "https://mime.ac/terms/")!)
-                .font(.custom("ComicRelief-Bold", size: 13)).tint(Color(hex: 0x7DE3D7))
         }
-        .frame(maxWidth: 420, alignment: .leading)
+        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+        .tint(Color(hex: 0x9D267A))
+        .padding(.top, 8)
+        .overlay(alignment: .top) { Rectangle().fill(Self.ink.opacity(0.3)).frame(height: 1) }
     }
 
     private func load() async {

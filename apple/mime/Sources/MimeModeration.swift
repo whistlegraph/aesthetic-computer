@@ -21,22 +21,20 @@ enum MimeModeration {
     }
 }
 
-/// The handle opens its person's profile card (the same card mime.ac shows).
-struct HandleButton<Label: View>: View {
+/// A profile card floating over the feed, out of the handle's corner. Tap
+/// around it to put it away.
+struct ProfilePopover: View {
     let post: Post
     let hide: (Post) -> Void
-    @ViewBuilder let label: () -> Label
-    @State private var open = false
+    let close: () -> Void
 
     var body: some View {
-        Button { open = true } label: { label().contentShape(Rectangle()) }
-            .buttonStyle(.plain)
-            .accessibilityHint("Open their profile")
-            .sheet(isPresented: $open) {
-                ProfileCard(post: post) { hide(post); open = false }
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-                    .presentationBackground(Color.paper)
-            }
+        ZStack(alignment: .bottomLeading) {
+            Color.black.opacity(0.35).ignoresSafeArea()
+                .contentShape(Rectangle()).onTapGesture(perform: close)
+                .accessibilityLabel("Close profile").accessibilityAddTraits(.isButton)
+            ProfileCard(post: post) { hide(post); close() }
+                .padding(.horizontal, 16).padding(.bottom, 92)
+        }
     }
 }

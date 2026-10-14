@@ -190,6 +190,7 @@ private struct Card: View {
     let hide: (Post) -> Void
     let toggleInteract: () -> Void
     @State private var showingQR = false
+    @State private var showingProfile = false
 
     /// A saved Oskiewar round is watched, never played with.
     private var playable: Bool {
@@ -247,9 +248,10 @@ private struct Card: View {
                 }
                 HStack(alignment: .lastTextBaseline) {
                     if let name = post.name {
-                        HandleButton(post: post, hide: hide) {
+                        Button { withAnimation(.spring(duration: 0.45, bounce: 0.3)) { showingProfile = true } } label: {
                             PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name), colors: (post.nameColors ?? []).map(Color.savedLetter), swing: 2.2, entrance: true)
-                        }.accessibilityIdentifier("mime-author")
+                                .contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityHint("Open their profile").accessibilityIdentifier("mime-author")
                     }
                     Spacer(minLength: 12)
                     if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
@@ -265,7 +267,13 @@ private struct Card: View {
             .padding(.horizontal, layout.padding).padding(.bottom, 34)
         }
         .clipped()
-        .onChange(of: focused) { _, now in if !now { showingQR = false } }
+        .overlay {
+            if showingProfile {
+                ProfilePopover(post: post, hide: hide) { withAnimation(.spring(duration: 0.35, bounce: 0.15)) { showingProfile = false } }
+                    .transition(.scale(scale: 0.1, anchor: .bottomLeading).combined(with: .opacity))
+            }
+        }
+        .onChange(of: focused) { _, now in if !now { showingQR = false; showingProfile = false } }
     }
 
     @ViewBuilder private var media: some View {
