@@ -1089,8 +1089,17 @@ function convexHull(points) {
 // projected through `view` (the CAMERA op's numbers) and handed to `out` as
 // ellipse / capsule / plate calls, an ink edge set by `out.outline` before
 // each. `joints` is 48 numbers, `palette` 30, `pin` as the op's.
-const figureRecordSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
-  : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+const figureRecordSize = (R, i) => {
+  const k = R[i];
+  if (k >= 11) return 12 + (k === 11 ? 5 : k === 12 ? 9 : k === 13 ? 10 : 1 + 4 * R[i + 12]);
+  return 12 + (k === 0 ? 0 : k === 1 ? 4 : k === 2 ? 7 : k === 3 ? 9 : k === 4 ? 1 + 3 * R[i + 12] : k === 5 ? 12 : NaN);
+};
+// Scratch for every figure drawn: a fighter is ~60 shapes a frame, and each
+// used to allocate its points, turned offsets and colours as fresh arrays.
+const figHead = new Float64Array(10), figChest = new Float64Array(10);
+const figP = new Float64Array(16), figFirst = new Float64Array(3), figB = new Float64Array(3);
+const figU = new Float64Array(3), figW = new Float64Array(3), figN = new Float64Array(3);
+const figPoly = [];
 export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   const V = view, J = joints;
   const project = (x, y, z, o, dst) => {
@@ -1120,7 +1129,9 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   let rx = fz, rz = -fx;
   const rl = Math.hypot(rx, rz);
   if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
-  const H = [rx, 0, rz, -rz * fy, rz * fx - rx * fz, rx * fy, fx, fy, fz, r];
+  const H = figHead;
+  H[0] = rx; H[1] = 0; H[2] = rz; H[3] = -rz * fy; H[4] = rz * fx - rx * fz; H[5] = rx * fy;
+  H[6] = fx; H[7] = fy; H[8] = fz; H[9] = r;
   // The chest: up the spine, forward as the head faces, flattened square to it.
   let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
   const ul = Math.hypot(ux, uy, uz) || 1;
@@ -1136,45 +1147,54 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   const sl = Math.hypot(sx, sy, sz);
   if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
   else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
-  const C = [sx, sy, sz, ux, uy, uz, cx, cy, cz, 1];
+  const C = figChest;
+  C[0] = sx; C[1] = sy; C[2] = sz; C[3] = ux; C[4] = uy; C[5] = uz; C[6] = cx; C[7] = cy; C[8] = cz; C[9] = 1;
   const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
-  const turn = (j, x, y, z) => {
+  // An offset turned into joint j's frame, written to dst.
+  const turn = (j, x, y, z, dst) => {
     const F = frameOf(j);
-    return F ? [x * F[0] + y * F[3] + z * F[6], x * F[1] + y * F[4] + z * F[7], x * F[2] + y * F[5] + z * F[8]] : [x, y, z];
+    if (F) { dst[0] = x * F[0] + y * F[3] + z * F[6]; dst[1] = x * F[1] + y * F[4] + z * F[7]; dst[2] = x * F[2] + y * F[5] + z * F[8]; }
+    else { dst[0] = x; dst[1] = y; dst[2] = z; }
+    return dst;
   };
-  const point = (j, x, y, z) => {
-    const F = frameOf(j), s = F ? F[9] : 1, v = turn(j, x * s, y * s, z * s);
-    return [J[j * 3] + v[0], J[j * 3 + 1] + v[1], J[j * 3 + 2] + v[2]];
+  // Joint j plus an offset in its frame and radii, written to dst.
+  const point = (j, x, y, z, dst) => {
+    const F = frameOf(j), s = F ? F[9] : 1;
+    turn(j, x * s, y * s, z * s, dst);
+    dst[0] = J[j * 3] + dst[0]; dst[1] = J[j * 3 + 1] + dst[1]; dst[2] = J[j * 3 + 2] + dst[2];
+    return dst;
   };
-  const paint = (R, o) => R[o] >= 0 || !palette ? [R[o], R[o + 1], R[o + 2]]
-    : [palette[(-1 - R[o]) * 3], palette[(-1 - R[o]) * 3 + 1], palette[(-1 - R[o]) * 3 + 2]];
-  const P = new Float64Array(16), poly = [];
+  const P = figP, first = figFirst, poly = figPoly;
   const R = sketch.records;
   for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
     const kind = R[i];
     if (kind < 11) continue;
     const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a], scale = frameOf(j0)?.[9] ?? 1, nudge = R[i + 5];
-    const first = kind === 14 ? point(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : point(R[a], R[a + 1], R[a + 2], R[a + 3]);
+    if (kind === 14) point(R[a + 1], R[a + 2], R[a + 3], R[a + 4], first);
+    else point(R[a], R[a + 1], R[a + 2], R[a + 3], first);
     if (R[i + 9] || R[i + 10] || R[i + 11]) {
-      const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11]);
+      const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11], figN);
       if (nrm[0] * (first[0] - V[0]) + nrm[1] * (first[1] - V[1]) + nrm[2] * (first[2] - V[2]) > 0) continue;
     }
-    const [cr, cg, cb] = paint(R, i + 6), line = R[i + 1];
+    let cr, cg, cb;
+    if (R[i + 6] >= 0 || !palette) { cr = R[i + 6]; cg = R[i + 7]; cb = R[i + 8]; }
+    else { const q = (-1 - R[i + 6]) * 3; cr = palette[q]; cg = palette[q + 1]; cb = palette[q + 2]; }
+    const line = R[i + 1];
     if (line && project(first[0], first[1], first[2], 12, P) && line * scale * P[15] >= .5) {
-      const [er, eg, eb] = paint(R, i + 2);
-      out.outline(line * scale * P[15], er, eg, eb);
+      if (R[i + 2] >= 0 || !palette) out.outline(line * scale * P[15], R[i + 2], R[i + 3], R[i + 4]);
+      else { const q = (-1 - R[i + 2]) * 3; out.outline(line * scale * P[15], palette[q], palette[q + 1], palette[q + 2]); }
     } else out.outline(0, 0, 0, 0);
     if (kind === 11) {
       if (!project(first[0], first[1], first[2], 0, P)) continue;
       const rad = R[a + 4] * scale * P[3];
       out.ellipse(P[0], P[1], depthAt(P[2], nudge), rad, 0, 0, rad, cr, cg, cb);
     } else if (kind === 12) {
-      const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
+      const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figB);
       if (!project(first[0], first[1], first[2], 0, P) || !project(b[0], b[1], b[2], 4, P)) continue;
       out.capsule(P[0], P[1], P[4], P[5], depthAt((P[2] + P[6]) / 2, nudge), R[a + 8] * scale * (P[3] + P[7]), cr, cg, cb);
     } else if (kind === 13) {
-      const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale);
-      const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale);
+      const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale, figU);
+      const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale, figW);
       if (!project(first[0], first[1], first[2], 0, P) || !project(first[0] + u[0], first[1] + u[1], first[2] + u[2], 4, P) ||
         !project(first[0] + w[0], first[1] + w[1], first[2] + w[2], 8, P)) continue;
       out.ellipse(P[0], P[1], depthAt(P[2], nudge), P[4] - P[0], P[5] - P[1], P[8] - P[0], P[9] - P[1], cr, cg, cb);
@@ -1183,7 +1203,7 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
       let vz = 0, seenAll = true;
       poly.length = 0;
       for (let k = 0; k < count && seenAll; k++) {
-        const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4]);
+        const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4], figB);
         seenAll = project(q[0], q[1], q[2], 0, P);
         poly.push(P[0], P[1]);
         vz += P[2];

@@ -2962,44 +2962,71 @@ const immediateObjectOut = {
 // farthest of them, and every fill after at its own depth, so the fills
 // cover the edges wherever limbs meet and the ink shows only around the
 // silhouette.
-const figureShapes = [];
+// Kept as flat records — kind depth inkWidth inkR inkG inkB, then the
+// shape's own numbers — so a figure's ~60 shapes cost no allocation:
+//   0 ellipse  x y ax ay bx by r g b     1 capsule  x1 y1 x2 y2 width r g b
+//   2 plate    r g b n, then n points (x y)
+let figureRecords = new Float64Array(4096), figureLength = 0;
 let figureFarthest = -Infinity;
+function figureRecord(kind, depth, size) {
+  if (figureLength + size > figureRecords.length) {
+    const next = new Float64Array(Math.max(figureRecords.length * 2, figureLength + size));
+    next.set(figureRecords);
+    figureRecords = next;
+  }
+  const at = figureLength, F = figureRecords;
+  F[at] = kind; F[at + 1] = depth;
+  F[at + 2] = objectInk[0]; F[at + 3] = objectInk[1]; F[at + 4] = objectInk[2]; F[at + 5] = objectInk[3];
+  figureLength = at + size;
+  figureFarthest = Math.max(figureFarthest, depth);
+  return at + 6;
+}
 const figureEdgeOut = {
   view: objectView,
   face: (...args) => immediateObjectOut.face(...args),
   outline: (width, r, g, b) => immediateObjectOut.outline(width, r, g, b),
   ellipse: (x, y, depth, ax, ay, bx, by, r, g, b) => {
-    figureShapes.push({ kind: "ellipse", depth, ink: objectInk.slice(), args: [x, y, ax, ay, bx, by, r, g, b] });
-    figureFarthest = Math.max(figureFarthest, depth);
+    const at = figureRecord(0, depth, 15), F = figureRecords;
+    F[at] = x; F[at + 1] = y; F[at + 2] = ax; F[at + 3] = ay; F[at + 4] = bx; F[at + 5] = by;
+    F[at + 6] = r; F[at + 7] = g; F[at + 8] = b;
   },
   disc: (x, y, depth, radius, r, g, b) => figureEdgeOut.ellipse(x, y, depth, radius, 0, 0, radius, r, g, b),
   capsule: (x1, y1, x2, y2, depth, width, r, g, b) => {
-    figureShapes.push({ kind: "capsule", depth, ink: objectInk.slice(), args: [x1, y1, x2, y2, width, r, g, b] });
-    figureFarthest = Math.max(figureFarthest, depth);
+    const at = figureRecord(1, depth, 14), F = figureRecords;
+    F[at] = x1; F[at + 1] = y1; F[at + 2] = x2; F[at + 3] = y2; F[at + 4] = width;
+    F[at + 5] = r; F[at + 6] = g; F[at + 7] = b;
   },
   plate: (n, points, depth, r, g, b) => {
-    // The emitter reuses its point buffer from shape to shape; keep a copy.
-    figureShapes.push({ kind: "plate", depth, ink: objectInk.slice(), args: [n, Array.from(points).slice(0, n * 2), r, g, b] });
-    figureFarthest = Math.max(figureFarthest, depth);
+    const at = figureRecord(2, depth, 10 + n * 2), F = figureRecords;
+    F[at] = r; F[at + 1] = g; F[at + 2] = b; F[at + 3] = n;
+    for (let k = 0; k < n * 2; k++) F[at + 4 + k] = points[k];
   },
 };
+const figurePlatePoints = [];
+const figureShapeSize = (F, at) => F[at] === 0 ? 15 : F[at] === 1 ? 14 : 10 + F[at + 9] * 2;
+function figurePlate(F, at) {
+  const n = F[at + 9];
+  figurePlatePoints.length = n * 2;
+  for (let k = 0; k < n * 2; k++) figurePlatePoints[k] = F[at + 10 + k];
+  return figurePlatePoints;
+}
 function drawFigureEdged() {
-  const behind = figureFarthest + flatBehind;
-  for (const shape of figureShapes) {
-    const [width, r, g, b] = shape.ink;
+  const behind = figureFarthest + flatBehind, F = figureRecords, end = figureLength;
+  for (let at = 0; at < end; at += figureShapeSize(F, at)) {
+    const width = F[at + 2];
     if (!width) continue;
-    const a = shape.args;
-    if (shape.kind === "ellipse") flatEllipse(a[0], a[1], behind, a[2], a[3], a[4], a[5], r, g, b, width);
-    else if (shape.kind === "capsule") flatCapsule(a[0], a[1], a[2], a[3], behind, a[4] + width * 2, r, g, b);
-    else flatPlate(a[0], a[1], behind, r, g, b, width);
+    const r = F[at + 3], g = F[at + 4], b = F[at + 5], o = at + 6;
+    if (F[at] === 0) flatEllipse(F[o], F[o + 1], behind, F[o + 2], F[o + 3], F[o + 4], F[o + 5], r, g, b, width);
+    else if (F[at] === 1) flatCapsule(F[o], F[o + 1], F[o + 2], F[o + 3], behind, F[o + 4] + width * 2, r, g, b);
+    else flatPlate(F[o + 3], figurePlate(F, at), behind, r, g, b, width);
   }
-  for (const shape of figureShapes) {
-    const a = shape.args;
-    if (shape.kind === "ellipse") flatEllipse(a[0], a[1], shape.depth, a[2], a[3], a[4], a[5], a[6], a[7], a[8]);
-    else if (shape.kind === "capsule") flatCapsule(a[0], a[1], a[2], a[3], shape.depth, a[4], a[5], a[6], a[7]);
-    else flatPlate(a[0], a[1], shape.depth, a[2], a[3], a[4]);
+  for (let at = 0; at < end; at += figureShapeSize(F, at)) {
+    const depth = F[at + 1], o = at + 6;
+    if (F[at] === 0) flatEllipse(F[o], F[o + 1], depth, F[o + 2], F[o + 3], F[o + 4], F[o + 5], F[o + 6], F[o + 7], F[o + 8]);
+    else if (F[at] === 1) flatCapsule(F[o], F[o + 1], F[o + 2], F[o + 3], depth, F[o + 4], F[o + 5], F[o + 6], F[o + 7]);
+    else flatPlate(F[o + 3], figurePlate(F, at), depth, F[o], F[o + 1], F[o + 2]);
   }
-  figureShapes.length = 0;
+  figureLength = 0;
   figureFarthest = -Infinity;
 }
 // Where an object draws this paint: into the program, or here.
@@ -28224,8 +28251,17 @@ const gameObjects = (() => {
     // projected through `view` (the CAMERA op's numbers) and handed to `out` as
     // ellipse / capsule / plate calls, an ink edge set by `out.outline` before
     // each. `joints` is 48 numbers, `palette` 30, `pin` as the op's.
-    const figureRecordSize = (R, i) => R[i] >= 11 ? 12 + [5, 9, 10, 1 + 4 * R[i + 12]][R[i] - 11]
-      : 12 + [0, 4, 7, 9, 1 + 3 * R[i + 12], 12][R[i]];
+    const figureRecordSize = (R, i) => {
+      const k = R[i];
+      if (k >= 11) return 12 + (k === 11 ? 5 : k === 12 ? 9 : k === 13 ? 10 : 1 + 4 * R[i + 12]);
+      return 12 + (k === 0 ? 0 : k === 1 ? 4 : k === 2 ? 7 : k === 3 ? 9 : k === 4 ? 1 + 3 * R[i + 12] : k === 5 ? 12 : NaN);
+    };
+    // Scratch for every figure drawn: a fighter is ~60 shapes a frame, and each
+    // used to allocate its points, turned offsets and colours as fresh arrays.
+    const figHead = new Float64Array(10), figChest = new Float64Array(10);
+    const figP = new Float64Array(16), figFirst = new Float64Array(3), figB = new Float64Array(3);
+    const figU = new Float64Array(3), figW = new Float64Array(3), figN = new Float64Array(3);
+    const figPoly = [];
     function drawFigureShapes(sketch, palette, joints, pin, view, out) {
       const V = view, J = joints;
       const project = (x, y, z, o, dst) => {
@@ -28255,7 +28291,9 @@ const gameObjects = (() => {
       let rx = fz, rz = -fx;
       const rl = Math.hypot(rx, rz);
       if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
-      const H = [rx, 0, rz, -rz * fy, rz * fx - rx * fz, rx * fy, fx, fy, fz, r];
+      const H = figHead;
+      H[0] = rx; H[1] = 0; H[2] = rz; H[3] = -rz * fy; H[4] = rz * fx - rx * fz; H[5] = rx * fy;
+      H[6] = fx; H[7] = fy; H[8] = fz; H[9] = r;
       // The chest: up the spine, forward as the head faces, flattened square to it.
       let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
       const ul = Math.hypot(ux, uy, uz) || 1;
@@ -28271,45 +28309,54 @@ const gameObjects = (() => {
       const sl = Math.hypot(sx, sy, sz);
       if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
       else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
-      const C = [sx, sy, sz, ux, uy, uz, cx, cy, cz, 1];
+      const C = figChest;
+      C[0] = sx; C[1] = sy; C[2] = sz; C[3] = ux; C[4] = uy; C[5] = uz; C[6] = cx; C[7] = cy; C[8] = cz; C[9] = 1;
       const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
-      const turn = (j, x, y, z) => {
+      // An offset turned into joint j's frame, written to dst.
+      const turn = (j, x, y, z, dst) => {
         const F = frameOf(j);
-        return F ? [x * F[0] + y * F[3] + z * F[6], x * F[1] + y * F[4] + z * F[7], x * F[2] + y * F[5] + z * F[8]] : [x, y, z];
+        if (F) { dst[0] = x * F[0] + y * F[3] + z * F[6]; dst[1] = x * F[1] + y * F[4] + z * F[7]; dst[2] = x * F[2] + y * F[5] + z * F[8]; }
+        else { dst[0] = x; dst[1] = y; dst[2] = z; }
+        return dst;
       };
-      const point = (j, x, y, z) => {
-        const F = frameOf(j), s = F ? F[9] : 1, v = turn(j, x * s, y * s, z * s);
-        return [J[j * 3] + v[0], J[j * 3 + 1] + v[1], J[j * 3 + 2] + v[2]];
+      // Joint j plus an offset in its frame and radii, written to dst.
+      const point = (j, x, y, z, dst) => {
+        const F = frameOf(j), s = F ? F[9] : 1;
+        turn(j, x * s, y * s, z * s, dst);
+        dst[0] = J[j * 3] + dst[0]; dst[1] = J[j * 3 + 1] + dst[1]; dst[2] = J[j * 3 + 2] + dst[2];
+        return dst;
       };
-      const paint = (R, o) => R[o] >= 0 || !palette ? [R[o], R[o + 1], R[o + 2]]
-        : [palette[(-1 - R[o]) * 3], palette[(-1 - R[o]) * 3 + 1], palette[(-1 - R[o]) * 3 + 2]];
-      const P = new Float64Array(16), poly = [];
+      const P = figP, first = figFirst, poly = figPoly;
       const R = sketch.records;
       for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
         const kind = R[i];
         if (kind < 11) continue;
         const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a], scale = frameOf(j0)?.[9] ?? 1, nudge = R[i + 5];
-        const first = kind === 14 ? point(R[a + 1], R[a + 2], R[a + 3], R[a + 4]) : point(R[a], R[a + 1], R[a + 2], R[a + 3]);
+        if (kind === 14) point(R[a + 1], R[a + 2], R[a + 3], R[a + 4], first);
+        else point(R[a], R[a + 1], R[a + 2], R[a + 3], first);
         if (R[i + 9] || R[i + 10] || R[i + 11]) {
-          const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11]);
+          const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11], figN);
           if (nrm[0] * (first[0] - V[0]) + nrm[1] * (first[1] - V[1]) + nrm[2] * (first[2] - V[2]) > 0) continue;
         }
-        const [cr, cg, cb] = paint(R, i + 6), line = R[i + 1];
+        let cr, cg, cb;
+        if (R[i + 6] >= 0 || !palette) { cr = R[i + 6]; cg = R[i + 7]; cb = R[i + 8]; }
+        else { const q = (-1 - R[i + 6]) * 3; cr = palette[q]; cg = palette[q + 1]; cb = palette[q + 2]; }
+        const line = R[i + 1];
         if (line && project(first[0], first[1], first[2], 12, P) && line * scale * P[15] >= .5) {
-          const [er, eg, eb] = paint(R, i + 2);
-          out.outline(line * scale * P[15], er, eg, eb);
+          if (R[i + 2] >= 0 || !palette) out.outline(line * scale * P[15], R[i + 2], R[i + 3], R[i + 4]);
+          else { const q = (-1 - R[i + 2]) * 3; out.outline(line * scale * P[15], palette[q], palette[q + 1], palette[q + 2]); }
         } else out.outline(0, 0, 0, 0);
         if (kind === 11) {
           if (!project(first[0], first[1], first[2], 0, P)) continue;
           const rad = R[a + 4] * scale * P[3];
           out.ellipse(P[0], P[1], depthAt(P[2], nudge), rad, 0, 0, rad, cr, cg, cb);
         } else if (kind === 12) {
-          const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
+          const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figB);
           if (!project(first[0], first[1], first[2], 0, P) || !project(b[0], b[1], b[2], 4, P)) continue;
           out.capsule(P[0], P[1], P[4], P[5], depthAt((P[2] + P[6]) / 2, nudge), R[a + 8] * scale * (P[3] + P[7]), cr, cg, cb);
         } else if (kind === 13) {
-          const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale);
-          const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale);
+          const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale, figU);
+          const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale, figW);
           if (!project(first[0], first[1], first[2], 0, P) || !project(first[0] + u[0], first[1] + u[1], first[2] + u[2], 4, P) ||
             !project(first[0] + w[0], first[1] + w[1], first[2] + w[2], 8, P)) continue;
           out.ellipse(P[0], P[1], depthAt(P[2], nudge), P[4] - P[0], P[5] - P[1], P[8] - P[0], P[9] - P[1], cr, cg, cb);
@@ -28318,7 +28365,7 @@ const gameObjects = (() => {
           let vz = 0, seenAll = true;
           poly.length = 0;
           for (let k = 0; k < count && seenAll; k++) {
-            const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4]);
+            const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4], figB);
             seenAll = project(q[0], q[1], q[2], 0, P);
             poly.push(P[0], P[1]);
             vz += P[2];
