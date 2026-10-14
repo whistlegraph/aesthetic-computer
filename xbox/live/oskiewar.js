@@ -1829,6 +1829,11 @@ function terrainFloorAt(x, z = 0) {
   for (const segment of parkSegments) {
     if (x < segment.left || x > segment.right) continue;
     if (segment.kind === "flat") return floorY - segment.lift;
+    // A mound: up and down again, smooth at both feet and round on top.
+    if (segment.kind === "hill") {
+      const t = (x - segment.left) / (segment.right - segment.left);
+      return floorY - segment.lift - segment.rise * Math.sin(Math.PI * t) ** 2;
+    }
     if (segment.kind === "pond") return floorY - segment.lift + segment.depth *
       (indoorSkate()?1:Math.sin(Math.PI * (x - segment.left) / (segment.right - segment.left)));
     const run = segment.right - segment.left;
@@ -9599,6 +9604,13 @@ const netSimArrays = () => ({
   // multiplier in `meleeSpecFor`, so they went on agreeing right up until a
   // strike landed one frame apart on one screen and not the other.
   gunPickups, saberPickups, grenadePickups, bodyTrees, gridField,
+  // The dojo's roof panes and the glass they rain down. A pane a jump broke
+  // takes 28% off the next jump through it, so whether it is broken is
+  // simulation state; outside the snapshot, a rollback past the break left
+  // the pane broken on one seat only and the replayed jump flew through it
+  // — the gun fights' hill brought jumps up to the roof and split every
+  // fight that reached it.
+  dojoRoof, dojoGlass,
   resultReactionPrevious, fightHitMarks,
 });
 
@@ -9671,6 +9683,7 @@ function netStateHash() {
   view.push(grenades.map((lob) => [lob.x, lob.y, lob.z, lob.vx, lob.vy,
     lob.owner, lob.fuse, lob.alive, lob.exploding, lob.blastRadius,
     lob.hitPlayers]));
+  view.push(dojoRoof.map((pane) => pane.broken));
   view.push(roundResult, roundElapsedUs,
     matchOver, roundStartedAt, roundOverAt);
   const text = JSON.stringify(view);
@@ -9866,6 +9879,10 @@ function netSimulateFrame(session, frame, silent) {
   netSilent = silent;
   try {
     gameSim();
+    // A debugging window onto each simulated frame (its last write wins, so
+    // a resimulated frame overwrites its guess). Off unless a harness sets it.
+    if (typeof globalThis.__oskiewarNetFrameHook === "function")
+      globalThis.__oskiewarNetFrameHook(session.seat, frame, inputs, () => netSnapshot());
   } finally {
     netClockUs = null;
     netSilent = false;
@@ -10581,7 +10598,35 @@ function gameBoot() {
   } else beginTraining(startedAt);
 }
 
+// The gun fight's ground: one mound in the middle of the dojo, the board
+// resting on its crest and the pistol hanging over it, a jump above a
+// standing head — and the two spawn marks a tile further out each side, so
+// the bell is a race up a hill. Any other fight gets the flat dojo back.
+const gunHillRise = 90;
+// A standing fighter reaches about 300 up; a dojo jump climbs about 700.
+const gunHillGunLift = 460;
+let gunArenaOn = false;
+function applyGunArena() {
+  const want = gunsOnly() && currentMapId === "dojo";
+  // Spawns every round: the fight's start sets its own marks after this ran.
+  players[0].spawnX = tileCenterX(want ? spawnColLeft - 1 : spawnColLeft);
+  players[1].spawnX = tileCenterX(want ? spawnColRight + 1 : spawnColRight);
+  if (want === gunArenaOn) return;
+  gunArenaOn = want;
+  const features = want ? [
+    { from: 0, to: 4, kind: "flat" },
+    { from: 4, to: 8, kind: "hill", rise: gunHillRise },
+    { from: 8, to: dojoCols, kind: "flat" },
+  ] : parkFeatures;
+  parkSegments = features.map((feature) => ({ ...feature,
+    left: gridLeft + feature.from * tileSize,
+    right: gridLeft + feature.to * tileSize, lift: feature.lift || 0 }));
+  rebuildTerrainProfile();
+}
+const gunHillTopY = () => terrainFloorAt(gunsOnlyCenterX());
+
 function resetRound(now, resetMatch = false) {
+  applyGunArena();
   resetWorkshopMap();
   if (replay) {
     const nextRoundName = pronounceableMatchName();
@@ -10805,6 +10850,7 @@ function resetRound(now, resetMatch = false) {
     gunPickups.forEach((pickup, index) => {
       pickup.homeX ??= pickup.x;
       pickup.x = index === 0 ? centre : pickup.homeX;
+      if (index === 0) pickup.y = gunHillTopY() - gunHillGunLift;
       pickup.active = index === 0;
       pickup.amount = gunsOnlyAmmo;
     });
@@ -12325,7 +12371,7 @@ function updatePowerups(now) {
     if (!held && !lying && !flying && gunPickups[0]) {
       const pistol = gunPickups[0];
       pistol.x = gunsOnlyCenterX();
-      pistol.y = floorY;
+      pistol.y = gunHillTopY() - gunHillGunLift;
       pistol.z = 0;
       pistol.amount = gunsOnlyAmmo;
       pistol.active = true;

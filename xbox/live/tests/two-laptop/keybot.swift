@@ -13,7 +13,11 @@ let lock = NSLock()
 func key(_ code: CGKeyCode, _ down: Bool) {
     if pid == nil { pid = findPid() }
     guard let pid else { print("no app"); fflush(stdout); return }
-    CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down)?.postToPid(pid)
+    // Stamped, so an app in bot mode (OSKIEWAR_BOT=1) knows the press is the
+    // harness's and not someone at the keyboard. Same value as main.swift.
+    guard let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) else { return }
+    event.setIntegerValueField(.eventSourceUserData, value: 0x05B07B07)
+    event.postToPid(pid)
 }
 print("keybot ready pid \(findPid().map(String.init) ?? "none")"); fflush(stdout)
 while let line = readLine() {

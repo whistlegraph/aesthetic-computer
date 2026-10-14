@@ -49,7 +49,7 @@ function seatOn(machine) {
     },
     running: () => { try { return sh(`P=$(pgrep -x oskiewar | head -1); [ -n "$P" ] && ps -o command= -p $P || true`).trim(); } catch { return ""; } },
     kill: () => { try { sh(`pkill -x oskiewar; rm -f ~/${NETLOG}; true`); } catch {} },
-    launch: (room) => sh(`open -n '${app}' --env OSKIEWAR_ROOM=${room} --env OSKIEWAR_NETLOG=net.log --env OSKIEWAR_HASHTRACE=1${RELAY ? ` --env OSKIEWAR_RELAY=${RELAY}` : ""}`),
+    launch: (room) => sh(`open -n '${app}' --env OSKIEWAR_ROOM=${room} --env OSKIEWAR_NETLOG=net.log --env OSKIEWAR_HASHTRACE=1 --env OSKIEWAR_BOT=1${RELAY ? ` --env OSKIEWAR_RELAY=${RELAY}` : ""}`),
     netlog: () => { try { return remote ? sh(`/bin/cat ~/${NETLOG} 2>/dev/null`) : readFileSync(join(process.env.HOME, NETLOG), "utf8"); } catch { return ""; } },
     keybot: () => {
       const kb = remote ? spawn("ssh", [machine, "~/.local/bin/keybot"], { stdio: ["pipe", "pipe", "inherit"] })

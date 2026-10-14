@@ -172,7 +172,7 @@ private final class NativeInput {
 
     func pad(_ index: Int) -> NSDictionary {
         var down = index < keyboard.count ? keyboard[index] : []
-        let controllers = GCController.controllers()
+        let controllers = botMode ? [] : GCController.controllers()
         let controller = index < controllers.count ? controllers[index] : nil
         var leftX = 0.0
         var leftY = 0.0
@@ -693,6 +693,18 @@ private final class NetworkBridge {
 /// The window's contentView, and the game's ear. MetalSceneView is final —
 /// one renderer for both Apple apps, no per-platform subclasses — so input
 /// lives on the container that holds the surface rather than on the surface.
+// Bot mode (OSKIEWAR_BOT=1): a test match whose fighters are driven by the
+// test harness and nobody else. The real keyboard, mouse, trackpad and
+// gamepads are ignored; only key events the harness stamps with
+// `botEventMark` in their source user data (tests/two-laptop/keybot.swift)
+// reach the game. Someone typing on the machine, or a pad left on the desk,
+// can no longer steer a fighter mid-measurement.
+let botMode = ProcessInfo.processInfo.environment["OSKIEWAR_BOT"] == "1"
+let botEventMark: Int64 = 0x05B07B07
+func botAccepts(_ event: NSEvent) -> Bool {
+    !botMode || event.cgEvent?.getIntegerValueField(.eventSourceUserData) == botEventMark
+}
+
 private final class GameView: NSView {
     let scene = MetalSceneView()
     weak var host: NativeGameHost?
@@ -733,21 +745,25 @@ private final class GameView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        guard botAccepts(event) else { return }
         host?.setKey(event, down: true)
     }
 
     override func keyUp(with event: NSEvent) {
+        guard botAccepts(event) else { return }
         host?.setKey(event, down: false)
     }
 
     override func flagsChanged(with event: NSEvent) {
+        guard botAccepts(event) else { return }
         host?.setFlags(event)
     }
 
-    override func mouseMoved(with event: NSEvent) { updatePointer(event, active: true) }
-    override func mouseEntered(with event: NSEvent) { updatePointer(event, active: true) }
+    override func mouseMoved(with event: NSEvent) { guard !botMode else { return }; updatePointer(event, active: true) }
+    override func mouseEntered(with event: NSEvent) { guard !botMode else { return }; updatePointer(event, active: true) }
     override func mouseExited(with event: NSEvent) { host?.clearPointer() }
     override func mouseDown(with event: NSEvent) {
+        guard !botMode else { return }
         updatePointer(event, active: true)
         host?.mousePressed(point: logicalPoint(event))
     }
@@ -756,12 +772,15 @@ private final class GameView: NSView {
     // pinch feed: pinch dollies, two fingers turning rotate round the rider,
     // and a two-finger scroll nudges turn and tilt.
     override func magnify(with event: NSEvent) {
+        guard !botMode else { return }
         host?.orbit(zoom: -Double(event.magnification))
     }
     override func rotate(with event: NSEvent) {
+        guard !botMode else { return }
         host?.orbit(yaw: -Double(event.rotation) * Double.pi / 180)
     }
     override func scrollWheel(with event: NSEvent) {
+        guard !botMode else { return }
         let scale: Double = event.hasPreciseScrollingDeltas ? 1 : 8
         let turn: Double = -Double(event.scrollingDeltaX) * scale * 0.0025
         let tilt: Double = -Double(event.scrollingDeltaY) * scale * 0.0015

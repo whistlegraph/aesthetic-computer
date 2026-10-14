@@ -67,6 +67,10 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          remoteFrame: netSession.remoteFrame, stats: { ...netSession.stats },
          snapshots: netSession.snapshots.size } : null,
        netplayHash: () => netStateHash(),
+       // What the hash covers, as text, for diffing two seats.
+       netplayHashText: () => { const was = globalThis.__oskiewarHashTrace;
+         globalThis.__oskiewarHashTrace = true; netStateHash();
+         globalThis.__oskiewarHashTrace = was; return netLastHashText; },
        netplayForceHash: (frame, hash) => netNotePeerHash(netSession, frame, hash),
        netplayLaneBlocked: () => netLaneBlockedUntil > Date.now(),
        netplaySnapshot: () => netSnapshot(),
@@ -85,7 +89,11 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          seriesId: replay.seriesId, startedMonotonicUs: replay.startedMonotonicUs } : null,
        fighters: () => players.map((player) => ({ name: player.name,
          x: player.x, y: player.y, alive: player.alive, score: player.score,
-         roundWins: player.roundWins, remote: player.remote })),
+         roundWins: player.roundWins, remote: player.remote, gunAmmo: player.gunAmmo })),
+       gunArena: () => ({ on: gunArenaOn, centre: gunsOnlyCenterX(), crest: gunHillTopY(),
+         pistol: gunPickups[0] ? { x: gunPickups[0].x, y: gunPickups[0].y, active: gunPickups[0].active } : null,
+         board: (() => { const b = balls.find((ball) => ball.type === "skateboard"); return b ? { x: b.x, y: b.y, active: b.active } : null; })(),
+         spawns: players.map((player) => player.spawnX) }),
        roundState: () => ({ roundResult, roundElapsedUs, matchOver, map:currentMapName,
          shellMode, gameplayStarted, fightOpponent, gameMode }),
        startVersus: () => startVersusFight(runtime().monotonicUs, true),
@@ -260,6 +268,45 @@ test("a gun fight survives KOs and the next round on both seats", () => {
   assert.ok(finished > 0, "at least one round ended");
   const wins = (seat) => seat.fight.fighters().map((f) => f.roundWins).join(":");
   assert.equal(wins(host), wins(guest), "both seats agree on the rounds");
+});
+
+// The gun fight's ground (2026-10-14): a mound in the middle, the board on
+// its crest and the one pistol hanging over it — out of reach standing,
+// in reach with a jump — and the spawns wider apart than a flat dojo's.
+test("the gun arena: board on the hill, pistol only reachable with a jump", () => {
+  const seat = createSeat();
+  seat.fight.startVersus();
+  seat.tick();
+  const arena = seat.fight.gunArena();
+  assert.ok(arena.on, "a versus round builds the gun arena");
+  assert.ok(arena.crest < seat.fight.gunArena().crest + 1 && arena.pistol?.active, "the pistol is out");
+  assert.ok(Math.abs(arena.board.x - arena.centre) < 1, "the board sits on the hill");
+  assert.ok(arena.pistol.y < arena.crest - 400, "the pistol hangs well above the crest");
+  assert.ok(arena.spawns[1] - arena.spawns[0] >= 450, "the spawns are wide apart");
+  // Walk straight over the hill: passing under the pistol must not take it.
+  let crossed = false;
+  for (let frame = 0; frame < 400 && !crossed; frame++) {
+    seat.press("ArrowRight");
+    seat.tick();
+    const me = seat.fight.fighters()[0];
+    assert.equal(me.gunAmmo, 0, `walking under it does not take it (x ${Math.round(me.x)})`);
+    crossed = me.x > arena.centre + 120;
+  }
+  assert.ok(crossed, "the walk crossed the hill");
+  // A fresh fighter jumps as it reaches the crest: that takes it.
+  const jumper = createSeat();
+  jumper.fight.startVersus();
+  jumper.tick();
+  let armed = false, jumped = false;
+  for (let frame = 0; frame < 400 && !armed; frame++) {
+    const me = jumper.fight.fighters()[0];
+    if (!jumped && me.x > arena.centre - 140) jumped = frame;
+    const jumping = jumped !== false && frame - jumped < 12;
+    jumper.press(...(jumping ? ["ArrowUp", "ArrowRight"] : ["ArrowRight"]));
+    jumper.tick();
+    armed = jumper.fight.fighters()[0].gunAmmo > 0;
+  }
+  assert.ok(armed, "a jump at the crest takes it");
 });
 
 test("a snapshot restores the sim exactly: replaying the same pads reproduces the same state", () => {
