@@ -88,7 +88,8 @@ export function createAccountBridge({session=new ACSession(), site=SITE, fetch=g
       const image = (await readFile(input.before)).toString('base64');
       return request('/api/nopaint-inference', token, {requestId:input.requestId,
         image, seed:input.seed, strength:input.strength, quote:input.quote, model:input.model,
-        ...(input.hint ? {hint:input.hint} : {})});
+        ...(input.hint ? {hint:input.hint} : {}),
+        ...(Number.isInteger(input.paints) && input.paints >= 0 ? {paints:input.paints} : {})});
     }
     throw Error('Unknown AC account action');
   };

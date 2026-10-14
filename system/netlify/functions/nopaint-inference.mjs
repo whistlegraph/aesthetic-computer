@@ -2,6 +2,7 @@ import {requestKey, noPaintBilling, ensureNoPaintBillingIndexes} from '../../bac
 import {moveOffer, moveInput, createNoPaintProvider} from '../../backend/nopaint-provider.mjs';
 import {openRouterOffers, createOpenRouterProvider} from '../../backend/nopaint-openrouter.mjs';
 import {createCloudStatus} from '../../backend/nopaint-status.mjs';
+import {createLook} from '../../backend/nopaint-look.mjs';
 
 const reply = (statusCode, value) => ({statusCode, headers:{
   'Content-Type':'application/json', 'Cache-Control':'private, no-store',
@@ -94,10 +95,13 @@ export async function handler(event) {
     ]);
     const {db} = await connect();
     await ensureNoPaintBillingIndexes(db);
+    // One look per move reads the painting before the image editor is called.
+    const look = process.env.NOPAINT_LOOK_ENABLED === 'false' ? null
+      : createLook({key:process.env.OPENROUTER_API_KEY, ...(process.env.NOPAINT_LOOK_MODEL ? {model:process.env.NOPAINT_LOOK_MODEL} : {})});
     return createHandler({authorize, getHandleOrEmail, billing:noPaintBilling(db), offers, enabled, status:cloudStatus,
       generate:(input,offer)=> offer.provider==='openrouter'
-        ? createOpenRouterProvider({key:process.env.OPENROUTER_API_KEY})(input,offer)
-        : createNoPaintProvider({key:process.env.FAL_KEY})(input)});
+        ? createOpenRouterProvider({key:process.env.OPENROUTER_API_KEY, look})(input,offer)
+        : createNoPaintProvider({key:process.env.FAL_KEY, look})(input)});
   })().catch(error=>{live=null;throw error;});
   try { return await (await live)(event); } catch { return reply(503, {error:'AC remote images unavailable'}); }
 }

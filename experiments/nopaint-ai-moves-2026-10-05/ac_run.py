@@ -57,7 +57,7 @@ class Account:
 
 
 def move(pipe, embed, before, folder, step, strength, seed, cold=False, observe=None,
-         cancel=None, account=None, identity=None, engine="ac-klein", hint=None):
+         cancel=None, account=None, identity=None, engine="ac-klein", hint=None, paints=None):
     identity = identity or account.snapshot()
     offer = next((item for item in identity.get("models", []) if item["id"] == engine), None) or (identity.get("remote") if engine == "ac-klein" else None) or {}
     if not identity.get("connected") or not offer.get("available"):
@@ -78,7 +78,8 @@ def move(pipe, embed, before, folder, step, strength, seed, cold=False, observe=
     request = {"action": "move", "before": str(before), "requestId": request_id,
                           "seed": seed, "strength": strength, "quote": offer["quote"],
                           "account_id": identity["account_id"], "model": engine,
-                          **({"hint": hint} if hint else {})}
+                          **({"hint": hint} if hint else {}),
+                          **({"paints": paints} if isinstance(paints, int) and paints >= 0 else {})}
     try:
         result = bridge(request, timeout=260, cancel=cancel)
         check_cancel(cancel)
@@ -89,6 +90,7 @@ def move(pipe, embed, before, folder, step, strength, seed, cold=False, observe=
         check_cancel(cancel)
         row.update(status="complete", seconds=time.monotonic()-started, billing=result["billing"], output_sha256=sha(output),
                    prompt=result.get("prompt"), prompt_version=result.get("prompt_version"),
+                   look=result.get("look"),
                    provider_cost_usd=result.get("provider_cost_usd"))
         write(receipt, row)
         return output
