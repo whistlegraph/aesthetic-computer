@@ -37,6 +37,14 @@ The shared high-level UI document and Swift/DOM renderers live in
 bar, palette, layout and options while retaining its platform canvas and views.
 The browser uses the same document for its controls and menus.
 
+AC browser login also needs `https://nopaint.art` in the existing Auth0 SPA's
+callbacks, web origins, CORS origins and logout URLs. With the Auth0 CLI signed
+into `aesthetic.us.auth0.com`, run `node register-web-login.mjs` to preview the
+missing entries, then `node register-web-login.mjs --apply` to add them while
+preserving all other application URLs. This configuration lives in Auth0 and
+does not change when lith deploys. An expired admin session must be renewed
+with `auth0 login --scopes read:clients,update:clients`.
+
 Focused checks:
 
 ```sh
