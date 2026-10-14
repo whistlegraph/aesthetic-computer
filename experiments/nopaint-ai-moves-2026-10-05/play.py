@@ -25,8 +25,10 @@ from ac_run import Account, bridge
 from openrouter_catalog import ModelBrowser
 from paint_region import Region, save_mask, encode_mask
 from painting_tracks import PaintingTracks
+from web_pairing import allowed as web_allowed, cors as web_cors, connect_page, ORIGINS as WEB_ORIGINS
 
 MODEL_BROWSER = ModelBrowser()
+WEB_PAIRING_TOKEN = secrets.token_urlsafe(32)
 
 
 class Conflict(Exception):
@@ -622,6 +624,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(content)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        for key, value in web_cors(self.headers).items():
+            self.send_header(key, value)
         self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
         for key, value in (extra or {}).items():
             self.send_header(key, value)
@@ -632,10 +637,14 @@ class Handler(BaseHTTPRequestHandler):
         return self.headers.get("Host") == f"127.0.0.1:{self.server.server_port}"
 
     def do_GET(self):
-        if not self.valid_host():
+        if not web_allowed(self.headers, self.server.server_port, WEB_PAIRING_TOKEN):
             return self.respond(403, {"error": "Use the loopback URL"})
         route = urlsplit(self.path).path
         game = self.server.game
+        if route == "/connect":
+            if self.headers.get("Origin") in WEB_ORIGINS:
+                return self.respond(403, {"error": "Pair from the desktop"})
+            return self.respond(200, connect_page(WEB_PAIRING_TOKEN), "text/html; charset=utf-8")
         if route == "/":
             return self.respond(200, (HERE / "play.html").read_bytes(), "text/html; charset=utf-8")
         if route == "/api/state":
@@ -674,9 +683,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, image.read_bytes(), "image/png")
         self.respond(404, {"error": "Not found"})
 
+    def do_OPTIONS(self):
+        if not self.valid_host() or self.headers.get("Origin") not in WEB_ORIGINS:
+            return self.respond(403, {"error": "Origin not allowed"})
+        return self.respond(204, b"")
+
     def do_POST(self):
-        origin = f"http://127.0.0.1:{self.server.server_port}"
-        if not self.valid_host() or self.headers.get("Origin") not in (None, origin):
+        if not web_allowed(self.headers, self.server.server_port, WEB_PAIRING_TOKEN):
             return self.respond(403, {"error": "Use the local game page"})
         if self.path not in ("/api/action", "/api/account", "/api/done", "/api/upscale"):
             return self.respond(404, {"error": "Not found"})

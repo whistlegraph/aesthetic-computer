@@ -7,6 +7,7 @@ BIN=$(swift build --package-path "$HERE" --show-bin-path)
 APP="$HERE/.build/No Paint.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/NoPaint" "$APP/Contents/MacOS/NoPaint"
+cp -R "$BIN/ACUI_ACUI.bundle" "$APP/Contents/Resources/"
 ICONSET="$HERE/.build/NoPaint.iconset"
 mkdir -p "$ICONSET"
 ICON_SOURCE="$HERE/../../../nopaint/construct/icons/icon-1024.png"

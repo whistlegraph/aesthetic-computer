@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ACUI
 
 struct StatusBand: NSViewRepresentable {
     let game: GameStore
@@ -30,7 +31,7 @@ struct StatusBand: NSViewRepresentable {
         let height: CGFloat
     }
 
-    static let lineHeight: CGFloat = 33
+    static let lineHeight: CGFloat = InterfaceSpec.noPaint.layout.statusHeight
 
     static func groupTitle(_ fields: [Field]) -> NSAttributedString {
         let title = NSMutableAttributedString(string: "")
