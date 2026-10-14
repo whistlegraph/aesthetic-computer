@@ -3064,8 +3064,25 @@ function figurePlate(F, at) {
   for (let k = 0; k < n * 2; k++) figurePlatePoints[k] = F[at + 10 + k];
   return figurePlatePoints;
 }
+// The limbs' silhouettes are authored as fills in the outline ink
+// (figure-flat.lisp: "(ink 20 16 28)" bones a touch behind each limb). As
+// fills they kept their own depth, so a front limb's band landed in front of
+// the torso and the far limb — the lines on back limbs and across the chest.
+// A fill in the outline ink is edge: it goes down with the edges, behind the
+// whole figure, and is skipped among the fills.
+const isFigureInkFill = (F, at) => {
+  const c = at + 6 + (F[at] === 0 ? 6 : F[at] === 1 ? 5 : 0);
+  return F[c] === 20 && F[c + 1] === 16 && F[c + 2] === 28;
+};
 function drawFigureEdged() {
   const behind = figureFarthest + flatBehind, F = figureRecords, end = figureLength;
+  for (let at = 0; at < end; at += figureShapeSize(F, at)) {
+    if (!isFigureInkFill(F, at)) continue;
+    const o = at + 6;
+    if (F[at] === 0) flatEllipse(F[o], F[o + 1], behind, F[o + 2], F[o + 3], F[o + 4], F[o + 5], 20, 16, 28);
+    else if (F[at] === 1) flatCapsule(F[o], F[o + 1], F[o + 2], F[o + 3], behind, F[o + 4], 20, 16, 28);
+    else flatPlate(F[o + 3], figurePlate(F, at), behind, 20, 16, 28);
+  }
   for (let at = 0; at < end; at += figureShapeSize(F, at)) {
     const width = F[at + 2];
     if (!width) continue;
@@ -3075,6 +3092,7 @@ function drawFigureEdged() {
     else flatPlate(F[o + 3], figurePlate(F, at), behind, r, g, b, width);
   }
   for (let at = 0; at < end; at += figureShapeSize(F, at)) {
+    if (isFigureInkFill(F, at)) continue;
     const depth = F[at + 1], o = at + 6;
     if (F[at] === 0) flatEllipse(F[o], F[o + 1], depth, F[o + 2], F[o + 3], F[o + 4], F[o + 5], F[o + 6], F[o + 7], F[o + 8]);
     else if (F[at] === 1) flatCapsule(F[o], F[o + 1], F[o + 2], F[o + 3], depth, F[o + 4], F[o + 5], F[o + 6], F[o + 7]);

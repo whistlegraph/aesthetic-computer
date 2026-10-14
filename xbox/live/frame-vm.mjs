@@ -643,10 +643,15 @@ export function createFrameVm(host) {
         }
       };
       const line = R[i + 1];
+      // A fill in the outline ink (the limbs' authored silhouettes) is edge:
+      // drawn with the edges behind the whole figure, never in front of the
+      // torso or the far limb.
+      const inkFill = cr === 20 && cg === 16 && cb === 28;
       if (pass === "edges") {
         if (line && seeWorld(px, py, pz, 12) && line * scale * seen[15] >= .5)
           shape(line * scale * seen[15], outlineBehind, er, eg, eb);
-      } else shape(0, 0, cr, cg, cb);
+        if (inkFill) shape(0, outlineBehind, cr, cg, cb);
+      } else if (!inkFill) shape(0, 0, cr, cg, cb);
     }
   }
   const figureEnd = new Float64Array(3);
