@@ -156,6 +156,49 @@ The tool reads existing data; it adds no browser identifiers or new retention.
 
 ## Coverage
 
+### AC session recognition on Sotce
+
+`network_recognition({hours:24})` is an SSH-backed aggregate report of a
+separate `network-recognition` collection. It counts eligible top-level Sotce
+page visits whose existing AC credential can be verified, plus unknowns and
+bridge-completion counts. No distinct-account or person count is available.
+Do not add these checks to `network-visits` or join their random IDs to fish.
+
+The existing visit tracker imports `network-recognition.mjs` only on Sotce;
+no additional Sotce template hook is needed. The module sends a fresh,
+in-memory check UUID, then loads a bounded
+AC-origin frame. The frame accepts only the allowlisted Sotce parent window,
+uses the handed-off AC session or Auth0's **cache-only** token lookup, then
+falls back to a four-second OIDC code + PKCE `prompt=none` check of an existing
+SSO session. A prompt/consent/MFA requirement fails to unknown. The fallback
+token stays only in memory; no refresh token is requested or used. It sends
+the credential only to AC's collector and never navigates, opens a popup or
+requests storage access. The parent receives completion only,
+never a credential, identity or positive/negative account result. The server
+verifies through the aesthetic tenant, persists only booleans, and accepts an
+upgrade only within one minute of a recorded start. Retries are idempotent.
+The check lasts at most ten seconds and stops on hiding, page exit, opt-out or
+a private route. The frame also stops on session-storage changes.
+
+Unknown includes an absent/expired token, partitioned or blocked storage,
+network failure, a stopped check or a browser restriction. It is **not** a
+logged-out/non-member count. This is best-effort recognition, not exhaustive
+SSO detection. A verified session is not proof of a human. Known automation and
+DNT/GPC are excluded; no bypass of browser storage restrictions is attempted.
+
+Stored fields are `_id` (property + random check UUID), `property`,
+`startedAt`, `expiresAt`, `acRecognized`, and `bridgeCompleted`. No account
+subject, handle, email, token, IP, UA, referrer or page path is stored. Records
+expire after 35 days. Raw credential verification uses the existing authorization
+service; existing operational logs remain separate. No PostHog export.
+
+Coverage starts only when this code is deployed; there is no backfill.
+From `/opt/ac/system` on Lith:
+
+```sh
+node --env-file=.env ../toolchain/analytics/network-recognition-report.mjs '{"hours":24}'
+```
+
 ### Whistlegraph referral route
 
 From October 14, the org bumper links to MIME and records

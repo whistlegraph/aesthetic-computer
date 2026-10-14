@@ -12,7 +12,7 @@ export function startVisitTracker(win = window, doc = document) {
 
   let state, path, visibleMs = 0, lastTick = win.performance.now(), lastSent = "";
   let wasVisible = doc.visibilityState === "visible";
-  let stopped = false, timer, failures = 0, retryAt = 0;
+  let stopped = false, timer, recognition, failures = 0, retryAt = 0;
   const listeners = [];
   const on = (target, event, handler, options) => {
     target.addEventListener(event, handler, options);
@@ -141,9 +141,16 @@ export function startVisitTracker(win = window, doc = document) {
         pad?.axes?.slice(0, 4).some(axis => Math.abs(axis) > 0.5))) interact("gamepad");
     } catch { /* unavailable in some embedded browsers */ }
   }, 1000);
-  const api = { action, stop() { stopped = true; win.clearInterval(timer); listeners.forEach(remove => remove()); if (win.acVisits === api) delete win.acVisits; } };
+  const api = { action, stop() { stopped = true; recognition?.stop(); win.clearInterval(timer); listeners.forEach(remove => remove()); if (win.acVisits === api) delete win.acVisits; } };
   win.acVisits = api;
   if (visible()) send();
+  // Independent aggregate session checks on Sotce only. Keep the integration
+  // here so its server-rendered shell can be refactored without another hook.
+  if (visitProperty(win.location.hostname) === "sotce.net") {
+    import("./network-recognition.mjs").then(({ startNetworkRecognition }) => {
+      if (!stopped && !disabled()) recognition = startNetworkRecognition(win, doc);
+    }).catch(() => {});
+  }
   return api;
 }
 

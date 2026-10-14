@@ -19,6 +19,7 @@ import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
 import { fetchRetry } from "./fetch-retry.mjs";
 import { VISIT_ACTIONS, VISIT_DEPTHS, visitProperty, visitScopeMatch } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { fisheryOptions } from "../analytics/human-fishery.mjs";
+import { recognitionReportOptions } from "../analytics/network-recognition.mjs";
 
 const pexec = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -45,6 +46,15 @@ async function humanFishery(args = {}) {
   const { minutes = 5, scope = "studio", limit = 50, startedAfter } = args;
   const quoted = "'" + JSON.stringify({ minutes, scope, limit, startedAfter }).replaceAll("'", "'\\''") + "'";
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/human-fishery-report.mjs ${quoted}`;
+  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 30000, maxBuffer: 1024 * 1024 });
+  return JSON.parse(stdout.slice(stdout.indexOf("{")));
+}
+
+async function networkRecognition(args = {}) {
+  recognitionReportOptions(args);
+  const quoted = "'" + JSON.stringify({ hours: args.hours ?? 24 }).replaceAll("'", "'\\''") + "'";
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/network-recognition-report.mjs ${quoted}`;
   const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 30000, maxBuffer: 1024 * 1024 });
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
@@ -266,6 +276,14 @@ async function appDownloads({ days = 7, apps = Object.keys(APPS) } = {}) {
 // 🔌 MCP
 
 const TOOLS = [
+  {
+    name: "network_recognition",
+    description: "Private aggregate AC-session recognition on Sotce: eligible visits checked, server-verified existing AC sessions, unknown results and bridge completion by UTC day. No handles, account IDs, unique-user counts or anonymous fishery joins. Unknown includes browser storage restrictions and must not be interpreted as logged out. Coverage begins only after deployment.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
+    } },
+  },
   ...["account_activity", "network_referrers", "feature_usage"].map(name => ({
     name,
     description: name === "feature_usage"
@@ -360,6 +378,7 @@ async function callTool(name, args = {}) {
     : name === "feature_usage" ? await journeyReport("features", args)
     : name === "network_referrers" ? await journeyReport("referrers", args)
     : name === "human_fishery" ? await humanFishery(args)
+    : name === "network_recognition" ? await networkRecognition(args)
     : name === "direct_downloads" ? await directDownloads(args)
     : name === "daily_metrics" ? await dailyMetrics(args)
     : name === "app_opens" ? await appOpens(args)
