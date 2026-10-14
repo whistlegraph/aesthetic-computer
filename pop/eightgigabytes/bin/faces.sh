@@ -1,7 +1,7 @@
 #!/bin/bash
 # faces.sh — compile bin/faces.swift against the MenuBand face sources and
 # render out/faces-<member>.mp4 for the three singers.
-#   bin/faces.sh [fps] [width] [height]
+#   bin/faces.sh [fps] [width] [height] [start end tag]   (window → out/faces<tag>-<member>.mp4)
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"; LANE="$(dirname "$HERE")"; REPO="$(cd "$LANE/../.." && pwd)"
 SRC="$REPO/slab/menuband/Sources/MenuBand"
@@ -10,4 +10,4 @@ cat "$SRC/SingerArticulation.swift" "$SRC/SingerFaceMetal.swift" "$SRC/SingerGaz
 if [ ! -x "$BUILD/faces" ] || [ "$BUILD/main.swift" -nt "$BUILD/faces" ]; then
   swiftc -O -suppress-warnings -o "$BUILD/faces" "$BUILD/main.swift"
 fi
-"$BUILD/faces" "$LANE/out" "${1:-30}" "${2:-480}" "${3:-300}"
+"$BUILD/faces" "$LANE/out" "${1:-30}" "${2:-480}" "${3:-300}" "${@:4}"

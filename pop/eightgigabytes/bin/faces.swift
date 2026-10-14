@@ -14,6 +14,10 @@ _ = NSApplication.shared
 let args = CommandLine.arguments
 let outDir = args[1], fps = Int(args[2]) ?? 30
 let W = Int(args[3]) ?? 480, H = Int(args[4]) ?? 300
+// optional window + tag: faces.sh fps W H START END TAG → out/faces<TAG>-<member>.mp4 covering START…END s
+let winStart = args.count > 5 ? (Double(args[5]) ?? 0) : 0
+let winEnd: Double? = args.count > 6 ? Double(args[6]) : nil
+let tag = args.count > 7 ? args[7] : ""
 let tl = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: outDir + "/timeline.json"))) as! [String: Any]
 let offset = tl["pre"] as! Double                      // seconds from the file's start to beat 0
 let seconds = tl["seconds"] as! Double
@@ -43,7 +47,7 @@ for (member, accent) in members {
     lines.sort { $0.start < $1.start }
     let rest = SingerArticulation(cues: [], energy: [], duration: 0).pose(at: 0)
 
-    let out = "\(outDir)/faces-\(member).mp4"
+    let out = "\(outDir)/faces\(tag)-\(member).mp4"
     let enc = Process(), pipe = Pipe()
     enc.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/ffmpeg")
     enc.arguments = ["-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", "\(W)x\(H)", "-r", "\(fps)", "-i", "-",
@@ -52,9 +56,9 @@ for (member, accent) in members {
     try enc.run()
     let face = SingerFaceView(frame: NSRect(x: 0, y: 0, width: W, height: H))
     face.member = member; face.accent = accent
-    let frames = Int(ceil(seconds * Double(fps)))
+    let frames = Int(ceil(((winEnd ?? seconds) - winStart) * Double(fps)))
     for f in 0..<frames {
-        let t = (Double(f) + 0.5) / Double(fps)
+        let t = winStart + (Double(f) + 0.5) / Double(fps)
         let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: W, pixelsHigh: H, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: W * 4, bitsPerPixel: 32)!
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
