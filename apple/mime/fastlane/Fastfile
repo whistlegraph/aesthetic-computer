@@ -151,6 +151,8 @@ platform :ios do
   desc "Publish the App Privacy label from app_privacy_details.json"
   lane :privacy do
     asc_key
+    # Jeffrey's Apple ID sees two teams; this one owns the API key (ISSUER).
+    ENV["FASTLANE_ITC_TEAM_ID"] ||= "1562582"
     upload_app_privacy_details_to_app_store(username: ENV.fetch("FASTLANE_USER"), app_identifier: BUNDLE, json_path: PRIVACY_JSON)   # needs an Apple ID session; the API key cannot
   end
 
