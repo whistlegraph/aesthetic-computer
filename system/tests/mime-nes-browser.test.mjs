@@ -135,6 +135,8 @@ test('NES file picker validates locally, keeps a failed upload and opens the pub
     assert.equal(await dialog.getByRole('button',{name:'Post ROM',exact:true}).isEnabled(),false);
     await input.setInputFiles({name:'MIME.nes',mimeType:'application/octet-stream',buffer:Buffer.from(inputROM())});
     const post=dialog.getByRole('button',{name:'Post ROM',exact:true});
+    await page.waitForFunction(()=>!document.querySelector('#nes-dialog input').disabled);
+    assert.equal(await dialog.getByRole('button',{name:'Log in to post',includeHidden:true}).isVisible(),false);
     await page.screenshot({path:'/tmp/mime-nes-import.png'});
     await post.click();await dialog.getByRole('status').filter({hasText:'Try again'}).waitFor();
     assert.equal(writes.length,1);assert.equal(writes[0].file.type,'application/x-nes-rom');

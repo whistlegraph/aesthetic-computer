@@ -512,6 +512,7 @@
     #nes-dialog { margin: auto; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
       padding: 20px; background: var(--paper); color: var(--ink); border: 1px solid var(--card-edge); border-radius: 18px; }
     #nes-dialog::backdrop { background: #0009; }
+    #nes-dialog [hidden], #nes-dialog p:empty { display: none; }
     #nes-dialog form { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 0; border: 0; box-shadow: none; }
     #nes-dialog input { width: 100%; min-height: 44px; } #nes-dialog .rom-actions { display: flex; justify-content: space-between; gap: 10px; }
     /* Input belongs to the center. Navigation is a separate edge gesture. */
@@ -2046,7 +2047,7 @@ async function openNESComposer(selected) {
     submit.disabled = checking || posting || !identity.handle || !nesDraft;
     submit.textContent = posting ? 'Posting…' : 'Post ROM'; back.disabled = posting;
     login.hidden = !!identity.token; handle.hidden = !identity.token || !!identity.handle;
-    name.textContent = nesDraft?.name || (checking ? 'Checking account…' : identity.handle || '');
+    name.textContent = checking ? 'Checking account…' : nesDraft ? (input.files[0] === nesDraft ? '' : nesDraft.name) : identity.handle || '';
   };
   const check = async () => {
     checking = true; sync();
