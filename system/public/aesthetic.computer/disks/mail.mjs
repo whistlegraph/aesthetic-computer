@@ -53,6 +53,7 @@ let expandedId = null;
 const reading = new Set();
 let ellipsisTicker;
 let busy = false;
+let sending = false; // a letter is in flight — a second tap or Enter waits
 let fields; // to · subject · body, sharing one keyboard (see lib/type.mjs)
 let composeNote = null; // what went wrong with the last send, if anything
 let pendingTo = null; // an address that arrived in the URL, waiting for the box
@@ -277,6 +278,10 @@ async function send(api, { to, subject, body }) {
     return;
   }
 
+  // The fields stay filled until the server answers, so without this a
+  // second tap — or Enter then the chip — posted the same letter twice.
+  if (sending) return;
+  sending = true;
   let res;
   try {
     res = await api.net.userRequest("POST", "/api/mail", {
@@ -288,6 +293,8 @@ async function send(api, { to, subject, body }) {
     // Request errors may embed submitted content. Keep them out of piece logs.
     composeNote = s.couldntSend;
     return;
+  } finally {
+    sending = false;
   }
 
   if (res.status === 200) {
@@ -604,7 +611,7 @@ function paint(api) {
     fields.paint(api, frame);
 
     const footer = frame.y + frame.height + 4;
-    const sendBox = control(api, x, footer, s.send, { type: "send" }, { selected: true });
+    const sendBox = control(api, x, footer, s.send, { type: "send" }, { selected: true, dim: sending });
     const note = composeNote || s.composeHint;
     const noteWidth = wide - sendBox.w - 6;
     ink(composeNote ? [255, 130, 130] : c.timestamp).write(
