@@ -6926,18 +6926,6 @@ function statusVerb(rider, speed, includeSpin=true) {
   if (speed > walkSpeed + 120) return ["running", mphText];
   return ["walking", mphText];
 }
-function drawStatusVerb(rider, speed, ink) {
-  const [verb, measure] = statusVerb(rider, speed);
-  // Bottom right, just left of the big speed, at a size you read at a
-  // glance. The measurement is the big number beside it.
-  const text = verb;
-  const safe = hudSafeRect();
-  const size = 38;
-  const speedText = measure || "0 mph";
-  const x = Math.round(safe.right - handleWidth(speedText, 46) - 24 - handleWidth(text, size)), y = safe.bottom - 102;
-  typeWrite(text, x + 2, y + 3, size, ...contrastShadow(ink));
-  typeWrite(text, x, y, size, ...ink);
-}
 
 function drawBoardHealth(safe, ink) {
   const health = boardState.brokenAt ? 0 : boardState.health;
@@ -11089,22 +11077,6 @@ function terrainSpan() {
     bottom: Math.min(parkDeepest, cameraCenterY + reach) };
 }
 
-// The long park's features as camera subjects: the half-pipe deck to deck,
-// and each loop with room round it. A rider inside one gets it framed whole.
-function skateSubjects() {
-  const pipeLeft = gridLeft + (halfpipe.leftCoping - 1) * tileSize;
-  const pipeRight = gridLeft + (halfpipe.rightCoping + 1) * tileSize;
-  return [
-    { name: "half-pipe", left: pipeLeft, right: pipeRight,
-      top: floorY - halfpipeRadius - 160, bottom: floorY + 140 },
-    ...parkSegments.filter((segment) => segment.kind === "pond").map((segment) => ({
-      name: "pond", left: segment.left - 300, right: segment.right + 300,
-      top: seaLevelY - segment.lift - 420, bottom: seaLevelY - segment.lift + segment.depth + 120 })),
-    ...skateLoops.map((loop) => ({ name: "loop", left: loop.x - loop.radius - 380,
-      right: loop.x + loop.radius + 380, top: floorY - loop.radius * 2 - 180,
-      bottom: floorY + 140 })),
-  ];
-}
 
 function updateCamera(dt) {
   if (survivalActive() || skateparkMap) return;
@@ -12941,13 +12913,6 @@ function gunPose(player, now, input = null) {
   return {hand,dx,dy,dz,localAimX,down:{x:nx,y:ny,z:nz},muzzle:{x:hand.x+dx*along+nx*below,y:hand.y+dy*along+ny*below,z:hand.z+dz*along+nz*below}};
 }
 
-function meleeStrike(player, now) {
-  const target = meleeTarget(player, now);
-  return {
-    x: target.x, y: target.y, z: target.z,
-    radius: meleeSpecFor(player, player.attackKind).radius,
-  };
-}
 
 function shieldGeometry(player) {
   const aimX = player.shieldAimX || player.facing;
@@ -13667,18 +13632,6 @@ function sink(player, now) {
   emitSignal("sink", player.pad, -1, 0);
 }
 
-// A short low hop out of crouch. Crouching pins horizontal movement, so a
-// direction flick from a tuck has nothing else to mean.
-function crouchHop(player, direction, now) {
-  player.facing = direction;
-  player.vy = -crouchHopVelocity;
-  player.grounded = false;
-  player.jumpHeld = false;
-  player.hopUntil = now + crouchHopPoseUs;
-  player.pendingMoveLabel = "CROUCH HOP";
-  playDrum("block", .58, panPlayer(player));
-  emitSignal("crouchhop", player.pad, direction, 0);
-}
 
 function killPlayer(target, killerPad, now, cause = "KO") {
   if(target.dummy && !dojoActive()){applyBodyHit(target,0,players[killerPad]?.x ?? target.x-1,killerPad,now,1250,360,false);return;}
@@ -19575,19 +19528,6 @@ function resolveRunnerBounds(player, t) {
   }
 }
 
-function pointSegmentDistance(px, py, pz, segment) {
-  const dx = segment.x2 - segment.x1;
-  const dy = segment.y2 - segment.y1;
-  const dz = segment.z2 - segment.z1;
-  const lengthSquared = dx * dx + dy * dy + dz * dz;
-  const amount = lengthSquared > 0
-    ? Math.max(0, Math.min(1,
-      ((px - segment.x1) * dx + (py - segment.y1) * dy +
-        (pz - segment.z1) * dz) / lengthSquared))
-    : 0;
-  return Math.hypot(px - (segment.x1 + dx * amount),
-    py - (segment.y1 + dy * amount), pz - (segment.z1 + dz * amount));
-}
 
 // Closest points for loose debris, independent of the character renderer.
 function segmentSegmentClosest(first, second) {
@@ -24391,26 +24331,6 @@ function shadowSurfaceY(x, y, z = 0) {
 // fighter's depth still bounds it from the front, so the shadow never
 // draws over the feet it is cast from. Limbs end in round caps, the way the
 // bodies do, instead of notching at every joint.
-// The console's shadow is a blob: one soft oval on the floor under the
-// fighter, smaller and fainter the higher they are. Projecting every limb
-// onto a curved floor point by point cost the Xbox three milliseconds a
-// frame; the web and Mac hosts keep the pose-shaped shadow.
-function drawBlobShadow(player, color) {
-  const floor = shadowSurfaceY(player.x, player.y, player.z||0);
-  const height = Math.max(0, floor - player.y);
-  const fade = clamp(1 - height / 900, .15, 1);
-  const radiusX = 62 * (.55 + .45 * fade), radiusZ = radiusX * .42;
-  const ink = mixColor(visualTheme.light > .5 ? [205, 210, 222] : [24, 28, 40], color, fade);
-  const center = { x: player.x, y: floor - 2, z: player.z };
-  for (let side = 0; side < 10; side++) {
-    const a = side / 10 * Math.PI * 2, b = (side + 1) / 10 * Math.PI * 2;
-    worldTriangle(center,
-      { x: player.x + Math.cos(a) * radiusX, y: shadowSurfaceY(player.x + Math.cos(a) * radiusX, floor, player.z + Math.sin(a) * radiusZ) - 2,
-        z: player.z + Math.sin(a) * radiusZ },
-      { x: player.x + Math.cos(b) * radiusX, y: shadowSurfaceY(player.x + Math.cos(b) * radiusX, floor, player.z + Math.sin(b) * radiusZ) - 2,
-        z: player.z + Math.sin(b) * radiusZ }, ink);
-  }
-}
 
 const dojoShadowBuffers=new WeakMap();
 function drawDojoPoseShadow(player,t,color) {
@@ -29410,13 +29330,6 @@ function seatHudReadout(p,now){
  const readout={at:now,idle,metrics,measure:metrics.map(m=>m.text).join('   ')};
  seatHudReadouts.set(p,readout);
  return readout;
-}
-// The park hints are keycaps on a keyboard and button discs on a pad (the
-// shared drawKeycapRun), one short verb each. The third field is the internal
-// button translateButtons produces, which lights the cap while held.
-function parkControlCaps(){
- return keycapFamily()?{punch:['Q','E'],kick:'SHIFT',jump:'SPACE',bubble:['SHIFT','Q'],drop:'R'}
-  :{punch:['X','Y'],kick:'A',jump:'B',bubble:['A','X'],drop:'L3'};
 }
 // Not on a touch screen: the drawn pad carries its own glyphs, and a legend
 // naming X, Y, A and B pointed at letters no button there wears — the same
