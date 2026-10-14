@@ -3,13 +3,12 @@ import CoreImage.CIFilterBuiltins
 
 extension Post {
     /// The card's mime.ac address, as the web feed writes it (postPath in
-    /// system/public/mime/index.html): /wg… for Whistlegraph pieces, /p/<code> otherwise.
+    /// system/public/mime/index.html): every post has a top-level identifier.
     var shareURL: URL {
         let kind = media?.kind ?? "", short = media?.code ?? ""
         let id = ["mood", "chat"].contains(kind) && !short.isEmpty ? kind + "~" + short
             : ["wgpiece", "whistlegraph"].contains(kind) && short.range(of: #"^wg[A-Za-z0-9]+$"#, options: .regularExpression) != nil ? short : code
-        let path = id.range(of: #"^wg[A-Za-z0-9]+$"#, options: .regularExpression) != nil
-            ? "/" + id : "/p/" + (id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(.init(charactersIn: "-_.~"))) ?? id)
+        let path = "/" + (id.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(.init(charactersIn: "-_.~"))) ?? id)
         return URL(string: "https://mime.ac" + path)!
     }
 }

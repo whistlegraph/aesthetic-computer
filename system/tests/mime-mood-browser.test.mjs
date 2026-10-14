@@ -16,7 +16,7 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  {code:'mood_long',parent:null,name:'@test',text:'long gyp '.repeat(150),media:{kind:'mood',code:'long'}}].map(p=>({...p,when:new Date().toISOString(),board:'text/plain',file:null}));
  await context.route('**/*',async route=>{
   const u=new URL(route.request().url());
-  if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')))return route.fulfill({contentType:'text/html',body:html});
+  if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')||/^\/[A-Za-z0-9_~!-]+$/.test(u.pathname)))return route.fulfill({contentType:'text/html',body:html});
   if(u.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify({recent:posts,hasMore:false})});
   if(u.pathname==='/favicon.svg')return route.fulfill({contentType:'image/svg+xml',body:icon});
   if(u.pathname.endsWith('ComicRelief-Bold.ttf'))return route.fulfill({contentType:'font/ttf',body:font});
@@ -42,9 +42,9 @@ test('mood descenders have room, letters move in sync, and chat permalinks survi
  const pair=await mood.locator('.reel-command .pal-text').evaluate(e=>[...e.children].map(layer=>getComputedStyle(layer.firstElementChild).transform));assert.equal(pair[0],pair[1]);
  await page.screenshot({path:'/tmp/mime-mood-desktop.png'});
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/tmp/mime-mood-phone.png'});
- await page.locator('#chat_clock_fixture').evaluate(e=>e.scrollIntoView());await page.waitForURL('**/p/chat~xyz?*');
+ await page.locator('#chat_clock_fixture').evaluate(e=>e.scrollIntoView());await page.waitForURL('**/chat~xyz?*');
  assert.ok(await page.locator('#chat_clock_fixture .mood-letter').count()>0);
- await page.reload();await page.locator('.mime-startup').waitFor({state:'detached'});assert.equal(new URL(page.url()).pathname,'/p/chat~xyz');
+ await page.reload();await page.locator('.mime-startup').waitFor({state:'detached'});assert.equal(new URL(page.url()).pathname,'/chat~xyz');
  await page.emulateMedia({reducedMotion:'reduce'});
  assert.equal(await page.locator('#chat_clock_fixture .mood-letter').first().evaluate(e=>getComputedStyle(e).animationName),'none');
  await page.locator('#mood_long').evaluate(e=>e.scrollIntoView());
@@ -94,7 +94,7 @@ test('a mood draft survives sign-in and failure, then the confirmed post appears
   });
   await page.route('**/*',route=>{
    const u=new URL(route.request().url());
-   if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')))return route.fulfill({contentType:'text/html',body:html});
+   if(u.hostname==='mime.ac'&&(u.pathname==='/'||u.pathname.startsWith('/p/')||/^\/[A-Za-z0-9_~!-]+$/.test(u.pathname)))return route.fulfill({contentType:'text/html',body:html});
    if(u.pathname==='/api/mime')return route.fulfill({contentType:'application/json',body:JSON.stringify(u.searchParams.has('me')?{handle:'@fixture'}:{recent:[original],hasMore:false})});
    if(u.pathname==='/api/mood') {
     requests.push({body:route.request().postDataJSON(),auth:route.request().headers().authorization});
@@ -122,7 +122,7 @@ test('a mood draft survives sign-in and failure, then the confirmed post appears
   assert.equal(await text.inputValue(),'Still curious.');
   await page.screenshot({path:'/tmp/mime-mood-composer.png'});
   await dialog.getByRole('button',{name:'Post mood',exact:true}).click();
-  await page.waitForURL('**/p/mood~new*');
+  await page.waitForURL('**/mood~new*');
   await page.waitForFunction(()=>document.querySelector('#mood_saved')?.hasAttribute('data-onstage'));
   assert.equal(await page.locator('#mood_saved .mood-accessible').textContent(),'Still curious.');
   assert.equal(await page.locator('#mood_saved .reel-type').getAttribute('aria-label'),'mood');

@@ -462,7 +462,7 @@
       "aliases": [
         "www.mime.ac"
       ],
-      "note": "Use public permalinks (https://mime.ac/p/<code>) for citations. Account access, commenting and saving require the visitor's own authorization.",
+      "note": "Use public permalinks (https://mime.ac/<code>) for citations. Account access, commenting and saving require the visitor's own authorization.",
       "resources": [
         {
           "title": "Website",

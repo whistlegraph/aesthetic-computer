@@ -16,7 +16,7 @@ test('MIME new posts preserve runtimes, preloading is bounded and silent, and wg
   const runtimeLoads=[];
   await context.route('**/*',async route=>{
     const u=new URL(route.request().url());
-    if(u.hostname==='mime.ac' && (u.pathname==='/'||u.pathname.startsWith('/p/')||/^\/wg/.test(u.pathname)))return route.fulfill({contentType:'text/html',body:html});
+    if(u.hostname==='mime.ac' && (u.pathname==='/'||u.pathname.startsWith('/p/')||/^\/[A-Za-z0-9_~!-]+$/.test(u.pathname)))return route.fulfill({contentType:'text/html',body:html});
     if(u.pathname==='/api/mime'){
       if(u.searchParams.has('feed'))feedReads++;
       const code=u.searchParams.get('thread');
@@ -50,7 +50,7 @@ test('MIME new posts preserve runtimes, preloading is bounded and silent, and wg
     assert.deepEqual(await second.evaluate(()=>({volume,running})),{volume:0,running:false},'warm program holds silently');
     await page.locator('.mime-startup').waitFor({state:'detached'});
     await page.evaluate(()=>{window.savedCard=document.getElementById('piece_second');window.savedFrame=savedCard.querySelector('iframe');savedCard.scrollIntoView();});
-    await page.waitForURL('**/p/piece_second?*');
+    await page.waitForURL('**/piece_second?*');
     await second.waitForFunction(()=>running&&volume===1);
     recent=[fresh,...older];
     await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
@@ -67,6 +67,15 @@ test('MIME new posts preserve runtimes, preloading is bounded and silent, and wg
     assert.equal(await page.locator('header h1').evaluate(e=>getComputedStyle(e).opacity),'1');
     await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
     await page.waitForTimeout(100);assert.equal(await page.locator('.new-pill').count(),0,'no duplicate notification');
+    await page.goto('https://mime.ac/piece_second?ac-automation=1');
+    await page.locator('.mime-startup').waitFor({state:'detached'});
+    await page.waitForFunction(()=>document.getElementById('piece_second')?.hasAttribute('data-onstage'));
+    assert.ok(Math.abs(await page.locator('#piece_second').evaluate(node=>node.getBoundingClientRect().top))<2);
+    await page.reload();
+    await page.locator('.mime-startup').waitFor({state:'detached'});
+    assert.equal(new URL(page.url()).pathname,'/piece_second');
+    await page.waitForFunction(()=>document.getElementById('piece_second')?.hasAttribute('data-onstage'));
+    assert.ok(Math.abs(await page.locator('#piece_second').evaluate(node=>node.getBoundingClientRect().top))<2);
     await page.goto('https://mime.ac/p/wgpiece_wgNirin?ac-automation=1');
     await page.waitForURL('**/wgNirin?*');
     assert.equal(await page.locator('.feed-post').first().getAttribute('id'),'wgpiece_wgNirin');

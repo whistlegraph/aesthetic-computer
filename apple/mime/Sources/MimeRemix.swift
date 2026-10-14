@@ -18,7 +18,7 @@ extension Post {
         return media?.kind == "wgpiece" ? nil : remixWare == nil ? nil : 0
     }
     var permalink: URL {
-        URL(string: "https://mime.ac/p/" + code.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)!)!
+        shareURL
     }
     func remixPayload() async throws -> [String: Any] {
         guard let ware = remixWare, let edition else { throw MimeRemix.failure("This work has no editable version available.") }

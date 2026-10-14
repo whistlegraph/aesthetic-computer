@@ -9,6 +9,7 @@ test('top-left identifiers share only their MIME post, with a scannable QR, visi
   const browser = await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL,headless:true});
   try {
     const page = await browser.newPage({viewport:{width:704,height:334}});
+    page.setDefaultTimeout(10000);
     const posts = [
       {code:'whistlegraph_fixture',media:{kind:'whistlegraph',code:'wgHafar',url:'https://aesthetic.computer/wgHafar'}},
       {code:'mood_fixture',media:{kind:'mood',code:'abc'}},
@@ -27,7 +28,7 @@ test('top-left identifiers share only their MIME post, with a scannable QR, visi
     });
     await page.goto('https://mime.ac/?ac-automation=1');
     await page.waitForFunction(()=>!document.querySelector('.mime-startup') && document.querySelector('.reel-command'));
-    const expected=['https://mime.ac/wgHafar','https://mime.ac/p/mood~abc','https://mime.ac/p/upload_fixture'];
+    const expected=['https://mime.ac/wgHafar','https://mime.ac/mood~abc','https://mime.ac/upload_fixture'];
     for(let i=0;i<posts.length;i++) {
       const code=page.locator('#'+posts[i].code+' .reel-command .media-label');
       await code.scrollIntoViewIfNeeded();
@@ -66,6 +67,11 @@ test('top-left identifiers share only their MIME post, with a scannable QR, visi
       assert.equal(await code.evaluate(n=>document.activeElement===n),true);
       assert.deepEqual(await page.evaluate(()=>({url:location.href,y:scrollY})),before);
     }
+    await page.evaluate(async()=>{
+      const {openShare}=await import('/aesthetic.computer/lib/mime-share.mjs');
+      openShare('https://mime.ac/p/upload_fixture?old=1#old');
+    });
+    assert.equal(await page.locator('dialog .share-url').getAttribute('href'),'https://mime.ac/upload_fixture');
     assert.deepEqual(errors,[]);
   } finally {await browser.close();}
 });

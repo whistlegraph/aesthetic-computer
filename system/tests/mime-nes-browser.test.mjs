@@ -143,7 +143,7 @@ test('NES file picker validates locally, keeps a failed upload and opens the pub
     assert.deepEqual(Buffer.from(writes[0].file.data,'base64'),Buffer.from(inputROM()));
     const uploaded=page.waitForResponse(response=>response.url().endsWith('/api/mime')&&response.request().method()==='POST'&&response.status()===200);
     await post.click();await uploaded;await dialog.waitFor({state:'detached'});
-    await page.waitForURL('**/p/nes-fixture?ac-automation=1');
+    await page.waitForURL('**/nes-fixture?ac-automation=1');
     await page.locator('#nes-fixture .piece-preview iframe[data-ready="true"]').waitFor();
     assert.equal(writes.length,2);assert.deepEqual(errors,[]);
   }finally{await browser.close();}

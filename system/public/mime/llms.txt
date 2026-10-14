@@ -33,13 +33,13 @@ work's code (top left), its maker (bottom left) and its MIME type (bottom right)
 
 - Price: free. Browsing needs no account; commenting and saving need an Aesthetic Computer handle.
 - Platform: any modern web browser. A MIME app for iPhone is in early access.
-- Codes: #uf4 is a painting, $… a KidLisp program, !… a tape; typed at https://aesthetic.computer/ they open the work. Each card has a permanent link, https://mime.ac/p/<code>.
+- Codes: #uf4 is a painting, $… a KidLisp program, !… a tape; typed at https://aesthetic.computer/ they open the work. Each card has a permanent link, https://mime.ac/<code>.
 - Making: paintings, tapes and KidLisp programs are made in Aesthetic Computer; the iPhone app makes a new work from a card's type and remixes pieces, paintings and Doom WADs by version.
 - Maker: [Aesthetic Computer](https://aesthetic.computer/).
 
 ## For agents
 
-- Use public permalinks (https://mime.ac/p/<code>) for citations. Account access, commenting and saving require the visitor's own authorization.
+- Use public permalinks (https://mime.ac/<code>) for citations. Account access, commenting and saving require the visitor's own authorization.
 - [Public API](https://aesthetic.computer/api?format=json): Supported Aesthetic Computer integrations.
 - [Source](https://aesthetic.computer/mime/index.html): The published browser interface.
 

@@ -7,6 +7,7 @@ import { replayPost } from "../backend/mime-oskiewar.mjs";
 test("Oskiewar cards play in the feed, pause offscreen, and retain their permalink", async () => {
   const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL, headless: true });
   const page = await browser.newPage({ viewport: { width: 430, height: 860 } });
+  page.setDefaultTimeout(10000);
   const html = await readFile(new URL("../public/mime/index.html", import.meta.url), "utf8");
   const posts = ["ow-zimmu299", "ow-chette767"].map(_id => replayPost({ _id,
     fighters: ["@JEFFREY", "@FIFI"], recordedAt: new Date().toISOString(), version: 1 }));
@@ -14,7 +15,7 @@ test("Oskiewar cards play in the feed, pause offscreen, and retain their permali
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/*", route => {
     const url = new URL(route.request().url());
-    if (url.hostname === "mime.ac" && (url.pathname === "/" || url.pathname.startsWith("/p/")))
+    if (url.hostname === "mime.ac" && (url.pathname === "/" || url.pathname.startsWith("/p/") || /^\/[A-Za-z0-9_~!-]+$/.test(url.pathname)))
       return route.fulfill({ contentType: "text/html", body: html });
     if (url.pathname === "/api/mime") return route.fulfill({ contentType: "application/json",
       body: JSON.stringify(url.searchParams.has("thread") ? { op: posts.find(p => p.code === url.searchParams.get("thread")), replies: [] }
@@ -55,7 +56,7 @@ test("Oskiewar cards play in the feed, pause offscreen, and retain their permali
     await page.locator("#ow-chette767").evaluate(e => e.scrollIntoView());
     await second.waitForFunction(() => playing);
     await first.waitForFunction(() => !playing);
-    await page.waitForURL("**/p/ow-chette767?*");
+    await page.waitForURL("**/ow-chette767?*");
     await page.reload();
     await page.waitForFunction(() => document.querySelector("#ow-chette767 iframe")?.dataset.ready === "true");
     await page.frames().find(f => f.url().includes("oskiewar.com/chette767")).waitForFunction(() => playing);

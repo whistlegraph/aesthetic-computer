@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MIME.ac — every file has a type. Flip through them all.</title>
   <meta name="description" content="Every file has a MIME type. MIME.ac is a toy for browsing, making and flipping through them all, one work per screen, as if file types were TV channels: paintings as image/png, KidLisp as text/x-lisp, tapes as video/mp4, Doom levels, pieces and more." />
-  <!-- /p/<code> and /wg… permalinks all serve this page; one canonical keeps
+  <!-- /<code> permalinks all serve this page; one canonical keeps
        every card's link out of the index as a duplicate. The guide at
        /mime-types/ is the crawlable prose. -->
   <link rel="canonical" href="https://mime.ac/" />
@@ -1686,7 +1686,11 @@ function mimeLetterColors(type) {
     : i === slash ? "#fff" : subtypes[subtype] || "#d9c7f3");
 }
 function postPath(permalink) {
-  return /^wg[A-Za-z0-9]+$/.test(permalink) ? "/" + permalink : "/p/" + encodeURIComponent(permalink);
+  return "/" + encodeURIComponent(permalink);
+}
+function postFromPath(path) {
+  const match = /^\/(?:p\/)?([A-Za-z0-9_~!-]+)$/.exec(path);
+  return match && !["mime", "mime-types", "terms", "support", "prompt", "api"].includes(match[1]) ? match[1] : null;
 }
 function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) {
   const root = !post.parent;
@@ -2652,7 +2656,7 @@ async function route() {
   const page = Math.max(0, parseInt(params.get("page")) || 0);
   view.replaceChildren(el("p", null, "loading…"));
   try {
-    if (!hash) await home(page, signal, location.pathname.startsWith("/p/") ? decodeURIComponent(location.pathname.slice(3)) : /^\/wg[A-Za-z0-9]+$/.test(location.pathname) ? location.pathname.slice(1) : null);
+    if (!hash) await home(page, signal, postFromPath(location.pathname));
     else if (hash === "saved") await savedPosts(page, signal);
     else if (hash.startsWith("t/")) await thread(hash.slice(2), undefined, signal);
     else if (hash.startsWith("media/")) {
@@ -2709,7 +2713,8 @@ async function start() {
       resumeNES = appState?.nes === true;
       resumeComments = typeof appState?.comment === 'string' ? appState.comment : null;
       const hash = typeof appState?.hash === "string" && appState.hash.startsWith("#/") ? appState.hash : "#/";
-      const path = resumeComments && /^\/(?:p\/[^/?#]+|wg[A-Za-z0-9]+)$/.test(appState?.commentPath || '') ? appState.commentPath : location.pathname;
+      const resumedPost = resumeComments && postFromPath(appState?.commentPath || '');
+      const path = resumedPost ? postPath(resumedPost) : location.pathname;
       history.replaceState(null, "", path + hash);
     } catch (error) {
       accountStatus.textContent = error.message || "could not finish sign-in";

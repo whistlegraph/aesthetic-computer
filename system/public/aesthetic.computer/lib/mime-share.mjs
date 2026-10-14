@@ -3,7 +3,8 @@ import { qrcode, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 let active;
 export function openShare(href, { opener = document.activeElement } = {}) {
   const url = new URL(href);
-  if (url.origin !== "https://mime.ac" || !/^\/(wg[A-Za-z0-9]+|p\/[^/]+)$/.test(url.pathname)) return;
+  if (url.origin !== "https://mime.ac" || !/^\/(?:p\/)?[A-Za-z0-9_~!-]+$/.test(url.pathname)) return;
+  url.pathname = url.pathname.replace(/^\/p\//, "/");
   url.search = url.hash = "";
   if (active?.open) { active.focus(); return active; }
   const dialog = document.createElement("dialog");

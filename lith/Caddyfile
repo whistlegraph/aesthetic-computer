@@ -1466,14 +1466,24 @@ mime.ac {
         header Cache-Control "no-cache"
         file_server
     }
-    handle /p/* {
-        root * /opt/ac/system/public/mime
-        rewrite * /index.html
-        header Cache-Control "no-cache"
-        file_server
+    @mime_legacy path_regexp mime_legacy ^/p/[A-Za-z0-9_~!-]+$
+    handle @mime_legacy {
+        route {
+            uri strip_prefix /p
+            redir {uri} 308
+        }
     }
-    @mime_wg path_regexp mime_wg ^/wg[A-Za-z0-9]+$
-    handle @mime_wg {
+    @mime_post {
+        path_regexp mime_post ^/[A-Za-z0-9_~!-]+$
+        not path /api /mime /prompt /mime-types /terms /support
+        not {
+            file {
+                root /opt/ac/system/public
+                try_files {path} {path}/
+            }
+        }
+    }
+    handle @mime_post {
         root * /opt/ac/system/public/mime
         rewrite * /index.html
         header Cache-Control "no-cache"

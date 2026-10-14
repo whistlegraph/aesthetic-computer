@@ -157,7 +157,7 @@ export async function handler(event, context) {
         const messagesWithHandles = await Promise.all(messages.map(async (msg) => ({
           id: msg._id.toString(),
           permalink: !msg.deleted && handleMap.has(msg.user) && ["system", "clock"].includes(msg.__instance || instance)
-            ? "https://mime.ac/p/chat~" + await ensureChatCode(database.db, msg.__instance || instance, msg._id) : undefined,
+            ? "https://mime.ac/chat~" + await ensureChatCode(database.db, msg.__instance || instance, msg._id) : undefined,
           // Service-relay rows (via: "youtube") carry their visitor name in
           // `from` instead of a user sub — surface it rather than "anon".
           from: (msg.user && handleMap.get(msg.user)) || msg.from || "anon",
