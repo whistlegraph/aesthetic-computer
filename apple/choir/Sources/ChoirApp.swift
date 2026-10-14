@@ -74,7 +74,16 @@ final class Room: ObservableObject {
             (posts, tags) = try await (p, t)
             error = nil
         } catch { self.error = error.localizedDescription }
-        loaded = true
+        // The first answer raises the curtain (RoomView.curtain). An explicit
+        // animation here is what carries the flower's flight: the matched
+        // geometry's source changes in a later layout pass, which an implicit
+        // `.animation(value:)` on the view does not reach.
+        if !loaded {
+            // Behind the still-opaque curtain, give the chat a beat to settle onto
+            // its bottom anchor, so the flower's seat is where it will stay.
+            try? await Task.sleep(for: .milliseconds(120))
+            withAnimation(.easeInOut(duration: 0.6)) { loaded = true }
+        }
     }
 
     func hide(_ handle: String) {

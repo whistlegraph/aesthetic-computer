@@ -12,18 +12,27 @@ struct RoomView: View {
     @State private var detent: PresentationDetent = .medium
     @State private var discover = false
     @State private var oracle = false
+    /// The launch flower's flight into the chat (see `curtain`): where the
+    /// chat's own flower sits and where the chat's visible top is, both in
+    /// screen coordinates, and whether the flight has landed.
+    @State private var seat = CGRect.zero
+    @State private var chatTop: CGFloat = 0
+    @State private var flew = false
     enum Sheet: String, Identifiable { case login, new, account; var id: String { rawValue } }
 
     var body: some View {
+      ZStack {
         NavigationStack {
             ScrollViewReader { scroller in
               VStack(spacing: 0) {
-                if !room.loaded {
-                    Opening().frame(maxWidth: .infinity, maxHeight: .infinity).transition(.opacity)
-                } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                    // The head of the chat is a plain stack, not lazy, so the flower
+                    // exists (as the flight's target) even when the chat is long
+                    // and opens scrolled to the bottom.
+                    VStack(alignment: .leading, spacing: 10) {
                         SingingMark(height: account.signedIn ? 56 : 84, energy: account.signedIn ? 0.5 : 1)
+                            .opacity(flew ? 1 : 0) // the curtain's flower stands in until it lands
+                            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { seat = $0 }
                             .frame(maxWidth: .infinity).onTapGesture { pick(nil) }
                         if !account.signedIn {
                             Text("Comments on culture").font(Theme.type(15)).foregroundStyle(Theme.ink.opacity(0.75))
@@ -33,25 +42,26 @@ struct RoomView: View {
                         if let error = room.error {
                             Text(error).font(Theme.type(12)).foregroundStyle(Theme.ink)
                         }
-                        ForEach(room.chat) { post in
-                          if post.kind == "greeting" {
-                            GreetingLine(post: post)
-                          } else {
-                            ChatRow(post: post, mine: post.handle == account.handle, onTag: pick)
-                                .contentShape(Rectangle())
-                                .onTapGesture { Trail.send("thread:sheet"); open = post }
-                          }
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            ForEach(room.chat) { post in
+                              if post.kind == "greeting" {
+                                GreetingLine(post: post)
+                              } else {
+                                ChatRow(post: post, mine: post.handle == account.handle, onTag: pick)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { Trail.send("thread:sheet"); open = post }
+                              }
+                            }
+                            Color.clear.frame(height: 1).id("bottom")
                         }
-                        Color.clear.frame(height: 1).id("bottom")
                     }
                     .padding(.horizontal, 14).padding(.vertical, 12)
                 }
                 .defaultScrollAnchor(.bottom)
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY + $0.safeAreaInsets.top } action: { chatTop = $0 }
                 .scrollDismissesKeyboard(.interactively)
                 .refreshable { await room.load() }
                 .onChange(of: room.chat.last?.id) { _, _ in withAnimation { scroller.scrollTo("bottom", anchor: .bottom) } }
-                .transition(.opacity)
-                }
 
                 // A real bottom bar (not an overlay), so the keyboard pushes it up.
                 Group {
@@ -72,7 +82,6 @@ struct RoomView: View {
                     }
                 }
               }
-              .animation(.easeOut(duration: 0.4), value: room.loaded)
               .background(RuledPaper().ignoresSafeArea())
               .navigationBarTitleDisplayMode(.inline)
             }
@@ -138,6 +147,47 @@ struct RoomView: View {
                 }
             }
         }
+        if !flew { curtain }
+      }
+      .onChange(of: room.loaded) { _, loaded in
+          guard loaded else { return }
+          Task { // once the flight lands, the chat's own flower takes over, same clock, no cut
+              try? await Task.sleep(for: .seconds(0.65))
+              var still = Transaction(); still.disablesAnimations = true
+              withTransaction(still) { flew = true }
+          }
+      }
+    }
+
+    /// Launch, opening and chat as one flower (Fía, 10-13: "too many flowers in
+    /// the startup sequence"; @jeffrey: "when the app load screen opens it
+    /// flashes weird"). The launch screen leaves a 180 pt flower centered on the
+    /// desk. This curtain is the same flower in the same place, breathing, over
+    /// an opaque desk that hides the toolbar and bottom bar until the room has
+    /// loaded. Then the desk fades out and the flower flies to its seat at the
+    /// head of the chat, where `flew` swaps in the chat's own.
+    var curtain: some View {
+        let h: CGFloat = account.signedIn ? 56 : 84 // the flower's height at the head of the chat
+        return GeometryReader { geo in
+            // Screen coordinates throughout, the space `seat` and `chatTop` are measured in.
+            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+            // The chat's flower is a landing only while it is in view. A long chat opens
+            // scrolled to its bottom with the flower far above, so the flight rises to
+            // the top of the chat and dissolves there rather than shooting off-screen.
+            let landing = seat.minY >= chatTop - 1 && seat.maxY <= geo.size.height
+            let target = room.loaded ? (landing ? CGPoint(x: seat.midX, y: seat.midY) : CGPoint(x: center.x, y: chatTop + 12 + h / 2)) : center
+            ZStack {
+                Theme.desk.opacity(room.loaded ? 0 : 1)
+                SingingMark(height: room.loaded ? h : 180, energy: room.loaded && account.signedIn ? 0.5 : 1)
+                    .opacity(room.loaded && !landing ? 0 : 1)
+                    .animation(.easeIn(duration: 0.3).delay(0.3), value: room.loaded) // dissolve on the way up, not at takeoff
+                    .position(target)
+            }
+            .animation(.easeInOut(duration: 0.6), value: target)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(!room.loaded)
+        .transition(.identity)
     }
 
     func pick(_ tag: String?) {
@@ -145,15 +195,6 @@ struct RoomView: View {
         Trail.send("tag", ["tag": tag ?? "all"])
         Task { await room.load() }
     }
-}
-
-/// The first thing shown: the one flower from the launch screen, come alive
-/// and breathing while the room loads. Nothing else, so launch, opening and
-/// chat read as a single flower (Fía, 10-13: "too many flowers in the startup
-/// sequence, less or more"). Before this the chat opened onto an empty,
-/// bottom-anchored page and jumped when the posts arrived.
-struct Opening: View {
-    var body: some View { SingingMark(height: 84) }
 }
 
 /// "🌼 Welcome @lou — say hi!", centered, when someone joins.
