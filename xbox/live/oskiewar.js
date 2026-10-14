@@ -3933,6 +3933,11 @@ function boardAtContact(x, y, z) {
   return nearest;
 }
 function boardCondition(board) { return board ? (board.condition ||= {health:100,cracks:[],brokenAt:0}) : boardState; }
+// The paint's read of a board's cracks. It must not create `condition` the
+// way boardCondition does: the board is a ball in the rollback snapshot, so
+// a seat that had drawn it hashed a key a seat that had not lacked.
+const noCracks = Object.freeze([]);
+const boardCracks = (board) => board ? board.condition?.cracks ?? noCracks : boardState.cracks;
 function damageBoard(amount, x, y, z, now = runtime().monotonicUs) {
   const board = boardAtContact(x,y,z);
   const state = boardCondition(board);
@@ -24649,7 +24654,7 @@ function drawSkateboard(player) {
   // whenever it flips). Trucks and wheels are their own parts below.
   const nearSide = cameraDoll.position.z < player.z ? -1 : 1;
   if(nativeRetainedMeshes){
-    const cracks=boardCondition(player.boardObject || balls[player.skateBoardId ?? 1]).cracks;
+    const cracks=boardCracks(player.boardObject || balls[player.skateBoardId ?? 1]);
     const key=(player.color||[236,76,118]).join(',')+':'+JSON.stringify(cracks);
     let mesh=skateDeckMeshes.get(key);
     if(!mesh){
@@ -24696,7 +24701,7 @@ function drawSkateDeckGeometry(player,at){
   for (const end of [stations[0], stations[stations.length - 1]])
     worldQuad(top(end, -1), top(end, 1), bottom(end, 1), bottom(end, -1), ply);
   // Cracks and chips in the grip, as the board takes damage.
-  for (const crack of boardCondition(player.boardObject || balls[player.skateBoardId ?? 1]).cracks) {
+  for (const crack of boardCracks(player.boardObject || balls[player.skateBoardId ?? 1])) {
     const c = Math.cos(crack.angle), s = Math.sin(crack.angle);
     const a = at(crack.along - c * crack.length / 2, -4.4 + lift(crack.along), crack.across - s * crack.length / 2);
     const b = at(crack.along + c * crack.length / 2, -4.4 + lift(crack.along), crack.across + s * crack.length / 2);

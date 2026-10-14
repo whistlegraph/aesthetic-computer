@@ -103,3 +103,16 @@ for (const view of [{ width: 1920, height: 1080 }, { width: 2880, height: 800 }]
   });
 }
 
+test("world entities carry a renderer id and a type, and the snapshot never sees them", () => {
+  const s = seat({ width: 1920, height: 1080 });
+  const keys = Object.keys(s.fight.players[0]).join();
+  const before = JSON.stringify(s.fight.netSnapshot());
+  s.paint();
+  const first = s.fight.worldEntities();
+  s.paint();
+  const second = s.fight.worldEntities();
+  assert.deepEqual(second.map(e => [e.id, e.type]), first.map(e => [e.id, e.type]));
+  assert.equal(new Set(first.map(e => e.id)).size, first.length);
+  assert.equal(Object.keys(s.fight.players[0]).join(), keys);
+  assert.equal(JSON.stringify(s.fight.netSnapshot()), before);
+});
