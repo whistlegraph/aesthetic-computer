@@ -16994,7 +16994,7 @@ function generatedPartColor(appearance, segment) {
 // its joint and its end (a quadratic whose control point puts the joint on
 // the curve), drawn as a chain of short strokes with round ends, outline
 // first and colour over it. The torso and neck stay straight.
-function drawCurvedLimbs(segments, color, outline, edge, player) {
+function drawCurvedLimbs(segments, color, outline, edge, player, head = null) {
   const used = new Set();
   const chains = [];
   for (const upper of segments) {
@@ -17043,27 +17043,36 @@ function drawCurvedLimbs(segments, color, outline, edge, player) {
   };
   const shaded = (segment) => damagedPartColor(player.pantsColor && isLegRole(segment.role) ? player.pantsColor : color, player, segment.part);
   const curves = chains.map((chain) => ({ chain, points: curve(chain) }));
-  // Outlines, then fills — straight bones first so limbs sit over the torso.
+  // Every edge first — straight bones, curved limbs, the head — then every
+  // fill, straight bones first so limbs sit over the torso. The curved
+  // limbs' edges used to go down after the torso was filled, and drew a
+  // line across the hips and shoulders.
   for (const segment of segments)
     if (!segment.hitboxOnly && !used.has(segment))
       filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2, segment.width + edge * 2, outline);
+  for (const { chain, points } of curves) drawChain(points, chain[0].width + edge * 2, outline);
+  if (head) filledDisc(head.x, head.y, head.radius + edge, outline);
   for (const segment of segments)
     if (!segment.hitboxOnly && !used.has(segment))
       filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2, segment.width, shaded(segment));
-  for (const { chain, points } of curves) drawChain(points, chain[0].width + edge * 2, outline);
   for (const { chain, points } of curves) drawChain(points, chain[0].width, shaded(chain[0]));
 }
 
-function drawSkeletonSegments(segments, color, outline, player = null) {
+// One ink edge around the whole figure, never one per part: every part's
+// edge (the head's too) goes down first, then every fill, so a fill always
+// covers the edges of the parts it meets. Knees, elbows, hips, shoulders
+// and the neck show no seam; only the silhouette is outlined.
+function drawSkeletonSegments(segments, color, outline, player = null, head = null) {
   const appearance = generatedAppearance(player);
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
-  if (player?.skin && !appearance) { drawCurvedLimbs(segments, color, outline, edge, player); return; }
+  if (player?.skin && !appearance) { drawCurvedLimbs(segments, color, outline, edge, player, head); return; }
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
   for (const segment of segments) {
     if (segment.hitboxOnly) continue;
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       segment.width + edge * 2, outline);
   }
+  if (head) filledDisc(head.x, head.y, head.radius + edge, outline);
   for (const [index, segment] of segments.entries()) {
     if (segment.hitboxOnly) continue;
     drawPaletteCapsule(segment, appearance || player?.skin ? null : player && !player.npc
@@ -17121,12 +17130,11 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 }
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
-  drawSkeletonSegments(player?.spin ? geometry.segments.filter(s=> !/arm$/.test(s.role||"")) : geometry.segments, color, outline, player);
+  drawSkeletonSegments(player?.spin ? geometry.segments.filter(s=> !/arm$/.test(s.role||"")) : geometry.segments, color, outline, player, geometry.head);
   const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
-  // The neck connector and solid head are emitted into the same triangle
-  // silhouette pass, so the head cannot detach as a separate line-layer ring.
-  filledDisc(geometry.head.x, geometry.head.y,
-    geometry.head.radius + headEdge, outline);
+  // The head's ink edge went down AFTER the body's fills and drew a ring
+  // across the neck and shoulders. It is drawn with the limbs' edges now,
+  // inside drawSkeletonSegments, before any fill (see `headOutline`).
   // AC stores the @ glyph first; the face is the identity anchor for the same
   // palette that distorts continuously across the body below it.
   const appearance = generatedAppearance(player);
@@ -24314,6 +24322,26 @@ function drawDojoRoof(){
 }
 
 let dojoFinishMesh=null,dojoFinishKey="";
+// The gun arena's mound, drawn from the same terrainFloorAt the feet stand
+// on — the dojo's floor is one flat quad, so a hill that was only physics
+// was invisible. Strips across the room's depth, lit by their slope so the
+// rise reads, and a face on the near edge for the silhouette.
+function drawGunHill(ground) {
+  const hill = parkSegments.find((segment) => segment.kind === "hill");
+  if (!hill) return;
+  const steps = 18, near = worldNear, far = worldFar;
+  const lit = mixColor(ground, [255, 255, 255], .14), shade = mixColor(ground, [30, 28, 40], .22);
+  const front = mixColor(ground, [30, 28, 40], .32), rim = mixColor(ground, [20, 18, 30], .55);
+  for (let i = 0; i < steps; i++) {
+    const x = lerp(hill.left, hill.right, i / steps), r = lerp(hill.left, hill.right, (i + 1) / steps);
+    const y = terrainFloorAt(x), ry = terrainFloorAt(r);
+    const color = ry < y ? lit : ry > y ? shade : ground;
+    worldQuad({ x, y, z: near }, { x: r, y: ry, z: near }, { x: r, y: ry, z: far }, { x, y, z: far }, color);
+    worldQuad({ x, y: floorY, z: near }, { x: r, y: floorY, z: near }, { x: r, y: ry, z: near }, { x, y, z: near }, front);
+    // An ink lip along the crest line, the figures' own outline weight.
+    worldQuad({ x, y: y - 3, z: near - 1 }, { x: r, y: ry - 3, z: near - 1 }, { x: r, y: ry + 3, z: near - 1 }, { x, y: y + 3, z: near - 1 }, rim);
+  }
+}
 function drawDojoFinish(ground) {
  const key=[worldLeft,worldRight,worldNear,worldFar,...ground].join(',');
  if(key!==dojoFinishKey){
@@ -26823,6 +26851,7 @@ function gamePaint() {
     drawTerrainFrontWall(spanLeft, spanRight, groundNear, hall ? hall.structure : ground);
   }
   if(currentMapId === "dojo" && !skateparkMap && !survivalActive())drawDojoFinish(ground);
+  if (gunArenaOn && currentMapId === "dojo" && !skateparkMap && !survivalActive()) drawGunHill(ground);
   drawDojoRoof();
   drawDecals(hall ? hall.ramp : ground);
   drawSkateParkFeatures(ground);
