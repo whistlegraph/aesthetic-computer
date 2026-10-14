@@ -2,6 +2,8 @@
 
 > Paint with AI image models or local brushes using your Aesthetic Computer account.
 
+The website shares its cloud model catalog, Braincell prices and high-level UI definitions with the No Paint desktop app. Local Stable Diffusion, fleet models and Real-ESRGAN are available through an explicitly paired desktop companion. Browser paintings and history are kept locally. Done publishes the accepted painting and steps under the signed-in AC handle.
+
 ## Resources
 
 - [Website](https://nopaint.art/): Public entry point.
@@ -9,12 +11,6 @@
 - [Gallery](https://nopaint.art/gallery/): Public painting records.
 - [Gallery JSON](https://nopaint.art/gallery/gallery.json): The same public gallery data used by the page.
 - [AC runtime version](https://nopaint.art/nopaint): The earlier AC-native remake.
-
-The website shares its cloud model catalog, Braincell prices and high-level UI
-definitions with the No Paint desktop app. Local Stable Diffusion, fleet models
-and Real-ESRGAN are available through an explicitly paired desktop companion.
-Browser paintings and history are kept locally. Done publishes the accepted
-painting and steps under the signed-in AC handle.
 
 ## Network
 

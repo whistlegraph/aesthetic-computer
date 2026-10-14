@@ -192,8 +192,37 @@ test("No during image preparation prevents an unsent paid request", async () => 
   const work = f.game.paint();
   await new Promise((r) => setImmediate(r));
   await f.game.no();
-  pending.resolve({ input: "data:image/png;base64,prepared", finish: async (image) => image });
+  pending.resolve({
+    input: "data:image/png;base64,prepared",
+    finish: async (image) => image,
+  });
   await work;
   assert.equal(f.requests.length, 0);
   assert.equal(f.records.get(f.game.track.id).pending, null);
+});
+
+test("a read-only tab leaves an active pending request and stored settings untouched", async () => {
+  const f = fixture();
+  await f.game.boot();
+  f.game.track.pending = { id: "active", model: "ac-test" };
+  await f.game.persist();
+  const original = structuredClone(f.records.get(f.game.track.id));
+  const reader = new Game({
+    store: f.store,
+    images: f.images,
+    account: f.account,
+  });
+  await reader.boot({ readOnly: true });
+  assert.equal(reader.canPaint, false);
+  assert.equal(reader.error, null);
+  assert.equal(reader.track.pending.id, "active");
+  await reader.select("classic");
+  await reader.persist();
+  assert.deepEqual(f.records.get(f.game.track.id), original);
+  assert.equal(f.requests.length, 0);
+  const empty = fixture();
+  await empty.game.boot({ readOnly: true });
+  assert.ok(empty.game.accepted);
+  assert.equal(empty.records.size, 0);
+  assert.equal(await empty.store.setting("current"), undefined);
 });

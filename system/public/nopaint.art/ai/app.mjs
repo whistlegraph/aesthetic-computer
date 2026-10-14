@@ -648,6 +648,8 @@ async function showHistory(trackID) {
   open("history");
 }
 async function connect(token) {
+  if (locked)
+    throw Error("Close the other No Paint tab and reload here to connect.");
   const next = new Companion(token, () => {
     if (!drag) mask = next.mask || mask;
     render();
@@ -884,9 +886,22 @@ window.addEventListener("blur", () => {
 new ResizeObserver(resize).observe($("studio"));
 resize();
 async function boot() {
+  // Claim the painting before opening storage: a second tab must never recover
+  // the first tab's pending request as if it had been interrupted.
+  if (navigator.locks) {
+    await new Promise((resolve, reject) => {
+      navigator.locks
+        .request("nopaint-ai-editor", { ifAvailable: true }, async (lock) => {
+          locked = !lock;
+          resolve();
+          if (lock) await new Promise(() => {});
+        })
+        .catch(reject);
+    });
+  }
   store = await openStore();
   game = new Game({ store, images, account, onchange: () => render() });
-  await game.boot();
+  await game.boot({ readOnly: locked });
   mask = game.mask?.slice() || mask;
   lastPublication = (await store.setting("published")) || "";
   const params = new URLSearchParams(location.hash.slice(1)),
@@ -894,7 +909,7 @@ async function boot() {
       params.get("companion") || sessionStorage.getItem("nopaint-companion");
   if (params.has("companion"))
     history.replaceState(null, "", location.pathname + location.search);
-  if (token)
+  if (token && !locked)
     await connect(token).catch((error) => {
       sessionStorage.removeItem("nopaint-companion");
       notice(error.message);
@@ -903,19 +918,6 @@ async function boot() {
     issue = error.message;
     status();
   });
-  if (navigator.locks)
-    navigator.locks.request(
-      "nopaint-ai-editor",
-      { ifAvailable: true },
-      async (lock) => {
-        if (!lock) {
-          locked = true;
-          render();
-          return;
-        }
-        await new Promise(() => {});
-      },
-    );
   setInterval(async () => {
     if (desktop) {
       await desktop.poll();

@@ -494,11 +494,12 @@
     {
       "url": "https://nopaint.art/",
       "title": "No Paint",
-      "summary": "Aesthetic Computer's No Paint remake and the preserved painting archive.",
+      "summary": "Paint with AI image models or local brushes using your Aesthetic Computer account.",
       "llms": "https://nopaint.art/llms.txt",
       "aliases": [
         "www.nopaint.art"
       ],
+      "note": "The website shares its cloud model catalog, Braincell prices and high-level UI definitions with the No Paint desktop app. Local Stable Diffusion, fleet models and Real-ESRGAN are available through an explicitly paired desktop companion. Browser paintings and history are kept locally. Done publishes the accepted painting and steps under the signed-in AC handle.",
       "resources": [
         {
           "title": "Website",
@@ -519,6 +520,11 @@
           "title": "Gallery JSON",
           "url": "https://nopaint.art/gallery/gallery.json",
           "description": "The same public gallery data used by the page."
+        },
+        {
+          "title": "AC runtime version",
+          "url": "https://nopaint.art/nopaint",
+          "description": "The earlier AC-native remake."
         }
       ]
     },

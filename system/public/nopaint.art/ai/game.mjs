@@ -81,6 +81,7 @@ export class Game {
   get canChange() {
     return Boolean(
       this.track &&
+        !this.readOnly &&
         !this.busy &&
         !this.publishing &&
         !this.track.publication?.pending,
@@ -89,13 +90,14 @@ export class Game {
   get canPaint() {
     return this.canChange && Boolean(this.quote) && !this.error;
   }
-  async boot() {
+  async boot({ readOnly = false } = {}) {
+    this.readOnly = readOnly;
     const id = await this.store.setting("current");
     this.track = id && (await this.store.get(id));
     this.selection = (await this.store.setting("model")) || "random";
     this.strength = (await this.store.setting("strength")) || 0.25;
     if (!this.track) await this.fresh();
-    else if (this.track.pending) {
+    else if (this.track.pending && !readOnly) {
       this.track.events.push({
         ...this.track.pending,
         type: "interrupted",
@@ -115,6 +117,7 @@ export class Game {
     this.onchange();
   }
   persist() {
+    if (this.readOnly) return Promise.resolve();
     const snapshot = structuredClone(this.track);
     this.saving = this.saving
       .catch(() => {})
@@ -157,7 +160,7 @@ export class Game {
     this.mask = null;
     this.error = null;
     await this.persist();
-    await this.store.setting("current", this.track.id);
+    if (!this.readOnly) await this.store.setting("current", this.track.id);
     this.prepare();
     this.changed();
   }

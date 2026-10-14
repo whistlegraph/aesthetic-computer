@@ -48,7 +48,7 @@ let releaseCloud,
 let notifyCloud;
 const cloudSubmitted = new Promise((resolve) => (notifyCloud = resolve));
 page.on("pageerror", (e) => errors.push(e.message));
-await page.addInitScript(() => {
+await context.addInitScript(() => {
   globalThis.auth0 = {
     Auth0Client: class {
       async isAuthenticated() {
@@ -214,6 +214,31 @@ try {
   await cloudSubmitted;
   assert.equal(moves.length, 1);
   assert.equal(moves[0].hint, "a red square");
+  const second = await context.newPage();
+  await second.goto(base + "/nopaint.art/ai/index.html");
+  await second.waitForFunction(() =>
+    document
+      .querySelector("#status")
+      .textContent.includes("Open in another tab"),
+  );
+  assert.equal(
+    await second.locator(".decisions [data-action=paint]").isDisabled(),
+    true,
+  );
+  assert.equal(
+    await second.evaluate(async () => {
+      const { openStore } = await import("/nopaint.art/ai/storage.mjs");
+      const store = await openStore();
+      const track = await store.get(await store.setting("current"));
+      return (
+        Boolean(track.pending) &&
+        !track.events.some((e) => e.type === "interrupted")
+      );
+    }),
+    true,
+    "second tab must preserve the active cloud request",
+  );
+  await second.close();
   await no().click();
   await page.mouse.move(0, 0);
   releaseCloud();
@@ -270,6 +295,7 @@ try {
         "exact mask preservation",
         "authenticated cloud quote and hint",
         "late cloud cancellation",
+        "second tab preserves pending work",
         "Done recovery without duplicate uploads",
         "history",
         "phone layout",
