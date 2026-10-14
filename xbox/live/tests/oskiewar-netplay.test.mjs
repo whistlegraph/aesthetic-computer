@@ -577,6 +577,34 @@ test("a rejoining rival's hello ends the dead session instead of feeding it", ()
   }
 });
 
+// The handshake is the protocol: a deal from another build, or another
+// simulation, is refused out loud rather than simulated into a desync.
+test("a challenger refuses a deal from a different build and tells the host", () => {
+  const fighters = [{ name: "@HOST", rosterIndex: 0, color: [190, 42, 58], handleColors: [] },
+    { name: "@ME", rosterIndex: -1, color: [38, 82, 176], handleColors: [] }];
+  const cases = [
+    ["an older build with no handshake", () => ({})],
+    ["another build", (hello) => ({ build: hello.build - 1, sim: hello.sim })],
+    ["another simulation", (hello) => ({ build: hello.build, sim: (hello.sim + 1) >>> 0 })],
+  ];
+  for (const [label, protocol] of cases) {
+    // A fresh seat each time: one refusal keeps the lane shut for ten
+    // seconds, so a second deal to the same seat would go unread.
+    const outbound = [];
+    const bridge = { name: "sezzi8", seat: "challenger", live: true,
+      start(listener) { bridge.listener = listener; return () => {}; },
+      sendNet(content) { outbound.push(content); return true; },
+      sendInput() { return true; } };
+    const guest = createSeat({ roundBridge: bridge });
+    guest.tick();
+    const hello = outbound.find((packet) => packet.t === "hello");
+    bridge.listener({ type: "net", roundName: "sezzi8", live: true, content: {
+      t: "start", v: 2, ...protocol(hello), map: "station", origin: 16667000, delay: 2, fighters } });
+    assert.equal(guest.fight.netplayState(), null, `${label}: no session`);
+    assert.ok(outbound.some((packet) => packet.t === "refuse"), `${label}: the host is told`);
+  }
+});
+
 test("the challenger takes a deal from its bridge and stops watching the stream", () => {
   const outbound = [];
   const bridge = { name: "sezzi7", seat: "challenger", live: true,
@@ -588,7 +616,12 @@ test("the challenger takes a deal from its bridge and stops watching the stream"
   // Seated and watching: the challenger announces itself.
   guest.tick();
   assert.ok(outbound.some((packet) => packet.t === "hello"), "it says hello");
-  const deal = { t: "start", v: 2, origin: 16667000, delay: 2, ballType: "soccer",
+  // The hello carries the seat's handshake; a deal from the same program
+  // carries the same one back.
+  const hello = outbound.find((packet) => packet.t === "hello");
+  assert.ok(Number.isInteger(hello.build) && Number.isInteger(hello.sim), "the hello names its build and sim");
+  const deal = { t: "start", v: 2, build: hello.build, sim: hello.sim, game: hello.game,
+    map: "station", origin: 16667000, delay: 2, ballType: "soccer",
     fighters: [{ name: "@HOST", rosterIndex: 0, color: [190, 42, 58], handleColors: [] },
       { name: "@ME", rosterIndex: -1, color: [38, 82, 176], handleColors: [] }] };
   bridge.listener({ type: "net", content: deal, roundName: "sezzi7", live: true });

@@ -846,6 +846,12 @@ private final class NativeGameHost {
            let data = try? Data(contentsOf: url),
            let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             print("[oskiewar release] build=\(release["build"] ?? "?") runtime=\(release["release"] ?? "?")")
+            // The game source's hash rides the net handshake: two apps whose
+            // oskiewar.js differ refuse to simulate one fight together.
+            if let game = release["game"] as? String,
+               game.range(of: "^[0-9a-f]{16,128}$", options: .regularExpression) != nil {
+                javascript.evaluateScript("globalThis.__oskiewarGameHash = '\(game)';")
+            }
         }
         GCController.startWirelessControllerDiscovery(completionHandler: nil)
         guard let resources = Bundle.main.resourceURL,
@@ -1015,6 +1021,7 @@ private final class NativeGameHost {
     }
 
     private func frame() {
+        updateLogicalSize()
         // Relay words land here, on the same thread as every other JS call,
         // before the sim steps that will read what they set.
         for message in network.drainInbox() {
@@ -1046,7 +1053,8 @@ private final class NativeGameHost {
             let probe = javascript.evaluateScript(
                 "JSON.stringify({net: globalThis.__oskiewarNetStats || null, room: globalThis.__oskiewarVersusRoom || '', " +
                 "inbox: (globalThis.__oskiewarNetInbox || []).length, sends: globalThis.__oskiewarNetSendCount || 0, " +
-                "sendOk: globalThis.__oskiewarNetSendOk || 0, err: " + (javascriptError.isEmpty ? "''" : "'js error'") + "})")
+                "sendOk: globalThis.__oskiewarNetSendOk || 0, refusal: globalThis.__oskiewarNetRefusal || null, " +
+                "game: globalThis.__oskiewarGameHash || '', err: " + (javascriptError.isEmpty ? "''" : "'js error'") + "})")
             netLog("\(Date()) \(probe?.toString() ?? "?")")
         }
         let delta = min(0.1, max(0, now - lastFrame))
@@ -1106,9 +1114,17 @@ private final class NativeGameHost {
         perfFrameDeltas.removeAll(keepingCapacity: true)
     }
 
+    // The stage follows the window: 1080 tall, as wide as the window's shape
+    // asks, so a resize reframes the room rather than stretching the picture.
+    // Sized once at launch it did stretch — slab tiles the window into its
+    // cell a moment after it opens, and every frame after that scaled the
+    // launch-shaped stage onto a cell of another shape.
+    private var stagedBounds = CGSize.zero
     private func updateLogicalSize() {
         let width = max(1, view.bounds.width)
         let height = max(1, view.bounds.height)
+        if stagedBounds.width == width && stagedBounds.height == height { return }
+        stagedBounds = CGSize(width: width, height: height)
         renderer.logicalSize = CGSize(width: max(480, min(2880, round(1080 * width / height))),
                                       height: 1080)
     }

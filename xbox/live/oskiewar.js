@@ -3453,6 +3453,23 @@ const fighterRoster = [
 // let the glyph walk fall back to it.
 const npcFighter = { handle: "DUMMY", color: [105, 125, 150], colors: [],
   mood: "TRAINING DUMMY · NO BOT AI", lastChat: "" };
+// Nobody fights nameless. A seat with no handle — a visitor who has not
+// signed in, a bot in a test — fights under a guest name minted once per
+// session, so the wire, the nameplates in the corners and the result card
+// have a word for every body. It is not an account: it is what the room
+// calls you until you have a handle.
+// Minted from Math.random, never from the match's seeded name stream: that
+// stream is simulation state both seats must advance identically, and one
+// extra draw on one seat was a desync at the end of the round.
+let guestHandle = "";
+function guestName() {
+  if (guestHandle) return guestHandle;
+  const onsets = ["B", "D", "F", "G", "K", "L", "M", "N", "P", "R", "S", "T", "V", "Z"];
+  const vowels = "AEIOU";
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  guestHandle = "GUEST-" + pick(onsets) + pick(vowels) + pick(onsets) + pick(onsets) + pick(vowels + "Y");
+  return guestHandle;
+}
 const anonymousFighter = { handle: "", color: [150, 150, 150], colors: [
   [150,150,150],[190,190,190],[100,100,100],[215,215,215]],
   mood: "ANONYMOUS", lastChat: "" };
@@ -4957,6 +4974,12 @@ function startReplay(now) {
 // gate reads the door the round came through instead. The versus lane is off
 // this wire too, by choice rather than freedom: it runs one room, one stream,
 // no series and no demo, because the shared URL must keep meaning this fight.
+// A versus round keeps the thirty-second clock a dojo round has, and the bar
+// along the bottom that counts it down. It is not a timed round in the
+// recorded sense — the broadcast farm's demos, series and round churn stay
+// off the versus wire — it is just the same deadline both seats simulate.
+const versusClock = () => versusActive() && !!netSession;
+
 function roundIsTimed() {
   // A watcher is answering about somebody else's round. Everything below reads
   // this machine's own fight, which for a watcher is not running — and a
@@ -6243,7 +6266,8 @@ function syncSignedInFighter() {
   const identity = accountState() || acFeed?.player;
   if (!identity?.handle || players[0].npc) {
     if (!players[0].npc || shellMode === "MENU") {
-      players[0].name = "";
+      // No handle yet: the seat fights under its guest name, not nameless.
+      players[0].name = players[0].npc ? "" : guestName();
       players[0].handleColors = anonymousFighter.colors;
       players[0].color = anonymousFighter.color;
     }
@@ -6295,7 +6319,7 @@ function applyRoster(player, index) {
   }
   if (player.pad === 0 && !acFeed?.player?.handle) {
     player.rosterIndex = -1;
-    player.name = anonymousFighter.handle;
+    player.name = guestName();
     player.color = anonymousFighter.color.slice();
     player.handleColors = anonymousFighter.colors;
     // A test harness may dress the anonymous seat by CSS color name —
@@ -6318,7 +6342,9 @@ function applyRoster(player, index) {
   // as @JEFFREY against @SAT. Nobody is nobody.
   if (index < 0) {
     player.rosterIndex = -1;
-    player.name = anonymousFighter.handle;
+    // The local seat gets its guest name; a remote chair stays nameless
+    // until the deal says who sat down, and an empty chair stays empty.
+    player.name = player.pad === 0 && !player.remote ? guestName() : anonymousFighter.handle;
     player.color = anonymousFighter.color.slice();
     player.handleColors = anonymousFighter.colors;
     return;
@@ -9374,6 +9400,54 @@ const NET_ORIGIN_US = 1000000;
 // Wall-clock silence after which the rival is gone and the fight ends.
 const NET_PEER_LOST_MS = 4000;
 const NET_HELLO_INTERVAL_MS = 1000;
+// What two seats must agree on before they simulate one fight: the engine
+// build, a fingerprint of what the simulation is made of, and — where the
+// host knows it — the hash of the game source itself. A rollback fight is
+// two machines running the same program on the same inputs; two different
+// programs agree for a while and then do not, and the first anyone knew of
+// it was a desync or a body moving wrong. Measured 2026-10-14: a Mac in the
+// rig launched a stale copy of the app from an old checkout, and nothing in
+// the lane noticed. The hello and the deal now carry all three, and either
+// seat refuses a fight it cannot run.
+function netFnv(text) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619) >>> 0;
+  return hash;
+}
+let netSimPrintCache = 0;
+function netSimPrint() {
+  return netSimPrintCache ||= netFnv([
+    Object.keys(netSimScalars()).join(","), Object.keys(netSimArrays()).join(","),
+    NET_TICK_US, NET_INPUT_DELAY, NET_MAX_ROLLBACK, NET_REDUNDANCY, NET_HASH_EVERY,
+    roundDurationUs, matchWins].join("|"));
+}
+// The host's own word for its game source: the Mac app reads it from the
+// bundle's release manifest. Absent on a host that does not know it, and
+// then only the build and the sim fingerprint are compared.
+const netGameHash = () => String(globalThis.__oskiewarGameHash || "");
+function netProtocol() {
+  return { build: buildVersion, sim: netSimPrint(), game: netGameHash() };
+}
+// Why a packet's protocol is not ours, or "" when it is.
+function netProtocolMismatch(packet) {
+  if (!Number.isInteger(packet?.build)) return "older build (no handshake)";
+  if (packet.build !== buildVersion) return "build v" + packet.build + " vs v" + buildVersion;
+  if (packet.sim !== netSimPrint()) return "sim differs";
+  const ours = netGameHash(), theirs = String(packet.game || "");
+  if (ours && theirs && ours !== theirs) return "game source differs";
+  return "";
+}
+// The last refusal either way, for the screen, the net log and the tests.
+let netRefusal = null;
+function netRefuse(reason, theirs, send) {
+  netRefusal = { reason, theirs: Number.isInteger(theirs?.build) ? theirs.build : null,
+    ours: buildVersion, at: Date.now() };
+  globalThis.__oskiewarNetRefusal = netRefusal;
+  telemetry("NET_REFUSED", reason);
+  // Stay out of the lane long enough that the refusal is not a 1 Hz loop.
+  netLaneBlockedUntil = Date.now() + 10000;
+  if (send) try { send({ t: "refuse", v: 2, reason, ...netProtocol() }); } catch (_) {}
+}
 let netInbox = [];
 let netPeerHello = null;
 let netHelloSentAt = 0;
@@ -9613,7 +9687,7 @@ function netLocalIdentity() {
     .filter((entry) => entry.every((channel) => Number.isInteger(channel) &&
       channel >= 0 && channel <= 255))
     .slice(0, 4);
-  return { name: identity?.handle ? String(identity.handle).toUpperCase() : "",
+  return { name: identity?.handle ? String(identity.handle).toUpperCase() : guestName(),
     colors };
 }
 
@@ -9646,7 +9720,7 @@ function netMakeDeal() {
   const rivalColors = netCleanColors(rival.colors);
   const hostNow = Math.max(NET_ORIGIN_US, runtime().monotonicUs);
   const origin = Math.ceil((hostNow + NET_TICK_US) / NET_TICK_US) * NET_TICK_US;
-  return { t: "start", v: 2, origin, delay: NET_INPUT_DELAY,
+  return { t: "start", v: 2, ...netProtocol(), origin, delay: NET_INPUT_DELAY,
     ballType: matchBallType, map: skateparkMap ? "skatepark" : "station",
     fighters: [
       { name: netCleanName(local.name, ""), rosterIndex: local.rosterIndex,
@@ -9713,7 +9787,8 @@ function netBegin(deal, seat, send) {
   } finally {
     netClockUs = null;
   }
-  telemetry("NET_BEGIN", "seat " + seat + " delay " + deal.delay);
+  telemetry("NET_BEGIN", "seat " + seat + " delay " + deal.delay + " build " + deal.build +
+    " sim " + deal.sim + " game " + (deal.game || "-") + " map " + deal.map);
 }
 
 // Leaving on purpose tells the rival at once instead of costing them the
@@ -10154,7 +10229,7 @@ function netChallengerHello(now) {
   if (at < netLaneBlockedUntil) return;
   if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
   netHelloSentAt = at;
-  roundViewer.sendNet({ t: "hello", v: 2, ...netLocalIdentity() });
+  roundViewer.sendNet({ t: "hello", v: 2, ...netProtocol(), ...netLocalIdentity() });
 }
 
 // Packets that arrive before a session exists: the challenger's hello lands
@@ -10166,7 +10241,23 @@ function netHandlePreSession(packet) {
   // the same cooldown, so this is a straggler in flight, not an offer.
   if (Date.now() < netLaneBlockedUntil) return;
   if (packet.t === "hello" && packet.v !== 2) return;
+  if (packet.t === "refuse") {
+    netRefusal = { reason: "rival refused: " + String(packet.reason || "").slice(0, 60),
+      theirs: Number.isInteger(packet.build) ? packet.build : null, ours: buildVersion, at: Date.now() };
+    globalThis.__oskiewarNetRefusal = netRefusal;
+    telemetry("NET_REFUSED", netRefusal.reason);
+    netLaneBlockedUntil = Date.now() + 10000;
+    return;
+  }
   if (packet.t === "hello" && !roundViewer) {
+    const mismatch = netProtocolMismatch(packet);
+    if (mismatch) {
+      const room = "ow-" + versusRoomName;
+      netRefuse(mismatch, packet, (content) => typeof globalThis.__oskiewarNetSend === "function"
+        && globalThis.__oskiewarNetSend(room, content));
+      netPeerHello = null;
+      return;
+    }
     netPeerHello = { name: packet.name, colors: packet.colors, at: Date.now() };
     return;
   }
@@ -10175,6 +10266,11 @@ function netHandlePreSession(packet) {
       Number.isInteger(packet.delay) && Array.isArray(packet.fighters) &&
       packet.fighters.length === 2) {
     const bridge = roundViewer;
+    const mismatch = netProtocolMismatch(packet) ||
+      (["station", "skatepark"].includes(packet.map) ? "" : "unknown map " + String(packet.map).slice(0, 20));
+    if (mismatch) { netRefuse(mismatch, packet, (content) => bridge.sendNet(content)); return; }
+    netRefusal = null;
+    globalThis.__oskiewarNetRefusal = null;
     netBegin(packet, 1, (content) => bridge.sendNet(content));
     return;
   }
@@ -16423,10 +16519,11 @@ function gameSim() {
   for (let cell = 0; cell < gridField.length; cell++)
     gridField[cell] = gridField[cell] < .01 ? 0
       : gridField[cell] * Math.exp(-dt * 1.6);
+  const clocked = timedRound || versusClock();
   if (!survivalActive() && !soloRoom() &&
       (players.some((player) => !player.alive) ||
-      (timedRound && roundElapsedUs >= roundDurationUs))) {
-    if (timedRound && roundElapsedUs >= roundDurationUs &&
+      (clocked && roundElapsedUs >= roundDurationUs))) {
+    if (clocked && roundElapsedUs >= roundDurationUs &&
         players.every((player) => player.alive))
       roundCause = "TIME";
     finishRound(now);
@@ -22244,7 +22341,36 @@ function drawRunner(player,t,showLabel=true){
     if (flatFiguresOn() || player.skin) drawFaceTears(player,world,runtime().monotonicUs);
     if(poolOnly()&&player.alive&&player.blocking)drawPlayerBubble(player,t);
     if(player.civilian&&player.alive&&players[0].sparringPartner===player.pad)drawSparringTarget(player,world,t);
+    if(isLocalFighter(player))drawYouMarker(player,world);
   }finally{figureDrawScale=previous;}
+}
+// The fighter this seat is pressing for — in a rollback fight the seat the
+// deal gave us, otherwise the first chair — and only when there is someone
+// to be told apart from: two seats on one keyboard both know who they are,
+// and a self-play run has nobody watching.
+function isLocalFighter(player){
+  if(selfPlay||player.npc||player.civilian||!player.alive)return false;
+  if(globalThis.__oskiewarLocalVersus)return false;
+  if(!(versusLane()||netSession))return false;
+  return player===players[localSeat()];
+}
+// A small diamond floating over your own head, in your colour with the
+// figure's ink edge, bobbing so it reads as a marker and not a hat. Two
+// fighters of the same shape and often the same grey, across a wire, and
+// the first question every new player asked was which one they were.
+function drawYouMarker(player,world){
+  const head=projectPoint(world.head.x,world.head.y,world.head.z);if(head.behind)return;
+  const r=world.head.radius*projectionScaleAt(world.head);
+  const s=clamp(r*.42,6,22),bob=Math.sin(runtime().monotonicUs/1e6*4.2)*s*.25;
+  const x=head.x,y=head.y-r*1.55-s-bob;
+  const old=triangleDepth;triangleDepth=head.z-.002;
+  const ink=player.handleColors?.[0]||player.accent||[255,187,91],edge=[8,12,24],e=Math.max(1.5,s*.18);
+  const diamond=(size,c)=>{
+    screenTriangle(x,y-size,x-size*.62,y,x+size*.62,y,...c);
+    screenTriangle(x-size*.62,y,x+size*.62,y,x,y+size,...c);
+  };
+  diamond(s+e,edge);diamond(s,ink);
+  triangleDepth=old;
 }
 function drawSparringTarget(player,world,t){
  const age=Math.max(0,(runtime().monotonicUs-(player.sparringStartedAt||0))/1e6),pulse=Math.max(0,1-age/.6);
@@ -23075,7 +23201,7 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
 }
 
 function drawRoundTimeBar() {
-  if (!roundIsTimed() || roundResult || instantReplay || shellMode !== "GAME" ||
+  if (!(roundIsTimed() || versusClock()) || roundResult || instantReplay || shellMode !== "GAME" ||
       runtime().monotonicUs-roundStartedAt < roundIntroDurationUs()) return;
   const width = viewWidth();
   const fraction = clamp(1-roundElapsedUs/roundDurationUs,0,1), height = 6;
@@ -25749,9 +25875,10 @@ function drawHudStatusTray(clock, ink, unixMs) {
   drawUnderPipe();
   drawWaterSplashes();
   triangleDepth=hudPreviousDepth;
+  drawNetRefusal();
   if(standardDojoType()){
     debugBugBox=null;
-    if(debugHitboxes){const safe=hudSafeRect();debugBugBox={x:safe.right-250,y:safe.top+18,r:24};drawDebugBug(debugBugBox.x,debugBugBox.y,.8);}
+    if(debugHitboxes){const safe=hudSafeRect();debugBugBox={x:safe.right-250,y:safe.top+18,r:24};drawDebugBug(debugBugBox.x,debugBugBox.y,.8);drawDojoDebugReadout(safe);}
     return;
   }
   const tray = hudStatusTray(clock);
@@ -25799,6 +25926,29 @@ function drawHudStatusTray(clock, ink, unixMs) {
   });
 }
 
+// The dojo's debug numbers: the frame rate and, in a rollback fight, the
+// lane's frame counts — this seat's frame, the last one both seats agree
+// on, rollbacks, stalls, waits and the round trip. Top-left under the move
+// list, where nothing else is drawn, so every other element stays readable.
+// A refused fight says so, on both seats, instead of quietly not starting.
+function drawNetRefusal(){
+  if(!netRefusal||Date.now()-netRefusal.at>10000||shellMode!=="GAME")return;
+  const safe=hudSafeRect(),size=Math.max(16,Math.round(dojoTypeSize*.8));
+  const line="CAN'T FIGHT: "+netRefusal.reason.toUpperCase()+(netRefusal.theirs!==null?"  (YOU V"+netRefusal.ours+", THEM V"+netRefusal.theirs+")":"");
+  const old=triangleDepth;triangleDepth=hudDepth;
+  seatHudText(line,viewCenterX()-handleWidth(line,size)/2,safe.top+96,size,[255,150,150]);
+  triangleDepth=old;
+}
+function drawDojoDebugReadout(safe){
+  const run=runtime(),fps=run.frameMs?Math.round(1000/run.frameMs):Math.round(displayFps||0);
+  const n=globalThis.__oskiewarNetStats,size=Math.max(16,Math.round(dojoTypeSize*.78));
+  const lines=[fps+' FPS  '+Math.round(1000/Math.max(1,fps))+' MS'];
+  if(n)lines.push('NET F'+n.frame+' OK'+n.confirmed+' RB'+n.rollbacks+'/'+n.rolledFrames+' STALL'+n.stalls+' WAIT'+n.waits+' PING'+Math.round(n.pingMs)+'MS'+(n.desyncs?' DESYNC'+n.desyncs:''));
+  else lines.push('NET OFF');
+  const old=triangleDepth;triangleDepth=hudDepth;
+  for(const [row,text] of lines.entries())seatHudText(text,safe.left+12,safe.top+48+row*(size+6),size,[245,240,247]);
+  triangleDepth=old;
+}
 function drawDebugBug(x, y, scale = 1) {
   // HUD depth: on the world layer the console's motion blur smeared it.
   const previousDepth = triangleDepth;
@@ -26641,17 +26791,9 @@ function gamePaint() {
       typeWrite(viewerLabel,
         labelRight - handleWidth(viewerLabel, labelSize), hud.top + 7,
         labelSize, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
-      // The chair-holder plays through this feed: say which body is theirs
-      // while the matchup is still fresh, then get out of the fight's way.
-      if (roundViewer.seat === "challenger" && roundViewerMode === "LIVE" &&
-          t < 8) {
-        const seatLine = "YOU ARE " +
-          (players[1].name || "THE SECOND FIGHTER") + " — RIGHT SIDE";
-        const seatSize = compactLayout() ? 13 : 17;
-        const seatWidth = handleWidth(seatLine, seatSize);
-        typeWrite(seatLine, viewCenterX() - seatWidth / 2,
-          hud.top + hudTypeSize + 16, seatSize, ...titleInk);
-      }
+      // Which body is yours is the diamond over its head (drawYouMarker)
+      // and the name in your corner; the sentence that used to say so is
+      // retired.
     }
     const nowMs = run.unixMs || Date.now();
     drawHudStatusTray(null, titleInk, nowMs);
