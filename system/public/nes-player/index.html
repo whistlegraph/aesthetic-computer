@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>NES · MIME</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#14111c;color:#fff;font:15px system-ui;touch-action:none;user-select:none}
+    [hidden]{display:none!important}main{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:56px 18px}
+    #screen{min-height:0;flex:1;width:100%;display:grid;place-items:center}canvas{display:block;max-width:100%;max-height:100%;width:auto;height:100%;aspect-ratio:256/240;object-fit:contain;image-rendering:pixelated;outline:none}
+    button,.choose{font:inherit;color:inherit;border:1px solid #ffffff40;background:#ffffff12;border-radius:12px;min-width:44px;min-height:44px;cursor:pointer;padding:10px;touch-action:none}
+    button:focus-visible,.choose:focus-within{outline:3px solid #7ae7ce}button[data-down]{background:#7ae7ce;color:#14111c}
+    #controls{display:flex;align-items:center;justify-content:space-between;gap:14px;width:min(100%,520px);flex-shrink:0}
+    #dpad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:2px}
+    [data-key="4"]{grid-area:1/2}[data-key="6"]{grid-area:2/1}[data-key="7"]{grid-area:2/3}[data-key="5"]{grid-area:3/2}
+    #middle{display:flex;flex-direction:column;gap:7px}#middle button{font-size:11px;letter-spacing:.08em;padding:7px}
+    #ab{display:flex;gap:8px;align-items:center}#ab button{width:52px;height:52px;border-radius:50%;font-size:20px;font-weight:700;background:#e56ba4;color:#14111c}#ab button[data-down]{background:#fff}#ab [data-key="0"]{margin-bottom:30px}
+    #tools{display:flex;justify-content:center;gap:12px}#tools button{font-size:13px;min-height:44px;padding:6px 12px}
+    #notice{margin:0;text-align:center;max-width:32ch}#chooser{display:flex;flex-direction:column;align-items:center;gap:14px}input{max-width:100%}#hint{font-size:12px;color:#bbb;margin:0;text-align:center}
+    @media(max-width:350px){main{padding-inline:12px;gap:10px}#controls{gap:4px}#middle button{font-size:10px;padding:7px 4px}#ab{gap:5px}#ab button{width:44px;height:44px}}
+    @media(max-height:500px) and (min-width:550px){main{padding:56px 16px;gap:5px}#screen{width:calc(100% - 290px)}#controls{position:absolute;width:calc(100% - 36px);max-width:none;bottom:52px;pointer-events:none}#controls>*{pointer-events:auto}#middle{position:absolute;right:0;bottom:120px;flex-direction:row}#tools{position:absolute;left:18px;top:56px;flex-direction:column}#hint{display:none}}
+  </style>
+  <script src="./vendor/jsnes-2.1.0.min.js"></script>
+  <script type="module" src="./player.mjs"></script>
+</head>
+<body><main>
+  <p id="notice" role="status">Loading ROM…</p>
+  <button id="retry" hidden>Retry</button>
+  <div id="chooser" hidden><label class="choose">Open .nes ROM <input id="rom" type="file" accept=".nes,application/x-nes-rom"></label></div>
+  <div id="screen" hidden><canvas width="256" height="240" tabindex="0" aria-label="NES game screen"></canvas></div>
+  <div id="controls" aria-label="NES controller" hidden>
+    <div id="dpad"><button data-key="4" aria-label="Up">↑</button><button data-key="6" aria-label="Left">←</button><button data-key="7" aria-label="Right">→</button><button data-key="5" aria-label="Down">↓</button></div>
+    <div id="middle"><button data-key="2">SELECT</button><button data-key="3">START</button></div>
+    <div id="ab"><button data-key="1" aria-label="B">B</button><button data-key="0" aria-label="A">A</button></div>
+  </div>
+  <div id="tools" hidden><button id="sound" aria-pressed="false">Sound off</button><button id="restart">Restart</button></div>
+  <p id="hint" hidden>Arrows · Z B · X A · Enter Start · Shift Select</p>
+</main></body></html>

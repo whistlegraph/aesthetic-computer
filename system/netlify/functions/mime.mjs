@@ -7,6 +7,7 @@ import {
   MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, parseMediaThread,
   mediaThread, resolveMedia, sourceRecord, publicPosts, mediaFile, publicMediaUrl, packedMediaUrl,
 } from "../../backend/mime-media.mjs";
+import { inspectROM, isNES, NES_TYPE } from "../../public/nes-player/rom.mjs";
 import { inspectWad } from "../../public/doom-player/wad.mjs";
 import { feedPage, feedOnlyOp, feedPool, freshenFeed } from "../../backend/mime-feed-engine.mjs";
 import { fileReport, resolveReport, REPORT_COLLECTION, REMOVED_COLLECTION } from "../../backend/mime-moderation.mjs";
@@ -40,6 +41,7 @@ const NO_DATA = { projection: { "file.data": 0 } }; // Never ship bytes in listi
 function sniffType(declared, filename) {
   const t = (declared || "").toLowerCase().trim();
   const ext = (filename || "").split(".").pop()?.toLowerCase();
+  if (isNES({ type: t, name: filename })) return NES_TYPE;
   if (ext === "wad" && (!t || t === "application/octet-stream")) return "application/x-doom-wad";
   if (MIME_RX.test(t)) return t;
   return EXT_TYPES[ext] || "application/octet-stream";
@@ -344,6 +346,12 @@ async function createPost(db, posts, body, user) {
     if (["application/x-doom-wad", "application/x-doom"].includes(type)) {
       try { inspectWad(bytes); } catch { return respond(400, { error: "invalid WAD" }); }
     }
+    if (type === NES_TYPE) {
+      try {
+        const rom = inspectROM(bytes);
+        if (!rom.supported) throw new Error('This NES console or cartridge mapper is not supported yet.');
+      } catch (error) { return respond(400, { error: error.message }); }
+    }
     file = { name: (f.name || "file").slice(0, 128), type: type === "application/x-doom" ? "application/x-doom-wad" : type, size: bytes.length, data };
   }
   const op = parent ? await findOp(db, posts, parent) : null;
@@ -374,5 +382,6 @@ async function createPost(db, posts, body, user) {
       bumped: { $cond: [{ $lt: [{ $ifNull: ["$replies", 0] }, BUMP_LIMIT] }, { $max: ["$bumped", now] }, "$bumped"] },
     } }], { upsert: !!op._media });
   }
+  if (!parent) freshenFeed();
   return respond(200, { code, board, parent });
 }

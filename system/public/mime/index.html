@@ -199,6 +199,7 @@
     .feed-media.media-page { aspect-ratio: 17 / 22; max-height: 85vh; } /* a PDF sits in a letter-shaped box; its viewer pages inside */
     .piece-preview:not([data-packed="true"]) > iframe:not([data-ready="true"]) { opacity: 0; pointer-events: none;
       position: fixed; top: 0; left: 0; width: var(--warm-width, 100vw); height: var(--warm-height, 100dvh); }
+    body:not(.feed) .feed-media.media-nes { aspect-ratio: auto; height: min(720px, 85dvh); min-height: 480px; }
     .piece-preview { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
     .piece-preview > img, .piece-preview > iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
     .piece-preview > iframe { position: absolute; inset: 0; background: var(--media); }
@@ -505,6 +506,14 @@
     }
 
 
+    #import-nes { position: fixed; left: calc(50% - 22px); top: calc(4px + env(safe-area-inset-top)); width: 44px; height: 44px;
+      padding: 0; border: 0; background: transparent; color: #7ae7ce; font: 30px system-ui; box-shadow: none; pointer-events: auto; }
+    body.feed[data-full] #import-nes { opacity: 0; pointer-events: none; }
+    #nes-dialog { margin: auto; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto;
+      padding: 20px; background: var(--paper); color: var(--ink); border: 1px solid var(--card-edge); border-radius: 18px; }
+    #nes-dialog::backdrop { background: #0009; }
+    #nes-dialog form { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 0; border: 0; box-shadow: none; }
+    #nes-dialog input { width: 100%; min-height: 44px; } #nes-dialog .rom-actions { display: flex; justify-content: space-between; gap: 10px; }
     /* Input belongs to the center. Navigation is a separate edge gesture. */
     body.feed .feed-media[data-direct] > .media-shield { display: none; }
     body.feed .feed-media[data-direct] { touch-action: none; }
@@ -546,6 +555,7 @@
         <sup class="domain-suffix" aria-hidden="true"><span class="suffix-dot">.</span>ac</sup>
       </a>
     </h1>
+    <button id="import-nes" type="button" aria-label="Add NES ROM" title="Add NES ROM">＋</button>
   </header>
   <!-- The feed is built by script, so this is the page's only prose: what a
        screen reader announces first and what a crawler can follow. Never drawn. -->
@@ -895,6 +905,7 @@ function retreatCorners(node, hidden) {
   node?.querySelectorAll(':scope > .reel-command, :scope > .meta, :scope > .reel-comments').forEach(corner => { corner.inert = hidden; });
   document.body.toggleAttribute('data-full', hidden);
   document.querySelector('header .wordmark').inert = hidden;
+  document.getElementById('import-nes').inert = hidden;
 }
 function clearDirectInteraction() {
   if (!directInteraction) return;
@@ -1280,6 +1291,9 @@ function syncPieceFocus() {
 // fire and the card would sit on a permanent black square. Waiting on the
 // checkerboard until focus boots the real thing is the better failure. Worth
 // revisiting once a real published piece exists to test against.
+function isNESFile(file) {
+  return file && (["application/x-nes-rom", "application/x-nes", "application/x-nintendo-nes-rom"].includes(file.type) || /\.nes$/i.test(file.name || ""));
+}
 const RUNNABLE = {
   kidlisp: { prefix: "$", label: "KidLisp $", poster: true },
   piece: { prefix: "", label: "piece ", poster: false },
@@ -1778,15 +1792,21 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
   if (post.file || youtube) {
-    const runnable = youtube || post.media?.code && Object.hasOwn(RUNNABLE, post.media.kind);
-    const file = youtube ? el('div', 'piece-preview') : runnable ? renderRunnable(post) : renderFile(post.file);
+    const nes = isNESFile(post.file);
+    const runnable = nes || youtube || post.media?.code && Object.hasOwn(RUNNABLE, post.media.kind);
+    const file = nes || youtube ? el('div', 'piece-preview') : runnable ? renderRunnable(post) : renderFile(post.file);
+    if (nes) {
+      file.dataset.player = 'https://aesthetic.computer/nes-player/?' + new URLSearchParams({ file: new URL(post.file.url, location.href).href, warm: '1' });
+      file.dataset.title = post.file.name || 'NES ROM';
+    }
     if (youtube) {
       file.dataset.player = 'https://aesthetic.computer/mime-youtube/?' + new URLSearchParams({v: youtube.id, start: Math.max(0, Math.min(86400, Number(youtube.start) || 0)), warm: 1});
       file.dataset.youtube = 'true';
       file.dataset.title = 'YouTube video shared by ' + (post.name || 'Anonymous');
     }
     const frame = el("div", "feed-media");
-    if (runnable && post.media.packed) {
+    if (nes) frame.classList.add("media-nes");
+    if (runnable && post.media?.packed) {
       const aspect = ["2:3", "9:16", "1:1", "4:3", "16:9"].includes(post.media.aspect) ? post.media.aspect : "2:3";
       const [width, height] = aspect.split(":").map(Number);
       frame.classList.add("media-pack");
@@ -2007,6 +2027,74 @@ window.addEventListener("storage", (event) => {
   if (!event.key || event.key === "session-aesthetic" || event.key.startsWith(AC_CACHE_PREFIX)) updateIdentity();
 });
 
+document.getElementById('import-nes').onclick = () => openNESComposer();
+let nesDraft;
+async function openNESComposer(selected) {
+  if (document.getElementById('nes-dialog')) return;
+  clearDirectInteraction(); exitMediaInteraction();
+  const dialog = el('dialog'); dialog.id = 'nes-dialog'; dialog.setAttribute('aria-label', 'Add NES ROM');
+  const form = el('form'), actions = el('div', 'rom-actions');
+  const back = el('button', null, 'Back'); back.type = 'button';
+  const submit = el('button', null, 'Post ROM'), label = el('label', null, 'NES ROM · up to 8 MB');
+  const input = el('input'); input.type = 'file'; input.accept = '.nes,application/x-nes-rom'; input.setAttribute('aria-label', 'NES ROM');
+  const name = el('p'), status = el('p'); status.setAttribute('role', 'status');
+  const login = el('button', null, 'Log in to post'); login.type = 'button';
+  const handle = el('a', null, 'Choose your @handle'); handle.href = 'https://aesthetic.computer/handle'; handle.target = '_blank'; handle.rel = 'noopener';
+  let checking = true, posting = false;
+  const sync = () => {
+    input.disabled = checking || posting || !identity.handle;
+    submit.disabled = checking || posting || !identity.handle || !nesDraft;
+    submit.textContent = posting ? 'Posting…' : 'Post ROM'; back.disabled = posting;
+    login.hidden = !!identity.token; handle.hidden = !identity.token || !!identity.handle;
+    name.textContent = nesDraft?.name || (checking ? 'Checking account…' : identity.handle || '');
+  };
+  const check = async () => {
+    checking = true; sync();
+    try { await refreshIdentity(); showAccount(); }
+    catch { identity = {token: null, handle: null}; status.textContent = 'Log in again to post.'; }
+    checking = false; sync();
+  };
+  const choose = async file => {
+    if (!file) return;
+    nesDraft = null; status.textContent = ''; checking = true; sync();
+    try {
+      if (file.size > 8 * 1024 * 1024) throw new Error('ROM over 8 MB.');
+      const {inspectROM} = await import('/nes-player/rom.mjs');
+      const bytes = new Uint8Array(await file.arrayBuffer()), info = inspectROM(bytes);
+      if (!info.supported) throw new Error('This ROM’s console or cartridge mapper is not supported yet.');
+      nesDraft = file;
+    } catch (error) { status.textContent = error.message; }
+    checking = false; sync();
+  };
+  input.onchange = () => choose(input.files[0]);
+  back.onclick = () => dialog.close();
+  login.onclick = async () => {
+    try { await (await authClient()).loginWithRedirect({ appState: {hash: location.hash || '#/', nes: true}, authorizationParams: {redirect_uri: AUTH_REDIRECT} }); }
+    catch { status.textContent = 'Could not sign in. Try again.'; }
+  };
+  form.onsubmit = async event => {
+    event.preventDefault(); if (posting || checking || !nesDraft || !identity.handle) return;
+    posting = true; status.textContent = ''; sync();
+    try {
+      await refreshIdentity();
+      if (!identity.token || !identity.handle) throw new Error('Log in again to post.');
+      const bytes = new Uint8Array(await nesDraft.arrayBuffer());
+      let binary = ''; for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      const response = await fetch(API, { method: 'POST', headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + identity.token},
+        body: JSON.stringify({file: {name: nesDraft.name, type: 'application/x-nes-rom', data: btoa(binary)}}), signal: AbortSignal.timeout(60000) });
+      const result = await response.json();
+      if (!response.ok || !result.code) throw new Error(result.error || 'Could not post your ROM. Try again.');
+      nesDraft = null; dialog.close(); feedCache = null;
+      history.pushState(null, '', postPath(result.code) + location.search); await route();
+    } catch (error) { status.textContent = error.message; }
+    finally { posting = false; sync(); }
+  };
+  dialog.addEventListener('cancel', event => { if (posting) event.preventDefault(); });
+  dialog.addEventListener('close', () => { dialog.remove(); window.removeEventListener('focus', check); engagementForeground(!document.hidden && document.hasFocus()); syncPieceFocus(); });
+  actions.append(back, submit); label.append(input); form.append(actions, label, name, login, handle, status); dialog.append(form);
+  document.body.append(dialog); dialog.showModal(); syncPieceFocus(); engagementForeground(false);
+  window.addEventListener('focus', check); await check(); if (selected) await choose(selected);
+}
 let moodDraft = "";
 async function openMoodComposer(opener) {
   if (document.getElementById("mood-dialog")) return;
@@ -2609,7 +2697,7 @@ window.addEventListener("keydown", (event) => {
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 });
 async function start() {
-  let resumeMood = false, resumeComments;
+  let resumeMood = false, resumeComments, resumeNES = false;
   const params = new URLSearchParams(location.search);
   if (params.has("state") && (params.has("code") || params.has("error"))) {
     accountAction.disabled = true;
@@ -2617,6 +2705,7 @@ async function start() {
       const client = await authClient();
       const { appState } = await client.handleRedirectCallback();
       resumeMood = appState?.mood === true;
+      resumeNES = appState?.nes === true;
       resumeComments = typeof appState?.comment === 'string' ? appState.comment : null;
       const hash = typeof appState?.hash === "string" && appState.hash.startsWith("#/") ? appState.hash : "#/";
       const path = resumeComments && /^\/(?:p\/[^/?#]+|wg[A-Za-z0-9]+)$/.test(appState?.commentPath || '') ? appState.commentPath : location.pathname;
@@ -2631,6 +2720,7 @@ async function start() {
   await route();
   await updateIdentity();
   if (resumeComments) await openComments(resumeComments);
+  if (resumeNES) await openNESComposer();
   if (resumeMood) {
     moodDraft = sessionStorage.getItem("mime-mood-draft") || "";
     sessionStorage.removeItem("mime-mood-draft");
