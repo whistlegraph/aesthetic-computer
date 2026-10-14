@@ -707,3 +707,61 @@ test('a park frame\'s client tag rides back on the peer, and a second socket wea
  assert.equal(packet.peers.filter(p=>p.tag==='abc123').length,1);
  manager.close?.();
 });
+
+// A host is whoever is still publishing. The socket staying open is not that:
+// a throttled tab or a suspended console keeps its socket and sends nothing,
+// and the one room everybody opens into stood that way for ten minutes with
+// every visitor seated beside a corpse. Past the ghost window the relay stops
+// calling the room live, the sweep closes the socket so the seated challenger
+// hears it and claims, and a newcomer who arrives first simply takes over.
+test("a host that stops publishing forfeits the room", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now, ghostSweepMs: 0 });
+  const url = "/oskiewar-live?match=dojo1";
+  const host = new FakeSocket();
+  const challenger = new FakeSocket();
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(1) })));
+  manager.handleConnection(challenger, { url: `${url}&role=challenger` });
+  const lastStatus = (socket) =>
+    socket.sent.filter((m) => m.type === "oskiewar:status").at(-1).content;
+  assert.equal(lastStatus(challenger).live, true);
+
+  // Still speaking inside the window: live, and a rival host is refused.
+  now += OSKIEWAR_LIVE_LIMITS.PUBLISHER_GHOST_MS - 1;
+  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(2) })));
+  now += OSKIEWAR_LIVE_LIMITS.PUBLISHER_GHOST_MS - 1;
+  manager.reapGhosts();
+  assert.equal(host.closed, null);
+  const rival = new FakeSocket();
+  manager.handleConnection(rival, { url: `${url}&role=publisher` });
+  assert.equal(rival.closed?.code, 4409);
+
+  // Quiet past the window: no longer live, and the sweep closes the socket so
+  // the room drops its frozen frame and the challenger hears nobody is hosting.
+  now += 2;
+  assert.equal(manager.status(manager.rooms.get("ow-dojo1")).live, false);
+  manager.reapGhosts();
+  assert.equal(host.closed?.code, 4408);
+  assert.equal(lastStatus(challenger).live, false);
+  assert.equal(lastStatus(challenger).hasState, false);
+
+  // A late frame from the evicted host must not land on the room.
+  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(3) })));
+  assert.equal(manager.rooms.get("ow-dojo1").state, null);
+
+  // And had a newcomer arrived before the sweep, the quiet host is evicted
+  // for them rather than the newcomer being told the room is taken.
+  const ghost = new FakeSocket();
+  manager.handleConnection(ghost, { url: `${url}&role=publisher` });
+  ghost.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(1) })));
+  now += OSKIEWAR_LIVE_LIMITS.PUBLISHER_GHOST_MS + 1;
+  const successor = new FakeSocket();
+  manager.handleConnection(successor, { url: `${url}&role=publisher` });
+  assert.ok(successor.sent.some((m) => m.type === "oskiewar:ready"));
+  assert.equal(successor.closed, null);
+  assert.equal(ghost.closed?.code, 4410);
+  successor.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(1) })));
+  assert.equal(manager.rooms.get("ow-dojo1").publisher, successor);
+  assert.equal(manager.status(manager.rooms.get("ow-dojo1")).live, true);
+});

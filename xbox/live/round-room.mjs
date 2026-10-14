@@ -14,7 +14,7 @@ export class RoundRoom {
     fetchImpl = globalThis.fetch, historyImpl = globalThis.history,
     analytics = () => false, role = "viewer",
     sessionOrigin = "wss://session-server.aesthetic.computer",
-    replayOrigin = "" } = {}) {
+    replayOrigin = "", surface = "web" } = {}) {
     if (!ROUND_NAME.test(name || "")) throw new Error("Invalid oskiewar round name");
     this.name = name;
     this.WebSocketImpl = WebSocketImpl;
@@ -24,6 +24,9 @@ export class RoundRoom {
     this.analytics = analytics;
     this.sessionOrigin = sessionOrigin;
     this.replayOrigin = replayOrigin;
+    // What the relay's analytics call this seat: "web" for a browser, the
+    // app's own name when it holds the chair itself.
+    this.surface = surface;
     // A challenger asks for the second chair; a viewer only watches. A denied
     // chair quietly demotes this room to a viewer connection, so the friend
     // who arrived third still sees the fight they were invited to.
@@ -77,7 +80,7 @@ export class RoundRoom {
     const id = `ow-${this.name}`;
     const role = this.role === "challenger" ? "&role=challenger" : "";
     const socket = new this.WebSocketImpl(
-      `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}&surface=web${role}`);
+      `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}&surface=${encodeURIComponent(this.surface)}${role}`);
     this.socket = socket;
     socket.addEventListener?.("open", () => {
       if (generation === this.generation) this.emit("status", { label: "waiting", live: false });

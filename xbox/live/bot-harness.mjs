@@ -283,11 +283,24 @@ class CDP {
     });
   }
 
-  send(method, params) {
+  // A page that navigates or closes mid-call answers nothing, ever: the
+  // pending entry would sit forever and the loop with it (a two-laptop run
+  // hung on exactly that when the tab went away). Ten seconds is longer than
+  // any evaluate here takes and short enough to surface the loss as an error.
+  send(method, params, timeoutMs = 10000) {
     const id = ++this.id;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.ws.send(JSON.stringify({ id, method, params }));
+      const timer = setTimeout(() => {
+        if (!this.pending.has(id)) return;
+        this.pending.delete(id);
+        reject(new Error(`CDP ${method} timed out after ${timeoutMs}ms (tab gone?)`));
+      }, timeoutMs);
+      this.pending.set(id, {
+        resolve: (v) => { clearTimeout(timer); resolve(v); },
+        reject: (e) => { clearTimeout(timer); reject(e); },
+      });
+      try { this.ws.send(JSON.stringify({ id, method, params })); }
+      catch (e) { clearTimeout(timer); this.pending.delete(id); reject(e); }
     });
   }
 

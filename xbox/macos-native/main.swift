@@ -519,6 +519,89 @@ private final class NetworkBridge {
         return pending
     }
 
+    // Sockets the game itself asks for — the room bridge taking the second
+    // chair — and the replay-store fetch it makes beside them. Each answers
+    // as an event the frame thread hands to native-shell.js, the same way
+    // the publisher socket's words are parked and drained.
+    private var sockets: [Int: URLSessionWebSocketTask] = [:]
+    private var nextSocket = 1
+    private var events: [(kind: String, id: Int, status: Int, text: String)] = []
+
+    private func post(_ kind: String, _ id: Int, _ status: Int = 0, _ text: String = "") {
+        inboxLock.lock()
+        events.append((kind, id, status, text))
+        if events.count > 256 { events.removeFirst(events.count - 256) }
+        inboxLock.unlock()
+    }
+
+    func drainEvents() -> [(kind: String, id: Int, status: Int, text: String)] {
+        inboxLock.lock()
+        defer { inboxLock.unlock() }
+        let pending = events
+        events = []
+        return pending
+    }
+
+    func openSocket(_ url: String) -> Int {
+        guard let target = URL(string: url), ["wss", "ws"].contains(target.scheme ?? ""),
+              target.host == "session-server.aesthetic.computer" else { return 0 }
+        let id = nextSocket
+        nextSocket += 1
+        let task = URLSession.shared.webSocketTask(with: target)
+        sockets[id] = task
+        task.resume()
+        // URLSession queues sends until the handshake lands, so the bridge may
+        // speak from here; a handshake that fails comes back as the close.
+        post("open", id)
+        listenSocket(task, id: id)
+        return id
+    }
+
+    private func listenSocket(_ task: URLSessionWebSocketTask, id: Int) {
+        task.receive { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let message):
+                if case .string(let text) = message { self.post("message", id, 0, text) }
+                self.listenSocket(task, id: id)
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    if self.sockets[id] === task { self.sockets[id] = nil }
+                }
+                self.post("close", id, 0, error.localizedDescription)
+            }
+        }
+    }
+
+    func sendSocket(_ id: Int, _ text: String) {
+        guard let task = sockets[id], text.utf8.count <= 16384 else { return }
+        Task { try? await task.send(.string(text)) }
+    }
+
+    func closeSocket(_ id: Int, code: Int, reason: String) {
+        guard let task = sockets[id] else { return }
+        sockets[id] = nil
+        let closeCode = URLSessionWebSocketTask.CloseCode(rawValue: code) ?? .normalClosure
+        task.cancel(with: closeCode, reason: reason.data(using: .utf8))
+        post("close", id, 0, reason)
+    }
+
+    func fetch(_ id: Int, _ url: String) {
+        guard let target = URL(string: url), target.scheme == "https",
+              target.host == "aesthetic.computer" else {
+            post("fetch", id, -1, "refused: \(url)"); return
+        }
+        var request = URLRequest(url: target)
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self else { return }
+            if let error { self.post("fetch", id, -1, error.localizedDescription); return }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            self.post("fetch", id, status, body.utf8.count <= 1_048_576 ? body : "")
+        }.resume()
+    }
+
     private func listen(_ task: URLSessionWebSocketTask, match: String) {
         task.receive { [weak self] result in
             guard let self else { return }
@@ -573,6 +656,25 @@ private final class NetworkBridge {
         guard let liveTask else { return }
         let envelope = "{\"type\":\"oskiewar:state\",\"content\":\(payload)}"
         Task { try? await liveTask.send(.string(envelope)) }
+    }
+
+    // The host's half of the rollback lane: an input packet to the challenger
+    // rides the publisher socket of the room the fight is in, exactly as the
+    // web shell's `__oskiewarNetSend` does. Without it the engine never dealt
+    // a rollback fight from this app — a web challenger against a Mac host
+    // fell back to the streamed lane, where every one of their presses made
+    // a full round trip through the relay before they saw it land. False
+    // means the wire was not up and the game counts the frame as unsent.
+    func sendNet(match: String, content: String) -> Bool {
+        guard match == liveMatch, let liveTask, liveTask.state == .running,
+              content.utf8.count <= 4096 else {
+            NSLog("oskiewar netsend refused match=%@ live=%@ state=%d bytes=%d", match, liveMatch,
+                  liveTask?.state.rawValue ?? -1, content.utf8.count)
+            return false
+        }
+        let envelope = "{\"type\":\"oskiewar:net\",\"content\":\(content)}"
+        Task { try? await liveTask.send(.string(envelope)) }
+        return true
     }
 }
 
@@ -697,6 +799,28 @@ private final class NativeGameHost {
     private var paintCount = 0
     private var runtimeSeconds = CACurrentMediaTime()
     private var javascriptError = ""
+    // OSKIEWAR_NETLOG=<path>: a plain file of what the net lane is doing, one
+    // line a second, because a window on another desk cannot be read and the
+    // unified log does not reliably carry NSLog from an ad-hoc build.
+    // The app is sandboxed, so a bare name lands in the container's tmp
+    // (~/Library/Containers/computer.aesthetic.oskiewar/Data/tmp); an
+    // absolute path is honoured as given for a build that can reach it.
+    private let netLogPath: String = {
+        let value = ProcessInfo.processInfo.environment["OSKIEWAR_NETLOG"] ?? ""
+        if value.isEmpty || value.hasPrefix("/") { return value }
+        return NSTemporaryDirectory() + value
+    }()
+    private var netLogAt = 0.0
+    private func netLog(_ line: String) {
+        guard !netLogPath.isEmpty, let data = (line + "\n").data(using: .utf8) else { return }
+        if let handle = FileHandle(forWritingAtPath: netLogPath) {
+            handle.seekToEndOfFile(); handle.write(data); handle.closeFile()
+        } else if !FileManager.default.createFile(atPath: netLogPath, contents: data) {
+            print("oskiewar netlog: cannot create \(netLogPath)")
+        }
+        // Mirrored to stdout for a run whose stdout is already a file.
+        print("netlog \(line)"); fflush(stdout)
+    }
     private let telemetryQueue = DispatchQueue(label: "computer.aesthetic.oskiewar.telemetry", qos: .utility)
     // Opt-in frame accounting. The number that matters for a tvOS port is what
     // `sim` costs without a JIT, since third-party apps get JavaScriptCore in
@@ -728,7 +852,11 @@ private final class NativeGameHost {
               let hello = try? String(contentsOf:
                 resources.appendingPathComponent("live/oskiewar.js"), encoding: .utf8),
               var qr = try? String(contentsOf:
-                resources.appendingPathComponent("live/qr.mjs"), encoding: .utf8) else {
+                resources.appendingPathComponent("live/qr.mjs"), encoding: .utf8),
+              let nativeShell = try? String(contentsOf:
+                resources.appendingPathComponent("live/native-shell.js"), encoding: .utf8),
+              var roundRoom = try? String(contentsOf:
+                resources.appendingPathComponent("live/round-room.mjs"), encoding: .utf8) else {
             javascriptError = "missing native game resources"
             return
         }
@@ -736,6 +864,13 @@ private final class NativeGameHost {
             qr = regex.stringByReplacingMatches(in: qr,
                 range: NSRange(qr.startIndex..., in: qr), withTemplate: "\n")
         }
+        // round-room.mjs is a module; the context takes it as a script, so its
+        // two exports become plain declarations.
+        roundRoom = roundRoom.replacingOccurrences(of: "\nexport ", with: "\n")
+        javascript.evaluateScript(nativeShell,
+            withSourceURL: URL(fileURLWithPath: "oskiewar/native-shell.js"))
+        javascript.evaluateScript(roundRoom,
+            withSourceURL: URL(fileURLWithPath: "oskiewar/round-room.mjs"))
         // This shell can now carry a rival's presses inbound off the relay,
         // so it raises the same flag the web shell does: the empty front
         // door opens as the versus waiting room rather than the climb. The
@@ -743,6 +878,14 @@ private final class NativeGameHost {
         // cannot reload itself) and the canvas resolution dial.
         javascript.evaluateScript("""
         globalThis.__oskiewarVersusCapable = true;
+        globalThis.__oskiewarNetSend = function (match, content) {
+          globalThis.__oskiewarNetSendCount = (globalThis.__oskiewarNetSendCount || 0) + 1;
+          try {
+            var ok = oskiewarNetSend(String(match), JSON.stringify(content)) === true;
+            if (ok) globalThis.__oskiewarNetSendOk = (globalThis.__oskiewarNetSendOk || 0) + 1;
+            return ok;
+          } catch (error) { return false; }
+        };
         globalThis.__oskiewarShellSocketMessage = function (raw, match) {
           var message;
           try { message = JSON.parse(raw); } catch (error) { return; }
@@ -780,13 +923,27 @@ private final class NativeGameHost {
         if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
             javascript.evaluateScript("globalThis.__oskiewarFreeskateStart = \(x);")
         }
-        if let room = ProcessInfo.processInfo.environment["OSKIEWAR_ROOM"],
-           room.range(of: "^[a-z]{4,7}[0-9]{1,3}$", options: .regularExpression) != nil,
+        let opponent = ProcessInfo.processInfo.environment["OSKIEWAR_OPPONENT"] ?? ""
+        // The room this app opens into, as a browser tab would: a shared room
+        // name from OSKIEWAR_ROOM, else the dojo everyone opens into. The
+        // bridge asks for the second chair; finding nobody hosting, the game
+        // claims the room and hosts it itself (updateVersusClaim), and a
+        // later arrival takes the chair — so two of these apps on one room
+        // name sort themselves into a fight. Harness lanes (an opponent, a
+        // self-play run) stay out of it, as on the web.
+        let asked = ProcessInfo.processInfo.environment["OSKIEWAR_ROOM"] ?? ""
+        let room = asked.range(of: "^[a-z]{4,7}[0-9]{1,3}$", options: .regularExpression) != nil
+            ? asked : "dojo1"
+        if opponent.isEmpty, ProcessInfo.processInfo.environment["OSKIEWAR_SELFPLAY"] != "1",
            let encoded = try? JSONSerialization.data(withJSONObject: [room]),
            let literal = String(data: encoded, encoding: .utf8) {
-            javascript.evaluateScript("globalThis.__oskiewarSessionName = \(literal)[0];")
+            javascript.evaluateScript("""
+            globalThis.__oskiewarRoundBridge = new RoundRoom(\(literal)[0], {
+              WebSocketImpl: globalThis.NativeWebSocket, fetchImpl: globalThis.fetch,
+              historyImpl: null, role: "challenger", surface: "macos-native",
+              replayOrigin: "https://aesthetic.computer" });
+            """)
         }
-        let opponent = ProcessInfo.processInfo.environment["OSKIEWAR_OPPONENT"] ?? ""
         if let encoded = try? JSONSerialization.data(withJSONObject: [opponent]),
            let literal = String(data: encoded, encoding: .utf8) {
             javascript.evaluateScript("globalThis.__oskiewarOpponent = \(literal)[0];")
@@ -867,7 +1024,31 @@ private final class NativeGameHost {
                   !handler.isUndefined else { break }
             handler.call(withArguments: [message.text, message.match])
         }
+        // The bridge's own sockets and fetches, then its timers — the order
+        // a browser would run them in before the next animation frame.
+        for event in network.drainEvents() {
+            guard javascriptError.isEmpty else { break }
+            let name = event.kind == "fetch" ? "__oskiewarFetchEvent" : "__oskiewarSocketEvent"
+            guard let handler = javascript.objectForKeyedSubscript(name), !handler.isUndefined else { continue }
+            if event.kind == "fetch" {
+                handler.call(withArguments: [event.id, event.status, event.text])
+            } else {
+                handler.call(withArguments: [event.id, event.kind, event.text])
+            }
+        }
+        if javascriptError.isEmpty,
+           let timers = javascript.objectForKeyedSubscript("__oskiewarRunTimers"), !timers.isUndefined {
+            timers.call(withArguments: [])
+        }
         let now = CACurrentMediaTime()
+        if !netLogPath.isEmpty, now - netLogAt > 1 {
+            netLogAt = now
+            let probe = javascript.evaluateScript(
+                "JSON.stringify({net: globalThis.__oskiewarNetStats || null, room: globalThis.__oskiewarVersusRoom || '', " +
+                "inbox: (globalThis.__oskiewarNetInbox || []).length, sends: globalThis.__oskiewarNetSendCount || 0, " +
+                "sendOk: globalThis.__oskiewarNetSendOk || 0, err: " + (javascriptError.isEmpty ? "''" : "'js error'") + "})")
+            netLog("\(Date()) \(probe?.toString() ?? "?")")
+        }
         let delta = min(0.1, max(0, now - lastFrame))
         lastFrame = now
         accumulator += delta
@@ -974,7 +1155,12 @@ private final class NativeGameHost {
 
     private func installBindings() {
         javascript.exceptionHandler = { [weak self] _, exception in
-            self?.javascriptError = exception?.toString() ?? "javascript exception"
+            let text = exception?.toString() ?? "javascript exception"
+            // The error is painted on the window, which is the one place a
+            // remote test cannot read. The console gets it too.
+            NSLog("oskiewar jsexception %@", text)
+            self?.netLog("jsexception \(text)")
+            self?.javascriptError = text
         }
         javascript.evaluateScript("globalThis.__oskiewarTouch={pointer:{active:false,x:0,y:0},taps:[],orbit:{yaw:0,pitch:0,zoom:0}};")
 
@@ -1055,6 +1241,7 @@ private final class NativeGameHost {
         let telemetry: @convention(block) (String, String) -> Void = { [weak self] kind, detail in
             // Trace batches can be large; console I/O must not hold the frame.
             self?.telemetryQueue.async { NSLog("oskiewar %@ %@", kind, detail) }
+            self?.netLog("telemetry \(kind) \(detail)")
         }
         let drum: @convention(block) (String, Double, Double) -> Void = { [weak self] name, velocity, pan in
             self?.audio.drum(name, velocity: velocity, pan: pan)
@@ -1077,6 +1264,21 @@ private final class NativeGameHost {
         }
         let publishLive: @convention(block) (String, String) -> Void = { [weak self] match, payload in
             self?.network.publishLive(match: match, payload: payload)
+        }
+        let oskiewarNetSend: @convention(block) (String, String) -> Bool = { [weak self] match, content in
+            self?.network.sendNet(match: match, content: content) ?? false
+        }
+        let oskiewarSocketOpen: @convention(block) (String) -> Int = { [weak self] url in
+            self?.network.openSocket(url) ?? 0
+        }
+        let oskiewarSocketSend: @convention(block) (Int, String) -> Void = { [weak self] id, text in
+            self?.network.sendSocket(id, text)
+        }
+        let oskiewarSocketClose: @convention(block) (Int, Int, String) -> Void = { [weak self] id, code, reason in
+            self?.network.closeSocket(id, code: code, reason: reason)
+        }
+        let oskiewarFetch: @convention(block) (Int, String) -> Void = { [weak self] id, url in
+            self?.network.fetch(id, url)
         }
         let ac: @convention(block) () -> NSDictionary = {
             ["fighters": [], "moodHandle": "", "mood": "", "source": "macos-native"] as NSDictionary
@@ -1181,6 +1383,11 @@ private final class NativeGameHost {
         javascript.setObject(gameSignal, forKeyedSubscript: "gameSignal" as NSString)
         javascript.setObject(saveReplay, forKeyedSubscript: "saveReplay" as NSString)
         javascript.setObject(publishLive, forKeyedSubscript: "publishLive" as NSString)
+        javascript.setObject(oskiewarNetSend, forKeyedSubscript: "oskiewarNetSend" as NSString)
+        javascript.setObject(oskiewarSocketOpen, forKeyedSubscript: "oskiewarSocketOpen" as NSString)
+        javascript.setObject(oskiewarSocketSend, forKeyedSubscript: "oskiewarSocketSend" as NSString)
+        javascript.setObject(oskiewarSocketClose, forKeyedSubscript: "oskiewarSocketClose" as NSString)
+        javascript.setObject(oskiewarFetch, forKeyedSubscript: "oskiewarFetch" as NSString)
         javascript.setObject(ac, forKeyedSubscript: "ac" as NSString)
     }
 }
@@ -1215,7 +1422,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         window.titleVisibility = .visible
         window.titlebarAppearsTransparent = false
         window.backgroundColor = .black
-        window.minSize = NSSize(width: 640, height: 480)
+        // No floor of its own: slab's tiler hands this window whatever cell
+        // the grid has, and a 640×480 minimum made the app refuse the frame
+        // and sit over its neighbours. The title bar is the only real floor.
+        window.minSize = NSSize(width: 160, height: 90)
         window.contentView = view
         window.delegate = self
         window.center()

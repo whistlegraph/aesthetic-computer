@@ -16,6 +16,11 @@ if (globalThis.__oskiewarPracticeOpponent) globalThis.__oskiewarOpponent = globa
 // QuickJS on the console has no structuredClone, and replay capture and
 // rollback both lean on it. Typed arrays, aliases, cycles, Sets and Maps
 // survive; JSON would corrupt them.
+// JavaScriptCore's JSContext (the Mac and iOS apps) has no `performance`
+// either, and the rollback lane times its snapshots with it: the Mac host
+// dealt a fight and died on the first simulated frame with "Can't find
+// variable: performance", leaving the challenger's packets unread forever.
+globalThis.performance ||= { now: () => Date.now() };
 globalThis.structuredClone ||= function clone(value, seen = new Map()) {
   if (value === null || typeof value !== "object") return value;
   if (seen.has(value)) return seen.get(value);
@@ -136,7 +141,7 @@ function syncNativeAccount() {
 }
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 283;
+const buildVersion = 284;
 const parkDecalResolution=Number(globalThis.decalSurfaceSize)||2048;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
@@ -2948,6 +2953,55 @@ const immediateObjectOut = {
     flatPlate(n, points, depth, r, g, b);
   },
 };
+// A figure wears one ink edge around the whole of it, not one around each
+// limb. Drawn shape by shape — edge, fill, edge, fill — every limb's edge
+// crossed the limb it joined: a thigh's rounded cap drawn inside the hip, a
+// shin's inside the knee, an upper arm's inside the shoulder, the neck's
+// inside the head, each a dark crescent that read as a second outline. The
+// shapes are kept for the figure instead, every edge drawn first behind the
+// farthest of them, and every fill after at its own depth, so the fills
+// cover the edges wherever limbs meet and the ink shows only around the
+// silhouette.
+const figureShapes = [];
+let figureFarthest = -Infinity;
+const figureEdgeOut = {
+  view: objectView,
+  face: (...args) => immediateObjectOut.face(...args),
+  outline: (width, r, g, b) => immediateObjectOut.outline(width, r, g, b),
+  ellipse: (x, y, depth, ax, ay, bx, by, r, g, b) => {
+    figureShapes.push({ kind: "ellipse", depth, ink: objectInk.slice(), args: [x, y, ax, ay, bx, by, r, g, b] });
+    figureFarthest = Math.max(figureFarthest, depth);
+  },
+  disc: (x, y, depth, radius, r, g, b) => figureEdgeOut.ellipse(x, y, depth, radius, 0, 0, radius, r, g, b),
+  capsule: (x1, y1, x2, y2, depth, width, r, g, b) => {
+    figureShapes.push({ kind: "capsule", depth, ink: objectInk.slice(), args: [x1, y1, x2, y2, width, r, g, b] });
+    figureFarthest = Math.max(figureFarthest, depth);
+  },
+  plate: (n, points, depth, r, g, b) => {
+    // The emitter reuses its point buffer from shape to shape; keep a copy.
+    figureShapes.push({ kind: "plate", depth, ink: objectInk.slice(), args: [n, Array.from(points).slice(0, n * 2), r, g, b] });
+    figureFarthest = Math.max(figureFarthest, depth);
+  },
+};
+function drawFigureEdged() {
+  const behind = figureFarthest + flatBehind;
+  for (const shape of figureShapes) {
+    const [width, r, g, b] = shape.ink;
+    if (!width) continue;
+    const a = shape.args;
+    if (shape.kind === "ellipse") flatEllipse(a[0], a[1], behind, a[2], a[3], a[4], a[5], r, g, b, width);
+    else if (shape.kind === "capsule") flatCapsule(a[0], a[1], a[2], a[3], behind, a[4] + width * 2, r, g, b);
+    else flatPlate(a[0], a[1], behind, r, g, b, width);
+  }
+  for (const shape of figureShapes) {
+    const a = shape.args;
+    if (shape.kind === "ellipse") flatEllipse(a[0], a[1], shape.depth, a[2], a[3], a[4], a[5], a[6], a[7], a[8]);
+    else if (shape.kind === "capsule") flatCapsule(a[0], a[1], a[2], a[3], shape.depth, a[4], a[5], a[6], a[7]);
+    else flatPlate(a[0], a[1], shape.depth, a[2], a[3], a[4]);
+  }
+  figureShapes.length = 0;
+  figureFarthest = -Infinity;
+}
 // Where an object draws this paint: into the program, or here.
 const bufferedObjectOuts = new Map();
 function objectOut(object) {
@@ -3063,7 +3117,8 @@ function drawFlatFigure(player, world, now) {
   // renderables loop); the pool lets each shape find its own.
   const pin = poolOnly() ? NaN : triangleDepth;
   if (!programBuffered) {
-    gameObjects.drawFigureShapes(sketch, palette, J, pin, prepareObjectView(), immediateObjectOut);
+    gameObjects.drawFigureShapes(sketch, palette, J, pin, prepareObjectView(), figureEdgeOut);
+    drawFigureEdged();
     return true;
   }
   emitFrameCamera();
@@ -9622,7 +9677,7 @@ function netBegin(deal, seat, send) {
   const session = { seat, deal, frame: 0, originUs: deal.origin,
     delay: deal.delay, send,
     local: new Map(), remote: new Map(), used: new Map(), snapshots: new Map(),
-    remoteFrame: -1, remoteSimFrame: 0, lastRemoteMask: 0, ackFrame: -1,
+    remoteFrame: -1, remoteSimFrame: 0, remoteLead: null, lastRemoteMask: 0, ackFrame: -1,
     confirmed: -1, hashes: new Map(), peerHashes: new Map(),
     lastPacketAt: Date.now(), startedAt: Date.now(), ticks: 0,
     // peerStamp is the newest wall-clock mark heard from the rival, echoed
@@ -9873,7 +9928,12 @@ function netDrainInbox(session) {
         }
       }
       if (Number.isInteger(packet.a)) session.ackFrame = Math.max(session.ackFrame, packet.a);
-      if (Number.isInteger(packet.s)) session.remoteSimFrame = Math.max(session.remoteSimFrame, packet.s);
+      if (Number.isInteger(packet.s) && packet.s >= session.remoteSimFrame) {
+        session.remoteSimFrame = packet.s;
+        // The rival's own reading of the lead, sent with the frame it was
+        // read at, so a late packet cannot pair an old lead with a new frame.
+        if (Number.isInteger(packet.l)) session.remoteLead = packet.l;
+      }
       // Ping, by echo. `w` is the rival's own mark, which we hold and send
       // back; `e` is one of ours coming home, so the round trip is a
       // subtraction in OUR clock and the two machines need no shared time.
@@ -9981,7 +10041,8 @@ function netSendInputs(session) {
   // before is indistinguishable from a current one by its contents alone — and
   // it lands on frames the new fight has not reached yet, on one seat only.
   const packet = { t: "i", o: session.originUs, f: first, m: masks,
-    a: session.remoteFrame, s: session.frame, w: Date.now() };
+    a: session.remoteFrame, s: session.frame,
+    l: session.frame - session.remoteSimFrame, w: Date.now() };
   if (session.peerStamp) packet.e = session.peerStamp;
   if (session.pendingHash) { packet.h = session.pendingHash; session.pendingHash = null; }
   if (session.send(packet)) session.stats.sent++;
@@ -10038,7 +10099,18 @@ function netTick() {
   // rival says they are, give back one tick in four until we are level. Paced
   // by ticks, not frames — a frame that stalls does not advance, and a stall
   // keyed on the frame number would hold that frame forever.
-  const ahead = session.frame - session.remoteSimFrame;
+  // Each seat's reading of where the rival is includes the wire's travel
+  // time, so two equal clocks across a WAN each look ahead of the other by
+  // the one-way lag — and throttling that raw lead slowed BOTH games by a
+  // quarter: measured between two laptops in one room through the relay in
+  // New Jersey, 220 ms round trip, every seat stalled one tick in four and
+  // the whole fight ran at 45 Hz for as long as it lasted. The rival sends
+  // its own reading; the two share the transit lag, so half the difference
+  // is the real clock advantage. A rival that sends no reading is an older
+  // build and keeps the conservative rule.
+  const observedLead = session.frame - session.remoteSimFrame;
+  const ahead = session.remoteLead === null ? observedLead
+    : (observedLead - session.remoteLead) / 2;
   if (ahead > session.delay + 1 && session.ticks % 4 === 0) {
     session.stats.stalls++;
     return;

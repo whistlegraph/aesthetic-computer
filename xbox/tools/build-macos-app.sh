@@ -37,6 +37,10 @@ cp "$repo_root"/xbox/live/themes/photorealistic/assets/*.png \
   "$contents/Resources/live/themes/photorealistic/assets/"
 cp "$repo_root/system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs" \
   "$contents/Resources/live/qr.mjs"
+# The second chair: the web shell's room bridge, over the timers, socket and
+# fetch that native-shell.js gives a bare JavaScriptCore context.
+cp "$repo_root/xbox/macos-native/native-shell.js" "$contents/Resources/live/native-shell.js"
+cp "$repo_root/xbox/live/round-room.mjs" "$contents/Resources/live/round-room.mjs"
 cp "$repo_root/system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf" \
   "$contents/Resources/ComicRelief-Regular.ttf"
 

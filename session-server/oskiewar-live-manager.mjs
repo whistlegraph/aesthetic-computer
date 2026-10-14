@@ -39,6 +39,20 @@ const MIN_INPUT_INTERVAL_MS = 15;
 // 30 s during which whoever just refreshed could not have their own chair
 // back and was demoted to the grandstand instead.
 const CHALLENGER_GHOST_MS = 3000;
+// And how long a host keeps a room it has stopped publishing from. `live` used
+// to mean only that the publisher's socket was open, and a socket can stay
+// open long after the game behind it stopped ticking — a tab Chrome has
+// throttled into the background, a console suspended mid-lobby, a phone in a
+// pocket. Measured on dojo1, the one room everyone opens into: a host that had
+// published forty-two frames and gone quiet held the door for ten minutes,
+// every visitor seated beside it as challenger with nobody to deal them a
+// fight, and the claim that frees a dead room never fired because the relay
+// kept answering `live: true`. A visible host publishes thirty times a second
+// and a hidden web host still bursts once a second, so ten seconds of silence
+// is a host that cannot fight anyone. The room is forfeit; the host walks back
+// in as the challenger when it wakes, by the same conflict path a lost claim
+// already uses.
+const PUBLISHER_GHOST_MS = 10000;
 // The rollback lane's own channel between the two seats: input frames with a
 // few frames of redundancy, the match-start deal, and state hashes. Small,
 // frequent, and never rate-limited — a dropped input packet is a rollback
@@ -204,10 +218,35 @@ export class OskiewarLiveManager {
       distinctId: "ac-oskiewar-session-aggregate",
       eventFactory: oskiewarEvent,
     }),
+    // How often quiet hosts are looked for. Zero turns the sweep off; the
+    // tests drive `reapGhosts` by hand against a clock they own.
+    ghostSweepMs = 2000,
   } = {}) {
     this.rooms = new Map();
     this.now = now;
     this.analytics = analytics;
+    if (ghostSweepMs > 0) {
+      const sweep = setInterval(() => this.reapGhosts(), ghostSweepMs);
+      sweep.unref?.();
+    }
+  }
+
+  // An open socket that has published recently. The second half is what the
+  // claim on the far end actually needs to know.
+  publisherLive(room) {
+    return room.publisher?.readyState === 1 &&
+      this.now() - room.publisherSeenAt <= PUBLISHER_GHOST_MS;
+  }
+
+  // Close every host that has gone quiet past the ghost window. Closing is
+  // the whole fix: the socket's own close handler drops the room's state and
+  // broadcasts a status the seated challenger reads as "nobody is hosting",
+  // which is what arms their claim.
+  reapGhosts() {
+    for (const room of this.rooms.values()) {
+      if (room.publisher?.readyState !== 1 || this.publisherLive(room)) continue;
+      room.publisher.close?.(4408, "Host went quiet");
+    }
   }
 
   accepts(url) {
@@ -246,7 +285,7 @@ export class OskiewarLiveManager {
       room = { matchId, publisher: null, publisherSurface: "unknown",
         challenger: null, challengerSeenAt: 0,
         viewers: new Set(), agents: new Set(), state: null,
-        liveStarted: false, updatedAt: this.now(), publishedAt: 0,
+        liveStarted: false, updatedAt: this.now(), publishedAt: 0, publisherSeenAt: 0,
         nudgedAt: 0, flaggedAt: 0, inputAt: 0, inputDown: null,
         flushTimer: null, flushedSeq: -1 };
       this.rooms.set(matchId, room);
@@ -316,11 +355,15 @@ export class OskiewarLiveManager {
     if (room.publisher?.readyState === 1 && room.state?.park?.enabled === true) {
       this.addParkPeer(room, ws);return;
     }
-    if (room.publisher?.readyState === 1) {
+    // Same rule as the challenger's chair: the room belongs to whoever is
+    // still publishing from it. A quiet incumbent is evicted for the newcomer;
+    // a live one is not, and the newcomer walks back in as the challenger.
+    if (this.publisherLive(room)) {
       send(ws, "oskiewar:error", { message: "This match already has a publisher" });
       ws.close?.(4409, "Publisher already connected");
       return;
     }
+    const departing = room.publisher?.readyState === 1 ? room.publisher : null;
     // A new publisher counts frames from its own zero, so the room lets go of
     // the old one's snapshot — otherwise the stale-frame guard in publish()
     // reads every frame of a claimed room as old until the successor
@@ -340,7 +383,11 @@ export class OskiewarLiveManager {
     room.flushedSeq = -1;
     room.publisher = ws;
     room.publisherSurface = surface;
+    room.publisherSeenAt = this.now();
     room.updatedAt = this.now();
+    // Stamped after the new host holds the room, so the old socket's close
+    // handler — which only acts for the host it still is — leaves it alone.
+    if (departing && departing !== ws) departing.close?.(4410, "Room reclaimed");
     send(ws, "oskiewar:ready", { matchId: room.matchId,
       viewers: room.viewers.size, agents: room.agents.size,
       maxHz: Math.floor(1000 / MIN_PUBLISH_INTERVAL_MS) });
@@ -620,8 +667,12 @@ export class OskiewarLiveManager {
     }
     const invalid = validateOskiewarLiveState(state);
     if (invalid) return send(ws, "oskiewar:error", { message: invalid });
+    // A late frame from a host that has already been replaced is not this
+    // room's host speaking; it must neither refresh the seat nor land.
+    if (ws !== room.publisher) return;
     this.parkPresence(room,ws,state);
     const now = this.now();
+    room.publisherSeenAt = now;
     if (room.state && state.seq <= room.state.seq) return;
     room.state = state;
     room.updatedAt = now;
@@ -685,7 +736,7 @@ export class OskiewarLiveManager {
   }
 
   status(room) {
-    return { matchId: room.matchId, live: room.publisher?.readyState === 1,
+    return { matchId: room.matchId, live: this.publisherLive(room),
       viewers: room.viewers.size, agents: room.agents.size,
       challenger: room.challenger?.readyState === 1,
       hasState: Boolean(room.state), updatedAt: room.updatedAt };
@@ -734,4 +785,4 @@ export class OskiewarLiveManager {
 export const OSKIEWAR_LIVE_LIMITS = Object.freeze({ MAX_MESSAGE_BYTES,
   MAX_VIEWERS, MAX_AGENTS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS,
   MAX_INPUT_BYTES, MIN_INPUT_INTERVAL_MS, MAX_NET_BYTES,
-  CHALLENGER_GHOST_MS });
+  CHALLENGER_GHOST_MS, PUBLISHER_GHOST_MS });

@@ -143,6 +143,9 @@ enum AXTiler {
                                 requireStandardSubrole: false, liveWindows: liveWindows)
                 + windowRefs(bundleId: "aesthetic.computer", liveWindows: liveWindows)
                 + windowRefs(bundleId: "computer.aesthetic.nopaint", liveWindows: liveWindows)
+                // The oskiewar Mac app is a pane like the others: an equal
+                // grid cell beside the terminals, as small as the grid asks.
+                + windowRefs(bundleId: "computer.aesthetic.oskiewar", liveWindows: liveWindows)
                 + easelWindowRefs(liveWindows: liveWindows),
             chrome: windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows),
             messengers: messengerBundleIDs.flatMap {
@@ -175,6 +178,8 @@ enum AXTiler {
                          requireGeometry: false)
             + easelWindowRefs(liveWindows: liveWindows, requireGeometry: false)
             + windowRefs(bundleId: "computer.aesthetic.nopaint", liveWindows: liveWindows,
+                         requireGeometry: false)
+            + windowRefs(bundleId: "computer.aesthetic.oskiewar", liveWindows: liveWindows,
                          requireGeometry: false)
             + windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows,
                          requireGeometry: false)
