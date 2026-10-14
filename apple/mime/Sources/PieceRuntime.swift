@@ -7,13 +7,14 @@ import WebKit
 /// each draw its first frame, then pauses it silent, so a swipe lands on a
 /// picture that is already there and only has to resume. A runtime stays
 /// hidden until that first frame, so no card shows a loading page. Pieces
-/// never see a signed-in session; touches reach one only while interacting.
+/// never see a signed-in session; touches reach the focused runtime immediately.
 @MainActor final class RuntimePool: NSObject, ObservableObject, WKScriptMessageHandler, WKNavigationDelegate {
     /// Cards whose runtime has drawn; a card shows its web view from then on.
     @Published private(set) var ready: Set<String> = []
     private var views: [String: WKWebView] = [:]
     private var started: [String: Date] = [:]
     private var active: String?
+    var onInteraction: ((String, Bool) -> Void)?
     /// Off-screen parking, behind the reel: a web view parked here still
     /// renders, so a piece can paint its first frame before its card shows.
     let parking: UIView = {
@@ -70,9 +71,25 @@ import WebKit
         view.scrollView.contentInsetAdjustmentBehavior = .never
         view.isUserInteractionEnabled = false
         view.navigationDelegate = self
+        let input = RuntimeInputObserver { [weak self] holding in
+            guard let self, self.active == id else { return }
+            self.onInteraction?(id, holding)
+        }
+        view.addGestureRecognizer(input)
         views[id] = view
         started[id] = Date()
         park(view)
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MIME_INTERACTION_FIXTURE"] == "1", url.host == "example.invalid" {
+            view.loadHTMLString("""
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <style>body{margin:0;height:100vh;display:grid;place-items:center;background:#264}button{font:30px system-ui;padding:35px;border:0;border-radius:50%;background:#ffbada}</style>
+            <button onclick="this.textContent='Touched '+(++window.taps)">Touch me</button>
+            <script>window.taps=0;window.__mimeReady=true;</script>
+            """, baseURL: url)
+            return
+        }
+        #endif
         view.load(URLRequest(url: url))
     }
 
@@ -87,6 +104,11 @@ import WebKit
     private static func firstFrame(_ id: String) -> String {
         """
         (() => {
+          window.addEventListener('message', event => {
+            if (event.source === window && event.data?.type === 'mime:interaction') {
+              window.webkit.messageHandlers.mime.postMessage({id: \(String(reflecting: id)), holding: event.data.phase === 'hold'});
+            }
+          });
           const runtime = () => { const w = window.acPAUSE ? window : document.querySelector('iframe')?.contentWindow;
             return w?.acPAUSE && w.preloaded && !document.getElementById('note') ? w : null; };
           let playing = false, drawn = false;
@@ -117,6 +139,9 @@ import WebKit
     }
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        if let input = message.body as? [String: Any], let id = input["id"] as? String, id == active, let holding = input["holding"] as? Bool {
+            onInteraction?(id, holding); return
+        }
         guard let id = message.body as? String, let view = views[id] else { return }
         if let start = started.removeValue(forKey: id) { print("[mime] runtime \(id) ready in \(Int(Date().timeIntervalSince(start) * 1000)) ms") }
         ready.insert(id)
@@ -131,6 +156,38 @@ import WebKit
         }
         decisionHandler(.allow)
     }
+}
+
+/// Observes every touch (including nested cross-origin players) without
+/// canceling or delaying WebKit's own recognizers. A held finger never idles.
+private final class RuntimeInputObserver: UIGestureRecognizer, UIGestureRecognizerDelegate {
+    private var held = Set<UITouch>()
+    private let activity: (Bool) -> Void
+    init(activity: @escaping (Bool) -> Void) {
+        self.activity = activity
+        super.init(target: nil, action: nil)
+        delegate = self
+        cancelsTouchesInView = false
+        delaysTouchesBegan = false
+        delaysTouchesEnded = false
+    }
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        held.formUnion(touches); activity(true)
+        state = state == .possible ? .began : .changed
+    }
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) { activity(true); state = .changed }
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        held.subtract(touches); activity(!held.isEmpty)
+        state = held.isEmpty ? .ended : .changed
+    }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        held.subtract(touches); activity(!held.isEmpty)
+        state = held.isEmpty ? .cancelled : .changed
+    }
+    override func reset() { held.removeAll(); super.reset() }
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool { false }
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
 }
 
 /// WKUserContentController retains its handlers; this keeps the pool free.

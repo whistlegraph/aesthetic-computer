@@ -10,6 +10,8 @@ struct Post: Codable, Identifiable, Equatable {
         let packed: Bool?; let aspect: String?
         let version: Int?
     }
+    struct Embed: Codable, Equatable { let kind: String; let id: String; let start: Int?; let url: String?; let caption: String? }
+    let embed: Embed?
     struct Origin: Codable, Equatable { let name: String; let url: String? }
     let code: String
     let name: String?
@@ -37,6 +39,24 @@ struct Post: Codable, Identifiable, Equatable {
         }
     }
     var mimeType: String { file?.type ?? board ?? "text/plain" }
+    /// Meaning is separate from the bytes' media type.
+    var typeLabel: String {
+        switch media?.kind {
+        case "mood": return "mood"
+        case "chat": return "chat"
+        default: return mimeType
+        }
+    }
+    var playable: Bool {
+        switch body {
+        case .runtime(_, kind: "oskiewar"): return false
+        case .runtime, .packed, .video: return true
+        default: return false
+        }
+    }
+    var isNES: Bool {
+        ["application/x-nes-rom", "application/x-nes", "application/x-nintendo-nes-rom"].contains(mimeType) || file?.name?.lowercased().hasSuffix(".nes") == true
+    }
     var isMood: Bool { media?.kind == "mood" }
 
     /// What draws the card.
@@ -44,6 +64,11 @@ struct Post: Codable, Identifiable, Equatable {
     var body: Body {
         let base = URL(string: "https://mime.ac")!
         func absolute(_ s: String) -> URL? { URL(string: s, relativeTo: base)?.absoluteURL }
+        if let embed, embed.kind == "youtube", embed.id.range(of: "^[A-Za-z0-9_-]{11}$", options: .regularExpression) != nil {
+            var player = URLComponents(string: "https://aesthetic.computer/mime-youtube/")!
+            player.queryItems = [.init(name: "v", value: embed.id), .init(name: "start", value: String(min(86400, max(0, embed.start ?? 0)))), .init(name: "warm", value: "1")]
+            return .runtime(player.url!, kind: "youtube")
+        }
         if isMood { return .words(text ?? "") }
         if let media, let code = media.code {
             switch media.kind {
@@ -71,6 +96,11 @@ struct Post: Codable, Identifiable, Equatable {
             player.queryItems = [.init(name: "preview", value: "1"), .init(name: "mime", value: "1"), .init(name: "file", value: url.absoluteString)]
             return .runtime(player.url!, kind: "doom")
         }
+        if isNES {
+            var player = URLComponents(string: "https://aesthetic.computer/nes-player/")!
+            player.queryItems = [.init(name: "warm", value: "1"), .init(name: "file", value: url.absoluteString)]
+            return .runtime(player.url!, kind: "nes")
+        }
         if file.type.hasPrefix("image/") { return .image(url) }
         if file.type.hasPrefix("video/") { return .video(url) }
         return .document(url)
@@ -93,6 +123,22 @@ struct Post: Codable, Identifiable, Equatable {
 
     init() {
         #if DEBUG
+        if ProcessInfo.processInfo.environment["MIME_MOOD_FIXTURE"] != nil {
+            let json = """
+            [{"code":"mood_fixture","name":"@fixture","board":"text/plain","text":"A little room for a mood.","media":{"kind":"mood","code":"abc"}},
+             {"code":"chat_fixture","name":"@fixture","board":"text/plain","text":"Hello from chat.","media":{"kind":"chat","code":"xyz"}}]
+            """
+            posts = try! JSONDecoder().decode([Post].self, from: Data(json.utf8))
+            loaded = true; hasMore = false
+        }
+        if ProcessInfo.processInfo.environment["MIME_INTERACTION_FIXTURE"] == "1" {
+            let json = """
+            [{"code":"fixture-first","name":"@fixture","media":{"kind":"wgpiece","code":"wgFirst","url":"https://example.invalid/mime-fixture/first"}},
+             {"code":"fixture-second","name":"@fixture","media":{"kind":"wgpiece","code":"wgSecond","url":"https://example.invalid/mime-fixture/second"}}]
+            """
+            posts = try! JSONDecoder().decode([Post].self, from: Data(json.utf8))
+            loaded = true; hasMore = false
+        }
         if ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] != nil {
             let data = Data("[{\"code\":\"fixture-png\",\"name\":\"@fixture\",\"board\":\"image/png\",\"text\":\"PNG\"},{\"code\":\"fixture-piece\",\"name\":\"@fixture\",\"board\":\"text/javascript\",\"text\":\"AC piece\"}]".utf8)
             posts = try! JSONDecoder().decode([Post].self, from: data)
@@ -113,6 +159,11 @@ struct Post: Codable, Identifiable, Equatable {
     }
 
     private struct Page: Decodable { let recent: [Post]; let hasMore: Bool }
+
+    func include(_ post: Post) {
+        posts.removeAll { $0.id == post.id }
+        posts.insert(post, at: 0)
+    }
 
     func retry() async {
         guard !loading else { return }

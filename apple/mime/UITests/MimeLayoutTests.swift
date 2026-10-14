@@ -1,6 +1,61 @@
 import XCTest
 
 final class MimeLayoutTests: XCTestCase {
+    func testMoodComposerAndSemanticLabels() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_MOOD_FIXTURE"] = "signed-in"
+        app.launchEnvironment["WHISTLEGRAPH_DEVICE_REPORTS"] = "0"
+        app.launch()
+        waitForReveal(in: app)
+        let type = app.buttons.matching(identifier: "mime-type").matching(NSPredicate(format: "label == %@", "mood")).firstMatch
+        XCTAssertTrue(type.waitForExistence(timeout: 10)); type.tap()
+        if app.alerts["Before you make something"].waitForExistence(timeout: 2) { app.alerts.buttons["Sounds good"].tap() }
+        let text = app.textViews["mime-mood-text"], submit = app.buttons["mime-mood-submit"]
+        XCTAssertTrue(text.waitForExistence(timeout: 5)); XCTAssertFalse(submit.isEnabled)
+        text.tap(); text.typeText("Still curious.")
+        app.buttons["mime-mood-back"].tap(); type.tap()
+        XCTAssertEqual(text.value as? String, "Still curious.")
+        let compose = XCTAttachment(screenshot: app.screenshot())
+        compose.name = "MIME mood composer"; compose.lifetime = .keepAlways; add(compose)
+        submit.tap()
+        let saved = app.buttons.matching(identifier: "mime-global-identifier").matching(NSPredicate(format: "label == %@", "mood~new")).firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 5)); XCTAssertLessThan(saved.frame.midY, 150)
+        let posted = XCTAttachment(screenshot: app.screenshot())
+        posted.name = "MIME posted mood"; posted.lifetime = .keepAlways; add(posted)
+    }
+
+    func testLiveCenterAndEdgeEscape() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchEnvironment["MIME_INTERACTION_FIXTURE"] = "1"
+        app.launch()
+        waitForReveal(in: app)
+        let button = app.webViews.buttons["Touch me"].firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 20))
+        button.tap()
+        XCTAssertTrue(app.webViews.buttons["Touched 1"].firstMatch.waitForExistence(timeout: 3), "The first tap reaches the content")
+        let first = XCTAttachment(screenshot: app.screenshot())
+        first.name = "MIME center interaction"; first.lifetime = .keepAlways; add(first)
+        let bounds = app.frame
+        let edge = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 3, dy: bounds.height * 0.6))
+        edge.press(forDuration: 0.05, thenDragTo: edge.withOffset(CGVector(dx: 0, dy: -180)), withVelocity: .fast, thenHoldForDuration: 0)
+        let next = app.buttons.matching(identifier: "mime-global-identifier").matching(NSPredicate(format: "label == %@", "wgSecond")).firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 5))
+        XCTAssertLessThan(next.frame.midY, 150, "The outer edge advances the feed")
+        let second = app.webViews.buttons["Touch me"].firstMatch
+        XCTAssertTrue(second.waitForExistence(timeout: 5)); second.tap()
+        XCTAssertTrue(app.webViews.buttons["Touched 1"].firstMatch.waitForExistence(timeout: 3))
+        let returned = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: next)
+        XCTAssertEqual(XCTWaiter().wait(for: [returned], timeout: 4), .completed)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "MIME corners returned"; shot.lifetime = .keepAlways; add(shot)
+        let top = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: bounds.width / 2, dy: 85))
+        top.press(forDuration: 0.05, thenDragTo: top.withOffset(CGVector(dx: 0, dy: 180)), withVelocity: .fast, thenHoldForDuration: 0)
+        let previous = app.buttons.matching(identifier: "mime-global-identifier").matching(NSPredicate(format: "label == %@", "wgFirst")).firstMatch
+        XCTAssertTrue(previous.waitForExistence(timeout: 5)); XCTAssertLessThan(previous.frame.midY, 150)
+    }
+
     func testSavedOskiewarReplayInProductionFeed() {
         continueAfterFailure = false
         let app = XCUIApplication()

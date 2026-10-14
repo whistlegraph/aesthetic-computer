@@ -93,6 +93,7 @@
 		F2D888DA9BAE1AB798573514 /* PieceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */; };
 		F6BAC6D62D61738E0D8DA5C6 /* WhistlegraphAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712B9F34818496E3CD60A2D1 /* WhistlegraphAccount.swift */; };
 		F8CF2327FCB23B7444F63224 /* WhistlegraphBraincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A89F6E41F3E31FE3BE85BF /* WhistlegraphBraincells.swift */; };
+		F8F36EC18C4C0C1C8BAAC979 /* ProfileCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368BF704E8F8DC101FEE81D9 /* ProfileCard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -125,6 +126,7 @@
 		34D7AC195AF925CFE6A5A2F3 /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = ../whistlegraph/Resources/Fixtures; sourceTree = SOURCE_ROOT; };
 		3556799829A58A1650197CF0 /* LiveTranscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscription.swift; sourceTree = "<group>"; };
 		35B29B2A4301FE28C7DCB245 /* VerifiedAccountIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifiedAccountIdentity.swift; sourceTree = "<group>"; };
+		368BF704E8F8DC101FEE81D9 /* ProfileCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileCard.swift; sourceTree = "<group>"; };
 		3EE24985AB02083C864395AA /* Mime.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mime.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		44FE69016F03819DFB41D42B /* WhistlegraphHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhistlegraphHeader.swift; sourceTree = "<group>"; };
 		4658158B89D3A654FA3EE6FB /* StoryPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPreview.swift; sourceTree = "<group>"; };
@@ -335,6 +337,7 @@
 				784E357831CEA18BC34AFBEF /* MimeWorkQueue.swift */,
 				7F9E95AD6C8A0008A32859C9 /* PalText.swift */,
 				FFB346317A1B0054DF0D68E3 /* PieceRuntime.swift */,
+				368BF704E8F8DC101FEE81D9 /* ProfileCard.swift */,
 				7E3D86F5855D4EFCD8CF1ADC /* Reel.swift */,
 				0684191A5DE792274EC1BA5E /* Wordmark.swift */,
 			);
@@ -487,6 +490,7 @@
 				03770BA8B4CD71682E974976 /* PlaybackWord.swift in Sources */,
 				AB8D0201D437B8A8DFD9016A /* PreviewFormat.swift in Sources */,
 				A70006088A9052CEFE991BCD /* PreviewNavigation.swift in Sources */,
+				F8F36EC18C4C0C1C8BAAC979 /* ProfileCard.swift in Sources */,
 				9F74F5651D7BE4FE1EFD101A /* PromptKeySounds.swift in Sources */,
 				C333B07957F4AB84BAEF939B /* RecordedTranscription.swift in Sources */,
 				A66B888B1DFC2E7BF08548CA /* RecordingTrim.swift in Sources */,

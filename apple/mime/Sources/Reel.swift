@@ -7,11 +7,16 @@ struct Reel: View {
     var active = true
     let resumeEditor: () -> Void
     let remixWork: (Post) -> Void
+    let makeMood: () -> Void
+    let makeROM: () -> Void
+    var publishedMood: Post?
     let makeWork: (Ware) -> Void
     @StateObject private var feed = Feed()
     @StateObject private var pool = RuntimePool()
     @State private var current: String?
     @State private var interacting: String?
+    @State private var edgesReady = true
+    @State private var cooldown: Task<Void, Never>?
     @State private var revealed = false
     @State private var breakupAt: Date?
     @State private var scrolling = false
@@ -26,9 +31,7 @@ struct Reel: View {
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         ForEach(feed.posts) { post in
-                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, ready: { firstContentReady(post.id) }, makeWork: makeWork, remixWork: remixWork, hide: hide) {
-                                interacting = interacting == post.id ? nil : post.id
-                            }
+                            Card(post: post, layout: feed.layout, pool: pool, focused: active && current == post.id, interacting: interacting == post.id, edgesReady: edgesReady, topInset: screen.safeAreaInsets.top, bottomInset: screen.safeAreaInsets.bottom, escape: resetInteraction, step: step, ready: { firstContentReady(post.id) }, makeWork: makeWork, makeMood: makeMood, remixWork: remixWork, hide: hide, activity: { holding in contentActivity(post.id, holding: holding) })
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(post.id)
                             .environment(\.mimeLettersActive, active && current == post.id)
@@ -48,15 +51,19 @@ struct Reel: View {
                 .scrollPosition(id: $current)
                 .scrollIndicators(.hidden)
                 .modifier(ScrollMotion(moving: $scrolling))
-                .scrollDisabled(!revealed || interacting != nil && interacting == current)
+                .scrollDisabled(!revealed || currentPost?.playable == true)
                 .accessibilityHidden(!revealed)
                 .ignoresSafeArea()
                 .onChange(of: active) { _, visible in
-                    if visible { prepare() } else { pool.focus(nil) }
+                    if visible { prepare() } else { resetInteraction(); pool.focus(nil) }
                 }
                 .onChange(of: current) { _, id in
-                    interacting = nil
+                    resetInteraction()
                     prepare()
+                }
+                .onChange(of: publishedMood) { _, post in
+                    guard let post else { return }
+                    feed.include(post); current = post.id
                 }
                 .onChange(of: feed.posts) { _, posts in
                     if current == nil { current = posts.first?.id }
@@ -66,6 +73,7 @@ struct Reel: View {
                     if let first = feed.posts.first, ready.contains(first.id) { firstContentReady(first.id) }
                 }
                 .task {
+                    pool.onInteraction = { id, holding in contentActivity(id, holding: holding) }
                     async let posts: Void = feed.loadMore()
                     async let layout: Void = feed.refreshLayout()
                     _ = await (posts, layout)
@@ -73,13 +81,14 @@ struct Reel: View {
                     prepare()
                 }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { Task { await feed.refreshLayout() } }
+                    if phase == .active { prepare(); Task { await feed.refreshLayout() } }
+                    else { resetInteraction(); pool.focus(nil) }
                 }
 
                 // MIME.ac slides off to the right while the feed moves or a piece is being played.
                 Banner(corner: 1, width: screen.size.width)
-                    .offset(x: scrolling || interacting != nil ? 150 : 0)
-                    .animation(.spring(duration: 0.45, bounce: 0.25), value: scrolling || interacting != nil)
+                    .offset(x: scrolling || interacting != nil ? 180 : 0, y: interacting != nil ? -90 : 0)
+                    .animation(reduceMotion ? .linear(duration: 0.1) : .easeInOut(duration: 0.22), value: scrolling || interacting != nil)
                     .overlay(alignment: .topTrailing) {
                         Button(action: resumeEditor) { Color.clear.frame(width: 115, height: 44).contentShape(Rectangle()) }
                             .buttonStyle(.plain).accessibilityLabel("Open editor")
@@ -87,6 +96,18 @@ struct Reel: View {
                             .accessibilityIdentifier("mime-resume-editor")
                             .padding(.trailing, 10)
                     }
+                    .allowsHitTesting(interacting == nil)
+                    .accessibilityHidden(interacting != nil)
+                if revealed && active && interacting == nil {
+                    Button(action: makeROM) { Image(systemName: "plus").font(.system(size: 23)).frame(width: 44, height: 44) }
+                        .buttonStyle(.plain).foregroundStyle(Color(hex: 0x7AE7CE))
+                        .accessibilityLabel("Add NES ROM").accessibilityIdentifier("mime-import-rom")
+                        .padding(.top, 4)
+                }
+                if revealed && active && currentPost?.playable == true {
+                    ReelEdges(ready: edgesReady, topInset: 0, bottomInset: 0, escapeOnly: true, escape: resetInteraction, step: step)
+                        .ignoresSafeArea()
+                }
                 if !revealed {
                     ZStack {
                         Color.paper.opacity(breakupAt == nil ? 1 : 0)
@@ -113,6 +134,36 @@ struct Reel: View {
 }
 
 extension Reel {
+    private var currentPost: Post? { feed.posts.first { $0.id == current } }
+
+    private func resetInteraction() {
+        cooldown?.cancel(); cooldown = nil
+        interacting = nil; edgesReady = true
+    }
+
+    private func contentActivity(_ id: String, holding: Bool) {
+        guard active, id == current, currentPost?.playable == true else { return }
+        cooldown?.cancel()
+        interacting = id; edgesReady = false
+        guard !holding else { return }
+        cooldown = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .seconds(1))
+                interacting = nil
+                try await Task.sleep(for: .seconds(reduceMotion ? 0.1 : 0.22))
+                edgesReady = true
+            } catch { /* New input or a new card owns the timer now. */ }
+        }
+    }
+
+    private func step(_ direction: Int) {
+        guard let index = feed.posts.firstIndex(where: { $0.id == current }) else { return }
+        let next = index + direction
+        guard feed.posts.indices.contains(next) else { return }
+        resetInteraction()
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.28)) { current = feed.posts[next].id }
+    }
+
     private var breakupDuration: Double { reduceMotion ? 0.2 : feed.layout.loadingBreakupSeconds ?? 0.8 }
 
     private func firstContentReady(_ id: String) {
@@ -139,6 +190,72 @@ extension Reel {
         guard !feed.posts.isEmpty else { return }
         pool.prepare(feed.posts, around: feed.posts.firstIndex { $0.id == current } ?? 0)
         pool.focus(active ? current : nil)
+    }
+}
+
+/// The 48-point strips wait for the corners. The outer 8 points never wait.
+private struct ReelEdges: View {
+    let ready: Bool
+    let topInset: CGFloat
+    let bottomInset: CGFloat
+    var escapeOnly = false
+    let escape: () -> Void
+    let step: (Int) -> Void
+    @State private var glowing: String?
+    @State private var admitted: String?
+
+    var body: some View {
+        GeometryReader { area in
+            ZStack {
+                if escapeOnly {
+                    strip("top", emergency: true).frame(height: 8).frame(maxHeight: .infinity, alignment: .top)
+                    strip("bottom", emergency: true).frame(height: 8).frame(maxHeight: .infinity, alignment: .bottom)
+                    strip("left", emergency: true).frame(width: 8).frame(maxWidth: .infinity, alignment: .leading)
+                    strip("right", emergency: true).frame(width: 8).frame(maxWidth: .infinity, alignment: .trailing)
+                } else {
+                    strip("top", emergency: false).frame(height: 48 + topInset).frame(maxHeight: .infinity, alignment: .top)
+                    strip("bottom", emergency: false).frame(height: 48 + bottomInset).frame(maxHeight: .infinity, alignment: .bottom)
+                }
+            }.frame(width: area.size.width, height: area.size.height)
+        }
+    }
+
+    private func strip(_ side: String, emergency: Bool) -> some View {
+        Rectangle().fill(glowing == side ? Color.cyan.opacity(0.12) : .clear)
+            .overlay { Rectangle().stroke(Color.cyan.opacity(glowing == side ? 0.65 : 0), lineWidth: 3).blur(radius: 5) }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if admitted == nil { admitted = emergency || ready ? side : "blocked" }
+                    guard admitted == side else { return }
+                    if emergency { escape() }
+                    glowing = side
+                }
+                .onEnded { value in
+                    defer { admitted = nil; glowing = nil }
+                    guard admitted == side, abs(value.translation.height) >= 32 else { return }
+                    step(value.translation.height < 0 ? 1 : -1)
+                })
+            .accessibilityElement()
+            .accessibilityLabel("Swipe feed from " + side + " edge")
+            .accessibilityIdentifier("mime-edge-" + side + (emergency ? "-escape" : ""))
+            .accessibilityAction(named: "Next post") { if emergency || ready { escape(); step(1) } }
+            .accessibilityAction(named: "Previous post") { if emergency || ready { escape(); step(-1) } }
+    }
+}
+
+private struct CornerRetreat: ViewModifier {
+    let hidden: Bool
+    let x: CGFloat
+    let y: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func body(content: Content) -> some View {
+        content
+            .offset(x: hidden && !reduceMotion ? x * 500 : 0, y: hidden && !reduceMotion ? y * 160 : 0)
+            .opacity(hidden ? 0 : 1)
+            .allowsHitTesting(!hidden)
+            .accessibilityHidden(hidden)
+            .animation(reduceMotion ? .linear(duration: 0.1) : .easeInOut(duration: 0.22), value: hidden)
     }
 }
 
@@ -175,52 +292,45 @@ private struct Banner: View {
     }
 }
 
-/// One post: its media fills the screen; the code sits top-left (and is the
-/// Interact control where there is something to play with), the handle
-/// bottom-left and the type bottom-right.
+/// One post: live media fills the center; its identity retreats to the corners
+/// while playing and returns before the wider navigation strips unlock.
 private struct Card: View {
     let post: Post
     let layout: MimeLayout
     @ObservedObject var pool: RuntimePool
     let focused: Bool
     let interacting: Bool
+    let edgesReady: Bool
+    let topInset: CGFloat
+    let bottomInset: CGFloat
+    let escape: () -> Void
+    let step: (Int) -> Void
     let ready: () -> Void
     let makeWork: (Ware) -> Void
+    let makeMood: () -> Void
     let remixWork: (Post) -> Void
     let hide: (Post) -> Void
-    let toggleInteract: () -> Void
+    let activity: (Bool) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingQR = false
     @State private var showingProfile = false
-
-    /// A saved Oskiewar round is watched, never played with.
-    private var playable: Bool {
-        switch post.body {
-        case .runtime(_, kind: "oskiewar"): return false
-        case .runtime, .packed, .video: return true
-        default: return false
-        }
-    }
 
     var body: some View {
         ZStack {
             Checker(tint: Color.author(post.name))
             media
-                .overlay {
-                    // Tap a playable card to play with it; its code takes you back.
-                    if playable && !interacting { Color.clear.contentShape(Rectangle()).onTapGesture(perform: toggleInteract) }
-                }
+            if focused && post.playable {
+                ReelEdges(ready: edgesReady, topInset: topInset, bottomInset: bottomInset, escape: escape, step: step)
+            }
         }
         .overlay(alignment: .topLeading) {
             HStack(alignment: .lastTextBaseline, spacing: 12) {
-            Button(action: { interacting ? toggleInteract() : withAnimation(.spring(duration: 0.4, bounce: 0.3)) { showingQR.toggle() } }) {
+            Button(action: { withAnimation(.spring(duration: 0.4, bounce: 0.3)) { showingQR.toggle() } }) {
                 PalText(text: post.command, size: CGFloat(layout.identifierSize), accent: Color(hex: 0xED629D), swing: 2.2, entrance: true)
-                    .overlay(alignment: .bottom) {
-                        if interacting { WavyUnderline().offset(y: 6) }
-                    }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("mime-global-identifier")
-            .accessibilityHint(interacting ? "Back to scrolling" : showingQR ? "Hide the QR code" : "Show a QR code for this card")
+            .accessibilityHint(showingQR ? "Hide the QR code" : "Show a QR code for this card")
             if let version = post.edition, post.remixWare != nil {
                 Button { remixWork(post) } label: {
                     PalText(text: "v\(version)", size: CGFloat(layout.identifierSize), accent: Color(hex: 0x55CDD9))
@@ -229,9 +339,10 @@ private struct Card: View {
                     .accessibilityLabel("v\(version)").accessibilityHint("Remix this version")
             }
             }.padding(.leading, layout.padding).padding(.top, 52)
+                .modifier(CornerRetreat(hidden: interacting, x: -1, y: -1))
         }
         .overlay(alignment: .topLeading) {
-            if showingQR {
+            if showingQR && !interacting {
                 CornerQR(post: post) { withAnimation(.spring(duration: 0.35, bounce: 0.2)) { showingQR = false } }
                     .padding(.leading, layout.padding).padding(.top, 52 + CGFloat(layout.identifierSize) + 14)
                     .transition(.scale(scale: 0.05, anchor: .topLeading).combined(with: .opacity))
@@ -239,10 +350,10 @@ private struct Card: View {
         }
         .overlay(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 8) {
-                if layout.showTitle, let title = post.media?.title, !title.isEmpty, title != post.command {
+                if !interacting, layout.showTitle, let title = post.media?.title, !title.isEmpty, title != post.command {
                     PalText(text: title, size: CGFloat(layout.titleSize))
                 }
-                if layout.showCaption, !post.isMood, let text = post.text, !text.isEmpty {
+                if !interacting, (layout.showCaption || post.embed != nil), !post.isMood, let text = post.embed?.caption ?? (post.embed == nil ? post.text : nil), !text.isEmpty {
                     Text(text).font(.custom("ComicRelief-Bold", size: layout.captionSize, relativeTo: .body)).foregroundStyle(.white)
                         .lineLimit(3)
                 }
@@ -252,15 +363,24 @@ private struct Card: View {
                             PalText(text: name, size: CGFloat(layout.handleSize), accent: Color.author(name), colors: (post.nameColors ?? []).map(Color.savedLetter), swing: 2.2, entrance: true)
                                 .contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityHint("Open their profile").accessibilityIdentifier("mime-author")
+                            .modifier(CornerRetreat(hidden: interacting, x: -1, y: 1))
                     }
                     Spacer(minLength: 12)
-                    if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
+                    if post.isMood {
+                        Button(action: makeMood) {
+                            TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
+                        }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
+                            .accessibilityHint("Add your own mood")
+                            .modifier(CornerRetreat(hidden: interacting, x: 1, y: 1))
+                    } else if let ware = Ware.creationType(post.mimeType, kind: post.media?.kind) {
                         Button { makeWork(ware) } label: {
-                            TypeLabel(type: post.mimeType, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
+                            TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).contentShape(Rectangle())
                         }.buttonStyle(.plain).accessibilityIdentifier("mime-type")
                             .accessibilityHint("Make a new " + ware.title)
+                            .modifier(CornerRetreat(hidden: interacting, x: 1, y: 1))
                     } else {
-                        TypeLabel(type: post.mimeType, size: CGFloat(layout.mimeTypeSize)).accessibilityIdentifier("mime-type")
+                        TypeLabel(type: post.typeLabel, size: CGFloat(layout.mimeTypeSize)).accessibilityIdentifier("mime-type")
+                            .modifier(CornerRetreat(hidden: interacting, x: 1, y: 1))
                     }
                 }
             }
@@ -283,8 +403,9 @@ private struct Card: View {
                 .accessibilityLabel(post.file?.alt ?? post.command)
         case .video(let url):
             LoopingVideo(url: url, playing: focused, ready: ready)
+                .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in activity(true) }.onEnded { _ in activity(false) })
         case .runtime, .packed:
-            PieceRuntime(pool: pool, id: post.id, interactive: interacting)
+            PieceRuntime(pool: pool, id: post.id, interactive: focused && post.playable)
         case .words(let words):
             Words(text: words, post: post, padding: CGFloat(layout.padding), ready: ready)
         case .document(let url):
@@ -352,7 +473,6 @@ private struct LoopingVideo: View {
     @State private var looper: AVPlayerLooper?
     var body: some View {
         VideoPlayer(player: player)
-            .disabled(true)
             .onAppear {
                 guard player == nil else { return }
                 let queue = AVQueuePlayer()

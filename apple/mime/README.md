@@ -2,10 +2,12 @@
 
 The iPhone app for watching what everyone makes across Aesthetic Computer, KidLisp and Whistlegraph, one piece per screen. Tap a supported MIME type at bottom-right to create a new work directly in MIME. AC pieces, PNG paintings, Doom WADs and Roblox rooms use Whistlegraph’s shared native editor and bundled Aesel engine, with AC sign-in, prompts, drawings, voice, projects, version history, undo and export. Other media types remain read-only.
 
+Public chat messages containing a recognized YouTube video link show its poster and an inline YouTube player. The chat identifier, author, source and accompanying words remain intact. Playback pauses offscreen; unavailable embeds retain a YouTube link.
+
 The feed is the same ranked network feed as https://mime.ac (`GET /api/mime?feed=1&seed=…`, `system/backend/mime-feed-engine.mjs`), with a random seed per launch, so each launch gets its own order.
 
 - `Sources/Feed.swift`: the feed model and how each post draws (image, video, live runtime, packed HTML, words, document).
-- `Sources/Reel.swift`: the loading wordmark, vertical pager, and cards. The first piece loads behind MIME; the lettering breaks apart when its content is ready, revealing the feed without a swipe. The code sits top-left and is the Interact control, the handle bottom-left, and the MIME type bottom-right. Supported type labels open creation after sign-in. A small wordmark stays top-right.
+- `Sources/Reel.swift`: the loading wordmark, vertical pager, and cards. The first piece loads behind MIME; the lettering breaks apart when its content is ready, revealing the feed without a swipe. The code sits top-left, the handle bottom-left, and the MIME type bottom-right. The center of a playable card accepts input immediately. Held input hides the labels toward their corners; after release, one idle second and the return animation unlock the 48-point top/bottom swipe strips. The outer 8 points always allow a feed swipe, including during cooldown. Edge contact glows before navigation. Reduced Motion fades the labels. Supported type labels open creation after sign-in. A small wordmark stays top-right.
 - `Sources/PieceRuntime.swift`: one live web runtime for the card in view. KidLisp and pieces load aesthetic.computer, Whistlegraph pieces load `/mime-play`. Autoplay is allowed and the runtime is asked to start audio. A non-persistent website data store keeps pieces from seeing any session.
 - `Sources/MimeCreation.swift`: presents the shared Whistlegraph editor as a full-screen mode. The app root owns its persistent session. The arrow or left swipe beside the preview, the right-edge swipe, and Projects’ “Explore mimes” return to the same feed position even during generation. Tapping the MIME wordmark resumes the current work; a type tap starts a new v0 project. Local work lives in MIME’s own app container; AC account-backed piece synchronization uses the existing service.
 - `Sources/MimeWorkQueue.swift`: saves remix and new-work intents until the editor can open them. AC turns already accepted by the server can be parked immediately; jobs running on the phone keep their engine until finished. Queued entries remain available after navigation or relaunch, with removal and retry from the feed.
@@ -53,9 +55,10 @@ running. Parking preserves its journal and detaches the old viewer before any
 late result can touch the next project. The existing server queue schedules
 generation across projects; PNG, WAD and Roblox generation still run locally.
 Build 15 plays saved Oskiewar rounds in the feed. Their existing `ow-…` IDs
-remain the global identifiers. The newest replay leads beside fresh artwork;
-the latest 200 enter the ranked pool and every saved round has a MIME permalink.
-Guest rounds participate too. Playback uses the recorded checkpoint viewer,
+remain the global identifiers. Web and app share a filter over the newest 1,000
+rounds: both fighters must supply input, with sustained combat and usable frames
+in that round. Up to 200 enter the feed; active @handle rounds get priority.
+Idle rounds retain their permalinks. Playback uses the recorded checkpoint viewer,
 pauses offscreen, and does not enter a live match or publish another replay.
 Build 3 adds the automatic loading transition. `loadingBreakupSeconds` adjusts
 its duration from production (0.15–2 seconds, default 0.8); older schema-1
@@ -69,8 +72,22 @@ the native app on the connected iPhone (`DEVICE` selects it). Use `testflight`
 to archive/upload instead, or `web` for production presentation updates only.
 Both releases use the same source revision.
 
+Mood and chat cards show their meaning as `mood` and `chat`; their underlying
+media type remains `text/plain`. Tap `mood` to write a public mood with the same
+AC account used by the editor. Sign-in and a handle are required to publish.
+The composer retains its draft when closed or when posting fails. A successful
+response includes the saved card and global `mood~` identifier, so it appears
+immediately without waiting for the feed cache. The mood endpoint must ship
+with the native client.
+
 ## TestFlight
 
 From this directory: `fastlane ios status`, `fastlane ios build`, `fastlane ios upload`, `fastlane ios distribute` (which makes the private **MIME.ac Friends** group if needed), and `fastlane ios invite email:<email> name:<first-name>`. These use the same Admin API key as AC, Whistlegraph, Oskiewar and Menu Band.
 
 The first app record needs an Apple ID login once, in the terminal (two-factor included): `FASTLANE_USER=<Apple ID> fastlane ios create`. Apple's public API cannot create apps.
+
+NES ROM posts use the shared `/nes-player/` runtime with touch, keyboard and
+standard gamepad controls. The feed’s + button imports `.nes` files from Files;
+posting uses the signed-in handle and existing MIME file endpoint. The runtime
+pauses and releases held buttons offscreen; gamepad and keyboard activity also
+hold the corner-label cooldown. NES changes require a new native app release.

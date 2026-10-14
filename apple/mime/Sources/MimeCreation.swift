@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// MIME hosts Whistlegraph's native editor, account, engine and version library.
 /// The feed's untrusted runtimes keep their separate, anonymous WebKit stores.
@@ -205,5 +206,189 @@ extension Ware {
         case "text/javascript", "application/javascript", "application/x-aesthetic-computer-piece": return .piece
         default: return ["piece", "wgpiece"].contains(kind ?? "") ? .piece : nil
         }
+    }
+}
+
+/// A mood uses the existing AC publishing endpoint; it never enters inference.
+struct MimeMoodComposer: View {
+    @ObservedObject var session: WhistlegraphSession
+    @Binding var draft: String
+    let close: () -> Void
+    let published: (Post) -> Void
+    @State private var posting = false
+    @State private var notice: String?
+    @FocusState private var editing: Bool
+    @Environment(\.openURL) private var openURL
+
+    private var ready: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["MIME_MOOD_FIXTURE"] == "signed-in" { return true }
+        #endif
+        return session.accountReady
+    }
+    private var words: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Button(action: close) { Text("Back").frame(minHeight: 44) }
+                    .disabled(posting).accessibilityIdentifier("mime-mood-back")
+                Spacer()
+                if ready {
+                    Button { Task { await post() } } label: { Text(posting ? "Posting…" : "Post mood").frame(minHeight: 44) }
+                        .disabled(posting || words.isEmpty || draft.utf16.count > 4000)
+                        .accessibilityIdentifier("mime-mood-submit")
+                }
+            }
+            ZStack(alignment: .topLeading) {
+                if draft.isEmpty { Text("How are you feeling?").foregroundStyle(.white.opacity(0.5)).padding(.top, 8).padding(.leading, 5).allowsHitTesting(false) }
+                TextEditor(text: $draft).scrollContentBackground(.hidden)
+                    .focused($editing).disabled(posting)
+                    .accessibilityLabel("Mood").accessibilityIdentifier("mime-mood-text")
+            }.font(.custom("ComicRelief-Bold", size: 26))
+            if ready, !session.snapshot.handle.isEmpty { Text(session.snapshot.handle).font(.custom("ComicRelief-Bold", size: 18)) }
+            if draft.utf16.count > 4000 { Text("Keep your mood under 4,000 characters.").foregroundStyle(.pink) }
+            if !ready {
+                if session.accountStatus == .needsHandle {
+                    Button("Choose your @handle") { openURL(URL(string: "https://aesthetic.computer/handle")!) }
+                    Button("I’ve chosen a handle") { session.restoreAccount() }
+                } else if session.accountStatus == .checking || !session.workspaceReady {
+                    ProgressView("Checking your account…")
+                } else {
+                    HStack(spacing: 24) {
+                        Button("Log in to post") { editing = false; session.signIn() }.accessibilityIdentifier("mime-mood-login")
+                        Button("I'm new") { editing = false; session.signIn(signUp: true) }
+                    }
+                    if session.accountStatus == .failed { Button("Retry account verification") { session.restoreAccount() } }
+                }
+                if !session.accountNotice.isEmpty { Text(session.accountNotice).font(.body) }
+            }
+            if let notice { Text(notice).foregroundStyle(.pink).accessibilityIdentifier("mime-mood-notice") }
+        }
+        .font(.custom("ComicRelief-Bold", size: 18)).foregroundStyle(.white).tint(Color(hex: 0x55CDD9))
+        .padding(24).background(Color.paper.ignoresSafeArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("mime-mood-composer")
+        .accessibilityAction(.escape) { if !posting { close() } }
+    }
+
+    @MainActor private func post() async {
+        guard ready, !posting, !words.isEmpty, draft.utf16.count <= 4000 else { return }
+        posting = true; notice = nil; editing = false
+        defer { posting = false }
+        do {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["MIME_MOOD_FIXTURE"] == "signed-in" {
+                let json: [String: Any] = ["code": "mood_created", "name": "@fixture", "board": "text/plain", "text": words,
+                    "media": ["kind": "mood", "code": "new"], "when": ISO8601DateFormatter().string(from: Date())]
+                published(try JSONDecoder().decode(Post.self, from: JSONSerialization.data(withJSONObject: json)))
+                return
+            }
+            #endif
+            let generation = session.account.generation
+            guard let token = try await session.account.token(), generation == session.account.generation else {
+                session.restoreAccount(); throw NativeSignIn.failure("Log in again to post your mood.")
+            }
+            var request = URLRequest(url: URL(string: "https://aesthetic.computer/api/mood")!, timeoutInterval: 60)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["mood": words])
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                if (response as? HTTPURLResponse)?.statusCode == 401 { session.restoreAccount() }
+                throw NativeSignIn.failure("Could not post your mood. Your draft is still here; try again.")
+            }
+            struct Publication: Decodable { let post: Post }
+            let result = try JSONDecoder().decode(Publication.self, from: data)
+            guard generation == session.account.generation else { throw NativeSignIn.failure("Your account changed. Reopen the feed to see your mood.") }
+            published(result.post)
+        } catch { notice = error.localizedDescription }
+    }
+}
+
+
+/// Publish ROM bytes through the same file endpoint used by the website.
+struct MimeROMImporter: View {
+    @ObservedObject var session: WhistlegraphSession
+    let close: () -> Void
+    let published: (Post) -> Void
+    @State private var choosing = false
+    @State private var bytes: Data?
+    @State private var name = ""
+    @State private var posting = false
+    @State private var postedCode: String?
+    @State private var notice: String?
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Button("Back", action: close).disabled(posting)
+                Spacer()
+                Button(posting ? "Posting…" : postedCode == nil ? "Post ROM" : "Open posted ROM") { Task { await publish() } }
+                    .disabled(posting || bytes == nil || !session.accountReady)
+            }
+            Text("NES ROM · up to 8 MB").font(.title3)
+            Button(name.isEmpty ? "Choose .nes file" : name) { choosing = true }
+                .disabled(posting || postedCode != nil).accessibilityIdentifier("mime-rom-choose")
+            if !session.accountReady {
+                if session.accountStatus == .needsHandle {
+                    Button("Choose your @handle") { openURL(URL(string: "https://aesthetic.computer/handle")!) }
+                    Button("I’ve chosen a handle") { session.restoreAccount() }
+                } else if session.accountStatus == .checking || !session.workspaceReady { ProgressView("Checking account…") }
+                else { Button("Log in to post") { session.signIn() } }
+            }
+            if let notice { Text(notice).foregroundStyle(.pink).accessibilityIdentifier("mime-rom-notice") }
+            Spacer()
+        }
+        .padding(24).font(.custom("ComicRelief-Bold", size: 18))
+        .tint(Color(hex: 0x7AE7CE)).background(Color.paper.ignoresSafeArea())
+        .interactiveDismissDisabled(posting)
+        .accessibilityIdentifier("mime-rom-importer")
+        .fileImporter(isPresented: $choosing, allowedContentTypes: [.data]) { result in
+            do {
+                let url = try result.get()
+                bytes = nil; name = ""
+                let access = url.startAccessingSecurityScopedResource()
+                defer { if access { url.stopAccessingSecurityScopedResource() } }
+                guard url.pathExtension.lowercased() == "nes" else { throw NativeSignIn.failure("Choose a .nes ROM.") }
+                guard let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size >= 16, size <= 8 * 1024 * 1024 else { throw NativeSignIn.failure("Choose a NES ROM under 8 MB.") }
+                let data = try Data(contentsOf: url)
+                guard data.count <= 8 * 1024 * 1024, data.prefix(4) == Data([0x4e, 0x45, 0x53, 0x1a]) else { throw NativeSignIn.failure("Choose an iNES or NES 2.0 ROM.") }
+                bytes = data; name = url.lastPathComponent; notice = nil
+            } catch { notice = error.localizedDescription }
+        }
+    }
+    @MainActor private func publish() async {
+        guard let bytes, session.accountReady, !posting else { return }
+        posting = true; notice = nil
+        defer { posting = false }
+        do {
+            let generation = session.account.generation
+            guard let token = try await session.account.token(), generation == session.account.generation else { throw NativeSignIn.failure("Log in again to post.") }
+            if postedCode == nil {
+                var request = URLRequest(url: URL(string: "https://mime.ac/api/mime")!, timeoutInterval: 60)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+                request.httpBody = try JSONSerialization.data(withJSONObject: ["file": ["name": name, "type": "application/x-nes-rom", "data": bytes.base64EncodedString()]])
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                    if (response as? HTTPURLResponse)?.statusCode == 401 { session.restoreAccount() }
+                    let error = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                    throw NativeSignIn.failure(error?["error"] as? String ?? "Could not post your ROM. Try again.")
+                }
+                struct Receipt: Decodable { let code: String }
+                postedCode = try JSONDecoder().decode(Receipt.self, from: data).code
+            }
+            var url = URLComponents(string: "https://mime.ac/api/mime")!
+            url.queryItems = [.init(name: "thread", value: postedCode)]
+            let (data, response) = try await URLSession.shared.data(from: url.url!)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw NativeSignIn.failure("Posted. Try again to open your ROM.") }
+            struct Thread: Decodable { let op: Post }
+            let post = try JSONDecoder().decode(Thread.self, from: data).op
+            guard generation == session.account.generation else { throw NativeSignIn.failure("Your account changed. Reopen the feed to see your ROM.") }
+            published(post)
+        } catch { notice = error.localizedDescription }
     }
 }

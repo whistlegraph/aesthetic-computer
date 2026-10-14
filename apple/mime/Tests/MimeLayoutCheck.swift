@@ -30,6 +30,16 @@ import Foundation
         let invalidDuration = try JSONSerialization.data(withJSONObject: older)
         precondition(MimeLayout.decode(invalidDuration) == nil)
         let wad = try JSONDecoder().decode(Post.self, from: Data("{\"code\":\"abc\",\"file\":{\"name\":\"arena.wad\",\"type\":\"application/x-doom-wad\",\"url\":\"/api/mime?file=abc\"}}".utf8))
+        for mime in ["application/x-nes-rom", "application/x-nes", "application/x-nintendo-nes-rom", "application/octet-stream"] {
+            let data = try JSONSerialization.data(withJSONObject: ["code":"nes", "file":["name":"game.NES", "type":mime, "url":"/api/mime?file=nes"]])
+            let post = try JSONDecoder().decode(Post.self, from: data)
+            precondition(post.playable)
+            guard case let .runtime(url, kind) = post.body else { fatalError("NES must render as a runtime") }
+            precondition(kind == "nes" && url.path == "/nes-player")
+            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!
+            precondition(query.first(where: { $0.name == "file" })!.value == "https://mime.ac/api/mime?file=nes")
+            precondition(query.first(where: { $0.name == "warm" })!.value == "1")
+        }
         let colored = try JSONDecoder().decode(Post.self, from: Data("{\"code\":\"colors\",\"name\":\"@artist\",\"nameColors\":[{\"r\":24,\"g\":128,\"b\":240},null]}".utf8))
         precondition(colored.nameColors?.count == 2 && colored.nameColors?[0]?.g == 128 && colored.nameColors?[1] == nil)
         precondition(wad.command == "doom~abc", "WAD identifiers must resolve in the AC prompt namespace")

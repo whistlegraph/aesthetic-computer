@@ -24,6 +24,10 @@ struct MimeRoot: View {
     @State private var openingWork: UUID?
     @State private var showingQueue = false
     @State private var creating = false
+    @State private var composingMood = false
+    @State private var importingROM = false
+    @State private var moodDraft = ""
+    @State private var publishedMood: Post?
     @State private var editorDrag: CGFloat = 0
     @State private var requested: Ware?
     @State private var remix: Post?
@@ -36,13 +40,15 @@ struct MimeRoot: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                Reel(active: !creating, resumeEditor: {
+                Reel(active: !creating && !composingMood && !importingROM, resumeEditor: {
                     withRules { requested = nil; creating = true }
-                }, remixWork: { post in withRules { openRemix(post) } }) { ware in
+                }, remixWork: { post in withRules { openRemix(post) } }, makeMood: {
+                    withRules { composingMood = true }
+                }, makeROM: { withRules { importingROM = true } }, publishedMood: publishedMood) { ware in
                     withRules { openQueued(queue.enqueue(ware: ware, owner: workspace.snapshot.handle)) }
                 }
                     .offset(x: creating && !reduceMotion ? geometry.size.width + editorDrag : 0)
-                    .allowsHitTesting(!creating).accessibilityHidden(creating)
+                    .allowsHitTesting(!creating && !composingMood).accessibilityHidden(creating || composingMood)
                 // Stay mounted so account, fonts and engine warm up while the feed is open.
                 MimeCreation(session: workspace, requested: $requested, remix: $remix, active: $creating, size: geometry.size, drag: $editorDrag, opened: workOpened, failed: workFailed)
                     .environment(\.mimeLettersActive, creating)
@@ -50,13 +56,18 @@ struct MimeRoot: View {
                     .offset(x: reduceMotion ? 0 : creating ? editorDrag : -geometry.size.width)
                     .opacity(creating ? 1 : 0)
                     .allowsHitTesting(creating).accessibilityHidden(!creating)
-                if !creating, !queued.isEmpty {
+                if !creating, !composingMood, !queued.isEmpty {
                     Button { showingQueue = true } label: {
                         Label("\(queued.count) queued", systemImage: "square.stack.3d.up")
                             .font(.custom("ComicRelief-Bold", size: 16)).padding(12)
                             .background(.ultraThinMaterial, in: Capsule())
                     }.buttonStyle(.plain).accessibilityIdentifier("mime-work-queue")
                         .frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, 78)
+                }
+                if composingMood {
+                    MimeMoodComposer(session: workspace, draft: $moodDraft, close: { composingMood = false }) { post in
+                        publishedMood = post; moodDraft = ""; composingMood = false
+                    }
                 }
                 #if DEBUG
                 if creating && ["remote-voice", "progress"].contains(ProcessInfo.processInfo.environment["MIME_CREATION_FIXTURE"] ?? "") {
@@ -72,6 +83,11 @@ struct MimeRoot: View {
             }
             .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42, dampingFraction: 0.88), value: creating)
         }.preferredColorScheme(.dark)
+            .sheet(isPresented: $importingROM) {
+                MimeROMImporter(session: workspace, close: { importingROM = false }) { post in
+                    publishedMood = post; importingROM = false
+                }
+            }
             .sheet(isPresented: $showingQueue) { MimeWorkQueueSheet(items: queued, open: openQueued, remove: queue.remove) }
             .onChange(of: workspace.canLeaveWork) { _, ready in
                 if ready, !creating, openingWork == nil, let next = queued.first(where: { $0.issue == nil }) { openQueued(next) }
