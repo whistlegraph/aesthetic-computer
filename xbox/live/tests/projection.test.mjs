@@ -22,7 +22,7 @@ function seat(view) {
       startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); resetRound(runtime().monotonicUs, true); },
       stage: () => ({ width: viewWidth(), height: viewHeight, map: currentMapId }),
       roof: () => ({ y: dojoRoofY, left: worldLeft, right: worldRight, near: worldNear, far: worldFar }),
-      drawDojoRoof, doll: () => cameraDoll };`)(
+      drawDojoRoof, worldEntities, players, netSnapshot, doll: () => cameraDoll };`)(
     () => ({ monotonicUs: now, unixMs: 1785870000000, simCount: 0, paintCount: 0 }),
     () => ({ ...pad, down: [] }), () => ({ platform: "macos", inputFamily: "keyboard" }),
     noOp, noOp, () => Promise.resolve(true), noOp, noOp, noOp, noOp, noOp, noOp, noOp,
@@ -79,3 +79,27 @@ test("the Mac maps translucent faces with the live stage, not a 1920×1080 const
   assert.ok(!/CGSize\(width: 1920, height: 1080\)/.test(macShell), "main.swift names a fixed stage");
   assert.ok(!/func triangle\(_ values: \[Double\], logicalSize/.test(metalScene), "triangle takes a stage per call");
 });
+
+// The native lens (27 floats) and projectPoint are the same projection.
+function nativeProject(m, x, y, z) {
+  const dx = x - m[0], dy = y - m[1], dz = z - m[2];
+  const vx = dx * m[3] + dy * m[4] + dz * m[5], vy = dx * m[6] + dy * m[7] + dz * m[8];
+  const vz = dx * m[9] + dy * m[10] + dz * m[11];
+  const k = m[14] + (m[15] / Math.max(m[17], vz) - m[14]) * m[16];
+  return { x: m[12] + vx * k, y: m[13] - vy * k };
+}
+
+for (const view of [{ width: 1920, height: 1080 }, { width: 2880, height: 800 }]) {
+  test(`at ${view.width}×${view.height} every world entity projects the same through either lens`, () => {
+    const s = seat(view);
+    s.paint();
+    const m = s.fight.mainNativeCamera(), entities = s.fight.worldEntities();
+    assert.ok(entities.some(e => e.type === "player") && entities.some(e => e.type === "gun-pickup"));
+    for (const e of entities) {
+      const a = s.fight.projectPoint(e.x, e.y, e.z ?? 0), b = nativeProject(m, e.x, e.y, e.z ?? 0);
+      if (a.behind) continue;
+      assert.ok(Math.abs(a.x - b.x) < .5 && Math.abs(a.y - b.y) < .5, `${e.type} ${e.id}: ${a.x},${a.y} vs ${b.x},${b.y}`);
+    }
+  });
+}
+

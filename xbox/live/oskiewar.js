@@ -4311,20 +4311,74 @@ const renderInterpolationFields = {
   cameraPoint: ["x", "y", "z"],
 };
 
+// The world's things, one row per type: where its instances live (`list`),
+// which of them exist right now (`live`), where one stands (`at`), the
+// fields that tween between ticks (`lerp`), and how it draws. `depth: true`
+// rows are sorted back to front with the fighters; the others are props
+// drawn first, in table order. `draw: null` rows draw in their own pass
+// (the roof's glass, the impacts' debris) and are listed for ids only.
+//
+// Ids are the renderer's: a WeakMap from instance to number, never written
+// onto the instance, so the rollback snapshot (netSimArrays) and the state
+// hash keep their shape. An instance keeps its id while it keeps its object.
+const midpointAt = (o, out) => { out.x = (o.x1 + o.x2) / 2; out.y = (o.y1 + o.y2) / 2; out.z = (o.z1 + o.z2) / 2; return out; };
+const pointAt = (o, out) => { out.x = o.x; out.y = o.y; out.z = o.z; return out; };
+const drawPlayerEntity = (player, t, labels) => {
+  drawDiveMotion(player, t);
+  drawDoubleJumpMotion(player, t);
+  drawDashMotion(player, t);
+  drawRunner(player, t, labels);
+};
+const worldTypes = [
+  { type: "tree", list: () => bodyTrees, at: pointAt, props: true, draw: (o, t) => drawBodyTree(o, t) },
+  { type: "gun-pickup", list: () => gunPickups, at: pointAt, props: true, draw: (o, t) => drawGunPickup(o, t) },
+  { type: "saber-pickup", list: () => saberPickups, at: pointAt, props: true, draw: (o, t) => drawSaberPickup(o, t) },
+  { type: "grenade-pickup", list: () => grenadePickups, at: pointAt, props: true, draw: (o, t) => drawGrenadePickup(o, t) },
+  { type: "bullet", list: () => bullets, at: pointAt, depth: true, lerp: renderInterpolationFields.bullet, draw: (o) => drawBullet(o) },
+  { type: "grenade", list: () => grenades, live: (o) => o.alive, at: pointAt, depth: true, lerp: renderInterpolationFields.grenade, draw: (o) => drawGrenade(o) },
+  { type: "ball", list: () => balls, live: (o) => o.active, at: pointAt, depth: true, lerp: renderInterpolationFields.ball, draw: (o) => drawBall(o) },
+  { type: "detached", list: () => detachedParts, at: midpointAt, depth: true, lerp: renderInterpolationFields.detached, draw: (o) => drawDetachedPart(o) },
+  // Both fighters are always drawn. A fighter is never removed from the
+  // frame to make a camera move work — the shot is what moves.
+  { type: "player", list: () => players, shown: () => activePlayers(), at: pointAt, depth: true, lerp: renderInterpolationFields.player, draw: drawPlayerEntity },
+  { type: "kid", list: () => parkKids, shown: () => freeskateActive() ? parkKids : noItems, at: pointAt, depth: true, visible: (o) => {
+    if (poolOnly() && !parkActorVisible(o)) return false;
+    const p = projectPoint(o.x, o.y - 90, o.z);
+    return p.x > -150 && p.x < viewWidth() + 150 && p.y > -200 && p.y < viewHeight + 200;
+  }, draw: drawPlayerEntity },
+  { type: "monowheel", list: () => [monowheel], live: (o) => o.active, shown: () => freeskateActive() ? [monowheel] : noItems, at: pointAt, depth: true, draw: (o) => drawMonowheel(o) },
+  { type: "glass", list: () => dojoGlass, at: pointAt, draw: null },
+];
+const noItems = [];
+const entityIds = new WeakMap();
+let nextEntityId = 0;
+function entityId(object) {
+  let id = entityIds.get(object);
+  if (id === undefined) entityIds.set(object, id = ++nextEntityId);
+  return id;
+}
+// Every world instance as { id, type, x, y, z }: for tests, the coach and
+// debug readouts. Not on a hot path.
+function worldEntities() {
+  const out = [];
+  for (const kind of worldTypes)
+    for (const item of kind.list())
+      if (!kind.live || kind.live(item))
+        out.push({ id: entityId(item), type: kind.type, ...kind.at(item, {}) });
+  return out;
+}
+
 function renderInterpolationObjects() {
-  return [
-    ...players.map((object) => [object, renderInterpolationFields.player]),
-    ...players.filter(p=>p.spin).map(p=>[p.spin,["angle"]]),
-    ...bullets.map((object) => [object, renderInterpolationFields.bullet]),
-    ...grenades.map((object) => [object, renderInterpolationFields.grenade]),
-    ...balls.map((object) => [object, renderInterpolationFields.ball]),
-    ...detachedParts.map((object) => [object, renderInterpolationFields.detached]),
-    ...impacts.flatMap((impact) => (impact.debris || [])
-      .map((object) => [object, renderInterpolationFields.debris])),
-    [cameraDoll, renderInterpolationFields.camera],
+  const out = [];
+  for (const kind of worldTypes)
+    if (kind.lerp) for (const object of kind.list()) out.push([object, kind.lerp]);
+  for (const player of players) if (player.spin) out.push([player.spin, ["angle"]]);
+  for (const impact of impacts)
+    for (const object of impact.debris || []) out.push([object, renderInterpolationFields.debris]);
+  out.push([cameraDoll, renderInterpolationFields.camera],
     [cameraDoll.position, renderInterpolationFields.cameraPoint],
-    [cameraDoll.target, renderInterpolationFields.cameraPoint],
-  ];
+    [cameraDoll.target, renderInterpolationFields.cameraPoint]);
+  return out;
 }
 
 function captureRenderInterpolationState() {
@@ -26307,6 +26361,8 @@ function steerPostEffects() {
     clamp(moveX, -24, 24), clamp(moveY, -24, 24));
 }
 
+const renderableList = [], renderablePool = [];
+const byFarthest = (a, b) => b.depth - a.depth;
 function gamePaint() {
   syncNativeAccount();
   governFigureLod(runtime().monotonicUs);
@@ -26590,12 +26646,8 @@ function gamePaint() {
       globalThis.__oskiewarTouch.updateButton = null;
     }
   }
-  if (!survivalActive()) {
-    for (const tree of bodyTrees) drawBodyTree(tree, t);
-    for (const pickup of gunPickups) drawGunPickup(pickup, t);
-    for (const pickup of saberPickups) drawSaberPickup(pickup, t);
-    for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
-  }
+  if (!survivalActive())
+    for (const kind of worldTypes) if (kind.props) for (const item of kind.list()) kind.draw(item, t);
   const showRunnerLabels = matchHud && !reelMinimal &&
     (Boolean(roundResult) || introAge >= roundIntroDurationUs());
   const viewDirection = normalize3({
@@ -26603,33 +26655,24 @@ function gamePaint() {
     y: cameraDoll.target.y - cameraDoll.position.y,
     z: cameraDoll.target.z - cameraDoll.position.z,
   });
-  const renderables = [
-    ...bullets.map((item) => ({
-      kind: "bullet", item, x: item.x, y: item.y, z: item.z })),
-    ...grenades.filter((item) => item.alive).map((item) => ({
-      kind: "grenade", item, x: item.x, y: item.y, z: item.z })),
-    ...balls.filter((item) => item.active).map((item) => ({
-      kind: "ball", item, x: item.x, y: item.y, z: item.z })),
-    ...detachedParts.map((item) => ({ kind: "detached", item,
-      x: (item.x1 + item.x2) / 2, y: (item.y1 + item.y2) / 2,
-      z: (item.z1 + item.z2) / 2 })),
-    // Both fighters are always in this list. A fighter is never removed from
-    // the frame to make a camera move work — the shot is what moves.
-    ...activePlayers().map((item) => ({
-      kind: "player", item, x: item.x, y: item.y, z: item.z })),
-  ];
-  if(freeskateActive())for(const item of parkKids){
-    if(poolOnly()&&!parkActorVisible(item))continue;
-    const p=projectPoint(item.x,item.y-90,item.z);
-    if(p.x>-150 && p.x<viewWidth()+150 && p.y>-200 && p.y<viewHeight+200)renderables.push({kind:"player",item,x:item.x,y:item.y,z:item.z});
+  // Back to front along the lens. Records are pooled: a frame of fighters,
+  // balls and debris used to allocate one object per instance per frame, and
+  // the sort recomputed each depth on every comparison.
+  const renderables = renderableList;
+  renderables.length = 0;
+  const cam = cameraDoll.position;
+  for (const kind of worldTypes) {
+    if (!kind.depth) continue;
+    for (const item of kind.shown ? kind.shown() : kind.list()) {
+      if ((kind.live && !kind.live(item)) || (kind.visible && !kind.visible(item))) continue;
+      const r = renderablePool[renderables.length] ||= { kind: null, item: null, x: 0, y: 0, z: 0, depth: 0 };
+      r.kind = kind; r.item = item; kind.at(item, r);
+      r.depth = (r.x - cam.x) * viewDirection.x + (r.y - cam.y) * viewDirection.y +
+        (r.z - cam.z) * viewDirection.z;
+      renderables.push(r);
+    }
   }
-  if (freeskateActive() && monowheel.active) renderables.push({kind:"monowheel",item:monowheel,x:monowheel.x,y:monowheel.y,z:monowheel.z});
-  const depth = (item) => dot3({
-    x: item.x - cameraDoll.position.x,
-    y: item.y - cameraDoll.position.y,
-    z: item.z - cameraDoll.position.z,
-  }, viewDirection);
-  renderables.sort((a, b) => depth(b) - depth(a));
+  renderables.sort(byFarthest);
   for (const renderable of renderables) {
     const center=projectPoint(renderable.x,renderable.y-80,renderable.z),margin=Math.max(90,260*cameraScale());
     if(center.behind)continue;
@@ -26640,21 +26683,12 @@ function gamePaint() {
     // from a raised lens it cut their legs off at the shins. Standing them at
     // the floor's near edge keeps the whole body in front of the ground they
     // are standing on.
-    if (renderable.kind === "player" && !poolOnly())
+    if (renderable.kind.draw === drawPlayerEntity && !poolOnly())
       triangleDepth = Math.min(triangleDepth,
         projectPoint(renderable.x, renderable.y, worldNear + 2).z);
-    if (renderable.kind === "bullet") drawBullet(renderable.item);
-    else if (renderable.kind === "grenade") drawGrenade(renderable.item);
-    else if (renderable.kind === "ball") drawBall(renderable.item);
-    else if (renderable.kind === "monowheel") drawMonowheel(renderable.item);
-    else if (renderable.kind === "detached") drawDetachedPart(renderable.item);
-    else {
-      drawDiveMotion(renderable.item, t);
-      drawDoubleJumpMotion(renderable.item, t);
-      drawDashMotion(renderable.item, t);
-      drawRunner(renderable.item, t, showRunnerLabels);
-    }
+    renderable.kind.draw(renderable.item, t, showRunnerLabels);
   }
+  renderables.length = 0;
   if(poolOnly()){for(const peer of parkPeers.values()){interpolateParkPeer(peer,Date.now());if(Date.now()-peer.receivedAt<3000&&parkActorVisible(peer))drawRunner(peer,t,true);}if(!poolDesert){drawCerealMilk(t);drawParkStereo();}if(!poolPainting)drawAeselFairy(t);{const saved=triangleDepth;drawParkSupply();triangleDepth=saved;}}
   if(poolOnly())drawLensBlood();
   // Debug geometry shares the unfiltered overlay pass, behind screen UI.

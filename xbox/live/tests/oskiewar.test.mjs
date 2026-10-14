@@ -6386,7 +6386,7 @@ test("a sideways dash streaks motion lines and boosts a lone head", () => {
   assert.equal(fight.players[0].dashLinesFacing, 1);
   tick(300000);
   assert.ok(fight.players[0].dashLinesUntil <= now());
-  assert.match(source, /drawDashMotion\(renderable\.item, t\)/);
+  assert.match(source, /drawDashMotion\(player, t\)/);
   // Everything but the head gone, the double-tap still moves it: a shove
   // along the floor with a hop, rather than nothing.
   const player = fight.players[0];
@@ -6550,7 +6550,7 @@ test("automatic cameras remain orthographic and outside the arena", () => {
 test("double jumps leave a brief upward motion-line burst", () => {
   assert.match(source, /player\.doubleJumpLinesUntil = now \+ 280000/);
   assert.match(source, /function drawDoubleJumpMotion/);
-  assert.match(source, /drawDoubleJumpMotion\(renderable\.item, t\)/);
+  assert.match(source, /drawDoubleJumpMotion\(player, t\)/);
 });
 
 test("the Oskiewar wordmark remains visible with start", () => {
