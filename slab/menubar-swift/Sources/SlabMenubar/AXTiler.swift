@@ -47,6 +47,9 @@ enum AXTiler {
         /// Messenger windows (Signal Desktop): ordinary grid cells, found
         /// by bundle id like Chrome.
         let messengers: [Window]
+        /// Remote-screen windows (Screen Sharing sessions): ordinary grid
+        /// cells, found by bundle id plus the session's .vncloc document.
+        let remoteScreens: [Window]
         /// Stage windows: a game stream (GeForce NOW) that wants one big
         /// column of its own rather than a grid cell. Only the first stage
         /// window is staged; any extra ones fall into the ordinary grid.
@@ -56,7 +59,7 @@ enum AXTiler {
         /// binaries with no bundle identifier.
         let wizards: [Window]
 
-        var all: [Window] { iterm + terminal + acPanes + chrome + messengers + wizards + stage }
+        var all: [Window] { iterm + terminal + acPanes + chrome + messengers + remoteScreens + wizards + stage }
         var signature: [CGWindowID] { all.map(\.id).sorted() }
     }
 
@@ -68,6 +71,12 @@ enum AXTiler {
 
     /// Messenger apps that tile as equal grid cells beside the terminals.
     static let messengerBundleIDs = ["org.whispersystems.signal-desktop"]
+
+    /// Remote-desktop apps that tile as equal grid cells. Screen Sharing's
+    /// connection browser, settings and password prompt are ordinary windows
+    /// too; only a live session is a document (its saved .vncloc), so a
+    /// window without `AXDocument` stays out of the grid.
+    static let remoteScreenBundleIDs = ["com.apple.ScreenSharing"]
 
     /// The wizard roster (date-wizard/…/WizardRoster.swift plus the wizards
     /// it omits), by executable name. `swift build` products carry no
@@ -139,6 +148,9 @@ enum AXTiler {
             messengers: messengerBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows)
             },
+            remoteScreens: remoteScreenBundleIDs.flatMap {
+                windowRefs(bundleId: $0, liveWindows: liveWindows)
+            },
             stage: stageBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows)
             },
@@ -167,6 +179,9 @@ enum AXTiler {
             + windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows,
                          requireGeometry: false)
             + messengerBundleIDs.flatMap {
+                windowRefs(bundleId: $0, liveWindows: liveWindows, requireGeometry: false)
+            }
+            + remoteScreenBundleIDs.flatMap {
                 windowRefs(bundleId: $0, liveWindows: liveWindows, requireGeometry: false)
             }
             + wizardWindowRefs(liveWindows: liveWindows, requireGeometry: false)
@@ -243,6 +258,11 @@ enum AXTiler {
                     // blank surface in the wall, so reject it before identity
                     // matching or cache admission.
                     zombieCount += 1
+                    continue
+                }
+                if remoteScreenBundleIDs.contains(bundleId),
+                   stringAttr(w, kAXDocumentAttribute) == nil {
+                    identityCount += 1
                     continue
                 }
                 if boolAttr(w, kAXMinimizedAttribute) == true {

@@ -3669,11 +3669,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @discardableResult
     private static func axTilePass(snapshot: AXTiler.Snapshot,
                                    geom: ScreenGeom, textSize: TextSize) -> AXPass? {
-        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d chrome=%d messenger=%d wizard=%d stage=%d",
+        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d chrome=%d messenger=%d remote=%d wizard=%d stage=%d",
               snapshot.all.count,
               snapshot.signature.map(String.init).joined(separator: ","),
               snapshot.iterm.count, snapshot.terminal.count, snapshot.acPanes.count,
-              snapshot.chrome.count, snapshot.messengers.count, snapshot.wizards.count,
+              snapshot.chrome.count, snapshot.messengers.count, snapshot.remoteScreens.count,
+              snapshot.wizards.count,
               snapshot.stage.count)
         // A stage window (GeForce NOW) is an ordinary, equal grid cell first.
         // Only when the app clamps above its cell — its configured floor is

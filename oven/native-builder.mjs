@@ -431,7 +431,12 @@ async function runBuildJob(job) {
     addLogLine(job, "stdout", "Preflight: freeing disk space...");
     await runPhase(job, "preflight-cleanup", "bash", ["-lc", [
       "set -euo pipefail",
-      "docker system prune -f --volumes 2>/dev/null | tail -1 || true",
+      // Not `docker system prune`: it drops dangling images and unused build
+      // cache, and with the containerd image store the previous ac-os-builder
+      // (dangling once the next build retags) is what the build cache reuses —
+      // so every native build re-ran the whole Dockerfile. The pre-build prune
+      // keeps a week; the <10 GB emergency prune guards the disk.
+      "docker container prune -f 2>/dev/null | tail -1 || true",
       "rm -rf /tmp/oven-vmlinuz-* /tmp/ac-build-* 2>/dev/null || true",
       "df -h / | tail -1",
     ].join("\n")], repoDir);
@@ -457,11 +462,14 @@ async function runBuildJob(job) {
       addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
       try {
         await runPhase(job, "prune", "bash", ["-c",
-          // Keep a week of image + build cache. 2h / 30m meant any build more than
-          // half an hour after the last one re-ran the Dockerfile's clone/npm/
-          // installer steps and re-exported every layer (~2.5 min). The
-          // <10 GB emergency prune below still guards the disk.
-          "docker container prune -f && docker image prune -af --filter until=168h && docker builder prune -af --filter until=168h && docker volume prune -f",
+          // Keep a week of dangling images and build cache. With the containerd
+          // image store, the previous ac-os-builder (dangling once the new build
+          // takes the tag) holds the layers the build cache reuses: pruning it
+          // right away — or the cache after 30 min — re-ran the whole Dockerfile
+          // (dnf, coreboot vboot, installers) and re-exported every layer.
+          // Tagged images are never pruned by age here; the <10 GB emergency
+          // prune below still guards the disk.
+          "docker container prune -f && docker image prune -f --filter until=168h && docker builder prune -af --filter until=168h && docker volume prune -f",
         ], repoDir);
         const dfOut = await runSync("bash", ["-c", "df --output=avail / | tail -1"], repoDir);
         const availKB = parseInt(dfOut, 10) || 0;

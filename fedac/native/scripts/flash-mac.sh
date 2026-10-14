@@ -352,7 +352,7 @@ trap "rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null" EXIT
 WIFI_PRESETS_JSON='[
   {"ssid":"aesthetic.computer","pass":"aesthetic.computer"},
   {"ssid":"ATT2AWTpcr","pass":"t84q%7%g2h8u"},
-  {"ssid":"ATTcifXGXi","pass":"dvt%mnk8h6z"},
+  {"ssid":"ATTcifXGXi","pass":"=dvt%mnk8h6z"},
   {"ssid":"GettyLink","pass":""},
   {"ssid":"Tondo_Guest","pass":"California"},
   {"ssid":"Eightfold Coffee","pass":"wecloseat430"},
