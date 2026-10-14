@@ -34,6 +34,7 @@ import Foundation
             let data = try JSONSerialization.data(withJSONObject: ["code":"nes", "file":["name":"game.NES", "type":mime, "url":"/api/mime?file=nes"]])
             let post = try JSONDecoder().decode(Post.self, from: data)
             precondition(post.playable)
+            precondition(post.command == "nes~nes")
             guard case let .runtime(url, kind) = post.body else { fatalError("NES must render as a runtime") }
             precondition(kind == "nes" && url.path == "/nes-player")
             let query = URLComponents(url: url, resolvingAgainstBaseURL: false)!.queryItems!

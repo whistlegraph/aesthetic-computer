@@ -17,6 +17,9 @@ const arg = (name, fallback) => { const i = process.argv.indexOf("--" + name); r
 const HOST = arg("host", "blueberry"), GUEST = arg("guest", "neo");
 const SECONDS = Number(arg("seconds", 20)), MATCHES = Number(arg("matches", 1));
 const ROOM_ASKED = arg("room", "");
+// --relay nj|sfo pins both apps to one relay; leave it off to test the
+// apps' own choice (the room's relay if live, else the nearest).
+const RELAY = arg("relay", "");
 // Key codes the app maps for player one: A/D walk, Q punches, D also leaves the title.
 const K = { left: 0, right: 2, attack: 12, start: 2 };
 const NETLOG = "Library/Containers/computer.aesthetic.oskiewar/Data/tmp/net.log";
@@ -46,7 +49,7 @@ function seatOn(machine) {
     },
     running: () => { try { return sh(`P=$(pgrep -x oskiewar | head -1); [ -n "$P" ] && ps -o command= -p $P || true`).trim(); } catch { return ""; } },
     kill: () => { try { sh(`pkill -x oskiewar; rm -f ~/${NETLOG}; true`); } catch {} },
-    launch: (room) => sh(`open -n '${app}' --env OSKIEWAR_ROOM=${room} --env OSKIEWAR_NETLOG=net.log`),
+    launch: (room) => sh(`open -n '${app}' --env OSKIEWAR_ROOM=${room} --env OSKIEWAR_NETLOG=net.log${RELAY ? ` --env OSKIEWAR_RELAY=${RELAY}` : ""}`),
     netlog: () => { try { return remote ? sh(`/bin/cat ~/${NETLOG} 2>/dev/null`) : readFileSync(join(process.env.HOME, NETLOG), "utf8"); } catch { return ""; } },
     keybot: () => {
       const kb = remote ? spawn("ssh", [machine, "~/.local/bin/keybot"], { stdio: ["pipe", "pipe", "inherit"] })
@@ -85,10 +88,19 @@ async function match(index) {
   host.kill(); guest.kill();
   const hk = host.keybot(), gk = guest.keybot();
   await Promise.all([hk.ready, gk.ready]);
-  const ws = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=ow-${ROOM}&role=viewer&surface=web`);
+  // Watch the room on whichever relay it lands on: open a viewer on every
+  // relay and keep the frames from the one that goes live.
+  const RELAY_HOSTS = { nj: "session-server.aesthetic.computer", sfo: "relay-sfo.aesthetic.computer" };
+  const watchHosts = RELAY ? [RELAY_HOSTS[RELAY]] : Object.values(RELAY_HOSTS);
+  let relayUsed = "";
+  const sockets = watchHosts.map((h) => {
+    const sock = new WebSocket(`wss://${h}/oskiewar-live?match=ow-${ROOM}&role=viewer&surface=web`);
+    sock.onmessage = (e) => { const m = JSON.parse(e.data); if (m.type === "oskiewar:status" && m.content.live && !relayUsed) relayUsed = h; if (!relayUsed || relayUsed === h) onFrame(m); };
+    return sock;
+  });
+  const ws = { close: () => sockets.forEach((sock) => { try { sock.close(); } catch {} }) };
   let status = null, state = null, seqs = 0, liveAt = 0, seatedAt = 0, tGuest = 0;
-  ws.onmessage = (e) => {
-    const m = JSON.parse(e.data);
+  function onFrame(m) {
     if (m.type === "oskiewar:status") {
       status = m.content;
       if (status.live && !liveAt) liveAt = now();
@@ -97,7 +109,7 @@ async function match(index) {
       if (status.challenger && tGuest && !seatedAt) seatedAt = now();
     }
     if (m.type === "oskiewar:state") { state = m.content; seqs++; }
-  };
+  }
   const until = async (pred, ms, label) => {
     const t0 = now();
     while (now() - t0 < ms) { if (pred()) return true; await sleep(150); }
@@ -170,7 +182,7 @@ async function match(index) {
   log(`guest(${GUEST}) ${fmt(guestNet)}`);
   if (hostEv.length || guestEv.length) log("events:", JSON.stringify({ host: hostEv, guest: guestEv }));
   results.push({ index, room: ROOM, hostLive: (liveAt - tHost) / 1000, seated: (seatedAt - tGuest) / 1000,
-    streamFps, deaths, wins, names, hostNet, guestNet, errors: hostEv.length + guestEv.length, agreed, map: hostShake.match(/map (\S+)/)?.[1] });
+    streamFps, deaths, wins, names, hostNet, guestNet, errors: hostEv.length + guestEv.length, agreed, relay: relayUsed, map: hostShake.match(/map (\S+)/)?.[1] });
 }
 
 for (let i = 0; i < MATCHES; i++) {
@@ -182,6 +194,6 @@ log("=== SUITE");
 for (const r of results) {
   if (r.fail) { log(`#${r.index + 1} ${r.room || ""} FAIL ${r.fail}`); continue; }
   const n = (x) => x ? `f=${x.frame} rb=${x.rollbacks} stalls=${x.stalls} desync=${x.desyncs} ping=${Math.round(x.pingMs)}` : "no net";
-  log(`#${r.index + 1} ${r.room} live ${r.hostLive.toFixed(1)}s seat ${r.seated.toFixed(1)}s | host ${n(r.hostNet)} | guest ${n(r.guestNet)} | handshake ${r.agreed ? "ok" : "FAILED"} map ${r.map} | names ${JSON.stringify(r.names)} | KOs host=${r.deaths[0]} guest=${r.deaths[1]} wins=${JSON.stringify(r.wins)} | events ${r.errors}`);
+  log(`#${r.index + 1} ${r.room} live ${r.hostLive.toFixed(1)}s seat ${r.seated.toFixed(1)}s | host ${n(r.hostNet)} | guest ${n(r.guestNet)} | relay ${r.relay} | handshake ${r.agreed ? "ok" : "FAILED"} map ${r.map} | names ${JSON.stringify(r.names)} | KOs host=${r.deaths[0]} guest=${r.deaths[1]} wins=${JSON.stringify(r.wins)} | events ${r.errors}`);
 }
 process.exit(0);

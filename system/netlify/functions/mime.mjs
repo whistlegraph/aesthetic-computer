@@ -110,6 +110,11 @@ export function createHandler(connectDb = connect, authorizeUser = authorize, is
 export const handler = createHandler();
 
 async function findOp(db, posts, code) {
+  const nes = /^nes~([A-Za-z0-9_-]{1,96})$/.exec(code);
+  if (nes) {
+    const post = await posts.findOne({ code: nes[1], parent: null }, NO_DATA);
+    return post && isNES(post.file) ? post : null;
+  }
   const ref = parseMediaThread(code);
   if (ref) return mediaThread(db, ref.kind, { _id: ref.id });
   return await feedOnlyOp(db, code) || (/^wg[A-Za-z0-9]+$/.test(code) ? await resolveMedia(db, "whistlegraph", code) : null) || posts.findOne({ code, parent: null }, NO_DATA);

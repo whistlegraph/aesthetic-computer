@@ -1697,7 +1697,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   const youtube = post.embed?.kind === 'youtube' && /^[\w-]{11}$/.test(post.embed.id || '') ? post.embed : null;
   const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : "") + (!youtube && ["mood", "chat"].includes(post.media?.kind) ? " mood-post" : ""));
   div.id = post.code;
-  div.dataset.permalink = ["mood", "chat"].includes(post.media?.kind) && post.media.code ? post.media.kind + "~" + post.media.code
+  div.dataset.permalink = isNESFile(post.file) ? "nes~" + post.code : ["mood", "chat"].includes(post.media?.kind) && post.media.code ? post.media.kind + "~" + post.media.code
     : ["wgpiece", "whistlegraph"].includes(post.media?.kind) && /^wg[A-Za-z0-9]+$/.test(post.media.code) ? post.media.code : post.code;
   tintAuthor(div, post.name);
   const meta = el("div", "meta");
@@ -1709,7 +1709,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     // AC's own notation names the work: #painting, !tape, $kidlisp, a piece by its code.
     const sigil = { painting: "#", tape: "!", kidlisp: "$", mood: "mood~", chat: "chat~" }[post.media?.kind];
     const doom = ["application/x-doom-wad", "application/x-doom"].includes(post.file?.type);
-    const label = doom ? "doom~" + post.code : post.media?.code ? (sigil ?? "") + post.media.code : post.code;
+    const label = isNESFile(post.file) ? "nes~" + post.code : doom ? "doom~" + post.code : post.media?.code ? (sigil ?? "") + post.media.code : post.code;
     const source = el("a", "media-label", label);
     source.href = "https://mime.ac" + postPath(div.dataset.permalink);
     byline.append(source);

@@ -3,6 +3,7 @@
 The feed plays `.nes` files as `application/x-nes-rom`. The website's **+**
 opens the ROM importer; signed-in handles can publish through `/api/mime`.
 The native MIME feed uses the same player and has a Files importer.
+NES cards use `nes~<code>` identifiers, such as `https://mime.ac/nes~qst`.
 `/nes-player/` also opens a local ROM without uploading it.
 
 The pinned JSNES 2.1.0 core supports iNES and NES 2.0 headers and these cartridge

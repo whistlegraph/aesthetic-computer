@@ -20326,6 +20326,18 @@ function runShadow(color) {
 // Handle colors are authored per name and can be shorter than the name they
 // dress. Cycling keeps every glyph on the same palette instead of dropping
 // the tail onto a different color source.
+// A nameplate's letters take their colors from a real handle only. A guest
+// name is not a handle: it used to inherit the anonymous fighter's four body
+// greys as if they were handle colors and paint them letter by letter. It is
+// written in plain ink now, and so are the shadows under it.
+const isGuestName = (name) => /^GUEST-/i.test(String(name || ""));
+const nameplateInk = [236, 232, 242];
+function nameplateColors(player) {
+  return isGuestName(player.name) ? null : player.handleColors;
+}
+function nameplateFallback(player) {
+  return isGuestName(player.name) ? nameplateInk : player.color;
+}
 function glyphColor(colors, index, fallback) {
   return colors?.length ? colors[index % colors.length] : fallback;
 }
@@ -22884,8 +22896,8 @@ function playerHandleLayout(player, side) {
 function drawFloatingHandle(player, x, y, size) {
   const handle = visibleHandle(player);
   const shadows = player.handleColors?.map(runShadow);
-  drawHandle(handle, x + 3, y + 4, size, shadows, runShadow(player.color));
-  drawHandle(handle, x, y, size, player.handleColors, player.color);
+  drawHandle(handle, x + 3, y + 4, size, nameplateColors(player) ? shadows : null, runShadow(nameplateFallback(player)));
+  drawHandle(handle, x, y, size, nameplateColors(player), nameplateFallback(player));
 }
 
 function drawPlayerHandle(player, t, side) {
@@ -22901,8 +22913,8 @@ function drawPlayerHandle(player, t, side) {
       cursor += comicGlyphAdvance(character, size);
     }
   };
-  drawGlyphs(3, 4, player.handleColors?.map(runShadow), runShadow(player.color));
-  drawGlyphs(0, 0, player.handleColors, player.color);
+  drawGlyphs(3, 4, nameplateColors(player)?.map(runShadow), runShadow(nameplateFallback(player)));
+  drawGlyphs(0, 0, nameplateColors(player), nameplateFallback(player));
   const flag = nationFlag(player.nation);
   if (flag) {
     const flagSize = Math.round(size * .92);

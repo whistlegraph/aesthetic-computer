@@ -25,8 +25,9 @@ struct Post: Codable, Identifiable, Equatable {
     let origin: Origin?
     var id: String { code }
 
-    /// The code you can enter in AC: #painting, !tape, $kidlisp, a piece by name.
+    /// The work's global identifier, retaining its media prefix.
     var command: String {
+        if isNES { return "nes~" + self.code }
         if ["application/x-doom-wad", "application/x-doom"].contains(mimeType) { return "doom~" + self.code }
         guard let code = media?.code, !code.isEmpty else { return self.code }
         switch media?.kind {

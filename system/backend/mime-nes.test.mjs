@@ -40,3 +40,27 @@ test('MIME stores canonical NES files, preserves bytes and rejects truncated ROM
   const unsupported = await handler({httpMethod:'POST',body:JSON.stringify({file:{name:'unsupported.nes',data:Buffer.from(bytes).toString('base64')}})});
   assert.equal(unsupported.statusCode,400);assert.match(unsupported.body,/not supported/);assert.equal(rows.length,4);
 });
+
+test('nes~ identifiers resolve the original ROM, replies and engagement, and reject other file types', async () => {
+  const rows = [
+    {code:'rom',parent:null,board:NES_TYPE,file:{name:'test.nes',type:NES_TYPE}},
+    {code:'png',parent:null,board:'image/png',file:{name:'test.png',type:'image/png'}},
+    {code:'reply',parent:'rom',text:'Works!'},
+  ];
+  const posts = {
+    findOne:async query=>rows.find(row=>row.code===query.code && row.parent===query.parent),
+    find(query) { assert.equal(query.parent,'rom'); return {sort(){return this;},async toArray(){return rows.filter(row=>row.parent===query.parent);}}; },
+  };
+  const db={collection(name){
+    if(name==='mimechan')return posts;
+    assert.equal(name,'mime-engagement');
+    return {aggregate(pipeline){assert.equal(pipeline[0].$match.code,'rom');return {async toArray(){return [];}};}};
+  }};
+  const handler=createHandler(async()=>({db}));
+  const response=await handler({httpMethod:'GET',queryStringParameters:{thread:'nes~rom'}});
+  assert.equal(response.statusCode,200,response.body);
+  const result=JSON.parse(response.body);
+  assert.equal(result.op.code,'rom');assert.equal(result.op.file.url,'/api/mime?file=rom');
+  assert.equal(result.replies[0].code,'reply');
+  for(const code of ['nes~png','nes~missing'])assert.equal((await handler({httpMethod:'GET',queryStringParameters:{thread:code}})).statusCode,404);
+});

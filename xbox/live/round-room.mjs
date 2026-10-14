@@ -4,6 +4,53 @@
 const WORD = "(?:[bdfgklmnprstvz][aeiou]){3}";
 const ROUND_NAME = new RegExp(`^(?:${WORD}-${WORD}-${WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 
+// The relays, by region. Through a relay a fight's round trip is each
+// player's round trip to it added together, so the room should live on the
+// relay nearest the players; one relay in New Jersey cost two players in
+// Los Angeles about 200 ms to reach each other. 26.10.14
+export const OSKIEWAR_RELAYS = [
+  { region: "nj", host: "session-server.aesthetic.computer" },
+  { region: "sfo", host: "relay-sfo.aesthetic.computer" },
+];
+
+// Which relay a room lives on. A room that is already live somewhere is
+// joined there, whatever is nearest — both players must share one relay. A
+// room nobody is hosting goes to the relay that answers fastest, because
+// this visitor is about to host it. `pinned` (a region) skips the question
+// for tests. Resolves to a host name; never rejects.
+export async function chooseRelayHost(room, { fetchImpl = globalThis.fetch,
+  pinned = "", timeoutMs = 1500, relays = OSKIEWAR_RELAYS } = {}) {
+  const fallback = relays[0].host;
+  const pin = relays.find((relay) => relay.region === pinned);
+  if (pin) return pin.host;
+  if (typeof fetchImpl !== "function") return fallback;
+  const within = (promise) => Promise.race([promise,
+    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs))]);
+  const ask = async (relay, path) => {
+    try {
+      const started = Date.now();
+      const response = await fetchImpl(`https://${relay.host}${path}`, { cache: "no-store" });
+      const body = response?.ok ? await response.json() : null;
+      return body ? { relay, body, ms: Date.now() - started } : null;
+    } catch { return null; }
+  };
+  if (room) {
+    const answers = await Promise.all(relays.map((relay) =>
+      within(ask(relay, "/oskiewar-room?match=" + encodeURIComponent("ow-" + room)))));
+    const live = answers.find((answer) => answer?.body?.live);
+    if (live) return live.relay.host;
+  }
+  // Two pings each, the faster counts: the first pays for the connection.
+  const timings = await Promise.all(relays.map(async (relay) => {
+    const first = await within(ask(relay, "/oskiewar-ping"));
+    const second = first ? await within(ask(relay, "/oskiewar-ping")) : null;
+    const best = Math.min(first?.ms ?? Infinity, second?.ms ?? Infinity);
+    return { relay, best };
+  }));
+  timings.sort((a, b) => a.best - b.best);
+  return Number.isFinite(timings[0]?.best) ? timings[0].relay.host : fallback;
+}
+
 export function roundNameFromPath(pathname) {
   const name = String(pathname || "").replace(/^\/+|\/+$/g, "").toLowerCase();
   return ROUND_NAME.test(name) ? name : "";
@@ -14,7 +61,7 @@ export class RoundRoom {
     fetchImpl = globalThis.fetch, historyImpl = globalThis.history,
     analytics = () => false, role = "viewer",
     sessionOrigin = "wss://session-server.aesthetic.computer",
-    replayOrigin = "", surface = "web" } = {}) {
+    replayOrigin = "", surface = "web", originReady = null } = {}) {
     if (!ROUND_NAME.test(name || "")) throw new Error("Invalid oskiewar round name");
     this.name = name;
     this.WebSocketImpl = WebSocketImpl;
@@ -24,6 +71,9 @@ export class RoundRoom {
     this.analytics = analytics;
     this.sessionOrigin = sessionOrigin;
     this.replayOrigin = replayOrigin;
+    // A promise of the relay origin, when the shell is still choosing one:
+    // the first open waits for it instead of dialling the default.
+    this.originReady = originReady;
     // What the relay's analytics call this seat: "web" for a browser, the
     // app's own name when it holds the chair itself.
     this.surface = surface;
@@ -75,6 +125,14 @@ export class RoundRoom {
 
   open() {
     if (this.stopped || !this.WebSocketImpl) return;
+    if (this.originReady) {
+      const ready = this.originReady;
+      this.originReady = null;
+      Promise.resolve(ready).then((origin) => {
+        if (origin) this.sessionOrigin = origin;
+      }, () => {}).then(() => this.open());
+      return;
+    }
     this.clear("reconnect");
     const generation = ++this.generation;
     const id = `ow-${this.name}`;

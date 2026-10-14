@@ -534,6 +534,18 @@ private final class NetworkBridge {
         inboxLock.unlock()
     }
 
+    // The oskiewar relays: the New Jersey monolith and the relay-<region>
+    // boxes (round-room.mjs → OSKIEWAR_RELAYS). Nothing else is dialled.
+    static func isRelayHost(_ host: String?) -> Bool {
+        guard let host else { return false }
+        return host == "session-server.aesthetic.computer" ||
+            host.range(of: "^relay-[a-z0-9]{2,12}\\.aesthetic\\.computer$", options: .regularExpression) != nil
+    }
+
+    // The relay the room was placed on, set from JS once the shell has
+    // chosen; the publisher socket dials it.
+    var relayHost = "session-server.aesthetic.computer"
+
     func drainEvents() -> [(kind: String, id: Int, status: Int, text: String)] {
         inboxLock.lock()
         defer { inboxLock.unlock() }
@@ -544,7 +556,7 @@ private final class NetworkBridge {
 
     func openSocket(_ url: String) -> Int {
         guard let target = URL(string: url), ["wss", "ws"].contains(target.scheme ?? ""),
-              target.host == "session-server.aesthetic.computer" else { return 0 }
+              Self.isRelayHost(target.host) else { return 0 }
         let id = nextSocket
         nextSocket += 1
         let task = URLSession.shared.webSocketTask(with: target)
@@ -588,7 +600,7 @@ private final class NetworkBridge {
 
     func fetch(_ id: Int, _ url: String) {
         guard let target = URL(string: url), target.scheme == "https",
-              target.host == "aesthetic.computer" else {
+              target.host == "aesthetic.computer" || Self.isRelayHost(target.host) else {
             post("fetch", id, -1, "refused: \(url)"); return
         }
         var request = URLRequest(url: target)
@@ -642,7 +654,7 @@ private final class NetworkBridge {
         if match != liveMatch {
             liveTask?.cancel(with: .goingAway, reason: nil)
             liveMatch = match
-            var components = URLComponents(string: "wss://session-server.aesthetic.computer/oskiewar-live")
+            var components = URLComponents(string: "wss://\(relayHost)/oskiewar-live")
             components?.queryItems = [
                 URLQueryItem(name: "match", value: match),
                 URLQueryItem(name: "role", value: "publisher"),
@@ -937,6 +949,9 @@ private final class NativeGameHost {
         // later arrival takes the chair — so two of these apps on one room
         // name sort themselves into a fight. Harness lanes (an opponent, a
         // self-play run) stay out of it, as on the web.
+        let pinnedRelay = ProcessInfo.processInfo.environment["OSKIEWAR_RELAY"] ?? ""
+        let relayLiteral = (try? JSONSerialization.data(withJSONObject: [pinnedRelay]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "[\"\"]"
         let asked = ProcessInfo.processInfo.environment["OSKIEWAR_ROOM"] ?? ""
         let room = asked.range(of: "^[a-z]{4,7}[0-9]{1,3}$", options: .regularExpression) != nil
             ? asked : "dojo1"
@@ -947,7 +962,11 @@ private final class NativeGameHost {
             globalThis.__oskiewarRoundBridge = new RoundRoom(\(literal)[0], {
               WebSocketImpl: globalThis.NativeWebSocket, fetchImpl: globalThis.fetch,
               historyImpl: null, role: "challenger", surface: "macos-native",
-              replayOrigin: "https://aesthetic.computer" });
+              replayOrigin: "https://aesthetic.computer",
+              originReady: chooseRelayHost(\(literal)[0], { pinned: \(relayLiteral)[0] }).then(function (host) {
+                oskiewarSetRelay(host);
+                return "wss://" + host;
+              }) });
             """)
         }
         if let encoded = try? JSONSerialization.data(withJSONObject: [opponent]),
@@ -1054,7 +1073,7 @@ private final class NativeGameHost {
                 "JSON.stringify({net: globalThis.__oskiewarNetStats || null, room: globalThis.__oskiewarVersusRoom || '', " +
                 "inbox: (globalThis.__oskiewarNetInbox || []).length, sends: globalThis.__oskiewarNetSendCount || 0, " +
                 "sendOk: globalThis.__oskiewarNetSendOk || 0, refusal: globalThis.__oskiewarNetRefusal || null, " +
-                "game: globalThis.__oskiewarGameHash || '', err: " + (javascriptError.isEmpty ? "''" : "'js error'") + "})")
+                "game: globalThis.__oskiewarGameHash || '', relay: '" + network.relayHost + "', err: " + (javascriptError.isEmpty ? "''" : "'js error'") + "})")
             netLog("\(Date()) \(probe?.toString() ?? "?")")
         }
         let delta = min(0.1, max(0, now - lastFrame))
@@ -1293,6 +1312,9 @@ private final class NativeGameHost {
         let oskiewarSocketClose: @convention(block) (Int, Int, String) -> Void = { [weak self] id, code, reason in
             self?.network.closeSocket(id, code: code, reason: reason)
         }
+        let oskiewarSetRelay: @convention(block) (String) -> Void = { [weak self] host in
+            if NetworkBridge.isRelayHost(host) { self?.network.relayHost = host }
+        }
         let oskiewarFetch: @convention(block) (Int, String) -> Void = { [weak self] id, url in
             self?.network.fetch(id, url)
         }
@@ -1404,6 +1426,7 @@ private final class NativeGameHost {
         javascript.setObject(oskiewarSocketSend, forKeyedSubscript: "oskiewarSocketSend" as NSString)
         javascript.setObject(oskiewarSocketClose, forKeyedSubscript: "oskiewarSocketClose" as NSString)
         javascript.setObject(oskiewarFetch, forKeyedSubscript: "oskiewarFetch" as NSString)
+        javascript.setObject(oskiewarSetRelay, forKeyedSubscript: "oskiewarSetRelay" as NSString)
         javascript.setObject(ac, forKeyedSubscript: "ac" as NSString)
     }
 }

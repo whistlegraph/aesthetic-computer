@@ -1435,6 +1435,14 @@ fastify.get("/oskiewar-open-room", async (request, reply) => {
   return oskiewarLiveManager.openRoom() || {};
 });
 
+// Where a room lives, when there is more than one relay: a guest asks every
+// relay and joins the one that answers live (see oskiewar-relay.mjs).
+fastify.get("/oskiewar-room", async (request, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Cache-Control", "no-store");
+  return oskiewarLiveManager.roomStatus(String(request.query?.match || ""));
+});
+
 // *** Status Page Routes (defined after wss initialization) ***
 // Status JSON endpoint
 fastify.get("/status", async (request, reply) => {

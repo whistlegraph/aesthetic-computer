@@ -55,7 +55,7 @@ async function fixture({ login = false } = {}) {
       return route.fulfill({json:{recent:posts,hasMore:false}});
     }
     let path=url.pathname;
-    if(url.hostname==='mime.ac'&&(path==='/'||path.startsWith('/p/'))) path='/mime/index.html';
+    if(url.hostname==='mime.ac'&&(path==='/'||path.startsWith('/p/')||/^\/nes~[A-Za-z0-9_-]+$/.test(path))) path='/mime/index.html';
     if(path.endsWith('/'))path+='index.html';
     try{
       const body=await readFile(new URL('.'+path,pub));
@@ -69,10 +69,12 @@ async function fixture({ login = false } = {}) {
 test('a real NES ROM renders, accepts keyboard/touch/gamepad, pauses and releases held controls',async()=>{
   const {browser,page,errors}=await fixture();
   try{
-    await page.goto('https://mime.ac/?ac-automation=1');
+    await page.goto('https://mime.ac/nes~nes-fixture?ac-automation=1');
     await page.locator('#nes-fixture .piece-preview iframe').waitFor({timeout:10000});
     const player=await (await page.locator('#nes-fixture .piece-preview iframe').elementHandle()).contentFrame();
     await player.waitForFunction(()=>window.fixtureFrames>10);
+    assert.equal(await page.locator('#nes-fixture .media-label').first().getAttribute('aria-label'),'nes~nes-fixture');
+    assert.equal(await page.locator('#nes-fixture .media-label').first().getAttribute('href'),'https://mime.ac/nes~nes-fixture');
     assert.equal(await page.locator('#nes-fixture .feed-media').getAttribute('data-media-state'),'ready');
     assert.ok(await player.locator('canvas').evaluate(canvas=>new Set(canvas.getContext('2d').getImageData(0,0,256,240).data).size>3));
     await player.locator('canvas').click();
@@ -143,7 +145,7 @@ test('NES file picker validates locally, keeps a failed upload and opens the pub
     assert.deepEqual(Buffer.from(writes[0].file.data,'base64'),Buffer.from(inputROM()));
     const uploaded=page.waitForResponse(response=>response.url().endsWith('/api/mime')&&response.request().method()==='POST'&&response.status()===200);
     await post.click();await uploaded;await dialog.waitFor({state:'detached'});
-    await page.waitForURL('**/nes-fixture?ac-automation=1');
+    await page.waitForURL('**/nes~nes-fixture?ac-automation=1');
     await page.locator('#nes-fixture .piece-preview iframe[data-ready="true"]').waitFor();
     assert.equal(writes.length,2);assert.deepEqual(errors,[]);
   }finally{await browser.close();}

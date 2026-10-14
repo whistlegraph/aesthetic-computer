@@ -748,6 +748,17 @@ export class OskiewarLiveManager {
       send(watcher, "oskiewar:status", status);
   }
 
+  // Is this room hosted here? With more than one relay, a guest holding a
+  // room name asks every relay this and joins the one that answers live, so
+  // the host's choice of relay needs no directory. A name nobody has opened
+  // here reads as not live rather than creating a room.
+  roomStatus(match) {
+    const room = this.rooms.get(canonicalMatchId(match));
+    if (!room) return { live: false, challenger: false };
+    return { live: this.publisherLive(room),
+      challenger: room.challenger?.readyState === 1 };
+  }
+
   // The bare front door's matchmaker: one room with a live publisher, an
   // empty second chair, and an untimed round — the timed rounds are the
   // recorded broadcast farm, and a visitor dropped into one would be watching

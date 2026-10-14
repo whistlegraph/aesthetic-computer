@@ -36,7 +36,7 @@ test('MIME top-level posts and legacy redirects preserve service and static rout
     try { await fetch(base); break; }
     catch { if (attempt === 100 || server.exitCode !== null) throw new Error(logs); await new Promise(resolve=>setTimeout(resolve,30)); }
   }
-  for (const code of ['qst','mood~abc','chat~abc','wgHafar','ow-chette767','piece_abc']) {
+  for (const code of ['qst','nes~qst','mood~abc','chat~abc','wgHafar','ow-chette767','piece_abc']) {
     const response = await fetch(base + '/' + code);
     assert.equal(response.status, 200, code);
     assert.match(await response.text(), /function postFromPath/);

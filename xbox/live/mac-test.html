@@ -1469,7 +1469,7 @@
       const retiresRoom = /"nextRoundId":"ow-/.test(payload);
       let state = liveSockets.get(matchId);
       if (!state) {
-        const socket = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher&surface=web`);
+        const socket = new WebSocket(`wss://${globalThis.__oskiewarRelayHost || "session-server.aesthetic.computer"}/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher&surface=web`);
         state = { socket, pending: payload, retire: retiresRoom };
         liveSockets.set(matchId, state);
         socket.addEventListener("open", () => {
@@ -1836,7 +1836,7 @@
       captureOskiewarAction,
       initProductAnalytics,
     } from "/aesthetic.computer/lib/product-analytics.mjs";
-    import { RoundRoom, roundNameFromPath } from "/round-room.mjs";
+    import { RoundRoom, roundNameFromPath, chooseRelayHost } from "/round-room.mjs";
     const { createMimeReplay } = mimeReplay ? await import("/mime-replay.mjs") : {};
     const oskiewarSfx = createOskiewarSfx({
       contextFactory: () => ensureAudio(), volume: .64, maxVoices: 72,
@@ -2029,8 +2029,16 @@
     const mimePlayer = mimeReplay ? createMimeReplay(
       new URLSearchParams(location.search).get("replay")?.replace(/^ow-/, "") ||
       location.pathname.replace(/^\/+|\/+$/g, "")) : null;
+    // The relay this room lives on — the one already hosting it, else the
+    // nearest — chosen while the bridge waits, and shared with the publisher
+    // socket below so a host and its rival never sit on different relays.
+    const relayChoice = joinName ? chooseRelayHost(joinName, {
+      pinned: new URLSearchParams(location.search).get("relay") || "" }).then((host) => {
+        globalThis.__oskiewarRelayHost = host;
+        return "wss://" + host;
+      }) : null;
     globalThis.__oskiewarRoundBridge = mimePlayer || (joinName
-      ? new RoundRoom(joinName, { analytics,
+      ? new RoundRoom(joinName, { analytics, originReady: relayChoice,
           role: globalThis.__oskiewarVersusCapable === true
             ? "challenger" : "viewer" })
       : null);
