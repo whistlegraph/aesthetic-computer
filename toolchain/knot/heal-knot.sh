@@ -54,8 +54,10 @@ UNIT
 echo "== watchdog: restart when port 5555 stops answering"
 cat > /usr/local/bin/knot-watchdog.sh <<'WD'
 #!/bin/bash
-code=$(curl -s -m 8 -o /dev/null -w "%{http_code}" http://127.0.0.1:5555/ || echo 000)
-if [ "$code" = "000" ]; then
+# A timed-out curl already prints 000 and exits non-zero; never append to it
+# (an `|| echo 000` made "000000", so the watchdog never fired on 10-13).
+code=$(curl -s -m 8 -o /dev/null -w "%{http_code}" http://127.0.0.1:5555/)
+if [ -z "$code" ] || [ "$code" = "000" ]; then
   logger -t knot-watchdog "port 5555 not answering (rss $(ps -o rss= -C knot | sort -n | tail -1 | tr -d ' ') kB); restarting knotserver"
   systemctl restart knotserver.service
 fi
