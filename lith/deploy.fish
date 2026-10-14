@@ -292,6 +292,34 @@ if test $UPLOAD_ENV = true
         echo -e "$YELLOW   env on $TARGET_HOST is still whatever last worked.$NC"
         exit 1
     end
+    # The upload replaces the server's env wholesale, and every Mac carries its
+    # own copy of the vault env. On 2026-10-14 blueberry deployed a copy that
+    # neo had outgrown by seven keys, and No Paint's cloud catalog and the
+    # choir uploads went dark with no error anywhere. lith/.env.keys only
+    # catches keys someone remembered to list, so compare against the server
+    # itself: refuse to ship an env that drops a key lith is running with.
+    # DEPLOY_ENV_DROP="KEY OTHER_KEY" names keys you mean to retire.
+    echo -e "$GREEN-> Comparing environment keys with $TARGET_HOST...$NC"
+    set remote_keys (ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cut -d= -f1 $REMOTE_DIR/system/.env 2>/dev/null | grep -E '^[A-Z0-9_]+\$' | sort -u")
+    set local_keys (string match -rg '^([A-Z0-9_]+)=' < $SERVICE_ENV | sort -u)
+    set dropped_keys
+    for key in $remote_keys
+        contains -- $key $local_keys; or contains -- $key (string split ' ' -- "$DEPLOY_ENV_DROP"); or set -a dropped_keys $key
+    end
+    set added_keys
+    for key in $local_keys
+        contains -- $key $remote_keys; or set -a added_keys $key
+    end
+    if test (count $dropped_keys) -gt 0
+        echo -e "$RED x $SERVICE_ENV would drop keys $TARGET_HOST is running with: $dropped_keys$NC"
+        echo -e "$YELLOW   This Mac's vault env is stale. Copy lith/.env from the Mac that deployed last$NC"
+        echo -e "$YELLOW   (or merge the missing lines in), then deploy again. To retire a key on purpose,$NC"
+        echo -e "$YELLOW   run with DEPLOY_ENV_DROP=\"$dropped_keys\". Production is untouched.$NC"
+        exit 1
+    end
+    if test (count $added_keys) -gt 0
+        echo -e "$GREEN   adding keys: $added_keys$NC"
+    end
     echo -e "$GREEN-> Uploading environment...$NC"
     scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/.env
 else
