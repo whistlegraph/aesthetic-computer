@@ -148,6 +148,17 @@ final class LaneOrreryView: NSView {
                 fly.borderColor = NSColor.black.withAlphaComponent(body.color > 0xE0E0E0 ? 0.35 : 0.15).cgColor
                 fly.borderWidth = 0.5
             }
+            // Drop shadow in the pal's comic style (the name and avatar wear
+            // it too): a hard accent-colored copy, no blur, cast down-right. It
+            // sits in a transform offset so the shared position animation
+            // carries both without any arithmetic.
+            let drop = CALayer()
+            drop.bounds = fly.bounds
+            drop.cornerRadius = fly.cornerRadius
+            drop.position = start
+            drop.transform = CATransform3DMakeTranslation(1.5, -1.5, 0)
+            drop.backgroundColor = accent.cgColor
+            root.addSublayer(drop)
             if !reduce {
                 if !blocked {
                     let move = CAKeyframeAnimation(keyPath: "position")
@@ -155,6 +166,7 @@ final class LaneOrreryView: NSView {
                     move.duration = period; move.repeatCount = .infinity
                     move.timeOffset = period * (Double(i) * 0.37).truncatingRemainder(dividingBy: 1)
                     fly.add(move, forKey: "fly")
+                    drop.add(move, forKey: "fly")
                 }
                 // The blink: brief flares for the busy, slow breaths for the
                 // waiting, a rare wink for the idle, an alarm for the blocked.
