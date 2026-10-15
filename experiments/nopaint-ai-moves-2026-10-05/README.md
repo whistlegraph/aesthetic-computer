@@ -21,21 +21,20 @@ starts fresh. It never publishes the private decision log. History can export
 that log explicitly. Browser storage stays on this browser; it is not an account
 backup. Another open editor tab is held read-only using the Web Locks API.
 
-Local Stable Diffusion, SD-Turbo, fleet inference and Real-ESRGAN use the running
-desktop companion. Start the updated desktop backend, then choose File → Connect
-Website (or visit `http://127.0.0.1:8767/connect`). Confirm the connection on that
-local page. The site then operates the desktop's existing painting and account;
-its browser painting is retained and returns on Disconnect. It does not copy
-desktop credentials into browser storage. Pairing uses a random session token
-in a URL fragment, promptly removed by the site, and an exact nopaint.art origin
-allowlist. The loopback host check remains mandatory. Browsers may request local
-network permission. Restarting the backend requires pairing again. No fleet
-machine is exposed as a public unauthenticated inference endpoint.
+The website starts with Classic: a free mix of CPU paint operations. Pixels,
+Color and Primitives are also available locally. Signing in or refreshing the
+catalog does not switch to AI. Choose a specific cloud model to use Braincells;
+the hint appears only for those models. Desktop and fleet inference stay in the
+native app. The website never connects to a local backend.
+
+The canvas and No/Paint buttons fill the main view. The bottom status opens
+models, account, Fresh, Save, Done, History and brush settings. Hold Space or
+hover No to preview the previous painting. There is no top menu bar.
 
 The shared high-level UI document and Swift/DOM renderers live in
 `system/public/aesthetic.computer/lib/ui/`. Native consumes the shared decision
 bar, palette, layout and options while retaining its platform canvas and views.
-The browser uses the same document for its controls and menus.
+The browser uses the same document for its controls in the bottom status panel.
 
 AC browser login also needs `https://nopaint.art` in the existing Auth0 SPA's
 callbacks, web origins, CORS origins and logout URLs. With the Auth0 CLI signed

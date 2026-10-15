@@ -2,7 +2,7 @@
 
 > Paint with AI image models or local brushes using your Aesthetic Computer account.
 
-The website shares its cloud model catalog, Braincell prices and high-level UI definitions with the No Paint desktop app. Local Stable Diffusion, fleet models and Real-ESRGAN are available through an explicitly paired desktop companion. Browser paintings and history are kept locally. Done publishes the accepted painting and steps under the signed-in AC handle.
+The website shares its cloud model catalog, Braincell prices and high-level UI definitions with the No Paint desktop app. The website starts with free Classic CPU moves; cloud inference requires choosing a specific model. Desktop and fleet inference remain in the native app. Browser paintings and history are kept locally. Done publishes the accepted painting and steps under the signed-in AC handle.
 
 ## Resources
 

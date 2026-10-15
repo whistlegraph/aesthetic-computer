@@ -168,9 +168,9 @@ async function select(name) {
   await ready();
   assert.ok((await page.locator("#status").textContent()).includes(name));
 }
-async function menuAction(menu, id) {
-  await page.locator("summary").filter({ hasText: menu }).click();
-  await page.locator(`.menu-items [data-action=${id}]`).click();
+async function studioAction(id) {
+  await page.locator("#status").click();
+  await page.locator(`#studio-actions [data-action=${id}]`).click();
 }
 try {
   await page.goto(base + "/nopaint.art/ai/index.html");
@@ -178,7 +178,9 @@ try {
   await page.waitForFunction(() =>
     document.querySelector("#status").textContent.includes("@fixture"),
   );
-  await select("Classic");
+  assert.match(await page.locator("#status").textContent(), /^Classic · free/);
+  assert.equal(await page.locator("#menus, #before").count(), 0);
+  assert.equal(await page.locator("#hint").isVisible(), false);
   const initial = await pixels();
   await paint().click();
   await ready();
@@ -192,6 +194,18 @@ try {
   await ready();
   assert.ok((await pixels()) === initial, "reload resumes accepted pixels");
   assert.equal(moves.length, 0, "local moves must not call cloud inference");
+  await page.locator("#status").click();
+  const choices = await page.locator(".model-row").allTextContents();
+  assert.equal(choices.length, 5, "four CPU modes and the cloud offer only");
+  assert.doesNotMatch(choices.join(" "), /Random|Desktop|Fleet/);
+  await page.locator("#models [data-close]").click();
+  await studioAction("settings");
+  await page.locator("#mode").selectOption("inpaint");
+  await page.locator("#brush").selectOption("24");
+  await page.locator("#brush-settings [data-close]").click();
+  await studioAction("account");
+  assert.equal(await page.locator("#signed-in").isVisible(), true);
+  await page.locator("#account [data-close]").click();
   // Exact mask preservation through the real browser image pipeline.
   const maskResult = await page.evaluate(async () => {
     const m = await import("/nopaint.art/ai/images.mjs"),
@@ -209,6 +223,7 @@ try {
   });
   assert.equal(maskResult, true);
   await select("Test Cloud");
+  assert.equal(await page.locator("#hint").isVisible(), true);
   await page.locator("#hint").fill("a red square");
   await paint().click();
   await cloudSubmitted;
@@ -245,10 +260,11 @@ try {
   await page.waitForTimeout(600);
   assert.ok((await pixels()) === initial, "No ignores a late cloud result");
   await select("Classic");
+  assert.equal(await page.locator("#hint").isVisible(), false);
   await paint().click();
   await ready();
   const beforeDone = await pixels();
-  await menuAction("File", "done");
+  await studioAction("done");
   await page.waitForSelector("#notice[open]");
   assert.match(
     await page.locator("#notice-message").textContent(),
@@ -263,7 +279,7 @@ try {
     await page.locator("#status").textContent(),
     /Test interruption/,
   );
-  await menuAction("File", "history");
+  await studioAction("history");
   await page.waitForSelector("#history[open]");
   assert.ok((await page.locator("#history-list img").count()) >= 2);
   await page.locator("#history [data-close]").click();
@@ -291,6 +307,8 @@ try {
       result: "passed",
       checks: [
         "local Paint/No",
+        "Classic default after sign-in",
+        "controls in bottom status panel",
         "reload persistence",
         "exact mask preservation",
         "authenticated cloud quote and hint",

@@ -2,7 +2,7 @@ import {
   noPaintUI,
   paintingLayout,
   decisionBar,
-  menu,
+  actionButton,
   updateActions,
   applyPalette,
 } from "/aesthetic.computer/lib/ui/web.mjs";
@@ -10,12 +10,10 @@ import * as images from "./images.mjs";
 import { openStore } from "./storage.mjs";
 import { Account } from "./account.mjs";
 import { Game, paintCapacity } from "./game.mjs";
-import { Companion } from "./companion.mjs";
 import { publish } from "./publish.mjs";
 import "/aesthetic.computer/lib/visit-tracker.mjs";
 const $ = (id) => document.getElementById(id);
 let game,
-  desktop,
   store,
   paintImage = "",
   renderID = 0,
@@ -28,8 +26,7 @@ let game,
   issue = "",
   lastPublication = "",
   historyData = [],
-  workingLabel = "",
-  upscaleRequested = null;
+  workingLabel = "";
 const account = new Account(() => {
   if (game) {
     game.prepare();
@@ -73,41 +70,6 @@ function resize() {
   );
 }
 function snapshot() {
-  if (desktop?.state) {
-    const s = desktop.state;
-    return {
-      ...s,
-      accepted: desktop.accepted,
-      before: desktop.before,
-      preview: desktop.preview,
-      error: desktop.error || s.error,
-      canChange:
-        !s.busy &&
-        !s.upscale?.busy &&
-        !s.publication?.busy &&
-        !s.publication?.pending &&
-        !desktop.sending,
-      canPaint:
-        !!s.quote &&
-        !s.busy &&
-        !s.upscale?.busy &&
-        !s.error &&
-        !s.publication?.pending &&
-        !desktop.sending,
-      canNo: s.can_reject && !s.publication?.pending && !desktop.sending,
-      canDone:
-        s.account.connected &&
-        !s.account.stale &&
-        !s.busy &&
-        !s.publication?.busy,
-      canFresh:
-        !s.busy && !s.publication?.busy && !s.upscale?.busy && !desktop.sending,
-      canUpscale: !s.busy && !s.publication?.pending && !s.upscale?.busy,
-      ready: true,
-      hasPublished: !!s.publication?.url,
-      remote: true,
-    };
-  }
   if (!game?.track) return { models: [], account: {}, ready: false };
   return {
     accepted: game.accepted,
@@ -134,7 +96,6 @@ function snapshot() {
       !account.value.stale &&
       !game.busy &&
       !game.publishing,
-    canUpscale: false,
     ready: true,
     hasPublished: !!lastPublication,
     elapsed: game.job ? (Date.now() - game.job.started) / 1000 : null,
@@ -167,26 +128,24 @@ function status() {
   else if (issue || s.error) parts.push(issue || s.error);
   else if (workingLabel) parts.push(workingLabel);
   else {
-    if (s.selection === "random") parts.push("Random");
     parts.push(model?.name || "Choose a model");
     if (s.busy) parts.push(`${(s.elapsed || 0).toFixed(1)}s`);
-    if (price != null)
+    if (price > 0)
       parts.push(
         `${price.toLocaleString()} braincells`,
         `${paintCapacity(price, s.account)} paints left`,
       );
-    if (model?.companion) parts.push("Connect Desktop");
-    else if (!model?.available)
+    if (price === 0) parts.push("free");
+    if (!model?.available)
       parts.push(
         s.account.connected ? "Unavailable" : "Sign in for cloud moves",
       );
-    parts.push(s.account.handle || "Sign in");
+    if (s.account.handle) parts.push(s.account.handle);
     if (s.account.stale) parts.push("last known balance");
-    if (s.remote) parts.push("Desktop");
   }
   $("status").textContent = parts.join(" · ");
   $("status").title = parts.join(" · ");
-  $("progress").hidden = !s.busy && !s.upscale?.busy;
+  $("progress").hidden = !s.busy;
 }
 function drawMask() {
   overlayCtx.clearRect(0, 0, 256, 256);
@@ -217,10 +176,15 @@ async function render() {
   if (!s.ready) return;
   const hintable = s.engine?.startsWith("ac-");
   $("hint").disabled = !s.canChange || !hintable || locked;
-  $("hint").placeholder = hintable ? "hint" : "hint · cloud only";
+  $("hint").hidden = !hintable;
   $("strength").value = String(s.strength);
-  $("before").disabled = !s.before;
-  $("hint").hidden = false;
+  $("mode").value = mode;
+  $("mode-label").textContent =
+    mode === "zoom"
+      ? "Drag the painting to crop."
+      : "Brush the area to change. Hold Option/Alt to erase.";
+  for (const id of ["strength", "brush", "mode"])
+    $(id).disabled = !capabilities(s).canChange;
   const url =
     peek || noHover ? s.before : s.busy && s.preview ? s.preview : s.accepted;
   if (url && url !== paintImage) {
@@ -257,9 +221,7 @@ async function render() {
 async function dispatch(id) {
   try {
     if (!game) return;
-    if (
-      ["models", "account", "companion", "settings", "history"].includes(id)
-    ) {
+    if (["models", "account", "settings", "history"].includes(id)) {
       if (id === "models") {
         renderModels();
         $("model-list").scrollTop = 0;
@@ -269,13 +231,12 @@ async function dispatch(id) {
         renderAccount();
         open("account");
       }
-      if (id === "companion") open("companion");
       if (id === "settings") {
         $("mode-label").textContent =
           mode === "zoom"
             ? "Drag the painting to crop."
             : "Brush the area to change. Hold Option/Alt to erase.";
-        open("options");
+        open("brush-settings");
       }
       if (id === "history") await showHistory();
       return;
@@ -288,7 +249,7 @@ async function dispatch(id) {
       return;
     }
     if (id === "published") {
-      const url = desktop?.state?.publication?.url || lastPublication;
+      const url = lastPublication;
       if (url && /^https:\/\/aesthetic\.computer\/#?[A-Za-z0-9]+$/.test(url))
         window.open(url, "_blank", "noopener");
       return;
@@ -299,15 +260,6 @@ async function dispatch(id) {
       );
     issue = "";
     if (id === "done") {
-      if (desktop) {
-        await desktop.receive(
-          await desktop.request("/api/done", {
-            revision: desktop.state.revision,
-            accepted: desktop.state.accepted,
-          }),
-        );
-        return;
-      }
       game.finishPending = true;
       render();
       try {
@@ -325,22 +277,6 @@ async function dispatch(id) {
       }
       return;
     }
-    if (id.startsWith("upscale")) {
-      if (!desktop) {
-        open("companion");
-        return;
-      }
-      const scale = Number(id.slice(-1));
-      await desktop.receive(
-        await desktop.request("/api/upscale", {
-          revision: desktop.state.revision,
-          accepted: desktop.state.accepted,
-          scale,
-        }),
-      );
-      upscaleRequested = desktop.state.upscale?.id;
-      return;
-    }
     if (id === "zoom" || id === "inpaint") {
       mode = id;
       drawMask();
@@ -353,22 +289,16 @@ async function dispatch(id) {
     }
     if (id === "paint") {
       if (!capabilities(snapshot()).canPaint) return;
-      if (desktop) await desktop.act("paint", { hint: $("hint").value });
-      else {
-        game.hint = $("hint").value;
-        const before = game.accepted;
-        await game.paint();
-        if (game.accepted !== before)
-          window.acVisits?.action("painting_edited");
-      }
+      game.hint = $("hint").value;
+      const before = game.accepted;
+      await game.paint();
+      if (game.accepted !== before) window.acVisits?.action("painting_edited");
     } else if (id === "no" || id === "undo") {
       if (!capabilities(snapshot()).canNo) return;
       noHover = false;
-      if (desktop) await desktop.act(id === "undo" ? "undo" : "no");
-      else await game.no();
+      await game.no();
     } else if (id === "fresh") {
-      if (desktop) await desktop.act("restart", { start: "noise" });
-      else await game.fresh();
+      await game.fresh();
       mask.fill(0);
     }
     render();
@@ -405,15 +335,7 @@ function renderModels() {
       "Paint confirms the displayed price. Completed cloud moves cost Braincells even after No.";
     $("model-notice").append(note);
   }
-  const choices = [
-    {
-      id: "random",
-      name: "Random",
-      location: "Available models",
-      available: true,
-    },
-    ...s.models,
-  ];
+  const choices = s.models;
   $("model-list").replaceChildren(
     ...choices
       .filter((m) =>
@@ -430,28 +352,18 @@ function renderModels() {
         detail.textContent = model.location || "";
         name.append(document.createElement("br"), detail);
         const price = document.createElement("span");
-        price.textContent = model.companion
-          ? "Connect Desktop"
-          : model.braincells === 0
-            ? "0 · ∞ paints"
+        price.textContent =
+          model.braincells === 0
+            ? "Free"
             : model.braincells > 0
               ? `${model.braincells.toLocaleString()} · ${paintCapacity(model.braincells, s.account)} paints`
-              : model.id === "random"
-                ? ""
-                : "Not enabled on AC";
-        if (!model.available && !model.companion)
-          price.textContent += " · unavailable";
+              : "Not enabled on AC";
+        if (!model.available) price.textContent += " · unavailable";
         row.append(name, price);
         row.disabled = !s.canChange;
         row.onclick = async () => {
           try {
-            if (model.companion) {
-              $("models").close();
-              open("companion");
-              return;
-            }
-            if (desktop) await desktop.act("engine", { engine: model.id });
-            else await game.select(model.id);
+            await game.select(model.id);
             issue = "";
             $("models").close();
             render();
@@ -471,21 +383,14 @@ function renderAccount() {
   $("signout").disabled = s.busy || !!s.publication?.pending;
   $("balance").textContent =
     `${a.handle || ""} · ${((a.remaining || 0) + (a.purchased || 0)).toLocaleString()} Braincells${a.stale ? " (last known)" : ""}`;
-  $("account-message").textContent =
-    a.error || (desktop ? "Using the desktop’s AC account." : "");
+  $("account-message").textContent = a.error || "";
 }
 async function commitMask() {
-  if (desktop)
-    await desktop.act("mask", {
-      mask: images.maskBits(mask),
-      accepted: desktop.state.accepted,
-    });
-  else {
-    game.mask = mask.slice();
-    game.track.mask = mask.slice();
-    await game.persist();
-    game.prepare();
-  }
+  if (!capabilities(snapshot()).canChange) return;
+  game.mask = mask.slice();
+  game.track.mask = mask.slice();
+  await game.persist();
+  game.prepare();
   drawMask();
   render();
 }
@@ -555,9 +460,7 @@ overlay.onpointerup = async () => {
         Math.max(current.start[1], current.end[1]) + 1,
       ];
       if (box[2] - box[0] > 2 && box[3] - box[1] > 2) {
-        if (desktop)
-          await desktop.act("crop", { box, accepted: desktop.state.accepted });
-        else await game.crop(box);
+        await game.crop(box);
         mask.fill(0);
       }
     }
@@ -573,30 +476,7 @@ overlay.onpointercancel = () => {
 };
 async function showHistory(trackID) {
   let rows;
-  if (desktop) {
-    if (trackID) {
-      historyData = await desktop.request(
-        "/api/track?id=" + encodeURIComponent(trackID),
-      );
-      rows = await Promise.all(
-        historyData.steps.map(async (s) => ({
-          ...s,
-          image: await desktop.image(s.image),
-        })),
-      );
-    } else {
-      const result = await desktop.request("/api/tracks");
-      historyData = result;
-      rows = await Promise.all(
-        result.paintings.map(async (t) => ({
-          ...t,
-          image: await desktop.image(t.image),
-          label: t.started_at,
-          trackID: t.id,
-        })),
-      );
-    }
-  } else if (trackID) {
+  if (trackID) {
     const track = await store.get(trackID);
     historyData = track;
     rows = [
@@ -647,32 +527,30 @@ async function showHistory(trackID) {
   );
   open("history");
 }
-async function connect(token) {
-  if (locked)
-    throw Error("Close the other No Paint tab and reload here to connect.");
-  const next = new Companion(token, () => {
-    if (!drag) mask = next.mask || mask;
-    render();
-  });
-  await next.poll();
-  if (!next.state)
-    throw Error(
-      "Could not connect to No Paint. Keep the desktop app running and allow local network access in your browser.",
-    );
-  desktop = next;
-  sessionStorage.setItem("nopaint-companion", token);
-  $("companion-disconnect").hidden = false;
-  $("companion-message").textContent = "Connected to the desktop painting.";
-  mask = next.mask;
-  render();
-}
 applyPalette();
 $("decisions").append(decisionBar(dispatch));
 $("band").prepend($("hint"));
-for (const spec of noPaintUI.menus) {
-  const item = menu(spec, dispatch);
-  if (spec.id === "file") $("menus").prepend(item);
-  else $("menus").append(item);
+const webActions = [
+  "fresh",
+  "save",
+  "done",
+  "history",
+  "settings",
+  "account",
+  "published",
+];
+const actions = noPaintUI.menus.flatMap((m) => m.actions);
+for (const id of webActions) {
+  const spec = actions.find((a) => a.id === id);
+  const label =
+    { save: "Save", settings: "Brush", published: "Last painting" }[id] ||
+    spec.label;
+  $("studio-actions").append(
+    actionButton({ ...spec, label }, (action) => {
+      $("models").close();
+      dispatch(action);
+    }),
+  );
 }
 for (const { label, value } of noPaintUI.strengths)
   $("strength").add(new Option(label, String(value)));
@@ -697,32 +575,27 @@ $("status").onclick = () => {
     notice(error, "No Paint", () => {
       issue = "";
       game.retry();
-      if (desktop) desktop.act("retry").catch((e) => notice(e.message));
     });
   else dispatch("models");
 };
-$("account-open").onclick = () => dispatch("account");
-$("companion-open").onclick = () => dispatch("companion");
 $("clear-mask").onclick = () => dispatch("clearMask");
 $("strength").onchange = async () => {
   try {
-    if (desktop)
-      await desktop.act("strength", { strength: Number($("strength").value) });
-    else await game.changeStrength(Number($("strength").value));
+    await game.changeStrength(Number($("strength").value));
   } catch (error) {
     notice(error.message);
   }
+};
+$("mode").onchange = () => {
+  mode = $("mode").value;
+  render();
 };
 $("brush").onchange = () => {
   brush = Number($("brush").value);
 };
 $("signout").onclick = async () => {
   try {
-    if (desktop)
-      await desktop.receive(
-        await desktop.request("/api/account", { action: "disconnect" }),
-      );
-    else await account.logout();
+    await account.logout();
     renderAccount();
     render();
   } catch (error) {
@@ -731,14 +604,8 @@ $("signout").onclick = async () => {
 };
 $("redirect-login").onclick = async () => {
   try {
-    if (desktop)
-      await desktop.receive(
-        await desktop.request("/api/account", { action: "connect" }),
-      );
-    else {
-      await game.persist();
-      await account.login();
-    }
+    await game.persist();
+    await account.login();
   } catch (error) {
     $("account-message").textContent = error.message;
   }
@@ -747,11 +614,7 @@ $("signin").onsubmit = async (e) => {
   e.preventDefault();
   $("sign-submit").disabled = true;
   try {
-    if (desktop) {
-      await desktop.receive(
-        await desktop.request("/api/account", { action: "connect" }),
-      );
-    } else if ($("code-label").hidden) {
+    if ($("code-label").hidden) {
       await account.otp.sendCode($("email").value);
       $("code-label").hidden = false;
       $("code").required = true;
@@ -774,16 +637,14 @@ $("signin").onsubmit = async (e) => {
 };
 $("catalog").onclick = async () => {
   try {
-    let rows;
-    if (desktop) rows = (await desktop.request("/api/models")).models;
-    else {
+    {
       const response = await fetch(
         "https://openrouter.ai/api/v1/images/models",
         { signal: AbortSignal.timeout(15000) },
       );
       if (!response.ok) throw Error("OpenRouter catalog unavailable.");
       const data = await response.json();
-      rows = (data.data || []).filter(
+      const rows = (data.data || []).filter(
         (m) =>
           m.architecture?.input_modalities?.includes("image") &&
           m.architecture?.output_modalities?.includes("image") &&
@@ -802,7 +663,6 @@ $("catalog").onclick = async () => {
             available: false,
           });
     }
-    if (desktop) await desktop.poll();
     renderModels();
   } catch (error) {
     $("model-notice").textContent = error.message;
@@ -815,24 +675,10 @@ $("history-export").onclick = () =>
     }),
     "nopaint-history.json",
   );
-$("companion-disconnect").onclick = () => {
-  desktop = null;
-  sessionStorage.removeItem("nopaint-companion");
-  mask = game.mask?.slice() || new Uint8Array(256 * 256);
-  $("companion-disconnect").hidden = true;
-  $("companion-message").textContent = "Browser painting restored.";
-  render();
-};
 function before(value) {
   peek = value;
   render();
 }
-$("before").onpointerdown = (e) => {
-  e.preventDefault();
-  $("before").setPointerCapture(e.pointerId);
-  before(true);
-};
-$("before").onpointerup = $("before").onpointercancel = () => before(false);
 const no = document.querySelector(".decisions [data-action=no]");
 no.onpointerenter = (e) => {
   if (e.pointerType === "mouse" && !no.disabled) {
@@ -904,43 +750,16 @@ async function boot() {
   await game.boot({ readOnly: locked });
   mask = game.mask?.slice() || mask;
   lastPublication = (await store.setting("published")) || "";
-  const params = new URLSearchParams(location.hash.slice(1)),
-    token =
-      params.get("companion") || sessionStorage.getItem("nopaint-companion");
-  if (params.has("companion"))
+  // Discard old pairing links without ever contacting a desktop backend.
+  if (new URLSearchParams(location.hash.slice(1)).has("companion"))
     history.replaceState(null, "", location.pathname + location.search);
-  if (token && !locked)
-    await connect(token).catch((error) => {
-      sessionStorage.removeItem("nopaint-companion");
-      notice(error.message);
-    });
+  sessionStorage.removeItem("nopaint-companion");
   account.boot().catch((error) => {
     issue = error.message;
     status();
   });
-  setInterval(async () => {
-    if (desktop) {
-      await desktop.poll();
-      const upscale = desktop.state?.upscale;
-      if (
-        upscaleRequested &&
-        upscale?.id === upscaleRequested &&
-        !upscale.busy
-      ) {
-        upscaleRequested = null;
-        if (upscale.url)
-          images.download(
-            await desktop.image(upscale.url),
-            `nopaint-${Date.now()}-${upscale.scale}x.png`,
-          );
-        else if (upscale.error) notice(upscale.error, "Upscale failed");
-      }
-    }
-    status();
-  }, 250);
-  setInterval(() => {
-    if (!desktop) account.refresh();
-  }, 30000);
+  setInterval(status, 250);
+  setInterval(() => account.refresh(), 30000);
   render();
 }
 boot().catch((error) =>
