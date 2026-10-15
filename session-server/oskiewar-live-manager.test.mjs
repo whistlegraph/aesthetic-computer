@@ -765,3 +765,173 @@ test("a host that stops publishing forfeits the room", () => {
   assert.equal(manager.rooms.get("ow-dojo1").publisher, successor);
   assert.equal(manager.status(manager.rooms.get("ow-dojo1")).live, true);
 });
+
+// The line. A line-aware visitor (`line=1`) who finds the chair taken waits
+// in arrival order instead of retrying the chair on a timer, and the relay
+// seats the head of the line the moment the chair empties.
+const lineUrl = "/oskiewar-live?match=dojo1";
+const join = (manager, socket, { role = "challenger", line = true } = {}) =>
+  manager.handleConnection(socket, { url: `${lineUrl}${line ? "&line=1" : ""}&role=${role}` });
+const say = (socket, type, content) =>
+  socket.emit("message", Buffer.from(JSON.stringify({ type, content })));
+const lastOf = (socket, type) =>
+  socket.sent.filter((message) => message.type === type).at(-1)?.content;
+const phase = (seq, name, wins = [0, 0]) => {
+  const frame = state(seq);
+  frame.phase = name;
+  frame.fighters[0].roundWins = wins[0];
+  frame.fighters[1].roundWins = wins[1];
+  return frame;
+};
+
+test("a busy chair lines up line-aware arrivals and seats the head when it empties", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now, ghostSweepMs: 0 });
+  const host = new FakeSocket(), first = new FakeSocket();
+  const second = new FakeSocket(), third = new FakeSocket();
+  join(manager, host, { role: "publisher", line: false });
+  say(host, "oskiewar:state", state(1));
+  join(manager, first);
+  assert.equal(lastOf(first, "oskiewar:seat").seat, "challenger");
+  say(first, "oskiewar:line", { join: true, name: "GUEST-BAZKO" });
+  join(manager, second);
+  say(second, "oskiewar:line", { join: true, name: "@SAT" });
+  join(manager, third);
+  say(third, "oskiewar:line", { join: true, name: "GUEST-MOFKA" });
+  assert.equal(second.closed, null, "not turned away");
+  assert.equal(lastOf(second, "oskiewar:status").place, 1);
+  assert.equal(lastOf(third, "oskiewar:status").place, 2);
+  assert.deepEqual(lastOf(third, "oskiewar:status").order, {
+    host: "@JEFFREY", challenger: "GUEST-BAZKO", line: ["@SAT", "GUEST-MOFKA"] });
+  assert.equal(lastOf(first, "oskiewar:status").place, 0);
+  // The host hears the order too, for its own turn-order panel.
+  assert.deepEqual(lastOf(host, "oskiewar:status").order.line, ["@SAT", "GUEST-MOFKA"]);
+
+  first.close(1000, "leaving");
+  assert.deepEqual(lastOf(second, "oskiewar:seat"),
+    { matchId: "ow-dojo1", seat: "challenger", from: "line" });
+  assert.equal(lastOf(third, "oskiewar:status").place, 1);
+  assert.deepEqual(lastOf(third, "oskiewar:status").order,
+    { host: "@JEFFREY", challenger: "@SAT", line: ["GUEST-MOFKA"] });
+  // Seated on the socket it already held: its presses reach the host now.
+  now += 30;
+  say(second, "oskiewar:input", { seq: 1, down: ["A"], leftX: 0, leftY: 0 });
+  assert.deepEqual(host.sent.at(-1).content.down, ["A"]);
+  // And it is a seat, not a spectator, in the fan-out count.
+  assert.equal(manager.status(manager.rooms.get("ow-dojo1")).viewers, 1);
+});
+
+test("an older client is still refused the chair and never queued", () => {
+  const manager = new OskiewarLiveManager({ ghostSweepMs: 0 });
+  const host = new FakeSocket(), seated = new FakeSocket(), older = new FakeSocket();
+  join(manager, host, { role: "publisher", line: false });
+  join(manager, seated);
+  join(manager, older, { line: false });
+  assert.equal(older.closed?.code, 4409);
+  assert.deepEqual(manager.order(manager.rooms.get("ow-dojo1")).line, []);
+  // A bare watcher stays a watcher until it asks to fight.
+  const watcher = new FakeSocket();
+  join(manager, watcher, { role: "viewer", line: false });
+  assert.equal(lastOf(watcher, "oskiewar:status").place, 0);
+  say(watcher, "oskiewar:line", { join: true, name: "@SAT" });
+  assert.equal(lastOf(watcher, "oskiewar:status").place, 1);
+  say(watcher, "oskiewar:line", { join: false });
+  assert.equal(lastOf(watcher, "oskiewar:status").place, 0);
+  assert.equal(watcher.closed, null, "leaving the line is not leaving the room");
+});
+
+test("winner stays for up to three matches; a loser steps down to the back", () => {
+  let now = 100, seq = 0;
+  const manager = new OskiewarLiveManager({ now: () => now, ghostSweepMs: 0 });
+  const host = new FakeSocket(), champ = new FakeSocket(), waiting = new FakeSocket();
+  join(manager, host, { role: "publisher", line: false });
+  join(manager, champ);
+  join(manager, waiting);
+  const room = manager.rooms.get("ow-dojo1");
+  const match = (wins) => {
+    for (const [name, score] of [["fight", [0, 0]], ["match", wins], ["intro", [0, 0]]]) {
+      now += 30;
+      say(host, "oskiewar:state", phase(++seq, name, score));
+    }
+  };
+  match([2, 5]);
+  match([1, 5]);
+  assert.equal(room.challenger, champ, "two wins: still seated");
+  match([3, 5]);
+  assert.equal(room.challenger, waiting, "the third win steps down for the line");
+  assert.deepEqual(lastOf(champ, "oskiewar:seat"),
+    { matchId: "ow-dojo1", seat: "", turn: "over" });
+  assert.equal(champ.closed, null, "stood down in place, still watching");
+  // It walks to the back of the line itself.
+  say(champ, "oskiewar:line", { join: true });
+  assert.equal(lastOf(champ, "oskiewar:status").place, 1);
+  // The new challenger loses its first match and the line moves again.
+  match([5, 2]);
+  assert.equal(room.challenger, champ);
+  // A finished match with nobody waiting is a rematch: no turnover.
+  match([5, 0]);
+  assert.equal(room.challenger, champ);
+});
+
+test("an older seated challenger whose turn ends is told in words it reads", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now, ghostSweepMs: 0 });
+  const host = new FakeSocket(), older = new FakeSocket(), waiting = new FakeSocket();
+  join(manager, host, { role: "publisher", line: false });
+  join(manager, older, { line: false });
+  join(manager, waiting);
+  now += 30; say(host, "oskiewar:state", phase(1, "match", [5, 1]));
+  now += 30; say(host, "oskiewar:state", phase(2, "intro"));
+  assert.match(lastOf(older, "oskiewar:error").message, /challenger/i);
+  assert.equal(older.closed?.code, 4410);
+  assert.equal(lastOf(waiting, "oskiewar:seat").seat, "challenger");
+});
+
+test("a silent chair with somebody waiting is turned over by the sweep", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now, ghostSweepMs: 0 });
+  const host = new FakeSocket(), quiet = new FakeSocket(), waiting = new FakeSocket();
+  join(manager, host, { role: "publisher", line: false });
+  join(manager, quiet);
+  now += OSKIEWAR_LIVE_LIMITS.LINE_CHAIR_QUIET_MS + 1;
+  manager.reapGhosts();
+  assert.equal(manager.rooms.get("ow-dojo1").challenger, quiet, "nobody waiting: keep it");
+  // (An arrival now would take the chair by the ghost rule; this one queued
+  // while the chair was still speaking.)
+  say(quiet, "oskiewar:input", { seq: 1, down: [], leftX: 0, leftY: 0 });
+  join(manager, waiting);
+  assert.equal(lastOf(waiting, "oskiewar:status").place, 1);
+  now += OSKIEWAR_LIVE_LIMITS.LINE_CHAIR_QUIET_MS - 1;
+  manager.reapGhosts();
+  assert.equal(manager.rooms.get("ow-dojo1").challenger, quiet, "inside the window");
+  now += 2;
+  manager.reapGhosts();
+  assert.equal(manager.rooms.get("ow-dojo1").challenger, waiting);
+  assert.equal(lastOf(quiet, "oskiewar:seat").turn, "over");
+});
+
+test("the host leaving keeps the chair and the line where they were", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now, ghostSweepMs: 0 });
+  const host = new FakeSocket(), seated = new FakeSocket(), waiting = new FakeSocket();
+  join(manager, host, { role: "publisher", line: false });
+  say(host, "oskiewar:state", state(1));
+  join(manager, seated);
+  join(manager, waiting);
+  say(waiting, "oskiewar:line", { join: true, name: "@SAT" });
+  host.close(1006, "tab killed");
+  const status = lastOf(waiting, "oskiewar:status");
+  assert.equal(status.live, false);
+  assert.deepEqual(status.order, { host: "", challenger: "", line: ["@SAT"] });
+  assert.equal(status.place, 1);
+  // The seated challenger claims the room: its chair socket goes, it comes
+  // back as the publisher, and the head of the line sits down.
+  seated.close(1000, "claiming");
+  assert.equal(lastOf(waiting, "oskiewar:seat").seat, "challenger");
+  const heir = new FakeSocket();
+  join(manager, heir, { role: "publisher", line: false });
+  now += 30;
+  say(heir, "oskiewar:state", { ...state(1), fighters: [
+    { ...state(1).fighters[0], name: "GUEST-BAZKO" }, state(1).fighters[1]] });
+  assert.equal(lastOf(waiting, "oskiewar:status").order.host, "GUEST-BAZKO");
+});
