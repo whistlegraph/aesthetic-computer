@@ -931,6 +931,7 @@ private final class NativeGameHost {
         return NSTemporaryDirectory() + value
     }()
     private var netLogAt = 0.0
+    private var botGoalAt = 0.0
     private func netLog(_ line: String) {
         guard !netLogPath.isEmpty, let data = (line + "\n").data(using: .utf8) else { return }
         if let handle = FileHandle(forWritingAtPath: netLogPath) {
@@ -1059,6 +1060,9 @@ private final class NativeGameHost {
         if let start = ProcessInfo.processInfo.environment["OSKIEWAR_START_X"], let x = Double(start) {
             javascript.evaluateScript("globalThis.__oskiewarFreeskateStart = \(x);")
         }
+        // Bot mode shows on the player's gem, so a screen is never mistaken
+        // for a person playing.
+        if botMode { javascript.evaluateScript("globalThis.__oskiewarBotMode = true;") }
         if ProcessInfo.processInfo.environment["OSKIEWAR_HASHTRACE"] == "1" {
             javascript.evaluateScript("globalThis.__oskiewarHashTrace = true;")
         }
@@ -1189,6 +1193,17 @@ private final class NativeGameHost {
             timers.call(withArguments: [])
         }
         let now = CACurrentMediaTime()
+        // In bot mode the harness may name the bot's goal in the app's own
+        // temporary directory (sandboxed: tests/two-laptop writes it over
+        // ssh); the gem shows it.
+        if botMode, now - botGoalAt > 0.5 {
+            botGoalAt = now
+            let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("bot-goal")
+            let goal = ((try? String(contentsOf: file, encoding: .utf8)) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .filter { $0.isLetter || $0 == "-" }.prefix(10)
+            javascript.globalObject.setObject(String(goal), forKeyedSubscript: "__oskiewarBotGoal" as NSString)
+        }
         if !netLogPath.isEmpty, now - netLogAt > 1 {
             netLogAt = now
             let probe = javascript.evaluateScript(
