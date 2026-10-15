@@ -288,6 +288,21 @@ if argv.contains("--test-mission-lanes") {
     let planets = orreryBodies(loadMission(path))
     precondition(planets.map { $0.state } == ["blocked", "waiting", "running", "idle"])
     precondition(planets[0].moons == 1 && planets[0].color == 0x0000ff && planets[2].moons == 0)
+    // Prox ledger: local rocks, a fresh peer, a stale peer, a stale finished rock.
+    let ledger = NSTemporaryDirectory() + "macpal-ledger-" + UUID().uuidString
+    try! FileManager.default.createDirectory(atPath: ledger + "/peers", withIntermediateDirectories: true)
+    let nowMs = Date().timeIntervalSince1970 * 1000
+    func put(_ p: String, _ o: [String: Any]) { try! JSONSerialization.data(withJSONObject: o).write(to: URL(fileURLWithPath: ledger + p)) }
+    put("/local.json", ["host": "frisbee", "updatedAt": nowMs, "entries": [
+        ["id": "a", "status": "working", "agentType": "claude", "updated": nowMs],
+        ["id": "b", "status": "complete", "agentType": "codex", "updated": nowMs - 3 * 86400e3]]])
+    put("/peers/neo.json", ["host": "neo", "updatedAt": nowMs, "entries": [["id": "c", "status": "awaiting", "agentType": "codex", "updated": nowMs]]])
+    put("/peers/frisbee.json", ["host": "frisbee", "updatedAt": nowMs, "entries": [["id": "d", "status": "working", "updated": nowMs]]])
+    put("/peers/blueberry.json", ["host": "blueberry", "updatedAt": nowMs - 2 * 86400e3, "entries": [["id": "e", "status": "working", "updated": nowMs]]])
+    let sparks = loadProxSparks(ledgerDir: ledger)
+    precondition(sparks.map { $0.id } == ["a", "c"], "\(sparks.map { $0.id })")
+    precondition(sparks[0].local && !sparks[1].local && sparks[1].host == "neo" && sparks[1].agent == "codex")
+    try! FileManager.default.removeItem(atPath: ledger)
     precondition(rows.firstIndex { $0.text == "Running job" }! > rows.firstIndex { $0.laneID == "teal" }!)
     precondition(missionTimeLabel(rows[1], now: now) == "2m 05s elapsed")
     precondition(rows[1].deadlineAt != nil && rows[1].subitems == ["Inspect fixture", "Measure imports"])

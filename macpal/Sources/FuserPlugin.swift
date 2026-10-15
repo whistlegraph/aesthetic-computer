@@ -885,7 +885,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
     let pad: CGFloat = 7
     var paneW: CGFloat { badgeW - pad * 2 }
     let orrery = LaneOrreryView(frame: NSRect(origin: .zero, size: LaneOrreryView.size))
-    var collapsedAccessory: NSView? { orrery.bodies.isEmpty ? nil : orrery }
+    var collapsedAccessory: NSView? { orrery.isEmpty ? nil : orrery }
     var showsLanes: Bool { mission?.items.contains(where: { $0.isLaneHeader }) == true }
     var preferredWidth: CGFloat { showsLanes ? 320 : badgeW }
 
@@ -1536,7 +1536,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
     }
 
     func setCollapsed(_ collapsed: Bool) {
-        orrery.isHidden = !collapsed || orrery.bodies.isEmpty
+        orrery.isHidden = !collapsed || orrery.isEmpty
         if minimal || showsLanes {
             statusField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
@@ -1661,6 +1661,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
             let dirty = doGit ? !self.git(["status", "--porcelain"]).isEmpty : self.lastDirty
             let syncRaw = (try? String(contentsOfFile: self.statusFile, encoding: .utf8)) ?? ""
             let missionNow = loadMission(self.missionFile)   // tolerant: nil hides the block
+            let sparks = loadProxSparks()
             let otOn = FileManager.default.fileExists(atPath: self.overtimeFlag)
             let otRaw = otOn
                 ? ((try? String(contentsOfFile: self.overtimeStatusFile, encoding: .utf8)) ?? "")
@@ -1672,8 +1673,17 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
                                  syncRaw: syncRaw,
                                  mission: missionNow,
                                  otOn: otOn, otRaw: otRaw)
+                self.updateOrrery(sparks: sparks)
             }
         }
+    }
+    // The collapsed chip's swarm: lanes from the mission, prox from the ledger.
+    // Appearing or vanishing changes the chip's width, so relayout then.
+    private func updateOrrery(sparks: [ProxSpark]) {
+        guard let c = c else { return }
+        let was = orrery.isEmpty
+        orrery.update(orreryBodies(mission), sparks: sparks, dark: paneIsDark())
+        if c.collapsed && was != orrery.isEmpty { c.layout() }
     }
     private var lastBranch = ""
     private var lastDirty = false
@@ -1720,9 +1730,6 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
         let missionDark = paneIsDark()
         if missionNow != mission || missionDark != lastMissionDark {
             mission = missionNow
-            let hadOrrery = !orrery.bodies.isEmpty
-            orrery.update(orreryBodies(missionNow), dark: missionDark)
-            if c.collapsed && hadOrrery != !orrery.bodies.isEmpty { c.layout() }
             lastAgeKey = ageKey
             lastMissionDark = missionDark
             rebuildMissionFields()

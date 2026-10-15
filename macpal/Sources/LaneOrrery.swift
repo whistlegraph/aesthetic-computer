@@ -1,13 +1,18 @@
-// LaneOrrery — the lane board in miniature, for a collapsed pal.
+// LaneOrrery — the fleet in miniature, for a collapsed pal.
 //
-// Folded into its chip, a pal has no room for cards, so the lanes become a
-// few fireflies beside the name: one glowing dot per lane in its own color,
-// each wandering its own looping path in a strip of the box (board order,
-// left to right), with a faint spark trailing it per queued task. How a
-// firefly moves and blinks carries its lane's state:
-//   running   wanders busily, bright pulse     waiting  drifts slowly, soft glow
-//   idle      dim, nearly still, rare blink    blocked  holds still, flashing red
-// Reduce Motion stills them all but keeps colors and glows.
+// Folded into its chip, a pal has no room for cards, so the work becomes a
+// swarm of fireflies around the badge, in three sizes:
+//   lanes   big sticker fireflies, one per Iris lane in its own color, with a
+//           faint spark trailing per queued task
+//   prox    tiny fireflies, one per open prompt rock on THIS machine, colored
+//           by agent (Claude terracotta, Codex green, Aesel violet)
+//   fleet   the smallest specks, one per open rock on every OTHER machine,
+//           colored by machine
+// Motion carries state. Lanes: running circles the whole badge, waiting
+// tours it slowly, idle potters about its patch, blocked holds still and
+// flashes red. Prox: working circles, awaiting hovers and beckons, finished
+// rests dimly. Paths are seeded by identity and phased by the wall clock, so
+// a refresh never makes the swarm jump. Reduce Motion stills them all.
 
 import AppKit
 
@@ -37,9 +42,88 @@ func orreryBodies(_ mission: Mission?) -> [OrreryBody] {
     return bodies
 }
 
+// One open prompt rock, as the Slab ledger reports it.
+struct ProxSpark: Equatable {
+    let id: String
+    let host: String
+    let agent: String
+    let status: String
+    let local: Bool
+}
+
+// Every rock this machine's Slab ledger knows: its own (local.json) and each
+// cached peer's. Mirrors prox_list's notion of "open": finished rocks idle a
+// day are residue, and a peer whose ledger hasn't refreshed in a day is off.
+func loadProxSparks(ledgerDir: String = NSHomeDirectory() + "/.config/slab/ledger",
+                    now: Date = Date()) -> [ProxSpark] {
+    func read(_ path: String) -> [String: Any]? {
+        guard let d = FileManager.default.contents(atPath: path) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
+    }
+    func ms(_ v: Any?) -> Double { (v as? NSNumber)?.doubleValue ?? 0 }
+    let nowMs = now.timeIntervalSince1970 * 1000
+    let day = 24 * 3600 * 1000.0
+    var ledgers: [([String: Any], Bool)] = []
+    if let local = read(ledgerDir + "/local.json") { ledgers.append((local, true)) }
+    let selfHost = (ledgers.first?.0["host"] as? String)?.lowercased()
+    let peers = ((try? FileManager.default.contentsOfDirectory(atPath: ledgerDir + "/peers")) ?? [])
+        .filter { $0.hasSuffix(".json") }.sorted()
+    for f in peers {
+        guard let p = read(ledgerDir + "/peers/" + f),
+              (p["host"] as? String)?.lowercased() != selfHost,
+              nowMs - ms(p["updatedAt"]) < day else { continue }
+        ledgers.append((p, false))
+    }
+    var seen = Set<String>()
+    var out: [ProxSpark] = []
+    for (ledger, local) in ledgers {
+        for e in (ledger["entries"] as? [[String: Any]]) ?? [] {
+            guard let id = e["id"] as? String, seen.insert(id).inserted else { continue }
+            let status = ((e["status"] as? String) ?? "blank").lowercased()
+            let finished = ["complete", "interrupted", "blank"].contains(status)
+            if finished && nowMs - ms(e["updated"]) > day { continue }
+            out.append(ProxSpark(id: id, host: ((e["host"] as? String) ?? (ledger["host"] as? String) ?? "?").lowercased(),
+                                 agent: ((e["agentType"] as? String) ?? "claude").lowercased(),
+                                 status: status, local: local))
+        }
+    }
+    return out
+}
+
+func proxAgentColor(_ agent: String) -> UInt32 {
+    switch agent {
+    case "claude": return 0xD97757
+    case "codex", "openai": return 0x10A37F
+    case "aesel", "easel": return 0x8B5CF6
+    default: return 0x9AA0A6
+    }
+}
+
+// Each machine's identity color, after its avatar where it has one.
+func proxMachineColor(_ host: String) -> UInt32 {
+    switch host {
+    case "frisbee": return 0x38BDF8
+    case "neo": return 0xA855F7
+    case "blueberry": return 0x3B5BDB
+    case "panda": return 0xF1F1F1
+    case "chicken": return 0xFACC15
+    case "cookie": return 0xC08457
+    case "jasellite": return 0x94A3B8
+    case "poorslice": return 0xF97316
+    default:
+        // Anyone else gets a stable hue from their name.
+        let h = host.unicodeScalars.reduce(UInt32(5381)) { ($0 &* 33) &+ $1.value }
+        let c = NSColor(hue: CGFloat(h % 360) / 360, saturation: 0.6, brightness: 0.9, alpha: 1)
+            .usingColorSpace(.sRGB)!
+        return UInt32(c.redComponent * 255) << 16 | UInt32(c.greenComponent * 255) << 8 | UInt32(c.blueComponent * 255)
+    }
+}
+
 final class LaneOrreryView: NSView, ChipRoaming {
     static let size = NSSize(width: 64, height: 46)
     private(set) var bodies: [OrreryBody] = []
+    private(set) var sparks: [ProxSpark] = []
+    var isEmpty: Bool { bodies.isEmpty && sparks.isEmpty }
     private var dark: Bool?
     // The whole chip in this view's coordinates (set by the pal's layout), so
     // busy fireflies can circle the badge rather than keep to the side strip.
@@ -55,11 +139,22 @@ final class LaneOrreryView: NSView, ChipRoaming {
     required init?(coder: NSCoder) { fatalError("no nib") }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }   // clicks reach the chip
 
-    func update(_ next: [OrreryBody], dark nextDark: Bool) {
-        // Rebuilding restarts every orbit, so only do it when something moved.
-        guard next != bodies || nextDark != dark else { return }
-        bodies = next; dark = nextDark
+    func update(_ next: [OrreryBody], sparks nextSparks: [ProxSpark], dark nextDark: Bool) {
+        // Rebuild only when something changed; wall-clock phasing keeps the
+        // unchanged fireflies exactly where they were.
+        guard next != bodies || nextSparks != sparks || nextDark != dark else { return }
+        bodies = next; sparks = nextSparks; dark = nextDark
         rebuild()
+    }
+
+    // Where along a loop of `period` seconds a firefly is right now: a fixed
+    // per-identity phase plus the wall clock, so rebuilding resumes in place.
+    private static func phase(_ period: Double, _ seed: CGFloat) -> Double {
+        (Date().timeIntervalSince1970 + Double(seed) * period).truncatingRemainder(dividingBy: period)
+    }
+
+    private static func seed(_ text: String) -> UInt64 {
+        text.utf8.reduce(UInt64(1469598103934665603)) { ($0 ^ UInt64($1)) &* 1099511628211 }
     }
 
     override func viewDidChangeBackingProperties() {
@@ -114,13 +209,13 @@ final class LaneOrreryView: NSView, ChipRoaming {
 
     private func rebuild() {
         layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
-        guard !bodies.isEmpty, let root = layer else { return }
+        guard !isEmpty, let root = layer else { return }
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let own = NSRect(origin: .zero, size: Self.size).insetBy(dx: 4, dy: 5)
         // The circuit encloses the whole chip when the pal has told us where it is.
         let ring = (roam.isEmpty ? own : roam.union(own)).insetBy(dx: 5, dy: 5)
         let b = own
-        let n = bodies.count
+        let n = max(1, bodies.count)
         let strip = b.width / CGFloat(n)
         let red = hexColor(0xE5484D)
 
@@ -167,8 +262,7 @@ final class LaneOrreryView: NSView, ChipRoaming {
                     let follow = CAKeyframeAnimation(keyPath: "position")
                     follow.path = path; follow.calculationMode = .paced
                     follow.duration = period; follow.repeatCount = .infinity
-                    follow.timeOffset = period * (Double(i) * 0.37).truncatingRemainder(dividingBy: 1)
-                        - Double(m + 1) * 0.35
+                    follow.timeOffset = Self.phase(period, CGFloat(i) * 0.37) - Double(m + 1) * 0.35
                     spark.add(follow, forKey: "fly")
                 }
                 root.addSublayer(spark)
@@ -204,7 +298,7 @@ final class LaneOrreryView: NSView, ChipRoaming {
                     let move = CAKeyframeAnimation(keyPath: "position")
                     move.path = path; move.calculationMode = .paced
                     move.duration = period; move.repeatCount = .infinity
-                    move.timeOffset = period * (Double(i) * 0.37).truncatingRemainder(dividingBy: 1)
+                    move.timeOffset = Self.phase(period, CGFloat(i) * 0.37)
                     fly.add(move, forKey: "fly")
                     drop.add(move, forKey: "fly")
                 }
@@ -227,8 +321,78 @@ final class LaneOrreryView: NSView, ChipRoaming {
             }
             root.addSublayer(fly)
         }
+        // Prox: tiny for this machine, tinier for the fleet, drawn under the
+        // lanes so the big fireflies stay on top.
+        let laneLayers = root.sublayers ?? []
+        for spark in sparks {
+            var rng = Seeded(x: Self.seed(spark.id))
+            let working = spark.status == "working" || spark.status == "rendering"
+            let awaiting = spark.status == "awaiting"
+            let size: CGFloat = spark.local ? 3.6 : 2.3
+            let color = hexColor(spark.local ? proxAgentColor(spark.agent) : proxMachineColor(spark.host))
+            // Working rocks circle the badge on their own lane of the circuit;
+            // awaiting ones hover somewhere near the name; finished ones settle.
+            let lane = ring.insetBy(dx: rng.next() * 7, dy: rng.next() * 6)
+            let spot = CGPoint(x: ring.minX + rng.next() * ring.width, y: ring.minY + rng.next() * ring.height)
+            let hover = CGRect(x: spot.x - 4, y: spot.y - 3, width: 8, height: 6).intersection(ring)
+            let path = working
+                ? Self.circuit(around: lane, count: 8, reverse: rng.next() > 0.5, rng: &rng)
+                : Self.flight(in: awaiting ? hover : hover.insetBy(dx: 2, dy: 1.5), count: 4, rng: &rng)
+            let period: Double = working ? Double(lane.width) / (spark.local ? 16 : 11) + Double(rng.next()) * 2
+                : awaiting ? 9 : 24
+            let l = CALayer()
+            l.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+            l.cornerRadius = size / 2
+            l.position = spot
+            l.backgroundColor = color.cgColor
+            l.shadowColor = color.cgColor
+            l.shadowOpacity = 1; l.shadowRadius = spark.local ? 2 : 1.4; l.shadowOffset = .zero
+            l.opacity = working ? 1 : awaiting ? 0.85 : 0.4
+            if spark.local {
+                l.borderColor = hexColor(0x1B1530).withAlphaComponent(0.8).cgColor
+                l.borderWidth = 0.75
+            } else if spark.host == "panda" && dark != true {
+                // White panda specks need an edge on a light desktop.
+                l.borderColor = NSColor.black.withAlphaComponent(0.35).cgColor
+                l.borderWidth = 0.5
+            }
+            var drop: CALayer?
+            if spark.local {
+                let d = CALayer()
+                d.bounds = l.bounds; d.cornerRadius = l.cornerRadius; d.position = spot
+                d.transform = CATransform3DMakeTranslation(1, -1, 0)
+                d.backgroundColor = accent.cgColor
+                d.opacity = l.opacity
+                root.insertSublayer(d, below: laneLayers.first)
+                drop = d
+            }
+            if !reduce {
+                let move = CAKeyframeAnimation(keyPath: "position")
+                move.path = path; move.calculationMode = .paced
+                move.duration = period; move.repeatCount = .infinity
+                move.timeOffset = Self.phase(period, rng.next())
+                l.add(move, forKey: "fly")
+                drop?.add(move, forKey: "fly")
+                if awaiting {
+                    // Beckoning: a slow swell, the rock waiting on you.
+                    let beckon = CABasicAnimation(keyPath: "opacity")
+                    beckon.fromValue = 0.35; beckon.toValue = 1
+                    beckon.duration = 1.1; beckon.autoreverses = true; beckon.repeatCount = .infinity
+                    beckon.timeOffset = Self.phase(2.2, rng.next())
+                    l.add(beckon, forKey: "beckon")
+                }
+            }
+            root.insertSublayer(l, below: laneLayers.first)
+        }
         let scale = window?.backingScaleFactor ?? 2
         root.sublayers?.forEach { $0.contentsScale = scale }
-        toolTip = bodies.map { $0.state }.joined(separator: " · ")
+        let here = sparks.filter { $0.local }.count
+        var tip = bodies.isEmpty ? [] : ["\(bodies.count) lanes: " + bodies.map { $0.state }.joined(separator: ", ")]
+        if here > 0 { tip.append("\(here) prox here") }
+        if sparks.count > here {
+            let hosts = Set(sparks.filter { !$0.local }.map { $0.host }).sorted()
+            tip.append("\(sparks.count - here) across " + hosts.joined(separator: ", "))
+        }
+        toolTip = tip.joined(separator: " · ")
     }
 }
