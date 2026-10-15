@@ -17,6 +17,10 @@ interface document. Native model/status views and the web model dialog retain
 their platform implementations; sharing the document does not imply that every
 view implementation is shared.
 
+`Sources/ACUI/Resources/brands.json` maps model makers and routing services to
+bundled logos, names and source URLs. The browser's `brandLogo(id)` uses these
+local assets; the same inventory is included in the native resource bundle.
+
 The package resource bundle must accompany an installed native executable.
 No Paint's `native/build.zsh` copies `ACUI_ACUI.bundle` into app resources.
 

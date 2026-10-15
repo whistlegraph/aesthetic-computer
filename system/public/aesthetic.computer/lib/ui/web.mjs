@@ -2,6 +2,21 @@
 export const noPaintUI = await (
   await fetch(new URL("./Sources/ACUI/Resources/nopaint.json", import.meta.url))
 ).json();
+const resourceRoot = new URL("./Sources/ACUI/Resources/", import.meta.url);
+export const brands = await (
+  await fetch(new URL("brands.json", resourceRoot))
+).json();
+export function brandLogo(id) {
+  const brand = Object.hasOwn(brands, id) ? brands[id] : brands.model;
+  const image = document.createElement("img");
+  image.className = "ac-brand-logo";
+  image.src = new URL(brand.file, resourceRoot).href;
+  image.alt = `${brand.name} logo`;
+  image.title = brand.name;
+  image.width = image.height = 32;
+  image.draggable = false;
+  return image;
+}
 export function paintingLayout(width, height, spec = noPaintUI.layout) {
   const compact = height < spec.compactHeight;
   const side = Math.max(

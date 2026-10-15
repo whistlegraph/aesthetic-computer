@@ -1,0 +1,72 @@
+{
+  "google": {
+    "name": "Google Gemini",
+    "file": "brands/google.svg",
+    "source": "https://openrouter.ai/images/icons/GoogleGemini.svg"
+  },
+  "tencent": {
+    "name": "Tencent Hunyuan",
+    "file": "brands/tencent.png",
+    "source": "https://openrouter.ai/images/icons/Tencent.png"
+  },
+  "openai": {
+    "name": "OpenAI",
+    "file": "brands/openai.svg",
+    "source": "https://openrouter.ai/images/icons/OpenAI.svg"
+  },
+  "microsoft": {
+    "name": "Microsoft AI",
+    "file": "brands/microsoft.png",
+    "source": "https://openrouter.ai/images/icons/MAI.png"
+  },
+  "recraft": {
+    "name": "Recraft",
+    "file": "brands/recraft.svg",
+    "source": "https://openrouter.ai/images/icons/Recraft.svg"
+  },
+  "qwen": {
+    "name": "Qwen",
+    "file": "brands/qwen.png",
+    "source": "https://openrouter.ai/images/icons/Qwen.png"
+  },
+  "openrouter": {
+    "name": "OpenRouter",
+    "file": "brands/openrouter.svg",
+    "source": "https://openrouter.ai/brand/logos/transparent/glyph/svg/glyph-ink.svg"
+  },
+  "bytedance-seed": {
+    "name": "ByteDance Seed",
+    "file": "brands/bytedance-seed.png",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://seed.bytedance.com/&size=256"
+  },
+  "black-forest-labs": {
+    "name": "Black Forest Labs",
+    "file": "brands/black-forest-labs.png",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://bfl.ai&size=256"
+  },
+  "x-ai": {
+    "name": "xAI",
+    "file": "brands/x-ai.png",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://x.ai/&size=256"
+  },
+  "krea": {
+    "name": "Krea",
+    "file": "brands/krea.png",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.krea.ai&size=256"
+  },
+  "sourceful": {
+    "name": "Sourceful",
+    "file": "brands/sourceful.png",
+    "source": "https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.sourceful.com/&size=256"
+  },
+  "cpu": {
+    "name": "Classic CPU",
+    "file": "brands/cpu.svg",
+    "source": "Aesthetic Computer"
+  },
+  "model": {
+    "name": "Cloud model",
+    "file": "brands/model.svg",
+    "source": "Aesthetic Computer"
+  }
+}
