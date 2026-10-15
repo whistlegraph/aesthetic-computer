@@ -39,10 +39,12 @@ export function createHandler({stripe,verifyUser=authorize,handleFor=getHandleOr
    if(typeof handle!=='string'||!handle.startsWith('@'))return reply(403,{error:'Claim an AC handle before buying credits'});
    if(![CREDIT_PACK.id,'luna-1m-v1'].includes(body.pack))return reply(400,{error:'Unknown credit pack'});
    if(typeof body.requestId!=='string'||! /^[a-f0-9-]{36}$/.test(body.requestId))return reply(400,{error:'Missing checkout request ID'});
+   if(body.surface !== undefined && body.surface !== 'nopaint')return reply(400,{error:'Unknown checkout surface'});
+   const returnTo=body.surface==='nopaint' ? origin+'/nopaint.art/ai/signin.html' : origin+'/api/easel-checkout';
    const session=await stripe.checkout.sessions.create({mode:'payment',payment_method_types:['card'],client_reference_id:user.sub,
-    success_url:origin+'/api/easel-checkout?result=success',cancel_url:origin+'/api/easel-checkout?result=canceled',
-    line_items:[{price_data:{currency:CREDIT_PACK.currency,unit_amount:CREDIT_PACK.amount,product_data:{images:[origin+'/aesthetic.computer/braincell.png'],name:'AC braincells',description:'1,000,000 braincells for AC hosted text and code generation. One balance across supported models; consumption varies by model and context. Free allowance first. Purchased braincells never expire.'}},quantity:1}],
-    metadata:{type:'ac-credits',pack:CREDIT_PACK.id,userSub:user.sub,handle}},
+    success_url:returnTo+'?result=success'+(body.surface==='nopaint'?'&session_id={CHECKOUT_SESSION_ID}':''),cancel_url:returnTo+'?result=canceled',
+    line_items:[{price_data:{currency:CREDIT_PACK.currency,unit_amount:CREDIT_PACK.amount,product_data:{images:[origin+'/aesthetic.computer/braincell.png'],name:'AC braincells',description:'1,000,000 braincells for AC hosted image, text and code generation. One balance across supported models; consumption varies by model and context. Free allowance first. Purchased braincells never expire.'}},quantity:1}],
+    metadata:{type:'ac-credits',pack:CREDIT_PACK.id,userSub:user.sub,handle,...(body.surface ? {surface:body.surface} : {})}},
     {idempotencyKey:`ac-credits:${user.sub}:${body.requestId}`});
    return reply(200,{url:session.url,sessionId:session.id});
   }catch(error){console.error('Credit checkout failed:',error.message);return reply(503,{error:'Could not complete checkout. Try again shortly.'});}

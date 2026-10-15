@@ -356,6 +356,10 @@ export async function handler(event, context) {
           if (existingUser) primarySub = sisterSub;
         }
 
+        if (existingUser && body.createOnly === true) {
+          return respond(200, { handle: existingUser.handle });
+        }
+
         if (existingUser) {
           shell.log("Current user handle:", existingUser.handle);
           // Replace existing handle or fail if the new handle is already taken
