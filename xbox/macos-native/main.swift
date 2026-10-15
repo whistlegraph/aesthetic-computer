@@ -1198,7 +1198,11 @@ private final class NativeGameHost {
         // ssh); the gem shows it.
         if botMode, now - botGoalAt > 0.5 {
             botGoalAt = now
-            let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("bot-goal")
+            // OSKIEWAR_BOTGOAL names the file, so two apps on one Mac (one
+            // container) each read their own.
+            let name = (ProcessInfo.processInfo.environment["OSKIEWAR_BOTGOAL"] ?? "bot-goal")
+                .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+            let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name.isEmpty ? "bot-goal" : name)
             let goal = ((try? String(contentsOf: file, encoding: .utf8)) ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .filter { $0.isLetter || $0 == "-" }.prefix(10)
