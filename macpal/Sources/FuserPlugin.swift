@@ -820,7 +820,7 @@ final class PaneRenderer {
 }
 
 // ── the plugin ───────────────────────────────────────────────────────────
-final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
+final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
     private let home: String       // fuser state dir (== config.supportDir)
     private var repo: String       // repo to read git status from (live-switchable)
     private var repoLabel: String  // the chosen repo's menu label
@@ -884,6 +884,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     let badgeW: CGFloat = 236
     let pad: CGFloat = 7
     var paneW: CGFloat { badgeW - pad * 2 }
+    let orrery = LaneOrreryView(frame: NSRect(origin: .zero, size: LaneOrreryView.size))
+    var collapsedAccessory: NSView? { orrery.bodies.isEmpty ? nil : orrery }
     var showsLanes: Bool { mission?.items.contains(where: { $0.isLaneHeader }) == true }
     var preferredWidth: CGFloat { showsLanes ? 320 : badgeW }
 
@@ -971,6 +973,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         }
 
         controller.content.addSubview(statusField)
+        orrery.isHidden = true
+        controller.content.addSubview(orrery)
         controller.content.addSubview(overtimeChip)
         controller.content.addSubview(overtimeField)
 
@@ -1532,6 +1536,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     }
 
     func setCollapsed(_ collapsed: Bool) {
+        orrery.isHidden = !collapsed || orrery.bodies.isEmpty
         if minimal || showsLanes {
             statusField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true
@@ -1715,6 +1720,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
         let missionDark = paneIsDark()
         if missionNow != mission || missionDark != lastMissionDark {
             mission = missionNow
+            let hadOrrery = !orrery.bodies.isEmpty
+            orrery.update(orreryBodies(missionNow), dark: missionDark)
+            if c.collapsed && hadOrrery != !orrery.bodies.isEmpty { c.layout() }
             lastAgeKey = ageKey
             lastMissionDark = missionDark
             rebuildMissionFields()

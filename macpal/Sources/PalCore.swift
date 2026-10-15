@@ -961,27 +961,36 @@ final class PalController: NSObject {
             let nat = microLabel.intrinsicContentSize
             let lblW = ceil(nat.width) + 10
             let lblH = ceil(nat.height) + 8
-            let totalW = micro + gap + lblW
+            // A plugin may hang a live accessory beside the name (the lane orrery).
+            let acc = plugins.lazy.compactMap { ($0 as? CollapsedAccessory)?.collapsedAccessory }.first
+            let accW = acc.map { $0.frame.width + 2 } ?? 0
+            let totalW = micro + gap + lblW + accW
+            let H = max(micro, acc?.frame.height ?? 0)
+            let dy = (H - micro) / 2
             let vf = screen.visibleFrame
-            var o = NSPoint(x: f.minX + 6, y: vf.maxY - micro - 1)
+            var o = NSPoint(x: f.minX + 6, y: vf.maxY - H - 1)
             switch corner {
-            case "TR": o = NSPoint(x: f.maxX - totalW - 6, y: vf.maxY - micro - 1)
+            case "TR": o = NSPoint(x: f.maxX - totalW - 6, y: vf.maxY - H - 1)
             case "BL": o = NSPoint(x: f.minX + 6, y: vf.minY + 6)
             case "BR": o = NSPoint(x: f.maxX - totalW - 6, y: vf.minY + 6)
             default: break
             }
-            window.setFrame(NSRect(origin: o, size: NSSize(width: totalW, height: micro)),
+            window.setFrame(NSRect(origin: o, size: NSSize(width: totalW, height: H)),
                             display: true)
-            content.frame = NSRect(x: 0, y: 0, width: totalW, height: micro)
+            content.frame = NSRect(x: 0, y: 0, width: totalW, height: H)
             let rightAligned = corner.hasSuffix("R")
-            glyphView.frame = NSRect(x: rightAligned ? totalW - micro : 0, y: 0,
+            glyphView.frame = NSRect(x: rightAligned ? totalW - micro : 0, y: dy,
                                      width: micro, height: micro)
             if let e = glyphView as? NSTextField { e.font = NSFont.systemFont(ofSize: 24) }
             nameLabel.isHidden = true
             microLabel.isHidden = false
             microLabel.frame = NSRect(x: rightAligned ? totalW - micro - gap - lblW : micro + gap,
-                                      y: (micro - lblH) / 2 - 3, width: lblW, height: lblH)
-            microChipRect = NSRect(x: 0, y: 0, width: totalW, height: micro)
+                                      y: dy + (micro - lblH) / 2 - 3, width: lblW, height: lblH)
+            if let acc = acc {
+                acc.frame.origin = NSPoint(x: rightAligned ? 0 : micro + gap + lblW + 2,
+                                           y: (H - acc.frame.height) / 2)
+            }
+            microChipRect = NSRect(x: 0, y: dy, width: totalW, height: micro)
             clickCatcher.frame = microChipRect
             content.liveRects = [microChipRect]
             agentChip.isHidden = true
@@ -1053,6 +1062,10 @@ final class PalController: NSObject {
 
 // A plugin that wants a wider window than the star's default declares it.
 protocol WidthHinting { var preferredWidth: CGFloat { get } }
+
+// A plugin that shows something beside the collapsed chip's name returns that
+// view here (sized, already in `content`), or nil when it has nothing to show.
+protocol CollapsedAccessory { var collapsedAccessory: NSView? { get } }
 
 // ── About window ───────────────────────────────────────────────────────────
 // A small transparent-titlebar window with a centered masthead — glyph icon,
