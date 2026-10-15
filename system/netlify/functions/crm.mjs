@@ -470,6 +470,11 @@ async function landing(database) {
   const body = `<!doctype html><html lang=en><meta charset=utf-8>
 <meta name=viewport content="width=device-width, initial-scale=1">
 <title>data · Aesthetic Computer</title>
+<link rel="canonical" href="${DATA_BASE}/">
+<meta property="og:title" content="data · Aesthetic Computer">
+<meta property="og:description" content="Public paintings, pieces, moods and people as Linked Art / CIDOC CRM.">
+<meta property="og:url" content="${DATA_BASE}/">
+<meta property="og:type" content="website">
 <meta name=description content="Linked open data from Aesthetic Computer — paintings, pieces, moods, and people as Linked Art / CIDOC CRM, for cultural-heritage research.">
 <link rel="icon" href="https://aesthetic.computer/purple-pals.svg">
 <link rel="sitemap" href="${DATA_BASE}/sitemap.xml">

@@ -113,6 +113,9 @@ export const handler = async (event) => {
     const url = `https://whistlegraph.org/${code}`;
 
     html = html
+      .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${esc(url)}">`)
+      .replace(/<meta property="og:(?:url|type)"[^>]*>/g, "")
+      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(desc)}">`)
       .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)} — Whistlegraph</title>`)
       .replace(
         /<meta property="og:title"[^>]*>/,
@@ -155,6 +158,9 @@ export const handler = async (event) => {
     const url = `https://whistlegraph.org/post/${postId}`;
 
     html = html
+      .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${esc(url)}">`)
+      .replace(/<meta property="og:(?:url|type)"[^>]*>/g, "")
+      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(desc)}">`)
       .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)} — Whistlegraph Archive</title>`)
       .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${esc(title)}">`)
       .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${esc(desc)}">`)
@@ -188,6 +194,9 @@ export const handler = async (event) => {
     const url = `https://whistlegraph.org/post/${postId}`;
 
     html = html
+      .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${esc(url)}">`)
+      .replace(/<meta property="og:(?:url|type)"[^>]*>/g, "")
+      .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(desc)}">`)
       .replace(/<title>[^<]*<\/title>/, `<title>${esc(title)} — Whistlegraph Archive</title>`)
       .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${esc(title)}">`)
       .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${esc(desc)}">`)

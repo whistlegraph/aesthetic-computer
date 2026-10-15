@@ -1,16 +1,15 @@
 # No Paint
 
-> Paint with AI image models or local brushes using your Aesthetic Computer account.
+> Make paintings by accepting or rejecting proposed moves, with classic and AI tools.
 
-The website shares its cloud model catalog, Braincell prices and high-level UI definitions with the No Paint desktop app. The website starts with Classic CPU moves; cloud inference requires choosing a specific model. Desktop and fleet inference remain in the native app. Browser paintings and history are kept locally. Done publishes the accepted painting and steps under the signed-in AC handle.
+Classic tools run without an account. Cloud models require an Aesthetic Computer account and braincells.
 
 ## Resources
 
 - [Website](https://nopaint.art/): Public entry point.
 - [Classic app](https://nopaint.art/classic): Preserved earlier application.
 - [Gallery](https://nopaint.art/gallery/): Public painting records.
-- [Gallery JSON](https://nopaint.art/gallery/gallery.json): The same public gallery data used by the page.
-- [AC runtime version](https://nopaint.art/nopaint): The earlier AC-native remake.
+- [Gallery JSON](https://nopaint.art/gallery/gallery.json): Public gallery data used by the gallery page.
 
 ## Network
 

@@ -113,6 +113,13 @@ export async function handler(event, context) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>pals · ${pal.slug}${pal.animated ? " ↻" : ""}</title>
+    <link rel="canonical" href="https://pals.aesthetic.computer/">
+    <meta name="description" content="Aesthetic Computer Pals: original stills and animated artwork. Tap to meet another pal.">
+    <meta property="og:title" content="Aesthetic Computer Pals">
+    <meta property="og:description" content="Original stills and animated Pals artwork.">
+    <meta property="og:url" content="https://pals.aesthetic.computer/">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://aesthetic.computer/purple-pals.svg">
     <link rel="icon" href="${logoUrl(pal.slug) || pal.url}" type="image/png">
     <style>
       html { height: 100%; }

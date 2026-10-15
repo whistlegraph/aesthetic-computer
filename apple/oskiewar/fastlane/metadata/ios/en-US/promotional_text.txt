@@ -1,1 +1,0 @@
-A one-on-one stick-figure fight. Send a friend the room's address and they join from any browser, with nothing to install.

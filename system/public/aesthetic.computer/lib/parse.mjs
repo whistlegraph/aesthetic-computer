@@ -4,6 +4,7 @@
 
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
 import { checkPackMode } from "./pack-mode.mjs";
+import { entryMetadata } from "./site-metadata.mjs";
 
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
@@ -502,6 +503,10 @@ function inferTitleDesc(source) {
 
 // Generates some metadata fields that are shared both on the client and server.
 function metadata(host, slug, pieceMetadata, protocol = "https:", objktContext = null) {
+  if (!checkPackMode()) {
+    const entry = entryMetadata(host, slug);
+    if (entry) pieceMetadata = { ...pieceMetadata, ...entry };
+  }
   // Use a default title if there is no override.
   const notAesthetic =
     host.indexOf("sotce") > -1 ||

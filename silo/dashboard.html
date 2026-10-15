@@ -2141,11 +2141,12 @@ function fmtTime(iso) {
 async function loadLith() {
   try {
     const [statsRes, errorsRes, reqsRes, trafficRes] = await Promise.all([
-      fetch(LITH_URL + '/lith/stats'),
-      fetch(LITH_URL + '/lith/errors?limit=100'),
-      fetch(LITH_URL + '/lith/requests?limit=100'),
-      fetch(LITH_URL + '/lith/traffic').catch(() => ({ json: () => ({ total: 0 }) })),
+      authFetch(LITH_URL + '/lith/stats'),
+      authFetch(LITH_URL + '/lith/errors?limit=100'),
+      authFetch(LITH_URL + '/lith/requests?limit=100'),
+      authFetch(LITH_URL + '/lith/traffic').catch(() => ({ ok: true, json: () => ({ total: 0 }) })),
     ]);
+    if (![statsRes, errorsRes, reqsRes, trafficRes].every(r => r.ok)) throw new Error('Lith admin access unavailable');
     const stats = await statsRes.json();
     const errors = await errorsRes.json();
     const reqs = await reqsRes.json();

@@ -14,29 +14,32 @@ KidLisp pieces use short codes: https://aesthetic.computer/${code}
 
 - [Prompt](https://aesthetic.computer/prompt): Command-line interface for navigating pieces, with LLM fallback for natural language
 - [Painting](https://aesthetic.computer/painting): Digital painting viewer and tool
-- [List](https://aesthetic.computer/list): Browsable directory of all available pieces and commands
+- [List](https://aesthetic.computer/list): Browse published pieces and commands
 - [About](https://aesthetic.computer/about): Interactive guide explaining the platform
 
 ## Creative Tools
 
 - [Line](https://aesthetic.computer/line): Simple line drawing brush
 - [Wand](https://aesthetic.computer/wand): Geometric visualization with VR support
-- [Camera](https://aesthetic.computer/camera): Photo capture tool with filters
+- [Camera](https://aesthetic.computer/camera): Capture a still from the camera into the current painting
 - [Whistlegraph](https://aesthetic.computer/whistlegraph): 2D recording tool for whistlegraphs
 
 ## KidLisp
 
-- [KidLisp Reference](https://kidlisp.com/learn): Programming language reference and examples
+- [KidLisp Reference](https://learn.kidlisp.com/): Programming language reference and examples
 - [KidLisp Default](https://aesthetic.computer/kidlisp): Default KidLisp piece with checkerboard pattern
 
 ## Source Code
 
 - [Repository](https://tangled.org/aesthetic.computer/core): Canonical source repository. GitHub links below are the mirror.
-- [Pieces (disks/)](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks): All piece source files (.mjs and .lisp)
+- [Pieces (disks/)](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks): Shared public piece source files (.mjs and .lisp)
 - [Runtime Library (lib/)](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/lib): Core runtime modules (parse, graph, num, geo, text, pen, disk, help)
 - [Boot Loader (boot.mjs)](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/boot.mjs): Application entry point
 - [BIOS (bios.mjs)](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/bios.mjs): Hardware abstraction layer
-- [Backend handlers](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/netlify/functions): Server-side handlers hosted by Lith; the netlify directory name is historical.
+- [Backend handlers](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/netlify/functions): Shared server-side source. Only endpoints documented in the Public HTTP API are supported integrations.
+
+Product implementations are maintained separately. Discover MIME, Sotce Net,
+Choir and oskiewar through their public sites and the network directory below.
 
 ## Machine access
 

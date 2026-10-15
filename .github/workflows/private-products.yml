@@ -1,0 +1,19 @@
+name: Public source boundary
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node toolchain/private-products.mjs guard
+      - run: node --test toolchain/private-products.test.mjs
+      - run: node --test utilities/public-discovery.test.mjs lith/operations-auth.test.mjs toolchain/aespatchercron/test/diagnostics-auth.test.mjs
+      - run: node utilities/check-api-docs.mjs
+      - run: node utilities/generate-machine-manifests.mjs --check
+      - run: node utilities/generate-llms-txt.mjs --check
+      - run: node utilities/update-sitemap.mjs --check

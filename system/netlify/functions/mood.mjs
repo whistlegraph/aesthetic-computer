@@ -36,7 +36,7 @@ import {
 import { connect, moodFor, allMoods, getMoodByRkey } from "../../backend/database.mjs";
 import { respond, pathParams } from "../../backend/http.mjs";
 import { ensureMoodCode } from "../../backend/mood-code.mjs";
-import { moodPost } from "../../backend/mime-feed-engine.mjs";
+import { moodPost } from "../../backend/mood-post.mjs";
 import { createMoodOnAtproto } from "../../backend/mood-atproto.mjs";
 import { shouldMirror, postMoodToBluesky } from "../../backend/bluesky-mirror.mjs";
 import { fetchBlueskyEngagement } from "../../backend/bluesky-engagement.mjs";

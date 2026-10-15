@@ -27,6 +27,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { workspace, releaseState } from "../../toolchain/private-products.mjs";
 
 const ROOT = resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), "../..");
 const SITE = "https://aesthetic.computer";
@@ -55,6 +56,10 @@ async function verify(sha) {
   const served = (await get("/.commit-ref")).trim();
   if (served === sha) say("✓", `serving ${sha.slice(0, 10)}`);
   else { ok = false; say("✕", `serving ${served.slice(0, 10) || "nothing"}, expected ${sha.slice(0, 10)}`); }
+  const expectedProducts = process.env.AC_PRODUCTS_REVISION || git("-C", workspace(ROOT).vault, "rev-parse", "HEAD");
+  const products = (await get("/.products-ref")).trim();
+  if (products === expectedProducts) say("✓", `products ${products.slice(0, 10)}`);
+  else { ok = false; say("✕", `products ${products.slice(0, 10)}, expected ${expectedProducts.slice(0, 10)}`); }
   // Aesel ships separately (`ac-deploy aesel`); here it is only reported.
   const want = JSON.parse(git("show", `${sha}:aesel/package.json`)).version;
   const have = JSON.parse(await get("/aesel.json")).version;
@@ -142,6 +147,7 @@ if (aeselOnly) {
 }
 
 if (!verifyOnly) {
+  process.env.AC_PRODUCTS_REVISION = releaseState(workspace(ROOT));
   const ahead = git("rev-list", "--count", "origin/main..main");
   if (ahead !== "0") fail(`local main is ${ahead} commit(s) ahead of the knot — push first; production only serves what the knot has`);
   say("→", `deploying ${sha.slice(0, 10)} to lith`);

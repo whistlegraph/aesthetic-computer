@@ -1,7 +1,0 @@
-{
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "undici": "6.27.0"
-  }
-}

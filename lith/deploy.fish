@@ -218,64 +218,7 @@ if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
     end
 end
 
-echo -e "$GREEN-> Deploying branch $TARGET_BRANCH at $ORIGIN_HEAD...$NC"
-set PREVIOUS_HEAD (ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git rev-parse HEAD")
-if test -z "$PREVIOUS_HEAD"
-    echo -e "$RED x Could not resolve the currently deployed commit.$NC"
-    exit 1
-end
-
-if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
-cd $REMOTE_DIR && \
-git fetch origin $TARGET_BRANCH --quiet && \
-if git show-ref --verify --quiet refs/heads/$TARGET_BRANCH; then \
-  git checkout $TARGET_BRANCH --quiet; \
-else \
-  git checkout -B $TARGET_BRANCH origin/$TARGET_BRANCH --quiet; \
-fi && \
-git reset --hard origin/$TARGET_BRANCH --quiet && \
-git rev-parse HEAD > system/public/.commit-ref && \
-git rev-list --count HEAD > system/public/.commit-count && \
-sh xbox/tools/precompress-live.sh"
-    echo -e "$RED x Failed to check out origin/$TARGET_BRANCH on $TARGET_HOST.$NC"
-    exit 1
-end
-
-# Advisory, not a gate: oskiewar ships on its own clock (npm run
-# oskiewar:deploy reburns the preview before it deploys), so unreleased
-# oskiewar commits on main must not hold every other lith change hostage.
-echo -e "$GREEN-> Verifying oskiewar social preview freshness...$NC"
-if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node xbox/live/render-social-preview.mjs --check"
-    echo -e "$RED ! oskiewar social preview is stale; deploying anyway. Run npm run oskiewar:deploy to release oskiewar.$NC"
-end
-
-echo -e "$GREEN-> Verifying disk worker bundle freshness...$NC"
-if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node scripts/verify-disk-worker.mjs"
-    echo -e "$RED x Disk worker bundle is missing or stale; restoring $PREVIOUS_HEAD.$NC"
-    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
-cd $REMOTE_DIR && \
-git reset --hard $PREVIOUS_HEAD --quiet && \
-git rev-parse HEAD > system/public/.commit-ref && \
-git rev-list --count HEAD > system/public/.commit-count && \
-sh xbox/tools/precompress-live.sh"
-    exit 1
-end
-
-# Validate the committed public-host inventory on the deployment checkout.
-# This does not read the maintainer's possibly dirty local working tree.
-echo -e "$GREEN-> Verifying public machine discovery...$NC"
-if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node utilities/generate-machine-manifests.mjs --check"
-    echo -e "$RED x Machine discovery is stale or a public host is unclassified; restoring $PREVIOUS_HEAD.$NC"
-    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
-cd $REMOTE_DIR && \
-git reset --hard $PREVIOUS_HEAD --quiet && \
-git rev-parse HEAD > system/public/.commit-ref && \
-git rev-list --count HEAD > system/public/.commit-count && \
-sh xbox/tools/precompress-live.sh"
-    exit 1
-end
-
-# Upload env (only if the vault has one — otherwise keep the remote's existing env)
+# Validate the environment before any production checkout or product changes.
 # Note: lith.service reads EnvironmentFile=/opt/ac/system/.env, so the canonical
 # vault source lives at aesthetic-computer-vault/lith/.env and is uploaded into
 # system/.env on the remote host.
@@ -320,8 +263,95 @@ if test $UPLOAD_ENV = true
     if test (count $added_keys) -gt 0
         echo -e "$GREEN   adding keys: $added_keys$NC"
     end
+end
+
+# Operational privacy must not disable server-side diagnostics at cutover.
+if test "$UPLOAD_ENV" = true
+    if not rg -q '^LITH_OPERATIONS_TOKEN=.' "$SERVICE_ENV"
+        echo -e "$RED x Prepare LITH_OPERATIONS_TOKEN in the private Lith environment before release.$NC"
+        exit 1
+    end
+else if not ssh -i "$SSH_KEY" "$LITH_USER@$TARGET_HOST" "grep -q '^LITH_OPERATIONS_TOKEN=.' '$REMOTE_DIR/system/.env'"
+    echo -e "$RED x Production needs LITH_OPERATIONS_TOKEN before operational routes become private.$NC"
+    exit 1
+end
+
+# Freeze the private revision and backup the installed products before reset.
+source "$REPO_ROOT/toolchain/private-products-deploy.fish"
+prepare_private_products "$REPO_ROOT" "$SSH_KEY" "$LITH_USER@$TARGET_HOST" "$REMOTE_DIR" node "$ORIGIN_HEAD"; or exit 1
+
+echo -e "$GREEN-> Deploying branch $TARGET_BRANCH at $ORIGIN_HEAD...$NC"
+set PREVIOUS_HEAD (ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git rev-parse HEAD")
+if test -z "$PREVIOUS_HEAD"
+    echo -e "$RED x Could not resolve the currently deployed commit.$NC"
+    exit 1
+end
+
+# Keep the pre-cutover environment and routing alongside the product snapshot.
+if not ssh -i "$SSH_KEY" "$LITH_USER@$TARGET_HOST" "umask 077 && cp '$REMOTE_DIR/system/.env' '$PRODUCT_REMOTE_STAGE/lith.env.before' && cp /etc/caddy/Caddyfile '$PRODUCT_REMOTE_STAGE/Caddyfile.before' && git -C '$REMOTE_DIR' rev-parse HEAD > '$PRODUCT_REMOTE_STAGE/core.before'"
+    echo -e "$RED x Could not preserve the pre-release environment and routing.$NC"
+    exit 1
+end
+echo -e "$GREEN-> Rollback snapshot: $PRODUCT_REMOTE_STAGE ($PREVIOUS_HEAD)$NC"
+
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git fetch origin $TARGET_BRANCH --quiet && \
+if git show-ref --verify --quiet refs/heads/$TARGET_BRANCH; then \
+  git checkout $TARGET_BRANCH --quiet; \
+else \
+  git checkout -B $TARGET_BRANCH origin/$TARGET_BRANCH --quiet; \
+fi && \
+git reset --hard $ORIGIN_HEAD --quiet && \
+$PRODUCT_RUN install $PRODUCT_REMOTE_STAGE/incoming && \
+git rev-parse HEAD > system/public/.commit-ref && \
+git rev-list --count HEAD > system/public/.commit-count && \
+sh xbox/tools/precompress-live.sh"
+    echo -e "$RED x Failed to install the composed release; restoring $PREVIOUS_HEAD.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git reset --hard $PREVIOUS_HEAD --quiet && $PRODUCT_RUN install $PRODUCT_REMOTE_STAGE/previous && git rev-parse HEAD > system/public/.commit-ref && git rev-list --count HEAD > system/public/.commit-count && sh xbox/tools/precompress-live.sh"
+    exit 1
+end
+
+# Advisory, not a gate: oskiewar ships on its own clock (npm run
+# oskiewar:deploy reburns the preview before it deploys), so unreleased
+# oskiewar commits on main must not hold every other lith change hostage.
+echo -e "$GREEN-> Verifying oskiewar social preview freshness...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node xbox/live/render-social-preview.mjs --check"
+    echo -e "$RED ! oskiewar social preview is stale; deploying anyway. Run npm run oskiewar:deploy to release oskiewar.$NC"
+end
+
+echo -e "$GREEN-> Verifying disk worker bundle freshness...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node scripts/verify-disk-worker.mjs"
+    echo -e "$RED x Disk worker bundle is missing or stale; restoring $PREVIOUS_HEAD.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git reset --hard $PREVIOUS_HEAD --quiet && \
+$PRODUCT_RUN install $PRODUCT_REMOTE_STAGE/previous && \
+git rev-parse HEAD > system/public/.commit-ref && \
+git rev-list --count HEAD > system/public/.commit-count && \
+sh xbox/tools/precompress-live.sh"
+    exit 1
+end
+
+# Validate the committed public-host inventory on the deployment checkout.
+# This does not read the maintainer's possibly dirty local working tree.
+echo -e "$GREEN-> Verifying public machine discovery...$NC"
+if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node utilities/generate-machine-manifests.mjs --check"
+    echo -e "$RED x Machine discovery is stale or a public host is unclassified; restoring $PREVIOUS_HEAD.$NC"
+    ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git reset --hard $PREVIOUS_HEAD --quiet && \
+$PRODUCT_RUN install $PRODUCT_REMOTE_STAGE/previous && \
+git rev-parse HEAD > system/public/.commit-ref && \
+git rev-list --count HEAD > system/public/.commit-count && \
+sh xbox/tools/precompress-live.sh"
+    exit 1
+end
+
+# Upload only the environment that passed preflight before the source cutover.
+if test "$UPLOAD_ENV" = true
     echo -e "$GREEN-> Uploading environment...$NC"
-    scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/.env
+    scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/.env; or exit 1
 else
     echo -e "$GREEN-> Using existing remote environment (no local vault env to upload).$NC"
 end

@@ -9,6 +9,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import { MongoClient } from "mongodb";
+import { hydratePrivateProducts } from './private-products.mjs';
 
 function runSync(cmd, args, cwd, env = null) {
   return new Promise((resolve) => {
@@ -372,6 +373,8 @@ async function runBuildJob(job) {
     ].filter(Boolean).join("\n")], repoDir);
 
     const syncedRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
+    const products = await hydratePrivateProducts(repoDir);
+    if (products) job.productsRef = products.revision;
     // Only overwrite job.ref with HEAD when the caller didn't specify one —
     // otherwise we'd hide a mismatch if the checkout silently landed on a
     // different commit than requested.

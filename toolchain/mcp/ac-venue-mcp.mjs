@@ -14,7 +14,8 @@ import { homedir, hostname } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
-import { feedStatus } from "./oskiewar-feed.mjs";   // the displays: what the Xbox / ac7 feed is showing
+import { optionalProduct } from "../../shared/private-product.mjs";
+const displayFeed = await optionalProduct(new URL("./oskiewar-feed.mjs", import.meta.url));
 
 const pexec = promisify(execFile);
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -82,7 +83,7 @@ async function status(out) {
     const r = m === local ? await sh("pgrep", ["-x", "MenuBand"]) : await sh("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6", m, "pgrep -x MenuBand"]);
     return { member: m, menuBand: r.code === 0 ? "running" : "not running" };
   }));
-  const display = await feedStatus();
+  const display = displayFeed ? await displayFeed.feedStatus() : { available: false };
   const dir = outDir(out);
   const plan = readJson(join(dir, "plan.json")), bundle = readJson(join(dir, "prepared.json")), state = readJson(join(dir, "preparation-state.json"));
   const active = [...runs.entries()].filter(([, r]) => r.child.exitCode === null).map(([id, r]) => ({ runId: id, out: r.out, seconds: Math.round(Date.now() / 1000 - r.startedAt) }));

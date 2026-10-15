@@ -92,7 +92,11 @@ export async function journalNames(start, end, limit) {
 }
 
 export async function errorNames(start, end, limit) {
-  const response = await fetch(`http://127.0.0.1:8888/lith/errors?limit=${Math.min(limit, 500)}`, { signal: AbortSignal.timeout(10000) });
+  const token = process.env.LITH_OPERATIONS_TOKEN;
+  if (!token) throw new Error("Lith diagnostics credential unavailable");
+  const response = await fetch(`http://127.0.0.1:8888/lith/errors?limit=${Math.min(limit, 500)}`, {
+    headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10000),
+  });
   if (!response.ok) throw new Error("Lith errors unavailable");
   const chunks = []; let bytes = 0;
   for await (const chunk of response.body) {

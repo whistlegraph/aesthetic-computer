@@ -48,7 +48,9 @@ if (typeof globalThis.awslambda === "undefined") {
 
 import express from "express";
 import {attachMusicalSocket} from "./musical-socket.mjs";
-import {attachWhistlegraphSocket} from "./whistlegraph-socket.mjs";
+import { optionalProduct } from "../shared/private-product.mjs";
+import { operationsAuth } from "./operations-auth.mjs";
+import { canonicalPageUrl } from "../system/public/aesthetic.computer/lib/site-metadata.mjs";
 import { sendStream } from "./stream-response.mjs";
 import { userMediaTarget } from "./media-path.mjs";
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, statSync } from "fs";
@@ -262,7 +264,11 @@ app.use((req, res, next) => {
   // keep the historical aesthetic.computer redirect.
   if (isPrompt && req.path !== "/") {
     if (!req.path.includes(".")) {
-      return res.sendFile(join(PUBLIC, "prompt.ac", "index.html"));
+      const canonical = canonicalPageUrl(host, req.path).replaceAll("&", "&amp;");
+      const shell = readFileSync(join(PUBLIC, "prompt.ac", "index.html"), "utf8")
+        .replace('<link rel="canonical" href="https://prompt.ac/" />', `<link rel="canonical" href="${canonical}" />`)
+        .replace('<meta property="og:url" content="https://prompt.ac/" />', `<meta property="og:url" content="${canonical}" />`);
+      return res.type("html").send(shell);
     }
     return res.redirect(301, `https://aesthetic.computer${req.originalUrl}`);
   }
@@ -801,6 +807,8 @@ app.get(["/lith", "/lith/"], (_req, res) => {
 });
 
 // --- Lith stats API (consumed by silo dashboard) ---
+app.use(["/lith/stats", "/lith/errors", "/lith/requests", "/lith/traffic"], operationsAuth());
+
 app.get("/lith/stats", (req, res) => {
   const uptime = Math.floor((Date.now() - BOOT_TIME) / 1000);
   const mem = process.memoryUsage();
@@ -1463,8 +1471,12 @@ if (DEV && HAS_SSL) {
 // Share authentication, concurrency guards and durable quotas with the HTTP lane.
 const musicalAPI = await import(pathToFileURL(join(SYSTEM, "netlify/functions/easel-musical-jev.mjs")).href);
 const musicalSocket = attachMusicalSocket(server, {authenticate:musicalAPI.authenticateMusical, decide:musicalAPI.musicalDecision});
-const whistlegraphAPI = await import(pathToFileURL(join(SYSTEM, "netlify/functions/whistlegraph.mjs")).href);
-const whistlegraphSocket = attachWhistlegraphSocket(server, {authenticate:whistlegraphAPI.authenticateWhistlegraph, store:whistlegraphAPI.whistlegraphStore});
+const whistlegraph = await optionalProduct(new URL("./whistlegraph-socket.mjs", import.meta.url));
+let whistlegraphSocket;
+if (whistlegraph) {
+  const whistlegraphAPI = await import(pathToFileURL(join(SYSTEM, "netlify/functions/whistlegraph.mjs")).href);
+  whistlegraphSocket = whistlegraph.attachWhistlegraphSocket(server, {authenticate:whistlegraphAPI.authenticateWhistlegraph, store:whistlegraphAPI.whistlegraphStore});
+}
 
 // --- Account deletions ---
 // Purges accounts whose grace period has ended (system/backend/
@@ -1503,10 +1515,10 @@ if (!DEV) {
     try {
       const paid=await import(pathToFileURL(join(SYSTEM,"backend","easel-paid-credits.mjs")).href);
       const {connect}=await import(pathToFileURL(join(SYSTEM,"backend","database.mjs")).href);
-      const {speechBilling}=await import(pathToFileURL(join(SYSTEM,"backend","whistlegraph-speech-billing.mjs")).href);
-      await speechBilling((await connect()).db).reconcile();
-      const {noPaintBilling}=await import(pathToFileURL(join(SYSTEM,"backend","nopaint-billing.mjs")).href);
-      await noPaintBilling((await connect()).db).reconcile();
+      const speech = await optionalProduct(pathToFileURL(join(SYSTEM,"backend","whistlegraph-speech-billing.mjs")));
+      if (speech) await speech.speechBilling((await connect()).db).reconcile();
+      const noPaint = await optionalProduct(pathToFileURL(join(SYSTEM,"backend","nopaint-billing.mjs")));
+      if (noPaint) await noPaint.noPaintBilling((await connect()).db).reconcile();
       const count=await paid.withWallets(w=>paid.reconcilePaidHolds(w));
       if(count)console.log("[lith] recovered credit holds:",count);
     } catch { console.error("[lith] credit reconciliation failed; will retry"); }
@@ -1517,7 +1529,7 @@ if (!DEV) {
 }
 
 // Refund retries remain active even when new App Store sales are paused.
-if (!DEV) {
+if (!DEV && whistlegraph) {
   let reconcilingWhistlegraph = false;
   const reconcileWhistlegraph = async () => {
     if (reconcilingWhistlegraph) return;
@@ -1564,7 +1576,7 @@ const DRAIN_TIMEOUT = 10_000; // 10s max wait
 function gracefulShutdown(signal) {
   console.log(`[lith] ${signal} received, draining connections...`);
   musicalSocket.close();
-  whistlegraphSocket.close();
+  whistlegraphSocket?.close();
   server.close(() => {
     console.log("[lith] all connections drained, exiting");
     process.exit(0);

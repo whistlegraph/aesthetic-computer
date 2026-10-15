@@ -1,5 +1,5 @@
 import { inspectROM, MAX_ROM } from './rom.mjs';
-import { observeInteraction } from '../mime-play/interaction.mjs';
+import { observeInteraction } from '../aesthetic.computer/lib/frame-interaction.mjs';
 
 observeInteraction();
 const params = new URLSearchParams(location.search);

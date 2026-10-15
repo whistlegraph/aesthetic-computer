@@ -454,8 +454,10 @@ function isSubdomainRequest(event) {
   return host.startsWith("news.aesthetic.computer");
 }
 
-function layout({ title, body, assetBase, assetOrigin, og }) {
+function layout({ title, body, assetBase, assetOrigin, og, route }) {
   const origin = assetOrigin || "";
+  const description = og?.description || "Community news, links and stories from Aesthetic Computer.";
+  const canonical = og?.url || (!route ? "https://news.aesthetic.computer/" : route === "new" ? "https://news.aesthetic.computer/new" : null);
   const ogTags = og ? `
     <meta property="og:title" content="${escapeHtml(og.title || title)}" />
     <meta property="og:description" content="${escapeHtml(og.description || '')}" />
@@ -467,13 +469,19 @@ function layout({ title, body, assetBase, assetOrigin, og }) {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(og.title || title)}" />
     <meta name="twitter:description" content="${escapeHtml(og.description || '')}" />
-    <meta name="twitter:image" content="${escapeHtml(og.image || '')}" />` : '';
+    <meta name="twitter:image" content="${escapeHtml(og.image || '')}" />` : `
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(description)}" />
+    <meta property="og:type" content="website" />
+    ${canonical ? `<meta property="og:url" content="${escapeHtml(canonical)}" />` : ''}`;
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>${ogTags}
+    <meta name="description" content="${escapeHtml(description)}" />
+    ${canonical ? `<link rel="canonical" href="${escapeHtml(canonical)}" />` : ''}
     <link rel="icon" href="${origin}${assetBase}/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css">
@@ -1034,7 +1042,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
         og = result.og;
       }
 
-      const html = layout({ title, body, assetBase, assetOrigin, og });
+      const html = layout({ title, body, assetBase, assetOrigin, og, route });
       await database.disconnect();
       return respondFn(200, html, { "Content-Type": "text/html" });
     } catch (error) {

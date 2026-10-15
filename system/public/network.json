@@ -1,6 +1,6 @@
 {
   "title": "Aesthetic Computer public machine directory",
-  "version": 1,
+  "version": 2,
   "description": "Curated public products served by this stack. This is a link directory, not an agent protocol or an authorization grant. See each resource's own terms, authentication and attribution.",
   "properties": [
     {
@@ -387,8 +387,8 @@
     },
     {
       "url": "https://laklok.com/",
-      "title": "Laklok / Lær Klokken",
-      "summary": "Clock-themed music and community on Aesthetic Computer.",
+      "title": "Laklok",
+      "summary": "Read along or say hi in the Aesthetic Computer community conversation.",
       "llms": "https://laklok.com/llms.txt",
       "aliases": [
         "www.laklok.com"
@@ -412,8 +412,8 @@
         },
         {
           "title": "Aesthetic Computer",
-          "url": "https://aesthetic.computer/laer-klokken",
-          "description": "The related AC piece."
+          "url": "https://aesthetic.computer/laklok",
+          "description": "The same community conversation on AC."
         }
       ]
     },
@@ -456,13 +456,25 @@
     },
     {
       "url": "https://mime.ac/",
-      "title": "MIME.ac",
-      "summary": "Every file has a MIME type. A toy for browsing, making and flipping through them all, one work per screen, as if file types were TV channels.",
+      "title": "MIME",
+      "summary": "Browse, make and share creative works by file type, one work per screen.",
       "llms": "https://mime.ac/llms.txt",
       "aliases": [
         "www.mime.ac"
       ],
-      "note": "Use public permalinks (https://mime.ac/<code>) for citations. Account access, commenting and saving require the visitor's own authorization.",
+      "id": "mime",
+      "access": "Public browsing. An Aesthetic Computer account is required for commenting and saving. The iPhone app is in early access.",
+      "endpoints": [
+        {
+          "method": "GET",
+          "url": "https://mime.ac/api/mime?feed=1",
+          "title": "Public work feed",
+          "description": "Read the public feed. Use each work's public permalink for citations.",
+          "authentication": "None",
+          "format": "application/json"
+        }
+      ],
+      "note": "Public browsing. An Aesthetic Computer account is required for commenting and saving. The iPhone app is in early access.",
       "resources": [
         {
           "title": "Website",
@@ -470,36 +482,29 @@
           "description": "Public entry point."
         },
         {
-          "title": "What is a MIME type",
+          "title": "MIME types",
           "url": "https://mime.ac/mime-types/",
-          "description": "Plain-text explainer, common types, the channels on MIME.ac, FAQ."
+          "description": "Media types, channels and examples."
         },
         {
-          "title": "Feed JSON",
+          "title": "Public work feed",
           "url": "https://mime.ac/api/mime?feed=1",
-          "description": "The ranked network feed the site and app read."
-        },
-        {
-          "title": "Public API",
-          "url": "https://aesthetic.computer/api?format=json",
-          "description": "Supported AC integrations."
-        },
-        {
-          "title": "Source",
-          "url": "https://aesthetic.computer/mime/index.html",
-          "description": "Published browser interface."
+          "description": "Read the public feed. Use each work's public permalink for citations."
         }
       ]
     },
     {
       "url": "https://nopaint.art/",
       "title": "No Paint",
-      "summary": "Paint with AI image models or local brushes using your Aesthetic Computer account.",
+      "summary": "Make paintings by accepting or rejecting proposed moves, with classic and AI tools.",
       "llms": "https://nopaint.art/llms.txt",
       "aliases": [
         "www.nopaint.art"
       ],
-      "note": "The website shares its cloud model catalog, Braincell prices and high-level UI definitions with the No Paint desktop app. The website starts with Classic CPU moves; cloud inference requires choosing a specific model. Desktop and fleet inference remain in the native app. Browser paintings and history are kept locally. Done publishes the accepted painting and steps under the signed-in AC handle.",
+      "id": "nopaint",
+      "access": "Classic tools run without an account. Cloud models require an Aesthetic Computer account and braincells.",
+      "endpoints": [],
+      "note": "Classic tools run without an account. Cloud models require an Aesthetic Computer account and braincells.",
       "resources": [
         {
           "title": "Website",
@@ -519,25 +524,23 @@
         {
           "title": "Gallery JSON",
           "url": "https://nopaint.art/gallery/gallery.json",
-          "description": "The same public gallery data used by the page."
-        },
-        {
-          "title": "AC runtime version",
-          "url": "https://nopaint.art/nopaint",
-          "description": "The earlier AC-native remake."
+          "description": "Public gallery data used by the gallery page."
         }
       ]
     },
     {
       "url": "https://oskiewar.com/",
       "title": "oskiewar",
-      "summary": "A free 1v1 fighting game in the browser: two players on one keyboard, two gamepads, or online with a room link.",
+      "summary": "A free 1v1 fighting game for the browser, with local and online play.",
       "llms": "https://oskiewar.com/llms.txt",
       "aliases": [
         "www.oskiewar.com",
         "midi.oskiewar.com"
       ],
-      "note": "Live publishing and device access require the visitor's participation and authorization.",
+      "id": "oskiewar",
+      "access": "Sign in with an email code and choose a handle to play.",
+      "endpoints": [],
+      "note": "Sign in with an email code and choose a handle to play.",
       "resources": [
         {
           "title": "Website",
@@ -550,30 +553,48 @@
           "description": "Controls and FAQ for new players."
         },
         {
-          "title": "MIDI view",
-          "url": "https://midi.oskiewar.com/",
-          "description": "The same site with MIDI bridge enabled."
-        },
-        {
-          "title": "Source repository",
-          "url": "https://tangled.org/aesthetic.computer/core",
-          "description": "Canonical source; GitHub is a mirror."
+          "title": "Support",
+          "url": "https://oskiewar.com/support.html",
+          "description": "Troubleshooting and contact."
         }
       ]
     },
     {
       "url": "https://sotce.net/",
       "title": "Sotce Net",
-      "summary": "Sotce's writing and community.",
+      "summary": "Sotce's writing, diary pages and community.",
       "llms": "https://sotce.net/llms.txt",
       "aliases": [
         "www.sotce.net"
       ],
-      "note": "Only the public landing page is described here. Subscriber pages, account records, chats, device identities and push notifications are not public machine resources. Sign-in and subscription boundaries still apply.",
+      "id": "sotce-net",
+      "access": "Public landing page. Member content follows the site's sign-in and subscription requirements.",
+      "endpoints": [],
+      "note": "Public landing page. Member content follows the site's sign-in and subscription requirements.",
       "resources": [
         {
           "title": "Website",
           "url": "https://sotce.net/",
+          "description": "Public entry point."
+        }
+      ]
+    },
+    {
+      "url": "https://choir.ac/",
+      "title": "Choir",
+      "summary": "An iPhone community for comments on culture.",
+      "llms": "https://choir.ac/llms.txt",
+      "aliases": [
+        "www.choir.ac"
+      ],
+      "id": "choir",
+      "access": "Participation is by invitation; request access on the public site.",
+      "endpoints": [],
+      "note": "Participation is by invitation; request access on the public site.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://choir.ac/",
           "description": "Public entry point."
         }
       ]
@@ -1012,10 +1033,10 @@
     {
       "url": "https://news.aesthetic.computer/",
       "title": "Aesthetic Computer News",
-      "summary": "Aesthetic Computer's newsletter.",
+      "summary": "Community news, links and stories from Aesthetic Computer.",
       "llms": "https://news.aesthetic.computer/llms.txt",
       "aliases": [],
-      "note": "Only publicly visible pages may be read anonymously. Subscription and contributor permissions remain in force.",
+      "note": "Only publicly visible pages may be read anonymously. Account and contributor permissions remain in force.",
       "resources": [
         {
           "title": "Website",

@@ -155,7 +155,8 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 // 🎯 Duel Manager — server-authoritative game for dumduel piece
 const duelManager = new DuelManager();
 const fightManager = new FightManager();
-const oskiewarLiveManager = new OskiewarLiveManager();
+const oskiewar = await optionalProduct(new URL("./oskiewar-live-manager.mjs", import.meta.url));
+const oskiewarLiveManager = oskiewar ? new oskiewar.OskiewarLiveManager() : null;
 const agentPresenceManager = new AgentPresenceManager();
 // 🗼 lairk — only a verified handle with a spot (spoken in Laer Klokken and
 // @mentioned there) may walk; every handle's last position is kept in Redis.
@@ -185,7 +186,7 @@ import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support
 import { DiagnosticsRelay } from "./diagnostics.mjs"; // A piece's health, to its author.
 import { DuelManager } from "./duel-manager.mjs"; // Server-authoritative duel game.
 import { FightManager } from "./fight-manager.mjs"; // Fight presence + seat queue.
-import { OskiewarLiveManager } from "./oskiewar-live-manager.mjs";
+import { optionalProduct } from "../shared/private-product.mjs";
 import { AgentPresenceManager } from "./agent-presence.mjs"; // Handle-scoped agent awareness.
 import { WorldManager, ARENA_CFG, ARENA_SPAWNS } from "./world-manager.mjs"; // Server-authoritative 3D worlds.
 import { LairkManager } from "./lairk-manager.mjs"; // Walking in lairk, the Laer Klokken place.
@@ -1432,6 +1433,7 @@ log(
 fastify.get("/oskiewar-open-room", async (request, reply) => {
   reply.header("Access-Control-Allow-Origin", "*");
   reply.header("Cache-Control", "no-store");
+  if (!oskiewarLiveManager) return reply.code(404).send({ error: "Product unavailable" });
   return oskiewarLiveManager.openRoom() || {};
 });
 
@@ -1440,6 +1442,7 @@ fastify.get("/oskiewar-open-room", async (request, reply) => {
 fastify.get("/oskiewar-room", async (request, reply) => {
   reply.header("Access-Control-Allow-Origin", "*");
   reply.header("Cache-Control", "no-store");
+  if (!oskiewarLiveManager) return reply.code(404).send({ error: "Product unavailable" });
   return oskiewarLiveManager.roomStatus(String(request.query?.match || ""));
 });
 
@@ -1805,7 +1808,7 @@ wss.on("connection", async (ws, req) => {
   log('🔌 Current connections count:', Object.keys(connections).length);
 
   // Public, pronounceable-ID-scoped oskiewar phone spectator rooms.
-  if (oskiewarLiveManager.handleConnection(ws, req)) return;
+  if (oskiewarLiveManager?.handleConnection(ws, req)) return;
 
   // Handle-scoped agent presence — lights the agent mark on AC surfaces.
   if (agentPresenceManager.handleConnection(ws, req)) return;
