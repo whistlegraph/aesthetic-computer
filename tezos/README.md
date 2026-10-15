@@ -7,6 +7,9 @@
 > human-readable view — when the two disagree, `contracts.json` wins. Secret keys live in
 > the vault (`aesthetic-computer-vault/wallets/wallets.json.gpg`), never in this repo.
 
+For broad status requests, follow [Tezos Status Checks](STATUS-CHECKS.md):
+include the HEN daily posts alongside Keeps, balances and braincell payments.
+
 ---
 
 ## 📇 Wallet Directory
