@@ -1401,6 +1401,27 @@ nopaint.art {
     }
 }
 
+# Original Construct and iOS builds still call this hostname. Keep their
+# get-code / upload-painting / painting/:code.png protocol on the AC backend.
+server.nopaint.art {
+    import lith_access_log
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+        protocols tls1.2 tls1.3
+    }
+    @classic_api path /get-code /upload-painting /painting/*.png
+    handle @classic_api {
+        request_body {
+            max_size 17MB
+        }
+        rewrite * /api/nopaint-classic{path}
+        import lith_proxy
+    }
+    respond "Not found" 404
+}
+
 www.nopaint.art {
     import lith_access_log
     # Same serving requirement as the apex block above: without a distinct

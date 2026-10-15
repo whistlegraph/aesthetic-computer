@@ -25,9 +25,27 @@ The current studio links to the archive from its Painting actions menu.
 Run `node --test lith/nopaint-routing.test.mjs` to verify every export asset's
 served bytes, redirects and separation from the studio proxy. Chrome smoke
 validation reached the painter and exercised Paint and No without browser
-errors; both workers and all 130 audio files loaded. Legacy online publishing
-still names `server.nopaint.art`; this recovery does not restore
-that backend or claim that remote publishing works.
+errors; both workers and all 130 audio files loaded.
+
+The original save hostname `server.nopaint.art` is restored as a compatibility
+route to `/api/nopaint-classic/` on AC. GET `get-code` reserves an eight-character
+alphanumeric code; POST `upload-painting` accepts Construct's original
+`code=...&painting=<base64 PNG>` form; GET `painting/<code>.png` retrieves it.
+The form parser preserves unescaped base64 `+` characters. The compiled 2021
+runtime remains unchanged.
+
+New images are stored in Mongo's `nopaint-classic-paintings` collection with
+code, PNG, dimensions, digest and timestamps. Unused reservations expire after
+24 hours; saved images have no TTL. An atomic first upload fixes the image:
+identical retries succeed, different pixels cannot overwrite that code.
+Validation fully decodes PNGs, caps uploads at 4 MiB and 2048×2048, and bounds
+anonymous allocation/upload rates. No account or attribution is invented.
+All 32,184 archived IDs are excluded from new code allocation. Those codes redirect to the original `pix.nopaint.art`
+archive, which this service never modifies.
+
+Run the vault's `system/tests/nopaint-classic.test.mjs` for protocol, retry,
+expiry, validation and overwrite checks. The Caddy routing test also verifies
+the legacy hostname's exact endpoint mapping.
 
 ## Reading the export
 
