@@ -16,7 +16,7 @@
   <key>UIUserInterfaceStyle</key><string>Dark</string>
   <key>UIStatusBarStyle</key><string>UIStatusBarStyleLightContent</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
-  <key>UIAppFonts</key><array><string>Fonts/ComicRelief-Bold.ttf</string></array>
+  <key>UIAppFonts</key><array><string>Fonts/ComicRelief-Bold.ttf</string><string>Fonts/NotoSans-Bold.ttf</string></array>
   <key>NSMicrophoneUsageDescription</key><string>Record your voice to make and edit work in MIME.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>Turn your spoken instructions into text for your work.</string>
   <key>NSPhotoLibraryAddUsageDescription</key><string>Save your exported work to Photos.</string>

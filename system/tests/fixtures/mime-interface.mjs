@@ -1,6 +1,6 @@
 import {readFile} from 'node:fs/promises';
-const assets = new Map(await Promise.all(['interface.js', 'favicon.mjs', 'favicon.svg'].map(async name => [
-  '/mime/' + name, {contentType: name.endsWith('.svg') ? 'image/svg+xml' : 'text/javascript',
+const assets = new Map(await Promise.all(['interface.js', 'favicon.mjs', 'favicon.svg', 'fonts/NotoSans-Bold.woff2'].map(async name => [
+  '/mime/' + name, {contentType: name.endsWith('.woff2') ? 'font/woff2' : name.endsWith('.svg') ? 'image/svg+xml' : 'text/javascript',
     body: await readFile(new URL('../../public/mime/' + name, import.meta.url))}
 ])));
 export function serveMimeInterface(route) {

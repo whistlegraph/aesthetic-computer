@@ -497,7 +497,7 @@ private struct DocumentText: View {
 /// A post that is only words (a mood, a chat line) is drawn the way mime.ac draws
 /// it: big comic lettering that breathes letter by letter, outlined over a
 /// pink-purple-cyan offset, on the author's colour drifting under it. The words
-/// shrink until they fit one page; where and when it was said sits underneath.
+/// shrink until they fit one page. The room is part of the corner address.
 private struct Words: View {
     let text: String
     let post: Post
@@ -514,13 +514,7 @@ private struct Words: View {
             let time = moving ? timeline.date.timeIntervalSince(started) : nil
             ZStack {
                 MoodSky(tint: Color.author(post.name), time: time)
-                VStack(spacing: 18) {
-                    lettering(time: time)
-                    if let footer = Self.footer(post, now: timeline.date) {
-                        PalText(text: footer, size: 15, accent: Color.author(post.name), fill: .white.opacity(0.85), animated: false)
-                            .accessibilityIdentifier("mime-words-when")
-                    }
-                }
+                lettering(time: time)
                 .padding(.horizontal, padding + 8)
                 .padding(.top, 104).padding(.bottom, 92)
             }
@@ -529,7 +523,7 @@ private struct Words: View {
     }
 
     @ViewBuilder private func lettering(time: Double?) -> some View {
-        let words = Text(text).font(.custom("ComicRelief-Bold", size: 46))
+        let words = Text(text).font(Font(MimeTypography.comic(46)))
         Group {
             if #available(iOS 18, *) { words.textRenderer(BreathingLetters(time: time)) }
             else { words.shadow(color: Color(hex: 0x55CDD9), radius: 0, x: 3, y: 3) }
@@ -540,26 +534,6 @@ private struct Words: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// "laer-klokken · 5m ago", in mime.ac's own units.
-    static func footer(_ post: Post, now: Date) -> String? {
-        let when = post.when.flatMap(Self.date).map { Self.ago($0, now: now) }
-        let parts = [post.origin?.name, when].compactMap { $0 }.filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    static func date(_ iso: String) -> Date? {
-        let fractional = ISO8601DateFormatter()
-        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return fractional.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-    }
-
-    static func ago(_ date: Date, now: Date) -> String {
-        let s = now.timeIntervalSince(date)
-        if s < 60 { return "just now" }
-        if s < 3600 { return "\(Int(s / 60))m ago" }
-        if s < 86400 { return "\(Int(s / 3600))h ago" }
-        return "\(Int(s / 86400))d ago"
-    }
 }
 
 /// mime.ac's mood-colors: the author's colour, a cyan and a pink glow, drifting

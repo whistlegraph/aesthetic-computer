@@ -1,10 +1,12 @@
 import { generateUniqueCode } from "./generate-short-code.mjs";
 
+export const chatRoom = instance => instance === "clock" ? "laer-klokken" : instance === "system" ? "laklok" : null;
+
 // A chat message keeps its identity through handle/text changes. The original record
 // ID remains the thread key so existing comments and saved posts still work.
 const indexes = new WeakMap();
 export async function ensureChatCode(db, instance, id) {
-  if (!["system", "clock"].includes(instance)) throw new Error("Unsupported public chat");
+  if (!chatRoom(instance)) throw new Error("Unsupported public chat");
   const codes = db.collection("chat-codes");
   if (!indexes.has(db)) {
     const ready = codes.createIndex({ code: 1 }, { unique: true });

@@ -71,7 +71,7 @@ test('live center, held input, corner cooldown, edge glow, emergency escape and 
     await youtubeFrame.getByRole('button',{name:'Play YouTube video'}).click();
     await youtubeFrame.locator('iframe[title="YouTube video player"]').waitFor();
     assert.match(await youtubeFrame.getByRole('link',{name:'Watch on YouTube'}).getAttribute('href'),/8pT-d9juqCo/);
-    assert.equal(await page.locator('#'+youtube.code+' .reel-command .media-label').getAttribute('aria-label'),'chat~qjj');
+    assert.equal(await page.locator('#'+youtube.code+' .reel-command .media-label').getAttribute('aria-label'),'laer-klokken~qjj');
     await page.waitForTimeout(1300);
     await screenshot('youtube');
     await swipe(2,420,180);

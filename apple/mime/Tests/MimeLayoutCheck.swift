@@ -44,6 +44,15 @@ import Foundation
         let colored = try JSONDecoder().decode(Post.self, from: Data("{\"code\":\"colors\",\"name\":\"@artist\",\"nameColors\":[{\"r\":24,\"g\":128,\"b\":240},null]}".utf8))
         precondition(colored.nameColors?.count == 2 && colored.nameColors?[0]?.g == 128 && colored.nameColors?[1] == nil)
         precondition(wad.command == "doom~abc", "WAD identifiers must resolve in the AC prompt namespace")
+        for (instance, room) in [("clock", "laer-klokken"), ("system", "laklok")] {
+            for explicit in [false, true] {
+                var media = ["kind": "chat", "code": "nvb", "instance": instance]
+                if explicit { media["address"] = room + "~nvb" }
+                let data = try JSONSerialization.data(withJSONObject: ["code": "chat_" + instance + "_fixture", "media": media])
+                let post = try JSONDecoder().decode(Post.self, from: data)
+                precondition(post.command == room + "~nvb" && post.chatAddress == post.command)
+            }
+        }
         if case let .runtime(url, kind) = wad.body {
             precondition(kind == "doom" && url.path == "/doom-player")
             let flags = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []

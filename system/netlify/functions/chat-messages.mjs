@@ -13,7 +13,7 @@
 // Response is chronological (oldest → newest) per page UNLESS searching.
 // Redis caching: 2 min TTL, keyed on (instance, limit, before, search).
 
-import { ensureChatCode } from "../../backend/chat-code.mjs";
+import { ensureChatCode, chatRoom } from "../../backend/chat-code.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { shell } from "../../backend/shell.mjs";
@@ -59,7 +59,7 @@ export async function handler(event, context) {
     const fromRaw = (params.from || "").trim().replace(/^@+/, "");
 
     // Cache key includes instance, limit, pagination cursor, and search
-    const cacheKey = `give:chat:${instance}:v2:${limit}:${before ? before.toISOString() : "head"}:${searching ? "q=" + searchRaw.toLowerCase() : "noq"}:${fromRaw ? "from=" + fromRaw.toLowerCase() : "anyone"}`;
+    const cacheKey = `give:chat:${instance}:v3:${limit}:${before ? before.toISOString() : "head"}:${searching ? "q=" + searchRaw.toLowerCase() : "noq"}:${fromRaw ? "from=" + fromRaw.toLowerCase() : "anyone"}`;
 
     const result = await getOrCompute(
       cacheKey,
@@ -157,7 +157,7 @@ export async function handler(event, context) {
         const messagesWithHandles = await Promise.all(messages.map(async (msg) => ({
           id: msg._id.toString(),
           permalink: !msg.deleted && handleMap.has(msg.user) && ["system", "clock"].includes(msg.__instance || instance)
-            ? "https://mime.ac/chat~" + await ensureChatCode(database.db, msg.__instance || instance, msg._id) : undefined,
+            ? "https://mime.ac/" + chatRoom(msg.__instance || instance) + "~" + await ensureChatCode(database.db, msg.__instance || instance, msg._id) : undefined,
           // Service-relay rows (via: "youtube") carry their visitor name in
           // `from` instead of a user sub — surface it rather than "anon".
           from: (msg.user && handleMap.get(msg.user)) || msg.from || "anon",

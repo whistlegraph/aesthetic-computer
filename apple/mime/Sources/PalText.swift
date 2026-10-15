@@ -1,4 +1,16 @@
 import SwiftUI
+import CoreText
+
+enum MimeTypography {
+    /// Keep the comic face; use our bundled glyphs before device-dependent fallback.
+    static func comic(_ size: CGFloat) -> CTFont {
+        let fallback = CTFontDescriptorCreateWithNameAndSize("NotoSans-Bold" as CFString, size)
+        let descriptor = CTFontDescriptorCreateWithAttributes([
+            kCTFontNameAttribute: "ComicRelief-Bold", kCTFontCascadeListAttribute: [fallback]
+        ] as CFDictionary)
+        return CTFontCreateWithFontDescriptor(descriptor, size, nil)
+    }
+}
 
 /// MacPal's title lettering (macpal/Sources/PalCore.swift): Comic, white over a
 /// heavy near-black outline, a hard accent shadow, and each letter bobbed and
@@ -20,7 +32,7 @@ struct PalText: View {
     @Environment(\.mimeLettersActive) private var onstage
     @State private var started = Date()
 
-    private var font: Font { .custom("ComicRelief-Bold", size: size) }
+    private var font: Font { Font(MimeTypography.comic(size)) }
     private var outline: CGFloat { max(1.2, size * 0.075) }
 
     var body: some View {

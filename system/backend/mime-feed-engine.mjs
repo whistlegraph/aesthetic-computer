@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { ObjectId } from "mongodb";
 import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts, publicHandleColors } from "./mime-media.mjs";
 import { ensureMoodCode, moodIdForCode } from "./mood-code.mjs";
-import { ensureChatCode, chatIdForCode } from "./chat-code.mjs";
+import { ensureChatCode, chatIdForCode, chatRoom } from "./chat-code.mjs";
 import { captionOf } from "./whistlegraph.mjs";
 import { replayPosts, replayById } from "./mime-oskiewar.mjs";
 import { REMOVED_COLLECTION, removals, allowed } from "./mime-moderation.mjs";
@@ -246,11 +246,12 @@ async function chatMessages(db) {
 }
 
 export function chatPost(row, handle, instance, code) {
-  const url = "https://aesthetic.computer/" + (instance === "clock" ? "laer-klokken" : "chat");
+  const room = chatRoom(instance);
+  const url = "https://aesthetic.computer/" + room;
   return { code: "chat_" + instance + "_" + String(row._id), parent: null, board: "text/plain", name: handle,
     text: row.text, when: row.when, replies: 0, file: null, embed: youtubeEmbed(row.text),
-    origin: { name: instance === "clock" ? "laer-klokken" : "chat", url },
-    media: { kind: "chat", id: String(row._id), instance, code, url, author: handle } };
+    origin: { name: room, url },
+    media: { kind: "chat", id: String(row._id), instance, code, address: room + "~" + code, url, author: handle } };
 }
 
 // Edits/deletes must be read through even while the ranking pool is cached.
@@ -382,10 +383,12 @@ export async function feedOnlyOp(db, code) {
     const handle = row && (await handleMap(db, [row.user])).get(row.user);
     return handle ? withThread(db, moodPost(row, handle, await ensureMoodCode(db, row._id))) : null;
   }
-  const chatAlias = /^chat~([A-Za-z0-9]{3,16})$/.exec(code);
+  const chatAlias = /^(chat|laer-klokken|laklok)~([A-Za-z0-9]{3,16})$/.exec(code);
   if (chatAlias) {
-    const record = await chatIdForCode(db, chatAlias[1]);
+    const record = await chatIdForCode(db, chatAlias[2]);
     if (!record) return null;
+    // Legacy chat~ links still resolve; a room address cannot name another room's message.
+    if (chatAlias[1] !== "chat" && chatAlias[1] !== chatRoom(record.instance)) return null;
     code = "chat_" + record.instance + "_" + record.id;
   }
   match = /^chat_(system|clock)_([a-f0-9]{24})$/.exec(code);

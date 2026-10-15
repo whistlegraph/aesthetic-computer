@@ -9,6 +9,8 @@ struct Post: Codable, Identifiable, Equatable {
         let kind: String; let code: String?; let title: String?; let url: String?
         let packed: Bool?; let aspect: String?
         let version: Int?
+        let instance: String?
+        let address: String?
     }
     struct Embed: Codable, Equatable { let kind: String; let id: String; let start: Int?; let url: String?; let caption: String? }
     let embed: Embed?
@@ -35,9 +37,16 @@ struct Post: Codable, Identifiable, Equatable {
         case "tape": return "!" + code
         case "kidlisp": return "$" + code
         case "mood": return "mood~" + code
-        case "chat": return "chat~" + code
+        case "chat": return chatAddress ?? self.code
         default: return code
         }
+    }
+    var chatAddress: String? {
+        guard media?.kind == "chat", let short = media?.code, !short.isEmpty else { return nil }
+        if let address = media?.address,
+           address.range(of: #"^(laer-klokken|laklok)~[A-Za-z0-9]{3,16}$"#, options: .regularExpression) != nil { return address }
+        let room = media?.instance == "clock" || origin?.name == "laer-klokken" ? "laer-klokken" : "laklok"
+        return room + "~" + short
     }
     var mimeType: String { file?.type ?? board ?? "text/plain" }
     /// Meaning is separate from the bytes' media type.
