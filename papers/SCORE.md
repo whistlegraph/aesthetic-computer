@@ -426,20 +426,22 @@ Published at `papers.aesthetic.computer` and `papers.prompt.ac`.
 
 Upcoming conferences and journals to submit to.
 
-### Still Open — Deadlines Ahead
+### 2026 Venues
+
+Live status: [`submissions.json`](submissions.json), shown on the papers index.
 
 | Venue | Type | Deadline | Conference Date | Status |
 |-------|------|----------|-----------------|--------|
-| [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | **DEADLINE PASSED** — verify submission per `SUBMISSIONS.md` |
-| [ICCC 2026](https://computationalcreativity.net/iccc26/short-papers/) | Short Papers | Apr 24, 2026 (23:59 AoE) | Jun 29–Jul 3, Coimbra | **DEADLINE PASSED** — verify submission per `SUBMISSIONS.md` |
-| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Early Career Symposium | May 15, 2026 | Jun 29–Jul 3, Coimbra | BRIEF ready (`iccc-early-career-2026/`) — use if SIGGRAPH tech-paper form was not filed |
-| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/technical-papers/) | Technical Papers (full) | **May 5 form / May 12 paper / May 13 upload** | Dec 1–4, Kuala Lumpur | SCAFFOLD + simplified brief ready (`siggraph-asia-2026-tech/`) — continue only if May 5 form was filed |
+| [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | MISSED — no receipt in mail |
+| [ICCC 2026](https://computationalcreativity.net/iccc26/short-papers/) | Short Papers | Apr 24, 2026 (23:59 AoE) | Jun 29–Jul 3, Coimbra | MISSED — no receipt in mail |
+| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Early Career Symposium | May 15, 2026 | Jun 29–Jul 3, Coimbra | MISSED — brief only (`iccc-early-career-2026/`) |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/technical-papers/) | Technical Papers (full) | **May 5 form / May 12 paper / May 13 upload** | Dec 1–4, Kuala Lumpur | MISSED — scaffold only (`siggraph-asia-2026-tech/`) |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Papers | Jun 8, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Gallery / Emerging Tech / XR | Jun 18, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Posters | Jul 31, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Real-Time Live! | Aug 7, 2026 | Dec 1–4, Kuala Lumpur | NEW |
-| [ICLC 2027](https://iclc.toplap.org/2027/) | Papers / Performances / Workshops / Installations | Sep 1, 2026 (extended) | Mar 9–13, 2027, Antwerp | NEW |
-| [ArtsIT 2026](https://artsit.eai-conferences.org/2026/) | Full Papers | Jun 1, 2026 | Dec 2–4, Bratislava | NEW |
+| [ICLC 2027](https://iclc.toplap.org/2027/) | Papers / Performances / Workshops / Installations | Sep 1, 2026 (extended) | Mar 9–13, 2027, Antwerp | SUBMITTED 2026-08-31 (performance); decision Nov 1 |
+| [ArtsIT 2026](https://artsit.eai-conferences.org/2026/) | Full Papers | Jun 1, 2026 | Dec 2–4, Bratislava | MISSED |
 | [JOSS](https://joss.theoj.org/) | Software Paper | Rolling | Rolling | Anytime |
 
 ### Deadlines Passed (Track for Next Year)
