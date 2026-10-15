@@ -563,12 +563,19 @@ export function createFrameVm(host) {
     const pin = p[at + 3];
     let centre = 0;
     if (pin === pin) {
-      const c = Number.isNaN(J[9]) ? 0 : 3;
+      // The pelvis, else the head, else whichever joint a piece of a figure
+      // (a severed limb) still has — a NaN centre would put every shape at NaN.
+      let c = Number.isNaN(J[9]) ? 0 : 3;
+      if (Number.isNaN(J[c * 3])) for (let k = 0; k < 16; k++) if (J[k * 3] === J[k * 3]) { c = k; break; }
       centre = (J[c * 3] - cam[0]) * cam[9] + (J[c * 3 + 1] - cam[1]) * cam[10] + (J[c * 3 + 2] - cam[2]) * cam[11];
     }
     const depthAt = (vz, nudge) => pin === pin ? pin + (flatDepth(vz, nudge) - flatDepth(centre, 0)) * .1 : flatDepth(vz, nudge);
     // The head's frame: forward to where it looks, right and up square to it.
     let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
+    // A piece of a figure (a severed limb, a burst body's bone) has no head or
+    // spine to frame it; the world's axes stand in (as drawFigureShapes in
+    // object-lisp.mjs), so shapes hung on its joints with an offset draw.
+    if (!(fx === fx && fy === fy && fz === fz)) { fx = 0; fy = 0; fz = -1; }
     const r = Math.hypot(fx, fy, fz) || 1;
     fx /= r; fy /= r; fz /= r;
     let rx = fz, ry = 0, rz = -fx;   // forward × world up (0, -1, 0)
@@ -578,6 +585,7 @@ export function createFrameVm(host) {
     headFrame.set([rx, ry, rz, ux, uy, uz, fx, fy, fz, r]);
     // The chest: up the spine, forward as the head faces, flattened square to it.
     let cux = J[6] - J[9], cuy = J[7] - J[10], cuz = J[8] - J[11];
+    if (!(cux === cux && cuy === cuy && cuz === cuz)) { cux = 0; cuy = -1; cuz = 0; }
     const cl = Math.hypot(cux, cuy, cuz) || 1;
     cux /= cl; cuy /= cl; cuz /= cl;
     const along = fx * cux + fy * cuy + fz * cuz;
