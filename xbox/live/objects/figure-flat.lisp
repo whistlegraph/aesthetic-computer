@@ -20,8 +20,8 @@ def face-edge .075
   (ink 20 16 28)
   (nudge 1
     (if (not skirt)
-      (bone hip-l knee-l (+ 6.4 edge))
-      (bone hip-r knee-r (+ 6.4 edge)))
+      (bone (hip-l 0 3 0) knee-l (+ 6.4 edge))
+      (bone (hip-r 0 3 0) knee-r (+ 6.4 edge)))
     (bone knee-l foot-l (+ 4.8 edge))
     (bone knee-r foot-r (+ 4.8 edge))
     (bone shoulder-l shoulder-r (+ 4.8 edge))
@@ -29,13 +29,26 @@ def face-edge .075
     (bone shoulder-r elbow-r (+ 4.8 edge))
     (bone elbow-l hand-l (+ 3.7 edge))
     (bone elbow-r hand-r (+ 3.7 edge))
-    (on hand-l (ball 0 0 0 (+ 4.6 edge)))
-    (on hand-r (ball 0 0 0 (+ 4.6 edge))))
-  ; legs: thighs unless a skirt hides them; shins show below its hem
+    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) (+ 5.2 edge))
+    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) (+ 5.2 edge))
+    (on hand-l (ball 0 4.6 1.5 (+ 2.4 edge)))
+    (on hand-r (ball 0 4.6 1.5 (+ 2.4 edge)))
+    (if (not skirt)
+      (bone (hip-l -2 3 0) (hip-r 2 3 0) (+ 8.5 edge))
+      (on pelvis (ball 0 -5 -5 (+ 9.5 edge)))))
+  ; the pelvis: a band across the hips that the thighs grow out of, round
+  ; end-on, so from the side the legs meet a hip and a seat rather than the
+  ; torso's edge; set a touch back so the shirt overlaps its top
   (ink pants)
   (if (not skirt)
-    (bone hip-l knee-l 6.4)
-    (bone hip-r knee-r 6.4))
+    (nudge 1
+      (bone (hip-l -2 3 0) (hip-r 2 3 0) 8.5)
+      (on pelvis (ball 0 -5 -5 9.5))))
+  ; legs: thighs from inside the pelvis unless a skirt hides them; shins
+  ; show below its hem
+  (if (not skirt)
+    (bone (hip-l 0 3 0) knee-l 6.4)
+    (bone (hip-r 0 3 0) knee-r 6.4))
   (bone knee-l foot-l 4.8)
   (bone knee-r foot-r 4.8))
 (outline edge 20 16 28
@@ -54,15 +67,18 @@ def face-edge .075
   ; fans cleanly, their join hidden because edges go down behind every fill
   (bone (neck 0 -14 0) (pelvis 0 8 0) 10)
   (skin (shoulder-l 5 4 0) (shoulder-r -5 4 0) (pelvis -9 24 0) (pelvis 9 24 0))
-  (skin (pelvis 9 25 0) (pelvis -9 25 0) (hip-r -8 -2 0) (hip-l 8 -2 0))
+  (skin (pelvis 9 25 0) (pelvis -9 25 0) (hip-r -7 3 0) (hip-l 7 3 0))
   (if skirt
     ; a skirt over the hem: a waist a shade narrower than the torso, flaring
     ; to a hem past the knees (x runs to her left hip, so +x is out on the left)
     (ink skirt)
     (nudge -.5 (skin (hip-l 3 6 0) (hip-r -3 6 0) (knee-r -20 -16 0) (knee-l 20 -16 0))))
+  ; shoes: a sole flat on the ground, pointing the way the body faces (the
+  ; feet's frame: x across, y the world's up, z forward), over the shin's end
   (ink shoe)
-  (on foot-l (ball 0 0 0 5.4))
-  (on foot-r (ball 0 0 0 5.4))
+  (nudge -6
+    (bone (foot-l 0 -.8 -3) (foot-l 0 -1.2 9.5) 3.8)
+    (bone (foot-r 0 -.8 -3) (foot-r 0 -1.2 9.5) 3.8))
   ; the shoulders are a bar at the sleeves' own width, one ink with the arms
   ; (the limb silhouette above), so a sleeve continues the shoulder with no
   ; step and no line
@@ -74,8 +90,12 @@ def face-edge .075
     (ink skin)
     (bone elbow-l hand-l 3.7)
     (bone elbow-r hand-r 3.7)
-    (on hand-l (ball 0 0 0 4.6))
-    (on hand-r (ball 0 0 0 4.6))))
+    ; hands: a mitten that carries on from the forearm (the hand's frame:
+    ; z out along it), a thumb on top
+    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) 5.2)
+    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) 5.2)
+    (on hand-l (ball 0 4.6 1.5 2.4))
+    (on hand-r (ball 0 4.6 1.5 2.4))))
 
 ; the chest's decals, flat on the shirt's front (the neck joint's frame:
 ; x right, y up the spine, z forward): a heart and a daisy

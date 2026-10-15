@@ -9,8 +9,8 @@ def edge 1.3
 (outline 0
   (ink 20 16 28)
   (nudge 1
-    (bone hip-l knee-l (+ 5.6 edge))
-    (bone hip-r knee-r (+ 5.6 edge))
+    (bone (hip-l 0 3 0) knee-l (+ 5.6 edge))
+    (bone (hip-r 0 3 0) knee-r (+ 5.6 edge))
     (bone knee-l foot-l (+ 5 edge))
     (bone knee-r foot-r (+ 5 edge))
     (bone shoulder-l shoulder-r (+ 4.6 edge))
@@ -18,33 +18,42 @@ def edge 1.3
     (bone shoulder-r elbow-r (+ 4.6 edge))
     (bone elbow-l hand-l (+ 4 edge))
     (bone elbow-r hand-r (+ 4 edge))
-    (on hand-l (ball 0 0 0 (+ 4.6 edge)))
-    (on hand-r (ball 0 0 0 (+ 4.6 edge))))
+    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) (+ 5.2 edge))
+    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) (+ 5.2 edge))
+    (on hand-l (ball 0 4.6 1.5 (+ 2.4 edge)))
+    (on hand-r (ball 0 4.6 1.5 (+ 2.4 edge))))
+  ; thighs from inside the torso's round bottom
   (ink shoe)
-  (bone hip-l knee-l 5.6)
+  (bone (hip-l 0 3 0) knee-l 5.6)
   (bone knee-l foot-l 5)
   (ink accent)
-  (bone hip-r knee-r 5.6)
+  (bone (hip-r 0 3 0) knee-r 5.6)
   (bone knee-r foot-r 5))
 (outline edge 20 16 28
   (ink skin)
   (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))
   (ink shirt)
   (bone (neck 0 -16 0) (pelvis 0 4 0) 16)
+  ; shoes: a sole flat on the ground, pointing the way the body faces
+  ; (figure-flat.lisp), over the shin's end
   (ink lip)
-  (on foot-l (ball 0 0 0 5.4))
-  (on foot-r (ball 0 0 0 5.4))
+  (nudge -6
+    (bone (foot-l 0 -.8 -3) (foot-l 0 -1.2 9.5) 3.8)
+    (bone (foot-r 0 -.8 -3) (foot-r 0 -1.2 9.5) 3.8))
   (outline 0
     (ink shirt)
     (bone shoulder-l shoulder-r 4.6)
     (ink pants)
     (bone shoulder-l elbow-l 4.6)
     (bone elbow-l hand-l 4)
-    (on hand-l (ball 0 0 0 4.6))
+    ; a mitten along the forearm, a thumb on top
+    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) 5.2)
+    (on hand-l (ball 0 4.6 1.5 2.4))
     (ink skirt)
     (bone shoulder-r elbow-r 4.6)
     (bone elbow-r hand-r 4)
-    (on hand-r (ball 0 0 0 4.6))))
+    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) 5.2)
+    (on hand-r (ball 0 4.6 1.5 2.4))))
 (if (not headless)
 (on head
   (outline .06 20 16 28

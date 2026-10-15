@@ -305,6 +305,17 @@ hitboxes and the sim are untouched; this is drawing only.
     for free.
   - `(skin a b (c x y z) …)` is a flat polygon through joints, optionally
     offset.
+  - `(on joint …)` hangs shapes on a joint. On `head` it uses the head's frame
+    (x right, y up, z where it looks) in head radii. Every other joint uses a
+    frame in world units, x from the right hip to the left:
+    - neck, shoulders and elbows: the chest's (up the spine, facing as the
+      head does, so a shirt decal stays toward the lens);
+    - pelvis, hips and knees: the body's (up the spine, facing the way the
+      hips do);
+    - feet: the ground's (the world's up, the body's facing laid flat), so a
+      sole lies on the floor and points where the fighter faces;
+    - hands: the forearm's (z out from the elbow through the hand), so a
+      mitten carries on from the arm.
   - `(surface …)` makes shapes one-sided along the local z, so a face passes
     out of sight round the back.
   - Palette names in `ink` (`skin hair shirt pants skirt shoe accent iris lip
@@ -319,9 +330,10 @@ hitboxes and the sim are untouched; this is drawing only.
   It blinks, and shows X eyes when hurt.
 - **The wardrobe:**
   - shirt and sleeves;
-  - bare forearms and hands;
-  - trousers, or a skirt that flares from the hips past the knees;
-  - shoes;
+  - bare forearms, and hands as mittens with a thumb;
+  - trousers over a pelvis band and seat the thighs grow out of, or a skirt
+    that flares from the hips past the knees;
+  - shoes with soles that point the way the fighter faces;
   - a hair cap with locks past the temples and a top-knot with its tail;
   - the chest's heart and daisy.
 - **The ops.**
