@@ -279,12 +279,22 @@ if argv.contains("--test-mission-lanes") {
     precondition(rows[0].detail == "Panda · General  /  blocked")
     precondition(rows.filter { $0.isLaneHeader }.map { $0.laneColor! } == [0x0000ff, 0x008080, 0xff7f50, 0xfffafa])
     precondition(missionLaneColor("#invalid") == nil && missionLaneColor("red") == nil)
-    precondition(rows[1].text == "Blocked job" && rows[2].text == "Next: Next job")
+    precondition(rows[1].text == "Blocked job" && rows[2].text == "Next job" && rows[2].isQueued)
+    precondition(rows[0].laneState == "blocked" && rows[0].laneHost == "panda" && rows[0].laneLabel == "General")
+    precondition(rows.last!.isFooter && rows.last!.text == "live" && rows.last!.at != nil)
+    precondition(missionRowSymbol(rows[2]).symbol == "clock")
+    precondition(missionSubitemSymbol("→ Inspect output") == ("arrow.turn.down.right", "Inspect output"))
+    precondition(missionSubitemSymbol("⚠ Mesh deferred") == ("exclamationmark.triangle", "Mesh deferred"))
     precondition(rows.firstIndex { $0.text == "Running job" }! > rows.firstIndex { $0.laneID == "teal" }!)
     precondition(missionTimeLabel(rows[1], now: now) == "2m 05s elapsed")
     precondition(rows[1].deadlineAt != nil && rows[1].subitems == ["Inspect fixture", "Measure imports"])
     precondition(rows.filter { $0.text == "No task running" }.count == 2)
     precondition(rows.filter { $0.isLaneHeader }.allSatisfy { missionTimeLabel($0) == nil })
+    doc["watch"] = ["from": "panda", "ok": false]
+    try! JSONSerialization.data(withJSONObject: doc).write(to: URL(fileURLWithPath: path))
+    let watched = loadMission(path)!.items.last!
+    precondition(watched.isFooter && watched.text == "panda unreachable" && watched.flag == "red")
+    doc.removeValue(forKey: "watch")
     doc.removeValue(forKey: "lanes")
     doc["items"] = [["text": "Done", "status": "done"], ["text": "Pending", "status": "pending"], ["text": "Running", "status": "in_progress"]]
     try! JSONSerialization.data(withJSONObject: doc).write(to: URL(fileURLWithPath: path))

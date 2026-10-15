@@ -27,7 +27,8 @@ if [[ ${#HOSTS[@]} -eq 0 ]]; then
   else echo "no hosts: pass them, set MACPAL_FLEET, or list one per line in ~/.config/macpal/fleet" >&2; exit 2; fi
 fi
 echo "macpal $SRC_VERSION → ${HOSTS[*]}"
-status_of(){ ssh -o ConnectTimeout=8 "$1" 'v=$(defaults read /Applications/MacPal.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null || echo none); r=$(pgrep -x MacPal >/dev/null && echo running || echo stopped); echo "$v $r"'; }
+# Fed to bash on stdin: a host whose login shell is fish (neo) can't parse it.
+status_of(){ ssh -o ConnectTimeout=8 "$1" bash -s <<<'v=$(defaults read /Applications/MacPal.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null || echo none); r=$(pgrep -x MacPal >/dev/null && echo running || echo stopped); echo "$v $r"'; }
 deploy_one(){
   local h=$1 t0=$SECONDS
   local before; before=$(status_of "$h" 2>/dev/null || echo "unreachable")

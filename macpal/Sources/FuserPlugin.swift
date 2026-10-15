@@ -123,6 +123,8 @@ struct MissionLanePalette {
     }
 }
 
+// Each lane is a band tinted with its own color; stacked flush, the lanes
+// read as one brick separated only by color.
 final class MissionLaneCardView: NSView {
     var palette = MissionLanePalette(color: .gray, dark: false)
     override func draw(_ dirtyRect: NSRect) {
@@ -130,6 +132,79 @@ final class MissionLaneCardView: NSView {
         bounds.fill()
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
+// An SF Symbol inline with text, tinted and sized to sit on the baseline.
+func missionSymbol(_ name: String, color: NSColor, size: CGFloat,
+                   weight: NSFont.Weight = .semibold) -> NSAttributedString {
+    let config = NSImage.SymbolConfiguration(pointSize: size, weight: weight)
+        .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+    guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(config) else { return NSAttributedString(string: "") }
+    let attachment = NSTextAttachment()
+    attachment.image = image
+    let font = NSFont.systemFont(ofSize: size)
+    attachment.bounds = NSRect(x: 0, y: (font.capHeight - image.size.height) / 2,
+                               width: image.size.width, height: image.size.height)
+    return NSAttributedString(attachment: attachment)
+}
+
+// What a lane is doing, as an icon and a tint key.
+func missionLaneStateSymbol(_ state: String) -> (symbol: String, tone: String) {
+    switch state.lowercased() {
+    case "running", "working", "inspecting": return ("play.circle.fill", "green")
+    case "blocked", "failed", "error":       return ("exclamationmark.triangle.fill", "red")
+    case "waiting", "review", "awaiting review", "paused": return ("hourglass", "amber")
+    case "done", "complete":                 return ("checkmark.circle.fill", "green")
+    case "offline", "unreachable":           return ("wifi.slash", "red")
+    default:                                 return ("moon.zzz.fill", "secondary")
+    }
+}
+
+// A row's icon, read from its status, flag and wording. Order matters: an
+// explicit flag beats the words, and the words beat the bare status.
+func missionRowSymbol(_ item: MissionItem) -> (symbol: String, tone: String) {
+    switch item.flag {
+    case "green", "ok", "pass":  return ("checkmark.seal.fill", "green")
+    case "red", "fail", "error": return ("xmark.octagon.fill", "red")
+    case "yellow", "warn":       return ("exclamationmark.triangle.fill", "amber")
+    default: break
+    }
+    if item.isQueued { return ("clock", "secondary") }
+    let t = item.text.lowercased()
+    if t.hasPrefix("no task") { return ("moon.zzz", "secondary") }
+    if t.hasPrefix("↻") { return ("arrow.clockwise", "secondary") }
+    if t.contains("blocked") || t.hasPrefix("error") { return ("exclamationmark.triangle.fill", "amber") }
+    switch item.status {
+    case "done":        return ("checkmark.circle.fill", "green")
+    case "in_progress": return ("play.circle.fill", "green")
+    default:            return ("circle", "secondary")
+    }
+}
+
+// Subitem lines are evidence, intent or status; give each kind its own mark
+// and drop the ASCII arrow it replaces.
+func missionSubitemSymbol(_ line: String) -> (symbol: String, text: String) {
+    let t = line.trimmingCharacters(in: .whitespaces)
+    let lower = t.lowercased()
+    for arrow in ["→ ", "-> ", "↳ "] where t.hasPrefix(arrow) {
+        return ("arrow.turn.down.right", String(t.dropFirst(arrow.count)))
+    }
+    if t.hasPrefix("↻ ") { return ("arrow.clockwise", String(t.dropFirst(2))) }
+    // A feeder's own glyph becomes the icon rather than sitting beside it.
+    for (glyph, symbol) in [("⚠️ ", "exclamationmark.triangle"), ("⚠ ", "exclamationmark.triangle"),
+                            ("✓ ", "checkmark.circle"), ("✔ ", "checkmark.circle"),
+                            ("✗ ", "xmark.circle"), ("✖ ", "xmark.circle")] where t.hasPrefix(glyph) {
+        return (symbol, String(t.dropFirst(glyph.count)))
+    }
+    if lower.hasPrefix("observed") { return ("eye", t) }
+    if lower.contains("error") || lower.contains("fail") { return ("xmark.circle", t) }
+    if lower.contains("blocked") { return ("exclamationmark.triangle", t) }
+    if lower.contains("complete") || lower.contains("verified") || lower.contains("exit 0") {
+        return ("checkmark.circle", t)
+    }
+    if lower.contains("render") || lower.contains("generat") || lower.contains("frame") { return ("photo", t) }
+    return ("text.alignleft", t)
 }
 
 // AppKit's label cell pins attachments to the top of a taller field. Draw the
@@ -174,6 +249,14 @@ struct MissionItem: Equatable {
     var isLaneHeader: Bool = false
     var laneColor: UInt32? = nil
     var laneEmoji: String? = nil
+    // Lane headers carry their parts whole so the heading can draw a state
+    // icon and a host portrait instead of re-parsing `detail`.
+    var laneState: String? = nil
+    var laneHost: String? = nil
+    var laneLabel: String? = nil
+    var isQueued: Bool = false
+    // The board's last row: where the lanes came from and how fresh they are.
+    var isFooter: Bool = false
 }
 
 func missionLaneColor(_ value: Any?) -> UInt32? {
@@ -266,7 +349,8 @@ func loadMission(_ path: String) -> Mission? {
             let name = (lane["name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             rows.append(MissionItem(text: name ?? context, status: "pending", detail: name == nil ? nil : context,
                                     laneID: id, isLaneHeader: true, laneColor: missionLaneColor(lane["color"]),
-                                    laneEmoji: lane["emoji"] as? String))
+                                    laneEmoji: lane["emoji"] as? String,
+                                    laneState: state, laneHost: host, laneLabel: label))
             let tasks = (lane["items"] as? [[String: Any]]) ?? []
             for value in tasks {
                 if var item = parseItem(value, fallbackDate: nil) {
@@ -275,17 +359,31 @@ func loadMission(_ path: String) -> Mission? {
                 }
             }
             if tasks.isEmpty { rows.append(MissionItem(text: "No task running", status: "pending", laneID: id)) }
-            let queued = (lane["queued"] as? [[String: Any]]) ?? []
-            for next in queued.prefix(2) {
-                if let title = next["title"] as? String, !title.isEmpty {
-                    rows.append(MissionItem(text: "Next: " + title, status: "pending", laneID: id))
-                }
+            // The whole queue, up to a screenful; the rest folds into a count.
+            let queued = ((lane["queued"] as? [[String: Any]]) ?? [])
+                .compactMap { $0["title"] as? String }.filter { !$0.isEmpty }
+            for title in queued.prefix(6) {
+                rows.append(MissionItem(text: title, status: "pending", laneID: id, isQueued: true))
             }
-            if queued.count > 2 {
-                rows.append(MissionItem(text: "+\(queued.count - 2) queued", status: "pending", laneID: id))
+            if queued.count > 6 {
+                rows.append(MissionItem(text: "+\(queued.count - 6) more queued", status: "pending",
+                                        laneID: id, isQueued: true))
             }
         }
         if !rows.isEmpty {
+            // Footer: a watcher names the machine it mirrors (`watch.from`);
+            // the controller's own card names itself (`host`). Age comes from
+            // the feeder's heartbeat, so a frozen daemon visibly ages.
+            let watch = obj["watch"] as? [String: Any]
+            let source = (watch?["from"] as? String) ?? (obj["host"] as? String) ?? ""
+            let beat = (obj["lastHeartbeat"] as? String).flatMap(parseDate) ?? d
+            let ok = (watch?["ok"] as? Bool) ?? true
+            var footer = MissionItem(text: source.isEmpty ? "live" : "live from " + source,
+                                     status: "pending", isFooter: true)
+            if !ok { footer = MissionItem(text: "\(source) unreachable", status: "pending",
+                                          flag: "red", isFooter: true) }
+            footer.at = beat
+            rows.append(footer)
             return Mission(title: title, agent: (obj["agent"] as? String) ?? "",
                            emoji: (obj["emoji"] as? String) ?? "", items: rows)
         }
@@ -432,7 +530,7 @@ final class MissionTimeBudgetView: NSView {
     var fill = NSColor.systemGreen
     var track = NSColor.gray
     override func draw(_ dirtyRect: NSRect) {
-        label.draw(at: NSPoint(x: 0, y: budget == nil ? 1 : 5))
+        label.draw(at: NSPoint(x: 0, y: budget == nil ? 1 : 4))
         if let budget = budget {
             track.setFill()
             NSRect(x: 0, y: 0, width: bounds.width, height: 2).fill()
@@ -450,7 +548,7 @@ final class MissionLaneRowField: NSTextField {
     private let timing = MissionTimeBudgetView()
     private var hasTiming = false
     var lineHeight: CGFloat = 18
-    var preferredHeight: CGFloat { lineHeight + CGFloat(details.count) * 17 + (hasTiming ? 22 : 0) }
+    var preferredHeight: CGFloat { lineHeight + CGFloat(details.count) * 15 + (hasTiming ? 17 : 0) + (details.isEmpty && !hasTiming ? 0 : 2) }
     override var isFlipped: Bool { false }
 
     override init(frame frameRect: NSRect) {
@@ -471,9 +569,20 @@ final class MissionLaneRowField: NSTextField {
         for line in lines where !item.isLaneHeader {
             let view = MarqueeField()
             view.centered = false; view.accentShadow = false
-            let text = line.components(separatedBy: .newlines).joined(separator: " ")
-            view.setText(NSAttributedString(string: text, attributes: [
-                .font: NSFont.systemFont(ofSize: 11, weight: .regular), .foregroundColor: palette.secondary]))
+            let flat = line.components(separatedBy: .newlines).joined(separator: " ")
+            let (symbol, text) = missionSubitemSymbol(flat)
+            // Three voices: the next step leads in the lane's accent, evidence
+            // recedes, and plain progress notes sit between them.
+            let next = symbol == "arrow.turn.down.right"
+            let evidence = symbol == "eye"
+            let color = next ? palette.accent
+                : palette.secondary.withAlphaComponent(evidence ? 0.72 : 1)
+            let a = NSMutableAttributedString(attributedString:
+                missionSymbol(symbol, color: color, size: 9, weight: .semibold))
+            a.append(NSAttributedString(string: "  " + text, attributes: [
+                .font: NSFont.systemFont(ofSize: evidence ? 10.5 : 11, weight: next ? .medium : .regular),
+                .foregroundColor: color]))
+            view.setText(a)
             details.append(view); addSubview(view)
         }
         timing.track = palette.secondary.withAlphaComponent(0.18)
@@ -501,7 +610,8 @@ final class MissionLaneRowField: NSTextField {
             text = missionTimeLabel(item, now: now) ?? ""
         }
         timing.label = NSAttributedString(string: text, attributes: [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular), .foregroundColor: palette.secondary])
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 9.5, weight: .medium),
+            .foregroundColor: palette.secondary.withAlphaComponent(0.8), .kern: 0.2])
         timing.setAccessibilityLabel(text)
         timing.needsDisplay = true
     }
@@ -510,9 +620,9 @@ final class MissionLaneRowField: NSTextField {
         super.setFrameSize(newSize)
         marquee.frame = NSRect(x: 0, y: bounds.height - lineHeight, width: bounds.width, height: lineHeight)
         for (i, view) in details.enumerated() {
-            view.frame = NSRect(x: 13, y: bounds.height - lineHeight - CGFloat(i + 1) * 17, width: max(0, bounds.width - 13), height: 17)
+            view.frame = NSRect(x: 17, y: bounds.height - lineHeight - CGFloat(i + 1) * 15, width: max(0, bounds.width - 17), height: 15)
         }
-        timing.frame = NSRect(x: 13, y: 1, width: max(0, bounds.width - 13), height: 20)
+        timing.frame = NSRect(x: 17, y: 1, width: max(0, bounds.width - 17), height: 16)
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
@@ -930,7 +1040,6 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
     private var laneHostImages: [String: NSImage] = [:]
     private func laneHostImage(_ host: String) -> NSImage? {
         let key = host.lowercased()
-        guard ["panda", "chicken"].contains(key) else { return nil }
         if let image = laneHostImages[key] { return image }
         guard let path = resource(key + "-glyph", "svg"), let image = NSImage(contentsOfFile: path) else { return nil }
         laneHostImages[key] = image
@@ -1081,26 +1190,46 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             ip.alignment = .left; ip.lineBreakMode = inLane ? .byClipping : .byWordWrapping
             if item.isLaneHeader {
                 let palette = lanePalette!
-                (f as? MissionLaneRowField)?.lineHeight = 22
+                (f as? MissionLaneRowField)?.lineHeight = 21
                 let headingStyle = ip.mutableCopy() as! NSMutableParagraphStyle
                 let title = (item.laneEmoji.map { $0 + " " } ?? "") + item.text.replacingOccurrences(of: "Lane ", with: "")
                 let heading = NSMutableAttributedString(string: title, attributes: [
-                    .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+                    .font: NSFont.systemFont(ofSize: 12.5, weight: .bold),
                     .foregroundColor: palette.accent, .paragraphStyle: headingStyle])
-                if let context = item.detail {
-                    let host = context.components(separatedBy: " · ").first ?? context
-                    let hostStyle: [NSAttributedString.Key: Any] = [
-                        .font: NSFont.systemFont(ofSize: 11, weight: .regular),
-                        .foregroundColor: secondary, .paragraphStyle: headingStyle]
-                    heading.append(NSAttributedString(string: " · ", attributes: hostStyle))
+                let hostStyle: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 11, weight: .regular),
+                    .foregroundColor: secondary, .paragraphStyle: headingStyle]
+                // State first: the one word that says whether to look closer.
+                if let state = item.laneState {
+                    let (symbol, tone) = missionLaneStateSymbol(state)
+                    let toneColor = tone == "green" ? green : tone == "red" ? red
+                        : tone == "amber" ? amber : secondary
+                    heading.append(NSAttributedString(string: "  ", attributes: hostStyle))
+                    heading.append(missionSymbol(symbol, color: toneColor, size: 10.5))
+                    heading.append(NSAttributedString(string: " " + state, attributes: [
+                        .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                        .foregroundColor: toneColor, .paragraphStyle: headingStyle]))
+                }
+                let host = item.laneHost
+                    ?? item.detail.map { $0.components(separatedBy: " · ").first ?? $0 }
+                if let host = host {
+                    heading.append(NSAttributedString(string: "  ·  ", attributes: hostStyle))
                     if let image = laneHostImage(host) {
                         let attachment = NSTextAttachment()
                         attachment.image = image
                         attachment.bounds = NSRect(x: 0, y: -4, width: 18, height: 18)
                         heading.append(NSAttributedString(attachment: attachment))
                         heading.append(NSAttributedString(string: " ", attributes: hostStyle))
+                    } else {
+                        heading.append(missionSymbol("desktopcomputer", color: secondary, size: 10))
+                        heading.append(NSAttributedString(string: " ", attributes: hostStyle))
                     }
-                    heading.append(NSAttributedString(string: host, attributes: hostStyle))
+                    heading.append(NSAttributedString(string: host.capitalized, attributes: hostStyle))
+                }
+                if let label = item.laneLabel, !label.isEmpty, label.lowercased() != "general" {
+                    heading.append(NSAttributedString(string: "  ·  ", attributes: hostStyle))
+                    heading.append(missionSymbol("tag.fill", color: secondary, size: 9))
+                    heading.append(NSAttributedString(string: " " + label, attributes: hostStyle))
                 }
                 f.attributedStringValue = heading
                 f.setAccessibilityLabel(item.text + (item.detail.map { ", " + $0 } ?? ""))
@@ -1139,15 +1268,49 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
             default: break
             }
             let a = NSMutableAttributedString()
-            a.append(NSAttributedString(string: mark + " ", attributes: [
-                .font: NSFont.systemFont(ofSize: inLane ? 11 : 13, weight: .bold),
-                .foregroundColor: markColor, .paragraphStyle: ip]))
+            if item.isFooter {
+                // Live indicator: radio waves while fresh, a cut link when not.
+                let down = item.flag == "red"
+                a.append(NSAttributedString(string: "  ", attributes: [.font: NSFont.systemFont(ofSize: 11)]))
+                a.append(missionSymbol(down ? "wifi.slash" : "dot.radiowaves.left.and.right",
+                                       color: down ? red : green, size: 10))
+                textColor = down ? red : secondary
+                // A pill behind the line so it reads over any window.
+                f.layer?.backgroundColor = (dark ? hexColor(0x151B26) : NSColor.white)
+                    .withAlphaComponent(0.88).cgColor
+                f.layer?.cornerRadius = 9
+                f.shadow = nil
+            } else if inLane {
+                let (symbol, tone) = missionRowSymbol(item)
+                let toneColor = tone == "green" ? green : tone == "red" ? red
+                    : tone == "amber" ? amber : secondary
+                a.append(missionSymbol(symbol, color: toneColor, size: 11))
+                a.append(NSAttributedString(string: " ", attributes: [.paragraphStyle: ip]))
+            } else {
+                a.append(NSAttributedString(string: mark + " ", attributes: [
+                    .font: NSFont.systemFont(ofSize: 13, weight: .bold),
+                    .foregroundColor: markColor, .paragraphStyle: ip]))
+            }
             var timeRange: NSRange?
-            let queued = item.text.hasPrefix("Next:") || item.text.hasSuffix(" queued")
-            a.append(NSAttributedString(string: item.text, attributes: [
-                .font: NSFont.systemFont(ofSize: inLane ? 12 : (queued ? 12.5 : 13.5),
-                    weight: item.startedAt != nil || item.status == "in_progress" ? .semibold : .regular),
-                .foregroundColor: queued ? secondary : textColor,
+            let queued = item.isQueued || item.isFooter
+            // The icon already says "repeats"; don't print the arrow twice.
+            let shown = inLane && item.text.hasPrefix("↻ ") ? String(item.text.dropFirst(2)) : item.text
+            // In a lane, rows speak at three levels: the running task is the
+            // headline, notes (blocked reasons) are body text, and bookkeeping
+            // (repeats, the queue, an empty slot) is small and quiet.
+            let isTask = item.startedAt != nil || item.status == "in_progress"
+            let bookkeeping = item.isQueued || item.text.hasPrefix("↻ ")
+                || item.text.lowercased().hasPrefix("no task")
+            let rowFont: NSFont
+            if item.isFooter { rowFont = NSFont.systemFont(ofSize: 11) }
+            else if !inLane { rowFont = NSFont.systemFont(ofSize: queued ? 12.5 : 13.5, weight: isTask ? .semibold : .regular) }
+            else if isTask { rowFont = NSFont.systemFont(ofSize: 12.5, weight: .semibold) }
+            else if bookkeeping { rowFont = NSFont.systemFont(ofSize: 11, weight: .regular) }
+            else { rowFont = NSFont.systemFont(ofSize: 12, weight: .regular) }
+            (f as? MissionLaneRowField)?.lineHeight = isTask ? 19 : bookkeeping ? 16 : 17
+            a.append(NSAttributedString(string: (item.isFooter ? " " : "") + shown, attributes: [
+                .font: rowFont,
+                .foregroundColor: (queued || (inLane && bookkeeping)) && !item.isFooter ? secondary : textColor,
                 .paragraphStyle: ip]))
             let detailStyle = ip.mutableCopy() as! NSMutableParagraphStyle
             detailStyle.firstLineHeadIndent = 19
@@ -1228,10 +1391,11 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting {
 
     private func laneBottomPadding(_ index: Int) -> CGFloat {
         guard let items = mission?.items, items[index].laneID != nil else { return 0 }
-        return index == items.count - 1 || items[index + 1].isLaneHeader ? 4 : 0
+        return index == items.count - 1 || items[index + 1].laneID != items[index].laneID
+            || items[index + 1].isLaneHeader ? 4 : 0
     }
     private func laneHeadingGap(_ index: Int) -> CGFloat {
-        mission?.items[index].isLaneHeader == true ? 6 : 0
+        mission?.items[index].isLaneHeader == true ? 3 : 0
     }
 
     // Measured height of the whole mission block at the badge width.
