@@ -143,3 +143,51 @@ test("empty requires both a host status and a successful replay lookup", async (
     room.stop();
   }
 });
+
+// The relay keeps a line for the chair. The bridge stands in it, names
+// itself, follows its place, takes the chair on the socket it holds, and
+// walks to the back of the line when its turn ends — never racing a retake.
+test("a seat-seeking bridge stands in the relay's line and keeps its place", async () => {
+  class LineSocket extends Socket {
+    constructor(url) { super(url); this.readyState = 1; this.out = []; }
+    send(text) { this.out.push(JSON.parse(text)); }
+  }
+  const messages = [];
+  const room = new RoundRoom("sezzi7", { WebSocketImpl: LineSocket,
+    fetchImpl: async () => ({ ok: false, status: 404 }), role: "challenger" });
+  room.start((message) => messages.push(message));
+  const socket = LineSocket.all.at(-1);
+  assert.match(socket.url, /&line=1&role=challenger$/);
+  room.line(true, "GUEST-BAZKO");
+  socket.event("open");
+  assert.deepEqual(socket.out.at(-1), { type: "oskiewar:line",
+    content: { join: true, name: "GUEST-BAZKO" } });
+  const sent = socket.out.length;
+  room.line(true, "GUEST-BAZKO");
+  assert.equal(socket.out.length, sent, "an unchanged wish stays off the wire");
+  const order = { host: "@JEFFREY", challenger: "@SAT", line: ["GUEST-BAZKO"] };
+  socket.event("message", JSON.stringify({ type: "oskiewar:status",
+    content: { live: true, challenger: true, order, place: 1 } }));
+  assert.deepEqual(room.order, order);
+  assert.equal(room.place, 1);
+  // The chair frees: a line-keeping relay seats from the line, so the bridge
+  // does not reconnect to grab it.
+  const sockets = LineSocket.all.length;
+  socket.event("message", JSON.stringify({ type: "oskiewar:status",
+    content: { live: true, challenger: false, order: { ...order, challenger: "" }, place: 1 } }));
+  assert.equal(LineSocket.all.length, sockets);
+  socket.event("message", JSON.stringify({ type: "oskiewar:seat",
+    content: { seat: "challenger", from: "line" } }));
+  assert.equal(room.seat, "challenger");
+  assert.ok(room.sendInput({ seq: 1, down: [], leftX: 0, leftY: 0 }));
+  // The turn ends: stood down in place, and straight back into the line.
+  socket.event("message", JSON.stringify({ type: "oskiewar:seat",
+    content: { seat: "", turn: "over" } }));
+  assert.equal(room.seat, "");
+  assert.deepEqual(messages.at(-1).content, { seat: "", turn: "over" });
+  assert.deepEqual(socket.out.at(-1), { type: "oskiewar:line",
+    content: { join: true, name: "GUEST-BAZKO" } });
+  room.line(false);
+  assert.deepEqual(socket.out.at(-1).content, { join: false, name: "GUEST-BAZKO" });
+  room.stop();
+});
