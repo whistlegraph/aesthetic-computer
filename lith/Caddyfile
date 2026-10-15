@@ -1369,7 +1369,16 @@ nopaint.art {
         root * /opt/ac/system/public/nopaint.art
         file_server
     }
-    handle_path /classic* {
+    # Keep all Construct assets beneath /classic/: bare /classic resolves
+    # relative media/ URLs against the studio's proxy routes at the root.
+    @nopaint_classic_entry path /classic /covid /covid/
+    handle @nopaint_classic_entry {
+        route {
+            rewrite * /classic/
+            redir {uri} 308
+        }
+    }
+    handle_path /classic/* {
         file_server
     }
     handle /gallery* {

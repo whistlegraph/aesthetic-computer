@@ -1,0 +1,34 @@
+# 'Frog Dies' by @alex
+P0 Box: 128 128 250 250 FFFFFF
+P0 Stamp: @alex 31 128 128 U 2 N
+
+# You can move these frogs wherever you please!
+Stamp: @adelaide 16 ? ? U ? N
+Stamp: @adelaide 16 ? ? U ? N
+
+# What kinds of frogs are these?!
+
+# I WILL KILL ALL FROGS!!
+N3 Stamp: @ella 38 128 50 U ? N
+N3 Stamp: @ella 38 64 206 U ? N
+N3 Stamp: @ella 38 ? ? U ? N
+N3 Stamp: @ella 38 50 128 U ? N
+N3 Stamp: @ella 38 ? ? U ? N
+N3 Stamp: @ella 38 206 50 U ? N
+
+# X that frog out with these red lines!
+Line: 62 62 194 194 3 FF0000
+Line: 194 62 62 194 3 FF0000
+
+# Drag these lines around
+# To kill more frogs!
+Line: ? ? ? ? 3 FF0000
+Line: ? ? ? ? 3 FF0000
+Line: ? ? ? ? 3 FF0000
+Line: ? ? ? ? 3 FF0000
+
+P30 Contrast: More
+Noise
+P20 Vignette: 128 128 5
+
+# This has been 'Frog Dies'
