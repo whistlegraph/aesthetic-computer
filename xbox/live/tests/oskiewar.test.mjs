@@ -1547,8 +1547,10 @@ test("bullets and their blink trails shrink with the projected world", () => {
   const bulletSource = source.slice(source.indexOf("function drawBullet"),
     source.indexOf("function drawGrenadePickup"));
   assert.match(bulletSource, /const scale = cameraScale\(\)/);
-  assert.match(bulletSource, /Math\.max\(\.9, \(bullet\.rubber \? 6 : 5\) \* scale\)/);
-  assert.match(bulletSource, /Math\.max\(1\.4, 10 \* scale\)/);
+  // A round is sized by the lens's own scale where it is (projectionScaleAt).
+  assert.match(bulletSource, /const k = projectionScaleAt\(bullet\)/);
+  assert.match(bulletSource, /Math\.max\(\.9, \(bullet\.rubber \? 6 : 5\) \* k\)/);
+  assert.match(bulletSource, /Math\.max\(1\.4, 9 \* k\)/);
   assert.doesNotMatch(bulletSource, /Math\.max\(4, 7 \* cameraScale\(\)\)/);
   assert.match(source, /function spitMouthPose\(player\)/);
   assert.match(source, /x: mouth\.x, y: mouth\.y, z: player\.z/);

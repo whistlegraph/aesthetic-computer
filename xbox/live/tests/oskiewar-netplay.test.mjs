@@ -95,6 +95,11 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          pistol: gunPickups[0] ? { x: gunPickups[0].x, y: gunPickups[0].y, active: gunPickups[0].active } : null,
          board: (() => { const b = balls.find((ball) => ball.type === "skateboard"); return b ? { x: b.x, y: b.y, active: b.active } : null; })(),
          spawns: players.map((player) => player.spawnX) }),
+       clearShots: () => { bullets.length = 0; },
+       revolver: () => ({ held: players.map((p) => ({ ammo: p.gunAmmo, chamber: p.gunChamber,
+           shots: p.gunShots, rounds: gunRounds(p) })),
+         flying: grenades.filter((g) => g.alive && g.thrownGun).map((g) => ({ ammo: g.ammo, owner: g.owner })),
+         bullets: bullets.length, lying: gunPickups.filter((g) => g.active).map((g) => ({ amount: g.amount, x: g.x })) }),
        roundState: () => ({ roundResult, roundElapsedUs, matchOver, map:currentMapName,
          shellMode, gameplayStarted, fightOpponent, gameMode }),
        startVersus: () => startVersusFight(runtime().monotonicUs, true),
@@ -309,6 +314,140 @@ test("the gun arena: board on the hill, pistol only reachable with a jump", () =
     armed = jumper.fight.fighters()[0].gunAmmo > 0;
   }
   assert.ok(armed, "a jump at the crest takes it");
+});
+
+// The gun fights' revolver (2026-10-15): six chambers, the cylinder turns one
+// a shot, and with all six fired the next press of a shoot button throws it.
+// Take it the way a fighter must: run at the hill and jump at the crest.
+function takeTheRevolver(seat) {
+  const centre = seat.fight.gunArena().centre;
+  let jumped = false;
+  for (let frame = 0; frame < 400; frame++) {
+    const me = seat.fight.fighters()[0];
+    if (jumped === false && me.x > centre - 140) jumped = frame;
+    const jumping = jumped !== false && frame - jumped < 12;
+    seat.press(...(jumping ? ["ArrowUp", "ArrowRight"] : ["ArrowRight"]));
+    seat.tick();
+    if (seat.fight.revolver().held[0].ammo > 0) break;
+  }
+  // Let go and land before shooting.
+  seat.press();
+  for (let frame = 0; frame < 60; frame++) seat.tick();
+  return seat.fight.revolver().held[0].ammo > 0;
+}
+// X and Y are the shoot buttons on a pad (B jumps, A throws).
+function pull(seat, button = "Y") {
+  seat.press(button); seat.tick(); seat.tick();
+  seat.press(); for (let frame = 0; frame < 16; frame++) seat.tick();
+}
+
+test("the revolver fires six, turning a chamber a shot, then the shoot press throws it", () => {
+  const seat = createSeat();
+  seat.fight.startVersus();
+  seat.tick();
+  assert.ok(takeTheRevolver(seat), "a jump at the crest takes the revolver");
+  assert.deepEqual(seat.fight.revolver().held[0], { ammo: 6, chamber: 0, shots: 0, rounds: 6 });
+  // The first paint signs the seat in under its handle; the ones after draw.
+  seat.fight.paint();
+  for (let shot = 1; shot <= 6; shot++) {
+    pull(seat);
+    const me = seat.fight.revolver().held[0];
+    assert.equal(me.chamber, shot, `shot ${shot} turns the cylinder one chamber`);
+    assert.equal(me.rounds, 6 - shot);
+    assert.equal(me.ammo, 6, "the six chambers stay in the gun");
+    // Paint draws the revolver, its smoke and its brass, and never feeds the sim.
+    const before = JSON.stringify(seat.fight.netplaySnapshot());
+    seat.fight.paint();
+    assert.equal(JSON.stringify(seat.fight.netplaySnapshot()), before, "paint leaves the snapshot alone");
+  }
+  assert.equal(seat.fight.revolver().held[0].shots, 6);
+  assert.equal(seat.fight.revolver().flying.length, 0, "an empty revolver stays in the hand");
+  pull(seat, "X");
+  const after = seat.fight.revolver();
+  assert.equal(after.held[0].ammo, 0, "the seventh press throws it");
+  assert.equal(after.flying.length, 1);
+  assert.equal(after.flying[0].ammo, 0, "thrown empty");
+  // Stray rounds ricochet round the dojo until they find someone; this is
+  // about the gun, so they go.
+  seat.fight.clearShots();
+  // An empty revolver that lands is gone, and the one gun hangs over the hill again.
+  let back = false;
+  for (let frame = 0; frame < 300 && !back; frame++) {
+    seat.tick();
+    back = seat.fight.revolver().flying.length === 0 && seat.fight.gunArena().pistol.active;
+  }
+  assert.ok(back, "a fresh revolver returns to the hill");
+  assert.equal(seat.fight.revolver().lying.length, 1);
+  assert.equal(seat.fight.revolver().lying[0].amount, 6);
+});
+
+test("the throw button still throws a revolver that has rounds left, and they ride with it", () => {
+  const seat = createSeat();
+  seat.fight.startVersus();
+  seat.tick();
+  assert.ok(takeTheRevolver(seat));
+  pull(seat); pull(seat);
+  pull(seat, "A");
+  const after = seat.fight.revolver();
+  assert.equal(after.held[0].ammo, 0);
+  assert.deepEqual(after.flying.map((g) => g.ammo), [4], "four rounds go with it");
+});
+
+test("the cylinder's chamber survives a snapshot and restore", () => {
+  const seat = createSeat();
+  seat.fight.startVersus();
+  seat.tick();
+  assert.ok(takeTheRevolver(seat));
+  pull(seat); pull(seat);
+  const saved = seat.fight.netplaySnapshot(), savedTime = seat.time();
+  assert.equal(seat.fight.revolver().held[0].chamber, 2);
+  pull(seat);
+  const ahead = seat.fight.netplayHash();
+  assert.equal(seat.fight.revolver().held[0].chamber, 3);
+  seat.fight.netplayRestore(saved);
+  seat.setTime(savedTime);
+  assert.equal(seat.fight.revolver().held[0].chamber, 2, "a rewind turns the cylinder back");
+  assert.equal(seat.fight.revolver().held[0].rounds, 4);
+  pull(seat);
+  assert.equal(seat.fight.revolver().held[0].chamber, 3);
+  assert.equal(seat.fight.netplayHash(), ahead, "the same pad turns it the same way again");
+});
+
+// Both seats run for the hill and jump for the revolver; whoever holds it
+// empties it and throws it, and it comes back for another go. Each seat steers from its own view of its own fighter.
+function revolverHand(seat, frame) {
+  const me = seat.fight.fighters()[seat.seatIndex], gun = seat.fight.revolver().held[seat.seatIndex];
+  const centre = seat.fight.gunArena().centre;
+  const toward = me.x < centre ? "ArrowRight" : "ArrowLeft";
+  // Armed, it fires up through the roof glass (so the round lives long
+  // enough to be emptied) and keeps pulling until the seventh press throws.
+  if (gun.ammo > 0) return frame % 15 < 2 ? [frame % 30 < 15 ? "Y" : "X", "ArrowUp"] : [];
+  return Math.abs(me.x - centre) < 140 && frame % 30 < 12 ? ["ArrowUp", toward] : [toward];
+}
+test("a revolver fight with shooting, emptying and throwing stays one fight on a laggy wire", () => {
+  const host = createSeat(), guest = createSeat();
+  host.seatIndex = 0; guest.seatIndex = 1;
+  const wire = createWire(host, guest, { delay: 5, jitter: 3, loss: .05 });
+  beginPair(host, guest, wire);
+  let shots = 0, emptied = false;
+  for (let frame = 0; frame < 2400; frame++) {
+    host.press(...revolverHand(host, host.fight.netplayState()?.frame ?? frame));
+    guest.press(...revolverHand(guest, guest.fight.netplayState()?.frame ?? frame));
+    host.tick(); guest.tick(); wire.step();
+    host.fight.paint(); if (frame % 2 === 0) guest.fight.paint();
+    const state = host.fight.revolver();
+    shots = Math.max(shots, state.held.reduce((sum, p) => sum + (p.shots || 0), 0));
+    emptied ||= state.flying.some((g) => g.ammo === 0);
+  }
+  host.press(); guest.press();
+  for (let frame = 0; frame < 60; frame++) { host.tick(); guest.tick(); wire.step(); }
+  const a = host.fight.netplayState(), b = guest.fight.netplayState();
+  assert.ok(a && b, "both seats are still in the rollback fight");
+  assert.equal(a.stats.desyncs + b.stats.desyncs, 0, "no desync");
+  assert.ok(shots >= 6, `the revolver was fired (${shots} shots)`);
+  assert.ok(emptied, "a revolver was emptied and thrown");
+  assert.ok(equalize(host, guest, wire), "both seats stand on one frame");
+  assert.equal(host.fight.netplayHash(), guest.fight.netplayHash(), "one fight");
 });
 
 // The board on the gun hill (2026-10-15): a fighter could get on it but not

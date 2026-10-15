@@ -3751,6 +3751,7 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
+    gunChamber: 0, gunShots: 0, gunShotAt: 0, gunShotFrom: null,
     gunAimX: 1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
     nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -3782,6 +3783,7 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
+    gunChamber: 0, gunShots: 0, gunShotAt: 0, gunShotFrom: null,
     gunAimX: -1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
     nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -4465,6 +4467,9 @@ const worldTypes = [
   { type: "saber-pickup", list: () => saberPickups, at: pointAt, props: true, draw: (o, t) => drawSaberPickup(o, t) },
   { type: "grenade-pickup", list: () => grenadePickups, at: pointAt, props: true, draw: (o, t) => drawGrenadePickup(o, t) },
   { type: "bullet", list: () => bullets, at: pointAt, depth: true, lerp: renderInterpolationFields.bullet, draw: (o) => drawBullet(o) },
+  // The revolver's smoke and spent brass: paint's own (updateRevolverFx).
+  { type: "smoke", list: () => revolverSmoke, at: pointAt, depth: true, draw: (o) => drawRevolverPuff(o) },
+  { type: "brass", list: () => revolverBrass, at: pointAt, depth: true, draw: (o) => drawRevolverBrass(o) },
   { type: "grenade", list: () => grenades, live: (o) => o.alive, at: pointAt, depth: true, lerp: renderInterpolationFields.grenade, draw: (o) => drawGrenade(o) },
   { type: "ball", list: () => balls, live: (o) => o.active, at: pointAt, depth: true, lerp: renderInterpolationFields.ball, draw: (o) => drawBall(o) },
   { type: "detached", list: () => detachedParts, at: midpointAt, depth: true, lerp: renderInterpolationFields.detached, draw: (o) => drawDetachedPart(o) },
@@ -5512,10 +5517,11 @@ function makeRoundReplayFrame(now) {
       resultReaction: player.resultReaction || "",
       resultReactionOffset: (player.resultReactionAt || 0) - now,
       characterAppearance: replayCopy(player.characterAppearance),
-      equipment: Object.fromEntries(['gunAmmo','gunMode','itemArm','strikeArm','gunAimX','gunAimY','gunAimLive','itemAimLocked',
+      equipment: Object.fromEntries(['gunAmmo','gunChamber','gunShots','gunMode','itemArm','strikeArm','gunAimX','gunAimY','gunAimLive','itemAimLocked',
         'itemAction','swordHeld','axeHeld','grenadeAmmo','skatePitch','skateSpin','skateBoardId','lowKick'].map(k=>[k,player[k]])),
       spin: replayCopy(player.spin), trucks: replayCopy(player.trucks),
       itemStartedOffset: (player.itemActionStartedAt||0)-now, itemUntilOffset: (player.itemActionUntil||0)-now,
+      gunShotOffset: (player.gunShotAt||0)-now,
       attackStartedOffset: player.attackStartedAt - now,
       attackUntilOffset: player.attackUntil - now,
       geometry: replayCopy(ragdollBodies.get(player)?.pose) || runnerWorldGeometry(player, poseTime),
@@ -5697,6 +5703,7 @@ function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
     if(state.equipment){
       Object.assign(player,state.equipment);player.spin=replayCopy(state.spin);player.trucks=replayCopy(state.trucks);
       player.itemActionStartedAt=now+state.itemStartedOffset;player.itemActionUntil=now+state.itemUntilOffset;
+      if(Number.isFinite(state.gunShotOffset))player.gunShotAt=now+state.gunShotOffset;
       if(blend){
         if(player.spin&&ahead.spin)player.spin.angle=lerp(state.spin.angle,ahead.spin.angle,mix);
         for(const k of ['skatePitch','skateSpin'])if(Number.isFinite(ahead.equipment?.[k]))player[k]=lerp(state.equipment[k],ahead.equipment[k],mix);
@@ -9854,7 +9861,7 @@ function netStateHash() {
     player.vx, player.vy, player.vz, player.facing, player.alive,
     player.grounded, player.ducking, player.blocking, player.score,
     player.roundWins, player.attackKind, player.attackUntil,
-    player.hitStunUntil, player.stance, player.gunAmmo, player.grenadeAmmo,
+    player.hitStunUntil, player.stance, player.gunAmmo, player.gunChamber || 0, player.grenadeAmmo,
     player.heldBall, player.removedParts, player.dashUntil,
     // Holding a blade decides how far a hand reaches, so it decides the
     // fight and belongs in the hash. It is here because it was NOT here: two
@@ -12245,11 +12252,19 @@ function recordCommand(player, label, now) {
 // with guns and the challenger with fists, and the round desynced.
 const gunsOnly = () => (!!netSession || versusLane()) && !skateparkMap;
 const gunsOnlyAmmo = 6;
+// The gun is a six-shot revolver (objects/revolver.lisp). While it is held
+// `gunAmmo` stays at its six chambers and `gunChamber` counts the ones that
+// have fired, so an emptied revolver is still in the hand: its next shot is
+// the throw. Both ride on the player, inside the rollback snapshot.
+const revolverHeld = (player) => player.gunAmmo > 0 && player.gunMode === "HANDGUN" && gunsOnly();
+const gunRounds = (player) => revolverHeld(player)
+  ? Math.max(0, player.gunAmmo - (player.gunChamber || 0)) : player.gunAmmo || 0;
 // One gun in the room, on the floor halfway between the two spawn marks, and
 // the board under it: the bell rings and both fighters run for it.
 const gunsOnlyCenterX = () => Math.round((players[0].spawnX + players[1].spawnX) / 2);
 function armGunFighter(player) {
   player.gunAmmo = gunsOnlyAmmo;
+  player.gunChamber = 0;
   player.gunMode = "HANDGUN";
   player.itemArm = availableArm(player) || "right-arm";
 }
@@ -12259,13 +12274,14 @@ function throwGun(player, input) {
   const aimX = input?.horizontal || player.facing;
   const aimY = input ? -input.vertical * .6 - .35 : -.35;
   const length = Math.hypot(aimX, aimY) || 1;
-  grenades.push({ thrownGun: true, ammo: player.gunAmmo,
+  grenades.push({ thrownGun: true, ammo: gunRounds(player),
     x: player.x + player.facing * 110, y: player.y - (player.ducking ? 80 : 150), z: player.z || 0,
     vx: aimX / length * 2300 + (player.vx || 0) * .5, vy: aimY / length * 2300,
     owner: player.pad, fuse: 2.4, alive: true, exploding: false, blastAge: 0,
     blastRadius: 0, hitPlayers: 0, spin: 0 });
   while (grenades.length > 12) grenades.shift();
   player.gunAmmo = 0;
+  player.gunChamber = 0;
   player.itemAction = "THROW";
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + 260000;
@@ -12293,9 +12309,12 @@ function updateThrownGun(gun, dt, now, combat) {
   const floor = terrainFloorAt(gun.x) - 20;
   const resting = gun.y >= floor - 1 && Math.abs(gun.vx) < 140 && Math.abs(gun.vy) < 180;
   if (resting || gun.fuse <= 0) {
-    gunPickups.push({ kind: "HANDGUN", amount: Math.max(1, gun.ammo), x: gun.x,
-      y: floorY, z: gun.z, active: true, startsActive: false, thrown: true,
-      safeUntil: now + 250000 });
+    // A revolver thrown with every chamber fired is spent: it goes, and the
+    // one gun comes back over the hill (updatePowerups).
+    if (gun.ammo > 0 || !gunsOnly())
+      gunPickups.push({ kind: "HANDGUN", amount: Math.max(1, gun.ammo), x: gun.x,
+        y: floorY, z: gun.z, active: true, startsActive: false, thrown: true,
+        safeUntil: now + 250000 });
     gun.alive = false;
   }
 }
@@ -12341,14 +12360,25 @@ function fireGun(player, input) {
     });
   }
   while (bullets.length > 24) bullets.shift();
-  player.gunAmmo -= shots;
-  if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
+  if (revolverHeld(player)) {
+    // The cylinder turns a chamber a shot; the six stay in it. `gunShots`
+    // and `gunShotAt` name the shot, and `gunShotFrom` is where it left the
+    // muzzle and which way, so paint can smoke and eject brass for it once,
+    // where it happened, however often a rollback fires it again.
+    player.gunChamber = (player.gunChamber || 0) + shots;
+    player.gunShots = (player.gunShots || 0) + shots;
+    player.gunShotAt = now;
+    player.gunShotFrom = [pose.muzzle.x, pose.muzzle.y, pose.muzzle.z, pose.dx, pose.dy, pose.dz || 0];
+  } else {
+    player.gunAmmo -= shots;
+    if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
+  }
   player.nextGunShotAt = now + (laser ? 340000 : smg ? 85000 : 220000);
   player.itemAction = "FIRE";
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + (laser ? 210000 : 170000);
   player.pendingMoveLabel =
-    (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
+    (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + gunRounds(player);
   if(laser){playDrum('whoosh',1.1,panPlayer(player));playSine(1180,.13);}
   else playDrum(smg?'smg-shot':'gunshot',smg?.72:1,panPlayer(player));
   player.lastButton=smg?'FIRING SMG':'FIRING PISTOL';player.lastButtonAt=now;
@@ -12459,7 +12489,11 @@ function updateGunPickups(now) {
       if (now<(pickup.safeUntil||0) || !player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
           runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !(poolOnly()?freeItemArm(player,"gun"):availableArm(player))) continue;
       const arm=poolOnly()?freeItemArm(player,"gun"):availableArm(player);
-      player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
+      if (gunsOnly() && (pickup.kind || "HANDGUN") === "HANDGUN") {
+        // A revolver keeps its six chambers; what it lacks in rounds is fired.
+        player.gunChamber = gunsOnlyAmmo - Math.min(gunsOnlyAmmo, pickup.amount);
+        player.gunAmmo = gunsOnlyAmmo;
+      } else player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
       player.itemArm = arm;if(poolOnly()){player.handItems ||= {};player.handItems.gun=arm;}
       pickup.active = false;
@@ -12668,13 +12702,15 @@ const bulletTrailStride = 4;
 
 function recordBulletTrail(bullet) {
   if (!bullet.trail) {
-    // One allocation at birth, never per frame.
-    bullet.trail = new Array(bulletTrailPoints * 2).fill(0);
+    // One allocation at birth, never per frame. Three numbers a point: a
+    // round aimed off the fight's plane drew its ghost flattened onto it.
+    bullet.trail = new Array(bulletTrailPoints * 3).fill(0);
     bullet.trailCount = 0;
   }
-  const slot = (bullet.trailCount % bulletTrailPoints) * 2;
+  const slot = (bullet.trailCount % bulletTrailPoints) * 3;
   bullet.trail[slot] = bullet.x;
   bullet.trail[slot + 1] = bullet.y;
+  bullet.trail[slot + 2] = bullet.z || 0;
   bullet.trailCount++;
 }
 
@@ -12865,6 +12901,13 @@ function updateBullets(dt, now, combat = true) {
     // spanning a ricochet would cut the corner straight through the wall.
     if (bullet.vx !== enteredVx || bullet.vy !== enteredVy ||
         bullet.trailTick === undefined) {
+      if (bullet.trailTick !== undefined) {
+        // Where and when it struck, for paint's ricochet flash; a round's
+        // ricochet pings (a glob's bounce has its own sound above).
+        bullet.bounceAt = now;
+        bullet.bounceX = bullet.x; bullet.bounceY = bullet.y; bullet.bounceZ = bullet.z || 0;
+        if (!bullet.spit) playDrum("hat", .5, panAt(bullet.x, bullet.z));
+      }
       bullet.trailTick = 0;
       recordBulletTrail(bullet);
     } else if (++bullet.trailTick % bulletTrailStride === 0)
@@ -14481,8 +14524,10 @@ function stealHeldObject(player, now) {
     label = part?.part?.toUpperCase() || "LIMB";
   } else if (target.gunAmmo > 0) {
     player.gunAmmo = target.gunAmmo;
+    player.gunChamber = target.gunChamber || 0;
     player.gunMode = target.gunMode;
     target.gunAmmo = 0;
+    target.gunChamber = 0;
     player.itemArm = availableArm(player);
     target.itemArm = "";
     target.gunMode = "HANDGUN";
@@ -15614,7 +15659,12 @@ function updatePlayer(player, pad, dt, now) {
       if (gunsOnly() && !headOnly) {
         // Gun fights: the strike and item buttons shoot, the kick button
         // throws, and nothing else attacks.
-        if (acting && player.gunAmmo > 0 && (button === "B" || button === "Y") &&
+        // A revolver with all six fired throws on the next press of either:
+        // the throw is the last thing it has.
+        if (acting && revolverHeld(player) && !gunRounds(player) &&
+            (button === "B" || button === "Y"))
+          throwGun(player, input);
+        else if (acting && player.gunAmmo > 0 && (button === "B" || button === "Y") &&
             now >= (player.nextGunShotAt || 0))
           fireGun(player, input);
         else if (acting && player.gunAmmo > 0 && button === "A")
@@ -20256,8 +20306,8 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
   }
   detachPart(target, part, geometry, sourceX, now);
   if (target.itemArm === part) {
-    if (target.gunAmmo > 0) gunPickups.push({ kind: target.gunMode,
-      amount: target.gunAmmo, x: target.x, y: target.y - 70, z: target.z,
+    if (gunRounds(target) > 0) gunPickups.push({ kind: target.gunMode,
+      amount: gunRounds(target), x: target.x, y: target.y - 70, z: target.z,
       active: true, startsActive: false, respawnAt: Infinity });
     if (target.grenadeAmmo > 0) grenadePickups.push({
       amount: target.grenadeAmmo, x: target.x, y: target.y - 70, z: target.z,
@@ -20682,9 +20732,11 @@ function gunMoveList(family) {
     [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"], [">*2", "DASH", "ArrowRight"],
     ["DOWN", "CROUCH", "ArrowDown"], ["B", "JUMP", "ArrowUp"]];
   if (armed) {
-    if (family === "touch") rows.push(["B", "SHOOT", "B"], ["A", "THROW GUN", "A"]);
-    else if (family === "keyboard") rows.push([["Q", "E"], "SHOOT", "B"], ["SHIFT", "THROW GUN", "A"]);
-    else rows.push([["X", "Y"], "SHOOT", "B"], ["A", "THROW GUN", "A"]);
+    // Six fired, the shoot buttons throw it.
+    const shoot = gunRounds(me) ? "SHOOT" : "THROW GUN";
+    if (family === "touch") rows.push(["B", shoot, "B"], ["A", "THROW GUN", "A"]);
+    else if (family === "keyboard") rows.push([["Q", "E"], shoot, "B"], ["SHIFT", "THROW GUN", "A"]);
+    else rows.push([["X", "Y"], shoot, "B"], ["A", "THROW GUN", "A"]);
   }
   return rows;
 }
@@ -21595,6 +21647,230 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   triangleDepth = bodyDepth;
 }
 
+// The gun fights' revolver (objects/revolver.lisp). Its cylinder turns a
+// sixth a shot and its hammer recocks as it turns, both eased off the sim's
+// own shot clock (`gunShotAt`) against paint's: nothing is kept from frame to
+// frame, so a rollback can't leave the cylinder mid-turn on one seat.
+const revolverInputs = { cylinder: 0, spent: 0, cock: 1 };
+const revolverPlace = new Float64Array(12);
+const revolverAxis = { x: 1, y: 0, z: 0 }, revolverUp = { x: 0, y: -1, z: 0 };
+// Held, it stands at its fighter's pinned depth the way the flat figure
+// does, a tenth of its own depth spread round the pin, and in front of the
+// whole body: a gun in the far hand hidden behind the torso read as nothing,
+// and the pistol it replaces was always drawn over the fighter too.
+let revolverPin = 0, revolverCentre = 0;
+const revolverDepth = (depth) => revolverPin + (depth - revolverCentre) * .1;
+const pinnedRevolverOut = {
+  view: objectView,
+  face: (...args) => immediateObjectOut.face(...args),
+  outline: (width, r, g, b) => immediateObjectOut.outline(width, r, g, b),
+  ellipse: (x, y, depth, ax, ay, bx, by, r, g, b) =>
+    immediateObjectOut.ellipse(x, y, revolverDepth(depth), ax, ay, bx, by, r, g, b),
+  disc: (x, y, depth, radius, r, g, b) =>
+    immediateObjectOut.ellipse(x, y, revolverDepth(depth), radius, 0, 0, radius, r, g, b),
+  capsule: (x1, y1, x2, y2, depth, width, r, g, b) =>
+    immediateObjectOut.capsule(x1, y1, x2, y2, revolverDepth(depth), width, r, g, b),
+  plate: (n, points, depth, r, g, b) => immediateObjectOut.plate(n, points, revolverDepth(depth), r, g, b),
+};
+// At `o` (the fist), the barrel along `along`, its top toward `up` (unit
+// world vectors, square to each other). `pin` a number stands it at that
+// depth, `ahead` world units in front of it; NaN lets each shape find its own.
+function drawRevolver(o, along, up, spent, shotAgeUs, pin = NaN, ahead = 0) {
+  const m = revolverPlace;
+  m[0] = o.x; m[1] = o.y; m[2] = o.z;
+  m[3] = along.x; m[4] = along.y; m[5] = along.z;
+  m[6] = up.x; m[7] = up.y; m[8] = up.z;
+  m[9] = along.y * up.z - along.z * up.y; m[10] = along.z * up.x - along.x * up.z;
+  m[11] = along.x * up.y - along.y * up.x;
+  // Fired chambers turn toward -z; the lisp is symmetric across z, so mirror
+  // it when that side faces away and the empties come round where they show.
+  const lens = cameraDoll.position;
+  if (m[9] * (lens.x - o.x) + m[10] * (lens.y - o.y) + m[11] * (lens.z - o.z) > 0) {
+    m[9] = -m[9]; m[10] = -m[10]; m[11] = -m[11];
+  }
+  const i = revolverInputs, u = clamp((shotAgeUs - 40000) / 150000, 0, 1), eased = u * u * (3 - 2 * u);
+  const turning = spent > 0 && shotAgeUs >= 0 && shotAgeUs < 190000;
+  i.spent = spent;
+  i.cylinder = (turning ? spent - 1 + eased : spent) * Math.PI / 3;
+  i.cock = turning ? eased : 1;
+  const object = gameObjects.revolver;
+  if (pin !== pin) { object(i, m, objectOut(object)); return; }
+  const V = prepareObjectView();
+  const vz = (o.x - V[0]) * V[9] + (o.y - V[1]) * V[10] + (o.z - V[2]) * V[11];
+  revolverPin = pin;
+  revolverCentre = (vz + ahead * 10) * V[17] + V[18];
+  object(i, m, pinnedRevolverOut);
+}
+// In the fist the figure draws. The drawn wrist can sit off the solver's
+// hand by a screen offset (render reactions, replay poses); that offset goes
+// back into the world along the lens. Returns the muzzle on screen.
+function drawHeldRevolver(player, now, pose, offsetX, offsetY) {
+  prepareObjectView();
+  const k = projectionScaleAt(pose.hand) || 1, v = cameraDoll.view;
+  const sx = offsetX / k, sy = -offsetY / k, down = pose.down || { x: 0, y: 1, z: 0 };
+  const o = { x: pose.hand.x + v.right.x * sx + v.up.x * sy, y: pose.hand.y + v.right.y * sx + v.up.y * sy,
+    z: pose.hand.z + v.right.z * sx + v.up.z * sy };
+  revolverAxis.x = pose.dx; revolverAxis.y = pose.dy; revolverAxis.z = pose.dz || 0;
+  revolverUp.x = -down.x; revolverUp.y = -down.y; revolverUp.z = -down.z;
+  drawRevolver(o, revolverAxis, revolverUp, player.gunChamber || 0, now - (player.gunShotAt || -1e12),
+    poolOnly() ? NaN : triangleDepth, 40);
+  const tip = projectPoint(o.x + revolverAxis.x * 40.2 + revolverUp.x * 15.4,
+    o.y + revolverAxis.y * 40.2 + revolverUp.y * 15.4, o.z + revolverAxis.z * 40.2 + revolverUp.z * 15.4);
+  return { x: tip.x, y: tip.y };
+}
+// Not in a hand: hanging over the hill it turns slowly on a cord from the
+// roof, so it reads as a thing in the room; one thrown that landed with
+// rounds in it lies tipped on its side on the ground.
+function drawRevolverPickup(pickup, t, bobY) {
+  const spent = gunsOnlyAmmo - Math.min(gunsOnlyAmmo, pickup.amount || 0), z = pickup.z || 0;
+  if (pickup.thrown) {
+    const away = cameraDoll.position.z < z ? 1 : -1;
+    revolverAxis.x = 1; revolverAxis.y = 0; revolverAxis.z = 0;
+    revolverUp.x = 0; revolverUp.y = -.57; revolverUp.z = away * .82;
+    drawRevolver({ x: pickup.x - 14, y: terrainFloorAt(pickup.x, z) - 9, z }, revolverAxis, revolverUp, spent, 1e12);
+    return;
+  }
+  const a = t * 1.3 + pickup.x * .002, c = Math.cos(a), sn = Math.sin(a);
+  if (dojoActive()) worldCapsule(pickup.x, dojoRoofY, z, pickup.x, bobY + 6, z,
+    Math.max(1, 2 * cameraScale()), [40, 38, 44], .002);
+  revolverAxis.x = c; revolverAxis.y = 0; revolverAxis.z = sn;
+  revolverUp.x = 0; revolverUp.y = -1; revolverUp.z = 0;
+  drawRevolver({ x: pickup.x - c * 14, y: bobY + 8, z: z - sn * 14 }, revolverAxis, revolverUp, spent, 1e12);
+}
+
+// Smoke and spent brass off the revolver: paint's own, never in the
+// snapshot. Paint spawns them the first time it sees a shot, keyed by the
+// fighter, its `gunShots` count and the sim time it fired, so a rollback that
+// fires the same shot again finds the key and spawns nothing twice (a shot the
+// rewind took back leaves only its puff). They move on paint's clock.
+const revolverSmoke = [], revolverBrass = [], revolverShotsSeen = new Map();
+let revolverFxAt = -1;
+function updateRevolverFx(now) {
+  const dt = revolverFxAt < 0 ? 0 : clamp((now - revolverFxAt) / 1e6, 0, .05);
+  revolverFxAt = now;
+  for (const [key, at] of revolverShotsSeen) if (Math.abs(now - at) > 3e6) revolverShotsSeen.delete(key);
+  if (gunsOnly()) for (const player of players) {
+    const age = now - (player.gunShotAt || 0);
+    if (!player.gunShots || player.gunMode !== "HANDGUN" || age < 0 || age > 300000) continue;
+    const key = player.pad + ":" + player.gunShots + ":" + player.gunShotAt;
+    if (revolverShotsSeen.has(key)) continue;
+    revolverShotsSeen.set(key, now);
+    spawnRevolverFx(player, now, player.gunShots);
+  }
+  const drag = Math.exp(-dt * 3.4);
+  for (const puff of revolverSmoke) {
+    puff.age += dt;
+    puff.vx *= drag; puff.vy = puff.vy * drag - 34 * dt; puff.vz *= drag;
+    puff.x += puff.vx * dt; puff.y += puff.vy * dt; puff.z += puff.vz * dt;
+  }
+  for (let i = revolverSmoke.length - 1; i >= 0; i--) if (revolverSmoke[i].age >= revolverSmoke[i].life) revolverSmoke.splice(i, 1);
+  for (const shell of revolverBrass) {
+    shell.age += dt;
+    if (shell.restAt >= 0) continue;
+    shell.vy += 2400 * dt;
+    shell.x += shell.vx * dt; shell.y += shell.vy * dt; shell.z += shell.vz * dt;
+    shell.angle += shell.spin * dt;
+    const left = worldLeft + wallThickness + 3, right = worldRight - wallThickness - 3;
+    if (shell.x < left || shell.x > right) { shell.x = clamp(shell.x, left, right); shell.vx *= -.5; }
+    // The floor and the hill: a bounce keeps under half its fall and costs
+    // most of its slide and spin; too small a bounce settles where it lies.
+    const floor = terrainFloorAt(shell.x, shell.z) - 2;
+    if (shell.y >= floor) {
+      shell.y = floor;
+      if (shell.vy > 150 && shell.bounces < 4) {
+        shell.vy = -shell.vy * .42; shell.vx *= .62; shell.vz *= .62; shell.spin *= -.55; shell.bounces++;
+      } else {
+        shell.vx = shell.vy = shell.vz = 0;
+        shell.angle = Math.round(shell.angle / Math.PI) * Math.PI;
+        shell.restAt = shell.age;
+      }
+    }
+  }
+  for (let i = revolverBrass.length - 1; i >= 0; i--) {
+    const shell = revolverBrass[i];
+    if (shell.restAt >= 0 && shell.age - shell.restAt > 3.2) revolverBrass.splice(i, 1);
+  }
+}
+function spawnRevolverFx(player, now, shot) {
+  const pose = gunPose(player, now), down = pose.down || { x: 0, y: 1, z: 0 }, dz = pose.dz || 0;
+  // The same scatter on every seat and every replay of the shot.
+  let seed = (Math.imul(shot, 2654435761) ^ Math.imul(player.pad + 1, 40503)) >>> 0;
+  const rand = () => { seed = (Math.imul(seed ^ (seed >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return seed / 4294967296; };
+  // The smoke leaves where and the way the shot did, not where the gun has
+  // swung since; the case leaves the gun as it is drawn now.
+  const from = player.gunShotFrom || [pose.muzzle.x, pose.muzzle.y, pose.muzzle.z, pose.dx, pose.dy, dz];
+  const [mx, my, mz, ax, ay, az] = from;
+  for (let i = 0; i < 5; i++) {
+    const out = 4 + i * 8 + rand() * 4, push = 190 - i * 32;
+    revolverSmoke.push({ x: mx + ax * out, y: my + ay * out, z: mz + az * out,
+      vx: ax * push + (rand() - .5) * 50, vy: ay * push - 20 - rand() * 40, vz: az * push + (rand() - .5) * 50,
+      age: 0, life: .7 + i * .1 + rand() * .2, size: 3 + i, grow: 10 + i * 2.5 + rand() * 4 });
+  }
+  while (revolverSmoke.length > 40) revolverSmoke.shift();
+  // A spent case leaves the top of the cylinder, up and back over the hand.
+  const ux = -down.x, uy = -down.y, uz = -down.z, kick = 280 + rand() * 90, back = 110 + rand() * 60;
+  revolverBrass.push({ x: pose.hand.x + pose.dx * 2 + ux * 14, y: pose.hand.y + pose.dy * 2 + uy * 14,
+    z: pose.hand.z + dz * 2 + uz * 14,
+    vx: ux * kick - pose.dx * back + (player.vx || 0) * .5, vy: uy * kick - pose.dy * back + (player.vy || 0) * .3,
+    vz: uz * kick - dz * back + (rand() < .5 ? -1 : 1) * (50 + rand() * 70),
+    angle: rand() * Math.PI * 2, spin: (rand() < .5 ? -1 : 1) * (18 + rand() * 12),
+    age: 0, restAt: -1, bounces: 0 });
+  while (revolverBrass.length > 18) revolverBrass.shift();
+}
+// What stands in an arena stands at the floor's near edge, as the fighters
+// do, so a floor or hill strip in front of its true depth can't cut it.
+function standAtFloorEdge(x, y) {
+  if (!poolOnly()) triangleDepth = Math.min(triangleDepth, projectPoint(x, y, worldNear + 2).z);
+}
+// A small thing's spot on the floor or the hill straight under it
+// (terrainFloorAt), tightening as it nears the ground, drawn a hair behind the
+// thing itself. A round's height over the ground is what places it in the
+// room when it bounces about in 3D; the spot shadows the fighters cast sit at
+// their own depth and a hill in front of that hid this one.
+function drawGroundSpot(x, y, z, radius) {
+  if (poolOnly()) return;
+  const ground = terrainFloorAt(x, z) - 1, height = ground - y;
+  if (!(height > -4) || height > 2600) return;
+  const r = radius * (1.25 - .65 * clamp(height / 1600, 0, 1)), ink = mixColor([18, 20, 30], [86, 88, 98], visualTheme.light);
+  if (cameraDoll.toView({ x, y: ground, z }).z < cameraNear + r) return;
+  const saved = triangleDepth, centre = projectPoint(x, ground, z);
+  triangleDepth = saved + 4e-4;
+  let last = projectPoint(x + r, ground, z);
+  for (let side = 1; side <= 10; side++) {
+    const a = side * Math.PI / 5, next = projectPoint(x + Math.cos(a) * r, ground, z + Math.sin(a) * r * .8);
+    screenTriangle(centre.x, centre.y, last.x, last.y, next.x, next.y, ...ink);
+    last = next;
+  }
+  triangleDepth = saved;
+}
+// A puff swells fast, then thins: it shrinks as it pales toward the room.
+function drawRevolverPuff(puff) {
+  const t = puff.age / puff.life;
+  if (t >= 1 || cameraDoll.toView(puff).z < cameraNear) return;
+  const p = projectPoint(puff.x, puff.y, puff.z), k = projectionScaleAt(puff);
+  const r = (puff.size + (puff.grow - puff.size) * (1 - (1 - Math.min(1, t * 1.6)) ** 2)) * (1 - t * t) * k;
+  if (!(r > .6) || !Number.isFinite(p.x + p.y)) return;
+  standAtFloorEdge(puff.x, puff.y);
+  const pale = mixColor([236, 236, 240], [214, 216, 222], t), shade = mixColor([168, 168, 176], pale, t);
+  filledDisc(p.x, p.y, r, shade);
+  filledDisc(p.x - r * .18, p.y - r * .2, r * .72, pale);
+}
+// Brass glints as it tumbles, lies still, then sinks out of sight.
+function drawRevolverBrass(shell) {
+  const fade = shell.restAt < 0 ? 1 : clamp(1 - (shell.age - shell.restAt - 2.4) / .8, 0, 1);
+  if (fade <= 0) return;
+  const half = 4.4 * fade, ax = Math.cos(shell.angle) * half, ay = Math.sin(shell.angle) * half;
+  const segment = worldSegment(shell.x - ax, shell.y - ay, shell.z, shell.x + ax, shell.y + ay, shell.z);
+  if (!segment) return;
+  standAtFloorEdge(shell.x, shell.y);
+  if (shell.restAt < 0) drawGroundSpot(shell.x, shell.y, shell.z, 6);
+  const k = projectionScaleAt(shell), glint = .5 + .5 * Math.sin(shell.angle * 2);
+  filledCapsule(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
+    Math.max(1.6, 4.4 * k * fade), [64, 44, 18]);
+  filledCapsule(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
+    Math.max(1, 3.2 * k * fade), mixColor([176, 128, 50], [255, 228, 142], glint));
+}
+
 // A Glock-style pistol, drawn flat in screen space: a squared slide over a
 // polymer frame, a trigger guard, and a grip raked back at the Glock's
 // angle. `hand` is the fist, and the fist closes around the middle of the
@@ -21742,7 +22018,9 @@ function drawInventory(player, now, geometry) {
     const gripWidth = Math.max(2, 6 * scale);
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
-    if (player.gunMode === "HANDGUN") {
+    if (player.gunMode === "HANDGUN" && gunsOnly()) {
+      barrel = drawHeldRevolver(player, now, pose, offsetX, offsetY);
+    } else if (player.gunMode === "HANDGUN") {
       const aim = projectWeapon(pose.hand.x + pose.dx*54,pose.hand.y + pose.dy*54,pose.hand.z+(pose.dz||0)*54);
       const down=pose.down || {x:0,y:1,z:0};
       const basis=(along,below)=>projectWeapon(pose.hand.x+pose.dx*along+down.x*below,
@@ -23354,7 +23632,7 @@ function drawPlayerStats(player, side, t) {
 function drawHudInventory(player, side) {
   if(freeskateActive())return;
   const items = [];
-  if (player.gunAmmo > 0) items.push("gun " + player.gunAmmo);
+  if (player.gunAmmo > 0) items.push("gun " + gunRounds(player));
   if (player.grenadeAmmo > 0) items.push("grenade " + player.grenadeAmmo);
   if (!items.length) return;
   const text = items.join("  ");
@@ -25330,6 +25608,7 @@ function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
+  if (pickup.kind === "HANDGUN" && gunsOnly()) { drawRevolverPickup(pickup, t, bobY); return; }
   if (pickup.kind === "HANDGUN") {
     const hand = projectPoint(pickup.x,bobY,pickup.z), aim = projectPoint(pickup.x+54,bobY,pickup.z);
     if(hand.behind || aim.behind)return;
@@ -25452,27 +25731,69 @@ function drawBullet(bullet) {
     filledDisc(previous.x, previous.y, radius * .25, trail);
     return;
   }
-  drawBulletTrail(bullet, trail, scale);
+  // Rounds stand at the floor's near edge like the fighters, so the floor or
+  // the hill in front of a low round can't cut it. Every streak is a world
+  // segment cut at the lens, so a round passing close never flips or pops,
+  // and it is sized by the lens's own scale at the round, not the stage's.
+  const savedDepth = triangleDepth;
+  standAtFloorEdge(bullet.x, bullet.y);
+  const k = projectionScaleAt(bullet), z = bullet.z || 0;
+  drawGroundSpot(bullet.x, bullet.y, z, 15);
+  drawBulletTrail(bullet, trail, k);
+  drawRicochetFlash(bullet, k);
   if (bullet.laser) {
     // Drawn as the stride itself: at 9,600 units a second the gap between two
     // frames IS the beam, so a wide cyan sheath over a white core along that
     // gap is the whole shot. No round cap at the tip — a bolt has a leading
     // edge, not a head.
-    filledCapsule(previous.x, previous.y, point.x, point.y,
-      Math.max(1.2, 9 * scale), trail);
-    filledCapsule(previous.x, previous.y, point.x, point.y,
-      Math.max(.6, 3.5 * scale), core);
+    const beam = worldSegment(bullet.previousX ?? bullet.x, bullet.previousY ?? bullet.y,
+      bullet.previousZ ?? z, bullet.x, bullet.y, z);
+    if (beam) {
+      filledCapsule(beam.from.x, beam.from.y, beam.to.x, beam.to.y, Math.max(1.2, 9 * k), trail);
+      filledCapsule(beam.from.x, beam.from.y, beam.to.x, beam.to.y, Math.max(.6, 3.5 * k), core);
+    }
+    triangleDepth = savedDepth;
     return;
   }
-  // A dark rim around the tracer and the round: the core blinks white, and
-  // white on a pale arena was a bullet you could not see.
-  const rim = [22, 24, 34];
-  filledCapsule(previous.x, previous.y, point.x, point.y,
-    Math.max(1.6, (bullet.rubber ? 9 : 8) * scale), rim);
-  filledCapsule(previous.x, previous.y, point.x, point.y,
-    Math.max(.9, (bullet.rubber ? 6 : 5) * scale), trail);
-  filledDisc(point.x, point.y, Math.max(2, 13 * scale), rim);
-  filledDisc(point.x, point.y, Math.max(1.4, 10 * scale), core);
+  // The tracer: a streak a few frames long laid back along the round's
+  // velocity in the world, hottest at the head, so which way it is going
+  // reads however the lens looks at it. A dark rim round it all: the core
+  // blinks white, and white on a pale arena was a bullet you could not see.
+  const speed = Math.hypot(bullet.vx, bullet.vy, bullet.vz || 0) || 1, reach = clamp(speed * .045, 50, 150);
+  const ux = bullet.vx / speed, uy = bullet.vy / speed, uz = (bullet.vz || 0) / speed;
+  const streak = worldSegment(bullet.x - ux * reach, bullet.y - uy * reach, z - uz * reach, bullet.x, bullet.y, z);
+  const hot = worldSegment(bullet.x - ux * reach * .4, bullet.y - uy * reach * .4, z - uz * reach * .4,
+    bullet.x, bullet.y, z);
+  if (streak) {
+    const rim = [22, 24, 34], { from, to } = streak;
+    filledCapsule(from.x, from.y, to.x, to.y, Math.max(1.6, (bullet.rubber ? 9 : 8) * k), rim);
+    filledCapsule(from.x, from.y, to.x, to.y, Math.max(.9, (bullet.rubber ? 6 : 5) * k), trail);
+    if (hot) filledCapsule(hot.from.x, hot.from.y, hot.to.x, hot.to.y, Math.max(.8, 3 * k), core);
+    if (cameraDoll.toView(bullet).z >= cameraNear) {
+      filledDisc(to.x, to.y, Math.max(2, 12 * k), rim);
+      filledDisc(to.x, to.y, Math.max(1.4, 9 * k), core);
+    }
+  }
+  triangleDepth = savedDepth;
+}
+
+// Where a round struck the floor, the hill or a wall: a ring that opens and
+// sparks thrown the way it left, for a fifth of a second, drawn off the sim's
+// own record of the bounce (bounceAt), so a rewind redraws it where it was.
+function drawRicochetFlash(bullet, k) {
+  const age = (runtime().monotonicUs - (bullet.bounceAt ?? -1e12)) / 1e6;
+  if (!(age >= 0 && age < .2)) return;
+  const x = bullet.bounceX, y = bullet.bounceY, z = bullet.bounceZ || 0;
+  if (cameraDoll.toView({ x, y, z }).z < cameraNear) return;
+  const p = projectPoint(x, y, z), q = projectPoint(x + bullet.vx * .01, y + bullet.vy * .01, z + (bullet.vz || 0) * .01);
+  if (!Number.isFinite(p.x + p.y + q.x + q.y)) return;
+  const t = age / .2, r = (8 + 30 * t) * k, out = Math.atan2(q.y - p.y, q.x - p.x);
+  filledRing(p.x, p.y, r, r - Math.max(1, 4 * k * (1 - t)), mixColor([255, 250, 214], [255, 150, 60], t));
+  for (let i = 0; i < 5; i++) {
+    const a = out + (i - 2) * .42, reach = (12 + 30 * t) * k * (i % 2 ? .65 : 1);
+    filledCapsule(p.x + Math.cos(a) * reach * .3, p.y + Math.sin(a) * reach * .3,
+      p.x + Math.cos(a) * reach, p.y + Math.sin(a) * reach, Math.max(1, 2.6 * k * (1 - t)), [255, 226, 130]);
+  }
 }
 
 // The ghost of where a round has been. Walked oldest to newest so the fade
@@ -25486,38 +25807,29 @@ function drawBullet(bullet) {
 // worst case at 528, and a trail wants no round caps anyway.
 function drawBulletTrail(bullet, ink, scale) {
   const stored = Math.min(bullet.trailCount || 0, bulletTrailPoints);
-  if (stored < 2) return;
+  // A replay from before the trail kept depth carries two numbers a point.
+  if (stored < 2 || bullet.trail?.length !== bulletTrailPoints * 3) return;
   // The same leash the camera uses. A round that has sailed out of the fight
   // is off screen, and its ghost should not be paid for either.
   if (!players.some((player) =>
     Math.abs(bullet.x - player.x) < 5200 &&
     Math.abs(bullet.y - player.y) < 5200)) return;
   const ground = mixColor([7, 8, 28], [230, 239, 247], visualTheme.light);
-  const oldest = (bullet.trailCount || 0) - stored;
-  let previous = null;
-  for (let step = 0; step < stored; step++) {
-    const slot = ((oldest + step) % bulletTrailPoints) * 2;
-    const here = projectPoint(bullet.trail[slot], bullet.trail[slot + 1],
-      bullet.z);
-    if (previous) {
-      // Newer segments carry more of the tracer's weight and colour, so the
-      // tail thins toward nothing rather than stopping on a hard edge.
-      const age = step / stored;
-      const radius = Math.max(.4, (bullet.rubber ? 3 : 2.2) * scale * age) / 2;
-      const dx = here.x - previous.x;
-      const dy = here.y - previous.y;
-      const length = Math.hypot(dx, dy);
-      if (length > .001) {
-        const nx = -dy / length * radius;
-        const ny = dx / length * radius;
-        const [r, g, b] = mixColor(ground, ink, .18 + age * .55);
-        screenTriangle(previous.x + nx, previous.y + ny,
-          previous.x - nx, previous.y - ny, here.x + nx, here.y + ny, r, g, b);
-        screenTriangle(previous.x - nx, previous.y - ny,
-          here.x - nx, here.y - ny, here.x + nx, here.y + ny, r, g, b);
-      }
-    }
-    previous = here;
+  const oldest = (bullet.trailCount || 0) - stored, T = bullet.trail;
+  for (let step = 1; step < stored; step++) {
+    const a = ((oldest + step - 1) % bulletTrailPoints) * 3, b = ((oldest + step) % bulletTrailPoints) * 3;
+    const segment = worldSegment(T[a], T[a + 1], T[a + 2], T[b], T[b + 1], T[b + 2]);
+    if (!segment) continue;
+    // Newer segments carry more of the tracer's weight and colour, so the
+    // tail thins toward nothing rather than stopping on a hard edge.
+    const age = step / stored, { from, to } = segment;
+    const radius = Math.max(.4, (bullet.rubber ? 3 : 2.2) * scale * age) / 2;
+    const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy);
+    if (length <= .001) continue;
+    const nx = -dy / length * radius, ny = dx / length * radius;
+    const [r, g, bl] = mixColor(ground, ink, .18 + age * .55);
+    screenTriangle(from.x + nx, from.y + ny, from.x - nx, from.y - ny, to.x + nx, to.y + ny, r, g, bl);
+    screenTriangle(from.x - nx, from.y - ny, to.x - nx, to.y - ny, to.x + nx, to.y + ny, r, g, bl);
   }
 }
 
@@ -25538,6 +25850,18 @@ function drawGrenadePickup(pickup, t) {
 }
 
 function drawGrenade(grenade) {
+  if (grenade.thrownGun && gunsOnly()) {
+    // The revolver tumbling end over end about its middle, stood at the
+    // floor's near edge like a fighter so the hill can't cut into it.
+    const c = Math.cos(grenade.spin), sn = Math.sin(grenade.spin), z = grenade.z || 0;
+    revolverAxis.x = c; revolverAxis.y = sn; revolverAxis.z = 0;
+    revolverUp.x = sn; revolverUp.y = -c; revolverUp.z = 0;
+    const o = { x: grenade.x - c * 14 - sn * 4, y: grenade.y - sn * 14 + c * 4, z };
+    const pin = poolOnly() ? NaN : Math.min(triangleDepth, projectPoint(grenade.x, grenade.y, worldNear + 2).z);
+    if (pin === pin) { const saved = triangleDepth; triangleDepth = pin; drawGroundSpot(grenade.x, grenade.y, z, 26); triangleDepth = saved; }
+    drawRevolver(o, revolverAxis, revolverUp, gunsOnlyAmmo - Math.min(gunsOnlyAmmo, grenade.ammo || 0), 1e12, pin);
+    return;
+  }
   if (grenade.thrownGun) {
     const c = Math.cos(grenade.spin), s = Math.sin(grenade.spin), r = 40;
     const a = projectPoint(grenade.x - c * r, grenade.y - s * r, grenade.z);
@@ -27155,6 +27479,7 @@ function gamePaint() {
   // Back to front along the lens. Records are pooled: a frame of fighters,
   // balls and debris used to allocate one object per instance per frame, and
   // the sort recomputed each depth on every comparison.
+  updateRevolverFx(run.monotonicUs);
   const renderables = renderableList;
   renderables.length = 0;
   const cam = cameraDoll.position;
@@ -27727,10 +28052,13 @@ const gameObjects = (() => {
     // What the game hands an object each tick. Seconds, world units, radians;
     // `hit` and `land` count seconds since the event (large when it never was).
     // `blink`, `hurt`, `skirt`, `glasses` and `headless` are a figure's: how its face and
-    // outfit read this tick.
+    // outfit read this tick. `cylinder`, `spent` and `cock` are the revolver's: how
+    // far its cylinder has turned (radians), how many chambers have fired, and the
+    // hammer (1 back, 0 down).
     const objectInputs = ["time", "distance", "speed", "lean", "heading",
-      "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses", "headless"];
-    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0];
+      "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses", "headless",
+      "cylinder", "spent", "cock"];
+    const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0, 0, 0, 1];
     // Switches are 0 or 1, so a baked part that reads one is baked once per value.
     const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses", "headless"]);
     // A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
@@ -29217,6 +29545,7 @@ const gameObjects = (() => {
     monowheel: "; monowheel-flat — the freeskate onewheel, drawn flat: world-anchored 2D shapes\n; with ink outlines, no lighting. The same rig as monowheel.lisp: x forward,\n; y up, z to the rider's right, the axle at the origin, a 24 radius tire.\n; Three parts bake — the shadow, the rolling wheel, the leaning deck — so a\n; tick is three SKETCH ops, and the host projects and fills the shapes.\n; Only the silhouettes (tire, deck) carry ink: the details sit on fills that\n; already contrast, and every outline doubles what the host draws.\n\ndef r 24\ndef half 13\ndef ink-edge 1.4\n\n(let roll (/ distance r))\n(let squash (* .14 (max 0 (- 1 (* land 5)))))\n(let rattle (* 2.5 (max 0 (- 1 (* hit 4))) (sin (* time 70))))\n\n; the shadow stays flat on the ground, behind everything: 103 units back is\n; the depth the game gives its own spot shadows (caster + .018), so it sits\n; on the floor the same way theirs do, in about their grey\n(nudge 103\n  (ink 54 58 66)\n  (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))\n\n(move 0 (- r) rattle\n  (rotate x lean\n    (scale (+ 1 squash) (- 1 squash) 1\n      (move 0 r 0\n        ; the wheel rolls as one: the tire (round, so turning it changes\n        ; nothing), then the face you can see — rim, web, spokes, hub\n        (rotate z (- roll)\n          (ink 40 36 48)\n          (outline ink-edge 20 16 28 (drum z r (* half 2)))\n          (toward z\n            (move 0 0 half\n              (ink (mix 214 236 turbo) (mix 216 190 turbo) (mix 226 255 turbo))\n              (ring z 17)\n              (ink 58 52 66)\n              (move 0 0 .2 (ring z 13.5))\n              (ink (mix 232 190 turbo) (mix 72 90 turbo) (mix 130 255 turbo))\n              ; spokes as flat bars: two triangles each where a round end costs eight\n              (plate -13 -1.4 .4  13 -1.4 .4  13 1.4 .4  -13 1.4 .4)\n              (plate -1.4 -13 .4  1.4 -13 .4  1.4 13 .4  -1.4 13 .4)\n              (ink 70 64 80)\n              (ball 0 0 .6 3.5))))\n        ; one deck, fore to aft, the tire poking through it; lamps at the\n        ; ends, white ahead and red behind\n        (nudge 14\n          (ink (mix 44 102 turbo) (mix 42 35 turbo) (mix 54 163 turbo))\n          (outline ink-edge 20 16 28 (slab -60 2 -19 60 8 19)))\n        (ink 240 244 250)\n        (ball 62 5 0 3.2)\n        (ink 240 70 70)\n        (ball -62 5 0 3.2)))))\n",
     figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head.\n; A limb wears one ink silhouette, not one per bone: the whole leg's or\n; arm's ink goes down first, a touch further back, and the bones fill over\n; it, so the knee and the elbow carry no line across them. The torso, the\n; skirt, the shoes and the neck keep their own edge.\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (if (not skirt)\n      (bone (hip-l 0 3 0) knee-l (+ 6.4 edge))\n      (bone (hip-r 0 3 0) knee-r (+ 6.4 edge)))\n    (bone knee-l foot-l (+ 4.8 edge))\n    (bone knee-r foot-r (+ 4.8 edge))\n    (bone shoulder-l shoulder-r (+ 4.8 edge))\n    (bone shoulder-l elbow-l (+ 4.8 edge))\n    (bone shoulder-r elbow-r (+ 4.8 edge))\n    (bone elbow-l hand-l (+ 3.7 edge))\n    (bone elbow-r hand-r (+ 3.7 edge))\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) (+ 5.2 edge))\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) (+ 5.2 edge))\n    (on hand-l (ball 0 4.6 1.5 (+ 2.4 edge)))\n    (on hand-r (ball 0 4.6 1.5 (+ 2.4 edge)))\n    (if (not skirt)\n      (bone (hip-l -2 3 0) (hip-r 2 3 0) (+ 8.5 edge))\n      (on pelvis (ball 0 -5 -5 (+ 9.5 edge)))))\n  ; the pelvis: a band across the hips that the thighs grow out of, round\n  ; end-on, so from the side the legs meet a hip and a seat rather than the\n  ; torso's edge; set a touch back so the shirt overlaps its top\n  (ink pants)\n  (if (not skirt)\n    (nudge 1\n      (bone (hip-l -2 3 0) (hip-r 2 3 0) 8.5)\n      (on pelvis (ball 0 -5 -5 9.5))))\n  ; legs: thighs from inside the pelvis unless a skirt hides them; shins\n  ; show below its hem\n  (if (not skirt)\n    (bone (hip-l 0 3 0) knee-l 6.4)\n    (bone (hip-r 0 3 0) knee-r 6.4))\n  (bone knee-l foot-l 4.8)\n  (bone knee-r foot-r 4.8))\n(outline edge 20 16 28\n  ; the neck joint sits at the shoulder line (the torso bone's top), so the\n  ; neck is a thin stem from just under it up into the head, set a touch\n  ; back so the shoulders cover its base and the head its top\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  ; the torso: a capsule whose rounded top sits under the shoulder bar (its\n  ; top centre a radius below the shoulder line), so nothing domes up above\n  ; the shoulders — that dome read as a thick neck — and wide enough that the\n  ; shoulders do not hang past it. Its hem sits under the skirt.\n  (ink shirt)\n  ; a body, not a pill: a narrower core, a chest that runs from the shoulders\n  ; in to the waist, and hips that flare back out — two convex plates so each\n  ; fans cleanly, their join hidden because edges go down behind every fill\n  (bone (neck 0 -14 0) (pelvis 0 8 0) 10)\n  (skin (shoulder-l 5 4 0) (shoulder-r -5 4 0) (pelvis -9 24 0) (pelvis 9 24 0))\n  (skin (pelvis 9 25 0) (pelvis -9 25 0) (hip-r -7 3 0) (hip-l 7 3 0))\n  (if skirt\n    ; a skirt over the hem: a waist a shade narrower than the torso, flaring\n    ; to a hem past the knees (x runs to her left hip, so +x is out on the left)\n    (ink skirt)\n    (nudge -.5 (skin (hip-l 3 6 0) (hip-r -3 6 0) (knee-r -20 -16 0) (knee-l 20 -16 0))))\n  ; shoes: a sole flat on the ground, pointing the way the body faces (the\n  ; feet's frame: x across, y the world's up, z forward), over the shin's end\n  (ink shoe)\n  (nudge -6\n    (bone (foot-l 0 -.8 -3) (foot-l 0 -1.2 9.5) 3.8)\n    (bone (foot-r 0 -.8 -3) (foot-r 0 -1.2 9.5) 3.8))\n  ; the shoulders are a bar at the sleeves' own width, one ink with the arms\n  ; (the limb silhouette above), so a sleeve continues the shoulder with no\n  ; step and no line\n  (ink shirt)\n  (outline 0\n    (bone shoulder-l shoulder-r 4.8)\n    (bone shoulder-l elbow-l 4.8)\n    (bone shoulder-r elbow-r 4.8)\n    (ink skin)\n    (bone elbow-l hand-l 3.7)\n    (bone elbow-r hand-r 3.7)\n    ; hands: a mitten that carries on from the forearm (the hand's frame:\n    ; z out along it), a thumb on top\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) 5.2)\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) 5.2)\n    (on hand-l (ball 0 4.6 1.5 2.4))\n    (on hand-r (ball 0 4.6 1.5 2.4))))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n\n)\n",
     character: "; Hand-edited figure: same joints and native palette size as figure-flat.\n; Palette: skin=head, shirt=torso, pants=left arm, skirt=right arm,\n; shoe=left leg, accent=right leg, iris=face, lip=shoes, hair=hair.\n; The compiler substitutes these two constants once per chosen face.\ndef eyes 1\ndef mouth 1\ndef edge 1.3\n\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (bone (hip-l 0 3 0) knee-l (+ 5.6 edge))\n    (bone (hip-r 0 3 0) knee-r (+ 5.6 edge))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l shoulder-r (+ 4.6 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) (+ 5.2 edge))\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) (+ 5.2 edge))\n    (on hand-l (ball 0 4.6 1.5 (+ 2.4 edge)))\n    (on hand-r (ball 0 4.6 1.5 (+ 2.4 edge))))\n  ; thighs from inside the torso's round bottom\n  (ink shoe)\n  (bone (hip-l 0 3 0) knee-l 5.6)\n  (bone knee-l foot-l 5)\n  (ink accent)\n  (bone (hip-r 0 3 0) knee-r 5.6)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  (ink shirt)\n  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)\n  ; shoes: a sole flat on the ground, pointing the way the body faces\n  ; (figure-flat.lisp), over the shin's end\n  (ink lip)\n  (nudge -6\n    (bone (foot-l 0 -.8 -3) (foot-l 0 -1.2 9.5) 3.8)\n    (bone (foot-r 0 -.8 -3) (foot-r 0 -1.2 9.5) 3.8))\n  (outline 0\n    (ink shirt)\n    (bone shoulder-l shoulder-r 4.6)\n    (ink pants)\n    (bone shoulder-l elbow-l 4.6)\n    (bone elbow-l hand-l 4)\n    ; a mitten along the forearm, a thumb on top\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) 5.2)\n    (on hand-l (ball 0 4.6 1.5 2.4))\n    (ink skirt)\n    (bone shoulder-r elbow-r 4.6)\n    (bone elbow-r hand-r 4)\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) 5.2)\n    (on hand-r (ball 0 4.6 1.5 2.4))))\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34 -.8 .4 -.25 -.86 -.3 -.3)\n    (stroke .34 .8 .4 -.25 .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2 0 1.05 -.4 .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n(on head\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  (if (> eyes 0)\n    (repeat 2 side\n      (let s (- (* side 2) 1))\n      (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 1.01\n        (surface\n          (ink iris)\n          (if hurt\n            (stroke .09 -.13 .13 0 .13 -.13 0)\n            (stroke .09 -.13 -.13 0 .13 .13 0))\n          (if (not hurt)\n            (if (or blink (= eyes 3))\n              (stroke .075 -.16 0 0 -.07 -.06 0 .07 -.06 0 .16 0 0))\n            (if (not blink)\n              (if (= eyes 1) (ring z .11))\n              (if (= eyes 2)\n                (ink 248 248 250)\n                (scale 1 1.35 1 (ring z .19))\n                (ink iris)\n                (move 0 0 .02 (ring z .09)))))))))))\n  (if (> mouth 0)\n    (rotate x .57 (move 0 0 1.01\n      (surface\n        (ink iris)\n        (if (= mouth 1) (stroke .06 -.24 .045 0 -.12 -.07 0 0 -.1 0 .12 -.07 0 .24 .045 0))\n        (if (= mouth 2) (stroke .06 -.22 0 0 .22 0 0))\n        (if (= mouth 3) (stroke .06 -.24 -.045 0 -.12 .07 0 0 .1 0 .12 .07 0 .24 -.045 0)))))))\n\n)\n",
+    revolver: "; revolver — the gun fights' six-shooter, drawn flat: world-anchored 2D shapes\n; with ink edges, no lighting, the same style as monowheel-flat.lisp.\n; Object space: x along the barrel, y up, z to the owner's right, and the\n; origin in the fist, so the bore sits where gunPose puts the muzzle (39.4\n; ahead, 15.4 up).\n; The game hands it three numbers a tick: `cylinder` (radians the cylinder\n; has turned, one sixth of a turn a shot, eased by the game), `spent` (how\n; many of its six chambers are fired) and `cock` (1 with the hammer back, 0\n; the instant it falls).\n\ndef bore 15.4\ndef axle 11\ndef pitch 4.4\ndef edge .9\n\n; the grip, raked back under the frame: walnut, a steel butt cap\n(move -2 6 0\n  (rotate z -.32\n    (ink 112 70 42)\n    (outline edge 22 14 10 (slab -4.6 -22 -3 4.2 0 3))\n    (ink 58 60 68)\n    (ball -.2 -22.4 0 3.2)))\n\n; the frame round the cylinder, behind it so the cylinder covers it: baked,\n; a slab shows its near side face, which sits nearer than the drum's middle\n(nudge 4\n  (ink 46 48 56)\n  (outline edge 12 12 16 (slab -9 4 -2.4 13 17.8 2.4)))\n\n; the barrel and the ejector rod's housing under it, a sight on the muzzle\n(ink 52 54 62)\n(outline edge 12 12 16\n  (move 27 bore 0 (drum x 3.1 28))\n  (move 21 (- bore 5.2) 0 (drum x 1.7 16)))\n(slab 36 17.6 -.8 39 20.4 .8)\n(ink 10 10 14)\n(move 40.2 bore 0 (nudge -.3 (ring x 1.3)))\n\n; trigger guard and trigger\n(ink 46 48 56)\n(stroke 1.6 1 4.2 0 2.5 -1.5 0 9 -2.2 0 12 4.2 0)\n(ink 28 28 34)\n(limb 5 4 0 7 -.5 0 .7)\n\n; the cylinder turns a sixth a shot; a chamber that has fired reads empty:\n; dark through its flute and dark at its mouth, where a loaded one shows\n; brass through the flute and a lead nose at the front\n(move 2 axle 0\n  (rotate x (- cylinder)\n    (ink 72 76 90)\n    (outline edge 12 12 16 (drum x 6.8 13))\n    (radial x 6 k\n      (let fired (< k spent))\n      (ink (mix 222 20 fired) (mix 176 18 fired) (mix 78 24 fired))\n      (nudge -.6 (limb -3.8 6.7 0 3.8 6.7 0 1.3))\n      (ink (mix 156 8 fired) (mix 150 8 fired) (mix 146 12 fired))\n      (move 6.7 pitch 0 (nudge -.3 (ring x 1.7))))))\n\n; the hammer: back when cocked, down on the frame the instant it falls\n(ink 36 36 44)\n(move -7.6 14.6 0\n  (rotate z (* .6 cock)\n    (outline edge 12 12 16 (slab -1.3 -3 -1 1.3 4 1))\n    (ball -.8 4.8 0 1.6)))\n",
   };
   // Each compiled (and baked) the first time it is asked for, not at load:
   // an object the game never draws costs nothing.
