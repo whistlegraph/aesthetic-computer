@@ -3,6 +3,7 @@
 
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { paintingWipExpired } from "../../backend/painting-wips.mjs";
 
 export async function handler(event, context) {
   if (event.httpMethod !== "GET") {
@@ -36,8 +37,8 @@ export async function handler(event, context) {
 
     await database.disconnect();
 
-    if (!painting) {
-      return respond(404, { message: "Painting not found" });
+    if (!painting || paintingWipExpired(painting)) {
+      return respond(404, { message: "Painting not found" }, { "Cache-Control": "no-store" });
     }
 
     // Return painting info
@@ -49,7 +50,10 @@ export async function handler(event, context) {
       bucket: painting.bucket,
       user: painting.user,
       nuked: painting.nuked || false,
-    });
+      ...(painting.status === "wip" ? {
+        status: "wip", width: painting.wip.width, height: painting.wip.height,
+      } : {}),
+    }, painting.status === "wip" ? { "Cache-Control": "no-store" } : {});
 
   } catch (error) {
     console.error(`❌ Get painting error:`, error);

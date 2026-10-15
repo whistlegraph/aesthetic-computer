@@ -1216,6 +1216,13 @@ app.all("/media/*rest", async (req, res) => {
       }
       if (result?.statusCode === 200) {
         const painting = JSON.parse(result.body);
+        // Draft pixels live in GridFS until Done uploads their final PNG.
+        if (painting.status === "wip") {
+          res.set("Cache-Control", "no-store");
+          if (requestedExt === "zip") return res.status(404).send("Recording available after Done");
+          return res.redirect(302,
+            `https://aesthetic.computer/api/pixel/${painting.width}x${painting.height}/${encodeURIComponent(painting.code)}.png`);
+        }
         const bucket = painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer";
         const slug = painting.slug?.split(":")[0] || painting.slug;
         // Slug may already be fully-qualified (e.g. "auth0|.../painting/TS").
