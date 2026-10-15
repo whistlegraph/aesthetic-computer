@@ -99,6 +99,9 @@ test('a committed pair composes without the vault, and an installed snapshot res
   assert.throws(() => verifyCoreRevision(w, 'HEAD'), /cutover/);
   migrate(w);
   git(['commit', '-qam', 'public cutover']);
+  const binary = Buffer.from([0, 10, 255, 13, 0, 42]);
+  put('vault/products/diary/system/diary/byte image.bin', binary);
+  put('vault/products/diary/system/diary/empty.bin', Buffer.alloc(0));
   git(['add', 'products'], w.vault); git(['commit', '-qm', 'private import'], w.vault);
   const branch = git(['branch', '--show-current'], w.vault).trim();
   git(['config', 'remote.origin.url', '.'], w.vault);
@@ -112,7 +115,9 @@ test('a committed pair composes without the vault, and an installed snapshot res
   assert.equal(pair.publicCommit, revision);
   const deployed = workspace(output);
   const before = snapshotInstalled(deployed, path.join(root, 'before'));
-  assert.equal(before.files.length, 3);
+  assert.equal(before.files.length, 5);
+  assert.deepEqual(fs.readFileSync(path.join(output, 'system/diary/byte image.bin')), binary);
+  assert.equal(fs.readFileSync(path.join(output, 'system/diary/empty.bin')).length, 0);
   put('composed/system/mime/photo.mjs', 'new broken source');
   installBundle(deployed, path.join(root, 'before'));
   assert.equal(fs.readFileSync(path.join(output, 'system/mime/photo.mjs'), 'utf8'), 'export const lines = 7;\n');
