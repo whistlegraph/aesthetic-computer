@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.0e16e46986c6.mjs",
-  "sha256": "0e16e46986c6fd80c26b78980644dddc0fb69d47e2dda6b0faa82b93c2bcd914",
-  "bytes": 1813826,
-  "sourceSha256": "8276b4d73b6012ea8f9928f3cb7a01b09ecdd706db6b87bf50044bf8d8e64e91",
+  "filename": "disk.worker.4f91fbf16332.mjs",
+  "sha256": "4f91fbf1633277150dad0d3715bd531409470c61fd4288e05f4d08fdba156228",
+  "bytes": 1814572,
+  "sourceSha256": "854b99b5493d85f038f933e53fc7cc65cf2ec834ba8e7769d7a25c36492801d9",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -59,6 +59,7 @@
     "public/aesthetic.computer/lib/restricted-api.mjs",
     "public/aesthetic.computer/lib/rich-text.mjs",
     "public/aesthetic.computer/lib/shop.mjs",
+    "public/aesthetic.computer/lib/site-metadata.mjs",
     "public/aesthetic.computer/lib/socket.mjs",
     "public/aesthetic.computer/lib/sound/sound-whitelist.mjs",
     "public/aesthetic.computer/lib/sound/wave-timbre.mjs",
