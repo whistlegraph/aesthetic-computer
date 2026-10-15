@@ -119,5 +119,13 @@
   "/api/prompts/login-passwordless/partials": {
     "status": 200,
     "body": {}
+  },
+  "/api/prompts/login-password/custom-text/en": {
+    "status": 200,
+    "body": {}
+  },
+  "/api/prompts/signup-password/custom-text/en": {
+    "status": 200,
+    "body": {}
   }
 }

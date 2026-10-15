@@ -89,7 +89,7 @@
         "title": "Aesthetic Computer",
         "description": " ",
         "footerLinkText": "Create account",
-        "pageTitle": "Log in ∙ ${clientName}"
+        "pageTitle": "Log in \u2219 ${clientName}"
       }
     },
     "login-id": {
@@ -99,6 +99,20 @@
         "buttonText": "Continue",
         "footerText": " ",
         "footerLinkText": "Create account"
+      }
+    },
+    "login-password": {
+      "login-password": {
+        "title": "Password",
+        "description": " ",
+        "footerText": " ",
+        "footerLinkText": "Create account"
+      }
+    },
+    "signup-password": {
+      "signup-password": {
+        "title": "Create account",
+        "description": " "
       }
     }
   },
