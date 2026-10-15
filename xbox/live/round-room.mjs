@@ -84,6 +84,19 @@ export class RoundRoom {
     this.wantsSeat = this.role === "challenger";
     this.seatRetryAt = 0;
     this.seat = "";
+    // When the relay seated this bridge, on the wall clock: a chair handed
+    // over a moment ago is not yet a reason to inherit a dark room.
+    this.seatedAt = 0;
+    this.seatedFrom = "";
+    // The line for the chair (relay-side). A seat-seeking bridge stands in it
+    // when the chair is taken; `line()` says whether this visitor still wants
+    // a turn and what the turn order should call them. `order` and `place`
+    // are the relay's latest word on it — null and 0 from an older relay.
+    this.lineWanted = this.wantsSeat;
+    this.lineName = "";
+    this.lineSent = "";
+    this.order = null;
+    this.place = 0;
     this.socket = null;
     // Two named slots, not one shared one. A versus room has no stored replay
     // and 404s forever, so the 1800 ms replay retry below used to hold the
@@ -136,12 +149,15 @@ export class RoundRoom {
     this.clear("reconnect");
     const generation = ++this.generation;
     const id = `ow-${this.name}`;
-    const role = this.role === "challenger" ? "&role=challenger" : "";
+    const role = this.role === "challenger" ? "&line=1&role=challenger" : "";
     const socket = new this.WebSocketImpl(
       `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}&surface=${encodeURIComponent(this.surface)}${role}`);
     this.socket = socket;
     socket.addEventListener?.("open", () => {
-      if (generation === this.generation) this.emit("status", { label: "waiting", live: false });
+      if (generation !== this.generation) return;
+      this.lineSent = "";
+      this.sendLine();
+      this.emit("status", { label: "waiting", live: false });
     });
     socket.addEventListener?.("message", (event) => {
       if (generation !== this.generation) return;
@@ -149,10 +165,25 @@ export class RoundRoom {
       try { message = JSON.parse(event.data); } catch { return; }
       if (message.type === "oskiewar:seat") {
         this.seat = String(message.content?.seat || "");
-        this.emit("seat", { seat: this.seat });
+        if (this.seat === "challenger") {
+          this.role = "challenger";
+          this.seatedAt = Date.now();
+          this.seatedFrom = String(message.content?.from || "");
+        }
+        // A turn that ended stands this bridge down in place: the socket
+        // watches on, and walks to the back of the line if it still wants
+        // to fight.
+        const turn = String(message.content?.turn || "");
+        if (turn) {
+          this.lineSent = "";
+          this.sendLine();
+        }
+        this.emit("seat", { seat: this.seat, turn });
       } else if (message.type === "oskiewar:status") {
         this.hostKnown = true;
         this.live = Boolean(message.content?.live);
+        this.order = message.content?.order || null;
+        this.place = Number(message.content?.place) || 0;
         this.emit("status", { ...message.content,
           label: this.live ? "live" : "waiting" });
         // A denied chair used to be forever: the demoted challenger watched
@@ -160,7 +191,8 @@ export class RoundRoom {
         // one room could both end up seatless. Status frames say whether the
         // second chair is held; when it frees, the walked-back challenger
         // reconnects to take it, paced so a contested chair can't flap.
-        if (this.wantsSeat && this.role === "viewer" &&
+        // A relay that keeps a line seats from it; racing it would jump it.
+        if (this.wantsSeat && this.role === "viewer" && !this.order &&
             message.content?.challenger === false) {
           const at = Date.now();
           if (at - this.seatRetryAt >= 4000) {
@@ -208,11 +240,29 @@ export class RoundRoom {
       this.socket = null;
       this.live = false;
       this.seat = "";
+      this.place = 0;
       this.loadDemo();
       this.schedule("reconnect", () => this.open(), 1200);
     };
     socket.addEventListener?.("close", closed);
     socket.addEventListener?.("error", () => socket.close?.());
+  }
+
+  // Whether this visitor wants a turn in the chair, and the name the turn
+  // order shows. Cheap to call every tick: only a change goes on the wire.
+  line(join, name = this.lineName) {
+    this.lineWanted = Boolean(join);
+    this.lineName = String(name || "");
+    this.sendLine();
+  }
+
+  sendLine() {
+    if (!this.wantsSeat || this.socket?.readyState !== 1 ||
+        typeof this.socket.send !== "function") return;
+    const text = JSON.stringify({ type: "oskiewar:line",
+      content: { join: this.lineWanted, name: this.lineName } });
+    if (text === this.lineSent) return;
+    try { this.socket.send(text); this.lineSent = text; } catch {}
   }
 
   // The challenger's presses, up to the relay and on to the publishing game.

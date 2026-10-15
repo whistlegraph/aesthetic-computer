@@ -978,6 +978,9 @@ private final class NativeGameHost {
           if (message.type === "oskiewar:viewers")
             globalThis.__oskiewarLiveAgents =
               Math.max(0, Number(content && content.agents) || 0);
+          if (message.type === "oskiewar:status" && content &&
+              typeof content === "object")
+            globalThis.__oskiewarRoomStatus = content;
           if (message.type === "oskiewar:input" && content &&
               typeof content === "object")
             globalThis.__oskiewarRemotePad =

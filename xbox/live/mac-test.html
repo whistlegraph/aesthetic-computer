@@ -1484,6 +1484,11 @@
           if (message.type === "oskiewar:viewers")
             globalThis.__oskiewarLiveAgents =
               Math.max(0, Number(message.content?.agents) || 0);
+          // The room's turn order — who holds the chair, who waits — for the
+          // host's own turn-order panel. The game checks the match id.
+          if (message.type === "oskiewar:status" && message.content &&
+              typeof message.content === "object")
+            globalThis.__oskiewarRoomStatus = message.content;
           // A challenger's pad, relayed from the second chair. Stamped with
           // the wall clock on arrival so the game can read silence as
           // absence — the two ends share no monotonic clock to compare.
@@ -1550,6 +1555,7 @@
           // linked is linked to a room that no longer exists. They have to
           // rejoin the next round's ID, and until they do the mark is off.
           globalThis.__oskiewarLiveAgents = 0;
+          globalThis.__oskiewarRoomStatus = null;
         });
         return;
       }

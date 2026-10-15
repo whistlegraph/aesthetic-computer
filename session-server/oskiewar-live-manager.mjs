@@ -53,6 +53,24 @@ const CHALLENGER_GHOST_MS = 3000;
 // in as the challenger when it wakes, by the same conflict path a lost claim
 // already uses.
 const PUBLISHER_GHOST_MS = 10000;
+// The line for the second chair. Before it, a busy room turned every extra
+// visitor into a spectator who retried the chair on a four-second timer, so
+// whoever's timer fired first after a fight won it — arrival order meant
+// nothing. Now a client that says it can queue (`line=1`) waits here in the
+// order it came, and the relay seats the head of the line the moment the
+// chair empties. The host is the room's anchor and never queues: it runs the
+// one simulation every watcher sees, so only the challenger's chair turns.
+//
+// Winner stays, up to a point. A challenger who beats the host keeps the
+// chair for the next match; one who loses steps down for the next in line.
+// After three straight wins the champion steps down anyway, or a strong
+// challenger against a weak host would hold the room against the whole line.
+const WINNER_STAYS_MAX = 3;
+// How long a chair may sit silent while somebody waits behind it. Longer than
+// the ghost window, because a visitor still at the sign-in door holds the
+// chair without sending anything, and deserves a moment; but a line must
+// never wait on a dead tab for the ping sweep's half minute.
+const LINE_CHAIR_QUIET_MS = 10000;
 // The rollback lane's own channel between the two seats: input frames with a
 // few frames of redundancy, the match-start deal, and state hashes. Small,
 // frequent, and never rate-limited — a dropped input packet is a rollback
@@ -223,6 +241,8 @@ export class OskiewarLiveManager {
     ghostSweepMs = 2000,
   } = {}) {
     this.rooms = new Map();
+    // What each seat-capable socket calls itself, and whether it can queue.
+    this.people = new WeakMap();
     this.now = now;
     this.analytics = analytics;
     if (ghostSweepMs > 0) {
@@ -244,6 +264,8 @@ export class OskiewarLiveManager {
   // which is what arms their claim.
   reapGhosts() {
     for (const room of this.rooms.values()) {
+      if (room.challenger && this.lineHead(room) &&
+          this.now() - room.challengerSeenAt > LINE_CHAIR_QUIET_MS) this.rotate(room);
       if (room.publisher?.readyState !== 1 || this.publisherLive(room)) continue;
       room.publisher.close?.(4408, "Host went quiet");
     }
@@ -269,6 +291,9 @@ export class OskiewarLiveManager {
       : requestedRole === "agent" ? "agent"
       : requestedRole === "challenger" ? "challenger" : "viewer";
     const surface = oskiewarSurface(url.searchParams.get("surface"));
+    // A client that knows the line. An older one is never queued — it keeps
+    // the 4409 it has always read, and watches.
+    const queues = url.searchParams.get("line") === "1";
     if (!matchId) {
       send(ws, "oskiewar:error", { message: "Invalid match ID" });
       ws.close?.(4400, "Invalid match ID");
@@ -287,12 +312,13 @@ export class OskiewarLiveManager {
         viewers: new Set(), agents: new Set(), state: null,
         liveStarted: false, updatedAt: this.now(), publishedAt: 0, publisherSeenAt: 0,
         nudgedAt: 0, flaggedAt: 0, inputAt: 0, inputDown: null,
-        flushTimer: null, flushedSeq: -1 };
+        flushTimer: null, flushedSeq: -1,
+        line: [], streak: 0, matchWinner: "", hostName: "" };
       this.rooms.set(matchId, room);
     }
     if (role === "publisher") this.addPublisher(room, ws, surface);
     else if (role === "agent") this.addAgent(room, ws);
-    else if (role === "challenger") this.addChallenger(room, ws, surface);
+    else if (role === "challenger") this.addChallenger(room, ws, surface, queues);
     else this.addViewer(room, ws, surface);
     return true;
   }
@@ -415,7 +441,7 @@ export class OskiewarLiveManager {
     ws.on("error", () => {});
   }
 
-  addViewer(room, ws, surface) {
+  addViewer(room, ws, surface, { queue = false } = {}) {
     if (room.viewers.size >= MAX_VIEWERS) {
       send(ws, "oskiewar:error", { message: "This match has reached 64 viewers" });
       ws.close?.(4429, "Viewer capacity reached");
@@ -428,16 +454,161 @@ export class OskiewarLiveManager {
       surface,
       viewer_state: room.publisher?.readyState === 1 ? "live" : "waiting",
     });
-    send(ws, "oskiewar:status", this.status(room));
+    const person = this.person(ws);
+    person.surface = surface;
+    if (queue) {
+      person.queues = true;
+      room.line.push(ws);
+      this.promote(room);
+    }
+    if (room.challenger === ws) {
+      send(ws, "oskiewar:seat", { matchId: room.matchId, seat: "challenger" });
+    } else send(ws, "oskiewar:status", this.statusFor(room, ws));
     if (room.state) send(ws, "oskiewar:state", room.state);
     this.announceAudience(room);
-    const remove = () => {
-      room.viewers.delete(ws);
-      room.updatedAt = this.now();
-      this.announceAudience(room);
-    };
+    if (queue) this.broadcastStatus(room);
+    // A watcher can speak now, if only to say it wants to fight; and once the
+    // line seats it, the same socket carries its presses.
+    ws.on("message", (data) => this.fromSeat(room, ws, data));
+    const remove = () => this.depart(room, ws);
     ws.on("close", remove);
     ws.on("error", remove);
+  }
+
+  person(ws) {
+    let person = this.people.get(ws);
+    if (!person) this.people.set(ws, person = { name: "", queues: false, surface: "unknown" });
+    return person;
+  }
+
+  // Whoever leaves — a watcher, someone in line, the seated challenger — goes
+  // through here once; a second call (close after error) finds nothing.
+  depart(room, ws) {
+    const watching = room.viewers.delete(ws);
+    const queued = this.unqueue(room, ws);
+    const seated = room.challenger === ws;
+    if (!watching && !queued && !seated) return;
+    if (seated) room.challenger = null;
+    room.updatedAt = this.now();
+    if (watching) this.announceAudience(room);
+    if (seated) this.promote(room);
+    if (seated || queued) this.broadcastStatus(room);
+  }
+
+  unqueue(room, ws) {
+    const at = room.line.indexOf(ws);
+    if (at < 0) return false;
+    room.line.splice(at, 1);
+    return true;
+  }
+
+  // The first open socket in line. A closed one at the head is dropped here
+  // rather than seated; its own close handler may not have run yet.
+  lineHead(room) {
+    while (room.line.length && room.line[0].readyState !== 1) room.line.shift();
+    return room.line[0] || null;
+  }
+
+  // An empty chair goes to the head of the line, on the socket it already
+  // holds: no reconnect, so nobody can slip in between.
+  promote(room) {
+    if (room.challenger?.readyState === 1) return false;
+    const ws = this.lineHead(room);
+    if (!ws) return false;
+    room.line.shift();
+    room.viewers.delete(ws);
+    room.challenger = ws;
+    room.challengerSeenAt = this.now();
+    room.inputDown = null;
+    room.streak = 0;
+    room.matchWinner = "";
+    room.updatedAt = this.now();
+    this.analytics.capture("challenger_joined", {
+      source_system: "session-server",
+      surface: this.person(ws).surface,
+      viewer_state: room.publisher?.readyState === 1 ? "live" : "waiting",
+    });
+    send(ws, "oskiewar:seat", { matchId: room.matchId, seat: "challenger", from: "line" });
+    this.announceAudience(room);
+    return true;
+  }
+
+  // The chair turns over: its holder steps down and the head of the line sits.
+  // A client that queues is stood down in place — same socket, one more
+  // watcher, and it walks to the back of the line itself if it still wants to
+  // fight. An older client knows only the refused-chair path, so it is told
+  // in the words it already reads and closed; it reconnects to watch.
+  rotate(room) {
+    const ws = room.challenger;
+    if (!ws || !this.lineHead(room)) return false;
+    room.challenger = null;
+    room.streak = 0;
+    room.matchWinner = "";
+    if (this.person(ws).queues && ws.readyState === 1) {
+      room.viewers.add(ws);
+      send(ws, "oskiewar:seat", { matchId: room.matchId, seat: "", turn: "over" });
+    } else {
+      send(ws, "oskiewar:error", { message: "Your turn in the challenger chair is over" });
+      ws.close?.(4410, "Turn over");
+    }
+    this.promote(room);
+    this.broadcastStatus(room);
+    return true;
+  }
+
+  // Whose turn it is, read off the host's own phases: a match ends when the
+  // published phase leaves "match". The winner is decided on the way in,
+  // while the scores are still the finished match's.
+  turn(room, before, state) {
+    if (state.phase === "match" && before !== "match") {
+      const [host, rival] = state.fighters;
+      room.matchWinner = rival.roundWins > host.roundWins ? "challenger" : "host";
+      return;
+    }
+    if (before !== "match" || state.phase === "match" || !room.matchWinner) return;
+    const won = room.matchWinner === "challenger";
+    room.matchWinner = "";
+    if (!room.challenger) return;
+    room.streak = won ? room.streak + 1 : 0;
+    if (won && room.streak < WINNER_STAYS_MAX) return;
+    this.rotate(room);
+  }
+
+  // A watcher's only word: join the line, or leave it. A name rides along so
+  // the turn order can say who is waiting.
+  fromSeat(room, ws, data) {
+    if (room.challenger === ws) return this.relayInput(room, ws, data);
+    if (Buffer.byteLength(data) > 256) return;
+    let message;
+    try { message = JSON.parse(data.toString()); } catch { return; }
+    if (message.type === "oskiewar:line") this.lineWish(room, ws, message.content);
+  }
+
+  lineWish(room, ws, content) {
+    if (!content || typeof content !== "object" || Array.isArray(content)) return;
+    const person = this.person(ws);
+    person.queues = true;
+    let changed = false;
+    if (typeof content.name === "string" && content.name !== person.name &&
+        (content.name === "" || FIGHTER_NAME.test(content.name))) {
+      person.name = content.name;
+      changed = room.challenger === ws || room.line.includes(ws);
+    }
+    if (room.challenger !== ws && typeof content.join === "boolean") {
+      const at = room.line.indexOf(ws);
+      if (content.join && at < 0 && room.viewers.has(ws)) {
+        room.line.push(ws);
+        this.promote(room);
+        changed = true;
+      } else if (!content.join && at >= 0) {
+        room.line.splice(at, 1);
+        changed = true;
+      }
+    }
+    if (changed) {
+      room.updatedAt = this.now();
+      this.broadcastStatus(room);
+    }
   }
 
   // A telemetry watcher: same fan-out as a phone, because the frame numbers
@@ -477,7 +648,7 @@ export class OskiewarLiveManager {
   // game, which runs the one authoritative simulation and streams the fight
   // back over the same fan-out every phone already reads. A denied seat closes
   // with 4409 so the client knows to stay and watch instead.
-  addChallenger(room, ws, surface) {
+  addChallenger(room, ws, surface, queues = false) {
     // A chair is held by whoever is still speaking from it. An open socket is
     // not that: a killed tab sends no close frame, so the seat it left stays
     // technically occupied until the shared ping sweep reaps it two misses
@@ -489,6 +660,8 @@ export class OskiewarLiveManager {
     const ghost = room.challenger &&
       this.now() - room.challengerSeenAt > CHALLENGER_GHOST_MS;
     if (room.challenger?.readyState === 1 && !ghost) {
+      // One that can queue joins the line instead of being turned away.
+      if (queues) return this.addViewer(room, ws, surface, { queue: true });
       send(ws, "oskiewar:error", { message: "This match already has a challenger" });
       ws.close?.(4409, "Challenger already seated");
       return;
@@ -498,6 +671,10 @@ export class OskiewarLiveManager {
     // Stamped before the old socket is closed, so its `remove` handler — which
     // only fires for the seat it still holds — cannot clear the new one.
     room.challengerSeenAt = this.now();
+    room.inputDown = null;
+    room.streak = 0;
+    room.matchWinner = "";
+    Object.assign(this.person(ws), { queues, surface });
     if (departing && departing !== ws) departing.close?.(4410, "Chair reclaimed");
     room.updatedAt = this.now();
     this.analytics.capture("challenger_joined", {
@@ -506,15 +683,12 @@ export class OskiewarLiveManager {
       viewer_state: room.publisher?.readyState === 1 ? "live" : "waiting",
     });
     send(ws, "oskiewar:seat", { matchId: room.matchId, seat: "challenger" });
-    send(ws, "oskiewar:status", this.status(room));
+    send(ws, "oskiewar:status", this.statusFor(room, ws));
     if (room.state) send(ws, "oskiewar:state", room.state);
-    ws.on("message", (data) => this.relayInput(room, ws, data));
-    const remove = () => {
-      if (room.challenger !== ws) return;
-      room.challenger = null;
-      room.updatedAt = this.now();
-      this.broadcastStatus(room);
-    };
+    // Through fromSeat rather than straight to relayInput: if this chair turns
+    // over, the same socket stays as a watcher and its words change meaning.
+    ws.on("message", (data) => this.fromSeat(room, ws, data));
+    const remove = () => this.depart(room, ws);
     ws.on("close", remove);
     ws.on("error", remove);
     this.broadcastStatus(room);
@@ -535,6 +709,7 @@ export class OskiewarLiveManager {
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
     if (message.type === "oskiewar:net") return this.relayNet(room, ws, message);
+    if (message.type === "oskiewar:line") return this.lineWish(room, ws, message.content);
     if (bytes > MAX_INPUT_BYTES) return;
     if (message.type !== "oskiewar:input") return;
     const input = message.content;
@@ -561,6 +736,13 @@ export class OskiewarLiveManager {
     room.inputDown = buttons;
     room.inputAt = now;
     room.updatedAt = now;
+    // A signed-in seat mails its handle with every press; the turn order
+    // shows it. A guest sends none here and names itself on the line.
+    const person = this.person(ws);
+    if (input.name && input.name !== person.name) {
+      person.name = input.name;
+      this.broadcastStatus(room);
+    }
     send(room.publisher, "oskiewar:input", { seq: input.seq,
       down: input.down, leftX: input.leftX, leftY: input.leftY,
       name: typeof input.name === "string" ? input.name : "",
@@ -674,8 +856,14 @@ export class OskiewarLiveManager {
     const now = this.now();
     room.publisherSeenAt = now;
     if (room.state && state.seq <= room.state.seq) return;
+    const before = room.state?.phase;
     room.state = state;
     room.updatedAt = now;
+    this.turn(room, before, state);
+    if (state.fighters[0].name !== room.hostName) {
+      room.hostName = state.fighters[0].name;
+      this.broadcastStatus(room);
+    }
     // The 25 ms floor coalesces a burst. It must not throw the burst away,
     // and it used to: the gate ran BEFORE the store, so of two frames landing
     // in one instant — which is exactly what a host's catch-up tick emits —
@@ -739,13 +927,39 @@ export class OskiewarLiveManager {
     return { matchId: room.matchId, live: this.publisherLive(room),
       viewers: room.viewers.size, agents: room.agents.size,
       challenger: room.challenger?.readyState === 1,
-      hasState: Boolean(room.state), updatedAt: room.updatedAt };
+      hasState: Boolean(room.state), updatedAt: room.updatedAt,
+      order: this.order(room) };
+  }
+
+  // The turn order, by name: who hosts, who holds the chair, who waits and in
+  // what order. A seat with no name yet is "" and the client calls it a guest.
+  // The chair falls back to the host's own nameplate for the second fighter
+  // (an older client names itself only through its presses).
+  order(room) {
+    const rival = room.state?.fighters?.[1]?.name || "";
+    const seated = room.challenger?.readyState === 1;
+    return {
+      host: room.publisher?.readyState === 1 ? room.hostName : "",
+      challenger: seated ? this.person(room.challenger).name ||
+        (rival === "NOBODY" ? "" : rival) : "",
+      line: room.line.filter((ws) => ws.readyState === 1)
+        .map((ws) => this.person(ws).name),
+    };
+  }
+
+  // Everyone hears the same order; each hears their own place in it (zero
+  // for anyone not in line). The host hears it too, for its own turn-order
+  // panel — an older host shell ignores a type it never asked for.
+  statusFor(room, ws, status = this.status(room)) {
+    const line = room.line.filter((entry) => entry.readyState === 1);
+    return { ...status, place: line.indexOf(ws) + 1 };
   }
 
   broadcastStatus(room) {
     const status = this.status(room);
     for (const watcher of this.watchers(room))
-      send(watcher, "oskiewar:status", status);
+      send(watcher, "oskiewar:status", this.statusFor(room, watcher, status));
+    send(room.publisher, "oskiewar:status", { ...status, place: 0 });
   }
 
   // Is this room hosted here? With more than one relay, a guest holding a
@@ -796,4 +1010,4 @@ export class OskiewarLiveManager {
 export const OSKIEWAR_LIVE_LIMITS = Object.freeze({ MAX_MESSAGE_BYTES,
   MAX_VIEWERS, MAX_AGENTS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS,
   MAX_INPUT_BYTES, MIN_INPUT_INTERVAL_MS, MAX_NET_BYTES,
-  CHALLENGER_GHOST_MS, PUBLISHER_GHOST_MS });
+  CHALLENGER_GHOST_MS, PUBLISHER_GHOST_MS, WINNER_STAYS_MAX, LINE_CHAIR_QUIET_MS });
