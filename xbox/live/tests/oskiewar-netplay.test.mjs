@@ -89,7 +89,8 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          seriesId: replay.seriesId, startedMonotonicUs: replay.startedMonotonicUs } : null,
        fighters: () => players.map((player) => ({ name: player.name,
          x: player.x, y: player.y, alive: player.alive, score: player.score,
-         roundWins: player.roundWins, remote: player.remote, gunAmmo: player.gunAmmo })),
+         roundWins: player.roundWins, remote: player.remote, gunAmmo: player.gunAmmo,
+         skateboard: !!player.skateboard, grounded: !!player.grounded })),
        gunArena: () => ({ on: gunArenaOn, centre: gunsOnlyCenterX(), crest: gunHillTopY(), roof: dojoRoofY,
          pistol: gunPickups[0] ? { x: gunPickups[0].x, y: gunPickups[0].y, active: gunPickups[0].active } : null,
          board: (() => { const b = balls.find((ball) => ball.type === "skateboard"); return b ? { x: b.x, y: b.y, active: b.active } : null; })(),
@@ -308,6 +309,68 @@ test("the gun arena: board on the hill, pistol only reachable with a jump", () =
     armed = jumper.fight.fighters()[0].gunAmmo > 0;
   }
   assert.ok(armed, "a jump at the crest takes it");
+});
+
+// The board on the gun hill (2026-10-15): a fighter could get on it but not
+// off. Let go on the slope, the board rolled back under their feet and put
+// them straight back on it; let go standing still, the same; and a rider
+// who rolled into a wall too slowly to ride it was held against it for half
+// a minute by the board's own roll.
+test("the gun hill's board: mount it, ride off the hill, step off and walk away", () => {
+  const seat = createSeat();
+  seat.fight.startVersus();
+  seat.tick();
+  const arena = seat.fight.gunArena();
+  const me = () => seat.fight.fighters()[0];
+  const ticks = (count, ...buttons) => { seat.press(...buttons); for (let k = 0; k < count; k++) seat.tick(); };
+  // Double DOWN lets go of the board (directionTap): a tap, a release held
+  // past doubleTapReleaseUs, and a second tap inside doubleTapUs.
+  const letGo = () => { ticks(2, "ArrowDown"); ticks(3); ticks(2, "ArrowDown"); ticks(1); };
+  const onHill = (x) => x > arena.centre - 180 && x < arena.centre + 180;
+  let frame = 0;
+  for (; frame < 200 && !me().skateboard; frame++) ticks(1, "ArrowRight");
+  assert.ok(me().skateboard, "walking up the hill gets on the board");
+  assert.ok(onHill(me().x), `it is mounted on the hill's slope (x ${Math.round(me().x)})`);
+  // Let go at once, on the slope: the board rolls away and stays let go of.
+  letGo();
+  assert.equal(me().skateboard, false, "double DOWN lets go of it on the slope");
+  for (frame = 0; frame < 90; frame++) {
+    ticks(1);
+    assert.equal(me().skateboard, false, `standing on the slope does not climb back on (frame ${frame})`);
+  }
+  const loose = seat.fight.gunArena().board;
+  assert.ok(loose.active, "the board is loose");
+  // Walk after it: once clear of it, walking into it gets back on.
+  const toward = loose.x < me().x ? "ArrowLeft" : "ArrowRight";
+  for (frame = 0; frame < 240 && !me().skateboard; frame++) ticks(1, toward);
+  assert.ok(me().skateboard, "walking back into the loose board gets on it again");
+  // Ride: off the hill, onto the flat, and to a stop.
+  let offHill = false;
+  for (frame = 0; frame < 600 && !offHill; frame++) {
+    ticks(1);
+    offHill = !onHill(me().x) && me().grounded;
+  }
+  assert.ok(offHill, `the board rides off the hill (x ${Math.round(me().x)})`);
+  ticks(120);
+  assert.ok(me().skateboard && me().grounded, "still riding, on the ground");
+  const restX = me().x;
+  ticks(30);
+  assert.ok(Math.abs(me().x - restX) < 40, "an idle rider comes to rest rather than pinned rolling into a wall");
+  // Let go standing still on the flat, then walk away from it.
+  letGo();
+  assert.equal(me().skateboard, false, "double DOWN lets go of it on the flat");
+  for (frame = 0; frame < 60; frame++) {
+    ticks(1);
+    assert.equal(me().skateboard, false, `standing still does not climb back on (frame ${frame})`);
+  }
+  const away = me().x < arena.centre ? "ArrowRight" : "ArrowLeft";
+  const from = me().x;
+  ticks(60, away);
+  assert.equal(me().skateboard, false, "walking away leaves the board behind");
+  assert.ok(Math.abs(me().x - from) > 120, `the fighter walks away (moved ${Math.round(Math.abs(me().x - from))})`);
+  ticks(4, "ArrowUp");
+  ticks(6);
+  assert.equal(me().grounded, false, "and can jump");
 });
 
 test("a snapshot restores the sim exactly: replaying the same pads reproduces the same state", () => {

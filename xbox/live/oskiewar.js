@@ -13666,10 +13666,15 @@ function updateBall(ball, dt, now) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
-    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
+    // Its rider is clear of a board let go of once off both ends of the deck
+    // and out of reach — a swinging leg alone dips out of reach mid-stride.
+    const mine = ball.releasedBy === player.pad;
+    const clear = () => { if (mine && Math.hypot(ball.x - player.x, (ball.z || 0) - (player.z || 0)) > deckHalf)
+      ball.underReleaser = false; };
+    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) { clear(); continue; }
     // A board its rider has just let go of passes through them for a moment
     // instead of being booted, bounced or caught against their own feet.
-    if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
+    if (mine && now - (ball.releasedAt || 0) < 200000) continue;
     if (player.blocking) {
       const guard = boxesAt(player, now).guard[0];
       const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
@@ -13698,7 +13703,17 @@ function updateBall(ball, dt, now) {
     const bodyContact = runnerContactToPoint(player, poseTime,
       touchX, ball.y, ball.z, boxesAt);
     const bodyDistance = bodyContact.bodyDistance;
-    if (Math.min(headDistance, bodyDistance) > reach) continue;
+    if (Math.min(headDistance, bodyDistance) > reach) { clear(); continue; }
+    // Let go of on the ground, a board lies under its rider's feet — and on
+    // the gun hill it rolls back under them. Touch alone used to put them
+    // straight back on it a fifth of a second later, so nobody could step off
+    // on a slope or standing still. It passes under them now until they have
+    // stepped clear of it, or come down onto it from the air.
+    if (mine && ball.underReleaser && (player.grounded || player.vy < 0)) continue;
+    // Walking away from a board, a heel brushing its end is not stepping on:
+    // it put the fighter on a deck a body length behind them.
+    if (boardBall && player.grounded && Math.abs(ball.x - player.x) > deckHalf &&
+        (ball.x - player.x) * (player.vx - ball.vx) <= 0) continue;
     // Its own rider can catch a released board at any speed — but not in the
     // first fifth of a second, while it still lies against their feet.
     const released = ball.releasedBy === player.pad;
@@ -13714,6 +13729,7 @@ function updateBall(ball, dt, now) {
         // let go of is the exception: landing back on it is the point.
         (released ? ownRelease : Math.hypot(ball.vx, ball.vy) < 900)) {
       ball.releasedBy = -1;
+      ball.underReleaser = false;
       resetSkate(player);
       player.skateboard = true;
       player.skateBoardId = balls.indexOf(ball);
@@ -13873,6 +13889,7 @@ function directionTap(player, direction, now) {
         board.lastHitBy = -1;
         board.releasedBy = player.pad;
         board.releasedAt = now;
+        board.underReleaser = true;
         board.x = player.x;
         board.y = player.y - skateAxleDrop - skateWheelRadius;
         board.z = player.z;
@@ -19868,7 +19885,10 @@ function resolveRunnerBounds(player, t) {
       player.vx = 0;
       playDrum("block", .52, panPlayer(player));
       emitSignal("skate-wallride", player.pad, -1, Math.abs(player.skateVx));
-    }
+    } else if (player.skateboard && player.grounded && !player.skateWallSide)
+      // Too slow to ride the wall, the board stops against it. Its roll used
+      // to keep pressing into the wall for half a minute, pinning the rider.
+      player.skateVx = Math.max(0, player.skateVx);
     player.vx = Math.max(0, player.vx);
     player.knockVx = Math.max(0, player.knockVx);
     player.dashUntil = 0;
@@ -19884,7 +19904,8 @@ function resolveRunnerBounds(player, t) {
       player.vx = 0;
       playDrum("block", .52, panPlayer(player));
       emitSignal("skate-wallride", player.pad, 1, Math.abs(player.skateVx));
-    }
+    } else if (player.skateboard && player.grounded && !player.skateWallSide)
+      player.skateVx = Math.min(0, player.skateVx);
     player.vx = Math.min(0, player.vx);
     player.knockVx = Math.min(0, player.knockVx);
     player.dashUntil = 0;
@@ -28766,6 +28787,56 @@ const gameObjects = (() => {
     }
 
     // ——— flat figures, drawn here ———
+    // Where a figure's joints hang their shapes. The head has its own frame (in
+    // head radii); the arms, neck and shoulders the chest's, which faces as the
+    // head looks, so a decal on the shirt stays toward the lens. The rest are
+    // the limbs' own, so a foot points the way the body faces and a hand along
+    // its forearm:
+    //   pelvis, hips, knees: the body's — across the hips, up the spine, and
+    //     forward square to both (the way the fighter faces, not the head);
+    //   feet: the ground's — up is the world's, forward the body's laid flat;
+    //   hands: the forearm's — forward from the elbow out through the hand.
+    // Each is 10 numbers: x axis, y axis, z axis, scale.
+    function figureFrameOf(j, H, C, B, F, L, R) {
+      return j === 0 ? H : j === 8 ? L : j === 9 ? R : j === 14 || j === 15 ? F
+        : j === 3 || (j >= 10 && j <= 13) ? B : j >= 2 ? C : null;
+    }
+    function figureLimbFrames(J, C, B, F, L, R) {
+      // The body: x and y the chest's, z = y × x, the way the hips face.
+      let fx = C[4] * C[2] - C[5] * C[1], fy = C[5] * C[0] - C[3] * C[2], fz = C[3] * C[1] - C[4] * C[0];
+      let fl = Math.hypot(fx, fy, fz);
+      if (fl < 1e-6) { fx = C[6]; fy = C[7]; fz = C[8]; fl = 1; }
+      fx /= fl; fy /= fl; fz /= fl;
+      B[0] = C[0]; B[1] = C[1]; B[2] = C[2]; B[3] = C[3]; B[4] = C[4]; B[5] = C[5];
+      B[6] = fx; B[7] = fy; B[8] = fz; B[9] = 1;
+      // The ground (world up is -y): forward laid flat, across = forward × up.
+      let gx = fx, gz = fz, gl = Math.hypot(gx, gz);
+      if (gl < 1e-6) { gx = C[6]; gz = C[8]; gl = Math.hypot(gx, gz); }
+      if (gl < 1e-6) { gx = 0; gz = 1; gl = 1; }
+      gx /= gl; gz /= gl;
+      F[0] = gz; F[1] = 0; F[2] = -gx; F[3] = 0; F[4] = -1; F[5] = 0; F[6] = gx; F[7] = 0; F[8] = gz; F[9] = 1;
+      handFrame(J, B, L, 8, 6);
+      handFrame(J, B, R, 9, 7);
+    }
+    // A hand: forward along the forearm (the body's forward if the arm has no
+    // length), up the spine squared to it, x = z × y as the chest's is.
+    function handFrame(J, B, D, hand, elbow) {
+      let ax = J[hand * 3] - J[elbow * 3], ay = J[hand * 3 + 1] - J[elbow * 3 + 1], az = J[hand * 3 + 2] - J[elbow * 3 + 2];
+      let al = Math.hypot(ax, ay, az);
+      if (!(al > 1e-6)) { ax = B[6]; ay = B[7]; az = B[8]; al = 1; }
+      ax /= al; ay /= al; az /= al;
+      // Up the spine squared to the forearm; an arm along the spine takes the
+      // body's forward instead, so a hanging hand's thumb points ahead.
+      let ux = B[3], uy = B[4], uz = B[5], along = ux * ax + uy * ay + uz * az;
+      let vx = ux - ax * along, vy = uy - ay * along, vz = uz - az * along, vl = Math.hypot(vx, vy, vz);
+      if (vl < 1e-6) {
+        ux = B[6]; uy = B[7]; uz = B[8]; along = ux * ax + uy * ay + uz * az;
+        vx = ux - ax * along; vy = uy - ay * along; vz = uz - az * along; vl = Math.hypot(vx, vy, vz) || 1;
+      }
+      vx /= vl; vy /= vl; vz /= vl;
+      D[0] = ay * vz - az * vy; D[1] = az * vx - ax * vz; D[2] = ax * vy - ay * vx;
+      D[3] = vx; D[4] = vy; D[5] = vz; D[6] = ax; D[7] = ay; D[8] = az; D[9] = 1;
+    }
     // The FIGURE op's work for a host without a frame program (the console
     // before R6, the harness): the same resolution frame-vm.mjs does — each
     // anchor a joint plus an offset, in the head's frame and radii on the head —
@@ -28779,7 +28850,8 @@ const gameObjects = (() => {
     };
     // Scratch for every figure drawn: a fighter is ~60 shapes a frame, and each
     // used to allocate its points, turned offsets and colours as fresh arrays.
-    const figHead = new Float64Array(10), figChest = new Float64Array(10);
+    const figHead = new Float64Array(10), figChest = new Float64Array(10), figBody = new Float64Array(10);
+    const figFoot = new Float64Array(10), figHandL = new Float64Array(10), figHandR = new Float64Array(10);
     const figP = new Float64Array(16), figFirst = new Float64Array(3), figB = new Float64Array(3);
     const figU = new Float64Array(3), figW = new Float64Array(3), figN = new Float64Array(3);
     const figPoly = [];
@@ -28832,7 +28904,8 @@ const gameObjects = (() => {
       else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
       const C = figChest;
       C[0] = sx; C[1] = sy; C[2] = sz; C[3] = ux; C[4] = uy; C[5] = uz; C[6] = cx; C[7] = cy; C[8] = cz; C[9] = 1;
-      const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
+      figureLimbFrames(J, C, figBody, figFoot, figHandL, figHandR);
+      const frameOf = (j) => figureFrameOf(j, H, C, figBody, figFoot, figHandL, figHandR);
       // An offset turned into joint j's frame, written to dst.
       const turn = (j, x, y, z, dst) => {
         const F = frameOf(j);
@@ -28896,7 +28969,7 @@ const gameObjects = (() => {
       }
       out.outline(0, 0, 0, 0);
     }
-    return { objectInputs, figureJoints, figurePalette, objectLevels, objectLight, read, compile, drawFigureShapes };
+    return { objectInputs, figureJoints, figurePalette, objectLevels, objectLight, read, compile, figureFrameOf, figureLimbFrames, drawFigureShapes };
   })();
   const owLisp = (() => {
     // ow.mjs — the .ow package: an oskiewar level, objects, or both, in one text
@@ -29142,8 +29215,8 @@ const gameObjects = (() => {
   })();
   const sources = {
     monowheel: "; monowheel-flat — the freeskate onewheel, drawn flat: world-anchored 2D shapes\n; with ink outlines, no lighting. The same rig as monowheel.lisp: x forward,\n; y up, z to the rider's right, the axle at the origin, a 24 radius tire.\n; Three parts bake — the shadow, the rolling wheel, the leaning deck — so a\n; tick is three SKETCH ops, and the host projects and fills the shapes.\n; Only the silhouettes (tire, deck) carry ink: the details sit on fills that\n; already contrast, and every outline doubles what the host draws.\n\ndef r 24\ndef half 13\ndef ink-edge 1.4\n\n(let roll (/ distance r))\n(let squash (* .14 (max 0 (- 1 (* land 5)))))\n(let rattle (* 2.5 (max 0 (- 1 (* hit 4))) (sin (* time 70))))\n\n; the shadow stays flat on the ground, behind everything: 103 units back is\n; the depth the game gives its own spot shadows (caster + .018), so it sits\n; on the floor the same way theirs do, in about their grey\n(nudge 103\n  (ink 54 58 66)\n  (move 0 (- r) 0 (scale 2.7 1 .8 (ring y 22))))\n\n(move 0 (- r) rattle\n  (rotate x lean\n    (scale (+ 1 squash) (- 1 squash) 1\n      (move 0 r 0\n        ; the wheel rolls as one: the tire (round, so turning it changes\n        ; nothing), then the face you can see — rim, web, spokes, hub\n        (rotate z (- roll)\n          (ink 40 36 48)\n          (outline ink-edge 20 16 28 (drum z r (* half 2)))\n          (toward z\n            (move 0 0 half\n              (ink (mix 214 236 turbo) (mix 216 190 turbo) (mix 226 255 turbo))\n              (ring z 17)\n              (ink 58 52 66)\n              (move 0 0 .2 (ring z 13.5))\n              (ink (mix 232 190 turbo) (mix 72 90 turbo) (mix 130 255 turbo))\n              ; spokes as flat bars: two triangles each where a round end costs eight\n              (plate -13 -1.4 .4  13 -1.4 .4  13 1.4 .4  -13 1.4 .4)\n              (plate -1.4 -13 .4  1.4 -13 .4  1.4 13 .4  -1.4 13 .4)\n              (ink 70 64 80)\n              (ball 0 0 .6 3.5))))\n        ; one deck, fore to aft, the tire poking through it; lamps at the\n        ; ends, white ahead and red behind\n        (nudge 14\n          (ink (mix 44 102 turbo) (mix 42 35 turbo) (mix 54 163 turbo))\n          (outline ink-edge 20 16 28 (slab -60 2 -19 60 8 19)))\n        (ink 240 244 250)\n        (ball 62 5 0 3.2)\n        (ink 240 70 70)\n        (ball -62 5 0 3.2)))))\n",
-    figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head.\n; A limb wears one ink silhouette, not one per bone: the whole leg's or\n; arm's ink goes down first, a touch further back, and the bones fill over\n; it, so the knee and the elbow carry no line across them. The torso, the\n; skirt, the shoes and the neck keep their own edge.\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (if (not skirt)\n      (bone hip-l knee-l (+ 6.4 edge))\n      (bone hip-r knee-r (+ 6.4 edge)))\n    (bone knee-l foot-l (+ 4.8 edge))\n    (bone knee-r foot-r (+ 4.8 edge))\n    (bone shoulder-l shoulder-r (+ 4.8 edge))\n    (bone shoulder-l elbow-l (+ 4.8 edge))\n    (bone shoulder-r elbow-r (+ 4.8 edge))\n    (bone elbow-l hand-l (+ 3.7 edge))\n    (bone elbow-r hand-r (+ 3.7 edge))\n    (on hand-l (ball 0 0 0 (+ 4.6 edge)))\n    (on hand-r (ball 0 0 0 (+ 4.6 edge))))\n  ; legs: thighs unless a skirt hides them; shins show below its hem\n  (ink pants)\n  (if (not skirt)\n    (bone hip-l knee-l 6.4)\n    (bone hip-r knee-r 6.4))\n  (bone knee-l foot-l 4.8)\n  (bone knee-r foot-r 4.8))\n(outline edge 20 16 28\n  ; the neck joint sits at the shoulder line (the torso bone's top), so the\n  ; neck is a thin stem from just under it up into the head, set a touch\n  ; back so the shoulders cover its base and the head its top\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  ; the torso: a capsule whose rounded top sits under the shoulder bar (its\n  ; top centre a radius below the shoulder line), so nothing domes up above\n  ; the shoulders — that dome read as a thick neck — and wide enough that the\n  ; shoulders do not hang past it. Its hem sits under the skirt.\n  (ink shirt)\n  ; a body, not a pill: a narrower core, a chest that runs from the shoulders\n  ; in to the waist, and hips that flare back out — two convex plates so each\n  ; fans cleanly, their join hidden because edges go down behind every fill\n  (bone (neck 0 -14 0) (pelvis 0 8 0) 10)\n  (skin (shoulder-l 5 4 0) (shoulder-r -5 4 0) (pelvis -9 24 0) (pelvis 9 24 0))\n  (skin (pelvis 9 25 0) (pelvis -9 25 0) (hip-r -8 -2 0) (hip-l 8 -2 0))\n  (if skirt\n    ; a skirt over the hem: a waist a shade narrower than the torso, flaring\n    ; to a hem past the knees (x runs to her left hip, so +x is out on the left)\n    (ink skirt)\n    (nudge -.5 (skin (hip-l 3 6 0) (hip-r -3 6 0) (knee-r -20 -16 0) (knee-l 20 -16 0))))\n  (ink shoe)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  ; the shoulders are a bar at the sleeves' own width, one ink with the arms\n  ; (the limb silhouette above), so a sleeve continues the shoulder with no\n  ; step and no line\n  (ink shirt)\n  (outline 0\n    (bone shoulder-l shoulder-r 4.8)\n    (bone shoulder-l elbow-l 4.8)\n    (bone shoulder-r elbow-r 4.8)\n    (ink skin)\n    (bone elbow-l hand-l 3.7)\n    (bone elbow-r hand-r 3.7)\n    (on hand-l (ball 0 0 0 4.6))\n    (on hand-r (ball 0 0 0 4.6))))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n\n)\n",
-    character: "; Hand-edited figure: same joints and native palette size as figure-flat.\n; Palette: skin=head, shirt=torso, pants=left arm, skirt=right arm,\n; shoe=left leg, accent=right leg, iris=face, lip=shoes, hair=hair.\n; The compiler substitutes these two constants once per chosen face.\ndef eyes 1\ndef mouth 1\ndef edge 1.3\n\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (bone hip-l knee-l (+ 5.6 edge))\n    (bone hip-r knee-r (+ 5.6 edge))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l shoulder-r (+ 4.6 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (on hand-l (ball 0 0 0 (+ 4.6 edge)))\n    (on hand-r (ball 0 0 0 (+ 4.6 edge))))\n  (ink shoe)\n  (bone hip-l knee-l 5.6)\n  (bone knee-l foot-l 5)\n  (ink accent)\n  (bone hip-r knee-r 5.6)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  (ink shirt)\n  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)\n  (ink lip)\n  (on foot-l (ball 0 0 0 5.4))\n  (on foot-r (ball 0 0 0 5.4))\n  (outline 0\n    (ink shirt)\n    (bone shoulder-l shoulder-r 4.6)\n    (ink pants)\n    (bone shoulder-l elbow-l 4.6)\n    (bone elbow-l hand-l 4)\n    (on hand-l (ball 0 0 0 4.6))\n    (ink skirt)\n    (bone shoulder-r elbow-r 4.6)\n    (bone elbow-r hand-r 4)\n    (on hand-r (ball 0 0 0 4.6))))\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34 -.8 .4 -.25 -.86 -.3 -.3)\n    (stroke .34 .8 .4 -.25 .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2 0 1.05 -.4 .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n(on head\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  (if (> eyes 0)\n    (repeat 2 side\n      (let s (- (* side 2) 1))\n      (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 1.01\n        (surface\n          (ink iris)\n          (if hurt\n            (stroke .09 -.13 .13 0 .13 -.13 0)\n            (stroke .09 -.13 -.13 0 .13 .13 0))\n          (if (not hurt)\n            (if (or blink (= eyes 3))\n              (stroke .075 -.16 0 0 -.07 -.06 0 .07 -.06 0 .16 0 0))\n            (if (not blink)\n              (if (= eyes 1) (ring z .11))\n              (if (= eyes 2)\n                (ink 248 248 250)\n                (scale 1 1.35 1 (ring z .19))\n                (ink iris)\n                (move 0 0 .02 (ring z .09)))))))))))\n  (if (> mouth 0)\n    (rotate x .57 (move 0 0 1.01\n      (surface\n        (ink iris)\n        (if (= mouth 1) (stroke .06 -.24 .045 0 -.12 -.07 0 0 -.1 0 .12 -.07 0 .24 .045 0))\n        (if (= mouth 2) (stroke .06 -.22 0 0 .22 0 0))\n        (if (= mouth 3) (stroke .06 -.24 -.045 0 -.12 .07 0 0 .1 0 .12 .07 0 .24 -.045 0)))))))\n\n)\n",
+    figure: "; figure-flat — an oskiewar fighter drawn flat: shapes hung on the pose's\n; joints, which the game hands over every tick (a FIGURE op), inked on the\n; silhouette. Colours are palette slots a player's LOOK fills, so one baked\n; sketch dresses everyone. Limbs are bones between joints, so an arm bends at\n; the elbow for free. The face is the trio face (drawTrioFace in oskiewar.js):\n; each feature sits on the head's sphere at the same longitude and latitude,\n; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it\n; turns with the head and passes out of sight round the back.\n; Switches: blink, hurt (X eyes), skirt, glasses.\n\ndef edge 1.3\ndef face-edge .075\n\n; the body, back to front as depth sorts it: legs, torso, arms, head.\n; A limb wears one ink silhouette, not one per bone: the whole leg's or\n; arm's ink goes down first, a touch further back, and the bones fill over\n; it, so the knee and the elbow carry no line across them. The torso, the\n; skirt, the shoes and the neck keep their own edge.\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (if (not skirt)\n      (bone (hip-l 0 3 0) knee-l (+ 6.4 edge))\n      (bone (hip-r 0 3 0) knee-r (+ 6.4 edge)))\n    (bone knee-l foot-l (+ 4.8 edge))\n    (bone knee-r foot-r (+ 4.8 edge))\n    (bone shoulder-l shoulder-r (+ 4.8 edge))\n    (bone shoulder-l elbow-l (+ 4.8 edge))\n    (bone shoulder-r elbow-r (+ 4.8 edge))\n    (bone elbow-l hand-l (+ 3.7 edge))\n    (bone elbow-r hand-r (+ 3.7 edge))\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) (+ 5.2 edge))\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) (+ 5.2 edge))\n    (on hand-l (ball 0 4.6 1.5 (+ 2.4 edge)))\n    (on hand-r (ball 0 4.6 1.5 (+ 2.4 edge)))\n    (if (not skirt)\n      (bone (hip-l -2 3 0) (hip-r 2 3 0) (+ 8.5 edge))\n      (on pelvis (ball 0 -5 -5 (+ 9.5 edge)))))\n  ; the pelvis: a band across the hips that the thighs grow out of, round\n  ; end-on, so from the side the legs meet a hip and a seat rather than the\n  ; torso's edge; set a touch back so the shirt overlaps its top\n  (ink pants)\n  (if (not skirt)\n    (nudge 1\n      (bone (hip-l -2 3 0) (hip-r 2 3 0) 8.5)\n      (on pelvis (ball 0 -5 -5 9.5))))\n  ; legs: thighs from inside the pelvis unless a skirt hides them; shins\n  ; show below its hem\n  (if (not skirt)\n    (bone (hip-l 0 3 0) knee-l 6.4)\n    (bone (hip-r 0 3 0) knee-r 6.4))\n  (bone knee-l foot-l 4.8)\n  (bone knee-r foot-r 4.8))\n(outline edge 20 16 28\n  ; the neck joint sits at the shoulder line (the torso bone's top), so the\n  ; neck is a thin stem from just under it up into the head, set a touch\n  ; back so the shoulders cover its base and the head its top\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  ; the torso: a capsule whose rounded top sits under the shoulder bar (its\n  ; top centre a radius below the shoulder line), so nothing domes up above\n  ; the shoulders — that dome read as a thick neck — and wide enough that the\n  ; shoulders do not hang past it. Its hem sits under the skirt.\n  (ink shirt)\n  ; a body, not a pill: a narrower core, a chest that runs from the shoulders\n  ; in to the waist, and hips that flare back out — two convex plates so each\n  ; fans cleanly, their join hidden because edges go down behind every fill\n  (bone (neck 0 -14 0) (pelvis 0 8 0) 10)\n  (skin (shoulder-l 5 4 0) (shoulder-r -5 4 0) (pelvis -9 24 0) (pelvis 9 24 0))\n  (skin (pelvis 9 25 0) (pelvis -9 25 0) (hip-r -7 3 0) (hip-l 7 3 0))\n  (if skirt\n    ; a skirt over the hem: a waist a shade narrower than the torso, flaring\n    ; to a hem past the knees (x runs to her left hip, so +x is out on the left)\n    (ink skirt)\n    (nudge -.5 (skin (hip-l 3 6 0) (hip-r -3 6 0) (knee-r -20 -16 0) (knee-l 20 -16 0))))\n  ; shoes: a sole flat on the ground, pointing the way the body faces (the\n  ; feet's frame: x across, y the world's up, z forward), over the shin's end\n  (ink shoe)\n  (nudge -6\n    (bone (foot-l 0 -.8 -3) (foot-l 0 -1.2 9.5) 3.8)\n    (bone (foot-r 0 -.8 -3) (foot-r 0 -1.2 9.5) 3.8))\n  ; the shoulders are a bar at the sleeves' own width, one ink with the arms\n  ; (the limb silhouette above), so a sleeve continues the shoulder with no\n  ; step and no line\n  (ink shirt)\n  (outline 0\n    (bone shoulder-l shoulder-r 4.8)\n    (bone shoulder-l elbow-l 4.8)\n    (bone shoulder-r elbow-r 4.8)\n    (ink skin)\n    (bone elbow-l hand-l 3.7)\n    (bone elbow-r hand-r 3.7)\n    ; hands: a mitten that carries on from the forearm (the hand's frame:\n    ; z out along it), a thumb on top\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) 5.2)\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) 5.2)\n    (on hand-l (ball 0 4.6 1.5 2.4))\n    (on hand-r (ball 0 4.6 1.5 2.4))))\n\n; the chest's decals, flat on the shirt's front (the neck joint's frame:\n; x right, y up the spine, z forward): a heart and a daisy\n(on neck\n  (surface\n    (ink 255 70 120)\n    (ball -7.5 -12 14.5 2.6)\n    (ball -3.5 -12 14.5 2.6)\n    (plate -10 -12.8 14.5  -1 -12.8 14.5  -5.5 -18 14.5)\n    (ink 255 255 255)\n    (repeat 5 k\n      (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))\n    (ink 250 205 60)\n    (ball 5 -19 14.8 1.3)))\n\n; the head, inked in head radii like everything hung on it\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    ; hair behind the head, so the face shows in front and a cap round it,\n    ; locks falling past the temples, a knot on top with its tail\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34  -.8 .4 -.25  -.86 -.3 -.3)\n    (stroke .34  .8 .4 -.25  .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2  0 1.05 -.4  .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n\n(on head\n  ; the fringe, a cap of hair over the brow\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  ; blush\n  (ink blush)\n  (repeat 2 side\n    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97\n      (surface (scale 1 .55 1 (ring z .2)))))))\n  ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;\n  ; the brow at a curious tilt. Blinking, a lid; hurt, an X.\n  (repeat 2 side\n    (let s (- (* side 2) 1))\n    (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 .97\n      (surface\n        (if (and (not blink) (not hurt))\n          (if glasses\n            ; a round frame: a dark ring, the lens in skin inside it\n            (ink 24 18 26)\n            (move 0 0 -.03 (scale 1 1.12 1 (ring z .3)))\n            (ink skin)\n            (move 0 0 -.02 (scale 1 1.12 1 (ring z .255))))\n          (outline face-edge 24 18 26\n            (ink 248 248 250)\n            (scale 1 1.67 1 (ring z .162)))\n          (ink iris)\n          (move 0 0 .02 (ring z .082))\n          (ink 6 6 10)\n          (move 0 0 .03 (ring z .05))\n          (ink 255 255 255)\n          (move -.02 .035 .04 (ring z .023))\n          (ink 24 18 26)\n          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)\n          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)\n          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))\n        (if blink\n          (ink 24 18 26)\n          (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))\n        (if hurt\n          (ink 24 18 26)\n          (stroke .09  -.13 .13 .02  .13 -.13 .02)\n          (stroke .09  -.13 -.13 .02  .13 .13 .02))\n        (ink 24 18 26)\n        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))\n  ; glasses' bridge\n  (if glasses\n    (ink 24 18 26)\n    (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))\n  ; nose and mouth: a small check, pink lips with the far corner lifted\n  (ink 24 18 26)\n  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))\n  (rotate x .57 (move 0 0 .95 (surface\n    (ink lip)\n    (scale 1 .38 1 (ring z .24))\n    (ink 24 18 26)\n    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))\n\n)\n",
+    character: "; Hand-edited figure: same joints and native palette size as figure-flat.\n; Palette: skin=head, shirt=torso, pants=left arm, skirt=right arm,\n; shoe=left leg, accent=right leg, iris=face, lip=shoes, hair=hair.\n; The compiler substitutes these two constants once per chosen face.\ndef eyes 1\ndef mouth 1\ndef edge 1.3\n\n(outline 0\n  (ink 20 16 28)\n  (nudge 1\n    (bone (hip-l 0 3 0) knee-l (+ 5.6 edge))\n    (bone (hip-r 0 3 0) knee-r (+ 5.6 edge))\n    (bone knee-l foot-l (+ 5 edge))\n    (bone knee-r foot-r (+ 5 edge))\n    (bone shoulder-l shoulder-r (+ 4.6 edge))\n    (bone shoulder-l elbow-l (+ 4.6 edge))\n    (bone shoulder-r elbow-r (+ 4.6 edge))\n    (bone elbow-l hand-l (+ 4 edge))\n    (bone elbow-r hand-r (+ 4 edge))\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) (+ 5.2 edge))\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) (+ 5.2 edge))\n    (on hand-l (ball 0 4.6 1.5 (+ 2.4 edge)))\n    (on hand-r (ball 0 4.6 1.5 (+ 2.4 edge))))\n  ; thighs from inside the torso's round bottom\n  (ink shoe)\n  (bone (hip-l 0 3 0) knee-l 5.6)\n  (bone knee-l foot-l 5)\n  (ink accent)\n  (bone (hip-r 0 3 0) knee-r 5.6)\n  (bone knee-r foot-r 5))\n(outline edge 20 16 28\n  (ink skin)\n  (if (not headless) (nudge 3 (bone (neck 0 -4 0) head 4)))\n  (ink shirt)\n  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)\n  ; shoes: a sole flat on the ground, pointing the way the body faces\n  ; (figure-flat.lisp), over the shin's end\n  (ink lip)\n  (nudge -6\n    (bone (foot-l 0 -.8 -3) (foot-l 0 -1.2 9.5) 3.8)\n    (bone (foot-r 0 -.8 -3) (foot-r 0 -1.2 9.5) 3.8))\n  (outline 0\n    (ink shirt)\n    (bone shoulder-l shoulder-r 4.6)\n    (ink pants)\n    (bone shoulder-l elbow-l 4.6)\n    (bone elbow-l hand-l 4)\n    ; a mitten along the forearm, a thumb on top\n    (bone (hand-l 0 0 .5) (hand-l 0 0 4.5) 5.2)\n    (on hand-l (ball 0 4.6 1.5 2.4))\n    (ink skirt)\n    (bone shoulder-r elbow-r 4.6)\n    (bone elbow-r hand-r 4)\n    (bone (hand-r 0 0 .5) (hand-r 0 0 4.5) 5.2)\n    (on hand-r (ball 0 4.6 1.5 2.4))))\n(if (not headless)\n(on head\n  (outline .06 20 16 28\n    (ink hair)\n    (ball 0 .12 -.2 1.04)\n    (stroke .34 -.8 .4 -.25 -.86 -.3 -.3)\n    (stroke .34 .8 .4 -.25 .86 -.3 -.3)\n    (ball 0 .95 -.35 .3)\n    (stroke .2 0 1.05 -.4 .08 1.42 -.62)\n    (ink skin)\n    (ball 0 0 0 1)))\n(on head\n  (ink hair)\n  (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))\n  (if (> eyes 0)\n    (repeat 2 side\n      (let s (- (* side 2) 1))\n      (rotate y (* s .3675) (rotate x (- .0875 (* s .0245)) (move 0 0 1.01\n        (surface\n          (ink iris)\n          (if hurt\n            (stroke .09 -.13 .13 0 .13 -.13 0)\n            (stroke .09 -.13 -.13 0 .13 .13 0))\n          (if (not hurt)\n            (if (or blink (= eyes 3))\n              (stroke .075 -.16 0 0 -.07 -.06 0 .07 -.06 0 .16 0 0))\n            (if (not blink)\n              (if (= eyes 1) (ring z .11))\n              (if (= eyes 2)\n                (ink 248 248 250)\n                (scale 1 1.35 1 (ring z .19))\n                (ink iris)\n                (move 0 0 .02 (ring z .09)))))))))))\n  (if (> mouth 0)\n    (rotate x .57 (move 0 0 1.01\n      (surface\n        (ink iris)\n        (if (= mouth 1) (stroke .06 -.24 .045 0 -.12 -.07 0 0 -.1 0 .12 -.07 0 .24 .045 0))\n        (if (= mouth 2) (stroke .06 -.22 0 0 .22 0 0))\n        (if (= mouth 3) (stroke .06 -.24 -.045 0 -.12 .07 0 0 .1 0 .12 .07 0 .24 -.045 0)))))))\n\n)\n",
   };
   // Each compiled (and baked) the first time it is asked for, not at load:
   // an object the game never draws costs nothing.

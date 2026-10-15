@@ -519,10 +519,32 @@ export function createFrameVm(host) {
   const looks = new Map();
   const figureSize = shapeSize;
   const J = new Float64Array(48), headFrame = new Float64Array(10), chestFrame = new Float64Array(10);
+  const bodyFrame = new Float64Array(10), footFrame = new Float64Array(10);
+  const handFrames = [new Float64Array(10), new Float64Array(10)];
   const anchor = new Float64Array(3);
-  // A joint's frame: the head's (in head radii); the body's joints turn
-  // offsets with the chest, so a hem flares to the body's sides.
-  const frameOf = (j) => j === 0 ? headFrame : j >= 2 ? chestFrame : null;
+  // A joint's frame (figureFrameOf in object-lisp.mjs): the head's, in head
+  // radii; the pelvis, hips and knees the body's (facing as the hips do); the
+  // feet the ground's; each hand its forearm's; the rest the chest's, which
+  // faces as the head looks, so a decal stays toward the lens.
+  const frameOf = (j) => j === 0 ? headFrame : j === 8 || j === 9 ? handFrames[j - 8]
+    : j === 14 || j === 15 ? footFrame : j === 3 || (j >= 10 && j <= 13) ? bodyFrame : j >= 2 ? chestFrame : null;
+  const unit = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return l > 1e-6 ? [v[0] / l, v[1] / l, v[2] / l] : null; };
+  const crossOf = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  function limbFrames() {
+    const C = chestFrame, x = [C[0], C[1], C[2]], y = [C[3], C[4], C[5]];
+    const f = unit(crossOf(y, x)) || [C[6], C[7], C[8]];
+    bodyFrame.set([...x, ...y, ...f, 1]);
+    // World up is -y: forward laid flat, across = forward × up.
+    const g = unit([f[0], 0, f[2]]) || unit([C[6], 0, C[8]]) || [0, 0, 1];
+    footFrame.set([g[2], 0, -g[0], 0, -1, 0, g[0], 0, g[2], 1]);
+    for (const side of [0, 1]) {
+      const h = 8 + side, e = 6 + side;
+      const a = unit([J[h * 3] - J[e * 3], J[h * 3 + 1] - J[e * 3 + 1], J[h * 3 + 2] - J[e * 3 + 2]]) || f;
+      const square = (v) => { const d = v[0] * a[0] + v[1] * a[1] + v[2] * a[2]; return unit([v[0] - a[0] * d, v[1] - a[1] * d, v[2] - a[2] * d]); };
+      const v = square(y) || square(f) || [0, -1, 0];
+      handFrames[side].set([...crossOf(a, v), ...v, ...a, 1]);
+    }
+  }
   function jointPoint(j, x, y, z, out = anchor) {
     const f = frameOf(j);
     if (f) {
@@ -571,6 +593,7 @@ export function createFrameVm(host) {
     if (sl > 1e-6) { sx /= sl; sy /= sl; sz /= sl; }
     else { sx = cfy * cuz - cfz * cuy; sy = cfz * cux - cfx * cuz; sz = cfx * cuy - cfy * cux; }
     chestFrame.set([sx, sy, sz, cux, cuy, cuz, cfx, cfy, cfz, 1]);
+    limbFrames();
     const R = sketch.records, pal = look || null;
     const paint = (c, o) => c[o] >= 0 || !pal ? [c[o], c[o + 1], c[o + 2]]
       : [pal[(-1 - c[o]) * 3], pal[(-1 - c[o]) * 3 + 1], pal[(-1 - c[o]) * 3 + 2]];

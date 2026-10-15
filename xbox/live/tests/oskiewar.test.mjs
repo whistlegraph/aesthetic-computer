@@ -6763,7 +6763,9 @@ test("skateboard feet stay on a rigid deck in depth", () => {
 test("skateboard wheels roll by contact distance and land audibly", () => {
   const { fight, pads, tick, signals, drums } = createFight();
   const player = fight.players[0];
-  player.x = 1800; player.y = fight.terrainFloorAt(player.x);
+  // Clear of the walls: x 1800 was past the dojo's right wall, where the
+  // board only kept its roll because it went on pressing into the wall.
+  player.x = fight.stageGeometry().worldLeft + 200; player.y = fight.terrainFloorAt(player.x);
   player.skateboard = true; player.skateVx = 800; player.grounded = true;
   pads[0].down = [];
   for (let i = 0; i < 12; i++) tick();

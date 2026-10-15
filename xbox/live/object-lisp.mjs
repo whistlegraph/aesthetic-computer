@@ -1083,6 +1083,56 @@ function convexHull(points) {
 }
 
 // ——— flat figures, drawn here ———
+// Where a figure's joints hang their shapes. The head has its own frame (in
+// head radii); the arms, neck and shoulders the chest's, which faces as the
+// head looks, so a decal on the shirt stays toward the lens. The rest are
+// the limbs' own, so a foot points the way the body faces and a hand along
+// its forearm:
+//   pelvis, hips, knees: the body's — across the hips, up the spine, and
+//     forward square to both (the way the fighter faces, not the head);
+//   feet: the ground's — up is the world's, forward the body's laid flat;
+//   hands: the forearm's — forward from the elbow out through the hand.
+// Each is 10 numbers: x axis, y axis, z axis, scale.
+export function figureFrameOf(j, H, C, B, F, L, R) {
+  return j === 0 ? H : j === 8 ? L : j === 9 ? R : j === 14 || j === 15 ? F
+    : j === 3 || (j >= 10 && j <= 13) ? B : j >= 2 ? C : null;
+}
+export function figureLimbFrames(J, C, B, F, L, R) {
+  // The body: x and y the chest's, z = y × x, the way the hips face.
+  let fx = C[4] * C[2] - C[5] * C[1], fy = C[5] * C[0] - C[3] * C[2], fz = C[3] * C[1] - C[4] * C[0];
+  let fl = Math.hypot(fx, fy, fz);
+  if (fl < 1e-6) { fx = C[6]; fy = C[7]; fz = C[8]; fl = 1; }
+  fx /= fl; fy /= fl; fz /= fl;
+  B[0] = C[0]; B[1] = C[1]; B[2] = C[2]; B[3] = C[3]; B[4] = C[4]; B[5] = C[5];
+  B[6] = fx; B[7] = fy; B[8] = fz; B[9] = 1;
+  // The ground (world up is -y): forward laid flat, across = forward × up.
+  let gx = fx, gz = fz, gl = Math.hypot(gx, gz);
+  if (gl < 1e-6) { gx = C[6]; gz = C[8]; gl = Math.hypot(gx, gz); }
+  if (gl < 1e-6) { gx = 0; gz = 1; gl = 1; }
+  gx /= gl; gz /= gl;
+  F[0] = gz; F[1] = 0; F[2] = -gx; F[3] = 0; F[4] = -1; F[5] = 0; F[6] = gx; F[7] = 0; F[8] = gz; F[9] = 1;
+  handFrame(J, B, L, 8, 6);
+  handFrame(J, B, R, 9, 7);
+}
+// A hand: forward along the forearm (the body's forward if the arm has no
+// length), up the spine squared to it, x = z × y as the chest's is.
+function handFrame(J, B, D, hand, elbow) {
+  let ax = J[hand * 3] - J[elbow * 3], ay = J[hand * 3 + 1] - J[elbow * 3 + 1], az = J[hand * 3 + 2] - J[elbow * 3 + 2];
+  let al = Math.hypot(ax, ay, az);
+  if (!(al > 1e-6)) { ax = B[6]; ay = B[7]; az = B[8]; al = 1; }
+  ax /= al; ay /= al; az /= al;
+  // Up the spine squared to the forearm; an arm along the spine takes the
+  // body's forward instead, so a hanging hand's thumb points ahead.
+  let ux = B[3], uy = B[4], uz = B[5], along = ux * ax + uy * ay + uz * az;
+  let vx = ux - ax * along, vy = uy - ay * along, vz = uz - az * along, vl = Math.hypot(vx, vy, vz);
+  if (vl < 1e-6) {
+    ux = B[6]; uy = B[7]; uz = B[8]; along = ux * ax + uy * ay + uz * az;
+    vx = ux - ax * along; vy = uy - ay * along; vz = uz - az * along; vl = Math.hypot(vx, vy, vz) || 1;
+  }
+  vx /= vl; vy /= vl; vz /= vl;
+  D[0] = ay * vz - az * vy; D[1] = az * vx - ax * vz; D[2] = ax * vy - ay * vx;
+  D[3] = vx; D[4] = vy; D[5] = vz; D[6] = ax; D[7] = ay; D[8] = az; D[9] = 1;
+}
 // The FIGURE op's work for a host without a frame program (the console
 // before R6, the harness): the same resolution frame-vm.mjs does — each
 // anchor a joint plus an offset, in the head's frame and radii on the head —
@@ -1096,7 +1146,8 @@ const figureRecordSize = (R, i) => {
 };
 // Scratch for every figure drawn: a fighter is ~60 shapes a frame, and each
 // used to allocate its points, turned offsets and colours as fresh arrays.
-const figHead = new Float64Array(10), figChest = new Float64Array(10);
+const figHead = new Float64Array(10), figChest = new Float64Array(10), figBody = new Float64Array(10);
+const figFoot = new Float64Array(10), figHandL = new Float64Array(10), figHandR = new Float64Array(10);
 const figP = new Float64Array(16), figFirst = new Float64Array(3), figB = new Float64Array(3);
 const figU = new Float64Array(3), figW = new Float64Array(3), figN = new Float64Array(3);
 const figPoly = [];
@@ -1149,7 +1200,8 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   else { sx = cy * uz - cz * uy; sy = cz * ux - cx * uz; sz = cx * uy - cy * ux; }
   const C = figChest;
   C[0] = sx; C[1] = sy; C[2] = sz; C[3] = ux; C[4] = uy; C[5] = uz; C[6] = cx; C[7] = cy; C[8] = cz; C[9] = 1;
-  const frameOf = (j) => j === 0 ? H : j >= 2 ? C : null;
+  figureLimbFrames(J, C, figBody, figFoot, figHandL, figHandR);
+  const frameOf = (j) => figureFrameOf(j, H, C, figBody, figFoot, figHandL, figHandR);
   // An offset turned into joint j's frame, written to dst.
   const turn = (j, x, y, z, dst) => {
     const F = frameOf(j);
