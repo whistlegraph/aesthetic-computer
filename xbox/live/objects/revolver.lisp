@@ -21,8 +21,9 @@ def edge .9
     (ink 58 60 68)
     (ball -.2 -22.4 0 3.2)))
 
-; the frame round the cylinder, a little behind it so the cylinder covers it
-(nudge 1
+; the frame round the cylinder, behind it so the cylinder covers it: baked,
+; a slab shows its near side face, which sits nearer than the drum's middle
+(nudge 4
   (ink 46 48 56)
   (outline edge 12 12 16 (slab -9 4 -2.4 13 17.8 2.4)))
 
