@@ -186,8 +186,8 @@ async function appendLog(file, messages) {
 // What the model sees. The clock is the receiver's local zone; the moment is
 // the send time, falling back to `now` for a line that arrived without one.
 // `urgent` is tagged so the model knows the sender meant to interrupt.
-// A real sender (anything but the anonymous `<host>:prox` fallback) carries a
-// reply handle, so answering never means retyping it. The body is indented
+// Peer senders carry a reply handle; anonymous and Loopboy event sources do
+// not. The body is indented
 // under `│` so no line of it can pass for a second `[inbox from …]` header.
 const pad = (n) => String(n).padStart(2, "0");
 const label = (from) => String(from ?? "").replace(/[\u0000-\u001f\u007f\]"]+/g, " ").trim() || "unknown";
@@ -196,7 +196,8 @@ export function stamp(message, now = Date.now()) {
   const when = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const urgent = message?.urgency === "urgent" ? " · urgent" : "";
   const from = label(message?.from);
-  const reply = from !== "unknown" && !from.endsWith(":prox") ? ` · reply: prox_send handle="${from}"` : "";
+  const reply = from !== "unknown" && !from.endsWith(":prox") && !from.startsWith("loopboy:")
+    ? ` · reply: prox_send handle="${from}"` : "";
   const body = String(message?.text ?? "").split(/\r?\n/).map((line) => `  │ ${line}`).join("\n");
   return `[inbox from ${from} · ${when}${urgent}${reply}]\n${body}`;
 }

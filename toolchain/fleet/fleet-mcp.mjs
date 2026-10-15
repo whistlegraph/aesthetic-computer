@@ -19,27 +19,16 @@
 // Hand-rolled JSON-RPC over stdio (newline-delimited), matching the house style
 // of slab/bin/frame-mcp.mjs + puppet-mcp.mjs — no SDK, node builtins only.
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { httpPort, serveHttp, serveStdio } from "../mcp/http-front.mjs";
 import { toon } from "../../shared/toon.mjs";
+import { loadRegistry } from "./registry.mjs";
 
 const HOME = homedir();
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-// Prefer the normalized/proposal file, fall back to canonical. Override with env.
-// The vault lives INSIDE the repo (the convention the rest of toolchain/ uses);
-// the bare-$HOME spellings are kept last for machines laid out the old way.
-const CANDIDATES = [
-  process.env.FLEET_MACHINES,
-  join(REPO, "aesthetic-computer-vault", "machines.normalized.json"),
-  join(REPO, "aesthetic-computer-vault", "machines.json"),
-  join(REPO, "vault", "machines.normalized.json"),
-  join(REPO, "vault", "machines.json"),
-  join(HOME, "aesthetic-computer-vault", "machines.normalized.json"),
-  join(HOME, "aesthetic-computer-vault", "machines.json"),
-].filter(Boolean);
 
 const TAILSCALE_BINS = [
   process.env.TAILSCALE_BIN,
@@ -51,17 +40,6 @@ const CLEANER_BINS = [
   join(HOME, ".local/bin/cleaner"),
   join(HOME, "aesthetic-computer/toolchain/macos/cleaner.sh"),
 ];
-
-// ── static registry ─────────────────────────────────────────────────────────
-function registryPath() {
-  return CANDIDATES.find((p) => existsSync(p)) || null;
-}
-function loadRegistry() {
-  const path = registryPath();
-  if (!path) throw new Error(`no machine registry found (looked in: ${CANDIDATES.join(", ")})`);
-  const data = JSON.parse(readFileSync(path, "utf8"));
-  return { path, machines: data.machines || {}, schema: data._schema || null };
-}
 
 // A machine's tailnet short name: explicit tailscale.name, else status.key, else
 // the machine key itself (many keys already match the tailnet name).

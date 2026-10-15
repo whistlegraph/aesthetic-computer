@@ -166,7 +166,9 @@ async function updateMarker(patch) {
     const mode = JSON.parse(await readFile(join(SLAB_HOME, "state", "loopboy-modes", `${sid}.json`), "utf8"));
     if (mode.sessionId === sid) {
       obj.loopboy_contact = mode.contact || "";
-      if (!mode.contact) { obj.loopboy_state = ""; obj.loopboy_response = ""; }
+      obj.loopboy_event = mode.event || "";
+      obj.loopboy_source = mode.source || "";
+      if (!mode.contact && !mode.routeKey) { obj.loopboy_state = ""; obj.loopboy_response = ""; }
     }
   } catch {}
 

@@ -55,9 +55,10 @@ jq -n \
     --arg pid "$$" --arg ts "$ts" \
     --argjson terminal_dark "$terminal_dark" \
     --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
+    --arg event "${SLAB_LOOPBOY_EVENT:-}" --arg source "${SLAB_LOOPBOY_SOURCE:-}" \
     '{session_id:$sid, cwd:$cwd, subject:"codex session", summary:"codex",
       tty:$tty, agent_pid:($pid|tonumber), agent_type:"codex",
-      updated:$ts, state:"blank", terminal_dark:$terminal_dark, nudge_screen:$nudge, loopboy_contact:$contact}' \
+      updated:$ts, state:"blank", terminal_dark:$terminal_dark, nudge_screen:$nudge, loopboy_contact:$contact, loopboy_event:$event, loopboy_source:$source}' \
     > "$ACTIVE_DIR/$sid" 2>/dev/null
 
 # Background watcher: derives per-turn state from the rollout JSONL.
@@ -93,6 +94,11 @@ trap stop_agent INT TERM
 # browser surfaces at process startup; the proxy separately scopes its private
 # inbox to the named contact and session identity.
 codex_guard_args=()
+if [[ -n "${SLAB_LOOPBOY_EVENT:-}" && -z "${SLAB_LOOPBOY_CONTACT:-}" ]]; then
+    codex_guard_args+=(
+        -c 'mcp_servers.prox={url="http://127.0.0.1:7773/mcp", env_http_headers={"x-slab-prompt-session-id"="SLAB_PROMPT_SESSION_ID"}}'
+    )
+fi
 if [[ -n "${SLAB_LOOPBOY_CONTACT:-}" ]]; then
     codex_guard_args+=(
         -c 'mcp_servers.prox={url="http://127.0.0.1:7773/mcp", env_http_headers={"x-slab-loopboy-contact"="SLAB_LOOPBOY_CONTACT", "x-slab-prompt-session-id"="SLAB_PROMPT_SESSION_ID"}}'

@@ -41,6 +41,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { X_ACCOUNTS, requireCredentials, vaultPath } from "../vault/credentials.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 
@@ -52,12 +53,8 @@ const DEFAULT_READ_RATE_USD = 0.005;
 const DEFAULT_DAILY_READ_BUDGET_USD = 0.25;
 const money = (value) => Number(value.toFixed(6));
 
-// Every account this CLI can drive, and the env-var prefix its vault file
-// uses. Adding an account here is the whole registration step.
-const ACCOUNTS = {
-  promptdotac: "PROMPTDOTAC", // @promptDOTac — the AC brand outlet
-  whistlegraph: "WHISTLEGRAPH", // @whistlegraph
-};
+// The CLI and MCP share one account and credential registry.
+const ACCOUNTS = X_ACCOUNTS;
 
 // ── tiny arg parser ──────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -75,28 +72,17 @@ for (let i = 0; i < argv.length; i++) {
 
 // ── credentials ──────────────────────────────────────────────────────
 function vaultFile(account) {
-  return resolve(root, "vault", account, "x.env");
-}
-
-// Read one key: the environment first, then the account's vault file. The
-// vault file is plain `KEY=value` lines, same shape as instagram.env.
-function secret(account, suffix) {
-  const key = `${ACCOUNTS[account]}_X_${suffix}`;
-  if (process.env[key]) return process.env[key];
-  const path = vaultFile(account);
-  if (!existsSync(path)) return undefined;
-  const match = readFileSync(path, "utf8").match(
-    new RegExp(`^${key}=(.*)$`, "m"),
-  );
-  return match?.[1].trim().replace(/^["']|["']$/g, "") || undefined;
+  return vaultPath(`${account}/x.env`);
 }
 
 function credentials(account) {
+  const { values } = requireCredentials(`x:${account}`);
+  const secret = suffix => values[`${ACCOUNTS[account]}_X_${suffix}`];
   const creds = {
-    apiKey: secret(account, "API_KEY"),
-    apiSecret: secret(account, "API_SECRET"),
-    accessToken: secret(account, "ACCESS_TOKEN"),
-    accessSecret: secret(account, "ACCESS_SECRET"),
+    apiKey: secret("API_KEY"),
+    apiSecret: secret("API_SECRET"),
+    accessToken: secret("ACCESS_TOKEN"),
+    accessSecret: secret("ACCESS_SECRET"),
   };
   const missing = Object.entries(creds)
     .filter(([, value]) => !value)

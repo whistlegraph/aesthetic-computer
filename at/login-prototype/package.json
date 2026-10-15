@@ -1,0 +1,14 @@
+{
+  "name": "@aesthetic/bluesky-connect-prototype",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@atproto/oauth-client-node": "0.5.9"
+  }
+}

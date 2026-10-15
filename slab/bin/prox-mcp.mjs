@@ -25,9 +25,11 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, hostname } from "node:os";
+import { randomUUID } from "node:crypto";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { deliverLocal, drain, makeMessage, peek, stamp } from "./prox-inbox.mjs";
 import { readLoopboyMode, writeLoopboyMode } from "../lib/loopboy-mode.mjs";
+import { loopboyBinding, activeLoopboyBinding, loopboyRouteMatches, LOOPBOY_BINDING_PROPERTIES } from "../lib/loopboy-binding.mjs";
 import { clip, toon } from "../../shared/toon.mjs";
 
 const pexec = promisify(execFile);
@@ -119,7 +121,7 @@ async function allRocks() {
   for (const led of await allLedgers()) {
     for (const e of led.entries || []) {
       const mode = led.self ? await readLoopboyMode(e.id) : null;
-      rows.push({ ...e, ...(mode ? { loopboyContact: mode.contact, name: mode.name || e.name } : {}),
+      rows.push({ ...e, ...(mode ? { loopboyContact: mode.contact, loopboyBinding: activeLoopboyBinding(mode), name: mode.name || e.name } : {}),
         agentType: canonicalAgent(e.agentType), host: e.host || led.host, ip: led.ip, self: led.self });
     }
   }
@@ -271,6 +273,7 @@ async function toolFind({ handle }) {
       `  subject: ${(r.subject || "").replace(/\s+/g, " ")}`,
       `  cwd:     ${r.cwd || "?"}`,
       `  id:      ${r.id}`,
+      ...(r.loopboyBinding ? [`  loopboy: ${r.loopboyBinding.routeKey}${r.loopboyBinding.expiresAt ? ` (until ${r.loopboyBinding.expiresAt})` : ""}`] : []),
       `  seed:    ${r.seed || "?"}`,
       ...(r.creature ? [`  creature: ${r.creature.stage}; ${r.creature.traits.map(t => t.feature).join(", ") || "egg shell"} (prox_character for portable appearance)`] : []),
     );
@@ -436,27 +439,35 @@ async function toolInbox({ handle, consume = false } = {}, context) {
 // A waiting tool call is the passive delivery path for terminal agents.
 // Its identity comes from the existing prox connection, not launch-only contact
 // headers. Each poll rechecks mutable mode so an exit revokes an in-flight wait.
-async function toolLoopboyWait({ contact = "", timeoutSeconds = 30 } = {}, context) {
+async function currentLoopboyBinding(id) {
+  const mode = await readLoopboyMode(id);
+  const marker = mode ? null : await readMarker(id);
+  const binding = activeLoopboyBinding(mode || {
+    event: marker?.loopboy_event || (marker?.loopboy_contact ? "imessage" : ""),
+    source: marker?.loopboy_source || marker?.loopboy_contact,
+  });
+  const route = binding && (await readJson(LOOPBOY_CONFIG))?.loops?.[binding.routeKey];
+  if (!binding || !loopboyRouteMatches(route, binding, id, mode?.bindingId)) return null;
+  return { ...binding, bindingId: mode?.bindingId || route.bindingId || "", route };
+}
+
+async function toolLoopboyWait({ contact = "", event = "", source = "", timeoutSeconds = 30 } = {}, context) {
   const id = await callerSessionId(context);
   if (!id) throw new Error("Cannot identify the calling prox; use prox_inbox with an explicit local handle.");
-  const requested = String(contact || "").trim().toLowerCase();
+  const requested = contact || event || source ? loopboyBinding({ contact, event, source }).routeKey : "";
   const seconds = Number(timeoutSeconds);
   if (!Number.isFinite(seconds) || seconds < 0 || seconds > 55) throw new Error("timeoutSeconds must be between 0 and 55");
-  async function boundContact() {
-    const mode = await readLoopboyMode(id);
-    const marker = await readMarker(id);
-    const key = mode ? mode.contact : marker?.loopboy_contact;
-    const route = key && (await readJson(LOOPBOY_CONFIG))?.loops?.[key];
-    if (!key || route?.sessionId !== id || (route.channel || route.event || "imessage") !== "imessage") {
-      throw new Error("Loopboy mode is off or its route changed; the prox and conversation remain open.");
-    }
-    if (requested && requested !== key) throw new Error(`This prox is bound to ${key}, not ${requested}.`);
-    return key;
+  async function boundSource() {
+    const binding = await currentLoopboyBinding(id);
+    if (!binding) throw new Error("Loopboy mode is off, expired, or its route changed; the prox and conversation remain open.");
+    if (requested && requested !== binding.routeKey) throw new Error(`This prox is bound to ${binding.routeKey}, not ${requested}.`);
+    return binding;
   }
-  const initial = await boundContact();
+  const initial = await boundSource();
   const deadline = Date.now() + seconds * 1000;
   do {
-    if (await boundContact() !== initial) throw new Error("Loopboy contact changed while waiting; start a new wait.");
+    const current = await boundSource();
+    if (current.routeKey !== initial.routeKey || current.bindingId !== initial.bindingId) throw new Error("Loopboy source changed while waiting; start a new wait.");
     if ((await peek(id)).length) {
       const messages = await drain(id);
       if (messages.length) return [{ type: "text", text: messages.map(stamp).join("\n") }];
@@ -464,7 +475,23 @@ async function toolLoopboyWait({ contact = "", timeoutSeconds = 30 } = {}, conte
     if (Date.now() >= deadline) break;
     await sleep(Math.min(250, deadline - Date.now()));
   } while (true);
-  return [{ type: "text", text: `No queued updates for ${initial}. The same prox can call prox_loopboy_wait again; no terminal input was submitted.` }];
+  return [{ type: "text", text: `No queued updates for ${initial.routeKey}. The same prox can call prox_loopboy_wait again; no terminal input was submitted.` }];
+}
+
+async function toolLoopboyEmit({ event, source, text, data }, context) {
+  const wanted = loopboyBinding({ event, source });
+  if (typeof text !== "string" || !text.trim() || text.length > 6000) throw new Error("Event text must contain 1–6000 characters");
+  const encoded = data === undefined ? "" : JSON.stringify(data);
+  if (Buffer.byteLength(encoded) > 1200) throw new Error("Event data exceeds 1200 bytes");
+  const route = (await readJson(LOOPBOY_CONFIG))?.loops?.[wanted.routeKey];
+  const binding = route && await currentLoopboyBinding(route.sessionId);
+  if (!binding || binding.routeKey !== wanted.routeKey) throw new Error(`No active Loopboy binding for ${wanted.routeKey}`);
+  const target = await bindingTarget(route.sessionId);
+  const result = await toolSend({ handle: target.r.id, by: `loopboy:${wanted.routeKey}`,
+    text: `Loopboy event: ${wanted.routeKey}\n${text}${encoded ? `\nData: ${encoded}` : ""}`, urgency: "queue" }, context);
+  // The durable receipt remains valid if the optional visual poke is unavailable.
+  try { await toolPoke({ handle: target.r.id, by: `loopboy:${wanted.routeKey}` }); } catch {}
+  return result;
 }
 
 // Cached clients may still call prox_wake. Route through the same inbox,
@@ -588,7 +615,7 @@ exec claude --resume ${shellQuote(r.id)}
   return [{ type: "text", text: `dumped ${r.host}:${r.name} → ${out}\nagent: ${agent}\nresume id: ${providerId}\nrock: ${rendered ? "animated exact-model sigil.gif + Finder icon" : "renderer unavailable; state bundle is still complete"}\nprivate raw transcript included; move the .prox folder as one bundle.` }];
 }
 
-async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = "" }) {
+async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = "", loopboy }) {
   const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
   if (!wanted) throw new Error("`host` is required (for example, poorslice).");
   const agentName = canonicalAgent(String(agent || "").trim().toLowerCase());
@@ -596,20 +623,17 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
     throw new Error("`agent` must be `claude`, `codex`, or `aesel` (or `easel`).");
   }
   if (String(prompt).length > 4000) throw new Error("`prompt` exceeds 4000 characters.");
-  const contactKey = String(loopboyContact || "").trim().toLowerCase();
-  if (contactKey && !/^[a-z0-9_-]{1,40}$/.test(contactKey)) throw new Error("Invalid Loopboy contact key");
-  if (contactKey) {
-    const previous = (await readJson(LOOPBOY_CONFIG))?.loops?.[contactKey];
+  if (loopboy && loopboyContact) throw new Error("Use loopboy or legacy loopboyContact, not both");
+  const binding = loopboy ? loopboyBinding(loopboy) : loopboyContact ? loopboyBinding({ contact: loopboyContact }) : null;
+  if (binding && !activeLoopboyBinding(binding)) throw new Error("Cannot launch an expired Loopboy source");
+  if (binding) {
+    const previous = (await readJson(LOOPBOY_CONFIG))?.loops?.[binding.routeKey];
     const marker = previous?.sessionId ? await readMarker(previous.sessionId) : null;
     const pid = Number(marker?.agent_pid || marker?.claude_pid || 0);
-    if (pid && pidAlive(pid)) throw new Error(`${contactKey} already has a live prox (${previous.sessionId}); change its mode with prox_bind_notification/prox_unbind_notification, without launching a replacement.`);
+    if (pid && pidAlive(pid)) throw new Error(`${binding.routeKey} already has a live prox (${previous.sessionId}); change its mode with prox_bind_notification/prox_unbind_notification, without launching a replacement.`);
   }
-
-
-  // Snapshot the live markers before launching so the poll below can tell
-  // the newborn Loopboy's marker apart from every session already running.
   const existingMarkerIds = new Set();
-  if (contactKey) {
+  if (binding) {
     for (const dir of MARKER_DIRS) {
       let names = [];
       try { names = await readdir(dir); } catch {}
@@ -623,7 +647,10 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   const ledgers = await allLedgers();
   const target = ledgers.find((l) => String(l.host || "").toLowerCase() === wanted);
   if (!target) throw new Error(`no cached ledger for host «${host}» — it must be online in prox first.`);
-  if (contactKey && !target.self) throw new Error("Loopboy routes must be configured on the owning host; use prox_bind_notification there for an existing session.");
+  if (binding && !target.self) throw new Error("Loopboy routes must be configured on the owning host; use prox_bind_notification there for an existing session.");
+  if (binding && binding.event !== "imessage" && !(target.loopboyProtocol >= 2)) {
+    throw new Error("Prompt host does not advertise custom Loopboy sources; update Slab before launching a session");
+  }
   if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
   const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
   const launcher = by || `${self}:prox`;
@@ -631,7 +658,7 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
     agent: agentName,
     prompt: String(prompt),
     ...(cwd ? { cwd: String(cwd) } : {}),
-    ...(contactKey ? { loopboyContact: contactKey } : {}),
+    ...(binding ? { loopboy: binding, ...(binding.contact ? { loopboyContact: binding.contact } : {}) } : {}),
     by: launcher,
   });
   const res = await fetch(`http://${target.ip}:${PORT}/launch`, {
@@ -644,29 +671,23 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   let result;
   try { result = JSON.parse(text); } catch { throw new Error(`launch on ${target.host} returned invalid JSON (HTTP ${res.status}).`); }
   if (!res.ok || !result.ok) throw new Error(`launch on ${target.host} failed: ${result.error || `HTTP ${res.status}`}`);
-  let binding = "";
-  if (contactKey) {
-    if (String(target.host).toLowerCase() !== String(self).toLowerCase()) {
-      throw new Error("Loopboy contact routes can only be launched on this local iMessage host");
-    }
-    // Loopboys live on the real Terminal PTY now — the ledger stopped
-    // wrapping them in GNU Screen (focus-report sequences leaked into the
-    // agent as literal input) and returns `nudgeScreen` as an empty string.
-    // The field's PRESENCE is still the version handshake with the prompt
-    // host; the marker poll below is the actual proof of launch.
-    if (!("nudgeScreen" in result)) {
-      throw new Error("Loopboy launch reply is missing nudgeScreen; prompt host needs the updated Slab build");
+  let bindingNote = "";
+  if (binding) {
+    if (binding.event !== "imessage" && result.loopboy?.routeKey !== binding.routeKey) {
+      throw new Error("Prompt host does not support custom Loopboy sources; update Slab before launching another session");
     }
     let marker = null;
-    for (let attempt = 0; attempt < 20 && !marker; attempt++) {
+    for (let attempt = 0; attempt < 40 && !marker; attempt++) {
       for (const dir of MARKER_DIRS) {
         let names = [];
         try { names = await readdir(dir); } catch {}
         for (const name of names) {
           const value = await readJson(join(dir, name));
           const id = value?.session_id || name;
-          if (!existingMarkerIds.has(id) && value?.loopboy_contact === contactKey) {
-            marker = { id: value.session_id || name, value };
+          const launched = activeLoopboyBinding({ event: value?.loopboy_event || "imessage",
+            source: value?.loopboy_source || value?.loopboy_contact });
+          if (!existingMarkerIds.has(id) && launched?.routeKey === binding.routeKey) {
+            marker = { id, value };
             break;
           }
         }
@@ -674,21 +695,19 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
       }
       if (!marker) await sleep(250);
     }
-    if (!marker) throw new Error("Loopboy launched but its live marker did not appear");
-    await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
-    const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
-    cfg.version = 1; cfg.loops ||= {};
-    cfg.loops[contactKey] = {
-      event: "imessage", contact: contactKey,
-      sessionId: marker.id, host: result.host || target.host,
-      agent: agentName, wake: false, delivery: "inbox", assignedAt: new Date().toISOString(),
-    };
-    await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-    binding = ` and bound Loopboy contact ${contactKey}`;
+    if (!marker) throw new Error("Loopboy launched but its live source marker did not appear");
+    // Wait for the normal ledger publication, then use exactly the same binding
+    // path as in-place adoption. No replacement prox or synthetic input.
+    for (let attempt = 0; attempt < 40; attempt++) {
+      if ((await allRocks()).some(r => r.self && r.id === marker.id)) break;
+      await sleep(250);
+    }
+    await toolBindNotification({ handle: marker.id, ...binding });
+    bindingNote = ` and bound Loopboy source ${binding.routeKey}`;
   }
   return [{
     type: "text",
-    text: `launched ${agentName} on ${result.host || target.host} in ${result.cwd} as «${launcher}»${prompt ? " with an initial prompt" : ""}${binding}.`,
+    text: `launched ${agentName} on ${result.host || target.host} in ${result.cwd} as «${launcher}»${prompt ? " with an initial prompt" : ""}${bindingNote}.`,
   }];
 }
 
@@ -742,37 +761,38 @@ async function bindingTarget(handle) {
   return { r, path, marker };
 }
 
-async function toolBindNotification({ handle, contact, event = "imessage", adopt = true, name = "" }) {
-  if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
-  const contactKey = String(contact || "").trim().toLowerCase();
-  if (!/^[a-z0-9_-]{1,40}$/.test(contactKey)) throw new Error("`contact` must be a short contact key from ~/.config/slab/imsg.json");
+async function toolBindNotification({ handle, contact, event = "imessage", source, description, config, expiresAt, adopt = true, name = "" }) {
+  const binding = loopboyBinding({ contact, event, source, description, config, expiresAt });
+  if (!activeLoopboyBinding(binding)) throw new Error("Cannot bind an expired Loopboy source");
   const petName = String(name || "").trim().toLowerCase();
   if (petName && !/^[a-z][a-z0-9_-]{1,15}$/.test(petName)) throw new Error("`name` must be a short lowercase pet name (2–16 letters, digits, - or _)");
   const { r, path, marker } = await bindingTarget(handle);
   const mode = await readLoopboyMode(r.id);
-  const boundContact = mode ? mode.contact : String(marker.loopboy_contact || "").toLowerCase();
-  if (boundContact && boundContact !== contactKey) throw new Error(`${r.host}:${r.name} is bound to ${boundContact}; use prox_unbind_notification before changing contact.`);
-  if (!boundContact && !adopt) throw new Error("Pass adopt=true to enter Loopboy mode in place. No relaunch is needed.");
+  const bound = activeLoopboyBinding(mode || { event: marker.loopboy_event || "imessage", source: marker.loopboy_source || marker.loopboy_contact });
+  if (bound && bound.routeKey !== binding.routeKey) throw new Error(`${r.host}:${r.name} is bound to ${bound.routeKey}; use prox_unbind_notification before changing source.`);
+  if (!bound && !adopt) throw new Error("Pass adopt=true to enter Loopboy mode in place. No relaunch is needed.");
   const cfg = (await readJson(LOOPBOY_CONFIG)) || { version: 1, loops: {} };
-  cfg.version = 1; cfg.loops ||= {};
-  const previous = cfg.loops[contactKey];
+  cfg.version = 2; cfg.loops ||= {};
+  const previous = cfg.loops[binding.routeKey];
   if (previous?.sessionId && previous.sessionId !== r.id) {
     const other = await readMarker(previous.sessionId);
     const pid = Number(other?.agent_pid || other?.claude_pid || 0);
-    if (pid && pidAlive(pid)) throw new Error(`${contactKey} already has a live listener (${previous.sessionId}); unbind it before assigning another prox.`);
+    if (pid && pidAlive(pid)) throw new Error(`${binding.routeKey} already has a live listener (${previous.sessionId}); unbind it before assigning another prox.`);
   }
   // Do not carry autoRespond or legacy wake authorization into the new mode.
-  const loop = { event, channel: event, contact: contactKey, sessionId: r.id,
+  const loop = { ...binding, bindingId: randomUUID(), channel: binding.event, sessionId: r.id,
     host: r.host, name: petName || r.name, agent: r.agentType || "claude",
     wake: false, delivery: "inbox", assignedAt: new Date().toISOString() };
-  await writeLoopboyMode(r.id, { contact: contactKey, name: loop.name });
+  await writeLoopboyMode(r.id, { ...binding, bindingId: loop.bindingId, name: loop.name });
   // Mirror for older renderers; the mode record wins over stale watcher writes.
   const latest = await readJson(path);
-  if (latest) await writeFile(path, JSON.stringify({ ...latest, loopboy_contact: contactKey }) + "\n");
-  cfg.loops[contactKey] = loop;
+  if (latest) await writeFile(path, JSON.stringify({ ...latest, loopboy_contact: binding.contact,
+    loopboy_event: binding.event, loopboy_source: binding.source }) + "\n");
+  for (const [key, value] of Object.entries(cfg.loops)) if (value.sessionId === r.id) delete cfg.loops[key];
+  cfg.loops[binding.routeKey] = loop;
   await mkdir(join(homedir(), ".config", "slab"), { recursive: true });
   await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${loop.name} (${r.id}) in place — inbox + visual poke; no automatic typing. Same process and conversation.` }];
+  return [{ type: "text", text: `Loopboy bound ${binding.routeKey} → ${r.host}:${loop.name} (${r.id}) in place — inbox + visual poke; no automatic typing. Same process and conversation.` }];
 }
 
 async function toolUnbindNotification({ handle }) {
@@ -782,7 +802,7 @@ async function toolUnbindNotification({ handle }) {
   await writeLoopboyMode(r.id, { contact: "", name: r.name });
   const marker = await readJson(path);
   if (marker) await writeFile(path, JSON.stringify({ ...marker,
-    loopboy_contact: "", loopboy_state: "", loopboy_response: "" }) + "\n");
+    loopboy_contact: "", loopboy_event: "", loopboy_source: "", loopboy_state: "", loopboy_response: "" }) + "\n");
   for (const [contact, loop] of Object.entries(cfg.loops || {})) {
     if (loop.sessionId === r.id) delete cfg.loops[contact];
   }
@@ -969,6 +989,8 @@ const TOOLS = [
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },
         loopboyContact: { type: "string", description: "Optional contact key for a NEW prox. To convert an existing prox, use prox_bind_notification; it preserves the conversation." },
+        loopboy: { type: "object", properties: LOOPBOY_BINDING_PROPERTIES, required: ["event", "source"], additionalProperties: false,
+          description: "Declare a Loopboy event source at creation. Custom producer code publishes with prox_loopboy_emit. Local host only; do not combine with loopboyContact." },
       },
       required: ["host", "agent"],
     },
@@ -996,25 +1018,37 @@ const TOOLS = [
       properties: {
         handle: { type: "string", description: "Stable local host:name, session id, or an unambiguous subject fragment." },
         contact: { type: "string", description: "Contact key from ~/.config/slab/imsg.json, for example alex." },
-        event: { type: "string", enum: ["imessage"], default: "imessage" },
+        ...LOOPBOY_BINDING_PROPERTIES,
         wake: { type: "boolean", default: false, description: "Deprecated compatibility field. Automatic typing is always disabled, even when true." },
         adopt: { type: "boolean", default: true, description: "Enter Loopboy mode in place on any supported agent. No relaunch or launch-time contact headers required." },
         name: { type: "string", description: "Optional pet name for the Loopboy, for example surizo. Defaults to the rock's current name." },
       },
-      required: ["handle", "contact"],
+      required: ["handle"],
     },
   },
   {
     name: "prox_loopboy_wait",
-    description: "Wait for inbox updates inside the current Loopboy session, without typing, focus changes, resumes, or a new prox. Mode and contact are checked on every poll; leaving Loopboy ends the wait. No launch-time contact headers required.",
+    description: "Wait for inbox updates inside the current Loopboy session. Works for iMessage and custom coded event sources. Mode, source, binding generation and expiry are checked on every poll. Leaving Loopboy ends the wait; no typing, focus changes, or resumes.",
     inputSchema: { type: "object", properties: {
       contact: { type: "string", description: "Optional expected contact key; a different contact is refused." },
+      event: { type: "string", description: "Optional expected event family; supply together with source." },
+      source: { type: "string", description: "Optional expected source key; supply together with event." },
       timeoutSeconds: { type: "number", default: 30, minimum: 0, maximum: 55 },
     } },
   },
   {
+    name: "prox_loopboy_emit",
+    description: "Publish an event from any locally coded watcher to its active Loopboy event/source binding. Queues text and optional JSON data in the bound session's inbox and pulses its rock. Checks ownership, mode and expiry; never runs producer code or submits terminal input. Receipt means queued, not read.",
+    inputSchema: { type: "object", properties: {
+      event: LOOPBOY_BINDING_PROPERTIES.event,
+      source: LOOPBOY_BINDING_PROPERTIES.source,
+      text: { type: "string", minLength: 1, maxLength: 6000, description: "What changed." },
+      data: { description: "Optional JSON event data, at most 1200 bytes." },
+    }, required: ["event", "source", "text"], additionalProperties: false },
+  },
+  {
     name: "prox_unbind_notification",
-    description: "Leave Loopboy mode in place. Keeps the same prox process, window, name, and conversation. Clears the contact route and prevents stale launch settings from re-enabling it.",
+    description: "Leave Loopboy mode in place. Keeps the same prox process, window, name, and conversation. Clears the event source route and prevents stale launch settings from re-enabling it.",
     inputSchema: { type: "object", properties: {
       handle: { type: "string", description: "Stable local host:name or session id." },
     }, required: ["handle"] },
@@ -1037,6 +1071,7 @@ async function callTool(name, args, context) {
     case "prox_bind_notification": return toolBindNotification(args || {});
     case "prox_unbind_notification": return toolUnbindNotification(args || {});
     case "prox_loopboy_wait": return toolLoopboyWait(args || {}, context);
+    case "prox_loopboy_emit": return toolLoopboyEmit(args || {}, context);
     case "prox_close": return toolClose(args || {});
     case "prox_dump": return toolDump(args || {});
     default: throw new Error(`Unknown tool: ${name}`);

@@ -53,6 +53,13 @@ if [[ -n "$input" ]]; then
         else
             contact=${SLAB_LOOPBOY_CONTACT:-$(jq -r '.loopboy_contact // empty' "$ACTIVE_DIR/$session_id" 2>/dev/null || true)}
         fi
+        if [[ -f "$mode_file" ]]; then
+            event=$(jq -r --arg sid "$session_id" 'if .sessionId == $sid then .event // "" else "" end' "$mode_file" 2>/dev/null || true)
+            source=$(jq -r --arg sid "$session_id" 'if .sessionId == $sid then .source // "" else "" end' "$mode_file" 2>/dev/null || true)
+        else
+            event=${SLAB_LOOPBOY_EVENT:-}
+            source=${SLAB_LOOPBOY_SOURCE:-}
+        fi
 
         # 4–8 word summary used as the live Terminal title and the menubar's
         # short subject. We collapse whitespace, take the first 7 words, and
@@ -80,7 +87,8 @@ if [[ -n "$input" ]]; then
             --arg started "$started_at" \
             --arg sum "$summary" \
             --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "$contact" \
-            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", updated: $ts, state: "working", nudge_screen:$nudge, loopboy_contact:$contact}' \
+            --arg event "$event" --arg source "$source" \
+            '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", updated: $ts, state: "working", nudge_screen:$nudge, loopboy_contact:$contact, loopboy_event:$event, loopboy_source:$source}' \
             > "$ACTIVE_DIR/$session_id" 2>/dev/null
 
         # Live terminal title: write OSC 0 ("set window + icon name") direct

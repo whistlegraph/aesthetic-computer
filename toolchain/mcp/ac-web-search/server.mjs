@@ -1,13 +1,10 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseEnv } from "node:util";
+import { resolveCredentials } from "../../vault/credentials.mjs";
 import { httpPort, serveHttp, serveStdio } from "../http-front.mjs";
 import { createExa } from "./exa.mjs";
 
-const root = resolve(import.meta.dirname, "../../..");
 const text = value => [{ type: "text", text: typeof value === "string" ? value : JSON.stringify(value) }];
 const annotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: true };
 export const TOOLS = [
@@ -28,20 +25,9 @@ export const TOOLS = [
 ];
 
 export function credentials() {
-  if (process.env.EXA_API_KEY?.trim()) return process.env.EXA_API_KEY.trim();
-  const paths = process.env.AC_WEB_SEARCH_ENV ? [process.env.AC_WEB_SEARCH_ENV] : [
-    resolve(homedir(), ".config/ac-web-search/exa.env"),
-    resolve(root, "aesthetic-computer-vault/mcp/exa.env"),
-  ];
-  for (const path of paths) {
-    try {
-      const key = parseEnv(readFileSync(path, "utf8")).EXA_API_KEY?.trim();
-      if (key) return key;
-    } catch (error) {
-      if (error.code !== "ENOENT") throw new Error("Cannot read AC web search credential file.");
-    }
-  }
-  return "";
+  const result = resolveCredentials("exa");
+  if (result.state === "unreadable" || result.state === "incomplete") throw new Error(`Exa credentials ${result.state}`);
+  return result.values?.EXA_API_KEY || "";
 }
 
 function integer(value, fallback, max) {

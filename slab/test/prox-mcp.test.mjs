@@ -312,7 +312,7 @@ test("prox_send drops a line in a local rock's inbox and prox_inbox reads it", a
   const env = { SLAB_HOME: slabHome };
 
   const sent = await callProx(home, "prox_send", { handle: "neo:surizu", text: "look at the diff" }, env);
-  assert.match(sent, /^sent to neo:surizu via file as «neo:prox» \(queue, id [0-9a-f-]{36}\)\.\nreceiver sees: \[inbox from neo:prox · [\d: -]{16}\] │ look at the diff\nnote: surizu is complete; a file drop is read at its next prompt — prox_wake to nudge it\.$/);
+  assert.match(sent, /^sent to neo:surizu via file as «neo:prox» \(queue, id [0-9a-f-]{36}\)\.\nreceiver sees: \[inbox from neo:prox · [\d: -]{16}\] │ look at the diff\nnote: surizu is complete; message queued until its next hook or prox_receive call\. Terminal input is never submitted\.$/);
   const lines = (await readFile(join(slabHome, "inbox", id, "messages.jsonl"), "utf8")).trim().split("\n");
   assert.equal(lines.length, 1);
   const message = JSON.parse(lines[0]);
@@ -468,4 +468,45 @@ test("the shared daemon signs a send by forwarded header or by the connection's 
     // a forwarded header wins over the socket owner
     assert.match(await send({ handle: "neo:surizu", text: "b" }, { "x-slab-prompt-session-id": other }), /as «neo:nid»/);
   });
+});
+
+
+test("prox_wake is an inbox-only alias even when the target has a tty", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const id = "ffffffff-1111-2222-3333-444444444444";
+  await ordinaryRock(home, id);
+  const env = { SLAB_HOME: join(home, ".local", "share", "slab") };
+  const result = await callProx(home, "prox_wake", { handle: "neo:surizu", prompt: "continue via inbox", by: "test:sender" }, env);
+  assert.match(result, /prox_wake is deprecated/);
+  assert.match(result, /No terminal input was submitted/);
+  const received = await callProx(home, "prox_receive", { timeoutSeconds: 0 }, { ...env, AGENT_SESSION_ID: id });
+  assert.match(received, /1 received message/);
+  assert.match(received, /continue via inbox/);
+  assert.match(received, /test:sender/);
+  assert.match(await callProx(home, "prox_receive", { timeoutSeconds: 0 }, { ...env, AGENT_SESSION_ID: id }), /No queued messages/);
+});
+
+test("prox_receive waits for a message in its own inbox without Loopboy mode", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const id = "11111111-1111-2222-3333-444444444444";
+  await ordinaryRock(home, id);
+  const env = { SLAB_HOME: join(home, ".local", "share", "slab") };
+  const waiting = callProx(home, "prox_receive", { timeoutSeconds: 2 }, { ...env, AGENT_SESSION_ID: id });
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  await callProx(home, "prox_send", { handle: "neo:surizu", text: "arrived while waiting" }, env);
+  assert.match(await waiting, /arrived while waiting/);
+  assert.match(await callProx(home, "prox_receive", { timeoutSeconds: 56 }, { ...env, AGENT_SESSION_ID: id }), /between 0 and 55/);
+});
+
+
+test("prox_artifact_ready delivers build results through the inbox", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const id = "22222222-1111-2222-3333-444444444444";
+  await ordinaryRock(home, id);
+  const env = { SLAB_HOME: join(home, ".local", "share", "slab"), AGENT_SESSION_ID: id };
+  assert.match(await callProx(home, "prox_artifact_ready", { handle: "neo:surizu", artifacts: ["/tmp/render.pdf"], by: "paper-mcp" }, env), /via file/);
+  const received = await callProx(home, "prox_receive", { timeoutSeconds: 0 }, env);
+  assert.match(received, /Artifacts ready:/);
+  assert.match(received, /\/tmp\/render.pdf/);
+  assert.match(received, /continue the original task/);
 });

@@ -11,8 +11,6 @@
 
 import { execFile } from "node:child_process";
 import crypto from "node:crypto";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
@@ -20,12 +18,11 @@ import { fetchRetry } from "./fetch-retry.mjs";
 import { VISIT_ACTIONS, VISIT_DEPTHS, visitProperty, visitScopeMatch } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { fisheryOptions } from "../analytics/human-fishery.mjs";
 import { recognitionReportOptions } from "../analytics/network-recognition.mjs";
+import { vaultPath } from "../vault/credentials.mjs";
 
 const pexec = promisify(execFile);
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
-const VAULT = join(ROOT, "aesthetic-computer-vault");
 const LITH = "root@lith.aesthetic.computer";
-const SSH_KEY = join(VAULT, "home/.ssh/id_rsa");
+const sshKey = () => vaultPath("home/.ssh/id_rsa");
 
 const ASC_KEY_ID = "S4TQKG6U99";
 const ASC_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1";
@@ -46,7 +43,7 @@ async function humanFishery(args = {}) {
   const { minutes = 5, scope = "studio", limit = 50, startedAfter } = args;
   const quoted = "'" + JSON.stringify({ minutes, scope, limit, startedAfter }).replaceAll("'", "'\\''") + "'";
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/human-fishery-report.mjs ${quoted}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 30000, maxBuffer: 1024 * 1024 });
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
 }
@@ -55,7 +52,7 @@ async function networkRecognition(args = {}) {
   recognitionReportOptions(args);
   const quoted = "'" + JSON.stringify({ hours: args.hours ?? 24 }).replaceAll("'", "'\\''") + "'";
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/network-recognition-report.mjs ${quoted}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 30000, maxBuffer: 1024 * 1024 });
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
 }
@@ -67,7 +64,7 @@ async function journeyReport(mode, args = {}) {
   if (property !== undefined && !visitScopeMatch(scope).property.$in.includes(visitProperty(property))) throw new Error("Property is outside the selected scope");
   const quoted = "'" + JSON.stringify({ hours, limit, scope, handle, property }).replaceAll("'", "'\\''") + "'";
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/journey-report.mjs ${mode} ${quoted}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
 }
@@ -80,7 +77,7 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
   if (!["studio", "clients", "all"].includes(scope)) throw new Error("scope must be studio, clients or all");
   if (end !== undefined && !/^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(end)) throw new Error("end must be an ISO UTC date");
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/visits-report.mjs --hours ${hours} --scope ${scope}${end ? ` --end ${end}` : ""}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
   const report = JSON.parse(stdout.slice(stdout.indexOf("{"))); // database.mjs logs a line first
 
@@ -131,7 +128,7 @@ async function directDownloads({ days = 30, exclude = [], excludeSelf = true } =
   if (excludeSelf) hashes.push((await (await fetchRetry("https://aesthetic.computer/api/download?whoami=1")).json()).hash);
   if (hashes.some((h) => !/^[a-f0-9]{16}$/.test(h))) throw new Error("exclude takes 16-hex hashes from /api/download?whoami=1");
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/downloads-report.mjs --days ${days}${hashes.length ? ` --exclude ${hashes.join(",")}` : ""}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
   const report = JSON.parse(stdout.slice(stdout.indexOf("{")));
   const apps = {};
@@ -157,7 +154,7 @@ async function appOpens({ days = 7 } = {}) {
   days = Number(days);
   if (!Number.isFinite(days) || days <= 0 || days > 35) throw new Error("days must be 1..35");
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/opens-report.mjs --days ${days}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
   const report = JSON.parse(stdout.slice(stdout.indexOf("{")));
   const apps = {};
@@ -176,7 +173,7 @@ async function iosUsage({ days = 7 } = {}) {
   days = Number(days);
   if (!Number.isInteger(days) || days < 1 || days > 35) throw new Error("days must be 1..35");
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/ios-usage-report.mjs --days ${days}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
 }
@@ -189,7 +186,7 @@ async function dailyMetrics({ days = 14, appStore = true } = {}) {
   days = Number(days);
   if (!Number.isFinite(days) || days <= 0 || days > 3650) throw new Error("days must be 1..3650");
   const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/daily-report.mjs --days ${days}`;
-  const { stdout } = await pexec("ssh", ["-i", SSH_KEY, "-o", "ConnectTimeout=10", LITH, remote],
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "ConnectTimeout=10", LITH, remote],
     { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
   const report = JSON.parse(stdout.slice(stdout.indexOf("{")));
   const out = Object.fromEntries(report.rows.map(({ _id, generatedAt, day, ...row }) => [_id, row]));
@@ -209,7 +206,7 @@ async function dailyMetrics({ days = 14, appStore = true } = {}) {
 
 let ascKey;
 async function ascToken() {
-  ascKey ??= (await pexec("gpg", ["--batch", "--quiet", "--decrypt", join(VAULT, `apple/AuthKey_${ASC_KEY_ID}.p8.gpg`)])).stdout;
+  ascKey ??= (await pexec("gpg", ["--batch", "--quiet", "--decrypt", vaultPath(`apple/AuthKey_${ASC_KEY_ID}.p8.gpg`)])).stdout;
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
   const input = `${b64({ alg: "ES256", kid: ASC_KEY_ID, typ: "JWT" })}.${b64({ iss: ASC_ISSUER, iat: now, exp: now + 1200, aud: "appstoreconnect-v1" })}`;
