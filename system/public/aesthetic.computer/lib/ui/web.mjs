@@ -62,6 +62,46 @@ export function updateActions(root, capabilities) {
   for (const button of root.querySelectorAll("[data-enabled]"))
     button.disabled = !capabilities[button.dataset.enabled];
 }
+const handlePalettes = new Map();
+export function handleLabel(handle) {
+  const label = document.createElement("span");
+  label.className = "ac-handle";
+  const characters = Array.from(handle, (character, index) => {
+    const span = document.createElement("span");
+    span.textContent = character;
+    const hue = (330 + index * 47) % 360;
+    span.style.color = `light-dark(hsl(${hue} 65% 37%), hsl(${hue} 85% 72%))`;
+    label.append(span);
+    return span;
+  });
+  if (!handlePalettes.has(handle)) {
+    handlePalettes.set(
+      handle,
+      fetch(
+        `/api/handle-colors?handle=${encodeURIComponent(handle.replace(/^@/, ""))}`,
+        {
+          signal: AbortSignal.timeout(10000),
+        },
+      )
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => (Array.isArray(data?.colors) ? data.colors : []))
+        .catch(() => []),
+    );
+  }
+  handlePalettes.get(handle).then((colors) => {
+    characters.forEach((span, index) => {
+      const color = colors[index];
+      if (
+        color &&
+        [color.r, color.g, color.b].every(
+          (v) => Number.isFinite(v) && v >= 0 && v <= 255,
+        )
+      )
+        span.style.color = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    });
+  });
+  return label;
+}
 export function applyPalette(spec = noPaintUI) {
   const dark = matchMedia("(prefers-color-scheme: dark)");
   const apply = () => {
