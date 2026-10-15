@@ -23,8 +23,9 @@ export const end = "// </objects>";
 
 // What the game draws, by the name it asks for: the source file each is
 // compiled from. The monowheel is drawn flat, and figures are, behind a flag
-// (OBJECT-DIALECT.md).
-export const objects = { monowheel: "monowheel-flat", figure: "figure-flat", character: "figure-character" };
+// (OBJECT-DIALECT.md). The revolver is the gun fights' six-shooter.
+export const objects = { monowheel: "monowheel-flat", figure: "figure-flat", character: "figure-character",
+  revolver: "revolver" };
 
 // A module's source with its `export` keywords taken off, and the names it
 // exported.

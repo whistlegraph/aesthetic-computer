@@ -23,10 +23,13 @@
 // What the game hands an object each tick. Seconds, world units, radians;
 // `hit` and `land` count seconds since the event (large when it never was).
 // `blink`, `hurt`, `skirt`, `glasses` and `headless` are a figure's: how its face and
-// outfit read this tick.
+// outfit read this tick. `cylinder`, `spent` and `cock` are the revolver's: how
+// far its cylinder has turned (radians), how many chambers have fired, and the
+// hammer (1 back, 0 down).
 export const objectInputs = ["time", "distance", "speed", "lean", "heading",
-  "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses", "headless"];
-const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0];
+  "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses", "headless",
+  "cylinder", "spent", "cock"];
+const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0, 0, 0, 1];
 // Switches are 0 or 1, so a baked part that reads one is baked once per value.
 const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses", "headless"]);
 // A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
