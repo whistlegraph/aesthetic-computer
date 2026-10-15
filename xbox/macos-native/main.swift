@@ -136,12 +136,48 @@ private final class NativeInput {
         else if keyboardVersusSeen { keyboardVersus = false; keyboardVersusSeen = false }
     }
 
+    // Held keys by physical key code, so a button two keys share (S and the
+    // down arrow are both ArrowDown) stays down while either is held, and so
+    // each frame can ask the hardware which keys really are still down.
+    private var heldCodes: [UInt16: (Int, String)] = [:]
+
     func setKey(_ event: NSEvent, down: Bool) {
         guard let mapping = keyMapping(event.keyCode) else { return }
-        if down { lastFamily = "keyboard" }
-        if down { keyboard[mapping.0].insert(mapping.1) }
-        else { keyboard[mapping.0].remove(mapping.1) }
+        if down { lastFamily = "keyboard"; heldCodes[event.keyCode] = mapping }
+        else { heldCodes[event.keyCode] = nil }
+        rebuildKeyboard()
         if down && mapping.0 == 1 { keyboardVersus = true }
+    }
+
+    // Short presses from taps and clicks (`pulse`), held for 80 ms beside
+    // the keys.
+    private var pulses = Set<String>()
+
+    private func rebuildKeyboard() {
+        keyboard[0].removeAll(); keyboard[1].removeAll()
+        for (_, mapping) in heldCodes { keyboard[mapping.0].insert(mapping.1) }
+        for pulse in pulses {
+            let parts = pulse.split(separator: " ", maxSplits: 1)
+            if parts.count == 2, let player = Int(parts[0]), player < keyboard.count {
+                keyboard[player].insert(String(parts[1]))
+            }
+        }
+    }
+
+    /// A key-up AppKit never delivered — let go while Command was down, or
+    /// across a focus change — used to leave its button held for good: a
+    /// fighter stayed crouched after S was released. Every frame, any key
+    /// the hardware says is up is let go here. Bot mode skips this: the
+    /// harness's keys are posted events, not physical ones.
+    func reconcileHeldKeys() {
+        guard !botMode, !heldCodes.isEmpty else { return }
+        var changed = false
+        for code in Array(heldCodes.keys)
+            where !CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(code)) {
+            heldCodes[code] = nil
+            changed = true
+        }
+        if changed { rebuildKeyboard() }
     }
 
     /// Shift and Option never arrive as keyDown — AppKit reports a bare
@@ -165,13 +201,17 @@ private final class NativeInput {
     ]
 
     func pulse(_ button: String, player: Int = 0) {
+        pulses.insert("\(player) \(button)")
         keyboard[player].insert(button)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
-            self?.keyboard[player].remove(button)
+            self?.pulses.remove("\(player) \(button)")
+            self?.rebuildKeyboard()
         }
     }
 
     func clear() {
+        heldCodes.removeAll()
+        pulses.removeAll()
         keyboard[0].removeAll()
         keyboard[1].removeAll()
     }
@@ -1056,6 +1096,7 @@ private final class NativeGameHost {
 
     private func frame() {
         updateLogicalSize()
+        input.reconcileHeldKeys()
         // Relay words land here, on the same thread as every other JS call,
         // before the sim steps that will read what they set.
         for message in network.drainInbox() {

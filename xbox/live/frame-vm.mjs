@@ -579,12 +579,20 @@ export function createFrameVm(host) {
     // thighs, the shoes' on the shins and the neck's on the shoulders, each a
     // line across a joint. Three passes now: measure the figure's farthest
     // fill, put every edge down just behind it, then every fill.
-    let pass = "measure", back = -Infinity;
+    // Fills are shaded by how far back they sit in the figure (far limbs a
+    // quarter darker), so with no ink between parts they still read apart.
+    let pass = "measure", back = -Infinity, front = Infinity, shade = 1;
     const gate = (depth, shift) => {
-      if (pass === "measure") { if (depth > back) back = depth; return null; }
+      if (pass === "measure") { if (depth > back) back = depth; if (depth < front) front = depth; return null; }
       if (pass === "edges") return back + outlineBehind;
+      // By real distance (36 world units to the full shade, the first quarter
+      // free), not the figure's own spread, so a square-on body is one tone.
+      const unit = Math.abs(cam[17]) * (pin === pin ? .1 : 1) * 36;
+      shade = unit > 0 ? 1 - .26 * Math.min(1, Math.max(0, (depth - front) / unit - .25)) : 1;
       return depth + shift;
     };
+    // Edges stay pure ink; only fills take the depth shade.
+    const tone = (r, g, b) => pass === "fills" ? [r * shade, g * shade, b * shade] : [r, g, b];
     for (pass of ["measure", "edges", "fills"])
     for (let n = 0, i = 0; n < sketch.count; n++, i += figureSize(R, i)) {
       const kind = R[i];
@@ -611,13 +619,13 @@ export function createFrameVm(host) {
           if (!seeWorld(px, py, pz, 0)) return;
           const rad = R[a + 4] * scale * seen[3];
           const d = gate(depthAt(seen[2], nudge), shift); if (d === null) return;
-          ellipse(seen[0], seen[1], d, rad, 0, 0, rad, ir, ig, ib, grow);
+          ellipse(seen[0], seen[1], d, rad, 0, 0, rad, ...tone(ir, ig, ib), grow);
         } else if (kind === 12) {
           const b = jointPoint(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figureEnd);
           if (!seeWorld(px, py, pz, 0) || !seeWorld(b[0], b[1], b[2], 4)) return;
           const d = gate(depthAt((seen[2] + seen[6]) / 2, nudge), shift); if (d === null) return;
           stadium(seen[0], seen[1], seen[4], seen[5], d,
-            R[a + 8] * scale * (seen[3] + seen[7]) + grow * 2, ir, ig, ib);
+            R[a + 8] * scale * (seen[3] + seen[7]) + grow * 2, ...tone(ir, ig, ib));
         } else if (kind === 13) {
           const ax = R[a + 4] * scale, ay = R[a + 5] * scale, az = R[a + 6] * scale;
           const bx = R[a + 7] * scale, by = R[a + 8] * scale, bz = R[a + 9] * scale;
@@ -629,7 +637,7 @@ export function createFrameVm(host) {
           if (!seeWorld(px, py, pz, 0) || !turn(ax, ay, az, 4) || !turn(bx, by, bz, 8)) return;
           const d = gate(depthAt(seen[2], nudge), shift); if (d === null) return;
           ellipse(seen[0], seen[1], d, seen[4] - seen[0], seen[5] - seen[1],
-            seen[8] - seen[0], seen[9] - seen[1], ir, ig, ib, grow);
+            seen[8] - seen[0], seen[9] - seen[1], ...tone(ir, ig, ib), grow);
         } else {
           const count = R[a];
           let vz = 0;
@@ -639,7 +647,7 @@ export function createFrameVm(host) {
             flatPoly[k * 2] = seen[0]; flatPoly[k * 2 + 1] = seen[1]; vz += seen[2];
           }
           const d = gate(depthAt(vz / count, nudge), shift); if (d === null) return;
-          plate(flatPoly, 0, count, d, ir, ig, ib, grow);
+          plate(flatPoly, 0, count, d, ...tone(ir, ig, ib), grow);
         }
       };
       const line = R[i + 1];

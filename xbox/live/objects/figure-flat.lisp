@@ -20,24 +20,24 @@ def face-edge .075
   (ink 20 16 28)
   (nudge 1
     (if (not skirt)
-      (bone hip-l knee-l (+ 5.6 edge))
-      (bone hip-r knee-r (+ 5.6 edge)))
-    (bone knee-l foot-l (+ 5 edge))
-    (bone knee-r foot-r (+ 5 edge))
-    (bone shoulder-l shoulder-r (+ 4.6 edge))
-    (bone shoulder-l elbow-l (+ 4.6 edge))
-    (bone shoulder-r elbow-r (+ 4.6 edge))
-    (bone elbow-l hand-l (+ 4 edge))
-    (bone elbow-r hand-r (+ 4 edge))
+      (bone hip-l knee-l (+ 6.4 edge))
+      (bone hip-r knee-r (+ 6.4 edge)))
+    (bone knee-l foot-l (+ 4.8 edge))
+    (bone knee-r foot-r (+ 4.8 edge))
+    (bone shoulder-l shoulder-r (+ 4.8 edge))
+    (bone shoulder-l elbow-l (+ 4.8 edge))
+    (bone shoulder-r elbow-r (+ 4.8 edge))
+    (bone elbow-l hand-l (+ 3.7 edge))
+    (bone elbow-r hand-r (+ 3.7 edge))
     (on hand-l (ball 0 0 0 (+ 4.6 edge)))
     (on hand-r (ball 0 0 0 (+ 4.6 edge))))
   ; legs: thighs unless a skirt hides them; shins show below its hem
   (ink pants)
   (if (not skirt)
-    (bone hip-l knee-l 5.6)
-    (bone hip-r knee-r 5.6))
-  (bone knee-l foot-l 5)
-  (bone knee-r foot-r 5))
+    (bone hip-l knee-l 6.4)
+    (bone hip-r knee-r 6.4))
+  (bone knee-l foot-l 4.8)
+  (bone knee-r foot-r 4.8))
 (outline edge 20 16 28
   ; the neck joint sits at the shoulder line (the torso bone's top), so the
   ; neck is a thin stem from just under it up into the head, set a touch
@@ -49,7 +49,12 @@ def face-edge .075
   ; the shoulders — that dome read as a thick neck — and wide enough that the
   ; shoulders do not hang past it. Its hem sits under the skirt.
   (ink shirt)
-  (bone (neck 0 -16 0) (pelvis 0 4 0) 16)
+  ; a body, not a pill: a narrower core, a chest that runs from the shoulders
+  ; in to the waist, and hips that flare back out — two convex plates so each
+  ; fans cleanly, their join hidden because edges go down behind every fill
+  (bone (neck 0 -14 0) (pelvis 0 8 0) 10)
+  (skin (shoulder-l 5 4 0) (shoulder-r -5 4 0) (pelvis -9 24 0) (pelvis 9 24 0))
+  (skin (pelvis 9 25 0) (pelvis -9 25 0) (hip-r -8 -2 0) (hip-l 8 -2 0))
   (if skirt
     ; a skirt over the hem: a waist a shade narrower than the torso, flaring
     ; to a hem past the knees (x runs to her left hip, so +x is out on the left)
@@ -63,12 +68,12 @@ def face-edge .075
   ; step and no line
   (ink shirt)
   (outline 0
-    (bone shoulder-l shoulder-r 4.6)
-    (bone shoulder-l elbow-l 4.6)
-    (bone shoulder-r elbow-r 4.6)
+    (bone shoulder-l shoulder-r 4.8)
+    (bone shoulder-l elbow-l 4.8)
+    (bone shoulder-r elbow-r 4.8)
     (ink skin)
-    (bone elbow-l hand-l 4)
-    (bone elbow-r hand-r 4)
+    (bone elbow-l hand-l 3.7)
+    (bone elbow-r hand-r 3.7)
     (on hand-l (ball 0 0 0 4.6))
     (on hand-r (ball 0 0 0 4.6))))
 
