@@ -1,0 +1,28 @@
+{
+  "_readme": "Submission state for the papers index (papers.aesthetic.computer). Keys under `papers` are paper dirs (or JOSS/ELS metaKeys). A paper with no entry is listed as self-published. Statuses: draft, ready, submitted, accepted, rejected, missed, withdrawn, unconfirmed. `venueOnly` lists venue editions with no public PDF. Run `node papers/cli.mjs index` after editing.",
+  "papers": {
+    "arxiv-ac": [
+      { "venue": "ACM C&C 2026", "track": "Demos", "date": "2026-04-16", "status": "unconfirmed", "note": "Venue edition: papers/cc-demo-2026" }
+    ],
+    "arxiv-kidlisp": [
+      { "venue": "ICCC 2026", "track": "Short papers", "date": "2026-04-24", "status": "unconfirmed", "note": "Venue edition: papers/iccc-kidlisp" }
+    ],
+    "arxiv-latency": [
+      { "venue": "SIGGRAPH Asia 2026", "track": "Technical papers", "date": "2026-05-12", "status": "unconfirmed", "note": "Venue edition: papers/siggraph-asia-2026-tech" }
+    ],
+    "els-kidlisp": [
+      { "venue": "ELS 2026", "track": "Papers", "date": "2026", "status": "unconfirmed" }
+    ],
+    "joss-ac": [
+      { "venue": "JOSS", "track": "Software paper", "date": "rolling", "status": "draft" }
+    ],
+    "joss-kidlisp": [
+      { "venue": "JOSS", "track": "Software paper", "date": "rolling", "status": "draft" }
+    ]
+  },
+  "venueOnly": [
+    { "id": "iclc-2027-notespatial", "title": "Note(s)pat(ial) Native", "venue": "ICLC 2027", "track": "Performance", "date": "2026-08-31", "status": "submitted", "decision": "2026-11-01" },
+    { "id": "iccc-early-career-2026", "title": "Early-career research statement", "venue": "ICCC 2026", "track": "Early Career Symposium", "date": "2026-05-15", "status": "unconfirmed" },
+    { "id": "artsit-2026", "title": "Sound/image full paper", "venue": "ArtsIT 2026", "track": "Full papers", "date": "2026-06-01", "status": "unconfirmed" }
+  ]
+}
