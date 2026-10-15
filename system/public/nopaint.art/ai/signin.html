@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Sign in to No Paint</title>
+    <link rel="stylesheet" href="/nopaint.art/ai/style.css" />
+  </head>
+  <body class="signin-page" data-ac-no-track>
+    <main>
+      <h1 id="signin-title">Sign in to No Paint</h1>
+      <p id="signin-instructions">
+        Connect the screen you scanned to your AC account.
+      </p>
+      <button id="connect-account">Sign in with AC</button>
+      <form id="link-form">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" required />
+        <button id="send-link" type="submit">Email me a sign-in link</button>
+      </form>
+      <p id="signin-message" role="status"></p>
+    </main>
+    <script type="module" src="/nopaint.art/ai/signin-phone.mjs"></script>
+  </body>
+</html>

@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 const tenant = "aesthetic.us.auth0.com";
 const client = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 const origin = "https://nopaint.art";
+const callback = "https://aesthetic.computer/api/nopaint-signin";
 const fields = [
   "callbacks",
   "web_origins",
@@ -27,8 +28,17 @@ if (before.app_type !== "spa")
   throw Error("Expected the existing AC browser application.");
 const patch = Object.fromEntries(
   fields
-    .filter((key) => !(before[key] || []).includes(origin))
-    .map((key) => [key, [...(before[key] || []), origin]]),
+    .map((key) => [
+      key,
+      [
+        ...new Set([
+          ...(before[key] || []),
+          origin,
+          ...(key === "callbacks" ? [callback] : []),
+        ]),
+      ],
+    ])
+    .filter(([key, urls]) => urls.length !== (before[key] || []).length),
 );
 console.log(
   JSON.stringify({
@@ -47,7 +57,11 @@ if (process.argv.includes("--apply") && Object.keys(patch).length) {
   );
   const after = read();
   for (const key of fields) {
-    for (const url of [...(before[key] || []), origin]) {
+    for (const url of [
+      ...(before[key] || []),
+      origin,
+      ...(key === "callbacks" ? [callback] : []),
+    ]) {
       if (!(after[key] || []).includes(url))
         throw Error(`Missing ${key} URL after update.`);
     }

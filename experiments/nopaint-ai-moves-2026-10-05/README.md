@@ -40,6 +40,11 @@ show the fixed Braincell tariff, configured generation size/quality, and the
 The 2026-10-14 catalog check found 49 responding configured OpenRouter model
 endpoints; Ming Image 0.1 Design Layer returned 404 and was removed.
 
+A live Nano Banana 2.1 move on October 14 was rejected by Google AI Studio's
+quota (HTTP 429); the reservation was refunded. Provider failures now name the
+model and temporarily remove only that model's availability, without retrying
+or choosing a different paid model. Other cloud models remain selectable.
+
 The shared high-level UI document and Swift/DOM renderers live in
 `system/public/aesthetic.computer/lib/ui/`. Native consumes the shared decision
 bar, palette, layout and options while retaining its platform canvas and views.
@@ -53,10 +58,26 @@ preserving all other application URLs. This configuration lives in Auth0 and
 does not change when lith deploys. An expired admin session must be renewed
 with `auth0 login --scopes read:clients,update:clients`.
 
+Sign-in offers a phone QR, same-device AC login, and an email link. The QR uses
+AC's existing browser device pairing, never the native credential flow. Its
+private polling secret stays on the requesting browser and travels in POST
+bodies. Scanning opens a confirmation on aesthetic.computer; approving the
+account delivers its access token once. Closing the dialog stops polling.
+
+Email links use `/api/nopaint-signin` with a fixed Auth0 callback at
+`https://aesthetic.computer/api/nopaint-signin` (also registered by the helper).
+Auth0 sends the email only after the visitor submits the form. PKCE verifiers
+and hashed states/addresses expire after ten minutes, and the callback checks
+the verified address before claiming the original browser pairing. Auth0's
+`universal_login.passwordless.allow_magiclink_verify_without_session` tenant
+flag was already enabled, permitting the link to open on another device.
+There is no code-entry field. API and two-browser tests use isolated fixtures;
+real email delivery still needs a user-requested sign-in attempt.
+
 Focused checks:
 
 ```sh
-node --test system/tests/nopaint-web-game.test.mjs system/tests/nopaint-inference.test.mjs
+node --test system/tests/nopaint-web-game.test.mjs system/tests/nopaint-inference.test.mjs system/tests/nopaint-status.test.mjs system/tests/nopaint-signin.test.mjs
 node tests/browser/nopaint-ai-web.test.mjs
 # In this directory (Pillow and NumPy required for the existing game tests):
 python -m unittest test_web_pairing.py test_play.py test_classic_game.py

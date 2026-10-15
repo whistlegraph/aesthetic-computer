@@ -16,7 +16,7 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
     if (event.httpMethod === 'OPTIONS') return reply(204, null);
     if (event.httpMethod === 'GET') {
       const service=status ? await status({enabled,offers}) : null;
-      return reply(200, {models:offers.map(item=>({...item,available:enabled && service?.available!==false && !service?.unavailable_models?.includes(item.id)})), ...(service?{service}:{})});
+      return reply(200, {models:offers.map(item=>({...item,available:enabled && service?.available!==false && !service?.unavailable_models?.includes(item.id), ...(service?.model_issues?.[item.id] ? {unavailableReason:'Temporarily unavailable'} : {})})), ...(service?{service}:{})});
     }
     if (event.httpMethod !== 'POST') return reply(405, {error:'POST only'});
     if (!event.headers?.authorization) return reply(401, {error:'Sign in with AC for remote moves'});
@@ -53,7 +53,15 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
           hash:input.hash, braincells:offer.braincells, model:offer.model});
         let result;
         try { result = await generate(input, offer); }
-        catch (error) { await billing.finish(receipt.id, false); throw error; }
+        catch (error) {
+          await billing.finish(receipt.id, false);
+          status?.reportFailure?.(offer, error);
+          if (error.code?.startsWith('provider_')) {
+            error.charged = 0;
+            error.message += ' No Braincells were charged.';
+          }
+          throw error;
+        }
         // No/Paint selects artwork, not billing. Completed remote work is charged
         // even if its client stopped waiting. Uncertain or failed work is refunded.
         if (!await billing.finish(receipt.id, true)) throw Object.assign(Error('Move reservation expired'), {status:503});
@@ -66,7 +74,8 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
       pending.set(id, {user:user.sub, hash:input.hash, promise});
       return await promise;
     } catch (error) {
-      return reply(error.status || 503, {error:error.status ? error.message : 'Remote image generation unavailable'});
+      return reply(error.status || 503, {error:error.status ? error.message : 'Remote image generation unavailable',
+        ...(error.code?.startsWith('provider_') ? {code:error.code, charged:error.charged, retryAfter:error.retryAfter} : {})});
     }
   };
 }
@@ -82,7 +91,7 @@ export async function handler(event) {
   // Catalog health uses a cached, read-only balance request; no DB or inference.
   if (event.httpMethod === 'GET') {
     const service=await cloudStatus({enabled,offers});
-    return reply(200, {models:offers.map(item=>({...item,available:enabled && service.available && !service.unavailable_models?.includes(item.id)})), service});
+    return reply(200, {models:offers.map(item=>({...item,available:enabled && service.available && !service.unavailable_models?.includes(item.id), ...(service.model_issues?.[item.id] ? {unavailableReason:'Temporarily unavailable'} : {})})), service});
   }
   if (event.httpMethod === 'OPTIONS') return reply(204, null);
   if (!enabled) {

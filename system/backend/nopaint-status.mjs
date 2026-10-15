@@ -4,6 +4,7 @@
 export function createCloudStatus({key, fetch=globalThis.fetch, now=Date.now,
   minimum=1, ttl=60_000}={}) {
   let cached, until=0, pending;
+  const failures = new Map();
   async function credit() {
     if (cached && until>now()) return cached;
     if (pending) return pending;
@@ -21,7 +22,7 @@ export function createCloudStatus({key, fetch=globalThis.fetch, now=Date.now,
     })().then(value=>{cached=value;until=now()+ttl;return value;}).finally(()=>{pending=null;});
     return pending;
   }
-  return async ({enabled=false, offers=[]}={})=>{
+  const check = async ({enabled=false, offers=[]}={})=>{
     const funding=key ? await credit() : null;
     const result=(code, detail)=>({available:code==='ready', code,
       message:code==='ready'?'AC cloud available':'AC cloud unavailable', detail,
@@ -41,4 +42,22 @@ export function createCloudStatus({key, fetch=globalThis.fetch, now=Date.now,
       return result('status_unavailable', 'AC could not check OpenRouter availability. Refresh to try again.');
     return result('ready', null);
   };
+  const status = async (config={}) => {
+    const service = await check(config);
+    if (!service.available) return service;
+    for (const [id, failure] of failures) if (failure.until <= now()) failures.delete(id);
+    const issues = Object.fromEntries((config.offers || []).filter(offer=>failures.has(offer.id))
+      .map(offer=>[offer.id, failures.get(offer.id)]));
+    const unavailable_models = [...new Set([...(service.unavailable_models || []), ...Object.keys(issues)])];
+    if (!unavailable_models.length) return service;
+    const allUnavailable = config.offers?.length && config.offers.every(offer=>unavailable_models.includes(offer.id));
+    const first = Object.values(issues)[0];
+    return {...service, unavailable_models, model_issues:issues,
+      ...(allUnavailable && first ? {available:false, code:first.code, detail:first.message} : {})};
+  };
+  status.reportFailure = (offer, error) => {
+    if (!error.code?.startsWith('provider_')) return;
+    failures.set(offer.id, {code:error.code, message:error.message, until:now()+(error.retryAfter || 60)*1000});
+  };
+  return status;
 }

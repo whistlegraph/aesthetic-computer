@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 import {braincellsFromCost} from './easel-paid-credits.mjs';
 import {imageInputBound} from './easel-input-images.mjs';
 import {movePrompt, PROMPT_VERSION} from './nopaint-move-prompt.mjs';
+import {providerError} from './nopaint-provider-error.mjs';
 
 export const MODEL = 'fal-ai/flux-2/klein/4b/edit';
 const fail = (status, message) => Object.assign(Error(message), {status});
@@ -42,7 +43,7 @@ export function createNoPaintProvider({key, fetch=globalThis.fetch, sleep=ms=>ne
       const response = await fetch(url, {method, redirect:'error', signal,
         headers:{Authorization:`Key ${key}`, 'Content-Type':'application/json'},
         ...(body ? {body:JSON.stringify(body)} : {})});
-      if (!response.ok) throw fail(502, `Image provider unavailable (HTTP ${response.status})`);
+      if (!response.ok) throw providerError(response, 'FLUX.2 Klein 4B');
       return response.json();
     };
     try {

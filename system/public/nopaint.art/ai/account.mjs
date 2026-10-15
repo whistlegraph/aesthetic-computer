@@ -40,6 +40,8 @@ export class Account {
     await this.refresh();
   }
   async token() {
+    const paired = localStorage.getItem("nopaint-ac-token");
+    if (paired) return paired;
     const otp = await this.otp.token();
     if (otp) return otp;
     const auth = await this.sdk();
@@ -67,7 +69,7 @@ export class Account {
             result.message ||
             `AC request failed (${response.status}).`,
         ),
-        { status: response.status },
+        { status: response.status, charged: result.charged },
       );
     return result;
   }
@@ -94,9 +96,10 @@ export class Account {
           stale: false,
         };
     } catch (error) {
-      if ([401, 403].includes(error.status))
+      if ([401, 403].includes(error.status)) {
+        localStorage.removeItem("nopaint-ac-token");
         this.value = { connected: false, error: error.message };
-      else
+      } else
         this.value = {
           ...this.value,
           stale: true,
@@ -111,10 +114,21 @@ export class Account {
     await (await this.sdk()).loginWithRedirect();
   }
   async logout() {
+    localStorage.removeItem("nopaint-ac-token");
     this.otp.forget();
     await (await this.sdk()).logout({ openUrl: false });
     this.value = { connected: false };
     this.onchange();
+  }
+  async adopt(session) {
+    if (
+      typeof session?.accessToken !== "string" ||
+      !session.accessToken ||
+      !session.account?.id
+    )
+      throw Error("Sign-in did not return an AC session.");
+    localStorage.setItem("nopaint-ac-token", session.accessToken);
+    return this.refresh();
   }
   async move(input) {
     return this.request("/api/nopaint-inference", input, 200000);

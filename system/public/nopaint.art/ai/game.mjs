@@ -277,7 +277,7 @@ export class Game {
         move: job.id,
         at: this.now(),
         message: error.message,
-        braincells: cloud ? "unknown" : 0,
+        braincells: cloud && error.charged !== 0 ? "unknown" : 0,
       });
       await this.persistTrack(job.track).catch(() => {});
       if (!job.cancelled) this.error = error.message;

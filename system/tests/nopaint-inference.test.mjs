@@ -4,7 +4,8 @@ import {randomUUID} from 'node:crypto';
 import sharp from 'sharp';
 import {createHandler} from '../netlify/functions/nopaint-inference.mjs';
 import {moveOffer,moveInput,createNoPaintProvider} from '../backend/nopaint-provider.mjs';
-import {openRouterOffers, profiles} from '../backend/nopaint-openrouter.mjs';
+import {openRouterOffers, profiles, createOpenRouterProvider} from '../backend/nopaint-openrouter.mjs';
+import {createCloudStatus} from '../backend/nopaint-status.mjs';
 
 const image=(await sharp({create:{width:256,height:256,channels:3,background:'#74746f'}}).png().toBuffer()).toString('base64');
 const offer = moveOffer(.01);
@@ -109,4 +110,25 @@ test('provider callback URLs cannot receive credentials on another host',async()
   let calls=0;
   const generate=createNoPaintProvider({key:'test-key',fetch:async()=>{calls++;return Response.json({status_url:'https://example.test/status'});}});
   await assert.rejects(generate(JSON.parse(event().body)),{status:502});assert.equal(calls,1);
+});
+test('upstream quota rejection refunds once and temporarily blocks only that model',async()=>{
+  let at=0, submitted=0;
+  const remote=openRouterOffers('all')[0], other=openRouterOffers('all')[1];
+  const status=createCloudStatus({now:()=>at});
+  const generate=createOpenRouterProvider({key:'private',fetch:async()=>{
+    submitted++;return Response.json({error:{message:'private provider details'}},{status:429});
+  }});
+  const {handler,calls}=fixture({offers:[remote,other],status,generate});
+  const request=event({model:remote.id,quote:remote.quote});
+  const first=await handler(request), body=JSON.parse(first.body);
+  assert.equal(first.statusCode,502);assert.equal(body.code,'provider_rate_limited');
+  assert.equal(body.charged,0);assert.match(body.error,/No Braincells were charged/);
+  assert.ok(!first.body.includes('private'));assert.equal(submitted,1);
+  assert.deepEqual(calls.finish,[['receipt',false]]);
+  const catalog=JSON.parse((await handler({httpMethod:'GET'})).body);
+  assert.equal(catalog.models[0].available,false);assert.equal(catalog.models[1].available,true);
+  assert.equal((await handler(event({model:remote.id,quote:remote.quote}))).statusCode,503);
+  assert.equal(submitted,1);assert.equal(calls.begin.length,1);
+  at=300_001;
+  assert.equal(JSON.parse((await handler({httpMethod:'GET'})).body).models[0].available,true);
 });

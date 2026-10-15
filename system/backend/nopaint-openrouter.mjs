@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 import {braincellsFromCost} from './easel-paid-credits.mjs';
 import {profiles} from './nopaint-openrouter-profiles.mjs';
 import {movePrompt, PROMPT_VERSION} from './nopaint-move-prompt.mjs';
+import {providerError} from './nopaint-provider-error.mjs';
 export {profiles};
 
 export function openRouterOffers(configuration='[]') {
@@ -38,7 +39,7 @@ export function createOpenRouterProvider({key, fetch=globalThis.fetch, look=null
         input_references:[{type:'image_url',image_url:{url:'data:image/png;base64,'+input.image}}],
       }),
     });
-    if (!response.ok) throw Object.assign(Error(`Image provider unavailable (HTTP ${response.status})`),{status:502});
+    if (!response.ok) throw providerError(response, offer.name);
     // Bound bytes before parsing; never follow a provider-controlled image URL.
     let length=0; const chunks=[];
     for await(const chunk of response.body) {

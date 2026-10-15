@@ -40,7 +40,9 @@ const context = await browser.newContext({
   page = await context.newPage();
 const errors = [],
   moves = [],
-  uploads = [];
+  uploads = [],
+  emails = [],
+  pairs = new Map();
 let releaseCloud,
   publishedPNG,
   wip = { code: "webtest", revision: 0 },
@@ -66,10 +68,13 @@ await context.addInitScript(() => {
       async handleRedirectCallback() {
         localStorage.removeItem("fixture-signed-out");
       }
+      async loginWithPopup() {
+        localStorage.removeItem("fixture-signed-out");
+      }
     },
   };
 });
-await context.route("**/*", async (route) => {
+const routeRequest = async (route) => {
   const request = route.request(),
     url = new URL(request.url()),
     path = url.pathname;
@@ -79,6 +84,56 @@ await context.route("**/*", async (route) => {
       contentType: "application/json",
       body: JSON.stringify(value),
     });
+  if (path === "/api/nopaint-signin") {
+    const body = request.postDataJSON();
+    if (body.action === "create") {
+      const code = "AA" + String(pairs.size + 1).padStart(4, "0");
+      pairs.set(code, { code, pollSecret: "s".repeat(43), claimed: false });
+      return json(pairs.get(code));
+    }
+    const pair = pairs.get(body.code);
+    assert.ok(pair);
+    if (body.action === "poll") {
+      assert.equal(body.pollSecret, pair.pollSecret);
+      return json(
+        pair.claimed
+          ? {
+              status: "claimed",
+              session: {
+                accessToken: "isolated-test-token",
+                account: { id: "fixture", label: "@fixture" },
+              },
+            }
+          : { status: "pending" },
+      );
+    }
+    if (body.action === "claim") {
+      assert.equal(
+        request.headers().authorization,
+        "Bearer isolated-test-token",
+      );
+      pair.claimed = true;
+      return json({ handle: "fixture", kind: "browser" });
+    }
+    if (body.action === "email")
+      return json({
+        client_id: "fixture",
+        authParams: {
+          response_type: "code",
+          state: "test-state",
+          code_challenge: "test-pkce",
+          redirect_uri: "https://aesthetic.computer/api/nopaint-signin",
+        },
+      });
+    throw Error("Unexpected sign-in action");
+  }
+  if (
+    url.hostname === "hi.aesthetic.computer" &&
+    path === "/passwordless/start"
+  ) {
+    emails.push(request.postDataJSON());
+    return json({});
+  }
   if (path === "/api/nopaint-inference") {
     if (request.method() === "GET")
       return json({
@@ -164,7 +219,8 @@ await context.route("**/*", async (route) => {
     });
   if (url.origin !== base) return route.abort();
   return route.continue();
-});
+};
+await context.route("**/*", routeRequest);
 const paint = () => page.locator(".decisions [data-action=paint]"),
   no = () => page.locator(".decisions [data-action=no]");
 async function ready() {
@@ -356,7 +412,7 @@ try {
   await page.locator("#models [data-close]").click();
   await studioAction("account");
   await page.locator("#signout").click();
-  await page.waitForSelector("#signin", { state: "visible" });
+  await page.waitForSelector("#signin-methods", { state: "visible" });
   await page.locator("#account [data-close]").click();
   await select("Color");
   assert.equal(await page.locator("#account").isVisible(), false);
@@ -379,6 +435,12 @@ try {
   assert.match(
     await page.locator("#account-model").textContent(),
     /Test Cloud/,
+  );
+  await page.waitForSelector("#signin-qr", { state: "visible" });
+  assert.equal(await page.locator("#code, #code-label").count(), 0);
+  assert.doesNotMatch(
+    await page.locator("#account").textContent(),
+    /six-digit|Send code/i,
   );
   assert.match(await page.locator("#status").textContent(), /^Color$/);
   await page.screenshot({ path: shots + "/model-signin.png" });
@@ -408,6 +470,74 @@ try {
     1,
     "selecting a model and signing in never generate a move",
   );
+  // A separate phone browser approves the QR; the editor receives the session.
+  await studioAction("account");
+  await page.locator("#signout").click();
+  await page.waitForSelector("#signin-qr", { state: "visible" });
+  await page.locator("#account [data-close]").click();
+  await select("Classic");
+  await page.locator("#status").click();
+  await page.locator(".model-row").filter({ hasText: "Test Cloud" }).click();
+  await page.waitForSelector("#signin-qr", { state: "visible" });
+  const pair = [...pairs.values()].at(-1);
+  const phone = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
+  await phone.route("**/*", routeRequest);
+  await phone.addInitScript(() => {
+    globalThis.auth0 = {
+      Auth0Client: class {
+        async isAuthenticated() {
+          return true;
+        }
+        async getTokenSilently() {
+          return "isolated-test-token";
+        }
+      },
+    };
+  });
+  const phonePage = await phone.newPage();
+  phonePage.on("pageerror", (e) => errors.push(e.message));
+  await phonePage.goto(base + "/nopaint.art/ai/signin.html#code=" + pair.code);
+  await phonePage
+    .getByRole("button", { name: "Continue as @fixture" })
+    .waitFor();
+  assert.equal(pair.claimed, false, "scanning alone does not approve sign-in");
+  await phonePage.getByRole("button", { name: "Continue as @fixture" }).click();
+  await phonePage
+    .getByText("Return to No Paint on the screen you scanned.", {
+      exact: true,
+    })
+    .waitFor();
+  await page.waitForSelector("#account", { state: "hidden" });
+  await ready();
+  assert.match(
+    await page.locator("#status").textContent(),
+    /^Test Cloud.*@fixture/,
+  );
+  await phonePage.screenshot({ path: shots + "/phone-signin.png" });
+  await phone.close();
+  // Email requests a link, never an OTP; receiving a session follows the same poll.
+  await studioAction("account");
+  await page.locator("#signout").click();
+  await page.waitForSelector("#signin-qr", { state: "visible" });
+  const emailPair = [...pairs.values()].at(-1);
+  await page.locator("#email-link summary").click();
+  await page.locator("#email").fill("painter@example.test");
+  await page.locator("#sign-submit").click();
+  await page
+    .getByText(
+      "Check your email and tap the sign-in link. This screen will sign in automatically.",
+      { exact: true },
+    )
+    .waitFor();
+  assert.equal(emails.length, 1);
+  assert.equal(emails[0].send, "link");
+  assert.equal(emails[0].email, "painter@example.test");
+  assert.equal(emails[0].authParams.response_type, "code");
+  emailPair.claimed = true;
+  await page.waitForSelector("#account", { state: "hidden" });
+  assert.equal(moves.length, 1, "QR and email sign-in do not start inference");
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
@@ -418,6 +548,7 @@ try {
         "large model picker with secondary painting actions",
         "no brush size setting",
         "cloud model sign-in prompt, cancellation and redirect selection recovery",
+        "phone QR approval and email links without code entry",
         "model details without changing selection or making inference requests",
         "reload persistence",
         "exact mask preservation",

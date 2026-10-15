@@ -102,29 +102,32 @@
           >Braincells ↗</a
         ><button id="signout">Sign out</button>
       </div>
-      <form id="signin">
-        <label
-          >Email<input
-            id="email"
-            type="email"
-            autocomplete="email"
-            required /></label
-        ><label id="code-label" hidden
-          >Six-digit code<input
-            id="code"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            pattern="[0-9]{6}"
-            maxlength="6" /></label
-        ><button id="sign-submit" type="submit">Send code</button
-        ><button id="redirect-login" type="button">Sign in on AC</button
-        ><a
-          href="https://aesthetic.computer/imnew"
-          target="_blank"
-          rel="noopener"
-          >Create an AC account ↗</a
-        >
-      </form>
+      <div id="signin-methods">
+        <p>Scan with your phone to sign in with AC.</p>
+        <canvas
+          id="signin-qr"
+          aria-label="Scan to sign in with AC"
+          hidden
+        ></canvas>
+        <p id="qr-message" role="status"></p>
+        <button id="qr-retry" type="button" hidden>New QR</button>
+        <button id="redirect-login" type="button">
+          Sign in on this device
+        </button>
+        <details id="email-link">
+          <summary>Email me a sign-in link</summary>
+          <form id="signin">
+            <label
+              >Email<input
+                id="email"
+                type="email"
+                autocomplete="email"
+                required
+            /></label>
+            <button id="sign-submit" type="submit">Send link</button>
+          </form>
+        </details>
+      </div>
       <p id="account-message" role="status"></p>
     </dialog>
     <dialog id="brush-settings">

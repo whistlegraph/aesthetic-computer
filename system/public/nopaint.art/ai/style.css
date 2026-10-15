@@ -315,6 +315,49 @@ dialog a {
 #model-source {
   margin-top: 22px;
 }
+#signin-qr {
+  display: block;
+  width: min(228px, 100%);
+  height: auto;
+  margin: 18px auto;
+  image-rendering: pixelated;
+}
+#signin-methods > button {
+  display: block;
+  margin: 12px 0;
+}
+#email-link summary {
+  cursor: pointer;
+  padding: 12px 0;
+}
+#qr-message:empty {
+  display: none;
+}
+.signin-page {
+  height: auto;
+  min-height: 100svh;
+  overflow: auto;
+  padding: 32px 24px;
+}
+.signin-page main {
+  max-width: 440px;
+  margin: 10vh auto;
+}
+.signin-page h1 {
+  font-size: 28px;
+}
+.signin-page p {
+  line-height: 1.5;
+}
+.signin-page input {
+  width: 100%;
+  margin: 8px 0;
+}
+.signin-page button {
+  margin: 12px 0 24px;
+  border: 1px solid var(--ink);
+  padding: 12px;
+}
 .model-row > div {
   min-width: 0;
   overflow-wrap: anywhere;

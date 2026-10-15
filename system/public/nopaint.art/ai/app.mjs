@@ -11,6 +11,7 @@ import { openStore } from "./storage.mjs";
 import { Account } from "./account.mjs";
 import { Game, paintCapacity } from "./game.mjs";
 import { publish } from "./publish.mjs";
+import { signInRequest, sendSignInLink, drawSignInQR } from "./signin.mjs";
 import "/aesthetic.computer/lib/visit-tracker.mjs";
 const $ = (id) => document.getElementById(id);
 let game,
@@ -27,6 +28,7 @@ let game,
   lastPublication = "",
   historyData = [],
   workingLabel = "";
+let signInAbort, signInPair, signInReady;
 const account = new Account(() => {
   if (game) {
     game.prepare();
@@ -230,8 +232,7 @@ async function dispatch(id) {
         $("model-list").scrollTop = 0;
       }
       if (id === "account") {
-        renderAccount();
-        open("account");
+        openAccount();
       }
       if (id === "settings") {
         $("mode-label").textContent =
@@ -362,8 +363,7 @@ function renderModels() {
           try {
             if (model.id.startsWith("ac-") && !account.value.connected) {
               pendingModel = model.id;
-              renderAccount();
-              open("account");
+              openAccount();
               return;
             }
             await game.select(model.id);
@@ -390,7 +390,8 @@ function renderModels() {
 }
 function modelAvailability(model, value) {
   if (!model.id.startsWith("ac-")) return "Ready";
-  if (!model.serviceAvailable) return "Unavailable on AC";
+  if (!model.serviceAvailable)
+    return model.unavailableReason || "Unavailable on AC";
   if (!value.connected) return "Sign in with AC";
   if (value.stale) return "Refresh your balance";
   if ((value.remaining || 0) + (value.purchased || 0) < model.braincells)
@@ -494,11 +495,67 @@ function renderAccount() {
   $("account-model").hidden = !model || a.connected;
   $("account-model").textContent = model ? `To use ${model.name}.` : "";
   $("signed-in").hidden = !a.connected;
-  $("signin").hidden = !!a.connected;
+  $("signin-methods").hidden = !!a.connected;
   $("signout").disabled = s.busy || !!s.publication?.pending;
   $("balance").textContent =
     `${a.handle || ""} · ${((a.remaining || 0) + (a.purchased || 0)).toLocaleString()} Braincells${a.stale ? " (last known)" : ""}`;
   $("account-message").textContent = a.error || "";
+}
+function openAccount() {
+  renderAccount();
+  open("account");
+  if (!account.value.connected) startSignIn();
+}
+function startSignIn() {
+  signInAbort?.abort();
+  const controller = new AbortController(),
+    { signal } = controller;
+  signInAbort = controller;
+  signInPair = null;
+  $("signin-qr").hidden = true;
+  $("qr-retry").hidden = true;
+  $("qr-message").textContent = "Opening sign-in…";
+  signInReady = signInRequest({ action: "create" }, { signal }).then((pair) => {
+    if (signal.aborted) return null;
+    signInPair = pair;
+    const url = `https://aesthetic.computer/nopaint.art/ai/signin.html#code=${encodeURIComponent(pair.code)}`;
+    drawSignInQR($("signin-qr"), url);
+    $("signin-qr").hidden = false;
+    $("qr-message").textContent = "";
+    return pair;
+  });
+  (async () => {
+    const pair = await signInReady;
+    while (pair && !signal.aborted) {
+      await new Promise((resolve) => {
+        const done = () => {
+          clearTimeout(timer);
+          signal.removeEventListener("abort", done);
+          resolve();
+        };
+        const timer = setTimeout(done, 1500);
+        signal.addEventListener("abort", done, { once: true });
+      });
+      if (signal.aborted) return;
+      const result = await signInRequest(
+        { action: "poll", code: pair.code, pollSecret: pair.pollSecret },
+        { signal },
+      );
+      if (signal.aborted) return;
+      if (result.status === "claimed") {
+        await account.adopt(result.session);
+        if (signal.aborted) return;
+        renderAccount();
+        if (account.value.connected) $("account").close();
+        return;
+      }
+    }
+  })().catch((error) => {
+    if (signal.aborted) return;
+    $("signin-qr").hidden = true;
+    $("qr-retry").hidden = false;
+    $("qr-message").textContent = error.message;
+  });
 }
 async function finishModelSignIn() {
   const id = pendingModel || sessionStorage.getItem("nopaint-signin-model");
@@ -697,7 +754,10 @@ $("status").onclick = () => dispatch("models");
 $("more-actions").onclick = () => open("painting-actions");
 $("account").onclose = () => {
   pendingModel = null;
+  signInAbort?.abort();
+  signInPair = null;
 };
+$("qr-retry").onclick = startSignIn;
 $("clear-mask").onclick = () => dispatch("clearMask");
 $("strength").onchange = async () => {
   try {
@@ -715,6 +775,7 @@ $("signout").onclick = async () => {
     await account.logout();
     renderAccount();
     render();
+    startSignIn();
   } catch (error) {
     $("account-message").textContent = error.message;
   }
@@ -734,21 +795,11 @@ $("signin").onsubmit = async (e) => {
   e.preventDefault();
   $("sign-submit").disabled = true;
   try {
-    if ($("code-label").hidden) {
-      await account.otp.sendCode($("email").value);
-      $("code-label").hidden = false;
-      $("code").required = true;
-      $("email").readOnly = true;
-      $("sign-submit").textContent = "Sign in";
-      $("code").focus();
-      $("account-message").textContent =
-        "Check your email for the six-digit code.";
-    } else {
-      await account.otp.verify($("email").value, $("code").value);
-      await account.refresh();
-      renderAccount();
-      if (account.value.connected) $("account").close();
-    }
+    const pair = signInPair || (await signInReady);
+    if (!pair || signInAbort?.signal.aborted) return;
+    await sendSignInLink(pair.code, $("email").value);
+    $("account-message").textContent =
+      "Check your email and tap the sign-in link. This screen will sign in automatically.";
   } catch (error) {
     $("account-message").textContent = error.hint || error.message;
   } finally {
