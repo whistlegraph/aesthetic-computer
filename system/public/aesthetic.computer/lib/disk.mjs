@@ -11982,7 +11982,7 @@ async function makeFrame({ data: { type, content } }) {
   // 🎵 Streaming Audio messages - forward to piece receive function
   // (the whole family: playing/paused/stopped/error/state, time-data,
   //  seeked, frequencies/waveform/peaks-data, speed-data)
-  if (type.startsWith("stream:") || type === "kidlisp:data") {
+  if (type.startsWith("stream:") || type === "kidlisp:data" || (type === "host:playback" && globalThis.MIME_MODE)) {
     if (typeof receive === "function") {
       try {
         receive({ type, content }, cachedAPI);

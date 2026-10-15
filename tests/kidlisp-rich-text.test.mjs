@@ -28,6 +28,27 @@ function recorder() {
 }
 const event = (type, x = 0, y = 0) => ({ is: name => name === type, x, y });
 
+test('feed playback waits for focus, survives late data, and cannot restart offscreen',()=>{
+  const {api,calls}=recorder(),flow=new RichTextFlow();
+  const values=[{kind:'listen',data:{kidlispData:true,url:'https://example.com/episode.json',value:{title:'today',body:'hello',audio:{url:'episode.mp3'},words:[]}}}];
+  flow.receive({type:'host:playback',content:{playing:false}},api);
+  flow.paint(api,values);
+  assert.equal(flow.started,false);assert.equal(flow.silentAt,null);
+  flow.receive({type:'host:playback',content:{playing:true}},api);
+  assert.equal(calls.filter(c=>c[1]?.type==='stream:play').length,1);
+  flow.receive({type:'host:playback',content:{playing:true}},api);
+  assert.equal(calls.filter(c=>c[1]?.type==='stream:play').length,1,'repeated focus does not restart the episode');
+  flow.receive({type:'host:playback',content:{playing:false}},api);
+  flow.receive({type:'stream:playing',content:{id:flow.streamId}},api);
+  assert.equal(flow.playing,false);assert.equal(flow.silentAt,null);
+  assert.equal(calls.at(-1)[1].type,'stream:pause','late playback completion remains offscreen');
+  flow.receive({type:'host:playback',content:{playing:true}},api);
+  assert.equal(calls.at(-1)[1].type,'stream:resume');
+  const late=new RichTextFlow();
+  late.receive({type:'host:playback',content:{playing:true}},api);
+  late.paint(api,values);assert.equal(late.started,true,'a resource arriving after focus still starts');
+});
+
 test('packed JSON uses its local copy while live source retains its public resource',()=>{
  const source='(fetch "https://example.com/episode.json" "episode.json")';
  try {

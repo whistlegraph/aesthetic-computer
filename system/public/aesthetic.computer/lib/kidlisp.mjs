@@ -4775,6 +4775,7 @@ class KidLisp {
         }
       },
       receive: (message, api) => {
+        if (message.type === "host:playback") this.hostPlayback = message.content?.playing === true;
         if (message.type === "kidlisp:data") {
           for (const handle of this.jsonData?.values() || []) {
             if (handle.id === message.content.id) Object.assign(handle, message.content);
@@ -5720,6 +5721,7 @@ class KidLisp {
       link: (_api, args) => richLink(unquoteString(String(args[0])), unquoteString(String(args[1]))),
       flow: (api, args) => {
         this.richFlow ||= new RichTextFlow();
+        if (this.hostPlayback !== undefined) this.richFlow.receive({type: "host:playback", content: {playing: this.hostPlayback}}, api);
         this.richFlowActive = true;
         this.richFlow.paint(api, args.map(value => value?.richText ? value : unquoteString(String(value))));
       },

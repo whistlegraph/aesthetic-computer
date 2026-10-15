@@ -82,7 +82,7 @@ export class RichTextFlow {
           this.autoplayPending = true;
           // The reading starts silently, without waiting for audio permission.
           // A tap joins the sound to this clock instead of restarting the page.
-          this.silentAt = now;
+          this.silentAt = this.hostPlayback === false ? null : now;
         }
         values = this.episodeValues;
       }
@@ -296,6 +296,9 @@ export class RichTextFlow {
       }
     }
     if (this.episode) {
+      // A feed host explicitly owns playback. Standalone readers still wait
+      // for a touch; merely preloading a MIME card must never start its audio.
+      if (this.hostPlayback && this.autoplayPending && !this.starting && !this.error) this.play(api);
       this.controlsY = height;
       this.seekX = 0; this.seekWidth = width;
       api.ink(this.inkColors.background.map((v, i) => Math.round(v * 0.7 + this.inkColors.foreground[i] * 0.3))); api.box(0, height, width, progressHeight);
@@ -385,14 +388,33 @@ export class RichTextFlow {
     this.peekUntil = performance.now() + 1600;
   }
   receive({ type, content }, api) {
+    if (type === "host:playback") {
+      const playing = content?.playing === true;
+      if (this.hostPlayback === playing) return;
+      this.hostPlayback = playing;
+      if (!playing) {
+        this.time = this.mediaTime(); this.silentAt = null;
+        if (this.started) api.send({type: "stream:pause", content: {id: this.streamId}});
+        this.playing = false;
+      } else {
+        this.autoplayPending = true;
+        if (this.episode && !this.starting) this.play(api);
+      }
+      return;
+    }
     if (content?.id !== this.streamId) return;
+    if (type === "stream:playing" && this.hostPlayback === false) {
+      this.starting = false; this.playing = false; this.silentAt = null;
+      api.send({type: "stream:pause", content: {id: this.streamId}});
+      return;
+    }
     if (type === "stream:playing") {
       this.time = Number.isFinite(content.currentTime) ? content.currentTime : this.mediaTime();
       this.silentAt = null; this.sampleAt = performance.now(); this.starting = false;
       this.playing = true; this.buffering = false; this.error = null; this.autoplayPending = false;
     }
     if (type === "stream:error") {
-      this.time = this.mediaTime(); this.silentAt = performance.now(); this.starting = false;
+      this.time = this.mediaTime(); this.silentAt = this.hostPlayback === false ? null : performance.now(); this.starting = false;
     }
     if (type === "stream:paused" || type === "stream:error") this.playing = false;
     if (type === "stream:error") this.error = content.error || "Audio error";

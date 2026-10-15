@@ -1,8 +1,10 @@
 import {installTouchControls} from './touch-controls.mjs?v=2026-10-12.8';
 import {observeInteraction} from '../aesthetic.computer/lib/frame-interaction.mjs';
+import {observeViewport} from '../aesthetic.computer/lib/frame-viewport.mjs';
 if (new URLSearchParams(location.search).get('mime') === '1') observeInteraction();
 import {compileWad,starterLevel,validateLevel,inspectWad,WAD_MIME} from './wad.mjs?v=2026-10-12.3';
 const canvas=document.querySelector('#canvas'),status=document.querySelector('#status'),start=document.querySelector('#start'),boot=document.querySelector('#boot');
+if (new URLSearchParams(location.search).get('mime') === '1') observeViewport(canvas);
 const query=new URLSearchParams(location.search),preview=query.get('preview')==='1';
 if(preview)document.body.classList.add('preview');
 // Compile in a shared HTTPS worker; the app keeps native controls/history.
@@ -97,11 +99,19 @@ function startGame(){
 }
 start.onclick=startGame;
 
+const sound = () => Module.SDL2?.audioContext;
+function resumeSound() {
+  if (!playing || document.hidden) return;
+  if (navigator.audioSession) navigator.audioSession.type = 'playback';
+  sound()?.resume().catch(error => console.warn('[doom] audio resume:', error.message));
+}
+window.addEventListener('pointerdown', resumeSound, {capture:true,passive:true});
+window.addEventListener('keydown', resumeSound, {capture:true});
 window.__mimePlayerSettle=play=>{
   const wasPlaying=playing;playing=play;
   if(!started)return;
-  if(playing&&!document.hidden){if(!wasPlaying&&!window.Asyncify?.currData)Module.resumeMainLoop();window.SDL2?.audioContext?.resume();}
-  else{release();Module.pauseMainLoop();window.SDL2?.audioContext?.suspend();}
+  if(playing&&!document.hidden){if(!wasPlaying&&!window.Asyncify?.currData)Module.resumeMainLoop();resumeSound();}
+  else{release();Module.pauseMainLoop();sound()?.suspend();}
 };
 window.__mimeSettle=window.__mimePlayerSettle;
 window.addEventListener('message',event=>{if(event.source===parent&&event.data?.type==='mime:playing')window.__mimeSettle(event.data.playing===true);});
@@ -109,4 +119,4 @@ window.addEventListener('message',event=>{
   if(query.get('mime')!=='1'||event.source!==parent||event.data?.type!=='mime:key'||![...Object.keys(movementKeys),'Escape'].includes(event.data.code))return;
   window.dispatchEvent(new KeyboardEvent(event.data.down===false?'keyup':'keydown',{code:event.data.code,repeat:event.data.repeat===true,bubbles:true,cancelable:true}));
 });
-document.addEventListener('visibilitychange',()=>{if(document.hidden){release();if(started){Module.pauseMainLoop();window.SDL2?.audioContext?.suspend();}}else if(playing&&started){if(!window.Asyncify?.currData)Module.resumeMainLoop();window.SDL2?.audioContext?.resume();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){release();if(started){Module.pauseMainLoop();sound()?.suspend();}}else if(playing&&started){if(!window.Asyncify?.currData)Module.resumeMainLoop();resumeSound();}});
