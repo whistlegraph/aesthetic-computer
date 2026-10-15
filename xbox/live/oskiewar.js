@@ -3751,6 +3751,7 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
+    gunChamber: 0, gunShots: 0, gunShotAt: 0,
     gunAimX: 1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
     nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -3782,6 +3783,7 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
+    gunChamber: 0, gunShots: 0, gunShotAt: 0,
     gunAimX: -1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
     nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -5506,10 +5508,11 @@ function makeRoundReplayFrame(now) {
       resultReaction: player.resultReaction || "",
       resultReactionOffset: (player.resultReactionAt || 0) - now,
       characterAppearance: replayCopy(player.characterAppearance),
-      equipment: Object.fromEntries(['gunAmmo','gunMode','itemArm','strikeArm','gunAimX','gunAimY','gunAimLive','itemAimLocked',
+      equipment: Object.fromEntries(['gunAmmo','gunChamber','gunShots','gunMode','itemArm','strikeArm','gunAimX','gunAimY','gunAimLive','itemAimLocked',
         'itemAction','swordHeld','axeHeld','grenadeAmmo','skatePitch','skateSpin','skateBoardId','lowKick'].map(k=>[k,player[k]])),
       spin: replayCopy(player.spin), trucks: replayCopy(player.trucks),
       itemStartedOffset: (player.itemActionStartedAt||0)-now, itemUntilOffset: (player.itemActionUntil||0)-now,
+      gunShotOffset: (player.gunShotAt||0)-now,
       attackStartedOffset: player.attackStartedAt - now,
       attackUntilOffset: player.attackUntil - now,
       geometry: replayCopy(ragdollBodies.get(player)?.pose) || runnerWorldGeometry(player, poseTime),
@@ -5691,6 +5694,7 @@ function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
     if(state.equipment){
       Object.assign(player,state.equipment);player.spin=replayCopy(state.spin);player.trucks=replayCopy(state.trucks);
       player.itemActionStartedAt=now+state.itemStartedOffset;player.itemActionUntil=now+state.itemUntilOffset;
+      if(Number.isFinite(state.gunShotOffset))player.gunShotAt=now+state.gunShotOffset;
       if(blend){
         if(player.spin&&ahead.spin)player.spin.angle=lerp(state.spin.angle,ahead.spin.angle,mix);
         for(const k of ['skatePitch','skateSpin'])if(Number.isFinite(ahead.equipment?.[k]))player[k]=lerp(state.equipment[k],ahead.equipment[k],mix);
@@ -9844,7 +9848,7 @@ function netStateHash() {
     player.vx, player.vy, player.vz, player.facing, player.alive,
     player.grounded, player.ducking, player.blocking, player.score,
     player.roundWins, player.attackKind, player.attackUntil,
-    player.hitStunUntil, player.stance, player.gunAmmo, player.grenadeAmmo,
+    player.hitStunUntil, player.stance, player.gunAmmo, player.gunChamber || 0, player.grenadeAmmo,
     player.heldBall, player.removedParts, player.dashUntil,
     // Holding a blade decides how far a hand reaches, so it decides the
     // fight and belongs in the hash. It is here because it was NOT here: two
@@ -12206,11 +12210,19 @@ function recordCommand(player, label, now) {
 // with guns and the challenger with fists, and the round desynced.
 const gunsOnly = () => (!!netSession || versusLane()) && !skateparkMap;
 const gunsOnlyAmmo = 6;
+// The gun is a six-shot revolver (objects/revolver.lisp). While it is held
+// `gunAmmo` stays at its six chambers and `gunChamber` counts the ones that
+// have fired, so an emptied revolver is still in the hand: its next shot is
+// the throw. Both ride on the player, inside the rollback snapshot.
+const revolverHeld = (player) => player.gunAmmo > 0 && player.gunMode === "HANDGUN" && gunsOnly();
+const gunRounds = (player) => revolverHeld(player)
+  ? Math.max(0, player.gunAmmo - (player.gunChamber || 0)) : player.gunAmmo || 0;
 // One gun in the room, on the floor halfway between the two spawn marks, and
 // the board under it: the bell rings and both fighters run for it.
 const gunsOnlyCenterX = () => Math.round((players[0].spawnX + players[1].spawnX) / 2);
 function armGunFighter(player) {
   player.gunAmmo = gunsOnlyAmmo;
+  player.gunChamber = 0;
   player.gunMode = "HANDGUN";
   player.itemArm = availableArm(player) || "right-arm";
 }
@@ -12220,13 +12232,14 @@ function throwGun(player, input) {
   const aimX = input?.horizontal || player.facing;
   const aimY = input ? -input.vertical * .6 - .35 : -.35;
   const length = Math.hypot(aimX, aimY) || 1;
-  grenades.push({ thrownGun: true, ammo: player.gunAmmo,
+  grenades.push({ thrownGun: true, ammo: gunRounds(player),
     x: player.x + player.facing * 110, y: player.y - (player.ducking ? 80 : 150), z: player.z || 0,
     vx: aimX / length * 2300 + (player.vx || 0) * .5, vy: aimY / length * 2300,
     owner: player.pad, fuse: 2.4, alive: true, exploding: false, blastAge: 0,
     blastRadius: 0, hitPlayers: 0, spin: 0 });
   while (grenades.length > 12) grenades.shift();
   player.gunAmmo = 0;
+  player.gunChamber = 0;
   player.itemAction = "THROW";
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + 260000;
@@ -12254,9 +12267,12 @@ function updateThrownGun(gun, dt, now, combat) {
   const floor = terrainFloorAt(gun.x) - 20;
   const resting = gun.y >= floor - 1 && Math.abs(gun.vx) < 140 && Math.abs(gun.vy) < 180;
   if (resting || gun.fuse <= 0) {
-    gunPickups.push({ kind: "HANDGUN", amount: Math.max(1, gun.ammo), x: gun.x,
-      y: floorY, z: gun.z, active: true, startsActive: false, thrown: true,
-      safeUntil: now + 250000 });
+    // A revolver thrown with every chamber fired is spent: it goes, and the
+    // one gun comes back over the hill (updatePowerups).
+    if (gun.ammo > 0 || !gunsOnly())
+      gunPickups.push({ kind: "HANDGUN", amount: Math.max(1, gun.ammo), x: gun.x,
+        y: floorY, z: gun.z, active: true, startsActive: false, thrown: true,
+        safeUntil: now + 250000 });
     gun.alive = false;
   }
 }
@@ -12302,14 +12318,23 @@ function fireGun(player, input) {
     });
   }
   while (bullets.length > 24) bullets.shift();
-  player.gunAmmo -= shots;
-  if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
+  if (revolverHeld(player)) {
+    // The cylinder turns a chamber a shot; the six stay in it. `gunShots`
+    // and `gunShotAt` name the shot, so paint can smoke and eject brass for
+    // it once however often a rollback fires it again.
+    player.gunChamber = (player.gunChamber || 0) + shots;
+    player.gunShots = (player.gunShots || 0) + shots;
+    player.gunShotAt = now;
+  } else {
+    player.gunAmmo -= shots;
+    if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
+  }
   player.nextGunShotAt = now + (laser ? 340000 : smg ? 85000 : 220000);
   player.itemAction = "FIRE";
   player.itemActionStartedAt = now;
   player.itemActionUntil = now + (laser ? 210000 : 170000);
   player.pendingMoveLabel =
-    (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
+    (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + gunRounds(player);
   if(laser){playDrum('whoosh',1.1,panPlayer(player));playSine(1180,.13);}
   else playDrum(smg?'smg-shot':'gunshot',smg?.72:1,panPlayer(player));
   player.lastButton=smg?'FIRING SMG':'FIRING PISTOL';player.lastButtonAt=now;
@@ -12420,7 +12445,11 @@ function updateGunPickups(now) {
       if (now<(pickup.safeUntil||0) || !player.alive || player.dummy || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
           runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !(poolOnly()?freeItemArm(player,"gun"):availableArm(player))) continue;
       const arm=poolOnly()?freeItemArm(player,"gun"):availableArm(player);
-      player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
+      if (gunsOnly() && (pickup.kind || "HANDGUN") === "HANDGUN") {
+        // A revolver keeps its six chambers; what it lacks in rounds is fired.
+        player.gunChamber = gunsOnlyAmmo - Math.min(gunsOnlyAmmo, pickup.amount);
+        player.gunAmmo = gunsOnlyAmmo;
+      } else player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
       player.itemArm = arm;if(poolOnly()){player.handItems ||= {};player.handItems.gun=arm;}
       pickup.active = false;
@@ -14425,8 +14454,10 @@ function stealHeldObject(player, now) {
     label = part?.part?.toUpperCase() || "LIMB";
   } else if (target.gunAmmo > 0) {
     player.gunAmmo = target.gunAmmo;
+    player.gunChamber = target.gunChamber || 0;
     player.gunMode = target.gunMode;
     target.gunAmmo = 0;
+    target.gunChamber = 0;
     player.itemArm = availableArm(player);
     target.itemArm = "";
     target.gunMode = "HANDGUN";
@@ -15558,7 +15589,12 @@ function updatePlayer(player, pad, dt, now) {
       if (gunsOnly() && !headOnly) {
         // Gun fights: the strike and item buttons shoot, the kick button
         // throws, and nothing else attacks.
-        if (acting && player.gunAmmo > 0 && (button === "B" || button === "Y") &&
+        // A revolver with all six fired throws on the next press of either:
+        // the throw is the last thing it has.
+        if (acting && revolverHeld(player) && !gunRounds(player) &&
+            (button === "B" || button === "Y"))
+          throwGun(player, input);
+        else if (acting && player.gunAmmo > 0 && (button === "B" || button === "Y") &&
             now >= (player.nextGunShotAt || 0))
           fireGun(player, input);
         else if (acting && player.gunAmmo > 0 && button === "A")
@@ -20195,8 +20231,8 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
   }
   detachPart(target, part, geometry, sourceX, now);
   if (target.itemArm === part) {
-    if (target.gunAmmo > 0) gunPickups.push({ kind: target.gunMode,
-      amount: target.gunAmmo, x: target.x, y: target.y - 70, z: target.z,
+    if (gunRounds(target) > 0) gunPickups.push({ kind: target.gunMode,
+      amount: gunRounds(target), x: target.x, y: target.y - 70, z: target.z,
       active: true, startsActive: false, respawnAt: Infinity });
     if (target.grenadeAmmo > 0) grenadePickups.push({
       amount: target.grenadeAmmo, x: target.x, y: target.y - 70, z: target.z,
@@ -20621,9 +20657,11 @@ function gunMoveList(family) {
     [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"], [">*2", "DASH", "ArrowRight"],
     ["DOWN", "CROUCH", "ArrowDown"], ["B", "JUMP", "ArrowUp"]];
   if (armed) {
-    if (family === "touch") rows.push(["B", "SHOOT", "B"], ["A", "THROW GUN", "A"]);
-    else if (family === "keyboard") rows.push([["Q", "E"], "SHOOT", "B"], ["SHIFT", "THROW GUN", "A"]);
-    else rows.push([["X", "Y"], "SHOOT", "B"], ["A", "THROW GUN", "A"]);
+    // Six fired, the shoot buttons throw it.
+    const shoot = gunRounds(me) ? "SHOOT" : "THROW GUN";
+    if (family === "touch") rows.push(["B", shoot, "B"], ["A", "THROW GUN", "A"]);
+    else if (family === "keyboard") rows.push([["Q", "E"], shoot, "B"], ["SHIFT", "THROW GUN", "A"]);
+    else rows.push([["X", "Y"], shoot, "B"], ["A", "THROW GUN", "A"]);
   }
   return rows;
 }
@@ -23276,7 +23314,7 @@ function drawPlayerStats(player, side, t) {
 function drawHudInventory(player, side) {
   if(freeskateActive())return;
   const items = [];
-  if (player.gunAmmo > 0) items.push("gun " + player.gunAmmo);
+  if (player.gunAmmo > 0) items.push("gun " + gunRounds(player));
   if (player.grenadeAmmo > 0) items.push("grenade " + player.grenadeAmmo);
   if (!items.length) return;
   const text = items.join("  ");
