@@ -1044,6 +1044,10 @@ private final class NativeGameHost {
           if (message.type === "oskiewar:error" &&
               /already has a publisher/i.test((content && content.message) || ""))
             globalThis.__oskiewarPublishConflict = match;
+          // Lost with somebody waiting: the relay ended this host's turn, and
+          // the game walks it back into the line as it does a lost claim.
+          if (message.type === "oskiewar:turn" && content && content.over)
+            globalThis.__oskiewarPublishConflict = match;
           if (message.type === "oskiewar:flags" && content &&
               typeof content === "object")
             globalThis.__oskiewarRenderFlags =
