@@ -1172,12 +1172,19 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   };
   let centre = 0;
   if (pin === pin) {
-    const c = Number.isNaN(J[9]) ? 0 : 3;
+    // The pelvis, else the head, else whichever joint a piece of a figure
+    // (a severed limb) still has — a NaN centre would put every shape at NaN.
+    let c = Number.isNaN(J[9]) ? 0 : 3;
+    if (Number.isNaN(J[c * 3])) for (let k = 0; k < 16; k++) if (J[k * 3] === J[k * 3]) { c = k; break; }
     centre = (J[c * 3] - V[0]) * V[9] + (J[c * 3 + 1] - V[1]) * V[10] + (J[c * 3 + 2] - V[2]) * V[11];
   }
   const depthAt = (vz, nudge) => pin === pin ? pin + (flat(vz, nudge) - flat(centre, 0)) * .1 : flat(vz, nudge);
   // The head's frame: where it looks, right and up square to it.
   let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
+  // A piece of a figure (a severed limb, a burst body's bone) has no head or
+  // spine to take its frames from; the world's axes stand in, so the shapes
+  // hung on its joints with an offset still draw. 26.10.15
+  if (!(fx === fx && fy === fy && fz === fz)) { fx = 0; fy = 0; fz = -1; }
   const r = Math.hypot(fx, fy, fz) || 1;
   fx /= r; fy /= r; fz /= r;
   let rx = fz, rz = -fx;
@@ -1188,6 +1195,7 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   H[6] = fx; H[7] = fy; H[8] = fz; H[9] = r;
   // The chest: up the spine, forward as the head faces, flattened square to it.
   let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
+  if (!(ux === ux && uy === uy && uz === uz)) { ux = 0; uy = -1; uz = 0; }
   const ul = Math.hypot(ux, uy, uz) || 1;
   ux /= ul; uy /= ul; uz /= ul;
   const along = fx * ux + fy * uy + fz * uz;
