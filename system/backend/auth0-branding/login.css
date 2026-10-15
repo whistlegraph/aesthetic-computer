@@ -1,0 +1,46 @@
+/* AC's shared Auth0 page. Stable widget hooks only; no generated class names. */
+:root {
+  --primary-color: #202019;
+  --button-font-color: #fff;
+  --link-color: #a32770;
+  --title-font-color: #202019;
+  --font-default-color: #202019;
+  --widget-background-color: #fff;
+  --input-background-color: #fff;
+  --input-border-color: #76736e;
+  --secondary-button-border-color: #b8b5ae;
+  --secondary-button-text-color: #202019;
+  --base-focus-color: #a32770;
+}
+html { font-size: 18px !important; }
+body {
+  --page-background-color: #eee9df;
+  --page-background-image: none;
+  --button-border-width: 1px;
+  --social-button-border-width: 1px;
+  --button-border-radius: 0;
+  --input-border-radius: 0;
+  --border-radius-outer: 0;
+  --shadow-component-outer: none;
+  --title-font-size: 1.5rem;
+  --default-font-size: 1rem;
+  --ulp-label-font-size: 1rem;
+  --logo-height: 64px;
+  background: #eee9df !important;
+}
+body::before { background: #eee9df !important; background-image: none !important; }
+main { min-height: 100svh; padding: 32px 16px !important; }
+._prompt-box-outer { width: min(100%, 440px) !important; }
+#screen-header { padding-bottom: 16px; }
+#screen-header h1 { line-height: 1.25; }
+#screen-header p:empty { display: none; }
+input:not([type=hidden]):not([type=checkbox]) { font-size: 18px !important; min-height: 56px; }
+button[data-action-button-primary], button[data-action-button-secondary] {
+  min-height: 56px; font-size: 18px !important; border-radius: 0 !important;
+}
+a:focus-visible, button:focus-visible { outline: 3px solid #a32770; outline-offset: 3px; }
+@media (max-width: 480px) {
+  main { padding: 16px !important; }
+  ._prompt-box-outer { margin-top: 0 !important; }
+}
+.ac-switch { width: 100%; min-height: 56px; padding: 12px 16px; margin-top: 12px; border: 1px solid #b8b5ae; background: white; color: #202019; font: inherit; cursor: pointer; }

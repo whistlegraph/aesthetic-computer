@@ -1,0 +1,123 @@
+{
+  "/api/prompts": {
+    "status": 200,
+    "body": {
+      "universal_login_experience": "new",
+      "identifier_first": false,
+      "webauthn_platform_first_factor": false
+    }
+  },
+  "/api/prompts/login-id/custom-text/en": {
+    "status": 200,
+    "body": {}
+  },
+  "/api/prompts/login/custom-text/en": {
+    "status": 200,
+    "body": {
+      "login": {
+        "footerText": "First time?",
+        "title": "Welcome back!",
+        "description": " ",
+        "footerLinkText": "Create your account",
+        "pageTitle": "Log in \u2219 ${clientName}"
+      }
+    }
+  },
+  "/api/branding/themes/default": {
+    "status": 200,
+    "body": {
+      "colors": {
+        "primary_button": "#e65198",
+        "primary_button_label": "#ffffff",
+        "secondary_button_border": "#e8c1d7",
+        "secondary_button_label": "#1e212a",
+        "base_focus_color": "#e083f8",
+        "base_hover_color": "#000000",
+        "links_focused_components": "#0012f2",
+        "header": "#1e212a",
+        "body_text": "#1e212a",
+        "widget_background": "#ffffff",
+        "widget_border": "#8b76c5",
+        "input_labels_placeholders": "#65676e",
+        "input_filled_text": "#000000",
+        "input_border": "#c9cace",
+        "input_background": "#eae7ed",
+        "icons": "#65676e",
+        "error": "#e1285b",
+        "success": "#b500d5",
+        "captcha_widget_theme": "light",
+        "read_only_background": "#c2c8d0"
+      },
+      "fonts": {
+        "font_url": "https://assets.aesthetic.computer/type%2Fwebfonts%2Fywft-processing-bold.woff",
+        "reference_text_size": 14,
+        "title": {
+          "bold": false,
+          "size": 150
+        },
+        "subtitle": {
+          "bold": false,
+          "size": 87.5
+        },
+        "body_text": {
+          "bold": false,
+          "size": 87.5
+        },
+        "buttons_text": {
+          "bold": false,
+          "size": 100
+        },
+        "input_labels": {
+          "bold": false,
+          "size": 100
+        },
+        "links": {
+          "bold": false,
+          "size": 87.5
+        },
+        "links_style": "normal"
+      },
+      "borders": {
+        "button_border_weight": 3,
+        "buttons_style": "sharp",
+        "button_border_radius": 1,
+        "input_border_weight": 1,
+        "inputs_style": "sharp",
+        "input_border_radius": 3,
+        "widget_corner_radius": 0,
+        "widget_border_weight": 0,
+        "show_widget_shadow": false
+      },
+      "widget": {
+        "logo_position": "center",
+        "logo_url": "https://pals.aesthetic.computer",
+        "logo_height": 100,
+        "header_text_alignment": "center",
+        "social_buttons_layout": "bottom"
+      },
+      "page_background": {
+        "page_layout": "center",
+        "background_color": "#50465a",
+        "background_image_url": "https://oven.aesthetic.computer/kidlisp-backdrop.webp"
+      },
+      "displayName": "Unnamed Theme",
+      "themeId": "jcET9jC0trlFhUvkBOCeBZqTejX7MS4Q"
+    }
+  },
+  "/api/branding/templates/universal-login": {
+    "status": 404,
+    "body": null
+  },
+  "/api/prompts/login-password/partials": {
+    "status": 200,
+    "body": {}
+  },
+  "/api/prompts/signup-password/partials": {
+    "status": 200,
+    "body": {}
+  },
+  "/api/prompts/login-passwordless/partials": {
+    "status": 200,
+    "body": {}
+  }
+}
