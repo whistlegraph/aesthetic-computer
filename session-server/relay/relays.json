@@ -1,7 +1,7 @@
 {
-  "_README": "Every oskiewar relay. Clients choose among the same hosts (xbox/live/round-room.mjs OSKIEWAR_RELAYS — a test keeps the two lists equal). `monolith` relays ship with session-server/deploy.fish; `relay` boxes ship with deploy-relays.sh.",
+  "_README": "Every oskiewar relay. Clients choose among the same hosts (xbox/live/round-room.mjs OSKIEWAR_RELAYS — a test keeps the two lists equal). `monolith` relays ship with session-server/deploy.fish; `relay` boxes ship with deploy-relays.sh; one with \"bots\": true also runs the fill-bot supervisor (xbox/tools/oskiewar-bot-fill.mjs).",
   "relays": [
     { "region": "nj", "host": "session-server.aesthetic.computer", "kind": "monolith" },
-    { "region": "sfo", "host": "relay-sfo.aesthetic.computer", "kind": "relay", "ip": "164.92.117.115", "droplet": "oskiewar-relay-sfo" }
+    { "region": "sfo", "host": "relay-sfo.aesthetic.computer", "kind": "relay", "ip": "164.92.117.115", "droplet": "oskiewar-relay-sfo", "bots": true }
   ]
 }

@@ -68,4 +68,37 @@ systemctl reload caddy || systemctl restart caddy
 sleep 1
 curl -s localhost:8890/health; echo
 REMOTE
+# The fill bots (BOT_FILL=1, set from relays.json "bots": true): a supervisor
+# that watches the one room on every relay and sends a bot in when a person
+# has been alone a few seconds (xbox/tools/oskiewar-bot-fill.mjs). Bots play
+# the released game straight from oskiewar.com, so they always match the
+# players' build; only these four small files ship. 26.10.15
+if [ "${BOT_FILL:-}" = "1" ]; then
+  B=/opt/oskiewar-bots
+  $SSH "mkdir -p $B/xbox/tools $B/xbox/live/tests/two-laptop /var/lib/oskiewar-bots && chown nobody:nogroup /var/lib/oskiewar-bots"
+  scp -q "$ROOT/xbox/tools/oskiewar-bot-seat.mjs" "$ROOT/xbox/tools/oskiewar-bot-fill.mjs" root@$HOST:$B/xbox/tools/
+  scp -q "$ROOT/xbox/live/round-room.mjs" root@$HOST:$B/xbox/live/
+  scp -q "$ROOT/xbox/live/tests/two-laptop/bot-brain.mjs" root@$HOST:$B/xbox/live/tests/two-laptop/
+  $SSH 'bash -s' <<REMOTE
+set -e
+echo '{"type":"module","private":true}' > /opt/oskiewar-bots/package.json
+cat > /etc/systemd/system/oskiewar-bot-fill.service <<UNIT
+[Unit]
+Description=oskiewar fill bots
+After=network.target
+[Service]
+WorkingDirectory=/opt/oskiewar-bots
+ExecStart=/usr/bin/node xbox/tools/oskiewar-bot-fill.mjs --room dojo1 --after 8 --state /var/lib/oskiewar-bots --game https://oskiewar.com/oskiewar.js
+Restart=always
+RestartSec=5
+User=nobody
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable oskiewar-bot-fill >/dev/null 2>&1
+systemctl restart oskiewar-bot-fill
+sleep 2; journalctl -u oskiewar-bot-fill -n 2 --no-pager | tail -1
+REMOTE
+fi
 echo "deployed $NAME ($REGION) → $HOST"
