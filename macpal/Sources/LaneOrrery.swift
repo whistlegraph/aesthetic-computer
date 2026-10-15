@@ -1,12 +1,13 @@
 // LaneOrrery — the lane board in miniature, for a collapsed pal.
 //
 // Folded into its chip, a pal has no room for cards, so the lanes become a
-// small tilted solar system beside the name: Iris is the sun, each lane a
-// planet in its own color on its own orbit (board order, inside out), and
-// each queued task a moon. Motion carries the state:
-//   running   orbits (inner lanes faster)      waiting  drifts slowly
-//   idle      rests, dimmed                    blocked  stops under a red pulse
-// Reduce Motion parks every planet but keeps the colors and halos.
+// few fireflies beside the name: one glowing dot per lane in its own color,
+// each wandering its own looping path in a strip of the box (board order,
+// left to right), with a faint spark trailing it per queued task. How a
+// firefly moves and blinks carries its lane's state:
+//   running   wanders busily, bright pulse     waiting  drifts slowly, soft glow
+//   idle      dim, nearly still, rare blink    blocked  holds still, flashing red
+// Reduce Motion stills them all but keeps colors and glows.
 
 import AppKit
 
@@ -37,7 +38,7 @@ func orreryBodies(_ mission: Mission?) -> [OrreryBody] {
 }
 
 final class LaneOrreryView: NSView {
-    static let size = NSSize(width: 96, height: 46)
+    static let size = NSSize(width: 70, height: 32)
     private(set) var bodies: [OrreryBody] = []
     private var dark: Bool?
 
@@ -61,120 +62,119 @@ final class LaneOrreryView: NSView {
         layer?.sublayers?.forEach { $0.contentsScale = window?.backingScaleFactor ?? 2 }
     }
 
+    // A small deterministic generator, so a rebuild gives each lane the same
+    // flight path rather than a fresh jitter every refresh.
+    private struct Seeded {
+        var x: UInt64
+        mutating func next() -> CGFloat {
+            x = x &* 6364136223846793005 &+ 1442695040888963407
+            return CGFloat(x >> 33) / CGFloat(1 << 31)
+        }
+    }
+
+    // A closed, smooth loop through `count` random points inside `area`.
+    private static func flight(in area: CGRect, count: Int, rng: inout Seeded) -> CGPath {
+        let pts = (0..<count).map { _ in
+            CGPoint(x: area.minX + rng.next() * area.width, y: area.minY + rng.next() * area.height)
+        }
+        let path = CGMutablePath()
+        func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2) }
+        path.move(to: mid(pts[count - 1], pts[0]))
+        for i in 0..<count {
+            path.addQuadCurve(to: mid(pts[i], pts[(i + 1) % count]), control: pts[i])
+        }
+        path.closeSubpath()
+        return path
+    }
+
     private func rebuild() {
         layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
         guard !bodies.isEmpty, let root = layer else { return }
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let b = NSRect(origin: .zero, size: Self.size)
-        let center = CGPoint(x: b.midX, y: b.midY)
+        let b = NSRect(origin: .zero, size: Self.size).insetBy(dx: 4, dy: 5)
         let n = bodies.count
-        // Orbits fill the box: innermost clears the sun, outermost the edge.
-        let rx0: CGFloat = 13, rxMax = b.width / 2 - 5
-        let ry0: CGFloat = 7, ryMax = b.height / 2 - 5
-        let anyRunning = bodies.contains { $0.state == "running" }
-
-        // Sun: a warm dot with a glow that breathes while any lane works.
-        let sun = CALayer()
-        sun.bounds = CGRect(x: 0, y: 0, width: 10, height: 10)
-        sun.position = center
-        sun.cornerRadius = 5
-        sun.backgroundColor = hexColor(0xFFC23D).cgColor
-        sun.shadowColor = hexColor(0xFFB000).cgColor
-        sun.shadowOpacity = 0.9; sun.shadowRadius = 3; sun.shadowOffset = .zero
-        if anyRunning && !reduce {
-            let glow = CABasicAnimation(keyPath: "shadowRadius")
-            glow.fromValue = 3; glow.toValue = 7
-            glow.duration = 1.6; glow.autoreverses = true; glow.repeatCount = .infinity
-            sun.add(glow, forKey: "glow")
-        }
+        let strip = b.width / CGFloat(n)
+        let red = hexColor(0xE5484D)
 
         for (i, body) in bodies.enumerated() {
-            let t = n == 1 ? 1 : CGFloat(i) / CGFloat(n - 1)
-            let rx = rx0 + (rxMax - rx0) * t, ry = ry0 + (ryMax - ry0) * t
-            let orbitRect = CGRect(x: center.x - rx, y: center.y - ry, width: rx * 2, height: ry * 2)
+            var rng = Seeded(x: UInt64(i + 1) &* 0x9E3779B97F4A7C15 ^ UInt64(body.color))
+            let state = body.state
+            let blocked = ["blocked", "failed", "error"].contains(state)
+            let running = state == "running"
+            let waiting = state == "waiting" || state.contains("review")
             let color = hexColor(body.color)
-            let idle = !["running", "waiting", "blocked", "review", "awaiting review"].contains(body.state)
+            // Each lane keeps to its own strip, overlapping its neighbours a
+            // little so the swarm reads as one cloud, not four cages.
+            let area = CGRect(x: b.minX + strip * CGFloat(i) - strip * 0.25, y: b.minY,
+                              width: strip * 1.5, height: b.height)
+                .intersection(b)
+            let wander: CGRect = running ? area
+                : waiting ? area.insetBy(dx: area.width * 0.2, dy: area.height * 0.25)
+                : CGRect(x: area.midX - 2, y: area.midY - 2, width: 4, height: 4)
+            let path = Self.flight(in: wander, count: running ? 6 : 4, rng: &rng)
+            let period: Double = running ? 7 + Double(rng.next()) * 4 : waiting ? 18 : 26
+            let start = CGPoint(x: wander.midX, y: wander.midY)
 
-            let ring = CAShapeLayer()
-            ring.path = CGPath(ellipseIn: orbitRect, transform: nil)
-            ring.fillColor = nil
-            ring.strokeColor = color.withAlphaComponent(idle ? 0.22 : 0.42).cgColor
-            ring.lineWidth = 1
-            root.addSublayer(ring)
-
-            // Planet carrier: moves along the orbit and holds its moons.
-            let carrier = CALayer()
-            carrier.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
-            let phase = CGFloat(i) * 2.399   // golden angle: no two planets line up
-            carrier.position = CGPoint(x: center.x + rx * cos(phase), y: center.y + ry * sin(phase))
-
-            let planet = CALayer()
-            let d: CGFloat = idle ? 6.5 : 7.5
-            planet.bounds = CGRect(x: 0, y: 0, width: d, height: d)
-            planet.position = CGPoint(x: 9, y: 9)
-            planet.cornerRadius = d / 2
-            // Near-white lanes (snow) need an edge to exist on a light desktop.
-            planet.backgroundColor = color.cgColor
-            planet.borderColor = (dark == true ? NSColor.white : NSColor.black).withAlphaComponent(0.35).cgColor
-            planet.borderWidth = 0.5
-            planet.opacity = idle ? 0.5 : 1
-            carrier.addSublayer(planet)
-
-            if body.state == "blocked" || body.state == "failed" || body.state == "error" {
-                let halo = CALayer()
-                halo.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
-                halo.position = planet.position
-                halo.cornerRadius = 7
-                halo.borderColor = hexColor(0xE5484D).cgColor
-                halo.borderWidth = 1.2
-                if !reduce {
-                    let pulse = CABasicAnimation(keyPath: "opacity")
-                    pulse.fromValue = 1; pulse.toValue = 0.15
-                    pulse.duration = 0.9; pulse.autoreverses = true; pulse.repeatCount = .infinity
-                    halo.add(pulse, forKey: "pulse")
-                }
-                carrier.addSublayer(halo)
+            func flyer(_ size: CGFloat, glow: CGFloat, tint: NSColor, opacity: Float) -> CALayer {
+                let l = CALayer()
+                l.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+                l.cornerRadius = size / 2
+                l.position = start
+                l.backgroundColor = tint.cgColor
+                l.shadowColor = tint.cgColor
+                l.shadowOpacity = 1; l.shadowRadius = glow; l.shadowOffset = .zero
+                l.opacity = opacity
+                return l
             }
 
-            // Moons: one per queued task (up to three), circling the planet.
-            let moons = min(3, body.moons)
-            if moons > 0 {
-                let moonRing = CALayer()
-                moonRing.bounds = carrier.bounds
-                moonRing.position = planet.position
-                for m in 0..<moons {
-                    let a = CGFloat(m) / CGFloat(moons) * 2 * .pi
-                    let moon = CALayer()
-                    moon.bounds = CGRect(x: 0, y: 0, width: 2.5, height: 2.5)
-                    moon.cornerRadius = 1.25
-                    moon.position = CGPoint(x: 9 + 7 * cos(a), y: 9 + 7 * sin(a))
-                    moon.backgroundColor = (dark == true ? NSColor.white : NSColor.darkGray).cgColor
-                    moonRing.addSublayer(moon)
+            // Trailing sparks for the queue: same path, a beat behind.
+            for m in 0..<min(3, body.moons) {
+                let spark = flyer(1.6, glow: 1.5, tint: color, opacity: 0.55)
+                if !reduce && !blocked {
+                    let follow = CAKeyframeAnimation(keyPath: "position")
+                    follow.path = path; follow.calculationMode = .paced
+                    follow.duration = period; follow.repeatCount = .infinity
+                    follow.timeOffset = period * (Double(i) * 0.37).truncatingRemainder(dividingBy: 1)
+                        - Double(m + 1) * 0.35
+                    spark.add(follow, forKey: "fly")
                 }
-                if !reduce {
-                    let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-                    spin.fromValue = 0; spin.toValue = 2 * Double.pi
-                    spin.duration = 3; spin.repeatCount = .infinity
-                    moonRing.add(spin, forKey: "spin")
-                }
-                carrier.addSublayer(moonRing)
+                root.addSublayer(spark)
             }
 
-            // Running orbits; waiting drifts; idle and blocked hold still.
-            let period: Double? = body.state == "running" ? 5 + Double(i) * 2.5
-                : (body.state == "waiting" || body.state.contains("review")) ? 40 : nil
-            if let period = period, !reduce {
-                let orbit = CAKeyframeAnimation(keyPath: "position")
-                orbit.path = CGPath(ellipseIn: orbitRect, transform: nil)
-                orbit.calculationMode = .paced
-                orbit.duration = period
-                orbit.repeatCount = .infinity
-                orbit.timeOffset = period * Double(phase / (2 * .pi))
-                carrier.add(orbit, forKey: "orbit")
+            let fly = flyer(running ? 5.5 : 4.5, glow: running ? 4 : 2.5,
+                            tint: blocked ? red : color, opacity: running ? 1 : waiting ? 0.85 : 0.6)
+            // On a light desktop a glow alone washes out; a faint rim gives each an edge.
+            if dark != true {
+                fly.borderColor = NSColor.black.withAlphaComponent(body.color > 0xE0E0E0 ? 0.35 : 0.15).cgColor
+                fly.borderWidth = 0.5
             }
-            root.addSublayer(carrier)
+            if !reduce {
+                if !blocked {
+                    let move = CAKeyframeAnimation(keyPath: "position")
+                    move.path = path; move.calculationMode = .paced
+                    move.duration = period; move.repeatCount = .infinity
+                    move.timeOffset = period * (Double(i) * 0.37).truncatingRemainder(dividingBy: 1)
+                    fly.add(move, forKey: "fly")
+                }
+                // The blink: brief flares for the busy, slow breaths for the
+                // waiting, a rare wink for the idle, an alarm for the blocked.
+                let blink = CAKeyframeAnimation(keyPath: "opacity")
+                let lo: Float = blocked ? 0.3 : running ? 0.6 : waiting ? 0.45 : 0.4
+                let hi: Float = blocked || running ? 1 : waiting ? 0.9 : 0.75
+                blink.values = [lo, hi, lo, lo]
+                blink.keyTimes = blocked ? [0, 0.25, 0.5, 1] : [0, 0.12, 0.3, 1]
+                blink.duration = blocked ? 1 : running ? 1.4 + Double(rng.next()) : waiting ? 3.5 : 6
+                blink.timeOffset = Double(rng.next()) * blink.duration
+                blink.repeatCount = .infinity
+                fly.add(blink, forKey: "blink")
+                let flare = CABasicAnimation(keyPath: "shadowRadius")
+                flare.fromValue = running ? 2.5 : 1.5; flare.toValue = running ? 5.5 : 3
+                flare.duration = blink.duration / 2; flare.autoreverses = true
+                flare.timeOffset = blink.timeOffset; flare.repeatCount = .infinity
+                fly.add(flare, forKey: "flare")
+            }
+            root.addSublayer(fly)
         }
-        root.addSublayer(sun)
         let scale = window?.backingScaleFactor ?? 2
         root.sublayers?.forEach { $0.contentsScale = scale }
         toolTip = bodies.map { $0.state }.joined(separator: " · ")
