@@ -1439,6 +1439,16 @@ fastify.get("/oskiewar-open-room", async (request, reply) => {
 
 // Where a room lives, when there is more than one relay: a guest asks every
 // relay and joins the one that answers live (see oskiewar-relay.mjs).
+// A tiny answer the clients time to pick the nearest relay
+// (round-room.mjs chooseRelayHost). Without it this relay could never be
+// chosen: every timing came back a 404.
+fastify.get("/oskiewar-ping", async (request, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Cache-Control", "no-store");
+  if (!oskiewarLiveManager) return reply.code(404).send({ error: "Product unavailable" });
+  return { region: "nj", at: Date.now() };
+});
+
 fastify.get("/oskiewar-room", async (request, reply) => {
   reply.header("Access-Control-Allow-Origin", "*");
   reply.header("Cache-Control", "no-store");
