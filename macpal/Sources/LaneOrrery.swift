@@ -141,13 +141,20 @@ final class LaneOrreryView: NSView {
                 root.addSublayer(spark)
             }
 
-            let fly = flyer(running ? 5.5 : 4.5, glow: running ? 4 : 2.5,
+            let fly = flyer(running ? 7 : 6, glow: running ? 4 : 2.5,
                             tint: blocked ? red : color, opacity: running ? 1 : waiting ? 0.85 : 0.6)
-            // On a light desktop a glow alone washes out; a faint rim gives each an edge.
-            if dark != true {
-                fly.borderColor = NSColor.black.withAlphaComponent(body.color > 0xE0E0E0 ? 0.35 : 0.15).cgColor
-                fly.borderWidth = 0.5
-            }
+            // Sticker finish, so a speck reads at a glance on any desktop: an
+            // ink outline in the comic style, and a white core lit a touch
+            // up-left. The core is a sublayer, so it flies and blinks along.
+            fly.borderColor = hexColor(0x1B1530).withAlphaComponent(0.85).cgColor
+            fly.borderWidth = 1
+            let core = CALayer()
+            let cd = fly.bounds.width * 0.42
+            core.bounds = CGRect(x: 0, y: 0, width: cd, height: cd)
+            core.cornerRadius = cd / 2
+            core.position = CGPoint(x: fly.bounds.midX - 0.5, y: fly.bounds.midY + 0.5)
+            core.backgroundColor = NSColor.white.cgColor
+            fly.addSublayer(core)
             // Drop shadow in the pal's comic style (the name and avatar wear
             // it too): a hard accent-colored copy, no blur, cast down-right. It
             // sits in a transform offset so the shared position animation
