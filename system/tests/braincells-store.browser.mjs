@@ -1,5 +1,5 @@
 // node system/tests/braincells-store.browser.mjs (uses installed Chrome)
-// The store path: a visitor arrives with no checkout, signs in, picks a pack,
+// The store path: a signed-out visitor is locked out; a signed-in one picks a pack,
 // and the page opens its own checkout instead of needing Whistlegraph.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -47,12 +47,7 @@ try {
     const read = () => JSON.parse(localStorage.getItem('fixture-otp') || 'null');
     export function otpSignIn() { return {
       session: read, token: async () => read()?.access || null, forget: () => localStorage.removeItem('fixture-otp'),
-      sendCode: async email => { window.mailed = email; return email; },
-      verify: async (email, code) => {
-        if (code !== '123456') throw Object.assign(new Error('fixture'), { code:'wrong-code', hint:"that code doesn't match" });
-        const session = { sub:'auth0|tester', email, access:'ac-access-token' };
-        localStorage.setItem('fixture-otp', JSON.stringify(session)); return session;
-      } }; }` }));
+    }; }` }));
   await page.route('**/vendor/beacon-sdk.min.js', route => route.fulfill({ contentType:'application/javascript', body:`
     window.operations = [];
     window.beacon = { DAppClient:class {
@@ -62,22 +57,21 @@ try {
     }};` }));
 
   await page.goto(`${origin}/braincells/`);
-  await page.getByRole('heading', { name:'1,000,000 braincells', exact:true }).waitFor();
-  await page.getByText('$5, about 12.5 tez, plus the wallet’s network fee.', { exact:true }).waitFor();
-  await page.getByText('Sign in to your AC account to buy.', { exact:true }).waitFor();
-  assert.equal(await page.getByRole('button', { name:'Connect wallet' }).isVisible(), false, 'no wallet before an AC account');
+  // Signed out: locked. One way forward, nothing to pick or read.
+  await page.getByRole('link', { name:'Sign in', exact:true }).waitFor();
+  assert.equal(await page.getByRole('link', { name:'Sign in', exact:true }).getAttribute('href'), 'https://aesthetic.computer/');
+  for (const hidden of ['#lede', '#pack-label', '#price', '#connect'])
+    assert.equal(await page.locator(hidden).isVisible(), false, `${hidden} is locked away when signed out`);
+  assert.equal(await page.locator('input').count(), 0, 'no sign-in form on this page');
   assert.ok(!calls.includes('create'), 'visiting the store opens no checkout');
 
-  await page.getByLabel('Email').fill('tester@example.com');
-  await page.getByRole('button', { name:'Email me a code', exact:true }).click();
-  await page.getByText('Enter the six-digit code we sent to tester@example.com.', { exact:true }).waitFor();
-  await page.getByLabel('Code').fill('000000');
-  await page.getByRole('button', { name:'Sign in', exact:true }).click();
-  await page.getByText("That code doesn't match.", { exact:true }).waitFor();
-  await page.getByLabel('Code').fill('123456');
-  await page.getByRole('button', { name:'Sign in', exact:true }).click();
+  // Signed in on aesthetic.computer (fixture session), then back here.
+  await page.evaluate(() => localStorage.setItem('fixture-otp', JSON.stringify({ sub:'auth0|tester', email:'t@example.com', access:'ac-access-token' })));
+  await page.reload();
   await page.getByText('For @tester', { exact:true }).waitFor();
-  assert.ok(await page.evaluate(() => localStorage.getItem('session-aesthetic')), 'signing in here signs in to AC');
+  await page.getByRole('heading', { name:'1,000,000 braincells', exact:true }).waitFor();
+  await page.getByText('$5, about 12.5 tez, plus the wallet’s network fee.', { exact:true }).waitFor();
+  assert.equal(await page.getByRole('link', { name:'Sign in' }).isVisible(), false);
 
   await page.getByLabel('Amount', { exact:true }).selectOption('braincells-600k-v1');
   await page.getByRole('heading', { name:'600,000 braincells', exact:true }).waitFor();
@@ -98,5 +92,5 @@ try {
   await page.getByRole('button', { name:'Connect wallet', exact:true }).waitFor();
   assert.equal(await page.getByRole('button', { name:'Check payment' }).isVisible(), false);
   assert.deepEqual(errors, []);
-  console.log('PASS: store, email-code sign-in, pack choice, self-opened checkout, payment, buy more.');
+  console.log('PASS: locked when signed out, store when signed in, pack choice, self-opened checkout, payment, buy more.');
 } finally { await browser.close(); server.close(); }

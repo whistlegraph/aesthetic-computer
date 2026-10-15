@@ -10,16 +10,11 @@
 <main>
   <img class="brain" src="/aesthetic.computer/braincell.svg" alt="" width="64" height="64">
   <h1 id="quantity">Braincells</h1>
-  <p id="lede">Braincells run AC’s hosted text and code models in Aesel and across AC. One balance covers every supported model. Purchased braincells never expire.</p>
-  <p id="account">Loading…</p>
+  <p id="lede" hidden>Braincells run AC’s hosted text and code models in Aesel and across AC. One balance covers every supported model. Purchased braincells never expire.</p>
+  <p id="account"></p>
   <label id="pack-label" hidden>Amount <select id="pack" aria-label="Amount"></select></label>
   <p id="price"></p>
-  <form id="signin" hidden>
-    <label id="email-label">Email <input id="email" type="email" autocomplete="email" required></label>
-    <label id="code-label" hidden>Code <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}"></label>
-    <button id="signin-go" type="submit">Email me a code</button>
-    <a id="signin-web" hidden href="https://aesthetic.computer/">Sign in on aesthetic.computer</a>
-  </form>
+  <a id="signin" class="button" hidden href="https://aesthetic.computer/">Sign in</a>
   <p id="wallet" hidden></p>
   <button id="connect" hidden>Connect wallet</button>
   <button id="pay" hidden>Pay in tez</button>

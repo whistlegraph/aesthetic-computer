@@ -74,7 +74,7 @@ $('pack').onchange = () => {
 // ── Signing in to AC ─────────────────────────────────────────────────────────
 // A checkout belongs to an AC handle, so the store needs an AC access token to
 // open one. Reuse whatever session this browser already has on
-// aesthetic.computer; otherwise sign in here with an emailed code.
+// aesthetic.computer; without one the page stays locked.
 async function otpDoor() {
   if (!door) door = (await import('/aesthetic.computer/lib/auth0-otp.mjs')).otpSignIn({ clientId:AUTH0_CLIENT_ID });
   return door;
@@ -124,39 +124,15 @@ async function showBuyer() {
   buyer = await signedIn();
   const handle = buyer && await handleFor(buyer.sub);
   if (buyer) buyer.handle = handle;
-  $('signin').hidden = Boolean(buyer);
-  $('connect').hidden = !handle;
-  if (!buyer) $('account').textContent = 'Sign in to your AC account to buy.';
-  else if (!handle) $('account').replaceChildren('Claim a handle on ',
-    Object.assign(document.createElement('a'), { href:'https://aesthetic.computer/', textContent:'aesthetic.computer' }), ' before buying braincells.');
-  else $('account').textContent = `For @${handle.replace(/^@/, '')}`;
+  // Signed out, or no handle yet: locked. Nothing to pick, nothing to read.
+  const locked = !handle;
+  for (const id of ['lede','pack-label','price','connect']) $(id).hidden = locked;
+  $('signin').hidden = !locked;
+  $('signin').textContent = buyer ? 'Get a handle' : 'Sign in';
+  $('quantity').textContent = 'Braincells';
+  $('account').textContent = locked ? '' : `For @${handle.replace(/^@/, '')}`;
+  if (!locked) showPack();
 }
-$('signin').onsubmit = event => {
-  event.preventDefault();
-  action(async () => {
-    const otp = await otpDoor();
-    const email = $('email').value;
-    try {
-      if ($('code-label').hidden) {
-        await otp.sendCode(email);
-        $('code-label').hidden = false; $('email-label').hidden = true;
-        $('signin-go').textContent = 'Sign in';
-        $('code').focus();
-        say(`Enter the six-digit code we sent to ${email.trim()}.`);
-        return;
-      }
-      const session = await otp.verify(email, $('code').value);
-      // The same record boot.mjs reads, so the rest of AC is signed in too.
-      try { localStorage.setItem('session-aesthetic', btoa(JSON.stringify({ accessToken:session.access, account:{ id:session.sub, label:session.email } }))); } catch {}
-      say('');
-      await showBuyer();
-    } catch (error) {
-      if (error.tenant) $('signin-web').hidden = false;
-      throw new Error(error.hint ? error.hint[0].toUpperCase() + error.hint.slice(1) + '.' : error.message);
-    }
-  });
-};
-
 // ── Wallet and payment ───────────────────────────────────────────────────────
 async function useWallet() {
   if (!client) client = new window.beacon.DAppClient({ name:'AC braincells', network:{ type:'mainnet' }, enableMetrics:false,
@@ -167,7 +143,7 @@ async function useWallet() {
   if (!account || account.network?.type !== 'mainnet') throw new Error('Select a Tezos mainnet wallet.');
   return account;
 }
-const controls = ['connect','pay','check','pack','signin-go','again'];
+const controls = ['connect','pay','check','pack','again'];
 async function action(work) {
   if (busy) return;
   busy = true;
@@ -244,17 +220,14 @@ function forgetCheckout() {
 }
 // The store: pick a pack, sign in, then the checkout above takes over.
 async function storefront() {
-  $('lede').hidden = false;
   $('return').hidden = !fromApp;
   fillPacks(STORE_OFFERS);
   const saved = sessionStorage.getItem('ac-tezos-store-pack');
   $('pack').value = STORE_OFFERS.some(offer => offer.id === saved) ? saved : 'braincells-1m-v1';
-  $('pack-label').hidden = false;
   $('pack').disabled = false;
-  showPack();
   fetch('/api/easel-tezos', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ action:'price' }) })
     .then(r => r.ok ? r.json() : null).then(price => {
-      if (Number.isFinite(price?.usdPerTez) && price.usdPerTez > 0) { usdPerTez = price.usdPerTez; showPack(); }
+      if (Number.isFinite(price?.usdPerTez) && price.usdPerTez > 0) { usdPerTez = price.usdPerTez; if (buyer?.handle) showPack(); }
     }).catch(() => {});
   await showBuyer();
 }
