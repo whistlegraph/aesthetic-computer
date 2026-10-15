@@ -90,7 +90,7 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
        fighters: () => players.map((player) => ({ name: player.name,
          x: player.x, y: player.y, alive: player.alive, score: player.score,
          roundWins: player.roundWins, remote: player.remote, gunAmmo: player.gunAmmo })),
-       gunArena: () => ({ on: gunArenaOn, centre: gunsOnlyCenterX(), crest: gunHillTopY(),
+       gunArena: () => ({ on: gunArenaOn, centre: gunsOnlyCenterX(), crest: gunHillTopY(), roof: dojoRoofY,
          pistol: gunPickups[0] ? { x: gunPickups[0].x, y: gunPickups[0].y, active: gunPickups[0].active } : null,
          board: (() => { const b = balls.find((ball) => ball.type === "skateboard"); return b ? { x: b.x, y: b.y, active: b.active } : null; })(),
          spawns: players.map((player) => player.spawnX) }),
@@ -281,7 +281,8 @@ test("the gun arena: board on the hill, pistol only reachable with a jump", () =
   assert.ok(arena.on, "a versus round builds the gun arena");
   assert.ok(arena.crest < seat.fight.gunArena().crest + 1 && arena.pistol?.active, "the pistol is out");
   assert.ok(Math.abs(arena.board.x - arena.centre) < 1, "the board sits on the hill");
-  assert.ok(arena.pistol.y < arena.crest - 400, "the pistol hangs well above the crest");
+  assert.ok(arena.pistol.y < arena.crest - 250, "the pistol hangs well above the crest");
+  assert.ok(arena.pistol.y > arena.roof, "and below the roof glass, where it can be seen");
   assert.ok(arena.spawns[1] - arena.spawns[0] >= 450, "the spawns are wide apart");
   // Walk straight over the hill: passing under the pistol must not take it.
   let crossed = false;

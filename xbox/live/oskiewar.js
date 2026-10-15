@@ -9833,6 +9833,11 @@ function netRestore(snapshot) {
 // per frame while `__oskiewarHashTrace` is set. A desync report names a
 // frame and two numbers; this is what turns those numbers back into fields.
 let netLastHashText = "";
+const netFrameRing = new Map();
+function netDumpFrames(upTo) {
+  if (!globalThis.__oskiewarHashTrace) return;
+  for (const [frame, text] of netFrameRing) if (frame <= upTo) telemetry("NET_FRAME", frame + " " + text);
+}
 const netHashTexts = new Map();
 function netStateHash() {
   const view = players.map((player) => [player.x, player.y, player.z,
@@ -9848,7 +9853,10 @@ function netStateHash() {
     // which is the most expensive way to learn about a desync.
     player.skateboard, player.skateVx, player.skateWallSide,
     player.skatePitch || 0, player.skateContacts || 0, player.swordHeld, player.ropeIndex, player.ropeLink, player.ropeGrabLocked, player.skateLoop,
-    player.loopAngle, player.loopSpeed, player.loopCooldownUntil, player.skateRotation, player.boostUntil]);
+    player.loopAngle, player.loopSpeed, player.loopCooldownUntil, player.skateRotation, player.boostUntil,
+    // The pose's clock: the pose is the hitbox, so a seat whose clock drifted
+    // is a seat whose hits will.
+    player.motionClock, player.breathPhase]);
   view.push(skateparkMap, skateRopes);
   view.push(balls.map((item) => [item.active, item.x, item.y, item.z,
     item.vx, item.vy, item.heldBy]));
@@ -9981,6 +9989,26 @@ function netBegin(deal, seat, send) {
     replay = null;
     startVersusFight(deal.origin, true);
     netApplyIdentities(deal);
+    // Frame zero is one state on both seats only if nothing a fighter
+    // gathered BEFORE the deal rides into it. The motion clock drives the pose
+    // and the pose is the hitbox, and it — with the heartbeat and breath that
+    // pace it, the scars and the lobby's dummy flags — kept counting from
+    // however long each seat had stood in the lobby. Two Macs dealt the same
+    // fight drifted apart in the air a thousand frames in. Every fighter
+    // starts the fight from the same fixed values on both seats.
+    for (const player of players) {
+      const i = player.pad;
+      player.motionClock = i * 1.7;
+      player.heartRate = 62 + (i * 7 % 19);
+      player.heartPhase = (i * .173) % 1;
+      player.breathPhase = (i * .317) % 1;
+      player.breathRate = undefined;
+      player.heartDanger = 0;
+      player.scars = [];
+      player.wireVx = 0; player.wireVy = 0;
+      player.nation = "";
+      player.dummy = false; player.lobbyDummy = false;
+    }
   } finally {
     netClockUs = null;
   }
@@ -10061,6 +10089,15 @@ function netSimulateFrame(session, frame, silent) {
     // a resimulated frame overwrites its guess). Off unless a harness sets it.
     if (typeof globalThis.__oskiewarNetFrameHook === "function")
       globalThis.__oskiewarNetFrameHook(session.seat, frame, inputs, () => netSnapshot());
+    // With the hash trace on, the last 90 simulated frames' state is kept
+    // (a resimulated frame overwrites its guess) so a desync can be traced to
+    // its first differing frame and field across two real machines.
+    if (globalThis.__oskiewarHashTrace) {
+      const keep = (key, value) => key === "commandStream" || key === "rig" || key === "previous" ||
+        key === "matchName" || key === "seriesName" || key === "nameSeed" || key === "previousRoundName" ? undefined : value;
+      netFrameRing.set(frame, JSON.stringify({ i: inputs, p: players, b: balls, r: dojoRoof, g: gunPickups, n: grenades }, keep));
+      for (const old of netFrameRing.keys()) { if (old >= frame - 90) break; netFrameRing.delete(old); }
+    }
   } finally {
     netClockUs = null;
     netSilent = false;
@@ -10191,8 +10228,10 @@ function netDrainInbox(session) {
     // no answering packet: a desync that echoed would ping-pong.
     if (packet.t === "desync") {
       session.peerDesync = true;
-      if (globalThis.__oskiewarHashTrace && Number.isInteger(packet.f))
+      if (globalThis.__oskiewarHashTrace && Number.isInteger(packet.f)) {
         telemetry("NET_DESYNC_STATE", packet.f + " " + String(netHashTexts.get(packet.f) || "").slice(0, 12000));
+        netDumpFrames(packet.f);
+      }
       continue;
     }
     if (packet.t === "i" && Array.isArray(packet.m) &&
@@ -10243,6 +10282,7 @@ function netNotePeerHash(session, frame, hash) {
   if (mine !== hash) {
     session.stats.desyncs++;
     telemetry("NET_DESYNC", "frame " + frame + " mine " + mine + " theirs " + hash);
+    netDumpFrames(frame);
     // With the hash trace on, say what this seat hashed, so the two sides'
     // reports can be laid side by side and the first differing value read.
     if (globalThis.__oskiewarHashTrace)
@@ -10802,6 +10842,10 @@ function applyGunArena() {
   rebuildTerrainProfile();
 }
 const gunHillTopY = () => terrainFloorAt(gunsOnlyCenterX());
+// Where the pistol hangs: as high over the crest as gunHillGunLift asks, but
+// never into the roof — it hung 550 up behind 440 of glass, invisible, and a
+// jump had to smash the roof to reach it.
+const gunHangY = () => Math.max(gunHillTopY() - gunHillGunLift, dojoRoofY + 34);
 
 function resetRound(now, resetMatch = false) {
   applyGunArena();
@@ -11028,7 +11072,7 @@ function resetRound(now, resetMatch = false) {
     gunPickups.forEach((pickup, index) => {
       pickup.homeX ??= pickup.x;
       pickup.x = index === 0 ? centre : pickup.homeX;
-      if (index === 0) pickup.y = gunHillTopY() - gunHillGunLift;
+      if (index === 0) pickup.y = gunHangY();
       pickup.active = index === 0;
       pickup.amount = gunsOnlyAmmo;
     });
@@ -12533,7 +12577,7 @@ function updatePowerups(now) {
     if (!held && !lying && !flying && gunPickups[0]) {
       const pistol = gunPickups[0];
       pistol.x = gunsOnlyCenterX();
-      pistol.y = gunHillTopY() - gunHillGunLift;
+      pistol.y = gunHangY();
       pistol.z = 0;
       pistol.amount = gunsOnlyAmmo;
       pistol.active = true;
