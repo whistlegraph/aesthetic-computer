@@ -37,10 +37,15 @@ func orreryBodies(_ mission: Mission?) -> [OrreryBody] {
     return bodies
 }
 
-final class LaneOrreryView: NSView {
-    static let size = NSSize(width: 70, height: 32)
+final class LaneOrreryView: NSView, ChipRoaming {
+    static let size = NSSize(width: 64, height: 46)
     private(set) var bodies: [OrreryBody] = []
     private var dark: Bool?
+    // The whole chip in this view's coordinates (set by the pal's layout), so
+    // busy fireflies can circle the badge rather than keep to the side strip.
+    var roam: CGRect = .zero {
+        didSet { if roam != oldValue { rebuild() } }
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -77,11 +82,31 @@ final class LaneOrreryView: NSView {
         let pts = (0..<count).map { _ in
             CGPoint(x: area.minX + rng.next() * area.width, y: area.minY + rng.next() * area.height)
         }
+        return smooth(pts)
+    }
+
+    // A wobbly closed loop around `area`'s middle: `count` points stepping
+    // round an ellipse, each pushed in or out a little, smoothed by flight().
+    private static func circuit(around area: CGRect, count: Int, reverse: Bool,
+                                rng: inout Seeded) -> CGPath {
+        let c = CGPoint(x: area.midX, y: area.midY)
+        let start = rng.next() * 2 * .pi
+        let pts: [CGPoint] = (0..<count).map { k in
+            let a = start + (reverse ? -1 : 1) * CGFloat(k) / CGFloat(count) * 2 * .pi
+                + (rng.next() - 0.5) * 0.5
+            let rx = area.width / 2 * (0.78 + 0.22 * rng.next())
+            let ry = area.height / 2 * (0.7 + 0.3 * rng.next())
+            return CGPoint(x: c.x + rx * cos(a), y: c.y + ry * sin(a))
+        }
+        return smooth(pts)
+    }
+
+    private static func smooth(_ pts: [CGPoint]) -> CGPath {
         let path = CGMutablePath()
         func mid(_ a: CGPoint, _ b: CGPoint) -> CGPoint { CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2) }
-        path.move(to: mid(pts[count - 1], pts[0]))
-        for i in 0..<count {
-            path.addQuadCurve(to: mid(pts[i], pts[(i + 1) % count]), control: pts[i])
+        path.move(to: mid(pts[pts.count - 1], pts[0]))
+        for i in 0..<pts.count {
+            path.addQuadCurve(to: mid(pts[i], pts[(i + 1) % pts.count]), control: pts[i])
         }
         path.closeSubpath()
         return path
@@ -91,7 +116,10 @@ final class LaneOrreryView: NSView {
         layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
         guard !bodies.isEmpty, let root = layer else { return }
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let b = NSRect(origin: .zero, size: Self.size).insetBy(dx: 4, dy: 5)
+        let own = NSRect(origin: .zero, size: Self.size).insetBy(dx: 4, dy: 5)
+        // The circuit encloses the whole chip when the pal has told us where it is.
+        let ring = (roam.isEmpty ? own : roam.union(own)).insetBy(dx: 5, dy: 5)
+        let b = own
         let n = bodies.count
         let strip = b.width / CGFloat(n)
         let red = hexColor(0xE5484D)
@@ -108,12 +136,17 @@ final class LaneOrreryView: NSView {
             let area = CGRect(x: b.minX + strip * CGFloat(i) - strip * 0.25, y: b.minY,
                               width: strip * 1.5, height: b.height)
                 .intersection(b)
-            let wander: CGRect = running ? area
-                : waiting ? area.insetBy(dx: area.width * 0.2, dy: area.height * 0.25)
-                : CGRect(x: area.midX - 2, y: area.midY - 2, width: 4, height: 4)
-            let path = Self.flight(in: wander, count: running ? 6 : 4, rng: &rng)
-            let period: Double = running ? 7 + Double(rng.next()) * 4 : waiting ? 18 : 26
-            let start = CGPoint(x: wander.midX, y: wander.midY)
+            // Busy lanes circumnavigate the badge (alternate lanes the other
+            // way round); waiting lanes take the same tour at a stroll; idle
+            // lanes potter about their own patch beside the name.
+            let patch = CGRect(x: area.midX - 7, y: area.midY - 6, width: 14, height: 12)
+            let path = running || waiting
+                ? Self.circuit(around: ring, count: 9, reverse: i % 2 == 1, rng: &rng)
+                : Self.flight(in: patch, count: 5, rng: &rng)
+            let period: Double = running ? Double(ring.width) / 14 + Double(rng.next()) * 3
+                : waiting ? Double(ring.width) / 5 : 20
+            let start = path.boundingBoxOfPath.origin == .zero ? CGPoint(x: area.midX, y: area.midY)
+                : CGPoint(x: path.boundingBoxOfPath.midX, y: path.boundingBoxOfPath.midY)
 
             func flyer(_ size: CGFloat, glow: CGFloat, tint: NSColor, opacity: Float) -> CALayer {
                 let l = CALayer()

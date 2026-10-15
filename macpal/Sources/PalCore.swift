@@ -989,6 +989,7 @@ final class PalController: NSObject {
             if let acc = acc {
                 acc.frame.origin = NSPoint(x: rightAligned ? 0 : micro + gap + lblW + 2,
                                            y: (H - acc.frame.height) / 2)
+                (acc as? ChipRoaming)?.roam = acc.convert(content.bounds, from: content)
             }
             microChipRect = NSRect(x: 0, y: dy, width: totalW, height: micro)
             clickCatcher.frame = microChipRect
@@ -1066,6 +1067,8 @@ protocol WidthHinting { var preferredWidth: CGFloat { get } }
 // A plugin that shows something beside the collapsed chip's name returns that
 // view here (sized, already in `content`), or nil when it has nothing to show.
 protocol CollapsedAccessory { var collapsedAccessory: NSView? { get } }
+// An accessory that may draw across the whole chip learns its extent here.
+protocol ChipRoaming: AnyObject { var roam: CGRect { get set } }
 
 // ── About window ───────────────────────────────────────────────────────────
 // A small transparent-titlebar window with a centered masthead — glyph icon,
