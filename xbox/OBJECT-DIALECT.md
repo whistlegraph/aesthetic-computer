@@ -305,10 +305,6 @@ hitboxes and the sim are untouched; this is drawing only.
     for free.
   - `(skin a b (c x y z) …)` is a flat polygon through joints, optionally
     offset.
-  - `(on joint …)` hangs shapes on a joint. On `head` it uses the head's frame
-    (x right, y up, z where it looks) in head radii. On a body joint it uses
-    the body's frame (up the spine, facing as the head does, x from the right
-    hip to the left) in world units.
   - `(surface …)` makes shapes one-sided along the local z, so a face passes
     out of sight round the back.
   - Palette names in `ink` (`skin hair shirt pants skirt shoe accent iris lip
