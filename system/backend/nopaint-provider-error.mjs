@@ -11,7 +11,7 @@ export function providerError(response, name = "This model") {
   return Object.assign(
     Error(
       limited
-        ? `${name} is temporarily rate-limited by its image provider. Choose another model or try again later.`
+        ? `${name}’s image provider has reached its usage limit. Choose another model or try again later.`
         : `${name}'s image provider could not complete this move. Choose another model or try again later.`,
     ),
     {

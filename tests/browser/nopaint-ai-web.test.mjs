@@ -44,6 +44,8 @@ const errors = [],
   emails = [],
   pairs = new Map();
 let releaseCloud,
+  cloudFailure = null,
+  providerLimited = false,
   publishedPNG,
   wip = { code: "webtest", revision: 0 },
   failTracking = true;
@@ -143,7 +145,8 @@ const routeRequest = async (route) => {
             model: "test/image",
             name: "Test Cloud",
             location: "AC cloud",
-            available: true,
+            available: !providerLimited,
+            ...(providerLimited ? { unavailableReason: "Provider limit" } : {}),
             braincells: 8,
             quote: "test-quote",
             provider: "openrouter",
@@ -161,6 +164,14 @@ const routeRequest = async (route) => {
     assert.equal(request.headers().authorization, "Bearer isolated-test-token");
     const body = request.postDataJSON();
     moves.push(body);
+    if (cloudFailure) {
+      providerLimited = cloudFailure.code === "provider_rate_limited";
+      return route.fulfill({
+        status: 502,
+        contentType: "application/json",
+        body: JSON.stringify(cloudFailure),
+      });
+    }
     await new Promise((r) => {
       releaseCloud = r;
       notifyCloud();
@@ -538,6 +549,72 @@ try {
   emailPair.claimed = true;
   await page.waitForSelector("#account", { state: "hidden" });
   assert.equal(moves.length, 1, "QR and email sign-in do not start inference");
+  const beforeFailure = await pixels();
+  cloudFailure = {
+    error:
+      "Test Cloud’s image provider has reached its usage limit. No Braincells were charged.",
+    code: "provider_rate_limited",
+    charged: 0,
+  };
+  await paint().click();
+  await page.waitForSelector("#move-failure[open]");
+  assert.match(
+    await page.locator("#failure-message").textContent(),
+    /Test Cloud.*usage limit/,
+  );
+  assert.equal(
+    await page.locator("#failure-state").textContent(),
+    "You’re signed in. Your painting is unchanged.",
+  );
+  assert.equal(
+    await page.locator("#failure-billing").textContent(),
+    "No Braincells were charged.",
+  );
+  assert.equal(await pixels(), beforeFailure);
+  await page.screenshot({ path: shots + "/provider-failure.png" });
+  assert.equal(moves.length, 2);
+  await page.locator("#failure-models").click();
+  assert.equal(await page.locator("#models").isVisible(), true);
+  assert.match(
+    await page
+      .locator(".model-row")
+      .filter({ hasText: "Test Cloud" })
+      .textContent(),
+    /Provider limit/,
+  );
+  assert.equal(
+    moves.length,
+    2,
+    "choosing another model never retries the paid move",
+  );
+  providerLimited = false;
+  await page
+    .getByRole("button", { name: "Refresh availability", exact: true })
+    .click();
+  await page.waitForFunction(
+    () =>
+      !document
+        .querySelector("#model-list")
+        .textContent.includes("Provider limit"),
+  );
+  await page.locator(".model-row").filter({ hasText: "Test Cloud" }).click();
+  await ready();
+  cloudFailure = { error: "Connection interrupted." };
+  await paint().click();
+  await page.waitForSelector("#move-failure[open]");
+  assert.match(
+    await page.locator("#failure-billing").textContent(),
+    /couldn’t confirm whether Braincells were charged/,
+  );
+  assert.doesNotMatch(
+    await page.locator("#failure-billing").textContent(),
+    /^No Braincells/,
+  );
+  await page.locator("#failure-classic").click();
+  await ready();
+  assert.match(await page.locator("#status").textContent(), /^Classic/);
+  assert.equal(moves.length, 3, "Use Classic only changes the selection");
+  assert.equal(await pixels(), beforeFailure);
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
@@ -549,6 +626,7 @@ try {
         "no brush size setting",
         "cloud model sign-in prompt, cancellation and redirect selection recovery",
         "phone QR approval and email links without code entry",
+        "visible provider failure, confirmed and unknown billing, and explicit recovery choices",
         "model details without changing selection or making inference requests",
         "reload persistence",
         "exact mask preservation",

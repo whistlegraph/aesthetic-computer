@@ -315,6 +315,31 @@ dialog a {
 #model-source {
   margin-top: 22px;
 }
+#move-failure {
+  width: min(480px, calc(100% - 24px));
+}
+#move-failure header {
+  gap: 16px;
+}
+#move-failure p {
+  font-size: 16px;
+}
+#failure-billing {
+  font-weight: 600;
+}
+#failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+}
+#failure-actions button {
+  padding: 12px;
+}
+#failure-models {
+  background: var(--ink);
+  color: var(--background);
+}
 #signin-qr {
   display: block;
   width: min(228px, 100%);

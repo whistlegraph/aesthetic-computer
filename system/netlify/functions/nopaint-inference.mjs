@@ -16,7 +16,7 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
     if (event.httpMethod === 'OPTIONS') return reply(204, null);
     if (event.httpMethod === 'GET') {
       const service=status ? await status({enabled,offers}) : null;
-      return reply(200, {models:offers.map(item=>({...item,available:enabled && service?.available!==false && !service?.unavailable_models?.includes(item.id), ...(service?.model_issues?.[item.id] ? {unavailableReason:'Temporarily unavailable'} : {})})), ...(service?{service}:{})});
+      return reply(200, {models:offers.map(item=>({...item,available:enabled && service?.available!==false && !service?.unavailable_models?.includes(item.id), ...(service?.model_issues?.[item.id] ? {unavailableReason:service.model_issues[item.id].code==='provider_rate_limited' ? 'Provider limit' : 'Provider unavailable'} : {})})), ...(service?{service}:{})});
     }
     if (event.httpMethod !== 'POST') return reply(405, {error:'POST only'});
     if (!event.headers?.authorization) return reply(401, {error:'Sign in with AC for remote moves'});
@@ -27,7 +27,7 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
     if (!enabled || !offers.length) return reply(503, {error:'AC remote images are not enabled yet'});
     if (status) {
       const service=await status({enabled,offers});
-      if (!service.available) return reply(503, {error:service.detail, code:service.code, service});
+      if (!service.available) return reply(503, {error:service.detail, code:service.code, charged:0, service});
     }
     try {
       const handle = await getHandleOrEmail(user.sub);
@@ -40,7 +40,7 @@ export function createHandler({authorize, getHandleOrEmail, billing, generate, o
       if (!offer) return reply(409, {error:'The remote price changed. Refresh before generating.'});
       if (status) {
         const service=await status({enabled,offers:[offer]});
-        if (!service.available) return reply(503, {error:service.detail, code:service.code, service});
+        if (!service.available) return reply(503, {error:service.detail, code:service.code, charged:0, service});
       }
       for (const [key,value] of results) if (value.until <= now()) results.delete(key);
       const prior = results.get(id) || pending.get(id);
@@ -91,12 +91,12 @@ export async function handler(event) {
   // Catalog health uses a cached, read-only balance request; no DB or inference.
   if (event.httpMethod === 'GET') {
     const service=await cloudStatus({enabled,offers});
-    return reply(200, {models:offers.map(item=>({...item,available:enabled && service.available && !service.unavailable_models?.includes(item.id), ...(service.model_issues?.[item.id] ? {unavailableReason:'Temporarily unavailable'} : {})})), service});
+    return reply(200, {models:offers.map(item=>({...item,available:enabled && service.available && !service.unavailable_models?.includes(item.id), ...(service.model_issues?.[item.id] ? {unavailableReason:service.model_issues[item.id].code==='provider_rate_limited' ? 'Provider limit' : 'Provider unavailable'} : {})})), service});
   }
   if (event.httpMethod === 'OPTIONS') return reply(204, null);
   if (!enabled) {
     const service=await cloudStatus({enabled,offers});
-    return reply(503, {error:service.detail, code:service.code, service});
+    return reply(503, {error:service.detail, code:service.code, charged:0, service});
   }
   if (!live) live = (async()=>{
     const [{authorize,getHandleOrEmail},{connect}] = await Promise.all([

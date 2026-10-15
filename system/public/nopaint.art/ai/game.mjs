@@ -280,7 +280,18 @@ export class Game {
         braincells: cloud && error.charged !== 0 ? "unknown" : 0,
       });
       await this.persistTrack(job.track).catch(() => {});
-      if (!job.cancelled) this.error = error.message;
+      if (!job.cancelled) {
+        this.error = error.message;
+        this.failure = cloud
+          ? {
+              model: model.name,
+              modelId: model.id,
+              code: error.code,
+              message: error.message,
+              charged: error.charged,
+            }
+          : null;
+      }
       return false;
     } finally {
       if (job.track.pending?.id === job.id) {

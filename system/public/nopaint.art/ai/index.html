@@ -153,6 +153,23 @@
       <div id="history-list"></div>
       <button id="history-export">Save history</button>
     </dialog>
+    <dialog
+      id="move-failure"
+      aria-labelledby="failure-title"
+      aria-describedby="failure-message failure-state failure-billing"
+    >
+      <header>
+        <h1 id="failure-title">Model temporarily unavailable</h1>
+        <button data-close aria-label="Close">×</button>
+      </header>
+      <p id="failure-message"></p>
+      <p id="failure-state"></p>
+      <p id="failure-billing"></p>
+      <div id="failure-actions">
+        <button id="failure-models">Choose another model</button>
+        <button id="failure-classic">Use Classic</button>
+      </div>
+    </dialog>
     <dialog id="notice">
       <header>
         <h1 id="notice-title">No Paint</h1>

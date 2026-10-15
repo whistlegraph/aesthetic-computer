@@ -127,7 +127,9 @@ test('upstream quota rejection refunds once and temporarily blocks only that mod
   assert.deepEqual(calls.finish,[['receipt',false]]);
   const catalog=JSON.parse((await handler({httpMethod:'GET'})).body);
   assert.equal(catalog.models[0].available,false);assert.equal(catalog.models[1].available,true);
-  assert.equal((await handler(event({model:remote.id,quote:remote.quote}))).statusCode,503);
+  assert.equal(catalog.models[0].unavailableReason,'Provider limit');
+  const blocked=await handler(event({model:remote.id,quote:remote.quote}));
+  assert.equal(blocked.statusCode,503);assert.equal(JSON.parse(blocked.body).charged,0);
   assert.equal(submitted,1);assert.equal(calls.begin.length,1);
   at=300_001;
   assert.equal(JSON.parse((await handler({httpMethod:'GET'})).body).models[0].available,true);

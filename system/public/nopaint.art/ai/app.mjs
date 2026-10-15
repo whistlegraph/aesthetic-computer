@@ -129,7 +129,13 @@ function status() {
     price = s.quote?.braincells ?? model?.braincells,
     parts = [];
   if (locked) parts.push("Open in another tab");
-  else if (issue || s.error) parts.push(issue || s.error);
+  else if (issue || s.error)
+    parts.push(
+      issue ||
+        (game.failure && s.error
+          ? `${game.failure.model} · Move failed${game.failure.charged === 0 ? " · No charge" : ""}`
+          : s.error),
+    );
   else if (workingLabel) parts.push(workingLabel);
   else {
     parts.push(model?.name || "Choose a model");
@@ -294,8 +300,11 @@ async function dispatch(id) {
       if (!capabilities(snapshot()).canPaint) return;
       game.hint = $("hint").value;
       const before = game.accepted;
+      const previousFailure = game.failure;
       await game.paint();
       if (game.accepted !== before) window.acVisits?.action("painting_edited");
+      if (game.error && game.failure && game.failure !== previousFailure)
+        showMoveFailure(game.failure);
     } else if (id === "no" || id === "undo") {
       if (!capabilities(snapshot()).canNo) return;
       noHover = false;
@@ -324,11 +333,12 @@ function renderModels() {
   if (noticeText) {
     $("model-notice").append(document.createTextNode(noticeText));
     const retry = document.createElement("button");
-    retry.textContent = "Try again";
-    retry.onclick = () => {
+    retry.textContent = "Refresh availability";
+    retry.onclick = async () => {
+      retry.disabled = true;
+      await account.refresh();
       issue = "";
       game.retry();
-      account.refresh();
     };
     $("model-notice").append(retry);
   }
@@ -355,7 +365,10 @@ function renderModels() {
             : model.braincells > 0
               ? `${model.braincells.toLocaleString()} Braincells`
               : "Not enabled on AC";
-        if (!model.available && s.account.connected)
+        if (
+          !model.available &&
+          (s.account.connected || !model.serviceAvailable)
+        )
           price.textContent += " · " + modelAvailability(model, s.account);
         row.append(name, price);
         row.disabled = !s.canChange;
@@ -397,6 +410,27 @@ function modelAvailability(model, value) {
   if ((value.remaining || 0) + (value.purchased || 0) < model.braincells)
     return "Not enough Braincells";
   return "Ready";
+}
+function showMoveFailure(failure) {
+  const provider = failure.code?.startsWith("provider_");
+  $("failure-title").textContent = provider
+    ? "Model temporarily unavailable"
+    : "This move couldn’t finish";
+  $("failure-message").textContent =
+    failure.code === "provider_rate_limited"
+      ? `${failure.model}’s image provider has reached its usage limit.`
+      : failure.code === "provider_unavailable"
+        ? `${failure.model}’s image provider couldn’t complete this move.`
+        : failure.message;
+  $("failure-state").textContent =
+    (provider && account.value.connected && !account.value.stale
+      ? "You’re signed in. "
+      : "") + "Your painting is unchanged.";
+  $("failure-billing").textContent =
+    failure.charged === 0
+      ? "No Braincells were charged."
+      : "We couldn’t confirm whether Braincells were charged. Check your balance before trying again.";
+  open("move-failure");
 }
 function showModelDetails(model) {
   $("model-details-title").textContent = model.name;
@@ -752,6 +786,20 @@ document
 $("search").oninput = renderModels;
 $("status").onclick = () => dispatch("models");
 $("more-actions").onclick = () => open("painting-actions");
+$("failure-models").onclick = () => {
+  $("move-failure").close();
+  dispatch("models");
+};
+$("failure-classic").onclick = async () => {
+  try {
+    await game.select("classic");
+    issue = "";
+    $("move-failure").close();
+    render();
+  } catch (error) {
+    notice(error.message);
+  }
+};
 $("account").onclose = () => {
   pendingModel = null;
   signInAbort?.abort();
