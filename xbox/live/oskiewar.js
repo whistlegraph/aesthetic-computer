@@ -13627,10 +13627,15 @@ function updateBall(ball, dt, now) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
-    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
+    // Its rider is clear of a board let go of once off both ends of the deck
+    // and out of reach — a swinging leg alone dips out of reach mid-stride.
+    const mine = ball.releasedBy === player.pad;
+    const clear = () => { if (mine && Math.hypot(ball.x - player.x, (ball.z || 0) - (player.z || 0)) > deckHalf)
+      ball.underReleaser = false; };
+    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) { clear(); continue; }
     // A board its rider has just let go of passes through them for a moment
     // instead of being booted, bounced or caught against their own feet.
-    if (ball.releasedBy === player.pad && now - (ball.releasedAt || 0) < 200000) continue;
+    if (mine && now - (ball.releasedAt || 0) < 200000) continue;
     if (player.blocking) {
       const guard = boxesAt(player, now).guard[0];
       const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
@@ -13659,7 +13664,17 @@ function updateBall(ball, dt, now) {
     const bodyContact = runnerContactToPoint(player, poseTime,
       touchX, ball.y, ball.z, boxesAt);
     const bodyDistance = bodyContact.bodyDistance;
-    if (Math.min(headDistance, bodyDistance) > reach) continue;
+    if (Math.min(headDistance, bodyDistance) > reach) { clear(); continue; }
+    // Let go of on the ground, a board lies under its rider's feet — and on
+    // the gun hill it rolls back under them. Touch alone used to put them
+    // straight back on it a fifth of a second later, so nobody could step off
+    // on a slope or standing still. It passes under them now until they have
+    // stepped clear of it, or come down onto it from the air.
+    if (mine && ball.underReleaser && (player.grounded || player.vy < 0)) continue;
+    // Walking away from a board, a heel brushing its end is not stepping on:
+    // it put the fighter on a deck a body length behind them.
+    if (boardBall && player.grounded && Math.abs(ball.x - player.x) > deckHalf &&
+        (ball.x - player.x) * (player.vx - ball.vx) <= 0) continue;
     // Its own rider can catch a released board at any speed — but not in the
     // first fifth of a second, while it still lies against their feet.
     const released = ball.releasedBy === player.pad;
@@ -13675,6 +13690,7 @@ function updateBall(ball, dt, now) {
         // let go of is the exception: landing back on it is the point.
         (released ? ownRelease : Math.hypot(ball.vx, ball.vy) < 900)) {
       ball.releasedBy = -1;
+      ball.underReleaser = false;
       resetSkate(player);
       player.skateboard = true;
       player.skateBoardId = balls.indexOf(ball);
@@ -13834,6 +13850,7 @@ function directionTap(player, direction, now) {
         board.lastHitBy = -1;
         board.releasedBy = player.pad;
         board.releasedAt = now;
+        board.underReleaser = true;
         board.x = player.x;
         board.y = player.y - skateAxleDrop - skateWheelRadius;
         board.z = player.z;
@@ -19828,7 +19845,10 @@ function resolveRunnerBounds(player, t) {
       player.vx = 0;
       playDrum("block", .52, panPlayer(player));
       emitSignal("skate-wallride", player.pad, -1, Math.abs(player.skateVx));
-    }
+    } else if (player.skateboard && player.grounded && !player.skateWallSide)
+      // Too slow to ride the wall, the board stops against it. Its roll used
+      // to keep pressing into the wall for half a minute, pinning the rider.
+      player.skateVx = Math.max(0, player.skateVx);
     player.vx = Math.max(0, player.vx);
     player.knockVx = Math.max(0, player.knockVx);
     player.dashUntil = 0;
@@ -19844,7 +19864,8 @@ function resolveRunnerBounds(player, t) {
       player.vx = 0;
       playDrum("block", .52, panPlayer(player));
       emitSignal("skate-wallride", player.pad, 1, Math.abs(player.skateVx));
-    }
+    } else if (player.skateboard && player.grounded && !player.skateWallSide)
+      player.skateVx = Math.min(0, player.skateVx);
     player.vx = Math.min(0, player.vx);
     player.knockVx = Math.min(0, player.knockVx);
     player.dashUntil = 0;
