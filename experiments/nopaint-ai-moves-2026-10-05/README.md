@@ -27,8 +27,11 @@ catalog does not switch to AI. Choose a specific cloud model to use Braincells;
 the hint appears only for those models. Desktop and fleet inference stay in the
 native app. The website never connects to a local backend.
 
-The canvas and No/Paint buttons fill the main view. The bottom status opens
-models, account, Fresh, Save, Done, History and brush settings. Hold Space or
+The canvas and No/Paint buttons fill the main view. The bottom status opens a
+large searchable model list. Choosing a cloud model while signed out opens AC
+sign-in; completing sign-in selects that model without generating a move.
+Cancelling keeps the current selection. The picker's ⋯ button holds account,
+Fresh, Save, Done, History and brush controls; mask size is fixed. Hold Space or
 hover No to preview the previous painting. There is no top menu bar.
 
 Each model has a details control. CPU modes list their operations; cloud models

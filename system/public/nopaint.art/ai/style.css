@@ -236,17 +236,37 @@ dialog a {
 #search {
   width: 100%;
 }
+#models {
+  width: min(760px, calc(100% - 24px));
+  height: calc(100svh - 32px);
+  max-height: 900px;
+  overflow: hidden;
+}
+#models[open] {
+  display: flex;
+  flex-direction: column;
+}
+#models > :not(#model-list) {
+  flex: none;
+}
+#models header h1 {
+  flex: 1;
+}
 #studio-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 4px;
-  margin: 0 -8px 14px;
-  font-size: 14px;
+  margin: 0 -8px;
+}
+#studio-actions button {
+  text-align: left;
+  padding: 12px;
 }
 #model-list {
-  max-height: 55svh;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  margin: 12px -8px;
+  margin: 12px -8px 0;
 }
 .model-choice {
   display: flex;
@@ -258,8 +278,14 @@ dialog a {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  align-items: center;
   text-align: left;
-  padding: 10px 8px;
+  padding: 16px 8px;
+  font-size: 18px;
+}
+.model-row small {
+  font-size: 12px;
+  opacity: 0.65;
 }
 .model-row span {
   flex: none;

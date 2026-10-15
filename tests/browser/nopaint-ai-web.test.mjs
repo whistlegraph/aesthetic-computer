@@ -52,12 +52,20 @@ await context.addInitScript(() => {
   globalThis.auth0 = {
     Auth0Client: class {
       async isAuthenticated() {
-        return true;
+        return localStorage.getItem("fixture-signed-out") !== "true";
       }
       async getTokenSilently() {
         return "isolated-test-token";
       }
-      async logout() {}
+      async logout() {
+        localStorage.setItem("fixture-signed-out", "true");
+      }
+      async loginWithRedirect() {
+        location.href = location.pathname + "?code=fixture&state=fixture";
+      }
+      async handleRedirectCallback() {
+        localStorage.removeItem("fixture-signed-out");
+      }
     },
   };
 });
@@ -83,7 +91,6 @@ await context.route("**/*", async (route) => {
             available: true,
             braincells: 8,
             quote: "test-quote",
-            model: "test/image",
             provider: "openrouter",
             size: [256, 256],
             generation: {
@@ -179,6 +186,9 @@ async function select(name) {
 }
 async function studioAction(id) {
   await page.locator("#status").click();
+  await page
+    .getByRole("button", { name: "Painting actions", exact: true })
+    .click();
   await page.locator(`#studio-actions [data-action=${id}]`).click();
 }
 try {
@@ -211,6 +221,7 @@ try {
   assert.equal(choices.length, 5, "four CPU modes and the cloud offer only");
   assert.doesNotMatch(choices.join(" "), /Random|Desktop|Fleet/);
   assert.doesNotMatch(choices.join(" "), /\bfree\b/i);
+  assert.equal(await page.locator("#studio-actions").isVisible(), false);
   await page
     .getByRole("button", { name: "Details about Classic", exact: true })
     .click();
@@ -223,7 +234,7 @@ try {
   await page.locator("#models [data-close]").click();
   await studioAction("settings");
   await page.locator("#mode").selectOption("inpaint");
-  await page.locator("#brush").selectOption("24");
+  assert.equal(await page.locator("#brush").count(), 0);
   await page.locator("#brush-settings [data-close]").click();
   await studioAction("account");
   assert.equal(await page.locator("#signed-in").isVisible(), true);
@@ -341,6 +352,62 @@ try {
   );
   assert.equal(moves.length, 1, "viewing details must not request inference");
   await page.screenshot({ path: shots + "/model-details.png" });
+  await page.locator("#model-details [data-close]").click();
+  await page.locator("#models [data-close]").click();
+  await studioAction("account");
+  await page.locator("#signout").click();
+  await page.waitForSelector("#signin", { state: "visible" });
+  await page.locator("#account [data-close]").click();
+  await select("Color");
+  assert.equal(await page.locator("#account").isVisible(), false);
+  await page.reload();
+  await ready();
+  await page.locator("#status").click();
+  await page.locator(".model-row").filter({ hasText: "Test Cloud" }).waitFor();
+  assert.doesNotMatch(
+    await page.locator("#models").textContent(),
+    /Sign in|\bfree\b/i,
+  );
+  assert.equal(await page.locator("#model-notice").isVisible(), false);
+  const beforeSignIn = await pixels();
+  await page.locator(".model-row").filter({ hasText: "Test Cloud" }).click();
+  await page.waitForSelector("#account[open]");
+  assert.equal(
+    await page.locator("#account-title").textContent(),
+    "Sign in with AC",
+  );
+  assert.match(
+    await page.locator("#account-model").textContent(),
+    /Test Cloud/,
+  );
+  assert.match(await page.locator("#status").textContent(), /^Color$/);
+  await page.screenshot({ path: shots + "/model-signin.png" });
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#account").isVisible(), false);
+  assert.equal(await page.locator("#models").isVisible(), true);
+  assert.match(await page.locator("#status").textContent(), /^Color$/);
+  await page.locator("#models [data-close]").click();
+  await ready();
+  await page.locator("#status").click();
+  await page.locator(".model-row").filter({ hasText: "Test Cloud" }).click();
+  await page.locator("#redirect-login").click();
+  await page.waitForFunction(() => {
+    const status = document.querySelector("#status")?.textContent || "";
+    return status.startsWith("Test Cloud") && status.includes("@fixture");
+  });
+  await ready();
+  assert.equal(await page.locator("#account").isVisible(), false);
+  assert.equal(await page.locator("#models").isVisible(), false);
+  assert.equal(
+    await page.evaluate(() => sessionStorage.getItem("nopaint-signin-model")),
+    null,
+  );
+  assert.equal(await pixels(), beforeSignIn, "sign-in preserves the painting");
+  assert.equal(
+    moves.length,
+    1,
+    "selecting a model and signing in never generate a move",
+  );
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
@@ -348,7 +415,9 @@ try {
       checks: [
         "local Paint/No",
         "Classic default after sign-in",
-        "controls in bottom status panel",
+        "large model picker with secondary painting actions",
+        "no brush size setting",
+        "cloud model sign-in prompt, cancellation and redirect selection recovery",
         "model details without changing selection or making inference requests",
         "reload persistence",
         "exact mask preservation",
