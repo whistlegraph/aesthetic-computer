@@ -1,3 +1,5 @@
-A new dripping icon. Notifications now start when you enter “notifs”; enter “nonotifs” to turn them off. You can explore without a notification prompt on launch.
+A new dripping icon. Open MIME’s creation and remix links in the MIME app, with its website as a fallback.
+
+Enter “notifs” to enable notifications on this device, including amail when signed in. Tapping a letter notification opens your mailbox even when the app was closed. Enter “nonotifs” to turn notifications off on this device.
 
 Optional app usage counts help us understand successful loads and canvas use. Manage “Share app usage” in iOS Settings → Apps → aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.

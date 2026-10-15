@@ -128,7 +128,8 @@ await new Promise((r) => apnsServer.listen(0, "127.0.0.1", r));
 process.env.APNS_HOST = `http://127.0.0.1:${apnsServer.address().port}`;
 
 // Import AFTER env is staged (module reads env lazily anyway, but be safe).
-const { sendToDevices } = await import("./push.mjs");
+const { sendToDevices, sendToUser } = await import("./push.mjs");
+const { letterNotification } = await import("./mail-privacy.mjs");
 
 const pruned = [];
 const fakeDb = {
@@ -221,6 +222,28 @@ if (apnsReq) {
   check("aps time-sensitive when urgent", payload.aps?.["interruption-level"] === "time-sensitive");
   check("custom piece key at top level", payload.piece === "chat");
 }
+
+// Amail uses this same recipient-scoped route. A device selector must never
+// reach another signed-in device or another account, and carries no letter text.
+const recipientDevices = [
+  { _id: "phone", user: "reader", kind: "apns", deviceId: "reader-phone", label: "iPhone", token: "cd".repeat(32) },
+  { _id: "tablet", user: "reader", kind: "apns", deviceId: "reader-tablet", label: "iPad", token: "ef".repeat(32) },
+  { _id: "other", user: "other", kind: "apns", deviceId: "other-phone", label: "iPhone", token: "aa".repeat(32) },
+];
+const recipientDb = { collection: () => ({ find: (filter) => ({
+  toArray: async () => recipientDevices.filter((doc) => doc.user === filter.user && filter.kind.$in.includes(doc.kind)),
+}) }) };
+const beforeMail = apnsRequests.length;
+const letterId = "a".repeat(24);
+const mailed = await sendToUser(recipientDb, "reader", letterNotification(letterId), { device: "reader-tablet" });
+check("amail targets exactly the selected recipient device", mailed.attempted === 1 && mailed.succeeded === 1 && apnsRequests.length === beforeMail + 1);
+const deliveredLetter = apnsRequests[beforeMail];
+check("amail reaches the tablet token", deliveredLetter?.headers[":path"] === `/3/device/${"ef".repeat(32)}`);
+const letterPayload = JSON.parse(deliveredLetter?.body || "{}");
+check("amail notification carries its private inbox route", letterPayload.kind === "tell" && letterPayload.piece === "mail" && letterPayload.tellId === letterId);
+check("amail notification does not preview private content", letterPayload.aps?.alert?.body === "You have a new letter");
+const missing = await sendToUser(recipientDb, "reader", letterNotification(letterId), { device: "other-phone" });
+check("another account's device cannot be targeted", missing.attempted === 0 && apnsRequests.length === beforeMail + 1);
 
 webServer.close();
 apnsServer.close();

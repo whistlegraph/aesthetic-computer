@@ -1,4 +1,8 @@
-Letters can now ride the keys. Turn on the ABC layer and each key shows and speaks its letter as you play, so a keyboard becomes a spelling instrument as easily as a musical one. A Mono checkbox beside it folds the output to a single signal for rooms with one speaker.
+Reopen Menu Band from its Dock icon or Window → Open Menu Band after closing the panel. Opening it again while it is visible brings it forward.
+
+New sampled Salamander and Hand Percussion drum kits, plus Steinway B and Yamaha Upright piano sources alongside Salamander Grand.
+
+Turn on the ABC layer to show and speak letters as you play. The Mono checkbox folds the output to a single signal for rooms with one speaker.
 
 Clicked keys now hold for as long as you hold the mouse, and clicks on the menu-bar piano land on the key under the pointer, so the far ends of the strip are reachable again on the newest system. The menu-bar keys also refit themselves when the screen or bar changes size.
 

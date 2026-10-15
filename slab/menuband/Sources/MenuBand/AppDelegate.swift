@@ -857,6 +857,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         debugLog("applicationDidFinishLaunching pid=\(ProcessInfo.processInfo.processIdentifier)")
+        #if MAC_APP_STORE
+        installStoreMenus()
+        #endif
         // Claim latency-critical scheduling for the whole session so a
         // busy system (a release compile, ffmpeg, etc.) can't starve
         // the audio render + bend/decay timers mid-play. Pairs with
@@ -1984,6 +1987,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         #if MAC_APP_STORE
+        // Wait for the status item to acquire its screen position before the
+        // first presentation. Reopening later uses the same idempotent action.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.openMainWindow(nil)
+        }
         // Release-QA hook for the separately distributed input bridge. It
         // exercises the real in-app Tracktramp renderer without adding a
         // standalone TrackDrum surface.
@@ -2016,6 +2024,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Popover lifecycle
+
+    #if MAC_APP_STORE
+    private func installStoreMenus() {
+        let menu = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "Menu Band")
+        appMenu.addItem(withTitle: "Quit Menu Band", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        menu.addItem(appItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.autoenablesItems = false
+        let open = NSMenuItem(title: "Open Menu Band", action: #selector(openMainWindow(_:)), keyEquivalent: "")
+        open.target = self
+        windowMenu.addItem(open)
+        let close = NSMenuItem(title: "Close Menu Band", action: #selector(closeMainWindow(_:)), keyEquivalent: "w")
+        close.target = self
+        windowMenu.addItem(close)
+        windowItem.submenu = windowMenu
+        menu.addItem(windowItem)
+        NSApp.mainMenu = menu
+        NSApp.windowsMenu = windowMenu
+    }
+
+    @objc private func openMainWindow(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        if isPopoverPanelShown {
+            popoverPanel?.makeKeyAndOrderFront(nil)
+        } else {
+            showPopover()
+        }
+    }
+
+    @objc private func closeMainWindow(_ sender: Any?) {
+        closePopover()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        DispatchQueue.main.async { [weak self] in self?.openMainWindow(nil) }
+        return false
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        let open = NSMenuItem(title: "Open Menu Band", action: #selector(openMainWindow(_:)), keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        return menu
+    }
+    #endif
 
     /// Build a fresh `MenuBandPopoverViewController`, hand it our callbacks,
     /// and install it as the popover's content. Called once at launch and

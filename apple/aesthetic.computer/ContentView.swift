@@ -162,6 +162,22 @@ final class BootStatus: ObservableObject {
     }
 
     // MARK: navigation
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = action.request.url, url.scheme?.lowercased() == "mime" else {
+            decisionHandler(.allow)
+            return
+        }
+        // Hand off links from our main document, never an embedded piece iframe.
+        let source = action.sourceFrame.securityOrigin
+        if action.sourceFrame.isMainFrame, source.protocol == "https",
+           ["aesthetic.computer", "mime.ac"].contains(source.host),
+           AppRoute.mimeFallback(for: url) != nil {
+            ApplePlatform.openExternal(url)
+        }
+        decisionHandler(.cancel)
+    }
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         LaunchPing.loaded(false)
         // Only watchdog real network loads; offline.html doesn't have JS that
@@ -279,6 +295,8 @@ final class BootStatus: ObservableObject {
             let slug = (dictionary["body"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             Task { @MainActor in PopPlayer.shared.open(slug: slug) }
         case "url":
+            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer" else { return }
             if let urlString = dictionary["body"] as? String, let url = URL(string: urlString) {
                 ApplePlatform.openExternal(url)
             }

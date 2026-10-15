@@ -78,7 +78,10 @@ do {
     let duplicate = NSWorkspace.shared.runningApplications.contains { app in
         guard app.processIdentifier != myPid,
               let url = app.executableURL else { return false }
-        return url.lastPathComponent == "MenuBand"
+        if let bundleID = Bundle.main.bundleIdentifier {
+            return app.bundleIdentifier == bundleID
+        }
+        return url == Bundle.main.executableURL
     }
     if duplicate {
         NSLog("MenuBand: duplicate instance detected — exiting")
@@ -89,7 +92,13 @@ do {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.accessory)  // menubar-only, no Dock icon
+#if MAC_APP_STORE
+// The store app has a persistent Dock/menu entry so closing its panel never
+// strands the user. The directly installed menu-bar utility stays accessory.
+app.setActivationPolicy(.regular)
+#else
+app.setActivationPolicy(.accessory)
+#endif
 // A plain SIGTERM (pkill, launchd stop) would kill the process without
 // `applicationWillTerminate`, skipping the audio teardown — and a duplex
 // session on the Scarlett that dies mid-render leaves the interface wedged
