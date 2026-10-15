@@ -6,6 +6,9 @@
 # loopback), and Caddy terminating TLS for <dns-name> with an automatic
 # certificate. Re-running only re-copies the relay's four files and restarts
 # it. The relay needs nothing else from the repo. 26.10.14
+# The datagram lane (26.10.15): UDP 8891 for the Mac app's raw datagrams and
+# 20000-20199 for geckos.io's WebRTC channels, both opened in ufw on every run
+# so an existing box picks them up too.
 set -euo pipefail
 HOST=$1; NAME=$2; REGION=$3
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -24,6 +27,8 @@ if ! command -v node >/dev/null; then
   apt-get update -qq && apt-get install -y -qq caddy >/dev/null
   ufw allow 22/tcp >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null; ufw --force enable >/dev/null
 fi
+ufw allow 8891/udp >/dev/null
+ufw allow 20000:20199/udp >/dev/null
 mkdir -p /opt/oskiewar-relay/session-server /opt/oskiewar-relay/shared /opt/oskiewar-relay/system/public/aesthetic.computer/lib
 REMOTE
 
@@ -36,12 +41,13 @@ set -e
 cd /opt/oskiewar-relay/session-server
 [ -f package.json ] || echo '{"type":"module","private":true}' > package.json
 [ -d node_modules/ws ] || npm install --silent ws@8 >/dev/null
+[ -d node_modules/@geckos.io/server ] || npm install --silent @geckos.io/server@3 >/dev/null
 cat > /etc/systemd/system/oskiewar-relay.service <<UNIT
 [Unit]
 Description=oskiewar relay ($REGION)
 After=network.target
 [Service]
-Environment=PORT=8890 RELAY_REGION=$REGION RELAY_COMMIT=${RELAY_COMMIT:-}
+Environment=PORT=8890 RELAY_REGION=$REGION RELAY_COMMIT=${RELAY_COMMIT:-} UDP_PORT=8891 GECKOS_PORTS=20000-20199
 WorkingDirectory=/opt/oskiewar-relay/session-server
 ExecStart=/usr/bin/node oskiewar-relay.mjs
 Restart=always

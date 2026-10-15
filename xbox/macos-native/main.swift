@@ -5,6 +5,7 @@ import Darwin
 import Foundation
 import GameController
 import JavaScriptCore
+import Network
 
 /// Metal draws corners, so every shape the engine names arrives here as
 /// triangles: a box is two faces, a line is a quad struck off the segment's
@@ -631,6 +632,48 @@ private final class NetworkBridge {
         }
     }
 
+    // The datagram lane (round-room.mjs DatagramLane): a UDP socket to the
+    // relay that carries rollback input packets, so a lost one is covered by
+    // the next instead of holding every press behind it the way a TCP socket
+    // does. Relay hosts only, like the sockets above; replies come back as
+    // "datagram" events through the same queue.
+    private var datagrams: [Int: NWConnection] = [:]
+    private let datagramQueue = DispatchQueue(label: "computer.aesthetic.oskiewar.datagram")
+
+    func openDatagram(_ host: String, _ port: Int) -> Int {
+        guard Self.isRelayHost(host), (1...65535).contains(port),
+              let target = NWEndpoint.Port(rawValue: UInt16(port)) else { return 0 }
+        let id = nextSocket
+        nextSocket += 1
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: target, using: .udp)
+        datagrams[id] = connection
+        connection.stateUpdateHandler = { [weak self] state in
+            if case .failed(let error) = state { self?.post("datagram-close", id, 0, "\(error)") }
+        }
+        connection.start(queue: datagramQueue)
+        receiveDatagram(connection, id: id)
+        return id
+    }
+
+    private func receiveDatagram(_ connection: NWConnection, id: Int) {
+        connection.receiveMessage { [weak self] data, _, _, error in
+            guard let self else { return }
+            if let data, data.count <= 4096, let text = String(data: data, encoding: .utf8) {
+                self.post("datagram", id, 0, text)
+            }
+            if error == nil { self.receiveDatagram(connection, id: id) }
+        }
+    }
+
+    func sendDatagram(_ id: Int, _ text: String) {
+        guard let connection = datagrams[id], text.utf8.count <= 2048 else { return }
+        connection.send(content: text.data(using: .utf8), completion: .idempotent)
+    }
+
+    func closeDatagram(_ id: Int) {
+        datagrams.removeValue(forKey: id)?.cancel()
+    }
+
     func sendSocket(_ id: Int, _ text: String) {
         guard let task = sockets[id], text.utf8.count <= 16384 else { return }
         Task { try? await task.send(.string(text)) }
@@ -963,6 +1006,12 @@ private final class NativeGameHost {
         globalThis.__oskiewarVersusCapable = true;
         globalThis.__oskiewarNetSend = function (match, content) {
           globalThis.__oskiewarNetSendCount = (globalThis.__oskiewarNetSendCount || 0) + 1;
+          // Input packets take the datagram lane while it is up.
+          var lane = globalThis.__oskiewarHostLane;
+          if (lane && lane.send(content)) {
+            globalThis.__oskiewarNetSendOk = (globalThis.__oskiewarNetSendOk || 0) + 1;
+            return true;
+          }
           try {
             var ok = oskiewarNetSend(String(match), JSON.stringify(content)) === true;
             if (ok) globalThis.__oskiewarNetSendOk = (globalThis.__oskiewarNetSendOk || 0) + 1;
@@ -975,6 +1024,13 @@ private final class NativeGameHost {
           var content = message && message.content;
           if (message.type === "oskiewar:net" && content)
             (globalThis.__oskiewarNetInbox ||= []).push(content);
+          // The relay's datagram lane for the host seat (round-room.mjs).
+          if (message.type === "oskiewar:udp" && content) {
+            if (globalThis.__oskiewarHostLane) globalThis.__oskiewarHostLane.close();
+            globalThis.__oskiewarHostLane = new DatagramLane(content, {
+              open: nativeLaneOpen(globalThis.__oskiewarRelayHost || "session-server.aesthetic.computer"),
+              onNet: function (packet) { (globalThis.__oskiewarNetInbox ||= []).push(packet); } });
+          }
           if (message.type === "oskiewar:viewers")
             globalThis.__oskiewarLiveAgents =
               Math.max(0, Number(content && content.agents) || 0);
@@ -1023,9 +1079,11 @@ private final class NativeGameHost {
             globalThis.__oskiewarRoundBridge = new RoundRoom(\(literal)[0], {
               WebSocketImpl: globalThis.NativeWebSocket, fetchImpl: globalThis.fetch,
               historyImpl: null, role: "challenger", surface: "macos-native",
+              laneOpen: nativeLaneOpen,
               replayOrigin: "https://aesthetic.computer",
               originReady: chooseRelayHost(\(literal)[0], { pinned: \(relayLiteral)[0] }).then(function (host) {
                 oskiewarSetRelay(host);
+                globalThis.__oskiewarRelayHost = host;
                 return "wss://" + host;
               }) });
             """)
@@ -1113,7 +1171,8 @@ private final class NativeGameHost {
         // a browser would run them in before the next animation frame.
         for event in network.drainEvents() {
             guard javascriptError.isEmpty else { break }
-            let name = event.kind == "fetch" ? "__oskiewarFetchEvent" : "__oskiewarSocketEvent"
+            let name = event.kind == "fetch" ? "__oskiewarFetchEvent"
+                : event.kind.hasPrefix("datagram") ? "__oskiewarDatagramEvent" : "__oskiewarSocketEvent"
             guard let handler = javascript.objectForKeyedSubscript(name), !handler.isUndefined else { continue }
             if event.kind == "fetch" {
                 handler.call(withArguments: [event.id, event.status, event.text])
@@ -1132,6 +1191,8 @@ private final class NativeGameHost {
                 "JSON.stringify({net: globalThis.__oskiewarNetStats || null, room: globalThis.__oskiewarVersusRoom || '', " +
                 "inbox: (globalThis.__oskiewarNetInbox || []).length, sends: globalThis.__oskiewarNetSendCount || 0, " +
                 "sendOk: globalThis.__oskiewarNetSendOk || 0, refusal: globalThis.__oskiewarNetRefusal || null, " +
+                "lane: (function (l) { return l ? {up: l.up, rtt: Math.round(l.rttMs), sent: l.stats.sent, got: l.stats.received} : null; })" +
+                "(globalThis.__oskiewarHostLane || (globalThis.__oskiewarRoundBridge && globalThis.__oskiewarRoundBridge.lane)), " +
                 "game: globalThis.__oskiewarGameHash || '', relay: '" + network.relayHost + "', err: " + (javascriptError.isEmpty ? "''" : "'js error'") + "})")
             netLog("\(Date()) \(probe?.toString() ?? "?")")
         }
@@ -1379,6 +1440,15 @@ private final class NativeGameHost {
         let oskiewarSocketClose: @convention(block) (Int, Int, String) -> Void = { [weak self] id, code, reason in
             self?.network.closeSocket(id, code: code, reason: reason)
         }
+        let oskiewarUdpOpen: @convention(block) (String, Int) -> Int = { [weak self] host, port in
+            self?.network.openDatagram(host, port) ?? 0
+        }
+        let oskiewarUdpSend: @convention(block) (Int, String) -> Void = { [weak self] id, text in
+            self?.network.sendDatagram(id, text)
+        }
+        let oskiewarUdpClose: @convention(block) (Int) -> Void = { [weak self] id in
+            self?.network.closeDatagram(id)
+        }
         let oskiewarSetRelay: @convention(block) (String) -> Void = { [weak self] host in
             if NetworkBridge.isRelayHost(host) { self?.network.relayHost = host }
         }
@@ -1474,6 +1544,9 @@ private final class NativeGameHost {
         javascript.setObject(oskiewarSocketClose, forKeyedSubscript: "oskiewarSocketClose" as NSString)
         javascript.setObject(oskiewarFetch, forKeyedSubscript: "oskiewarFetch" as NSString)
         javascript.setObject(oskiewarSetRelay, forKeyedSubscript: "oskiewarSetRelay" as NSString)
+        javascript.setObject(oskiewarUdpOpen, forKeyedSubscript: "oskiewarUdpOpen" as NSString)
+        javascript.setObject(oskiewarUdpSend, forKeyedSubscript: "oskiewarUdpSend" as NSString)
+        javascript.setObject(oskiewarUdpClose, forKeyedSubscript: "oskiewarUdpClose" as NSString)
         javascript.setObject(ac, forKeyedSubscript: "ac" as NSString)
     }
 }

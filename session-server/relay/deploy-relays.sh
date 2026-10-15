@@ -26,5 +26,8 @@ while read -r region host kind ip; do
   else
     echo "✓ $region ($host) answers the relay routes (monolith; its commit is session-server/deploy.fish's to verify)"
   fi
+  # The datagram lane, end to end: a seat's token over the socket, then a
+  # UDP echo from the relay.
+  node "$HERE/lane-probe.mjs" "$host" || fail=1
 done <<< "$relays"
 exit $fail

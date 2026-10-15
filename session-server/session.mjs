@@ -156,7 +156,20 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 const duelManager = new DuelManager();
 const fightManager = new FightManager();
 const oskiewar = await optionalProduct(new URL("./oskiewar-live-manager.mjs", import.meta.url));
-const oskiewarLiveManager = oskiewar ? new oskiewar.OskiewarLiveManager() : null;
+// The oskiewar datagram lane: rollback input packets over UDP instead of the
+// socket (see LANE_FRESH_MS in oskiewar-live-manager.mjs). Raw UDP on 8891 for
+// the Mac app; browsers reach it through this server's geckos.io channel.
+// (`dev` is declared further down this module, so it is read off the env here.)
+const OSKIEWAR_UDP_PORT = Number(process.env.OSKIEWAR_UDP_PORT) || 8891;
+const oskiewarLaneOn = process.env.NODE_ENV !== "development";
+const oskiewarLiveManager = oskiewar ? new oskiewar.OskiewarLiveManager(
+  oskiewarLaneOn ? { datagram: { port: OSKIEWAR_UDP_PORT, host: "", geckos: true } } : {}) : null;
+if (oskiewarLiveManager?.bindDatagramSocket && oskiewarLaneOn) {
+  const oskiewarUdp = dgram.createSocket("udp4");
+  oskiewarUdp.on("error", (error) => console.log("oskiewar udp lane:", error.message));
+  oskiewarLiveManager.bindDatagramSocket(oskiewarUdp);
+  oskiewarUdp.bind(OSKIEWAR_UDP_PORT);
+}
 const agentPresenceManager = new AgentPresenceManager();
 // 🗼 lairk — only a verified handle with a spot (spoken in Laer Klokken and
 // @mentioned there) may walk; every handle's last position is kept in Redis.
@@ -1203,7 +1216,7 @@ const io = geckos({
   cors: {
     allowAuthorization: true,
     origin: dev ? "*" : (req) => {
-      const allowed = ["https://aesthetic.computer", "https://notepat.com", "https://kidlisp.com", "https://pj.kidlisp.com", "https://laklok.com", "https://www.laklok.com"];
+      const allowed = ["https://aesthetic.computer", "https://notepat.com", "https://kidlisp.com", "https://pj.kidlisp.com", "https://laklok.com", "https://www.laklok.com", "https://oskiewar.com", "https://www.oskiewar.com"];
       const reqOrigin = req.headers?.origin;
       return allowed.includes(reqOrigin) ? reqOrigin : allowed[0];
     },
@@ -3757,6 +3770,9 @@ setInterval(() => {
 // geckos.io is imported at top and initialized before server.listen()
 
 io.onConnection((channel) => {
+  // oskiewar's datagram lane listens on every channel; a channel that never
+  // says "ow" costs one idle listener.
+  oskiewarLiveManager?.geckosChannel?.(channel);
   // Track this UDP channel
   udpChannels[channel.id] = {
     connectedAt: Date.now(),

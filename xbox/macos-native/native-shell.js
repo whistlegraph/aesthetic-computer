@@ -69,6 +69,13 @@
   NativeWebSocket.CONNECTING = 0; NativeWebSocket.OPEN = 1;
   NativeWebSocket.CLOSING = 2; NativeWebSocket.CLOSED = 3;
   g.NativeWebSocket = NativeWebSocket;
+  // The datagram lane's UDP sockets (round-room.mjs nativeLaneOpen).
+  g.__oskiewarDatagramEvent = function (id, kind, text) {
+    const listener = g.__oskiewarDatagramListeners && g.__oskiewarDatagramListeners[id];
+    if (kind === "datagram" && listener) {
+      try { listener(text); } catch (error) { g.__oskiewarTimerError = String(error); }
+    }
+  };
   g.__oskiewarSocketEvent = function (id, kind, text) {
     const socket = sockets.get(id);
     if (!socket) return;
