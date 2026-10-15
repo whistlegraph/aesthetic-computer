@@ -3751,7 +3751,7 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunChamber: 0, gunShots: 0, gunShotAt: 0,
+    gunChamber: 0, gunShots: 0, gunShotAt: 0, gunShotFrom: null,
     gunAimX: 1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
     nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -3783,7 +3783,7 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunChamber: 0, gunShots: 0, gunShotAt: 0,
+    gunChamber: 0, gunShots: 0, gunShotAt: 0, gunShotFrom: null,
     gunAimX: -1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
     nextGunShotAt: 0,
     stance: "NEUTRAL",
@@ -4467,6 +4467,9 @@ const worldTypes = [
   { type: "saber-pickup", list: () => saberPickups, at: pointAt, props: true, draw: (o, t) => drawSaberPickup(o, t) },
   { type: "grenade-pickup", list: () => grenadePickups, at: pointAt, props: true, draw: (o, t) => drawGrenadePickup(o, t) },
   { type: "bullet", list: () => bullets, at: pointAt, depth: true, lerp: renderInterpolationFields.bullet, draw: (o) => drawBullet(o) },
+  // The revolver's smoke and spent brass: paint's own (updateRevolverFx).
+  { type: "smoke", list: () => revolverSmoke, at: pointAt, depth: true, draw: (o) => drawRevolverPuff(o) },
+  { type: "brass", list: () => revolverBrass, at: pointAt, depth: true, draw: (o) => drawRevolverBrass(o) },
   { type: "grenade", list: () => grenades, live: (o) => o.alive, at: pointAt, depth: true, lerp: renderInterpolationFields.grenade, draw: (o) => drawGrenade(o) },
   { type: "ball", list: () => balls, live: (o) => o.active, at: pointAt, depth: true, lerp: renderInterpolationFields.ball, draw: (o) => drawBall(o) },
   { type: "detached", list: () => detachedParts, at: midpointAt, depth: true, lerp: renderInterpolationFields.detached, draw: (o) => drawDetachedPart(o) },
@@ -12320,11 +12323,13 @@ function fireGun(player, input) {
   while (bullets.length > 24) bullets.shift();
   if (revolverHeld(player)) {
     // The cylinder turns a chamber a shot; the six stay in it. `gunShots`
-    // and `gunShotAt` name the shot, so paint can smoke and eject brass for
-    // it once however often a rollback fires it again.
+    // and `gunShotAt` name the shot, and `gunShotFrom` is where it left the
+    // muzzle and which way, so paint can smoke and eject brass for it once,
+    // where it happened, however often a rollback fires it again.
     player.gunChamber = (player.gunChamber || 0) + shots;
     player.gunShots = (player.gunShots || 0) + shots;
     player.gunShotAt = now;
+    player.gunShotFrom = [pose.muzzle.x, pose.muzzle.y, pose.muzzle.z, pose.dx, pose.dy, pose.dz || 0];
   } else {
     player.gunAmmo -= shots;
     if (player.gunAmmo <= 0) player.gunThrowAt = now + 250000;
@@ -21572,6 +21577,208 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   triangleDepth = bodyDepth;
 }
 
+// The gun fights' revolver (objects/revolver.lisp). Its cylinder turns a
+// sixth a shot and its hammer recocks as it turns, both eased off the sim's
+// own shot clock (`gunShotAt`) against paint's: nothing is kept from frame to
+// frame, so a rollback can't leave the cylinder mid-turn on one seat.
+const revolverInputs = { cylinder: 0, spent: 0, cock: 1 };
+const revolverPlace = new Float64Array(12);
+const revolverAxis = { x: 1, y: 0, z: 0 }, revolverUp = { x: 0, y: -1, z: 0 };
+// Held, it stands at its fighter's pinned depth the way the flat figure
+// does, a tenth of its own depth spread round the pin, and in front of the
+// whole body: a gun in the far hand hidden behind the torso read as nothing,
+// and the pistol it replaces was always drawn over the fighter too.
+let revolverPin = 0, revolverCentre = 0;
+const revolverDepth = (depth) => revolverPin + (depth - revolverCentre) * .1;
+const pinnedRevolverOut = {
+  view: objectView,
+  face: (...args) => immediateObjectOut.face(...args),
+  outline: (width, r, g, b) => immediateObjectOut.outline(width, r, g, b),
+  ellipse: (x, y, depth, ax, ay, bx, by, r, g, b) =>
+    immediateObjectOut.ellipse(x, y, revolverDepth(depth), ax, ay, bx, by, r, g, b),
+  disc: (x, y, depth, radius, r, g, b) =>
+    immediateObjectOut.ellipse(x, y, revolverDepth(depth), radius, 0, 0, radius, r, g, b),
+  capsule: (x1, y1, x2, y2, depth, width, r, g, b) =>
+    immediateObjectOut.capsule(x1, y1, x2, y2, revolverDepth(depth), width, r, g, b),
+  plate: (n, points, depth, r, g, b) => immediateObjectOut.plate(n, points, revolverDepth(depth), r, g, b),
+};
+// At `o` (the fist), the barrel along `along`, its top toward `up` (unit
+// world vectors, square to each other). `pin` a number stands it at that
+// depth, `ahead` world units in front of it; NaN lets each shape find its own.
+function drawRevolver(o, along, up, spent, shotAgeUs, pin = NaN, ahead = 0) {
+  const m = revolverPlace;
+  m[0] = o.x; m[1] = o.y; m[2] = o.z;
+  m[3] = along.x; m[4] = along.y; m[5] = along.z;
+  m[6] = up.x; m[7] = up.y; m[8] = up.z;
+  m[9] = along.y * up.z - along.z * up.y; m[10] = along.z * up.x - along.x * up.z;
+  m[11] = along.x * up.y - along.y * up.x;
+  // Fired chambers turn toward -z; the lisp is symmetric across z, so mirror
+  // it when that side faces away and the empties come round where they show.
+  const lens = cameraDoll.position;
+  if (m[9] * (lens.x - o.x) + m[10] * (lens.y - o.y) + m[11] * (lens.z - o.z) > 0) {
+    m[9] = -m[9]; m[10] = -m[10]; m[11] = -m[11];
+  }
+  const i = revolverInputs, u = clamp((shotAgeUs - 40000) / 150000, 0, 1), eased = u * u * (3 - 2 * u);
+  const turning = spent > 0 && shotAgeUs >= 0 && shotAgeUs < 190000;
+  i.spent = spent;
+  i.cylinder = (turning ? spent - 1 + eased : spent) * Math.PI / 3;
+  i.cock = turning ? eased : 1;
+  const object = gameObjects.revolver;
+  if (pin !== pin) { object(i, m, objectOut(object)); return; }
+  const V = prepareObjectView();
+  const vz = (o.x - V[0]) * V[9] + (o.y - V[1]) * V[10] + (o.z - V[2]) * V[11];
+  revolverPin = pin;
+  revolverCentre = (vz + ahead * 10) * V[17] + V[18];
+  object(i, m, pinnedRevolverOut);
+}
+// In the fist the figure draws. The drawn wrist can sit off the solver's
+// hand by a screen offset (render reactions, replay poses); that offset goes
+// back into the world along the lens. Returns the muzzle on screen.
+function drawHeldRevolver(player, now, pose, offsetX, offsetY) {
+  prepareObjectView();
+  const k = projectionScaleAt(pose.hand) || 1, v = cameraDoll.view;
+  const sx = offsetX / k, sy = -offsetY / k, down = pose.down || { x: 0, y: 1, z: 0 };
+  const o = { x: pose.hand.x + v.right.x * sx + v.up.x * sy, y: pose.hand.y + v.right.y * sx + v.up.y * sy,
+    z: pose.hand.z + v.right.z * sx + v.up.z * sy };
+  revolverAxis.x = pose.dx; revolverAxis.y = pose.dy; revolverAxis.z = pose.dz || 0;
+  revolverUp.x = -down.x; revolverUp.y = -down.y; revolverUp.z = -down.z;
+  drawRevolver(o, revolverAxis, revolverUp, player.gunChamber || 0, now - (player.gunShotAt || -1e12),
+    poolOnly() ? NaN : triangleDepth, 40);
+  const tip = projectPoint(o.x + revolverAxis.x * 40.2 + revolverUp.x * 15.4,
+    o.y + revolverAxis.y * 40.2 + revolverUp.y * 15.4, o.z + revolverAxis.z * 40.2 + revolverUp.z * 15.4);
+  return { x: tip.x, y: tip.y };
+}
+// Not in a hand: hanging over the hill it turns slowly on a cord from the
+// roof, so it reads as a thing in the room; one thrown that landed with
+// rounds in it lies tipped on its side on the ground.
+function drawRevolverPickup(pickup, t, bobY) {
+  const spent = gunsOnlyAmmo - Math.min(gunsOnlyAmmo, pickup.amount || 0), z = pickup.z || 0;
+  if (pickup.thrown) {
+    const away = cameraDoll.position.z < z ? 1 : -1;
+    revolverAxis.x = 1; revolverAxis.y = 0; revolverAxis.z = 0;
+    revolverUp.x = 0; revolverUp.y = -.57; revolverUp.z = away * .82;
+    drawRevolver({ x: pickup.x - 14, y: terrainFloorAt(pickup.x, z) - 9, z }, revolverAxis, revolverUp, spent, 1e12);
+    return;
+  }
+  const a = t * 1.3 + pickup.x * .002, c = Math.cos(a), sn = Math.sin(a);
+  if (dojoActive()) worldCapsule(pickup.x, dojoRoofY, z, pickup.x, bobY + 6, z,
+    Math.max(1, 2 * cameraScale()), [40, 38, 44], .002);
+  revolverAxis.x = c; revolverAxis.y = 0; revolverAxis.z = sn;
+  revolverUp.x = 0; revolverUp.y = -1; revolverUp.z = 0;
+  drawRevolver({ x: pickup.x - c * 14, y: bobY + 8, z: z - sn * 14 }, revolverAxis, revolverUp, spent, 1e12);
+}
+
+// Smoke and spent brass off the revolver: paint's own, never in the
+// snapshot. Paint spawns them the first time it sees a shot, keyed by the
+// fighter, its `gunShots` count and the sim time it fired, so a rollback that
+// fires the same shot again finds the key and spawns nothing twice (a shot the
+// rewind took back leaves only its puff). They move on paint's clock.
+const revolverSmoke = [], revolverBrass = [], revolverShotsSeen = new Map();
+let revolverFxAt = -1;
+function updateRevolverFx(now) {
+  const dt = revolverFxAt < 0 ? 0 : clamp((now - revolverFxAt) / 1e6, 0, .05);
+  revolverFxAt = now;
+  for (const [key, at] of revolverShotsSeen) if (Math.abs(now - at) > 3e6) revolverShotsSeen.delete(key);
+  if (gunsOnly()) for (const player of players) {
+    const age = now - (player.gunShotAt || 0);
+    if (!player.gunShots || player.gunMode !== "HANDGUN" || age < 0 || age > 300000) continue;
+    const key = player.pad + ":" + player.gunShots + ":" + player.gunShotAt;
+    if (revolverShotsSeen.has(key)) continue;
+    revolverShotsSeen.set(key, now);
+    spawnRevolverFx(player, now, player.gunShots);
+  }
+  const drag = Math.exp(-dt * 3.4);
+  for (const puff of revolverSmoke) {
+    puff.age += dt;
+    puff.vx *= drag; puff.vy = puff.vy * drag - 34 * dt; puff.vz *= drag;
+    puff.x += puff.vx * dt; puff.y += puff.vy * dt; puff.z += puff.vz * dt;
+  }
+  for (let i = revolverSmoke.length - 1; i >= 0; i--) if (revolverSmoke[i].age >= revolverSmoke[i].life) revolverSmoke.splice(i, 1);
+  for (const shell of revolverBrass) {
+    shell.age += dt;
+    if (shell.restAt >= 0) continue;
+    shell.vy += 2400 * dt;
+    shell.x += shell.vx * dt; shell.y += shell.vy * dt; shell.z += shell.vz * dt;
+    shell.angle += shell.spin * dt;
+    const left = worldLeft + wallThickness + 3, right = worldRight - wallThickness - 3;
+    if (shell.x < left || shell.x > right) { shell.x = clamp(shell.x, left, right); shell.vx *= -.5; }
+    // The floor and the hill: a bounce keeps under half its fall and costs
+    // most of its slide and spin; too small a bounce settles where it lies.
+    const floor = terrainFloorAt(shell.x, shell.z) - 2;
+    if (shell.y >= floor) {
+      shell.y = floor;
+      if (shell.vy > 150 && shell.bounces < 4) {
+        shell.vy = -shell.vy * .42; shell.vx *= .62; shell.vz *= .62; shell.spin *= -.55; shell.bounces++;
+      } else {
+        shell.vx = shell.vy = shell.vz = 0;
+        shell.angle = Math.round(shell.angle / Math.PI) * Math.PI;
+        shell.restAt = shell.age;
+      }
+    }
+  }
+  for (let i = revolverBrass.length - 1; i >= 0; i--) {
+    const shell = revolverBrass[i];
+    if (shell.restAt >= 0 && shell.age - shell.restAt > 3.2) revolverBrass.splice(i, 1);
+  }
+}
+function spawnRevolverFx(player, now, shot) {
+  const pose = gunPose(player, now), down = pose.down || { x: 0, y: 1, z: 0 }, dz = pose.dz || 0;
+  // The same scatter on every seat and every replay of the shot.
+  let seed = (Math.imul(shot, 2654435761) ^ Math.imul(player.pad + 1, 40503)) >>> 0;
+  const rand = () => { seed = (Math.imul(seed ^ (seed >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return seed / 4294967296; };
+  // The smoke leaves where and the way the shot did, not where the gun has
+  // swung since; the case leaves the gun as it is drawn now.
+  const from = player.gunShotFrom || [pose.muzzle.x, pose.muzzle.y, pose.muzzle.z, pose.dx, pose.dy, dz];
+  const [mx, my, mz, ax, ay, az] = from;
+  for (let i = 0; i < 5; i++) {
+    const out = 4 + i * 8 + rand() * 4, push = 190 - i * 32;
+    revolverSmoke.push({ x: mx + ax * out, y: my + ay * out, z: mz + az * out,
+      vx: ax * push + (rand() - .5) * 50, vy: ay * push - 20 - rand() * 40, vz: az * push + (rand() - .5) * 50,
+      age: 0, life: .7 + i * .1 + rand() * .2, size: 5 + i * 1.5, grow: 20 + i * 5 + rand() * 6 });
+  }
+  while (revolverSmoke.length > 40) revolverSmoke.shift();
+  // A spent case leaves the top of the cylinder, up and back over the hand.
+  const ux = -down.x, uy = -down.y, uz = -down.z, kick = 280 + rand() * 90, back = 110 + rand() * 60;
+  revolverBrass.push({ x: pose.hand.x + pose.dx * 2 + ux * 14, y: pose.hand.y + pose.dy * 2 + uy * 14,
+    z: pose.hand.z + dz * 2 + uz * 14,
+    vx: ux * kick - pose.dx * back + (player.vx || 0) * .5, vy: uy * kick - pose.dy * back + (player.vy || 0) * .3,
+    vz: uz * kick - dz * back + (rand() < .5 ? -1 : 1) * (50 + rand() * 70),
+    angle: rand() * Math.PI * 2, spin: (rand() < .5 ? -1 : 1) * (18 + rand() * 12),
+    age: 0, restAt: -1, bounces: 0 });
+  while (revolverBrass.length > 18) revolverBrass.shift();
+}
+// What stands in an arena stands at the floor's near edge, as the fighters
+// do, so a floor or hill strip in front of its true depth can't cut it.
+function standAtFloorEdge(x, y) {
+  if (!poolOnly()) triangleDepth = Math.min(triangleDepth, projectPoint(x, y, worldNear + 2).z);
+}
+// A puff swells fast, then thins: it shrinks as it pales toward the room.
+function drawRevolverPuff(puff) {
+  const t = puff.age / puff.life;
+  if (t >= 1 || cameraDoll.toView(puff).z < cameraNear) return;
+  const p = projectPoint(puff.x, puff.y, puff.z), k = projectionScaleAt(puff);
+  const r = (puff.size + (puff.grow - puff.size) * (1 - (1 - Math.min(1, t * 1.6)) ** 2)) * (1 - t * t) * k;
+  if (!(r > .6) || !Number.isFinite(p.x + p.y)) return;
+  standAtFloorEdge(puff.x, puff.y);
+  const pale = mixColor([236, 236, 240], [214, 216, 222], t), shade = mixColor([168, 168, 176], pale, t);
+  filledDisc(p.x, p.y, r, shade);
+  filledDisc(p.x - r * .18, p.y - r * .2, r * .72, pale);
+}
+// Brass glints as it tumbles, lies still, then sinks out of sight.
+function drawRevolverBrass(shell) {
+  const fade = shell.restAt < 0 ? 1 : clamp(1 - (shell.age - shell.restAt - 2.4) / .8, 0, 1);
+  if (fade <= 0) return;
+  const half = 4.4 * fade, ax = Math.cos(shell.angle) * half, ay = Math.sin(shell.angle) * half;
+  const segment = worldSegment(shell.x - ax, shell.y - ay, shell.z, shell.x + ax, shell.y + ay, shell.z);
+  if (!segment) return;
+  standAtFloorEdge(shell.x, shell.y);
+  const k = projectionScaleAt(shell), glint = .5 + .5 * Math.sin(shell.angle * 2);
+  filledCapsule(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
+    Math.max(1.6, 4.4 * k * fade), [64, 44, 18]);
+  filledCapsule(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
+    Math.max(1, 3.2 * k * fade), mixColor([176, 128, 50], [255, 228, 142], glint));
+}
+
 // A Glock-style pistol, drawn flat in screen space: a squared slide over a
 // polymer frame, a trigger guard, and a grip raked back at the Glock's
 // angle. `hand` is the fist, and the fist closes around the middle of the
@@ -21719,7 +21926,9 @@ function drawInventory(player, now, geometry) {
     const gripWidth = Math.max(2, 6 * scale);
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
-    if (player.gunMode === "HANDGUN") {
+    if (player.gunMode === "HANDGUN" && gunsOnly()) {
+      barrel = drawHeldRevolver(player, now, pose, offsetX, offsetY);
+    } else if (player.gunMode === "HANDGUN") {
       const aim = projectWeapon(pose.hand.x + pose.dx*54,pose.hand.y + pose.dy*54,pose.hand.z+(pose.dz||0)*54);
       const down=pose.down || {x:0,y:1,z:0};
       const basis=(along,below)=>projectWeapon(pose.hand.x+pose.dx*along+down.x*below,
@@ -25290,6 +25499,7 @@ function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
+  if (pickup.kind === "HANDGUN" && gunsOnly()) { drawRevolverPickup(pickup, t, bobY); return; }
   if (pickup.kind === "HANDGUN") {
     const hand = projectPoint(pickup.x,bobY,pickup.z), aim = projectPoint(pickup.x+54,bobY,pickup.z);
     if(hand.behind || aim.behind)return;
@@ -25498,6 +25708,17 @@ function drawGrenadePickup(pickup, t) {
 }
 
 function drawGrenade(grenade) {
+  if (grenade.thrownGun && gunsOnly()) {
+    // The revolver tumbling end over end about its middle, stood at the
+    // floor's near edge like a fighter so the hill can't cut into it.
+    const c = Math.cos(grenade.spin), sn = Math.sin(grenade.spin), z = grenade.z || 0;
+    revolverAxis.x = c; revolverAxis.y = sn; revolverAxis.z = 0;
+    revolverUp.x = sn; revolverUp.y = -c; revolverUp.z = 0;
+    const o = { x: grenade.x - c * 14 - sn * 4, y: grenade.y - sn * 14 + c * 4, z };
+    const pin = poolOnly() ? NaN : Math.min(triangleDepth, projectPoint(grenade.x, grenade.y, worldNear + 2).z);
+    drawRevolver(o, revolverAxis, revolverUp, gunsOnlyAmmo - Math.min(gunsOnlyAmmo, grenade.ammo || 0), 1e12, pin);
+    return;
+  }
   if (grenade.thrownGun) {
     const c = Math.cos(grenade.spin), s = Math.sin(grenade.spin), r = 40;
     const a = projectPoint(grenade.x - c * r, grenade.y - s * r, grenade.z);
@@ -27115,6 +27336,7 @@ function gamePaint() {
   // Back to front along the lens. Records are pooled: a frame of fighters,
   // balls and debris used to allocate one object per instance per frame, and
   // the sort recomputed each depth on every comparison.
+  updateRevolverFx(run.monotonicUs);
   const renderables = renderableList;
   renderables.length = 0;
   const cam = cameraDoll.position;
