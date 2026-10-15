@@ -21,7 +21,7 @@ let game,
   noHover = false,
   drag = null,
   mode = "zoom",
-  brush = 16,
+  pendingModel = null,
   locked = false,
   issue = "",
   lastPublication = "",
@@ -31,6 +31,8 @@ const account = new Account(() => {
   if (game) {
     game.prepare();
     render();
+    if (account.value.connected)
+      finishModelSignIn().catch((error) => notice(error.message));
   }
 });
 const canvas = $("canvas"),
@@ -182,7 +184,7 @@ async function render() {
     mode === "zoom"
       ? "Drag the painting to crop."
       : "Brush the area to change. Hold Option/Alt to erase.";
-  for (const id of ["strength", "brush", "mode"])
+  for (const id of ["strength", "mode"])
     $(id).disabled = !capabilities(s).canChange;
   const url =
     peek || noHover ? s.before : s.busy && s.preview ? s.preview : s.accepted;
@@ -222,9 +224,10 @@ async function dispatch(id) {
     if (!game) return;
     if (["models", "account", "settings", "history"].includes(id)) {
       if (id === "models") {
+        $("search").value = "";
         renderModels();
-        $("model-list").scrollTop = 0;
         open("models");
+        $("model-list").scrollTop = 0;
       }
       if (id === "account") {
         renderAccount();
@@ -315,24 +318,18 @@ async function dispatch(id) {
 function renderModels() {
   const s = snapshot(),
     query = $("search").value.toLowerCase();
-  const noticeText = s.error || account.service?.detail || "";
+  const noticeText = issue || s.error || account.service?.detail || "";
   $("model-notice").replaceChildren();
-  if (!s.account.connected) {
-    const login = document.createElement("button");
-    login.textContent = "Sign in with AC";
-    login.onclick = () => {
-      $("models").close();
-      dispatch("account");
-    };
-    $("model-notice").append(login);
-  } else if (noticeText) {
+  if (noticeText) {
     $("model-notice").append(document.createTextNode(noticeText));
-  }
-  if (s.models.some((m) => m.id.startsWith("ac-"))) {
-    const note = document.createElement("small");
-    note.textContent =
-      "Paint confirms the displayed price. Completed cloud moves cost Braincells even after No.";
-    $("model-notice").append(note);
+    const retry = document.createElement("button");
+    retry.textContent = "Try again";
+    retry.onclick = () => {
+      issue = "";
+      game.retry();
+      account.refresh();
+    };
+    $("model-notice").append(retry);
   }
   const choices = s.models;
   $("model-list").replaceChildren(
@@ -355,14 +352,20 @@ function renderModels() {
           model.braincells === 0
             ? ""
             : model.braincells > 0
-              ? `${model.braincells.toLocaleString()} · ${paintCapacity(model.braincells, s.account)} paints`
+              ? `${model.braincells.toLocaleString()} Braincells`
               : "Not enabled on AC";
-        if (!model.available)
+        if (!model.available && s.account.connected)
           price.textContent += " · " + modelAvailability(model, s.account);
         row.append(name, price);
         row.disabled = !s.canChange;
         row.onclick = async () => {
           try {
+            if (model.id.startsWith("ac-") && !account.value.connected) {
+              pendingModel = model.id;
+              renderAccount();
+              open("account");
+              return;
+            }
             await game.select(model.id);
             issue = "";
             $("models").close();
@@ -435,6 +438,10 @@ function showModelDetails(model) {
     rows.push(["Painting", `${(model.size || [256, 256]).join(" × ")} pixels`]);
     rows.push(["Hint", "Steers the next AI move"]);
     rows.push(["Preview", model.previews ? "While painting" : "Final result"]);
+    rows.push([
+      "Billing",
+      "Paint confirms the price. Completed moves cost Braincells even after No.",
+    ]);
   } else {
     const labels = {
       slice: "strip shifts",
@@ -480,12 +487,29 @@ function showModelDetails(model) {
 function renderAccount() {
   const s = snapshot(),
     a = s.account;
+  $("account-title").textContent = a.connected
+    ? "AC account"
+    : "Sign in with AC";
+  const model = s.models.find((m) => m.id === pendingModel);
+  $("account-model").hidden = !model || a.connected;
+  $("account-model").textContent = model ? `To use ${model.name}.` : "";
   $("signed-in").hidden = !a.connected;
   $("signin").hidden = !!a.connected;
   $("signout").disabled = s.busy || !!s.publication?.pending;
   $("balance").textContent =
     `${a.handle || ""} · ${((a.remaining || 0) + (a.purchased || 0)).toLocaleString()} Braincells${a.stale ? " (last known)" : ""}`;
   $("account-message").textContent = a.error || "";
+}
+async function finishModelSignIn() {
+  const id = pendingModel || sessionStorage.getItem("nopaint-signin-model");
+  if (!id || !account.value.connected || !game.canChange || locked) return;
+  pendingModel = null;
+  sessionStorage.removeItem("nopaint-signin-model");
+  await game.select(id);
+  issue = "";
+  $("account").close();
+  $("models").close();
+  render();
 }
 async function commitMask() {
   if (!capabilities(snapshot()).canChange) return;
@@ -516,7 +540,7 @@ function mark(p, erase) {
   for (let step = 0; step <= steps; step++) {
     const cx = from[0] + ((p[0] - from[0]) * step) / steps,
       cy = from[1] + ((p[1] - from[1]) * step) / steps,
-      r = brush / 2;
+      r = 8;
     for (
       let y = Math.max(0, Math.floor(cy - r));
       y <= Math.min(255, cy + r);
@@ -649,6 +673,7 @@ for (const id of webActions) {
     spec.label;
   $("studio-actions").append(
     actionButton({ ...spec, label }, (action) => {
+      $("painting-actions").close();
       $("models").close();
       dispatch(action);
     }),
@@ -656,9 +681,6 @@ for (const id of webActions) {
 }
 for (const { label, value } of noPaintUI.strengths)
   $("strength").add(new Option(label, String(value)));
-for (const size of noPaintUI.brushes)
-  $("brush").add(new Option(`${size} px`, String(size)));
-$("brush").value = "16";
 $("hint").maxLength = noPaintUI.components.find((c) => c.kind === "hint").limit;
 $("hint").onkeydown = (e) => {
   if (e.key === "Enter") {
@@ -671,14 +693,10 @@ document
   .querySelectorAll("[data-close]")
   .forEach((b) => (b.onclick = () => b.closest("dialog").close()));
 $("search").oninput = renderModels;
-$("status").onclick = () => {
-  const error = issue || snapshot().error;
-  if (error)
-    notice(error, "No Paint", () => {
-      issue = "";
-      game.retry();
-    });
-  else dispatch("models");
+$("status").onclick = () => dispatch("models");
+$("more-actions").onclick = () => open("painting-actions");
+$("account").onclose = () => {
+  pendingModel = null;
 };
 $("clear-mask").onclick = () => dispatch("clearMask");
 $("strength").onchange = async () => {
@@ -692,9 +710,6 @@ $("mode").onchange = () => {
   mode = $("mode").value;
   render();
 };
-$("brush").onchange = () => {
-  brush = Number($("brush").value);
-};
 $("signout").onclick = async () => {
   try {
     await account.logout();
@@ -707,8 +722,11 @@ $("signout").onclick = async () => {
 $("redirect-login").onclick = async () => {
   try {
     await game.persist();
+    if (pendingModel)
+      sessionStorage.setItem("nopaint-signin-model", pendingModel);
     await account.login();
   } catch (error) {
+    sessionStorage.removeItem("nopaint-signin-model");
     $("account-message").textContent = error.message;
   }
 };
@@ -735,39 +753,6 @@ $("signin").onsubmit = async (e) => {
     $("account-message").textContent = error.hint || error.message;
   } finally {
     $("sign-submit").disabled = false;
-  }
-};
-$("catalog").onclick = async () => {
-  try {
-    {
-      const response = await fetch(
-        "https://openrouter.ai/api/v1/images/models",
-        { signal: AbortSignal.timeout(15000) },
-      );
-      if (!response.ok) throw Error("OpenRouter catalog unavailable.");
-      const data = await response.json();
-      const rows = (data.data || []).filter(
-        (m) =>
-          m.architecture?.input_modalities?.includes("image") &&
-          m.architecture?.output_modalities?.includes("image") &&
-          (m.supported_parameters?.input_references?.max || 0) >= 1 &&
-          (m.supported_parameters?.input_references?.min || 0) <= 1 &&
-          JSON.stringify(m.supported_parameters?.output_format?.values) !==
-            '["svg"]',
-      );
-      for (const row of rows)
-        if (!account.models.some((m) => m.id === "ac-openrouter:" + row.id))
-          account.models.push({
-            id: "ac-openrouter:" + row.id,
-            model: row.id,
-            name: row.name,
-            location: "AC cloud · OpenRouter",
-            available: false,
-          });
-    }
-    renderModels();
-  } catch (error) {
-    $("model-notice").textContent = error.message;
   }
 };
 $("history-export").onclick = () =>

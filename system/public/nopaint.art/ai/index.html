@@ -37,11 +37,7 @@
       </div>
       <div id="decisions"></div>
       <div id="band">
-        <button
-          id="status"
-          aria-label="Painting controls and models"
-          aria-haspopup="dialog"
-        >
+        <button id="status" aria-label="Choose a model" aria-haspopup="dialog">
           Loading…</button
         ><input
           id="hint"
@@ -55,10 +51,16 @@
     </main>
     <dialog id="models">
       <header>
-        <h1>No Paint</h1>
+        <h1>Models</h1>
+        <button
+          id="more-actions"
+          aria-label="Painting actions"
+          aria-haspopup="dialog"
+        >
+          ⋯
+        </button>
         <button data-close aria-label="Close">×</button>
       </header>
-      <div id="studio-actions" aria-label="Painting actions"></div>
       <input
         id="search"
         type="search"
@@ -67,7 +69,13 @@
       />
       <p id="model-notice"></p>
       <div id="model-list"></div>
-      <button id="catalog">Browse OpenRouter</button>
+    </dialog>
+    <dialog id="painting-actions">
+      <header>
+        <h1>Painting</h1>
+        <button data-close aria-label="Close">×</button>
+      </header>
+      <div id="studio-actions" aria-label="Painting actions"></div>
     </dialog>
     <dialog id="model-details">
       <header>
@@ -81,9 +89,10 @@
     </dialog>
     <dialog id="account" data-ac-no-track>
       <header>
-        <h1>AC account</h1>
+        <h1 id="account-title">AC account</h1>
         <button data-close aria-label="Close">×</button>
       </header>
+      <p id="account-model" hidden></p>
       <div id="signed-in" hidden>
         <p id="balance"></p>
         <a
@@ -123,8 +132,7 @@
         <h1>Brush</h1>
         <button data-close aria-label="Close">×</button>
       </header>
-      <label>Change<select id="strength"></select></label
-      ><label>Brush size<select id="brush"></select></label>
+      <label>Change<select id="strength"></select></label>
       <label
         >Drag<select id="mode">
           <option value="zoom">Crop</option>
