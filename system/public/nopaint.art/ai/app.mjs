@@ -135,7 +135,6 @@ function status() {
         `${price.toLocaleString()} braincells`,
         `${paintCapacity(price, s.account)} paints left`,
       );
-    if (price === 0) parts.push("free");
     if (!model?.available)
       parts.push(
         s.account.connected ? "Unavailable" : "Sign in for cloud moves",
@@ -354,11 +353,12 @@ function renderModels() {
         const price = document.createElement("span");
         price.textContent =
           model.braincells === 0
-            ? "Free"
+            ? ""
             : model.braincells > 0
               ? `${model.braincells.toLocaleString()} · ${paintCapacity(model.braincells, s.account)} paints`
               : "Not enabled on AC";
-        if (!model.available) price.textContent += " · unavailable";
+        if (!model.available)
+          price.textContent += " · " + modelAvailability(model, s.account);
         row.append(name, price);
         row.disabled = !s.canChange;
         row.onclick = async () => {
@@ -371,9 +371,111 @@ function renderModels() {
             notice(error.message);
           }
         };
-        return row;
+        const choice = document.createElement("div"),
+          info = document.createElement("button");
+        choice.className = "model-choice";
+        info.type = "button";
+        info.className = "model-info";
+        info.textContent = "ⓘ";
+        info.title = "Model details";
+        info.setAttribute("aria-label", `Details about ${model.name}`);
+        info.onclick = () => showModelDetails(model);
+        choice.append(row, info);
+        return choice;
       }),
   );
+}
+function modelAvailability(model, value) {
+  if (!model.id.startsWith("ac-")) return "Ready";
+  if (!model.serviceAvailable) return "Unavailable on AC";
+  if (!value.connected) return "Sign in with AC";
+  if (value.stale) return "Refresh your balance";
+  if ((value.remaining || 0) + (value.purchased || 0) < model.braincells)
+    return "Not enough Braincells";
+  return "Ready";
+}
+function showModelDetails(model) {
+  $("model-details-title").textContent = model.name;
+  const cloud = model.id.startsWith("ac-"),
+    settings = model.generation,
+    rows = [["Runs", model.location || "AC cloud"]];
+  if (cloud) {
+    rows.push(["Model", model.model || model.id.slice(3)]);
+    rows.push([
+      "Per Paint",
+      Number.isFinite(model.braincells)
+        ? `${model.braincells.toLocaleString()} Braincells`
+        : "Not configured",
+    ]);
+    if (Number.isFinite(model.braincells) && account.value.connected)
+      rows.push([
+        "Paints left",
+        paintCapacity(model.braincells, account.value),
+      ]);
+    rows.push(["Status", modelAvailability(model, account.value)]);
+    if (settings) {
+      rows.push([
+        "Generation",
+        [
+          settings.resolution ||
+            settings.size?.join(" × ") ||
+            "Provider default size",
+          settings.aspect_ratio,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      ]);
+      if (settings.quality) rows.push(["Quality", settings.quality]);
+      if (settings.steps) rows.push(["Steps", settings.steps]);
+      rows.push([
+        "Seed",
+        settings.seed ? "Sent to the model" : "Not sent to the model",
+      ]);
+    }
+    rows.push(["Painting", `${(model.size || [256, 256]).join(" × ")} pixels`]);
+    rows.push(["Hint", "Steers the next AI move"]);
+    rows.push(["Preview", model.previews ? "While painting" : "Final result"]);
+  } else {
+    const labels = {
+      slice: "strip shifts",
+      turn: "tile turns",
+      sort: "pixel sorting",
+      mosaic: "mosaic",
+      hue: "channel rotation",
+      tint: "tint",
+      contrast: "contrast",
+      posterize: "posterize",
+      stroke: "curved strokes",
+      shapes: "shapes",
+      stipple: "stipple",
+      hatch: "hatching",
+      diffuse: "pixel diffusion",
+    };
+    const operations = images.FAMILIES[model.id];
+    rows.push(["Operations", operations.map((op) => labels[op]).join(", ")]);
+    rows.push(["Per Paint", "One operation, chosen from this palette"]);
+    rows.push(["Change", "Small: 3 passes · Medium: 5 · Large: 8"]);
+    rows.push(["Painting", "256 × 256 pixels"]);
+  }
+  $("model-details-list").replaceChildren(
+    ...rows.flatMap(([label, value]) => {
+      const term = document.createElement("dt"),
+        detail = document.createElement("dd");
+      term.textContent = label;
+      detail.textContent = String(value);
+      return [term, detail];
+    }),
+  );
+  const link = $("model-source");
+  link.hidden = !cloud;
+  if (cloud) {
+    link.href =
+      model.provider === "openrouter" || model.id.startsWith("ac-openrouter:")
+        ? `https://openrouter.ai/${model.model || model.id.slice("ac-openrouter:".length)}`
+        : "https://fal.ai/models/fal-ai/flux-2/klein/4b/edit";
+    link.textContent = "Provider details ↗";
+  }
+  open("model-details");
 }
 function renderAccount() {
   const s = snapshot(),

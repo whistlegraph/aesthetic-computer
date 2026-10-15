@@ -17,6 +17,7 @@ export function modelChoices(offers, account) {
       .filter((m) => m.id.startsWith("ac-"))
       .map((m) => ({
         ...m,
+        serviceAvailable: Boolean(m.available),
         available: Boolean(
           m.available &&
             account.connected &&

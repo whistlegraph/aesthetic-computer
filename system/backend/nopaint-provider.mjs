@@ -12,7 +12,7 @@ export function moveOffer(usd) {
   const braincells = braincellsFromCost(usd);
   const quote = createHash('sha256').update(JSON.stringify([MODEL, '256-rgb-v2', PROMPT_VERSION, braincells])).digest('hex');
   return {id:'ac-klein', name:'FLUX.2 Klein 4B', model:MODEL, location:'AC cloud',
-    braincells, quote, size:[256,256], previews:false};
+    braincells, quote, size:[256,256], generation:{size:[256,256], steps:4, seed:true, n:1}, previews:false};
 }
 export function moveInput(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw fail(400, 'Expected a move');

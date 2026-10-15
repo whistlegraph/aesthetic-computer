@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import sharp from 'sharp';
 import {createHandler} from '../netlify/functions/nopaint-inference.mjs';
 import {moveOffer,moveInput,createNoPaintProvider} from '../backend/nopaint-provider.mjs';
+import {openRouterOffers, profiles} from '../backend/nopaint-openrouter.mjs';
 
 const image=(await sharp({create:{width:256,height:256,channels:3,background:'#74746f'}}).png().toBuffer()).toString('base64');
 const offer = moveOffer(.01);
@@ -23,6 +24,15 @@ test('cloud tariff shares the existing Braincells conversion and requires explic
   assert.equal(offer.braincells,4000);
   assert.equal(moveOffer(undefined),null);assert.equal(moveOffer(NaN),null);assert.equal(moveOffer(-1),null);
   assert.notEqual(moveOffer(.02).quote,offer.quote);
+});
+test('model details expose the configured generation settings and omit the retired endpoint',()=>{
+  const offers = openRouterOffers('all');
+  assert.equal(offers.some(o=>o.model==='inclusionai/ming-image-0.1-design-layer'),false);
+  for(const current of offers) {
+    assert.deepEqual(current.generation,profiles[current.model].options);
+    assert.deepEqual(current.size,[256,256]);
+  }
+  assert.equal(offer.generation.steps,4);
 });
 test('only bounded complete 256 RGB images and valid settings reach generation',()=>{
   const input=JSON.parse(event().body);assert.ok(moveInput(input).hash);

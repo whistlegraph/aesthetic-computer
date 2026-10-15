@@ -248,18 +248,57 @@ dialog a {
   overflow: auto;
   margin: 12px -8px;
 }
+.model-choice {
+  display: flex;
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+}
 .model-row {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   gap: 12px;
   text-align: left;
   padding: 10px 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
 }
 .model-row span {
+  flex: none;
+  max-width: 45%;
   font-size: 13px;
-  white-space: nowrap;
+  text-align: right;
+}
+.model-info {
+  flex: none;
+  padding: 8px;
+  align-self: stretch;
+}
+#model-details-list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 14px 20px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+#model-details-list dt {
+  opacity: 0.65;
+}
+#model-details-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+#model-source {
+  margin-top: 22px;
+}
+.model-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.model-row span:empty {
+  display: none;
+}
+.model-row[aria-pressed="true"] + .model-info {
+  background: var(--ink);
+  color: var(--background);
 }
 .model-row[aria-pressed="true"] {
   background: var(--ink);

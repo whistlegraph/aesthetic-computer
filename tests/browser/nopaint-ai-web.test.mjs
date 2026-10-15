@@ -83,6 +83,15 @@ await context.route("**/*", async (route) => {
             available: true,
             braincells: 8,
             quote: "test-quote",
+            model: "test/image",
+            provider: "openrouter",
+            size: [256, 256],
+            generation: {
+              resolution: "1K",
+              aspect_ratio: "1:1",
+              quality: "low",
+              n: 1,
+            },
           },
         ],
         service: { available: true },
@@ -178,7 +187,10 @@ try {
   await page.waitForFunction(() =>
     document.querySelector("#status").textContent.includes("@fixture"),
   );
-  assert.match(await page.locator("#status").textContent(), /^Classic · free/);
+  assert.match(
+    await page.locator("#status").textContent(),
+    /^Classic · @fixture/,
+  );
   assert.equal(await page.locator("#menus, #before").count(), 0);
   assert.equal(await page.locator("#hint").isVisible(), false);
   const initial = await pixels();
@@ -198,6 +210,16 @@ try {
   const choices = await page.locator(".model-row").allTextContents();
   assert.equal(choices.length, 5, "four CPU modes and the cloud offer only");
   assert.doesNotMatch(choices.join(" "), /Random|Desktop|Fleet/);
+  assert.doesNotMatch(choices.join(" "), /\bfree\b/i);
+  await page
+    .getByRole("button", { name: "Details about Classic", exact: true })
+    .click();
+  assert.match(
+    await page.locator("#model-details-list").textContent(),
+    /strip shifts/,
+  );
+  assert.equal(moves.length, 0);
+  await page.locator("#model-details [data-close]").click();
   await page.locator("#models [data-close]").click();
   await studioAction("settings");
   await page.locator("#mode").selectOption("inpaint");
@@ -301,6 +323,24 @@ try {
   await page.locator("#status").click();
   await page.screenshot({ path: shots + "/models.png" });
   assert.ok(await page.locator("#models").isVisible());
+  await page
+    .getByRole("button", { name: "Details about Test Cloud", exact: true })
+    .click();
+  const details = await page.locator("#model-details-list").textContent();
+  assert.match(details, /1K · 1:1/);
+  assert.match(details, /256 × 256 pixels/);
+  assert.match(details, /8 Braincells/);
+  assert.equal(
+    await page.locator("#model-source").getAttribute("href"),
+    "https://openrouter.ai/test/image",
+  );
+  assert.equal(
+    await page.locator("#hint").isVisible(),
+    false,
+    "viewing cloud details must not change the Classic selection",
+  );
+  assert.equal(moves.length, 1, "viewing details must not request inference");
+  await page.screenshot({ path: shots + "/model-details.png" });
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({
@@ -309,6 +349,7 @@ try {
         "local Paint/No",
         "Classic default after sign-in",
         "controls in bottom status panel",
+        "model details without changing selection or making inference requests",
         "reload persistence",
         "exact mask preservation",
         "authenticated cloud quote and hint",

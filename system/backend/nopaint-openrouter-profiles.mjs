@@ -1,4 +1,5 @@
-// Raster image-editing catalog reviewed 2026-10-06 against OpenRouter /images/models and each /endpoints.
+// Raster image-editing catalog reviewed 2026-10-14 against OpenRouter /images/models and each /endpoints.
+// Ming Image 0.1 Design Layer removed: absent from catalog, endpoint returns 404.
 // usd is the fixed AC per-move cost basis, NOT a token-rate estimate or a
 // guarantee of upstream cost. One reference, one smallest supported square
 // output, low quality when supported. Never auto-add future catalog entries.
@@ -38,14 +39,6 @@ export const profiles = {
     "options": {
       "aspect_ratio": "1:1",
       "resolution": "768",
-      "n": 1
-    }
-  },
-  "inclusionai/ming-image-0.1-design-layer": {
-    "name": "Ming Image 0.1 Design Layer",
-    "usd": 0,
-    "options": {
-      "output_format": "png",
       "n": 1
     }
   },

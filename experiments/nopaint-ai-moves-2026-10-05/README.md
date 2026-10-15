@@ -21,7 +21,7 @@ starts fresh. It never publishes the private decision log. History can export
 that log explicitly. Browser storage stays on this browser; it is not an account
 backup. Another open editor tab is held read-only using the Web Locks API.
 
-The website starts with Classic: a free mix of CPU paint operations. Pixels,
+The website starts with Classic: a mix of CPU paint operations. Pixels,
 Color and Primitives are also available locally. Signing in or refreshing the
 catalog does not switch to AI. Choose a specific cloud model to use Braincells;
 the hint appears only for those models. Desktop and fleet inference stay in the
@@ -30,6 +30,12 @@ native app. The website never connects to a local backend.
 The canvas and No/Paint buttons fill the main view. The bottom status opens
 models, account, Fresh, Save, Done, History and brush settings. Hold Space or
 hover No to preview the previous painting. There is no top menu bar.
+
+Each model has a details control. CPU modes list their operations; cloud models
+show the fixed Braincell tariff, configured generation size/quality, and the
+256×256 painting output. Details never select a model or start inference.
+The 2026-10-14 catalog check found 49 responding configured OpenRouter model
+endpoints; Ming Image 0.1 Design Layer returned 404 and was removed.
 
 The shared high-level UI document and Swift/DOM renderers live in
 `system/public/aesthetic.computer/lib/ui/`. Native consumes the shared decision

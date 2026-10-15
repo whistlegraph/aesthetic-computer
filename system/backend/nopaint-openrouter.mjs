@@ -18,7 +18,7 @@ export function openRouterOffers(configuration='[]') {
     const braincells=braincellsFromCost(usd);
     const quote=createHash('sha256').update(JSON.stringify([model,'openrouter-256-rgb-v2',PROMPT_VERSION,profile.options,braincells])).digest('hex');
     return [{id:'ac-openrouter:'+model, name:profile.name, model, provider:'openrouter', location:'AC cloud · OpenRouter',
-      braincells, quote, size:[256,256], previews:false}];
+      braincells, quote, size:[256,256], generation:{...profile.options}, previews:false}];
   });
 }
 
