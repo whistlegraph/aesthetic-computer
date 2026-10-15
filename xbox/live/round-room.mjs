@@ -87,6 +87,7 @@ export class RoundRoom {
     // When the relay seated this bridge, on the wall clock: a chair handed
     // over a moment ago is not yet a reason to inherit a dark room.
     this.seatedAt = 0;
+    this.seatedFrom = "";
     // The line for the chair (relay-side). A seat-seeking bridge stands in it
     // when the chair is taken; `line()` says whether this visitor still wants
     // a turn and what the turn order should call them. `order` and `place`
@@ -167,6 +168,7 @@ export class RoundRoom {
         if (this.seat === "challenger") {
           this.role = "challenger";
           this.seatedAt = Date.now();
+          this.seatedFrom = String(message.content?.from || "");
         }
         // A turn that ended stands this bridge down in place: the socket
         // watches on, and walks to the back of the line if it still wants

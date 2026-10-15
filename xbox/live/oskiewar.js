@@ -4690,6 +4690,12 @@ const versusSnapshotIntervalMs = 33;
 // before deciding the room is theirs to claim.
 const versusClaimAfterUs = 2500000;
 let versusClaimArmedAt = 0;
+// How long a visitor who is not a dark room's heir waits before claiming it
+// anyway (see versusHeir).
+const versusHeirWaitUs = 8000000;
+// The relay stood this seat down at the end of its turn. Heard in a socket
+// callback, acted on at the top of the next tick.
+let versusTurnOver = false;
 let versusInputSeq = 0;
 let versusInputLastSent = "";
 let versusInputNextAt = 0;
@@ -9218,6 +9224,10 @@ function handleRoundViewer(message) {
     if (message.content?.live === false) resetRoundViewerPlayout();
     return;
   }
+  if (message.type === "seat") {
+    if (message.content?.turn) versusTurnOver = true;
+    return;
+  }
   if (message.type === "demo") {
     // A demo with bot seeds can be re-simulated — the honest path. The
     // bridge hands over the recording and steps aside so the real sim runs;
@@ -10672,12 +10682,41 @@ function netDrainHostInbox() {
   inbox.length = 0;
 }
 
+// The relay's line for the chair: this visitor wants a turn once they are
+// through the door, and the turn order calls them what the fight would.
+function updateVersusLine() {
+  if (typeof roundViewer?.line !== "function" ||
+      globalThis.__oskiewarVersusCapable !== true) return;
+  if (accountState() && !accountReady()) return;
+  roundViewer.line(versusAllowed(), netLocalIdentity().name);
+}
+
+// Who inherits a dark room that keeps a line: the seated challenger, else the
+// head of the line when nobody is seated. Everyone else keeps their place
+// rather than racing the heir for the publisher socket, unless the room stays
+// dark long enough that the heir is evidently gone. A chair the line handed
+// over a moment ago waits a beat — usually the last heir is already on its
+// way to hosting. An older relay keeps no line, and everyone claims as before.
+function versusHeir(now) {
+  const order = roundViewer.order;
+  if (!order) return true;
+  const heir = roundViewer.seat === "challenger"
+    ? roundViewer.seatedFrom !== "line" ||
+      Date.now() - (roundViewer.seatedAt || 0) >= versusClaimAfterUs / 1000
+    : roundViewer.place === 1 && !order.challenger;
+  if (heir) return true;
+  versusClaimArmedAt ||= now;
+  return now - versusClaimArmedAt >= versusHeirWaitUs;
+}
+
 // An address with neither a live host nor a saved replay returns to the
 // title. This works before sign-in; Start handles the account door later.
 function updateVersusClaim(now) {
   if (globalThis.__oskiewarVersusCapable !== true || !roundViewer) return false;
+  if (roundViewer.live) versusClaimArmedAt = 0;
   if (roundViewer.live || roundViewerDemo || roundViewerMode === "DEMO" ||
       !roundViewer.empty) return false;
+  if (!versusHeir(now)) return false;
   const name = roundViewer.name;
   versusFallbackBridge = roundViewer;
   roundViewerStop?.();
@@ -16520,6 +16559,7 @@ function gameSim() {
     // becomes theirs to host.
     sendChallengerInput(now);
     netChallengerHello(now);
+    updateVersusLine();
     updateVersusClaim(now);
     return;
   }
@@ -22606,22 +22646,39 @@ function isLocalFighter(player){
   if(!(versusLane()||netSession))return false;
   return player===players[localSeat()];
 }
-// A small diamond floating over your own head, in your colour with the
-// figure's ink edge, bobbing so it reads as a marker and not a hat. Two
-// fighters of the same shape and often the same grey, across a wire, and
-// the first question every new player asked was which one they were.
+// A small cut gem floating over your own head: a table, a crown of facets and
+// a pavilion down to the point, every facet its own slice of a rainbow that
+// turns slowly — leaned toward your colour, so it is still yours — over a pale
+// halo that breathes, with a glint that winks across the crown. It bobs, so it
+// reads as a marker and not a hat. Two fighters of the same shape and often
+// the same grey, across a wire, and the first question every new player asked
+// was which one they were. Paint-only: the clock here is the render's.
 function drawYouMarker(player,world){
   const head=projectPoint(world.head.x,world.head.y,world.head.z);if(head.behind)return;
-  const r=world.head.radius*projectionScaleAt(world.head);
-  const s=clamp(r*.42,6,22),bob=Math.sin(runtime().monotonicUs/1e6*4.2)*s*.25;
+  const r=world.head.radius*projectionScaleAt(world.head),clock=runtime().monotonicUs/1e6;
+  const s=clamp(r*.42,6,22),bob=Math.sin(clock*4.2)*s*.25;
   const x=head.x,y=head.y-r*1.55-s-bob;
   const old=triangleDepth;triangleDepth=head.z-.002;
   const ink=player.handleColors?.[0]||player.accent||[255,187,91],edge=[8,12,24],e=Math.max(1.5,s*.18);
-  const diamond=(size,c)=>{
-    screenTriangle(x,y-size,x-size*.62,y,x+size*.62,y,...c);
-    screenTriangle(x-size*.62,y,x+size*.62,y,x,y+size,...c);
+  const w=s*.72,girdle=y-s*.18,table=y-s*.8,culet=y+s;
+  const L=[x-w,girdle],R=[x+w,girdle],TL=[x-w*.5,table],TR=[x+w*.5,table];
+  const M=[x,girdle],ML=[x-w*.45,girdle],MR=[x+w*.45,girdle],C=[x,culet];
+  const tri=(a,b,c,color)=>screenTriangle(a[0],a[1],b[0],b[1],c[0],c[1],...color);
+  const outline=(grow,color)=>{
+    const tl=[x-w*.5-grow*.5,table-grow],tr=[x+w*.5+grow*.5,table-grow],l=[x-w-grow,girdle],r=[x+w+grow,girdle];
+    tri(tl,tr,r,color);tri(tl,r,l,color);tri(l,r,[x,culet+grow*1.4],color);
   };
-  diamond(s+e,edge);diamond(s,ink);
+  outline(e*(2.2+1.2*(.5+.5*Math.sin(clock*3.1))),mixColor(ink,[255,255,255],.72));
+  outline(e,edge);
+  const facet=(index,light)=>mixColor(hslColor(clock*70+index*47,.85,light),ink,.22);
+  tri(L,TL,ML,facet(0,.74));tri(TL,M,ML,facet(1,.7));tri(TL,TR,M,facet(2,.86));
+  tri(TR,MR,M,facet(3,.66));tri(TR,R,MR,facet(4,.6));
+  tri(L,ML,C,facet(5,.5));tri(ML,M,C,facet(6,.62));tri(M,MR,C,facet(7,.55));tri(MR,R,C,facet(8,.42));
+  const wink=Math.sin(clock*2.3);
+  if(wink>.2){
+    const g=s*.5*wink,gx=x-w*.22,gy=table+s*.2,line=Math.max(1,s*.08);
+    filledCapsule(gx-g,gy,gx+g,gy,line,[255,255,255]);filledCapsule(gx,gy-g,gx,gy+g,line,[255,255,255]);
+  }
   triangleDepth=old;
 }
 function drawSparringTarget(player,world,t){
@@ -27259,6 +27316,7 @@ function gamePaint() {
     if (!reelMinimal) drawVersusHud(t, titleInk, run);
     drawSpectatorQr(titleInk);
     if (!reelMinimal) drawNetHealth(titleInk);
+    if (!reelMinimal) drawTurnOrder(t, titleInk);
     drawTouchControls();
     if (localVersusActive() && localControllerMissing !== -1) {
       const label = "reconnect player " + (localControllerMissing + 1);
@@ -27277,22 +27335,24 @@ function gamePaint() {
 const versusLabelNoise = new Set(["NONE", "UP", "DOWN", "LEFT", "RIGHT",
   "A", "B", "X", "Y", "LB", "RB", "VIEW", "MENU"]);
 
-// The lobby's interface is a challenge and a code: fight a friend, share
-// the address, and until they arrive every move the lone fighter makes is
-// named back at them — the empty room as training mode.
+// The lobby says what the room is waiting for — an opponent, or the one
+// already on the way — and until they arrive every move the lone fighter
+// makes is named back at them: the empty room as training mode.
 function drawVersusHud(t, ink, run) {
   if (instantReplay || !versusLane() || shellMode !== "GAME") return;
   if (!lobbyActive()) return;
   const hud = hudSafeRect();
   const compact = compactLayout();
   const door = versusDoor();
+  const order = versusOrder();
+  const coming = Boolean(order?.challenger || order?.line?.length);
   // Behind the door the address is a lie: nothing is published, so nobody
   // could arrive at it. Say what is actually in the way instead. The panel
   // that takes the email or the handle is the shell's, over the top of this;
   // this is the part that stays legible on a television across a room.
   const headline = door === "login" ? "SIGN IN TO PLAY"
     : door === "handle" ? "CHOOSE A HANDLE"
-    : versusRoomName === dojoRoom ? "" : "WAITING ROOM";
+    : coming ? "opponent on the way…" : "waiting for an opponent…";
   const headSize = compact ? 30 : 44;
   const pulse = .5 + Math.sin(t * 2.4) * .5;
   const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
@@ -27303,19 +27363,23 @@ function drawVersusHud(t, ink, run) {
     typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
     typeWrite(headline, headX, headY, headSize, ...headInk);
   }
+  // A private room's address, small, while the room is empty and sharing it
+  // is the way to fill it. The dojo is the front door itself, and once
+  // anybody is in line the address is just noise.
   const address = door === "login"
     ? "A FIGHT NEEDS A NAME ON BOTH ENDS"
     : door === "handle" ? "YOUR HANDLE IS WHAT THE FIGHT WRITES DOWN"
-    : versusRoomName === dojoRoom ? ""
-    : "FIGHT A FRIEND  OSKIEWAR.COM/" + versusRoomName.toUpperCase();
-  const addressSize = compact ? 16 : 23;
+    : coming || versusRoomName === dojoRoom ? ""
+    : "oskiewar.com/" + versusRoomName;
+  const addressSize = door ? (compact ? 16 : 23) : (compact ? 13 : 17);
+  const addressInk = door ? ink : mixColor(ink, contrastShadow(ink), .3);
   const addressWidth = handleWidth(address, addressSize);
   const addressY = headY + headSize + 10;
   if (address) {
     typeWrite(address, viewCenterX() - addressWidth / 2 + 2, addressY + 2,
       addressSize, ...contrastShadow(ink));
     typeWrite(address, viewCenterX() - addressWidth / 2, addressY,
-      addressSize, ...ink);
+      addressSize, ...addressInk);
   }
   const player = players[0];
   // The death card owns the middle of the screen for the whole down beat —
@@ -27359,6 +27423,69 @@ function drawVersusHud(t, ink, run) {
   typeWrite(keys, keyX, keyY, keySize, ...moveInk);
 }
 
+// The room's turn order, as the relay last told it. A watcher hears it through
+// its bridge; the host through its publisher socket, which can outlive a room
+// change, so the match id is checked.
+function versusOrder() {
+  if (roundViewer) return roundViewer.order || null;
+  if (!versusLane()) return null;
+  const status = globalThis.__oskiewarRoomStatus;
+  return status?.matchId === "ow-" + versusRoomName ? status.order || null : null;
+}
+
+const ordinal = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th"
+  : ["th", "st", "nd", "rd"][n % 10] || "th");
+
+// Who is fighting and who is next. Top-right, right-aligned under that
+// corner's furniture — the QR or the connection meter, with the seat label
+// and update note beside them — so it grows into the room rather than across
+// the fight. Your own entry reads "you". Someone standing in line also gets
+// their place said plainly, under the clock.
+function drawTurnOrder(t, ink) {
+  if (shellMode !== "GAME" || instantReplay) return;
+  const order = versusOrder();
+  if (!order) return;
+  const line = Array.isArray(order.line) ? order.line : [];
+  const seated = roundViewer?.seat === "challenger";
+  const place = roundViewer && !seated ? roundViewer.place || 0 : 0;
+  const hud = hudSafeRect();
+  const compact = compactLayout();
+  const shadow = contrastShadow(ink);
+  const gold = mixColor(ink, [235, 205, 74], .35 + (.5 + Math.sin(t * 2.4) * .5) * .45);
+  if (place > 0) {
+    const label = place === 1 ? "you're next" : ordinal(place) + " in line";
+    const size = compact ? 24 : 34;
+    const x = viewCenterX() - handleWidth(label, size) / 2;
+    const y = hud.top + hudTypeSize + 14;
+    typeWrite(label, x + 3, y + 3, size, ...shadow);
+    typeWrite(label, x, y, size, ...gold);
+  }
+  if (!order.challenger && !line.length) return;
+  const name = (value) => String(value || "") || "guest";
+  const host = !roundViewer ? "you" : order.host ? name(order.host) : "…";
+  const rival = seated ? "you" : name(order.challenger);
+  const dim = mixColor(ink, shadow, .3);
+  const rows = [[order.challenger ? host + " vs " + rival : host, seated || !roundViewer ? gold : ink]];
+  const shown = line.slice(0, 3);
+  shown.forEach((entry, index) => rows.push([(index ? "then  " : "next  ") +
+    (index + 1 === place ? "you" : name(entry)), index + 1 === place ? gold : dim]));
+  if (line.length > shown.length)
+    rows.push(["+" + (line.length - shown.length) + " more", dim]);
+  const size = compact ? 16 : 22;
+  const small = Math.round(size * .82);
+  const qr = spectatorQrBox(), meter = netHealthBox();
+  let top = Math.max(hud.top + hudTypeSize * 2 + 4,
+    qr ? qr.top + qr.size : 0, meter ? meter.base + 7 + meter.size : 0) + 12;
+  if (debugHitboxes) top = Math.max(top, hud.top + 100);
+  rows.forEach(([text, color], index) => {
+    const typeSize = index ? small : size;
+    const x = hud.right - handleWidth(text, typeSize);
+    typeWrite(text, x + 2, top + 2, typeSize, ...shadow);
+    typeWrite(text, x, top, typeSize, ...color);
+    top += typeSize + 8;
+  });
+}
+
 function boot() {
   try {
     gameBoot();
@@ -27371,6 +27498,13 @@ function sim() {
   if (clientError) { restartAfterClientError(); return; }
   try {
     netDrainHostInbox();
+    // A turn that ended mid-session is the chair's last word: leave the fight
+    // now rather than wait out the silence timer. The line is room state, so
+    // this only ever ends a session — it never reaches into one.
+    if (versusTurnOver) {
+      versusTurnOver = false;
+      if (netSession?.seat === 1) netLeave("turn");
+    }
     if (netSession) netTick();
     else gameSim();
   } catch (error) {
