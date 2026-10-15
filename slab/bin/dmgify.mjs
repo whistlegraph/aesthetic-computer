@@ -17,12 +17,12 @@ import { homedir, tmpdir } from "node:os";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { vaultPath, credentialStatus, requireCredentials } from "../../toolchain/vault/credentials.mjs";
 
 const pexec = promisify(execFile);
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(SCRIPT_DIR, "../..");
 const BUILDER = join(REPO, "node_modules/.bin/electron-builder");
-const DEFAULT_CREDENTIALS = join(REPO, "aesthetic-computer-vault/apple/app-specific-password.env");
 const MAX_OUTPUT = 16 * 1024 * 1024;
 
 const safeName = (value) => String(value || "App").replace(/[^A-Za-z0-9._ -]+/g, "").trim() || "App";
@@ -81,7 +81,7 @@ function normalizeOptions(options = {}) {
   const icon = options.icon ? assertPathUnderHome(options.icon, "icon") : null;
   const credentials = options.credentials
     ? assertPathUnderHome(options.credentials, "credentials")
-    : DEFAULT_CREDENTIALS;
+    : vaultPath("apple/app-specific-password.env");
   const include = Array.isArray(options.include) && options.include.length
     ? options.include.map(String)
     : ["**/*", "!release{,/**}", "!dist{,/**}", "!node_modules{,/**}", "!.git{,/**}", "!.dmgify-work{,/**}"];
@@ -107,7 +107,7 @@ export async function planDmg(options = {}) {
     entryPath,
     payload: { ...payload, human: humanSize(payload.bytes) },
     developerId: identity ? { hash: identity.hash, name: identity.name, teamId: identity.teamId } : null,
-    credentialsAvailable: await exists(opts.credentials),
+    credentialsAvailable: credentialStatus("apple-notary", { file: opts.credentials }).state === "ready",
   };
 }
 
@@ -119,18 +119,9 @@ async function developerIdentity() {
 }
 
 async function credentials(path, teamId) {
-  if (!(await exists(path))) throw new Error(`Apple notarization credentials not found: ${path}`);
-  const parsed = {};
-  for (const line of (await readFile(path, "utf8")).split(/\r?\n/)) {
-    const match = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)=(.*)\s*$/);
-    if (!match) continue;
-    parsed[match[1]] = match[2].trim().replace(/^(['"])(.*)\1$/, "$2");
-  }
-  const appleId = process.env.APPLE_ID || parsed.APPLE_ID;
-  const password = process.env.APPLE_APP_PASSWORD || process.env.APP_SPECIFIC_PASSWORD
-    || parsed.APPLE_APP_PASSWORD || parsed.APP_SPECIFIC_PASSWORD;
-  if (!appleId || !password) throw new Error(`credentials file must provide APPLE_ID and APP_SPECIFIC_PASSWORD: ${path}`);
-  return { appleId, password, teamId: process.env.APPLE_TEAM_ID || teamId };
+  const { values } = requireCredentials("apple-notary", { file: path });
+  return { appleId: values.APPLE_ID, password: values.APPLE_APP_PASSWORD || values.APP_SPECIFIC_PASSWORD,
+    teamId: values.APPLE_TEAM_ID || teamId };
 }
 
 async function makeIcns(source, work) {

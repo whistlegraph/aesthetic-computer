@@ -30,16 +30,12 @@ import { withMachineLease } from "../lib/computer-use-lease.mjs";
 import { FRAME_GUIDANCE } from "../lib/computer-use-guidance.mjs";
 import { captureFrame as captureNativeFrame } from "./frame.mjs";
 import { recordTape } from "../lib/frame-tape.mjs";
+import { requireCredentials } from "../../toolchain/vault/credentials.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
 const FRAME = join(HERE, "frame.mjs");
 const CONFIG_PATH = process.env.SLAB_PUPPET_CONFIG || join(process.env.HOME, ".config", "slab", "puppet.json");
-const VAULT_ENVS = [
-  process.env.SLAB_FRAME_VAULT_ENV,
-  join(REPO, "aesthetic-computer-vault/.devcontainer/envs/devcontainer.env"),
-  join(homedir(), "aesthetic-computer/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env"),
-].filter(Boolean);
 const DEFAULT_VISION_MODEL = process.env.SLAB_FRAME_VISION_MODEL || "gpt-5.6-luna";
 const DEFAULT_VISION_CONFIDENCE_THRESHOLD = 0.65;
 const VISION_CACHE_TTL_MS = 60_000;
@@ -310,18 +306,6 @@ async function toolClearOverlays({ machine } = {}) {
   return [{ type: "text", text: `Cleared all Frame-owned overlays on ${machine}.` }];
 }
 
-function envValue(name) {
-  if (process.env[name]) return process.env[name];
-  for (const path of VAULT_ENVS) {
-    if (!existsSync(path)) continue;
-    const line = readFileSync(path, "utf8")
-      .split("\n")
-      .find((entry) => entry.startsWith(`${name}=`));
-    if (line) return line.slice(name.length + 1).trim().replace(/^['"]|['"]$/g, "");
-  }
-  return null;
-}
-
 function responseText(response) {
   if (typeof response?.output_text === "string") return response.output_text;
   return (response?.output || [])
@@ -351,7 +335,7 @@ async function inferFrameDescription(jpg, {
   reasoning = "none",
   timeoutMs = 90_000,
 } = {}) {
-  const apiKey = envValue("OPENAI_API_KEY");
+  const apiKey = requireCredentials("openai", { file: process.env.SLAB_FRAME_VAULT_ENV }).values.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error(
       "frame_describe needs OPENAI_API_KEY in the daemon environment or the private vault env",

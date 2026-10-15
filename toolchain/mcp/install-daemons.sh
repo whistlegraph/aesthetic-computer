@@ -22,6 +22,7 @@
 #   photo-mcp  → http://127.0.0.1:7779/mcp
 #   instagram-mcp → http://127.0.0.1:7780/mcp
 #   aesel-mcp → http://127.0.0.1:7781/mcp
+#   domains-mcp → http://127.0.0.1:7782/mcp
 #
 # This script also POINTS Claude and Codex at the daemons. Claude gets same-name
 # local-scope entries that shadow the stdio ones in .mcp.json; Codex gets its
@@ -34,6 +35,14 @@
 # re-points Claude at them.
 
 set -euo pipefail
+
+# Optional single-server install avoids restarting unrelated active MCPs.
+ONLY="${1:-}"
+if [ "$#" -gt 1 ]; then
+  echo "usage: $0 [server-name]" >&2
+  exit 2
+fi
+selected() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Prefer fnm's stable alias path over a transient fnm_multishells one, which
@@ -95,8 +104,14 @@ paper  7777 slab/bin/paper-mcp.mjs
 photo  7779 slab/bin/photo-mcp.mjs
 instagram 7780 slab/bin/instagram-mcp.mjs
 aesel  7781 slab/bin/aesel-mcp.mjs
+domains 7782 toolchain/domains/domains-mcp.mjs
 ROWS
 }
+
+if [ -n "$ONLY" ] && [ "$ONLY" != grafana ] && ! servers | awk '{print $1}' | grep -qx "$ONLY"; then
+  echo "Unknown or unavailable MCP server: $ONLY" >&2
+  exit 2
+fi
 
 # Env the stdio entries in .mcp.json pass, which the daemons need too. Both
 # servers fall back to paths that are wrong here (emacs → /usr/sbin/emacsclient,
@@ -253,15 +268,17 @@ HAVE_CODEX=0
 command -v codex >/dev/null 2>&1 && HAVE_CODEX=1
 cd "$REPO"  # `claude mcp --scope local` is per-project
 
+if selected puppet; then
 if [ -f "$HOME/.config/slab/puppet.json" ]; then
   write_puppet_core_plist
 else
   echo "⚠ puppet core skipped — missing ~/.config/slab/puppet.json"
 fi
+fi
 
 # An unavailable optional editor bridge should not remain advertised as a
 # working MCP. Re-running this installer after Emacs is installed restores it.
-if [ -z "$EMACSCLIENT" ]; then
+if selected emacs && [ -z "$EMACSCLIENT" ]; then
   launchctl bootout "gui/$(id -u)/computer.aesthetic.emacs-mcp" 2>/dev/null || true
   [ "$HAVE_CLAUDE" = 1 ] && claude mcp remove emacs --scope local >/dev/null 2>&1 || true
   [ "$HAVE_CODEX" = 1 ] && codex mcp remove emacs >/dev/null 2>&1 || true
@@ -270,6 +287,7 @@ fi
 
 while read -r name port script; do
   [ -n "$name" ] || continue
+  selected "$name" || continue
   write_plist "$name" "computer.aesthetic.$name-mcp" "$REPO/$script" "$port"
   echo "✓ $name-mcp → 127.0.0.1:$port"
   if [ "$HAVE_CLAUDE" = 1 ]; then
@@ -291,6 +309,7 @@ while read -r name port script; do
 done <<<"$(servers)"
 
 HAVE_GRAFANA=0
+if selected grafana; then
 if [ -x "$HOME/.local/bin/mcp-grafana-fuser" ] && [ -f "$HOME/.config/fuser/grafana.env" ]; then
   write_grafana_plist
   HAVE_GRAFANA=1
@@ -308,6 +327,7 @@ if [ -x "$HOME/.local/bin/mcp-grafana-fuser" ] && [ -f "$HOME/.config/fuser/graf
 else
   launchctl bootout "gui/$(id -u)/computer.aesthetic.grafana-mcp" 2>/dev/null || true
   echo "⚠ grafana-mcp skipped — wrapper or ~/.config/fuser/grafana.env is missing"
+fi
 fi
 
 if [ "$HAVE_CLAUDE" = 0 ]; then
@@ -329,6 +349,7 @@ echo
 fail=0
 while read -r name port script; do
   [ -n "$name" ] || continue
+  selected "$name" || continue
   i=0
   while [ $i -lt 50 ]; do nc -z 127.0.0.1 "$port" 2>/dev/null && break; sleep 0.2; i=$((i+1)); done
   if curl -s -m 5 -X POST "http://127.0.0.1:$port/mcp" \

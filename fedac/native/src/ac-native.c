@@ -4255,8 +4255,10 @@ int main(int argc, char *argv[]) {
     audio_prewarm(audio);
 
     // Drain any queued input events from boot animation (prevents first-key stick)
-    input_poll(input);
-    input->event_count = 0;
+    if (input) {
+        input_poll(input);
+        input->event_count = 0;
+    }
 
     // Call boot() immediately — melody plays over the already-running piece
     js_call_boot(rt);

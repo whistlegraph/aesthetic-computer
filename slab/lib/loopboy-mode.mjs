@@ -5,6 +5,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { loopboyBinding } from "./loopboy-binding.mjs";
 
 export function modePath(id, env = process.env) {
   if (!/^[A-Za-z0-9._-]{1,180}$/.test(id) || id === "." || id === "..") {
@@ -25,11 +26,12 @@ export async function readLoopboyMode(id, env) {
   return { sessionId: id, contact: "", invalid: true };
 }
 
-export async function writeLoopboyMode(id, { contact = "", name = "" }, env) {
-  if (contact && !/^[a-z0-9_-]{1,40}$/.test(contact)) throw new Error("Invalid Loopboy contact key");
+export async function writeLoopboyMode(id, { name = "", bindingId = "", ...input }, env) {
+  const binding = input.event || input.source || input.contact ? loopboyBinding(input)
+    : { event: "", source: "", routeKey: "", contact: "" };
   const file = modePath(id, env);
   await mkdir(join(file, ".."), { recursive: true, mode: 0o700 });
-  const mode = { version: 1, sessionId: id, contact, name, changedAt: new Date().toISOString() };
+  const mode = { version: 2, sessionId: id, ...binding, bindingId, name, changedAt: new Date().toISOString() };
   const temp = `${file}.${randomUUID()}.tmp`;
   await writeFile(temp, JSON.stringify(mode) + "\n", { mode: 0o600 });
   await rename(temp, file);

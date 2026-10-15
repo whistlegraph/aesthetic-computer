@@ -27,6 +27,7 @@ stage_runtime() {
   install -m 0755 "$SOURCE_ROOT/papers/mediascholar/run-sandboxed.sh" "$RUNTIME/papers/mediascholar/run-sandboxed.sh"
   install -m 0755 "$SOURCE_ROOT/slab/bin/mediascholar-credential-proxy.mjs" "$RUNTIME/slab/bin/mediascholar-credential-proxy.mjs"
   install -m 0755 "$SOURCE_ROOT/slab/bin/prox-worker.mjs" "$RUNTIME/slab/bin/prox-worker.mjs"
+  install -m 0644 "$SOURCE_ROOT/slab/bin/prox-inbox.mjs" "$RUNTIME/slab/bin/prox-inbox.mjs"
   install -m 0755 "$SOURCE_ROOT/slab/bin/paper-mcp.mjs" "$RUNTIME/slab/bin/paper-mcp.mjs"
   install -m 0644 "$SOURCE_ROOT/toolchain/mcp/http-front.mjs" "$RUNTIME/toolchain/mcp/http-front.mjs"
   install -m 0644 "$SOURCE_ROOT/papers/source-bundle.mjs" "$RUNTIME/papers/source-bundle.mjs"
@@ -55,6 +56,7 @@ install_units() {
   stage_runtime
   mkdir -p "$UNIT_DIR" "$CONFIG_DIR/credentials" \
     "$HOME/.local/share/mediascholar" "$HOME/.config/slab/ledger/advertise"
+  install -d -m 0700 "$HOME/.local/share/slab/inbox"
   chmod 700 "$CONFIG_DIR" "$CONFIG_DIR/credentials" "$HOME/.local/share/mediascholar"
   install -m 0644 "$SOURCE/mediascholar-proxy.service" "$UNIT_DIR/mediascholar-proxy.service"
   install -m 0644 "$SOURCE/prox-worker.service" "$UNIT_DIR/prox-worker.service"

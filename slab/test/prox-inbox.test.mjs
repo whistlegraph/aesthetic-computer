@@ -149,6 +149,9 @@ test("stamp renders the sender, the local send time, a reply handle, and the tex
   assert.equal(stamp({ ...note("look at the diff"), ts }), `[inbox from neo:sip · ${when}${reply}]\n  │ look at the diff`);
   assert.equal(stamp({ ...note("stop"), ts, urgency: "urgent" }), `[inbox from neo:sip · ${when} · urgent${reply}]\n  │ stop`);
   assert.match(stamp({ from: "x:y", text: "no ts" }, ts), new RegExp(`^\\[inbox from x:y · ${when} · reply: prox_send handle="x:y"\\]\\n  │ no ts$`));
+  // Event sources are not peer handles and must not advertise a reply action.
+  assert.doesNotMatch(stamp({ from: "loopboy:fishery:studio", text: "arrival", ts }), /reply:/);
+  assert.doesNotMatch(stamp({ from: "loopboy:fia", text: "arrival", ts }), /reply:/);
   // the anonymous fallback sender has nobody to reply to
   assert.equal(stamp({ from: "neo:prox", ts, text: "hi" }), `[inbox from neo:prox · ${when}]\n  │ hi`);
 });

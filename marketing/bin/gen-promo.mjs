@@ -6,7 +6,7 @@
 //   <campaign>/refs/                   optional outside-world reference images
 //   <campaign>/gens/                   output dir (created)
 //
-// Calls OpenAI gpt-image-2. By default uses /v1/images/edits with the
+// Calls the OpenAI model configured by Illy’s marketing pipeline. By default uses /v1/images/edits with the
 // shared jeffrey identity refs (SHOOT + SELFIE). Pass --no-jeffrey to call
 // /v1/images/generations instead (no refs, prompt-only).
 //
@@ -25,6 +25,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSy
 import { resolve, dirname, join, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { jeffreyRefs } from "../lib/jeffrey-refs.mjs";
+import { resolveCredentials } from "../../toolchain/vault/credentials.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..");
@@ -43,7 +44,7 @@ for (let i = 0; i < argv.length; i++) {
 
 const campaignArg = positional[0];
 if (!campaignArg) {
-  console.error("usage: gen-promo.mjs <campaign-dir> [--size WxH] [--variant NAME] [--no-jeffrey] [--force]");
+  console.error("usage: gen-promo.mjs <campaign-dir> [--model ID] [--size WxH] [--variant NAME] [--no-jeffrey] [--force]");
   process.exit(1);
 }
 
@@ -67,6 +68,8 @@ if (!existsSync(promptPath)) {
 }
 const prompt = readFileSync(promptPath, "utf8").trim();
 
+const defaultModel = JSON.parse(readFileSync(join(REPO, "plugins/illy/config/pipelines.json"), "utf8")).pipelines.marketing.modelByProvider.openai;
+const model = flags.model || defaultModel;
 const size = flags.size || "1024x1536";
 const variant = flags.variant || "v1";
 const useJeffrey = !flags["no-jeffrey"];
@@ -82,15 +85,8 @@ if (existsSync(outPath) && !force) {
 }
 
 function loadOpenAIKey() {
-  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
-  const vault = `${REPO}/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env`;
-  if (existsSync(vault)) {
-    for (const line of readFileSync(vault, "utf8").split("\n")) {
-      if (line.startsWith("OPENAI_API_KEY=")) {
-        return line.slice("OPENAI_API_KEY=".length).trim().replace(/^['"]|['"]$/g, "");
-      }
-    }
-  }
+  const key = resolveCredentials("openai").values.OPENAI_API_KEY;
+  if (key) return key;
   throw new Error("OPENAI_API_KEY not found");
 }
 const apiKey = loadOpenAIKey();
@@ -104,6 +100,7 @@ const campaignRefs = existsSync(campaignRefsDir)
 
 console.log(`▸ campaign: ${basename(campaignDir)}`);
 console.log(`  prompt: ${prompt.length} chars`);
+console.log(`  model: ${model}`);
 console.log(`  size: ${size} · variant: ${variant} · jeffrey: ${useJeffrey}`);
 console.log(`  campaign refs: ${campaignRefs.length}`);
 console.log(`  → ${outPath}`);
@@ -127,7 +124,7 @@ async function callOpenAIWithRetry(maxAttempts = 6) {
         const refs = [...(useJeffrey ? jeffreyRefs() : []), ...campaignRefs];
         if (attempt === 1) console.log(`  total refs: ${refs.length}`);
         const fd = new FormData();
-        fd.append("model", "gpt-image-2");
+        fd.append("model", model);
         fd.append("prompt", prompt);
         fd.append("size", size);
         fd.append("quality", "high");
@@ -149,7 +146,7 @@ async function callOpenAIWithRetry(maxAttempts = 6) {
         res = await fetch("https://api.openai.com/v1/images/generations", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "gpt-image-2", prompt, size, quality: "high", n: 1 }),
+          body: JSON.stringify({ model, prompt, size, quality: "high", n: 1 }),
           signal: ac.signal,
         });
       }

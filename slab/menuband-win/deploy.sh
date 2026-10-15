@@ -5,11 +5,11 @@
 #   ./deploy.sh            copy + build
 #   ./deploy.sh --run      copy + build + (re)launch
 #
-# Host defaults to the `minibook` ssh alias; override with MB_HOST=...
+# Host defaults to the `choowee` ssh alias; override with MB_HOST=...
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
-host="${MB_HOST:-minibook}"
+host="${MB_HOST:-choowee}"
 dest='src/menuband-win'
 # Every step, and the compiler's own output, lands in ~\ac-progress.log on the
 # Windows box — the progress window on its screen (progress-window.ps1) tails it.

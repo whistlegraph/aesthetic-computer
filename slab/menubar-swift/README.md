@@ -160,31 +160,25 @@ polling.
 
 ## Loopboy
 
-Loopboy is Slab's client-loop router. Routes in
-`~/.config/slab/loopboy.json` map one private iMessage contact key to one local
-prox session. New inbound messages poke and optionally wake only that contact's
-rock. Heartbeats and messages are first written to a durable private bus keyed
-by contact, then claimed once by the active `prox_loopboy_wait`. Replacing or
-repairing a session route therefore cannot strand a client message under an
-old session id. A guarded live listener repairs a missing or stale registry
-route on its next wait, while an already-live route cannot be stolen by a
-second session. Delivery never types into Terminal, uses the clipboard, or
-moves focus. Each event names its source channel (for example `imessage` or
-`prox`), and Loopboy never replies on its own. Armed Loopboy rocks spin faster, wear a
-pink glow, show their verified contact beside the current phase, and identify
-themselves in their hover bubble. A saved route becomes active only when it
-matches the contact identity placed in the live session marker by the guarded
-launcher; editing `loopboy.json` cannot retrofit an ordinary prompt. The Slab
-menu counts verified client loops and labels stale or mismatched saved routes
-as inactive.
+Loopboy binds an existing prox to an event source without replacing its process,
+window, name, or conversation. Declare `loopboy: {event, source, ...}` in
+`prox_launch` for a new session, or call `prox_bind_notification` for a running
+one. Watcher code publishes updates through `prox_loopboy_emit`; iMessage
+contact bindings continue to use the built-in watcher.
 
-“Shut this Loopboy down” is a lifecycle command: finish and compush in-scope
-changes, then call `prox_close` on the Loopboy's own stable handle. Only the
-guarded session whose immutable contact identity matches the active route may
-self-close. Prox releases that route first, returns a shutdown receipt, and
-then closes the terminal asynchronously; Slab's terminal-population watcher
-re-tiles the remaining panes. Ordinary prompts remain unable to close the
-calling session.
+Routes in `~/.config/slab/loopboy.json` name one local session per event/source
+pair. Durable mode records under `~/.local/share/slab/state/loopboy-modes/`
+override stale launch settings. The menubar shows a glow and the verified source;
+custom sources never consume the iMessage feed. Optional expiry stops delivery
+and removes the active glow without closing the session.
+
+`prox_loopboy_wait` receives through the ordinary prox inbox. Every poll checks
+the source, binding generation, and expiry. Events pulse the rock and queue an
+update; they never type, focus a terminal, resume a process, or send a reply.
+An idle agent reads updates at its next inbox call or lifecycle hook.
+`prox_unbind_notification` leaves Loopboy mode in place and ends an active wait.
+
+See [Loopboy protocol](../docs/loopboy.md) for creation, emission, and migration.
 
 ## ZZZ — resumable prompt parking
 

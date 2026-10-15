@@ -13,18 +13,6 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-ENV_FILE="${SLACK_MCP_ENV:-$REPO/aesthetic-computer-vault/mcp/slack.env}"
-
-if [ ! -r "$ENV_FILE" ]; then
-  echo "slack-mcp: cannot read $ENV_FILE" >&2
-  echo "  vault locked?  fish $REPO/aesthetic-computer-vault/vault-tool.fish unlock" >&2
-  exit 1
-fi
-
-set -a
-# shellcheck disable=SC1090
-. "$ENV_FILE"
-set +a
 
 # The global install lives under whichever node fnm currently defaults to, so
 # glob rather than hardcode the version. SLACK_MCP_BIN overrides.
@@ -43,4 +31,4 @@ if [ -z "$BIN" ]; then
   exit 1
 fi
 
-exec "$BIN" --transport stdio "$@"
+exec node "$REPO/toolchain/vault/launch.mjs" slack "$BIN" --transport stdio "$@"

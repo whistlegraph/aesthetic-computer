@@ -25,17 +25,11 @@ import { fileURLToPath } from "node:url";
 
 import { httpPort, serveHttp, serveStdio } from "../toolchain/mcp/http-front.mjs";
 import { shortWhen, toon } from "../shared/toon.mjs";
+import { registryCandidates } from "../toolchain/fleet/registry.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOME = homedir();
 const REPO = join(HERE, "..");
-const FLEET_REGISTRIES = [
-  process.env.FLEET_MACHINES,
-  join(HOME, "aesthetic-computer-vault", "machines.normalized.json"),
-  join(HOME, "aesthetic-computer-vault", "machines.json"),
-  join(REPO, "aesthetic-computer-vault", "machines.normalized.json"),
-  join(REPO, "aesthetic-computer-vault", "machines.json"),
-].filter(Boolean);
 const PUPPET_REGISTRY =
   process.env.SLAB_PUPPET_CONFIG || join(HOME, ".config", "slab", "puppet.json");
 const LEDGER_LOCAL = join(HOME, ".config", "slab", "ledger", "local.json");
@@ -58,7 +52,7 @@ function localHostName() {
 }
 
 function loadFleet() {
-  for (const path of FLEET_REGISTRIES) {
+  for (const path of registryCandidates()) {
     const data = readJson(path);
     const machines = data?.machines || data;
     if (machines && typeof machines === "object") return { path, machines };

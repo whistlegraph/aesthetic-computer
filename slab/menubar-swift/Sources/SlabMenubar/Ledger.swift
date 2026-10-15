@@ -63,6 +63,7 @@ struct Ledger: Codable {
     var ip: String
     var updatedAt: Double
     var entries: [LedgerEntry]
+    var loopboyProtocol: Int?
 }
 
 final class LedgerStore {
@@ -196,6 +197,17 @@ final class LedgerStore {
            loopboyContact.range(of: "^[a-z0-9_-]{1,40}$", options: .regularExpression) == nil {
             return ["ok": false, "error": "loopboyContact must be a short contact key"]
         }
+        let loopboy: [String: Any]?
+        if let requested = body["loopboy"] {
+            guard let declaration = requested as? [String: Any],
+                  let valid = LoopboyRoutes.binding(declaration),
+                  loopboyContact.isEmpty || valid["contact"] as? String == loopboyContact else {
+                return ["ok": false, "error": "invalid, conflicting, or expired Loopboy event/source declaration"]
+            }
+            loopboy = valid
+        } else {
+            loopboy = loopboyContact.isEmpty ? nil : LoopboyRoutes.binding(["contact": loopboyContact])
+        }
 
         let requested = (body["cwd"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             ?? Paths.acRepo
@@ -233,7 +245,7 @@ final class LedgerStore {
 
         var command: String
         let nudgeScreen = ""
-        if !loopboyContact.isEmpty {
+        if let loopboy = loopboy {
             // Keep Loopboys on the real Terminal PTY. GNU Screen forwards
             // Terminal focus-report sequences (ESC [ I / ESC [ O) as literal
             // Codex input, corrupting the prompt whenever focus changes. Slab
@@ -241,7 +253,9 @@ final class LedgerStore {
             // No terminal input injection is supported.
             command = "cd \(shellQuote(cwd)) && "
                 + "exec env SLAB_TERMINAL_TTY=$(basename \"$(tty)\") "
-                + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboyContact)) "
+                + "SLAB_LOOPBOY_CONTACT=\(shellQuote(loopboy["contact"] as? String ?? "")) "
+                + "SLAB_LOOPBOY_EVENT=\(shellQuote(loopboy["event"] as? String ?? "")) "
+                + "SLAB_LOOPBOY_SOURCE=\(shellQuote(loopboy["source"] as? String ?? "")) "
                 + "\(shellQuote(binary))"
         } else {
             command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
@@ -297,7 +311,7 @@ final class LedgerStore {
         let by = String(((body["by"] as? String) ?? "prox").prefix(100))
         NSLog("🪨 [ledger] %@ launched %@ in %@", by, agent, cwd)
         return ["ok": true, "host": selfIdentity().host, "agent": agent, "cwd": cwd,
-                "loopboyContact": loopboyContact, "nudgeScreen": nudgeScreen]
+                "loopboyContact": loopboyContact, "loopboy": loopboy ?? [:], "nudgeScreen": nudgeScreen]
     }
 
     /// Neo is the seat's 8 GB controller. Parallel compilers drive it deeply
@@ -452,7 +466,7 @@ final class LedgerStore {
 
         let ledger = Ledger(host: selfHost, ip: selfIP,
                             updatedAt: Date().timeIntervalSince1970 * 1000,
-                            entries: entries)
+                            entries: entries, loopboyProtocol: 2)
         guard let data = try? encoder.encode(ledger) else { return }
         try? data.write(to: URL(fileURLWithPath: Self.localFile), options: [.atomic])
         recordHistory(entries)

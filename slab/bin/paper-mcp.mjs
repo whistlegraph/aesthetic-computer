@@ -21,6 +21,7 @@ import { promisify } from "node:util";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { createSourceBundle } from "../../papers/source-bundle.mjs";
 import { toon } from "../../shared/toon.mjs";
+import { vaultRoot } from "../../toolchain/vault/credentials.mjs";
 
 const pexec = promisify(execFile);
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -29,7 +30,6 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 // operations at that worktree without copying or executing unreviewed tools
 // from it.
 const REPO = resolve(process.env.PAPER_REPO || resolve(SCRIPT_DIR, "../.."));
-const DEFAULT_VAULT = resolve(REPO, "../aesthetic-computer-vault");
 const SKIP_DIRS = new Set([".git", "node_modules", "figures", "logos", "data", "tools", "build", "dist"]);
 const SOURCE_EXTS = new Set([".tex", ".md"]);
 const PAPER_EXTS = new Set([".tex", ".md", ".pdf"]);
@@ -48,22 +48,11 @@ async function exists(path) {
 }
 
 async function configuredRoots() {
-  // Fleet layouts differ: neo uses the sibling vault; blueberry keeps the
-  // same checkout nested beneath aesthetic-computer. Prefer explicit config,
-  // then nested, then sibling. realpath de-duplicates symlinked views.
-  const vaultCandidates = [
-    process.env.AC_VAULT,
-    join(REPO, "aesthetic-computer-vault"),
-    DEFAULT_VAULT,
-  ].filter(Boolean).map((path) => resolve(path));
-  let vault = vaultCandidates[0] || DEFAULT_VAULT;
-  for (const candidate of vaultCandidates) {
-    if (await exists(candidate)) { vault = candidate; break; }
-  }
+  const vault = vaultRoot({ repo: REPO });
   const roots = [{ scope: "public", path: join(REPO, "papers") }];
   if (process.env.PAPER_DISABLE_VAULT !== "1") {
-    roots.push(
-      { scope: "private", path: join(REPO, "papers-private") },
+    roots.push({ scope: "private", path: join(REPO, "papers-private") });
+    if (vault) roots.push(
       { scope: "vault", path: join(vault, "papers-private") },
       { scope: "fuser", path: join(vault, "fuser", "papers") },
     );

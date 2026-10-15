@@ -34,6 +34,24 @@ assert(LoopboyRoutes.verifiedContact(for: session) == nil)
 write(["loops": ["fia": ["sessionId": id]]], Paths.loopboyConfig)
 try! Data("broken".utf8).write(to: URL(fileURLWithPath: modeFile))
 assert(LoopboyRoutes.verifiedContact(for: session) == nil)
+// Custom sources have their own namespace, label and generation.
+let custom: [String: Any] = ["event": "fishery", "source": "studio", "contact": "", "bindingId": "one"]
+var customMode = custom
+customMode["sessionId"] = id
+write(customMode, modeFile)
+var customRoute = customMode
+write(["loops": ["fishery:studio": customRoute]], Paths.loopboyConfig)
+assert(LoopboyRoutes.verifiedContact(for: session) == "fishery:studio")
+assert(LoopboyRoutes.all()["fishery:studio"]?.channel == "fishery")
+customRoute["bindingId"] = "two"
+write(["loops": ["fishery:studio": customRoute]], Paths.loopboyConfig)
+assert(LoopboyRoutes.verifiedContact(for: session) == nil)
+customRoute["bindingId"] = "one"
+customRoute["expiresAt"] = "2000-01-01T00:00:00Z"
+write(["loops": ["fishery:studio": customRoute]], Paths.loopboyConfig)
+assert(LoopboyRoutes.verifiedContact(for: session) == nil)
+assert(LoopboyRoutes.binding(["event": "fishery", "source": "../studio"]) == nil)
+assert(LoopboyRoutes.binding(["event": "fishery", "source": "studio", "contact": "fia"]) == nil)
 print("Loopboy mode: in-place adoption, durable exit, stale flags, route identity and channel checks passed")
 SWIFT
 swift "$probeDir/check.swift" "$probeDir"
@@ -41,7 +59,7 @@ swift "$probeDir/check.swift" "$probeDir"
 python3 - "$root/Sources/SlabMenubar/AppDelegate.swift" <<'PY'
 import pathlib,sys
 s=pathlib.Path(sys.argv[1]).read_text()
-handler=s.split('private func bumpBoundProx(',1)[1].split('private func ttyForSession',1)[0]
+handler=s.split('private func bumpBoundProx(',1)[1].split('/// Stable Loopboy bindings',1)[0]
 assert 'queueInbox(' in handler and 'pokeLocal(' in handler
 for forbidden in ['wakeTerminal(', 'wakeEasel(', 'typePromptWithCGEvents(', 'focusTerminal(', 'flyPrompt(', 'asyncAfter', 'screen']:
  assert forbidden not in handler, forbidden

@@ -86,7 +86,7 @@ it never focuses, pastes, or signals anything.
   The clock is the receiver's local zone, the moment is `ts` (send time), `now`
   only fills in for a line without one. An urgent message adds `· urgent` before
   the reply hint. The `reply:` hint appears for any real sender and is left off
-  the anonymous `<host>:prox` fallback. Every body line is indented under `│`, so
+  the anonymous `<host>:prox` fallback and `loopboy:` event sources. Every body line is indented under `│`, so
   no line of a body can pass for a second `[inbox from …]` header, and the
   sender label is stripped of newlines, quotes and brackets. `from` is still
   self-reported — `/send` is unauthenticated.
@@ -99,7 +99,7 @@ it never focuses, pastes, or signals anything.
   is sent. `from` defaults to the calling session's own `host:name`, else
   `<host>:prox`; `by` overrides. The result echoes what the receiver will see,
   and for a file drop to a session that is not mid-turn says it is read at its
-  next prompt (`prox_wake` to nudge). `prox_inbox { handle?, consume? }` peeks
+  next hook or `prox_receive` call. A queued receipt does not mean the agent has read the message. `prox_inbox { handle?, consume? }` peeks
   (or drains) a local session's queue; without `handle` it uses the caller's own.
 - Who is calling. prox runs as one shared HTTP daemon, so its own env says
   nothing about a caller. In order: the `x-slab-prompt-session-id` header a
@@ -111,8 +111,48 @@ it never focuses, pastes, or signals anything.
 - CLI: `node slab/bin/prox-inbox.mjs deliver <session_id> --from host:name --text "..." [--urgency urgent]`,
   `peek <id> [--stamped]`, `drain <id> [--stamped]`.
 
+## receiving without terminal input
+
+Use `prox_send {handle, text}` to send and `prox_receive {timeoutSeconds: 30}`
+to wait in the receiving agent. The wait consumes only the calling session’s
+inbox and returns through MCP; it needs no Loopboy binding and works for
+Claude, Codex, and Aesel. The maximum wait is 55 seconds. When a reply matters,
+keep receiving until the peer acknowledges it. A sender’s file receipt proves
+queueing, not reading. Clients with cached tool lists can use `prox_inbox`.
+
+An idle agent that is not waiting receives at its next lifecycle hook or inbox
+call. Slab never resumes it by submitting user input. `prox_wake` is retained
+only as an inbox alias for old MCP clients. Direct `POST /wake` requests are
+rejected by the menubar; its keyboard and Screen/PTY wake code is removed.
+`prox_artifact_ready {handle, artifacts}` queues completed paths through the
+same inbox, including notifications from Paper MCP.
+
 ## the rule
+
+[Loopboy event sources](loopboy.md) add a declared subscription to this same
+inbox. `prox_launch` accepts the binding at creation, and arbitrary watcher code
+publishes through `prox_loopboy_emit`. Existing sessions can enter or leave the
+mode without replacing their process or conversation.
 
 No keystroke injection. A consumer takes messages at a turn boundary (hook
 drain of `messages.jsonl`) or over its own `inbox.sock`; a sender never
 touches the receiving terminal.
+
+
+## deployment
+
+On a Mac with an existing prox launch agent, run
+`python3 slab/bin/install-prox-inbox.py`. It installs a versioned MCP release,
+restarts only prox, checks its tool list, and updates the Slab communication
+rule in the user’s Claude and Codex instructions. It preserves other settings
+and does not install or trust lifecycle hooks. Install the updated menubar too
+to retire `/wake` at the receiver; `deploy-host.sh` accepts `SLAB_PREBUILT` so
+one guarded release build can serve the fleet.
+
+The 2026-10-08 rollout installed both services on Blueberry, Neo, Frisbee,
+Panda, Chicken, and Poorslice. Each host passed an isolated inbox send/receive
+check and rejected `/wake`; Blueberry also sent through `prox_send` to test
+inboxes on each of the five peers and received matching file receipts.
+Jasellite’s headless worker was upgraded to support `/send`, with write access
+limited to its inbox directory; its queued receipt, drain, and refusal of
+`/wake` were verified separately. It has no terminal wake path.

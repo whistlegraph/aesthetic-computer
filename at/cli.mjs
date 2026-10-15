@@ -6,14 +6,20 @@
 // Follows the same pattern as memory/cli.mjs and papers/cli.mjs.
 
 import { config } from "dotenv";
+import { requireCredentials, vaultRoot } from "../toolchain/vault/credentials.mjs";
 import { dirname, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 // Credentials: at/.env when devault.fish has copied one here, otherwise the
 // vault's own copy. dotenv never overrides a key that is already set, so the
 // first file found wins and the shell environment beats both.
 const here = dirname(fileURLToPath(import.meta.url));
-config({ path: resolvePath(here, ".env") });
-config({ path: resolvePath(here, "../vault/at/.env") });
+const vault = vaultRoot();
+// The MCP's Bluesky post path resolves only its scoped credential pair below.
+// Other AT administration commands retain their existing PDS configuration.
+if (process.argv[2] !== "post") {
+  if (!process.env.AC_VAULT) config({ path: resolvePath(here, ".env") });
+  if (vault) config({ path: resolvePath(vault, "at/.env") });
+}
 
 const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
 // Two endpoints, not one. Reads go to the unauthenticated AppView; writes go
@@ -226,9 +232,10 @@ async function commandPosts(args) {
 async function commandPost(args) {
   const text = requireArg(args, 1, "text");
 
-  const identifier = process.env.BSKY_IDENTIFIER;
-  const appPassword = process.env.BSKY_APP_PASSWORD;
-  const service = process.env.BSKY_SERVICE || "https://bsky.social";
+  const { values } = requireCredentials("bluesky");
+  const identifier = values.BSKY_IDENTIFIER;
+  const appPassword = values.BSKY_APP_PASSWORD;
+  const service = values.BSKY_SERVICE || "https://bsky.social";
 
   if (!identifier || !appPassword) {
     console.error(

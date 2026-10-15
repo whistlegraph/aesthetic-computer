@@ -26,11 +26,64 @@ nameservers to Cloudflare. After that a new host is one API call.
    PORKBUN_SECRET_API_KEY=sk1_…
    ```
 
-3. **Cloudflare** uses the account-wide Global API Key already in the vault
-   (`CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY`). `cloudflare.mjs` looks through
-   the same candidate env files `lith/deploy.fish` does, since no single one has
-   ever been canonical.
+3. **Cloudflare** accepts `CLOUDFLARE_API_TOKEN` or the existing
+   `CLOUDFLARE_EMAIL` + `CLOUDFLARE_API_KEY` pair. Both clients automatically
+   resolve credentials through `toolchain/vault/credentials.mjs`.
 4. **Verify:** `npm run domain ping` → prints your IP.
+
+## MCP and vault discovery
+
+Install only the domain daemon without restarting other MCPs:
+
+```bash
+bash toolchain/mcp/install-daemons.sh domains
+```
+
+This registers `domains` in Claude and Codex and serves it on loopback port
+7782. A client may need to reconnect or start a new session to discover the
+tools. Without launchd, run `node toolchain/domains/domains-mcp.mjs` over stdio.
+
+- `vault_status` reports registered credential availability and source, never values; `domains_vault_status` limits this to Cloudflare and Porkbun.
+- `domains_inspect` reads Cloudflare records, public delegation, and .com/.net registrar metadata.
+- `domains_dns_set` previews one A/AAAA/CNAME change; `apply: true` writes it.
+- `domains_porkbun_nameservers` reads delegation for a Porkbun-held domain.
+
+Credentials are loaded inside the server on each call, so rotations take effect
+without copying keys into MCP configuration or conversations. Process environment
+credentials take precedence. `AC_VAULT` explicitly selects a vault; otherwise the
+resolver checks the checkout's nested vault, `vault` alias, sibling vault, then
+the home-directory vault. Explicit overrides never fall through to another vault.
+
+Cloudflare checks `cloudflare.env`, `cloudflare/.env`, `feed/.env`, `lith/.env`,
+the root `.env`, and the historical deploy env files listed in the resolver.
+Porkbun checks `porkbun.env`, `porkbun/.env`, and the root `.env`. Credential pairs
+come from one source; an incomplete process-environment override is reported
+instead of mixing accounts. Encrypted-only files report `locked`: these tools
+do not launch pinentry or decrypt/export the vault. Client folders are not scanned.
+
+The shared resolver also serves Frame and Illy (OpenAI/fal), AC web search (Exa),
+Slack, Instagram's four named accounts, X's two named accounts, Bluesky, and
+DMGify's Apple notarization credentials. Social discovery and provider calls use
+the same account registry. Slack's launcher parses dotenv as data instead of
+sourcing it as shell code; only registered credentials and its existing message
+tool setting enter the child process. Account pairs cannot be assembled across
+different files or partial environment overrides.
+
+Analytics uses the same vault root for its Lith SSH and encrypted App Store key
+paths. Fleet, Memory, and Papers share root resolution too. Mail's remote
+credentials, AC session tokens, browser/OS permissions, and external OAuth
+connections keep their existing authentication mechanisms.
+
+For new credential-backed MCPs, add an explicit service entry to the shared
+resolver and use `requireCredentials(service)` inside the provider client.
+Return `credentialStatus(service)` for discovery. Never serialize `.values`, add
+arbitrary secret-read tools, or accept caller-selected authenticated URLs.
+
+An active Cloudflare zone does **not** establish that the registrar delegates to
+it. Compare assigned nameservers with public DNS and registry metadata. Updating
+NS records inside the zone cannot repair parent delegation at another registrar.
+
+Validation: `node --test toolchain/vault/*.test.mjs toolchain/domains/domains.test.mjs toolchain/mcp/ac-web-search/search.test.mjs`.
 
 ## Commands
 
