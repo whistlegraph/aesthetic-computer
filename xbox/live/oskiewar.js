@@ -12663,13 +12663,15 @@ const bulletTrailStride = 4;
 
 function recordBulletTrail(bullet) {
   if (!bullet.trail) {
-    // One allocation at birth, never per frame.
-    bullet.trail = new Array(bulletTrailPoints * 2).fill(0);
+    // One allocation at birth, never per frame. Three numbers a point: a
+    // round aimed off the fight's plane drew its ghost flattened onto it.
+    bullet.trail = new Array(bulletTrailPoints * 3).fill(0);
     bullet.trailCount = 0;
   }
-  const slot = (bullet.trailCount % bulletTrailPoints) * 2;
+  const slot = (bullet.trailCount % bulletTrailPoints) * 3;
   bullet.trail[slot] = bullet.x;
   bullet.trail[slot + 1] = bullet.y;
+  bullet.trail[slot + 2] = bullet.z || 0;
   bullet.trailCount++;
 }
 
@@ -12860,6 +12862,13 @@ function updateBullets(dt, now, combat = true) {
     // spanning a ricochet would cut the corner straight through the wall.
     if (bullet.vx !== enteredVx || bullet.vy !== enteredVy ||
         bullet.trailTick === undefined) {
+      if (bullet.trailTick !== undefined) {
+        // Where and when it struck, for paint's ricochet flash; a round's
+        // ricochet pings (a glob's bounce has its own sound above).
+        bullet.bounceAt = now;
+        bullet.bounceX = bullet.x; bullet.bounceY = bullet.y; bullet.bounceZ = bullet.z || 0;
+        if (!bullet.spit) playDrum("hat", .5, panAt(bullet.x, bullet.z));
+      }
       bullet.trailTick = 0;
       recordBulletTrail(bullet);
     } else if (++bullet.trailTick % bulletTrailStride === 0)
@@ -21734,7 +21743,7 @@ function spawnRevolverFx(player, now, shot) {
     const out = 4 + i * 8 + rand() * 4, push = 190 - i * 32;
     revolverSmoke.push({ x: mx + ax * out, y: my + ay * out, z: mz + az * out,
       vx: ax * push + (rand() - .5) * 50, vy: ay * push - 20 - rand() * 40, vz: az * push + (rand() - .5) * 50,
-      age: 0, life: .7 + i * .1 + rand() * .2, size: 5 + i * 1.5, grow: 20 + i * 5 + rand() * 6 });
+      age: 0, life: .7 + i * .1 + rand() * .2, size: 3 + i, grow: 10 + i * 2.5 + rand() * 4 });
   }
   while (revolverSmoke.length > 40) revolverSmoke.shift();
   // A spent case leaves the top of the cylinder, up and back over the hand.
@@ -21751,6 +21760,27 @@ function spawnRevolverFx(player, now, shot) {
 // do, so a floor or hill strip in front of its true depth can't cut it.
 function standAtFloorEdge(x, y) {
   if (!poolOnly()) triangleDepth = Math.min(triangleDepth, projectPoint(x, y, worldNear + 2).z);
+}
+// A small thing's spot on the floor or the hill straight under it
+// (terrainFloorAt), tightening as it nears the ground, drawn a hair behind the
+// thing itself. A round's height over the ground is what places it in the
+// room when it bounces about in 3D; the spot shadows the fighters cast sit at
+// their own depth and a hill in front of that hid this one.
+function drawGroundSpot(x, y, z, radius) {
+  if (poolOnly()) return;
+  const ground = terrainFloorAt(x, z) - 1, height = ground - y;
+  if (!(height > -4) || height > 2600) return;
+  const r = radius * (1.25 - .65 * clamp(height / 1600, 0, 1)), ink = mixColor([18, 20, 30], [86, 88, 98], visualTheme.light);
+  if (cameraDoll.toView({ x, y: ground, z }).z < cameraNear + r) return;
+  const saved = triangleDepth, centre = projectPoint(x, ground, z);
+  triangleDepth = saved + 4e-4;
+  let last = projectPoint(x + r, ground, z);
+  for (let side = 1; side <= 10; side++) {
+    const a = side * Math.PI / 5, next = projectPoint(x + Math.cos(a) * r, ground, z + Math.sin(a) * r * .8);
+    screenTriangle(centre.x, centre.y, last.x, last.y, next.x, next.y, ...ink);
+    last = next;
+  }
+  triangleDepth = saved;
 }
 // A puff swells fast, then thins: it shrinks as it pales toward the room.
 function drawRevolverPuff(puff) {
@@ -21772,6 +21802,7 @@ function drawRevolverBrass(shell) {
   const segment = worldSegment(shell.x - ax, shell.y - ay, shell.z, shell.x + ax, shell.y + ay, shell.z);
   if (!segment) return;
   standAtFloorEdge(shell.x, shell.y);
+  if (shell.restAt < 0) drawGroundSpot(shell.x, shell.y, shell.z, 6);
   const k = projectionScaleAt(shell), glint = .5 + .5 * Math.sin(shell.angle * 2);
   filledCapsule(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
     Math.max(1.6, 4.4 * k * fade), [64, 44, 18]);
@@ -25622,27 +25653,69 @@ function drawBullet(bullet) {
     filledDisc(previous.x, previous.y, radius * .25, trail);
     return;
   }
-  drawBulletTrail(bullet, trail, scale);
+  // Rounds stand at the floor's near edge like the fighters, so the floor or
+  // the hill in front of a low round can't cut it. Every streak is a world
+  // segment cut at the lens, so a round passing close never flips or pops,
+  // and it is sized by the lens's own scale at the round, not the stage's.
+  const savedDepth = triangleDepth;
+  standAtFloorEdge(bullet.x, bullet.y);
+  const k = projectionScaleAt(bullet), z = bullet.z || 0;
+  drawGroundSpot(bullet.x, bullet.y, z, 15);
+  drawBulletTrail(bullet, trail, k);
+  drawRicochetFlash(bullet, k);
   if (bullet.laser) {
     // Drawn as the stride itself: at 9,600 units a second the gap between two
     // frames IS the beam, so a wide cyan sheath over a white core along that
     // gap is the whole shot. No round cap at the tip — a bolt has a leading
     // edge, not a head.
-    filledCapsule(previous.x, previous.y, point.x, point.y,
-      Math.max(1.2, 9 * scale), trail);
-    filledCapsule(previous.x, previous.y, point.x, point.y,
-      Math.max(.6, 3.5 * scale), core);
+    const beam = worldSegment(bullet.previousX ?? bullet.x, bullet.previousY ?? bullet.y,
+      bullet.previousZ ?? z, bullet.x, bullet.y, z);
+    if (beam) {
+      filledCapsule(beam.from.x, beam.from.y, beam.to.x, beam.to.y, Math.max(1.2, 9 * k), trail);
+      filledCapsule(beam.from.x, beam.from.y, beam.to.x, beam.to.y, Math.max(.6, 3.5 * k), core);
+    }
+    triangleDepth = savedDepth;
     return;
   }
-  // A dark rim around the tracer and the round: the core blinks white, and
-  // white on a pale arena was a bullet you could not see.
-  const rim = [22, 24, 34];
-  filledCapsule(previous.x, previous.y, point.x, point.y,
-    Math.max(1.6, (bullet.rubber ? 9 : 8) * scale), rim);
-  filledCapsule(previous.x, previous.y, point.x, point.y,
-    Math.max(.9, (bullet.rubber ? 6 : 5) * scale), trail);
-  filledDisc(point.x, point.y, Math.max(2, 13 * scale), rim);
-  filledDisc(point.x, point.y, Math.max(1.4, 10 * scale), core);
+  // The tracer: a streak a few frames long laid back along the round's
+  // velocity in the world, hottest at the head, so which way it is going
+  // reads however the lens looks at it. A dark rim round it all: the core
+  // blinks white, and white on a pale arena was a bullet you could not see.
+  const speed = Math.hypot(bullet.vx, bullet.vy, bullet.vz || 0) || 1, reach = clamp(speed * .045, 50, 150);
+  const ux = bullet.vx / speed, uy = bullet.vy / speed, uz = (bullet.vz || 0) / speed;
+  const streak = worldSegment(bullet.x - ux * reach, bullet.y - uy * reach, z - uz * reach, bullet.x, bullet.y, z);
+  const hot = worldSegment(bullet.x - ux * reach * .4, bullet.y - uy * reach * .4, z - uz * reach * .4,
+    bullet.x, bullet.y, z);
+  if (streak) {
+    const rim = [22, 24, 34], { from, to } = streak;
+    filledCapsule(from.x, from.y, to.x, to.y, Math.max(1.6, (bullet.rubber ? 9 : 8) * k), rim);
+    filledCapsule(from.x, from.y, to.x, to.y, Math.max(.9, (bullet.rubber ? 6 : 5) * k), trail);
+    if (hot) filledCapsule(hot.from.x, hot.from.y, hot.to.x, hot.to.y, Math.max(.8, 3 * k), core);
+    if (cameraDoll.toView(bullet).z >= cameraNear) {
+      filledDisc(to.x, to.y, Math.max(2, 12 * k), rim);
+      filledDisc(to.x, to.y, Math.max(1.4, 9 * k), core);
+    }
+  }
+  triangleDepth = savedDepth;
+}
+
+// Where a round struck the floor, the hill or a wall: a ring that opens and
+// sparks thrown the way it left, for a fifth of a second, drawn off the sim's
+// own record of the bounce (bounceAt), so a rewind redraws it where it was.
+function drawRicochetFlash(bullet, k) {
+  const age = (runtime().monotonicUs - (bullet.bounceAt ?? -1e12)) / 1e6;
+  if (!(age >= 0 && age < .2)) return;
+  const x = bullet.bounceX, y = bullet.bounceY, z = bullet.bounceZ || 0;
+  if (cameraDoll.toView({ x, y, z }).z < cameraNear) return;
+  const p = projectPoint(x, y, z), q = projectPoint(x + bullet.vx * .01, y + bullet.vy * .01, z + (bullet.vz || 0) * .01);
+  if (!Number.isFinite(p.x + p.y + q.x + q.y)) return;
+  const t = age / .2, r = (8 + 30 * t) * k, out = Math.atan2(q.y - p.y, q.x - p.x);
+  filledRing(p.x, p.y, r, r - Math.max(1, 4 * k * (1 - t)), mixColor([255, 250, 214], [255, 150, 60], t));
+  for (let i = 0; i < 5; i++) {
+    const a = out + (i - 2) * .42, reach = (12 + 30 * t) * k * (i % 2 ? .65 : 1);
+    filledCapsule(p.x + Math.cos(a) * reach * .3, p.y + Math.sin(a) * reach * .3,
+      p.x + Math.cos(a) * reach, p.y + Math.sin(a) * reach, Math.max(1, 2.6 * k * (1 - t)), [255, 226, 130]);
+  }
 }
 
 // The ghost of where a round has been. Walked oldest to newest so the fade
@@ -25656,38 +25729,29 @@ function drawBullet(bullet) {
 // worst case at 528, and a trail wants no round caps anyway.
 function drawBulletTrail(bullet, ink, scale) {
   const stored = Math.min(bullet.trailCount || 0, bulletTrailPoints);
-  if (stored < 2) return;
+  // A replay from before the trail kept depth carries two numbers a point.
+  if (stored < 2 || bullet.trail?.length !== bulletTrailPoints * 3) return;
   // The same leash the camera uses. A round that has sailed out of the fight
   // is off screen, and its ghost should not be paid for either.
   if (!players.some((player) =>
     Math.abs(bullet.x - player.x) < 5200 &&
     Math.abs(bullet.y - player.y) < 5200)) return;
   const ground = mixColor([7, 8, 28], [230, 239, 247], visualTheme.light);
-  const oldest = (bullet.trailCount || 0) - stored;
-  let previous = null;
-  for (let step = 0; step < stored; step++) {
-    const slot = ((oldest + step) % bulletTrailPoints) * 2;
-    const here = projectPoint(bullet.trail[slot], bullet.trail[slot + 1],
-      bullet.z);
-    if (previous) {
-      // Newer segments carry more of the tracer's weight and colour, so the
-      // tail thins toward nothing rather than stopping on a hard edge.
-      const age = step / stored;
-      const radius = Math.max(.4, (bullet.rubber ? 3 : 2.2) * scale * age) / 2;
-      const dx = here.x - previous.x;
-      const dy = here.y - previous.y;
-      const length = Math.hypot(dx, dy);
-      if (length > .001) {
-        const nx = -dy / length * radius;
-        const ny = dx / length * radius;
-        const [r, g, b] = mixColor(ground, ink, .18 + age * .55);
-        screenTriangle(previous.x + nx, previous.y + ny,
-          previous.x - nx, previous.y - ny, here.x + nx, here.y + ny, r, g, b);
-        screenTriangle(previous.x - nx, previous.y - ny,
-          here.x - nx, here.y - ny, here.x + nx, here.y + ny, r, g, b);
-      }
-    }
-    previous = here;
+  const oldest = (bullet.trailCount || 0) - stored, T = bullet.trail;
+  for (let step = 1; step < stored; step++) {
+    const a = ((oldest + step - 1) % bulletTrailPoints) * 3, b = ((oldest + step) % bulletTrailPoints) * 3;
+    const segment = worldSegment(T[a], T[a + 1], T[a + 2], T[b], T[b + 1], T[b + 2]);
+    if (!segment) continue;
+    // Newer segments carry more of the tracer's weight and colour, so the
+    // tail thins toward nothing rather than stopping on a hard edge.
+    const age = step / stored, { from, to } = segment;
+    const radius = Math.max(.4, (bullet.rubber ? 3 : 2.2) * scale * age) / 2;
+    const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy);
+    if (length <= .001) continue;
+    const nx = -dy / length * radius, ny = dx / length * radius;
+    const [r, g, bl] = mixColor(ground, ink, .18 + age * .55);
+    screenTriangle(from.x + nx, from.y + ny, from.x - nx, from.y - ny, to.x + nx, to.y + ny, r, g, bl);
+    screenTriangle(from.x - nx, from.y - ny, to.x - nx, to.y - ny, to.x + nx, to.y + ny, r, g, bl);
   }
 }
 
@@ -25716,6 +25780,7 @@ function drawGrenade(grenade) {
     revolverUp.x = sn; revolverUp.y = -c; revolverUp.z = 0;
     const o = { x: grenade.x - c * 14 - sn * 4, y: grenade.y - sn * 14 + c * 4, z };
     const pin = poolOnly() ? NaN : Math.min(triangleDepth, projectPoint(grenade.x, grenade.y, worldNear + 2).z);
+    if (pin === pin) { const saved = triangleDepth; triangleDepth = pin; drawGroundSpot(grenade.x, grenade.y, z, 26); triangleDepth = saved; }
     drawRevolver(o, revolverAxis, revolverUp, gunsOnlyAmmo - Math.min(gunsOnlyAmmo, grenade.ammo || 0), 1e12, pin);
     return;
   }
