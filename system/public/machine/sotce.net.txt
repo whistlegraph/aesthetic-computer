@@ -1,8 +1,8 @@
 # Sotce Net
 
-> Sotce's writing and community.
+> Sotce's writing, diary pages and community.
 
-Only the public landing page is described here. Subscriber pages, account records, chats, device identities and push notifications are not public machine resources. Sign-in and subscription boundaries still apply.
+Public landing page. Member content follows the site's sign-in and subscription requirements.
 
 ## Resources
 

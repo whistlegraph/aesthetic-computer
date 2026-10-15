@@ -24,8 +24,8 @@ import { startPapersBuild, getPapersBuild, getPapersBuildsSummary, cancelPapersB
 import { startPoller as startPapersGitPoller, getPollerStatus as getPapersPollerStatus } from './papers-git-poller.mjs';
 import { startPaperCrunch, getPaperCrunch, getPaperCrunchesSummary, getPaperCrunchPdf, cancelPaperCrunch, CRUNCH_LIMITS } from './paper-crunch.mjs';
 import { startRecapBuild, getRecapBuild, getRecapBuildsSummary, cancelRecapBuild, getRecapMp4Path } from './recap-builder.mjs';
-import { startOskiewarReel, getOskiewarReel, getOskiewarReels,
-  getOskiewarReelFile, cancelOskiewarReel } from './oskiewar-reel-builder.mjs';
+const oskiewarReels = fs.existsSync(new URL('./oskiewar-reel-builder.mjs', import.meta.url))
+  ? await import('./oskiewar-reel-builder.mjs') : null;
 import { startPoller as startRecapGitPoller, getPollerStatus as getRecapPollerStatus } from './recap-git-poller.mjs';
 import { join, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
@@ -4163,6 +4163,9 @@ app.post('/recap-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
 // Remote-only rendering. Oven receives a date/slot/ref, checks out that exact
 // commit, runs a latest-build bot fight, and returns gated review artifacts.
 // Instagram credentials and publication remain on the operator machine.
+if (oskiewarReels) {
+const { startOskiewarReel, getOskiewarReel, getOskiewarReels,
+  getOskiewarReelFile, cancelOskiewarReel } = oskiewarReels;
 app.get('/oskiewar-reel', requireOSBuildAdmin, (req, res) =>
   res.json(getOskiewarReels()));
 
@@ -4200,6 +4203,7 @@ app.post('/oskiewar-reel/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
   if (!result.ok) return res.status(400).json(result);
   return res.json(result);
 });
+}
 
 // ── OS Release Upload ──────────────────────────────────────────────────────
 // Accepts a vmlinuz binary + metadata, uploads to DO Spaces as OTA release.

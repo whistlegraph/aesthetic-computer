@@ -1,6 +1,6 @@
-# Laklok / Lær Klokken
+# Laklok
 
-> Clock-themed music and community on Aesthetic Computer.
+> Read along or say hi in the Aesthetic Computer community conversation.
 
 These links describe the public interfaces. Account activity, notifications and device identities are not public machine resources.
 
@@ -9,7 +9,7 @@ These links describe the public interfaces. Account activity, notifications and 
 - [Website](https://laklok.com/): Public entry point.
 - [HTML interface](https://laklok.com/html/): DOM-based alternative to the canvas piece.
 - [Piece source](https://aesthetic.computer/disks/laklok.mjs): Published implementation.
-- [Aesthetic Computer](https://aesthetic.computer/laer-klokken): The related AC piece.
+- [Aesthetic Computer](https://aesthetic.computer/laklok): The same community conversation on AC.
 
 ## Network
 

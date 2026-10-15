@@ -1366,22 +1366,22 @@ const LITH_URL = process.env.LITH_URL || "https://aesthetic.computer";
 
 app.get("/api/services/lith/stats", async (req, res) => {
   try {
-    const resp = await fetch(`${LITH_URL}/lith/stats`, { signal: AbortSignal.timeout(5000) });
-    res.json(await resp.json());
+    const resp = await fetch(`${LITH_URL}/lith/stats`, { headers: { Authorization: req.headers.authorization || "" }, signal: AbortSignal.timeout(5000) });
+    res.set("Cache-Control", "private, no-store").status(resp.status).json(await resp.json());
   } catch (err) { res.json({ status: "unreachable", error: err.message }); }
 });
 
 app.get("/api/services/lith/errors", async (req, res) => {
   try {
-    const resp = await fetch(`${LITH_URL}/lith/errors?limit=${req.query.limit || 100}`, { signal: AbortSignal.timeout(5000) });
-    res.json(await resp.json());
+    const resp = await fetch(`${LITH_URL}/lith/errors?limit=${req.query.limit || 100}`, { headers: { Authorization: req.headers.authorization || "" }, signal: AbortSignal.timeout(5000) });
+    res.set("Cache-Control", "private, no-store").status(resp.status).json(await resp.json());
   } catch (err) { res.json({ errors: [], error: err.message }); }
 });
 
 app.get("/api/services/lith/requests", async (req, res) => {
   try {
-    const resp = await fetch(`${LITH_URL}/lith/requests?limit=${req.query.limit || 100}`, { signal: AbortSignal.timeout(5000) });
-    res.json(await resp.json());
+    const resp = await fetch(`${LITH_URL}/lith/requests?limit=${req.query.limit || 100}`, { headers: { Authorization: req.headers.authorization || "" }, signal: AbortSignal.timeout(5000) });
+    res.set("Cache-Control", "private, no-store").status(resp.status).json(await resp.json());
   } catch (err) { res.json({ requests: [], error: err.message }); }
 });
 

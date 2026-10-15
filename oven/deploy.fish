@@ -1,4 +1,7 @@
 #!/usr/bin/env fish
+# The composed release transport lives in deploy.sh.
+exec bash (path dirname (status --current-filename))/deploy.sh $argv
+
 # Oven Deployment Script
 #!/usr/bin/env fish
 # Oven Deployment Script

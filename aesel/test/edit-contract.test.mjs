@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {compileEditContract,sourceChecks,validateCandidate,runEditExperiment} from '../src/edit-contract.mjs';
-import {selectedBranch} from '../../apple/whistlegraph/Resources/Web/branch-context.mjs';
+import { existsSync } from 'node:fs';
+const {selectedBranch} = existsSync(new URL('../../apple/whistlegraph/Resources/Web/branch-context.mjs', import.meta.url))
+  ? await import('../../apple/whistlegraph/Resources/Web/branch-context.mjs') : {};
 
-test('compiler preserves exact selected-branch requests, superseding edits and latest intent',()=>{
+test('compiler preserves exact selected-branch requests, superseding edits and latest intent',{skip: !selectedBranch},()=>{
   const ledger={head:3,versions:[{id:0,parent:null,source:''},{id:1,parent:0,request:'draw cats',source:''},{id:2,parent:1,request:'add unwanted branch',source:''},{id:3,parent:1,request:'keep background solid',source:'export const caption="Cats";'}]};
   const request='Make the background flash now';
   const text=compileEditContract({request,...selectedBranch(ledger),source:ledger.versions[3].source});

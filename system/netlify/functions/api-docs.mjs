@@ -2,14 +2,16 @@
 // Returns LLM-friendly documentation of public aesthetic.computer APIs
 
 import { respond } from "../../backend/http.mjs";
+import { publicProducts } from "../../../shared/public-products.mjs";
 
 export async function handler(event, context) {
   const apiDocs = {
     title: "aesthetic.computer Public API",
-    version: "1.1.0",
-    updated: "2026-08-03",
+    version: "1.2.0",
+    updated: "2026-10-14",
     description: "Supported public APIs for publishing creative work and reading public Aesthetic Computer data",
     baseURL: "https://aesthetic.computer",
+    products: publicProducts,
 
     mcp: {
       title: "MCP Server",
@@ -771,6 +773,10 @@ print(f"Watch at: https://aesthetic.computer/{data['code']}")`,
 
     relatedResources: [
       {
+        name: "Public network directory (JSON)",
+        url: "https://aesthetic.computer/network.json"
+      },
+      {
         name: "KidLisp Documentation",
         url: "https://kidlisp.com"
       },
@@ -821,6 +827,12 @@ function generateHTML(docs) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${docs.title}</title>
+  <meta name="description" content="${escapeHTML(docs.description)}">
+  <link rel="canonical" href="https://api.aesthetic.computer/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${escapeHTML(docs.title)}">
+  <meta property="og:description" content="${escapeHTML(docs.description)}">
+  <meta property="og:url" content="https://api.aesthetic.computer/">
   <link rel="icon" href="https://aesthetic.computer/favicon.ico" type="image/x-icon">
   <style>
     /* CSS Variables for theming */
@@ -873,6 +885,7 @@ function generateHTML(docs) {
       max-width: 960px;
       margin: 0 auto;
       font-size: 14px;
+      overflow-wrap: anywhere;
     }
 
     .header {
@@ -1120,6 +1133,7 @@ function generateHTML(docs) {
     <div class="version">version ${docs.version} · updated ${docs.updated}</div>
     <div class="quick-links">
       <a href="?format=json" class="btn btn-secondary">[ view json ]</a>
+      <a href="#products" class="btn btn-secondary">[ products ]</a>
       <a href="https://aesthetic.computer" class="btn">[ home ]</a>
       <a href="https://tangled.org/aesthetic.computer/core" class="btn">[ tangled ]</a>
     </div>
@@ -1161,7 +1175,7 @@ function generateHTML(docs) {
     <h2>HTTP endpoints</h2>
 
     ${docs.endpoints.map((endpoint, idx) => `
-      <div class="endpoint-card">
+      <div class="endpoint-card" id="${escapeHTML(endpoint.path.split('/').pop())}">
         <h3><span class="method">${endpoint.method}</span> ${endpoint.name}</h3>
         <p><code class="path">${docs.baseURL}${endpoint.path}</code></p>
         <p>${endpoint.description}</p>
@@ -1216,6 +1230,17 @@ function generateHTML(docs) {
           <ul>${endpoint.notes.map(note => `<li>${note}</li>`).join('')}</ul>
         ` : ''}
       </div>
+    `).join('')}
+  </div>
+
+  <div class="section" id="products">
+    <h2>Products</h2>
+    <p>Public sites and selected interfaces. Each site describes its access requirements.</p>
+    ${docs.products.map(product => `
+      <h3><a href="${escapeHTML(product.url)}">${escapeHTML(product.title)}</a></h3>
+      <p>${escapeHTML(product.summary)} ${escapeHTML(product.access)}</p>
+      ${product.resources.map(r => `<p><a href="${escapeHTML(r.url)}">${escapeHTML(r.title)}</a> — ${escapeHTML(r.description)}</p>`).join('')}
+      ${product.endpoints.map(e => `<p><a href="${escapeHTML(e.url)}"><code>${escapeHTML(e.method)} ${escapeHTML(e.url)}</code></a><br>${escapeHTML(e.description)} Authentication: ${escapeHTML(e.authentication)}.</p>`).join('')}
     `).join('')}
   </div>
 

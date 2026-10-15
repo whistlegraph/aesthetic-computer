@@ -20,6 +20,7 @@ import { getCommandDescription } from "../../public/aesthetic.computer/lib/promp
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isPrivateProductPiece } from "../../../shared/private-product-paths.mjs";
 const dev = process.env.CONTEXT === "dev";
 const { keys } = Object;
 
@@ -87,6 +88,7 @@ function scanAutoPieces() {
     const ext = path.extname(file);
     if (ext !== ".mjs" && ext !== ".lisp") continue;
     const name = file.slice(0, -ext.length);
+    if (isPrivateProductPiece(name)) continue;
     let src = "";
     try {
       src = fs.readFileSync(path.join(DISKS_DIR, file), "utf8");
@@ -110,6 +112,9 @@ function scanAutoPieces() {
 }
 
 function mergeAutoPieces(curated) {
+  for (const name of Object.keys(curated)) {
+    if (isPrivateProductPiece(name)) delete curated[name];
+  }
   const auto = scanAutoPieces();
   for (const name in auto) {
     if (!curated[name]) curated[name] = auto[name];
@@ -3613,6 +3618,11 @@ void draw() {
     },
     // 🧩 Pieces that can be entered into the prompt.
     pieces: {
+      aa: {
+        sig: "aa",
+        desc: "Private assistant bridge.",
+        hidden: true,
+      },
       404: {
         sig: "404",
         desc: "",

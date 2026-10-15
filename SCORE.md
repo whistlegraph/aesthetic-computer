@@ -167,6 +167,14 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 
 ### Architecture
 
+**Private products** — `sotce-net`, `choir`, `mime` (including the retiring
+Whistlegraph app), `oskiewar`, and `nopaint` (No Paint / NeoPaint) live in
+`aesthetic-computer-vault/products/`.
+Original paths are ignored local links. Commit product edits in the vault;
+keep the runtime, shared libraries and formats public. See
+[`docs/private-products.md`](docs/private-products.md) for the inventory,
+workspace setup, release composition and checks.
+
 **Frontend (system/)**
 - `system/public/aesthetic.computer/` — Web client (Canvas + WebGL)
   - `bios.mjs` — Core runtime, loads pieces

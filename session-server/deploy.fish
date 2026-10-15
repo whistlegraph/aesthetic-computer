@@ -49,6 +49,11 @@ if test -z "$EXPECT"
 end
 echo "   expecting (string sub -l 9 $EXPECT) from knot"
 
+set -l REPO_ROOT (realpath "$SCRIPT_DIR/..")
+source "$REPO_ROOT/toolchain/private-products-deploy.fish"
+prepare_private_products "$REPO_ROOT" "$KEY" "$HOST" "$REMOTE" "$NODE_BIN/node" "$EXPECT"; or exit 1
+set -l product_stage_q (string escape -- "$PRODUCT_REMOTE_STAGE")
+
 # The whole remote deploy runs as one Bash script so PRE (the rollback point)
 # and the health gate share state. Fish cannot parse Bash heredocs, so keep the
 # remote program in its own syntax-checked file and stream it over SSH.
@@ -58,7 +63,7 @@ set -l ref_q (string escape -- $REF)
 set -l boot_budget_q (string escape -- $BOOT_BUDGET)
 set -l expect_q (string escape -- $EXPECT)
 ssh -i $KEY -o ConnectTimeout=15 $HOST \
-    "env NODE_BIN=$node_bin_q REMOTE=$remote_q REF=$ref_q EXPECT=$expect_q BOOT_BUDGET=$boot_budget_q bash -s" \
+    "env PRODUCT_STAGE=$product_stage_q NODE_BIN=$node_bin_q REMOTE=$remote_q REF=$ref_q EXPECT=$expect_q BOOT_BUDGET=$boot_budget_q bash -s" \
     < $REMOTE_SCRIPT
 
 set -l ssh_status $status

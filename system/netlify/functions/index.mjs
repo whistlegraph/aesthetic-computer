@@ -21,6 +21,7 @@ import { bootPreloads, workerBundleFilename, builtinPieceUrl } from "../../backe
 import { profilePage } from "../../backend/profile-page.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
+import { canonicalPageUrl } from "../../public/aesthetic.computer/lib/site-metadata.mjs";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 const POSTHOG_CLOUD_HOSTS = new Set([
@@ -511,6 +512,11 @@ async function fun(event, context) {
   ) {
     slug = "notepat";
   } else if (
+    (event.headers["host"] === "laklok.com" || event.headers["host"] === "www.laklok.com") &&
+    event.path.length <= 1
+  ) {
+    slug = "laklok";
+  } else if (
     (event.headers["host"] === "oskiewar.com" || event.headers["host"] === "www.oskiewar.com") &&
     event.path.length <= 1
   ) {
@@ -896,6 +902,9 @@ async function fun(event, context) {
     ? `<script>(function(){var s=${JSON.stringify(parsed.text)},u=${JSON.stringify(pieceUrl)};var h=window.acPIECE_SOURCE={slug:s,url:u,code:null};h.promise=fetch(u,{cache:"no-cache",mode:"same-origin"}).then(function(r){return r.ok?r.text():null}).then(function(t){h.code=t;return t;}).catch(function(){return null});})();</script>`
     : "";
 
+  const publicPath = event.rawUrl ? new URL(event.rawUrl).pathname : event.path;
+  const canonical = canonicalPageUrl(event.headers["host"], publicPath);
+
   const body = html`
     <!doctype html>
     <html>
@@ -920,6 +929,8 @@ async function fun(event, context) {
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
+        ${canonical ? html`<link rel="canonical" href="${encode(canonical)}" />
+        <meta property="og:url" content="${encode(canonical)}" />` : ""}
         <meta name="description" content="${encode(desc)}" />
         <meta property="og:title" content="${encode(title)}" />
         <meta property="og:description" content="${encode(desc)}" />

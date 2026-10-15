@@ -1,7 +1,0 @@
-# oskiewar.com — everything public is open to search engines and AI crawlers.
-User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /.netlify/
-
-Sitemap: https://oskiewar.com/sitemap.xml

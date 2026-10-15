@@ -13,6 +13,11 @@ set -uo pipefail
 EXPECT="${EXPECT:-}"
 
 export PATH="$NODE_BIN:$PATH"
+: "${PRODUCT_STAGE:?Prepared private product bundle is required}"
+products() {
+  AC_CORE_ROOT="$REMOTE" AC_PRODUCTS_MANIFEST="$PRODUCT_STAGE/private-products.json" \
+    node "$PRODUCT_STAGE/private-products.mjs" "$@"
+}
 cd "$REMOTE" || { echo 'RESULT=fail:cd'; exit 1; }
 
 PRE=$(git rev-parse HEAD)
@@ -20,8 +25,6 @@ echo "rollback point: $(git rev-parse --short HEAD)"
 
 echo "→ fetch + checkout $REF"
 git fetch origin --quiet || { echo 'RESULT=fail:fetch'; exit 1; }
-git reset --hard "$REF" --quiet || { echo 'RESULT=fail:reset'; exit 1; }
-echo "  now at $(git rev-parse --short HEAD) ($(git log -1 --format=%s | head -c 55))"
 
 # Refuse a stale checkout BEFORE npm ci and the restart, so a lagging mirror
 # costs nothing: the running server is left untouched rather than bounced onto
@@ -32,12 +35,21 @@ if [ -n "$EXPECT" ]; then
     echo "RESULT=fail:stale-missing:$(git rev-parse --short HEAD)"
     exit 1
   fi
-  if ! git merge-base --is-ancestor "$EXPECT" HEAD; then
+  if ! git merge-base --is-ancestor "$EXPECT" "$REF"; then
     echo "  ✗ checkout does not contain $(git rev-parse --short "$EXPECT") — refusing to deploy behind the caller"
     echo "RESULT=fail:stale:$(git rev-parse --short HEAD)"
     exit 1
   fi
   echo "  ✓ contains $(git rev-parse --short "$EXPECT")"
+fi
+
+git reset --hard "${EXPECT:-$REF}" --quiet || { echo 'RESULT=fail:reset'; exit 1; }
+echo "  now at $(git rev-parse --short HEAD)"
+
+if ! products install "$PRODUCT_STAGE/incoming"; then
+  git reset --hard "$PRE" --quiet && products install "$PRODUCT_STAGE/previous"
+  echo 'RESULT=fail:products'
+  exit 1
 fi
 
 cd session-server || { echo 'RESULT=fail:cd-ss'; exit 1; }
@@ -74,7 +86,10 @@ if deploy_and_check; then
 fi
 
 echo "→ ⏮  ROLLING BACK to $(git rev-parse --short "$PRE")"
-cd "$REMOTE" && git reset --hard "$PRE" --quiet && cd session-server
+if ! { cd "$REMOTE" && git reset --hard "$PRE" --quiet && products install "$PRODUCT_STAGE/previous" && cd session-server; }; then
+  echo 'RESULT=DOWN:rollback-source-failed'
+  exit 1
+fi
 if deploy_and_check; then
   echo "RESULT=rolledback:$(git rev-parse --short "$PRE")"
 else

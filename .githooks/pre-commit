@@ -11,6 +11,9 @@ NC='\033[0m' # No Color
 
 NODE_BIN="${NODE_BIN:-node}"
 
+# Even `git add -f` must not put private product source back in public AC.
+"$NODE_BIN" "$(git rev-parse --show-toplevel)/toolchain/private-products.mjs" guard || exit 1
+
 ###############################################################################
 # PART 1: SECRET DETECTION
 ###############################################################################

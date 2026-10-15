@@ -14,6 +14,13 @@ FEDAC_SOURCE="$SCRIPT_DIR/../fedac"
 VAULT_OS_KEY="$SCRIPT_DIR/../aesthetic-computer-vault/oven/os-build-admin-key.txt"
 VAULT_ENV="$SCRIPT_DIR/../aesthetic-computer-vault/oven/.env"
 
+# Freeze private source before touching the server. rsync dereferences the
+# local compatibility links; build worktrees hydrate from this same bundle.
+PRODUCT_STAGE=$(mktemp -d)
+trap 'rm -rf "$PRODUCT_STAGE"' EXIT
+node "$SCRIPT_DIR/../toolchain/private-products.mjs" release-check HEAD
+node "$SCRIPT_DIR/../toolchain/private-products.mjs" pack "$PRODUCT_STAGE/products.tgz"
+
 # Millisecond epoch — portable (macOS `date +%N` doesn't exist, GNU does).
 ms() { python3 -c 'import time; print(int(time.time()*1000))'; }
 
@@ -30,13 +37,14 @@ START_TIME=$(ms)
 
 echo ""
 echo "📦 Syncing oven files..."
-rsync -avz --progress --delete \
+rsync -avz --copy-links --progress --delete \
   --exclude='node_modules' \
   --exclude='.git' \
   --exclude='.env' \
   --exclude='*.log' \
   --exclude='ac-source' \
   --exclude='native-git' \
+  --exclude='private-products' \
   --exclude='secrets' \
   --exclude='state' \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
@@ -71,7 +79,7 @@ fi
 # Sync aesthetic.computer source files needed for bundle generation
 echo ""
 echo "📦 Syncing ac-source files for bundler..."
-rsync -avz --progress --delete \
+rsync -avz --copy-links --progress --delete \
   --include='*/' \
   --include='*.mjs' \
   --include='*.js' \
@@ -90,7 +98,7 @@ echo "✅ ac-source sync complete in ${AC_SYNC_TIME}ms"
 # Sync fedac scripts/overlays used by background OS base-image build jobs
 echo ""
 echo "📦 Syncing fedac OS build pipeline..."
-rsync -avz --progress --delete \
+rsync -avz --copy-links --progress --delete \
   --exclude='.git' \
   --exclude='*.img' \
   --exclude='*.iso' \
@@ -309,6 +317,18 @@ fi
 echo '  Done.'
 "
 echo "✅ Native git repo ready"
+# Keep the prior bundle until the complete replacement has arrived.
+scp -q -i "$SSH_KEY" "$PRODUCT_STAGE/products.tgz" "root@$OVEN_HOST:$REMOTE_DIR/products-next.tgz"
+ssh -i "$SSH_KEY" "root@$OVEN_HOST" "set -e
+mkdir -p $REMOTE_DIR/private-products-next
+tar -xzf $REMOTE_DIR/products-next.tgz -C $REMOTE_DIR/private-products-next
+rm -rf $REMOTE_DIR/private-products-previous
+if [ -d $REMOTE_DIR/private-products ]; then mv $REMOTE_DIR/private-products $REMOTE_DIR/private-products-previous; fi
+mv $REMOTE_DIR/private-products-next $REMOTE_DIR/private-products
+rm $REMOTE_DIR/products-next.tgz
+chown -R oven:oven $REMOTE_DIR/private-products
+"
+
 
 # Restart unless --no-restart flag
 if [ "$1" != "--no-restart" ]; then

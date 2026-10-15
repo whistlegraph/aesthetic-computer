@@ -1,1 +1,0 @@
-fighting,1v1,duel,versus,stickman,brawler,multiplayer,pvp,friends,ragdoll,physics,arcade,2 player

@@ -1,9 +1,0 @@
-Watching the feed needs no account. Swipe up and down to move between works. Tap an interactive piece to play with it; tap its code (top left) to go back to scrolling. When not playing, tapping the code shows a QR code for the work.
-
-Moderation: tap the @handle at the bottom left of any card. "Report this" sends the card to the moderator (we review within 24 hours and remove work and people that break the rules). "Hide @name" removes that person's work from your feed at once. Rules: https://mime.ac/terms/
-
-Making work: tap a MIME type at the bottom right (for example image/png or text/javascript). The app first asks you to agree to the rules, then to sign in to Aesthetic Computer with any email address you can read: enter it and type the six-digit code that arrives. No demo account is needed.
-
-Account deletion: in the editor, open Account, then Delete AC account.
-
-The microphone and speech recognition are used only when you speak instructions in the editor.

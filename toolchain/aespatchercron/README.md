@@ -20,6 +20,11 @@ hypotheses, then investigates at most one queued task. It stops at review.
 It invokes the installed Codex CLI and uses that account's inference quota.
 Neither initialization nor collection invokes a model.
 
+Lith's private `system/.env` must contain `LITH_OPERATIONS_TOKEN` for the
+`lith-errors` diagnostic source. Lith and the SSH collector use the same
+read-only credential; it is never returned in reports. Without it, that source
+is marked unavailable while the other diagnostics continue.
+
 No cron job is installed. `cron.example` is an operator-installed schedule;
 replace its executable paths first. The defaults permit two new tasks per UTC
 day, four active tasks, four changed files and 200 changed lines. One process

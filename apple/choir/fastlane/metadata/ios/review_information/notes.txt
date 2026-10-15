@@ -1,7 +1,0 @@
-Sign-in is passwordless: enter any email address you can read and type the six-digit code that arrives. No demo account is needed. On first sign-in, pick an @name, then agree to the community rules.
-
-To try moderation: long-press any message for Report (sent to the moderator, reviewed within 24 hours) and Hide (removes that person's messages from your view). The server refuses messages containing slurs. Rules: https://choir.ac/terms/
-
-Account deletion: Account > Delete account.
-
-Camera, microphone and speech recognition are used only when you take a picture or record a voice note.

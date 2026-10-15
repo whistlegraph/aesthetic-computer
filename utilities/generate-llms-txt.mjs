@@ -12,6 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { publicPieceCatalog } from "./public-piece-catalog.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -177,29 +178,32 @@ KidLisp pieces use short codes: https://aesthetic.computer/\${code}
 
 - [Prompt](https://aesthetic.computer/prompt): Command-line interface for navigating pieces, with LLM fallback for natural language
 - [Painting](https://aesthetic.computer/painting): Digital painting viewer and tool
-- [List](https://aesthetic.computer/list): Browsable directory of all available pieces and commands
+- [List](https://aesthetic.computer/list): Browse published pieces and commands
 - [About](https://aesthetic.computer/about): Interactive guide explaining the platform
 
 ## Creative Tools
 
 - [Line](https://aesthetic.computer/line): Simple line drawing brush
 - [Wand](https://aesthetic.computer/wand): Geometric visualization with VR support
-- [Camera](https://aesthetic.computer/camera): Photo capture tool with filters
+- [Camera](https://aesthetic.computer/camera): Capture a still from the camera into the current painting
 - [Whistlegraph](https://aesthetic.computer/whistlegraph): 2D recording tool for whistlegraphs
 
 ## KidLisp
 
-- [KidLisp Reference](https://kidlisp.com/learn): Programming language reference and examples
+- [KidLisp Reference](https://learn.kidlisp.com/): Programming language reference and examples
 - [KidLisp Default](https://aesthetic.computer/kidlisp): Default KidLisp piece with checkerboard pattern
 
 ## Source Code
 
 - [Repository](https://tangled.org/aesthetic.computer/core): Canonical source repository. GitHub links below are the mirror.
-- [Pieces (disks/)](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks): All piece source files (.mjs and .lisp)
+- [Pieces (disks/)](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks): Shared public piece source files (.mjs and .lisp)
 - [Runtime Library (lib/)](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/lib): Core runtime modules (parse, graph, num, geo, text, pen, disk, help)
 - [Boot Loader (boot.mjs)](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/boot.mjs): Application entry point
 - [BIOS (bios.mjs)](https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/bios.mjs): Hardware abstraction layer
-- [Backend handlers](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/netlify/functions): Server-side handlers hosted by Lith; the netlify directory name is historical.
+- [Backend handlers](https://github.com/whistlegraph/aesthetic-computer/tree/main/system/netlify/functions): Shared server-side source. Only endpoints documented in the Public HTTP API are supported integrations.
+
+Product implementations are maintained separately. Discover MIME, Sotce Net,
+Choir and oskiewar through their public sites and the network directory below.
 
 ## Machine access
 
@@ -230,15 +234,14 @@ bindings; \`params\` describes URL/colon parameters; \`example\` is a ready-to-r
 prompt invocation.
 `;
 
-function main() {
+async function main() {
   console.log("Generating llms.txt...");
 
   // ASCII sort to match the previous shell-glob ordering ($ before digits,
   // digits before _, _ before letters).
-  const entries = fs
-    .readdirSync(DISKS_DIR)
-    .filter((f) => f.endsWith(".mjs") || f.endsWith(".lisp"))
-    .sort();
+  const catalog = await publicPieceCatalog();
+  const entries = catalog.map(piece => piece.file);
+  const descriptions = new Map(catalog.map(piece => [piece.file, piece.description]));
 
   const mjs = entries.filter((f) => f.endsWith(".mjs"));
   const lisp = entries.filter((f) => f.endsWith(".lisp"));
@@ -252,7 +255,7 @@ function main() {
       const piece = path.basename(file, ext);
       const filePath = path.join(DISKS_DIR, file);
       const { summary, meta } = describePiece(filePath, ext);
-      out += pieceLine(piece, ext, summary) + metaDetails(meta) + "\n";
+      out += pieceLine(piece, ext, descriptions.get(file) || summary) + metaDetails(meta) + "\n";
       if (meta && ADVERTISED_FIELDS.some((f) => meta[f])) metaCount++;
     }
   }
@@ -275,4 +278,4 @@ function main() {
   console.log(`   ${totals}, ${metaCount} pieces advertise controls/keys/params/example.`);
 }
 
-main();
+await main();

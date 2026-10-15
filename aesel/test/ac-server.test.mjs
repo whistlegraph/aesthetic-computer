@@ -6,9 +6,11 @@ import test from "node:test";
 import { AcServer } from "../src/ac-server.mjs";
 import { PIECE_REPLY } from "../src/piece-prompt.mjs";
 
-import {wareControls} from '../../apple/whistlegraph/Resources/Web/wares.mjs';
+import { existsSync } from 'node:fs';
+const {wareControls} = existsSync(new URL('../../apple/whistlegraph/Resources/Web/wares.mjs', import.meta.url))
+  ? await import('../../apple/whistlegraph/Resources/Web/wares.mjs') : {};
 
-test('hosted brain advertises and dispatches ware controls without writing the piece',async t=>{
+test('hosted brain advertises and dispatches ware controls without writing the piece',{skip: !wareControls},async t=>{
   const dir=await mkdtemp(join(tmpdir(),'ac-ware-'));t.after(()=>rm(dir,{recursive:true,force:true}));
   const file=join(dir,'piece.mjs'),source='// existing work\n';await writeFile(file,source);
   const controls=wareControls('piece'),requests=[];

@@ -1,0 +1,13 @@
+# Choir
+
+> An iPhone community for comments on culture.
+
+Participation is by invitation; request access on the public site.
+
+## Resources
+
+- [Website](https://choir.ac/): Public entry point.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

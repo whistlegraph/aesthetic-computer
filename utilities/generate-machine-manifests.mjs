@@ -4,6 +4,7 @@
 // --probe verifies public HTTPS text, discovery headers and curated links.
 import {readFile, writeFile, mkdir} from "node:fs/promises";
 import {properties, excludedHosts} from "./machine-properties.mjs";
+import {isPrivateProductPath} from "../shared/private-product-paths.mjs";
 const root = new URL("../", import.meta.url);
 const check = process.argv.includes("--check");
 const probe = process.argv.includes("--probe");
@@ -63,6 +64,11 @@ if (probe) {
   const targets = new Map();
   for (const host of hosts) targets.set(`https://${host}/llms.txt`, {text: true, header: true});
   for (const p of properties) for (const [,url] of p.links) if (!targets.has(url)) targets.set(url, {});
+  for (const p of properties) for (const endpoint of p.endpoints || []) {
+    if (endpoint.method === "GET" && endpoint.format === "application/json") {
+      targets.set(endpoint.url, { ...targets.get(endpoint.url), json: true });
+    }
+  }
   const rows = [...targets];
   let errors = 0;
   for (let i = 0; i < rows.length; i += 6) {
@@ -75,11 +81,13 @@ if (probe) {
         const allowed = url.endsWith("/sparql") ? [200, 400, 405] : [200];
         let valid = allowed.includes(r.status);
         let body = "";
-        if (expected.text || /\.json(?:\?|$)|[?&]format=json/.test(url)) body = await r.text();
+        const expectsJSON = expected.json || /\.json(?:\?|$)|[?&]format=json/.test(url);
+        if (expected.text || expectsJSON) body = await r.text();
         else await r.body?.cancel();
         if (expected.text) valid &&= /text\/(plain|markdown)/i.test(type) && /^#\s+\S/m.test(body) && !/<(?:!doctype|html)/i.test(body);
         if (expected.header) valid &&= /<\/llms\.txt>; rel="describedby"/.test(r.headers.get("link") || "");
-        if (/\.json(?:\?|$)|[?&]format=json/.test(url)) {
+        if (expectsJSON) {
+          valid &&= /application\/(?:[a-z0-9.-]+\+)?json/i.test(type);
           try {JSON.parse(body);} catch {valid = false;}
         }
         console.log(JSON.stringify({url, status: r.status, type, valid, final: r.url}));
@@ -106,13 +114,20 @@ if (probe) {
   caddy = caddy.includes(start) ? caddy.replace(new RegExp(`${start}[\\s\\S]*?${end}`), snippet) : `${snippet}\n\n${caddy}`;
   await output("lith/Caddyfile", caddy);
   for (const p of properties) {
-    if (p.file) {await readFile(new URL(p.file, publicRoot)); continue;}
+    if (p.file) {
+      try {await readFile(new URL(p.file, publicRoot));}
+      catch (error) {
+        // Public checkouts intentionally omit these hand-authored product files.
+        if (error.code !== "ENOENT" || !isPrivateProductPath(`system/public/${p.file}`)) throw error;
+      }
+      continue;
+    }
     const content = `# ${p.title}\n\n> ${p.summary}\n\n${p.note ? p.note + "\n\n" : ""}## Resources\n\n${p.links.map(link).join("\n")}\n\n## Network\n\n- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.\n`;
     await output(`system/public/machine/${p.host}.txt`, content);
   }
-  const directory = {title: "Aesthetic Computer public machine directory", version: 1,
+  const directory = {title: "Aesthetic Computer public machine directory", version: 2,
     description: "Curated public products served by this stack. This is a link directory, not an agent protocol or an authorization grant. See each resource's own terms, authentication and attribution.",
-    properties: properties.map(({host,title,summary,aliases=[],links,note}) => ({url:`https://${host}/`, title, summary, llms:`https://${host}/llms.txt`, aliases, ...(note ? {note} : {}), resources: links.map(([title,url,description]) => ({title,url,description}))}))};
+    properties: properties.map(({host,title,summary,aliases=[],links,note,id,access,endpoints}) => ({url:`https://${host}/`, title, summary, llms:`https://${host}/llms.txt`, aliases, ...(id ? {id, access, endpoints} : {}), ...(note ? {note} : {}), resources: links.map(([title,url,description]) => ({title,url,description}))}))};
   await output("system/public/network.json", JSON.stringify(directory, null, 2) + "\n");
   // Repair robots.txt's already-advertised, previously missing sitemap.xml.
   // Only canonical AC-host public discovery resources belong in this sitemap.
