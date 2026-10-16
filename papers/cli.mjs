@@ -33,6 +33,7 @@ import { join, basename } from "path";
 import { createSourceBundle } from "./source-bundle.mjs";
 import { generatePagePreviews } from "./page-previews.mjs";
 import { generateRecordPages } from "./record-pages.mjs";
+import { sortPaperRows } from "./index-order.mjs";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const SITE_DIR = join(
@@ -1576,12 +1577,8 @@ function updateIndex(entries) {
   for (const v of subs.venueOnly || []) {
     rows.push({ key: v.id, title: v.title, href: `/records/${v.id}.html`, created: v.created || "", kind: "venue edition", sub: v, formats: "" });
   }
-  // Papers by original date, newest first; submission-only records follow.
-  rows.sort((a, b) => {
-    const recordOrder = Number(a.href.startsWith('/records/')) - Number(b.href.startsWith('/records/'));
-    if (recordOrder) return recordOrder;
-    return String(b.created || '').localeCompare(String(a.created || '')) || a.title.localeCompare(b.title);
-  });
+  // Actual PDFs first, newest original date first within each group.
+  sortPaperRows(rows, SITE_DIR);
 
   const papersHtml = `
     <table class="pubs" id="pubs" aria-label="Papers">

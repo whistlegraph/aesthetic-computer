@@ -18,6 +18,7 @@
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
     <link rel="alternate" type="application/atom+xml" title="papers · Aesthetic Computer" href="/feed.xml" />
     <link rel="alternate" type="application/rss+xml" title="papers · Aesthetic Computer" href="/rss.xml" />
+    <link rel="stylesheet" href="/paper-colors.css">
     <style>
         :root {
             --bg: #fbfbf8; --page-bg: #efefea; --text: #1a1a1a; --dim: #777; --line: rgba(0,0,0,0.09); --hover: rgba(0,0,0,0.035);
@@ -84,11 +85,12 @@
         table { background: var(--bg); width: 100%; table-layout: fixed; border-collapse: collapse; border: 1px solid var(--grid); }
         td { border: 1px solid var(--grid); padding: 0; }
         td { vertical-align: top; }
-        td.paper { padding: 0; }
+        tr[data-key] { --paper-tint: color-mix(in srgb, var(--paper-color, var(--kind, #888)) 9%, var(--bg)); --paper-strip: color-mix(in srgb, var(--paper-color, var(--kind, #888)) 65%, var(--bg)); }
+        td.paper { padding: 0; background: var(--paper-tint); box-shadow: inset 3px 0 var(--paper-strip); }
         .created { display: inline-flex; align-items: baseline; gap: 7px; flex: none; margin-left: auto; text-align: right; white-space: nowrap; color: var(--muted); font-size: 14px; }
         .paper-version { color: var(--muted); font-size: .9em; }
-        .paper-line { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 2px 4px 2px 3px; }
-        .paper-icon { flex: 0 0 28px; width: 28px; height: 28px; display: grid; place-items: center; background: color-mix(in srgb, var(--kind, var(--dim)) 14%, var(--bg)); }
+        .paper-line { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 2px 4px 2px 6px; }
+        .paper-icon { flex: 0 0 28px; width: 28px; height: 28px; display: grid; place-items: center; background: color-mix(in srgb, var(--paper-color, var(--kind, var(--dim))) 16%, var(--bg)); }
         .paper-icon img { display: block; width: 26px; height: 26px; object-fit: contain; }
         .icon-fallback { color: var(--muted); }
         .paper-title { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
