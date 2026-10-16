@@ -32,6 +32,7 @@ import {
 import { join, basename } from "path";
 import { createSourceBundle } from "./source-bundle.mjs";
 import { generatePagePreviews } from "./page-previews.mjs";
+import { generateRecordPages } from "./record-pages.mjs";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const SITE_DIR = join(
@@ -1476,6 +1477,7 @@ function updateIndex(entries) {
   // One table row per publication. Status comes from submissions.json;
   // a paper with no submission record is self-published here.
   const subs = loadSubmissions();
+  generateRecordPages(PAPERS_DIR, SITE_DIR, subs.venueOnly || []);
   const KIND = { platform: "platform", essays: "essay", audits: "audit", decks: "deck", dossiers: "dossier", software: "software", archive: "archive" };
 
   function latestSub(key) {
@@ -1556,7 +1558,7 @@ function updateIndex(entries) {
     });
   }
   for (const v of subs.venueOnly || []) {
-    rows.push({ key: v.id, title: v.title, href: "", kind: "venue edition", sub: v, formats: "" });
+    rows.push({ key: v.id, title: v.title, href: `/records/${v.id}.html`, created: v.created || "", kind: "venue edition", sub: v, formats: "" });
   }
   // Status order (accepted → self-published), then most recent date or edit.
   const ORDER = Object.keys(STATUS_LABELS);

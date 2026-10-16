@@ -51,7 +51,7 @@ test("paper cover preview preserves browser tabs, explicit downloads, and keyboa
     await page.getByRole("link", { name: "Download PDF" }).click();
     assert.equal((await downloadReady).suggestedFilename(), "ac-native-os-26-arxiv.pdf");
     await page.keyboard.press("Escape");
-    assert.equal(await page.locator("dialog").evaluate(d => d.open), false);
+    assert.equal(await page.locator(".paper-preview").evaluate(d => d.open), false);
     assert.equal(await paper.evaluate(a => a === document.activeElement), true);
     await page.setViewportSize({ width: 390, height: 780 });
     await paper.click();
