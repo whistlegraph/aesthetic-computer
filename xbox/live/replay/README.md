@@ -1,5 +1,8 @@
 # Oskiewar replay compatibility
 
+Playback is footage now: see `FOOTAGE.md`. What follows covers the input
+recording filed alongside it, for the coach, stats and bots.
+
 A demo is an input recording for one immutable simulation, not a recording for
 “the latest Oskiewar.” Old demos remain accurate only while all three identities
 stay explicit:
