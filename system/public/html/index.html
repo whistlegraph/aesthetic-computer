@@ -246,6 +246,8 @@
   .body .lit, .body a.lit { color: #beff50 !important; }
   .body { word-break: break-word; }
   .time { color: var(--time); font-size: 11px; opacity: .8; margin-left: 2px; }
+  .comment-count { background:none; border:0; color:var(--ink); padding:4px 6px; font:inherit; font-size:12px; text-decoration:underline; cursor:pointer; }
+  .comment-count[hidden] { display:none; }
   .heart { color: var(--heart); font-size: 12px; }
   .sys .body { color: var(--log); }
   .deleted .body { color: #b48c8c; font-style: italic; }
@@ -407,6 +409,7 @@
   <div id="lightbox"><img alt="" /></div>
 
 <script type="module">
+import { createCommentCounts, openChatComments } from "/aesthetic.computer/lib/chat-comments.mjs";
 import { startAccountActivity } from "/aesthetic.computer/lib/account-activity.mjs";
 function laklokEvent(name) { window.acAccountActivity?.action("laklok_" + name); }
 // ── laklok HTML chat client ────────────────────────────────────────────────
@@ -420,6 +423,16 @@ const HANDLE_API = "https://aesthetic.computer/handle";
 const WS_HOST = "chat-clock.aesthetic.computer";
 
 const $log = document.getElementById("log");
+const commentCounts = createCommentCounts("clock", counts => {
+  for (const row of $log.querySelectorAll(".msg")) {
+    const button = row.querySelector(".comment-count");
+    if (!button) continue;
+    const count = counts.get(row.dataset.id) || 0;
+    button.hidden = !count; button.textContent = String(count);
+    button.setAttribute("aria-label", `${count} MIME comments`);
+  }
+});
+setInterval(() => { if (!document.hidden) commentCounts.refresh([...$log.querySelectorAll(".msg")].map(row => ({ id: row.dataset.id, deleted: row.classList.contains("deleted") }))); }, 1000);
 const $loadmore = document.getElementById("loadmore");
 const $online = document.getElementById("online");
 const $here = document.getElementById("here");
@@ -1058,6 +1071,16 @@ function rowFor(msg) {
     chip.setAttribute("aria-label", "hør beskeden (syntetisk stemme)");
     chip.onclick = () => voxToggle(row, chip);
     body.append(chip);
+  }
+  if (msg.id && !msg.deleted) {
+    const comments = document.createElement("button");
+    comments.className = "comment-count"; comments.type = "button";
+    const count = commentCounts.counts.get(msg.id) || 0;
+    comments.hidden = !count; comments.textContent = String(count);
+    comments.setAttribute("aria-label", `${count} MIME comments`);
+    comments.setAttribute("aria-haspopup", "dialog");
+    comments.onclick = () => openChatComments("clock", msg.id);
+    row.append(comments);
   }
   if (msg.hearts > 0) { const h = span("heart", "♥" + msg.hearts); row.append(h); }
   // ✏️ own messages get edit + delete affordances once signed in (CSS shows
