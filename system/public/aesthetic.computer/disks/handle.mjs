@@ -549,7 +549,7 @@ function act({ event: e, screen, net, help, jump, sound, store }) {
     if (supporter === false) {
       store[DRAFT_KEY] = { handle, colors, at: Date.now() };
       store.persist(DRAFT_KEY);
-      jump(`https://give.aesthetic.computer/?source=${supportSource}`);
+      jump(`https://aesthetic.computer/support.html?source=${supportSource}`);
       return;
     }
     saveColors(net, help, sound, store);

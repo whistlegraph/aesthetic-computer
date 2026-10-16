@@ -68,13 +68,13 @@ test("handle colors use verified monthly checkout, preserve login selections, an
           ? { code: "already_supporting" } : { url: "https://pay.aesthetic.computer/monthly" } });
       }
       if (url.pathname === "/api/gives") return route.fulfill({ headers, json: { activeSubscribers: 5 } });
-      if (url.hostname === "give.aesthetic.computer" && ["/", "/give.mjs"].includes(url.pathname))
-        return route.fulfill({ contentType: url.pathname === "/" ? "text/html" : "text/javascript",
-          body: await readFile(new URL(`../public/give.aesthetic.computer/${url.pathname === "/" ? "index.html" : "give.mjs"}`, import.meta.url), "utf8") });
+      if ((url.hostname === "give.aesthetic.computer" && url.pathname === "/give.mjs") || (url.hostname === "aesthetic.computer" && url.pathname === "/support.html"))
+        return route.fulfill({ contentType: url.pathname === "/support.html" ? "text/html" : "text/javascript",
+          body: await readFile(new URL(`../public/give.aesthetic.computer/${url.pathname === "/support.html" ? "index.html" : "give.mjs"}`, import.meta.url), "utf8") });
       return route.fulfill({ contentType: "text/html", body: "Returned" });
     });
     const page = await context.newPage();
-    await page.goto("https://give.aesthetic.computer/?source=signup&email=untrusted@example.test");
+    await page.goto("https://aesthetic.computer/support.html?source=signup&email=untrusted@example.test");
     await page.getByText("Monthly support unlocks handle colors across AC.").waitFor();
     assert.equal(await page.locator('input[value="once"]').isVisible(), false);
     await page.locator("#amount").fill("1");
@@ -83,7 +83,7 @@ test("handle colors use verified monthly checkout, preserve login selections, an
     assert.deepEqual(submitted.at(-1), { amount: 100, currency: "usd", recurring: true, source: "signup" });
 
     authenticated = false;
-    await page.goto("https://give.aesthetic.computer/?source=handle-colors");
+    await page.goto("https://aesthetic.computer/support.html?source=handle-colors");
     await page.locator("#amount").fill("3.50");
     await page.locator("#give").click();
     await page.waitForFunction(() => window.loginOptions);
@@ -91,12 +91,12 @@ test("handle colors use verified monthly checkout, preserve login selections, an
     assert.equal(callback.give.amount, 350);
     assert.equal(submitted.length, 1);
     authenticated = true;
-    await page.goto("https://give.aesthetic.computer/?code=test&state=test");
+    await page.goto("https://aesthetic.computer/support.html?code=test&state=test");
     await page.waitForURL("https://pay.aesthetic.computer/monthly");
     assert.deepEqual(submitted.at(-1), { amount: 350, currency: "usd", recurring: true, source: "handle-colors" });
 
     duplicate = true;
-    await page.goto("https://give.aesthetic.computer/?source=signup");
+    await page.goto("https://aesthetic.computer/support.html?source=signup");
     await page.locator("#give").click();
     await page.waitForURL("https://aesthetic.computer/handle");
     await context.close();

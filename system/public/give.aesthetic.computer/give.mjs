@@ -67,6 +67,7 @@ $('currency').addEventListener('change', updateCurrency);
 const initialCurrency = params.get('currency') || (lang === 'da' ? 'dkk' : 'usd');
 $('currency').value = initialCurrency === 'dkk' ? 'dkk' : 'usd';
 updateCurrency();
+if (colorSupport() && params.has('amount')) { $('amount').value = params.get('amount'); render(); }
 $('presets').addEventListener('click', (event) => {
   const button = event.target.closest('[data-amount]');
   if (button) { $('amount').value = button.dataset.amount; render(); }
@@ -93,12 +94,33 @@ async function openCheckout(payload) {
   try {
     const headers = { 'Content-Type': 'application/json' };
     if (['signup', 'handle-colors'].includes(payload.source)) {
-      const auth = await getAuth();
-      if (!await auth.isAuthenticated()) {
-        await auth.loginWithRedirect({ appState: { give: payload } });
-        return;
+      // Email-code sessions live on AC's origin. Keep credentials there rather
+      // than asking a passwordless account to create a second login on Give.
+      if (location.origin !== 'https://aesthetic.computer') {
+        const next = new URL('https://aesthetic.computer/support.html');
+        next.search = new URLSearchParams({ source: payload.source, amount: String(payload.amount / 100),
+          currency: payload.currency, lang, checkout: '1' }).toString();
+        location.assign(next.href); return;
       }
-      headers.Authorization = `Bearer ${await auth.getTokenSilently()}`;
+      let token;
+      try {
+        const encoded = localStorage.getItem('session-aesthetic');
+        const session = encoded && JSON.parse(atob(decodeURIComponent(encoded)));
+        if (session?.accessToken && session.account?.id) {
+          const { otpSignIn } = await import('https://aesthetic.computer/lib/auth0-otp.mjs');
+          const door = otpSignIn({ clientId: 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt' });
+          token = door.session()?.sub === session.account.id ? await door.token() : session.accessToken;
+        }
+      } catch { /* The normal login remains available when local storage is unavailable. */ }
+      if (!token) {
+        const auth = await getAuth();
+        if (!await auth.isAuthenticated()) {
+          await auth.loginWithRedirect({ appState: { give: payload } });
+          return;
+        }
+        token = await auth.getTokenSilently();
+      }
+      headers.Authorization = `Bearer ${token}`;
     }
     const res = await fetch(`${api}/give`, {
       method: 'POST', headers,
@@ -191,3 +213,9 @@ async function finishAuth() {
   } catch { $('error').textContent = words[lang].error; }
 }
 if (params.has('state') && (params.has('code') || params.has('error'))) void finishAuth();
+
+// Continue only a checkout explicitly started on the Give origin.
+if (location.origin === 'https://aesthetic.computer' && colorSupport() && params.get('checkout') === '1') {
+  history.replaceState({}, '', location.pathname + '?' + new URLSearchParams({ source, amount: $('amount').value, currency: $('currency').value, lang }));
+  if ($('form').reportValidity()) void openCheckout({ amount: Math.round(Number($('amount').value) * 100), currency: $('currency').value, recurring: true, source });
+}

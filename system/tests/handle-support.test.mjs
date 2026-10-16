@@ -32,7 +32,7 @@ test("handle previews survive checkout, paid saves work, and cancellation closes
     click("Support monthly");
     assert.equal(posts.length, 0);
     assert.deepEqual(persisted.colors, palette);
-    assert.equal(destination, "https://give.aesthetic.computer/?source=signup");
+    assert.equal(destination, "https://aesthetic.computer/support.html?source=signup");
 
     store["handle:color-preview"].colors[0] = { r: 100, g: 101, b: 102 };
     paid = true; leave(); await boot(api); await settle(); render();
