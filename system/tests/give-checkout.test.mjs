@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Stripe from "stripe";
-import { handler } from "../netlify/functions/give.js";
+import { handler, createGiveHandler } from "../netlify/functions/give.js";
 
 test("Give constructs the installed Stripe client before validating amounts", async () => {
   const key = process.env.CONTEXT === "dev" ? "STRIPE_API_TEST_PRIV_KEY" : "STRIPE_API_PRIV_KEY";
@@ -41,7 +41,8 @@ test("Give retains only reviewed placement attribution on checkout and payment r
         const expected = ["homepage", "give-piece"].includes(source) ? source : undefined;
         assert.equal(submitted.metadata.source, expected);
         const record = recurring ? submitted.subscription_data : submitted.payment_intent_data;
-        assert.deepEqual(record, expected ? { metadata: { source: expected } } : undefined);
+        assert.deepEqual(record, recurring ? { metadata: { ...(expected ? { source: expected } : {}), ac_support: "monthly" } }
+          : expected ? { metadata: { source: expected } } : undefined);
         assert.equal(new URL(submitted.cancel_url).searchParams.get("source"), expected ?? null);
         assert.equal(submitted.mode, recurring ? "subscription" : "payment");
         assert.equal(submitted.line_items[0].price_data.unit_amount, 800);
@@ -52,6 +53,35 @@ test("Give retains only reviewed placement attribution on checkout and payment r
     if (previous === undefined) delete process.env[key];
     else process.env[key] = previous;
   }
+});
+
+test("Handle-color checkout binds support to verified identity, rejects duplicates and returns only to the editor", async t => {
+  const key = process.env.CONTEXT === "dev" ? "STRIPE_API_TEST_PRIV_KEY" : "STRIPE_API_PRIV_KEY";
+  const previous = process.env[key]; process.env[key] = "sk_test_validation_only";
+  let user = null, supporting = false, submitted, calls = 0;
+  const checkout = createGiveHandler({ authenticate: async () => user, support: async caller => {
+    assert.equal(caller, user); return supporting;
+  } });
+  t.mock.method(Object.getPrototypeOf(new Stripe(process.env[key]).checkout.sessions), "create", async config => {
+    calls++; submitted = config; return { id: "cs_test_colors", url: "https://pay.aesthetic.computer/test" };
+  });
+  try {
+    const event = { httpMethod: "POST", headers: {}, body: JSON.stringify({ amount: 100, currency: "usd",
+      recurring: true, source: "signup", email: "someone-else@example.test", returnUrl: "https://untrusted.test" }) };
+    assert.equal((await checkout(event)).statusCode, 401);
+    user = { email: "owner@example.test", email_verified: false };
+    assert.equal((await checkout(event)).statusCode, 401);
+    user.email_verified = true; supporting = true;
+    assert.equal((await checkout(event)).statusCode, 409);
+    assert.equal(calls, 0);
+    supporting = false;
+    assert.equal((await checkout(event)).statusCode, 200);
+    assert.equal(submitted.customer_email, user.email);
+    assert.equal(submitted.cancel_url, "https://aesthetic.computer/handle");
+    assert.equal(submitted.success_url, "https://aesthetic.computer/handle?support=return");
+    assert.deepEqual(submitted.subscription_data.metadata, { source: "signup", ac_support: "monthly" });
+    assert.equal(submitted.line_items[0].price_data.unit_amount, 100);
+  } finally { if (previous === undefined) delete process.env[key]; else process.env[key] = previous; }
 });
 
 

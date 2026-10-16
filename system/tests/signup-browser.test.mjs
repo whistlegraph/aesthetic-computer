@@ -19,6 +19,11 @@ async function fixture(options = {}) {
       state.events.push(JSON.parse(request.postData()));
       return route.fulfill({ status: 204 });
     }
+    if (url.pathname === "/api/give-status") {
+      assert.equal(request.headers().authorization, "Bearer fixture-token");
+      return route.fulfill(options.supportFailure ? { status: 503, json: {} }
+        : { json: { monthlySupporter: options.supporter === true } });
+    }
     if (url.pathname === "/api/signup-status") {
       state.requests.push(url.pathname);
       assert.equal(request.headers().authorization, "Bearer fixture-token");
@@ -90,6 +95,9 @@ test("email-code signup reaches Laklok from home, keeps a starting piece, and re
         assert.equal(new URL(page.url()).pathname, "/");
       }
       await page.getByLabel("Code", { exact: true }).fill("123456");
+      await page.getByRole("heading", { name: "You’re @new.pal", exact: true }).waitFor();
+      assert.equal(await page.locator("dialog .description").textContent(), "Monthly support unlocks handle colors across AC.");
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page.waitForURL(`https://aesthetic.computer${destination}`);
       await page.waitForFunction(() => sessionStorage.getItem('fixture:handle-created') === 'yes');
       assert.equal(state.handle, "new.pal");
@@ -129,6 +137,13 @@ test("signup survives the redirect, verifies email, handles a taken name and ret
       await page.screenshot({ path: `${process.env.AC_SIGNUP_EVIDENCE_DIR}/handle-mobile.png` });
     }
     await page.getByRole("button", { name: "Create handle", exact: true }).click();
+    await page.getByRole("heading", { name: "You’re @new.pal2", exact: true }).waitFor();
+    if (process.env.AC_SIGNUP_EVIDENCE_DIR) {
+      await page.screenshot({ path: `${process.env.AC_SIGNUP_EVIDENCE_DIR}/support-mobile.png` });
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.screenshot({ path: `${process.env.AC_SIGNUP_EVIDENCE_DIR}/support-desktop.png` });
+    }
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.waitForURL("https://aesthetic.computer/laer-klokken");
     assert.equal(await page.evaluate(() => sessionStorage.getItem('ac:signup:v1')), null);
     assert.equal(await page.evaluate(() => sessionStorage.getItem('fixture:handle-created')), 'yes');
@@ -198,4 +213,35 @@ test("closing while account status is in flight does not reopen onboarding", asy
     });
     assert.equal(await page.getByRole("dialog").count(), 0);
   } finally { await f.browser.close(); }
+});
+
+test("support is optional after signup, skips existing supporters and failures, and respects privacy", async () => {
+  for (const options of [{ supporter: true }, { supportFailure: true }, { action: "color" }, { action: "escape", optOut: true }, { action: "close" }]) {
+    const f = await fixture(options);
+    try {
+      f.state.verified = true; f.state.taken = false;
+      const { page, state } = f;
+      await page.getByRole("button", { name: "I'm new" }).click();
+      await page.evaluate(() => acSignup.resume(auth, {}));
+      await page.getByLabel("Handle", { exact: true }).fill("new.pal");
+      // Make the return navigation observable even when signup began on the destination.
+      await page.evaluate(() => history.replaceState({}, "", "/prompt"));
+      await page.getByRole("button", { name: "Create handle", exact: true }).click();
+      if (options.action) {
+        await page.getByRole("heading", { name: "You’re @new.pal", exact: true }).waitFor();
+        if (options.action === "color") await page.getByRole("button", { name: "Color my handle" }).click();
+        else if (options.action === "escape") await page.keyboard.press("Escape");
+        else await page.getByRole("button", { name: "Close", exact: true }).click();
+      }
+      await page.waitForURL(`https://aesthetic.computer${options.action === "color" ? "/handle?source=signup" : "/laer-klokken"}`);
+      await page.waitForFunction(() => sessionStorage.getItem("ac:signup:v1") === null);
+      assert.equal(await page.evaluate(() => sessionStorage.getItem("ac:signup:v1")), null);
+      if (options.optOut) assert.equal(state.events.length, 0);
+      else {
+        assert.ok(state.events.some(row => row.stages.includes("completed")));
+        assert.equal(state.events.some(row => row.stages.includes("support_shown")), !!options.action);
+        assert.equal(state.events.some(row => row.stages.includes("support_clicked")), options.action === "color");
+      }
+    } finally { await f.browser.close(); }
+  }
 });

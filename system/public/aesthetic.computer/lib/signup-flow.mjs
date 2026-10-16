@@ -73,16 +73,36 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     clear(); close();
     win.location.assign(destination);
   }
+  async function handleCreated(handle) {
+    // Signup succeeds before the optional perk. A failed billing lookup must
+    // never keep someone from their piece or ask an existing supporter again.
+    track("completed");
+    const mine = generation;
+    let supporter;
+    try { supporter = await request("/api/give-status", { signal: AbortSignal.timeout(4000) }); }
+    catch { if (mine === generation) complete(); return; }
+    if (mine !== generation) return;
+    if (supporter.monthlySupporter !== false) { complete(); return; }
+    const view = frame(`You’re @${handle}`, "Monthly support unlocks handle colors across AC.", () => complete());
+    view.querySelector(".content").innerHTML = `<button class="primary" type="button" data-color>Color my handle</button><button class="secondary" type="button" data-continue>Continue</button>`;
+    track("support_shown");
+    view.querySelector("[data-color]").onclick = () => {
+      track("support_clicked"); clear(); close();
+      win.location.assign("/handle?source=signup");
+    };
+    view.querySelector("[data-continue]").onclick = () => complete();
+    view.querySelector("[data-continue]").focus();
+  }
   async function request(path, options = {}) {
     const token = signedIn ? signedIn.access : await auth.getTokenSilently();
     const response = await win.fetch(path, { ...options,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(15000), cache: "no-store" });
+      signal: options.signal || AbortSignal.timeout(15000), cache: "no-store" });
     const body = await response.json();
     if (!response.ok) throw Object.assign(new Error("Request failed"), { reason: body.message || "network" });
     return body;
   }
-  function frame(title, description) {
+  function frame(title, description, dismiss = close) {
     close();
     dialog = doc.createElement("dialog");
     dialog.dataset.acNoTrack = "";
@@ -101,8 +121,8 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     dialog.className = "ac-signup";
     dialog.querySelector("h1").textContent = title;
     dialog.querySelector(".description").textContent = description;
-    dialog.querySelector(".dismiss").onclick = close;
-    dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
+    dialog.querySelector(".dismiss").onclick = dismiss;
+    dialog.addEventListener("cancel", event => { event.preventDefault(); dismiss(); });
     // Keep typing in the dialog out of the canvas prompt's keyboard handlers.
     for (const type of ["keydown", "keyup", "keypress", "pointerdown", "pointerup", "pointermove", "mousedown", "mouseup", "click", "touchstart", "touchend", "touchmove", "wheel"])
       dialog.addEventListener(type, event => event.stopPropagation());
@@ -127,7 +147,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
         if (mine !== generation) return;
         if (!result.handle) throw new Error("Missing handle");
         win.dispatchEvent(new win.Event("ac:handle-created"));
-        complete();
+        await handleCreated(result.handle);
       } catch (error) {
         if (mine !== generation) return;
         const reason = SIGNUP_ERRORS.includes(error.reason) ? error.reason : "network";
@@ -431,7 +451,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
       if (mine !== generation) return;
       if (!result.handle) throw new Error("Missing handle");
       win.dispatchEvent(new win.Event("ac:handle-created"));
-      complete();
+      await handleCreated(result.handle);
     } catch (error) {
       if (mine !== generation) return;
       const reason = SIGNUP_ERRORS.includes(error.reason) ? error.reason : "network";

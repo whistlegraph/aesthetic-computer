@@ -17,6 +17,8 @@ let loading = true;
 let saveStatus = null; // "saving", "saved", "error"
 let lastSaveTime = 0;
 let saving = false; // Guard against concurrent saves
+let supporter = null, supportChecking = false, supportSource = "handle-colors", lifecycle = 0;
+const DRAFT_KEY = "handle:color-preview";
 const SAVE_COOLDOWN = 3000; // Minimum ms between save attempts
 let hoveredCharIndex = -1; // Track hovered character
 let hoveredSlider = null; // Track hovered slider ("r", "g", "b", or null)
@@ -28,7 +30,12 @@ const sliderConfig = {
   gap: 32,
 };
 
-function boot({ get, net, store }) {
+async function boot({ get, net, store, query, help }) {
+  const mine = ++lifecycle;
+  loading = true; saving = false; saveStatus = null; lastSaveTime = 0;
+  supporter = null; supportChecking = false; saveBtn = null; resetBtn = null;
+  selectedCharIndex = 0;
+  supportSource = query?.source === "signup" ? "signup" : "handle-colors";
   // Load user's handle
   handle = store["handle"];
 
@@ -38,6 +45,10 @@ function boot({ get, net, store }) {
       jump: "prompt",
     };
   }
+  void checkSupport(net, help);
+  let draft;
+  try { draft = await store.retrieve?.(DRAFT_KEY); } catch { /* Preview storage is optional. */ }
+  if (mine !== lifecycle) return;
 
   // Initialize default colors (white for all characters) or load from API
   const handleWithAt = "@" + handle;
@@ -47,6 +58,7 @@ function boot({ get, net, store }) {
   fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(handle)}`)
     .then((response) => response.json())
     .then((data) => {
+      if (mine !== lifecycle) return;
       console.log(`🎨 Received color data:`, data);
       if (data.colors && data.colors.length === handleWithAt.length) {
         // Load existing colors
@@ -62,14 +74,32 @@ function boot({ get, net, store }) {
       }
       // Store defaults for reset functionality
       defaultColors = colors.map((c) => ({ ...c }));
+      if (draft?.handle === handle && Date.now() >= draft.at && Date.now() - draft.at < 86400000 &&
+          draft.colors?.length === handleWithAt.length && draft.colors.every(c =>
+            c && [c.r, c.g, c.b].every(v => Number.isInteger(v) && v >= 0 && v <= 255)))
+        colors = draft.colors;
       loading = false;
+      help.repeat();
     })
     .catch((err) => {
+      if (mine !== lifecycle) return;
       console.warn("⚠️ Failed to load handle colors, using defaults:", err);
       colors = handleWithAt.split("").map(() => ({ r: 255, g: 100, b: 255 }));
       defaultColors = colors.map((c) => ({ ...c }));
       loading = false;
+      help.repeat();
     });
+}
+
+async function checkSupport(net, help) {
+  const mine = lifecycle;
+  if (supportChecking) return;
+  supportChecking = true;
+  try {
+    const result = await net.userRequest("GET", "/api/give-status");
+    if (mine === lifecycle) supporter = result.status === 200 && typeof result.monthlySupporter === "boolean" ? result.monthlySupporter : null;
+  } catch { if (mine === lifecycle) supporter = null; }
+  finally { if (mine === lifecycle) { supportChecking = false; saveBtn = null; help.repeat(); } }
 }
 
 function paint({ ink, wipe, write, screen, ui, help }) {
@@ -271,7 +301,7 @@ function paint({ ink, wipe, write, screen, ui, help }) {
   }
 
   if (!saveBtn) {
-    saveBtn = new ui.TextButton("Save", {
+    saveBtn = new ui.TextButton(supporter === true ? "Save" : supporter === false ? "Support monthly" : "Check support", {
       right: 8,
       bottom: 8,
       screen,
@@ -295,6 +325,10 @@ function paint({ ink, wipe, write, screen, ui, help }) {
   }
 
   saveBtn.paint({ ink, box: (b) => ink().box(b) }, saveBtnColor);
+
+  if (supporter !== true && !saveStatus) ink(196, 172, 204).write(
+    supportChecking ? "Checking support..." : supporter === false ? "Any amount unlocks handle colors." : "Support check unavailable. Retry.",
+    { center: "x", y: screen.height - 38, screen }, undefined, undefined, false, "MatrixChunky8");
 
   // Save status message
   if (saveStatus && Date.now() - lastSaveTime < 2500) {
@@ -348,7 +382,7 @@ function drawSlider(ink, write, label, x, y, width, height, value, color, hovere
   }, undefined, undefined, false, "MatrixChunky8");
 }
 
-function act({ event: e, screen, net, help, jump, sound }) {
+function act({ event: e, screen, net, help, jump, sound, store }) {
   if (loading) return;
 
   const handleWithAt = "@" + handle;
@@ -498,7 +532,7 @@ function act({ event: e, screen, net, help, jump, sound }) {
   }
 
   // Handle Reset button with proper act callback
-  resetBtn.act(e, () => {
+  resetBtn?.act(e, () => {
     colors = defaultColors.map((c) => ({ ...c }));
     sound.synth({
       type: "square",
@@ -510,8 +544,15 @@ function act({ event: e, screen, net, help, jump, sound }) {
   });
 
   // Handle Save button with proper act callback
-  saveBtn.act(e, () => {
-    saveColors(net, help, sound);
+  saveBtn?.act(e, () => {
+    if (supporter === null) { void checkSupport(net, help); return; }
+    if (supporter === false) {
+      store[DRAFT_KEY] = { handle, colors, at: Date.now() };
+      store.persist(DRAFT_KEY);
+      jump(`https://give.aesthetic.computer/?source=${supportSource}`);
+      return;
+    }
+    saveColors(net, help, sound, store);
   });
 
   // Handle slider dragging
@@ -535,7 +576,8 @@ function act({ event: e, screen, net, help, jump, sound }) {
   }
 }
 
-async function saveColors(net, help, sound) {
+async function saveColors(net, help, sound, store) {
+  const mine = lifecycle;
   // Rate limit: prevent concurrent saves and enforce cooldown
   const now = Date.now();
   if (saving || (now - lastSaveTime < SAVE_COOLDOWN)) return;
@@ -551,22 +593,27 @@ async function saveColors(net, help, sound) {
       colors: colors.map((c) => ({ r: c.r, g: c.g, b: c.b })),
     };
     const response = await net.userRequest("POST", "/.netlify/functions/handle-colors", payload);
+    if (mine !== lifecycle) return;
 
     if (response.status === 200) {
       saveStatus = "saved";
       // Update defaults to current colors after successful save
-      defaultColors = colors.map((c) => ({ ...c }));
+      defaultColors = payload.colors.map((c) => ({ ...c }));
+      void store.delete?.(DRAFT_KEY);
       sound.synth({
         type: "sine",
         tone: 600,
         duration: 0.1,
         volume: 0.3,
       });
+    } else if (response.code === "monthly_support_required") {
+      supporter = false; saveBtn = null; saveStatus = null;
     } else {
       saveStatus = "error";
       console.error("❌ Failed to save handle colors. Status:", response.status, "Response:", response);
     }
   } catch (err) {
+    if (mine !== lifecycle) return;
     saveStatus = "error";
     console.error("❌ Error saving handle colors:", err);
   }
@@ -577,14 +624,15 @@ async function saveColors(net, help, sound) {
 
   // Clear status after 2.5 seconds
   setTimeout(() => {
-    if (Date.now() - lastSaveTime >= 2500) {
+    if (mine === lifecycle && Date.now() - lastSaveTime >= 2500) {
       saveStatus = null;
       help.repeat();
     }
   }, 2500);
 }
 
-export { boot, paint, act };
+function leave() { lifecycle++; }
+export { boot, paint, act, leave };
 
 function meta() {
   return {

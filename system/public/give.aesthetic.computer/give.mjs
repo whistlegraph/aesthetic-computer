@@ -3,7 +3,9 @@ const api = 'https://aesthetic.computer/api';
 const params = new URLSearchParams(location.search);
 const prefillEmail = params.get('email');
 // Keep attribution to a reviewed placement, never arbitrary query text.
-const source = params.get('source') === 'homepage' ? 'homepage' : undefined;
+const sources = ['homepage', 'give-piece', 'signup', 'handle-colors'];
+let source = sources.includes(params.get('source')) ? params.get('source') : undefined;
+const colorSupport = () => ['signup', 'handle-colors'].includes(source);
 if (prefillEmail) {
   const cleanUrl = new URL(location.href);
   cleanUrl.searchParams.delete('email');
@@ -31,6 +33,17 @@ function render() {
   const t = words[lang];
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-text]').forEach((el) => { el.textContent = t[el.dataset.text]; });
+  if (colorSupport()) {
+    document.querySelector('[data-text="purpose"]').textContent = {
+      en: 'Monthly support unlocks handle colors across AC.',
+      da: 'Månedlig støtte giver handlefarver i hele AC. Valgfrit beløb.',
+      de: 'Monatliche Unterstützung schaltet Handle-Farben in AC frei. Jeder Betrag.',
+      es: 'El apoyo mensual desbloquea colores de nombre en AC. Cualquier importe.',
+      zh: '每月支持任意金额，即可在整个 AC 自定义用户名颜色。',
+    }[lang];
+    $('form').elements.frequency.value = 'monthly';
+  }
+  $('form').querySelector('input[value="once"]').closest('label').hidden = colorSupport();
   $('subscriber-label').textContent = countFailed ? t.unavailable : count === 1 ? t.subscriber : t.subscribers;
   $('count').textContent = count === null ? '—' : count.toLocaleString(lang);
   $('count').setAttribute('aria-label', count === null ? t.unavailable : `${count} ${count === 1 ? t.subscriber : t.subscribers}`);
@@ -71,22 +84,30 @@ fetch(`${api}/gives?summary=subscribers`, { signal: AbortSignal.timeout(8000) })
   .catch(() => { countFailed = true; })
   .finally(render);
 
-$('form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  if (busy || !$('form').reportValidity()) return;
+async function openCheckout(payload) {
+  if (busy) return;
   busy = true;
   $('give').disabled = true;
   $('error').textContent = '';
   render();
   try {
-    const payload = { amount: Math.round(Number($('amount').value) * 100), currency: $('currency').value, recurring: monthly() };
-    if (prefillEmail) payload.email = prefillEmail;
-    if (source) payload.source = source;
+    const headers = { 'Content-Type': 'application/json' };
+    if (['signup', 'handle-colors'].includes(payload.source)) {
+      const auth = await getAuth();
+      if (!await auth.isAuthenticated()) {
+        await auth.loginWithRedirect({ appState: { give: payload } });
+        return;
+      }
+      headers.Authorization = `Bearer ${await auth.getTokenSilently()}`;
+    }
     const res = await fetch(`${api}/give`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers,
       body: JSON.stringify(payload), signal: AbortSignal.timeout(20000),
     });
     const data = await res.json();
+    if (res.status === 409 && data.code === 'already_supporting') {
+      location.assign('https://aesthetic.computer/handle'); return;
+    }
     if (!res.ok || !data.url) throw new Error('Checkout unavailable');
     const url = new URL(data.url);
     if (url.protocol !== 'https:' || !['checkout.stripe.com', 'pay.aesthetic.computer'].includes(url.hostname)) throw new Error('Invalid checkout URL');
@@ -97,9 +118,17 @@ $('form').addEventListener('submit', async (event) => {
     $('give').disabled = false;
     render();
   }
+}
+$('form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (!$('form').reportValidity()) return;
+  const payload = { amount: Math.round(Number($('amount').value) * 100), currency: $('currency').value, recurring: monthly() };
+  if (prefillEmail && !colorSupport()) payload.email = prefillEmail;
+  if (source) payload.source = source;
+  void openCheckout(payload);
 });
 
-// Account tools are only loaded when managing an existing subscription.
+// Load account tools only when connecting support or managing a subscription.
 let authPromise;
 function getAuth() {
   if (!authPromise) authPromise = (async () => {
@@ -118,16 +147,12 @@ function getAuth() {
   })().catch((error) => { authPromise = null; throw error; });
   return authPromise;
 }
-async function manage(callback = false) {
+async function manage() {
   $('manage').disabled = true;
   $('error').textContent = '';
   $('status').textContent = words[lang].portalLoading;
   try {
     const auth = await getAuth();
-    if (callback) {
-      await auth.handleRedirectCallback();
-      history.replaceState({}, '', location.pathname);
-    }
     if (!await auth.isAuthenticated()) {
       await auth.loginWithRedirect();
       return;
@@ -150,4 +175,19 @@ async function manage(callback = false) {
   }
 }
 $('manage').addEventListener('click', () => manage());
-if (params.has('state') && (params.has('code') || params.has('error'))) manage(true);
+async function finishAuth() {
+  try {
+    const auth = await getAuth();
+    const { appState } = await auth.handleRedirectCallback();
+    history.replaceState({}, '', location.pathname);
+    const payload = appState?.give;
+    if (payload && ['signup', 'handle-colors'].includes(payload.source)) {
+      source = payload.source;
+      $('currency').value = payload.currency === 'dkk' ? 'dkk' : 'usd';
+      updateCurrency(); $('amount').value = Number(payload.amount) / 100; render();
+      if ($('form').reportValidity()) await openCheckout({ amount: Math.round(Number($('amount').value) * 100),
+        currency: $('currency').value, recurring: true, source });
+    } else await manage();
+  } catch { $('error').textContent = words[lang].error; }
+}
+if (params.has('state') && (params.has('code') || params.has('error'))) void finishAuth();
