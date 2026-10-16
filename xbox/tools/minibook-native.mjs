@@ -55,6 +55,10 @@ const say = (line) => {
 function files() {
   const listed = execFileSync("git", ["-C", root, "ls-files", "-co", "--exclude-standard", "--", ...roots],
     { encoding: "utf8" }).split("\n").filter(Boolean);
+  // Private product files (oskiewar.js and friends) are gitignored symlinks
+  // into the vault, so ls-files never lists them; name them outright.
+  for (const path of roots)
+    if (!listed.includes(path) && /\.[a-z0-9]+$/i.test(path) && existsSync(join(root, path))) listed.push(path);
   return listed.filter((path) => !skip.test(path) && existsSync(join(root, path)));
 }
 function sync() {
@@ -71,7 +75,7 @@ function sync() {
   const scratch = mkdtempSync(join(tmpdir(), "minibook-native-"));
   const tarball = join(scratch, "sync.tar");
   writeFileSync(join(scratch, "list"), changed.join("\n") + "\n");
-  execFileSync("tar", ["-cf", tarball, "-C", root, "-T", join(scratch, "list")]);
+  execFileSync("tar", ["-chf", tarball, "-C", root, "-T", join(scratch, "list")]);
   ssh(`New-Item -ItemType Directory -Force $HOME\\${remoteRoot.replace("/", "\\")} | Out-Null`);
   execFileSync("scp", ["-q", tarball, `${host}:${remoteRoot}/sync.tar`]);
   // A restored local file may be older than a generated Windows manifest.
