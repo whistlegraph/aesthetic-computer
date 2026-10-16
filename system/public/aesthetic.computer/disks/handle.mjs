@@ -55,7 +55,7 @@ async function boot({ get, net, store, query, help }) {
 
   // Fetch existing color data from server
   console.log(`🎨 Loading colors for handle: ${handle}`);
-  fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(handle)}`)
+  fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(handle)}`, { cache: "no-store" })
     .then((response) => response.json())
     .then((data) => {
       if (mine !== lifecycle) return;
