@@ -1,4 +1,6 @@
 import { createBootDiagnostics } from "./lib/boot-diagnostics.mjs";
+import { createSignupCanvas } from "./lib/signup-canvas.mjs";
+import { createOnboardingAudio } from "./lib/onboarding-audio.mjs";
 import { createSignupFlow } from "./lib/signup-flow.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintStartingPiece } from "./lib/nopaint-navigation.mjs";
 
@@ -1573,7 +1575,10 @@ if (!sandboxed && !window.acNOAUTH) {
       throw error;
     }
   };
+  window.acOnboardingAudio = createOnboardingAudio(window);
+  window.acSignupCanvas = createSignupCanvas(window, document, window.acOnboardingAudio);
   window.acSignup = createSignupFlow(window, document, {
+    canvas: window.acSignupCanvas,
     clientId: AUTH0_CLIENT_ID,
     redirect: redirectLogin,
     social: socialLogin,

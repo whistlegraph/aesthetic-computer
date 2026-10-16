@@ -13834,6 +13834,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "signup:canvas") { window.acSignupCanvas?.handle(content); return; }
+    if (type === "onboarding:audio") {
+      const audio = window.acOnboardingAudio;
+      if (content?.action === "enter") audio?.enter();
+      if (content?.action === "leave") audio?.leave();
+      if (content?.action === "tap") audio?.tap();
+      if (content?.action === "toggle") audio?.toggle();
+      send({ type: "onboarding:audio-state", content: { enabled: audio?.enabled ?? false } });
+      return;
+    }
+
     if (type === "signup") {
       if (window.self === window.top) {
         window.acLOGIN?.("signup");

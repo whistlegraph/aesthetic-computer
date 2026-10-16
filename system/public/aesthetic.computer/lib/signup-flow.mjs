@@ -14,7 +14,7 @@ const KEY = "ac:signup:v1";
 // `session-aesthetic`, the same shape an embedding host hands boot. `redirect`
 // is the old Universal Login door; the in-page one falls back to it whenever
 // auth0-otp reports a tenant fault rather than a person's mistake.
-export function createSignupFlow(win, doc, { clientId, redirect, social, socials = [] } = {}) {
+export function createSignupFlow(win, doc, { clientId, redirect, social, socials = [], canvas } = {}) {
   let attempt, previousPiece = signupReturnPath(win.location.href, win.location.origin);
   let dialog, timer, auth, checking = false, generation = 0, otp, otpModule, signedIn = null;
   const disabled = () => win.navigator.doNotTrack === "1" || win.doNotTrack === "1" ||
@@ -61,6 +61,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     generation++;
     win.clearInterval(timer);
     timer = undefined;
+    canvas?.unmount();
     dialog?.remove(); dialog = null;
   }
   function clear() {
@@ -102,7 +103,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     if (!response.ok) throw Object.assign(new Error("Request failed"), { reason: body.message || "network" });
     return body;
   }
-  function frame(title, description, dismiss = close) {
+  function frame(title, description, dismiss = () => { const path = signupReturnPath(read()?.returnTo, win.location.origin) || "/prompt"; close(); win.location.assign(path); }) {
     close();
     dialog = doc.createElement("dialog");
     dialog.dataset.acNoTrack = "";
@@ -126,7 +127,8 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     // Keep typing in the dialog out of the canvas prompt's keyboard handlers.
     for (const type of ["keydown", "keyup", "keypress", "pointerdown", "pointerup", "pointermove", "mousedown", "mouseup", "click", "touchstart", "touchend", "touchmove", "wheel"])
       dialog.addEventListener(type, event => event.stopPropagation());
-    doc.body.append(dialog); dialog.showModal();
+    doc.body.append(dialog);
+    if (canvas) canvas.mount(dialog); else dialog.showModal();
     return dialog;
   }
   function handleForm() {
