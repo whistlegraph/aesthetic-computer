@@ -11,6 +11,7 @@ only_commits:
     - xbox/assets/
     - xbox/themes/photorealistic/native/
     - xbox/test-native-windows.cmd
+    - pop/nullabye/c/ac_hrtf.h
     - system/backend/kidlisp-ast.mjs
     - system/public/type/webfonts/ywft-processing-regular.ttf
     - system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf
@@ -28,6 +29,7 @@ clone_script:
   - cmd: echo xbox/tools/>>.git\info\sparse-checkout
   - cmd: echo system/public/aesthetic.computer/dep/@akamfoad/qr/>>.git\info\sparse-checkout
   - cmd: echo xbox/test-native-windows.cmd>>.git\info\sparse-checkout
+  - cmd: echo pop/nullabye/c/ac_hrtf.h>>.git\info\sparse-checkout
   - cmd: echo system/backend/kidlisp-ast.mjs>>.git\info\sparse-checkout
   - cmd: echo system/public/type/webfonts/ywft-processing-regular.ttf>>.git\info\sparse-checkout
   - cmd: echo system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf>>.git\info\sparse-checkout
