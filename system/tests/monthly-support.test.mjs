@@ -47,6 +47,7 @@ test("Colors remain readable after cancellation; saving requires ownership and a
   let paid = false, unavailable = false, writes = 0, checks = 0, closes = 0, broadcasts = 0;
   const handler = createHandleColorsHandler({ authorize: async () => owner, findSisterSub: async () => null,
     connect: async () => ({ db: { collection: () => ({ findOne: async () => ({ handle: "x", colors }),
+      find: () => ({ toArray: async () => [{ handle: "x", colors }] }),
       updateOne: async () => { writes++; } }) }, disconnect: async () => { closes++; } }),
     support: async () => { checks++; if (unavailable) throw Error("Unavailable"); return paid; },
     broadcast: async () => { broadcasts++; },
@@ -64,4 +65,18 @@ test("Colors remain readable after cancellation; saving requires ownership and a
   assert.equal(closes, 5);
   for (const bad of [null, { r: null, g: 0, b: 0 }, { r: 1.1, g: 0, b: 0 }])
     assert.equal((await handler({ ...post, body: JSON.stringify({ handle: "x", colors: [bad, colors[1]] }) })).statusCode, 400);
+});
+
+test("a handle shared by two accounts in different case reads the one with colours", async () => {
+  const colors = [{ r: 207, g: 230, b: 255 }, { r: 74, g: 144, b: 226 }];
+  // The empty "Jeffrey" record comes back first, as it did in production.
+  const handler = createHandleColorsHandler({
+    connect: async () => ({ db: { collection: () => ({
+      find: () => ({ toArray: async () => [{ handle: "Jeffrey" }, { handle: "jeffrey", colors }] }),
+    }) }, disconnect: async () => {} }),
+  });
+  for (const asked of ["jeffrey", "@jeffrey", "JEFFREY", "Jeffrey"]) {
+    const read = await handler({ httpMethod: "GET", queryStringParameters: { handle: asked } });
+    assert.deepEqual(JSON.parse(read.body).colors, colors, asked);
+  }
 });

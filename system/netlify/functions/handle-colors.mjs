@@ -28,10 +28,19 @@ export function createHandleColorsHandler(deps = {}) {
       const database = await openDatabase();
       const handles = database.db.collection("@handles");
 
-      // Find by handle (case-insensitive)
-      const user = await handles.findOne({
-        handle: { $regex: new RegExp(`^${handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
-      });
+      // Handles are matched without case, but more than one record can share
+      // a name that differs only in case ("Jeffrey" and "jeffrey" are two
+      // accounts), and findOne used to hand back whichever came first — an
+      // empty record, so @jeffrey's colours read as null. The exact spelling
+      // wins; failing that, the case variant that actually has colours.
+      const name = handle.replace(/^@/, "");
+      const matches = await handles.find({
+        handle: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      }).toArray();
+      const painted = (doc) => Array.isArray(doc?.colors) && doc.colors.length > 0;
+      const user = matches.find((doc) => doc.handle === name && painted(doc)) ||
+        matches.find((doc) => doc.handle === name.toLowerCase() && painted(doc)) ||
+        matches.find(painted) || matches[0] || null;
 
       await database.disconnect();
 
