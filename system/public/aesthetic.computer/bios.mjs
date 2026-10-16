@@ -19418,6 +19418,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       tryPlay(true).catch((err) => {
+        // A pause() before play() settles (e.g. MIME holding a warmed card)
+        // rejects with AbortError. That is not CORS: keep the element so a
+        // later stream:resume starts it, analyser and all.
+        if (err?.name === "AbortError") {
+          send({ type: "stream:paused", content: { id } });
+          return;
+        }
         // CORS rejection surfaces as MediaError code 4 / NotSupportedError.
         // Tear down the tainted audio element and retry without crossOrigin.
         console.warn(

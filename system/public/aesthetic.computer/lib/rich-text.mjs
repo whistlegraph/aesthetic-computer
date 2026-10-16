@@ -416,6 +416,8 @@ export class RichTextFlow {
     if (type === "stream:error") {
       this.time = this.mediaTime(); this.silentAt = this.hostPlayback === false ? null : performance.now(); this.starting = false;
     }
+    // An interrupted start reports paused, so the next play resumes it.
+    if (type === "stream:paused") this.starting = false;
     if (type === "stream:paused" || type === "stream:error") this.playing = false;
     if (type === "stream:error") this.error = content.error || "Audio error";
     if (type === "stream:speed-data" && Number.isFinite(content.speed)) {
