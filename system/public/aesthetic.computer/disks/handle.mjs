@@ -3,7 +3,7 @@
 
 const { floor, max, min } = Math;
 
-let handleButtons = {}, handleLayout, handleMusic = true;
+let handleButtons = {}, handleLayout, handleMusic = true, handleScroll = 0, handleScrollMax = 0;
 let handle; // User's handle
 let colors = []; // RGB colors for @ sign + each character [{r, g, b}, ...]
 let defaultColors = []; // Store defaults for reset
@@ -17,7 +17,7 @@ let supporter = null, supportChecking = false, supportSource = "handle-colors", 
 const DRAFT_KEY = "handle:color-preview";
 const SAVE_COOLDOWN = 3000; // Minimum ms between save attempts
 async function boot({ get, net, store, query, help, send }) {
-  handleButtons = {}; handleLayout = null; handleMusic = true;
+  handleButtons = {}; handleLayout = null; handleMusic = true; handleScroll = 0; handleScrollMax = 0;
   send?.({ type: "onboarding:audio", content: { action: "enter" } });
   const mine = ++lifecycle;
   loading = true; saving = false; saveStatus = null; lastSaveTime = 0;
@@ -97,19 +97,19 @@ function paint($) {
   const w = Math.min(280, screen.width - 24), x = floor((screen.width - w) / 2);
   const compact = screen.height < 300;
   const text = (value, tx, ty, color = [230, 220, 241]) => ink(color).write(value, { x: tx, y: ty }, undefined, undefined, false, 'MatrixChunky8');
-  text('Handle colors', x, 36, [255, 113, 191]);
-  const chars = ('@' + handle).split(''), cell = Math.max(12, Math.min(22, floor(w / Math.min(chars.length, 10))));
+  text('Handle colors', x, 36 - handleScroll, [255, 113, 191]);
+  const chars = ('@' + handle).split(''), cell = 22;
   const columns = Math.max(1, floor(w / cell)), rows = Math.ceil(chars.length / columns);
   handleLayout = { chars: [], sliders: [], buttons: [] };
   chars.forEach((char, i) => {
-    const bx = x + (i % columns) * cell, by = 57 + floor(i / columns) * 27;
+    const bx = x + (i % columns) * cell, by = 57 + floor(i / columns) * 27 - handleScroll;
     const box = { x: bx, y: by, w: cell, h: 25 };
     handleLayout.chars.push(box);
     if (i === selectedCharIndex) ink(80, 62, 92).box(box, 'fill');
     const c = colors[i]; text(char, bx + floor((cell - 6) / 2), by + 8, [c.r, c.g, c.b]);
     if (i === selectedCharIndex) ink(135, 233, 191).box(bx + 2, by + 23, cell - 4, 1, 'fill');
   });
-  let y = 63 + rows * 27;
+  let y = 63 + rows * 27 - handleScroll;
   if (!compact) { text('Tap a letter. Play with its color.', x, y); y += 19; }
   const sliderW = w - 54, c = colors[selectedCharIndex];
   ['r', 'g', 'b'].forEach((key, i) => {
@@ -125,7 +125,7 @@ function paint($) {
   });
   const button = (id, label, bx, by, bw) => {
     const b = handleButtons[id] ||= new ui.Button(); Object.assign(b.box, { x: bx, y: by, w: bw, h: 26 });
-    b.disabled = saving || supportChecking; handleLayout.buttons.push({ id, b });
+    b.disabled = saving || supportChecking || by < 34 || by + 26 > screen.height; handleLayout.buttons.push({ id, b });
     ink(id === 'save' ? [60, 99, 68] : [47, 35, 62]).box(b.box, 'fill');
     ink(160, 150, 175).box(b.box, 'outline'); text(label, bx + 5, by + 9);
   };
@@ -133,13 +133,18 @@ function paint($) {
   text(status, x, y + 5, [135, 233, 191]); y += 25;
   button('reset', 'Reset', x, y, 43);
   button('save', supporter === true ? 'Save colors' : supporter === false ? 'Support monthly' : 'Check support', x + 49, y, w - 49);
+  handleScrollMax = max(0, y + handleScroll + 34 - screen.height);
+  ink(15, 15, 20).box(0, 0, screen.width, 32, 'fill');
   button('music', handleMusic ? 'Music on' : 'Music off', screen.width - 80, 5, 72);
   handleButtons.music.disabled = false;
 }
 function act($) {
   const { event: e, screen, net, help, jump, sound, store, send } = $;
   if (loading || !handleLayout) return;
-  const hit = b => e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h;
+  if (e.is('scroll') || (e.is('draw:1') && !handleLayout.sliders.some(b => e.x >= b.x && e.x < b.x + b.w))) {
+    handleScroll = max(0, min(handleScrollMax, handleScroll - (e.is('scroll') ? e.y : e.delta.y))); help.repeat(); return;
+  }
+  const hit = b => b.y >= 32 && e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h;
   const tap = () => send?.({ type: 'onboarding:audio', content: { action: 'tap' } });
   if (e.is('touch')) {
     const i = handleLayout.chars.findIndex(hit);
