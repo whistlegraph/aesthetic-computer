@@ -113,6 +113,14 @@ class Graphics {
   // prims holds count × 12 floats (a.xyz r1, b.xyz r2, r g b 0–1, hard).
   // False means the host has no SDF pass and the piece draws triangles.
   virtual bool sdf_figure(const float* /*camera*/, const float* /*prims*/, std::size_t /*count*/) { return false; }
+  // One raycast sprite (oskiewarRaycast): an object shaded per pixel inside a
+  // screen square instead of built from faces. kind 0 is the beach ball. x, y
+  // and radius are logical stage units; z and zFront are the centre's depth
+  // and the depth its nearest surface reaches, in the triangle world's z.
+  // roll turns it in the picture plane, tumble tips it. False means the host
+  // has no raycast pass and the piece draws the flat ball.
+  virtual bool raycast(int /*kind*/, float /*x*/, float /*y*/, float /*radius*/,
+      float /*z*/, float /*zFront*/, float /*roll*/, float /*tumble*/) { return false; }
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}

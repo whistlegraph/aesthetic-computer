@@ -1031,6 +1031,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "meshDraw", JS_NewCFunction(context_, MeshDraw, "meshDraw", 7));
     JS_SetPropertyStr(context_, global, "meshFree", JS_NewCFunction(context_, MeshFree, "meshFree", 1));
     JS_SetPropertyStr(context_, global, "sdfFigure", JS_NewCFunction(context_, SdfFigure, "sdfFigure", 3));
+    JS_SetPropertyStr(context_, global, "oskiewarRaycast", JS_NewCFunction(context_, Raycast, "oskiewarRaycast", 8));
     JS_SetPropertyStr(context_, global, "decalSurfaceSize", JS_NewInt32(context_, 4096));
     JS_SetPropertyStr(context_, global, "meshTransparency", JS_NewBool(context_, true));
     JS_SetPropertyStr(context_, global, "triangle3d", JS_NewCFunction(context_, Triangle3d, "triangle3d", 12));

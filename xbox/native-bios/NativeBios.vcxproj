@@ -122,6 +122,12 @@
     <FxCompile Include="SdfPixelShader.hlsl">
       <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>
+    <FxCompile Include="RaycastVertexShader.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="RaycastPixelShader.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Square150x150Logo.png" />
