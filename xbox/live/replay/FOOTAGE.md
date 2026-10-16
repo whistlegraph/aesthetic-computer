@@ -77,7 +77,8 @@ A dojo round is about 40 KB/s before compression and about 10 KB/s gzipped.
 An upload over 8 MiB is filed without footage instead of not at all, and
 the engine stops filming after ten minutes.
 
-## Stamps
+## Cuts
 
-Footage is drawn, not simulated, so an export can render any stretch of it
-at any size and speed: a clip, a GIF, a still.
+Footage is drawn, not simulated, so a cut can render any stretch of it at
+any size and speed: a clip, a GIF, a still. The reel factory burns them:
+`node xbox/live/marketing/reel.mjs --round <name> [--from s --to s]`.
