@@ -143,8 +143,10 @@ function Fit-Screen {
   $scale = $source.CompositionTarget.TransformFromDevice
   $origin = $scale.Transform([Windows.Point]::new($bounds.Left, $bounds.Top))
   $extent = $scale.Transform([Windows.Point]::new($bounds.Width, $bounds.Height))
-  $window.Left = $origin.X + 12; $window.Top = $origin.Y + 12
-  $window.Width = $extent.X - 24; $window.Height = $extent.Y * .76 - 24
+  # The whole display: the laptop is the build machine's face, so the step
+  # reads from across the room.
+  $window.Left = $origin.X; $window.Top = $origin.Y
+  $window.Width = $extent.X; $window.Height = $extent.Y
   $script:fontSize = [math]::Max(14, [math]::Min(21, $window.Width / 75))
   $script:visibleLines = [math]::Max(8, [int]($window.Height / ($script:fontSize * 1.5)))
   Fit-Headline
