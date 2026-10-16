@@ -1,6 +1,7 @@
 // Handle, 2026.02.13.09.00
 // Per-character color editing with phone-sized touch controls.
 
+import { wrap, fonts } from '../lib/onboarding-ui.mjs';
 const { floor, max, min } = Math;
 
 let handleButtons = {}, handleLayout, handleMusic = true, handleScroll = 0, handleScrollMax = 0, handleDragSlider = null;
@@ -96,8 +97,8 @@ function paint($) {
   if (loading) { ink(255).write('Loading...', { center: 'xy', screen }); return; }
   const w = Math.min(280, screen.width - 24), x = floor((screen.width - w) / 2);
   const compact = screen.height < 300;
-  const text = (value, tx, ty, color = [230, 220, 241]) => ink(color).write(value, { x: tx, y: ty }, undefined, undefined, false, 'MatrixChunky8');
-  text('Handle colors', x, 36 - handleScroll, [255, 113, 191]);
+  const text = (value, tx, ty, color = [230, 220, 241], font = fonts.body) => ink(color).write(value, { x: tx, y: ty }, undefined, undefined, false, font);
+  text('Handle colors', x, 36 - handleScroll, [255, 113, 191], fonts.heading);
   const chars = ('@' + handle).split(''), cell = 22;
   const columns = Math.max(1, floor(w / cell)), rows = Math.ceil(chars.length / columns);
   handleLayout = { chars: [], sliders: [], buttons: [] };
@@ -106,11 +107,11 @@ function paint($) {
     const box = { x: bx, y: by, w: cell, h: 25 };
     handleLayout.chars.push(box);
     if (i === selectedCharIndex) ink(80, 62, 92).box(box, 'fill');
-    const c = colors[i]; text(char, bx + floor((cell - 6) / 2), by + 8, [c.r, c.g, c.b]);
+    const c = colors[i]; text(char, bx + floor((cell - 8) / 2), by + 4, [c.r, c.g, c.b], fonts.heading);
     if (i === selectedCharIndex) ink(135, 233, 191).box(bx + 2, by + 23, cell - 4, 1, 'fill');
   });
   let y = 63 + rows * 27 - handleScroll;
-  if (!compact) { text('Tap a letter. Play with its color.', x, y); y += 19; }
+  if (!compact) { for (const line of wrap('Tap a letter. Play with its color.', w)) { text(line, x, y); y += 13; } y += 8; }
   const sliderW = w - 54, c = colors[selectedCharIndex];
   ['r', 'g', 'b'].forEach((key, i) => {
     const box = { x: x + 13, y, w: sliderW, h: 24 };
@@ -130,9 +131,11 @@ function paint($) {
     ink(160, 150, 175).box(b.box, 'outline'); text(label, bx + 5, by + 9);
   };
   const status = saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Could not save. Try again.' : supportChecking ? 'Checking support...' : supporter === false ? 'Monthly support to save.' : supporter === null ? 'Support check unavailable.' : 'Your colors travel across AC.';
-  text(status, x, y + 5, [135, 233, 191]); y += 25;
-  button('reset', 'Reset', x, y, 43);
-  button('save', supporter === true ? 'Save colors' : supporter === false ? 'Support monthly' : 'Check support', x + 49, y, w - 49);
+  for (const line of wrap(status, w)) { text(line, x, y + 5, [135, 233, 191]); y += 13; } y += 12;
+  const stacked = w < 180;
+  button('reset', 'Reset', x, y, stacked ? w : 43);
+  if (stacked) y += 32;
+  button('save', supporter === true ? 'Save colors' : supporter === false ? 'Support monthly' : 'Check support', stacked ? x : x + 49, y, stacked ? w : w - 49);
   handleScrollMax = max(0, y + handleScroll + 34 - screen.height);
   ink(15, 15, 20).box(0, 0, screen.width, 32, 'fill');
   button('music', handleMusic ? 'Music on' : 'Music off', screen.width - 80, 5, 72);

@@ -36,13 +36,13 @@ test('native amount entry authenticates perk checkout, rejects bad amounts, and 
   const f=fixture(); support.boot(f.api);f.draw(support);
   f.click(support,'Another amount'); f.draw(support);
   for(const key of ['0','.','5','0']){f.click(support,key);f.draw(support)}
-  f.click(support,'Done');f.draw(support);f.click(support,'Continue to checkout');await settle();f.draw(support);
+  f.click(support,'Done');f.draw(support);f.click(support,'Checkout');await settle();f.draw(support);
   assert.equal(f.posts.length,0);assert.ok(f.writes.some(w=>w.s==='Choose $1 to $2,500.'));
-  f.click(support,'$4');f.draw(support);f.click(support,'Continue to checkout');await settle();
+  f.click(support,'$4');f.draw(support);f.click(support,'Checkout');await settle();
   assert.equal(f.posts[0].body.amount,400);assert.equal(f.posts[0].body.source,'signup');assert.equal(f.posts[0].body.recurring,true);
   assert.equal(f.jumps.at(-1),'https://pay.aesthetic.computer/test');
-  f.setResult({status:409,code:'already_supporting'});f.draw(support);f.click(support,'Continue to checkout');await settle();assert.equal(f.jumps.at(-1),'handle');
-  f.setResult({status:200,url:'https://evil.example/test'});f.draw(support);f.click(support,'Continue to checkout');await settle();assert.equal(f.jumps.length,2);
+  f.setResult({status:409,code:'already_supporting'});f.draw(support);f.click(support,'Checkout');await settle();assert.equal(f.jumps.at(-1),'handle');
+  f.setResult({status:200,url:'https://evil.example/test'});f.draw(support);f.click(support,'Checkout');await settle();assert.equal(f.jumps.length,2);
   support.leave(f.api);
 });
 test('native handle preview persists through support and saving uses server entitlement',async t=>{
@@ -62,7 +62,7 @@ test('music needs a gesture, respects mute, and stops on leaving or hiding',asyn
 });
 
 test('reopening support without a source still authenticates the handle perk', async()=>{
- const f=fixture();f.api.query={};support.boot(f.api);f.draw(support);f.click(support,'Continue to checkout');await settle();
+ const f=fixture();f.api.query={};support.boot(f.api);f.draw(support);f.click(support,'Checkout');await settle();
  assert.equal(f.posts[0].body.source,'handle-colors');support.leave(f.api);
 });
 test('the handle editor scrolls in a short landscape viewport',async t=>{
