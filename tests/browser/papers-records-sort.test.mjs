@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
-test('date sorting, filtering, persistence, and non-PDF records', async () => {
+test('written dates, revisions, compact rows, and non-PDF records', async () => {
   const site = process.env.AC_PAPERS_SITE || new URL('../../system/public/papers.aesthetic.computer/', import.meta.url).pathname;
-  const browser = await chromium.launch({ executablePath: process.env.AC_BROWSER_EXECUTABLE });
+  const browser = await chromium.launch(process.env.AC_BROWSER_EXECUTABLE ? { executablePath: process.env.AC_BROWSER_EXECUTABLE } : { channel: 'chrome' });
   const context = await browser.newContext({ viewport: { width: 1100, height: 900 } });
   const page = await context.newPage();
   let pdfRequests = 0;
@@ -21,34 +21,23 @@ test('date sorting, filtering, persistence, and non-PDF records', async () => {
   });
   try {
     await page.goto('https://papers.aesthetic.computer/');
-    const sort = page.getByRole('combobox', { name: 'Sort papers' });
-    assert.equal(await sort.inputValue(), 'newest');
-    async function checkDates(key, ascending) {
-      const dates = await page.locator('#pubs tbody tr').evaluateAll((rows, key) => rows.map(row => row.dataset[key]?.slice(0, 10) || ''), key);
-      const known = dates.filter(Boolean);
-      assert.deepEqual(known, [...known].sort((a,b) => ascending ? a.localeCompare(b) : b.localeCompare(a)));
-      assert.deepEqual(dates.slice(0, known.length), known, 'undated records stay last');
-    }
-    await checkDates('created', false);
-    const version = page.locator('tr[data-key="os"] .paper-version');
-    assert.equal(await version.textContent(), 'v' + await page.locator('tr[data-key="os"]').getAttribute('data-revisions'));
-    await page.screenshot({ path: '/tmp/ac-os-paper-release-shots/papers-dates.png' });
-    await sort.selectOption('oldest');
-    await checkDates('created', true);
-    await sort.selectOption('updated');
-    await checkDates('updated', false);
-    await page.reload();
-    assert.equal(await sort.inputValue(), 'updated');
-    await sort.selectOption('newest');
-    const filter = page.getByRole('searchbox');
-    await filter.fill('Early-career');
-    assert.equal(await page.locator('#pubs tbody tr:visible').count(), 1);
+    assert.equal(await page.locator('input, select, thead').count(), 0);
+    const order = await page.locator('#pubs tbody tr').evaluateAll(rows => rows.map(row => ({
+      date: row.dataset.created || '', record: !!row.querySelector('.paper-title a[href^="/records/"]')
+    })));
+    const papers = order.filter(row => !row.record);
+    assert.deepEqual(order.slice(0, papers.length), papers, 'submission-only records follow every paper');
+    const dates = papers.map(row => row.date);
+    assert.deepEqual(dates, [...dates].sort().reverse(), 'papers use original dates, newest first');
+    const row = page.locator('tr[data-key="os"]');
+    assert.equal(await row.locator('.paper-version').textContent(), 'v' + await row.getAttribute('data-revisions'));
+    assert.equal(await row.locator('.created').evaluate(e => e.firstElementChild.matches('.paper-version')), true);
+    assert.match(await row.locator('.created time').textContent(), /^[A-Z][a-z]+ \d{1,2}, \d{4}$/);
     const brief = page.getByRole('link', { name: 'Early-career research statement', exact: true });
     await brief.click();
     await page.locator('.record-preview article').getByText('Working brief · PDF not yet built').waitFor();
     assert.ok(await page.locator('.record-preview article').getByText('Abstract seed', { exact: true }).isVisible());
     assert.equal(pdfRequests, 0);
-    await page.screenshot({ path: '/tmp/ac-os-paper-release-shots/record-desktop.png' });
     const popupReady = page.waitForEvent('popup');
     await page.locator('.record-preview').getByRole('link', { name: 'Open in tab' }).click();
     const popup = await popupReady;
@@ -61,18 +50,12 @@ test('date sorting, filtering, persistence, and non-PDF records', async () => {
     await page.setViewportSize({ width: 390, height: 780 });
     await brief.click();
     await page.locator('.record-preview article').getByText('Abstract seed', { exact: true }).waitFor();
-    await page.screenshot({ path: '/tmp/ac-os-paper-release-shots/record-phone.png' });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.getByRole('button', { name: 'Close record' }).click();
-    await filter.fill('');
     for (const title of ['Sound/image full paper', 'Note(s)pat(ial) Native']) {
       await page.getByRole('link', { name: title, exact: true }).click();
       await page.locator('.record-preview article').getByText('Submission record · No public document available').waitFor();
       await page.keyboard.press('Escape');
     }
-    await sort.selectOption('submission');
-    const submissionDates = await page.locator('#pubs tbody tr .wh').allTextContents();
-    const known = submissionDates.map(t => t.match(/\d{4}-\d{2}-\d{2}/)?.[0]).filter(Boolean);
-    assert.deepEqual(known, [...known].sort().reverse());
   } finally { await browser.close(); }
 });

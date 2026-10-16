@@ -1,0 +1,380 @@
+{
+  "description": "Earliest committed draft source; use an earlier recorded creation date when available.",
+  "papers": {
+    "arxiv-stack-summer-26": {
+      "date": "2026-07-18",
+      "source": "papers/arxiv-stack-summer-26/stack-summer-26.tex",
+      "commit": "2f376819cb831653ec387ab59b83f6d828acbc3c"
+    },
+    "arxiv-ac": {
+      "date": "2026-03-04",
+      "source": "papers/arxiv-ac/ac.tex",
+      "commit": "6e03c46062c03518a633e707a0ddd763cd6f47e7"
+    },
+    "arxiv-aesthinema": {
+      "date": "2026-07-11",
+      "source": "papers/arxiv-aesthinema/aesthinema.tex",
+      "commit": "b1ed15bb4868f99aab77a1b3e0f10d9a9dbb28b7"
+    },
+    "arxiv-api": {
+      "date": "2026-03-15",
+      "source": "papers/arxiv-api/api.tex",
+      "commit": "7a184f452a68b5d197b61ae22f642541938ac5de"
+    },
+    "arxiv-archaeology": {
+      "date": "2026-03-13",
+      "source": "papers/arxiv-archaeology/archaeology.tex",
+      "commit": "cf722b6c0667b0c8774a1792b430f1ccc79a2edf"
+    },
+    "arxiv-hand-and-loop": {
+      "date": "2026-06-08",
+      "source": "papers/arxiv-hand-and-loop/handloop.tex",
+      "commit": "af322791ac3d24a2626863dcb2b1a4beb6605a1b"
+    },
+    "arxiv-dead-ends": {
+      "date": "2026-03-14",
+      "source": "papers/arxiv-dead-ends/dead-ends.tex",
+      "commit": "b2a8554ad1be2a52c7ed2ac3ee417c0431e78a2c"
+    },
+    "arxiv-diversity": {
+      "date": "2026-03-14",
+      "source": "papers/arxiv-diversity/diversity.tex",
+      "commit": "db1d5bb83ad2cb40d28f2eb312266d66db05b101"
+    },
+    "arxiv-goodiepal": {
+      "date": "2026-03-14",
+      "source": "papers/arxiv-goodiepal/goodiepal.tex",
+      "commit": "b2a8554ad1be2a52c7ed2ac3ee417c0431e78a2c"
+    },
+    "arxiv-pals": {
+      "date": "2026-07-01",
+      "source": "papers/arxiv-pals/pals.tex",
+      "commit": "b042d3cc4222cbad8467f60526dbb9a666890d72"
+    },
+    "arxiv-kidlisp": {
+      "date": "2026-03-03",
+      "source": "papers/arxiv-kidlisp/kidlisp.tex",
+      "commit": "50fd2e96ce11b5534ce82230f4c6b528c7c87bc9"
+    },
+    "arxiv-hott-kidlisp": {
+      "date": "2026-07-23",
+      "source": "papers/arxiv-hott-kidlisp/hott-kidlisp.tex",
+      "commit": "81e39390f54315cb9d3ab30b139f6923c08677a6"
+    },
+    "arxiv-keymaps": {
+      "date": "2026-05-01",
+      "source": "papers/arxiv-keymaps/keymaps.tex",
+      "commit": "ae0c96f03b22b925d89e42773ec5c18e6057c76b"
+    },
+    "arxiv-network-audit": {
+      "date": "2026-03-15",
+      "source": "papers/arxiv-network-audit/network-audit.tex",
+      "commit": "2f6eb6b12b6cf9a0c863d4c9223f5ecd57ebb011"
+    },
+    "arxiv-notepat": {
+      "date": "2026-03-08",
+      "source": "papers/arxiv-notepat/notepat.tex",
+      "commit": "741cf7dfd4db2a8c74baf6ed3e7f8c290fe7db24"
+    },
+    "arxiv-os": {
+      "date": "2026-03-13",
+      "source": "papers/arxiv-os/os.tex",
+      "commit": "7b2470cd76d269cea24667d8175016118ebb41a7"
+    },
+    "arxiv-pieces": {
+      "date": "2026-03-08",
+      "source": "papers/arxiv-pieces/pieces.tex",
+      "commit": "10b38b28c14a337d3aef684d799792dc74fe6d6e"
+    },
+    "arxiv-whistlegraph": {
+      "date": "2026-03-14",
+      "source": "papers/arxiv-whistlegraph/whistlegraph.tex",
+      "commit": "869cdbd8a26311628289e0829690fb3242c75adb"
+    },
+    "arxiv-plork": {
+      "date": "2026-03-17",
+      "source": "papers/arxiv-plork/plork.tex",
+      "commit": "bca63cb29b30f5e77d0dc5070195c1edeabe7789"
+    },
+    "arxiv-folk-songs": {
+      "date": "2026-03-16",
+      "source": "papers/arxiv-folk-songs/folk-songs.tex",
+      "commit": "198b4a6a6f00532f2b49f255478d7762b3e471f2"
+    },
+    "arxiv-complex": {
+      "date": "2026-03-17",
+      "source": "papers/arxiv-complex/complex.tex",
+      "commit": "ad25cfa797f985c7a22c2f0afee95cd6bf4e74c6"
+    },
+    "arxiv-kidlisp-cards": {
+      "date": "2026-03-18",
+      "source": "papers/arxiv-kidlisp-cards/kidlisp-cards.tex",
+      "commit": "3a86390c520040dd98e14e91c6c2a07ed18ee56a"
+    },
+    "arxiv-score-analysis": {
+      "date": "2026-03-18",
+      "source": "papers/arxiv-score-analysis/score-analysis.tex",
+      "commit": "175d95ede3dfb418a6b280bc2057120517335054"
+    },
+    "arxiv-calarts": {
+      "date": "2026-03-20",
+      "source": "papers/arxiv-calarts/calarts.tex",
+      "commit": "ac80587a787d7ff3226095766657f93965911448"
+    },
+    "arxiv-open-schools": {
+      "date": "2026-03-20",
+      "source": "papers/arxiv-open-schools/open-schools.tex",
+      "commit": "375aab1da4aa6d35ffd74edfede2ce0e5d53a34f"
+    },
+    "arxiv-free-vs-open": {
+      "date": "2026-09-15",
+      "source": "papers/arxiv-free-vs-open/free-vs-open.tex",
+      "commit": "b7febea2a8271e936412cbb088e9ac954550d1a3"
+    },
+    "arxiv-futures": {
+      "date": "2026-03-20",
+      "source": "papers/arxiv-futures/futures.tex",
+      "commit": "8271d3f1a968f12087b9e4c99c0dad54aeb93b61"
+    },
+    "essay-may-26": {
+      "date": "2026-05-30",
+      "source": "papers/essay-may-26/may-26.tex",
+      "commit": "34b956181eb105ed0f91431fa7d61482a1b05759"
+    },
+    "essay-june-26": {
+      "date": "2026-07-03",
+      "source": "papers/essay-june-26/june-26.tex",
+      "commit": "5714e23473566a7d81ae4677e90f14336736c507"
+    },
+    "essay-july-4-26": {
+      "date": "2026-07-05",
+      "source": "papers/essay-july-4-26/july-4-26.tex",
+      "commit": "bb431b237d8144cc6f7e9a88e86f13a0c214a085"
+    },
+    "essay-july-10-26": {
+      "date": "2026-07-10",
+      "source": "papers/essay-july-10-26/july-10-26.tex",
+      "commit": "cc4bcd44503d0a6d31a51bbc35347ec2fabe3bef"
+    },
+    "essay-august-26": {
+      "date": "2026-08-31",
+      "source": "papers/essay-august-26/august-26.tex",
+      "commit": "d55890bb72a7afa93c4b093afbd05789ffd91900"
+    },
+    "essay-granularity": {
+      "date": "2026-07-15",
+      "source": "papers/essay-granularity/granularity.tex",
+      "commit": "c2ac89f164c86a30123c32f4165468198df9707a"
+    },
+    "essay-console-browser": {
+      "date": "2026-07-18",
+      "source": "papers/essay-console-browser/console-browser.tex",
+      "commit": "cabb7da161f3ab72a876442527ffe2968f1f956d"
+    },
+    "essay-physical-mail": {
+      "date": "2026-07-18",
+      "source": "papers/essay-physical-mail/physical-mail.tex",
+      "commit": "cabb7da161f3ab72a876442527ffe2968f1f956d"
+    },
+    "essay-keymap-score": {
+      "date": "2026-06-23",
+      "source": "papers/essay-keymap-score/keymap-score.tex",
+      "commit": "0dce3593d33fb960ddd37bc3a89782bcb626f707"
+    },
+    "deck-media-estate": {
+      "date": "2026-07-06",
+      "source": "papers/deck-media-estate/media-estate.tex",
+      "commit": "687a9c5bb24b4635984f750cb6d70f0b78daf64a"
+    },
+    "arxiv-identity": {
+      "date": "2026-03-23",
+      "source": "papers/arxiv-identity/identity.tex",
+      "commit": "4ab4f9c904757eee8ba5500e4a71b3cbb02254d6"
+    },
+    "arxiv-ucla-arts": {
+      "date": "2026-03-26",
+      "source": "papers/arxiv-ucla-arts/ucla-arts.tex",
+      "commit": "f1b38c5780ef45bb37620b077f2e682a816cd574"
+    },
+    "arxiv-holden": {
+      "date": "2026-04-05",
+      "source": "papers/arxiv-holden/holden.tex",
+      "commit": "1371cc0945c21a834f0a8cf8648c236ce5c3d2e1"
+    },
+    "arxiv-url-tradition": {
+      "date": "2026-04-06",
+      "source": "papers/arxiv-url-tradition/url-tradition.tex",
+      "commit": "c1f887a59868cc3d48d95c875f3517030e472e0f"
+    },
+    "arxiv-latency": {
+      "date": "2026-04-25",
+      "source": "papers/arxiv-latency/latency.tex",
+      "commit": "bcdf759207ea659e8e51f2cd6eefc3aa5a0ee98f"
+    },
+    "arxiv-oskiewar": {
+      "date": "2026-08-04",
+      "source": "papers/arxiv-oskiewar/oskiewar.tex",
+      "commit": "d7ce66437fe07a3b580aa16e2e95388c05e70003"
+    },
+    "arxiv-oskiewar-store": {
+      "date": "2026-08-07",
+      "source": "papers/arxiv-oskiewar-store/store.tex",
+      "commit": "4040d61cd9845bf5a0cdfbb442d44ffe5133bbe5"
+    },
+    "arxiv-oskiewar-reels": {
+      "date": "2026-08-09",
+      "source": "papers/arxiv-oskiewar-reels/reels.tex",
+      "commit": "a1fa2eed765c2b573e35c04d719f3abb57aaa631"
+    },
+    "arxiv-penrose": {
+      "date": "2026-04-28",
+      "source": "papers/arxiv-penrose/penrose.tex",
+      "commit": "760ffe96df3a0609a3fb65f255f172c585e008ae"
+    },
+    "arxiv-nom": {
+      "date": "2026-06-08",
+      "source": "papers/arxiv-nom/nom.tex",
+      "commit": "ef87aaff255eae02647ca58399d9ab47c7210aa0"
+    },
+    "arxiv-ios-so-far": {
+      "date": "2026-09-20",
+      "source": "papers/arxiv-ios-so-far/ios-so-far.tex",
+      "commit": "a2fe88aa1335146f39b7512523c72cb73980c633"
+    },
+    "arxiv-traffic": {
+      "date": "2026-09-09",
+      "source": "papers/arxiv-traffic/traffic.tex",
+      "commit": "4ee889e6eb695f3502fd6acc156605ee21c09304"
+    },
+    "arxiv-turf": {
+      "date": "2026-09-03",
+      "source": "papers/arxiv-turf/turf.tex",
+      "commit": "f91a047f6dba0f8f0a9c3996a8c6e154f68a9885"
+    },
+    "arxiv-granularity": {
+      "date": "2026-07-14",
+      "source": "papers/arxiv-granularity/granularity.tex",
+      "commit": "7cf23740086d99533955abb34b520c10eb910f04"
+    },
+    "arxiv-cal": {
+      "date": "2026-06-15",
+      "source": "papers/arxiv-cal/cal.tex",
+      "commit": "a726e713ff97fa93cdb4f3424a1050e1c3bed85a"
+    },
+    "arxiv-rhizome": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-rhizome/rhizome.tex",
+      "commit": "aa865c87b49d67a2b45f890a203fa3497758a374"
+    },
+    "arxiv-sfpc": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-sfpc/sfpc.tex",
+      "commit": "1606fbc19b478637aa530ee2a9f51ba713bbaa9f"
+    },
+    "arxiv-eyebeam": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-eyebeam/eyebeam.tex",
+      "commit": "e2b44a52ba947c7e56cbf23bb412ba3995d74e3b"
+    },
+    "arxiv-recurse": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-recurse/recurse.tex",
+      "commit": "e2b44a52ba947c7e56cbf23bb412ba3995d74e3b"
+    },
+    "arxiv-internet-archive": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-internet-archive/internet-archive.tex",
+      "commit": "e2b44a52ba947c7e56cbf23bb412ba3995d74e3b"
+    },
+    "arxiv-mellon": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-mellon/mellon.tex",
+      "commit": "e2b44a52ba947c7e56cbf23bb412ba3995d74e3b"
+    },
+    "arxiv-pioneer-works": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-pioneer-works/pioneer-works.tex",
+      "commit": "e2b44a52ba947c7e56cbf23bb412ba3995d74e3b"
+    },
+    "arxiv-fraserin": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-fraserin/fraserin.tex",
+      "commit": "6703815f283ff3897f672d507577f10a9f0949a9"
+    },
+    "arxiv-comp-strats": {
+      "date": "2026-05-03",
+      "source": "papers/arxiv-comp-strats/comp-strats.tex",
+      "commit": "81c7f549657b720ccbbac309708128e090f0025b"
+    },
+    "arxiv-microvision": {
+      "date": "2026-05-08",
+      "source": "papers/arxiv-microvision/microvision.tex",
+      "commit": "dd72aaabdfcd3124e90ca65472d23facfc58c1b7"
+    },
+    "arxiv-calarts-news": {
+      "date": "2026-05-18",
+      "source": "papers/arxiv-calarts-news/calarts-news.tex",
+      "commit": "cc9270cfdbd9a74d8729b7194e254517407d3fd6"
+    },
+    "arxiv-new-inc": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-new-inc/new-inc.tex",
+      "commit": "9a9cf972c73d2c1ceca5bc605fb1a04f2fb7db19"
+    },
+    "arxiv-studio-museum": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-studio-museum/studio-museum.tex",
+      "commit": "9a9cf972c73d2c1ceca5bc605fb1a04f2fb7db19"
+    },
+    "arxiv-hathitrust": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-hathitrust/hathitrust.tex",
+      "commit": "9a9cf972c73d2c1ceca5bc605fb1a04f2fb7db19"
+    },
+    "arxiv-the-kitchen": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-the-kitchen/the-kitchen.tex",
+      "commit": "9a9cf972c73d2c1ceca5bc605fb1a04f2fb7db19"
+    },
+    "arxiv-machine-project": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-machine-project/machine-project.tex",
+      "commit": "9a9cf972c73d2c1ceca5bc605fb1a04f2fb7db19"
+    },
+    "arxiv-heavy-manners-library": {
+      "date": "2026-05-02",
+      "source": "papers/arxiv-heavy-manners-library/heavy-manners-library.tex",
+      "commit": "9a9cf972c73d2c1ceca5bc605fb1a04f2fb7db19"
+    },
+    "arxiv-creative-time": {
+      "date": "2026-05-18",
+      "source": "papers/arxiv-creative-time/creative-time.tex",
+      "commit": "cc9270cfdbd9a74d8729b7194e254517407d3fd6"
+    },
+    "arxiv-creative-capital": {
+      "date": "2026-05-18",
+      "source": "papers/arxiv-creative-capital/creative-capital.tex",
+      "commit": "cc9270cfdbd9a74d8729b7194e254517407d3fd6"
+    },
+    "arxiv-propublica": {
+      "date": "2026-07-28",
+      "source": "papers/arxiv-propublica/propublica.tex",
+      "commit": "498c851b3011856ce10dbc4331e48d0ff2ba0fda"
+    },
+    "joss-ac": {
+      "date": "2026-03-04",
+      "source": "papers/joss-ac/paper.md",
+      "commit": "6e03c46062c03518a633e707a0ddd763cd6f47e7"
+    },
+    "joss-kidlisp": {
+      "date": "2026-03-03",
+      "source": "papers/joss-kidlisp/paper.md",
+      "commit": "50fd2e96ce11b5534ce82230f4c6b528c7c87bc9"
+    },
+    "els-kidlisp": {
+      "date": "2026-03-15",
+      "source": "papers/els-kidlisp/els-kidlisp.tex",
+      "commit": "450022ecd67c90c7704c7ea35e9705d5da119e61"
+    }
+  }
+}
