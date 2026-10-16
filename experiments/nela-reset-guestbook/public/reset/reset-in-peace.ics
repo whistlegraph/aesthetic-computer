@@ -1,0 +1,23 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//NELA Computer Club//Reset In Peace//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:reset-in-peace-2026-10-27@nela.computer
+DTSTAMP:20261013T000000Z
+DTSTART:20261028T020000Z
+DTEND:20261028T060000Z
+SUMMARY:Reset In Peace: A Computer Funeral and E-Waste Drive
+LOCATION:Louche\, 122 Glendale Blvd\, Los Angeles\, CA 90026
+DESCRIPTION:NELA Computer Club presents a celebration of the lives of our old computers. Bring old computers\, laptops\, batteries and other e-waste for safe disposal. Free. Costumes encouraged!\n\nhttps://nela.computer/reset/
+URL:https://nela.computer/reset/
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Reset In Peace starts at 7pm tonight
+TRIGGER:-PT3H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

@@ -5,7 +5,9 @@ retro initials avatars, NELA icons and styles, styled sidebar and document title
 and a Preferences toggle saved in `UiStore`, with tests.
 
 Kept here as patches against upstream so Outline itself stays out of this repo.
-It can move to its own repo later.
+Part of [Aesthetic Computer's NELA contributions](../docs/nela-contributions.md),
+with source on [Tangled](https://tangled.org/aesthetic.computer/core) and a
+contribution destination at the [NELA forge](https://git.nela.computer/).
 
 | Patch | Applies to |
 |---|---|

@@ -1,0 +1,284 @@
+/* NELA Computer Club: Reset In Peace
+   Original desktop design preserved; sizes are in rem so the whole page
+   scales up on very large screens, and the grid collapses to a single
+   column on narrow ones. */
+
+:root {
+  --navy: #000080;
+  --purple: #9933FF;
+  --pink: #FF99CC;
+  --teal: #12A377;
+  --red: #ef476f;
+}
+
+* { box-sizing: border-box; }
+
+/* 16px up to 1800px wide, then grows linearly (4K = ~34px) */
+html {
+  font-size: clamp(16px, 0.89vw, 44px);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-color: var(--purple) var(--navy);
+}
+
+body {
+  margin: 0;
+  font-family: "Times New Roman", serif;
+  background-color: var(--navy);
+  color: var(--purple);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+img {
+  vertical-align: middle;
+  image-rendering: pixelated;
+  max-width: 100%;
+  height: auto;
+}
+
+::selection { background: var(--purple); color: #fff; }
+
+/* the skeleton hand is every cursor: pointer, text, links, buttons */
+*, *::before, *::after { cursor: url(assets/skeleton-hand.png) 9 0, auto !important; }
+/* while the mouse button is down: the bent-finger "click" hand */
+*:active { cursor: url(assets/skeleton-hand-click.png) 9 0, auto !important; }
+
+/* no native link/image dragging, so the click cursor holds while the button is down */
+a, img { -webkit-user-drag: none; user-drag: none; }
+
+a { color: var(--pink); text-decoration: underline; text-underline-offset: 0.15em; }
+a:hover { color: #fff; }
+a:focus-visible,
+.skip:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.skip {
+  position: absolute;
+  left: 0.5rem;
+  top: -4rem;
+  z-index: 10;
+  background: var(--navy);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  font-weight: bold;
+}
+.skip:focus { top: 0.5rem; }
+
+/* ---------- Mobile-first: one column ---------- */
+
+.layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr auto;
+  gap: 2px;
+  background-color: var(--teal);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.title-bar {
+  background-color: #0b1114; /* matches the tile's average so nothing flashes before it loads */
+  background-image: url(assets/bg1.jpg);
+  color: var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: bold;
+  border: 2px outset var(--purple);
+  padding: 1rem 1rem;
+  min-height: 7rem;
+}
+
+.title-bar h1,
+.title-bar .title {
+  margin: 0;
+  font-size: clamp(1.75rem, 8.5vw, 3.125rem);
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.sidebar {
+  background-color: #272040;
+  background-image: url(assets/purplebg.jpg);
+  border: 2px outset var(--purple);
+  padding: 1rem 0.75rem;
+  text-align: center;
+  color: var(--pink);
+  display: flex;
+  flex-direction: column;
+}
+
+.facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-weight: bold;
+}
+.facts li { margin: 0 0 0.75rem; text-wrap: balance; }
+.facts li:last-child { margin-bottom: 0; }
+.bullet { width: 0.875rem; height: 0.875rem; margin-right: 0.25em; }
+
+/* the four event facts: 2x2 on phones */
+.details .facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 1.75rem;
+  font-size: clamp(1.1rem, 5vw, 1.5rem);
+}
+.details .facts li { margin: 0; }
+
+.info .facts { font-size: 1.17rem; max-width: 36rem; margin-inline: auto; }
+
+.sidebar-art {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+.sidebar-art img { flex: 0 0 auto; }
+
+.art-recycle { width: 4rem; }
+.art-coffin  { width: 3.75rem; }
+.art-mouse   { width: 4.5rem; }
+
+.main-content {
+  background-color: #03052a;
+  background-image: url(assets/bluebg.jpg);
+  color: var(--pink);
+  border: 2px inset var(--purple);
+  text-align: center;
+  padding: 1rem 1rem 1.5rem;
+}
+.main-content > * { margin-block: 1rem; }
+.main-content > :first-child { margin-top: 0.5rem; }
+
+.rip-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.5rem, 3vw, 2rem);
+}
+.rip-title h1,
+.rip-title h2 {
+  margin: 0;
+  font-size: clamp(2rem, 9.5vw, 3.125rem);
+  line-height: 1.1;
+  text-wrap: balance;
+}
+.rip-gif { width: clamp(2.75rem, 13vw, 5.625rem); flex: 0 0 auto; }
+
+.sub, .big, .poem {
+  margin: 1rem 0;
+  font-weight: bold;
+  text-wrap: balance;
+}
+.sub  { font-size: clamp(1.25rem, 5.4vw, 2rem); }
+.big  { font-size: clamp(1.15rem, 4.8vw, 1.5rem); }
+.poem { font-size: clamp(1.25rem, 5.4vw, 2rem); }
+.poem.sm { font-size: clamp(1.15rem, 4.8vw, 1.5rem); }
+
+/* line breaks that only make sense when there is room */
+br.wide { display: none; }
+
+.flank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.75rem, 3vw, 1.5rem);
+}
+.flank p { margin: 0; }
+.candle { width: clamp(1.5rem, 7vw, 2.5rem); flex: 0 0 auto; }
+.flowerbar { flex: 0 1 28.125rem; min-width: 0; }
+
+/* ---------- Tablet: details become a row ---------- */
+
+@media (min-width: 600px) {
+  .main-content { padding: 1.5rem 2rem 2rem; }
+}
+
+/* ---------- Desktop: the original three-column grid ---------- */
+
+@media (min-width: 900px) {
+  .layout-grid {
+    grid-template-columns: 9.375rem minmax(0, 1fr) 9.375rem;
+    grid-template-rows: 9.375rem 1fr;
+  }
+  .title-bar { grid-column: 1 / -1; min-height: 0; }
+  .title-bar h1, .title-bar .title { font-size: 3.125rem; }
+
+  .sidebar { padding: 0.625rem; }
+  .details .facts { display: block; font-size: 1.5rem; }
+  .details .facts li { margin: 1.25rem 0; }
+  .info .facts { font-size: 1.17rem; max-width: none; }
+  .info .facts li { margin: 1.1rem 0; }
+
+  /* art pinned to the bottom of each column, like the original spacers */
+  .art-recycle { width: 6.3125rem; }
+  .art-coffin  { width: 6.25rem; }
+  .art-mouse   { width: 6.25rem; }
+  .sidebar-art { flex-direction: column; align-items: center; gap: 1.5rem; margin-top: auto; padding-top: 2rem; }
+  .details .sidebar-art { margin-top: auto; }
+
+  .rip-title h1, .rip-title h2 { font-size: 3.125rem; }
+  .rip-gif { width: 5.625rem; }
+  .sub, .poem { font-size: 2rem; }
+  .big, .poem.sm { font-size: 1.5rem; }
+  .candle { width: 2.5rem; }
+  .main-content { padding: 0.5rem 1.5rem 2rem; }
+}
+
+@media (min-width: 1200px) {
+  br.wide { display: inline; }
+}
+
+/* Very short desktop windows: let the page scroll instead of clipping */
+@media (min-width: 900px) and (max-height: 600px) {
+  .layout-grid { min-height: 0; }
+}
+
+/* ---------- Add-to-calendar button ---------- */
+.cal { margin-top: 1.5rem; }
+.cal-head { margin: 0 0 0.75rem; font-size: clamp(1.25rem, 5.4vw, 1.5rem); }
+.cal-btns { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; }
+.btn90s {
+  display: inline-block;
+  padding: 0.5rem 1.25rem;
+  background-color: #272040;
+  background-image: url(assets/purplebg.jpg);
+  color: var(--pink);
+  font-weight: bold;
+  font-size: clamp(1.05rem, 4.5vw, 1.25rem);
+  text-decoration: none;
+  border: 2px inset var(--purple);
+}
+.btn90s:hover { color: #fff; }
+.btn90s:active { border-style: outset; }
+
+/* street address: on phones it gets its own full-width line after the facts */
+.facts .addr {
+  order: 9;
+  flex: 0 0 100%;
+  font-size: clamp(1rem, 4.4vw, 1.2rem);
+}
+.facts .addr a { text-decoration: none; }
+.facts .addr a:hover { text-decoration: underline; }
+.facts .addr .city::before { content: ", "; }
+
+/* desktop sidebar: tuck the address under the venue name, small and stacked */
+@media (min-width: 900px) {
+  .details .facts li.addr {
+    margin: -0.9rem 0 1.25rem;
+    font-size: 0.5em;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+  .facts .addr span { display: block; }
+  .facts .addr .city::before { content: none; }
+}
