@@ -1,5 +1,5 @@
 // os, 2026.05.15
-// FedAC OS — hero header + uniform option pills + download + live builds.
+// FedAC OS — image options, download, and release history.
 
 const OVEN = "https://oven-edge.aesthetic-computer.workers.dev";
 const OVEN_WS = "wss://oven.aesthetic.computer/ws";
@@ -41,12 +41,14 @@ let clAvailable = false; // true once we confirm the CL image exists on CDN
 let wifiEnabled = true;
 let wifiBtn = null;   // "internet: ON/OFF" toggle
 let scrollY = 0;
-let autoScroll = false;
-let autoScrollSpeed = 0.3;
-let autoScrollDelay = 3000;
-let loadTime = 0;
+let dragged = false;
+let themeBtn = null;
+let darkModeOn = false;
+let appearanceOverride = null;
+let storeRef = null;
 let totalContentH = 0;
 let buildsViewH = 0;
+let headerBottom = 0;
 let dlFn = null;
 let ovenWs = null;
 let wsReconnectTimer = null;
@@ -79,20 +81,23 @@ const scheme = {
     nameOld: [50, 80, 65],
     hash: [255, 180, 100],
     hashOld: [120, 90, 55],
-    date: [90, 100, 120],
+    date: [150, 160, 180],
+    error: [255, 140, 130],
+    row: [18, 22, 30],
+    rowAlt: [23, 28, 37],
     msg: [200, 200, 220],
     msgOld: [80, 85, 100],
     handle: [180, 150, 255],
     handleOld: [80, 70, 110],
     current: [80, 255, 140],
     bar: [40, 50, 70],
-    loginHint: [70, 60, 80],
+    loginHint: [160, 150, 180],
     progress: [100, 180, 255],
     progressBg: [40, 45, 65],
     bootLabel: [140, 160, 200],
     bootPiece: [255, 200, 120],
     instHeader: [180, 200, 255],
-    instText: [60, 70, 90],
+    instText: [155, 165, 185],
     instKey: [120, 140, 180],
     divider: [30, 35, 50],
     secDlBg: [12, 18, 14],       // download section bg (green tint)
@@ -115,23 +120,26 @@ const scheme = {
     depStrike: [120, 40, 40],
   },
   light: {
-    bg: [240, 240, 245],
+    bg: [248, 248, 244],
     name: [20, 130, 60],
     nameOld: [100, 140, 110],
     hash: [180, 110, 30],
     hashOld: [150, 120, 80],
-    date: [120, 130, 150],
+    date: [85, 95, 110],
+    error: [165, 40, 35],
+    row: [237, 239, 234],
+    rowAlt: [244, 245, 240],
     msg: [40, 40, 50],
     msgOld: [130, 130, 145],
     handle: [110, 70, 200],
     handleOld: [140, 120, 170],
     current: [20, 130, 60],
     bar: [200, 205, 215],
-    loginHint: [140, 120, 160],
+    loginHint: [100, 85, 120],
     progress: [40, 120, 200],
     progressBg: [210, 215, 225],
     bootLabel: [80, 100, 150],
-    bootPiece: [180, 120, 30],
+    bootPiece: [110, 75, 15],
     instHeader: [50, 60, 100],
     instText: [100, 110, 130],
     instKey: [60, 80, 130],
@@ -164,8 +172,8 @@ function fetchReleases(ui, needsPaint) {
     .then((r) => r.json())
     .then((data) => {
       releases = data;
+      error = null;
       loading = false;
-      if (!loadTime) loadTime = Date.now();
       if (handle && token && ui) makeButtons(ui);
       // Log recent builds to console
       const builds = data?.releases || [];
@@ -278,7 +286,13 @@ function connectOvenWs(ui, needsPaint) {
   ovenWs.onerror = () => {}; // onclose will fire after this
 }
 
-function boot({ user, handle: getHandle, api, ui, needsPaint }) {
+async function boot({ user, handle: getHandle, api, ui, needsPaint, dark, store, darkMode }) {
+  storeRef = store;
+  const savedAppearance = await store?.retrieve("os-appearance");
+  appearanceOverride = ["light", "dark"].includes(savedAppearance) ? savedAppearance : null;
+  darkModeOn = appearanceOverride ? appearanceOverride === "dark" : !!dark;
+  if (appearanceOverride) darkMode?.(darkModeOn);
+  themeBtn = new ui.TextButton(darkModeOn ? "light" : "dark", { x: 0, y: 0 });
   const h = getHandle?.();
   handle = (h ? h.replace(/^@/, "") : null) || user?.handle || null;
   uiRef = ui;
@@ -335,7 +349,7 @@ function boot({ user, handle: getHandle, api, ui, needsPaint }) {
 function leave() {
   if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
   if (buildPollTimer) { clearInterval(buildPollTimer); buildPollTimer = null; }
-  if (ovenWs) { try { ovenWs.close(); } catch (_) {} ovenWs = null; }
+  if (ovenWs) { ovenWs.onclose = null; try { ovenWs.close(); } catch (_) {} ovenWs = null; }
 }
 
 function makeButtons(ui) {
@@ -367,7 +381,7 @@ function updateVariantBtn(ui) {
 }
 
 function updateDownloadBtn(ui) {
-  downloadBtn = new ui.TextButton("download", { x: 6, y: 0 });
+  downloadBtn = new ui.TextButton("download .img", { x: 6, y: 0 });
 }
 
 function osLabel() {
@@ -434,22 +448,22 @@ function buildStatusInfo(build, isCurrent, isDep, darkMode) {
 }
 
 function paint($) {
-  const { screen, ink, line: drawLine, dark, mask, unmask } = $;
+  const { screen, ink, line: drawLine, dark: systemDark } = $;
+  const dark = appearanceOverride ? appearanceOverride === "dark" : !!systemDark;
+  darkModeOn = dark;
   const { width: w, height: h } = screen;
   const C = dark ? scheme.dark : scheme.light;
   $.wipe(...C.bg);
 
   const isMobile = w < 360;
-  const isNarrow = w < 500;
   const pad = isMobile ? 6 : 10;
   const charW = 6;
   const rowH = 10;
   const matrixH = 9;
   const matrixW = 4;
   const wrapW = w - pad * 2;
-  const secGap = isMobile ? 8 : 12;
-
-  let y = pad + 4;
+  let y = pad - scrollY;
+  buildsViewH = h;
 
   // Truncate helper — clips text to fit available pixel width
   const trunc = (s, cw, availW) => {
@@ -479,7 +493,7 @@ function paint($) {
   // Section header: small caps label + thin divider.
   function section(title) {
     y += isMobile ? 2 : 4;
-    ink(...C.instHeader, 200);
+    ink(...C.instHeader);
     $.write(title, { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     y += matrixH + 2;
     ink(...C.divider);
@@ -487,26 +501,43 @@ function paint($) {
     y += isMobile ? 4 : 6;
   }
 
+  // Keep the title and appearance control above scrolling content and the AC icon.
+  const headerH = pad + (themeBtn?.height || 20) + 8;
+  headerBottom = headerH;
+  function drawHeader() {
+    ink(...C.bg).box(0, 0, w, headerH);
+    ink(...C.msg).write("native os", { x: pad + 18, y: pad + 5 });
+    if (themeBtn) {
+      themeBtn.replaceLabel(dark ? "light" : "dark");
+      themeBtn.reposition({ x: w - pad - themeBtn.width, y: pad });
+      themeBtn.paint($,
+        [C.bootBtnBg, C.bootBtnBorder, C.instHeader, 255],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, C.instHeader, 255],
+        undefined,
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, C.instHeader, 255]);
+    }
+  }
+  y = headerH - scrollY;
+
   if (loading) {
-    ink(100).write("loading...", { x: pad, y });
+    ink(...C.date).write("loading builds...", { x: pad, y });
+    drawHeader();
     return;
   }
 
   if (error) {
-    ink(255, 80, 80).write(error, { x: pad, y });
+    ink(...C.error).write(trunc(error, charW), { x: pad, y });
+    drawHeader();
     return;
   }
 
-  if (!releases) return;
+  if (!releases) { drawHeader(); return; }
 
   const builds = releases.releases || [];
   const latest = builds[0];
   const isPersonal = handle && token;
 
-  // === HERO: latest build at a glance ===
-  ink(...C.instText, 180);
-  $.write("ac native os", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-  y += matrixH + 6;
+  // Latest release.
 
   if (latest) {
     // Big build name in the "current" accent color
@@ -526,7 +557,7 @@ function paint($) {
     // Commit message — wrap up to 2-3 lines
     if (latest.commit_msg) {
       const maxChars = Math.floor(wrapW / charW);
-      const maxLines = isMobile ? 2 : 3;
+      const maxLines = 2;
       const lines = wrap(latest.commit_msg, maxChars).slice(0, maxLines);
       for (const line of lines) {
         ink(...C.msg);
@@ -539,17 +570,16 @@ function paint($) {
     y += rowH;
   }
 
-  y += secGap - 4;
+  y += 6;
 
   // === OPTIONS: uniform pills (piece / build / wifi) ===
   if (bootBtn) {
-    section("options");
 
     const pills = [bootBtn];
     if (variantBtn && clAvailable) pills.push(variantBtn);
     if (wifiBtn) pills.push(wifiBtn);
 
-    const pillGap = 6;
+    const pillGap = 4;
     const pillH = bootBtn.height;
     let px = pad;
     let py = y;
@@ -563,7 +593,7 @@ function paint($) {
       pill.paint(
         $,
         [C.bootBtnBg, C.bootBtnBorder, C.bootPiece, 230],
-        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, C.instHeader, 255],
         undefined,
         [C.bootBtnHoverBg, C.bootBtnBorder, C.bootPiece, 255],
       );
@@ -576,10 +606,10 @@ function paint($) {
       setupBtn.reposition({ x: pad, y });
       setupBtn.paint(
         $,
-        [[60, 30, 30], [140, 60, 60], [255, 120, 100], 255],
-        [[80, 40, 40], [180, 80, 80], [255, 255, 255], 255],
+        [C.bootBtnBg, C.bootBtnBorder, C.error, 255],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, C.error, 255],
         undefined,
-        [[60, 30, 30], [140, 60, 60], [255, 120, 100], 230],
+        [C.bootBtnHoverBg, C.bootBtnBorder, C.error, 255],
       );
       y += setupBtn.height + 4;
       if (showTokenHint) {
@@ -610,20 +640,20 @@ function paint($) {
     const pct = Math.floor(downloadProgress * 100);
     const mb = downloadMB.toFixed(1);
     const total = downloadTotalMB > 0 ? "/" + downloadTotalMB.toFixed(0) : "";
-    ink(255).write(mb + total + "mb " + pct + "%", { x: pad + 4, y: y + 5 });
     y += barH + 4;
+    ink(...C.msg).write(mb + total + "mb " + pct + "%", { x: pad, y });
+    y += rowH + 4;
     if (downloadStatus) {
       ink(...C.bootLabel);
       $.write(trunc(downloadStatus, charW), { x: pad, y });
       y += rowH + 2;
     }
   } else if (downloadBtn) {
-    section("download");
     downloadBtn.reposition({ x: pad, y });
     downloadBtn.paint(
       $,
       [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
-      [C.dlBtnHoverBg, C.dlBtnHoverBorder, [255, 255, 255], 255],
+      [C.dlBtnHoverBg, C.dlBtnHoverBorder, C.dlBtnText, 255],
       undefined,
       [C.dlBtnHoverBg, C.dlBtnBorder, C.dlBtnText, 255],
     );
@@ -638,6 +668,13 @@ function paint($) {
       $.write("log in for a personalized build", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     }
     y += matrixH + 2;
+    if (downloadStatus) {
+      ink(...(downloadStatus.startsWith("error:") ? C.error : C.current));
+      for (const line of wrap(downloadStatus, Math.floor(wrapW / charW))) {
+        $.write(line, { x: pad, y });
+        y += rowH + 2;
+      }
+    }
   }
 
   // === ACTIVE BUILD (live oven telemetry) ===
@@ -682,7 +719,7 @@ function paint($) {
     }
 
     if (activeBuild.error) {
-      ink(255, 80, 80);
+      ink(...C.error);
       $.write(trunc(activeBuild.error, charW), { x: pad, y });
       y += rowH + 2;
     }
@@ -700,12 +737,12 @@ function paint($) {
 
   // === INSTALL (collapsible) ===
   if (installBtn) {
-    section("install");
+    y += 4;
     installBtn.reposition({ x: pad, y });
     installBtn.paint(
       $,
       [C.bootBtnBg, C.bootBtnBorder, C.instHeader, 220],
-      [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+      [C.bootBtnHoverBg, C.bootBtnHoverBorder, C.instHeader, 255],
       undefined,
       [C.bootBtnHoverBg, C.bootBtnBorder, C.instHeader, 240],
     );
@@ -737,188 +774,47 @@ function paint($) {
   // === BUILDS list ===
   section("builds");
 
-  const buildsTopY = y;
-  const entryH = isMobile ? 24 : isNarrow ? 34 : 34;
+  const entryH = 36;
   const buildsLimit = buildsExpanded ? builds.length : Math.min(DEFAULT_BUILDS_VISIBLE, builds.length);
-  // Reserve room for footer + "show all/fewer" toggle button
-  const toggleReserved = builds.length > DEFAULT_BUILDS_VISIBLE ? 26 : 0;
-  const buildsH = buildsExpanded
-    ? h - buildsTopY - (isMobile ? 12 : 16) - toggleReserved
-    : buildsLimit * entryH;
-  buildsViewH = buildsH;
-  if (buildsExpanded) {
-    mask({ x: 0, y: buildsTopY, width: w, height: buildsH });
-    y -= scrollY; // apply scroll offset only when expanded
-  }
-
-  // Compute dynamic name width: reserve space for hash(7) + time(~4) + tag(~6)
-  const reservedR1 = (7 + 1 + 4 + 1 + 6) * charW; // hash + gap + ago + gap + tag
-  const nameAvail = Math.max(6, Math.floor((wrapW - reservedR1) / charW) - 2); // -2 for marker
-  const stripA = dark ? [14, 17, 26] : [232, 234, 240];
-  const stripB = dark ? [18, 22, 32] : [240, 242, 248];
-
   for (let i = 0; i < buildsLimit; i++) {
-    if (buildsExpanded) {
-      if (y > buildsTopY + buildsH + entryH) break;
-      if (y < -entryH) { y += entryH; continue; }
-    }
-
     const b = builds[i];
-    const isCurrent = i === 0 && !b.deprecated;
-    const isDep = !!b.deprecated;
-    const rawName = b.name || "?";
-    const name = rawName.length > nameAvail ? rawName.slice(0, nameAvail - 1) + "~" : rawName;
-    const hash = (b.git_hash || "?").slice(0, 7);
-    const ago = timeAgo(b.build_ts);
-    const msg = b.commit_msg || "";
-    const who = b.handle || "";
-    const sizeMB = b.size ? (b.size / 1048576).toFixed(0) + "MB" : "";
-    const statusInfo = buildStatusInfo(b, isCurrent, isDep, dark);
-
-    // Alternating strip background
-    const strip = i % 2 === 0 ? stripA : stripB;
-    if (isCurrent) {
-      ink(...(dark ? [12, 24, 16] : [225, 240, 228])).box(0, y, w, entryH);
-    } else if (isDep) {
-      ink(...(dark ? [20, 14, 14] : [245, 235, 235])).box(0, y, w, entryH);
-    } else {
-      ink(...strip).box(0, y, w, entryH);
+    if (y + entryH >= 0 && y < h) {
+      const current = i === 0 && !b.deprecated;
+      const status = buildStatusInfo(b, current, !!b.deprecated, dark);
+      const tag = current ? "latest" : status.label;
+      const tagW = (tag.length + 1) * charW;
+      ink(...(i % 2 ? C.rowAlt : C.row)).box(pad, y, wrapW, entryH);
+      ink(...(current ? C.current : C.msg));
+      $.write(trunc(b.name || "?", charW, wrapW - tagW - 8), { x: pad + 4, y: y + 3 });
+      ink(...status.color).write(tag, { x: w - pad - tagW, y: y + 3 });
+      const meta = [(b.git_hash || "").slice(0, 7), timeAgo(b.build_ts), b.handle ? "@" + b.handle : ""].filter(Boolean).join(" · ");
+      ink(...C.date).write(trunc(meta, charW, wrapW - 8), { x: pad + 4, y: y + 14 });
+      ink(...C.msg).write(trunc(b.commit_msg || "", charW, wrapW - 8), { x: pad + 4, y: y + 25 });
     }
-
-    const ry = y + (isMobile ? 2 : 4);
-    const marker = isCurrent ? "> " : "  ";
-    let x = pad;
-
-    // Row 1: name + hash + time + (wide: size + handle)
-    ink(...(isCurrent ? C.current : isDep ? C.depName : C.nameOld));
-    $.write(marker + name, { x, y: ry });
-    x = pad + (marker.length + name.length) * charW + charW;
-
-    ink(...(isCurrent ? C.hash : isDep ? C.depHash : C.hashOld));
-    $.write(hash, { x, y: ry });
-    x += (hash.length + 1) * charW;
-
-    if (ago) {
-      ink(...(isDep ? C.depHash : C.date));
-      $.write(ago, { x, y: ry });
-      x += (ago.length + 1) * charW;
-    }
-
-    if (sizeMB && !isNarrow) {
-      ink(...C.date);
-      $.write(sizeMB, { x, y: ry });
-      x += (sizeMB.length + 1) * charW;
-    }
-
-    if (who && !isNarrow) {
-      ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
-      $.write("@" + who, { x, y: ry });
-    }
-
-    // Status tag on right edge
-    if (statusInfo) {
-      const tag = "[" + statusInfo.label + "]";
-      const tagX = w - pad - tag.length * charW;
-      ink(...statusInfo.color);
-      $.write(tag, { x: tagX, y: ry });
-    }
-
-    // Strikethrough for deprecated
-    if (isDep) {
-      ink(...C.depStrike, 140);
-      const lineEndX = who && !isNarrow ? x + (who.length + 1) * charW : x;
-      drawLine(pad + charW * 2, ry + 4, lineEndX, ry + 4);
-    }
-
-    // Row 2: commit message (on mobile: inline with @handle; on narrow: handle+size then msg; on wide: msg only)
-    const r2y = ry + rowH + (isMobile ? 1 : 2);
-    if (isMobile) {
-      // Compact: @handle + truncated msg on one line
-      let nx = pad + charW * 2;
-      if (who) {
-        ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
-        $.write("@" + who, { x: nx, y: r2y });
-        nx += (who.length + 2) * charW;
-      }
-      if (msg) {
-        const msgAvail = Math.floor((w - nx - pad) / charW);
-        const display = msg.length > msgAvail ? msg.slice(0, msgAvail - 1) + "~" : msg;
-        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
-        $.write(display, { x: nx, y: r2y });
-      }
-    } else if (isNarrow) {
-      // Narrow: row 2 = @handle + size, row 3 = msg
-      let nx = pad + charW * 2;
-      if (who) {
-        ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
-        $.write("@" + who, { x: nx, y: r2y });
-        nx += (who.length + 2) * charW;
-      }
-      if (sizeMB) {
-        ink(...C.date);
-        $.write(sizeMB, { x: nx, y: r2y });
-      }
-      // Row 3: commit msg
-      const msgY = r2y + rowH + 1;
-      if (msg) {
-        const msgMaxChars = Math.floor((wrapW - charW * 2) / charW);
-        const display = msg.length > msgMaxChars ? msg.slice(0, msgMaxChars - 1) + "~" : msg;
-        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
-        $.write("  " + display, { x: pad, y: msgY });
-        if (isDep) {
-          ink(...C.depStrike, 100);
-          drawLine(pad, msgY + 4, pad + Math.min(display.length + 2, msgMaxChars) * charW, msgY + 4);
-        }
-      }
-    } else {
-      // Wide: row 2 = commit msg
-      if (msg) {
-        const msgMaxChars = Math.floor((wrapW - charW * 2) / charW);
-        const display = msg.length > msgMaxChars ? msg.slice(0, msgMaxChars - 1) + "~" : msg;
-        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
-        $.write("  " + display, { x: pad, y: r2y });
-        if (isDep) {
-          ink(...C.depStrike, 100);
-          drawLine(pad, r2y + 4, pad + Math.min(display.length + 2, msgMaxChars) * charW, r2y + 4);
-        }
-      }
-    }
-
     y += entryH;
   }
-
-  if (buildsExpanded) unmask();
-
-  // Track total scrollable height (builds only)
-  totalContentH = builds.length * entryH;
-
-  // Show all / show fewer toggle (only when there are more than the default)
+  y += 4;
   if (buildsBtn && builds.length > DEFAULT_BUILDS_VISIBLE) {
-    // Place toggle just under the visible builds
-    const toggleY = buildsExpanded
-      ? h - rowH - pad - 4 - buildsBtn.height
-      : buildsTopY + buildsLimit * entryH + (isMobile ? 4 : 6);
-    buildsBtn.reposition({ x: pad, y: toggleY });
-    buildsBtn.paint(
-      $,
-      [C.bootBtnBg, C.bootBtnBorder, C.instHeader, 220],
-      [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+    buildsBtn.reposition({ x: pad, y });
+    buildsBtn.paint($,
+      [C.bootBtnBg, C.bootBtnBorder, C.instHeader, 255],
+      [C.bootBtnHoverBg, C.bootBtnHoverBorder, C.instHeader, 255],
       undefined,
-      [C.bootBtnHoverBg, C.bootBtnBorder, C.instHeader, 240],
-    );
+      [C.bootBtnHoverBg, C.bootBtnHoverBorder, C.instHeader, 255]);
+    y += buildsBtn.height + 4;
   }
-
-  // Footer
-  if (builds.length > 0) {
-    const countLabel = buildsExpanded
-      ? builds.length + " builds" + (autoScroll ? " (auto)" : "")
-      : Math.min(DEFAULT_BUILDS_VISIBLE, builds.length) + " of " + builds.length;
-    ink(...C.date);
-    $.write(countLabel, { x: w - pad - countLabel.length * charW, y: h - rowH - pad });
+  totalContentH = y + scrollY + pad;
+  drawHeader();
+  const maxScroll = Math.max(0, totalContentH - h);
+  if (scrollY > maxScroll) { scrollY = maxScroll; $.needsPaint(); }
+  if (maxScroll) {
+    const thumbH = Math.max(12, Math.floor(h * h / totalContentH));
+    const thumbY = Math.round(scrollY / maxScroll * (h - thumbH));
+    ink(...C.bar).box(w - 3, thumbY, 2, thumbH);
   }
 }
 
-function act({ event: e, needsPaint, download, jump }) {
+function act({ event: e, needsPaint, download, jump, darkMode }) {
   dlFn = download;
 
   if (e.is("dark-mode") || e.is("light-mode")) {
@@ -927,12 +823,40 @@ function act({ event: e, needsPaint, download, jump }) {
     return;
   }
 
-  // Touch drag scrolling only (mouse doesn't interrupt auto-scroll)
-  // Only active when builds list is expanded
-  if (e.is("draw") && buildsExpanded) {
-    autoScroll = false;
-    scrollY = Math.max(0, Math.min(scrollY - (e.dy || 0), Math.max(0, totalContentH - buildsViewH)));
+  if (e.is("touch")) dragged = false;
+  if (e.is("scroll") || e.is("draw")) {
+    const delta = e.is("scroll") ? e.y : -(e.delta?.y ?? e.dy ?? 0);
+    if (delta) dragged = true;
+    scrollY = Math.max(0, Math.min(scrollY + delta, Math.max(0, totalContentH - buildsViewH)));
     needsPaint();
+    return;
+  }
+  if (e.is("lift") && dragged) {
+    for (const button of [themeBtn, bootBtn, variantBtn, wifiBtn, installBtn, buildsBtn, setupBtn, downloadBtn]) {
+      button?.btn.act(e, {});
+    }
+    return;
+  }
+  if (themeBtn) themeBtn.btn.act(e, {
+    push: () => {
+      darkModeOn = !darkModeOn;
+      appearanceOverride = darkModeOn ? "dark" : "light";
+      if (storeRef) {
+        storeRef["os-appearance"] = appearanceOverride;
+        storeRef.persist("os-appearance");
+      }
+      darkMode(darkModeOn);
+      needsPaint();
+    },
+  });
+
+  // Scrolled controls beneath the fixed header must not receive header taps.
+  if (e.y < headerBottom && (e.is("touch") || e.is("lift") || e.is("move"))) {
+    if (e.is("lift")) {
+      for (const button of [bootBtn, variantBtn, wifiBtn, installBtn, buildsBtn, setupBtn, downloadBtn]) {
+        button?.btn.act(e, {});
+      }
+    }
     return;
   }
 
@@ -996,7 +920,6 @@ function act({ event: e, needsPaint, download, jump }) {
         buildsExpanded = !buildsExpanded;
         if (!buildsExpanded) {
           scrollY = 0;
-          autoScroll = false;
         }
         if (uiRef) updateBuildsBtn(uiRef);
         needsPaint();
@@ -1281,22 +1204,7 @@ async function startTemplateDownload(needsPaint) {
   needsPaint();
 }
 
-function sim({ needsPaint }) {
-  // Only auto-scroll when user has explicitly expanded the builds list
-  if (!buildsExpanded) return;
-  // Auto-start after delay
-  if (loadTime > 0 && !autoScroll && Date.now() - loadTime >= autoScrollDelay && scrollY === 0) {
-    autoScroll = true;
-  }
-  // Auto-scroll builds list only
-  if (autoScroll && totalContentH > buildsViewH) {
-    scrollY += autoScrollSpeed;
-    if (scrollY >= totalContentH - buildsViewH) {
-      scrollY = 0; // loop
-    }
-    needsPaint();
-  }
-}
+function sim() {}
 
 export const desc = "FedAC OS — view builds and download your copy.";
 export { boot, paint, act, sim, leave };

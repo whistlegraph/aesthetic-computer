@@ -31,6 +31,7 @@ import {
 } from "fs";
 import { join, basename } from "path";
 import { createSourceBundle } from "./source-bundle.mjs";
+import { generatePagePreviews } from "./page-previews.mjs";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const SITE_DIR = join(
@@ -1002,6 +1003,7 @@ function coverTileSources() {
 // fall back to the PDF first page for anything without a cover.png (JOSS, etc.).
 function genAllThumbnails() {
   if (!existsSync(SITE_DIR)) return 0;
+  generatePagePreviews(SITE_DIR);
   let count = 0;
   const tiles = coverTileSources();
   const pdfs = readdirSync(SITE_DIR).filter((n) => n.endsWith(".pdf"));
