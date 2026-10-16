@@ -60,3 +60,14 @@ test('music needs a gesture, respects mute, and stops on leaving or hiding',asyn
  const music=createOnboardingAudio(win);music.enter();assert.equal(contexts,0);listeners.pointerdown();assert.equal(timers.size,1);listeners.keydown();assert.equal(timers.size,1);
  music.toggle();assert.equal(timers.size,0);music.toggle();assert.equal(timers.size,1);win.document.hidden=true;listeners.visibilitychange();assert.equal(timers.size,0);music.leave();win.document.hidden=false;listeners.visibilitychange();assert.equal(timers.size,0);
 });
+
+test('reopening support without a source still authenticates the handle perk', async()=>{
+ const f=fixture();f.api.query={};support.boot(f.api);f.draw(support);f.click(support,'Continue to checkout');await settle();
+ assert.equal(f.posts[0].body.source,'handle-colors');support.leave(f.api);
+});
+test('the handle editor scrolls in a short landscape viewport',async t=>{
+ t.mock.method(globalThis,'fetch',async()=>({json:async()=>({colors:null})}));
+ const f=fixture();f.api.screen={width:320,height:152};f.api.store.handle='sixteenletters42';await handle.boot(f.api);await settle();f.draw(handle);
+ handle.act({...f.api,event:{is:name=>name==='scroll',y:-1000}});f.draw(handle);
+ const button=f.writes.find(w=>w.s==='Support monthly');assert.ok(button.p.y>=34 && button.p.y+17<=152);f.click(handle,'Support monthly');assert.equal(f.jumps.at(-1),'support?source=signup');handle.leave(f.api);
+});

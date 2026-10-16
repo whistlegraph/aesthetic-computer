@@ -3,7 +3,7 @@
 
 const { floor, max, min } = Math;
 
-let handleButtons = {}, handleLayout, handleMusic = true, handleScroll = 0, handleScrollMax = 0;
+let handleButtons = {}, handleLayout, handleMusic = true, handleScroll = 0, handleScrollMax = 0, handleDragSlider = null;
 let handle; // User's handle
 let colors = []; // RGB colors for @ sign + each character [{r, g, b}, ...]
 let defaultColors = []; // Store defaults for reset
@@ -17,7 +17,7 @@ let supporter = null, supportChecking = false, supportSource = "handle-colors", 
 const DRAFT_KEY = "handle:color-preview";
 const SAVE_COOLDOWN = 3000; // Minimum ms between save attempts
 async function boot({ get, net, store, query, help, send }) {
-  handleButtons = {}; handleLayout = null; handleMusic = true; handleScroll = 0; handleScrollMax = 0;
+  handleButtons = {}; handleLayout = null; handleMusic = true; handleScroll = 0; handleScrollMax = 0; handleDragSlider = null;
   send?.({ type: "onboarding:audio", content: { action: "enter" } });
   const mine = ++lifecycle;
   loading = true; saving = false; saveStatus = null; lastSaveTime = 0;
@@ -141,7 +141,9 @@ function paint($) {
 function act($) {
   const { event: e, screen, net, help, jump, sound, store, send } = $;
   if (loading || !handleLayout) return;
-  if (e.is('scroll') || (e.is('draw:1') && !handleLayout.sliders.some(b => e.x >= b.x && e.x < b.x + b.w))) {
+  if (e.is('touch')) handleDragSlider = handleLayout.sliders.find(b => e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h)?.key || null;
+  if (e.is('lift')) handleDragSlider = null;
+  if (e.is('scroll') || (e.is('draw:1') && !handleDragSlider && !handleLayout.buttons.some(({ b }) => b.down))) {
     handleScroll = max(0, min(handleScrollMax, handleScroll - (e.is('scroll') ? e.y : e.delta.y))); help.repeat(); return;
   }
   const hit = b => b.y >= 32 && e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h;
@@ -164,7 +166,7 @@ function act($) {
     }
   } });
   if (e.is('touch') || e.is('draw')) {
-    const slider = handleLayout.sliders.find(hit);
+    const slider = handleLayout.sliders.find(b => b.key === handleDragSlider);
     if (slider) {
       colors[selectedCharIndex][slider.key] = max(0, min(255, floor((e.x - slider.x) / (slider.w - 1) * 255)));
       if (e.is('touch')) tap();
