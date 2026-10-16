@@ -4,7 +4,7 @@ let amount, keypad, error, busy, source, lifetime = 0, buttons, music, focus, sc
 function boot($) {
   lifetime++; amount = /^\d+(\.\d{1,2})?$/.test($.query?.amount || '') ? $.query.amount : '4';
   keypad = false; error = ''; busy = false; buttons = {}; music = true; focus = null; scroll = scrollMax = 0;
-  source = ['signup', 'handle-colors', 'homepage'].includes($.query?.source) ? $.query.source : 'give-piece';
+  source = $.query?.source === 'signup' ? 'signup' : 'handle-colors';
   $.hud?.label(' ', [0, 0, 0, 0]); $.send?.({ type: 'onboarding:audio', content: { action: 'enter' } });
 }
 function open($, url) {
@@ -18,12 +18,7 @@ async function checkout($) {
   busy = true; error = ''; $.needsPaint(); const mine = lifetime;
   try {
     const body = { amount: cents, currency: 'usd', recurring: true, source, surface: 'piece' };
-    let result;
-    if (['signup', 'handle-colors'].includes(source)) result = await $.net.userRequest('POST', '/api/give', body);
-    else {
-      const response = await fetch('/api/give', { method: 'POST', signal: AbortSignal.timeout(20000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      result = { ...await response.json(), status: response.status };
-    }
+    const result = await $.net.userRequest('POST', '/api/give', body);
     if (mine !== lifetime) return;
     if (result.code === 'already_supporting') return $.jump('handle');
     if (result.status === 401) throw Error('Please log in again.');
