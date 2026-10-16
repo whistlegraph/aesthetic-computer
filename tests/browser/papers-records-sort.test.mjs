@@ -30,6 +30,9 @@ test('date sorting, filtering, persistence, and non-PDF records', async () => {
       assert.deepEqual(dates.slice(0, known.length), known, 'undated records stay last');
     }
     await checkDates('created', false);
+    const version = page.locator('tr[data-key="os"] .paper-version');
+    assert.equal(await version.textContent(), 'v' + await page.locator('tr[data-key="os"]').getAttribute('data-revisions'));
+    await page.screenshot({ path: '/tmp/ac-os-paper-release-shots/papers-dates.png' });
     await sort.selectOption('oldest');
     await checkDates('created', true);
     await sort.selectOption('updated');

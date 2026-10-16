@@ -16,3 +16,9 @@ html.record-open { overflow: hidden; }
 .record-preview li, .record-document li { margin: 8px 0; }
 #paper-sort { max-width: 100%; border: 1px solid var(--line, #8885); padding: 6px 8px; border-radius: 0; background: var(--bg); color: var(--text); font: inherit; }
 .paper-date { display: block; margin-top: 4px; font-size: 12px; color: var(--muted, #777); }
+
+#controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+#controls input[type="search"] { min-width: 0; max-width: 100%; font: inherit; color: var(--text); background: var(--bg); padding: 6px 8px; border: 1px solid var(--line, #8885); }
+.created, .paper-date { padding-inline-end: 12px; }
+.paper-line > .paper-date { margin: 0 0 0 auto; flex: none; text-align: right; }
+.paper-version { display: inline-block; margin-inline-start: 8px; color: var(--muted, var(--dim)); font-size: 0.9em; }

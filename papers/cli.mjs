@@ -1499,7 +1499,7 @@ function updateIndex(entries) {
       ? `<button class="more" aria-expanded="false" aria-label="Show abstract">+</button><div class="abs" hidden>${abstract || ""}${sub?.note ? `<div class="note">${sub.note}</div>` : ""}</div>`
       : "";
     const updatedISO = updated ? updated.toISOString() : "";
-    return `      <tr data-status="${status}" data-kind="${kind}" data-key="${key}" data-created="${created || ""}" data-updated="${updatedISO}">
+    return `      <tr data-status="${status}" data-kind="${kind}" data-key="${key}" data-revisions="${revisions || ""}" data-created="${created || ""}" data-updated="${updatedISO}">
         <td class="cv">${thumb ? `<a href="${href}" tabindex="-1" aria-hidden="true"><img src="${thumb}" alt="" loading="lazy" decoding="async"></a>` : ""}</td>
         <td class="st" title="${label}"><span class="dot"></span><span class="sl">${label}</span></td>
         <td class="ti">${titleHtml}${absHtml}${detail ? `<div class="dt">${detail}</div>` : ""}</td>

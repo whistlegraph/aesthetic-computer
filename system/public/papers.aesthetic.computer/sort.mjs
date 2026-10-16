@@ -1,6 +1,20 @@
 const table = document.getElementById('pubs');
 const body = table?.tBodies[0];
-const controls = document.getElementById('controls');
+let controls = document.getElementById('controls');
+if (body && !controls) {
+  controls = document.createElement('div');
+  controls.id = 'controls';
+  controls.className = 'controls';
+  const search = document.createElement('input');
+  search.type = 'search'; search.placeholder = 'Filter papers…';
+  search.setAttribute('aria-label', 'Filter papers');
+  search.addEventListener('input', () => {
+    const term = search.value.trim().toLowerCase();
+    for (const row of body.rows) row.hidden = !row.textContent.toLowerCase().includes(term);
+  });
+  controls.append(search);
+  table.before(controls);
+}
 if (body && controls) {
   const select = document.createElement('select');
   select.id = 'paper-sort';
@@ -15,6 +29,17 @@ if (body && controls) {
   const title = row => (row.querySelector('.paper-title, .ti > a')?.textContent || row.textContent).trim();
   const date = row => select.value === 'updated' ? row.dataset.updated?.slice(0, 10) || '' : select.value === 'submission' ? row.querySelector('.wh')?.textContent.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '' : created(row);
   const labels = new Map();
+  const versions = new Map();
+  for (const row of rows) {
+    const count = Number(row.dataset.revisions);
+    if (!Number.isInteger(count) || count < 1) continue;
+    const version = document.createElement('span');
+    version.className = 'paper-version';
+    version.textContent = `v${count}`;
+    version.title = `${count} recorded ${count === 1 ? 'revision' : 'revisions'}`;
+    version.setAttribute('aria-label', version.title);
+    versions.set(row, version);
+  }
   for (const row of rows) {
     const parent = row.querySelector('.ti') || row.querySelector('.paper-line');
     if (!parent) continue;
@@ -36,9 +61,13 @@ if (body && controls) {
       if (!label) continue;
       const d = date(row);
       // The compact layout already displays creation dates.
-      label.hidden = !d || select.value === 'title' || (!!row.querySelector('.created') && ['newest','oldest'].includes(select.value));
+      const existing = row.querySelector('.created');
+      const useExisting = !!existing && ['newest', 'oldest', 'title'].includes(select.value);
+      if (existing) existing.hidden = !useExisting;
+      label.hidden = useExisting || (!d && !versions.has(row));
       label.textContent = `${select.value === 'updated' ? 'Updated ' : select.value === 'submission' ? 'Submission ' : ''}${d}`;
       if (d) label.dateTime = d;
+      if (versions.has(row)) (useExisting ? existing : label).append(versions.get(row));
     }
     for (const head of table.querySelectorAll('th[data-dir]')) delete head.dataset.dir;
     try { localStorage.setItem('papers-sort', select.value); } catch {}
