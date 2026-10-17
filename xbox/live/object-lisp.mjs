@@ -1149,36 +1149,96 @@ const figureRecordSize = (R, i) => {
 };
 // Scratch for every figure drawn: a fighter is ~60 shapes a frame, and each
 // used to allocate its points, turned offsets and colours as fresh arrays.
-const figHead = new Float64Array(10), figChest = new Float64Array(10), figBody = new Float64Array(10);
-const figFoot = new Float64Array(10), figHandL = new Float64Array(10), figHandR = new Float64Array(10);
-const figP = new Float64Array(16), figFirst = new Float64Array(3), figB = new Float64Array(3);
-const figU = new Float64Array(3), figW = new Float64Array(3), figN = new Float64Array(3);
-const figPoly = [];
+// The seven joint frames live side by side in one array, so a shape finds
+// its joint's frame by an offset (figSlots) rather than a call per lookup:
+// on the console's interpreter every call costs, and a figure is ~70 shapes.
+const figFrames = new Float64Array(60);
+const figHead = figFrames.subarray(0, 10), figChest = figFrames.subarray(10, 20), figBody = figFrames.subarray(20, 30);
+const figFoot = figFrames.subarray(30, 40), figHandL = figFrames.subarray(40, 50), figHandR = figFrames.subarray(50, 60);
+// figureFrameOf as offsets into figFrames, -1 for no frame (the world's).
+const figSlots = [0, -1, 10, 20, 10, 10, 10, 10, 40, 50, 20, 20, 20, 20, 30, 30];
+const figP = new Float64Array(16), figPoly = [];
+// A sketch's plan, made the first time it is drawn: the shapes it draws (its
+// records of kind 11 and up), and every point they hang on — a joint and an
+// offset — listed once. Limbs share their ends with their ink bones and
+// their neighbours, so a figure's ~140 points are ~90 places; each is placed
+// and projected once a draw, not once a shape.
+const figPlans = new WeakMap();
+function figPlanOf(sketch) {
+  let plan = figPlans.get(sketch);
+  if (plan) return plan;
+  const R = sketch.records, keys = new Map(), joint = [], slot = [], off = [], at = [], first = [], refs = [];
+  const num = (v) => Object.is(v, -0) ? "-0" : String(v);
+  const ref = (j, x, y, z) => {
+    const key = num(j) + " " + num(x) + " " + num(y) + " " + num(z);
+    let index = keys.get(key);
+    if (index === undefined) {
+      index = joint.length;
+      keys.set(key, index);
+      let o = figSlots[j];
+      if (o === undefined) o = j >= 2 ? 10 : -1;
+      joint.push(j); slot.push(o); off.push(x, y, z);
+    }
+    refs.push(index);
+  };
+  for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
+    const kind = R[i], a = i + 12;
+    if (kind < 11) continue;
+    at.push(i); first.push(refs.length);
+    if (kind === 14) for (let k = 0; k < R[a]; k++) ref(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4]);
+    else {
+      ref(R[a], R[a + 1], R[a + 2], R[a + 3]);
+      if (kind === 12) ref(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
+    }
+  }
+  plan = { shapes: at.length, at: Int32Array.from(at), first: Int32Array.from(first), refs: Int32Array.from(refs),
+    points: joint.length, joint: Float64Array.from(joint), slot: Int32Array.from(slot), off: Float64Array.from(off) };
+  figPlans.set(sketch, plan);
+  return plan;
+}
+// Each planned point this draw: where it is (figWorld, x y z), where it
+// lands (figSeen, x y depth scale), and whether it has been projected yet
+// (figState: 0 not yet, 1 seen, 2 behind the lens).
+let figWorld = new Float64Array(0), figSeen = new Float64Array(0), figState = new Uint8Array(0);
+function figSee(V, p) {
+  const state = figState[p];
+  if (state) return state === 1;
+  const W = figWorld, w = p * 3;
+  const seen = figProject(V, W[w], W[w + 1], W[w + 2], p * 4, figSeen);
+  figState[p] = seen ? 1 : 2;
+  return seen;
+}
+// A world point through the CAMERA op's numbers into dst at o: x y, view
+// depth, and the scale there. False when it is behind the near plane.
+function figProject(V, x, y, z, o, dst) {
+  const dx = x - V[0], dy = y - V[1], dz = z - V[2];
+  const vz = dx * V[9] + dy * V[10] + dz * V[11];
+  if (!(vz >= V[19])) return false;
+  const k = V[14] + (V[15] / vz - V[14]) * V[16];
+  dst[o] = V[12] + (dx * V[3] + dy * V[4] + dz * V[5]) * k;
+  dst[o + 1] = V[13] - (dx * V[6] + dy * V[7] + dz * V[8]) * k;
+  dst[o + 2] = vz; dst[o + 3] = k;
+  return true;
+}
+// A view depth as the depth buffer's, clamped; pinned, a tenth of its
+// distance from the figure's centre (flatCentre) about the pin.
+function figDepth(V, vz, nudge, pin, flatCentre) {
+  let z = (vz + nudge) * V[17] + V[18];
+  z = z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
+  return pin === pin ? pin + (z - flatCentre) * .1 : z;
+}
 export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   const V = view, J = joints;
-  const project = (x, y, z, o, dst) => {
-    const dx = x - V[0], dy = y - V[1], dz = z - V[2];
-    const vz = dx * V[9] + dy * V[10] + dz * V[11];
-    if (!(vz >= V[19])) return false;
-    const k = V[14] + (V[15] / vz - V[14]) * V[16];
-    dst[o] = V[12] + (dx * V[3] + dy * V[4] + dz * V[5]) * k;
-    dst[o + 1] = V[13] - (dx * V[6] + dy * V[7] + dz * V[8]) * k;
-    dst[o + 2] = vz; dst[o + 3] = k;
-    return true;
-  };
-  const flat = (vz, nudge) => {
-    const z = (vz + nudge) * V[17] + V[18];
-    return z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
-  };
-  let centre = 0;
+  let flatCentre = 0;
   if (pin === pin) {
     // The pelvis, else the head, else whichever joint a piece of a figure
     // (a severed limb) still has — a NaN centre would put every shape at NaN.
     let c = Number.isNaN(J[9]) ? 0 : 3;
     if (Number.isNaN(J[c * 3])) for (let k = 0; k < 16; k++) if (J[k * 3] === J[k * 3]) { c = k; break; }
-    centre = (J[c * 3] - V[0]) * V[9] + (J[c * 3 + 1] - V[1]) * V[10] + (J[c * 3 + 2] - V[2]) * V[11];
+    const centre = (J[c * 3] - V[0]) * V[9] + (J[c * 3 + 1] - V[1]) * V[10] + (J[c * 3 + 2] - V[2]) * V[11];
+    const z = (centre + 0) * V[17] + V[18];
+    flatCentre = z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
   }
-  const depthAt = (vz, nudge) => pin === pin ? pin + (flat(vz, nudge) - flat(centre, 0)) * .1 : flat(vz, nudge);
   // The head's frame: where it looks, right and up square to it.
   let fx = J[3] - J[0], fy = J[4] - J[1], fz = J[5] - J[2];
   // A piece of a figure (a severed limb, a burst body's bone) has no head or
@@ -1212,66 +1272,84 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   const C = figChest;
   C[0] = sx; C[1] = sy; C[2] = sz; C[3] = ux; C[4] = uy; C[5] = uz; C[6] = cx; C[7] = cy; C[8] = cz; C[9] = 1;
   figureLimbFrames(J, C, figBody, figFoot, figHandL, figHandR);
-  const frameOf = (j) => figureFrameOf(j, H, C, figBody, figFoot, figHandL, figHandR);
-  // An offset turned into joint j's frame, written to dst.
-  const turn = (j, x, y, z, dst) => {
-    const F = frameOf(j);
-    if (F) { dst[0] = x * F[0] + y * F[3] + z * F[6]; dst[1] = x * F[1] + y * F[4] + z * F[7]; dst[2] = x * F[2] + y * F[5] + z * F[8]; }
-    else { dst[0] = x; dst[1] = y; dst[2] = z; }
-    return dst;
-  };
-  // Joint j plus an offset in its frame and radii, written to dst.
-  const point = (j, x, y, z, dst) => {
-    const F = frameOf(j), s = F ? F[9] : 1;
-    turn(j, x * s, y * s, z * s, dst);
-    dst[0] = J[j * 3] + dst[0]; dst[1] = J[j * 3 + 1] + dst[1]; dst[2] = J[j * 3 + 2] + dst[2];
-    return dst;
-  };
-  const P = figP, first = figFirst, poly = figPoly;
-  const R = sketch.records;
-  for (let n = 0, i = 0; n < sketch.count; n++, i += figureRecordSize(R, i)) {
-    const kind = R[i];
-    if (kind < 11) continue;
-    const a = i + 12, j0 = kind === 14 ? R[a + 1] : R[a], scale = frameOf(j0)?.[9] ?? 1, nudge = R[i + 5];
-    if (kind === 14) point(R[a + 1], R[a + 2], R[a + 3], R[a + 4], first);
-    else point(R[a], R[a + 1], R[a + 2], R[a + 3], first);
-    if (R[i + 9] || R[i + 10] || R[i + 11]) {
-      const nrm = turn(j0, R[i + 9], R[i + 10], R[i + 11], figN);
-      if (nrm[0] * (first[0] - V[0]) + nrm[1] * (first[1] - V[1]) + nrm[2] * (first[2] - V[2]) > 0) continue;
+  const F = figFrames, P = figP, poly = figPoly, plan = figPlanOf(sketch), R = sketch.records;
+  // Every planned point placed: joint j plus an offset in its frame and radii.
+  const np = plan.points;
+  if (figState.length < np) { figWorld = new Float64Array(np * 3); figSeen = new Float64Array(np * 4); figState = new Uint8Array(np); }
+  const W = figWorld, Q = figSeen, joint = plan.joint, slot = plan.slot, off = plan.off;
+  figState.fill(0, 0, np);
+  for (let p = 0, w = 0; p < np; p++, w += 3) {
+    const b = joint[p] * 3, o = slot[p], x = off[w], y = off[w + 1], z = off[w + 2];
+    if (o < 0) { W[w] = J[b] + x; W[w + 1] = J[b + 1] + y; W[w + 2] = J[b + 2] + z; continue; }
+    const s = F[o + 9], X = x * s, Y = y * s, Z = z * s;
+    W[w] = J[b] + (X * F[o] + Y * F[o + 3] + Z * F[o + 6]);
+    W[w + 1] = J[b + 1] + (X * F[o + 1] + Y * F[o + 4] + Z * F[o + 7]);
+    W[w + 2] = J[b + 2] + (X * F[o + 2] + Y * F[o + 5] + Z * F[o + 8]);
+  }
+  const at = plan.at, firstRef = plan.first, refs = plan.refs;
+  for (let n = 0; n < plan.shapes; n++) {
+    const i = at[n], kind = R[i], a = i + 12, r0 = firstRef[n], p0 = refs[r0], w0 = p0 * 3, q0 = p0 * 4;
+    // The shape's frame: its first point's joint's, and that frame's scale.
+    const o = slot[p0], scale = o < 0 ? 1 : F[o + 9], nudge = R[i + 5];
+    const x0 = W[w0], y0 = W[w0 + 1], z0 = W[w0 + 2];
+    const nx = R[i + 9], ny = R[i + 10], nz = R[i + 11];
+    if (nx || ny || nz) {
+      // The shape's facing, turned into the joint's frame: away from the lens, unseen.
+      let tx = nx, ty = ny, tz = nz;
+      if (o >= 0) {
+        tx = nx * F[o] + ny * F[o + 3] + nz * F[o + 6];
+        ty = nx * F[o + 1] + ny * F[o + 4] + nz * F[o + 7];
+        tz = nx * F[o + 2] + ny * F[o + 5] + nz * F[o + 8];
+      }
+      if (tx * (x0 - V[0]) + ty * (y0 - V[1]) + tz * (z0 - V[2]) > 0) continue;
     }
     let cr, cg, cb;
     if (R[i + 6] >= 0 || !palette) { cr = R[i + 6]; cg = R[i + 7]; cb = R[i + 8]; }
     else { const q = (-1 - R[i + 6]) * 3; cr = palette[q]; cg = palette[q + 1]; cb = palette[q + 2]; }
+    // The ink edge, sized where the shape's first point lands.
     const line = R[i + 1];
-    if (line && project(first[0], first[1], first[2], 12, P) && line * scale * P[15] >= .5) {
-      if (R[i + 2] >= 0 || !palette) out.outline(line * scale * P[15], R[i + 2], R[i + 3], R[i + 4]);
-      else { const q = (-1 - R[i + 2]) * 3; out.outline(line * scale * P[15], palette[q], palette[q + 1], palette[q + 2]); }
+    if (line && figSee(V, p0) && line * scale * Q[q0 + 3] >= .5) {
+      const width = line * scale * Q[q0 + 3];
+      if (R[i + 2] >= 0 || !palette) out.outline(width, R[i + 2], R[i + 3], R[i + 4]);
+      else { const q = (-1 - R[i + 2]) * 3; out.outline(width, palette[q], palette[q + 1], palette[q + 2]); }
     } else out.outline(0, 0, 0, 0);
-    if (kind === 11) {
-      if (!project(first[0], first[1], first[2], 0, P)) continue;
-      const rad = R[a + 4] * scale * P[3];
-      out.ellipse(P[0], P[1], depthAt(P[2], nudge), rad, 0, 0, rad, cr, cg, cb);
-    } else if (kind === 12) {
-      const b = point(R[a + 4], R[a + 5], R[a + 6], R[a + 7], figB);
-      if (!project(first[0], first[1], first[2], 0, P) || !project(b[0], b[1], b[2], 4, P)) continue;
-      out.capsule(P[0], P[1], P[4], P[5], depthAt((P[2] + P[6]) / 2, nudge), R[a + 8] * scale * (P[3] + P[7]), cr, cg, cb);
-    } else if (kind === 13) {
-      const u = turn(j0, R[a + 4] * scale, R[a + 5] * scale, R[a + 6] * scale, figU);
-      const w = turn(j0, R[a + 7] * scale, R[a + 8] * scale, R[a + 9] * scale, figW);
-      if (!project(first[0], first[1], first[2], 0, P) || !project(first[0] + u[0], first[1] + u[1], first[2] + u[2], 4, P) ||
-        !project(first[0] + w[0], first[1] + w[1], first[2] + w[2], 8, P)) continue;
-      out.ellipse(P[0], P[1], depthAt(P[2], nudge), P[4] - P[0], P[5] - P[1], P[8] - P[0], P[9] - P[1], cr, cg, cb);
-    } else {
-      const count = R[a];
+    if (kind === 14) {
+      const m = R[a];
       let vz = 0, seenAll = true;
       poly.length = 0;
-      for (let k = 0; k < count && seenAll; k++) {
-        const q = point(R[a + 1 + k * 4], R[a + 2 + k * 4], R[a + 3 + k * 4], R[a + 4 + k * 4], figB);
-        seenAll = project(q[0], q[1], q[2], 0, P);
-        poly.push(P[0], P[1]);
-        vz += P[2];
+      for (let k = 0; k < m && seenAll; k++) {
+        const p = refs[r0 + k], q = p * 4;
+        seenAll = figSee(V, p);
+        poly.push(Q[q], Q[q + 1]);
+        vz += Q[q + 2];
       }
-      if (seenAll) out.plate(count, poly, depthAt(vz / count, nudge), cr, cg, cb);
+      if (seenAll) out.plate(m, poly, figDepth(V, vz / m, nudge, pin, flatCentre), cr, cg, cb);
+      continue;
+    }
+    if (!figSee(V, p0)) continue;
+    if (kind === 11) {
+      const rad = R[a + 4] * scale * Q[q0 + 3];
+      out.ellipse(Q[q0], Q[q0 + 1], figDepth(V, Q[q0 + 2], nudge, pin, flatCentre), rad, 0, 0, rad, cr, cg, cb);
+    } else if (kind === 12) {
+      const p1 = refs[r0 + 1], q1 = p1 * 4;
+      if (!figSee(V, p1)) continue;
+      out.capsule(Q[q0], Q[q0 + 1], Q[q1], Q[q1 + 1], figDepth(V, (Q[q0 + 2] + Q[q1 + 2]) / 2, nudge, pin, flatCentre),
+        R[a + 8] * scale * (Q[q0 + 3] + Q[q1 + 3]), cr, cg, cb);
+    } else {
+      // Two offsets from the centre, the ellipse's axes, in the joint's frame.
+      let ux = R[a + 4] * scale, uy = R[a + 5] * scale, uz = R[a + 6] * scale;
+      let wx = R[a + 7] * scale, wy = R[a + 8] * scale, wz = R[a + 9] * scale;
+      if (o >= 0) {
+        const X = ux, Y = uy, Z = uz;
+        ux = X * F[o] + Y * F[o + 3] + Z * F[o + 6]; uy = X * F[o + 1] + Y * F[o + 4] + Z * F[o + 7];
+        uz = X * F[o + 2] + Y * F[o + 5] + Z * F[o + 8];
+        const X2 = wx, Y2 = wy, Z2 = wz;
+        wx = X2 * F[o] + Y2 * F[o + 3] + Z2 * F[o + 6]; wy = X2 * F[o + 1] + Y2 * F[o + 4] + Z2 * F[o + 7];
+        wz = X2 * F[o + 2] + Y2 * F[o + 5] + Z2 * F[o + 8];
+      }
+      if (!figProject(V, x0 + ux, y0 + uy, z0 + uz, 4, P) || !figProject(V, x0 + wx, y0 + wy, z0 + wz, 8, P)) continue;
+      const cx = Q[q0], cy = Q[q0 + 1];
+      out.ellipse(cx, cy, figDepth(V, Q[q0 + 2], nudge, pin, flatCentre), P[4] - cx, P[5] - cy, P[8] - cx, P[9] - cy, cr, cg, cb);
     }
   }
   out.outline(0, 0, 0, 0);
