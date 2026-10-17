@@ -1474,8 +1474,8 @@ final class MenuBandSynth {
     /// Tab handoff chime through the fx bus, at the bent pitch. False when
     /// the engine isn't sounding yet — the caller falls back to the
     /// isolated `FocusCueBeep` so the handoff always says something.
-    func playPadSwitchCue(toTrackDrum: Bool) -> Bool {
-        surfaceCue.playPadSwitch(toTrackDrum: toTrackDrum)
+    func playPadSwitchCue(toTrackDrum: Bool, off: Bool = false) -> Bool {
+        surfaceCue.playPadSwitch(toTrackDrum: toTrackDrum, off: off)
     }
 
     /// One movement's worth of idle-page friction, 0…1.

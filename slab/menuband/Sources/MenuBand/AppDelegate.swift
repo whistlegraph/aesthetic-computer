@@ -1113,7 +1113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // letter → cursor locks → swipe to bend → release
             // letter → cursor unlocks + spring rubber-band.
             let kbHeld = self.menuBand.keyboardNotesHeld
-            if kbHeld {
+            if kbHeld && self.trackpadPadMode != .mouse {
                 // A menubar-key click arms local keyboard capture after the
                 // mouse-up, but it does not come through the explicit quiet-
                 // focus shortcut. Open a transient drum surface on the first
@@ -2607,6 +2607,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// its click shield before arming for the readiness handshake, and every
     /// other shield here is idempotent.
     private func enterFullPerformanceFocus() {
+        if trackpadPadMode == .mouse {
+            endPitchBendSession()
+            unlockSystemCursorIfNeeded()
+            showSystemCursorIfNeeded()
+            startFocusCursorWatchdog()
+            updateIcon()
+            return
+        }
         #if MAC_APP_STORE
         // Command-Command is the explicit trackpad-performance gesture. If
         // TrackDrum is available, always arm it here even when a previous Tab
@@ -6612,6 +6620,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Enter focused mouse-driven FX, staying visually silent until the real
     /// pointer delta that called this method is applied below.
     private func activateFocusedLocalFX() {
+        guard trackpadPadMode != .mouse else { return }
         #if MAC_APP_STORE
         focusedInputMode = .localFX
         trackDrumInstallPromptActive = false
@@ -6734,7 +6743,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// instead of percussion; direct contact frames drive the same absolute
     /// FX values without disassociating or hiding the system cursor.
     private func activateKeymapPitchSlider() {
-        guard trackpadFxAvailable, pianoWaveformWindowDelegate.isShown else {
+        guard trackpadPadMode != .mouse, trackpadFxAvailable, pianoWaveformWindowDelegate.isShown else {
             return
         }
         #if !MAC_APP_STORE
@@ -6826,8 +6835,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // is remembered so regaining focus later reopens this same page.
         // Through the fx bus when it's up: the chime arrives bent and
         // echoed exactly as the next note would — a preview, not a label.
-        if !menuBand.playPadSwitchCue(toTrackDrum: trackpadPadMode != .fx) {
-            FocusCueBeep.shared.padSwitch(toTrackDrum: trackpadPadMode != .fx)
+        if !menuBand.playPadSwitchCue(toTrackDrum: trackpadPadMode != .fx, off: trackpadPadMode == .mouse) {
+            FocusCueBeep.shared.padSwitch(toTrackDrum: trackpadPadMode != .fx, off: trackpadPadMode == .mouse)
         }
         UserDefaults.standard.set(
             (trackpadPadMode == .fx
@@ -6835,28 +6844,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forKey: Self.focusedInputModeDefaultsKey
         )
         if trackpadPadMode == .mouse {
-            // Hand the trackpad back: no drum, no slide, no click shield,
-            // pointer free. Ending the bend session unlocks the cursor (and
-            // resets the mode to skin as a side effect, so re-assert mouse).
-            releaseTrackpadPercussion()
-            trackpadSkinTouches.removeAll()
+            endPitchBendSession()
             #if !MAC_APP_STORE
-            stopTrackpadPercussionSystemClickShield()
+            trackpadAudioLane.setMode(.off)
             #endif
-            // Free the pointer WITHOUT ending the session (that would drop
-            // performance focus): re-associate the cursor and show it.
-            if pitchBendCursorLocked {
-                CGAssociateMouseAndMouseCursorPosition(1)
-                pitchBendCursorLocked = false
-            }
+            unlockSystemCursorIfNeeded()
             showSystemCursorIfNeeded()
-            trackpadPadMode = .mouse
-            // Flash the off switch, then get out of the pointer's way.
-            showPitchBendOverlay()
-            pitchBendOverlay?.fadeOut(
-                after: Self.trackpadOverlayIdleHold,
-                duration: Self.trackpadOverlayFadeDuration
-            )
+            pitchBendOverlay?.dismiss()
             debugLog("trackpad pad mode = mouse (trackpad released)")
             return
         }
@@ -7485,9 +7479,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? trackpadSurfaceEnergy.snapshot(at: CACurrentMediaTime()) : []
         let momentarySurfaceFx = continuousSurface
             && NSEvent.modifierFlags.contains(.shift)
-        if trackpadPadMode == .mouse {
-            return TrackpadOffPad.image()
-        } else if trackpadPadMode == .kit {
+        if trackpadPadMode == .kit {
             return TrackpadPercussionPad.image(touches: mtTouches,
                                                 state: trackpadPercussionState)
         } else if trackpadPadMode == .skin && !momentarySurfaceFx {
@@ -7753,6 +7745,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPitchBendOverlay() {
+        guard trackpadPadMode != .mouse else {
+            pitchBendOverlay?.dismiss()
+            return
+        }
         #if MAC_APP_STORE
         guard !trackDrumInstallPromptActive else { return }
         #endif
@@ -7908,6 +7904,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updatePitchBendOverlayImage() {
+        guard trackpadPadMode != .mouse else {
+            pitchBendOverlay?.dismiss()
+            return
+        }
         #if MAC_APP_STORE
         guard !trackDrumInstallPromptActive else { return }
         #endif
@@ -8144,7 +8144,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if MAC_APP_STORE
         trackpadPadMode = Self.focusedReleasePadMode(for: focusedInputMode)
         #else
-        trackpadPadMode = .skin
+        // OFF is a selection, not a temporary gesture. Key releases and
+        // focus changes must not turn the slider back on.
+        if trackpadPadMode != .mouse { trackpadPadMode = .skin }
         #endif
         guard pitchBendCursorLocked else {
             // Mode was latched but cursor not currently locked — still

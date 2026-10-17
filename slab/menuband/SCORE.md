@@ -85,6 +85,13 @@ two-stage low-pass from 60–6000 Hz, defaulting to 160 Hz. Color and filter
 are remembered; level starts at zero each launch. The pitched ⇧Space Air
 instrument remains separate.
 
+## Trackpad mode cues
+
+Tab cycles FX, drums, and OFF. Each has a short ding: C4 for FX, G4 for drums,
+and C3 for OFF. OFF shows no switch graphic or slider, releases the pointer
+and click shields, and stays off through note releases and focus changes until
+Tab selects another mode.
+
 ## Drum kits
 
 Right-click the headphone button and choose **Drum Kit**: Menu Band, Electro,

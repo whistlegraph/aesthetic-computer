@@ -1812,8 +1812,8 @@ final class MenuBandController {
     /// Tab handoff chime through the fx bus — bent, echoed, spaced like the
     /// instrument, so the switch previews the page it lands on. False when
     /// the engine can't sound it yet; the caller keeps the dry fallback.
-    func playPadSwitchCue(toTrackDrum: Bool) -> Bool {
-        synth.playPadSwitchCue(toTrackDrum: toTrackDrum)
+    func playPadSwitchCue(toTrackDrum: Bool, off: Bool = false) -> Bool {
+        synth.playPadSwitchCue(toTrackDrum: toTrackDrum, off: off)
     }
 
     /// Scratching the idle pitch page: one movement's friction, 0…1.

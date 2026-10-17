@@ -81,9 +81,9 @@ final class MenuBandSurfaceCue {
     /// to the isolated `FocusCueBeep`). Stopping first flushes any queued
     /// chime so rapid Tab presses always hear the freshest destination —
     /// `scheduleBuffer` on a live player appends, it does not replace.
-    func playPadSwitch(toTrackDrum: Bool) -> Bool {
+    func playPadSwitch(toTrackDrum: Bool, off: Bool = false) -> Bool {
         guard attached, let engine, engine.isRenderingLive else { return false }
-        guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum) else {
+        guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum, off: off) else {
             return false
         }
         chimePlayer.stop()
@@ -144,7 +144,7 @@ final class MenuBandSurfaceCue {
     /// C4 the slider — but rendered at the bent pitch. The two stay a fifth
     /// apart under any bend, so the destination remains readable by ear
     /// while the absolute register previews where the wheel sits.
-    private func makePadSwitchBuffer(toTrackDrum: Bool) -> AVAudioPCMBuffer? {
+    private func makePadSwitchBuffer(toTrackDrum: Bool, off: Bool) -> AVAudioPCMBuffer? {
         let dur = 0.3
         let frameCount = AVAudioFrameCount(sampleRate * dur)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: renderFormat,
@@ -153,7 +153,7 @@ final class MenuBandSurfaceCue {
         }
         buffer.frameLength = frameCount
         guard let data = buffer.floatChannelData?[0] else { return nil }
-        let base = toTrackDrum ? 392.0 : 261.6   // G4 drum / C4 slider
+        let base = off ? 130.8 : (toTrackDrum ? 392.0 : 261.6) // C3 off / G4 drum / C4 slider
         let freq = base * pow(2.0, Double(bend))
         let total = Int(frameCount)
         let attack = Int(sampleRate * 0.008)
