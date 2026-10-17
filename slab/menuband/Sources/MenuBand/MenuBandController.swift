@@ -93,63 +93,14 @@ final class MenuBandController {
 
     /// Headset menu → Reset interface: rebuild the current output device's
     /// USB streams (see `MenuBandAudioDevices.resetInterface`).
-    private var interfaceRecovery = InterfaceRecoveryPolicy()
-    private var interfaceRecoveryTimer: DispatchSourceTimer?
     private var interfaceResetObserver: NSObjectProtocol?
     private var pendingMonitorBufferChange: DispatchWorkItem?
-    private var pendingMonitorBufferReset: DispatchWorkItem?
-    private var monitorBufferGeneration = 0
     func resetAudioInterface() {
         dispatchPrecondition(condition: .onQueue(.main))
         guard let id = MenuBandAudioDevices.preferredOutputID() else { return }
-        interfaceRecovery.didReset(at: ProcessInfo.processInfo.systemUptime)
         NSLog("MenuBand audio: interface reset requested on \(id)")
         synth.logAudioBindings(context: "manual interface reset")
         MenuBandAudioDevices.resetInterface(id)
-    }
-
-    private func currentRecoveryOutput() -> MBAudioDevice? {
-        guard let id = MenuBandAudioDevices.preferredOutputID() else { return nil }
-        return MenuBandAudioDevices.all().first { $0.id == id }
-    }
-
-    private func needsStreamRecovery(_ device: MBAudioDevice?) -> Bool {
-        guard let device else { return false }
-        return device.name.localizedCaseInsensitiveContains("scarlett") ||
-            device.name.localizedCaseInsensitiveContains("focusrite")
-    }
-
-    private func observeInterfaceRecoveryRoute() {
-        let device = currentRecoveryOutput()
-        interfaceRecovery.observeRoute(device: device?.id, affected: needsStreamRecovery(device),
-                                       at: ProcessInfo.processInfo.systemUptime)
-    }
-
-    private func startInterfaceRecovery() {
-        observeInterfaceRecoveryRoute()
-        synth.onPlaybackRecovered = { [weak self] in
-            guard let self, let device = self.currentRecoveryOutput(),
-                  self.needsStreamRecovery(device) else { return }
-            self.interfaceRecovery.engineRecovered(device: device.id,
-                at: ProcessInfo.processInfo.systemUptime)
-        }
-        let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + 1, repeating: 1)
-        timer.setEventHandler { [weak self] in
-            guard let self else { return }
-            let device = self.currentRecoveryOutput()
-            let now = ProcessInfo.processInfo.systemUptime
-            self.interfaceRecovery.observeRoute(device: device?.id,
-                affected: self.needsStreamRecovery(device), at: now)
-            guard let id = self.interfaceRecovery.takeRequest(device: device?.id,
-                resetting: MenuBandAudioDevices.interfaceResetInProgress,
-                at: now) else { return }
-            NSLog("MenuBand audio: automatic settled stream reset on \(id)")
-            self.synth.logAudioBindings(context: "automatic interface reset")
-            MenuBandAudioDevices.resetInterface(id)
-        }
-        interfaceRecoveryTimer = timer
-        timer.resume()
     }
 
     /// Monitor IO cycle in frames (16…256); applies live while monitoring.
@@ -157,19 +108,10 @@ final class MenuBandController {
     func setMonitorIOBufferFrames(_ frames: Int) {
         dispatchPrecondition(condition: .onQueue(.main))
         pendingMonitorBufferChange?.cancel()
-        pendingMonitorBufferReset?.cancel()
-        monitorBufferGeneration += 1
-        let generation = monitorBufferGeneration
         let change = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.audioWorkQueue.async { [weak self] in
                 self?.synth.setMonitorIOBufferFrames(UInt32(max(16, frames)))
-                DispatchQueue.main.async { [weak self] in
-                    guard let self, self.monitorBufferGeneration == generation else { return }
-                    let reset = DispatchWorkItem { [weak self] in self?.resetAudioInterface() }
-                    self.pendingMonitorBufferReset = reset
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: reset)
-                }
             }
         }
         pendingMonitorBufferChange = change
@@ -2632,8 +2574,8 @@ final class MenuBandController {
                 }
             }
         }
-        // Adopt the existing rate. The affected Scarlett stream is rebuilt
-        // once after startup settles, with the original rate restored.
+        // Adopt the existing rate. Only the explicit Reset Interface action
+        // may flip it: a reset interrupts every client of the shared device.
         synth.start()
         debugLog("bootstrap: post-synth.start")
         synth.setMelodicProgram(melodicProgram)
@@ -2707,7 +2649,6 @@ final class MenuBandController {
             self?.synth.logAudioBindings(context: "route changed")
             self?.audioWorkQueue.async { self?.synth.refreshMonitorDevice() }
             self?.autoMonitorForInterface()
-            self?.observeInterfaceRecoveryRoute()
         }
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
@@ -2756,7 +2697,6 @@ final class MenuBandController {
         // (enableMIDIMode triggers a loopback self-test; result lands in
         // /tmp/menuband-debug.log and updates the popover's status row.)
         debugLog("bootstrap: end")
-        startInterfaceRecovery()
     }
 
     func toggleMIDIMode() {
@@ -2779,13 +2719,12 @@ final class MenuBandController {
     }
 
     func shutdown() {
-        interfaceRecoveryTimer?.cancel()
-        interfaceRecoveryTimer = nil
+        pendingMonitorBufferChange?.cancel()
+        pendingMonitorBufferChange = nil
         if let interfaceResetObserver {
             NotificationCenter.default.removeObserver(interfaceResetObserver)
             self.interfaceResetObserver = nil
         }
-        synth.onPlaybackRecovered = nil
         releaseAllHardwareMIDINotes()
         midi.stopHardwareInput()
         disableTypeMode()

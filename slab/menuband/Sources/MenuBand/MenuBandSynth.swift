@@ -290,12 +290,23 @@ final class MenuBandSynth {
         UserDefaults.standard.set(Int(frames), forKey: Self.monitorIOBufferKey)
         engineLock.lock(); defer { engineLock.unlock() }
         guard started, inputMonitor.isAttached else { return }
+        // Increasing the device slice while the graph is rendering can leave
+        // its units allocated for the old size (-10874 on every callback).
+        // Stop output across the resize, reopen input, and prepare the graph
+        // again before resuming. Do not reset the shared device's sample rate.
+        let wasRunning = engine.isRunning
+        engine.stop()
         inputMonitor.preferredIOBufferFrames = frames
         forceIOBufferFrames(frames)
-        // The AUHAL only takes a new slice size across an initialize, so
-        // the mic unit is reopened — otherwise it keeps delivering the old
-        // size and the ring underflows every other cycle.
         inputMonitor.restartInput()
+        engine.reset()
+        engine.prepare()
+        outputGuard.health.begin()
+        if wasRunning {
+            do { try engine.start() }
+            catch { NSLog("MenuBand: engine restart after buffer resize failed: \(error)") }
+        }
+        audioTelemetry.event("buffer_resize", ["requestedFrames": frames])
     }
 
     /// Exact-size write (clamped to the device's range) on the output AU and
@@ -1812,7 +1823,6 @@ final class MenuBandSynth {
     private var bindingAuditStrikes = 0
     private var interfaceResetting = false
     private var configurationChangeDeferredForReset = false
-    var onPlaybackRecovered: (() -> Void)?
 
     func setInterfaceResetting(_ active: Bool) {
         engineLock.lock(); defer { engineLock.unlock() }
@@ -1864,7 +1874,6 @@ final class MenuBandSynth {
         }
         scheduleMIDISynthRebuild()
         logAudioBindings(context: "playback recovery")
-        DispatchQueue.main.async { [weak self] in self?.onPlaybackRecovered?() }
     }
 
     /// After a plug-in/unplug: if the monitor is open on a device that the

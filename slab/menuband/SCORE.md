@@ -34,14 +34,13 @@ automatic output follows the current system default even if the engine's
 temporary speaker fallback is still connected.
 Focusing Menu Band does not reset the interface or change its sample rate.
 Visualizer and recording taps stay attached; UI visibility only gates their
-delivery. A Focusrite output gets one USB stream rebuild three seconds after
-startup, reconnect, or an engine-fault recovery settles, using the same reset
-that restores a silent Scarlett manually. It restores the original sample
-rate, preserves the selected latency, and is capped at three automatic resets
-per minute. Repeated enumeration and mouse entry do not request resets.
-**Reset Interface** remains available manually. During either kind of reset,
-the playback/input watchdogs and buffer listener yield until streams settle;
-engine configuration recovery is deferred so it cannot restart IO mid-flip.
+delivery. Hardware stream resets are manual only: **Reset Interface** temporarily flips
+the sample rate and interrupts all clients of that device. Startup, reconnect,
+engine recovery, and latency selection must not request this shared reset.
+Latency changes stop and reprepare Menu Band's graph at the new buffer size.
+During a manual reset, playback/input watchdogs and the buffer listener yield
+until streams settle; engine configuration recovery is deferred so it cannot
+restart IO mid-flip.
 The final output node replaces non-finite samples with silence before they
 reach CoreAudio's shared mix. Invalid audio or stalled render callbacks trigger
 a bounded engine reset on the current output; wake and route changes re-arm
