@@ -25,13 +25,14 @@
 // `blink`, `hurt`, `skirt`, `glasses` and `headless` are a figure's: how its face and
 // outfit read this tick. `cylinder`, `spent` and `cock` are the revolver's: how
 // far its cylinder has turned (radians), how many chambers have fired, and the
-// hammer (1 back, 0 down).
+// hammer (1 back, 0 down). `crowd` is a figure's too: one of many on screen,
+// small, so its finest marks (a face's lashes, a shirt's print) are left off.
 export const objectInputs = ["time", "distance", "speed", "lean", "heading",
   "pitch", "turbo", "hit", "land", "blink", "hurt", "skirt", "glasses", "headless",
-  "cylinder", "spent", "cock"];
-const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0, 0, 0, 1];
+  "cylinder", "spent", "cock", "crowd"];
+const unset = [0, 0, 0, 0, 0, 0, 0, 1e9, 1e9, 0, 0, 0, 0, 0, 0, 0, 1, 0];
 // Switches are 0 or 1, so a baked part that reads one is baked once per value.
-const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses", "headless"]);
+const switches = new Set(["turbo", "blink", "hurt", "skirt", "glasses", "headless", "crowd"]);
 // A figure's joints, in the order a FIGURE op carries them (frame-vm.mjs, op
 // 20): the head's centre, a point one head-radius along where it looks, then
 // the body. Shapes hang on these; the host is handed their positions a tick.
@@ -1191,10 +1192,33 @@ function figPlanOf(sketch) {
       if (kind === 12) ref(R[a + 4], R[a + 5], R[a + 6], R[a + 7]);
     }
   }
+  // Which joints each shape hangs on, as a bit mask, so a part of a figure
+  // (a severed limb has two joints of sixteen) walks only its own shapes.
+  const needs = at.map((_, n) => {
+    let mask = 0;
+    for (let r = first[n], end = n + 1 < first.length ? first[n + 1] : refs.length; r < end; r++) mask |= 1 << joint[refs[r]];
+    return mask;
+  });
+  const order = Int32Array.from(at, (_, n) => n);
   plan = { shapes: at.length, at: Int32Array.from(at), first: Int32Array.from(first), refs: Int32Array.from(refs),
-    points: joint.length, joint: Float64Array.from(joint), slot: Int32Array.from(slot), off: Float64Array.from(off) };
+    points: joint.length, joint: Float64Array.from(joint), slot: Int32Array.from(slot), off: Float64Array.from(off),
+    needs: Int32Array.from(needs), all: order, used: needs.reduce((m, x) => m | x, 0), some: new Map() };
   figPlans.set(sketch, plan);
   return plan;
+}
+// The plan's shapes that can draw with only the joints in `have`: a shape on
+// a missing (NaN) joint lands at NaN, fails the lens test and draws nothing,
+// so leaving it out draws the same — without placing and testing it.
+function figShapesFor(plan, have) {
+  if ((plan.used & have) === plan.used) return plan.all;
+  let order = plan.some.get(have);
+  if (!order) {
+    const keep = [];
+    for (let n = 0; n < plan.shapes; n++) if ((plan.needs[n] & have) === plan.needs[n]) keep.push(n);
+    order = Int32Array.from(keep);
+    plan.some.set(have, order);
+  }
+  return order;
 }
 // Each planned point this draw: where it is (figWorld, x y z), where it
 // lands (figSeen, x y depth scale), and whether it has been projected yet
@@ -1278,17 +1302,20 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   if (figState.length < np) { figWorld = new Float64Array(np * 3); figSeen = new Float64Array(np * 4); figState = new Uint8Array(np); }
   const W = figWorld, Q = figSeen, joint = plan.joint, slot = plan.slot, off = plan.off;
   figState.fill(0, 0, np);
+  let have = 0;
+  for (let k = 0; k < 16; k++) if (J[k * 3] === J[k * 3]) have |= 1 << k;
   for (let p = 0, w = 0; p < np; p++, w += 3) {
     const b = joint[p] * 3, o = slot[p], x = off[w], y = off[w + 1], z = off[w + 2];
+    if (!(have & (1 << joint[p]))) continue;
     if (o < 0) { W[w] = J[b] + x; W[w + 1] = J[b + 1] + y; W[w + 2] = J[b + 2] + z; continue; }
     const s = F[o + 9], X = x * s, Y = y * s, Z = z * s;
     W[w] = J[b] + (X * F[o] + Y * F[o + 3] + Z * F[o + 6]);
     W[w + 1] = J[b + 1] + (X * F[o + 1] + Y * F[o + 4] + Z * F[o + 7]);
     W[w + 2] = J[b + 2] + (X * F[o + 2] + Y * F[o + 5] + Z * F[o + 8]);
   }
-  const at = plan.at, firstRef = plan.first, refs = plan.refs;
-  for (let n = 0; n < plan.shapes; n++) {
-    const i = at[n], kind = R[i], a = i + 12, r0 = firstRef[n], p0 = refs[r0], w0 = p0 * 3, q0 = p0 * 4;
+  const at = plan.at, firstRef = plan.first, refs = plan.refs, order = figShapesFor(plan, have);
+  for (let m = 0; m < order.length; m++) {
+    const n = order[m], i = at[n], kind = R[i], a = i + 12, r0 = firstRef[n], p0 = refs[r0], w0 = p0 * 3, q0 = p0 * 4;
     // The shape's frame: its first point's joint's, and that frame's scale.
     const o = slot[p0], scale = o < 0 ? 1 : F[o + 9], nudge = R[i + 5];
     const x0 = W[w0], y0 = W[w0 + 1], z0 = W[w0 + 2];
