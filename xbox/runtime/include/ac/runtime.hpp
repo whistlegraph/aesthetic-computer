@@ -113,6 +113,14 @@ class Graphics {
   // prims holds count × 12 floats (a.xyz r1, b.xyz r2, r g b 0–1, hard).
   // False means the host has no SDF pass and the piece draws triangles.
   virtual bool sdf_figure(const float* /*camera*/, const float* /*prims*/, std::size_t /*count*/) { return false; }
+  // One raycast sprite (oskiewarRaycast): an object shaded per pixel inside a
+  // screen square instead of built from faces. kind 0 is the beach ball. x, y
+  // and radius are logical stage units; z and zFront are the centre's depth
+  // and the depth its nearest surface reaches, in the triangle world's z.
+  // roll turns it in the picture plane, tumble tips it. False means the host
+  // has no raycast pass and the piece draws the flat ball.
+  virtual bool raycast(int /*kind*/, float /*x*/, float /*y*/, float /*radius*/,
+      float /*z*/, float /*zFront*/, float /*roll*/, float /*tumble*/) { return false; }
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}
@@ -276,6 +284,22 @@ struct Api {
   // Fixed Oskiewar relay only, bounded packets, drained on the JS thread.
   std::function<bool(std::string_view, std::string_view)> net_send = {};
   std::function<std::vector<std::string>()> net_poll = {};
+  // The room bridge's transport (HostNet on the Xbox): a WebSocket, a GET
+  // fetch and a UDP lane, each held by the host to aesthetic.computer and
+  // oskiewar.com, with results drained on the JS thread. `host_poll` returns
+  // flat records: kind, id, status, text.
+  struct NetEvent { std::string kind; int id = 0; int status = 0; std::string text; };
+  std::function<int(std::string_view)> socket_open = {};
+  std::function<void(int, std::string_view)> socket_send = {};
+  std::function<void(int)> socket_close = {};
+  std::function<void(int, std::string_view)> fetch_get = {};
+  std::function<int(std::string_view, int)> udp_open = {};
+  std::function<void(int, std::string_view)> udp_send = {};
+  std::function<void(int)> udp_close = {};
+  std::function<std::vector<NetEvent>()> host_poll = {};
+  // Which relay the room lives on (round-room.mjs chooseRelayHost); the
+  // native publisher's socket follows it.
+  std::function<void(std::string_view)> set_relay = {};
   // Screen-space post settings the piece may steer each frame, all validated
   // by the binding: focus band centre, half-height and feather (0..1 of the
   // screen), tilt-shift radius in pixels, camera motion blur in pixels.

@@ -4,6 +4,8 @@
 
 import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
+import { authorize } from "../../backend/authorization.mjs";
+import { hasMonthlySupport } from "../../backend/monthly-support.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
@@ -13,7 +15,8 @@ const currencies = {
   dkk: { symbol: "kr", min: 500, max: 1750000 },
 };
 
-export async function handler(event, context) {
+export function createGiveHandler({ authenticate = authorize, support = hasMonthlySupport } = {}) {
+return async function handler(event, context) {
   // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return respond(200, {});
@@ -41,12 +44,21 @@ export async function handler(event, context) {
     const currencyConfig = currencies[currency] || currencies.usd;
     const amountCents = parseInt(body.amount) || 2500;
     const recurring = body.recurring === true;
-    const email = body.email; // Optional: prefill email for logged-in users
-    const attribution = ["homepage", "give-piece"].includes(body.source) ? { source: body.source } : {};
+    let email = body.email; // Optional on ordinary giving; verified for perks.
+    const attribution = ["homepage", "give-piece", "signup", "handle-colors"].includes(body.source) ? { source: body.source } : {};
+    const colors = ["signup", "handle-colors"].includes(attribution.source);
 
     // Validate amount for currency
     if (amountCents < currencyConfig.min || amountCents > currencyConfig.max) {
       return respond(400, { error: `Invalid amount for ${currency.toUpperCase()}` });
+    }
+
+    if (colors) {
+      const user = await authenticate(event.headers || {}, "aesthetic");
+      if (!user?.email_verified || !user.email) return respond(401, { error: "Sign in to connect support to your handle" });
+      email = user.email.trim().toLowerCase();
+      if (recurring && await support(user, { stripe }))
+        return respond(409, { code: "already_supporting", error: "Monthly support is already active" });
     }
 
     const amountDisplay = (amountCents / 100).toFixed(currency === 'dkk' ? 0 : 2);
@@ -57,10 +69,11 @@ export async function handler(event, context) {
     const pieceReturn = new URL("https://aesthetic.computer/give");
     pieceReturn.search = new URLSearchParams({ amount: (amountCents / 100).toFixed(2), currency,
       frequency: recurring ? "monthly" : "once", ...(attribution.source ? { source: attribution.source } : {}) }).toString();
-    const cancelUrl = body.surface === "piece" ? pieceReturn.href
+    const colorReturn = "https://aesthetic.computer/handle";
+    const cancelUrl = colors ? colorReturn : body.surface === "piece" ? pieceReturn.href
       : `${giveBaseUrl}/${attribution.source ? `?source=${attribution.source}` : ""}`;
     const sessionConfig = {
-      success_url: body.surface === "piece" ? `${pieceReturn.href}&thanks=1`
+      success_url: colors ? `${colorReturn}?support=return` : body.surface === "piece" ? `${pieceReturn.href}&thanks=1`
         : `${giveBaseUrl}/thanks.html?amount=${amountDisplay}&currency=${currency}${recurring ? '&recurring=true' : ''}`,
       cancel_url: cancelUrl,
       billing_address_collection: "auto",
@@ -86,7 +99,7 @@ export async function handler(event, context) {
     if (recurring) {
       // Monthly subscription
       sessionConfig.mode = "subscription";
-      if (attribution.source) sessionConfig.subscription_data = { metadata: attribution };
+      sessionConfig.subscription_data = { metadata: { ...attribution, ac_support: "monthly" } };
       sessionConfig.line_items = [
         {
           price_data: {
@@ -94,6 +107,7 @@ export async function handler(event, context) {
             product_data: {
               name: `Give`,
               description: `to Aesthetic Computer`,
+              metadata: { ac_support: "monthly" },
               images: [`https://aesthetic.computer/api/give-image?amount=${amountDisplay}&currency=${currency}&recurring=true`],
             },
             unit_amount: amountCents,
@@ -133,7 +147,10 @@ export async function handler(event, context) {
     console.error("Give checkout error:", error);
     return respond(500, { error: error.message });
   }
+};
 }
+
+export const handler = createGiveHandler();
 
 function getBaseUrl(event) {
   if (dev) {

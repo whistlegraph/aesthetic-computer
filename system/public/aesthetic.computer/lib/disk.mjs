@@ -10596,6 +10596,10 @@ let pendingExportEvents = [];
 // TODO: Try to remove as many API calls from here as possible.
 
 async function makeFrame({ data: { type, content } }) {
+  if (type === "signup:view" || type === "onboarding:audio-state") {
+    if (booted && receive !== defaults.receive) receive({ type, content }, cachedAPI);
+    return;
+  }
   // DEBUG: Log ALL messages starting with "pedal:" or "daw:"
   if (type?.startsWith?.("pedal:") || type?.startsWith?.("daw:") || type?.startsWith?.("spreadnob:")) {
     console.log("🎹🎹🎹 makeFrame received:", type, JSON.stringify(content));

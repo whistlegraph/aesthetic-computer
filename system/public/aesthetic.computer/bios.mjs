@@ -13834,6 +13834,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "signup:canvas") { window.acSignupCanvas?.handle(content); return; }
+    if (type === "onboarding:audio") {
+      const audio = window.acOnboardingAudio;
+      if (content?.action === "enter") audio?.enter();
+      if (content?.action === "leave") audio?.leave();
+      if (content?.action === "tap") audio?.tap();
+      if (content?.action === "toggle") audio?.toggle();
+      send({ type: "onboarding:audio-state", content: { enabled: audio?.enabled ?? false } });
+      return;
+    }
+
     if (type === "signup") {
       if (window.self === window.top) {
         window.acLOGIN?.("signup");
@@ -19418,6 +19429,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       tryPlay(true).catch((err) => {
+        // A pause() before play() settles (e.g. MIME holding a warmed card)
+        // rejects with AbortError. That is not CORS: keep the element so a
+        // later stream:resume starts it, analyser and all.
+        if (err?.name === "AbortError") {
+          send({ type: "stream:paused", content: { id } });
+          return;
+        }
         // CORS rejection surfaces as MediaError code 4 / NotSupportedError.
         // Tear down the tainted audio element and retry without crossOrigin.
         console.warn(

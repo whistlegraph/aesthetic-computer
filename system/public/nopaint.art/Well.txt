@@ -1,0 +1,36 @@
+# 'Well' v1 by @jeffrey
+P0 Box: 127 127 255 255 FFEE00
+P10 Noise
+
+# Well,
+Ellipse: 64 140 64-68 64-68 000000
+# well,
+Ellipse: 127 128 64-68 64-68 111111
+# well!
+Ellipse: 185 133 64-68 64-68 222222
+
+# Look
+Line: 123 32 126 94 2 666666
+# who
+Line: 40 163 8 176 2 555555
+# it is!
+Line: 210 151 248 160 2 555555
+
+# Craw-ling
+Line: 45 160 38 182 2 DD3333
+Line: 82 166 93 174 2 330000
+
+# in the
+Line: 116 140 101 171 2 33DD33
+Line: 141 158 160 160 2 003300
+
+# cor-ner
+Line: 171 160 159 172 3 3333DD
+Line: 204 157 223 169 2 000033
+
+# of the
+Stamp: @alex 81 175 117 ? 1
+Stamp: @alex 81 200 120 ? 1
+
+# room!
+Triangle: 174 137 193 134 186 147 FF6622

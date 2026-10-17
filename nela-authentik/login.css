@@ -1,0 +1,297 @@
+/* NELA Computer Club — auth.nela.computer, Authentik 2026.8.
+   Palette, monospace type, and square borders from nela.computer/styles.css.
+   Flow-specific selectors keep application and administration layouts intact. */
+
+/* Both palettes follow Authentik's native light/dark selection. */
+:root:has(ak-flow-executor),
+:host(ak-flow-executor) {
+  --nela-scheme: dark;
+  --nela-bg: #000;
+  --nela-green: #00d080;
+  --nela-cyan: #00c4fd;
+  --nela-border: #006888;
+  --nela-muted: #78a49c;
+  --nela-error: #ff8585;
+  --nela-button: #00d080;
+  --nela-button-text: #000;
+  --nela-hover: #00c4fd;
+}
+
+:root[data-theme="light"]:has(ak-flow-executor),
+:host(ak-flow-executor[theme="light"]) {
+  --nela-scheme: light;
+  --nela-bg: #fff;
+  --nela-green: #00663e;
+  --nela-cyan: #006888;
+  --nela-border: #55766c;
+  --nela-muted: #576c65;
+  --nela-error: #b12424;
+  --nela-button: #00663e;
+  --nela-button-text: #fff;
+  --nela-hover: #006888;
+}
+
+:root:has(ak-flow-executor),
+:host(ak-flow-executor) {
+  color-scheme: var(--nela-scheme);
+  --ak-global--background-image: none;
+  --pf-global--FontFamily--sans-serif: monospace;
+  --pf-global--FontFamily--heading--sans-serif: monospace;
+  --pf-global--Color--100: var(--nela-green);
+  --pf-global--Color--200: var(--nela-cyan);
+  --pf-global--BackgroundColor--100: var(--nela-bg);
+  --pf-global--BackgroundColor--200: var(--nela-bg);
+  --pf-global--primary-color--100: var(--nela-green);
+  --pf-global--primary-color--200: var(--nela-cyan);
+  --pf-global--link--Color: var(--nela-cyan);
+  --pf-global--link--Color--hover: var(--nela-green);
+  --pf-global--BorderRadius--sm: 0;
+  --ak-color-primary: var(--nela-green);
+  --ak-color-text-primary: var(--nela-green);
+  --ak-color-text-secondary: var(--nela-cyan);
+  font-family: monospace;
+  color: var(--nela-green);
+}
+
+html:has(ak-flow-executor),
+html:has(ak-flow-executor) body {
+  background: var(--nela-bg);
+  color: var(--nela-green);
+  margin: 0;
+  min-height: 100%;
+}
+
+.pf-c-login {
+  background: var(--nela-bg);
+  background-image: none;
+  min-height: 100svh;
+  padding: 72px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  font-family: monospace;
+  color: var(--nela-green);
+}
+
+.pf-c-login__header {
+  margin: 0;
+  padding: 0;
+  width: min(100%, 520px);
+  align-self: center;
+}
+
+.pf-c-login__main {
+  background: var(--nela-bg);
+  color: var(--nela-green);
+  border: 1px solid var(--nela-cyan);
+  border-radius: 0;
+  box-shadow: none !important;
+  width: min(100%, 520px);
+  max-width: 520px;
+  margin: 0;
+  padding: 28px;
+  align-self: center;
+}
+
+.pf-c-login__main-header.pf-c-brand {
+  padding: 0 0 24px;
+  margin: 0;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.pf-c-login .branding-logo {
+  width: 216px;
+  height: 72px;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+  margin: 0;
+}
+
+.pf-c-login__main-header,
+.pf-c-login__main-body,
+.pf-c-login__main-footer {
+  background: transparent;
+  color: var(--nela-green);
+  padding: 0;
+}
+
+.pf-c-login__main-header { margin: 0 0 28px; }
+
+.pf-c-login__main-header .pf-c-title {
+  font-family: monospace;
+  font-size: 18px;
+  line-height: 1.4;
+  font-weight: 700;
+  color: var(--nela-cyan);
+  margin: 0;
+}
+
+:host(:is(ak-stage-identification, ak-stage-password, ak-stage-prompt,
+  ak-stage-authenticator-validate, ak-stage-email)) {
+  font-family: monospace;
+  color: var(--nela-green);
+
+  .pf-c-form { gap: 22px; }
+
+  .pf-c-form__label {
+    display: block;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--nela-green);
+    padding-bottom: 8px;
+  }
+
+  .pf-c-form__label-text {
+    color: var(--nela-green) !important;
+    font-weight: 400;
+  }
+
+  .pf-c-form__label::after { color: var(--nela-cyan); }
+
+  .pf-c-form-control {
+    font-family: monospace;
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--nela-green);
+    caret-color: var(--nela-green);
+    background: var(--nela-bg);
+    border: 1px solid var(--nela-border);
+    border-radius: 0;
+    min-height: 48px;
+    padding: 10px 12px;
+    box-shadow: none;
+  }
+
+  .pf-c-form-control::placeholder {
+    color: var(--nela-muted);
+    font-style: normal;
+    opacity: 1;
+  }
+
+  .pf-c-form-control:hover { border-color: var(--nela-cyan); }
+
+  .pf-c-form-control:focus {
+    border-color: var(--nela-cyan);
+    outline: 2px solid var(--nela-cyan);
+    outline-offset: 3px;
+  }
+
+  .pf-c-form-control[aria-invalid="true"] {
+    border-color: var(--nela-error);
+  }
+
+  .pf-c-form-control:autofill {
+    -webkit-text-fill-color: var(--nela-green);
+    box-shadow: 0 0 0 100px var(--nela-bg) inset;
+  }
+
+  .pf-c-form__group.pf-m-action { margin-top: 6px; }
+
+  .pf-c-button {
+    font-family: monospace;
+    font-size: 16px;
+    border-radius: 0;
+    min-height: 48px;
+  }
+
+  .pf-c-button.pf-m-primary {
+    background: var(--nela-button);
+    color: var(--nela-button-text);
+    font-weight: 700;
+    border: 1px solid var(--nela-button);
+    box-shadow: none;
+  }
+
+  .pf-c-button.pf-m-primary:hover {
+    background: var(--nela-hover);
+    border-color: var(--nela-hover);
+    color: var(--nela-button-text);
+  }
+
+  .pf-c-button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--nela-cyan);
+    outline-offset: 4px;
+  }
+
+  .pf-c-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  a, a:visited {
+    color: var(--nela-cyan);
+    font-family: monospace;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  a:hover { color: var(--nela-green); }
+
+  .pf-c-login__main-footer-band {
+    background: transparent;
+    padding: 24px 0 0;
+    margin: 0;
+    font-size: 14px;
+    text-align: left;
+  }
+
+  .pf-c-form__helper-text.pf-m-error { color: var(--nela-error); }
+}
+
+.pf-c-login__footer {
+  position: static;
+  width: min(100%, 520px);
+  margin: 20px 0 0;
+  padding: 0;
+  text-align: left;
+  color: var(--nela-cyan);
+  text-shadow: none;
+  align-self: center;
+  justify-content: flex-start;
+}
+
+.pf-c-login ak-locale-select {
+  position: absolute;
+  inset: 16px 20px auto auto;
+  color: var(--nela-cyan);
+  font-family: monospace;
+  text-shadow: none;
+  width: max-content;
+  max-width: calc(100% - 40px);
+}
+
+.pf-c-login ak-locale-select::part(select) {
+  font-family: inherit;
+  color: inherit;
+  background: var(--nela-bg);
+  border-radius: 0;
+  text-shadow: none !important;
+  min-height: 36px;
+  max-width: 200px;
+  -webkit-text-fill-color: var(--nela-cyan);
+  opacity: 1;
+}
+
+.pf-c-login ak-locale-select::part(label) {
+  color: var(--nela-cyan);
+  text-shadow: none !important;
+}
+
+:host(ak-brand-links[name="flow-links"]) {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--nela-cyan);
+  text-shadow: none !important;
+}
+
+:host(ak-brand-links[name="flow-links"]) .pf-c-list { text-shadow: none; }
+
+@media (max-width: 540px) {
+  .pf-c-login { padding: 68px 12px 24px; }
+  .pf-c-login__main { padding: 22px 18px; }
+  .pf-c-login__main-header .pf-c-title { font-size: 16px; }
+}

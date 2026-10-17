@@ -48,18 +48,9 @@ export async function handler(event, context) {
       !count &&
       !event.queryStringParameters?.for
     ) {
-      // Check if user is logged in - if so, redirect to prompt; otherwise to get-handle
-      const user = await authorize(event.headers, "aesthetic").catch(() => null);
-      const redirectTo = user ? "/prompt" : "/get-handle";
-
-      return {
-        statusCode: 302,
-        headers: {
-          Location: redirectTo,
-          "Cache-Control": "no-cache",
-        },
-        body: "",
-      };
+      // Browser navigation must load the editor. Bearer tokens are attached
+      // by the runtime, not by a normal link or Stripe return navigation.
+      return (await import("./index.mjs")).handler(event, context);
     }
 
     if (count) {
@@ -354,6 +345,10 @@ export async function handler(event, context) {
           let sisterSub = await findSisterSub(sub, { prefixed: true });
           existingUser = await handles.findOne({ _id: sisterSub });
           if (existingUser) primarySub = sisterSub;
+        }
+
+        if (existingUser && body.createOnly === true) {
+          return respond(200, { handle: existingUser.handle });
         }
 
         if (existingUser) {

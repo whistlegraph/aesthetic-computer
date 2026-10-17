@@ -135,7 +135,17 @@ try {
   });
   await ac.page.waitForFunction(() => window.mailState?.composeNote?.includes("full @handle"));
   await shot("mail-opening/04-recipient-error");
-  console.log("mail opening browser test passed: links, full letters, individual read, reply and recipient feedback");
+  await ac.boot(`mail?test=1&letter=${mailbox.inbox[1].id}`);
+  await ac.page.waitForFunction((id) => window.mailState?.status === "loaded" && window.mailLayout?.expandedId === id,
+    { timeout: 30000 }, mailbox.inbox[1].id);
+  assert.deepEqual(await ac.page.evaluate(() => window.mailReads), [{ action: "read", id: mailbox.inbox[1].id }]);
+  assert.equal(await ac.page.evaluate(() => window.mailState.inbox[0].read), false, "notification opens only its own letter");
+  await shot("mail-opening/05-notification");
+  await ac.boot("mail?test=1&letter=not-a-letter-id");
+  await ac.page.waitForFunction(() => window.mailState?.status === "loaded" && window.mailLayout?.rows.length);
+  assert.equal(await ac.page.evaluate(() => window.mailLayout.expandedId), null);
+  assert.equal(await ac.page.evaluate(() => window.mailReads.length), 0);
+  console.log("mail opening browser test passed: links, individual read, reply, notification destination and invalid-ID fallback");
 } catch (error) {
   await ac.shot("mail-opening/failure");
   console.error(JSON.stringify({ errors, pendingFonts: [...glyphRequests].map((req) => req.url()), state: await ac.page.evaluate(() => ({ status: window.mailState?.status, layout: window.mailLayout })) }));

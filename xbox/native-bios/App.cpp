@@ -3,6 +3,7 @@
 #include "QuickJsEngine.hpp"
 #include "PhotoDiscService.hpp"
 #include "OskiewarLivePublisher.hpp"
+#include "HostNet.hpp"
 #include "OskiewarAccountService.hpp"
 #include "RemotePad.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
@@ -262,6 +263,7 @@ class HostGraphics final : public Graphics {
   std::function<bool(const std::array<float,12>&,const std::array<float,3>&)> on_decal_tint;
   std::function<void(const ac::xbox::TexturedTriangle&)> on_decal_triangle;
   std::function<bool(const float*,const float*,std::size_t)> on_sdf_figure;
+  std::function<bool(int,float,float,float,float,float,float,float)> on_raycast;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
@@ -289,6 +291,9 @@ class HostGraphics final : public Graphics {
   bool decal_tint(const std::array<float,12>& stamp,const std::array<float,3>& tint) override { return on_decal_tint && on_decal_tint(stamp,tint); }
   void decal_triangle(const ac::xbox::TexturedTriangle& triangle) override { if(on_decal_triangle)on_decal_triangle(triangle); }
   bool sdf_figure(const float* camera,const float* prims,std::size_t count) override { return on_sdf_figure && on_sdf_figure(camera,prims,count); }
+  bool raycast(int kind,float x,float y,float radius,float z,float zFront,float roll,float tumble) override {
+    return on_raycast && on_raycast(kind,x,y,radius,z,zFront,roll,tumble);
+  }
   void theme_sprite(const ac::xbox::ThemeSprite& sprite) override {
     const float c = std::cos(sprite.angle), s = std::sin(sprite.angle);
     const float hx = sprite.width * .5f, hy = sprite.height * .5f;
@@ -438,6 +443,10 @@ public:
     m_graphics->on_sdf_figure = [this](const float* camera,const float* prims,std::size_t count) {
       return QueueSdfFigure(camera,prims,count);
     };
+    m_graphics->on_raycast = [this](int kind,float x,float y,float radius,float z,float zFront,
+        float roll,float tumble) {
+      return QueueRaycast(kind,x,y,radius,z,zFront,roll,tumble);
+    };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
       if (m_frameSystemTexts.size() + m_frameSystemGlyphs.size() < kMaxSystemDraws)
@@ -549,6 +558,23 @@ public:
       return m_oskiewarLive->send_net(room, packet);
     };
     m_api->net_poll = [this]() { return m_oskiewarLive->poll_net(); };
+    // The room bridge's transport (round-room.mjs over native-shell.js), so
+    // the console watches, queues and fights in the one room the web does.
+    m_hostNet = std::make_unique<HostNet>([](const std::string& line) { LogTelemetry(line); });
+    m_api->socket_open = [this](std::string_view url) { return m_hostNet->socket_open(url); };
+    m_api->socket_send = [this](int id, std::string_view text) { m_hostNet->socket_send(id, text); };
+    m_api->socket_close = [this](int id) { m_hostNet->socket_close(id); };
+    m_api->fetch_get = [this](int id, std::string_view url) { m_hostNet->fetch(id, url); };
+    m_api->udp_open = [this](std::string_view host, int port) { return m_hostNet->udp_open(host, port); };
+    m_api->udp_send = [this](int id, std::string_view text) { m_hostNet->udp_send(id, text); };
+    m_api->udp_close = [this](int id) { m_hostNet->udp_close(id); };
+    m_api->host_poll = [this]() {
+      std::vector<ac::xbox::Api::NetEvent> events;
+      for (auto& event : m_hostNet->poll())
+        events.push_back({ std::move(event.kind), event.id, event.status, std::move(event.text) });
+      return events;
+    };
+    m_api->set_relay = [](std::string_view host) { OskiewarLivePublisher::set_relay(host); };
     m_photoDisc = std::make_unique<PhotoDiscService>(*m_api,
       [this](std::shared_ptr<const PhotoDiscImage> image) {
         std::lock_guard<std::mutex> lock(m_imageMutex);
@@ -592,8 +618,14 @@ public:
 
   virtual void Load(String^) {}
   virtual void Uninitialize() {
-    if (m_api) { m_api->live_publish = {}; m_api->net_send = {}; m_api->net_poll = {}; }
+    if (m_api) {
+      m_api->live_publish = {}; m_api->net_send = {}; m_api->net_poll = {};
+      m_api->socket_open = {}; m_api->socket_send = {}; m_api->socket_close = {};
+      m_api->fetch_get = {}; m_api->udp_open = {}; m_api->udp_send = {};
+      m_api->udp_close = {}; m_api->host_poll = {}; m_api->set_relay = {};
+    }
     if (m_oskiewarLive) m_oskiewarLive->shutdown();
+    if (m_hostNet) m_hostNet->shutdown();
     DestroyClientErrorUploads(); DestroyReplayUploads(); DestroyGameSignals();
     DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
   }
@@ -630,6 +662,7 @@ public:
       m_frameSdfFigures.clear();
       m_frameSdfPrims.clear();
       m_frameSdfCameras.clear();
+      m_frameRaycasts.clear();
       m_frameSprites.clear();
       m_frameThemeQuads.clear();
       m_frameTexts.clear();
@@ -820,6 +853,7 @@ private:
     CreateTrianglePipeline();
     CreateSpritePipeline();
     CreateSdfPipeline();
+    CreateRaycastPipeline();
     CreatePostPipeline();
   }
 
@@ -1100,6 +1134,102 @@ private:
     ID3D11ShaderResourceView* none[2]{};
     m_context->VSSetShaderResources(0, 2, none);
     m_context->PSSetShaderResources(0, 2, none);
+  }
+
+  // ---- Raycast sprites (oskiewarRaycast). An object the game would rather
+  // have shaded per pixel than built from faces hands over a kind and a few
+  // numbers, and one screen square casts a ray through each of its pixels:
+  // the sphere is exact, its normal and depth come from the hit (so it sits
+  // in the depth buffer beside the triangle world like any face), and its
+  // edge is smoothed over a pixel. The same shader as the web's WebGL scene
+  // (scene3d-webgl.mjs); the beach ball is the only kind so far.
+  struct RaycastConstants {
+    float centre[2], extent[2];       // clip space
+    float depth, depthRange, roll, tumble;
+  };
+  static constexpr std::size_t kMaxRaycasts = 32;
+
+  void CreateRaycastPipeline() {
+    const auto vertexBytes = ReadPackageBytes(L"RaycastVertexShader.cso");
+    const auto pixelBytes = ReadPackageBytes(L"RaycastPixelShader.cso");
+    if (vertexBytes.empty() || pixelBytes.empty()) {
+      LogTelemetry("AC_NATIVE_RAYCAST unavailable=shader-assets");
+      return;
+    }
+    D3D11_BUFFER_DESC constants{};
+    constants.ByteWidth = sizeof(RaycastConstants);
+    constants.Usage = D3D11_USAGE_DYNAMIC;
+    constants.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    constants.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    D3D11_BLEND_DESC blend{};
+    blend.RenderTarget[0].BlendEnable = TRUE;
+    blend.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blend.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    blend.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    blend.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    blend.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+    blend.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    blend.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    if (FAILED(m_device->CreateVertexShader(vertexBytes.data(), vertexBytes.size(), nullptr,
+        &m_raycastVertexShader)) ||
+        FAILED(m_device->CreatePixelShader(pixelBytes.data(), pixelBytes.size(), nullptr,
+        &m_raycastPixelShader)) ||
+        FAILED(m_device->CreateBuffer(&constants, nullptr, &m_raycastConstants)) ||
+        FAILED(m_device->CreateBlendState(&blend, &m_raycastBlendState))) {
+      LogTelemetry("AC_NATIVE_RAYCAST unavailable=create");
+      m_raycastVertexShader.Reset(); m_raycastPixelShader.Reset();
+      m_raycastConstants.Reset(); m_raycastBlendState.Reset();
+      return;
+    }
+    LogTelemetry("AC_NATIVE_RAYCAST ready=1 kinds=beach max=" + std::to_string(kMaxRaycasts));
+  }
+
+  bool RaycastReady() const {
+    return m_raycastVertexShader && m_raycastPixelShader && m_raycastConstants &&
+      m_raycastBlendState && m_triangleDepthView && m_triangleDepthState;
+  }
+
+  // The stage is 1920 x 1080 logical units here, the same space every
+  // triangle arrives in, and depth uses the shared (z + 1.5) / 3 mapping.
+  bool QueueRaycast(int kind, float x, float y, float radius, float z, float zFront,
+      float roll, float tumble) {
+    if (!RaycastReady() || kind != 0 || m_frameRaycasts.size() >= kMaxRaycasts) return false;
+    if (!(radius > .25f) || !std::isfinite(x + y + z + zFront + roll + tumble)) return false;
+    const auto depthOf = [](float value) {
+      return (std::max)(0.0f, (std::min)(1.0f, (value + 1.5f) / 3.0f));
+    };
+    const float centreDepth = depthOf(z), frontDepth = depthOf(zFront);
+    RaycastConstants sprite{
+      {x / 960.0f - 1.0f, 1.0f - y / 540.0f}, {radius / 960.0f, radius / 540.0f},
+      centreDepth, (std::max)(0.0f, centreDepth - frontDepth), roll, tumble};
+    m_frameRaycasts.push_back(sprite);
+    return true;
+  }
+
+  void DrawGpuRaycasts() {
+    if (m_frameRaycasts.empty() || !RaycastReady()) return;
+    m_context->IASetInputLayout(nullptr);
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+    m_context->VSSetShader(m_raycastVertexShader.Get(), nullptr, 0);
+    m_context->PSSetShader(m_raycastPixelShader.Get(), nullptr, 0);
+    m_context->VSSetConstantBuffers(0, 1, m_raycastConstants.GetAddressOf());
+    m_context->PSSetConstantBuffers(0, 1, m_raycastConstants.GetAddressOf());
+    m_context->RSSetState(m_triangleRasterState.Get());
+    const D3D11_VIEWPORT viewport{0, 0, static_cast<float>(m_frameWidth),
+      static_cast<float>(m_frameHeight), 0, 1};
+    m_context->RSSetViewports(1, &viewport);
+    m_context->OMSetBlendState(m_raycastBlendState.Get(), nullptr, 0xffffffff);
+    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(), 1);
+    m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
+    for (const auto& sprite : m_frameRaycasts) {
+      D3D11_MAPPED_SUBRESOURCE mapped{};
+      if (FAILED(m_context->Map(m_raycastConstants.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+        continue;
+      std::memcpy(mapped.pData, &sprite, sizeof(sprite));
+      m_context->Unmap(m_raycastConstants.Get(), 0);
+      m_context->Draw(4, 0);
+    }
+    m_context->OMSetBlendState(nullptr, nullptr, 0xffffffff);
   }
 
   void CreateSpritePipeline() {
@@ -3017,6 +3147,7 @@ private:
           D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
       DrawGpuTriangles();
       DrawGpuSdfFigures();
+      DrawGpuRaycasts();
       DrawGpuTexturedTriangles();
       DrawGpuSprites();
       DrawGpuThemeQuads();
@@ -3212,6 +3343,11 @@ private:
   std::vector<SdfQueued> m_frameSdfFigures;
   std::vector<float> m_frameSdfPrims;
   std::vector<std::array<float, 27>> m_frameSdfCameras;
+  std::vector<RaycastConstants> m_frameRaycasts;
+  ComPtr<ID3D11VertexShader> m_raycastVertexShader;
+  ComPtr<ID3D11PixelShader> m_raycastPixelShader;
+  ComPtr<ID3D11Buffer> m_raycastConstants;
+  ComPtr<ID3D11BlendState> m_raycastBlendState;
   std::size_t m_lastSdfFigureCount = 0;
   ComPtr<ID3D11VertexShader> m_sdfVertexShader;
   ComPtr<ID3D11PixelShader> m_sdfPixelShader;
@@ -3354,6 +3490,7 @@ private:
   std::unique_ptr<PieceSupervisor> m_supervisor;
   std::unique_ptr<PhotoDiscService> m_photoDisc;
   std::unique_ptr<OskiewarLivePublisher> m_oskiewarLive;
+  std::unique_ptr<HostNet> m_hostNet;
   std::shared_ptr<OskiewarAccountService> m_oskiewarAccount;
   RemotePad m_remotePad;
 };

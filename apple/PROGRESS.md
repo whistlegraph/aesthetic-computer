@@ -5,6 +5,29 @@ Append a new section on top for each App Store build.
 
 ---
 
+## 1.2 (5) — 2026-10-15
+
+MIME creation and remix links now open the MIME app. If it is unavailable,
+creation falls back to mime.ac and remix falls back to the referenced work.
+The native bridge accepts these links only from the trusted main document.
+
+amail notifications retain their destination across cold launches and open
+the addressed letter. Only that letter is marked read. Existing APNs
+registration remains per device and bound to the signed-in account;
+`nonotifs` opts out this device. Foreground notifications now show a banner.
+
+Validation: iPhone Release archive and iOS Simulator build; Swift route
+checks; nine push bridge/target tests; 25 loopback APNs delivery checks;
+mail browser checks including targeted-letter and invalid-link cases.
+The signed IPA declares production APNs and disables get-task-allow.
+App and iMessage extension both carry version 1.2, build 5.
+Live APNs delivery on a physical device remains a TestFlight check.
+
+Compilation ran without credentials on a separate build machine. Before
+local App Store export, the archive was ad-hoc signed with its declared
+release entitlements; exporting an unsigned archive alone omitted APNs.
+The final exported signature was inspected, not inferred from the project.
+
 ## Shared Apple app — native Mac build, 2026-10-12
 
 `AestheticComputerMac` now builds the same Swift sources as the iPhone/iPad

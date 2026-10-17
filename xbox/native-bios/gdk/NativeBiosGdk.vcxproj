@@ -112,12 +112,15 @@
     <FxCompile Include="..\SpritePixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
     <FxCompile Include="..\SdfVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
     <FxCompile Include="..\SdfPixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
+    <FxCompile Include="..\RaycastVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
+    <FxCompile Include="..\RaycastPixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
   </ItemGroup>
 
   <!-- The layout the smoke harness reads back, laid out exactly as the MSIX is:
        oskiewar.js and the .cso files at the root, the fonts under Assets. -->
   <ItemGroup>
-    <AcPackageRoot Include="..\..\live\oskiewar.js" />
+    <!-- oskiewar is a private product; a public checkout stages the package without it. -->
+    <AcPackageRoot Include="..\..\live\oskiewar.js" Condition="Exists('..\..\live\oskiewar.js')" />
     <AcPackageAssets Include="..\..\..\system\public\type\webfonts\ywft-processing-regular.ttf" />
     <AcPackageAssets Include="..\..\..\system\public\papers.aesthetic.computer\foundry\fonts\ComicRelief-Regular.ttf" />
     <AcPackageAssets Include="..\Assets\JeffreyTexture.rgba" />

@@ -16,6 +16,7 @@
   the same dress.
  */
 
+import { createCommentCounts } from "../lib/chat-comments.mjs";
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import * as chat from "./chat.mjs"; // Import chat everywhere.
 import { laklokAction } from "../lib/laklok-activity.mjs";
@@ -46,6 +47,7 @@ import {
 } from "./common/laklok-tema.mjs";
 
 let client;
+let commentCounts;
 
 // 📐 Top chrome height — shared between chat.paint (topMargin) and the circus
 // marquee so the banner fills the whole header down to the margin line.
@@ -142,6 +144,10 @@ function chatView() {
 
 function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, query }) {
   client = new Chat(debug, send);
+  commentCounts?.dispose();
+  commentCounts = createCommentCounts("clock", () => api.needsPaint?.());
+  client.system.commentCounts = commentCounts.counts;
+  client.system.commentInstance = "clock";
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system, { onAction: name => laklokAction(api, name) }); // Use default font
 
@@ -449,6 +455,7 @@ function act($) {
 }
 
 function sim($) {
+  commentCounts?.refresh(client.system.messages);
   // 🌅 The ambient tema drifts a hair each minute; recolor when it does.
   if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
 
@@ -462,6 +469,7 @@ function sim($) {
 }
 
 function leave() {
+  commentCounts?.dispose();
   client.kill();
   lakTestChannel?.close();
   lakTestChannel = null;

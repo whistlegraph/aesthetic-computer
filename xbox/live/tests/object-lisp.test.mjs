@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
-import { compile, read, objectLight, drawFigureShapes, figureJoints } from "../object-lisp.mjs";
+import { compile, read, objectLight, drawFigureShapes, figureJoints, figureHeadBasis } from "../object-lisp.mjs";
 import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL, FRAME_DISC,
   FRAME_CAPSULE, FRAME_ELLIPSE, FRAME_PLATE, FRAME_OUTLINE, FRAME_SHAPES, FRAME_SKETCH, FRAME_FIGURE, FRAME_LOOK } from "../frame-vm.mjs";
 import { parse } from "../../../system/public/aesthetic.computer/lib/kidlisp.mjs";
@@ -476,4 +476,21 @@ test("a flat figure is one FIGURE op", (t) => {
 test("the game carries exactly the lab's compiler and objects (run xbox/tools/embed-objects.mjs after editing)", async () => {
   const { generate, embedded } = await import("../../tools/embed-objects.mjs");
   assert.equal(embedded(), generate());
+});
+
+// @jeffrey 26.10.16: "the heads dont actually rotate … the features stay
+// upright". The head's up is the neck's lean, so a tilted spine tilts the face.
+test("a figure's face tilts with the neck, and stays level with no neck", () => {
+  const H = new Float64Array(9), J = new Float64Array(48).fill(NaN);
+  const up = (neckX, neckY) => {
+    J[0] = 0; J[1] = 0; J[2] = 0; J[6] = neckX; J[7] = neckY; J[8] = 0;
+    figureHeadBasis(J, 0, 0, -1, H);
+    return Math.atan2(H[3], -H[4]);
+  };
+  assert.ok(Math.abs(up(0, 30)) < 1e-9, "upright neck, upright face");
+  assert.ok(up(-30, 30) > .6 && up(-30, 30) < .85, "a neck leaning 45° rolls the face most of the way");
+  assert.ok(Math.abs(up(30, 0)) > 1.4, "lying flat, the face lies on its side");
+  J[6] = J[7] = J[8] = NaN;
+  figureHeadBasis(J, 0, 0, -1, H);
+  assert.ok(Math.abs(H[4] + 1) < 1e-9, "no neck: the world's up");
 });

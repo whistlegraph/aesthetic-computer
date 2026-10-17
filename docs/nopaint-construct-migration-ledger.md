@@ -4,6 +4,49 @@ The surviving export has no `.c3p` source or source map. Its authorities are
 `nopaint.art/data.json`, the expression table in
 `nopaint.art/scripts/c3runtime.js`, the sprite sheets, and `nopaint.art/media/`.
 
+## Classic web recovery (2026-10-15)
+
+The archived August 4, 2021 web release was recovered from Dropbox. Its
+`data.json`, `scripts/c3runtime.js`, and 179 other files match the previously
+preserved site byte for byte. Fourteen omitted files were restored: worker
+scripts, the Opus decoder, six playlists, the camera adapter, two images and
+the original privacy page. No Construct rebuild was needed.
+
+`toolchain/nopaint/classic-export.json` records SHA-256 hashes of all 195 export
+assets other than the maintained HTML wrapper. The wrapper omits references to
+two nonexistent touch icons and the service-worker registration: the original
+release instructions explicitly removed `sw.js` and `offline.json`.
+
+The Caddy routes canonicalize `/classic`, `/covid` and `/covid/` to `/classic/`,
+preserving query parameters. The trailing slash keeps relative audio URLs
+beneath `/classic/media/`, away from the current studio's `/media/` proxy.
+The current studio links to the archive from its Painting actions menu.
+
+Run `node --test lith/nopaint-routing.test.mjs` to verify every export asset's
+served bytes, redirects and separation from the studio proxy. Chrome smoke
+validation reached the painter and exercised Paint and No without browser
+errors; both workers and all 130 audio files loaded.
+
+The original save hostname `server.nopaint.art` is restored as a compatibility
+route to `/api/nopaint-classic/` on AC. GET `get-code` reserves an eight-character
+alphanumeric code; POST `upload-painting` accepts Construct's original
+`code=...&painting=<base64 PNG>` form; GET `painting/<code>.png` retrieves it.
+The form parser preserves unescaped base64 `+` characters. The compiled 2021
+runtime remains unchanged.
+
+New images are stored in Mongo's `nopaint-classic-paintings` collection with
+code, PNG, dimensions, digest and timestamps. Unused reservations expire after
+24 hours; saved images have no TTL. An atomic first upload fixes the image:
+identical retries succeed, different pixels cannot overwrite that code.
+Validation fully decodes PNGs, caps uploads at 4 MiB and 2048×2048, and bounds
+anonymous allocation/upload rates. No account or attribution is invented.
+All 32,184 archived IDs are excluded from new code allocation. Those codes redirect to the original `pix.nopaint.art`
+archive, which this service never modifies.
+
+Run the vault's `system/tests/nopaint-classic.test.mjs` for protocol, retry,
+expiry, validation and overwrite checks. The Caddy routing test also verifies
+the legacy hostname's exact endpoint mapping.
+
 ## Reading the export
 
 No numeric constant is stored in `data.json`. An event parameter is

@@ -418,6 +418,11 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     } catch { say("couldn't open the web sign-in page", true); }
   });
 
+  // A click on the dark around the form is a "never mind" (@jeffrey,
+  // 2026-10-16: "if you click off the sign in on web it should close it").
+  panel.addEventListener("pointerdown", (event) => {
+    if (event.target === panel && !busy) shut();
+  });
   panel.addEventListener("keydown", (event) => {
     if (event.key === "Escape") { event.stopPropagation(); shut(); }
   });

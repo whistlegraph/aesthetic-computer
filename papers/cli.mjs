@@ -31,6 +31,9 @@ import {
 } from "fs";
 import { join, basename } from "path";
 import { createSourceBundle } from "./source-bundle.mjs";
+import { generatePagePreviews } from "./page-previews.mjs";
+import { generateRecordPages } from "./record-pages.mjs";
+import { sortPaperRows } from "./index-order.mjs";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const SITE_DIR = join(
@@ -60,6 +63,25 @@ const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese", 
 function loadMetadata() {
   if (!existsSync(METADATA_PATH)) return {};
   return JSON.parse(readFileSync(METADATA_PATH, "utf8"));
+}
+
+// Where each paper has been sent. Edit submissions.json, then `cli.mjs index`.
+const SUBMISSIONS_PATH = join(PAPERS_DIR, "submissions.json");
+const STATUS_LABELS = {
+  accepted: "accepted",
+  submitted: "submitted",
+  unconfirmed: "unconfirmed",
+  ready: "ready",
+  draft: "draft",
+  rejected: "rejected",
+  missed: "missed",
+  withdrawn: "withdrawn",
+  self: "self-published",
+};
+
+function loadSubmissions() {
+  if (!existsSync(SUBMISSIONS_PATH)) return { papers: {}, venueOnly: [] };
+  return JSON.parse(readFileSync(SUBMISSIONS_PATH, "utf8"));
 }
 
 function saveMetadata(meta) {
@@ -983,6 +1005,7 @@ function coverTileSources() {
 // fall back to the PDF first page for anything without a cover.png (JOSS, etc.).
 function genAllThumbnails() {
   if (!existsSync(SITE_DIR)) return 0;
+  generatePagePreviews(SITE_DIR);
   let count = 0;
   const tiles = coverTileSources();
   const pdfs = readdirSync(SITE_DIR).filter((n) => n.endsWith(".pdf"));
@@ -1448,137 +1471,120 @@ function updateIndex(entries) {
     return `${d.slice(5, 7)}/${d.slice(8, 10)}`;
   }
 
+  const descriptions = JSON.parse(readFileSync(join(PAPERS_DIR, "descriptions.json"), "utf8"));
+  const originalDates = JSON.parse(readFileSync(join(PAPERS_DIR, "original-dates.json"), "utf8")).papers;
+  function firstDraftDate(dir, recorded) {
+    return [recorded, originalDates[dir]?.date].filter(Boolean).map(d => d.slice(0, 10)).sort()[0] || "";
+  }
+
   function paperCopy(key) {
     return PAPER_COPY[key] || {};
   }
 
-  // Render one paper card (shared by the papers list and dossiers section)
-  function renderPaper(p) {
-    const copy = paperCopy(p.siteName);
-    const detail = copy.detail || "";
-    const abstract = copy.abstract || "";
-    const hasCards = existsSync(join(SITE_DIR, `${p.siteName}-cards.pdf`));
-    const createdStr = p.created ? fmtDate(p.created) : "";
-    const tKey = translationKey(p.dir);
-    const updatedISO = p.mtime.toISOString();
-    const thumbName = `${p.siteName}.jpg`;
-    const thumbExists = existsSync(join(THUMBS_DIR, thumbName));
-    const thumbHtml = thumbExists
-      ? `<a class="thumb" href="/${p.siteName}.pdf" tabindex="-1" aria-hidden="true"><img src="/thumbs/${thumbName}" alt="" loading="lazy" decoding="async"></a>`
-      : "";
-    // Links under the illustration: cards format + any translated editions.
-    const cardsTl = hasCards
-      ? `<a class="tl tl-cards" href="/${p.siteName}-cards.pdf" title="Mobile-friendly cards format">cards</a>`
-      : "";
-    const langTl = LANGS.filter((l) => l !== "en")
-      .filter((l) => existsSync(join(SITE_DIR, `${p.siteName}-${l}.pdf`)))
-      .map((l) => `<a class="tl tl-lang" href="/${p.siteName}-${l}.pdf" title="${LANG_NAMES[l]}">${l.toUpperCase()}</a>`)
-      .join("");
-    // Podcast format — a spoken reading in @jeffrey's voice. Audio is hosted
-    // on the asset CDN (like pop), not in git; PODCASTS lists which papers
-    // have an episode at assets.aesthetic.computer/podcast/{siteName}.mp3.
-    const podcastTl = PODCASTS.has(p.siteName)
-      ? `<a class="tl tl-podcast" href="https://assets.aesthetic.computer/podcast/${p.siteName}.mp3" title="Listen — a reading in @jeffrey's voice">podcast</a>`
-      : "";
-    const thumbLinks = cardsTl || podcastTl || langTl ? `<div class="thumb-links">${cardsTl}${podcastTl}${langTl}</div>` : "";
-    const thumbCol = thumbHtml || thumbLinks
-      ? `<div class="thumb-col">${thumbHtml}${thumbLinks}</div>`
-      : "";
-    return `
-    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""}${p.deprecated ? ` data-deprecated="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
-        ${thumbCol}<div class="body">
-        <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
-        <div class="detail">${detail}</div>
-        <div class="abstract">${abstract}</div>
-        <div class="meta-row"><span class="author">@jeffrey</span>${createdStr ? `<span class="created" title="Created">${createdStr}</span>` : ""}<span class="revisions" title="Revision count">revision ${p.revisions || 1}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
-        </div>
-    </div>\n`;
+  // One table row per publication. Status comes from submissions.json;
+  // a paper with no submission record is self-published here.
+  const subs = loadSubmissions();
+  generateRecordPages(PAPERS_DIR, SITE_DIR, subs.venueOnly || []);
+  const KIND = { platform: "platform", essays: "essay", audits: "audit", decks: "deck", dossiers: "dossier", software: "software", archive: "archive" };
+
+  function latestSub(key) {
+    const list = (subs.papers && subs.papers[key]) || [];
+    return list[list.length - 1] || null;
   }
 
-  // Render one JOSS/ELS "software paper" card from the extras array.
-  function renderExtra(ex) {
-    const createdStr = ex.created ? fmtDate(ex.created) : "";
-    const revStr = ex.revisions > 0 ? `r${ex.revisions}` : "";
-    const exKey = { "joss-ac": "joss-ac", "joss-kidlisp": "joss-kidlisp", "els-kidlisp": "els" }[ex.metaKey] || ex.metaKey;
-    const exSiteName = ex.file.replace(/\.pdf$/, "");
-    const exThumbExists = existsSync(join(THUMBS_DIR, `${exSiteName}.jpg`));
-    const exThumbHtml = exThumbExists
-      ? `<a class="thumb" href="/${ex.file}" tabindex="-1" aria-hidden="true"><img src="/thumbs/${exSiteName}.jpg" alt="" loading="lazy" decoding="async"></a>`
-      : "";
-    return `
-    <div class="p" data-paper-id="${exKey}">
-        ${exThumbHtml}<div class="body">
-        <div class="title"><a href="/${ex.file}">${ex.title}</a></div>
-        <div class="detail">${ex.detail}</div>
-        <div class="abstract">${ex.abstract}</div>
-        <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(ex.mtime)}</span></div>
-        </div>
-    </div>\n`;
+  function thumbFor(name) {
+    return name && existsSync(join(THUMBS_DIR, `${name}.jpg`)) ? `/thumbs/${name}.jpg` : "";
   }
 
-  // Wrap a category's cards in a labeled <section>. `count` is the number
-  // of cards; `nosort`/extra modifiers control the client-side sort.
-  function renderSection({ key, title, sub, nosort }, cardsHtml, count, archive = false) {
-    if (!cardsHtml) return "";
-    const cls = `cat${archive ? " cat--archive" : ""} collapsed`;
-    const nosortAttr = nosort || archive ? " data-nosort" : "";
-    return `
-    <section class="${cls}" data-cat="${key}">
-        <div class="cat-head" role="button" tabindex="0" aria-expanded="false"><span class="cat-chevron" aria-hidden="true">▾</span><span class="cat-name">${title}</span><span class="cat-count">${count}</span></div>
-        <div class="cat-sub">${sub}</div>
-        <div class="cat-list"${nosortAttr}>
-${cardsHtml}        </div>
-    </section>\n`;
+  function renderRow({ key, title, href, thumb, kind, sub, detail, abstract, created, updated, revisions, formats }) {
+    abstract = abstract || descriptions[key]?.text || "";
+    const icon = existsSync(join(SITE_DIR, "icons", `${key}.png`)) ? `/icons/${key}.png` : "";
+    if (icon) thumb = icon;
+    const status = sub ? sub.status : "self";
+    const label = STATUS_LABELS[status] || status;
+    const titleHtml = href ? `<a href="${href}"${href.endsWith(".pdf") ? ` data-base="${href.replace(/\.pdf$/, "")}"` : ""}>${title}</a>` : `<button class="record-title" aria-expanded="false" aria-controls="details-${key}">${title}</button>`;
+    const updatedISO = updated ? updated.toISOString() : "";
+    const originalDate = created ? created.slice(0, 10) : "";
+    const field = (name, value, cls) => value ? `<div><dt>${name}</dt><dd class="${cls}">${value}</dd></div>` : "";
+    const facts = [
+      field("Status", `<span class="dot"></span><span class="sl">${label}</span>`, "st"),
+      field("Kind", kind, "kd"),
+      field("Venue", sub ? `${sub.venue}<span class="track">${sub.track || ""}</span>` : "", "vn"),
+      field("Submission", sub ? `${sub.date}${sub.decision ? `<span class="track">decision ${sub.decision}</span>` : ""}` : "", "wh"),
+      field("Updated", updatedISO.slice(0, 10), "up"),
+      field("Formats", formats, "fm"),
+    ].join("");
+    const image = thumb ? `<img src="${thumb}" alt="" loading="lazy" decoding="async">` : `<span class="icon-fallback" aria-hidden="true">◇</span>`;
+    const details = `${detail ? `<div class="dt">${detail}</div>` : ""}${abstract || sub?.note ? `<div class="abstract">${abstract || ""}${sub?.note ? `<div class="note">${sub.note}</div>` : ""}</div>` : ""}<dl class="facts">${facts}</dl>`;
+    const dateLabel = originalDate ? new Intl.DateTimeFormat("en-US", {
+      month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
+    }).format(new Date(originalDate)) : "";
+    const versionHtml = Number.isInteger(revisions) && revisions > 0 ? `<span class="paper-version" title="${revisions} recorded revisions">v${revisions}</span>` : "";
+    const dateHtml = originalDate || versionHtml ? `<span class="created">${versionHtml}${originalDate ? `<time datetime="${originalDate}">${dateLabel}</time>` : ""}</span>` : "";
+    const summary = htmlToText(abstract || "");
+    const marquee = `<button class="paper-marquee" aria-expanded="false" aria-controls="details-${key}" title="Read full description"><span class="marquee-text">${xmlEscape(summary)}</span></button>`;
+    return `      <tr data-status="${status}" data-kind="${kind}" data-key="${key}" data-revisions="${revisions || ""}" data-created="${created || ""}" data-updated="${updatedISO}">
+        <td class="paper"><div class="paper-line"><span class="paper-icon">${image}</span><span class="paper-title">${titleHtml}</span>${marquee}${dateHtml}</div><div class="details" id="details-${key}" hidden>${details}</div></td>
+      </tr>\n`;
   }
 
-  // Bucket every listed paper into exactly one category; archived papers
-  // are pulled out to their own quiet section at the bottom.
-  const buckets = {};
-  for (const c of CATEGORIES) buckets[c.key] = [];
-  const archived = [];
+  function paperFormats(p) {
+    const out = [];
+    if (existsSync(join(SITE_DIR, `${p.siteName}-cards.pdf`))) out.push(`<a href="/${p.siteName}-cards.pdf" title="cards">cards</a>`);
+    for (const l of LANGS.filter((l) => l !== "en")) {
+      if (existsSync(join(SITE_DIR, `${p.siteName}-${l}.pdf`))) out.push(`<a href="/${p.siteName}-${l}.pdf" title="${LANG_NAMES[l]}">${l}</a>`);
+    }
+    if (PODCASTS.has(p.siteName)) out.push(`<a href="https://assets.aesthetic.computer/podcast/${p.siteName}.mp3" title="podcast">audio</a>`);
+    return out.join(" ");
+  }
+
+  const rows = [];
   for (const p of papers) {
-    if (p.hidden) continue; // built + tracked, but not listed publicly
-    if (ARCHIVE_DIRS.has(p.dir)) {
-      archived.push({ ...p, deprecated: true, psycho: false });
-      continue;
-    }
-    buckets[categoryOf(p.dir)].push(p);
+    if (p.hidden) continue;
+    const archive = ARCHIVE_DIRS.has(p.dir);
+    const copy = paperCopy(p.siteName);
+    rows.push({
+      key: translationKey(p.dir),
+      title: p.title,
+      href: `/${p.siteName}.pdf`,
+      thumb: thumbFor(p.siteName),
+      kind: KIND[archive ? "archive" : categoryOf(p.dir)] || categoryOf(p.dir),
+      sub: latestSub(p.dir),
+      detail: copy.detail || "",
+      abstract: copy.abstract || "",
+      created: firstDraftDate(p.dir, p.created),
+      updated: p.mtime,
+      revisions: p.revisions,
+      formats: paperFormats(p),
+    });
   }
-  // Dossiers keep their curated order; other lanes keep importance rank.
-  buckets.dossiers.sort((a, b) => dossierRank(a.dir) - dossierRank(b.dir));
+  for (const ex of extras) {
+    rows.push({
+      key: ex.metaKey,
+      title: ex.title,
+      href: `/${ex.file}`,
+      thumb: thumbFor(ex.file.replace(/\.pdf$/, "")),
+      kind: "software",
+      sub: latestSub(ex.metaKey),
+      detail: ex.detail,
+      abstract: ex.abstract,
+      created: firstDraftDate(ex.metaKey, ex.created),
+      updated: ex.mtime,
+      revisions: ex.revisions,
+      formats: "",
+    });
+  }
+  for (const v of subs.venueOnly || []) {
+    rows.push({ key: v.id, title: v.title, href: `/records/${v.id}.html`, created: v.created || "", kind: "venue edition", sub: v, formats: "" });
+  }
+  // Actual PDFs first, newest original date first within each group.
+  sortPaperRows(rows, SITE_DIR);
 
-  const uncategorized = papers.filter(
-    (p) => !p.hidden && !ARCHIVE_DIRS.has(p.dir) && !CATEGORY_OF[p.dir],
-  );
-  if (uncategorized.length) {
-    console.log(
-      `  WARN ${uncategorized.length} uncategorized paper(s) → essays: ${uncategorized.map((p) => p.dir).join(", ")}`,
-    );
-  }
-
-  // Build the full categorized block (all sections, in page order).
-  let papersHtml = "";
-  for (const c of CATEGORIES) {
-    if (c.key === "software") {
-      const cards = extras.map(renderExtra).join("");
-      papersHtml += renderSection(c, cards, extras.length);
-    } else {
-      const list = buckets[c.key];
-      papersHtml += renderSection(c, list.map(renderPaper).join(""), list.length);
-    }
-  }
-  if (archived.length) {
-    papersHtml += renderSection(
-      {
-        key: "archive",
-        title: "Archive",
-        sub: "Deprecated — kept for the record, no longer actively maintained.",
-      },
-      archived.map(renderPaper).join(""),
-      archived.length,
-      true,
-    );
-  }
+  const papersHtml = `
+    <table class="pubs" id="pubs" aria-label="Papers">
+      <tbody>
+${rows.map(renderRow).join("")}      </tbody>
+    </table>`;
 
   // Read current index, replace the categorized block between markers.
   let html = readFileSync(indexPath, "utf8");
@@ -1607,12 +1613,7 @@ ${cardsHtml}        </div>
   }
 
   writeFileSync(indexPath, html);
-  const sectionCounts = CATEGORIES.map((c) =>
-    c.key === "software" ? `${c.key} ${extras.length}` : `${c.key} ${buckets[c.key].length}`,
-  ).join(", ");
-  console.log(
-    `  INDEX updated: ${papers.length + extras.length} papers across ${CATEGORIES.length} categories (${sectionCounts}${archived.length ? `, archive ${archived.length}` : ""}).`,
-  );
+  console.log(`  INDEX updated: ${rows.length} rows.`);
 
   writeFeed(papers, extras, PAPER_COPY);
 }

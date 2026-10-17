@@ -15,6 +15,22 @@ import Foundation
         precondition(route("aesthetic://$cow") == "https://aesthetic.computer/$cow")
         precondition(route("aesthetic://merryo~%5Epads") == "https://aesthetic.computer/merryo~%5Epads")
         precondition(route("https://aesthetic.computer/notepat?x=1") == "https://aesthetic.computer/notepat?x=1")
+        for link in ["mime://create", "mime://create?type=image%2Fpng",
+                     "mime://remix?post=ac-123&version=0"] {
+            precondition(AppRoute.mimeFallback(for: URL(string: link)!)?.host == "mime.ac")
+        }
+        for link in ["mime://other", "mime://create?type=bad", "mime://create?type=image/png&type=text/javascript",
+                     "mime://user@create", "mime://create/path", "mime://remix?post=x&version=-1",
+                     "mime://remix?post=../x&version=0", "mime://remix?post=x", "https://mime.ac/create"] {
+            precondition(AppRoute.mimeFallback(for: URL(string: link)!) == nil, "Accepted MIME link: \(link)")
+        }
+        let letter = String(repeating: "a", count: 24)
+        precondition(AppRoute.mimeFallback(for: URL(string: "mime://remix?post=work-123&version=4")!)?.absoluteString == "https://mime.ac/work-123")
+        precondition(AppRoute.notificationDestination(["kind": "tell", "tellId": letter, "piece": "mail"])?.absoluteString == "https://aesthetic.computer/mail?letter=" + letter)
+        precondition(AppRoute.notificationDestination(["kind": "tell", "tellId": "../other"])?.absoluteString == "https://aesthetic.computer/mail")
+        precondition(AppRoute.notificationDestination(["piece": "mood"])?.absoluteString == "https://aesthetic.computer/mood")
+        precondition(AppRoute.notificationDestination([:]) == nil)
+        precondition(AppRoute.notificationDestination(["piece": "/evil.test"]) == nil)
         for input in ["file:///etc/passwd", "https://example.com/prompt",
                       "https://aesthetic.computer.evil.test/prompt",
                       "https://user@aesthetic.computer/prompt",

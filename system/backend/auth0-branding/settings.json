@@ -1,0 +1,136 @@
+{
+  "theme": {
+    "colors": {
+      "primary_button": "#202019",
+      "primary_button_label": "#ffffff",
+      "secondary_button_border": "#b8b5ae",
+      "secondary_button_label": "#1e212a",
+      "base_focus_color": "#a32770",
+      "base_hover_color": "#000000",
+      "links_focused_components": "#a32770",
+      "header": "#202019",
+      "body_text": "#202019",
+      "widget_background": "#ffffff",
+      "widget_border": "#8b76c5",
+      "input_labels_placeholders": "#65676e",
+      "input_filled_text": "#000000",
+      "input_border": "#76736e",
+      "input_background": "#ffffff",
+      "icons": "#65676e",
+      "error": "#e1285b",
+      "success": "#b500d5",
+      "captcha_widget_theme": "light",
+      "read_only_background": "#c2c8d0"
+    },
+    "fonts": {
+      "font_url": "https://assets.aesthetic.computer/type%2Fwebfonts%2Fywft-processing-bold.woff",
+      "reference_text_size": 18,
+      "title": {
+        "bold": false,
+        "size": 150
+      },
+      "subtitle": {
+        "bold": false,
+        "size": 100
+      },
+      "body_text": {
+        "bold": false,
+        "size": 100
+      },
+      "buttons_text": {
+        "bold": false,
+        "size": 100
+      },
+      "input_labels": {
+        "bold": false,
+        "size": 100
+      },
+      "links": {
+        "bold": false,
+        "size": 100
+      },
+      "links_style": "normal"
+    },
+    "borders": {
+      "button_border_weight": 1,
+      "buttons_style": "sharp",
+      "button_border_radius": 1,
+      "input_border_weight": 1,
+      "inputs_style": "sharp",
+      "input_border_radius": 3,
+      "widget_corner_radius": 0,
+      "widget_border_weight": 0,
+      "show_widget_shadow": false
+    },
+    "widget": {
+      "logo_position": "center",
+      "logo_url": "https://pals.aesthetic.computer",
+      "logo_height": 64,
+      "header_text_alignment": "center",
+      "social_buttons_layout": "bottom"
+    },
+    "page_background": {
+      "page_layout": "center",
+      "background_color": "#eee9df",
+      "background_image_url": ""
+    },
+    "displayName": "Unnamed Theme",
+    "themeId": "jcET9jC0trlFhUvkBOCeBZqTejX7MS4Q"
+  },
+  "prompts": {
+    "universal_login_experience": "new",
+    "identifier_first": true,
+    "webauthn_platform_first_factor": false
+  },
+  "text": {
+    "login": {
+      "login": {
+        "footerText": " ",
+        "title": "Aesthetic Computer",
+        "description": " ",
+        "footerLinkText": "Create account",
+        "pageTitle": "Log in \u2219 ${clientName}"
+      }
+    },
+    "login-id": {
+      "login-id": {
+        "title": "Aesthetic Computer",
+        "description": " ",
+        "buttonText": "Continue",
+        "footerText": " ",
+        "footerLinkText": "Create account"
+      }
+    },
+    "login-password": {
+      "login-password": {
+        "title": "Password",
+        "description": " ",
+        "footerText": " ",
+        "footerLinkText": "Create account"
+      }
+    },
+    "signup-password": {
+      "signup-password": {
+        "title": "Create account",
+        "description": " "
+      }
+    }
+  },
+  "partials": {
+    "login-password": {
+      "login-password": {
+        "form-footer-start": "<form method=\"post\" data-form-secondary=\"true\"><input type=\"hidden\" name=\"state\" value=\"{{state}}\"><input type=\"hidden\" name=\"connection\" value=\"email\"><button type=\"submit\" data-action-button-secondary=\"true\" class=\"ac-switch\">Email a code</button></form>"
+      }
+    },
+    "signup-password": {
+      "signup-password": {
+        "form-footer-start": "<form method=\"post\" data-form-secondary=\"true\"><input type=\"hidden\" name=\"state\" value=\"{{state}}\"><input type=\"hidden\" name=\"connection\" value=\"email\"><button type=\"submit\" data-action-button-secondary=\"true\" class=\"ac-switch\">Email a code</button></form>"
+      }
+    },
+    "login-passwordless": {
+      "login-passwordless-email-code": {
+        "form-footer-start": "<form method=\"post\" data-form-secondary=\"true\"><input type=\"hidden\" name=\"state\" value=\"{{state}}\"><input type=\"hidden\" name=\"connection\" value=\"Username-Password-Authentication\"><button type=\"submit\" data-action-button-secondary=\"true\" class=\"ac-switch\">Use password</button></form>"
+      }
+    }
+  }
+}

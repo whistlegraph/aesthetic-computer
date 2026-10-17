@@ -192,6 +192,25 @@ JSValue SdfFigure(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
   if(p[3]<0||p[3]>512||p[7]<0||p[7]>512)return JS_ThrowRangeError(ctx,"sdf prim radius");}
  return JS_NewBool(ctx,scope->api->graphics.sdf_figure(camera.data,prims.data,size_t(count)));
 }
+// oskiewarRaycast(kind, x, y, radius, z, zFront, roll, tumble) → true when the
+// host shades the object per pixel (the web's scene3d-webgl.mjs has the same
+// call). "beach" is the only kind; anything the host declines, the game draws
+// flat, so a false is never an error.
+JSValue Raycast(JSContext* ctx,JSValueConst,int argc,JSValueConst* args){
+ auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(ctx));
+ if(!scope||!scope->api||argc<6)return JS_FALSE;
+ const char* kind=JS_ToCString(ctx,args[0]);
+ const bool beach=kind&&std::strcmp(kind,"beach")==0;
+ if(kind)JS_FreeCString(ctx,kind);
+ if(!beach)return JS_FALSE;
+ double v[7]{0,0,0,0,0,0,0};
+ for(int i=0;i<7;i++){
+  if(i+1<argc&&JS_ToFloat64(ctx,&v[i],args[i+1]))return JS_EXCEPTION;
+  if(!std::isfinite(v[i]))return JS_FALSE;
+ }
+ return JS_NewBool(ctx,scope->api->graphics.raycast(0,float(v[0]),float(v[1]),float(v[2]),
+  float(v[3]),float(v[4]),float(v[5]),float(v[6])));
+}
 // meshDraw(handle, camera, capsuleScale = 1, tintR = 1, tintG = 1, tintB = 1) → triangles emitted.
 // capsuleScale is the game's cameraScale(): edge capsules store a world width
 // and take their pixel width from it, as drawQuadMesh did in JS. Zero or less

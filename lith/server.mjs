@@ -159,6 +159,8 @@ function captureRawBody(req, _res, buf) {
 }
 
 // --- Body parsing ---
+app.use(["/api/nopaint-usage", "/.netlify/functions/nopaint-usage"],
+  express.text({ type: "*/*", limit: "32kb" }));
 app.use(["/api/visit-track", "/.netlify/functions/visit-track", "/api/signup-track", "/.netlify/functions/signup-track"],
   express.text({ type: "*/*", limit: "2kb" }));
 app.use(express.json({ limit: "50mb", verify: captureRawBody }));

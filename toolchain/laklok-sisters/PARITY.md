@@ -43,6 +43,7 @@ same change — an unmirrored constant is future drift.
 | SoundCloud play-in-place | — (card opens the link) | `.embed.og .listen` → `.embed.player` iframe | vector is richer here by medium, like file embeds |
 | Direct file embeds (img/vid/aud) | via OG/preview path | native `<img>/<video>/<audio>` | vector is richer here by medium |
 | Post / edit (`chat:edit`) / delete (`chat:delete`) | chat.mjs (+ copy modal delete) | composer + ✎ ret / ✕ slet | same payloads |
+| MIME comments | chat.mjs count + shared comment sheet | `.comment-count` + shared comment sheet | `lib/chat-comments.mjs`; batch counts, tap to read, outside/Escape to dismiss |
 | Hearts display | chat.mjs | `.heart` | neither side *sends* `chat:heart` yet |
 | Presence + connection status | chat lib | header counts + dot | |
 | 128-char cap | chat.mjs `chatMaxChars` | `maxlength` | checked |

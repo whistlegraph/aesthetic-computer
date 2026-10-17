@@ -396,7 +396,7 @@ function voxTokenize(text) {
 // shorter than its widest one.
 function messageHitWidth(layout) {
   const voxRight = layout.vox ? layout.vox.x + layout.vox.width : 0;
-  return Math.max(layout.width, voxRight);
+  return Math.max(layout.width, voxRight, layout.comments ? layout.comments.x + layout.comments.width : 0);
 }
 
 function voxStop() {
@@ -515,6 +515,7 @@ function voxLinkElementsFor(message) {
   );
 }
 
+let commentsModalOpen = false;
 let domApi = null; // Store dom API reference for modal
 let jumpApi = null; // Store jump reference for iOS external-link fallback
 let sendApi = null; // Store send reference (used by receive() for tape callbacks)
@@ -824,6 +825,7 @@ async function boot(
   otherChat,
   options,
 ) {
+  commentsModalOpen = false;
   helpRoom = !otherChat;
   communityButton = helpRoom ? new ui.Button() : null;
   // Clear handle colors cache on each boot so edits are picked up.
@@ -1793,13 +1795,25 @@ function paint(
     
     // Position timestamp right after the last *visually rendered* line of the message
     layout.timestamp.x = lastLineRenderedWidthForThisMessage + timestampGap;
-    const timestampX = x + layout.timestamp.x;
+    let timestampX = x + layout.timestamp.x;
     
     // Bottom-align timestamp with the message text
     // Timestamp is 8px tall (MatrixChunky8), so offset it down within the row
     const timestampHeight = 8; // MatrixChunky8 glyph height
     const timestampY = layout.timestamp.y + (msgRowHeight - timestampHeight);
     
+    layout.comments = null;
+    const commentCount = !message.deleted && client.commentCounts?.get(message.id);
+    if (commentCount > 0) {
+      const label = commentCount > 99 ? "99+" : String(commentCount);
+      const width = text.width(label, "MatrixChunky8") + 6;
+      layout.comments = { x: layout.timestamp.x, y: timestampY, width, height: 8 };
+      ink(theme.timestampHover).write(label, { x: timestampX + 2, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+      ink(theme.timestampHover).line(timestampX + 2, timestampY + 8, timestampX + width - 4, timestampY + 8);
+      timestampX += width + 4;
+      layout.timestamp.x += width + 4;
+    }
+
     // ♥ Hearts first — repeated symbols for 1-9, heart+number for 10+, always opaque
     let heartOffsetX = 0;
     if (message.id) {
@@ -3306,6 +3320,8 @@ function act(
     return;
   }
   if (youtubeModalOpen) return;
+  if (e.is("comments:modal:closed")) { commentsModalOpen = false; return; }
+  if (commentsModalOpen) return;
 
   // 📎 Dropped image (desktop drag-drop) → upload + insert its #code.
   if (e.is("dropped:bitmap")) {
@@ -3784,6 +3800,12 @@ function act(
             }
           }
 
+          const commentBox = message.layout.comments;
+          if (commentBox && e.x >= message.layout.x + commentBox.x && e.x < message.layout.x + commentBox.x + commentBox.width && e.y >= commentBox.y && e.y < commentBox.y + commentBox.height) {
+            message.clicked = true;
+            break;
+          }
+
           // 📆 `timestamp` hover and activate.
           const timestamp = message.layout.timestamp;
           const startX = message.layout.x + timestamp.x;
@@ -3951,6 +3973,25 @@ function act(
 
           // Skip interaction for deleted messages
           if (message.deleted) continue;
+
+          const commentBox = message.layout.comments;
+          if (commentBox && e.x >= message.layout.x + commentBox.x && e.x < message.layout.x + commentBox.x + commentBox.width && e.y >= commentBox.y && e.y < commentBox.y + commentBox.height && domApi) {
+            commentsModalOpen = true;
+            domApi.html`<script id="chat-comments-script">
+              (() => {
+                let left = false, close;
+                const closed = () => {
+                  document.getElementById("chat-comments-script")?.remove();
+                  window.acDISK_SEND?.({ type: "piece:act-alert", content: "comments:modal:closed" });
+                };
+                (window.acCONTENT_EVENTS ||= []).push(() => { left = true; close?.(); });
+                import("/aesthetic.computer/lib/chat-comments.mjs").then(({ openChatComments }) => {
+                  if (!left) close = openChatComments("${client.commentInstance}", "${message.id}", closed);
+                }).catch(closed);
+              })();
+            </script>`;
+            return;
+          }
 
           // Track if any interactive element was clicked
           let clickedInteractiveElement = false;
@@ -5567,7 +5608,7 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     const tb = text.box(
       fullMessage,
       { x: leftMargin, y: 0 },
-      screen.width - leftMargin,
+      screen.width - leftMargin - (chat.commentCounts ? 28 : 0),
       1,
       true,
       msgTypefaceName

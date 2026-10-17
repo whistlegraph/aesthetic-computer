@@ -32,9 +32,9 @@ swiftc -O \
 echo "› assembling bundle"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 # The main fleet avatars are staged on-device by macpal/fuser/install.sh.
-# Bundle the two lane-host portraits too, so either host can show both machines.
+# Bundle every machine portrait too, so any watcher can draw each lane's host.
 cp Resources/star-*.svg "$APP/Contents/Resources/"
-cp Resources/panda-glyph.svg Resources/chicken-glyph.svg "$APP/Contents/Resources/"
+cp Resources/*-glyph.svg "$APP/Contents/Resources/"
 # Agent-contact avatars (Iris on panda) ride in every bundle as fallback art;
 # a wire-staged <supportDir>/agent-<name>.png still wins at runtime.
 for f in Resources/agent-*.png; do

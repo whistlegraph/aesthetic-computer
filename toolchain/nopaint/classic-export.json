@@ -1,0 +1,787 @@
+{
+  "source": "Archived nopaint.art/public release from Dropbox; game data and runtime dated 2021-08-04.",
+  "recovered": "2026-10-15",
+  "indexPolicy": "index.html is maintained separately for hosting and tracking; all other export files remain byte-identical.",
+  "files": [
+    {
+      "path": "Frog Dies.txt",
+      "sha256": "e6f27bdffb5c32b7adc42a2d0d94dde138a4f1ee0a9ec4101714cf2e5fb504dd"
+    },
+    {
+      "path": "Gift.txt",
+      "sha256": "b377debcc0ef822913e8510d1006dee846590fc6b71bb31e7d2b712626c0c20a"
+    },
+    {
+      "path": "Landscape.txt",
+      "sha256": "199faf2481e20472fd3fc505c74818afa27bcd54456d97d8264bc56f9bc6d75c"
+    },
+    {
+      "path": "Polka Dots.txt",
+      "sha256": "c059f7dcbc04b166691cd7689a9c1012c172dfc3b291fdb9f7073be14825159b"
+    },
+    {
+      "path": "Smiley.txt",
+      "sha256": "3cf0134f2de35a81ea5cff926c0b8c3a3f243bd8db9e25a463df80ed5ac202f7"
+    },
+    {
+      "path": "Well.txt",
+      "sha256": "fc265970332e046f540960794ee147cde196b118c1f8d2a7cce4e6107979194b"
+    },
+    {
+      "path": "adapter.js",
+      "sha256": "399f145cace7851168eaca5564f940de1e4f79ebd725f4de8d96c1f948912b9c"
+    },
+    {
+      "path": "appmanifest.json",
+      "sha256": "34d8f539513fe3d5cf8760adfd206a9b2dddd7892c4975d747676bcfb9ea8d2c"
+    },
+    {
+      "path": "background.css",
+      "sha256": "ab63afb86dc38731dbb82bb09c5fe2d15403734a7e59e1b187b34db43f6c34f4"
+    },
+    {
+      "path": "box2d.wasm",
+      "sha256": "980c1932c6b690cc927a5df0cf2b483b58740979f2966922a2f1c9af7270a80e"
+    },
+    {
+      "path": "box2d.wasm.js",
+      "sha256": "fae7eb10b764b146a07295802d6427755292d4aac375da0e0c6e0ed444beec42"
+    },
+    {
+      "path": "data.json",
+      "sha256": "2a958a2674f0f7a970e16560482f3ca145c30cdbfd35a26bc63e0ca88c90e4c1"
+    },
+    {
+      "path": "fonts/pixelar-regular-w01.woff2",
+      "sha256": "5c6028b310f9c412ffaf14f0947d99927f39eaf8a5706563a03f4166d07b2e69"
+    },
+    {
+      "path": "fonts/roboto-mono-v7-latin-regular.woff2",
+      "sha256": "3a64ada5dfadf4c3b409a76921bd4c3641fa30aace9bc9743cf12530893c7978"
+    },
+    {
+      "path": "fonts/roboto-v20-latin-regular.woff2",
+      "sha256": "48c3fa6f86c54f1d9bb519220713d4b0a1f8cd1a589a3c03b9fa82e98ecb13e3"
+    },
+    {
+      "path": "hero.png",
+      "sha256": "0bce11eead86f7fdad847a5b959583f1f1c00ad1e1a6f8cac9f55fea59d302e4"
+    },
+    {
+      "path": "icons/icon-1024.png",
+      "sha256": "3151653000052afca161bc268d36b06043d99718bae987d78bad2aeab5c0d3de"
+    },
+    {
+      "path": "icons/loading-logo.png",
+      "sha256": "7fafe88159b526d9dff3c8efe50fe693c15f91da57cdc84dea12eb09b1a8e92d"
+    },
+    {
+      "path": "icons/storyboard-splash.png",
+      "sha256": "f0931bbb7948ff15b10acd55e92cf45450aebc85f514f79a575734140467455f"
+    },
+    {
+      "path": "images/bubbles-sheet0.png",
+      "sha256": "234dca5e5a09f1bd031cc12bcaf701fae71299bffe3b4f8f86dedf9ec0f2bd3b"
+    },
+    {
+      "path": "images/bubbles-sheet1.png",
+      "sha256": "8e6a0821b0cb3416e32897a15b9a22eb58b2be7fdd6d2249caf26a5999712f8c"
+    },
+    {
+      "path": "images/cursor-sheet0.png",
+      "sha256": "b90a9a92aab1921a442726c9e36c126cd8a5de3fb04a54d391e409d865ed4e35"
+    },
+    {
+      "path": "images/frames-sheet0.png",
+      "sha256": "2efb391b237ccfe2c62577edbd86f26469bb04bbbcff2344061c5829e07cec5b"
+    },
+    {
+      "path": "images/nibblepatternbackdrop-sheet0.png",
+      "sha256": "82e466f26069b7c4fba08cd27b1c95b633154bb55422fb27267cc6ab82bb683d"
+    },
+    {
+      "path": "images/nudgecover-sheet0.png",
+      "sha256": "5a43bc5ee0f57d9ec28df0a64b5609342f10da7f56b792eaa64629ac7e02cb7a"
+    },
+    {
+      "path": "images/profilepics-sheet0.png",
+      "sha256": "6bd3576a65e384c020670ef215ca8f0ed93588cce5b62f2f2baac73d05ecdf16"
+    },
+    {
+      "path": "images/shared-0-sheet0.png",
+      "sha256": "89fe52825cb055a324aa95f75345b07bbe5cb70954a5b8d63716e15ab5608eee"
+    },
+    {
+      "path": "images/shared-0-sheet1.png",
+      "sha256": "0627fde6dd2b34cd7c1af57a7ea780c18fecf4239ee0d927188c0207f58e0642"
+    },
+    {
+      "path": "images/shared-0-sheet2.png",
+      "sha256": "13e39e11c7ce74050e3714b4ea372f95c876c4dd660d729bbbfbf0f63fd75be6"
+    },
+    {
+      "path": "images/shared-0-sheet3.png",
+      "sha256": "54b3a4a2edcb9de67f6b308d21cdb0066d6b22f018d81a8415b51ed1421f4b33"
+    },
+    {
+      "path": "images/shared-0-sheet4.png",
+      "sha256": "0f60b6a79a3e9b0fec04ab12385411f8e9196e0c6a3dbea7f756b10716102fa4"
+    },
+    {
+      "path": "images/shared-0-sheet5.png",
+      "sha256": "c7568ce3030e96d928859d94ea150f8dee1d0c8d265cc2ed5d350d091a55cddb"
+    },
+    {
+      "path": "images/shared-1-sheet0.png",
+      "sha256": "280625e9fa1ecc9b98512041ad49a3e1e82ef2404bea1bd46eb856a66fddd65a"
+    },
+    {
+      "path": "images/shared-1-sheet1.png",
+      "sha256": "fb96445aeedf9818a6fe509dcc116d80af353f46bd65b4d4b00df5287f4968d2"
+    },
+    {
+      "path": "images/shared-1-sheet2.png",
+      "sha256": "0420a84880a7c36e54608bb55b1cab300da76d7a6a259f8bbbb21fe736a58f87"
+    },
+    {
+      "path": "images/shared-1-sheet3.png",
+      "sha256": "c2a94f838d2e2fc53001377c4bbee8ec5f0307b3569203a3e93f852bebd70a8e"
+    },
+    {
+      "path": "images/shared-1-sheet4.png",
+      "sha256": "6742a771ca56e7ab9463c9ed221db7ef4719822021452861b9634269bbe3dd4f"
+    },
+    {
+      "path": "images/shared-2-sheet0.png",
+      "sha256": "3d70083179cdf2ae46d98b6081fdba84620dcf122f072327b75b55013bd906d5"
+    },
+    {
+      "path": "images/shared-2-sheet1.png",
+      "sha256": "a80ff4a6665f15c57744e769828ee8bfadb1f1a71ca3eb6a64d94d22b04b00ad"
+    },
+    {
+      "path": "images/shared-2-sheet2.png",
+      "sha256": "218fce1b65ef0d9fb1b763f7205ada33455b76fc5475b8fd7eb9d6c151a1c8db"
+    },
+    {
+      "path": "images/shared-2-sheet3.png",
+      "sha256": "eebd80377c80556041d3b0f41d293a9b81e43d5262d0be5a8d376b1ca47eb158"
+    },
+    {
+      "path": "images/shared-2-sheet4.png",
+      "sha256": "8f198796d2c425f376372448a7df5a02bf0f439d2891695728b8d67a40c508f8"
+    },
+    {
+      "path": "images/shared-2-sheet5.png",
+      "sha256": "ffad18f775c0a1847771da0c7700b517b98a86fbd51405f80d9f82545b6029e8"
+    },
+    {
+      "path": "images/shared-2-sheet6.png",
+      "sha256": "46ea2ba9236265c0f6bdd99ccfb14b29056e1635ce36c25cdd1d357d2b1caad9"
+    },
+    {
+      "path": "images/stamp-sheet0.png",
+      "sha256": "8cd6ee35737d813aa152b582380200c353ed339eef7bfb6505480fa724be75d9"
+    },
+    {
+      "path": "images/stamp-sheet1.png",
+      "sha256": "1a81d91a938d20e5713e5ec00570f0204b8844b772cac9ba421cf309f7088990"
+    },
+    {
+      "path": "images/stamp-sheet2.png",
+      "sha256": "244cda81d2c260f37e68e8cee8472e143d01898788a716a37d8842a74f09d884"
+    },
+    {
+      "path": "images/volumeicon-sheet0.png",
+      "sha256": "178c6c7ca686f708946c56485d12d0ef7dba402202b9cef114563971f1744b6f"
+    },
+    {
+      "path": "images/walkerella-sheet0.png",
+      "sha256": "a6b064d2561191c9aadb31dae1b2e18c610d4111d35adecc83d04973b38dd283"
+    },
+    {
+      "path": "images/walkerella-sheet1.png",
+      "sha256": "c4a47a05306d794bae27825bbf9c5c407d9b03e127a02805a80336f275b1b2bc"
+    },
+    {
+      "path": "images/wiper-sheet0.png",
+      "sha256": "a3645be87649e53f2633bb287ab5675cef2f0feb6e65730e9ba08eceed53300e"
+    },
+    {
+      "path": "loader.gif",
+      "sha256": "02aa66c838421eacdd0412ae097c1c18e2060cf578ce20d598ed1ed97b77c060"
+    },
+    {
+      "path": "media/aura - theme.webm",
+      "sha256": "efdf0ad9d53347367bcac25e72b8176753b3d4de47a21f1447b85bd45562de70"
+    },
+    {
+      "path": "media/banner - theme.webm",
+      "sha256": "b3c70cb2c717c04d317912a2a499507405c742b8a15653724f508300c72e3aa6"
+    },
+    {
+      "path": "media/blur - theme.webm",
+      "sha256": "5083bd999863382376480236e37899426cd898a86825bc93234002ce5e13292d"
+    },
+    {
+      "path": "media/box - start.webm",
+      "sha256": "f91c47a0f0bd3c81b93d6f72a7bf94d23057a531ce1e2ae1e4f58d6c2bceeb50"
+    },
+    {
+      "path": "media/breathe - theme.webm",
+      "sha256": "bf2741222869885f79d00a3eb715285642140a96d221a90720f90d81418c6169"
+    },
+    {
+      "path": "media/bubbles - theme.webm",
+      "sha256": "bd93ebe9f893d1d4a006d7e76b39292e607a5cbd8856aad42183c17605e8b65b"
+    },
+    {
+      "path": "media/build - blow down.webm",
+      "sha256": "ae058cd90256831387287c120978ae2967ea0ffc79ff21cc790903f802c0ef8a"
+    },
+    {
+      "path": "media/build - brick click.webm",
+      "sha256": "61ca1bcbf457fa7844b50da3245e7a4867014b93a3ce5416173a77e2de6673cd"
+    },
+    {
+      "path": "media/build - brick clop.webm",
+      "sha256": "e31db5c2ebd339b7414b7376ea8fe912c31243d36e7de1d021b46e241541ab43"
+    },
+    {
+      "path": "media/build - brick scrape.webm",
+      "sha256": "c1d40bfa92c4720501698aa6ca668d44a18047e296b57a1905d5ec26bf56918b"
+    },
+    {
+      "path": "media/build - builder's beat.webm",
+      "sha256": "c09fd96a86799e21278915329d89d914f4942dbdc5e25839a104ddab694313ca"
+    },
+    {
+      "path": "media/camera - flip.webm",
+      "sha256": "29cabd5e8d62ff815c4108a7c79c6fe79db7477e5c93ece6eb8fc2d31b38c9b4"
+    },
+    {
+      "path": "media/camera - fx.webm",
+      "sha256": "11b53a9cb9d37476ded155d577c2752ed71fee3657db9f7e659175642e53da71"
+    },
+    {
+      "path": "media/camera - nudge note 1.webm",
+      "sha256": "2d1b1ef3c99d1a00fb43912d421c04014ee9118de6e09d3509e08c2ec34a7b3f"
+    },
+    {
+      "path": "media/camera - nudge note 2.webm",
+      "sha256": "2050f81f5b1e4cd76554f0f896c4e36c5bf710d05f8178d91322c64d0b1a49f3"
+    },
+    {
+      "path": "media/camera - reverb shutter.webm",
+      "sha256": "d525f6ed0e9613450ea4decd520e3a2ec1c4ae282b372e9bf41f661e6ca0cf1b"
+    },
+    {
+      "path": "media/camera - shutter.webm",
+      "sha256": "9d2cf03e9a4a2009ad21ab36fec7092d6c12b094e01a262f33cdc094cb0983bd"
+    },
+    {
+      "path": "media/caterpillar - rain bow road.webm",
+      "sha256": "4c91d605f85449be13905f1730ff82f48530ed47e6366760cb205de08fdac734"
+    },
+    {
+      "path": "media/caterpillar - trotting along.webm",
+      "sha256": "1204ff7a19cd2b0b9141c8ef7ee3116c4ece4a5725280a6411623d53049ae4f1"
+    },
+    {
+      "path": "media/common - jitter.webm",
+      "sha256": "1eeb4c9a0bb65c7a884c89b4833d280661a3341272bc97a1b0f17e665a6fe2cf"
+    },
+    {
+      "path": "media/contrast - theme.webm",
+      "sha256": "e74bdf36fb9a038072494b3aaa057544ca8677c476867c65f510feae2b8ff105"
+    },
+    {
+      "path": "media/dark window - note 1.webm",
+      "sha256": "300a5bcc55eecf8305140ed913727aa4e05b7a2b8a70500947f0b2ff4dc599fc"
+    },
+    {
+      "path": "media/dark window - note 2.webm",
+      "sha256": "9f5e5189673183c2ae5d6a208f0a3a265ecea7d0ceefcc899e9446fa2b1edd05"
+    },
+    {
+      "path": "media/dark window - note 3.webm",
+      "sha256": "2ac9320972171fdb567433d380ea20f65376c2c2ab83a06d61c4eba8ee59bad2"
+    },
+    {
+      "path": "media/dark window - note 4.webm",
+      "sha256": "07aaaf76a39dcd568b7441c360a8273a50522d23672e8d3d85f283d1fdfaa6c7"
+    },
+    {
+      "path": "media/elipse - start.webm",
+      "sha256": "22f940f4501ff4b3da7260432c721d28c316c32760f8ee4e772b9ba5b7eb63a9"
+    },
+    {
+      "path": "media/emoji set 1 - bee.webm",
+      "sha256": "e5f726cb7e73a7fe697126919e21131d3ce5f2724d09f3b028615dff4fddaa69"
+    },
+    {
+      "path": "media/emoji set 1 - flower.webm",
+      "sha256": "1eff077696f6a0d2079cc28d06ca359576b28920973b4a3d1b4732c9fb080a0f"
+    },
+    {
+      "path": "media/emoji set 1 - grass.webm",
+      "sha256": "003499818b49a8c1b66d3fb561592d181e5e089fc8f6e0d679c83957ce978187"
+    },
+    {
+      "path": "media/emoji set 1 - heart.webm",
+      "sha256": "56868c2b25db064fe5e1d72797da36a918d9d4e0b4b38380b09d40e6c3f9b4bb"
+    },
+    {
+      "path": "media/emoji set 1 - music note.webm",
+      "sha256": "2f66c2b04348272dc1c8c95ae9dfe69b26bde8f03ec4b241e27f3c8b3282aed9"
+    },
+    {
+      "path": "media/emoji set 1 - tongue smiley.webm",
+      "sha256": "dfc14d639b9518085ab2ade87f7d9c508526758c6ceeeffa884e386a32540e07"
+    },
+    {
+      "path": "media/emoji set 1 - twinkle.webm",
+      "sha256": "356466433804e03cc7a5a6c9c36f5d2cc8579aca6deeb1429fad2c0bb1231292"
+    },
+    {
+      "path": "media/emoji set 2 - balloon.webm",
+      "sha256": "de9f8fafd3b32bdf423e1ce843edc540a09d967e1e0d4add942a3ddf7ece5800"
+    },
+    {
+      "path": "media/emoji set 2 - carrot.webm",
+      "sha256": "634dbd2eca3a43be4d2064d3c33d1802dfd629a853ebd5d7dc434b1c6fc4f8c4"
+    },
+    {
+      "path": "media/emoji set 2 - dna.webm",
+      "sha256": "003499818b49a8c1b66d3fb561592d181e5e089fc8f6e0d679c83957ce978187"
+    },
+    {
+      "path": "media/emoji set 2 - dog.webm",
+      "sha256": "68d1bdb78f0f456ebec7cd0555ebde0de1dbc55c6ce652655eb457706cf3dada"
+    },
+    {
+      "path": "media/emoji set 2 - emo (angrier).webm",
+      "sha256": "e0e8679c91a30852f86101d77c3bc55b6a57dd4cab98259f3f5b1f6a690c05db"
+    },
+    {
+      "path": "media/emoji set 2 - planet.webm",
+      "sha256": "28f3416e223d2248de67383d5f86d759fc54bd61dfa6e168e8787fa1ca14b42d"
+    },
+    {
+      "path": "media/emoji set 2 - ribbon.webm",
+      "sha256": "56868c2b25db064fe5e1d72797da36a918d9d4e0b4b38380b09d40e6c3f9b4bb"
+    },
+    {
+      "path": "media/flip - first flipping.webm",
+      "sha256": "e0a85726217287cc7368c6410e5696cce0bb3d059ef21dbc3d6ce18cc0e30059"
+    },
+    {
+      "path": "media/flip - flipping again.webm",
+      "sha256": "4fbe6854a1553b0f55e1a66724ad7627c903f3efe685c6b756935783db329cb6"
+    },
+    {
+      "path": "media/frame - knock.webm",
+      "sha256": "328a673fda9930891d2b5051d7943258ad146fb2ccfe2610dd1daa1e30c2cc5c"
+    },
+    {
+      "path": "media/generic - button press.webm",
+      "sha256": "5e15a9b5d5ed2696632be53ff0a3630d9baf0f3754a240a88c1b9c9efc7950b1"
+    },
+    {
+      "path": "media/generic - button release.webm",
+      "sha256": "331d7e430aaad33f5b598979163a9ce2a4af22c889430a4d4ada15ff70926b9c"
+    },
+    {
+      "path": "media/generic - button rollover.webm",
+      "sha256": "3405b9d1bedfa06816d6d6948e08a9f03c94c7978b7945a34fffe89fb39c1fc2"
+    },
+    {
+      "path": "media/generic - cancel.webm",
+      "sha256": "3733af3ec19a0177e74bf34ed6cbaabde03ba91b1b6fa56c3858d27610bc446f"
+    },
+    {
+      "path": "media/generic - chime.webm",
+      "sha256": "580681c14a8876aa09a1b15a0778358482327a6e2100fcdeb6cdf2dcb2761511"
+    },
+    {
+      "path": "media/generic - command error.webm",
+      "sha256": "4c24563c3a485feaa6d1576489f3fe3f02f311d4594cdc2fb08fe6570e2efb36"
+    },
+    {
+      "path": "media/generic - entering pause.webm",
+      "sha256": "bba5c8bc487ff019e20c3f76941f949aff11cac1fda144cd6a0ead740e5eae25"
+    },
+    {
+      "path": "media/generic - no button pressed (metal brush).webm",
+      "sha256": "4e7c56526eb22541b82c3219004073e46d6dc22ea3136539a16195458b069e90"
+    },
+    {
+      "path": "media/generic - no button released (middle).webm",
+      "sha256": "c81978a4fd1d5645b3330e03958498292285db16d349fab1d3d302eac90ac132"
+    },
+    {
+      "path": "media/generic - noise crunch.webm",
+      "sha256": "ab5dbff5a47a2da97d72a09933135184f9f3d7a059f885e2e295a9fa55dca6f9"
+    },
+    {
+      "path": "media/generic - page turn pressed 1.webm",
+      "sha256": "3389aa7e6f2b2dba8fe2609f39838f2a8e7bf3c4c2d463e6bffaec44c81196a3"
+    },
+    {
+      "path": "media/generic - page turn released 1.webm",
+      "sha256": "7b27b79166b66b03f01add542d0b6e79f348c759ee6cf82687316c05a340a2f5"
+    },
+    {
+      "path": "media/generic - paint button pressed (psst).webm",
+      "sha256": "a75ddb8b030b797ecc9fe44f64b7a03d87bef5aa1d00ad54db777f17f807c74b"
+    },
+    {
+      "path": "media/generic - paint button released (cha).webm",
+      "sha256": "818908190c6b7865af4cd127391ee79d8050755eeb8a87cc114e955a7f7c1efc"
+    },
+    {
+      "path": "media/generic - pause release.webm",
+      "sha256": "f3ba8cd597aeba77a4983b59988e5ab6464e237b685174a7230e02b1fdffba41"
+    },
+    {
+      "path": "media/generic - pressing pause.webm",
+      "sha256": "f73f393efb5bea142de6635c1377c77d7766f14c05510f6d70060a622ca7952a"
+    },
+    {
+      "path": "media/generic - processing save.webm",
+      "sha256": "fbe83869504adb591a01a98d03a6075711931cf388343fbe12e93181e45ea55a"
+    },
+    {
+      "path": "media/generic - save button pressed.webm",
+      "sha256": "c74a250c1a46697fb92bbf7d8d64454e6fcf22ff254638e93c78c985353fe859"
+    },
+    {
+      "path": "media/generic - save button released.webm",
+      "sha256": "88e15f172cd0aa2a2515025bf55ccb6245e0eec8ec6026689d98d3f54c07c8f6"
+    },
+    {
+      "path": "media/generic - saved.webm",
+      "sha256": "aae81e6fe8e9b595c981ef2ce01c0593edc5f793633fc1c809f41d04b017f0a0"
+    },
+    {
+      "path": "media/grid worm - theme.webm",
+      "sha256": "ca41addc5a623d9a309db7d2b0c1f6a1de6887815949f50e932db648826d7fc0"
+    },
+    {
+      "path": "media/invert - off.webm",
+      "sha256": "293999abf3632c891680bcc0d8655deaa167654d0a45b3ef8b89ac5b01295a8e"
+    },
+    {
+      "path": "media/invert - on.webm",
+      "sha256": "022677fdece4ea8e35e4dfc2a17a96207a260a62c82ab4e414aed57b7df8a60a"
+    },
+    {
+      "path": "media/keyboard - auto delete.webm",
+      "sha256": "cea950a34e2e581a0bbca7c9b74346d5c9772aa728294b3d52321e8d3a6f4568"
+    },
+    {
+      "path": "media/keyboard - beep press.webm",
+      "sha256": "36b77789d3d91a8151f1d3f22689ec3832f8ac9bb555e30b78bd39ff188fb75e"
+    },
+    {
+      "path": "media/keyboard - click.webm",
+      "sha256": "6333443f96e4c924c8fee2ff8c83a72f4a685e9474e8016311d3743150e3d9cb"
+    },
+    {
+      "path": "media/keyboard - close.webm",
+      "sha256": "6f83d95df12a8a03cb6a87f0373d45a07955aed5855e15ec054df0d7e70a39fd"
+    },
+    {
+      "path": "media/keyboard - open.webm",
+      "sha256": "1978ee84368d27a56ad3ffc80b4bececc7853e73f33eb35995da115956cce303"
+    },
+    {
+      "path": "media/keyboard - tooth flick.webm",
+      "sha256": "5c916b607f76233683f6b9261f966c125692410ffae4dff30e6126984bede525"
+    },
+    {
+      "path": "media/light bump - theme.webm",
+      "sha256": "0fdb1340196e1ae9b9401f558a3d93f6f9a0664d615cc599f04437965079be7a"
+    },
+    {
+      "path": "media/light switch - released.webm",
+      "sha256": "ef5ee41537174bddd6208845cab6acab5446e4cbbc339f4cecb25574ef2c2a96"
+    },
+    {
+      "path": "media/line - start.webm",
+      "sha256": "b0eaea43118d1568a370d0797331b8de09412acd578631e57af0afeba05255d9"
+    },
+    {
+      "path": "media/mirror - theme.webm",
+      "sha256": "2ef714619e8c2770c6cfcfeb364a60213bb351c877b0eb1aeb79dbf09b7ddd34"
+    },
+    {
+      "path": "media/no paint - painting music.webm",
+      "sha256": "eef72e803293e1be6a143d7bc43edffb29e298f4a37cfc8af435a84128464792"
+    },
+    {
+      "path": "media/no paint - theme.webm",
+      "sha256": "f3a72f03fae23f764b987258c61d5db14f06e238448bbbac37a8459a08fbad34"
+    },
+    {
+      "path": "media/noise - white noise.webm",
+      "sha256": "f9ee894eec5e2fe377c82b1a3b2be6bdb168c40fcc430a50988881c077f0498d"
+    },
+    {
+      "path": "media/nudge - confirmation.webm",
+      "sha256": "eeed71f3c610eb1299bbea65541a3b2df90a261025b8ba29d55931089cc41a15"
+    },
+    {
+      "path": "media/nudge - flick.webm",
+      "sha256": "c4fc9d101c65317b33f43b51706743e1d338ba9c7a70fcd595ae807ff6d2c517"
+    },
+    {
+      "path": "media/nudge - loop.webm",
+      "sha256": "321f07bf81db32dc19804e3d4917e95981428ba62685f251dd82a8d3e1ac268f"
+    },
+    {
+      "path": "media/nudge - percussionless melodic loop.webm",
+      "sha256": "ee4b591820cedec1d8fd43db514d7449b14cc901f78bbf3a2b64be1b789aeae9"
+    },
+    {
+      "path": "media/nudge - pop.webm",
+      "sha256": "45c033a4fe3c1f684f1dd4d9ea3867e31134718e1ac7d5ec7bb5ce81a3ce574f"
+    },
+    {
+      "path": "media/nudge - x buzz.webm",
+      "sha256": "cc54ebab35edb6dbd0fd5f56c508cbadeafedc7537639622663d4ecf07e75dfd"
+    },
+    {
+      "path": "media/nudge - y buzz.webm",
+      "sha256": "c218b0c2b784fe40276f0f9322a23940beecc8c5bdce95715891ce89abd583f6"
+    },
+    {
+      "path": "media/playlist - gruff spitting out.webm",
+      "sha256": "ca114ca099cb81fc064d991e4e70407caa26c1758159fc7b22beaeb005ada113"
+    },
+    {
+      "path": "media/playlist - tuning skip.webm",
+      "sha256": "a59c180c306d662c8768e0cfbcbcdc1d93294d23e51565c6fef4453dda46c4b5"
+    },
+    {
+      "path": "media/primitive - released.webm",
+      "sha256": "a5273ad2e089a905d29d156c2a3f47b9f39118ca42f078b734d777e5c987e0ba"
+    },
+    {
+      "path": "media/quicksand - brief theme.webm",
+      "sha256": "5b13f6f7ac6fa83857ff5bb4607c89011c816eccaefaef1fc7edfe4d011bdef6"
+    },
+    {
+      "path": "media/quicksand - theme.webm",
+      "sha256": "e09e1c06e528239606dd650fc752515b60e2255b9183839aa3d31f8871baf7b0"
+    },
+    {
+      "path": "media/rainbow - theme.webm",
+      "sha256": "c186c625d081928d41c03d66a816c4a328e8c1e0d0cde740c469afd055a7f7f5"
+    },
+    {
+      "path": "media/recurse - thup cosm.webm",
+      "sha256": "a450c2f8a2de7fb8a5b54b1899d9686bc4905838bcd50e9ef2103341ecfdbfc9"
+    },
+    {
+      "path": "media/recurse - you're released.webm",
+      "sha256": "1bf803fb412a05d00aa93342196f069b7dc768c453f6c28c88aa27b03ca887ba"
+    },
+    {
+      "path": "media/saturate - theme.webm",
+      "sha256": "7a2e071b769c34f14d359edff7f122152d91d69313dede0e00bd6b03087bd595"
+    },
+    {
+      "path": "media/scroll - theme 2021.webm",
+      "sha256": "7ad8cbe846dab50482b453d21b9a4611642469769c24d798ac7f1db174f667f1"
+    },
+    {
+      "path": "media/sharpen - theme.webm",
+      "sha256": "81190b8e3a6b98e1dd342819808336de7464a14c58cf6d4c7a14e06b3c825583"
+    },
+    {
+      "path": "media/softy - landed.webm",
+      "sha256": "417a1ebe24de447d7fecbf9e23e5f1758fc2833946cc85669ed691496eb70741"
+    },
+    {
+      "path": "media/spin - theme.webm",
+      "sha256": "6e6236fc57b66d50886a3ccbf080e35792313a8f0824f7d3b156c1d12c9abdbc"
+    },
+    {
+      "path": "media/stamp - stick.webm",
+      "sha256": "75e0d7330806f38eeb8d4e790fb8e4ae9e1caada8f25890a3e6f06f8497c8cf9"
+    },
+    {
+      "path": "media/triangle - start.webm",
+      "sha256": "65dc011c37b51931e67a589af5b737461ee927537df89ce263cc28617fe98ddc"
+    },
+    {
+      "path": "media/turn - note 1.webm",
+      "sha256": "6d8c6c4f7fbde60a12febe394c2d56b4642612bcbdbc9038508ad36b8c2e91d4"
+    },
+    {
+      "path": "media/turn - note 2.webm",
+      "sha256": "5982381117344abca0757d77acaa36e59cd38531bb14afcc434f02e7e9dcb28b"
+    },
+    {
+      "path": "media/turn - note 3.webm",
+      "sha256": "b40274c028d3483103ac671a46e42972a5c036526ed043aea0366cbe312e0437"
+    },
+    {
+      "path": "media/turn - note 4.webm",
+      "sha256": "09991ae920c77ef2d969d166a02cd041da058a6061bde238787126a4f80eb1ec"
+    },
+    {
+      "path": "media/unused - alarm.webm",
+      "sha256": "d9b4f1920f8a5ec7b09169fa412c8620e1a1d19842417b50c8d7e18a4910ac16"
+    },
+    {
+      "path": "media/unused - blase emo.webm",
+      "sha256": "0c5de85f4725a2f6d8cff6b49560af5639155b3a264d4a66f4c4a3b6c832fc11"
+    },
+    {
+      "path": "media/unused - building oooos' loop.webm",
+      "sha256": "572655e6f5a1d243e051dc14c21a40f744e1930c9ee3ad40277de59e70c18485"
+    },
+    {
+      "path": "media/unused - camera - v3.webm",
+      "sha256": "2a7202c05e0a3f46f12662e17b12fe5fadefe0a9423fbbc2d1aa4de7ab3498dd"
+    },
+    {
+      "path": "media/unused - chop.webm",
+      "sha256": "5d2c63ac24def477100d256907e0d28daf96b6c2bbc3aa0b5b7d36c49dbe7ffe"
+    },
+    {
+      "path": "media/unused - emoji - snowflake.webm",
+      "sha256": "34c58cb22e4814b268bed81c36bdd08e1abb46810ee757433cf83e52b28ddf52"
+    },
+    {
+      "path": "media/unused - generic - no button press (beep).webm",
+      "sha256": "e22b42941ea4009ec7817d3845c12ce257d8bef7eaec8ccd780cf3e33976a79a"
+    },
+    {
+      "path": "media/unused - generic - no button release (ew buzz).webm",
+      "sha256": "6fcff3f75c408b2eac9e1372348ebf4f5cd06b0c409d5ce1a04fd9381fc0ea66"
+    },
+    {
+      "path": "media/unused - generic - paint button press (moan).webm",
+      "sha256": "98d6f51e05a713a9555ae277853f57c064952c7ad20cb5cd06b753cefc3301dc"
+    },
+    {
+      "path": "media/unused - glottal no fcked.webm",
+      "sha256": "7235020fc06a4e814327cff4cf4385a08013389cbd7896822a07c5e112cd6092"
+    },
+    {
+      "path": "media/unused - long kiss shutter.webm",
+      "sha256": "4af1d167e43261427b7e54f8c8dc3271dbde80d77211fe6b877120b63664c054"
+    },
+    {
+      "path": "media/unused - no released (too low).webm",
+      "sha256": "11d10106b5593685a2866b3836bfc395f875da5a310d953b78e656bd4714ff91"
+    },
+    {
+      "path": "media/unused - page turn released cheew.webm",
+      "sha256": "8f2c4da28c0938817eb74c945aa9abbf890c17afd7b7a8d4ad0e9580b3a9c9f7"
+    },
+    {
+      "path": "media/unused - released.webm",
+      "sha256": "a5273ad2e089a905d29d156c2a3f47b9f39118ca42f078b734d777e5c987e0ba"
+    },
+    {
+      "path": "media/unused - scary jingle .webm",
+      "sha256": "723fcdfa3ebb1036c124f3bd1c85669474f1f13b98cd74b0151e2ef81df62559"
+    },
+    {
+      "path": "media/unused - too high no released.webm",
+      "sha256": "6419d8029712d19d86a6237735bf26395ceffb1bad6f18898b6dde2344b10111"
+    },
+    {
+      "path": "media/vignette - theme.webm",
+      "sha256": "eb0529d7887296c60f02e0801f2197fccd88cc897d8ee18f4f5b141a6962bc9e"
+    },
+    {
+      "path": "media/wafer - enlarge.webm",
+      "sha256": "c323380af708a9be57a63e212a55f3891927e639a740a52d17631ceff204b146"
+    },
+    {
+      "path": "media/wafer - nibble appear.webm",
+      "sha256": "68222534f31efc10e999fcd6c0302b991e7143487cb677da655908fc06b7fd43"
+    },
+    {
+      "path": "media/wafer - nibble bite 1.webm",
+      "sha256": "d613c51bf435c2297dd6705c4222c8483497572f78781a8bff514709e88ac4a4"
+    },
+    {
+      "path": "media/wafer - nibble bite 2.webm",
+      "sha256": "12efc5a371261791b94da99be0267b2357e2719d45abf79fdc446d209d102098"
+    },
+    {
+      "path": "media/wafer - nibble bite 3.webm",
+      "sha256": "2c26b85ddf94b0368e39428a0f182e694a12333e85cf2003b24ba694c5c8a04c"
+    },
+    {
+      "path": "media/wipe - individual wipe.webm",
+      "sha256": "b94d327d313f988ba10a8e8cff3bb93055f2c0a660b07bb8bb23a0182cf4e1f9"
+    },
+    {
+      "path": "media/zoom - in.webm",
+      "sha256": "47275175b50af90442a5e624fd05463df68559ca1269f52db1892a96ab78c067"
+    },
+    {
+      "path": "media/zoom - out.webm",
+      "sha256": "888053a695bf6d69b93cae522d42c71cdf48cbc198a38a3047fa841f5eaacb03"
+    },
+    {
+      "path": "noise.wasm",
+      "sha256": "917650603239c73cad3f32a7129886a6890072222519dc489f07825db067b82c"
+    },
+    {
+      "path": "privacy-policy.html",
+      "sha256": "732e7b0205ff5918a1eaf1709e305b8204e000f926c35b6325d91935ef701e21"
+    },
+    {
+      "path": "scripts/c3runtime.js",
+      "sha256": "4c627e8ec1d166843f0c2e7a8e644de98e5bf54c080fc821a7a0ee25ed6df633"
+    },
+    {
+      "path": "scripts/dispatchworker.js",
+      "sha256": "7906737773290e2f3150c7d305427cf46ad78a619bfbe0e4b4e83b566d9a3427"
+    },
+    {
+      "path": "scripts/jobworker.js",
+      "sha256": "f26ac58ce92881d648086076382199e0519b4ecd750859d5d442ed6e22933ac2"
+    },
+    {
+      "path": "scripts/main.js",
+      "sha256": "6bf06e60e44c14ee94be63879456686908517d98961f3af08c23a735098c511f"
+    },
+    {
+      "path": "scripts/offlineclient.js",
+      "sha256": "dfaba9f1fa0ea22c703a1aba1dd90faa1abc07ca63b4d36830e61ec3fa18e34d"
+    },
+    {
+      "path": "scripts/opus.wasm.js",
+      "sha256": "2d4794efc4b06ce7ab5472b459cd46f1622a1ee28156d2fa39593cc53ed8fac6"
+    },
+    {
+      "path": "scripts/opus.wasm.wasm",
+      "sha256": "3b090d2b704dbc4d16fc236b6d695611d29b261c2588ba47eb8a30260f948a7a"
+    },
+    {
+      "path": "scripts/register-sw.js",
+      "sha256": "74ffbf6f2239666e2d741cf383c0a7d2e144df82ec09018203b925b147206953"
+    },
+    {
+      "path": "scripts/supportcheck.js",
+      "sha256": "a030981bf7307ccfb24a49649c249df5021662c99903be6d44619f0c5779964c"
+    },
+    {
+      "path": "style.css",
+      "sha256": "137cd4f3f2a0827648df6e70b14472fd6e08cfed5f7ae3adacf7a91aa6b3bec7"
+    },
+    {
+      "path": "workermain.js",
+      "sha256": "85232be8f9c232df24dd221949d6a2c497f1aa193672949e878f47801856ffdb"
+    }
+  ]
+}

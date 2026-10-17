@@ -17,13 +17,14 @@
 // that it is him: the git identity must be @jeffrey AND his git credentials
 // must reach the knot (a copied checkout without his key fails the second).
 // Production serves the knot's main and nothing else, so local main must be
-// pushed; deploy.fish is always told DEPLOY_BRANCH=main, which makes this
+// pushed, and private products ship from the vault's pushed main through a
+// clean clone (see cleanVault); deploy.fish is always told DEPLOY_BRANCH=main, which makes this
 // safe from a worktree or a feature branch. Afterwards it compares the bytes
 // production serves against the commit it shipped.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,6 +47,33 @@ function whoami() {
   say("✓", `${name} · knot reachable`);
 }
 
+// Private products ship from the vault's pushed main, never from the shared
+// vault checkout: other sessions leave work in progress there, and a checkout
+// that is behind its origin would roll production's products back. This keeps
+// a clean sparse clone of products/ in ~/.cache/ac-deploy/vault, resets it to
+// origin/main for each deploy, and borrows objects from the shared vault so
+// refreshing is cheap.
+function cleanVault() {
+  const shared = workspace(ROOT).vault;
+  const clone = process.env.AC_PRODUCTS_VAULT || join(homedir(), ".cache", "ac-deploy", "vault");
+  const vgit = (...args) => execFileSync("git", ["-C", clone, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  if (!existsSync(join(clone, ".git"))) {
+    const url = execFileSync("git", ["-C", shared, "remote", "get-url", "origin"], { encoding: "utf8" }).trim();
+    say("→", `cloning the vault's pushed main into ${clone} (first deploy on this Mac)`);
+    const run = spawnSync("git", ["clone", "-q", "--no-checkout", "--reference-if-able", shared, url, clone], { stdio: "inherit" });
+    if (run.status !== 0) fail("could not clone the vault");
+  }
+  // Only products/ ships, so only products/ is checked out (~60 MB, not GBs).
+  vgit("sparse-checkout", "set", "products");
+  vgit("fetch", "-q", "origin", "main");
+  vgit("reset", "-q", "--hard", "origin/main");
+  vgit("clean", "-qfdx");
+  const unshipped = execFileSync("git", ["-C", shared, "status", "--porcelain", "--untracked-files=all", "--", "products"], { encoding: "utf8" }).trim();
+  if (unshipped) say("·", `${unshipped.split("\n").length} uncommitted product file(s) in ${shared} stay local — only the vault's pushed main ships`);
+  process.env.AC_PRODUCTS_VAULT = clone;
+  return releaseState(workspace(ROOT, clone));
+}
+
 async function verify(sha) {
   const get = async (path) => {
     const response = await fetch(`${SITE}${path}?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } });
@@ -56,7 +84,9 @@ async function verify(sha) {
   const served = (await get("/.commit-ref")).trim();
   if (served === sha) say("✓", `serving ${sha.slice(0, 10)}`);
   else { ok = false; say("✕", `serving ${served.slice(0, 10) || "nothing"}, expected ${sha.slice(0, 10)}`); }
-  const expectedProducts = process.env.AC_PRODUCTS_REVISION || git("-C", workspace(ROOT).vault, "rev-parse", "HEAD");
+  const vault = process.env.AC_PRODUCTS_VAULT || workspace(ROOT).vault;
+  const expectedProducts = process.env.AC_PRODUCTS_REVISION
+    || (execFileSync("git", ["-C", vault, "fetch", "-q", "origin", "main"]), execFileSync("git", ["-C", vault, "rev-parse", "origin/main"], { encoding: "utf8" }).trim());
   const products = (await get("/.products-ref")).trim();
   if (products === expectedProducts) say("✓", `products ${products.slice(0, 10)}`);
   else { ok = false; say("✕", `products ${products.slice(0, 10)}, expected ${expectedProducts.slice(0, 10)}`); }
@@ -147,7 +177,7 @@ if (aeselOnly) {
 }
 
 if (!verifyOnly) {
-  process.env.AC_PRODUCTS_REVISION = releaseState(workspace(ROOT));
+  process.env.AC_PRODUCTS_REVISION = cleanVault();
   const ahead = git("rev-list", "--count", "origin/main..main");
   if (ahead !== "0") fail(`local main is ${ahead} commit(s) ahead of the knot — push first; production only serves what the knot has`);
   say("→", `deploying ${sha.slice(0, 10)} to lith`);

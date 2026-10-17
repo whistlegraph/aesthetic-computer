@@ -306,6 +306,16 @@ extension Image {
     }
 
     static func openExternal(_ url: URL) {
+        if let fallback = AppRoute.mimeFallback(for: url) {
+            #if os(macOS)
+            if !NSWorkspace.shared.open(url) { NSWorkspace.shared.open(fallback) }
+            #else
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if !opened { UIApplication.shared.open(fallback) }
+            }
+            #endif
+            return
+        }
         guard ["https", "http", "mailto", "tel"].contains(url.scheme?.lowercased() ?? "") else { return }
         #if os(macOS)
         NSWorkspace.shared.open(url)

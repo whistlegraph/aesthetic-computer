@@ -1,0 +1,68 @@
+/* One local blackletter face for Sign. License beside the font. */
+@font-face { font-family: 'Unifraktur Maguntia'; src: url(assets/unifraktur-maguntia.woff2) format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+.guestbook-jump { font-size: 1.25rem; }
+.guestbook {
+  max-width: 38rem; margin: 2.5rem auto 0; padding: 1.5rem;
+  background: #272040 url(assets/purplebg.jpg);
+  border: 3px ridge var(--purple); color: #ffe4f4; scroll-margin-top: 1rem;
+}
+.guestbook-heading { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+.guestbook-heading h2 { margin: 0; color: var(--pink); font-size: clamp(2rem, 6vw, 3rem); white-space: nowrap; }
+.boo { flex: none; width: 48px; height: 56px; overflow: visible; image-rendering: pixelated; }
+.boo-blink, .boo-arms { transform-box: fill-box; transform-origin: center; }
+.boo-eyes { display: inline-block; width: 1.2em; height: .8em; vertical-align: -.08em; }
+.boo-eyes svg { display: block; width: 100%; height: 100%; }
+#guestbook-count { font-size: 1rem; margin: .75rem 0 1.25rem; }
+#guestbook-form { text-align: left; }
+#guestbook-form fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
+#guestbook-form label { display: block; margin: 0 0 .4rem; font-size: 1.125rem; }
+#guestbook-form input[type="text"], #guestbook-form textarea {
+  display: block; width: 100%; padding: .55rem; margin: 0 0 1rem;
+  border: 2px inset #c596c3; border-radius: 0;
+  background: conic-gradient(#dfbcd9 25%, #e8c9e2 0 50%, #dfbcd9 0 75%, #e8c9e2 0) 0 0 / 12px 12px;
+  box-shadow: inset 2px 2px #ae7fae, inset -2px -2px #f5d9ed;
+  color: #271136; font: 1.125rem/1.4 'Times New Roman', serif;
+}
+#guestbook-form textarea { resize: vertical; min-height: 5rem; }
+#guestbook-form textarea::placeholder { color: #60435c; opacity: 1; }
+#guestbook-form .guestbook-check { display: flex; align-items: center; gap: .6rem; min-height: 30px; margin-bottom: 1rem; }
+.guestbook-check input { width: 20px; height: 20px; margin: 0; accent-color: var(--pink); }
+.guestbook button { font-family: inherit; min-height: 44px; }
+#guestbook-form button {
+  background: #65346f; color: #fff0d5; padding: .5rem 1.5rem .65rem;
+  border: 3px solid; border-color: #dca8d6 #351d4b #351d4b #dca8d6;
+  box-shadow: inset 0 0 0 1px #8e5b9b, 3px 3px #140d24;
+  font: 400 2rem/1 'Unifraktur Maguntia', 'Times New Roman', serif;
+  text-shadow: 1px 2px #281232;
+}
+#guestbook-form button:hover:not(:disabled) { background: #794584; }
+#guestbook-form button:active:not(:disabled) { border-color: #351d4b #dca8d6 #dca8d6 #351d4b; box-shadow: inset 2px 2px #351d4b; transform: translate(2px, 2px); }
+.guestbook button:disabled { opacity: .6; }
+.guestbook :focus-visible { outline: 3px solid #fff6b0; outline-offset: 3px; }
+.guestbook-note { font-size: .875rem; margin: .75rem 0 0; }
+#guestbook-status { margin: 0; font-size: 1rem; }
+#guestbook-status:not(:empty) { margin-top: .75rem; }
+.guestbook-visitors { border-top: 2px ridge var(--purple); margin-top: 1.25rem; padding-top: 1.25rem; text-align: left; }
+#guestbook-empty { margin: 0; text-align: center; font-size: 1.125rem; font-style: italic; }
+#guestbook-entries { list-style: none; padding: 0; margin: 0; }
+.guestbook-entry { display: flex; gap: .8rem; padding: 1rem 0; border-bottom: 1px dotted #bca2ce; overflow-wrap: anywhere; }
+.guestbook-entry:first-child { padding-top: 0; }
+.guestbook-entry:last-child { border: 0; padding-bottom: 0; }
+.guestbook-entry > div { flex: 1; min-width: 0; }
+.guestbook-entry-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .25rem .75rem; }
+.guestbook-entry h3 { font-size: 1.25rem; color: var(--pink); margin: 0; }
+.guestbook-entry time { font-size: .875rem; white-space: nowrap; }
+.guestbook-message { white-space: pre-wrap; font-size: 1.125rem; line-height: 1.4; margin: .5rem 0 0; }
+.guestbook-rsvp { margin: .5rem 0 0; font-size: .95rem; color: #d5ffc3; }
+.guestbook-trap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.guestbook [hidden] { display: none !important; }
+@media (max-width: 420px) { .guestbook { padding: 1rem; } .guestbook-heading { gap: .5rem; } .guestbook-heading > .boo { width: 24px; height: 28px; } }
+/* Step a pixel at a time. Rest if asked. */
+@media (prefers-reduced-motion: no-preference) {
+  .boo { animation: hover-boo var(--drift, 3s) steps(2, end) var(--phase, 0s) infinite alternate; }
+  .boo-blink { animation: blink-boo var(--blink) steps(1, end) var(--phase) infinite; }
+  .boo-arms { animation: wave-boo .8s steps(1, end) var(--phase) infinite alternate; }
+  @keyframes hover-boo { to { transform: translateY(-8px); } }
+  @keyframes blink-boo { 0%, 44%, 48%, 100% { transform: scaleY(1); } 46% { transform: scaleY(0); } }
+  @keyframes wave-boo { to { transform: translateY(-1px); } }
+}
