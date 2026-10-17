@@ -7,7 +7,21 @@ export function nativeSource(source, base = root) {
   const modules = ['oskiewar-fighter.mjs', 'native-account.mjs'].map(name =>
     '(() => {\n' + readFileSync(resolve(base, 'xbox/live', name), 'utf8')
       .replace(/^export (?=(?:const|function) )/gm, '') + '\n})();\n');
-  return modules.join('') + source;
+  return modules.join('') + roomBridge(base) + source;
+}
+// The room bridge, as the Mac app loads it: native-shell.js (timers, a
+// WebSocket and fetch over the host's natives), then round-room.mjs and the
+// console's wiring in one scope, so the module's top-level names cannot meet
+// the game's. Absent pieces (a public checkout) leave it out; the game then
+// runs as before, on its own netplay alone.
+function roomBridge(base) {
+  const read = (path) => existsSync(resolve(base, path)) ? readFileSync(resolve(base, path), 'utf8') : '';
+  const shell = read('xbox/macos-native/native-shell.js');
+  const room = read('xbox/live/round-room.mjs');
+  const wiring = read('xbox/live/oskiewar-xbox-bridge.js');
+  if (!shell || !room || !wiring) return '';
+  return shell + '\n(() => {\n' + room.replace(/^export (?=(?:async |const |function |class ))/gm, '') +
+    '\n' + wiring + '\n})();\n';
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const target = resolve(process.argv[2] || 'xbox/native-bios/generated/oskiewar.js');

@@ -726,6 +726,84 @@ JSValue OskiewarNetPoll(JSContext* context, JSValueConst, int, JSValueConst*) {
   return result;
 }
 
+// The room bridge's transport (native-shell.js names; HostNet on the Xbox).
+// Every endpoint is checked by the host against its allowlist.
+static std::string ArgString(JSContext* context, JSValueConst value, std::size_t limit) {
+  size_t length = 0;
+  const char* raw = JS_ToCStringLen(context, &length, value);
+  if (!raw) return {};
+  std::string text(raw, std::min(length, limit));
+  JS_FreeCString(context, raw);
+  return text;
+}
+static int ArgInt(JSContext* context, JSValueConst value) {
+  int32_t number = 0;
+  if (JS_ToInt32(context, &number, value)) { JS_FreeValue(context, JS_GetException(context)); return 0; }
+  return number;
+}
+JSValue OskiewarSocketOpen(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->socket_open || argc < 1) return JS_NewInt32(context, 0);
+  return JS_NewInt32(context, scope->api->socket_open(ArgString(context, argv[0], 2048)));
+}
+JSValue OskiewarSocketSend(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (scope && scope->api && scope->api->socket_send && argc >= 2)
+    scope->api->socket_send(ArgInt(context, argv[0]), ArgString(context, argv[1], 65536));
+  return JS_UNDEFINED;
+}
+JSValue OskiewarSocketClose(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (scope && scope->api && scope->api->socket_close && argc >= 1)
+    scope->api->socket_close(ArgInt(context, argv[0]));
+  return JS_UNDEFINED;
+}
+JSValue OskiewarFetch(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (scope && scope->api && scope->api->fetch_get && argc >= 2)
+    scope->api->fetch_get(ArgInt(context, argv[0]), ArgString(context, argv[1], 2048));
+  return JS_UNDEFINED;
+}
+JSValue OskiewarUdpOpen(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->udp_open || argc < 2) return JS_NewInt32(context, 0);
+  return JS_NewInt32(context, scope->api->udp_open(ArgString(context, argv[0], 255), ArgInt(context, argv[1])));
+}
+JSValue OskiewarUdpSend(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (scope && scope->api && scope->api->udp_send && argc >= 2)
+    scope->api->udp_send(ArgInt(context, argv[0]), ArgString(context, argv[1], 2048));
+  return JS_UNDEFINED;
+}
+JSValue OskiewarUdpClose(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (scope && scope->api && scope->api->udp_close && argc >= 1)
+    scope->api->udp_close(ArgInt(context, argv[0]));
+  return JS_UNDEFINED;
+}
+JSValue OskiewarSetRelay(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (scope && scope->api && scope->api->set_relay && argc >= 1)
+    scope->api->set_relay(ArgString(context, argv[0], 255));
+  return JS_UNDEFINED;
+}
+// oskiewarHostPoll() → [[kind, id, status, text], ...], drained once a frame.
+JSValue OskiewarHostPoll(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  JSValue result = JS_NewArray(context);
+  if (!scope || !scope->api || !scope->api->host_poll) return result;
+  uint32_t index = 0;
+  for (const auto& event : scope->api->host_poll()) {
+    JSValue row = JS_NewArray(context);
+    JS_SetPropertyUint32(context, row, 0, JS_NewString(context, event.kind.c_str()));
+    JS_SetPropertyUint32(context, row, 1, JS_NewInt32(context, event.id));
+    JS_SetPropertyUint32(context, row, 2, JS_NewInt32(context, event.status));
+    JS_SetPropertyUint32(context, row, 3, JS_NewStringLen(context, event.text.data(), event.text.size()));
+    JS_SetPropertyUint32(context, result, index++, row);
+  }
+  return result;
+}
+
 // postEffects(focusY, band, feather, tiltPx, motionX, motionY). The shader
 // keeps the HUD depth sharp; this only steers the world's blur for the frame.
 JSValue PostEffectsSet(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
@@ -1063,6 +1141,15 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "publishLive", JS_NewCFunction(context_, PublishLive, "publishLive", 2));
     JS_SetPropertyStr(context_, global, "oskiewarNetSend", JS_NewCFunction(context_, OskiewarNetSend, "oskiewarNetSend", 2));
     JS_SetPropertyStr(context_, global, "oskiewarNetPoll", JS_NewCFunction(context_, OskiewarNetPoll, "oskiewarNetPoll", 0));
+    JS_SetPropertyStr(context_, global, "oskiewarSocketOpen", JS_NewCFunction(context_, OskiewarSocketOpen, "oskiewarSocketOpen", 1));
+    JS_SetPropertyStr(context_, global, "oskiewarSocketSend", JS_NewCFunction(context_, OskiewarSocketSend, "oskiewarSocketSend", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarSocketClose", JS_NewCFunction(context_, OskiewarSocketClose, "oskiewarSocketClose", 3));
+    JS_SetPropertyStr(context_, global, "oskiewarFetch", JS_NewCFunction(context_, OskiewarFetch, "oskiewarFetch", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarUdpOpen", JS_NewCFunction(context_, OskiewarUdpOpen, "oskiewarUdpOpen", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarUdpSend", JS_NewCFunction(context_, OskiewarUdpSend, "oskiewarUdpSend", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarUdpClose", JS_NewCFunction(context_, OskiewarUdpClose, "oskiewarUdpClose", 1));
+    JS_SetPropertyStr(context_, global, "oskiewarSetRelay", JS_NewCFunction(context_, OskiewarSetRelay, "oskiewarSetRelay", 1));
+    JS_SetPropertyStr(context_, global, "oskiewarHostPoll", JS_NewCFunction(context_, OskiewarHostPoll, "oskiewarHostPoll", 0));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "postEffects", JS_NewCFunction(context_, PostEffectsSet, "postEffects", 6));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
@@ -1091,7 +1178,9 @@ class QuickJsPiece final : public JsPiece {
   std::string_view slug() const noexcept override { return slug_; }
   std::string_view version() const noexcept override { return version_; }
   void boot(Api& api) override { Call("boot", api); }
-  void sim(Api& api) override { Call("sim", api); RebootIfRequested(api); }
+  // The room bridge's sockets, fetches and timers run first, the order a
+  // browser would run them in before the next animation frame.
+  void sim(Api& api) override { Call("__oskiewarPumpHost", api); Call("sim", api); RebootIfRequested(api); }
   void paint(Api& api) override {
     Call("paint", api);
     // One heap reading a minute, so a long session shows what it grew to.
@@ -1130,7 +1219,22 @@ class QuickJsPiece final : public JsPiece {
       if (JS_IsException(result)) { JS_FreeValue(context_, result); JS_FreeValue(context_, function); JS_FreeValue(context_, global); throw std::runtime_error(ExceptionText()); }
       JS_FreeValue(context_, result);
     }
-    JS_FreeValue(context_, function); JS_FreeValue(context_, global); scope_.api = nullptr;
+    JS_FreeValue(context_, function); JS_FreeValue(context_, global);
+    RunJobs();
+    scope_.api = nullptr;
+  }
+  // Promise reactions (QuickJS queues them; nothing ran them before the room
+  // bridge, which is built on promises). Bounded per call so a promise that
+  // keeps scheduling more can never hold a frame; a job that throws is
+  // dropped, as an unhandled rejection is in a browser.
+  void RunJobs() {
+    for (int job = 0; job < 512; ++job) {
+      JSContext* jobContext = nullptr;
+      const int ran = JS_ExecutePendingJob(runtime_, &jobContext);
+      if (ran > 0) continue;
+      if (ran < 0 && jobContext) JS_FreeValue(jobContext, JS_GetException(jobContext));
+      if (ran <= 0) break;
+    }
   }
   void RebootIfRequested(Api& api) {
     if (!scope_.rebootRequested) return;

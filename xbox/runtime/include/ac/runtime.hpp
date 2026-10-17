@@ -284,6 +284,22 @@ struct Api {
   // Fixed Oskiewar relay only, bounded packets, drained on the JS thread.
   std::function<bool(std::string_view, std::string_view)> net_send = {};
   std::function<std::vector<std::string>()> net_poll = {};
+  // The room bridge's transport (HostNet on the Xbox): a WebSocket, a GET
+  // fetch and a UDP lane, each held by the host to aesthetic.computer and
+  // oskiewar.com, with results drained on the JS thread. `host_poll` returns
+  // flat records: kind, id, status, text.
+  struct NetEvent { std::string kind; int id = 0; int status = 0; std::string text; };
+  std::function<int(std::string_view)> socket_open = {};
+  std::function<void(int, std::string_view)> socket_send = {};
+  std::function<void(int)> socket_close = {};
+  std::function<void(int, std::string_view)> fetch_get = {};
+  std::function<int(std::string_view, int)> udp_open = {};
+  std::function<void(int, std::string_view)> udp_send = {};
+  std::function<void(int)> udp_close = {};
+  std::function<std::vector<NetEvent>()> host_poll = {};
+  // Which relay the room lives on (round-room.mjs chooseRelayHost); the
+  // native publisher's socket follows it.
+  std::function<void(std::string_view)> set_relay = {};
   // Screen-space post settings the piece may steer each frame, all validated
   // by the binding: focus band centre, half-height and feather (0..1 of the
   // screen), tilt-shift radius in pixels, camera motion blur in pixels.

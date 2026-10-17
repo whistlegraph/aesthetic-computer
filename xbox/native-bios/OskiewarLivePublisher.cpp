@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "OskiewarLivePublisher.hpp"
+#include "HostNet.hpp"
 #include "../runtime/include/ac/relay_endpoint.hpp"
 #include "../runtime/include/ac/net_send_queue.hpp"
 #include <fstream>
@@ -13,7 +14,14 @@ using namespace concurrency;
 namespace ac::xbox {
 namespace {
 
+std::mutex g_relayMutex;
+std::wstring g_relayHost;
+
 std::wstring RelayBase() {
+  {
+    std::lock_guard<std::mutex> lock(g_relayMutex);
+    if (!g_relayHost.empty()) return L"wss://" + g_relayHost + L"/oskiewar-live";
+  }
 #if AC_DEV_LIVE_PIECE
   try {
     const std::wstring path = std::wstring(Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data()) +
@@ -159,8 +167,31 @@ void Connect(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
           auto message = Windows::Data::Json::JsonObject::Parse(reader->ReadString(size));
           const auto type = message->GetNamedString("type", "");
           const bool render_flags = type == "oskiewar:flags";
-          if (type != "oskiewar:net" && !render_flags) return;
+          // The room's own words, for the shell the way the web and Mac
+          // hear them: the datagram lane's offer, status, turns, the rival's
+          // presses, viewers and errors. Wrapped so the game's net inbox can
+          // tell them from rollback packets.
+          const bool relay_word = type == "oskiewar:udp" || type == "oskiewar:status" ||
+            type == "oskiewar:turn" || type == "oskiewar:input" ||
+            type == "oskiewar:viewers" || type == "oskiewar:error";
+          if (type != "oskiewar:net" && !render_flags && !relay_word) return;
           if (render_flags && size > 512) return;
+          if (relay_word) {
+            const auto whole = message->Stringify();
+            const int count = WideCharToMultiByte(CP_UTF8, 0, whole->Data(), whole->Length(),
+              nullptr, 0, nullptr, nullptr);
+            if (count < 2 || count > 7168) return;
+            std::string word(count, '\0');
+            WideCharToMultiByte(CP_UTF8, 0, whole->Data(), whole->Length(), word.data(), count,
+              nullptr, nullptr);
+            const auto state = weak.lock();
+            if (!state) return;
+            std::lock_guard<std::mutex> lock(state->mutex);
+            if (state->stopped || generation != state->generation) return;
+            if (state->net_inbox.size() >= 64) state->net_inbox.erase(state->net_inbox.begin());
+            state->net_inbox.push_back("{\"kind\":\"relay\",\"message\":" + word + "}");
+            return;
+          }
           auto content = message->GetNamedObject("content")->Stringify();
           const int count = WideCharToMultiByte(CP_UTF8, 0, content->Data(),
             content->Length(), nullptr, 0, nullptr, nullptr);
@@ -291,6 +322,12 @@ bool OskiewarLivePublisher::send_net(std::string_view match_id,
   }
   Flush(state_);
   return true;
+}
+
+void OskiewarLivePublisher::set_relay(std::string_view host) {
+  if (!HostNet::allowed_host(host)) return;
+  std::lock_guard<std::mutex> lock(g_relayMutex);
+  g_relayHost.assign(host.begin(), host.end());
 }
 
 std::vector<std::string> OskiewarLivePublisher::poll_net() {

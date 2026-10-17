@@ -34,6 +34,8 @@ const roots = [
   "xbox/native-bios", "xbox/runtime/include", "xbox/themes/photorealistic/native",
   "xbox/tools/oskiewar-native-source.mjs",
   "xbox/live/oskiewar.js", "xbox/live/oskiewar-fighter.mjs", "xbox/live/native-account.mjs",
+  // The room bridge the bundle carries (oskiewar-native-source.mjs).
+  "xbox/macos-native/native-shell.js", "xbox/live/round-room.mjs", "xbox/live/oskiewar-xbox-bridge.js",
   "xbox/live/sfx/dojo-punch.wav", "pop/nullabye/c/ac_hrtf.h",
   "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
   "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf",

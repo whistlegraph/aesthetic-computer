@@ -23,6 +23,9 @@ class OskiewarLivePublisher final {
   void publish(std::string_view match_id, std::string_view state_json);
   bool send_net(std::string_view match_id, std::string_view packet_json);
   std::vector<std::string> poll_net();
+  // The relay the room lives on (round-room.mjs chooseRelayHost), checked
+  // against HostNet's allowlist. Takes effect on the next connection.
+  static void set_relay(std::string_view host);
   void shutdown();
 
  private:

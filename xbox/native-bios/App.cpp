@@ -3,6 +3,7 @@
 #include "QuickJsEngine.hpp"
 #include "PhotoDiscService.hpp"
 #include "OskiewarLivePublisher.hpp"
+#include "HostNet.hpp"
 #include "OskiewarAccountService.hpp"
 #include "RemotePad.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
@@ -557,6 +558,23 @@ public:
       return m_oskiewarLive->send_net(room, packet);
     };
     m_api->net_poll = [this]() { return m_oskiewarLive->poll_net(); };
+    // The room bridge's transport (round-room.mjs over native-shell.js), so
+    // the console watches, queues and fights in the one room the web does.
+    m_hostNet = std::make_unique<HostNet>([](const std::string& line) { LogTelemetry(line); });
+    m_api->socket_open = [this](std::string_view url) { return m_hostNet->socket_open(url); };
+    m_api->socket_send = [this](int id, std::string_view text) { m_hostNet->socket_send(id, text); };
+    m_api->socket_close = [this](int id) { m_hostNet->socket_close(id); };
+    m_api->fetch_get = [this](int id, std::string_view url) { m_hostNet->fetch(id, url); };
+    m_api->udp_open = [this](std::string_view host, int port) { return m_hostNet->udp_open(host, port); };
+    m_api->udp_send = [this](int id, std::string_view text) { m_hostNet->udp_send(id, text); };
+    m_api->udp_close = [this](int id) { m_hostNet->udp_close(id); };
+    m_api->host_poll = [this]() {
+      std::vector<ac::xbox::Api::NetEvent> events;
+      for (auto& event : m_hostNet->poll())
+        events.push_back({ std::move(event.kind), event.id, event.status, std::move(event.text) });
+      return events;
+    };
+    m_api->set_relay = [](std::string_view host) { OskiewarLivePublisher::set_relay(host); };
     m_photoDisc = std::make_unique<PhotoDiscService>(*m_api,
       [this](std::shared_ptr<const PhotoDiscImage> image) {
         std::lock_guard<std::mutex> lock(m_imageMutex);
@@ -600,8 +618,14 @@ public:
 
   virtual void Load(String^) {}
   virtual void Uninitialize() {
-    if (m_api) { m_api->live_publish = {}; m_api->net_send = {}; m_api->net_poll = {}; }
+    if (m_api) {
+      m_api->live_publish = {}; m_api->net_send = {}; m_api->net_poll = {};
+      m_api->socket_open = {}; m_api->socket_send = {}; m_api->socket_close = {};
+      m_api->fetch_get = {}; m_api->udp_open = {}; m_api->udp_send = {};
+      m_api->udp_close = {}; m_api->host_poll = {}; m_api->set_relay = {};
+    }
     if (m_oskiewarLive) m_oskiewarLive->shutdown();
+    if (m_hostNet) m_hostNet->shutdown();
     DestroyClientErrorUploads(); DestroyReplayUploads(); DestroyGameSignals();
     DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();
   }
@@ -3466,6 +3490,7 @@ private:
   std::unique_ptr<PieceSupervisor> m_supervisor;
   std::unique_ptr<PhotoDiscService> m_photoDisc;
   std::unique_ptr<OskiewarLivePublisher> m_oskiewarLive;
+  std::unique_ptr<HostNet> m_hostNet;
   std::shared_ptr<OskiewarAccountService> m_oskiewarAccount;
   RemotePad m_remotePad;
 };
