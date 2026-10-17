@@ -1670,7 +1670,7 @@ final class MenuBandSynth {
     private func scheduleIdleSuspendIfNeeded() {
         guard started, !waveformCaptureEnabled, waveformTapPinReasons.isEmpty,
               !keepEngineWarm, activeNotes.isEmpty,
-              !sampleRecordingActive, !inputMonitor.isAttached, ambientAir.level == 0 else { return }
+              !sampleRecordingActive, !inputMonitor.isAttached, !ambientAir.isActive else { return }
         idleSuspendWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.suspendAudioEngineForHiddenIdleIfNeeded()
@@ -1688,7 +1688,7 @@ final class MenuBandSynth {
         guard started, engine.isRunning, !waveformCaptureEnabled,
               waveformTapPinReasons.isEmpty, activeNotes.isEmpty,
               !sampleRecordingActive, !keepEngineWarm, !inputMonitor.isAttached,
-              ambientAir.level == 0 else { return }
+              !ambientAir.isActive else { return }
         interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
         engine.pause()
         idleSuspended = true

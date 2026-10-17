@@ -136,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         didSet {
             guard oldValue != keyboardPerformanceFocusActive else { return }
             refreshEngagement(reason: keyboardPerformanceFocusActive ? "focus gained" : "focus lost")
+            refreshAirFocus()
             // Leaving focus (Esc, the Command double-tap) ends a rolling take
             // and drops it on the Desktop — focus IS the recording session.
             if !keyboardPerformanceFocusActive, menuBand.tape.state == .recording {
@@ -162,6 +163,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("MenuBand: engagement → \(now ? "on" : "off") (\(reason))")
         menuBand.setMonitorFocused(now)
         menuBand.logAudioBindings(context: "engagement \(now ? "on" : "off")")
+    }
+
+    /// Air plays while the player is at Menu Band — the app in front (popover
+    /// open) or holding keyboard performance focus — and fades out when they
+    /// leave. The slider keeps its level for their return. Separate from the
+    /// mic's engagement, which an app switch must never mute.
+    private func refreshAirFocus() {
+        menuBand.ambientAir.setFocused(NSApp.isActive || keyboardPerformanceFocusActive)
     }
 
     /// Periodic check that the status item is actually visible in the
@@ -1429,9 +1438,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerInterfaceResetHotkey()
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.refreshEngagement(reason: "app active") }
-        // (No resign observer on purpose: clicking into Terminal or a DAW must
-        // not mute the monitor — only Esc / losing performance focus does.)
+        ) { [weak self] _ in
+            self?.refreshEngagement(reason: "app active")
+            self?.refreshAirFocus()
+        }
+        // (No resign observer for the monitor on purpose: clicking into
+        // Terminal or a DAW must not mute the mic — only Esc / losing
+        // performance focus does.) Air is the exception: it is a sound for
+        // the player at Menu Band, so leaving the app fades it out.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.refreshAirFocus() }
+        refreshAirFocus()
 
         // Start the Stickies bridge — watches the focused sticky's text
         // and plays a note for each character typed after an `mbN` token,

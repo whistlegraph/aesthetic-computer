@@ -78,13 +78,18 @@ restart events into a local report directory. An optional argument selects
 
 The direct-download popover's **Air** slider adds White, Brown, or Cabin
 background noise: zero is silent, raising it fades the noise in. It shares
-the instrument's output engine and keeps playing when the popover closes.
+the instrument's output engine. Air plays while Menu Band is in front (the
+popover open, or keyboard performance focus held) and fades out over 250 ms
+when the player leaves for another app; the slider keeps its level, and
+returning fades Air back in. The microphone monitor is not affected by this
+app-switch gate.
 It does not capture or change other apps' audio, open another output engine,
 or require system-audio permission. Air bypasses gesture FX and rewind
 capture; its level is independent of the instrument mix. It is included in
 the full tape mix, but not the dry instrument or microphone stems.
 Dragging an active Air slider only updates render parameters. Crossing zero
-wakes an idle engine or permits idle suspension; adding Air to a running mix
+or leaving/returning to Menu Band wakes an idle engine or permits idle
+suspension; adding Air to a running mix
 does not invoke recovery. Piano hover only redraws the keyboard and never
 queries CoreAudio. The independent timers own diagnostics and fault checks.
 

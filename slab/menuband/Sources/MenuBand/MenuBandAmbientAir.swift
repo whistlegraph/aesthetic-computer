@@ -8,6 +8,9 @@ final class MenuBandAmbientAir {
     private var requestedLevel: Float = 0
     private var requestedColor: MenuBandAirColor
     private var requestedCutoff: Double
+    /// Air is a listening sound for the player at Menu Band. Leaving the app
+    /// fades it out; coming back fades it in at the slider's level.
+    private var focused = true
     private let defaults: UserDefaults
     private var source: AVAudioSourceNode?
     private var noise = MenuBandAirNoise()
@@ -29,6 +32,9 @@ final class MenuBandAmbientAir {
     }
 
     var level: Float { lock.lock(); defer { lock.unlock() }; return requestedLevel }
+    /// Whether Air is audible (or fading): slider above zero and Menu Band in
+    /// front. The engine's idle logic keys off this, not the raw slider.
+    var isActive: Bool { lock.lock(); defer { lock.unlock() }; return requestedLevel > 0 && focused }
     var color: MenuBandAirColor { lock.lock(); defer { lock.unlock() }; return requestedColor }
     var cutoff: Double { lock.lock(); defer { lock.unlock() }; return requestedCutoff }
 
@@ -36,11 +42,25 @@ final class MenuBandAmbientAir {
         guard value.isFinite else { return }
         let value = max(0, min(1, value))
         lock.lock()
-        let wasActive = requestedLevel > 0
+        let wasActive = requestedLevel > 0 && focused
         requestedLevel = value
+        let nowActive = requestedLevel > 0 && focused
         lock.unlock()
-        if wasActive != (value > 0) { onActiveChange?(value > 0) }
+        if wasActive != nowActive { onActiveChange?(nowActive) }
         onChange?()
+    }
+
+    /// Menu Band in front (popover open, performance focus, or app active):
+    /// Air renders at the slider level. Away: Air ramps to silence over the
+    /// same 250 ms as a slider move, keeping the slider where it was.
+    func setFocused(_ value: Bool) {
+        lock.lock()
+        guard focused != value else { lock.unlock(); return }
+        let wasActive = requestedLevel > 0 && focused
+        focused = value
+        let nowActive = requestedLevel > 0 && focused
+        lock.unlock()
+        if wasActive != nowActive { onActiveChange?(nowActive) }
     }
 
     func setColor(_ color: MenuBandAirColor) {
@@ -81,7 +101,8 @@ final class MenuBandAmbientAir {
         // Never wait for the UI on the audio thread; a concurrent slider move
         // can be picked up on the next buffer.
         if lock.try() {
-            targetLevel = requestedLevel; renderColor = requestedColor; renderCutoff = requestedCutoff
+            targetLevel = focused ? requestedLevel : 0
+            renderColor = requestedColor; renderCutoff = requestedCutoff
             lock.unlock()
         }
         let buffers = UnsafeMutableAudioBufferListPointer(output)
