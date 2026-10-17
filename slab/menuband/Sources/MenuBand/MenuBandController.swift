@@ -101,6 +101,41 @@ final class MenuBandController {
     /// USB streams (see `MenuBandAudioDevices.resetInterface`).
     private var interfaceResetObserver: NSObjectProtocol?
     private var pendingMonitorBufferChange: DispatchWorkItem?
+    private var reappearancePolicy = InterfaceReappearancePolicy()
+    private var pendingReappearanceReset: DispatchWorkItem?
+
+    /// The interface came back after a loss (USB drop or replug): rebuild its
+    /// streams once, three seconds after it is bound again, so a silently dead
+    /// output comes back without the player having to reach for the cable.
+    /// The device read runs off the main thread; only the decision lands here.
+    private func scheduleReappearanceResetIfNeeded() {
+        pendingReappearanceReset?.cancel()
+        pendingReappearanceReset = nil
+        audioWorkQueue.async { [weak self] in
+            guard let self else { return }
+            let output = MenuBandAudioDevices.preferredOutputID()
+            let present = output.flatMap { id in
+                MenuBandAudioDevices.all().first { $0.id == id }
+            }.map { $0.name.localizedCaseInsensitiveContains("scarlett")
+                || $0.name.localizedCaseInsensitiveContains("focusrite") } ?? false
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard self.reappearancePolicy.observe(interfacePresent: present,
+                                                      at: ProcessInfo.processInfo.systemUptime),
+                      let id = output else { return }
+                let reset = DispatchWorkItem { [weak self] in
+                    guard let self, !MenuBandAudioDevices.interfaceResetInProgress,
+                          MenuBandAudioDevices.preferredOutputID() == id else { return }
+                    NSLog("MenuBand audio: interface \(id) reappeared — one stream rebuild")
+                    self.synth.logAudioBindings(context: "reappearance interface reset")
+                    MenuBandAudioDevices.resetInterface(id)
+                }
+                self.pendingReappearanceReset = reset
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: reset)
+            }
+        }
+    }
+
     func resetAudioInterface() {
         dispatchPrecondition(condition: .onQueue(.main))
         guard let id = MenuBandAudioDevices.preferredOutputID() else { return }
@@ -2666,6 +2701,7 @@ final class MenuBandController {
             self?.synth.logAudioBindings(context: "route changed")
             self?.audioWorkQueue.async { self?.synth.refreshMonitorDevice() }
             self?.autoMonitorForInterface()
+            self?.scheduleReappearanceResetIfNeeded()
         }
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
@@ -2738,6 +2774,8 @@ final class MenuBandController {
     func shutdown() {
         pendingMonitorBufferChange?.cancel()
         pendingMonitorBufferChange = nil
+        pendingReappearanceReset?.cancel()
+        pendingReappearanceReset = nil
         synth.onInterfaceFault = nil
         if let interfaceResetObserver {
             NotificationCenter.default.removeObserver(interfaceResetObserver)

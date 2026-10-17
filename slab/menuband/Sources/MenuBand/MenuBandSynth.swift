@@ -1845,6 +1845,10 @@ final class MenuBandSynth {
     /// returns. Both need the normal device-switch recovery.
     private var bindingAuditTimer: DispatchSourceTimer?
     private var interfaceFaultTimer: DispatchSourceTimer?
+    /// Device polling (list, clock, rate) blocks for seconds while a USB
+    /// interface is dying — the HAL waits on the dead device. Keep every
+    /// such read off the main thread so the keyboard never freezes with it.
+    private let hardwareQueue = DispatchQueue(label: "menuband.hardware-watch", qos: .utility)
     private var interfaceFaultRecovery = InterfaceFaultRecovery()
     var onInterfaceFault: ((AudioDeviceID, String) -> Void)?
     private var bindingAuditStrikes = 0
@@ -1977,19 +1981,25 @@ final class MenuBandSynth {
 
     func startBindingAudit() {
         interfaceFaultTimer?.cancel()
-        let clockTimer = DispatchSource.makeTimerSource(queue: .main)
+        let clockTimer = DispatchSource.makeTimerSource(queue: hardwareQueue)
         clockTimer.schedule(deadline: .now() + 1, repeating: 1)
         clockTimer.setEventHandler { [weak self] in self?.checkInterfaceFault() }
         interfaceFaultTimer = clockTimer
         clockTimer.resume()
         bindingAuditTimer?.cancel()
-        let t = DispatchSource.makeTimerSource(queue: .main)
+        let t = DispatchSource.makeTimerSource(queue: hardwareQueue)
         t.schedule(deadline: .now() + 5, repeating: 5)
-        t.setEventHandler { [weak self] in self?.auditBindings() }
+        t.setEventHandler { [weak self] in self?.auditBindingsNow() }
         t.resume()
         bindingAuditTimer = t
     }
+    /// Route-change entry point: hops to the hardware queue so a device-list
+    /// read on a vanishing interface cannot stall the caller's thread.
     func auditBindings() {
+        hardwareQueue.async { [weak self] in self?.auditBindingsNow() }
+    }
+
+    private func auditBindingsNow() {
         engineLock.lock(); defer { engineLock.unlock() }
         guard !interfaceResetting else { return }
         recoverPlaybackIfNeeded()
@@ -2028,6 +2038,10 @@ final class MenuBandSynth {
     /// name, plus the monitor's input device — the first thing to read when
     /// the interface flaps and the app goes quiet.
     func logAudioBindings(context: String) {
+        hardwareQueue.async { [weak self] in self?.logAudioBindingsNow(context: context) }
+    }
+
+    private func logAudioBindingsNow(context: String) {
         engineLock.lock(); defer { engineLock.unlock() }
         var outID = AudioDeviceID(0)
         var renderError: OSStatus = noErr

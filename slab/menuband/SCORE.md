@@ -48,7 +48,12 @@ hardware clock unexpectedly goes backward or stops advancing for two seconds.
 This check works without diagnostic logging. Startup, route/rate changes,
 intentional pauses, latency changes and reset settling establish fresh clock
 baselines. Automatic resets have a 15-second cooldown and a limit of two per
-minute; each needs fresh fault evidence. Silence or pointer entry never triggers
+minute; each needs fresh fault evidence. A Focusrite that drops off the bus and
+returns (a USB fault or a replug) gets one stream rebuild three seconds after
+it is bound as the output again, capped at two per minute; launch with the
+interface already present does not reset. The clock watchdog, the binding
+audit and the bindings log read device properties off the main thread, so a
+dying interface cannot freeze the keyboard while the HAL waits on it. Silence or pointer entry never triggers
 a reset. A progressing clock cannot prove that the analog output is audible,
 so the manual command remains available. All clients of the shared device hear
 a gap during a hardware reset. Playback/input watchdogs yield until Menu Band
