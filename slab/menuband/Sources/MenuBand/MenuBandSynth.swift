@@ -530,28 +530,34 @@ final class MenuBandSynth {
     }
 
     func setInputMonitoringEnabled(_ enabled: Bool) {
+        engineLock.lock(); defer { engineLock.unlock() }
         inputMonitoringWanted = enabled
         let needsAttach = enabled && !inputMonitor.isAttached && duplexMonitorEligible()
-        // Never detach on a plain toggle: closing and reopening the mic
-        // unit restarts the Scarlett's USB streams and its OUTPUT dies until
-        // a rebuild (every silence today followed a stream reopen). Off is a
-        // mute; the unit only closes when the device itself goes away.
-        let needsDetach = false
+        // Explicit OFF releases capture. Focus changes use the separate mute
+        // path and must never close/reopen the device.
+        let needsDetach = !enabled && inputMonitor.isAttached
         NSLog("MenuBand monitor: set \(enabled) — attached=\(inputMonitor.isAttached) eligible=\(duplexMonitorEligible()) started=\(started) running=\(engine.isRunning) → attach=\(needsAttach) detach=\(needsDetach)")
         if needsAttach || needsDetach {
-            engineLock.lock()
             if started {
-                // The monitor is a source node + its own AUHAL now, so it
-                // joins and leaves a RUNNING engine. No stop → start here:
-                // an engine bounce resets the GM synth to its sine state
-                // (every instrument then plays a sine until a rebuild).
+                interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
+                let wasRunning = engine.isRunning
+                engine.stop()
                 syncInputMonitorGraph()
                 applyInputChannelMap()
                 lowerOutputBufferSizeIfNeeded()
+                engine.prepare()
+                outputGuard.health.begin()
+                if wasRunning {
+                    do {
+                        try engine.start()
+                        reapplyCurrentPrograms()
+                    } catch { NSLog("MenuBand: monitor toggle restart failed: \(error)") }
+                    midiSynthBankDirty = true
+                    scheduleMIDISynthRebuild()
+                }
             }
             // Pre-start the wish is applied by bootstrap's own
             // syncInputMonitorGraph — nothing to do here.
-            engineLock.unlock()
         }
         if enabled && !inputMonitor.isAttached {
             NSLog("MenuBand: monitoring on but no input device could be opened")
@@ -600,9 +606,8 @@ final class MenuBandSynth {
     /// explicit bounce) and hold `engineLock` where one is live.
     private func syncInputMonitorGraph() {
         NSLog("MenuBand monitor: sync — wanted=\(inputMonitoringWanted) eligible=\(duplexMonitorEligible()) attached=\(inputMonitor.isAttached) running=\(engine.isRunning)")
-        // A disabled monitor must not open the microphone at launch. Once
-        // explicitly opened, keep the connection on mute: reopening a live
-        // Scarlett stream can interrupt its output (see the toggle above).
+        // Explicit monitoring OFF releases capture, including after a route
+        // change. Performance focus changes only its gain, not this wish.
         if Self.shouldKeepMonitorOpen(wanted: inputMonitoringWanted,
                                       attached: inputMonitor.isAttached,
                                       eligible: duplexMonitorEligible()) {
@@ -630,7 +635,7 @@ final class MenuBandSynth {
     }
 
     static func shouldKeepMonitorOpen(wanted: Bool, attached: Bool, eligible: Bool) -> Bool {
-        eligible && (wanted || attached)
+        eligible && wanted
     }
 
     func ingestMonitoredInput(_ buffer: AVAudioPCMBuffer) {

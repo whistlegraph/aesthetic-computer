@@ -52,6 +52,7 @@ final class MenuBandController {
     private let tapeWaveformPinReason = "tape"
     private let inputMonitorPinReason = "input-monitor"
     private static let inputMonitoringKey = "MBInputMonitoring"
+    private static let inputMonitoringChoiceKey = "MBInputMonitoringManualChoice"
     /// CoreAudio work that can stall (engine bounce, opening the mic unit,
     /// buffer-size changes) runs here, never on the main thread, so the
     /// popover and menubar keep painting while the device settles.
@@ -60,23 +61,28 @@ final class MenuBandController {
     var inputMonitoringEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: Self.inputMonitoringKey) }
         set {
-            NSLog("MenuBand monitor: request \(newValue ? "ON" : "OFF") (was \(UserDefaults.standard.bool(forKey: Self.inputMonitoringKey) ? "on" : "off")) — \(Thread.callStackSymbols.dropFirst().prefix(3).map { $0.split(separator: " ").dropFirst(3).prefix(2).joined(separator: " ") }.joined(separator: " < "))")
-            UserDefaults.standard.set(newValue, forKey: Self.inputMonitoringKey)
-            // Flip the UI now; the audio graph follows on the work queue.
-            NotificationCenter.default.post(
-                name: .menuBandInputMonitoringChanged, object: self)
-            audioWorkQueue.async { [weak self] in
-                guard let self else { return }
-                self.synth.setInputMonitoringEnabled(newValue)
-                if newValue {
-                    _ = self.synth.pinHotMic(reason: self.inputMonitorPinReason)
-                } else {
-                    self.synth.unpinHotMic(reason: self.inputMonitorPinReason)
-                }
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(
-                        name: .menuBandInputMonitoringChanged, object: self)
-                }
+            UserDefaults.standard.set(newValue, forKey: Self.inputMonitoringChoiceKey)
+            applyInputMonitoring(newValue)
+        }
+    }
+
+    private func applyInputMonitoring(_ newValue: Bool) {
+        NSLog("MenuBand monitor: request \(newValue ? "ON" : "OFF") (was \(UserDefaults.standard.bool(forKey: Self.inputMonitoringKey) ? "on" : "off")) — \(Thread.callStackSymbols.dropFirst().prefix(3).map { $0.split(separator: " ").dropFirst(3).prefix(2).joined(separator: " ") }.joined(separator: " < "))")
+        UserDefaults.standard.set(newValue, forKey: Self.inputMonitoringKey)
+        // Flip the UI now; the audio graph follows on the work queue.
+        NotificationCenter.default.post(
+            name: .menuBandInputMonitoringChanged, object: self)
+        audioWorkQueue.async { [weak self] in
+            guard let self else { return }
+            self.synth.setInputMonitoringEnabled(newValue)
+            if newValue {
+                _ = self.synth.pinHotMic(reason: self.inputMonitorPinReason)
+            } else {
+                self.synth.unpinHotMic(reason: self.inputMonitorPinReason)
+            }
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: .menuBandInputMonitoringChanged, object: self)
             }
         }
     }
@@ -1607,10 +1613,15 @@ final class MenuBandController {
     /// Auto-monitor: on when a Focusrite input is attached, off when it goes.
     private func autoMonitorForInterface() {
         let present = MenuBandAudioDevices.focusriteInputPresent()
-        NSLog("MenuBand monitor: auto check — focusrite present=\(present) monitoring=\(inputMonitoringEnabled) devices=\(MenuBandAudioDevices.all().map { "\($0.id):\($0.name)" }.joined(separator: ", "))")
-        guard present != inputMonitoringEnabled else { return }
-        NSLog("MenuBand: auto monitor → \(present ? "on (Focusrite present)" : "off (Focusrite gone)")")
-        inputMonitoringEnabled = present
+        let choice = UserDefaults.standard.object(forKey: Self.inputMonitoringChoiceKey) as? Bool
+        let desired = Self.monitoringSelection(manualChoice: choice, interfacePresent: present)
+        guard desired != inputMonitoringEnabled else { return }
+        NSLog("MenuBand: monitor selection → \(desired) (manual=\(choice.map(String.init) ?? "automatic"))")
+        applyInputMonitoring(desired)
+    }
+
+    static func monitoringSelection(manualChoice: Bool?, interfacePresent: Bool) -> Bool {
+        manualChoice ?? interfacePresent
     }
 
     /// The fader positions a take starts from — written into the stems'
