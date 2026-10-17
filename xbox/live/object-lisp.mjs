@@ -1251,6 +1251,31 @@ function figDepth(V, vz, nudge, pin, flatCentre) {
   z = z < -1.499 ? -1.499 : z > 1.4 ? 1.4 : z;
   return pin === pin ? pin + (z - flatCentre) * .1 : z;
 }
+// The head's frame from where it looks (f, a unit vector) and the neck: x
+// right, y up, z = f. Up is the neck's own lean — the neck joint out to the
+// head's centre — squared to the look, so a head on a tilted spine (leaning,
+// falling, crawling, flat on its back) wears its face, hair and all, tilted
+// with it rather than screen-upright. A touch of the world's up rides along
+// so a neck pointing straight down the look still has a roll; with no neck
+// (a lone head, a piece of a figure) up is the world's. frame-vm.mjs frames
+// the FIGURE op's head the same way. Writes H[0..8]. 26.10.16
+export function figureHeadBasis(J, fx, fy, fz, H) {
+  let nx = J[0] - J[6], ny = J[1] - J[7], nz = J[2] - J[8];
+  const nl = Math.hypot(nx, ny, nz);
+  if (nl > 1e-6) { nx = nx / nl; ny = ny / nl - .08; nz /= nl; }
+  else { nx = 0; ny = -1; nz = 0; }
+  // right = f × up
+  let rx = fy * nz - fz * ny, ry = fz * nx - fx * nz, rz = fx * ny - fy * nx;
+  let rl = Math.hypot(rx, ry, rz);
+  if (!(rl > 1e-6)) { rx = fz; ry = 0; rz = -fx; rl = Math.hypot(rx, rz); }
+  if (!(rl > 1e-6)) { rx = 1; ry = 0; rz = 0; rl = 1; }
+  rx /= rl; ry /= rl; rz /= rl;
+  H[0] = rx; H[1] = ry; H[2] = rz;
+  // up = right × f
+  H[3] = ry * fz - rz * fy; H[4] = rz * fx - rx * fz; H[5] = rx * fy - ry * fx;
+  H[6] = fx; H[7] = fy; H[8] = fz;
+  return H;
+}
 export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   const V = view, J = joints;
   let flatCentre = 0;
@@ -1271,12 +1296,9 @@ export function drawFigureShapes(sketch, palette, joints, pin, view, out) {
   if (!(fx === fx && fy === fy && fz === fz)) { fx = 0; fy = 0; fz = -1; }
   const r = Math.hypot(fx, fy, fz) || 1;
   fx /= r; fy /= r; fz /= r;
-  let rx = fz, rz = -fx;
-  const rl = Math.hypot(rx, rz);
-  if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
   const H = figHead;
-  H[0] = rx; H[1] = 0; H[2] = rz; H[3] = -rz * fy; H[4] = rz * fx - rx * fz; H[5] = rx * fy;
-  H[6] = fx; H[7] = fy; H[8] = fz; H[9] = r;
+  figureHeadBasis(J, fx, fy, fz, H);
+  H[9] = r;
   // The chest: up the spine, forward as the head faces, flattened square to it.
   let ux = J[6] - J[9], uy = J[7] - J[10], uz = J[8] - J[11];
   if (!(ux === ux && uy === uy && uz === uz)) { ux = 0; uy = -1; uz = 0; }

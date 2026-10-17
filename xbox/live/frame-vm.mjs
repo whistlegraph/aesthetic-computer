@@ -578,9 +578,17 @@ export function createFrameVm(host) {
     if (!(fx === fx && fy === fy && fz === fz)) { fx = 0; fy = 0; fz = -1; }
     const r = Math.hypot(fx, fy, fz) || 1;
     fx /= r; fy /= r; fz /= r;
-    let rx = fz, ry = 0, rz = -fx;   // forward × world up (0, -1, 0)
-    const rl = Math.hypot(rx, rz);
-    if (rl < 1e-6) { rx = 1; rz = 0; } else { rx /= rl; rz /= rl; }
+    // Up is the neck's own lean (neck joint out to the head's centre) with a
+    // touch of the world's, so a head on a tilted spine wears its face tilted
+    // with it; no neck, the world's (figureHeadBasis in object-lisp.mjs).
+    let nx = J[0] - J[6], ny = J[1] - J[7], nz = J[2] - J[8];
+    const nl = Math.hypot(nx, ny, nz);
+    if (nl > 1e-6) { nx = nx / nl; ny = ny / nl - .08; nz /= nl; } else { nx = 0; ny = -1; nz = 0; }
+    let rx = fy * nz - fz * ny, ry = fz * nx - fx * nz, rz = fx * ny - fy * nx;   // forward × up
+    let rl = Math.hypot(rx, ry, rz);
+    if (!(rl > 1e-6)) { rx = fz; ry = 0; rz = -fx; rl = Math.hypot(rx, rz); }
+    if (!(rl > 1e-6)) { rx = 1; ry = 0; rz = 0; rl = 1; }
+    rx /= rl; ry /= rl; rz /= rl;
     const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
     headFrame.set([rx, ry, rz, ux, uy, uz, fx, fy, fz, r]);
     // The chest: up the spine, forward as the head faces, flattened square to it.
