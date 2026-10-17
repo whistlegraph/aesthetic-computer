@@ -33,10 +33,12 @@ audit as a fallback. A pinned interface is resolved by UID after reconnect;
 automatic output follows the current system default even if the engine's
 temporary speaker fallback is still connected.
 Focusing Menu Band does not reset the interface or change its sample rate.
-The headset monitoring toggle remembers explicit ON/OFF choices across focus,
-reconnects, and relaunches. OFF releases the capture stream while playback
-continues. Performance focus only mutes an enabled monitor; it does not reopen
-capture. Automatic Focusrite monitoring applies until the first explicit choice.
+Menu Band is an output instrument first. The microphone is a toggle: the
+headset button turns monitoring ON or OFF, the choice is remembered across
+focus, reconnects, and relaunches, and nothing else opens the mic — plugging in
+a Focusrite does not. OFF (the default) never opens a capture stream; playback
+continues on its own. Performance focus only mutes an enabled monitor; it does
+not reopen capture.
 Visualizer and recording taps stay attached; UI visibility only gates their
 delivery. **Reset Interface** stops Menu Band's output and capture before flipping the
 hardware rate, restores that rate, then reopens input and prepares playback

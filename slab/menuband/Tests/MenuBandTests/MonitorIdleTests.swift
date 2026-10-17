@@ -26,10 +26,10 @@ final class MonitorIdleTests: XCTestCase {
         }
     }
 
-    func testAutomaticMonitoringAndExplicitOnRemainAvailable() {
+    func testMicIsOffUntilExplicitlyToggledOnEvenWhenAnInterfaceArrives() {
         for present in [false, true] {
-            XCTAssertEqual(MenuBandController.monitoringSelection(
-                manualChoice: nil, interfacePresent: present), present)
+            XCTAssertFalse(MenuBandController.monitoringSelection(
+                manualChoice: nil, interfacePresent: present))
             XCTAssertTrue(MenuBandController.monitoringSelection(
                 manualChoice: true, interfacePresent: present))
         }

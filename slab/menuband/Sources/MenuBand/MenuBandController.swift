@@ -1610,18 +1610,25 @@ final class MenuBandController {
         }
     }
 
-    /// Auto-monitor: on when a Focusrite input is attached, off when it goes.
+    /// The mic is a toggle the player flips, never something an interface's
+    /// arrival switches on. Menu Band is an output instrument first; opening
+    /// a USB input stream it was not asked for only adds another thing that
+    /// can fault on a marginal link. Device/activation changes just reconcile
+    /// the stored choice (an ON choice reopens when the input returns).
     private func autoMonitorForInterface() {
         let present = MenuBandAudioDevices.focusriteInputPresent()
         let choice = UserDefaults.standard.object(forKey: Self.inputMonitoringChoiceKey) as? Bool
         let desired = Self.monitoringSelection(manualChoice: choice, interfacePresent: present)
         guard desired != inputMonitoringEnabled else { return }
-        NSLog("MenuBand: monitor selection → \(desired) (manual=\(choice.map(String.init) ?? "automatic"))")
+        NSLog("MenuBand: monitor selection → \(desired) (manual=\(choice.map(String.init) ?? "none"))")
         applyInputMonitoring(desired)
     }
 
+    /// Only an explicit ON opens the mic; no choice means off, whatever is
+    /// plugged in. `interfacePresent` is kept for callers and tests that
+    /// describe the device state alongside the choice.
     static func monitoringSelection(manualChoice: Bool?, interfacePresent: Bool) -> Bool {
-        manualChoice ?? interfacePresent
+        manualChoice ?? false
     }
 
     /// The fader positions a take starts from — written into the stems'
