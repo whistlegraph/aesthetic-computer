@@ -18,7 +18,8 @@ final class MenuBandAmbientAir {
     // A fixed source format lets AVAudioEngine resample across device changes.
     private let sampleRate: Double = 44_100
     var onChange: (() -> Void)?
-    var onLevelChange: ((Float) -> Void)?
+    /// Engine lifetime changes only at zero, never on each slider tick.
+    var onActiveChange: ((Bool) -> Void)?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -34,8 +35,11 @@ final class MenuBandAmbientAir {
     func setLevel(_ value: Float) {
         guard value.isFinite else { return }
         let value = max(0, min(1, value))
-        lock.lock(); let changed = requestedLevel != value; requestedLevel = value; lock.unlock()
-        if changed { onLevelChange?(value) }
+        lock.lock()
+        let wasActive = requestedLevel > 0
+        requestedLevel = value
+        lock.unlock()
+        if wasActive != (value > 0) { onActiveChange?(value > 0) }
         onChange?()
     }
 

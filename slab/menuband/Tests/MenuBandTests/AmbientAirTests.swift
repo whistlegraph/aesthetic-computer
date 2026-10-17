@@ -3,6 +3,27 @@ import XCTest
 @testable import MenuBand
 
 final class AmbientAirTests: XCTestCase {
+    func testDraggingActiveAirDoesNotRepeatedlyRequestEngineWork() {
+        let suite = "MenuBandAmbientAirTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let air = MenuBandAmbientAir(defaults: defaults)
+        var activeChanges: [Bool] = []
+        air.onActiveChange = { activeChanges.append($0) }
+        air.setLevel(0)
+        for step in 1...100 {
+            air.setLevel(Float(step) / 100)
+            air.setCutoff(Double(step) * 60)
+            air.setColor(step.isMultiple(of: 2) ? .brown : .cabin)
+        }
+        air.setLevel(.nan)
+        XCTAssertEqual(activeChanges, [true])
+        air.setLevel(0)
+        air.setLevel(-1)
+        air.setLevel(0.5)
+        XCTAssertEqual(activeChanges, [true, false, true])
+    }
+
     /// Render the real source and mixer without opening audio hardware.
     private func withEngine(rate: Double = 48_000, tone: Float = 0,
                             _ check: (MenuBandAmbientAir, (Int) throws -> [Float]) throws -> Void) throws {

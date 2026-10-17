@@ -79,6 +79,10 @@ It does not capture or change other apps' audio, open another output engine,
 or require system-audio permission. Air bypasses gesture FX and rewind
 capture; its level is independent of the instrument mix. It is included in
 the full tape mix, but not the dry instrument or microphone stems.
+Dragging an active Air slider only updates render parameters. Crossing zero
+wakes an idle engine or permits idle suspension; adding Air to a running mix
+does not invoke recovery. Piano hover only redraws the keyboard and never
+queries CoreAudio. The independent timers own diagnostics and fault checks.
 
 Cabin is a gently moving low airplane-like rumble. Filter sweeps a smooth
 two-stage low-pass from 60–6000 Hz, defaulting to 160 Hz. Color and filter

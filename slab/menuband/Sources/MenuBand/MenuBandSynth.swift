@@ -818,10 +818,19 @@ final class MenuBandSynth {
         // Listening Air shares the instrument's output without the gesture FX,
         // rewind capture, or a second device/tap that could mute playback.
         ambientAir.attach(to: engine, output: engine.mainMixerNode)
-        ambientAir.onLevelChange = { [weak self] level in
+        ambientAir.onActiveChange = { [weak self] active in
             guard let self else { return }
-            if level > 0 { _ = self.resumeAudioEngineIfNeeded() }
-            else { self.scheduleIdleSuspendIfNeeded() }
+            self.engineLock.lock()
+            defer { self.engineLock.unlock() }
+            if active {
+                self.idleSuspendWorkItem?.cancel()
+                self.idleSuspendWorkItem = nil
+                // Air joining an already-running mix must not enter recovery
+                // or touch a device. The independent watchdog owns faults.
+                if !self.engine.isRunning { _ = self.resumeAudioEngineIfNeeded() }
+            } else {
+                self.scheduleIdleSuspendIfNeeded()
+            }
         }
         // Percussion: same pre-limiter sum bus. Renders silence until the
         // right-hand split fires a drum, so it's free while inactive.
@@ -3038,7 +3047,7 @@ final class MenuBandSynth {
         bindingAuditTimer = nil
         interfaceFaultTimer?.cancel()
         interfaceFaultTimer = nil
-        ambientAir.onLevelChange = nil
+        ambientAir.onActiveChange = nil
         ambientAir.setLevel(0)
         // The microphone uses SampleVoice's separate input-only engine, so it
         // must be torn down even if the synth output engine never started or

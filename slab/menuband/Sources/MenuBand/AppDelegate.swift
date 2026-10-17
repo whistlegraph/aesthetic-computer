@@ -4029,17 +4029,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Hover
 
     private var lastHoverLogTime: TimeInterval = 0
-    private var lastHoverAudioLogTime: TimeInterval = 0
     private func handleHover(event: NSEvent) {
         let now = CACurrentMediaTime()
         if now - lastHoverLogTime > 1.0 {
             lastHoverLogTime = now
             debugLog("handleHover (1Hz throttle)")
         }
-        if now - lastHoverAudioLogTime > 5 {
-            lastHoverAudioLogTime = now
-            menuBand.logAudioBindings(context: "pointer entered")
-        }
+        // Pointer motion is visual only. Device probes and engine locking
+        // belong to the independent diagnostics timer, not hover handling.
         handleHoverInner(event: event)
     }
 
