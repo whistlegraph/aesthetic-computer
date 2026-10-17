@@ -4,6 +4,16 @@ import XCTest
 @testable import MenuBand
 
 final class PianoSourceTests: XCTestCase {
+    func testBacktickOneSelectsPiano() {
+        withFreshController { controller in
+            key(controller, 50, []) // Backtick primes the custom instrument.
+            key(controller, 18, []) // 1 selects the piano.
+            drainMainQueue()
+            XCTAssertEqual(controller.instrumentBackend, .acPiano)
+            XCTAssertEqual(controller.pianoSource, .salamander)
+        }
+    }
+
     func testEverySourceHasItsCompletePitchMap() {
         for source in PianoSource.allCases {
             XCTAssertTrue(source.isAvailable, source.label)
