@@ -150,11 +150,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// One path for "the player is here", whether they arrived by keyboard
     /// (performance focus) or by mouse (the app came to the front): the
-    /// monitor is audible while engaged, and the interface's streams are
-    /// rebuilt on the rising edge (debounced) because the Scarlett's output
-    /// dies silently under macOS 26 and this is the moment it matters.
+    /// monitor is audible while engaged. Focus must never reset the shared
+    /// USB interface or change its sample rate.
     private var engaged = false
-    private var lastEngagementReset: TimeInterval = 0
     private func refreshEngagement(reason: String) {
         // Engage on keyboard focus OR the app coming to the front; disengage
         // only on an explicit focus loss (Esc), never on a mere app switch.
@@ -163,14 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         engaged = now
         NSLog("MenuBand: engagement → \(now ? "on" : "off") (\(reason))")
         menuBand.setMonitorFocused(now)
-        if now, MenuBandAudioDevices.focusriteInputPresent() {
-            let t = ProcessInfo.processInfo.systemUptime
-            if t - lastEngagementReset > 600 {   // refocus is instant; a rebuild here is a rare backstop
-                lastEngagementReset = t
-                NSLog("MenuBand: engaged — interface reset")
-                menuBand.resetAudioInterface()
-            }
-        }
+        menuBand.logAudioBindings(context: "engagement \(now ? "on" : "off")")
     }
 
     /// Periodic check that the status item is actually visible in the
@@ -3522,9 +3513,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        #if !MAC_APP_STORE
-        MenuBandSystemVolume.shared.stop()
-        #endif
         #if MAC_APP_STORE
         trackpadPlugin.setCaptureEnabled(false)
         trackpadPlugin.stop()
@@ -3972,11 +3960,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Hover
 
     private var lastHoverLogTime: TimeInterval = 0
+    private var lastHoverAudioLogTime: TimeInterval = 0
     private func handleHover(event: NSEvent) {
         let now = CACurrentMediaTime()
         if now - lastHoverLogTime > 1.0 {
             lastHoverLogTime = now
             debugLog("handleHover (1Hz throttle)")
+        }
+        if now - lastHoverAudioLogTime > 5 {
+            lastHoverAudioLogTime = now
+            menuBand.logAudioBindings(context: "pointer entered")
         }
         handleHoverInner(event: event)
     }
@@ -8279,6 +8272,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func systemDidWake(_ note: Notification) {
+        menuBand.recoverAudioAfterWake()
         // After sleep/wake the polling timer + KVO observers can
         // miss the theme flip that happened while we were
         // suspended, leaving the popover painted in the old theme.

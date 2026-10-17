@@ -584,7 +584,7 @@ final class MenuBandPopoverViewController: NSViewController {
         titleRow.addArrangedSubview(octaveStepper)  // hidden, value model only
 
         #if !MAC_APP_STORE
-        titleRow.addArrangedSubview(MenuBandSystemVolumeView())
+        if let menuBand { titleRow.addArrangedSubview(MenuBandAirView(control: menuBand.ambientAir)) }
         #endif
 
         // Spacer lives in the middle so the octave widget pins LEFT and

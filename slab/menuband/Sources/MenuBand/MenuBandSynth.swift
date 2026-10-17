@@ -28,6 +28,9 @@ import CoreAudio
 /// flip over silently — no audible glitch.
 final class MenuBandSynth {
     private let engine = AVAudioEngine()
+    private let outputGuard = MenuBandOutputGuard()
+    private let audioTelemetry = MenuBandAudioTelemetry()
+    private var idleSuspended = false
 
     /// Preferred backend, asynchronously created. Nil until ready.
     private var midiSynth: AVAudioUnit?
@@ -82,6 +85,8 @@ final class MenuBandSynth {
     private let surfaceCue = MenuBandSurfaceCue()
     /// ⇧Space air: a tuned noise bed on the fx bus. See `MenuBandAirVoice`.
     private let airVoice = MenuBandAirVoice()
+    /// Unpitched listening noise, controlled only by the Air slider.
+    let ambientAir = MenuBandAmbientAir()
     /// Right-hand percussion split — the AC-native 12-drum kit, synthesized
     /// live. Always attached; only sounds when the controller fires hits.
     let percussion = MenuBandPercussion()
@@ -732,12 +737,11 @@ final class MenuBandSynth {
         get { sampleVoice.onInputBuffer }
         set { sampleVoice.onInputBuffer = newValue }
     }
-    /// External callers (the tape recorder) can pin the waveform tap
-    /// on independently of `setWaveformCaptureEnabled`. The tap stays
-    /// installed as long as EITHER the visualizer or the tape needs
-    /// it. Tracked separately so toggling one off doesn't kill the
-    /// other.
+    /// Capture consumers share permanent taps. Only delivery is gated;
+    /// entering/leaving a UI surface must not reconfigure the audio graph.
     private var waveformTapPinReasons: Set<String> = []
+    private let outputCaptureLock = NSLock()
+    private var outputCaptureActive = false
 
     /// Apple's DLS bank — present on every macOS install since 10.x.
     private static let bankURL = URL(
@@ -799,6 +803,14 @@ final class MenuBandSynth {
         surfaceCue.attach(to: engine, output: tonesBus)
         // Air: same bus, so the woosh is echoed and spaced with the notes.
         airVoice.attach(to: engine, output: tonesBus)
+        // Listening Air shares the instrument's output without the gesture FX,
+        // rewind capture, or a second device/tap that could mute playback.
+        ambientAir.attach(to: engine, output: engine.mainMixerNode)
+        ambientAir.onLevelChange = { [weak self] level in
+            guard let self else { return }
+            if level > 0 { _ = self.resumeAudioEngineIfNeeded() }
+            else { self.scheduleIdleSuspendIfNeeded() }
+        }
         // Percussion: same pre-limiter sum bus. Renders silence until the
         // right-hand split fires a drum, so it's free while inactive.
         // Percussion routes to the DRY post-fx mixer, NOT preLimiterMixer —
@@ -834,6 +846,11 @@ final class MenuBandSynth {
         // NOT recaptured and the ring can keep recording continuously
         // (including notes played WHILE reversing) without a feedback loop.
         rewindVoice.attach(to: engine)
+        outputGuard.telemetry = audioTelemetry
+        outputGuard.attach(to: engine)
+        // Bind before starting IO so a Scarlett starts on its actual output,
+        // without first opening AVAudioEngine's private aggregate device.
+        applyOutputDeviceOverride()
         engine.prepare()
         // Request a smaller hardware IO buffer BEFORE the engine starts,
         // so the first render cycle is already at the low-latency size.
@@ -844,6 +861,7 @@ final class MenuBandSynth {
         // channel-map write, so the persisted monitor-channel pick lands
         // here (no-op unless the user ever picked one).
         applyInputChannelMap()
+        installWaveformTapIfNeeded()
         do {
             try engine.start()
             started = true
@@ -857,6 +875,8 @@ final class MenuBandSynth {
         // the graph. Idempotent per unit.
         MenuBandMonoFold.enabled = UserDefaults.standard.bool(forKey: "notepat.monoOutput")
         MenuBandMonoFold.install(on: engine, label: "synth")
+        audioTelemetry.attachHardwareProbe(to: engine)
+        audioTelemetry.start { [weak self] in self?.audioDiagnosticSnapshot() ?? [:] }
         // Dedicated rewind-capture tap on the limiter (pre-mainMixer, so the
         // reverse playback is excluded). Always-on: the ring keeps recording
         // everything the user plays, even while a reverse is sounding.
@@ -934,7 +954,14 @@ final class MenuBandSynth {
         engineLock.lock()
         defer { engineLock.unlock() }
         guard started else { return }
+        if interfaceResetting {
+            audioTelemetry.event("configuration_change_deferred")
+            configurationChangeDeferredForReset = true
+            return
+        }
         audioConfigEpoch &+= 1
+        audioTelemetry.event("configuration_change", ["epoch": audioConfigEpoch])
+        idleSuspended = false
         NSLog("MenuBand: audio engine configuration changed (device switch \(audioConfigEpoch)) — recovering")
         // Mark the bank dirty no matter which recovery branch runs below —
         // the immediate reapply can be overwritten as the reconfig settles,
@@ -951,6 +978,8 @@ final class MenuBandSynth {
             // input AUHAL only accepts in this stopped window.
             syncInputMonitorGraph()
             applyInputChannelMap()
+            applyOutputDeviceOverride()
+            outputGuard.health.begin()
             do { try engine.start() }
             catch { NSLog("MenuBand: engine start after device change failed: \(error)") }
         }
@@ -1004,7 +1033,7 @@ final class MenuBandSynth {
         // Another switch landed while we waited — the device is still moving.
         // Re-arm for the newer epoch so the preload only runs once a full
         // settle window passes with no further change.
-        if armedEpoch != audioConfigEpoch {
+        if interfaceResetting || armedEpoch != audioConfigEpoch {
             armMIDISynthRebuildTimer()
             return
         }
@@ -1013,6 +1042,7 @@ final class MenuBandSynth {
         if !engine.isRunning {
             syncInputMonitorGraph()
             applyInputChannelMap()
+            applyOutputDeviceOverride()
             do { try engine.start() }
             catch { NSLog("MenuBand: engine start before MIDISynth rebuild failed: \(error)") }
         }
@@ -1506,14 +1536,18 @@ final class MenuBandSynth {
         // is true, so `engine.isRunning` short-circuits below.
         engineLock.lock()
         defer { engineLock.unlock() }
+        guard !interfaceResetting else { return engine.isRunning }
         idleSuspendWorkItem?.cancel()
         idleSuspendWorkItem = nil
+        if !idleSuspended { recoverPlaybackIfNeeded() }
+        idleSuspended = false
         if engine.isRunning {
             return true
         }
         do {
-            try engine.start()
             applyOutputDeviceOverride()
+            outputGuard.health.begin()
+            try engine.start()
             // MIDISynth's per-channel program is unreliable across an
             // engine pause→start cycle — coming back from idle-suspend
             // (or any other engine restart) can leave each channel
@@ -1602,7 +1636,7 @@ final class MenuBandSynth {
     private func scheduleIdleSuspendIfNeeded() {
         guard started, !waveformCaptureEnabled, waveformTapPinReasons.isEmpty,
               !keepEngineWarm, activeNotes.isEmpty,
-              !sampleRecordingActive, !inputMonitor.isAttached else { return }
+              !sampleRecordingActive, !inputMonitor.isAttached, ambientAir.level == 0 else { return }
         idleSuspendWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.suspendAudioEngineForHiddenIdleIfNeeded()
@@ -1619,9 +1653,10 @@ final class MenuBandSynth {
         // (AVAudioPlayerNode.play() then throws — two crashes on 2026-09-25).
         guard started, engine.isRunning, !waveformCaptureEnabled,
               waveformTapPinReasons.isEmpty, activeNotes.isEmpty,
-              !sampleRecordingActive, !keepEngineWarm, !inputMonitor.isAttached else { return }
-        removeWaveformTapIfNeeded()
+              !sampleRecordingActive, !keepEngineWarm, !inputMonitor.isAttached,
+              ambientAir.level == 0 else { return }
         engine.pause()
+        idleSuspended = true
     }
 
     /// True between `startSampleRecording` and `stopSampleRecording` —
@@ -1740,38 +1775,15 @@ final class MenuBandSynth {
     /// AVAudioEngine's AUHAL layer bypasses Multi-Output / Aggregate devices
     /// and connects directly to the underlying clock-source hardware device,
     /// so audio never reaches secondary members (e.g. BlackHole). Explicitly
-    /// setting CurrentDevice after every engine start forces the engine to
+    /// setting CurrentDevice before startup and after recovery forces the engine to
     /// honour the full virtual device and its routing. The device is the
     /// user's pinned output pick when one is set, otherwise the system
     /// default (the original behavior).
     private func applyOutputDeviceOverride() {
-        // With the duplex monitor wired, AVAudioEngine hosts input + output
-        // on a PRIVATE AGGREGATE device even when both sides are the same
-        // interface (frisbee, 2026-09-25: engine on 122 while the Scarlett
-        // itself was 88). Re-binding the output AU to the raw device then
-        // silences the whole engine — no synth, no monitor — so leave the
-        // aggregate alone; `duplexMonitorEligible` already guarantees it
-        // resolves to the user's pick (or the default) on both sides.
+        // Monitoring has its own input-only AUHAL. Playback can bind directly
+        // to the selected output without a private input/output aggregate.
         guard let au = engine.outputNode.audioUnit else { return }
-        var deviceID = AudioDeviceID(0)
-        // A user pick from the headphone icon's right-click menu wins over
-        // the system default — but only while that device is actually
-        // attached; a stale pin (interface unplugged) falls through to the
-        // default so the engine never binds into a void.
-        if let uid = MenuBandAudioDevices.pinnedOutputUID,
-           let pinned = MenuBandAudioDevices.device(uid: uid),
-           pinned.outputChannels > 0 {
-            deviceID = pinned.id
-        } else {
-            var addr = AudioObjectPropertyAddress(
-                mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-                mScope:    kAudioObjectPropertyScopeGlobal,
-                mElement:  kAudioObjectPropertyElementMain)
-            var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-            guard AudioObjectGetPropertyData(
-                AudioObjectID(kAudioObjectSystemObject), &addr, 0, nil, &size, &deviceID
-            ) == noErr, deviceID != 0 else { return }
-        }
+        guard var deviceID = MenuBandAudioDevices.preferredOutputID() else { return }
         // Skip the write when the AU is already bound to the default device —
         // a redundant CurrentDevice set can still emit a configuration-change
         // notification, and this is called from the settle-window rebuild
@@ -1793,18 +1805,66 @@ final class MenuBandSynth {
         }
     }
 
-    /// Auto-recovery, part 1: every 5 s, make sure the device the engine
-    /// renders into still exists. After a USB blink the interface can come
-    /// back under a new id while this process keeps a ghost of the old one
-    /// (frisbee, 2026-09-25: engine on 142, the live Scarlett was 89 — silence
-    /// while every meter looked healthy). A ghost → the normal device-switch
-    /// recovery, which rebinds output and monitor to the live device.
+    /// Check both device existence and the current route. A USB blink can
+    /// leave a ghost ID, or a valid speaker fallback after the interface
+    /// returns. Both need the normal device-switch recovery.
     private var bindingAuditTimer: DispatchSourceTimer?
     private var bindingAuditStrikes = 0
-    /// A real device-list change gives the audit its tries back.
+    private var interfaceResetting = false
+    private var configurationChangeDeferredForReset = false
+    var onPlaybackRecovered: (() -> Void)?
+
+    func setInterfaceResetting(_ active: Bool) {
+        engineLock.lock(); defer { engineLock.unlock() }
+        audioTelemetry.event("interface_reset", ["active": active])
+        interfaceResetting = active
+        outputGuard.health.setInterfaceResetting(active)
+        if !active, configurationChangeDeferredForReset {
+            configurationChangeDeferredForReset = false
+            handleEngineConfigurationChange()
+        }
+    }
+    /// A device-list or default-output change gives the audit its tries back.
     func resetBindingAudit() {
+        engineLock.lock(); defer { engineLock.unlock() }
         bindingAuditStrikes = 0
+        outputGuard.health.begin(renewBudget: true)
         inputMonitor.resetRecoveryForDeviceChange()
+    }
+
+    /// Wake can leave a valid device binding with stopped or stale IO. Allow
+    /// hardware to settle, then verify real render callbacks with the audit.
+    func systemDidWake() {
+        engineLock.lock(); defer { engineLock.unlock() }
+        guard started else { return }
+        resetBindingAudit()
+        auditBindings()
+        if !idleSuspended && !engine.isRunning { handleEngineConfigurationChange() }
+    }
+
+    private func recoverPlaybackIfNeeded() {
+        guard started, let reason = outputGuard.health.recoveryReason(
+            shouldRun: !idleSuspended, isRunning: engine.isRunning) else { return }
+        NSLog("MenuBand: playback unhealthy — \(reason); restarting audio on the current output")
+        audioTelemetry.event("playback_recovery", ["reason": reason])
+        engine.stop()
+        // Clear poisoned effect history as well as the stopped hardware IO.
+        // Custom source-node voices own their state outside AVAudioEngine.
+        panic()
+        rewindVoice.release()
+        engine.reset()
+        audioConfigEpoch &+= 1
+        midiSynthBankDirty = true
+        applyOutputDeviceOverride()
+        do {
+            try engine.start()
+            reapplyCurrentPrograms()
+        } catch {
+            NSLog("MenuBand: playback recovery failed: \(error)")
+        }
+        scheduleMIDISynthRebuild()
+        logAudioBindings(context: "playback recovery")
+        DispatchQueue.main.async { [weak self] in self?.onPlaybackRecovered?() }
     }
 
     /// After a plug-in/unplug: if the monitor is open on a device that the
@@ -1826,27 +1886,35 @@ final class MenuBandSynth {
         t.resume()
         bindingAuditTimer = t
     }
-    private func auditBindings() {
+    func auditBindings() {
+        engineLock.lock(); defer { engineLock.unlock() }
+        guard !interfaceResetting else { return }
+        recoverPlaybackIfNeeded()
         guard started, let au = engine.outputNode.audioUnit else { return }
         var outID = AudioDeviceID(0)
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         guard AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
-                                   kAudioUnitScope_Global, 0, &outID, &size) == noErr, outID != 0 else { return }
+                                   kAudioUnitScope_Global, 0, &outID, &size) == noErr else { return }
         let live = MenuBandAudioDevices.all()
+        guard !live.isEmpty else { return } // CoreAudio may be restarting.
+        let target = MenuBandAudioDevices.outputTargetID(
+            devices: live, pinnedUID: MenuBandAudioDevices.pinnedOutputUID,
+            systemDefaultID: MenuBandAudioDevices.systemDefaultOutputID())
+        let wrongOutput = target.map { $0 != outID } ?? false
         let ghost = !live.contains { $0.id == outID }
         let monitorGhost = inputMonitor.isAttached && !live.contains { $0.id == inputMonitor.boundDeviceID }
-        if ghost || monitorGhost {
+        if wrongOutput || ghost || monitorGhost {
             bindingAuditStrikes += 1
             // Three tries, then stop hammering: a recovery that can't shake
             // the ghost restarts the engine every 5 s forever (4,857 times
             // one morning). The next real device-list change resets this.
             guard bindingAuditStrikes <= 3 else {
                 if bindingAuditStrikes == 4 {
-                    NSLog("MenuBand audit: ghost persists after 3 recoveries — backing off until the device list changes")
+                    NSLog("MenuBand audit: binding mismatch persists after 3 recoveries — backing off until the route changes")
                 }
                 return
             }
-            NSLog("MenuBand audit: bound device is a ghost (output \(outID) ghost=\(ghost), monitor \(inputMonitor.boundDeviceID) ghost=\(monitorGhost)); strike \(bindingAuditStrikes) — running device-switch recovery")
+            NSLog("MenuBand audit: binding mismatch (output \(outID), target \(target ?? 0), ghost=\(ghost); monitor \(inputMonitor.boundDeviceID) ghost=\(monitorGhost)); strike \(bindingAuditStrikes) — running device-switch recovery")
             handleEngineConfigurationChange()
         } else {
             bindingAuditStrikes = 0
@@ -1857,15 +1925,53 @@ final class MenuBandSynth {
     /// name, plus the monitor's input device — the first thing to read when
     /// the interface flaps and the app goes quiet.
     func logAudioBindings(context: String) {
+        engineLock.lock(); defer { engineLock.unlock() }
         var outID = AudioDeviceID(0)
+        var renderError: OSStatus = noErr
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         if let au = engine.outputNode.audioUnit {
             AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
                                  kAudioUnitScope_Global, 0, &outID, &size)
+            var errorSize = UInt32(MemoryLayout<OSStatus>.size)
+            AudioUnitGetProperty(au, kAudioUnitProperty_LastRenderError,
+                                 kAudioUnitScope_Global, 0, &renderError, &errorSize)
         }
         let outName = MenuBandAudioDevices.all().first { $0.id == outID }?.name ?? "(not in device list)"
         let sysOut = MenuBandAudioDevices.systemDefaultOutputID() ?? 0
-        NSLog("MenuBand bindings \(context): engine output → \(outID) \(outName); system default output \(sysOut); running=\(engine.isRunning); monitor input → \(inputMonitor.boundDeviceDescription)")
+        NSLog("MenuBand bindings \(context): engine output → \(outID) \(outName); system default output \(sysOut); running=\(engine.isRunning); renderError=\(renderError); rate=\(MenuBandAudioDevices.nominalRate(of: outID)); monitor input → \(inputMonitor.boundDeviceDescription)")
+        audioTelemetry.event("bindings", ["context": context, "outputDevice": outID,
+            "defaultOutput": sysOut, "running": engine.isRunning, "renderError": renderError])
+    }
+
+    private func audioDiagnosticSnapshot() -> [String: Any] {
+        guard engineLock.try() else { return ["controlBusy": true] }
+        defer { engineLock.unlock() }
+        var output: AudioDeviceID = 0
+        var error: OSStatus = noErr
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        if let au = engine.outputNode.audioUnit {
+            AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
+                kAudioUnitScope_Global, 0, &output, &size)
+            size = UInt32(MemoryLayout<OSStatus>.size)
+            AudioUnitGetProperty(au, kAudioUnitProperty_LastRenderError,
+                kAudioUnitScope_Global, 0, &error, &size)
+        }
+        let gains: [String: Float] = ["master": postFxMixer.outputVolume,
+            "tones": tonesFader.outputVolume, "percussion": percFader.outputVolume,
+            "duck": melodicDuckMixer.outputVolume, "headroom": preLimiterMixer.outputVolume,
+            "dry": dryFxMixer.outputVolume, "echoSend": echoSendMixer.outputVolume,
+            "reverbSend": reverbSendMixer.outputVolume, "air": ambientAir.level]
+        return ["outputDevice": output, "running": engine.isRunning,
+            "idleSuspended": idleSuspended, "renderError": error,
+            "resetting": interfaceResetting, "epoch": audioConfigEpoch,
+            "monitorInputDevice": inputMonitor.boundDeviceID,
+            "monitorWanted": inputMonitoringWanted, "monitorFocusMuted": monitorFocusMuted,
+            "program": currentMelodicProgram,
+            "backend": usingACPianoVoice ? "acPiano" : usingWhistleVoice ? "whistle" :
+                usingCompositeVoice ? "composite" : usingFluoddityVoice ? "fluoddity" :
+                usingSampleBackend ? "sample" : usingPluginInstrument ? "plugin" :
+                gmRoutable(currentMelodicProgram) ? "acGM" : "midiSynth",
+            "gains": gains.mapValues { $0.isFinite ? Double($0) as Any : String(describing: $0) as Any }]
     }
 
     // MARK: - Device picks (headphone icon right-click menu)
@@ -2158,51 +2264,67 @@ final class MenuBandSynth {
     // MARK: - Audio tap for visualizer
 
     func setWaveformCaptureEnabled(_ enabled: Bool) {
+        engineLock.lock(); defer { engineLock.unlock() }
         guard started else { return }
         waveformCaptureEnabled = enabled
+        updateOutputCaptureGate()
         if enabled {
             guard resumeAudioEngineIfNeeded() else {
                 waveformCaptureEnabled = false
+                updateOutputCaptureGate()
                 return
             }
-            installWaveformTapIfNeeded()
         } else if waveformTapPinReasons.isEmpty {
-            removeWaveformTapIfNeeded()
             scheduleIdleSuspendIfNeeded()
         }
     }
 
-    /// Pin the mainMixer tap on for a reason (currently: the tape
-    /// recorder needs the synth output stream while RECORDING or
-    /// PLAYING). Idempotent. Pair with `removeWaveformTapPin` so the
-    /// tap goes away once both the visualizer AND every pin reason
-    /// have released it.
+    /// Keep output delivery active for recording, playback, or room audio,
+    /// independently of any visible waveform. The taps themselves stay put.
     func addWaveformTapPin(_ reason: String) {
+        engineLock.lock(); defer { engineLock.unlock() }
         guard started else { return }
         let wasEmpty = waveformTapPinReasons.isEmpty
         waveformTapPinReasons.insert(reason)
+        updateOutputCaptureGate()
         if wasEmpty {
             _ = resumeAudioEngineIfNeeded()
-            installWaveformTapIfNeeded()
         }
     }
 
     func removeWaveformTapPin(_ reason: String) {
+        engineLock.lock(); defer { engineLock.unlock() }
         waveformTapPinReasons.remove(reason)
+        updateOutputCaptureGate()
         if waveformTapPinReasons.isEmpty && !waveformCaptureEnabled {
-            removeWaveformTapIfNeeded()
             scheduleIdleSuspendIfNeeded()
         }
+    }
+
+    private func updateOutputCaptureGate() {
+        outputCaptureLock.lock()
+        outputCaptureActive = waveformCaptureEnabled || !waveformTapPinReasons.isEmpty
+        outputCaptureLock.unlock()
+    }
+
+    private func shouldDeliverOutputCapture() -> Bool {
+        // Never block rendering. A coincident UI change may deliver one
+        // extra buffer; recording consumers still apply their own gates.
+        guard outputCaptureLock.try() else { return true }
+        defer { outputCaptureLock.unlock() }
+        return outputCaptureActive
     }
 
     private func installWaveformTapIfNeeded() {
         guard !waveformTapInstalled else { return }
         let mixer = engine.mainMixerNode
-        let format = mixer.outputFormat(forBus: 0)
         // 256 frames ≈ 5.8 ms at 44.1 kHz — small buffer = fresh samples
         // for the visualizer without burning the audio thread.
-        mixer.installTap(onBus: 0, bufferSize: 256, format: format) { [weak self] buffer, _ in
-            self?.ingestWaveformBuffer(buffer)
+        mixer.installTap(onBus: 0, bufferSize: 256, format: nil) { [weak self] buffer, _ in
+            guard let self else { return }
+            if self.audioTelemetry.enabled { self.audioTelemetry.mix.observe(buffer) }
+            guard self.shouldDeliverOutputCapture() else { return }
+            self.ingestWaveformBuffer(buffer)
         }
         waveformTapInstalled = true
         installStemTapsIfNeeded()
@@ -2218,17 +2340,17 @@ final class MenuBandSynth {
     /// Pre-fader taps on the tones + percussion buses — the tape's raw stems.
     private func installStemTapsIfNeeded() {
         guard !stemTapsInstalled else { return }
-        let tf = tonesBus.outputFormat(forBus: 0)
-        let pf = percBus.outputFormat(forBus: 0)
-        guard tf.channelCount > 0, pf.channelCount > 0 else {
-            NSLog("MenuBand: stem taps skipped — bus format not negotiated yet")
-            return
+        tonesBus.installTap(onBus: 0, bufferSize: 256, format: nil) { [weak self] buffer, _ in
+            guard let self else { return }
+            if self.audioTelemetry.enabled { self.audioTelemetry.tones.observe(buffer) }
+            guard self.shouldDeliverOutputCapture() else { return }
+            self.onTonesBuffer?(buffer)
         }
-        tonesBus.installTap(onBus: 0, bufferSize: 256, format: tf) { [weak self] buffer, _ in
-            self?.onTonesBuffer?(buffer)
-        }
-        percBus.installTap(onBus: 0, bufferSize: 256, format: pf) { [weak self] buffer, _ in
-            self?.onPercussionBuffer?(buffer)
+        percBus.installTap(onBus: 0, bufferSize: 256, format: nil) { [weak self] buffer, _ in
+            guard let self else { return }
+            if self.audioTelemetry.enabled { self.audioTelemetry.percussion.observe(buffer) }
+            guard self.shouldDeliverOutputCapture() else { return }
+            self.onPercussionBuffer?(buffer)
         }
         stemTapsInstalled = true
     }
@@ -2822,6 +2944,10 @@ final class MenuBandSynth {
 
     func stop() {
         engineLock.lock(); defer { engineLock.unlock() }
+        bindingAuditTimer?.cancel()
+        bindingAuditTimer = nil
+        ambientAir.onLevelChange = nil
+        ambientAir.setLevel(0)
         // The microphone uses SampleVoice's separate input-only engine, so it
         // must be torn down even if the synth output engine never started or
         // has already stopped. This is synchronous: application termination
@@ -2848,13 +2974,14 @@ final class MenuBandSynth {
         }
         idleSuspendWorkItem?.cancel()
         idleSuspendWorkItem = nil
-        removeWaveformTapIfNeeded()
         // Release the device BEFORE stopping the engine so other apps
         // see the unhog event before they try to recover. Stopping the
         // engine first would leave a brief window where the device is
         // ours-but-idle, and Music.app etc. tend to give up retrying.
         releaseHogModeIfNeeded()
         engine.stop()
+        audioTelemetry.stop()
+        removeWaveformTapIfNeeded()
         melodicHeadroomTimer?.invalidate()
         melodicHeadroomTimer = nil
         melodicHeadroom.reset()
@@ -2891,6 +3018,7 @@ final class MenuBandSynth {
     /// node wants.
     func playPercussion(_ drum: MenuBandPercussion.Drum, velocity: UInt8, pan: UInt8) {
         guard started else { return }
+        audioTelemetry.trigger(percussion: true)
         // Drums don't register in `activeNotes`, so the idle-suspend logic
         // would otherwise leave the engine paused and the hit silent. Wake
         // it (and cancel any pending suspend) before staging the voices.
@@ -2921,6 +3049,7 @@ final class MenuBandSynth {
     /// two-finger upper-half gesture.
     func playReverseKick(velocity: UInt8, pan: UInt8) {
         guard started else { return }
+        audioTelemetry.trigger(percussion: true)
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
@@ -2931,6 +3060,7 @@ final class MenuBandSynth {
 
     func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         guard started else { return }
+        audioTelemetry.trigger(percussion: true)
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
@@ -2944,6 +3074,7 @@ final class MenuBandSynth {
 
     func playSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         guard started else { return }
+        audioTelemetry.trigger(percussion: true)
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
@@ -2956,6 +3087,7 @@ final class MenuBandSynth {
     func playSurfaceLift(at point: CGPoint, anchors: [CGPoint],
                          velocity: UInt8, synthetic: Bool) {
         guard started else { return }
+        audioTelemetry.trigger(percussion: true)
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         triggerMelodicDuck(depth: 0.10, velocity: velocity, hold: 0.04)
@@ -2987,6 +3119,7 @@ final class MenuBandSynth {
     func percussionNoteOn(_ drum: MenuBandPercussion.Drum, velocity: UInt8, pan: UInt8,
                           accent: Bool = false) -> UInt64 {
         guard started else { return 0 }
+        audioTelemetry.trigger(percussion: true)
         // Warm path (split armed): the engine is already running and won't
         // idle-suspend, so skip the resume lock AND the idle reschedule —
         // the only work on a hit is staging the voices. Cold path keeps the
@@ -3065,6 +3198,7 @@ final class MenuBandSynth {
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
+        audioTelemetry.trigger(percussion: channel == 9)
         onNoteEvent?(midi, velocity, true, channel, channelPan[Int(channel & 0x0F)])
         // Roomward: every sounding note also pulses the DMX fixture (no-op
         // without a widget). Hooked here, past the guards, so the light
@@ -3237,7 +3371,8 @@ final class MenuBandSynth {
     /// default IO size; put the user's pick back on it.
     func reassertMonitorIOBuffer() {
         engineLock.lock(); defer { engineLock.unlock() }
-        guard started, inputMonitor.isAttached else { return }
+        guard started, inputMonitor.isAttached,
+              !MenuBandAudioDevices.interfaceResetInProgress else { return }
         forceIOBufferFrames(Self.monitorIOBufferFrames)
         inputMonitor.preferredIOBufferFrames = Self.monitorIOBufferFrames
         inputMonitor.assertDeviceBuffer()

@@ -8,6 +8,7 @@ final class MenuBandMixAnalysis {
     private struct Capture {
         let kind: String
         var frames = 0
+        var invalidFrames = 0
         var sumSquares = 0.0
         var peak = 0.0
         var lowSquares = 0.0
@@ -55,12 +56,18 @@ final class MenuBandMixAnalysis {
                 mono += Double(channels[channel][frame])
             }
             mono /= Double(channelCount)
+            current.frames += 1
+            guard mono.isFinite else {
+                current.invalidFrames += 1
+                lowState = 0
+                fourKState = 0
+                continue
+            }
             lowState += lowA * (mono - lowState)
             fourKState += fourKA * (mono - fourKState)
             let low = lowState
             let mid = fourKState - lowState
             let high = mono - fourKState
-            current.frames += 1
             current.sumSquares += mono * mono
             current.lowSquares += low * low
             current.midSquares += mid * mid
@@ -86,10 +93,11 @@ final class MenuBandMixAnalysis {
         let lowPercent = 100 * current.lowSquares / bandTotal
         let highPercent = 100 * current.highSquares / bandTotal
         let kind = current.kind
+        let invalidFrames = current.invalidFrames
         DispatchQueue.main.async {
             NSLog(String(format:
-                "MenuBand mix attack kind=%@ peak=%.2f dBFS rms=%.2f dBFS crest=%.2f dB lowPct=%.1f highPct=%.1f",
-                kind, peakDB, rmsDB, crestDB, lowPercent, highPercent))
+                "MenuBand mix attack kind=%@ peak=%.2f dBFS rms=%.2f dBFS crest=%.2f dB lowPct=%.1f highPct=%.1f invalidFrames=%d",
+                kind, peakDB, rmsDB, crestDB, lowPercent, highPercent, invalidFrames))
         }
     }
 

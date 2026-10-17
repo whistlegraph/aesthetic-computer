@@ -29,6 +29,7 @@ extension Float {
 final class MenuBandController {
     private let midi = MenuBandMIDI()
     private let synth = MenuBandSynth()
+    var ambientAir: MenuBandAmbientAir { synth.ambientAir }
     private let mixAnalysis = MenuBandMixAnalysis()
     private var trackpadPerformanceActive = false
     /// Optional shared room transmitter. It is fed from the synth's existing
@@ -87,27 +88,68 @@ final class MenuBandController {
     func setAudioMonitorChannel(_ channel: Int) { synth.setMonitorInputChannel(channel) }
     /// Performance focus gates the monitor's audibility (see synth).
     func setMonitorFocused(_ focused: Bool) { synth.setMonitorFocusMute(!focused) }
+    func logAudioBindings(context: String) { synth.logAudioBindings(context: context) }
+    func recoverAudioAfterWake() { synth.systemDidWake() }
 
     /// Headset menu → Reset interface: rebuild the current output device's
     /// USB streams (see `MenuBandAudioDevices.resetInterface`).
-    private var interfaceResetGeneration = 0
+    private var interfaceRecovery = InterfaceRecoveryPolicy()
+    private var interfaceRecoveryTimer: DispatchSourceTimer?
+    private var interfaceResetObserver: NSObjectProtocol?
     private var pendingMonitorBufferChange: DispatchWorkItem?
     private var pendingMonitorBufferReset: DispatchWorkItem?
     private var monitorBufferGeneration = 0
     func resetAudioInterface() {
         dispatchPrecondition(condition: .onQueue(.main))
-        let id = MenuBandAudioDevices.pinnedOutputUID.flatMap { MenuBandAudioDevices.device(uid: $0)?.id }
-            ?? MenuBandAudioDevices.systemDefaultOutputID() ?? 0
-        guard id != 0 else { return }
-        interfaceResetGeneration += 1
-        let generation = interfaceResetGeneration
+        guard let id = MenuBandAudioDevices.preferredOutputID() else { return }
+        interfaceRecovery.didReset(at: ProcessInfo.processInfo.systemUptime)
         NSLog("MenuBand audio: interface reset requested on \(id)")
-        MenuBandAudioDevices.resetInterface(id) { [weak self] _ in
-            guard let self, self.interfaceResetGeneration == generation else { return }
-            // Completion now includes stream settling. Only the most recent
-            // request restores the current pick, on the audio-control queue.
-            self.audioWorkQueue.async { [weak self] in self?.synth.reassertMonitorIOBuffer() }
+        synth.logAudioBindings(context: "manual interface reset")
+        MenuBandAudioDevices.resetInterface(id)
+    }
+
+    private func currentRecoveryOutput() -> MBAudioDevice? {
+        guard let id = MenuBandAudioDevices.preferredOutputID() else { return nil }
+        return MenuBandAudioDevices.all().first { $0.id == id }
+    }
+
+    private func needsStreamRecovery(_ device: MBAudioDevice?) -> Bool {
+        guard let device else { return false }
+        return device.name.localizedCaseInsensitiveContains("scarlett") ||
+            device.name.localizedCaseInsensitiveContains("focusrite")
+    }
+
+    private func observeInterfaceRecoveryRoute() {
+        let device = currentRecoveryOutput()
+        interfaceRecovery.observeRoute(device: device?.id, affected: needsStreamRecovery(device),
+                                       at: ProcessInfo.processInfo.systemUptime)
+    }
+
+    private func startInterfaceRecovery() {
+        observeInterfaceRecoveryRoute()
+        synth.onPlaybackRecovered = { [weak self] in
+            guard let self, let device = self.currentRecoveryOutput(),
+                  self.needsStreamRecovery(device) else { return }
+            self.interfaceRecovery.engineRecovered(device: device.id,
+                at: ProcessInfo.processInfo.systemUptime)
         }
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + 1, repeating: 1)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            let device = self.currentRecoveryOutput()
+            let now = ProcessInfo.processInfo.systemUptime
+            self.interfaceRecovery.observeRoute(device: device?.id,
+                affected: self.needsStreamRecovery(device), at: now)
+            guard let id = self.interfaceRecovery.takeRequest(device: device?.id,
+                resetting: MenuBandAudioDevices.interfaceResetInProgress,
+                at: now) else { return }
+            NSLog("MenuBand audio: automatic settled stream reset on \(id)")
+            self.synth.logAudioBindings(context: "automatic interface reset")
+            MenuBandAudioDevices.resetInterface(id)
+        }
+        interfaceRecoveryTimer = timer
+        timer.resume()
     }
 
     /// Monitor IO cycle in frames (16…256); applies live while monitoring.
@@ -1625,17 +1667,6 @@ final class MenuBandController {
         guard present != inputMonitoringEnabled else { return }
         NSLog("MenuBand: auto monitor → \(present ? "on (Focusrite present)" : "off (Focusrite gone)")")
         inputMonitoringEnabled = present
-        if present {
-            // Auto-recovery, part 2: an interface that just came back on the
-            // bus often has a dead output stream while macOS reports it
-            // active. Kick its streams once things settle (~2.5 s), the same
-            // flip the headset menu's Reset Interface does.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
-                guard let self, MenuBandAudioDevices.focusriteInputPresent() else { return }
-                NSLog("MenuBand: auto interface reset after reappearance")
-                self.resetAudioInterface()
-            }
-        }
     }
 
     /// The fader positions a take starts from — written into the stems'
@@ -1906,6 +1937,7 @@ final class MenuBandController {
     func rewindLiveInputPeak() -> Float { synth.rewindLiveInputPeak() }
 
     func setBend(amount: Float, allChannels: Bool = false) {
+        guard amount.isFinite else { return }
         // The live voice monitor's wet sends follow the wheel in every mode
         // (MIDI mode included), so it's fed before any branching below.
         synth.setMonitorPitchBend(amount: amount)
@@ -2582,13 +2614,26 @@ final class MenuBandController {
         if UserDefaults.standard.object(forKey: melodicProgramKey) == nil {
             UserDefaults.standard.set(78, forKey: melodicProgramKey)
         }
-        // Own the interface's sample rate before the engine negotiates
-        // against it (usbaudiod resets a Focusrite to 48 kHz whenever its
-        // last client leaves).
-        if MenuBandAudioDevices.focusriteInputPresent(),
-           let out = MenuBandAudioDevices.systemDefaultOutputID() {
-            MenuBandAudioDevices.applyPreferredRate(to: out)
+        interfaceResetObserver = NotificationCenter.default.addObserver(
+            forName: .menuBandInterfaceResetting, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            if (note.object as? Bool) == true {
+                self.synth.setInterfaceResetting(true)
+            } else {
+                self.audioWorkQueue.async { [weak self] in
+                    guard let self else { return }
+                    self.synth.reassertMonitorIOBuffer()
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, !MenuBandAudioDevices.interfaceResetInProgress else { return }
+                        self.synth.setInterfaceResetting(false)
+                        self.synth.auditBindings()
+                    }
+                }
+            }
         }
+        // Adopt the existing rate. The affected Scarlett stream is rebuilt
+        // once after startup settles, with the original rate restored.
         synth.start()
         debugLog("bootstrap: post-synth.start")
         synth.setMelodicProgram(melodicProgram)
@@ -2655,18 +2700,14 @@ final class MenuBandController {
         // now, on every device-list change (plug/unplug), and whenever the
         // app comes to the front; unplugging turns the monitor back off.
         synth.startBindingAudit()
-        // Auto-recovery, part 3: a fresh process on the Scarlett got a dead
-        // output stream at every launch today (macOS 26 usbaudiod) until its
-        // streams were rebuilt. Kick them once the engine has settled.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            guard let self, MenuBandAudioDevices.focusriteInputPresent() else { return }
-            NSLog("MenuBand: auto interface reset at launch")
-            self.resetAudioInterface()
-        }
-        MenuBandAudioDevices.observeDeviceList { [weak self] in
+        synth.logAudioBindings(context: "startup")
+        MenuBandAudioDevices.observeRoutingChanges { [weak self] in
             self?.synth.resetBindingAudit()
+            self?.synth.auditBindings()
+            self?.synth.logAudioBindings(context: "route changed")
             self?.audioWorkQueue.async { self?.synth.refreshMonitorDevice() }
             self?.autoMonitorForInterface()
+            self?.observeInterfaceRecoveryRoute()
         }
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
@@ -2715,6 +2756,7 @@ final class MenuBandController {
         // (enableMIDIMode triggers a loopback self-test; result lands in
         // /tmp/menuband-debug.log and updates the popover's status row.)
         debugLog("bootstrap: end")
+        startInterfaceRecovery()
     }
 
     func toggleMIDIMode() {
@@ -2737,6 +2779,13 @@ final class MenuBandController {
     }
 
     func shutdown() {
+        interfaceRecoveryTimer?.cancel()
+        interfaceRecoveryTimer = nil
+        if let interfaceResetObserver {
+            NotificationCenter.default.removeObserver(interfaceResetObserver)
+            self.interfaceResetObserver = nil
+        }
+        synth.onPlaybackRecovered = nil
         releaseAllHardwareMIDINotes()
         midi.stopHardwareInput()
         disableTypeMode()

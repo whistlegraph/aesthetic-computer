@@ -318,7 +318,8 @@ final class MenuBandInputMonitor {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain)
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-            guard let self, self.attached, self.inputDevice != 0 else { return }
+            guard let self, self.attached, self.inputDevice != 0,
+                  !MenuBandAudioDevices.interfaceResetInProgress else { return }
             var now: UInt32 = 0
             var size: UInt32 = 4
             var a = AudioObjectPropertyAddress(
@@ -770,9 +771,11 @@ final class MenuBandInputMonitor {
         pulls = 0
         nanScrubbed = 0
         os_unfair_lock_unlock(ringLock)
-        if let ticket = recovery.request(captures: c, now: now) {
+        if !MenuBandAudioDevices.interfaceResetInProgress,
+           let ticket = recovery.request(captures: c, now: now) {
             DispatchQueue.main.async { [weak self] in
-                guard let self, let attempt = self.recovery.claim(ticket) else { return }
+                guard let self, !MenuBandAudioDevices.interfaceResetInProgress,
+                      let attempt = self.recovery.claim(ticket) else { return }
                 NSLog("MenuBand monitor: WATCHDOG — no input callbacks; recovery \(attempt)/\(InputMonitorRecovery.maximumAttempts)")
                 self.restartInput()
                 if attempt == InputMonitorRecovery.maximumAttempts {

@@ -224,6 +224,11 @@ final class MenuBandRewindVoice {
         let channels = Int(buffer.format.channelCount)
         let rate = buffer.format.sampleRate
         if rate <= 0 { return }
+        // Do not preserve a broken render block in the reverse tape after
+        // output recovery has cleared the engine's effect history.
+        for channel in 0..<channels {
+            for frame in 0..<frames where !ch[channel][frame].isFinite { return }
+        }
 
         ringLock.lock()
         // (Re)allocate the ring the first time, or if the device sample rate
