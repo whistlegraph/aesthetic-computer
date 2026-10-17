@@ -264,10 +264,17 @@ enum MenuBandAudioDevices {
     private static let resetCoordinator = InterfaceResetCoordinator(
         perform: { id, completion in performInterfaceReset(id, completion: completion) },
         busyChanged: { busy in
-            resetStateLock.lock()
-            resetting = busy
-            resetStateLock.unlock()
+            if busy {
+                resetStateLock.lock()
+                resetting = true
+                resetStateLock.unlock()
+            }
             NotificationCenter.default.post(name: .menuBandInterfaceResetting, object: busy)
+            if !busy {
+                resetStateLock.lock()
+                resetting = false
+                resetStateLock.unlock()
+            }
         })
 
     static func resetInterface(_ id: AudioDeviceID, completion: ((Bool) -> Void)? = nil) {
@@ -297,7 +304,7 @@ enum MenuBandAudioDevices {
             // Release the worker during USB teardown. The coordinator keeps
             // this device in flight until both the flip and settling finish.
             let originalRate = rate, alternateRate = other
-            resetQueue.asyncAfter(deadline: .now() + 0.4) {
+            resetQueue.asyncAfter(deadline: .now() + 0.8) {
                 var restoreAddress = AudioObjectPropertyAddress(
                     mSelector: kAudioDevicePropertyNominalSampleRate,
                     mScope: kAudioObjectPropertyScopeGlobal,
@@ -307,7 +314,8 @@ enum MenuBandAudioDevices {
                                                     UInt32(MemoryLayout<Double>.size), &back)
                 NSLog("MenuBand audio: interface reset on \(id): \(originalRate) → \(alternateRate) (\(s1)) → \(want) (\(s2))")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    completion(s1 == noErr && s2 == noErr)
+                    let restored = abs(nominalRate(of: id) - want) < 1
+                    completion(s1 == noErr && s2 == noErr && restored)
                 }
             }
         }

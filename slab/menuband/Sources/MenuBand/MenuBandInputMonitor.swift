@@ -266,6 +266,13 @@ final class MenuBandInputMonitor {
         NSLog("MenuBand monitor: direct device input closed")
     }
 
+    /// The host has stopped rendering; release capture before a hardware
+    /// reset so neither side renders through the temporary sample rate.
+    func suspendForInterfaceReset() {
+        removeBufferListener()
+        closeInputUnit()
+    }
+
     /// After the host engine recovers from a device change, the AUHAL's own
     /// stream can be stale (it stopped delivering and briefly rendered NaN on
     /// the Scarlett). Close and reopen it on the current input device; the

@@ -100,7 +100,9 @@ final class MenuBandController {
         guard let id = MenuBandAudioDevices.preferredOutputID() else { return }
         NSLog("MenuBand audio: interface reset requested on \(id)")
         synth.logAudioBindings(context: "manual interface reset")
-        MenuBandAudioDevices.resetInterface(id)
+        MenuBandAudioDevices.resetInterface(id) { success in
+            if !success { NSLog("MenuBand audio: interface reset failed to restore the device rate") }
+        }
     }
 
     /// Monitor IO cycle in frames (16…256); applies live while monitoring.
@@ -2560,22 +2562,12 @@ final class MenuBandController {
             forName: .menuBandInterfaceResetting, object: nil, queue: .main
         ) { [weak self] note in
             guard let self else { return }
-            if (note.object as? Bool) == true {
-                self.synth.setInterfaceResetting(true)
-            } else {
-                self.audioWorkQueue.async { [weak self] in
-                    guard let self else { return }
-                    self.synth.reassertMonitorIOBuffer()
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, !MenuBandAudioDevices.interfaceResetInProgress else { return }
-                        self.synth.setInterfaceResetting(false)
-                        self.synth.auditBindings()
-                    }
-                }
-            }
+            // Synchronous: the reset coordinator must remain busy until
+            // Menu Band has reopened capture and prepared output again.
+            self.synth.setInterfaceResetting((note.object as? Bool) == true)
         }
-        // Adopt the existing rate. Only the explicit Reset Interface action
-        // may flip it: a reset interrupts every client of the shared device.
+        // Adopt the existing rate. Resets require an explicit request or
+        // hardware-clock fault evidence; startup itself never requests one.
         synth.start()
         debugLog("bootstrap: post-synth.start")
         synth.setMelodicProgram(melodicProgram)
@@ -2641,6 +2633,13 @@ final class MenuBandController {
         // Studio reflex: a Focusrite on the bus means "monitor me". Checked
         // now, on every device-list change (plug/unplug), and whenever the
         // app comes to the front; unplugging turns the monitor back off.
+        synth.onInterfaceFault = { [weak self] id, reason in
+            guard let self, !MenuBandAudioDevices.interfaceResetInProgress,
+                  MenuBandAudioDevices.preferredOutputID() == id else { return }
+            NSLog("MenuBand audio: detected \(reason) on \(id); resetting interface")
+            self.synth.logAudioBindings(context: "fault-triggered interface reset")
+            MenuBandAudioDevices.resetInterface(id)
+        }
         synth.startBindingAudit()
         synth.logAudioBindings(context: "startup")
         MenuBandAudioDevices.observeRoutingChanges { [weak self] in
@@ -2721,6 +2720,7 @@ final class MenuBandController {
     func shutdown() {
         pendingMonitorBufferChange?.cancel()
         pendingMonitorBufferChange = nil
+        synth.onInterfaceFault = nil
         if let interfaceResetObserver {
             NotificationCenter.default.removeObserver(interfaceResetObserver)
             self.interfaceResetObserver = nil

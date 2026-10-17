@@ -289,11 +289,12 @@ final class MenuBandSynth {
     func setMonitorIOBufferFrames(_ frames: UInt32) {
         UserDefaults.standard.set(Int(frames), forKey: Self.monitorIOBufferKey)
         engineLock.lock(); defer { engineLock.unlock() }
-        guard started, inputMonitor.isAttached else { return }
+        guard started, inputMonitor.isAttached, !interfaceResetting else { return }
         // Increasing the device slice while the graph is rendering can leave
         // its units allocated for the old size (-10874 on every callback).
         // Stop output across the resize, reopen input, and prepare the graph
         // again before resuming. Do not reset the shared device's sample rate.
+        interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
         let wasRunning = engine.isRunning
         engine.stop()
         inputMonitor.preferredIOBufferFrames = frames
@@ -1142,6 +1143,11 @@ final class MenuBandSynth {
         engineLock.lock()
         defer { engineLock.unlock() }
 
+        guard !interfaceResetting else {
+            scheduleMIDISynthRebuild()
+            return
+        }
+
         // 1. Set the GS DLS bank URL. Must be CFURL — passing a Swift `URL`
         //    fails the NSURL selector dispatch inside CoreAudio.
         var bankURL: CFURL = MenuBandSynth.bankURL as CFURL
@@ -1180,7 +1186,10 @@ final class MenuBandSynth {
         //    once per launch; afterwards every program switch is an
         //    instant PC with no further loading.
         let engineWasRunning = engine.isRunning
-        if engineWasRunning { engine.pause() }
+        if engineWasRunning {
+            interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
+            engine.pause()
+        }
         let sweepStart = CACurrentMediaTime()
         preloadAllMelodicPrograms(au)
         preloadDrumKit(au)
@@ -1666,6 +1675,7 @@ final class MenuBandSynth {
               waveformTapPinReasons.isEmpty, activeNotes.isEmpty,
               !sampleRecordingActive, !keepEngineWarm, !inputMonitor.isAttached,
               ambientAir.level == 0 else { return }
+        interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
         engine.pause()
         idleSuspended = true
     }
@@ -1820,19 +1830,51 @@ final class MenuBandSynth {
     /// leave a ghost ID, or a valid speaker fallback after the interface
     /// returns. Both need the normal device-switch recovery.
     private var bindingAuditTimer: DispatchSourceTimer?
+    private var interfaceFaultTimer: DispatchSourceTimer?
+    private var interfaceFaultRecovery = InterfaceFaultRecovery()
+    var onInterfaceFault: ((AudioDeviceID, String) -> Void)?
     private var bindingAuditStrikes = 0
     private var interfaceResetting = false
     private var configurationChangeDeferredForReset = false
 
     func setInterfaceResetting(_ active: Bool) {
         engineLock.lock(); defer { engineLock.unlock() }
+        guard active != interfaceResetting else { return }
         audioTelemetry.event("interface_reset", ["active": active])
-        interfaceResetting = active
-        outputGuard.health.setInterfaceResetting(active)
-        if !active, configurationChangeDeferredForReset {
-            configurationChangeDeferredForReset = false
-            handleEngineConfigurationChange()
+        interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
+        if active {
+            interfaceResetting = true
+            outputGuard.health.setInterfaceResetting(true)
+            audioConfigEpoch &+= 1
+            idleSuspendWorkItem?.cancel()
+            idleSuspendWorkItem = nil
+            engine.stop()
+            inputMonitor.suspendForInterfaceReset()
+            return
         }
+        // A rate flip need not emit AVAudioEngineConfigurationChange when
+        // the output is bound to the raw device. Always reopen both sides.
+        configurationChangeDeferredForReset = false
+        if started {
+            applyOutputDeviceOverride()
+            inputMonitor.preferredIOBufferFrames = Self.monitorIOBufferFrames
+            if inputMonitor.isAttached {
+                forceIOBufferFrames(Self.monitorIOBufferFrames)
+                inputMonitor.restartInput()
+            }
+            engine.reset()
+            engine.prepare()
+            idleSuspended = false
+            do {
+                try engine.start()
+                reapplyCurrentPrograms()
+            } catch { NSLog("MenuBand: engine restart after interface reset failed: \(error)") }
+            midiSynthBankDirty = true
+            scheduleMIDISynthRebuild()
+        }
+        interfaceResetting = false
+        outputGuard.health.setInterfaceResetting(false)
+        logAudioBindings(context: "interface reset completed")
     }
     /// A device-list or default-output change gives the audit its tries back.
     func resetBindingAudit() {
@@ -1857,6 +1899,7 @@ final class MenuBandSynth {
             shouldRun: !idleSuspended, isRunning: engine.isRunning) else { return }
         NSLog("MenuBand: playback unhealthy — \(reason); restarting audio on the current output")
         audioTelemetry.event("playback_recovery", ["reason": reason])
+        interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
         engine.stop()
         // Clear poisoned effect history as well as the stopped hardware IO.
         // Custom source-node voices own their state outside AVAudioEngine.
@@ -1881,13 +1924,50 @@ final class MenuBandSynth {
     /// Scarlett just arrived), reopen it on the right one.
     func refreshMonitorDevice() {
         engineLock.lock(); defer { engineLock.unlock() }
-        guard started, inputMonitor.isAttached, !inputMonitor.boundDeviceIsCurrent else { return }
+        guard started, !interfaceResetting, inputMonitor.isAttached, !inputMonitor.boundDeviceIsCurrent else { return }
         NSLog("MenuBand monitor: input device pick changed — reopening on the current pick")
         inputMonitor.restartInput()
         applyInputChannelMap()
     }
 
+    private func checkInterfaceFault() {
+        engineLock.lock(); defer { engineLock.unlock() }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard started, !idleSuspended, !interfaceResetting,
+              !MenuBandAudioDevices.interfaceResetInProgress, engine.isRunning,
+              let au = engine.outputNode.audioUnit else {
+            interfaceFaultRecovery.suspend(at: now)
+            return
+        }
+        var id = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global, 0, &id, &size) == noErr,
+              let device = MenuBandAudioDevices.all().first(where: { $0.id == id }),
+              device.name.localizedCaseInsensitiveContains("scarlett") ||
+              device.name.localizedCaseInsensitiveContains("focusrite") else {
+            interfaceFaultRecovery.suspend(at: now)
+            return
+        }
+        var clock = AudioTimeStamp()
+        clock.mFlags = [.sampleTimeValid, .hostTimeValid]
+        let status = AudioDeviceGetCurrentTime(id, &clock)
+        let sample: Double? = status == noErr && clock.mFlags.contains(.sampleTimeValid)
+            ? clock.mSampleTime : nil
+        guard let reason = interfaceFaultRecovery.observe(device: id,
+            rate: MenuBandAudioDevices.nominalRate(of: id), sampleTime: sample,
+            active: true, at: now) else { return }
+        audioTelemetry.event("interface_fault", ["device": id, "reason": reason])
+        DispatchQueue.main.async { [weak self] in self?.onInterfaceFault?(id, reason) }
+    }
+
     func startBindingAudit() {
+        interfaceFaultTimer?.cancel()
+        let clockTimer = DispatchSource.makeTimerSource(queue: .main)
+        clockTimer.schedule(deadline: .now() + 1, repeating: 1)
+        clockTimer.setEventHandler { [weak self] in self?.checkInterfaceFault() }
+        interfaceFaultTimer = clockTimer
+        clockTimer.resume()
         bindingAuditTimer?.cancel()
         let t = DispatchSource.makeTimerSource(queue: .main)
         t.schedule(deadline: .now() + 5, repeating: 5)
@@ -2021,6 +2101,7 @@ final class MenuBandSynth {
             // self-initiated stop → start does not post
             // AVAudioEngineConfigurationChange, so this never enters the
             // device-switch recovery path.
+            interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
             engine.stop()
             applyInputChannelMap()
             do { try engine.start() } catch {
@@ -2955,6 +3036,8 @@ final class MenuBandSynth {
         engineLock.lock(); defer { engineLock.unlock() }
         bindingAuditTimer?.cancel()
         bindingAuditTimer = nil
+        interfaceFaultTimer?.cancel()
+        interfaceFaultTimer = nil
         ambientAir.onLevelChange = nil
         ambientAir.setLevel(0)
         // The microphone uses SampleVoice's separate input-only engine, so it

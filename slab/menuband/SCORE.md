@@ -34,13 +34,20 @@ automatic output follows the current system default even if the engine's
 temporary speaker fallback is still connected.
 Focusing Menu Band does not reset the interface or change its sample rate.
 Visualizer and recording taps stay attached; UI visibility only gates their
-delivery. Hardware stream resets are manual only: **Reset Interface** temporarily flips
-the sample rate and interrupts all clients of that device. Startup, reconnect,
-engine recovery, and latency selection must not request this shared reset.
+delivery. **Reset Interface** stops Menu Band's output and capture before flipping the
+hardware rate, restores that rate, then reopens input and prepares playback
+again. It works even when the raw output unit emits no engine-configuration
+notification. The watchdog also requests this reset when a running Scarlett's
+hardware clock unexpectedly goes backward or stops advancing for two seconds.
+This check works without diagnostic logging. Startup, route/rate changes,
+intentional pauses, latency changes and reset settling establish fresh clock
+baselines. Automatic resets have a 15-second cooldown and a limit of two per
+minute; each needs fresh fault evidence. Silence or pointer entry never triggers
+a reset. A progressing clock cannot prove that the analog output is audible,
+so the manual command remains available. All clients of the shared device hear
+a gap during a hardware reset. Playback/input watchdogs yield until Menu Band
+has reopened its streams, and delayed synth builds cannot restart IO mid-reset.
 Latency changes stop and reprepare Menu Band's graph at the new buffer size.
-During a manual reset, playback/input watchdogs and the buffer listener yield
-until streams settle; engine configuration recovery is deferred so it cannot
-restart IO mid-flip.
 The final output node replaces non-finite samples with silence before they
 reach CoreAudio's shared mix. Invalid audio or stalled render callbacks trigger
 a bounded engine reset on the current output; wake and route changes re-arm
