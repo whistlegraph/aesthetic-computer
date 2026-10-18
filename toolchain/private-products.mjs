@@ -83,6 +83,7 @@ function linkDependencies(w, files) {
   const publicFiles = [...names(w.root, ['ls-files', '-z', '--cached']), 'private-products.json', 'toolchain/private-products.mjs', 'oven/private-products.mjs', 'shared/private-product.mjs']
     .filter(p => safe(p) && !w.owner(p) && exists(path.join(w.root, p)) && !p.startsWith(w.manifest.vault + '/'));
   const originalIgnore = fs.readFileSync(path.join(w.root, '.gitignore'), 'utf8').split(marker)[0];
+  const top = git(w.vault, ['rev-parse', '--show-toplevel']).toString().trim(), links = new Set();
   for (const id of Object.keys(w.manifest.products)) {
     const product = path.join(w.vault, 'products', id);
     fs.mkdirSync(product, { recursive: true });
@@ -109,8 +110,31 @@ function linkDependencies(w, files) {
         break;
       }
     }
-    fs.writeFileSync(path.join(product, '.gitignore'), originalIgnore.trimEnd() + '\n\n# Local AC dependency links; never export these.\n' + [...ignored].sort().join('\n') + '\n');
+    writeIfChanged(path.join(product, '.gitignore'), originalIgnore.trimEnd() + '\n');
+    const within = path.relative(top, fs.realpathSync(product)).split(path.sep).join('/');
+    for (const p of ignored) links.add('/' + within + p);
   }
+  ignoreLinksLocally(w, links);
+}
+
+function writeIfChanged(file, text) {
+  if (!exists(file) || fs.readFileSync(file, 'utf8') !== text) fs.writeFileSync(file, text);
+}
+
+// The dependency links are this machine's, and which exist follows every new
+// public file, so they are ignored in the vault checkout's own info/exclude —
+// never in a tracked .gitignore, where each new AC file used to dirty every
+// product and hold up releases until someone committed the churn.
+const linksBegin = '# >>> private-products: local AC dependency links (generated)';
+const linksEnd = '# <<< private-products';
+function ignoreLinksLocally(w, links) {
+  const exclude = path.resolve(w.vault, git(w.vault, ['rev-parse', '--git-path', 'info/exclude']).toString().trim());
+  const current = exists(exclude) ? fs.readFileSync(exclude, 'utf8') : '';
+  const start = current.indexOf(linksBegin), end = current.indexOf(linksEnd, start);
+  const kept = (start < 0 ? current
+    : current.slice(0, start) + (end < 0 ? '' : current.slice(end + linksEnd.length))).trim();
+  fs.mkdirSync(path.dirname(exclude), { recursive: true });
+  writeIfChanged(exclude, (kept ? kept + '\n' : '') + linksBegin + '\n' + [...links].sort().join('\n') + '\n' + linksEnd + '\n');
 }
 
 export function linkProducts(w) {

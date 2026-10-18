@@ -56,6 +56,27 @@ test('migration preserves edits and staged work, resolves shared and sibling imp
   assert.throws(() => checkProducts(w), /public Git index/);
 });
 
+test('a new public file never dirties a product: links are ignored in the vault checkout only', t => {
+  const { w, git, put } = fixture(t);
+  migrate(w);
+  const vault = (args) => git(args, w.vault);
+  vault(['add', '-A']); vault(['commit', '-qm', 'products']);
+  const ignoreBefore = fs.readFileSync(path.join(w.vault, 'products/diary/.gitignore'), 'utf8');
+  assert.doesNotMatch(ignoreBefore, /shared\.mjs/);
+  // Somebody adds a file to AC and the products are relinked.
+  put('system/brand-new.mjs', 'export const fresh = 1;\n');
+  git(['add', 'system/brand-new.mjs']);
+  linkProducts(w);
+  assert.equal(fs.lstatSync(path.join(w.vault, 'products/diary/system/brand-new.mjs')).isSymbolicLink(), true);
+  assert.equal(fs.readFileSync(path.join(w.vault, 'products/diary/.gitignore'), 'utf8'), ignoreBefore);
+  assert.equal(vault(['status', '--porcelain']), '');
+  const exclude = fs.readFileSync(path.join(w.vault, '.git/info/exclude'), 'utf8');
+  assert.match(exclude, /^\/products\/diary\/system\/brand-new\.mjs$/m);
+  // Relinking rewrites the generated block in place rather than stacking it.
+  linkProducts(w);
+  assert.equal(fs.readFileSync(path.join(w.vault, '.git/info/exclude'), 'utf8'), exclude);
+});
+
 test('preflight refuses staged product changes without moving files', t => {
   const { w, git, root } = fixture(t);
   git(['add', 'system/mime/photo.mjs']);
