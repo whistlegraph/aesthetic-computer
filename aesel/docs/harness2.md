@@ -120,6 +120,15 @@ and composer models run through the Claude CLI channel Harness² already
 supports. Runs are paid, so they go on the oven or a mini on a schedule, not
 on every commit.
 
+First pass by hand, October 18: chalk targets. One edit to the drawing
+guidance and the reviewer, two chalk tasks, pixel-scored re-renders of each
+run's saved source (36 runs, $0.72). Sonnet 5.5 resolved the target 4/4 with
+or without it; Flash went 1/8 → 3/8, and its reviewer caught 4/5 failures
+instead of 2/7. Two things the loop needs that a reviewer verdict cannot give:
+a scorer per task where one is possible (the reviewer passed wrong results at
+baseline), and several repetitions per arm, because Flash is noisy enough
+that two runs a side misread the first edit.
+
 ## 6. A lesson library as Aesel's memory
 
 Aesel has no memory across sessions. Adopt the library format:
