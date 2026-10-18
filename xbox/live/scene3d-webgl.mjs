@@ -58,6 +58,19 @@ vec3 rotateZ(vec3 v, float a) { float c = cos(a), s = sin(a);
   return vec3(c * v.x - s * v.y, s * v.x + c * v.y, v.z); }
 void main() {
   float r = length(local);
+  if (kind == 1) {
+    vec2 q = local;
+    float c = cos(roll), s = sin(roll);
+    q = mat2(c, -s, s, c) * q;
+    float wisps = .72 + .18 * sin(q.x * 7.0 + sin(q.y * 5.0 + roll))
+      + .1 * sin(q.y * 11.0 - q.x * 4.0 + roll * 2.0);
+    float density = exp(-dot(q * vec2(1.1, .85), q * vec2(1.1, .85)) * 3.2);
+    float alpha = tumble * density * wisps * (1.0 - smoothstep(.55, 1.0, r));
+    if (alpha < .002) discard;
+    gl_FragDepth = .5 + depth * .5;
+    pixel = vec4(vec3(.79, .81, .84) + density * .08, alpha);
+    return;
+  }
   float aa = fwidth(r);
   float cover = 1.0 - smoothstep(1.0 - aa, 1.0 + aa * .25, r);
   if (cover <= 0.0) discard;
@@ -92,6 +105,50 @@ void main() {
   colour *= mix(.78, 1.0, smoothstep(-1.0, .1, n.y));
   gl_FragDepth = clamp(depth - depthRange * n.z, 0.0, 1.0);
   pixel = vec4(min(colour, vec3(1.0)), cover);
+}`;
+
+const postVertexSource = `#version 300 es
+precision highp float;
+out vec2 uv;
+void main() {
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  uv = p;
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+const postFragmentSource = `#version 300 es
+precision highp float;
+in vec2 uv;
+uniform sampler2D image;
+uniform sampler2D sceneDepth;
+uniform vec2 logicalSize;
+uniform vec4 focus; // y, half-band, feather, blur radius in logical pixels
+uniform vec4 motion; // camera dx/dy, heart pulse, speed
+out vec4 pixel;
+void main() {
+  vec4 center = texture(image, uv);
+  float depth = texture(sceneDepth, uv).r;
+  // HUD triangles sit at -1.48 before the shared depth mapping; text is a
+  // separate full-density canvas and never enters this pass.
+  if (depth < .505) { pixel = center; return; }
+  float edge = smoothstep(.18, .62, length(uv - .5));
+  float defocus = smoothstep(focus.y, focus.y + max(.01, focus.z), abs(1.0 - uv.y - focus.x));
+  vec2 radial = (uv - .5) * (motion.w * 9.0 + motion.z * 5.0) * edge;
+  vec2 travel = vec2(motion.x, -motion.y) + radial;
+  vec2 soft = vec2(focus.w * defocus, focus.w * defocus * .35);
+  vec2 stepUV = (travel + soft) / logicalSize;
+  vec4 total = center * 2.0;
+  float weight = 2.0;
+  for (int i = -3; i <= 3; i++) {
+    if (i == 0) continue;
+    vec2 at = clamp(uv + stepUV * (float(i) / 3.0), vec2(.001), vec2(.999));
+    float otherDepth = texture(sceneDepth, at).r;
+    // Never smear HUD ink into the world or a foreground silhouette into sky.
+    if (otherDepth < .505 || abs(otherDepth - depth) > .06) continue;
+    float w = 1.0 - abs(float(i)) * .15;
+    total += texture(image, at) * w;
+    weight += w;
+  }
+  pixel = total / weight;
 }`;
 
 function compile(gl, type, source) {
@@ -161,6 +218,12 @@ export class WebGLOskiewarScene3D {
     // program that fails to build leaves the queue off and the game on its
     // flat drawing; the faces never depend on it.
     this.sprites = [];
+    this.effects = { focus: [.5, 1, .2, 0], motion: [0, 0, 0, 0] };
+    this.postProgram = program(gl, postVertexSource, postFragmentSource);
+    this.postUniforms = Object.fromEntries(["image", "sceneDepth", "logicalSize", "focus", "motion"]
+      .map(name => [name, gl.getUniformLocation(this.postProgram, name)]));
+    this.postArray = gl.createVertexArray();
+    this.targets = null;
     try {
       this.raycastProgram = program(gl, raycastVertexSource, raycastFragmentSource);
       this.raycastUniforms = Object.fromEntries(["centre", "extent", "depth",
@@ -186,10 +249,73 @@ export class WebGLOskiewarScene3D {
   // surface reaches (the shared z), and the kind's own numbers. Returns
   // whether the host took it, so the game can fall back to flat drawing.
   raycast(kind, x, y, radius, z, zFront, roll = 0, tumble = 0) {
-    if (!this.raycastProgram || kind !== "beach") return false;
+    if (!this.raycastProgram || !["beach", "smoke"].includes(kind)) return false;
     if (!(radius > .25) || !Number.isFinite(x + y + z + zFront)) return false;
-    this.sprites.push({ x, y, radius, z, zFront, roll, tumble });
+    this.sprites.push({ kind, x, y, radius, z, zFront, roll, tumble });
     return true;
+  }
+
+  postEffects(y = .5, band = 1, feather = .2, blur = 0, dx = 0, dy = 0, pulse = 0, speed = 0) {
+    const finite = (n, fallback = 0) => Number.isFinite(n) ? n : fallback;
+    this.effects.focus = [finite(y, .5), finite(band, 1), Math.max(.01, finite(feather, .2)), Math.max(0, Math.min(6, finite(blur)))];
+    this.effects.motion = [Math.max(-12, Math.min(12, finite(dx))), Math.max(-12, Math.min(12, finite(dy))), Math.max(0, Math.min(1, finite(pulse))), Math.max(0, Math.min(1, finite(speed)))];
+  }
+
+  releaseTargets() {
+    const gl = this.gl, t = this.targets;
+    if (!t) return;
+    for (const f of [t.draw, t.resolve]) gl.deleteFramebuffer(f);
+    for (const b of [t.colorBuffer, t.depthBuffer]) gl.deleteRenderbuffer(b);
+    for (const texture of [t.color, t.depth]) gl.deleteTexture(texture);
+    this.targets = null;
+  }
+
+  ensureTargets() {
+    const gl = this.gl, width = this.canvas.width, height = this.canvas.height;
+    if (this.targets?.width === width && this.targets.height === height) return;
+    this.releaseTargets();
+    const t = this.targets = { width, height, draw: gl.createFramebuffer(), resolve: gl.createFramebuffer() };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.resolve);
+    for (const [key, format, attachment] of [["color", gl.RGBA8, gl.COLOR_ATTACHMENT0], ["depth", gl.DEPTH_COMPONENT24, gl.DEPTH_ATTACHMENT]]) {
+      t[key] = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t[key]);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, format, width, height);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, key === "color" ? gl.LINEAR : gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, key === "color" ? gl.LINEAR : gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, attachment, gl.TEXTURE_2D, t[key], 0);
+    }
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("post resolve framebuffer incomplete");
+    gl.bindFramebuffer(gl.FRAMEBUFFER, t.draw);
+    const samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES));
+    for (const [key, format, attachment] of [["colorBuffer", gl.RGBA8, gl.COLOR_ATTACHMENT0], ["depthBuffer", gl.DEPTH_COMPONENT24, gl.DEPTH_ATTACHMENT]]) {
+      t[key] = gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, t[key]);
+      gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, format, width, height);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, attachment, gl.RENDERBUFFER, t[key]);
+    }
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("post scene framebuffer incomplete");
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  presentPost() {
+    const gl = this.gl, t = this.targets, u = this.postUniforms;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, t.draw);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, t.resolve);
+    gl.blitFramebuffer(0, 0, t.width, t.height, 0, 0, t.width, t.height, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.disable(gl.DEPTH_TEST);
+    gl.useProgram(this.postProgram);
+    gl.bindVertexArray(this.postArray);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t.color); gl.uniform1i(u.image, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, t.depth); gl.uniform1i(u.sceneDepth, 1);
+    gl.uniform2f(u.logicalSize, this.logicalWidth, this.logicalHeight);
+    gl.uniform4fv(u.focus, this.effects.focus); gl.uniform4fv(u.motion, this.effects.motion);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.enable(gl.DEPTH_TEST);
   }
 
   setLogicalSize(width, height) {
@@ -244,6 +370,18 @@ export class WebGLOskiewarScene3D {
 
   present({ clear = [0, 0, 0, 0] } = {}) {
     const gl = this.gl;
+    const fx = this.effects;
+    let post = fx.focus[3] > 0 || fx.motion.some(value => value !== 0);
+    if (post) {
+      try { this.ensureTargets(); }
+      catch (error) {
+        console.warn("[scene] post effects unavailable:", error.message);
+        this.releaseTargets();
+        post = false;
+      }
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, post ? this.targets.draw : null);
+    gl.depthMask(true);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(...clear);
     gl.clearDepth(1);
@@ -257,6 +395,7 @@ export class WebGLOskiewarScene3D {
       gl.bindVertexArray(null);
     }
     if (this.sprites.length) this.presentSprites();
+    if (post) this.presentPost();
   }
 
   presentSprites() {
@@ -264,8 +403,12 @@ export class WebGLOskiewarScene3D {
     gl.useProgram(this.raycastProgram);
     gl.bindVertexArray(this.quadArray);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    // Opaque balls establish depth first; wisps blend back-to-front without
+    // writing depth, so their transparent margins never punch holes in smoke.
+    this.sprites.sort((a, b) => (a.kind === "smoke") - (b.kind === "smoke") || b.z - a.z);
     for (const sprite of this.sprites) {
+      gl.depthMask(sprite.kind !== "smoke");
       const centre = depthOf(sprite.z), front = depthOf(sprite.zFront);
       gl.uniform2f(u.centre, sprite.x / this.halfWidth - 1, 1 - sprite.y / this.halfHeight);
       gl.uniform2f(u.extent, sprite.radius / this.halfWidth, sprite.radius / this.halfHeight);
@@ -273,15 +416,19 @@ export class WebGLOskiewarScene3D {
       gl.uniform1f(u.depthRange, Math.max(0, centre - front));
       gl.uniform1f(u.roll, sprite.roll);
       gl.uniform1f(u.tumble, sprite.tumble);
-      gl.uniform1i(u.kind, 0);
+      gl.uniform1i(u.kind, sprite.kind === "smoke" ? 1 : 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
+    gl.depthMask(true);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(null);
   }
 
   destroy() {
     const gl = this.gl;
+    this.releaseTargets();
+    gl.deleteProgram(this.postProgram);
+    gl.deleteVertexArray(this.postArray);
     gl.deleteBuffer(this.buffer);
     gl.deleteVertexArray(this.array);
     gl.deleteProgram(this.program);
