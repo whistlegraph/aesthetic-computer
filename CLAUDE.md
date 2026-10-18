@@ -110,7 +110,12 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
   `aesel.tar.gz` and `aesel.json` (manifest last) without moving lith's
   checkout, and verifies the served version and tarball hash.
   **If the change touches oskiewar, the release is part of the word**, not a
-  second errand: run `npm run oskiewar:deploy`. That one command carries the
+  second errand. For the game itself (files under `xbox/live`, served as
+  oskiewar.com) run `npm run oskiewar:web`: it stamps the build, ships
+  `xbox/live` straight onto lith, purges the zone and verifies the served
+  bytes in under a minute, touching no other product. Run
+  `npm run oskiewar:deploy` only when native shells or shared public assets
+  moved. The unified command carries the
   lot: it stamps `buildVersion` to match the commit count and reburns the
   hash-bound social preview (both used to be manual steps the release refused
   without), runs `fish lith/deploy.fish`, and then reconciles web, iOS and
