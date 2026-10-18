@@ -1140,6 +1140,8 @@ function findColor() {
         } else {
           args = [...indexColor, computeAlpha(args[1])];
         }
+      } else if (/^(#|0x)/i.test(args[0]) && isHexString(args[0])) {
+        args = [...hexToRgb(args[0]), computeAlpha(args[1])]; // Hex with alpha.
       } else {
         // Try CSS color table lookup
         const cssColor = cssColors[args[0]];

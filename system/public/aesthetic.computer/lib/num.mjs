@@ -489,11 +489,11 @@ function cleanHexString(h) {
   return h.replace("#", "").replace("0x", "").toUpperCase();
 }
 
-// Determines if a string is a valid hex value.
+// Determines if a string is a valid hex value. Checked by its digits: a
+// parseInt round trip drops leading zeros, so "#0b0b12" and "#00ff88" failed
+// and painted a random colour instead (2026-10-18).
 export function isHexString(h) {
-  h = cleanHexString(h);
-  const a = parseInt(h, 16);
-  return a.toString(16) === h.toLowerCase();
+  return /^[0-9A-F]+$/.test(cleanHexString(h));
 }
 
 // 🌈 Colors
