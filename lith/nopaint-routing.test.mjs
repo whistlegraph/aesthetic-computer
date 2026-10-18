@@ -46,6 +46,12 @@ test('No Paint classic serves the complete archived export without crossing stud
   assert.equal(page.status, 200);
   const html = await page.text();
   assert.match(html, /No Paint: Summer 2021/);
+  for (const name of ['image-path', 'workspace-theme']) {
+    const response = await fetch(base + `/easel/src/${name}.mjs`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /javascript/);
+    assert.equal(await response.text(), await readFile(new URL(`../aesel/src/${name}.mjs`, import.meta.url), 'utf8'));
+  }
   assert.doesNotMatch(html, /src="scripts\/register-sw.js"/);
   const manifest = JSON.parse(await readFile(new URL('../toolchain/nopaint/classic-export.json', import.meta.url)));
   for (const file of manifest.files) {

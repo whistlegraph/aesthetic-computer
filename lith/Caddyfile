@@ -1320,6 +1320,11 @@ nopaint.art {
         header Cache-Control "no-cache"
         file_server
     }
+    # Browser-safe Aesel modules shared with the painting path.
+    handle /easel/src/* {
+        root * /opt/ac/system/public
+        file_server
+    }
     # The conductor rewrites / to /nopaint:<seed>. Reloads and shared
     # sessions must boot AC again instead of matching an archive record.
     @nopaint_session path /nopaint /nopaint/ /nopaint:* /nopaint~*

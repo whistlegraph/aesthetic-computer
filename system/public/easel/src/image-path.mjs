@@ -1,0 +1,1 @@
+../../../../aesel/src/image-path.mjs
