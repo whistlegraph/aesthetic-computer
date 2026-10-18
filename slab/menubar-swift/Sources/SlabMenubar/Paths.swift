@@ -31,8 +31,8 @@ enum Paths {
     static var imsgConfig: String { "\(home)/.config/slab/imsg.json" }
     static var signalHelper: String { "\(slabBin)/signal" }
     static var signalConfig: String { "\(home)/.config/slab/signal.json" }
-    /// Contact-keyed input → prox routes. Contact handles remain private in
-    /// imsgConfig; Loopboy stores only contact keys and local session ids.
+    /// Event/source → prox routes. iMessage contact keys remain compatible;
+    /// custom producers declare their own source metadata, never executable code.
     static var loopboyConfig: String { "\(home)/.config/slab/loopboy.json" }
 
     /// `zzz` parks idle prompt processes while preserving enough provider

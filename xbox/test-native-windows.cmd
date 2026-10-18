@@ -11,10 +11,15 @@ if exist "%BUILD%" rmdir /s /q "%BUILD%"
 mkdir "%BUILD%" || exit /b 2
 
 node --check "%ROOT%\xbox\live\controller-probe.js" || exit /b 1
-node --check "%ROOT%\xbox\live\oskiewar.js" || exit /b 1
-node "%ROOT%\xbox\tools\oskiewar-native-source.mjs" "%BUILD%\oskiewar.js" || exit /b 1
-node --check "%BUILD%\oskiewar.js" || exit /b 1
-node --test "%ROOT%\xbox\live\tests\native-account.test.mjs" "%ROOT%\xbox\live\tests\native-flat-primitives.test.mjs" "%ROOT%\xbox\live\tests\oskiewar-dual-stick.test.mjs" || exit /b 1
+rem oskiewar is a private product (private-products.json): its game and tests
+rem are only here when the vault is linked in. The public checkout CI builds
+rem from skips them rather than failing on a file it was never given.
+if exist "%ROOT%\xbox\live\oskiewar.js" (
+  node --check "%ROOT%\xbox\live\oskiewar.js" || exit /b 1
+  node "%ROOT%\xbox\tools\oskiewar-native-source.mjs" "%BUILD%\oskiewar.js" || exit /b 1
+  node --check "%BUILD%\oskiewar.js" || exit /b 1
+  node --test "%ROOT%\xbox\live\tests\native-account.test.mjs" "%ROOT%\xbox\live\tests\native-flat-primitives.test.mjs" "%ROOT%\xbox\live\tests\oskiewar-dual-stick.test.mjs" || exit /b 1
+)
 node --check "%ROOT%\xbox\live\native-showcase.js" || exit /b 1
 node --check "%ROOT%\xbox\live\photo-disc.js" || exit /b 1
 node "%ROOT%\xbox\live\tests\controller-probe.test.mjs" || exit /b 1

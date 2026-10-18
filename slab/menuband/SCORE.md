@@ -23,30 +23,94 @@ MIDI-mode shortcut. The shared chord modifiers work on every layout.
 Lives at `slab/menuband/`. Distinct from `slab/menubar-swift/` (the
 Claude session menubar; different status item, different process).
 
-## System output volume
+## Output and Air
 
-The direct-download popover's **System** checkbox and slider control all apps
-playing through the current stereo system output, including interfaces such as
-Scarlett Solo that expose no Core Audio volume property. Requires macOS 14.2+
-and system-audio permission. A child mode of the signed MenuBand executable
-excludes its own playback from a device tap, applies a smoothed 0–100% gain,
-and sends audio to the same output. Physical microphone inputs are skipped;
-audio is never stored or networked. Starts at 25% on first use and remembers
-the slider level per device. Enablement is explicit each session. Turning it
-off, quitting, or changing output/rate restores the interface's hardware level.
-The interface's direct hardware monitoring is outside this software control.
-The helper runs directly on the HAL audio thread without a dispatch-queue hop.
-For crunching, inspect CoreAudio overloads and the headset menu's IO buffer:
-16 frames produced client timeouts on the local Scarlett Solo; 256 frames
-cleared the observed overloads. Air masking does not fix missed audio deadlines.
+Menu Band plays through the selected macOS output, including a Focusrite
+Scarlett, without a volume enable switch. The headset menu can pin another
+output for Menu Band. Playback binds to that device before the engine starts.
+Device-list and system-output changes recheck the route, with a five-second
+audit as a fallback. A pinned interface is resolved by UID after reconnect;
+automatic output follows the current system default even if the engine's
+temporary speaker fallback is still connected.
+Focusing Menu Band does not reset the interface or change its sample rate.
+Menu Band is an output instrument first. The microphone is a toggle: the
+headset button turns monitoring ON or OFF, the choice is remembered across
+focus, reconnects, and relaunches, and nothing else opens the mic — plugging in
+a Focusrite does not. OFF (the default) never opens a capture stream; playback
+continues on its own. Performance focus only mutes an enabled monitor; it does
+not reopen capture.
+Visualizer and recording taps stay attached; UI visibility only gates their
+delivery. **Reset Interface** stops Menu Band's output and capture before flipping the
+hardware rate, restores that rate, then reopens input and prepares playback
+again. It works even when the raw output unit emits no engine-configuration
+notification. The watchdog also requests this reset when a running Scarlett's
+hardware clock unexpectedly goes backward or stops advancing for two seconds.
+This check works without diagnostic logging. Startup, route/rate changes,
+intentional pauses, latency changes and reset settling establish fresh clock
+baselines. Automatic resets have a 15-second cooldown and a limit of two per
+minute; each needs fresh fault evidence. A Focusrite that drops off the bus and
+returns (a USB fault or a replug) gets one stream rebuild three seconds after
+it is bound as the output again, capped at two per minute; launch with the
+interface already present does not reset. The clock watchdog, the binding
+audit and the bindings log read device properties off the main thread, so a
+dying interface cannot freeze the keyboard while the HAL waits on it. Silence or pointer entry never triggers
+a reset. A progressing clock cannot prove that the analog output is audible,
+so the manual command remains available. All clients of the shared device hear
+a gap during a hardware reset. Playback/input watchdogs yield until Menu Band
+has reopened its streams, and delayed synth builds cannot restart IO mid-reset.
+Latency changes stop and reprepare Menu Band's graph at the new buffer size.
+The final output node replaces non-finite samples with silence before they
+reach CoreAudio's shared mix. Invalid audio or stalled render callbacks trigger
+a bounded engine reset on the current output; wake and route changes re-arm
+recovery. Intentional idle pauses are excluded. Recovery clears effect tails
+and held notes without changing the hardware sample rate.
 
-**Air**, directly below System, adds continuous White, Brown, or Cabin noise
-through the same output helper. Cabin is a gently moving low airplane-like
-rumble. Filter sweeps a smooth two-stage low-pass from 60–6000 Hz, defaulting
-to a dark 160 Hz; it affects only Air and remembers its setting. Air starts
-silent, fades smoothly, and follows System volume including mute. Its color is remembered; its level resets to zero when disabled or quit.
-This masks distracting noise; it does not remove hiss from speakers or cables.
-The pitched ⇧Space Air instrument remains separate.
+For local troubleshooting, enable `MBAudioDiagnosticsEnabled` in the app's
+defaults before launch. `~/Library/Logs/MenuBand/audio-diagnostics.jsonl`
+contains one-second scalar meters for tones, percussion, the main mix, the
+final output guard, and the hardware output unit. Each distinguishes measured
+silence from missing callbacks or unavailable buffers, and reports non-finite
+samples, peak/RMS, callback gaps, and time since the last signal. Snapshots also
+include gains, trigger counts, output/monitor IDs, a hashed persistent device
+identity, device clock progress, stream state, rate and buffer size. Route,
+reset, overload and active-output-client PID changes are timestamped separately.
+These diagnostics do not drive recovery or change routing. No audio, MIDI note
+content or microphone recording is retained, and nothing is uploaded. The
+current and previous logs are capped at 4 MiB each. Disable the same preference
+and relaunch to stop diagnostics.
+After a dropout, `bash slab/menuband/bin/audio-diagnostics.sh` collects those
+files, recent app events, and ten minutes of USB/CoreAudio error and stream
+restart events into a local report directory. An optional argument selects
+1–60 minutes. It neither resets audio nor uploads the report.
+
+The direct-download popover's **Air** slider adds White, Brown, or Cabin
+background noise: zero is silent, raising it fades the noise in. It shares
+the instrument's output engine. Air plays while Menu Band is in front (the
+popover open, or keyboard performance focus held) and fades out over 250 ms
+when the player leaves for another app; the slider keeps its level, and
+returning fades Air back in. The microphone monitor is not affected by this
+app-switch gate.
+It does not capture or change other apps' audio, open another output engine,
+or require system-audio permission. Air bypasses gesture FX and rewind
+capture; its level is independent of the instrument mix. It is included in
+the full tape mix, but not the dry instrument or microphone stems.
+Dragging an active Air slider only updates render parameters. Crossing zero
+or leaving/returning to Menu Band wakes an idle engine or permits idle
+suspension; adding Air to a running mix
+does not invoke recovery. Piano hover only redraws the keyboard and never
+queries CoreAudio. The independent timers own diagnostics and fault checks.
+
+Cabin is a gently moving low airplane-like rumble. Filter sweeps a smooth
+two-stage low-pass from 60–6000 Hz, defaulting to 160 Hz. Color and filter
+are remembered; level starts at zero each launch. The pitched ⇧Space Air
+instrument remains separate.
+
+## Trackpad mode cues
+
+Tab cycles FX, drums, and OFF. Each has a short ding: C4 for FX, G4 for drums,
+and C3 for OFF. OFF shows no switch graphic or slider, releases the pointer
+and click shields, and stays off through note releases and focus changes until
+Tab selects another mode.
 
 ## Drum kits
 

@@ -23,7 +23,7 @@ Consumers so far: `grants/restless-egg-2026/video/gen-felt.mjs` (felt ensemble),
 `marketing/bin/gen-promo.mjs` (campaigns), pop cover prompts.
 
 ## Tooling index
-- `bin/gen-promo.mjs` — gpt-image-2 campaign entrypoint (jeffrey refs on by default)
+- `bin/gen-promo.mjs` — gpt-image-2.5-sunburst campaign entrypoint (jeffrey refs on by default)
 - `bin/capture-ac-platter.mjs` + `bin/build-ac-platter.py` — real AC screen captures → contact-sheet platter (laptop-screen refs for gens)
 - `bin/capture-ac-native.mjs` — real ac-native WASM UI frames
 - `lib/jeffrey-refs.mjs` — shared identity photos

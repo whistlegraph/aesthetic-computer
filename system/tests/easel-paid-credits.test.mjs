@@ -90,3 +90,19 @@ test('a hold prices input as input and only the output allowance as output',()=>
  assert.ok(holdBraincells({model:'anthropic/claude-sonnet-5.5',body,maxTokens:16384})<reservationSize(body,16384)*4/2,'well under half the all-as-output hold');
  assert.equal(holdBraincells({model:'openai/gpt-5.6-luna',body,maxTokens:100}),reservationSize(body,100),'fixed tariff unchanged');
 });
+
+test('No Paint checkout has a fixed return route and shared wallet fulfillment',async()=>{
+ const created=[];
+ const h=handler({stripe:{checkout:{sessions:{create:async config=>{created.push(config);return {id:'cs_test_new',url:'https://checkout.stripe.com/test'};}}}}});
+ const body={pack:CREDIT_PACK.id,requestId:'12345678-1234-1234-1234-123456789abc',surface:'nopaint',returnUrl:'https://evil.example'};
+ assert.equal((await h(event(body))).statusCode,200);
+ const config=created[0];
+ assert.equal(config.success_url,'https://aesthetic.computer/nopaint.art/ai/signin.html?result=success&session_id={CHECKOUT_SESSION_ID}');
+ assert.equal(config.cancel_url,'https://aesthetic.computer/nopaint.art/ai/signin.html?result=canceled');
+ assert.deepEqual(config.payment_method_types,['card']); // Hosted Checkout can offer Apple Pay for card payments.
+ assert.equal(config.metadata.surface,'nopaint');assert.equal(config.metadata.userSub,'user1');
+ assert.equal(config.line_items[0].price_data.unit_amount,500);
+ assert.equal((await h(event({...body,surface:'https://evil.example'}))).statusCode,400);
+ await h(event({...body,surface:undefined}));
+ assert.equal(created[1].success_url,'https://aesthetic.computer/api/easel-checkout?result=success');
+});

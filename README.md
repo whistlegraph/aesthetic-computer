@@ -31,6 +31,10 @@ Each major subsystem has a `SCORE.md` — the process knowledge for authors and 
 
 Self-hosted on `knot.aesthetic.computer`.
 
+[NELA Computer Club contributions](docs/nela-contributions.md) — login and wiki skins,
+signup and guestbook prototypes, and Nelamesh Scope, for the
+[NELA repository](https://git.nela.computer/jeffrey/nela-contributions).
+
 ## Identity
 
 Built by [@jeffrey](https://prompt.ac/@jeffrey) — `did:plc:k3k3wknzkcnekbnyde4dbatz`

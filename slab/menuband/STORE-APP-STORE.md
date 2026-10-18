@@ -13,6 +13,27 @@ direct-download version. The full version stays at prompt.ac/menuband.
 
 ## 0. Where it stands
 
+**In preparation — v1.6.13 (build 176), 2026-10-15.** Build 175 was rejected
+on September 24 under 2.1(a): closing the application window left no menu item
+to reopen it (MacBook Air M3, macOS 27.0). The store build now keeps a Dock icon
+and a Window → Open Menu Band command, opens its panel at launch, and handles
+relaunches without toggling an already visible panel closed. Its singleton
+check distinguishes the store and direct-download bundle identities. The
+direct-download app retains its accessory activation policy.
+
+The Xcode project also compiles the WORLD C++ source directory as source files
+instead of an opaque folder reference. Build 176 includes the current sampled
+drum kits and piano sources.
+
+Validation: universal Release archive; sandboxed runtime checks for closing,
+Window → Open Menu Band, repeated Open, and reopening through LaunchServices.
+The exported package and nested signatures verify. The app retains only
+sandbox, audio input, outbound network, and user-selected file access;
+both QuickLook extensions retain their sandbox entitlement. Compilation ran
+unsigned on a separate build machine, followed by local ad-hoc signing with
+the declared entitlements and cloud-signed App Store export. This explicit
+step is necessary: exporting the unsigned archive alone omitted entitlements.
+
 **PUBLISHED — v1.5.3 (build 154) went live on the Mac App Store 2026-07-12.**
 
 > **https://apps.apple.com/us/app/menu-band/id6767311903**

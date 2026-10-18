@@ -848,8 +848,12 @@ final class MenuBandSampleVoice {
         guard !recording, hotMicPinReasons.isEmpty else { return }
         hotMicStopWork?.cancel()
         hotMicStopWork = nil
+        // Closing a UI that never opened the microphone must not touch its
+        // audio units or create another device configuration cycle.
+        guard inputTapInstalled || monitorOutputTapInstalled || recordEngine.isRunning
+                || boundInputDeviceID != 0 else { return }
         if inputTapInstalled {
-                        recordEngine.inputNode.removeTap(onBus: 0)
+            recordEngine.inputNode.removeTap(onBus: 0)
             inputTapInstalled = false
         }
         if monitorOutputTapInstalled {

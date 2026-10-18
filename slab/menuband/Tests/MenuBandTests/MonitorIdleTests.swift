@@ -14,9 +14,25 @@ final class MonitorIdleTests: XCTestCase {
             wanted: true, attached: false, eligible: true))
     }
 
-    func testMutingAnEstablishedInterfaceDoesNotReopenUSBStreams() {
-        XCTAssertTrue(MenuBandSynth.shouldKeepMonitorOpen(
+    func testExplicitOffReleasesAnEstablishedInterface() {
+        XCTAssertFalse(MenuBandSynth.shouldKeepMonitorOpen(
             wanted: false, attached: true, eligible: true))
+    }
+
+    func testManualOffSurvivesActivationAndDeviceReconnection() {
+        for present in [true, false, true, true] {
+            XCTAssertFalse(MenuBandController.monitoringSelection(
+                manualChoice: false, interfacePresent: present))
+        }
+    }
+
+    func testMicIsOffUntilExplicitlyToggledOnEvenWhenAnInterfaceArrives() {
+        for present in [false, true] {
+            XCTAssertFalse(MenuBandController.monitoringSelection(
+                manualChoice: nil, interfacePresent: present))
+            XCTAssertTrue(MenuBandController.monitoringSelection(
+                manualChoice: true, interfacePresent: present))
+        }
     }
 
     func testDisconnectedInputIsReleasedEvenWhenMonitoringIsWanted() {

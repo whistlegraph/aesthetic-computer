@@ -155,3 +155,24 @@ test("the game carries exactly the lab's spine body (run xbox/tools/embed-spine.
   const { generate, embedded } = await import("../../tools/embed-spine.mjs");
   assert.equal(embedded(), generate());
 });
+
+test("arm and leg lengths stay fixed even with unreachable pinned or locked targets", () => {
+  for (const lock of [false, true]) for (const pin of [false, true]) {
+    const body = createSpine({ iterations: 2, substeps: 3 });
+    for (let f = 0; f < 120; f++) {
+      for (const [i, limb] of [...body.arms, ...body.legs].entries()) {
+        limb.lock = lock; limb.pin = pin; limb.stiff = 1;
+        const distance = f % 3 === 0 ? 0 : f % 3 === 1 ? 35 : 1000;
+        limb.goal = { x: body.root.x + (i % 2 ? distance : -distance),
+          y: f % 2 ? -distance : distance, z: i * distance };
+      }
+      if (f % 17 === 0) impulse(body, 3, 800, -500, 900);
+      stepSpine(body);
+      for (const limb of [...body.arms, ...body.legs]) for (let i = 0; i < 2; i++) {
+        const length = Math.hypot(limb.x[i+1]-limb.x[i], limb.y[i+1]-limb.y[i], limb.z[i+1]-limb.z[i]);
+        assert.ok(Math.abs(length-limb.lengths[i]) < 1e-6,
+          `${limb.kind} ${i}: ${length} versus ${limb.lengths[i]}, lock=${lock}, pin=${pin}`);
+      }
+    }
+  }
+});

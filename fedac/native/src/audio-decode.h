@@ -5,8 +5,6 @@
 #ifndef AC_AUDIO_DECODE_H
 #define AC_AUDIO_DECODE_H
 
-#ifdef HAVE_AVCODEC
-
 #include <pthread.h>
 #include <stdint.h>
 
@@ -75,6 +73,8 @@ typedef struct ACDeckDecoder {
     volatile int     video_ready;
 } ACDeckDecoder;
 
+#ifdef HAVE_AVCODEC
+
 // Create a decoder instance for the given output sample rate
 ACDeckDecoder *deck_decoder_create(unsigned int output_rate);
 
@@ -104,31 +104,8 @@ void deck_decoder_destroy(ACDeckDecoder *d);
 
 #else // !HAVE_AVCODEC
 
-// Stubs when FFmpeg is not available
-typedef struct ACDeckDecoder {
-    volatile int loaded;
-    volatile int playing;
-    volatile int finished;
-    volatile double position;
-    double duration;
-    volatile double speed;
-    char title[256];
-    char artist[256];
-    char error_msg[128];
-    volatile int error;
-    // Ring buffer stubs for audio thread
-    float *ring;
-    int ring_size;
-    volatile int ring_write;
-    volatile int ring_read;
-    uint32_t *video_frames;
-    int video_frame_count;
-    int video_width;
-    int video_height;
-    double video_fps;
-    volatile int video_ready;
-} ACDeckDecoder;
-
+// Keep the shared decoder layout available to audio/UI consumers even
+// without FFmpeg. Creation fails explicitly, so these builds have no decks.
 static inline ACDeckDecoder *deck_decoder_create(unsigned int output_rate) {
     (void)output_rate; return 0;
 }
@@ -141,6 +118,9 @@ static inline void deck_decoder_seek(ACDeckDecoder *d, double s) { (void)d; (voi
 static inline void deck_decoder_set_speed(ACDeckDecoder *d, double s) { (void)d; (void)s; }
 static inline void deck_decoder_unload(ACDeckDecoder *d) { (void)d; }
 static inline void deck_decoder_destroy(ACDeckDecoder *d) { (void)d; }
+static inline int deck_decoder_generate_peaks(ACDeckDecoder *d, int target_count) {
+    (void)d; (void)target_count; return -1;
+}
 static inline int deck_decoder_generate_video_preview(ACDeckDecoder *d, int width, int height, int fps) {
     (void)d; (void)width; (void)height; (void)fps; return -1;
 }

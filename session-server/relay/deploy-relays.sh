@@ -12,10 +12,10 @@ ROOT=$(cd "$HERE/../.." && pwd)
 COMMIT=$(git -C "$ROOT" rev-parse --short=10 HEAD)
 VERIFY_ONLY=${1:-}
 fail=0
-relays=$(node -e 'for (const r of require(process.argv[1]).relays) console.log([r.region, r.host, r.kind, r.ip || ""].join(" "))' "$HERE/relays.json")
-while read -r region host kind ip; do
+relays=$(node -e 'for (const r of require(process.argv[1]).relays) console.log([r.region, r.host, r.kind, r.ip || "-", r.bots ? 1 : 0].join(" "))' "$HERE/relays.json")
+while read -r region host kind ip bots; do
   if [ "$kind" = "relay" ] && [ "$VERIFY_ONLY" != "--verify" ]; then
-    RELAY_COMMIT=$COMMIT "$HERE/deploy-relay.sh" "$ip" "$host" "$region" >/dev/null || { echo "✗ $region: deploy failed"; fail=1; continue; }
+    BOT_FILL=$bots RELAY_COMMIT=$COMMIT "$HERE/deploy-relay.sh" "$ip" "$host" "$region" >/dev/null || { echo "✗ $region: deploy failed"; fail=1; continue; }
   fi
   health=$(curl -s -m 8 "https://$host/oskiewar-room?match=ow-probe1") || health=""
   if ! echo "$health" | grep -q '"live"'; then echo "✗ $region ($host): /oskiewar-room did not answer: ${health:0:80}"; fail=1; continue; fi

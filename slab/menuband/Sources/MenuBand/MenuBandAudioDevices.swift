@@ -144,6 +144,22 @@ enum MenuBandAudioDevices {
         return id
     }
 
+    /// Resolve on every use: a persistent UID can return with a new numeric
+    /// ID, and the system default can change after the device-list event.
+    static func outputTargetID(devices: [MBAudioDevice], pinnedUID: String?,
+                               systemDefaultID: AudioDeviceID?) -> AudioDeviceID? {
+        let outputs = devices.filter { $0.outputChannels > 0 }
+        if let pinnedUID, let pinned = outputs.first(where: { $0.uid == pinnedUID }) {
+            return pinned.id
+        }
+        return outputs.first { $0.id == systemDefaultID }?.id
+    }
+
+    static func preferredOutputID() -> AudioDeviceID? {
+        outputTargetID(devices: all(), pinnedUID: pinnedOutputUID,
+                       systemDefaultID: systemDefaultOutputID())
+    }
+
     // MARK: - Channel map
 
     /// AUHAL channel-map write shared by the duplex-monitor engine and the
@@ -169,10 +185,8 @@ enum MenuBandAudioDevices {
 
     // MARK: - Preferred interface sample rate
 
-    /// The rate Menu Band runs a Focusrite at. 44.1 kHz by default while we
-    /// test whether the 48 kHz output stream is what dies under usbaudiod
-    /// (macOS 26). Applied at launch before the engine starts and restored
-    /// by `resetInterface`.
+    /// An explicit rate preference for `applyPreferredRate`. Ordinary launch
+    /// adopts the device's rate and stream resets restore that same rate.
     static var preferredInterfaceRate: Double {
         let v = UserDefaults.standard.double(forKey: "notepat.interfaceSampleRate")
         return v > 0 ? v : 44_100
@@ -218,13 +232,7 @@ enum MenuBandAudioDevices {
     @discardableResult
     static func bindToRawOutput(_ engine: AVAudioEngine, label: String) -> Bool {
         guard let au = engine.outputNode.audioUnit else { return false }
-        var target: AudioDeviceID = 0
-        if let uid = pinnedOutputUID, let dev = device(uid: uid), dev.outputChannels > 0 {
-            target = dev.id
-        } else {
-            target = systemDefaultOutputID() ?? 0
-        }
-        guard target != 0 else { return false }
+        guard let target = preferredOutputID() else { return false }
         var current = AudioDeviceID(0)
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
         if AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
@@ -247,10 +255,26 @@ enum MenuBandAudioDevices {
     /// Runs off the main thread; the engine absorbs the resulting
     /// configuration change like any device switch.
     private static let resetQueue = DispatchQueue(label: "menuband.interface-reset", qos: .userInitiated)
+    private static let resetStateLock = NSLock()
+    private static var resetting = false
+    static var interfaceResetInProgress: Bool {
+        resetStateLock.lock(); defer { resetStateLock.unlock() }
+        return resetting
+    }
     private static let resetCoordinator = InterfaceResetCoordinator(
         perform: { id, completion in performInterfaceReset(id, completion: completion) },
         busyChanged: { busy in
+            if busy {
+                resetStateLock.lock()
+                resetting = true
+                resetStateLock.unlock()
+            }
             NotificationCenter.default.post(name: .menuBandInterfaceResetting, object: busy)
+            if !busy {
+                resetStateLock.lock()
+                resetting = false
+                resetStateLock.unlock()
+            }
         })
 
     static func resetInterface(_ id: AudioDeviceID, completion: ((Bool) -> Void)? = nil) {
@@ -274,13 +298,13 @@ enum MenuBandAudioDevices {
                 DispatchQueue.main.async { completion(false) }
                 return
             }
-            let want = preferredInterfaceRate
+            let want = rate
             var other: Double = want == 44_100 ? 48_000 : 44_100
             let s1 = AudioObjectSetPropertyData(id, &address, 0, nil, size, &other)
             // Release the worker during USB teardown. The coordinator keeps
             // this device in flight until both the flip and settling finish.
             let originalRate = rate, alternateRate = other
-            resetQueue.asyncAfter(deadline: .now() + 0.4) {
+            resetQueue.asyncAfter(deadline: .now() + 0.8) {
                 var restoreAddress = AudioObjectPropertyAddress(
                     mSelector: kAudioDevicePropertyNominalSampleRate,
                     mScope: kAudioObjectPropertyScopeGlobal,
@@ -290,25 +314,23 @@ enum MenuBandAudioDevices {
                                                     UInt32(MemoryLayout<Double>.size), &back)
                 NSLog("MenuBand audio: interface reset on \(id): \(originalRate) → \(alternateRate) (\(s1)) → \(want) (\(s2))")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    completion(s1 == noErr && s2 == noErr)
+                    let restored = abs(nominalRate(of: id) - want) < 1
+                    completion(s1 == noErr && s2 == noErr && restored)
                 }
             }
         }
     }
 
-    // MARK: - Device-list observation
+    // MARK: - Route observation
 
     private static var deviceListQueue = DispatchQueue(label: "menuband.devicelist")
     private static var deviceListBlock: AudioObjectPropertyListenerBlock?
 
-    /// Fire `handler` on the main thread (debounced ~0.8 s) whenever the
-    /// system's audio device list changes — plug/unplug of an interface.
-    static func observeDeviceList(_ handler: @escaping () -> Void) {
+    /// Device arrival and default-output selection are separate events.
+    /// Observe both: a raw-bound playback AU may emit neither an engine
+    /// configuration change nor a device-list change when the default moves.
+    static func observeRoutingChanges(_ handler: @escaping () -> Void) {
         guard deviceListBlock == nil else { return }
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
         var pending: DispatchWorkItem?
         let block: AudioObjectPropertyListenerBlock = { _, _ in
             pending?.cancel()
@@ -317,8 +339,13 @@ enum MenuBandAudioDevices {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
         }
         deviceListBlock = block
-        AudioObjectAddPropertyListenerBlock(
-            AudioObjectID(kAudioObjectSystemObject), &address, deviceListQueue, block)
+        for selector in [kAudioHardwarePropertyDevices, kAudioHardwarePropertyDefaultOutputDevice] {
+            var address = AudioObjectPropertyAddress(
+                mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            AudioObjectAddPropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject), &address, deviceListQueue, block)
+        }
     }
 
     /// True when a Focusrite/Scarlett interface with inputs is attached.

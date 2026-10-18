@@ -1,11 +1,5 @@
 import AppKit
 
-#if !MAC_APP_STORE
-if #available(macOS 14.2, *), MenuBandSystemVolumeHelper.runIfRequested(CommandLine.arguments) {
-    exit(0)
-}
-#endif
-
 // Headless KidLisp renderer mode: `--kidlisp-render <src> <w> <h> <out.ppm>`.
 // Short-circuits app startup so conformance harnesses can call the same
 // binary without launching a status item.
@@ -77,8 +71,14 @@ do {
     let myPid = ProcessInfo.processInfo.processIdentifier
     let duplicate = NSWorkspace.shared.runningApplications.contains { app in
         guard app.processIdentifier != myPid,
-              let url = app.executableURL else { return false }
-        return url.lastPathComponent == "MenuBand"
+              let url = app.executableURL,
+              url.lastPathComponent == Bundle.main.executableURL?.lastPathComponent else { return false }
+        // The embedded MenuBandLauncher shares our bundle identifier but is
+        // a different executable, so it must not count as another Menu Band.
+        if let bundleID = Bundle.main.bundleIdentifier {
+            return app.bundleIdentifier == bundleID
+        }
+        return url == Bundle.main.executableURL
     }
     if duplicate {
         NSLog("MenuBand: duplicate instance detected — exiting")
@@ -89,7 +89,13 @@ do {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.accessory)  // menubar-only, no Dock icon
+#if MAC_APP_STORE
+// The store app has a persistent Dock/menu entry so closing its panel never
+// strands the user. The directly installed menu-bar utility stays accessory.
+app.setActivationPolicy(.regular)
+#else
+app.setActivationPolicy(.accessory)
+#endif
 // A plain SIGTERM (pkill, launchd stop) would kill the process without
 // `applicationWillTerminate`, skipping the audio teardown — and a duplex
 // session on the Scarlett that dies mid-render leaves the interface wedged

@@ -1,0 +1,74 @@
+{
+  "iclc-2027-notespatial": {
+    "text": "A native sound-and-image performance submitted to ICLC 2027.",
+    "source": "papers/submissions.json"
+  },
+  "artsit-2026": {
+    "text": "A sound-and-image full-paper submission record for ArtsIT 2026.",
+    "source": "papers/submissions.json"
+  },
+  "iccc-early-career-2026": {
+    "text": "An early-career research statement record for ICCC 2026.",
+    "source": "papers/submissions.json"
+  },
+  "latency": {
+    "text": "Tracing the keypress-to-sound path through AC Native OS, from USB interrupts to audio hardware.",
+    "source": "papers/arxiv-latency/latency.tex"
+  },
+  "turf": {
+    "text": "How Aesthetic Computer can find its footing on an internet increasingly written and read by machines.",
+    "source": "papers/arxiv-turf/turf.tex"
+  },
+  "traffic": {
+    "text": "A traffic audit across sixteen domains, separating human visits from bots, monitoring, and internal requests.",
+    "source": "papers/arxiv-traffic/traffic.tex"
+  },
+  "ios-so-far": {
+    "text": "Ten years of apps on Apple’s store, read through reviews, sales, release history, and the work still needed to ship.",
+    "source": "papers/arxiv-ios-so-far/ios-so-far.tex"
+  },
+  "essay-august-26": {
+    "text": "Recovering a song whose source disappeared, and rebuilding a release around the recording that survived.",
+    "source": "papers/essay-august-26/august-26.tex"
+  },
+  "keymaps": {
+    "text": "Keyboard layouts as shared, versioned musical agreements that travel between people and applications.",
+    "source": "papers/arxiv-keymaps/keymaps.tex"
+  },
+  "aesthinema": {
+    "text": "Making generative cinema with consistent characters, canonical reference images, and human approvals.",
+    "source": "papers/arxiv-aesthinema/aesthinema.tex"
+  },
+  "pals": {
+    "text": "The history and evolution of the Aesthetic Computer logo.",
+    "source": "papers/arxiv-pals/pals.tex"
+  },
+  "essay-console-browser": {
+    "text": "What a browser on a game console reveals about controller identity, compatibility, and the web as a game platform.",
+    "source": "papers/essay-console-browser/console-browser.tex"
+  },
+  "oskiewar": {
+    "text": "A fighting-game laboratory connecting native Xbox play, browser spectation, spatial sound, and compact replays.",
+    "source": "papers/arxiv-oskiewar/oskiewar.tex"
+  },
+  "oskiewar-store": {
+    "text": "What separates a working Developer Mode Xbox game from retail distribution: packaging, platform integration, and the GDK port.",
+    "source": "papers/arxiv-oskiewar-store/store.tex"
+  },
+  "oskiewar-reels": {
+    "text": "A four-stage pipeline turning a date into a recorded game, a dressed video, and a checked Instagram Reel.",
+    "source": "papers/arxiv-oskiewar-reels/reels.tex"
+  },
+  "penrose": {
+    "text": "Generating reproducible diagrams from repository data with Penrose and a deterministic TikZ fallback.",
+    "source": "papers/arxiv-penrose/penrose.tex"
+  },
+  "fraserin": {
+    "text": "Applying Andrea Fraser’s institutional-critique methods to art-and-tech organizations, with a survey of prior work.",
+    "source": "papers/arxiv-fraserin/fraserin.tex"
+  },
+  "comp-strats": {
+    "text": "Compositional strategies for a small media-arts practice: units, time, names, authorship, composition, refusal, and care.",
+    "source": "papers/arxiv-comp-strats/comp-strats.tex"
+  }
+}

@@ -156,6 +156,11 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 const duelManager = new DuelManager();
 const fightManager = new FightManager();
 const oskiewar = await optionalProduct(new URL("./oskiewar-live-manager.mjs", import.meta.url));
+// The one global queue for oskiewar (oskiewar-lobby.mjs): who is online on
+// every relay, and which relay the public room meets on. Lives here, on the
+// always-on monolith, whichever relay the fight itself runs on.
+const oskiewarLobbyModule = await optionalProduct(new URL("./oskiewar-lobby.mjs", import.meta.url));
+const oskiewarLobby = oskiewarLobbyModule ? new oskiewarLobbyModule.OskiewarLobby() : null;
 // The oskiewar datagram lane: rollback input packets over UDP instead of the
 // socket (see LANE_FRESH_MS in oskiewar-live-manager.mjs). Raw UDP on 8891 for
 // the Mac app; browsers reach it through this server's geckos.io channel.
@@ -1455,6 +1460,13 @@ fastify.get("/oskiewar-open-room", async (request, reply) => {
 // A tiny answer the clients time to pick the nearest relay
 // (round-room.mjs chooseRelayHost). Without it this relay could never be
 // chosen: every timing came back a 404.
+fastify.get("/oskiewar-lobby", async (request, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Cache-Control", "no-store");
+  if (!oskiewarLobby) return reply.code(404).send({ error: "Product unavailable" });
+  return oskiewarLobby.status();
+});
+
 fastify.get("/oskiewar-ping", async (request, reply) => {
   reply.header("Access-Control-Allow-Origin", "*");
   reply.header("Cache-Control", "no-store");
@@ -1832,6 +1844,8 @@ wss.on("connection", async (ws, req) => {
 
   // Public, pronounceable-ID-scoped oskiewar phone spectator rooms.
   if (oskiewarLiveManager?.handleConnection(ws, req)) return;
+  // The oskiewar global lobby: presence and the relay to meet on.
+  if (oskiewarLobby?.handleConnection(ws, req)) return;
 
   // Handle-scoped agent presence — lights the agent mark on AC surfaces.
   if (agentPresenceManager.handleConnection(ws, req)) return;

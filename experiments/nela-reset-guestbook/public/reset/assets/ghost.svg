@@ -1,0 +1,6 @@
+<!-- A little pixel ghost while the book opens, or when scripts are off. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 14" shape-rendering="crispEdges">
+  <path d="M4 2h3v1h1v1h1v1h1v7H8v-1H7v2H5v-2H4v1H2V5h1V4h1z" fill="#f8e7ff"/>
+  <path d="M4 5h1v2H4zM7 5h1v2H7zM5 8h2v1H5z" fill="#261139"/>
+  <path d="M3 7h1v1H3zM8 7h1v1H8z" fill="#f3b2d2"/>
+</svg>

@@ -90,6 +90,8 @@ export class SlabSession {
       // update it with `npm run menubar:parity -- deploy <host>`.
       agent_type: "aesel",
       loopboy_contact: process.env.SLAB_LOOPBOY_CONTACT || "",
+      loopboy_event: process.env.SLAB_LOOPBOY_EVENT || "",
+      loopboy_source: process.env.SLAB_LOOPBOY_SOURCE || "",
       loopboy_adoption: process.env.AESEL_DESKTOP === "1" ? 0 : 1,
       ...(process.env.AESEL_DESKTOP === '1' ? {
         host_app:'computer.aesthetic.easel',
@@ -350,7 +352,7 @@ export class SlabSession {
     try {
       const existing = JSON.parse(readFileSync(this.active, "utf8"));
       if (existing.session_id === this.sessionId && existing.agent_pid === this.pid) {
-        for (const key of ["loopboy_contact", "loopboy_binding"]) {
+        for (const key of ["loopboy_contact", "loopboy_binding", "loopboy_event", "loopboy_source"]) {
           if (Object.hasOwn(existing, key)) this.record[key] = existing[key];
         }
       }

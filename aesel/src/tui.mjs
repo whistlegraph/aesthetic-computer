@@ -69,7 +69,7 @@ import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 import { notifyNative, reportDevice } from "./native-notify.mjs";
-import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged } from "./media.mjs";
+import { mediaFile, watchMedia, mediaChanged, madeMedia, namedMedia } from "./media.mjs";
 import { watchSource } from "./source-watch.mjs";
 import { planMime, postMime, MAX_BYTES } from "./mime.mjs";
 import { Artifacts, MEDIA } from './artifacts.mjs';
@@ -1408,6 +1408,8 @@ function notePiece(file) {
   // what pushes, and nothing leaves the machine.
   if (live.retarget(file) && networked) live.watch(liveError);
   state.piece = `${live.slug}${live.runtime.extension}`;
+  // Editing the piece brings focus back to it from the last file made.
+  if (path.resolve(cwd, file) === live.file) blurMedia();
 }
 
 let recoveryRequest=desktopRestored?.recovery||null,recoveryNeedsReconnect=false,recoveryPaused=Boolean(recoveryRequest);
@@ -1602,21 +1604,41 @@ function itemSummary(item) {
   return null;
 }
 
-// Mime awareness. A pro session has no piece to put on the Slab card, so the
-// card shows the media the tools are touching instead: the png a brush just
-// wrote, the mp4 ffmpeg just finished, the filename under it. Every tool
-// call is read twice, when it starts and when it ends, because the file a
-// command is about to write only exists once it has run. A private session
-// keeps the file to itself; the status line still names it.
-function noteMedia(item) {
-  if (!pro || state.media?.source === "pinned") return;
-  const next = mediaPaths(itemText(item), cwd)[0];
-  if (!mediaChanged(state.media, next)) return;
-  state.media = { ...next, source: "tool-input", version: (state.media?.version || 0) + 1 };
+// Focus: the card shows whatever was made last. The png a brush just wrote,
+// the mp4 ffmpeg just finished, the filename under it; then the piece again
+// once the agent edits the piece (notePiece), or the artifact once it makes
+// a new revision (announceArtifact). Every tool call is read twice, when it
+// starts and when it ends, because the file a command is about to write only
+// exists once it has run; a command's file counts only if it was written
+// during the call. A pin holds the card against all of it. A private
+// session keeps the file to itself; the status line still names it.
+const mediaStarts = new Map();
+function noteMedia(item, done = false) {
+  if (!item?.id) return;
+  const since = mediaStarts.get(item.id) ?? Date.now();
+  if (done) mediaStarts.delete(item.id); else mediaStarts.set(item.id, since);
+  focusMedia(madeMedia(item, cwd, since), "tool-input");
+}
+// A typed message that names a file the card has shown ("swap to the webp")
+// turns the card to it before the turn starts.
+function noteNamedMedia(text) {
+  focusMedia(namedMedia(text, state.mediaRecent, cwd), "named");
+}
+function focusMedia(next, source) {
+  if (state.media?.source === "pinned" || !mediaChanged(state.media, next)) return;
+  state.media = { ...next, source, version: (state.media?.version || 0) + 1 };
   rememberMedia(next);
   transcript.event("media", { path: next.path, mime: next.mime, kind: next.kind });
   if (profile.private) return;
+  // A borrowed `/preview notepat` holds against the tools, not against asking.
+  if (source === "named") slabSession.preview("");
   slabSession.artifact(next.kind, { path: next.path, mime: next.mime, name: next.name, version: state.media.version, artifactId: slabSession.sessionId });
+}
+// Hand the card back to the piece or artifact: focus left the file.
+function blurMedia() {
+  if (!state.media || state.media.source === "pinned") return;
+  state.media = null;
+  if (!profile.private) slabSession.artifact("piece", null);
 }
 
 // A file pinned with `/preview out/track.mp3` holds the card until a bare
@@ -1837,7 +1859,7 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "item/completed": {
-      noteMedia(params.item);
+      noteMedia(params.item, true);
       const item = params.item;
       if (pro) notePublished(item);
       observeToolActivity(state, method, item);
@@ -2318,12 +2340,17 @@ function artifactShareAddress() {
     return draftPublication.scanUrl || draftPublication.route?.replace(/^https:\/\//,'') || '';
   return state.medium==='picture'?picturePublication?.scanUrl || '':'';
 }
+let artifactShown='';
 function announceArtifact() {
   if(!currentArtifact)return;
   const address=artifactShareAddress();
   state.qr = null;
   const preview=currentArtifact.revision.preview;
-  slabSession.artifact(currentArtifact.kind,preview?{...preview,path:path.join(currentArtifact.root,preview.path),version:currentArtifact.version,artifactId:currentArtifact.id,sourceAhead:Boolean(currentArtifact.revision.sourceAhead),publicCode:pictureWip?.code || picturePublication?.code || '',liveId:draftPublication?.id || ''}:{liveId:draftPublication?.id || '',artifactId:currentArtifact.id,version:currentArtifact.version});
+  // A new revision takes focus back from the last file the tools made; the
+  // heartbeat re-announcing the same one leaves that file on the card.
+  const shown=`${currentArtifact.id}:${currentArtifact.version}`;
+  if(shown!==artifactShown){artifactShown=shown;if(state.media?.source!=='pinned')state.media=null;}
+  if(!state.media)slabSession.artifact(currentArtifact.kind,preview?{...preview,path:path.join(currentArtifact.root,preview.path),version:currentArtifact.version,artifactId:currentArtifact.id,sourceAhead:Boolean(currentArtifact.revision.sourceAhead),publicCode:pictureWip?.code || picturePublication?.code || '',liveId:draftPublication?.id || ''}:{liveId:draftPublication?.id || '',artifactId:currentArtifact.id,version:currentArtifact.version});
   slabSession.live(currentArtifact.name,address);
   slabSession.revision({version:currentArtifact.version,revision:currentArtifact.id,updatedAt:currentArtifact.revision.createdAt});
   redraw();
@@ -2930,6 +2957,7 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
   const about = recovery ? recoveryRequest?.about : !from ? state.subject : null;
   if (!from && !recovery) {
     state.subject = null;
+    noteNamedMedia(text);
     if (about) flash(`sent about ${about.name}`);
     if (recoveryRequest) recoveryRequest.about = about;
     transcript.event("user", { text, ...(about ? { about: about.path } : {}) });
@@ -3356,7 +3384,7 @@ if (state.media?.source === "pinned") {
   const media = mediaFile(state.media.path, cwd);
   if (media) pinMedia(media);
   else state.media = null;
-} else if (pro && state.media && state.media.source !== "tool-input") {
+} else if (pro && state.media && !["tool-input", "named"].includes(state.media.source)) {
   state.media = null;
   slabSession.artifact("piece", null);
 }

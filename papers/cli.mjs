@@ -31,6 +31,9 @@ import {
 } from "fs";
 import { join, basename } from "path";
 import { createSourceBundle } from "./source-bundle.mjs";
+import { generatePagePreviews } from "./page-previews.mjs";
+import { generateRecordPages } from "./record-pages.mjs";
+import { sortPaperRows } from "./index-order.mjs";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const SITE_DIR = join(
@@ -1002,6 +1005,7 @@ function coverTileSources() {
 // fall back to the PDF first page for anything without a cover.png (JOSS, etc.).
 function genAllThumbnails() {
   if (!existsSync(SITE_DIR)) return 0;
+  generatePagePreviews(SITE_DIR);
   let count = 0;
   const tiles = coverTileSources();
   const pdfs = readdirSync(SITE_DIR).filter((n) => n.endsWith(".pdf"));
@@ -1467,6 +1471,12 @@ function updateIndex(entries) {
     return `${d.slice(5, 7)}/${d.slice(8, 10)}`;
   }
 
+  const descriptions = JSON.parse(readFileSync(join(PAPERS_DIR, "descriptions.json"), "utf8"));
+  const originalDates = JSON.parse(readFileSync(join(PAPERS_DIR, "original-dates.json"), "utf8")).papers;
+  function firstDraftDate(dir, recorded) {
+    return [recorded, originalDates[dir]?.date].filter(Boolean).map(d => d.slice(0, 10)).sort()[0] || "";
+  }
+
   function paperCopy(key) {
     return PAPER_COPY[key] || {};
   }
@@ -1474,6 +1484,7 @@ function updateIndex(entries) {
   // One table row per publication. Status comes from submissions.json;
   // a paper with no submission record is self-published here.
   const subs = loadSubmissions();
+  generateRecordPages(PAPERS_DIR, SITE_DIR, subs.venueOnly || []);
   const KIND = { platform: "platform", essays: "essay", audits: "audit", decks: "deck", dossiers: "dossier", software: "software", archive: "archive" };
 
   function latestSub(key) {
@@ -1486,24 +1497,34 @@ function updateIndex(entries) {
   }
 
   function renderRow({ key, title, href, thumb, kind, sub, detail, abstract, created, updated, revisions, formats }) {
+    abstract = abstract || descriptions[key]?.text || "";
+    const icon = existsSync(join(SITE_DIR, "icons", `${key}.png`)) ? `/icons/${key}.png` : "";
+    if (icon) thumb = icon;
     const status = sub ? sub.status : "self";
     const label = STATUS_LABELS[status] || status;
-    const venue = sub ? `${sub.venue}<span class="track">${sub.track || ""}</span>` : `<span class="none">—</span>`;
-    const when = sub ? `${sub.date}${sub.decision ? `<span class="track">decision ${sub.decision}</span>` : ""}` : "";
-    const titleHtml = href ? `<a href="${href}"${href.endsWith(".pdf") ? ` data-base="${href.replace(/\.pdf$/, "")}"` : ""}>${title}</a>` : title;
-    const absHtml = abstract || sub?.note
-      ? `<button class="more" aria-expanded="false" aria-label="Show abstract">+</button><div class="abs" hidden>${abstract || ""}${sub?.note ? `<div class="note">${sub.note}</div>` : ""}</div>`
-      : "";
+    const titleHtml = href ? `<a href="${href}"${href.endsWith(".pdf") ? ` data-base="${href.replace(/\.pdf$/, "")}"` : ""}>${title}</a>` : `<button class="record-title" aria-expanded="false" aria-controls="details-${key}">${title}</button>`;
     const updatedISO = updated ? updated.toISOString() : "";
-    return `      <tr data-status="${status}" data-kind="${kind}" data-key="${key}" data-created="${created || ""}" data-updated="${updatedISO}">
-        <td class="cv">${thumb ? `<a href="${href}" tabindex="-1" aria-hidden="true"><img src="${thumb}" alt="" loading="lazy" decoding="async"></a>` : ""}</td>
-        <td class="st" title="${label}"><span class="dot"></span><span class="sl">${label}</span></td>
-        <td class="ti">${titleHtml}${absHtml}${detail ? `<div class="dt">${detail}</div>` : ""}</td>
-        <td class="kd">${kind}</td>
-        <td class="vn">${venue}</td>
-        <td class="wh">${when}</td>
-        <td class="up" title="revision ${revisions || 1}">${updatedISO.slice(0, 10)}</td>
-        <td class="fm">${formats}</td>
+    const originalDate = created ? created.slice(0, 10) : "";
+    const field = (name, value, cls) => value ? `<div><dt>${name}</dt><dd class="${cls}">${value}</dd></div>` : "";
+    const facts = [
+      field("Status", `<span class="dot"></span><span class="sl">${label}</span>`, "st"),
+      field("Kind", kind, "kd"),
+      field("Venue", sub ? `${sub.venue}<span class="track">${sub.track || ""}</span>` : "", "vn"),
+      field("Submission", sub ? `${sub.date}${sub.decision ? `<span class="track">decision ${sub.decision}</span>` : ""}` : "", "wh"),
+      field("Updated", updatedISO.slice(0, 10), "up"),
+      field("Formats", formats, "fm"),
+    ].join("");
+    const image = thumb ? `<img src="${thumb}" alt="" loading="lazy" decoding="async">` : `<span class="icon-fallback" aria-hidden="true">◇</span>`;
+    const details = `${detail ? `<div class="dt">${detail}</div>` : ""}${abstract || sub?.note ? `<div class="abstract">${abstract || ""}${sub?.note ? `<div class="note">${sub.note}</div>` : ""}</div>` : ""}<dl class="facts">${facts}</dl>`;
+    const dateLabel = originalDate ? new Intl.DateTimeFormat("en-US", {
+      month: "long", day: "numeric", year: "numeric", timeZone: "UTC",
+    }).format(new Date(originalDate)) : "";
+    const versionHtml = Number.isInteger(revisions) && revisions > 0 ? `<span class="paper-version" title="${revisions} recorded revisions">v${revisions}</span>` : "";
+    const dateHtml = originalDate || versionHtml ? `<span class="created">${versionHtml}${originalDate ? `<time datetime="${originalDate}">${dateLabel}</time>` : ""}</span>` : "";
+    const summary = htmlToText(abstract || "");
+    const marquee = `<button class="paper-marquee" aria-expanded="false" aria-controls="details-${key}" title="Read full description"><span class="marquee-text">${xmlEscape(summary)}</span></button>`;
+    return `      <tr data-status="${status}" data-kind="${kind}" data-key="${key}" data-revisions="${revisions || ""}" data-created="${created || ""}" data-updated="${updatedISO}">
+        <td class="paper"><div class="paper-line"><span class="paper-icon">${image}</span><span class="paper-title">${titleHtml}</span>${marquee}${dateHtml}</div><div class="details" id="details-${key}" hidden>${details}</div></td>
       </tr>\n`;
   }
 
@@ -1531,7 +1552,7 @@ function updateIndex(entries) {
       sub: latestSub(p.dir),
       detail: copy.detail || "",
       abstract: copy.abstract || "",
-      created: p.created,
+      created: firstDraftDate(p.dir, p.created),
       updated: p.mtime,
       revisions: p.revisions,
       formats: paperFormats(p),
@@ -1547,44 +1568,20 @@ function updateIndex(entries) {
       sub: latestSub(ex.metaKey),
       detail: ex.detail,
       abstract: ex.abstract,
-      created: ex.created,
+      created: firstDraftDate(ex.metaKey, ex.created),
       updated: ex.mtime,
       revisions: ex.revisions,
       formats: "",
     });
   }
   for (const v of subs.venueOnly || []) {
-    rows.push({ key: v.id, title: v.title, href: "", kind: "venue edition", sub: v, formats: "" });
+    rows.push({ key: v.id, title: v.title, href: `/records/${v.id}.html`, created: v.created || "", kind: "venue edition", sub: v, formats: "" });
   }
-  // Status order (accepted → self-published), then most recent date or edit.
-  const ORDER = Object.keys(STATUS_LABELS);
-  const statusOf = (r) => (r.sub ? r.sub.status : "self");
-  rows.sort((a, b) => {
-    const d = ORDER.indexOf(statusOf(a)) - ORDER.indexOf(statusOf(b));
-    if (d) return d;
-    if (a.sub && b.sub) return String(b.sub.date).localeCompare(String(a.sub.date));
-    return (b.updated || 0) - (a.updated || 0);
-  });
-
-  const counts = {};
-  for (const r of rows) {
-    const s = r.sub ? r.sub.status : "self";
-    counts[s] = (counts[s] || 0) + 1;
-  }
-  const chips = [`<button class="chip on" data-filter="all">all <b>${rows.length}</b></button>`]
-    .concat(
-      Object.keys(STATUS_LABELS)
-        .filter((s) => counts[s])
-        .map((s) => `<button class="chip" data-filter="${s}" data-status="${s}"><span class="dot"></span>${STATUS_LABELS[s]} <b>${counts[s]}</b></button>`),
-    )
-    .join("");
+  // Actual PDFs first, newest original date first within each group.
+  sortPaperRows(rows, SITE_DIR);
 
   const papersHtml = `
-    <div class="controls" id="controls"><div class="chips" id="chips">${chips}</div></div>
-    <table class="pubs" id="pubs">
-      <thead><tr>
-        <th></th><th data-col="status">status</th><th data-col="title">title</th><th data-col="kind">kind</th><th data-col="venue">venue</th><th data-col="date">date</th><th data-col="updated">updated</th><th>formats</th>
-      </tr></thead>
+    <table class="pubs" id="pubs" aria-label="Papers">
       <tbody>
 ${rows.map(renderRow).join("")}      </tbody>
     </table>`;
@@ -1616,8 +1613,7 @@ ${rows.map(renderRow).join("")}      </tbody>
   }
 
   writeFileSync(indexPath, html);
-  const statusCounts = Object.entries(counts).map(([k, n]) => `${k} ${n}`).join(", ");
-  console.log(`  INDEX updated: ${rows.length} rows (${statusCounts}).`);
+  console.log(`  INDEX updated: ${rows.length} rows.`);
 
   writeFeed(papers, extras, PAPER_COPY);
 }

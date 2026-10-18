@@ -8,6 +8,7 @@ export const SIGNUP_STAGES = Object.freeze([
   "verification_resent", "verified", "handle_shown", "handle_failed", "completed",
   // In-page email-code door (signup-flow.mjs): handle first, then a mailed code.
   "handle_held", "code_sent", "code_failed", "fallback", "social_started",
+  "support_shown", "support_clicked",
 ]);
 export const SIGNUP_SOURCES = Object.freeze(["prompt", "get-handle", "chat", "laer-klokken", "piece"]);
 export const SIGNUP_ERRORS = Object.freeze(["network", "auth", "taken", "invalid", "unverified", "code", "other"]);
@@ -22,7 +23,7 @@ export function signupReturnPath(value, origin) {
     if (url.origin !== origin || url.username || url.password) return null;
     const path = url.pathname;
     if (!/^\/(?:@[a-z0-9._-]+\/)?[$a-z0-9][a-z0-9._$-]*\/?$/i.test(path)) return null;
-    if (/^\/(?:prompt|hi|imnew|signup|get-handle|login|login-wait|email|mail|auth|callback|admin|desk|aa|wallet|account|device|machines|consent|help)\/?$/i.test(path)) return null;
+    if (/^\/(?:prompt|hi|imnew|signup|join|get-handle|login|login-wait|email|mail|auth|callback|admin|desk|aa|wallet|account|device|machines|consent|help)\/?$/i.test(path)) return null;
     return path;
   } catch { return null; }
 }

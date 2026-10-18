@@ -43,6 +43,7 @@
     "fiapup:shots": "node xbox/fiapup/shots.mjs",
     "fiapup:ios": "cd apple/fiapup && xcodegen generate -q && xcodebuild -project Fiapup.xcodeproj -scheme FiapupiOS -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO -quiet build && (xcrun simctl boot 'iPhone 17' || true) && xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/fiapup.app && xcrun simctl launch booted computer.aesthetic.fiapup && open -a Simulator",
     "fiapup:mac": "cd apple/fiapup && xcodegen generate -q && xcodebuild -project Fiapup.xcodeproj -scheme Fiapup -configuration Release -derivedDataPath build -quiet build && open build/Build/Products/Release/fiapup.app",
+    "oskiewar:web": "node xbox/tools/oskiewar-release.mjs web",
     "oskiewar:deploy": "node xbox/tools/oskiewar-release.mjs deploy",
     "oskiewar:parity": "node xbox/tools/oskiewar-release.mjs status",
     "oskiewar:reconcile": "node xbox/tools/oskiewar-release.mjs reconcile",

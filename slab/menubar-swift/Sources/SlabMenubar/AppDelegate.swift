@@ -1006,6 +1006,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func bumpBoundProx(contact: String, displayLabel: String, message: String,
                                fromMe: Bool = false) {
         guard let route = LoopboyRoutes.all()[contact],
+              route.channel == "imessage",
               let session = state.claudeSessions.first(where: { $0.sessionId == route.sessionId }),
               LoopboyRoutes.verifiedContact(for: session) == contact else { return }
         LedgerStore.shared.pokeLocal(sessionId: session.sessionId, by: "loopboy:\(contact)")

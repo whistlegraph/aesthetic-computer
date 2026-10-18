@@ -42,6 +42,8 @@ let sending = false;
 let busy = false; // mark-all-read in flight
 let pendingTo = null;
 let expandedId = null;
+let notificationLetter = null;
+let scrollToLetter = null;
 const reading = new Set();
 let hits = [];
 let rows = [];
@@ -146,6 +148,9 @@ async function boot(api) {
   note = null;
   thread = null;
   expandedId = null;
+  notificationLetter = typeof api.query?.letter === "string" && /^[a-f0-9]{24}$/i.test(api.query.letter)
+    ? api.query.letter.toLowerCase() : null;
+  scrollToLetter = null;
   scroll = 0;
   mediaView.clear();
   installTestHook(api);
@@ -175,6 +180,15 @@ async function boot(api) {
     return tell();
   }
   await refresh(api);
+  if (notificationLetter && status === "loaded") {
+    const letter = letters.find((item) => item.id === notificationLetter && !item.mine);
+    if (letter) {
+      expandedId = letter.id;
+      scrollToLetter = letter.id;
+      await markRead(api, letter);
+    }
+    notificationLetter = null;
+  }
   if (pendingTo && status === "loaded") write(api, pendingTo);
   tell();
 }
@@ -447,6 +461,14 @@ function paint(api) {
   });
   const contentH = measured.reduce((n, m) => n + m.h, 0);
   const maxScroll = Math.max(0, contentH - listH);
+  if (scrollToLetter) {
+    scroll = 0;
+    for (const row of measured) {
+      if (row.letter.id === scrollToLetter) break;
+      scroll += row.h;
+    }
+    scrollToLetter = null;
+  }
   scroll = Math.max(0, Math.min(maxScroll, scroll));
 
   mask({ x: 0, y: listTop, width: screen.width, height: listH });

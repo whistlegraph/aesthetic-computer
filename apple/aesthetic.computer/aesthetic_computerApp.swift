@@ -232,7 +232,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
         guard pendingSubscribe == revision else { return }
         pendingSubscribe = nil
         notificationAlert(ok ? "Notifications on" : "Couldn’t finish subscribing", ok
-            ? "You’ll receive screams and moods. Enter ‘nonotifs’ to turn them off."
+            ? "You’ll receive screams, moods, and mail when signed in. Enter ‘nonotifs’ to turn them off on this device."
             : "Check your connection and enter ‘notifs’ again.")
     }
 
@@ -268,7 +268,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     ) async
     -> UNNotificationPresentationOptions
     {
-        return optedIn ? [.sound] : []
+        return optedIn ? [.banner, .sound] : []
     }
 
     // Notification tapped while the app wasn't open — jump to its piece.
@@ -276,16 +276,10 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        let userInfo = response.notification.request.content.userInfo
-
-        if let pieceData = userInfo["piece"] as? String {
-            if pieceData != "" {
-                guard let webView = appWebView, webView.url?.host == "aesthetic.computer",
-                      webView.url?.scheme == "https" else { return }
-                webView.callAsyncJavaScript("window.iOSAppSwitchPiece?.(piece);",
-                    arguments: ["piece": pieceData], in: nil, in: .page)
-            }
+        // AppNavigation outlives the web view. Cold launches and offline starts
+        // retain the destination until ContentView can load it.
+        if let url = AppRoute.notificationDestination(response.notification.request.content.userInfo) {
+            AppNavigation.shared.open(url)
         }
-
     }
 }

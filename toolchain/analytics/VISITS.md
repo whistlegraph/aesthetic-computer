@@ -99,6 +99,30 @@ browser QA must remain automated in production verification.
 
 ## Readout
 
+No Paint's current studio also sends content-free cumulative control/model
+counters to `/api/nopaint-usage`, in the separate `nopaint-usage` collection.
+Its in-memory page ID has no account identity or linkage to network visits.
+Fixed control IDs cover buttons, dialog closes, model search (occurrence only),
+settings changes and reviewed links, including account controls without form
+contents. `picked` is intent; `selected` follows a successful model setting;
+`switched` requires a different prior selection. Inference `requested`,
+`received` and `failed` describe browser observations; server billing receipts
+remain authoritative. A received result may subsequently be discarded with No.
+No prompt, search text, artwork, email or account identifier is collected.
+DNT, GPC, embedded frames, the visit opt-out and known automation suppress this
+collector. Records expire after 35 days. Repeated snapshots merge by maximum,
+so retries do not multiply counts. Each counter saturates at 10,000 per page.
+
+Run `node --env-file=../.env nopaint-usage-report.mjs --hours 16` from
+`/opt/ac/system/backend` on Lith. Control totals group by page-start cohort;
+later activity can update that cohort. An empty collection means unmeasured,
+not zero use. The report includes existing inference receipts and confirmed
+Stripe/Tezos purchases, with aggregate overlap against No Paint request
+accounts. That overlap is not product attribution; Apple purchases are not
+covered. The current Braincells link is only click intent, not a completed
+checkout. Deploy the private product changes and the public privacy/body-limit
+changes together before interpreting these new counters.
+
 On Lith:
 
 ```sh

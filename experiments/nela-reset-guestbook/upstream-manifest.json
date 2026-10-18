@@ -1,0 +1,96 @@
+{
+  "source": "https://nela.computer/reset/",
+  "retrieved": "2026-10-14",
+  "files": [
+    {
+      "path": "index.html",
+      "url": "https://nela.computer/reset/",
+      "sha256": "746e5eaf31fcb1819980ed76427c68e734a964f4be8b4b65fb09b2c6966219d9"
+    },
+    {
+      "path": "assets/ballbutton.gif",
+      "url": "https://nela.computer/reset/assets/ballbutton.gif",
+      "sha256": "fde825da963cb042217daacc4c6749b49d3ea9d773921181299c5b8a7bc4ad6b"
+    },
+    {
+      "path": "assets/bg1.jpg",
+      "url": "https://nela.computer/reset/assets/bg1.jpg",
+      "sha256": "db5bce4f7c7040fa5b4c58074c3fab5f0bcea32a337f46efb5df67d4db3e9039"
+    },
+    {
+      "path": "assets/purplebg.jpg",
+      "url": "https://nela.computer/reset/assets/purplebg.jpg",
+      "sha256": "31d66c88aab83c09ea5a9f6924dc886d512c7c093164ff07ca027b23d4af9a93"
+    },
+    {
+      "path": "assets/bluebg.jpg",
+      "url": "https://nela.computer/reset/assets/bluebg.jpg",
+      "sha256": "1d7ad322b9fca20be5a9730b6167b2314ed8847496d5890ee61d69e7bddb21bb"
+    },
+    {
+      "path": "site.css",
+      "url": "https://nela.computer/reset/site.css?v=20261014a",
+      "sha256": "5767a3a3edcc2ee64a4c25892f147ad68587891d0b11b8c30b028ceaf356bc59"
+    },
+    {
+      "path": "assets/recycle.gif",
+      "url": "https://nela.computer/reset/assets/recycle.gif",
+      "sha256": "07b0a626f734f574e44e1da47c92f8d8e5a4598097ac301b4a334115602212bc"
+    },
+    {
+      "path": "assets/mycoffin.gif",
+      "url": "https://nela.computer/reset/assets/mycoffin.gif",
+      "sha256": "72f1dee8d67f1d2a5f18c4c386e3ab7677b24c20ec21f6e5fa8631346a25de06"
+    },
+    {
+      "path": "assets/RIP.gif",
+      "url": "https://nela.computer/reset/assets/RIP.gif",
+      "sha256": "cfc391d7101eff9e6d5d146e1fecf78eb5f36497c6735d46dc42107094100cbf"
+    },
+    {
+      "path": "funeral2.html",
+      "url": "https://nela.computer/reset/funeral2.html",
+      "sha256": "5c439cbab2d0e91876f791b0c2bd81822d60319399d7118b6282fce3ef557b72"
+    },
+    {
+      "path": "assets/candle.gif",
+      "url": "https://nela.computer/reset/assets/candle.gif",
+      "sha256": "1ce5b48705350cd000c6a10fe4a486218435a882f3e39c7211857aba8ceb20e0"
+    },
+    {
+      "path": "assets/flowerbar.gif",
+      "url": "https://nela.computer/reset/assets/flowerbar.gif",
+      "sha256": "495eb343d89b76438ee2c280a15cc61e001f661463354dbd7b9aeca624b3e4fa"
+    },
+    {
+      "path": "reset-in-peace.ics",
+      "url": "https://nela.computer/reset/reset-in-peace.ics",
+      "sha256": "0198133b90cc6d2f912a0e5027522689a0dac89be7e5ab3c28bd15ef699aa0ee"
+    },
+    {
+      "path": "assets/computermouse.gif",
+      "url": "https://nela.computer/reset/assets/computermouse.gif",
+      "sha256": "0e95d1ac700a68325d98b2cb9fa4edaef5ac84cd0c1a57b016ad7290381c1b05"
+    },
+    {
+      "path": "assets/skeleton-hand.png",
+      "url": "https://nela.computer/reset/assets/skeleton-hand.png",
+      "sha256": "3817f15ea4c222057b836895316121f88dae561920b8fd41c5731510685bb550"
+    },
+    {
+      "path": "assets/skeleton-hand-click.png",
+      "url": "https://nela.computer/reset/assets/skeleton-hand-click.png",
+      "sha256": "788d2d9af16acf32763244cbe266a7f8aa8ab591d1c7540c8a62123edbefcc86"
+    },
+    {
+      "path": "funeral3.html",
+      "url": "https://nela.computer/reset/funeral3.html",
+      "sha256": "50e3452cfc53859ea9327c375490b2d919e8f6934b7d2ef1fadf9f5c49fe09f1"
+    },
+    {
+      "path": "funeral4.html",
+      "url": "https://nela.computer/reset/funeral4.html",
+      "sha256": "328b06f8b3d41eb0d7dc682b80beb67daaa37f443132bca190b3f342a35480b4"
+    }
+  ]
+}

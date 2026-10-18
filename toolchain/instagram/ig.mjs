@@ -34,20 +34,16 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { INSTAGRAM_ACCOUNTS, requireCredentials, credentialStatus, vaultPath as resolvedVaultPath, redactCredentials } from "../vault/credentials.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 
 const HOST = "https://graph.instagram.com";
 const API_VERSION = "v25.0";
 
-// Every account this CLI can drive, and the env-var prefix its vault file
-// uses. Adding an account here is the whole registration step.
-const ACCOUNTS = {
-  oskiewar: "OSKIEWAR",
-  whistlegraph: "WHISTLEGRAPH",
-  aesthetic: "AESTHETIC",
-  menuband: "MENUBAND", // IG handle is @menuband.app
-};
+// Accounts and their service-specific credential fields live in the shared
+// vault registry, also used by the MCP's availability tool.
+const ACCOUNTS = INSTAGRAM_ACCOUNTS;
 
 // ── tiny arg parser ──────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -66,34 +62,19 @@ const cmd = positional.shift();
 
 function die(msg) { console.error(`✗ ${msg}`); process.exit(1); }
 
-// Tokens never print whole — first 8 characters is enough to tell two apart.
-const mask = (t) => (t ? `${String(t).slice(0, 8)}…` : "(none)");
+const mask = (t) => (t ? "[redacted]" : "(none)");
 
 // ── account credentials ──────────────────────────────────────────────
 function vaultPath(account) {
-  return join(root, "vault", account, "instagram.env");
-}
-
-// KEY=VALUE lines only; comments and blanks pass through untouched. The
-// value is everything after the first `=`, verbatim — tokens contain no
-// quoting and deserve none.
-function parseEnvFile(path) {
-  const vars = {};
-  for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
-    if (!line || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
-    if (eq < 1) continue;
-    vars[line.slice(0, eq)] = line.slice(eq + 1);
-  }
-  return vars;
+  return resolvedVaultPath(`${account}/instagram.env`);
 }
 
 function loadAccount(account) {
+  if (!Object.hasOwn(ACCOUNTS, account)) die(`unknown account "${account}" — one of: ${Object.keys(ACCOUNTS).join(", ")}`);
   const prefix = ACCOUNTS[account];
-  if (!prefix) die(`unknown account "${account}" — one of: ${Object.keys(ACCOUNTS).join(", ")}`);
-  const envPath = vaultPath(account);
-  const fileVars = existsSync(envPath) ? parseEnvFile(envPath) : {};
-  const get = (name) => process.env[name] ?? fileVars[name];
+  const resolved = requireCredentials(`instagram:${account}`);
+  const envPath = resolved.path || (cmd === "refresh" ? vaultPath(account) : null);
+  const get = name => resolved.values[name];
   const igUserId = get(`${prefix}_IG_USER_ID`);
   const token = get(`${prefix}_IG_TOKEN`);
   if (!igUserId || !token) {
@@ -106,17 +87,17 @@ function loadAccount(account) {
 
 // Provisioned means the credentials resolve — vault file or environment.
 function isProvisioned(account) {
-  const prefix = ACCOUNTS[account];
-  const fileVars = existsSync(vaultPath(account)) ? parseEnvFile(vaultPath(account)) : {};
-  const get = (name) => process.env[name] ?? fileVars[name];
-  return Boolean(get(`${prefix}_IG_USER_ID`) && get(`${prefix}_IG_TOKEN`));
+  return credentialStatus(`instagram:${account}`).state === "ready";
 }
 
 // ── graph calls ──────────────────────────────────────────────────────
 // On failure this surfaces Meta's own error message, which is almost always
 // the actual answer (expired token, bad scope, quota) — never a stack trace.
 async function call(url, init = {}) {
-  const response = await fetch(url, init);
+  const secrets = { token: new URL(url).searchParams.get("access_token") };
+  let response;
+  try { response = await fetch(url, init); }
+  catch (error) { throw new Error(redactCredentials(error.message, secrets)); }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     const err = body.error || body;
@@ -136,7 +117,7 @@ async function call(url, init = {}) {
     // The trace id is what Meta asks for first in any support thread, and it is
     // the only handle on a failure whose message says nothing.
     if (err.fbtrace_id) parts.push(`[fbtrace ${err.fbtrace_id}]`);
-    const e = new Error(`${response.status} · ${parts.join(" ")}`);
+    const e = new Error(redactCredentials(`${response.status} · ${parts.join(" ")}`, secrets));
     e.meta = err;
     throw e;
   }

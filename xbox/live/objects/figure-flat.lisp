@@ -6,7 +6,8 @@
 ; each feature sits on the head's sphere at the same longitude and latitude,
 ; in its own tangent frame (x right, y up, z out; head radii), one-sided, so it
 ; turns with the head and passes out of sight round the back.
-; Switches: blink, hurt (X eyes), skirt, glasses.
+; Switches: blink, hurt (X eyes), skirt, glasses, crowd (one of many, small:
+; no shirt print, and the face down to its eyes, iris and lips).
 
 def edge 1.3
 def face-edge .075
@@ -99,6 +100,7 @@ def face-edge .075
 
 ; the chest's decals, flat on the shirt's front (the neck joint's frame:
 ; x right, y up the spine, z forward): a heart and a daisy
+(if (not crowd)
 (on neck
   (surface
     (ink 255 70 120)
@@ -109,7 +111,7 @@ def face-edge .075
     (repeat 5 k
       (move 5 -19 14.6 (rotate z (* k (/ tau 5)) (ball 2 0 0 1.6))))
     (ink 250 205 60)
-    (ball 5 -19 14.8 1.3)))
+    (ball 5 -19 14.8 1.3))))
 
 ; the head, inked in head radii like everything hung on it
 (if (not headless)
@@ -131,10 +133,11 @@ def face-edge .075
   (ink hair)
   (surface (rotate x -1.02 (move 0 0 .96 (scale 1 .5 1 (ring z .82)))))
   ; blush
-  (ink blush)
-  (repeat 2 side
-    (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97
-      (surface (scale 1 .55 1 (ring z .2)))))))
+  (if (not crowd)
+    (ink blush)
+    (repeat 2 side
+      (rotate y (* (- (* side 2) 1) .56) (rotate x .37 (move 0 0 .97
+        (surface (scale 1 .55 1 (ring z .2))))))))
   ; eyes: white with an ink rim, iris, pupil, catchlights; lash line and lashes;
   ; the brow at a curious tilt. Blinking, a lid; hurt, an X.
   (repeat 2 side
@@ -153,14 +156,15 @@ def face-edge .075
             (scale 1 1.67 1 (ring z .162)))
           (ink iris)
           (move 0 0 .02 (ring z .082))
-          (ink 6 6 10)
-          (move 0 0 .03 (ring z .05))
-          (ink 255 255 255)
-          (move -.02 .035 .04 (ring z .023))
-          (ink 24 18 26)
-          (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)
-          (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)
-          (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05))
+          (if (not crowd)
+            (ink 6 6 10)
+            (move 0 0 .03 (ring z .05))
+            (ink 255 255 255)
+            (move -.02 .035 .04 (ring z .023))
+            (ink 24 18 26)
+            (stroke .12  -.17 .09 .05  -.08 .25 .05  .08 .25 .05  .17 .09 .05)
+            (stroke .07  (* s .15) .2 .05  (* s .27) .33 .05)
+            (stroke .06  (* s .08) .25 .05  (* s .17) .38 .05)))
         (if blink
           (ink 24 18 26)
           (stroke .08  -.16 0 .02  -.07 -.06 .02  .07 -.06 .02  .16 0 .02))
@@ -168,19 +172,22 @@ def face-edge .075
           (ink 24 18 26)
           (stroke .09  -.13 .13 .02  .13 -.13 .02)
           (stroke .09  -.13 -.13 .02  .13 .13 .02))
-        (ink 24 18 26)
-        (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02))))))
+        (if (not crowd)
+          (ink 24 18 26)
+          (stroke .09  -.15 (+ .37 (* s .02)) .02  -.02 .43 .02  .15 (+ .36 (* s .01)) .02)))))))
   ; glasses' bridge
   (if glasses
     (ink 24 18 26)
     (rotate x .09 (move 0 0 .99 (surface (stroke .05  -.1 0 0  .1 0 0)))))
   ; nose and mouth: a small check, pink lips with the far corner lifted
-  (ink 24 18 26)
-  (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01))))
+  (if (not crowd)
+    (ink 24 18 26)
+    (rotate x .33 (move 0 0 .98 (surface (stroke .045  .005 .04 .01  -.025 -.02 .01  .02 -.02 .01)))))
   (rotate x .57 (move 0 0 .95 (surface
     (ink lip)
     (scale 1 .38 1 (ring z .24))
-    (ink 24 18 26)
-    (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02)))))
+    (if (not crowd)
+      (ink 24 18 26)
+      (stroke .055  -.24 .01 .02  0 -.02 .02  .24 .05 .02))))))
 
 )

@@ -54,6 +54,7 @@
     <ClCompile Include="pch.cpp"><PrecompiledHeader>Create</PrecompiledHeader></ClCompile>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="OskiewarLivePublisher.cpp" />
+    <ClCompile Include="HostNet.cpp" />
     <ClCompile Include="PhotoDiscService.cpp" />
     <!-- The conditional host/test includes precede pch.h, so do not use /Yu here. -->
     <ClCompile Include="QuickJsEngine.cpp">
@@ -120,6 +121,12 @@
       <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>
     <FxCompile Include="SdfPixelShader.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="RaycastVertexShader.hlsl">
+      <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="RaycastPixelShader.hlsl">
       <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>
   </ItemGroup>

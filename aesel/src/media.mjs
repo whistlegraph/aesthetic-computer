@@ -71,6 +71,35 @@ export function itemText(item) {
   ].filter(Boolean).join("\n");
 }
 
+// The file a tool call is working on: what the preview should turn to. The
+// one file a tool is pointed at counts as soon as it is named, whether it is
+// writing it or opening it to look (a Write's target, a Read's file_path).
+// Anything else a command names counts only once it was written while the
+// call ran (mtime at or after `since`, with a second of slack for coarse
+// clocks): converting from an old file, or listing a folder of old renders,
+// moves nothing.
+export function madeMedia(item, cwd, since, { home = homedir() } = {}) {
+  const pointed = [...(item?.changes || []).map((change) => change?.path), item?.input?.file_path];
+  const targets = new Set(pointed.filter((file) => typeof file === "string" && file).map((file) => path.resolve(cwd, file.startsWith("~/") ? path.join(home, file.slice(2)) : file)));
+  return mediaPaths(itemText(item), cwd, { home })
+    .find((media) => targets.has(media.path) || media.mtimeMs >= since - 1000) || null;
+}
+
+// The file a typed message points at, from the ones this session has shown:
+// a path, a name ("blue-circle.jpg"), or just its kind of file ("swap to the
+// webp", the newest one of that extension). Null when it names none.
+export function namedMedia(text, recent, cwd, { home = homedir() } = {}) {
+  const words = String(text || "");
+  const explicit = mediaPaths(words, cwd, { home })[0];
+  if (explicit) return explicit;
+  const files = (recent || []).map((file) => mediaFile(file, cwd, { home })).filter(Boolean);
+  const lower = words.toLowerCase();
+  const byName = files.find((media) => lower.includes(media.name.toLowerCase()));
+  if (byName) return byName;
+  const extensions = new Set(lower.match(/\b[a-z0-9]{2,4}\b/g) || []);
+  return files.find((media) => extensions.has(path.extname(media.name).slice(1).toLowerCase())) || null;
+}
+
 // Follow one media file as it is written again: a render finishing, a master
 // replaced. Watches the directory rather than the file, because a renderer
 // that writes beside and renames (the safe way) swaps the file's inode out

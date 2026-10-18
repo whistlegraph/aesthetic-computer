@@ -711,13 +711,17 @@ function frameHeader(state, width, useColor) {
   let account = state.account || "not signed in";
   // A signed-in piece reads the way the desktop titles it: the route, handle
   // and slug as one name, and the version beside it rather than inside it.
-  const routed = state.medium === "piece" && account.startsWith("@") && state.piece;
-  const version = state.pieceVersion ? `v${state.pieceVersion}` : "";
-  let piece = !state.piece ? "" : routed
+  // The file in focus takes the piece's place while it is on the card.
+  const focus = state.media ? `${state.media.glyph} ${clipText(state.media.name, 32)}` : "";
+  const routed = !focus && state.medium === "piece" && account.startsWith("@") && state.piece;
+  const version = state.pieceVersion && !focus ? `v${state.pieceVersion}` : "";
+  let piece = focus || (!state.piece ? "" : routed
     ? `/${clipText(state.piece.replace(/\.[a-z]+$/, ""), 24)}`
-    : `${clipText(state.piece, 24)}${version ? ` ${version}` : ""}`;
+    : `${clipText(state.piece, 24)}${version ? ` ${version}` : ""}`);
   let tag = routed ? version : "";
-  if (textWidth(`${title}  ${account}${routed ? "" : "  "}${piece}  ${tag}`) > room) { piece = ""; tag = ""; }
+  // Short of room, the handle gives way to a file in focus, and a piece gives way to the handle.
+  if (focus && textWidth(`${title}  ${account}  ${piece}`) > room) account = "";
+  if (textWidth(`${title}  ${account}${routed ? "" : "  "}${piece}  ${tag}`) > room) { piece = focus ? clipText(focus, Math.max(4, room - textWidth(title) - 2)) : ""; tag = ""; }
   if (textWidth(`${title}  ${account}`) > room) account = "";
   const routedNow = routed && account && piece;
   const leftPlain = clipText(
@@ -726,8 +730,10 @@ function frameHeader(state, width, useColor) {
   );
   const titleInk=text=>!useColor?text:Array.from(text).map((ch,i)=>paint(true, (state.hover==='about'?'block ':'')+['highlight','handle','status','soft','prompt'][i%5],ch)).join('');
   const left =
-    leftPlain === title || !account
+    leftPlain === title || (!account && !focus)
       ? titleInk(leftPlain)
+      : !account
+      ? `${titleInk(title)}  ${paint(useColor, "soft", piece)}`
       : `${titleInk(title)}  ` +
         `${account.startsWith("@") ? coloredHandle(account,state.handleColors,useColor,state.hover === "profile") : paint(useColor,"muted",account)}` +
         (routedNow
@@ -1270,7 +1276,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
     engine: providerLabel(engine),
     mode: state.mode === "local" ? "local" : "remote",
     // The media file the session has its hands on, by its own name.
-    media: state.media ? `${state.media.glyph} ${clipText(state.media.name, Math.max(12, Math.floor(width / 4)))}` : "",
+    media: state.media ? `${state.media.glyph} ${clipText(state.media.name, Math.max(12, Math.floor(width / 3)))}` : "",
     // The little guy dances on the line while the machine has the floor, and
     // beside him the seconds, the way Claude Code counts them.
       activity: state.recoveryNotice || state.connectionNotice || (state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : ""),
@@ -1285,7 +1291,8 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
   const spend = state.recoveryNotice ? "" : spendText(state, width - 5);
   const reserve = spend ? textWidth(spend) + 3 : 0;
   const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1) + reserve;
-  for (const name of ["engine", "media", "workspace", "model", "handle", "mode", "inbox"]) {
+  // The file in focus is never cut: it is what the card is showing.
+  for (const name of ["engine", "workspace", "model", "handle", "mode", "inbox"]) {
     if (measure() <= width - 1) break;
     keep.delete(name);
   }

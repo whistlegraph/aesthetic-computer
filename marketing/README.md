@@ -5,7 +5,7 @@ Central home for AC promo / marketing image generation.
 ```
 marketing/
   bin/
-    gen-promo.mjs            # generic OpenAI gpt-image-2 entrypoint
+    gen-promo.mjs            # generic OpenAI gpt-image-2.5-sunburst entrypoint
     capture-ac-native.mjs    # puppeteer screenshots of ac-native WASM (prompt + notepat)
   lib/
     jeffrey-refs.mjs         # shared SHOOT + SELFIE refs for jeffrey identity
@@ -49,9 +49,11 @@ node marketing/bin/gen-promo.mjs ~/Desktop/nela-now-instant \
 node marketing/bin/gen-promo.mjs ./marketing/campaigns/foo --no-jeffrey
 ```
 
+The default model comes from Illy’s marketing pipeline (`gpt-image-2.5-sunburst`, checked 2026-10-08). Use `--model` for an explicit override. [Official model documentation](https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst).
+
 ## Sizes
 
-`gpt-image-2` accepts `1024x1024`, `1024x1536` (portrait), `1536x1024`
+`gpt-image-2.5-sunburst` accepts `1024x1024`, `1024x1536` (portrait), `1536x1024`
 (landscape). Default is portrait.
 
 ## Desktop mirror
@@ -76,7 +78,7 @@ node marketing/bin/capture-ac-native.mjs --out ~/Desktop/foo/refs   # straight i
 ```
 
 drop the captures into a campaign's `refs/` and gen-promo will pass
-them to gpt-image-2 alongside the jeffrey identity refs — the model
+them to gpt-image-2.5-sunburst alongside the jeffrey identity refs — the model
 renders the on-screen content keyed to the real ui.
 
 ## Style guide

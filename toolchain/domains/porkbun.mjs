@@ -18,31 +18,13 @@
 // the environment we fall back to the plaintext vault .env, matching the rest
 // of scripts/ (which expect `source aesthetic-computer-vault/.env`).
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { requireCredentials, redactCredentials } from "../vault/credentials.mjs";
 
 const BASE = "https://api.porkbun.com/api/json/v3";
-const HERE = dirname(fileURLToPath(import.meta.url));
-const VAULT_ENV = resolve(HERE, "../../aesthetic-computer-vault/.env");
-
-// Pull a key from the environment, or from the vault .env as a fallback.
-function key(name) {
-  if (process.env[name]) return process.env[name].trim();
-  try {
-    const line = readFileSync(VAULT_ENV, "utf8")
-      .split("\n")
-      .find((l) => l.startsWith(name + "="));
-    if (line) return line.slice(name.length + 1).trim().replace(/^["']|["']$/g, "");
-  } catch {
-    // No vault on this machine — that's fine, the caller reports the miss.
-  }
-  return undefined;
-}
-
 export function credentials() {
-  const apikey = key("PORKBUN_API_KEY");
-  const secretapikey = key("PORKBUN_SECRET_API_KEY");
+  const { values } = requireCredentials("porkbun");
+  const apikey = values.PORKBUN_API_KEY;
+  const secretapikey = values.PORKBUN_SECRET_API_KEY;
   return { apikey, secretapikey };
 }
 
@@ -56,12 +38,17 @@ async function call(path, body = {}) {
         "(env or aesthetic-computer-vault/.env).",
     );
   }
-  const res = await fetch(BASE + path, {
+  let res;
+  try { res = await fetch(BASE + path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apikey, secretapikey, ...body }),
-  });
-  const data = await res.json().catch(() => ({}));
+    body: JSON.stringify({ ...body, apikey, secretapikey }),
+    signal: AbortSignal.timeout(30000),
+    redirect: "error",
+  }); } catch (error) { throw new Error(redactCredentials(error.message, { apikey, secretapikey })); }
+  let data;
+  try { data = JSON.parse(redactCredentials(await res.text(), { apikey, secretapikey })); }
+  catch { throw new Error(`Porkbun returned invalid JSON (HTTP ${res.status})`); }
   if (data.status !== "SUCCESS") {
     throw new Error(data.message || `Porkbun ${path} failed (HTTP ${res.status})`);
   }

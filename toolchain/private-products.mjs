@@ -217,6 +217,45 @@ export function composeSource(w, output, revision, paths) {
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 }
 
+// Read one pinned revision through one Git process. Starting `git show` for
+// every asset repeatedly opens the same packs and makes fleet deploys crawl.
+// Batch output goes to disk, so only one blob is held in memory at a time.
+function* committedProducts(w, files, revision) {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'ac-product-blobs-'));
+  const fd = fs.openSync(path.join(temporary, 'objects'), 'w+');
+  try {
+    git(w.vault, ['cat-file', '--batch', '-Z'], {
+      input: files.map(f => revision + ':products/' + f.product + '/' + f.path + '\0').join(''),
+      stdio: ['pipe', fd, 'pipe'],
+    });
+    let offset = 0;
+    const header = Buffer.alloc(128), delimiter = Buffer.alloc(1);
+    for (const file of files) {
+      const count = fs.readSync(fd, header, 0, header.length, offset);
+      const end = header.subarray(0, count).indexOf(0);
+      const match = end >= 0 && header.subarray(0, end).toString().match(/^[a-f0-9]{40,64} blob ([0-9]+)$/);
+      const size = match ? Number(match[1]) : NaN;
+      if (!Number.isSafeInteger(size) || size < 0 || size > 64 * 1024 * 1024)
+        throw new Error('Invalid committed product blob: ' + file.path);
+      offset += end + 1;
+      const bytes = Buffer.allocUnsafe(size);
+      let read = 0;
+      while (read < size) {
+        const amount = fs.readSync(fd, bytes, read, size - read, offset + read);
+        if (!amount) throw new Error('Truncated committed product blob: ' + file.path);
+        read += amount;
+      }
+      offset += size;
+      if (fs.readSync(fd, delimiter, 0, 1, offset++) !== 1 || delimiter[0] !== 0)
+        throw new Error('Invalid committed product delimiter: ' + file.path);
+      yield bytes;
+    }
+  } finally {
+    fs.closeSync(fd);
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
 export function buildBundle(w, output, { worktree = false } = {}) {
   const revision = worktree ? 'local-test' : releaseState(w);
   const files = productFiles(w);
@@ -224,12 +263,15 @@ export function buildBundle(w, output, { worktree = false } = {}) {
   const stage = fs.mkdtempSync(path.join(os.tmpdir(), 'ac-products-'));
   const manifest = { version: 1, revision, files: [] };
   try {
-    for (const f of files) {
-      const destination = path.join(stage, f.path);
-      const bytes = worktree ? fs.readFileSync(f.source) : git(w.vault, ['show', revision + ':products/' + f.product + '/' + f.path]);
-      fs.mkdirSync(path.dirname(destination), { recursive: true }); fs.writeFileSync(destination, bytes, { mode: fs.statSync(f.source).mode & 0o777 });
-      manifest.files.push({ path: f.path, product: f.product, sha256: hash(bytes) });
-    }
+    const committed = worktree ? null : committedProducts(w, files, revision);
+    try {
+      for (const f of files) {
+        const destination = path.join(stage, f.path);
+        const bytes = worktree ? fs.readFileSync(f.source) : committed.next().value;
+        fs.mkdirSync(path.dirname(destination), { recursive: true }); fs.writeFileSync(destination, bytes, { mode: fs.statSync(f.source).mode & 0o777 });
+        manifest.files.push({ path: f.path, product: f.product, sha256: hash(bytes) });
+      }
+    } finally { committed?.return(); }
     fs.writeFileSync(path.join(stage, '.private-products-installed.json'), JSON.stringify(manifest, null, 2) + '\n');
     fs.mkdirSync(path.dirname(path.resolve(output)), { recursive: true });
     execFileSync('tar', ['-czf', path.resolve(output), '-C', stage, '.']);

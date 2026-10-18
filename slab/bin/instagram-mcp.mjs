@@ -4,9 +4,9 @@
 // enter MCP responses; toolchain/instagram/ig.mjs resolves them from the vault.
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { credentialStatus, INSTAGRAM_ACCOUNTS } from "../../toolchain/vault/credentials.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const ig = resolve(root, "toolchain/instagram/ig.mjs");
@@ -15,27 +15,19 @@ const reelApps = {
   whistlegraph: resolve(root, "toolchain/instagram/whistlegraph-ig.mjs"),
   aesthetic: resolve(root, "toolchain/instagram/aesthetic-ig.mjs"),
 };
-const accounts = { oskiewar: "OSKIEWAR", whistlegraph: "WHISTLEGRAPH",
-  aesthetic: "AESTHETIC", menuband: "MENUBAND" }; // menuband = @menuband.app
+const accounts = INSTAGRAM_ACCOUNTS;
 const text = (value) => [{ type: "text", text: String(value) }];
 
-function vaultPath(account) {
-  return resolve(root, "vault", account, "instagram.env");
-}
 function provisioned(account) {
   const prefix = accounts[account];
-  const path = vaultPath(account);
-  const source = existsSync(path) ? readFileSync(path, "utf8") : "";
-  const has = (key) => Boolean(process.env[key]) ||
-    new RegExp(`^${key}=.+$`, "m").test(source);
-  return { account: `@${account}`, host: process.env.HOSTNAME || "local",
-    vaultPath: path, vaultPresent: existsSync(path),
-    userIdPresent: has(`${prefix}_IG_USER_ID`),
-    tokenPresent: has(`${prefix}_IG_TOKEN`),
-    ready: has(`${prefix}_IG_USER_ID`) && has(`${prefix}_IG_TOKEN`) };
+  const status = credentialStatus(`instagram:${account}`);
+  return { account: `@${account}`, ...status,
+    userIdPresent: status.present?.includes(`${prefix}_IG_USER_ID`) || false,
+    tokenPresent: status.present?.includes(`${prefix}_IG_TOKEN`) || false,
+    ready: status.state === "ready" };
 }
 function account(value = "oskiewar") {
-  if (!accounts[value]) throw new Error(`unknown account ${value}; use ${Object.keys(accounts).join(", ")}`);
+  if (!Object.hasOwn(accounts, value)) throw new Error(`unknown account ${value}; use ${Object.keys(accounts).join(", ")}`);
   return value;
 }
 function reelApp(value) {
@@ -130,7 +122,7 @@ async function handleMessage(message) {
     if (method === "initialize") return { jsonrpc: "2.0", id, result: {
       protocolVersion: "2024-11-05", capabilities: { tools: {} },
       serverInfo: { name: "instagram-mcp", version: "1.0.0" },
-      instructions: "Official Instagram Graph API only. Credentials resolve from <aesthetic-computer>/vault/<account>/instagram.env and are never returned." } };
+      instructions: "Official Instagram Graph API only. Account-scoped credentials resolve automatically through the shared aesthetic-computer-vault registry (AC_VAULT overrides its location) and are never returned." } };
     if (method === "initialized" || method === "notifications/initialized") return null;
     if (method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };

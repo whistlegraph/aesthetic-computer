@@ -44,8 +44,9 @@ echo "$input" | jq -c \
     --arg tty "$tty" \
     --arg pid "$claude_pid" \
     --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
+    --arg event "${SLAB_LOOPBOY_EVENT:-}" --arg source "${SLAB_LOOPBOY_SOURCE:-}" \
     --arg ts "$ts" \
-    '{session_id: $sid, cwd: $cwd, subject: "", summary: "", tty: $tty, claude_pid: ($pid | tonumber? // 0), updated: $ts, state: "blank", nudge_screen:$nudge, loopboy_contact:$contact}' \
+    '{session_id: $sid, cwd: $cwd, subject: "", summary: "", tty: $tty, claude_pid: ($pid | tonumber? // 0), updated: $ts, state: "blank", nudge_screen:$nudge, loopboy_contact:$contact, loopboy_event:$event, loopboy_source:$source}' \
     > "$marker" 2>/dev/null
 
 exit 0

@@ -266,6 +266,13 @@ final class MenuBandInputMonitor {
         NSLog("MenuBand monitor: direct device input closed")
     }
 
+    /// The host has stopped rendering; release capture before a hardware
+    /// reset so neither side renders through the temporary sample rate.
+    func suspendForInterfaceReset() {
+        removeBufferListener()
+        closeInputUnit()
+    }
+
     /// After the host engine recovers from a device change, the AUHAL's own
     /// stream can be stale (it stopped delivering and briefly rendered NaN on
     /// the Scarlett). Close and reopen it on the current input device; the
@@ -318,7 +325,8 @@ final class MenuBandInputMonitor {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain)
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-            guard let self, self.attached, self.inputDevice != 0 else { return }
+            guard let self, self.attached, self.inputDevice != 0,
+                  !MenuBandAudioDevices.interfaceResetInProgress else { return }
             var now: UInt32 = 0
             var size: UInt32 = 4
             var a = AudioObjectPropertyAddress(
@@ -770,9 +778,11 @@ final class MenuBandInputMonitor {
         pulls = 0
         nanScrubbed = 0
         os_unfair_lock_unlock(ringLock)
-        if let ticket = recovery.request(captures: c, now: now) {
+        if !MenuBandAudioDevices.interfaceResetInProgress,
+           let ticket = recovery.request(captures: c, now: now) {
             DispatchQueue.main.async { [weak self] in
-                guard let self, let attempt = self.recovery.claim(ticket) else { return }
+                guard let self, !MenuBandAudioDevices.interfaceResetInProgress,
+                      let attempt = self.recovery.claim(ticket) else { return }
                 NSLog("MenuBand monitor: WATCHDOG — no input callbacks; recovery \(attempt)/\(InputMonitorRecovery.maximumAttempts)")
                 self.restartInput()
                 if attempt == InputMonitorRecovery.maximumAttempts {

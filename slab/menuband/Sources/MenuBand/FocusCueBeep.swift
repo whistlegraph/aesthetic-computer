@@ -69,9 +69,9 @@ final class FocusCueBeep {
     /// the high focus bell so "mode changed" and "focus changed" never blur:
     /// TrackDrum lands on G4, the pitch slider a fifth below on C4. Pitch
     /// alone says which surface is now under the fingers.
-    func padSwitch(toTrackDrum: Bool) {
+    func padSwitch(toTrackDrum: Bool, off: Bool = false) {
         guard ensureStarted() else { return }
-        guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum) else {
+        guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum, off: off) else {
             return
         }
         // Flush anything still queued: `scheduleBuffer` appends, so rapid
@@ -170,7 +170,7 @@ final class FocusCueBeep {
     /// transient — this is the mellow PA chime, not the tick), pure
     /// fundamental with a whisper of second harmonic for body, then an
     /// exponential settle.
-    private func makePadSwitchBuffer(toTrackDrum: Bool) -> AVAudioPCMBuffer? {
+    private func makePadSwitchBuffer(toTrackDrum: Bool, off: Bool) -> AVAudioPCMBuffer? {
         let dur = 0.3
         let frameCount = AVAudioFrameCount(sampleRate * dur)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
@@ -181,7 +181,7 @@ final class FocusCueBeep {
         }
         buffer.frameLength = frameCount
         guard let data = buffer.floatChannelData?[0] else { return nil }
-        let freq = toTrackDrum ? 392.0 : 261.6   // G4 drum / C4 slider
+        let freq = off ? 130.8 : (toTrackDrum ? 392.0 : 261.6) // C3 off / G4 drum / C4 slider
         let total = Int(frameCount)
         let attack = Int(sampleRate * 0.008)
         for i in 0..<total {

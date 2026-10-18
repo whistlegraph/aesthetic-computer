@@ -10,20 +10,18 @@ import {
 import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as readline from "node:readline";
+import { resolveCredentials } from "../../../toolchain/vault/credentials.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = resolve(ROOT, "../..");
 const PROVIDERS = JSON.parse(readFileSync(join(ROOT, "config/providers.json"), "utf8")).providers;
 const PIPELINES = JSON.parse(readFileSync(join(ROOT, "config/pipelines.json"), "utf8")).pipelines;
 const CONTRACTS = JSON.parse(readFileSync(join(ROOT, "config/contracts.json"), "utf8")).contracts;
-const VAULT_ENV = join(REPO, "aesthetic-computer-vault/.devcontainer/envs/devcontainer.env");
 const IMAGE_RE = /\.(png|jpe?g|webp|gif)$/i;
 
 function envValue(name) {
-  if (process.env[name]) return process.env[name];
-  if (!existsSync(VAULT_ENV)) return null;
-  const line = readFileSync(VAULT_ENV, "utf8").split("\n").find((x) => x.startsWith(`${name}=`));
-  return line ? line.slice(name.length + 1).trim().replace(/^['"]|['"]$/g, "") : null;
+  const service = { OPENAI_API_KEY: "openai", FAL_KEY: "fal" }[name];
+  return service ? resolveCredentials(service).values?.[name] || null : null;
 }
 
 function slugify(value) {

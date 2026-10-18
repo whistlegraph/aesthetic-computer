@@ -66,6 +66,7 @@ export const properties = [
 // client sites, credentials, private services and origin aliases out of the
 // public directory. Redirect-only hosts retain their existing canonical route.
 export const excludedHosts = {
+  "server.nopaint.art": "Legacy save/load API for the preserved No Paint app; no separate product.",
   "lith.aesthetic.computer": "Origin hostname, not a separate public product.",
   "ipfs.aesthetic.computer": "Content-addressed gateway; no replacement for its protocol routes.",
   "builds.false.work": "Authenticated client dashboard.",

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, utimesSync, mkdirSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged, MEDIA_TYPES } from "../src/media.mjs";
+import { mediaPaths, mediaFile, watchMedia, itemText, mediaChanged, madeMedia, namedMedia, MEDIA_TYPES } from "../src/media.mjs";
 
 const root = mkdtempSync(path.join(tmpdir(), "easel-media-"));
 const png = path.join(root, "frame.png");
@@ -97,7 +97,30 @@ test("follows a file that is rewritten in place or replaced by a rename", async 
 
 test("every kind the card can show has a glyph and a mime", () => {
   for (const [ext, type] of MEDIA_TYPES) {
-    assert.ok(["picture", "sound", "paper", "video"].includes(type.kind), ext);
+    assert.ok(["picture", "sound", "paper", "video", "game"].includes(type.kind), ext);
     assert.ok(type.mime.includes("/") && type.glyph, ext);
   }
+});
+
+test("a tool call moves focus only to a file it made", () => {
+  const now = Date.now();
+  const made = path.join(root, "made.webp");
+  writeFileSync(made, "RIFF");
+  const command = { id: "1", type: "commandExecution", command: `magick ${png} ${made}` };
+  assert.equal(madeMedia(command, root, now).name, "made.webp");
+  // Converting from an old file leaves focus where it was; opening it to look is focus.
+  assert.equal(madeMedia({ id: "2", type: "commandExecution", command: `magick identify ${png}` }, root, now), null);
+  assert.equal(madeMedia({ id: "4", type: "dynamicToolCall", tool: "Read", input: { file_path: png } }, root, now).name, "frame.png");
+  // A write tool's own target counts even when it is older than the call.
+  assert.equal(madeMedia({ id: "3", type: "fileChange", changes: [{ path: png }] }, root, now).name, "frame.png");
+  assert.equal(madeMedia(null, root, now), null);
+});
+
+test("a typed message focuses the file it names", () => {
+  const recent = [mov, wav, png];
+  assert.equal(namedMedia("swap to the wav in the preview", recent, root).name, "voice.wav");
+  assert.equal(namedMedia("show frame.png again", recent, root).name, "frame.png");
+  assert.equal(namedMedia(`look at ${wav}`, [], root).name, "voice.wav");
+  assert.equal(namedMedia("make it bluer", recent, root), null);
+  assert.equal(namedMedia("the gif", recent, root), null);
 });

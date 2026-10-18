@@ -7,18 +7,18 @@
 // or neither, and keeping them together means one `post` habit, not two.
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { credentialStatus, X_ACCOUNTS } from "../../toolchain/vault/credentials.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const x = resolve(root, "toolchain/x/x.mjs");
 const at = resolve(root, "at/cli.mjs");
-const accounts = { promptdotac: "PROMPTDOTAC", whistlegraph: "WHISTLEGRAPH" };
+const accounts = X_ACCOUNTS;
 const text = (value) => [{ type: "text", text: String(value) }];
 
 function account(value = "promptdotac") {
-  if (!accounts[value]) {
+  if (!Object.hasOwn(accounts, value)) {
     throw new Error(`unknown account ${value}; use ${Object.keys(accounts).join(", ")}`);
   }
   return value;
@@ -26,16 +26,12 @@ function account(value = "promptdotac") {
 
 // Report readiness without ever reading a value back out.
 function provisioned(name) {
-  const path = resolve(root, "vault", name, "x.env");
-  const source = existsSync(path) ? readFileSync(path, "utf8") : "";
-  const has = (suffix) => {
-    const key = `${accounts[name]}_X_${suffix}`;
-    return Boolean(process.env[key]) || new RegExp(`^${key}=.+$`, "m").test(source);
-  };
+  const status = credentialStatus(`x:${name}`);
+  const has = suffix => status.present?.includes(`${accounts[name]}_X_${suffix}`);
   const keys = ["API_KEY", "API_SECRET", "ACCESS_TOKEN", "ACCESS_SECRET"];
-  return { account: `@${name}`, vaultPath: path, vaultPresent: existsSync(path),
+  return { account: `@${name}`, ...status,
     present: keys.filter(has), missing: keys.filter((k) => !has(k)),
-    ready: keys.every(has) };
+    ready: status.state === "ready" };
 }
 
 function run(script, args, cwd = root, timeout = 120_000) {
@@ -115,7 +111,7 @@ async function handleMessage(message) {
     if (method === "initialize") return { jsonrpc: "2.0", id, result: {
       protocolVersion: "2024-11-05", capabilities: { tools: {} },
       serverInfo: { name: "x-mcp", version: "1.1.0" },
-      instructions: "Official X API v2 (OAuth 1.0a) and Bluesky. Credentials resolve from <aesthetic-computer>/vault/<account>/x.env and vault/at/.env and are never returned. X search is pay-per-use and locally budgeted. Draft before posting; public post/reply tools require confirm:true." } };
+      instructions: "Official X API v2 (OAuth 1.0a) and Bluesky. Account-scoped credentials resolve automatically through the shared aesthetic-computer-vault registry (AC_VAULT overrides its location) and are never returned. X search is pay-per-use and locally budgeted. Draft before posting; public post/reply tools require confirm:true." } };
     if (method === "initialized" || method === "notifications/initialized") return null;
     if (method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };

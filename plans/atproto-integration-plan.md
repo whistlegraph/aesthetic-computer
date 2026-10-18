@@ -8,6 +8,12 @@ records. Google and Apple now enter through Auth0, and AC authorization and data
 ownership still use the canonical Auth0 subject. The implementation below is
 proposed, not enabled.
 
+A [local connection prototype](../at/login-prototype/README.md) now exercises
+identity-only OAuth, explicit DID confirmation, browser binding, expiry, and
+link conflicts. The real Bluesky flow succeeded on 2026-10-08, with seventeen
+tests passing. Its disposable test account is not yet connected to Auth0 or
+production AC accounts.
+
 Keep that session boundary for a first Bluesky login implementation. Add a
 server-side AT Protocol OAuth broker on Lith, using the official
 `@atproto/oauth-client-node` client. Expose the broker through an Auth0 custom

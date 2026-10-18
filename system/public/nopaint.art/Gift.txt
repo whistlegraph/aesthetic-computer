@@ -1,0 +1,6 @@
+# 'Gift' by Camille
+Line: 128 0 128 255 6 
+Line: 0 128 255 128 6
+Stamp: @camille 7 128 132 U 
+# aw...
+N70 Stamp: @camille 11 220 220 U 2 N

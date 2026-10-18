@@ -43,7 +43,7 @@ Treat an “illy” as the project’s provider-neutral illustration artifact. P
 
 - Prefer an explicitly requested provider/model.
 - Otherwise use the pipeline’s provider order and the first credentialed adapter that supports the request.
-- OpenAI is the default for multi-reference edits and AC identity/style continuity.
+- OpenAI is the default for multi-reference edits and AC identity/style continuity. Shared pipelines default to `gpt-image-2.5-sunburst`, verified against the [official model page](https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst) on 2026-10-08. `gpt-image-2.5-flare` remains an explicit faster-generation option; preserve intentional model overrides and historical provenance.
 - fal.ai is appropriate for model shopping, specialized endpoints, and pipeline breadth. A fal model entry declares its input/output mapping; do not assume all endpoints share a schema.
 - Never silently fall back after a paid request fails. Return the failure and let the user choose whether to retry or switch.
 
