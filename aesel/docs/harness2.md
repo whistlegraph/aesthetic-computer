@@ -31,23 +31,29 @@ Edits reach the TUI, phone, web, Windows, iOS/Mac and native at once.
 Whistlegraph and MIME read a `bundle.mjs` snapshot of `src/`, so they pick up
 edits on their next bundle.
 
-## 2. Move the forked prompt text — Aesel's half shipped
+## 2. Move the forked prompt text — shipped
 
 `src/ac-server.mjs` (layered edits, runtime-log trust, the interface
 paragraph, the current-piece header) and `native/prompt.mjs` (embedded
-preview, native capture, publication, prior conversation) now place harness
+preview, native capture, publication, prior conversation) place harness
 sections. The hosted bridge's API workflow is a `{{lookup}}` fill rather than a
 string `.replace()` that would silently miss once the sentence was edited. Both
 render byte-identically across 290 bridge and native states.
 
-Still forked: the Whistlegraph engine — generation, critique, wares, visual
-review, drawing input, musical input and painting prompts. Because it passes
-its own `developerInstructions`, `AcServer` drops the shared visual,
-responsive, clock and sound sections for it. Rules that restate the piece
-guidance become those shared sections; the rest become Whistlegraph sections.
-Its source moved to the private vault on October 14, so its sections must not
-land in the public `aesel/harness/`; they want a `harness/` of their own beside
-the engine, compiled by the same parser.
+Whistlegraph's prompts are private (its source moved to the vault on October
+14), so they live in `apple/whistlegraph/harness/` in the vault, not here:
+generation, critique, media and wares; the visual reviewer; performance,
+drawing, sound and branch-history input; and the painting, Roblox and Doom
+wares. `apple/whistlegraph/tools/sync-harness.mjs` compiles them to
+`Resources/Web/whistlegraph-harness.mjs` with this repository's parser
+(`bin/sync-harness.mjs --source/--out` does the same by hand), and its tests
+fail when stale. 44 rendered strings are byte-identical.
+
+Not yet merged: Whistlegraph still passes its own `developerInstructions`, so
+`AcServer` drops the shared visual, responsive, clock and sound sections for
+it, and some of its rules restate the piece guidance. Folding those into the
+shared sections changes what the model reads, so it waits for the executor
+(step 3) to measure it.
 
 ## 3. A headless executor
 

@@ -14,8 +14,13 @@
 //
 //   node bin/sync-harness.mjs          # write src/harness-text.mjs
 //   node bin/sync-harness.mjs --check  # exit 1 if it is stale
+//
+// Another embedding with prompts of its own (Whistlegraph, whose source is
+// private) keeps its own harness/ and compiles it with the same parser:
+//
+//   node bin/sync-harness.mjs --source <dir> --out <file.mjs> --fix "<command>"
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const aesel = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -45,19 +50,19 @@ export function parse(markdown, file) {
   );
 }
 
-export function build() {
+export function build({ source = SOURCE, label = "aesel/harness/*.md", fix = "npm run harness" } = {}) {
   const components = {};
   const owner = {};
-  for (const file of readdirSync(SOURCE).filter((name) => name.endsWith(".md")).sort()) {
-    const sections = parse(readFileSync(join(SOURCE, file), "utf8"), file);
+  for (const file of readdirSync(source).filter((name) => name.endsWith(".md")).sort()) {
+    const sections = parse(readFileSync(join(source, file), "utf8"), file);
     for (const key of Object.keys(sections)) {
       if (owner[key]) throw Error(`section ${key} is in both ${owner[key]} and ${file}`);
       owner[key] = file;
     }
     components[file.replace(/\.md$/, "")] = sections;
   }
-  return `// Compiled from aesel/harness/*.md by bin/sync-harness.mjs. Do not edit here —
-// edit the markdown and run \`npm run harness\`.
+  return `// Compiled from ${label} by bin/sync-harness.mjs. Do not edit here —
+// edit the markdown and run \`${fix}\`.
 
 export const HARNESS = ${JSON.stringify(components, null, 1)};
 
@@ -76,16 +81,24 @@ export function harnessText(key, values = {}) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const check = process.argv.includes("--check");
-  const body = build();
+  const args = process.argv.slice(2);
+  const flag = (name) => { const at = args.indexOf(name); return at >= 0 ? args[at + 1] : undefined; };
+  const check = args.includes("--check");
+  const source = flag("--source") ? resolve(flag("--source")) : SOURCE;
+  const out = flag("--out") ? resolve(flag("--out")) : OUT;
+  const fix = flag("--fix") || "npm run harness";
+  // Named from the compiled file, so the header reads the same wherever it is run.
+  const label = source === SOURCE ? "aesel/harness/*.md" : `${relative(dirname(out), source)}/*.md`;
+  const name = relative(process.cwd(), out);
+  const body = build({ source, label, fix });
   let current = "";
-  try { current = readFileSync(OUT, "utf8"); } catch {}
+  try { current = readFileSync(out, "utf8"); } catch {}
   if (current === body) console.log("harness text is current.");
   else if (check) {
-    console.error("stale: src/harness-text.mjs no longer matches harness/ — run `npm run harness`.");
+    console.error(`stale: ${name} no longer matches ${label} — run \`${fix}\`.`);
     process.exit(1);
   } else {
-    writeFileSync(OUT, body);
-    console.log(`wrote src/harness-text.mjs  (${(body.length / 1024).toFixed(1)} KB)`);
+    writeFileSync(out, body);
+    console.log(`wrote ${name}  (${(body.length / 1024).toFixed(1)} KB)`);
   }
 }
