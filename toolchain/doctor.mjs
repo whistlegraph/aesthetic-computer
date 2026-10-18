@@ -199,6 +199,31 @@ async function papersMill() {
   }
 }
 
+// Can AC pay for inference? One OpenRouter account pays for every product's
+// models, and braincell sales never top it up — it is funded on openrouter.ai.
+// When it runs dry every hosted turn fails with a 402 and nothing else says so,
+// so lith reports whether it is above its floor (/api/openrouter-status).
+async function openRouterFunding() {
+  const t0 = Date.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch("https://aesthetic.computer/api/openrouter-status", { signal: ctrl.signal });
+    const ms = Date.now() - t0;
+    if (res.status === 404) return { ok: false, ms, note: "lith has no /api/openrouter-status yet — deploy" };
+    if (!res.ok) return { ok: false, ms, note: `lith says HTTP ${res.status}` };
+    const { funded, floor_usd } = await res.json();
+    if (funded === true) return { ok: true, ms, note: `above the $${floor_usd} floor` };
+    if (funded === false) return { ok: false, ms, note:
+      `BELOW $${floor_usd} — fund it at openrouter.ai/settings/credits (or turn on auto top-up); hosted inference will 402` };
+    return { ok: false, ms, note: "balance unknown (OpenRouter unreachable or the key is missing on lith)" };
+  } catch (e) {
+    return { ok: false, ms: Date.now() - t0, note: e.name === "AbortError" ? "timeout" : (e.code || e.message) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── the checklist ────────────────────────────────────────────────────────────
 // group · label · run() → {ok, ms?, note?} · critical? · scope (local|prod|tool)
 
@@ -219,6 +244,9 @@ const CHECKS = [
   // with the code you shipped.
   { group: "Deploy", label: "knot ↔ github mirror", scope: "prod", run: () => mirrorInSync() },
   { group: "Deploy", label: "oven papermill (papers/)", scope: "prod", run: () => papersMill() },
+
+  // Money the services spend on your behalf.
+  { group: "Funding", label: "OpenRouter balance", scope: "prod", critical: true, run: () => openRouterFunding() },
 
   // Host tooling — the binaries pipelines shell out to.
   { group: "Host tooling", label: "node",         scope: "tool", run: () => bin("node") },

@@ -171,6 +171,16 @@ export function renderTrace(task, events, result = null) {
   return lines.join("\n") + "\n";
 }
 
+// Whether AC's OpenRouter account can pay for the run. Every hosted turn bills
+// that one account, and braincells never top it up, so an empty account turns
+// a batch into a column of 402s. Null when lith cannot say.
+export async function openRouterFunding(site, token, fetch = globalThis.fetch) {
+  try {
+    const response = await fetch(`${site}/api/openrouter-status`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(6000) });
+    return response.ok ? await response.json() : null;
+  } catch { return null; }
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const { values } = parseArgs({ args: argv, options: {
     task: { type: "string" }, out: { type: "string" }, harness: { type: "string" }, model: { type: "string" },
@@ -205,9 +215,15 @@ export async function main(argv = process.argv.slice(2)) {
     if (report.source !== "repository") copySurface(report.source, join(out, "harness", name));
   }
 
-  const { ACSession } = await import("./ac-session.mjs");
+  const { ACSession, SITE } = await import("./ac-session.mjs");
   const session = new ACSession();
   if (!session.signedIn) throw Error("sign in first: ac login");
+  const funding = await openRouterFunding(SITE, await session.token());
+  if (funding?.funded === false) {
+    throw Error(`AC's OpenRouter account is below its $${funding.floor_usd} floor${Number.isFinite(funding.balance_usd) ? ` ($${funding.balance_usd} left)` : ""}; ` +
+      "fund it at openrouter.ai/settings/credits first — every turn would fail with 402.");
+  }
+  if (Number.isFinite(funding?.balance_usd)) console.log(`OpenRouter: $${funding.balance_usd} left`);
   const record = recorder(out);
   const { [runner.run]: run } = await import(runner.module);
   const startedAt = new Date().toISOString(), started = Date.now();
@@ -224,6 +240,7 @@ export async function main(argv = process.argv.slice(2)) {
   const result = {
     schema: 1, task: task.id || "task", kind: task.kind, domain: task.domain || "", model: task.model || "default",
     delivered: outcome.delivered, reviewed: outcome.reviewed, error, startedAt, ms: Date.now() - started, harness,
+    ...(funding ? { openrouter: { funded: funding.funded, ...(Number.isFinite(funding.balance_usd) ? { balance_usd: funding.balance_usd } : {}) } } : {}),
     turns: outcome.turns.map(({ source, draft, ...t }) => ({ ...t, ...(usage[t.turn] ? { usage: usage[t.turn] } : {}) })),
   };
   writeFileSync(join(out, "result.json"), JSON.stringify(result, null, 2) + "\n");

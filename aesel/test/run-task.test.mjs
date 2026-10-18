@@ -47,3 +47,11 @@ console.log(JSON.stringify({report:report.aesel,text:harnessText('no-name-on-scr
  const {report,text}=JSON.parse(execFileSync(process.execPath,['--input-type=module','-e',script],{encoding:'utf8'}));
  assert.equal(text,'EDITED.');assert.deepEqual(report.changed,['no-name-on-screen']);assert.deepEqual(report.added,['brand-new']);assert.deepEqual(report.inherited,[]);
 });
+test('the funding preflight asks lith, and a silent lith is not a verdict',async()=>{
+ const {openRouterFunding}=await import('../src/run-task.mjs');
+ const seen=[];const fetch=async(url,o)=>{seen.push([url,o.headers.Authorization]);return {ok:true,json:async()=>({funded:false,floor_usd:5,balance_usd:2})};};
+ assert.deepEqual(await openRouterFunding('https://site','t',fetch),{funded:false,floor_usd:5,balance_usd:2});
+ assert.deepEqual(seen,[['https://site/api/openrouter-status','Bearer t']]);
+ assert.equal(await openRouterFunding('https://site','t',async()=>({ok:false,status:404})),null);
+ assert.equal(await openRouterFunding('https://site','t',async()=>{throw Error('offline');}),null);
+});
