@@ -2102,8 +2102,6 @@ let globalVersionInfo = null; // { deployed, latest, status, behindBy, recentCom
 let globalRecentCommits = [];
 let updatePollStarted = false;
 let updatePollController = null;
-let updateBadgeBoxScreen = null; // {x, y, w, h} of the rendered badge for hitbox bookkeeping
-let updateBadgeHitboxRegistered = false;
 let globalAutoReload = false;
 // Whether this frame wants updates taken rather than offered. Same shape,
 // and same reason, as `hideLabelForFrame`: it describes the view, it arrives
@@ -2482,6 +2480,8 @@ const imageCache = {
 };
 
 let screen;
+let nativeWindowWipe = null;
+let inputLatencySequence; // Set only by the opt-in native benchmark.
 let currentDisplay; // TODO: Remove this? 22.09.29.11.38
 
 // 🖼️ HD layer — an OffscreenCanvas 2D surface at native device resolution,
@@ -3363,7 +3363,7 @@ const $commonApi = {
   canShare: false, // Whether navigator.share is enabled for mobile devices.
   leaving: isLeaving,
   handle: () => {
-    return HANDLE;
+    return globalThis.MIME_MODE ? globalThis.MIME_VIEWER_HANDLE ?? null : HANDLE;
   },
   notice: (msg, color = ["white", "green"], opts) => {
     notice = msg;
@@ -3782,6 +3782,9 @@ const $commonApi = {
   // Hand-tracking. 23.04.27.10.19 TODO: Move eventually.
   hand: { mediapipe: { screen: [], world: [], hand: "None" } },
   hud: {
+    // Whether the corner label is hidden (nolabel, a pack, the shell's own
+    // overlay, the Tab toggle): a piece need not prepare a label nobody sees.
+    hidden: () => hideLabel || hideLabelForFrame || hideLabelViaTab,
     label: (text, color, offset, plainTextOverride) => {
       currentHUDTxt = text;
       // Use plainTextOverride if provided, otherwise strip color codes from text
@@ -3908,7 +3911,7 @@ const $commonApi = {
     droppedFile: null,
     // 📦 Global update poll state — `ready` flips true when /api/version
     // long-poll detects a new deployment. Pieces can read this to render
-    // their own update UI; the corner ↑ badge in disk.mjs is automatic.
+    // their own update UI; the HUD label refreshes the current piece first.
     update: {
       get ready() { return globalUpdateReady; },
       get versionInfo() { return globalVersionInfo; },
@@ -4405,6 +4408,20 @@ const $commonApi = {
       });
       send({ type: "gpu-event", content });
       return p;
+    },
+  },
+  // 🧊 A frame of drawing as one buffer (lib/gpu-frame.mjs): a compiled
+  // KidLisp piece on the GPU path records its drawing and sends it here once
+  // a frame; bios draws it with WebGPU and composites the CPU buffer on top.
+  gpuFrame: {
+    available: false, // bios says so once its renderer is up
+    probed: false,
+    sent: false,
+    probe: () => { if ($commonApi.gpuFrame.probed) return; $commonApi.gpuFrame.probed = true; send({ type: "gpu-frame-probe" }); },
+    // meshes: new entries for the renderer's table ({ id, verts, faces }), or null.
+    send: (buffer, overlay = false, meshes = null) => {
+      send({ type: "gpu-frame", content: { buffer, overlay, meshes } }, [buffer.buffer]);
+      $commonApi.gpuFrame.sent = true;
     },
   },
   // WebGPU 2D Renderer API
@@ -6609,6 +6626,13 @@ const $paintApiUnwrapped = {
       ink(255, 255, 255);
     } else {
       ink(...arguments);
+    }
+
+    // Only a wipe of the visible buffer owns the native window color.
+    // Offscreen UI paintings must not tint the application's title bar.
+    if (graph.getBuffer().pixels === screen?.pixels &&
+        graph.c.slice(0, 3).every(Number.isFinite) && (graph.c[3] ?? 255) === 255) {
+      nativeWindowWipe = { slug: $commonApi.slug, rgb: graph.c.slice(0, 3) };
     }
 
     // 🎨 WebGPU clear if enabled
@@ -10254,7 +10278,11 @@ async function load(
     iconMode = false;
     if (parsed.search) {
       const searchParams = new URLSearchParams(parsed.search);
-      previewMode = searchParams.has("preview");
+      // `?preview` or `?preview=1200x630` asks for a thumbnail; any other value
+      // is a flag (`preview=walkieware` only hushes telemetry) and must not
+      // reframe the piece, or the thumbnail's resolution brings back the gap.
+      const preview = searchParams.get("preview");
+      previewMode = preview === "" || /^\d+x\d+$/.test(preview ?? "");
       iconMode = searchParams.has("icon");
     }
 
@@ -10568,6 +10596,10 @@ let pendingExportEvents = [];
 // TODO: Try to remove as many API calls from here as possible.
 
 async function makeFrame({ data: { type, content } }) {
+  if (type === "signup:view" || type === "onboarding:audio-state") {
+    if (booted && receive !== defaults.receive) receive({ type, content }, cachedAPI);
+    return;
+  }
   // DEBUG: Log ALL messages starting with "pedal:" or "daw:"
   if (type?.startsWith?.("pedal:") || type?.startsWith?.("daw:") || type?.startsWith?.("spreadnob:")) {
     console.log("🎹🎹🎹 makeFrame received:", type, JSON.stringify(content));
@@ -10615,7 +10647,7 @@ async function makeFrame({ data: { type, content } }) {
     promptInput.runnable = text.trim().length > 0;
     promptInput.canType = content?.active !== false;
     if (promptInput.enter?.btn) {
-      promptInput.enter.btn.disabled = !promptInput.runnable;
+      promptInput.enter.btn.disabled = !promptInput.touchButtons || !promptInput.runnable;
     }
     promptInput.snap?.();
     $commonApi.needsPaint?.();
@@ -10711,6 +10743,7 @@ async function makeFrame({ data: { type, content } }) {
       sessionStarted = true;
     }
 
+    globalThis.MIME_MODE = content.mime === true && content.noauth === true;
     USER = content.user;
     // if (USER) socket.send("login", { user: USER });
 
@@ -11130,6 +11163,15 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // A display-only identity for MIME cards. Never sets USER, HANDLE, auth or storage.
+  if (type === "mime:viewer") {
+    if (globalThis.MIME_MODE) {
+      globalThis.MIME_VIEWER_HANDLE = typeof content?.handle === "string" && /^@[A-Za-z0-9_.-]{1,64}$/.test(content.handle) ? content.handle : null;
+      $commonApi.needsPaint();
+    }
+    return;
+  }
+
   // Jump to any piece slug from the bios.
   if (type === "jump") {
     let ahistorical, alias;
@@ -11337,6 +11379,7 @@ async function makeFrame({ data: { type, content } }) {
     type === "prompt:text:select" ||
     type === "prompt:text:cursor"
   ) {
+    if (Number.isSafeInteger(content.inputLatencySequence)) inputLatencySequence = content.inputLatencySequence;
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
@@ -11567,6 +11610,8 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.gpuReady = true;
     return;
   }
+  if (type === "gpu-frame-ready") { $commonApi.gpuFrame.available = true; return; }
+  if (type === "gpu-frame-unavailable") { $commonApi.gpuFrame.available = false; return; }
 
   if (type === "gpu-forms-removed") {
     // Delete forms from the sent list that have been removed from the GPU scene.
@@ -11941,7 +11986,7 @@ async function makeFrame({ data: { type, content } }) {
   // 🎵 Streaming Audio messages - forward to piece receive function
   // (the whole family: playing/paused/stopped/error/state, time-data,
   //  seeked, frequencies/waveform/peaks-data, speed-data)
-  if (type.startsWith("stream:") || type === "kidlisp:data") {
+  if (type.startsWith("stream:") || type === "kidlisp:data" || (type === "host:playback" && globalThis.MIME_MODE)) {
     if (typeof receive === "function") {
       try {
         receive({ type, content }, cachedAPI);
@@ -12621,7 +12666,7 @@ async function makeFrame({ data: { type, content } }) {
         //   }
         // }
 
-        if ((data.key === "$" || data.key === "Home") && !getPackMode()) {
+        if ((data.key === "$" || data.key === "Home") && !getPackMode() && !globalThis.MIME_MODE) {
           if (data.ctrl || data.alt) {
             const sys = $commonApi.system;
             // Make it a painting.
@@ -12647,6 +12692,7 @@ async function makeFrame({ data: { type, content } }) {
         if (
           !getPackMode() && // Disable navigation keys in OBJKT mode
           !SOLO_MODE && // Disable navigation keys in solo mode
+          !globalThis.MIME_MODE && // MIME owns navigation; the piece still receives these keys
           (data.key === "`" ||
             data.key === "Enter" ||
             data.key === "Backspace" ||
@@ -13910,6 +13956,16 @@ async function makeFrame({ data: { type, content } }) {
                   volume: 0.15,
                 });
 
+                // Update the current piece before returning to the prompt.
+                // Share/edit scrubs above retain their own actions.
+                if (globalUpdateReady && $commonApi.slug !== "prompt") {
+                  currentHUDScrub = 0;
+                  currentHUDScrubReadyState = null;
+                  masked = false;
+                  send({ type: "window:reload" });
+                  return;
+                }
+
                 // 🌐 Branded domain: tapping HUD label navigates to aesthetic.computer
                 if (redirectIfBrandedDomain()) return;
 
@@ -14621,6 +14677,10 @@ async function makeFrame({ data: { type, content } }) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
 
+            // A wipe belongs to this rendered frame, never to the previous piece
+            // or an earlier prompt frame with a different/transparent backing.
+            nativeWindowWipe = null;
+
             // Always call paint() - piece paints underneath, GOL overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             if (paint !== defaults.paint) previewEvidence.paint();
@@ -15240,6 +15300,7 @@ async function makeFrame({ data: { type, content } }) {
 
         if (piece === "video") w = screen.width;
 
+        const labelUpdateReady = globalUpdateReady && $commonApi.slug !== "prompt";
         const baseLabelWidth = w + shareWidth;
 
         // Use natural text dimensions for buffer - preserve original layout
@@ -15383,6 +15444,16 @@ async function makeFrame({ data: { type, content } }) {
             // Subtract the left margin since text starts at x=HUD_LABEL_TEXT_MARGIN
             const wrapBounds = isKidlispPiece ? ($api.screen.width - 6 - HUD_LABEL_TEXT_MARGIN) : undefined;
 
+            // A quiet glow on the opening letters, inside the existing label.
+            if (labelUpdateReady) {
+              const opening = Array.from(stripColorCodes(text).split("\n")[0]).slice(0, 3).join("");
+              for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                $.ink(150, 255, 180, 48).write(opening,
+                  { x: hudTextX + dx, y: hudTextY + dy },
+                  undefined, undefined, false, typefaceNameForWrite);
+              }
+            }
+
             // Drift places glyphs itself, so it takes any label that fits on
             // one line — including kidlisp-flagged ones (a piece named after
             // a kidlisp word, like `line`, gets wrapBounds too). A label that
@@ -15414,6 +15485,18 @@ async function makeFrame({ data: { type, content } }) {
                 bounds: wrapBounds,
                 // wordWrap defaults to true when bounds is set, enabling character wrapping
               });
+            }
+
+            // Two tiny upward arrows nest above the label's first letters.
+            if (labelUpdateReady) {
+              $.ink(180, 255, 200, 180);
+              for (const dx of [0, 5]) {
+                const ux = hudTextX + dx;
+                const uy = hudTextY - 4;
+                $.box(ux + 1, uy, 1, 1);
+                $.box(ux, uy + 1, 3, 1);
+                $.box(ux + 1, uy + 2, 1, 2);
+              }
             }
 
             // ✨ Custom Superscript (e.g. ".com") - draw after the text in cyan
@@ -15651,6 +15734,11 @@ async function makeFrame({ data: { type, content } }) {
 
       // Return frame data back to the main thread.
       let sendData = { width: screen.width, height: screen.height };
+      if (inputLatencySequence !== undefined) sendData.inputLatencySequence = inputLatencySequence;
+      if (platform.Aesthetic && platform.MacOS) {
+        sendData.windowColor = nativeWindowWipe && nativeWindowWipe.slug === $commonApi.slug
+          ? nativeWindowWipe.rgb : Array.from(screen.pixels.subarray(0, 3));
+      }
 
       // Tack on the merry progress bar at the TOP if a pipeline is running
       if ($api.system.merry && $api.system.merry.running) {
@@ -17109,108 +17197,10 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
-      // 📦 Top-right update-ready badge — appears in any piece when
-      // /api/version detects a new deployment. Tap to reload.
-      // An embedded view takes the update instead of advertising it. The
-      // message still goes — it is what arms the reload on the other side —
-      // but it carries no picture, so nothing is drawn over the piece and
-      // there is no green arrow waiting for a tap that cannot come.
-      if (globalUpdateReady && autoUpdateForFrame) {
-        sendData.updateBadge = { silent: true, auto: true };
-      } else if (
-        globalUpdateReady &&
-        !PREVIEW_OR_ICON &&
-        !DEVICE_MODE &&
-        !hudAnimationState.qrFullscreen
-      ) {
-        const badgeSize = 13;
-        const badgeWidth = badgeSize * 2 + 3;
-        const margin = 4;
-        const startX = screen.width - badgeWidth - margin;
-        const startY = margin;
-
-        // Pulse for attention.
-        const tBadge = Number($api.paintCount || 0n);
-        const pulse = 0.5 + 0.5 * Math.sin(tBadge * 0.15);
-        const fillBoost = Math.round(40 * pulse);
-        const outlineBoost = Math.round(60 * pulse);
-
-        const badge = $api.painting(badgeWidth, badgeSize, ($) => {
-          $.unpan();
-          $.unmask();
-          // Filled square w/ pulsing green.
-          $.ink(20 + fillBoost, 80 + fillBoost, 30, 230).box(
-            0, 0, badgeSize, badgeSize,
-          );
-          $.ink(60 + outlineBoost, 180 + outlineBoost, 70, 255).box(
-            0, 0, badgeSize, badgeSize, "outline",
-          );
-          // Up arrow ↑ in pixels.
-          const cx = Math.floor(badgeSize / 2);
-          $.ink(255, 255, 255, 255);
-          $.box(cx, 3, 1, 1);         // tip
-          $.box(cx - 1, 4, 3, 1);     // wing 1
-          $.box(cx - 2, 5, 5, 1);     // wing 2
-          $.box(cx, 6, 1, 4);         // shaft
-          // Auto-reload toggle: check means reload after the short grace
-          // period; X means updates wait for a manual arrow tap.
-          const bx = badgeSize + 3;
-          $.ink(8, 30, 12, 230).box(bx, 0, badgeSize, badgeSize);
-          $.ink(80, 210, 90, 255).box(bx, 0, badgeSize, badgeSize, "outline");
-          $.ink(255, 255, 255, 255);
-          if (globalAutoReload) {
-            $.box(bx + 3, 6, 2, 1);
-            $.box(bx + 4, 7, 2, 1);
-            $.box(bx + 5, 5, 1, 2);
-            $.box(bx + 6, 4, 1, 2);
-            $.box(bx + 7, 3, 2, 1);
-          } else {
-            $.box(bx + 3, 3, 1, 1); $.box(bx + 8, 3, 1, 1);
-            $.box(bx + 4, 4, 1, 1); $.box(bx + 7, 4, 1, 1);
-            $.box(bx + 5, 5, 2, 2);
-            $.box(bx + 4, 7, 1, 1); $.box(bx + 7, 7, 1, 1);
-            $.box(bx + 3, 8, 1, 1); $.box(bx + 8, 8, 1, 1);
-          }
-        });
-
-        sendData.updateBadge = {
-          x: startX,
-          y: startY,
-          opacity: 1,
-          auto: globalAutoReload, // What the checkbox is actually drawing.
-          img: (({ width, height, pixels }) => ({ width, height, pixels }))(
-            badge,
-          ),
-        };
-
-        const boxKey = `${startX},${startY},${badgeWidth},${globalAutoReload}`;
-        if (!updateBadgeBoxScreen || updateBadgeBoxScreen.key !== boxKey) {
-          send({
-            type: "button:hitbox:add",
-            content: {
-              label: "update-corner",
-              box: { x: startX, y: startY, w: badgeSize, h: badgeSize },
-              message: "update-corner-tap",
-            },
-          });
-          send({
-            type: "button:hitbox:add",
-            content: {
-              label: "update-auto-corner",
-              box: { x: startX + badgeSize + 3, y: startY, w: badgeSize, h: badgeSize },
-              message: "update-auto-corner-tap",
-            },
-          });
-          updateBadgeBoxScreen = {
-            x: startX, y: startY, w: badgeSize, h: badgeSize, key: boxKey,
-          };
-          updateBadgeHitboxRegistered = true;
-        }
-      } else if (updateBadgeHitboxRegistered) {
-        send({ type: "button:hitbox:remove", content: "update-corner" });
-        send({ type: "button:hitbox:remove", content: "update-auto-corner" });
-        updateBadgeHitboxRegistered = false;
-        updateBadgeBoxScreen = null;
+      // Update availability still reaches BIOS for opted-in auto reloads.
+      // Interactive updates live in the HUD label or prompt's bottom hash button.
+      if (globalUpdateReady) {
+        sendData.updateBadge = { silent: true, auto: autoUpdateForFrame || globalAutoReload };
       }
 
       let transferredPixels;
@@ -17246,6 +17236,8 @@ async function makeFrame({ data: { type, content } }) {
       if (painted === true) sendData.paintChanged = true;
       if (loading === true) sendData.loading = true;
 
+      // A GPU frame was sent this paint: bios shows it instead of the CPU canvas.
+      if ($commonApi.gpuFrame.sent) { sendData.gpuFrame = true; $commonApi.gpuFrame.sent = false; }
       // WebGPU state (tell main thread whether to skip CPU rendering)
       if ($commonApi.webgpu.enabled) {
         sendData.webgpuEnabled = true;
