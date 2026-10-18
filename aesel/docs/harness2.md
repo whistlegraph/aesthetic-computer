@@ -31,20 +31,23 @@ Edits reach the TUI, phone, web, Windows, iOS/Mac and native at once.
 Whistlegraph and MIME read a `bundle.mjs` snapshot of `src/`, so they pick up
 edits on their next bundle.
 
-## 2. Move the forked prompt text
+## 2. Move the forked prompt text — Aesel's half shipped
 
-These still hold their own copies and must move into `harness/` before a loop
-can edit them:
+`src/ac-server.mjs` (layered edits, runtime-log trust, the interface
+paragraph, the current-piece header) and `native/prompt.mjs` (embedded
+preview, native capture, publication, prior conversation) now place harness
+sections. The hosted bridge's API workflow is a `{{lookup}}` fill rather than a
+string `.replace()` that would silently miss once the sentence was edited. Both
+render byte-identically across 290 bridge and native states.
 
-- `src/ac-server.mjs` — layered-edit rules, runtime-log trust, the interface
-  paragraph.
-- `native/prompt.mjs` — the embedded-preview, native-capture and publication
-  paragraphs.
-- The Whistlegraph engine — generation, critique, wares, visual review,
-  drawing input, musical input and painting prompts. Because it passes its own
-  `developerInstructions`, `AcServer` drops the shared visual, responsive,
-  clock and sound sections for it. Rules that restate the piece guidance
-  become those shared sections; the rest become Whistlegraph sections.
+Still forked: the Whistlegraph engine — generation, critique, wares, visual
+review, drawing input, musical input and painting prompts. Because it passes
+its own `developerInstructions`, `AcServer` drops the shared visual,
+responsive, clock and sound sections for it. Rules that restate the piece
+guidance become those shared sections; the rest become Whistlegraph sections.
+Its source moved to the private vault on October 14, so its sections must not
+land in the public `aesel/harness/`; they want a `harness/` of their own beside
+the engine, compiled by the same parser.
 
 ## 3. A headless executor
 

@@ -1,7 +1,9 @@
 import {harnessText} from './harness-text.mjs';
 // Small corrections to the generated map, checked against the runtime source.
 // Keep these separate so rebuilding api.json cannot silently erase them.
-export const API_WORKFLOW = harnessText('api-workflow');
+export const API_WORKFLOW = harnessText('api-workflow', {lookup: harnessText('api-lookup-local')});
+// The hosted bridge has ac_api and nothing to open files with.
+export const API_WORKFLOW_HOSTED = harnessText('api-workflow', {lookup: harnessText('api-lookup-hosted')});
 
 export const API_CORRECTIONS = [
  {
