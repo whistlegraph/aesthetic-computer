@@ -78,3 +78,17 @@ export function harnessText(key, values = {}) {
     return String(values[name]);
   });
 }
+
+// A harness run (`ac run --harness`) swaps edited sections in before the
+// prompts that place them load; a key it does not name keeps its text here.
+// Returns the keys no prompt knows yet.
+export function useHarness(components) {
+  const unknown = [];
+  for (const sections of Object.values(components)) {
+    for (const [key, text] of Object.entries(sections)) {
+      if (!(key in TEXT)) unknown.push(key);
+      TEXT[key] = text;
+    }
+  }
+  return { unknown };
+}

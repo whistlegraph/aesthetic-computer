@@ -10,10 +10,17 @@ Usage: ac [directory] [--runtime mjs|lisp|processing]
        aesthetic publish <file> [slug]
        aesthetic colors <colour…>
        aesthetic mime <file> ["caption"]
+       aesthetic run --task <task.json> --out <rundir> --live [--harness <dir>]
+       aesthetic run --init-harness <dir>
 
 Open the aesel terminal interface in a workspace, or manage the
 shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
 your @handle at https://aesthetic.computer/@handle/slug.
+
+run executes one task under one harness and writes its transcript, preview
+frames and verdict to a run directory (docs/harness2.md). It spends
+braincells, so it asks for --live. --init-harness copies the editable prompt
+files to a directory to start from; edit them and pass it as --harness.
 
 Each session starts by choosing an AC blank piece or a nopaint.art brush,
 then shows a QR code that runs it live on a phone. --genre makes that

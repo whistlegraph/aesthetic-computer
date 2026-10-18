@@ -55,17 +55,43 @@ it, and some of its rules restate the piece guidance. Folding those into the
 shared sections changes what the model reads, so it waits for the executor
 (step 3) to measure it.
 
-## 3. A headless executor
+## 3. A headless executor — shipped for Whistlegraph
 
-`aesel run --task <file> --harness <dir> --out <rundir>`: one task under one
-harness, writing the transcript (`events.jsonl`, rendered as an
-action/observation trace) and whether it delivered — `ac check` prints ✓ — plus
-preview frames. The engine classes are already scriptable;
-`bin/bench-providers.mjs` drives them.
+```
+ac run --init-harness <dir>        # copy the editable prompt files to start from
+ac run --task <task.json> --out <rundir> --live [--harness <dir>] [--model <id>]
+```
 
-Whistlegraph already has both halves of its own loop: the
-`__whistlegraphSequence` benchmark runs tasks headlessly, and its visual review
-judges four timed frames. That makes it the first embedding to refine.
+One task under one harness. The harness directory holds a subdirectory per
+surface — `aesel/` and, with the vault linked, `whistlegraph/` — in the same
+markdown as the source; a surface or section it leaves out runs as the
+repository has it. `src/run-task.mjs` swaps the edited sections in (the
+compiled modules' `useHarness`) before anything that places them loads, then
+hands the task to its kind's runner.
+
+The run directory keeps `task.json`; `harness/`, what actually ran, with
+`result.json` naming the changed, added and inherited sections;
+`events.jsonl`, every engine notification, step, paint and verdict;
+`frames/`, each paint's four PNGs; `source/turn-N.mjs`; `trace.md`, the
+transcript rendered as request, rounds, actions and observations; and
+`result.json` — per turn delivered or not, the review's acceptance, repairs,
+notes and tokens. Exit status 0 means every turn delivered.
+
+The Whistlegraph runner (`lith/whistlegraph-run.mjs`, private) is the
+worker's own `runTurn` — edit contract, layered edits, render pool, one
+repair, picture review — on an in-memory ledger, paid by the person's AC
+token. A task is a list of requests, each a turn on the version the last one
+saved; the first turn that saves nothing ends it. Example:
+`apple/whistlegraph/tasks/pink-ball.json`.
+
+The first run (DeepSeek V4.1 Flash, two turns, 72 s) delivered both turns
+with review notes, and its trace already shows two things worth a harness
+edit or a fix: `wipe("#0b0b12")` painted a different random background in
+every frame although the generation prompt allows six-digit hex, and a repair
+that ran out of rounds is noted as "did not paint".
+
+Still to build for other embeddings: a plain piece runner (AcServer plus
+`ac check`) for the terminal, phone and web surfaces.
 
 ## 4. Tasks by kind
 

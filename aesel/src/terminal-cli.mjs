@@ -38,6 +38,8 @@ if(['--help','-h','help'].includes(args[0])){
   out(`account: ${session.label()}`);
 }else if(args[0]==='history'){
   await run('history-cli.mjs',args.slice(1));
+}else if(args[0]==='run'){
+  await run('run-task.mjs',args.slice(1));
 }else if(['login','logout','whoami','publish','colors','profile','mood','handle','check','mime'].includes(args[0])){
   await run('cli.mjs',args);
 }else{
