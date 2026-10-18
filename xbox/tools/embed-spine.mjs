@@ -56,7 +56,7 @@ export function generate() {
     "  return { ...spine, ...actions };",
     "})();",
     end,
-  ].join("\n");
+  ].join("\n").replace(/\bMath\.(sin|cos|atan2|hypot|exp)\b/g, "DM.$1");
 }
 
 // Where the block goes the first time: just before the rig it replaces.

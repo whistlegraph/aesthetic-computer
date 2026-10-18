@@ -618,35 +618,41 @@ function stepLimb(spine, limb, h, frame) {
     x2 -= ex * lowerB; y2 -= ey * lowerB; z2 -= ez * lowerB;
     x1 += ex * lowerA; y1 += ey * lowerA; z1 += ez * lowerA;
   }
-  // A foot held up by the ground keeps its place; the knee re-fits to it.
-  if (y1 < floor + 6) y1 = floor + 6;
-  if (y2 < floor + 3) y2 = floor + 3;
-  for (let k = 0; k < 2; k++) {
-    // The shin moves only the knee, then the thigh moves only the knee.
-    let dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
-    let d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1, error = (d - l2) / d;
-    x2 -= dx * error * 0; y2 -= dy * error * 0; z2 -= dz * error * 0;
-    x1 += dx * error * 1; y1 += dy * error * 1; z1 += dz * error * 1;
-    dx = x1 - x0; dy = y1 - y0; dz = z1 - z0;
-    d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1; error = (d - l1) / d;
-    x1 -= dx * error * 1; y1 -= dy * error * 1; z1 -= dz * error * 1;
-  }
-  LX[0] = x0; LY[0] = y0; LZ[0] = z0;
-  LX[1] = x1; LY[1] = y1; LZ[1] = z1;
-  LX[2] = x2; LY[2] = y2; LZ[2] = z2;
+  // Contacts are targets; bone lengths are hard constraints. Even a locked
+  // foot must give up an unreachable deck instead of stretching to it.
   if (limb.lock && limb.goal) {
-    // A deck constraint is a fixed endpoint, not a spring aiming below it.
-    // Solve the knee on the two bone intersection circle without moving
-    // either the hip or the planted shoe.
-    const g=limb.goal,dx=g.x-ax,dy=g.y-ay,dz=g.z-az;
-    const d=Math.max(.001,Math.hypot(dx,dy,dz)),nx=dx/d,ny=dy/d,nz=dz/d;
-    const along=(l1*l1-l2*l2+d*d)/(2*d),height=Math.sqrt(Math.max(0,l1*l1-along*along));
-    const dotPole=px*nx+py*ny+pz*nz;
-    let qx=px-nx*dotPole,qy=py-ny*dotPole,qz=pz-nz*dotPole;
-    const plen=Math.hypot(qx,qy,qz)||1;qx/=plen;qy/=plen;qz/=plen;
-    LX[1]=ax+nx*along+qx*height;LY[1]=ay+ny*along+qy*height;LZ[1]=az+nz*along+qz*height;
-    LX[2]=PX[2]=g.x;LY[2]=PY[2]=g.y;LZ[2]=PZ[2]=g.z;
+    x2 = limb.goal.x; y2 = limb.goal.y; z2 = limb.goal.z;
+  } else {
+    y2 = Math.max(y2, floor + 3);
   }
+  const dx = x2 - ax, dy = y2 - ay, dz = z2 - az;
+  const distance = Math.hypot(dx, dy, dz);
+  const nx = distance > 1e-8 ? dx / distance : 0;
+  const ny = distance > 1e-8 ? dy / distance : -1;
+  const nz = distance > 1e-8 ? dz / distance : 0;
+  const reach = clamp(distance, Math.abs(l1 - l2) + 1e-6, l1 + l2 - 1e-6);
+  const along = (l1 * l1 - l2 * l2 + reach * reach) / (2 * reach);
+  const height = Math.sqrt(Math.max(0, l1 * l1 - along * along));
+  let qx = limb.lock ? px : x1 - ax;
+  let qy = limb.lock ? py : y1 - ay;
+  let qz = limb.lock ? pz : z1 - az;
+  const dot = qx * nx + qy * ny + qz * nz;
+  qx -= nx * dot; qy -= ny * dot; qz -= nz * dot;
+  let plen = Math.hypot(qx, qy, qz);
+  if (plen < 1e-8) {
+    // Pick an orthogonal bend when the goal and pole are collinear.
+    const bx = Math.abs(nx) < .9 ? 1 : 0, by = bx ? 0 : 1;
+    const projection = bx * nx + by * ny;
+    qx = bx - nx * projection; qy = by - ny * projection; qz = -nz * projection;
+    plen = Math.hypot(qx, qy, qz);
+  }
+  LX[0] = ax; LY[0] = ay; LZ[0] = az;
+  LX[1] = ax + nx * along + qx / plen * height;
+  LY[1] = ay + ny * along + qy / plen * height;
+  LZ[1] = az + nz * along + qz / plen * height;
+  LX[2] = ax + nx * reach; LY[2] = ay + ny * reach; LZ[2] = az + nz * reach;
+  if (limb.lock) { PX[2] = LX[2]; PY[2] = LY[2]; PZ[2] = LZ[2]; }
+
 }
 
 // What a pinned arm asked of the chest this substep, handed over once and
