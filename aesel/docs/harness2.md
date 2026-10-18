@@ -93,11 +93,23 @@ that ran out of rounds is noted as "did not paint".
 Still to build for other embeddings: a plain piece runner (AcServer plus
 `ac check`) for the terminal, phone and web surfaces.
 
-## 4. Tasks by kind
+## 4. Tasks by kind — Whistlegraph's set shipped
 
-About twenty prompts to start, grouped the way the prompt is: visual, sound,
-KidLisp, multiplayer, responsive, and Whistlegraph drawings. The group is the
-library's domain — lessons transfer within it, not across it.
+21 tasks in the vault's `apple/whistlegraph/tasks/<domain>/`, worded the way
+people talk to the phone: visual, motion, sound, critique, revision,
+responsive and drawing (chalk loops, sweeps and chalk alone, as
+`whistlegraph-drawing/v1`). The folder is the library's domain — lessons
+transfer within it, not across it. Its README says what each domain probes,
+as context for a trace's reader, not an answer key. A test checks every task
+parses, every drawing normalizes and every starting piece passes the source
+checks.
+
+The first drawing run already shows a lesson to find: chalk looped the right
+circle with "make this one bigger", the model enlarged both, and the review
+passed it — neither the generation prompt nor the reviewer resolved "this" to
+the chalked target.
+
+KidLisp and multiplayer tasks wait for the plain piece runner.
 
 ## 5. The refinement loop
 
