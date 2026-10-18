@@ -163,7 +163,10 @@ provides another reference: a photograph and audio carried within a message.
 ## Light and dark
 
 The page ignores the system color scheme. It rolls light and dark with the
-Los Angeles sun, one clock for every viewer, rechecked each minute. Oskiewar
+Los Angeles sun, one clock for every viewer, rechecked each minute. Surfaces
+blend continuously by daylight (gliding between readings); text inks swap at
+the midpoint with a short fade, since blending them too would cross the
+surfaces at the same mid-tone. Oskiewar
 cards (`oskiewar.com/…?mime=1`) paint by the same clock (`losAngelesSun` in
 `xbox/live/oskiewar.js`), so a card and the feed turn over together; the
 game's default dusk palette is not used in a card.
