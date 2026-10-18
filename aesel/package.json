@@ -1,14 +1,15 @@
 {
   "name": "aesel",
-  "version": "0.8.26",
+  "version": "0.8.27",
   "private": true,
   "type": "module",
   "scripts": {
     "build:bun": "bun bin/build-bun.mjs",
     "bench:providers": "node bin/bench-providers.mjs",
     "bench:runtimes": "python3 bin/bench-runtimes.py --entry launch --launcher --runs 7 --out ../tmp/tui-latency/runtimes.json",
-    "test": "node bin/sync-context.mjs --check && node --test test/*.test.mjs && bash test/cli.sh",
+    "test": "node bin/sync-context.mjs --check && node bin/sync-harness.mjs --check && node --test test/*.test.mjs && bash test/cli.sh",
     "context": "node bin/sync-context.mjs",
+    "harness": "node bin/sync-harness.mjs",
     "test:ui": "AESEL_PERFORMANCE=1 node --test test/tui-performance.test.mjs",
     "test:input": "python3 test/input-tui.py",
     "build:tui": "node bin/build-tui.mjs",
