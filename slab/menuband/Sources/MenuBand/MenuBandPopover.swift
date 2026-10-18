@@ -2658,6 +2658,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func octaveDown() {
         let new = max(Int(octaveStepper.minValue), octaveStepper.integerValue - 1)
+        if new != octaveStepper.integerValue { menuBand?.playOctaveClick(up: false) }
         octaveStepper.integerValue = new
         menuBand?.octaveShift = new
         updateOctaveLabel(new)
@@ -2665,6 +2666,7 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func octaveUp() {
         let new = min(Int(octaveStepper.maxValue), octaveStepper.integerValue + 1)
+        if new != octaveStepper.integerValue { menuBand?.playOctaveClick(up: true) }
         octaveStepper.integerValue = new
         menuBand?.octaveShift = new
         updateOctaveLabel(new)

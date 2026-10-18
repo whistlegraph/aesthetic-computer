@@ -1455,6 +1455,11 @@ final class MenuBandSynth {
         percussion.play(.block, velocity: 88, pan: up ? 0.28 : -0.28)
     }
 
+    /// The , / . octave ratchet — rim clicks on the dry percussion bus.
+    func playOctaveClick(up: Bool) {
+        percussion.playOctaveClick(up: up)
+    }
+
     /// Route the trackpad pitch-bend into the spoken-language easter-egg
     /// voice (AVAudioUnitTimePitch — ignores MIDI bend), so the TTS slides
     /// in pitch alongside every other voice.

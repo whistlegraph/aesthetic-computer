@@ -3308,7 +3308,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // flagsChanged kept flowing — which starves the cancel above and
         // lets ⌘C ⌘ arm focus. Fall back to the monitors only when the tap
         // can't be created (Accessibility trust missing or stale).
-        if !installQuietFocusTap() {
+        // The tap is created on Accessibility trust alone, but macOS only
+        // feeds it keyboard edges under Input Monitoring — without that the
+        // tap sits there silent and ⌘⌘ never fires. The 1.6.13 store fix
+        // dropped this request from both builds; the direct build needs it
+        // back (the store build gets its global ⌘⌘ from TrackDrum instead).
+        let listenGranted = CGPreflightListenEventAccess() || CGRequestListenEventAccess()
+        let tapInstalled = installQuietFocusTap()
+        debugLog("⌘⌘ tap installed=\(tapInstalled) axTrusted=\(AXIsProcessTrusted()) listen=\(listenGranted)")
+        if !tapInstalled {
             NSLog("MenuBand: ⌘⌘ tap creation failed — falling back to NSEvent monitors")
             quietFocusMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
                 matching: Self.quietFocusMonitorMask

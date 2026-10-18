@@ -1000,9 +1000,9 @@ final class MenuBandController {
 
     /// Apply a single octave step + UI refresh. Clamps to ±4
     /// octaves; no-ops at the limit so a clamped key press is
-    /// silent. The old percussive click was tied to held-key
-    /// auto-repeat — both removed at jas's request so `,` / `.`
-    /// behaves like a discrete one-press-one-step toggle.
+    /// silent. No auto-repeat (jas's request) — `,` / `.` is a
+    /// discrete one-press-one-step toggle; the key handler sounds the
+    /// rim-click ratchet when the step lands.
     private func octaveStepOnce(delta: Int) {
         let next = max(-4, min(4, octaveShift + delta))
         if next == octaveShift {
@@ -1037,21 +1037,6 @@ final class MenuBandController {
         octaveHoldTimer?.invalidate()
         octaveHoldTimer = nil
         octaveHoldKey = nil
-    }
-
-    /// Tiny percussive click for octave shifts. Uses a high-mid drum
-    /// (Tambourine, GM key 54) on the drum channel so it reads as
-    /// punctual rather than tonal — but the velocity is mapped from
-    /// the new octave so each step has its own audible weight,
-    /// scaling brighter / sharper as you move up.
-    private func playOctaveClick(for newShift: Int) {
-        // Velocity range so all octaves are distinct but none are
-        // jarring: −4 → ~50, 0 → ~85, +4 → ~120.
-        let v = max(40, min(127, 85 + newShift * 9))
-        synth.noteOn(54, velocity: UInt8(v), channel: 9)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.synth.noteOff(54, channel: 9)
-        }
     }
 
     func auditionCurrentProgram() {
@@ -2052,10 +2037,15 @@ final class MenuBandController {
         octaveStepOnce(delta: delta)
     }
 
-    /// Wood-block tick for an octave-swipe detent (swipe path only — key
-    /// presses stay silent per jas's earlier ask). `up` pans the tick.
+    /// Wood-block tick for an octave-swipe detent (swipe path only — the
+    /// , / . keys get the rim-click ratchet, `playOctaveClick`). `up`
+    /// pans the tick.
     func playOctaveTick(up: Bool) {
         synth.playOctaveTick(up: up)
+    }
+
+    func playOctaveClick(up: Bool) {
+        synth.playOctaveClick(up: up)
     }
 
     // MARK: - Instrument backend (GM vs GarageBand)
@@ -4537,7 +4527,9 @@ final class MenuBandController {
             // chained octaves jumped the keyboard further than
             // intended on a single sustained press.
             if isDown && !isRepeat {
+                let before = octaveShift
                 octaveStepOnce(delta: delta)
+                if octaveShift != before { synth.playOctaveClick(up: delta > 0) }
             }
             return true
         }

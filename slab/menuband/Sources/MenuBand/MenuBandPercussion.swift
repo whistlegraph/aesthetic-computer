@@ -346,6 +346,30 @@ final class MenuBandPercussion {
         lock.unlock()
     }
 
+    /// The , / . octave ratchet: the TrackDrum's chassis click (same three
+    /// layers as the membrane's outer rail), struck twice ~28 ms apart with
+    /// the second hit pitched a fourth past the first — up steps up, down
+    /// steps down — panned toward the direction of travel.
+    func playOctaveClick(up: Bool) {
+        let pan = up ? 0.22 : -0.22
+        let (first, second) = up ? (0.88, 1.18) : (1.18, 0.88)
+        stageRimClick(tension: first, v: 0.8, pan: pan)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.028) { [weak self] in
+            self?.stageRimClick(tension: second, v: 1.0, pan: pan)
+        }
+    }
+
+    private func stageRimClick(tension: Double, v: Double, pan: Double) {
+        let voices = [
+            makeVoice(.noise, 7_200, 0.0020, 0.50 * v, 0.00005, 0.00165, pan),
+            makeVoice(.triangle, 1_650 * tension, 0.0040, 0.38 * v, 0.00008, 0.0035, pan),
+            makeVoice(.sine, 520 * tension, 0.0055, 0.20 * v, 0.0001, 0.0048, pan),
+        ].map(finite)
+        lock.lock()
+        pending.append(contentsOf: voices)
+        lock.unlock()
+    }
+
     /// Reverse-kick swell: low sine body and filtered air rise almost their
     /// entire duration, then cut at the peak. Kept outside Drum so the twelve
     /// pitch-class slots used by the keyboard remain unchanged.
