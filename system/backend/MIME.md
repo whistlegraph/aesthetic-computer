@@ -160,6 +160,14 @@ reader. This is a new AC mark, not a reproduction of an official MIME logo.
 [Borenstein's reconstructed March 1992 demo](https://www.guppylake.com/nsb/mime.html)
 provides another reference: a photograph and audio carried within a message.
 
+## Light and dark
+
+The page ignores the system color scheme. It rolls light and dark with the
+Los Angeles sun, one clock for every viewer, rechecked each minute. Oskiewar
+cards (`oskiewar.com/…?mime=1`) paint by the same clock (`losAngelesSun` in
+`xbox/live/oskiewar.js`), so a card and the feed turn over together; the
+game's default dusk palette is not used in a card.
+
 ## Tab and share assets
 
 The browser title cycles between Unicode lettering styles every 1.25 seconds,
