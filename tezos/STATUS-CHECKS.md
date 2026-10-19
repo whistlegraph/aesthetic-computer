@@ -12,6 +12,16 @@ include the HEN dailies, even when the user names no collection.
   not script defaults. `daily_token_status` in `toolchain/mcp/crypto-mcp.mjs`
   provides discovery when available. Match daily posts to receipts: other HEN
   mints by aesthetic.tez are not necessarily daily posts.
+- **HEN paintings:** @jeffrey's finished paintings (nopaint "Done" and every
+  other sealed painting) are minted as hic et nunc 1/1s by
+  `tezos/hen-paintings.mjs`, tagged `ac-painting-<code>` so the chain itself
+  says what is minted. `status` lists the newest with their OBJKT ids;
+  receipts are `tezos/out/hen-paintings/<code>.token.json`; the queue is the
+  `poll` command on a ten-minute launchd timer
+  (`tezos/launchd/computer.aesthetic.hen-paintings.plist`, log in
+  `~/.local/share/ac/hen-paintings/poll.log`), which only takes paintings
+  finished after `out/hen-paintings/.watermark`. Tell daily posts and
+  paintings apart by tag.
 - **Sales:** count only applied marketplace settlements matched to the token
   transfer in the same operation. Exclude burns, gifts and backtracked calls;
   outgoing transfers alone are not sales. Distinguish posts, editions sold and

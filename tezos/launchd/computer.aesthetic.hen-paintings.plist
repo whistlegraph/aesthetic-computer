@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  The painting queue: every ten minutes, mint any painting @jeffrey has
+  finished since the watermark as a hic et nunc 1/1 (tezos/hen-paintings.mjs).
+  Install:  cp tezos/launchd/computer.aesthetic.hen-paintings.plist ~/Library/LaunchAgents/
+            launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/computer.aesthetic.hen-paintings.plist
+  Remove:   launchctl bootout gui/$(id -u)/computer.aesthetic.hen-paintings
+  Needs the vault decrypted (tezos/kidlisp/.env → AESTHETIC_KEY) and an
+  @jeffrey ~/.ac-token. Run only on one machine at a time.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>computer.aesthetic.hen-paintings</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jas/.local/share/fnm/aliases/default/bin/node</string>
+        <string>/Users/jas/aesthetic-computer/tezos/hen-paintings.mjs</string>
+        <string>poll</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/jas/aesthetic-computer</string>
+    <key>StartInterval</key>
+    <integer>600</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>/Users/jas/.local/share/ac/hen-paintings/poll.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jas/.local/share/ac/hen-paintings/poll.log</string>
+</dict>
+</plist>
