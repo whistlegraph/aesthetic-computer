@@ -933,14 +933,19 @@ async function buildOne(entry) {
   }
 }
 
-// A PDF a reader can open: the header is there and it is not a stub.
+// A PDF a reader can open: it starts with the header and ends with the
+// trailer. A run killed mid-write (the Japanese builds) leaves a large file
+// with no %%EOF, which readers refuse.
 function usablePdf(path) {
-  if (!existsSync(path) || statSync(path).size < 1024) return false;
-  const head = Buffer.alloc(5);
+  if (!existsSync(path)) return false;
+  const size = statSync(path).size;
+  if (size < 1024) return false;
+  const head = Buffer.alloc(5), tail = Buffer.alloc(1024);
   const fd = openSync(path, "r");
-  const read = readSync(fd, head, 0, 5, 0);
+  readSync(fd, head, 0, 5, 0);
+  readSync(fd, tail, 0, 1024, size - 1024);
   closeSync(fd);
-  return read === 5 && head.toString("latin1") === "%PDF-";
+  return head.toString("latin1") === "%PDF-" && tail.toString("latin1").includes("%%EOF");
 }
 
 function deployOne(entry) {
