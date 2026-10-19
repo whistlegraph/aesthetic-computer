@@ -61,3 +61,13 @@ test('a round proposes, retries a rejected edit, composes, selects blind and lea
   assert.equal(summary.claudeUsd,0.06);
  }finally{rmSync(runs,{recursive:true,force:true});rmSync(library,{recursive:true,force:true});}
 });
+
+test('a base run that never reached the model stops the round before any improver is paid',async()=>{
+ const runs=mkdtempSync(join(tmpdir(),'refine-runs-')),library=mkdtempSync(join(tmpdir(),'refine-lib-'));
+ let asked=0;
+ const rollout=async(task,harness,out)=>{mkdirSync(out,{recursive:true});return {delivered:false,turns:[{turn:1,delivered:false,error:'Out of braincells — buy more from the braincell meter in Aesel.'}]};};
+ try{
+  await assert.rejects(refineTask({id:'t',domain:'d',requests:['x']},{runs,library,rollout,claude:async()=>{asked++;return {text:'',usd:1};},log:()=>{}}),e=>e.infrastructure&&/braincells/.test(e.message));
+  assert.equal(asked,0);
+ }finally{rmSync(runs,{recursive:true,force:true});rmSync(library,{recursive:true,force:true});}
+});

@@ -42,6 +42,7 @@ const aesel = resolve(fileURLToPath(import.meta.url), "../..");
 const PROMPTS = join(aesel, "refine/prompts");
 const DIMENSIONS = { inv: "dimension-inv.md", dom: "dimension-dom.md" };
 const STAGE_ATTEMPTS = 2;
+const INFRASTRUCTURE = /braincells|HTTP 40[123]|OpenRouter account|sign in first|session refresh failed|could not reach/i;
 const POINTER = "Read MISSION.md in this directory and do what it says. Everything it refers to is under context/. Work only inside this directory.";
 
 // Their own slots are [[name]]: {{name}} is harness syntax the prompts describe.
@@ -265,6 +266,11 @@ export async function refineTask(task, { runs, library, from = "", model = "", a
   const base = materialise(from, join(round, "harness/base"));
   log(`${task.id}: base run`);
   const results = { base: await runOf("base", base) };
+  // A base run that never reached the model — out of braincells, an unfunded
+  // relay, a lapsed sign-in — is not evidence about the harness. Stop before
+  // any improver is paid to read it; the next task would fail the same way.
+  const blocked = [results.base.error, ...(results.base.turns ?? []).map((t) => t.error)].find((e) => INFRASTRUCTURE.test(e || ""));
+  if (blocked) throw Object.assign(Error(`${task.id}: the base run could not reach the model — ${blocked}`), { infrastructure: true });
   const harnesses = { base };
   const notes = {};
   const runDirOf = (label) => join(round, "runs", Object.keys(results).find((other) => results[other] === results[label]));
@@ -377,8 +383,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   mkdirSync(values.runs, { recursive: true });
   const summaries = [];
-  for (const task of tasks) summaries.push(await refineTask(task, { runs: values.runs, library: resolve(values.library),
-    from: values.from ? resolve(values.from) : "", model: values.model, acModel: values["ac-model"], timeout: Number(values.timeout) }));
+  for (const task of tasks) {
+    try {
+      summaries.push(await refineTask(task, { runs: values.runs, library: resolve(values.library),
+        from: values.from ? resolve(values.from) : "", model: values.model, acModel: values["ac-model"], timeout: Number(values.timeout) }));
+    } catch (error) {
+      if (!error.infrastructure) throw error;
+      console.error(`stopped: ${error.message}`);
+      break;
+    }
+  }
   writeFileSync(join(values.runs, "summary.json"), JSON.stringify(summaries, null, 2) + "\n");
   console.log(JSON.stringify(summaries.map(({ task, chosen, changed: sections, delivered }) => ({ task, chosen, sections, delivered })), null, 2));
   console.log(`runs: ${values.runs}`);
