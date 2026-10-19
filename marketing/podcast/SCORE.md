@@ -16,7 +16,11 @@ loudnorm.
 Alongside the longform readings, **Aesthetic Computer Radio** — an automated ~2-minute
 episode: gather the last day of commit subjects (filtered, deduped, and
 REDACTED — client/confidential lanes never reach the model), write a
-~300-word script via `claude -p` in the storytelling register, produce with
+~300-word script in the storytelling register — via `claude -p`, or with
+`DAILY_WRITER=ac` through the daily's own AC braincells on Sonnet
+(`lib/braincell-writer.mjs`; `DAILY_BRAIN_HANDLE` + `DAILY_BRAIN_TOKEN_FILE`
+name the account, `DAILY_BRAIN_MODEL` overrides the model; jasellite runs
+this since the Claude Code subscription stopped serving it) — produce with
 `--bedstyle club --frame daily` (116 BPM four-on-the-floor bed), publish via
 Buzzsprout. `daily-YYYY-MM-DD` slugs are pattern-cleared in `lib/hosted.mjs`;
 the content guard is daily.mjs's redaction filter + prompt rules + word-count
