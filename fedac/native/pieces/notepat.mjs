@@ -2879,45 +2879,52 @@ const LAPTOP_ROWS = [
 const KEY_GLYPH = { backspace: "\u232b", tab: "\u21e5", caps: "\u21ea", enter: "\u23ce", shift: "\u21e7", space: "" };
 
 // The player's keyboard, drawn as a normal laptop keyboard for the audience
-// (tent mode flips the whole screen to face them). A note key wears its
-// colour and lights while it sounds.
+// (tent mode flips the whole screen to face them). Classic and quiet: black
+// ground, white outlined keys, big thick labels. Colour only arrives with a
+// sounding key — its note colour, the sharps a darker shade like a piano's
+// black keys.
 function paintAudienceKeyboard(ink, box, write, screen) {
   const w = screen.width, h = screen.height;
-  const margin = Math.max(6, Math.floor(w * 0.03));
+  const big = w >= 560 ? 2 : 1; // 6x10 at 2x reads thick on a 640-wide screen
+  const margin = Math.max(8, Math.floor(w * 0.04));
   const unit = (w - margin * 2) / 15;
-  const gap = Math.max(1, Math.floor(unit * 0.08));
-  const keyH = Math.min(Math.floor(unit * 1.15), Math.floor((h - margin * 2) / 5));
+  const gap = Math.max(3, Math.floor(unit * 0.14)); // keys stand apart
+  const keyH = Math.min(Math.floor(unit * 1.2), Math.floor((h - margin * 2) / 5));
   const top = Math.floor((h - keyH * 5) / 2);
-  ink(22, 22, 24); // a neutral ground, not notepat's note-tinted backdrop
+  ink(0, 0, 0);
   box(0, 0, w, h);
   LAPTOP_ROWS.forEach((row, r) => {
     let x = margin;
     for (const [key, span] of row) {
       const kw = span * unit;
       if (key) {
-        const px = Math.round(x), py = top + r * keyH;
+        const px = Math.round(x) + Math.floor(gap / 2), py = top + r * keyH + Math.floor(gap / 2);
         const bw = Math.round(kw) - gap, bh = keyH - gap;
         const note = KEY_TO_NOTE[key];
-        if (note) {
+        const on = note && sounds[key] !== undefined;
+        if (on) {
           const c = noteColor(note.replace(/^[+-]+/, ""));
-          const on = sounds[key] !== undefined;
-          // Sharps are the piano's black keys: a darker shade, lit or not.
-          const sharp = note.includes("#");
-          const k = on ? (sharp ? 0.62 : 1) : (sharp ? 0.16 : 0.32);
+          const k = note.includes("#") ? 0.62 : 1;
           ink(Math.floor(c[0] * k), Math.floor(c[1] * k), Math.floor(c[2] * k));
           box(px, py, bw, bh);
-          const label = note.replace(/^[+-]+/, "").toUpperCase();
-          ink(on ? 0 : 255, on ? 0 : 255, on ? 0 : 255);
-          write(label, { x: px + Math.floor((bw - label.length * 6) / 2), y: py + Math.floor(bh / 2) - 8, font: "font_1" });
-          ink(on ? 40 : 170, on ? 40 : 170, on ? 40 : 170);
-          write(key, { x: px + Math.floor((bw - key.length * 6) / 2), y: py + Math.floor(bh / 2) + 3, font: "font_1" });
-        } else {
-          ink(34, 34, 40);
-          box(px, py, bw, bh);
-          const glyph = KEY_GLYPH[key] ?? key;
-          if (glyph) {
-            ink(110, 110, 120);
-            write(glyph, { x: px + Math.floor((bw - [...glyph].length * 6) / 2), y: py + Math.floor(bh / 2) - 4, font: "font_1" });
+        }
+        // White outline, two pixels: a note key bright, the rest dimmer.
+        const edge = note ? 255 : 120;
+        ink(on ? 0 : edge, on ? 0 : edge, on ? 0 : edge);
+        box(px, py, bw, bh, "outline");
+        box(px + 1, py + 1, bw - 2, bh - 2, "outline");
+        const label = KEY_GLYPH[key] ?? key;
+        if (label) {
+          const cw = 6 * big, chs = 10 * big;
+          const len = [...label].length;
+          const size = len * cw <= bw - 6 ? big : 1;
+          const lw = len * 6 * size, lh = 10 * size;
+          ink(on ? 0 : edge, on ? 0 : edge, on ? 0 : edge);
+          write(label, { x: px + Math.floor((bw - lw) / 2), y: py + Math.floor((bh - lh) / 2) - (note ? Math.floor(chs / 4) : 0), size, font: "font_1" });
+          if (note) {
+            const n = note.replace(/^[+-]+/, "").toUpperCase();
+            ink(on ? 0 : 170, on ? 0 : 170, on ? 0 : 170);
+            write(n, { x: px + Math.floor((bw - n.length * 6) / 2), y: py + bh - 13, font: "font_1" });
           }
         }
       }
