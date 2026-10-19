@@ -1,0 +1,60 @@
+From: AC OS <jeffrey@aesthetic.computer>
+Subject: [PATCH] drm/i915/dsi: keep the firmware's PLL on a lit DSI panel
+
+The CHUWI MiniBook X's BIOS lights its 1200x1920 DSI panel with PLL
+cfgcr0 0x1599b0 / cfgcr1 0x90 (port clock 165919). i915 derives
+0x1555b0 / 0x490 (165920), fails the fastset comparison on both, and
+forces a full modeset. The panel never recovers from that one: the
+link comes up "DSI link not ready", INIT_OTP goes out over a dead
+link, and the screen shows horizontal stripes.
+
+For DSI, skip the PLL comparison on fastset (intel_encoders_update_prepare
+already carries the old PLL state forward) and accept a port clock within
+2 kHz, so the firmware's working configuration is kept.
+
+diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
+index 144f232..4367d2a 100644
+--- a/drivers/gpu/drm/i915/display/intel_display.c
++++ b/drivers/gpu/drm/i915/display/intel_display.c
+@@ -5040,6 +5040,13 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
+ 	struct intel_crtc *crtc = to_intel_crtc(pipe_config->uapi.crtc);
+ 	struct drm_printer p;
+ 	u32 exclude_infoframes = 0;
++	/*
++	 * A DSI panel the firmware already lit keeps the firmware's PLL. The
++	 * dividers i915 derives land the port clock a kHz off (165920 vs
++	 * 165919 on the CHUWI MiniBook X), which forced a full modeset, and
++	 * that panel never comes back from one: "DSI link not ready", stripes.
++	 */
++	bool dsi = intel_crtc_has_type(current_config, INTEL_OUTPUT_DSI);
+ 	bool ret = true;
+ 
+ 	if (fastset)
+@@ -5388,7 +5395,7 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
+ 		PIPE_CONF_CHECK_P(intel_dpll);
+ 
+ 	/* FIXME convert everything over the dpll_mgr */
+-	if (display->dpll.mgr || HAS_GMCH(display))
++	if ((display->dpll.mgr || HAS_GMCH(display)) && !(fastset && dsi))
+ 		PIPE_CONF_CHECK_PLL(dpll_hw_state);
+ 
+ 	/* FIXME convert MTL+ platforms over to dpll_mgr */
+@@ -5407,7 +5414,17 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
+ 		PIPE_CONF_CHECK_I(hw.pipe_mode.crtc_clock);
+ 		PIPE_CONF_CHECK_I(hw.adjusted_mode.crtc_clock);
+ 	}
+-	PIPE_CONF_CHECK_I(port_clock);
++	if (dsi) {
++		if (abs(current_config->port_clock - pipe_config->port_clock) > 2) {
++			pipe_config_mismatch(&p, fastset, crtc, "port_clock",
++					     "(expected %i, found %i)",
++					     current_config->port_clock,
++					     pipe_config->port_clock);
++			ret = false;
++		}
++	} else {
++		PIPE_CONF_CHECK_I(port_clock);
++	}
+ 
+ 	PIPE_CONF_CHECK_I(min_voltage_level);
+ 

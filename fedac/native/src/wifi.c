@@ -687,6 +687,9 @@ static void wifi_do_disconnect(ACWifi *wifi) {
 // next pass used to start from the top again).
 #define WIFI_COOLDOWN_SLOTS 8
 #define WIFI_COOLDOWN_SECS 300
+// While off the air with nobody driving the radio, the worker walks the
+// whole known list on boot and again this often.
+#define WIFI_AUTO_SECS 30
 static struct { char ssid[WIFI_SSID_MAX]; time_t until; } g_cooldown[WIFI_COOLDOWN_SLOTS];
 static int wifi_cooling(const char *ssid) {
     time_t now = time(NULL);
@@ -709,6 +712,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
 
     // Step 1: Scan
     wifi_do_scan(wifi);
+    if (wifi->pending_cmd != WIFI_CMD_NONE) return; // a piece took the radio
     if (wifi->network_count == 0) {
         wifi_log(wifi, "Auto-connect: no networks found");
         wifi_set_state_and_status(wifi, WIFI_STATE_SCAN_DONE, "no networks");
@@ -718,7 +722,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     // Step 2: Read saved credentials from /mnt/wifi_creds.json
     // Format: [{"ssid":"MyNet","pass":"secret"}, ...]
     typedef struct { char ssid[WIFI_SSID_MAX]; char pass[WIFI_PASS_MAX]; } SavedCred;
-    SavedCred creds[16];
+    SavedCred creds[32];
     int cred_count = 0;
 
     // Always include preset networks
@@ -764,7 +768,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
 
         // Minimal JSON array parse: find each {"ssid":"...","pass":"..."}
         char *p = buf;
-        while ((p = strstr(p, "\"ssid\"")) && cred_count < 16) {
+        while ((p = strstr(p, "\"ssid\"")) && cred_count < 32) {
             char *sq = strchr(p + 6, '"'); // opening quote of ssid value
             if (!sq) break;
             sq++;
@@ -828,6 +832,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
             wifi_log(wifi, "Auto-connect: success (preferred)!");
             return;
         }
+        if (wifi->pending_cmd != WIFI_CMD_NONE) return; // interrupted, not failed
         wifi_log(wifi, "preferred '%s' failed, falling back to signal order", want);
         wifi_cool(want);
         strncpy(tried_preferred, want, WIFI_SSID_MAX - 1);
@@ -848,6 +853,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
             wifi_log(wifi, "Auto-connect: success (saved)!");
             return;
         }
+        if (wifi->pending_cmd != WIFI_CMD_NONE) return;
         wifi_log(wifi, "saved '%s' failed", creds[j].ssid);
         wifi_cool(creds[j].ssid);
     }
@@ -875,6 +881,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
                     wifi_log(wifi, "Auto-connect: success!");
                     return;
                 }
+                if (wifi->pending_cmd != WIFI_CMD_NONE) return;
                 wifi_log(wifi, "'%s' failed, trying next...", ssid);
                 wifi_cool(ssid);
                 pthread_mutex_lock(&wifi->lock);
@@ -927,6 +934,7 @@ static int wifi_check_link(ACWifi *wifi) {
 static void *wifi_thread_fn(void *arg) {
     ACWifi *wifi = (ACWifi *)arg;
     int watchdog_counter = 0;
+    time_t next_auto = 0; // 0 = join on the first idle wake after boot
 
     while (wifi->thread_running) {
         // Wait for a command (with 2s timeout for watchdog checks)
@@ -958,6 +966,15 @@ static void *wifi_thread_fn(void *arg) {
             case WIFI_CMD_DISCONNECT:    wifi_do_disconnect(wifi); break;
             case WIFI_CMD_AUTOCONNECT:   wifi_do_autoconnect(wifi); break;
             default: break;
+        }
+
+        // Join on our own: pieces used to own this, so a piece without a
+        // join loop (aesel, most of pieces/) booted offline for good.
+        if (cmd == WIFI_CMD_NONE && time(NULL) >= next_auto &&
+            (cur_state == WIFI_STATE_OFF || cur_state == WIFI_STATE_SCAN_DONE ||
+             cur_state == WIFI_STATE_FAILED)) {
+            wifi_do_autoconnect(wifi);
+            next_auto = time(NULL) + WIFI_AUTO_SECS;
         }
 
         // Watchdog: check connectivity every ~10s (5 iterations × 2s)

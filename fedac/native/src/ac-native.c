@@ -4100,8 +4100,7 @@ int main(int argc, char *argv[]) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
             wifi = wifi_init();
-            // Don't autoconnect from C — notepat.mjs handles scanning
-            // at 30s intervals (reduced from 2s to avoid 65ms frame drops).
+            // The wifi worker joins on its own (saved, then presets, every 30 s).
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);

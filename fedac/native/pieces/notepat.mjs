@@ -587,14 +587,9 @@ let wifiWasConnected = false;
 let wifiConnectFrame = -9999; // frame when WiFi last connected (cooldown guard)
 let lastBatPercent = -1;     // for battery change TTS
 
-// Auto-connect: try "aesthetic.computer" hotspot when not connected
+// The native wifi worker auto-joins; these feed the manual picker.
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
-// Additional networks loaded from /mnt/wifi_creds.json
-let autoConnectFrame = 0;    // counts frames; try every ~5s (300 frames)
-let autoConnectBlink = 0;    // blink counter for antenna icon while polling
-let autoConnectTry = 0;      // increments each attempt
-let connectStartFrame = 0;   // frame when current connect began (for timeout)
 
 // Saved WiFi credentials — persisted to /mnt/wifi_creds.json (USB EFI partition)
 const CREDS_PATH = "/mnt/wifi_creds.json";
@@ -6895,7 +6890,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // WiFi connect chord: perfect fifth (G5 + D6)
     sound?.synth({ type: "sine", tone: 784, duration: 0.18, volume: 0.22, attack: 0.005, decay: 0.15 });
     sound?.synth({ type: "sine", tone: 1175, duration: 0.18, volume: 0.16, attack: 0.005, decay: 0.15 });
-    autoConnectTry = 0;
     wsStatus = "connecting";
     wsConnectGrace = 180; // ~3s grace before declaring error
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
@@ -7161,54 +7155,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           if (!chatMuted) sound?.speak(msg.from + ": " + msg.text);
         }
       } catch (err) { console.log("ws parse error: " + err); }
-    }
-  }
-
-  // Auto-connect: scan, pick strongest known network, timeout after 5s
-  // Disabled when WiFi panel is open (user is manually picking)
-  autoConnectFrame++;
-  autoConnectBlink = (autoConnectBlink + 1) % 60;
-  const autoConnectEnabled = activeScreen !== "wifi";
-
-  // All known credentials
-  const knownCreds = [
-    { ssid: AC_SSID, pass: AC_PASS },
-    ...savedCreds.filter((c) => c.ssid !== AC_SSID),
-  ];
-  const knownSSIDs = new Set(knownCreds.map((c) => c.ssid));
-
-  const isConnecting = wifi && !wifi.connected &&
-    (wifi.state === 3 /* CONNECTING */ || wifi.state === 4);
-  const isIdle = wifi && !wifi.connected &&
-    wifi.state !== 3 && wifi.state !== 4;
-
-  // Timeout: if connecting for > 180 frames (~3s), disconnect and retry (silent)
-  if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 1200) {   // 20 s: 3 s cut WPA + DHCP short
-    wifi.disconnect?.();
-    autoConnectFrame = -30; // brief delay before next attempt
-  }
-
-  if (autoConnectEnabled && isIdle) {
-    // Trigger scan every ~30s (1800 frames) — iw scan causes 65ms+ frame
-    // drops so keep it infrequent. Immediate on first frame only.
-    if (autoConnectFrame <= 1 || autoConnectFrame % 1800 === 0) {
-      wifi.scan?.();
-    }
-    // 60 frames (~1s) after scan: pick strongest known network from scan results
-    if (autoConnectFrame % 120 === 60) {
-      const nets = wifi.networks || [];
-      const matches = nets
-        .filter((n) => n.ssid && knownSSIDs.has(n.ssid))
-        .sort((a, b) => b.signal - a.signal); // strongest first
-
-      autoConnectTry++;
-      if (matches.length > 0) {
-        const best = matches[0];
-        const cred = knownCreds.find((c) => c.ssid === best.ssid);
-        wifi.connect(cred.ssid, cred.pass);
-        connectStartFrame = frame;
-      }
-      // No known networks in scan — just wait for next scan cycle (no blind attempts)
     }
   }
 
