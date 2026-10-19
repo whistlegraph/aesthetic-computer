@@ -372,24 +372,27 @@ done
 GALLIUM=$(readlink -f /lib64/libgallium-*.so 2>/dev/null || true)
 [ -f "$GALLIUM" ] && cp -L "$GALLIUM" "$IROOT/lib64/"
 
-# Transitive deps — resolve everything in lib64
+# Transitive deps — resolve everything in lib64. A work queue reads each ELF
+# once; the old fixed-point loop re-read every library on every pass.
 log "  Resolving transitive dependencies..."
-ADDED=1
-while [ "$ADDED" -gt 0 ]; do
-    ADDED=0
-    for elf in "$IROOT/lib64/"*.so* "$IROOT/lib64/dri/"*.so* "$IROOT/ac-native"; do
-        [ -f "$elf" ] || continue
-        for needed in $(readelf -d "$elf" 2>/dev/null | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/'); do
-            if [ ! -f "$IROOT/lib64/$needed" ]; then
-                REAL=$(readlink -f "/lib64/$needed" 2>/dev/null)
-                if [ -f "$REAL" ]; then
-                    cp -L "$REAL" "$IROOT/lib64/$needed"
-                    ADDED=$((ADDED + 1))
-                fi
-            fi
-        done
+DEP_QUEUE=()
+for elf in "$IROOT/lib64/"*.so* "$IROOT/lib64/dri/"*.so* "$IROOT/ac-native"; do
+    [ -f "$elf" ] && DEP_QUEUE+=("$elf")
+done
+DEP_ADDED=0
+while [ "${#DEP_QUEUE[@]}" -gt 0 ]; do
+    elf="${DEP_QUEUE[0]}"; DEP_QUEUE=("${DEP_QUEUE[@]:1}")
+    for needed in $(readelf -d "$elf" 2>/dev/null | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/'); do
+        [ -f "$IROOT/lib64/$needed" ] && continue
+        REAL=$(readlink -f "/lib64/$needed" 2>/dev/null)
+        if [ -f "$REAL" ]; then
+            cp -L "$REAL" "$IROOT/lib64/$needed"
+            DEP_QUEUE+=("$IROOT/lib64/$needed")
+            DEP_ADDED=$((DEP_ADDED + 1))
+        fi
     done
 done
+log "  Added $DEP_ADDED transitive libs"
 
 # ── 2g2: Verify DRI driver deps ──
 if [ -f "$IROOT/lib64/dri/iris_dri.so" ]; then
@@ -513,6 +516,12 @@ if [ -n "$FWDIR" ]; then
     #   AX411                 → iwlwifi-ma-b0-*
     #   BE200 (Gale Peak)     → iwlwifi-gl-c0-fm-c0-* (already matched)
     # Older families (7260/7265/8000/9000/9260) match on the retail name.
+    #
+    # Each chip ships a blob per firmware API version (so-a0-hr-b0-72 … -89)
+    # and the kernel loads the newest one it supports, so only the two newest
+    # per chip ride along — the second for when linux-firmware runs ahead of
+    # the kernel. That was ~170 MB of a 199 MB iwlwifi set. .pnvm (AX210/211
+    # platform NVM) is unversioned and loaded beside the ucode.
     for chip in 3160 3168 7260 7265 8000C 8265 9000 9260 \
                 cc-a0 \
                 Qu-b0-hr Qu-c0-hr Qu-b0-jf Qu-c0-jf \
@@ -520,10 +529,17 @@ if [ -n "$FWDIR" ]; then
                 ty-a0-gf so-a0-gf so-a0-hr \
                 ma-b0-gf ma-b0-hr \
                 ax200 ax201 ax210 ax211 be200 gl; do
-        for fw in "$FWDIR"/iwlwifi-${chip}*.ucode "$FWDIR"/iwlwifi-${chip}*.ucode.zst "$FWDIR"/iwlwifi-${chip}*.ucode.xz; do
-            [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/"
+        for fw in "$FWDIR"/iwlwifi-${chip}*.ucode "$FWDIR"/iwlwifi-${chip}*.ucode.zst "$FWDIR"/iwlwifi-${chip}*.ucode.xz \
+                  "$FWDIR"/iwlwifi-${chip}*.pnvm "$FWDIR"/iwlwifi-${chip}*.pnvm.zst "$FWDIR"/iwlwifi-${chip}*.pnvm.xz; do
+            [ -f "$fw" ] && echo "$fw"
         done
-    done
+    done | sort -u > "$BUILD/iwlwifi-all.txt"
+    # Group by the name without its -<api>.ucode tail; keep the two highest APIs.
+    awk '{ if (match($0, /-[0-9]+\.ucode(\.zst|\.xz)?$/)) { v = substr($0, RSTART + 1); sub(/\.ucode.*/, "", v); print substr($0, 1, RSTART - 1), v, $0 } else print "-", 0, $0 }' "$BUILD/iwlwifi-all.txt" \
+        | sort -k1,1 -k2,2nr \
+        | awk '$1 == "-" { print $3; next } { if (++n[$1] <= 2) print $3 }' \
+        | while read -r fw; do cp -L "$fw" "$IROOT/lib/firmware/"; done
+    log "  iwlwifi: $(ls "$IROOT"/lib/firmware/iwlwifi-* 2>/dev/null | wc -l) of $(wc -l < "$BUILD/iwlwifi-all.txt") blobs (newest two APIs per chip)"
     # Regulatory
     cp -L "$FWDIR/regulatory.db" "$IROOT/lib/firmware/" 2>/dev/null || true
     cp -L "$FWDIR/regulatory.db.p7s" "$IROOT/lib/firmware/" 2>/dev/null || true
@@ -1055,12 +1071,14 @@ cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz"
 log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB → \$OUT"
 
 # Kernel reuse. The kernel's inputs are the source version, config-minimal,
-# kernel/patches/, the Chromebook stub cpio, and this script (which edits the
-# config below). When none of them changed since the last kernel built in
+# kernel/patches/, the Chromebook stub cpio, and this script's kernel section
+# (from "Step 4" down — it edits the config). Hashing the whole script made
+# every userland edit here (a new initramfs step) relink the kernel. When none of them changed since the last kernel built in
 # this persistent tree, reuse that bzImage + kpart instead of relinking —
 # userland-only commits (pieces, ac-native, initramfs) skip ~90 s.
 KCACHE="$KBUILD_ROOT/.ac-kernel-cache"
-KINPUTS=$( { echo "$KVER ${AC_SKIP_KPART:-0}"; sha256sum "$NATIVE/kernel/config-minimal" "$STUB_CPIO" "$0"; \
+KINPUTS=$( { echo "$KVER ${AC_SKIP_KPART:-0}"; sha256sum "$NATIVE/kernel/config-minimal" "$STUB_CPIO"; \
+             sed -n '/^# Step 4: Build kernel/,$p' "$0" | sha256sum; \
              cat "$NATIVE"/kernel/patches/*.patch 2>/dev/null | sha256sum; } | sha256sum | cut -c1-16)
 KERNEL_REUSED=0
 if [ "${AC_FORCE_KERNEL:-0}" != "1" ] && [ -f "$KCACHE/inputs" ] && [ "$(cat "$KCACHE/inputs")" = "$KINPUTS" ] \
