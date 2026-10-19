@@ -24,9 +24,9 @@
   Scale=0.88,
 ]
 \usepackage{xeCJK}
-\setCJKmainfont{Hiragino Sans}
-\setCJKsansfont{Droid Sans Japanese}
-\setCJKmonofont{Droid Sans Japanese}
+\IfFontExistsTF{Hiragino Sans}{\setCJKmainfont{Hiragino Sans}}{\setCJKmainfont{IPAexGothic}}
+\IfFontExistsTF{Droid Sans Japanese}{\setCJKsansfont{Droid Sans Japanese}}{\setCJKsansfont{IPAexGothic}}
+\IfFontExistsTF{Droid Sans Japanese}{\setCJKmonofont{Droid Sans Japanese}}{\setCJKmonofont{IPAexGothic}}
 
 \usepackage{graphicx}
 \graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}

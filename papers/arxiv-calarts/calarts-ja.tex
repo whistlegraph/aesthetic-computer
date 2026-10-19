@@ -5,7 +5,7 @@
 \usepackage{fontspec}
 \usepackage{unicode-math}
 \usepackage{xeCJK}
-\setCJKmainfont{Hiragino Sans}
+\IfFontExistsTF{Hiragino Sans}{\setCJKmainfont{Hiragino Sans}}{\setCJKmainfont{IPAexGothic}}
 \setmainfont{Latin Modern Roman}[
   Extension=.otf,
   UprightFont=lmroman10-regular,

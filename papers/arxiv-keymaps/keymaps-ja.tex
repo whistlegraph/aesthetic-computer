@@ -15,7 +15,7 @@
 % (the papermill default Droid Sans Japanese is absent here and falls back to
 % Chinese-variant glyphs). Hand-deployed build; if the oven is ever re-enabled,
 % swap to a Linux JP font (e.g. Noto Sans CJK JP).
-\setCJKmainfont{Hiragino Sans}
+\IfFontExistsTF{Hiragino Sans}{\setCJKmainfont{Hiragino Sans}}{\setCJKmainfont{IPAexGothic}}
 \setmainfont{Latin Modern Roman}[
  Extension=.otf,
  UprightFont=lmroman10-regular,
