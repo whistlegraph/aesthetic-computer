@@ -1,0 +1,8 @@
+{
+  "id": "piece-visual-rothko",
+  "kind": "piece",
+  "domain": "visual",
+  "requests": [
+    "three soft-edged colour fields stacked like a Rothko painting, slowly breathing"
+  ]
+}

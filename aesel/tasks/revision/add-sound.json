@@ -1,0 +1,9 @@
+{
+  "id": "piece-revision-add-sound",
+  "kind": "piece",
+  "domain": "revision",
+  "requests": [
+    "a grid of squares that change colour when tapped",
+    "now each square plays a note when tapped, lower on the left, higher on the right"
+  ]
+}

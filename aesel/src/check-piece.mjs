@@ -25,7 +25,9 @@ function loadPuppeteer() {
   return null;
 }
 
-export async function checkPiece(target, { seconds = 4, cwd = process.cwd() } = {}) {
+// With `frame`, the canvas after the input pass comes back as a base64 PNG,
+// for a reader that judges what the piece looks like.
+export async function checkPiece(target, { seconds = 4, cwd = process.cwd(), frame = false } = {}) {
   const puppeteer = loadPuppeteer();
   if (!puppeteer) throw new Error("ac check needs the aesthetic-computer checkout (puppeteer); this install has none.");
   const file = /\.(mjs|lisp)$/.test(target) ? resolve(cwd, target) : "";
@@ -53,6 +55,7 @@ export async function checkPiece(target, { seconds = 4, cwd = process.cwd() } = 
   });
   // A failing paint() or sim() fails every frame; say it once, with a count.
   const seen = new Map(), details = new Map();
+  let shot = "";
   const note = (kind, text) => {
     const line = `${kind}: ${String(text).trim().split("\n").slice(0, 2).join(" · ").slice(0, 400)}`;
     seen.set(line, (seen.get(line) || 0) + 1);
@@ -103,6 +106,7 @@ export async function checkPiece(target, { seconds = 4, cwd = process.cwd() } = 
     await page.mouse.click(240, 180).catch(() => {});
     await page.keyboard.press("Space").catch(() => {});
     await new Promise((r) => setTimeout(r, Math.max(1000, seconds * 1000 - 1200)));
+    if (frame) shot = await page.screenshot({ encoding: "base64" }).catch((error) => { note("error", `frame capture failed: ${error.message}`); return ""; });
   } finally {
     // Nothing is kept from this profile, so there is nothing for a graceful
     // close to save; it only made every check wait on Chrome's teardown.
@@ -114,5 +118,5 @@ export async function checkPiece(target, { seconds = 4, cwd = process.cwd() } = 
   // readable one did not; drop it when a readable one exists.
   const lines = [...seen].filter(([line]) => !/JSHandle@/.test(line) || ![...seen.keys()].some((other) => other !== line && !/JSHandle@/.test(other)));
   const problems = lines.map(([line, count]) => count > 1 ? `${line}  (×${count})` : line);
-  return { target: file ? basename(file) : address, problems };
+  return { target: file ? basename(file) : address, problems, ...(frame ? { frame: shot || null } : {}) };
 }

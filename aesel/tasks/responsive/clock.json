@@ -1,0 +1,8 @@
+{
+  "id": "piece-responsive-clock",
+  "kind": "piece",
+  "domain": "responsive",
+  "requests": [
+    "an analog clock face that always fits the screen, in any shape"
+  ]
+}

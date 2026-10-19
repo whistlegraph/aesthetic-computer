@@ -10,6 +10,7 @@
     "test": "node bin/sync-context.mjs --check && node bin/sync-harness.mjs --check && node --test test/*.test.mjs && bash test/cli.sh",
     "context": "node bin/sync-context.mjs",
     "harness": "node bin/sync-harness.mjs",
+    "refine": "node bin/refine.mjs",
     "test:ui": "AESEL_PERFORMANCE=1 node --test test/tui-performance.test.mjs",
     "test:input": "python3 test/input-tui.py",
     "build:tui": "node bin/build-tui.mjs",

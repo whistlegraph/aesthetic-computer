@@ -1,0 +1,8 @@
+{
+  "id": "piece-sound-rain-music",
+  "kind": "piece",
+  "domain": "sound",
+  "requests": [
+    "a generative ambient piece where falling notes make soft plucked tones on the beat"
+  ]
+}

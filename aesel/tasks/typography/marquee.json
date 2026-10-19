@@ -1,0 +1,8 @@
+{
+  "id": "piece-typography-marquee",
+  "kind": "piece",
+  "domain": "typography",
+  "requests": [
+    "the word HELLO scrolling across the screen, each letter a different colour"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "id": "piece-responsive-grid",
+  "kind": "piece",
+  "domain": "responsive",
+  "requests": [
+    "a 5 by 5 grid of squares that light up when tapped and fills any screen"
+  ]
+}

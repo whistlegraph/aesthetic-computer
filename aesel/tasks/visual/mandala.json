@@ -1,0 +1,8 @@
+{
+  "id": "piece-visual-mandala",
+  "kind": "piece",
+  "domain": "visual",
+  "requests": [
+    "a rotating mandala made of concentric rings of shapes"
+  ]
+}

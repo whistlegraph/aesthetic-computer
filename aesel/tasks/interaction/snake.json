@@ -1,0 +1,8 @@
+{
+  "id": "piece-interaction-snake",
+  "kind": "piece",
+  "domain": "interaction",
+  "requests": [
+    "a playable snake game with arrow keys and swipes"
+  ]
+}

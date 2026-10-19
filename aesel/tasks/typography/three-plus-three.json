@@ -1,0 +1,8 @@
+{
+  "id": "piece-typography-three-plus-three",
+  "kind": "piece",
+  "domain": "typography",
+  "requests": [
+    "3+3 = ?"
+  ]
+}

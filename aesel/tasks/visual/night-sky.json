@@ -1,0 +1,8 @@
+{
+  "id": "piece-visual-night-sky",
+  "kind": "piece",
+  "domain": "visual",
+  "requests": [
+    "a night sky full of stars that twinkle at different speeds"
+  ]
+}

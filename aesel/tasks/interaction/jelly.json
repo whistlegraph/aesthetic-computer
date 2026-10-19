@@ -1,0 +1,8 @@
+{
+  "id": "piece-interaction-jelly",
+  "kind": "piece",
+  "domain": "interaction",
+  "requests": [
+    "a blob of jelly that wobbles when you poke it"
+  ]
+}

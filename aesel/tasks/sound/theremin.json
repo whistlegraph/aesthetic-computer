@@ -1,0 +1,8 @@
+{
+  "id": "piece-sound-theremin",
+  "kind": "piece",
+  "domain": "sound",
+  "requests": [
+    "a theremin: x controls pitch, y controls volume, while you hold down"
+  ]
+}

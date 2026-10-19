@@ -1,0 +1,9 @@
+{
+  "id": "piece-revision-pulse",
+  "kind": "piece",
+  "domain": "revision",
+  "requests": [
+    "a red circle in the middle",
+    "make it bigger and have it pulse on the beat"
+  ]
+}

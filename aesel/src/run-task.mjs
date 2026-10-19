@@ -13,7 +13,7 @@
 // its own and why everything but the harness modules is imported late.
 //
 // The run directory: task.json; harness/, what actually ran; events.jsonl,
-// every engine notification, step, paint and verdict, with frames written
+// every engine notification, step, paint, check and verdict, with frames written
 // beside it under frames/; trace.md, the same as actions and observations;
 // source/turn-N.mjs; result.json. Exit status 0 means the task delivered.
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -32,6 +32,7 @@ export const SURFACES = {
 
 // Runners by task kind. Whistlegraph's is private; it is there when the vault is linked.
 const RUNNERS = {
+  piece: { module: join(root, "aesel/src/piece-run.mjs"), run: "runPieceTask", missing: "" },
   whistlegraph: {
     module: join(root, "lith/whistlegraph-run.mjs"),
     run: "runWhistlegraphTask",
@@ -74,6 +75,16 @@ export async function applyHarness(dir) {
   return report;
 }
 
+// Which sections reached the model: those whose fixed text — everything
+// around their {{placeholders}} — all appears in the system prompt a run sent.
+// A section that is nothing but placeholders cannot be told apart, and is left out.
+export function sentSections(system, sections) {
+  return Object.keys(sections).filter((key) => {
+    const fixed = sections[key].split(/\{\{\w+\}\}/).map((part) => part.trim()).filter((part) => part.length >= 12);
+    return fixed.length > 0 && fixed.every((part) => system.includes(part));
+  });
+}
+
 // events.jsonl, one line per event as it happens. A paint's frames go to
 // frames/ as PNGs and the line keeps their file names instead of base64.
 export function recorder(out) {
@@ -84,7 +95,7 @@ export function recorder(out) {
     events,
     write(event) {
       let params = event.params ?? {};
-      if (event.method === "whistlegraph/paint" && params.frames?.length) {
+      if (params.frames?.some((frame) => frame.png)) {
         params = { ...params, frames: params.frames.map((frame, i) => {
           const name = `frames/turn-${event.turn ?? 0}-render-${params.renderID}-${i + 1}.png`;
           writeFileSync(join(out, name), Buffer.from(frame.png, "base64"));
@@ -129,7 +140,7 @@ export function renderTrace(task, events, result = null) {
   };
   for (const e of events) {
     const p = e.params ?? {};
-    if (e.method === "whistlegraph/turn") {
+    if (e.method === "whistlegraph/turn" || e.method === "piece/turn") {
       flush(); round = 0;
       lines.push(`## Turn ${e.turn}`, "", ...String(p.request).split("\n").map((l) => "> " + l), "");
     } else if (e.method === "turn/started") {
@@ -150,6 +161,12 @@ export function renderTrace(task, events, result = null) {
         (errors.length ? ` · ${errors.length} runtime error${errors.length === 1 ? "" : "s"}` : ""), "");
       for (const l of errors.slice(0, 3)) lines.push("    " + String(l.text).slice(0, 300));
       if (errors.length) lines.push("");
+      if (p.frames?.length) lines.push(p.frames.map((f) => `![${Math.round(f.atMs)} ms](${f.file})`).join(" "), "");
+    } else if (e.method === "piece/check") {
+      flush();
+      lines.push(`**observation:** ac check — ${p.problems?.length ? `${p.problems.length} problem${p.problems.length === 1 ? "" : "s"}` : "no errors"}`, "");
+      for (const problem of (p.problems ?? []).slice(0, 5)) lines.push("    " + String(problem).slice(0, 300));
+      if (p.problems?.length) lines.push("");
       if (p.frames?.length) lines.push(p.frames.map((f) => `![${Math.round(f.atMs)} ms](${f.file})`).join(" "), "");
     } else if (e.method === "whistlegraph/review") {
       flush();
@@ -237,6 +254,13 @@ export async function main(argv = process.argv.slice(2)) {
   }
   for (const t of outcome.turns) if (t.source || t.draft) writeFileSync(join(out, "source", `turn-${t.turn}.mjs`), t.source || t.draft);
   const usage = usageByTurn(record.events);
+  const prompt = record.events.find((e) => e.method === "piece/prompt")?.params?.system;
+  if (prompt) {
+    for (const [name, report] of Object.entries(harness)) {
+      const dir = report.source === "repository" ? SURFACES[name].source : report.source;
+      report.sent = sentSections(prompt, { ...flat(readSurface(SURFACES[name].source)), ...flat(readSurface(dir)) });
+    }
+  }
   const result = {
     schema: 1, task: task.id || "task", kind: task.kind, domain: task.domain || "", model: task.model || "default",
     delivered: outcome.delivered, reviewed: outcome.reviewed, error, startedAt, ms: Date.now() - started, harness,
@@ -245,7 +269,7 @@ export async function main(argv = process.argv.slice(2)) {
   };
   writeFileSync(join(out, "result.json"), JSON.stringify(result, null, 2) + "\n");
   writeFileSync(join(out, "trace.md"), renderTrace(task, record.events, result));
-  console.log(`${result.delivered ? "✓" : "✕"} ${result.task}: ${result.delivered ? (result.reviewed ? "delivered, picture passed" : "delivered with notes") : "not delivered"} (${(result.ms / 1000).toFixed(0)} s) → ${out}`);
+  console.log(`${result.delivered ? "✓" : "✕"} ${result.task}: ${result.delivered ? (result.reviewed === null ? "delivered" : result.reviewed ? "delivered, picture passed" : "delivered with notes") : "not delivered"} (${(result.ms / 1000).toFixed(0)} s) → ${out}`);
   for (const t of result.turns) console.log(`  turn ${t.turn}: ${t.delivered ? t.acceptance : t.error}`);
   if (error) console.log(`  error: ${error}`);
   return result.delivered ? 0 : 1;

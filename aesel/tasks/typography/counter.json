@@ -1,0 +1,8 @@
+{
+  "id": "piece-typography-counter",
+  "kind": "piece",
+  "domain": "typography",
+  "requests": [
+    "a big counter in the middle that goes up each time you tap"
+  ]
+}

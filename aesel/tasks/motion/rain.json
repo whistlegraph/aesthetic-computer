@@ -1,0 +1,8 @@
+{
+  "id": "piece-motion-rain",
+  "kind": "piece",
+  "domain": "motion",
+  "requests": [
+    "rain falling on a window, with drops that run down and merge"
+  ]
+}

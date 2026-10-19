@@ -55,7 +55,7 @@ it, and some of its rules restate the piece guidance. Folding those into the
 shared sections changes what the model reads, so it waits for the executor
 (step 3) to measure it.
 
-## 3. A headless executor — shipped for Whistlegraph
+## 3. A headless executor — shipped for pieces and Whistlegraph
 
 ```
 ac run --init-harness <dir>        # copy the editable prompt files to start from
@@ -90,10 +90,18 @@ edit or a fix: `wipe("#0b0b12")` painted a different random background in
 every frame although the generation prompt allows six-digit hex, and a repair
 that ran out of rounds is noted as "did not paint".
 
-Still to build for other embeddings: a plain piece runner (AcServer plus
-`ac check`) for the terminal, phone and web surfaces.
+The piece runner (`src/piece-run.mjs`, kind `piece`) is the hosted loop the
+terminal, phone and web run: AcServer on AC inference, with `ac check` in place
+of a person's preview. Every save is played in a browser with a tap and a
+space; what that finds goes back through ac_preview before the write's tool
+result, so the model's next round already knows. After each turn the final
+source is checked fresh, and the turn delivered when it changed the piece and
+that check found no errors. Each check's frame is in `frames/`. There is no
+picture reviewer, so `reviewed` is null. First run (two turns of
+`tasks/revision/pulse.json`, default model, 31 s): both delivered, the circle
+grew and pulsed on the shared clock.
 
-## 4. Tasks by kind — Whistlegraph's set shipped
+## 4. Tasks by kind — shipped for Whistlegraph and pieces
 
 21 tasks in the vault's `apple/whistlegraph/tasks/<domain>/`, worded the way
 people talk to the phone: visual, motion, sound, critique, revision,
@@ -109,16 +117,42 @@ circle with "make this one bigger", the model enlarged both, and the review
 passed it — neither the generation prompt nor the reviewer resolved "this" to
 the chalked target.
 
-KidLisp and multiplayer tasks wait for the plain piece runner.
+Pieces have 21 in `aesel/tasks/<domain>/`: visual, motion, interaction,
+sound, responsive, typography, and revision (two turns, the second changing
+what the first made). KidLisp and multiplayer wait for the runner to open
+`.lisp` files and a second player.
 
-## 5. The refinement loop
+## 5. The refinement loop — `npm run refine`
 
-Write a Harness² benchmark adapter (Python) that drives Aesel: the editable
-surface is `harness/`, `execute` calls `aesel run`, `delivered` reads the
-`ac check` result, and the trajectory is the rendered transcript. The editor
-and composer models run through the Claude CLI channel Harness² already
-supports. Runs are paid, so they go on the oven or a mini on a schedule, not
-on every commit.
+Harness²'s proposer prompts and tree validation are bound to its OpenCode and
+Codex layouts, so the method is carried over rather than adapted:
+`bin/refine.mjs` runs base → propose (inv, dom) → probe → compose → blind
+select → reflect for each task, with `ac run` as the executor and the `claude`
+CLI as editor, composer, selector and reflector, each reading evidence served
+as files: the request, every run's trace with its frames, the deliverables,
+the domain's library. The method prompts are in `refine/prompts/`, adapted
+from Harness² (Apache-2.0). An edited harness must keep every section and its
+placeholders; a rejected one gets the reason and one more try, then the stage
+keeps the base. The selector sees pieces only. Each task leaves `adopted/` —
+the changed sections, itself a `--harness` — and `changes.md`; nothing edits a
+surface's source.
+
+    npm run refine -- --tasks tasks/interaction                  # list; spends nothing
+    npm run refine -- --live --tasks tasks/interaction [--from <harness>] [--model <claude model>]
+
+First automated round, October 18 (`tasks/interaction/jelly.json`, Sonnet 5
+improving, default AC model, $1.40 of Claude plus four AC runs): the base run
+threw ReferenceErrors for `circle` in paint and `screen` in sim — helpers
+used where they were not destructured — and spent a round fixing them. The dom
+editor's `api-workflow` sentence (each lifecycle function destructures its own
+copy of the API) gave a clean first save in four rounds instead of six; the
+composer kept it and the reflector marked it `helped`. The selector still
+chose the base piece, which wobbled on a plain tap and breathed at rest, so
+nothing was adopted and the edit lives on as a medium-confidence lesson. The
+inv editor had put the same rule in `pro-piece-workflow`, which a hosted run
+never sends, so its probe could not test it; runs now record the sections
+their prompt carried (`result.json` → `harness.<surface>.sent`) and editors
+are shown that list.
 
 First pass by hand, October 18: chalk targets. One edit to the drawing
 guidance and the reviewer, two chalk tasks, pixel-scored re-renders of each
@@ -131,9 +165,13 @@ that two runs a side misread the first edit.
 
 ## 6. A lesson library as Aesel's memory
 
-Aesel has no memory across sessions. Adopt the library format:
-`harness/library/<kind>/INDEX.md` with entries of cue, lesson, evidence and
-confidence. Only the index is always on; a lesson or skill loads when its cue
-matches. Keep Harness²'s discipline: a lesson resting only on confounded
-verdicts is a guess, workspace facts are labelled apart from procedure, and
-always-on text has a size cap.
+`refine` writes `<library>/<domain>/` (default `refine/library/`): an
+`INDEX.md` of cues and, per task, an `EXPERIENCE.md` with a verdict for each
+edit (`helped`, `hurt`, `no observed effect`, `confounded`) and at most one
+lesson with its evidence, plus the chosen harness. Later rounds of the same
+domain read it first. It is committed after review like any other change.
+
+Not yet done: carrying lessons into a live session — the index always on, a
+lesson loading when its cue matches, always-on text under a size cap — and the
+two things the hand-run pass above asked for, a scorer per task where one is
+possible and several runs per arm.

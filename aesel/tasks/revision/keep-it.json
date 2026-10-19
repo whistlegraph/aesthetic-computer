@@ -1,0 +1,9 @@
+{
+  "id": "piece-revision-keep-it",
+  "kind": "piece",
+  "domain": "revision",
+  "requests": [
+    "a starfield flying toward you",
+    "add a little spaceship at the bottom you can steer, and keep the stars as they are"
+  ]
+}

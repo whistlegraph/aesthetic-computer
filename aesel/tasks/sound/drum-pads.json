@@ -1,0 +1,8 @@
+{
+  "id": "piece-sound-drum-pads",
+  "kind": "piece",
+  "domain": "sound",
+  "requests": [
+    "four big pads that each play a different drum sound when tapped"
+  ]
+}

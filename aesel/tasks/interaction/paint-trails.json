@@ -1,0 +1,8 @@
+{
+  "id": "piece-interaction-paint-trails",
+  "kind": "piece",
+  "domain": "interaction",
+  "requests": [
+    "drawing with your finger leaves glowing trails that fade over a few seconds"
+  ]
+}

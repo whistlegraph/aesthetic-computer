@@ -19,8 +19,11 @@ your @handle at https://aesthetic.computer/@handle/slug.
 
 run executes one task under one harness and writes its transcript, preview
 frames and verdict to a run directory (docs/harness2.md). It spends
-braincells, so it asks for --live. --init-harness copies the editable prompt
-files to a directory to start from; edit them and pass it as --harness.
+braincells, so it asks for --live. A task's kind picks the runner: piece
+(hosted AC, every save played by ac check) or whistlegraph (the editor's own
+loop, with the vault linked). Tasks to start from are in aesel/tasks/.
+--init-harness copies the editable prompt files to a directory to start from;
+edit them and pass it as --harness.
 
 Each session starts by choosing an AC blank piece or a nopaint.art brush,
 then shows a QR code that runs it live on a phone. --genre makes that

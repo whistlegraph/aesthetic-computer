@@ -1,0 +1,8 @@
+{
+  "id": "piece-responsive-chessboard",
+  "kind": "piece",
+  "domain": "responsive",
+  "requests": [
+    "a chessboard that stays square and centered whatever the window size"
+  ]
+}
