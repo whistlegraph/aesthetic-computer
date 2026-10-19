@@ -2,7 +2,7 @@
 // daily.mjs — the automated ~2-minute Aesthetic Computer Radio episode.
 //
 //   gather  — the last day of commit subjects (filtered, deduped, REDACTED)
-//   write   — a ~300-word spoken script via `claude -p` in the monthly-essay
+//   write   — a ~300-word spoken script via AC braincells or `claude -p`, in the monthly-essay
 //             storytelling register (scenes, first person, no salesmanship)
 //   produce — bin/produce.mjs with the club bed + the daily frame
 //   publish — bin/buzzsprout.mjs (public; --stage keeps it private for review)
@@ -136,18 +136,31 @@ author: @jeffrey
 The day's commit subjects:
 ${subjects.map((s) => `- ${s}`).join("\n")}`;
 
-console.log("Writing script… (claude -p)");
-const w = spawnSync("claude", ["-p", "--model", "sonnet", "--output-format", "text", "--tools", ""], {
-  input: PROMPT, encoding: "utf8", timeout: 300000, maxBuffer: 1 << 22,
-});
-if (w.status !== 0 || !w.stdout) {
-  // claude -p reports auth failures on STDOUT ("Failed to authenticate…"), so
-  // show both streams — a week of "no output" hid an expired token once.
-  const said = [w.stderr, w.stdout].filter(Boolean).join(" | ").trim() || "no output";
-  console.error(`✗ script generation failed (exit ${w.status}): ${said.slice(0, 400)}`);
-  process.exit(1);
+const writer = process.env.DAILY_WRITER || "claude";
+if (!["ac", "claude"].includes(writer)) { console.error("✗ DAILY_WRITER must be ac or claude"); process.exit(1); }
+let script;
+if (writer === "ac") {
+  console.log("Writing script… (Aesel braincells)");
+  try {
+    const { braincellText } = await import("../lib/braincell-writer.mjs");
+    script = await braincellText(PROMPT, {
+      file: process.env.DAILY_BRAIN_TOKEN_FILE, handle: process.env.DAILY_BRAIN_HANDLE,
+    });
+  } catch (error) { console.error(`✗ script generation failed: ${error.message}`); process.exit(1); }
+} else {
+  console.log("Writing script… (claude -p)");
+  const w = spawnSync("claude", ["-p", "--model", "sonnet", "--output-format", "text", "--tools", ""], {
+    input: PROMPT, encoding: "utf8", timeout: 300000, maxBuffer: 1 << 22,
+  });
+  if (w.status !== 0 || !w.stdout) {
+    // claude -p reports auth failures on STDOUT ("Failed to authenticate…"), so
+    // show both streams — a week of "no output" hid an expired token once.
+    const said = [w.stderr, w.stdout].filter(Boolean).join(" | ").trim() || "no output";
+    console.error(`✗ script generation failed (exit ${w.status}): ${said.slice(0, 400)}`);
+    process.exit(1);
+  }
+  script = w.stdout.trim();
 }
-let script = w.stdout.trim();
 // Some wrappers fence the output; unwrap one fence if present.
 script = script.replace(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/m, "$1").trim();
 // And drop any preamble the model put ahead of the frontmatter ("here's the
