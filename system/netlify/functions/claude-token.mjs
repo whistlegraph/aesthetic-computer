@@ -8,10 +8,22 @@
 //                        access_token (admins cannot sign for other users).
 // POST {token, githubPat} → stores tokens for authenticated user's handle
 
-import { authorize, hasAdmin } from "../../backend/authorization.mjs";
+import { authorize, hasAdmin, handleFor } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { getDeviceCreds, setDeviceCreds } from "../../backend/device-creds.mjs";
+
+// The caller's own @handles entry. A login by emailed code is its own Auth0
+// user (`email|…`) with no entry of its own; handleFor resolves it to the
+// account holding the same verified address (findSisterSub), as /handle does.
+async function ownHandle(db, sub) {
+  const handles = db.collection("@handles");
+  const own = await handles.findOne({ _id: sub }, { projection: { handle: 1 } });
+  if (own) return own;
+  const handle = await handleFor(sub);
+  if (typeof handle !== "string") return null;
+  return handles.findOne({ handle }, { projection: { handle: 1 } });
+}
 
 export async function handler(event) {
   // GET: Retrieve tokens for the authenticated user — or, when an admin
@@ -34,9 +46,7 @@ export async function handler(event) {
           .collection("@handles")
           .findOne({ handle: targetHandle }, { projection: { handle: 1 } });
       } else {
-        existing = await database.db
-          .collection("@handles")
-          .findOne({ _id: user.sub }, { projection: { handle: 1 } });
+        existing = await ownHandle(database.db, user.sub);
       }
       if (!existing) return respond(404, { message: "Handle not found" });
 
@@ -67,15 +77,11 @@ export async function handler(event) {
 
     const database = await connect();
     try {
-      const handles = database.db.collection("@handles");
-      const existing = await handles.findOne(
-        { _id: user.sub },
-        { projection: { handle: 1 } },
-      );
+      const existing = await ownHandle(database.db, user.sub);
       if (!existing) return respond(404, { message: "Handle not found" });
 
       // Write into the dedicated device-creds store (never onto @handles).
-      const { saved } = await setDeviceCreds(database.db, user.sub, {
+      const { saved } = await setDeviceCreds(database.db, existing._id, {
         claudeToken: body.token,
         githubPat: body.githubPat,
       });
