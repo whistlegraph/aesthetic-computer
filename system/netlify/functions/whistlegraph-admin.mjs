@@ -95,7 +95,8 @@ async function requireAdmin(event, authorizeFn, allowed) {
   return { user };
 }
 
-async function readCuration(database, loadModelFn = loadBaseModel) {
+// Also read by mime.ac's feed, so Whistlegraph TV spots air the lineup TV does.
+export async function readCuration(database, loadModelFn = loadBaseModel) {
   const documents = await database.db.collection(COLLECTION).find({}).toArray();
   const payload = curationPayload(documents);
   const model = loadModelFn();

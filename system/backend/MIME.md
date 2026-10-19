@@ -91,6 +91,26 @@ Legacy piece records without an extension retain the existing JavaScript
 default. Both upload paths now preserve the extension for future records.
 Rate limiting and moderation tools for anonymous replies remain follow-up work.
 
+## Whistlegraph TV spots
+
+The feed airs Whistlegraph TV like ads: the fifth card, then every ninth,
+each one program from `tv.whistlegraph.org` with a pill linking to the
+work's page on whistlegraph.org (clicks count as `originalOpens`). The
+lineup is TV's own: `graphs.json` plus the Whistlegraph Desk's live
+curation overlay, read through the Desk's `readCuration`, so a work deleted
+or created at the Desk leaves or joins both. Famous works air earlier, by
+TV's weighting (1 + log10 views) as a seeded shuffle, and no spot repeats
+within a visit. Spots fill slots between other cards and never extend a
+feed past its own work.
+
+Spots play H.264 only: curated works their `-web.mp4`, recovered ones their
+`-avc.mp4` rip. The TikTok post files are HEVC, which many browsers cannot
+decode, so a work without a reachable H.264 file does not air. Sources are
+probed with HEAD in the background (lineup every ten minutes, each probe
+cached six hours); until the first lineup lands the feed airs no spots.
+Spot threads are `wgtv_<work code>`, unsigned and exempt from the handle
+gate; moderation removals apply. Code: `backend/mime-whistlegraph-tv.mjs`.
+
 ## Posting from a terminal
 
 `ac mime <file> ["caption"]` posts a file as an opening post under the
