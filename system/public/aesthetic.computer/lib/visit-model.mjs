@@ -41,7 +41,7 @@ export const VISIT_ACTIONS = Object.freeze([
   "round_started", "round_completed", "match_completed",
   "mime_interact", "mime_scroll_feed", "mime_original_open",
   "note_played", "painting_edited", "recording_started",
-  "painting_saved", "tape_saved",
+  "painting_saved", "painting_signed", "tape_saved",
   "whistlegraph_app_clicked", "whistlegraph_access_clicked", "whistlegraph_mime_clicked",
 ]);
 

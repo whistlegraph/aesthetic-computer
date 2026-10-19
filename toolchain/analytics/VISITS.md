@@ -60,6 +60,7 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `painting_edited` | No Paint commits an accepted proposal to the artwork and undo history; generated previews do not qualify |
 | `recording_started` | The runtime's MediaRecorder emits `start`; recorder requests or permission prompts alone do not qualify |
 | `painting_saved` | PNG upload tracking returns a successful media record with a code |
+| `painting_signed` | No Paint burns the owner's `@handle` signature into the painting as an accepted step; a painting already signed as its last step does not fire again |
 | `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
 
 MIDI-only use still needs an independently recorded interaction in the visit.

@@ -44,6 +44,7 @@ test("creation milestones require a confirmed media record and carry no content"
   const visit = validateVisit(value, "https://aesthetic.computer");
   assert.ok(visit);
   assert.equal(visitUpdate(visit).$max["actions.painting_saved"], true);
+  assert.equal(visitUpdate(visit).$max["actions.painting_signed"], true, "No Paint signatures are an allowlisted action");
   assert.equal(validateVisit({ ...value, interacted: false }, "https://aesthetic.computer"), null);
 });
 
