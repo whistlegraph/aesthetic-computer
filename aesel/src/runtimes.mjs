@@ -1,6 +1,7 @@
 // runtimes.mjs — the piece languages Aesthetic Computer can run.
 //
-// A piece is JavaScript, KidLisp, or Lua, chosen by file extension. The blank
+// A piece is JavaScript, KidLisp, Lua, or a p5.js sketch, chosen by file
+// extension. The blank
 // templates are the starting point for a session's piece: each one paints a
 // flat color on its own so a phone pointed at the QR code has an image
 // immediately, before the agent has written anything. The blank does not write
@@ -67,11 +68,44 @@ function draw()
 end
 `,
   },
+  p5: {
+    id: "p5",
+    label: "p5.js",
+    extension: ".p5",
+    mime: "application/javascript; charset=utf-8",
+    // A `.p5` piece is a global-mode p5.js sketch, run on real p5.js inside
+    // the piece worker by `lib/p5-worker.mjs`: it draws into an OffscreenCanvas
+    // that AC composites like any other piece. The extension is ours, so what
+    // runs a `.p5` can change without renaming anyone's pieces.
+    //
+    // As with Lua, the shape of the blank is load-bearing. A push carries no
+    // extension, so the client takes the source for p5 only when it declares a
+    // top-level `function setup(` or `function draw(` and exports nothing — an
+    // `export` makes it an AC piece. The handled-piece loader does not resolve
+    // .p5 under an @handle yet.
+    routable: false,
+    blank: (name) => `// ${name}, ${stamp()}
+// A blank p5.js sketch.
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  noStroke();
+}
+
+function draw() {
+  background(${randomBackdrop().join(", ")});
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+`,
+  },
 };
 
 // Some runtimes answer to more than one name. Lua is the language; Processing
 // is what it is for.
-export const RUNTIME_ALIASES = { processing: "lua", l5: "lua", js: "mjs", kidlisp: "lisp" };
+export const RUNTIME_ALIASES = { processing: "lua", l5: "lua", js: "mjs", kidlisp: "lisp", p5js: "p5", "p5.js": "p5" };
 
 export const DEFAULT_RUNTIME = "mjs";
 

@@ -23999,16 +23999,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
     
-    // 🗒️ Source code file. (.mjs / .lisp native AC pieces, .js p5 sketches)
-    if (ext === "mjs" || ext === "lisp" || ext === "js") {
+    // 🗒️ Source code file. (.mjs / .lisp native AC pieces, .p5 / .js p5 sketches)
+    if (ext === "mjs" || ext === "lisp" || ext === "p5" || ext === "js") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
             type: "dropped:piece",
             content: {
-              name: file.name.replace(/\.(mjs|lisp|js)$/, ""),
+              name: file.name.replace(/\.(mjs|lisp|p5|js)$/, ""),
               source: e.target.result,
-              isP5: ext === "js", // Route .js sketches through the p5 worker.
+              isP5: ext === "p5" || ext === "js", // Route sketches through the p5 worker.
             },
           });
         };

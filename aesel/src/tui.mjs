@@ -558,9 +558,10 @@ function styleInstructions() {
     ...inlined,
   ];
   // The one rule that gets broken on a first draft, inlined because a model
-  // that skips the read still has to know it. Lua pieces draw through
-  // Processing and never see the hud/ui API, so it would only mislead them.
-  if (live.runtime.id !== "lua") {
+  // that skips the read still has to know it. Lua and p5 pieces draw through
+  // Processing's vocabulary and never see the hud/ui API, so it would only
+  // mislead them.
+  if (live.runtime.id !== "lua" && live.runtime.id !== "p5") {
     lines.push(harnessText("corner-label"));
   }
   return lines;
@@ -619,15 +620,20 @@ function developerInstructions() {
   const account = session.handle
     ? harnessText("account-signed-in", { handle: session.handle })
     : harnessText("account-signed-out");
-  // A live push carries no file extension, so a Processing piece is recognised
-  // by its own opening lines. Rewriting them silently takes the phone dark.
+  // A live push carries no file extension, so a Processing or p5 piece is
+  // recognised by its own source. Rewriting that silently takes the phone dark.
   const dialect =
     live.runtime.id === "lua"
       ? [
           harnessText("lua-dialect"),
           harnessText("lua-recognition"),
         ]
-      : [];
+      : live.runtime.id === "p5"
+        ? [
+            harnessText("p5-dialect"),
+            harnessText("p5-recognition"),
+          ]
+        : [];
   const nopaint = [
     harnessText("nopaint-piece", { file: live.file }),
     harnessText("nopaint-brush"),

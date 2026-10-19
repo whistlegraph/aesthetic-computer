@@ -119,7 +119,7 @@ test("the rendered code matches the encoder module for module", async () => {
 // already shows it on screen, so a blank that also wrote it drew it twice — and
 // the agent's first edit tended to keep the centered placeholder around.
 test("every runtime carries a blank that names itself in a comment, not on screen", () => {
-  assert.deepEqual(runtimeIds(), ["mjs", "lisp", "lua"]);
+  assert.deepEqual(runtimeIds(), ["mjs", "lisp", "lua", "p5"]);
   for (const id of runtimeIds()) {
     const runtime = runtimeFor(id);
     const blank = runtime.blank("movika");
@@ -138,6 +138,10 @@ test("every runtime carries a blank that names itself in a comment, not on scree
   assert.equal(runtimeFor("kidlisp").id, "lisp");
   assert.equal(runtimeFor("js").id, "mjs");
   assert.match(runtimeMenu(), /lua \(processing\)/);
+  assert.equal(runtimeFor("p5").routable, false);
+  assert.equal(runtimeFor("p5.js").id, "p5");
+  assert.equal(runtimeFor("p5js").id, "p5");
+  assert.match(runtimeMenu(), /p5 \(p5\.js\)/);
 });
 
 test("startup offers only an AC blank or a nopaint.art brush", () => {
@@ -173,6 +177,21 @@ test("the Processing blank is recognisable as Lua from its source alone", () => 
   assert.match(source, /(?:^|\n)\s*function\s+(setup|draw)\s*\(/);
   // Processing's vocabulary, not Aesthetic Computer's.
   assert.doesNotMatch(source, /function\s+paint\s*\(/);
+});
+
+// The same constraint for p5: the client runs pushed source as real p5.js only
+// when it reads as a global-mode sketch. Checked against the client's own
+// detector so the blank and the worker cannot drift apart.
+test("the p5 blank is recognisable as a p5 sketch from its source alone", async () => {
+  const { looksLikeP5Sketch } = await import("../../system/public/aesthetic.computer/lib/p5-worker.mjs");
+  const source = runtimeFor("p5").blank("movika");
+  assert.equal(looksLikeP5Sketch(source), true);
+  assert.match(source, /createCanvas\(windowWidth, windowHeight\)/);
+  assert.doesNotMatch(source, /function\s+paint\s*\(/);
+  // No other runtime's blank may be taken for p5.
+  for (const id of ["mjs", "lisp", "lua"]) {
+    assert.equal(looksLikeP5Sketch(runtimeFor(id).blank("movika")), false, `${id} blank read as p5`);
+  }
 });
 
 test("a session mints a blank piece, pushes it, and cleans up after itself", async (context) => {

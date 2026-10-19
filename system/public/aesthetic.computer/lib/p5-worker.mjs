@@ -307,6 +307,17 @@ function clearSketchGlobals() {
   }
 }
 
+// A live push carries { piece, source } and no file extension, so a p5 sketch
+// has to be recognised by its text. A global-mode sketch declares a top-level
+// `setup` or `draw` and exports nothing; an AC piece always exports its
+// lifecycle, and an L5 (Lua) piece opens with a `--` comment.
+export function looksLikeP5Sketch(source) {
+  if (typeof source !== "string") return false;
+  if (source.trimStart().startsWith("--")) return false;
+  if (/(?:^|\n)\s*export\s/.test(source)) return false;
+  return /(?:^|\n)\s*function\s+(setup|draw)\s*\(/.test(source);
+}
+
 export async function makeP5WorkerModule({ slug, source }) {
   await ensureP5Loaded();
 

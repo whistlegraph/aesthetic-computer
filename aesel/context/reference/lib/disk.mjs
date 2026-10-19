@@ -77,7 +77,7 @@ import { TextFields, TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
-import { makeP5WorkerModule } from "./p5-worker.mjs"; // .js pieces → real p5 in this worker (Option B).
+import { makeP5WorkerModule, looksLikeP5Sketch } from "./p5-worker.mjs"; // .js pieces → real p5 in this worker (Option B).
 import * as l5 from "./l5.mjs";
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
@@ -8363,8 +8363,10 @@ async function load(
         }
       } else if (
         forceP5 ||
+        parsed?.ext === "p5" ||
         parsed?.ext === "js" ||
-        (path && path.endsWith(".js"))
+        (path && (path.endsWith(".p5") || path.endsWith(".js"))) ||
+        looksLikeP5Sketch(sourceToRun)
       ) {
         // 🎨 p5.js sketch (dropped .js file) — run real p5 in this worker
         // against an OffscreenCanvas blitted into screen.pixels (Option B),

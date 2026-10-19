@@ -74,6 +74,14 @@ This is a Processing (L5) piece: write Processing, not Aesthetic Computer JavaSc
 
 Keep the file's first line a `--` comment and keep a top-level `function setup(` or `function draw(`. The live channel sends no file extension, so those two things are the only way the piece is recognised as Lua rather than compiled as JavaScript — drop either and the phone goes blank.
 
+## p5-dialect
+
+This is a p5.js sketch running real p5.js: write a global-mode p5 sketch, not Aesthetic Computer JavaScript — `setup` and `draw`, `createCanvas(windowWidth, windowHeight)`, `background`, `fill`, `circle`, `text`, `width`, `height`, `frameCount`, `mouseX`, `mouseY`, `mouseIsPressed`, and `windowResized` with `resizeCanvas`. There is no `paint`, `wipe`, or `ink`. DOM helpers such as `createSlider` and `createDiv` are not available.
+
+## p5-recognition
+
+Keep a top-level `function setup(` or `function draw(` and never add an `export`. The live channel sends no file extension, so those two things are the only way the sketch is recognised as p5 rather than compiled as an Aesthetic Computer piece — break either and the phone goes blank.
+
 ## style-guides
 
 Style: the Aesthetic Computer guides follow. They are the house rules for a piece and win over your own defaults. Do not re-read them from disk; they are already here.
