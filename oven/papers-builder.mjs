@@ -248,15 +248,25 @@ async function publishToLith(job) {
     addLogLine(job, "stderr", `  GIT: pre-rebase cleanup note: ${cleanupErr.message || cleanupErr}`);
   }
 
-  try {
-    await git(["pull", "--rebase", "origin", "main"]);
-  } catch (pullErr) {
-    try { await git(["rebase", "--abort"]); } catch {}
-    throw pullErr;
-  }
-
+  // main is busy — other sessions push while a build runs — so a push can
+  // lose the race between the rebase and itself. Rebase and try again.
   job.percent = 99;
-  await git(["push", "origin", "main"]);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await git(["pull", "--rebase", "origin", "main"]);
+    } catch (pullErr) {
+      try { await git(["rebase", "--abort"]); } catch {}
+      throw pullErr;
+    }
+    try {
+      await git(["push", "origin", "main"]);
+      break;
+    } catch (pushErr) {
+      if (attempt >= 4 || !/non-fast-forward|fetch first|rejected/.test(String(pushErr.stderr || pushErr.message))) throw pushErr;
+      addLogLine(job, "stdout", `  GIT: main moved during the push; rebasing again (${attempt}/3)`);
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
+  }
   addLogLine(job, "stdout", `  GIT: pushed — ${msg}`);
 }
 
