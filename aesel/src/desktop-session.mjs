@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { runtimeFor } from "./runtimes.mjs";
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const LIMIT = 32 * 1024 * 1024;
 export function desktopSnapshot({ cwd, backend, model, effort = "", live, state, options, engine, handoff = "", archivedConversation = [] }) {
@@ -12,9 +13,12 @@ export function desktopSnapshot({ cwd, backend, model, effort = "", live, state,
     options: { autopublish: options.autopublish, mouseEnabled: options.mouseEnabled },
     engine: { threadId: engine.threadId || "", ...(backend === "relay" ? {relayCursor: engine.cursor || 0} : {}), ...(Number.isSafeInteger(engine.turns) ? {turns: engine.turns} : {}), ...(["ac", "open"].includes(backend) ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
 }
+// Against the runtime table, so a new runtime survives a desktop restore (a
+// hand-kept list here once dropped p5), and a saved "lua" still reads as L5.
+const knownRuntime = (id) => { try { return Boolean(runtimeFor(id)); } catch { return false; } };
 export function validateDesktopSession(snapshot, cwd) {
   if (snapshot?.schema !== 1 || snapshot.cwd !== resolve(cwd) || !["ac", "claude", "codex", "open", "relay"].includes(snapshot.backend)) throw new Error("Invalid desktop session or workspace mismatch.");
-  if (typeof snapshot.model !== "string" || typeof snapshot.live?.file !== "string" || !["mjs", "lisp", "lua"].includes(snapshot.live.runtime)) throw new Error("Invalid desktop piece or model.");
+  if (typeof snapshot.model !== "string" || typeof snapshot.live?.file !== "string" || !knownRuntime(snapshot.live.runtime)) throw new Error("Invalid desktop piece or model.");
   if (snapshot.live.genre !== undefined && (!["piece", "nopaint"].includes(snapshot.live.genre) || (snapshot.live.genre === "nopaint" && snapshot.live.runtime !== "mjs"))) throw new Error("Invalid desktop piece genre.");
   if (snapshot.artifactId !== undefined && (!/^[a-f0-9-]{36}$/.test(snapshot.artifactId) || !Number.isSafeInteger(snapshot.artifactVersion) || snapshot.artifactVersion < 1)) throw new Error("Invalid saved artifact reference.");
   if (snapshot.effort !== undefined && (typeof snapshot.effort !== "string" || !/^[a-z0-9-]{0,40}$/.test(snapshot.effort))) throw new Error("Invalid saved effort.");

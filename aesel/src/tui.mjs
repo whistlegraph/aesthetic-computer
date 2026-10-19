@@ -561,7 +561,7 @@ function styleInstructions() {
   // that skips the read still has to know it. Lua and p5 pieces draw through
   // Processing's vocabulary and never see the hud/ui API, so it would only
   // mislead them.
-  if (live.runtime.id !== "lua" && live.runtime.id !== "p5") {
+  if (live.runtime.id !== "l5" && live.runtime.id !== "p5") {
     lines.push(harnessText("corner-label"));
   }
   return lines;
@@ -623,7 +623,7 @@ function developerInstructions() {
   // A live push carries no file extension, so a Processing or p5 piece is
   // recognised by its own source. Rewriting that silently takes the phone dark.
   const dialect =
-    live.runtime.id === "lua"
+    live.runtime.id === "l5"
       ? [
           harnessText("lua-dialect"),
           harnessText("lua-recognition"),

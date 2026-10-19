@@ -45,7 +45,7 @@ through `/medium` and `--medium`; its nopaint brush surface is selected with
 terminal-only. See the [current inventory](../apple/aesel/ROADMAP.md).
 
 Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
-`/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|processing]`,
+`/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|p5|l5]`,
 `/backend [claude|codex]`,
 `/model [name]`, `/energy`, `/qr`, `/live`, `/new`, `/clear`, `/reify`, `/help`, `/quit`. Press
 `ctrl-c` to interrupt a running turn or exit while idle.
@@ -208,18 +208,23 @@ closing the interface leaves the workspace exactly as it was. In the Aesthetic
 Computer repository the piece is written to `system/public/aesthetic.computer/
 disks/`; anywhere else it lands in the workspace root.
 
-`/runtime` switches the language of the piece — `mjs` (JavaScript), `lisp`
-(KidLisp), or `lua` (Processing, via L5) — and rewrites the blank. `--runtime`
-picks it at launch, and `processing`, `kidlisp`, `js` and `l5` are accepted as
-names for the same three. Live pushes work for all three;
-`aesthetic.computer/@handle/<name>` resolves `.mjs` and `.lisp` today, so a
-Processing piece runs live but has no published route yet.
+`/runtime` switches the language of the piece and rewrites the blank:
 
-Processing pieces are written in Processing's vocabulary — `setup` and `draw`,
-`background`, `fill`, `circle` — not Aesthetic Computer's `paint`. That is also
-what keeps them running: a live push carries no file extension, so the client
-recognises Lua by reading the source, and only source that opens with a `--`
-comment and declares `setup` or `draw` is taken as Lua at all.
+- `mjs` — an Aesthetic Computer piece in JavaScript.
+- `lisp` — KidLisp.
+- `p5` — a **`.p5`** sketch: real p5.js, the Processing most people already
+  write. `processing` means this one.
+- `l5` — an **`.l5`** piece: L5, Aesthetic Computer's own Processing, in Lua.
+
+`--runtime` picks it at launch, and `processing`, `kidlisp`, `js` and `lua`
+are accepted as names too. All four push live to the phone and publish to
+`aesthetic.computer/@handle/<name>`.
+
+`.p5` and `.l5` pieces are written in Processing's vocabulary — `setup` and
+`draw`, `background`, `fill`, `circle` — not Aesthetic Computer's `paint`.
+That is also what keeps them running: a live push carries no file extension,
+so the client reads the source. A sketch with a top-level `setup` or `draw`
+and no `export` is p5; one that also opens with a `--` comment is L5.
 
 ## Account and publishing
 

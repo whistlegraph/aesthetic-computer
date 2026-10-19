@@ -8036,7 +8036,7 @@ async function load(
 
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
 
-    if (path.endsWith('.lisp') || path.endsWith('.lua')) {
+    if (path.endsWith('.lisp') || path.endsWith('.lua') || path.endsWith('.l5') || path.endsWith('.p5')) {
       if (getPackMode()) {
         // In OBJKT mode, use absolute path from iframe origin
         fullUrl = "/" + resolvedPath + "?v=" + Date.now();
@@ -8235,7 +8235,11 @@ async function load(
               ? '.lisp'
               : path.endsWith('.lua')
                 ? '.lua'
-                : '.mjs';
+                : path.endsWith('.l5')
+                  ? '.l5'
+                  : path.endsWith('.p5')
+                    ? '.p5'
+                    : '.mjs';
             // Handle sandboxed environments for anon URL construction
             const { protocol } = getSafeUrlParts();
             const anonUrl =
@@ -8413,8 +8417,9 @@ async function load(
         }
       } else if (
         parsed?.ext === "lua" ||
-        (path && path.endsWith(".lua")) ||
-        (fullUrl && fullUrl.includes(".lua")) ||
+        parsed?.ext === "l5" ||
+        (path && (path.endsWith(".lua") || path.endsWith(".l5"))) ||
+        (fullUrl && (fullUrl.includes(".lua") || fullUrl.includes(".l5?"))) ||
         (sourceToRun.trim().startsWith("--") &&
           /(?:^|\n)\s*function\s+(setup|draw)\s*\(/.test(sourceToRun))
       ) {
@@ -8573,9 +8578,9 @@ async function load(
                                 err.toString().includes("Cannot use import");
 
     // If the .mjs file was fetched but failed to import (JS error), don't try fallbacks.
-    if (fullUrl && !fullUrl.includes('.lisp') && !fullUrl.includes('.lua') && !fullUrl.includes('.js?') && isFetchError && !isModuleImportError) {
+    if (fullUrl && !fullUrl.includes('.lisp') && !fullUrl.includes('.lua') && !fullUrl.includes('.l5?') && !fullUrl.includes('.p5?') && !fullUrl.includes('.js?') && isFetchError && !isModuleImportError) {
       try {
-        const fallbackExts = [".js", ".lua", ".lisp", ".p5"];
+        const fallbackExts = [".js", ".lua", ".lisp", ".p5", ".l5"];
         let loadedFromFallback = false;
         let fallbackError = null;
 
@@ -8627,7 +8632,7 @@ async function load(
             if (devReload) {
               store["publishable-piece"] = { slug, source: sourceCode, ext: "js" };
             }
-          } else if (fallbackExt === ".lua") {
+          } else if (fallbackExt === ".lua" || fallbackExt === ".l5") {
             pieceMetadata = {
               code: slug || "l5",
               trustLevel: "l5",

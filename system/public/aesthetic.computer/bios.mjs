@@ -23999,14 +23999,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
     
-    // 🗒️ Source code file. (.mjs / .lisp native AC pieces, .p5 / .js p5 sketches)
-    if (ext === "mjs" || ext === "lisp" || ext === "p5" || ext === "js") {
+    // 🗒️ Source code file. (.mjs / .lisp native AC pieces, .p5 / .js p5
+    //    sketches, .l5 L5 pieces — recognised as Lua by their `--` opener)
+    if (ext === "mjs" || ext === "lisp" || ext === "p5" || ext === "js" || ext === "l5") {
         const reader = new FileReader();
         reader.onload = function (e) {
           send({
             type: "dropped:piece",
             content: {
-              name: file.name.replace(/\.(mjs|lisp|p5|js)$/, ""),
+              name: file.name.replace(/\.(mjs|lisp|p5|js|l5)$/, ""),
               source: e.target.result,
               isP5: ext === "p5" || ext === "js", // Route sketches through the p5 worker.
             },

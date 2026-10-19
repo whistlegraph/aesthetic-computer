@@ -56,6 +56,13 @@ test("plans the handle route from the file name", () => {
   assert.equal(looksLikePiece("function setup() {}\nfunction draw() {}", ".p5"), true);
   assert.equal(looksLikePiece("function draw() {}\nexport { draw };", ".p5"), false);
   assert.equal(looksLikePiece("const x = 1;", ".p5"), false);
+
+  // So does an L5 piece.
+  const l5 = planPublish({ file: "/work/moss.l5", handle: "t" });
+  assert.equal(l5.grantUrl, "https://aesthetic.computer/presigned-upload-url/l5/piece-moss.l5/user");
+  assert.equal(l5.mediaUrl, "https://aesthetic.computer/media/@t/piece/moss.l5");
+  assert.equal(looksLikePiece("-- moss\nfunction draw()\nend", ".l5"), true);
+  assert.equal(looksLikePiece("function draw() {}", ".l5"), false);
 });
 
 test("publishes through the presigned user-bucket flow and verifies", async (context) => {

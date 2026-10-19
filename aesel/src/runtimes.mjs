@@ -40,24 +40,25 @@ export { paint };
 (wipe "${randomCSSBackdrop()}")
 `,
   },
-  lua: {
-    id: "lua",
-    label: "processing",
-    extension: ".lua",
+  l5: {
+    id: "l5",
+    label: "l5",
+    extension: ".l5",
     mime: "text/x-lua; charset=utf-8",
-    // Lua is the language of L5, Aesthetic Computer's Processing surface, so a
-    // piece here is written in Processing's vocabulary — setup and draw, not
-    // paint — against `lib/l5.mjs`.
+    // L5 is Aesthetic Computer's own Processing, in Lua: a piece here is
+    // written in Processing's vocabulary — setup and draw, not paint —
+    // against `lib/l5.mjs`.
     //
     // The shape of the blank is load-bearing. A push over the code channel
     // carries only { piece, source, codeChannel }: no extension, no language.
     // The client recognises Lua in that message by reading the source — it must
     // begin with a `--` comment AND declare `function setup(` or `function
     // draw(` — and anything else is compiled as JavaScript and fails. Both are
-    // natural in real L5, and this blank keeps them.
-    routable: false,
+    // natural in real L5, and this blank keeps them. Published, it answers at
+    // @handle/slug: the handled-piece loader falls back to .l5.
+    routable: true,
     blank: (name) => `-- ${name}, ${stamp()}
--- A blank Aesthetic Computer piece, in Processing (L5).
+-- A blank L5 piece: Processing, in Lua.
 
 function setup()
   noStroke()
@@ -70,7 +71,7 @@ end
   },
   p5: {
     id: "p5",
-    label: "p5.js",
+    label: "processing",
     extension: ".p5",
     mime: "application/javascript; charset=utf-8",
     // A `.p5` piece is a global-mode p5.js sketch, run on real p5.js inside
@@ -103,9 +104,10 @@ function windowResized() {
   },
 };
 
-// Some runtimes answer to more than one name. Lua is the language; Processing
-// is what it is for.
-export const RUNTIME_ALIASES = { processing: "lua", l5: "lua", js: "mjs", kidlisp: "lisp", p5js: "p5", "p5.js": "p5" };
+// Some runtimes answer to more than one name. `processing` means p5 — real
+// p5.js, the Processing most people already write. L5 is Aesthetic
+// Computer's own Processing in Lua, and answers to its own name.
+export const RUNTIME_ALIASES = { processing: "p5", p5js: "p5", "p5.js": "p5", lua: "l5", js: "mjs", kidlisp: "lisp" };
 
 export const DEFAULT_RUNTIME = "mjs";
 
@@ -123,8 +125,8 @@ export function runtimeIds() {
 }
 
 // How the runtimes read in the interface: the id to type, named by what it is
-// where the two differ. `lua` is the one worth spelling out — nobody comes
-// looking for Lua, they come looking for Processing.
+// where the two differ. `p5` is the one worth spelling out — people come
+// looking for Processing.
 export function runtimeMenu() {
   return runtimeIds()
     .map((id) => (RUNTIMES[id].label === id ? id : `${id} (${RUNTIMES[id].label})`))

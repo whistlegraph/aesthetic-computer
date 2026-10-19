@@ -119,7 +119,7 @@ test("the rendered code matches the encoder module for module", async () => {
 // already shows it on screen, so a blank that also wrote it drew it twice — and
 // the agent's first edit tended to keep the centered placeholder around.
 test("every runtime carries a blank that names itself in a comment, not on screen", () => {
-  assert.deepEqual(runtimeIds(), ["mjs", "lisp", "lua", "p5"]);
+  assert.deepEqual(runtimeIds(), ["mjs", "lisp", "l5", "p5"]);
   for (const id of runtimeIds()) {
     const runtime = runtimeFor(id);
     const blank = runtime.blank("movika");
@@ -129,19 +129,21 @@ test("every runtime carries a blank that names itself in a comment, not on scree
   }
   assert.equal(runtimeFor(".LISP").id, "lisp");
   assert.equal(runtimeFor("mjs").routable, true);
-  assert.equal(runtimeFor("lua").routable, false);
+  assert.equal(runtimeFor("l5").routable, true);
   assert.throws(() => runtimeFor("rust"), /unknown runtime/);
 
   // The names a person reaches for resolve to the same three runtimes.
-  assert.equal(runtimeFor("processing").id, "lua");
-  assert.equal(runtimeFor("L5").id, "lua");
+  assert.equal(runtimeFor("processing").id, "p5");
+  assert.equal(runtimeFor("lua").id, "l5");
+  assert.equal(runtimeFor("L5").id, "l5");
+  assert.equal(runtimeForExtension(".l5"), runtimeFor("l5"));
   assert.equal(runtimeFor("kidlisp").id, "lisp");
   assert.equal(runtimeFor("js").id, "mjs");
-  assert.match(runtimeMenu(), /lua \(processing\)/);
+  assert.match(runtimeMenu(), /l5/);
   assert.equal(runtimeFor("p5").routable, true);
   assert.equal(runtimeFor("p5.js").id, "p5");
   assert.equal(runtimeFor("p5js").id, "p5");
-  assert.match(runtimeMenu(), /p5 \(p5\.js\)/);
+  assert.match(runtimeMenu(), /p5 \(processing\)/);
 });
 
 test("startup offers only an AC blank or a nopaint.art brush", () => {
@@ -171,8 +173,8 @@ test("the nopaint start uses the runtime's existing brush contract", async (cont
 // it is Lua: it must open with a `--` comment and declare setup or draw. The
 // Processing blank has to satisfy that on its own or it is compiled as
 // JavaScript and the phone never sees the piece.
-test("the Processing blank is recognisable as Lua from its source alone", () => {
-  const source = runtimeFor("processing").blank("movika");
+test("the L5 blank is recognisable as Lua from its source alone", () => {
+  const source = runtimeFor("l5").blank("movika");
   assert.ok(source.trim().startsWith("--"), "must open with a Lua comment");
   assert.match(source, /(?:^|\n)\s*function\s+(setup|draw)\s*\(/);
   // Processing's vocabulary, not Aesthetic Computer's.
@@ -189,7 +191,7 @@ test("the p5 blank is recognisable as a p5 sketch from its source alone", async 
   assert.match(source, /createCanvas\(windowWidth, windowHeight\)/);
   assert.doesNotMatch(source, /function\s+paint\s*\(/);
   // No other runtime's blank may be taken for p5.
-  for (const id of ["mjs", "lisp", "lua"]) {
+  for (const id of ["mjs", "lisp", "l5"]) {
     assert.equal(looksLikeP5Sketch(runtimeFor(id).blank("movika")), false, `${id} blank read as p5`);
   }
 });
