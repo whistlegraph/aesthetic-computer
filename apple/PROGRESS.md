@@ -7,6 +7,11 @@ Append a new section on top for each App Store build.
 
 ## 1.2 (5) — 2026-10-15
 
+Submitted at 20:12 UTC; App Store Connect reports `WAITING_FOR_REVIEW`.
+Build `06fc67b2-8c42-4d4d-b68d-e06ceb8efeb5`, submission
+`f60158d8-959c-4b5a-97b9-4bfa8ec8f93b`. The accompanying mail web change
+is deployed in `9973aecc01`.
+
 MIME creation and remix links now open the MIME app. If it is unavailable,
 creation falls back to mime.ac and remix falls back to the referenced work.
 The native bridge accepts these links only from the trusted main document.

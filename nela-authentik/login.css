@@ -254,6 +254,11 @@ html:has(ak-flow-executor) body {
   justify-content: flex-start;
 }
 
+.pf-c-login__footer,
+.pf-c-login__footer * {
+  text-shadow: none !important;
+}
+
 .pf-c-login ak-locale-select {
   position: absolute;
   inset: 16px 20px auto auto;

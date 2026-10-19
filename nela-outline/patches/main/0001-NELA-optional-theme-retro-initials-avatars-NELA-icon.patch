@@ -1292,14 +1292,14 @@ index 0000000..3974f4c
 + */
 +export function buildNelaTheme(base: DefaultTheme): DefaultTheme {
 +  const dark = base.isDark;
-+  const background = dark ? "#000000" : "#ffffff";
-+  const surface = dark ? "#061b14" : "#f1f8f4";
-+  const hover = dark ? "#0b3023" : "#dfefe7";
-+  const active = dark ? "#124735" : "#cce3d8";
++  const background = dark ? "#022f18" : "#ffffff";
++  const surface = dark ? "#063d21" : "#f1f8f4";
++  const hover = dark ? "#0b4a2d" : "#dfefe7";
++  const active = dark ? "#135c3a" : "#cce3d8";
 +  const green = dark ? "#00d080" : "#00663e";
 +  const cyan = dark ? "#00c4fd" : "#006888";
 +  const secondary = dark ? "#8ab4a2" : "#426354";
-+  const border = dark ? "#326f5b" : "#8ca99b";
++  const border = dark ? "#3a8a66" : "#8ca99b";
 +
 +  return {
 +    ...base,
