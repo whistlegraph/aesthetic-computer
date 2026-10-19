@@ -3,33 +3,59 @@
 // The desktop Aesel is an Electron shell around a conversation with an agent
 // and the piece it is writing. This machine has no Electron and no browser;
 // it has a framebuffer, a keyboard, QuickJS, and the Claude Code binary. So
-// this is the same session drawn as a piece: the transcript in the middle, a
-// pink prompt at the bottom, approvals answered with y / a / n, and the piece
-// the agent writes sitting in /pieces where one key runs it on this machine.
+// this is the same session drawn as a piece, in the shape of the terminal's
+// pro mode (aesel/src/render.mjs, layouts/pro.json): the conversation fills
+// the page, then air, the line being typed, air, and one status line. The
+// page wears Slab's status colours and the session's egg sits in the corner,
+// the way Slab dresses an Aesel window on the Mac.
 //
 // The bridge is Claude's headless stream-json protocol over a raw PTY
 // (system.pty2 with { raw: true }); lib/aesel-bridge.mjs translates it. The
 // child stays alive when the user leaves for the prompt or runs the piece —
 // `aesel` from the prompt reattaches to the same conversation.
 
-import { Bridge, DEFAULT_MODEL, blankPiece, instructionsFor, randomSlug } from "../lib/aesel-bridge.mjs";
-import { AcBridge, DEFAULT_AC_MODEL, acModelLabel, resolveAcModel } from "../lib/aesel-ac.mjs";
+import {
+  Bridge, DEFAULT_MODEL, blankPiece, compact, creatureLook, creatureSeed, dollars, instructionsFor,
+  markdown, petName, pipedCommand, randomSlug, toolLabel, turnUsageText, uuid, wrapRows,
+} from "../lib/aesel-bridge.mjs";
+import { AC_MODELS, AcBridge, DEFAULT_AC_MODEL, acModelLabel, resolveAcModel } from "../lib/aesel-ac.mjs";
 
-const PALETTE = {
-  background: [70, 50, 100],
+// The desktop palette, by role.
+const C = {
   text: [255, 255, 255],
   prompt: [200, 30, 100],
   highlight: [255, 100, 0],
-  handle: [255, 100, 255],
   soft: [220, 180, 255],
   muted: [170, 150, 205],
   status: [0, 255, 0],
   error: [255, 90, 90],
+  run: [255, 160, 60],
+  inbox: [120, 200, 255],
+  bar: [95, 70, 135],
+  code: [235, 225, 255],
+  ground: [28, 28, 28], // xterm 234, behind code
+  ink: [26, 20, 36],
 };
+
+// Slab's page for each session state (its published dark theme.json): what
+// an Aesel window on the Mac turns while it works, asks, finishes or fails.
+// Resting is the plum the Mac shows before a first turn; `shadow` is the
+// state colour the egg and its name cast.
+const PAGES = {
+  blank: { bg: [32, 4, 32], text: [201, 233, 255], cursor: [247, 67, 165], shadow: [167, 195, 232], mood: "sleeping" },
+  working: { bg: [2, 47, 24], text: [134, 249, 219], cursor: [47, 241, 143], shadow: [47, 241, 143], mood: "working" },
+  awaiting: { bg: [64, 41, 14], text: [219, 226, 179], cursor: [219, 179, 54], shadow: [219, 179, 54], mood: "waiting" },
+  complete: { bg: [66, 7, 12], text: [255, 175, 167], cursor: [255, 43, 39], shadow: [255, 43, 39], mood: "resting" },
+  interrupted: { bg: [28, 11, 70], text: [181, 179, 255], cursor: [134, 86, 255], shadow: [134, 86, 255], mood: "waiting" },
+  stale: { bg: [57, 5, 22], text: [219, 163, 196], cursor: [219, 78, 99], shadow: [219, 78, 99], mood: "sleeping" },
+};
+
+// AC's character palette for a handle with no saved colours (handle-colors.mjs).
+const NOM = [[255, 105, 97], [255, 170, 80], [255, 225, 90], [150, 225, 90], [90, 220, 140], [90, 215, 210], [95, 180, 255], [150, 150, 255], [200, 140, 255], [255, 140, 210]];
 
 const FONT = "6x10";
 const CW = 6;
-const CH = 10;
+const LH = 11; // a 6x10 row and one pixel of air
 const PAD = 4;
 const CLAUDE = "/bin/claude";
 const PIECES = "/pieces";
@@ -39,11 +65,18 @@ const PIECES = "/pieces";
 const SITE = "https://aesthetic.computer";
 const STREAM_FILE = "/tmp/aesel-inference.sse";
 const MAX_ENTRIES = 400;
+const MAX_VERSIONS = 40;
+const SEP = " · ";
 
 const SHIFT_MAP = {
   "1": "!", "2": "@", "3": "#", "4": "$", "5": "%", "6": "^", "7": "&", "8": "*", "9": "(", "0": ")",
   "-": "_", "=": "+", "[": "{", "]": "}", ";": ":", "'": '"', ",": "<", ".": ">", "/": "?", "\\": "|", "`": "~",
 };
+
+// The one-row guy from aesel/src/mascot.mjs.
+const GUY_DANCE = ["//(o.o)>", "//(o.o)>", "\\\\(o.o)>", "//(^.^)>", "//(o.o)>", "//(-.-)>"];
+
+const HELP = "/ask [on|off] · /provider ac|claude · /model [name] · /new · /clear · /latest · /run · /piece [name] · /versions · /rollback vN · /retry · /whoami · /energy · /quit   ctrl-c interrupts a running turn · pgup/pgdn scroll · ↑↓ history";
 
 // Session state lives on globalThis so it survives a jump to the prompt or
 // to the piece being written; the module itself is re-evaluated on return.
@@ -52,53 +85,93 @@ let shiftHeld = false;
 let ctrlHeld = false;
 // The system object of the current paint, for the hosted transport's polling.
 let SYS = null;
+let SCREEN = null;
 let frame = 0;
+let pageRows = 20; // transcript rows on the last paint, for PgUp/PgDn
 
-// `aesel` → Claude on the default model; `aesel:ac` or `aesel:ac:qwen` → the
-// hosted engine; `aesel:claude:<model>` or `aesel:<model>` → Claude on that model.
+// `aesel` → the hosted engine (it signs in with the device's AC handle, so it
+// works without a Claude token); `aesel:ac:qwen` → hosted on that model;
+// `aesel:claude` or `aesel:claude:<model>` → Claude Code on the device.
 function parseParams(params) {
   const [first, second] = params || [];
-  if (first === "ac" || first === "aesthetic" || first === "hosted") {
+  if (first === "claude") return { backend: "claude", model: second || DEFAULT_MODEL };
+  if (!first || first === "ac" || first === "aesthetic" || first === "hosted") {
     return { backend: "ac", model: resolveAcModel(second || "") };
   }
-  if (first === "claude") return { backend: "claude", model: second || DEFAULT_MODEL };
-  return { backend: "claude", model: first || DEFAULT_MODEL };
+  return { backend: "ac", model: resolveAcModel(first) };
 }
 
-function freshState(system, params) {
-  const handle = readHandle(system);
-  const slug = randomSlug();
-  const file = `${PIECES}/${slug}.mjs`;
-  const { backend, model } = parseParams(params);
+// Everything a session holds besides its identity. A session kept from an
+// older build of this piece is topped up from here on reattach.
+function blankSession() {
   return {
-    handle,
-    token: readToken(system),
-    backend,
-    slug,
-    file,
-    model,
     bridge: null,
-    entries: [],     // {kind, text, id?, status?, label?}
+    entries: [],     // {kind, text}
     input: "",
     cursor: 0,
-    scroll: 0,       // lines scrolled back from the bottom
+    history: [],
+    historyIndex: 0,
+    queued: [],      // lines typed while a turn ran; sent together after it
+    scroll: 0,       // rows scrolled back from the bottom
+    lastTotal: 0,
     status: "starting",
-    pending: null,   // approval waiting for y / a / n
+    approvals: [],   // waiting for y / a / n, oldest first
+    approvalIndex: 0,
+    lastTurn: "",    // how the last turn ended, for the page colour
+    autoAllow: false,
+    turn: null,      // {startedAt, lastEventAt, tools, feed, tokens, usd}
+    spend: { tokens: 0, usd: 0, turns: 0 },
+    versions: [],
     pieceDirty: false,
-    pieceWrites: 0,
+    logTail: [],
+    flash: null,
+    stoppedByUser: false,
     exitCode: null,
   };
 }
 
-function readHandle(system) {
-  let handle = system?.config?.handle || "";
-  if (!handle) {
+function freshState(system, params) {
+  const slug = randomSlug();
+  const { backend, model } = parseParams(params);
+  return {
+    ...blankSession(),
+    ...readAccount(system),
+    token: readToken(system),
+    // The egg is the session's, as Slab's is the terminal's: /new keeps it.
+    egg: eggFor(uuid()),
+    backend,
+    slug,
+    file: `${PIECES}/${slug}.mjs`,
+    model,
+  };
+}
+
+// The handle and its saved colours: the device's config, else the one the
+// flash baked into the image.
+function readAccount(system) {
+  for (const file of ["/mnt/config.json", "/default-config.json"]) {
     try {
-      const raw = system.readFile("/mnt/config.json");
-      if (raw) handle = JSON.parse(raw).handle || "";
+      const raw = system.readFile(file);
+      const config = raw ? JSON.parse(raw) : null;
+      const handle = String(config?.handle || "").replace(/^@/, "");
+      if (handle && handle !== "anonymous") return { handle, colors: handleColors(`@${handle}`, config.colors) };
     } catch (_) {}
   }
-  return handle === "anonymous" ? "" : handle;
+  return { handle: "", colors: [] };
+}
+
+function handleColors(account, saved) {
+  return Array.from(account).map((ch, i) => {
+    const c = Array.isArray(saved) ? saved[i] : null;
+    if (c && [c.r, c.g, c.b].every((n) => Number.isFinite(n) && n >= 0 && n <= 255)) return [c.r, c.g, c.b].map(Math.round);
+    const l = ch.toLowerCase();
+    return l >= "a" && l <= "z" ? NOM[(l.charCodeAt(0) - 97) % 10] : l >= "0" && l <= "9" ? NOM[Number(l)] : C.soft;
+  });
+}
+
+function eggFor(id) {
+  const seed = creatureSeed(id);
+  return { name: petName(seed), look: creatureLook(seed) };
 }
 
 // The AC access token the `link` pairing wrote into config.json. It pays for
@@ -135,20 +208,34 @@ function acTransport() {
 }
 
 function note(text, kind = "note") {
-  S.entries.push({ kind, text });
+  S.entries.push({ kind, text: String(text) });
   if (S.entries.length > MAX_ENTRIES) S.entries.splice(0, S.entries.length - MAX_ENTRIES);
-  S.scroll = 0;
+}
+
+function flash(text, ms = 2500) {
+  S.flash = { text, until: Date.now() + ms };
 }
 
 function ensurePiece(system) {
-  const existing = system.readFile(S.file);
-  if (existing) return;
-  system.writeFile(S.file, blankPiece(S.slug));
+  if (!system.readFile(S.file)) system.writeFile(S.file, blankPiece(S.slug));
+  S.versions = [{ source: system.readFile(S.file) || "", note: "opened" }];
+}
+
+// A save the agent made, or a restore, kept so /rollback can bring it back.
+function keepVersion(source, why = "") {
+  const last = S.versions[S.versions.length - 1];
+  if (!source || (last && last.source === source)) return;
+  S.versions.push({ source, note: why, at: Date.now() });
+  if (S.versions.length > MAX_VERSIONS) S.versions.splice(1, 1); // v0 stays
 }
 
 function spawnBridge(system, screen, resume = "") {
   SYS = system;
   if (S.bridge instanceof AcBridge && S.bridge.busy) S.bridge.interrupt();
+  S.approvals = [];
+  S.turn = null;
+  S.status = "starting";
+  S.exitCode = null;
   if (S.backend === "ac") {
     if (system.pty2.active) system.pty2.kill(); // a Claude child from before the switch
     S.bridge = new AcBridge({
@@ -161,8 +248,6 @@ function spawnBridge(system, screen, resume = "") {
       writePiece: (source) => SYS.writeFile(S.file, source) === true,
     });
     S.bridge.launch();
-    S.status = "starting";
-    S.exitCode = null;
     S.bridge.handshake();
     return;
   }
@@ -173,9 +258,8 @@ function spawnBridge(system, screen, resume = "") {
     instructions: instructionsFor({ handle: S.handle, slug: S.slug, file: S.file, screen }),
   });
   const args = S.bridge.launch(resume);
-  S.status = "starting";
-  S.exitCode = null;
-  const ok = system.pty2.spawn(CLAUDE, args, 200, 50, { raw: true, cwd: PIECES });
+  S.logTail = [];
+  const ok = system.pty2.spawn("/bin/sh", pipedCommand(CLAUDE, args), 200, 50, { raw: true, cwd: PIECES });
   if (!ok) {
     S.status = "error";
     note("could not start " + CLAUDE, "error");
@@ -185,18 +269,21 @@ function spawnBridge(system, screen, resume = "") {
 }
 
 function boot({ system, screen, params }) {
+  SCREEN = screen;
   const kept = globalThis.__aesel;
   if (kept && kept.bridge && (kept.backend === "ac" || (system.pty2 && system.pty2.active))) {
     S = kept; // Reattach: the conversation kept running while we were away.
+    for (const [key, value] of Object.entries(blankSession())) if (!(key in S)) S[key] = value;
+    if (!S.egg) S.egg = eggFor(uuid());
+    if (!S.colors) Object.assign(S, readAccount(system));
     S.input = "";
     S.cursor = 0;
+    S.scroll = 0;
     return;
   }
   S = freshState(system, params);
   globalThis.__aesel = S;
   ensurePiece(system);
-  note(`piece ${S.file} · engine ${S.backend === "ac" ? "aesthetic" : "claude"}`);
-  note("type to talk · enter sends · tab runs the piece here · esc back to prompt · /help");
   // The child signs in with the OAuth token the flash baked in. Without one
   // the first turn fails with an auth error that says nothing about why.
   if (S.backend === "claude" && !system.readFile("/claude-token")) {
@@ -207,68 +294,142 @@ function boot({ system, screen, params }) {
 
 // ── events from the bridge ──────────────────────────────────────────────
 
+// A turn the child died in is not running, whatever the bridge last heard.
+function busy() {
+  return Boolean(S.bridge && S.bridge.busy) && S.status !== "closed" && S.status !== "error";
+}
+
 function absorb(event) {
+  if (S.turn) S.turn.lastEventAt = Date.now();
   switch (event.type) {
     case "ready":
       S.status = "ready";
+      drain();
       return;
     case "turn":
-      if (event.status === "started") S.status = "thinking";
-      else {
-        S.status = "ready";
-        if (event.status === "failed") note(event.error || "turn failed", "error");
-        else if (event.status === "interrupted") note("stopped", "note");
+      if (event.status === "started") {
+        S.turn = S.turn || newTurn();
+        S.status = "waiting";
+        return;
       }
+      endTurn(event);
+      return;
+    case "phase":
+      S.status = event.phase;
       return;
     case "delta": {
+      S.status = "generating";
       const last = S.entries[S.entries.length - 1];
       if (last && last.kind === "agent" && last.open) last.text += event.text;
       else S.entries.push({ kind: "agent", text: event.text, open: true });
-      S.scroll = 0;
       return;
     }
     case "message":
       closeAgent();
       note(event.text, "agent");
       return;
-    case "tool": {
+    case "tool":
       closeAgent();
-      const existing = S.entries.find((e) => e.kind === "tool" && e.id === event.id);
-      if (existing) {
-        existing.status = event.status;
-      } else {
-        S.entries.push({ kind: "tool", id: event.id, tool: event.kind, label: event.label, status: event.status });
-      }
-      if (event.kind === "file" && event.status === "completed" && event.path === S.file) {
-        S.pieceDirty = true;
-        S.pieceWrites += 1;
-      }
-      S.scroll = 0;
+      tool(event);
       return;
-    }
+    case "usage":
+      if (S.turn) { S.turn.tokens += event.tokens; S.turn.usd += event.usd; }
+      S.spend.tokens += event.tokens;
+      S.spend.usd += event.usd;
+      return;
     case "approval":
-      S.pending = { id: event.id, kind: event.kind, label: event.label };
+      if (S.autoAllow) {
+        S.bridge.approve(event.id, "accept");
+        return;
+      }
+      S.approvals.push({ id: event.id, kind: event.kind, label: event.label });
+      if (S.approvals.length === 1) S.approvalIndex = 0;
+      S.status = "approval";
       return;
     case "approval-resolved":
-      if (S.pending && S.pending.id === event.id) S.pending = null;
+      S.approvals = S.approvals.filter((a) => a.id !== event.id);
       return;
     case "warning":
-      note(event.message, "soft");
+      note(event.message);
       return;
     case "error":
       note(event.message, "error");
       if (event.fatal) S.status = "error";
       return;
     case "log":
-      S.lastLog = event.line;
+      S.logTail.push(event.line);
+      if (S.logTail.length > 6) S.logTail.shift();
       return;
     default:
   }
 }
 
+function newTurn() {
+  const now = Date.now();
+  return { startedAt: now, lastEventAt: now, tools: new Set(), feed: [], tokens: 0, usd: 0 };
+}
+
+// The live feed: what the machine is doing now, in words, never arguments.
+function tool(event) {
+  const turn = S.turn || (S.turn = newTurn());
+  turn.tools.add(event.id);
+  let row = turn.feed.find((r) => r.id === event.id);
+  if (!row) {
+    row = { id: event.id, text: toolLabel(event.name || (event.kind === "command" ? "Bash" : event.kind === "file" ? "Write" : "")), status: "running" };
+    turn.feed.push(row);
+    if (turn.feed.length > 8) turn.feed.shift();
+  }
+  if (event.status === "started") {
+    if (row.status === "running") S.status = event.kind === "file" ? "writing" : "tool";
+    return;
+  }
+  row.status = event.status === "failed" ? "failed" : "done";
+  if (!turn.feed.some((r) => r.status === "running") && !S.approvals.length) S.status = "waiting";
+  if (event.kind === "file" && event.status === "completed" && event.path === S.file) {
+    S.pieceDirty = true;
+    keepVersion(SYS.readFile(S.file) || "", "saved");
+  }
+}
+
+function endTurn(event) {
+  closeAgent();
+  const turn = S.turn;
+  S.turn = null;
+  S.approvals = [];
+  S.lastTurn = event.status;
+  if (turn) {
+    S.spend.turns += 1;
+    note(turnUsageText({ status: event.status, tools: turn.tools.size, ms: Date.now() - turn.startedAt, tokens: turn.tokens, usd: turn.usd }), "usage");
+  }
+  S.status = event.status === "failed" ? "failed" : "ready";
+  if (event.status === "failed") note(event.error || "turn failed", "error");
+  // An interrupt is a decision about everything you were going to say, not
+  // just the turn that was running, so ctrl-c drops the queue with it.
+  if (event.status === "interrupted" && S.stoppedByUser && S.queued.length) {
+    note(`Stopped · ${S.queued.length} follow-up message${S.queued.length === 1 ? " was" : "s were"} not sent.`);
+    S.queued = [];
+  }
+  S.stoppedByUser = false;
+  drain();
+}
+
 function closeAgent() {
   const last = S.entries[S.entries.length - 1];
   if (last && last.kind === "agent") last.open = false;
+}
+
+// Follow-ups typed during a turn go as one message once it ends.
+function drain() {
+  if (!S.queued.length || !S.bridge || !S.bridge.ready || busy()) return;
+  const batch = S.queued.splice(0);
+  startTurn(batch.join("\n"));
+}
+
+function startTurn(text) {
+  closeAgent();
+  S.turn = newTurn();
+  S.status = "waiting";
+  S.bridge.say(text);
 }
 
 // ── keyboard ────────────────────────────────────────────────────────────
@@ -278,11 +439,13 @@ function command(line, system, screen) {
   const arg = rest.join(" ").trim();
   switch (name) {
     case "help":
-      note("/new fresh conversation · /run · /piece <name> · /model <name> · /backend ac|claude · /quit");
+      note(HELP);
       return;
-    case "backend": {
+    case "backend":
+    case "provider":
+    case "engine": {
       const target = arg === "aesthetic" || arg === "hosted" || arg === "free" ? "ac" : arg;
-      if (target !== "ac" && target !== "claude") { note(`engine ${S.backend} · /backend ac|claude`); return; }
+      if (target !== "ac" && target !== "claude") { note(`engine ${S.backend === "ac" ? "aesthetic" : "claude"} · /backend ac|claude`); return; }
       if (target === S.backend) { note(`already on ${target}`); return; }
       S.backend = target;
       S.model = target === "ac" ? DEFAULT_AC_MODEL : DEFAULT_MODEL;
@@ -291,42 +454,135 @@ function command(line, system, screen) {
       return;
     }
     case "new":
+      S.queued = [];
       note("new conversation");
       spawnBridge(system, screen, "");
+      return;
+    case "clear":
+      S.entries = [];
+      S.scroll = 0;
+      return;
+    case "latest":
+      S.scroll = 0;
       return;
     case "run":
       runPiece(system);
       return;
     case "piece":
-      if (!/^[a-z0-9-]+$/.test(arg)) { note("usage: /piece <name>", "error"); return; }
+      if (!arg) { note(`Working on ${S.file}`); return; }
+      if (!/^[a-z0-9-]+$/.test(arg)) { note("usage: /piece <name> · lowercase letters, digits, dashes", "error"); return; }
       S.slug = arg;
       S.file = `${PIECES}/${arg}.mjs`;
       S.pieceDirty = false;
       ensurePiece(system);
-      note(`piece ${S.file}`);
+      note(`Working on ${S.file}`);
       spawnBridge(system, screen, ""); // the instructions name the file
       return;
+    case "versions":
+      note(S.versions.map((v, i) => `v${i} · ${v.note}${v.at ? ` · ${clock(v.at)}` : ""} · ${v.source.split("\n").length} lines`).join("\n"));
+      return;
+    case "rollback": {
+      const n = Number(/^v?(\d+)$/.exec(arg)?.[1] ?? NaN);
+      const v = S.versions[n];
+      if (!v) { note("Use /rollback v0 · /versions lists saved versions."); return; }
+      if (busy()) { note("Wait for the current turn to finish before rolling back."); return; }
+      if (system.writeFile(S.file, v.source) !== true) { note(`Could not write ${S.file}`, "error"); return; }
+      keepVersion(v.source, `restored v${n}`);
+      S.pieceDirty = true;
+      note(`Restored v${n} as v${S.versions.length - 1}.`);
+      return;
+    }
     case "model":
-      if (!arg) { note(`model ${S.model}`); return; }
+    case "models":
+      if (!arg) {
+        note(S.backend === "ac"
+          ? `model ${acModelLabel(S.model)} · /model ${Object.keys(AC_MODELS).join(" | ")}`
+          : `model ${S.model} · /model opus | sonnet | haiku | a full model id`);
+        return;
+      }
       S.model = S.backend === "ac" ? resolveAcModel(arg) : arg;
-      note(`model ${arg}`);
+      note(`Model · ${arg}`);
       spawnBridge(system, screen, "");
       return;
+    case "ask": {
+      const want = arg.toLowerCase();
+      S.autoAllow = want === "on" ? false : want === "off" ? true : !S.autoAllow;
+      note(S.autoAllow ? "Running without asking · /ask on to be asked first" : "Asking before each action · /ask off to stop asking");
+      return;
+    }
+    case "retry":
+      if (busy()) { flash("wait for the current turn, or ctrl-c to stop it"); return; }
+      if (S.backend === "ac") {
+        if (!S.bridge || !S.bridge.retry()) note("nothing to retry");
+        else S.turn = newTurn();
+        return;
+      }
+      note("reconnecting");
+      spawnBridge(system, screen, S.bridge && S.bridge.turns ? S.bridge.sessionId : "");
+      return;
+    case "whoami":
+      note(S.handle ? `You are @${S.handle}.` : "No handle on this device · type `link` at the prompt");
+      return;
+    case "energy":
+    case "power":
+      note(S.spend.tokens
+        ? `${compact(S.spend.tokens)} tokens${S.spend.usd > 0 ? ` · ${dollars(S.spend.usd)}` : ""} across ${S.spend.turns} turn${S.spend.turns === 1 ? "" : "s"}`
+        : "nothing spent yet");
+      return;
     case "quit":
-      if (S.bridge && S.bridge.busy) S.bridge.interrupt();
+    case "exit":
+      if (busy()) S.bridge.interrupt();
       if (system.pty2.active) system.pty2.kill();
       globalThis.__aesel = null;
       system.jump("prompt");
       return;
     default:
-      note(`unknown command /${name}`, "error");
+      note(`Unknown command: ${line}`, "error");
   }
+}
+
+function clock(ms) {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function runPiece(system) {
   if (!system.readFile(S.file)) { note("nothing to run yet", "error"); return; }
   S.pieceDirty = false;
   system.jump(S.slug);
+}
+
+function submit(system, screen) {
+  const text = S.input.trim();
+  setInput("");
+  if (!text) return;
+  if (S.history[S.history.length - 1] !== text) S.history.push(text);
+  S.historyIndex = S.history.length;
+  if (text.startsWith("/")) { command(text, system, screen); return; }
+  if (S.status === "error" || S.status === "closed" || !S.bridge) {
+    note("the engine is not running · /retry or /new", "error");
+    setInput(text);
+    return;
+  }
+  S.scroll = 0;
+  closeAgent();
+  note(text, "user");
+  if (busy() || !S.bridge.ready || S.queued.length) { S.queued.push(text); return; }
+  startTurn(text);
+}
+
+function setInput(value) {
+  S.input = value;
+  S.cursor = value.length;
+}
+
+function answer(decision) {
+  const pending = S.approvals.shift();
+  if (!pending) return;
+  S.bridge.approve(pending.id, decision);
+  S.approvalIndex = 0;
+  flash(`${decision === "decline" ? "denied" : "allowed"} · ${clip(pending.label.replace(/\s+/g, " "), 60)}`);
+  S.status = S.approvals.length ? "approval" : busy() ? "tool" : "ready";
 }
 
 function act({ event: e, system, screen }) {
@@ -337,54 +593,71 @@ function act({ event: e, system, screen }) {
   if (!e.is("keyboard:down") || !S) return;
   const key = e.key;
 
-  if (key === "escape") { system.jump("prompt"); return; }
-
-  if (ctrlHeld && key === "c") {
-    if (S.bridge && S.bridge.busy) { S.bridge.interrupt(); note("stopping…", "soft"); }
-    else { S.input = ""; S.cursor = 0; }
-    return;
+  // The question takes the page: arrows choose, enter answers, esc says no;
+  // y, a and n still answer directly.
+  if (S.approvals.length && !ctrlHeld) {
+    const choices = ["accept", "acceptForSession", "decline"];
+    if (key === "arrowup" || key === "arrowdown") { S.approvalIndex = (S.approvalIndex + (key === "arrowup" ? 2 : 1)) % 3; return; }
+    if (key === "enter" || key === "return") { answer(choices[S.approvalIndex]); return; }
+    if (key === "escape") { answer("decline"); return; }
   }
 
-  // An approval owns the keyboard until it is answered.
-  if (S.pending && S.input === "") {
-    const decision = key === "y" ? "accept" : key === "a" ? "acceptForSession" : key === "n" ? "decline" : null;
-    if (decision) {
-      const pending = S.pending;
-      S.pending = null;
-      S.bridge.approve(pending.id, decision);
-      note(`${decision === "decline" ? "denied" : "allowed"} ${pending.label}`, "soft");
+  if (key === "escape") { system.jump("prompt"); return; }
+
+  if (ctrlHeld) {
+    if (key === "c") {
+      if (S.approvals.length) {
+        // A question still on screen is answered no; the turn it belongs to stops.
+        while (S.approvals.length) answer("decline");
+      }
+      if (busy()) {
+        S.stoppedByUser = true;
+        S.status = "interrupting";
+        S.bridge.interrupt();
+      } else if (S.queued.length) S.queued = [];
+      else if (S.input) setInput("");
+      else flash("/quit ends the session · esc goes to the prompt");
       return;
     }
+    if (key === "d") { if (!S.input) command("/quit", system, screen); return; }
+    if (key === "a") { S.cursor = 0; return; }
+    if (key === "e") { S.cursor = S.input.length; return; }
+    if (key === "u") { setInput(""); return; }
+    if (key === "k") { S.input = S.input.slice(0, S.cursor); return; }
+    return; // the system keeps ctrl with = - 0 for pixel size
+  }
+
+  // An approval owns y / a / n until it is answered.
+  if (S.approvals.length && S.input === "") {
+    const decision = key === "y" ? "accept" : key === "a" ? "acceptForSession" : key === "n" ? "decline" : null;
+    if (decision) { answer(decision); return; }
   }
 
   if (key === "tab") { runPiece(system); return; }
-  if (key === "arrowup") { S.scroll += 1; return; }
-  if (key === "arrowdown") { S.scroll = Math.max(0, S.scroll - 1); return; }
-  if (key === "pageup") { S.scroll += 10; return; }
-  if (key === "pagedown") { S.scroll = Math.max(0, S.scroll - 10); return; }
-
-  if (key === "enter" || key === "return") {
-    const text = S.input.trim();
-    S.input = "";
-    S.cursor = 0;
-    if (!text) return;
-    if (text.startsWith("/")) { command(text, system, screen); return; }
-    if (!S.bridge || !S.bridge.ready) { note("the engine is still starting", "error"); return; }
-    if (S.bridge.busy) { note("wait for the turn to finish, or ctrl+c", "error"); return; }
-    closeAgent();
-    note(text, "user");
-    S.bridge.say(text);
+  if (key === "pageup") { S.scroll += Math.max(1, pageRows - 1); return; }
+  if (key === "pagedown") { S.scroll = Math.max(0, S.scroll - Math.max(1, pageRows - 1)); return; }
+  if (shiftHeld && key === "arrowup") { S.scroll += 1; return; }
+  if (shiftHeld && key === "arrowdown") { S.scroll = Math.max(0, S.scroll - 1); return; }
+  if (key === "arrowup") {
+    if (S.historyIndex > 0) setInput(S.history[--S.historyIndex]);
     return;
   }
+  if (key === "arrowdown") {
+    if (S.historyIndex < S.history.length - 1) setInput(S.history[++S.historyIndex]);
+    else { S.historyIndex = S.history.length; setInput(""); }
+    return;
+  }
+  if (key === "end") { if (S.input) S.cursor = S.input.length; else S.scroll = 0; return; }
+  if (key === "home") { S.cursor = 0; return; }
+  if (key === "arrowleft") { if (S.cursor > 0) S.cursor--; return; }
+  if (key === "arrowright") { if (S.cursor < S.input.length) S.cursor++; return; }
 
+  if (key === "enter" || key === "return") { submit(system, screen); return; }
   if (key === "backspace") {
     if (S.cursor > 0) { S.input = S.input.slice(0, S.cursor - 1) + S.input.slice(S.cursor); S.cursor--; }
     return;
   }
-  if (key === "arrowleft") { if (S.cursor > 0) S.cursor--; return; }
-  if (key === "arrowright") { if (S.cursor < S.input.length) S.cursor++; return; }
-  if (key === "home") { S.cursor = 0; return; }
-  if (key === "end") { S.cursor = S.input.length; return; }
+  if (key === "delete") { S.input = S.input.slice(0, S.cursor) + S.input.slice(S.cursor + 1); return; }
 
   let ch = null;
   if (key === "space") ch = " ";
@@ -397,55 +670,240 @@ function act({ event: e, system, screen }) {
 
 // ── drawing ─────────────────────────────────────────────────────────────
 
-function wrap(text, cols) {
+function clean(text) {
+  return String(text).replace(/\r/g, "").replace(/\t/g, "  ").replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "").replace(/[\t ]+$/gm, "").replace(/^\n+|\n+$/g, "");
+}
+
+function clip(text, cols) {
+  return text.length > cols ? text.slice(0, Math.max(0, cols - 1)) + "…" : text;
+}
+
+const mix = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+
+const TONES = {
+  heading: { rgb: C.highlight, bold: true },
+  bold: { bold: true },
+  code: { rgb: C.soft },
+  link: { rgb: C.soft, under: true },
+};
+
+// Lay spans back over a wrapped row as runs. A run with no rgb takes the
+// page's ink when drawn, since the page changes colour with the session.
+function runs(row, spans, base) {
   const out = [];
-  for (const para of String(text).split("\n")) {
-    let line = "";
-    for (const word of para.split(" ")) {
-      if (word.length > cols) {
-        if (line) { out.push(line); line = ""; }
-        for (let i = 0; i < word.length; i += cols) out.push(word.slice(i, i + cols));
+  const end = row.start + row.text.length;
+  let at = row.start;
+  for (const s of spans) {
+    if (s.end <= at || s.start >= end) continue;
+    const from = Math.max(at, s.start);
+    if (from > at) out.push({ text: row.text.slice(at - row.start, from - row.start), rgb: base });
+    const to = Math.min(end, s.end);
+    out.push({ text: row.text.slice(from - row.start, to - row.start), ...TONES[s.tone] });
+    at = to;
+  }
+  if (at < end) out.push({ text: row.text.slice(at - row.start), rgb: base });
+  return out;
+}
+
+// What pro does with each kind: your words in a pink outline, replies flush
+// on the page, a notice or an error behind a one-cell mark.
+const MARKS = { note: ["·", C.muted], soft: ["·", C.muted], error: ["!", C.error] };
+
+function entryRows(entry, cols) {
+  const key = `${entry.kind}:${cols}:${entry.text.length}`;
+  if (entry._key === key) return entry._rows;
+  const rows = [];
+  const text = clean(entry.text);
+  if (entry.kind === "user") {
+    const inner = Math.max(1, cols - 4);
+    const wrapped = wrapRows(text, inner);
+    const width = Math.min(inner, Math.max(1, ...wrapped.map((r) => r.text.length)));
+    let offset = 0;
+    rows.push({ box: "top", width });
+    for (const r of wrapped) { rows.push({ box: "row", width, typed: r.text, offset }); offset += r.text.length; }
+    rows.push({ box: "bottom", width });
+  } else if (entry.kind === "usage") {
+    for (const r of wrapRows(text, cols - 1)) rows.push({ runs: [{ text: " " + r.text, rgb: C.muted }] });
+  } else if (entry.kind === "agent") {
+    // Code fences stand on their own ground, the fence lines muted.
+    let fenced = false;
+    for (const part of text.split(/(^[ \t]*```[^\n]*$)/m)) {
+      if (/^[ \t]*```/.test(part)) {
+        fenced = !fenced;
+        rows.push({ runs: [{ text: part.trim(), rgb: C.muted }] });
         continue;
       }
-      const next = line ? line + " " + word : word;
-      if (next.length > cols) { out.push(line); line = word; }
-      else line = next;
+      const chunk = part.replace(/^\n|\n$/g, "");
+      if (!chunk && part !== text) continue;
+      if (fenced) {
+        for (const r of wrapRows(chunk, cols)) rows.push({ runs: [{ text: r.text, rgb: C.code }], ground: true });
+        continue;
+      }
+      const read = markdown(chunk);
+      for (const r of wrapRows(read.text, cols)) rows.push({ runs: runs(r, read.spans) });
     }
-    out.push(line);
+  } else {
+    const [mark, rgb] = MARKS[entry.kind] || MARKS.note;
+    wrapRows(text, cols - 2).forEach((r, i) => rows.push({ runs: [{ text: i ? "  " : `${mark} `, rgb }, { text: r.text, rgb: entry.kind === "error" ? C.error : C.muted }] }));
+  }
+  entry._key = key;
+  entry._rows = rows;
+  return rows;
+}
+
+// A run of typed lines is one outline: what you said before the machine
+// answered, together, rather than a stack of boxes.
+function grouped(entries) {
+  const out = [];
+  for (const e of entries) {
+    const last = out[out.length - 1];
+    if (e.kind === "user" && last && last.kind === "user") {
+      if (!last.merged) out[out.length - 1] = { kind: "user", text: last.text, merged: [last] };
+      const m = out[out.length - 1];
+      m.merged.push(e);
+      m.text += "\n" + e.text;
+      continue;
+    }
+    out.push(e);
   }
   return out;
 }
 
-// Turn the transcript into coloured lines, newest last.
-function layout(cols) {
-  const lines = [];
-  for (const entry of S.entries) {
-    if (entry.kind === "user") {
-      wrap(entry.text, cols - 2).forEach((l, i) => lines.push({ text: (i ? "  " : "> ") + l, rgb: PALETTE.text, mark: i ? null : PALETTE.prompt }));
-    } else if (entry.kind === "agent") {
-      wrap(entry.text, cols).forEach((l) => lines.push({ text: l, rgb: PALETTE.text }));
-    } else if (entry.kind === "tool") {
-      const verb = entry.tool === "file" ? "write" : entry.tool === "command" ? "$" : "·";
-      const tail = entry.status === "started" ? " …" : entry.status === "failed" ? " ✗" : "";
-      const rgb = entry.status === "failed" ? PALETTE.error : PALETTE.muted;
-      wrap(`${verb} ${entry.label}${tail}`, cols).forEach((l) => lines.push({ text: l, rgb }));
-    } else if (entry.kind === "error") {
-      wrap(entry.text, cols).forEach((l) => lines.push({ text: l, rgb: PALETTE.error }));
-    } else if (entry.kind === "soft") {
-      wrap(entry.text, cols).forEach((l) => lines.push({ text: l, rgb: PALETTE.soft }));
-    } else {
-      wrap(entry.text, cols).forEach((l) => lines.push({ text: l, rgb: PALETTE.muted }));
-    }
+function drawRuns(write, ink, line, list, x, y, page) {
+  for (const r of list) {
+    if (!r.text) continue;
+    ink(...(r.rgb || page));
+    write(r.text, { x, y, size: 1, font: FONT });
+    if (r.bold) write(r.text, { x: x + 1, y, size: 1, font: FONT });
+    if (r.under) line(x, y + 10, x + r.text.length * CW - 1, y + 10);
+    x += r.text.length * CW;
   }
-  return lines;
+  return x;
 }
 
-function paint({ wipe, ink, box, write, screen, system, wifi, paintCount }) {
+function modelLabel() {
+  if (S.backend === "ac") return `aesthetic · ${S.model.split("/").pop() || "automatic"}`;
+  // claude-opus-4-8 → Claude Opus 4.8, the catalog's display name.
+  const parts = S.model.split("-");
+  const words = [];
+  for (const p of parts) {
+    if (/^\d+$/.test(p) && /\d$/.test(words[words.length - 1] || "")) words[words.length - 1] += "." + p;
+    else words.push(/^\d/.test(p) ? p : p[0].toUpperCase() + p.slice(1));
+  }
+  return words.join(" ");
+}
+
+// Which of Slab's pages this session is on.
+function pageState() {
+  if (S.status === "error" || S.status === "closed") return "stale";
+  if (S.approvals.length) return "awaiting";
+  if (busy()) return "working";
+  return { completed: "complete", interrupted: "interrupted", failed: "stale" }[S.lastTurn] || "blank";
+}
+
+// The egg, drawn the way ProxCreatureFrames lights it, at badge size: a
+// shell that narrows toward the top, breathing, freckled, with a face that
+// sleeps, rests, works or waits. Its silhouette falls in the state colour.
+function drawEgg(ink, box, plot, cx, top, page, now) {
+  const { look } = S.egg;
+  const U = 15;
+  const mood = page.mood;
+  const energy = mood === "working" ? 1 : mood === "waiting" ? 0.75 : 0.35;
+  const period = mood === "working" ? 2400 : mood === "waiting" ? 3600 : 5000;
+  const t = (now % period) / period;
+  const a = t * Math.PI * 2;
+  const sx = 1 - Math.sin(a) * 0.012 * energy;
+  const sy = 1 + Math.sin(a) * 0.018 * energy;
+  const cy = top + 1.02 * U + Math.sin(a * 2) * 0.032 * energy * U;
+  const half = 1.02 * U * sy;
+  const light = [-0.45, 0.62, 0.64];
+  const span = (yy) => {
+    const v = (cy - yy) / half;
+    if (v <= -1 || v >= 1) return 0;
+    return look.width * U * sx * Math.sqrt(1 - v * v) * (1 - 0.2 * v);
+  };
+  // The shadow first: the same silhouette, down and to the right.
+  ink(...page.shadow);
+  for (let yy = Math.floor(cy - half); yy <= Math.ceil(cy + half); yy++) {
+    const w = span(yy);
+    if (w >= 0.5) box(Math.round(cx - w) + 1, yy + 3, Math.round(w * 2), 1);
+  }
+  for (let yy = Math.floor(cy - half); yy <= Math.ceil(cy + half); yy++) {
+    const w = span(yy);
+    if (w < 0.5) continue;
+    const v = (cy - yy) / half;
+    const x0 = Math.round(cx - w);
+    const x1 = Math.round(cx + w);
+    let runStart = x0;
+    let runLevel = -1;
+    for (let xx = x0; xx <= x1; xx++) {
+      const nx = (xx + 0.5 - cx) / w;
+      const nz = Math.sqrt(Math.max(0, 1 - nx * nx - v * v * 0.6));
+      const d = Math.max(0, nx * light[0] * 0.8 + v * light[1] + nz * light[2]);
+      const level = xx > x1 - 1 ? -2 : Math.min(5, Math.round((0.58 + 0.5 * d) * 5));
+      if (level !== runLevel || xx === x1) {
+        if (runLevel !== -1) {
+          const k = runLevel === -2 ? 0.55 : runLevel / 5;
+          ink(...look.shell.map((c) => Math.min(255, Math.round(c * k))));
+          box(runStart, yy, Math.max(1, xx - runStart + (xx === x1 ? 1 : 0)), 1);
+        }
+        runStart = xx;
+        runLevel = level;
+      }
+    }
+  }
+  const at = (ux, uy) => [Math.round(cx + ux * U * sx), Math.round(cy - uy * U * sy)];
+  ink(...look.accent);
+  for (const f of look.freckles) {
+    const [fx, fy] = at(f.x * 0.82, f.y);
+    if (Math.abs(fx - cx) < span(fy) - 1) plot(fx, fy);
+  }
+  // Eyes: open, blinking, or the two short lines of a sleeping egg.
+  const blink = Math.max(0, 1 - Math.abs(t - look.blinkAt) / 0.045);
+  const open = mood !== "sleeping" && blink < 0.5;
+  ink(...C.ink);
+  for (const sign of [-1, 1]) {
+    const [ex, ey] = at(sign * look.eyeSpread, 0.10);
+    if (open) {
+      box(ex - 1, ey - 2, 2, 3);
+      ink(255, 255, 255);
+      plot(ex - 1, ey - 2);
+      ink(...C.ink);
+    } else box(ex - 1, ey, 3, 1);
+  }
+  const [mx, my] = at(0, -0.2);
+  if (mood === "waiting") box(mx - 1, my - 1, 2, 2);
+  else { plot(mx - 2, my); plot(mx - 1, my + 1); plot(mx, my + 1); plot(mx + 1, my); }
+  return Math.ceil(cy + half) + 3;
+}
+
+// The name under it: white, in a dark keyline, its shadow in the state colour.
+function drawName(ink, write, text, cx, y, page) {
+  const x = Math.round(cx - (text.length * CW) / 2);
+  ink(...page.shadow);
+  for (const [dx, dy] of [[2, 1], [1, 2], [2, 2]]) write(text, { x: x + dx, y: y + dy, size: 1, font: FONT });
+  ink(20, 20, 20);
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]]) write(text, { x: x + dx, y: y + dy, size: 1, font: FONT });
+  ink(255, 255, 255);
+  write(text, { x, y, size: 1, font: FONT });
+}
+
+// `28.3s…`, and `· quiet 20s` once nothing has arrived for a while.
+function workingTimer(now) {
+  const t = S.turn;
+  if (!t) return "";
+  const quiet = Math.floor((now - t.lastEventAt) / 1000);
+  return `${((now - t.startedAt) / 1000).toFixed(1)}s…${quiet >= 15 && S.status !== "approval" ? ` · quiet ${quiet}s` : ""}`;
+}
+
+function paint({ wipe, ink, box, line, plot, write, screen, system, wifi }) {
   if (!S) return;
   frame++;
   SYS = system;
+  SCREEN = screen;
   const W = screen.width;
   const H = screen.height;
+  const now = Date.now();
 
   // Pump the bridge. Claude's lines are handed out once per paint, so every
   // paint reads them; the hosted engine polls its stream file on tick().
@@ -454,109 +912,208 @@ function paint({ wipe, ink, box, write, screen, system, wifi, paintCount }) {
     if (S.backend === "ac") {
       S.bridge.tick();
     } else if (pty) {
-      if (pty.lines && pty.lines.length) for (const line of pty.lines) S.bridge.feed(line);
+      if (pty.lines && pty.lines.length) for (const l of pty.lines) S.bridge.feed(l);
       if (pty.overflow) note("bridge output overflowed; a message was lost", "error");
       if (!pty.active && S.status !== "error" && S.status !== "closed") {
+        for (const event of S.bridge.take()) absorb(event);
         S.status = "closed";
         S.exitCode = pty.exitCode;
-        note(`engine bridge closed (${pty.exitCode}) · /new to restart`, "error");
+        S.turn = null;
+        note(`engine bridge closed (${pty.exitCode}) · /retry reconnects · /new starts over`, "error");
+        // Whatever the child said on its way out is the only explanation there is.
+        for (const l of S.logTail.slice(-3)) note(l, "soft");
+        console.log(`[aesel] bridge closed (${pty.exitCode}): ${S.logTail.join(" | ") || "no output"}`);
       }
     }
     for (const event of S.bridge.take()) absorb(event);
   }
 
-  wipe(...PALETTE.background);
-
-  // Header: who, which piece, which engine, and whether it is busy.
-  const top = 2;
-  let x = PAD;
-  if (S.handle) {
-    ink(...PALETTE.handle);
-    write("@" + S.handle, { x, y: top, size: 1, font: FONT });
-    x += (S.handle.length + 2) * CW;
-  }
-  ink(...PALETTE.highlight);
-  write(S.slug, { x, y: top, size: 1, font: FONT });
-  if (S.pieceDirty) {
-    ink(...PALETTE.soft);
-    write("· tab runs it", { x: x + (S.slug.length + 1) * CW, y: top, size: 1, font: FONT });
-  }
-
+  // The page eases toward its state's colour rather than snapping to it.
+  const page = PAGES[pageState()];
+  S.ground = S.ground ? mix(S.ground, page.bg, 0.12) : page.bg.slice();
+  wipe(...S.ground);
+  const X0 = 4;               // the terminal's first cell
+  const X1 = X0 + CW;         // where the page's words start
+  const cols = Math.max(20, Math.floor((W - X0 * 2) / CW) - 1);
+  const working = busy();
   const offline = wifi && !wifi.connected;
-  const statusWord = offline && S.status === "ready" ? "offline" : S.status;
-  const dot = S.status === "thinking" ? (paintCount % 40 < 20 ? PALETTE.highlight : PALETTE.soft)
-    : S.status === "ready" ? (offline ? PALETTE.highlight : PALETTE.status)
-    : S.status === "starting" ? PALETTE.soft
-    : PALETTE.error;
-  const modelShort = S.backend === "ac" ? `aesthetic ${acModelLabel(S.model)}` : S.model.replace(/^claude-/, "");
-  const right = `${modelShort} ${statusWord}`;
-  const rx = W - PAD - right.length * CW;
-  ink(...PALETTE.muted);
-  write(modelShort, { x: rx, y: top, size: 1, font: FONT });
-  ink(...dot);
-  write(statusWord, { x: rx + (modelShort.length + 1) * CW, y: top, size: 1, font: FONT });
 
-  // Prompt block at the bottom; an approval takes it over.
-  const promptH = CH + 4;
-  const promptY = H - promptH;
-  const cols = Math.max(10, Math.floor((W - PAD * 2) / CW));
+  // The bottom four rows, as pro.json lays them: gap, bar, gap, status.
+  const statusY = H - LH - 3;
+  const barY = statusY - 2 * LH;
+  const bodyBottom = barY - LH;
 
-  if (S.pending) {
-    ink(...PALETTE.highlight);
-    box(0, promptY, W, promptH);
-    ink(...PALETTE.text);
-    const verb = S.pending.kind === "file" ? "write" : "run";
-    const keys = "  y once · a always · n no";
-    const room = cols - verb.length - 1 - keys.length;
-    const label = S.pending.label.length > room ? S.pending.label.slice(0, Math.max(0, room - 1)) + "…" : S.pending.label;
-    write(`${verb} ${label}${keys}`, { x: PAD, y: promptY + 2, size: 1, font: FONT });
-  } else {
-    ink(...PALETTE.prompt);
-    box(0, promptY, W, promptH);
-    ink(...PALETTE.text);
-    // Keep the cursor in view when the input outgrows the row.
-    const visible = cols - 1;
-    let start = 0;
-    if (S.cursor > visible) start = S.cursor - visible;
-    const shown = S.input.slice(start, start + visible);
-    write(shown, { x: PAD, y: promptY + 2, size: 1, font: FONT });
-    if (paintCount % 60 < 30) {
-      const cx = PAD + (S.cursor - start) * CW;
-      ink(...PALETTE.text);
-      box(cx, promptY + 2, CW, CH);
-      const under = S.input[S.cursor];
-      if (under) { ink(...PALETTE.prompt); write(under, { x: cx, y: promptY + 2, size: 1, font: FONT }); }
-    }
-  }
-
-  // Transcript between header and prompt, bottom-aligned, scrolled back by S.scroll lines.
-  const bodyTop = top + CH + 4;
-  const bodyBottom = promptY - 2;
-  const rows = Math.max(1, Math.floor((bodyBottom - bodyTop) / CH));
-  const lines = layout(cols);
-  const maxScroll = Math.max(0, lines.length - rows);
-  if (S.scroll > maxScroll) S.scroll = maxScroll;
-  const end = lines.length - S.scroll;
-  const begin = Math.max(0, end - rows);
-  let y = bodyBottom - (end - begin) * CH;
-  for (let i = begin; i < end; i++) {
-    const l = lines[i];
-    if (l.mark) {
-      ink(...l.mark);
-      write(">", { x: PAD, y, size: 1, font: FONT });
-      ink(...l.rgb);
-      write(l.text.slice(2), { x: PAD + 2 * CW, y, size: 1, font: FONT });
+  // ── the status line: handle · workspace · model · activity, spend flush right
+  const account = S.handle ? `@${S.handle}` : "";
+  const spend = S.spend.tokens ? `${compact(S.spend.tokens)} tok${S.spend.usd > 0 ? ` · ${dollars(S.spend.usd)}` : ""}` : "";
+  const flashing = S.flash && S.flash.until > now ? S.flash.text : "";
+  const guy = GUY_DANCE[Math.floor(now / 320) % GUY_DANCE.length];
+  const activity = working ? `${guy} ${workingTimer(now)}`
+    : flashing || (S.status === "starting" ? "connecting…" : offline ? "offline"
+      : S.status === "closed" || S.status === "error" ? "engine closed · /retry"
+      : S.scroll ? `${S.scroll} lines above · End latest` : "");
+  const facts = [
+    ["handle", account],
+    ["workspace", clip(S.file, Math.max(8, Math.floor(cols / 3)))],
+    ["model", modelLabel()],
+    ["activity", activity],
+  ];
+  // Short of room, the place goes first, then the model, then the handle.
+  const keep = new Set(facts.map(([n]) => n));
+  const reserve = spend ? spend.length + 3 : 0;
+  const measure = () => facts.reduce((n, [name, text]) => (keep.has(name) && text ? n + text.length + (n ? SEP.length : 0) : n), 1) + reserve;
+  for (const name of ["workspace", "model", "handle"]) if (measure() > cols) keep.delete(name);
+  let x = X1;
+  let first = true;
+  for (const [name, text] of facts) {
+    if (!keep.has(name) || !text) continue;
+    if (!first) { ink(...C.muted); write(SEP, { x, y: statusY, size: 1, font: FONT }); x += SEP.length * CW; }
+    first = false;
+    if (name === "handle") {
+      // While the machine works the handle breathes toward the muted ink.
+      const k = working ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin((now / 3200) * Math.PI * 2)) : 1;
+      for (let i = 0; i < text.length; i++) {
+        ink(...mix(C.muted, S.colors[i] || C.soft, k));
+        write(text[i], { x: x + i * CW, y: statusY, size: 1, font: FONT });
+      }
+    } else if (name === "activity" && working) {
+      // The little guy dances at the head of the count.
+      for (let i = 0; i < guy.length; i++) {
+        ink(...(i < 2 ? [255, 130, 200] : guy[i] === ">" ? [255, 218, 120] : [120, 220, 255]));
+        write(guy[i], { x: x + i * CW, y: statusY, size: 1, font: FONT });
+      }
+      ink(...C.status);
+      write(text.slice(guy.length), { x: x + guy.length * CW, y: statusY, size: 1, font: FONT });
     } else {
-      ink(...l.rgb);
-      write(l.text, { x: PAD, y, size: 1, font: FONT });
+      ink(...(name === "model" ? C.soft : name === "workspace" ? C.muted
+        : offline || S.status === "closed" || S.status === "error" ? C.error : S.status === "starting" ? C.run : C.status));
+      write(text, { x, y: statusY, size: 1, font: FONT });
     }
-    y += CH;
+    x += text.length * CW;
   }
-  if (S.scroll > 0) {
-    ink(...PALETTE.muted);
-    const tag = `↓ ${S.scroll}`;
-    write(tag, { x: W - PAD - tag.length * CW, y: bodyBottom - CH, size: 1, font: FONT });
+  if (spend && x + (3 + spend.length) * CW <= X0 + (cols + 1) * CW) {
+    ink(...C.muted);
+    write(spend, { x: X0 + (cols + 1 - spend.length) * CW, y: statusY, size: 1, font: FONT });
   }
+
+  // ── the bar: the line being typed, from the first cell, under a block cursor.
+  const pending = S.approvals[0];
+  if (pending) {
+    ink(...C.bar);
+    box(0, barY - 1, W, LH);
+  } else {
+    const room = cols;
+    const start = Math.max(0, S.cursor - room + 1);
+    const lead = start > 0 ? "‹" : "";
+    const shown = S.input.slice(start, start + room - lead.length);
+    ink(...page.text);
+    write(lead + shown, { x: X0, y: barY, size: 1, font: FONT });
+    const cx = X0 + (lead.length + S.cursor - start) * CW;
+    ink(...page.cursor);
+    box(cx, barY - 1, CW, LH);
+    const under = S.input[S.cursor];
+    if (under) { ink(...S.ground); write(under, { x: cx, y: barY, size: 1, font: FONT }); }
+  }
+
+  // ── the conversation, bottom-aligned above the bar, with the live feed under it.
+  const feedSize = Math.min(3, Math.max(1, Math.floor(H / LH / 6)));
+  const feed = working && S.turn ? S.turn.feed.slice(-feedSize) : [];
+  const rows = [];
+  const list = grouped(S.entries.filter((e) => e.kind !== "tool"));
+  let lastTyped = -1;
+  list.forEach((e, i) => { if (e.kind === "user") lastTyped = i; });
+  list.forEach((e, i) => {
+    for (const r of entryRows(e, cols)) rows.push(working && i === lastTyped && r.typed !== undefined ? { ...r, wave: true } : r);
+  });
+  const fit = Math.max(1, Math.floor((bodyBottom - 2) / LH) - feed.length);
+  pageRows = fit;
+  // Scrolled back, new rows arriving below keep the view where it was.
+  if (S.scroll > 0 && rows.length > S.lastTotal) S.scroll += rows.length - S.lastTotal;
+  S.lastTotal = rows.length;
+  S.scroll = Math.min(S.scroll, Math.max(0, rows.length - fit));
+
+  if (pending) {
+    drawApproval(ink, box, write, line, pending, X1, cols, 2, bodyBottom, page);
+  } else {
+    const end = rows.length - S.scroll;
+    const begin = Math.max(0, end - fit);
+    let y = bodyBottom - (end - begin + feed.length) * LH;
+    const head = Math.floor(now / 120);
+    for (let i = begin; i < end; i++) {
+      drawRow(ink, box, line, write, rows[i], X1, y, page, cols, head);
+      y += LH;
+    }
+    for (const r of feed) {
+      const mark = r.status === "failed" ? "!" : r.status === "done" ? "·" : "›";
+      ink(...(r.status === "failed" ? C.error : r.status === "done" ? C.muted : C.inbox));
+      write(clip(`${mark} ${r.text}`, cols), { x: X1, y: y + 1, size: 1, font: FONT });
+      y += LH;
+    }
+  }
+
+  // ── the egg and its name, in the corner Slab gives them on the Mac.
+  const ecx = W - 26;
+  const nameY = drawEgg(ink, box, plot, ecx, 6, page, now);
+  drawName(ink, write, S.egg.name, ecx, nameY, page);
+}
+
+function drawRow(ink, box, line, write, r, x, y, page, cols, head) {
+  if (r.box) {
+    // The outline is drawn, not typed: box-drawing glyphs from the fallback
+    // face are 8 wide and would not meet in 6-wide cells.
+    const left = x + CW / 2;
+    const right = x + (r.width + 3) * CW + CW / 2;
+    const mid = y + Math.floor(LH / 2);
+    ink(...C.prompt);
+    if (r.box === "top") { line(left + 2, mid, right - 2, mid); line(left, mid + 2, left + 1, mid + 1); line(right, mid + 2, right - 1, mid + 1); line(left, mid + 2, left, y + LH); line(right, mid + 2, right, y + LH); }
+    else if (r.box === "bottom") { line(left + 2, mid, right - 2, mid); line(left, mid - 2, left + 1, mid - 1); line(right, mid - 2, right - 1, mid - 1); line(left, y, left, mid - 2); line(right, y, right, mid - 2); }
+    else {
+      line(left, y, left, y + LH - 1);
+      line(right, y, right, y + LH - 1);
+      const tx = x + 2 * CW;
+      if (!r.wave) { ink(...page.text); write(r.typed, { x: tx, y: y + 1, size: 1, font: FONT }); return; }
+      // The shimmer: a spark three letters wide travelling through what you
+      // said while the machine has the floor.
+      const spark = [C.prompt, C.highlight, C.prompt];
+      for (let i = 0; i < r.typed.length; i++) {
+        const d = r.offset + i - head % Math.max(1, r.offset + r.typed.length + 3);
+        ink(...(d >= -2 && d <= 0 ? spark[d + 2] : page.text));
+        write(r.typed[i], { x: tx + i * CW, y: y + 1, size: 1, font: FONT });
+      }
+    }
+    return;
+  }
+  if (r.ground) {
+    ink(...C.ground);
+    box(x - 2, y, cols * CW + 4, LH);
+  }
+  drawRuns(write, ink, line, r.runs, x, y + 1, page.text);
+}
+
+// The question, centred, with its three answers under it; the one in hand
+// wears the block, and y, a and n follow each answer for the hand that knows them.
+function drawApproval(ink, box, write, line, pending, x0, cols, top, bottom, page) {
+  const inner = Math.min(cols - 4, 76);
+  const subject = wrapRows(clean(pending.label) || "requested action", inner).map((r) => r.text);
+  const choices = [["Allow once", "y"], ["Allow every time this session", "a"], ["Deny", "n"]];
+  const count = 1 + 1 + subject.length + 1 + choices.length;
+  let y = top + Math.max(0, Math.floor(((bottom - top) / LH - count) / 2)) * LH;
+  const left = x0 + Math.max(0, Math.floor((cols - inner) / 2)) * CW;
+  drawRuns(write, ink, line, [{ text: "allow?", rgb: C.highlight, bold: true }], left, y + 1, page.text);
+  y += 2 * LH;
+  for (const l of subject) { ink(...page.text); write(l, { x: left, y: y + 1, size: 1, font: FONT }); y += LH; }
+  y += LH;
+  choices.forEach(([label, key], i) => {
+    const text = ` ${label} `;
+    if (i === S.approvalIndex) {
+      ink(...C.prompt);
+      box(left, y, text.length * CW, LH);
+      drawRuns(write, ink, line, [{ text, rgb: C.text, bold: true }], left, y + 1, page.text);
+    } else drawRuns(write, ink, line, [{ text, rgb: C.soft }], left, y + 1, page.text);
+    ink(...C.muted);
+    write(`  ${key}`, { x: left + text.length * CW, y: y + 1, size: 1, font: FONT });
+    y += LH;
+  });
 }
 
 function leave() {
