@@ -42,5 +42,11 @@ const backup = join(here, `theme.liquid.${live.id}.${new Date().toISOString().re
 writeFileSync(backup, before);
 console.log(`backup → ${backup}`);
 await api(`/themes/${live.id}/assets.json`, { method: "PUT", body: JSON.stringify({ asset: { key: KEY, value: after } }) });
-const check = await api(`/themes/${live.id}/assets.json?asset[key]=${encodeURIComponent(KEY)}`);
-console.log(check.asset.value.includes(MARK) ? "✓ installed on the live theme" : "✕ write did not stick");
+// Shopify's asset reads lag a write by a few seconds, so check a few times.
+for (let attempt = 0; attempt < 6; attempt++) {
+  if (attempt) await new Promise(r => setTimeout(r, 2000));
+  const check = await api(`/themes/${live.id}/assets.json?asset[key]=${encodeURIComponent(KEY)}`);
+  if (check.asset.value.includes(MARK)) { console.log("✓ installed on the live theme"); process.exit(0); }
+}
+console.log("✕ the write did not show up after 10 seconds; rerun without --apply to check again");
+process.exitCode = 1;
