@@ -4164,11 +4164,14 @@ static JSValue js_fetch_post(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (bf) { fputs(body, bf); fclose(bf); }
 
     // Build header flags by parsing simple JSON {"key":"value",...}
-    // We build a file of -H flags to avoid shell escaping nightmares
+    // into a curl config file (-K) to avoid shell escaping nightmares. A
+    // config line is `header = "Name: value"`; the old two-line "-H\nvalue"
+    // form is not config syntax, and curl rejected the file (exit 26) on
+    // every request that carried headers.
     FILE *hf = fopen("/tmp/ac_fetch_headers.txt", "w");
     if (hf) {
         // Always include Content-Type
-        fprintf(hf, "-H\nContent-Type: application/json\n");
+        fprintf(hf, "header = \"Content-Type: application/json\"\n");
         if (headers_json) {
             // Simple JSON parser: find "key":"value" pairs
             const char *p = headers_json;
@@ -4184,7 +4187,17 @@ static JSValue js_fetch_post(JSContext *ctx, JSValueConst this_val, int argc, JS
                 int klen = (int)(ke - kq - 1);
                 int vlen = (int)(ve - vq - 1);
                 if (klen > 0 && klen < 256 && vlen > 0 && vlen < 2048) {
-                    fprintf(hf, "-H\n%.*s: %.*s\n", klen, kq + 1, vlen, vq + 1);
+                    fputs("header = \"", hf);
+                    for (const char *c = kq + 1; c < ke; c++) {
+                        if (*c == '"' || *c == '\\') fputc('\\', hf);
+                        fputc(*c, hf);
+                    }
+                    fputs(": ", hf);
+                    for (const char *c = vq + 1; c < ve; c++) {
+                        if (*c == '"' || *c == '\\') fputc('\\', hf);
+                        fputc(*c, hf);
+                    }
+                    fputs("\"\n", hf);
                 }
                 p = ve + 1;
             }

@@ -161,8 +161,8 @@ let perKeyRecording = null; // key currently recording in per-key mode
 // Backspace clears all holds.
 let recitalMode = false; // F12: hide all UI, show only colored backdrops
 // F11: tent mode — the laptop folded to face an audience. The picture turns
-// 180° (system.setDisplayFlip) and the screen shows the player's keyboard as
-// the audience sees it across the tent, each key carrying its note.
+// 180° (system.setDisplayFlip) and the screen shows the laptop keyboard,
+// each key carrying its note, upright for the audience.
 let tentMode = false;
 let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
@@ -2878,9 +2878,9 @@ const LAPTOP_ROWS = [
 ];
 const KEY_GLYPH = { backspace: "\u232b", tab: "\u21e5", caps: "\u21ea", enter: "\u23ce", shift: "\u21e7", space: "" };
 
-// The player's keyboard as the audience sees it across a tent: turned 180°,
-// so the space bar is nearest the top and Q sits on the right. Labels stay
-// upright. A note key wears its colour and lights while it sounds.
+// The player's keyboard, drawn as a normal laptop keyboard for the audience
+// (tent mode flips the whole screen to face them). A note key wears its
+// colour and lights while it sounds.
 function paintAudienceKeyboard(ink, box, write, screen) {
   const w = screen.width, h = screen.height;
   const margin = Math.max(6, Math.floor(w * 0.03));
@@ -2893,8 +2893,7 @@ function paintAudienceKeyboard(ink, box, write, screen) {
     for (const [key, span] of row) {
       const kw = span * unit;
       if (key) {
-        // Lay out as the player sees it, then turn the whole board 180°.
-        const px = Math.round(w - x - kw), py = top + (4 - r) * keyH;
+        const px = Math.round(x), py = top + r * keyH;
         const bw = Math.round(kw) - gap, bh = keyH - gap;
         const note = KEY_TO_NOTE[key];
         if (note) {
