@@ -104,6 +104,11 @@ if [ "${AC_NO_AUTO_DEPLOY:-}" != "1" ] && [ "$CURRENT_BRANCH" = "main" ]; then
         while :; do
           rm -f "$PENDING"
           printf "\n=== %s commit=%s ===\n" "$(date -Iseconds)" "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" >> "$LOG"
+          # Other machines push to the knot too: rebase onto its main first.
+          git -C "$REPO_ROOT" fetch -q origin main >> "$LOG" 2>&1 || true
+          if ! git -C "$REPO_ROOT" merge-base --is-ancestor origin/main main 2>/dev/null; then
+            git -C "$REPO_ROOT" rebase -q --autostash origin/main >> "$LOG" 2>&1 || { git -C "$REPO_ROOT" rebase --abort 2>/dev/null; echo "⚠ rebase onto origin/main failed — resolve by hand, then commit again" >> "$LOG"; break; }
+          fi
           if git -C "$REPO_ROOT" push origin main >> "$LOG" 2>&1; then
             "$REPO_ROOT/slab/bin/ac-deploy" >> "$LOG" 2>&1 || echo "⚠ ac-deploy failed" >> "$LOG"
           else
