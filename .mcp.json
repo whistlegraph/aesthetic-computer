@@ -14,13 +14,6 @@
         "xbox/live/coach.mjs"
       ]
     },
-    "illy": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "plugins/illy/scripts/illy-mcp.mjs"
-      ]
-    },
     "slack": {
       "type": "stdio",
       "command": "bash",
@@ -35,60 +28,11 @@
         "slab/bin/instagram-mcp.mjs"
       ]
     },
-    "dm": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/dm-mcp.mjs"
-      ]
-    },
     "photo": {
       "type": "stdio",
       "command": "node",
       "args": [
         "slab/bin/photo-mcp.mjs"
-      ]
-    },
-    "dmgify": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/dmgify-mcp.mjs"
-      ]
-    },
-    "jukewizard": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "juke-wizard/bin/jukewizard-mcp.mjs"
-      ]
-    },
-    "sweep": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "toolchain/mcp/sweep-mcp.mjs"
-      ]
-    },
-    "x": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/x-mcp.mjs"
-      ]
-    },
-    "roblox": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "toolchain/robloxplorer/testing-mcp.mjs"
-      ]
-    },
-    "aesel": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/aesel-mcp.mjs"
       ]
     },
     "oskiewar-stage": {
@@ -99,26 +43,6 @@
       "command": "node",
       "args": [
         "toolchain/mcp/ac-venue-mcp.mjs"
-      ]
-    },
-    "oskiewar": {
-      "command": "node",
-      "args": [
-        "toolchain/mcp/oskiewar-mcp.mjs"
-      ]
-    },
-    "analytics": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "toolchain/mcp/analytics-mcp.mjs"
-      ]
-    },
-    "crypto": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "toolchain/mcp/crypto-mcp.mjs"
       ]
     },
     "choir": {

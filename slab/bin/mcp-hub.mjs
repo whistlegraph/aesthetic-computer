@@ -1,18 +1,26 @@
 #!/usr/bin/env node
 // mcp-hub.mjs — one copy of each stdio MCP server, shared over HTTP.
 //
-// Every Claude session spawns its own copy of every stdio server in the
-// project's .mcp.json. With a dozen servers and six sessions that is seventy
-// node processes on an 8 GB machine, and the machine swaps. The servers named
-// below keep no per-session state (they wrap CLIs and APIs), so one copy can
-// answer everyone: this daemon starts each on first use, serves it at
-// http://127.0.0.1:<port>/mcp/<name>, and lets it go after it has sat idle.
+// Every Claude session spawns its own copy of every stdio server it is
+// given. With a dozen servers and six sessions that is seventy node
+// processes on an 8 GB machine, and the machine swaps. The servers in
+// toolchain/mcp/hub-servers.json keep no per-session state (they wrap CLIs
+// and APIs), so one copy can answer everyone: this daemon starts each on
+// first use, serves it at http://127.0.0.1:<port>/mcp/<name>, and lets it go
+// after it has sat idle.
 //
+// Those servers are deliberately NOT in .mcp.json. Newer Claude Code flags a
+// name defined at project scope and again at local scope, so each machine
+// registers them once, at local scope:
+//
+//   node slab/bin/mcp-hub.mjs [--port 7788]       run the hub (launchd does this)
+//   node slab/bin/mcp-hub.mjs --register          point Claude (and Codex) at the hub
+//   node slab/bin/mcp-hub.mjs --register --stdio  no hub here: one process per session
+//
+// toolchain/mcp/install-daemons.sh installs the hub and runs --register.
 // Servers that seat or claim a session (acin, the coaches, venue) are not
-// here and stay per-session stdio.
-//
-//   node slab/bin/mcp-hub.mjs [--port 7788]
-import { spawn } from "node:child_process";
+// here and stay per-session stdio in .mcp.json.
+import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -20,18 +28,43 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const PORT = Number(process.argv[process.argv.indexOf("--port") + 1]) || 7788;
+const flag = (name) => process.argv.indexOf(name);
+// --http is the installer's spelling (install-daemons.sh write_plist).
+const PORT = Number(process.argv[flag("--port") + 1] || (flag("--http") > 0 ? process.argv[flag("--http") + 1] : 0)) || 7788;
 const IDLE_MS = 30 * 60 * 1000;
 const CALL_MS = 5 * 60 * 1000;
 
-export const SHARED = [
-  "aesel", "dmgify", "oskiewar", "crypto", "analytics", "x",
-  "jukewizard", "roblox", "sweep", "illy",
-];
-
 function specs() {
-  const servers = JSON.parse(readFileSync(join(REPO, ".mcp.json"), "utf8")).mcpServers || {};
-  return Object.fromEntries(SHARED.filter((name) => servers[name]?.command).map((name) => [name, servers[name]]));
+  return JSON.parse(readFileSync(join(REPO, "toolchain/mcp/hub-servers.json"), "utf8")).mcpServers || {};
+}
+export const SHARED = Object.keys(specs());
+
+// Point this machine's Claude (local scope, this checkout) and Codex at the
+// hub, or at plain per-session stdio when the machine runs no hub.
+// Remove-then-add is idempotent.
+function register({ stdio = false } = {}) {
+  const has = (cmd) => spawnSync("sh", ["-c", `command -v ${cmd}`]).status === 0;
+  const run = (cmd, args) => spawnSync(cmd, args, { cwd: REPO, encoding: "utf8" });
+  for (const [name, spec] of Object.entries(specs())) {
+    const url = `http://127.0.0.1:${PORT}/mcp/${name}`;
+    const local = { type: "stdio", command: spec.command, args: spec.args.map((arg) => arg.endsWith(".mjs") ? join(REPO, arg) : arg) };
+    if (has("claude")) {
+      run("claude", ["mcp", "remove", name, "--scope", "local"]);
+      const added = stdio ? run("claude", ["mcp", "add-json", "--scope", "local", name, JSON.stringify(local)])
+        : run("claude", ["mcp", "add", "--transport", "http", "--scope", "local", name, url]);
+      console.log(`${added.status === 0 ? "✓" : "✗"} claude ${name} → ${stdio ? "stdio" : url}${added.status ? ` (${added.stderr.trim()})` : ""}`);
+    }
+    if (has("codex")) {
+      run("codex", ["mcp", "remove", name]);
+      const added = stdio ? run("codex", ["mcp", "add", name, "--", local.command, ...local.args]) : run("codex", ["mcp", "add", name, "--url", url]);
+      console.log(`${added.status === 0 ? "✓" : "✗"} codex  ${name} → ${stdio ? "stdio" : url}`);
+    }
+  }
+}
+
+if (process.argv.includes("--register")) {
+  register({ stdio: process.argv.includes("--stdio") });
+  process.exit(0);
 }
 
 // One child per server. Requests from every client are renumbered on the way

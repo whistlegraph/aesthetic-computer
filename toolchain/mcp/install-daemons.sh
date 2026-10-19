@@ -23,13 +23,16 @@
 #   instagram-mcp → http://127.0.0.1:7780/mcp
 #   aesel-mcp → http://127.0.0.1:7781/mcp
 #   domains-mcp → http://127.0.0.1:7782/mcp
+#   mcp-hub    → http://127.0.0.1:7788/mcp/<name> for every server in
+#                toolchain/mcp/hub-servers.json (one shared copy each)
 #
 # This script also POINTS Claude and Codex at the daemons. Claude gets same-name
 # local-scope entries that shadow the stdio ones in .mcp.json; Codex gets its
 # user-level MCP entries via `codex mcp add --url`.
 #
-# The stdio entries in .mcp.json stay as the fallback: a box without daemons
-# (or a session outside this repo) still works, just at one process per session.
+# Daemon and hub servers are NOT in .mcp.json (newer Claude Code flags a name
+# defined at project and local scope with different endpoints). A box without
+# daemons registers plain stdio instead: node slab/bin/mcp-hub.mjs --register --stdio
 #
 # Idempotent: re-running rewrites the plists, restarts the daemons, and
 # re-points Claude at them.
@@ -108,7 +111,7 @@ domains 7782 toolchain/domains/domains-mcp.mjs
 ROWS
 }
 
-if [ -n "$ONLY" ] && [ "$ONLY" != grafana ] && ! servers | awk '{print $1}' | grep -qx "$ONLY"; then
+if [ -n "$ONLY" ] && [ "$ONLY" != grafana ] && [ "$ONLY" != hub ] && ! servers | awk '{print $1}' | grep -qx "$ONLY"; then
   echo "Unknown or unavailable MCP server: $ONLY" >&2
   exit 2
 fi
@@ -308,6 +311,13 @@ while read -r name port script; do
   fi
 done <<<"$(servers)"
 
+# The hub: one shared copy of each stateless server in hub-servers.json.
+if selected hub; then
+  write_plist hub "computer.aesthetic.mcp-hub" "$REPO/slab/bin/mcp-hub.mjs" 7788
+  echo "✓ mcp-hub → 127.0.0.1:7788/mcp/<name>"
+  "$NODE" "$REPO/slab/bin/mcp-hub.mjs" --register | sed 's/^/  ↳ /'
+fi
+
 HAVE_GRAFANA=0
 if selected grafana; then
 if [ -x "$HOME/.local/bin/mcp-grafana-fuser" ] && [ -f "$HOME/.config/fuser/grafana.env" ]; then
@@ -363,6 +373,17 @@ while read -r name port script; do
     fail=1
   fi
 done <<<"$(servers)"
+
+if selected hub; then
+  i=0
+  while [ $i -lt 50 ]; do nc -z 127.0.0.1 7788 2>/dev/null && break; sleep 0.2; i=$((i+1)); done
+  if curl -s -m 5 http://127.0.0.1:7788/health 2>/dev/null | grep -q '"servers"'; then
+    echo "✓ mcp-hub answering on 7788"
+  else
+    echo "✗ mcp-hub NOT answering on 7788 — see /tmp/computer.aesthetic.mcp-hub.err"
+    fail=1
+  fi
+fi
 
 if [ "$HAVE_GRAFANA" = 1 ]; then
   i=0

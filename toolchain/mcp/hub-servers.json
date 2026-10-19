@@ -1,0 +1,68 @@
+{
+  "//": "Stateless MCP servers that slab/bin/mcp-hub.mjs serves once at http://127.0.0.1:7788/mcp/<name>. Not in .mcp.json: register them per machine with `node slab/bin/mcp-hub.mjs --register` (hub) or `--register --stdio` (no hub). toolchain/mcp/install-daemons.sh does the hub registration.",
+  "mcpServers": {
+    "dmgify": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/dmgify-mcp.mjs"
+      ]
+    },
+    "oskiewar": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/oskiewar-mcp.mjs"
+      ]
+    },
+    "crypto": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/crypto-mcp.mjs"
+      ]
+    },
+    "analytics": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/analytics-mcp.mjs"
+      ]
+    },
+    "x": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/x-mcp.mjs"
+      ]
+    },
+    "jukewizard": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "juke-wizard/bin/jukewizard-mcp.mjs"
+      ]
+    },
+    "roblox": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/robloxplorer/testing-mcp.mjs"
+      ]
+    },
+    "sweep": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/sweep-mcp.mjs"
+      ]
+    },
+    "illy": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "plugins/illy/scripts/illy-mcp.mjs"
+      ]
+    }
+  }
+}
