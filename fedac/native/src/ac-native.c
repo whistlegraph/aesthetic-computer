@@ -2949,40 +2949,11 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Startup greeting — time-of-day + handle, or boot melody if no handle
-        if (f == 10) {
-            const char *at = strchr(boot_title, '@');
-            if (at && tts) {
-                // Personalized TTS greeting
-                char greet[256];
-                int hour = get_la_hour();
-                const char *tod;
-                if (hour >= 5 && hour < 12)       tod = "good morning";
-                else if (hour >= 12 && hour < 17)  tod = "good afternoon";
-                else                               tod = "good evening";
-                // The release announces itself after the greeting, so a boot
-                // says out loud which world you are in before the build name.
-                // Hyphens read as pauses, so the build name is spoken as words.
-                char name_tts[64];
-                strncpy(name_tts, ac_build_name, sizeof(name_tts) - 1);
-                name_tts[sizeof(name_tts) - 1] = 0;
-                for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
-                snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s! %s.",
-                         tod, at + 1, greet_city, AC_RELEASE_TAGLINE, name_tts);
-                tts_speak(tts, greet);
-            } else if (audio) {
-                // No handle — play a short ascending arpeggio (C E G C')
-                audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
-            }
-        }
-        // A handle-less device still names the release, spoken after the
-        // arpeggio has cleared rather than over it. Kept out of the greeting's
-        // else-chain above so it cannot swallow the arpeggio's first note.
-        if (f == 55 && !strchr(boot_title, '@') && tts) {
-            tts_speak(tts, AC_RELEASE_TAGLINE "!");
-        }
-        // Stagger the arpeggio notes across frames for no-handle boot
-        if (!strchr(boot_title, '@') && audio) {
+        // Startup chime (C E G C'), handle or not. The spoken greeting — time
+        // of day, handle, city, tagline, build name — talked over the start of
+        // every boot; the screen already says all of it.
+        if (audio) {
+            if (f == 10)  audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
             if (f == 20)  audio_synth(audio, WAVE_SINE, 659.3, 0.15, 0.6, 0.003, 0.10, 0.0);  // E5
             if (f == 30)  audio_synth(audio, WAVE_SINE, 784.0, 0.15, 0.6, 0.003, 0.10, 0.3);  // G5
             if (f == 42)  audio_synth(audio, WAVE_SINE, 1047.0, 0.20, 0.5, 0.003, 0.15, 0.0); // C6
