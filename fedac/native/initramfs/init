@@ -272,6 +272,39 @@ echo "=== DMESG (kernel ring) ===" >> $LOG
 if [ "$USB_MOUNTED" = "1" ]; then
     ( cat /dev/kmsg >> /mnt/kmsg.log 2>&1 ) &
     ( (cat /dev/kmsg & CAT_PID=$!; sleep 15; kill $CAT_PID 2>/dev/null) >> $LOG 2>&1 ) &
+    # FAT on a stick only reaches the media on sync, and a machine with a
+    # broken screen gets switched off at the power button — flush every 5s
+    # so the tail of kmsg.log survives that.
+    ( while :; do sleep 5; sync; done ) &
+    # Display state, once the panel has had time to come up: which machine,
+    # what each connector reports, the i915 parameters this boot used, and
+    # the firmware's VBT (panel timings and power-on sequence).
+    (
+        sleep 12
+        D=/mnt/display.log
+        {
+            echo "=== $(date 2>/dev/null) $(cat /etc/ac-build 2>/dev/null) ==="
+            echo "dmi: $(cat /sys/class/dmi/id/sys_vendor 2>/dev/null) / $(cat /sys/class/dmi/id/product_name 2>/dev/null) / bios $(cat /sys/class/dmi/id/bios_version 2>/dev/null)"
+            echo "cmdline: $(cat /proc/cmdline 2>/dev/null)"
+            for c in /sys/class/drm/card*-*; do
+                [ -d "$c" ] || continue
+                echo "$(basename $c): status=$(cat $c/status 2>/dev/null) enabled=$(cat $c/enabled 2>/dev/null) dpms=$(cat $c/dpms 2>/dev/null) modes=$(tr '\n' ' ' < $c/modes 2>/dev/null)"
+            done
+            for p in enable_dc enable_psr enable_fbc fastboot vbt_firmware; do
+                echo "i915.$p=$(cat /sys/module/i915/parameters/$p 2>/dev/null)"
+            done
+            for f in i915_display_info i915_power_domain_info i915_dmc_info; do
+                echo "--- $f"
+                cat /sys/kernel/debug/dri/0/$f 2>&1
+            done
+            echo "--- backlight"
+            for b in /sys/class/backlight/*; do
+                [ -d "$b" ] && echo "$(basename $b): $(cat $b/brightness 2>/dev/null)/$(cat $b/max_brightness 2>/dev/null) power=$(cat $b/bl_power 2>/dev/null)"
+            done
+        } >> $D 2>&1
+        cat /sys/kernel/debug/dri/0/i915_vbt > /mnt/vbt.bin 2>/dev/null
+        sync
+    ) &
 fi
 # Snapshot devices + sound AFTER the ring-buffer dump so we see the state
 # that existed when drivers had their chance to probe.

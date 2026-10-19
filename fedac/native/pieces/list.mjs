@@ -18,6 +18,7 @@ const TOOLS = [
   { name: "code",     desc: "AI assistant (Claude)" },
   { name: "terminal", desc: "shell (PTY)" },
   { name: "machine",  desc: "hardware info" },
+  { name: "controller", desc: "USB gamepad tester" },
   { name: "geo",      desc: "IP geolocation" },
   { name: "chat",     desc: "live chat room" },
   { name: "print",    desc: "printer / thermal" },
