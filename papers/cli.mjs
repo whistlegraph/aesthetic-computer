@@ -28,6 +28,10 @@ import {
   writeFileSync,
   statSync,
   readdirSync,
+  openSync,
+  readSync,
+  closeSync,
+  unlinkSync,
 } from "fs";
 import { join, basename } from "path";
 import { createSourceBundle } from "./source-bundle.mjs";
@@ -929,8 +933,27 @@ async function buildOne(entry) {
   }
 }
 
+// A PDF a reader can open: the header is there and it is not a stub.
+function usablePdf(path) {
+  if (!existsSync(path) || statSync(path).size < 1024) return false;
+  const head = Buffer.alloc(5);
+  const fd = openSync(path, "r");
+  const read = readSync(fd, head, 0, 5, 0);
+  closeSync(fd);
+  return read === 5 && head.toString("latin1") === "%PDF-";
+}
+
 function deployOne(entry) {
   if (!entry.pdfExists) return false;
+  // A failed xelatex run can leave an empty or truncated PDF beside the
+  // source. Deploying it would replace the good published copy — the oven
+  // rsyncs whatever lands here, without deleting — so keep the last good one,
+  // and drop a broken deployed copy so it stops being sent.
+  if (!usablePdf(entry.pdfFile)) {
+    console.warn(`  KEEP  ${basename(entry.sitePdf)} — ${basename(entry.pdfFile)} is not a usable PDF`);
+    if (existsSync(entry.sitePdf) && !usablePdf(entry.sitePdf)) unlinkSync(entry.sitePdf);
+    return false;
+  }
   mkdirSync(SITE_DIR, { recursive: true });
   copyFileSync(entry.pdfFile, entry.sitePdf);
   console.log(`  DEPLOY ${basename(entry.sitePdf)}`);
