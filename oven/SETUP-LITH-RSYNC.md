@@ -10,9 +10,10 @@ from="137.184.237.166",command="/usr/bin/rrsync /opt/ac/system/public/papers.aes
 
 So the key cannot open a shell, and `/` in an rsync destination *is* the
 papers directory — `papers-builder.mjs` sends to `/`. The deployed PDFs the
-mill builds, plus `index.html`, `feed.xml` and `rss.xml`, are untracked;
-the PDFs it does not build (references, JOSS, hand-placed variants) stay in
-git. rsync runs without `--delete`. Lith's webhook purges every paper file
+mill builds are untracked; the PDFs it does not build (references, JOSS,
+hand-placed variants) stay in git. `index.html`, `feed.xml` and `rss.xml`
+stay in git too — publish edits the index in place — and the oven commits
+them with its metadata. rsync runs without `--delete`. Lith's webhook purges every paper file
 rsynced since the last oven metadata push (`.git/papers-purged-at`), since
 Cloudflare holds PDFs for four hours. The steps below are kept as history;
 step 2 there grants an unrestricted key and should not be repeated.

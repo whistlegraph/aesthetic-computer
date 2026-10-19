@@ -224,7 +224,12 @@ async function publishToLith(job) {
   await git(["config", "user.email", "oven@aesthetic.computer"]);
   await git(["config", "user.name", "Oven (aesthetic.computer)"]);
 
-  await git(["add", "papers/metadata.json", "papers/BUILDLOG.md"]).catch(() => {});
+  // The index and feeds ride along: publish edits index.html in place, so it
+  // has to stay in git, and lith's deploy resets to whatever git holds.
+  await git(["add", "papers/metadata.json", "papers/BUILDLOG.md",
+    "system/public/papers.aesthetic.computer/index.html",
+    "system/public/papers.aesthetic.computer/feed.xml",
+    "system/public/papers.aesthetic.computer/rss.xml"]).catch(() => {});
 
   const status = await git(["diff", "--cached", "--name-only"]);
   if (!status) {
