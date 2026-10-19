@@ -13,7 +13,11 @@ direct-download version. The full version stays at prompt.ac/menuband.
 
 ## 0. Where it stands
 
-**In preparation — v1.6.13 (build 176), 2026-10-15.** Build 175 was rejected
+**SUBMITTED — v1.6.13 (build 176), 2026-10-15, 20:12 UTC.** App Store
+Connect reports `WAITING_FOR_REVIEW`. Build
+`0853a10d-2c18-4b54-8b33-ac36393371db` replaces build 175 in submission
+`75d33fc0-cd70-4e76-9479-0be5aff24e41`; its rejected item was resolved
+before resubmission. Build 175 was rejected
 on September 24 under 2.1(a): closing the application window left no menu item
 to reopen it (MacBook Air M3, macOS 27.0). The store build now keeps a Dock icon
 and a Window → Open Menu Band command, opens its panel at launch, and handles

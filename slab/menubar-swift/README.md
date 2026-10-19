@@ -248,6 +248,22 @@ ac-ssh poorslice 'cd ~/aesthetic-computer/aesthetic-computer-vault &&
 
 `vault-tool unlock` skips files that already have plaintext, so a host with an old `.env` keeps it; compare the decrypted `.gpg` against the plaintext before trusting either.
 
+## Browser beacon (which machine is this Chrome on?)
+
+The Claude Chrome extension calls itself "Browser 1", and its only machine
+hint is the OS, which every fleet Mac shares. To find out where it really is,
+navigate the extension's tab to `http://127.0.0.1:5254/whoami?session=<id>`.
+Loopback resolves on whichever machine that Chrome runs on, and the page names
+that machine. The beacon listens on loopback only.
+
+A top-level navigation with no Referer and no `Sec-Fetch-User` (a typed URL,
+or the extension's own navigation) is recorded in
+`~/.config/slab/ledger/browser.json` and published in the ledger, so every
+menubar's Fleet & System menu shows `Claude Chrome: <host> · <ago>`. If the
+page doesn't load, that Chrome is on a machine without slab. Check before
+opening a page the user must act on, and open it on the user's own machine
+when the extension's Chrome is elsewhere.
+
 ## Fleet parity (same menu bar on every Mac)
 
 `slab/bin/menubar-parity.mjs` (`npm run menubar:parity -- <cmd>`) keeps

@@ -258,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // wedged Messages, Terminal, or system-metrics subprocess must not
         // take prox and the local ledger down with the UI refresh path.
         LedgerStore.shared.start()
+        BrowserBeacon.shared.start()
 
         do {
             try passphraseServer.start()
@@ -472,6 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Compositor zoom outlives us — never quit leaving the screen magnified.
         ZoomLens.zoomOut()
         passphraseServer.stop()
+        BrowserBeacon.shared.stop()
         ResourceGraph.shared.stop()
         LedgerStore.shared.stop()
         NotificationCenter.default.removeObserver(self)

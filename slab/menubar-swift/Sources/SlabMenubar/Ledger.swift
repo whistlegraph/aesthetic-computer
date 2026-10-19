@@ -64,6 +64,8 @@ struct Ledger: Codable {
     var updatedAt: Double
     var entries: [LedgerEntry]
     var loopboyProtocol: Int?
+    /// Where the Claude Chrome extension last checked in on this machine.
+    var browser: BrowserCheckin? = nil
 }
 
 final class LedgerStore {
@@ -466,7 +468,8 @@ final class LedgerStore {
 
         let ledger = Ledger(host: selfHost, ip: selfIP,
                             updatedAt: Date().timeIntervalSince1970 * 1000,
-                            entries: entries, loopboyProtocol: 2)
+                            entries: entries, loopboyProtocol: 2,
+                            browser: BrowserBeacon.local())
         guard let data = try? encoder.encode(ledger) else { return }
         try? data.write(to: URL(fileURLWithPath: Self.localFile), options: [.atomic])
         recordHistory(entries)

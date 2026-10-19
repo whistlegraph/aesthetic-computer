@@ -94,6 +94,7 @@ enum MenuBuilder {
         let fleet = NSMenu()
         fleet.addItem(buildSystem(state: state, target: target))
         fleet.addItem(buildTailnet(state: state, target: target))
+        fleet.addItem(info(browserLine()))
         fleet.addItem(buildGameMode(state: state, target: target))
         if state.deskflow.configured {
             fleet.addItem(buildDeskflow(state: state, target: target))
@@ -485,6 +486,14 @@ enum MenuBuilder {
 
         parent.submenu = sub
         return parent
+    }
+
+    /// Where the Claude Chrome extension last proved its machine via /whoami.
+    private static func browserLine() -> String {
+        guard let c = BrowserBeacon.latestInFleet() else { return "Claude Chrome: no check-in yet" }
+        let mins = Int(max(0, Date().timeIntervalSince1970 * 1000 - c.at) / 60_000)
+        let ago = mins < 1 ? "just now" : mins < 60 ? "\(mins)m ago" : mins < 1440 ? "\(mins / 60)h ago" : "\(mins / 1440)d ago"
+        return "Claude Chrome: \(c.host) · \(ago)"
     }
 
     private static func buildTailnet(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
