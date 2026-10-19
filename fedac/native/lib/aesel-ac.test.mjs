@@ -62,10 +62,10 @@ test("parseSse takes whole data lines only and leaves a torn tail for later", ()
 });
 
 test("models resolve by alias and label back", () => {
-  assert.equal(resolveAcModel("glm"), "z-ai/glm-4.6");
-  assert.equal(resolveAcModel(""), "z-ai/glm-4.6");
+  assert.equal(resolveAcModel("glm"), "z-ai/glm-5.3-flash");
+  assert.equal(resolveAcModel(""), "deepseek/deepseek-v4.1-flash");
   assert.equal(resolveAcModel("some/other"), "some/other");
-  assert.equal(acModelLabel("qwen/qwen3-coder"), "qwen");
+  assert.equal(acModelLabel("qwen/qwen3.7-plus"), "qwen");
   assert.equal(acModelLabel("x/y-1"), "y-1");
   assert.equal(errorMessage('{"error":{"message":"used today\'s allowance"}}', "fallback"), "used today's allowance");
   assert.equal(errorMessage("<html>", "fallback"), "fallback");
@@ -91,7 +91,7 @@ test("a turn streams text, writes the piece through the tool, and goes round aga
   bridge.say("make it blue");
   assert.equal(transport.started.length, 1);
   const body = transport.started[0].body;
-  assert.equal(body.model, "z-ai/glm-4.6");
+  assert.equal(body.model, "z-ai/glm-5.3-flash");
   assert.equal(body.tools[0].name, "write_piece");
   assert.equal(body.system[0].text, "native rules");
   assert.match(body.system[1].text, /Current source of \/pieces\/lumo\.mjs/);

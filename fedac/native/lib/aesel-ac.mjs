@@ -20,14 +20,21 @@
 import { measuredUsage, uuid as defaultUuid } from "./aesel-bridge.mjs";
 
 export const SITE = "https://aesthetic.computer";
-export const DEFAULT_AC_MODEL = "z-ai/glm-4.6";
+export const DEFAULT_AC_MODEL = "deepseek/deepseek-v4.1-flash";
 
-// Names a person would type, mapped to what the endpoint allowlists. The
-// server decides in the end; these exist so `/model glm` works.
+// Names a person would type, mapped to what the endpoint allowlists
+// (system/backend/easel-policy.mjs). The server decides in the end; these
+// exist so `/model opus` works. Default follows the server's.
 export const AC_MODELS = {
-  glm: "z-ai/glm-4.6",
-  qwen: "qwen/qwen3-coder",
-  deepseek: "deepseek/deepseek-chat-v3.1",
+  flash: "deepseek/deepseek-v4.1-flash",
+  deepseek: "deepseek/deepseek-v4-pro",
+  kimi: "moonshotai/kimi-k3",
+  qwen: "qwen/qwen3.7-plus",
+  minimax: "minimax/minimax-m3",
+  glm: "z-ai/glm-5.3-flash",
+  luna: "openai/gpt-5.6-luna",
+  sonnet: "anthropic/claude-sonnet-5.5",
+  opus: "anthropic/claude-opus-5.5",
 };
 
 export function resolveAcModel(name) {
