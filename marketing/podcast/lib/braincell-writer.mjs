@@ -28,10 +28,14 @@ export async function braincellText(prompt, {
 
   const response = await fetch(`${base}/easel-inference`, {
     method: "POST", headers, signal: AbortSignal.timeout(timeoutMs),
-    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }],
-      max_tokens: 2048, thinking: { type: "disabled" } }),
+    // No `thinking` field: Sonnet via OpenRouter answers {type:"disabled"}
+    // with a 400 (measured 2026-10-18), and the default is already no thinking.
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 2048 }),
   });
-  if (!response.ok) throw new Error(`Daily braincell inference failed (HTTP ${response.status})`);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Daily braincell inference failed (HTTP ${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
   if (!response.body) throw new Error("Daily braincell inference returned no stream");
   const reader = response.body.getReader(), decoder = new TextDecoder();
   let pending = "", text = "", stopped = false, reason = "", bytes = 0;

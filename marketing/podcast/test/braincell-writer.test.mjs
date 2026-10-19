@@ -30,7 +30,8 @@ test("writes the script through the daily's own braincells on Sonnet", async () 
   const inference = calls.find((c) => c.url.endsWith("/easel-inference"));
   const body = JSON.parse(inference.init.body);
   assert.equal(body.model, DAILY_BRAIN_MODEL);
-  assert.deepEqual(body.thinking, { type: "disabled" });
+  assert.equal(body.thinking, undefined, "Sonnet via OpenRouter 400s on an explicit thinking field");
+  assert.equal(body.max_tokens, 2048);
   assert.equal(inference.init.headers.Authorization, "Bearer test-only");
   assert.equal(body.messages[0].content, "write it");
 });
@@ -63,6 +64,11 @@ test("an incomplete stream saves nothing", async () => {
 test("a tool request is refused — the writer has no tools", async () => {
   const tool = sse([{ type: "content_block_start", index: 0, content_block: { type: "tool_use", name: "write_file" } }]);
   await assert.rejects(braincellText("write it", { file: "/x", handle: "jeffrey", session, fetch: fetcher({ stream: tool }) }), /requested a tool/);
+});
+
+test("a provider refusal carries the server's words", async () => {
+  const refused = new Response(JSON.stringify({ error: { message: "Inference provider returned 400." } }), { status: 400 });
+  await assert.rejects(braincellText("write it", { file: "/x", handle: "jeffrey", session, fetch: fetcher({ stream: refused }) }), /HTTP 400.*Inference provider returned 400/);
 });
 
 test("missing configuration is named", async () => {
