@@ -68,7 +68,7 @@ function vaultUpstream(repo) {
   } catch { return "origin"; }
 }
 
-function cleanVault() {
+async function cleanVault() {
   const shared = workspace(ROOT).vault;
   const clone = process.env.AC_PRODUCTS_VAULT || join(homedir(), ".cache", "ac-deploy", "vault");
   const vgit = (...args) => execFileSync("git", ["-C", clone, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -87,6 +87,22 @@ function cleanVault() {
   vgit("fetch", "-q", "origin", "main");
   vgit("reset", "-q", "--hard", "origin/main");
   vgit("clean", "-qfdx");
+  // Never ship products older than production already serves. A full deploy
+  // that fetched the vault a moment before a products push landed would
+  // otherwise reinstall the previous products over the newer ones (it did,
+  // once, on 2026-10-18). If what is served is a descendant of what we
+  // fetched, it is on the remote too: ship that.
+  const served = await fetch(`${SITE}/.products-ref?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } })
+    .then((r) => (r.ok ? r.text() : "")).then((t) => t.trim()).catch(() => "");
+  const fetched = vgit("rev-parse", "origin/main");
+  if (/^[0-9a-f]{40}$/.test(served) && served !== fetched) {
+    try { vgit("fetch", "-q", "origin", served); } catch {}
+    if (spawnSync("git", ["-C", clone, "merge-base", "--is-ancestor", fetched, served]).status === 0) {
+      say("·", `production already serves newer products ${served.slice(0, 10)}; shipping those, not ${fetched.slice(0, 10)}`);
+      vgit("update-ref", "refs/remotes/origin/main", served);
+      vgit("reset", "-q", "--hard", served);
+    }
+  }
   const unshipped = execFileSync("git", ["-C", shared, "status", "--porcelain", "--untracked-files=all", "--", "products"], { encoding: "utf8" }).trim();
   if (unshipped) say("·", `${unshipped.split("\n").length} uncommitted product file(s) in ${shared} stay local — only the vault's pushed main ships`);
   process.env.AC_PRODUCTS_VAULT = clone;
@@ -264,7 +280,7 @@ if (aeselOnly) {
 
 if (productsOnly) {
   if (verifyOnly) process.exit((await verify(sha)) ? 0 : 1);
-  const revision = cleanVault();
+  const revision = await cleanVault();
   process.env.AC_PRODUCTS_REVISION = revision;
   say("→", `shipping products ${revision.slice(0, 10)} to lith (its core stays as served)`);
   const core = releaseProducts(revision);
@@ -273,7 +289,7 @@ if (productsOnly) {
 }
 
 if (!verifyOnly) {
-  process.env.AC_PRODUCTS_REVISION = cleanVault();
+  process.env.AC_PRODUCTS_REVISION = await cleanVault();
   const ahead = git("rev-list", "--count", "origin/main..main");
   if (ahead !== "0") fail(`local main is ${ahead} commit(s) ahead of the knot — push first; production only serves what the knot has`);
   say("→", `deploying ${sha.slice(0, 10)} to lith`);

@@ -187,14 +187,20 @@ CRITICAL_FILES=(
   "system/public/aesthetic.computer/bios.mjs"
 )
 
-# Minimum expected line counts for critical files (set conservatively)
-declare -A MIN_LINES
-MIN_LINES["artery/artery-tui.mjs"]=5000
-MIN_LINES["dotfiles/dot_config/emacs.el"]=1000
-MIN_LINES["system/public/aesthetic.computer/lib/udp.mjs"]=150
-MIN_LINES["system/public/aesthetic.computer/lib/logs.mjs"]=100
-MIN_LINES["system/public/aesthetic.computer/lib/speaker.mjs"]=800
-MIN_LINES["system/public/aesthetic.computer/bios.mjs"]=200
+# Minimum expected line counts for critical files (set conservatively).
+# A function rather than an associative array: macOS ships bash 3.2, where
+# `declare -A` is a syntax error that turned every commit into a page of noise.
+min_lines() {
+  case "$1" in
+    artery/artery-tui.mjs) echo 5000 ;;
+    dotfiles/dot_config/emacs.el) echo 1000 ;;
+    system/public/aesthetic.computer/lib/udp.mjs) echo 150 ;;
+    system/public/aesthetic.computer/lib/logs.mjs) echo 100 ;;
+    system/public/aesthetic.computer/lib/speaker.mjs) echo 800 ;;
+    system/public/aesthetic.computer/bios.mjs) echo 200 ;;
+    *) echo "" ;;
+  esac
+}
 
 # Threshold for warning about large deletions (percentage)
 DELETION_THRESHOLD=30
@@ -229,7 +235,7 @@ for file in "${CRITICAL_FILES[@]}"; do
     fi
     
     # Check minimum line count
-    min=${MIN_LINES[$file]}
+    min=$(min_lines "$file")
     if [ -n "$min" ] && [ "$staged_lines" -lt "$min" ]; then
       echo -e "${RED}⚠️  WARNING: ${file} is below minimum expected size${NC}"
       echo -e "   ${YELLOW}Current: ${staged_lines} lines, Expected minimum: ${min} lines${NC}"
