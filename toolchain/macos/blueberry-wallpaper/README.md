@@ -16,6 +16,12 @@ The accent-shaded model floats over a blueberry field that
 responds to macOS appearance. The window sits beneath Finder's desktop icons,
 ignores input, joins every Space, and pauses while the display sleeps.
 
+Appearance changes and display wake recreate the desktop windows after a
+2.5-second settling period. WindowServer can retain a light menu-bar gradient
+over a dark field even when both macOS and Slab report Dark; resuming animation
+or restarting Dock alone does not repair that state. Verify the composed menu
+bar as well as the wallpaper window after either transition.
+
 Until the Xbox recovery commit lands in the main checkout, `build.sh` also finds
 the GLB in `.worktrees/xbox-native-v11/`.
 

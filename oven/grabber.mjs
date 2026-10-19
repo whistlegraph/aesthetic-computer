@@ -1599,6 +1599,9 @@ async function populateGlyphCache(page) {
  * - Serves font glyph JSONs from local filesystem (avoids 429 rate limits)
  */
 async function interceptSelfRequests(page) {
+  // Captures must use this request policy even when the shared browser has
+  // an older service worker installed.
+  await page.setBypassServiceWorker(true);
   await page.setRequestInterception(true);
   // Track interception stats for diagnostics
   const stats = { fontLocal: 0, fontMiss: 0, bdfLocal: 0, bdfMiss: 0, blocked: 0, dropped: 0 };
@@ -1608,7 +1611,10 @@ async function interceptSelfRequests(page) {
     const url = request.url();
     try {
       // Block analytics and self-referential requests
-      if (BLOCKED_URL_PATTERNS.some(pattern => url.includes(pattern))) {
+      // Deployment checks can paint the green update UI (or reload the piece)
+      // midway through a recording. Keep the capture on its loaded revision.
+      if (new URL(url).pathname === '/api/version' ||
+          BLOCKED_URL_PATTERNS.some(pattern => url.includes(pattern))) {
         stats.blocked++;
         await request.abort('blockedbyclient');
         return;
@@ -4413,6 +4419,12 @@ export async function regenerateOGImagesBackground() {
 // KidLisp Backdrop - Animated WebP for login screens, etc.
 // =============================================================================
 
+// Version both CDN objects and grab deduplication: legacy clips may contain
+// update UI, and their immutable URLs can remain cached for a year.
+const BACKDROP_RENDER_VERSION = 'v2';
+const BACKDROP_PREFIX = `backdrop/kidlisp/${BACKDROP_RENDER_VERSION}/`;
+const BACKDROP_CAPTURE_KEY = `backdrop-${BACKDROP_RENDER_VERSION}`;
+
 // Backdrop cache (memory)
 const backdropCache = {
   url: null,
@@ -4428,7 +4440,7 @@ const backdropCache = {
  */
 export async function generateKidlispBackdrop(force = false) {
   const today = getTodayKey();
-  const key = `backdrop/kidlisp/${today}.webp`;
+  const key = `${BACKDROP_PREFIX}${today}.webp`;
   
   // Check memory cache
   if (!force && backdropCache.url && backdropCache.date === today) {
@@ -4481,6 +4493,7 @@ export async function generateKidlispBackdrop(force = false) {
     density: 4,
     quality: 85,
     skipCache: force,
+    cacheKey: BACKDROP_CAPTURE_KEY,
     source: 'backdrop',
   });
   
@@ -4534,7 +4547,7 @@ export async function getLatestBackdropUrl() {
     return backdropCache.url;
   }
   
-  const key = `backdrop/kidlisp/${today}.webp`;
+  const key = `${BACKDROP_PREFIX}${today}.webp`;
   try {
     await spacesClient.send(new HeadObjectCommand({
       Bucket: SPACES_BUCKET,
@@ -4553,11 +4566,11 @@ export async function getLatestBackdropUrl() {
 // =============================================================================
 // KidLisp Backdrop POOL - many pieces, a random one on every request.
 // The daily backdrop above renders ONE piece per day; the pool keeps a
-// per-piece object per @jeffrey top piece at backdrop/kidlisp/pool/<code>.webp
+// per-piece object per @jeffrey top piece under the versioned backdrop prefix
 // so /kidlisp-backdrop.webp can 302 to a different clip each hit.
 // =============================================================================
 
-const BACKDROP_POOL_PREFIX = 'backdrop/kidlisp/pool/';
+const BACKDROP_POOL_PREFIX = `${BACKDROP_PREFIX}pool/`;
 const BACKDROP_POOL_SIZE = Number(process.env.BACKDROP_POOL_SIZE || 16);
 const BACKDROP_POOL_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // re-render a pool clip after 2 weeks
 const BACKDROP_POOL_LIST_TTL_MS = 5 * 60 * 1000;
@@ -4646,6 +4659,7 @@ export async function warmBackdropPool({ size = BACKDROP_POOL_SIZE, force = fals
         const result = await grabPiece(`$${code}`, {
           format: 'webp', width: 256, height: 256, duration: 12000, fps: 7.5,
           playbackFps: 15, density: 4, quality: 85, skipCache: force, source: 'backdrop',
+          cacheKey: BACKDROP_CAPTURE_KEY,
         });
         if (!result.success) throw new Error(result.error || 'grab failed');
         let buffer = result.buffer;

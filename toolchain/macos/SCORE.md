@@ -7,6 +7,62 @@ specifics (e.g. neo's drive size) are called out inline.
 
 ---
 
+## Workspace storage on Neo
+
+Keep the active checkout and dependencies usable; do not replace its Git
+directory while worktrees or uncommitted work are present. The main checkout
+already fetches GitHub with `blob:none`; that setting does not evict its older
+packs. Fresh checkouts should use `git clone --filter=blob:none` when the server
+supports filtering. Existing history needs a separate migration with all local
+refs, worktrees, and changes accounted for.
+
+The root and `system/` use pinned pnpm with separate lockfiles and a shared
+per-user content store. Install both with `npm run deps:install`, or one with
+`node toolchain/pnpm-install.mjs system`. The helper bootstraps the exact pinned
+version if necessary, always uses the frozen lockfile, and never falls back to
+npm on failure. Other packages retain their existing managers. `npm run` remains
+usable for scripts; use pnpm to change dependencies in the migrated packages.
+
+The flat node_modules layout preserves existing tool paths and product links.
+On APFS, pnpm's automatic import method shares package blocks through
+copy-on-write clones; `du` can count those blocks more than once. Keep the store
+on the same volume and use `df` to assess actual headroom. Do not manually link
+entire dependency trees between unrelated projects.
+
+Juke's catalog and 512 MiB downloaded-audio cache are documented in
+[`pop/ASSETS.md`](../../pop/ASSETS.md#small-listening-library-on-neo). Use Chicken
+for Menu Band builds and `MENUBAND_PREBUILT_DIR` for the local installer so Neo
+does not accumulate full build trees.
+
+`workspace-media.py` reports, parks, and restores old ignored media in its
+explicit directory allowlist. It uploads privately to the existing Spaces
+asset store and checks MD5, size, and SHA-256 metadata before eviction. Tracked
+files, non-media sidecars, open files, recent files, and files changed during
+upload stay local.
+Restore manifests live in `~/.local/share/ac-workspace-media/` and in the private
+store, with immutable manifest history.
+
+```sh
+python3 toolchain/macos/workspace-media.py report marketing/klokkentales/out/reels
+python3 toolchain/macos/workspace-media.py park marketing/klokkentales/out/reels
+python3 toolchain/macos/workspace-media.py restore marketing/klokkentales/out/reels
+# Add --file relative/path.mp4 to restore only one file.
+```
+
+The same restore command supports `pop/sailor-song/src`, `pop/samples`,
+`xbox/steam/store-page/assets/shots`, and the old `tmp/ac-os-darsh-tv` build
+archives. Tracked Steam artwork, replay metadata, scripts, and source stay local.
+Restore a parked directory before reusing those archived inputs.
+
+For large batches of small files, the AWS CLI's Python environment can reuse
+SDK connections: `/opt/homebrew/opt/awscli/libexec/bin/python
+toolchain/macos/workspace-media.py park pop/samples --workers 8`. Ordinary
+Python uses the CLI fallback when the SDK is unavailable.
+
+The regular cleaner also removes obsolete Chrome signing clones, keeping the
+newest clone, anything younger than two hours, and bundles referenced by open
+files. APFS clone sizes overstate the physical space reclaimed.
+
 ## The Desktop convention
 
 **On every fleet Mac, `~/Desktop/` should ONLY contain the `Shelf`

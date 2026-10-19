@@ -517,9 +517,8 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
     private var windows: [NSWindow] = []
     private var views: [PalsWallpaperView] = []
 
-    /// Pending post-flip rebuild; every flip cancels the last so a run of
-    /// appearance changes ends in exactly one rebuild.
-    private var flipRebuild: DispatchWorkItem?
+    /// Coalesce compositor repairs after appearance changes and wake.
+    private var backdropRebuild: DispatchWorkItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         rebuildWindows()
@@ -536,13 +535,17 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
     /// Let slab's tint, the desktop picture and the Dock settle first
     /// (slab restarts the Dock on a flip), then make WindowServer look again.
     @objc private func appearanceFlipped() {
-        flipRebuild?.cancel()
+        scheduleBackdropRebuild(reason: "appearance flipped")
+    }
+
+    private func scheduleBackdropRebuild(reason: String) {
+        backdropRebuild?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            print("appearance flipped — rebuilding windows so the menu bar backdrop re-derives")
+            print("\(reason) — rebuilding windows so the menu bar backdrop re-derives")
             fflush(stdout)
             self?.rebuildWindows()
         }
-        flipRebuild = work
+        backdropRebuild = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
     }
 
@@ -581,8 +584,20 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func screensDidSleep() { views.forEach { $0.pauseAnimations() } }
-    @objc private func screensDidWake() { views.forEach { $0.resumeAnimations() } }
+    @objc private func screensDidSleep() {
+        backdropRebuild?.cancel()
+        backdropRebuild = nil
+        views.forEach { $0.pauseAnimations() }
+    }
+
+    @objc private func screensDidWake() {
+        views.forEach { $0.resumeAnimations() }
+        // WindowServer can restore the wrong menu-bar treatment without an
+        // appearance change. Neo reproduced this in Dark with a dark tint:
+        // restarting Dock did nothing; recreating this window repaired it.
+        // Rebuild after wake settles, also reloading Slab's persisted tint.
+        scheduleBackdropRebuild(reason: "screens woke")
+    }
 }
 
 let app = NSApplication.shared

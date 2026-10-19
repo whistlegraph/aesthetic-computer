@@ -375,7 +375,10 @@ apply_remote_backed_cleanup() {
     skip "assets Spaces dry-run found pending uploads or could not authenticate; mirror kept"
   fi
 
-  if verify_pop_remote; then
+  if [[ -x "$HOME/.local/bin/ac-juke-cache" ]]; then
+    # Broad git-clean would discard offline pins and locally saved annotations.
+    "$HOME/.local/bin/ac-juke-cache" prune || skip "Juke cache verification failed; audio kept"
+  elif verify_pop_remote; then
     while IFS= read -r out; do
       clean_ignored "${out#"$REPO_ROOT/"}"
     done < <(find "$REPO_ROOT/pop" -mindepth 2 -maxdepth 2 -type d -name out 2>/dev/null)
@@ -388,6 +391,10 @@ apply_cleanup() {
   local before after reclaimed
   before=$(disk_used_kb)
   echo "Applying safe user-cache cleanup..."
+
+  if [[ -n "$REPO_ROOT" && -f "$REPO_ROOT/toolchain/macos/chrome-clones.py" ]]; then
+    python3 "$REPO_ROOT/toolchain/macos/chrome-clones.py" --apply || skip "Chrome signing clones kept"
+  fi
 
   if pgrep -f '/Google Chrome( |$)|Google Chrome Helper|[p]uppeteer|[p]laywright|[c]ypress' >/dev/null; then
     skip "Chrome/browser automation is active; browser caches kept"
