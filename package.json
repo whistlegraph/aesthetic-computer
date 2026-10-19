@@ -17,6 +17,7 @@
     "pop:ddex": "node pop/bin/ddex.mjs",
     "pop:site": "node pop/bin/publish-release-records.mjs",
     "doctor": "node toolchain/doctor.mjs",
+    "mcp:fleet": "toolchain/mcp/fleet-refresh.sh",
     "pulse": "node toolchain/analytics/pulse.mjs",
     "push:subscribers": "node toolchain/push-subscribers.mjs",
     "menubar:parity": "node slab/bin/menubar-parity.mjs",
