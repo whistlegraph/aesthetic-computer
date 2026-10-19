@@ -390,7 +390,7 @@ static int create_dumb_buffer(ACDisplay *d, int idx) {
 // up"), 270 when it sits on the left. A number in /mnt/display-rotate wins
 // (so the direction can be flipped on a running stick); then the
 // connector's "panel orientation" property; then a portrait panel in a
-// MiniBook X, whose VBT doesn't say.
+// MiniBook X, whose VBT doesn't say (its top edge sits on the left: 270).
 static int panel_rotation(int fd, drmModeConnector *conn, int internal) {
     FILE *f = fopen("/mnt/display-rotate", "r");
     if (f) {
@@ -426,7 +426,7 @@ static int panel_rotation(int fd, drmModeConnector *conn, int internal) {
         fclose(f);
     }
     if (strcmp(product, "MiniBook X") == 0 &&
-        conn->modes[0].vdisplay > conn->modes[0].hdisplay) return 90;
+        conn->modes[0].vdisplay > conn->modes[0].hdisplay) return 270;
     return 0;
 }
 
