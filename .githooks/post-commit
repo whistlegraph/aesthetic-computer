@@ -84,4 +84,41 @@ if [ "${AC_NO_AUTO_DEPLOY:-}" != "1" ] && [ "$CURRENT_BRANCH" = "main" ]; then
   fi
 fi
 
+# 🚀 Auto-deploy lith (chosen 2026-10-18): any main commit that touches
+# deployable code pushes to the knot and runs ac-deploy in the background.
+# Docs-only commits skip, arena commits are already handled above, and
+# AC_NO_AUTO_DEPLOY=1 skips. One deploy runs at a time per checkout; a commit
+# that lands mid-deploy queues exactly one follow-up run, so a burst of
+# commits ends with production on the last one. Log: .git/auto-deploy.log.
+if [ "${AC_NO_AUTO_DEPLOY:-}" != "1" ] && [ "$CURRENT_BRANCH" = "main" ]; then
+  DEPLOYABLE_RE='^(system/|lith/|shared/|private-products\.json$|package\.json$|package-lock\.json$)'
+  CHANGED="$(git diff-tree --no-commit-id --name-only -r HEAD | grep -vE '\.(md|txt)$' || true)"
+  if echo "$CHANGED" | grep -qE "$DEPLOYABLE_RE" && ! echo "$CHANGED" | grep -qE "${ARENA_TOUCH_RE:-^$}"; then
+    LOCK="$REPO_ROOT/.git/auto-deploy.lock"
+    PENDING="$REPO_ROOT/.git/auto-deploy.pending"
+    LOG="$REPO_ROOT/.git/auto-deploy.log"
+    if mkdir "$LOCK" 2>/dev/null; then
+      echo "🚀 main commit touches deployable code — pushing and deploying lith in the background (log: .git/auto-deploy.log)"
+      (
+        trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+        while :; do
+          rm -f "$PENDING"
+          printf "\n=== %s commit=%s ===\n" "$(date -Iseconds)" "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" >> "$LOG"
+          if git -C "$REPO_ROOT" push origin main >> "$LOG" 2>&1; then
+            "$REPO_ROOT/slab/bin/ac-deploy" >> "$LOG" 2>&1 || echo "⚠ ac-deploy failed" >> "$LOG"
+          else
+            echo "⚠ push to knot failed — not deploying" >> "$LOG"
+          fi
+          [ -e "$PENDING" ] || break
+        done
+        echo "→ done" >> "$LOG"
+      ) &
+      disown 2>/dev/null || true
+    else
+      touch "$PENDING"
+      echo "🚀 a deploy is already running — this commit will go out right after it"
+    fi
+  fi
+fi
+
 exit 0
