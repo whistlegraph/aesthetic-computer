@@ -20,13 +20,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const TZKT = "https://api.tzkt.io/v1";
 const OBJKT = "https://data.objkt.com/v3/graphql";
 
-// Public addresses only (mirrors vault/banking/crypto/wallets.csv).
-const TEZOS = {
-  aesthetic: "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE", // aesthetic.tez — daily token signer
-  keeps: "tz1Lc2DzTjDPyWFj1iuAVGGZWNjK67Wun2dC", // keeps.tez — Keeps admin + royalty receiver
-  kidlisp: "tz1fEjGQrEE2LXNKqcpTYAJV16pbbFpLeNyd", // kidlisp treasury
-  staging: "tz1dfoQDuxjwSgxdqJnisyKUxDHweade4Gzt",
-};
+import { TEZOS, KEEPS, HEN } from "./tezos-wallets.mjs";
 const EVM = {
   "4esthetic.eth": "0x5e6758C96A4cB5E2A1FE2E2772020dc8ad753b08",
   "citizen idx1": "0xF637C4E11072C46A3bF7cF70ef32470562B5a479",
@@ -37,8 +31,6 @@ const SOLANA = {
   phantom: "D5tLrs4Ubh3tcHxhSmorPmGrDsozuSLhQDGVoBbR5P9d",
   "axio trade": "6JRph4ZZf5jt17CZhyBM9SYVexLrKmyPVMGCTMA4A7Ps",
 };
-const KEEPS = "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB";
-const HEN = "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton";
 const DAILY_BURN_XTZ = 0.06; // a mint + a listing
 const DAILY_FLOOR_XTZ = 0.15; // daily-token.mjs refuses to sign below this
 // Every hic et nunc mint by aesthetic.tez from here on is a daily token (the

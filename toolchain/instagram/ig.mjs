@@ -578,7 +578,38 @@ function doAccounts() {
 }
 
 // ── dispatch ─────────────────────────────────────────────────────────
+// ── recent ───────────────────────────────────────────────────────────
+// The account's posts from the last --hours (default 24), newest first, with
+// the same insights a person reads. For the network report: --json only.
+async function doRecent(creds) {
+  const hours = Number(flags.hours ?? 24);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 24 * 90) die("--hours must be 1..2160");
+  const since = Date.now() - hours * 3600_000;
+  const me = await fetchMe(creds);
+  const fields = "id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count";
+  const posts = [];
+  let url = api(`${creds.igUserId}/media?fields=${fields}&limit=25&access_token=${creds.token}`);
+  for (let page = 0; url && page < 8; page++) {
+    const body = await call(url);
+    const rows = body.data || [];
+    for (const row of rows) if (Date.parse(row.timestamp) >= since) posts.push(row);
+    url = rows.length && Date.parse(rows.at(-1).timestamp) >= since ? body.paging?.next : null;
+  }
+  const out = [];
+  for (const post of posts) {
+    let insights = null;
+    try { insights = await pullInsights(post.id, creds.token); } catch (error) { insights = { unavailable: error.message.slice(0, 120) }; }
+    out.push({ id: post.id, at: post.timestamp, kind: post.media_product_type || post.media_type, permalink: post.permalink,
+      caption: String(post.caption || "").split("\n")[0].slice(0, 100), likes: post.like_count ?? null, comments: post.comments_count ?? null, insights });
+  }
+  const report = { account: `@${me.username}`, followers: me.followers_count ?? null, media: me.media_count ?? null, hours, posts: out };
+  if (flags.json) { console.log(JSON.stringify(report)); return; }
+  console.log(`✓ @${me.username} · ${report.followers} followers · ${out.length} post(s) in ${hours}h`);
+  for (const p of out) console.log(`  ${p.at} ${p.kind} views ${p.insights?.views ?? "—"} likes ${p.likes ?? "—"} · ${p.caption}`);
+}
+
 const COMMANDS = {
+  recent: doRecent,
   accounts: doAccounts,
   me: doMe,
   quota: doQuota,
@@ -604,6 +635,7 @@ commands:
   post <video.mp4> [--caption "..."] [--cover img.jpg] [--audio-name "..."]
        [--trial [manual|auto]]  trial reel: non-followers first; auto = SS_PERFORMANCE
                            publish a reel: Spaces upload → container → poll → publish
+  recent [--hours 24]      posts in the window with their insights (--json for machines)
   insights <media-id>      per-reel metrics (views, reach, skip rate, …; --json for machines)
   insights --refresh       pull metrics for every post in the account's ledger
   comments <media-id>      the post's comment thread, replies flattened (--json for machines)

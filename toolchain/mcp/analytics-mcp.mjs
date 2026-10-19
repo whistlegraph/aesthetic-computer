@@ -19,6 +19,11 @@ import { VISIT_ACTIONS, VISIT_DEPTHS, visitProperty, visitScopeMatch } from "../
 import { fisheryOptions } from "../analytics/human-fishery.mjs";
 import { recognitionReportOptions } from "../analytics/network-recognition.mjs";
 import { vaultPath } from "../vault/credentials.mjs";
+import { tezosRevenue } from "../analytics/tezos-revenue.mjs";
+import { socialReport } from "../analytics/social-report.mjs";
+import { fileURLToPath } from "node:url";
+
+const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 const pexec = promisify(execFile);
 const LITH = "root@lith.aesthetic.computer";
@@ -133,15 +138,23 @@ async function braincellsReport({ hours = 24, limit = 25 } = {}) {
 // 🛰️ The whole network at once: traffic per site, where it came from, and the
 // Braincell economy. This is the report to run when someone asks how the
 // Aesthetic network is doing. Each part fails on its own without sinking the rest.
+const checkedHours = (hours, max = 840) => {
+  hours = Number(hours);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > max) throw new Error(`hours must be 1..${max}`);
+  return hours;
+};
+
 async function networkReport({ hours = 24, scope = "all" } = {}) {
   const part = promise => promise.then(value => value, error => ({ unavailable: String(error.message || error) }));
-  const [visits, referrers, pieces, braincells] = await Promise.all([
+  const [visits, referrers, pieces, braincells, tezos, social] = await Promise.all([
     part(visitsReport({ hours, scope })),
     part(journeyReport("referrers", { hours, scope, limit: 25 })),
     part(journeyReport("pieces", { hours, scope, limit: 25 })),
     part(braincellsReport({ hours, limit: 15 })),
+    part(tezosRevenue({ hours: checkedHours(hours) })),
+    part(socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells };
+  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social };
 }
 
 // ⬇️ Direct downloads
@@ -329,11 +342,27 @@ const TOOLS = [
   })),
   {
     name: "network_report",
-    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), and the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers) and social accounts (Instagram reels with insights, Bluesky, X). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Visit scope; default all" },
+    } },
+  },
+  {
+    name: "tezos_revenue",
+    description: "Tez that reached AC's Tezos wallets (aesthetic.tez, keeps.tez, kidlisp treasury) and the Keeps contract in the window, from public TzKT data: total in XTZ and USD, by source (objkt sales and royalties, teia, Keeps mint fees, direct payments including Braincell tez checkouts), by wallet, top senders and top buyers. Moves between AC's own wallets are excluded.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
+    } },
+  },
+  {
+    name: "social_report",
+    description: "AC's social accounts: every Instagram account's followers and its posts in the window with likes, comments and Reel insights (views, reach, saves, shares), Bluesky @aesthetic.computer followers and recent posts with engagement, and X follower/post counts. Read-only, official APIs.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 2160, description: "Lookback hours for posts; default 24" },
     } },
   },
   {
@@ -421,6 +450,8 @@ async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
     : name === "braincells_report" ? await braincellsReport(args)
     : name === "network_report" ? await networkReport(args)
+    : name === "tezos_revenue" ? await tezosRevenue({ hours: checkedHours(args.hours ?? 24) })
+    : name === "social_report" ? await socialReport({ root: REPO_ROOT, hours: checkedHours(args.hours ?? 24, 2160) })
     : name === "account_activity" ? await journeyReport("accounts", args)
     : name === "feature_usage" ? await journeyReport("features", args)
     : name === "network_referrers" ? await journeyReport("referrers", args)
