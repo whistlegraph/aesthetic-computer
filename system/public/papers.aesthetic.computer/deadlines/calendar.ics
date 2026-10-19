@@ -196,4 +196,162 @@ URL:https://www.feed.art/open-feed
 LOCATION:Online · FEED Media Art Center\, US
 TRANSP:TRANSPARENT
 END:VEVENT
+BEGIN:VEVENT
+UID:michigan-central-newlab-2027@papers.aesthetic.computer
+DTSTAMP:20261019T000000Z
+LAST-MODIFIED:20261019T000000Z
+DTSTART;VALUE=DATE:20261030
+DTEND;VALUE=DATE:20261031
+SUMMARY:Michigan Central Art × Newlab — Creative Residency 2027 — dead
+ line (check time)
+DESCRIPTION:A 12-week research residency in Detroit at the intersection of 
+ art\, technology\, health and society\, in an Art & Tech track (Knight Fou
+ ndation) or an Art & Health track (Henry Ford Health).\n\nPlus Newlab fabr
+ ication shops\, project-aligned research\, mentors and a public conversati
+ on series.\nApplications are free\n\nEligibility: Single applicants over 2
+ 5\, able to receive taxable US income via SSN\, ITIN or EIN. No groups.\n\
+ nDeadline: 2026-10-30. Published as 11:59 p.m. EST\, though Detroit is on 
+ EDT that day — submit early. This calendar entry is all-day\; verify the
+  cutoff with the organizer.\n\nFellows are announced in January 2027 and a
+ re expected in Detroit for their 12-week session.\n\nOfficial call: https:
+ //michigancentral.com/michigan-central-art-x-newlab-detroit-opens-applicat
+ ions-for-its-2027-creative-residency-program-supported-by-the-john-s-and-j
+ ames-l-knight-foundation/\nChecked 2026-10-19
+URL:https://michigancentral.com/michigan-central-art-x-newlab-detroit-opens
+ -applications-for-its-2027-creative-residency-program-supported-by-the-joh
+ n-s-and-james-l-knight-foundation/
+LOCATION:Detroit\, MI
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:la-dca-near-2027@papers.aesthetic.computer
+DTSTAMP:20261019T000000Z
+LAST-MODIFIED:20261019T000000Z
+DTSTART:20261031T065900Z
+SUMMARY:City of Los Angeles DCA — Neighborhood Engagement Artist Residenc
+ y (NEAR) 2027–28 — deadline
+DESCRIPTION:A grant for a participatory\, workshop-based artist residency a
+ t a non-arts venue in one City of Los Angeles council district — librari
+ es\, community and youth centres and the like.\n\nMay be reduced to $6\,00
+ 0 for five workshops plus one event if the City's budget is cut.\nApplicat
+ ion fee not stated\n\nEligibility: Individual artists (or teams under one 
+ lead) residing in Los Angeles County with a largely self-directed communit
+ y practice.\n\nDeadline: 2026-10-30. 11:59 pm Pacific\n\nNotification May
+ –June 2027. The companion CO-UP track is for social-justice nonprofits n
+ aming a teaching artist.\n\nOfficial call: https://culture.lacity.gov/gran
+ ts/near-co-op\nChecked 2026-10-19
+URL:https://culture.lacity.gov/grants/near-co-op
+LOCATION:City of Los Angeles
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:processing-foundation-fellowship-2027@papers.aesthetic.computer
+DTSTAMP:20261019T000000Z
+LAST-MODIFIED:20261019T000000Z
+DTSTART:20261102T075900Z
+SUMMARY:Processing Foundation Fellowship 2027 — deadline
+DESCRIPTION:An eight-month fellowship for artists\, educators and engineers
+  building open-source tools and resources for the arts. Every project must
+  build on p5.js\, the p5.js Editor or Processing.\n\nPlus open-source ment
+ orship\, a cohort\, professional development and public programs.\nFee not
+  stated\n\nEligibility: US-based nominees only\; self-nomination is welcom
+ e. Hybrid fellows must be in New York or Los Angeles.\n\nDeadline: 2026-11
+ -01. Nominations close 11:59 PM PST\; invited nominees submit proposals by
+  November 23\n\nVideo interviews the week of December 7\; fellows notified
+  the week of December 14\; final presentations October 2\, 2027.\n\nOffici
+ al call: https://processingfoundation.org/programs/fellowships/fellowship-
+ 2027/\nChecked 2026-10-19
+URL:https://processingfoundation.org/programs/fellowships/fellowship-2027/
+LOCATION:United States (hybrid in New York or Los Angeles\, or remote)
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:nlnet-restack-2026-11@papers.aesthetic.computer
+DTSTAMP:20261019T000000Z
+LAST-MODIFIED:20261019T000000Z
+DTSTART:20261103T110000Z
+SUMMARY:NLnet — Open Internet Stack: Restack\, first call — deadline
+DESCRIPTION:R&D grants for free and open-source software\, open hardware\, 
+ standards and other building blocks of an open internet stack\, from the E
+ uropean Commission's NGI successor.\n\nScalable later with proven potentia
+ l\; plus security\, accessibility\, licensing and packaging support.\nFee 
+ not stated\n\nEligibility: Open to anyone\, but projects need a strong Eur
+ opean dimension — normally 60% of funds to people in Horizon Europe-elig
+ ible countries\; others only for exceptional quality or unique expertise.\
+ n\nDeadline: 2026-11-03. 12:00 noon CET\; NLnet now calls every two months
+ \, on the third of odd months\n\nMilestone-based payments for completed wo
+ rk.\n\nOfficial call: https://nlnet.nl/restack/\nChecked 2026-10-19
+URL:https://nlnet.nl/restack/
+LOCATION:Remote
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:swf-fediverse-multimedia-2026@papers.aesthetic.computer
+DTSTAMP:20261019T000000Z
+LAST-MODIFIED:20261019T000000Z
+DTSTART;VALUE=DATE:20261104
+DTEND;VALUE=DATE:20261105
+SUMMARY:Social Web Foundation — Fediverse Multimedia Grants — deadline 
+ (check time)
+DESCRIPTION:Grants for a developer team and a creator or publisher who toge
+ ther start a new audio\, video or image publication on the Fediverse\, imp
+ roving ActivityPub software for creators along the way.\n\nFunded by the I
+ nterledger Foundation\; a grant\, no equity.\nFee not stated\n\nEligibilit
+ y: Developer-and-creator teams only. The foundation will try to match a de
+ veloper or publisher who applies without a partner.\n\nDeadline: 2026-11-0
+ 4. Cutoff time not stated. This calendar entry is all-day\; verify the cut
+ off with the organizer.\n\nThe publication must be new and on the Fedivers
+ e.\n\nOfficial call: https://hypha.swf.pub/\nChecked 2026-10-19
+URL:https://hypha.swf.pub/
+LOCATION:Remote
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:cola-imap-2027@papers.aesthetic.computer
+DTSTAMP:20261019T000000Z
+LAST-MODIFIED:20261019T000000Z
+DTSTART:20261114T075900Z
+SUMMARY:City of Los Angeles DCA — COLA Independent Master Artist Projects
+  2027–29 — deadline
+DESCRIPTION:A grant for an accomplished Los Angeles mid-career artist to ma
+ ke a new solo work\, with a City catalog and a likely premiere. A new Grap
+ hic Design category covers books\, typefaces and text–image work.\n\nSub
+ ject to the City budget\; non-selected applicants may be named DCA Cultura
+ l Trailblazers with a stipend.\nApplication fee not stated\n\nEligibility:
+  Los Angeles County residents who live in the City or have presented there
+  for 3+ years\, with a 15-year exhibition\, publication or performance rec
+ ord. Collaborative or audience-interactive projects are ineligible.\n\nDea
+ dline: 2026-11-13. 11:59 pm online\; a hard copy must be postmarked by Nov
+ ember 18\n\nGrantees contribute catalog materials and use the funds for a 
+ new solo work. Results June–July 2027.\n\nOfficial call: https://culture
+ .lacity.gov/grants/independent-master-artist-projects-grant-program\nCheck
+ ed 2026-10-19
+URL:https://culture.lacity.gov/grants/independent-master-artist-projects-gr
+ ant-program
+LOCATION:Los Angeles
+TRANSP:TRANSPARENT
+END:VEVENT
+BEGIN:VEVENT
+UID:adk-mensch-maschine-2027@papers.aesthetic.computer
+DTSTAMP:20261019T000000Z
+LAST-MODIFIED:20261019T000000Z
+DTSTART;VALUE=DATE:20261201
+DTEND;VALUE=DATE:20261202
+SUMMARY:Akademie der Künste — Mensch Maschine VISIT Residency 2027 (“E
+ nergy Ghosts”) — deadline (check time)
+DESCRIPTION:Four funded fellowships for new projects at the intersection of
+  art\, energy and ecology\, critically engaging the “human machine” an
+ d pluriversal approaches to digital technology.\n\nFor artist fees and pro
+ duction\; studio and accommodation provided.\nFee not stated\n\nEligibilit
+ y: Artists from anywhere\, across visual art\, performance\, film\, instal
+ lation\, sound\, writing and new media.\n\nDeadline: 2026-12-01. 11:59 pm 
+ as published\; time zone not stated. This calendar entry is all-day\; veri
+ fy the cutoff with the organizer.\n\nFellows live and work on site at leas
+ t 75% of the three-month residency. Jury in January 2027.\n\nOfficial call
+ : https://adk.de/en/news/2026/10/open-call-human-machine-fellowship\nCheck
+ ed 2026-10-19
+URL:https://adk.de/en/news/2026/10/open-call-human-machine-fellowship
+LOCATION:E-WERK Luckenwalde or Akademie der Künste\, Berlin
+TRANSP:TRANSPARENT
+END:VEVENT
 END:VCALENDAR

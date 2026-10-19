@@ -78,7 +78,8 @@ test("calendar exports exact UTC instants and honest all-day placeholders", () =
   assert.match(ics, /UID:djerassi-2027@papers.aesthetic.computer/);
   assert.match(ics, /\(check time\)/);
   assert(!ics.includes("UID:sequoia-open-source"));
-  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 9);
+  // One event per dated call; open-ended calls have none.
+  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, catalog.opportunities.filter((x) => x.deadline).length);
   for (const line of ics.split("\r\n")) assert(Buffer.byteLength(line) <= 75);
   const unicode = "DESCRIPTION:" + "é💻,;".repeat(50);
   assert.equal(foldICS(unicode).replace(/\r\n /g, ""), unicode);

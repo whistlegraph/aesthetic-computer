@@ -1,5 +1,89 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AC — New media deadlines</title><link>https://papers.aesthetic.computer/deadlines/</link><description>Reviewed opportunities for creative coding, digital art, experimental sound and new media.</description><language>en</language><lastBuildDate>Tue, 06 Oct 2026 12:00:00 GMT</lastBuildDate><atom:link href="https://papers.aesthetic.computer/deadlines/feed.xml" rel="self" type="application/rss+xml"/>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AC — New media deadlines</title><link>https://papers.aesthetic.computer/deadlines/</link><description>Reviewed opportunities for creative coding, digital art, experimental sound and new media.</description><language>en</language><lastBuildDate>Mon, 19 Oct 2026 12:00:00 GMT</lastBuildDate><atom:link href="https://papers.aesthetic.computer/deadlines/feed.xml" rel="self" type="application/rss+xml"/>
+<item><title>Michigan Central Art × Newlab — Creative Residency 2027</title><link>https://papers.aesthetic.computer/deadlines/#michigan-central-newlab-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#michigan-central-newlab-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>A 12-week research residency in Detroit at the intersection of art, technology, health and society, in an Art &amp; Tech track (Knight Foundation) or an Art &amp; Health track (Henry Ford Health).
+
+Deadline: 2026-10-30. Published as 11:59 p.m. EST, though Detroit is on EDT that day — submit early
+Plus Newlab fabrication shops, project-aligned research, mentors and a public conversation series.
+Applications are free
+
+Eligibility: Single applicants over 25, able to receive taxable US income via SSN, ITIN or EIN. No groups.
+
+Fellows are announced in January 2027 and are expected in Detroit for their 12-week session.
+
+Official call: https://michigancentral.com/michigan-central-art-x-newlab-detroit-opens-applications-for-its-2027-creative-residency-program-supported-by-the-john-s-and-james-l-knight-foundation/
+Checked 2026-10-19</description><category>Creative coding</category><category>Digital art</category><category>Research</category></item>
+<item><title>City of Los Angeles DCA — Neighborhood Engagement Artist Residency (NEAR) 2027–28</title><link>https://papers.aesthetic.computer/deadlines/#la-dca-near-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#la-dca-near-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>A grant for a participatory, workshop-based artist residency at a non-arts venue in one City of Los Angeles council district — libraries, community and youth centres and the like.
+
+Deadline: 2026-10-30. 11:59 pm Pacific
+May be reduced to $6,000 for five workshops plus one event if the City&#39;s budget is cut.
+Application fee not stated
+
+Eligibility: Individual artists (or teams under one lead) residing in Los Angeles County with a largely self-directed community practice.
+
+Notification May–June 2027. The companion CO-UP track is for social-justice nonprofits naming a teaching artist.
+
+Official call: https://culture.lacity.gov/grants/near-co-op
+Checked 2026-10-19</description><category>Creative coding</category><category>Digital art</category><category>Performance</category></item>
+<item><title>Processing Foundation Fellowship 2027</title><link>https://papers.aesthetic.computer/deadlines/#processing-foundation-fellowship-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#processing-foundation-fellowship-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>An eight-month fellowship for artists, educators and engineers building open-source tools and resources for the arts. Every project must build on p5.js, the p5.js Editor or Processing.
+
+Deadline: 2026-11-01. Nominations close 11:59 PM PST; invited nominees submit proposals by November 23
+Plus open-source mentorship, a cohort, professional development and public programs.
+Fee not stated
+
+Eligibility: US-based nominees only; self-nomination is welcome. Hybrid fellows must be in New York or Los Angeles.
+
+Video interviews the week of December 7; fellows notified the week of December 14; final presentations October 2, 2027.
+
+Official call: https://processingfoundation.org/programs/fellowships/fellowship-2027/
+Checked 2026-10-19</description><category>Creative coding</category><category>Open source</category></item>
+<item><title>NLnet — Open Internet Stack: Restack, first call</title><link>https://papers.aesthetic.computer/deadlines/#nlnet-restack-2026-11</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#nlnet-restack-2026-11</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>R&amp;D grants for free and open-source software, open hardware, standards and other building blocks of an open internet stack, from the European Commission&#39;s NGI successor.
+
+Deadline: 2026-11-03. 12:00 noon CET; NLnet now calls every two months, on the third of odd months
+Scalable later with proven potential; plus security, accessibility, licensing and packaging support.
+Fee not stated
+
+Eligibility: Open to anyone, but projects need a strong European dimension — normally 60% of funds to people in Horizon Europe-eligible countries; others only for exceptional quality or unique expertise.
+
+Milestone-based payments for completed work.
+
+Official call: https://nlnet.nl/restack/
+Checked 2026-10-19</description><category>Open source</category><category>Research</category></item>
+<item><title>Social Web Foundation — Fediverse Multimedia Grants</title><link>https://papers.aesthetic.computer/deadlines/#swf-fediverse-multimedia-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#swf-fediverse-multimedia-2026</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>Grants for a developer team and a creator or publisher who together start a new audio, video or image publication on the Fediverse, improving ActivityPub software for creators along the way.
+
+Deadline: 2026-11-04. Cutoff time not stated
+Funded by the Interledger Foundation; a grant, no equity.
+Fee not stated
+
+Eligibility: Developer-and-creator teams only. The foundation will try to match a developer or publisher who applies without a partner.
+
+The publication must be new and on the Fediverse.
+
+Official call: https://hypha.swf.pub/
+Checked 2026-10-19</description><category>Open source</category><category>Moving image</category><category>Sound</category></item>
+<item><title>City of Los Angeles DCA — COLA Independent Master Artist Projects 2027–29</title><link>https://papers.aesthetic.computer/deadlines/#cola-imap-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#cola-imap-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>A grant for an accomplished Los Angeles mid-career artist to make a new solo work, with a City catalog and a likely premiere. A new Graphic Design category covers books, typefaces and text–image work.
+
+Deadline: 2026-11-13. 11:59 pm online; a hard copy must be postmarked by November 18
+Subject to the City budget; non-selected applicants may be named DCA Cultural Trailblazers with a stipend.
+Application fee not stated
+
+Eligibility: Los Angeles County residents who live in the City or have presented there for 3+ years, with a 15-year exhibition, publication or performance record. Collaborative or audience-interactive projects are ineligible.
+
+Grantees contribute catalog materials and use the funds for a new solo work. Results June–July 2027.
+
+Official call: https://culture.lacity.gov/grants/independent-master-artist-projects-grant-program
+Checked 2026-10-19</description><category>Digital art</category><category>Performance</category><category>Research</category></item>
+<item><title>Akademie der Künste — Mensch Maschine VISIT Residency 2027 (“Energy Ghosts”)</title><link>https://papers.aesthetic.computer/deadlines/#adk-mensch-maschine-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#adk-mensch-maschine-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>Four funded fellowships for new projects at the intersection of art, energy and ecology, critically engaging the “human machine” and pluriversal approaches to digital technology.
+
+Deadline: 2026-12-01. 11:59 pm as published; time zone not stated
+For artist fees and production; studio and accommodation provided.
+Fee not stated
+
+Eligibility: Artists from anywhere, across visual art, performance, film, installation, sound, writing and new media.
+
+Fellows live and work on site at least 75% of the three-month residency. Jury in January 2027.
+
+Official call: https://adk.de/en/news/2026/10/open-call-human-machine-fellowship
+Checked 2026-10-19</description><category>Digital art</category><category>Sound</category><category>Research</category></item>
 <item><title>Interplay 2027</title><link>https://papers.aesthetic.computer/deadlines/#interplay-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#interplay-2027</guid><pubDate>Tue, 06 Oct 2026 12:00:00 GMT</pubDate><description>A 15–45 minute live online performance at the intersection of performance and technology.
 
 Deadline: 2026-10-08. 23:59 Pacific
