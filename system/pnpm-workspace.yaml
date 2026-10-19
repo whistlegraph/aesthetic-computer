@@ -1,0 +1,18 @@
+packages: []
+nodeLinker: hoisted
+packageImportMethod: auto
+childConcurrency: 2
+allowBuilds:
+  "@parcel/watcher": true
+  "esbuild": true
+  "ffmpeg-static": true
+  "fsevents": true
+  "netlify-cli": true
+  "protobufjs": true
+  "sharp": true
+  "unix-dgram": true
+  "unrs-resolver": true
+overrides:
+  protobufjs: "^7.6.4"
+  "fast-xml-parser>fast-xml-builder": "^1.2.1"
+  "glob>minimatch": "^9.0.9"

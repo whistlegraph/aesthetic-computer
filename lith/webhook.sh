@@ -127,7 +127,7 @@ while IFS= read -r file; do
     system/netlify/functions/*)
       NEED_RESTART=true
       ;;
-    system/package.json|system/package-lock.json)
+    system/package.json|system/pnpm-lock.yaml|system/pnpm-workspace.yaml|toolchain/pnpm-install.mjs)
       NEED_NPM_INSTALL=true
       NEED_RESTART=true
       ;;
@@ -148,7 +148,7 @@ done <<< "$CHANGED"
 
 if $NEED_NPM_INSTALL; then
   log "installing dependencies..."
-  cd "$REMOTE_DIR/system" && npm install --omit=dev --quiet 2>&1 | tail -1
+  (cd "$REMOTE_DIR/system" && node ../toolchain/pnpm-install.mjs . --prod) || exit 1
   cd "$REMOTE_DIR/lith" && npm install --omit=dev --quiet 2>&1 | tail -1
 fi
 

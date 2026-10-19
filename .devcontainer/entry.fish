@@ -768,6 +768,7 @@ git pull
 
 # Function to check and install npm dependencies in a directory
 set -g NODE_DEPS_CHECK_SCRIPT /workspaces/aesthetic-computer/.devcontainer/scripts/check-node-deps.mjs
+set -g PNPM_INSTALL_SCRIPT /workspaces/aesthetic-computer/toolchain/pnpm-install.mjs
 
 function verify_npm_versions
     set -l dir $argv[1]
@@ -790,6 +791,10 @@ function verify_npm_versions
 
     if test $check_status -ne 0
         echo "♻️ Resyncing dependencies in $dir_name to match package.json versions..."
+        if test -f $dir/pnpm-lock.yaml
+            log_cmd node $PNPM_INSTALL_SCRIPT $dir
+            return $status
+        end
         cd $dir
         log_cmd npm ci --no-fund --no-audit
         if test $status -ne 0
@@ -840,6 +845,11 @@ function install_npm_deps
     set -l dir $argv[1]
     set -l dir_name (basename $dir)
 
+    if test -f $dir/pnpm-lock.yaml
+        log_cmd node $PNPM_INSTALL_SCRIPT $dir
+        return $status
+    end
+
     if test -f $dir/package.json
         if not test -d $dir/node_modules || not count $dir/node_modules/* >/dev/null 2>/dev/null
             echo "📦 Installing dependencies in $dir_name..."
@@ -863,7 +873,9 @@ log_step "PHASE 11: NPM dependencies"
 cd /home/me/aesthetic-computer
 
 # Install root dependencies first
-if not test -d /home/me/aesthetic-computer/node_modules || not count /home/me/aesthetic-computer/node_modules/* >/dev/null
+if test -f /home/me/aesthetic-computer/pnpm-lock.yaml
+    install_npm_deps /home/me/aesthetic-computer; or exit 1
+else if not test -d /home/me/aesthetic-computer/node_modules || not count /home/me/aesthetic-computer/node_modules/* >/dev/null
     log_info "Installing root dependencies..."
     log_cmd npm install -g npm@latest --no-fund --no-audit
     log_cmd npm ci --no-fund --no-audit
@@ -882,6 +894,9 @@ for dir in $critical_dirs
     if test -d /home/me/aesthetic-computer/$dir
         log_info "Processing $dir..."
         install_npm_deps /home/me/aesthetic-computer/$dir
+        if test $status -ne 0; and test -f /home/me/aesthetic-computer/$dir/pnpm-lock.yaml
+            exit 1
+        end
     end
 end
 

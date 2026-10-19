@@ -358,7 +358,7 @@ end
 
 # Install deps
 echo -e "$GREEN-> Installing dependencies...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --omit=dev && cd $REMOTE_DIR/system && npm install --omit=dev && cd $REMOTE_DIR/oven && PUPPETEER_SKIP_DOWNLOAD=1 npm install --omit=dev"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --omit=dev && cd $REMOTE_DIR/system && node ../toolchain/pnpm-install.mjs . --prod && cd $REMOTE_DIR/oven && PUPPETEER_SKIP_DOWNLOAD=1 npm install --omit=dev"; or exit 1
 
 # notepat.com amxd build stream.
 # Modeled after `ac-os upload`'s OTA flow: only rebuild + re-upload

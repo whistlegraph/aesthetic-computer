@@ -3,6 +3,7 @@ import path from "path";
 import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { install as installPnpm } from "./toolchain/pnpm-install.mjs";
 
 // Helper function to get __dirname in ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +29,12 @@ const runNpmInstall = (dir) => {
     if (hasNodeModules(dir)) {
       console.log(`✅ ${path.basename(dir)} already has node_modules, skipping`);
       resolve();
+      return;
+    }
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+    if (pkg.packageManager?.startsWith("pnpm@")) {
+      installPnpm(dir).then(resolve, reject);
       return;
     }
 

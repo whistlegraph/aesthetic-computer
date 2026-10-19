@@ -1,6 +1,7 @@
 {
   "name": "system",
   "version": "1.0.0",
+  "packageManager": "pnpm@12.11.2",
   "description": "My virtual computer system for loading and running pieces.",
   "engines": {
     "node": ">=24.18.1 <25"
@@ -51,7 +52,7 @@
     "url": "https://github.com/whistlegraph/system/issues"
   },
   "homepage": "https://github.com/whistlegraph/system#readme",
-  "comment:dependencies": "Only packages imported by server code (backend/, netlify/functions/, and the lith + oven runtimes). Production installs with `npm install --omit=dev`, so anything the browser gets from a vendored copy in public/aesthetic.computer/dep/ belongs in devDependencies, not here.",
+  "comment:dependencies": "Only packages imported by server code (backend/, netlify/functions/, and the lith + oven runtimes). Production installs with `pnpm install --prod --frozen-lockfile`, so anything the browser gets from a vendored copy in public/aesthetic.computer/dep/ belongs in devDependencies, not here.",
   "dependencies": {
     "@apple/app-store-server-library": "^3.1.0",
     "@atproto/api": "^0.20.28",

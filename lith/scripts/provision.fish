@@ -68,7 +68,7 @@ ssh root@$DROPLET_IP "
     # Clone repo
     git clone https://github.com/aesthetic-computer/aesthetic-computer.git /opt/ac
     cd /opt/ac/lith && npm install
-    cd /opt/ac/system && npm install
+    cd /opt/ac/system && node ../toolchain/pnpm-install.mjs . --prod
 "
 
 echo -e "$GREEN-> Droplet provisioned.$NC"

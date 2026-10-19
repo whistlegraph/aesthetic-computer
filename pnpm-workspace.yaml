@@ -1,0 +1,19 @@
+packages: []
+nodeLinker: hoisted
+packageImportMethod: auto
+childConcurrency: 2
+allowBuilds:
+  "@swc/core": true
+  "@taquito/taquito": true
+  "@tensorflow/tfjs-node": true
+  "canvas": true
+  "core-js": true
+  "electron": true
+  "electron-winstaller": true
+  "fsevents": true
+  "node-datachannel": true
+  "puppeteer": true
+  "sharp": true
+# Electron's npm lock pins this release through a Git URL; use its published tarball.
+overrides:
+  "@electron/node-gyp": "10.2.0-electron.1"
