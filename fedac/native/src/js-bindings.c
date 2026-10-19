@@ -1136,11 +1136,10 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
     JS_FreeValue(ctx, v);
 
-    // Optional GM-synthesis program (0-127). When present and >= 0 we try the
-    // bespoke algorithmic GM voice first; if that program is implemented
-    // (Piano family 0-7 in this slice) it wins and `type` is ignored. If not,
-    // audio_synth_gm returns 0 and we fall through to the `type`-based path so
-    // unimplemented programs still use notepat's family-recipe wave.
+    // Optional GM program (0-127). When present and >= 0 it wins over `type`:
+    // the SoundFont bank plays it if loaded (sound.gm.backend === "sf2"),
+    // otherwise the algorithmic gm_synth voice. If neither can, audio_synth_gm
+    // returns 0 and we fall through to the `type`-based path.
     // docs/gm-synthesis/01-piano-mallet-organ-guitar.md
     int gm_program = -1;
     JSValue gmp_v = JS_GetPropertyStr(ctx, opts, "gmProgram");
@@ -3283,6 +3282,12 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, sound, "time", JS_NewFloat64(ctx, rt->audio ? rt->audio->time : 0.0));
     JS_SetPropertyStr(ctx, sound, "registerSample", JS_NewCFunction(ctx, js_noop, "registerSample", 3));
 
+    // sound.gm.backend — "sf2" or "synth". The bank loads after boot, so the
+    // answer can change; build_api runs per phase, which keeps it current.
+    JSValue gm = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, gm, "backend", JS_NewString(ctx, audio_gm_backend()));
+    JS_SetPropertyStr(ctx, sound, "gm", gm);
+
     // speaker sub-object
     JSValue speaker = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, speaker, "poll", JS_NewCFunction(ctx, js_noop, "poll", 0));
@@ -4159,11 +4164,14 @@ static JSValue js_fetch_post(JSContext *ctx, JSValueConst this_val, int argc, JS
     if (bf) { fputs(body, bf); fclose(bf); }
 
     // Build header flags by parsing simple JSON {"key":"value",...}
-    // We build a file of -H flags to avoid shell escaping nightmares
+    // into a curl config file (-K) to avoid shell escaping nightmares. A
+    // config line is `header = "Name: value"`; the old two-line "-H\nvalue"
+    // form is not config syntax, and curl rejected the file (exit 26) on
+    // every request that carried headers.
     FILE *hf = fopen("/tmp/ac_fetch_headers.txt", "w");
     if (hf) {
         // Always include Content-Type
-        fprintf(hf, "-H\nContent-Type: application/json\n");
+        fprintf(hf, "header = \"Content-Type: application/json\"\n");
         if (headers_json) {
             // Simple JSON parser: find "key":"value" pairs
             const char *p = headers_json;
@@ -4179,7 +4187,17 @@ static JSValue js_fetch_post(JSContext *ctx, JSValueConst this_val, int argc, JS
                 int klen = (int)(ke - kq - 1);
                 int vlen = (int)(ve - vq - 1);
                 if (klen > 0 && klen < 256 && vlen > 0 && vlen < 2048) {
-                    fprintf(hf, "-H\n%.*s: %.*s\n", klen, kq + 1, vlen, vq + 1);
+                    fputs("header = \"", hf);
+                    for (const char *c = kq + 1; c < ke; c++) {
+                        if (*c == '"' || *c == '\\') fputc('\\', hf);
+                        fputc(*c, hf);
+                    }
+                    fputs(": ", hf);
+                    for (const char *c = vq + 1; c < ve; c++) {
+                        if (*c == '"' || *c == '\\') fputc('\\', hf);
+                        fputc(*c, hf);
+                    }
+                    fputs("\"\n", hf);
                 }
                 p = ve + 1;
             }
@@ -6509,16 +6527,17 @@ static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_TRUE;
 }
 
-// system.startSSH() — start dropbear SSH daemon (generates host key if needed)
+// Start the dropbear SSH daemon (generates host key if needed). ac-native.c
+// calls this when wifi first connects, so any piece is reachable;
+// system.startSSH() is the same call from JS.
 static int ssh_started = 0;
-static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    (void)this_val; (void)argc; (void)argv;
-    if (ssh_started) return JS_NewBool(ctx, 1);
+int ac_start_ssh(void) {
+    if (ssh_started) return 1;
 
     // Check if dropbear exists
     if (access("/usr/sbin/dropbear", X_OK) != 0 && access("/bin/dropbear", X_OK) != 0) {
         ac_log("[ssh] dropbear not found in initramfs\n");
-        return JS_NewBool(ctx, 0);
+        return 0;
     }
 
     // Host key: restore from the EFI partition so the device keeps a stable
@@ -6546,7 +6565,33 @@ static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSV
     }
     ssh_started = 1;
     ac_log("[ssh] dropbear started\n");
-    return JS_NewBool(ctx, 1);
+    return 1;
+}
+
+// system.setSurfaceGrab(on) — a drum piece lends the pad back to the
+// pointer (and takes it again) without reloading, so on-screen buttons can be
+// tapped. Only a piece that claimed the surface at load can re-grab it.
+static JSValue js_set_surface_grab(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_FALSE;
+    int on = JS_ToBool(ctx, argv[0]);
+    current_rt->surface_grab = on && strcmp(current_rt->surface_mode, "drum") == 0;
+    return JS_NewBool(ctx, current_rt->surface_grab);
+}
+
+// system.setDisplayFlip(on) — turn the picture 180° for tent mode.
+static JSValue js_set_display_flip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    extern int g_display_flip;
+    if (argc < 1) return JS_FALSE;
+    g_display_flip = JS_ToBool(ctx, argv[0]) ? 1 : 0;
+    return JS_NewBool(ctx, g_display_flip);
+}
+
+// system.startSSH()
+static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return JS_NewBool(ctx, ac_start_ssh());
 }
 
 // system.execNode(script) — run Node.js with a script string, async
@@ -7979,6 +8024,10 @@ static JSValue build_system_obj(JSContext *ctx) {
     // SSH daemon
     JS_SetPropertyStr(ctx, sys, "startSSH",
                       JS_NewCFunction(ctx, js_start_ssh, "startSSH", 0));
+    JS_SetPropertyStr(ctx, sys, "setSurfaceGrab",
+                      JS_NewCFunction(ctx, js_set_surface_grab, "setSurfaceGrab", 1));
+    JS_SetPropertyStr(ctx, sys, "setDisplayFlip",
+                      JS_NewCFunction(ctx, js_set_display_flip, "setDisplayFlip", 1));
     JS_SetPropertyStr(ctx, sys, "sshStarted", JS_NewBool(ctx, ssh_started));
 
     // Node.js execution

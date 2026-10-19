@@ -104,34 +104,44 @@ modprobe vfat 2>/dev/null
 modprobe nls_cp437 2>/dev/null
 modprobe nls_ascii 2>/dev/null
 USB_MOUNTED=0
-USB_PARTS="/dev/sda1 /dev/sda2 /dev/sda3 /dev/sdb1 /dev/sdb2 /dev/sdb3 /dev/sdc1 /dev/sdc2 /dev/sdc3 /dev/sdd1 /dev/sdd2 /dev/sdd3 /dev/nvme0n1p1 /dev/nvme0n1p2 /dev/nvme0n1p3"
+STICK_PARTS="/dev/sda1 /dev/sda2 /dev/sda3 /dev/sdb1 /dev/sdb2 /dev/sdb3 /dev/sdc1 /dev/sdc2 /dev/sdc3 /dev/sdd1 /dev/sdd2 /dev/sdd3"
+DISK_PARTS="/dev/nvme0n1p1 /dev/nvme0n1p2 /dev/nvme0n1p3 /dev/mmcblk0p1 /dev/mmcblk0p2"
 
-mount_usb_partition() {
-    pass="$1"
-    for p in $USB_PARTS; do
-        if [ -b "$p" ]; then
-            mkdir -p /mnt
-            mount -t vfat "$p" /mnt 2>/dev/null || continue
-            if [ "$pass" = "config" ] && [ -f /mnt/config.json ]; then
-                return 0
-            fi
-            if [ "$pass" = "boot" ] && { [ -f /mnt/EFI/BOOT/BOOTX64.EFI ] || [ -f /mnt/EFI/BOOT/KERNEL.EFI ]; }; then
-                return 0
-            fi
-            umount /mnt 2>/dev/null
+# AC media is a FAT partition carrying our initramfs (sticks and disk
+# installs both put it at the root). EFI/BOOT/BOOTX64.EFI alone is not
+# enough: every Windows ESP has EFI/Boot/bootx64.efi, and an internal SSD
+# appears before a USB stick — the MiniBook X booted its stick but mounted
+# Windows' ESP as /mnt and wrote config, logs and settings there.
+mount_ac_partition() {   # $1 = partition list, $2 = "strict" | "legacy"
+    for p in $1; do
+        [ -b "$p" ] || continue
+        mkdir -p /mnt
+        mount -t vfat "$p" /mnt 2>/dev/null || continue
+        if [ -f /mnt/initramfs.cpio.gz ] || [ -f /mnt/initramfs.cpio.lz4 ]; then
+            return 0
         fi
+        # Old disk installs with the initramfs inside the kernel: an AC
+        # config on a partition that is not Windows' (no BCD store).
+        if [ "$2" = "legacy" ] && [ -f /mnt/config.json ] && [ ! -f /mnt/EFI/Microsoft/Boot/BCD ]; then
+            return 0
+        fi
+        umount /mnt 2>/dev/null
     done
     return 1
 }
 
 # Background USB mount: try up to 10 times with 1s delay, write result
 # to /run/usb-mounted so the foreground thread can check after GPU wait.
+# The stick gets a 3 s head start before internal disks are considered.
 (
     for attempt in 1 2 3 4 5 6 7 8 9 10; do
-        mount_usb_partition config && { echo 1 > /run/usb-mounted; exit 0; }
-        mount_usb_partition boot   && { echo 1 > /run/usb-mounted; exit 0; }
+        mount_ac_partition "$STICK_PARTS" strict && { echo 1 > /run/usb-mounted; exit 0; }
+        if [ "$attempt" -gt 3 ]; then
+            mount_ac_partition "$DISK_PARTS" strict && { echo 1 > /run/usb-mounted; exit 0; }
+        fi
         sleep 1
     done
+    mount_ac_partition "$DISK_PARTS" legacy && { echo 1 > /run/usb-mounted; exit 0; }
     echo 0 > /run/usb-mounted
 ) &
 USB_MOUNT_PID=$!
@@ -272,6 +282,39 @@ echo "=== DMESG (kernel ring) ===" >> $LOG
 if [ "$USB_MOUNTED" = "1" ]; then
     ( cat /dev/kmsg >> /mnt/kmsg.log 2>&1 ) &
     ( (cat /dev/kmsg & CAT_PID=$!; sleep 15; kill $CAT_PID 2>/dev/null) >> $LOG 2>&1 ) &
+    # FAT on a stick only reaches the media on sync, and a machine with a
+    # broken screen gets switched off at the power button — flush every 5s
+    # so the tail of kmsg.log survives that.
+    ( while :; do sleep 5; sync; done ) &
+    # Display state, once the panel has had time to come up: which machine,
+    # what each connector reports, the i915 parameters this boot used, and
+    # the firmware's VBT (panel timings and power-on sequence).
+    (
+        sleep 12
+        D=/mnt/display.log
+        {
+            echo "=== $(date 2>/dev/null) $(cat /etc/ac-build 2>/dev/null) ==="
+            echo "dmi: $(cat /sys/class/dmi/id/sys_vendor 2>/dev/null) / $(cat /sys/class/dmi/id/product_name 2>/dev/null) / bios $(cat /sys/class/dmi/id/bios_version 2>/dev/null)"
+            echo "cmdline: $(cat /proc/cmdline 2>/dev/null)"
+            for c in /sys/class/drm/card*-*; do
+                [ -d "$c" ] || continue
+                echo "$(basename $c): status=$(cat $c/status 2>/dev/null) enabled=$(cat $c/enabled 2>/dev/null) dpms=$(cat $c/dpms 2>/dev/null) modes=$(tr '\n' ' ' < $c/modes 2>/dev/null)"
+            done
+            for p in enable_dc enable_psr enable_fbc fastboot vbt_firmware; do
+                echo "i915.$p=$(cat /sys/module/i915/parameters/$p 2>/dev/null)"
+            done
+            for f in i915_display_info i915_power_domain_info i915_dmc_info; do
+                echo "--- $f"
+                cat /sys/kernel/debug/dri/0/$f 2>&1
+            done
+            echo "--- backlight"
+            for b in /sys/class/backlight/*; do
+                [ -d "$b" ] && echo "$(basename $b): $(cat $b/brightness 2>/dev/null)/$(cat $b/max_brightness 2>/dev/null) power=$(cat $b/bl_power 2>/dev/null)"
+            done
+        } >> $D 2>&1
+        cat /sys/kernel/debug/dri/0/i915_vbt > /mnt/vbt.bin 2>/dev/null
+        sync
+    ) &
 fi
 # Snapshot devices + sound AFTER the ring-buffer dump so we see the state
 # that existed when drivers had their chance to probe.

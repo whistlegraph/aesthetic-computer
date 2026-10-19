@@ -385,6 +385,95 @@ static int create_dumb_buffer(ACDisplay *d, int idx) {
     return 0;
 }
 
+// How far to turn frames for an internal panel mounted sideways, in degrees
+// clockwise: 90 when the panel's top edge sits on the right ("right side
+// up"), 270 when it sits on the left. A number in /mnt/display-rotate wins
+// (so the direction can be flipped on a running stick); then the
+// connector's "panel orientation" property; then a portrait panel in a
+// MiniBook X, whose VBT doesn't say (its top edge sits on the left: 270).
+static int panel_rotation(int fd, drmModeConnector *conn, int internal) {
+    FILE *f = fopen("/mnt/display-rotate", "r");
+    if (f) {
+        int deg = -1;
+        int got = fscanf(f, "%d", &deg);
+        fclose(f);
+        if (got == 1 && (deg == 0 || deg == 90 || deg == 270)) return deg;
+    }
+    if (!internal) return 0;
+
+    drmModeObjectProperties *props =
+        drmModeObjectGetProperties(fd, conn->connector_id, DRM_MODE_OBJECT_CONNECTOR);
+    if (props) {
+        int deg = -1;
+        for (uint32_t i = 0; i < props->count_props && deg < 0; i++) {
+            drmModePropertyRes *prop = drmModeGetProperty(fd, props->props[i]);
+            if (!prop) continue;
+            if (strcmp(prop->name, "panel orientation") == 0) {
+                // DRM_MODE_PANEL_ORIENTATION_{NORMAL,BOTTOM_UP,LEFT_UP,RIGHT_UP}
+                uint64_t v = props->prop_values[i];
+                deg = v == 3 ? 90 : v == 2 ? 270 : 0;
+            }
+            drmModeFreeProperty(prop);
+        }
+        drmModeFreeObjectProperties(props);
+        if (deg > 0) return deg;
+    }
+
+    char product[64] = {0};
+    f = fopen("/sys/class/dmi/id/product_name", "r");
+    if (f) {
+        if (fgets(product, sizeof(product), f)) product[strcspn(product, "\n")] = 0;
+        fclose(f);
+    }
+    if (strcmp(product, "MiniBook X") == 0 &&
+        conn->modes[0].vdisplay > conn->modes[0].hdisplay) return 270;
+    return 0;
+}
+
+// Tent mode (a 2-in-1 folded to face an audience) shows the panel upside
+// down; a piece flips it with system.setDisplayFlip(), adding 180° on top of
+// the panel's own rotation.
+int g_display_flip = 0;
+
+// fb_copy_scaled, turned onto a sideways (or, flipped, upside-down) panel. dst is the scanout buffer
+// (dst_w×dst_h); the upright image is dst_h wide and dst_w tall. Each
+// scanout row is one upright column, so build it once in cached RAM and
+// write it `scale` times — same reason as fb_copy_scaled.
+static void copy_scaled_rotated(ACFramebuffer *src, uint32_t *dst, int dst_w, int dst_h,
+                                int dst_stride, int scale, int rotation) {
+    if (!src || !dst || dst_w <= 0 || dst_h <= 0 || scale <= 0) return;
+    uint32_t *row = malloc((size_t)dst_w * sizeof(uint32_t));
+    if (!row) return;
+    if (rotation == 180) {
+        for (int y = 0; y < dst_h; y += scale) {
+            int sy = (dst_h - 1 - y) / scale;
+            for (int x = 0; x < dst_w; x++) {
+                int sx = (dst_w - 1 - x) / scale;
+                row[x] = (sx < src->width && sy < src->height)
+                    ? src->pixels[sy * src->stride + sx] : 0;
+            }
+            for (int r = 0; r < scale && y + r < dst_h; r++)
+                memcpy(dst + (y + r) * dst_stride, row, (size_t)dst_w * sizeof(uint32_t));
+        }
+        free(row);
+        return;
+    }
+    for (int y = 0; y < dst_h; y += scale) {
+        // 90: the panel's top row is the upright image's right edge.
+        int ux = rotation == 90 ? dst_h - 1 - y : y;
+        int sx = ux / scale;
+        for (int x = 0; x < dst_w; x++) {
+            int uy = rotation == 90 ? x : dst_w - 1 - x;
+            int sy = uy / scale;
+            row[x] = (sx < src->width && sy < src->height)
+                ? src->pixels[sy * src->stride + sx] : 0;
+        }
+        for (int r = 0; r < scale && y + r < dst_h; r++)
+            memcpy(dst + (y + r) * dst_stride, row, (size_t)dst_w * sizeof(uint32_t));
+    }
+    free(row);
+}
+
 ACDisplay *drm_init(void) {
     extern void ac_log(const char *fmt, ...);
     ac_log("[drm] drm_init() start\n");
@@ -544,6 +633,8 @@ ACDisplay *drm_init(void) {
         }
     }
 
+    int rotation = hdmi_only ? 0 : panel_rotation(d->fd, conn, internal);
+
     drmModeFreeEncoder(enc);
     drmModeFreeConnector(conn);
     drmModeFreeResources(res);
@@ -573,6 +664,15 @@ ACDisplay *drm_init(void) {
         }
         ac_log("[drm] HDMI-only primary: %dx%d@%d; other CRTCs disabled\n",
                d->width, d->height, d->mode.vrefresh);
+    }
+    d->scan_w = d->width;
+    d->scan_h = d->height;
+    if (rotation) {
+        d->rotation = rotation;
+        d->width = d->scan_h;
+        d->height = d->scan_w;
+        ac_log("[drm] panel mounted sideways: scanout %dx%d, drawing %dx%d, turned %d\n",
+               d->scan_w, d->scan_h, d->width, d->height, rotation);
     }
     fprintf(stderr, "[drm] Ready\n");
     return d;
@@ -678,8 +778,13 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
     }
     (void)scale;
     // CPU fallback: scale to back buffer and flip
-    fb_copy_scaled(screen, drm_back_buffer(d),
-                   d->width, d->height, drm_back_stride(d), scale);
+    int rotation = (d->rotation + (g_display_flip ? 180 : 0)) % 360;
+    if (rotation)
+        copy_scaled_rotated(screen, drm_back_buffer(d),
+                            d->scan_w, d->scan_h, drm_back_stride(d), scale, rotation);
+    else
+        fb_copy_scaled(screen, drm_back_buffer(d),
+                       d->width, d->height, drm_back_stride(d), scale);
     drm_flip(d);
 }
 

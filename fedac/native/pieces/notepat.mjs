@@ -160,6 +160,10 @@ let perKeyRecording = null; // key currently recording in per-key mode
 // you can riff freely over them. Press Enter again later to add more.
 // Backspace clears all holds.
 let recitalMode = false; // F12: hide all UI, show only colored backdrops
+// F11: tent mode — the laptop folded to face an audience. The picture turns
+// 180° (system.setDisplayFlip) and the screen shows the laptop keyboard,
+// each key carrying its note, upright for the audience.
+let tentMode = false;
 let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
 let enterHeld = false;       // true while Enter key is physically held
@@ -266,6 +270,9 @@ let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
 // cursor, and leaves Escape to us (three presses exit, counted below). The
 // pad's fingers arrive instead through `api.trackpad.contacts`.
 const surface = "drum";
+// Tab lends the pad back to the pointer so on-screen buttons can be tapped,
+// and takes it again (system.setSurfaceGrab).
+let padDrumOn = true;
 
 // Trackpad FX control (\ toggles on/off)
 let trackpadFX = false;
@@ -587,14 +594,9 @@ let wifiWasConnected = false;
 let wifiConnectFrame = -9999; // frame when WiFi last connected (cooldown guard)
 let lastBatPercent = -1;     // for battery change TTS
 
-// Auto-connect: try "aesthetic.computer" hotspot when not connected
+// The native wifi worker auto-joins; these feed the manual picker.
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
-// Additional networks loaded from /mnt/wifi_creds.json
-let autoConnectFrame = 0;    // counts frames; try every ~5s (300 frames)
-let autoConnectBlink = 0;    // blink counter for antenna icon while polling
-let autoConnectTry = 0;      // increments each attempt
-let connectStartFrame = 0;   // frame when current connect began (for timeout)
 
 // Saved WiFi credentials — persisted to /mnt/wifi_creds.json (USB EFI partition)
 const CREDS_PATH = "/mnt/wifi_creds.json";
@@ -750,7 +752,7 @@ const NOTE_TO_KEY = {
   "f#": "w", "g": "g", "g#": "r", "a": "a", "a#": "q", "b": "b",
   "+c": "h", "+c#": "t", "+d": "i", "+d#": "y", "+e": "j", "+f": "k",
   "+f#": "u", "+g": "l", "+g#": "o", "+a": "m", "+a#": "p", "+b": "n",
-  "++c": ";", "++c#": "'", "++d": "]",
+  "++c": ";", "++c#": "'",
   "-a#": "z", "-b": "x",
 };
 
@@ -767,10 +769,12 @@ function parseNote(name) {
 }
 
 // === GENERAL MIDI INSTRUMENT MODEL (Menu Band parity) ===
-// There is no GM soundfont on bare metal, so each of the 128 GM programs
-// is mapped onto one of the engine's native waveforms via its family.
-// 16 families of 8 → a compact recipe table (NOT 128 hand-tuned lines).
-// A recipe = { wave, attack, decay, sustain, volume, detune? }. When a
+// GM programs play from the GeneralUser GS SoundFont when the native bank
+// has loaded (sound.gm.backend === "sf2"); the bank brings its own attack,
+// levels and tuning, so only `linger` below applies then. Otherwise each of
+// the 128 programs maps onto one of the engine's native waveforms via its
+// family: 16 families of 8 → a compact recipe table (NOT 128 hand-tuned
+// lines). A recipe = { wave, attack, decay, sustain, volume, detune? }. When a
 // melodic side has a gmProgram selected, note-on uses the recipe instead
 // of the freely-cycled `wave`. The custom kits (perc/war/zoo/lasers) are
 // untouched — GM only applies to the "off"/melodic layer.
@@ -886,13 +890,13 @@ const NOTE_COLORS = {
 };
 
 // === KIT LAYOUT ===
-// Pgup cycles the left octave grid's kit through off → perc → warA → warB → off.
-// Pgdn does the same for the right grid. "perc" replaces the 12 notes
+// `[` latches the left octave grid to drums and back, `]` the right;
+// shift walks off → perc → warA → warB → zoo → lasers. "perc" replaces the 12 notes
 // with drum hits (TR-808 / 909 analogues). "warA" / "warB" replace them
 // with the same 12 weapons rendered via two different synthesis models —
 // warA uses each preset's default (mostly classic 3-layer crack/boom/
 // tail) and warB forces every weapon through the physical DWG bore. Tap
-// pgup/pgdn between A and B to A/B-compare model timbre on the same key.
+// shift+[ / shift+] between A and B to A/B-compare model timbre on the same key.
 let kitLeft = "off";   // "off" | "perc" | "warA" | "warB"
 let kitRight = "off";
 
@@ -1755,7 +1759,7 @@ function cycleKit(side) {
 
 // Return drum/weapon name if the given (letter, grid offset) is a live
 // kit pad, else null. offset 0 = left grid, 1 = right grid. Low/high
-// extras (z, x, ;, ', ]) stay melodic.
+// extras (z, x, ;, ') stay melodic.
 function percussionDrumFor(letter, offset) {
   const info = kitDrumFor(letter, offset);
   return info ? info.name : null;
@@ -2864,6 +2868,71 @@ function stopAllSounds(sound, system, fade = 0.08) {
 
 function noteColor(n) { return NOTE_COLORS[n] || [80, 80, 80]; }
 
+// The laptop's keys, in key widths, as the player sees them.
+const LAPTOP_ROWS = [
+  [["`",1],["1",1],["2",1],["3",1],["4",1],["5",1],["6",1],["7",1],["8",1],["9",1],["0",1],["-",1],["=",1],["backspace",2]],
+  [["tab",1.5],["q",1],["w",1],["e",1],["r",1],["t",1],["y",1],["u",1],["i",1],["o",1],["p",1],["[",1],["]",1],["\\",1.5]],
+  [["caps",1.75],["a",1],["s",1],["d",1],["f",1],["g",1],["h",1],["j",1],["k",1],["l",1],[";",1],["'",1],["enter",2.25]],
+  [["shift",2.25],["z",1],["x",1],["c",1],["v",1],["b",1],["n",1],["m",1],[",",1],[".",1],["/",1],["shift",2.75]],
+  [["",4.5],["space",6],["",4.5]],
+];
+const KEY_GLYPH = { backspace: "\u232b", tab: "\u21e5", caps: "\u21ea", enter: "\u23ce", shift: "\u21e7", space: "" };
+
+// The player's keyboard, drawn as a normal laptop keyboard for the audience
+// (tent mode flips the whole screen to face them). Classic and quiet: black
+// ground, white outlined keys, big thick labels. Colour only arrives with a
+// sounding key — its note colour, the sharps a darker shade like a piano's
+// black keys.
+function paintAudienceKeyboard(ink, box, write, screen) {
+  const w = screen.width, h = screen.height;
+  const big = w >= 560 ? 2 : 1; // 6x10 at 2x reads thick on a 640-wide screen
+  const margin = Math.max(8, Math.floor(w * 0.04));
+  const unit = (w - margin * 2) / 15;
+  const gap = Math.max(3, Math.floor(unit * 0.14)); // keys stand apart
+  const keyH = Math.min(Math.floor(unit * 1.2), Math.floor((h - margin * 2) / 5));
+  const top = Math.floor((h - keyH * 5) / 2);
+  ink(0, 0, 0);
+  box(0, 0, w, h);
+  LAPTOP_ROWS.forEach((row, r) => {
+    let x = margin;
+    for (const [key, span] of row) {
+      const kw = span * unit;
+      if (key) {
+        const px = Math.round(x) + Math.floor(gap / 2), py = top + r * keyH + Math.floor(gap / 2);
+        const bw = Math.round(kw) - gap, bh = keyH - gap;
+        const note = KEY_TO_NOTE[key];
+        const on = note && sounds[key] !== undefined;
+        if (on) {
+          const c = noteColor(note.replace(/^[+-]+/, ""));
+          const k = note.includes("#") ? 0.62 : 1;
+          ink(Math.floor(c[0] * k), Math.floor(c[1] * k), Math.floor(c[2] * k));
+          box(px, py, bw, bh);
+        }
+        // White outline, two pixels: a note key bright, the rest dimmer.
+        const edge = note ? 255 : 120;
+        ink(on ? 0 : edge, on ? 0 : edge, on ? 0 : edge);
+        box(px, py, bw, bh, "outline");
+        box(px + 1, py + 1, bw - 2, bh - 2, "outline");
+        const label = KEY_GLYPH[key] ?? key;
+        if (label) {
+          const cw = 6 * big, chs = 10 * big;
+          const len = [...label].length;
+          const size = len * cw <= bw - 6 ? big : 1;
+          const lw = len * 6 * size, lh = 10 * size;
+          ink(on ? 0 : edge, on ? 0 : edge, on ? 0 : edge);
+          write(label, { x: px + Math.floor((bw - lw) / 2), y: py + Math.floor((bh - lh) / 2) - (note ? Math.floor(chs / 4) : 0), size, font: "font_1" });
+          if (note) {
+            const n = note.replace(/^[+-]+/, "").toUpperCase();
+            ink(on ? 0 : 170, on ? 0 : 170, on ? 0 : 170);
+            write(n, { x: px + Math.floor((bw - n.length * 6) / 2), y: py + bh - 13, font: "font_1" });
+          }
+        }
+      }
+      x += kw;
+    }
+  });
+}
+
 // Hit-test a touch point against the note grid
 function hitTestGrid(x, y, gi) {
   // The AC-OS performance view uses Menu Band's two-octave piano geometry.
@@ -3179,8 +3248,8 @@ function act({ event: e, sound, wifi, system }) {
     // remap in input.c, not here.
 
     // === DJ DECK KEYS ===
-    // F1 play/pause, F2 next, F3 prev, F4 scan+mount USB. Also [ = speed−,
-    // ` = reset speed. Tap tempo on `,` (unused elsewhere in notepat).
+    // F1 play/pause, F2 next, F3 prev, F4 scan+mount USB. PgUp/PgDn =
+    // speed ±, ` = reset speed. Tap tempo on `,` (unused elsewhere in notepat).
     if (key === "f1") { djTogglePlay(sound); return; }
     if (key === "f2") { djTrackIdx++; djLoadTrack(sound); return; }
     if (key === "f3") { djTrackIdx = (djTrackIdx - 1 + Math.max(1, djFiles.length)) % Math.max(1, djFiles.length); djLoadTrack(sound); return; }
@@ -3199,10 +3268,11 @@ function act({ event: e, sound, wifi, system }) {
     // F5 — cycle internet radio stations (KPBJ, r8dio, NTS 1/2) through
     // the shared deck. Layer notepat melody over a live feed.
     if (key === "f5") { djTuneRadio(sound, radioIdx + 1); return; }
-    if (key === "[") {
+    if (key === "pageup" || key === "pagedown") {
       const d = sound?.deck?.decks?.[0];
       if (d?.loaded) {
-        const s = Math.max(-2, (d.speed || 1) - 0.05);
+        const step = key === "pageup" ? 0.05 : -0.05;
+        const s = Math.max(-2, Math.min(2, (d.speed || 1) + step));
         sound.deck.setSpeed(0, s);
         djMsg(`${s.toFixed(2)}x`);
       }
@@ -3293,8 +3363,15 @@ function act({ event: e, sound, wifi, system }) {
     // shift does nothing on its own now.
     if (key === "shift") return;
     if (key === "tab") {
-      const idx = (waveIndex + 1) % wavetypes.length;
-      setWave(wavetypes[idx], sound);
+      if (shiftHeld) {
+        const idx = (waveIndex + 1) % wavetypes.length;
+        setWave(wavetypes[idx], sound);
+      } else {
+        padDrumOn = !padDrumOn;
+        system?.setSurfaceGrab?.(padDrumOn);
+        if (!padDrumOn) stopPadScratch(sound);
+        flashPercussionNotice(padDrumOn ? "TRACKDRUM" : "POINTER");
+      }
       return;
     }
     if (key === "space") {
@@ -3351,16 +3428,22 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // PgUp: cycle LEFT grid kit (off → perc → war → off).
-    // PgDn: same for RIGHT grid. Each cycle fires a sample of the new
-    // kit ("c" = kick for perc, pistol for war) so the sound confirms
-    // which mode you just entered.
-    if (key === "pageup" || key === "pagedown") {
-      const side = key === "pageup" ? "left" : "right";
+    // Menu Band's brackets: `[` latches the LEFT grid to drums, `]` the
+    // RIGHT (`]` gave up its ++d note for this); press again for notes.
+    // Shift+`[`/`]` walks the other kits (war A/B, zoo, lasers). Each change
+    // fires a sample of the new kit ("c" = kick for perc, pistol for war)
+    // so the sound confirms which mode you just entered.
+    if (key === "[" || key === "]") {
+      const side = key === "[" ? "left" : "right";
       const arrow = side === "left" ? "◀" : "▶";
       const pan = side === "left" ? -0.4 : 0.4;
       const feedbackPan = side === "left" ? -0.6 : 0.6;
-      const next = cycleKit(side);
+      let next;
+      if (shiftHeld) next = cycleKit(side);
+      else {
+        next = (side === "left" ? kitLeft : kitRight) === "off" ? "perc" : "off";
+        if (side === "left") kitLeft = next; else kitRight = next;
+      }
       const banner = {
         off:    side === "left" ? `${arrow} notes`  : `notes ${arrow}`,
         perc:   side === "left" ? `${arrow} DRUMS`  : `DRUMS ${arrow}`,
@@ -3386,6 +3469,11 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     // F12 (star key): recital mode — hide UI, show only colored backdrops
+    if (key === "f11") {
+      tentMode = !tentMode;
+      system?.setDisplayFlip?.(tentMode);
+      return;
+    }
     if (key === "f12") {
       recitalMode = !recitalMode;
       sound?.synth?.({
@@ -3667,23 +3755,23 @@ function act({ event: e, sound, wifi, system }) {
       if (gmProgram !== null || chordIvls) {
         const recipe = gmProgram !== null ? gmRecipe(gmProgram) : null;
         const useWave = recipe ? recipe.wave : (wave === "sample" ? "sine" : wave);
-        const atk = recipe ? recipe.attack : (quickMode ? 0.002 : currentAttack());
-        const recipeVol = recipe ? recipe.volume : 1.0;
+        // The SoundFont voices itself; the recipe's attack, level and detune
+        // are stand-ins for the synth fallback only.
+        const sf2 = recipe && sound.gm?.backend === "sf2";
+        const atk = recipe && !sf2 ? recipe.attack : (quickMode ? 0.002 : currentAttack());
+        const recipeVol = recipe && !sf2 ? recipe.volume : 1.0;
         const ivls = chordIvls || [0];
         const voices = [];
         for (const iv of ivls) {
           const cf = playFreq * Math.pow(2, iv / 12);
           // Spread voices a touch in the stereo field; detune ensemble.
           const cpan = Math.max(-0.85, Math.min(0.85, pan + (iv ? (iv - 4) * 0.04 : 0)));
-          const ctone = recipe?.detune ? cf * (1 + recipe.detune * 0.01) : cf;
+          const ctone = recipe?.detune && !sf2 ? cf * (1 + recipe.detune * 0.01) : cf;
           const v = sound.synth({
             type: useWave, tone: ctone, duration: Infinity,
             volume: vol * recipeVol, attack: atk, decay: currentDecay(), pan: cpan,
-            // Route to the bespoke native GM C voice when this program has one
-            // (0..7 piano family today); js_synth falls back to `type` for the
-            // not-yet-implemented programs. Each C voice applies bounded
-            // per-trigger stochasticism so the same note never renders an
-            // identical waveform.
+            // Route to the native GM voice: the SoundFont when loaded, else
+            // gm_synth; js_synth falls back to `type` if neither can play it.
             gmProgram: gmProgram !== null ? gmProgram : undefined,
           });
           if (v) voices.push(v);
@@ -6573,6 +6661,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   lastTabletMode = system.tabletMode;
 
   // Tablet mode or Recital mode (F12): solid color only, no UI
+  if (tentMode) { paintAudienceKeyboard(ink, box, write, screen); return; }
   if (system.tabletMode || recitalMode) return;
 
   // Metronome flash border
@@ -6895,7 +6984,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // WiFi connect chord: perfect fifth (G5 + D6)
     sound?.synth({ type: "sine", tone: 784, duration: 0.18, volume: 0.22, attack: 0.005, decay: 0.15 });
     sound?.synth({ type: "sine", tone: 1175, duration: 0.18, volume: 0.16, attack: 0.005, decay: 0.15 });
-    autoConnectTry = 0;
     wsStatus = "connecting";
     wsConnectGrace = 180; // ~3s grace before declaring error
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
@@ -7161,54 +7249,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           if (!chatMuted) sound?.speak(msg.from + ": " + msg.text);
         }
       } catch (err) { console.log("ws parse error: " + err); }
-    }
-  }
-
-  // Auto-connect: scan, pick strongest known network, timeout after 5s
-  // Disabled when WiFi panel is open (user is manually picking)
-  autoConnectFrame++;
-  autoConnectBlink = (autoConnectBlink + 1) % 60;
-  const autoConnectEnabled = activeScreen !== "wifi";
-
-  // All known credentials
-  const knownCreds = [
-    { ssid: AC_SSID, pass: AC_PASS },
-    ...savedCreds.filter((c) => c.ssid !== AC_SSID),
-  ];
-  const knownSSIDs = new Set(knownCreds.map((c) => c.ssid));
-
-  const isConnecting = wifi && !wifi.connected &&
-    (wifi.state === 3 /* CONNECTING */ || wifi.state === 4);
-  const isIdle = wifi && !wifi.connected &&
-    wifi.state !== 3 && wifi.state !== 4;
-
-  // Timeout: if connecting for > 180 frames (~3s), disconnect and retry (silent)
-  if (autoConnectEnabled && isConnecting && frame - connectStartFrame > 1200) {   // 20 s: 3 s cut WPA + DHCP short
-    wifi.disconnect?.();
-    autoConnectFrame = -30; // brief delay before next attempt
-  }
-
-  if (autoConnectEnabled && isIdle) {
-    // Trigger scan every ~30s (1800 frames) — iw scan causes 65ms+ frame
-    // drops so keep it infrequent. Immediate on first frame only.
-    if (autoConnectFrame <= 1 || autoConnectFrame % 1800 === 0) {
-      wifi.scan?.();
-    }
-    // 60 frames (~1s) after scan: pick strongest known network from scan results
-    if (autoConnectFrame % 120 === 60) {
-      const nets = wifi.networks || [];
-      const matches = nets
-        .filter((n) => n.ssid && knownSSIDs.has(n.ssid))
-        .sort((a, b) => b.signal - a.signal); // strongest first
-
-      autoConnectTry++;
-      if (matches.length > 0) {
-        const best = matches[0];
-        const cred = knownCreds.find((c) => c.ssid === best.ssid);
-        wifi.connect(cred.ssid, cred.pass);
-        connectStartFrame = frame;
-      }
-      // No known networks in scan — just wait for next scan cycle (no blind attempts)
     }
   }
 
@@ -7949,13 +7989,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       // leftmost column so the spatial relationship to the grid reads.
       drawAuxPad(leftX,                       "z", "a#");
       drawAuxPad(leftX + auxW + auxGap,       "x", "b");
-      // RIGHT side: ; ' ] (above-octave C, C#, D) tucked into the
-      // bottom-right corner, aligned with the right grid's rightmost
-      // column so the "up-octave" continuation reads visually.
-      const r0x = rightX + gridW - (auxW * 3 + auxGap * 2);
+      // RIGHT side: ; ' (above-octave C, C#) tucked into the bottom-right
+      // corner, aligned with the right grid's rightmost column so the
+      // "up-octave" continuation reads visually. (`]` latches drums now.)
+      const r0x = rightX + gridW - (auxW * 2 + auxGap);
       drawAuxPad(r0x,                         ";", "c");
       drawAuxPad(r0x + (auxW + auxGap),       "'", "c#");
-      drawAuxPad(r0x + (auxW + auxGap) * 2,   "]", "d");
     }
   }
 
@@ -9162,11 +9201,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["shift",        "accent + linger"],
       ]],
       ["DRUMS", [255, 140, 90], [
-        ["pgup/pgdn",  "kit: off\u2192drums\u2192war"],
+        ["[ / ]",      "drums left / right"],
+        ["\u21e7[ / \u21e7]", "kit: war\u2192zoo\u2192lasers"],
         ["space",      "reverse loop"],
       ]],
       ["WAVE", [220, 140, 255], [
-        ["tab",        "cycle wave"],
+        ["tab",        "trackdrum / pointer"],
+        ["F11",        "tent mode (face the audience)"],
+        ["\u21e7tab",  "cycle wave"],
         ["F12 \u2605", "recital mode"],
       ]],
       ["DECK", [120, 230, 150], [
@@ -9414,7 +9456,7 @@ function sim({ pressures, sound, trackpad }) {
   // Play the pad. Polled here rather than in act() because a strike is a
   // change in the contact SET, not a discrete event — the runtime reports the
   // set, and act() only ever sees keys now that pointer emulation is off.
-  updatePadDrum(trackpad, sound);
+  if (padDrumOn) updatePadDrum(trackpad, sound);
   // Auto-stop recording at max duration
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");
@@ -9537,6 +9579,7 @@ function sim({ pressures, sound, trackpad }) {
 }
 
 function leave() {
+  if (tentMode) systemAPI?.setDisplayFlip?.(false); // never strand a flipped screen
   stopSampleRecording(soundAPI, "leave");
   // Reset all FX before shutdown
   echoMix = 0;

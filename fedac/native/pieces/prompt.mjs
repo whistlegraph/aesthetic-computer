@@ -101,14 +101,6 @@ function whistlegraphFromInput(input) {
   return entry?.bare ? entry : null;
 }
 
-// WiFi auto-connect state
-const AC_SSID = "aesthetic.computer";
-const AC_PASS = "aesthetic.computer";
-const CREDS_PATH = "/mnt/wifi_creds.json";
-let savedCreds = [];
-let autoConnectFrame = 0;
-let connectStartFrame = -9999;
-
 const SHIFT_MAP = {
   "1":"!", "2":"@", "3":"#", "4":"$", "5":"%",
   "6":"^", "7":"&", "8":"*", "9":"(", "0":")",
@@ -233,12 +225,6 @@ function boot({ system }) {
     cursor = input.length;
     globalThis.__promptRestore = undefined;
   }
-  // Load saved WiFi credentials
-  try {
-    const raw = system?.readFile?.(CREDS_PATH);
-    if (raw) savedCreds = JSON.parse(raw);
-  } catch (_) {}
-
   // Outside-in remote prompt: ac-native stages text + commandId here when a
   // viewer publishes cmd:"prompt" or cmd:"prompt-bg" through /machines.
   //   prompt    — run execute() and let any jump it triggers stand
@@ -780,52 +766,13 @@ function drawHighlighted(text, x0, y0, charW, ink, write, font) {
   }
 }
 
-function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
+function paint({ wipe, ink, box, write, screen, paintCount, system }) {
   frame++;
   const T = __theme.update();
   wipe(T.bg[0], T.bg[1], T.bg[2]);
 
   const W = screen.width;
   const H = screen.height;
-
-  // WiFi auto-connect (runs every frame, same logic as notepat)
-  if (wifi && !wifi.connected) {
-    autoConnectFrame++;
-    const knownCreds = [
-      { ssid: AC_SSID, pass: AC_PASS },
-      ...savedCreds.filter(c => c.ssid !== AC_SSID),
-    ];
-    const knownSSIDs = new Set(knownCreds.map(c => c.ssid));
-    const isConnecting = wifi.state === 3 || wifi.state === 4;
-    const isIdle = !isConnecting;
-
-    // Give a connect 20 s (frames, at up to 60 fps). The old 3 s cut every
-    // WPA handshake + DHCP short on slower networks; the C side has its own
-    // 60 s ceiling.
-    if (isConnecting && frame - connectStartFrame > 1200) {
-      wifi.disconnect?.();
-      autoConnectFrame = -30;
-    }
-
-    if (isIdle) {
-      if (autoConnectFrame <= 1 || autoConnectFrame % 120 === 0) wifi.scan?.();
-      if (autoConnectFrame % 120 === 60) {
-        const nets = wifi.networks || [];
-        const matches = nets
-          .filter(n => n.ssid && knownSSIDs.has(n.ssid))
-          .sort((a, b) => {
-            const priority = ssid => Number(knownCreds.find(c => c.ssid === ssid)?.priority) || 0;
-            return priority(b.ssid) - priority(a.ssid) || b.signal - a.signal;
-          });
-        if (matches.length > 0) {
-          const best = matches[0];
-          const cred = knownCreds.find(c => c.ssid === best.ssid);
-          wifi.connect(cred.ssid, cred.pass);
-          connectStartFrame = frame;
-        }
-      }
-    }
-  }
 
   const charW = 8; // GNU Unifont's native 8x16 cells
   const charH = 16;

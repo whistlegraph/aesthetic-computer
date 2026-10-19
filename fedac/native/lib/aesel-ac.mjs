@@ -17,17 +17,24 @@
 // piece; write_piece is that, and a wider file API would be a larger surface to
 // secure and a larger prompt to pay for on a metered tier.
 
-import { uuid as defaultUuid } from "./aesel-bridge.mjs";
+import { measuredUsage, uuid as defaultUuid } from "./aesel-bridge.mjs";
 
 export const SITE = "https://aesthetic.computer";
-export const DEFAULT_AC_MODEL = "z-ai/glm-4.6";
+export const DEFAULT_AC_MODEL = "deepseek/deepseek-v4.1-flash";
 
-// Names a person would type, mapped to what the endpoint allowlists. The
-// server decides in the end; these exist so `/model glm` works.
+// Names a person would type, mapped to what the endpoint allowlists
+// (system/backend/easel-policy.mjs). The server decides in the end; these
+// exist so `/model opus` works. Default follows the server's.
 export const AC_MODELS = {
-  glm: "z-ai/glm-4.6",
-  qwen: "qwen/qwen3-coder",
-  deepseek: "deepseek/deepseek-chat-v3.1",
+  flash: "deepseek/deepseek-v4.1-flash",
+  deepseek: "deepseek/deepseek-v4-pro",
+  kimi: "moonshotai/kimi-k3",
+  qwen: "qwen/qwen3.7-plus",
+  minimax: "minimax/minimax-m3",
+  glm: "z-ai/glm-5.3-flash",
+  luna: "openai/gpt-5.6-luna",
+  sonnet: "anthropic/claude-sonnet-5.5",
+  opus: "anthropic/claude-opus-5.5",
 };
 
 export function resolveAcModel(name) {
@@ -166,6 +173,17 @@ export class AcBridge {
     this.#startRound();
   }
 
+  // Say the last unanswered line again — what a failed turn leaves behind.
+  // It is taken back first so the conversation does not hold it twice.
+  retry() {
+    if (this.turnId) return false;
+    const last = this.messages[this.messages.length - 1];
+    if (!last || last.role !== "user" || typeof last.content !== "string") return false;
+    this.messages.pop();
+    this.say(last.content);
+    return true;
+  }
+
   interrupt() {
     if (!this.turnId) return false;
     this.transport.cancel();
@@ -204,12 +222,15 @@ export class AcBridge {
       tools: [WRITE_PIECE],
       max_tokens: MAX_TOKENS,
     };
-    this.round = { offset: 0, text: "", blocks: [], partials: new Map(), stop: "end_turn", failed: false };
+    this.round = { offset: 0, text: "", blocks: [], partials: new Map(), stop: "end_turn", failed: false, usage: {} };
     const ok = this.transport.start(JSON.stringify(body), { Authorization: `Bearer ${this.token}` });
     if (!ok) this.#fail("another request is already in flight on this device; try again in a moment");
   }
 
   #event(round, event) {
+    // Counts arrive on message_start and grow on message_delta; the last word wins.
+    const counts = event.usage || event.message?.usage;
+    if (counts) Object.assign(round.usage, counts);
     if (event.type === "content_block_start") {
       const block = event.content_block;
       if (block?.type === "tool_use") round.partials.set(event.index, { id: block.id, name: block.name, json: "" });
@@ -240,6 +261,7 @@ export class AcBridge {
 
   #finishRound(round) {
     this.round = null;
+    this.#spent(round);
     const assistant = [];
     if (round.text) assistant.push({ type: "text", text: round.text });
     for (const block of round.blocks) assistant.push(block);
@@ -266,25 +288,32 @@ export class AcBridge {
     const note = String(block.input?.note || "").trim();
     const label = note ? `${this.file} · ${note}` : this.file;
     if (block.name !== "write_piece") {
-      this.#emit({ type: "tool", status: "failed", id: block.id, kind: "call", label: block.name, path: "" });
+      this.#emit({ type: "tool", status: "failed", id: block.id, kind: "call", name: block.name, label: block.name, path: "" });
       return { type: "tool_result", tool_use_id: block.id, is_error: true, content: `No tool named ${block.name}. The only tool is write_piece.` };
     }
     const source = block.input?.source;
     if (typeof source !== "string" || !source.trim()) {
-      this.#emit({ type: "tool", status: "failed", id: block.id, kind: "file", label, path: this.file });
+      this.#emit({ type: "tool", status: "failed", id: block.id, kind: "file", name: "write_piece", label, path: this.file });
       return { type: "tool_result", tool_use_id: block.id, is_error: true, content: "write_piece needs the complete source of the file." };
     }
-    this.#emit({ type: "tool", status: "started", id: block.id, kind: "file", label, path: this.file });
+    this.#emit({ type: "tool", status: "started", id: block.id, kind: "file", name: "write_piece", label, path: this.file });
     const ok = this.writePiece(source.endsWith("\n") ? source : `${source}\n`);
     if (!ok) {
-      this.#emit({ type: "tool", status: "failed", id: block.id, kind: "file", label, path: this.file });
+      this.#emit({ type: "tool", status: "failed", id: block.id, kind: "file", name: "write_piece", label, path: this.file });
       return { type: "tool_result", tool_use_id: block.id, is_error: true, content: `Could not write ${this.file}.` };
     }
-    this.#emit({ type: "tool", status: "completed", id: block.id, kind: "file", label, path: this.file });
+    this.#emit({ type: "tool", status: "completed", id: block.id, kind: "file", name: "write_piece", label, path: this.file });
     return { type: "tool_result", tool_use_id: block.id, content: "Saved. The person can run it on this machine now." };
   }
 
+  #spent(round) {
+    if (!round || !Object.keys(round.usage).length) return;
+    const { tokens, usd } = measuredUsage(round.usage);
+    this.#emit({ type: "usage", tokens, usd });
+  }
+
   #fail(message) {
+    this.#spent(this.round);
     this.round = null;
     const id = this.turnId;
     this.turnId = null;

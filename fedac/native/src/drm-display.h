@@ -15,7 +15,13 @@ typedef struct {
     uint32_t crtc_id;
     uint32_t encoder_id;
     drmModeModeInfo mode;       // Display mode (resolution, refresh)
-    int width, height;
+    int width, height;          // upright size pieces draw at
+
+    // A panel mounted sideways (CHUWI MiniBook X: portrait 1200x1920 in a
+    // landscape lid) scans out at scan_w×scan_h while width/height stay
+    // upright; display_present turns each frame by `rotation` (0, 90, 270).
+    int rotation;
+    int scan_w, scan_h;
 
     // Double buffering
     struct {

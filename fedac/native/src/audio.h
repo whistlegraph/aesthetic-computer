@@ -498,6 +498,9 @@ uint64_t audio_synth_gm(ACAudio *audio, int program, double freq,
                         double duration, double volume, double attack,
                         double decay, double pan);
 
+// "sf2" once a SoundFont bank has loaded (GM notes play from it), else "synth".
+const char *audio_gm_backend(void);
+
 // Kill a voice with fade
 void audio_kill(ACAudio *audio, uint64_t id, double fade);
 

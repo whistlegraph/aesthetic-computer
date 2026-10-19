@@ -62,10 +62,10 @@ test("parseSse takes whole data lines only and leaves a torn tail for later", ()
 });
 
 test("models resolve by alias and label back", () => {
-  assert.equal(resolveAcModel("glm"), "z-ai/glm-4.6");
-  assert.equal(resolveAcModel(""), "z-ai/glm-4.6");
+  assert.equal(resolveAcModel("glm"), "z-ai/glm-5.3-flash");
+  assert.equal(resolveAcModel(""), "deepseek/deepseek-v4.1-flash");
   assert.equal(resolveAcModel("some/other"), "some/other");
-  assert.equal(acModelLabel("qwen/qwen3-coder"), "qwen");
+  assert.equal(acModelLabel("qwen/qwen3.7-plus"), "qwen");
   assert.equal(acModelLabel("x/y-1"), "y-1");
   assert.equal(errorMessage('{"error":{"message":"used today\'s allowance"}}', "fallback"), "used today's allowance");
   assert.equal(errorMessage("<html>", "fallback"), "fallback");
@@ -91,7 +91,7 @@ test("a turn streams text, writes the piece through the tool, and goes round aga
   bridge.say("make it blue");
   assert.equal(transport.started.length, 1);
   const body = transport.started[0].body;
-  assert.equal(body.model, "z-ai/glm-4.6");
+  assert.equal(body.model, "z-ai/glm-5.3-flash");
   assert.equal(body.tools[0].name, "write_piece");
   assert.equal(body.system[0].text, "native rules");
   assert.match(body.system[1].text, /Current source of \/pieces\/lumo\.mjs/);
@@ -206,4 +206,41 @@ test("a busy device, an unknown tool, an interrupt", () => {
   assert.equal(bridge.take().at(-1).status, "interrupted");
   assert.equal(bridge.busy, false);
   assert.equal(bridge.interrupt(), false);
+});
+
+test("a round's token counts reach the page as one usage event", () => {
+  const { bridge, transport } = make();
+  bridge.launch();
+  bridge.handshake();
+  bridge.say("hi");
+  bridge.take();
+  transport.text = sse([
+    { type: "message_start", message: { usage: { input_tokens: 1200, output_tokens: 1 } } },
+    { type: "content_block_start", index: 0, content_block: { type: "text" } },
+    { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Hey." } },
+    { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 40 } },
+  ]);
+  transport.done = true;
+  bridge.tick();
+  const events = bridge.take();
+  assert.deepEqual(events.map((e) => e.type), ["delta", "usage", "turn"]);
+  assert.equal(events[1].tokens, 1240);
+});
+
+test("retry says a failed turn's line again without doubling it", () => {
+  const { bridge, transport } = make();
+  bridge.launch();
+  bridge.handshake();
+  bridge.say("make it red");
+  transport.text = "";
+  transport.done = true;
+  transport.error = "curl: (6) could not resolve host";
+  bridge.tick();
+  assert.equal(bridge.busy, false);
+  transport.done = false;
+  transport.error = "";
+  assert.equal(bridge.retry(), true);
+  assert.equal(bridge.busy, true);
+  assert.deepEqual(bridge.messages, [{ role: "user", content: "make it red" }]);
+  assert.equal(bridge.retry(), false);
 });

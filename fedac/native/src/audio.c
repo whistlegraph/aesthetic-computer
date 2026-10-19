@@ -4,9 +4,11 @@
 #define _GNU_SOURCE  // pthread_setaffinity_np, CPU_SET, cpu_set_t
 
 #include "audio.h"
+#include "gm_sf2.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>  // strcasecmp for the .sf2 probe
 #include <math.h>
 #include <time.h>
 #include <limits.h>
@@ -542,6 +544,59 @@ static inline double generate_piano_sample(ACVoice *v, double sample_rate) {
 // gm_program_implemented() all live there now. This engine fills a per-voice
 // GMVoice (ACVoice.gm) at note-on and renders it via gm_voice_render().
 // ============================================================
+
+// GM from a SoundFont (gm_sf2.c). With a bank loaded, GM notes play from it and
+// gm_synth is the fallback. Its notes live outside voices[], so their ids carry
+// AUDIO_SF2_ID_BIT for audio_kill/audio_update to route on. 2^40 stays exact
+// through the JS double round trip.
+#define AUDIO_SF2_ID_BIT (1ULL << 40)
+// GeneralUser peaks near 0.5 for one note at notepat's usual velocity (~0.7);
+// a gm_synth voice at that volume lands around 0.25 after the center pan law.
+#define GM_SF2_GAIN 0.5
+
+// USB stick first (drop any .sf2 into /soundfonts on it), then the bank baked
+// into the initramfs. Alphabetical first match, so the pick is repeatable.
+static const char *sf2_bank_path(void) {
+    static char path[300];
+    char best[256] = "";
+    DIR *d = opendir("/mnt/soundfonts");
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d)) != NULL) {
+            size_t n = strlen(e->d_name);
+            if (n < 5 || n >= sizeof best || strcasecmp(e->d_name + n - 4, ".sf2")) continue;
+            if (!best[0] || strcmp(e->d_name, best) < 0) snprintf(best, sizeof best, "%s", e->d_name);
+        }
+        closedir(d);
+    }
+    if (best[0]) {
+        snprintf(path, sizeof path, "/mnt/soundfonts/%s", best);
+        return path;
+    }
+    struct stat st;
+    if (stat("/soundfonts/GeneralUser-GS.sf2", &st) == 0) return "/soundfonts/GeneralUser-GS.sf2";
+    return NULL;
+}
+
+// Off the boot path: the bank is 32 MB and boot speech shouldn't wait on it.
+static void *sf2_loader(void *arg) {
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    int ok = gm_sf2_load((const char *)arg, GM_SF2_RATE);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    ac_log("[audio] soundfont %s %s (%ld ms)\n", ok ? "loaded" : "FAILED to load",
+           (const char *)arg, (long)((t1.tv_sec - t0.tv_sec) * 1000 + (t1.tv_nsec - t0.tv_nsec) / 1000000));
+    return NULL;
+}
+
+static void load_sf2_bank(void) {
+    const char *path = sf2_bank_path();
+    if (!path) { ac_log("[audio] no soundfont — GM stays on gm_synth\n"); return; }
+    pthread_t t;
+    if (pthread_create(&t, NULL, sf2_loader, (void *)path) == 0) pthread_detach(t);
+}
+
+const char *audio_gm_backend(void) { return gm_sf2_ready() ? "sf2" : "synth"; }
 
 // ============================================================
 // One-shot named-buffer bank (zoo / lasers / future kits)
@@ -1732,7 +1787,8 @@ static void *audio_thread_fn(void *arg) {
     int32_t *buffer32 = NULL;
     if (audio->use_s32)
         buffer32 = calloc(period_frames * AUDIO_CHANNELS, sizeof(int32_t));
-    if (!buffer || (audio->use_s32 && !buffer32)) {
+    float *sf2_buf = calloc(period_frames * 2, sizeof(float));
+    if (!buffer || (audio->use_s32 && !buffer32) || !sf2_buf) {
         fprintf(stderr, "[audio] thread: alloc failed\n"); return NULL;
     }
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
@@ -1815,6 +1871,9 @@ static void *audio_thread_fn(void *arg) {
         // The s16 path happens to assign every slot before use, which is why
         // nothing was audibly wrong; the s32 path reads the whole buffer.
         memset(buffer, 0, period_frames * AUDIO_CHANNELS * sizeof(buffer[0]));
+
+        // Outside the lock: gm_sf2 takes its notes from its own queue.
+        gm_sf2_render(sf2_buf, (int)period_frames, (int)rate);
 
         pthread_mutex_lock(&audio->lock);
 
@@ -1906,8 +1965,8 @@ static void *audio_thread_fn(void *arg) {
 
             // Merge the two buses. Drums land compressed to ~0.95 peak
             // so they retain impact without saturating the final output.
-            double mix_l = tone_l + drum_l;
-            double mix_r = tone_r + drum_r;
+            double mix_l = tone_l + drum_l + sf2_buf[2 * i] * GM_SF2_GAIN;
+            double mix_r = tone_r + drum_r + sf2_buf[2 * i + 1] * GM_SF2_GAIN;
 
             // Mix sample voices (pitch-shifted playback)
             // Lock already held from line 246 — safe to read sample_buf
@@ -2452,6 +2511,7 @@ static void *audio_thread_fn(void *arg) {
     free(bench_us);
     free(buffer);
     free(buffer32);
+    free(sf2_buf);
     return NULL;
 }
 
@@ -2530,6 +2590,7 @@ ACAudio *audio_init(void) {
     static int piano_bank_loaded = 0;
     if (!piano_bank_loaded) {
         load_piano_bank();
+        load_sf2_bank();
         piano_bank_loaded = 1;
     }
 
@@ -3631,6 +3692,13 @@ uint64_t audio_synth_gm(ACAudio *audio, int program, double freq,
                         double duration, double volume, double attack,
                         double decay, double pan) {
     if (!audio) return 0;
+    // The bank brings its own envelopes, so attack/decay don't apply.
+    if (gm_sf2_ready() && freq > 0) {
+        double vel = volume < 0 ? 0 : volume > 1 ? 1 : volume;
+        int h = gm_sf2_note_on(program, 69.0 + 12.0 * log2(freq / 440.0), (float)vel,
+                               (float)pan, duration, 0);
+        if (h) return AUDIO_SF2_ID_BIT | (uint64_t)h;
+    }
     if (!gm_program_implemented(program)) return 0;
     uint64_t id = audio_synth(audio, WAVE_GMPIANO, freq, duration, volume,
                               attack, decay, pan);
@@ -3668,6 +3736,7 @@ uint64_t audio_synth_gm(ACAudio *audio, int program, double freq,
 
 void audio_kill(ACAudio *audio, uint64_t id, double fade) {
     if (!audio) return;
+    if (id & AUDIO_SF2_ID_BIT) { gm_sf2_note_off((int)(id & 0xffffffff), fade); return; }
     pthread_mutex_lock(&audio->lock);
     for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
         if (audio->voices[i].id == id && audio->voices[i].state == VOICE_ACTIVE) {
@@ -3837,6 +3906,11 @@ void audio_gun_voice_set_param(ACAudio *audio, uint64_t id,
 void audio_update(ACAudio *audio, uint64_t id, double freq,
                   double volume, double pan) {
     if (!audio) return;
+    if (id & AUDIO_SF2_ID_BIT) {
+        gm_sf2_update((int)(id & 0xffffffff), freq > 0 ? 69.0 + 12.0 * log2(freq / 440.0) : -1,
+                      (float)volume, pan > -2.0 ? (float)pan : -3.0f);
+        return;
+    }
     pthread_mutex_lock(&audio->lock);
     for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
         if (audio->voices[i].id == id && audio->voices[i].state != VOICE_INACTIVE) {

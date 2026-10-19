@@ -6,7 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { Bridge, blankPiece, instructionsFor, launchArguments, randomSlug, uuid } from "./aesel-bridge.mjs";
+import { execFileSync } from "node:child_process";
+import { Bridge, blankPiece, keyColor, creatureLook, creatureSeed, petName, instructionsFor, launchArguments, markdown, pipedCommand, measuredUsage, randomSlug, toolLabel, turnUsageText, uuid, wrapRows } from "./aesel-bridge.mjs";
 
 function make() {
   const sent = [];
@@ -152,4 +153,74 @@ test("helpers: slug, uuid, blank and instructions", () => {
   assert.match(text, /@jeffrey/);
   assert.match(text, /\/pieces\/lumo\.mjs/);
   assert.match(text, /no browser/);
+});
+
+test("a turn's result reports what it spent, and thinking says so", () => {
+  const { bridge } = make();
+  bridge.launch();
+  bridge.say("go");
+  bridge.take();
+  const feed = (m) => bridge.feed(JSON.stringify(m));
+  feed({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "thinking" } } });
+  feed({ type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Read", input: { file_path: "/pieces/a.mjs" } }] } });
+  feed({
+    type: "result", subtype: "success", total_cost_usd: 0.5,
+    modelUsage: { "claude-opus-5": { inputTokens: 10, outputTokens: 20, cacheReadInputTokens: 3000, costUSD: 0.02 } },
+  });
+  const events = bridge.take();
+  assert.deepEqual(events.map((e) => e.type), ["phase", "tool", "usage", "turn"]);
+  assert.equal(events[0].phase, "thinking");
+  assert.equal(events[1].name, "Read");
+  assert.equal(events[2].tokens, 3030);
+  assert.equal(events[2].usd, 0.02);
+});
+
+test("tool labels, usage and receipts read the way the desktop's do", () => {
+  assert.equal(toolLabel("Bash"), "running a command");
+  assert.equal(toolLabel("mcp__ac__ac_frame"), "ac frame");
+  assert.equal(toolLabel("write_piece"), "writing the piece");
+  assert.deepEqual(measuredUsage({ input_tokens: 5, output_tokens: 7, cache_creation_input_tokens: 1 }), { tokens: 13, usd: 0 });
+  assert.equal(turnUsageText({ tools: 2, ms: 14200, tokens: 3100, usd: 0.0123 }), "2 tools · 14s · 3.1k tokens · $0.012");
+  assert.equal(turnUsageText({ status: "interrupted", tools: 1, ms: 75000 }), "stopped · 1 tool · 1m 15s");
+});
+
+test("markdown comes out as tones on the cleaned text", () => {
+  const { text, spans } = markdown("# Title\n- use `wipe` **now**");
+  assert.equal(text, "Title\n• use wipe now");
+  assert.deepEqual(spans.map((s) => [text.slice(s.start, s.end), s.tone]), [["Title", "heading"], ["wipe", "code"], ["now", "bold"]]);
+});
+
+test("wrapRows breaks on spaces, hard-breaks long words, and keeps offsets", () => {
+  const text = "one two three\nabcdefghij";
+  const rows = wrapRows(text, 7);
+  assert.deepEqual(rows.map((r) => r.text), ["one two", "three", "abcdefg", "hij"]);
+  for (const r of rows) assert.equal(text.slice(r.start, r.start + r.text.length), r.text);
+  assert.deepEqual(wrapRows("", 5).map((r) => r.text), [""]);
+});
+
+test("pipedCommand hands every argument through the shell intact, on a pipe", () => {
+  const args = ["it's", "", "two\nlines", "$HOME `x`"];
+  const script = pipedCommand("/bin/sh", ["-c", 'for a in "$@"; do printf "[%s]" "$a"; done; [ -t 0 ] || printf pipe', "sh", ...args]);
+  assert.equal(execFileSync("/bin/sh", script, { input: "" }).toString(), "[it's][][two\nlines][$HOME `x`]pipe");
+});
+
+test("a session id names the same creature Slab draws for it", () => {
+  // Pairs read from ~/.config/slab/creatures on the Mac that drew them.
+  const seed = creatureSeed("6f1bdcf2-a80f-491f-801c-fea24d84b1aa");
+  assert.equal(seed.toString(16).padStart(16, "0"), "00d92e0c6c888faf");
+  assert.equal(petName(seed), "naletu");
+  assert.equal(petName(creatureSeed("Ünï-cødé")).length >= 3, true);
+  const look = creatureLook(seed);
+  assert.equal(look.freckles.length, 7);
+  assert.ok(look.shell.every((c) => c >= 0 && c <= 255));
+  assert.ok(look.width >= 0.72 && look.width <= 0.84);
+});
+
+test("typed keys flash notepat's colours, sharps darker, others nothing", () => {
+  assert.deepEqual(keyColor("c"), [255, 30, 30]);
+  assert.deepEqual(keyColor("V"), [158, 49, 0]); // c#, the black key
+  assert.deepEqual(keyColor("p"), [124, 18, 93]); // +a#
+  assert.deepEqual(keyColor("h"), [255, 30, 30]); // +c
+  assert.equal(keyColor("7"), null);
+  assert.equal(keyColor("/"), null);
 });

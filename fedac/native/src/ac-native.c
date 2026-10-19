@@ -652,6 +652,19 @@ static void try_mount_log(void) {
             int mr = mount(devs[i], "/mnt", "vfat", 0, NULL);
             if (mr != 0)
                 fprintf(stderr, "[ac-native] mount %s failed: %s\n", devs[i], strerror(errno));
+            // Only AC media: our initramfs at the root, or (old embedded
+            // installs) a config on a partition that isn't Windows' ESP.
+            // Any FAT partition used to do, and the MiniBook X wrote its
+            // logs and settings onto Windows' boot partition.
+            if (mr == 0 &&
+                access("/mnt/initramfs.cpio.gz", F_OK) != 0 &&
+                access("/mnt/initramfs.cpio.lz4", F_OK) != 0 &&
+                (access("/mnt/config.json", F_OK) != 0 ||
+                 access("/mnt/EFI/Microsoft/Boot/BCD", F_OK) == 0)) {
+                fprintf(stderr, "[ac-native] %s is not AC media, skipping\n", devs[i]);
+                umount("/mnt");
+                continue;
+            }
             if (mr == 0) {
                 logfile = fopen("/mnt/ac-native.log", "a");
                 if (logfile) {
@@ -2949,40 +2962,11 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Startup greeting — time-of-day + handle, or boot melody if no handle
-        if (f == 10) {
-            const char *at = strchr(boot_title, '@');
-            if (at && tts) {
-                // Personalized TTS greeting
-                char greet[256];
-                int hour = get_la_hour();
-                const char *tod;
-                if (hour >= 5 && hour < 12)       tod = "good morning";
-                else if (hour >= 12 && hour < 17)  tod = "good afternoon";
-                else                               tod = "good evening";
-                // The release announces itself after the greeting, so a boot
-                // says out loud which world you are in before the build name.
-                // Hyphens read as pauses, so the build name is spoken as words.
-                char name_tts[64];
-                strncpy(name_tts, ac_build_name, sizeof(name_tts) - 1);
-                name_tts[sizeof(name_tts) - 1] = 0;
-                for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
-                snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s! %s.",
-                         tod, at + 1, greet_city, AC_RELEASE_TAGLINE, name_tts);
-                tts_speak(tts, greet);
-            } else if (audio) {
-                // No handle — play a short ascending arpeggio (C E G C')
-                audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
-            }
-        }
-        // A handle-less device still names the release, spoken after the
-        // arpeggio has cleared rather than over it. Kept out of the greeting's
-        // else-chain above so it cannot swallow the arpeggio's first note.
-        if (f == 55 && !strchr(boot_title, '@') && tts) {
-            tts_speak(tts, AC_RELEASE_TAGLINE "!");
-        }
-        // Stagger the arpeggio notes across frames for no-handle boot
-        if (!strchr(boot_title, '@') && audio) {
+        // Startup chime (C E G C'), handle or not. The spoken greeting — time
+        // of day, handle, city, tagline, build name — talked over the start of
+        // every boot; the screen already says all of it.
+        if (audio) {
+            if (f == 10)  audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
             if (f == 20)  audio_synth(audio, WAVE_SINE, 659.3, 0.15, 0.6, 0.003, 0.10, 0.0);  // E5
             if (f == 30)  audio_synth(audio, WAVE_SINE, 784.0, 0.15, 0.6, 0.003, 0.10, 0.3);  // G5
             if (f == 42)  audio_synth(audio, WAVE_SINE, 1047.0, 0.20, 0.5, 0.003, 0.15, 0.0); // C6
@@ -3932,6 +3916,13 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
+        // The density last picked with Ctrl+=/Ctrl+- on this stick.
+        FILE *saved_scale = fopen("/mnt/pixel-scale", "r");
+        if (saved_scale) {
+            int s = 0;
+            if (fscanf(saved_scale, "%d", &s) == 1 && s >= 1 && s <= 16) pixel_scale = s;
+            fclose(saved_scale);
+        }
         const char *scale_env = getenv("AC_PIXEL_SCALE");
         if (scale_env) {
             char *end;
@@ -3987,6 +3978,23 @@ int main(int argc, char *argv[]) {
     ACSecondaryDisplay *hdmi = NULL;
     char bl_path[128] = "";
     int bl_max = 0;
+    // The MiniBook X keeps media keys behind Fn (F2 mute, F3/F4 volume) and
+    // its Fn+F6/F7 brightness never reaches the OS, so plain F-keys do both
+    // there instead of the generic F1–F3 / F5–F6 fallback, and stop at the
+    // OS so notepat's DJ keys on the same F-keys don't fire too. Full row
+    // in docs/machines/minibook-x.md.
+    int minibook_keys = 0;
+    {
+        char product[64] = "";
+        FILE *f = fopen("/sys/class/dmi/id/product_name", "r");
+        if (f) {
+            if (fgets(product, sizeof(product), f)) product[strcspn(product, "\n")] = 0;
+            fclose(f);
+        }
+        minibook_keys = strcmp(product, "MiniBook X") == 0;
+        if (minibook_keys)
+            ac_log("[machine] MiniBook X: F2 mute, F3/F4 volume, F6/F7 brightness (no Fn)\n");
+    }
 
 #ifdef USE_WAYLAND
     if (is_wayland) {
@@ -4100,8 +4108,7 @@ int main(int argc, char *argv[]) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
             wifi = wifi_init();
-            // Don't autoconnect from C — notepat.mjs handles scanning
-            // at 30s intervals (reduced from 2s to avoid 65ms frame drops).
+            // The wifi worker joins on its own (saved, then presets, every 30 s).
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);
@@ -4803,38 +4810,47 @@ int main(int argc, char *argv[]) {
                         scale_change = 99;  // reset to default (3)
                         input->events[i].type = 0; // suppress from JS
                     }
-                    // Volume: KEY_VOLUMEUP/DOWN/MUTE or F1/F2/F3 as fallback
+                    // Volume: KEY_VOLUMEUP/DOWN/MUTE, F1/F2/F3 as fallback, or the
+                    // MiniBook's own F2/F3/F4.
                     else if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
-                        strcmp(input->events[i].key_name, "f3") == 0) {
+                        (minibook_keys ? strcmp(input->events[i].key_name, "f4") == 0
+                                       : strcmp(input->events[i].key_name, "f3") == 0)) {
                         audio_volume_adjust(audio, 1);
+                        if (minibook_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 1200.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0 ||
-                             strcmp(input->events[i].key_name, "f2") == 0) {
+                             (minibook_keys ? strcmp(input->events[i].key_name, "f3") == 0
+                                            : strcmp(input->events[i].key_name, "f2") == 0)) {
                         audio_volume_adjust(audio, -1);
+                        if (minibook_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 800.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiomute") == 0 ||
-                             strcmp(input->events[i].key_name, "f1") == 0) {
+                             strcmp(input->events[i].key_name, minibook_keys ? "f2" : "f1") == 0) {
                         audio_volume_adjust(audio, 0);
+                        if (minibook_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 440.0, 0.08, 0.15, 0.001, 0.07, 0.0);
                     // Brightness: KEY_BRIGHTNESS or F5/F6 as fallback
                     } else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
                               strcmp(input->events[i].key_name, "brightnessdown") == 0 ||
-                              strcmp(input->events[i].key_name, "f6") == 0 ||
-                              strcmp(input->events[i].key_name, "f5") == 0) && bl_path[0]) {
+                              strcmp(input->events[i].key_name, minibook_keys ? "f7" : "f6") == 0 ||
+                              strcmp(input->events[i].key_name, minibook_keys ? "f6" : "f5") == 0) && bl_path[0]) {
                         int up = (strcmp(input->events[i].key_name, "brightnessup") == 0 ||
-                                  strcmp(input->events[i].key_name, "f6") == 0);
+                                  strcmp(input->events[i].key_name, minibook_keys ? "f7" : "f6") == 0);
                         char tmp[160];
                         snprintf(tmp, sizeof(tmp), "%s/brightness", bl_path);
                         FILE *f = fopen(tmp, "r");
                         int cur = bl_max / 2;
                         if (f) { fscanf(f, "%d", &cur); fclose(f); }
-                        int step = bl_max / 20; // 5% steps
-                        if (step < 1) step = 1;
-                        cur += up ? step : -step;
+                        // Eyes hear brightness in ratios: ×1.5 a press (5%
+                        // steps were invisible near the top).
+                        int next = up ? cur * 3 / 2 : cur * 2 / 3;
+                        if (next == cur) next = cur + (up ? 1 : -1);
+                        cur = next;
                         if (cur < 1) cur = 1; // never fully off
                         if (cur > bl_max) cur = bl_max;
                         f = fopen(tmp, "w");
                         if (f) { fprintf(f, "%d", cur); fclose(f); }
+                        if (minibook_keys) input->events[i].type = 0;
                         // Click sound: higher = brighter, lower = dimmer
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
@@ -4899,6 +4915,11 @@ int main(int argc, char *argv[]) {
                         cursor_fb = fb_create(screen->width, screen->height);
                         ac_log("[scale] pixel_scale=%d resolution=%dx%d",
                                pixel_scale, screen->width, screen->height);
+                        FILE *saved_scale = fopen("/mnt/pixel-scale", "w");
+                        if (saved_scale) {
+                            fprintf(saved_scale, "%d\n", pixel_scale);
+                            fclose(saved_scale);
+                        }
                         audio_synth(audio, WAVE_SINE,
                                     440.0 + (6 - pixel_scale) * 150.0,
                                     0.06, 0.15, 0.002, 0.05, 0.0);
@@ -5145,6 +5166,8 @@ int main(int argc, char *argv[]) {
                 static int was_connected = 0;
                 int is_connected = (wifi && wifi->state == WIFI_STATE_CONNECTED);
                 if (is_connected && !was_connected) {
+                    extern int ac_start_ssh(void);
+                    ac_start_ssh(); // reachable whatever piece is up (aesel never asked)
                     if (tts) {
                         char wifi_msg[128];
                         if (wifi->connected_ssid[0])

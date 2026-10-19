@@ -348,6 +348,17 @@ for mnt in /Volumes/ACBOOT /Volumes/ACEFI; do
 done
 trap "rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null" EXIT
 
+# Per-stick display settings the device writes (density picked with
+# Ctrl+=/-, a rotation override) ride along the same way.
+PRESERVE_SETTINGS=""
+if [ -d /Volumes/ACBOOT ]; then
+    for f in pixel-scale display-rotate; do
+        [ -f "/Volumes/ACBOOT/${f}" ] || continue
+        PRESERVE_SETTINGS="${PRESERVE_SETTINGS} ${f}=$(head -c 8 "/Volumes/ACBOOT/${f}" | tr -cd '0-9')"
+        log "Preserving ${f} from /Volumes/ACBOOT"
+    done
+fi
+
 # --- hardcoded preset networks (kept in sync with media-layout.sh + src/wifi.c) ---
 WIFI_PRESETS_JSON='[
   {"ssid":"aesthetic.computer","pass":"aesthetic.computer"},
@@ -618,6 +629,9 @@ with open(sys.argv[3], 'w') as f:
     fi
 fi
 cp "${WIFI_MERGED}" "${M1}/wifi_creds.json"
+for kv in ${PRESERVE_SETTINGS}; do
+    [ -n "${kv#*=}" ] && echo "${kv#*=}" > "${M1}/${kv%%=*}"
+done
 
 # --- layout ACEFI (systemd-boot universal) ---
 log "Writing ACEFI (splash → systemd-boot → kernel)…"

@@ -44,6 +44,189 @@ function toolDetail(input = {}) {
   return "";
 }
 
+// What the live feed calls a tool: its name, never its arguments, in the
+// desktop's words (aesel/src/turn-activity.mjs), so both surfaces say the
+// same thing while the machine works.
+const TOOL_LABELS = {
+  Bash: "running a command", BashOutput: "checking a process", KillShell: "stopping a process",
+  Read: "reading files", Grep: "searching files", Glob: "finding files", LS: "listing files",
+  Write: "writing files", Edit: "editing files", MultiEdit: "editing files", NotebookEdit: "editing files",
+  TodoWrite: "planning", write_piece: "writing the piece",
+};
+export function toolLabel(name = "") {
+  const short = String(name).split("__").pop();
+  return TOOL_LABELS[short] || short.replace(/[^a-zA-Z0-9_-]/g, " ").replace(/[_-]+/g, " ").trim().slice(0, 60) || "using a tool";
+}
+
+// Tokens and dollars from either usage shape: the API's snake_case or the
+// CLI's per-model camelCase. Cache buckets are separate from input, so they add.
+export function measuredUsage(usage = {}) {
+  const n = (v) => (Number.isFinite(v) && v >= 0 ? v : 0);
+  const input = n(usage.input_tokens ?? usage.inputTokens);
+  const output = n(usage.output_tokens ?? usage.outputTokens);
+  const cache = n(usage.cache_read_input_tokens ?? usage.cacheReadInputTokens)
+    + n(usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens);
+  return { tokens: input + output + cache, usd: n(usage.costUSD ?? usage.cost) };
+}
+
+export const compact = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : `${Math.round(n)}`);
+export const dollars = (usd) => `$${usd < 0.01 ? usd.toFixed(4) : usd < 1 ? usd.toFixed(3) : usd.toFixed(2)}`;
+
+// The receipt a turn leaves on the page: `2 tools · 14s · 3.1k tokens · $0.012`.
+export function turnUsageText({ status = "completed", tools = 0, ms = 0, tokens = 0, usd = 0 }) {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  const elapsed = seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
+  return [
+    status === "interrupted" ? "stopped" : status === "failed" ? "failed" : "",
+    `${tools} tool${tools === 1 ? "" : "s"}`,
+    elapsed,
+    tokens ? `${compact(tokens)} tokens` : "",
+    usd > 0 ? dollars(usd) : "",
+  ].filter(Boolean).join(" · ");
+}
+
+// The little markdown a reply is written in, read rather than shown — the
+// desktop's markdown() (aesel/src/render.mjs). Markers come out; what they
+// marked keeps its meaning as a tone. Offsets are on the cleaned text.
+export function markdown(source) {
+  const spans = [];
+  let offset = 0;
+  const out = String(source ?? "").split("\n").map((line) => {
+    let text = line;
+    let lineTone = "";
+    const heading = /^\s{0,3}(#{1,6})\s+(.*)$/.exec(text);
+    if (heading) { text = heading[2]; lineTone = "heading"; }
+    text = text.replace(/^(\s*)[-*+]\s+/, "$1• ");
+    const inline = [];
+    let cleaned = "";
+    let i = 0;
+    while (i < text.length) {
+      const rest = text.slice(i);
+      let m;
+      if ((m = /^`([^`\n]+)`/.exec(rest))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "code" }); cleaned += m[1]; i += m[0].length; continue; }
+      if ((m = /^\*\*([^*\n]+)\*\*/.exec(rest))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "bold" }); cleaned += m[1]; i += m[0].length; continue; }
+      if ((m = /^\[([^\]\n]+)\]\((https?:[^)\s]+)\)/.exec(rest))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "link" }); cleaned += m[1]; i += m[0].length; continue; }
+      cleaned += text[i];
+      i += 1;
+    }
+    if (lineTone) spans.push({ start: offset, end: offset + cleaned.length, tone: lineTone });
+    else for (const span of inline) spans.push({ ...span, start: span.start + offset, end: span.end + offset });
+    offset += cleaned.length + 1;
+    return cleaned;
+  });
+  return { text: out.join("\n"), spans };
+}
+
+// Wrap to `cols`, word by word, hard-breaking a word longer than the row.
+// Each row keeps its offset into `text`, so spans can be laid back on it.
+export function wrapRows(text, cols) {
+  const rows = [];
+  let at = 0;
+  for (const para of String(text).split("\n")) {
+    let start = at;
+    let end = at;
+    const limit = at + para.length;
+    while (end < limit) {
+      if (end - start >= cols) {
+        const space = text.lastIndexOf(" ", end);
+        const cut = space > start ? space : end;
+        rows.push({ start, text: text.slice(start, cut) });
+        start = space > start ? cut + 1 : cut;
+        end = start;
+        continue;
+      }
+      end += 1;
+    }
+    rows.push({ start, text: text.slice(start, limit) });
+    at = limit + 1;
+  }
+  return rows;
+}
+
+// The session's creature, as Slab draws one beside every agent on the Mac
+// (slab/menubar-swift: SigilRenderer.seed / .name, ProxCreatureFrames). Same
+// hash, same generator, so a session id names the same egg on both.
+const M64 = (1n << 64n) - 1n;
+export function creatureSeed(id) {
+  let h = 0xcbf29ce484222325n;
+  // UTF-8 bytes without TextEncoder, which QuickJS does not have.
+  const bytes = encodeURIComponent(String(id).trim().toLowerCase())
+    .replace(/%([0-9A-F]{2})|./g, (m, hex) => String.fromCharCode(hex ? parseInt(hex, 16) : m.charCodeAt(0)));
+  for (const b of Array.from(bytes, (c) => c.charCodeAt(0))) {
+    h ^= BigInt(b);
+    h = (h * 0x100000001b3n) & M64;
+  }
+  return h === 0n ? 0x9e3779b97f4a7c15n : h;
+}
+
+function splitMix(seed) {
+  let state = seed & M64;
+  const next = () => {
+    state = (state + 0x9e3779b97f4a7c15n) & M64;
+    let z = state;
+    z = ((z ^ (z >> 30n)) * 0xbf58476d1ce4e5b9n) & M64;
+    z = ((z ^ (z >> 27n)) * 0x94d049bb133111ebn) & M64;
+    return z ^ (z >> 31n);
+  };
+  return { next, int: (lo, hi) => lo + Number(next() % BigInt(hi - lo + 1)) };
+}
+
+// 3–6 letters, consonant first: "gop", "miva", "koziso".
+export function petName(seed) {
+  const rng = splitMix(seed ^ 0x5e5a11ed000bb1e5n);
+  const sets = ["bdfgklmnprstvz", "aeiou"];
+  let out = "";
+  for (let i = 0, n = rng.int(3, 6); i < n; i++) out += sets[i % 2][rng.int(0, sets[i % 2].length - 1)];
+  return out;
+}
+
+function hsv(h, s, v) {
+  const i = Math.floor(h * 6) % 6, f = h * 6 - Math.floor(h * 6);
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  return [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i].map((c) => Math.round(c * 255));
+}
+
+// The egg's look from its seed, in the renderer's own units: the shell is
+// `width` wide and 1.02 tall, eyes sit at y 0.10, freckles on the shell.
+export function creatureLook(seed) {
+  const unit = (shift) => Number((seed >> BigInt(shift)) & 255n) / 255;
+  const hue = Number(seed % 10000n) / 10000;
+  return {
+    shell: hsv(hue, 0.20 + unit(16) * 0.14, 1),
+    accent: hsv((hue + 0.08) % 1, 0.52, 0.76),
+    width: 0.72 + unit(8) * 0.12,
+    eyeSpread: 0.22 + unit(24) * 0.07,
+    blinkAt: 0.70 + unit(32) * 0.18,
+    freckles: Array.from({ length: 7 }, (_, i) => ({
+      x: (i % 2 === 0 ? -1 : 1) * (0.37 + unit((i * 7) % 48) * 0.15),
+      y: 0.40 + unit((i * 5 + 4) % 48) * 0.32,
+      r: 0.023 + unit((i * 3 + 9) % 48) * 0.025,
+    })),
+  };
+}
+
+// The colour a key flashes as it is typed: notepat's note for that key
+// (pieces/notepat.mjs NOTE_TO_KEY, NOTE_COLORS), the sharps — the black keys —
+// at notepat's lit-sharp shade. Keys that play no note flash nothing.
+const NOTE_TO_KEY = {
+  c: "c", "c#": "v", d: "d", "d#": "s", e: "e", f: "f", "f#": "w", g: "g", "g#": "r", a: "a", "a#": "q", b: "b",
+  "+c": "h", "+c#": "t", "+d": "i", "+d#": "y", "+e": "j", "+f": "k", "+f#": "u", "+g": "l", "+g#": "o", "+a": "m", "+a#": "p", "+b": "n",
+  "++c": ";", "++c#": "'", "-a#": "z", "-b": "x",
+};
+const KEY_TO_NOTE = Object.fromEntries(Object.entries(NOTE_TO_KEY).map(([note, key]) => [key, note]));
+const NOTE_COLORS = {
+  c: [255, 30, 30], "c#": [255, 80, 0], d: [255, 150, 0], "d#": [200, 200, 0], e: [230, 220, 0],
+  f: [30, 200, 30], "f#": [0, 200, 180], g: [30, 100, 255], "g#": [80, 50, 255],
+  a: [140, 30, 220], "a#": [200, 30, 150], b: [200, 50, 255],
+};
+export function keyColor(key) {
+  const note = KEY_TO_NOTE[String(key).toLowerCase()];
+  if (!note) return null;
+  const base = note.replace(/^[+-]+/, "");
+  const k = base.includes("#") ? 0.62 : 1;
+  return NOTE_COLORS[base].map((c) => Math.floor(c * k));
+}
+
 // A v4 UUID from whatever random source the runtime has. QuickJS has no
 // crypto module; Math.random is what a session id needs here — it names the
 // conversation on this machine, it does not secure anything.
@@ -136,6 +319,18 @@ export function launchArguments({ model = DEFAULT_MODEL, cwd, instructions = "",
   if (resume) args.push("--resume", resume);
   else args.push("--session-id", sessionId);
   return args;
+}
+
+// The child's stdin may not be a terminal: with --print, Claude Code 2.1
+// exits at once ("Input must be provided either through stdin or as a prompt
+// argument when using --print") when stdin is a TTY, and a PTY is one, raw or
+// not. So the child runs under a shell that puts a pipe in between — cat reads
+// the PTY, Claude reads cat — and waits on Claude alone, so the shell's exit
+// code is Claude's. The PTY stays Claude's stdout, which is what we read.
+// Everything is in one -c script because pty2.spawn passes at most 30 argv.
+export function pipedCommand(bin, args) {
+  const quote = (s) => `'${String(s).replace(/'/g, "'\\''")}'`;
+  return ["-c", `exec 3<&0; cat <&3 | ${[bin, ...args].map(quote).join(" ")} 3<&- & wait $!`];
 }
 
 // A line from the child may carry a spinner or an escape sequence ahead of
@@ -318,6 +513,12 @@ export class Bridge {
       this.textBlocks.add(event.index);
       return;
     }
+    // Thinking streams nothing the page shows; it says so, so a long silence
+    // reads as the model thinking rather than the bridge hanging.
+    if (event.type === "content_block_start" && event.content_block?.type === "thinking") {
+      this.#emit({ type: "phase", phase: "thinking" });
+      return;
+    }
     if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
       if (!this.textBlocks.has(event.index)) return;
       this.streamedText = true;
@@ -384,6 +585,16 @@ export class Bridge {
   }
 
   #result(message) {
+    // The CLI closes a turn with what it spent, per model that actually ran.
+    const perModel = Object.values(message.modelUsage || {});
+    const spent = (perModel.length ? perModel : message.usage ? [message.usage] : []).map(measuredUsage);
+    if (spent.length) {
+      this.#emit({
+        type: "usage",
+        tokens: spent.reduce((n, u) => n + u.tokens, 0),
+        usd: spent.reduce((n, u) => n + u.usd, 0) || (Number.isFinite(message.total_cost_usd) ? message.total_cost_usd : 0),
+      });
+    }
     const id = this.turnId || `turn-${this.turns}`;
     this.turnId = null;
     this.textBlocks.clear();
@@ -407,11 +618,11 @@ function toolItem(block) {
   const field = FILE_TOOLS.get(block.name);
   if (field) {
     const path = block.input?.[field] || "";
-    return { id: block.id, kind: "file", label: path || block.name, path };
+    return { id: block.id, kind: "file", name: block.name, label: path || block.name, path };
   }
   if (COMMAND_TOOLS.has(block.name)) {
-    return { id: block.id, kind: "command", label: block.input?.command || block.name };
+    return { id: block.id, kind: "command", name: block.name, label: block.input?.command || block.name };
   }
   const detail = toolDetail(block.input);
-  return { id: block.id, kind: "call", label: detail ? `${block.name} · ${detail}` : block.name };
+  return { id: block.id, kind: "call", name: block.name, label: detail ? `${block.name} · ${detail}` : block.name };
 }
