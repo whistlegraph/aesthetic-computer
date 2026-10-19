@@ -36,6 +36,7 @@ export const properties = [
   property("menuband.app", "Menu Band", "A music app for the Mac menu bar.", [["App Store", "https://apps.apple.com/app/id6767311903", "Current public store listing."], ["Support", "https://menuband.app/support.html", "Help and support."], ["Privacy", "https://menuband.app/privacy.html", "Data handling."], ["Advanced", "https://menuband.app/advanced.html", "Additional installation and usage information."]], {aliases: ["www.menuband.app"], note: "Recorded takes and account data are private, not part of this manifest."}),
   productProperty("mime", {file: "mime/llms.txt", aliases: ["www.mime.ac"]}),
   productProperty("nopaint", {aliases: ["www.nopaint.art"]}),
+  property("notepaint.art", "Note Paint", "Paint with a note and a brain: write what should change, press Paint, keep it or say No.", [["No Paint 2021", "https://nopaint.art/", "The original Construct build, preserved."], ["Gallery", "https://nopaint.art/gallery/", "Public painting records."]], {file: "machine/notepaint.art.txt", aliases: ["www.notepaint.art"], note: "The AI painting studio of No Paint at its own address; a painting's address is notepaint.art/#code. Cloud brains need an Aesthetic Computer account and Braincells."}),
   productProperty("oskiewar", {file: "oskiewar.com/llms.txt", aliases: ["www.oskiewar.com", "midi.oskiewar.com"]}),
   productProperty("sotce-net", {aliases: ["www.sotce.net"]}),
   productProperty("choir", {aliases: ["www.choir.ac"]}),

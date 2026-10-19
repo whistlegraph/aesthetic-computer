@@ -529,6 +529,33 @@
       ]
     },
     {
+      "url": "https://notepaint.art/",
+      "title": "Note Paint",
+      "summary": "Paint with a note and a brain: write what should change, press Paint, keep it or say No.",
+      "llms": "https://notepaint.art/llms.txt",
+      "aliases": [
+        "www.notepaint.art"
+      ],
+      "note": "The AI painting studio of No Paint at its own address; a painting's address is notepaint.art/#code. Cloud brains need an Aesthetic Computer account and Braincells.",
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://notepaint.art/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "No Paint 2021",
+          "url": "https://nopaint.art/",
+          "description": "The original Construct build, preserved."
+        },
+        {
+          "title": "Gallery",
+          "url": "https://nopaint.art/gallery/",
+          "description": "Public painting records."
+        }
+      ]
+    },
+    {
       "url": "https://oskiewar.com/",
       "title": "oskiewar",
       "summary": "A free 1v1 fighting game for the browser, with local and online play.",
