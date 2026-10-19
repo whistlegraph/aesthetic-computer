@@ -671,14 +671,26 @@ export function modelControls(state, columns) {
     tone:['handle','soft','highlight','status'][i],selected:state.settings?.row===i,
   }));
 }
-function drawerRows(state,columns,rows,useColor) {
-  const p=state.settings;if(!p)return [];
+// The drawer reads like a crate of records: the row under the cursor sits at
+// the top of the window and the rest of the list runs down below it, so on
+// opening — where the cursor starts on the current choice — the selected
+// model is the first thing you see. Drawing and hit testing share this.
+function drawerWindow(p,rows) {
   const options=drawerOptions(p),index=p.index??drawerIndex(p);
   const count=Math.min(6,Math.max(1,rows-8),options.length);
-  const start=Math.max(0,Math.min(index-Math.floor(count/2),options.length-count));
+  const start=Math.max(0,Math.min(index,options.length-count));
+  return {options,index,count,start};
+}
+function drawerRows(state,columns,rows,useColor) {
+  const p=state.settings;if(!p)return [];
+  const {options,index,count,start}=drawerWindow(p,rows);
   const width=columns-2;
   const title=['Provider','Model','Effort','Apply settings'][p.row];
-  const heading=paint(useColor,'muted','─ ')+paint(useColor,'handle bold',title)+paint(useColor,'muted',' '+ '─'.repeat(Math.max(0,width-title.length-3)));
+  // How much of the crate is out of sight, above and below.
+  const above=start,below=options.length-start-count;
+  const more=[above?`↑ ${above}`:'',below?`↓ ${below} more`:''].filter(Boolean).join(' · ');
+  const tail=more?` ${more} `:' ';
+  const heading=paint(useColor,'muted','─ ')+paint(useColor,'handle bold',title)+paint(useColor,'muted',tail+'─'.repeat(Math.max(0,width-title.length-2-textWidth(tail))));
   return [heading,...options.slice(start,start+count).map((option,i)=>{
     const selected=start+i===index;
     const value=[p.backend,p.model,p.effort,'apply'][p.row];
@@ -716,7 +728,7 @@ function frameHeader(state, width, useColor) {
   const routed = !focus && state.medium === "piece" && account.startsWith("@") && state.piece;
   const version = state.pieceVersion && !focus ? `v${state.pieceVersion}` : "";
   let piece = focus || (!state.piece ? "" : routed
-    ? `/${clipText(state.piece.replace(/\.[a-z]+$/, ""), 24)}`
+    ? `/${clipText(state.piece.replace(/\.[a-z0-9]+$/, ""), 24)}`
     : `${clipText(state.piece, 24)}${version ? ` ${version}` : ""}`);
   let tag = routed ? version : "";
   // Short of room, the handle gives way to a file in focus, and a piece gives way to the handle.
@@ -1267,10 +1279,13 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
   const engine = state.providerSettings?.backend || "";
   const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
   // The handle becomes the piece's route once there is one: @jeffrey/jumpo.
-  const slug = state.pieceSlug || (state.profile?.name !== "pro" && state.medium === "piece" && state.piece ? String(state.piece).replace(/\.[a-z]+$/, "") : "");
+  const slug = state.pieceSlug || (state.profile?.name !== "pro" && state.medium === "piece" && state.piece ? String(state.piece).replace(/\.[a-z0-9]+$/, "") : "");
   const route = account.startsWith("@") && slug ? `/${slug}` : "";
+  // The saved revision rides right after the piece's name, here on the line
+  // you look at rather than up on the preview card.
+  const version = route && state.pieceVersion ? ` v${state.pieceVersion}` : "";
   const plain = {
-    handle: account + route,
+    handle: account + route + version,
     workspace: clipText(fishPath(state.workspace || ""), Math.max(8, Math.floor(width / 3))),
     model,
     engine: providerLabel(engine),
@@ -1324,7 +1339,8 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
       // Conceal keeps the characters available to Accessibility and copying;
       // Slab locates their exact cell bounds before acknowledging the slot.
       fact = (native ? `\x1b[8m${account}\x1b[28m` : coloredHandle(account, breathingHandle(account, state), useColor))
-        + (route ? paint(useColor, "highlight", route) : "");
+        + (route ? paint(useColor, "highlight", route) : "")
+        + (version ? paint(useColor, "muted", version) : "");
     } else {
       fact = statusFact(name, text, state, useColor);
     }
@@ -1402,9 +1418,7 @@ export function headerAction(state, columns, rows, x, y) {
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
   if(state.settings){
-    const p=state.settings,options=drawerOptions(p),index=p.index??drawerIndex(p);
-    const count=Math.min(6,Math.max(1,rows-8),options.length);
-    const start=Math.max(0,Math.min(index-Math.floor(count/2),options.length-count));
+    const {count,start}=drawerWindow(state.settings,rows);
     const first=rows-5-count+1;
     if(y>=first&&y<first+count&&x>=2&&x<columns)return `choice:${start+y-first}`;
   }

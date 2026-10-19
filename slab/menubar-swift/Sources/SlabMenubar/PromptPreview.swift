@@ -115,11 +115,12 @@ private struct PromptPreviewBadge: View {
     /// place only when there is one. All absent is the ordinary case, and the
     /// view draws nothing at all.
     private var name: String { expanded ? state.piece : "" }
-    private var version: String { state.version > 0 ? "v\(state.version)" : "" }
     private var label: String { state.quiet ? "" : state.label }
 
+    // The version is not drawn here: it rides after the piece's name on
+    // Aesel's own status line, the place you are already looking.
     var body: some View {
-        if name.isEmpty && version.isEmpty && label.isEmpty {
+        if name.isEmpty && label.isEmpty {
             EmptyView()
         } else {
             HStack(spacing: 5) {
@@ -130,9 +131,6 @@ private struct PromptPreviewBadge: View {
                 }
                 if !name.isEmpty {
                     AeselRockTitle(text: name, colors: state.handleColors, size: 11)
-                }
-                if !version.isEmpty {
-                    AeselRockTitle(text: version, size: 11)
                 }
                 if !label.isEmpty {
                     Text(label)
@@ -211,6 +209,7 @@ final class PromptPreview {
     private let stage = PromptPreviewStage()
     /// The last frame, held over the stage while the web view is reframed.
     private let cover = NSImageView()
+    private let wood = PromptPreviewWoodFrame()
     private var coverTimer: Timer?
     private let badgeHost: NSHostingView<PromptPreviewBadge>
     private let border = CALayer()
@@ -346,6 +345,11 @@ final class PromptPreview {
         cover.frame = card.bounds
         cover.autoresizingMask = [.width, .height]
         card.addSubview(cover)
+        // The wood sits over the art's edge and under the status border, so
+        // the tint still reads at a glance around the frame.
+        wood.frame = card.bounds
+        wood.autoresizingMask = [.width, .height]
+        card.addSubview(wood)
 
         border.borderWidth = 1
         border.cornerRadius = Self.cardRadius
@@ -789,7 +793,7 @@ final class PromptPreview {
     private func layoutBadge() {
         badgeHost.layoutSubtreeIfNeeded()
         let size = badgeHost.fittingSize
-        let inset: CGFloat = 5
+        let inset = PromptPreviewWoodFrame.thickness + 4
         badgeHost.frame = NSRect(x: inset, y: inset, width: size.width, height: size.height)
     }
 
