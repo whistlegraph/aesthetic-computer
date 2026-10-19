@@ -6555,6 +6555,26 @@ int ac_start_ssh(void) {
     return 1;
 }
 
+// system.setSurfaceGrab(on) — a drum piece lends the pad back to the
+// pointer (and takes it again) without reloading, so on-screen buttons can be
+// tapped. Only a piece that claimed the surface at load can re-grab it.
+static JSValue js_set_surface_grab(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 1) return JS_FALSE;
+    int on = JS_ToBool(ctx, argv[0]);
+    current_rt->surface_grab = on && strcmp(current_rt->surface_mode, "drum") == 0;
+    return JS_NewBool(ctx, current_rt->surface_grab);
+}
+
+// system.setDisplayFlip(on) — turn the picture 180° for tent mode.
+static JSValue js_set_display_flip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    extern int g_display_flip;
+    if (argc < 1) return JS_FALSE;
+    g_display_flip = JS_ToBool(ctx, argv[0]) ? 1 : 0;
+    return JS_NewBool(ctx, g_display_flip);
+}
+
 // system.startSSH()
 static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -7991,6 +8011,10 @@ static JSValue build_system_obj(JSContext *ctx) {
     // SSH daemon
     JS_SetPropertyStr(ctx, sys, "startSSH",
                       JS_NewCFunction(ctx, js_start_ssh, "startSSH", 0));
+    JS_SetPropertyStr(ctx, sys, "setSurfaceGrab",
+                      JS_NewCFunction(ctx, js_set_surface_grab, "setSurfaceGrab", 1));
+    JS_SetPropertyStr(ctx, sys, "setDisplayFlip",
+                      JS_NewCFunction(ctx, js_set_display_flip, "setDisplayFlip", 1));
     JS_SetPropertyStr(ctx, sys, "sshStarted", JS_NewBool(ctx, ssh_started));
 
     // Node.js execution

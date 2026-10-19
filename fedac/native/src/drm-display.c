@@ -430,7 +430,12 @@ static int panel_rotation(int fd, drmModeConnector *conn, int internal) {
     return 0;
 }
 
-// fb_copy_scaled, turned onto a sideways panel. dst is the scanout buffer
+// Tent mode (a 2-in-1 folded to face an audience) shows the panel upside
+// down; a piece flips it with system.setDisplayFlip(), adding 180° on top of
+// the panel's own rotation.
+int g_display_flip = 0;
+
+// fb_copy_scaled, turned onto a sideways (or, flipped, upside-down) panel. dst is the scanout buffer
 // (dst_w×dst_h); the upright image is dst_h wide and dst_w tall. Each
 // scanout row is one upright column, so build it once in cached RAM and
 // write it `scale` times — same reason as fb_copy_scaled.
@@ -439,6 +444,20 @@ static void copy_scaled_rotated(ACFramebuffer *src, uint32_t *dst, int dst_w, in
     if (!src || !dst || dst_w <= 0 || dst_h <= 0 || scale <= 0) return;
     uint32_t *row = malloc((size_t)dst_w * sizeof(uint32_t));
     if (!row) return;
+    if (rotation == 180) {
+        for (int y = 0; y < dst_h; y += scale) {
+            int sy = (dst_h - 1 - y) / scale;
+            for (int x = 0; x < dst_w; x++) {
+                int sx = (dst_w - 1 - x) / scale;
+                row[x] = (sx < src->width && sy < src->height)
+                    ? src->pixels[sy * src->stride + sx] : 0;
+            }
+            for (int r = 0; r < scale && y + r < dst_h; r++)
+                memcpy(dst + (y + r) * dst_stride, row, (size_t)dst_w * sizeof(uint32_t));
+        }
+        free(row);
+        return;
+    }
     for (int y = 0; y < dst_h; y += scale) {
         // 90: the panel's top row is the upright image's right edge.
         int ux = rotation == 90 ? dst_h - 1 - y : y;
@@ -759,9 +778,10 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
     }
     (void)scale;
     // CPU fallback: scale to back buffer and flip
-    if (d->rotation)
+    int rotation = (d->rotation + (g_display_flip ? 180 : 0)) % 360;
+    if (rotation)
         copy_scaled_rotated(screen, drm_back_buffer(d),
-                            d->scan_w, d->scan_h, drm_back_stride(d), scale, d->rotation);
+                            d->scan_w, d->scan_h, drm_back_stride(d), scale, rotation);
     else
         fb_copy_scaled(screen, drm_back_buffer(d),
                        d->width, d->height, drm_back_stride(d), scale);

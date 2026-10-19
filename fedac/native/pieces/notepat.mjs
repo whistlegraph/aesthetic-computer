@@ -160,6 +160,10 @@ let perKeyRecording = null; // key currently recording in per-key mode
 // you can riff freely over them. Press Enter again later to add more.
 // Backspace clears all holds.
 let recitalMode = false; // F12: hide all UI, show only colored backdrops
+// F11: tent mode — the laptop folded to face an audience. The picture turns
+// 180° (system.setDisplayFlip) and the screen shows the player's keyboard as
+// the audience sees it across the tent, each key carrying its note.
+let tentMode = false;
 let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
 let enterHeld = false;       // true while Enter key is physically held
@@ -266,6 +270,9 @@ let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
 // cursor, and leaves Escape to us (three presses exit, counted below). The
 // pad's fingers arrive instead through `api.trackpad.contacts`.
 const surface = "drum";
+// Tab lends the pad back to the pointer so on-screen buttons can be tapped,
+// and takes it again (system.setSurfaceGrab).
+let padDrumOn = true;
 
 // Trackpad FX control (\ toggles on/off)
 let trackpadFX = false;
@@ -2861,6 +2868,61 @@ function stopAllSounds(sound, system, fade = 0.08) {
 
 function noteColor(n) { return NOTE_COLORS[n] || [80, 80, 80]; }
 
+// The laptop's keys, in key widths, as the player sees them.
+const LAPTOP_ROWS = [
+  [["`",1],["1",1],["2",1],["3",1],["4",1],["5",1],["6",1],["7",1],["8",1],["9",1],["0",1],["-",1],["=",1],["backspace",2]],
+  [["tab",1.5],["q",1],["w",1],["e",1],["r",1],["t",1],["y",1],["u",1],["i",1],["o",1],["p",1],["[",1],["]",1],["\\",1.5]],
+  [["caps",1.75],["a",1],["s",1],["d",1],["f",1],["g",1],["h",1],["j",1],["k",1],["l",1],[";",1],["'",1],["enter",2.25]],
+  [["shift",2.25],["z",1],["x",1],["c",1],["v",1],["b",1],["n",1],["m",1],[",",1],[".",1],["/",1],["shift",2.75]],
+  [["",4.5],["space",6],["",4.5]],
+];
+const KEY_GLYPH = { backspace: "\u232b", tab: "\u21e5", caps: "\u21ea", enter: "\u23ce", shift: "\u21e7", space: "" };
+
+// The player's keyboard as the audience sees it across a tent: turned 180°,
+// so the space bar is nearest the top and Q sits on the right. Labels stay
+// upright. A note key wears its colour and lights while it sounds.
+function paintAudienceKeyboard(ink, box, write, screen) {
+  const w = screen.width, h = screen.height;
+  const margin = Math.max(6, Math.floor(w * 0.03));
+  const unit = (w - margin * 2) / 15;
+  const gap = Math.max(1, Math.floor(unit * 0.08));
+  const keyH = Math.min(Math.floor(unit * 1.15), Math.floor((h - margin * 2) / 5));
+  const top = Math.floor((h - keyH * 5) / 2);
+  LAPTOP_ROWS.forEach((row, r) => {
+    let x = margin;
+    for (const [key, span] of row) {
+      const kw = span * unit;
+      if (key) {
+        // Lay out as the player sees it, then turn the whole board 180°.
+        const px = Math.round(w - x - kw), py = top + (4 - r) * keyH;
+        const bw = Math.round(kw) - gap, bh = keyH - gap;
+        const note = KEY_TO_NOTE[key];
+        if (note) {
+          const c = noteColor(note.replace(/^[+-]+/, ""));
+          const on = sounds[key] !== undefined;
+          const k = on ? 1 : 0.32;
+          ink(Math.floor(c[0] * k), Math.floor(c[1] * k), Math.floor(c[2] * k));
+          box(px, py, bw, bh);
+          const label = note.replace(/^[+-]+/, "").toUpperCase();
+          ink(on ? 0 : 255, on ? 0 : 255, on ? 0 : 255);
+          write(label, { x: px + Math.floor((bw - label.length * 6) / 2), y: py + Math.floor(bh / 2) - 8, font: "font_1" });
+          ink(on ? 40 : 170, on ? 40 : 170, on ? 40 : 170);
+          write(key, { x: px + Math.floor((bw - key.length * 6) / 2), y: py + Math.floor(bh / 2) + 3, font: "font_1" });
+        } else {
+          ink(34, 34, 40);
+          box(px, py, bw, bh);
+          const glyph = KEY_GLYPH[key] ?? key;
+          if (glyph) {
+            ink(110, 110, 120);
+            write(glyph, { x: px + Math.floor((bw - [...glyph].length * 6) / 2), y: py + Math.floor(bh / 2) - 4, font: "font_1" });
+          }
+        }
+      }
+      x += kw;
+    }
+  });
+}
+
 // Hit-test a touch point against the note grid
 function hitTestGrid(x, y, gi) {
   // The AC-OS performance view uses Menu Band's two-octave piano geometry.
@@ -3291,8 +3353,15 @@ function act({ event: e, sound, wifi, system }) {
     // shift does nothing on its own now.
     if (key === "shift") return;
     if (key === "tab") {
-      const idx = (waveIndex + 1) % wavetypes.length;
-      setWave(wavetypes[idx], sound);
+      if (shiftHeld) {
+        const idx = (waveIndex + 1) % wavetypes.length;
+        setWave(wavetypes[idx], sound);
+      } else {
+        padDrumOn = !padDrumOn;
+        system?.setSurfaceGrab?.(padDrumOn);
+        if (!padDrumOn) stopPadScratch(sound);
+        flashPercussionNotice(padDrumOn ? "TRACKDRUM" : "POINTER");
+      }
       return;
     }
     if (key === "space") {
@@ -3390,6 +3459,11 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     // F12 (star key): recital mode — hide UI, show only colored backdrops
+    if (key === "f11") {
+      tentMode = !tentMode;
+      system?.setDisplayFlip?.(tentMode);
+      return;
+    }
     if (key === "f12") {
       recitalMode = !recitalMode;
       sound?.synth?.({
@@ -6577,6 +6651,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   lastTabletMode = system.tabletMode;
 
   // Tablet mode or Recital mode (F12): solid color only, no UI
+  if (tentMode) { paintAudienceKeyboard(ink, box, write, screen); return; }
   if (system.tabletMode || recitalMode) return;
 
   // Metronome flash border
@@ -9121,7 +9196,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["space",      "reverse loop"],
       ]],
       ["WAVE", [220, 140, 255], [
-        ["tab",        "cycle wave"],
+        ["tab",        "trackdrum / pointer"],
+        ["F11",        "tent mode (face the audience)"],
+        ["\u21e7tab",  "cycle wave"],
         ["F12 \u2605", "recital mode"],
       ]],
       ["DECK", [120, 230, 150], [
@@ -9369,7 +9446,7 @@ function sim({ pressures, sound, trackpad }) {
   // Play the pad. Polled here rather than in act() because a strike is a
   // change in the contact SET, not a discrete event — the runtime reports the
   // set, and act() only ever sees keys now that pointer emulation is off.
-  updatePadDrum(trackpad, sound);
+  if (padDrumOn) updatePadDrum(trackpad, sound);
   // Auto-stop recording at max duration
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");
@@ -9492,6 +9569,7 @@ function sim({ pressures, sound, trackpad }) {
 }
 
 function leave() {
+  if (tentMode) systemAPI?.setDisplayFlip?.(false); // never strand a flipped screen
   stopSampleRecording(soundAPI, "leave");
   // Reset all FX before shutdown
   echoMix = 0;
