@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "paper": "harness-loop.tex",
+  "pdf": "harness-loop.pdf",
+  "pdfSha256": "09247f250c8825efa65f70f669a1b5472c7509e8d95a45fc4dcb9b5ac9c373ce",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-10-19T03:10:00Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every visible wordmark carries the period: the running header, the title-block date line and the body use the \\ac macro, which sets it in AC pink; the bibliography entries carry a plain period, since a .bib howpublished field cannot colour it (same convention as Paying for Strangers)."
+  },
+  "expectedDiagrams": 1,
+  "diagrams": [
+    {
+      "id": "round",
+      "page": 2,
+      "crop": [
+        0.56,
+        0.05,
+        0.32,
+        0.36
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected at crop resolution. A single vertical spine: pink run stages, purple Claude stages, two outlined outputs. The two propose/probe branches are symmetric peers with equal node sizes; every arrow ends on a node border, nothing crosses, and the dashed library-to-base loop runs in its own channel on the right with its label beside it. Sans labels are legible at print size. The column-width figure leaves margin either side of the spine, which reads as the spine being the subject rather than as stranded space."
+    }
+  ],
+  "expectedFigures": 1,
+  "figures": [
+    {
+      "id": "frames",
+      "page": 3,
+      "crop": [
+        0.1,
+        0.27,
+        0.8,
+        0.34
+      ],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      },
+      "notes": "Inspected at crop resolution. Six equal frames in three columns with equal gutters and baselines; each column is one comparison, chosen pieces ticked. Labels read at print size. The evidence dominates: the folded jelly rim, the empty dead-state snake board reading score 0 \u00b7 best 0, and the waiting snake are visible without zooming. The blank trails frame is deliberate evidence, explained in the caption. Caption sits directly beneath at full text width."
+    }
+  ],
+  "tables": [
+    {
+      "id": "rounds",
+      "page": 3,
+      "design": "pass",
+      "notes": "Full-width booktabs table; seven columns align, every row fits on one line, drawn ticks and crosses are legible, chosen arms set in bold, costs right-aligned."
+    }
+  ],
+  "pageReview": {
+    "pages": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "design": "pass",
+    "notes": "Inspected all four page rasters at full resolution and the contact sheet. Page 1 title block and abstract; page 2 two balanced columns with the round diagram top-right; page 3 the rounds table and frames figure share the top as full-width floats near the text that cites them, two columns below; page 4 balanced short columns (\\balance) ending with references and the source bundle. No overfull lines, undefined references or missing glyphs in the log."
+  }
+}
