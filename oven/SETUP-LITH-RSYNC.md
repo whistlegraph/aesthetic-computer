@@ -1,5 +1,22 @@
 # SETUP: oven → lith rsync for papers
 
+**Status, 2026-10-19: provisioned and live.** The key is
+`/home/oven/.ssh/oven-to-lith`; lith authorizes it only from the oven's
+address and only through `rrsync`, fenced to the papers directory:
+
+```
+from="137.184.237.166",command="/usr/bin/rrsync /opt/ac/system/public/papers.aesthetic.computer/",restrict ssh-ed25519 … oven -> lith papers rsync
+```
+
+So the key cannot open a shell, and `/` in an rsync destination *is* the
+papers directory — `papers-builder.mjs` sends to `/`. The deployed PDFs the
+mill builds, plus `index.html`, `feed.xml` and `rss.xml`, are untracked;
+the PDFs it does not build (references, JOSS, hand-placed variants) stay in
+git. rsync runs without `--delete`. Lith's webhook purges every paper file
+rsynced since the last oven metadata push (`.git/papers-purged-at`), since
+Cloudflare holds PDFs for four hours. The steps below are kept as history;
+step 2 there grants an unrestricted key and should not be repeated.
+
 One-time provisioning so `oven/papers-builder.mjs` can rsync built PDFs to
 lith instead of committing them to git.
 

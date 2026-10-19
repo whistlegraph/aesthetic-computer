@@ -146,6 +146,25 @@ while IFS= read -r file; do
   esac
 done <<< "$CHANGED"
 
+# Papers arrive by rsync from the oven, not through git (see
+# oven/SETUP-LITH-RSYNC.md), so the loop above never sees them change. The
+# oven follows each rsync with a commit to papers/metadata.json or
+# papers/BUILDLOG.md, and that push lands here: purge every paper file
+# rewritten since the last such push. Without this a revised PDF sits in
+# Cloudflare for its four-hour max-age. The marker lives in .git so no
+# checkout or reset moves it; the first run only sets it.
+PAPERS_DIR="$REMOTE_DIR/system/public/papers.aesthetic.computer"
+PAPERS_MARK="$REMOTE_DIR/.git/papers-purged-at"
+if grep -qxE 'papers/(metadata\.json|BUILDLOG\.md)' <<< "$CHANGED"; then
+  if [ -f "$PAPERS_MARK" ]; then
+    while IFS= read -r paper; do
+      emit_urls_for "system/public/papers.aesthetic.computer/${paper#"$PAPERS_DIR"/}"
+    done < <(find "$PAPERS_DIR" -type f \( -name '*.pdf' -o -name '*.html' \) -newer "$PAPERS_MARK")
+    log "papers: purging files rsynced since $(date -r "$PAPERS_MARK" -u +%FT%TZ)"
+  fi
+  touch "$PAPERS_MARK"
+fi
+
 if $NEED_NPM_INSTALL; then
   log "installing dependencies..."
   cd "$REMOTE_DIR/system" && npm install --omit=dev --quiet 2>&1 | tail -1

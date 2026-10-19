@@ -164,7 +164,11 @@ function git(args, cwd = GIT_REPO_DIR) {
 async function publishToLith(job) {
   const SITE_DIR = path.join(GIT_REPO_DIR, "system", "public", "papers.aesthetic.computer");
   const LITH_HOST = process.env.LITH_PAPERS_HOST || "root@lith.aesthetic.computer";
-  const LITH_DEST = process.env.LITH_PAPERS_DEST || "/opt/ac/system/public/papers.aesthetic.computer/";
+  // lith authorizes this key only through rrsync, fenced to
+  // /opt/ac/system/public/papers.aesthetic.computer/, so "/" is that
+  // directory and no path can reach past it. An absolute lith path here
+  // would land in a nested opt/ac/... folder inside it.
+  const LITH_DEST = process.env.LITH_PAPERS_DEST || "/";
   // The oven service runs as the `oven` user (oven/infra/oven.service), so
   // the key and its known-hosts file live in that user's ~/.ssh, not /root.
   const SSH_DIR = path.join(os.homedir(), ".ssh");
@@ -181,11 +185,14 @@ async function publishToLith(job) {
       execFile(
         "rsync",
         [
+          // No --delete: lith also serves PDFs this build does not make
+          // (references, JOSS, hand-placed variants). A retired paper left
+          // behind is harmless; deleting the wrong file breaks a link.
           "-av",
-          "--delete-after",
           "--include=*/",
           "--include=*.pdf",
           "--include=*.html",
+          "--include=*.xml",
           "--exclude=*",
           "-e", `ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${KNOWN_HOSTS}`,
           SITE_DIR + "/",

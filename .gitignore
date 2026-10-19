@@ -771,3 +771,11 @@ kidlisp/build/
 /apple/walkieware/
 /.private-products-installed.json
 /system/public/.products-ref
+
+# Built by the oven papermill and rsynced to lith (oven/SETUP-LITH-RSYNC.md).
+# Tracked PDFs here are the ones the mill does not build (references, JOSS,
+# hand-placed variants); add a new one of those with `git add -f`.
+/system/public/papers.aesthetic.computer/*.pdf
+/system/public/papers.aesthetic.computer/index.html
+/system/public/papers.aesthetic.computer/feed.xml
+/system/public/papers.aesthetic.computer/rss.xml
