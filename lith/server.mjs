@@ -52,7 +52,7 @@ import { optionalProduct } from "../shared/private-product.mjs";
 import { operationsAuth } from "./operations-auth.mjs";
 import { canonicalPageUrl } from "../system/public/aesthetic.computer/lib/site-metadata.mjs";
 import { sendStream } from "./stream-response.mjs";
-import { userMediaTarget } from "./media-path.mjs";
+import { userMediaTarget, userMediaOrigin } from "./media-path.mjs";
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -1295,9 +1295,7 @@ app.all("/media/*rest", async (req, res) => {
   }
 
   // Direct file path → proxy to DO Spaces
-  const baseUrl = ext === "mjs"
-    ? "https://user-aesthetic-computer.sfo3.digitaloceanspaces.com"
-    : "https://user.aesthetic.computer";
+  const baseUrl = userMediaOrigin(ext);
   const encoded = resourcePath.split("/").map(encodeURIComponent).join("/");
   return res.redirect(302, `${baseUrl}/${encoded}`);
 });
