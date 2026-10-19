@@ -193,6 +193,7 @@ async function publishToLith(job) {
           "--include=*.pdf",
           "--include=*.html",
           "--include=*.xml",
+          "--include=/thumbs/*.jpg",
           "--exclude=*",
           "-e", `ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${KNOWN_HOSTS}`,
           SITE_DIR + "/",
