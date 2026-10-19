@@ -6514,16 +6514,17 @@ static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_TRUE;
 }
 
-// system.startSSH() — start dropbear SSH daemon (generates host key if needed)
+// Start the dropbear SSH daemon (generates host key if needed). ac-native.c
+// calls this when wifi first connects, so any piece is reachable;
+// system.startSSH() is the same call from JS.
 static int ssh_started = 0;
-static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    (void)this_val; (void)argc; (void)argv;
-    if (ssh_started) return JS_NewBool(ctx, 1);
+int ac_start_ssh(void) {
+    if (ssh_started) return 1;
 
     // Check if dropbear exists
     if (access("/usr/sbin/dropbear", X_OK) != 0 && access("/bin/dropbear", X_OK) != 0) {
         ac_log("[ssh] dropbear not found in initramfs\n");
-        return JS_NewBool(ctx, 0);
+        return 0;
     }
 
     // Host key: restore from the EFI partition so the device keeps a stable
@@ -6551,7 +6552,13 @@ static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSV
     }
     ssh_started = 1;
     ac_log("[ssh] dropbear started\n");
-    return JS_NewBool(ctx, 1);
+    return 1;
+}
+
+// system.startSSH()
+static JSValue js_start_ssh(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return JS_NewBool(ctx, ac_start_ssh());
 }
 
 // system.execNode(script) — run Node.js with a script string, async

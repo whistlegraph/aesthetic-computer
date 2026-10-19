@@ -652,6 +652,19 @@ static void try_mount_log(void) {
             int mr = mount(devs[i], "/mnt", "vfat", 0, NULL);
             if (mr != 0)
                 fprintf(stderr, "[ac-native] mount %s failed: %s\n", devs[i], strerror(errno));
+            // Only AC media: our initramfs at the root, or (old embedded
+            // installs) a config on a partition that isn't Windows' ESP.
+            // Any FAT partition used to do, and the MiniBook X wrote its
+            // logs and settings onto Windows' boot partition.
+            if (mr == 0 &&
+                access("/mnt/initramfs.cpio.gz", F_OK) != 0 &&
+                access("/mnt/initramfs.cpio.lz4", F_OK) != 0 &&
+                (access("/mnt/config.json", F_OK) != 0 ||
+                 access("/mnt/EFI/Microsoft/Boot/BCD", F_OK) == 0)) {
+                fprintf(stderr, "[ac-native] %s is not AC media, skipping\n", devs[i]);
+                umount("/mnt");
+                continue;
+            }
             if (mr == 0) {
                 logfile = fopen("/mnt/ac-native.log", "a");
                 if (logfile) {
@@ -5153,6 +5166,8 @@ int main(int argc, char *argv[]) {
                 static int was_connected = 0;
                 int is_connected = (wifi && wifi->state == WIFI_STATE_CONNECTED);
                 if (is_connected && !was_connected) {
+                    extern int ac_start_ssh(void);
+                    ac_start_ssh(); // reachable whatever piece is up (aesel never asked)
                     if (tts) {
                         char wifi_msg[128];
                         if (wifi->connected_ssid[0])
