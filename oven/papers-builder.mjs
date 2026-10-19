@@ -259,7 +259,9 @@ async function publishToLith(job) {
       throw pullErr;
     }
     try {
-      await git(["push", "origin", "main"]);
+      // HEAD, not the branch: the native builder shares this checkout and
+      // leaves it detached, so local `main` can be any age.
+      await git(["push", "origin", "HEAD:main"]);
       break;
     } catch (pushErr) {
       if (attempt >= 4 || !/non-fast-forward|fetch first|rejected/.test(String(pushErr.stderr || pushErr.message))) throw pushErr;
