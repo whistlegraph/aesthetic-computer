@@ -622,6 +622,15 @@ pop/menuband/takes/
 # Generated native live scripts (node kidlisp/tools/native-tv-script.mjs)
 kidlisp/build/
 
+# Built by the oven papermill and rsynced to lith (oven/SETUP-LITH-RSYNC.md).
+# index.html, feed.xml and rss.xml stay tracked: publish edits the index in
+# place, and the oven commits all three with its metadata.
+# Thumbnails are built too (pdftoppm on the oven). Tracked PDFs and thumbs
+# here are the ones the mill does not build (references, JOSS,
+# hand-placed variants); add a new one of those with `git add -f`.
+/system/public/papers.aesthetic.computer/*.pdf
+/system/public/papers.aesthetic.computer/thumbs/*.jpg
+
 # private-products: generated boundary
 /system/netlify/functions/sotce-net.mjs
 /system/netlify/functions/SOTCE-NET-AGENTS.md
@@ -772,12 +781,3 @@ kidlisp/build/
 /apple/walkieware/
 /.private-products-installed.json
 /system/public/.products-ref
-
-# Built by the oven papermill and rsynced to lith (oven/SETUP-LITH-RSYNC.md).
-# index.html, feed.xml and rss.xml stay tracked: publish edits the index in
-# place, and the oven commits all three with its metadata.
-# Thumbnails are built too (pdftoppm on the oven). Tracked PDFs and thumbs
-# here are the ones the mill does not build (references, JOSS,
-# hand-placed variants); add a new one of those with `git add -f`.
-/system/public/papers.aesthetic.computer/*.pdf
-/system/public/papers.aesthetic.computer/thumbs/*.jpg
