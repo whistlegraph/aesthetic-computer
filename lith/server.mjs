@@ -295,8 +295,10 @@ app.use((req, res, next) => {
     req.url = "/notepat" + (req.url === "/" ? "" : req.url.slice(req.path.length));
   }
 
-  // The AI studio is shared with native No Paint. Legacy AC piece URLs remain.
-  if ((host === "nopaint.art" || host === "www.nopaint.art") && req.path === "/") {
+  // The AI studio (Note Paint) is shared with native No Paint. Legacy AC piece
+  // URLs remain. notepaint.art is the studio's own home; nopaint.art serves it
+  // too until the switch that returns nopaint.art to the 2021 original.
+  if (["nopaint.art", "www.nopaint.art", "notepaint.art", "www.notepaint.art"].includes(host) && req.path === "/") {
     res.setHeader("Cache-Control", "no-cache");
     return res.sendFile(join(PUBLIC, "nopaint.art", "ai", "index.html"));
   }

@@ -31,11 +31,20 @@ export function caddyHosts(caddyfile) {
   return hosts;
 }
 
+// A path under a folder that belongs to a different host than the folder's
+// name: the Note Paint studio lives in the nopaint.art folder's ai/ but its
+// home is notepaint.art. Used only once that host is one the Caddyfile serves.
+export const FOLDER_HOST_OVERRIDES = [
+  { prefix: "/nopaint.art/ai/", host: "notepaint.art", strip: "/nopaint.art" },
+];
+
 // Where an apex request for a site folder belongs, or null to serve it here.
 export function siteFolderRedirect({ host, path, search = "" }, { folders, hosts }) {
   if (!APEX_HOSTS.has((host || "").toLowerCase())) return null;
   const [, folder, ...rest] = path.split("/");
   if (!folder || !folders.has(folder) || !hosts.has(folder.toLowerCase())) return null;
   if (KEEP_ON_APEX.has(path)) return null;
+  const override = FOLDER_HOST_OVERRIDES.find((o) => path.startsWith(o.prefix) && hosts.has(o.host));
+  if (override) return `https://${override.host}${path.slice(override.strip.length)}${search}`;
   return `https://${folder}/${rest.join("/")}${search}`;
 }

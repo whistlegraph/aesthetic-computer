@@ -18,10 +18,21 @@ test("the real public tree names the sites and the Caddyfile names the hosts", (
 });
 
 test("a site folder under the apex redirects to its own host, path and query intact", () => {
-  assert.equal(where("aesthetic.computer", "/nopaint.art/ai/"), "https://nopaint.art/ai/");
-  assert.equal(where("aesthetic.computer", "/nopaint.art/ai/style.css", "?v=1"), "https://nopaint.art/ai/style.css?v=1");
+  assert.equal(where("aesthetic.computer", "/nopaint.art/gallery/"), "https://nopaint.art/gallery/");
+  assert.equal(where("aesthetic.computer", "/nopaint.art/gallery/gallery.json", "?v=1"), "https://nopaint.art/gallery/gallery.json?v=1");
   assert.equal(where("www.aesthetic.computer", "/kidlisp.com/"), "https://kidlisp.com/");
   assert.equal(where("prompt.ac", "/kidlisp.com/keeps.html"), "https://kidlisp.com/keeps.html");
+});
+
+test("the studio under nopaint.art/ai belongs to notepaint.art; the rest of the folder stays nopaint.art", () => {
+  assert.ok(hosts.has("notepaint.art"), "the Caddyfile serves notepaint.art");
+  assert.equal(where("aesthetic.computer", "/nopaint.art/ai/"), "https://notepaint.art/ai/");
+  assert.equal(where("aesthetic.computer", "/nopaint.art/ai/app.mjs", "?v=1"), "https://notepaint.art/ai/app.mjs?v=1");
+  assert.equal(where("aesthetic.computer", "/nopaint.art/gallery/"), "https://nopaint.art/gallery/");
+  assert.equal(where("aesthetic.computer", "/nopaint.art/classic/"), "https://nopaint.art/classic/");
+  // Without the host in Caddy, the folder's own host still gets it.
+  const without = new Set([...hosts].filter((h) => h !== "notepaint.art"));
+  assert.equal(siteFolderRedirect({ host: "aesthetic.computer", path: "/nopaint.art/ai/" }, { folders, hosts: without }), "https://nopaint.art/ai/");
 });
 
 test("No Paint's sign-in page stays on the apex: it is the Auth0 callback and Stripe return", () => {
@@ -31,7 +42,7 @@ test("No Paint's sign-in page stays on the apex: it is the Auth0 callback and St
 test("a folder with no host of its own is served from the apex", () => {
   const only = { folders: siteFolders(["downloads.example", "nopaint.art"]), hosts };
   assert.equal(siteFolderRedirect({ host: "aesthetic.computer", path: "/downloads.example/build-1.zip" }, only), null);
-  assert.equal(siteFolderRedirect({ host: "aesthetic.computer", path: "/nopaint.art/ai/" }, only), "https://nopaint.art/ai/");
+  assert.equal(siteFolderRedirect({ host: "aesthetic.computer", path: "/nopaint.art/gallery/" }, only), "https://nopaint.art/gallery/");
 });
 
 test("other hosts and ordinary apex paths are untouched", () => {
