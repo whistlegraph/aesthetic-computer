@@ -204,6 +204,7 @@ let login, // A login button in the center of the display.
   walletBtn, // Tezos wallet button (shown when connected)
   commitBtn, // Commit hash button (navigates to commits piece)
   notepatBtn, // 🎹 Notepat button (to the right of the commit button)
+  jukeBtn, // 🎵 Juke button — every /pop track; the app plays it in the background
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
@@ -5808,6 +5809,21 @@ function paint($) {
     subscribersBtn.btn.disabled = true;
   }
 
+  // Juke plays every /pop track; the iPhone app keeps it going in the background.
+  if (showLoginCurtain && !$.system.prompt.input.canType &&
+      !$.system.prompt.input.text && screen.height >= 200) {
+    const position = { screen, center: "x", y: screen.height - 38 };
+    if (!jukeBtn) jukeBtn = new $.ui.TextButtonSmall("juke", position);
+    else jukeBtn.reposition(position, "juke");
+    jukeBtn.btn.disabled = false;
+    jukeBtn.paint($,
+      [[30, 22, 48], [120, 90, 160], 255, [30, 22, 48]],
+      [[60, 40, 90], [255, 145, 200], 255, [60, 40, 90]],
+    );
+  } else if (jukeBtn) {
+    jukeBtn.btn.disabled = true;
+  }
+
   if (showLoginCurtain && flairEnabled) {
     const input = $.system.prompt.input;
 
@@ -8086,6 +8102,7 @@ function act({
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
+      (jukeBtn?.btn.disabled === false && jukeBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       isOverMotdHandle)
@@ -8100,6 +8117,7 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
+      (jukeBtn?.btn.disabled === false && jukeBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
@@ -8222,6 +8240,18 @@ function act({
       push: () => {
         pushSound();
         jump("notepat");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // 🎵 Juke button - the /pop jukebox
+  if (jukeBtn && !jukeBtn.btn.disabled) {
+    jukeBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("juke");
       },
       cancel: () => cancelSound(),
     });
