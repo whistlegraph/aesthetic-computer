@@ -4,10 +4,11 @@ import { createHash } from "node:crypto";
 import { connect, closePool } from "../../system/backend/database.mjs";
 import { visitScopeMatch, visitReferrer, visitProperty, visitSurface, automatedVisit } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { laklokFeatureReport } from "./laklok-feature-report.mjs";
+import { foldPieceLandings } from "./piece-landings.mjs";
 
 const mode = process.argv[2];
 const { hours = 24, limit = mode === "features" ? 30 : 100, handle, scope = "studio", property } = JSON.parse(process.argv[3] || "{}");
-if (!["accounts", "referrers", "features"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
+if (!["accounts", "referrers", "features", "pieces"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
     !Number.isInteger(limit) || limit < 1 || limit > (mode === "features" ? 50 : 500) ||
     (handle !== undefined && !/^@?[a-z0-9_-]{1,64}$/i.test(handle))) throw new Error("Invalid report options");
 const scoped = visitScopeMatch(scope), end = new Date(), start = new Date(+end - hours * 3600000);
@@ -18,7 +19,17 @@ if (property !== undefined) {
 }
 const { db } = await connect();
 try {
-  if (mode === "features") {
+  if (mode === "pieces") {
+    const boots = await db.collection("boots").find({ createdAt: { $gte: start, $lt: end } }, {
+      projection: { _id: 0, status: 1, "meta.host": 1, "meta.path": 1, "meta.referrer": 1, "meta.userAgent": 1, "meta.embedded": 1,
+        "meta.packMode": 1, "meta.localDev": 1, "meta.user": 1 }, maxTimeMS: 15000,
+    }).sort({ createdAt: -1 }).limit(50001).toArray();
+    console.log(JSON.stringify({ start, end, scope,
+      unit: "page loads (boots) per landing piece; anonymous and signed-in. Moving between pieces inside a tab is not a new boot. completed = the boot finished loading.",
+      ...foldPieceLandings(boots.slice(0, 50000), { properties: scoped.property.$in, limit }),
+      bootsTruncated: boots.length > 50000,
+    }));
+  } else if (mode === "features") {
     console.log(JSON.stringify(await laklokFeatureReport(db, { start, end, scoped, handle, limit })));
   } else if (mode === "accounts") {
     const query = { at: { $gte: start, $lt: end }, ...scoped };

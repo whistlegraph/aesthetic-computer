@@ -135,12 +135,13 @@ async function braincellsReport({ hours = 24, limit = 25 } = {}) {
 // Aesthetic network is doing. Each part fails on its own without sinking the rest.
 async function networkReport({ hours = 24, scope = "all" } = {}) {
   const part = promise => promise.then(value => value, error => ({ unavailable: String(error.message || error) }));
-  const [visits, referrers, braincells] = await Promise.all([
+  const [visits, referrers, pieces, braincells] = await Promise.all([
     part(visitsReport({ hours, scope })),
     part(journeyReport("referrers", { hours, scope, limit: 25 })),
+    part(journeyReport("pieces", { hours, scope, limit: 25 })),
     part(braincellsReport({ hours, limit: 15 })),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, braincells };
+  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells };
 }
 
 // ⬇️ Direct downloads
@@ -308,9 +309,11 @@ const TOOLS = [
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
     } },
   },
-  ...["account_activity", "network_referrers", "feature_usage"].map(name => ({
+  ...["account_activity", "network_referrers", "feature_usage", "piece_landings"].map(name => ({
     name,
-    description: name === "feature_usage"
+    description: name === "piece_landings"
+      ? "Which pieces people land on, anonymous visitors included: page loads per property and piece from lith's boot telemetry, split anonymous / signed-in, completed loads and top referrer sites per piece. Parameters are stripped; private paths are excluded. Counts landings, not in-tab moves between pieces. Optional property filter."
+      : name === "feature_usage"
       ? "Laer Klokken/laklok feature-use counts by authenticated account: ranked controls, per-account counts, UTC daily activity and supported features with no recorded use, plus visibleMinutes (signed-in minutes open in a visible tab, per account and per UTC day, from the presence rollout onward). Covers canvas and HTML clients from the feature rollout onward. Zero is not proof of non-use. Optional public handle/property filter; up to 35 days, at most 50 accounts. No chat content, page contents or link destinations."
       : name === "account_activity"
       ? "Follow server-verified authenticated accounts through public AC/Sotce activity: public handle, runtime session alias, piece opens and action milestones. Optional handle filter. Only records from the account-activity rollout onward; no inferred identities or retroactive joins to anonymous fish. Login does not prove human activity. Private SSH-backed read."
@@ -321,12 +324,12 @@ const TOOLS = [
       limit: { type: "integer", minimum: 1, maximum: name === "feature_usage" ? 50 : 500, description: name === "feature_usage" ? "Maximum accounts; default 30" : "Maximum rows; default 100" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Default studio" },
       property: { type: "string", description: "Optional reviewed site, e.g. sotce.net; must belong to selected scope" },
-      ...(name !== "network_referrers" ? { handle: { type: "string", description: "Optional public handle, with or without @" } } : {}),
+      ...(!["network_referrers", "piece_landings"].includes(name) ? { handle: { type: "string", description: "Optional public handle, with or without @" } } : {}),
     } },
   })),
   {
     name: "network_report",
-    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, and the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), and the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
@@ -421,6 +424,7 @@ async function callTool(name, args = {}) {
     : name === "account_activity" ? await journeyReport("accounts", args)
     : name === "feature_usage" ? await journeyReport("features", args)
     : name === "network_referrers" ? await journeyReport("referrers", args)
+    : name === "piece_landings" ? await journeyReport("pieces", args)
     : name === "human_fishery" ? await humanFishery(args)
     : name === "network_recognition" ? await networkRecognition(args)
     : name === "direct_downloads" ? await directDownloads(args)
