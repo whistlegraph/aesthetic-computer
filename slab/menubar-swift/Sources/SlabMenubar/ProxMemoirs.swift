@@ -179,7 +179,7 @@ final class ProxMemoirs {
         </session-data>
         """
         var provider = "extractive"
-        var text = recordingReserved ? "" : (onDeviceMemoir(prompt) ?? "")
+        var text = onDeviceAllowed ? (onDeviceMemoir(prompt) ?? "") : ""
         if !text.isEmpty { provider = "apple-foundation-model" }
         if text.isEmpty, externalProviderAllowed,
            Date() >= claudeUnavailableUntil, let binary = claudeBinary() {
@@ -264,6 +264,15 @@ final class ProxMemoirs {
             return false
         }
         return !recordingReserved
+    }
+
+    /// The on-device system model is opt-in too. Every call keeps Apple's
+    /// TGOnDeviceInference service resident (~600 MB), and on the fleet's 8 GB
+    /// Macs that tipped neo into swap thrash (2026-10-19). Extractive memoirs
+    /// cost nothing. `defaults write computer.slab.menubar
+    /// enableOnDeviceMemoirs -bool true` turns it back on for a roomier seat.
+    private var onDeviceAllowed: Bool {
+        UserDefaults.standard.bool(forKey: "enableOnDeviceMemoirs") && !recordingReserved
     }
 
     private var recordingReserved: Bool {
