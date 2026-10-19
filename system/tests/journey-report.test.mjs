@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { Query, Aggregator } from "mingo";
 import * as model from "../public/aesthetic.computer/lib/visit-model.mjs";
 import { laklokFeatureReport } from "../../toolchain/analytics/laklok-feature-report.mjs";
+import * as pieceLandings from "../../toolchain/analytics/piece-landings.mjs";
 
 async function report(mode, args, data) {
   let output, closed = false;
@@ -30,7 +31,8 @@ async function report(mode, args, data) {
   await module.link(specifier => {
     const exports = specifier === "node:crypto" ? { createHash }
       : specifier.includes("database.mjs") ? { connect: async () => ({ db }), closePool: async () => { closed = true; } }
-      : specifier.includes("laklok-feature-report") ? { laklokFeatureReport } : model;
+      : specifier.includes("laklok-feature-report") ? { laklokFeatureReport }
+      : specifier.includes("piece-landings") ? pieceLandings : model;
     return new vm.SyntheticModule(Object.keys(exports), function () {
       for (const [key, value] of Object.entries(exports)) this.setExport(key, value);
     }, { context });
@@ -107,4 +109,16 @@ test("referral report separates old boots, excludes automation and unmeasured vi
   assert.deepEqual(result.visits, [{ property: "aesthetic.computer", referrerHost: "example.org", visits: 1, interacted: 1, engaged: 1 }]);
   assert.deepEqual(result.legacyBoots, [{ property: "aesthetic.computer", referrerHost: "example.org", boots: 1 }]);
   assert.doesNotMatch(JSON.stringify(result), /secret|private|bot\.example/);
+});
+
+test("pieces report ranks landing pieces from boots, anonymous visitors included", async () => {
+  const ua = "Mozilla/5.0 (Macintosh) Safari/605";
+  const out = await report("pieces", { hours: 1, scope: "studio" }, { boots: [
+    { createdAt: at, status: "success", meta: { host: "aesthetic.computer", path: "/laer-klokken", userAgent: ua } },
+    { createdAt: at, status: "success", meta: { host: "aesthetic.computer", path: "/laer-klokken:mail", userAgent: ua, user: "sub" } },
+    { createdAt: at, status: "success", meta: { host: "aesthetic.computer", path: "/mail", userAgent: ua } },
+    { createdAt: new Date(Date.now() - 7200_000), status: "success", meta: { host: "aesthetic.computer", path: "/notepat", userAgent: ua } },
+  ] });
+  assert.equal(out.boots, 2);
+  assert.deepEqual(out.pieces.map(row => [row.piece, row.anonymous, row.signedIn]), [["laer-klokken", 1, 1]]);
 });
