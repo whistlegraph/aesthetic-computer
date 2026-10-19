@@ -62,6 +62,23 @@ async function getDeployedCommit(repoRoot) {
   return "unknown";
 }
 
+// The private products (No Paint's studio and the like) ship on their own
+// clock with `ac-deploy products`, which rewrites .products-ref beside
+// .commit-ref. A page served from a product folder watches this one.
+function getDeployedProducts() {
+  const candidates = [
+    path.join(process.cwd(), "public", ".products-ref"),
+    path.join(process.cwd(), "..", "system", "public", ".products-ref"),
+  ];
+  for (const file of candidates) {
+    try {
+      const revision = fs.readFileSync(file, "utf8").trim();
+      if (revision.length >= 7) return revision;
+    } catch {}
+  }
+  return "unknown";
+}
+
 function getRepoRoot() {
   const candidates = [
     path.resolve(process.cwd(), ".."),
@@ -195,16 +212,23 @@ export default async (request) => {
   // connection and re-read .commit-ref until it moves or the hold expires.
   // Falling out of the loop with a changed commit drops through to the full
   // payload below, which is what the client reads as "a deploy happened".
-  if (clientHash && clientHash === deployedCommit.slice(0, 7)) {
+  // A client that also sends ?products=<hash> is released when the private
+  // products move too, so a products-only release reloads its pages.
+  let deployedProducts = getDeployedProducts();
+  const clientProducts = url.searchParams.get("products");
+  const matches = () => clientHash === deployedCommit.slice(0, 7) &&
+    (!clientProducts || clientProducts === deployedProducts.slice(0, 7));
+  if (clientHash && matches()) {
     const deadline = Date.now() + LONG_POLL_MS;
     while (Date.now() < deadline && !request.signal?.aborted) {
       await new Promise((r) => setTimeout(r, LONG_POLL_TICK_MS));
       deployedCommit = await getDeployedCommit(repoRoot);
-      if (deployedCommit.slice(0, 7) !== clientHash) break;
+      deployedProducts = getDeployedProducts();
+      if (!matches()) break;
     }
-    if (deployedCommit.slice(0, 7) === clientHash) {
+    if (matches()) {
       return new Response(
-        JSON.stringify({ changed: false, deployed: clientHash }),
+        JSON.stringify({ changed: false, deployed: clientHash, products: deployedProducts.slice(0, 7) }),
         {
           headers: {
             "Content-Type": "application/json",
@@ -233,6 +257,7 @@ export default async (request) => {
     return new Response(
       JSON.stringify({
         deployed: deployedCommit.slice(0, 7),
+        products: deployedProducts.slice(0, 7),
         latest: latestCommit?.slice(0, 7),
         status,
         behindBy,
@@ -250,6 +275,7 @@ export default async (request) => {
     return new Response(
       JSON.stringify({
         deployed: deployedCommit.slice(0, 7),
+        products: deployedProducts.slice(0, 7),
         status: "unknown",
         error: e.message,
       }),
