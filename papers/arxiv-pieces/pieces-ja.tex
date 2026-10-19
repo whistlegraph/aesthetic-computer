@@ -37,9 +37,9 @@
 ]
 
 \usepackage{xeCJK}
-\setCJKmainfont{Hiragino Sans}
-\setCJKsansfont{Hiragino Sans}
-\setCJKmonofont{Hiragino Sans}
+\IfFontExistsTF{Hiragino Sans}{\setCJKmainfont{Hiragino Sans}}{\setCJKmainfont{IPAexGothic}}
+\IfFontExistsTF{Hiragino Sans}{\setCJKsansfont{Hiragino Sans}}{\setCJKsansfont{IPAexGothic}}
+\IfFontExistsTF{Hiragino Sans}{\setCJKmonofont{Hiragino Sans}}{\setCJKmonofont{IPAexGothic}}
 
 % === PACKAGES ===
 \usepackage{xcolor}

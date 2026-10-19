@@ -2,8 +2,9 @@
 // daily.mjs — the automated ~2-minute Aesthetic Computer Radio episode.
 //
 //   gather  — the last day of commit subjects (filtered, deduped, REDACTED)
-//   write   — a ~300-word spoken script via AC braincells or `claude -p`, in the monthly-essay
-//             storytelling register (scenes, first person, no salesmanship)
+//   write   — a ~300-word spoken script in the monthly-essay storytelling
+//             register (scenes, first person, no salesmanship), by `claude -p`
+//             or, with DAILY_WRITER=ac, by the daily's own AC braincells
 //   produce — bin/produce.mjs with the club bed + the daily frame
 //   publish — bin/buzzsprout.mjs (public; --stage keeps it private for review)
 //   mint    — with DAILY_MINT=1, bin/daily-token.mjs mints it on hic et nunc
@@ -136,17 +137,23 @@ author: @jeffrey
 The day's commit subjects:
 ${subjects.map((s) => `- ${s}`).join("\n")}`;
 
-const writer = process.env.DAILY_WRITER || "claude";
-if (!["ac", "claude"].includes(writer)) { console.error("✗ DAILY_WRITER must be ac or claude"); process.exit(1); }
-let script;
-if (writer === "ac") {
-  console.log("Writing script… (Aesel braincells)");
+// Two writers, same prompt. DAILY_WRITER=ac spends the daily's own AC
+// braincells (lib/braincell-writer.mjs) — the appliance's path since the
+// Claude Code subscription stopped serving `claude -p` there on 2026-10-16.
+// Anything else keeps `claude -p` for a Mac with a working login.
+let written;
+if (process.env.DAILY_WRITER === "ac") {
+  console.log(`Writing script… (AC braincells, @${String(process.env.DAILY_BRAIN_HANDLE || "").replace(/^@/, "")})`);
+  const { braincellText } = await import("../lib/braincell-writer.mjs");
   try {
-    const { braincellText } = await import("../lib/braincell-writer.mjs");
-    script = await braincellText(PROMPT, {
+    written = await braincellText(PROMPT, {
       file: process.env.DAILY_BRAIN_TOKEN_FILE, handle: process.env.DAILY_BRAIN_HANDLE,
+      ...(process.env.DAILY_BRAIN_MODEL ? { model: process.env.DAILY_BRAIN_MODEL } : {}),
     });
-  } catch (error) { console.error(`✗ script generation failed: ${error.message}`); process.exit(1); }
+  } catch (err) {
+    console.error(`✗ script generation failed: ${err.message}`);
+    process.exit(1);
+  }
 } else {
   console.log("Writing script… (claude -p)");
   const w = spawnSync("claude", ["-p", "--model", "sonnet", "--output-format", "text", "--tools", ""], {
@@ -159,8 +166,9 @@ if (writer === "ac") {
     console.error(`✗ script generation failed (exit ${w.status}): ${said.slice(0, 400)}`);
     process.exit(1);
   }
-  script = w.stdout.trim();
+  written = w.stdout;
 }
+let script = written.trim();
 // Some wrappers fence the output; unwrap one fence if present.
 script = script.replace(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/m, "$1").trim();
 // And drop any preamble the model put ahead of the frontmatter ("here's the

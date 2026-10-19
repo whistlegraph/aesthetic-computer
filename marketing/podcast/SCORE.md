@@ -16,7 +16,14 @@ loudnorm.
 Alongside the longform readings, **Aesthetic Computer Radio** — an automated ~2-minute
 episode: gather the last day of commit subjects (filtered, deduped, and
 REDACTED — client/confidential lanes never reach the model), write a
-~300-word script via `claude -p` in the storytelling register, produce with
+~300-word script in the storytelling register — via `claude -p`, or with
+`DAILY_WRITER=ac` through the daily's own AC braincells on Sonnet
+(`lib/braincell-writer.mjs`; `DAILY_BRAIN_HANDLE` + `DAILY_BRAIN_TOKEN_FILE`
+name the account, `DAILY_BRAIN_MODEL` overrides the model; jasellite runs
+this since the Claude Code subscription stopped serving it; `--dry --date
+YYYY-MM-DD` on an unproduced date checks writing without narrating,
+publishing or minting, and still spends braincells; give each appliance its
+own sign-in rather than a copied refresh token) — produce with
 `--bedstyle club --frame daily` (116 BPM four-on-the-floor bed), publish via
 Buzzsprout. `daily-YYYY-MM-DD` slugs are pattern-cleared in `lib/hosted.mjs`;
 the content guard is daily.mjs's redaction filter + prompt rules + word-count
@@ -44,21 +51,6 @@ than automatic reposting: reconcile a found Buzzsprout episode into its receipt,
 or reset the job status to `queued` only after confirming no upload landed.
 The `.upload.lock` serializes uploaders; after a crash, check its PID before
 removing a stale lock. A saved receipt always wins over a leftover queue job.
-
-**Braincell writer.** `DAILY_WRITER=ac` writes the episode through Aesel's
-metered inference endpoint, using its automatic model. Set
-`DAILY_BRAIN_TOKEN_FILE` to an AC session file on the appliance and
-`DAILY_BRAIN_HANDLE` to its handle. The writer verifies that handle against
-the server's balance response before generating; it never falls back to another
-account or provider. Jasellite uses its existing `~/.ac-token` as `@jeffrey`.
-The existing redaction, word-count and content checks still apply. Unconfigured
-runners retain the `DAILY_WRITER=claude` default.
-
-Use `--dry --date YYYY-MM-DD` for an unproduced date to verify writing without
-narrating, publishing or minting; this still consumes inference braincells.
-Acquire an independent sign-in on the appliance: do not copy a refresh token
-from another machine. Tezos funding uses the existing braincell checkout;
-this writer neither transfers tez nor automatically purchases credits.
 
 **The daily token (bin/daily-token.mjs).** With `DAILY_MINT=1` the episode is
 also minted as a hic et nunc OBJKT signed by aesthetic.tez, named just the

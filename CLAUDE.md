@@ -104,6 +104,10 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
   `.commit-ref` against what it shipped.
   `ac-deploy --verify` does only the check. It is a maintainer command —
   never an Aesel or piece-publishing step.
+  **A private-product change alone ships with `ac-deploy products`:** it
+  packs the vault's pushed main onto the core lith already runs, restarts
+  lith and purges the edge in under a minute, with no core reset or npm
+  installs. Use the full `ac-deploy` when core changed too.
   **Aesel releases separately: `ac-deploy aesel`.** A lith deploy no longer
   packs Aesel. Bump `aesel/package.json`, push, then `ac-deploy aesel` packs
   `aesel/` from the knot's `main` in a scratch directory on lith, swaps in

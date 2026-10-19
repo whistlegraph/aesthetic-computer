@@ -104,3 +104,6 @@ tz2*.json
 tz3*.json
 tz4*.json
 KT1*.json
+
+# hen-paintings receipts and watermark live on the minting machine, not in git
+out/

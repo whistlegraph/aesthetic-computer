@@ -59,6 +59,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { createServer as createHttpsServer } from "https";
 import { createServer as createHttpServer } from "http";
 import { resolveFunctionName } from "./route-resolution.mjs";
+import { siteFolders, caddyHosts, siteFolderRedirect } from "./site-folders.mjs";
 import { provenance } from "../shared/provenance.mjs";
 import {
   browserAnalyticsConfig,
@@ -278,16 +279,25 @@ app.use((req, res, next) => {
 });
 
 // --- Host-based rewrites that Netlify previously handled ---
+// Each hosted site lives in a folder named after its domain under public/,
+// so the apex would otherwise serve aesthetic.computer/nopaint.art/ai/ as a
+// second front door to every site (see site-folders.mjs for the exceptions).
+const SITE_FOLDERS = siteFolders(readdirSync(PUBLIC));
+const CADDY_HOSTS = existsSync(join(__dirname, "Caddyfile")) ? caddyHosts(readFileSync(join(__dirname, "Caddyfile"), "utf8")) : new Set();
 app.use((req, res, next) => {
   const host = (req.headers.host || "").split(":")[0].toLowerCase();
+
+  const ownHost = siteFolderRedirect({ host, path: req.path, search: req.url.slice(req.path.length) }, { folders: SITE_FOLDERS, hosts: CADDY_HOSTS });
+  if (ownHost) return res.redirect(301, ownHost);
 
   // Preserve branded notepat.com URLs while serving the /notepat piece.
   if ((host === "notepat.com" || host === "www.notepat.com") && req.path === "/") {
     req.url = "/notepat" + (req.url === "/" ? "" : req.url.slice(req.path.length));
   }
 
-  // The AI studio is shared with native No Paint. Legacy AC piece URLs remain.
-  if ((host === "nopaint.art" || host === "www.nopaint.art") && req.path === "/") {
+  // The AI studio (Note Paint) lives at notepaint.art; nopaint.art is the 2021
+  // original again (Caddy serves both roots, this is the fallback).
+  if (["notepaint.art", "www.notepaint.art"].includes(host) && req.path === "/") {
     res.setHeader("Cache-Control", "no-cache");
     return res.sendFile(join(PUBLIC, "nopaint.art", "ai", "index.html"));
   }

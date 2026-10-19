@@ -3,8 +3,14 @@ import { freshSession } from "../../../shared/ac-token.mjs";
 // The same metered endpoint Aesel uses, with no file or publishing tools.
 // An explicit session and server-verified handle bill the selected AC account.
 // The Tezos signing key is not used for inference.
+//
+// The daily was written by `claude -p --model sonnet` until the Claude Code
+// subscription stopped serving the appliance (2026-10-16); the same register
+// comes from Sonnet through AC's own OpenRouter account, paid in braincells.
+export const DAILY_BRAIN_MODEL = "anthropic/claude-sonnet-5.5";
+
 export async function braincellText(prompt, {
-  file, handle, fetch = globalThis.fetch, session = freshSession,
+  file, handle, model = DAILY_BRAIN_MODEL, fetch = globalThis.fetch, session = freshSession,
   timeoutMs = 180_000,
 } = {}) {
   if (!file || !handle) throw new Error("Set DAILY_BRAIN_TOKEN_FILE and DAILY_BRAIN_HANDLE for the daily's AC account");
@@ -22,10 +28,14 @@ export async function braincellText(prompt, {
 
   const response = await fetch(`${base}/easel-inference`, {
     method: "POST", headers, signal: AbortSignal.timeout(timeoutMs),
-    body: JSON.stringify({ messages: [{ role: "user", content: prompt }],
-      max_tokens: 2048, thinking: { type: "disabled" } }),
+    // No `thinking` field: Sonnet via OpenRouter answers {type:"disabled"}
+    // with a 400 (measured 2026-10-18), and the default is already no thinking.
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 2048 }),
   });
-  if (!response.ok) throw new Error(`Daily braincell inference failed (HTTP ${response.status})`);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Daily braincell inference failed (HTTP ${response.status})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
   if (!response.body) throw new Error("Daily braincell inference returned no stream");
   const reader = response.body.getReader(), decoder = new TextDecoder();
   let pending = "", text = "", stopped = false, reason = "", bytes = 0;

@@ -1,67 +1,76 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { braincellText } from "../lib/braincell-writer.mjs";
+import { braincellText, DAILY_BRAIN_MODEL } from "../lib/braincell-writer.mjs";
 
-const events = [
-  { type: "content_block_start", content_block: { type: "text", text: "" } },
-  { type: "content_block_delta", delta: { type: "text_delta", text: "A tiny café." } },
-  { type: "message_delta", delta: { stop_reason: "end_turn" } },
+const session = async () => ({ access_token: "test-only" });
+const sse = (events) => new Response(events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(""), { status: 200 });
+const credits = (over = {}) => new Response(JSON.stringify({ handle: "@jeffrey", remaining: 40, purchased: 0, ...over }), { status: 200 });
+const script = [
+  { type: "message_start", message: { usage: { input_tokens: 10 } } },
+  { type: "content_block_start", index: 0, content_block: { type: "text", text: "---\n" } },
+  { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "title: a quiet night\n---\n\n" } },
+  { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "The oven hummed." } },
+  { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 20 } },
   { type: "message_stop" },
 ];
-function stream(rows) {
-  const bytes = new TextEncoder().encode(rows.map(r => `data: ${JSON.stringify(r)}\r\n\r\n`).join(""));
-  return new Response(new ReadableStream({ start(controller) {
-    for (let i = 0; i < bytes.length; i += 3) controller.enqueue(bytes.slice(i, i + 3));
-    controller.close();
-  } }));
+
+function fetcher({ credit = credits(), stream = sse(script), calls = [] } = {}) {
+  return async (url, init) => {
+    calls.push({ url, init });
+    if (url.endsWith("/easel-credits")) return credit;
+    if (url.endsWith("/easel-inference")) return stream;
+    throw new Error(`unexpected ${url}`);
+  };
 }
-function setup({ handle = "@radio", remaining = 10, purchased = 0, rows = events, status = 200 } = {}) {
+
+test("writes the script through the daily's own braincells on Sonnet", async () => {
   const calls = [];
-  return { calls, options: { file: "/test/radio-token", handle: "radio",
-    session: async ({ file }) => { assert.equal(file, "/test/radio-token"); return { access_token: "test-token" }; },
-    fetch: async (url, options) => {
-      calls.push({ url, options });
-      assert.equal(options.headers.Authorization, "Bearer test-token");
-      if (url.endsWith("easel-credits")) return Response.json({ handle, remaining, purchased });
-      return status === 200 ? stream(rows) : new Response("provider failure", { status });
-    },
-  } };
-}
-test("uses the selected account and Aesel's automatic model with bounded output", async () => {
-  const { calls, options } = setup();
-  assert.equal(await braincellText("Filtered public subjects", options), "A tiny café.");
-  const request = JSON.parse(calls[1].options.body);
-  assert.equal(request.max_tokens, 2048);
-  assert.equal(request.messages[0].content, "Filtered public subjects");
-  assert.equal(request.model, undefined);
-  assert.equal(request.tools, undefined);
+  const text = await braincellText("write it", { file: "/x", handle: "@jeffrey", session, fetch: fetcher({ calls }) });
+  assert.equal(text, "---\ntitle: a quiet night\n---\n\nThe oven hummed.");
+  const inference = calls.find((c) => c.url.endsWith("/easel-inference"));
+  const body = JSON.parse(inference.init.body);
+  assert.equal(body.model, DAILY_BRAIN_MODEL);
+  assert.equal(body.thinking, undefined, "Sonnet via OpenRouter 400s on an explicit thinking field");
+  assert.equal(body.max_tokens, 2048);
+  assert.equal(inference.init.headers.Authorization, "Bearer test-only");
+  assert.equal(body.messages[0].content, "write it");
 });
-test("the operator may explicitly select @jeffrey's existing session", async () => {
-  const { options } = setup({ handle: "@jeffrey" });
-  options.handle = "@jeffrey";
-  assert.equal(await braincellText("prompt", options), "A tiny café.");
+
+test("a chosen model rides along", async () => {
+  const calls = [];
+  await braincellText("write it", { file: "/x", handle: "jeffrey", model: "anthropic/claude-opus-5.5", session, fetch: fetcher({ calls }) });
+  assert.equal(JSON.parse(calls[1].init.body).model, "anthropic/claude-opus-5.5");
 });
-test("never bills another account or generates on an unverified balance", async () => {
-  for (const config of [{ handle: "@jeffrey" }, { remaining: 0 }, { remaining: null }]) {
-    const { calls, options } = setup(config);
-    await assert.rejects(braincellText("prompt", options));
-    assert.equal(calls.length, 1);
-  }
-  await assert.rejects(braincellText("prompt"), /DAILY_BRAIN_TOKEN_FILE/);
+
+test("refuses to bill a different handle than the one configured", async () => {
+  await assert.rejects(
+    braincellText("write it", { file: "/x", handle: "jeffrey", session, fetch: fetcher({ credit: credits({ handle: "@someone" }) }) }),
+    /Daily account mismatch/,
+  );
 });
-test("purchased braincells work after the free allowance is spent", async () => {
-  const { options } = setup({ remaining: 0, purchased: 100 });
-  assert.equal(await braincellText("prompt", options), "A tiny café.");
+
+test("refuses when the account has no braincells", async () => {
+  await assert.rejects(
+    braincellText("write it", { file: "/x", handle: "jeffrey", session, fetch: fetcher({ credit: credits({ remaining: 0, purchased: 0 }) }) }),
+    /no braincells/,
+  );
 });
-test("rejects partial, capped and failed streams without retrying paid generation", async () => {
-  for (const config of [
-    { rows: events.slice(0, 2) },
-    { rows: [...events.slice(0, 2), { type: "message_delta", delta: { stop_reason: "max_tokens" } }, events[3]] },
-    { rows: [...events.slice(0, 2), { type: "error", error: { message: "test" } }] },
-    { status: 402 },
-  ]) {
-    const { calls, options } = setup(config);
-    await assert.rejects(braincellText("prompt", options));
-    assert.equal(calls.length, 2);
-  }
+
+test("an incomplete stream saves nothing", async () => {
+  const cut = sse(script.slice(0, 3));
+  await assert.rejects(braincellText("write it", { file: "/x", handle: "jeffrey", session, fetch: fetcher({ stream: cut }) }), /incomplete script/);
+});
+
+test("a tool request is refused — the writer has no tools", async () => {
+  const tool = sse([{ type: "content_block_start", index: 0, content_block: { type: "tool_use", name: "write_file" } }]);
+  await assert.rejects(braincellText("write it", { file: "/x", handle: "jeffrey", session, fetch: fetcher({ stream: tool }) }), /requested a tool/);
+});
+
+test("a provider refusal carries the server's words", async () => {
+  const refused = new Response(JSON.stringify({ error: { message: "Inference provider returned 400." } }), { status: 400 });
+  await assert.rejects(braincellText("write it", { file: "/x", handle: "jeffrey", session, fetch: fetcher({ stream: refused }) }), /HTTP 400.*Inference provider returned 400/);
+});
+
+test("missing configuration is named", async () => {
+  await assert.rejects(braincellText("write it", { session, fetch: fetcher() }), /DAILY_BRAIN_TOKEN_FILE and DAILY_BRAIN_HANDLE/);
 });

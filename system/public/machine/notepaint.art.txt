@@ -1,0 +1,15 @@
+# Note Paint
+
+> Paint with a note and a brain: write what should change, press Paint, keep it or say No.
+
+The AI painting studio of No Paint, at its own address. Cloud brains require an Aesthetic Computer account and Braincells. A painting's address is notepaint.art/#code.
+
+## Resources
+
+- [Studio](https://notepaint.art/): Public entry point.
+- [No Paint 2021](https://nopaint.art/): The original Construct build, preserved.
+- [Gallery](https://nopaint.art/gallery/): Public painting records.
+
+## Network
+
+- [Aesthetic Computer machine directory](https://aesthetic.computer/network.json): Public properties, descriptions and machine entry points.

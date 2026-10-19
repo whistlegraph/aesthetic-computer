@@ -6,6 +6,10 @@
 //   ac-deploy --verify         only prove what production is serving
 //   ac-deploy aesel            release Aesel alone from the knot's main
 //   ac-deploy aesel --verify   only prove what Aesel release is served
+//   ac-deploy products         ship only the private products (the vault's
+//                              pushed main) onto the core lith already runs:
+//                              pack, install, restart lith, purge the edge —
+//                              under a minute, no core reset, no npm install
 //
 // Aesel is released on its own clock. A lith deploy no longer packs it, so
 // shipping a site change never re-releases Aesel, and releasing Aesel never
@@ -23,7 +27,7 @@
 // production serves against the commit it shipped.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { dirname, resolve } from "node:path";
@@ -34,6 +38,7 @@ const ROOT = resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), "../
 const SITE = "https://aesthetic.computer";
 const verifyOnly = process.argv.includes("--verify");
 const aeselOnly = process.argv[2] === "aesel";
+const productsOnly = process.argv[2] === "products";
 
 const git = (...args) => execFileSync("git", ["-C", ROOT, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 const say = (mark, text) => console.log(`${mark} ${text}`);
@@ -53,27 +58,59 @@ function whoami() {
 // a clean sparse clone of products/ in ~/.cache/ac-deploy/vault, resets it to
 // origin/main for each deploy, and borrows objects from the shared vault so
 // refreshing is cheap.
-function cleanVault() {
+// The vault's pushed main lives on whatever remote its main tracks (GitHub
+// here). Its `origin` points at a sibling Mac that is often asleep, and a
+// fetch against that hangs rather than fails.
+function vaultUpstream(repo) {
+  try {
+    const [remote] = execFileSync("git", ["-C", repo, "rev-parse", "--abbrev-ref", "main@{upstream}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim().split("/");
+    return remote || "origin";
+  } catch { return "origin"; }
+}
+
+async function cleanVault() {
   const shared = workspace(ROOT).vault;
   const clone = process.env.AC_PRODUCTS_VAULT || join(homedir(), ".cache", "ac-deploy", "vault");
   const vgit = (...args) => execFileSync("git", ["-C", clone, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  const upstream = vaultUpstream(shared);
   if (!existsSync(join(clone, ".git"))) {
-    const url = execFileSync("git", ["-C", shared, "remote", "get-url", "origin"], { encoding: "utf8" }).trim();
+    const url = execFileSync("git", ["-C", shared, "remote", "get-url", upstream], { encoding: "utf8" }).trim();
     say("→", `cloning the vault's pushed main into ${clone} (first deploy on this Mac)`);
     const run = spawnSync("git", ["clone", "-q", "--no-checkout", "--reference-if-able", shared, url, clone], { stdio: "inherit" });
     if (run.status !== 0) fail("could not clone the vault");
   }
   // Only products/ ships, so only products/ is checked out (~60 MB, not GBs).
   vgit("sparse-checkout", "set", "products");
+  // An older clone may have been made from the sleeping sibling; repoint it.
+  const wanted = execFileSync("git", ["-C", shared, "remote", "get-url", upstream], { encoding: "utf8" }).trim();
+  if (vgit("remote", "get-url", "origin") !== wanted) vgit("remote", "set-url", "origin", wanted);
   vgit("fetch", "-q", "origin", "main");
   vgit("reset", "-q", "--hard", "origin/main");
   vgit("clean", "-qfdx");
+  // Never ship products older than production already serves. A full deploy
+  // that fetched the vault a moment before a products push landed would
+  // otherwise reinstall the previous products over the newer ones (it did,
+  // once, on 2026-10-18). If what is served is a descendant of what we
+  // fetched, it is on the remote too: ship that.
+  const served = await fetch(`${SITE}/.products-ref?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } })
+    .then((r) => (r.ok ? r.text() : "")).then((t) => t.trim()).catch(() => "");
+  const fetched = vgit("rev-parse", "origin/main");
+  if (/^[0-9a-f]{40}$/.test(served) && served !== fetched) {
+    try { vgit("fetch", "-q", "origin", served); } catch {}
+    if (spawnSync("git", ["-C", clone, "merge-base", "--is-ancestor", fetched, served]).status === 0) {
+      say("·", `production already serves newer products ${served.slice(0, 10)}; shipping those, not ${fetched.slice(0, 10)}`);
+      vgit("update-ref", "refs/remotes/origin/main", served);
+      vgit("reset", "-q", "--hard", served);
+    }
+  }
   const unshipped = execFileSync("git", ["-C", shared, "status", "--porcelain", "--untracked-files=all", "--", "products"], { encoding: "utf8" }).trim();
   if (unshipped) say("·", `${unshipped.split("\n").length} uncommitted product file(s) in ${shared} stay local — only the vault's pushed main ships`);
   process.env.AC_PRODUCTS_VAULT = clone;
   return releaseState(workspace(ROOT, clone));
 }
 
+// `sha` is the core commit production should be serving: the knot's main
+// after a full deploy, or whatever lith already runs after a products release.
 async function verify(sha) {
   const get = async (path) => {
     const response = await fetch(`${SITE}${path}?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } });
@@ -85,8 +122,9 @@ async function verify(sha) {
   if (served === sha) say("✓", `serving ${sha.slice(0, 10)}`);
   else { ok = false; say("✕", `serving ${served.slice(0, 10) || "nothing"}, expected ${sha.slice(0, 10)}`); }
   const vault = process.env.AC_PRODUCTS_VAULT || workspace(ROOT).vault;
+  const remote = process.env.AC_PRODUCTS_VAULT ? "origin" : vaultUpstream(vault);
   const expectedProducts = process.env.AC_PRODUCTS_REVISION
-    || (execFileSync("git", ["-C", vault, "fetch", "-q", "origin", "main"]), execFileSync("git", ["-C", vault, "rev-parse", "origin/main"], { encoding: "utf8" }).trim());
+    || (execFileSync("git", ["-C", vault, "fetch", "-q", remote, "main"]), execFileSync("git", ["-C", vault, "rev-parse", `${remote}/main`], { encoding: "utf8" }).trim());
   const products = (await get("/.products-ref")).trim();
   if (products === expectedProducts) say("✓", `products ${products.slice(0, 10)}`);
   else { ok = false; say("✕", `products ${products.slice(0, 10)}, expected ${expectedProducts.slice(0, 10)}`); }
@@ -126,6 +164,70 @@ function lithKey() {
   if (out.status !== 0) fail(`could not decrypt ${gpg}`);
   writeFileSync(file, out.stdout, { mode: 0o600 });
   return { key: file, done: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+// The products alone, onto the core lith already serves: the same pack →
+// stage → snapshot → install path deploy.fish takes, minus the core reset,
+// the three npm installs and the Spaces env. A product change is a static
+// file or a backend module, so lith restarts (seconds) and the edge is purged.
+// Returns the core commit lith runs, which is what production should serve.
+function releaseProducts(revision) {
+  const host = process.env.LITH_HOST || "lith.aesthetic.computer";
+  const { key, done } = lithKey();
+  const ssh = (script) => spawnSync("ssh", ["-i", key, "-o", "BatchMode=yes", `root@${host}`, "bash", "-s"], { input: script, encoding: "utf8", stdio: ["pipe", "pipe", "inherit"] });
+  try {
+    const core = ssh("git -C /opt/ac rev-parse HEAD").stdout.trim();
+    if (!/^[0-9a-f]{40}$/.test(core)) fail("could not read the commit lith is running");
+    // The products must fit the core that is live, not the knot's newest.
+    const check = spawnSync("node", ["toolchain/private-products.mjs", "release-check", core], { cwd: ROOT, encoding: "utf8", env: process.env });
+    if (check.status !== 0) fail(`these products do not fit lith's core ${core.slice(0, 10)}: ${check.stderr.trim().split("\n").pop()} — run a full ac-deploy`);
+    const dir = mkdtempSync(join(tmpdir(), "ac-products-")), tgz = join(dir, "products.tgz");
+    try {
+      const pack = spawnSync("node", ["toolchain/private-products.mjs", "pack", tgz], { cwd: ROOT, stdio: ["ignore", "ignore", "inherit"], env: process.env });
+      if (pack.status !== 0) fail("could not pack the products");
+      const stage = ssh("mktemp -d /tmp/ac-products.XXXXXXXX").stdout.trim();
+      if (!/^\/tmp\/ac-products\.[A-Za-z0-9]+$/.test(stage)) fail("could not make a staging directory on lith");
+      const scp = spawnSync("scp", ["-q", "-i", key, tgz, join(ROOT, "toolchain/private-products.mjs"), join(ROOT, "private-products.json"), `root@${host}:${stage}/`], { stdio: "inherit" });
+      if (scp.status !== 0) fail("could not upload the products to lith");
+      const run = `env AC_CORE_ROOT=/opt/ac AC_PRODUCTS_MANIFEST=${stage}/private-products.json node ${stage}/private-products.mjs`;
+      const install = ssh(`set -e
+mkdir ${stage}/incoming && tar -xzf ${stage}/products.tgz -C ${stage}/incoming
+${run} snapshot ${stage}/previous
+if ! ${run} install ${stage}/incoming; then ${run} install ${stage}/previous; echo "install failed; the previous products are back" >&2; exit 1; fi
+systemctl restart lith`);
+      if (install.status !== 0) fail("installing the products on lith failed");
+      say("✓", `products ${revision.slice(0, 10)} installed on core ${core.slice(0, 10)} · lith restarted · rollback snapshot ${stage}/previous`);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+    return core;
+  } finally { done(); }
+}
+
+// The same purge deploy.fish does, with the same credential search: the
+// process env first, then the vault env files; Global API Key before token.
+async function purgeEdge() {
+  const vault = join(ROOT, "aesthetic-computer-vault");
+  const files = ["lith/.env", ".devcontainer/envs/devcontainer.env", "oven/deploy.env", "nanos/conductor.env", "help/deploy.env", "at/deploy.env"].map((f) => join(vault, f));
+  const lookup = (name) => {
+    if (process.env[name]) return process.env[name];
+    for (const file of files) {
+      if (!existsSync(file)) continue;
+      const line = readFileSync(file, "utf8").split("\n").find((l) => new RegExp(`^(export )?${name}=`).test(l));
+      if (line) return line.replace(new RegExp(`^(export )?${name}=`), "").trim().replace(/^["']|["']$/g, "");
+    }
+    return "";
+  };
+  const email = lookup("CLOUDFLARE_EMAIL"), apiKey = lookup("CLOUDFLARE_API_KEY"), token = lookup("CLOUDFLARE_API_TOKEN");
+  const headers = { "content-type": "application/json", ...(email && apiKey ? { "X-Auth-Email": email, "X-Auth-Key": apiKey } : token ? { Authorization: `Bearer ${token}` } : {}) };
+  if (!headers["X-Auth-Key"] && !headers.Authorization) { say("·", "no Cloudflare credentials — edge not purged (its TTL still bounds staleness)"); return; }
+  for (const zoneName of ["aesthetic.computer", "prompt.ac"]) {
+    try {
+      const zones = await (await fetch(`https://api.cloudflare.com/client/v4/zones?name=${zoneName}`, { headers })).json();
+      const zone = zones.result?.[0]?.id;
+      if (!zone) { say("·", `purge ${zoneName}: zone not found`); continue; }
+      const purge = await (await fetch(`https://api.cloudflare.com/client/v4/zones/${zone}/purge_cache`, { method: "POST", headers, body: JSON.stringify({ purge_everything: true }) })).json();
+      say(purge.success ? "✓" : "·", `purge ${zoneName}: ${purge.success ? "ok" : JSON.stringify(purge.errors)}`);
+    } catch (error) { say("·", `purge ${zoneName}: ${error.message}`); }
+  }
 }
 
 // Packed on lith from a `git archive` of aesel/ at the commit, never from the
@@ -176,8 +278,18 @@ if (aeselOnly) {
   process.exit((await verifyAesel(sha)) ? 0 : 1);
 }
 
+if (productsOnly) {
+  if (verifyOnly) process.exit((await verify(sha)) ? 0 : 1);
+  const revision = await cleanVault();
+  process.env.AC_PRODUCTS_REVISION = revision;
+  say("→", `shipping products ${revision.slice(0, 10)} to lith (its core stays as served)`);
+  const core = releaseProducts(revision);
+  await purgeEdge();
+  process.exit((await verify(core)) ? 0 : 1);
+}
+
 if (!verifyOnly) {
-  process.env.AC_PRODUCTS_REVISION = cleanVault();
+  process.env.AC_PRODUCTS_REVISION = await cleanVault();
   const ahead = git("rev-list", "--count", "origin/main..main");
   if (ahead !== "0") fail(`local main is ${ahead} commit(s) ahead of the knot — push first; production only serves what the knot has`);
   say("→", `deploying ${sha.slice(0, 10)} to lith`);

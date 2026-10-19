@@ -53,6 +53,8 @@ test("property identity comes from a reviewed HTTPS origin, not submitted data",
   for (const origin of ["null", "http://nopaint.art", "https://nopaint.art:8888", "https://nopaint.art.evil.test", "https://mail.aesthetic.computer"])
     assert.equal(validateVisit(value, origin), null);
   assert.equal(visitProperty("www.whistlegraph.org"), "whistlegraph.org");
+  assert.equal(validateVisit(value, "https://notepaint.art").property, "notepaint.art");
+  assert.equal(visitProperty("www.notepaint.art"), "notepaint.art");
 });
 
 test("private routes are excluded and arbitrary URLs never enter stored data", () => {

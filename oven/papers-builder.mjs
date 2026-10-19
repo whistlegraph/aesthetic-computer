@@ -164,7 +164,11 @@ function git(args, cwd = GIT_REPO_DIR) {
 async function publishToLith(job) {
   const SITE_DIR = path.join(GIT_REPO_DIR, "system", "public", "papers.aesthetic.computer");
   const LITH_HOST = process.env.LITH_PAPERS_HOST || "root@lith.aesthetic.computer";
-  const LITH_DEST = process.env.LITH_PAPERS_DEST || "/opt/ac/system/public/papers.aesthetic.computer/";
+  // lith authorizes this key only through rrsync, fenced to
+  // /opt/ac/system/public/papers.aesthetic.computer/, so "/" is that
+  // directory and no path can reach past it. An absolute lith path here
+  // would land in a nested opt/ac/... folder inside it.
+  const LITH_DEST = process.env.LITH_PAPERS_DEST || "/";
   // The oven service runs as the `oven` user (oven/infra/oven.service), so
   // the key and its known-hosts file live in that user's ~/.ssh, not /root.
   const SSH_DIR = path.join(os.homedir(), ".ssh");
@@ -181,11 +185,15 @@ async function publishToLith(job) {
       execFile(
         "rsync",
         [
+          // No --delete: lith also serves PDFs this build does not make
+          // (references, JOSS, hand-placed variants). A retired paper left
+          // behind is harmless; deleting the wrong file breaks a link.
           "-av",
-          "--delete-after",
           "--include=*/",
           "--include=*.pdf",
           "--include=*.html",
+          "--include=*.xml",
+          "--include=/thumbs/*.jpg",
           "--exclude=*",
           "-e", `ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${KNOWN_HOSTS}`,
           SITE_DIR + "/",
@@ -217,7 +225,12 @@ async function publishToLith(job) {
   await git(["config", "user.email", "oven@aesthetic.computer"]);
   await git(["config", "user.name", "Oven (aesthetic.computer)"]);
 
-  await git(["add", "papers/metadata.json", "papers/BUILDLOG.md"]).catch(() => {});
+  // The index and feeds ride along: publish edits index.html in place, so it
+  // has to stay in git, and lith's deploy resets to whatever git holds.
+  await git(["add", "papers/metadata.json", "papers/BUILDLOG.md",
+    "system/public/papers.aesthetic.computer/index.html",
+    "system/public/papers.aesthetic.computer/feed.xml",
+    "system/public/papers.aesthetic.computer/rss.xml"]).catch(() => {});
 
   const status = await git(["diff", "--cached", "--name-only"]);
   if (!status) {
@@ -236,15 +249,27 @@ async function publishToLith(job) {
     addLogLine(job, "stderr", `  GIT: pre-rebase cleanup note: ${cleanupErr.message || cleanupErr}`);
   }
 
-  try {
-    await git(["pull", "--rebase", "origin", "main"]);
-  } catch (pullErr) {
-    try { await git(["rebase", "--abort"]); } catch {}
-    throw pullErr;
-  }
-
+  // main is busy — other sessions push while a build runs — so a push can
+  // lose the race between the rebase and itself. Rebase and try again.
   job.percent = 99;
-  await git(["push", "origin", "main"]);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await git(["pull", "--rebase", "origin", "main"]);
+    } catch (pullErr) {
+      try { await git(["rebase", "--abort"]); } catch {}
+      throw pullErr;
+    }
+    try {
+      // HEAD, not the branch: the native builder shares this checkout and
+      // leaves it detached, so local `main` can be any age.
+      await git(["push", "origin", "HEAD:main"]);
+      break;
+    } catch (pushErr) {
+      if (attempt >= 4 || !/non-fast-forward|fetch first|rejected/.test(String(pushErr.stderr || pushErr.message))) throw pushErr;
+      addLogLine(job, "stdout", `  GIT: main moved during the push; rebasing again (${attempt}/3)`);
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
+  }
   addLogLine(job, "stdout", `  GIT: pushed — ${msg}`);
 }
 

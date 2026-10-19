@@ -32,6 +32,7 @@
         ~(?i)^news[.]aesthetic[.]computer$ machine/news.aesthetic.computer.txt
         ~(?i)^nft[.]aesthetic[.]computer$ machine/nft.aesthetic.computer.txt
         ~(?i)^nopaint[.]art$ machine/nopaint.art.txt
+        ~(?i)^notepaint[.]art$ machine/notepaint.art.txt
         ~(?i)^notepat[.]com$ machine/notepat.com.txt
         ~(?i)^oskiewar[.]com$ oskiewar.com/llms.txt
         ~(?i)^p5[.]aesthetic[.]computer$ machine/p5.aesthetic.computer.txt
@@ -64,6 +65,7 @@
         ~(?i)^www[.]menuband[.]app$ machine/menuband.app.txt
         ~(?i)^www[.]mime[.]ac$ mime/llms.txt
         ~(?i)^www[.]nopaint[.]art$ machine/nopaint.art.txt
+        ~(?i)^www[.]notepaint[.]art$ machine/notepaint.art.txt
         ~(?i)^www[.]notepat[.]com$ machine/notepat.com.txt
         ~(?i)^www[.]oskiewar[.]com$ oskiewar.com/llms.txt
         ~(?i)^www[.]prompt[.]ac$ machine/prompt.ac.txt
@@ -72,10 +74,10 @@
         ~(?i)^www[.]whistlegraph[.]app$ machine/whistlegraph.app.txt
         ~(?i)^www[.]whistlegraph[.]org$ whistlegraph.org/llms.txt
     }
-    @machine_host host aesel.app aesthetic.computer api.aesthetic.computer api.prompt.ac bills.aesthetic.computer buy.kidlisp.com calm.kidlisp.com choir.ac data.aesthetic.computer device.kidlisp.com feed.aesthetic.computer give.aesthetic.computer jas.life justanothersystem.org keep.kidlisp.com keeps.kidlisp.com kidlisp.com l5.aesthetic.computer l5.prompt.ac laklok.com learn.kidlisp.com menuband.app midi.oskiewar.com mime.ac nela.aesthetic.computer news.aesthetic.computer nft.aesthetic.computer nopaint.art notepat.com oskiewar.com p5.aesthetic.computer p5.prompt.ac pals.aesthetic.computer papers.aesthetic.computer papers.prompt.ac pj.kidlisp.com pop.aesthetic.computer processing.aesthetic.computer processing.prompt.ac prompt.ac quiltnet.org rdp.aesthetic.computer rdp.jas.life sitemap.aesthetic.computer sitemap.prompt.ac sotce.net top.kidlisp.com tv.whistlegraph.org whistlegraph.app whistlegraph.org www.aesel.app www.aesthetic.computer www.choir.ac www.jas.life www.justanothersystem.org www.kidlisp.com www.laklok.com www.menuband.app www.mime.ac www.nopaint.art www.notepat.com www.oskiewar.com www.prompt.ac www.quiltnet.org www.sotce.net www.whistlegraph.app www.whistlegraph.org
+    @machine_host host aesel.app aesthetic.computer api.aesthetic.computer api.prompt.ac bills.aesthetic.computer buy.kidlisp.com calm.kidlisp.com choir.ac data.aesthetic.computer device.kidlisp.com feed.aesthetic.computer give.aesthetic.computer jas.life justanothersystem.org keep.kidlisp.com keeps.kidlisp.com kidlisp.com l5.aesthetic.computer l5.prompt.ac laklok.com learn.kidlisp.com menuband.app midi.oskiewar.com mime.ac nela.aesthetic.computer news.aesthetic.computer nft.aesthetic.computer nopaint.art notepaint.art notepat.com oskiewar.com p5.aesthetic.computer p5.prompt.ac pals.aesthetic.computer papers.aesthetic.computer papers.prompt.ac pj.kidlisp.com pop.aesthetic.computer processing.aesthetic.computer processing.prompt.ac prompt.ac quiltnet.org rdp.aesthetic.computer rdp.jas.life sitemap.aesthetic.computer sitemap.prompt.ac sotce.net top.kidlisp.com tv.whistlegraph.org whistlegraph.app whistlegraph.org www.aesel.app www.aesthetic.computer www.choir.ac www.jas.life www.justanothersystem.org www.kidlisp.com www.laklok.com www.menuband.app www.mime.ac www.nopaint.art www.notepaint.art www.notepat.com www.oskiewar.com www.prompt.ac www.quiltnet.org www.sotce.net www.whistlegraph.app www.whistlegraph.org
     header @machine_host +Link "</llms.txt>; rel=\"describedby\"; type=\"text/plain\""
     @machine_readme {
-        host aesel.app aesthetic.computer api.aesthetic.computer api.prompt.ac bills.aesthetic.computer buy.kidlisp.com calm.kidlisp.com choir.ac data.aesthetic.computer device.kidlisp.com feed.aesthetic.computer give.aesthetic.computer jas.life justanothersystem.org keep.kidlisp.com keeps.kidlisp.com kidlisp.com l5.aesthetic.computer l5.prompt.ac laklok.com learn.kidlisp.com menuband.app midi.oskiewar.com mime.ac nela.aesthetic.computer news.aesthetic.computer nft.aesthetic.computer nopaint.art notepat.com oskiewar.com p5.aesthetic.computer p5.prompt.ac pals.aesthetic.computer papers.aesthetic.computer papers.prompt.ac pj.kidlisp.com pop.aesthetic.computer processing.aesthetic.computer processing.prompt.ac prompt.ac quiltnet.org rdp.aesthetic.computer rdp.jas.life sitemap.aesthetic.computer sitemap.prompt.ac sotce.net top.kidlisp.com tv.whistlegraph.org whistlegraph.app whistlegraph.org www.aesel.app www.aesthetic.computer www.choir.ac www.jas.life www.justanothersystem.org www.kidlisp.com www.laklok.com www.menuband.app www.mime.ac www.nopaint.art www.notepat.com www.oskiewar.com www.prompt.ac www.quiltnet.org www.sotce.net www.whistlegraph.app www.whistlegraph.org
+        host aesel.app aesthetic.computer api.aesthetic.computer api.prompt.ac bills.aesthetic.computer buy.kidlisp.com calm.kidlisp.com choir.ac data.aesthetic.computer device.kidlisp.com feed.aesthetic.computer give.aesthetic.computer jas.life justanothersystem.org keep.kidlisp.com keeps.kidlisp.com kidlisp.com l5.aesthetic.computer l5.prompt.ac laklok.com learn.kidlisp.com menuband.app midi.oskiewar.com mime.ac nela.aesthetic.computer news.aesthetic.computer nft.aesthetic.computer nopaint.art notepaint.art notepat.com oskiewar.com p5.aesthetic.computer p5.prompt.ac pals.aesthetic.computer papers.aesthetic.computer papers.prompt.ac pj.kidlisp.com pop.aesthetic.computer processing.aesthetic.computer processing.prompt.ac prompt.ac quiltnet.org rdp.aesthetic.computer rdp.jas.life sitemap.aesthetic.computer sitemap.prompt.ac sotce.net top.kidlisp.com tv.whistlegraph.org whistlegraph.app whistlegraph.org www.aesel.app www.aesthetic.computer www.choir.ac www.jas.life www.justanothersystem.org www.kidlisp.com www.laklok.com www.menuband.app www.mime.ac www.nopaint.art www.notepaint.art www.notepat.com www.oskiewar.com www.prompt.ac www.quiltnet.org www.sotce.net www.whistlegraph.app www.whistlegraph.org
         path /llms.txt
     }
     handle @machine_readme {
@@ -1314,11 +1316,22 @@ nopaint.art {
     }
     root * /opt/ac/system/public/nopaint.art
     encode gzip
-    @nopaint_root path /
-    handle @nopaint_root {
+    # nopaint.art is the 2021 original again (its files are this folder's
+    # root). The studio moved to notepaint.art; its paths here redirect there.
+    # The Mac app still loads nopaint.art and allows only that host, so it
+    # keeps getting the studio by its user agent until it is rebuilt.
+    @nopaint_mac_app {
+        path / /ai /ai/*
+        header_regexp User-Agent NoPaintMac/
+    }
+    handle @nopaint_mac_app {
         rewrite * /ai/index.html
         header Cache-Control "no-cache"
         file_server
+    }
+    @nopaint_studio_moved path /ai /ai/*
+    handle @nopaint_studio_moved {
+        redir https://notepaint.art{uri} 301
     }
     # Browser-safe Aesel modules shared with the painting path.
     handle /easel/src/* {
@@ -1435,6 +1448,94 @@ www.nopaint.art {
         protocols tls1.2 tls1.3
     }
     redir https://nopaint.art{uri} 301
+}
+
+# --- notepaint.art ---
+# Note Paint: the AI painting studio's own home (registered 2026-10-18 via
+# Porkbun; DNS points straight at lith, so Caddy manages a real ACME cert, the
+# same arrangement as nopaint.art). The studio's files live in the nopaint.art
+# product folder's ai/, and its pages reference them by the absolute
+# /nopaint.art/ai/ path, hence the handle_path below. nopaint.art keeps the
+# 2021 original, /gallery and the archive records.
+notepaint.art {
+    import lith_access_log
+    import machine_discovery
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+        protocols tls1.2 tls1.3
+    }
+    root * /opt/ac/system/public/nopaint.art
+    encode gzip
+    @notepaint_root path /
+    handle @notepaint_root {
+        rewrite * /ai/index.html
+        header Cache-Control "no-cache"
+        file_server
+    }
+    # Browser-safe Aesel modules shared with the painting path.
+    handle /easel/src/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    # AC runtime routes the studio uses at the branded root.
+    handle /presigned-upload-url/* {
+        import lith_proxy
+    }
+    handle /api/* {
+        import lith_proxy
+    }
+    handle /.netlify/functions/* {
+        import lith_proxy
+    }
+    handle /media/* {
+        import lith_proxy
+    }
+    handle /disks/* {
+        uri strip_prefix /disks
+        root * /opt/ac/system/public/aesthetic.computer/disks
+        file_server
+    }
+    handle /lib/* {
+        uri strip_prefix /lib
+        root * /opt/ac/system/public/aesthetic.computer/lib
+        file_server
+    }
+    handle /aesthetic.computer/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /type/* {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /sw.js {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle /manifest.json {
+        root * /opt/ac/system/public
+        file_server
+    }
+    handle_path /nopaint.art/* {
+        root * /opt/ac/system/public/nopaint.art
+        file_server
+    }
+    handle {
+        file_server
+    }
+}
+
+www.notepaint.art {
+    import lith_access_log
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+        protocols tls1.2 tls1.3
+    }
+    redir https://notepaint.art{uri} 301
 }
 
 # --- gym.anthonyzollo.com ---

@@ -9,7 +9,7 @@
 % (the papermill default Droid Sans Japanese is absent here and falls back to
 % Chinese-variant glyphs). Hand-deployed build; if the oven is ever re-enabled,
 % swap to a Linux JP font (e.g. Noto Sans CJK JP).
-\setCJKmainfont{Hiragino Sans}
+\IfFontExistsTF{Hiragino Sans}{\setCJKmainfont{Hiragino Sans}}{\setCJKmainfont{IPAexGothic}}
 % Latin Modern by OTF filename (not font name): xelatex on macOS (Core
 % Text, no fontconfig) cannot resolve "Latin Modern Roman" by name, which
 % silently produced ~4KB broken card PDFs. kpathsea finds the OTFs in
