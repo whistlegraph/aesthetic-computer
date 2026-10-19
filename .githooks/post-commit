@@ -79,7 +79,7 @@ if [ "${AC_NO_AUTO_DEPLOY:-}" != "1" ] && [ "$CURRENT_BRANCH" = "main" ]; then
       fish "$REPO_ROOT/session-server/deploy.fish" >> "$DEPLOY_LOG" 2>&1 || \
         echo "⚠ session-server deploy failed" >> "$DEPLOY_LOG"
       echo "→ done" >> "$DEPLOY_LOG"
-    ) &
+    ) >>"$DEPLOY_LOG" 2>&1 </dev/null &
     disown 2>/dev/null || true
   fi
 fi
@@ -112,7 +112,9 @@ if [ "${AC_NO_AUTO_DEPLOY:-}" != "1" ] && [ "$CURRENT_BRANCH" = "main" ]; then
           [ -e "$PENDING" ] || break
         done
         echo "→ done" >> "$LOG"
-      ) &
+      ) >>"$LOG" 2>&1 </dev/null &
+      # Fully detached: a harness that waits for the commit's stdout to close
+      # (Claude's shell tool does) must not wait on the deploy.
       disown 2>/dev/null || true
     else
       touch "$PENDING"
