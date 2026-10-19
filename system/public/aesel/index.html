@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aesel</title>
-<meta name="description" content="Turn an idea into a living piece of art. Aesel is a notebook for Mac and Windows for making with Aesthetic Computer. Download the beta.">
+<meta name="description" content="Aesel is Aesthetic Computer's making harness: describe a piece, an engine writes it, it plays live on your phone and publishes to your @handle. JavaScript, KidLisp, p5.js and L5; pictures, sound, papers and Game Boy ROMs.">
 <meta name="theme-color" content="#f5f0df">
 <link rel="canonical" href="https://aesel.app/">
 <meta property="og:title" content="Aesel">
-<meta property="og:description" content="A notebook for Mac and Windows for making with Aesthetic Computer. Try the beta.">
+<meta property="og:description" content="Aesthetic Computer's making harness. Describe a piece; watch it live on your phone; publish it to your @handle.">
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
-<link rel="stylesheet" href="/style.css?v=085">
+<link rel="stylesheet" href="/style.css?v=086">
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
@@ -20,21 +20,109 @@
 <section class="hero" aria-labelledby="title">
 <img class="icon" src="/icon.png" alt="" width="144" height="144">
 <h1 id="title">aesel</h1>
-<a class="download" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-arm64.dmg" download>Download the Mac beta <span aria-hidden="true">↓</span></a>
-<p class="requirements">0.8.19 beta · Apple silicon · macOS 14+</p>
-<a class="download" style="margin-top:28px" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-windows-x64-setup.exe">Download the Windows beta <span aria-hidden="true">↓</span></a>
-<p class="requirements">0.8.19 beta · Windows 10/11 · x64 · AC braincells</p>
+<p class="lede">The making harness of <a href="https://aesthetic.computer">Aesthetic Computer</a>. Describe a piece; an engine writes it; it plays live on your phone and publishes to your <b>@handle</b>.</p>
+<div class="get">
+<div class="get-app">
+<a class="download" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-arm64.dmg" download>Mac beta <span aria-hidden="true">↓</span></a>
+<p class="requirements">Apple silicon · macOS 14+</p>
+</div>
+<div class="get-app">
+<a class="download" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-windows-x64-setup.exe">Windows beta <span aria-hidden="true">↓</span></a>
+<p class="requirements">Windows 10/11 · x64 · hosted engine</p>
+</div>
+<div class="get-app">
+<code class="terminal">curl -fsSL https://prompt.ac/aesel.sh | sh</code>
+<p class="requirements">the terminal harness, then type <code>a</code></p>
+</div>
+</div>
 </section>
+
 <section class="shots" aria-label="Screenshots">
 <figure class="shot-main"><img src="/shot-notebook.jpg" width="1640" height="1400" alt="An Aesel notebook with four revisions of a spinning maple leaf beside its live preview"></figure>
 <figure class="shot-wall"><img src="/shot-slab.jpg" width="1600" height="1001" alt="Aesel tiled beside coding agents on a Slab desktop" loading="lazy"></figure>
 </section>
+
+<section class="band" aria-labelledby="stack">
+<h2 id="stack">Where it sits</h2>
+<p class="intro">Aesel is the part of Aesthetic Computer you talk to. It holds the conversation and the files; an engine does the writing; Aesthetic Computer runs and keeps what you make.</p>
+<ol class="flow">
+<li class="node you"><span class="tag">you</span><strong>a prompt</strong><span>“a starfield that warps when I press”</span></li>
+<li class="node aesel"><span class="tag">aesel</span><strong>the harness</strong><span>terminal · Mac · Windows · browser</span><span class="sub">asks an engine: AC hosted, Claude, Codex or OpenRouter</span></li>
+<li class="node file"><span class="tag">your file</span><strong>a piece</strong><span><code>.mjs</code> <code>.lisp</code> <code>.p5</code> <code>.l5</code></span><span class="sub">every save is a version on your machine</span></li>
+<li class="node live"><span class="tag">live</span><strong>your phone</strong><span>scan the QR; each save plays as it lands</span><span class="sub">and in Slab’s preview beside the terminal</span></li>
+<li class="node ac"><span class="tag">aesthetic.computer</span><strong>@handle/name</strong><span>published on every save, signed in</span><span class="sub">post anything else to <a href="https://mime.ac">mime.ac</a></span></li>
+</ol>
+</section>
+
+<section class="band" aria-labelledby="session">
+<h2 id="session">A session</h2>
+<ol class="steps">
+<li><b>Pick a start.</b> A blank Aesthetic Computer piece, or a <a href="https://nopaint.art">nopaint.art</a> brush.</li>
+<li><b>Describe it.</b> Plain words. The engine writes the code and reads the canvas back to check its work.</li>
+<li><b>Watch it.</b> A QR code opens the piece on any phone, and every save arrives there live.</li>
+<li><b>Keep it.</b> Signed in, each save publishes to <code>aesthetic.computer/@you/name</code>. <code>/versions</code> lists them; <code>/rollback</code> adds, never erases.</li>
+</ol>
+</section>
+
+<section class="band" aria-labelledby="runtimes">
+<h2 id="runtimes">Four runtimes</h2>
+<p class="intro">Pick with <code>/runtime</code> or <code>--runtime</code>. All four push live and publish to your @handle.</p>
+<div class="cards">
+<article class="card"><header><code class="ext">.mjs</code><h3>Aesthetic Computer</h3></header><p>JavaScript against AC’s own API: <code>paint</code>, <code>wipe</code>, <code>ink</code>, sound, input, multiplayer.</p><pre><code>function paint({ wipe }) {
+  wipe("pink");
+}
+export { paint };</code></pre></article>
+<article class="card"><header><code class="ext">.lisp</code><h3>KidLisp</h3></header><p>AC’s small Lisp for generative art — a whole piece in a line.</p><pre><code>(wipe "pink")
+(ink "yellow")
+(circle 128 128 64)</code></pre></article>
+<article class="card"><header><code class="ext">.p5</code><h3>p5.js <span class="alias">processing</span></h3></header><p>Real p5.js, the Processing most people already write — running inside an AC piece.</p><pre><code>function setup() {
+  createCanvas(windowWidth, windowHeight);
+}
+function draw() {
+  background(255, 184, 220);
+}</code></pre></article>
+<article class="card"><header><code class="ext">.l5</code><h3>L5</h3></header><p>Aesthetic Computer’s own Processing, in Lua.</p><pre><code>-- moss
+function draw()
+  background(255, 184, 220)
+  circle(width / 2, height / 2, 64)
+end</code></pre></article>
+</div>
+</section>
+
+<section class="band" aria-labelledby="formats">
+<h2 id="formats">What it makes</h2>
+<p class="intro">Pieces are the heart of it. <code>/medium</code> turns the same conversation toward other kinds of work.</p>
+<table class="formats">
+<thead><tr><th scope="col">medium</th><th scope="col">formats</th><th scope="col">what you get</th></tr></thead>
+<tbody>
+<tr><th scope="row">piece</th><td><code>application/javascript</code> <code>text/x-lisp</code> <code>.p5</code> <code>.l5</code></td><td>a live, published Aesthetic Computer piece</td></tr>
+<tr><th scope="row">brush</th><td><code>application/javascript</code></td><td>a nopaint.art brush; the painting, undo and zoom come with it</td></tr>
+<tr><th scope="row">picture</th><td><code>image/png</code> <code>image/jpeg</code> <code>image/webp</code></td><td>a layered 512 × 512 picture; each accepted change adds a layer</td></tr>
+<tr><th scope="row">sound</th><td><code>audio/wav</code> <code>audio/mpeg</code> <code>audio/ogg</code></td><td>a score on a shared beat grid, synthesized</td></tr>
+<tr><th scope="row">paper</th><td><code>application/pdf</code> <code>text/plain</code></td><td>an archival LaTeX paper with its source inside</td></tr>
+<tr><th scope="row">Game Boy</th><td><code>application/x-gameboy-rom</code></td><td>a real ROM, built and checked, playing in AC’s emulator</td></tr>
+</tbody>
+</table>
+<p class="aside">Anything up to 8 MiB can go to <a href="https://mime.ac">mime.ac</a> under your @handle: <code>aesthetic mime file "caption"</code>.</p>
+</section>
+
+<section class="band" aria-labelledby="engines">
+<h2 id="engines">Engines</h2>
+<div class="engines">
+<p><b>AC hosted</b> Nothing to install. Paid in braincells on your @handle; the first launch starts here.</p>
+<p><b>Claude · Codex</b> Bring your own subscription through its CLI.</p>
+<p><b>OpenRouter</b> Bring your own key for open models.</p>
+</div>
+<p class="aside">Switch any time with <code>/backend</code> and <code>/model</code>. Outside a piece, Aesel is a general harness that runs with your own settings, skills and MCP servers.</p>
+</section>
+
 <div class="setup">
-<details><summary>Install on Mac</summary><p>Drag Aesel to Applications, open it, and sign in with your Aesthetic Computer account.</p><p><code>aesel</code> opens the app from a terminal. <code>aes</code> runs it in the terminal.</p></details>
-<details><summary>Install on Windows</summary><p>Run the installer, open Aesel, and sign in with your Aesthetic Computer account in your browser. Requires Microsoft WebView2 Runtime.</p><p>This first beta uses AC braincells. Claude/Codex CLI support is not included. The installer is unsigned; Windows may show an unknown-publisher or SmartScreen notice.</p></details>
-<p class="privacy-note">Conversation context goes to the services that generate your work. Pieces publish to your @handle; notebooks stay on your device. <a href="/privacy.html">Privacy policy</a></p>
+<details><summary>Install on Mac</summary><p>Drag Aesel to Applications, open it, and sign in with your Aesthetic Computer account.</p><p><code>aesel</code> opens the app from a terminal. <code>a</code> runs the harness in the terminal.</p></details>
+<details><summary>Install on Windows</summary><p>Run the installer, open Aesel, and sign in with your Aesthetic Computer account in your browser. Requires Microsoft WebView2 Runtime.</p><p>This beta uses the hosted engine; Claude and Codex are not included. The installer is unsigned, so Windows may show an unknown-publisher or SmartScreen notice.</p></details>
+<details><summary>Install in a terminal</summary><p><code>curl -fsSL https://prompt.ac/aesel.sh | sh</code> installs the harness and links <code>a</code>, <code>ac</code> and <code>aesel</code>. <code>/update</code> brings it up to date from inside.</p></details>
+<p class="privacy-note">Conversation context goes to the engine that generates your work. Pieces publish to your @handle; notebooks and versions stay on your device. <a href="/privacy.html">Privacy policy</a></p>
 </div>
 </main>
-<footer><a href="https://aesthetic.computer">Aesthetic Computer</a><a href="https://aesthetic.computer/slab/">Slab</a><a href="/privacy.html">Privacy</a><a href="/support.html">Support</a></footer>
+<footer><a href="https://aesthetic.computer">Aesthetic Computer</a><a href="https://aesthetic.computer/slab/">Slab</a><a href="https://nopaint.art">No Paint</a><a href="https://mime.ac">mime.ac</a><a href="/privacy.html">Privacy</a><a href="/support.html">Support</a></footer>
 </body>
 </html>
