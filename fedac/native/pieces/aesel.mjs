@@ -3,11 +3,11 @@
 // The desktop Aesel is an Electron shell around a conversation with an agent
 // and the piece it is writing. This machine has no Electron and no browser;
 // it has a framebuffer, a keyboard, QuickJS, and the Claude Code binary. So
-// this is the same session drawn as a piece, in the shape of the terminal's
-// pro mode (aesel/src/render.mjs, layouts/pro.json): the conversation fills
-// the page, then air, the line being typed, air, and one status line. The
-// page wears Slab's status colours and the session's egg sits in the corner,
-// the way Slab dresses an Aesel window on the Mac.
+// this is the same session drawn as a piece, in the order of the terminal's
+// pro mode (aesel/src/render.mjs, layouts/pro.json) — conversation, the line
+// being typed, one status line — set classic: black, white borders, big
+// type, room around everything, and the session's egg in the corner the way
+// Slab gives it one on the Mac. Colour is a keypress's, briefly.
 //
 // The bridge is Claude's headless stream-json protocol over a raw PTY
 // (system.pty2 with { raw: true }); lib/aesel-bridge.mjs translates it. The
@@ -16,47 +16,27 @@
 
 import {
   Bridge, DEFAULT_MODEL, blankPiece, compact, creatureLook, creatureSeed, dollars, instructionsFor,
-  markdown, petName, pipedCommand, randomSlug, toolLabel, turnUsageText, uuid, wrapRows,
+  keyColor, markdown, petName, pipedCommand, randomSlug, toolLabel, turnUsageText, uuid, wrapRows,
 } from "../lib/aesel-bridge.mjs";
 import { AC_MODELS, AcBridge, DEFAULT_AC_MODEL, acModelLabel, resolveAcModel } from "../lib/aesel-ac.mjs";
 
-// The desktop palette, by role.
+// Classic: black page, white words and white rules, a grey for what is
+// said about the work rather than the work. Colour arrives only with a
+// keypress (keyColor) and fades back to white.
 const C = {
+  page: [0, 0, 0],
   text: [255, 255, 255],
-  prompt: [200, 30, 100],
-  highlight: [255, 100, 0],
-  soft: [220, 180, 255],
-  muted: [170, 150, 205],
-  status: [0, 255, 0],
-  error: [255, 90, 90],
-  run: [255, 160, 60],
-  inbox: [120, 200, 255],
-  bar: [95, 70, 135],
-  code: [235, 225, 255],
-  ground: [28, 28, 28], // xterm 234, behind code
-  ink: [26, 20, 36],
+  muted: [150, 150, 150],
+  dim: [90, 90, 90],
+  code: [210, 210, 210],
+  ground: [28, 28, 28],
 };
-
-// Slab's page for each session state (its published dark theme.json): what
-// an Aesel window on the Mac turns while it works, asks, finishes or fails.
-// Resting is the plum the Mac shows before a first turn; `shadow` is the
-// state colour the egg and its name cast.
-const PAGES = {
-  blank: { bg: [32, 4, 32], text: [201, 233, 255], cursor: [247, 67, 165], shadow: [167, 195, 232], mood: "sleeping" },
-  working: { bg: [2, 47, 24], text: [134, 249, 219], cursor: [47, 241, 143], shadow: [47, 241, 143], mood: "working" },
-  awaiting: { bg: [64, 41, 14], text: [219, 226, 179], cursor: [219, 179, 54], shadow: [219, 179, 54], mood: "waiting" },
-  complete: { bg: [66, 7, 12], text: [255, 175, 167], cursor: [255, 43, 39], shadow: [255, 43, 39], mood: "resting" },
-  interrupted: { bg: [28, 11, 70], text: [181, 179, 255], cursor: [134, 86, 255], shadow: [134, 86, 255], mood: "waiting" },
-  stale: { bg: [57, 5, 22], text: [219, 163, 196], cursor: [219, 78, 99], shadow: [219, 78, 99], mood: "sleeping" },
-};
+const FADE = 450; // ms for a key's colour to go back to white
 
 // AC's character palette for a handle with no saved colours (handle-colors.mjs).
 const NOM = [[255, 105, 97], [255, 170, 80], [255, 225, 90], [150, 225, 90], [90, 220, 140], [90, 215, 210], [95, 180, 255], [150, 150, 255], [200, 140, 255], [255, 140, 210]];
 
 const FONT = "6x10";
-const CW = 6;
-const LH = 11; // a 6x10 row and one pixel of air
-const PAD = 4;
 const CLAUDE = "/bin/claude";
 const PIECES = "/pieces";
 // The hosted engine: aesthetic.computer buys the inference and meters it
@@ -165,7 +145,7 @@ function handleColors(account, saved) {
     const c = Array.isArray(saved) ? saved[i] : null;
     if (c && [c.r, c.g, c.b].every((n) => Number.isFinite(n) && n >= 0 && n <= 255)) return [c.r, c.g, c.b].map(Math.round);
     const l = ch.toLowerCase();
-    return l >= "a" && l <= "z" ? NOM[(l.charCodeAt(0) - 97) % 10] : l >= "0" && l <= "9" ? NOM[Number(l)] : C.soft;
+    return l >= "a" && l <= "z" ? NOM[(l.charCodeAt(0) - 97) % 10] : l >= "0" && l <= "9" ? NOM[Number(l)] : C.text;
   });
 }
 
@@ -665,10 +645,24 @@ function act({ event: e, system, screen }) {
   if (ch !== null) {
     S.input = S.input.slice(0, S.cursor) + ch + S.input.slice(S.cursor);
     S.cursor++;
+    // A letter plays its notepat note's colour, the way a key lights there.
+    const rgb = keyColor(key);
+    if (rgb) S.keyFlash = { rgb, at: Date.now(), index: S.cursor - 1 };
   }
 }
 
 // ── drawing ─────────────────────────────────────────────────────────────
+
+// Metrics for this screen: the 6x10 face at the largest integer scale that
+// still leaves a conversation's worth of room, so strokes stay crisp and
+// thick. 640x400 gets scale 2: 12x20 cells on 26 px rows.
+function metrics(W, H) {
+  const z = W >= 560 && H >= 340 ? 2 : 1;
+  const cw = 6 * z;
+  const gh = 10 * z;
+  const lh = Math.round(gh * 1.3);
+  return { z, cw, gh, lh, margin: 4 * z, pad: 5 * z, stroke: z };
+}
 
 function clean(text) {
   return String(text).replace(/\r/g, "").replace(/\t/g, "  ").replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "").replace(/[\t ]+$/gm, "").replace(/^\n+|\n+$/g, "");
@@ -680,15 +674,23 @@ function clip(text, cols) {
 
 const mix = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
 
+// A key's colour, faded toward white by its age; null once it is white.
+function keyTint(now) {
+  const f = S.keyFlash;
+  if (!f) return null;
+  const k = (now - f.at) / FADE;
+  if (k >= 1) { S.keyFlash = null; return null; }
+  return mix(f.rgb, C.text, k * k);
+}
+
 const TONES = {
-  heading: { rgb: C.highlight, bold: true },
+  heading: { bold: true },
   bold: { bold: true },
-  code: { rgb: C.soft },
-  link: { rgb: C.soft, under: true },
+  code: { rgb: C.code },
+  link: { under: true },
 };
 
-// Lay spans back over a wrapped row as runs. A run with no rgb takes the
-// page's ink when drawn, since the page changes colour with the session.
+// Lay spans back over a wrapped row as runs; a run with no rgb is white.
 function runs(row, spans, base) {
   const out = [];
   const end = row.start + row.text.length;
@@ -705,10 +707,9 @@ function runs(row, spans, base) {
   return out;
 }
 
-// What pro does with each kind: your words in a pink outline, replies flush
-// on the page, a notice or an error behind a one-cell mark.
-const MARKS = { note: ["·", C.muted], soft: ["·", C.muted], error: ["!", C.error] };
-
+// Your words in a white outline, replies flush, a notice or an error behind
+// a one-cell mark. Rows carry a height in rows: borders and the air between
+// messages are half a row, so the page breathes without losing lines.
 function entryRows(entry, cols) {
   const key = `${entry.kind}:${cols}:${entry.text.length}`;
   if (entry._key === key) return entry._rows;
@@ -718,33 +719,33 @@ function entryRows(entry, cols) {
     const inner = Math.max(1, cols - 4);
     const wrapped = wrapRows(text, inner);
     const width = Math.min(inner, Math.max(1, ...wrapped.map((r) => r.text.length)));
-    let offset = 0;
-    rows.push({ box: "top", width });
-    for (const r of wrapped) { rows.push({ box: "row", width, typed: r.text, offset }); offset += r.text.length; }
-    rows.push({ box: "bottom", width });
+    rows.push({ box: "top", width, h: 0.5 });
+    for (const r of wrapped) rows.push({ box: "row", width, typed: r.text, h: 1 });
+    rows.push({ box: "bottom", width, h: 0.5 });
   } else if (entry.kind === "usage") {
-    for (const r of wrapRows(text, cols - 1)) rows.push({ runs: [{ text: " " + r.text, rgb: C.muted }] });
+    for (const r of wrapRows(text, cols)) rows.push({ runs: [{ text: r.text, rgb: C.dim }], h: 1 });
   } else if (entry.kind === "agent") {
-    // Code fences stand on their own ground, the fence lines muted.
+    // Code fences stand on their own ground, the fence lines dim.
     let fenced = false;
     for (const part of text.split(/(^[ \t]*```[^\n]*$)/m)) {
       if (/^[ \t]*```/.test(part)) {
         fenced = !fenced;
-        rows.push({ runs: [{ text: part.trim(), rgb: C.muted }] });
+        rows.push({ runs: [{ text: part.trim(), rgb: C.dim }], h: 1 });
         continue;
       }
       const chunk = part.replace(/^\n|\n$/g, "");
       if (!chunk && part !== text) continue;
       if (fenced) {
-        for (const r of wrapRows(chunk, cols)) rows.push({ runs: [{ text: r.text, rgb: C.code }], ground: true });
+        for (const r of wrapRows(chunk, cols)) rows.push({ runs: [{ text: r.text, rgb: C.code }], ground: true, h: 1 });
         continue;
       }
       const read = markdown(chunk);
-      for (const r of wrapRows(read.text, cols)) rows.push({ runs: runs(r, read.spans) });
+      for (const r of wrapRows(read.text, cols)) rows.push({ runs: runs(r, read.spans), h: 1 });
     }
   } else {
-    const [mark, rgb] = MARKS[entry.kind] || MARKS.note;
-    wrapRows(text, cols - 2).forEach((r, i) => rows.push({ runs: [{ text: i ? "  " : `${mark} `, rgb }, { text: r.text, rgb: entry.kind === "error" ? C.error : C.muted }] }));
+    const mark = entry.kind === "error" ? "!" : "·";
+    const rgb = entry.kind === "error" ? C.text : C.muted;
+    wrapRows(text, cols - 2).forEach((r, i) => rows.push({ runs: [{ text: i ? "  " : `${mark} `, rgb, bold: entry.kind === "error" }, { text: r.text, rgb }], h: 1 }));
   }
   entry._key = key;
   entry._rows = rows;
@@ -758,10 +759,8 @@ function grouped(entries) {
   for (const e of entries) {
     const last = out[out.length - 1];
     if (e.kind === "user" && last && last.kind === "user") {
-      if (!last.merged) out[out.length - 1] = { kind: "user", text: last.text, merged: [last] };
-      const m = out[out.length - 1];
-      m.merged.push(e);
-      m.text += "\n" + e.text;
+      if (!last.merged) out[out.length - 1] = { kind: "user", text: last.text, merged: true };
+      out[out.length - 1].text += "\n" + e.text;
       continue;
     }
     out.push(e);
@@ -769,14 +768,21 @@ function grouped(entries) {
   return out;
 }
 
-function drawRuns(write, ink, line, list, x, y, page) {
+function frame4(box, x, y, w, h, t) {
+  box(x, y, w, t);
+  box(x, y + h - t, w, t);
+  box(x, y, t, h);
+  box(x + w - t, y, t, h);
+}
+
+function drawRuns(write, ink, line, list, x, y, m) {
   for (const r of list) {
     if (!r.text) continue;
-    ink(...(r.rgb || page));
-    write(r.text, { x, y, size: 1, font: FONT });
-    if (r.bold) write(r.text, { x: x + 1, y, size: 1, font: FONT });
-    if (r.under) line(x, y + 10, x + r.text.length * CW - 1, y + 10);
-    x += r.text.length * CW;
+    ink(...(r.rgb || C.text));
+    write(r.text, { x, y, size: m.z, font: FONT });
+    if (r.bold) write(r.text, { x: x + 1, y, size: m.z, font: FONT });
+    if (r.under) line(x, y + m.gh, x + r.text.length * m.cw - 1, y + m.gh);
+    x += r.text.length * m.cw;
   }
   return x;
 }
@@ -784,50 +790,41 @@ function drawRuns(write, ink, line, list, x, y, page) {
 function modelLabel() {
   if (S.backend === "ac") return `aesthetic · ${S.model.split("/").pop() || "automatic"}`;
   // claude-opus-4-8 → Claude Opus 4.8, the catalog's display name.
-  const parts = S.model.split("-");
   const words = [];
-  for (const p of parts) {
+  for (const p of S.model.split("-")) {
     if (/^\d+$/.test(p) && /\d$/.test(words[words.length - 1] || "")) words[words.length - 1] += "." + p;
     else words.push(/^\d/.test(p) ? p : p[0].toUpperCase() + p.slice(1));
   }
   return words.join(" ");
 }
 
-// Which of Slab's pages this session is on.
-function pageState() {
-  if (S.status === "error" || S.status === "closed") return "stale";
-  if (S.approvals.length) return "awaiting";
+// How the egg holds itself: Slab's moods, from this session's state.
+function mood() {
+  if (S.status === "error" || S.status === "closed") return "sleeping";
+  if (S.approvals.length || S.lastTurn === "interrupted" && !busy()) return "waiting";
   if (busy()) return "working";
-  return { completed: "complete", interrupted: "interrupted", failed: "stale" }[S.lastTurn] || "blank";
+  return S.lastTurn === "completed" ? "resting" : "sleeping";
 }
 
-// The egg, drawn the way ProxCreatureFrames lights it, at badge size: a
-// shell that narrows toward the top, breathing, freckled, with a face that
-// sleeps, rests, works or waits. Its silhouette falls in the state colour.
-function drawEgg(ink, box, plot, cx, top, page, now) {
+// The egg, as ProxCreatureFrames lights it, in greys: a shell that narrows
+// toward the top, breathing, freckled, with a face that sleeps, rests,
+// works or waits. Returns the row under it.
+function drawEgg(ink, box, plot, cx, top, U, now) {
   const { look } = S.egg;
-  const U = 15;
-  const mood = page.mood;
-  const energy = mood === "working" ? 1 : mood === "waiting" ? 0.75 : 0.35;
-  const period = mood === "working" ? 2400 : mood === "waiting" ? 3600 : 5000;
+  const m = mood();
+  const energy = m === "working" ? 1 : m === "waiting" ? 0.75 : 0.35;
+  const period = m === "working" ? 2400 : m === "waiting" ? 3600 : 5000;
   const t = (now % period) / period;
   const a = t * Math.PI * 2;
   const sx = 1 - Math.sin(a) * 0.012 * energy;
   const sy = 1 + Math.sin(a) * 0.018 * energy;
   const cy = top + 1.02 * U + Math.sin(a * 2) * 0.032 * energy * U;
   const half = 1.02 * U * sy;
-  const light = [-0.45, 0.62, 0.64];
   const span = (yy) => {
     const v = (cy - yy) / half;
     if (v <= -1 || v >= 1) return 0;
     return look.width * U * sx * Math.sqrt(1 - v * v) * (1 - 0.2 * v);
   };
-  // The shadow first: the same silhouette, down and to the right.
-  ink(...page.shadow);
-  for (let yy = Math.floor(cy - half); yy <= Math.ceil(cy + half); yy++) {
-    const w = span(yy);
-    if (w >= 0.5) box(Math.round(cx - w) + 1, yy + 3, Math.round(w * 2), 1);
-  }
   for (let yy = Math.floor(cy - half); yy <= Math.ceil(cy + half); yy++) {
     const w = span(yy);
     if (w < 0.5) continue;
@@ -836,16 +833,16 @@ function drawEgg(ink, box, plot, cx, top, page, now) {
     const x1 = Math.round(cx + w);
     let runStart = x0;
     let runLevel = -1;
-    for (let xx = x0; xx <= x1; xx++) {
+    for (let xx = x0; xx <= x1 + 1; xx++) {
       const nx = (xx + 0.5 - cx) / w;
       const nz = Math.sqrt(Math.max(0, 1 - nx * nx - v * v * 0.6));
-      const d = Math.max(0, nx * light[0] * 0.8 + v * light[1] + nz * light[2]);
-      const level = xx > x1 - 1 ? -2 : Math.min(5, Math.round((0.58 + 0.5 * d) * 5));
-      if (level !== runLevel || xx === x1) {
-        if (runLevel !== -1) {
-          const k = runLevel === -2 ? 0.55 : runLevel / 5;
-          ink(...look.shell.map((c) => Math.min(255, Math.round(c * k))));
-          box(runStart, yy, Math.max(1, xx - runStart + (xx === x1 ? 1 : 0)), 1);
+      const d = Math.max(0, -0.36 * nx + 0.62 * v + 0.64 * nz);
+      const level = xx > x1 ? -1 : xx === x1 || xx === x0 ? 1 : Math.min(5, Math.round((0.5 + 0.55 * d) * 5));
+      if (level !== runLevel) {
+        if (runLevel > 0) {
+          const g = Math.round(255 * runLevel / 5);
+          ink(g, g, g);
+          box(runStart, yy, xx - runStart, 1);
         }
         runStart = xx;
         runLevel = level;
@@ -853,39 +850,25 @@ function drawEgg(ink, box, plot, cx, top, page, now) {
     }
   }
   const at = (ux, uy) => [Math.round(cx + ux * U * sx), Math.round(cy - uy * U * sy)];
-  ink(...look.accent);
+  ink(...C.muted);
   for (const f of look.freckles) {
     const [fx, fy] = at(f.x * 0.82, f.y);
     if (Math.abs(fx - cx) < span(fy) - 1) plot(fx, fy);
   }
   // Eyes: open, blinking, or the two short lines of a sleeping egg.
   const blink = Math.max(0, 1 - Math.abs(t - look.blinkAt) / 0.045);
-  const open = mood !== "sleeping" && blink < 0.5;
-  ink(...C.ink);
+  const open = m !== "sleeping" && blink < 0.5;
+  const e = Math.max(1, Math.round(U / 10));
+  ink(...C.page);
   for (const sign of [-1, 1]) {
     const [ex, ey] = at(sign * look.eyeSpread, 0.10);
-    if (open) {
-      box(ex - 1, ey - 2, 2, 3);
-      ink(255, 255, 255);
-      plot(ex - 1, ey - 2);
-      ink(...C.ink);
-    } else box(ex - 1, ey, 3, 1);
+    if (open) box(ex - e, ey - e * 1.5, e * 2, e * 3);
+    else box(ex - e * 1.5, ey, e * 3, e);
   }
   const [mx, my] = at(0, -0.2);
-  if (mood === "waiting") box(mx - 1, my - 1, 2, 2);
-  else { plot(mx - 2, my); plot(mx - 1, my + 1); plot(mx, my + 1); plot(mx + 1, my); }
-  return Math.ceil(cy + half) + 3;
-}
-
-// The name under it: white, in a dark keyline, its shadow in the state colour.
-function drawName(ink, write, text, cx, y, page) {
-  const x = Math.round(cx - (text.length * CW) / 2);
-  ink(...page.shadow);
-  for (const [dx, dy] of [[2, 1], [1, 2], [2, 2]]) write(text, { x: x + dx, y: y + dy, size: 1, font: FONT });
-  ink(20, 20, 20);
-  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]]) write(text, { x: x + dx, y: y + dy, size: 1, font: FONT });
-  ink(255, 255, 255);
-  write(text, { x, y, size: 1, font: FONT });
+  if (m === "waiting") box(mx - e, my - e, e * 2, e * 2);
+  else { box(mx - e * 2, my, e, e); box(mx - e, my + e, e * 2, e); box(mx + e, my, e, e); }
+  return Math.ceil(cy + half);
 }
 
 // `28.3s…`, and `· quiet 20s` once nothing has arrived for a while.
@@ -928,191 +911,214 @@ function paint({ wipe, ink, box, line, plot, write, screen, system, wifi }) {
     for (const event of S.bridge.take()) absorb(event);
   }
 
-  // The page eases toward its state's colour rather than snapping to it.
-  const page = PAGES[pageState()];
-  S.ground = S.ground ? mix(S.ground, page.bg, 0.12) : page.bg.slice();
-  wipe(...S.ground);
-  const X0 = 4;               // the terminal's first cell
-  const X1 = X0 + CW;         // where the page's words start
-  const cols = Math.max(20, Math.floor((W - X0 * 2) / CW) - 1);
+  const m = metrics(W, H);
+  const { z, cw, gh, lh, margin, pad, stroke } = m;
+  wipe(...C.page);
+  const tint = keyTint(now);
   const working = busy();
   const offline = wifi && !wifi.connected;
+  const inner = W - 2 * (margin + stroke + pad);
+  const cols = Math.max(16, Math.floor(inner / cw));
+  const textX = margin + stroke + pad;
 
-  // The bottom four rows, as pro.json lays them: gap, bar, gap, status.
-  const statusY = H - LH - 3;
-  const barY = statusY - 2 * LH;
-  const bodyBottom = barY - LH;
+  // Bottom up: the status line under a rule, the input box, the transcript box.
+  const statusY = H - margin - gh;
+  const ruleY = statusY - pad - stroke;
+  const inputH = gh + 2 * (pad + stroke);
+  const inputY = ruleY - margin - inputH;
+  const boxY = margin;
+  const boxH = inputY - margin - boxY;
 
-  // ── the status line: handle · workspace · model · activity, spend flush right
+  // ── the status line: handle · piece · model · activity, spend flush right.
+  ink(...C.text);
+  box(margin, ruleY, W - 2 * margin, stroke);
   const account = S.handle ? `@${S.handle}` : "";
   const spend = S.spend.tokens ? `${compact(S.spend.tokens)} tok${S.spend.usd > 0 ? ` · ${dollars(S.spend.usd)}` : ""}` : "";
   const flashing = S.flash && S.flash.until > now ? S.flash.text : "";
   const guy = GUY_DANCE[Math.floor(now / 320) % GUY_DANCE.length];
+  const statusCols = Math.floor((W - 2 * margin) / cw);
   const activity = working ? `${guy} ${workingTimer(now)}`
     : flashing || (S.status === "starting" ? "connecting…" : offline ? "offline"
       : S.status === "closed" || S.status === "error" ? "engine closed · /retry"
       : S.scroll ? `${S.scroll} lines above · End latest` : "");
   const facts = [
     ["handle", account],
-    ["workspace", clip(S.file, Math.max(8, Math.floor(cols / 3)))],
+    ["workspace", clip(S.file.replace(/^\/pieces\//, ""), Math.max(8, Math.floor(statusCols / 4)))],
     ["model", modelLabel()],
     ["activity", activity],
   ];
-  // Short of room, the place goes first, then the model, then the handle.
+  // Short of room, the piece goes first, then the model, then the handle.
+  // At this size the spend gives way before anything on the left does.
   const keep = new Set(facts.map(([n]) => n));
-  const reserve = spend ? spend.length + 3 : 0;
-  const measure = () => facts.reduce((n, [name, text]) => (keep.has(name) && text ? n + text.length + (n ? SEP.length : 0) : n), 1) + reserve;
-  for (const name of ["workspace", "model", "handle"]) if (measure() > cols) keep.delete(name);
-  let x = X1;
+  const left = () => facts.reduce((n, [name, text]) => (keep.has(name) && text ? n + text.length + (n ? SEP.length : 0) : n), 0);
+  const showSpend = spend && left() + spend.length + 2 <= statusCols;
+  for (const name of ["workspace", "model", "handle"]) if (left() > statusCols) keep.delete(name);
+  let x = margin;
   let first = true;
   for (const [name, text] of facts) {
     if (!keep.has(name) || !text) continue;
-    if (!first) { ink(...C.muted); write(SEP, { x, y: statusY, size: 1, font: FONT }); x += SEP.length * CW; }
+    if (!first) { ink(...C.dim); write(SEP, { x, y: statusY, size: z, font: FONT }); x += SEP.length * cw; }
     first = false;
     if (name === "handle") {
-      // While the machine works the handle breathes toward the muted ink.
-      const k = working ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin((now / 3200) * Math.PI * 2)) : 1;
+      // White at rest; a keypress lights the handle in its own colours too.
+      const k = tint ? (now - S.keyFlash.at) / FADE : 1;
       for (let i = 0; i < text.length; i++) {
-        ink(...mix(C.muted, S.colors[i] || C.soft, k));
-        write(text[i], { x: x + i * CW, y: statusY, size: 1, font: FONT });
+        ink(...mix(S.colors[i] || C.text, C.text, Math.min(1, k)));
+        write(text[i], { x: x + i * cw, y: statusY, size: z, font: FONT });
       }
-    } else if (name === "activity" && working) {
-      // The little guy dances at the head of the count.
-      for (let i = 0; i < guy.length; i++) {
-        ink(...(i < 2 ? [255, 130, 200] : guy[i] === ">" ? [255, 218, 120] : [120, 220, 255]));
-        write(guy[i], { x: x + i * CW, y: statusY, size: 1, font: FONT });
-      }
-      ink(...C.status);
-      write(text.slice(guy.length), { x: x + guy.length * CW, y: statusY, size: 1, font: FONT });
     } else {
-      ink(...(name === "model" ? C.soft : name === "workspace" ? C.muted
-        : offline || S.status === "closed" || S.status === "error" ? C.error : S.status === "starting" ? C.run : C.status));
-      write(text, { x, y: statusY, size: 1, font: FONT });
+      ink(...(name === "model" || name === "activity" ? C.text : C.muted));
+      write(text, { x, y: statusY, size: z, font: FONT });
     }
-    x += text.length * CW;
+    x += text.length * cw;
   }
-  if (spend && x + (3 + spend.length) * CW <= X0 + (cols + 1) * CW) {
+  if (showSpend) {
     ink(...C.muted);
-    write(spend, { x: X0 + (cols + 1 - spend.length) * CW, y: statusY, size: 1, font: FONT });
+    write(spend, { x: W - margin - spend.length * cw, y: statusY, size: z, font: FONT });
   }
 
-  // ── the bar: the line being typed, from the first cell, under a block cursor.
+  // ── the input box: white, or the colour of the key just played.
   const pending = S.approvals[0];
+  ink(...(tint || C.text));
+  frame4(box, margin, inputY, W - 2 * margin, inputH, stroke);
+  const inY = inputY + stroke + pad;
   if (pending) {
-    ink(...C.bar);
-    box(0, barY - 1, W, LH);
+    ink(...C.muted);
+    write(clip("↑↓ choose · enter answers · esc denies", cols), { x: textX, y: inY, size: z, font: FONT });
   } else {
-    const room = cols;
-    const start = Math.max(0, S.cursor - room + 1);
+    const start = Math.max(0, S.cursor - cols + 1);
     const lead = start > 0 ? "‹" : "";
-    const shown = S.input.slice(start, start + room - lead.length);
-    ink(...page.text);
-    write(lead + shown, { x: X0, y: barY, size: 1, font: FONT });
-    const cx = X0 + (lead.length + S.cursor - start) * CW;
-    ink(...page.cursor);
-    box(cx, barY - 1, CW, LH);
+    const shown = S.input.slice(start, start + cols - lead.length);
+    ink(...C.text);
+    write(lead + shown, { x: textX, y: inY, size: z, font: FONT });
+    // The letter just typed keeps its note's colour while it fades.
+    const fi = S.keyFlash ? S.keyFlash.index - start : -1;
+    if (tint && fi >= 0 && fi < shown.length) {
+      ink(...tint);
+      write(shown[fi], { x: textX + (lead.length + fi) * cw, y: inY, size: z, font: FONT });
+    }
+    const cx = textX + (lead.length + S.cursor - start) * cw;
+    ink(...C.text);
+    box(cx, inY - z, cw, gh + 2 * z);
     const under = S.input[S.cursor];
-    if (under) { ink(...S.ground); write(under, { x: cx, y: barY, size: 1, font: FONT }); }
+    if (under) { ink(...C.page); write(under, { x: cx, y: inY, size: z, font: FONT }); }
   }
 
-  // ── the conversation, bottom-aligned above the bar, with the live feed under it.
-  const feedSize = Math.min(3, Math.max(1, Math.floor(H / LH / 6)));
+  // ── the transcript box, the conversation bottom-aligned inside it.
+  ink(...C.text);
+  frame4(box, margin, boxY, W - 2 * margin, boxH, stroke);
+  const top = boxY + stroke + pad;
+  const bottom = boxY + boxH - stroke - pad;
+  const feedSize = Math.min(3, Math.max(1, Math.floor((bottom - top) / lh / 5)));
   const feed = working && S.turn ? S.turn.feed.slice(-feedSize) : [];
   const rows = [];
   const list = grouped(S.entries.filter((e) => e.kind !== "tool"));
   let lastTyped = -1;
   list.forEach((e, i) => { if (e.kind === "user") lastTyped = i; });
   list.forEach((e, i) => {
+    if (i) rows.push({ air: true, h: 0.5 }); // room between messages
     for (const r of entryRows(e, cols)) rows.push(working && i === lastTyped && r.typed !== undefined ? { ...r, wave: true } : r);
   });
-  const fit = Math.max(1, Math.floor((bodyBottom - 2) / LH) - feed.length);
-  pageRows = fit;
+  const room = Math.floor((bottom - top) / lh) - feed.length;
+  pageRows = Math.max(1, room);
   // Scrolled back, new rows arriving below keep the view where it was.
   if (S.scroll > 0 && rows.length > S.lastTotal) S.scroll += rows.length - S.lastTotal;
   S.lastTotal = rows.length;
-  S.scroll = Math.min(S.scroll, Math.max(0, rows.length - fit));
+  S.scroll = Math.min(S.scroll, Math.max(0, rows.length - room));
 
   if (pending) {
-    drawApproval(ink, box, write, line, pending, X1, cols, 2, bodyBottom, page);
+    drawApproval(ink, box, write, line, pending, textX, cols, top, bottom, m);
   } else {
     const end = rows.length - S.scroll;
-    const begin = Math.max(0, end - fit);
-    let y = bodyBottom - (end - begin + feed.length) * LH;
+    let begin = end;
+    let used = 0;
+    while (begin > 0 && used + rows[begin - 1].h <= room) used += rows[--begin].h;
+    let y = bottom - Math.round((used + feed.length) * lh);
     const head = Math.floor(now / 120);
     for (let i = begin; i < end; i++) {
-      drawRow(ink, box, line, write, rows[i], X1, y, page, cols, head);
-      y += LH;
+      drawRow(ink, box, write, line, rows[i], textX, y, cols, head, m);
+      y += Math.round(rows[i].h * lh);
     }
     for (const r of feed) {
       const mark = r.status === "failed" ? "!" : r.status === "done" ? "·" : "›";
-      ink(...(r.status === "failed" ? C.error : r.status === "done" ? C.muted : C.inbox));
-      write(clip(`${mark} ${r.text}`, cols), { x: X1, y: y + 1, size: 1, font: FONT });
-      y += LH;
+      ink(...(r.status === "running" ? C.text : C.muted));
+      write(clip(`${mark} ${r.text}`, cols), { x: textX, y: y + (lh - gh) / 2, size: z, font: FONT });
+      y += lh;
     }
   }
 
-  // ── the egg and its name, in the corner Slab gives them on the Mac.
-  const ecx = W - 26;
-  const nameY = drawEgg(ink, box, plot, ecx, 6, page, now);
-  drawName(ink, write, S.egg.name, ecx, nameY, page);
+  // ── the egg and its name, in the transcript's top-right corner, on black.
+  const U = 9 * z;
+  const name = S.egg.name;
+  const ew = Math.max(2 * U, name.length * cw) + 2 * pad;
+  const ex = W - margin - stroke - ew;
+  ink(...C.page);
+  box(ex, boxY + stroke, ew, Math.round(2.1 * U) + gh + 2 * pad + z);
+  const ecx = ex + ew / 2;
+  const below = drawEgg(ink, box, plot, ecx, boxY + stroke + pad, U, now);
+  ink(...C.muted);
+  write(name, { x: Math.round(ecx - (name.length * cw) / 2), y: below + z * 2, size: z, font: FONT });
 }
 
-function drawRow(ink, box, line, write, r, x, y, page, cols, head) {
+function drawRow(ink, box, write, line, r, x, y, cols, head, m) {
+  const { z, cw, gh, lh } = m;
+  const ty = y + Math.round((lh - gh) / 2);
+  if (r.air) return;
   if (r.box) {
-    // The outline is drawn, not typed: box-drawing glyphs from the fallback
-    // face are 8 wide and would not meet in 6-wide cells.
-    const left = x + CW / 2;
-    const right = x + (r.width + 3) * CW + CW / 2;
-    const mid = y + Math.floor(LH / 2);
-    ink(...C.prompt);
-    if (r.box === "top") { line(left + 2, mid, right - 2, mid); line(left, mid + 2, left + 1, mid + 1); line(right, mid + 2, right - 1, mid + 1); line(left, mid + 2, left, y + LH); line(right, mid + 2, right, y + LH); }
-    else if (r.box === "bottom") { line(left + 2, mid, right - 2, mid); line(left, mid - 2, left + 1, mid - 1); line(right, mid - 2, right - 1, mid - 1); line(left, y, left, mid - 2); line(right, y, right, mid - 2); }
+    // Your words in a white outline, squared and drawn, not typed.
+    const left = x;
+    const w = (r.width + 2) * cw;
+    const h = Math.round(lh / 2);
+    ink(...C.text);
+    if (r.box === "top") { box(left, y + h - z, w, z); box(left, y + h - z, z, h + z); box(left + w - z, y + h - z, z, h + z); }
+    else if (r.box === "bottom") { box(left, y, w, z); box(left, y - z, z, z); box(left + w - z, y - z, z, z); box(left, y, z, z); box(left + w - z, y, z, z); }
     else {
-      line(left, y, left, y + LH - 1);
-      line(right, y, right, y + LH - 1);
-      const tx = x + 2 * CW;
-      if (!r.wave) { ink(...page.text); write(r.typed, { x: tx, y: y + 1, size: 1, font: FONT }); return; }
-      // The shimmer: a spark three letters wide travelling through what you
-      // said while the machine has the floor.
-      const spark = [C.prompt, C.highlight, C.prompt];
+      box(left, y, z, lh);
+      box(left + w - z, y, z, lh);
+      const tx = left + cw;
+      if (!r.wave) { write(r.typed, { x: tx, y: ty, size: z, font: FONT }); return; }
+      // While the machine has the floor a grey gap travels through what you
+      // said, three letters wide — the shimmer, without the colour.
       for (let i = 0; i < r.typed.length; i++) {
-        const d = r.offset + i - head % Math.max(1, r.offset + r.typed.length + 3);
-        ink(...(d >= -2 && d <= 0 ? spark[d + 2] : page.text));
-        write(r.typed[i], { x: tx + i * CW, y: y + 1, size: 1, font: FONT });
+        const d = i - (head % Math.max(1, r.typed.length + 3));
+        ink(...(d >= -2 && d <= 0 ? C.dim : C.text));
+        write(r.typed[i], { x: tx + i * cw, y: ty, size: z, font: FONT });
       }
     }
     return;
   }
   if (r.ground) {
     ink(...C.ground);
-    box(x - 2, y, cols * CW + 4, LH);
+    box(x - z * 2, y, cols * cw + z * 4, lh);
   }
-  drawRuns(write, ink, line, r.runs, x, y + 1, page.text);
+  drawRuns(write, ink, line, r.runs, x, ty, m);
 }
 
 // The question, centred, with its three answers under it; the one in hand
-// wears the block, and y, a and n follow each answer for the hand that knows them.
-function drawApproval(ink, box, write, line, pending, x0, cols, top, bottom, page) {
+// is white with black words, and y, a and n follow each answer.
+function drawApproval(ink, box, write, line, pending, x0, cols, top, bottom, m) {
+  const { z, cw, gh, lh } = m;
   const inner = Math.min(cols - 4, 76);
-  const subject = wrapRows(clean(pending.label) || "requested action", inner).map((r) => r.text);
+  const subject = wrapRows(clean(pending.label) || "requested action", inner).map((r) => r.text).slice(0, 4);
   const choices = [["Allow once", "y"], ["Allow every time this session", "a"], ["Deny", "n"]];
-  const count = 1 + 1 + subject.length + 1 + choices.length;
-  let y = top + Math.max(0, Math.floor(((bottom - top) / LH - count) / 2)) * LH;
-  const left = x0 + Math.max(0, Math.floor((cols - inner) / 2)) * CW;
-  drawRuns(write, ink, line, [{ text: "allow?", rgb: C.highlight, bold: true }], left, y + 1, page.text);
-  y += 2 * LH;
-  for (const l of subject) { ink(...page.text); write(l, { x: left, y: y + 1, size: 1, font: FONT }); y += LH; }
-  y += LH;
+  const count = 2 + subject.length + 1 + choices.length;
+  let y = top + Math.max(0, Math.floor(((bottom - top) / lh - count) / 2)) * lh;
+  const left = x0 + Math.max(0, Math.floor((cols - inner) / 2)) * cw;
+  const ty = (lh - gh) / 2;
+  drawRuns(write, ink, line, [{ text: "allow?", bold: true }], left, y + ty, m);
+  y += 2 * lh;
+  for (const l of subject) { ink(...C.text); write(l, { x: left, y: y + ty, size: z, font: FONT }); y += lh; }
+  y += lh;
   choices.forEach(([label, key], i) => {
-    const text = ` ${label} `;
+    const text = ` ${clip(label, inner - 4)} `;
     if (i === S.approvalIndex) {
-      ink(...C.prompt);
-      box(left, y, text.length * CW, LH);
-      drawRuns(write, ink, line, [{ text, rgb: C.text, bold: true }], left, y + 1, page.text);
-    } else drawRuns(write, ink, line, [{ text, rgb: C.soft }], left, y + 1, page.text);
-    ink(...C.muted);
-    write(`  ${key}`, { x: left + text.length * CW, y: y + 1, size: 1, font: FONT });
-    y += LH;
+      ink(...C.text);
+      box(left, y, text.length * cw, lh);
+      drawRuns(write, ink, line, [{ text, rgb: C.page }], left, y + ty, m);
+    } else drawRuns(write, ink, line, [{ text, rgb: C.muted }], left, y + ty, m);
+    ink(...C.dim);
+    write(`  ${key}`, { x: left + text.length * cw, y: y + ty, size: z, font: FONT });
+    y += lh;
   });
 }
 

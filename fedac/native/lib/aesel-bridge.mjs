@@ -205,6 +205,28 @@ export function creatureLook(seed) {
   };
 }
 
+// The colour a key flashes as it is typed: notepat's note for that key
+// (pieces/notepat.mjs NOTE_TO_KEY, NOTE_COLORS), the sharps — the black keys —
+// at notepat's lit-sharp shade. Keys that play no note flash nothing.
+const NOTE_TO_KEY = {
+  c: "c", "c#": "v", d: "d", "d#": "s", e: "e", f: "f", "f#": "w", g: "g", "g#": "r", a: "a", "a#": "q", b: "b",
+  "+c": "h", "+c#": "t", "+d": "i", "+d#": "y", "+e": "j", "+f": "k", "+f#": "u", "+g": "l", "+g#": "o", "+a": "m", "+a#": "p", "+b": "n",
+  "++c": ";", "++c#": "'", "-a#": "z", "-b": "x",
+};
+const KEY_TO_NOTE = Object.fromEntries(Object.entries(NOTE_TO_KEY).map(([note, key]) => [key, note]));
+const NOTE_COLORS = {
+  c: [255, 30, 30], "c#": [255, 80, 0], d: [255, 150, 0], "d#": [200, 200, 0], e: [230, 220, 0],
+  f: [30, 200, 30], "f#": [0, 200, 180], g: [30, 100, 255], "g#": [80, 50, 255],
+  a: [140, 30, 220], "a#": [200, 30, 150], b: [200, 50, 255],
+};
+export function keyColor(key) {
+  const note = KEY_TO_NOTE[String(key).toLowerCase()];
+  if (!note) return null;
+  const base = note.replace(/^[+-]+/, "");
+  const k = base.includes("#") ? 0.62 : 1;
+  return NOTE_COLORS[base].map((c) => Math.floor(c * k));
+}
+
 // A v4 UUID from whatever random source the runtime has. QuickJS has no
 // crypto module; Math.random is what a session id needs here — it names the
 // conversation on this machine, it does not secure anything.

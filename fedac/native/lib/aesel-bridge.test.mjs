@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { execFileSync } from "node:child_process";
-import { Bridge, blankPiece, creatureLook, creatureSeed, petName, instructionsFor, launchArguments, markdown, pipedCommand, measuredUsage, randomSlug, toolLabel, turnUsageText, uuid, wrapRows } from "./aesel-bridge.mjs";
+import { Bridge, blankPiece, keyColor, creatureLook, creatureSeed, petName, instructionsFor, launchArguments, markdown, pipedCommand, measuredUsage, randomSlug, toolLabel, turnUsageText, uuid, wrapRows } from "./aesel-bridge.mjs";
 
 function make() {
   const sent = [];
@@ -214,4 +214,13 @@ test("a session id names the same creature Slab draws for it", () => {
   assert.equal(look.freckles.length, 7);
   assert.ok(look.shell.every((c) => c >= 0 && c <= 255));
   assert.ok(look.width >= 0.72 && look.width <= 0.84);
+});
+
+test("typed keys flash notepat's colours, sharps darker, others nothing", () => {
+  assert.deepEqual(keyColor("c"), [255, 30, 30]);
+  assert.deepEqual(keyColor("V"), [158, 49, 0]); // c#, the black key
+  assert.deepEqual(keyColor("p"), [124, 18, 93]); // +a#
+  assert.deepEqual(keyColor("h"), [255, 30, 30]); // +c
+  assert.equal(keyColor("7"), null);
+  assert.equal(keyColor("/"), null);
 });

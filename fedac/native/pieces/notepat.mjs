@@ -2888,6 +2888,8 @@ function paintAudienceKeyboard(ink, box, write, screen) {
   const gap = Math.max(1, Math.floor(unit * 0.08));
   const keyH = Math.min(Math.floor(unit * 1.15), Math.floor((h - margin * 2) / 5));
   const top = Math.floor((h - keyH * 5) / 2);
+  ink(22, 22, 24); // a neutral ground, not notepat's note-tinted backdrop
+  box(0, 0, w, h);
   LAPTOP_ROWS.forEach((row, r) => {
     let x = margin;
     for (const [key, span] of row) {
@@ -2899,7 +2901,9 @@ function paintAudienceKeyboard(ink, box, write, screen) {
         if (note) {
           const c = noteColor(note.replace(/^[+-]+/, ""));
           const on = sounds[key] !== undefined;
-          const k = on ? 1 : 0.32;
+          // Sharps are the piano's black keys: a darker shade, lit or not.
+          const sharp = note.includes("#");
+          const k = on ? (sharp ? 0.62 : 1) : (sharp ? 0.16 : 0.32);
           ink(Math.floor(c[0] * k), Math.floor(c[1] * k), Math.floor(c[2] * k));
           box(px, py, bw, bh);
           const label = note.replace(/^[+-]+/, "").toUpperCase();
