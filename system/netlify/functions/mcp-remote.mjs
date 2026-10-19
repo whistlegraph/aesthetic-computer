@@ -82,6 +82,58 @@ const TOOLS = [
       required: ["source"],
     },
   },
+  {
+    name: "notepaint_brains",
+    description:
+      "List the brains (image models) Note Paint can paint with on notepaint.art, each with its price in Braincells and US dollars. When signed in, also returns the painter's Braincell balance and today's free allowance. Read-only; charges nothing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        size: {
+          type: "number",
+          enum: [256, 512, 1024],
+          description: "Painting size in pixels (square). Defaults to 256.",
+        },
+      },
+    },
+  },
+  {
+    name: "notepaint_paint",
+    description:
+      "Paint with Note Paint (notepaint.art): one move turns a prompt into a square painting, or repaints an earlier painting from this conversation. Each move spends the painter's AC Braincells (today's free allowance first) — call notepaint_brains to show the price before painting. Requires signing in with an AC account that has a handle.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: {
+          type: "string",
+          description: "What to paint or change, under 200 characters",
+        },
+        from: {
+          type: "string",
+          description:
+            "Optional id of a painting returned earlier by notepaint_paint, to keep painting on it",
+        },
+        brain: {
+          type: "string",
+          description:
+            "Optional brain id from notepaint_brains. Defaults to the cheapest available brain.",
+        },
+        strength: {
+          type: "number",
+          enum: [0.25, 0.5, 0.75],
+          description:
+            "How much the move may change the painting. Defaults to 0.75 for a new painting and 0.5 when repainting.",
+        },
+        size: {
+          type: "number",
+          enum: [256, 512, 1024],
+          description:
+            "Painting size for a new painting. Defaults to 256. A repaint keeps its painting's size.",
+        },
+      },
+      required: ["prompt"],
+    },
+  },
 ];
 
 const RESOURCES = [
@@ -307,6 +359,10 @@ async function handleToolCall(params, authToken) {
         return await callGetApiInfo();
       case "preview_kidlisp":
         return callPreviewKidLisp(args);
+      case "notepaint_brains":
+        return await callNotePaintBrains(args, authToken);
+      case "notepaint_paint":
+        return await callNotePaintPaint(args, authToken);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -423,6 +479,185 @@ function callPreviewKidLisp(args) {
   const result = validateKidLisp(args.source || "");
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+  };
+}
+
+// ── Note Paint (notepaint.art) ──
+// The tools call the same endpoints as the studio, so pricing, the free
+// allowance, billing and refunds stay in nopaint-inference.mjs.
+
+const NOTEPAINT_API = "https://aesthetic.computer/api";
+
+// Paintings from this conversation, so a repaint can start from the last one
+// without the client sending the PNG back. Keyed by a hash of the caller's
+// token; held in memory for an hour.
+const notePaintings = new Map();
+const NOTEPAINT_KEEP_MS = 60 * 60 * 1000;
+
+async function notePaintOwner(authToken) {
+  const { createHash } = await import("node:crypto");
+  return createHash("sha256").update(authToken).digest("hex").slice(0, 16);
+}
+
+function keepNotePainting(owner, painting) {
+  const now = Date.now();
+  for (const [key, value] of notePaintings)
+    if (value.until <= now) notePaintings.delete(key);
+  if (notePaintings.size >= 64)
+    notePaintings.delete(notePaintings.keys().next().value);
+  const id = crypto.randomUUID().slice(0, 8);
+  notePaintings.set(`${owner}:${id}`, {
+    ...painting,
+    until: now + NOTEPAINT_KEEP_MS,
+  });
+  return id;
+}
+
+async function notePaintRequest(path, authToken, body, timeout = 20000) {
+  const headers = { "Content-Type": "application/json" };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  const response = await fetch(`${NOTEPAINT_API}/${path}`, {
+    method: body ? "POST" : "GET",
+    headers,
+    ...(body ? { body: JSON.stringify(body) } : {}),
+    signal: AbortSignal.timeout(timeout),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new Error(result.error || `Note Paint request failed (${response.status})`);
+  return result;
+}
+
+function notePaintOffers(catalog, size) {
+  return (catalog.models || [])
+    .filter((model) => model.available && model.size?.[0] === size)
+    .sort((a, b) => a.braincells - b.braincells);
+}
+
+function notePaintUSD(catalog, braincells) {
+  return Number((braincells * catalog.creditValueUSD).toFixed(4));
+}
+
+async function notePaintWallet(authToken) {
+  if (!authToken) return null;
+  try {
+    const wallet = await notePaintRequest("nopaint-wallet", authToken);
+    return {
+      handle: wallet.handle,
+      free_remaining_today: wallet.remaining,
+      free_limit_today: wallet.limit,
+      purchased: wallet.purchased,
+    };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function callNotePaintBrains(args, authToken) {
+  const size = args?.size || 256;
+  const [catalog, wallet] = await Promise.all([
+    notePaintRequest("nopaint-inference"),
+    notePaintWallet(authToken),
+  ]);
+  const brains = notePaintOffers(catalog, size).map((model) => ({
+    id: model.id,
+    name: model.name,
+    braincells: model.braincells,
+    usd: notePaintUSD(catalog, model.braincells),
+    ...(model.timing ? { seconds: model.timing.averageSeconds } : {}),
+  }));
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(
+          {
+            size,
+            brains,
+            ...(wallet ? { wallet } : { signed_in: false }),
+            ...(catalog.service?.available === false
+              ? { unavailable: catalog.service.detail }
+              : {}),
+          },
+          null,
+          2,
+        ),
+      },
+    ],
+  };
+}
+
+async function blankNotePainting(size) {
+  const { default: sharp } = await import("sharp");
+  const png = await sharp({
+    create: { width: size, height: size, channels: 3, background: "#ffffff" },
+  })
+    .png()
+    .toBuffer();
+  return png.toString("base64");
+}
+
+async function callNotePaintPaint(args, authToken) {
+  if (!authToken) throw new Error("Sign in with AC to paint.");
+  const prompt = (args.prompt || "").replace(/\s+/g, " ").trim();
+  if (!prompt || prompt.length > 200)
+    throw new Error("The prompt must be text under 200 characters.");
+
+  const owner = await notePaintOwner(authToken);
+  let base = null;
+  if (args.from) {
+    base = notePaintings.get(`${owner}:${args.from}`);
+    if (!base || base.until <= Date.now())
+      throw new Error(`No painting ${args.from} from the last hour. Paint a new one.`);
+  }
+  const size = base?.size || args.size || 256;
+  const strength = args.strength ?? (base ? 0.5 : 0.75);
+
+  const catalog = await notePaintRequest("nopaint-inference");
+  const offers = notePaintOffers(catalog, size);
+  const offer = args.brain
+    ? offers.find((model) => model.id === args.brain || model.id === `${args.brain}@${size}`)
+    : offers[0];
+  if (!offer) throw new Error(`No available brain ${args.brain || ""} paints at ${size}px.`);
+
+  const result = await notePaintRequest(
+    "nopaint-inference",
+    authToken,
+    {
+      requestId: crypto.randomUUID(),
+      seed: Math.floor(Math.random() * 2 ** 31),
+      strength,
+      quote: offer.quote,
+      model: offer.id,
+      image: base?.image || (await blankNotePainting(size)),
+      hint: prompt,
+    },
+    180000,
+  );
+
+  const id = keepNotePainting(owner, { image: result.image, size });
+  return {
+    content: [
+      { type: "image", data: result.image, mimeType: "image/png" },
+      {
+        type: "text",
+        text: JSON.stringify(
+          {
+            id,
+            brain: offer.name,
+            size,
+            braincells: result.billing?.braincells,
+            free: result.billing?.free,
+            paid: result.billing?.paid,
+            usd: notePaintUSD(catalog, result.billing?.braincells || 0),
+            painter: result.handle,
+            next: `Pass from: "${id}" to keep painting on it. Studio: https://notepaint.art`,
+          },
+          null,
+          2,
+        ),
+      },
+    ],
   };
 }
 
