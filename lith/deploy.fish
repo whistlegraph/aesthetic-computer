@@ -392,18 +392,20 @@ else if test -f $SPACES_ENV_GPG
     # deploys for ten minutes at a time. The Spaces env is optional, so hand
     # gpg the passphrase the slab daemon already gave us when there is one,
     # and bound the wait either way.
-    set -l bounded
+    # The bounded decrypt runs under sh: when `timeout` kills a hung gpg,
+    # fish 4 panics on the signal status of a pipeline member ("Unsupported
+    # status value", src/proc.rs) and takes the whole deploy with it. sh
+    # absorbs that and hands fish a plain exit code.
+    set -l bounded ""
     if command -q timeout
-        set bounded timeout 20
+        set bounded "timeout 20"
     else if command -q gtimeout
-        set bounded gtimeout 20
+        set bounded "gtimeout 20"
     end
     if test -n "$passphrase"
-        echo -n "$passphrase" | $bounded gpg --batch --pinentry-mode loopback --passphrase-fd 0 -d $SPACES_ENV_GPG 2>/dev/null \
-            | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >$TMP_SPACES
+        echo -n "$passphrase" | sh -c "$bounded gpg --batch --pinentry-mode loopback --passphrase-fd 0 -d \"\$1\" 2>/dev/null | grep -E '^[A-Za-z_][A-Za-z0-9_]*='" sh $SPACES_ENV_GPG >$TMP_SPACES
     else
-        $bounded gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG 2>/dev/null \
-            | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >$TMP_SPACES
+        sh -c "$bounded gpg --batch --pinentry-mode loopback -d \"\$1\" 2>/dev/null </dev/null | grep -E '^[A-Za-z_][A-Za-z0-9_]*='" sh $SPACES_ENV_GPG >$TMP_SPACES
     end
     if test -s $TMP_SPACES
         set SPACES_READY true
