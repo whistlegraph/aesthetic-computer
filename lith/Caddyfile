@@ -1316,11 +1316,22 @@ nopaint.art {
     }
     root * /opt/ac/system/public/nopaint.art
     encode gzip
-    @nopaint_root path /
-    handle @nopaint_root {
+    # nopaint.art is the 2021 original again (its files are this folder's
+    # root). The studio moved to notepaint.art; its paths here redirect there.
+    # The Mac app still loads nopaint.art and allows only that host, so it
+    # keeps getting the studio by its user agent until it is rebuilt.
+    @nopaint_mac_app {
+        path / /ai /ai/*
+        header_regexp User-Agent NoPaintMac/
+    }
+    handle @nopaint_mac_app {
         rewrite * /ai/index.html
         header Cache-Control "no-cache"
         file_server
+    }
+    @nopaint_studio_moved path /ai /ai/*
+    handle @nopaint_studio_moved {
+        redir https://notepaint.art{uri} 301
     }
     # Browser-safe Aesel modules shared with the painting path.
     handle /easel/src/* {
