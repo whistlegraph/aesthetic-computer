@@ -1,5 +1,6 @@
 // Give, 2026.10.07
 // Keep Aesthetic Computer online and free.
+import { AestheticIOSApp } from "../lib/platform.mjs";
 
 const colors = { ground: [40, 28, 58], panel: [57, 38, 74], text: [255, 239, 215],
   pink: [255, 112, 190], mint: [159, 240, 201], muted: [196, 172, 204], shadow: [99, 42, 98] };
@@ -30,7 +31,7 @@ function open($, url) {
 }
 
 async function checkout($) {
-  if (busy) return;
+  if (busy || AestheticIOSApp) return;
   busy = true; error = ""; $.needsPaint();
   const lifetime = controller;
   const signal = AbortSignal.any([lifetime.signal, AbortSignal.timeout(20000)]);
@@ -85,6 +86,12 @@ function paint($) {
   line(countText, top, colors.pink, size);
   line(countFailed ? "Count unavailable" : `monthly supporter${count === 1 ? "" : "s"}`, top + hero + 3);
   line(thanks ? "Thank you for supporting AC!" : "Keep AC online & free.", top + hero + 21, colors.muted);
+  if (AestheticIOSApp) {
+    // App Store rule 3.1.1: the iPhone app thanks supporters and sells nothing.
+    line("Thank you to everyone keeping AC free.", top + hero + 47, colors.muted);
+    ink(colors.ground).box(0, 0, screen.width, 20, "fill");
+    return;
+  }
   button("give", busy ? "Opening..." : "Give $8 / month", left, top + hero + 47, width, 34,
     () => checkout($), false, true);
   line(error || "Renews monthly. Cancel anytime.", top + hero + 91,

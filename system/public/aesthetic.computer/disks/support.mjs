@@ -1,5 +1,6 @@
 // Native monthly support. Stripe owns card entry; AC owns the amount and return.
 import { palette, wrap, fonts, lineHeight } from '../lib/onboarding-ui.mjs';
+import { AestheticIOSApp } from '../lib/platform.mjs';
 let amount, keypad, error, busy, source, lifetime = 0, buttons, music, focus, scroll, scrollMax;
 function boot($) {
   lifetime++; amount = /^\d+(\.\d{1,2})?$/.test($.query?.amount || '') ? $.query.amount : '4';
@@ -12,7 +13,7 @@ function open($, url) {
   else $.jump(url);
 }
 async function checkout($) {
-  if (busy) return;
+  if (busy || AestheticIOSApp) return;
   const cents = Math.round(Number(amount) * 100);
   if (!/^\d+(\.\d{1,2})?$/.test(amount) || cents < 100 || cents > 250000) { error = 'Choose $1 to $2,500.'; $.needsPaint(); return; }
   busy = true; error = ''; $.needsPaint(); const mine = lifetime;
@@ -46,6 +47,11 @@ function paint($) {
     ink(selected ? palette.ground : palette.text).write(label, { x: bx + bw / 2, y: by + Math.floor((30 - lineHeight(font)) / 2), center: 'x' }, undefined, undefined, false, font);
   };
   line('Support AC', palette.pink, fonts.heading);
+  if (AestheticIOSApp) {
+    // App Store rule 3.1.1: the iPhone app names the feature without selling it.
+    line('Handle colors are a supporter feature.', palette.muted);
+    line('Supporters can save colors once signed in.', palette.muted);
+  } else {
   if (!keypad) line('Monthly support unlocks handle colors across AC.', palette.muted);
   line(`$${amount || '0'} / month`, palette.mint, fonts.heading);
   if (keypad) {
@@ -64,6 +70,7 @@ function paint($) {
     button('checkout', busy ? 'Opening...' : 'Checkout', x, y, w, () => checkout($), true, fonts.heading); y += 38;
     line('Renews monthly. Cancel anytime.', palette.muted);
     line('Not tax deductible.', palette.muted);
+  }
   }
   if (error) line(error, palette.pink);
   // Error copy can extend the page on the smallest screens.
