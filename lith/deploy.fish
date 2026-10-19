@@ -388,10 +388,27 @@ if test -f $SPACES_ENV_SRC
     grep -E '^[A-Za-z_][A-Za-z0-9_]*=' $SPACES_ENV_SRC >$TMP_SPACES
     set SPACES_READY true
 else if test -f $SPACES_ENV_GPG
-    gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG 2>/dev/null \
-        | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >$TMP_SPACES
+    # gpg waits forever for a passphrase the agent has not cached — that held
+    # deploys for ten minutes at a time. The Spaces env is optional, so hand
+    # gpg the passphrase the slab daemon already gave us when there is one,
+    # and bound the wait either way.
+    set -l bounded
+    if command -q timeout
+        set bounded timeout 20
+    else if command -q gtimeout
+        set bounded gtimeout 20
+    end
+    if test -n "$passphrase"
+        echo -n "$passphrase" | $bounded gpg --batch --pinentry-mode loopback --passphrase-fd 0 -d $SPACES_ENV_GPG 2>/dev/null \
+            | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >$TMP_SPACES
+    else
+        $bounded gpg --batch --pinentry-mode loopback -d $SPACES_ENV_GPG 2>/dev/null \
+            | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' >$TMP_SPACES
+    end
     if test -s $TMP_SPACES
         set SPACES_READY true
+    else
+        echo -e "$YELLOW   Spaces env not decrypted (no cached passphrase) — building without S3 sync.$NC"
     end
 end
 
