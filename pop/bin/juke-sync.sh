@@ -6,6 +6,8 @@
 #   pop/bin/juke-sync.sh down     fetch finals the Space has and we lack
 #   pop/bin/juke-sync.sh both     up then down (default) — run on each
 #                                 machine and the fleet converges, newest wins
+#   pop/bin/juke-sync.sh light    up, catalog only, then bound verified downloads
+#   pop/bin/juke-sync.sh install light  install on-demand mode on this machine
 #   pop/bin/juke-sync.sh install  write + load a launchd agent that runs
 #                                 `both` every 20 minutes on this machine
 #
@@ -33,6 +35,11 @@ down() {
 }
 
 install_agent() {
+  mode="${1:-both}"
+  case "$mode" in light|both|up) ;; *) echo "invalid sync mode" >&2; exit 2;; esac
+  if [ "$mode" = light ]; then
+    test -x "$HOME/.local/bin/ac-juke-cache" || { echo "Install ac-juke-cache first" >&2; exit 1; }
+  fi
   plist="$HOME/Library/LaunchAgents/computer.aesthetic.juke-sync.plist"
   cat > "$plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -44,25 +51,31 @@ install_agent() {
   <array>
     <string>/bin/sh</string>
     <string>$POP_DIR/bin/juke-sync.sh</string>
-    <string>both</string>
+    <string>$mode</string>
   </array>
   <key>StartInterval</key><integer>1200</integer>
   <key>StandardOutPath</key><string>/tmp/juke-sync.log</string>
   <key>StandardErrorPath</key><string>/tmp/juke-sync.log</string>
   <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <dict><key>PATH</key><string>$HOME/.local/bin:$HOME/.local/share/fnm/aliases/default/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
 </dict>
 </plist>
 EOF
   launchctl unload "$plist" 2>/dev/null || true
   launchctl load "$plist"
-  echo "juke-sync agent loaded (every 20 min): $plist"
+  echo "juke-sync agent loaded ($mode, every 20 min): $plist"
 }
 
 case "${1:-both}" in
   up) up ;;
   down) down ;;
   both) up; down ;;
-  install) install_agent ;;
-  *) echo "usage: juke-sync.sh [up|down|both|install]" >&2; exit 2 ;;
+  light)
+    up
+    "$HOME/.local/bin/ac-juke-cache" catalog
+    node "$POP_DIR/bin/pop-library.mjs" --no-probe
+    "$HOME/.local/bin/ac-juke-cache" prune
+    ;;
+  install) install_agent "${2:-both}" ;;
+  *) echo "usage: juke-sync.sh [up|down|both|light|install [light|both|up]]" >&2; exit 2 ;;
 esac

@@ -47,6 +47,43 @@ final class Track {
     var data: JukeData
     var meta: TrackMeta?
     var liveStatus: String?
+    var remoteKey: String?
+
+    /// Called off the UI thread. The helper validates catalog identity and
+    /// downloads atomically; the original path keeps ratings/notes stable.
+    func materialize(pin: Bool = false) throws {
+        if !pin && remoteKey == nil && FileManager.default.fileExists(atPath: url.path) { return }
+        guard let remoteKey else {
+            throw NSError(domain: "Juke", code: 1, userInfo: [NSLocalizedDescriptionKey: "Audio file is unavailable."])
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: NSHomeDirectory() + "/.local/bin/ac-juke-cache")
+        process.arguments = [pin ? "pin" : "fetch", remoteKey]
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard process.terminationStatus == 0, path == url.path,
+              FileManager.default.fileExists(atPath: url.path) else {
+            throw NSError(domain: "Juke", code: 2, userInfo: [NSLocalizedDescriptionKey: "Download unavailable. Check your connection and try again."])
+        }
+    }
+    func unpin() throws {
+        guard let remoteKey else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: NSHomeDirectory() + "/.local/bin/ac-juke-cache")
+        process.arguments = ["unpin", remoteKey]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw NSError(domain: "Juke", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not remove offline pin."])
+        }
+    }
     // Cached so row drawing never stats the disk; refreshed by the
     // newest/oldest sorts so the displayed stamp always matches the order.
     var renderedAt: Date = .distantPast
@@ -90,16 +127,41 @@ final class Track {
         data.updated = ISO8601DateFormatter().string(from: Date())
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let d = try? enc.encode(data) { try? d.write(to: sidecarURL) }
+        if let d = try? enc.encode(data) {
+            try? FileManager.default.createDirectory(at: sidecarURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? d.write(to: sidecarURL, options: .atomic)
+        }
     }
 }
 
 final class Library {
     private(set) var tracks: [Track] = []
     private var seen = Set<String>()
+    private var remoteEntries: [String: LibEntry] = [:]
     static let audioExts: Set<String> = ["mp3", "wav", "flac", "m4a", "aac", "aiff", "aif"]
 
-    init(inputs: [String]) { for p in inputs { add(path: p) } }
+    init(inputs: [String], catalogPath: String? = nil) {
+        let catalog = URL(fileURLWithPath: catalogPath ?? MenuBandJuke.defaultLibraryPath())
+        if let data = try? Data(contentsOf: catalog),
+           let lib = try? JSONDecoder().decode(LibFile.self, from: data) {
+            for entry in lib.tracks where entry.remoteKey != nil {
+                remoteEntries[URL(fileURLWithPath: entry.path).standardizedFileURL.path] = entry
+            }
+        }
+        // Playlists may reference auditions omitted from the canonical index.
+        let remoteCatalog = catalog.deletingLastPathComponent().appendingPathComponent("juke-remote.json")
+        if let data = try? Data(contentsOf: remoteCatalog),
+           let remote = try? JSONDecoder().decode(RemoteFile.self, from: data) {
+            for entry in remote.tracks {
+                let path = URL(fileURLWithPath: entry.path).standardizedFileURL.path
+                if remoteEntries[path] == nil {
+                    remoteEntries[path] = LibEntry(path: path, updated: entry.updated,
+                                                   bytes: entry.bytes, remoteKey: entry.key)
+                }
+            }
+        }
+        for p in inputs { add(path: p) }
+    }
 
     // Reorder the queue in place (JukeWizard's sort control).
     func reorder(by cmp: (Track, Track) -> Bool) { tracks.sort(by: cmp) }
@@ -109,9 +171,13 @@ final class Library {
         let key = url.standardizedFileURL.path
         guard !seen.contains(key) else { return nil }
         guard Library.audioExts.contains(url.pathExtension.lowercased()) else { return nil }
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let remote = remoteEntries[key]
+        guard FileManager.default.fileExists(atPath: url.path) || remote != nil else { return nil }
         seen.insert(key)
-        let t = Track(url: url, lane: lane)
+        let t = Track(url: url.standardizedFileURL, lane: lane, title: remote?.title)
+        t.remoteKey = remote?.remoteKey
+        t.meta = remote?.metadata
+        t.refreshRenderedAt()
         tracks.append(t)
         return t
     }
@@ -119,7 +185,10 @@ final class Library {
     func add(path: String) {
         let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
         var isDir: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return }
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else {
+            addFile(url, lane: url.deletingLastPathComponent().lastPathComponent)
+            return
+        }
         if isDir.boolValue {
             let lane = url.lastPathComponent
             let items = (try? FileManager.default.contentsOfDirectory(
@@ -143,21 +212,30 @@ final class Library {
         var revisions: Int?; var bytes: Int?; var durationSec: Double?
         var bpm: Int?; var key: String?; var releaseDate: String?
         var art: String?; var media: [MediaItem]?; var links: TrackLinks?
+        var remoteKey: String?
+        var metadata: TrackMeta {
+            TrackMeta(artist: artist, backend: backend, status: status, updated: updated,
+                      revisions: revisions, bytes: bytes, durationSec: durationSec,
+                      bpm: bpm, key: key, releaseDate: releaseDate, art: art, media: media, links: links)
+        }
     }
     private struct LibFile: Codable { var tracks: [LibEntry] }
+    private struct RemoteEntry: Decodable {
+        var key: String; var path: String; var bytes: Int?; var updated: String?
+    }
+    private struct RemoteFile: Decodable { var tracks: [RemoteEntry] }
     private func loadLibrary(_ url: URL) {
         guard let d = try? Data(contentsOf: url),
               let lib = try? JSONDecoder().decode(LibFile.self, from: d) else { return }
         for e in lib.tracks {
             let f = URL(fileURLWithPath: (e.path as NSString).expandingTildeInPath)
             let key = f.standardizedFileURL.path
-            guard !seen.contains(key), FileManager.default.fileExists(atPath: f.path) else { continue }
+            guard !seen.contains(key), FileManager.default.fileExists(atPath: f.path) || e.remoteKey != nil else { continue }
             seen.insert(key)
             let t = Track(url: f, lane: e.lane ?? f.deletingLastPathComponent().lastPathComponent, title: e.title)
-            t.meta = TrackMeta(artist: e.artist, backend: e.backend, status: e.status, updated: e.updated,
-                               revisions: e.revisions, bytes: e.bytes, durationSec: e.durationSec,
-                               bpm: e.bpm, key: e.key, releaseDate: e.releaseDate,
-                               art: e.art, media: e.media, links: e.links)
+            t.remoteKey = e.remoteKey
+            t.meta = e.metadata
+            t.refreshRenderedAt()
             tracks.append(t)
         }
     }

@@ -61,7 +61,7 @@ function walkMp3(dir, acc) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = resolve(dir, e.name);
     if (e.isDirectory()) {
-      if (["node_modules", ".git", "archive", "samples", "shouts", "references", ".tmp", "sfx", "narration", "stems", "motion"].includes(e.name)) continue;
+      if (e.name.startsWith(".") || ["node_modules", "archive", "samples", "shouts", "references", "sfx", "narration", "stems", "motion"].includes(e.name)) continue;
       walkMp3(p, acc);
     } else if (e.name.endsWith(".mp3") && basename(dir) === "out") {
       acc.push(p);   // only files directly in an out/ dir, not nested scratch
@@ -144,7 +144,16 @@ function findMedia(absMp3, title) {
 }
 
 const releases = parseReleases();
-const files = walkMp3(POP, []).sort();
+const remoteCatalog = existsSync(`${POP}/out/juke-remote.json`)
+  ? JSON.parse(readFileSync(`${POP}/out/juke-remote.json`, "utf8")).tracks : [];
+const remoteByPath = new Map(remoteCatalog.filter(({ key }) =>
+  typeof key === "string" && !key.startsWith("/") && !key.includes("\\") &&
+  key.split("/").every((p) => p && p !== "." && p !== "..") && /\/out\/[^/]+\.mp3$/.test(key)
+).map((entry) => [resolve(POP, entry.key), entry]));
+const previous = existsSync(`${POP}/out/pop-library.json`)
+  ? JSON.parse(readFileSync(`${POP}/out/pop-library.json`, "utf8")).tracks : [];
+const previousByPath = new Map(previous.map((entry) => [entry.path, entry]));
+const files = [...new Set([...walkMp3(POP, []), ...remoteByPath.keys()])].sort();
 const gitCache = {};
 const tracks = [];
 for (const p of files) {
@@ -153,7 +162,9 @@ for (const p of files) {
   const laneTop = laneDirRel.split("/")[0];
   const title = basename(p, ".mp3");
   if (!isCanonical(title, laneTop, laneDirRel, releases)) continue;
-  const st = statSync(p);
+  const st = existsSync(p) ? statSync(p) : null;
+  const remote = remoteByPath.get(p);
+  const prior = previousByPath.get(p);
   const relInfo = releases[title.toLowerCase()] || releases[title.toLowerCase().replace(/-/g, " ")]
     || releases[title.toLowerCase().replace(/-release$/, "")]   // the master print
     || releases[laneTop.toLowerCase()] || null;
@@ -167,10 +178,11 @@ for (const p of files) {
     lane: laneDirRel,
     backend: backendFor(laneTop, laneDirRel),
     status: relInfo?.status || "UNRELEASED",
-    updated: st.mtime.toISOString(),
+    updated: st?.mtime.toISOString() ?? remote.updated,
     revisions: gitCache[laneAbs],
-    bytes: st.size,
-    durationSec: probeDur(p),
+    bytes: st?.size ?? remote.bytes,
+    durationSec: st && !NOPROBE ? probeDur(p) : prior?.durationSec ?? null,
+    ...(remote ? { remoteKey: remote.key } : {}),
     bpm: relInfo?.bpm ? Number(relInfo.bpm) : null,
     key: relInfo?.key || null,
     releaseDate: relInfo?.releaseDate || null,

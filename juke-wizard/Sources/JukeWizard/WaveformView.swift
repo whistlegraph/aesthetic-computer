@@ -48,6 +48,7 @@ final class WaveformView: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        deck.onStateChange = { [weak self] in self?.needsDisplay = true }
         wantsLayer = true
         layer?.backgroundColor = NSColor(white: 0.03, alpha: 0.62).cgColor
         layer?.borderWidth = 1
@@ -67,7 +68,7 @@ final class WaveformView: NSView {
         deck.load(track)
         deck.setGain(preferredVolume)
         needsDisplay = true
-        computePeaks(url: track.url)
+        computePeaks(track: track)
     }
 
     func play() { deck.play(); wasPlaying = true; startTimer() }
@@ -102,11 +103,12 @@ final class WaveformView: NSView {
     private func stopTimer() { timer?.invalidate(); timer = nil }
 
     // ── waveform peaks (read on a background queue) ──────────────────────
-    private func computePeaks(url: URL) {
+    private func computePeaks(track: Track) {
         peaksToken += 1
         let token = peaksToken
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let file = try? AVAudioFile(forReading: url) else { return }
+            guard (try? track.materialize()) != nil,
+                  let file = try? AVAudioFile(forReading: track.url) else { return }
             let fmt = file.processingFormat
             let frames = AVAudioFrameCount(file.length)
             guard frames > 0,
@@ -149,7 +151,7 @@ final class WaveformView: NSView {
         let progX = w * frac
 
         if peaks.isEmpty {
-            let s = "loading…" as NSString
+            let s = (deck.loadError ?? "loading…") as NSString
             let attr: [NSAttributedString.Key: Any] = [
                 .foregroundColor: NSColor(white: 0.5, alpha: 1),
                 .font: NSFont.systemFont(ofSize: 11)]

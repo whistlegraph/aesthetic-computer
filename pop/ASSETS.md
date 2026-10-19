@@ -54,7 +54,52 @@ system/public/assets/pop/<lane>/<slug>/
 Intermediates (`*-pitched.mp3`, `*-stretched.mp3`, `out/.tmp/`) are
 **not** stored — they regenerate locally from the vocal stem in seconds.
 
-### private workspace cache
+### Small listening library on Neo
+
+Juke can list tracks without keeping every MP3 locally. After installing the
+current Menu Band (`juke-wizard/install.sh`), enable the bounded cache:
+
+```sh
+sh pop/bin/install-juke-cache.sh
+ac-juke-cache catalog
+node pop/bin/pop-library.mjs --no-probe
+ac-juke-cache adopt
+sh pop/bin/juke-sync.sh install light
+ac-juke-cache prune
+```
+
+`light` uploads new local finals and refreshes the remote catalog every 20
+minutes. Selecting an uncached track downloads it at its original path.
+Downloaded audio has a 512 MiB cache budget; offline pins, open files, recent
+downloads, changed renders, and unverified originals are retained. Ratings and
+notes (`*.juke.json`) are never evicted. The remote catalog and previous index
+preserve track entries and metadata when audio is absent. Uncached playback
+requires a connection and the existing fleet Spaces credentials.
+
+Right-click a local library track for **Keep Track Offline** / **Remove Offline Pin**,
+or `ac-juke-cache pin lane/out/track.mp3` and `ac-juke-cache unpin ...`.
+`sh pop/bin/juke-sync.sh install both` restores the full-download sync policy.
+Run `sh pop/bin/juke-sync.sh down` to fetch the full library immediately.
+
+The cache helper is separate from the account-based Juke Cloud library. It
+uses the fleet's existing `shelf-sync/juke` mirror; the full private render
+archive below remains the recovery store for stems, covers, and other outputs.
+
+### Private render recovery
+
+Idle source media in `pop/sailor-song/src` and `pop/samples` can also be
+parked privately with checksum-verified restore manifests. Restore the inputs
+before editing or rendering a parked lane; source code and metadata stay local:
+
+```sh
+python3 toolchain/macos/workspace-media.py restore pop/sailor-song/src
+python3 toolchain/macos/workspace-media.py restore pop/samples
+# Fetch one sample without downloading the collection:
+python3 toolchain/macos/workspace-media.py restore pop/samples --file ocean-ia-cc0/ocean-waves-crushing.wav
+```
+
+Local manifests are in `~/.local/share/ac-workspace-media/`; copies and immutable
+manifest history are also stored privately in Spaces.
 
 Before clearing a machine, the complete ignored `pop/*/out/` trees may be
 parked privately at

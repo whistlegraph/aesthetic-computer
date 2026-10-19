@@ -181,7 +181,7 @@ public final class MenuBandJuke {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private static func defaultLibraryPath() -> String {
+    static func defaultLibraryPath() -> String {
         if let configured = ProcessInfo.processInfo.environment["MENU_BAND_JUKE_LIBRARY"],
            !configured.isEmpty {
             return (configured as NSString).expandingTildeInPath

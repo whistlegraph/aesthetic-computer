@@ -1,4 +1,6 @@
 import XCTest
+// The standalone app owned MenuBarCD; Menu Band no longer builds that type.
+#if canImport(JukeWizard)
 @testable import JukeWizard
 
 final class MenuBarCDTests: XCTestCase {
@@ -14,3 +16,4 @@ final class MenuBarCDTests: XCTestCase {
         XCTAssertEqual(MenuBarCD.credit(artist: "  Aesthetic  ", title: ""), "Aesthetic")
     }
 }
+#endif

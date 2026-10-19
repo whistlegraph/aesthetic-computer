@@ -1,5 +1,5 @@
 import XCTest
-@testable import JukeWizard
+@testable import MenuBandJuke
 
 final class TempoAnalyzerTests: XCTestCase {
     func testDetectsFourOnFloorTempo() throws {

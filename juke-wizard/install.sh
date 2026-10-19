@@ -36,6 +36,7 @@ fi
 # The owning application. Menu Band's installer builds, signs, and registers
 # the launch agents that keep the Juke's process resident.
 bash "$ROOT/../slab/menuband/install.sh"
+sh "$ROOT/../pop/bin/install-juke-cache.sh"
 
 echo "jukewizard command -> $BIN_DIR/jukewizard"
 echo "Juke lives inside Menu Band; control socket at ~/.config/jukewizard/control.sock"

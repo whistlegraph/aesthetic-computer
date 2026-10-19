@@ -39,7 +39,7 @@ enum Palette {
 
 final class JukeController: NSWindowController, NSWindowDelegate,
                             NSTableViewDataSource, NSTableViewDelegate,
-                            WaveformViewDelegate, NSTextViewDelegate {
+                            WaveformViewDelegate, NSTextViewDelegate, NSMenuDelegate {
     let library: Library
     let watchDirs: [String]
     let selectPath: String?
@@ -482,6 +482,16 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         listTable.setDraggingSourceOperationMask([.copy], forLocal: false)
         listTable.target = self
         listTable.action = #selector(listClicked)
+        let offlineMenu = NSMenu(title: "Offline audio")
+        offlineMenu.delegate = self
+        offlineMenu.autoenablesItems = false
+        for (title, action) in [("Keep Track Offline", #selector(pinLibraryTrack)),
+                                ("Remove Offline Pin", #selector(unpinLibraryTrack))] {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            offlineMenu.addItem(item)
+        }
+        listTable.menu = offlineMenu
         listScroll = NSScrollView()
         listScroll.documentView = listTable
         listScroll.hasVerticalScroller = true
@@ -1485,6 +1495,29 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         miniPlayer?.refresh()
     }
 
+    @objc private func keepTrackOffline() { updateOfflinePin(true) }
+    @objc private func removeOfflinePin() { updateOfflinePin(false) }
+    private var contextTrack: Track? {
+        guard activeSource == .local, library.tracks.indices.contains(listTable.clickedRow) else { return nil }
+        return library.tracks[listTable.clickedRow]
+    }
+    @objc private func pinLibraryTrack() { updateOfflinePin(true, selected: contextTrack) }
+    @objc private func unpinLibraryTrack() { updateOfflinePin(false, selected: contextTrack) }
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        for item in menu.items { item.isEnabled = contextTrack?.remoteKey != nil }
+    }
+
+    private func updateOfflinePin(_ pin: Bool, selected: Track? = nil) {
+        guard let track = selected ?? track, track.remoteKey != nil else { return }
+        DispatchQueue.global(qos: .utility).async {
+            do {
+                if pin { try track.materialize(pin: true) } else { try track.unpin() }
+            } catch {
+                DispatchQueue.main.async { NSAlert(error: error).runModal() }
+            }
+        }
+    }
+
     func makeDockMenu() -> NSMenu {
         let menu = NSMenu(title: "Menu Band Juke")
         let heading = NSMenuItem(title: "\(quickTitle) — \(quickSubtitle)", action: nil, keyEquivalent: "")
@@ -1508,6 +1541,15 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         let volumeDown = NSMenuItem(title: "Volume Down", action: #selector(quickVolumeDown), keyEquivalent: "")
         volumeDown.target = self
         menu.addItem(volumeDown)
+        if track?.remoteKey != nil {
+            menu.addItem(.separator())
+            for (title, action) in [("Keep Track Offline", #selector(keepTrackOffline)),
+                                    ("Remove Offline Pin", #selector(removeOfflinePin))] {
+                let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+                item.target = self
+                menu.addItem(item)
+            }
+        }
         menu.addItem(.separator())
         let room = NSMenuItem(title: quickRoomSummary, action: nil, keyEquivalent: "")
         room.isEnabled = false

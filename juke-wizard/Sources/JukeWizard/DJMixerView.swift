@@ -269,6 +269,10 @@ final class DJDeckPlayer: NSObject {
     private(set) var gain: Float = 1
     private(set) var pitchSemitones: Double = 0
     private(set) var motorEnabled = false
+    private var downloadToken = 0
+    private var downloading = false
+    private var playAfterDownload = false
+    private(set) var loadError: String?
     var onStateChange: (() -> Void)?
     private var routeObserver: NSObjectProtocol?
     private var outputLatency: Double = 0
@@ -289,11 +293,16 @@ final class DJDeckPlayer: NSObject {
         pcm.isScratching ? currentTime
             : max(0, currentTime - outputLatency - Self.roomDisplayLatency)
     }
-    var isPlaying: Bool { motorEnabled }
+    var isPlaying: Bool { motorEnabled || playAfterDownload }
     var visualState: (motion: Double, energy: Float) { pcm.visualState }
     var rate: Double { sourceBPM > 0 ? targetBPM / sourceBPM : 1 }
 
     func load(_ track: Track) {
+        downloadToken += 1
+        let token = downloadToken
+        downloading = false
+        playAfterDownload = false
+        loadError = nil
         engine.stop()
         sourceNode = nil
         pitchNode = nil
@@ -304,6 +313,33 @@ final class DJDeckPlayer: NSObject {
         pitchSemitones = 0
         motorEnabled = false
         bpmAnalyzed = false
+        pcm = DJDeckPCMState()
+        if !FileManager.default.fileExists(atPath: track.url.path), track.remoteKey != nil {
+            downloading = true
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let result = Result { try track.materialize() }
+                DispatchQueue.main.async {
+                    guard let self, self.downloadToken == token else { return }
+                    let autoplay = self.playAfterDownload
+                    let wantedRate = self.rate
+                    let wantedPitch = self.pitchSemitones
+                    self.downloading = false
+                    switch result {
+                    case .success:
+                        self.load(track)
+                        self.setRate(wantedRate)
+                        self.setPitchSemitones(wantedPitch)
+                        if autoplay { self.play() }
+                    case .failure(let error):
+                        self.loadError = error.localizedDescription
+                        self.motorEnabled = false
+                        self.playAfterDownload = false
+                        self.onStateChange?()
+                    }
+                }
+            }
+            return
+        }
         guard let file = try? AVAudioFile(forReading: track.url) else { return }
         let format = file.processingFormat
         let capacity = AVAudioFrameCount(file.length)
@@ -400,6 +436,8 @@ final class DJDeckPlayer: NSObject {
     func toggle() { isPlaying ? pause() : play() }
 
     func play() {
+        if loadError != nil, let track { load(track) }
+        if downloading { playAfterDownload = true; return }
         guard sourceNode != nil else { return }
         if !engine.isRunning {
             try? engine.start()
@@ -412,6 +450,7 @@ final class DJDeckPlayer: NSObject {
     }
 
     func pause() {
+        playAfterDownload = false
         motorEnabled = false
         // A motor-off deck remains available to the hand; zero transport
         // velocity is silence until the platter is pushed or thrown.
@@ -812,7 +851,8 @@ final class DJWaveformOutputView: NSView {
         peakDuration = 0
         needsDisplay = true
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let file = try? AVAudioFile(forReading: track.url) else { return }
+            guard (try? track.materialize()) != nil,
+                  let file = try? AVAudioFile(forReading: track.url) else { return }
             let format = file.processingFormat
             let frames = AVAudioFrameCount(file.length)
             guard frames > 0,
