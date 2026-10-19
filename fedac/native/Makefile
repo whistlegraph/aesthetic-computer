@@ -106,6 +106,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/input.c \
         $(SRCDIR)/audio.c \
         $(SRCDIR)/gm_synth.c \
+        $(SRCDIR)/gm_sf2.c \
         $(SRCDIR)/scratch_voice.c \
         $(SRCDIR)/usb-midi.c \
         $(SRCDIR)/wifi.c \

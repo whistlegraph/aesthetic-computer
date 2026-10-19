@@ -293,6 +293,30 @@ if [ -d "$NATIVE/samples/piano" ]; then
     log "  Piano samples: $(ls "$IROOT/samples/piano/" | wc -l) anchors, $(du -sh "$IROOT/samples/piano/" | cut -f1)"
 fi
 
+# ── 2d3: GM SoundFont ──
+# audio.c plays GM programs from /soundfonts/GeneralUser-GS.sf2 when present
+# (a stick's /soundfonts/*.sf2 wins). *.sf2 is gitignored and .dockerignore
+# keeps slab/ out of the image, so in the oven the curl is what runs; the
+# local copy only counts when AC_SRC is a real checkout. Fail soft: without
+# the bank, GM falls back to gm_synth.
+SF2_DIR="$SRC/slab/menuband-win/soundfonts"
+SF2_URL="https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/GeneralUser-GS.sf2"
+SF2_LICENSE_URL="https://raw.githubusercontent.com/mrbumpy409/GeneralUser-GS/main/documentation/LICENSE.txt"
+mkdir -p "$IROOT/soundfonts"
+if [ -f "$SF2_DIR/GeneralUser-GS.sf2" ]; then
+    cp "$SF2_DIR/GeneralUser-GS.sf2" "$IROOT/soundfonts/"
+elif [ -f /cache/soundfonts/GeneralUser-GS.sf2 ]; then
+    cp /cache/soundfonts/GeneralUser-GS.sf2 "$IROOT/soundfonts/"
+elif ! curl -fsSL --retry 2 "$SF2_URL" -o "$IROOT/soundfonts/GeneralUser-GS.sf2"; then
+    rm -f "$IROOT/soundfonts/GeneralUser-GS.sf2"
+    log "  SoundFont: download failed — GM will use gm_synth"
+fi
+cp "$SF2_DIR/GeneralUser-GS-LICENSE.txt" "$IROOT/soundfonts/" 2>/dev/null \
+    || curl -fsSL --retry 2 "$SF2_LICENSE_URL" -o "$IROOT/soundfonts/GeneralUser-GS-LICENSE.txt" \
+    || log "  SoundFont: LICENSE download failed"
+[ -f "$IROOT/soundfonts/GeneralUser-GS.sf2" ] && \
+    log "  SoundFont: GeneralUser GS, $(du -sh "$IROOT/soundfonts/GeneralUser-GS.sf2" | cut -f1)"
+
 # ── 2e: /dev nodes (needed before devtmpfs mounts) ──
 mknod "$IROOT/dev/console" c 5 1 2>/dev/null || true
 mknod "$IROOT/dev/null" c 1 3 2>/dev/null || true

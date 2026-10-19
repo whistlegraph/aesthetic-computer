@@ -1136,11 +1136,10 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
     JS_FreeValue(ctx, v);
 
-    // Optional GM-synthesis program (0-127). When present and >= 0 we try the
-    // bespoke algorithmic GM voice first; if that program is implemented
-    // (Piano family 0-7 in this slice) it wins and `type` is ignored. If not,
-    // audio_synth_gm returns 0 and we fall through to the `type`-based path so
-    // unimplemented programs still use notepat's family-recipe wave.
+    // Optional GM program (0-127). When present and >= 0 it wins over `type`:
+    // the SoundFont bank plays it if loaded (sound.gm.backend === "sf2"),
+    // otherwise the algorithmic gm_synth voice. If neither can, audio_synth_gm
+    // returns 0 and we fall through to the `type`-based path.
     // docs/gm-synthesis/01-piano-mallet-organ-guitar.md
     int gm_program = -1;
     JSValue gmp_v = JS_GetPropertyStr(ctx, opts, "gmProgram");
@@ -3282,6 +3281,12 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, sound, "scratch", JS_NewCFunction(ctx, js_sound_scratch, "scratch", 1));
     JS_SetPropertyStr(ctx, sound, "time", JS_NewFloat64(ctx, rt->audio ? rt->audio->time : 0.0));
     JS_SetPropertyStr(ctx, sound, "registerSample", JS_NewCFunction(ctx, js_noop, "registerSample", 3));
+
+    // sound.gm.backend — "sf2" or "synth". The bank loads after boot, so the
+    // answer can change; build_api runs per phase, which keeps it current.
+    JSValue gm = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, gm, "backend", JS_NewString(ctx, audio_gm_backend()));
+    JS_SetPropertyStr(ctx, sound, "gm", gm);
 
     // speaker sub-object
     JSValue speaker = JS_NewObject(ctx);

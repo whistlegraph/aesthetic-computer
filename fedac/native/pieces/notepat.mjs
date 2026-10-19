@@ -745,7 +745,7 @@ const NOTE_TO_KEY = {
   "f#": "w", "g": "g", "g#": "r", "a": "a", "a#": "q", "b": "b",
   "+c": "h", "+c#": "t", "+d": "i", "+d#": "y", "+e": "j", "+f": "k",
   "+f#": "u", "+g": "l", "+g#": "o", "+a": "m", "+a#": "p", "+b": "n",
-  "++c": ";", "++c#": "'", "++d": "]",
+  "++c": ";", "++c#": "'",
   "-a#": "z", "-b": "x",
 };
 
@@ -762,10 +762,12 @@ function parseNote(name) {
 }
 
 // === GENERAL MIDI INSTRUMENT MODEL (Menu Band parity) ===
-// There is no GM soundfont on bare metal, so each of the 128 GM programs
-// is mapped onto one of the engine's native waveforms via its family.
-// 16 families of 8 → a compact recipe table (NOT 128 hand-tuned lines).
-// A recipe = { wave, attack, decay, sustain, volume, detune? }. When a
+// GM programs play from the GeneralUser GS SoundFont when the native bank
+// has loaded (sound.gm.backend === "sf2"); the bank brings its own attack,
+// levels and tuning, so only `linger` below applies then. Otherwise each of
+// the 128 programs maps onto one of the engine's native waveforms via its
+// family: 16 families of 8 → a compact recipe table (NOT 128 hand-tuned
+// lines). A recipe = { wave, attack, decay, sustain, volume, detune? }. When a
 // melodic side has a gmProgram selected, note-on uses the recipe instead
 // of the freely-cycled `wave`. The custom kits (perc/war/zoo/lasers) are
 // untouched — GM only applies to the "off"/melodic layer.
@@ -881,13 +883,13 @@ const NOTE_COLORS = {
 };
 
 // === KIT LAYOUT ===
-// Pgup cycles the left octave grid's kit through off → perc → warA → warB → off.
-// Pgdn does the same for the right grid. "perc" replaces the 12 notes
+// `[` latches the left octave grid to drums and back, `]` the right;
+// shift walks off → perc → warA → warB → zoo → lasers. "perc" replaces the 12 notes
 // with drum hits (TR-808 / 909 analogues). "warA" / "warB" replace them
 // with the same 12 weapons rendered via two different synthesis models —
 // warA uses each preset's default (mostly classic 3-layer crack/boom/
 // tail) and warB forces every weapon through the physical DWG bore. Tap
-// pgup/pgdn between A and B to A/B-compare model timbre on the same key.
+// shift+[ / shift+] between A and B to A/B-compare model timbre on the same key.
 let kitLeft = "off";   // "off" | "perc" | "warA" | "warB"
 let kitRight = "off";
 
@@ -1750,7 +1752,7 @@ function cycleKit(side) {
 
 // Return drum/weapon name if the given (letter, grid offset) is a live
 // kit pad, else null. offset 0 = left grid, 1 = right grid. Low/high
-// extras (z, x, ;, ', ]) stay melodic.
+// extras (z, x, ;, ') stay melodic.
 function percussionDrumFor(letter, offset) {
   const info = kitDrumFor(letter, offset);
   return info ? info.name : null;
@@ -3174,8 +3176,8 @@ function act({ event: e, sound, wifi, system }) {
     // remap in input.c, not here.
 
     // === DJ DECK KEYS ===
-    // F1 play/pause, F2 next, F3 prev, F4 scan+mount USB. Also [ = speed−,
-    // ` = reset speed. Tap tempo on `,` (unused elsewhere in notepat).
+    // F1 play/pause, F2 next, F3 prev, F4 scan+mount USB. PgUp/PgDn =
+    // speed ±, ` = reset speed. Tap tempo on `,` (unused elsewhere in notepat).
     if (key === "f1") { djTogglePlay(sound); return; }
     if (key === "f2") { djTrackIdx++; djLoadTrack(sound); return; }
     if (key === "f3") { djTrackIdx = (djTrackIdx - 1 + Math.max(1, djFiles.length)) % Math.max(1, djFiles.length); djLoadTrack(sound); return; }
@@ -3194,10 +3196,11 @@ function act({ event: e, sound, wifi, system }) {
     // F5 — cycle internet radio stations (KPBJ, r8dio, NTS 1/2) through
     // the shared deck. Layer notepat melody over a live feed.
     if (key === "f5") { djTuneRadio(sound, radioIdx + 1); return; }
-    if (key === "[") {
+    if (key === "pageup" || key === "pagedown") {
       const d = sound?.deck?.decks?.[0];
       if (d?.loaded) {
-        const s = Math.max(-2, (d.speed || 1) - 0.05);
+        const step = key === "pageup" ? 0.05 : -0.05;
+        const s = Math.max(-2, Math.min(2, (d.speed || 1) + step));
         sound.deck.setSpeed(0, s);
         djMsg(`${s.toFixed(2)}x`);
       }
@@ -3346,16 +3349,22 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // PgUp: cycle LEFT grid kit (off → perc → war → off).
-    // PgDn: same for RIGHT grid. Each cycle fires a sample of the new
-    // kit ("c" = kick for perc, pistol for war) so the sound confirms
-    // which mode you just entered.
-    if (key === "pageup" || key === "pagedown") {
-      const side = key === "pageup" ? "left" : "right";
+    // Menu Band's brackets: `[` latches the LEFT grid to drums, `]` the
+    // RIGHT (`]` gave up its ++d note for this); press again for notes.
+    // Shift+`[`/`]` walks the other kits (war A/B, zoo, lasers). Each change
+    // fires a sample of the new kit ("c" = kick for perc, pistol for war)
+    // so the sound confirms which mode you just entered.
+    if (key === "[" || key === "]") {
+      const side = key === "[" ? "left" : "right";
       const arrow = side === "left" ? "◀" : "▶";
       const pan = side === "left" ? -0.4 : 0.4;
       const feedbackPan = side === "left" ? -0.6 : 0.6;
-      const next = cycleKit(side);
+      let next;
+      if (shiftHeld) next = cycleKit(side);
+      else {
+        next = (side === "left" ? kitLeft : kitRight) === "off" ? "perc" : "off";
+        if (side === "left") kitLeft = next; else kitRight = next;
+      }
       const banner = {
         off:    side === "left" ? `${arrow} notes`  : `notes ${arrow}`,
         perc:   side === "left" ? `${arrow} DRUMS`  : `DRUMS ${arrow}`,
@@ -3662,23 +3671,23 @@ function act({ event: e, sound, wifi, system }) {
       if (gmProgram !== null || chordIvls) {
         const recipe = gmProgram !== null ? gmRecipe(gmProgram) : null;
         const useWave = recipe ? recipe.wave : (wave === "sample" ? "sine" : wave);
-        const atk = recipe ? recipe.attack : (quickMode ? 0.002 : currentAttack());
-        const recipeVol = recipe ? recipe.volume : 1.0;
+        // The SoundFont voices itself; the recipe's attack, level and detune
+        // are stand-ins for the synth fallback only.
+        const sf2 = recipe && sound.gm?.backend === "sf2";
+        const atk = recipe && !sf2 ? recipe.attack : (quickMode ? 0.002 : currentAttack());
+        const recipeVol = recipe && !sf2 ? recipe.volume : 1.0;
         const ivls = chordIvls || [0];
         const voices = [];
         for (const iv of ivls) {
           const cf = playFreq * Math.pow(2, iv / 12);
           // Spread voices a touch in the stereo field; detune ensemble.
           const cpan = Math.max(-0.85, Math.min(0.85, pan + (iv ? (iv - 4) * 0.04 : 0)));
-          const ctone = recipe?.detune ? cf * (1 + recipe.detune * 0.01) : cf;
+          const ctone = recipe?.detune && !sf2 ? cf * (1 + recipe.detune * 0.01) : cf;
           const v = sound.synth({
             type: useWave, tone: ctone, duration: Infinity,
             volume: vol * recipeVol, attack: atk, decay: currentDecay(), pan: cpan,
-            // Route to the bespoke native GM C voice when this program has one
-            // (0..7 piano family today); js_synth falls back to `type` for the
-            // not-yet-implemented programs. Each C voice applies bounded
-            // per-trigger stochasticism so the same note never renders an
-            // identical waveform.
+            // Route to the native GM voice: the SoundFont when loaded, else
+            // gm_synth; js_synth falls back to `type` if neither can play it.
             gmProgram: gmProgram !== null ? gmProgram : undefined,
           });
           if (v) voices.push(v);
@@ -7895,13 +7904,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       // leftmost column so the spatial relationship to the grid reads.
       drawAuxPad(leftX,                       "z", "a#");
       drawAuxPad(leftX + auxW + auxGap,       "x", "b");
-      // RIGHT side: ; ' ] (above-octave C, C#, D) tucked into the
-      // bottom-right corner, aligned with the right grid's rightmost
-      // column so the "up-octave" continuation reads visually.
-      const r0x = rightX + gridW - (auxW * 3 + auxGap * 2);
+      // RIGHT side: ; ' (above-octave C, C#) tucked into the bottom-right
+      // corner, aligned with the right grid's rightmost column so the
+      // "up-octave" continuation reads visually. (`]` latches drums now.)
+      const r0x = rightX + gridW - (auxW * 2 + auxGap);
       drawAuxPad(r0x,                         ";", "c");
       drawAuxPad(r0x + (auxW + auxGap),       "'", "c#");
-      drawAuxPad(r0x + (auxW + auxGap) * 2,   "]", "d");
     }
   }
 
@@ -9108,7 +9116,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["shift",        "accent + linger"],
       ]],
       ["DRUMS", [255, 140, 90], [
-        ["pgup/pgdn",  "kit: off\u2192drums\u2192war"],
+        ["[ / ]",      "drums left / right"],
+        ["\u21e7[ / \u21e7]", "kit: war\u2192zoo\u2192lasers"],
         ["space",      "reverse loop"],
       ]],
       ["WAVE", [220, 140, 255], [

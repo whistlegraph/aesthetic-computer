@@ -3996,8 +3996,9 @@ int main(int argc, char *argv[]) {
     int bl_max = 0;
     // The MiniBook X keeps media keys behind Fn (F2 mute, F3/F4 volume) and
     // its Fn+F6/F7 brightness never reaches the OS, so plain F-keys do both
-    // there instead of the generic F1–F3 / F5–F6 fallback. Full row in
-    // docs/machines/minibook-x.md.
+    // there instead of the generic F1–F3 / F5–F6 fallback, and stop at the
+    // OS so notepat's DJ keys on the same F-keys don't fire too. Full row
+    // in docs/machines/minibook-x.md.
     int minibook_keys = 0;
     {
         char product[64] = "";
@@ -4831,15 +4832,18 @@ int main(int argc, char *argv[]) {
                         (minibook_keys ? strcmp(input->events[i].key_name, "f4") == 0
                                        : strcmp(input->events[i].key_name, "f3") == 0)) {
                         audio_volume_adjust(audio, 1);
+                        if (minibook_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 1200.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0 ||
                              (minibook_keys ? strcmp(input->events[i].key_name, "f3") == 0
                                             : strcmp(input->events[i].key_name, "f2") == 0)) {
                         audio_volume_adjust(audio, -1);
+                        if (minibook_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 800.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiomute") == 0 ||
                              strcmp(input->events[i].key_name, minibook_keys ? "f2" : "f1") == 0) {
                         audio_volume_adjust(audio, 0);
+                        if (minibook_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 440.0, 0.08, 0.15, 0.001, 0.07, 0.0);
                     // Brightness: KEY_BRIGHTNESS or F5/F6 as fallback
                     } else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
@@ -4853,13 +4857,16 @@ int main(int argc, char *argv[]) {
                         FILE *f = fopen(tmp, "r");
                         int cur = bl_max / 2;
                         if (f) { fscanf(f, "%d", &cur); fclose(f); }
-                        int step = bl_max / 20; // 5% steps
-                        if (step < 1) step = 1;
-                        cur += up ? step : -step;
+                        // Eyes hear brightness in ratios: ×1.5 a press (5%
+                        // steps were invisible near the top).
+                        int next = up ? cur * 3 / 2 : cur * 2 / 3;
+                        if (next == cur) next = cur + (up ? 1 : -1);
+                        cur = next;
                         if (cur < 1) cur = 1; // never fully off
                         if (cur > bl_max) cur = bl_max;
                         f = fopen(tmp, "w");
                         if (f) { fprintf(f, "%d", cur); fclose(f); }
+                        if (minibook_keys) input->events[i].type = 0;
                         // Click sound: higher = brighter, lower = dimmer
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
