@@ -81,9 +81,9 @@ end
     // As with Lua, the shape of the blank is load-bearing. A push carries no
     // extension, so the client takes the source for p5 only when it declares a
     // top-level `function setup(` or `function draw(` and exports nothing — an
-    // `export` makes it an AC piece. The handled-piece loader does not resolve
-    // .p5 under an @handle yet.
-    routable: false,
+    // `export` makes it an AC piece. Published, it answers at @handle/slug:
+    // the handled-piece loader falls back to .p5 when no .mjs is there.
+    routable: true,
     blank: (name) => `// ${name}, ${stamp()}
 // A blank p5.js sketch.
 

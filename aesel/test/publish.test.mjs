@@ -47,6 +47,15 @@ test("plans the handle route from the file name", () => {
   assert.throws(() => planPublish({ file: "/work/notes.txt", handle: "t" }), /\.mjs and \.lisp/);
   assert.equal(looksLikePiece(SOURCE, ".mjs"), true);
   assert.equal(looksLikePiece("const x = 1;", ".mjs"), false);
+
+  // A .p5 sketch publishes beside .mjs and .lisp, under its own extension.
+  const p5 = planPublish({ file: "/work/stars.p5", handle: "t" });
+  assert.equal(p5.grantUrl, "https://aesthetic.computer/presigned-upload-url/p5/piece-stars.p5/user");
+  assert.equal(p5.mediaUrl, "https://aesthetic.computer/media/@t/piece/stars.p5");
+  assert.equal(p5.route, "https://aesthetic.computer/@t/stars");
+  assert.equal(looksLikePiece("function setup() {}\nfunction draw() {}", ".p5"), true);
+  assert.equal(looksLikePiece("function draw() {}\nexport { draw };", ".p5"), false);
+  assert.equal(looksLikePiece("const x = 1;", ".p5"), false);
 });
 
 test("publishes through the presigned user-bucket flow and verifies", async (context) => {

@@ -201,6 +201,11 @@ assert_contains "$output" 'engine bridge claude:'
 assert_contains "$output" 'engine bridge codex:'
 assert_contains "$output" 'default engine bridge: the one you chose last (first launch: aesthetic)'
 
+if ! AESEL_DRY_RUN=1 "$CLI" --runtime p5 "$WORK_DIR" >/dev/null 2>&1; then
+    printf 'Expected --runtime p5 to be accepted.\n' >&2
+    exit 1
+fi
+
 if AESEL_DRY_RUN=1 "$CLI" --runtime rust "$WORK_DIR" >/dev/null 2>&1; then
     printf 'Expected an unknown runtime to fail.\n' >&2
     exit 1

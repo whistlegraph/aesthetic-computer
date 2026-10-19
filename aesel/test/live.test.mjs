@@ -138,7 +138,7 @@ test("every runtime carries a blank that names itself in a comment, not on scree
   assert.equal(runtimeFor("kidlisp").id, "lisp");
   assert.equal(runtimeFor("js").id, "mjs");
   assert.match(runtimeMenu(), /lua \(processing\)/);
-  assert.equal(runtimeFor("p5").routable, false);
+  assert.equal(runtimeFor("p5").routable, true);
   assert.equal(runtimeFor("p5.js").id, "p5");
   assert.equal(runtimeFor("p5js").id, "p5");
   assert.match(runtimeMenu(), /p5 \(p5\.js\)/);

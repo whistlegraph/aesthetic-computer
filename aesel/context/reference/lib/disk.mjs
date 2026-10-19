@@ -8575,7 +8575,7 @@ async function load(
     // If the .mjs file was fetched but failed to import (JS error), don't try fallbacks.
     if (fullUrl && !fullUrl.includes('.lisp') && !fullUrl.includes('.lua') && !fullUrl.includes('.js?') && isFetchError && !isModuleImportError) {
       try {
-        const fallbackExts = [".js", ".lua", ".lisp"];
+        const fallbackExts = [".js", ".lua", ".lisp", ".p5"];
         let loadedFromFallback = false;
         let fallbackError = null;
 
@@ -8615,7 +8615,7 @@ async function load(
           sourceCode = await response.text();
           originalCode = sourceCode;
 
-          if (fallbackExt === ".js") {
+          if (fallbackExt === ".js" || fallbackExt === ".p5") {
             // Plain JavaScript / p5-style sketch — run real p5 in this worker
             // against an OffscreenCanvas blitted into screen.pixels (Option B).
             pieceMetadata = {

@@ -5,6 +5,7 @@ import {join,dirname,delimiter} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {readFileSync,realpathSync,statSync,accessSync,constants} from 'node:fs';
 import {markStartup} from './startup-trace.mjs';
+import {runtimeFor,runtimeMenu} from './runtimes.mjs';
 
 markStartup('cli-imports');
 process.env.NODE_COMPILE_CACHE ||= join(process.env.XDG_CACHE_HOME||join(homedir(),'.cache'),'aesel','node-compile');
@@ -70,7 +71,9 @@ if(['--help','-h','help'].includes(args[0])){
   if(values.resume!==undefined&&!/^[0-9A-Fa-f-]{36}$/.test(values.resume))fail('invalid thread id');
   if(values.prompt?.length>4000)fail('prompt exceeds 4000 characters');
   if(values.model!==undefined&&!/^[A-Za-z0-9._@:-]+$/.test(values.model))fail(`invalid model name: ${values.model}`);
-  if(values.runtime!==undefined&&!['mjs','lisp','lua','js','kidlisp','processing','l5'].includes(values.runtime))fail(`unknown runtime: ${values.runtime} (mjs, lisp, processing)`);
+  // Validated against the runtime table itself, so a new runtime is launchable
+  // the moment it exists — a hand-kept list here once refused `p5`.
+  if(values.runtime!==undefined){try{runtimeFor(values.runtime);}catch{fail(`unknown runtime: ${values.runtime} (${runtimeMenu()})`);}}
   if(values.genre!==undefined){
     const genres={piece:'piece',ac:'piece',blank:'piece',nopaint:'nopaint',brush:'nopaint'};
     if(!Object.hasOwn(genres,values.genre))fail(`unknown genre: ${values.genre} (piece, nopaint)`);

@@ -1,4 +1,4 @@
-Usage: ac [directory] [--runtime mjs|lisp|processing]
+Usage: ac [directory] [--runtime mjs|lisp|processing|p5]
                       [--piece FILE] [--resume THREAD_ID]
                       [--genre piece|nopaint]
                       [--backend claude|codex|ac|open] [--model NAME]

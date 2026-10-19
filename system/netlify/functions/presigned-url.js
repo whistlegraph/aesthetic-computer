@@ -216,6 +216,7 @@ export async function handler(event, context) {
   if (extension === "mjs") mimeType = "application/javascript; charset=utf-8";
   if (extension === "lisp") mimeType = "text/x-lisp; charset=utf-8";
   if (extension === "lua") mimeType = "text/x-lua; charset=utf-8";
+  if (extension === "p5") mimeType = "text/javascript; charset=utf-8";
   if (extension === "mp4") mimeType = "video/mp4";
   if (extension === "json") mimeType = "application/json";
   if (extension === "gltf") mimeType = "model/gltf+json";

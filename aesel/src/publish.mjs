@@ -14,6 +14,7 @@ import { SITE, USER_AGENT } from "./ac-session.mjs";
 export const PUBLISHABLE = {
   ".mjs": "application/javascript; charset=utf-8",
   ".lisp": "text/x-lisp; charset=utf-8",
+  ".p5": "text/javascript; charset=utf-8",
 };
 export const MAX_SOURCE_LENGTH = 100_000;
 
@@ -45,6 +46,11 @@ export function slugFor(file, explicit = "") {
 
 export function looksLikePiece(source, extension) {
   if (extension === ".lisp") return source.trim().length > 0;
+  // A global-mode p5 sketch, by the same reading the client uses
+  // (`lib/p5-worker.mjs` looksLikeP5Sketch): setup or draw, and no export.
+  if (extension === ".p5") {
+    return !/(?:^|\n)\s*export\s/.test(source) && /(?:^|\n)\s*function\s+(setup|draw)\s*\(/.test(source);
+  }
   return /export\s+(?:async\s+)?(?:function\s+(?:boot|paint|sim|act|beat|leave|meta)\b|default\b|\{)/.test(source);
 }
 
