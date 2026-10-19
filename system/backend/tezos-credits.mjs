@@ -5,7 +5,11 @@ import { CREDIT_PACK, fulfillGrant } from './easel-paid-credits.mjs';
 export const TEZOS_TREASURY = 'tz1gkf8EexComFBJvjtT1zdsisdah791KwBE'; // aesthetic.tez
 export const CONFIRMATIONS = 3;
 export const QUOTE_MS = 15 * 60_000;
+// The small pack is priced for collectors who spend five tez at a time: at
+// $5 per million it would be 300,000 cells; 250,000 keeps the small-pack
+// margin above the big packs' (58% against 50% after provider cost).
 export const TEZOS_CREDIT_PACKS = Object.freeze([
+  Object.freeze({ id:'braincells-250k-v1', amount:150, credits:250_000 }),
   Object.freeze({ id:'braincells-600k-v1', amount:300, credits:600_000 }),
   CREDIT_PACK,
 ]);

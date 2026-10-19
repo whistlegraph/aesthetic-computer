@@ -93,7 +93,7 @@ export function tokenMetadata({ code, handle, when, width, height, uris, display
   const px = (w, h) => ({ value: `${w}x${h}`, unit: "px" });
   return {
     name: `#${code}`,
-    description: `A painting by @${handle} on Aesthetic Computer, finished ${day}. ${width}×${height} pixels.\n\nThe painting lives at ${ac}/painting~${code} — open it there to keep painting from it.\n\nCome say hi at https://laklok.com.`,
+    description: `A painting by @${handle} on Aesthetic Computer, finished ${day}. ${width}×${height} pixels.\n\nThe painting lives at ${ac}/painting~${code} — open it there to keep painting from it.\n\nTezos 4 Braincells: paint your own at https://notepaint.art. Five tez or so buys 250,000 Braincells at ${ac}/braincells.\n\nCome say hi at https://laklok.com.`,
     tags: ["aesthetic.computer", "painting", "pixelart", "nopaint", paintingTag(code)],
     symbol: "OBJKT",
     artifactUri: uris.painting,

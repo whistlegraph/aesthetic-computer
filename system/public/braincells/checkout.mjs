@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 const AUTH0_CLIENT_ID = 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt';
 // Mirrors TEZOS_CREDIT_PACKS in system/backend/tezos-credits.mjs. The server
 // prices and fixes the pack; these only label the menu before a checkout exists.
-const STORE_OFFERS = [{ id:'braincells-600k-v1', credits:600_000, usd:3 }, { id:'braincells-1m-v1', credits:1_000_000, usd:5 }];
+const STORE_OFFERS = [{ id:'braincells-250k-v1', credits:250_000, usd:1.5 }, { id:'braincells-600k-v1', credits:600_000, usd:3 }, { id:'braincells-1m-v1', credits:1_000_000, usd:5 }];
 const isSecret = value => /^[a-f0-9]{64}$/.test(value || '');
 const fragment = location.hash.slice(1);
 // Whistlegraph opens a checkout it already made; the page also makes its own.
