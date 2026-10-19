@@ -21,6 +21,7 @@ import { recognitionReportOptions } from "../analytics/network-recognition.mjs";
 import { vaultPath } from "../vault/credentials.mjs";
 import { tezosRevenue } from "../analytics/tezos-revenue.mjs";
 import { socialReport } from "../analytics/social-report.mjs";
+import { searchConsole, sitemaps, analytics as googleAnalytics, searchSummary, SEARCH_SITES } from "../analytics/google-search.mjs";
 import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -146,15 +147,18 @@ const checkedHours = (hours, max = 840) => {
 
 async function networkReport({ hours = 24, scope = "all" } = {}) {
   const part = promise => promise.then(value => value, error => ({ unavailable: String(error.message || error) }));
-  const [visits, referrers, pieces, braincells, tezos, social] = await Promise.all([
+  const days = Math.max(1, Math.ceil(checkedHours(hours) / 24));
+  const [visits, referrers, pieces, braincells, tezos, social, search, ga4] = await Promise.all([
     part(visitsReport({ hours, scope })),
     part(journeyReport("referrers", { hours, scope, limit: 25 })),
     part(journeyReport("pieces", { hours, scope, limit: 25 })),
     part(braincellsReport({ hours, limit: 15 })),
     part(tezosRevenue({ hours: checkedHours(hours) })),
     part(socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
+    part(searchSummary({ days: Math.max(days, 7) })),
+    part(googleAnalytics({ days: Math.min(days, 90) })),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social };
+  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social, search, googleAnalytics: ga4 };
 }
 
 // ⬇️ Direct downloads
@@ -342,11 +346,32 @@ const TOOLS = [
   })),
   {
     name: "network_report",
-    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers) and social accounts (Instagram reels with insights, Bluesky, X). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain) and Google Analytics sessions by source. Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Visit scope; default all" },
+    } },
+  },
+  {
+    name: "search_console",
+    description: `Google Search Console for one AC domain (${SEARCH_SITES.join(", ")}): total clicks, impressions, CTR and average position plus the top rows by query, page, country, device or date; optionally the sitemaps and their crawl state. Data ends about two days back. Read-only service account.`,
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, required: ["site"], properties: {
+      site: { type: "string", enum: SEARCH_SITES },
+      days: { type: "integer", minimum: 1, maximum: 480, description: "Default 7" },
+      dimension: { type: "string", enum: ["query", "page", "country", "device", "date"], description: "Default query" },
+      limit: { type: "integer", minimum: 1, maximum: 1000, description: "Rows; default 25" },
+      sitemaps: { type: "boolean", description: "Also list submitted sitemaps (default false)" },
+    } },
+  },
+  {
+    name: "google_analytics",
+    description: "Google Analytics 4 for aesthetic.computer (property 394537035): sessions, engaged sessions and GA's user estimate, by source/medium and by landing page. GA counts differ from AC's first-party visits; compare, never add.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      days: { type: "integer", minimum: 1, maximum: 90, description: "Default 7" },
+      limit: { type: "integer", minimum: 1, maximum: 100, description: "Rows per breakdown; default 15" },
     } },
   },
   {
@@ -450,6 +475,8 @@ async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
     : name === "braincells_report" ? await braincellsReport(args)
     : name === "network_report" ? await networkReport(args)
+    : name === "search_console" ? { ...(await searchConsole(args)), ...(args.sitemaps ? { sitemaps: await sitemaps({ site: args.site }) } : {}) }
+    : name === "google_analytics" ? await googleAnalytics(args)
     : name === "tezos_revenue" ? await tezosRevenue({ hours: checkedHours(args.hours ?? 24) })
     : name === "social_report" ? await socialReport({ root: REPO_ROOT, hours: checkedHours(args.hours ?? 24, 2160) })
     : name === "account_activity" ? await journeyReport("accounts", args)
