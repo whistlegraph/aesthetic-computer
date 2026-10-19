@@ -1,0 +1,10 @@
+# sotce.net
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /user
+Disallow: /handle
+Disallow: /authorized
+
+Sitemap: https://sotce.net/sitemap.xml

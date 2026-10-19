@@ -2,7 +2,8 @@
 //
 //   node gen-llms.mjs [--dry]
 //
-// Writes two files into system/public/whistlegraph.org/:
+// Writes llms.txt, index.md, robots.txt and sitemap.xml into
+// system/public/whistlegraph.org/:
 //
 //   llms.txt   the llms.txt convention — a short, linked map of the site,
 //              the first thing an agent reads. Points at index.md.
@@ -339,6 +340,8 @@ const robotsTxt = [
   "User-agent: *",
   "Allow: /",
   "",
+  `Sitemap: ${SITE_URL}/sitemap.xml`,
+  "",
   "# Machine-readable index:",
   `#   ${SITE_URL}/llms.txt      the map — start here`,
   `#   ${SITE_URL}/index.md      the whole archive as Markdown`,
@@ -354,15 +357,30 @@ const robotsTxt = [
   "",
 ].join("\n");
 
+// sitemap.xml: the human pages and every confirmed work's record, so search
+// engines find each /<code> page without running the index's JavaScript.
+const xml = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const lastmod = /^\d{4}-\d\d-\d\d$/.test(graphs.generated || "") ? graphs.generated : null;
+const sitemapUrls = ["/", "/stars", "/tv", "/wild", ...works.filter((w) => /^[a-z0-9]+$/i.test(w.code || "")).map((w) => `/${w.code}`)];
+const sitemapXml = [
+  '<?xml version="1.0" encoding="UTF-8"?>',
+  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+  ...sitemapUrls.map((path) => `  <url><loc>${xml(SITE_URL + path)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}</url>`),
+  "</urlset>",
+  "",
+].join("\n");
+
 if (DRY) {
   console.log(`llms.txt   ${llmsTxt.length} bytes`);
   console.log(`index.md   ${indexMd.length} bytes`);
   console.log(`robots.txt ${robotsTxt.length} bytes`);
+  console.log(`sitemap.xml ${sitemapUrls.length} urls`);
   console.log(`works ${works.length} · candidates ${candidates.length} · legacy ${legacy.length} · posts ${postItems.length}`);
 } else {
   writeFileSync(join(SITE, "llms.txt"), llmsTxt);
   writeFileSync(join(SITE, "index.md"), indexMd);
   writeFileSync(join(SITE, "robots.txt"), robotsTxt);
-  console.log(`wrote llms.txt (${llmsTxt.length}) + index.md (${indexMd.length}) + robots.txt (${robotsTxt.length})`);
+  writeFileSync(join(SITE, "sitemap.xml"), sitemapXml);
+  console.log(`wrote llms.txt (${llmsTxt.length}) + index.md (${indexMd.length}) + robots.txt (${robotsTxt.length}) + sitemap.xml (${sitemapUrls.length} urls)`);
   console.log(`works ${works.length} · candidates ${candidates.length} · legacy ${legacy.length} · posts ${postItems.length} · ${num(totalViews)} views`);
 }

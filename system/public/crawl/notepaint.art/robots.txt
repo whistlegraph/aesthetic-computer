@@ -1,0 +1,9 @@
+# notepaint.art — Note Paint, No Paint's AI painting studio.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /.netlify/
+Disallow: /presigned-upload-url/
+
+Sitemap: https://notepaint.art/sitemap.xml

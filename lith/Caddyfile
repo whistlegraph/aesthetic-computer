@@ -389,6 +389,13 @@
             header Access-Control-Allow-Origin "*"
             file_server
         }
+        # Generated with llms.txt by toolchain/whistlegraph/gen-llms.mjs.
+        @wgsitemap path /sitemap.xml
+        handle @wgsitemap {
+            header Content-Type "application/xml; charset=utf-8"
+            header Cache-Control "public, max-age=3600"
+            file_server
+        }
         # /llms-full.txt is the same document under the name crawlers look for.
         @wgindexmd path /index.md /llms-full.txt
         handle @wgindexmd {
@@ -618,6 +625,14 @@
             root * /opt/ac/system/public/aesthetic.computer
             file_server
         }
+        # robots.txt and sitemap.xml come from crawl/sotce.net/; this host's own routes
+        # would answer them with application HTML or a 404.
+        @sotce_crawl path /robots.txt /sitemap.xml
+        handle @sotce_crawl {
+            root * /opt/ac/system/public/crawl/sotce.net
+            header Cache-Control "public, max-age=3600"
+            file_server
+        }
         # Everything else → sotce-net function
         handle {
             rewrite * /api/sotce-net{uri}
@@ -722,9 +737,20 @@
     # --- jas.life ---
     @jaslife host jas.life
     handle @jaslife {
-        root * /opt/ac/system/public/jas.life
-        try_files {path} {path}.html /index.html
-        file_server
+        # robots.txt and sitemap.xml come from crawl/jas.life/; this host's own routes
+        # would answer them with application HTML or a 404.
+        @jaslife_crawl path /robots.txt /sitemap.xml
+        handle @jaslife_crawl {
+            root * /opt/ac/system/public/crawl/jas.life
+            header Cache-Control "public, max-age=3600"
+            file_server
+        }
+        # Its own handle, so try_files cannot rewrite the crawl paths first.
+        handle {
+            root * /opt/ac/system/public/jas.life
+            try_files {path} {path}.html /index.html
+            file_server
+        }
     }
 
     # --- www.jas.life redirect ---
@@ -1316,6 +1342,14 @@ nopaint.art {
     }
     root * /opt/ac/system/public/nopaint.art
     encode gzip
+    # robots.txt and sitemap.xml come from crawl/nopaint.art/; this host's own routes
+    # would answer them with application HTML or a 404.
+    @nopaint_crawl path /robots.txt /sitemap.xml
+    handle @nopaint_crawl {
+        root * /opt/ac/system/public/crawl/nopaint.art
+        header Cache-Control "public, max-age=3600"
+        file_server
+    }
     # nopaint.art is the 2021 original again (its files are this folder's
     # root). The studio moved to notepaint.art; its paths here redirect there.
     # The Mac app still loads nopaint.art and allows only that host, so it
@@ -1468,6 +1502,14 @@ notepaint.art {
     }
     root * /opt/ac/system/public/nopaint.art
     encode gzip
+    # robots.txt and sitemap.xml come from crawl/notepaint.art/; this host's own routes
+    # would answer them with application HTML or a 404.
+    @notepaint_crawl path /robots.txt /sitemap.xml
+    handle @notepaint_crawl {
+        root * /opt/ac/system/public/crawl/notepaint.art
+        header Cache-Control "public, max-age=3600"
+        file_server
+    }
     @notepaint_root path /
     handle @notepaint_root {
         rewrite * /ai/index.html

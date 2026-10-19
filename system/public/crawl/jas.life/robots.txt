@@ -1,0 +1,6 @@
+# jas.life
+
+User-agent: *
+Allow: /
+
+Sitemap: https://jas.life/sitemap.xml

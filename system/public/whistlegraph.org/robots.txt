@@ -11,6 +11,8 @@
 User-agent: *
 Allow: /
 
+Sitemap: https://whistlegraph.org/sitemap.xml
+
 # Machine-readable index:
 #   https://whistlegraph.org/llms.txt      the map — start here
 #   https://whistlegraph.org/index.md      the whole archive as Markdown

@@ -1,0 +1,10 @@
+# nopaint.art — No Paint, the 2021 original painting app and its archive.
+# The AI painting studio lives at https://notepaint.art.
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /.netlify/
+Disallow: /presigned-upload-url/
+
+Sitemap: https://nopaint.art/sitemap.xml
