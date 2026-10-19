@@ -29,3 +29,4 @@ extensions/*/dist
 .shopify.lock
 # Shopify theme (pulled from/pushed to Shopify directly)
 theme/
+theme.liquid.*.bak

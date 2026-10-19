@@ -37,6 +37,11 @@ import { relayInference } from "../../backend/easel-stream.mjs";
 import { EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
 
 const OPENROUTER = "https://openrouter.ai/api/v1/messages";
+// A coarse client label for the Braincell ledger: an explicit x-ac-client, or
+// the first product token of the user agent. Never the full agent string.
+const spendClient = (headers = {}) =>
+  String(headers["x-ac-client"] || String(headers["user-agent"] || "").split(/[\s/]/)[0] || "")
+    .toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 40);
 
 const AUTH_TIMEOUT_MS = 3000;
 
@@ -206,6 +211,10 @@ export const handler = stream(async (event) => {
         inputBound:paidHold?.inputBound??reservationSize(body,0)});
       if(paidHold) await settlePaid(braincells);
       else await recordUsage(handle, braincells, { model });
+      // Reporting only, after billing: which model, for whom, paid or free.
+      const {recordSpend}=await import("../../backend/braincell-ledger.mjs");
+      await recordSpend({product:asWorker?"whistlegraph":"aesel",client:spendClient(event.headers),
+        handle,user:userSub,model,braincells,paid:Boolean(paidHold)});
     },
   });
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// analytics-mcp.mjs — network visits, direct DMG downloads, app opens and App Store downloads as tools.
+// analytics-mcp.mjs — network visits, Braincells, direct DMG downloads, app opens and App Store downloads as tools.
 //
 // visits_report runs toolchain/analytics/visits-report.mjs on lith over ssh
 // (see toolchain/analytics/VISITS.md for what a "visit" can and cannot mean)
@@ -114,6 +114,33 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
     automatedBySite: automated,
     perDay: days,
   };
+}
+
+// 🧠 Braincells
+
+// Circulation and value, spend by model and handle, purchases and AC's
+// OpenRouter balance, folded on lith by toolchain/analytics/braincells-report.mjs.
+async function braincellsReport({ hours = 24, limit = 25 } = {}) {
+  hours = Number(hours); limit = Number(limit);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 840) throw new Error("hours must be 1..840");
+  if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new Error("limit must be 1..200");
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/braincells-report.mjs --hours ${hours} --limit ${limit}`;
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 90_000, maxBuffer: 8 * 1024 * 1024 });
+  return JSON.parse(stdout.slice(stdout.indexOf("{")));
+}
+
+// 🛰️ The whole network at once: traffic per site, where it came from, and the
+// Braincell economy. This is the report to run when someone asks how the
+// Aesthetic network is doing. Each part fails on its own without sinking the rest.
+async function networkReport({ hours = 24, scope = "all" } = {}) {
+  const part = promise => promise.then(value => value, error => ({ unavailable: String(error.message || error) }));
+  const [visits, referrers, braincells] = await Promise.all([
+    part(visitsReport({ hours, scope })),
+    part(journeyReport("referrers", { hours, scope, limit: 25 })),
+    part(braincellsReport({ hours, limit: 15 })),
+  ]);
+  return { window: visits.window ?? { hours, scope }, visits, referrers, braincells };
 }
 
 // ⬇️ Direct downloads
@@ -298,6 +325,24 @@ const TOOLS = [
     } },
   })),
   {
+    name: "network_report",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, and the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
+      scope: { type: "string", enum: ["studio", "clients", "all"], description: "Visit scope; default all" },
+    } },
+  },
+  {
+    name: "braincells_report",
+    description: "The Braincell economy: Braincells in circulation and their value at pack price ($5 per million), debt and in-flight holds, top holders; spend in the window by model, handle and product (per-request rows for Aesel/Whistlegraph hosted inference from the ledger rollout, No Paint moves, Whistlegraph speech), purchased versus free-allowance totals, estimated provider cost; Stripe, Apple and Tezos purchases; AC's OpenRouter balance and key usage. Names public handles. Read-only.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
+      limit: { type: "integer", minimum: 1, maximum: 200, description: "Rows per ranking; default 25" },
+    } },
+  },
+  {
     name: "human_fishery",
     description: "AC Human Fishery: watch recent likely-human activity through Silo's existing MongoDB firehose on Lith. Returns temporary fish names for non-automated visits with interaction, public property, broad surface, visible-time depth and action flags. Read-only snapshots; repeat after at least 15 seconds for changes. Does not identify people, link separate visits or infer cross-site journeys. lastReportedAt is the last changed snapshot, not proof someone is still online.",
     annotations: { readOnlyHint: true, destructiveHint: false },
@@ -371,6 +416,8 @@ const TOOLS = [
 
 async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
+    : name === "braincells_report" ? await braincellsReport(args)
+    : name === "network_report" ? await networkReport(args)
     : name === "account_activity" ? await journeyReport("accounts", args)
     : name === "feature_usage" ? await journeyReport("features", args)
     : name === "network_referrers" ? await journeyReport("referrers", args)

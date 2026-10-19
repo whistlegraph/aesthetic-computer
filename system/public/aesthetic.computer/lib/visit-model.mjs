@@ -9,6 +9,7 @@ export const VISIT_PROPERTIES = Object.freeze({
   "oskiewar.com": ["www.oskiewar.com", "midi.oskiewar.com"],
   "nopaint.art": ["www.nopaint.art"],
   "notepaint.art": ["www.notepaint.art"],
+  "shop.aesthetic.computer": [],
   "whistlegraph.org": ["www.whistlegraph.org", "tv.whistlegraph.org"],
   "whistlegraph.app": ["www.whistlegraph.app"],
   "jas.life": ["www.jas.life", "rdp.jas.life"],
