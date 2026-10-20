@@ -280,7 +280,6 @@ let histScrub = null;
 
 // 🎭 Mime swipe: an upward drag on the curtain drops into the mime feed.
 let mimeSwipe = null;
-const MIME_FROM_PROMPT = "https://aesthetic.computer/mime/?from=prompt";
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
@@ -7793,10 +7792,17 @@ function act({
   };
 
   // 🎭 The mime feed lives below the curtain: a mostly-vertical upward drag
-  // past a threshold jumps to its first card. Taps still lift the curtain.
+  // pulls it up over the prompt (bios slides a frame of it with the finger),
+  // and past a threshold it settles there. Down arrow does the same.
+  // Taps still lift the curtain.
   {
     const inp = system.prompt.input;
-    if (e.is("touch") && theme === "default" && !inp?.canType && !inp?.text) {
+    const onCurtain = theme === "default" && !inp?.canType && !inp?.text;
+    if (onCurtain && e.is("keyboard:down:arrowdown")) {
+      send({ type: "mime:sheet", content: { action: "show" } });
+      return;
+    }
+    if (e.is("touch") && onCurtain) {
       mimeSwipe = { x: e.x, y: e.y, dy: 0, engaged: false };
     } else if (mimeSwipe && e.is("draw")) {
       const dy = mimeSwipe.y - e.y;
@@ -7807,18 +7813,18 @@ function act({
       }
       if (mimeSwipe.engaged) {
         mimeSwipe.dy = max(0, dy);
-        needsPaint();
+        // bios scales by `of` so the sheet tracks the finger exactly.
+        send({ type: "mime:sheet", content: { action: "drag", dy: mimeSwipe.dy, of: screen.height } });
         return;
       }
     } else if (mimeSwipe && e.is("lift")) {
       const { engaged, dy } = mimeSwipe;
       mimeSwipe = null;
       if (engaged) {
+        const action = dy > min(screen.height * 0.15, 60) ? "show" : "cancel";
+        if (action === "show") pushSound();
+        send({ type: "mime:sheet", content: { action } });
         needsPaint();
-        if (dy > min(screen.height * 0.15, 60)) {
-          pushSound();
-          jump(MIME_FROM_PROMPT);
-        }
         return;
       }
     }

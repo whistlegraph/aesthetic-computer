@@ -15279,6 +15279,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.log("⌨️🔓 [bios] keyboard:soft-unlock received, keyboardSoftLock =", keyboardSoftLock);
     }
 
+    if (type === "mime:sheet") {
+      const { mimeSheet } = await import("./lib/mime-sheet.mjs");
+      mimeSheet(content);
+      return;
+    }
+
     if (type === "keyboard:lock") {
       keyboardFocusLock = true;
       if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Locked");
