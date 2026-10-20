@@ -44,6 +44,8 @@ struct singer {
   int phrase_len;               // words per phrase
   singer_note notes[SINGER_MAX_NOTES];
   int nnotes;
+  singer_harmony harmony[SINGER_MAX_NOTES];
+  int nharmony;
 
   singer_articulation articulation[SINGER_MAX_NOTES];
   int narticulation;
@@ -109,6 +111,7 @@ singer *singer_create(const double *pcm, int n, int fs) {
   int pat[8] = {2, 2, 2, 2, 2, 2, 2, 2};               // eighths
   memcpy(p->pattern, pat, sizeof(pat)); p->n_pattern = 8;
   p->lock = 0.875; p->vib_hz = 5.0; p->vib_cents = 18.0;  // spinging defaults
+  p->choir_gain = 0.0; p->choir_lock = 1.0; p->choir_detune_cents = 7.0; p->vowel_only = 0;
   return s;
 }
 
@@ -219,7 +222,7 @@ static void nucleus(singer *s, int a, int b, int *vs, int *ve) {
 // A unit is one thing that gets a note: a word (SNAP/MELODY) or a syllable
 // (SCORE). `grid` is where its vowel lands, `slot` how long it has, both in
 // frames from the window start. `tgt` < 0 means "no target: snap to scale".
-typedef struct { int a, b, vs, ve; double grid, slot, tgt; } unit_t;
+typedef struct { int a, b, vs, ve; double grid, slot, tgt; int note; } unit_t;
 
 // Collect the voiced + energetic runs inside [a,b) — the candidate nuclei.
 static int runs_in(singer *s, int a, int b, int *rs, int *re, int max) {
@@ -568,6 +571,10 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     if (o_src[fl] < 0 || o_src[fh] < 0) continue;
     if (!o_c[fl] || !o_c[fh]) continue;                 // a consonant region (onset or coda, natural rate)
     int unvoiced = (o_sf0[fl] <= 0) && (o_sf0[fh] <= 0);
+    // A choir voice sings vowels only: every consonant region — voiced or
+    // not — fades to silence here (orig stays 0), and the lead's own
+    // consonants carry the words for the whole stack.
+    if (p.vowel_only) { mask[n] = 1.0; continue; }
     // Unvoiced consonants are always the original recording (the vocoder
     // has nothing to say about a burst or a hiss). Voiced consonants — b d
     // g m n l r w — are vocoded at the note by default; `cmix` blends the
@@ -710,6 +717,12 @@ void singer_set_score(singer *s, const singer_note *n, int count) {
   count = count > SINGER_MAX_NOTES ? SINGER_MAX_NOTES : count;
   memcpy(s->notes, n, count * sizeof(singer_note));
   s->nnotes = count;
+  s->nharmony = 0;                                // a new score clears the old choir
+}
+void singer_set_harmony(singer *s, const singer_harmony *h, int count) {
+  count = count > SINGER_MAX_NOTES ? SINGER_MAX_NOTES : count;
+  if (count > 0) memcpy(s->harmony, h, count * sizeof(singer_harmony));
+  s->nharmony = count;
 }
 int singer_note_count(const singer *s) { return s->nnotes; }
 int singer_articulation_count(const singer *s) { return s->narticulation; }
@@ -746,6 +759,7 @@ double *singer_render_score(singer *s, double from16, double to16,
       u.grid = (N->at16 - from16) * sixt;
       u.slot = N->dur16 * sixt;
       u.tgt  = N->midi;
+      u.note = ni;
       U[nu++] = u;
       (*notes_used)++;
     }
@@ -756,7 +770,62 @@ double *singer_render_score(singer *s, double from16, double to16,
     *out_len = ylen;
     return (double *)calloc(ylen, sizeof(double));
   }
-  return synth_units(s, U, nu, total, p, out_len);
+  double *y = synth_units(s, U, nu, total, p, out_len);
+  double choir_gain = getenv("SINGER_CHOIR_GAIN") ? atof(getenv("SINGER_CHOIR_GAIN")) : p.choir_gain;
+  if (!y || choir_gain <= 0 || s->nharmony <= 0) return y;
+
+  // ── the self-choir ──────────────────────────────────────────────────────
+  // The same speech, sung again on the chord tones the host chose for each
+  // note, vowels only, mixed under the lead. Choir voice j takes pitch j of
+  // every note that offers one; a note with fewer pitches sits that voice
+  // out, so a line can thicken on the cadences and thin on the run.
+  int maxn = 0;
+  for (int i = 0; i < nu; i++) {
+    int k = U[i].note;
+    if (k < s->nharmony && s->harmony[k].n > maxn) maxn = s->harmony[k].n;
+  }
+  if (maxn > SINGER_MAX_CHOIR) maxn = SINGER_MAX_CHOIR;
+  if (maxn == 0) return y;
+  // The lead's articulation is what the face and the captions follow; each
+  // choir render rewrites it, so keep the lead's and put it back.
+  int nkeep = s->narticulation;
+  singer_articulation *keep = (singer_articulation *)malloc((nkeep > 0 ? nkeep : 1) * sizeof(singer_articulation));
+  if (nkeep > 0) memcpy(keep, s->articulation, nkeep * sizeof(singer_articulation));
+  singer_params q = p;
+  q.vowel_only = 1;
+  q.lock = p.choir_lock;
+  q.vib_hz = p.vib_hz * 1.09;                      // not phase-locked to the lead's vibrato
+  static unit_t V[512];
+  int mixed = 0;
+  for (int j = 0; j < maxn; j++) {
+    int nv = 0;
+    double detune = p.choir_detune_cents * ((j & 1) ? -1.0 : 1.0) / 100.0;
+    for (int i = 0; i < nu; i++) {
+      int k = U[i].note;
+      if (k >= s->nharmony || j >= s->harmony[k].n) continue;
+      V[nv] = U[i];
+      V[nv].tgt = s->harmony[k].midi[j] + detune;
+      nv++;
+    }
+    if (nv == 0) continue;
+    int hl = 0;
+    double *hy = synth_units(s, V, nv, total, q, &hl);
+    if (!hy) continue;
+    int m = hl < *out_len ? hl : *out_len;
+    for (int n = 0; n < m; n++) y[n] += choir_gain * hy[n];
+    free(hy);
+    mixed++;
+  }
+  if (nkeep > 0) memcpy(s->articulation, keep, nkeep * sizeof(singer_articulation));
+  s->narticulation = nkeep;
+  free(keep);
+  if (mixed) {
+    double pk = 0;
+    for (int n = 0; n < *out_len; n++) if (fabs(y[n]) > pk) pk = fabs(y[n]);
+    if (isfinite(pk) && pk > 0) for (int n = 0; n < *out_len; n++) y[n] = y[n] / pk * 0.8;
+  }
+  if (getenv("SINGER_DEBUG")) fprintf(stderr, "  [core] choir: %d voice(s) at %.2f under %d units\n", mixed, choir_gain, nu);
+  return y;
 }
 
 int singer_word_count(const singer *s) { return s->nwords; }

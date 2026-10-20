@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { bandChord } from "./trio-payload.mjs";
 import { tmpdir } from "node:os";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -118,7 +119,7 @@ if (flags.compare) {
   }
   process.exit(0);
 }
-if (!words.length) { console.log("usage: node bin/hear.mjs <score.mbscore|glob> [--tag name] [--voice i] [--rate r] [--lock l] [--vib-hz h] [--vib-cents c] [--f0-floor f] [--keep DIR] [--no-spoken] [--env K=V,…]"); process.exit(1); }
+if (!words.length) { console.log("usage: node bin/hear.mjs <score.mbscore|glob> [--tag name] [--voice i] [--rate r] [--lock l] [--vib-hz h] [--vib-cents c] [--f0-floor f] [--keep DIR] [--no-spoken] [--env K=V,…] [--choir g] [--choir-voices up,down]"); process.exit(1); }
 if (!existsSync(RENDER)) { console.log(`✗ ${RENDER} missing — cd slab/menuband && swift build -c release --product singrender`); process.exit(1); }
 if (!existsSync(MODEL)) { console.log(`✗ whisper model missing: ${MODEL}`); process.exit(1); }
 
@@ -153,6 +154,14 @@ function kvFor(score, voice) {
     `singVibCents=${flags["vib-cents"] ?? voice.singVibCents ?? prof.sing?.vibrato_depth_cents ?? 18}`,
     `singLock=${flags.lock ?? voice.singLock ?? prof.sing?.harmony_lock ?? 0.875}`,
     `singF0Floor=${flags["f0-floor"] ?? voice.singF0Floor ?? (flags["floor-was"] != null ? prof.f0_floor_was : null) ?? prof.f0_floor ?? 55}`];
+  // --choir g: the self-choir on, as trio.mjs --choir=g would post it
+  if (flags.choir != null) {
+    kv.push(`singChoir=${flags.choir}`);
+    if (flags["choir-voices"]) kv.push(`singChoirVoices=${flags["choir-voices"]}`);
+    for (const k of ["notes2", "notes3", "notes4"]) if (voice[k]) kv.push(`${k}=${voice[k]}`);
+    const chord = bandChord(score.voices || []);
+    if (chord) kv.push(`singChord=${chord}`);
+  }
   return { kv: kv.join(";"), member };
 }
 

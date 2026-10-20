@@ -31,6 +31,18 @@ struct SungLine {
     var lock = 0.875, vibHz = 5.0, vibCents = 18.0, f0Floor = 55.0
     var gapMs = 0.0, sustainDb = 0.0, shimmerFrames = 0.0, legatoMs = 0.0
     var stemPath: String?, wordsPath: String?
+    /// The self-choir: `singChoir` (gain, 0 = off) adds the same voice
+    /// again on chord tones around each note, vowels only. The chord at a
+    /// beat is whatever the band sounds under the line — this payload's own
+    /// accompaniment tracks (notes2…4) plus `singChord`, the conductor's
+    /// timeline of what every machine is playing (`62.66.69:4,r:2,…`).
+    /// `singChoirVoices` names the voices: `up` / `down` = the nearest chord
+    /// tone a third-to-fifth above / below; a bare number = that fixed
+    /// interval, chord or not.
+    var choirGain = 0.0, choirLock = 1.0
+    var choirVoices = "up,down"
+    var chordTracks: [String] = []
+    var chordTimeline: String?
 
     init?(info: [String: String], bpm: Double) {
         guard let l = info["lyrics"], !l.isEmpty, let n = info["notes"] else { return nil }
@@ -46,6 +58,11 @@ struct SungLine {
         shimmerFrames = Double(info["singShimmerFrames"] ?? "") ?? shimmerFrames
         legatoMs = Double(info["singLegatoMs"] ?? "") ?? legatoMs
         stemPath = info["stemPath"]; wordsPath = info["wordsPath"]
+        choirGain = Double(info["singChoir"] ?? "") ?? choirGain
+        choirLock = Double(info["singChoirLock"] ?? "") ?? choirLock
+        choirVoices = info["singChoirVoices"] ?? choirVoices
+        chordTracks = ["notes2", "notes3", "notes4"].compactMap { info[$0] }
+        chordTimeline = info["singChord"]
     }
 
     /// Lyric tokens, without the "/" line breaks.
@@ -103,6 +120,68 @@ struct SungLine {
             l.notes = toks.joined(separator: ",")
             l.text = nil
             out.append(l)
+        }
+        return out
+    }
+}
+
+/// What the band sounds under a sung line, and which of its tones a choir
+/// voice takes. Pure functions over the `.mbscore` note grammar so the
+/// offline renderer and the tests see exactly what the app sings.
+enum SingerChoir {
+    struct Event { var at: Double; var dur: Double; var midi: Int }
+
+    /// `62:1,r:2,62.66.69:4` → events in absolute beats. A dotted token is a
+    /// chord: every pitch in it starts and ends together.
+    static func events(_ track: String) -> [Event] {
+        var out: [Event] = []
+        var pos = 0.0
+        for tok in track.split(separator: ",") {
+            let kv = tok.split(separator: ":")
+            let d = kv.count > 1 ? (Double(kv[1]) ?? 1) : 1
+            if kv.first != "r", let head = kv.first {
+                for m in head.split(separator: ".").compactMap({ Int($0) }) {
+                    out.append(Event(at: pos, dur: d, midi: m))
+                }
+            }
+            pos += d
+        }
+        return out
+    }
+
+    /// Pitch classes sounding at `beat`. Nothing sounding — a rest between
+    /// strikes — carries the last chord struck, the way a listener does.
+    static func chord(at beat: Double, in events: [Event]) -> Set<Int> {
+        let now = events.filter { $0.at <= beat + 1e-6 && beat < $0.at + $0.dur - 1e-6 }
+        if !now.isEmpty { return Set(now.map { (($0.midi % 12) + 12) % 12 }) }
+        guard let last = events.filter({ $0.at <= beat + 1e-6 }).map({ $0.at }).max() else { return [] }
+        return Set(events.filter { abs($0.at - last) < 1e-6 }.map { (($0.midi % 12) + 12) % 12 })
+    }
+
+    /// The choir's pitches for one note. `up`: the chord tone nearest a
+    /// third above, no closer than a second, no farther than a fifth; `down`
+    /// likewise below. The lead's own pitch class is never doubled. A voice
+    /// with nothing to sing on this note is simply absent from it.
+    static func pick(lead: Double, chord: Set<Int>, voices: [String]) -> [Double] {
+        let leadPc = ((Int(lead.rounded()) % 12) + 12) % 12
+        var out: [Double] = []
+        for v in voices {
+            let name = v.trimmingCharacters(in: .whitespaces)
+            if let fixed = Double(name) { out.append(lead + fixed); continue }
+            let up = name == "up"
+            guard up || name == "down" else { continue }
+            let lo = up ? lead + 3 : lead - 7, hi = up ? lead + 7 : lead - 3
+            let aim = up ? lead + 4 : lead - 4.5
+            var best: Double? = nil
+            var p = lo.rounded(.up)
+            while p <= hi + 1e-6 {
+                let pc = ((Int(p) % 12) + 12) % 12
+                if chord.contains(pc) && pc != leadPc {
+                    if best == nil || abs(p - aim) < abs(best! - aim) { best = p }
+                }
+                p += 1
+            }
+            if let b = best { out.append(b) }
         }
         return out
     }
@@ -434,6 +513,34 @@ final class MenuBandSinger {
         P.pointee.shimmer_frames = line.shimmerFrames; P.pointee.legato_ms = line.legatoMs
         W.withUnsafeBufferPointer { singer_set_words(S, $0.baseAddress, Int32(W.count)) }
         notes.withUnsafeBufferPointer { singer_set_score(S, $0.baseAddress, Int32(notes.count)) }
+        if line.choirGain > 0 {
+            // The band under the line: this payload's accompaniment tracks
+            // and the conductor's chord timeline, both in absolute beats —
+            // a split line keeps its absolute clock (it leads with a rest).
+            var band = line.chordTracks.flatMap { SingerChoir.events($0) }
+            if let tl = line.chordTimeline { band += SingerChoir.events(tl) }
+            let voices = line.choirVoices.split(separator: ",").map(String.init)
+            var H: [singer_harmony] = []
+            var sung = 0
+            for n in notes {
+                let chord = SingerChoir.chord(at: n.at16 / 4, in: band)
+                let picks = SingerChoir.pick(lead: n.midi, chord: chord, voices: voices)
+                var h = singer_harmony()
+                let k = min(picks.count, Int(SINGER_MAX_CHOIR))
+                withUnsafeMutablePointer(to: &h.midi) { ptr in
+                    ptr.withMemoryRebound(to: Double.self, capacity: Int(SINGER_MAX_CHOIR)) { m in
+                        for i in 0..<k { m[i] = picks[i] }
+                    }
+                }
+                h.n = Int32(k)
+                if k > 0 { sung += 1 }
+                H.append(h)
+            }
+            H.withUnsafeBufferPointer { singer_set_harmony(S, $0.baseAddress, Int32(H.count)) }
+            P.pointee.choir_gain = line.choirGain; P.pointee.choir_lock = line.choirLock
+            NSLog("🎤 choir: %d of %d notes harmonized from %d band events (%@) at gain %.2f",
+                  sung, notes.count, band.count, line.choirVoices, line.choirGain)
+        }
         let ta = Date()
         singer_analyze_chunk(S, 0, singer_total_frames(S))
         let analyzeMs = Date().timeIntervalSince(ta) * 1000

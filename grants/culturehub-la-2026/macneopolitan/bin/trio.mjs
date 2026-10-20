@@ -50,10 +50,14 @@
 //   Band keyboard (280 pt wide, or the width given), caption inside, eyes on
 //   the keys, resting between its lines. Posts `corner=`; needs a Menu Band
 //   built after 2026-09-24. The full-screen face is the show; this is rehearsal.
+// --choir[=gain]: the self-choir — every sung voice sings its line again on
+//   the chord tones the band sounds around each note (vowels only), under
+//   the lead at `gain` (default 0.35). A voice's own `choir` in the score
+//   wins over the flag. See singerPayload / bandChord in trio-payload.mjs.
 // --quiet: skip intro and outro.
 // --dry: prepare everything (posters, skews, vox renders), schedule nothing.
 
-import { singerPayload } from "./trio-payload.mjs";
+import { singerPayload, bandChord } from "./trio-payload.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { hostname } from "node:os";
@@ -279,6 +283,8 @@ const quiet = flags.includes("--quiet");
 const dry = flags.includes("--dry");
 const show = flags.includes("--show");   // print every payload instead of posting it
 const setlistMode = flags.includes("--setlist");
+const choirFlag = flags.find((f) => f === "--choir" || f.startsWith("--choir="));
+const choirGain = choirFlag ? (choirFlag.includes("=") ? Number(choirFlag.split("=")[1]) : 0.35) : null;
 
 const trackFlag = flags.find((f) => /^--track(=|$)/.test(f));
 let [scoreArg, ...givenHosts] = words;
@@ -384,6 +390,10 @@ if (hosts.length < need && !reduce && !sim) {
 const roster = sim ? voices.map(() => hosts[0]) : hosts.slice(0, Math.min(need, hosts.length));
 const parts = roster.map((h, i) => ({ host: h, voice: { ...voices[i] }, idx: i, sung: !!voices[i].lyrics,
   sim: sim ? `${i}/${voices.length}` : null, corner }));
+if (choirGain != null) {
+  for (const p of parts) if (p.sung && p.voice.choir == null) p.voice.choir = choirGain;
+  score.bandChord = bandChord(voices);
+}
 const skipped = [];
 if (reduce) {
   let track = 2;

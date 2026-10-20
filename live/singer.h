@@ -43,6 +43,14 @@ typedef struct {
 #define SINGER_MAX_NOTES 4096
 typedef struct { double midi; double at16; double dur16; } singer_note;
 
+// Chord-aware self-choir (SCORE mode). Per note, up to SINGER_MAX_CHOIR extra
+// pitches the band's chord offers around the written one — chosen by the
+// host from whatever is sounding under the line at that beat. Each choir
+// voice is the same speech sung again on those pitches, VOWELS ONLY (the
+// lead carries the diction), mixed under the lead at `choir_gain`.
+#define SINGER_MAX_CHOIR 3
+typedef struct { double midi[SINGER_MAX_CHOIR]; int n; } singer_harmony;
+
 typedef enum { SINGER_SNAP = 0, SINGER_MELODY = 1, SINGER_SCORE = 2 } singer_mode;
 
 typedef struct {
@@ -85,6 +93,11 @@ typedef struct {
   double legato_ms;       // short log-frequency smoothing, 0 = score steps
   int    loop_sustain; // 1 = a held vowel wanders its nucleus back and forth
                        // at speaking rate (alive); 0 = eased frozen hold.
+  // ── the self-choir (SCORE mode, with singer_set_harmony) ──
+  double choir_gain;   // 0 = no choir; 0.35 = sits under the lead
+  double choir_lock;   // the choir voices' own lock (1 = hard on the chord tone)
+  double choir_detune_cents;   // alternate choir voices sit this far off centre
+  int    vowel_only;   // 1 = consonant regions are silence (a choir voice)
 } singer_params;
 
 typedef struct singer singer;
@@ -129,6 +142,9 @@ int singer_words_ready(const singer *s);   // how many words the analysis covers
 // Notes pair with syllables: word w with nsyl k consumes notes in order.
 void singer_set_score(singer *s, const singer_note *n, int count);
 int  singer_note_count(const singer *s);
+// Harmony pairs with notes by index. A note past `count`, or with n = 0,
+// gets no choir. Takes effect when params.choir_gain > 0.
+void singer_set_harmony(singer *s, const singer_harmony *h, int count);
 // Render the window [from16, to16) of the score — exactly that many
 // sixteenths of audio — singing every syllable whose onset falls inside it
 // and whose source speech is analyzed. Caller owns the buffer. `notes_used`
