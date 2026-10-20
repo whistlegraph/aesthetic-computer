@@ -20,18 +20,37 @@ import {
 } from "../lib/aesel-bridge.mjs";
 import { AC_MODELS, AcBridge, DEFAULT_AC_MODEL, acModelLabel, resolveAcModel } from "../lib/aesel-ac.mjs";
 
-// Classic: black page, white words and white rules, a grey for what is
-// said about the work rather than the work. Colour arrives only with a
-// keypress (keyColor) and fades back to white.
+// The terminal Aesel's palette (aesel/src/render.mjs, after the AC prompt's
+// dark scheme): pink prompt, orange highlight, light-purple soft and muted.
+// page, text and stroke follow the session's state each paint (PAGES), so
+// the whole screen turns the way Slab turns an Aesel window on the Mac.
 const C = {
-  page: [0, 0, 0],
-  text: [255, 255, 255],
-  muted: [150, 150, 150],
-  dim: [90, 90, 90],
-  code: [210, 210, 210],
-  ground: [28, 28, 28],
+  page: [32, 4, 32],
+  text: [201, 233, 255],
+  stroke: [167, 195, 232],
+  prompt: [200, 30, 100],
+  highlight: [255, 100, 0],
+  soft: [220, 180, 255],
+  muted: [170, 150, 205],
+  dim: [120, 100, 160],
+  status: [0, 255, 0],
+  error: [255, 90, 90],
+  run: [255, 160, 60],
+  code: [235, 225, 255],
+  ground: [20, 12, 30],
 };
-const FADE = 450; // ms for a key's colour to go back to white
+
+// Slab's page for each session state (its published dark theme.json): what
+// an Aesel window on the Mac turns while it works, asks, finishes or fails.
+const PAGES = {
+  blank: { bg: [32, 4, 32], text: [201, 233, 255], shadow: [167, 195, 232] },
+  working: { bg: [2, 47, 24], text: [134, 249, 219], shadow: [47, 241, 143] },
+  awaiting: { bg: [64, 41, 14], text: [219, 226, 179], shadow: [219, 179, 54] },
+  complete: { bg: [66, 7, 12], text: [255, 175, 167], shadow: [255, 43, 39] },
+  interrupted: { bg: [28, 11, 70], text: [181, 179, 255], shadow: [134, 86, 255] },
+  stale: { bg: [57, 5, 22], text: [219, 163, 196], shadow: [219, 78, 99] },
+};
+const FADE = 450; // ms for a key's colour to go back to the page's
 
 // AC's character palette for a handle with no saved colours (handle-colors.mjs).
 const NOM = [[255, 105, 97], [255, 170, 80], [255, 225, 90], [150, 225, 90], [90, 220, 140], [90, 215, 210], [95, 180, 255], [150, 150, 255], [200, 140, 255], [255, 140, 210]];
@@ -67,6 +86,11 @@ let ctrlHeld = false;
 let SYS = null;
 let SCREEN = null;
 let frame = 0;
+// What the kept bridge reads, shared across re-evaluations. A session outlives
+// this module (tab runs the piece, escape goes to the prompt), and closures
+// made by the old copy would otherwise watch a frame count that stopped and
+// a system object from its last paint — a hosted turn then never finishes.
+const LIVE = globalThis.__aeselLive || (globalThis.__aeselLive = { frame: 0, system: null });
 let pageRows = 20; // transcript rows on the last paint, for PgUp/PgDn
 let P = null; // the corner preview: {source, piece, buf, w, h, count, error}
 
@@ -147,7 +171,7 @@ function handleColors(account, saved) {
     const c = Array.isArray(saved) ? saved[i] : null;
     if (c && [c.r, c.g, c.b].every((n) => Number.isFinite(n) && n >= 0 && n <= 255)) return [c.r, c.g, c.b].map(Math.round);
     const l = ch.toLowerCase();
-    return l >= "a" && l <= "z" ? NOM[(l.charCodeAt(0) - 97) % 10] : l >= "0" && l <= "9" ? NOM[Number(l)] : C.text;
+    return l >= "a" && l <= "z" ? NOM[(l.charCodeAt(0) - 97) % 10] : l >= "0" && l <= "9" ? NOM[Number(l)] : C.soft;
   });
 }
 
@@ -174,17 +198,18 @@ function acTransport() {
   let startedAt = -1;
   return {
     start(body, headers) {
-      startedAt = frame;
-      const ok = SYS.fetchPost(`${SITE}/api/easel-inference`, body, JSON.stringify(headers), { out: STREAM_FILE, timeout: 600 });
+      startedAt = LIVE.frame;
+      const ok = LIVE.system.fetchPost(`${SITE}/api/easel-inference`, body, JSON.stringify(headers), { out: STREAM_FILE, timeout: 600 });
       return ok === true;
     },
     poll() {
-      const text = SYS.readFile(STREAM_FILE) || "";
-      const done = frame > startedAt && !SYS.fetchPending;
-      return { text, done, error: done ? (SYS.fetchError || "") : "" };
+      const sys = LIVE.system;
+      const text = sys.readFile(STREAM_FILE) || "";
+      const done = LIVE.frame > startedAt && !sys.fetchPending;
+      return { text, done, error: done ? (sys.fetchError || "") : "" };
     },
     cancel() {
-      SYS.fetchCancel();
+      LIVE.system.fetchCancel();
     },
   };
 }
@@ -213,6 +238,7 @@ function keepVersion(source, why = "") {
 
 function spawnBridge(system, screen, resume = "") {
   SYS = system;
+  LIVE.system = system;
   if (S.bridge instanceof AcBridge && S.bridge.busy) S.bridge.interrupt();
   S.approvals = [];
   S.turn = null;
@@ -226,8 +252,8 @@ function spawnBridge(system, screen, resume = "") {
       model: S.model,
       instructions: instructionsFor({ handle: S.handle, slug: S.slug, file: S.file, screen, writeTool: true }),
       file: S.file,
-      readPiece: () => SYS.readFile(S.file) || "",
-      writePiece: (source) => SYS.writeFile(S.file, source) === true,
+      readPiece: () => LIVE.system.readFile(S.file) || "",
+      writePiece: (source) => LIVE.system.writeFile(S.file, source) === true,
     });
     S.bridge.launch();
     S.bridge.handshake();
@@ -252,6 +278,7 @@ function spawnBridge(system, screen, resume = "") {
 
 function boot({ system, screen, params }) {
   SCREEN = screen;
+  LIVE.system = system;
   const kept = globalThis.__aesel;
   if (kept && kept.bridge && (kept.backend === "ac" || (system.pty2 && system.pty2.active))) {
     S = kept; // Reattach: the conversation kept running while we were away.
@@ -686,14 +713,14 @@ function keyTint(now) {
   if (!f) return null;
   const k = (now - f.at) / FADE;
   if (k >= 1) { S.keyFlash = null; return null; }
-  return mix(f.rgb, C.text, k * k);
+  return mix(f.rgb, C.stroke, k * k);
 }
 
 const TONES = {
-  heading: { bold: true },
+  heading: { rgb: C.highlight, bold: true },
   bold: { bold: true },
-  code: { rgb: C.code },
-  link: { under: true },
+  code: { rgb: C.soft },
+  link: { rgb: C.soft, under: true },
 };
 
 // Lay spans back over a wrapped row as runs; a run with no rgb is white.
@@ -750,7 +777,7 @@ function entryRows(entry, cols) {
     }
   } else {
     const mark = entry.kind === "error" ? "!" : "·";
-    const rgb = entry.kind === "error" ? C.text : C.muted;
+    const rgb = entry.kind === "error" ? C.error : C.muted;
     wrapRows(text, cols - 2).forEach((r, i) => rows.push({ runs: [{ text: i ? "  " : `${mark} `, rgb, bold: entry.kind === "error" }, { text: r.text, rgb }], h: 1 }));
   }
   entry._key = key;
@@ -802,6 +829,14 @@ function modelLabel() {
     else words.push(/^\d/.test(p) ? p : p[0].toUpperCase() + p.slice(1));
   }
   return words.join(" ");
+}
+
+// Which of Slab's pages the session is on.
+function pageState() {
+  if (S.status === "error" || S.status === "closed") return "stale";
+  if (S.approvals.length) return "awaiting";
+  if (busy()) return "working";
+  return { completed: "complete", interrupted: "interrupted", failed: "stale" }[S.lastTurn] || "blank";
 }
 
 // How the egg holds itself: Slab's moods, from this session's state.
@@ -890,6 +925,8 @@ function paint(api) {
   if (!S) return;
   frame++;
   SYS = system;
+  LIVE.frame++;
+  LIVE.system = system;
   SCREEN = screen;
   const W = screen.width;
   const H = screen.height;
@@ -920,6 +957,14 @@ function paint(api) {
 
   const m = metrics(W, H);
   const { z, cw, gh, lh, margin, pad, stroke } = m;
+  const page = PAGES[pageState()];
+  S.ground = S.ground ? mix(S.ground, page.bg, 0.12) : page.bg.slice();
+  S.ink = S.ink ? mix(S.ink, page.text, 0.12) : page.text.slice();
+  S.shade = S.shade ? mix(S.shade, page.shadow, 0.12) : page.shadow.slice();
+  C.page = S.ground.map(Math.round);
+  C.text = S.ink.map(Math.round);
+  C.stroke = S.shade.map(Math.round);
+  C.ground = mix(C.page, [0, 0, 0], 0.45).map(Math.round);
   wipe(...C.page);
   const tint = keyTint(now);
   const working = busy();
@@ -937,7 +982,7 @@ function paint(api) {
   const boxH = inputY - margin - boxY;
 
   // ── the status line: handle · piece · model · activity, spend flush right.
-  ink(...C.text);
+  ink(...C.stroke);
   box(margin, ruleY, W - 2 * margin, stroke);
   const account = S.handle ? `@${S.handle}` : "";
   const spend = S.spend.tokens ? `${compact(S.spend.tokens)} tok${S.spend.usd > 0 ? ` · ${dollars(S.spend.usd)}` : ""}` : "";
@@ -967,14 +1012,14 @@ function paint(api) {
     if (!first) { ink(...C.dim); write(SEP, { x, y: statusY, size: z, font: FONT }); x += SEP.length * cw; }
     first = false;
     if (name === "handle") {
-      // White at rest; a keypress lights the handle in its own colours too.
-      const k = tint ? (now - S.keyFlash.at) / FADE : 1;
+      // The handle in its own colours, as the terminal draws it.
       for (let i = 0; i < text.length; i++) {
-        ink(...mix(S.colors[i] || C.text, C.text, Math.min(1, k)));
+        ink(...(S.colors[i] || C.soft));
         write(text[i], { x: x + i * cw, y: statusY, size: z, font: FONT });
       }
     } else {
-      ink(...(name === "model" || name === "activity" ? C.text : C.muted));
+      ink(...(name === "model" ? C.soft : name === "workspace" ? C.muted
+        : offline || S.status === "closed" || S.status === "error" ? C.error : S.status === "starting" ? C.run : C.status));
       write(text, { x, y: statusY, size: z, font: FONT });
     }
     x += text.length * cw;
@@ -986,7 +1031,7 @@ function paint(api) {
 
   // ── the input box: white, or the colour of the key just played.
   const pending = S.approvals[0];
-  ink(...(tint || C.text));
+  ink(...(tint || C.stroke));
   frame4(box, margin, inputY, W - 2 * margin, inputH, stroke);
   const inY = inputY + stroke + pad;
   if (pending) {
@@ -1005,14 +1050,14 @@ function paint(api) {
       write(shown[fi], { x: textX + (lead.length + fi) * cw, y: inY, size: z, font: FONT });
     }
     const cx = textX + (lead.length + S.cursor - start) * cw;
-    ink(...C.text);
+    ink(...C.prompt);
     box(cx, inY - z, cw, gh + 2 * z);
     const under = S.input[S.cursor];
     if (under) { ink(...C.page); write(under, { x: cx, y: inY, size: z, font: FONT }); }
   }
 
   // ── the transcript box, the conversation bottom-aligned inside it.
-  ink(...C.text);
+  ink(...C.stroke);
   frame4(box, margin, boxY, W - 2 * margin, boxH, stroke);
   const top = boxY + stroke + pad;
   const bottom = boxY + boxH - stroke - pad;
@@ -1134,7 +1179,7 @@ function drawPreview(api, x0, y0, m) {
   ink(...C.page);
   box(x0, y0, w + 2 * (pad + stroke), h + 2 * (pad + stroke) + gh + pad);
   paste(P.buf, fx + stroke, fy + stroke);
-  ink(...(P.error ? C.muted : C.text));
+  ink(...(P.error ? C.error : C.stroke));
   frame4(box, fx, fy, w + 2 * stroke, h + 2 * stroke, stroke);
   if (P.error) {
     ink(...C.page);
@@ -1161,23 +1206,24 @@ function drawRow(ink, box, write, line, r, x, y, cols, head, m) {
   const ty = y + Math.round((lh - gh) / 2);
   if (r.air) return;
   if (r.box) {
-    // Your words in a white outline, squared and drawn, not typed.
+    // Your words in a pink outline, squared and drawn, not typed.
     const left = x;
     const w = (r.width + 2) * cw;
     const h = Math.round(lh / 2);
-    ink(...C.text);
+    ink(...C.prompt);
     if (r.box === "top") { box(left, y + h - z, w, z); box(left, y + h - z, z, h + z); box(left + w - z, y + h - z, z, h + z); }
     else if (r.box === "bottom") { box(left, y, w, z); box(left, y - z, z, z); box(left + w - z, y - z, z, z); box(left, y, z, z); box(left + w - z, y, z, z); }
     else {
       box(left, y, z, lh);
       box(left + w - z, y, z, lh);
       const tx = left + cw;
-      if (!r.wave) { write(r.typed, { x: tx, y: ty, size: z, font: FONT }); return; }
-      // While the machine has the floor a grey gap travels through what you
-      // said, three letters wide — the shimmer, without the colour.
+      if (!r.wave) { ink(...C.text); write(r.typed, { x: tx, y: ty, size: z, font: FONT }); return; }
+      // While the machine has the floor a spark travels through what you
+      // said, three letters wide, pink and orange.
+      const spark = [C.prompt, C.highlight, C.prompt];
       for (let i = 0; i < r.typed.length; i++) {
         const d = i - (head % Math.max(1, r.typed.length + 3));
-        ink(...(d >= -2 && d <= 0 ? C.dim : C.text));
+        ink(...(d >= -2 && d <= 0 ? spark[d + 2] : C.text));
         write(r.typed[i], { x: tx + i * cw, y: ty, size: z, font: FONT });
       }
     }
@@ -1201,16 +1247,16 @@ function drawApproval(ink, box, write, line, pending, x0, cols, top, bottom, m) 
   let y = top + Math.max(0, Math.floor(((bottom - top) / lh - count) / 2)) * lh;
   const left = x0 + Math.max(0, Math.floor((cols - inner) / 2)) * cw;
   const ty = (lh - gh) / 2;
-  drawRuns(write, ink, line, [{ text: "allow?", bold: true }], left, y + ty, m);
+  drawRuns(write, ink, line, [{ text: "allow?", rgb: C.highlight, bold: true }], left, y + ty, m);
   y += 2 * lh;
   for (const l of subject) { ink(...C.text); write(l, { x: left, y: y + ty, size: z, font: FONT }); y += lh; }
   y += lh;
   choices.forEach(([label, key], i) => {
     const text = ` ${clip(label, inner - 4)} `;
     if (i === S.approvalIndex) {
-      ink(...C.text);
+      ink(...C.prompt);
       box(left, y, text.length * cw, lh);
-      drawRuns(write, ink, line, [{ text, rgb: C.page }], left, y + ty, m);
+      drawRuns(write, ink, line, [{ text, rgb: [255, 255, 255], bold: true }], left, y + ty, m);
     } else drawRuns(write, ink, line, [{ text, rgb: C.muted }], left, y + ty, m);
     ink(...C.dim);
     write(`  ${key}`, { x: left + text.length * cw, y: y + ty, size: z, font: FONT });
