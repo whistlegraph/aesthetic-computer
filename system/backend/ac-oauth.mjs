@@ -119,7 +119,7 @@ export function createOAuth({ db, now = Date.now, random = (bytes) => base64url(
     return {
       client: { id: client._id, name: client.name, redirect },
       product: RESOURCES[resource],
-      request: { client_id: client._id, redirect_uri: redirect, code_challenge: query.code_challenge,
+      request: { response_type: "code", client_id: client._id, redirect_uri: redirect, code_challenge: query.code_challenge,
         code_challenge_method: "S256", resource, scope, ...(state !== undefined ? { state } : {}) },
     };
   }

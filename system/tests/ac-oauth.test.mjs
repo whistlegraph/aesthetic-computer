@@ -115,6 +115,15 @@ test("refresh rotates: the old refresh and access tokens stop working", async ()
   assert.equal(await oauth.resolve(second.access_token), null); // access tokens last an hour
 });
 
+test("the link page's echoed request approves and denies as served", async () => {
+  const { oauth, query } = await linked();
+  const { request } = await oauth.checkRequest(query);
+  const approved = new URL(await oauth.approve(request, painter));
+  assert.ok(approved.searchParams.get("code"));
+  assert.equal(approved.searchParams.get("state"), "xyz");
+  assert.equal(new URL(await oauth.deny(request)).searchParams.get("error"), "access_denied");
+});
+
 test("deny sends access_denied back to the registered redirect", async () => {
   const { oauth, query } = await linked();
   const url = new URL(await oauth.deny(query));
