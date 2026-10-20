@@ -51,6 +51,62 @@
 	<script src="scripts/supportcheck.js"></script>
 	<script src="scripts/offlineclient.js"></script>
 	<script src="scripts/main.js"></script>
+	<!-- The title's sticker for the studio's new home. It rides the canvas
+	     wherever Construct letterboxes it, over the home screen's "39 Brushes"
+	     line, stays through the tap that leaves the splash and peels off for
+	     good on the next tap or key (Paint, No or a menu button). -->
+	<style>
+		#notepaint-ad {
+			position: fixed; z-index: 10; display: block;
+			padding: 6px 12px 7px;
+			font: 22px/1 'pixelar-regular-w01', monospace; letter-spacing: .5px;
+			color: #1d2b14; background: #c6f7a0; text-decoration: none; white-space: nowrap;
+			border: 3px solid #1d2b14; box-shadow: 4px 4px 0 #f6977a;
+			transform: translate(-50%, -50%) rotate(-4deg) scale(var(--ad-scale, 1));
+			opacity: 0; transition: opacity .4s; image-rendering: pixelated;
+		}
+		#notepaint-ad.shown { opacity: 1; animation: notepaint-ad-bob 1.6s steps(2) infinite; }
+		#notepaint-ad b { color: #c43d1e; font-weight: normal; }
+		#notepaint-ad:hover, #notepaint-ad:focus-visible { background: #f6977a; box-shadow: 4px 4px 0 #c6f7a0; outline: none; }
+		@keyframes notepaint-ad-bob { 50% { transform: translate(-50%, calc(-50% - 2px)) rotate(-2deg) scale(var(--ad-scale, 1)); } }
+		@media (prefers-reduced-motion: reduce) { #notepaint-ad.shown { animation: none; } }
+	</style>
+	<a id="notepaint-ad" href="https://notepaint.art/" hidden><b>NEW!</b> notepaint.art</a>
+	<script>
+		(() => {
+			const ad = document.getElementById("notepaint-ad");
+			let canvas, taps = 0;
+			const place = () => requestAnimationFrame(() => {
+				if (!canvas?.isConnected) return;
+				const box = canvas.getBoundingClientRect();
+				if (!box.width) return;
+				ad.style.left = `${box.left + box.width / 2}px`;
+				ad.style.top = `${box.top + box.height * 0.67}px`;
+				ad.style.setProperty("--ad-scale", Math.min(1.4, Math.max(0.7, box.width / 400)).toFixed(2));
+			});
+			const peel = (event) => {
+				if (event.target === ad || ad.contains(event.target)) return;
+				if (++taps < 2) return;
+				ad.remove();
+				removeEventListener("resize", place);
+				removeEventListener("pointerdown", peel, true);
+				removeEventListener("keydown", peel, true);
+			};
+			const watch = new MutationObserver(() => {
+				canvas = document.querySelector("canvas");
+				if (!canvas) return;
+				watch.disconnect();
+				ad.hidden = false;
+				new ResizeObserver(place).observe(canvas);
+				addEventListener("resize", place);
+				addEventListener("pointerdown", peel, true);
+				addEventListener("keydown", peel, true);
+				// Show it once the loader has given way to the title art.
+				setTimeout(() => { place(); ad.classList.add("shown"); }, 1200);
+			});
+			watch.observe(document.body, { childList: true, subtree: true });
+		})();
+	</script>
 	<!-- The archived release intentionally omits sw.js; keep it uncached. -->
 </body>
 </html>

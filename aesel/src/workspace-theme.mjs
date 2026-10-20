@@ -62,6 +62,8 @@ export function workspacePalette(state = "blank", day = workspaceDaylight()) {
   };
 }
 
+export const WORKSPACE_THEME_CACHE = "ac-workspace-theme";
+
 export function followWorkspaceTheme({ root = document.documentElement, meta = document.querySelector('meta[name="theme-color"]'), now = Date.now } = {}) {
   let state = "blank", signature;
   const update = () => {
@@ -74,8 +76,15 @@ export function followWorkspaceTheme({ root = document.documentElement, meta = d
     root.style.colorScheme = palette.dark ? "dark" : "light";
     for (const name of ["background", "ink", "accent", "canvas"]) root.style.setProperty(`--${name}`, palette[name]);
     meta?.setAttribute("content", palette.background);
+    // A page's inline boot script repaints from this before its modules load.
+    try { localStorage.setItem(WORKSPACE_THEME_CACHE, JSON.stringify({ at: now(), palette })); } catch {}
   };
   update();
+  // Colour transitions start once the first palette has painted, so the
+  // switch from the stylesheet's default never fades in as a flash.
+  const raf = globalThis.requestAnimationFrame;
+  if (raf) raf(() => raf(() => { root.dataset.themeReady = ""; }));
+  else root.dataset.themeReady = "";
   const interval = setInterval(update, 60000);
   const doc = root.ownerDocument;
   doc?.addEventListener("visibilitychange", update);
