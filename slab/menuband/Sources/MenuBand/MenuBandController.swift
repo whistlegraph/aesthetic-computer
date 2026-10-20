@@ -248,6 +248,28 @@ final class MenuBandController {
     /// LIFO stack of currently-latched keyCodes — Backspace unlatches
     /// the top one.
     private var latchedKeys: [UInt16] = []
+    /// Backspace hammer. HOLDING Backspace re-strikes whatever notes are
+    /// held or latched like a randomized hammer: stochastic timing around
+    /// a mean rate, a shuffled walk through the held pitches (reshuffled
+    /// every pass, with the whole chord landing now and then), random
+    /// velocity. A TAP keeps its old meaning — pop the latest latched note
+    /// — decided on key-up: no strike fired yet means it was a tap. While
+    /// the hammer is down, = / + raise the rate and - lowers it.
+    private var hammerHeld = false
+    private var hammerStruck = false
+    private var hammerTapClearsAll = false
+    private var hammerGeneration: UInt64 = 0
+    private var hammerOrder: [UInt16] = []
+    /// The voice the hammer last re-attacked per key, so a key that goes
+    /// up between the strike's check and its note-on can never be left
+    /// ringing: every strike and the hammer's end sweep anything no
+    /// longer held. Guarded by `heldLock`.
+    private var hammerSounding: [UInt16: (note: UInt8, channel: UInt8)] = [:]
+    /// Mean strikes per second. Kept across holds.
+    private var hammerRate: Double = 7
+    private static let hammerRateRange = 1.5...24.0
+    /// A tap is shorter than this; the first strike never comes sooner.
+    private static let hammerFirstStrikeMin = 0.16
     /// Percussion-split: which drum-voice group each held right-hand key
     /// started, so key-up releases exactly that hit (hi-hat down/up sounds).
     private var heldDrumKeys: [UInt16: UInt64] = [:]
@@ -1247,7 +1269,7 @@ final class MenuBandController {
             let v = UInt8(min(127, Int(velocity) + (accent ? 18 : 0)))
             mixAnalysis.mark("skin-key-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
             lastSoundWasPercussion = true
-            synth.playDrumSkin(strike: strike, anchors: [], velocity: v)
+            synth.playDrumSkin(strike: strike, anchors: [], velocity: v, sidechain: true)
             guard drumKit == .menuBand else { return 0 }
             return Self.trackDrumLiftBit | (drumKitGeneration << 5)
                 | UInt64(pc << 1) | (left ? 1 : 0)
@@ -4207,12 +4229,20 @@ final class MenuBandController {
             return true
         }
         if keyCode == 51 /* kVK_Delete (Backspace) */ {
-            // Plain Backspace pops the most-recent latched note (LIFO);
-            // Shift+Backspace clears them all at once.
-            if isDown && !isRepeat {
-                if lingerSide.isLingering { unlatchAll() }
-                else { unlatchMostRecent() }
+            // Hold = hammer the held notes; tap = pop the most-recent
+            // latched note (Shift+tap clears them all). Which one it was is
+            // known on key-up, so the pop happens there.
+            if isDown {
+                if !isRepeat { beginHammer(clearAll: lingerSide.isLingering) }
+            } else {
+                endHammer()
             }
+            return true
+        }
+        // While the hammer is down, = / + and - steer its rate. Auto-repeat
+        // is welcome: holding + ramps it.
+        if hammerHeld && (keyCode == 24 /* = */ || keyCode == 27 /* - */) {
+            if isDown { adjustHammerRate(up: keyCode == 24) }
             return true
         }
 
@@ -4747,6 +4777,134 @@ final class MenuBandController {
         }
     }
 
+    // MARK: - Backspace hammer
+
+    private func beginHammer(clearAll: Bool) {
+        hammerHeld = true
+        hammerStruck = false
+        hammerTapClearsAll = clearAll
+        hammerGeneration &+= 1
+        hammerOrder.removeAll()
+        debugLog("hammer down rate=\(hammerRate)")
+        scheduleHammerStrike(after: max(Self.hammerFirstStrikeMin, hammerInterval()),
+                             generation: hammerGeneration)
+    }
+
+    private func endHammer() {
+        guard hammerHeld else { return }
+        hammerHeld = false
+        hammerGeneration &+= 1
+        sweepHammerOrphans()
+        guard !hammerStruck else { debugLog("hammer up"); return }
+        // Nothing struck: it was a tap, and a tap pops the latch.
+        if hammerTapClearsAll { unlatchAll() } else { unlatchMostRecent() }
+    }
+
+    /// Something else released every note (fleet Stop, panic): the hammer
+    /// has nothing to hit and the eventual key-up must not pop a latch.
+    private func cancelHammer() {
+        guard hammerHeld else { return }
+        hammerStruck = true
+        hammerGeneration &+= 1
+        sweepHammerOrphans()
+    }
+
+    /// Note-off anything the hammer re-attacked whose key is no longer
+    /// held (or now holds a different pitch). Any thread.
+    private func sweepHammerOrphans() {
+        heldLock.lock()
+        var orphans: [(note: UInt8, channel: UInt8)] = []
+        for (keyCode, voice) in hammerSounding {
+            if heldNotes[keyCode] == voice.note, heldKeyChannel[keyCode] == voice.channel { continue }
+            orphans.append(voice)
+            hammerSounding.removeValue(forKey: keyCode)
+        }
+        heldLock.unlock()
+        for v in orphans {
+            if !midiMode { synth.noteOff(v.note, channel: v.channel) }
+            midi.noteOff(v.note)
+        }
+    }
+
+    private func adjustHammerRate(up: Bool) {
+        let factor = 1.2
+        hammerRate = min(Self.hammerRateRange.upperBound,
+                         max(Self.hammerRateRange.lowerBound,
+                             hammerRate * (up ? factor : 1 / factor)))
+        debugLog("hammer rate=\(String(format: "%.1f", hammerRate))/s")
+    }
+
+    /// Stochastic: the mean period, jittered log-uniformly over half to
+    /// double, so strikes cluster and breathe instead of ticking.
+    private func hammerInterval() -> Double {
+        (1.0 / hammerRate) * pow(2, Double.random(in: -1...1))
+    }
+
+    private func scheduleHammerStrike(after delay: Double, generation: UInt64) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.hammerHeld, self.hammerGeneration == generation else { return }
+            self.hammerStrike()
+            self.scheduleHammerStrike(after: self.hammerInterval(), generation: generation)
+        }
+    }
+
+    /// One fall of the hammer. Permutative: walk a shuffled order of the
+    /// held keys, reshuffling each pass; about one strike in six lands the
+    /// whole chord. Keys released mid-walk simply drop out. Main thread.
+    private func hammerStrike() {
+        heldLock.lock()
+        let keys = Array(heldNotes.keys)
+        heldLock.unlock()
+        guard !keys.isEmpty else { return }
+        hammerOrder.removeAll { !keys.contains($0) }
+        if hammerOrder.isEmpty { hammerOrder = keys.shuffled() }
+        let whole = keys.count > 1 && Double.random(in: 0..<1) < 0.18
+        let targets = whole ? keys : [hammerOrder.removeFirst()]
+        var flashed: [UInt8] = []
+        for keyCode in targets {
+            // Snapshot under the lock, strike outside it: the synth may
+            // block (engine resume), and the key tap thread must never wait
+            // on this lock behind that — a stalled tap stalls every key on
+            // the Mac. A key-up that lands between the snapshot and the
+            // note-on is caught by the orphan sweep right after the loop.
+            heldLock.lock()
+            guard let note = heldNotes[keyCode] else { heldLock.unlock(); continue }
+            let channel = heldKeyChannel[keyCode] ?? 0
+            let display = heldKeyDisplayNote[keyCode] ?? note
+            let ext = (morphExt[keyCode] ?? [:]).values.map {
+                (note: $0.note, channel: $0.channel, display: $0.display)
+            }
+            hammerSounding[keyCode] = (note: note, channel: channel)
+            heldLock.unlock()
+            let velocity = UInt8(Int.random(in: 46...108))
+            restrike(note: note, channel: channel, velocity: velocity)
+            flashed.append(display)
+            // Chord extensions (⌘/⌥ morph) fall with the root, a shade softer.
+            for e in ext {
+                let v = UInt8(max(40, Int(velocity) - Int.random(in: 0...24)))
+                restrike(note: e.note, channel: e.channel, velocity: v)
+                flashed.append(e.display)
+            }
+        }
+        hammerStruck = true
+        sweepHammerOrphans()
+        let now = CACurrentMediaTime()
+        for d in flashed { litDownAt[d] = now }
+        if !flashed.isEmpty { onLitChanged?() }
+    }
+
+    /// Re-attack a sounding voice on its own channel: off, then on at the
+    /// hammer's velocity. Not under `heldLock`.
+    private func restrike(note: UInt8, channel: UInt8, velocity: UInt8) {
+        if !midiMode {
+            synth.noteOff(note, channel: channel)
+            cancelLingerFade(channel: channel)
+            synth.noteOn(note, velocity: velocity, channel: channel)
+        }
+        midi.noteOff(note)
+        midiNoteOn(note, velocity: velocity, channel: 0)
+    }
+
     /// Plain Backspace: release the most-recently latched note (LIFO).
     /// No-op when nothing is latched.
     private func unlatchMostRecent() {
@@ -4801,6 +4959,7 @@ final class MenuBandController {
     }
 
     func releaseAllHeldNotes() {
+        cancelHammer()
         heldLock.lock()
         let noteSnapshot = heldNotes
         let chanSnapshot = heldKeyChannel

@@ -287,7 +287,17 @@ final class MenuBandACPianoVoice {
             switch cmd {
             case let .noteOn(midi, channel, velocity, pan):
                 guard !bank.isEmpty else { continue }
-                let slot = allocateVoice()
+                // A re-struck key restarts its own string. Reusing the slot
+                // (held or releasing) is what a piano does, and it keeps a
+                // fast re-trigger — the Backspace hammer — from stacking
+                // two dozen copies of one sample into the soft clipper,
+                // which tears into a searing buzz that outlasts the hand.
+                var slot = -1
+                for i in 0..<maxVoices where
+                    voices[i].active && voices[i].midi == midi && voices[i].channel == channel {
+                    slot = i; break
+                }
+                if slot < 0 { slot = allocateVoice() }
                 let a = Self.nearestAnchor(to: Int(midi), in: bank)
                 guard a >= 0 else { continue }
                 let semis = Double(Int(midi) - bank[a].midi)

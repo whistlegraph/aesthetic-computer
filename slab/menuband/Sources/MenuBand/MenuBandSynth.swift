@@ -2648,6 +2648,36 @@ final class MenuBandSynth {
         else { DispatchQueue.main.async(execute: apply) }
     }
 
+    /// The keyboard kit's sidechain. Deeper than the trackpad pocket and
+    /// held a touch longer, so the melodic bus (and the air, which rides
+    /// it) pumps under the drums the way a sidechained pad does: a kick
+    /// drops the voices about 13 dB at ordinary velocity and they swell
+    /// back over the next third of a second. The air bed also takes its
+    /// own cut so it breathes against the hits.
+    private func sidechainDuck(drum: MenuBandPercussion.Drum, velocity: UInt8) {
+        let depth: Float, hold: TimeInterval, floor: Float
+        switch drum {
+        case .kick: depth = 0.85; hold = 0.16; floor = 0.10
+        case .snare, .clap: depth = 0.62; hold = 0.11; floor = 0.18
+        case .snap, .cowbell, .block, .tambo: depth = 0.42; hold = 0.08; floor = 0.30
+        default: depth = 0.28; hold = 0.06; floor = 0.40
+        }
+        triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold, floor: floor)
+        airVoice.cut(depth * 0.9 * (0.6 + 0.4 * Float(velocity) / 127))
+    }
+
+    private func sidechainDuck(zone: MenuBandPercussion.DrumSkinZone, velocity: UInt8) {
+        let depth: Float, hold: TimeInterval, floor: Float
+        switch zone {
+        case .kick: depth = 0.80; hold = 0.15; floor = 0.12
+        case .tom: depth = 0.60; hold = 0.11; floor = 0.20
+        case .snare: depth = 0.50; hold = 0.09; floor = 0.25
+        default: depth = 0.28; hold = 0.06; floor = 0.40
+        }
+        triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold, floor: floor)
+        airVoice.cut(depth * 0.9 * (0.6 + 0.4 * Float(velocity) / 127))
+    }
+
     private func startMelodicDuckTimerIfNeeded() {
         guard melodicDuckTimer == nil else { return }
         let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) {
@@ -3183,16 +3213,24 @@ final class MenuBandSynth {
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
 
-    func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
+    /// `sidechain` is the keyboard kit: a key strike pumps the melodic bus
+    /// hard (see `sidechainDuck`) where a trackpad strike only makes a
+    /// transparent pocket.
+    func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8,
+                      sidechain: Bool = false) {
         guard started else { return }
         audioTelemetry.trigger(percussion: true)
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
-        let depth: Float = zone == .kick ? 0.40
-            : (zone == .tom ? 0.30 : (zone == .snare ? 0.22 : 0.10))
-        triggerMelodicDuck(depth: depth, velocity: velocity,
-                           hold: zone == .kick ? 0.10 : 0.06)
+        if sidechain {
+            sidechainDuck(zone: zone, velocity: velocity)
+        } else {
+            let depth: Float = zone == .kick ? 0.40
+                : (zone == .tom ? 0.30 : (zone == .snare ? 0.22 : 0.10))
+            triggerMelodicDuck(depth: depth, velocity: velocity,
+                               hold: zone == .kick ? 0.10 : 0.06)
+        }
         percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
@@ -3255,10 +3293,9 @@ final class MenuBandSynth {
             _ = resumeAudioEngineIfNeeded()
         }
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
-        let depth: Float = drum == .kick ? 0.42
-            : ((drum == .snare || drum == .clap) ? 0.25 : 0.11)
-        triggerMelodicDuck(depth: depth, velocity: velocity,
-                           hold: drum == .kick ? 0.105 : 0.055)
+        // Key and keycap drums sidechain the voices: the hand on the drum
+        // half pumps the hand on the notes.
+        sidechainDuck(drum: drum, velocity: velocity)
         let g = percussion.noteOn(drum, velocity: velocity, pan: p, accent: accent)
         // Roomward: a TrackDrum hit flashes its own pars (no-op without a
         // widget) — routed apart from the keys, see DMXOut.fixtures.
@@ -3339,6 +3376,9 @@ final class MenuBandSynth {
         activeNotes.insert(noteKey(midi, channel: channel))
         melodicHeadroom.noteOn(midi, velocity: velocity, channel: channel, at: CACurrentMediaTime())
         updateMelodicHeadroom()
+        // A struck note puffs more air into the held bed (no-op when the
+        // air isn't sounding), so the weather answers the playing.
+        if channel != 9 { airVoice.gust(Float(velocity) / 127) }
         // Plugin instrument wins on melodic — picked deliberately via the
         // About → Plugins picker, so it overrides every other melodic
         // backend. Drums (ch 9) still flow to GM below.

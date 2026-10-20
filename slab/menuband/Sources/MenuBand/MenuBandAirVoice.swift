@@ -21,6 +21,11 @@ final class MenuBandAirVoice {
     /// where it is. Main thread, like every caller.
     private var target: Float = 0
     private var level: Float = 0
+    /// What the playing does to the air while it's held: a note gusts it
+    /// (a puff of extra air that settles) and a drum cuts it (an instant
+    /// dip that breathes back). Both ride on top of the swell.
+    private var gustLevel: Float = 0
+    private var cutDepth: Float = 0
     private var easeTimer: Timer?
     private var lastEaseTick: CFTimeInterval = 0
 
@@ -36,6 +41,9 @@ final class MenuBandAirVoice {
     static let releaseSeconds: Double = 2.4
     private static let floor: Float = 0.004
     private static let easeHz: Double = 60
+    /// How long a gust takes to settle, and a cut to breathe back.
+    private static let gustSeconds: Double = 0.55
+    private static let cutRecoverSeconds: Double = 0.32
 
     func attach(to engine: AVAudioEngine, output: AVAudioNode) {
         guard !attached else { return }
@@ -78,7 +86,7 @@ final class MenuBandAirVoice {
         player.stop()
         player.scheduleBuffer(loop, at: nil, options: .loops, completionHandler: nil)
         player.play()
-        mixer.outputVolume = level * Self.ceiling
+        applyVolume()
         startEase()
     }
 
@@ -87,10 +95,42 @@ final class MenuBandAirVoice {
         target = 0
     }
 
+    /// A note just sounded: puff more air in. Only while the bed is up —
+    /// a gust into silence is nothing. Any thread.
+    func gust(_ amount: Float) {
+        onMain { [self] in
+            guard easeTimer != nil else { return }
+            gustLevel = min(1, gustLevel + max(0, amount) * 0.6)
+            applyVolume()
+        }
+    }
+
+    /// A drum just hit: cut the air, then let it breathe back. Any thread.
+    func cut(_ depth: Float) {
+        onMain { [self] in
+            guard easeTimer != nil else { return }
+            cutDepth = max(cutDepth, min(0.95, max(0, depth)))
+            applyVolume()
+        }
+    }
+
+    private func onMain(_ body: @escaping () -> Void) {
+        if Thread.isMainThread { body() } else { DispatchQueue.main.async(execute: body) }
+    }
+
+    /// The swell, gusted up and cut down. A full gust opens the bed ~70%
+    /// past the ceiling before the limiter; the ceiling itself leaves room.
+    private func applyVolume() {
+        let open = min(1.2, level * (1 + 0.7 * gustLevel))
+        mixer.outputVolume = open * (1 - cutDepth) * Self.ceiling
+    }
+
     /// Immediate silence — teardown, focus loss.
     func stop() {
         target = 0
         level = 0
+        gustLevel = 0
+        cutDepth = 0
         mixer.outputVolume = 0
         easeTimer?.invalidate()
         easeTimer = nil
@@ -120,7 +160,11 @@ final class MenuBandAirVoice {
             stop()
             return
         }
-        mixer.outputVolume = level * Self.ceiling
+        gustLevel *= Float(exp(-elapsed / Self.gustSeconds))
+        if gustLevel < 0.001 { gustLevel = 0 }
+        cutDepth *= Float(exp(-elapsed / Self.cutRecoverSeconds))
+        if cutDepth < 0.001 { cutDepth = 0 }
+        applyVolume()
     }
 
     // MARK: - Synthesis
