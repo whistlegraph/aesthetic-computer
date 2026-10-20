@@ -6,7 +6,6 @@ Disallow: /lith/
 Allow: /api/chat-messages$
 Allow: /api/chat-messages?
 Sitemap: https://aesthetic.computer/sitemap.xml
-Sitemap: https://aesthetic.computer/sitemap-pieces.xml
 
 # LLM context file
 # See https://aesthetic.computer/llms.txt
