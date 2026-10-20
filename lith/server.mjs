@@ -61,6 +61,7 @@ import { createServer as createHttpServer } from "http";
 import { resolveFunctionName } from "./route-resolution.mjs";
 import { siteFolders, caddyHosts, siteFolderRedirect } from "./site-folders.mjs";
 import { provenance } from "../shared/provenance.mjs";
+import { drainLongWork } from "../system/backend/long-work.mjs";
 import {
   browserAnalyticsConfig,
   createEndpointAnalytics,
@@ -1593,12 +1594,23 @@ if (!DEV) {
 }
 
 // --- Graceful shutdown ---
-// On SIGTERM (sent by systemctl restart), stop accepting new connections
-// and wait for in-flight requests to finish before exiting.
+// On SIGTERM (sent by systemctl restart), first let long work finish (a paid
+// No Paint move runs up to three minutes) while still serving everything
+// else, so a deploy never cuts a move off mid-paint; handlers turn new long
+// work away meanwhile (system/backend/long-work.mjs). Then stop accepting
+// connections and wait for in-flight requests to finish before exiting.
+// lith.service's TimeoutStopSec covers both waits.
+const LONG_WORK_TIMEOUT = 185_000;
 const DRAIN_TIMEOUT = 10_000; // 10s max wait
 
-function gracefulShutdown(signal) {
-  console.log(`[lith] ${signal} received, draining connections...`);
+let shuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[lith] ${signal} received, finishing long work...`);
+  const unfinished = await drainLongWork(LONG_WORK_TIMEOUT);
+  if (unfinished) console.warn(`[lith] ${unfinished} long request(s) still running, cutting them off`);
+  console.log(`[lith] draining connections...`);
   musicalSocket.close();
   whistlegraphSocket?.close();
   server.close(() => {
