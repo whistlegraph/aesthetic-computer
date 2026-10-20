@@ -39,9 +39,15 @@ const stripeWhy = e => `${e?.type || e?.name || "error"}${e?.code ? ` ${e.code}`
 
 async function stripePurchases() {
   if (!process.env.STRIPE_API_PRIV_KEY) return { available: false, reason: "no Stripe key on this host" };
+  // The stripe package lives in system/node_modules; a bare import from
+  // toolchain/ cannot see it, so resolve it from system/ explicitly.
   let Stripe;
-  try { ({ default: Stripe } = await import("stripe")); }
-  catch (e) { return { available: false, reason: `stripe module missing on this host (${stripeWhy(e)})` }; }
+  try {
+    const { createRequire } = await import("node:module");
+    const { pathToFileURL } = await import("node:url");
+    const systemRequire = createRequire(new URL("../../system/package.json", import.meta.url));
+    ({ default: Stripe } = await import(pathToFileURL(systemRequire.resolve("stripe")).href));
+  } catch (e) { return { available: false, reason: `stripe module missing on this host (${stripeWhy(e)})` }; }
   const stripe = new Stripe(process.env.STRIPE_API_PRIV_KEY, { timeout: 20000, maxNetworkRetries: 1 });
   const created = { gte: Math.floor(+start / 1000), lt: Math.ceil(+end / 1000) };
   const seen = new Set(), users = [];
