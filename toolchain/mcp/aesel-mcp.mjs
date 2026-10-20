@@ -13,9 +13,14 @@
 // key every boot, so there is nothing to pin: the address comes from the
 // device's own lanserv answer on the LAN, and the text you send travels on
 // stdin, never in a command line.
+//
+// aesel_flash writes the latest OTA onto a USB stick plugged into this Mac
+// with `ac-os pull`. sudo asks through the Slab menubar's passphrase modal
+// (slab/bin/ac-askpass as SUDO_ASKPASS), so a flash still goes through you:
+// the modal holds the password a day, and this server never sees it.
 
 import { spawn } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
 
 const HOP = process.env.AESEL_SSH_HOP || "neo";
@@ -23,6 +28,11 @@ const STATE = "/tmp/aesel-state.json";
 const SAY = "/tmp/aesel-say";
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 const NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
+const REPO = fileURLToPath(new URL("../..", import.meta.url));
+const AC_OS = `${REPO}fedac/native/ac-os`;
+const ASKPASS = `${REPO}slab/bin/ac-askpass`;
+const DISK = /^disk([1-9]\d?)$/;
+const STICK_MAX = 300e9; // a stick, never a drive
 
 // The inner ssh, as one argument for the hop's shell. Only a validated IPv4
 // address and fixed commands are ever spliced in.
@@ -99,6 +109,83 @@ export function since(state, after = 0) {
   return { ...rest, lastId: state.entries.reduce((m, e) => Math.max(m, e.id || 0), 0), entries };
 }
 
+
+// The disks a flash may touch: whole, external, on USB, stick-sized. A Mac's
+// own disk can carry an ACBOOT partition too (frisbee's does), so the label
+// alone never qualifies a disk.
+export function stickOf(info, partitions = []) {
+  if (!info || !DISK.test(info.DeviceIdentifier || "")) return null;
+  if (info.Internal !== false || !info.WholeDisk || info.BusProtocol !== "USB") return null;
+  if (!(info.TotalSize > 0 && info.TotalSize <= STICK_MAX)) return null;
+  return { disk: info.DeviceIdentifier, name: info.MediaName || "", bytes: info.TotalSize, ac: partitions.includes("ACBOOT") };
+}
+
+async function plist([verb, ...rest]) {
+  const xml = await capture("diskutil", [verb, "-plist", ...rest]);
+  return JSON.parse(await capture("plutil", ["-convert", "json", "-o", "-", "-"], xml));
+}
+
+async function sticks() {
+  const { AllDisksAndPartitions: disks = [] } = await plist(["list", "external", "physical"]);
+  const found = await Promise.all(disks.map(async (d) =>
+    stickOf(await plist(["info", d.DeviceIdentifier]), (d.Partitions || []).map((p) => p.VolumeName))));
+  return found.filter(Boolean);
+}
+
+function capture(cmd, args, input = "") {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args);
+    let out = "", err = "";
+    child.stdout.on("data", (d) => { out += d; });
+    child.stderr.on("data", (d) => { err += d; });
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve(out) : reject(Error(err.trim() || `${cmd} exited ${code}`)));
+    child.stdin.end(input);
+  });
+}
+
+// One flash at a time; the stick is named by the caller or is the only
+// AC stick plugged in.
+let flashing = false;
+async function flash({ disk, pull = true }) {
+  if (flashing) throw Error("a flash is already running");
+  const all = await sticks();
+  const id = disk ? String(disk).replace(/^\/dev\//, "") : null;
+  const target = id ? all.find((s) => s.disk === id) : (all.filter((s) => s.ac).length === 1 ? all.find((s) => s.ac) : null);
+  if (!target) {
+    const seen = all.map((s) => `${s.disk} ${s.name} ${(s.bytes / 1e9).toFixed(0)} GB${s.ac ? " (AC stick)" : ""}`).join("; ") || "no USB sticks";
+    throw Error(id ? `${id} is not a USB stick here; found: ${seen}` : `name the disk to flash; found: ${seen}`);
+  }
+  flashing = true;
+  try {
+    const dev = `/dev/${target.disk}`;
+    const env = { ...process.env, AC_USB_DEV: dev, SUDO_ASKPASS: ASKPASS, AC_FLASH_YES: "1",
+      PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/sbin:/sbin:${process.env.PATH || "/usr/bin:/bin"}` };
+    const [cmd, args] = pull ? [AC_OS, ["pull"]] : [`${REPO}fedac/native/scripts/flash-mac.sh`, [dev, "/tmp/ac-os-pull"]];
+    const { code, log } = await new Promise((resolve) => {
+      const child = spawn(cmd, args, { env, cwd: `${REPO}fedac/native` });
+      let log = "";
+      const timer = setTimeout(() => child.kill(), 25 * 60 * 1000);
+      const take = (d) => { log = (log + d).slice(-200000); };
+      child.stdout.on("data", take);
+      child.stderr.on("data", take);
+      child.on("close", (code) => { clearTimeout(timer); resolve({ code, log }); });
+      child.stdin.end();
+    });
+    // A mistyped password would otherwise sit in the modal's cache all day.
+    if (/incorrect password|Sorry, try again|no password was provided/i.test(log))
+      await capture("nc", ["-U", `${process.env.HOME}/.ac-daemon.sock`], '{"op":"forget","label":"sudo"}').catch(() => {});
+    const lines = log.replace(/\x1b\[[0-9;]*m/g, "").split("\n").filter((l) => l.trim());
+    return {
+      ok: code === 0 && /\[flash-mac\] Done\./.test(log),
+      disk: target.disk, stick: target.name,
+      build: log.match(/Latest OTA: (\S+)/)?.[1] || null,
+      verified: lines.filter((l) => l.includes("\u2713")).length,
+      log: lines.slice(-40).join("\n"),
+    };
+  } finally { flashing = false; }
+}
+
 const device = { type: "string", description: "Device name from aesel_devices (e.g. ac11) or its LAN IPv4 address." };
 const tools = [
   { name: "aesel_devices", description: "Find AC OS machines on this LAN by Bonjour: name, IP, build, running piece.",
@@ -116,10 +203,18 @@ const tools = [
   { name: "aesel_piece", description: "The source of the piece Aesel is writing on a device.",
     inputSchema: { type: "object", properties: { device }, required: ["device"], additionalProperties: false },
     annotations: { readOnlyHint: true, openWorldHint: true } },
+  { name: "aesel_sticks", description: "USB sticks plugged into this Mac that a flash could write: disk, name, size, and whether it already holds AC OS.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true } },
+  { name: "aesel_flash", description: "Erase a USB stick plugged into this Mac and write the latest AC OS OTA onto it (ac-os pull), baked with your login, wifi presets and boot piece. sudo asks through the Slab passphrase modal, cached a day. Without `disk`, flashes the only stick that already holds AC OS. Takes a few minutes; the stick is ejected when done.",
+    inputSchema: { type: "object", properties: { disk: { type: "string", pattern: "^(/dev/)?disk[1-9][0-9]?$", description: "Whole-disk identifier from aesel_sticks, e.g. disk6." }, pull: { type: "boolean", default: true, description: "Fetch the latest OTA first (default). false flashes what is already staged in /tmp/ac-os-pull." } }, additionalProperties: false },
+    annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true } },
 ];
 
 async function call(name, args) {
   if (name === "aesel_devices") return discover();
+  if (name === "aesel_sticks") return sticks();
+  if (name === "aesel_flash") return flash(args);
   const ip = await resolveDevice(args.device);
   if (name === "aesel_state") return since(await readState(ip), args.after || 0);
   if (name === "aesel_piece") {

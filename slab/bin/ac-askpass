@@ -1,0 +1,7 @@
+#!/bin/sh
+# ac-askpass — SUDO_ASKPASS that asks through the Slab menubar's passphrase
+# modal, so `sudo -A` from an agent or a script with no terminal still goes
+# through you. The secret passes from the daemon straight to sudo, and the
+# daemon holds it for a day under the label "sudo". Forget it sooner with:
+#   echo -n '{"op":"forget","label":"sudo"}' | nc -U ~/.ac-daemon.sock
+exec "$(dirname "$0")/ac-passphrase" sudo 86400

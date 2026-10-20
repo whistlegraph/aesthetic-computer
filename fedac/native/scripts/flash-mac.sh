@@ -78,9 +78,10 @@ fi
 
 # --- step 2: re-exec under sudo ---
 # Needs root for diskutil/sgdisk/dd/newfs_msdos/mount_msdos. sudoers.d/
-# ac-flash-mac whitelists this exact path NOPASSWD.
+# ac-flash-mac whitelists this exact path NOPASSWD. With SUDO_ASKPASS set
+# (slab/bin/ac-askpass) the password comes from the Slab modal instead.
 if [ "$(id -u)" != "0" ]; then
-    exec sudo --preserve-env=PATH "$0" "$@"
+    exec sudo ${SUDO_ASKPASS:+-A} --preserve-env=PATH "$0" "$@"
 fi
 
 KERNEL="${SRC_DIR}/vmlinuz"
@@ -337,8 +338,21 @@ fi
 # previously-flashed USB for user-added networks, then merge with the
 # built-in preset list. We mirror that behavior so a reflash keeps your
 # kitchen/studio/friend's-apartment wifi without re-typing.
+# Read them from the target's own partitions: /Volumes/ACBOOT can be some
+# other disk entirely (a Mac's own boot partition shares the name).
+target_mount() {
+    local part
+    for part in $(diskutil list "${USB_DEV}" 2>/dev/null | awk '/disk[0-9]+s[0-9]+$/{print $NF}'); do
+        diskutil info "${part}" 2>/dev/null | awk -F': +' -v want="$1" '
+            /Volume Name:/ { name = $2 } /Mount Point:/ { mnt = $2 }
+            END { if (name == want && mnt != "") print mnt }'
+    done | head -1
+}
+TARGET_ACBOOT="$(target_mount ACBOOT)"
+TARGET_ACEFI="$(target_mount ACEFI)"
 PRESERVE_WIFI=""
-for mnt in /Volumes/ACBOOT /Volumes/ACEFI; do
+for mnt in "${TARGET_ACBOOT}" "${TARGET_ACEFI}"; do
+    [ -n "${mnt}" ] || continue
     if [ -f "${mnt}/wifi_creds.json" ]; then
         # Copy while readable — the partition is about to be unmounted.
         PRESERVE_WIFI="/tmp/ac-wifi-preserve.$$.json"
@@ -351,11 +365,11 @@ trap "rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null" EXIT
 # Per-stick display settings the device writes (density picked with
 # Ctrl+=/-, a rotation override) ride along the same way.
 PRESERVE_SETTINGS=""
-if [ -d /Volumes/ACBOOT ]; then
+if [ -n "${TARGET_ACBOOT}" ]; then
     for f in pixel-scale display-rotate; do
-        [ -f "/Volumes/ACBOOT/${f}" ] || continue
-        PRESERVE_SETTINGS="${PRESERVE_SETTINGS} ${f}=$(head -c 8 "/Volumes/ACBOOT/${f}" | tr -cd '0-9')"
-        log "Preserving ${f} from /Volumes/ACBOOT"
+        [ -f "${TARGET_ACBOOT}/${f}" ] || continue
+        PRESERVE_SETTINGS="${PRESERVE_SETTINGS} ${f}=$(head -c 8 "${TARGET_ACBOOT}/${f}" | tr -cd '0-9')"
+        log "Preserving ${f} from ${TARGET_ACBOOT}"
     done
 fi
 

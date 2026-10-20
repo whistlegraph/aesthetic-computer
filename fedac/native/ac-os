@@ -1154,7 +1154,7 @@ flash_usb() {
         local SRC="${PULL_DIR:-/tmp/ac-os-pull}"
         log "Flashing ${MAC_USB} via flash-mac.sh (source: ${SRC})..."
         ac_tray_state flashing
-        sudo "${SCRIPT_DIR}/scripts/flash-mac.sh" "${MAC_USB}" "${SRC}"
+        sudo ${SUDO_ASKPASS:+-A} "${SCRIPT_DIR}/scripts/flash-mac.sh" "${MAC_USB}" "${SRC}"
         local _frc=$?
         [ "${_frc}" -eq 0 ] && ac_tray_state clear   # burned → clear the badge
         return "${_frc}"
