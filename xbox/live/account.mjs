@@ -5,18 +5,23 @@
 // same in-page option and the dance is the half that belongs to neither
 // surface.
 //
-// Two doors, and the native one is the front one:
+// Two doors, and the hosted one is the front one (2026-10-20: every AC
+// property signs in through the same turnstile at hi.aesthetic.computer, and
+// keeps only its own furniture around it — here, the handle step):
 //
+//   redirect — auth0-spa-js `loginWithRedirect` to hi.aesthetic.computer. The
+//            panel offers "log in" / "i'm new" and the page navigates. An SSO
+//            session there is also the only thing that can recognise somebody
+//            who signed in on aesthetic.computer.
 //   native — a form in this page. Auth0 mails a six digit code, the code buys
-//            tokens, nothing navigates. This is the default because the hosted
-//            login page carries Cloudflare Turnstile and that widget loops
-//            forever for some people, which is a sign-in that cannot be
-//            completed at all.
-//   redirect — the old auth0-spa-js `loginWithRedirect`. Kept, because an SSO
-//            session on hi.aesthetic.computer is still the only thing that can
-//            recognise somebody who signed in on aesthetic.computer, and
-//            because if the tenant ever refuses the native path the form says
-//            so and offers this instead of dead-ending.
+//            tokens, nothing navigates. It was the default while the hosted
+//            page's Turnstile looped for some people, and it stalled for
+//            others (Fía, 2026-10-19: its last leg needs a cross-site cookie
+//            Safari won't send). Kept only for the Xbox, where that page's
+//            Turnstile still loops, and behind
+//            `localStorage["oskiewar:door"] = "native"` for a browser if it
+//            ever recurs. An old native session is still honoured on load so
+//            nobody is logged out by the flip.
 //
 // The contract with the game (oskiewar.js) is two globals:
 //
@@ -34,6 +39,11 @@
 import { otpSignIn } from "/aesthetic.computer/lib/auth0-otp.mjs";
 
 const DOMAIN = "hi.aesthetic.computer";
+// The in-page email-code door (see the header): the Xbox, or a browser that
+// asked for it by flag.
+const NATIVE_DOOR = /xbox/i.test(globalThis.navigator?.userAgent ?? "") || (() => {
+  try { return localStorage.getItem("oskiewar:door") === "native"; } catch { return false; }
+})();
 const CLIENT = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
 const AC = "https://aesthetic.computer";
 
@@ -69,7 +79,6 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
   const go = document.querySelector("#account-go");
   const back = document.querySelector("#account-back");
   const viaWeb = document.querySelector("#account-redirect");
-  const webDoor = !/xbox/i.test(globalThis.navigator?.userAgent ?? "");
 
   // Two askers, one panel. The game writes `__oskiewarAccountDoor` on every
   // frame it re-decides — and on the title screen it decides "closed" — so the
@@ -102,6 +111,13 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
   // focused <input> is what summons the on-screen keyboard on a phone and on the
   // Xbox, and `autocomplete` is what makes a mailed code one tap to fill.
   const steps = {
+    login: {
+      title: "sign in",
+      label: "",
+      note: "through aesthetic computer — you'll come straight back",
+      go: "log in",
+      type: "text", mode: "text", fill: "off", max: 0,
+    },
     email: {
       title: "sign in",
       label: "your email",
@@ -132,7 +148,10 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     // while it is disabled — so the field takes it back, with what was rejected
     // selected so the next keystroke replaces it. On a TV that is the difference
     // between typing and hunting for the box with a thumbstick.
-    if (trouble) { field.focus(); field.select(); }
+    if (trouble) {
+      if (step === "login") { go.focus(); return; }
+      field.focus(); field.select();
+    }
   }
 
   function dress(next, message) {
@@ -144,11 +163,19 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     field.type = shape.type;
     field.inputMode = shape.mode;
     field.autocomplete = shape.fill;
-    field.maxLength = shape.max;
+    field.maxLength = shape.max || 254;
     field.value = "";
+    // The hosted step has nothing to type: two buttons and the note.
+    const typed = next !== "login";
+    field.hidden = !typed;
+    label.hidden = !typed;
     say(message ?? shape.note);
-    viaWeb.hidden = next !== "email";
-    field.focus();
+    // On the hosted step the second button is the sign-up door; on the native
+    // email step it is the way out to the hosted page.
+    viaWeb.hidden = next !== "login" && next !== "email";
+    viaWeb.textContent = next === "login" ? "i'm new" : "or use the web sign-in page";
+    viaWeb.classList.toggle("offer", next === "login");
+    if (typed) field.focus(); else go.focus();
   }
 
   function working(yes) {
@@ -180,21 +207,12 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     // field back to the email step under the person's hands.
     if (showing === asked) return;
     showing = asked;
-    // A browser signs in the way aesthetic.computer and notepaint.art do: the
-    // AC page itself. The mailed-code form was stalling on a cross-site cookie
-    // (@jeffrey, 2026-10-19, Fía couldn't get in), so it is kept only for the
-    // Xbox, where that page's Turnstile loops, and for a web sign-in that
-    // came back broken (which arrives here with a message).
-    if (asked === "login" && webDoor && message === undefined) {
-      viaWebSignIn();
-      return;
-    }
     panel.hidden = false;
     // The fact, as opposed to the request: the shell's keyboard and gamepad
     // guards need to know a panel is up even when the game is not the one
     // asking. (mac-test.html reads this every time it samples a pad.)
     globalThis.__oskiewarAccountOpen = true;
-    dress(asked === "handle" ? "handle" : "email", message);
+    dress(asked === "handle" ? "handle" : NATIVE_DOOR ? "email" : "login", message);
   }
 
   // The game's side of the contract. An accessor rather than a polled value so
@@ -314,9 +332,12 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
       }
     } catch {
       if (redirectPending) {
-        // With a message, so the panel opens on the code form rather than
-        // sending them straight back round the redirect that just failed.
-        const why = "web sign-in couldn't finish — try a code instead";
+        // The panel reopens on whichever door this device has, with the
+        // reason, rather than sending them straight back round the redirect
+        // that just failed.
+        const why = NATIVE_DOOR
+          ? "web sign-in couldn't finish — try a code instead"
+          : "web sign-in couldn't finish — please try again";
         ask("login", why);
         say(why, true);
       }
@@ -344,6 +365,7 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
 
   async function submit() {
     if (busy) return;
+    if (step === "login") { sfx("block", .85, 0); return redirect(false); }
     const typed = field.value.trim();
     if (!typed) { field.focus(); return; }
     working(true);
@@ -418,24 +440,28 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     else shut();
   });
 
+  // On the hosted step the second button is "i'm new"; on the native email
+  // step it is the way out to the hosted page.
   viaWeb.addEventListener("click", () => {
     sfx("block", .85, 0);
-    viaWebSignIn();
+    redirect(step === "login");
   });
 
-  async function viaWebSignIn() {
+  // 🌐 Leave for the hosted page. The game's room URL is carried along so the
+  // person lands back where they pressed, except from the title screen, which
+  // is the apex.
+  async function redirect(signup = false) {
     try {
       const client = await spaClient();
       await client?.loginWithRedirect({
-        authorizationParams: { redirect_uri: location.origin },
+        authorizationParams: { redirect_uri: location.origin,
+          ...(signup ? { screen_hint: "signup" } : {}) },
         appState: { returnTo:
           (globalThis.__oskiewarTouch?.screen === "title" ? "/" : location.pathname) +
           location.search + location.hash },
       });
     } catch {
-      // Out of the redirect's reach, so the mailed code is the way in.
-      showing = "";
-      sync("couldn't open the web sign-in page — try a code instead");
+      say("couldn't open the web sign-in page" + (NATIVE_DOOR ? " — try a code instead" : ""), true);
     }
   }
 

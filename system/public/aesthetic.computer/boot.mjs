@@ -1595,9 +1595,14 @@ if (!sandboxed && !window.acNOAUTH) {
     if (typeof window.acDESKTOP?.login === "function") {
       return window.acDESKTOP.login(mode);
     }
-    // 🚪 Handle first, then an emailed code, without leaving the page
-    // (signup-flow.mjs). `?login=password` keeps the hosted page reachable.
-    if (redirect || new URLSearchParams(location.search).get("login") === "password") {
+    // 🚪 The in-page door — handle first, then an emailed code, without
+    // leaving the page (signup-flow.mjs) — is flagged off as of 2026-10-20.
+    // Every login and signup goes to the hosted page at hi.aesthetic.computer
+    // until the flows across AC, mime.ac, notepaint.art and oskiewar.com are
+    // consolidated. `localStorage["ac:door"] = "on"` previews the door;
+    // `?login=password` always reaches the hosted page.
+    const door = safeLocalStorageGet("ac:door") === "on";
+    if (!door || redirect || new URLSearchParams(location.search).get("login") === "password") {
       return redirectLogin(mode);
     }
     window.acSignup.open(mode === "signup" ? "signup" : "login");

@@ -85,7 +85,8 @@ test('failed callback displays a retry and removes authorization parameters', as
   assert.equal(f.account.signedIn, false);
   assert.equal(f.context.__oskiewarAccountOpen, true);
   assert.equal(f.elements.get('#account-panel').hidden, false);
-  assert.match(f.elements.get('#account-note').textContent, /try a code instead/);
+  assert.match(f.elements.get('#account-note').textContent, /please try again/);
+  assert.equal(f.elements.get('#account-go').textContent, 'log in');
   assert.equal(f.location.search, '?opponent=dummy');
 });
 
@@ -133,13 +134,32 @@ test('web sign-in remembers the current room and query', async () => {
 });
 
 
-test('a browser asked to log in goes straight to the AC sign-in page', async () => {
+test('a browser asked to log in gets the hosted door: log in and i\'m new both leave for the AC page', async () => {
   const f = fixture({ url: 'https://oskiewar.com/daffo394' });
   await f.door.ready;
   f.context.__oskiewarAccountDoor = 'login';
+  assert.equal(f.elements.get('#account-panel').hidden, false);
+  assert.equal(f.elements.get('#account-go').textContent, 'log in');
+  assert.equal(f.elements.get('#account-redirect').textContent, "i'm new");
+  assert.equal(f.elements.get('#account-redirect').hidden, false);
+  assert.equal(f.elements.get('#account-field').hidden, true);
+  await f.elements.get('#account-form').handlers.submit({ preventDefault() {} });
   await new Promise(resolve => setImmediate(resolve));
-  assert.ok(f.calls.some(call => call[0] === 'redirect'));
-  assert.equal(f.elements.get('#account-panel').hidden, true);
+  const [, login] = f.calls.find(call => call[0] === 'redirect');
+  assert.equal(login.authorizationParams.screen_hint, undefined);
+  assert.equal(login.appState.returnTo, '/daffo394');
+  await f.elements.get('#account-redirect').handlers.click();
+  const [, signup] = f.calls.filter(call => call[0] === 'redirect')[1];
+  assert.equal(signup.authorizationParams.screen_hint, 'signup');
+});
+
+test('the handle door still asks for a name in the field', async () => {
+  const f = fixture();
+  await f.door.ready;
+  f.context.__oskiewarAccountDoor = 'handle';
+  assert.equal(f.elements.get('#account-title').textContent, 'pick a handle');
+  assert.equal(f.elements.get('#account-field').hidden, false);
+  assert.equal(f.elements.get('#account-redirect').hidden, true);
 });
 
 test('the Xbox keeps the mailed-code form', async () => {
@@ -150,6 +170,8 @@ test('the Xbox keeps the mailed-code form', async () => {
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(!f.calls.some(call => call[0] === 'redirect'));
   assert.equal(f.elements.get('#account-panel').hidden, false);
+  assert.equal(f.elements.get('#account-label').textContent, 'your email');
+  assert.equal(f.elements.get('#account-field').hidden, false);
 });
 
 test('sign-in from the title returns home even with a legacy room address', async () => {
