@@ -1350,6 +1350,9 @@ app.all("/media-collection/*rest", directFn("media-collection"));
 app.all("/device-login", directFn("device-login"));
 app.all("/device-auth", directFn("device-auth"));
 app.all("/mcp", directFn("mcp-remote"));
+// MCP OAuth discovery; mcp-remote answers it on notepaint.art only.
+app.get("/.well-known/oauth-protected-resource", directFn("mcp-remote"));
+app.get("/.well-known/oauth-protected-resource/*rest", directFn("mcp-remote"));
 app.all("/m4l-plugins", directFn("m4l-plugins"));
 app.all("/slash", directFn("slash"));
 app.all("/sotce-blog/*rest", directFn("sotce-blog"));

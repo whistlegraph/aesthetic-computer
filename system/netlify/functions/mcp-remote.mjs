@@ -304,8 +304,32 @@ function validateKidLisp(source) {
 
 // ── Handle MCP protocol messages ──
 
-async function handleMCPMessage(message, authToken) {
+async function handleMCPMessage(message, authToken, notePaintOnly = false) {
   const { method, params } = message;
+
+  // notepaint.art/mcp is Note Paint's own connector: its tools only, and an
+  // AC sign-in on every request (see handler).
+  if (notePaintOnly) {
+    switch (method) {
+      case "initialize":
+        return {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          serverInfo: NOTEPAINT_SERVER_INFO,
+        };
+      case "tools/list":
+        return { tools: NOTEPAINT_TOOLS };
+      case "tools/call":
+        if (!NOTEPAINT_TOOLS.some((tool) => tool.name === params?.name))
+          return {
+            content: [{ type: "text", text: `Error: Unknown tool: ${params?.name}` }],
+            isError: true,
+          };
+        return await handleToolCall(params, authToken);
+      default:
+        throw new Error(`Unknown method: ${method}`);
+    }
+  }
 
   switch (method) {
     case "initialize":
@@ -487,6 +511,26 @@ function callPreviewKidLisp(args) {
 // allowance, billing and refunds stay in nopaint-inference.mjs.
 
 const NOTEPAINT_API = "https://aesthetic.computer/api";
+
+const NOTEPAINT_HOSTS = new Set(["notepaint.art", "www.notepaint.art"]);
+const NOTEPAINT_SERVER_INFO = { name: "notepaint", version: "1.0.0" };
+const NOTEPAINT_TOOLS = TOOLS.filter((tool) => tool.name.startsWith("notepaint_"));
+
+// OAuth 2.0 Protected Resource Metadata (RFC 9728), the discovery step of
+// MCP authorization: AC's Auth0 tenant signs painters in, and AC verifies
+// the resulting token against Auth0's /userinfo like any other AC request.
+const AC_AUTHORIZATION_SERVER = "https://aesthetic.us.auth0.com/";
+
+function notePaintResourceMetadata() {
+  return {
+    resource: "https://notepaint.art/mcp",
+    authorization_servers: [AC_AUTHORIZATION_SERVER],
+    scopes_supported: ["openid", "profile", "email", "offline_access"],
+    bearer_methods_supported: ["header"],
+    resource_name: "Note Paint",
+    resource_documentation: "https://notepaint.art",
+  };
+}
 
 // Paintings from this conversation, so a repaint can start from the last one
 // without the client sending the PNG back. Keyed by a hash of the caller's
@@ -995,14 +1039,36 @@ export async function handler(event, context) {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Expose-Headers": "WWW-Authenticate",
   };
 
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders, body: "" };
   }
 
+  if (event.path?.startsWith("/.well-known/oauth-protected-resource")) {
+    const host = (event.headers.host || "").toLowerCase().split(":")[0];
+    if (!NOTEPAINT_HOSTS.has(host))
+      return respond(404, { error: "Not found" }, corsHeaders);
+    return respond(200, notePaintResourceMetadata(), {
+      ...corsHeaders,
+      "Cache-Control": "public, max-age=3600",
+    });
+  }
+
   try {
     const authToken = event.headers.authorization?.replace("Bearer ", "");
+    const host = (event.headers.host || "").toLowerCase().split(":")[0];
+    const notePaintOnly = NOTEPAINT_HOSTS.has(host);
+
+    // An unauthenticated request starts the client's OAuth flow.
+    if (notePaintOnly && !authToken) {
+      return respond(401, { error: "Sign in with AC to paint." }, {
+        ...corsHeaders,
+        "WWW-Authenticate":
+          'Bearer resource_metadata="https://notepaint.art/.well-known/oauth-protected-resource", scope="openid profile email offline_access"',
+      });
+    }
 
     if (event.httpMethod === "GET") {
       const headers = {
@@ -1035,7 +1101,7 @@ export async function handler(event, context) {
         return { statusCode: 202, headers: corsHeaders, body: "" };
       }
 
-      const result = await handleMCPMessage(message, authToken);
+      const result = await handleMCPMessage(message, authToken, notePaintOnly);
       const response = { jsonrpc: "2.0", id: message.id, result };
 
       return respond(200, response, corsHeaders);

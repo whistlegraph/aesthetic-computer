@@ -1528,6 +1528,14 @@ notepaint.art {
     handle /api/* {
         import lith_proxy
     }
+    # Note Paint's MCP connector (ChatGPT, Muse, Claude) and the OAuth
+    # discovery document that points its clients at AC sign-in.
+    handle /mcp {
+        import lith_proxy
+    }
+    handle /.well-known/oauth-protected-resource* {
+        import lith_proxy
+    }
     handle /.netlify/functions/* {
         import lith_proxy
     }
