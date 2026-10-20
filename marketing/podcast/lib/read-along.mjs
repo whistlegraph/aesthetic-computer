@@ -74,6 +74,34 @@ export function sentenceCues(srt) {
   });
 }
 
+// ASR prints a spoken number as digits: "270", "250,000", "$1.50". The
+// script spells it out, so one printed token would leave several canonical
+// words untimed. Spell the digits the way the narrator reads them, so each
+// word can take a share of the measured span. Null when it is not a number.
+const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+function spellInteger(n) {
+  if (n < 20) return [ONES[n]];
+  if (n < 100) return n % 10 ? [`${TENS[Math.floor(n / 10)]}-${ONES[n % 10]}`] : [TENS[n / 10]];
+  for (const [unit, name] of [[1e9, 'billion'], [1e6, 'million'], [1e3, 'thousand'], [100, 'hundred']]) {
+    if (n >= unit) return [...spellInteger(Math.floor(n / unit)), name, ...(n % unit ? spellInteger(n % unit) : [])];
+  }
+  return [String(n)];
+}
+export function spellNumber(printed) {
+  const match = printed.trim().match(/^(\$)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?$/);
+  if (!match) return null;
+  const [, dollars, whole, fraction] = match;
+  const integer = Number(whole.replace(/,/g, ''));
+  if (!Number.isSafeInteger(integer) || integer >= 1e12) return null;
+  const words = spellInteger(integer);
+  if (dollars) {
+    words.push(integer === 1 ? 'dollar' : 'dollars');
+    if (fraction && Number(fraction)) words.push(...spellInteger(Number(fraction.padEnd(2, '0').slice(0, 2))));
+  } else if (fraction) words.push('point', ...[...fraction].map(digit => ONES[Number(digit)]));
+  return words;
+}
+
 // Whisper's short-segment offsets are heuristic. With -dtw MODEL -ojf,
 // t_dtw is the cross-attention token onset, in 10 ms units. End a word at
 // its next token (including punctuation), then bound it by the exact edit
@@ -114,6 +142,18 @@ export function alignWhisperWords(body, transcription, offsetMs = 0, sentences =
       if (!lexical.length) return [];
       const from = lexical[0].t_dtw * 10;
       const to = nextTime.get(lexical.at(-1)) ?? segment.offsets.to;
+      // A printed number the script spells out ("270" for "two hundred
+      // seventy") becomes one heard word per spoken word, sharing the span.
+      const spelled = spellNumber(segment.text.trim().replace(/[.,!?]+$/, ''));
+      if (spelled && spelled.length > 1 && to > from) {
+        const lower = body.toLowerCase();
+        const phrase = spelled.join(' '), article = spelled[0] === 'one' ? ['a', ...spelled.slice(1)].join(' ') : null;
+        const words = lower.includes(phrase) ? spelled : article && lower.includes(article) ? ['a', ...spelled.slice(1)] : null;
+        if (words) {
+          const step = (to - from) / words.length;
+          return words.map((text, k) => ({ text, offsets: { from: Math.round(from + k * step), to: Math.round(from + (k + 1) * step) } }));
+        }
+      }
       // ASR sometimes prints a spoken quantity as “8GB”. Preserve the two
       // separately measured tokens so canonical “eight gigabytes” can align.
       if (/^\s*\d+[\p{L}]+[.,!?]?$/u.test(segment.text) && /^\s*\d+$/.test(lexical[0].text) && lexical.length > 1) {

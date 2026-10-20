@@ -51,6 +51,19 @@ test('a quantity abbreviated by ASR retains both measured spoken tokens',()=>{
  assert.deepEqual(result.words.map(w=>[w.text,w.fromMs,w.toMs]),[['eight',100,300],['gigabytes',300,700]]);
  assert.equal(result.alignment.missingWords,0);
 });
+test('a number printed by ASR is spelled the way the script reads it, one timed word each',()=>{
+ const turned=alignWhisperWords('I turned it two hundred seventy degrees.',[{...heard(' 270',0,900),tokens:[{text:' 2',t_dtw:10},{text:'70',t_dtw:40},{text:'.',t_dtw:90}]}]);
+ assert.deepEqual(turned.words.map(w=>[w.text,w.fromMs,w.toMs]),[['two',100,367],['hundred',367,633],['seventy',633,900]]);
+ assert.equal(turned.alignment.timedWords,3);
+ const pack=alignWhisperWords('a pack of two hundred fifty thousand cells for a dollar fifty in tez',[
+  {...heard(' 250,000',0,1200),tokens:[{text:' 250',t_dtw:10},{text:',',t_dtw:50},{text:'000',t_dtw:60},{text:'.',t_dtw:120}]},
+  {...heard(' $1.50',1200,2000),tokens:[{text:' $',t_dtw:120},{text:'1',t_dtw:130},{text:'.',t_dtw:150},{text:'50',t_dtw:170},{text:'.',t_dtw:200}]},
+ ]);
+ assert.deepEqual(pack.words.map(w=>w.text),['two','hundred','fifty','thousand','a','dollar','fifty']);
+ assert.equal(pack.alignment.timedWords,7);
+ const digits=alignWhisperWords('Room 270 is open.',[{...heard(' 270',0,900),tokens:[{text:' 2',t_dtw:10},{text:'70',t_dtw:40},{text:'.',t_dtw:90}]}]);
+ assert.deepEqual(digits.words.map(w=>w.text),['270']);
+});
 test('a domain printed by ASR preserves every spoken name and dot token',()=>{
  const result=alignWhisperWords('Aesthetic dot computer.',[{...heard(' Aesthetic.computer.',0,2000),tokens:[
   {text:' A',t_dtw:10},{text:'esthetic',t_dtw:20},{text:'.',t_dtw:40},
