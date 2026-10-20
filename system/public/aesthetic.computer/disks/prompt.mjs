@@ -278,6 +278,10 @@ let handleAutocomplete;
 // 🎞️ Rolodex history scrub gesture state (vertical drag on the prompt).
 let histScrub = null;
 
+// 🎭 Mime swipe: an upward drag on the curtain drops into the mime feed.
+let mimeSwipe = null;
+const MIME_FROM_PROMPT = "https://aesthetic.computer/mime/?from=prompt";
+
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
 // this is the "feed already written" win. `kind` is contentItems.type
@@ -5824,6 +5828,21 @@ function paint($) {
     jukeBtn.btn.disabled = true;
   }
 
+  // 🎭 "swipe for mimes" along the bottom edge; rides up with the drag.
+  if (showLoginCurtain && !$.system.prompt.input.canType &&
+      !$.system.prompt.input.text && screen.height >= 200) {
+    const label = "swipe for mimes";
+    const pull = mimeSwipe?.engaged ? min(mimeSwipe.dy, 60) : 0;
+    const bob = pull ? 0 : Math.round(sin(motdFrame * 0.08) * 1.5);
+    const x = Math.floor((screen.width - label.length * 4) / 2);
+    const y = screen.height - 14 + bob - Math.floor(pull / 2);
+    const alpha = pull ? 255 : 150;
+    ink(255, 145, 200, alpha).write("^", { x: Math.floor(screen.width / 2) - 2, y: y - 7 },
+      undefined, undefined, false, "MatrixChunky8");
+    ink(255, 145, 200, alpha).write(label, { x, y },
+      undefined, undefined, false, "MatrixChunky8");
+  }
+
   if (showLoginCurtain && flairEnabled) {
     const input = $.system.prompt.input;
 
@@ -7772,6 +7791,38 @@ function act({
       duration: 0.015,
     });
   };
+
+  // 🎭 The mime feed lives below the curtain: a mostly-vertical upward drag
+  // past a threshold jumps to its first card. Taps still lift the curtain.
+  {
+    const inp = system.prompt.input;
+    if (e.is("touch") && theme === "default" && !inp?.canType && !inp?.text) {
+      mimeSwipe = { x: e.x, y: e.y, dy: 0, engaged: false };
+    } else if (mimeSwipe && e.is("draw")) {
+      const dy = mimeSwipe.y - e.y;
+      if (!mimeSwipe.engaged && dy > 14 && dy > abs(e.x - mimeSwipe.x) * 1.5) {
+        mimeSwipe.engaged = true;
+        inp.backdropTouchOff = true; // So the lift won't lift the curtain.
+        send({ type: "keyboard:lock" });
+      }
+      if (mimeSwipe.engaged) {
+        mimeSwipe.dy = max(0, dy);
+        needsPaint();
+        return;
+      }
+    } else if (mimeSwipe && e.is("lift")) {
+      const { engaged, dy } = mimeSwipe;
+      mimeSwipe = null;
+      if (engaged) {
+        needsPaint();
+        if (dy > min(screen.height * 0.15, 60)) {
+          pushSound();
+          jump(MIME_FROM_PROMPT);
+        }
+        return;
+      }
+    }
+  }
 
   // The curtain contains several independently-rendered button types. Track
   // their visible hitboxes here so rollover audio fires once per entry instead
