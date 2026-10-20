@@ -90,7 +90,7 @@ test("gif metadata retains its format and includes the Laklok invitation", () =>
   const m = tokenMetadata({ ...episode, artifact: "gif" });
   assert.deepEqual(m, {
     name: episode.title,
-    description: `${episode.body}\n\n— Aesthetic Dot Computer, ${episode.date}. Listen: ${episode.episodeUrl}\nThe page as a live KidLisp piece: https://aesthetic.computer/dly\n\nCome say hi at https://laklok.com.`,
+    description: `${episode.body}\n\n— Aesthetic Dot Computer, ${episode.date}. Listen: ${episode.episodeUrl}\nThe page as a live KidLisp piece: https://aesthetic.computer/dly\n\nTezos 4 Braincells: paint your own at https://notepaint.art. Five tez or so buys 250,000 Braincells at https://aesthetic.computer/braincells.\n\nCome say hi at https://laklok.com.`,
     tags: ["aesthetic.computer", "kidlisp", "podcast", "devlog", "pixelfont"],
     symbol: "OBJKT",
     artifactUri: uris.gif,

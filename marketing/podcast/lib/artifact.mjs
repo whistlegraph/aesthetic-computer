@@ -168,7 +168,7 @@ export function tokenMetadata({ title, body, date, episodeUrl, code, creator, ar
   const directory = { uri: uris.directory, mimeType: TEIA_FORMAT, dimensions: { value: "responsive", unit: "viewport" } };
   return {
     name: title,
-    description: `${body}\n\n— Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nThe page as a live KidLisp piece: ${ac}/${code}\n\nCome say hi at https://laklok.com.`,
+    description: `${body}\n\n— Aesthetic Dot Computer, ${date}. Listen: ${episodeUrl}\nThe page as a live KidLisp piece: ${ac}/${code}\n\nTezos 4 Braincells: paint your own at https://notepaint.art. Five tez or so buys 250,000 Braincells at ${ac}/braincells.\n\nCome say hi at https://laklok.com.`,
     tags: ["aesthetic.computer", "kidlisp", "podcast", "devlog", "pixelfont"],
     symbol: "OBJKT",
     artifactUri: live ? uris.directory : uris.gif,
