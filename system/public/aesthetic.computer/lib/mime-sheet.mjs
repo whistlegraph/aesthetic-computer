@@ -178,8 +178,10 @@ function grab(startY) {
 // settles when they stop; a mouse notch is one big step and presents at once.
 let armed = false; // The prompt says its curtain is up and empty.
 let wheel = null;
+let lastWheelAt = 0;
 
 addEventListener("wheel", (e) => {
+  lastWheelAt = performance.now();
   if (!frame || !armed || e.ctrlKey) return; // ctrl+wheel is pinch-zoom
   if (wheel === null && (state !== "parked" || e.deltaY <= 0)) return;
   if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
@@ -251,14 +253,22 @@ function show() {
   if (state !== "dragging") post({ type: "mime:sheet", open: true });
   state = "presenting";
   f.style.visibility = "visible";
-  f.style.pointerEvents = "auto";
   enterHistory();
+  f.style.pointerEvents = "none";
   slide("up", () => {
     if (state !== "presenting") return;
     state = "open";
     pausePrompt();
     post({ type: "mime:sheet:presented" });
-    f.contentWindow?.focus();
+    // Take input once a trackpad's momentum has died down, or its tail would
+    // scroll straight past the first card.
+    const take = () => {
+      if (state !== "open" && state !== "returning") return;
+      if (performance.now() - lastWheelAt < 220) return setTimeout(take, 60);
+      f.style.pointerEvents = "auto";
+      f.contentWindow?.focus();
+    };
+    take();
   });
 }
 
