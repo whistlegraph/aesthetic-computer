@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 
 // Fuser's own language table (packages/core/src/i18n/languages.ts). `voice` is
-// what ElevenLabs needs: the jeffrey PVC runs on eleven_multilingual_v2, so one
+// what ElevenLabs needs: the jeffrey PVC runs on eleven_v4, so one
 // voice reads every one of these — it is his voice speaking Spanish, not a
 // substitute narrator.
 export const LANGUAGES = {

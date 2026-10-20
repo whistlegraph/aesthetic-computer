@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VOICE_ID = process.env.VOICE_ID || "ZXoQQp5X0PKHGwyZpVIT"; // @jeffrey PVC (re-cloned; old id dYNGZ... is dead)
-const MODEL_ID = process.env.MODEL_ID || "eleven_multilingual_v2";
+const MODEL_ID = process.env.MODEL_ID || "eleven_v4";
 const VAULT_ENV =
   "/Users/jas/aesthetic-computer/aesthetic-computer-vault/.devcontainer/envs/devcontainer.env";
 

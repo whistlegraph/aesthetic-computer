@@ -171,7 +171,7 @@ async function sample() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text,
-      model_id: "eleven_multilingual_v2",
+      model_id: "eleven_v4",
       voice_settings: { stability: 0.38, similarity_boost: 0.9, style: 0.48, use_speaker_boost: true, speed: 0.98 },
     }),
   });
@@ -201,7 +201,7 @@ async function say() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text,
-      model_id: "eleven_multilingual_v2",
+      model_id: "eleven_v4",
       voice_settings: { stability: 0.38, similarity_boost: 0.9, style: 0.48, use_speaker_boost: true, speed: 0.98 },
     }),
   });

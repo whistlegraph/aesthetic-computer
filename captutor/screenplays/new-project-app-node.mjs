@@ -27,7 +27,7 @@ const WORKSPACE = "https://app.fuser.studio/w/me";
 
 export default {
   slug: "new-project-app-node",
-  voice: "jeffrey",             // the PVC runs on eleven_multilingual_v2 — it is
+  voice: "jeffrey",             // the PVC runs on eleven_v4 — it is
                                 // his voice speaking Spanish, not a stand-in
   window: "Fuser",              // title-matched, so `reel` never films another
   desktopFrame: process.env.CAPTUTOR_STAGE_MODE === "1",

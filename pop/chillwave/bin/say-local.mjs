@@ -77,7 +77,7 @@ const server = createServer(async (req, res) => {
       headers: { "xi-api-key": KEY, "Content-Type": "application/json" },
       body: JSON.stringify({
         text,
-        model_id: "eleven_multilingual_v2",
+        model_id: "eleven_v4",
         voice_settings: voiceSettings,
       }),
     });

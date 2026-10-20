@@ -25,6 +25,8 @@ const BUCKET = "assets-aesthetic-computer";
 const CDN = "https://assets.aesthetic.computer";
 const PREFIX = "klokkentales/pruttivox/chat/";
 const VOICE_HANDLE = "prutti";
+// ElevenLabs model; part of the cache hash so a bump re-renders old clips.
+const ELEVEN_MODEL_ID = "eleven_v4";
 
 const s3 = new S3Client({
   endpoint: `https://${process.env.ART_ENDPOINT}`,
@@ -106,7 +108,7 @@ export async function handler(event) {
 
     const hash = crypto
       .createHash("sha256")
-      .update(`pruttivox:${voiceId}:${spoken}`)
+      .update(`pruttivox:${voiceId}:${ELEVEN_MODEL_ID}:${spoken}`)
       .digest("hex");
     const audioKey = `${PREFIX}${hash}.mp3`;
     const wordsKey = `${PREFIX}${hash}.json`;
@@ -133,7 +135,7 @@ export async function handler(event) {
         },
         body: JSON.stringify({
           text: spoken,
-          model_id: "eleven_multilingual_v2",
+          model_id: ELEVEN_MODEL_ID,
           voice_settings: {
             stability: 0.38,
             similarity_boost: 0.9,

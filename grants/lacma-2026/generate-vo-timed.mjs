@@ -25,7 +25,7 @@ const HOOK = `Personal computers have not been very personal. Windows 10 end-of-
 const MAIN = `This is AC Native. A bare-metal creative computing operating system. No desktop, no app store. Fifty dollars per seat. For the LACMA Art and Technology Lab, we propose growing it into a public device library. A lending fleet of AC Blank laptops flashed with our OS, circulating through Flash Days, workshops, and Family Play afternoons at LACMA. A public waitlist. The library welcomes artists flashing their own custom creative operating systems, joining a tradition of artist-run device libraries. Aesthetic Computer has been under active development since 2021. Over nineteen thousand commits. Seventeen thousand KidLisp programs. Twenty-eight hundred registered handles. People draw, chat, and compose pieces together in real time. At the 2027 Symposium we boot the cohort. At the 2028 Demo Day we play the room. Aesthetic dot Computer. A civic instrument. The new scene has just begun.`;
 
 const VOICE_ID = "iP95p4xoKVk53GoZ742B"; // Chris
-const MODEL_ID = "eleven_v3";
+const MODEL_ID = "eleven_v4";
 
 async function tts(text, outBase) {
   const apiKey = loadKey();

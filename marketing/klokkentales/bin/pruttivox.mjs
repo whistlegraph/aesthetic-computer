@@ -87,7 +87,7 @@ async function speak(line, destination) {
     headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
       text: line,
-      model_id: "eleven_multilingual_v2",
+      model_id: "eleven_v4",
       voice_settings: { stability: 0.38, similarity_boost: 0.9, style: 0.48, use_speaker_boost: true, speed: 0.98 },
     }),
     signal: AbortSignal.timeout(120_000),

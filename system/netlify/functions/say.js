@@ -28,11 +28,18 @@ const BUCKET = process.env.ART_SPACE_NAME;
 const CDN_URL = "https://art.aesthetic.computer";
 const CACHE_PREFIX = "tts-cache/";
 
+// ElevenLabs model for every voice on this endpoint (stock, jeffrey PVC,
+// prutti IVC). Bumping it re-renders the cache, because the model id is
+// part of the cache key for ElevenLabs-backed providers.
+const ELEVEN_MODEL_ID = "eleven_v4";
+const ELEVEN_PROVIDERS = new Set(["eleven", "jeffrey", "prutti"]);
+
 // Generate cache key from provider + voice + text + instructions
 // Consented voice clones get their own subfolders so their utterance catalogs
 // stay distinct from stock voices.
 function getCacheKey(provider, voiceId, text, instructions) {
-  const parts = `${provider}:${voiceId}:${text}${instructions ? `:${instructions}` : ""}`;
+  const model = ELEVEN_PROVIDERS.has(provider) ? `:${ELEVEN_MODEL_ID}` : "";
+  const parts = `${provider}:${voiceId}${model}:${text}${instructions ? `:${instructions}` : ""}`;
   const hash = crypto.createHash("sha256").update(parts).digest("hex");
   const subfolder = provider === "jeffrey"
     ? "jeffrey/"
@@ -172,7 +179,7 @@ async function generateElevenLabs(text, gender, set, scream, withTimestamps = fa
     },
     body: JSON.stringify({
       text,
-      model_id: "eleven_multilingual_v2",
+      model_id: ELEVEN_MODEL_ID,
       voice_settings: voiceSettings,
     }),
   });
@@ -214,7 +221,7 @@ async function generatePrutti(text) {
       },
       body: JSON.stringify({
         text,
-        model_id: "eleven_multilingual_v2",
+        model_id: ELEVEN_MODEL_ID,
         voice_settings: {
           stability: 0.38,
           similarity_boost: 0.9,
@@ -265,7 +272,7 @@ async function generateJeffrey(text, scream, speed = 1.0, styleOverride = null,
                                 withTimestamps = false) {
   // Calmer, more natural delivery than the premade "scream" preset.
   // Same knobs as the grant-video pipeline for homogeneity.
-  // ElevenLabs voice_settings exposed (eleven_multilingual_v2):
+  // ElevenLabs voice_settings exposed (eleven_v4):
   //   speed       0.7-1.2     speech rate
   //   style       0-1         emotional exaggeration (higher = more dramatic)
   //   stability   0-1         lower = more expressive variation, higher = uniform
@@ -295,7 +302,7 @@ async function generateJeffrey(text, scream, speed = 1.0, styleOverride = null,
     },
     body: JSON.stringify({
       text,
-      model_id: "eleven_multilingual_v2",
+      model_id: ELEVEN_MODEL_ID,
       voice_settings: voiceSettings,
     }),
   });
@@ -439,7 +446,7 @@ exports.handler = async (event) => {
     const scream = body.scream === true;
 
     // Speed for ElevenLabs voice_settings.speed (0.7-1.2 range,
-    // supported by eleven_multilingual_v2 + newer models). Default 1.
+    // supported by eleven_multilingual_v2 and newer, incl. eleven_v4). Default 1.
     const speed = (typeof body.speed === "number")
       ? Math.max(0.7, Math.min(1.2, body.speed))
       : 1.0;

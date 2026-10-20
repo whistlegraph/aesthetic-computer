@@ -87,8 +87,8 @@ async function synthesize(line, index) {
       ? { provider: "eleven-direct", voice: sharedVoiceId, stability: 0.38, similarity: 0.9, style: 0.48, speed: 0.98 }
       : { provider: "eleven", voice: "male:1", placeholder: true };
   const synthesisTarget = spec.provider === "eleven-direct"
-    ? "elevenlabs:v1:text-to-speech:eleven_multilingual_v2"
-    : sayEndpoint;
+    ? "elevenlabs:v1:text-to-speech:eleven_v4"
+    : `${sayEndpoint}#eleven_v4`; // model tag busts the local cache on a bump
   const hash = createHash("sha256")
     .update(JSON.stringify({ text: line.text, speaker: line.speaker, spec, synthesisTarget }))
     .digest("hex")
@@ -113,7 +113,7 @@ async function synthesize(line, index) {
         },
         body: JSON.stringify({
           text: line.text,
-          model_id: "eleven_multilingual_v2",
+          model_id: "eleven_v4",
           voice_settings: {
             stability: spec.stability,
             similarity_boost: spec.similarity,

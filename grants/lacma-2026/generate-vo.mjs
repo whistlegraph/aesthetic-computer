@@ -11,7 +11,7 @@
 //
 // Env overrides (optional):
 //   VOICE_ID=xxx        // ElevenLabs voice id (default: Chris - premade stand-in)
-//   MODEL_ID=xxx        // default: eleven_multilingual_v2
+//   MODEL_ID=xxx        // default: eleven_v4
 //   OUT_BASENAME=video-vo (written next to this script; .mp3 + .wav produced)
 //
 // Auth: reads ELEVENLABS_API_KEY from the AC vault env file
@@ -33,9 +33,9 @@ const VAULT_ENV =
 // stand-in for Jeffrey until the ElevenLabs plan is upgraded and a proper voice
 // clone is created.
 const DEFAULT_VOICE_ID = "iP95p4xoKVk53GoZ742B";
-// eleven_v3 is the newest, most expressive model (varies emotion across phrases).
-// eleven_multilingual_v2 is a safe fallback if v3 chokes on a specific voice.
-const DEFAULT_MODEL_ID = "eleven_v3";
+// eleven_v4 is the current model; the jeffrey PVC is fine-tuned on it.
+// eleven_multilingual_v2 is a safe fallback if v4 chokes on a specific voice.
+const DEFAULT_MODEL_ID = "eleven_v4";
 
 // Inline 2-minute LACMA narration script.
 const DEFAULT_SCRIPT = `Personal computers have not been very personal. Windows 10 end-of-life just stranded hundreds of millions of laptops. There has never been a better time to develop new software for old hardware.

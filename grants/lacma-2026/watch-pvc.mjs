@@ -24,6 +24,8 @@ function loadKey() {
 
 // Prefer higher-quality fine-tuned models when available.
 const MODEL_PREFERENCE = [
+  "eleven_v4",
+  "eleven_v4_turbo",
   "eleven_multilingual_v2",
   "eleven_turbo_v2_5",
   "eleven_turbo_v2",
