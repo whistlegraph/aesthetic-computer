@@ -5816,9 +5816,11 @@ function paint($) {
   // Juke plays every /pop track; the iPhone app keeps it going in the background.
   if (showLoginCurtain && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text && screen.height >= 200) {
-    const position = { screen, center: "x", y: screen.height - 38 };
+    // Top-right, under the version button when it's showing.
+    const position = { x: 0, y: commitBtn && !commitBtn.btn.disabled ? 20 : 6 };
     if (!jukeBtn) jukeBtn = new $.ui.TextButtonSmall("juke", position);
     else jukeBtn.reposition(position, "juke");
+    jukeBtn.btn.box.x = screen.width - jukeBtn.btn.box.w - 6;
     jukeBtn.btn.disabled = false;
     jukeBtn.paint($,
       [[30, 22, 48], [120, 90, 160], 255, [30, 22, 48]],
@@ -5831,7 +5833,7 @@ function paint($) {
   // 🎭 "swipe for mimes" along the bottom edge; rides up with the drag.
   if (showLoginCurtain && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text && screen.height >= 200) {
-    // The last row, under the commit button.
+    // The last row, under the mail envelope.
     const label = "^ swipe for mimes ^";
     const pull = mimeSwipe?.engaged ? min(mimeSwipe.dy, 60) : 0;
     const x = Math.floor((screen.width - label.length * 4) / 2);
@@ -6185,7 +6187,7 @@ function paint($) {
 
     $.layer(1);
 
-    // 📬 Mail. Sits above the commit button: an envelope if there's anything
+    // 📬 Mail. Sits above "swipe for mimes": an envelope if there's anything
     // in the box at all, with a red badge counting what's unread.
     if (flairEnabled && mailCount?.total > 0) {
       const unread = mailCount.unread || 0;
@@ -6198,7 +6200,7 @@ function paint($) {
       // envelope, or the badge's overhang drags it off the middle.
       const cluster = w + (label ? badgeW - 3 : 0);
       const ex = Math.floor((screen.width - cluster) / 2);
-      const ey = screen.height - 42; // a clear row above the commit button
+      const ey = screen.height - 24; // a clear row above the mime hint
 
       // A Button hit-tests through its Box, so hand it a real one — a plain
       // {x,y,w,h} has no `contains` and the tap falls through.
@@ -6265,8 +6267,8 @@ function paint($) {
       const commitText = updateAvailable
         ? `update to ${versionInfo.deployed}`
         : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
-      // Create button using TextButtonSmall (MatrixChunky8 font) centered at bottom
-      const buttonY = screen.height - 20; // 20px from bottom
+      // Create button using TextButtonSmall (MatrixChunky8 font) in the top-right
+      const buttonY = 6;
       if (!commitBtn) {
         commitBtn = new $.ui.TextButtonSmall(commitText, { center: "x", y: buttonY, screen });
       } else {
@@ -6279,7 +6281,7 @@ function paint($) {
         commitText, undefined, undefined, undefined, undefined, "MatrixChunky8",
       ).box.width;
       commitBtn.btn.box.w = commitTextWidth + 4; // padL + padR
-      commitBtn.btn.box.x = Math.floor((screen.width - commitBtn.btn.box.w) / 2);
+      commitBtn.btn.box.x = screen.width - commitBtn.btn.box.w - 6;
       const cBox = commitBtn.btn.box;
       if (cBox) {
         const isHover = commitBtn.btn.over && !commitBtn.btn.down;
