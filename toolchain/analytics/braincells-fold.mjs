@@ -84,7 +84,8 @@ export function foldBraincells(raw, { start, end, limit = 25 }) {
       },
     },
     purchases: {
-      stripe: stripe.available ? { payments: stripe.payments, ...money(stripe.braincells), chargedUsd: stripe.usd, buyers: [...new Set(stripe.users.map(who))] } : stripe,
+      stripe: stripe.available ? { payments: stripe.payments, ...money(stripe.braincells), chargedUsd: stripe.usd, buyers: [...new Set(stripe.users.map(who))],
+        ...(stripe.source ? { source: stripe.source } : {}), ...(stripe.note ? { note: stripe.note } : {}) } : stripe,
       apple: { purchases: apple.length, ...money(sum(apple, "credits")), refunded: apple.filter(r => r.refundedAt).length,
         buyers: [...new Set(apple.map(r => who(r.user)))], note: "Apple keeps its share; valued at pack price." },
       tezos: { payments: tezos.length, ...money(sum(tezos, "credits")), chargedUsd: sum(tezos, "usd"), buyers: [...new Set(tezos.map(r => who(r.user)))] },

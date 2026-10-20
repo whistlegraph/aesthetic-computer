@@ -34,27 +34,46 @@ async function openRouter() {
   return { ...balance, keyUsage: usage, note: "One OpenRouter account pays every product's inference. Braincell sales never top it up; it is funded on openrouter.ai." };
 }
 
+// Why a Stripe call failed, short enough for the report and free of secrets.
+const stripeWhy = e => `${e?.type || e?.name || "error"}${e?.code ? ` ${e.code}` : ""}: ${String(e?.message || e).slice(0, 160)}`;
+
 async function stripePurchases() {
   if (!process.env.STRIPE_API_PRIV_KEY) return { available: false, reason: "no Stripe key on this host" };
+  let Stripe;
+  try { ({ default: Stripe } = await import("stripe")); }
+  catch (e) { return { available: false, reason: `stripe module missing on this host (${stripeWhy(e)})` }; }
+  const stripe = new Stripe(process.env.STRIPE_API_PRIV_KEY, { timeout: 20000, maxNetworkRetries: 1 });
+  const created = { gte: Math.floor(+start / 1000), lt: Math.ceil(+end / 1000) };
+  const seen = new Set(), users = [];
+  let credits = 0, cents = 0;
+  const count = (session, livemode) => {
+    if (!livemode || session.metadata?.type !== "ac-credits" || session.payment_status !== "paid" || seen.has(session.id)) return;
+    seen.add(session.id); users.push(session.metadata.userSub); cents += session.amount_total || 0; credits += 1_000_000;
+  };
+  const tally = (source, note) => ({ available: true, source, ...(note ? { note } : {}), payments: seen.size, braincells: credits, usd: cents / 100, users });
+  // Events carry the completed sessions. A key that cannot read events falls
+  // back to listing the completed sessions themselves.
+  let eventsFailed;
   try {
-    const { default: Stripe } = await import("stripe");
-    const stripe = new Stripe(process.env.STRIPE_API_PRIV_KEY, { timeout: 20000, maxNetworkRetries: 1 });
-    const seen = new Set(), users = [];
-    let credits = 0, cents = 0;
     for (const type of ["checkout.session.completed", "checkout.session.async_payment_succeeded"]) {
       let after;
       do {
-        const page = await stripe.events.list({ type, created: { gte: Math.floor(+start / 1000), lt: Math.ceil(+end / 1000) }, limit: 100, ...(after ? { starting_after: after } : {}) });
-        for (const event of page.data) {
-          const s = event.data.object;
-          if (!event.livemode || s.metadata?.type !== "ac-credits" || s.payment_status !== "paid" || seen.has(s.id)) continue;
-          seen.add(s.id); users.push(s.metadata.userSub); cents += s.amount_total || 0; credits += 1_000_000;
-        }
+        const page = await stripe.events.list({ type, created, limit: 100, ...(after ? { starting_after: after } : {}) });
+        for (const event of page.data) count(event.data.object, event.livemode);
         after = page.has_more && seen.size < 10000 ? page.data.at(-1)?.id : null;
       } while (after);
     }
-    return { available: true, payments: seen.size, braincells: credits, usd: cents / 100, users };
-  } catch { return { available: false, reason: "Stripe events unavailable" }; }
+    return tally("events");
+  } catch (e) { eventsFailed = stripeWhy(e); }
+  try {
+    let after;
+    do {
+      const page = await stripe.checkout.sessions.list({ created, status: "complete", limit: 100, ...(after ? { starting_after: after } : {}) });
+      for (const session of page.data) count(session, session.livemode);
+      after = page.has_more && seen.size < 10000 ? page.data.at(-1)?.id : null;
+    } while (after);
+    return tally("checkout sessions", `Stripe events unavailable (${eventsFailed}); counted completed checkout sessions instead.`);
+  } catch (e) { return { available: false, reason: `Stripe events unavailable (${eventsFailed}); checkout sessions unavailable (${stripeWhy(e)})` }; }
 }
 
 const { db } = await connect();
