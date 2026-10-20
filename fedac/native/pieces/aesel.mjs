@@ -234,6 +234,23 @@ function nextId() {
 // changes, at most four times a second. `echo … > /tmp/aesel-say` is the
 // other half.
 let stateSig = "";
+// Paint timing, a second at a time, for the state file: how often paint
+// runs, what it costs, and how much of that is the preview.
+const PERF = { frames: 0, paint: 0, paintMax: 0, preview: 0, previewMax: 0, since: Date.now(), last: null };
+function perfFrame(paintMs, previewMs) {
+  PERF.frames++;
+  PERF.paint += paintMs;
+  PERF.paintMax = Math.max(PERF.paintMax, paintMs);
+  PERF.preview += previewMs;
+  PERF.previewMax = Math.max(PERF.previewMax, previewMs);
+  const span = Date.now() - PERF.since;
+  if (span < 1000) return;
+  const n = PERF.frames;
+  PERF.last = { fps: Math.round((n * 10000) / span) / 10, paintAvg: +(PERF.paint / n).toFixed(1), paintMax: PERF.paintMax,
+    previewAvg: +(PERF.preview / n).toFixed(1), previewMax: PERF.previewMax, entries: S.entries.length };
+  Object.assign(PERF, { frames: 0, paint: 0, paintMax: 0, preview: 0, previewMax: 0, since: Date.now() });
+  stateSig = ""; // a new second is news
+}
 function writeState(system) {
   const last = S.entries[S.entries.length - 1];
   const t = S.turn;
@@ -251,6 +268,8 @@ function writeState(system) {
     handle: S.handle || "",
     approvals: S.approvals.map((a) => a.label || ""),
     spend: S.spend,
+    perf: PERF.last,
+    preview: S.preview ? { focus: !!(P && P.focus), error: (P && P.error) || "" } : null,
     feed: t ? t.feed.slice(-3).map((r) => `${r.status} ${r.text}`) : [],
     entries: S.entries.slice(-30).map((e) => ({ id: e.id || 0, kind: e.kind, text: e.text.length > 4000 ? e.text.slice(0, 4000) + "…" : e.text })),
   };
@@ -639,7 +658,9 @@ function answer(decision) {
   S.status = S.approvals.length ? "approval" : busy() ? "tool" : "ready";
 }
 
-function act({ event: e, system, screen }) {
+function act(api) {
+  const { event: e, system, screen } = api;
+  if (S && P && playPreview(api, e)) return;
   if (e.is("keyboard:down:shift")) { shiftHeld = true; return; }
   if (e.is("keyboard:up:shift")) { shiftHeld = false; return; }
   if (e.is("keyboard:down:control")) { ctrlHeld = true; return; }
@@ -962,8 +983,14 @@ function workingTimer(now) {
 }
 
 function paint(api) {
+  const t0 = Date.now();
+  const previewMs = paintSession(api);
+  if (S) perfFrame(Date.now() - t0, previewMs);
+}
+
+function paintSession(api) {
   const { wipe, ink, box, line, plot, write, screen, system, wifi } = api;
-  if (!S) return;
+  if (!S) return 0;
   frame++;
   SYS = system;
   LIVE.frame++;
@@ -1114,6 +1141,7 @@ function paint(api) {
   // ── the transcript box, the conversation bottom-aligned inside it.
   ink(...C.stroke);
   frame4(box, margin, boxY, W - 2 * margin, boxH, stroke);
+  // The conversation runs full width; the preview sits on top of it.
   const top = boxY + stroke + pad;
   const bottom = boxY + boxH - stroke - pad;
   const feedSize = Math.min(3, Math.max(1, Math.floor((bottom - top) / lh / 5)));
@@ -1155,7 +1183,12 @@ function paint(api) {
   }
 
   // ── the piece, live, in the transcript's top-left corner.
-  if (S.preview && !pending) drawPreview(api, margin + stroke, boxY + stroke, m);
+  let previewMs = 0;
+  if (S.preview && !pending) {
+    const t = Date.now();
+    drawPreview(api, margin + stroke, boxY + stroke, m);
+    previewMs = Date.now() - t;
+  }
 
   // ── the egg and its name, in the transcript's top-right corner, on black.
   const U = 9 * z;
@@ -1168,6 +1201,41 @@ function paint(api) {
   const below = drawEgg(ink, box, plot, ecx, boxY + stroke + pad, U, now);
   ink(...C.muted);
   write(name, { x: Math.round(ecx - (name.length * cw) / 2), y: below + z * 2, size: z, font: FONT });
+  return previewMs;
+}
+
+// The preview can be played where it sits. A touch inside the frame hands it
+// the pointer and the keyboard; its events arrive in the frame's own
+// coordinates, with sound, since now someone is playing it. Escape gives the
+// keyboard back and tab still runs the piece full-screen. Returns true when
+// the event was the preview's.
+function playPreview(api, e) {
+  const r = P.rect;
+  const pointer = e.is("touch") || e.is("draw") || e.is("lift") || e.is("move");
+  if (pointer && r) {
+    const inside = e.x >= r.x && e.y >= r.y && e.x < r.x + r.w && e.y < r.y + r.h;
+    if (e.is("touch")) { P.focus = inside && S.preview; P.held = P.focus; }
+    if (!(P.held || (P.focus && inside))) return false;
+    if (e.is("lift")) P.held = false;
+    return forward(api, e, e.x - r.x, e.y - r.y);
+  }
+  if (!P.focus || !(e.is("keyboard:down") || e.is("keyboard:up"))) return false;
+  if (e.is("keyboard:down") && (e.key === "escape" || !S.preview)) { P.focus = false; return true; }
+  if (e.is("keyboard:down") && e.key === "tab") { P.focus = false; runPiece(api.system); return true; }
+  return forward(api, e);
+}
+
+function forward(api, e, x, y) {
+  if (!P.piece || !P.piece.act) return true;
+  const event = Object.create(e);
+  if (x !== undefined) { event.x = x; event.y = y; event.pointer = { x, y }; }
+  try {
+    P.piece.act({ ...P.api, event, sound: api.sound, screen: { width: P.w, height: P.h } });
+  } catch (err) {
+    P.piece = null;
+    P.error = String(err && err.message || err);
+  }
+  return true;
 }
 
 // Sound and leaving stay with the real run: the preview is seen, not heard,
@@ -1182,8 +1250,7 @@ function drawPreview(api, x0, y0, m) {
   const { ink, box, write, painting, page, paste, system, screen } = api;
   const { z, cw, gh, pad, stroke } = m;
   if (!painting || !page || !paste) return;
-  const w = Math.max(48, Math.round(screen.width / 3));
-  const h = Math.max(27, Math.round((w * screen.height) / screen.width));
+  const { w, h } = previewBox(screen, m, x0, y0);
   if (!P || P.w !== w || P.h !== h) P = { source: null, piece: null, buf: painting(w, h), w, h, count: 0, error: "" };
   const fx = x0 + pad, fy = y0 + pad;
 
@@ -1234,7 +1301,8 @@ function drawPreview(api, x0, y0, m) {
   ink(...C.page);
   box(x0, y0, w + 2 * (pad + stroke), h + 2 * (pad + stroke) + gh + pad);
   paste(P.buf, fx + stroke, fy + stroke);
-  ink(...(P.error ? C.error : C.stroke));
+  P.rect = { x: fx + stroke, y: fy + stroke, w, h };
+  ink(...(P.error ? C.error : P.focus ? C.highlight : C.stroke));
   frame4(box, fx, fy, w + 2 * stroke, h + 2 * stroke, stroke);
   if (P.error) {
     ink(...C.page);
@@ -1245,7 +1313,17 @@ function drawPreview(api, x0, y0, m) {
     rows.forEach((r, i) => write(r.text, { x: fx + stroke + z, y: fy + stroke + z + i * (gh + z), size: z, font: FONT }));
   }
   ink(...C.muted);
-  write(clip(`${S.slug} · tab runs`, Math.floor((w + 2 * stroke) / cw)), { x: fx, y: fy + h + 2 * stroke + pad, size: z, font: FONT });
+  if (P.focus) ink(...C.highlight);
+  write(clip(P.focus ? "playing · esc returns" : `${S.slug} · tab runs`, Math.floor((w + 2 * stroke) / cw)), { x: fx, y: fy + h + 2 * stroke + pad, size: z, font: FONT });
+}
+
+// Where the preview sits: the frame a third of the screen wide at (x0, y0),
+// with its caption under it; `bottom` is the first row free below.
+function previewBox(screen, m, x0, y0) {
+  const { pad, stroke, gh } = m;
+  const w = Math.max(48, Math.round(screen.width / 3));
+  const h = Math.max(27, Math.round((w * screen.height) / screen.width));
+  return { w, h, bottom: y0 + 2 * pad + h + 2 * stroke + pad + gh };
 }
 
 // What the previewed piece is handed: Aesel's own paint API, with the screen
