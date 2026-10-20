@@ -69,6 +69,7 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
   const go = document.querySelector("#account-go");
   const back = document.querySelector("#account-back");
   const viaWeb = document.querySelector("#account-redirect");
+  const webDoor = !/xbox/i.test(globalThis.navigator?.userAgent ?? "");
 
   // Two askers, one panel. The game writes `__oskiewarAccountDoor` on every
   // frame it re-decides — and on the title screen it decides "closed" — so the
@@ -179,6 +180,15 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     // field back to the email step under the person's hands.
     if (showing === asked) return;
     showing = asked;
+    // A browser signs in the way aesthetic.computer and notepaint.art do: the
+    // AC page itself. The mailed-code form was stalling on a cross-site cookie
+    // (@jeffrey, 2026-10-19, Fía couldn't get in), so it is kept only for the
+    // Xbox, where that page's Turnstile loops, and for a web sign-in that
+    // came back broken (which arrives here with a message).
+    if (asked === "login" && webDoor && message === undefined) {
+      viaWebSignIn();
+      return;
+    }
     panel.hidden = false;
     // The fact, as opposed to the request: the shell's keyboard and gamepad
     // guards need to know a panel is up even when the game is not the one
@@ -304,8 +314,11 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
       }
     } catch {
       if (redirectPending) {
-        ask("login");
-        say("web sign-in couldn't finish — please try again", true);
+        // With a message, so the panel opens on the code form rather than
+        // sending them straight back round the redirect that just failed.
+        const why = "web sign-in couldn't finish — try a code instead";
+        ask("login", why);
+        say(why, true);
       }
     } finally {
       if (redirectPending) {
@@ -405,8 +418,12 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     else shut();
   });
 
-  viaWeb.addEventListener("click", async () => {
+  viaWeb.addEventListener("click", () => {
     sfx("block", .85, 0);
+    viaWebSignIn();
+  });
+
+  async function viaWebSignIn() {
     try {
       const client = await spaClient();
       await client?.loginWithRedirect({
@@ -415,8 +432,12 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
           (globalThis.__oskiewarTouch?.screen === "title" ? "/" : location.pathname) +
           location.search + location.hash },
       });
-    } catch { say("couldn't open the web sign-in page", true); }
-  });
+    } catch {
+      // Out of the redirect's reach, so the mailed code is the way in.
+      showing = "";
+      sync("couldn't open the web sign-in page — try a code instead");
+    }
+  }
 
   // A click on the dark around the form is a "never mind" (@jeffrey,
   // 2026-10-16: "if you click off the sign in on web it should close it").

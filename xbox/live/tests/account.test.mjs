@@ -8,14 +8,14 @@ const source = readFileSync(new URL('../account.mjs', import.meta.url), 'utf8')
   .replace('export default function mountAccount', 'function mountAccount');
 
 function fixture({ url = 'https://oskiewar.com/', callback, native = null,
-  handle = 'tester', failNative = false } = {}) {
+  handle = 'tester', failNative = false, userAgent = '' } = {}) {
   const elements = new Map();
   const calls = [];
   let signed = false;
   const location = new URL(url);
   const account = { ready: false, signedIn: false, handle: '', colors: [] };
   const context = vm.createContext({
-    URL, console, location,
+    URL, console, location, navigator: { userAgent },
     dispatchEvent: event => calls.push(["change", event.detail]),
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
     history: { replaceState(_state, _title, path) { location.href = new URL(path, location).href; } },
@@ -85,7 +85,7 @@ test('failed callback displays a retry and removes authorization parameters', as
   assert.equal(f.account.signedIn, false);
   assert.equal(f.context.__oskiewarAccountOpen, true);
   assert.equal(f.elements.get('#account-panel').hidden, false);
-  assert.match(f.elements.get('#account-note').textContent, /please try again/);
+  assert.match(f.elements.get('#account-note').textContent, /try a code instead/);
   assert.equal(f.location.search, '?opponent=dummy');
 });
 
@@ -132,6 +132,25 @@ test('web sign-in remembers the current room and query', async () => {
   assert.equal(options.authorizationParams.redirect_uri, 'https://oskiewar.com');
 });
 
+
+test('a browser asked to log in goes straight to the AC sign-in page', async () => {
+  const f = fixture({ url: 'https://oskiewar.com/daffo394' });
+  await f.door.ready;
+  f.context.__oskiewarAccountDoor = 'login';
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(f.calls.some(call => call[0] === 'redirect'));
+  assert.equal(f.elements.get('#account-panel').hidden, true);
+});
+
+test('the Xbox keeps the mailed-code form', async () => {
+  const f = fixture({ url: 'https://oskiewar.com/daffo394',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; Xbox; Xbox One) Edg/120' });
+  await f.door.ready;
+  f.context.__oskiewarAccountDoor = 'login';
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(!f.calls.some(call => call[0] === 'redirect'));
+  assert.equal(f.elements.get('#account-panel').hidden, false);
+});
 
 test('sign-in from the title returns home even with a legacy room address', async () => {
   const f = fixture({ url: 'https://oskiewar.com/daffo394' });
