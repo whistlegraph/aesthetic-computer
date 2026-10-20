@@ -16,6 +16,7 @@
 //   --no-stamps           drop the pals chrome
 //   --no-bed              speech only
 //   --no-grade            skip the color polish
+//   --no-captions         leave the words off (for a separate caption pass)
 //   --seconds N           render only the first N seconds (for quick looks)
 //
 // LIP SYNC. Consumer captures bake in an A/V offset, and this one does: the YC
@@ -180,6 +181,7 @@ const LIMIT = flag("seconds") ? parseFloat(flag("seconds")) : null;
 const USE_BED = !has("no-bed");
 const USE_STAMPS = !has("no-stamps");
 const USE_GRADE = !has("no-grade");
+const USE_CAPTIONS = !has("no-captions"); // off when a later pass draws its own
 
 // A learned upscaler (Topaz) rebuilds the background and hair beautifully but
 // waxes the skin — it reads real edges as detail and smooth skin as noise to
@@ -254,7 +256,7 @@ const DUR = LIMIT ? Math.min(LIMIT, FULL) : FULL;
 const VOICE = join(WORK, "voice.wav");
 const MONO = join(WORK, "mono16k.wav");
 const WHISPER_JSON = join(WORK, "whisper.json");
-const MODEL = resolve("recap/models/ggml-large-v3-turbo.bin");
+const MODEL = process.env.WHISPER_MODEL || resolve("recap/models/ggml-large-v3-turbo.bin");
 
 let words;
 if (WORDS_FILE) {
@@ -473,7 +475,7 @@ const envAt = (f) => envelope[Math.min(envelope.length - 1, Math.max(0, f))] || 
 // The side stamps carry the /pop look: the title word climbs the columns beside
 // the pals, exactly as every other AC reel. The clock is separate furniture, up
 // in the corner (below) — the two don't share a home.
-const stamps = await makeSideStamps({
+const stamps = USE_STAMPS && await makeSideStamps({
   w: W, h: H, fps: FPS, frames: FRAMES,
   assetsDir: join(WORK, "stamps"),
   title: STAMP_TITLE,
@@ -673,7 +675,7 @@ const drawFrame = async (rgba, rgbaO) => {
   sampCtx.drawImage(src, sx, sy, sw, cropH, 0, 0, SAMP, SAMP);
   const tint = sampleTint();
 
-  const p = phraseAt(t);
+  const p = USE_CAPTIONS ? phraseAt(t) : null;
   if (p) {
     // Fade in over the lead, out over the tail — a hard cut on a caption reads
     // as a glitch at 30fps.
@@ -708,7 +710,7 @@ const drawFrame = async (rgba, rgbaO) => {
   // it holds on the opening frame and starts when the footage does. Right-aligned
   // (measured, then laid out backward from the right margin) so its right edge
   // stays pinned as the digits change width. Same chroma fringe as the stamps.
-  if (clockAtlas) {
+  if (clockAtlas && stamps) {
     const text = clockText(srcT);
     const env = envAt(frame);
     const col = tint?.core || [235, 240, 250];

@@ -21,6 +21,9 @@
 //
 // Flags: --duration N --fps N --density N --width N --height N --perform NAME
 //        --base URL --headful --settle MS --slug NAME
+//        --wg CODE   a published Whistlegraph piece (wgXxxxx): boots AC's blank
+//                    runtime in the top page and drops the piece's source in,
+//                    the way /mime-play/ does, so the audio tee and density apply
 
 import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -90,7 +93,11 @@ const BASE = flags.base || "https://aesthetic.computer";
 const isMerry = /\s/.test(PIECE) || PIECE.startsWith("merry");
 // --label keeps AC's top-left piece-name label (default hides it with nolabel).
 const noLabel = flags.label ? "" : "nolabel&";
-const url = isMerry
+const WG = typeof flags.wg === "string" && /^wg[A-Za-z0-9]{1,32}$/.test(flags.wg) ? flags.wg : null;
+if (flags.wg && !WG) throw new Error("--wg takes a Whistlegraph piece code like wgDuram");
+const url = WG
+  ? `${BASE}/wipe?noauth=true&noplot=true&${noLabel}nogap&density=${DENSITY}&preview=walkieware&mime=1`
+  : isMerry
   ? `${BASE}/prompt?${noLabel}nogap&density=${DENSITY}`
   : `${BASE}/${encodeURIComponent(PIECE)}?${noLabel}nogap&density=${DENSITY}`;
 
@@ -143,6 +150,32 @@ await page.evaluateOnNewDocument(() => {
 try {
   await page.goto(url, { waitUntil: "networkidle2", timeout: 45000 });
 } catch (e) { console.log(`  ⚠ goto: ${e.message.slice(0, 80)} — continuing`); }
+
+// A Whistlegraph piece has no address of its own: fetch its published source
+// and drop it into the blank runtime, exactly as /mime-play/ does in its frame.
+if (WG) {
+  const result = await page.evaluate(async (code) => {
+    const response = await fetch("/api/mime-feed?code=" + encodeURIComponent(code));
+    if (!response.ok) return "source fetch " + response.status;
+    const { source } = await response.json();
+    if (typeof source !== "string" || !source) return "no source";
+    for (let i = 0; i < 150 && !window.acSEND; i++) await new Promise((r) => setTimeout(r, 100));
+    if (!window.acSEND) return "runtime never booted";
+    await new Promise((r) => setTimeout(r, 1000)); // let the blank disk finish
+    window.preloaded = false;
+    window.acSEND({ type: "dropped:piece", content: { name: "mime", source,
+      search: "noauth=true&noplot=true&nogap=true&nolabel=true&mime=1", isKidLisp: false } });
+    // /mime-play/ starts AC's audio once the piece is in; without it the
+    // sequencer runs silently.
+    for (let i = 0; i < 50 && !window.AC?.startAudio; i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 1500));
+    window.AC?.setMasterVolume?.(1);
+    await window.AC?.startAudio?.();
+    return window.AC?.startAudio ? "ok" : "ok (no AC.startAudio)";
+  }, WG).catch((e) => e.message);
+  console.log(`  wg ${WG}: ${result}`);
+  if (!result.startsWith("ok")) throw new Error(`could not load ${WG}: ${result}`);
+}
 
 await page.evaluate(() => { const c = document.querySelector("canvas"); if (c) { c.focus(); c.click(); } }).catch(() => {});
 await page.keyboard.press("Space").catch(() => {});
@@ -348,7 +381,7 @@ const mapArgs = haveAudio
   ? ["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
   : ["-map", "0:v"];
 const ff = spawnSync("ffmpeg", [...vArgs, ...aArgs,
-  "-vsync", "cfr", "-r", String(FPS), ...h264Args({ crf: 18, preset: "medium" }),
+  "-fps_mode", "cfr", "-r", String(FPS), ...h264Args({ crf: 18, preset: "medium" }),
   "-pix_fmt", "yuv420p", ...mapArgs, "-movflags", "+faststart", OUTMP4], { stdio: ["ignore", "ignore", "inherit"] });
 if (ff.status !== 0) { console.error("✗ ffmpeg assemble failed"); process.exit(1); }
 

@@ -36,7 +36,7 @@
       "containerId": "18048409679809746",
       "publishedAt": "2026-09-23T22:45:29.881Z",
       "permalink": "https://www.instagram.com/reel/DdpaXebFUWZ/",
-      "caption": "Ten touches turn into a bubble instrument.\n\nPlay it — aesthetic.computer/bubble\n\n#aestheticcomputer #creativecoding #digitalart #generativeart #webart",
+      "caption": "Ten touches turn into a bubble instrument.\n\nPlay it \u2014 aesthetic.computer/bubble\n\n#aestheticcomputer #creativecoding #digitalart #generativeart #webart",
       "source": "/home/me/reelfarm/aesthetic/queue/2026-09-23-s0-bubble-taps/reel.mp4",
       "audioName": null,
       "collaborators": null,
@@ -109,6 +109,40 @@
       "trial": "MANUAL",
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-10-12/21-10-50/fiktive-planeter-2026-10-post-chrome.mp4"
+      },
+      "insights": null
+    },
+    {
+      "mediaId": "18130320620307185",
+      "containerId": "18052174949809746",
+      "publishedAt": "2026-10-20T02:35:33.881Z",
+      "permalink": "https://www.instagram.com/reel/DesxXHAiDJO/",
+      "caption": "wgMurof",
+      "source": "/Users/jas/Desktop/ac-reel-samples/wgMurof.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-10-20/02-34-17/wgMurof.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-10-20/02-34-17/wgMurof-cover.jpg"
+      },
+      "insights": null,
+      "deletedAt": "2026-10-20T02:38:00Z",
+      "deletedNote": "bordered first cut; replaced by the full-bleed loop 18023697050864923"
+    },
+    {
+      "mediaId": "18023697050864923",
+      "containerId": "18052175666809746",
+      "publishedAt": "2026-10-20T02:41:05.844Z",
+      "permalink": "https://www.instagram.com/reel/Desx_9wD5Mx/",
+      "caption": "/wgMurof",
+      "source": "/Users/jas/Desktop/ac-reel-samples/wgMurof-loop.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-10-20/02-39-54/wgMurof-loop.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-10-20/02-39-54/wgMurof-loop-cover.jpg"
       },
       "insights": null
     }

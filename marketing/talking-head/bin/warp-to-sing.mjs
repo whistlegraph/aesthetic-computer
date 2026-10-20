@@ -39,6 +39,7 @@ const OUT = resolve(flag("out", "warped.mp4"));
 const SOURCE_SYNC_MS = Number(flag("source-sync", "0"));
 const MOUTH_LEAD_MS = Number(flag("mouth-lead", "0"));
 const CONTINUOUS = argv.includes("--continuous");
+const MIN_RATE = Number(flag("min-rate", "0")); // source frames per output frame a held word may not drop under
 const FPS = 30;
 if (!Number.isFinite(MOUTH_LEAD_MS) || !Number.isFinite(SOURCE_SYNC_MS)) {
   console.error("✗ --mouth-lead and --source-sync must be milliseconds");
@@ -215,6 +216,28 @@ const cubicSourceFrame = (s, i, p) => {
     + (p3 - p2) * tangents[i + 1] * len;
 };
 
+// A held note played at its real slope crawls: a word spoken in 6 frames and
+// sung across 60 shows each frame ten times, and the face reads as frozen. Under
+// `--min-rate`, such a word plays its own frames as a boomerang instead —
+// forward, back, forward — an odd number of passes so it still arrives on s1
+// moving forward, with the pass count picked so the speed stays near the floor.
+// The mouth keeps working the vowel; both word boundaries stay exact. A word
+// only a few frames long gets a wider swing window (from s0) so the motion is
+// visible, and the last pass eases from that window's edge back to s1 so the
+// next word starts without a pop.
+const boomerangSourceFrame = (s, p) => {
+  const len = s.o1 - s.o0;
+  const span = Math.max(1, s.s1 - s.s0);
+  const win = Math.max(span, 6);
+  let passes = Math.max(1, Math.round((MIN_RATE * len) / win));
+  if (passes % 2 === 0) passes += 1;
+  const u = p * passes, pass = Math.min(passes - 1, Math.floor(u)), f = u - pass;
+  const along = pass % 2 === 0 ? f : 1 - f; // 0 → 1 → 0 → … → 1
+  // the final forward pass lands on s1, not the widened window's far edge
+  const top = pass === passes - 1 ? s.s0 + win + (span - win) * f * f : s.s0 + win;
+  return s.s0 + along * (top - s.s0);
+};
+
 const dec = spawn("ffmpeg", ["-v", "error", "-i", SRC, "-f", "rawvideo", "-pix_fmt", "rgba",
   "-vf", `fps=${FPS}`, "-"], { stdio: ["ignore", "pipe", "inherit"] });
 const enc = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y",
@@ -283,18 +306,21 @@ for (const [si, s] of segs.entries()) {
       // Step through the source frames at constant rate, blending neighbors.
       // In continuous mode this applies to gaps too: the original head and mouth
       // motion play through instead of dissolving between two frozen endpoints.
-      const sf = CONTINUOUS
-        ? cubicSourceFrame(s, si, p)
+      const held = !s.gap && MIN_RATE > 0 && slopes[si] < MIN_RATE;
+      const sf = held ? boomerangSourceFrame(s, p)
+        : CONTINUOUS ? cubicSourceFrame(s, si, p)
         : s.s0 + p * (s.s1 - s.s0);
       const i0 = Math.floor(sf);
-      minNeeded = i0;
+      minNeeded = held ? s.s0 : i0;
       const a = await frame(i0);
       const b = await frame(i0 + 1);
       blendInto(a, b, sf - i0);
     }
 
     await write(outBuf);
-    for (const key of cache.keys()) if (key < minNeeded) cache.delete(key);
+    // Never evict the last decoded frame: past the source's end every request
+    // clamps to it (the tail ran off the clip and blended an evicted frame).
+    for (const key of cache.keys()) if (key < Math.min(minNeeded, maxRead)) cache.delete(key);
     if (of % 150 === 0) process.stdout.write(`\r  ${of}/${outFrames}`);
   }
 }
