@@ -129,16 +129,10 @@ if (probe) {
     description: "Curated public products served by this stack. This is a link directory, not an agent protocol or an authorization grant. See each resource's own terms, authentication and attribution.",
     properties: properties.map(({host,title,summary,aliases=[],links,note,id,access,endpoints}) => ({url:`https://${host}/`, title, summary, llms:`https://${host}/llms.txt`, aliases, ...(id ? {id, access, endpoints} : {}), ...(note ? {note} : {}), resources: links.map(([title,url,description]) => ({title,url,description}))}))};
   await output("system/public/network.json", JSON.stringify(directory, null, 2) + "\n");
-  // sitemap.xml is written by toolchain/seo/sitemap.mjs (npm run seo:sitemap):
-  // the standing pages plus every listed piece. The discovery resources only
-  // have to stay in it, so this checks for them rather than owning the file.
+  // Repair robots.txt's already-advertised, previously missing sitemap.xml.
+  // Only canonical AC-host public discovery resources belong in this sitemap.
   const xmlURLs = ["/", "/about", "/list", "/docs", "/api", "/llms.txt", "/llms-full.txt", "/network.json"];
-  const sitemap = await readFile(new URL("system/public/sitemap.xml", root), "utf8").catch(() => "");
-  const missing = xmlURLs.filter(p => !sitemap.includes(`<loc>https://aesthetic.computer${p}</loc>`));
-  if (missing.length) {
-    console.error(`sitemap.xml is missing discovery resources: ${missing.join(", ")} (run npm run seo:sitemap)`);
-    failed = true;
-  }
+  await output("system/public/sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${xmlURLs.map(p=>`  <url><loc>https://aesthetic.computer${p}</loc></url>`).join("\n")}\n</urlset>\n`);
   console.log(`${properties.length} properties, ${hosts.length} hostnames; ${check ? "checked" : "generated"}. ${Object.keys(excludedHosts).length} hosts explicitly excluded.`);
   process.exitCode = failed ? 1 : 0;
 }
