@@ -5831,14 +5831,12 @@ function paint($) {
   // 🎭 "swipe for mimes" along the bottom edge; rides up with the drag.
   if (showLoginCurtain && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text && screen.height >= 200) {
-    const label = "swipe for mimes";
+    // The last row, under the commit button.
+    const label = "^ swipe for mimes ^";
     const pull = mimeSwipe?.engaged ? min(mimeSwipe.dy, 60) : 0;
-    const bob = pull ? 0 : Math.round(sin(motdFrame * 0.08) * 1.5);
     const x = Math.floor((screen.width - label.length * 4) / 2);
-    const y = screen.height - 14 + bob - Math.floor(pull / 2);
-    const alpha = pull ? 255 : 150;
-    ink(255, 145, 200, alpha).write("^", { x: Math.floor(screen.width / 2) - 2, y: y - 7 },
-      undefined, undefined, false, "MatrixChunky8");
+    const y = screen.height - 8 - Math.floor(pull / 2);
+    const alpha = pull ? 255 : 110 + Math.round(sin(motdFrame * 0.08) * 40);
     ink(255, 145, 200, alpha).write(label, { x, y },
       undefined, undefined, false, "MatrixChunky8");
   }
