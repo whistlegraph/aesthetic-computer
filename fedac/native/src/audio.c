@@ -1793,10 +1793,16 @@ static void *audio_thread_fn(void *arg) {
     }
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
-    double mix_divisor = 1.0; // Smooth auto-mix (matches speaker.mjs)
-    // Auto-mix smoothing: fast-ish attack, slower release to avoid zipper clicks.
-    const double mix_att_coeff = 1.0 - exp(-1.0 / (0.004 * rate)); // ~4ms
-    const double mix_rel_coeff = 1.0 - exp(-1.0 / (0.060 * rate)); // ~60ms
+    // Melodic headroom (Menu Band's MelodicHeadroom). Same-pitch voices add
+    // coherently; different pitches share a power budget. Four full copies
+    // of one pitch reserve 3 dB, a four-note chord 1.5 dB, never more than
+    // 6 dB — the old divide-by-total-volume put a four-note chord 12 dB down,
+    // so the whole mix sank as notes overlapped. Instant attenuation,
+    // 250 ms recovery.
+    double tone_gain = 1.0;
+    const double tone_rel_coeff = 1.0 - exp(-1.0 / (0.250 * rate));
+    double pitch_level[128] = {0};
+    int pitch_touched[AUDIO_MAX_VOICES];
 
     // Drum bus peak compressor — gives percussion proper "stacking" feel.
     // The drum bus sums additively (no auto-mix divide) so rapid hits
@@ -1890,7 +1896,7 @@ static void *audio_thread_fn(void *arg) {
             // long one-shot tones always go through the auto-mix bus.
             double tone_l = 0.0, tone_r = 0.0;
             double drum_l = 0.0, drum_r = 0.0;
-            double voice_sum = 0.0; // Tone-only voice weight for auto-mix
+            int n_touched = 0;
 
             for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
                 ACVoice *voice = &audio->voices[v];
@@ -1911,14 +1917,20 @@ static void *audio_thread_fn(void *arg) {
                     drum_l += amp * left_gain;
                     drum_r += amp * right_gain;
                 } else {
-                    // Tone bus — contributes to voice_sum for auto-mix.
+                    // Tone bus — its level joins its pitch's headroom bucket.
+                    // A released (linger) voice counts at its actual fade.
                     tone_l += amp * left_gain;
                     tone_r += amp * right_gain;
-                    if (voice->state == VOICE_KILLING) {
-                        voice_sum += voice->volume * (1.0 - voice->fade_elapsed / voice->fade_duration);
-                    } else {
-                        voice_sum += voice->volume;
-                    }
+                    double level = voice->volume;
+                    if (voice->state == VOICE_KILLING)
+                        level *= 1.0 - voice->fade_elapsed / voice->fade_duration;
+                    int pitch = 69;
+                    if (voice->frequency > 0.0)
+                        pitch = (int)lround(69.0 + 12.0 * log2(voice->frequency / 440.0));
+                    if (pitch < 0) pitch = 0;
+                    if (pitch > 127) pitch = 127;
+                    if (pitch_level[pitch] == 0.0) pitch_touched[n_touched++] = pitch;
+                    pitch_level[pitch] += level > 0.0 ? level : 1e-9;
                 }
 
                 voice->elapsed += dt;
@@ -1931,17 +1943,20 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
-            // Smooth auto-mix divisor — fast attack, slow release.
-            // Applied ONLY to the tone bus. Drums bypass it entirely.
-            double target = voice_sum > 1.0 ? voice_sum : 1.0;
-            if (mix_divisor < target)
-                mix_divisor += (target - mix_divisor) * mix_att_coeff;
-            else if (mix_divisor > target)
-                mix_divisor += (target - mix_divisor) * mix_rel_coeff;
-            if (mix_divisor < 1.0) mix_divisor = 1.0;
+            // Melodic headroom gain — tone bus only, drums bypass it.
+            double power = 0.0;
+            for (int t = 0; t < n_touched; t++) {
+                double l = pitch_level[pitch_touched[t]];
+                power += l * l;
+                pitch_level[pitch_touched[t]] = 0.0;
+            }
+            double target = pow(power > 1.0 ? power : 1.0, -0.125);
+            if (target < 0.5) target = 0.5;
+            if (target < tone_gain) tone_gain = target;
+            else tone_gain += (target - tone_gain) * tone_rel_coeff;
 
-            tone_l /= mix_divisor;
-            tone_r /= mix_divisor;
+            tone_l *= tone_gain;
+            tone_r *= tone_gain;
 
             // Drum bus peak compressor: detect peak, attack fast if over
             // threshold, release slow. Unlike the tone auto-mix divide,
@@ -2210,9 +2225,11 @@ static void *audio_thread_fn(void *arg) {
                 double peak = fabs(mix_l);
                 double pr = fabs(mix_r);
                 if (pr > peak) peak = pr;
-                // Attack: very fast (0.2ms), Release: medium (40ms)
-                double att_coeff = 1.0 - exp(-1.0 / (0.0002 * rate));
-                double rel_coeff = 1.0 - exp(-1.0 / (0.04 * rate));
+                // Menu Band's master timing: 8 ms attack lets note
+                // transients through (soft_clip catches them), 180 ms
+                // release recovers without pumping on held chords.
+                double att_coeff = 1.0 - exp(-1.0 / (0.008 * rate));
+                double rel_coeff = 1.0 - exp(-1.0 / (0.18 * rate));
                 if (peak > comp_env)
                     comp_env += att_coeff * (peak - comp_env);
                 else

@@ -567,11 +567,15 @@ let shiftHeld = false;
 // Caps lock latches the shift sustain: tap it on and every note lingers and
 // fades on release as if shift were held; tap again to turn it off.
 let capsSustain = false;
-// Chord modifiers (Menu Band parity). Held with a note key, they fire a
-// triad instead of a single tone. control = major, alt = minor,
-// control+alt = sus2. Tracked here like shiftHeld and read at note-on.
+// Chord modifiers (Menu Band parity — Win stands in for ⌘, alt for ⌥,
+// control for ⌃). Held with a note key, they fire a triad instead of a
+// single tone: Win = major, alt = minor, Win+alt = sus2; control alters
+// the shape — ctrl = aug, alt+ctrl = dim, Win+alt+ctrl = sus4. Tracked here
+// like shiftHeld and read at note-on.
 let ctrlHeld = false;
 let altHeld = false;
+let metaHeld = false;
+let metaChorded = false; // a note fired while Win was down, so it wasn't a tap
 
 // Analog keyboard (NuPhy Hall-Effect) detection. When a note-on event
 // arrives with an analog pressure value (0 < p < 1) that isn't the
@@ -3153,6 +3157,22 @@ function act({ event: e, sound, wifi, system }) {
   else if (e.is("keyboard:up") && e.key?.toLowerCase() === "control") ctrlHeld = false;
   if (e.is("keyboard:down") && e.key?.toLowerCase() === "alt") altHeld = true;
   else if (e.is("keyboard:up") && e.key?.toLowerCase() === "alt") altHeld = false;
+  // Win is a chord key while held; a bare tap (no note in between) still
+  // toggles the help panel.
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "meta" && !metaHeld) {
+    metaHeld = true;
+    metaChorded = false;
+  } else if (e.is("keyboard:up") && e.key?.toLowerCase() === "meta" && metaHeld) {
+    metaHeld = false;
+    if (!metaChorded) {
+      helpPanel = !helpPanel;
+      sound?.synth?.({
+        type: "sine",
+        tone: helpPanel ? 660 : 440,
+        duration: 0.08, volume: 0.15, attack: 0.005, decay: 0.07
+      });
+    }
+  }
 
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
@@ -3492,16 +3512,8 @@ function act({ event: e, sound, wifi, system }) {
       });
       return;
     }
-    // Meta/Win key: toggle keyboard shortcut help panel
-    if (key === "meta") {
-      helpPanel = !helpPanel;
-      sound?.synth?.({
-        type: "sine",
-        tone: helpPanel ? 660 : 440,
-        duration: 0.08, volume: 0.15, attack: 0.005, decay: 0.07
-      });
-      return;
-    }
+    // Meta/Win key: chord modifier, tap toggles help (handled atop act()).
+    if (key === "meta") return;
     // Number keys 0-9 → General MIDI program selection (Menu Band semantics).
     // Digits accumulate into a buffer (max 3); a >0.8s gap starts fresh.
     // Value v: v==0 toggles MIDI passthrough (relay only, no local synth);
@@ -3730,15 +3742,18 @@ function act({ event: e, sound, wifi, system }) {
 
       // This grid side is melodic (the drum branch above returned for any
       // active kit), so the GM instrument layer + chord modifiers apply.
-      // Chord triad intervals from the held modifier (Menu Band parity):
-      //   control = major (0,4,7), alt = minor (0,3,7),
-      //   control+alt = sus2 (0,2,7). No modifier = single note.
-      const chordIvls = ctrlHeld && altHeld ? [0, 2, 7]
-                      : ctrlHeld ? [0, 4, 7]
+      // Chord triad from the held modifiers (Menu Band's chordQuality):
+      //   Win = major, alt = minor, Win+alt = sus2; control alters the
+      //   shape — major's fifth up (aug), minor's down (dim), sus2 → sus4.
+      //   No modifier = single note.
+      const chordIvls = !(metaHeld || altHeld || ctrlHeld) ? null
+                      : metaHeld && altHeld ? (ctrlHeld ? [0, 5, 7] : [0, 2, 7])
+                      : ctrlHeld ? (altHeld ? [0, 3, 6] : [0, 4, 8])
                       : altHeld ? [0, 3, 7]
-                      : null;
+                      : [0, 4, 7];
+      if (metaHeld) metaChorded = true;
       // Linger intent captured at press time (shift may release first).
-      const lingerOnRelease = shiftHeld;
+      const lingerOnRelease = shiftHeld || capsSustain;
 
       // MIDI passthrough: relay note(s) only, synthesize nothing locally.
       if (gmPassthrough) {
@@ -9206,7 +9221,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["/",            "attack (+shift decay)"],
         ["\u2190 \u2192", "select L/R side"],
         ["\u2191 \u2193", "volume up/down"],
-        ["ctrl/alt",     "maj / min chord"],
+        ["win/alt",      "maj / min (both: sus2)"],
+        ["+ctrl",        "aug / dim / sus4"],
         ["shift",        "accent + linger"],
         ["caps",         "linger on / off"],
       ]],
@@ -9249,7 +9265,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["prtsc/ins",  "start/stop tape"],
       ]],
       ["SYSTEM", [190, 190, 205], [
-        ["meta",       "toggle help"],
+        ["win tap",    "toggle help"],
         ["esc\u00d73", "exit to prompt"],
       ]],
     ];
