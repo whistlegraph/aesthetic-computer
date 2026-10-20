@@ -16,7 +16,7 @@ import { vaultPath } from "../vault/credentials.mjs";
 
 const pexec = promisify(execFile);
 export const KEY_FILE = "dark-window/gcp-service-key.json.gpg";
-export const GA4_PROPERTY = "394537035"; // "aesthetic-computer", web stream aesthetic.computer
+export const GA4_PROPERTY = "401592606"; // "aesthetic.computer" under mail@aesthetic.computer, web stream G-B4TLVYKXVF (the tag the site serves)
 export const SEARCH_SITES = ["aesthetic.computer", "sotce.net", "laklok.com", "oskiewar.com", "prompt.ac",
   "whistlegraph.org", "mime.ac", "jas.life", "nopaint.art", "notepaint.art"];
 const SCOPES = "https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly";

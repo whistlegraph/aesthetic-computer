@@ -367,7 +367,7 @@ const TOOLS = [
   },
   {
     name: "google_analytics",
-    description: "Google Analytics 4 for aesthetic.computer (property 394537035): sessions, engaged sessions and GA's user estimate, by source/medium and by landing page. GA counts differ from AC's first-party visits; compare, never add.",
+    description: "Google Analytics 4 for aesthetic.computer (property 401592606, stream G-B4TLVYKXVF): sessions, engaged sessions and GA's user estimate, by source/medium and by landing page. GA counts differ from AC's first-party visits; compare, never add.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       days: { type: "integer", minimum: 1, maximum: 90, description: "Default 7" },
