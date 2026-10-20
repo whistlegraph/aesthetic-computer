@@ -51,6 +51,7 @@ import {attachMusicalSocket} from "./musical-socket.mjs";
 import { optionalProduct } from "../shared/private-product.mjs";
 import { operationsAuth } from "./operations-auth.mjs";
 import { canonicalPageUrl } from "../system/public/aesthetic.computer/lib/site-metadata.mjs";
+import { paintingStorageUrl } from "../system/backend/painting-storage.mjs";
 import { sendStream } from "./stream-response.mjs";
 import { userMediaTarget, userMediaOrigin } from "./media-path.mjs";
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, statSync } from "fs";
@@ -1236,14 +1237,11 @@ app.all("/media/*rest", async (req, res) => {
           return res.redirect(302,
             `https://aesthetic.computer/api/pixel/${painting.width}x${painting.height}/${encodeURIComponent(painting.code)}.png`);
         }
-        const bucket = painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer";
-        const slug = painting.slug?.split(":")[0] || painting.slug;
-        // Slug may already be fully-qualified (e.g. "auth0|.../painting/TS").
-        // Only prepend user when it's a bare slug, otherwise we double the prefix.
-        const key = painting.user && !slug.startsWith(`${painting.user}/`)
-          ? `${painting.user}/${slug}.png`
-          : `${slug}.png`;
-        return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
+        // A user painting's slug may be a bare timestamp (the object sits
+        // under painting/), a folder-relative slug, or the whole account key;
+        // painting-storage.mjs knows the three shapes, so the record's PNG is
+        // found whichever it stored. (Bare timestamps used to miss painting/.)
+        return res.redirect(302, paintingStorageUrl(painting));
       }
     } catch {}
     // Legacy anonymous recording ZIPs have object slugs but no tape row.
