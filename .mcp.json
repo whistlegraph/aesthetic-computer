@@ -50,6 +50,13 @@
       "args": [
         "toolchain/mcp/choir-mcp.mjs"
       ]
+    },
+    "aesel": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/aesel-mcp.mjs"
+      ]
     }
   }
 }

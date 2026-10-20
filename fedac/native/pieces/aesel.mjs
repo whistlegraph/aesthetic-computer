@@ -18,7 +18,7 @@ import {
   Bridge, DEFAULT_MODEL, blankPiece, compact, creatureLook, creatureSeed, dollars, instructionsFor,
   keyColor, markdown, petName, pieceFactory, pipedCommand, randomSlug, toolLabel, turnUsageText, uuid, wrapRows,
 } from "../lib/aesel-bridge.mjs";
-import { AC_MODELS, AcBridge, DEFAULT_AC_MODEL, acModelLabel, resolveAcModel } from "../lib/aesel-ac.mjs";
+import { AC_MODELS, AcBridge, DEFAULT_AC_MODEL, acModelLabel, resolveAcModel, streamFile } from "../lib/aesel-ac.mjs";
 
 // The terminal Aesel's palette (aesel/src/render.mjs, after the AC prompt's
 // dark scheme): pink prompt, orange highlight, light-purple soft and muted.
@@ -63,6 +63,8 @@ const PIECES = "/pieces";
 // frame (see acTransport), because the runtime's fetch is curl, not fetch().
 const SITE = "https://aesthetic.computer";
 const STREAM_FILE = "/tmp/aesel-inference.sse";
+const SAY_FILE = "/tmp/aesel-say";
+const STATE_FILE = "/tmp/aesel-state.json";
 const MAX_ENTRIES = 400;
 const MAX_VERSIONS = 40;
 const SEP = " · ";
@@ -191,21 +193,23 @@ function readToken(system) {
 }
 
 // The hosted engine's transport over the runtime's curl-backed fetch. start()
-// hands curl a file to stream into; poll() re-reads that file. The request is
-// not "done" on the frame it started, because the system object of that paint
-// was built before curl existed.
+// hands curl a file to stream into; poll() reads what has arrived since
+// (streamFile). The request is not "done" on the frame it started, because
+// the system object of that paint was built before curl existed.
 function acTransport() {
   let startedAt = -1;
+  const stream = streamFile(() => LIVE.system.readFileBytes(STREAM_FILE));
   return {
     start(body, headers) {
       startedAt = LIVE.frame;
+      stream.reset();
       const ok = LIVE.system.fetchPost(`${SITE}/api/easel-inference`, body, JSON.stringify(headers), { out: STREAM_FILE, timeout: 600 });
       return ok === true;
     },
     poll() {
       const sys = LIVE.system;
-      const text = sys.readFile(STREAM_FILE) || "";
       const done = LIVE.frame > startedAt && !sys.fetchPending;
+      const text = stream.read(done); // after `done`, so the last bytes are in
       return { text, done, error: done ? (sys.fetchError || "") : "" };
     },
     cancel() {
@@ -215,8 +219,42 @@ function acTransport() {
 }
 
 function note(text, kind = "note") {
-  S.entries.push({ kind, text: String(text) });
+  S.entries.push({ kind, text: String(text), id: nextId() });
   if (S.entries.length > MAX_ENTRIES) S.entries.splice(0, S.entries.length - MAX_ENTRIES);
+}
+
+// Entries are numbered for the state file, so a reader elsewhere can ask
+// for what is new since the last id it saw.
+function nextId() {
+  S.seq = (S.seq || 0) + 1;
+  return S.seq;
+}
+
+// What the screen says, as JSON, for another machine: written when it
+// changes, at most four times a second. `echo … > /tmp/aesel-say` is the
+// other half.
+let stateSig = "";
+function writeState(system) {
+  const last = S.entries[S.entries.length - 1];
+  const t = S.turn;
+  const sig = [S.status, S.entries.length, last && last.text.length, S.slug, S.model, S.approvals.length, t && t.tools.size, t && t.feed.length, S.lastTurn].join("|");
+  if (sig === stateSig) return;
+  stateSig = sig;
+  const state = {
+    at: Date.now(),
+    status: S.status,
+    working: busy(),
+    lastTurn: S.lastTurn,
+    piece: S.file,
+    model: S.model,
+    backend: S.backend,
+    handle: S.handle || "",
+    approvals: S.approvals.map((a) => a.label || ""),
+    spend: S.spend,
+    feed: t ? t.feed.slice(-3).map((r) => `${r.status} ${r.text}`) : [],
+    entries: S.entries.slice(-30).map((e) => ({ id: e.id || 0, kind: e.kind, text: e.text.length > 4000 ? e.text.slice(0, 4000) + "…" : e.text })),
+  };
+  system.writeFile(STATE_FILE, JSON.stringify(state), false);
 }
 
 function flash(text, ms = 2500) {
@@ -282,6 +320,9 @@ function boot({ system, screen, params }) {
   const kept = globalThis.__aesel;
   if (kept && kept.bridge && (kept.backend === "ac" || (system.pty2 && system.pty2.active))) {
     S = kept; // Reattach: the conversation kept running while we were away.
+    // The transport is this copy's, so a reattach after an update reads the
+    // stream with the current code rather than the code the bridge began with.
+    if (S.backend === "ac" && S.bridge && "transport" in S.bridge) S.bridge.transport = acTransport();
     for (const [key, value] of Object.entries(blankSession())) if (!(key in S)) S[key] = value;
     if (!S.egg) S.egg = eggFor(uuid());
     if (!S.colors) Object.assign(S, readAccount(system));
@@ -330,7 +371,7 @@ function absorb(event) {
       S.status = "generating";
       const last = S.entries[S.entries.length - 1];
       if (last && last.kind === "agent" && last.open) last.text += event.text;
-      else S.entries.push({ kind: "agent", text: event.text, open: true });
+      else S.entries.push({ kind: "agent", text: event.text, open: true, id: nextId() });
       return;
     }
     case "message":
@@ -954,6 +995,20 @@ function paint(api) {
     }
     for (const event of S.bridge.take()) absorb(event);
   }
+
+  // A line from another machine: `echo "make it rain" > /tmp/aesel-say` over
+  // ssh is submitted as if typed here, slash commands included.
+  if (frame % 15 === 0) {
+    const said = system.readFile(SAY_FILE);
+    if (said && said.trim()) {
+      system.deleteFile(SAY_FILE);
+      const typed = S.input;
+      setInput(said.trim().replace(/\s*\n\s*/g, " "));
+      submit(system, screen);
+      if (typed) setInput(typed);
+    }
+  }
+  if (frame % 15 === 0) writeState(system);
 
   const m = metrics(W, H);
   const { z, cw, gh, lh, margin, pad, stroke } = m;

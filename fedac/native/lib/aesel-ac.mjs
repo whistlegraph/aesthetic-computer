@@ -64,6 +64,47 @@ export const WRITE_PIECE = {
 const MAX_ROUNDS = 12;
 const MAX_TOKENS = 8192;
 
+// The response file, read incrementally. The runtime's readFile hands back
+// only a file's last 64 KB, and a reply's stream is mostly per-token event
+// overhead — a 7 KB piece arrives as 200 KB — so a reader that re-read the
+// whole file each frame lost the stream's head and with it the tool call.
+// readBytes is system.readFileBytes (uncapped); only the bytes past `pos`
+// are decoded, up to the last newline so no UTF-8 sequence is cut, unless
+// the request has ended. A file shorter than `pos` is a new request.
+export function streamFile(readBytes) {
+  let pos = 0;
+  let text = "";
+  return {
+    reset() { pos = 0; text = ""; },
+    read(final = false) {
+      const raw = readBytes();
+      const b = raw ? new Uint8Array(raw) : new Uint8Array(0);
+      if (b.length < pos) { pos = 0; text = ""; }
+      let end = b.length;
+      if (!final) while (end > pos && b[end - 1] !== 10) end--;
+      if (end > pos) { text += utf8(b, pos, end); pos = end; }
+      return text;
+    },
+  };
+}
+
+// UTF-8 bytes to a string; QuickJS here has no TextDecoder.
+export function utf8(b, start = 0, end = b.length) {
+  let out = "";
+  const units = [];
+  for (let i = start; i < end;) {
+    const c = b[i++];
+    let cp = c;
+    if (c >= 0xf0) cp = ((c & 7) << 18) | ((b[i++] & 63) << 12) | ((b[i++] & 63) << 6) | (b[i++] & 63);
+    else if (c >= 0xe0) cp = ((c & 15) << 12) | ((b[i++] & 63) << 6) | (b[i++] & 63);
+    else if (c >= 0xc0) cp = ((c & 31) << 6) | (b[i++] & 63);
+    if (cp > 0xffff) { cp -= 0x10000; units.push(0xd800 + (cp >> 10), 0xdc00 + (cp & 1023)); }
+    else units.push(cp);
+    if (units.length >= 8192) { out += String.fromCharCode.apply(null, units); units.length = 0; }
+  }
+  return out + String.fromCharCode.apply(null, units);
+}
+
 // Parse the complete `data:` lines of a server-sent-event stream from
 // `offset` on. Returns the parsed payloads and where the next parse starts;
 // a partial last line waits for more bytes.

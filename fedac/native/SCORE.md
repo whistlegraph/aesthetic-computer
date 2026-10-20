@@ -270,6 +270,18 @@ How it is built:
   closed. Errors show in the frame. `/preview` toggles it; tab still runs the
   piece full-screen.
 
+- **Remote I/O**: Aesel writes `/tmp/aesel-state.json` (status, turn feed,
+  the last 30 transcript entries, numbered) when it changes, and submits a
+  line written to `/tmp/aesel-say` as if typed, slash commands included. The
+  `aesel` MCP (`toolchain/mcp/aesel-mcp.mjs`) finds devices by Bonjour and
+  drives both files over ssh through neo: `aesel_devices`, `aesel_state`,
+  `aesel_say`, `aesel_wait`, `aesel_piece`.
+- **Stream reading**: the hosted reply is read with `system.readFileBytes`
+  and decoded incrementally (`streamFile` in `lib/aesel-ac.mjs`). `readFile`
+  returns only a file's last 64 KB, and a reply's stream is mostly per-token
+  event overhead (a 7 KB piece arrives as ~200 KB), so a whole-file re-read
+  lost the head of the stream and every long `write_piece` with it.
+
 Not carried over from desktop Aesel yet: the `/run` live push and QR, and the
 Codex bridge.
 

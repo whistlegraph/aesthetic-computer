@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { AcBridge, acModelLabel, errorMessage, parseSse, resolveAcModel } from "./aesel-ac.mjs";
+import { AcBridge, acModelLabel, errorMessage, parseSse, resolveAcModel, streamFile, utf8 } from "./aesel-ac.mjs";
 
 function sse(events) {
   return events.map((e) => `data: ${JSON.stringify(e)}\n`).join("");
@@ -243,4 +243,32 @@ test("retry says a failed turn's line again without doubling it", () => {
   assert.equal(bridge.busy, true);
   assert.deepEqual(bridge.messages, [{ role: "user", content: "make it red" }]);
   assert.equal(bridge.retry(), false);
+});
+
+test("the response file is read past the runtime's 64 KB readFile tail", () => {
+  const enc = (t) => { const b = Buffer.from(t); return b.buffer.slice(b.byteOffset, b.byteOffset + b.length); };
+  assert.equal(utf8(new Uint8Array(enc("é → 🎨 kagi"))), "é → 🎨 kagi");
+  const line = (i) => `data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"ü${i}"}}\n\n`;
+  const whole = Array.from({ length: 3000 }, (_, i) => line(i)).join("");
+  assert.ok(Buffer.byteLength(whole) > 200000);
+  const bytes = Buffer.from(whole);
+  let have = bytes.subarray(0, 0);
+  const s = streamFile(() => enc(have));
+  // Bytes arrive mid-line and mid-character; only whole lines are decoded
+  // until the request ends.
+  for (const n of [70001, 140003, bytes.length - 5]) {
+    have = bytes.subarray(0, n);
+    const text = s.read();
+    assert.ok(text.endsWith("\n") && whole.startsWith(text));
+  }
+  have = bytes;
+  assert.equal(s.read(true), whole);
+  const parsed = parseSse(s.read(true));
+  assert.equal(parsed.events.length, 3000);
+  assert.equal(parsed.events[0].delta.partial_json, "ü0");
+  // A shorter file is the next request.
+  let next = enc("data: {}\n");
+  const u = streamFile(() => next);
+  u.read(); next = enc("x\n");
+  assert.equal(u.read(), "x\n");
 });
