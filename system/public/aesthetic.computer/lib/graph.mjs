@@ -2278,6 +2278,49 @@ function paste(from, destX = 0, destY = 0, scale = 1, blit = false) {
     // It blits from.width × from.height wholesale, so it must decline anything
     // cropped — otherwise a cropped sprite silently pastes its entire sheet,
     // and only when the sheet happens to fit, which hides the bug.
+    // A plain fractional scale samples per destination pixel, as a crop of
+    // the whole image does. grid() walks every source pixel instead, so a
+    // 450px cut-out pasted at 0.25 cost 190k iterations to draw 110px.
+    if (
+      !angle &&
+      !crop &&
+      !tWidth &&
+      !tHeight &&
+      !anchor &&
+      typeof scale === "number" &&
+      scale > 0 &&
+      scale !== ~~scale &&
+      from.pixels instanceof Uint8ClampedArray &&
+      from.pixels.length === from.width * from.height * 4 &&
+      (from.pixels.byteOffset & 3) === 0 &&
+      (pixels.byteOffset & 3) === 0
+    ) {
+      // Rounded, as grid() sizes it, so layouts keep their exact footprint.
+      const targetW = Math.round(from.width * scale);
+      const targetH = Math.round(from.height * scale);
+      let startY = Math.max(0, -destY);
+      let endY = Math.min(targetH, height - destY);
+      let startX = Math.max(0, -destX);
+      let endX = Math.min(targetW, width - destX);
+      if (activeMask) {
+        const maskX = activeMask.x + panTranslation.x;
+        const maskY = activeMask.y + panTranslation.y;
+        startX = Math.max(startX, maskX - destX);
+        endX = Math.min(endX, maskX + activeMask.width - destX);
+        startY = Math.max(startY, maskY - destY);
+        endY = Math.min(endY, maskY + activeMask.height - destY);
+      }
+      if (targetW > 0 && targetH > 0 && endX > startX && endY > startY) {
+        blitCropScale(
+          from.pixels, from.width, from.height, 0, 0,
+          from.width / targetW, from.height / targetH, destX, destY,
+          pixels, width, startX, startY, endX, endY,
+        );
+      }
+      graphPerf.track('paste', performance.now() - pasteStart);
+      return;
+    }
+
     if (
       !angle &&
       !crop &&

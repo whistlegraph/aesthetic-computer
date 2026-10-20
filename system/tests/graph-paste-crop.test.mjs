@@ -59,6 +59,31 @@ test("the leak does not depend on where the paste lands", () => {
   }
 });
 
+// A plain fractional scale samples per destination pixel. It must keep grid()'s
+// rounded footprint and skip transparent source pixels, as grid() did.
+test("a fractional-scale paste keeps its rounded footprint and transparency", () => {
+  const w = 90, h = 70, pixels = new Uint8ClampedArray(w * h * 4);
+  for (let index = 0; index < w * h; index += 1) {
+    const x = index % w, y = Math.floor(index / w);
+    pixels[index * 4] = 255;
+    pixels[index * 4 + 3] = x < w / 2 || y < h / 2 ? 255 : 0; // bottom-right quarter clear
+  }
+  for (const scale of [0.24, 0.5, 0.77, 1.5]) {
+    const size = 160, destination = { width: size, height: size, pixels: new Uint8ClampedArray(size * size * 4) };
+    setBuffer(destination);
+    paste({ width: w, height: h, pixels }, 3, 5, scale);
+    let x0 = size, y0 = size, x1 = -1, y1 = -1, clear = true;
+    const tw = Math.round(w * scale), th = Math.round(h * scale);
+    for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
+      if (!destination.pixels[(y * size + x) * 4 + 3]) continue;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      if (x - 3 >= Math.ceil(tw / 2) + 1 && y - 5 >= Math.ceil(th / 2) + 1) clear = false;
+    }
+    assert.deepEqual([x0, y0, x1 - x0 + 1, y1 - y0 + 1], [3, 5, tw, th], `scale ${scale} footprint`);
+    assert.ok(clear, `scale ${scale} painted the transparent quarter`);
+  }
+});
+
 test("uncropped pastes still take their fast path unchanged", () => {
   const { red, green } = pasteInto(64, { scale: 2 }, 4, 4);
   assert.equal(red, 4 * 4, "the red patch is scaled 2×");
