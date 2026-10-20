@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-19T23:48:48.274Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.5-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-pencil/gens/v1.png",
+  "promptPath": null,
+  "promptHash": "95c3b45ac6bec69d7947157ba0163fef8fab2c0b02b3f812ba8d0ed526b9244e",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-pencil/refs/aesel-pixel-1024.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 36.61,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1537,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 513
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3293
+  }
+}
