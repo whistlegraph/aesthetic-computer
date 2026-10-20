@@ -486,17 +486,20 @@ function inferTitleDesc(source) {
   let title, desc;
   const lines = source.split("\n");
 
-  // Check for JavaScript-style comments or Lisp comments
-  if (lines[0].startsWith("//") || lines[0].startsWith(";")) {
-    title = lines[0].split(",")[0].slice(2).trim();
+  // A JavaScript (//), Lisp (;) or Lua (--) comment can open the file.
+  const comment = /^(\/\/|;+|--)/;
+  const first = lines[0]?.match(comment)?.[1];
+  if (first) {
+    title = lines[0].split(",")[0].slice(first.length).trim();
   }
 
-  if (lines[1]?.startsWith("//") || lines[1]?.startsWith(";")) {
-    desc = lines[1].slice(2).trim();
+  const second = lines[1]?.match(comment)?.[1];
+  if (second) {
+    desc = lines[1].slice(second.length).trim();
   }
-  
-  // If title was extracted from a Lisp comment (starts with ;), mark it as standalone
-  const standaloneTitle = lines[0]?.startsWith(";") && !!title;
+
+  // A Lisp or Lua comment title stands alone (no " · Aesthetic Computer").
+  const standaloneTitle = !!first && first !== "//" && !!title;
   
   return { title, desc, standaloneTitle };
 }

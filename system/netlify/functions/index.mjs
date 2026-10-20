@@ -639,9 +639,10 @@ async function fun(event, context) {
   };
 
   // Load and pre-process a piece's source code, then run it's `meta` function.
+  const LANGUAGE_BY_EXT = { mjs: "javascript", lisp: "lisp", lua: "lua" };
   let statusCode = 200,
     sourceCode,
-    language = "javascript", // Might switch to 'lisp' if necessary.
+    language = "javascript", // Switches to 'lisp' or 'lua' by the file found.
     module,
     fromHandle = false;
 
@@ -659,6 +660,13 @@ async function fun(event, context) {
           console.log("🧔🧩 .mjs not found, trying .lisp:", `${baseUrl}.lisp`);
           handledPiece = await getPage(`${baseUrl}.lisp`);
           language = "lisp";
+        }
+
+        // Then Lua.
+        if (handledPiece?.code !== 200) {
+          console.log("🧔🧩 .lisp not found, trying .lua:", `${baseUrl}.lua`);
+          handledPiece = await getPage(`${baseUrl}.lua`);
+          language = "lua";
         }
 
         if (handledPiece?.code !== 200) {
@@ -725,25 +733,26 @@ async function fun(event, context) {
           try {
             const basePath = `${dev ? "./" : "/var/task/"}public/aesthetic.computer/disks/${path}`;
             console.log(`🔍 DEBUG: Trying to load disk from basePath=${basePath}`);
-            try {
-              sourceCode = await fs.readFile(`${basePath}.mjs`, "utf8");
-              console.log(`🔍 DEBUG: Successfully loaded ${basePath}.mjs`);
-            } catch (errJavaScript) {
-              console.log(`🔍 DEBUG: Failed to load .mjs: ${errJavaScript.message}`);
+            // A path that names its extension loads that one file; otherwise
+            // try JavaScript, then KidLisp, then Lua.
+            const named = path.match(/\.(mjs|lisp|lua)$/)?.[1];
+            const candidates = named ? [named] : ["mjs", "lisp", "lua"];
+            const failures = [];
+            for (const ext of candidates) {
+              const file = named ? basePath : `${basePath}.${ext}`;
               try {
-                sourceCode = await fs.readFile(`${basePath}.lisp`, "utf8");
-                console.log(`🔍 DEBUG: Successfully loaded ${basePath}.lisp`);
-                language = "lisp";
-              } catch (errLisp) {
-                console.error(
-                  "📃 Error reading or importing source code (both .mjs and .lisp failed):",
-                  errJavaScript,
-                  errLisp,
-                );
-                console.log(`🔍 DEBUG: Both .mjs and .lisp failed for ${basePath}`);
-                statusCode = 404;
-                // return respond(statusCode, `Content not found: ${path}`);
+                sourceCode = await fs.readFile(file, "utf8");
+                language = LANGUAGE_BY_EXT[ext];
+                console.log(`🔍 DEBUG: Successfully loaded ${file}`);
+                break;
+              } catch (err) {
+                failures.push(`${ext}: ${err.message}`);
               }
+            }
+            if (!sourceCode) {
+              console.error("📃 Error reading source code:", failures.join("; "));
+              statusCode = 404;
+              // return respond(statusCode, `Content not found: ${path}`);
             }
           } catch (err) {
             console.error("📃 Error:", err);
@@ -819,11 +828,12 @@ async function fun(event, context) {
       // Get initial metadata from module or infer it
       meta = module?.meta?.({ ...parsed, num }) || inferTitleDesc(originalCode);
       
-      // Override title with first line comment if it's a Lisp file and no meta.title exists
-      if (language === "lisp" && originalCode && (!meta?.title || meta.title === parsed.text)) {
+      // A Lisp (;) or Lua (--) file's first-line comment is its title when no meta.title exists
+      const commentMark = { lisp: ";", lua: "--" }[language];
+      if (commentMark && originalCode && (!meta?.title || meta.title === parsed.text)) {
         const firstLine = originalCode.split('\n')[0]?.trim();
-        if (firstLine && firstLine.startsWith(';')) {
-          const title = firstLine.substring(1).trim(); // Remove semicolon and trim whitespace
+        if (firstLine && firstLine.startsWith(commentMark)) {
+          const title = firstLine.substring(commentMark.length).trim();
           if (title) {
             meta = { ...meta, title, standaloneTitle: true };
           }
