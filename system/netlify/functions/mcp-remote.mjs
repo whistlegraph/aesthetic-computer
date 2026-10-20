@@ -104,6 +104,13 @@ const TOOLS = [
     title: "Paint with notepaint",
     // Spends Braincells, so not read-only; it never deletes anything.
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    // Hosts that render MCP Apps draw the painting card (backend/notepaint-widget.mjs).
+    _meta: {
+      ui: { resourceUri: "ui://notepaint/painting-v1.html" },
+      "openai/outputTemplate": "ui://notepaint/painting-v1.html",
+      "openai/toolInvocation/invoking": "Painting…",
+      "openai/toolInvocation/invoked": "Painted",
+    },
     description:
       "Paint with notepaint (notepaint.art): one move turns a prompt into a square painting, or repaints an earlier painting from this conversation. Each move spends the painter's AC Braincells (today's free allowance first) — call notepaint_brains to show the price before painting. Requires signing in with an AC account that has a handle.",
     inputSchema: {
@@ -319,11 +326,14 @@ async function handleMCPMessage(message, authToken, notePaintOnly = false) {
       case "initialize":
         return {
           protocolVersion: "2024-11-05",
-          capabilities: { tools: {} },
+          capabilities: { tools: {}, resources: {} },
           serverInfo: NOTEPAINT_SERVER_INFO,
         };
       case "tools/list":
         return { tools: NOTEPAINT_TOOLS };
+      case "resources/list":
+      case "resources/read":
+        return await notePaintWidgetResource(method, params);
       case "tools/call":
         if (!NOTEPAINT_TOOLS.some((tool) => tool.name === params?.name))
           return {
@@ -686,28 +696,52 @@ async function callNotePaintPaint(args, authToken) {
   );
 
   const id = keepNotePainting(owner, { image: result.image, size });
+  const facts = {
+    id,
+    prompt,
+    brain: offer.name,
+    size,
+    braincells: result.billing?.braincells,
+    free: result.billing?.free,
+    paid: result.billing?.paid,
+    usd: notePaintUSD(catalog, result.billing?.braincells || 0),
+    painter: result.handle,
+    next: `Pass from: "${id}" to keep painting on it. Studio: https://notepaint.art`,
+  };
   return {
     content: [
       { type: "image", data: result.image, mimeType: "image/png" },
-      {
-        type: "text",
-        text: JSON.stringify(
-          {
-            id,
-            brain: offer.name,
-            size,
-            braincells: result.billing?.braincells,
-            free: result.billing?.free,
-            paid: result.billing?.paid,
-            usd: notePaintUSD(catalog, result.billing?.braincells || 0),
-            painter: result.handle,
-            next: `Pass from: "${id}" to keep painting on it. Studio: https://notepaint.art`,
-          },
-          null,
-          2,
-        ),
-      },
+      { type: "text", text: JSON.stringify(facts, null, 2) },
     ],
+    // The painting card reads these; _meta stays out of the model's context.
+    structuredContent: facts,
+    _meta: { notepaint: { image: result.image } },
+  };
+}
+
+async function notePaintWidgetResource(method, params) {
+  const { NOTEPAINT_WIDGET_URI, NOTEPAINT_WIDGET_MIME, NOTEPAINT_WIDGET_HTML } =
+    await import("../../backend/notepaint-widget.mjs");
+  const resource = {
+    uri: NOTEPAINT_WIDGET_URI,
+    name: "notepaint painting",
+    description: "The painting card shown under a notepaint_paint call",
+    mimeType: NOTEPAINT_WIDGET_MIME,
+  };
+  if (method === "resources/list") return { resources: [resource] };
+  if (params?.uri !== NOTEPAINT_WIDGET_URI)
+    throw Object.assign(new Error(`Unknown resource: ${params?.uri}`), { rpcCode: -32002 });
+  return {
+    contents: [{
+      uri: NOTEPAINT_WIDGET_URI,
+      mimeType: NOTEPAINT_WIDGET_MIME,
+      text: NOTEPAINT_WIDGET_HTML,
+      _meta: {
+        ui: { prefersBorder: true },
+        "openai/widgetDescription": "Shows the notepaint painting, its cost, a repaint box and a link to notepaint.art.",
+        "openai/widgetPrefersBorder": true,
+      },
+    }],
   };
 }
 
