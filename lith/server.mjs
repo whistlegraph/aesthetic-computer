@@ -1353,6 +1353,10 @@ app.all("/mcp", directFn("mcp-remote"));
 // MCP OAuth discovery; mcp-remote answers it on notepaint.art only.
 app.get("/.well-known/oauth-protected-resource", directFn("mcp-remote"));
 app.get("/.well-known/oauth-protected-resource/*rest", directFn("mcp-remote"));
+// AC OAuth: the network's one authorization server (backend/ac-oauth.mjs).
+app.get("/.well-known/oauth-authorization-server", directFn("ac-oauth"));
+app.get("/.well-known/oauth-authorization-server/*rest", directFn("ac-oauth"));
+app.all("/oauth/*rest", directFn("ac-oauth"));
 app.all("/m4l-plugins", directFn("m4l-plugins"));
 app.all("/slash", directFn("slash"));
 app.all("/sotce-blog/*rest", directFn("sotce-blog"));

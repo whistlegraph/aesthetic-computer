@@ -517,9 +517,10 @@ const NOTEPAINT_SERVER_INFO = { name: "notepaint", version: "1.0.0" };
 const NOTEPAINT_TOOLS = TOOLS.filter((tool) => tool.name.startsWith("notepaint_"));
 
 // OAuth 2.0 Protected Resource Metadata (RFC 9728), the discovery step of
-// MCP authorization: AC's Auth0 tenant signs painters in, and AC verifies
-// the resulting token against Auth0's /userinfo like any other AC request.
-const AC_AUTHORIZATION_SERVER = "https://aesthetic.us.auth0.com/";
+// MCP authorization. aesthetic.computer is the authorization server for the
+// whole network (backend/ac-oauth.mjs): its link page signs painters in with
+// AC, and the act_ token it issues is good for Note Paint alone.
+const AC_AUTHORIZATION_SERVER = "https://aesthetic.computer";
 
 function notePaintResourceMetadata() {
   return {
@@ -1061,13 +1062,20 @@ export async function handler(event, context) {
     const host = (event.headers.host || "").toLowerCase().split(":")[0];
     const notePaintOnly = NOTEPAINT_HOSTS.has(host);
 
-    // An unauthenticated request starts the client's OAuth flow.
-    if (notePaintOnly && !authToken) {
-      return respond(401, { error: "Sign in with AC to paint." }, {
+    // An unauthenticated request starts the client's OAuth flow; an expired
+    // link token tells it to refresh.
+    if (notePaintOnly) {
+      const challenge = (error) => respond(401, { error: "Sign in with AC to paint." }, {
         ...corsHeaders,
         "WWW-Authenticate":
-          'Bearer resource_metadata="https://notepaint.art/.well-known/oauth-protected-resource", scope="openid profile email offline_access"',
+          `Bearer resource_metadata="https://notepaint.art/.well-known/oauth-protected-resource", scope="openid profile email offline_access"${error ? `, error="${error}"` : ""}`,
       });
+      if (!authToken) return challenge();
+      if (authToken.startsWith("act_")) {
+        const { acOAuth } = await import("../../backend/ac-oauth.mjs");
+        const linked = await (await acOAuth()).resolve(authToken);
+        if (!linked || linked.resource !== "https://notepaint.art/mcp") return challenge("invalid_token");
+      }
     }
 
     if (event.httpMethod === "GET") {
