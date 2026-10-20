@@ -51,6 +51,7 @@ const char *input_key_name(int code) {
         case KEY_LEFTSHIFT: case KEY_RIGHTSHIFT: return "shift";
         case KEY_LEFTCTRL: case KEY_RIGHTCTRL: return "control";
         case KEY_LEFTALT: case KEY_RIGHTALT: return "alt";
+        case KEY_CAPSLOCK: return "capslock";
         case KEY_MINUS: return "-";
         case KEY_EQUAL: return "=";
         case KEY_LEFTBRACE: return "[";
@@ -129,6 +130,7 @@ static int nuphy_scancode_to_keycode(int sc) {
         case 0x2A: return KEY_BACKSPACE;
         case 0x2B: return KEY_TAB;
         case 0x2C: return KEY_SPACE;
+        case 0x39: return KEY_CAPSLOCK;
         case 0x2D: return KEY_MINUS;
         case 0x2E: return KEY_EQUAL;
         case 0x2F: return KEY_LEFTBRACE;

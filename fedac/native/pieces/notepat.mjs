@@ -564,6 +564,9 @@ let wifiSelectedIdx = -1;
 let wifiPassword = "";
 let wifiPasswordMode = false;  // true = fullscreen password entry
 let shiftHeld = false;
+// Caps lock latches the shift sustain: tap it on and every note lingers and
+// fades on release as if shift were held; tap again to turn it off.
+let capsSustain = false;
 // Chord modifiers (Menu Band parity). Held with a note key, they fire a
 // triad instead of a single tone. control = major, alt = minor,
 // control+alt = sus2. Tracked here like shiftHeld and read at note-on.
@@ -2748,7 +2751,7 @@ function rememberSound(key, entry, system, velocity = 1) {
   }
   // shiftHeld at press time arms the decaying linger tail (re-evaluated each
   // press so re-triggering the same key with shift up clears it).
-  entry.lingerOnRelease = shiftHeld;
+  entry.lingerOnRelease = shiftHeld || capsSustain;
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   // Stash the captured velocity on the entry so sim() can blend it with
@@ -3137,6 +3140,12 @@ function act({ event: e, sound, wifi, system }) {
     shiftHeld = false;
     sound?.synth?.({ type: "sine", tone: 880, duration: 0.025,
                      volume: 0.10, attack: 0.001, decay: 0.022, pan: 0 });
+  }
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "capslock" && !e.repeat) {
+    capsSustain = !capsSustain;
+    sound?.synth?.({ type: "sine", tone: capsSustain ? 1320 : 880, duration: 0.025,
+                     volume: 0.10, attack: 0.001, decay: 0.022, pan: 0 });
+    return;
   }
   // Chord modifiers — track control/alt the same way as shift. Held while a
   // note key fires, they turn the note into a triad (see chord block below).
@@ -9199,6 +9208,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["\u2191 \u2193", "volume up/down"],
         ["ctrl/alt",     "maj / min chord"],
         ["shift",        "accent + linger"],
+        ["caps",         "linger on / off"],
       ]],
       ["DRUMS", [255, 140, 90], [
         ["[ / ]",      "drums left / right"],
