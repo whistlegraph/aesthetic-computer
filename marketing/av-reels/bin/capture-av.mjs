@@ -112,7 +112,9 @@ const browser = await puppeteer.launch({
     "--use-gl=angle", "--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist",
     "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows",
     "--disable-renderer-backgrounding", "--disable-features=CalculateNativeWinOcclusion",
-    `--window-size=${CAP_W},${CAP_H}`],
+    `--window-size=${CAP_W},${CAP_H}`,
+    // CAPTURE_RESOLVE="host ip" pins a host when local DNS points it somewhere dead
+    ...(process.env.CAPTURE_RESOLVE ? [`--host-resolver-rules=MAP ${process.env.CAPTURE_RESOLVE}`] : [])],
 });
 
 const page = await browser.newPage();
