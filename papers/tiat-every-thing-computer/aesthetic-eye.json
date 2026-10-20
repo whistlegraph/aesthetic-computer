@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "paper": "Every Thing Computer at TIAT: the three plinths",
+  "pdf": "tiat-every-thing-computer.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 2,
+  "visualInference": true,
+  "pdfSha256": "d209a3f84486dfd173c201fc48077a2ac514c1933233b841b9d4aa0feec81001",
+  "reviewedAt": "2026-10-20T19:02:01Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Single letter sheet. The wordmark appears once, in the byline, through the \\ac macro with the pink period; the kicker carries the lowercase host name with its own period."
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "act-one-trio-on-plinths",
+      "page": 1,
+      "crop": [
+        0.14,
+        0.19,
+        0.72,
+        0.2
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "A network box over three member laptops in their colours (blush, citrus, indigo), each above an identical box naming the closed AC OS laptop and the plinth; dashed LAN lines from the hub, pink arrows from neo to its siblings for the conductor path; one grey caption line under the centre. Equal widths, shared baselines, visible gutters, centred in the measure."
+    },
+    {
+      "id": "act-two-three-ac-os-laptops",
+      "page": 1,
+      "crop": [
+        0.1,
+        0.655,
+        0.8,
+        0.1
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Three equal boxes in a row (prompt, instrument, window) joined by two-headed pink arrows on a shared centre line; mono heading over a sans role in each; one grey caption line beneath. Centred, with air on both sides."
+    }
+  ]
+}
