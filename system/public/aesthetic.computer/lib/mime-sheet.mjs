@@ -22,6 +22,7 @@ let pausedLoop = false;
 let lastDownY = null; // clientY of the latest pointerdown, for an exact grab.
 let historyEntry = false; // We pushed a /mime/?p= entry for the open sheet.
 let swallowPop = false;
+let lastPermalink = null; // The guest's card on screen, as last announced.
 
 const post = (message) =>
   frame?.contentWindow?.postMessage(message, location.origin);
@@ -75,7 +76,7 @@ function resumePrompt() {
 }
 
 // 🧭 History: an open sheet is one entry; Back closes it.
-function enterHistory(permalink) {
+function enterHistory(permalink = lastPermalink) {
   const url = "/mime/" + (permalink ? "?p=" + encodeURIComponent(permalink) : "");
   if (!historyEntry) {
     history.pushState({ acMimeSheet: true }, "", url);
@@ -235,13 +236,17 @@ addEventListener("message", (e) => {
   const { type, permalink } = e.data || {};
   if (type === "mime:sheet:hello")
     post({ type: "mime:sheet", open: state === "dragging" || state === "presenting" || state === "open" });
-  else if (type === "mime:sheet:ready") frame.style.background = "transparent"; else if (type === "mime:sheet:at") {
-    if (historyEntry && permalink) enterHistory(permalink);
+  else if (type === "mime:sheet:ready") frame.style.background = "transparent";
+  else if (type === "mime:sheet:at") {
+    lastPermalink = permalink || null;
+    if (historyEntry) enterHistory();
   } else if (type === "mime:sheet:leaving") {
     if (state === "open") state = "returning";
     resumePrompt(); // Live again before it comes into view.
   } else if (type === "mime:sheet:staying") {
-    if (state === "returning") state = "open";
+    if (state !== "returning") return;
+    state = "open";
+    pausePrompt();
   } else if (type === "mime:sheet:closed") tuck();
 });
 
