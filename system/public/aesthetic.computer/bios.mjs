@@ -655,7 +655,11 @@ function performHistoryRewrite(path, historical) {
   if (checkPackMode()) return;
   window.acSignup?.remember(window.location.href);
   path = preserveViewParams(path);
-  if (historical) {
+  // A mime card's player shares the tab's history with the feed around it;
+  // its piece changes must not become Back steps for the person scrolling.
+  const mimePlayer = window.top !== window &&
+    new URLSearchParams(window.location.search).has("mime");
+  if (historical && !mimePlayer) {
     console.log("Rewriting to:", path);
     history.pushState("", document.title, path);
   } else {
