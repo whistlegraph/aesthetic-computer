@@ -246,6 +246,7 @@ function dismiss() {
 // so the frame drops away without a visible change.
 function tuck() {
   resumePrompt();
+  cancelAnimationFrame(scrollRaf); // A scroll report still queued would lift it again.
   setStage(0);
   state = "parked";
   Object.assign(frame.style, {
@@ -271,7 +272,10 @@ addEventListener("message", (e) => {
     // The slot is `above` px tall on screen: the prompt's bottom edge is there.
     if (state !== "open" && state !== "returning") return;
     cancelAnimationFrame(scrollRaf);
-    scrollRaf = requestAnimationFrame(() => setStage(Math.min(0, e.data.above - innerHeight)));
+    const above = e.data.above;
+    scrollRaf = requestAnimationFrame(() => {
+      if (state === "open" || state === "returning") setStage(Math.min(0, above - innerHeight));
+    });
   } else if (type === "mime:sheet:leaving") {
     if (state === "open") state = "returning";
     resumePrompt(); // Live again before it comes into view.
