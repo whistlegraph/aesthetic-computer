@@ -52,6 +52,7 @@ export async function runPieceTask({ task, auth, onEvent = () => {}, log = () =>
   let recorded = false;
   const engine = new AcServer({
     cwd: work, model: task.model && task.model !== "default" ? task.model : "", rounds: task.rounds ?? 12,
+    outputContinuations: task.outputContinuations ?? 0,
     jev: null, frameCapture: false,
     piece: { file, channel: CHANNEL, checkpoint: check },
     token: auth.token,

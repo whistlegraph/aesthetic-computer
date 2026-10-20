@@ -3,7 +3,7 @@
 import {bothNames} from "./env.mjs";
 import {requireAccountEntry} from "./account-entry.mjs";
 import {isOffline} from "./account-access.mjs";
-import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_REPLY} from './piece-prompt.mjs';
+import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_PERFORMANCE,PIECE_REPLY} from './piece-prompt.mjs';
 import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCTIONS,PIECE_INSTRUCTIONS} from './harness-settings.mjs';
 import {notebookBindings,bindingRequest,editNotebookBinding} from './notebook-bindings.mjs';
 import {writeFileSync as writeBindingFile,renameSync as renameBindingFile,statSync as statBindingFile} from 'node:fs';
@@ -585,6 +585,7 @@ function proInstructions() {
     PIECE_RESPONSIVE,
     PIECE_CLOCK,
     PIECE_SOUND,
+    PIECE_PERFORMANCE,
     harnessText("pro-account"),
     harnessText("pro-reply"),
     harnessText("pro-inbox"),
@@ -672,6 +673,7 @@ function developerInstructions() {
     ...(live.runtime.id === "mjs" ? [
       PIECE_CLOCK,
       PIECE_SOUND,
+      PIECE_PERFORMANCE,
     ] : []),
     ...(networked
       ? [harnessText("networked-push")]

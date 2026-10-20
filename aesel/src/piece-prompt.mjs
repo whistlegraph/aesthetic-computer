@@ -10,4 +10,6 @@ export const PIECE_CLOCK = harnessText('piece-clock');
 
 export const PIECE_SOUND = harnessText('piece-sound');
 
+export const PIECE_PERFORMANCE = harnessText('piece-performance');
+
 export const PIECE_REPLY = harnessText('piece-reply');

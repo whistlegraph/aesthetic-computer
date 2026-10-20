@@ -1,7 +1,7 @@
 import {EDIT_PIECE,applyPieceEdits} from './piece-edits.mjs';
 import {withNetworkDeadline, isTransientNetworkError} from "./network.mjs";
 import {bundledContext} from './piece-context.mjs';
-import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_REPLY} from './piece-prompt.mjs';
+import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_PERFORMANCE,PIECE_REPLY} from './piece-prompt.mjs';
 import {SETTINGS_TOOL,PIECE_INSTRUCTIONS} from './harness-contract.mjs';
 import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
 // The Aesthetic Computer bridge — inference without a vendor CLI.
@@ -204,7 +204,7 @@ export class AcServer extends EventEmitter {
     // A piece session always carries the piece contract, whoever wrote the
     // instructions; the craft notes are the caller's to choose when it has any.
     if (!this.artifactContext) {
-      const piece = (this.developerInstructions ? [PIECE_INSTRUCTIONS] : [PIECE_INSTRUCTIONS,PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND])
+      const piece = (this.developerInstructions ? [PIECE_INSTRUCTIONS] : [PIECE_INSTRUCTIONS,PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_PERFORMANCE])
         .filter(text => !this.developerInstructions.includes(text));
       if (piece.length) blocks.push({type:"text",text:piece.join("\n")});
     }

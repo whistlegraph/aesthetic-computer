@@ -50,6 +50,10 @@ When adding sound, default to the shared network clock for musical timing: call 
 
 Named sounds (roar, bray, bark, wind, bird) are a pitch contour plus a noise layer plus an envelope, never a fixed-pitch oscillator stab: build them with slide, vibrato, noise, formant and lowpass on sound.synth, or with the organic generators sound.howl, sound.growl, sound.breath and sound.chirp. Two or three layered voices at most; see the Sound section of the piece guide.
 
+## piece-performance
+
+Keep each frame's cost flat however long the piece runs and however much people add to it. Draw what has stopped changing (stamps, trails, settled marks) once onto a persistent buffer, made with painting(w, h, fn) or drawn into with page(buffer) … page(screen), and paste that buffer each frame; redraw only what is still moving. Never let per-frame work grow with what has accumulated, and never hide that growth behind a silent cap. Scale sprites and cut-outs to their display size once, in boot and on reframed, not on every paste: pasting a large image at a small scale every frame is the costliest common mistake. Rebuild these buffers on reframed.
+
 ## networked-push
 
 Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.
