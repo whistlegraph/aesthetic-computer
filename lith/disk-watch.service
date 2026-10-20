@@ -1,0 +1,8 @@
+[Unit]
+Description=AC disk watch — email when a server's disk fills (lith/disk-watch.mjs)
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/ac/system/.env
+ExecStart=/usr/bin/node /opt/ac/lith/disk-watch.mjs
