@@ -477,6 +477,11 @@ export function freeze(fCtx) {
   // Guard: skip if canvas is not ready or invalid
   if (!canvas || !fCtx?.canvas) return false;
   try {
+    // A WebGL canvas without preserveDrawingBuffer is blank once its frame has
+    // been presented, so a plain copy here froze solid black — and stayed
+    // black whenever the loop wasn't drawing (a covered window, a paused
+    // prompt). Draw the last frame again so the copy holds real pixels.
+    if (lastRender) render(...lastRender);
     fCtx.drawImage(canvas, 0, 0, fCtx.canvas.width, fCtx.canvas.height);
     clear();
     canvas.style.opacity = 0;
@@ -498,8 +503,11 @@ export function setDynamicUniform(uniformIdentifier, value) {
   }
 }
 
+let lastRender = null; // [time, mouse] of the latest render, for freeze().
+
 export function render(time, mouse) {
   if (glaze === undefined || glaze.loaded === false) return;
+  lastRender = [time, mouse];
 
   // The prompt has no feedback, and its compute/display passes only copy
   // the result at 1:1 resolution. Draw straight to the canvas in that case.
