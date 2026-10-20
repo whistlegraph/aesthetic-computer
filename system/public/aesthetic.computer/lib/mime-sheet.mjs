@@ -173,6 +173,49 @@ function grab(startY) {
   addEventListener("pointercancel", end, { capture: true, passive: true });
 }
 
+// 🖱️ Two-finger scroll (and the mouse wheel) on the curtain: the wheel's
+// travel is the pull. A trackpad streams small deltas, momentum included, and
+// settles when they stop; a mouse notch is one big step and presents at once.
+let armed = false; // The prompt says its curtain is up and empty.
+let wheel = null;
+
+addEventListener("wheel", (e) => {
+  if (!frame || !armed || e.ctrlKey) return; // ctrl+wheel is pinch-zoom
+  if (wheel === null && (state !== "parked" || e.deltaY <= 0)) return;
+  if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+  if (wheel === null) {
+    if (e.deltaMode !== 0 || dy >= 60) return show(); // A mouse notch.
+    state = "dragging";
+    post({ type: "mime:sheet", open: true });
+    frame.style.transition = "none";
+    frame.style.visibility = "visible";
+    wheel = { pulled: 0, timer: 0, last: performance.now(), velocity: 0 };
+  }
+  const now = performance.now();
+  wheel.velocity = dy / Math.max(1, now - wheel.last);
+  wheel.last = now;
+  wheel.pulled = Math.max(0, wheel.pulled + dy);
+  const pulled = wheel.pulled;
+  if (!raf)
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (wheel) place(innerHeight - wheel.pulled);
+    });
+  clearTimeout(wheel.timer);
+  if (pulled >= innerHeight * 0.5) return endWheel(true);
+  wheel.timer = setTimeout(() => endWheel(), 140);
+}, { capture: true, passive: true });
+
+function endWheel(commit) {
+  if (!wheel) return;
+  clearTimeout(wheel.timer);
+  const { pulled, velocity } = wheel;
+  wheel = null;
+  if (commit || pulled > innerHeight * 0.15 || velocity > 0.6) show();
+  else cancel();
+}
+
 function slide(to, done) {
   const f = frame;
   const from = new DOMMatrix(getComputedStyle(f).transform).m42;
@@ -292,8 +335,10 @@ window.acMimeSheet = { popstate };
 //   { action: "warm" }              load the guest on idle
 //   { action: "grab", y, of }       a swipe began at y (piece px of `of` tall)
 //   { action: "show" }              present without a drag (down arrow)
-export function mimeSheet({ action, y, of } = {}) {
+//   { action: "armed", on }         the curtain is up and empty (wheel pulls)
+export function mimeSheet({ action, y, of, on } = {}) {
   if (action === "warm") warm();
+  else if (action === "armed") armed = !!on;
   else if (action === "grab") grab(of ? (y * innerHeight) / of : innerHeight);
   else if (action === "show") show();
 }

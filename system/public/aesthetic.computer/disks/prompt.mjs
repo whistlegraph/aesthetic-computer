@@ -280,6 +280,7 @@ let histScrub = null;
 
 // 🎭 Mime swipe: an upward drag on the curtain drops into the mime feed.
 let mimeSwipe = null;
+let mimeArmed = false; // Last curtain state sent to bios's mime sheet.
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
@@ -5831,9 +5832,17 @@ function paint($) {
     jukeBtn.btn.disabled = true;
   }
 
+  // 🎭 Tell bios whether a two-finger scroll should pull up the mime feed:
+  // only while the curtain is up and nothing is typed.
+  const curtainIdle = showLoginCurtain && !$.system.prompt.input.canType &&
+    !$.system.prompt.input.text;
+  if (curtainIdle !== mimeArmed) {
+    mimeArmed = curtainIdle;
+    $.send({ type: "mime:sheet", content: { action: "armed", on: curtainIdle } });
+  }
+
   // 🎭 "swipe for mimes" along the bottom edge.
-  if (showLoginCurtain && !$.system.prompt.input.canType &&
-      !$.system.prompt.input.text && screen.height >= 200) {
+  if (curtainIdle && screen.height >= 200) {
     // The last row, under the mail envelope.
     const label = "^ swipe for mimes ^";
     const x = Math.floor((screen.width - label.length * 4) / 2);
