@@ -132,7 +132,7 @@ test("deny sends access_denied back to the registered redirect", async () => {
   assert.equal(url.searchParams.get("state"), "xyz");
 });
 
-test("Note Paint accepts a linked token for its own resource only, with the live handle", async () => {
+test("notepaint accepts a linked token for its own resource only, with the live handle", async () => {
   const identity = async (sub) => ({ sub, handle: "painter" });
   const authorize = async () => { throw Error("Auth0 must not be asked about act_ tokens"); };
   const connector = { resolve: async (bearer) => bearer === "act_good"

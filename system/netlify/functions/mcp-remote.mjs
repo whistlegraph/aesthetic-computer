@@ -85,7 +85,7 @@ const TOOLS = [
   {
     name: "notepaint_brains",
     description:
-      "List the brains (image models) Note Paint can paint with on notepaint.art, each with its price in Braincells and US dollars. When signed in, also returns the painter's Braincell balance and today's free allowance. Read-only; charges nothing.",
+      "List the brains (image models) notepaint can paint with on notepaint.art, each with its price in Braincells and US dollars. When signed in, also returns the painter's Braincell balance and today's free allowance. Read-only; charges nothing.",
     inputSchema: {
       type: "object",
       properties: {
@@ -100,7 +100,7 @@ const TOOLS = [
   {
     name: "notepaint_paint",
     description:
-      "Paint with Note Paint (notepaint.art): one move turns a prompt into a square painting, or repaints an earlier painting from this conversation. Each move spends the painter's AC Braincells (today's free allowance first) — call notepaint_brains to show the price before painting. Requires signing in with an AC account that has a handle.",
+      "Paint with notepaint (notepaint.art): one move turns a prompt into a square painting, or repaints an earlier painting from this conversation. Each move spends the painter's AC Braincells (today's free allowance first) — call notepaint_brains to show the price before painting. Requires signing in with an AC account that has a handle.",
     inputSchema: {
       type: "object",
       properties: {
@@ -307,7 +307,7 @@ function validateKidLisp(source) {
 async function handleMCPMessage(message, authToken, notePaintOnly = false) {
   const { method, params } = message;
 
-  // notepaint.art/mcp is Note Paint's own connector: its tools only, and an
+  // notepaint.art/mcp is notepaint's own connector: its tools only, and an
   // AC sign-in on every request (see handler).
   if (notePaintOnly) {
     switch (method) {
@@ -506,7 +506,7 @@ function callPreviewKidLisp(args) {
   };
 }
 
-// ── Note Paint (notepaint.art) ──
+// ── notepaint (notepaint.art) ──
 // The tools call the same endpoints as the studio, so pricing, the free
 // allowance, billing and refunds stay in nopaint-inference.mjs.
 
@@ -519,7 +519,7 @@ const NOTEPAINT_TOOLS = TOOLS.filter((tool) => tool.name.startsWith("notepaint_"
 // OAuth 2.0 Protected Resource Metadata (RFC 9728), the discovery step of
 // MCP authorization. aesthetic.computer is the authorization server for the
 // whole network (backend/ac-oauth.mjs): its link page signs painters in with
-// AC, and the act_ token it issues is good for Note Paint alone.
+// AC, and the act_ token it issues is good for notepaint alone.
 const AC_AUTHORIZATION_SERVER = "https://aesthetic.computer";
 
 function notePaintResourceMetadata() {
@@ -528,7 +528,7 @@ function notePaintResourceMetadata() {
     authorization_servers: [AC_AUTHORIZATION_SERVER],
     scopes_supported: ["openid", "profile", "email", "offline_access"],
     bearer_methods_supported: ["header"],
-    resource_name: "Note Paint",
+    resource_name: "notepaint",
     resource_documentation: "https://notepaint.art",
   };
 }
@@ -569,7 +569,7 @@ async function notePaintRequest(path, authToken, body, timeout = 20000) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok)
-    throw new Error(result.error || `Note Paint request failed (${response.status})`);
+    throw new Error(result.error || `notepaint request failed (${response.status})`);
   return result;
 }
 

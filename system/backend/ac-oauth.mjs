@@ -7,7 +7,7 @@
 // aesthetic.computer is that authorization server. Its link page signs the
 // person in with the same AC sign-in every AC site uses (the aesthetic Auth0
 // tenant, unchanged), and then AC issues its own tokens. Each token names the
-// one product (resource) it was linked for, so a Note Paint link can paint and
+// one product (resource) it was linked for, so a notepaint link can paint and
 // read the Braincell wallet and nothing else. sotce-net keeps its own tenant.
 //
 // Stored: clients, single-use codes and token hashes (never the tokens), each
@@ -20,7 +20,7 @@ export const TOKEN_PREFIX = "act_";
 
 // The products a connector can be linked to.
 export const RESOURCES = {
-  "https://notepaint.art/mcp": { name: "Note Paint", home: "https://notepaint.art" },
+  "https://notepaint.art/mcp": { name: "notepaint", home: "https://notepaint.art" },
 };
 
 const CODE_MS = 10 * 60 * 1000;
