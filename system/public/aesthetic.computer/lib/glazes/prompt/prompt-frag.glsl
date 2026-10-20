@@ -49,6 +49,15 @@ const vec3 PLANE_NORMAL = vec3(0., 0., -1.);
 const float SHADOW_SOFTNESS = 0.18; // 🌫️ shadow penumbra jitter (fuzzy shadows)
 const float SWAY_PERIOD = 4.0;      // 🚶 seconds per back-and-forth (walking cadence)
 const float SWAY_AMOUNT = 0.13;     // 🚶 horizontal wobble magnitude (added to lightDirection.x)
+// 📼 VHS finish, applied over the volume.
+const float VHS_SOURCE = 0.55;      // how much of the canvas's own colour comes back (screen blend)
+const float VHS_BLEED = 0.7;        // red/blue sideways offset, in canvas pixels
+const float VHS_SMEAR = 0.8;        // horizontal blur reach, in canvas pixels
+const float VHS_WOBBLE = 0.35;      // per-line tracking jitter, in canvas pixels
+const float VHS_SATURATION = 1.3;
+const float VHS_CONTRAST = 0.6;     // 0 = none, 1 = full smoothstep S-curve
+const float VHS_SCANLINE = 0.07;    // darkening on every other band
+const float VHS_GRAIN = 0.05;
 
 // Utils
 float random(vec2 p)
@@ -170,8 +179,8 @@ vec3 post(vec3 col)
     col.z = sRGB(col.z);
     // Tame blown-out highlights: roll the brightest values off toward 1.0
     // instead of clipping to a harsh white. Neutral — no color shift.
-    float hi = smoothstep(0.55, 1.0, maxv(col));
-    col /= (1.0 + hi * 0.7);   // soft highlight roll-off (less harsh bright)
+    float hi = smoothstep(0.7, 1.0, maxv(col));
+    col /= (1.0 + hi * 0.3);   // soft highlight roll-off (less harsh bright)
     return clamp(col, 0.0, 1.0);
 }
 
@@ -248,5 +257,30 @@ void main()
     }
 
     vec3 color = post(volCol);
-    endColor = vec4(color, 1.);
+
+    // 📼 VHS: bring the canvas's own colour back over the fog, smeared
+    // sideways with red and blue bleeding apart, then saturate, add contrast,
+    // scanlines and a rolling grain.
+    float tt = iTime * 0.001;
+    vec2 texel = 1.0 / vec2(textureSize(iTexture, 0));
+    float band = floor(v_texc.y / texel.y);
+    float tracking = (random(vec2(floor(tt * 30.0), band)) - 0.5) * VHS_WOBBLE * texel.x;
+    vec3 p0 = ro + rd * nearIntersectionDist;
+    vec2 suv = worldToDensityMap(p0.xy) + vec2(1.0) + vec2(tracking, 0.0);
+    vec2 reach = vec2(VHS_SMEAR * texel.x, 0.0);
+    vec3 smear = (2.0 * texture(iTexture, suv).rgb
+                + texture(iTexture, suv - reach).rgb
+                + texture(iTexture, suv + reach).rgb) * 0.25;
+    vec2 bleed = vec2(VHS_BLEED * texel.x, 0.0);
+    vec3 src = vec3(texture(iTexture, suv - bleed).r, smear.g, texture(iTexture, suv + bleed).b);
+    src = mix(smear, src, 0.65);
+    color = 1.0 - (1.0 - color) * (1.0 - src * VHS_SOURCE);
+
+    float luma = dot(color, vec3(0.299, 0.587, 0.114));
+    color = clamp(mix(vec3(luma), color, VHS_SATURATION), 0.0, 1.0);
+    color = mix(color, color * color * (3.0 - 2.0 * color), VHS_CONTRAST);
+    color *= 1.0 - VHS_SCANLINE * step(0.5, fract(gl_FragCoord.y / 3.0));
+    color += (random(gl_FragCoord.xy + fract(tt * 7.0) * 289.0) - 0.5) * VHS_GRAIN;
+
+    endColor = vec4(clamp(color, 0.0, 1.0), 1.);
 }

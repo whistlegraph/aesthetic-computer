@@ -5893,7 +5893,8 @@ function paint($) {
     if (flairEnabled && starsEnabled && theme === "default") {
       $.layer(0);
       starfield.paint($, {
-        alpha: $.dark ? 0.3 : 0.9,
+        alpha: $.dark ? 0.8 : 0.9,
+        bold: true,
         color: $.hud.currentStatusColor() || [255, 0, 200],
         backdrop: false,
       });
@@ -8721,9 +8722,9 @@ export const wrap = "word"; // or "char"
 export const scheme = {
   dark: {
     text: [255, 100],
-    background: [70, 50, 100],
-    prompt: [200, 30, 100, 200],
-    block: [200, 30, 100],
+    background: [34, 50, 112], // Blue night under the glaze.
+    prompt: [255, 50, 150, 220],
+    block: [255, 50, 150],
     highlight: [255, 100, 0],
     guideline: [0, 0, 255, 64],
     login: [[0, 0, 64], 255, 255, [0, 0, 64]],

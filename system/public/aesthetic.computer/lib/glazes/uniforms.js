@@ -31,7 +31,8 @@ uniforms.prompt = {
   "1f:radialBlurAmount": 0.9, // from 0-1 (or more or less if insane)
   "3f:lightColor": [1, 1, 1], // r, g, b
   "3f:lightDirection": [-0.2, -1, -0.05], // x, y, z — near-overhead with a slight lean (~11° off vertical), never a flat 90°
-  "3f:bgColor": [0.084, 0.0533, 0.078], // r, g, b,
+  "3f:bgColor": [0.035, 0.05, 0.11], // r, g, b — a blue night
+  //"3f:bgColor": [0.084, 0.0533, 0.078], // r, g, b — the old plum
   //"3f:bgColor": [0.1, 0.1, 0.1], // r, g, b,
 };
 

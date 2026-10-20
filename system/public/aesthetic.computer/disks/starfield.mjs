@@ -67,13 +67,17 @@ class Starfield {
     }
   }
 
+  // `bold: true` draws the nearer third of the stars as 2x2 blocks.
   paint($, options) {
     const r = $.num.randInt;
     for (let i = 0; i < this.numStars; i += 1) {
       $.ink(
         options?.color || [r(255), r(255), r(255)],
         floor((options?.alpha || 1) * 255),
-      ).plot(...this.projection($, i));
+      );
+      const [x, y] = this.projection($, i);
+      if (options?.bold && this.stars.z[i] < this.spread / 3) $.box(x, y, 2, 2);
+      else $.plot(x, y);
     }
   }
 
