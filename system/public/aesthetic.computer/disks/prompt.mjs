@@ -1119,6 +1119,8 @@ async function boot({
   if (colon?.includes("serious")) theme = "serious";
   if (colon?.includes("neo")) theme = "neo";
   if (colon?.includes("poe")) theme = "poe";
+  // 🎭 Load the mime feed under the curtain on idle, so a swipe never waits.
+  if (theme === "default") send({ type: "mime:sheet", content: { action: "warm" } });
   // ✨ URL override for flair (e.g. `prompt:noflair` / `prompt:flair`). Non-
   // persisting — the `flair` command still owns the saved preference. Handy for
   // a clean attract screen and for the FPS regression test.
@@ -5829,15 +5831,14 @@ function paint($) {
     jukeBtn.btn.disabled = true;
   }
 
-  // 🎭 "swipe for mimes" along the bottom edge; rides up with the drag.
+  // 🎭 "swipe for mimes" along the bottom edge.
   if (showLoginCurtain && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text && screen.height >= 200) {
     // The last row, under the mail envelope.
     const label = "^ swipe for mimes ^";
-    const pull = mimeSwipe?.engaged ? min(mimeSwipe.dy, 60) : 0;
     const x = Math.floor((screen.width - label.length * 4) / 2);
-    const y = screen.height - 8 - Math.floor(pull / 2);
-    const alpha = pull ? 255 : 110 + Math.round(sin(motdFrame * 0.08) * 40);
+    const y = screen.height - 8;
+    const alpha = 110 + Math.round(sin(motdFrame * 0.08) * 40);
     ink(255, 145, 200, alpha).write(label, { x, y },
       undefined, undefined, false, "MatrixChunky8");
   }
@@ -7791,10 +7792,9 @@ function act({
     });
   };
 
-  // 🎭 The mime feed lives below the curtain: a mostly-vertical upward drag
-  // pulls it up over the prompt (bios slides a frame of it with the finger),
-  // and past a threshold it settles there. Down arrow does the same.
-  // Taps still lift the curtain.
+  // 🎭 The mime feed lives below the curtain. A mostly-vertical upward drag
+  // hands the gesture to bios's mime sheet, which follows the finger itself;
+  // down arrow presents it outright. Taps still lift the curtain.
   {
     const inp = system.prompt.input;
     const onCurtain = theme === "default" && !inp?.canType && !inp?.text;
@@ -7803,30 +7803,20 @@ function act({
       return;
     }
     if (e.is("touch") && onCurtain) {
-      mimeSwipe = { x: e.x, y: e.y, dy: 0, engaged: false };
+      mimeSwipe = { x: e.x, y: e.y, engaged: false };
     } else if (mimeSwipe && e.is("draw")) {
       const dy = mimeSwipe.y - e.y;
       if (!mimeSwipe.engaged && dy > 14 && dy > abs(e.x - mimeSwipe.x) * 1.5) {
         mimeSwipe.engaged = true;
         inp.backdropTouchOff = true; // So the lift won't lift the curtain.
         send({ type: "keyboard:lock" });
+        send({ type: "mime:sheet", content: { action: "grab", y: mimeSwipe.y, of: screen.height } });
       }
-      if (mimeSwipe.engaged) {
-        mimeSwipe.dy = max(0, dy);
-        // bios scales by `of` so the sheet tracks the finger exactly.
-        send({ type: "mime:sheet", content: { action: "drag", dy: mimeSwipe.dy, of: screen.height } });
-        return;
-      }
+      if (mimeSwipe.engaged) return;
     } else if (mimeSwipe && e.is("lift")) {
-      const { engaged, dy } = mimeSwipe;
+      const { engaged } = mimeSwipe;
       mimeSwipe = null;
-      if (engaged) {
-        const action = dy > min(screen.height * 0.15, 60) ? "show" : "cancel";
-        if (action === "show") pushSound();
-        send({ type: "mime:sheet", content: { action } });
-        needsPaint();
-        return;
-      }
+      if (engaged) return; // bios decides whether the sheet settles.
     }
   }
 

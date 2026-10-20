@@ -23763,6 +23763,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     window.safeSessionStorageGet("aesthetic-labelBack") === "true";
 
   window.onpopstate = function (e) {
+    if (window.acMimeSheet?.popstate(e)) return; // 🎭 The mime sheet's own entry.
     if (
       document.location.hash === "#debug" ||
       document.location.hash === "#nodebug"
