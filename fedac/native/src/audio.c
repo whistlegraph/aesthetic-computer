@@ -2225,11 +2225,17 @@ static void *audio_thread_fn(void *arg) {
                 double peak = fabs(mix_l);
                 double pr = fabs(mix_r);
                 if (pr > peak) peak = pr;
-                // Menu Band's master timing: 8 ms attack lets note
-                // transients through (soft_clip catches them), 180 ms
-                // release recovers without pumping on held chords.
-                double att_coeff = 1.0 - exp(-1.0 / (0.008 * rate));
-                double rel_coeff = 1.0 - exp(-1.0 / (0.18 * rate));
+                // Attack: very fast (0.2ms), Release: medium (40ms).
+                // The master is a peak clamp, not Menu Band's compressor:
+                // drums land here near 0.95 against a 0.4 threshold, and
+                // an 8 ms attack let each kick's snap through to the
+                // clipper while squashing its body, then a 180 ms release
+                // held the whole mix ducked after every hit (hats never
+                // recovered). The drum bus has its own 5 ms / 200 ms
+                // compressor for stacking feel; this stage just catches
+                // peaks and gets out of the way.
+                double att_coeff = 1.0 - exp(-1.0 / (0.0002 * rate));
+                double rel_coeff = 1.0 - exp(-1.0 / (0.04 * rate));
                 if (peak > comp_env)
                     comp_env += att_coeff * (peak - comp_env);
                 else
