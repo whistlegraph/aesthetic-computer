@@ -16,7 +16,7 @@
 
 import {
   Bridge, DEFAULT_MODEL, blankPiece, compact, creatureLook, creatureSeed, dollars, instructionsFor,
-  keyColor, markdown, petName, pipedCommand, randomSlug, toolLabel, turnUsageText, uuid, wrapRows,
+  keyColor, markdown, petName, pieceFactory, pipedCommand, randomSlug, toolLabel, turnUsageText, uuid, wrapRows,
 } from "../lib/aesel-bridge.mjs";
 import { AC_MODELS, AcBridge, DEFAULT_AC_MODEL, acModelLabel, resolveAcModel } from "../lib/aesel-ac.mjs";
 
@@ -56,7 +56,7 @@ const SHIFT_MAP = {
 // The one-row guy from aesel/src/mascot.mjs.
 const GUY_DANCE = ["//(o.o)>", "//(o.o)>", "\\\\(o.o)>", "//(^.^)>", "//(o.o)>", "//(-.-)>"];
 
-const HELP = "/ask [on|off] · /provider ac|claude · /model [name] · /new · /clear · /latest · /run · /piece [name] · /versions · /rollback vN · /retry · /whoami · /energy · /quit   ctrl-c interrupts a running turn · pgup/pgdn scroll · ↑↓ history";
+const HELP = "/ask [on|off] · /provider ac|claude · /model [name] · /new · /clear · /latest · /run · /preview · /piece [name] · /versions · /rollback vN · /retry · /whoami · /energy · /quit   ctrl-c interrupts a running turn · pgup/pgdn scroll · ↑↓ history";
 
 // Session state lives on globalThis so it survives a jump to the prompt or
 // to the piece being written; the module itself is re-evaluated on return.
@@ -68,6 +68,7 @@ let SYS = null;
 let SCREEN = null;
 let frame = 0;
 let pageRows = 20; // transcript rows on the last paint, for PgUp/PgDn
+let P = null; // the corner preview: {source, piece, buf, w, h, count, error}
 
 // `aesel` → the hosted engine (it signs in with the device's AC handle, so it
 // works without a Claude token); `aesel:ac:qwen` → hosted on that model;
@@ -103,6 +104,7 @@ function blankSession() {
     spend: { tokens: 0, usd: 0, turns: 0 },
     versions: [],
     pieceDirty: false,
+    preview: true,   // the piece, live, in the transcript's top-left corner
     logTail: [],
     flash: null,
     stoppedByUser: false,
@@ -447,6 +449,10 @@ function command(line, system, screen) {
       return;
     case "run":
       runPiece(system);
+      return;
+    case "preview":
+      S.preview = arg === "on" ? true : arg === "off" ? false : !S.preview;
+      note(S.preview ? "Preview on · the piece runs in the corner" : "Preview off · tab still runs the piece");
       return;
     case "piece":
       if (!arg) { note(`Working on ${S.file}`); return; }
@@ -879,7 +885,8 @@ function workingTimer(now) {
   return `${((now - t.startedAt) / 1000).toFixed(1)}s…${quiet >= 15 && S.status !== "approval" ? ` · quiet ${quiet}s` : ""}`;
 }
 
-function paint({ wipe, ink, box, line, plot, write, screen, system, wifi }) {
+function paint(api) {
+  const { wipe, ink, box, line, plot, write, screen, system, wifi } = api;
   if (!S) return;
   frame++;
   SYS = system;
@@ -1047,6 +1054,9 @@ function paint({ wipe, ink, box, line, plot, write, screen, system, wifi }) {
     }
   }
 
+  // ── the piece, live, in the transcript's top-left corner.
+  if (S.preview && !pending) drawPreview(api, margin + stroke, boxY + stroke, m);
+
   // ── the egg and its name, in the transcript's top-right corner, on black.
   const U = 9 * z;
   const name = S.egg.name;
@@ -1058,6 +1068,92 @@ function paint({ wipe, ink, box, line, plot, write, screen, system, wifi }) {
   const below = drawEgg(ink, box, plot, ecx, boxY + stroke + pad, U, now);
   ink(...C.muted);
   write(name, { x: Math.round(ecx - (name.length * cw) / 2), y: below + z * 2, size: z, font: FONT });
+}
+
+// Sound and leaving stay with the real run: the preview is seen, not heard,
+// and a piece that jumps away would take Aesel with it.
+const SILENT = new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? undefined : SILENT), apply: () => SILENT });
+const QUIET = ["jump", "writeFile", "deleteFile", "reboot", "poweroff"];
+
+// The session's piece, compiled in here (pieceFactory) and painted into its
+// own buffer at a third of the screen, re-read twice a second so every save
+// the agent makes shows up without a key. Errors land in the frame.
+function drawPreview(api, x0, y0, m) {
+  const { ink, box, write, painting, page, paste, system, screen } = api;
+  const { z, cw, gh, pad, stroke } = m;
+  if (!painting || !page || !paste) return;
+  const w = Math.max(48, Math.round(screen.width / 3));
+  const h = Math.max(27, Math.round((w * screen.height) / screen.width));
+  if (!P || P.w !== w || P.h !== h) P = { source: null, piece: null, buf: painting(w, h), w, h, count: 0, error: "" };
+  const fx = x0 + pad, fy = y0 + pad;
+
+  if (P.source === null || frame % 30 === 0) {
+    const source = system.readFile(S.file) || "";
+    if (source !== P.source) {
+      P.source = source;
+      P.piece = null;
+      P.error = "";
+      P.count = 0;
+      page(P.buf).wipe(0, 0, 0);
+      page();
+      const made = pieceFactory(source);
+      if (made.error) P.error = made.error;
+      else {
+        P.api = previewApi(api, w, h);
+        try {
+          P.piece = made.make();
+          page(P.buf);
+          if (P.piece.boot) P.piece.boot({ ...P.api, params: [] });
+        } catch (err) {
+          P.piece = null;
+          P.error = String(err && err.message || err);
+        } finally {
+          page();
+        }
+      }
+    }
+  }
+
+  if (P.piece && P.piece.paint) {
+    P.api.screen = { width: w, height: h };
+    P.api.paintCount = P.count++;
+    try {
+      page(P.buf);
+      if (P.piece.sim) P.piece.sim(P.api);
+      P.piece.paint(P.api);
+    } catch (err) {
+      P.piece = null;
+      P.error = String(err && err.message || err);
+      console.log(`[aesel] preview: ${P.error}`);
+    } finally {
+      page();
+    }
+  }
+
+  // Black around it, a white frame, and under it the piece's name.
+  ink(...C.page);
+  box(x0, y0, w + 2 * (pad + stroke), h + 2 * (pad + stroke) + gh + pad);
+  paste(P.buf, fx + stroke, fy + stroke);
+  ink(...(P.error ? C.muted : C.text));
+  frame4(box, fx, fy, w + 2 * stroke, h + 2 * stroke, stroke);
+  if (P.error) {
+    ink(...C.page);
+    box(fx + stroke, fy + stroke, w, h);
+    ink(...C.muted);
+    const cols = Math.max(4, Math.floor((w - 2 * z) / cw));
+    const rows = wrapRows(P.error, cols).slice(0, Math.max(1, Math.floor((h - 2 * z) / (gh + z))));
+    rows.forEach((r, i) => write(r.text, { x: fx + stroke + z, y: fy + stroke + z + i * (gh + z), size: z, font: FONT }));
+  }
+  ink(...C.muted);
+  write(clip(`${S.slug} · tab runs`, Math.floor((w + 2 * stroke) / cw)), { x: fx, y: fy + h + 2 * stroke + pad, size: z, font: FONT });
+}
+
+// What the previewed piece is handed: Aesel's own paint API, with the screen
+// shrunk to the frame, sound silenced and the system's exits closed.
+function previewApi(api, w, h) {
+  const system = Object.create(api.system || {});
+  for (const k of QUIET) system[k] = () => false;
+  return { ...api, system, sound: SILENT, screen: { width: w, height: h }, paintCount: 0 };
 }
 
 function drawRow(ink, box, write, line, r, x, y, cols, head, m) {

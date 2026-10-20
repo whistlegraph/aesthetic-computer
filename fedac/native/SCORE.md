@@ -260,9 +260,18 @@ How it is built:
   the session's own piece. A device flashed without linking has no token and
   the bridge says so.
 
-Not carried over from desktop Aesel yet: the `/run` live push and QR, the
-Codex bridge, and the piece preview beside the transcript (the piece runs
-full-screen instead).
+- **Corner preview**: the session's piece runs live in a frame in the
+  transcript's top-left corner (`drawPreview` in the piece). The runtime
+  holds one module at a time, so `pieceFactory` in the lib compiles the
+  source into a function instead (exports dropped; a piece with an `import`
+  only runs full-screen), painted into a `painting()` buffer a third of the
+  screen wide and `paste`d in. The file is re-read every 30 frames, so each
+  save reboots the preview; sound is silenced and `jump`/`writeFile` are
+  closed. Errors show in the frame. `/preview` toggles it; tab still runs the
+  piece full-screen.
+
+Not carried over from desktop Aesel yet: the `/run` live push and QR, and the
+Codex bridge.
 
 ## Operational Checks
 

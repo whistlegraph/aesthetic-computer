@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { execFileSync } from "node:child_process";
-import { Bridge, blankPiece, keyColor, creatureLook, creatureSeed, petName, instructionsFor, launchArguments, markdown, pipedCommand, measuredUsage, randomSlug, toolLabel, turnUsageText, uuid, wrapRows } from "./aesel-bridge.mjs";
+import { Bridge, blankPiece, pieceFactory, keyColor, creatureLook, creatureSeed, petName, instructionsFor, launchArguments, markdown, pipedCommand, measuredUsage, randomSlug, toolLabel, turnUsageText, uuid, wrapRows } from "./aesel-bridge.mjs";
 
 function make() {
   const sent = [];
@@ -153,6 +153,36 @@ test("helpers: slug, uuid, blank and instructions", () => {
   assert.match(text, /@jeffrey/);
   assert.match(text, /\/pieces\/lumo\.mjs/);
   assert.match(text, /no browser/);
+});
+
+test("the corner preview compiles a piece into its lifecycle", () => {
+  const blank = pieceFactory(blankPiece("lumo", "2026-09-23")).make();
+  const calls = [];
+  blank.paint({ wipe: (...c) => calls.push(c) });
+  assert.deepEqual(calls, [[70, 50, 100]]);
+  assert.equal(blank.act, null);
+  const p = pieceFactory([
+    "let n = 0;",
+    "export function boot() { n = 5; }",
+    "export const sim = () => { n++; };",
+    "export async function act() {}",
+    "function paint({ write }) { write(String(n)); }",
+    "export { paint };",
+  ].join("\n")).make();
+  p.boot();
+  p.sim();
+  let said = "";
+  p.paint({ write: (t) => { said = t; } });
+  assert.equal(said, "6");
+  assert.equal(typeof p.act, "function");
+  // Two makes are two separate runs of the piece.
+  const q = pieceFactory("let n = 0; export function paint({ write }) { write(String(++n)); }");
+  const a = q.make(), b = q.make();
+  a.paint({ write() {} });
+  b.paint({ write: (t) => { said = t; } });
+  assert.equal(said, "1");
+  assert.match(pieceFactory('import { x } from "../lib/x.mjs";\nfunction paint() {}').error, /tab runs it/);
+  assert.ok(pieceFactory("function paint( {").error);
 });
 
 test("a turn's result reports what it spent, and thinking says so", () => {

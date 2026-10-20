@@ -271,6 +271,27 @@ export function blankPiece(slug, stamp = new Date().toISOString().slice(0, 10)) 
   ].join("\n");
 }
 
+// The piece being written, compiled inside Aesel for the corner preview.
+// The runtime runs one module at a time, so the preview cannot be a second
+// piece; instead the source becomes a function whose locals are the piece's
+// top level and whose return value is its lifecycle. Exports are dropped
+// (the names stay declared); an import has nothing to resolve against here,
+// so a piece with one only runs full-screen. Returns { make } or { error }.
+const LIFECYCLE = ["boot", "paint", "act", "sim", "leave"];
+export function pieceFactory(source) {
+  if (/^\s*import[\s{*"']/m.test(source)) return { error: "imports · tab runs it" };
+  const body = source
+    .replace(/\bexport\s*\{[^}]*\}\s*;?/g, "")
+    .replace(/\bexport\s+default\s+/g, "const __default = ")
+    .replace(/\bexport\s+(?=(async\s+)?function|const|let|var|class)/g, "");
+  const tail = LIFECYCLE.map((n) => `${n}: typeof ${n} === "function" ? ${n} : null`).join(", ");
+  try {
+    return { make: new Function(`${body}\n;return { ${tail} };`) };
+  } catch (err) {
+    return { error: String(err && err.message || err) };
+  }
+}
+
 // What the agent is told about where it is. The native API is the web
 // piece API's small cousin, and the difference is the whole point of saying
 // anything: an agent that assumes the browser writes `fetch` and `document`
@@ -283,7 +304,7 @@ export function instructionsFor({ handle = "", slug, file, screen = { width: 455
     "You are running inside Aesel on an Aesthetic Computer Native device: a laptop booted into AC Native OS (a small Linux, QuickJS, software framebuffer, no browser, no Node.js).",
     account,
     `This session's piece is ${file}. It already exists as a blank piece that paints a flat colour and nothing else. Edit that file unless the user asks for something else.`,
-    "The user runs the piece on this machine with one key, so small frequent edits are better than one big rewrite.",
+    "Aesel shows the piece live in a small frame in its corner and reloads it on every save; one key runs it full-screen. Small frequent edits are better than one big rewrite. Keep the piece one self-contained file with no import statements, or the corner frame cannot run it.",
     "A native piece is an ES module exporting lifecycle functions: boot({ system, screen, params }), paint({ wipe, ink, box, line, circle, plot, write, screen, paintCount, sound, wifi, system }), act({ event, system, sound }), sim(), leave(). paint runs every frame at 60 fps; keep state in module variables.",
     `The screen is small: about ${screen.width}x${screen.height} logical pixels. Read screen.width and screen.height rather than assuming.`,
     'Graphics: wipe(r, g, b) clears; ink(r, g, b) sets the colour for what follows; box(x, y, w, h) fills, box(x, y, w, h, "outline") strokes; line(x1, y1, x2, y2); circle(x, y, r, filled); plot(x, y). write(text, { x, y, size, font }) with font "6x10" (glyphs 6 wide, 10 tall) or "unifont". There is no DOM, no fetch(), no npm, no canvas context.',
