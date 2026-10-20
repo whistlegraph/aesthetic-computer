@@ -55,7 +55,8 @@ const float VHS_BLEED = 0.7;        // red/blue sideways offset, in canvas pixel
 const float VHS_SMEAR = 0.8;        // horizontal blur reach, in canvas pixels
 const float VHS_WOBBLE = 0.35;      // per-line tracking jitter, in canvas pixels
 const float VHS_SATURATION = 1.3;
-const float VHS_CONTRAST = 0.6;     // 0 = none, 1 = full smoothstep S-curve
+const float VHS_CONTRAST = 0.85;    // 0 = none, 1 = full smoothstep S-curve
+const float VHS_GAMMA = 1.7;        // >1 deepens the mid-tones
 const float VHS_SCANLINE = 0.07;    // darkening on every other band
 const float VHS_GRAIN = 0.05;
 
@@ -278,6 +279,7 @@ void main()
 
     float luma = dot(color, vec3(0.299, 0.587, 0.114));
     color = clamp(mix(vec3(luma), color, VHS_SATURATION), 0.0, 1.0);
+    color = pow(color, vec3(VHS_GAMMA));
     color = mix(color, color * color * (3.0 - 2.0 * color), VHS_CONTRAST);
     color *= 1.0 - VHS_SCANLINE * step(0.5, fract(gl_FragCoord.y / 3.0));
     color += (random(gl_FragCoord.xy + fract(tt * 7.0) * 289.0) - 0.5) * VHS_GRAIN;
