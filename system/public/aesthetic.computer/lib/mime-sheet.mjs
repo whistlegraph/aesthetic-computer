@@ -1,8 +1,9 @@
 // 🎭 Mime Sheet
-// The mime feed as the screen below the prompt. This page is the host: it
-// keeps a same-origin frame of /mime/?embed=prompt (the guest) parked under
-// the canvas, slides it up with the curtain swipe, and hands back when the
-// guest scrolls into the transparent slot it keeps above its first card.
+// The prompt as the first post of the mime feed. This page is the host: it
+// keeps a same-origin frame of /mime/?embed=prompt (the guest) parked below
+// the screen. A curtain swipe scrolls both together, the prompt riding one
+// screen above the feed, and the guest's scroll carries the prompt back down
+// through the transparent slot it keeps above its first card.
 //
 //   cold → warming → ready            (loaded on idle, parked on the slot)
 //   grab → dragging → presenting → open → returning → parked
@@ -22,6 +23,7 @@ let pausedLoop = false;
 let lastDownY = null; // clientY of the latest pointerdown, for an exact grab.
 let historyEntry = false; // We pushed a /mime/?p= entry for the open sheet.
 let swallowPop = false;
+let scrollRaf = 0;
 let lastPermalink = null; // The guest's card on screen, as last announced.
 
 const post = (message) =>
@@ -110,12 +112,26 @@ function popstate(e) {
   return false;
 }
 
+// 📜 The prompt (#aesthetic-computer) rides one screen above the feed.
+const stage = () => document.getElementById("aesthetic-computer");
+
+function setStage(y, transition = "none") {
+  const s = stage();
+  if (!s) return;
+  s.style.transition = transition;
+  s.style.willChange = y ? "transform" : "";
+  s.style.transform = y ? `translateY(${y}px)` : "";
+}
+
 // ✋ Following the finger.
 let drag = null;
 let raf = 0;
 
+// The feed's top edge at `y`; the prompt sits a screen above it.
 function place(y) {
-  frame.style.transform = `translateY(${Math.max(0, y)}px)`;
+  y = Math.max(0, y);
+  frame.style.transform = `translateY(${y}px)`;
+  setStage(y - innerHeight);
 }
 
 function grab(startY) {
@@ -164,12 +180,22 @@ function slide(to, done) {
   const ms = Math.round(140 + 260 * Math.min(1, Math.abs(target - from) / innerHeight));
   f.style.willChange = "transform";
   f.style.transition = `transform ${ms}ms ${ease}`;
-  requestAnimationFrame(() => (f.style.transform = `translateY(${target}px)`));
+  const s = stage();
+  if (s) {
+    s.style.willChange = "transform";
+    s.style.transition = `transform ${ms}ms ${ease}`;
+  }
+  requestAnimationFrame(() => {
+    f.style.transform = `translateY(${target}px)`;
+    if (s) s.style.transform = `translateY(${target - innerHeight}px)`;
+  });
   let finished = false;
   const finish = () => {
     if (finished) return;
     finished = true;
     f.style.willChange = "";
+    if (target) setStage(0); // Back home: drop the transform entirely.
+    else if (s) s.style.transition = "none";
     done?.();
   };
   f.addEventListener("transitionend", finish, { once: true });
@@ -216,10 +242,11 @@ function dismiss() {
   });
 }
 
-// The guest scrolled up into its slot: the prompt already shows through, so
-// the frame drops away without a visible change.
+// The guest scrolled up into its slot and the prompt has ridden down with it,
+// so the frame drops away without a visible change.
 function tuck() {
   resumePrompt();
+  setStage(0);
   state = "parked";
   Object.assign(frame.style, {
     transition: "none",
@@ -240,6 +267,11 @@ addEventListener("message", (e) => {
   else if (type === "mime:sheet:at") {
     lastPermalink = permalink || null;
     if (historyEntry) enterHistory();
+  } else if (type === "mime:sheet:scroll") {
+    // The slot is `above` px tall on screen: the prompt's bottom edge is there.
+    if (state !== "open" && state !== "returning") return;
+    cancelAnimationFrame(scrollRaf);
+    scrollRaf = requestAnimationFrame(() => setStage(Math.min(0, e.data.above - innerHeight)));
   } else if (type === "mime:sheet:leaving") {
     if (state === "open") state = "returning";
     resumePrompt(); // Live again before it comes into view.
