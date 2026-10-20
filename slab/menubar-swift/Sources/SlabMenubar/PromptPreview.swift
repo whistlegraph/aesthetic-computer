@@ -100,56 +100,6 @@ struct PromptPreviewState: Equatable {
     }
 }
 
-/// The badge, which is usually not there at all. It appears to say one of four
-/// things — ahead, pushing, working, paused — and the piece's name, but only
-/// while the card is grown, where a name is something you asked for rather than
-/// something parked over the art. A piece is free to paint white, so the chip
-/// carries its own dark ground rather than trusting contrast. The name and the
-/// version are the Aesel desktop's title lettering, two separate words as they
-/// are there; the state stays plain type, because it is a reading, not a name.
-private struct PromptPreviewBadge: View {
-    let state: PromptPreviewState
-    let expanded: Bool
-
-    /// The name earns its place only in the grown card; the state earns its
-    /// place only when there is one. All absent is the ordinary case, and the
-    /// view draws nothing at all.
-    private var name: String { expanded ? state.piece : "" }
-    private var label: String { state.quiet ? "" : state.label }
-
-    // The version is not drawn here: it rides after the piece's name on
-    // Aesel's own status line, the place you are already looking.
-    var body: some View {
-        if name.isEmpty && label.isEmpty {
-            EmptyView()
-        } else {
-            HStack(spacing: 5) {
-                if !state.quiet {
-                    Circle()
-                        .fill(state.tint)
-                        .frame(width: 6, height: 6)
-                }
-                if !name.isEmpty {
-                    AeselRockTitle(text: name, colors: state.handleColors, size: 11)
-                }
-                if !label.isEmpty {
-                    Text(label)
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.92))
-                }
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color.black.opacity(0.62)))
-            .overlay(
-                Capsule().strokeBorder(
-                    state.quiet ? Color.white.opacity(0.18) : state.tint.opacity(0.45),
-                    lineWidth: 0.5)
-            )
-        }
-    }
-}
-
 final class PromptPreview {
     /// Desktop's compact reference is eleven 16-point text units (176 points).
     /// Slab has no terminal cell metrics here, so this is a bounded approximation;
@@ -211,7 +161,6 @@ final class PromptPreview {
     private let cover = NSImageView()
     private let wood = PromptPreviewWoodFrame()
     private var coverTimer: Timer?
-    private let badgeHost: NSHostingView<PromptPreviewBadge>
     private let border = CALayer()
     /// The card proper — the part of the viewport the eye is shown. The
     /// window is always the whole viewport plus its shadow; the card is a
@@ -240,9 +189,11 @@ final class PromptPreview {
     private var pointerInside = false
     var onExpansionChanged: (() -> Void)?
     var isExpanded: Bool { expanded }
-    /// Hover enlargement matches the desktop without changing the live viewport.
+    /// The card stays small in its corner: hovering no longer grows it.
+    /// `previewInteractionMode = expand` brings the desktop-style enlargement
+    /// back for anyone who wants it.
     private var expandsOnHover: Bool {
-        UserDefaults.standard.string(forKey: "previewInteractionMode") != "compact"
+        UserDefaults.standard.string(forKey: "previewInteractionMode") == "expand"
     }
     private var displayAspect: CGFloat = 1.5
     private var state = PromptPreviewState() { didSet { if state != oldValue { redrawChrome() } } }
@@ -293,8 +244,6 @@ final class PromptPreview {
         webView.setValue(false, forKey: "drawsBackground")
         webView.autoresizingMask = []
 
-        badgeHost = NSHostingView(rootView: PromptPreviewBadge(state: PromptPreviewState(),
-                                                               expanded: false))
 
         window = PromptPreviewWindow(contentRect: NSRect(origin: .zero, size: Self.restSize),
                                      styleMask: .borderless, backing: .buffered, defer: false)
@@ -348,7 +297,6 @@ final class PromptPreview {
         // The wood sits over the art's edge and under the status border, so
         // the tint still reads at a glance around the frame.
         wood.frame = card.bounds
-        wood.autoresizingMask = [.width, .height]
         card.addSubview(wood)
 
         border.borderWidth = 1
@@ -361,7 +309,6 @@ final class PromptPreview {
         shadow.cornerRadius = Self.cardRadius
         content.layer?.addSublayer(shadow)
 
-        card.addSubview(badgeHost)
         content.addSubview(card)
         window.contentView = content
         window.onPrimaryClick = { [weak self] in self?.takeKeyboard() }
@@ -771,6 +718,9 @@ final class PromptPreview {
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 card.animator().frame = rect
                 stage.animator().frame = stageFrame
+                // Sized here rather than trusted to autoresizing, which left
+                // the frame at rest size in the grown card's corner.
+                wood.animator().frame = stageFrame
             }
             CATransaction.begin()
             CATransaction.setAnimationDuration(Self.openDuration)
@@ -781,33 +731,23 @@ final class PromptPreview {
         } else {
             card.frame = rect
             stage.frame = stageFrame
+            wood.frame = stageFrame
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             shadow.frame = shadowRect
             border.frame = borderRect
             CATransaction.commit()
         }
-        layoutBadge()
-    }
-
-    private func layoutBadge() {
-        badgeHost.layoutSubtreeIfNeeded()
-        let size = badgeHost.fittingSize
-        let inset = PromptPreviewWoodFrame.thickness + 4
-        badgeHost.frame = NSRect(x: inset, y: inset, width: size.width, height: size.height)
     }
 
     private func redrawChrome() {
-        badgeHost.rootView = PromptPreviewBadge(state: state, expanded: expanded)
-        // The border is the at-a-glance half of the badge: readable from across
-        // the grid, where nine-point type is not. Quiet cards get a plain dark
-        // edge that reads as the card's own frame — a wall of green borders
-        // would be the same all-day label the chip just stopped being.
+        // No chip over the art — no status dot, no state word, no name on the
+        // grown card. The border alone says when something is off: readable
+        // from across the grid, quiet as the card's own dark edge otherwise.
         let edge = state.quiet
             ? NSColor.black.withAlphaComponent(0.45)
             : NSColor(state.tint).withAlphaComponent(state.paused ? 0.35 : 0.75)
         border.borderColor = edge.cgColor
-        layoutBadge()
     }
 
     /// Show or hide as one unit, from the same window-stack ownership test that

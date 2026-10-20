@@ -327,6 +327,11 @@ export async function makeP5WorkerModule({ slug, source }) {
   let bootError = null;
   let lastWidth = 0;
   let lastHeight = 0;
+  // p5's own pixelDensity. A p5 sketch draws at native resolution into AC's
+  // hd() layer — smooth, the way p5 looks everywhere else — while AC's corner
+  // label and HUD stay at AC's density above it. 1 whenever there is no hd
+  // layer (previews, icons), where the pixel buffer is what shows.
+  let density = 1;
 
   // 📊 Perf instrumentation — logs every ~60 paints (~1s @ 60fps).
   let paintCount = 0;
@@ -349,10 +354,24 @@ export async function makeP5WorkerModule({ slug, source }) {
 
   // Cached context — avoids per-frame getContext() overhead.
   let cachedCtx = null;
+  // At density > 1 the sketch's backing store is larger than AC's screen, so
+  // the pixel buffer (what tapes, previews and icons read) gets a downscaled
+  // copy, drawn through this screen-sized canvas.
+  let small = null, smallCtx = null;
   const blitPixelsToScreen = (screen) => {
     if (!canvasShim) return;
     const oc = canvasShim.offscreen;
     if (!cachedCtx) cachedCtx = canvasShim.getContext("2d");
+    if (density !== 1) {
+      if (!small || small.width !== screen.width || small.height !== screen.height) {
+        small = new OffscreenCanvas(screen.width, screen.height);
+        smallCtx = small.getContext("2d", { willReadFrequently: true });
+      }
+      smallCtx.clearRect(0, 0, screen.width, screen.height);
+      smallCtx.drawImage(oc, 0, 0, oc.width / density, oc.height / density);
+      screen.pixels.set(smallCtx.getImageData(0, 0, screen.width, screen.height).data);
+      return;
+    }
     if (oc.width !== screen.width || oc.height !== screen.height) {
       // Sketch canvas size differs from AC screen — blit the overlap region.
       const w = Math.min(oc.width, screen.width);
@@ -441,7 +460,7 @@ export async function makeP5WorkerModule({ slug, source }) {
       }
     },
 
-    paint: ({ screen, ink, wipe }) => {
+    paint: ({ screen, ink, wipe, hd }) => {
       if (bootError) {
         wipe(20, 0, 0);
         ink(255, 120, 120).write(`p5 boot error:`, { x: 8, y: 12 });
@@ -453,12 +472,28 @@ export async function makeP5WorkerModule({ slug, source }) {
       const dt = lastPaintTime ? t0 - lastPaintTime : 0;
       lastPaintTime = t0;
 
+      // The native-resolution layer, when this display has one. Its scale is
+      // the sketch's pixel density; null (previews, icons) means density 1.
+      const layer = typeof hd === "function" ? hd() : null;
+      const want = layer ? layer.scale : 1;
+      if (p5Instance && p5Instance._setupDone && want !== density) {
+        try { p5Instance.pixelDensity(want); density = want; }
+        catch (err) { console.warn("[p5-worker] pixelDensity:", err); }
+      }
+
       // Drive p5's draw loop from AC's paint hook.
       // p5 is noLoop'd; redraw() runs draw() exactly once.
       if (p5Instance && p5Instance._setupDone) {
         try { p5Instance.redraw(); } catch (err) { console.warn("[p5-worker] redraw:", err); }
       }
       const t1 = performance.now();
+      if (layer && canvasShim) {
+        // hd()'s context is pre-scaled, so logical coordinates fill it at
+        // native resolution. Cleared first: a sketch that never paints its
+        // background must not smear over the last frame.
+        layer.ctx.clearRect(0, 0, layer.width, layer.height);
+        layer.ctx.drawImage(canvasShim.offscreen, 0, 0, layer.width, layer.height);
+      }
       blitPixelsToScreen(screen);
       const t2 = performance.now();
 
@@ -519,9 +554,10 @@ export async function makeP5WorkerModule({ slug, source }) {
           p5Instance.resizeCanvas?.(w, h);
           // Hard-reset the OffscreenCanvas as a fallback for any p5 path
           // that doesn't propagate the resize to the underlying canvas.
-          if (canvasShim && (canvasShim.offscreen.width !== w || canvasShim.offscreen.height !== h)) {
-            canvasShim._oc.width = w;
-            canvasShim._oc.height = h;
+          const bw = Math.round(w * density), bh = Math.round(h * density);
+          if (canvasShim && (canvasShim.offscreen.width !== bw || canvasShim.offscreen.height !== bh)) {
+            canvasShim._oc.width = bw;
+            canvasShim._oc.height = bh;
           }
         } catch (err) { console.warn("[p5-worker] resizeCanvas:", err); }
         if (typeof self.windowResized === "function") {
@@ -534,8 +570,9 @@ export async function makeP5WorkerModule({ slug, source }) {
       // Scale AC screen coords → p5 canvas coords (rarely matters once
       // resize is honored, but covers sketches that lock a custom canvas size).
       const updateMouse = (x, y) => {
-        const cw = canvasShim?.offscreen.width || lastWidth || 1;
-        const ch = canvasShim?.offscreen.height || lastHeight || 1;
+        // Logical canvas size: the backing store divided by p5's density.
+        const cw = (canvasShim?.offscreen.width || lastWidth || 1) / density;
+        const ch = (canvasShim?.offscreen.height || lastHeight || 1) / density;
         const sx = cw / (lastWidth || cw);
         const sy = ch / (lastHeight || ch);
         const mx = x * sx;
