@@ -84,6 +84,8 @@ const TOOLS = [
   },
   {
     name: "notepaint_brains",
+    title: "notepaint brains",
+    annotations: { readOnlyHint: true, openWorldHint: false },
     description:
       "List the brains (image models) notepaint can paint with on notepaint.art, each with its price in Braincells and US dollars. When signed in, also returns the painter's Braincell balance and today's free allowance. Read-only; charges nothing.",
     inputSchema: {
@@ -99,6 +101,9 @@ const TOOLS = [
   },
   {
     name: "notepaint_paint",
+    title: "Paint with notepaint",
+    // Spends Braincells, so not read-only; it never deletes anything.
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     description:
       "Paint with notepaint (notepaint.art): one move turns a prompt into a square painting, or repaints an earlier painting from this conversation. Each move spends the painter's AC Braincells (today's free allowance first) — call notepaint_brains to show the price before painting. Requires signing in with an AC account that has a handle.",
     inputSchema: {
@@ -327,7 +332,7 @@ async function handleMCPMessage(message, authToken, notePaintOnly = false) {
           };
         return await handleToolCall(params, authToken);
       default:
-        throw new Error(`Unknown method: ${method}`);
+        throw Object.assign(new Error(`Unknown method: ${method}`), { rpcCode: -32601 });
     }
   }
 
@@ -362,7 +367,7 @@ async function handleMCPMessage(message, authToken, notePaintOnly = false) {
       return await handlePromptGet(params);
 
     default:
-      throw new Error(`Unknown method: ${method}`);
+      throw Object.assign(new Error(`Unknown method: ${method}`), { rpcCode: -32601 });
   }
 }
 
@@ -1109,7 +1114,16 @@ export async function handler(event, context) {
         return { statusCode: 202, headers: corsHeaders, body: "" };
       }
 
-      const result = await handleMCPMessage(message, authToken, notePaintOnly);
+      // An unknown method is a JSON-RPC error, not a server failure: newer
+      // clients probe first (ChatGPT sends server/discover) and fall back.
+      let result;
+      try {
+        result = await handleMCPMessage(message, authToken, notePaintOnly);
+      } catch (error) {
+        if (!error.rpcCode) throw error;
+        return respond(200, { jsonrpc: "2.0", id: message.id ?? null,
+          error: { code: error.rpcCode, message: error.message } }, corsHeaders);
+      }
       const response = { jsonrpc: "2.0", id: message.id, result };
 
       return respond(200, response, corsHeaders);
