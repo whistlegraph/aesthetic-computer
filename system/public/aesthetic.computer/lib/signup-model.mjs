@@ -5,7 +5,7 @@ export const SIGNUP_RETENTION_DAYS = 35;
 export const SIGNUP_TTL_MS = 24 * 60 * 60 * 1000;
 export const SIGNUP_STAGES = Object.freeze([
   "started", "auth_returned", "auth_failed", "verification_shown",
-  "verification_resent", "verified", "handle_shown", "handle_failed", "completed",
+  "verification_resent", "verified", "handle_shown", "handle_failed", "handle_dismissed", "completed",
   // In-page email-code door (signup-flow.mjs): handle first, then a mailed code.
   "handle_held", "code_sent", "code_failed", "fallback", "social_started",
   "support_shown", "support_clicked",

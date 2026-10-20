@@ -131,34 +131,23 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     if (canvas) canvas.mount(dialog); else dialog.showModal();
     return dialog;
   }
-  function handleForm() {
+  // A signed-in, verified account with no handle claims one: the same form as
+  // the door's first step, with names checked as they are typed. A re-ask
+  // (mode "handle", opened by boot on an ordinary session) is soft: closing
+  // it stays on the piece, and it is not asked again for a day.
+  const ASKED_KEY = "ac:handle:asked";
+  const noteAsked = () => { try { win.localStorage.setItem(ASKED_KEY, String(Date.now())); } catch {} };
+  function shouldAsk(interval = 24 * 60 * 60 * 1000) {
+    if (!supported()) return false;
+    let asked = 0;
+    try { asked = Number(win.localStorage.getItem(ASKED_KEY)) || 0; } catch {}
+    return Date.now() - asked > interval;
+  }
+  function claimStep() {
+    const soft = read()?.mode === "handle";
+    if (soft) noteAsked();
     track("verified"); track("handle_shown");
-    const view = frame("Choose your @handle", "Your name in Laklok and on everything you make.");
-    view.querySelector(".content").innerHTML = `<form><label for="ac-signup-handle">Handle</label><input id="ac-signup-handle" name="handle" autocomplete="nickname" autocapitalize="none" spellcheck="false" maxlength="17" required aria-describedby="ac-signup-hint"><p id="ac-signup-hint">1–16 letters or numbers. Dots and underscores can go between them.</p><button class="primary" type="submit">Create handle</button></form>`;
-    const input = view.querySelector("input"), button = view.querySelector(".primary"), status = view.querySelector("[role=status]"), mine = generation;
-    input.addEventListener("input", () => { status.textContent = ""; });
-    input.focus();
-    view.querySelector("form").onsubmit = async event => {
-      event.preventDefault();
-      if (button.disabled) return;
-      const handle = input.value.trim().replace(/^@/, "");
-      if (validateHandle(handle) !== "valid") { status.textContent = "Use an available name with 1–16 letters or numbers, dots or underscores."; track("handle_failed", "invalid"); return; }
-      button.disabled = true; status.textContent = "Saving…";
-      try {
-        const result = await request("/handle", { method: "POST", body: JSON.stringify({ handle }) });
-        if (mine !== generation) return;
-        if (!result.handle) throw new Error("Missing handle");
-        win.dispatchEvent(new win.Event("ac:handle-created"));
-        await handleCreated(result.handle);
-      } catch (error) {
-        if (mine !== generation) return;
-        const reason = SIGNUP_ERRORS.includes(error.reason) ? error.reason : "network";
-        track("handle_failed", reason);
-        status.textContent = reason === "taken" ? "That handle is taken. Try another name." :
-          reason === "unverified" ? "Verify your email, then try again." : "Couldn’t save your handle. Please try again.";
-        button.disabled = false; input.focus();
-      }
-    };
+    handleStep({ claimNow: true, soft });
   }
   function verification() {
     track("verification_shown");
@@ -174,7 +163,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
         if (current.verified) {
           await auth.getTokenSilently({ cacheMode: "off" });
           if (mine !== generation) return;
-          if (current.handle) complete(); else handleForm();
+          if (current.handle) complete(); else claimStep();
         } else if (manual) status.textContent = "Not verified yet. Open the link in your email, then try again.";
       } catch { if (manual && mine === generation) status.textContent = "Couldn’t check right now. Please try again."; }
       finally { checking = false; }
@@ -191,19 +180,24 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     };
     timer = win.setInterval(() => check(), 15000);
   }
+  // `force` asks an ordinary signed-in session for its missing handle (boot
+  // calls it at most once a day). That ask never navigates: an account that
+  // turns out to have a handle, or a status check that fails, just closes.
   async function resume(client, user, force = false) {
     if (!supported() || (!read() && !force)) return;
-    if (!read()) start("handle");
+    const asked = !read();
+    if (asked) start("handle");
     auth = client;
     if (!auth || !user) return;
     const mine = ++generation;
     try {
       const status = await request("/api/signup-status");
       if (mine !== generation) return;
-      if (status.handle && status.verified) { complete("/prompt"); return; }
-      if (status.verified) handleForm(); else verification();
+      if (status.handle && status.verified) { if (asked) { clear(); close(); } else complete("/prompt"); return; }
+      if (status.verified) claimStep(); else if (asked) { clear(); close(); } else verification();
     } catch {
       if (mine !== generation) return;
+      if (asked) { clear(); close(); return; }
       const view = frame("Finish signing up", "Your account is signed in. We couldn’t check the next step yet.");
       view.querySelector(".content").innerHTML = `<button class="primary">Try again</button>`;
       view.querySelector(".primary").onclick = () => resume(client, user);
@@ -238,13 +232,14 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
   }
 
   // 1. The @handle, checked as it is typed and held before anything else is asked.
-  function handleStep({ message = "", claimNow = false } = {}) {
+  function handleStep({ message = "", claimNow = false, soft = false } = {}) {
     const view = frame(claimNow ? "Choose your @handle" : "Pick your @handle",
-      "Your name in Laklok and on everything you make.");
+      "Your name in Laklok and on everything you make.",
+      soft ? () => { track("handle_dismissed"); noteAsked(); clear(); close(); } : undefined);
     view.querySelector(".content").innerHTML = `<form novalidate><label for="ac-signup-handle">Handle</label>
       <div class="at"><span aria-hidden="true">@</span><input id="ac-signup-handle" name="handle" autocomplete="nickname" autocapitalize="none" spellcheck="false" maxlength="17" required aria-describedby="ac-signup-check"></div>
       <p class="check" id="ac-signup-check" aria-live="polite">1–16 letters or numbers. Dots and underscores can go between them.</p>
-      <button class="primary" type="submit">Continue</button>
+      <button class="primary" type="submit">${claimNow ? "Create handle" : "Continue"}</button>
       ${claimNow ? "" : `<div class="links"><button type="button" data-login>I already have an account</button></div>`}</form>`;
     const input = view.querySelector("input"), check = view.querySelector(".check"), status = view.querySelector("[role=status]");
     const button = view.querySelector(".primary"), mine = generation;
@@ -277,7 +272,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
       const handle = input.value.trim().replace(/^@/, "");
       if (validateHandle(handle) !== "valid") { status.textContent = "Use 1–16 letters or numbers, dots or underscores."; track("handle_failed", "invalid"); return; }
       button.disabled = true; status.textContent = "Saving…";
-      if (claimNow) return claim(handle);
+      if (claimNow) return claim(handle, soft);
       try {
         const res = await win.fetch("/api/handle-hold", { method: "POST", cache: "no-store",
           headers: { "Content-Type": "application/json" }, body: JSON.stringify({ handle, attempt: read().hold }) });
@@ -446,8 +441,8 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     };
   }
 
-  async function claim(handle) {
-    const mine = generation;
+  async function claim(handle, soft = false) {
+    const mine = generation, held = !!read()?.handle;
     try {
       const result = await request("/handle", { method: "POST", body: JSON.stringify({ handle, hold: read()?.hold }) });
       if (mine !== generation) return;
@@ -459,12 +454,14 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
       const reason = SIGNUP_ERRORS.includes(error.reason) ? error.reason : "network";
       track("handle_failed", reason);
       if (attempt) attempt.handle = null;
-      handleStep({ claimNow: true, message: reason === "taken" ? `@${handle} was taken while you were away. Pick another.` : "Couldn’t save your handle. Please try again." });
+      handleStep({ claimNow: true, soft, message:
+        reason === "taken" ? (held ? `@${handle} was taken while you were away. Pick another.` : "That handle is taken. Try another name.") :
+        reason === "unverified" ? "Verify your email, then try again." : "Couldn’t save your handle. Please try again." });
     }
   }
 
   return {
-    start, track, resume, complete, pending: () => !!read(), close, open,
+    start, track, resume, complete, pending: () => !!read(), close, open, shouldAsk,
     remember(path) { const safe = signupReturnPath(path, win.location.origin); if (safe) previousPiece = safe; },
     failed() {
       track("auth_failed", "auth");

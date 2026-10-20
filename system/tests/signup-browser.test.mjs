@@ -198,6 +198,51 @@ test("ordinary and expired sessions do not open onboarding, and cancellation sto
   } finally { await f.browser.close(); }
 });
 
+test("an account without a handle is asked once a day, sees names checked live, and closing stays on the piece", async () => {
+  const f = await fixture();
+  try {
+    const { page, state } = f;
+    state.verified = true; state.taken = false;
+    assert.equal(await page.evaluate(() => acSignup.shouldAsk()), true);
+    await page.evaluate(() => acSignup.resume(auth, {}, true));
+    await page.getByRole("heading", { name: "Choose your @handle" }).waitFor();
+    await page.getByLabel("Handle", { exact: true }).fill("new.pal");
+    await page.locator("#ac-signup-check").filter({ hasText: "@new.pal is free." }).waitFor();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    assert.equal(await page.getByRole("dialog").count(), 0);
+    assert.equal(new URL(page.url()).pathname, "/laer-klokken");
+    assert.equal(await page.evaluate(() => acSignup.shouldAsk()), false);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("ac:signup:v1")), null);
+    for (let i = 0; i < 40 && !state.events.some(row => row.stages.includes("handle_dismissed")); i++) await new Promise(r => setTimeout(r, 50));
+    const dismissed = state.events.find(row => row.stages.includes("handle_dismissed"));
+    assert.ok(dismissed);
+    assert.equal(dismissed.mode, "handle");
+    assert.ok(dismissed.stages.includes("handle_shown"));
+    // Asked again a day later, the name is claimed and the support step follows as after any signup.
+    await page.evaluate(() => localStorage.removeItem("ac:handle:asked"));
+    assert.equal(await page.evaluate(() => acSignup.shouldAsk()), true);
+    await page.evaluate(() => acSignup.resume(auth, {}, true));
+    await page.getByLabel("Handle", { exact: true }).fill("new.pal");
+    await page.getByRole("button", { name: "Create handle", exact: true }).click();
+    await page.getByRole("heading", { name: "You’re @new.pal", exact: true }).waitFor();
+    assert.equal(state.handle, "new.pal");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.waitForURL("https://aesthetic.computer/laer-klokken");
+    await page.waitForFunction(() => window.ready && sessionStorage.getItem("ac:signup:v1") === null);
+    // An account that already has a handle is left alone: no dialog, no navigation.
+    await page.evaluate(() => localStorage.removeItem("ac:handle:asked"));
+    await page.evaluate(() => acSignup.resume(auth, {}, true));
+    await page.waitForFunction(() => sessionStorage.getItem("ac:signup:v1") === null);
+    assert.equal(await page.getByRole("dialog").count(), 0);
+    assert.equal(new URL(page.url()).pathname, "/laer-klokken");
+    // A failed status check on an ordinary session is silent.
+    state.handle = null; state.statusFailure = true;
+    await page.evaluate(() => acSignup.resume(auth, {}, true));
+    await page.waitForFunction(() => sessionStorage.getItem("ac:signup:v1") === null);
+    assert.equal(await page.getByRole("dialog").count(), 0);
+  } finally { await f.browser.close(); }
+});
+
 test("closing while account status is in flight does not reopen onboarding", async () => {
   const f = await fixture();
   try {

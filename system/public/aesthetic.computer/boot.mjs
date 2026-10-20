@@ -1956,6 +1956,15 @@ if (!sandboxed && !skipAuth) {
             if (u.handle && !window.acUSER.handle) {
               window.acUSER.handle = u.handle;
             }
+            // 🪪 A known, verified account with no handle is asked for one here,
+            // at most once a day, in a dialog that closes back onto the piece.
+            // The hosted sign-in page cannot ask, and the onboarding resume
+            // above only runs in the tab that started a signup.
+            if (u.sub && !u.handle && !window.acUSER.handle && userProfile.email_verified !== false &&
+                window.name !== "ac-login-popup" && window.acSignup &&
+                !window.acSignup.pending() && window.acSignup.shouldAsk()) {
+              window.acSignup.resume(auth0Client, userProfile, true);
+            }
             // If user not in DB or email not verified, refresh token for new signups
             if (!u.sub || !userProfile.email_verified) {
               try {

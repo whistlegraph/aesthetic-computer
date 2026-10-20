@@ -64,6 +64,7 @@ test("collector stores only bounded stages, deduplicates cumulative retries and 
   for (const patch of [{ stages: ["account_created"] }, { error: "raw failure with email" }, { mode: "anything" }, { source: "private-path" }, { id: "not-a-uuid" }])
     assert.equal(validateSignupEvent({ ...body, ...patch }, origin), null);
   assert.equal(validateSignupEvent(body, "https://false.work"), null);
+  assert.ok(validateSignupEvent({ ...body, mode: "handle", stages: ["started", "handle_shown", "handle_dismissed"] }, origin));
   assert.equal((await handler({ ...event, body: "x".repeat(2049) })).statusCode, 400);
   assert.equal((await handler({ ...event, httpMethod: "GET" })).statusCode, 405);
   const now = new Date();
