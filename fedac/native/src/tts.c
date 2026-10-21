@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <flite/flite.h>
 
+int tts_enabled = 0;   // see tts.h — config.json "speech": true enables
+
 // Forward-declare the voice registrations
 cst_voice *register_cmu_us_slt(void);  // female
 cst_voice *register_cmu_us_kal(void);  // male
@@ -162,7 +164,7 @@ void tts_speak(ACTts *tts, const char *text) {
 }
 
 void tts_speak_voice(ACTts *tts, const char *text, int male) {
-    if (!tts || !text || !text[0]) return;
+    if (!tts_enabled || !tts || !text || !text[0]) return;
 
     pthread_mutex_lock(&tts->lock);
     if (tts->queue_count < TTS_QUEUE_SIZE) {
@@ -202,7 +204,7 @@ static void tts_cache_render(ACTts *tts, TtsCacheEntry *entry, const char *text)
 }
 
 void tts_precache(ACTts *tts) {
-    if (!tts) return;
+    if (!tts_enabled || !tts) return;   // nothing to pre-render when the system is silent
     fprintf(stderr, "[tts] Pre-caching letters...\n");
     // Cache printable ASCII a-z, 0-9
     for (int c = 'a'; c <= 'z'; c++) {
@@ -223,7 +225,7 @@ void tts_precache(ACTts *tts) {
 }
 
 void tts_speak_cached(ACTts *tts, const char *key) {
-    if (!tts || !key || !key[0]) return;
+    if (!tts_enabled || !tts || !key || !key[0]) return;
 
     TtsCacheEntry *entry = NULL;
 

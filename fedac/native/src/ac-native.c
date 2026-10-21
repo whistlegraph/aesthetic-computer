@@ -1027,6 +1027,12 @@ static void load_boot_visual_config(void) {
         ac_log("[config] audio: %s\n", config_mono ? "mono" : "stereo");
     }
 
+    // Read speech flag (default: SILENT — no TTS anywhere; see tts.h). A stick
+    // that wants the talking back bakes config.json "speech": true.
+    int speech_val = 0;
+    if (parse_config_bool(json, "\"speech\"", &speech_val)) tts_enabled = speech_val ? 1 : 0;
+    ac_log("[config] speech: %s\n", tts_enabled ? "enabled" : "disabled");
+
     // Read baseline output volume (percent). Baked per stick by
     // `ac-inscribe --volume`; lets a loud speaker path be tamed without a
     // rebuild. Applied as the software gain default before audio_init.

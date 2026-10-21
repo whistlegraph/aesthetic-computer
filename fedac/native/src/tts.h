@@ -5,6 +5,12 @@
 
 typedef struct ACTts ACTts;
 
+// System-wide speech switch. OFF by default since 2026-10-21 (jeffrey: the talking
+// is annoying); config.json "speech": true turns every utterance back on — boot
+// and install prompts, tape rolling/stopped, key echo, wifi, and pieces' sound.speak.
+// The startup chime is not speech and is unaffected.
+extern int tts_enabled;
+
 // Initialize TTS engine (call after audio_init)
 ACTts *tts_init(ACAudio *audio);
 
