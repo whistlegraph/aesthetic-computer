@@ -289,7 +289,7 @@ final class MenuBandACPianoVoice {
                 guard !bank.isEmpty else { continue }
                 // A re-struck key restarts its own string. Reusing the slot
                 // (held or releasing) is what a piano does, and it keeps a
-                // fast re-trigger — the Backspace hammer — from stacking
+                // fast re-trigger — the Space hammer — from stacking
                 // two dozen copies of one sample into the soft clipper,
                 // which tears into a searing buzz that outlasts the hand.
                 var slot = -1

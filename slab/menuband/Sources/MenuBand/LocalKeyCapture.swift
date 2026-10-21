@@ -64,6 +64,15 @@ final class LocalKeyCapture {
 
     private var panel: NSPanel?
     private var monitor: Any?
+#if !MAC_APP_STORE
+    /// ⌘Space is Spotlight's system hotkey: it is taken before any app, so
+    /// the local monitor never sees it. While capture is armed, this
+    /// session tap claims Space-with-⌘ ahead of the system (a chord hand
+    /// on ⌘ when Space goes down, or ⌘ landing while Space is held and
+    /// every auto-repeat inheriting the flag) and feeds it to `onKey`
+    /// like any other key. Plain Space still arrives through the monitor.
+    private var spaceTap: KeyEventTap?
+#endif
     private var resignKeyObserver: NSObjectProtocol?
     private(set) var isArmed = false
     private var protectedResignUntil: CFTimeInterval = -.infinity
@@ -199,6 +208,18 @@ final class LocalKeyCapture {
             }
         }
         isArmed = true
+#if !MAC_APP_STORE
+        if spaceTap == nil {
+            let tap = KeyEventTap { [weak self] keyCode, isDown, isRepeat, flags in
+                guard let self, keyCode == 49 /* kVK_Space */,
+                      flags.contains(.maskCommand) else { return false }
+                let mods = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+                return self.onKey?(keyCode, isDown, isRepeat, mods) ?? false
+            }
+            if tap.start() { spaceTap = tap }
+            else { debugLog("capture: ⌘Space tap unavailable; Spotlight keeps ⌘Space") }
+        }
+#endif
     }
 
     /// After a status-item press held capture across a resign: wait for the
@@ -228,6 +249,10 @@ final class LocalKeyCapture {
             NSEvent.removeMonitor(m)
             monitor = nil
         }
+#if !MAC_APP_STORE
+        spaceTap?.stop()
+        spaceTap = nil
+#endif
         if let obs = resignKeyObserver {
             NotificationCenter.default.removeObserver(obs)
             resignKeyObserver = nil

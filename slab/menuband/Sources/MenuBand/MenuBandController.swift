@@ -248,16 +248,21 @@ final class MenuBandController {
     /// LIFO stack of currently-latched keyCodes — Backspace unlatches
     /// the top one.
     private var latchedKeys: [UInt16] = []
-    /// Backspace hammer. HOLDING Backspace re-strikes whatever notes are
-    /// held or latched like a randomized hammer: stochastic timing around
-    /// a mean rate, a shuffled walk through the held pitches (reshuffled
-    /// every pass, with the whole chord landing now and then), random
-    /// velocity. A TAP keeps its old meaning — pop the latest latched note
-    /// — decided on key-up: no strike fired yet means it was a tap. While
-    /// the hammer is down, = / + raise the rate and - lowers it.
+    /// What holding Space does. `reverse` is the hold-to-reverse replay;
+    /// `hammer` re-strikes the held notes. ←/→ while Space is down steps
+    /// through the modes and the switch takes effect mid-hold (the old
+    /// gesture lets go, the new one begins). The choice sticks across holds.
+    enum SpaceMode: String, CaseIterable { case reverse, hammer }
+    private var spaceMode: SpaceMode = .reverse
+    private var spaceKeyHeld = false
+
+    /// Space hammer. HOLDING Space in hammer mode re-strikes whatever notes
+    /// are held or latched like a randomized hammer: stochastic timing
+    /// around a mean rate, a shuffled walk through the held pitches
+    /// (reshuffled every pass, with the whole chord landing now and then),
+    /// random velocity. While the hammer is down, = / + raise the rate and
+    /// - lowers it.
     private var hammerHeld = false
-    private var hammerStruck = false
-    private var hammerTapClearsAll = false
     private var hammerGeneration: UInt64 = 0
     private var hammerOrder: [UInt16] = []
     /// The voice the hammer last re-attacked per key, so a key that goes
@@ -268,8 +273,6 @@ final class MenuBandController {
     /// Mean strikes per second. Kept across holds.
     private var hammerRate: Double = 7
     private static let hammerRateRange = 1.5...24.0
-    /// A tap is shorter than this; the first strike never comes sooner.
-    private static let hammerFirstStrikeMin = 0.16
     /// Percussion-split: which drum-voice group each held right-hand key
     /// started, so key-up releases exactly that hit (hi-hat down/up sounds).
     private var heldDrumKeys: [UInt16: UInt64] = [:]
@@ -4115,7 +4118,11 @@ final class MenuBandController {
         // …except a chord modifier on a percussion-latched key, which must
         // reach the drum block below (the drum hand stays live while the
         // other hand holds ⌘/⌥ chords on the melodic half).
-        if hasModifier && isDown
+        // …and never Space: it is a gesture key, and the chord hand is often
+        // on ⌘ when it goes down (or ⌘ lands while it is held and every
+        // auto-repeat inherits the flag). While the keyboard is live, ⌘Space
+        // is ours, not Spotlight's.
+        if hasModifier && isDown && keyCode != 49 /* kVK_Space */
             && !(chordModifier && percussionActive(forKeyCode: keyCode)) { return false }
 
         // Hold either percussion latch key (`[` / `]`) and use Up/Down as a
@@ -4205,15 +4212,16 @@ final class MenuBandController {
                 }
                 return true
             }
-            // Hold-to-reverse with a persistent cursor: the first press
-            // rewinds from "now"; release banks the playhead; the next press
-            // RESUMES from that same reverse point. Playing a note re-anchors
-            // the cursor at the live head (see MenuBandRewindVoice).
-            debugLog("space \(isDown ? "down" : "up") repeat=\(isRepeat) shift=\(shift) rewinding=\(isRewinding)")
+            // Plain Space runs the current space mode (see `SpaceMode`).
+            // Reverse: hold-to-reverse with a persistent cursor — the first
+            // press rewinds from "now"; release banks the playhead; the next
+            // press RESUMES from that same reverse point; playing a note
+            // re-anchors the cursor at the live head (MenuBandRewindVoice).
+            // Hammer: re-strike the held notes until release.
             if isDown {
-                if !isRepeat { rewind() }
+                if !isRepeat { beginSpace() }
             } else {
-                rewindRelease()
+                endSpace()
             }
             return true
         }
@@ -4229,13 +4237,11 @@ final class MenuBandController {
             return true
         }
         if keyCode == 51 /* kVK_Delete (Backspace) */ {
-            // Hold = hammer the held notes; tap = pop the most-recent
-            // latched note (Shift+tap clears them all). Which one it was is
-            // known on key-up, so the pop happens there.
-            if isDown {
-                if !isRepeat { beginHammer(clearAll: lingerSide.isLingering) }
-            } else {
-                endHammer()
+            // Plain Backspace pops the most-recent latched note (LIFO);
+            // Shift+Backspace clears them all at once.
+            if isDown && !isRepeat {
+                if lingerSide.isLingering { unlatchAll() }
+                else { unlatchMostRecent() }
             }
             return true
         }
@@ -4256,6 +4262,12 @@ final class MenuBandController {
         // Shared drum selector: a latched keyboard side, a recent percussion
         // hit, or explicit Shift-arrows selects the kit in BOTH layouts.
         // Held arrows don't auto-repeat through kits — one press, one kit.
+        // While Space is down, ←/→ step the space mode instead of the
+        // instrument. One press, one step — no auto-repeat through modes.
+        if spaceKeyHeld && (keyCode == 123 || keyCode == 124) {
+            if isDown && !isRepeat { stepSpaceMode(delta: keyCode == 123 ? -1 : 1) }
+            return true
+        }
         if (keyCode == 123 || keyCode == 124) && arrowsSelectDrumKit(shift: shift) {
             if isDown && !isRepeat {
                 let delta = keyCode == 123 ? -1 : 1
@@ -4777,17 +4789,61 @@ final class MenuBandController {
         }
     }
 
-    // MARK: - Backspace hammer
+    // MARK: - Space modes
 
-    private func beginHammer(clearAll: Bool) {
+    /// Space went down: start whatever the current mode does.
+    private func beginSpace() {
+        spaceKeyHeld = true
+        debugLog("space down mode=\(spaceMode.rawValue)")
+        switch spaceMode {
+        case .reverse: rewind()
+        case .hammer: beginHammer()
+        }
+    }
+
+    /// Space came up: end the current mode's gesture. Each end is safe to
+    /// call when nothing began (a key-up after a mode switch, say).
+    private func endSpace() {
+        spaceKeyHeld = false
+        switch spaceMode {
+        case .reverse: rewindRelease()
+        case .hammer: endHammer()
+        }
+    }
+
+    /// ←/→ while Space is held. Mid-hold the running gesture lets go and
+    /// the new mode's gesture begins at once, so the hand never has to
+    /// lift to change what Space is doing.
+    private func stepSpaceMode(delta: Int) {
+        let all = SpaceMode.allCases
+        guard let i = all.firstIndex(of: spaceMode) else { return }
+        let next = all[(i + delta + all.count) % all.count]
+        guard next != spaceMode else { return }
+        if spaceKeyHeld {
+            switch spaceMode {
+            case .reverse: rewindRelease()
+            case .hammer: endHammer()
+            }
+        }
+        spaceMode = next
+        debugLog("space mode=\(next.rawValue)")
+        if spaceKeyHeld {
+            switch next {
+            case .reverse: rewind()
+            case .hammer: beginHammer()
+            }
+        }
+    }
+
+    // MARK: - Space hammer
+
+    private func beginHammer() {
         hammerHeld = true
-        hammerStruck = false
-        hammerTapClearsAll = clearAll
         hammerGeneration &+= 1
         hammerOrder.removeAll()
         debugLog("hammer down rate=\(hammerRate)")
-        scheduleHammerStrike(after: max(Self.hammerFirstStrikeMin, hammerInterval()),
-                             generation: hammerGeneration)
+        // The first fall lands at once; the rest breathe around the rate.
+        scheduleHammerStrike(after: 0, generation: hammerGeneration)
     }
 
     private func endHammer() {
@@ -4795,16 +4851,14 @@ final class MenuBandController {
         hammerHeld = false
         hammerGeneration &+= 1
         sweepHammerOrphans()
-        guard !hammerStruck else { debugLog("hammer up"); return }
-        // Nothing struck: it was a tap, and a tap pops the latch.
-        if hammerTapClearsAll { unlatchAll() } else { unlatchMostRecent() }
+        debugLog("hammer up")
     }
 
     /// Something else released every note (fleet Stop, panic): the hammer
-    /// has nothing to hit and the eventual key-up must not pop a latch.
+    /// has nothing left to hit, so it stops until the next Space press.
     private func cancelHammer() {
         guard hammerHeld else { return }
-        hammerStruck = true
+        hammerHeld = false
         hammerGeneration &+= 1
         sweepHammerOrphans()
     }
@@ -4886,7 +4940,6 @@ final class MenuBandController {
                 flashed.append(e.display)
             }
         }
-        hammerStruck = true
         sweepHammerOrphans()
         let now = CACurrentMediaTime()
         for d in flashed { litDownAt[d] = now }
