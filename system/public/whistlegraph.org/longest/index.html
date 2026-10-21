@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Longest Whistlegraph Ever (so far)</title>
+  <meta name="description" content="A whistlegraph in chalk for three players, commissioned by Rhizome and debuted on May 14, 2022."/>
+  <meta name="og:image" content="https://whistlegraph.org/longest/assets/opengraph.jpg"/>
+  <link rel="stylesheet" href="index-style.css">
+  <link rel="icon" href="assets/favicon.png" type="image/png">
+  <!-- <script defer src=" dep/peer-tube-player.min.js"></script> -->
+  <!-- Vimeo stopped serving the film in October 2026; vimeo-shim.js plays the
+       whistlegraph.org copy through the same API. -->
+  <script src="vimeo-shim.js"></script>
+  <!-- <script defer src="dep/vimeo-player.min.js"></script> -->
+  <script type="module" src="script-index.js"></script>
+</head>
+
+<body>
+  <div id="video-wrapper">
+    <!-- Vimeo method #3 (custom player test) -->
+    <!-- <iframe id="embed"
+      src="https://player.vimeo.com/video/748210440?h=5befb0b42a&title=0&byline=0&portrait=0&responsive=1&speed=0&badge=0&autopause=0&loop=1&controls=0&player_id=0&app_id=58479"
+      width="100%" height="100%" frameborder="0" allow="autoplay; fullscreen; picture-in-picture"
+      allowfullscreen></iframe> -->
+    <video id="embed" playsinline loop preload="metadata"
+      src="https://assets.aesthetic.computer/whistlegraph/exhibitions/the-longest-whistlegraph-ever-so-far.mp4"
+      style="display:block;width:100%;height:100%;object-fit:contain;background:black"></video>
+    <!-- PeerTube -->
+    <!-- <iframe id="embed" width="100%" height="100%"
+      src="https://video.rhizome.org/videos/embed/86dc4bc0-8bc3-4ef7-bc42-eeed960c6de8?warningTitle=0&api=1&title=0&peertubeLink=0&foregroundColor=rgb(240, 116, 146)"
+      frameborder="0" allowfullscreen="" sandbox="allow-same-origin allow-scripts allow-popups"></iframe> -->
+    <div id="curtain">
+      <div class="play-graphic">
+        <img id="play-animated" src="assets/play-animated.webp">
+      </div>
+      <div class="play-graphic">
+        <img id="play-still" src="assets/play-still.webp">
+      </div>
+      <div class="play-graphic">
+        <img id="play-triangle" src="assets/play-triangle.webp">
+      </div>
+    </div>
+  </div>
+  <a id="about-link" href="about">
+    <img src="assets/about.webp">
+  </a>
+
+  <div id="scrub-bar">
+    <div id="timecode">00:00 / 00:00</div>
+    <div id="scrub-progress">
+      <img id="scrub-progress-marker" src="assets/progress.webp">
+    </div>
+  </div>
+
+  <div id="play-buffering-graphic" class="play-graphic">
+    <img id="play-buffering" src="assets/play-buffering.webp">
+  </div>
+
+</body>
+
+</html>
