@@ -19,6 +19,10 @@ let peers=config["peers"] as? [String] ?? []
 let beatSeconds=config["beat"] as? Double ?? 0.6
 let check=args.contains("--check"),preview=arg("--preview")
 let epoch=Double(arg("--epoch") ?? "0")!
+// The conductor's pid (its own member only): if the conductor dies — Ctrl-C, a killed
+// terminal, an interrupted tool — this member cancels and takes the peers down with it,
+// so the piece never outlives the hand that cued it.
+let conductorPid=Int32(arg("--conductor") ?? "0") ?? 0
 let out=arg("--out") ?? folder+"/check-"+member
 let statusPath=folder+"/status.json"
 let cStatus=strdup(folder+"/audio-status.json")!
@@ -30,6 +34,46 @@ let bpm=Double(info["bpm"]!)!,sung=SungLine(info:info,bpm:Double(info["bpm"]!)!)
 let notation=config["lines"] as! [[String:Any]]
 let voice=MenuBandSinger(),format=AVAudioFormat(commonFormat:.pcmFormatFloat32,sampleRate:48000,channels:1,interleaved:false)!
 var renders:[SungRender]=[]
+// A line's glow: the lead sings at full gain and lights its screen fully; a backing part
+// or a hum (quieter in the mix) lights its screen less.
+let lineWeights=notation.map{sqrt(min(1,(($0["gain"] as! Double)/0.9)))}
+
+// ── the screen as a lamp: brightness follows this member's own singing ───────────
+// DisplayServices is the one brightness path that works on an Apple Silicon built-in
+// panel (slab/bin/acbright.swift). A one-pole follower rises fast on a sung onset and
+// dies down slowly, so the face glows while it sings and dims as it rests. Only the
+// live performance touches the lamp; the silent check never does. Restored on exit.
+let bright=config["brightness"] as? [String:Double] ?? [:]
+let brightFloor=bright["floor"] ?? 0.22,brightLit=bright["lit"] ?? 1.0,brightHouse=Float(bright["house"] ?? 1.0)
+typealias BrightGet = @convention(c) (UInt32, UnsafeMutablePointer<Float>) -> Int32
+typealias BrightSet = @convention(c) (UInt32, Float) -> Int32
+let displayServices=dlopen("/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices",RTLD_NOW)
+let brightGet=displayServices.flatMap{dlsym($0,"DisplayServicesGetBrightness")}.map{unsafeBitCast($0,to:BrightGet.self)}
+let brightSet=displayServices.flatMap{dlsym($0,"DisplayServicesSetBrightness")}.map{unsafeBitCast($0,to:BrightSet.self)}
+let mainDisplay=CGMainDisplayID()
+var baseBrightness:Float?,shownBrightness:Float = -1,glow=1.0,lastGlowTime=0.0
+var lampSets=0,lampLow:Float=1,lampHigh:Float=0
+func readBrightness()->Float? { guard let g=brightGet else{return nil};var v:Float=0;return g(mainDisplay,&v)==0 ? v : nil }
+func setBrightness(_ v:Float) {
+ guard let s=brightSet else{return}
+ let clamped=max(0,min(1,v));if abs(clamped-shownBrightness)<0.002 {return}
+ if s(mainDisplay,clamped)==0 {shownBrightness=clamped;lampSets+=1;lampLow=min(lampLow,clamped);lampHigh=max(lampHigh,clamped)}
+}
+/// One frame of the lamp: ease the glow toward what is being sung, then light the screen.
+func lamp(level:Double,weight:Double) {
+ guard baseBrightness != nil else{return}
+ let now=CACurrentMediaTime(),dt=lastGlowTime==0 ? 1.0/60 : max(0,min(0.1,now-lastGlowTime));lastGlowTime=now
+ let target=min(1,max(0,level))*weight
+ glow+=(target-glow)*(1-exp(-dt/(target>glow ? 0.05 : 0.7)))
+ setBrightness(Float(brightFloor+(brightLit-brightFloor)*glow))
+}
+let brightnessPath=folder+"/brightness.json"   // the base, for a stop from outside this process
+func restoreBrightness() {
+ guard let b=baseBrightness else{return}
+ try? FileManager.default.removeItem(atPath:brightnessPath)
+ NSLog("💡 lamp: %d brightness sets, %.0f%%…%.0f%% (was %.0f%%), house lights to %.0f%%",lampSets,lampLow*100,lampHigh*100,b*100,brightHouse*100)
+ shownBrightness = -1;setBrightness(brightHouse);baseBrightness=nil
+}
 let accent: NSColor = member=="neo" ? NSColor(srgbRed:143/255,green:209/255,blue:63/255,alpha:1) : member=="blueberry" ? NSColor(srgbRed:90/255,green:87/255,blue:211/255,alpha:1) : NSColor(srgbRed:242/255,green:167/255,blue:185/255,alpha:1)
 func receipt(_ phase:String,_ extra:[String:Any]=[:]) {
  var j:[String:Any]=["phase":phase,"member":member,"pid":ProcessInfo.processInfo.processIdentifier,"startEpoch":epoch,"duration":duration,"voice":pinned]
@@ -100,17 +144,27 @@ func makeView(_ size:NSSize)->NSView {
 }
 // One word at a time, but never so big it crowds the face or clips at the edges (jeffrey 2026-09-26).
 func captionSize()->CGFloat { round((NSScreen.screens.first ?? NSScreen.main!).frame.width/15) }
-func pose(_ t:Double,captions:Bool=true) {
- guard let f=face else{return}
- progress?.fraction=CGFloat(min(1,max(0,t/duration)));progress?.needsDisplay=true
- if let index=renders.indices.first(where:{t >= renders[$0].spanOffset-offset && t < renders[$0].spanOffset-offset+renders[$0].duration}) {
-  let r=renders[index],local=t-(r.spanOffset-offset)
-  f.previewPose=r.articulation?.pose(at:local);f.resting=false
-  f.previewExpression(beat:(t+offset)*bpm/60,effort:CGFloat(r.articulation?.level(at:local) ?? 0),breath:0)
- } else {
-  f.previewPose=SingerViseme.rest.pose;f.resting=true
-  f.previewExpression(beat:(t+offset)*bpm/60,effort:0,breath:0)
+/// The mouth, effort and glow weight at `t` seconds after the downbeat.
+func poseAt(_ t:Double)->(pose:SingerMouthPose,effort:Double,weight:Double,resting:Bool) {
+ if let i=renders.indices.first(where:{t >= renders[$0].spanOffset-offset && t < renders[$0].spanOffset-offset+renders[$0].duration}) {
+  let r=renders[i],local=t-(r.spanOffset-offset)
+  return (r.articulation?.pose(at:local) ?? SingerViseme.rest.pose,r.articulation?.level(at:local) ?? 0,lineWeights[i],false)
  }
+ return (SingerViseme.rest.pose,0,1,true)
+}
+/// The face asks for this on every display frame (SingerFaceView.articulationPose), so the
+/// mouth, the effort and the lamp move on the display clock, read off the audio clock —
+/// not off a 30 Hz timer. The face's own tick owns the beat phase (configure below);
+/// writing it from here as well made the sway flicker between two clocks.
+func framePose()->SingerMouthPose? {
+ guard let f=face else{return nil}
+ let p=poseAt(max(0,eg_time()))
+ f.resting=p.resting;f.previewEffort=CGFloat(p.effort)
+ lamp(level:p.effort,weight:p.weight)
+ return p.pose
+}
+func pose(_ t:Double,captions:Bool=true) {
+ progress?.fraction=CGFloat(min(1,max(0,t/duration)));progress?.needsDisplay=true
  guard captions else{return}
  // the sung word: the latest word that has started (a little early), until it has lingered
  if let w=words.indices.last(where:{words[$0].start-LEAD<=t}),t<words[w].end+LINGER {
@@ -127,17 +181,18 @@ func show(){
  let screen=NSScreen.screens.first ?? NSScreen.main!
  let p=StagePanel(contentRect:screen.frame,styleMask:[.borderless],backing:.buffered,defer:false)
  p.level = .screenSaver;p.collectionBehavior=[.canJoinAllSpaces,.stationary,.fullScreenAuxiliary];p.isOpaque=true;p.backgroundColor=accent;p.ignoresMouseEvents=true
- p.contentView=makeView(screen.frame.size);panel=p;face?.start()
+ p.contentView=makeView(screen.frame.size);panel=p
+ face?.articulationPose=framePose;face?.configure(epoch:epoch-offset,bpm:bpm,expression:0);face?.start()
  app.activate(ignoringOtherApps:true);p.makeKeyAndOrderFront(nil);p.orderFrontRegardless()
 }
 // ── stopping: Esc on this Mac, or a SIGTERM from a peer's Esc (launchctl remove) ──
 var cancelled=false
 func cancel(_ reason:String) {
  if cancelled {return};cancelled=true
- eg_stop();timer?.invalidate();panel?.orderOut(nil);caption.hide(line:nil)
+ eg_stop();timer?.invalidate();panel?.orderOut(nil);caption.hide(line:nil);restoreBrightness()
  receipt("cancelled",["reason":reason])
  var procs:[Process]=[]
- if reason=="escape" {
+ if reason=="escape" || reason=="conductor" {
   for h in peers {
    let p=Process();p.executableURL=URL(fileURLWithPath:"/usr/bin/ssh")
    p.arguments=["-o","BatchMode=yes","-o","ConnectTimeout=3",h,"launchctl remove computer.aesthetic.eightgigabytes"]
@@ -148,12 +203,17 @@ func cancel(_ reason:String) {
  DispatchQueue.global().async { procs.forEach{$0.waitUntilExit()};exit(0) }
  DispatchQueue.main.asyncAfter(deadline:.now()+4){exit(0)}
 }
-signal(SIGTERM,SIG_IGN)
-let termSource=DispatchSource.makeSignalSource(signal:SIGTERM,queue:.main)
-termSource.setEventHandler{cancel("signal")};termSource.resume()
+var signalSources:[DispatchSourceSignal]=[]
+for sig in [SIGTERM,SIGINT,SIGHUP] {
+ signal(sig,SIG_IGN)
+ let source=DispatchSource.makeSignalSource(signal:sig,queue:.main)
+ source.setEventHandler{cancel("signal")};source.resume();signalSources.append(source)
+}
 
 func writePreview(_ path:String) {
  let w=1440,h=900;_ = makeView(NSSize(width:w,height:h));pose(duration*0.45,captions:false)
+ let p=poseAt(duration*0.45);face!.previewPose=p.pose;face!.resting=p.resting
+ face!.previewExpression(beat:(duration*0.45+offset)*bpm/60,effort:CGFloat(p.effort),breath:0)
  let bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:w,pixelsHigh:h,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:w*4,bitsPerPixel:32)!
  NSGraphicsContext.saveGraphicsState();NSGraphicsContext.current=NSGraphicsContext(bitmapImageRep:bitmap)
  face!.draw(face!.bounds);progress!.draw(progress!.bounds)
@@ -189,12 +249,23 @@ DispatchQueue.global(qos:.userInitiated).async {
   let result=eg_start(epoch,cStatus);guard result==0 else{receipt("error",["reason":"AudioQueue start","code":result]);exit(1)}
   DispatchQueue.main.async {
    receipt("armed");var shown=false
-   timer=Timer.scheduledTimer(withTimeInterval:1.0/30,repeats:true){_ in
+   // Captions, progress and the clock run here; the face and the lamp run on the display link.
+   timer=Timer.scheduledTimer(withTimeInterval:1.0/60,repeats:true){_ in
     if cancelled {return}
     let t=Date().timeIntervalSince1970-epoch
+    // House lights: three seconds before the downbeat the screen eases down to the floor.
+    if t >= -3 && baseBrightness==nil, let b=readBrightness() {
+     baseBrightness=b;glow=1
+     try? JSONSerialization.data(withJSONObject:["base":Double(brightHouse),"was":Double(b),"member":member]).write(to:URL(fileURLWithPath:brightnessPath))
+    }
+    // Esc must always work: the stage owns the keyboard while it is up. If another app
+    // took the key window back, take it again (twice a second).
+    if shown, let p=panel, !p.isKeyWindow, Int((t*60).rounded())%30==0 {app.activate(ignoringOtherApps:true);p.makeKeyAndOrderFront(nil)}
+    if conductorPid>0, kill(conductorPid,0) != 0, errno==ESRCH {cancel("conductor");return}
+    if !shown {lamp(level:0,weight:1)}
     if t>=0 && !shown {show();shown=true;receipt("playing")}
     if shown {pose(max(0,eg_time()))}
-    if t>=duration+0.15{eg_stop();panel?.orderOut(nil);caption.hide(line:nil);receipt("complete");exit(0)}
+    if t>=duration+0.15{eg_stop();panel?.orderOut(nil);caption.hide(line:nil);restoreBrightness();receipt("complete");exit(0)}
    }
   }
  }

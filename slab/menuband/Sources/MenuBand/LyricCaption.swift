@@ -98,9 +98,13 @@ final class LyricCaption {
         let maxWidth = stage.width * 0.86
         var font = LyricCaption.font(pt)
         var widths: [CGFloat] = []
+        // Tracking: each letter is drawn with a colored outline and a hard drop that
+        // reach past its bare advance, and later letters sit above earlier ones — so
+        // without this the outlines ate into their neighbors (jeffrey, Oct 21).
+        var tracking: CGFloat { ceil(pt * 0.11) }
         func measure() -> CGFloat {
-            widths = chars.map { ceil((String($0.ch) as NSString).size(withAttributes: [.font: font]).width) }
-            return widths.reduce(0, +)
+            widths = chars.map { ceil((String($0.ch) as NSString).size(withAttributes: [.font: font]).width) + tracking }
+            return widths.reduce(0, +) - tracking
         }
         var total = measure()
         while total > maxWidth && pt > 14 {

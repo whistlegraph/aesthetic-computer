@@ -158,8 +158,42 @@ explicit launch; KeepAlive is false, so the piece never repeats itself.
 The countdown is sized to the measured synthesis time, at least 25 seconds.
 
 Files live at `~/.local/share/eightgigabytes/` on each Mac. Keep lids open.
-Speaker volumes were matched to 50% for the second rehearsal. The default
-output device is used; acoustic timing and room balance still need listening.
+Every `prepare`/`check`/`play` first sets each Mac's system output volume to
+the plan's `SYSTEM_VOLUME` (`live/plan.mjs`, 75 for all three — identical
+speakers, one level; the members' balance is in the score) and unmutes it,
+then verifies the readback. `--muted` skips that and mutes instead. The
+default output device is used; room balance still needs listening.
+
+Screens as lamps: three seconds before the downbeat each screen eases down
+to `BRIGHTNESS.floor` (0.22), then follows its own singing — a one-pole
+follower on the line's articulation energy (50 ms rise, 0.7 s fall) scaled
+by the line's mix weight (lead full, backing part less, hum half) lights the
+panel toward `BRIGHTNESS.lit` (1.0) and lets it die down between lines. The
+performer drives the private DisplayServices brightness call directly (the
+same path as `slab/bin/acbright.swift`); the silent check never touches it.
+At the end, or on any cancel, every screen goes to `BRIGHTNESS.house` (1.0)
+— set, not read back, because with auto-brightness on a restored reading
+ratchets the panel darker on each run (`💡 lamp:` line in `performance.log`).
+`conduct.py stop` also puts the house lights back from `brightness.json` if
+a performer was killed before it could.
+
+Escape always quits: the stage panel re-takes the key window twice a second
+while it is up, so Esc on any of the three stops all three; Esc or Ctrl-C
+in the conductor stops all three; and if the conductor dies any other way
+(a killed terminal, an interrupted tool) its own member notices within a
+second (`--conductor <pid>`) and takes the peers down with it.
+
+The face is posed on the display link, not a timer: the performer hands the
+face an `articulationPose` closure that reads the audio clock on every
+frame, and the face's own tick owns the beat phase. (Before 2026-10-21 the
+pose came from a 30 Hz timer that also rewrote the beat phase the face had
+just set, so the sway flickered between two clocks and read as a low frame
+rate even while Metal presented 60 fps.)
+
+The spoken-source cache the staging copies is `out/.speech-cache/` (not in
+git); if `out/` is cleaned, restore it from any member's
+`~/.local/share/eightgigabytes/speech-cache/` — the three copies are
+byte-identical.
 
 `live/compare.py` compares the actual live callback output, captured silently
 on the three machines, against the recording's instrumental and treated

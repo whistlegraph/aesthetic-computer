@@ -16,6 +16,26 @@
 #define TAU (2.0*M_PI)
 typedef struct { int type; int64_t start,end; double dur,freq,vel,gl,gr,ph,x1,x2,y1,y2; uint32_t rng; } Event;
 static Event ev[MAX_EVENTS]; static int count;
+// Sidechain, as Menu Band's keyboard kit ducks its melodic bus under the drums
+// (MenuBandSynth.sidechainDuck / triggerMelodicDuck): every kick and tap in the score is a
+// trigger row (type 7: time, hold, target gain) in EVERY member's score, so each machine
+// pumps its melodic instruments and its voice by the same sample-exact envelope even though
+// only frisbee sounds the drums. Attack ~6 ms, release ~74 ms (Menu Band's 0.48 / 0.055 per
+// 240 Hz tick), held at the floor for the trigger's hold time.
+typedef struct { int64_t at; double hold,target; } Duck;
+static Duck ducks[MAX_EVENTS]; static int nducks,duckNext;
+static double duckGain=1,duckTarget=1; static int64_t duckHoldUntil;
+static float duckBuf[BLOCK];
+static void duck_block(int64_t at,int n) {
+ const double attack=1-exp(-1.0/(.0064*SR)),release=1-exp(-1.0/(.0736*SR));
+ for(int j=0;j<n;j++) {
+  int64_t s=at+j;
+  while(duckNext<nducks&&ducks[duckNext].at<=s){Duck *d=&ducks[duckNext++];duckTarget=fmin(duckTarget,d->target);int64_t until=d->at+llround(d->hold*SR);if(until>duckHoldUntil)duckHoldUntil=until;}
+  if(s>=duckHoldUntil)duckTarget=1;
+  duckGain+=(duckTarget-duckGain)*(duckTarget<duckGain?attack:release);
+  duckBuf[j]=(float)duckGain;
+ }
+}
 static double duration,introEnd,bridge,bridgeEnd,outro,scale=.72,peak,maxBlockMs; static int64_t cursor;
 static volatile sig_atomic_t stopped; static AudioQueueRef queue;
 static const char *receipt; static double epoch; static int audioError;
@@ -60,11 +80,13 @@ static void render(float *out,int n) {
   double t=(cursor+j)/(double)SR,want=t<introEnd?.72:t>=outro?.75:(t>=bridge&&t<bridgeEnd)?.6:1;
   scale+=(want-scale)*.00004;dynamics[j]=scale;
  }
+ duck_block(cursor,n);
  for(int k=0;k<count;k++) {
   Event *e=&ev[k]; if(e->end<=cursor || e->start>=cursor+n)continue;
   int a=(int)fmax(0,e->start-cursor),b=(int)fmin(n,e->end-cursor);
+  int melodic=e->type>=3;   // bass, pad, keys, whistle duck; the kit and the clock stay dry
   for(int j=a;j<b;j++) {
-   double y=sample(e,cursor+j-e->start)*(e->type==6?1:dynamics[j]);
+   double y=sample(e,cursor+j-e->start)*(e->type==6?1:dynamics[j])*(melodic?duckBuf[j]:1);
    out[2*j]+=y*e->gl;out[2*j+1]+=y*e->gr;
   }
  }
@@ -90,6 +112,7 @@ int main(int argc,char **argv) {
  if(fscanf(f,"%lf %lf %lf %lf %lf\n",&duration,&introEnd,&bridge,&bridgeEnd,&outro)!=5 || !isfinite(duration)||duration<=0||duration>600)return 2;
  double t,d,m,v,g,p,fr;int typ;unsigned seed;
  while(fscanf(f,"%d %lf %lf %lf %lf %lf %lf %lf %u",&typ,&t,&d,&m,&v,&g,&p,&fr,&seed)==9) {
+  if(typ==7){if(nducks>=MAX_EVENTS||!isfinite(t+d+m)||t<0||d<=0||d>2||m<0||m>1)return 2;ducks[nducks].at=llround(t*SR);ducks[nducks].hold=d;ducks[nducks].target=m;nducks++;continue;}
   if(count>=MAX_EVENTS||typ<0||typ>6||!isfinite(t+d+m+v+g+p+fr)||t<0||d<=0||d>30||fabs(p)>1||g<0||g>2)return 2;
   Event *e=&ev[count++];e->type=typ;e->start=llround(t*SR);e->dur=d;e->vel=v;e->rng=seed;
   double release=typ==3?.05:typ==4?.7:typ==5?.5:typ==6?.12:0;

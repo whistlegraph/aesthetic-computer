@@ -26,6 +26,7 @@ int eg_load(const char *path){
  if(fscanf(f,"%lf %lf %lf %lf %lf",&duration,&introEnd,&bridge,&bridgeEnd,&outro)!=5){fclose(f);return 2;}
  double t,d,m,v,g,p,fr;int typ;unsigned seed;
  while(fscanf(f,"%d %lf %lf %lf %lf %lf %lf %lf %u",&typ,&t,&d,&m,&v,&g,&p,&fr,&seed)==9){
+  if(typ==7){if(nducks>=MAX_EVENTS||!isfinite(t+d+m)||t<0||d<=0||d>2||m<0||m>1||(nducks&&llround(t*SR)<ducks[nducks-1].at)){fclose(f);return 2;}ducks[nducks].at=llround(t*SR);ducks[nducks].hold=d;ducks[nducks].target=m;nducks++;continue;}
   if(count>=MAX_EVENTS||typ<0||typ>6||!isfinite(t+d+m+v+g+p+fr)||t<0||d<=0||d>30||fabs(p)>1||g<0||g>2){fclose(f);return 2;}
   Event *e=&ev[count++];e->type=typ;e->start=llround(t*SR);e->dur=d;e->vel=v;e->rng=seed;
   double r=typ==3?.05:typ==4?.7:typ==5?.5:typ==6?.12:0;e->end=e->start+llround((d+r)*SR);e->freq=typ==2?fr:440*pow(2,(m-69)/12);e->gl=g*cos((p+1)*M_PI/4);e->gr=g*sin((p+1)*M_PI/4);
@@ -45,7 +46,8 @@ int eg_voice(const float *samples,int frames,double at,double gain,double pan){
 void eg_render(float *out,int n){
  // Caller is bounded to BLOCK frames. Reverb and note states survive callbacks.
  int64_t at=cursor;render(out,n);float vl[BLOCK]={0},vr[BLOCK]={0};
- for(int k=0;k<nphrases;k++){Phrase *p=&phrases[k];int a=(int)fmax(0,p->at-at),b=(int)fmin(n,p->at+p->n-at);for(int j=a;j<b;j++){double x=p->data[at+j-p->at];vl[j]+=x*p->gl;vr[j]+=x*p->gr;}}
+ // The voice rides the same sidechain as the melodic bus (duckBuf was filled for this block by render()).
+ for(int k=0;k<nphrases;k++){Phrase *p=&phrases[k];int a=(int)fmax(0,p->at-at),b=(int)fmin(n,p->at+p->n-at);for(int j=a;j<b;j++){double x=p->data[at+j-p->at]*duckBuf[j];vl[j]+=x*p->gl;vr[j]+=x*p->gr;}}
  for(int j=0;j<n;j++){
   double mono=(float)((vl[j]+vr[j])*.5),l=out[2*j]+(vl[j]+room_sample(&room[0],mono))*pow(10,.5/20),r=out[2*j+1]+(vr[j]+room_sample(&room[1],mono))*pow(10,.5/20);
   if(outputGain==1){ // the silent check: the premaster path, as compare.py measures it
