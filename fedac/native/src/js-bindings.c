@@ -1323,6 +1323,16 @@ static JSValue js_room_toggle(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_UNDEFINED;
 }
 
+// sound.echo.setMix(value) — the echo SEND level, 0..1.
+static JSValue js_set_echo_mix(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->audio) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    audio_set_echo_mix(current_rt->audio, (float)v);
+    return JS_UNDEFINED;
+}
+
 // sound.room.setMix(value)
 static JSValue js_set_room_mix(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -3351,6 +3361,10 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, room, "setMix", JS_NewCFunction(ctx, js_set_room_mix, "setMix", 1));
     JS_SetPropertyStr(ctx, room, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->room_mix : 0.0));
     JS_SetPropertyStr(ctx, room, "set", JS_NewCFunction(ctx, js_noop, "set", 1));
+    JSValue echo = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, echo, "setMix", JS_NewCFunction(ctx, js_set_echo_mix, "setMix", 1));
+    JS_SetPropertyStr(ctx, echo, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->echo_mix : 0.0));
+    JS_SetPropertyStr(ctx, sound, "echo", echo);
     JS_SetPropertyStr(ctx, room, "get", JS_NewCFunction(ctx, js_noop, "get", 0));
     JS_SetPropertyStr(ctx, sound, "room", room);
 

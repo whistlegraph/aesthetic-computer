@@ -1687,6 +1687,9 @@ static void setup_noise_filter(ACVoice *v, double sample_rate) {
 #define ROOM_DELAY_SAMPLES (int)(0.12 * AUDIO_SAMPLE_RATE) // 120ms
 #define ROOM_SIZE (ROOM_DELAY_SAMPLES * 3)
 #define ROOM_FEEDBACK 0.3
+#define ECHO_SECONDS 0.30
+#define ECHO_FEEDBACK 0.58f
+#define ECHO_LP_HZ 3600.0
 #define ROOM_MIX 0.35
 
 // Soft clamp (tanh-style) to prevent harsh digital clipping
@@ -1803,6 +1806,7 @@ static void *audio_thread_fn(void *arg) {
     const double tone_rel_coeff = 1.0 - exp(-1.0 / (0.250 * rate));
     double pitch_level[128] = {0};
     int pitch_touched[AUDIO_MAX_VOICES];
+    const float echo_a = 1.0f - expf((float)(-2.0 * M_PI * ECHO_LP_HZ / rate)); // one-pole damper
 
     // Drum bus peak compressor — gives percussion proper "stacking" feel.
     // The drum bus sums additively (no auto-mix divide) so rapid hits
@@ -2084,6 +2088,10 @@ static void *audio_thread_fn(void *arg) {
                 audio->room_mix += (audio->target_room_mix - audio->room_mix) * 0.00005f;
             }
 
+            if (audio->echo_mix != audio->target_echo_mix) {
+                audio->echo_mix += (audio->target_echo_mix - audio->echo_mix) * 0.00005f;
+            }
+
             // Smooth fx_mix toward target
             if (audio->fx_mix != audio->target_fx_mix) {
                 audio->fx_mix += (audio->target_fx_mix - audio->fx_mix) * 0.00005f;
@@ -2173,6 +2181,23 @@ static void *audio_thread_fn(void *arg) {
                     audio->room_buf_r[audio->room_pos] = 0.0f;
                 }
                 audio->room_pos = (audio->room_pos + 1) % rs;
+            }
+
+            // Echo send (see audio.h). Reads the tap, writes dry*send plus
+            // the damped feedback, adds the tap to the output untouched.
+            if (audio->echo_buf_l) {
+                int ep = audio->echo_pos;
+                float wet_l = audio->echo_buf_l[ep], wet_r = audio->echo_buf_r[ep];
+                float emix = audio->echo_mix;
+                if (emix > 0.001f || wet_l != 0.0f || wet_r != 0.0f) {
+                    audio->echo_lp_l += ((float)mix_l * emix + wet_l * ECHO_FEEDBACK - audio->echo_lp_l) * echo_a;
+                    audio->echo_lp_r += ((float)mix_r * emix + wet_r * ECHO_FEEDBACK - audio->echo_lp_r) * echo_a;
+                    audio->echo_buf_l[ep] = tanhf(audio->echo_lp_l * 0.65f) / 0.65f;
+                    audio->echo_buf_r[ep] = tanhf(audio->echo_lp_r * 0.65f) / 0.65f;
+                    mix_l += wet_l;
+                    mix_r += wet_r;
+                }
+                audio->echo_pos = (ep + 1) % audio->echo_size;
             }
 
             // Glitch (sample-hold + bitcrush)
@@ -2671,6 +2696,9 @@ ACAudio *audio_init(void) {
     audio->target_wobble_mix = 0.0f;
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
     audio->room_buf_r = calloc(ROOM_SIZE, sizeof(float));
+    audio->echo_size = (int)(ECHO_SECONDS * AUDIO_SAMPLE_RATE);
+    audio->echo_buf_l = calloc(audio->echo_size, sizeof(float));
+    audio->echo_buf_r = calloc(audio->echo_size, sizeof(float));
 
     // Sample buffer (10 seconds at max 48kHz capture rate)
     audio->sample_max_len = 48000 * AUDIO_MAX_SAMPLE_SECS;
@@ -3217,6 +3245,14 @@ ACAudio *audio_init(void) {
         audio->room_buf_l = calloc(actual_room_size, sizeof(float));
         audio->room_buf_r = calloc(actual_room_size, sizeof(float));
         audio->room_pos = 0;
+    }
+    int actual_echo_size = (int)(ECHO_SECONDS * rate);
+    if (actual_echo_size != audio->echo_size) {
+        free(audio->echo_buf_l); free(audio->echo_buf_r);
+        audio->echo_size = actual_echo_size;
+        audio->echo_buf_l = calloc(actual_echo_size, sizeof(float));
+        audio->echo_buf_r = calloc(actual_echo_size, sizeof(float));
+        audio->echo_pos = 0;
     }
 
     /* Log the actual negotiated params — channels and format are
@@ -3998,6 +4034,13 @@ void audio_set_room_mix(ACAudio *audio, float mix) {
     if (mix < 0.0f) mix = 0.0f;
     if (mix > 1.0f) mix = 1.0f;
     audio->target_room_mix = mix;
+}
+
+void audio_set_echo_mix(ACAudio *audio, float mix) {
+    if (!audio) return;
+    if (mix < 0.0f) mix = 0.0f;
+    if (mix > 1.0f) mix = 1.0f;
+    audio->target_echo_mix = mix;
 }
 
 void audio_set_glitch_mix(ACAudio *audio, float mix) {
@@ -4901,6 +4944,8 @@ void audio_destroy(ACAudio *audio) {
     if (audio->hdmi_pcm) snd_pcm_close((snd_pcm_t *)audio->hdmi_pcm);
     free(audio->room_buf_l);
     free(audio->room_buf_r);
+    free(audio->echo_buf_l);
+    free(audio->echo_buf_r);
     free(audio->sample_buf);
     free(audio->sample_buf_back);
     free(audio->mic_ring);

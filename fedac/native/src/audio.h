@@ -312,6 +312,14 @@ typedef struct {
     int room_size;
     float room_mix;         // 0.0 to 1.0 wet mix (smoothed toward target)
     float target_room_mix;  // target wet mix (set by JS, smoothed per sample)
+    // Echo send — Menu Band's tape echo: a fixed 300 ms line with 58 %
+    // feedback damped at 3.6 kHz, 100 % wet in parallel. echo_mix is the
+    // SEND level (how much dry enters the line), so easing it off lets the
+    // tail ring out instead of cutting it.
+    float *echo_buf_l, *echo_buf_r;
+    int echo_pos, echo_size;
+    float echo_lp_l, echo_lp_r;
+    float echo_mix, target_echo_mix;
 
     int glitch_enabled;
     float glitch_hold_l, glitch_hold_r;
@@ -518,6 +526,7 @@ void audio_set_bpm(ACAudio *audio, double bpm);
 void audio_room_toggle(ACAudio *audio);
 void audio_glitch_toggle(ACAudio *audio);
 void audio_set_room_mix(ACAudio *audio, float mix);
+void audio_set_echo_mix(ACAudio *audio, float mix);
 void audio_set_glitch_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
 void audio_set_master_volume(ACAudio *audio, float value);
