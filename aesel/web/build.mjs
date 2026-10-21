@@ -15,6 +15,9 @@ const result=await build({
   define:{'import.meta.url':JSON.stringify('https://aesel.app/easel/src/browser.mjs')},
   banner:{js:`globalThis.__aeselGuides=${JSON.stringify(guides)};`},
   plugins:[{name:'phone-shims',setup(b){
+    // The Node harness loads its parser lazily with createRequire. Browser
+    // bundles use the same vendored grammar through its native ESM exports.
+    b.onResolve({filter:/^\.\/source-parser\.mjs$/},()=>({path:resolve(root,'aesel/src/vendor/acorn.mjs')}));
     b.onResolve({filter:/^node:/},args=>{
       const name=shims[args.path];if(!name) throw new Error(`Unmapped browser dependency: ${args.path}`);
       return {path:resolve(root,`aesel/phone/shim/${name}.mjs`)};

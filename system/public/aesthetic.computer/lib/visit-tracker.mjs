@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction } from "./visit-model.mjs?v=20261019-signed";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261021-aesel";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -29,6 +29,7 @@ export function startVisitTracker(win = window, doc = document) {
       automated: automatedVisit(nav, win.location.search, win.acAutomation === true),
       interacted: false, activeSeconds: 0, inputs: [], actions: [],
       referrerHost: visitReferrer(doc.referrer),
+      ...aeselVisitContext(win.location.hostname, path, win.location.search),
     };
     visibleMs = 0; lastSent = ""; lastTick = win.performance.now();
     wasVisible = visible();
@@ -121,7 +122,7 @@ export function startVisitTracker(win = window, doc = document) {
     const milestone = visitLinkAction(win.location.hostname, url.href);
     if (milestone) action(milestone);
     if (!/^https?:$/.test(url.protocol)) return;
-    action(link.hasAttribute("download") || /\.(?:dmg|zip|pdf|amxd|exe|apk)$/i.test(url.pathname)
+    action(milestone?.startsWith("aesel_") || link.hasAttribute("download") || /\.(?:dmg|zip|pdf|amxd|exe|apk)$/i.test(url.pathname)
       ? "download_clicked" : "link_followed");
   };
   on(win, "click", followLink, true);

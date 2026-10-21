@@ -1,6 +1,8 @@
 import '../phone/shim/globals.js';
 import { createSession } from '../phone/session.mjs';
 import { accountStorage } from './storage.mjs';
+import { startVisitTracker } from '../../system/public/aesthetic.computer/lib/visit-tracker.mjs';
+import { startAccountActivity } from '../../system/public/aesthetic.computer/lib/account-activity.mjs';
 
 // A few shared engine helpers postdate the oldest browser build we target.
 if (!Array.prototype.at) Object.defineProperty(Array.prototype, 'at', {value(index) { return this[index < 0 ? this.length + index : index]; }});
@@ -11,6 +13,13 @@ if (!AbortSignal.prototype.throwIfAborted) AbortSignal.prototype.throwIfAborted 
 const $ = id => document.getElementById(id);
 const callback = `${location.origin}/try/`;
 let auth, session, streaming, subject = '', source = '', submitting = false;
+let activity, signedInUser;
+const visits = startVisitTracker();
+function milestone(name) {
+  // Account events have independent identifiers and server-verified credentials.
+  activity?.action(name);
+  visits?.action(name);
+}
 
 function gate(message, error = false) {
   $('gate').hidden = false;
@@ -80,9 +89,17 @@ async function enter() {
   const user=await auth.getUser();
   if(!user?.sub) throw new Error('Sign in again to open your pieces.');
   subject=user.sub;
+  signedInUser=user;
+  activity?.stop();
+  activity=startAccountActivity(window, document, {
+    getUser:()=>signedInUser,
+    getToken:()=>auth.getTokenSilently(),
+  });
+  activity?.load('aesthetic.computer/disks/aesel');
   const token=await auth.getTokenSilently();
   session=createSession({storage:accountStorage(localStorage,user.sub),emit:event});
   await session.adoptToken(token);
+  activity?.ready();
   if(!session.state.handle) {
     gate('Claim an @handle at aesthetic.computer/handle, then return here.');
     const link=document.createElement('a');link.href='https://aesthetic.computer/handle';link.textContent='Choose your handle';
@@ -108,7 +125,10 @@ async function boot() {
     finally { history.replaceState({},'',callback); }
   } else await auth.checkSession();
   $('login').disabled=false;
-  if(await auth.isAuthenticated()) await enter();
+  if(await auth.isAuthenticated()) {
+    await enter();
+    if(query.has('code') && query.has('state')) milestone('aesel_signin_completed');
+  }
   else gate('');
 }
 $('login').onclick=()=>{
@@ -117,6 +137,7 @@ $('login').onclick=()=>{
 };
 $('logout').onclick=async()=>{
   if(session?.state.busy || session?.state.publishing) { line('note','Wait for this turn and upload to finish before signing out.');return; }
+  signedInUser=null; activity?.stop();
   session?.signOut();
   await auth.logout({logoutParams:{returnTo:callback}});
 };
@@ -131,8 +152,13 @@ $('composer').onsubmit=async e=>{
     if((await auth.getUser())?.sub !== subject) throw new Error('Your signed-in account changed. Reload to open its pieces.');
     session.state.token=token;
     $('input').value='';
+    const priorSource=source;
+    const priorPublication=session.state.publication;
     await session.ask(text);
     if(session.state.publishing) await session.state.publishing;
+    if(source && source !== priorSource && session.state.published &&
+        session.state.publication !== priorPublication && session.state.publication?.source === source)
+      milestone('aesel_creation_published');
   } catch(error) {line('bad',error.message);}
   finally {submitting=false;busy(false);}
 };
@@ -141,8 +167,9 @@ $('stop').onclick=()=>session?.stop();
 $('new').onclick=async()=>{try{await session.newPiece();$('input').focus();}catch(error){line('bad',error.message);}};
 $('history').onchange=async()=>{try{await session.resumeSession($('history').value);}catch(error){line('bad',error.message);}};
 $('download').onclick=()=>{
+  if(!source) return;
   const url=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
-  const a=document.createElement('a');a.href=url;a.download=`${session.state.slug}.mjs`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const a=document.createElement('a');a.href=url;a.download=`${session.state.slug}.mjs`;a.click();milestone('aesel_source_export_requested');setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
 window.addEventListener('pagehide',()=>session?.saveCurrent());
 void boot().catch(error=>{gate(error.message,true);$('login').disabled=!auth;});

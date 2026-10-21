@@ -112,6 +112,7 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
   return {
     window: { start: report.start, end: report.end, scope, earliestRetainedVisit: report.earliestRetainedVisit },
     unit: report.unit,
+    aesel: report.aesel || [],
     totals: { visits: sum("visits"), interacted: sum("interacted"), engaged: sum("engaged"),
       actionVisits: sum("actionVisits"),
       depth: Object.fromEntries(VISIT_DEPTHS.map(seconds => [seconds, Object.values(sites).reduce((n, site) => n + site.depth[seconds], 0)])),

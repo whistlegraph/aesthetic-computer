@@ -506,3 +506,37 @@ people, and page visits are not unique visitors. Do not infer a pre-deployment
 funnel or divide counts from different coverage windows. The October 3 baseline
 is in `reports/2026-10-03-signup-baseline.json`. No scheduled report or growth
 target is configured by this change.
+
+## Aesel web measurement
+
+Aesel visits include `aeselVersion: 1`, reviewed landing `route`
+(home, support, privacy, app, other), and a nullable `campaign`. Only
+`?ac_campaign=instagram-reel`, `?ac_campaign=tiat-qr` and
+`?ac_campaign=menu-band` are retained; other query values and paths are discarded.
+These describe one page arrival, not a journey or causal conversion attribution.
+The report keeps predeployment records under `unmeasured`, never as measured zeros.
+
+The existing visits CLI and `network_referrers` MCP report include an `aesel`
+table grouped by route, campaign, referrer and automation. The version indicates
+measurement coverage. Automation remains a separate group. New reviewed actions:
+
+| Action | Condition |
+| --- | --- |
+| `aesel_mac_download_clicked` | Trusted activation of the reviewed AC Aesel DMG endpoint |
+| `aesel_windows_download_clicked` | Trusted activation of the reviewed AC Aesel Windows installer endpoint |
+| `aesel_signin_completed` | Auth0 redirect completed and authenticated browser session adopted |
+| `aesel_creation_published` | A request changed source and the session confirms current source published |
+| `aesel_source_export_requested` | Nonempty source was offered as a browser download; save completion is unknown |
+
+The browser's `/try/` actions also use the existing separate account-activity
+collector with server-verified credentials and private handle reports. Anonymous
+actions still require interaction in that page, so redirect sign-ins may appear
+only in account activity. Each action occurs at most once per page visit or
+authenticated activity session; creation is not a lifetime-first claim.
+Opening a saved piece or auto-publishing the starter does not count as creation.
+Existing privacy controls and 35-day retention apply. Native/terminal telemetry
+is unchanged; no prompts, source, filenames, accounts or session IDs enter visits.
+
+Ship shared collector/modules with `ac-deploy`, then rebuild the browser client
+from the pushed revision with `bash aesel/web/deploy.sh`. Regular monolith
+deployment does not rebuild that client.

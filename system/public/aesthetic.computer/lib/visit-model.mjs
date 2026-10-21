@@ -37,6 +37,8 @@ export const VISIT_PROPERTIES = Object.freeze({
 });
 
 export const VISIT_ACTIONS = Object.freeze([
+  "aesel_signin_completed", "aesel_creation_published", "aesel_source_export_requested",
+  "aesel_mac_download_clicked", "aesel_windows_download_clicked",
   "link_followed", "download_clicked", "canvas_interacted", "media_started",
   "round_started", "round_completed", "match_completed",
   "mime_interact", "mime_scroll_feed", "mime_original_open",
@@ -50,6 +52,13 @@ export function visitLinkAction(hostname, href) {
   let url;
   try { url = new URL(href); } catch { return null; }
   const property = visitProperty(hostname);
+  if (property === "aesel.app" && url.origin === "https://aesthetic.computer" &&
+      !url.username && !url.password && url.pathname === "/api/download" &&
+      url.searchParams.get("app") === "aesel") {
+    const file = url.searchParams.get("file") || "";
+    if (/^aesel-[0-9]+\.[0-9]+\.[0-9]+-arm64\.dmg$/.test(file)) return "aesel_mac_download_clicked";
+    if (/^aesel-[0-9]+\.[0-9]+\.[0-9]+-windows-x64-setup\.exe$/.test(file)) return "aesel_windows_download_clicked";
+  }
   if (property === "whistlegraph.org" && url.protocol === "https:" &&
       !url.port && !url.username && !url.password && visitProperty(url.hostname) === "whistlegraph.app")
     return "whistlegraph_app_clicked";
@@ -60,6 +69,16 @@ export function visitLinkAction(hostname, href) {
       url.pathname.toLowerCase() === "mail@aesthetic.computer")
     return "whistlegraph_access_clicked";
   return null;
+}
+// Exact public paths and campaign labels only; never pass through arbitrary URL data.
+export const AESEL_ROUTES = Object.freeze({ "/": "home", "/index.html": "home",
+  "/try/": "app", "/try/index.html": "app", "/support.html": "support", "/privacy.html": "privacy" });
+export const AESEL_CAMPAIGNS = Object.freeze(["instagram-reel", "tiat-qr", "menu-band"]);
+export function aeselVisitContext(hostname, pathname, search = "") {
+  if (visitProperty(hostname) !== "aesel.app") return {};
+  const tag = new URLSearchParams(search).get("ac_campaign");
+  return { aeselVersion: 1, route: AESEL_ROUTES[pathname] || "other",
+    campaign: AESEL_CAMPAIGNS.includes(tag) ? tag : null };
 }
 export const VISIT_DEPTHS = Object.freeze([30, 60, 180, 600]);
 // Public upload milestones require a returned record code, never a click.
@@ -134,6 +153,9 @@ export function validateVisit(body, origin, userAgent = "") {
       !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(body.id || "") ||
       !SURFACES.includes(body.surface) || !ACTIVE_BUCKETS.includes(body.activeSeconds) ||
       typeof body.interacted !== "boolean" || typeof body.automated !== "boolean" ||
+      (body.aeselVersion !== undefined && (body.aeselVersion !== 1 || property !== "aesel.app" ||
+        ![...Object.values(AESEL_ROUTES), "other"].includes(body.route) ||
+        !(body.campaign === null || AESEL_CAMPAIGNS.includes(body.campaign)))) ||
       (body.linkVersion !== undefined && body.linkVersion !== 1) ||
       !Array.isArray(body.inputs) || body.inputs.length > INPUTS.length ||
       body.inputs.some(value => !INPUTS.includes(value)) ||
@@ -146,6 +168,7 @@ export function validateVisit(body, origin, userAgent = "") {
     automated: body.automated || automatedVisit({ userAgent }),
     inputs: [...new Set(body.inputs)], actions: [...new Set(body.actions)],
     referrerHost: typeof body.referrerHost === "string" ? visitReferrer(body.referrerHost) : null,
+    ...(body.aeselVersion === 1 ? { aeselVersion: 1, route: body.route, campaign: body.campaign } : {}),
     ...(body.linkVersion === 1 ? { linkVersion: 1 } : {}),
   };
 }
@@ -158,6 +181,7 @@ export function visitUpdate(visit, now = new Date()) {
   for (const action of visit.actions) max[`actions.${action}`] = true;
   return {
     $setOnInsert: { property: visit.property, group: visitGroup(visit.property), surface: visit.surface, referrerHost: visit.referrerHost,
+      ...(visit.aeselVersion === 1 ? { aeselVersion: 1, route: visit.route, campaign: visit.campaign } : {}),
       expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000) },
     $min: { startedAt: now }, $max: { ...max, lastSeenAt: now },
   };
@@ -180,5 +204,24 @@ export function visitReportPipeline(start, end, byPeriod = false, scope = "studi
       ...Object.fromEntries(VISIT_ACTIONS.map(action => [action, count(`actions.${action}`)])),
     } },
     { $sort: { "_id.property": 1, "_id.automated": 1, visits: -1 } },
+  ];
+}
+
+// Landing cohorts: no visitor IDs, accounts, full paths or query strings.
+export function aeselVisitReportPipeline(start, end) {
+  const count = field => ({ $sum: { $cond: [`$${field}`, 1, 0] } });
+  return [
+    { $match: { property: "aesel.app", startedAt: { $gte: start, $lt: end } } },
+    { $group: { _id: { automated: "$automated", measured: { $ifNull: ["$aeselVersion", 0] },
+      route: { $ifNull: ["$route", "unmeasured"] }, campaign: { $ifNull: ["$campaign", null] },
+      referrerHost: { $ifNull: ["$referrerHost", null] } },
+      visits: { $sum: 1 }, interacted: count("interacted"), engaged: count("engaged"),
+      signins: count("actions.aesel_signin_completed"),
+      creationsPublished: count("actions.aesel_creation_published"),
+      sourceExportsRequested: count("actions.aesel_source_export_requested"),
+      downloads: count("actions.download_clicked"),
+      macDownloads: count("actions.aesel_mac_download_clicked"),
+      windowsDownloads: count("actions.aesel_windows_download_clicked") } },
+    { $sort: { visits: -1 } },
   ];
 }

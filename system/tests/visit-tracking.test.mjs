@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { validateVisit, visitUpdate, visitProperty, visitSurface, automatedVisit, visitMediaAction, visitLinkAction, VISIT_ACTIONS } from "../public/aesthetic.computer/lib/visit-model.mjs";
+import { validateVisit, visitUpdate, visitProperty, visitSurface, automatedVisit, visitMediaAction, visitLinkAction, aeselVisitContext, aeselVisitReportPipeline, VISIT_ACTIONS } from "../public/aesthetic.computer/lib/visit-model.mjs";
 import { handler } from "../netlify/functions/visit-track.mjs";
 
 const snapshot = () => ({ version: 1, id: randomUUID(), surface: "home",
@@ -145,4 +145,32 @@ test("MIME controls record only reviewed visit milestones", () => {
   assert.equal(update.$max["actions.mime_interact"], true);
   assert.equal(update.$max["actions.mime_scroll_feed"], true);
   assert.equal(update.$max["actions.mime_original_open"], true);
+});
+
+test("Aesel attribution retains only reviewed routes/campaigns and rejects spoofed context", () => {
+  assert.deepEqual(aeselVisitContext("aesel.app", "/try/", "?ac_campaign=tiat-qr&code=secret"),
+    { aeselVersion: 1, route: "app", campaign: "tiat-qr" });
+  assert.deepEqual(aeselVisitContext("aesel.app", "/private-name", "?ac_campaign=secret"),
+    { aeselVersion: 1, route: "other", campaign: null });
+  assert.deepEqual(aeselVisitContext("jas.life", "/", "?ac_campaign=tiat-qr"), {});
+  const body = { ...snapshot(), ...aeselVisitContext("aesel.app", "/", "?ac_campaign=instagram-reel") };
+  const update = visitUpdate(validateVisit(body, "https://aesel.app"));
+  assert.equal(update.$setOnInsert.route, "home");
+  assert.equal(update.$setOnInsert.campaign, "instagram-reel");
+  for (const bad of [{ route: "/private" }, { campaign: "secret" }, { aeselVersion: 2 }])
+    assert.equal(validateVisit({ ...body, ...bad }, "https://aesel.app"), null);
+  assert.equal(validateVisit(body, "https://jas.life"), null);
+  assert.equal(visitUpdate(validateVisit(snapshot(), "https://aesel.app")).$setOnInsert.aeselVersion, undefined);
+  assert.equal(aeselVisitReportPipeline(new Date(), new Date())[1].$group._id.route.$ifNull[1], "unmeasured");
+});
+
+test("Aesel download milestones recognize real query-based installers without retaining filenames", () => {
+  for (const [file, action] of [["aesel-0.8.19-arm64.dmg", "aesel_mac_download_clicked"],
+    ["aesel-0.8.19-windows-x64-setup.exe", "aesel_windows_download_clicked"]]) {
+    const url = "https://aesthetic.computer/api/download?app=aesel&file=" + file;
+    assert.equal(visitLinkAction("aesel.app", url), action);
+    assert.equal(visitLinkAction("jas.life", url), null);
+    assert.equal(visitLinkAction("aesel.app", url.replace("https:", "http:")), null);
+    assert.equal(visitLinkAction("aesel.app", url.replace("app=aesel", "app=other")), null);
+  }
 });

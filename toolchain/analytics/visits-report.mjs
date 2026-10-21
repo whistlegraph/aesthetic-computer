@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Run on Lith: cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/visits-report.mjs --hours 72
 import { connect, closePool } from "../../system/backend/database.mjs";
-import { VISIT_COLLECTION, RETENTION_DAYS, visitReportPipeline, visitScopeMatch, visitGroup } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
+import { VISIT_COLLECTION, RETENTION_DAYS, visitReportPipeline, visitScopeMatch, visitGroup, aeselVisitReportPipeline } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 const args = process.argv.slice(2);
 const value = name => args[args.indexOf(name) + 1];
 const hours = args.includes("--hours") ? Number(value("--hours")) : 72;
@@ -16,8 +16,10 @@ try {
   const collection = db.collection(VISIT_COLLECTION);
   const rows = await collection.aggregate(visitReportPipeline(start, end, false, scope), { maxTimeMS: 20000 }).toArray();
   const periods = await collection.aggregate(visitReportPipeline(start, end, true, scope), { maxTimeMS: 20000 }).toArray();
+  const aesel = scope === "clients" ? [] : await collection.aggregate(aeselVisitReportPipeline(start, end), { maxTimeMS: 20000 }).toArray();
   const first = await collection.find(scopeMatch, { projection: { startedAt: 1 } }).sort({ startedAt: 1 }).limit(1).next();
   console.log(JSON.stringify({ format: "ac.network-visits.v1", scope, start, end,
+    aesel,
     earliestRetainedVisit: first?.startedAt || null, retentionDays: RETENTION_DAYS,
     unit: "page visits, not unique people",
     audience: rows.filter(row => !row._id.automated).map(row => ({ ...row, group: visitGroup(row._id.property), unknownAudience: row.visits - row.interacted })),

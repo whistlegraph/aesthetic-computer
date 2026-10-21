@@ -2,7 +2,7 @@
 // Private CLI transport: SSH/MCP only, no public account-activity read endpoint.
 import { createHash } from "node:crypto";
 import { connect, closePool } from "../../system/backend/database.mjs";
-import { visitScopeMatch, visitReferrer, visitProperty, visitSurface, automatedVisit } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
+import { visitScopeMatch, visitReferrer, visitProperty, visitSurface, automatedVisit, aeselVisitReportPipeline } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { laklokFeatureReport } from "./laklok-feature-report.mjs";
 import { foldPieceLandings } from "./piece-landings.mjs";
 
@@ -63,6 +63,8 @@ try {
       })),
     }));
   } else {
+    const aesel = scoped.property.$in.includes("aesel.app")
+      ? await db.collection("network-visits").aggregate(aeselVisitReportPipeline(start, end), { maxTimeMS: 10000 }).toArray() : [];
     const visits = await db.collection("network-visits").aggregate([
       { $match: { ...scoped, automated: false, startedAt: { $gte: start, $lt: end }, referrerHost: { $exists: true } } },
       { $group: { _id: { property: "$property", referrerHost: "$referrerHost" }, visits: { $sum: 1 },
@@ -84,6 +86,7 @@ try {
     }
     console.log(JSON.stringify({ start, end, scope,
       note: "Referrer sites only. Null means direct or unavailable, not proof of direct traffic. Browser privacy, apps and redirects can omit referrers. Visit and legacy boot totals must not be added together. No account or visitor identity is inferred from a referrer.",
+      aesel,
       visits: visits.slice(0, limit).map(row => ({ ...row._id, visits: row.visits, interacted: row.interacted, engaged: row.engaged })),
       visitsTruncated: visits.length > limit,
       legacyBoots: [...groups.values()].sort((a, b) => b.boots - a.boots).slice(0, limit),

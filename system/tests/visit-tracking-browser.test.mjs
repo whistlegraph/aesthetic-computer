@@ -184,3 +184,37 @@ test("AC transparent display and runtime actions respect interaction, deduplicat
     await context.close();
   } finally { await browser.close(); }
 });
+
+test("Aesel landing attribution and Windows download survive query URLs without leaking values", async () => {
+  const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL });
+  try {
+    const context = await browser.newContext(), received = [];
+    await context.route("**/*", async route => {
+      const url = new URL(route.request().url());
+      if (url.pathname === "/api/visit-track") {
+        received.push(JSON.parse(route.request().postData()));
+        return route.fulfill({ status: 204, headers: { "Access-Control-Allow-Origin": "*" } });
+      }
+      if (/\/visit-(tracker|model)\.mjs$/.test(url.pathname))
+        return route.fulfill({ contentType: "text/javascript", headers: { "Access-Control-Allow-Origin": "*" },
+          body: await readFile(new URL(`../public/aesthetic.computer/lib/${url.pathname.split("/").at(-1)}`, import.meta.url), "utf8") });
+      return route.fulfill({ contentType: "text/html", body:
+        '<a href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-windows-x64-setup.exe">Windows</a><script>document.addEventListener("click",e=>e.preventDefault())</script><script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs"></script>' });
+    });
+    const page = await context.newPage();
+    await page.goto("https://aesel.app/?ac_campaign=tiat-qr&private=secret");
+    await page.waitForFunction(() => !!window.acVisits);
+    await page.locator("a").click();
+    await page.waitForFunction(() => window.acVisits.action("aesel_windows_download_clicked"));
+    await page.waitForTimeout(100);
+    assert.ok(received.some(row => row.actions.includes("aesel_windows_download_clicked") && row.actions.includes("download_clicked")));
+    assert.ok(received.every(row => row.route === "home" && row.campaign === "tiat-qr" && row.automated));
+    assert.ok(!JSON.stringify(received).includes("secret"));
+    const before = received.length;
+    await page.evaluate(() => { window.acVisitTrackingDisabled = true; });
+    await page.locator("a").click();
+    await page.waitForTimeout(100);
+    assert.equal(received.length, before);
+    await context.close();
+  } finally { await browser.close(); }
+});
