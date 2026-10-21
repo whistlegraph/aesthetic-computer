@@ -809,7 +809,27 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
         wifi_log(wifi, "Auto-connect: no saved creds, preset only");
     }
 
-    // Step 2b: Preferred networks win over signal order. When one of these
+    // Step 2b: the stick's own wifi_creds.json, in file order, before the
+    // built-in preferred networks and presets. The media owner controls this order.
+    for (int j = file_start; j < cred_count; j++) {
+        int seen = 0, sig = 0;
+        pthread_mutex_lock(&wifi->lock);
+        for (int i = 0; i < wifi->network_count; i++)
+            if (strcmp(wifi->networks[i].ssid, creds[j].ssid) == 0) { seen = 1; sig = wifi->networks[i].signal; break; }
+        pthread_mutex_unlock(&wifi->lock);
+        if (!seen || wifi_cooling(creds[j].ssid)) continue;
+        wifi_log(wifi, "Trying saved '%s' (%d dBm)", creds[j].ssid, sig);
+        wifi_do_connect(wifi, creds[j].ssid, creds[j].pass);
+        if (wifi->state == WIFI_STATE_CONNECTED) {
+            wifi_log(wifi, "Auto-connect: success (saved)!");
+            return;
+        }
+        if (wifi->pending_cmd != WIFI_CMD_NONE) return;
+        wifi_log(wifi, "saved '%s' failed", creds[j].ssid);
+        wifi_cool(creds[j].ssid);
+    }
+
+    // Step 2c: Built-in preferred networks win over signal order. When one of these
     // is in range and we hold its credentials, try it first; only if it
     // fails do we fall through to strongest-known-first below.
     static const char *PREFERRED_SSIDS[] = { "CULTUREHUB LA" };
@@ -836,26 +856,6 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
         wifi_log(wifi, "preferred '%s' failed, falling back to signal order", want);
         wifi_cool(want);
         strncpy(tried_preferred, want, WIFI_SSID_MAX - 1);
-    }
-
-    // Step 2c: the stick's own wifi_creds.json, in file order, before the
-    // built-in presets — whoever wrote that file put the network they want first.
-    for (int j = file_start; j < cred_count; j++) {
-        int seen = 0, sig = 0;
-        pthread_mutex_lock(&wifi->lock);
-        for (int i = 0; i < wifi->network_count; i++)
-            if (strcmp(wifi->networks[i].ssid, creds[j].ssid) == 0) { seen = 1; sig = wifi->networks[i].signal; break; }
-        pthread_mutex_unlock(&wifi->lock);
-        if (!seen || wifi_cooling(creds[j].ssid)) continue;
-        wifi_log(wifi, "Trying saved '%s' (%d dBm)", creds[j].ssid, sig);
-        wifi_do_connect(wifi, creds[j].ssid, creds[j].pass);
-        if (wifi->state == WIFI_STATE_CONNECTED) {
-            wifi_log(wifi, "Auto-connect: success (saved)!");
-            return;
-        }
-        if (wifi->pending_cmd != WIFI_CMD_NONE) return;
-        wifi_log(wifi, "saved '%s' failed", creds[j].ssid);
-        wifi_cool(creds[j].ssid);
     }
 
     // Step 3: Match scanned networks against saved creds (by signal strength)
