@@ -1813,6 +1813,7 @@ static void *audio_thread_fn(void *arg) {
     // hits so each kick/snare feels punchy on its own.
     double drum_gain = 1.0;
     const double DRUM_THRESH = 0.95;
+    const double DRUM_BUS_TRIM = 0.6;
     // 5ms attack — slower than a 2ms beater transient so the first peak
     // of each hit passes through at full amplitude before compression
     // engages. This preserves the "snap" of each individual kick/snare.
@@ -1957,6 +1958,18 @@ static void *audio_thread_fn(void *arg) {
 
             tone_l *= tone_gain;
             tone_r *= tone_gain;
+
+            // Drum bus trim. notepat's kick stacks four layers at volume
+            // ~2 (1.0 full-scale each after the centre pan law), so without
+            // this the kick body alone sits 3-4 dB into the compressor below
+            // and 8:1 into the master clamp. Any later hit — a hat landing
+            // on the ringing kick — then steps both gains within ~6 ms, an
+            // audible pop (simulated 0.81 → 0.66). At 0.6 the body clears
+            // the 0.95 threshold, the hat changes nothing, and the output
+            // peak drops only ~1 dB (0.94 → 0.82). Melodic notes never
+            // popped the kick because their attack ramps; hats don't.
+            drum_l *= DRUM_BUS_TRIM;
+            drum_r *= DRUM_BUS_TRIM;
 
             // Drum bus peak compressor: detect peak, attack fast if over
             // threshold, release slow. Unlike the tone auto-mix divide,
