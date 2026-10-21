@@ -253,7 +253,9 @@ final class MenuBandController {
     /// through the modes and the switch takes effect mid-hold (the old
     /// gesture lets go, the new one begins). The choice sticks across holds.
     enum SpaceMode: String, CaseIterable { case reverse, hammer }
-    private var spaceMode: SpaceMode = .reverse
+    /// Hammer is the default for now (2026-10-21); reverse stays one
+    /// ←/→-while-Space step away.
+    private var spaceMode: SpaceMode = .hammer
     private var spaceKeyHeld = false
 
     /// Space hammer. HOLDING Space in hammer mode re-strikes whatever notes
@@ -273,6 +275,17 @@ final class MenuBandController {
     /// Mean strikes per second. Kept across holds.
     private var hammerRate: Double = 7
     private static let hammerRateRange = 1.5...24.0
+    /// Popover readout: true while Space is hammering the held notes.
+    var isHammering: Bool { hammerHeld }
+    /// Popover readout: the mean hammer rate, e.g. "7.0/s".
+    var hammerRateLabel: String { String(format: "%.1f/s", hammerRate) }
+    /// Keys that steer the hammer rate: = / + and - while the hammer is
+    /// down, ↑ / ↓ any time. They stay ours even under a held ⌘ / ⌥ (the
+    /// chord hand is usually on a modifier while the other hand hammers).
+    private func isHammerRateKey(_ keyCode: UInt16) -> Bool {
+        (hammerHeld && (keyCode == 24 || keyCode == 27))
+            || keyCode == 125 || keyCode == 126
+    }
     /// Percussion-split: which drum-voice group each held right-hand key
     /// started, so key-up releases exactly that hit (hi-hat down/up sounds).
     private var heldDrumKeys: [UInt16: UInt64] = [:]
@@ -4122,7 +4135,10 @@ final class MenuBandController {
         // on ⌘ when it goes down (or ⌘ lands while it is held and every
         // auto-repeat inherits the flag). While the keyboard is live, ⌘Space
         // is ours, not Spotlight's.
+        // …and never the hammer-rate keys (= / - while hammering, ↑ / ↓):
+        // ⌘+ used to fall through here as a system shortcut mid-hammer.
         if hasModifier && isDown && keyCode != 49 /* kVK_Space */
+            && !isHammerRateKey(keyCode)
             && !(chordModifier && percussionActive(forKeyCode: keyCode)) { return false }
 
         // Hold either percussion latch key (`[` / `]`) and use Up/Down as a
@@ -4245,25 +4261,21 @@ final class MenuBandController {
             }
             return true
         }
-        // While the hammer is down, = / + and - steer its rate. Auto-repeat
-        // is welcome: holding + ramps it.
-        if hammerHeld && (keyCode == 24 /* = */ || keyCode == 27 /* - */) {
-            if isDown { adjustHammerRate(up: keyCode == 24) }
+        // Hammer rate: = / + and - while the hammer is down, ↑ / ↓ any time
+        // (the rate persists across holds, so it can be set before the next
+        // one). Auto-repeat is welcome: holding a key ramps it. A bracket
+        // held makes ↑ / ↓ the percussion trim instead — claimed above.
+        if (hammerHeld && (keyCode == 24 /* = */ || keyCode == 27 /* - */))
+            || keyCode == 126 /* ↑ */ || keyCode == 125 /* ↓ */ {
+            if isDown { adjustHammerRate(up: keyCode == 24 || keyCode == 126) }
             return true
         }
 
-        // Arrow keys step through the GM instrument grid: ←/→ by one
-        // slot, ↑/↓ by one row (= InstrumentListView.cols). Mirrors
-        // the floating panel's arrow cluster clicks. Each step also
-        // fires a short audition blip — same sound the palette plays
-        // while the user drags through cells — so the user can scan
-        // voices by ear, not just by name. Auto-repeat is allowed so
-        // holding an arrow streams through voices.
         // Shared drum selector: a latched keyboard side, a recent percussion
         // hit, or explicit Shift-arrows selects the kit in BOTH layouts.
         // Held arrows don't auto-repeat through kits — one press, one kit.
-        // While Space is down, ←/→ step the space mode instead of the
-        // instrument. One press, one step — no auto-repeat through modes.
+        // While Space is down, ←/→ step the space mode. One press, one
+        // step — no auto-repeat through modes.
         if spaceKeyHeld && (keyCode == 123 || keyCode == 124) {
             if isDown && !isRepeat { stepSpaceMode(delta: keyCode == 123 ? -1 : 1) }
             return true
@@ -4277,40 +4289,11 @@ final class MenuBandController {
             }
             return true
         }
-        switch keyCode {
-        case 123:
-            if isDown {
-                DispatchQueue.main.async { [weak self] in
-                    self?.stepMelodicProgramWithBlip(delta: -1)
-                }
-            }
-            return true
-        case 124:
-            if isDown {
-                DispatchQueue.main.async { [weak self] in
-                    self?.stepMelodicProgramWithBlip(delta: +1)
-                }
-            }
-            return true
-        case 125:
-            if isDown {
-                let cols = InstrumentListView.cols
-                DispatchQueue.main.async { [weak self] in
-                    self?.stepMelodicProgramWithBlip(delta: cols)
-                }
-            }
-            return true
-        case 126:
-            if isDown {
-                let cols = InstrumentListView.cols
-                DispatchQueue.main.async { [weak self] in
-                    self?.stepMelodicProgramWithBlip(delta: -cols)
-                }
-            }
-            return true
-        default:
-            break
-        }
+        // Bare ←/→ used to step the GM instrument grid (↑/↓ by a row).
+        // Deprecated 2026-10-21: stepping voices from the arrows never made
+        // sense next to the numeric picker, and ↑/↓ now steer the hammer.
+        // Still consumed so they never leak into the focused app.
+        if keyCode == 123 || keyCode == 124 { return true }
 
         // Minus primes a CDJ Radio shortcut. `-1` toggles the saved station;
         // `-kpbj`, `-r8dio`, `-nts1`, and `-nts2` tune the separate deck.
@@ -4338,7 +4321,10 @@ final class MenuBandController {
             // ~ (Shift+`) ARMS per-key recording while held — it does NOT
             // record the global sample. Plain ` records the global sample
             // (and clears per-key customs) — the "Home" gesture.
-            if lingerSide != .none {
+            // Test the real Shift state, not `lingerSide`: Caps Lock latches
+            // linger too, and under it a plain ` used to read as ~, so `1
+            // landed on Fluoddity (~1) instead of the AC piano.
+            if shift {
                 // ~ held + note = per-key sample. A tap of ~ then digits =
                 // one of our own instruments (~1 Fluoddity); the two
                 // coexist because digits are never note keys.
@@ -4842,6 +4828,7 @@ final class MenuBandController {
         hammerGeneration &+= 1
         hammerOrder.removeAll()
         debugLog("hammer down rate=\(hammerRate)")
+        notifyHammerReadout()
         // The first fall lands at once; the rest breathe around the rate.
         scheduleHammerStrike(after: 0, generation: hammerGeneration)
     }
@@ -4852,6 +4839,7 @@ final class MenuBandController {
         hammerGeneration &+= 1
         sweepHammerOrphans()
         debugLog("hammer up")
+        notifyHammerReadout()
     }
 
     /// Something else released every note (fleet Stop, panic): the hammer
@@ -4886,6 +4874,14 @@ final class MenuBandController {
                          max(Self.hammerRateRange.lowerBound,
                              hammerRate * (up ? factor : 1 / factor)))
         debugLog("hammer rate=\(String(format: "%.1f", hammerRate))/s")
+        notifyHammerReadout()
+    }
+
+    /// The popover's held-note banner shows the hammer while it runs; poke
+    /// the lit-state path so it redraws on begin, end and every rate step.
+    private func notifyHammerReadout() {
+        let notify: () -> Void = { [weak self] in self?.onLitChanged?() }
+        if Thread.isMainThread { notify() } else { DispatchQueue.main.async(execute: notify) }
     }
 
     /// Stochastic: the mean period, jittered log-uniformly over half to

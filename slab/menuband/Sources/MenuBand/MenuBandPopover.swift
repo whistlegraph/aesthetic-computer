@@ -1530,6 +1530,13 @@ final class MenuBandPopoverViewController: NSViewController {
         // separate note labels. Falls back to per-note boxes for
         // anything that doesn't resolve to a known shape (and for
         // 1-2 note plays where there's no chord to compute).
+        // Space hammer readout: a box up front with the mean strike rate
+        // while the hammer runs (↑/↓ or =/- steer it, and this redraws).
+        if m.isHammering {
+            heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: m.hammerRateLabel,
+                                                               key: "⚒",
+                                                               color: .systemOrange))
+        }
         if let chord = m.currentChordName() {
             heldNotesStack.addArrangedSubview(makeHeldNoteBox(name: chord,
                                                                key: nil,
