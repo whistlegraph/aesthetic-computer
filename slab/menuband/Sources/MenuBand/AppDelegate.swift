@@ -603,6 +603,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// plain focus traversal can't steal the gesture — Tab toggles percussion
     /// and pitch bend instead. Needs Accessibility (same as TYPE mode);
     /// when it can't install, the local-monitor plain-Tab path still toggles
+    /// ⌥ is a chord hand in Menu Band, and macOS opens System Settings for
+    /// ⌥ + any media-row key system-wide (Sound for volume/mute, Displays for
+    /// brightness, Keyboard for the key light). Mid-performance that launch
+    /// activates System Settings and the capture panel resigns: the 11:50
+    /// defocus on 2026-10-22 was exactly this, with the Sound pane up. While
+    /// performance focus is armed, ⌥-media chords are sunk before the system
+    /// sees them. Plain media keys still pass, and every one is logged.
+    private func installMediaKeyGuard() {
+        guard bendTabTap.onSystemDefined == nil else { return }
+        bendTabTap.onSystemDefined = { [weak self] keyType, isDown, flags in
+            guard let self,
+                  self.keyboardPerformanceFocusActive || self.pitchBendCursorPushed
+            else { return false }
+            let option = flags.contains(.maskAlternate)
+            if isDown {
+                debugLog("media key type=\(keyType) during focus option=\(option)\(option ? " — sunk (opens System Settings)" : "")")
+            }
+            return option
+        }
+    }
+
     /// (it just can't suppress ⌘-Tab). `pitchBendCursorPushed` is read from the
     /// tap thread — a Bool set on main; a one-frame stale read is harmless.
     private lazy var bendTabTap: KeyEventTap = KeyEventTap(source: .bendTab) {
@@ -976,6 +997,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         runMBScoreIfRequested()
         // Try to install the Tab-suppression tap up front (retried per-bend in
         // case Accessibility is granted after launch).
+        installMediaKeyGuard()
         _ = bendTabTap.start()
         #endif
         // Apply forceLayout *before* statusItem creation so the initial
@@ -7335,6 +7357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Ensure the Tab-suppression tap is live for this gesture (no-op if
             // already running; retries here in case Accessibility was granted
             // after launch).
+            installMediaKeyGuard()
             _ = bendTabTap.start()
             #endif
             // Hide the real system cursor and show the floating

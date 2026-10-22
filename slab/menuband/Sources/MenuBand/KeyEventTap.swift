@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import CoreGraphics
 
@@ -14,6 +15,15 @@ final class KeyEventTap {
     private var threadRunLoop: CFRunLoop?
     private let handler: Handler
     private let diagnosticSource: SessionDiagnostics.Source
+    /// The keyboard's media row — volume, mute, brightness, keyboard light,
+    /// play — arrives as NSSystemDefined (type 14, subtype 8), never as a
+    /// keyDown, so the key handler above never sees it. Set before `start()`
+    /// to receive (keyType, isDown, flags); return true to consume. keyType
+    /// is NX_KEYTYPE_*: 0/1 volume, 2/3 brightness, 7 mute, 16–20 transport,
+    /// 21/22 keyboard light.
+    var onSystemDefined: ((_ keyType: Int, _ isDown: Bool, _ flags: CGEventFlags) -> Bool)?
+    private static let systemDefinedType: UInt32 = 14
+    private static let auxControlSubtype = 8
 
     init(source: SessionDiagnostics.Source = .globalKeyboard, handler: @escaping Handler) {
         self.diagnosticSource = source
@@ -23,11 +33,14 @@ final class KeyEventTap {
     func start() -> Bool {
         guard tap == nil else { return true }
 
-        let mask: CGEventMask =
+        var mask: CGEventMask =
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue) |
             (1 << CGEventType.tapDisabledByTimeout.rawValue) |
             (1 << CGEventType.tapDisabledByUserInput.rawValue)
+        if onSystemDefined != nil {
+            mask |= (1 << CGEventMask(Self.systemDefinedType))
+        }
 
         let opaque = Unmanaged.passRetained(self).toOpaque()
 
@@ -48,6 +61,13 @@ final class KeyEventTap {
                 let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
                 let consume = me.handler(kc, type == .keyDown, isRepeat, event.flags)
                 if consume { return nil }  // sink — don't propagate to focused app
+            }
+            if type.rawValue == KeyEventTap.systemDefinedType, let onSystemDefined = me.onSystemDefined,
+               let ns = NSEvent(cgEvent: event), ns.subtype.rawValue == KeyEventTap.auxControlSubtype {
+                let data1 = ns.data1
+                let keyType = (data1 & 0xFFFF0000) >> 16
+                let isDown = ((data1 & 0xFF00) >> 8) == 0xA
+                if onSystemDefined(keyType, isDown, event.flags) { return nil }
             }
             return Unmanaged.passUnretained(event)
         }
