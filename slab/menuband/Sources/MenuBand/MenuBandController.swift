@@ -253,9 +253,9 @@ final class MenuBandController {
     /// through the modes and the switch takes effect mid-hold (the old
     /// gesture lets go, the new one begins). The choice sticks across holds.
     enum SpaceMode: String, CaseIterable { case reverse, hammer }
-    /// Hammer is the default for now (2026-10-21); reverse stays one
-    /// ←/→-while-Space step away.
-    private var spaceMode: SpaceMode = .hammer
+    /// Reverse is the default (restored 2026-10-22 after a day of hammer);
+    /// hammer stays one ←/→-while-Space step away.
+    private var spaceMode: SpaceMode = .reverse
     private var spaceKeyHeld = false
 
     /// Space hammer. HOLDING Space in hammer mode re-strikes whatever notes
