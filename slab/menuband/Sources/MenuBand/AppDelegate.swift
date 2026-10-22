@@ -5485,6 +5485,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         let offEpoch = onEpoch + max(0.025, dur * 0.9)
                         DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
                             guard let self = self, self.playGeneration == gen else { return }
+                            // The face jumps on every kick; velocity 0 is a silent kick
+                            // (another member sounds it) so all faces land together.
+                            if drum == .kick, faceMember != nil { face.kick() }
+                            guard vel > 0 else { return }
                             let group = self.menuBand.percussionNoteOn(
                                 drum, velocity: vel, pan: 64, accent: false
                             )

@@ -5,6 +5,7 @@ import CoreGraphics
 // Low-latency global keyboard listener. Runs on a dedicated user-interactive
 // thread so key events bypass the main run loop entirely.
 final class KeyEventTap {
+    fileprivate var lastAlphaShift = false   // Caps Lock state seen by the tap (see the system-defined guard)
     /// Returns true to CONSUME the event (sink it — focused app won't see it),
     /// false to let it propagate normally.
     typealias Handler = (_ keyCode: UInt16, _ isDown: Bool, _ isRepeat: Bool, _ flags: CGEventFlags) -> Bool
@@ -62,7 +63,16 @@ final class KeyEventTap {
                 let consume = me.handler(kc, type == .keyDown, isRepeat, event.flags)
                 if consume { return nil }  // sink — don't propagate to focused app
             }
+            // NSEvent(cgEvent:) on this tap thread trips AppKit's main-queue assertion
+            // when the event carries a Caps Lock transition (TSMSetCapsLockKeyTransitionDetected
+            // → ProcessCapsLockSequenceKeyUp; neo crashed mid-piece, TIAT Oct 22). A
+            // system-defined event with Caps Lock held, or across a Caps Lock change, is
+            // never a media key we care about: let it pass untouched.
+            let alpha = event.flags.contains(.maskAlphaShift)
+            let alphaChanged = alpha != me.lastAlphaShift
+            me.lastAlphaShift = alpha
             if type.rawValue == KeyEventTap.systemDefinedType, let onSystemDefined = me.onSystemDefined,
+               !alpha, !alphaChanged,
                let ns = NSEvent(cgEvent: event), ns.subtype.rawValue == KeyEventTap.auxControlSubtype {
                 let data1 = ns.data1
                 let keyType = (data1 & 0xFFFF0000) >> 16

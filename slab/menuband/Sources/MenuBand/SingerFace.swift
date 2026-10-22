@@ -171,6 +171,12 @@ final class SingerFace {
         view?.onset(syllable, hold: hold)
     }
 
+    /// A kick drum lands: the whole face jumps and settles (TIAT, Oct 22).
+    func kick(_ strength: CGFloat = 1) {
+        precondition(Thread.isMainThread)
+        view?.kickPulse = max(view?.kickPulse ?? 0, strength)
+    }
+
     /// Between lines the face rests: lids down, eyes drifting, a slow breath.
     func rest(_ resting: Bool) {
         precondition(Thread.isMainThread)
@@ -227,6 +233,7 @@ final class SingerFaceView: NSView {
     private var performanceEpoch = 0.0, performanceBpm = 88.0
     private var expression: CGFloat = 0
     private var effort: CGFloat = 0, breath: CGFloat = 0, beatPulse: CGFloat = 0
+    var kickPulse: CGFloat = 0            // a kick drum's jump, decaying over ~150 ms
     private var lastMusicalBeat = -1
     private var lastTick = CACurrentMediaTime()
     private var cameraPhase = 0.0
@@ -434,6 +441,7 @@ final class SingerFaceView: NSView {
         gaze.y += (gazeTarget.y - gaze.y) * response
         squash *= CGFloat(exp(-dt/0.067))
         beatPulse *= CGFloat(exp(-dt/0.12))
+        kickPulse *= CGFloat(exp(-dt/0.15))
         // Jaw from the audio: fast attack, softer release. With no meter for
         // half a second (no tap yet) fall back to the onset-and-decay pulse.
         let metered = now.timeIntervalSince(lastMeter) < 0.5
@@ -587,7 +595,7 @@ final class SingerFaceView: NSView {
         ctx.translateBy(x: W * (isBB ? 0.014 : isFrisbee ? 0.035 : 0.026) * motion * sway,
                         y: H * mood * (breath*0.014 + life*0.016 + softBreath*0.003 - nod + bounce))
         ctx.rotate(by: motion * (isBB ? 0.012 : isFrisbee ? 0.04 : 0.025) * sway)
-        let zoom = 1 + mood * (0.055*(1-life) + 0.04*life + 0.018*beatPulse*life + 0.008*breath + softBreath*0.003)
+        let zoom = 1 + mood * (0.055*(1-life) + 0.04*life + 0.018*beatPulse*life + 0.008*breath + softBreath*0.003) + 0.085*kickPulse
         ctx.scaleBy(x: zoom, y: zoom)
         ctx.translateBy(x: -W/2, y: -H/2)
         // squash on the onset around the face's center, leaning left then right
@@ -708,8 +716,10 @@ final class SingerFaceView: NSView {
                 // Lids: blueberry's are heavy by nature; everyone's come down
                 // while resting, until the eye is a slit under the lid line.
                 let lidBase = isBB ? eh * (0.2 + mood*energy*0.3) : eh * 1.05
-                let lid = lidBase - drowsy * (lidBase + eh * 0.72)
-                if isBB || drowsy > 0.02 {
+                // A kick makes the face wince: the lids drop for the length of the jump.
+                let squint = max(drowsy, min(1, kickPulse * 0.7))
+                let lid = lidBase - squint * (lidBase + eh * 0.72)
+                if isBB || squint > 0.02 {
                     ctx.saveGState(); ctx.clip(eye)
                     ctx.fill(NSBezierPath(rect: CGRect(x: cx - ew * 1.2, y: cy + lid, width: ew * 2.4, height: eh * 2.4)),
                              color: accent.withAlphaComponent(0.5 + 0.5 * skin))   // a ghost's lids are a little sheer too
@@ -722,7 +732,7 @@ final class SingerFaceView: NSView {
             }
             // brow
             let brow = NSBezierPath()
-            let lift = mood * H * (0.035*life - 0.012*(1-life) + 0.012*breath + 0.012*beatPulse*life)
+            let lift = mood * H * (0.035*life - 0.012*(1-life) + 0.012*breath + 0.012*beatPulse*life) - H * 0.03 * kickPulse   // brows furrow on the kick
             let curiosity = !isBB && !isFrisbee ? side*H*0.018 : 0
             let by = min(H*0.835, cy + eh * (isBB ? 1.25 : 1.39) + lift + curiosity) + H * 0.005 * j(Int(side) + 30, 6)
             brow.move(to: CGPoint(x: cx - ew * 0.95, y: by - (isBB ? 0 : eh * 0.12)))
