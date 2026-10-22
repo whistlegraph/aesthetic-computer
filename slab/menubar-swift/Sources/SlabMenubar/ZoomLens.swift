@@ -58,6 +58,11 @@ enum ZoomLens {
     /// windows may only have a little room to grow, and forcing a minimum zoom
     /// would crop them instead of preserving the whole window in the viewport.
     private static let maxFactor: CGFloat = 8.0
+    /// A menu bar item is a wide strip, so fitting it alone fills the screen's
+    /// width with no neighbors in sight. Frame it with this much of the bar on
+    /// each side instead: the item stays centred and dominant (~60% of the width),
+    /// and the items to its left and right say where you are (jeffrey, Oct 22).
+    private static let statusItemContext: CGFloat = 1.5
     /// Floating-point slop — the compositor reports 1.0029 for "not zoomed".
     private static let zoomedThreshold: CGFloat = 1.01
     /// Window-list hit-testing is much heavier than reading a pointer sample.
@@ -312,7 +317,8 @@ enum ZoomLens {
             }
 
             if isStatusItem(layer: layer, rect: rect) {
-                return Target(id: number, frame: rect)
+                let padded = rect.insetBy(dx: -rect.width * (statusItemContext - 1) / 2, dy: 0)
+                return Target(id: number, frame: padded)
             }
         }
 
