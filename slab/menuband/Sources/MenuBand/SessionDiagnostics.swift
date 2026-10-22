@@ -23,7 +23,7 @@ final class SessionDiagnostics {
         case invalidOutput, stalledOutput, engineStopped
     }
     enum Source: String, Codable {
-        case app, localCapture, globalKeyboard, commandSpace, bendTab, quietFocus, audio
+        case app, localCapture, globalKeyboard, commandSpace, bendTab, quietFocus, audio, gestureTap
     }
     struct Row: Codable {
         let schema: Int

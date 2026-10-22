@@ -257,6 +257,19 @@ final class MenuBandController {
     /// hammer stays one ←/→-while-Space step away.
     private var spaceMode: SpaceMode = .reverse
     private var spaceKeyHeld = false
+    /// The reverse clip is a one-shot of up to `captureSeconds` (90 s), so a
+    /// Space key-up that never arrives — Tab's pad handoff, a focus change
+    /// under the held key — leaves it playing for over a minute. While Space
+    /// is held this polls the physical key and ends the gesture itself the
+    /// moment the key is really up. Armed only when the key-state read
+    /// agreed with the key-down, so a keyboard the API can't see never has
+    /// its real hold cut short.
+    private var spaceWatchdog: Timer?
+    private var spaceKeyStateTrusted = false
+    private static let spaceKeyCode = CGKeyCode(49)
+    private static func physicalSpaceIsDown() -> Bool {
+        CGEventSource.keyState(.hidSystemState, key: spaceKeyCode)
+    }
 
     /// Space hammer. HOLDING Space in hammer mode re-strikes whatever notes
     /// are held or latched like a randomized hammer: stochastic timing
@@ -3985,6 +3998,14 @@ final class MenuBandController {
         // Handed ⌘/⌥: a modifier held by the other hand leaves this key a
         // plain note, and that note is consumed — it must never fall through
         // to the focused app as a shortcut.
+        // A Space key-up can go missing when the capture route changes
+        // under a held key. The physical key state is the truth: if Space is
+        // up on the keyboard but still held here, end it before this key.
+        if spaceKeyHeld, spaceKeyStateTrusted, keyCode != 49, isDown, !isRepeat,
+           !Self.physicalSpaceIsDown() {
+            debugLog("space key-up never arrived; ending \(spaceMode.rawValue) on key \(keyCode)")
+            endSpace()
+        }
         let chord = Self.chordFlags(rawFlags: flags.rawValue,
                                     hand: chordHand(forKeyCode: keyCode))
         let hasMod = chord.modifier
@@ -4780,17 +4801,44 @@ final class MenuBandController {
     /// Space went down: start whatever the current mode does.
     private func beginSpace() {
         spaceKeyHeld = true
-        debugLog("space down mode=\(spaceMode.rawValue)")
+        spaceKeyStateTrusted = Self.physicalSpaceIsDown()
+        debugLog("space down mode=\(spaceMode.rawValue) hidKeyState=\(spaceKeyStateTrusted)")
         switch spaceMode {
         case .reverse: rewind()
         case .hammer: beginHammer()
         }
+        if spaceKeyStateTrusted { startSpaceWatchdog() }
+    }
+
+    private func startSpaceWatchdog() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.spaceKeyHeld else { return }
+            self.spaceWatchdog?.invalidate()
+            let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                guard self.spaceKeyHeld else { self.stopSpaceWatchdog(); return }
+                if !Self.physicalSpaceIsDown() {
+                    debugLog("space watchdog: key is up but no key-up arrived — ending \(self.spaceMode.rawValue)")
+                    self.endSpace()
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            self.spaceWatchdog = timer
+        }
+    }
+
+    private func stopSpaceWatchdog() {
+        spaceWatchdog?.invalidate()
+        spaceWatchdog = nil
     }
 
     /// Space came up: end the current mode's gesture. Each end is safe to
     /// call when nothing began (a key-up after a mode switch, say).
     private func endSpace() {
         spaceKeyHeld = false
+        debugLog("space up mode=\(spaceMode.rawValue)")
+        if Thread.isMainThread { stopSpaceWatchdog() }
+        else { DispatchQueue.main.async { [weak self] in self?.stopSpaceWatchdog() } }
         switch spaceMode {
         case .reverse: rewindRelease()
         case .hammer: endHammer()
@@ -5008,6 +5056,14 @@ final class MenuBandController {
     }
 
     func releaseAllHeldNotes() {
+        // A blanket release also lets go of Space. Focus loss, Tab's pad
+        // handoff and the panic path all land here, and any of them can
+        // swallow the key-up that would have ended the dive or the hammer —
+        // the reverse then plays on with nothing holding it.
+        if spaceKeyHeld {
+            debugLog("release-all ends held Space")
+            endSpace()
+        }
         cancelHammer()
         heldLock.lock()
         let noteSnapshot = heldNotes

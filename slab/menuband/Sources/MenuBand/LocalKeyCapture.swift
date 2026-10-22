@@ -85,6 +85,18 @@ final class LocalKeyCapture {
         !hasKeyWindow && (!keepsCaptureArmed || !hasProtectedTrackDrumInput)
     }
 
+    /// While percussion owns the trackpad, a tap-to-click that lands on our
+    /// own menu bar piano is still a drum hit, not a press: the hidden
+    /// pointer often rests there. Treating it as a status-item press waits
+    /// for a `statusClicked` that the local click shield swallows, and the
+    /// orphan check then drops focus 0.3 s later. Reclaim instead.
+    static func shouldReclaimCaptureAfterResign(
+        keepsCaptureArmed: Bool,
+        hasProtectedTrackDrumInput: Bool
+    ) -> Bool {
+        keepsCaptureArmed && hasProtectedTrackDrumInput
+    }
+
     /// TrackDrum contacts arrive just before AppKit synthesizes a click from
     /// the same physical tap. Protect only that narrow handoff, so an external
     /// mouse click or keyboard app switch still exits focused performance.
@@ -171,7 +183,13 @@ final class LocalKeyCapture {
                 SessionDiagnostics.shared.record(.captureResigned, reason: .resignedKey,
                                                  source: .localCapture, state: stillKeyInApp)
                 guard !stillKeyInApp else { return }
-                if self.isOwnStatusItemPress?() == true {
+                let protectedInput = CACurrentMediaTime() <= self.protectedResignUntil
+                let ownPress = self.isOwnStatusItemPress?() == true
+                debugLog("capture resigned: ownStatusItemPress=\(ownPress) trackDrumProtected=\(protectedInput) keepsArmed=\(self.keepsCaptureArmedOnResign) buttons=\(NSEvent.pressedMouseButtons) appActive=\(NSApp.isActive)")
+                if ownPress, !Self.shouldReclaimCaptureAfterResign(
+                    keepsCaptureArmed: self.keepsCaptureArmedOnResign,
+                    hasProtectedTrackDrumInput: protectedInput
+                ) {
                     // A press on our own piano. Hold capture through the
                     // click; `statusClicked` re-arms after the mouse-up.
                     // If the press ends and nothing re-keyed us, let go.
@@ -231,6 +249,15 @@ final class LocalKeyCapture {
             }
             let keyInApp = NSApp.windows.contains { $0.isKeyWindow }
             if !keyInApp && !NSApp.isActive {
+                if Self.shouldReclaimCaptureAfterResign(
+                    keepsCaptureArmed: self.keepsCaptureArmedOnResign,
+                    hasProtectedTrackDrumInput: CACurrentMediaTime() <= self.protectedResignUntil
+                ) {
+                    SessionDiagnostics.shared.record(.capturePreserved, reason: .trackDrumShield, source: .localCapture)
+                    debugLog("status-item press orphaned during trackpad percussion — reclaiming capture")
+                    self.arm()
+                    return
+                }
                 SessionDiagnostics.shared.record(.focusExitRequested, reason: .statusItemOrphaned, source: .localCapture)
                 self.disarm(reason: .resignedKey)
             }

@@ -302,7 +302,18 @@ final class ShapedownGestureTap {
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let me = Unmanaged<ShapedownGestureTap>.fromOpaque(refcon).takeUnretainedValue()
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                if let tap = me.tap { CGEvent.tapEnable(tap: tap, enable: true) }
+                // A disabled shield passes the trackpad's synthesized clicks
+                // straight to whatever sits under the hidden pointer; the
+                // ledger has to show that window so a defocus can be read.
+                SessionDiagnostics.shared.record(.tapDisabled,
+                                                 reason: type == .tapDisabledByTimeout ? .timeout : .userInput,
+                                                 source: .gestureTap)
+                if let tap = me.tap {
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                    SessionDiagnostics.shared.record(.tapReenabled, source: .gestureTap,
+                                                     state: CGEvent.tapIsEnabled(tap: tap))
+                }
+                debugLog("trackpad click shield tap disabled (\(type.rawValue)) — re-enabled")
                 return Unmanaged.passUnretained(event)
             }
             if type == .leftMouseDown {
@@ -360,9 +371,11 @@ final class ShapedownGestureTap {
         self.thread = thread
         let started = ready.wait(timeout: .now() + 0.25) == .success
         guard started, CGEvent.tapIsEnabled(tap: tap) else {
+            SessionDiagnostics.shared.record(.tapFailed, source: .gestureTap)
             stop()
             return false
         }
+        SessionDiagnostics.shared.record(.tapStarted, source: .gestureTap)
         return true
     }
 

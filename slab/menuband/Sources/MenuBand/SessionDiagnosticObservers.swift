@@ -36,8 +36,14 @@ final class SessionDiagnosticObservers {
         let token = workspace.addObserver(forName: NSWorkspace.didActivateApplicationNotification,
                                          object: nil, queue: .main) { notification in
             let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            diagnostics.record(.workspaceActivation,
-                               state: app?.processIdentifier == ProcessInfo.processInfo.processIdentifier)
+            let isSelf = app?.processIdentifier == ProcessInfo.processInfo.processIdentifier
+            diagnostics.record(.workspaceActivation, state: isSelf)
+            if !isSelf {
+                // Which app took the front is the one fact a defocus
+                // post-mortem always needs; the ledger carries no identifiers,
+                // so it goes to the debug log.
+                debugLog("workspace activated: \(app?.bundleIdentifier ?? "?") pid=\(app?.processIdentifier ?? -1)")
+            }
         }
         observers.append((workspace, token))
     }
