@@ -111,15 +111,22 @@ final class SingerFace {
     }
 
     /// Preroll from a new phrase must not close the still-singing old phrase.
+    /// Returns nil (the audio tap drives the jaw) when no phrase is on its own
+    /// clock inside its buffer: a dead clock, an out-of-range time or an empty cue
+    /// list must not pin the mouth to the rest pose while it audibly sings (TIAT, Oct 22).
     func mouthPose() -> SingerMouthPose? {
         guard !performances.isEmpty else { return nil }
         var selected: (pose: SingerMouthPose, energy: Double)?
+        var timed = false
         for (a, clock) in performances.values {
-            guard let t = clock(), a.active(at: t) else { continue }
+            guard !a.cues.isEmpty, let t = clock() else { continue }
+            if t >= 0, t < a.duration { timed = true }
+            guard a.active(at: t) else { continue }
             let energy = a.level(at: max(0, t))
             if selected == nil || energy > selected!.energy { selected = (a.pose(at: t), energy) }
         }
-        return selected?.pose ?? SingerViseme.rest.pose
+        if let selected { return selected.pose }
+        return timed ? SingerViseme.rest.pose : nil
     }
 
     /// `skin` < 1 (payload `faceAlpha`) turns the flat color into a translucent
@@ -644,12 +651,13 @@ final class SingerFaceView: NSView {
             }
         }
 
-        // Soft blush builds with vocal effort, never replacing member color.
+        // Rosy cheeks: always there (jeffrey, TIAT Oct 22), fuller with vocal
+        // effort and breath, never replacing member color.
         for side in [-1,1] as [CGFloat] {
-            let cheek = NSBezierPath(ovalIn: CGRect(x: W/2 + side*W*0.265 - W*0.105,
-                y: H*0.39, width: W*0.21, height: H*(0.12 + breath*0.018)))
-            let red = NSColor(srgbRed: 1, green: 0.12, blue: 0.18,
-                              alpha: mood*(0.055 + 0.55*life + 0.08*breath))
+            let cheek = NSBezierPath(ovalIn: CGRect(x: W/2 + side*W*0.265 - W*0.12,
+                y: H*0.385, width: W*0.24, height: H*(0.135 + breath*0.02 + life*0.015)))
+            let red = NSColor(srgbRed: 1, green: 0.16, blue: 0.24,
+                              alpha: mood*(0.26 + 0.45*life + 0.1*breath))
             ctx.gradient(in: cheek, color: red)
             if isFrisbee {
                 // A small constellation of freckles stays readable when quiet.
@@ -762,7 +770,7 @@ final class SingerFaceView: NSView {
                 ink(lower, width: line * 0.5 * press, fill: nil)
             }
         } else {
-            var w = mw, h = H * 0.17 * openness
+            var w = mw, h = H * 0.2 * openness      // a touch more jaw, readable across a room
             var teeth = true, tongue = false, bite = false
             if let pose {
                 w *= CGFloat(pose.width)

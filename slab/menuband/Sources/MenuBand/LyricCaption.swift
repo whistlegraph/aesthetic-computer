@@ -66,7 +66,8 @@ final class LyricCaption {
 
     /// Put line `line` up: `tokens` are its words, syllables joined by "-".
     /// `size` 0 = scale with the screen. Bottom-center of the menu-bar screen.
-    func show(line: Int, tokens: [String], accent: NSColor, size requested: CGFloat) {
+    /// `single`: the line is one word, sung now — larger type, tighter letters.
+    func show(line: Int, tokens: [String], accent: NSColor, size requested: CGFloat, single: Bool = false) {
         precondition(Thread.isMainThread)
         guard let screen = NSScreen.screens.first ?? NSScreen.main else { return }
         let stage = slot?.tile(on: screen) ?? screen.frame       // the panel's frame: the tile, or the screen
@@ -93,6 +94,7 @@ final class LyricCaption {
         guard !chars.isEmpty, nsyl > 0 else { return }
 
         var pt = requested > 0 ? requested
+            : single && slot == nil ? max(34, round(stage.width / 17))
             : slot == nil ? max(22, round(stage.width / 34))
             : slot?.corner == true ? max(13, round(stage.width / 17)) : max(11, round(stage.width / 26))
         let maxWidth = stage.width * 0.86
@@ -101,7 +103,8 @@ final class LyricCaption {
         // Tracking: each letter is drawn with a colored outline and a hard drop that
         // reach past its bare advance, and later letters sit above earlier ones — so
         // without this the outlines ate into their neighbors (jeffrey, Oct 21).
-        var tracking: CGFloat { ceil(pt * 0.11) }
+        // A single sung word reads as one shape: the letters sit close (jeffrey, Oct 22).
+        var tracking: CGFloat { ceil(pt * (single ? 0.035 : 0.11)) }
         func measure() -> CGFloat {
             widths = chars.map { ceil((String($0.ch) as NSString).size(withAttributes: [.font: font]).width) + tracking }
             return widths.reduce(0, +) - tracking

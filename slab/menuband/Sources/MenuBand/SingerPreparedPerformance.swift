@@ -54,19 +54,72 @@ final class SingerPreparedPerformance {
             try data.write(to:dir.appendingPathComponent("status.json"),options:.atomic)
         } catch { NSLog("Trio prepare status write failed: %@",error.localizedDescription) }
     }
+    /// A stop cancels renders in flight; finished takes stay memorized, so the
+    /// next fleetReady is instant instead of a fresh 35-second render (TIAT, Oct 22).
     func cancelAll() {
         generation += 1
         for id in entries.keys { status(id,phase:"stopped") }
-        entries.removeAll()
     }
     func ready(_ id: String) {
         guard Self.validID(id) else { return }
-        guard let entry = entries[id] else { status(id,phase:"unready",extra:["reason":"Not prepared in this app instance"]); return }
+        guard let entry = entries[id] ?? restore(id,info:nil) else { status(id,phase:"unready",extra:["reason":"Not prepared in this app instance"]); return }
         status(id,phase:"ready",extra:["fingerprint":entry.fingerprint,"phrases":entry.renders.count])
     }
     func take(_ id: String, info: [String:String]) -> [SungRender]? {
-        guard let entry = entries[id], entry.fingerprint == Self.fingerprint(info) else { return nil }
+        guard let entry = entries[id] ?? restore(id,info:info), entry.fingerprint == Self.fingerprint(info) else { return nil }
         return entry.renders
+    }
+    /// A take rendered earlier (by this or a previous app instance, before a stop,
+    /// a crash or a relaunch) comes back from its exported files: the exact samples,
+    /// their mouth cues, and an energy curve re-measured from the samples.
+    @discardableResult
+    func restore(_ id: String, info: [String:String]?) -> Entry? {
+        guard Self.validID(id) else { return nil }
+        let dir = Self.root.appendingPathComponent(id,isDirectory:true)
+        guard let data = try? Data(contentsOf:dir.appendingPathComponent("manifest.json")),
+              let m = (try? JSONSerialization.jsonObject(with:data)) as? [String:Any],
+              let fingerprint = m["fingerprint"] as? String,
+              let payload = m["payload"] as? [String:String],
+              let phrases = m["phrases"] as? [[String:Any]], !phrases.isEmpty else { return nil }
+        if let info, Self.fingerprint(info) != fingerprint { return nil }
+        var renders: [SungRender] = []
+        for p in phrases {
+            // The .f32 file is the exact sample memory, hash-pinned in the manifest.
+            guard let rawName = p["rawFile"] as? String, let rawHash = p["rawSha256"] as? String,
+                  let frames = p["frames"] as? Int, frames > 0,
+                  let sr = p["sampleRate"] as? Double, let spanOffset = p["spanOffset"] as? Double,
+                  let notesUsed = p["notesUsed"] as? Int, let noteCount = p["noteCount"] as? Int,
+                  let cueList = p["mouthCues"] as? [[String:Any]],
+                  let raw = try? Data(contentsOf:dir.appendingPathComponent(rawName)), raw.count == frames*4,
+                  SHA256.hash(data:raw).map({ String(format:"%02x",$0) }).joined() == rawHash,
+                  let format = AVAudioFormat(commonFormat:.pcmFormatFloat32,sampleRate:sr,channels:1,interleaved:false),
+                  let buffer = AVAudioPCMBuffer(pcmFormat:format,frameCapacity:AVAudioFrameCount(frames)),
+                  let samples = buffer.floatChannelData?[0] else {
+                NSLog("🎤 prepared take %@: phrase files incomplete or altered; rendering again",id); return nil
+            }
+            buffer.frameLength = AVAudioFrameCount(frames)
+            raw.withUnsafeBytes { bytes in _ = memcpy(samples,bytes.baseAddress!,frames*4) }
+            let cues = cueList.compactMap { c -> SingerArticulation.Cue? in
+                guard let s = c["start"] as? Double, let e = c["end"] as? Double,
+                      let raw = c["shape"] as? String, let shape = SingerViseme(rawValue:raw) else { return nil }
+                return .init(start:s,end:e,shape:shape)
+            }
+            let hop = max(1,Int(sr/SingerArticulation.energyRate))
+            var energy: [Double] = []; var peak: Float = 0; var i = 0
+            while i < frames {
+                let n = min(hop,frames-i); var sum: Float = 0
+                for j in 0..<n { let v = samples[i+j]; sum += v*v; peak = max(peak,abs(v)) }
+                energy.append(Double(sqrt(sum/Float(n)))); i += hop
+            }
+            if peak > 0 { energy = energy.map { min(1,$0/Double(peak)) } }
+            var render = SungRender(buffer:buffer,spanOffset:spanOffset,notesUsed:notesUsed,noteCount:noteCount,peak:peak)
+            render.articulation = SingerArticulation(cues:cues,energy:energy,duration:Double(frames)/sr)
+            renders.append(render)
+        }
+        let entry = Entry(info:payload,fingerprint:fingerprint,renders:renders)
+        entries[id] = entry
+        NSLog("🎤 prepared take %@ restored from disk: %d phrases",id,renders.count)
+        return entry
     }
     func prepare(_ id: String, info: [String:String], singer: MenuBandSinger, format: AVAudioFormat) {
         guard Self.validID(id) else { return }
@@ -76,7 +129,7 @@ final class SingerPreparedPerformance {
               format.channelCount == 1 else {
             status(id,phase:"error",extra:["reason":"Requires valid notes, BPM, pinned Enhanced/Premium voice and mono format"]); return
         }
-        if let old = entries[id] {
+        if let old = entries[id] ?? restore(id,info:info) {
             guard old.fingerprint == Self.fingerprint(info) else { status(id,phase:"error",extra:["reason":"ID already holds a different payload"]); return }
             ready(id); return
         }

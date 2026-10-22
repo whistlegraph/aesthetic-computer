@@ -104,13 +104,32 @@ final class MenuBandSingerVoice {
                 // The face samples the same player clock as this buffer. A
                 // delayed start, engine stall or stop cannot leave it singing
                 // on the conductor's old wall-clock timeline.
-                self.face.follow(articulation, slot: ObjectIdentifier(node)) { [weak node] in
-                    guard let node, node.isPlaying, let rt = node.lastRenderTime,
-                          let pt = node.playerTime(forNodeTime: rt) else { return nil }
-                    let hostNow = ProcessInfo.processInfo.systemUptime
-                    let sinceRender = max(0, hostNow - AVAudioTime.seconds(forHostTime: rt.hostTime))
-                    return Double(pt.sampleTime) / pt.sampleRate + sinceRender
-                        - presentationLatency
+                // The player's own sample clock when it is sane; otherwise the wall
+                // clock since this phrase fired (blueberry's player reported 60 s into
+                // a 3 s phrase on Oct 22 — a stale render time — which froze the mouth).
+                let firedAt = Date().timeIntervalSince1970
+                let span = Double(render.buffer.frameLength) / render.buffer.format.sampleRate + 0.5
+                let clock: () -> Double? = { [weak node] in
+                    guard let node, node.isPlaying else { return nil }
+                    if let rt = node.lastRenderTime, let pt = node.playerTime(forNodeTime: rt) {
+                        let hostNow = ProcessInfo.processInfo.systemUptime
+                        let sinceRender = max(0, hostNow - AVAudioTime.seconds(forHostTime: rt.hostTime))
+                        let t = Double(pt.sampleTime) / pt.sampleRate + sinceRender - presentationLatency
+                        if t >= -0.25, t <= span { return t }
+                    }
+                    let t = Date().timeIntervalSince1970 - firedAt - presentationLatency
+                    return t <= span ? t : nil
+                }
+                self.face.follow(articulation, slot: ObjectIdentifier(node), clock: clock)
+                // Proof of lip-sync: half a second in, where the face thinks the phrase is.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    let t = clock()
+                    NSLog("🎭 mouth: t=%@ cues=%d dur=%.2f first=%.2f active=%d face=%@ hostValid=%d",
+                          t.map { String(format: "%.3f", $0) } ?? "nil", articulation.cues.count,
+                          articulation.duration, articulation.cues.first?.start ?? -1,
+                          t.map { articulation.active(at: $0) ? 1 : 0 } ?? -1,
+                          self?.face === SingerFace.shared ? "shared" : "tile",
+                          node.lastRenderTime?.isHostTimeValid == true ? 1 : 0)
                 }
             }
             NSLog("🎤 sing: playing %.2f s now",

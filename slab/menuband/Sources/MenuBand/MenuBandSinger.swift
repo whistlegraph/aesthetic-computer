@@ -382,6 +382,9 @@ final class MenuBandSinger {
                 sorted[sorted.count - 1].range = NSUnionRange(previous.range, mark.range)
             } else { sorted.append(mark) }
         }
+        // A one-word line needs no markers: the whole utterance is that word.
+        // (Noelle returned none for Chroma Choir's single-word phrase, TIAT Oct 22.)
+        if sorted.isEmpty, words.count == 1, sampleCount > 0 { return [(a: 0, b: sampleCount)] }
         var result = [(a: Int, b: Int)?](repeating: nil, count: words.count)
         for (j, mark) in sorted.enumerated() {
             let indices = words.indices.filter { NSIntersectionRange(words[$0], mark.range).length > 0 }
