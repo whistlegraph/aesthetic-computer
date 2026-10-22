@@ -7,6 +7,12 @@
 // Left-left and right-right both summon the app. Mixed-side pairs do not, so
 // ordinary two-handed Command use remains harmless.
 //
+// It also answers for the app in Finder. Nested inside Menu Band.app, this
+// helper is "the app from that bundle" as far as LaunchServices can tell, so
+// a double-click on the icon or `open -a "Menu Band"` never launches the
+// main binary — it just sends this process a reopen event. We handle that
+// event the way the click meant: start Menu Band, or raise its popover.
+//
 // CGEventTap variant: an earlier version used
 // NSEvent.addGlobalMonitorForEvents, which silently delivered zero
 // events after each codesign rebuild even with AXIsProcessTrusted
@@ -199,6 +205,20 @@ final class Launcher {
         }
     }
 
+    /// What a click on the app icon means: bring Menu Band up. Started if it
+    /// isn't running, popover raised if it is.
+    func summon(reason: String) {
+        let running = isMenuBandRunning()
+        NSLog("MenuBandLauncher: \(reason); menuband running=\(running)")
+        if running {
+            DistributedNotificationCenter.default().postNotificationName(
+                Notification.Name("computer.aestheticcomputer.menuband.showPopover"),
+                object: nil, userInfo: nil, deliverImmediately: true)
+        } else {
+            launchMenuBand()
+        }
+    }
+
     private func isMenuBandRunning() -> Bool {
         // Filter on the executable file name — the launcher and the
         // main binary share a bundle identifier in NSWorkspace's view
@@ -333,10 +353,25 @@ final class Launcher {
     }
 }
 
+/// Receives the reopen Apple event LaunchServices sends when the user opens
+/// an app it believes is already running. Nested, that app is us.
+final class LauncherDelegate: NSObject, NSApplicationDelegate {
+    let launcher: Launcher
+    init(launcher: Launcher) { self.launcher = launcher }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication,
+                                       hasVisibleWindows flag: Bool) -> Bool {
+        launcher.summon(reason: "reopen from Finder/open")
+        return false
+    }
+}
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)  // background helper; allow event delivery
 
 let launcher = Launcher()
+let launcherDelegate = LauncherDelegate(launcher: launcher)
+app.delegate = launcherDelegate
 if !launcher.start() {
     // tapCreate failed. Exit non-zero so launchd's ThrottleInterval
     // gates re-launch attempts at 5s rather than tight-looping.

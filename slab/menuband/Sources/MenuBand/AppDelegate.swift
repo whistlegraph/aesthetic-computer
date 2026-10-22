@@ -2035,6 +2035,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Popover lifecycle
 
+    @objc private func openMainWindow(_ sender: Any?) {
+        NSApp.activate(ignoringOtherApps: true)
+        if isPopoverPanelShown {
+            popoverPanel?.makeKeyAndOrderFront(nil)
+        } else {
+            showPopover()
+        }
+    }
+
+    /// A Finder double-click or `open -a "Menu Band"` while we're already up
+    /// arrives as a reopen, in every build — the direct-download app is an
+    /// accessory with no Dock tile, so without this the click did nothing
+    /// visible and looked like the app had failed to launch.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        DispatchQueue.main.async { [weak self] in self?.openMainWindow(nil) }
+        return false
+    }
+
     #if MAC_APP_STORE
     private func installStoreMenus() {
         let menu = NSMenu()
@@ -2059,22 +2077,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.windowsMenu = windowMenu
     }
 
-    @objc private func openMainWindow(_ sender: Any?) {
-        NSApp.activate(ignoringOtherApps: true)
-        if isPopoverPanelShown {
-            popoverPanel?.makeKeyAndOrderFront(nil)
-        } else {
-            showPopover()
-        }
-    }
-
     @objc private func closeMainWindow(_ sender: Any?) {
         closePopover()
-    }
-
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        DispatchQueue.main.async { [weak self] in self?.openMainWindow(nil) }
-        return false
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
