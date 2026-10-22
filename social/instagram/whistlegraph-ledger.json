@@ -17,7 +17,19 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-20/02-10-45/itme-remaster.mp4",
         "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-20/02-10-45/cover.jpg"
       },
-      "insights": null
+      "insights": {
+        "views": 5041,
+        "reach": 2460,
+        "likes": 34,
+        "comments": 0,
+        "saved": 1,
+        "shares": 5,
+        "total_interactions": 42,
+        "ig_reels_avg_watch_time": 12848,
+        "ig_reels_video_view_total_time": 32672846,
+        "reels_skip_rate": 16.9
+      },
+      "insightsAt": "2026-10-22T16:20:13.079Z"
     },
     {
       "mediaId": "17902117197600883",
@@ -32,7 +44,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-20/17-38-44/sos-pen.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 23535,
+        "reach": 10462,
+        "likes": 100,
+        "comments": 2,
+        "saved": 19,
+        "shares": 1,
+        "total_interactions": 138,
+        "ig_reels_avg_watch_time": 19581,
+        "ig_reels_video_view_total_time": 214063985,
+        "reels_skip_rate": 13
+      },
+      "insightsAt": "2026-10-22T16:20:13.654Z"
     },
     {
       "mediaId": "18127789474939683",
@@ -46,6 +70,33 @@
       "trial": "SS_PERFORMANCE",
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-21/19-17-08/soda-remaster.mp4"
+      },
+      "insights": {
+        "views": 332756,
+        "reach": 171950,
+        "likes": 1143,
+        "comments": 8,
+        "saved": 153,
+        "shares": 157,
+        "total_interactions": 1576,
+        "ig_reels_avg_watch_time": 18234,
+        "ig_reels_video_view_total_time": 3317758521,
+        "reels_skip_rate": 13.6
+      },
+      "insightsAt": "2026-10-22T16:20:14.377Z"
+    },
+    {
+      "mediaId": "18079482674542442",
+      "containerId": "18636723607050687",
+      "publishedAt": "2026-10-22T16:22:56.666Z",
+      "permalink": "https://www.instagram.com/reel/DezZpNmCL6s/",
+      "caption": "tri",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/e33577c7-4eea-4421-8c79-838403b382a6/scratchpad/tri/tri-remaster.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-22/16-21-39/tri-remaster.mp4"
       },
       "insights": null
     }
