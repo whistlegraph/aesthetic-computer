@@ -135,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyboardPerformanceFocusActive = false {
         didSet {
             guard oldValue != keyboardPerformanceFocusActive else { return }
+            SessionDiagnostics.shared.record(.performanceFocus, state: keyboardPerformanceFocusActive)
             refreshEngagement(reason: keyboardPerformanceFocusActive ? "focus gained" : "focus lost")
             refreshAirFocus()
             // Leaving focus (Esc, the Command double-tap) ends a rolling take
@@ -604,7 +605,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// when it can't install, the local-monitor plain-Tab path still toggles
     /// (it just can't suppress ⌘-Tab). `pitchBendCursorPushed` is read from the
     /// tap thread — a Bool set on main; a one-frame stale read is harmless.
-    private lazy var bendTabTap: KeyEventTap = KeyEventTap {
+    private lazy var bendTabTap: KeyEventTap = KeyEventTap(source: .bendTab) {
         [weak self] keyCode, isDown, isRepeat, flags in
         guard let self else { return false }
 
@@ -921,7 +922,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         trackpadPlugin.onExitRequested = { [weak self] in
             debugLog("focus exit via trackpad plugin exit request")
-            self?.exitPerformanceFocusFromEscape()
+            self?.exitPerformanceFocusFromEscape(reason: .trackDrumAction)
         }
         trackpadPlugin.onSummonRequested = { [weak self] in
             guard let self else { return }
@@ -932,7 +933,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // happened to be running — the glow and the rising bell are the
             // cue that it landed, not a panel in the way of the instrument.
             DispatchQueue.main.async { [weak self] in
-                self?.beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+                self?.beginFocusCaptureFromShortcut(keepPopoverOpen: true, reason: .trackDrumAction)
             }
         }
         trackpadPlugin.onFrame = { [weak self] contacts, timestamp, callbackTime in
@@ -1281,7 +1282,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         pianoWaveformWindowDelegate.onFocusRelease = { [weak self] in
             debugLog("focus exit via piano window release")
-            self?.exitPerformanceFocusFromEscape()
+            self?.exitPerformanceFocusFromEscape(reason: .pianoWindowRelease)
         }
         pianoWaveformWindowDelegate.onTrackpadModeToggle = { [weak self] split in
             self?.toggleTrackpadPadMode(split: split)
@@ -1790,7 +1791,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return true
                 }
 #endif
-                debugLog("focus exit via Escape key in capture (keyCode=\(keyCode))")
+                debugLog("focus exit via Escape action in capture")
                 self.exitPerformanceFocusFromEscape()
                 return true
             }
@@ -2245,7 +2246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // also unmutes the monitor), then roll.
                 NSLog("MenuBand: ⌘⌥R — focus + record")
                 if !self.keyboardPerformanceFocusActive {
-                    self.beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+                    self.beginFocusCaptureFromShortcut(keepPopoverOpen: true, reason: .recordingAction)
                 }
                 self.menuBand.toggleTapeRecording()
             }
@@ -2530,6 +2531,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func toggleFocusCaptureFromShortcut() {
+        SessionDiagnostics.shared.record(.focusRequested, reason: .shortcut)
         // Focus is separate from show/hide: K brings the expanded piano
         // forward and leaves it ready for keyboard play. E exits focus.
         let popoverWasOpen = isPopoverPanelShown
@@ -2551,6 +2553,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// readies the menubar instrument for typing, with a little chime
     /// so the silent focus change is felt.
     private func toggleQuietFocusFromCommandTap() {
+        SessionDiagnostics.shared.record(.focusRequested, reason: .commandGesture)
         // The alternating ⌘ triple is FOCUS-ONLY now: it arms (or re-arms) quiet
         // focus and is inert once already focused — unfocusing is Esc's job
         // (see the localCapture Esc handler). Keeps the gesture a pure
@@ -2559,12 +2562,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Arm focus capture WITHOUT touching the popover — the red glow +
         // rising bell are the "it landed" cue. keepPopoverOpen:true leaves an
         // already-open popover as-is rather than closing it.
-        beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+        beginFocusCaptureFromShortcut(keepPopoverOpen: true, reason: .commandGesture)
         FocusFlashOverlay.shared.flash(rising: false)
         menuBand.playFocusCue(rising: true)
     }
 
     private func exitPianoFocusFromShortcut() {
+        SessionDiagnostics.shared.record(.focusExitRequested, reason: .shortcut)
         if localCapture.isArmed {
             localCapture.disarm(reason: .cancelled)
             return
@@ -2587,7 +2591,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         beginFocusCaptureFromShortcut()
     }
 
-    private func beginFocusCaptureFromShortcut(keepPopoverOpen: Bool = false) {
+    private func beginFocusCaptureFromShortcut(keepPopoverOpen: Bool = false,
+                                               reason: SessionDiagnostics.Reason = .shortcut) {
+        SessionDiagnostics.shared.record(.focusRequested, reason: reason)
         let frontmost = NSWorkspace.shared.frontmostApplication
         if frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier {
             appBeforeFocusCapture = nil
@@ -2710,6 +2716,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func restorePreviousAppFocus() {
+        SessionDiagnostics.shared.record(.focusRestoreRequested, reason: .observed)
         guard let app = appBeforeFocusCapture,
               !app.isTerminated,
               app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
@@ -2727,7 +2734,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// One escape boundary for the local capture panel, expanded KeyMap, and
     /// the session event tap. Keeping teardown here prevents a key-window
     /// change from stranding a hidden/disassociated pointer.
-    private func exitPerformanceFocusFromEscape() {
+    private func exitPerformanceFocusFromEscape(reason: SessionDiagnostics.Reason = .escapeAction) {
+        SessionDiagnostics.shared.record(.focusExitRequested, reason: reason)
         #if !MAC_APP_STORE
         if recordModeActive {
             stopRecordingAndSave()
@@ -3345,8 +3353,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let appDelegate = Unmanaged<AppDelegate>
                 .fromOpaque(refcon).takeUnretainedValue()
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                SessionDiagnostics.shared.record(.tapDisabled, reason: type == .tapDisabledByTimeout ? .timeout : .userInput, source: .quietFocus)
                 if let tap = appDelegate.quietFocusTap {
                     CGEvent.tapEnable(tap: tap, enable: true)
+                    SessionDiagnostics.shared.record(.tapReenabled, source: .quietFocus, state: CGEvent.tapIsEnabled(tap: tap))
                 }
                 return Unmanaged.passUnretained(event)
             }
@@ -3379,12 +3389,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             eventsOfInterest: mask,
             callback: callback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ) else { return false }
+        ) else {
+            SessionDiagnostics.shared.record(.tapFailed, source: .quietFocus)
+            return false
+        }
         quietFocusTap = tap
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         quietFocusTapSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        SessionDiagnostics.shared.record(.tapStarted, source: .quietFocus)
         return true
     }
 
@@ -3608,6 +3622,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        SessionDiagnostics.shared.record(.terminationBegan, reason: .appTermination)
         #if MAC_APP_STORE
         trackpadPlugin.setCaptureEnabled(false)
         trackpadPlugin.stop()
@@ -3627,6 +3642,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         unlockSystemCursorIfNeeded()
         showSystemCursorIfNeeded()
         pitchBendOverlay?.dismiss()
+        SessionDiagnostics.shared.end()
     }
 
     /// YWFT Processing descriptors built straight from the .ttf URLs.
@@ -6548,7 +6564,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startRecordingMode() {
         guard !menuBand.isTapeRecording, !recordModeActive else { return }
         if !localCapture.isArmed {
-            beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+            beginFocusCaptureFromShortcut(keepPopoverOpen: true, reason: .recordingAction)
         }
         recordModeActive = true
         menuBand.startSynthOnlyRecording()
@@ -7467,7 +7483,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard CACurrentMediaTime() >= self.focusCursorGraceUntil,
                   !self.pitchBendSystemCursorHidden else { return }
             debugLog("focus cursor watchdog: cursor visible while armed — exiting focus")
-            self.exitPerformanceFocusFromEscape()
+            self.exitPerformanceFocusFromEscape(reason: .cursorWatchdog)
         }
         RunLoop.main.add(timer, forMode: .common)
         focusCursorWatchdog = timer

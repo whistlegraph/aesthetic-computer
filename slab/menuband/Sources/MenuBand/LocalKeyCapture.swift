@@ -98,17 +98,17 @@ final class LocalKeyCapture {
     /// Bring up the invisible panel and start listening. Idempotent — if
     /// already armed, just refreshes the panel as key.
     func arm() {
+        SessionDiagnostics.shared.record(.captureArm, source: .localCapture, state: isArmed)
         if panel == nil { buildPanel() }
         guard let panel = panel else { return }
         // Activate the app + make panel key so keyDown events route here
         // instead of the previously-foreground app. Without `activate`, our
         // panel can't become key and keys go elsewhere.
-        let frontBefore = NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil"
-        let activeBefore = NSApp.isActive
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            let key = NSApp.keyWindow.map { "\(type(of: $0))" } ?? "none"
-            debugLog("capture.arm: before active=\(activeBefore) front=\(frontBefore) → active=\(NSApp.isActive) front=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil") key=\(key) panelKey=\(self?.panel?.isKeyWindow ?? false) armed=\(self?.isArmed ?? false)")
+            guard let self, self.isArmed else { return }
+            SessionDiagnostics.shared.record(.captureArmed, source: .localCapture,
+                                             state: NSApp.windows.contains { $0.isKeyWindow })
         }
         // If another window in our app is already key (e.g. the
         // popover), DON'T steal key — `addLocalMonitorForEvents`
@@ -144,9 +144,6 @@ final class LocalKeyCapture {
                     return event
                 }
                 let isDown = (event.type == .keyDown)
-                if isDown, !event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
-                    debugLog("capture keyDown code=\(event.keyCode) mods=\(MenuBandShortcut.carbonModifiers(from: event.modifierFlags)) recordShortcut=\(self.recordShortcut.map { "\($0.keyCode)/\($0.modifiers)" } ?? "nil")")
-                }
                 if self.recordShortcut?.matches(event: event) == true {
                     if isDown { self.onRecordShortcut?() }
                     return nil
@@ -171,14 +168,14 @@ final class LocalKeyCapture {
             ) { [weak self] _ in
                 guard let self = self else { return }
                 let stillKeyInApp = NSApp.windows.contains { $0.isKeyWindow }
-                let visible = NSApp.windows.filter { $0.isVisible }.map { "\(type(of: $0))" }.joined(separator: ",")
-                debugLog("capture.panel resigned key: stillKeyInApp=\(stillKeyInApp) active=\(NSApp.isActive) front=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil") visible=[\(visible)]")
+                SessionDiagnostics.shared.record(.captureResigned, reason: .resignedKey,
+                                                 source: .localCapture, state: stillKeyInApp)
                 guard !stillKeyInApp else { return }
                 if self.isOwnStatusItemPress?() == true {
                     // A press on our own piano. Hold capture through the
                     // click; `statusClicked` re-arms after the mouse-up.
                     // If the press ends and nothing re-keyed us, let go.
-                    debugLog("local capture: holding across status-item press")
+                    SessionDiagnostics.shared.record(.capturePreserved, reason: .statusItemPress, source: .localCapture)
                     self.disarmAfterStatusItemPressIfOrphaned()
                     return
                 }
@@ -198,7 +195,7 @@ final class LocalKeyCapture {
                         ) {
                             self.disarm(reason: .resignedKey)
                         } else if !hasKeyWindow {
-                            debugLog("local capture: preserving TrackDrum focus across shield click")
+                            SessionDiagnostics.shared.record(.capturePreserved, reason: .trackDrumShield, source: .localCapture)
                             self.arm()
                         }
                     }
@@ -210,7 +207,7 @@ final class LocalKeyCapture {
         isArmed = true
 #if !MAC_APP_STORE
         if spaceTap == nil {
-            let tap = KeyEventTap { [weak self] keyCode, isDown, isRepeat, flags in
+            let tap = KeyEventTap(source: .commandSpace) { [weak self] keyCode, isDown, isRepeat, flags in
                 guard let self, keyCode == 49 /* kVK_Space */,
                       flags.contains(.maskCommand) else { return false }
                 let mods = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
@@ -234,7 +231,7 @@ final class LocalKeyCapture {
             }
             let keyInApp = NSApp.windows.contains { $0.isKeyWindow }
             if !keyInApp && !NSApp.isActive {
-                debugLog("local capture: status-item press left us orphaned")
+                SessionDiagnostics.shared.record(.focusExitRequested, reason: .statusItemOrphaned, source: .localCapture)
                 self.disarm(reason: .resignedKey)
             }
         }
@@ -244,6 +241,7 @@ final class LocalKeyCapture {
     /// app (panel resigns key) or explicitly when we want to drop capture.
     func disarm(reason: EndReason = .cancelled) {
         guard isArmed else { return }
+        SessionDiagnostics.shared.record(.captureDisarmed, reason: reason == .cancelled ? .cancelled : .resignedKey, source: .localCapture)
         isArmed = false
         if let m = monitor {
             NSEvent.removeMonitor(m)

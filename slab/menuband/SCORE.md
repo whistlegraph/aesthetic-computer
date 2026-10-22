@@ -83,6 +83,29 @@ files, recent app events, and ten minutes of USB/CoreAudio error and stream
 restart events into a local report directory. An optional argument selects
 1–60 minutes. It neither resets audio nor uploads the report.
 
+Focus and quit troubleshooting has a separate opt-in:
+`defaults write computer.aestheticcomputer.menuband MBSessionDiagnosticsEnabled -bool true`
+before the next deliberate launch. Do not restart during a performance to enable
+it. Set the same preference to `false` and relaunch to stop collection.
+`~/Library/Logs/MenuBand/Session/` holds current and previous JSONL logs (2 MiB
+each) and one small lifecycle marker, with owner-only access. Events contain
+timestamps, a random per-launch ID, fixed event/reason/source labels and optional
+boolean state. They cover app/window activation, capture arm/disarm, event-tap
+failure/timeout/re-enable, focus commands and cursor-watchdog exits, sleep/wake,
+audio configuration/recovery/reset, SIGTERM and completed shutdown. No key or
+note values, modifiers, app names, window titles, audio, or remote analytics are
+collected. Writes run on a utility queue capped at 256 pending events; overflow
+is dropped so a slow disk cannot block keyboard capture. No render callback logs.
+
+`python3 slab/menuband/bin/session-diagnostics.py` reports log locations, the last
+diagnostic session marker, and metadata for the ten latest macOS MenuBand crash
+reports. It reads no crash-report contents, changes no app/audio state and uploads
+nothing. `clean: false` is normal while running; `previousSessionUnclean` on the
+next launch means shutdown was not recorded, which can also mean force-kill,
+power loss or failed storage. macOS owns crash reporting; no crash handlers are
+installed. Focus notifications describe observed state, while explicit reasons
+identify Menu Band's own decisions; an external focus cause can remain unknown.
+
 The direct-download popover's **Air** slider adds White, Brown, or Cabin
 background noise: zero is silent, raising it fades the noise in. It shares
 the instrument's output engine. Air plays while Menu Band is in front (the

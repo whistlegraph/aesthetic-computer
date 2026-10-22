@@ -86,6 +86,9 @@ do {
     }
 }
 
+SessionDiagnostics.shared.begin()
+let sessionDiagnosticObservers = SessionDiagnosticObservers()
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
@@ -102,6 +105,9 @@ app.setActivationPolicy(.accessory)
 // for every client until a replug. Route the signal through the normal quit.
 signal(SIGTERM, SIG_IGN)
 let sigtermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-sigtermSource.setEventHandler { NSApp.terminate(nil) }
+sigtermSource.setEventHandler {
+    SessionDiagnostics.shared.record(.terminationRequested, reason: .sigterm)
+    NSApp.terminate(nil)
+}
 sigtermSource.resume()
 app.run()

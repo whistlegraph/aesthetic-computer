@@ -13,8 +13,10 @@ final class KeyEventTap {
     private var thread: Thread?
     private var threadRunLoop: CFRunLoop?
     private let handler: Handler
+    private let diagnosticSource: SessionDiagnostics.Source
 
-    init(handler: @escaping Handler) {
+    init(source: SessionDiagnostics.Source = .globalKeyboard, handler: @escaping Handler) {
+        self.diagnosticSource = source
         self.handler = handler
     }
 
@@ -34,7 +36,11 @@ final class KeyEventTap {
             let me = Unmanaged<KeyEventTap>.fromOpaque(refcon).takeUnretainedValue()
 
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                if let tap = me.tap { CGEvent.tapEnable(tap: tap, enable: true) }
+                SessionDiagnostics.shared.record(.tapDisabled, reason: type == .tapDisabledByTimeout ? .timeout : .userInput, source: me.diagnosticSource)
+                if let tap = me.tap {
+                    CGEvent.tapEnable(tap: tap, enable: true)
+                    SessionDiagnostics.shared.record(.tapReenabled, source: me.diagnosticSource, state: CGEvent.tapIsEnabled(tap: tap))
+                }
                 return Unmanaged.passUnretained(event)
             }
             if type == .keyDown || type == .keyUp {
@@ -54,6 +60,7 @@ final class KeyEventTap {
             callback: callback,
             userInfo: opaque
         ) else {
+            SessionDiagnostics.shared.record(.tapFailed, source: diagnosticSource)
             Unmanaged<KeyEventTap>.fromOpaque(opaque).release()
             return false
         }
@@ -67,6 +74,7 @@ final class KeyEventTap {
             self.threadRunLoop = CFRunLoopGetCurrent()
             CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
             CGEvent.tapEnable(tap: tap, enable: true)
+            SessionDiagnostics.shared.record(.tapStarted, source: self.diagnosticSource)
             CFRunLoopRun()
         }
         thread.qualityOfService = .userInteractive
@@ -77,6 +85,7 @@ final class KeyEventTap {
     }
 
     func stop() {
+        if tap != nil { SessionDiagnostics.shared.record(.tapStopped, source: diagnosticSource) }
         if let tap = tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let rl = threadRunLoop { CFRunLoopStop(rl) }
         if tap != nil {

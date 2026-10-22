@@ -966,6 +966,7 @@ final class MenuBandSynth {
             object: engine,
             queue: .main
         ) { [weak self] _ in
+            SessionDiagnostics.shared.record(.audioConfigurationChanged, source: .audio)
             self?.handleEngineConfigurationChange()
         }
     }
@@ -1008,6 +1009,7 @@ final class MenuBandSynth {
             outputGuard.health.begin()
             do { try engine.start() }
             catch { NSLog("MenuBand: engine start after device change failed: \(error)") }
+            SessionDiagnostics.shared.record(.audioRecoveryResult, source: .audio, state: engine.isRunning)
         }
         applyOutputDeviceOverride()
         lowerOutputBufferSizeIfNeeded()
@@ -1864,6 +1866,7 @@ final class MenuBandSynth {
         engineLock.lock(); defer { engineLock.unlock() }
         guard active != interfaceResetting else { return }
         audioTelemetry.event("interface_reset", ["active": active])
+        SessionDiagnostics.shared.record(.audioInterfaceReset, source: .audio, state: active)
         interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
         if active {
             interfaceResetting = true
@@ -1922,6 +1925,10 @@ final class MenuBandSynth {
             shouldRun: !idleSuspended, isRunning: engine.isRunning) else { return }
         NSLog("MenuBand: playback unhealthy — \(reason); restarting audio on the current output")
         audioTelemetry.event("playback_recovery", ["reason": reason])
+        SessionDiagnostics.shared.record(.audioRecovery,
+            reason: reason.contains("non-finite") ? .invalidOutput
+                : reason.hasPrefix("output callbacks") ? .stalledOutput : .engineStopped,
+            source: .audio)
         interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
         engine.stop()
         // Clear poisoned effect history as well as the stopped hardware IO.
@@ -1938,6 +1945,7 @@ final class MenuBandSynth {
         } catch {
             NSLog("MenuBand: playback recovery failed: \(error)")
         }
+        SessionDiagnostics.shared.record(.audioRecoveryResult, source: .audio, state: engine.isRunning)
         scheduleMIDISynthRebuild()
         logAudioBindings(context: "playback recovery")
     }
