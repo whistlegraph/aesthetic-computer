@@ -98,7 +98,24 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-22/16-21-39/tri-remaster.mp4"
       },
-      "insights": null
+      "insights": null,
+      "deleted": "2026-10-22: duplicate of July reel DaUEXC9JVXg, removed in-app"
+    },
+    {
+      "mediaId": "18131961118765966",
+      "containerId": "18636742057050687",
+      "publishedAt": "2026-10-22T17:43:27.830Z",
+      "permalink": "https://www.instagram.com/reel/DeziyW4DLFi/",
+      "caption": "rshu",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/e33577c7-4eea-4421-8c79-838403b382a6/scratchpad/rshu/rshu-remaster.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-22/17-41-01/rshu-remaster.mp4"
+      },
+      "insights": {},
+      "insightsAt": null
     }
   ]
 }
