@@ -159,7 +159,12 @@ final class SingerFace {
             panel.animator().alphaValue = 1
         }
         panel.orderFrontRegardless()
+        // A full-screen face shows no pointer (blueberry's arrow sat on its cheek,
+        // TIAT Oct 22). CGDisplayHideCursor works for a menu-bar app that is not
+        // frontmost; it is balanced in hide().
+        if slot == nil, !cursorHidden { CGDisplayHideCursor(CGMainDisplayID()); cursorHidden = true }
     }
+    private var cursorHidden = false
 
     func onset(_ syllable: String, hold: Double) {
         precondition(Thread.isMainThread)
@@ -180,6 +185,7 @@ final class SingerFace {
     func hide() {
         precondition(Thread.isMainThread)
         if slot == nil { SingerGaze.shared.stop() }
+        if cursorHidden { CGDisplayShowCursor(CGMainDisplayID()); cursorHidden = false }
         guard let panel, let view else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.5

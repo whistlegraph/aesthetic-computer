@@ -244,7 +244,13 @@ final class CaptionGlyphLayer: CALayer {
     // its image. Explicit contents avoid replaying CoreGraphics text/shadow
     // display lists as each letter scales and sways over the Metal face.
     override func display() {
-        let scale = max(1, contentsScale)
+        // Oversample: the pop animation leaves a glyph at 1.08× (and peaks at
+        // 1.22×), so a bitmap at exact size is always magnified. Twice the
+        // backing scale keeps edges crisp under that; trilinear filtering
+        // handles the rest (jeffrey, Oct 22: rough letter edges).
+        let scale = max(1, contentsScale) * 2
+        minificationFilter = .trilinear
+        magnificationFilter = .linear
         let width = max(1, Int(ceil(bounds.width * scale)))
         let height = max(1, Int(ceil(bounds.height * scale)))
         let key = "\(text)|\(font.fontName)|\(font.pointSize)|\(bounds)|\(scale)|\(ink)|\(strokeColor)|\(shadowInk)|\(glowColor)" as NSString
@@ -263,6 +269,9 @@ final class CaptionGlyphLayer: CALayer {
     override func draw(in ctx: CGContext) {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+        // Outlines are stroked with the context's joins: miters spike at every
+        // letter corner at caption size, so round them.
+        ctx.setLineJoin(.round); ctx.setLineCap(.round)
         let probe = NSAttributedString(string: text, attributes: [.font: font])
         let size = probe.size()
         let at = NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
