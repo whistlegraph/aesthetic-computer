@@ -640,7 +640,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if commandTab {
             if isDown && !isRepeat {
                 DispatchQueue.main.async {
-                    self.menuBand.abcLayerEnabled.toggle()
+                    // Inside performance focus the ⌘ hand is on chords, so a
+                    // Tab under it means the same as a bare Tab: step the pad
+                    // page (skin → mouse → fx). The ABC layer keeps ⌘Tab
+                    // outside focus.
+                    if self.trackpadFxAvailable,
+                       self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive {
+                        self.toggleTrackpadPadMode(split: false)
+                    } else {
+                        self.menuBand.abcLayerEnabled.toggle()
+                    }
                 }
             }
             return true
@@ -1783,7 +1792,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // tap is unavailable. On the direct build the global tap above is
             // what reliably beats the Dock's app switcher.
             if Self.isABCToggleShortcut(keyCode: keyCode, flags: flags) {
-                if isDown && !isRepeat { self.menuBand.abcLayerEnabled.toggle() }
+                if isDown && !isRepeat {
+                    if self.trackpadFxAvailable,
+                       self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive {
+                        self.toggleTrackpadPadMode(split: false)
+                    } else {
+                        self.menuBand.abcLayerEnabled.toggle()
+                    }
+                }
                 return true
             }
             // PLAIN Tab toggles percussion and pitch bend — but only
@@ -5398,12 +5414,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var lineOfSyllable: [Int] = []
             var syllableText: [String] = []
             var lineStart: [Int] = []
+            // `captionMode=word`: only the word being sung is up, syllable by
+            // syllable, nothing before or after it (jeffrey, TIAT, Oct 22).
+            let captionWord = info["captionMode"] == "word"
+            var wordOfSyllable: [Int] = []     // global word index per syllable
+            var sylInWord: [Int] = []
+            var wordText: [String] = []
             if let line = sung, info["caption"] != "0" {
                 for lt in line.lineTokens {
                     let li = captionLines.count
                     captionLines.append(lt)
                     lineStart.append(lineOfSyllable.count)
-                    for t in lt { for syl in t.split(separator: "-") { lineOfSyllable.append(li); syllableText.append(String(syl)) } }
+                    for t in lt {
+                        let wi = wordText.count
+                        wordText.append(t)
+                        for (j, syl) in t.split(separator: "-").enumerated() {
+                            lineOfSyllable.append(li); syllableText.append(String(syl))
+                            wordOfSyllable.append(wi); sylInWord.append(j)
+                        }
+                    }
                 }
             }
             let captionAccent = LyricCaption.color(hex: info["captionColor"])
@@ -5495,14 +5524,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                 if k == 0 {
                                     DispatchQueue.main.asyncAfter(deadline: at(onEpoch - 0.4)) { [weak self] in
                                         guard let self = self, self.playGeneration == gen else { return }
-                                        caption.show(line: li, tokens: words, accent: captionAccent, size: captionSize)
+                                        if !captionWord { caption.show(line: li, tokens: words, accent: captionAccent, size: captionSize) }
                                         if si == 0, let fm = faceMember { face.show(member: fm, accent: captionAccent, skin: faceAlpha, gaze: faceGaze) }
                                         if faceMember != nil { face.rest(false) }
                                     }
                                 }
-                                DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
-                                    guard let self = self, self.playGeneration == gen else { return }
-                                    caption.highlight(line: li, syllable: k)
+                                if captionWord {
+                                    // The word lands a frame ahead of its first syllable and
+                                    // is replaced by the next word; each syllable pops in turn.
+                                    let wi = wordOfSyllable[si], j = sylInWord[si], wordLine = 100_000 + wi
+                                    DispatchQueue.main.asyncAfter(deadline: at(onEpoch - 0.03)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        if j == 0 { caption.show(line: wordLine, tokens: [wordText[wi]], accent: captionAccent, size: captionSize, single: true) }
+                                        caption.highlight(line: wordLine, syllable: j)
+                                    }
+                                    let lastOfWord = si + 1 == wordOfSyllable.count || wordOfSyllable[si + 1] != wi
+                                    if lastOfWord {
+                                        DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 0.45)) { [weak self] in
+                                            guard let self = self, self.playGeneration == gen else { return }
+                                            caption.hide(line: wordLine)
+                                        }
+                                    }
+                                } else {
+                                    DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        caption.highlight(line: li, syllable: k)
+                                    }
                                 }
                                 // lips lead the sound by a frame or two, never behind
                                 if faceMember != nil {
@@ -5514,7 +5561,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                 if si + 1 == lineOfSyllable.count || lineOfSyllable[si + 1] != li {
                                     DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 1.2)) { [weak self] in
                                         guard let self = self, self.playGeneration == gen else { return }
-                                        caption.hide(line: li)
+                                        if !captionWord { caption.hide(line: li) }
                                         if faceMember != nil { face.rest(true) }
                                     }
                                 }
