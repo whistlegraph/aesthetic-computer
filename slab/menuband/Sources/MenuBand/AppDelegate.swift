@@ -1923,6 +1923,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return NSEvent.pressedMouseButtons & 1 != 0
                 && window.frame.contains(NSEvent.mouseLocation)
         }
+        localCapture.isPointerLockedForPerformance = { [weak self] in
+            guard let self else { return false }
+            return self.keyboardPerformanceFocusActive
+                && self.pitchBendCursorLocked && self.pitchBendSystemCursorHidden
+        }
+        localCapture.captureContext = { [weak self] in
+            self.map { "padMode=\($0.trackpadPadMode)" } ?? ""
+        }
         localCapture.onCaptureEnd = { [weak self] reason in
             // Focus lost (user clicked another app). Drop the ghost and
             // any held notes so we don't leave anything hanging. Only the
@@ -6982,7 +6990,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             releaseTrackpadPercussion()
             trackpadSkinTouches.removeAll()
             #if !MAC_APP_STORE
-            stopTrackpadPercussionSystemClickShield()
+            syncTrackpadClickShieldForPointerLock()
             #endif
             stopTrackpadPercussionLocalClickShield()
             if Self.shouldAutoEndTrackpadFX(
@@ -7056,9 +7064,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadPadMode = .fx
         releaseTrackpadPercussion()
         trackpadSkinTouches.removeAll()
-        stopTrackpadPercussionSystemClickShield()
+        syncTrackpadClickShieldForPointerLock()
         updatePitchBendOverlayImage()
         debugLog("trackpad pad mode = fx (quiet handoff)")
+    }
+
+    /// The global click shield belongs to the hidden, locked pointer, not to
+    /// one pad page. On every page but mouse (and the live keymap pointer) a
+    /// physical pad press is a click at wherever the pointer was parked —
+    /// the menu bar piano, another app. The 12:10 defocus on 2026-10-22 was
+    /// exactly that on the fx page, which used to drop the shield. Physical
+    /// clicks still reach `handleTrackpadPhysicalClick` through the tap's own
+    /// callback, so the fx page keeps its click.
+    private func syncTrackpadClickShieldForPointerLock() {
+        let pointerLive = trackpadPadMode == .mouse
+            || Self.shouldKeepKeymapPointerLive(
+                keymapShown: pianoWaveformWindowDelegate.isShown,
+                mode: trackpadPadMode)
+        if keyboardPerformanceFocusActive, !pointerLive {
+            let started = startTrackpadPercussionSystemClickShield()
+            debugLog("click shield kept for locked pointer (padMode=\(trackpadPadMode)) global=\(started)")
+        } else {
+            stopTrackpadPercussionSystemClickShield()
+        }
     }
     #endif
 

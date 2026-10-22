@@ -405,6 +405,13 @@ final class ShapedownTests: XCTestCase {
             keepsCaptureArmed: true,
             hasProtectedTrackDrumInput: false
         ))
+        // Pointer locked and hidden for performance (fx page, pad pressed):
+        // the click was never aimed, reclaim regardless of the drum window.
+        XCTAssertTrue(LocalKeyCapture.shouldReclaimCaptureAfterResign(
+            keepsCaptureArmed: false,
+            hasProtectedTrackDrumInput: false,
+            pointerLocked: true
+        ))
     }
 
     func testTrackDrumShieldClickDoesNotEndFocusedCapture() {
