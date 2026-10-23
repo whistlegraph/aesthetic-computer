@@ -147,6 +147,98 @@ test("revolve faces out whichever way its profile is walked; radial and mirror r
   assert.equal(b[2], -1);
 });
 
+test("a tube rings a smooth curve, faces out, caps, tapers and takes its sides", () => {
+  const facing = (out, inside) => {
+    for (const f of out) {
+      const u = [f[3] - f[0], f[4] - f[1], f[5] - f[2]], v = [f[6] - f[0], f[7] - f[1], f[8] - f[2]];
+      const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      const c = [(f[0] + f[3] + f[6]) / 3, (f[1] + f[4] + f[7]) / 3, (f[2] + f[5] + f[8]) / 3];
+      const i = inside(c);
+      assert.ok(n[0] * (c[0] - i[0]) + n[1] * (c[1] - i[1]) + n[2] * (c[2] - i[2]) > 0, `faces out at ${c}`);
+    }
+  };
+  // Straight along x, 10 wide: six sides picked for radius 5, a wall and two caps.
+  const straight = faces(compile("(tube 10  0 0 0  100 0 0)"));
+  assert.equal(straight.length, 6 * 2 + 6 * 2);
+  facing(straight, (c) => [Math.min(99.9, Math.max(.1, c[0])), 0, 0]);
+  assert.equal(faces(compile("(tube 5 10 10  0 0 0  100 0 0)")).length, 5 * 2 + 5 * 2, "sides given");
+  // Through four points it bends: level 0 samples four segments a span.
+  const bent = compile("(tube 8 12 4  0 0 0  40 30 0  80 0 10  120 40 0)");
+  const near = faces(bent);
+  assert.equal(near.length, (3 * 4) * 8 * 2 + 8 * 2, "13 rings of 8 sides, capped");
+  // The taper: the first cap is 12 across, the last 4.
+  const across = (f) => Math.hypot(f[3] - f[0], f[4] - f[1], f[5] - f[2]) * 2;
+  assert.ok(Math.abs(across(near[near.length - 16]) - 12) < 1e-9, "the first cap's radius");
+  assert.ok(Math.abs(across(near[near.length - 8]) - 4) < 1e-9, "the last cap's radius");
+  const xs = near.flatMap((f) => [f[0], f[3], f[6]]);
+  assert.ok(Math.max(...xs) <= 120 + 2.01 && Math.min(...xs) >= -6.01, "the tube stays near its points");
+  // Levels: a part that reads detail samples fewer segments further away.
+  const object = compile("(let d detail) (tube 8  0 0 0  40 30 0  80 0 10)");
+  // Baked, a quad is one face: ring pairs × sides, plus the two caps' fans.
+  assert.deepEqual(object.meshes.map((m) => m.count), [8 * 6 + 6 * 2, 4 * 4 + 4 * 2, 2 * 3 + 3 * 2],
+    "8, 4 and 2 ring pairs of 6, 4 and 3 sides");
+});
+
+test("a patch is a bicubic surface, facing the way its rows cross its columns", () => {
+  const flat = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) flat.push(c * 10, r * 10, 0);
+  const out = faces(compile(`(patch ${flat.join(" ")})`));
+  assert.equal(out.length, 6 * 6 * 2, "six segments a side at level 0");
+  for (const f of out) {
+    const u = [f[3] - f[0], f[4] - f[1], f[5] - f[2]], v = [f[6] - f[0], f[7] - f[1], f[8] - f[2]];
+    assert.ok(u[0] * v[1] - u[1] * v[0] > 0, "faces +z");
+  }
+  assert.equal(faces(compile(`(patch 2 ${flat.join(" ")})`)).length, 8, "segments given");
+  // A lifted middle: the surface bows up, within the control points' hull.
+  const bowed = flat.slice();
+  for (const i of [5, 6, 9, 10]) bowed[i * 3 + 2] = 30;
+  const zs = faces(compile(`(patch ${bowed.join(" ")})`)).flatMap((f) => [f[2], f[5], f[8]]);
+  assert.ok(Math.max(...zs) > 10 && Math.max(...zs) < 30, `bows to ${Math.max(...zs)}`);
+});
+
+test("grain cuts faces and shades each by noise; mottle blends toward a colour; rough moves corners the same way for the same point", () => {
+  const one = faces(compile("(ink 100 100 100) (tri 0 0 0 30 0 0 0 30 0)"));
+  const grained = faces(compile("(ink 100 100 100) (grain .5 (tri 0 0 0 30 0 0 0 30 0))"));
+  assert.equal(grained.length, 4, "one split at the near level");
+  assert.ok(new Set(grained.map((f) => f[9])).size > 1, "shades differ");
+  for (const f of grained) assert.ok(f[9] >= 50 * .72 && f[9] <= 150, `within ±50%: ${f[9]}`);
+  assert.equal(faces(compile("(ink 100 100 100) (grain .5 6 2 (quad 0 0 0 30 0 0 30 30 0 0 30 0))")).length, 16 * 2, "splits given");
+  assert.equal(faces(compile("(ink 100 100 100) (grain .5 6 0 (tri 0 0 0 30 0 0 0 30 0))")).length, 1, "no split, still shaded");
+  // The same source, the same shade: noise is a function of place, not time.
+  assert.deepEqual(faces(compile("(grain .5 (tri 0 0 0 30 0 0 0 30 0))"), { time: 1 }),
+    faces(compile("(grain .5 (tri 0 0 0 30 0 0 0 30 0))"), { time: 9 }));
+  // Grain follows the scope's frame: a moved scope shades as the scope at the origin would.
+  const here = faces(compile("(grain .5 3 0 (tri 0 0 0 30 0 0 0 30 0))")).map((f) => f.slice(9));
+  const there = faces(compile("(move 7 -3 2 (grain .5 3 0 (tri 0 0 0 30 0 0 0 30 0)))")).map((f) => f.slice(9));
+  assert.deepEqual(here, there);
+  // Mottle: with amount 1 every face lands between the ink and the colour.
+  const mottled = faces(compile("(ink 100 100 100) (mottle 0 255 0 1 4 (quad 0 0 0 30 0 0 30 30 0 0 30 0))"));
+  for (const f of mottled) { assert.ok(f[10] >= 100 * .72 - 1 && f[10] <= 255); assert.ok(f[9] <= 100); }
+  assert.ok(mottled.some((f) => f[10] !== mottled[0][10]), "blends differ");
+  // A mottle inside a grain does both: the grain's shade, then the blend.
+  const both = faces(compile("(ink 100 100 100) (grain .5 3 0 (mottle 0 255 0 1 4 0 (quad 0 0 0 30 0 0 30 30 0 0 30 0)))"));
+  const grainOnly = faces(compile("(ink 100 100 100) (grain .5 3 0 (quad 0 0 0 30 0 0 30 30 0 0 30 0))"));
+  assert.notDeepEqual(both.map((f) => f.slice(9)), grainOnly.map((f) => f.slice(9)));
+  assert.ok(both.every((f) => f[9] < f[10]), "greener than the grain alone");
+  // Rough: two triangles sharing an edge still share it.
+  const rough = faces(compile("(rough 3 5 (tri 0 0 0 30 0 0 0 30 0) (tri 30 0 0 30 30 0 0 30 0))"));
+  assert.deepEqual(rough[0].slice(3, 6), rough[1].slice(0, 3));
+  assert.deepEqual(rough[0].slice(6, 9), rough[1].slice(6, 9));
+  assert.notDeepEqual(rough[0].slice(0, 9), one[0].slice(0, 9), "and the corners did move");
+  // Across radial copies too: a corner on the axis is one point.
+  const fan = faces(compile("(rough 2 4 (radial z 4 (tri 0 0 0 10 0 0 0 10 0)))"));
+  for (const f of fan) assert.deepEqual(f.slice(0, 3), fan[0].slice(0, 3));
+  // A grained part bakes once per level and draws as one MODEL op.
+  const rock = compile("(ink 120 90 60) (grain .4 (revolve y 0 -10 8 -10 8 10 0 10))", "rock");
+  assert.equal(rock.parts, 1);
+  assert.equal(rock.meshes.length, 3, "cut at the near level only");
+  let models = 0;
+  rock({}, identity, { face: () => assert.fail("nothing left as faces"), model: () => models++ });
+  assert.equal(models, 1);
+  assert.throws(() => compile("(grain (tri 0 0 0 1 0 0 0 1 0))", "bad"), /bad: grain wants amount/);
+  assert.throws(() => compile("(mottle 1 (tri 0 0 0 1 0 0 0 1 0))", "bad"), /bad: mottle wants r g b amount/);
+});
+
 // A camera as FightCamDoll.prepare builds one, `d` from the axle and a little
 // above, with its ortho width matched to that distance as the lab's is.
 const W = 1280, H = 720;

@@ -160,12 +160,12 @@ const inks = { ...Object.fromEntries(figurePalette.map((name, slot) => [name, [-
 
 const maxDepth = 16;
 const owner = -1;   // a read of the owner's pose, which moves every tick
-const shapes = { tri: 9, quad: 12, disc: 1, hoop: 2, band: 2, capsule: 7, line: 6 };
+const shapes = { tri: 9, quad: 12, disc: 1, hoop: 2, band: 2, capsule: 7, line: 6, tube: 7, patch: 48 };
 // Flat shapes: object-space anchors, projected here, drawn as 2D ops.
 const flats = { ball: 4, limb: 7, ring: 2, drum: 3, stroke: 7, plate: 9, slab: 6 };
 const forms = new Set(["def", "let", "if", "repeat", "ink", "glow", "move", "rotate",
   "scale", "radial", "mirror", "revolve", "outline", "nudge", "toward",
-  "on", "bone", "skin", "surface"]);
+  "on", "bone", "skin", "surface", "grain", "mottle", "rough"]);
 const isStatement = (f) => Array.isArray(f) && (forms.has(f[0]) || f[0] in shapes || f[0] in flats);
 const union = (...sets) => { const out = new Set(); for (const s of sets) for (const x of s) out.add(x); return out; };
 
@@ -549,6 +549,44 @@ export function compile(source, name = "object") {
           run(s);
         } };
       }
+      case "grain":
+      case "mottle":
+      case "rough": {
+        // Procedural surface, no images. (grain amount [scale [splits]] body…)
+        // cuts the lit faces inside into smaller ones and lightens or darkens
+        // each by noise, so stone, bark and cloth read faceted. (mottle r g b
+        // amount [scale [splits]] body…) blends each toward a second colour
+        // instead: moss on rock, rust on steel. (rough amount [scale] body…)
+        // moves every corner by noise, the same move for the same point, so
+        // shapes that meet still meet. `scale` is the noise's cell size in the
+        // scope's own units (6 unless given); `splits` cuts each face 4× per
+        // split (one at the near level, none further, unless given).
+        const lead = rest.findIndex((a) => isStatement(a));
+        const opening = rest.slice(0, lead < 0 ? rest.length : lead);
+        const least = head === "mottle" ? 4 : 1, most = head === "rough" ? 2 : least + 2;
+        if (opening.length < least || opening.length > most)
+          fail(`${head} wants ${head === "mottle" ? "r g b " : ""}amount${head === "rough" ? " [scale]" : " [scale [splits]]"}`, form);
+        const reads = new Set(), args = opening.map((a) => num(a, scope, reads));
+        const splitsGiven = opening.length === least + 2;
+        if (head !== "rough" && !splitsGiven) reads.add(detailSlot);   // the near level is cut finer
+        const inside = body(rest.slice(opening.length), scope, depth, ctx), run = inside.run, at = depth * 13;
+        const values = new Float64Array(args.length), rough = head === "rough";
+        return { ...inside, reads: union(reads, inside.reads), run: (s) => {
+          for (let i = 0; i < args.length; i++) values[i] = args[i](s);
+          const scope = surfaceScope(s, at, values, head, splitsGiven);
+          const was = rough ? s.rough : s.grain;
+          if (rough) s.rough = scope;
+          else if (!was) s.grain = scope;
+          else { // nested: colour by the outer first; the inner's cut counts
+            let outer = was; while (outer.inner) outer = outer.inner;
+            outer.inner = scope; s.grain.splits = scope.splits;
+          }
+          run(s);
+          if (rough) s.rough = was;
+          else if (s.grain === scope) s.grain = null;
+          else { let outer = s.grain; while (outer.inner !== scope) outer = outer.inner; outer.inner = null; s.grain.splits = s.grain.ownSplits; }
+        } };
+      }
       case "revolve": {
         // (revolve axis [turn] r h r h …): a closed profile turned about the axis.
         const axis = "xyz".indexOf(rest[0]);
@@ -595,7 +633,7 @@ export function compile(source, name = "object") {
   const state = { v: new Float64Array(slots), m: new Float64Array(maxDepth * 13),
     r: 255, g: 255, b: 255, glow: false, face: null, model: null, owner: null, rec: null,
     out: null, view: null, nudge: 0, outline: [0, 24, 20, 30], sketch: null, sketching: null, facing: null, joint: -1,
-    inked: [0, 0, 0, 0] };
+    inked: [0, 0, 0, 0], grain: null, rough: null };
 
   // Bake every part: per switch value, per level, run once into a mesh. Twin
   // meshes (a level that didn't change anything) share one handle.
@@ -745,6 +783,19 @@ const world = new Float64Array(12);
 function put(m, at, o, x, y, z) {
   for (let k = 0; k < 3; k++) world[o + k] = m[at + k] + x * m[at + 3 + k] + y * m[at + 6 + k] + z * m[at + 9 + k];
 }
+// A lit corner: placed, then moved by the rough scope it sits in. The move
+// is a function of where the point is in the scope's own frame, so two
+// shapes that share a corner, even across radial copies, still meet.
+function putLit(s, at, o, x, y, z) {
+  put(s.m, at, o, x, y, z);
+  const r = s.rough;
+  if (!r) return;
+  sampleAt(r, o);
+  const px = sampled[0], py = sampled[1], pz = sampled[2], a = r.amount;
+  world[o] += noise(px, py, pz) * a;
+  world[o + 1] += noise(px + 19.17, py + 7.31, pz + 3.73) * a;
+  world[o + 2] += noise(px + 5.59, py + 23.11, pz + 11.47) * a;
+}
 // A triangle (n 3) or quad (n 4) already in `world`, wound to face out: shaded
 // by the game's rule and emitted, or kept for a bake. No area, nothing drawn.
 function finish(s, n) {
@@ -754,8 +805,25 @@ function finish(s, n) {
   const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
   const length = Math.hypot(nx, ny, nz);
   if (!length) return;
-  if (s.rec) { s.rec.add(w, n, s.glow, s.r, s.g, s.b, nx / length, ny / length, nz / length); return; }
   let r = s.r, g = s.g, b = s.b;
+  if (s.grain) {
+    // The face's middle, in each scope's frame, picks its shade: the outer
+    // grain first, then what is nested in it, so a mottle in a grain does both.
+    let mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i++) { mx += w[i * 3]; my += w[i * 3 + 1]; mz += w[i * 3 + 2]; }
+    mx /= n; my /= n; mz /= n;
+    for (let G = s.grain; G; G = G.inner) {
+      const t = noise(...sampleAt(G, 0, 0, mx, my, mz));
+      if (G.mix) {
+        const k = Math.min(1, Math.max(0, (t + 1) / 2 * G.amount));
+        r += (G.mix[0] - r) * k; g += (G.mix[1] - g) * k; b += (G.mix[2] - b) * k;
+      } else {
+        const k = 1 + t * G.amount;
+        r = Math.min(255, Math.max(0, r * k)); g = Math.min(255, Math.max(0, g * k)); b = Math.min(255, Math.max(0, b * k));
+      }
+    }
+  }
+  if (s.rec) { s.rec.add(w, n, s.glow, r, g, b, nx / length, ny / length, nz / length); return; }
   if (!s.glow) {
     const toward = -(nx * sun[0] + ny * sun[1] + nz * sun[2]) / length;
     const k = .72 + (toward > 0 ? toward : 0) * .28;
@@ -764,24 +832,48 @@ function finish(s, n) {
   s.face(w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7], w[8], r, g, b);
   if (n === 4) s.face(w[0], w[1], w[2], w[6], w[7], w[8], w[9], w[10], w[11], r, g, b);
 }
-function tri(s, at, ax, ay, az, bx, by, bz, cx, cy, cz) {
+function tri(s, at, ax, ay, az, bx, by, bz, cx, cy, cz, splits = s.grain ? s.grain.splits : 0) {
+  if (splits > 0) {
+    // Four triangles off the edges' midpoints, wound as the whole was.
+    const abx = (ax + bx) / 2, aby = (ay + by) / 2, abz = (az + bz) / 2;
+    const bcx = (bx + cx) / 2, bcy = (by + cy) / 2, bcz = (bz + cz) / 2;
+    const cax = (cx + ax) / 2, cay = (cy + ay) / 2, caz = (cz + az) / 2;
+    tri(s, at, ax, ay, az, abx, aby, abz, cax, cay, caz, splits - 1);
+    tri(s, at, abx, aby, abz, bx, by, bz, bcx, bcy, bcz, splits - 1);
+    tri(s, at, cax, cay, caz, bcx, bcy, bcz, cx, cy, cz, splits - 1);
+    tri(s, at, abx, aby, abz, bcx, bcy, bcz, cax, cay, caz, splits - 1);
+    return;
+  }
   const m = s.m;
-  put(m, at, 0, ax, ay, az);
-  if (m[at + 12] < 0) { put(m, at, 3, cx, cy, cz); put(m, at, 6, bx, by, bz); }
-  else { put(m, at, 3, bx, by, bz); put(m, at, 6, cx, cy, cz); }
+  putLit(s, at, 0, ax, ay, az);
+  if (m[at + 12] < 0) { putLit(s, at, 3, cx, cy, cz); putLit(s, at, 6, bx, by, bz); }
+  else { putLit(s, at, 3, bx, by, bz); putLit(s, at, 6, cx, cy, cz); }
   finish(s, 3);
 }
 // A quad is two faces lit as one, off its first three corners, as worldQuad
 // does. A corner on an axis (a revolve's cap) makes it a triangle.
-function quad(s, at, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz) {
+function quad(s, at, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, splits = s.grain ? s.grain.splits : 0) {
   const same = (x1, y1, z1, x2, y2, z2) => x1 === x2 && y1 === y2 && z1 === z2;
   if (same(ax, ay, az, bx, by, bz)) return tri(s, at, ax, ay, az, cx, cy, cz, dx, dy, dz);
   if (same(bx, by, bz, cx, cy, cz) || same(cx, cy, cz, dx, dy, dz)) return tri(s, at, ax, ay, az, bx, by, bz, dx, dy, dz);
   if (same(dx, dy, dz, ax, ay, az)) return tri(s, at, ax, ay, az, bx, by, bz, cx, cy, cz);
+  if (splits > 0) {
+    // Four quads about the middle, wound as the whole was.
+    const abx = (ax + bx) / 2, aby = (ay + by) / 2, abz = (az + bz) / 2;
+    const bcx = (bx + cx) / 2, bcy = (by + cy) / 2, bcz = (bz + cz) / 2;
+    const cdx = (cx + dx) / 2, cdy = (cy + dy) / 2, cdz = (cz + dz) / 2;
+    const dax = (dx + ax) / 2, day = (dy + ay) / 2, daz = (dz + az) / 2;
+    const ox = (ax + bx + cx + dx) / 4, oy = (ay + by + cy + dy) / 4, oz = (az + bz + cz + dz) / 4;
+    quad(s, at, ax, ay, az, abx, aby, abz, ox, oy, oz, dax, day, daz, splits - 1);
+    quad(s, at, abx, aby, abz, bx, by, bz, bcx, bcy, bcz, ox, oy, oz, splits - 1);
+    quad(s, at, ox, oy, oz, bcx, bcy, bcz, cx, cy, cz, cdx, cdy, cdz, splits - 1);
+    quad(s, at, dax, day, daz, ox, oy, oz, cdx, cdy, cdz, dx, dy, dz, splits - 1);
+    return;
+  }
   const m = s.m;
-  put(m, at, 0, ax, ay, az);
-  if (m[at + 12] < 0) { put(m, at, 3, dx, dy, dz); put(m, at, 6, cx, cy, cz); put(m, at, 9, bx, by, bz); }
-  else { put(m, at, 3, bx, by, bz); put(m, at, 6, cx, cy, cz); put(m, at, 9, dx, dy, dz); }
+  putLit(s, at, 0, ax, ay, az);
+  if (m[at + 12] < 0) { putLit(s, at, 3, dx, dy, dz); putLit(s, at, 6, cx, cy, cz); putLit(s, at, 9, bx, by, bz); }
+  else { putLit(s, at, 3, bx, by, bz); putLit(s, at, 6, cx, cy, cz); putLit(s, at, 9, dx, dy, dz); }
   finish(s, 4);
 }
 // Sides asked for (at least `least`), or picked by radius and level — the
@@ -824,7 +916,147 @@ const primitives = {
   capsule: (s, at, v) => rod(s, at, v, v[6], v.length > 7 ? v[7] : 6),
   // (line x1 y1 z1 x2 y2 z2 [width]) — a thin three-sided rod.
   line: (s, at, v) => rod(s, at, v, v.length > 6 ? v[6] : 1.5, 3),
+  // (tube [sides] w [w2] x y z x y z …) — a round tube through the points,
+  // smoothed (Catmull-Rom), w wide, tapering to w2. The count before the
+  // points says which: one is w, two are w w2, three are sides w w2.
+  tube: (s, at, v) => tube(s, at, v),
+  // (patch [segments] x y z ×16) — a bicubic Bézier surface over four rows
+  // of four control points. Faces face the way the first row crosses the
+  // first column (∂u × ∂v); list the rows the other way to flip them.
+  patch: (s, at, v) => patch(s, at, v),
 };
+
+// A smooth tube: the points are a Catmull-Rom spline, sampled per span by
+// level (4, 2, 1 segments), each sample framed by parallel transport so the
+// tube never twists, ringed, and the rings quaded as `rod` does, capped.
+function tube(s, at, v) {
+  const lead = v.length % 3 || 3, n = (v.length - lead) / 3;
+  if (n < 2) return;
+  const w0 = v[lead - (lead === 3 ? 2 : lead)], w1 = lead === 1 ? w0 : v[lead - 1];
+  const sides = lead === 3 ? Math.max(3, Math.floor(v[0])) : sidesFor(s, Math.max(w0, w1) / 2, [], 0);
+  const segs = n === 2 ? 1 : [4, 2, 1][s.v[detailSlot]];
+  const P = (i) => { const k = Math.min(n - 1, Math.max(0, i)) * 3 + lead; return [v[k], v[k + 1], v[k + 2]]; };
+  // Samples: a centre and a tangent each.
+  const C = [], D = [];
+  for (let k = 0; k < n - 1; k++) {
+    const [p0, p1, p2, p3] = [P(k - 1), P(k), P(k + 1), P(k + 2)];
+    for (let j = 0; j < segs + (k === n - 2 ? 1 : 0); j++) {
+      const t = j / segs, t2 = t * t, t3 = t2 * t, c = [], d = [];
+      for (let i = 0; i < 3; i++) {
+        const a = -p0[i] + p2[i], b = 2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i], e = -p0[i] + 3 * p1[i] - 3 * p2[i] + p3[i];
+        c.push(.5 * (2 * p1[i] + a * t + b * t2 + e * t3));
+        d.push(.5 * (a + 2 * b * t + 3 * e * t2));
+      }
+      if (Math.hypot(...d) < 1e-9) for (let i = 0; i < 3; i++) d[i] = p2[i] - p1[i];
+      C.push(c); D.push(d);
+    }
+  }
+  const unit = (a) => { const l = Math.hypot(...a) || 1; return a.map((x) => x / l); };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const across = (d) => unit(Math.abs(d[2]) > .9 ? [0, -d[2], d[1]] : [-d[1], d[0], 0]);
+  let u = null;
+  const rings = [];
+  for (let i = 0; i < C.length; i++) {
+    const d = unit(D[i]);
+    if (!u) u = across(d);
+    else {
+      const dot = u[0] * d[0] + u[1] * d[1] + u[2] * d[2];
+      const next = [u[0] - dot * d[0], u[1] - dot * d[1], u[2] - dot * d[2]];
+      u = Math.hypot(...next) < 1e-6 ? across(d) : unit(next);
+    }
+    const w = cross(d, u), r = (w0 + (w1 - w0) * i / (C.length - 1)) / 2, ring = [];
+    for (let k = 0; k < sides; k++) {
+      const a = k / sides * Math.PI * 2, ca = Math.cos(a) * r, sa = Math.sin(a) * r;
+      ring.push([C[i][0] + u[0] * ca + w[0] * sa, C[i][1] + u[1] * ca + w[1] * sa, C[i][2] + u[2] * ca + w[2] * sa]);
+    }
+    rings.push(ring);
+  }
+  for (let i = 0; i + 1 < rings.length; i++)
+    for (let k = 0; k < sides; k++) {
+      const a = rings[i][k], b = rings[i][(k + 1) % sides], c = rings[i + 1][(k + 1) % sides], d = rings[i + 1][k];
+      quad(s, at, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]);
+    }
+  const cap = (i, flip) => {
+    const o = C[i], ring = rings[i];
+    for (let k = 0; k < sides; k++) {
+      const a = ring[k], b = ring[(k + 1) % sides];
+      if (flip) tri(s, at, o[0], o[1], o[2], b[0], b[1], b[2], a[0], a[1], a[2]);
+      else tri(s, at, o[0], o[1], o[2], a[0], a[1], a[2], b[0], b[1], b[2]);
+    }
+  };
+  cap(0, true);
+  cap(rings.length - 1, false);
+}
+
+// A bicubic Bézier patch, quaded on a grid picked by level (6, 4, 2 a side).
+function patch(s, at, v) {
+  const lead = v.length - 48, segs = lead > 0 ? Math.max(1, Math.floor(v[0])) : [6, 4, 2][s.v[detailSlot]];
+  const B = (t) => { const m = 1 - t; return [m * m * m, 3 * t * m * m, 3 * t * t * m, t * t * t]; };
+  const grid = [];
+  for (let i = 0; i <= segs; i++) {
+    const bv = B(i / segs), row = [];
+    for (let j = 0; j <= segs; j++) {
+      const bu = B(j / segs), p = [0, 0, 0];
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+        const k = bv[r] * bu[c], o = lead + (r * 4 + c) * 3;
+        p[0] += v[o] * k; p[1] += v[o + 1] * k; p[2] += v[o + 2] * k;
+      }
+      row.push(p);
+    }
+    grid.push(row);
+  }
+  for (let i = 0; i < segs; i++)
+    for (let j = 0; j < segs; j++) {
+      const a = grid[i][j], b = grid[i][j + 1], c = grid[i + 1][j + 1], d = grid[i + 1][j];
+      quad(s, at, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]);
+    }
+}
+
+// ——— procedural surface: the noise grain, mottle and rough sample ———
+// Value noise on an integer lattice, −1 to 1, plain arithmetic so every host
+// that runs the compiler bakes the same faces.
+function lattice(x, y, z) {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 1013904223)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+export function noise(x, y, z) {
+  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
+  let fx = x - x0, fy = y - y0, fz = z - z0;
+  fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy); fz = fz * fz * (3 - 2 * fz);
+  const c = (dx, dy, dz) => lattice(x0 + dx, y0 + dy, z0 + dz);
+  const a = c(0, 0, 0) + (c(1, 0, 0) - c(0, 0, 0)) * fx, b = c(0, 1, 0) + (c(1, 1, 0) - c(0, 1, 0)) * fx;
+  const d = c(0, 0, 1) + (c(1, 0, 1) - c(0, 0, 1)) * fx, e = c(0, 1, 1) + (c(1, 1, 1) - c(0, 1, 1)) * fx;
+  const near = a + (b - a) * fy, far = d + (e - d) * fy;
+  return (near + (far - near) * fz) * 2 - 1;
+}
+// A grain, mottle or rough scope: its numbers, and the frame it opened in,
+// inverted, so noise is sampled in that frame's own units wherever the
+// faces inside end up — baked parts and moving ones alike.
+function surfaceScope(s, at, v, kind, splitsGiven) {
+  const m = s.m, o = kind === "mottle" ? 3 : 0;
+  const amount = v[o], scale = v.length > o + 1 && v[o + 1] > 0 ? v[o + 1] : 6;
+  const splits = kind === "rough" ? 0 : splitsGiven ? Math.max(0, Math.floor(v[o + 2])) : (s.v[detailSlot] ? 0 : 1);
+  const a = m[at + 3], b = m[at + 6], c = m[at + 9], d = m[at + 4], e = m[at + 7], f = m[at + 10];
+  const g = m[at + 5], h = m[at + 8], i = m[at + 11];
+  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  const inv = Math.abs(det) < 1e-12 ? [1, 0, 0, 0, 1, 0, 0, 0, 1] : [
+    (e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det,
+    (f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det,
+    (d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det];
+  return { amount, scale, splits, ownSplits: splits, inner: null, mix: kind === "mottle" ? [v[0], v[1], v[2]] : null,
+    origin: [m[at], m[at + 1], m[at + 2]], inv };
+}
+// A placed point (world[o…], or the x y z given) back in the scope's frame,
+// in noise cells: into `sampled`, and returned.
+const sampled = [0, 0, 0];
+function sampleAt(G, o, _, x = world[o], y = world[o + 1], z = world[o + 2]) {
+  const dx = x - G.origin[0], dy = y - G.origin[1], dz = z - G.origin[2], I = G.inv, k = 1 / G.scale;
+  sampled[0] = (I[0] * dx + I[1] * dy + I[2] * dz) * k;
+  sampled[1] = (I[3] * dx + I[4] * dy + I[5] * dz) * k;
+  sampled[2] = (I[6] * dx + I[7] * dy + I[8] * dz) * k;
+  return sampled;
+}
 
 // A closed (radius, height) profile turned about an axis. Walked either way:
 // it is turned counter-clockwise (radius right, height up) so faces face out.

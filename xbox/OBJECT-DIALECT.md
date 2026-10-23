@@ -151,8 +151,35 @@ level unless you give them. Level is the only thing that changes a shape.
 | `(band r width [sides] [turn])` | a tube wall around z |
 | `(capsule x1 y1 z1 x2 y2 z2 w [sides])` · `(line … [w])` | a rod as a prism; a thin three-sided rod |
 
+**Curves and surfaces** (engine 453). Lush forms, still twenty lines, still
+baked: no model file comes in. A mesh file is a wall of numbers that only a
+renderer can read; it can't be re-cut per level, flipped by a switch, bent by
+`distance` or re-dressed from a palette, and nobody can see the form in it
+without projecting it. A form written here can be read, and changed, as
+source.
+
+| form | draws |
+|---|---|
+| `(tube [sides] w [w2] x y z x y z …)` | a round tube through the points, smoothed (a Catmull-Rom spline), `w` wide, tapering to `w2`, capped. The count before the points says which: one is `w`, two are `w w2`, three are `sides w w2`. Two points make a straight rod. Sides are picked by width and level unless given; a part that reads `detail` samples 4, 2 or 1 segments a span by level. Pipes, rails, branches, hulls, a cable |
+| `(patch [segments] x y z ×16)` | a bicubic Bézier surface over four rows of four control points, quaded 6, 4 or 2 a side by level unless `segments` is given. Faces face the way the first row crosses the first column; list the rows the other way to flip them. Hoods, sails, dunes, a leaf |
+
+**Procedural surface** (engine 453). Scopes, like `outline`: no images, no
+UVs. Every lit face inside is coloured or moved by value noise sampled in
+the scope's own frame, so a baked part and a moving one look the same, and
+two shapes that share a corner still meet. `scale` is the noise's cell size
+in the scope's units (6 unless given). They don't touch flat shapes.
+
+| scope | does |
+|---|---|
+| `(grain amount [scale [splits]] body…)` | cuts each face into four `splits` times (once at the near level, not further, unless given) and lightens or darkens each by up to `amount` (0–1) of its ink. Stone, bark, cloth, plaster |
+| `(mottle r g b amount [scale [splits]] body…)` | the same cut, each face blended toward `r g b` by noise, up to `amount`. Moss on rock, rust on steel, bruised fruit |
+| `(rough amount [scale] body…)` | moves every corner by up to `amount` units of noise, the same move for the same point. A boulder from a `revolve`, ground from a `patch` |
+
+A `grain` or `mottle` without `splits` reads `detail`, so the part bakes
+three levels on its own. Mind the budget: a split is 4× the faces.
+
 Not in this pass: `extrude` (a 2D outline, which would do the decks) and
-`sweep`/`tube` along a path (rails, handlebars). They would bake the same way.
+`loft` between two profiles. They would bake the same way.
 
 ## MODEL, the one new op
 
