@@ -31,7 +31,6 @@ import Fastify from "fastify";
 import geckos from "@geckos.io/server";
 import geoip from "geoip-lite";
 import { WebSocket, WebSocketServer } from "ws";
-import ip from "ip";
 import chokidar from "chokidar";
 import fs from "fs";
 import path from "path";
@@ -1437,10 +1436,12 @@ let connectionId = 0; // TODO: Eventually replace with a username arrived at thr
 //                             a client <-> server authentication function.
 
 wss = new WebSocketServer({ server });
+// First routable IPv4 on this box, for the banner only (the `ip` package it replaced is unmaintained).
+const lanAddress = Object.values(os.networkInterfaces()).flat().find(i => i && i.family === "IPv4" && !i.internal)?.address ?? "0.0.0.0";
 log(
   `🤖 session.aesthetic.computer (${
     dev ? "Development" : "Production"
-  }) socket: wss://${ip.address()}:${info.port}`,
+  }) socket: wss://${lanAddress}:${info.port}`,
 );
 
 // oskiewar's front-door matchmaker. A visitor who opens oskiewar.com bare is

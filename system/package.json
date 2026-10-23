@@ -4,7 +4,7 @@
   "packageManager": "pnpm@12.11.2",
   "description": "My virtual computer system for loading and running pieces.",
   "engines": {
-    "node": ">=24.18.1 <25"
+    "node": ">=24.22.1 <25"
   },
   "scripts": {
     "dev": "netlify dev -o",

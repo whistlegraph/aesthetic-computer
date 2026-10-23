@@ -5,7 +5,7 @@
   "main": "session.mjs",
   "type": "module",
   "engines": {
-    "node": ">=24.18.1 <25"
+    "node": ">=24.22.1 <25"
   },
   "scripts": {
     "start": "node session.mjs",
@@ -28,8 +28,7 @@
     "chokidar": "^4.0.3",
     "dotenv": "^16.5.0",
     "fastify": "^5.3.0",
-    "geoip-lite": "^1.4.10",
-    "ip": "^2.0.1",
+    "geoip-lite": "^2.0.3",
     "jamsocket": "^0.10.8",
     "mongodb": "^6.20.0",
     "node-fetch": "^3.3.2",

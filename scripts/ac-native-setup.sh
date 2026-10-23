@@ -80,10 +80,10 @@ for pkg in fish jq caddy stripe/stripe-cli; do
   fi
 done
 
-echo "Ensuring Node 24.18.1 (Krypton LTS) via fnm..."
+echo "Ensuring Node 24.22.1 (Krypton LTS) via fnm..."
 if have fnm; then
   if $INSTALL; then
-    fnm install 24.18.1 >/dev/null 2>&1 || true
+    fnm install 24.22.1 >/dev/null 2>&1 || true
   fi
   # shellcheck disable=SC1090
   eval "$(fnm env --use-on-cd --shell bash --log-level quiet)" >/dev/null 2>&1 || true
@@ -93,10 +93,10 @@ if have node; then
   NODE_VER="$(node -v 2>/dev/null || true)"
   echo "Node detected: $NODE_VER"
   if [[ "$NODE_VER" < "v24." ]]; then
-    echo "Warning: Node is older than v24. Use: fnm use 24.18.1 --install-if-missing"
+    echo "Warning: Node is older than v24. Use: fnm use 24.22.1 --install-if-missing"
   fi
 else
-  echo "Node not found. Install via fnm: fnm install 24.18.1 && fnm use 24.18.1"
+  echo "Node not found. Install via fnm: fnm install 24.22.1 && fnm use 24.22.1"
 fi
 
 echo "Checking repo installs..."

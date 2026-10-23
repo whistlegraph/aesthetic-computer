@@ -67,8 +67,8 @@ echo "🟣 Sourcing fish config"
 source ~/.config/fish/config.fish
 
 # Set the fleet Node.js baseline.
-fnm install 24.18.1
-fnm default 24.18.1
+fnm install 24.22.1
+fnm default 24.22.1
 
 echo "🟣 Installing `devcontainer` cli"
 

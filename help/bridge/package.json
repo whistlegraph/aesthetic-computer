@@ -4,7 +4,7 @@
   "type": "module",
   "main": "aa-bridge.mjs",
   "engines": {
-    "node": ">=24.18.1 <25"
+    "node": ">=24.22.1 <25"
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env aa-bridge.mjs",
