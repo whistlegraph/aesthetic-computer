@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { defaultSecurity, securitySettings } from "./security.mjs";
 
 export const defaultHome = join(homedir(), ".local/share/aespatchercron");
 export function eligiblePiece(route) {
@@ -10,7 +11,7 @@ export function defaults(repo) {
     lith: { host: "root@lith.aesthetic.computer", root: "/opt/ac", identity: join(repo, "aesthetic-computer-vault/home/.ssh/id_rsa") },
     bounds: { perDay: 2, maxActive: 4, maxFiles: 4, maxLines: 200 },
     worker: { executable: "codex", timeoutMs: 900000 }, cloudflare: { enabled: true },
-    posthog: { enabled: true, projectId: null, organizationId: null }, hosting: { kind: "unconfigured" } };
+    posthog: { enabled: true, projectId: null, organizationId: null }, security: defaultSecurity(), hosting: { kind: "unconfigured" } };
 }
 
 export function validateConfig(config) {
@@ -19,5 +20,6 @@ export function validateConfig(config) {
         !Number.isInteger(config.bounds[key]) || config.bounds[key] < 1 || config.bounds[key] > max) ||
       !config.worker || typeof config.worker.executable !== "string" || !Number.isInteger(config.worker.timeoutMs) || config.worker.timeoutMs < 1000 || config.worker.timeoutMs > 1800000)
     throw new Error("Invalid bounded runner config");
+  securitySettings(config);
   return config;
 }

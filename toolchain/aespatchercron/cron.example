@@ -2,3 +2,5 @@
 # This collects signals and runs at most one investigation, stopping for review.
 PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
 17 */6 * * * umask 077; /absolute/path/to/node /absolute/path/to/aesthetic-computer/toolchain/aespatchercron/aespatchercron.mjs tick >> "$HOME/.local/share/aespatchercron/cron.log" 2>&1
+# Runtime and lockfile drift once a day; exit 2 means an operator upgrade is due.
+41 7 * * * umask 077; /absolute/path/to/node /absolute/path/to/aesthetic-computer/toolchain/aespatchercron/aespatchercron.mjs security --strict >> "$HOME/.local/share/aespatchercron/security.log" 2>&1

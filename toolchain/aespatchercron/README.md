@@ -112,6 +112,43 @@ reports the number of manual-review diagnostics as well as worker candidates.
 Collector provenance hashes all collection/validation modules and the exact
 remote program sent to Lith.
 
+## Runtime and dependency drift
+
+`security` judges the Node runtime and production lockfiles the stack runs on,
+the same way a hosting provider's advisory would, before the advisory arrives.
+Every `collect`/`tick` carries the same check; `security --strict` exits 2 when
+an operator upgrade is due, so a cron line can page.
+
+```sh
+slab/bin/aespatchercron security             # Lith runtime + repo pins + lockfiles
+slab/bin/aespatchercron security --no-remote # skip the Lith SSH read
+slab/bin/aespatchercron security --strict    # exit 2 when action is due
+```
+
+* Lith reports `process.version` and its bundled Brotli, OpenSSL, undici and
+  c-ares versions over the existing SSH transport. In `tick` they ride the
+  main payload, so no second session opens. Nothing else leaves the host.
+* Declared pins (`.node-version`, `session-server/Dockerfile`) are read from
+  the checkout. A pin without an exact version is reported, not guessed.
+* Each version is judged against the official release index
+  (`nodejs.org/dist/index.json`, which flags security releases) and the
+  release schedule (end-of-life dates). Statuses: `current`,
+  `release-available`, `security-release-available`, `end-of-life`,
+  `unknown-line`. An unreadable index marks the source unavailable; it never
+  reports "current" from a stale answer.
+* `npm audit --omit=dev` or `pnpm audit --prod` runs in each configured package
+  root (`lith`, `system`, `oven`, `session-server`) from its lockfile. Only
+  severity counts and the names of high/critical packages are kept; advisory
+  text and URLs stay upstream.
+
+A security release behind the running line, an end-of-life line, or any
+high/critical production advisory becomes a lead with no route: it enters the
+manual-review count and never the automatic piece worker. Upgrading Node on
+Lith (`apt-get install nodejs` from the pinned NodeSource line, then
+`systemctl restart lith`), bumping a Dockerfile pin, or rewriting a lockfile
+is operator work, and the lead says so. `security.enabled: false` turns the
+source off; `security.packages` and `security.runtimes` bound what is read.
+
 ## Cloudflare and Lith correlation
 
 Cloudflare reads use the existing vault credential resolver in

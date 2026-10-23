@@ -6,6 +6,7 @@ import { userReports } from "./reports.mjs";
 import { emptySignals, mergeSignals, validateSignals } from "./signals.mjs";
 import { collectPostHog } from "./posthog.mjs";
 import { collectEdge } from "./edge.mjs";
+import { collectSecurity, runtimeFacts, validateRuntime } from "./security.mjs";
 
 export async function catalog(repo) {
   const prefix = "system/public/aesthetic.computer/disks/";
@@ -100,7 +101,7 @@ export async function collect(repo, config) {
   const remote = config.lith;
   if (!/^[a-zA-Z0-9_.@-]+$/.test(remote.host) || !/^\/[a-zA-Z0-9_./-]+$/.test(remote.root)) throw new Error("Invalid Lith transport");
   opts.consumers = await functionConsumers(repo, routes);
-  const source = `import { createHash } from "node:crypto"; import { execFile } from "node:child_process"; import { promisify } from "node:util"; const execFileAsync = promisify(execFile); console.log = () => {};\nconst { connect, closePool } = await import(${JSON.stringify(remote.root + "/system/backend/database.mjs")});\ntry { const { db } = await connect(); const opts = ${JSON.stringify(opts)}; const report = await (${collectDatabase.toString()})(db, opts); const signals = await (${collectDiagnostics.toString()})(db, opts, ${journalNames.toString()}, ${errorNames.toString()}, ${userReports.toString()}); process.stdout.write(JSON.stringify({ report, signals })); } catch { process.stderr.write("Collection unavailable\\n"); process.exitCode = 1; } finally { await closePool(); }`;
+  const source = `import { createHash } from "node:crypto"; import { execFile } from "node:child_process"; import { promisify } from "node:util"; const execFileAsync = promisify(execFile); console.log = () => {};\nconst { connect, closePool } = await import(${JSON.stringify(remote.root + "/system/backend/database.mjs")});\ntry { const { db } = await connect(); const opts = ${JSON.stringify(opts)}; const report = await (${collectDatabase.toString()})(db, opts); const signals = await (${collectDiagnostics.toString()})(db, opts, ${journalNames.toString()}, ${errorNames.toString()}, ${userReports.toString()}); process.stdout.write(JSON.stringify({ report, signals, runtime: (${runtimeFacts.toString()})() })); } catch { process.stderr.write("Collection unavailable\\n"); process.exitCode = 1; } finally { await closePool(); }`;
   const cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", ...(remote.identity ? ["-i", remote.identity] : []), remote.host,
     `cd '${remote.root}/system' && AC_DB_CLOSE=1 node --env-file=.env --input-type=module`];
   let parsed;
@@ -108,7 +109,7 @@ export async function collect(repo, config) {
     const result = await run(cmd, { input: source, timeout: 180000 });
     if (result.code !== 0) throw new Error("Lith unavailable");
     parsed = JSON.parse(result.stdout);
-    validateReport(parsed.report, routes); validateSignals(parsed.signals, routes);
+    validateReport(parsed.report, routes); validateSignals(parsed.signals, routes); validateRuntime(parsed.runtime);
   } catch {
     const signals = emptySignals();
     signals.coverage = ["boots", "chat-clock", "chat-system", "lith-journal", "lith-errors"].map(source => ({ source, status: "unavailable", reason: "Lith transport or report validation failed; raw diagnostics withheld." }));
@@ -116,14 +117,16 @@ export async function collect(repo, config) {
       runs: [], transitions: [], visits: [], unavailable: ["runs", "piece-runs", "account-activity", "visits"], truncated: [] } };
   }
   const window = { start: parsed.report.start, end: parsed.report.end };
-  const [posthog, edge] = await Promise.all([
+  const [posthog, edge, security] = await Promise.all([
     collectPostHog(repo, { ...config, collection: { ...config.collection, end: opts.end } }),
     collectEdge(config, window),
+    // One SSH session per tick: the runtime facts ride the main payload or stay unknown.
+    collectSecurity(repo, config, { runtime: parsed.runtime ?? null, remote: false }),
   ]);
-  const signals = validateSignals(mergeSignals(parsed.signals, posthog, edge.signals), routes);
+  const signals = validateSignals(mergeSignals(parsed.signals, posthog, edge.signals, security.signals), routes);
   const modules = {};
-  for (const file of ["collect.mjs", "diagnostics.mjs", "reports.mjs", "signals.mjs", "posthog.mjs", "edge.mjs", "lith-access.mjs", "../domains/cloudflare.mjs"])
+  for (const file of ["collect.mjs", "diagnostics.mjs", "reports.mjs", "signals.mjs", "posthog.mjs", "edge.mjs", "lith-access.mjs", "security.mjs", "../domains/cloudflare.mjs"])
     modules[file] = hash(await readFile(new URL(file, import.meta.url)));
-  return { report: parsed.report, signals, correlation: edge.correlation, provenance: { revision: await git(repo, "rev-parse", "HEAD"),
+  return { report: parsed.report, signals, correlation: edge.correlation, security: security.detail, provenance: { revision: await git(repo, "rev-parse", "HEAD"),
     collector: hash(JSON.stringify(modules)), modules, remotePayload: hash(source), at: new Date().toISOString() } };
 }
