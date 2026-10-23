@@ -736,6 +736,18 @@
         }
     }
 
+    @whats host whats.kidlisp.com lang.kidlisp.com whatis.kidlisp.com
+    handle @whats {
+        handle /api/* {
+            import lith_proxy
+        }
+        handle {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /whats.html
+            file_server
+        }
+    }
+
     @keepsredirect host keeps.kidlisp.com
     handle @keepsredirect {
         redir https://keep.kidlisp.com{uri} 301

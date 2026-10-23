@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<!-- KidLisp.com — the language page. Served at whats.kidlisp.com (aliases: lang., whatis.) by lith/Caddyfile. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>What's KidLisp</title>
+  <meta name="description" content="KidLisp is a tiny Lisp for pictures, motion and sound. One line is a program. It runs in the browser, on AC Native OS, in apps, and on chain." />
+  <link rel="canonical" href="https://whats.kidlisp.com/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://whats.kidlisp.com/" />
+  <meta property="og:title" content="What's KidLisp" />
+  <meta property="og:description" content="A tiny Lisp for pictures, motion and sound. One line is a program." />
+  <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="What's KidLisp" />
+  <meta name="twitter:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
+  <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+
+  <style>
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+      font-weight: normal; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      --bg: #d4f5d8;
+      --bg-2: #e2f9e5;
+      --bg-3: #b8e8be;
+      --fg: #0a2e0e;
+      --fg-2: #1a5c24;
+      --fg-3: #3d7a48;
+      --line: #8fd49a;
+      --accent: #16a34a;
+      --code-bg: #0a2612;
+      --code-fg: #d4f5d8;
+      --kl-string: #b58900;
+      --kl-number: #d33682;
+      --kl-keyword: #2aa198;
+      --kl-code: #859900;
+      --kl-time: #cb4b16;
+      --font-mono: 'Berkeley Mono Variable', 'Noto Sans Mono', ui-monospace, Menlo, monospace;
+      --font-display: 'YWFTProcessing-Regular', var(--font-mono);
+      --gutter: 16px;
+      --radius: 6px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0a2612;
+        --bg-2: #0e3318;
+        --bg-3: #133d1e;
+        --fg: #d4f5d8;
+        --fg-2: #86efac;
+        --fg-3: #4ade80;
+        --line: #1a5c24;
+        --accent: #4ade80;
+        --code-bg: #04140a;
+        --code-fg: #d4f5d8;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0a2612;
+      --bg-2: #0e3318;
+      --bg-3: #133d1e;
+      --fg: #d4f5d8;
+      --fg-2: #86efac;
+      --fg-3: #4ade80;
+      --line: #1a5c24;
+      --accent: #4ade80;
+      --code-bg: #04140a;
+      --code-fg: #d4f5d8;
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 17px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+    a { color: var(--fg-2); text-decoration-color: var(--line); text-underline-offset: 3px; }
+    a:hover { color: var(--accent); }
+
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 var(--gutter); }
+
+    header {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      padding: 18px 0 10px; border-bottom: 1px solid var(--line);
+    }
+    header .brand { font-family: var(--font-display); font-size: 22px; color: var(--fg); text-decoration: none; }
+    header nav { display: flex; gap: 14px 18px; flex-wrap: wrap; font-size: 15px; }
+
+    h1, h2 { font-family: var(--font-display); font-weight: normal; line-height: 1.1; margin: 0; }
+    h1 { font-size: clamp(34px, 7vw, 64px); }
+    h2 { font-size: clamp(24px, 4vw, 34px); margin-bottom: 14px; }
+    p { margin: 0 0 1em; max-width: 60ch; }
+
+    .hero { padding: 36px 0 24px; display: grid; gap: 22px; grid-template-columns: 1fr; align-items: start; }
+    .hero .lede { font-size: clamp(19px, 2.6vw, 24px); max-width: 30ch; margin-top: 18px; }
+    @media (min-width: 820px) {
+      .hero { grid-template-columns: 1.1fr 1fr; align-items: center; }
+    }
+
+    section { padding: 28px 0; border-top: 1px solid var(--line); }
+
+    /* A "piece": code + live frame */
+    .piece { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 640px) { .piece { grid-template-columns: 1fr 1fr; } }
+    .code {
+      margin: 0; padding: 14px 16px;
+      background: var(--code-bg); color: var(--code-fg);
+      border-radius: var(--radius);
+      font-family: var(--font-mono); font-size: 16px; line-height: 1.55;
+      white-space: pre-wrap; word-break: break-word;
+      min-height: 72px;
+    }
+    .code .s { color: var(--kl-string); }
+    .code .n { color: var(--kl-number); }
+    .code .k { color: var(--kl-keyword); }
+    .code .c { color: var(--kl-code); }
+    .code .t { color: var(--kl-time); }
+    .frame {
+      position: relative; aspect-ratio: 1 / 1; max-height: 420px;
+      background: #000; border-radius: var(--radius); overflow: hidden;
+      border: 1px solid var(--line);
+    }
+    .frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; background: #000; }
+    .frame button.play {
+      position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer;
+      background: var(--bg-3); color: var(--fg); border: 0;
+      font-family: var(--font-display); font-size: 26px;
+    }
+    .frame button.play:hover { background: var(--line); }
+    .frame .open {
+      position: absolute; right: 8px; bottom: 8px; font-size: 13px;
+      background: rgba(0,0,0,.6); color: #fff; padding: 3px 8px; border-radius: 4px; text-decoration: none;
+    }
+    .caption { margin: 8px 0 0; color: var(--fg-2); font-size: 15px; }
+
+    .pieces { display: grid; gap: 28px; }
+
+    /* Live numbers */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+    .stat { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+    .stat b { display: block; font-family: var(--font-display); font-size: clamp(30px, 5vw, 44px); font-weight: normal; line-height: 1; }
+    .stat span { color: var(--fg-2); font-size: 14px; }
+    .words { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .words a { background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 15px; text-decoration: none; }
+
+    /* Where it runs */
+    .hosts { display: grid; gap: 10px; grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .hosts { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 960px) { .hosts { grid-template-columns: 1fr 1fr 1fr; } }
+    .host { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+    .host h3 { margin: 0 0 4px; font-family: var(--font-display); font-weight: normal; font-size: 20px; }
+    .host p { margin: 0; font-size: 15px; color: var(--fg-2); }
+    .host p a { color: inherit; }
+
+    /* Most played */
+    .top { display: grid; gap: 10px; grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .top { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 960px) { .top { grid-template-columns: 1fr 1fr 1fr; } }
+    .top a { display: block; text-decoration: none; background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius); padding: 12px 14px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; min-height: 84px; }
+    .top a:hover { outline: 2px solid var(--accent); }
+    .top a small { display: block; margin-top: 8px; color: var(--fg-3); font-size: 13px; }
+
+    .go { display: flex; flex-wrap: wrap; gap: 10px; }
+    .go a { display: inline-block; padding: 10px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--bg-2); text-decoration: none; font-size: 16px; }
+    .go a.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+    footer { padding: 28px 0 40px; border-top: 1px solid var(--line); font-size: 14px; color: var(--fg-2); }
+    footer p { margin: 0 0 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="https://whats.kidlisp.com">KidLisp</a>
+      <nav>
+        <a href="https://kidlisp.com">Editor</a>
+        <a href="https://learn.kidlisp.com">Learn</a>
+        <a href="https://top.kidlisp.com">Top 100</a>
+        <a href="https://keep.kidlisp.com">Keeps</a>
+        <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/kidlisp.mjs">Source</a>
+      </nav>
+    </header>
+
+    <div class="hero">
+      <div>
+        <h1>What's KidLisp?</h1>
+        <p class="lede">A tiny Lisp for pictures, motion and sound. One line is a program.</p>
+        <div class="go">
+          <a class="primary" href="https://kidlisp.com">Write some</a>
+          <a href="https://learn.kidlisp.com">Learn the words</a>
+        </div>
+      </div>
+      <div>
+        <div class="piece">
+          <pre class="code"><span class="s">purple</span>, <span class="k">ink</span>, <span class="k">line</span>, <span class="k">blur</span> <span class="n">5</span></pre>
+          <div class="frame" data-code="$bop" data-autoplay>
+            <button class="play" type="button">play</button>
+          </div>
+        </div>
+        <p class="caption">The most played KidLisp piece. Four words.</p>
+      </div>
+    </div>
+
+    <section id="how">
+      <h2>How it reads</h2>
+      <div class="pieces">
+        <div>
+          <div class="piece">
+            <pre class="code"><span class="s">red</span></pre>
+            <div class="frame" data-src="red"><button class="play" type="button">play</button></div>
+          </div>
+          <p class="caption">A color by itself fills the screen.</p>
+        </div>
+        <div>
+          <div class="piece">
+            <pre class="code">(<span class="k">wipe</span> <span class="s">blue</span>)
+(<span class="k">ink</span> <span class="s">yellow</span>)
+(<span class="k">circle</span> <span class="n">64</span> <span class="n">64</span> <span class="n">32</span>)</pre>
+            <div class="frame" data-src="(wipe blue)
+(ink yellow)
+(circle 64 64 32)"><button class="play" type="button">play</button></div>
+          </div>
+          <p class="caption">Parentheses group a word with its arguments. Every line runs every frame.</p>
+        </div>
+        <div>
+          <div class="piece">
+            <pre class="code">(<span class="t">0.5s</span> (<span class="k">wipe</span> (<span class="k">?</span> <span class="s">red</span> <span class="s">yellow</span> <span class="s">blue</span>)))
+(<span class="k">ink</span> <span class="s">white</span>)
+(<span class="k">line</span>)</pre>
+            <div class="frame" data-src="(0.5s (wipe (? red yellow blue)))
+(ink white)
+(line)"><button class="play" type="button">play</button></div>
+          </div>
+          <p class="caption">A time prefix runs its body on a beat. A question mark picks at random. Bare words take sensible defaults.</p>
+        </div>
+        <div>
+          <div class="piece">
+            <pre class="code">(<span class="c">$bop</span>)
+(<span class="k">zoom</span> <span class="n">0.97</span>)
+(<span class="k">spin</span> <span class="n">1</span>)</pre>
+            <div class="frame" data-src="($bop)
+(zoom 0.97)
+(spin 1)"><button class="play" type="button">play</button></div>
+          </div>
+          <p class="caption">Every saved piece gets a short code. Call it by name inside another piece.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="numbers">
+      <h2>How much of it there is</h2>
+      <div class="stats">
+        <div class="stat"><b id="stat-pieces">—</b><span>saved pieces</span></div>
+        <div class="stat"><b id="stat-words">118</b><span>built-in words</span></div>
+        <div class="stat"><b id="stat-hits">—</b><span>plays of the top piece</span></div>
+      </div>
+      <div class="words" id="words"></div>
+    </section>
+
+    <section id="where">
+      <h2>Where it runs</h2>
+      <div class="hosts" id="hosts">
+        <div class="host"><h3><a href="https://aesthetic.computer">aesthetic.computer</a></h3><p>Type a line at the prompt, or open a saved piece by its code. The interpreter is one JavaScript file.</p></div>
+        <div class="host"><h3><a href="https://kidlisp.com">kidlisp.com</a></h3><p>The editor. Write, run, publish and browse pieces in the browser.</p></div>
+        <div class="host"><h3>AC Native OS</h3><p>Laptops that boot straight into Aesthetic Computer. The same interpreter runs under QuickJS on bare metal.</p></div>
+        <div class="host"><h3>iPhone and iPad</h3><p>The <a href="https://aesthetic.computer">Aesthetic Computer</a>, <a href="https://mime.ac">MIME</a> and <a href="https://whistlegraph.app">Whistlegraph</a> apps run pieces in a web view. MIME is a feed you swipe through.</p></div>
+        <div class="host"><h3><a href="https://oskiewar.com">Xbox</a></h3><p>Pieces hot-deploy to the console inside the oskiewar shell. The game's props and vehicles are written in a KidLisp dialect that compiles into it.</p></div>
+        <div class="host"><h3><a href="https://keep.kidlisp.com">Tezos</a></h3><p>Keeps are pieces minted as tokens. Each one is a self-contained bundle of the piece and its runtime on IPFS.</p></div>
+        <div class="host"><h3><a href="https://menuband.app">Menu Band</a></h3><p>The Mac menu bar instrument shows pieces in a floating window, and carries a Swift port of the core words.</p></div>
+        <div class="host"><h3><a href="https://aesel.app">Aesel</a></h3><p>The terminal harness writes <code>.lisp</code> pieces with an agent, pushes them to your phone and publishes them under your handle.</p></div>
+        <div class="host"><h3><a href="https://device.kidlisp.com">Frames and Ableton</a></h3><p>FF1 displays show a piece full screen. A Max for Live device puts one in a Live set.</p></div>
+        <div class="host"><h3>Game Boy, Playdate, WASM</h3><p>Compilers turn small pieces into handheld ROMs and a standalone rasterizer.</p></div>
+        <div class="host"><h3><a href="https://papers.aesthetic.computer">Papers</a></h3><p>The language, its 118 built-ins, card-sized programs, and where it should live, written up as papers.</p></div>
+      </div>
+    </section>
+
+    <section id="played">
+      <h2>Most played right now</h2>
+      <div class="top" id="top"></div>
+    </section>
+
+    <section id="go">
+      <h2>Go</h2>
+      <div class="go">
+        <a class="primary" href="https://kidlisp.com">Open the editor</a>
+        <a href="https://learn.kidlisp.com">Learn</a>
+        <a href="https://top.kidlisp.com">Top 100</a>
+        <a href="https://keep.kidlisp.com">Keep a piece on chain</a>
+        <a href="https://aesthetic.computer">Aesthetic Computer</a>
+      </div>
+    </section>
+
+    <footer>
+      <p>KidLisp is written and maintained by <a href="https://aesthetic.computer/@jeffrey">@jeffrey</a> at <a href="https://aesthetic.computer">Aesthetic Computer</a>. The interpreter is <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/kidlisp.mjs">one file</a>, ISC licensed.</p>
+    </footer>
+  </div>
+
+  <script>
+    const AC = "https://aesthetic.computer";
+    const FLAGS = "nolabel=true&nogap=true&noauth=true";
+
+    // Same encoding as encodeKidlispForUrl in kidlisp.mjs: space→_, newline→§.
+    function pieceUrl(frame) {
+      if (frame.dataset.code) return `${AC}/${frame.dataset.code}?${FLAGS}`;
+      const src = frame.dataset.src.replace(/ /g, "_").replace(/\n/g, "§").replace(/%/g, "¤").replace(/;/g, "¨");
+      return `${AC}/${encodeURI(src)}?${FLAGS}`;
+    }
+
+    function play(frame) {
+      if (frame.querySelector("iframe")) return;
+      const url = pieceUrl(frame);
+      const iframe = document.createElement("iframe");
+      iframe.src = url;
+      iframe.loading = "lazy";
+      iframe.title = "KidLisp running";
+      iframe.allow = "autoplay";
+      frame.querySelector("button.play")?.remove();
+      frame.appendChild(iframe);
+      const open = document.createElement("a");
+      open.className = "open";
+      open.href = url.split("?")[0];
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.textContent = "open";
+      frame.appendChild(open);
+    }
+
+    document.querySelectorAll(".frame").forEach((frame) => {
+      frame.querySelector("button.play")?.addEventListener("click", () => play(frame));
+      if (frame.hasAttribute("data-autoplay")) play(frame);
+    });
+
+    // Live numbers from the store. Everything degrades to a dash.
+    const fmt = (n) => Number(n).toLocaleString("en-US");
+    const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    fetch("/api/kidlisp-count").then((r) => r.json()).then((d) => {
+      if (d && d.count) document.getElementById("stat-pieces").textContent = fmt(d.count);
+    }).catch(() => {});
+
+    fetch("/api/store-kidlisp?stats=functions").then((r) => r.json()).then((d) => {
+      const fs = (d.functions || d).slice(0, 14);
+      const box = document.getElementById("words");
+      fs.forEach((f) => {
+        const a = document.createElement("a");
+        a.href = `https://learn.kidlisp.com/#${encodeURIComponent(f.name)}`;
+        a.textContent = `${f.name} · ${fmt(f.pieces)}`;
+        a.title = `${f.name} appears in ${fmt(f.pieces)} pieces`;
+        box.appendChild(a);
+      });
+    }).catch(() => {});
+
+    fetch("/api/store-kidlisp?recent=true&sort=hits&limit=6").then((r) => r.json()).then((d) => {
+      const box = document.getElementById("top");
+      const list = d.recent || [];
+      if (list[0]) document.getElementById("stat-hits").textContent = fmt(list[0].hits);
+      list.forEach((p) => {
+        const a = document.createElement("a");
+        a.href = `${AC}/$${p.code}`;
+        a.innerHTML = `${esc(p.source.slice(0, 160))}<small>$${esc(p.code)} · ${esc(p.handle || "")} · ${fmt(p.hits)} plays</small>`;
+        box.appendChild(a);
+      });
+    }).catch(() => {});
+  </script>
+</body>
+</html>
