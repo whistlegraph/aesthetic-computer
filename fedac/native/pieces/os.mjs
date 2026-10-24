@@ -1039,6 +1039,12 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         // Initramfs size isn't in the .version file today; use a generous
         // default so the progress bar doesn't stall at 100% prematurely.
         system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", OS_INITRAMFS_EXPECTED);
+        // Stop here: this frame's `system` snapshot still carries the kernel
+        // fetch's latched done/ok flags. Falling through let the initramfs
+        // stage read them the same frame, stat a file fetchBinary had just
+        // unlinked (-1 bytes) and fail as "truncated (-0.00MB)" — every OTA
+        // on ac13 died there on 2026-10-24. Next frame sees fresh flags.
+        return;
       } else {
         setError("kernel download failed", "downloading");
       }
@@ -1063,7 +1069,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         // sidecar; until then this catches "downloaded 0 bytes" / HTML error
         // pages saved as the binary.
         const onDisk = system?.fileSizeBytes?.("/tmp/initramfs.cpio.gz.new");
-        if (typeof onDisk === "number") {
+        if (typeof onDisk === "number" && onDisk >= 0) { // -1 = stat failed, not a short file
           const onDiskMB = (onDisk / 1048576).toFixed(2);
           if (onDisk < 50 * 1048576) {
             addTelemetry(`initramfs SHORT: only ${onDiskMB}MB on disk`);
