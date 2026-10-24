@@ -111,6 +111,7 @@
         "xbox/live/wall/**",
         "xbox/live/wall.*",
         "xbox/live/wall-shell.html",
+        "xbox/live/typist/**",
         "xbox/live/tests/oskiewar*.mjs",
         "xbox/live/tests/blackbox-rounds.mjs",
         "xbox/live/tests/netplay*.mjs",
