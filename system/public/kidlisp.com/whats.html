@@ -117,7 +117,7 @@
     section { padding: 28px 0; border-top: 1px solid var(--line); }
 
     /* A "piece": code + live frame */
-    .piece { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .piece { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; }
     @media (min-width: 640px) { .piece { grid-template-columns: 1fr 1fr; } }
     .code {
       margin: 0; padding: 14px 16px;
@@ -133,7 +133,7 @@
     .code .c { color: var(--kl-code); }
     .code .t { color: var(--kl-time); }
     .frame {
-      position: relative; aspect-ratio: 1 / 1; max-height: 420px;
+      position: relative; aspect-ratio: 1 / 1; max-width: 420px;
       background: #000; border-radius: var(--radius); overflow: hidden;
       border: 1px solid var(--line);
     }
