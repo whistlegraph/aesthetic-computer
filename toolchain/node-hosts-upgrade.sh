@@ -110,6 +110,8 @@ for pid in $(pgrep -f 'session\.mjs$'); do
   [ "$pid" = "$main" ] && continue
   echo "STALE pid=$pid unit=$(ps -o unit= -p "$pid" | tr -d ' ') parent=$(ps -o args= -p "$(ps -o ppid= -p "$pid" | tr -d ' ')" | cut -c1-50) started=$(ps -o lstart= -p "$pid")"
 done
+git -C $repo status --short 2>/dev/null | head -10 | sed 's/^/DETAIL dirty /'
+git -C $repo diff --stat 2>/dev/null | tail -5 | sed 's/^/DETAIL diffstat /' | cut -c1-140
 ss -ltnp 2>/dev/null | awk 'NR>1 {print "DETAIL listen " $4 " " $6}' | grep -i node | cut -c1-120
 journalctl -u "$UNIT" -n 12 --no-pager -o cat 2>/dev/null | cut -c1-160 | sed 's/^/DETAIL journal /'
 echo "RESULT host=$(hostname) before=$before after=$after service=$UNIT active=$active rev=$rev brotli=$(node -p process.versions.brotli)"
