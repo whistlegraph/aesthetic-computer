@@ -61,11 +61,17 @@ test("sampler needs a recording, then plays by degree", async () => {
 
 test("rec arms play, hits land on the track, loop replays them", async () => {
   const r = await rig();
-  r.key("f12"); r.key("c"); r.key("c", false);
-  const synthBefore = r.log.synth.length;
-  const t0 = Date.now();
-  while (Date.now() - t0 < 60000 / 120 / 4 * 17) { r.piece.sim({ sound: r.sound }); await new Promise((res) => setTimeout(res, 5)); }
-  assert.ok(r.log.synth.length > synthBefore, "the loop fired the recorded note");
+  const run = async (ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { r.piece.sim({ sound: r.sound }); await new Promise((res) => setTimeout(res, 5)); } };
+  const notes = () => r.log.synth.filter((o) => !(o.type === "square" && o.duration === 0.02)).length; // ignore the click
+  r.key("f12");                       // arms: one bar of count-in at 120 bpm = 2 s
+  r.key("c"); r.key("c", false);      // during the count-in: heard, not recorded
+  await run(2200);
+  const before = notes();
+  r.key("c"); r.key("c", false);      // now it records
+  const after = notes();
+  await run(60000 / 120 / 4 * 17);    // one full loop later it plays back
+  assert.ok(notes() > after, "the loop fired the recorded note");
+  assert.ok(after > before);
   r.key("insert"); r.key("delete");
 });
 

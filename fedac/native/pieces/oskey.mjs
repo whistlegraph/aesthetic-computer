@@ -36,7 +36,8 @@ const DEGREE_RGB = [[230, 60, 60], [230, 140, 50], [230, 210, 60], [80, 200, 90]
 const FX = [["room", 1], ["echo", 2], ["glitch", 3]];
 // Mix: one gain per sound family, so drums sit level with the synths.
 // The drum lib accepts up to 2.2; notes go out around 0.4-0.6.
-const MIX = { drums: 2.0, zoo: 1.0, sample: 1.0 };
+const MIX = { drums: 3.0, zoo: 1.2, sample: 1.0 };
+const KICK_PF = 1.7; // laptop-speaker kick tuning; 1 = the kit's 808 sub // drums pin the kit's 2.2 ceiling; accents still land first in the compressor
 const MODES = ["inst", "drums", "sampler", "seq"];
 const STEPS = 16, ESC_WINDOW = 120, MAX_HELD_VOICES = 20;
 // Light mode: paper, cream cards, dark ink; keys keep their role colors.
@@ -44,6 +45,20 @@ const GLASS = [247, 244, 236], PANEL = [232, 227, 214], INK = [90, 84, 78], DIM 
 
 let mode = "inst", track = 0, octave = 4, patch = 0, scale = 0, root = 0, chordOn = false;
 let bpm = 120, playing = false, armed = false, click = false, loopSteps = STEPS;
+// Count-in: arming record from a stop runs one bar of click first. The loop
+// and the recording start on the downbeat after it.
+let countIn = null, clickBeforeRec = false; // { startAt, beat }
+let monoBefore = false; // the engine's mono fold as we found it
+const beatMs = () => 60000 / bpm;
+function clickTick(sound, downbeat) {
+  sound.synth?.({ type: "square", tone: downbeat ? 1760 : 1320, duration: 0.02, volume: 0.25, attack: 0.001, decay: 0.015 });
+}
+function countTick(sound) {
+  if (!countIn) return;
+  const now = Date.now(), beat = Math.floor((now - countIn.startAt) / beatMs());
+  if (beat >= 4) { countIn = null; playing = true; startAt = now; lastStep = -1; flash("rec"); return; }
+  if (beat !== countIn.beat) { countIn.beat = beat; clickTick(sound, beat === 0); flash(`count ${beat + 1}`); }
+}
 let startAt = 0, lastStep = -1, taps = [];
 let held = {};            // key → { voices, hit, downAt }
 let mods = { shift: false, caps: false };
@@ -131,7 +146,16 @@ function hitFor(k, accent) {
 function fire(sound, hit, hold) {
   const voices = [];
   glow(tintOf(hit), 0.6, hit.vol);
-  if (hit.kind === "drum") playPercussion(sound, hit.drum, { volume: Math.min(2.2, hit.vol * MIX.drums), pan: hit.pan });
+  if (hit.kind === "drum") {
+    // Every kick layer is under 0.5 s, so all of it rides the drum bus,
+    // which the engine trims to 0.6 and peak-limits at 0.95. The kit's
+    // 55 Hz sub peaks highest, so it sets the limiter's gain — and a
+    // ThinkPad speaker can't move at 55 Hz. Pitching the kick up (55 → 94,
+    // 150 → 255 Hz) puts that energy where the speaker and the limiter
+    // both cooperate; adding layers would only lower the gain again.
+    const pf = hit.drum === "c" ? KICK_PF : 1;
+    playPercussion(sound, hit.drum, { volume: Math.min(2.2, hit.vol * MIX.drums), pan: hit.pan, pitchFactor: pf });
+  }
   else if (hit.kind === "zoo") sound.zoo?.play?.(hit.name, { volume: hit.vol * MIX.zoo, pan: hit.pan, pitch: hit.pitch });
   else if (hit.kind === "sample") {
     const v = sound.sample?.play?.({ tone: freq(hit.midi), base: freq(60), volume: hit.vol * MIX.sample, pan: hit.pan, loop: false });
@@ -200,7 +224,7 @@ function tick(sound) {
   const step = Math.floor((Date.now() - startAt) / stepMs()) % loopSteps;
   if (step === lastStep) return;
   lastStep = step;
-  if (click && step % 4 === 0) sound.synth?.({ type: "square", tone: step === 0 ? 1760 : 1320, duration: 0.02, volume: 0.15, attack: 0.001, decay: 0.015 });
+  if (click && step % 4 === 0) clickTick(sound, step === 0);
   for (const t of tracks) {
     if (t.mute) continue;
     for (const h of t.hits) if (h.step === step) { fire(sound, h, false); t.level = 1; lastHit = frame; }
@@ -291,6 +315,7 @@ function boot({ sound, system }) {
   frame = 0; held = {}; notice = null; swoops = [];
   resetAudio(sound); // clear anything a previous reload left droning
   sound?.bpm?.(bpm);
+  monoBefore = !!system?.mono; system?.setMono?.(true); // oskey is a mono instrument; the laptop speakers are too
   const mic = sound?.microphone || {};
   sampled = (mic.sampleLength || 0) > 0;
   flash("oskey — F1 inst  F2 drums  F3 sampler  F4 seq  space play  F12 rec");
@@ -380,7 +405,7 @@ function act({ event: e, sound, system, screen }) {
     if (frame - escAt > ESC_WINDOW) escCount = 0;
     escCount++; escAt = frame;
     if (escCount >= 3) { system?.jump?.("prompt"); return; }
-    playing = false; armed = false; stopAll(sound); resetAudio(sound);
+    playing = false; armed = false; if (countIn) { countIn = null; click = clickBeforeRec; } stopAll(sound); resetAudio(sound);
     flash(`stopped (esc ${escCount}/3 → prompt)`);
     return;
   }
@@ -419,7 +444,16 @@ function act({ event: e, sound, system, screen }) {
   }
   if (k === "f10") { loopSteps = loopSteps === STEPS ? STEPS * 2 : STEPS; flash(`loop ${loopSteps / 4} bars`); return; }
   if (k === "f11") { click = !click; flash(`click ${click ? "on" : "off"}`); return; }
-  if (k === "f12") { armed = !armed; if (armed && !playing) { playing = true; startAt = Date.now(); lastStep = -1; } flash(armed ? "rec" : "rec off"); return; }
+  if (k === "f12") {
+    if (countIn) { countIn = null; armed = false; click = clickBeforeRec; flash("count-in cancelled"); return; }
+    armed = !armed;
+    if (armed) {
+      clickBeforeRec = click; click = true;                    // the click runs for the whole take
+      if (!playing) { countIn = { startAt: Date.now(), beat: -1 }; flash("count in…"); }
+      else flash("rec");
+    } else { click = clickBeforeRec; flash("rec off"); }
+    return;
+  }
   if (k === " ") {
     playing = !playing;
     if (playing) { startAt = Date.now(); lastStep = -1; } else stopAll(sound);
@@ -429,6 +463,10 @@ function act({ event: e, sound, system, screen }) {
   if (k === "-") { octave = Math.max(1, octave - 1); flash(`octave ${octave}`); return; }
   if (k === "=") { octave = Math.min(7, octave + 1); flash(`octave ${octave}`); return; }
   if (k === "tab") { patch = (patch + 1) % PATCHES.length; flash(`patch ${patch + 1} ${PATCHES[patch].name}`); return; }
+  if ((k === "delete" || k === "backspace") && mods.shift) { // the whole recording
+    for (const t of tracks) t.hits = [];
+    flash("all tracks cleared"); return;
+  }
   if (k === "insert") { const h = tracks[track].hits.pop(); flash(h ? "undo" : "nothing to undo"); return; }
   if (k === "delete") { tracks[track].hits = []; flash(`${tracks[track].name} cleared`); return; }
   if (k === "m" && mode === "seq") { tracks[cursor.t].mute = !tracks[cursor.t].mute; return; }
@@ -483,6 +521,7 @@ function act({ event: e, sound, system, screen }) {
 }
 
 function sim({ sound }) {
+  countTick(sound);
   if (frame - midiScanAt > 120) { midiScanAt = frame; scanMidi(); }
   tick(sound); swoopTick();
   washAmt *= WASH_FADE;
@@ -708,6 +747,6 @@ function seqView({ ink, box, line, txt, w, h, y, m, ch, lh, foot }) {
   }
 }
 
-function leave({ sound }) { swoops = []; stopAll(sound); if (recording) sound.microphone?.cut?.(); }
+function leave({ sound, system }) { swoops = []; stopAll(sound); if (recording) sound.microphone?.cut?.(); system?.setMono?.(monoBefore); }
 
 export { boot, paint, act, sim, leave };
