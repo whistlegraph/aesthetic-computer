@@ -5,7 +5,7 @@
 - **User**: root
 - **Path**: `/home/aesthetic-computer/session-server`
 - **Node**: Managed via `fnm` (Fast Node Manager)
-- **Process**: `pm2` (name: `session`)
+- **Process**: systemd unit `session-server` (restart with `systemctl restart session-server`; `deploy-remote.sh` is the deploy). pm2 is retired.
 
 ## Deploy from DevContainer
 
