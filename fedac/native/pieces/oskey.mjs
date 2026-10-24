@@ -319,7 +319,6 @@ function paint({ wipe, ink, box, line, write, screen, comicWrite }) {
   if (recording) { ink(240, 60, 60); box(x, y, 7 * ch, lh + 4); txt("MIC", x + ch, y + 2, GLASS); x += 8 * ch; }
   ink(...(armed ? [220, 50, 50] : PANEL)); box(x, y, 5 * ch, lh + 4); txt("REC", x + ch, y + 2, armed ? GLASS : INK); x += 6 * ch;
   ink(...(playing ? [90, 200, 90] : PANEL)); box(x, y, 6 * ch, lh + 4); txt("PLAY", x + ch, y + 2, playing ? GLASS : INK);
-  guy(ink, box, w - m - 26 * S, y - 2, S);
   y += lh + 4 + m;
 
   // left: patch
@@ -357,6 +356,7 @@ function paint({ wipe, ink, box, line, write, screen, comicWrite }) {
     ink(...(on ? TRACK_RGB[i] : DIM)); box(rx + rw - ch * 8, ty + 3, Math.floor(ch * 7 * Math.min(1, t.level)), 3);
     if (t.hits.length) txt(String(t.hits.length), rx + rw - ch * 10, ty + 1, INK, "matrix");
   }
+  guy(ink, box, rx + rw - 40 * S, top + Math.floor(h * 0.42) - 30 * S, 2 * S);
 
   // middle: the keyboard by role
   const kx0 = m + lw + m, kw = Math.floor((rx - m - kx0) / 13.5), kh = Math.floor(kw * 0.8), gap = Math.max(1, Math.floor(kw * 0.1));
