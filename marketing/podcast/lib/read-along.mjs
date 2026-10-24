@@ -176,10 +176,9 @@ export function splitPrintedRun(segment, scriptWords, nextTime) {
         }
       }
       const end = nextTime.get(tokens.at(-1)) ?? segment.offsets.to;
-      const timeAt = index => chars[index]?.at ?? end;
       return spans.flatMap(({ chunk, from, to }) => {
         if (to === from) return [];
-        const fromMs = timeAt(from);
+        const fromMs = chars[from].at;
         let next = to; while (next < chars.length && chars[next].at <= fromMs) next++;
         const toMs = next < chars.length ? chars[next].at : end;
         if (toMs <= fromMs) return [];
@@ -257,6 +256,17 @@ export function alignWhisperWords(body, transcription, offsetMs = 0, sentences =
       }
       return to > from ? [{ text: segment.text, offsets: { from, to } }] : [];
     });
+  }
+  // Words that share one measured onset ("as a" heard as one breath) divide
+  // the interval evenly, so no two cues start together or run backwards.
+  for (let i = 0; i < heard.length;) {
+    let j = i + 1;
+    while (j < heard.length && heard[j].offsets.from === heard[i].offsets.from) j++;
+    if (j > i + 1) {
+      const from = heard[i].offsets.from, to = Math.max(...heard.slice(i, j).map(word => word.offsets.to)), step = (to - from) / (j - i);
+      for (let k = i; k < j; k++) heard[k] = { ...heard[k], offsets: { from: Math.round(from + (k - i) * step), to: Math.round(from + (k - i + 1) * step) } };
+    }
+    i = j;
   }
   const result = alignWords(body, heard, offsetMs);
   if (sentences.length) {
