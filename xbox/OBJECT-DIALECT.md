@@ -161,7 +161,20 @@ source.
 | form | draws |
 |---|---|
 | `(tube [sides] w [w2] x y z x y z …)` | a round tube through the points, smoothed (a Catmull-Rom spline), `w` wide, tapering to `w2`, capped. The count before the points says which: one is `w`, two are `w w2`, three are `sides w w2`. Two points make a straight rod. Sides are picked by width and level unless given; a part that reads `detail` samples 4, 2 or 1 segments a span by level. Pipes, rails, branches, hulls, a cable |
+| `(orb x y z r [sides])` | a lit sphere. Heads, eyes, paws, fruit |
+| `(bend x1 y1 z1 x2 y2 z2 l1 l2 hx hy hz w [sides])` | a two-piece limb from a to b, `l1` then `l2` long, its joint bent toward the hint point `h`: two rods `w` wide. Out of reach it straightens. A leg is one from hip to foot, so a rig is feet placed by arithmetic |
 | `(patch [segments] x y z ×16)` | a bicubic Bézier surface over four rows of four control points, quaded 6, 4 or 2 a side by level unless `segments` is given. Faces face the way the first row crosses the first column; list the rows the other way to flip them. Hoods, sails, dunes, a leaf |
+
+**Rigs** (engine 454). An animal is the same idea as a figure, written out:
+joints are numbers the object computes each tick from its inputs, and
+`bend`, `capsule` and `orb` hang the body on them. A walk is arithmetic on
+`distance` — each foot's phase `(% (+ (* distance k) offset) 1)`, planted
+and sliding back through the stance, lifted and swung forward after — so
+the gait is right at any speed and stops when the owner does. The head
+turns toward `(owner look x|y|z)`, a point the game hands over in object
+space; `turbo` is whatever the animal gets excited by. The worked example is
+`games/kennel/objects/hound.lisp` in the engine kit: a four-legged trot,
+head, ears, tail and paws in one file, no keyframes.
 
 **Procedural surface** (engine 453). Scopes, like `outline`: no images, no
 UVs. Every lit face inside is coloured or moved by value noise sampled in

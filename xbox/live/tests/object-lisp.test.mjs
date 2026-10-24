@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
-import { compile, read, objectLight, drawFigureShapes, figureJoints, figureHeadBasis } from "../object-lisp.mjs";
+import { compile, read, objectLight, drawFigureShapes, figureJoints, figureHeadBasis, bendJoint } from "../object-lisp.mjs";
 import { createFrameVm, FRAME_CAMERA, FRAME_WORLD, FRAME_ASSET, FRAME_MODEL, FRAME_DISC,
   FRAME_CAPSULE, FRAME_ELLIPSE, FRAME_PLATE, FRAME_OUTLINE, FRAME_SHAPES, FRAME_SKETCH, FRAME_FIGURE, FRAME_LOOK } from "../frame-vm.mjs";
 import { parse } from "../../../system/public/aesthetic.computer/lib/kidlisp.mjs";
@@ -194,6 +194,24 @@ test("a patch is a bicubic surface, facing the way its rows cross its columns", 
   for (const i of [5, 6, 9, 10]) bowed[i * 3 + 2] = 30;
   const zs = faces(compile(`(patch ${bowed.join(" ")})`)).flatMap((f) => [f[2], f[5], f[8]]);
   assert.ok(Math.max(...zs) > 10 && Math.max(...zs) < 30, `bows to ${Math.max(...zs)}`);
+});
+
+test("an orb faces out and caps its poles; a bend puts its joint at the lengths, toward the hint, and straightens out of reach", () => {
+  const orb = faces(compile("(orb 5 -3 2 10 8)"));
+  assert.equal(orb.length, 8 * 2 + 8 * 2 * 2, "two pole fans of 8, two rings of 8 quads");
+  for (const f of orb) {
+    const u = [f[3] - f[0], f[4] - f[1], f[5] - f[2]], v = [f[6] - f[0], f[7] - f[1], f[8] - f[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const c = [(f[0] + f[3] + f[6]) / 3 - 5, (f[1] + f[4] + f[7]) / 3 + 3, (f[2] + f[5] + f[8]) / 3 - 2];
+    assert.ok(n[0] * c[0] + n[1] * c[1] + n[2] * c[2] > 0, "faces out");
+    for (let k = 0; k < 9; k += 3) assert.ok(Math.abs(Math.hypot(f[k] - 5, f[k + 1] + 3, f[k + 2] - 2) - 10) < 1e-9, "on the sphere");
+  }
+  const [kx, ky, kz] = bendJoint(0, 50, 0, 0, 0, 0, 30, 30, -10, 25, 0);
+  assert.ok(Math.abs(Math.hypot(kx, ky - 50, kz) - 30) < 1e-9 && Math.abs(Math.hypot(kx, ky, kz) - 30) < 1e-9, "both lengths hold");
+  assert.ok(kx < -1, "bent toward the hint");
+  const [sx, sy] = bendJoint(0, 100, 0, 0, 0, 0, 30, 30, -10, 25, 0);
+  assert.ok(Math.abs(sx) < 1e-9 && Math.abs(sy - 50) < 1e-9, "out of reach: straight, the joint at the lengths' share");
+  assert.equal(faces(compile("(bend 0 50 0  0 0 0  30 30  -10 25 0  6 4)")).length, 2 * 4 * 2, "two rods of four sides");
 });
 
 test("grain cuts faces and shades each by noise; mottle blends toward a colour; rough moves corners the same way for the same point", () => {

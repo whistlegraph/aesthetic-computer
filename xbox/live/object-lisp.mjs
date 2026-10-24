@@ -160,7 +160,7 @@ const inks = { ...Object.fromEntries(figurePalette.map((name, slot) => [name, [-
 
 const maxDepth = 16;
 const owner = -1;   // a read of the owner's pose, which moves every tick
-const shapes = { tri: 9, quad: 12, disc: 1, hoop: 2, band: 2, capsule: 7, line: 6, tube: 7, patch: 48 };
+const shapes = { tri: 9, quad: 12, disc: 1, hoop: 2, band: 2, capsule: 7, line: 6, tube: 7, patch: 48, orb: 4, bend: 12 };
 // Flat shapes: object-space anchors, projected here, drawn as 2D ops.
 const flats = { ball: 4, limb: 7, ring: 2, drum: 3, stroke: 7, plate: 9, slab: 6 };
 const forms = new Set(["def", "let", "if", "repeat", "ink", "glow", "move", "rotate",
@@ -924,7 +924,54 @@ const primitives = {
   // of four control points. Faces face the way the first row crosses the
   // first column (∂u × ∂v); list the rows the other way to flip them.
   patch: (s, at, v) => patch(s, at, v),
+  // (orb x y z r [sides]) — a lit sphere; sides by radius and level unless given.
+  orb: (s, at, v) => orb(s, at, v),
+  // (bend x1 y1 z1 x2 y2 z2 l1 l2 hx hy hz w [sides]) — a two-piece limb from
+  // a to b, l1 then l2 long, its middle joint bent toward the hint: two rods.
+  // Out of reach, it straightens. A leg is one of these from hip to foot.
+  bend: (s, at, v) => bend(s, at, v),
 };
+
+// A sphere as rings of quads, pole to pole; a pole's ring collapses to a
+// point exactly, so its quads come out as triangles.
+function orb(s, at, v) {
+  const x = v[0], y = v[1], z = v[2], r = v[3], n = sidesFor(s, r, v, 4, 4), rings = Math.max(2, Math.round(n / 2));
+  const P = (i, j) => {
+    const phi = -Math.PI / 2 + i / rings * Math.PI, cp = i === 0 || i === rings ? 0 : Math.cos(phi), th = j / n * Math.PI * 2;
+    return [x + r * cp * Math.cos(th), y + r * Math.sin(phi), z + r * cp * Math.sin(th)];
+  };
+  for (let i = 0; i < rings; i++)
+    for (let j = 0; j < n; j++) {
+      const a = P(i, j), b = P(i + 1, j), c = P(i + 1, (j + 1) % n), d = P(i, (j + 1) % n);
+      quad(s, at, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2]);
+    }
+}
+
+// The joint of a two-piece limb, by the law of cosines: its reach along a→b
+// and its lift off that line, lifted toward the hint's part off the line.
+export function bendJoint(ax, ay, az, bx, by, bz, l1, l2, hx, hy, hz) {
+  let dx = bx - ax, dy = by - ay, dz = bz - az;
+  const d = Math.hypot(dx, dy, dz) || 1e-9;
+  dx /= d; dy /= d; dz /= d;
+  const p = d >= l1 + l2 ? d * l1 / (l1 + l2) : (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+  const lift = Math.sqrt(Math.max(0, l1 * l1 - p * p));
+  hx -= ax; hy -= ay; hz -= az;
+  const along = hx * dx + hy * dy + hz * dz;
+  hx -= along * dx; hy -= along * dy; hz -= along * dz;
+  let hm = Math.hypot(hx, hy, hz);
+  if (hm < 1e-6) {   // no hint off the line: any direction across it
+    hx = -dy; hy = dx; hz = 0;
+    if (Math.abs(dz) > .9) { hx = 0; hy = -dz; hz = dy; }
+    hm = Math.hypot(hx, hy, hz);
+  }
+  return [ax + dx * p + hx / hm * lift, ay + dy * p + hy / hm * lift, az + dz * p + hz / hm * lift];
+}
+function bend(s, at, v) {
+  const [kx, ky, kz] = bendJoint(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10]);
+  const w = v[11], sides = v.length > 12 ? v[12] : 6;
+  rod(s, at, [v[0], v[1], v[2], kx, ky, kz], w, sides);
+  rod(s, at, [kx, ky, kz, v[3], v[4], v[5]], w, sides);
+}
 
 // A smooth tube: the points are a Catmull-Rom spline, sampled per span by
 // level (4, 2, 1 segments), each sample framed by parallel transport so the
