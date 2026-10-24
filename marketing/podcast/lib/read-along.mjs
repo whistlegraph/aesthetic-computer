@@ -102,6 +102,95 @@ export function spellNumber(printed) {
   return words;
 }
 
+// ASR prints what it hears as one token where the script reads several
+// words: "24.22.1" for "twenty-four point twenty-two point one",
+// "mail@aesthetic.computer" for "mail at aesthetic dot computer", "9x16" for
+// "nine by sixteen", "patchercron" for "patcher cron". Say each script word
+// the way ASR would print it, so a run of script words can be matched against
+// one printed token and each word can take its share of the measured span.
+const SPOKEN_MARKS = { dot: '.', point: '.', at: '@', by: 'x', slash: '/', dash: '-', hyphen: '-', colon: ':', comma: ',', underscore: '_' };
+const SMALL = Object.fromEntries([...ONES.map((w, n) => [w, n]), ...TENS.map((w, n) => [w, n * 10]).filter(([w]) => w)]);
+const SCALE = { hundred: 100, thousand: 1e3, million: 1e6, billion: 1e9 };
+// Read a spelled number from words[i]; null when words[i] does not start one.
+function readNumber(words, i) {
+  let total = 0, current = 0, j = i, seen = false;
+  for (; j < words.length; j++) {
+    const word = words[j].toLowerCase();
+    if (word === 'and' && seen && current && words[j + 1]?.toLowerCase() in SMALL) continue;
+    const parts = word.split('-');
+    if (parts.length === 2 && parts[0] in SMALL && SMALL[parts[0]] >= 20 && parts[1] in SMALL && SMALL[parts[1]] < 10) { current += SMALL[parts[0]] + SMALL[parts[1]]; seen = true; continue; }
+    if (word in SMALL) { current += SMALL[word]; seen = true; continue; }
+    if (word in SCALE) {
+      if (!seen) break;
+      if (SCALE[word] === 100) current *= 100; else { total += current * SCALE[word]; current = 0; }
+      continue;
+    }
+    break;
+  }
+  return seen ? { digits: String(total + current), count: j - i } : null;
+}
+// Chunks of a run of script words: a spelled number (several words, one
+// printed digit string), a spoken mark (one word, one printed sign) or a
+// plain word. Each chunk carries the characters ASR would print for it.
+function chunkSpoken(words) {
+  const chunks = [];
+  for (let i = 0; i < words.length;) {
+    const number = readNumber(words, i);
+    if (number) { chunks.push({ words: words.slice(i, i + number.count), printed: number.digits, kind: 'word' }); i += number.count; continue; }
+    const mark = SPOKEN_MARKS[words[i].toLowerCase()];
+    chunks.push(mark ? { words: [words[i]], printed: mark, kind: 'mark' } : { words: [words[i]], printed: words[i].toLowerCase(), kind: 'word' });
+    i++;
+  }
+  return chunks;
+}
+const alnum = s => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+// One printed ASR token that reads as several consecutive script words:
+// heard words for each of them, timed by the token's measured characters.
+export function splitPrintedRun(segment, scriptWords, nextTime) {
+  const tokens = (segment.tokens || []).filter(token => token.t_dtw >= 0 && !token.text.startsWith('[_'));
+  if (tokens.length < 2) return null;
+  const chars = tokens.flatMap(token => [...token.text].map(ch => ({ ch, at: token.t_dtw * 10, token })));
+  const printed = alnum(chars.map(c => c.ch).join(''));
+  if (printed.length < 2) return null;
+  const isAlnum = ch => /[\p{L}\p{N}]/u.test(ch);
+  for (let start = 0; start < scriptWords.length; start++) {
+    if (!printed.startsWith(alnum(chunkSpoken([scriptWords[start]])[0].printed).slice(0, 1))) continue;
+    for (let count = 2; count <= 8 && start + count <= scriptWords.length; count++) {
+      const chunks = chunkSpoken(scriptWords.slice(start, start + count));
+      const spoken = alnum(chunks.map(chunk => chunk.printed).join(''));
+      if (spoken !== printed) continue;
+      // Hand each chunk its printed characters: alnum for words, signs for marks.
+      let pointer = 0; const spans = [];
+      for (const chunk of chunks) {
+        if (chunk.kind === 'word') {
+          while (pointer < chars.length && !isAlnum(chars[pointer].ch)) pointer++;
+          const from = pointer; let need = alnum(chunk.printed).length;
+          while (pointer < chars.length && need) { if (isAlnum(chars[pointer].ch)) need--; pointer++; }
+          spans.push({ chunk, from, to: pointer });
+        } else {
+          while (pointer < chars.length && /\s/.test(chars[pointer].ch)) pointer++;
+          const from = pointer;
+          if (chars[pointer]?.ch.toLowerCase() === chunk.printed) pointer++;
+          else while (pointer < chars.length && !isAlnum(chars[pointer].ch) && !/\s/.test(chars[pointer].ch)) pointer++;
+          spans.push({ chunk, from, to: pointer });
+        }
+      }
+      const end = nextTime.get(tokens.at(-1)) ?? segment.offsets.to;
+      const timeAt = index => chars[index]?.at ?? end;
+      return spans.flatMap(({ chunk, from, to }) => {
+        if (to === from) return [];
+        const fromMs = timeAt(from);
+        let next = to; while (next < chars.length && chars[next].at <= fromMs) next++;
+        const toMs = next < chars.length ? chars[next].at : end;
+        if (toMs <= fromMs) return [];
+        const step = (toMs - fromMs) / chunk.words.length;
+        return chunk.words.map((text, k) => ({ text, offsets: { from: Math.round(fromMs + k * step), to: Math.round(fromMs + (k + 1) * step) } }));
+      });
+    }
+  }
+  return null;
+}
+
 // Whisper's short-segment offsets are heuristic. With -dtw MODEL -ojf,
 // t_dtw is the cross-attention token onset, in 10 ms units. End a word at
 // its next token (including punctuation), then bound it by the exact edit
@@ -109,6 +198,7 @@ export function spellNumber(printed) {
 // https://github.com/ggml-org/whisper.cpp/blob/master/src/whisper.cpp
 export function alignWhisperWords(body, transcription, offsetMs = 0, sentences = []) {
   const hasDtw = transcription.some(segment => segment.tokens?.some(token => token.t_dtw >= 0));
+  const scriptWords = [...body.matchAll(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu)].map(match => match[0]);
   let heard = transcription;
   if (hasDtw) {
     const tokens = transcription.flatMap(segment => segment.tokens || []).filter(token => token.t_dtw >= 0 && !token.text.startsWith('[_'));
@@ -118,6 +208,8 @@ export function alignWhisperWords(body, transcription, offsetMs = 0, sentences =
       if (next) nextTime.set(tokens[i], next.t_dtw * 10);
     }
     heard = transcription.flatMap(segment => {
+      const run = splitPrintedRun(segment, scriptWords, nextTime);
+      if (run) return run;
       // A spoken domain is often printed as one ASR word. Its internal dot
       // still has a measured token onset: retain name / dot / domain cues.
       const printedDomain = segment.text.trim().replace(/[.,!?]+$/, '');

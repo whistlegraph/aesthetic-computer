@@ -77,3 +77,29 @@ test('missing words are omitted rather than given invented times; repeated words
  assert.equal(result.alignment.missingWords,1);
  assert.deepEqual(result.words.map(w=>w.start),[0,12,16]);
 });
+test('one printed token that reads as several script words times each of them',()=>{
+ const dtw=(text,from,...pairs)=>({...heard(text.trim(),from,pairs.at(-1)[1]*10),tokens:pairs.map(([t,at])=>({text:t,t_dtw:at}))});
+ const body='Aesthetic Dot Computer Radio. Up to twenty-four point twenty-two point one. The patcher cron. Stop at four hundred and twenty pixels. The nine by sixteen reel. Letters to mail at aesthetic dot computer.';
+ const result=alignWhisperWords(body,[
+  dtw(' Aesthetic.computerRadio.',0,[' A',10],['est',20],['hetic',30],['.',40],['com',50],['puter',60],['Rad',70],['io',80],['.',90]),
+  dtw(' Up',900,[' Up',90]),dtw(' to',1000,[' to',100]),
+  dtw(' 24.22.1.',1100,[' 24',110],['.',120],['22',130],['.',140],['1',150],['.',160]),
+  dtw(' The',1600,[' The',160]),dtw(' patchercron.',1700,[' patch',170],['er',180],['c',190],['ron',200],['.',210]),
+  dtw(' Stop',2100,[' Stop',210]),dtw(' at',2200,[' at',220]),dtw(' 420',2300,[' 4',230],['20',240]),dtw(' pixels.',2500,[' pixels',250],['.',260]),
+  dtw(' The',2600,[' The',260]),dtw(' 9x16',2700,[' 9',270],['x',280],['16',290]),dtw(' reel.',3000,[' reel',300],['.',310]),
+  dtw(' Letters',3100,[' Letters',310]),dtw(' to',3200,[' to',320]),
+  dtw(' mail@aesthetic.computer.',3300,[' mail',330],['@',340],['a',350],['est',355],['hetic',360],['.',370],['com',380],['puter',390],['.',400]),
+ ]);
+ assert.equal(result.alignment.missingWords,0);
+ assert.equal(result.alignment.substitutions,0);
+ const at=text=>result.words.filter(w=>w.text===text).map(w=>[w.fromMs,w.toMs]);
+ assert.deepEqual(at('Dot'),[[400,500]]);
+ assert.deepEqual(at('Radio'),[[700,900]]);
+ assert.deepEqual(at('point'),[[1200,1300],[1400,1500]]);
+ assert.deepEqual(at('twenty-two'),[[1300,1400]]);
+ assert.deepEqual(at('cron'),[[1900,2100]]);
+ assert.deepEqual(at('hundred'),[[2350,2400]]);
+ assert.deepEqual(at('by'),[[2800,2900]]);
+ assert.deepEqual(at('at'),[[2200,2300],[3400,3500]]);
+ assert.deepEqual(at('dot'),[[3700,3800]]);
+});
