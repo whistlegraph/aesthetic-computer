@@ -79,7 +79,7 @@ function swoopTick() {
   const now = Date.now();
   swoops = swoops.filter((s) => {
     const k = Math.min(1, (now - s.at) / SWOOP_MS), ratio = Math.pow(2, (SWOOP_FROM * (1 - k) * (1 - k)) / 12);
-    for (const { v, f } of s.voices) v.update?.({ tone: f * ratio });
+    for (const { v, f } of s.voices) v.update?.({ tone: f * ratio * bend });
     return k < 1;
   });
 }
@@ -145,9 +145,9 @@ function fire(sound, hit, hold) {
                   : [{ midi: m, vol: hit.vol * 0.6, pan }];
       for (const s of parts) {
         const f = freq(s.midi), start = p.hoover ? f * Math.pow(2, SWOOP_FROM / 12) : f;
-        const v = sound.synth?.({ type: p.type, tone: start, duration: hold ? Infinity : hit.dur, volume: s.vol,
+        const v = sound.synth?.({ type: p.type, tone: start * bend, duration: hold ? Infinity : hit.dur, volume: s.vol,
                                    attack: p.a, decay: p.d, pan: s.pan, gmProgram: p.gm });
-        if (v) { voices.push(v); if (p.hoover) swoop.push({ v, f }); }
+        if (v) { v.f = f; voices.push(v); if (p.hoover) swoop.push({ v, f }); } // v.f: base pitch, for the wheel
       }
     }
     if (swoop.length) swoops.push({ at: Date.now(), voices: swoop });
@@ -327,7 +327,17 @@ function midiHit(note, velocity, channel) {
   if (mode === "sampler") return sampled ? { kind: "sample", midi: note, vol, pan } : null;
   return { kind: "note", midis: [note], patch, vol, pan, dur: 0.25 };
 }
+// Pitch wheel: ±BEND_RANGE semitones on every held note voice (v.f is the
+// voice's unbent pitch). Needs the OS to deliver midi:bend (e.bend -1..1).
+const BEND_RANGE = 2;
+let bend = 1;
 function midiEvent(e, sound) {
+  if (e.is("midi:bend")) {
+    bend = Math.pow(2, (e.bend * BEND_RANGE) / 12);
+    for (const h of Object.values(held)) for (const v of h.voices) if (v.f) v.update?.({ tone: v.f * bend });
+    return;
+  }
+  if (e.is("midi:pressure")) return; // aftertouch: nothing bound yet
   if (e.is("midi:cc")) {
     if (e.control === 1) { sends.echo = (e.value / 127) * 0.8; fx.echo = sends.echo > 0; applySends(sound); }
     return;

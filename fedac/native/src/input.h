@@ -26,6 +26,8 @@ typedef enum {
     AC_EVENT_MIDI_NOTE_ON,   // USB MIDI controller (see midi_in_poll in input.c)
     AC_EVENT_MIDI_NOTE_OFF,
     AC_EVENT_MIDI_CONTROL,
+    AC_EVENT_MIDI_BEND,      // pitch wheel: data1 = lsb, data2 = msb (14-bit)
+    AC_EVENT_MIDI_PRESSURE,  // channel aftertouch: data1 = pressure
 } ACEventType;
 
 typedef struct {

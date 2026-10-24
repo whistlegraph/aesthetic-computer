@@ -2168,13 +2168,18 @@ static JSValue js_event_is(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         match = 0; // stub
     else if (strcmp(pattern, "midi") == 0)
         match = (type == AC_EVENT_MIDI_NOTE_ON || type == AC_EVENT_MIDI_NOTE_OFF ||
-                 type == AC_EVENT_MIDI_CONTROL);
+                 type == AC_EVENT_MIDI_CONTROL || type == AC_EVENT_MIDI_BEND ||
+                 type == AC_EVENT_MIDI_PRESSURE);
     else if (strcmp(pattern, "midi:noteon") == 0)
         match = (type == AC_EVENT_MIDI_NOTE_ON);
     else if (strcmp(pattern, "midi:noteoff") == 0)
         match = (type == AC_EVENT_MIDI_NOTE_OFF);
     else if (strcmp(pattern, "midi:cc") == 0)
         match = (type == AC_EVENT_MIDI_CONTROL);
+    else if (strcmp(pattern, "midi:bend") == 0)
+        match = (type == AC_EVENT_MIDI_BEND);
+    else if (strcmp(pattern, "midi:pressure") == 0)
+        match = (type == AC_EVENT_MIDI_PRESSURE);
     else if (strncmp(pattern, "midi:", 5) == 0)
         match = 0; // other midi:* patterns not delivered yet
     else if (strcmp(pattern, "compose") == 0)
@@ -2206,9 +2211,17 @@ static JSValue make_event_object(JSContext *ctx, ACEvent *ev) {
     // USB MIDI: e.note (or e.control + e.value for CC), e.channel 1-16, and the
     // real velocity, replacing the keyboard default of 127 set above.
     if (ev->type == AC_EVENT_MIDI_NOTE_ON || ev->type == AC_EVENT_MIDI_NOTE_OFF ||
-        ev->type == AC_EVENT_MIDI_CONTROL) {
+        ev->type == AC_EVENT_MIDI_CONTROL || ev->type == AC_EVENT_MIDI_BEND ||
+        ev->type == AC_EVENT_MIDI_PRESSURE) {
         JS_SetPropertyStr(ctx, obj, "channel", JS_NewInt32(ctx, ev->midi_channel));
-        if (ev->type == AC_EVENT_MIDI_CONTROL) {
+        if (ev->type == AC_EVENT_MIDI_BEND) {
+            // 14-bit wheel: e.value 0..16383 (8192 = centre), e.bend -1..1.
+            int v14 = (ev->midi_data1 & 0x7F) | ((ev->midi_data2 & 0x7F) << 7);
+            JS_SetPropertyStr(ctx, obj, "value", JS_NewInt32(ctx, v14));
+            JS_SetPropertyStr(ctx, obj, "bend", JS_NewFloat64(ctx, (v14 - 8192) / 8192.0));
+        } else if (ev->type == AC_EVENT_MIDI_PRESSURE) {
+            JS_SetPropertyStr(ctx, obj, "value", JS_NewInt32(ctx, ev->midi_data1));
+        } else if (ev->type == AC_EVENT_MIDI_CONTROL) {
             JS_SetPropertyStr(ctx, obj, "control", JS_NewInt32(ctx, ev->midi_data1));
             JS_SetPropertyStr(ctx, obj, "value", JS_NewInt32(ctx, ev->midi_data2));
         } else {

@@ -679,7 +679,9 @@ static void midi_in_emit(ACInput *input, unsigned char status, unsigned char d1,
     if (kind == 0x90 && d2 > 0) type = AC_EVENT_MIDI_NOTE_ON;
     else if (kind == 0x80 || kind == 0x90) type = AC_EVENT_MIDI_NOTE_OFF;  // 0x90 vel 0 = off
     else if (kind == 0xB0) type = AC_EVENT_MIDI_CONTROL;
-    else return;  // program change, aftertouch, pitch bend: not delivered yet
+    else if (kind == 0xE0) type = AC_EVENT_MIDI_BEND;
+    else if (kind == 0xD0) type = AC_EVENT_MIDI_PRESSURE;
+    else return;  // program change, poly aftertouch: not delivered yet
     if (input->event_count >= MAX_EVENTS_PER_FRAME) return;
     ACEvent *ae = &input->events[input->event_count++];
     memset(ae, 0, sizeof(ACEvent));
@@ -687,10 +689,12 @@ static void midi_in_emit(ACInput *input, unsigned char status, unsigned char d1,
     ae->midi_channel = (status & 0x0F) + 1;
     ae->midi_data1 = d1;
     ae->midi_data2 = d2;
-    ae->pressure = d2 / 127.0f;
+    ae->pressure = (type == AC_EVENT_MIDI_PRESSURE ? d1 : d2) / 127.0f;
     snprintf(ae->key_name, sizeof(ae->key_name), "%s",
              type == AC_EVENT_MIDI_NOTE_ON ? "midi:noteon" :
-             type == AC_EVENT_MIDI_NOTE_OFF ? "midi:noteoff" : "midi:cc");
+             type == AC_EVENT_MIDI_NOTE_OFF ? "midi:noteoff" :
+             type == AC_EVENT_MIDI_CONTROL ? "midi:cc" :
+             type == AC_EVENT_MIDI_BEND ? "midi:bend" : "midi:pressure");
 }
 
 // Byte-at-a-time parser with running status. Realtime bytes (clock, active
