@@ -112,7 +112,16 @@
     "signup-password": {
       "signup-password": {
         "title": "Create account",
-        "description": " "
+        "description": " ",
+        "auth0-users-validation": "Hmm, that didn't work. If you've been here before, use Log in or Email a code."
+      }
+    },
+    "signup": {
+      "signup": {
+        "title": "Create your account",
+        "description": " ",
+        "loginActionText": "Already signed up?",
+        "pageTitle": "I'm new \u2219 ${clientName}"
       }
     }
   },

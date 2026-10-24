@@ -86,6 +86,20 @@ await step("prompt `signup` opens Auth0's create-account form", async () => {
 
 await step("a new email + password gets back to AC and asks for verification", async () => {
   await page.type("#email", email, { delay: 15 });
+  // Identifier-first (Auth0 Universal Login since 2026-10): the address goes
+  // on one screen and the password on the next. The old single-screen form
+  // still has #password straight away, so only click through when it is not there.
+  if (!(await page.$("#password"))) {
+    await Promise.all([
+      page.waitForSelector("#password", { timeout: 30_000 }),
+      page.click("button[type=submit]"),
+    ]).catch(async (error) => {
+      const why = await page.evaluate(() =>
+        [...document.querySelectorAll("[id*=error],.ulp-input-error-message,[class*=error]")].map((e) => e.innerText).filter(Boolean).join(" | "));
+      await ac.shot("signup-auth0-after-email");
+      throw new Error(why ? `Auth0 refused the address: ${why}` : `no password screen after the address: ${error.message}`);
+    });
+  }
   await page.type("#password", password, { delay: 15 });
   await Promise.all([
     page.waitForFunction((host) => location.host === host, { timeout: 45_000 }, base.host),
