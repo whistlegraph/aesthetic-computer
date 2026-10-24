@@ -9,6 +9,7 @@
 #define MAX_INPUT_DEVICES 24
 #define MAX_HIDRAW_DEVICES 4
 #define MAX_EVENTS_PER_FRAME 64
+#define MAX_MIDI_IN 4
 
 // NuPhy Air60 HE vendor ID
 #define NUPHY_VENDOR_ID 0x19f5
@@ -22,6 +23,9 @@ typedef enum {
     AC_EVENT_DRAW,
     AC_EVENT_LIFT,
     AC_EVENT_REFRAMED,
+    AC_EVENT_MIDI_NOTE_ON,   // USB MIDI controller (see midi_in_poll in input.c)
+    AC_EVENT_MIDI_NOTE_OFF,
+    AC_EVENT_MIDI_CONTROL,
 } ACEventType;
 
 typedef struct {
@@ -31,6 +35,9 @@ typedef struct {
     char key_name[32];  // AC key name ("a", "space", "arrowup", etc.)
     int repeat;         // Key repeat flag
     float pressure;     // 0.0-1.0 analog pressure (1.0 = full press, NuPhy HE)
+    int midi_channel;   // AC_EVENT_MIDI_*: channel 1-16
+    int midi_data1;     // note number, or controller number for CC
+    int midi_data2;     // velocity, or controller value for CC
 } ACEvent;
 
 // Per-key analog pressure state (for NuPhy HE)
@@ -116,6 +123,16 @@ typedef struct {
     double last_poll_time; // Monotonic time of last poll (seconds)
     int evdev_rescan_done;   // Set after late evdev rescan
     int evdev_rescan_counter; // Frame counter for late rescan
+
+    // USB MIDI input: class-compliant controllers read raw from
+    // /dev/snd/midiC*D*, rescanned every ~2 s for hot-plug.
+    int midi_fds[MAX_MIDI_IN];
+    char midi_paths[MAX_MIDI_IN][32];
+    unsigned char midi_status[MAX_MIDI_IN];   // running status per device
+    unsigned char midi_data[MAX_MIDI_IN][2];
+    int midi_have[MAX_MIDI_IN];               // data bytes collected so far
+    int midi_count;
+    int midi_scan_wait;                       // polls until the next rescan
 
     // Event queue for current frame
     ACEvent events[MAX_EVENTS_PER_FRAME];

@@ -17,6 +17,8 @@ const SCALES = [
 ];
 // gm = General MIDI program for the piano engine; type alone = raw oscillator.
 const PATCHES = [
+  { name: "Hoover", type: "sawtooth", hoover: true, a: 0.01, d: 0.2 },
+  { name: "Shepard", type: "sine", shepard: true, a: 0.04, d: 0.3 },
   { name: "Saw", type: "sawtooth", a: 0.01, d: 0.12 }, { name: "Square", type: "square", a: 0.01, d: 0.1 },
   { name: "Tri", type: "triangle", a: 0.02, d: 0.15 }, { name: "Sine", type: "sine", a: 0.03, d: 0.2 },
   { name: "Piano", type: "piano", a: 0.005, d: 0.3 }, { name: "E.Piano", type: "piano", gm: 4, a: 0.005, d: 0.3 },
@@ -32,8 +34,11 @@ const TRACK_RGB = [[90, 200, 90], [150, 150, 150], [90, 150, 230], [150, 90, 50]
                    [200, 50, 130], [120, 200, 230], [60, 90, 230], [230, 200, 60]];
 const DEGREE_RGB = [[230, 60, 60], [230, 140, 50], [230, 210, 60], [80, 200, 90], [60, 200, 200], [70, 110, 230], [170, 80, 220]];
 const FX = [["room", 1], ["echo", 2], ["glitch", 3]];
+// Mix: one gain per sound family, so drums sit level with the synths.
+// The drum lib accepts up to 2.2; notes go out around 0.4-0.6.
+const MIX = { drums: 2.0, zoo: 1.0, sample: 1.0 };
 const MODES = ["inst", "drums", "sampler", "seq"];
-const STEPS = 16, ESC_WINDOW = 120;
+const STEPS = 16, ESC_WINDOW = 120, MAX_HELD_VOICES = 20;
 // Light mode: paper, cream cards, dark ink; keys keep their role colors.
 const GLASS = [247, 244, 236], PANEL = [232, 227, 214], INK = [90, 84, 78], DIM = [196, 190, 178], LIT = [34, 30, 28], CUTE = [230, 90, 140];
 
@@ -50,6 +55,34 @@ let fx = { room: false, echo: false, glitch: false };
 let notice = null, escCount = 0, escAt = -1000, frame = 0, flashKey = {};
 
 const freq = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
+// Shepard tone: one pitch class stacked across octaves under a bell curve in
+// log-frequency, so the scale climbs forever and octave stops mattering.
+const SHEPARD_CENTER = 60, SHEPARD_WIDTH = 18; // midi centre, spread in semitones
+function shepardPartials(midi) {
+  const parts = [];
+  for (let m = 24 + (((midi % 12) + 12) % 12); m <= 108; m += 12) {
+    const g = Math.exp(-Math.pow((m - SHEPARD_CENTER) / SHEPARD_WIDTH, 2) / 2);
+    if (g > 0.05) parts.push({ midi: m, gain: g });
+  }
+  const sum = parts.reduce((a, p) => a + p.gain, 0);
+  return parts.map((p) => ({ midi: p.midi, gain: p.gain / sum }));
+}
+// Hoover: a detuned saw chorus with a sub octave, spread wide, that swoops up
+// into pitch on every note. Offsets are semitones from the played note.
+const HOOVER_LAYERS = [
+  { off: 0, gain: 0.3, pan: 0 }, { off: -0.2, gain: 0.25, pan: -0.5 }, { off: 0.2, gain: 0.25, pan: 0.5 },
+  { off: -12, gain: 0.3, pan: -0.2 }, { off: -11.9, gain: 0.2, pan: 0.2 },
+];
+const SWOOP_MS = 140, SWOOP_FROM = -5; // starts this many semitones flat
+let swoops = []; // { at, voices: [{ v, f }] }
+function swoopTick() {
+  const now = Date.now();
+  swoops = swoops.filter((s) => {
+    const k = Math.min(1, (now - s.at) / SWOOP_MS), ratio = Math.pow(2, (SWOOP_FROM * (1 - k) * (1 - k)) / 12);
+    for (const { v, f } of s.voices) v.update?.({ tone: f * ratio });
+    return k < 1;
+  });
+}
 const scaleNotes = () => SCALES[scale][1];
 const stepMs = () => 60000 / bpm / 4;
 const flash = (text) => { notice = { text, until: Date.now() + 1500 }; };
@@ -97,35 +130,69 @@ function hitFor(k, accent) {
 
 function fire(sound, hit, hold) {
   const voices = [];
-  if (hit.kind === "drum") playPercussion(sound, hit.drum, { volume: hit.vol * 1.2, pan: hit.pan });
-  else if (hit.kind === "zoo") sound.zoo?.play?.(hit.name, { volume: hit.vol, pan: hit.pan, pitch: hit.pitch });
+  glow(tintOf(hit), 0.6, hit.vol);
+  if (hit.kind === "drum") playPercussion(sound, hit.drum, { volume: Math.min(2.2, hit.vol * MIX.drums), pan: hit.pan });
+  else if (hit.kind === "zoo") sound.zoo?.play?.(hit.name, { volume: hit.vol * MIX.zoo, pan: hit.pan, pitch: hit.pitch });
   else if (hit.kind === "sample") {
-    const v = sound.sample?.play?.({ tone: freq(hit.midi), base: freq(60), volume: hit.vol, pan: hit.pan, loop: false });
+    const v = sound.sample?.play?.({ tone: freq(hit.midi), base: freq(60), volume: hit.vol * MIX.sample, pan: hit.pan, loop: false });
     if (v && hold) voices.push(v);
   } else {
-    const p = PATCHES[hit.patch] || PATCHES[0];
+    const p = PATCHES[hit.patch] || PATCHES[0], swoop = [];
     for (const [i, m] of hit.midis.entries()) {
-      const v = sound.synth?.({ type: p.type, tone: freq(m), duration: hold ? Infinity : hit.dur, volume: hit.vol * 0.6,
-                                 attack: p.a, decay: p.d, pan: Math.max(-0.9, Math.min(0.9, hit.pan + i * 0.05)), gmProgram: p.gm });
-      if (v) voices.push(v);
+      const pan = Math.max(-0.9, Math.min(0.9, hit.pan + i * 0.05));
+      const parts = p.shepard ? shepardPartials(m).map((s) => ({ midi: s.midi, vol: hit.vol * 0.9 * s.gain, pan }))
+                  : p.hoover ? HOOVER_LAYERS.map((l) => ({ midi: m + l.off, vol: hit.vol * 0.5 * l.gain, pan: Math.max(-0.9, Math.min(0.9, pan + l.pan)) }))
+                  : [{ midi: m, vol: hit.vol * 0.6, pan }];
+      for (const s of parts) {
+        const f = freq(s.midi), start = p.hoover ? f * Math.pow(2, SWOOP_FROM / 12) : f;
+        const v = sound.synth?.({ type: p.type, tone: start, duration: hold ? Infinity : hit.dur, volume: s.vol,
+                                   attack: p.a, decay: p.d, pan: s.pan, gmProgram: p.gm });
+        if (v) { voices.push(v); if (p.hoover) swoop.push({ v, f }); }
+      }
     }
+    if (swoop.length) swoops.push({ at: Date.now(), voices: swoop });
   }
   return voices;
+}
+
+// Background wash: whatever sounds tints the paper. Notes take a hue from
+// their pitch class around the colour wheel, drums their kit colour.
+let wash = [...GLASS], washAmt = 0;
+const WASH_MAX = 0.45, WASH_FADE = 0.95;
+function hueRgb(h) {
+  const f = (n) => { const k = (n + h * 6) % 6; return 0.95 - 0.95 * 0.7 * Math.max(0, Math.min(k, 4 - k, 1)); };
+  return [f(5), f(3), f(1)].map((v) => Math.round(v * 255));
+}
+function tintOf(hit) {
+  if (hit.kind === "drum") return PERCUSSION_COLORS[hit.drum] || DIM;
+  if (hit.kind === "zoo") return [120, 200, 120];
+  if (hit.kind === "sample") return [90, 150, 230];
+  return pitchRgb(hit.midis[0]);
+}
+function pitchRgb(midi) { return hueRgb((((midi % 12) + 12) % 12) / 12); }
+function glow(rgb, pull, amt) {
+  wash = wash.map((v, i) => v + (rgb[i] - v) * pull);
+  washAmt = Math.min(1, Math.max(washAmt, amt));
 }
 
 function release(k, sound) {
   const h = held[k]; if (!h) return;
   for (const v of h.voices) sound.kill?.(v, 0.08);
-  if (h.hit?.kind === "note") h.hit.dur = Math.max(0.1, Math.min(4, (Date.now() - h.downAt) / 1000));
+  if (h.hit?.kind === "note") {
+    h.hit.dur = Math.max(0.1, Math.min(4, (Date.now() - h.downAt) / 1000));
+    if (h.rec) h.rec.dur = h.hit.dur;
+  }
   delete held[k];
 }
 
 // Record into the selected track at the nearest step of the running loop.
-function record(hit) {
+function record(hit, into = track) {
   if (!playing || !armed) return;
   const pos = ((Date.now() - startAt) / stepMs()) % loopSteps;
   const step = Math.round(pos) % loopSteps;
-  tracks[track].hits.push({ step, ...hit });
+  const entry = { step, ...hit };
+  tracks[into].hits.push(entry);
+  return entry; // kept on the held key so release can write the real length
 }
 
 function tick(sound) {
@@ -142,7 +209,16 @@ function tick(sound) {
 
 function stopAll(sound) {
   for (const k of Object.keys(held)) release(k, sound);
-  sound.allNotesOff?.();
+}
+
+// Hard reset: voice ids count up from 1, and sound.kill takes a bare id, so a
+// silent probe voice tells us the newest id and we kill everything below it.
+// Clears drones orphaned by reloads. (Engine has 32 voice slots in total.)
+function resetAudio(sound) {
+  swoops = [];
+  const probe = sound?.synth?.({ type: "sine", tone: 440, duration: 0.01, volume: 0 });
+  const top = Number(probe?.id) || 0;
+  for (let id = Math.max(1, top - 100000); id <= top; id++) sound.kill(id, 0.05);
 }
 
 function tap() {
@@ -161,15 +237,116 @@ function applySends(sound) {
   sound.room?.setMix?.(fx.room ? sends.room : 0);
 }
 
-function boot({ sound }) {
-  frame = 0; held = {}; notice = null;
+// Grid labels: pitch with octave when the cell fits it ("C#4"), else just the
+// name; drums and zoo show their first letters.
+const noteName = (midi) => `${NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+function hitLabel(hit, fit) {
+  if (!hit || fit < 1) return "";
+  const full = hit.kind === "note" ? noteName(hit.midis[0]) : hit.kind === "sample" ? noteName(hit.midi)
+             : hit.kind === "drum" ? PERCUSSION_NAMES[hit.drum] || hit.drum : hit.name || "";
+  return full.length <= fit ? full : hit.kind === "note" || hit.kind === "sample" ? full.replace(/-?\d+$/, "").slice(0, fit) : full.slice(0, fit);
+}
+
+// Autoplay: boot straight into "Spring Sketch", an original slow piano piece
+// in F major (two bars, F then Bb), so the loop plays without touching the
+// ThinkPad. Set AUTOPLAY = false to boot silent and empty.
+const AUTOPLAY = false;
+const PIANO = PATCHES.findIndex((p) => p.name === "Piano");
+function loadDemo(sound) {
+  const note = (step, midi, vol, dur, pan) => ({ step, kind: "note", midis: [midi], patch: PIANO, vol, pan, dur });
+  // left hand, track 4: rolling eighth-note arpeggios
+  const left = [[0, 41], [2, 48], [4, 53], [6, 57], [8, 60], [10, 57], [12, 53], [14, 48],
+                [16, 46], [18, 53], [20, 58], [22, 62], [24, 62], [26, 58], [28, 53], [30, 50]];
+  // right hand, track 1: a sparse melody that lands back on A
+  const right = [[0, 69, 1.6], [6, 72, 0.8], [8, 77, 1.4], [12, 76, 0.8], [14, 72, 0.8],
+                 [16, 74, 1.6], [22, 77, 0.8], [24, 69, 1.4], [28, 67, 0.8], [30, 69, 0.8]];
+  tracks[3].name = "Piano LH"; tracks[0].name = "Piano RH";
+  tracks[3].hits = left.map(([s, m]) => note(s, m, 0.4, 1.2, -0.3));
+  tracks[0].hits = right.map(([s, m, d]) => note(s, m, 0.6, d, 0.2));
+  bpm = 76; loopSteps = STEPS * 2; sound?.bpm?.(bpm);
+  fx.room = true; sends.room = 0.35; sound?.room?.toggle?.(); applySends(sound);
+  playing = true; startAt = Date.now(); lastStep = -1;
+}
+
+// MIDI controllers: the kernel exposes each as /dev/snd/midiC<card>D<dev>. The OS
+// cannot hand their notes to a piece yet, but we can see and name them.
+let sys = null, midiDevs = [], midiScanAt = -999;
+function scanMidi() {
+  const list = sys?.listDir?.("/dev/snd") || [];
+  const found = list.map((f) => /^midiC(\d+)D(\d+)$/.exec(f.name)).filter(Boolean).map((mm) => {
+    const id = String(sys.readFile?.(`/sys/class/sound/card${mm[1]}/id`) || "").trim();
+    return { dev: mm[0], name: id || `card ${mm[1]}` };
+  });
+  const names = found.map((d) => d.name).join(", ");
+  if (names !== midiDevs.map((d) => d.name).join(", ")) {
+    if (found.length) flash(`MIDI: ${names} seen (playing it needs an OS update)`);
+    else if (midiDevs.length) flash("MIDI unplugged");
+    console.log(`[oskey] midi devices: ${names || "none"}`);
+  }
+  midiDevs = found;
+}
+
+function boot({ sound, system }) {
+  sys = system;
+  frame = 0; held = {}; notice = null; swoops = [];
+  resetAudio(sound); // clear anything a previous reload left droning
   sound?.bpm?.(bpm);
   const mic = sound?.microphone || {};
   sampled = (mic.sampleLength || 0) > 0;
   flash("oskey — F1 inst  F2 drums  F3 sampler  F4 seq  space play  F12 rec");
+  scanMidi();
+  if (AUTOPLAY && tracks.every((t) => !t.hits.length)) { loadDemo(sound); flash("Spring Sketch — piano, 76 bpm — space pauses"); }
+}
+
+// Key names vary by keyboard layer; fold the spellings of space into " ".
+let lastKey = "";
+function keyName(e) {
+  const k = String(e.key || "").toLowerCase();
+  return k === "space" || k === "spacebar" ? " " : k;
+}
+
+// Voice cap: steal the oldest held keys so stacked patches can't choke the mixer.
+function capVoices(sound) {
+  const live = () => Object.values(held).reduce((n, h) => n + h.voices.length, 0);
+  while (live() > MAX_HELD_VOICES) {
+    const oldest = Object.keys(held).sort((a, b) => held[a].downAt - held[b].downAt)[0];
+    release(oldest, sound);
+  }
+}
+
+// MIDI controller. Needs the OS midi-in update (see JEFFREY-midi-input.md);
+// until then e.is("midi:…") is always false and none of this runs.
+// Notes play the current mode: instrument patch, sampler, or drums (General
+// MIDI drum map, and channel 10 is always drums). Velocity sets loudness, and
+// notes record into the loop like keys. Mod wheel (CC 1) sets the echo send.
+const GM_DRUMS = { 36: "c", 35: "c", 38: "d", 40: "d", 39: "e", 37: "f", 42: "g", 44: "g", 46: "a",
+                   51: "b", 59: "b", 49: "c#", 57: "c#", 55: "d#", 56: "f#", 76: "g#", 77: "g#", 54: "a#" };
+function midiHit(note, velocity, channel) {
+  const vol = 0.3 + 0.7 * Math.min(1, velocity / 127), pan = Math.max(-0.6, Math.min(0.6, (note - 60) / 36));
+  if (channel === 10 || mode === "drums") return { kind: "drum", drum: GM_DRUMS[note] || KIT[note % 12], vol, pan };
+  if (mode === "sampler") return sampled ? { kind: "sample", midi: note, vol, pan } : null;
+  return { kind: "note", midis: [note], patch, vol, pan, dur: 0.25 };
+}
+function midiEvent(e, sound) {
+  if (e.is("midi:cc")) {
+    if (e.control === 1) { sends.echo = (e.value / 127) * 0.8; fx.echo = sends.echo > 0; applySends(sound); }
+    return;
+  }
+  const k = `midi:${e.note}`;
+  if (e.is("midi:noteoff")) { release(k, sound); return; }
+  lastKey = `midi ${noteName(e.note)}`;
+  if (held[k]) release(k, sound);
+  const hit = midiHit(e.note, e.velocity, e.channel);
+  if (!hit) { flash("no sample yet — F9 records one"); return; }
+  capVoices(sound);
+  held[k] = { voices: fire(sound, hit, hit.kind !== "drum"), hit, downAt: Date.now() };
+  const into = hit.kind === "drum" && mode !== "drums" ? 1 : track; // stray drums land on Drums
+  tracks[into].level = 1; lastHit = frame;
+  held[k].rec = record(hit, into);
 }
 
 function act({ event: e, sound, system, screen }) {
+  if (e.is("midi")) { midiEvent(e, sound); return; }
   if (e.is("touch") || e.is("draw")) {
     xy = { x: Math.max(0, Math.min(1, e.x / screen.width)), y: Math.max(0, Math.min(1, 1 - e.y / screen.height)) };
     sends = { echo: xy.x * 0.8, room: xy.y * 0.8 };
@@ -177,14 +354,15 @@ function act({ event: e, sound, system, screen }) {
     return;
   }
   if (e.is("keyboard:up")) {
-    const k = String(e.key || "").toLowerCase();
+    const k = keyName(e);
     if (k === "shift") mods.shift = false;
     if (k === "capslock") mods.caps = false;
     release(k, sound);
     return;
   }
   if (!e.is("keyboard:down")) return;
-  const k = String(e.key || "").toLowerCase();
+  const k = keyName(e);
+  lastKey = k;
   if (e.repeat) return;
   flashKey[k] = frame;
 
@@ -192,7 +370,7 @@ function act({ event: e, sound, system, screen }) {
     if (frame - escAt > ESC_WINDOW) escCount = 0;
     escCount++; escAt = frame;
     if (escCount >= 3) { system?.jump?.("prompt"); return; }
-    playing = false; armed = false; stopAll(sound);
+    playing = false; armed = false; stopAll(sound); resetAudio(sound);
     flash(`stopped (esc ${escCount}/3 → prompt)`);
     return;
   }
@@ -253,6 +431,24 @@ function act({ event: e, sound, system, screen }) {
     if (k === "arrowright") cursor.s = (cursor.s + 1) % loopSteps;
     if (k === "arrowup") cursor.t = (cursor.t - 1 + 9) % 9;
     if (k === "arrowdown") cursor.t = (cursor.t + 1) % 9;
+    // Drum pads place that drum (or zoo animal) at the cursor; again removes it.
+    // Several drums can share a step. Note tracks (1, 3, or any holding notes) are skipped.
+    const pad = padOf(k);
+    if (pad) {
+      const t = tracks[cursor.t];
+      if (cursor.t === 0 || cursor.t === 2 || t.hits.some((x) => x.kind === "note" || x.kind === "sample")) {
+        flash("pads place drums on drum tracks (2, 4-9)");
+      } else {
+        const vol = mods.shift ? 1.0 : 0.7;
+        const h = pad.kind === "drum" ? { kind: "drum", drum: KIT[pad.i], vol, pan: 0 } : { kind: "zoo", name: ZOO[pad.i], pitch: 1, vol, pan: 0 };
+        const name = pad.kind === "drum" ? PERCUSSION_NAMES[h.drum] : h.name;
+        const same = (x) => x.step === cursor.s && x.kind === h.kind && (x.drum ?? x.name) === (h.drum ?? h.name);
+        if (t.hits.some(same)) { t.hits = t.hits.filter((x) => !same(x)); flash(`${name} off step ${cursor.s + 1}`); }
+        else { t.hits.push({ step: cursor.s, ...h }); fire(sound, h, false); flash(`${name} on step ${cursor.s + 1}`); }
+      }
+      track = cursor.t;
+      return;
+    }
     if (k === "enter" || k === "backspace") {
       const t = tracks[cursor.t], at = t.hits.filter((h) => h.step === cursor.s);
       if (at.length || k === "backspace") t.hits = t.hits.filter((h) => h.step !== cursor.s);
@@ -270,12 +466,18 @@ function act({ event: e, sound, system, screen }) {
   if (held[k]) return;
   const hit = hitFor(k, mods.shift);
   if (!hit) { if (mode === "sampler" && degreeOf(k) >= 0) flash("no sample yet — F9 records one"); return; }
+  capVoices(sound);
   held[k] = { voices: fire(sound, hit, true), hit, downAt: Date.now() };
   tracks[track].level = 1; lastHit = frame;
-  record(hit);
+  held[k].rec = record(hit);
 }
 
-function sim({ sound }) { tick(sound); for (const t of tracks) t.level *= 0.9; }
+function sim({ sound }) {
+  if (frame - midiScanAt > 120) { midiScanAt = frame; scanMidi(); }
+  tick(sound); swoopTick();
+  washAmt *= WASH_FADE;
+  for (const h of Object.values(held)) if (h.hit) glow(tintOf(h.hit), 0.05, 0.6); // held notes keep it lit
+  for (const t of tracks) t.level *= 0.9; }
 
 // Paint: the keyboard by role in the middle, patch on the left, tracks on
 // the right, the loop grid and XY readout along the bottom.
@@ -299,7 +501,8 @@ function guy(ink, box, x, y, S) {
 function paint({ wipe, ink, box, line, write, screen, comicWrite }) {
   frame++;
   const w = screen.width, h = screen.height, S = w >= 900 ? 2 : 1, ch = 6 * S, lh = 10 * S, m = 6 * S;
-  wipe(...GLASS);
+  const a = washAmt * WASH_MAX;
+  wipe(...GLASS.map((v, i) => Math.round(v + (wash[i] - v) * a)));
   const txt = (t, x, y, c = INK, font = "font_1") => { ink(...c); write(t, { x, y, size: S, font }); };
 
   // the wordmark, comic and pink, in the corner
@@ -319,7 +522,20 @@ function paint({ wipe, ink, box, line, write, screen, comicWrite }) {
   if (recording) { ink(240, 60, 60); box(x, y, 7 * ch, lh + 4); txt("MIC", x + ch, y + 2, GLASS); x += 8 * ch; }
   ink(...(armed ? [220, 50, 50] : PANEL)); box(x, y, 5 * ch, lh + 4); txt("REC", x + ch, y + 2, armed ? GLASS : INK); x += 6 * ch;
   ink(...(playing ? [90, 200, 90] : PANEL)); box(x, y, 6 * ch, lh + 4); txt("PLAY", x + ch, y + 2, playing ? GLASS : INK);
+  if (midiDevs.length) { x += 7 * ch; ink(...CUTE); box(x, y, 6 * ch, lh + 4); txt("MIDI", x + ch, y + 2, GLASS); }
   y += lh + 4 + m;
+
+  const foot = 16 * S + lh + 6; // footer: one matrix help line + one 16px unifont notice line
+  const footer = () => {
+    const help = mode === "seq" ? "arrows move  drum pads place  enter toggle  bksp clear  m mute  1-9 track"
+               : mode === "drums" ? "left hand kit  right hand zoo  -/= pitch  shift accent  F12 rec"
+               : mode === "sampler" ? "F9 record mic / cut  keys play it by degree  F5 scale  F8 root"
+               : "keys = scale degrees  diagonal = triad  tab patch  -/= octave  trackpad = sends";
+    txt(help, m, h - foot + 2, INK, "matrix");
+    if (notice && Date.now() < notice.until) txt(notice.text, m, h - 16 * S - 2, LIT, "unifont");
+    else txt(`track ${track + 1} ${tracks[track].name}  -  esc x3 prompt  -  key [${lastKey === " " ? "space" : lastKey}]${mods.caps ? " CAPS" : ""}`, m, h - 16 * S + 2, INK, "matrix");
+  };
+  if (mode === "seq") { seqView({ ink, box, line, txt, w, h, y, m, ch, lh, foot }); footer(); return; }
 
   // left: patch
   const lw = Math.floor(w * 0.22), top = y;
@@ -402,27 +618,86 @@ function paint({ wipe, ink, box, line, write, screen, comicWrite }) {
   key(kx0 + 11 * kw, ky, 1.5 * kw, kh, [230, 120, 80], "Del clear", isDown("delete"));
 
   // bottom: loop grid + help
-  const gy = Math.max(ky + kh + m, top + Math.floor(h * 0.42) + m), gw = w - m * 2, cw = Math.floor(gw / loopSteps), rh = Math.max(3, Math.floor((h - gy - lh * 2 - m) / 9));
+  const gy = Math.max(ky + kh + m, top + Math.floor(h * 0.42) + m), gw = w - m * 2, cw = Math.floor(gw / loopSteps), rh = Math.max(3, Math.floor((h - gy - foot - 2) / 9));
   const stepNow = playing ? Math.floor((Date.now() - startAt) / stepMs()) % loopSteps : -1;
   for (let i = 0; i < 9; i++) {
     for (let s = 0; s < loopSteps; s++) {
-      const on = tracks[i].hits.some((hh) => hh.step === s), cur = mode === "seq" && cursor.t === i && cursor.s === s;
-      ink(...(cur ? LIT : on ? TRACK_RGB[i] : s === stepNow ? [214, 208, 192] : s % 4 === 0 ? [224, 218, 204] : PANEL));
+      const hit = tracks[i].hits.find((hh) => hh.step === s), on = !!hit, cur = mode === "seq" && cursor.t === i && cursor.s === s;
+      ink(...(cur ? LIT : on ? tintOf(hit) : s === stepNow ? [214, 208, 192] : s % 4 === 0 ? [224, 218, 204] : PANEL));
       box(m + s * cw, gy + i * rh, cw - 1, rh - 1);
+      if (on && rh > lh) {
+        const label = hitLabel(hit, Math.floor((cw - 2) / ch));
+        if (label) txt(label, m + s * cw + 1, gy + i * rh + Math.floor((rh - lh) / 2), cur ? GLASS : LIT);
+      }
     }
   }
   if (stepNow >= 0) { ink(34, 30, 28, 40); box(m + stepNow * cw, gy, cw - 1, rh * 9 - 1); }
   // XY dot
   ink(...CUTE); box(m + Math.floor(xy.x * (gw - 4)), gy + Math.floor((1 - xy.y) * (rh * 9 - 4)), 4, 4);
-  const help = mode === "seq" ? "arrows move  enter toggle  backspace clear  m mute  1-9 track"
-             : mode === "drums" ? "left hand kit  right hand zoo  -/= pitch  shift accent  F12 rec"
-             : mode === "sampler" ? "F9 record mic / cut  keys play it by degree  F5 scale  F8 root"
-             : "keys = scale degrees  diagonal = triad  tab patch  -/= octave  trackpad = sends";
-  txt(help, m, h - lh * 2 + 2, INK, "matrix");
-  if (notice && Date.now() < notice.until) txt(notice.text, m, h - lh - 2, LIT, "unifont");
-  else txt(`track ${track + 1} ${tracks[track].name}  -  esc x3 prompt`, m, h - lh + 1, INK, "matrix");
+  footer();
 }
 
-function leave({ sound }) { stopAll(sound); if (recording) sound.microphone?.cut?.(); }
+// F4: full-screen sequencer. A piano roll on top (pitch up the screen, bars as
+// long as each note rings), a drum lane under it, and the 9-track edit grid
+// at the bottom, all sharing one step axis.
+const BLACK_KEYS = [1, 3, 6, 8, 10];
+function seqView({ ink, box, line, txt, w, h, y, m, ch, lh, foot }) {
+  const gr = Math.max(5, Math.floor(lh * 0.9)), dl = Math.max(6, lh);
+  const gridY = h - foot - 2 - 9 * gr, drumY = gridY - m - dl, rollTop = y, rollBot = drumY - 2;
+  const x0 = m + 4 * ch, x1 = w - m, cw = (x1 - x0) / loopSteps, sx = (s) => Math.floor(x0 + s * cw);
+  const stepSec = stepMs() / 1000, pos = playing ? ((Date.now() - startAt) / stepMs()) % loopSteps : -1;
+
+  // pitch range: every note in the loop, padded, at least two octaves tall
+  const notes = [], beats = [];
+  tracks.forEach((t, i) => t.hits.forEach((hit) => {
+    if (hit.kind === "note") for (const midi of hit.midis) notes.push({ midi, hit, i });
+    else if (hit.kind === "sample") notes.push({ midi: hit.midi, hit, i });
+    else beats.push({ hit, i });
+  }));
+  let lo = notes.length ? Math.min(...notes.map((n) => n.midi)) - 1 : 48, hi = notes.length ? Math.max(...notes.map((n) => n.midi)) + 1 : 72;
+  while (hi - lo < 24) { lo--; if (hi - lo < 24) hi++; }
+  const ph = (rollBot - rollTop) / (hi - lo + 1), py = (midi) => Math.floor(rollBot - (midi - lo + 1) * ph);
+
+  // lanes: black-key rows shaded, C rows labelled in the gutter
+  for (let p = lo; p <= hi; p++) {
+    ink(...(BLACK_KEYS.includes(((p % 12) + 12) % 12) ? PANEL : [240, 236, 226])); box(x0, py(p), x1 - x0, Math.ceil(ph));
+    if (p % 12 === 0) { ink(...DIM); box(x0, py(p) + Math.ceil(ph) - 1, x1 - x0, 1); txt(noteName(p), m, py(p) + Math.floor(ph / 2) - Math.floor(lh / 2), INK); }
+  }
+  for (let s = 0; s <= loopSteps; s += 4) { ink(...(s % 16 === 0 ? INK : DIM)); box(sx(s), rollTop, 1, drumY + dl - rollTop); }
+  if (mode === "seq") { ink(34, 30, 28, 30); box(sx(cursor.s), rollTop, Math.max(1, Math.floor(cw)), drumY + dl - rollTop); }
+
+  // notes: coloured by pitch, outlined while sounding, named when they fit
+  const labels = [];
+  for (const { midi, hit, i } of notes) {
+    const len = Math.max(1, (hit.dur || 0.25) / stepSec), bx = sx(hit.step), bw = Math.max(2, Math.min(sx(hit.step + len), x1) - bx - 1);
+    const by = py(midi), bh = Math.max(2, Math.ceil(ph) - 1), rgb = pitchRgb(midi);
+    ink(...(tracks[i].mute ? rgb.map((v, k) => Math.round((v + PANEL[k]) / 2)) : rgb)); box(bx, by, bw, bh);
+    if (pos >= hit.step && pos < hit.step + len) { ink(...LIT); box(bx, by, bw, bh, "outline"); }
+    const name = noteName(midi);
+    if (bw >= name.length * ch + 2) labels.push([name, bx + 2, by + Math.floor(bh / 2) - Math.floor(lh / 2)]);
+  }
+  for (const [name, lx, ly] of labels) txt(name, lx, ly, LIT);
+
+  // drum lane
+  ink(...PANEL); box(x0, drumY, x1 - x0, dl); txt("drm", m, drumY + Math.floor((dl - lh) / 2), INK);
+  for (const { hit } of beats) { ink(...tintOf(hit)); box(sx(hit.step), drumY + 1, Math.max(2, Math.floor(cw) - 1), dl - 2); }
+
+  // playhead
+  if (pos >= 0) { ink(...CUTE); box(Math.floor(x0 + pos * cw), rollTop, 2, drumY + dl - rollTop); }
+
+  // edit grid: one row per track, same columns as the roll
+  for (let i = 0; i < 9; i++) {
+    const gy = gridY + i * gr, on = i === cursor.t;
+    ink(...TRACK_RGB[i]); box(m, gy, ch * 2, gr - 1);
+    txt(String(i + 1), m + ch * 2 + 2, gy + Math.floor((gr - lh) / 2), on ? LIT : INK);
+    for (let s = 0; s < loopSteps; s++) {
+      const hit = tracks[i].hits.find((hh) => hh.step === s), cur = on && cursor.s === s;
+      ink(...(cur ? LIT : hit ? (tracks[i].mute ? DIM : tintOf(hit)) : s % 4 === 0 ? [224, 218, 204] : PANEL));
+      box(sx(s), gy, Math.max(1, Math.floor(cw) - 1), gr - 1);
+    }
+  }
+}
+
+function leave({ sound }) { swoops = []; stopAll(sound); if (recording) sound.microphone?.cut?.(); }
 
 export { boot, paint, act, sim, leave };

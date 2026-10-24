@@ -2166,8 +2166,17 @@ static JSValue js_event_is(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         match = 0; // no resize on bare metal
     else if (strncmp(pattern, "gamepad", 7) == 0)
         match = 0; // stub
+    else if (strcmp(pattern, "midi") == 0)
+        match = (type == AC_EVENT_MIDI_NOTE_ON || type == AC_EVENT_MIDI_NOTE_OFF ||
+                 type == AC_EVENT_MIDI_CONTROL);
+    else if (strcmp(pattern, "midi:noteon") == 0)
+        match = (type == AC_EVENT_MIDI_NOTE_ON);
+    else if (strcmp(pattern, "midi:noteoff") == 0)
+        match = (type == AC_EVENT_MIDI_NOTE_OFF);
+    else if (strcmp(pattern, "midi:cc") == 0)
+        match = (type == AC_EVENT_MIDI_CONTROL);
     else if (strncmp(pattern, "midi:", 5) == 0)
-        match = 0; // stub
+        match = 0; // other midi:* patterns not delivered yet
     else if (strcmp(pattern, "compose") == 0)
         match = 0; // stub
 
@@ -2193,6 +2202,20 @@ static JSValue make_event_object(JSContext *ctx, ACEvent *ev) {
     if (velocity < 1 && ev->type == AC_EVENT_KEYBOARD_DOWN) velocity = 1;
     JS_SetPropertyStr(ctx, obj, "velocity", JS_NewInt32(ctx, velocity));
     JS_SetPropertyStr(ctx, obj, "pressure", JS_NewFloat64(ctx, (double)ev->pressure));
+
+    // USB MIDI: e.note (or e.control + e.value for CC), e.channel 1-16, and the
+    // real velocity, replacing the keyboard default of 127 set above.
+    if (ev->type == AC_EVENT_MIDI_NOTE_ON || ev->type == AC_EVENT_MIDI_NOTE_OFF ||
+        ev->type == AC_EVENT_MIDI_CONTROL) {
+        JS_SetPropertyStr(ctx, obj, "channel", JS_NewInt32(ctx, ev->midi_channel));
+        if (ev->type == AC_EVENT_MIDI_CONTROL) {
+            JS_SetPropertyStr(ctx, obj, "control", JS_NewInt32(ctx, ev->midi_data1));
+            JS_SetPropertyStr(ctx, obj, "value", JS_NewInt32(ctx, ev->midi_data2));
+        } else {
+            JS_SetPropertyStr(ctx, obj, "note", JS_NewInt32(ctx, ev->midi_data1));
+        }
+        JS_SetPropertyStr(ctx, obj, "velocity", JS_NewInt32(ctx, ev->midi_data2));
+    }
 
     // Web parity: event.name is the full event string ("keyboard:down:space",
     // "touch", "lift", …) — pieces test it with name.startsWith("keyboard:down")

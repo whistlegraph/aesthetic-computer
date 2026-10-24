@@ -621,6 +621,132 @@ static int input_debug_frames = 0;
 // to see what a new pad reports before any sound is wired to it.
 static int touch_debug = -1;
 
+// ── USB MIDI input ──────────────────────────────────────────────────────────
+// Class-compliant controllers appear as /dev/snd/midiC<card>D<dev> (the kernel
+// has CONFIG_SND_USB_AUDIO + CONFIG_SND_RAWMIDI). Each is read raw and
+// non-blocking; note on/off and control change become AC_EVENT_MIDI_* events
+// that reach a piece through act() like keys do. The f_midi gadget card (the
+// device acting as a MIDI interface, see usb-midi.c) is skipped so we never
+// read our own output back.
+
+static int midi_card_is_gadget(int card) {
+    FILE *fp = fopen("/proc/asound/cards", "r");
+    if (!fp) return 0;
+    char line[256];
+    int gadget = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        int c = -1;
+        if (sscanf(line, " %d [", &c) == 1 && c == card &&
+            (strstr(line, "MIDI Gadget") || strstr(line, "f_midi"))) {
+            gadget = 1;
+            break;
+        }
+    }
+    fclose(fp);
+    return gadget;
+}
+
+static void midi_in_scan(ACInput *input) {
+    DIR *dir = opendir("/dev/snd");
+    if (!dir) return;
+    struct dirent *de;
+    while ((de = readdir(dir)) && input->midi_count < MAX_MIDI_IN) {
+        int card, dev;
+        if (sscanf(de->d_name, "midiC%dD%d", &card, &dev) != 2) continue;
+        char path[32];
+        snprintf(path, sizeof(path), "/dev/snd/%s", de->d_name);
+        int open_already = 0;
+        for (int i = 0; i < input->midi_count; i++)
+            if (strcmp(input->midi_paths[i], path) == 0) open_already = 1;
+        if (open_already || midi_card_is_gadget(card)) continue;
+        int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (fd < 0) {
+            fprintf(stderr, "[midi-in] open %s failed: %s\n", path, strerror(errno));
+            continue;
+        }
+        int n = input->midi_count++;
+        input->midi_fds[n] = fd;
+        snprintf(input->midi_paths[n], sizeof(input->midi_paths[n]), "%s", path);
+        input->midi_status[n] = 0;
+        input->midi_have[n] = 0;
+        fprintf(stderr, "[midi-in] opened %s (card %d)\n", path, card);
+    }
+    closedir(dir);
+}
+
+static void midi_in_emit(ACInput *input, unsigned char status, unsigned char d1, unsigned char d2) {
+    int kind = status & 0xF0, type;
+    if (kind == 0x90 && d2 > 0) type = AC_EVENT_MIDI_NOTE_ON;
+    else if (kind == 0x80 || kind == 0x90) type = AC_EVENT_MIDI_NOTE_OFF;  // 0x90 vel 0 = off
+    else if (kind == 0xB0) type = AC_EVENT_MIDI_CONTROL;
+    else return;  // program change, aftertouch, pitch bend: not delivered yet
+    if (input->event_count >= MAX_EVENTS_PER_FRAME) return;
+    ACEvent *ae = &input->events[input->event_count++];
+    memset(ae, 0, sizeof(ACEvent));
+    ae->type = type;
+    ae->midi_channel = (status & 0x0F) + 1;
+    ae->midi_data1 = d1;
+    ae->midi_data2 = d2;
+    ae->pressure = d2 / 127.0f;
+    snprintf(ae->key_name, sizeof(ae->key_name), "%s",
+             type == AC_EVENT_MIDI_NOTE_ON ? "midi:noteon" :
+             type == AC_EVENT_MIDI_NOTE_OFF ? "midi:noteoff" : "midi:cc");
+}
+
+// Byte-at-a-time parser with running status. Realtime bytes (clock, active
+// sensing) may arrive mid-message and are ignored without disturbing it.
+static void midi_in_byte(ACInput *input, int n, unsigned char b) {
+    if (b >= 0xF8) return;
+    if (b & 0x80) {
+        input->midi_status[n] = b < 0xF0 ? b : 0;  // sysex/common cancel running status
+        input->midi_have[n] = 0;
+        return;
+    }
+    unsigned char st = input->midi_status[n];
+    if (!st) return;  // data with no status, e.g. inside sysex
+    int need = ((st & 0xF0) == 0xC0 || (st & 0xF0) == 0xD0) ? 1 : 2;
+    input->midi_data[n][input->midi_have[n]++] = b;
+    if (input->midi_have[n] < need) return;
+    midi_in_emit(input, st, input->midi_data[n][0], need == 2 ? input->midi_data[n][1] : 0);
+    input->midi_have[n] = 0;  // keep the status for running-status messages
+}
+
+static void midi_in_close(ACInput *input, int n) {
+    close(input->midi_fds[n]);
+    int last = --input->midi_count;
+    if (n != last) {
+        input->midi_fds[n] = input->midi_fds[last];
+        memcpy(input->midi_paths[n], input->midi_paths[last], sizeof(input->midi_paths[n]));
+        input->midi_status[n] = input->midi_status[last];
+        memcpy(input->midi_data[n], input->midi_data[last], sizeof(input->midi_data[n]));
+        input->midi_have[n] = input->midi_have[last];
+    }
+}
+
+static void midi_in_poll(ACInput *input) {
+    if (input->midi_scan_wait-- <= 0) {  // first poll, then every ~2 s at 60 fps
+        input->midi_scan_wait = 120;
+        midi_in_scan(input);
+    }
+    for (int n = 0; n < input->midi_count; n++) {
+        // Read no more than the event queue can absorb (a message is at least
+        // 2 bytes under running status), so nothing is dropped mid-burst; the
+        // rest stays in the kernel buffer for the next frame.
+        unsigned char buf[64];
+        ssize_t r = 0;
+        size_t room;
+        while ((room = (size_t)(MAX_EVENTS_PER_FRAME - input->event_count) * 2) >= 2 &&
+               (r = read(input->midi_fds[n], buf, room < sizeof(buf) ? room : sizeof(buf))) > 0) {
+            for (ssize_t i = 0; i < r; i++) midi_in_byte(input, n, buf[i]);
+        }
+        if (r < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {  // unplugged: ENODEV
+            fprintf(stderr, "[midi-in] closed %s: %s\n", input->midi_paths[n], strerror(errno));
+            midi_in_close(input, n);
+            n--;
+        }
+    }
+}
+
 void input_poll(ACInput *input) {
     if (touch_debug < 0) {
         const char *e = getenv("AC_TOUCH_DEBUG");
@@ -1083,6 +1209,8 @@ poll_evdev: ;
             }
         }
     }
+
+    midi_in_poll(input);
 }
 
 // ── Wayland input backend ──
@@ -1450,5 +1578,7 @@ void input_destroy(ACInput *input) {
         close(input->fds[i]);
     for (int i = 0; i < input->hidraw_count; i++)
         close(input->hidraw_fds[i]);
+    for (int i = 0; i < input->midi_count; i++)
+        close(input->midi_fds[i]);
     free(input);
 }
