@@ -202,6 +202,43 @@
       ]
     },
     {
+      "url": "https://whats.kidlisp.com/",
+      "title": "What's KidLisp",
+      "summary": "The KidLisp language page: what it is, how it reads, where it runs.",
+      "llms": "https://whats.kidlisp.com/llms.txt",
+      "aliases": [
+        "lang.kidlisp.com",
+        "whatis.kidlisp.com"
+      ],
+      "resources": [
+        {
+          "title": "Website",
+          "url": "https://whats.kidlisp.com/",
+          "description": "Public entry point."
+        },
+        {
+          "title": "Editor",
+          "url": "https://kidlisp.com/",
+          "description": "Write and run a program."
+        },
+        {
+          "title": "Learn",
+          "url": "https://learn.kidlisp.com/",
+          "description": "Language lessons and examples."
+        },
+        {
+          "title": "Interpreter source",
+          "url": "https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs",
+          "description": "Published interpreter source."
+        },
+        {
+          "title": "Public HTTP API (JSON)",
+          "url": "https://aesthetic.computer/api?format=json",
+          "description": "Supported endpoints, request schemas, authentication and limits."
+        }
+      ]
+    },
+    {
       "url": "https://learn.kidlisp.com/",
       "title": "Learn KidLisp",
       "summary": "Language lessons and examples for KidLisp.",
