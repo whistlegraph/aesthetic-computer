@@ -256,7 +256,7 @@ aci_collect_local_claude() {
 # and ACI_MOOD (plain string), ACI_CITY, ACI_MONO ("1" = boot in mono).
 aci_build_usb_config_json() {
     node -e "
-        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState, colorsJson, mood, city, mono, volume] = process.argv.slice(1);
+        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState, colorsJson, mood, city, mono, volume, piece, bake] = process.argv.slice(1);
         const cfg = { handle, sub, email, token };
         if (claudeToken) cfg.claudeToken = claudeToken;
         if (githubPat)   cfg.githubPat   = githubPat;
@@ -272,11 +272,14 @@ aci_build_usb_config_json() {
         if (city) cfg.city = city;
         if (mono === '1') cfg.mono = true; // boot with the audio fold on (config.json \"mono\")
         if (volume !== '' && Number.isFinite(Number(volume))) cfg.volume = Math.max(0, Math.min(400, Math.round(Number(volume)))); // baseline output gain %
+        if (piece) cfg.piece = piece;                                   // boot piece (flash-mac reads usbConfig.piece)
+        if (bake) cfg.bakePieces = bake.split(/[ ,]+/).filter(Boolean); // local pieces flash-mac bakes into the initramfs
         process.stdout.write(JSON.stringify(cfg));
     " "${ACI_HANDLE:-}" "${ACI_SUB:-}" "${ACI_EMAIL:-}" "${ACI_ACCESS_TOKEN:-}" \
       "${ACI_CLAUDE_TOKEN:-}" "${ACI_GITHUB_PAT:-}" \
       "${ACI_CLAUDE_CREDS:-}" "${ACI_CLAUDE_STATE:-}" \
-      "${ACI_HANDLE_COLORS_JSON:-}" "${ACI_MOOD:-}" "${ACI_CITY:-}" "${ACI_MONO:-}" "${ACI_VOLUME:-}"
+      "${ACI_HANDLE_COLORS_JSON:-}" "${ACI_MOOD:-}" "${ACI_CITY:-}" "${ACI_MONO:-}" "${ACI_VOLUME:-}" \
+      "${ACI_PIECE:-}" "${ACI_BAKE:-}"
 }
 
 # aci_build_inscription_json <out_path>

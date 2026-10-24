@@ -246,7 +246,13 @@ DEVICE_SCORE_MD=""
 #   /tangled-ssh-config      init copies to /tmp/.ssh/config; pty.c sets GIT_SSH_COMMAND
 #   /device-claude.md        on-device CLAUDE.md (init copies to /tmp/ac/CLAUDE.md)
 #   /device-score.md         on-device SCORE.md (init symlinks to /tmp/ac/SCORE.md)
-if [ -n "${CLAUDE_TOKEN}${GITHUB_PAT}${TANGLED_KEY}${DEVICE_CLAUDE_MD}${DEVICE_SCORE_MD}" ]; then
+#   /pieces/<name>.mjs       local pieces from ../pieces/, so a stick can carry
+#                            a piece before its OTA lands: AC_BAKE_PIECES="a b"
+#                            or usbConfig.bakePieces in the inscription (the
+#                            sudoers whitelist resets env, so ac-inscribe
+#                            --bake is the path that survives sudo)
+AC_BAKE_PIECES="${AC_BAKE_PIECES:-$(node -e 'try { const b=(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).usbConfig||{}).bakePieces; const l=Array.isArray(b)?b:String(b||"").split(/[ ,]+/); process.stdout.write(l.filter(n=>/^[a-z0-9-]+$/.test(n)).join(" ")); } catch {}' "${INSCRIPTION_FILE}" 2>/dev/null)}"
+if [ -n "${CLAUDE_TOKEN}${GITHUB_PAT}${TANGLED_KEY}${DEVICE_CLAUDE_MD}${DEVICE_SCORE_MD}${AC_BAKE_PIECES:-}" ]; then
     BAKE_DIR="$(mktemp -d /tmp/ac-bake.XXXXXX)"
     BAKED_INITRAMFS="/tmp/ac-initramfs-baked.$$.cpio.gz"
     ORIG_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
@@ -321,6 +327,19 @@ tangled-ssh-config
         BAKE_LIST="${BAKE_LIST}device-score.md
 "
         log "  SCORE.md: baked"
+    fi
+    if [ -n "${AC_BAKE_PIECES:-}" ]; then
+        mkdir -p "${BAKE_DIR}/pieces"
+        BAKE_LIST="${BAKE_LIST}pieces
+"
+        for piece_name in ${AC_BAKE_PIECES}; do
+            piece_src="${SCRIPT_DIR}/../pieces/${piece_name}.mjs"
+            [ -f "${piece_src}" ] || die "AC_BAKE_PIECES: no such piece ${piece_src}"
+            cp "${piece_src}" "${BAKE_DIR}/pieces/${piece_name}.mjs"
+            BAKE_LIST="${BAKE_LIST}pieces/${piece_name}.mjs
+"
+            log "  piece: baked ${piece_name}.mjs"
+        done
     fi
     cp "${INITRAMFS}" "${BAKED_INITRAMFS}"
     ( cd "${BAKE_DIR}" && printf '%s' "${BAKE_LIST}" \
