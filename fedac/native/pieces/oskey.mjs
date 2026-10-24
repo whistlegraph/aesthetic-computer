@@ -34,7 +34,8 @@ const DEGREE_RGB = [[230, 60, 60], [230, 140, 50], [230, 210, 60], [80, 200, 90]
 const FX = [["room", 1], ["echo", 2], ["glitch", 3]];
 const MODES = ["inst", "drums", "sampler", "seq"];
 const STEPS = 16, ESC_WINDOW = 120;
-const GLASS = [10, 11, 14], PANEL = [22, 24, 30], INK = [150, 160, 170], DIM = [60, 66, 78], LIT = [240, 240, 240];
+// Light mode: paper, cream cards, dark ink; keys keep their role colors.
+const GLASS = [247, 244, 236], PANEL = [232, 227, 214], INK = [90, 84, 78], DIM = [196, 190, 178], LIT = [34, 30, 28], CUTE = [230, 90, 140];
 
 let mode = "inst", track = 0, octave = 4, patch = 0, scale = 0, root = 0, chordOn = false;
 let bpm = 120, playing = false, armed = false, click = false, loopSteps = STEPS;
@@ -135,7 +136,7 @@ function tick(sound) {
   if (click && step % 4 === 0) sound.synth?.({ type: "square", tone: step === 0 ? 1760 : 1320, duration: 0.02, volume: 0.15, attack: 0.001, decay: 0.015 });
   for (const t of tracks) {
     if (t.mute) continue;
-    for (const h of t.hits) if (h.step === step) { fire(sound, h, false); t.level = 1; }
+    for (const h of t.hits) if (h.step === step) { fire(sound, h, false); t.level = 1; lastHit = frame; }
   }
 }
 
@@ -270,7 +271,7 @@ function act({ event: e, sound, system, screen }) {
   const hit = hitFor(k, mods.shift);
   if (!hit) { if (mode === "sampler" && degreeOf(k) >= 0) flash("no sample yet — F9 records one"); return; }
   held[k] = { voices: fire(sound, hit, true), hit, downAt: Date.now() };
-  tracks[track].level = 1;
+  tracks[track].level = 1; lastHit = frame;
   record(hit);
 }
 
@@ -278,13 +279,32 @@ function sim({ sound }) { tick(sound); for (const t of tracks) t.level *= 0.9; }
 
 // Paint: the keyboard by role in the middle, patch on the left, tracks on
 // the right, the loop grid and XY readout along the bottom.
-function paint({ wipe, ink, box, line, write, screen }) {
+// The guy: a round pink pal who bops on the beat, blinks, and goes "o" when
+// something is hit. Drawn from boxes so he survives any pixel scale.
+let lastHit = -999;
+function guy(ink, box, x, y, S) {
+  const beat = playing ? Math.abs(Math.sin((Date.now() - startAt) / stepMs() * Math.PI / 4)) : 0.5 + Math.sin(frame / 20) * 0.5;
+  const bob = Math.round(beat * 2 * S), hit = frame - lastHit < 8, blink = frame % 150 < 5;
+  const u = S, bx = x, by = y + 4 * S - bob;
+  ink(...CUTE); box(bx + 2 * u, by, 14 * u, 12 * u); box(bx, by + 2 * u, 18 * u, 8 * u);                 // body
+  ink(255, 170, 200); box(bx + 2 * u, by + 7 * u, 3 * u, 2 * u); box(bx + 13 * u, by + 7 * u, 3 * u, 2 * u); // cheeks
+  ink(34, 30, 28);
+  if (blink) { box(bx + 5 * u, by + 5 * u, 3 * u, u); box(bx + 10 * u, by + 5 * u, 3 * u, u); }
+  else { box(bx + 5 * u, by + 4 * u, 2 * u, 2 * u); box(bx + 11 * u, by + 4 * u, 2 * u, 2 * u); }          // eyes
+  if (hit) { box(bx + 7 * u, by + 8 * u, 4 * u, 3 * u); ink(...CUTE); box(bx + 8 * u, by + 9 * u, 2 * u, u); } // "o"
+  else box(bx + 7 * u, by + 9 * u, 4 * u, u);                                                            // smile
+  ink(34, 30, 28); box(bx + 4 * u, by + 12 * u, 3 * u, 2 * u); box(bx + 11 * u, by + 12 * u, 3 * u, 2 * u); // feet
+}
+
+function paint({ wipe, ink, box, line, write, screen, comicWrite }) {
   frame++;
   const w = screen.width, h = screen.height, S = w >= 900 ? 2 : 1, ch = 6 * S, lh = 10 * S, m = 6 * S;
   wipe(...GLASS);
-  const txt = (t, x, y, c = INK) => { ink(...c); write(t, { x, y, size: S, font: "font_1" }); };
+  const txt = (t, x, y, c = INK, font = "font_1") => { ink(...c); write(t, { x, y, size: S, font }); };
 
-  // top bar — below the system's corner label zone
+  // the wordmark, comic and pink, in the corner
+  comicWrite?.("oskey", m, 3, 16 * S, ...CUTE);
+
   let y = 22;
   const tabs = [["F1", "Inst"], ["F2", "Drums"], ["F3", "Sampler"], ["F4", "Seq"]];
   let x = m;
@@ -296,20 +316,21 @@ function paint({ wipe, ink, box, line, write, screen }) {
   }
   txt(`${bpm} bpm`, x + m, y + 2, LIT); x += 10 * ch;
   txt(`${NAMES[root]} ${SCALES[scale][0]}${chordOn ? " chord" : ""}`, x, y + 2, LIT); x += 16 * ch;
-  if (recording) { ink(240, 60, 60); box(x, y, 7 * ch, lh + 4); txt("MIC", x + ch, y + 2, LIT); x += 8 * ch; }
-  ink(...(armed ? [220, 50, 50] : PANEL)); box(x, y, 5 * ch, lh + 4); txt("REC", x + ch, y + 2, armed ? LIT : INK); x += 6 * ch;
+  if (recording) { ink(240, 60, 60); box(x, y, 7 * ch, lh + 4); txt("MIC", x + ch, y + 2, GLASS); x += 8 * ch; }
+  ink(...(armed ? [220, 50, 50] : PANEL)); box(x, y, 5 * ch, lh + 4); txt("REC", x + ch, y + 2, armed ? GLASS : INK); x += 6 * ch;
   ink(...(playing ? [90, 200, 90] : PANEL)); box(x, y, 6 * ch, lh + 4); txt("PLAY", x + ch, y + 2, playing ? GLASS : INK);
+  guy(ink, box, w - m - 26 * S, y - 2, S);
   y += lh + 4 + m;
 
   // left: patch
   const lw = Math.floor(w * 0.22), top = y;
   ink(...PANEL); box(m, y, lw, Math.floor(h * 0.42));
   const p = PATCHES[patch];
-  txt(mode === "drums" ? "KIT + ZOO" : mode === "sampler" ? (sampled ? "SAMPLE" : "NO SAMPLE") : `${String(patch + 1).padStart(2, "0")} ${p.name}`, m + ch, y + m, LIT);
-  txt(`oct ${octave}  tab patch`, m + ch, y + m + lh, INK);
+  txt(mode === "drums" ? "kit + zoo" : mode === "sampler" ? (sampled ? "sample" : "no sample") : `${String(patch + 1).padStart(2, "0")} ${p.name}`, m + ch, y + m, LIT, "unifont");
+  txt(`oct ${octave}  tab patch`, m + ch, y + m + lh + 6, INK, "matrix");
   const ox = m + ch, oy = y + m + lh * 2 + 4, ow = lw - ch * 2, oh = Math.floor(h * 0.1);
-  ink(...DIM); box(ox, oy, ow, oh, "outline");
-  ink(230, 170, 60);
+  ink(...GLASS); box(ox, oy, ow, oh); ink(...DIM); box(ox, oy, ow, oh, "outline");
+  ink(230, 140, 40);
   let px = ox, py = oy + oh / 2;
   for (let i = 1; i <= ow; i++) {
     const t = (i / ow) * 4 % 1, v = p.type === "sawtooth" ? t * 2 - 1 : p.type === "square" ? (t < 0.5 ? 1 : -1)
@@ -318,13 +339,13 @@ function paint({ wipe, ink, box, line, write, screen }) {
     line(px, py, nx, ny); px = nx; py = ny;
   }
   const ey = oy + oh + lh, eh = Math.floor(h * 0.08);
-  ink(...DIM); box(ox, ey, ow, eh, "outline");
-  ink(90, 150, 230);
+  ink(...GLASS); box(ox, ey, ow, eh); ink(...DIM); box(ox, ey, ow, eh, "outline");
+  ink(70, 130, 220);
   const ax = ox + Math.min(ow * 0.3, p.a * ow), dx = ax + Math.min(ow * 0.3, p.d * ow * 0.6);
   line(ox, ey + eh, ax, ey + 2); line(ax, ey + 2, dx, ey + eh * 0.4); line(dx, ey + eh * 0.4, ox + ow * 0.8, ey + eh * 0.4); line(ox + ow * 0.8, ey + eh * 0.4, ox + ow, ey + eh);
-  txt("A   D   S   R", ox, ey + eh + 2, DIM);
-  txt(`xy  echo ${Math.round(sends.echo * 100)}  room ${Math.round(sends.room * 100)}`, ox, ey + eh + lh + 2, fx.echo || fx.room ? LIT : DIM);
-  txt(`caps+ 1 room${fx.room ? "*" : ""} 2 echo${fx.echo ? "*" : ""} 3 glitch${fx.glitch ? "*" : ""}`, ox, ey + eh + lh * 2 + 2, DIM);
+  txt("A   D   S   R", ox, ey + eh + 2, INK, "matrix");
+  txt(`xy  echo ${Math.round(sends.echo * 100)}  room ${Math.round(sends.room * 100)}`, ox, ey + eh + lh + 2, fx.echo || fx.room ? LIT : INK, "matrix");
+  txt(`caps+ 1 room${fx.room ? "*" : ""} 2 echo${fx.echo ? "*" : ""} 3 glitch${fx.glitch ? "*" : ""}`, ox, ey + eh + lh * 2 + 2, INK, "matrix");
 
   // right: tracks
   const rw = Math.floor(w * 0.24), rx = w - rw - m;
@@ -333,8 +354,8 @@ function paint({ wipe, ink, box, line, write, screen }) {
     const ty = top + m + i * (lh + 2), on = i === track, t = tracks[i];
     ink(...TRACK_RGB[i]); box(rx + ch, ty, ch + 2, lh);
     txt(`${i + 1} ${t.name}${t.mute ? " (m)" : ""}`, rx + ch * 3, ty, on ? LIT : INK);
-    ink(...(on ? LIT : DIM)); box(rx + rw - ch * 8, ty + 3, Math.floor(ch * 7 * Math.min(1, t.level)), 3);
-    if (t.hits.length) txt(String(t.hits.length), rx + rw - ch * 10, ty, DIM);
+    ink(...(on ? TRACK_RGB[i] : DIM)); box(rx + rw - ch * 8, ty + 3, Math.floor(ch * 7 * Math.min(1, t.level)), 3);
+    if (t.hits.length) txt(String(t.hits.length), rx + rw - ch * 10, ty + 1, INK, "matrix");
   }
 
   // middle: the keyboard by role
@@ -342,7 +363,7 @@ function paint({ wipe, ink, box, line, write, screen }) {
   let ky = top;
   const key = (x, y, w, h, rgb, label, down) => {
     ink(...(down ? LIT : rgb)); box(x, y, w - gap, h - gap);
-    if (label) txt(label, x + 2, y + 2, down ? GLASS : [0, 0, 0]);
+    if (label) txt(label, x + 2, y + 2, down ? GLASS : [40, 34, 30]);
   };
   const isDown = (k) => held[k] || frame - (flashKey[k] ?? -99) < 6;
   const fnRow = [["esc", "Esc", DIM], ["f1", "Inst", [200, 200, 200]], ["f2", "Drum", [200, 200, 200]], ["f3", "Smpl", [200, 200, 200]], ["f4", "Seq", [200, 200, 200]],
@@ -373,7 +394,7 @@ function paint({ wipe, ink, box, line, write, screen }) {
     }
   }
   key(kx0, ky, 1.5 * kw, kh, [230, 90, 160], "Tab patch", isDown("tab"));
-  key(kx0, ky + kh, 1.75 * kw, kh, mods.caps ? LIT : [240, 240, 240], "Caps fx", mods.caps);
+  key(kx0, ky + kh, 1.75 * kw, kh, mods.caps ? LIT : [255, 255, 255], "Caps fx", mods.caps);
   key(kx0, ky + kh * 2, 2.25 * kw, kh, mods.shift ? LIT : [170, 170, 180], "Shift accent", mods.shift);
   ky += kh * 3;
   key(kx0 + 3 * kw, ky, 6 * kw, kh, playing ? [120, 230, 90] : [90, 180, 70], playing ? "Space pause" : "Space play", isDown(" "));
@@ -386,20 +407,20 @@ function paint({ wipe, ink, box, line, write, screen }) {
   for (let i = 0; i < 9; i++) {
     for (let s = 0; s < loopSteps; s++) {
       const on = tracks[i].hits.some((hh) => hh.step === s), cur = mode === "seq" && cursor.t === i && cursor.s === s;
-      ink(...(cur ? LIT : on ? TRACK_RGB[i] : s === stepNow ? [40, 44, 56] : s % 4 === 0 ? [28, 30, 38] : PANEL));
+      ink(...(cur ? LIT : on ? TRACK_RGB[i] : s === stepNow ? [214, 208, 192] : s % 4 === 0 ? [224, 218, 204] : PANEL));
       box(m + s * cw, gy + i * rh, cw - 1, rh - 1);
     }
   }
-  if (stepNow >= 0) { ink(255, 255, 255, 90); box(m + stepNow * cw, gy, cw - 1, rh * 9 - 1); }
+  if (stepNow >= 0) { ink(34, 30, 28, 40); box(m + stepNow * cw, gy, cw - 1, rh * 9 - 1); }
   // XY dot
-  ink(230, 170, 60); box(m + Math.floor(xy.x * (gw - 4)), gy + Math.floor((1 - xy.y) * (rh * 9 - 4)), 4, 4);
+  ink(...CUTE); box(m + Math.floor(xy.x * (gw - 4)), gy + Math.floor((1 - xy.y) * (rh * 9 - 4)), 4, 4);
   const help = mode === "seq" ? "arrows move  enter toggle  backspace clear  m mute  1-9 track"
              : mode === "drums" ? "left hand kit  right hand zoo  -/= pitch  shift accent  F12 rec"
              : mode === "sampler" ? "F9 record mic / cut  keys play it by degree  F5 scale  F8 root"
              : "keys = scale degrees  diagonal = triad  tab patch  -/= octave  trackpad = sends";
-  txt(help, m, h - lh * 2 + 2, DIM);
-  if (notice && Date.now() < notice.until) txt(notice.text, m, h - lh + 1, LIT);
-  else txt(`track ${track + 1} ${tracks[track].name}  ·  esc×3 prompt`, m, h - lh + 1, DIM);
+  txt(help, m, h - lh * 2 + 2, INK, "matrix");
+  if (notice && Date.now() < notice.until) txt(notice.text, m, h - lh - 2, LIT, "unifont");
+  else txt(`track ${track + 1} ${tracks[track].name}  -  esc x3 prompt`, m, h - lh + 1, INK, "matrix");
 }
 
 function leave({ sound }) { stopAll(sound); if (recording) sound.microphone?.cut?.(); }
