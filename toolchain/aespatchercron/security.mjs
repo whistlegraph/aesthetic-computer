@@ -2,15 +2,22 @@ import { readFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { run, relativeFile } from "./io.mjs";
 import { emptySignals } from "./signals.mjs";
+import { defaultNetwork, defaultServers, networkSettings, serverSettings, directoryHosts, auditNetwork, auditServers, networkFindings, serverFindings, describe } from "./network.mjs";
 
-// Runtime and dependency drift for the stack Lith runs. Versions, counts and
-// package names are the only facts collected; advisory prose stays upstream.
+// Runtime and dependency drift for the stack Lith runs, plus the public
+// surface of every host in the AC network (network.mjs). Versions, counts,
+// hostnames and package names are the only facts collected; advisory prose
+// and response bodies stay upstream.
 export const releaseIndex = "https://nodejs.org/dist/index.json";
 export const releaseSchedule = "https://raw.githubusercontent.com/nodejs/Release/main/schedule.json";
-export const defaultSecurity = () => ({ enabled: true, packages: ["lith", "system", "oven", "session-server"], runtimes: [".node-version", "session-server/Dockerfile"] });
+export const defaultSecurity = () => ({ enabled: true, packages: ["lith", "system", "oven", "session-server"], runtimes: [".node-version", "session-server/Dockerfile"],
+  network: defaultNetwork(), servers: defaultServers() });
 
 const semver = /^v?(\d+)\.(\d+)\.(\d+)$/;
 const severities = ["critical", "high", "moderate", "low"];
+// Which audit kinds page an operator under --strict; the rest are advisories.
+const urgentKinds = new Set(["runtime-security-release", "runtime-end-of-life", "dependency-advisory", "sensitive-path-exposed", "tls-invalid", "tls-expiring",
+  "tls-legacy-protocol", "plain-http-served", "dangling-cname", "unexpected-listener", "ssh-password-auth"]);
 
 export function securitySettings(config) {
   const settings = config.security ?? defaultSecurity();
@@ -18,6 +25,9 @@ export function securitySettings(config) {
       !Array.isArray(settings.packages) || settings.packages.length > 10 || settings.packages.some(name => !/^[a-z0-9-]+$/.test(name)) ||
       !Array.isArray(settings.runtimes) || settings.runtimes.length > 10) throw new Error("Invalid security settings");
   settings.runtimes.forEach(relativeFile);
+  // Older config files predate the network audit; the defaults fill in.
+  settings.network = networkSettings(settings.network ?? defaultNetwork());
+  settings.servers = serverSettings(settings.servers ?? defaultServers());
   return settings;
 }
 
@@ -140,11 +150,45 @@ export async function lithRuntime(remote) {
 
 const target = file => file.replace(/^\.+/, "");
 
-export async function collectSecurity(repo, config, { runtime = null, remote = true, fetchImpl = fetch, now = new Date() } = {}) {
+// Public hosts are probed over the open internet; servers over their own SSH
+// key, so `remote` gates them with the Lith runtime read.
+async function collectSurface(repo, settings, signals, detail, { remote, network, probes, now }) {
+  if (!settings.network.enabled || !network) { signals.coverage.push({ source: "network", status: "disabled" }); }
+  else {
+    let hosts = null;
+    try { hosts = await directoryHosts(repo, settings.network); } catch {}
+    if (!hosts) signals.coverage.push({ source: "network", status: "unavailable", reason: "Machine directory unreadable; no host inventory to audit." });
+    else {
+      const rows = await auditNetwork(hosts, settings.network, probes, { now });
+      detail.network = rows;
+      const partial = rows.filter(row => ["tls", "http", "plain", "paths", "dns"].some(key => row[key].status !== "available")).length;
+      signals.coverage.push({ source: "network", status: "available", scanned: rows.length, truncated: partial > 0 });
+      for (const row of rows) if (row.tls.status === "available" && row.tls.daysLeft !== null) signals.metrics.push({ source: "network", metric: "tls-days-left", target: row.host, count: Math.max(0, row.tls.daysLeft) });
+      signals.metrics.push({ source: "network", metric: "hosts-partially-unreachable", target: null, count: partial });
+      for (const group of networkFindings(rows, settings.network)) {
+        signals.metrics.push({ source: "network", metric: group.kind, target: null, count: group.hosts.length });
+        signals.leads.push({ source: "network", kind: group.kind, route: null, count: group.hosts.length, evidenceRefs: [], summary: describe(group) });
+      }
+    }
+  }
+  if (!remote || !settings.servers.length) { signals.coverage.push({ source: "servers", status: "disabled" }); return; }
+  const rows = await auditServers(settings.servers, repo, probes.server);
+  detail.servers = rows;
+  const reached = rows.filter(row => row.status === "available");
+  signals.coverage.push(reached.length ? { source: "servers", status: "available", scanned: reached.length, truncated: reached.length < rows.length }
+    : { source: "servers", status: "unavailable", reason: "No server answered over SSH; no clean-surface claim." });
+  for (const row of reached) {
+    signals.metrics.push({ source: "servers", metric: "public-listeners", target: row.name, count: row.listening.filter(s => s.scope === "public").length });
+    if (row.pendingSecurityUpgrades !== null) signals.metrics.push({ source: "servers", metric: "pending-security-upgrades", target: row.name, count: row.pendingSecurityUpgrades });
+  }
+  for (const group of serverFindings(rows)) signals.leads.push({ source: "servers", kind: group.kind, route: null, count: group.hosts.length, evidenceRefs: [], summary: describe(group) });
+}
+
+export async function collectSecurity(repo, config, { runtime = null, remote = true, network = true, fetchImpl = fetch, probes = {}, now = new Date() } = {}) {
   const settings = securitySettings(config), signals = emptySignals();
-  const detail = { format: "aespatcher.security.v1", at: now.toISOString(), index: null, hosts: [], declared: [], dependencies: [] };
+  const detail = { format: "aespatcher.security.v2", at: now.toISOString(), index: null, hosts: [], declared: [], dependencies: [], network: [], servers: [] };
   if (!settings.enabled) {
-    signals.coverage.push({ source: "runtime", status: "disabled" }, { source: "dependencies", status: "disabled" });
+    signals.coverage.push({ source: "runtime", status: "disabled" }, { source: "dependencies", status: "disabled" }, { source: "network", status: "disabled" }, { source: "servers", status: "disabled" });
     return { signals, detail };
   }
   let index = null, schedule = {};
@@ -182,12 +226,21 @@ export async function collectSecurity(repo, config, { runtime = null, remote = t
     if (urgent) signals.leads.push({ source: "dependencies", kind: "dependency-advisory", route: null, count: urgent, evidenceRefs: [],
       summary: `${row.package} production lockfile carries ${row.counts.critical} critical and ${row.counts.high} high advisories (${row.advisories.filter(a => a.direct).length} direct); update the lockfile and review before deploying.` });
   }
+  await collectSurface(repo, settings, signals, detail, { remote, network, probes, now });
   return { signals, detail };
 }
 
 export function securitySummary(detail, signals) {
-  const leads = (signals?.leads || []).filter(lead => ["runtime", "dependencies"].includes(lead.source));
-  return { required: leads.length > 0, actions: leads.map(lead => lead.summary),
+  const leads = (signals?.leads || []).filter(lead => ["runtime", "dependencies", "network", "servers"].includes(lead.source));
+  const network = detail?.network || [], servers = detail?.servers || [];
+  return { required: leads.length > 0, urgent: leads.some(lead => urgentKinds.has(lead.kind)),
+    actions: leads.map(lead => `${urgentKinds.has(lead.kind) ? "urgent" : "advisory"}: ${lead.summary}`),
+    network: { hosts: network.length, unreachable: network.filter(row => row.tls.status !== "available" && row.http.status !== "available").map(row => row.host),
+      findings: leads.filter(lead => lead.source === "network").map(({ kind, count }) => ({ kind, hosts: count })) },
+    servers: servers.map(row => ({ name: row.name, status: row.status, ...(row.status === "available" ? { kernel: row.kernel,
+      publicPorts: [...new Set(row.listening.filter(s => s.scope === "public").map(s => s.port))].sort((a, b) => a - b),
+      passwordAuthentication: row.sshd?.passwordAuthentication ?? null, pendingSecurityUpgrades: row.pendingSecurityUpgrades, rebootRequired: row.rebootRequired,
+      firewall: row.firewall ? (row.firewall.active ? `ufw active, allows ${row.firewall.allowed.join(" ") || "nothing"}` : "ufw inactive") : "none read" } : { reason: row.reason }) })),
     hosts: (detail?.hosts || []).map(({ host, running, status, latest, latestSecurity }) => ({ host, running, status, latest, latestSecurity: latestSecurity?.version ?? null })),
     declared: (detail?.declared || []).map(({ file, status, running, latestSecurity, reason }) => ({ file, status, running: running ?? null, latestSecurity: latestSecurity?.version ?? null, ...(reason ? { reason } : {}) })),
     dependencies: (detail?.dependencies || []).map(({ package: name, status, counts, reason }) => ({ package: name, status, ...(counts ? { counts } : {}), ...(reason ? { reason } : {}) })) };

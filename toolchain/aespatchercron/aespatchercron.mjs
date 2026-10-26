@@ -20,7 +20,9 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const help = `aespatchercron [--home DIR] COMMAND
   init                         create private config + source-anchored reuse map
   collect                      read network analytics, logs and public reports
-  security [--no-remote] [--strict]  judge Node runtime and lockfile drift; --strict exits 2 when action is due
+  security [--no-remote] [--no-network] [--strict]
+                               audit runtime/lockfile drift, every public host's TLS, headers, exposed
+                               paths and DNS, and each server's surface; --strict exits 2 on high findings
   scan [REPORT.json]           collect (or import) and admit bounded hypotheses
   tick                         collect + scan + investigate one; stops for review
   status                       list local tasks
@@ -80,10 +82,10 @@ async function main() {
         }, security: securitySummary(evidence.security, evidence.signals), saved: join(home, "latest.json") };
     }
     if (command === "security") {
-      const { signals, detail } = await collectSecurity(config.repo, config, { remote: !rest.includes("--no-remote") });
+      const { signals, detail } = await collectSecurity(config.repo, config, { remote: !rest.includes("--no-remote"), network: !rest.includes("--no-network") });
       await save(join(home, "security.json"), { signals, detail });
       const summary = securitySummary(detail, signals);
-      if (rest.includes("--strict") && summary.required) process.exitCode = 2;
+      if (rest.includes("--strict") && summary.urgent) process.exitCode = 2;
       return summary;
     }
     if (command === "scan") return scan(config, rest[0]);

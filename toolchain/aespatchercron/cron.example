@@ -2,5 +2,7 @@
 # This collects signals and runs at most one investigation, stopping for review.
 PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin
 17 */6 * * * umask 077; /absolute/path/to/node /absolute/path/to/aesthetic-computer/toolchain/aespatchercron/aespatchercron.mjs tick >> "$HOME/.local/share/aespatchercron/cron.log" 2>&1
-# Runtime and lockfile drift once a day; exit 2 means an operator upgrade is due.
+# Security audit once a day: runtime/lockfile drift, every public host's TLS, headers,
+# exposed paths and DNS, and each server's listeners/sshd/pending upgrades.
+# Exit 2 means a high or critical finding needs an operator.
 41 7 * * * umask 077; /absolute/path/to/node /absolute/path/to/aesthetic-computer/toolchain/aespatchercron/aespatchercron.mjs security --strict >> "$HOME/.local/share/aespatchercron/security.log" 2>&1

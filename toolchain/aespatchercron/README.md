@@ -149,6 +149,77 @@ Lith (`apt-get install nodejs` from the pinned NodeSource line, then
 is operator work, and the lead says so. `security.enabled: false` turns the
 source off; `security.packages` and `security.runtimes` bound what is read.
 
+## Network surface audit
+
+The same `security` command audits the public surface of the AC network. The
+host inventory is `system/public/network.json`, the curated machine directory
+(every property URL and alias); no private host list, Caddy block or DNS zone
+is read for it. `security.network.extra` and `.exclude` adjust the set,
+`.concurrency` (1–16) bounds parallel probes and `.expiryDays` (1–90) sets the
+certificate warning window. `--no-network` skips it; `collect`/`tick` carry it.
+
+Each host is probed from this machine over the open internet:
+
+* TLS on 443: negotiated protocol, chain trust for that hostname, days until
+  the certificate expires. Findings: `tls-invalid`, `tls-expiring`,
+  `tls-legacy-protocol` (below 1.2).
+* `https://host/` with redirects left unfollowed: status, HSTS max-age,
+  presence of CSP, frame protection, `nosniff`, `Referrer-Policy`, and whether
+  `Server`/`X-Powered-By` disclose a version. Findings:
+  `hsts-weak-or-missing` (under 180 days), `server-version-disclosed`,
+  `nosniff-missing`.
+* `http://host/`: a redirect to the same host over HTTPS is expected;
+  content served in the clear is `plain-http-served`.
+* `/.env`, `/.git/HEAD`, `/.git/config`: a 200 whose body matches the file's
+  own signature is `sensitive-path-exposed`. The body is tested and dropped;
+  only the matched path is kept. A single-page app answering 200 with HTML
+  does not match.
+* DNS: A/AAAA, CNAME and apex CAA. A CNAME whose target no longer resolves is
+  `dangling-cname` (subdomain takeover risk); nothing resolving is
+  `dns-unresolved`. CAA presence is recorded, not judged.
+
+Findings are grouped by kind, so one missing header is one lead naming up to
+three hosts and a count, with per-host facts in `metrics` (`tls-days-left`
+per host, one count per kind). Every finding is a routeless lead for the
+manual-review count: fixes are Caddy header or redirect blocks, DNS records,
+or file removal, never a piece patch. Hosts that answer nothing are listed as
+unreachable and the source is marked `truncated`; the audit never claims a
+host clean because it could not reach it.
+
+### Servers
+
+`security.servers` lists the AC servers reached over their own existing SSH
+identity: Lith (`aesthetic-computer-vault/home/.ssh/id_rsa`), the oven
+(`aesthetic-computer-vault/oven/ssh/oven-deploy-key`) and the session droplet
+(`~/.ssh/session_server`), the same three `toolchain/node-hosts-upgrade.sh`
+maintains. `--no-remote` skips them along with the Lith runtime read. A small
+program runs in each server's node and returns only: TCP listeners as port,
+scope and program name (`ss -tlnp`, with the program read from
+`/proc/<pid>/exe` because `ss` and `comm` both name node's thread `MainThread`); sshd's
+effective `PasswordAuthentication` and `PermitRootLogin` (`sshd -T`); the
+count of pending `-security` package upgrades (`apt-get -s upgrade`); whether
+`/var/run/reboot-required` exists; ufw's state and allowed TCP ports; the
+kernel release. Addresses, peers and command lines never return, and the
+reply is schema-checked before use. Scope is `loopback` for any 127/8 or
+`::1` bind (systemd-resolved's 127.0.0.53 included), `tailnet` for a
+Tailscale address, and `public` for everything else.
+
+Findings: `unexpected-listener` (a public TCP port outside that server's
+`ports` allow list, default `22 80 443` plus `4001` for the IPFS swarm on
+Lith and the oven; add legitimate ports to the config rather than ignoring
+the lead), `listener-filtered` (the same, but an active ufw blocks it, so it
+is advice to bind to loopback rather than an exposure), `ssh-password-auth`,
+`pending-security-upgrades`, `reboot-required`.
+
+### Paging
+
+`security --strict` exits 2 only on `urgent` findings: runtime security
+releases, end-of-life lines, high/critical advisories, exposed paths, invalid,
+expiring or legacy TLS, plain HTTP, dangling CNAMEs, unexpected listeners and
+password SSH. Header hygiene, pending upgrades and reboots are `advisory`
+actions in the same report and never page by themselves. The summary's
+`required` flag is true whenever any action is listed.
+
 ## Cloudflare and Lith correlation
 
 Cloudflare reads use the existing vault credential resolver in

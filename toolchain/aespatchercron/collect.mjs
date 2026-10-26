@@ -125,7 +125,7 @@ export async function collect(repo, config) {
   ]);
   const signals = validateSignals(mergeSignals(parsed.signals, posthog, edge.signals, security.signals), routes);
   const modules = {};
-  for (const file of ["collect.mjs", "diagnostics.mjs", "reports.mjs", "signals.mjs", "posthog.mjs", "edge.mjs", "lith-access.mjs", "security.mjs", "../domains/cloudflare.mjs"])
+  for (const file of ["collect.mjs", "diagnostics.mjs", "reports.mjs", "signals.mjs", "posthog.mjs", "edge.mjs", "lith-access.mjs", "security.mjs", "network.mjs", "../domains/cloudflare.mjs"])
     modules[file] = hash(await readFile(new URL(file, import.meta.url)));
   return { report: parsed.report, signals, correlation: edge.correlation, security: security.detail, provenance: { revision: await git(repo, "rev-parse", "HEAD"),
     collector: hash(JSON.stringify(modules)), modules, remotePayload: hash(source), at: new Date().toISOString() } };

@@ -57,12 +57,12 @@ test("declared runtimes read exact pins and the collector turns drift into manua
   assert.deepEqual(declared.map(r => [r.status, r.node ?? null]), [["available", "v24.18.1"], ["available", "v20.20.2"], ["unavailable", null], ["unavailable", null]]);
 
   const config = { ...defaults(repo), security: { enabled: true, packages: [], runtimes: [".node-version", "session-server/Dockerfile"] } };
-  const { signals, detail } = await collectSecurity(repo, config, { runtime: { node: "v24.18.1", brotli: "1.1.0" }, remote: false, fetchImpl: fetchStub, now });
+  const { signals, detail } = await collectSecurity(repo, config, { runtime: { node: "v24.18.1", brotli: "1.1.0" }, remote: false, network: false, fetchImpl: fetchStub, now });
   validateSignals(signals, []);
   assert.deepEqual(signals.leads.map(l => l.kind), ["runtime-security-release", "runtime-security-release", "runtime-end-of-life"]);
   assert.ok(signals.leads.every(l => l.route === null));
   assert.match(signals.leads[0].summary, /Lith runs Node v24.18.1; v24.22.1 \(2026-10-20\)/);
-  assert.deepEqual(signals.coverage, [{ source: "runtime", status: "available", scanned: 3, truncated: false }, { source: "dependencies", status: "unavailable", scanned: 0, reason: "No package audit completed; no clean-dependency claim." }]);
+  assert.deepEqual(signals.coverage, [{ source: "runtime", status: "available", scanned: 3, truncated: false }, { source: "dependencies", status: "unavailable", scanned: 0, reason: "No package audit completed; no clean-dependency claim." }, { source: "network", status: "disabled" }, { source: "servers", status: "disabled" }]);
   assert.equal(signals.metrics.find(m => m.target === "lith" && m.metric === "security-releases-behind").count, 1);
   const summary = securitySummary(detail, signals);
   assert.equal(summary.required, true);
@@ -76,9 +76,9 @@ test("declared runtimes read exact pins and the collector turns drift into manua
   const admitted = await admit(home, { report, signals }, config.bounds, now);
   assert.deepEqual([admitted.admitted.length, admitted.manualReview], [0, 3]);
 
-  const current = await collectSecurity(repo, config, { runtime: { node: "v24.22.1" }, remote: false, fetchImpl: fetchStub, now });
+  const current = await collectSecurity(repo, config, { runtime: { node: "v24.22.1" }, remote: false, network: false, fetchImpl: fetchStub, now });
   assert.equal(securitySummary(current.detail, current.signals).hosts[0].status, "current");
-  const offline = await collectSecurity(repo, config, { runtime: null, remote: false, fetchImpl: async () => ({ ok: false }), now });
+  const offline = await collectSecurity(repo, config, { runtime: null, remote: false, network: false, fetchImpl: async () => ({ ok: false }), now });
   assert.equal(offline.signals.coverage[0].status, "unavailable");
   assert.equal(offline.signals.leads.length, 0);
 });
