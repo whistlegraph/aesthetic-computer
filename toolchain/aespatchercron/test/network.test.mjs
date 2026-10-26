@@ -98,7 +98,7 @@ test("the collector folds the network and server audits into leads, metrics and 
   t.after(() => rm(repo, { recursive: true, force: true }));
   await mkdir(join(repo, "system/public"), { recursive: true });
   await writeFile(join(repo, "system/public/network.json"), JSON.stringify({ properties: [{ url: "https://aesthetic.computer/", aliases: ["www.aesthetic.computer"] }, { url: "https://kidlisp.com/" }] }));
-  const config = { ...defaults(repo), security: { enabled: true, packages: [], runtimes: [], servers: [{ name: "lith", host: "root@lith.test", ports: [22, 80, 443] }] } };
+  const config = { ...defaults(repo), security: { enabled: true, packages: [], runtimes: [], network: { ...defaultNetwork(), infrastructure: [], zones: false, email: false, api: false }, servers: [{ name: "lith", host: "root@lith.test", ports: [22, 80, 443] }] } };
   const fetchStub = async () => ({ ok: false });
   const probes = { tls: async host => ({ ...ok(host).tls, daysLeft: host === "kidlisp.com" ? 5 : 40 }), http: async host => ({ ...ok(host).http, hstsMaxAge: null }),
     plain: async host => ok(host).plain, paths: async host => ok(host).paths, dns: async host => ok(host).dns,

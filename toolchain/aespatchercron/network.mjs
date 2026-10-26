@@ -15,27 +15,103 @@ export const sensitivePaths = [
   { path: "/.git/HEAD", signature: /^ref: refs\//m },
   { path: "/.git/config", signature: /\[core\]/ },
 ];
-export const defaultNetwork = () => ({ enabled: true, directory: "system/public/network.json", extra: [], exclude: [], concurrency: 6, expiryDays: 14 });
+// Infrastructure names the public directory deliberately omits but the audit must not.
+export const infrastructureHosts = ["lith.aesthetic.computer", "oven.aesthetic.computer", "session-server.aesthetic.computer", "relay-sfo.aesthetic.computer",
+  "knot.aesthetic.computer", "inbound.aesthetic.computer", "releases.aesthetic.computer"];
+export const defaultNetwork = () => ({ enabled: true, directory: "system/public/network.json", extra: [], exclude: [], concurrency: 6, expiryDays: 14,
+  infrastructure: infrastructureHosts, zones: true, email: true, api: true });
 // 4001 is the IPFS swarm port on the two hosts that run a daemon; it must face peers.
 export const defaultServers = () => [
   { name: "lith", host: "root@lith.aesthetic.computer", identity: "aesthetic-computer-vault/home/.ssh/id_rsa", ports: [22, 80, 443, 4001] },
   { name: "oven", host: "root@137.184.237.166", identity: "aesthetic-computer-vault/oven/ssh/oven-deploy-key", ports: [22, 80, 443, 4001] },
-  { name: "session", host: "root@157.245.134.225", identity: "~/.ssh/session_server", ports: [22, 80, 443] },
+  { name: "session", host: "root@157.245.134.225", identity: "~/.ssh/session_server", ports: [22, 80, 443], udp: [8891, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007] },
 ];
 
 export function networkSettings(value = defaultNetwork()) {
   const list = rows => Array.isArray(rows) && rows.length <= 100 && rows.every(h => typeof h === "string" && hostName.test(h));
-  if (!value || typeof value !== "object" || typeof value.enabled !== "boolean" || !list(value.extra) || !list(value.exclude) ||
+  // Older config files predate the infrastructure, zone, email and api legs; the defaults fill in.
+  for (const [key, fallback] of Object.entries({ infrastructure: infrastructureHosts, zones: true, email: true, api: true })) if (value?.[key] === undefined) value[key] = fallback;
+  if (!value || typeof value !== "object" || typeof value.enabled !== "boolean" || !list(value.extra) || !list(value.exclude) || !list(value.infrastructure) ||
       !Number.isInteger(value.concurrency) || value.concurrency < 1 || value.concurrency > 16 ||
-      !Number.isInteger(value.expiryDays) || value.expiryDays < 1 || value.expiryDays > 90) throw new Error("Invalid network audit settings");
+      !Number.isInteger(value.expiryDays) || value.expiryDays < 1 || value.expiryDays > 90 ||
+      ["zones", "email", "api"].some(key => typeof value[key] !== "boolean")) throw new Error("Invalid network audit settings");
   relativeFile(value.directory);
   return value;
 }
 
+// Every A/AAAA/CNAME name in the zones the directory's apexes belong to, read
+// through the existing vault credential. Names, types and the proxied flag are
+// kept; record contents stay unless they name one of the audited servers.
+export async function zoneInventory(apexes, { api = null } = {}) {
+  const cf = api || await import("../domains/cloudflare.mjs");
+  const zones = [], hosts = new Map();
+  for (const apex of apexes) {
+    let found;
+    try { found = await cf.zone(apex); } catch (error) { zones.push({ apex, status: "unavailable", reason: String(error.message || "zone read failed").slice(0, 80) }); continue; }
+    if (!found?.id) { zones.push({ apex, status: "unavailable", reason: "not a Cloudflare zone here" }); continue; }
+    let rows;
+    try { rows = await cf.records(found.id); } catch { zones.push({ apex, status: "unavailable", reason: "records read failed" }); continue; }
+    let kept = 0;
+    for (const row of rows) {
+      if (!["A", "AAAA", "CNAME"].includes(row.type) || typeof row.name !== "string" || row.name.includes("*")) continue;
+      const name = row.name.toLowerCase();
+      if (!hostName.test(name)) continue;
+      const entry = hosts.get(name) || { host: name, proxied: false, types: [], targets: [] };
+      entry.proxied = entry.proxied || row.proxied === true; entry.types.push(row.type);
+      if (typeof row.content === "string") entry.targets.push(row.content.toLowerCase().slice(0, 120));
+      hosts.set(name, entry); kept++;
+    }
+    zones.push({ apex, status: "available", records: kept });
+  }
+  return { zones, hosts: [...hosts.values()].sort((a, b) => a.host.localeCompare(b.host)) };
+}
+
+export const apexOf = host => host.split(".").slice(-2).join(".");
+
+// SPF, DMARC and MTA-STS at each apex. A zone that sends no mail still wants
+// SPF -all and DMARC reject, or anyone can send as it.
+export async function emailProbe(apex, resolver = dns) {
+  const txt = async name => { try { return (await resolver.resolveTxt(name)).map(parts => parts.join("")); } catch (error) { return ["ENODATA", "ENOTFOUND"].includes(error.code) ? [] : null; } };
+  const root = await txt(apex), dmarc = await txt(`_dmarc.${apex}`), sts = await txt(`_mta-sts.${apex}`);
+  if (root === null || dmarc === null) return { apex, status: "unavailable", reason: "resolver failed" };
+  const spf = root.find(value => /^v=spf1\b/i.test(value)) || null;
+  const policy = dmarc.find(value => /^v=DMARC1\b/i.test(value)) || null;
+  return { apex, status: "available", spf: spf ? (/[~?+]all\b/i.test(spf) ? "soft" : /-all\b/i.test(spf) ? "strict" : "open") : "missing",
+    dmarc: policy ? ((/\bp=reject\b/i.exec(policy) && "reject") || (/\bp=quarantine\b/i.exec(policy) && "quarantine") || "none") : "missing",
+    mtaSts: sts !== null && sts.some(value => /^v=STSv1\b/i.test(value)) };
+}
+
+export function emailFindings(rows) {
+  const groups = new Map();
+  const note = (kind, apex, severity) => { if (!groups.has(kind)) groups.set(kind, { kind, severity, hosts: [] }); groups.get(kind).hosts.push(apex); };
+  for (const row of rows) {
+    if (row.status !== "available") continue;
+    if (row.spf === "missing") note("spf-missing", row.apex, "moderate"); else if (row.spf !== "strict") note("spf-soft", row.apex, "low");
+    if (row.dmarc === "missing") note("dmarc-missing", row.apex, "moderate"); else if (row.dmarc === "none") note("dmarc-monitor-only", row.apex, "low");
+  }
+  return [...groups.values()];
+}
+
+// Can the origin be reached around Cloudflare? Connect to the server's own
+// address with a proxied hostname as SNI and ask for its front page. A 2xx or
+// 3xx means every edge rule can be skipped by anyone who learns the address.
+export function originBypassProbe(address, host, { timeout = 10000 } = {}) {
+  return new Promise(resolve => {
+    const socket = connect({ host: address, port: 443, servername: host, rejectUnauthorized: false, timeout });
+    let data = ""; const finish = row => { socket.destroy(); resolve(row); };
+    socket.once("secureConnect", () => socket.write(`GET / HTTP/1.1\r\nHost: ${host}\r\nUser-Agent: aespatchercron-security/1\r\nConnection: close\r\n\r\n`));
+    socket.on("data", chunk => { data += chunk.toString("latin1"); const match = /^HTTP\/1\.[01] (\d{3})/.exec(data); if (match) finish({ host, status: "available", code: Number(match[1]), answers: Number(match[1]) < 400 }); });
+    socket.once("timeout", () => finish({ host, status: "unavailable", reason: "timeout" }));
+    socket.once("error", error => finish({ host, status: "unavailable", reason: String(error.code || "error").slice(0, 40) }));
+    socket.once("close", () => finish({ host, status: "unavailable", reason: "closed" }));
+  });
+}
+
 export function serverSettings(rows = defaultServers()) {
+  const ports = list => Array.isArray(list) && list.length <= 64 && list.every(p => Number.isInteger(p) && p >= 1 && p <= 65535);
   if (!Array.isArray(rows) || rows.length > 10 || rows.some(row => !row || typeof row !== "object" || !/^[a-z0-9-]{1,32}$/.test(row.name) ||
       !/^[a-zA-Z0-9_.@-]+$/.test(row.host) || (row.identity !== undefined && (typeof row.identity !== "string" || row.identity.includes("\0"))) ||
-      !Array.isArray(row.ports) || row.ports.length > 64 || row.ports.some(p => !Number.isInteger(p) || p < 1 || p > 65535)) ||
+      !ports(row.ports) || (row.udp !== undefined && !ports(row.udp))) ||
       new Set(rows.map(row => row.name)).size !== rows.length) throw new Error("Invalid server audit settings");
   return rows;
 }
@@ -169,6 +245,12 @@ export function serverFacts() {
     if (!match) continue;
     listening.push({ port: Number(match[2]), scope: scopeOf(match[1]), process: command(match[3] || "", match[4]).slice(0, 32) });
   }
+  // UDP sockets the same way: geckos media, the oskiewar relay and IPFS live here.
+  const udp = [];
+  for (const line of (sh("ss", ["-H", "-ulnp"]) || "").split("\n")) {
+    const match = /^UNCONN\s+\S+\s+\S+\s+(\S+):(\d+)\s+\S+(?:\s+users:\(\("([^"]+)",pid=(\d+))?/.exec(line.trim());
+    if (match) udp.push({ port: Number(match[2]), scope: scopeOf(match[1]), process: command(match[3] || "", match[4]).slice(0, 32) });
+  }
   const sshd = sh("sshd", ["-T"]) || "";
   const option = key => (new RegExp(`^${key}\\s+(\\S+)`, "mi").exec(sshd) || [])[1] || null;
   const upgradable = sh("apt-get", ["-s", "upgrade"]);
@@ -177,8 +259,20 @@ export function serverFacts() {
   const ufw = sh("ufw", ["status", "numbered"]);
   const firewall = ufw === null ? null : { tool: "ufw", active: /^Status:\s+active/m.test(ufw),
     allowed: [...new Set([...ufw.matchAll(/^\[\s*\d+\]\s+(\d+)(?:\/tcp)?\s+ALLOW IN/gm)].map(m => Number(m[1])))].slice(0, 64) };
-  return { kernel: sh("uname", ["-r"])?.trim() || null, listening, sshd: sshd ? { passwordAuthentication: option("passwordauthentication"), permitRootLogin: option("permitrootlogin") } : null,
-    pendingSecurityUpgrades: pending, rebootRequired: existsSync("/var/run/reboot-required"), firewall };
+  // Who can log in: the key comments only, never the key material.
+  let keys = null;
+  try { keys = readFileSync("/root/.ssh/authorized_keys", "utf8").split("\n").filter(line => /^(ssh-|ecdsa-|sk-)/.test(line.trim())).map(line => (line.trim().split(/\s+/)[2] || "(no comment)").replace(/[^\w.@:/-]/g, "_").slice(0, 48)); } catch {}
+  const enabled = unit => { const out = sh("systemctl", ["is-enabled", unit]); return out === null ? null : /^enabled/.test(out.trim()); };
+  const active = unit => { const out = sh("systemctl", ["is-active", unit]); return out === null ? null : out.trim() === "active"; };
+  // Leftover secret copies beside the deployed trees: names only, two levels deep.
+  const stale = [];
+  for (const root of ["/opt/ac", "/opt/oven", "/home/aesthetic-computer", "/root"]) {
+    const out = sh("find", [root, "-maxdepth", "3", "(", "-name", ".env.*", "-o", "-name", "*.env.bak*", "-o", "-name", "*.pem.bak", "-o", "-name", "id_rsa.bak", ")", "-type", "f"]);
+    if (out) for (const path of out.split("\n").filter(Boolean).slice(0, 20)) stale.push(path.replace(/^\/(opt|home|root)\//, "").slice(0, 80));
+  }
+  return { kernel: sh("uname", ["-r"])?.trim() || null, listening, udp, sshd: sshd ? { passwordAuthentication: option("passwordauthentication"), permitRootLogin: option("permitrootlogin") } : null,
+    pendingSecurityUpgrades: pending, rebootRequired: existsSync("/var/run/reboot-required"), firewall,
+    authorizedKeys: keys, unattendedUpgrades: enabled("unattended-upgrades"), fail2ban: active("fail2ban"), staleSecrets: stale.slice(0, 40) };
 }
 
 export function validateServerFacts(value) {
@@ -190,7 +284,11 @@ export function validateServerFacts(value) {
       (value.pendingSecurityUpgrades !== null && (!Number.isSafeInteger(value.pendingSecurityUpgrades) || value.pendingSecurityUpgrades < 0)) ||
       typeof value.rebootRequired !== "boolean" ||
       (value.firewall !== undefined && value.firewall !== null && (typeof value.firewall !== "object" || value.firewall.tool !== "ufw" || typeof value.firewall.active !== "boolean" ||
-        !Array.isArray(value.firewall.allowed) || value.firewall.allowed.length > 64 || !value.firewall.allowed.every(port)))) throw new Error("Rejected server facts");
+        !Array.isArray(value.firewall.allowed) || value.firewall.allowed.length > 64 || !value.firewall.allowed.every(port))) ||
+      (value.udp !== undefined && (!Array.isArray(value.udp) || value.udp.length > 200 || value.udp.some(row => !row || !port(row.port) || !["loopback", "tailnet", "public"].includes(row.scope) || !short(row.process, 32) || row.process === null))) ||
+      (value.authorizedKeys !== undefined && value.authorizedKeys !== null && (!Array.isArray(value.authorizedKeys) || value.authorizedKeys.length > 64 || !value.authorizedKeys.every(s => typeof s === "string" && /^[\w.@:/_-]{1,48}$/.test(s) || s === "(no comment)"))) ||
+      ["unattendedUpgrades", "fail2ban"].some(key => value[key] !== undefined && value[key] !== null && typeof value[key] !== "boolean") ||
+      (value.staleSecrets !== undefined && (!Array.isArray(value.staleSecrets) || value.staleSecrets.length > 40 || !value.staleSecrets.every(s => short(s, 80) && s !== null)))) throw new Error("Rejected server facts");
   return value;
 }
 
@@ -208,7 +306,7 @@ export async function serverProbe(server, repo) {
 
 export async function auditServers(servers, repo, probe = serverProbe) {
   const rows = [];
-  for (const server of servers) rows.push({ ...(await probe(server, repo)), allowed: server.ports });
+  for (const server of servers) rows.push({ ...(await probe(server, repo)), allowed: server.ports, allowedUdp: server.udp || [] });
   return rows;
 }
 
@@ -262,6 +360,11 @@ const findingText = {
   "hsts-weak-or-missing": "sends no Strict-Transport-Security header of at least 180 days; add it in the Caddy header block",
   "server-version-disclosed": "discloses a server or framework version header; strip it in Caddy",
   "nosniff-missing": "serves HTML without X-Content-Type-Options nosniff; add it in the Caddy header block",
+  "spf-missing": "publishes no SPF record, so any server may send mail as it; add v=spf1 with the real senders and -all",
+  "spf-soft": "has an SPF record that ends in ~all, ?all or +all, which receivers treat as advice; end it in -all",
+  "dmarc-missing": "publishes no DMARC record, so SPF and DKIM failures are not enforced; add _dmarc with p=reject or p=quarantine",
+  "dmarc-monitor-only": "has DMARC p=none, which only reports; move to p=quarantine or p=reject once the senders are listed",
+  "origin-bypass": "answers its front page straight from the origin address with a proxied hostname as SNI, so Cloudflare's rules can be skipped by anyone who learns the address; restrict 443 to Cloudflare's ranges or require authenticated origin pulls",
 };
 
 export function serverFindings(rows) {
@@ -275,7 +378,12 @@ export function serverFindings(rows) {
     const exposed = open.filter(s => !filtered.includes(s));
     if (exposed.length) findings.push({ kind: "unexpected-listener", severity: "high", hosts: [row.name], detail: `TCP ${ports(exposed)} listening on every interface beyond the allowed list; bind it to loopback, close it, or allow it in security.servers` });
     if (filtered.length) findings.push({ kind: "listener-filtered", severity: "low", hosts: [row.name], detail: `TCP ${ports(filtered)} listening on every interface but blocked by ufw; bind it to loopback so the firewall is not the only guard` });
+    // UDP: tailscaled and IPFS bind every interface by design; anything else public and unlisted is a finding.
+    const udpOpen = (row.udp || []).filter(s => s.scope === "public" && !["tailscaled", "ipfs"].includes(s.process) && !(row.allowedUdp || []).includes(s.port));
+    if (udpOpen.length) findings.push({ kind: "unexpected-udp-listener", severity: "moderate", hosts: [row.name], detail: `UDP ${ports(udpOpen)} bound on every interface beyond the allowed list; confirm it is meant to face the internet or add it to security.servers udp` });
     if (row.sshd && /^yes$/i.test(row.sshd.passwordAuthentication || "")) findings.push({ kind: "ssh-password-auth", severity: "high", hosts: [row.name], detail: "sshd accepts passwords; set PasswordAuthentication no and reload sshd" });
+    if (row.unattendedUpgrades === false) findings.push({ kind: "unattended-upgrades-off", severity: "moderate", hosts: [row.name], detail: "unattended-upgrades is not enabled, so security packages wait for a hand; enable the timer" });
+    if (row.staleSecrets?.length) findings.push({ kind: "stale-secret-files", severity: "moderate", hosts: [row.name], detail: `${row.staleSecrets.length} leftover secret copies beside the deployed tree (${row.staleSecrets.slice(0, 3).join(" ")}${row.staleSecrets.length > 3 ? " and more" : ""}); delete what is not needed` });
     if (row.pendingSecurityUpgrades) findings.push({ kind: "pending-security-upgrades", severity: "moderate", hosts: [row.name], detail: `${row.pendingSecurityUpgrades} security package upgrades pending; apt-get upgrade and restart the affected services` });
     if (row.rebootRequired) findings.push({ kind: "reboot-required", severity: "moderate", hosts: [row.name], detail: "a kernel or libc update awaits a reboot; schedule one" });
   }

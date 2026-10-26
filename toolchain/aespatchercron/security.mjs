@@ -2,7 +2,10 @@ import { readFile, access } from "node:fs/promises";
 import { join } from "node:path";
 import { run, relativeFile } from "./io.mjs";
 import { emptySignals } from "./signals.mjs";
-import { defaultNetwork, defaultServers, networkSettings, serverSettings, directoryHosts, auditNetwork, auditServers, networkFindings, serverFindings, describe } from "./network.mjs";
+import { defaultNetwork, defaultServers, networkSettings, serverSettings, directoryHosts, auditNetwork, auditServers, networkFindings, serverFindings, describe,
+  zoneInventory, apexOf, emailProbe, emailFindings, originBypassProbe, hostName } from "./network.mjs";
+import { mapHandlers, apiFindings, apiMetrics } from "./api.mjs";
+import { promises as dns } from "node:dns";
 
 // Runtime and dependency drift for the stack Lith runs, plus the public
 // surface of every host in the AC network (network.mjs). Versions, counts,
@@ -152,23 +155,83 @@ const target = file => file.replace(/^\.+/, "");
 
 // Public hosts are probed over the open internet; servers over their own SSH
 // key, so `remote` gates them with the Lith runtime read.
+const lead = (signals, source, group) => {
+  signals.metrics.push({ source, metric: group.kind, target: null, count: group.hosts.length });
+  signals.leads.push({ source, kind: group.kind, route: null, count: group.hosts.length, evidenceRefs: [], summary: describe(group) });
+};
+
+// The host inventory is the public directory, the infrastructure names it
+// omits, and every A/AAAA/CNAME name in the Cloudflare zones those apexes
+// belong to, so a forgotten subdomain is audited like a product.
+async function inventory(repo, settings, probes, detail) {
+  const net = settings.network, sources = new Map();
+  const add = (host, source) => { if (hostName.test(host) && !net.exclude.includes(host) && !sources.has(host)) sources.set(host, source); };
+  for (const host of await directoryHosts(repo, net)) add(host, "directory");
+  for (const host of net.infrastructure) add(host, "infrastructure");
+  const apexes = [...new Set([...sources.keys()].map(apexOf))].sort();
+  detail.zones = []; detail.proxied = [];
+  if (net.zones) {
+    try {
+      const zones = await (probes.zones || zoneInventory)(apexes);
+      detail.zones = zones.zones;
+      for (const row of zones.hosts) { add(row.host, "dns"); if (row.proxied) detail.proxied.push(row.host); }
+    } catch (error) { detail.zones = apexes.map(apex => ({ apex, status: "unavailable", reason: String(error.message || "zone read failed").slice(0, 80) })); }
+  }
+  detail.inventory = { directory: [...sources.values()].filter(s => s === "directory").length, infrastructure: [...sources.values()].filter(s => s === "infrastructure").length,
+    dns: [...sources.values()].filter(s => s === "dns").length, apexes };
+  return { hosts: [...sources.keys()].sort(), apexes };
+}
+
 async function collectSurface(repo, settings, signals, detail, { remote, network, probes, now }) {
-  if (!settings.network.enabled || !network) { signals.coverage.push({ source: "network", status: "disabled" }); }
+  if (!settings.network.enabled || !network) { signals.coverage.push({ source: "network", status: "disabled" }, { source: "mail", status: "disabled" }, { source: "api", status: "disabled" }); }
   else {
-    let hosts = null;
-    try { hosts = await directoryHosts(repo, settings.network); } catch {}
-    if (!hosts) signals.coverage.push({ source: "network", status: "unavailable", reason: "Machine directory unreadable; no host inventory to audit." });
+    let found = null;
+    try { found = await inventory(repo, settings, probes, detail); } catch {}
+    if (!found) signals.coverage.push({ source: "network", status: "unavailable", reason: "Machine directory unreadable; no host inventory to audit." }, { source: "mail", status: "unavailable", reason: "No apexes without a host inventory." });
     else {
-      const rows = await auditNetwork(hosts, settings.network, probes, { now });
+      const rows = await auditNetwork(found.hosts, settings.network, probes, { now });
       detail.network = rows;
       const partial = rows.filter(row => ["tls", "http", "plain", "paths", "dns"].some(key => row[key].status !== "available")).length;
-      signals.coverage.push({ source: "network", status: "available", scanned: rows.length, truncated: partial > 0 });
+      const zonesRead = detail.zones.filter(z => z.status === "available").length;
+      signals.coverage.push({ source: "network", status: "available", scanned: rows.length, truncated: partial > 0 || (settings.network.zones && zonesRead < detail.zones.length) });
       for (const row of rows) if (row.tls.status === "available" && row.tls.daysLeft !== null) signals.metrics.push({ source: "network", metric: "tls-days-left", target: row.host, count: Math.max(0, row.tls.daysLeft) });
       signals.metrics.push({ source: "network", metric: "hosts-partially-unreachable", target: null, count: partial });
-      for (const group of networkFindings(rows, settings.network)) {
-        signals.metrics.push({ source: "network", metric: group.kind, target: null, count: group.hosts.length });
-        signals.leads.push({ source: "network", kind: group.kind, route: null, count: group.hosts.length, evidenceRefs: [], summary: describe(group) });
+      signals.metrics.push({ source: "network", metric: "hosts-from-dns-only", target: null, count: detail.inventory.dns });
+      for (const group of networkFindings(rows, settings.network)) lead(signals, "network", group);
+      // Origin bypass: the first configured server's address, asked for up to five proxied hostnames.
+      detail.origin = [];
+      const origin = settings.servers[0];
+      if (origin && detail.proxied.length) {
+        let addresses = [];
+        try { addresses = await (probes.resolve || (name => dns.resolve4(name)))(origin.host.replace(/^.*@/, "")); } catch {}
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(origin.host.replace(/^.*@/, ""))) addresses = [origin.host.replace(/^.*@/, "")];
+        for (const host of detail.proxied.slice(0, 5)) if (addresses[0]) detail.origin.push(await (probes.origin || originBypassProbe)(addresses[0], host));
+        const open = detail.origin.filter(row => row.status === "available" && row.answers);
+        if (open.length) lead(signals, "network", { kind: "origin-bypass", severity: "moderate", hosts: open.map(row => row.host) });
       }
+      // Mail authentication at every apex.
+      if (settings.network.email) {
+        detail.email = [];
+        for (const apex of found.apexes) detail.email.push(await (probes.email || emailProbe)(apex));
+        const read = detail.email.filter(row => row.status === "available");
+        signals.coverage.push(read.length ? { source: "mail", status: "available", scanned: read.length, truncated: read.length < detail.email.length }
+          : { source: "mail", status: "unavailable", reason: "Resolver answered for no apex." });
+        for (const group of emailFindings(detail.email)) lead(signals, "mail", group);
+      } else signals.coverage.push({ source: "mail", status: "disabled" });
+    }
+  }
+  // Handler map: a static read of the checkout, no network; it rides the same switch.
+  if (!settings.network.enabled || !network) {}
+  else if (!settings.network.api) signals.coverage.push({ source: "api", status: "disabled" });
+  else {
+    let handlers = null;
+    try { handlers = await mapHandlers(repo); } catch {}
+    if (!handlers) signals.coverage.push({ source: "api", status: "unavailable", reason: "Function directory unreadable." });
+    else {
+      detail.api = { ...apiMetrics(handlers), ungated: handlers.filter(row => row.ungatedWrite).map(row => row.name) };
+      signals.coverage.push({ source: "api", status: "available", scanned: handlers.length });
+      for (const [metric, count] of Object.entries(apiMetrics(handlers))) signals.metrics.push({ source: "api", metric: `handlers-${metric}`, target: null, count });
+      for (const group of apiFindings(handlers)) lead(signals, "api", group);
     }
   }
   if (!remote || !settings.servers.length) { signals.coverage.push({ source: "servers", status: "disabled" }); return; }
@@ -186,9 +249,9 @@ async function collectSurface(repo, settings, signals, detail, { remote, network
 
 export async function collectSecurity(repo, config, { runtime = null, remote = true, network = true, fetchImpl = fetch, probes = {}, now = new Date() } = {}) {
   const settings = securitySettings(config), signals = emptySignals();
-  const detail = { format: "aespatcher.security.v2", at: now.toISOString(), index: null, hosts: [], declared: [], dependencies: [], network: [], servers: [] };
+  const detail = { format: "aespatcher.security.v3", at: now.toISOString(), index: null, hosts: [], declared: [], dependencies: [], network: [], servers: [], zones: [], email: [], origin: [], api: null };
   if (!settings.enabled) {
-    signals.coverage.push({ source: "runtime", status: "disabled" }, { source: "dependencies", status: "disabled" }, { source: "network", status: "disabled" }, { source: "servers", status: "disabled" });
+    for (const source of ["runtime", "dependencies", "network", "mail", "api", "servers"]) signals.coverage.push({ source, status: "disabled" });
     return { signals, detail };
   }
   let index = null, schedule = {};
@@ -231,14 +294,20 @@ export async function collectSecurity(repo, config, { runtime = null, remote = t
 }
 
 export function securitySummary(detail, signals) {
-  const leads = (signals?.leads || []).filter(lead => ["runtime", "dependencies", "network", "servers"].includes(lead.source));
+  const leads = (signals?.leads || []).filter(lead => ["runtime", "dependencies", "network", "mail", "api", "servers"].includes(lead.source));
   const network = detail?.network || [], servers = detail?.servers || [];
   return { required: leads.length > 0, urgent: leads.some(lead => urgentKinds.has(lead.kind)),
     actions: leads.map(lead => `${urgentKinds.has(lead.kind) ? "urgent" : "advisory"}: ${lead.summary}`),
-    network: { hosts: network.length, unreachable: network.filter(row => row.tls.status !== "available" && row.http.status !== "available").map(row => row.host),
+    network: { hosts: network.length, inventory: detail?.inventory || null, zones: (detail?.zones || []).map(({ apex, status, records, reason }) => ({ apex, status, ...(records !== undefined ? { records } : {}), ...(reason ? { reason } : {}) })),
+      unreachable: network.filter(row => row.tls.status !== "available" && row.http.status !== "available").map(row => row.host),
+      originBypass: (detail?.origin || []).filter(row => row.status === "available" && row.answers).map(row => row.host),
       findings: leads.filter(lead => lead.source === "network").map(({ kind, count }) => ({ kind, hosts: count })) },
+    mail: (detail?.email || []).map(({ apex, status, spf, dmarc, mtaSts, reason }) => ({ apex, status, ...(status === "available" ? { spf, dmarc, mtaSts } : { reason }) })),
+    api: detail?.api || null,
     servers: servers.map(row => ({ name: row.name, status: row.status, ...(row.status === "available" ? { kernel: row.kernel,
       publicPorts: [...new Set(row.listening.filter(s => s.scope === "public").map(s => s.port))].sort((a, b) => a - b),
+      publicUdp: [...new Set((row.udp || []).filter(s => s.scope === "public").map(s => `${s.port}=${s.process}`))].sort(),
+      authorizedKeys: row.authorizedKeys ?? null, unattendedUpgrades: row.unattendedUpgrades ?? null, fail2ban: row.fail2ban ?? null, staleSecrets: row.staleSecrets ?? null,
       passwordAuthentication: row.sshd?.passwordAuthentication ?? null, pendingSecurityUpgrades: row.pendingSecurityUpgrades, rebootRequired: row.rebootRequired,
       firewall: row.firewall ? (row.firewall.active ? `ufw active, allows ${row.firewall.allowed.join(" ") || "nothing"}` : "ufw inactive") : "none read" } : { reason: row.reason }) })),
     hosts: (detail?.hosts || []).map(({ host, running, status, latest, latestSecurity }) => ({ host, running, status, latest, latestSecurity: latestSecurity?.version ?? null })),

@@ -1,4 +1,4 @@
-const sources = ["boots", "lith-journal", "lith-errors", "lith-access", "cloudflare", "chat-clock", "chat-system", "posthog", "runtime", "dependencies", "network", "servers"];
+const sources = ["boots", "lith-journal", "lith-errors", "lith-access", "cloudflare", "chat-clock", "chat-system", "posthog", "runtime", "dependencies", "network", "mail", "api", "servers"];
 export const emptySignals = () => ({ format: "aespatcher.supplement.v1", coverage: [], leads: [], privateReports: [], metrics: [] });
 
 export function validateSignals(data, routes) {

@@ -186,6 +186,50 @@ or file removal, never a piece patch. Hosts that answer nothing are listed as
 unreachable and the source is marked `truncated`; the audit never claims a
 host clean because it could not reach it.
 
+### Inventory beyond the directory
+
+Three more sources feed the host list, each switchable under
+`security.network`:
+
+* `infrastructure` (default: lith, oven, session-server, relay-sfo, the knot,
+  the inbound mail host and the releases host) names the directory omits on
+  purpose. They are probed exactly like a product.
+* `zones: true` reads every A, AAAA and CNAME record in the Cloudflare zones
+  the inventory's apexes belong to, through the vault credential in
+  `../domains/cloudflare.mjs`. Every name becomes a host to audit, so a
+  forgotten subdomain is found before someone else finds it. Wildcards are
+  skipped; record contents are not kept. An apex that is not a Cloudflare zone
+  here (nopaint.art, jas.life) is reported as such. The proxied flag is kept
+  for the origin check below. The summary's `inventory` says how many hosts
+  came from the directory, the infrastructure list and DNS.
+* Origin bypass: the first configured server's address is asked, over TLS
+  with up to five proxied hostnames as SNI, for its front page. A 2xx or 3xx
+  is `origin-bypass`: anyone who learns the address skips every Cloudflare
+  rule. The fix is firewalling 443 to Cloudflare's ranges or authenticated
+  origin pulls; both are operator work and the lead says so.
+
+### Mail authentication
+
+`email: true` resolves, for every apex in the inventory, the SPF record at
+the apex, `_dmarc`, and `_mta-sts`. SPF is `strict` (`-all`), `soft`
+(`~all`, `?all`, `+all`), `open` or `missing`; DMARC is `reject`,
+`quarantine`, `none` or `missing`. Findings: `spf-missing`, `spf-soft`,
+`dmarc-missing`, `dmarc-monitor-only`. A zone that sends no mail still wants
+`v=spf1 -all` and `p=reject`, or anyone can send as it. MTA-STS presence is
+recorded, not judged. Source `mail`.
+
+### Handler map
+
+`api: true` reads every `system/netlify/functions/*.mjs` from the checkout,
+no network, and classifies each handler: accepts writes (`httpMethod` checks
+for POST, DELETE, PUT, PATCH), calls `authorize()` or `hasAdmin()`, carries a
+signature check (`constructEvent`, `verifySignature`, the operations token),
+mentions any other gate word (secret, key, token, password, admin, hmac,
+bearer), and opens CORS to `*`. A write with none of those is
+`ungated-write-handler`, an advisory naming the handlers: telemetry sinks are
+meant to be open and the regexes cannot tell them apart, so it asks for a
+human read, never a page. Counts ride as `handlers-*` metrics. Source `api`.
+
 ### Servers
 
 `security.servers` lists the AC servers reached over their own existing SSH
@@ -198,11 +242,19 @@ scope and program name (`ss -tlnp`, with the program read from
 `/proc/<pid>/exe` because `ss` and `comm` both name node's thread `MainThread`); sshd's
 effective `PasswordAuthentication` and `PermitRootLogin` (`sshd -T`); the
 count of pending `-security` package upgrades (`apt-get -s upgrade`); whether
-`/var/run/reboot-required` exists; ufw's state and allowed TCP ports; the
-kernel release. Addresses, peers and command lines never return, and the
-reply is schema-checked before use. Scope is `loopback` for any 127/8 or
-`::1` bind (systemd-resolved's 127.0.0.53 included), `tailnet` for a
-Tailscale address, and `public` for everything else.
+`/var/run/reboot-required` exists; ufw's state and allowed TCP ports; UDP
+sockets the same way (`ss -ulnp`); the comments on `/root/.ssh/authorized_keys`
+(never the key material); whether `unattended-upgrades` is enabled and
+`fail2ban` active; leftover secret copies (`.env.*`, `*.env.bak*`) up to
+three levels under the deployed trees, names only; the kernel release.
+Addresses, peers and command lines never return, and the reply is
+schema-checked before use. Scope is `loopback` for any 127/8 or `::1` bind
+(systemd-resolved's 127.0.0.53 included), `tailnet` for a Tailscale address,
+and `public` for everything else. UDP sockets owned by `tailscaled` or `ipfs`
+are expected; the rest are judged against that server's `udp` allow list
+(the session droplet's defaults to the oskiewar relay and geckos range).
+Findings added by this depth: `unexpected-udp-listener`,
+`unattended-upgrades-off`, `stale-secret-files`, all advisory.
 
 Findings: `unexpected-listener` (a public TCP port outside that server's
 `ports` allow list, default `22 80 443` plus `4001` for the IPFS swarm on

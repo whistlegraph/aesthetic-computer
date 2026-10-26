@@ -62,7 +62,7 @@ test("declared runtimes read exact pins and the collector turns drift into manua
   assert.deepEqual(signals.leads.map(l => l.kind), ["runtime-security-release", "runtime-security-release", "runtime-end-of-life"]);
   assert.ok(signals.leads.every(l => l.route === null));
   assert.match(signals.leads[0].summary, /Lith runs Node v24.18.1; v24.22.1 \(2026-10-20\)/);
-  assert.deepEqual(signals.coverage, [{ source: "runtime", status: "available", scanned: 3, truncated: false }, { source: "dependencies", status: "unavailable", scanned: 0, reason: "No package audit completed; no clean-dependency claim." }, { source: "network", status: "disabled" }, { source: "servers", status: "disabled" }]);
+  assert.deepEqual(signals.coverage, [{ source: "runtime", status: "available", scanned: 3, truncated: false }, { source: "dependencies", status: "unavailable", scanned: 0, reason: "No package audit completed; no clean-dependency claim." }, { source: "network", status: "disabled" }, { source: "mail", status: "disabled" }, { source: "api", status: "disabled" }, { source: "servers", status: "disabled" }]);
   assert.equal(signals.metrics.find(m => m.target === "lith" && m.metric === "security-releases-behind").count, 1);
   const summary = securitySummary(detail, signals);
   assert.equal(summary.required, true);
