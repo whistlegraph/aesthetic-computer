@@ -24,7 +24,7 @@ export const defaultNetwork = () => ({ enabled: true, directory: "system/public/
 export const defaultServers = () => [
   { name: "lith", host: "root@lith.aesthetic.computer", identity: "aesthetic-computer-vault/home/.ssh/id_rsa", ports: [22, 80, 443, 4001] },
   { name: "oven", host: "root@137.184.237.166", identity: "aesthetic-computer-vault/oven/ssh/oven-deploy-key", ports: [22, 80, 443, 4001] },
-  { name: "session", host: "root@157.245.134.225", identity: "~/.ssh/session_server", ports: [22, 80, 443], udp: [8891, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007] },
+  { name: "session", host: "root@157.245.134.225", identity: "~/.ssh/session_server", ports: [22, 80, 443], udp: [8891, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007, 10010] },
 ];
 
 export function networkSettings(value = defaultNetwork()) {
