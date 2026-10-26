@@ -267,7 +267,7 @@ export function serverFacts() {
   // Leftover secret copies beside the deployed trees: names only, two levels deep.
   const stale = [];
   for (const root of ["/opt/ac", "/opt/oven", "/home/aesthetic-computer", "/root"]) {
-    const out = sh("find", [root, "-maxdepth", "3", "(", "-name", ".env.*", "-o", "-name", "*.env.bak*", "-o", "-name", "*.pem.bak", "-o", "-name", "id_rsa.bak", ")", "-type", "f"]);
+    const out = sh("find", [root, "-maxdepth", "3", "(", "-name", ".env.*", "-o", "-name", "*.env.bak*", "-o", "-name", "*.pem.bak", "-o", "-name", "id_rsa.bak", ")", "!", "-name", "*.example", "!", "-name", "*.template", "-type", "f"]);
     if (out) for (const path of out.split("\n").filter(Boolean).slice(0, 20)) stale.push(path.replace(/^\/(opt|home|root)\//, "").slice(0, 80));
   }
   return { kernel: sh("uname", ["-r"])?.trim() || null, listening, udp, sshd: sshd ? { passwordAuthentication: option("passwordauthentication"), permitRootLogin: option("permitrootlogin") } : null,
@@ -378,8 +378,8 @@ export function serverFindings(rows) {
     const exposed = open.filter(s => !filtered.includes(s));
     if (exposed.length) findings.push({ kind: "unexpected-listener", severity: "high", hosts: [row.name], detail: `TCP ${ports(exposed)} listening on every interface beyond the allowed list; bind it to loopback, close it, or allow it in security.servers` });
     if (filtered.length) findings.push({ kind: "listener-filtered", severity: "low", hosts: [row.name], detail: `TCP ${ports(filtered)} listening on every interface but blocked by ufw; bind it to loopback so the firewall is not the only guard` });
-    // UDP: tailscaled and IPFS bind every interface by design; anything else public and unlisted is a finding.
-    const udpOpen = (row.udp || []).filter(s => s.scope === "public" && !["tailscaled", "ipfs"].includes(s.process) && !(row.allowedUdp || []).includes(s.port));
+    // UDP: tailscaled, IPFS and Caddy's HTTP/3 on 443 bind every interface by design; anything else public and unlisted is a finding.
+    const udpOpen = (row.udp || []).filter(s => s.scope === "public" && !["tailscaled", "ipfs"].includes(s.process) && !(s.process === "caddy" && s.port === 443) && !(row.allowedUdp || []).includes(s.port));
     if (udpOpen.length) findings.push({ kind: "unexpected-udp-listener", severity: "moderate", hosts: [row.name], detail: `UDP ${ports(udpOpen)} bound on every interface beyond the allowed list; confirm it is meant to face the internet or add it to security.servers udp` });
     if (row.sshd && /^yes$/i.test(row.sshd.passwordAuthentication || "")) findings.push({ kind: "ssh-password-auth", severity: "high", hosts: [row.name], detail: "sshd accepts passwords; set PasswordAuthentication no and reload sshd" });
     if (row.unattendedUpgrades === false) findings.push({ kind: "unattended-upgrades-off", severity: "moderate", hosts: [row.name], detail: "unattended-upgrades is not enabled, so security packages wait for a hand; enable the timer" });
