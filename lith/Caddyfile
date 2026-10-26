@@ -97,6 +97,19 @@
 # lith restarts leave :8888 dark for a few seconds (161 function imports
 # before listen). Instead of failing the first dial (502 at Cloudflare),
 # hold and retry for up to 30s so requests queue through the restart.
+# Transport hardening for every AC site block: HSTS (180 days, no subdomain
+# claim), nosniff, and the Express X-Powered-By stripped from proxied replies.
+# defer applies the ops after upstream headers land. The client site
+# (gym.anthonyzollo.com) and the :80 redirect block are deliberately left out.
+(security_headers) {
+    header {
+        Strict-Transport-Security "max-age=15552000"
+        X-Content-Type-Options "nosniff"
+        -X-Powered-By
+        defer
+    }
+}
+
 (lith_proxy) {
 	reverse_proxy localhost:8888 {
 		lb_try_duration 30s
@@ -123,6 +136,7 @@
 # --- papers.aesthetic.computer ---
 # (touched 2026-04-29 to re-fire webhook after the install-Caddyfile-before-reload fix)
 :443 {
+    import security_headers
     import machine_discovery
     tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
     import lith_access_log
@@ -1189,6 +1203,7 @@
 # the MIDI bridge on, so scoring from a DAW needs no query string. It needs its
 # own A record at Porkbun — there is no wildcard on this zone.
 oskiewar.com, midi.oskiewar.com {
+    import security_headers
     import machine_discovery
     tls {
         issuer acme {
@@ -1331,6 +1346,7 @@ oskiewar.com, midi.oskiewar.com {
 }
 
 www.oskiewar.com {
+    import security_headers
     tls {
         protocols tls1.2 tls1.3
     }
@@ -1346,6 +1362,7 @@ www.oskiewar.com {
 # /classic stays the permanent home of the preserved 2021 Construct build,
 # and /gallery + the per-painting archive record pages keep serving here.
 nopaint.art {
+    import security_headers
     import lith_access_log
     import machine_discovery
     # Pin issuance to LE production (Caddy demoted this host to LE staging
@@ -1483,6 +1500,7 @@ nopaint.art {
 # Original Construct and iOS builds still call this hostname. Keep their
 # get-code / upload-painting / painting/:code.png protocol on the AC backend.
 server.nopaint.art {
+    import security_headers
     import lith_access_log
     tls {
         issuer acme {
@@ -1502,6 +1520,7 @@ server.nopaint.art {
 }
 
 www.nopaint.art {
+    import security_headers
     import lith_access_log
     # Same serving requirement as the apex block above: without a distinct
     # TLS setting, the catch-all's pinned origin cert answers this SNI too.
@@ -1519,6 +1538,7 @@ www.nopaint.art {
 # /nopaint.art/ai/ path, hence the handle_path below. nopaint.art keeps the
 # 2021 original, /gallery and the archive records.
 notepaint.art {
+    import security_headers
     import lith_access_log
     import machine_discovery
     tls {
@@ -1605,6 +1625,7 @@ notepaint.art {
 }
 
 www.notepaint.art {
+    import security_headers
     import lith_access_log
     tls {
         issuer acme {
@@ -1670,6 +1691,7 @@ gym.anthonyzollo.com {
 # --- mime.ac ---
 # DNS-only on Cloudflare; serve MIME at the apex with its own public TLS.
 mime.ac {
+    import security_headers
     import machine_discovery
     tls {
         issuer acme {
@@ -1750,6 +1772,7 @@ mime.ac {
 }
 
 www.mime.ac {
+    import security_headers
     tls {
         # Keep this SNI on its managed certificate, as for the apex. Without
         # a distinct TLS policy the :443 origin certificate wins selection.
@@ -1767,6 +1790,7 @@ www.mime.ac {
 # The site is a pointer to the iPhone app; the web room stays on
 # aesthetic.computer until Auth0 lists choir.ac as an origin.
 choir.ac {
+    import security_headers
     import machine_discovery
     tls {
         issuer acme {
@@ -1794,6 +1818,7 @@ choir.ac {
 }
 
 www.choir.ac {
+    import security_headers
     import machine_discovery
     tls {
         protocols tls1.2 tls1.3
@@ -1806,6 +1831,7 @@ www.choir.ac {
 
 # Aesel uses Cloudflare DNS-only records and its own public certificate.
 aesel.app {
+    import security_headers
     import machine_discovery
     tls {
         protocols tls1.2 tls1.3
@@ -1820,6 +1846,7 @@ aesel.app {
     file_server
 }
 www.aesel.app {
+    import security_headers
     tls {
         protocols tls1.2 tls1.3
         issuer acme {
@@ -1832,6 +1859,7 @@ www.aesel.app {
 # Whistlegraph's former app site now leads to MIME. DNS-only records need TLS;
 # a distinct TLS policy prevents the origin-certificate catch-all from winning.
 whistlegraph.app {
+    import security_headers
     import machine_discovery
     tls {
         protocols tls1.2 tls1.3
@@ -1842,6 +1870,7 @@ whistlegraph.app {
     redir https://mime.ac{uri} 308
 }
 www.whistlegraph.app {
+    import security_headers
     tls {
         protocols tls1.2 tls1.3
         issuer acme {
