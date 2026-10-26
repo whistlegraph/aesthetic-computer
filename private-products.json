@@ -17,7 +17,8 @@
         "plans/sotce-page-format.md",
         "reports/sotce-canvas-garden*.md",
         "utilities/sotce-net-revenue-calc.fish",
-        "toolchain/sotce/**"
+        "toolchain/sotce/**",
+        "toolchain/mcp/sotce-mcp.mjs"
       ]
     },
     "choir": {
