@@ -5,125 +5,155 @@
 <title>No Paint, 2016–present — the story</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="author" content="Jeffrey Alan Scudder">
-<meta name="description" content="No Paint is a painting program that proposes and a person who says No or Paint. Playable since 2020, 32,184 paintings kept in its archive, and still running at nopaint.art.">
+<meta name="description" content="No Paint is a painting program that proposes and a person who says No or Paint. Free since 2020, 32,184 paintings kept, made with help from a community, still running at nopaint.art.">
 <meta property="og:title" content="No Paint, 2016–present">
-<meta property="og:description" content="Press Paint if you like what you see, or No if you don't. The story, the archive and the artist.">
+<meta property="og:description" content="Press Paint if you like what you see, or No if you don't. The work, the archive, the people and the artist.">
 <meta property="og:image" content="https://nopaint.art/hero.png">
 <link rel="icon" type="image/png" href="../icons/icon-1024.png">
 <style>
   @font-face { font-family: "Pixelar"; src: url("../fonts/pixelar-regular-w01.woff2") format("woff2"); }
+  :root { --ink:#1d2b14; --bg:#ebebeb; --green:#c6f7a0; --red:#f6977a; --blue:#b9dcff; --yellow:#fff3a3; --purple:#e6c9ff; --paper:#fff; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: #ebebeb; color: #222; }
-  body { font: 17px/1.5 Arial, Helvetica, sans-serif; padding: 20px; }
-  main { width: min(880px, 100%); margin: auto; }
-  nav { display: flex; flex-wrap: wrap; gap: 14px 22px; margin-bottom: 22px; font-family: Pixelar, monospace; font-size: 20px; }
-  a { color: #222; }
-  h1, h2 { font-family: Pixelar, monospace; font-weight: normal; }
-  h1 { font-size: 40px; line-height: 1.1; margin: 0 0 6px; }
-  h2 { font-size: 28px; margin: 40px 0 10px; }
-  .sub { font-family: Pixelar, monospace; font-size: 20px; color: #666; margin: 0 0 18px; }
-  .hero { width: 100%; height: auto; border: 2px solid #222; image-rendering: pixelated; display: block; }
-  .frame { width: 100%; height: auto; border: 2px solid #222; display: block; }
-  figcaption { font-family: Pixelar, monospace; font-size: 16px; color: #666; margin: 6px 0 0; }
-  figure { margin: 18px 0; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; margin: 14px 0; }
-  .grid a { display: block; }
-  .grid img { width: 100%; height: auto; border: 2px solid #222; image-rendering: pixelated; display: block; background: #ddd; }
-  .grid span { display: block; font-family: Pixelar, monospace; font-size: 14px; color: #666; margin-top: 3px; }
-  dl { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; margin: 14px 0; }
-  dt { color: #666; } dd { margin: 0; }
-  table { border-collapse: collapse; margin: 12px 0; font-family: Pixelar, monospace; font-size: 18px; }
-  td, th { text-align: left; padding: 3px 18px 3px 0; border-bottom: 1px solid #ccc; }
-  .buttons { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
-  .button { display: inline-block; padding: 8px 16px; border: 2px solid #222; background: #fff; text-decoration: none; font-family: Pixelar, monospace; font-size: 20px; }
-  .button.paint { background: #c6f7a0; } .button.no { background: #f6977a; }
-  .notice { border: 2px solid #222; background: #fff; padding: 14px 16px; margin: 20px 0; }
-  footer { margin-top: 48px; padding-top: 14px; border-top: 2px solid #222; font-size: 15px; color: #444; }
-  @media (max-width: 600px) { h1 { font-size: 32px; } dl { grid-template-columns: 110px 1fr; } }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 15px/1.45 Arial, Helvetica, sans-serif; padding: 14px; image-rendering: pixelated; }
+  main { width: min(820px, 100%); margin: auto; }
+  a { color: var(--ink); }
+  .px { font-family: Pixelar, monospace; letter-spacing: .3px; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  nav a, .btn { display: inline-block; padding: 6px 11px 7px; border: 3px solid var(--ink); background: var(--paper); box-shadow: 3px 3px 0 var(--ink); text-decoration: none; font-family: Pixelar, monospace; font-size: 18px; line-height: 1; }
+  nav a.here { background: var(--yellow); }
+  .btn.paint { background: var(--green); } .btn.no { background: var(--red); }
+  h1 { font-family: Pixelar, monospace; font-weight: normal; font-size: clamp(44px, 11vw, 76px); line-height: .95; margin: 10px 0 4px; }
+  h2 { font-family: Pixelar, monospace; font-weight: normal; font-size: 26px; margin: 0 0 8px; }
+  .sub { font-family: Pixelar, monospace; font-size: 19px; margin: 0 0 12px; }
+  .card { border: 3px solid var(--ink); background: var(--paper); box-shadow: 5px 5px 0 var(--ink); padding: 14px; margin: 16px 0; }
+  .card.green { background: var(--green); } .card.red { background: var(--red); } .card.blue { background: var(--blue); } .card.yellow { background: var(--yellow); } .card.purple { background: var(--purple); }
+  .hero { width: 100%; height: auto; display: block; border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); margin: 16px 0; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 16px 0; }
+  .fact { border: 3px solid var(--ink); background: var(--paper); padding: 10px 10px 8px; box-shadow: 3px 3px 0 var(--ink); }
+  .fact b { display: block; font-family: Pixelar, monospace; font-weight: normal; font-size: 30px; line-height: 1; }
+  .fact span { font-size: 13px; }
+  .fact:nth-child(4n+1) { background: var(--green); } .fact:nth-child(4n+2) { background: var(--yellow); } .fact:nth-child(4n+3) { background: var(--blue); } .fact:nth-child(4n) { background: var(--purple); }
+  p { margin: 8px 0; }
+  dl { display: grid; grid-template-columns: 96px 1fr; gap: 4px 10px; margin: 8px 0 0; font-size: 14px; }
+  dt { font-family: Pixelar, monospace; font-size: 16px; } dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  main, section, p, .fact, .pill { min-width: 0; overflow-wrap: anywhere; }
+  .bars { display: grid; gap: 6px; margin: 10px 0 4px; }
+  .bar { display: grid; grid-template-columns: 44px 1fr 60px; align-items: center; gap: 8px; font-family: Pixelar, monospace; font-size: 17px; }
+  .bar i { display: block; height: 18px; border: 2px solid var(--ink); background: var(--green); }
+  .bar em { font-style: normal; text-align: right; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin: 10px 0 2px; }
+  .grid a { display: block; text-decoration: none; }
+  .grid img { width: 100%; height: auto; border: 2px solid var(--ink); display: block; background: #ddd; }
+  .grid span { display: block; font-family: Pixelar, monospace; font-size: 13px; margin-top: 2px; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .pill { font-family: Pixelar, monospace; font-size: 16px; line-height: 1; padding: 5px 8px 6px; border: 2px solid var(--ink); background: var(--paper); }
+  .credit { font-family: Pixelar, monospace; font-size: 20px; margin: 0 0 6px; }
+  .frame { width: 100%; height: auto; display: block; border: 2px solid var(--ink); margin: 8px 0 4px; }
+  small { font-size: 12px; }
+  footer { margin: 24px 0 8px; font-size: 13px; }
+  @media (max-width: 480px) { body { padding: 10px; } .card { padding: 12px; box-shadow: 4px 4px 0 var(--ink); } dl { grid-template-columns: 82px 1fr; } }
 </style>
 </head>
 <body>
 <main>
-<nav>
+<nav class="px">
   <a href="/">Play</a>
   <a href="/gallery/">Gallery</a>
-  <a href="/story/">Story</a>
+  <a href="/story/" class="here">Story</a>
   <a href="https://notepaint.art">Notepaint</a>
-  <a href="https://aesthetic.computer">Aesthetic Computer</a>
 </nav>
 
-<h1>No Paint, 2016–present</h1>
-<p class="sub">Jeffrey Alan Scudder · a painting program that proposes, and a person who says No or Paint</p>
+<h1>No Paint</h1>
+<p class="sub">2016–present · a painting program that proposes, and a person who says <b style="color:#b3341b">No</b> or <b style="color:#2d7a1c">Paint</b>.</p>
 
 <img class="hero" src="../hero.png" alt="Press Paint if you like what you see, or No if you don't." width="1200" height="630">
 
-<div class="buttons">
-  <a class="button paint" href="/">Play No Paint</a>
-  <a class="button" href="/gallery/">Browse 32,184 paintings</a>
-  <a class="button no" href="#story">Read the story</a>
+<div class="btns">
+  <a class="btn paint" href="/">Play it now</a>
+  <a class="btn no" href="/gallery/">32,184 paintings</a>
+  <a class="btn" href="#people">Made with help from</a>
 </div>
 
-<h2 id="work">The work</h2>
-<p>No Paint is a painting program with two buttons. The program picks a brush or a filter from a weighted deck, animates a live proposal over the painting, and waits. <strong>No</strong> throws the proposal away. <strong>Paint</strong> freezes time and keeps it. Every painting is a negotiated history of accepted accidents: the person never draws a mark, and the machine never decides what stays.</p>
-<p>It began in 2016 as a small iOS experiment, became a free website and app in 2020, and reached the front page of Hacker News that June. Between 2020 and 2021 the deck grew to 39 brushes, with stamps and brushes contributed by players under painter handles, and playlists that performed the deck in sequence. The Summer 2021 release is what runs at <a href="/">nopaint.art</a> today, unchanged, on phones and desktops, with saving restored in 2026 so new paintings still enter the archive.</p>
-<p>In 2026 the original project file was recovered from Dropbox, hash-verified and inventoried, and the proposal loop was rebuilt natively inside <a href="https://aesthetic.computer">Aesthetic Computer</a>, the open-source creative computing environment the same author has built in public since 2021. That continuation lives at <a href="https://notepaint.art">notepaint.art</a>. The artwork is the whole span: the person, the proposing machine, the community of brush makers, the archive, and the domain that holds them.</p>
-
-<dl>
-  <dt>Medium</dt><dd>Software artwork, networked. Runs in any browser.</dd>
-  <dt>2016–2021 build</dt><dd>Construct 3 engine (JavaScript, WebGL), 82 layouts, 1,197 images, 128 sounds, 35 weighted proposals. Source recovered 2026-07-17, SHA-256 1550856d…a2e2.</dd>
-  <dt>2021–present</dt><dd>Aesthetic Computer runtime (open source, JavaScript), native proposal loop with explicit No, Paint, pause and save states.</dd>
-  <dt>Paintings</dt><dd>256 × 288 px PNG, a 256 × 256 canvas with a baked caption bar: title, date, time and id. 32,184 kept between June 2021 and July 2025, 3.9 GB, served from pix.nopaint.art.</dd>
-  <dt>Archive</dt><dd><a href="/gallery/">nopaint.art/gallery</a>: searchable by colour, subject and painted words, filterable by year and by photo content.</dd>
-  <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer">github.com/whistlegraph/aesthetic-computer</a></dd>
-</dl>
-
-<h2 id="archive">The archive</h2>
-<p>Every painting someone kept by pressing Paint, 2021 to 2025. The count by year tells the story of a toy that outlived its moment and kept being played.</p>
-<table>
-  <tr><th>Year</th><th>Paintings kept</th></tr>
-  <tr><td>2021</td><td>15,407</td></tr>
-  <tr><td>2022</td><td>8,016</td></tr>
-  <tr><td>2023</td><td>5,449</td></tr>
-  <tr><td>2024</td><td>2,112</td></tr>
-  <tr><td>2025</td><td>1,200</td></tr>
-  <tr><td>Total</td><td>32,184</td></tr>
-</table>
-<figure>
-  <a href="/gallery/"><img class="frame" src="gallery.jpg" alt="The No Paint gallery: a searchable grid of thousands of small paintings" width="1024" height="576"></a>
-  <figcaption>The gallery at nopaint.art/gallery, October 2026.</figcaption>
-</figure>
-<p>Twelve from the archive, one or more from each year. Tap any of them for its record.</p>
-<div class="grid">
-  <a href="/QImQvUAg"><img src="https://pix.nopaint.art/QImQvUAg.png" alt="A low-poly face made of gray triangular planes" loading="lazy"><span>2 Aug 2021</span></a>
-  <a href="/11H9tz3o"><img src="https://pix.nopaint.art/11H9tz3o.png" alt="A psychedelic composition with a purple oval and a green form" loading="lazy"><span>25 Aug 2021</span></a>
-  <a href="/jnbk0iNq"><img src="https://pix.nopaint.art/jnbk0iNq.png" alt="A busy collage of loops, scribbles and painted shapes" loading="lazy"><span>30 Jul 2021</span></a>
-  <a href="/grN1cHsf"><img src="https://pix.nopaint.art/grN1cHsf.png" alt="A bright sunburst mandala" loading="lazy"><span>16 Sep 2022</span></a>
-  <a href="/B14umufb"><img src="https://pix.nopaint.art/B14umufb.png" alt="A purple scene with a circle and a hand-like form" loading="lazy"><span>8 Feb 2022</span></a>
-  <a href="/wQ6ZCfe6"><img src="https://pix.nopaint.art/wQ6ZCfe6.png" alt="A portrait of a person with long dark hair and sunglasses" loading="lazy"><span>10 May 2023</span></a>
-  <a href="/Zn1ZcIhz"><img src="https://pix.nopaint.art/Zn1ZcIhz.png" alt="A small green rocket rising beside a white arc" loading="lazy"><span>17 Oct 2023</span></a>
-  <a href="/mSleqmSs"><img src="https://pix.nopaint.art/mSleqmSs.png" alt="A symmetrical neon face on a dark background" loading="lazy"><span>11 Mar 2024</span></a>
-  <a href="/9QUpnRY1"><img src="https://pix.nopaint.art/9QUpnRY1.png" alt="Two black-and-white faces close together" loading="lazy"><span>14 May 2024</span></a>
-  <a href="/MbI7CaHa"><img src="https://pix.nopaint.art/MbI7CaHa.png" alt="Two overlapping hands over a green background" loading="lazy"><span>15 Dec 2024</span></a>
-  <a href="/G9q3q898"><img src="https://pix.nopaint.art/G9q3q898.png" alt="Two neon-green diagonal bars over a pastel cloud" loading="lazy"><span>11 Jun 2025</span></a>
-  <a href="/DEuUpn3D"><img src="https://pix.nopaint.art/DEuUpn3D.png" alt="A dark canvas crowded with neon scribbles like a poster" loading="lazy"><span>16 Mar 2025</span></a>
-</div>
-<p>People still come. In the five weeks to 26 October 2026 the site had about 900 visits, 419 of them lasting longer than ten seconds, and 27 new paintings were kept.</p>
-
-<h2 id="story">The story</h2>
-<p>No Paint is a game of consent between a painter and a proposing machine. I wrote it because I wanted to paint without the blank page and without the mouse: the program would make the first move, and I would only have to answer. The deck is weighted the way a studio is weighted, with common stamps, a soft brush that comes up often, and a rare wanderer that almost never appears. Softy, Bubbles, Grid Worm, Walker, Box, Banner, Wafer: each proposal plays out as an animation over the painting, and the two buttons are the whole interface.</p>
-<p>When the free version went out in 2020, players began sending pixel stamps and asking to make brushes. I added their images to the build under painter handles and gave them a template to draw brushes in, then merged each one by hand. That slow loop, strangers learning how software is made by contributing to a toy they liked, is what pushed me to build Aesthetic Computer, where every tool, brush and painting is addressable by URL and nothing waits on me to be merged.</p>
-<p>In 2026 I went back for the original. The project file was recovered, verified and inventoried, the 32,184 paintings were synced, described and indexed into a searchable gallery, saving was restored so the 2021 build could keep collecting, and the proposal loop was rebuilt natively so the work can keep changing without losing its past. A piece of software is finished when it stops being maintained. This one is not finished.</p>
-
-<h2 id="artist">The artist</h2>
-<p>Jeffrey Alan Scudder (b. 1989, USA) is an artist, composer and programmer in Los Angeles who builds and performs his own painting and music software. Since 2011 his instrument-like programs have been shown as live "radical digital painting" performances and as public websites anyone can play. He holds a BFA from Ringling College of Art and Design and an MFA from Yale School of Art, and has taught at Parsons, UCLA and Southern Oregon University.</p>
-<p>No Paint (2016–present) was his first program to find a public of its own. Since 2021 he has developed Aesthetic Computer in public: a creative computing environment with a programming language for children and artists (KidLisp), a social layer, and AC OS, which boots salvaged laptops straight into instruments. With Alex Freundlich and Camille Klein he developed Whistlegraph, a drawing-and-singing practice; The Longest Whistlegraph Ever (so far), commissioned by Rhizome, premiered at the New Museum in 2022. His work is held by KADIST and SMK, the National Gallery of Denmark. In 2026 he was a resident artist at CultureHub Los Angeles and opened Everything Computer at tiat.place, San Francisco, with the MacNeoPolitan Trio, three singing laptops. He hosts the NELA Computer Club in Chinatown, Los Angeles.</p>
-
-<div class="notice">
-  <strong>Entered in the .ART Award 2026.</strong> This page is the entry: the work above, its archive, the story and the artist. Contact <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>.
+<div class="facts">
+  <div class="fact"><b>2</b><span>buttons. No throws the proposal away, Paint keeps it.</span></div>
+  <div class="fact"><b>39</b><span>brushes and filters in a weighted deck. Walker is rare, Softy is common.</span></div>
+  <div class="fact"><b>32,184</b><span>paintings kept, June 2021 to July 2025.</span></div>
+  <div class="fact"><b>17</b><span>people made stamps, under their own @handles.</span></div>
+  <div class="fact"><b>#1</b><span>on Hacker News, 17 June 2020, as the free web version launched.</span></div>
+  <div class="fact"><b>900</b><span>visits in the five weeks to 26 Oct 2026, with 27 new paintings kept.</span></div>
 </div>
 
-<footer>
-  No Paint by Jeffrey Alan Scudder with Alex Freundlich, Ella Fleck, Camille Klein and friends · <a href="/">nopaint.art</a> · <a href="/gallery/">gallery</a> · <a href="https://notepaint.art">notepaint.art</a> · <a href="https://aesthetic.computer">aesthetic.computer</a> · <a href="https://prompt.ac/@jeffrey">@jeffrey</a>
+<section class="card green">
+  <h2>The work</h2>
+  <p>The program picks a brush or a filter from a weighted deck, animates a live proposal over the painting, and waits. The person never draws a mark and the machine never decides what stays, so every painting is a negotiated history of accepted accidents.</p>
+  <p>It began in 2016 as a small iOS experiment, became a free website in 2020, and the Summer 2021 release is what still runs at <a href="/">nopaint.art</a>, on phones and desktops. In 2026 the source was recovered and verified, saving was restored, and the loop was rebuilt natively inside <a href="https://aesthetic.computer">Aesthetic Computer</a> at <a href="https://notepaint.art">notepaint.art</a>.</p>
+  <dl>
+    <dt>Medium</dt><dd>Software artwork, networked, in any browser.</dd>
+    <dt>Build</dt><dd>Construct 3 (JavaScript, WebGL), 82 layouts, 1,197 images, 128 sounds, 35 proposals. Source SHA-256 1550856d…a2e2.</dd>
+    <dt>Painting</dt><dd>256 × 256 px canvas, saved as 256 × 288 PNG with a baked caption: title, date, time, id.</dd>
+    <dt>Archive</dt><dd>3.9 GB on pix.nopaint.art, searchable at <a href="/gallery/">/gallery</a>.</dd>
+    <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer">github.com/whistlegraph/aesthetic-computer</a></dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>The archive, by year</h2>
+  <div class="bars">
+    <div class="bar"><span>2021</span><i style="width:100%"></i><em>15,407</em></div>
+    <div class="bar"><span>2022</span><i style="width:52%"></i><em>8,016</em></div>
+    <div class="bar"><span>2023</span><i style="width:35%"></i><em>5,449</em></div>
+    <div class="bar"><span>2024</span><i style="width:14%"></i><em>2,112</em></div>
+    <div class="bar"><span>2025</span><i style="width:8%"></i><em>1,200</em></div>
+  </div>
+  <div class="grid">
+    <a href="/QImQvUAg"><img src="https://pix.nopaint.art/QImQvUAg.png" alt="A low-poly face of gray triangles" loading="lazy"><span>Aug 2021</span></a>
+    <a href="/11H9tz3o"><img src="https://pix.nopaint.art/11H9tz3o.png" alt="A psychedelic purple oval and green form" loading="lazy"><span>Aug 2021</span></a>
+    <a href="/jnbk0iNq"><img src="https://pix.nopaint.art/jnbk0iNq.png" alt="A collage of loops and painted shapes" loading="lazy"><span>Jul 2021</span></a>
+    <a href="/grN1cHsf"><img src="https://pix.nopaint.art/grN1cHsf.png" alt="A bright sunburst mandala" loading="lazy"><span>Sep 2022</span></a>
+    <a href="/B14umufb"><img src="https://pix.nopaint.art/B14umufb.png" alt="A purple scene with a hand-like form" loading="lazy"><span>Feb 2022</span></a>
+    <a href="/wQ6ZCfe6"><img src="https://pix.nopaint.art/wQ6ZCfe6.png" alt="A portrait with sunglasses" loading="lazy"><span>May 2023</span></a>
+    <a href="/Zn1ZcIhz"><img src="https://pix.nopaint.art/Zn1ZcIhz.png" alt="A green rocket beside a white arc" loading="lazy"><span>Oct 2023</span></a>
+    <a href="/mSleqmSs"><img src="https://pix.nopaint.art/mSleqmSs.png" alt="A symmetrical neon face" loading="lazy"><span>Mar 2024</span></a>
+    <a href="/9QUpnRY1"><img src="https://pix.nopaint.art/9QUpnRY1.png" alt="Two black-and-white faces" loading="lazy"><span>May 2024</span></a>
+    <a href="/MbI7CaHa"><img src="https://pix.nopaint.art/MbI7CaHa.png" alt="Two overlapping hands" loading="lazy"><span>Dec 2024</span></a>
+    <a href="/G9q3q898"><img src="https://pix.nopaint.art/G9q3q898.png" alt="Neon-green bars over a pastel cloud" loading="lazy"><span>Jun 2025</span></a>
+    <a href="/DEuUpn3D"><img src="https://pix.nopaint.art/DEuUpn3D.png" alt="A dark canvas crowded with neon scribbles" loading="lazy"><span>Mar 2025</span></a>
+  </div>
+  <small>Tap a painting for its record. Every painting someone kept by pressing Paint, with its date and id baked into the bottom strip.</small>
+</section>
+
+<section class="card blue" id="people">
+  <h2>Made with help from</h2>
+  <p class="credit">"By Jeffrey S. with help from Alex F, Ella F, Camille K. and our lovely community."</p>
+  <p>That line is on the splash screen of the 2021 build, and it is the true credit. Players sent pixel stamps and drew brushes in a template, and each one went into the deck under the painter's own handle:</p>
+  <div class="pills">
+    <span class="pill">@aaron</span><span class="pill">@adelaide</span><span class="pill">@alex</span><span class="pill">@artur</span><span class="pill">@bn</span><span class="pill">@camille</span><span class="pill">@chance</span><span class="pill">@deojavani</span><span class="pill">@ella</span><span class="pill">@Ivokyuftaf6666</span><span class="pill">@jeffrey</span><span class="pill">@jesserobertsullivan</span><span class="pill">@julia</span><span class="pill">@niki</span><span class="pill">@sean</span><span class="pill">@usuuunaa</span><span class="pill">@wilson</span>
+  </div>
+  <p>Four painters wrote their stories for the build's "Stories From Our Community" pages: Adelaide, Ivo, Sean and Wilsans. A No Paint Discord carried the brush trading and the playlists. The pixel font is by DamienG.</p>
+</section>
+
+<section class="card yellow">
+  <h2>The story</h2>
+  <p>I wrote No Paint because I wanted to paint without the blank page and without the mouse. The program makes the first move; I only have to answer. The deck is weighted the way a studio is weighted: common stamps, a soft brush that comes up often, a wanderer that almost never does. Two buttons are the whole interface.</p>
+  <p>When the free version went out in 2020, strangers started sending stamps and asking to make brushes, and I merged each one by hand. Watching non-programmers learn how software is made by contributing to a toy they liked is what pushed me to build Aesthetic Computer, where nothing waits on me to be merged.</p>
+  <p>In 2026 I went back for the original: recovered the project file, indexed all 32,184 paintings into a searchable gallery, restored saving, and rebuilt the loop natively. A program is finished when it stops being maintained. This one is not finished.</p>
+</section>
+
+<section class="card purple">
+  <h2>The artist</h2>
+  <p>Jeffrey Alan Scudder (b. 1989, USA) is an artist, composer and programmer in Los Angeles who builds and performs his own painting and music software. BFA Ringling College of Art and Design, MFA Yale School of Art; he has taught at Parsons, UCLA and Southern Oregon University.</p>
+  <p>No Paint was his first program to find a public of its own. Since 2021 he has built Aesthetic Computer in public: a creative computing environment with KidLisp, a language for children and artists, and AC OS, which boots salvaged laptops straight into instruments. With Alex Freundlich and Camille Klein he developed Whistlegraph; The Longest Whistlegraph Ever (so far), commissioned by Rhizome, premiered at the New Museum in 2022. His work is held by KADIST and SMK, the National Gallery of Denmark. In 2026 he was a resident at CultureHub Los Angeles and opened Everything Computer at tiat.place, San Francisco, with three singing laptops. He hosts the NELA Computer Club in Chinatown, LA.</p>
+</section>
+
+<section class="card red">
+  <h2>Entered in the .ART Award 2026</h2>
+  <p>This page is the entry: the work, its archive, the people, the story and the artist. <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a></p>
+</section>
+
+<footer class="px">
+  No Paint by Jeffrey Alan Scudder with Alex Freundlich, Ella Fleck, Camille Klein and friends · <a href="/">nopaint.art</a> · <a href="https://aesthetic.computer">aesthetic.computer</a> · <a href="https://prompt.ac/@jeffrey">@jeffrey</a>
 </footer>
 </main>
 </body>
