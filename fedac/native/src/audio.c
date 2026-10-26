@@ -2485,7 +2485,7 @@ static void *audio_thread_fn(void *arg) {
         const void *write_buf = buffer;
         if (buffer32) {
             for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
-                buffer32[j] = (int32_t)buffer[j] << 8;
+                buffer32[j] = (int32_t)buffer[j] << audio->s32_shift;
             write_buf = buffer32;
         }
         int remaining = (int)period_frames;
@@ -3033,6 +3033,7 @@ ACAudio *audio_init(void) {
     if (sof_active &&
         snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S32_LE) == 0) {
         audio->use_s32 = 1;
+        audio->s32_shift = 8;
         fprintf(stderr, "[audio] Negotiated S32_LE format (SOF)\n");
     } else {
         /* Re-negotiate from scratch with S16_LE; preserve the access
@@ -3042,9 +3043,18 @@ ACAudio *audio_init(void) {
                                      audio->use_mmap
                                          ? SND_PCM_ACCESS_MMAP_INTERLEAVED
                                          : SND_PCM_ACCESS_RW_INTERLEAVED);
-        snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
-        fprintf(stderr, "[audio] Negotiated S16_LE format%s\n",
-                sof_active ? " (S32_LE rejected)" : " (non-SOF, forced)");
+        if (snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE) == 0) {
+            fprintf(stderr, "[audio] Negotiated S16_LE format%s\n",
+                    sof_active ? " (S32_LE rejected)" : " (non-SOF, forced)");
+        } else if (snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S32_LE) == 0) {
+            /* S32-only PCMs (the MacBook Neo's speaker front-end) read the
+             * whole container as full scale, so int16 goes in bits 31:16. */
+            audio->use_s32 = 1;
+            audio->s32_shift = 16;
+            fprintf(stderr, "[audio] Negotiated S32_LE format (S16_LE rejected, full-scale)\n");
+        } else {
+            fprintf(stderr, "[audio] WARNING: neither S16_LE nor S32_LE accepted\n");
+        }
     }
     snd_pcm_hw_params_set_channels(pcm, params, AUDIO_CHANNELS);
 
@@ -3103,6 +3113,16 @@ ACAudio *audio_init(void) {
         period = rate / 1000;      // 1ms on HDA-direct paths
         if (period < 64) period = 64;
         buffer_size = period * 4;
+    }
+    // AC_AUDIO_PERIOD_MS overrides the period (buffer stays 4 periods). The
+    // MacBook Neo's speaker PCM converts every sample in software for its
+    // coprocessor and turns fuzzy at 1.3ms periods.
+    const char *period_env = getenv("AC_AUDIO_PERIOD_MS");
+    if (period_env && atoi(period_env) > 0) {
+        period = rate * (unsigned)atoi(period_env) / 1000;
+        buffer_size = period * 4;
+        fprintf(stderr, "[audio] AC_AUDIO_PERIOD_MS=%s — period=%lu buffer=%lu\n",
+                period_env, (unsigned long)period, (unsigned long)buffer_size);
     }
     snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
     snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);

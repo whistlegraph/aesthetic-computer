@@ -370,6 +370,7 @@ typedef struct {
     unsigned int actual_rate;    // Negotiated ALSA sample rate (may differ from requested)
     unsigned int actual_period;  // Negotiated ALSA period size in frames
     int use_s32;                 // 1 if PCM negotiated S32_LE (SOF boards), 0 for S16_LE
+    int s32_shift;               // int16 → S32 shift: 8 for SOF's 24-bit window, 16 for full-scale S32-only PCMs
     int use_mmap;                // 1 if PCM negotiated MMAP_INTERLEAVED access, 0 for RW
 
     // TTS PCM buffer (resampled to output rate, mono → stereo in mix)

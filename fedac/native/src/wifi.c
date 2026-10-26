@@ -757,6 +757,10 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     strncpy(creds[cred_count].ssid, "CULTUREHUB LA", WIFI_SSID_MAX - 1);
     strncpy(creds[cred_count].pass, "LaMama47!", WIFI_PASS_MAX - 1);
     cred_count++;
+    // Fuser Team
+    strncpy(creds[cred_count].ssid, "Fuser Team", WIFI_SSID_MAX - 1);
+    strncpy(creds[cred_count].pass, "jX4XmdKAmTNqXRXLHVGH2YxQGHEfwLZdQGrN", WIFI_PASS_MAX - 1);
+    cred_count++;
 
     int file_start = cred_count;   // creds from the stick's own file begin here
     FILE *fp = fopen("/mnt/wifi_creds.json", "r");
