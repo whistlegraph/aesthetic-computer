@@ -1480,6 +1480,11 @@ nopaint.art {
     handle /gallery* {
         file_server
     }
+    # /story is a directory with an index; the archive-record catch-all below
+    # only spares real files, so route it explicitly like /gallery.
+    handle /story* {
+        file_server
+    }
     # A single archive id gets a human-readable record page. Existing files
     # (runtime assets, icons, manifests) continue through the final handler.
     @nopaint_archive_record {
