@@ -79,9 +79,9 @@ Compare both hosts with `python3 aesel/bin/bench-runtimes.py --entry launch --la
 Three bridges can drive a session:
 
 ```sh
-ac                                  # claude, on claude-opus-5
+ac                                  # AC hosted (the default), using your handle's budget
+ac --backend claude                 # claude, on claude-opus-5
 ac --backend codex                  # codex app-server
-ac --backend ac                     # AC hosted, using your handle's budget
 ac --model claude-opus-5            # a different model on the same bridge
 ac --piece path/to/fogozo.mjs        # reopen an existing piece and its versions
 ```

@@ -29,11 +29,11 @@ Each session starts by choosing an AC blank piece or a nopaint.art brush,
 then shows a QR code that runs it live on a phone. --genre makes that
 choice at launch; --runtime picks an AC piece's language.
 
---backend picks the engine bridge. claude (the default, on claude-opus-5)
-and codex each drive that vendor's CLI and need a subscription to it. ac
-needs neither -- it runs on Aesthetic Computer's own account, metered
-against your @handle. --model names the model on that bridge, and
-/backend and /model change either one mid-session.
+--backend picks the engine bridge. ac (the default) runs on Aesthetic
+Computer's own account, metered in braincells against your @handle, and
+needs no subscription. claude (on claude-opus-5) and codex each drive that
+vendor's CLI and need a subscription to it. --model names the model on
+that bridge, and /backend and /model change either one mid-session.
 
 --autopublish publishes the piece under your @handle a couple of seconds
 after every save, so the session's URL is live the whole time it is being

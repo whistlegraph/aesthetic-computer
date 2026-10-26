@@ -80,7 +80,7 @@ import { Transcript } from "./transcript.mjs";
 import {markStartup,flushStartupTrace} from './startup-trace.mjs';
 import {Appearance} from './appearance.mjs';
 import {SlabHandle} from './slab-handle.mjs';
-import {setPageBackground} from './render.mjs';
+import {setPageBackground, paintsGround, palette} from './render.mjs';
 import {nativeTerminalPhase} from './native-terminal.mjs';
 
 markStartup('imports');
@@ -3352,7 +3352,40 @@ function splashTick() {
 const splashStartedAt = Date.now();
 // Title-screen animation is disabled while launches go directly to a piece.
 
+// Without Slab there is nobody to colour the window around the cells, so a
+// hard black frame would sit around the purple. Give the window the same
+// ground the interface paints: Terminal.app by script on this tab's tty (it
+// ignores OSC 11), everything else over OSC 11, undone on exit. A window Slab
+// dresses inherits Slab's colour instead (render.mjs decides).
+function dressOwnGround() {
+  if (!paintsGround || process.env.AESEL_DESKTOP || process.env.NO_COLOR === "1" || !process.stdout.isTTY) return;
+  const [r, g, b] = palette.background;
+  if (process.env.TERM_PROGRAM === "Apple_Terminal") {
+    const tty = slabSession.tty;
+    if (!tty) return;
+    const dev = `/dev/${tty.replace(/^\/dev\//, "")}`;
+    const sixteen = (rgb) => `{${rgb.map((n) => n * 257).join(", ")}}`;
+    const script = `tell application "Terminal" to repeat with w in windows
+repeat with t in tabs of w
+try
+if (tty of t) is "${dev}" then
+set background color of t to ${sixteen(palette.background)}
+set normal text color of t to ${sixteen(palette.text)}
+set cursor color of t to ${sixteen(palette.prompt)}
+end if
+end try
+end repeat
+end repeat`;
+    try { spawn("/usr/bin/osascript", ["-e", script], { detached: true, stdio: "ignore" }).unref(); } catch {}
+    return;
+  }
+  const hex = (n) => n.toString(16).padStart(2, "0");
+  process.stdout.write(`\x1b]11;rgb:${hex(r)}/${hex(g)}/${hex(b)}\x1b\\`);
+  process.once("exit", () => { try { process.stdout.write("\x1b]111\x1b\\"); } catch {} });
+}
+
 markStartup('terminal-setup');
+dressOwnGround();
 process.stdin.setRawMode(true);
 process.stdin.resume();
 startNativeGamepad();
