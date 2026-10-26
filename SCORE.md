@@ -100,6 +100,23 @@ explained.
   [deployment details](docs/development-reference.md#architecture) first;
   `AC_NO_AUTO_DEPLOY=1` skips that hook.
 
+## Aesthetic Network updates
+
+When working on or reporting Aesthetic Network updates, include a fresh internet
+search for OpenRouter news, new models, and the competitive landscape relevant
+to Aesel. Check official announcements, changelogs, live catalogs and pricing;
+cite sources and dates, distinguish announcements from available capabilities,
+and flag meaningful changes since the previous check (or state the first check's
+time window). Cover model quality, cost, speed, tool/media support, routing and
+competing model browsers or agent workbenches where relevant.
+
+Connect the findings to Aesel's current implementation and recent changes:
+what matters for our work, what to try next, and what remains unverified. Keep
+the brief selective; say when there is no material news. Aesel's intended
+direction is our own model news desk and browsing workbench: discover, compare,
+try models on real tasks, and retain evidence from those trials. Treat this as
+a product direction, not a claim that those features already exist.
+
 ## Pull requests
 
 Lead with the concrete problem and resulting behavior. Small PRs should be
