@@ -16,3 +16,4 @@ overrides:
   protobufjs: "^7.6.4"
   "fast-xml-parser>fast-xml-builder": "^1.2.1"
   "glob>minimatch": "^9.0.9"
+  "@digitalbazaar/http-client>undici": "^6.29.1"

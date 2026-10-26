@@ -1237,7 +1237,11 @@ const start = async () => {
         port: info.port,
       });
     } else {
-      fastify.listen({ host: "0.0.0.0", port: info.port });
+      // Production sits behind the droplet's Caddy (443 → localhost:8889);
+      // browsers get the session URL from /session and connect on 443, and
+      // geckos media rides its own UDP ports. :8889 answered the internet
+      // directly before (security audit, 2026-10-26), so bind loopback.
+      fastify.listen({ host: "127.0.0.1", port: info.port });
     }
   } catch (err) {
     fastify.log.error(err);

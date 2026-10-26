@@ -4413,9 +4413,10 @@ if (dev) {
     console.log(`🔥 Oven server running on https://localhost:${PORT} (dev mode)`);
   });
 } else {
-  // Production - plain HTTP (Caddy handles SSL)
+  // Production - plain HTTP (Caddy handles SSL). Loopback only: the port was
+  // reachable from the internet beside Caddy (security audit, 2026-10-26).
   server = http.createServer(app);
-  server.listen(PORT, () => {
+  server.listen(PORT, "127.0.0.1", () => {
     console.log(`🔥 Oven server running on http://localhost:${PORT}`);
     addServerLog('success', '🔥', `Oven server ready (v${GIT_VERSION.slice(0,8)})`);
     

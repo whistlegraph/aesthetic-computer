@@ -1486,8 +1486,13 @@ if (DEV && HAS_SSL) {
     console.log(`lith listening on https://localhost:${PORT}`);
   });
 } else {
-  server = createHttpServer(app).listen(PORT, () => {
-    console.log(`lith listening on http://localhost:${PORT}`);
+  // Production sits behind Caddy on the same host; binding loopback keeps the
+  // origin off the public interface, where it answered direct :8888 requests
+  // that skipped Cloudflare and Caddy (aespatchercron security audit, 2026-10-26).
+  // Dev keeps every interface so phones on the LAN can reach the Mac.
+  const host = DEV ? undefined : "127.0.0.1";
+  server = createHttpServer(app).listen(PORT, host, () => {
+    console.log(`lith listening on http://${host || "localhost"}:${PORT}`);
   });
 }
 
