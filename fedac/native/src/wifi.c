@@ -146,9 +146,12 @@ static void wifi_do_scan(ACWifi *wifi) {
     unlink("/tmp/wifi_scan.txt");
     unlink("/tmp/wifi_scan_err.txt");
 
-    // Run scan synchronously on this thread (no need for background shell)
+    // Run scan synchronously on this thread (no need for background shell).
+    // A scan fired while the radio is still starting (the MacBook Neo's
+    // MT7932 right after boot) can wait forever for results that never
+    // come; timeout kills it so the next attempt goes ahead.
     snprintf(cmd, sizeof(cmd),
-             "iw dev %s scan > /tmp/wifi_scan.txt 2>/tmp/wifi_scan_err.txt",
+             "timeout 20 iw dev %s scan > /tmp/wifi_scan.txt 2>/tmp/wifi_scan_err.txt",
              wifi->iface);
     int rc = run_cmd(cmd);
     if (rc != 0) {
