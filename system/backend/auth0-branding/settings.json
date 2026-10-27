@@ -71,8 +71,8 @@
     },
     "page_background": {
       "page_layout": "center",
-      "background_color": "#eee9df",
-      "background_image_url": ""
+      "background_color": "#50465a",
+      "background_image_url": "https://oven.aesthetic.computer/kidlisp-backdrop.webp"
     },
     "displayName": "Unnamed Theme",
     "themeId": "jcET9jC0trlFhUvkBOCeBZqTejX7MS4Q"

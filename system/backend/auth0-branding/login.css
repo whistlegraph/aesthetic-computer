@@ -15,7 +15,7 @@
 html { font-size: 18px !important; }
 body {
   --page-background-color: #eee9df;
-  --page-background-image: none;
+  --page-background-image: url(https://oven.aesthetic.computer/kidlisp-backdrop.webp);
   --button-border-width: 1px;
   --social-button-border-width: 1px;
   --button-border-radius: 0;
@@ -26,9 +26,10 @@ body {
   --default-font-size: 1rem;
   --ulp-label-font-size: 1rem;
   --logo-height: 64px;
-  background: #eee9df !important;
+  background: #50465a url(https://oven.aesthetic.computer/kidlisp-backdrop.webp) center / cover no-repeat fixed !important;
 }
-body::before { background: #eee9df !important; background-image: none !important; }
+/* The animated KidLisp backdrop lives on body; keep Auth0's own layer clear. */
+body::before { background: transparent !important; background-image: none !important; }
 main { min-height: 100svh; padding: 32px 16px !important; }
 ._prompt-box-outer { width: min(100%, 440px) !important; }
 #screen-header { padding-bottom: 16px; }
