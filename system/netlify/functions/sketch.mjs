@@ -35,7 +35,7 @@ const lev = (a, b) => {
 // A typo of a real piece should get "did you mean", not a drawing.
 function nearPiece(word) {
   if (word.includes(" ") || word.length < 5) return null;
-  const limit = word.length >= 6 ? 2 : 1;
+  const limit = word.length >= 8 ? 2 : 1; // dragon is two edits from crayon, not a typo
   let best = null, dist = limit + 1;
   for (const p of pieces) {
     if (Math.abs(p.length - word.length) > limit) continue;
