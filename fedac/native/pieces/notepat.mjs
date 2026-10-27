@@ -576,6 +576,12 @@ let ctrlHeld = false;
 let altHeld = false;
 let metaHeld = false;
 let metaChorded = false; // a note fired while Win was down, so it wasn't a tap
+// Which sides hold ⌘/⌥ (bit 1 left, bit 2 right, from e.location). On an
+// Apple keyboard they're handed, as in Menu Band: the left ones chord only
+// the left grid, the right ones only the right grid.
+let metaSides = 0;
+let altSides = 0;
+let appleKeys = false; // system.hw.keyboard === "apple"
 
 // Analog keyboard (NuPhy Hall-Effect) detection. When a note-on event
 // arrives with an analog pressure value (0 < p < 1) that isn't the
@@ -3088,6 +3094,7 @@ function boot({ wipe, system, sound }) {
   wipe(0);
   soundAPI = sound;
   systemAPI = system;
+  appleKeys = system?.hw?.keyboard === "apple";
   sound?.room?.setMix?.(echoMix);
   sound?.glitch?.setMix?.(bitcrushMix);
   sound?.fx?.setMix?.(fxMix);
@@ -3155,14 +3162,19 @@ function act({ event: e, sound, wifi, system }) {
   // note key fires, they turn the note into a triad (see chord block below).
   if (e.is("keyboard:down") && e.key?.toLowerCase() === "control") ctrlHeld = true;
   else if (e.is("keyboard:up") && e.key?.toLowerCase() === "control") ctrlHeld = false;
-  if (e.is("keyboard:down") && e.key?.toLowerCase() === "alt") altHeld = true;
-  else if (e.is("keyboard:up") && e.key?.toLowerCase() === "alt") altHeld = false;
+  // A side-less event (location 0) counts as both sides.
+  const side = e.location || 3;
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "alt") altSides |= side;
+  else if (e.is("keyboard:up") && e.key?.toLowerCase() === "alt") altSides &= ~side;
+  altHeld = altSides !== 0;
   // Win is a chord key while held; a bare tap (no note in between) still
   // toggles the help panel.
-  if (e.is("keyboard:down") && e.key?.toLowerCase() === "meta" && !metaHeld) {
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "meta") metaSides |= side;
+  else if (e.is("keyboard:up") && e.key?.toLowerCase() === "meta") metaSides &= ~side;
+  if (metaSides && !metaHeld) {
     metaHeld = true;
     metaChorded = false;
-  } else if (e.is("keyboard:up") && e.key?.toLowerCase() === "meta" && metaHeld) {
+  } else if (!metaSides && metaHeld) {
     metaHeld = false;
     if (!metaChorded) {
       helpPanel = !helpPanel;
@@ -3746,10 +3758,15 @@ function act({ event: e, sound, wifi, system }) {
       //   Win = major, alt = minor, Win+alt = sus2; control alters the
       //   shape — major's fifth up (aug), minor's down (dim), sus2 → sus4.
       //   No modifier = single note.
-      const chordIvls = !(metaHeld || altHeld || ctrlHeld) ? null
-                      : metaHeld && altHeld ? (ctrlHeld ? [0, 5, 7] : [0, 2, 7])
-                      : ctrlHeld ? (altHeld ? [0, 3, 6] : [0, 4, 8])
-                      : altHeld ? [0, 3, 7]
+      // On an Apple keyboard ⌘/⌥ only reach their own side's grid
+      // (offset >= 1 is the right grid); control reaches both.
+      const hand = offset >= 1 ? 2 : 1;
+      const metaOn = appleKeys ? (metaSides & hand) !== 0 : metaHeld;
+      const altOn = appleKeys ? (altSides & hand) !== 0 : altHeld;
+      const chordIvls = !(metaOn || altOn || ctrlHeld) ? null
+                      : metaOn && altOn ? (ctrlHeld ? [0, 5, 7] : [0, 2, 7])
+                      : ctrlHeld ? (altOn ? [0, 3, 6] : [0, 4, 8])
+                      : altOn ? [0, 3, 7]
                       : [0, 4, 7];
       if (metaHeld) metaChorded = true;
       // Linger intent captured at press time (shift may release first).

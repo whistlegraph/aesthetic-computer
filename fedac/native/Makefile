@@ -116,6 +116,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/camera.c \
         $(SRCDIR)/pty.c \
         $(SRCDIR)/machines.c \
+        $(SRCDIR)/machine-keys.c \
         $(SRCDIR)/lanserv.c \
         $(SRCDIR)/swank-bridge.c \
         $(SRCDIR)/js-bindings.c \

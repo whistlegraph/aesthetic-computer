@@ -36,6 +36,7 @@
 #include "tts.h"
 #include "js-bindings.h"
 #include "machines.h"
+#include "machine-keys.h"
 #include "lanserv.h"
 #include "recorder.h"
 #include "camera.h"
@@ -3994,50 +3995,12 @@ int main(int argc, char *argv[]) {
     ACSecondaryDisplay *hdmi = NULL;
     char bl_path[128] = "";
     int bl_max = 0;
-    // The MiniBook X keeps media keys behind Fn (F2 mute, F3/F4 volume) and
-    // its Fn+F6/F7 brightness never reaches the OS, so plain F-keys do both
-    // there instead of the generic F1–F3 / F5–F6 fallback, and stop at the
-    // OS so notepat's DJ keys on the same F-keys don't fire too. Full row
-    // in docs/machines/minibook-x.md.
-    int minibook_keys = 0;
-    {
-        char product[64] = "";
-        FILE *f = fopen("/sys/class/dmi/id/product_name", "r");
-        if (f) {
-            if (fgets(product, sizeof(product), f)) product[strcspn(product, "\n")] = 0;
-            fclose(f);
-        }
-        minibook_keys = strcmp(product, "MiniBook X") == 0;
-        if (minibook_keys)
-            ac_log("[machine] MiniBook X: F2 mute, F3/F4 volume, F6/F7 brightness (no Fn)\n");
-    }
-    // Apple Silicon Macs (the MacBook Neo): the built-in keyboard's top row
-    // reaches us as plain F-keys in Apple's printed order — F1/F2 brightness,
-    // F10 mute, F11/F12 volume. No DMI there, so read the device tree.
-    int apple_keys = 0;
-    if (!minibook_keys) {
-        char compat[256] = "";
-        FILE *f = fopen("/sys/firmware/devicetree/base/compatible", "r");
-        if (f) {
-            size_t n = fread(compat, 1, sizeof(compat) - 1, f);
-            fclose(f);
-            for (size_t k = 0; k < n; k++) if (!compat[k]) compat[k] = ' ';
-            compat[n] = 0;
-        }
-        apple_keys = strstr(compat, "apple,") != NULL;
-        if (apple_keys)
-            ac_log("[machine] Apple Silicon: F1/F2 brightness, F10 mute, F11/F12 volume\n");
-    }
-    // Top-row names per layout; the generic fallback is F1 mute, F2/F3
-    // volume, F5/F6 brightness.
-    const char *key_mute   = minibook_keys ? "f2" : apple_keys ? "f10" : "f1";
-    const char *key_voldn  = minibook_keys ? "f3" : apple_keys ? "f11" : "f2";
-    const char *key_volup  = minibook_keys ? "f4" : apple_keys ? "f12" : "f3";
-    const char *key_brdn   = minibook_keys ? "f6" : apple_keys ? "f1"  : "f5";
-    const char *key_brup   = minibook_keys ? "f7" : apple_keys ? "f2"  : "f6";
-    // Machine-specific rows stop at the OS so notepat's DJ keys on the same
-    // F-keys don't fire too.
-    const int consume_row_keys = minibook_keys || apple_keys;
+    // The built-in keyboard's top row (mute / volume / brightness F-keys)
+    // comes from the per-machine table in machine-keys.c.
+    const MachineKeys *mk = machine_keys();
+    const char *key_mute = mk->mute, *key_voldn = mk->voldn, *key_volup = mk->volup;
+    const char *key_brdn = mk->brdn, *key_brup = mk->brup;
+    const int consume_row_keys = mk->consume_row;
 
 #ifdef USE_WAYLAND
     if (is_wayland) {

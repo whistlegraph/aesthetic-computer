@@ -23,6 +23,7 @@
 #include "qrcodegen.h"
 #include <alsa/asoundlib.h>
 #include "machines.h"
+#include "machine-keys.h"
 #ifdef HAVE_RAYLIB
 #include "raylib-soft.h"
 #endif
@@ -2202,6 +2203,14 @@ static JSValue make_event_object(JSContext *ctx, ACEvent *ev) {
     JS_SetPropertyStr(ctx, obj, "repeat", JS_NewBool(ctx, ev->repeat));
     JS_SetPropertyStr(ctx, obj, "key", JS_NewString(ctx, ev->key_name));
     JS_SetPropertyStr(ctx, obj, "code", JS_NewString(ctx, ev->key_name));
+    // Which side a modifier sits on, as KeyboardEvent.location: 1 left, 2
+    // right, 0 otherwise. The name stays "shift"/"control"/"alt"/"meta".
+    int location = 0;
+    switch (ev->key_code) {
+        case KEY_LEFTSHIFT: case KEY_LEFTCTRL: case KEY_LEFTALT: case KEY_LEFTMETA: location = 1; break;
+        case KEY_RIGHTSHIFT: case KEY_RIGHTCTRL: case KEY_RIGHTALT: case KEY_RIGHTMETA: location = 2; break;
+    }
+    JS_SetPropertyStr(ctx, obj, "location", JS_NewInt32(ctx, location));
     // Velocity: 0-127 from analog pressure (0.0-1.0), default 127 for digital keys
     int velocity = ev->pressure > 0.001f ? (int)(ev->pressure * 127.0f) : 127;
     if (velocity < 1 && ev->type == AC_EVENT_KEYBOARD_DOWN) velocity = 1;
@@ -7154,11 +7163,10 @@ static JSValue build_system_diagnostics(JSContext *ctx) {
         JSValue hw = JS_NewObject(ctx);
         char hbuf[256];
 
-        // Product name: /sys/class/dmi/id/product_name
-        if (read_sysfs("/sys/class/dmi/id/product_name", hbuf, sizeof(hbuf)) > 0)
-            JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, hbuf));
-        else
-            JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, "unknown"));
+        // Model: DMI product_name, or the devicetree model on Apple Silicon
+        JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, machine_model()));
+        // Which built-in keyboard row: "generic" | "minibook" | "apple"
+        JS_SetPropertyStr(ctx, hw, "keyboard", JS_NewString(ctx, machine_keys()->name));
 
         // Vendor: /sys/class/dmi/id/sys_vendor
         if (read_sysfs("/sys/class/dmi/id/sys_vendor", hbuf, sizeof(hbuf)) > 0)
