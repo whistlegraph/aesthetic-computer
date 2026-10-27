@@ -1078,6 +1078,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.dropTapeOnDesktop()
                 }
                 if recordingNow { self.tapeDroppedThisTake = false }
+#if !MAC_APP_STORE
+                // Record mode ends with the take, however the tape stopped
+                // (90 s cap, ⌘⌃⌥R, the popover). Only Escape cleared it
+                // before, so any other stop left the keys red and ⌘⌘ dead.
+                if self.tapeWasRecording && !recordingNow && self.recordModeActive {
+                    NSLog("MenuBand: tape stopped outside Escape — leaving record mode")
+                    self.recordModeActive = false
+                    self.updateIcon()
+                }
+#endif
                 if self.tapeWasRecording && !recordingNow
                     && self.menuBand.tape.hasRecording {
                     self.prewarmTapeMP3()
@@ -3285,7 +3295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if keyCode == 53 /* Escape */ {
                     // Escape cancels a count-in, or dumps a rolling take.
                     if !self.countInWork.isEmpty { self.cancelCountIn(); return }
-                    if self.menuBand.isTapeRecording {
+                    if self.menuBand.isTapeRecording || self.recordModeActive {
                         self.stopRecordingAndSave()
                         return
                     }
