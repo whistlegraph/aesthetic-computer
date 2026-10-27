@@ -147,16 +147,34 @@ export class ClaudeServer extends EventEmitter {
 
   async startTurn(text, {images=[]}={}) {
     if (!this.child) throw new Error("thread is not ready");
-    this.turnId = `turn-${++this.turns}`;
-    const turn = { id: this.turnId, status: "inProgress", items: [] };
+    this.#sendUser(text, images);
+    return { turn: this.#openTurn() };
+  }
+
+  // A message typed while the model works goes straight down the pipe: the
+  // CLI folds it into the running turn at the next tool boundary, which is
+  // how people talk to Claude Code. If the turn ends before the CLI reads it,
+  // the CLI answers it as a turn of its own, and #streamEvent opens one for it.
+  async steer(text, {images=[]}={}) {
+    if (!this.child || !this.turnId) return false;
+    this.#sendUser(text, images);
+    return true;
+  }
+
+  #sendUser(text, images) {
     this.#send({
       type: "user",
       message: { role: "user", content: [{ type: "text", text },...images.map(image=>({type:"image",source:{type:"base64",media_type:image.mimeType,data:image.data}}))] },
       parent_tool_use_id: null,
       session_id: this.threadId,
     });
+  }
+
+  #openTurn() {
+    this.turnId = `turn-${++this.turns}`;
+    const turn = { id: this.turnId, status: "inProgress", items: [] };
     this.emit("notification", { method: "turn/started", params: { turn } });
-    return { turn };
+    return turn;
   }
 
   async interrupt() {
@@ -178,7 +196,9 @@ export class ClaudeServer extends EventEmitter {
     this.approvals.delete(id);
     const decision = result?.decision || "decline";
     let response;
-    if (decision === "accept" || decision === "acceptForSession") {
+    if (decision === "answer") {
+      response = { behavior: "allow", updatedInput: { ...approval.input, answers: result.answers || {} } };
+    } else if (decision === "accept" || decision === "acceptForSession") {
       response = { behavior: "allow", updatedInput: approval.input };
       if (decision === "acceptForSession") {
         response.updatedPermissions = this.#sessionRules(approval);
@@ -441,6 +461,10 @@ export class ClaudeServer extends EventEmitter {
   }
 
   #streamEvent(event) {
+    // The model speaking with no turn open is the CLI starting one itself — a
+    // message that arrived after the last turn closed, or a background task
+    // reporting back. Give it a turn so the interface shows it.
+    if (event.type === "message_start" && !this.turnId && !this.closed) this.#openTurn();
     if (event.type === "message_start") {
       this.messageId = event.message?.id || `message-${Date.now()}`;
       this.textItems.clear();
@@ -559,6 +583,16 @@ export class ClaudeServer extends EventEmitter {
       input: request.input,
       suggestions: request.permission_suggestions || [],
     });
+    // A question is answered, not approved: the interface asks it at the
+    // prompt and the answers ride back in the tool's input.
+    if (request.tool_name === "AskUserQuestion") {
+      this.emit("request", {
+        id,
+        method: "item/tool/askUserQuestion",
+        params: { questions: request.input?.questions || [] },
+      });
+      return;
+    }
     const field = FILE_TOOLS.get(request.tool_name);
     if (field) {
       this.emit("request", {

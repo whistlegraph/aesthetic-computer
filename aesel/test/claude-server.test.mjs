@@ -290,3 +290,49 @@ test("passthrough keeps the approval contract and drops the isolation", async (t
   for (const tool of ["WebFetch", "WebSearch", "Task"]) assert.ok(!argv.includes(tool));
   cleanup();
 });
+
+test("AskUserQuestion is asked as a question and answered through the tool input", async (t) => {
+  const { root, cleanup } = scratch();
+  const answerFile = path.join(root, "answer.json");
+  const engine = bridge(t, { environment: { FAKE_CLAUDE_ASK: answerFile } });
+  const requests = [];
+  const completed = new Promise((resolve) => {
+    engine.on("notification", ({ method, params }) => { if (method === "turn/completed") resolve(params.turn.status); });
+  });
+  engine.on("request", (request) => {
+    requests.push(request);
+    engine.respond(request.id, { decision: "answer", answers: { "Which color?": "Blue" } });
+  });
+  await engine.connect();
+  await engine.startTurn("ask me");
+  assert.equal(await completed, "completed");
+  assert.equal(requests[0].method, "item/tool/askUserQuestion");
+  assert.equal(requests[0].params.questions[0].question, "Which color?");
+  const response = JSON.parse(readFileSync(answerFile, "utf8"));
+  assert.equal(response.behavior, "allow");
+  assert.deepEqual(response.updatedInput.answers, { "Which color?": "Blue" });
+  assert.equal(response.updatedInput.questions[0].header, "Color");
+  cleanup();
+});
+
+test("a message steered after the turn closed opens a turn of its own", async (t) => {
+  const engine = bridge(t, { environment: { FAKE_CLAUDE_ECHO: "1" } });
+  const started = [], completed = [], text = [];
+  const second = new Promise((resolve) => {
+    engine.on("notification", ({ method, params }) => {
+      if (method === "turn/started") started.push(params.turn.id);
+      if (method === "item/agentMessage/delta") text.push(params.delta);
+      if (method === "turn/completed") { completed.push(params.turn.id); if (completed.length === 2) resolve(); }
+    });
+  });
+  await engine.connect();
+  await engine.startTurn("one");
+  // Steering only works while a turn is open; the first reply may race it.
+  assert.equal(typeof engine.steer, "function");
+  const steered = await engine.steer("two");
+  if (!steered) await engine.startTurn("two");
+  await second;
+  assert.equal(started.length, 2);
+  assert.deepEqual(completed, started);
+  assert.deepEqual(text, ["re:one", "re:two"]);
+});

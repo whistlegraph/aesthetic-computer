@@ -103,3 +103,23 @@ test("a bridge exit fails waiters once and subsequent writes fail immediately", 
   await assert.rejects(engine.request('test/silent',{}),/not writable/);
   assert.equal(fatals,1);assert.equal(engine.pending.size,0);
 });
+
+test("a message typed mid-turn steers the running Codex turn", async (t) => {
+  const engine = new AppServer({cwd:directory,command:process.execPath,args:[path.join(directory,"fake-app-server.mjs")]});
+  t.after(() => engine.close());
+  const deltas = [];
+  let approval;
+  const asked = new Promise((resolve) => engine.on("request", (message) => { approval = message; resolve(); }));
+  const completed = new Promise((resolve) => engine.on("notification", (message) => {
+    if (message.method === "item/agentMessage/delta") deltas.push(message.params.delta);
+    if (message.method === "turn/completed") resolve();
+  }));
+  await engine.connect();
+  assert.equal(await engine.steer("too early"), false, "nothing to steer before a turn");
+  await engine.startTurn("run the tests");
+  await asked;
+  assert.equal(await engine.steer("also lint"), true);
+  engine.respond(approval.id, { decision: "accept" });
+  await completed;
+  assert.deepEqual(deltas, ["heard:also lint ", "Tests pass."]);
+});

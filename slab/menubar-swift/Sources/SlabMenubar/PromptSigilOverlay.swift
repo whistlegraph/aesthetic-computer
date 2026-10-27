@@ -2217,7 +2217,7 @@ final class PromptSigilOverlayController {
     private init() {}
 
     private var overlays: [String: PromptSigilOverlay] = [:]
-    private let aeselHandles = AeselHandleOverlays()
+    private let aeselPalette = AeselPagePalette()
     private var timer: Timer?
     /// tty (bare) → CGWindowID of its terminal window.
     private var binding: [String: Int] = [:]
@@ -2232,7 +2232,7 @@ final class PromptSigilOverlayController {
     var promptWindowIDs: Set<Int> { Set(binding.values) }
     func terminalWindowID(tty: String) -> Int? { binding[(tty as NSString).lastPathComponent] }
     func setAeselPageColor(sessionId: String, color: NSColor) {
-        aeselHandles.setBackground(sessionId: sessionId, color: color)
+        aeselPalette.setBackground(sessionId: sessionId, color: color)
     }
     var promptParticleTargets: [PromptParticleTarget] {
         particleColors.compactMap { tty, color in
@@ -3070,7 +3070,7 @@ final class PromptSigilOverlayController {
         installObservedObserverIfNeeded()
 
         let live = sessions.filter { (!$0.tty.isEmpty || $0.isDesktopEasel) && $0.remoteHost.isEmpty }
-        aeselHandles.sync(live)
+        aeselPalette.sync(live)
         desktopSessions = Dictionary(uniqueKeysWithValues: live.filter(\.isDesktopEasel).map { ($0.overlayBindingKey, $0) })
         pieceStripSessions = Dictionary(live.filter(\.usesAeselStrip).map { ($0.overlayBindingKey, $0) },
                                         uniquingKeysWith: { first, _ in first })
@@ -3288,7 +3288,6 @@ final class PromptSigilOverlayController {
     }
 
     private func teardown() {
-        aeselHandles.close()
         keyboardFocus.end(animated: false)
         timer?.invalidate(); timer = nil
         for (_, ov) in overlays { ov.close() }
@@ -3447,8 +3446,6 @@ final class PromptSigilOverlayController {
         let snap = snapshotWindows()
         lastStack = snap.stack        // the hover hit-test reads this between ticks
         let screenH = NSScreen.main?.frame.height ?? 0
-        aeselHandles.update(bindings: binding, windows: snap.terminals, stack: snap.stack,
-                            screenHeight: screenH, eco: performanceEco)
         var seen: [Int: (CGFloat, CGFloat, CGFloat, CGFloat)] = [:]
         func ownedBy(_ terminal: Int, at points: [CGPoint]) -> Bool {
             points.allSatisfy { point in

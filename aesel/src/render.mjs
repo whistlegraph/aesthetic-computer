@@ -514,7 +514,7 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
 function statusTone(status) {
   if (status === "ready") return "status";
   if (status === "working" || status === "interrupting" || status === "starting") return "prompt";
-  if (status === "approval") return "highlight";
+  if (status === "approval" || status === "question") return "highlight";
   if (status === "failed" || status === "offline") return "error";
   return "soft";
 }
@@ -790,7 +790,6 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
   const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "media", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
-  state.handleGeometry = null;
   const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
@@ -1331,14 +1330,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
     if (name === "activity" && state.busy && !state.recoveryNotice && !state.connectionNotice) {
       fact = paintedMascot(state, useColor) + statusFact(name, text.slice(MASCOT_ROW_WIDTH), state, useColor);
     } else if (name === "handle" && text.startsWith("@")) {
-      const geometry = position && useColor ? {text:account, column:x, row:position.row,
-        columns:width, rows:position.rows, width:textWidth(account),
-        colors:state.handleColors || handleCharacterColors(account)} : null;
-      if (geometry) state.handleGeometry = geometry;
-      const native = geometry && state.slabHandle && JSON.stringify(geometry) === JSON.stringify(state.slabHandle);
-      // Conceal keeps the characters available to Accessibility and copying;
-      // Slab locates their exact cell bounds before acknowledging the slot.
-      fact = (native ? `\x1b[8m${account}\x1b[28m` : coloredHandle(account, breathingHandle(account, state), useColor))
+      fact = coloredHandle(account, breathingHandle(account, state), useColor)
         + (route ? paint(useColor, "highlight", route) : "")
         + (version ? paint(useColor, "muted", version) : "");
     } else {

@@ -77,6 +77,37 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     return;
   }
 
+  // A question, answered through the tool's input rather than approved.
+  if (message.type === "user" && process.env.FAKE_CLAUDE_ASK) {
+    send({
+      type: "control_request",
+      request_id: "ask-1",
+      request: {
+        subtype: "can_use_tool",
+        tool_name: "AskUserQuestion",
+        input: { questions: [{ question: "Which color?", header: "Color", multiSelect: false, options: [{ label: "Red", description: "warm" }, { label: "Blue" }] }] },
+        tool_use_id: "toolu_ask",
+      },
+    });
+    return;
+  }
+  if (message.type === "control_response" && message.response?.request_id === "ask-1") {
+    writeFileSync(process.env.FAKE_CLAUDE_ASK, JSON.stringify(message.response.response));
+    send({ type: "result", subtype: "success", result: "ok", usage: {}, modelUsage: {} });
+    return;
+  }
+
+  // Every message is its own short reply: a second one written after the
+  // first turn closed comes back as a turn nobody started.
+  if (message.type === "user" && process.env.FAKE_CLAUDE_ECHO) {
+    const text = message.message.content[0].text;
+    send({ type: "stream_event", event: { type: "message_start", message: { id: `msg_${text}` } } });
+    send({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } } });
+    send({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: `re:${text}` } } });
+    send({ type: "result", subtype: "success", result: `re:${text}`, usage: {}, modelUsage: {} });
+    return;
+  }
+
   if (message.type === "user") {
     send({ type: "stream_event", event: { type: "message_start", message: { id: "msg_1" } } });
     send({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } } });

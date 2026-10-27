@@ -158,6 +158,17 @@ export class AppServer extends EventEmitter {
     return result;
   }
 
+  // A message typed while Codex works joins the running turn.
+  async steer(text, {images=[]}={}) {
+    if (!this.threadId || !this.turnId) return false;
+    await this.request("turn/steer", {
+      threadId: this.threadId,
+      expectedTurnId: this.turnId,
+      input: [{ type: "text", text },...images.map(image=>({type:"image",url:`data:${image.mimeType};base64,${image.data}`}))],
+    });
+    return true;
+  }
+
   async interrupt() {
     if (!this.threadId || !this.turnId) return;
     await this.request("turn/interrupt", {
