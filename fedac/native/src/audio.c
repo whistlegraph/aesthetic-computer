@@ -27,6 +27,9 @@ static int read_system_volume_card(int card);
 // config.json "volume" (percent) — set before audio_init by ac-native so the
 // baseline software gain is per-stick, not per-build. -1 = not set.
 static int default_system_volume_override = -1;
+// Ceiling for software-gain volume keys: 400% for quiet SOF speakers, 100%
+// on cards whose own gain control does the work (the MacBook Neo).
+static int software_volume_max = 400;
 
 // qsort comparator for AC_LATENCY_BENCH percentile computation.
 static int bench_cmp_long(const void *a, const void *b) {
@@ -3574,10 +3577,19 @@ ACAudio *audio_init(void) {
             fclose(cf);
         }
         if (strstr(cid, "glkda7219") || strstr(cid, "bxtda7219")) sof_default = 80;
+        // The MacBook Neo's card has no Master either, but its "Speaker"
+        // control is the real (kernel-locked, -20 dB) gain. Any software
+        // boost goes straight into soft_clip: 180% crunched every chord and
+        // the keys could push to 400%. Unity, and the keys stop there.
+        if (strcmp(cid, "AppleJ700") == 0) {
+            sof_default = 100;
+            software_volume_max = 100;
+        }
         if (cid[0]) fprintf(stderr, "[audio] Card id: %s (SOF baseline %d%%)\n", cid, sof_default);
     }
     if (default_system_volume_override >= 0) {
-        audio->system_volume = default_system_volume_override;
+        audio->system_volume = default_system_volume_override > software_volume_max
+                                   ? software_volume_max : default_system_volume_override;
         fprintf(stderr, "[audio] System volume: %d%% (config.json volume; hw=%d)\n",
                 audio->system_volume, hw_vol);
     } else {
@@ -4096,7 +4108,7 @@ void audio_set_default_system_volume(int pct) {
 void audio_set_system_volume(ACAudio *audio, int pct) {
     if (!audio) return;
     if (pct < 0) pct = 0;
-    if (pct > 400) pct = 400;
+    if (pct > software_volume_max) pct = software_volume_max;
     audio->system_volume = pct;
     ac_log("[audio] System volume set to %d%%\n", pct);
 }
@@ -4786,7 +4798,7 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
             int sv = audio->system_volume;
             if (sv < 0) sv = 150;
             int step = 10;
-            if (delta > 0) sv = (sv + step > 400) ? 400 : sv + step;
+            if (delta > 0) sv = (sv + step > software_volume_max) ? software_volume_max : sv + step;
             else if (delta < 0) sv = (sv - step < 0) ? 0 : sv - step;
             audio->system_volume = sv;
             ac_log("[audio] Software volume: %d%%\n", sv);
