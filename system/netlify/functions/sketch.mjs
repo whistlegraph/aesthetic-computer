@@ -1,6 +1,6 @@
 // Sketch, 2026.10.26
 // A word the prompt didn't know becomes a small KidLisp drawing of it.
-// GET ?word=snake → { code } (a stored $code), { near: "slug" } when the word
+// GET ?word=snake → { code, source } (a stored $code and its KidLisp), { near: "slug" } when the word
 // is a typo of a real piece (let the help character answer), or { skip: true }.
 // One generation per word, ever: results (skips included) are cached in Mongo.
 
@@ -89,6 +89,7 @@ Rules:
 - Reply with the program only: no prose, no code fences, at most 30 lines.
 - Draw the thing the word names, recognisably, and make something move.
 - Use only drawing, colour, math, timing and motion. No sound, images, text, links or other pieces.
+- It must run smoothly on a slow single-core computer with no GPU: use at most one of spin, scroll or zoom, never blur or contrast, and keep it under about 30 shapes a frame.
 - If the word isn't something you can draw (a function word, a name, a question, gibberish), reply exactly: SKIP`;
 
 const DENY = new Set(("hop jump embed paste stamp painting steal putback source cache mic amplitude speaker " +
@@ -150,19 +151,26 @@ export async function handler(event) {
     const sketches = database.db.collection(COLLECTION);
     // Only a drawing or the model's own SKIP is final; a rejected or failed
     // attempt may try again later, inside the throttles.
+    // The source rides along so AC OS, which can't fetch $codes, needs one call.
     const cached = await sketches.findOne({ word });
-    if (cached?.code) return respond(200, { code: cached.code });
+    if (cached?.code) {
+      const source =
+        cached.source ||
+        (await database.db.collection("kidlisp").findOne({ code: cached.code }, { projection: { source: 1 } }))?.source;
+      return respond(200, { code: cached.code, source });
+    }
     if (cached?.skip) return respond(200, { skip: true });
 
-    const source =
+    const from =
       event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || event.headers?.["client-ip"] || "unknown";
-    if (throttled(source)) return respond(200, { skip: true });
+    if (throttled(from)) return respond(200, { skip: true });
     hourCount += 1;
 
     const { program, skip } = await draw(word);
     let code = null;
+    const source = `; ${word}\n${program}`;
     if (program && safe(program)) {
-      const stored = await storeKidlisp({ httpMethod: "POST", headers: {}, body: JSON.stringify({ source: `; ${word}\n${program}` }) });
+      const stored = await storeKidlisp({ httpMethod: "POST", headers: {}, body: JSON.stringify({ source }) });
       const body = typeof stored.body === "string" ? JSON.parse(stored.body) : stored.body;
       code = body?.code || null;
     } else if (program) console.warn(`✏️ sketch rejected for "${word}" (${program.length} chars)`);
@@ -170,9 +178,10 @@ export async function handler(event) {
       try {
         await sketches.createIndex({ word: 1 }, { unique: true });
       } catch {}
-      await sketches.updateOne({ word }, { $set: code ? { word, code, at: new Date() } : { word, skip: true, at: new Date() } }, { upsert: true });
+      const doc = code ? { word, code, source, at: new Date() } : { word, skip: true, at: new Date() };
+      await sketches.updateOne({ word }, { $set: doc }, { upsert: true });
     }
-    return respond(200, code ? { code } : { skip: true });
+    return respond(200, code ? { code, source } : { skip: true });
   } catch (err) {
     console.error("✏️ sketch failed:", err.message);
     return respond(200, { skip: true });
