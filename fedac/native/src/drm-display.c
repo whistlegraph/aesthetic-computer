@@ -796,6 +796,8 @@ static uint32_t frame_border_color(ACFramebuffer *s) {
     int luma = (cr * 3 + cg * 6 + cb) / 10;
     if (luma > 128) { cr = cr * 86 / 100; cg = cg * 86 / 100; cb = cb * 86 / 100; }
     else { cr += (255 - cr) * 12 / 100; cg += (255 - cg) * 12 / 100; cb += (255 - cb) * 12 / 100; }
+    extern int fb_dim;  // software brightness dims the border with the frame
+    if (fb_dim < 256) { cr = cr * fb_dim >> 8; cg = cg * fb_dim >> 8; cb = cb * fb_dim >> 8; }
     return 0xFF000000u | (uint32_t)cr << 16 | (uint32_t)cg << 8 | (uint32_t)cb;
 }
 

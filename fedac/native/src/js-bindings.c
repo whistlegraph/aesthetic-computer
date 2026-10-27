@@ -4172,7 +4172,9 @@ static JSValue build_ws_obj(JSContext *ctx, const char *phase) {
     return ws_obj;
 }
 
-// system.fetch(url) — async HTTP GET via curl, result polled via system.fetchResult
+// system.fetch(url[, {stream: true}]) — async HTTP GET via curl, result polled
+// via system.fetchResult. With stream, curl writes unbuffered and may run up to
+// 90 s, and system.fetchPartial carries the body received so far.
 static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) return JS_UNDEFINED;
@@ -4180,18 +4182,25 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (current_rt->fetch_pending) return JS_FALSE;
     const char *url = JS_ToCString(ctx, argv[0]);
     if (!url) return JS_UNDEFINED;
+    int stream = 0;
+    if (argc > 1 && JS_IsObject(argv[1])) {
+        JSValue v = JS_GetPropertyStr(ctx, argv[1], "stream");
+        stream = JS_ToBool(ctx, v);
+        JS_FreeValue(ctx, v);
+    }
     unlink("/tmp/ac_fetch.json");
     unlink("/tmp/ac_fetch_rc");
     unlink("/tmp/ac_fetch_err");
     char cmd[2048];
-    ac_log("[fetch] start: %s\n", url);
+    ac_log("[fetch] start: %s%s\n", url, stream ? " (stream)" : "");
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -fsSL --retry 2 --retry-delay 1 --connect-timeout 5 --max-time 12 "
+        "sh -c 'curl -fsSL %s --retry 2 --retry-delay 1 --connect-timeout 5 --max-time %d "
         "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "--output /tmp/ac_fetch.json \"%s\" 2>/tmp/ac_fetch_err;"
-        " echo $? > /tmp/ac_fetch_rc' &", url);
+        " echo $? > /tmp/ac_fetch_rc' &", stream ? "-N" : "", stream ? 90 : 12, url);
     system(cmd);
     current_rt->fetch_pending = 1;
+    current_rt->fetch_stream = stream;
     current_rt->fetch_result[0] = 0;
     current_rt->fetch_error[0] = 0;
     JS_FreeCString(ctx, url);
@@ -4329,6 +4338,7 @@ static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, 
             current_rt->fetch_out[0] = 0;
         }
         current_rt->fetch_pending = 0;
+        current_rt->fetch_stream = 0;
         current_rt->fetch_result[0] = 0;
         current_rt->fetch_error[0] = 0;
     }
@@ -7644,6 +7654,14 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "fetchCancel", JS_NewCFunction(ctx, js_fetch_cancel, "fetchCancel", 0));
     JS_SetPropertyStr(ctx, sys, "fetchPending",
                       JS_NewBool(ctx, current_rt ? current_rt->fetch_pending : 0));
+    if (current_rt && current_rt->fetch_pending && current_rt->fetch_stream) {
+        static char partial[8192];
+        int n = 0;
+        FILE *pf = fopen("/tmp/ac_fetch.json", "r");
+        if (pf) { n = (int)fread(partial, 1, sizeof(partial) - 1, pf); fclose(pf); }
+        partial[n] = 0;
+        JS_SetPropertyStr(ctx, sys, "fetchPartial", JS_NewString(ctx, partial));
+    }
     if (current_rt && current_rt->fetch_pending) {
         FILE *rc = fopen("/tmp/ac_fetch_rc", "r");
         if (rc) {
@@ -7697,6 +7715,7 @@ static JSValue build_system_obj(JSContext *ctx) {
                 }
             }
             current_rt->fetch_pending = 0;
+            current_rt->fetch_stream = 0;
         }
     }
     // Deliver fetch result only during paint phase (where JS consumes it)

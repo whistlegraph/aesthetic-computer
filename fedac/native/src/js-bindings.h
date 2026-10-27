@@ -45,6 +45,7 @@ typedef struct {
     char fetch_result[8192];     // JSON response when done, empty otherwise
     char fetch_out[256];         // fetchPost {out}: caller-owned response file, kept on completion
     char fetch_error[256];       // one-shot fetch error string
+    int fetch_stream;            // system.fetch(url, {stream: true}): fetchPartial shows bytes so far
 
     // Binary fetch for OS update (curl -L -o destPath url)
     volatile int   fetch_binary_pending;  // 1 = curl running

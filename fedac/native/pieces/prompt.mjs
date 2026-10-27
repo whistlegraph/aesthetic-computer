@@ -33,8 +33,10 @@ let whistlegraphFetchConsumed = false;
 
 // Sketch on miss: a plain word or two that isn't KidLisp becomes a drawing.
 // aesthetic.computer/api/sketch answers {code, source} (a stored KidLisp
-// sketch of the word), {near} (a typo of a real piece) or {skip}.
-const SKETCH_URL = "https://aesthetic.computer/api/sketch?word=";
+// sketch of the word), {near} (a typo of a real piece) or {skip}. A fresh
+// drawing streams instead (stream=1): its code as plain text, then a
+// \u0000 line carrying that JSON, so the code shows up as it's written.
+const SKETCH_URL = "https://aesthetic.computer/api/sketch?stream=1&word=";
 let sketchPending = null; // { word, cmd } while its fetch is in flight
 let lastWifi = null;      // the API's wifi object, for wifi.connected
 
@@ -732,7 +734,7 @@ function execute(cmd, system) {
 
   // A plain word that isn't KidLisp: ask for a sketch of it while online.
   if (sketchable(lower) && lastWifi?.connected && system?.fetch && !system.fetchPending) {
-    system.fetch(SKETCH_URL + encodeURIComponent(lower));
+    system.fetch(SKETCH_URL + encodeURIComponent(lower), { stream: true });
     sketchPending = { word: lower, cmd };
     message = "sketching " + lower + "...";
     messageFrame = 0;
@@ -861,9 +863,19 @@ function paint({ wipe, ink, box, write, screen, paintCount, system }) {
     }
   }
 
-  // History below input (also syntax highlighted)
+  // History below input (also syntax highlighted); a sketch being drawn
+  // takes its place, its code highlighted line by line as it streams in.
   let hy = y0 + lineH + 4 + completionH;
-  for (let i = 0; i < history.length && hy < H - charH - 6; i++) {
+  const streamed = sketchPending ? String(system?.fetchPartial || "") : "";
+  if (streamed && streamed[0] !== "{") {
+    const lines = streamed.split("\u0000")[0].replace(/\s+$/, "").split("\n");
+    const fit = Math.max(1, Math.floor((H - charH - 6 - hy) / lineH));
+    for (const line of lines.slice(-fit)) {
+      drawHighlighted(line, x0, hy, charW, ink, write, font);
+      hy += lineH;
+    }
+  }
+  for (let i = 0; !streamed && i < history.length && hy < H - charH - 6; i++) {
     // Dim the history entries
     const entry = history[i];
     const lower = entry.toLowerCase();
@@ -887,12 +899,26 @@ function paint({ wipe, ink, box, write, screen, paintCount, system }) {
   }
 }
 
+// A sketch answer: plain JSON, or streamed code then \u0000 + JSON. The
+// result slot holds 8 KB, so a long drawing's JSON tail can arrive cut
+// short; then the code name comes from what's left and the source from
+// the streamed text, which is the same program.
+function sketchResult(body) {
+  const end = body.indexOf("\u0000");
+  if (end < 0) {
+    try { return JSON.parse(body); } catch (_) { return null; }
+  }
+  const tail = body.slice(end + 1);
+  try { return JSON.parse(tail); } catch (_) {}
+  const code = tail.match(/"code":"([0-9A-Za-z]+)"/)?.[1];
+  return code ? { code, source: body.slice(0, end).trim() } : null;
+}
+
 function sim({ system }) {
   if (sketchPending && !system?.fetchPending) {
     const { word, cmd } = sketchPending;
     sketchPending = null;
-    let r = null;
-    try { r = JSON.parse(String(system?.fetchResult || "")); } catch (_) {}
+    const r = sketchResult(String(system?.fetchResult || ""));
     if (r?.source) {
       message = "~> $" + r.code;
       messageFrame = 0;

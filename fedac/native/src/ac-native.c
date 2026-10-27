@@ -5580,6 +5580,32 @@ int main(int argc, char *argv[]) {
                 #undef TS_US
             }
 
+            // Remote brightness: writing 0–100 to /run/brightness (over SSH)
+            // sets it once, then the file is removed so the keys own it
+            // again. Drives the backlight, or the software dim without one.
+            if (main_frame % 30 == 0) {
+                FILE *bf = fopen("/run/brightness", "r");
+                if (bf) {
+                    int pct;
+                    if (fscanf(bf, "%d", &pct) == 1) {
+                        if (pct < 0) pct = 0;
+                        if (pct > 100) pct = 100;
+                        if (bl_path[0] && bl_max > 0) {
+                            char tmp[160];
+                            snprintf(tmp, sizeof(tmp), "%s/brightness", bl_path);
+                            FILE *w = fopen(tmp, "w");
+                            if (w) { fprintf(w, "%d", pct * bl_max / 100 > 0 ? pct * bl_max / 100 : 1); fclose(w); }
+                        } else {
+                            extern int fb_dim;
+                            fb_dim = 24 + (256 - 24) * pct / 100;
+                        }
+                        ac_log("[display] brightness %d%% (remote)\n", pct);
+                    }
+                    fclose(bf);
+                    unlink("/run/brightness");
+                }
+            }
+
             // DRM page flip already syncs to vblank (~16ms). Only use
             // frame_sync for fbdev and fake-vblank (simpledrm) paths to
             // avoid double-wait.

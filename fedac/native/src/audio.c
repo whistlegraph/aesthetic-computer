@@ -2665,9 +2665,12 @@ static void *audio_thread_fn(void *arg) {
         // (about 100 ms late).
         if (suspend_after) {
             int audible = 0;
+            // Above ±8: the DAPM keepalive writes ±8 into every silent
+            // sample, and counting it as sound kept the stream (and the
+            // whir) running forever.
             if (!speaker_silent)
                 for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
-                    if (buffer[j] > 1 || buffer[j] < -1) { audible = 1; break; }
+                    if (buffer[j] > 8 || buffer[j] < -8) { audible = 1; break; }
             if (audible) {
                 suspend_idle = 0;
                 if (spk_suspended) {
