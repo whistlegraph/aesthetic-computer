@@ -66,7 +66,7 @@ KidLisp essentials:
 - Every line runs every frame. \`(wipe color)\` clears; \`(ink color)\` sets the colour: a CSS name, \`rainbow\`, or numbers like \`(ink 255 240 150 90)\` for r g b alpha. Never rgb(), rgba(), hsl() or hex strings.
 - Shapes: \`(circle x y r)\`, \`(box x y w h)\`, \`(line x1 y1 x2 y2)\`, \`(tri x1 y1 x2 y2 x3 y3)\`, \`(plot x y)\`.
 - Screen: \`w\` and \`h\` are width and height; \`frame\` counts frames. Math: \`+ - * / % sin cos min max\`.
-- Infix shorthand inside a token works: \`w/2\`, \`h-20\`, \`(min w h)*0.4\`. It does not chain across a paren in one token: write \`(- w/2 (min w h)*0.3)\`.
+- Infix shorthand inside a token works: \`w/2\`, \`h-20\`, \`(min w h)*0.4\`. Never put an operator right before a paren: \`h-(min w h)*0.1\` and \`(min w h)*(+ a b)\` break the whole program. Write \`(- h (min w h)*0.1)\` and \`(* (min w h) (+ a b))\`.
 - Timing: \`(2s... a b c)\` cycles values every 2 seconds; \`(0.5s expr)\` runs expr every half second. \`(? a b c)\` picks one at random.
 - Motion: \`(spin 1)\` rotates, \`(scroll dx dy)\` shifts, \`(zoom 1.01)\`; these leave trails. \`(repeat 5 i expr...)\` loops with i = 0..4.
 - Size everything from \`(min w h)\` and inline it in every call, so the drawing fits any screen. Never \`def\` a size: def binds once and freezes.
@@ -97,8 +97,11 @@ const DENY = new Set(("hop jump embed paste stamp painting steal putback source 
   "melody overtone tap delay debug log label bake die write").split(" "));
 
 // Generated code runs in visitors' browsers: only drawing, no navigation.
+// It must also parse: an operator against a paren (`h-(min w h)`, `)*(`) or a
+// CSS colour function blanks the whole frame.
 function safe(source) {
   if (source.length > 4000 || /https?:|:\/\/|\$[a-z0-9]/i.test(source)) return false;
+  if (/[\w.)][-+*/]\(|\b(rgba?|hsla?)\(/i.test(source)) return false;
   let depth = 0;
   for (const ch of source) {
     if (ch === "(") depth++;
@@ -208,7 +211,8 @@ export async function handler(event) {
       const source =
         cached.source ||
         (await database.db.collection("kidlisp").findOne({ code: cached.code }, { projection: { source: 1 } }))?.source;
-      return respond(200, { code: cached.code, source });
+      // Older drawings meet today's rules or get drawn again.
+      if (!source || safe(source.replace(/^;.*\n/, ""))) return respond(200, { code: cached.code, source });
     }
     if (cached?.skip) return respond(200, { skip: true });
 
