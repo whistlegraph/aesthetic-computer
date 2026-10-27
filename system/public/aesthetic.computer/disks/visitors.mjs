@@ -95,7 +95,7 @@ function paint({ wipe, ink, line, screen }) {
       break;
     }
     ink(...hue(v.handle)).write(v.handle, { x, y, size: ls });
-    const where = v.piece ? v.piece : "…";
+    const where = v.piece ? `in ${v.piece}` : "· just arrived";
     const tabs = v.tabs > 1 ? ` x${v.tabs}` : "";
     ink(110).write(`${where}${tabs}`, { x: x + 6 * ls * (v.handle.length + 1), y, size: ls });
     y += rowH;
