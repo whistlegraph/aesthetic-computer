@@ -504,6 +504,16 @@ ACDisplay *drm_init(void) {
         free(d);
         return fbdev_init();
     }
+    // simpledrm (the firmware framebuffer, e.g. the MacBook Neo before its
+    // display coprocessor is handed over) completes page flips immediately,
+    // so the flip wait below never paces the loop.
+    drmVersionPtr ver = drmGetVersion(d->fd);
+    if (ver) {
+        ac_log("[drm] driver: %s\n", ver->name);
+        d->fake_vblank = strcmp(ver->name, "simpledrm") == 0;
+        if (d->fake_vblank) ac_log("[drm] no real vblank: pacing frames to 60fps in software\n");
+        drmFreeVersion(ver);
+    }
 
     uint64_t has_dumb;
     if (drmGetCap(d->fd, DRM_CAP_DUMB_BUFFER, &has_dumb) < 0 || !has_dumb) {

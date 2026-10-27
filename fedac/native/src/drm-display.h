@@ -36,6 +36,10 @@ typedef struct {
     // Saved CRTC for cleanup
     drmModeCrtc *saved_crtc;
 
+    // 1 when the DRM driver has no real vblank (simpledrm): page flips
+    // complete at once, so the main loop paces frames itself
+    int fake_vblank;
+
     // fbdev fallback
     int is_fbdev;               // 1 if using /dev/fb0 instead of DRM
     uint32_t *fbdev_map;        // fbdev mmap

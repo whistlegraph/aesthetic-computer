@@ -2388,6 +2388,15 @@ static void frame_sync_60fps(struct timespec *next) {
         next->tv_nsec -= 1000000000;
         next->tv_sec++;
     }
+    // After a long frame, restart the cadence from now rather than racing
+    // through the missed deadlines.
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    long long behind = (now.tv_sec - next->tv_sec) * 1000000000LL + (now.tv_nsec - next->tv_nsec);
+    if (behind > 2 * 16666667LL) {
+        *next = now;
+        return;
+    }
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, next, NULL);
 }
 
@@ -2970,8 +2979,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 
         // Startup chime (C E G C'), handle or not. The spoken greeting — time
         // of day, handle, city, tagline, build name — talked over the start of
-        // every boot; the screen already says all of it.
-        if (audio) {
+        // every boot; the screen already says all of it. AC_NO_BOOT_SOUND
+        // silences it (and the boot beep).
+        if (audio && !getenv("AC_NO_BOOT_SOUND")) {
             if (f == 10)  audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
             if (f == 20)  audio_synth(audio, WAVE_SINE, 659.3, 0.15, 0.6, 0.003, 0.10, 0.0);  // E5
             if (f == 30)  audio_synth(audio, WAVE_SINE, 784.0, 0.15, 0.6, 0.003, 0.10, 0.3);  // G5
@@ -4001,6 +4011,33 @@ int main(int argc, char *argv[]) {
         if (minibook_keys)
             ac_log("[machine] MiniBook X: F2 mute, F3/F4 volume, F6/F7 brightness (no Fn)\n");
     }
+    // Apple Silicon Macs (the MacBook Neo): the built-in keyboard's top row
+    // reaches us as plain F-keys in Apple's printed order — F1/F2 brightness,
+    // F10 mute, F11/F12 volume. No DMI there, so read the device tree.
+    int apple_keys = 0;
+    if (!minibook_keys) {
+        char compat[256] = "";
+        FILE *f = fopen("/sys/firmware/devicetree/base/compatible", "r");
+        if (f) {
+            size_t n = fread(compat, 1, sizeof(compat) - 1, f);
+            fclose(f);
+            for (size_t k = 0; k < n; k++) if (!compat[k]) compat[k] = ' ';
+            compat[n] = 0;
+        }
+        apple_keys = strstr(compat, "apple,") != NULL;
+        if (apple_keys)
+            ac_log("[machine] Apple Silicon: F1/F2 brightness, F10 mute, F11/F12 volume\n");
+    }
+    // Top-row names per layout; the generic fallback is F1 mute, F2/F3
+    // volume, F5/F6 brightness.
+    const char *key_mute   = minibook_keys ? "f2" : apple_keys ? "f10" : "f1";
+    const char *key_voldn  = minibook_keys ? "f3" : apple_keys ? "f11" : "f2";
+    const char *key_volup  = minibook_keys ? "f4" : apple_keys ? "f12" : "f3";
+    const char *key_brdn   = minibook_keys ? "f6" : apple_keys ? "f1"  : "f5";
+    const char *key_brup   = minibook_keys ? "f7" : apple_keys ? "f2"  : "f6";
+    // Machine-specific rows stop at the OS so notepat's DJ keys on the same
+    // F-keys don't fire too.
+    const int consume_row_keys = minibook_keys || apple_keys;
 
 #ifdef USE_WAYLAND
     if (is_wayland) {
@@ -4772,7 +4809,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             // Hardware keys
-            static int ctrl_held = 0;
+            static int ctrl_held = 0, meta_held = 0;
             int power_pressed = 0;
             int scale_change = 0;  // -1 = decrease density (bigger pixels), +1 = increase
             // Global escape → prompt fallback. If the current piece doesn't
@@ -4797,51 +4834,53 @@ int main(int argc, char *argv[]) {
                 }
             }
             for (int i = 0; i < input->event_count; i++) {
-                // Track ctrl modifier
+                // Track ctrl and cmd (meta) modifiers
                 if (input->events[i].key_code == KEY_LEFTCTRL || input->events[i].key_code == KEY_RIGHTCTRL) {
                     ctrl_held = (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) ? 1 : 0;
                 }
+                if (input->events[i].key_code == KEY_LEFTMETA || input->events[i].key_code == KEY_RIGHTMETA) {
+                    meta_held = (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) ? 1 : 0;
+                }
                 if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) {
-                    // Ctrl+= (or Ctrl++) → bigger pixels (increase scale number)
-                    // Ctrl+- → smaller pixels (decrease scale number)
-                    if (ctrl_held && (input->events[i].key_code == KEY_EQUAL ||
+                    // Ctrl/Cmd+= (or +) → bigger pixels (increase scale number)
+                    // Ctrl/Cmd+- → smaller pixels (decrease scale number)
+                    const int zoom_held = ctrl_held || meta_held;
+                    if (zoom_held && (input->events[i].key_code == KEY_EQUAL ||
                                       input->events[i].key_code == KEY_KPPLUS)) {
                         scale_change = -1;  // bigger pixels (lower res)
                         input->events[i].type = 0; // suppress from JS
-                    } else if (ctrl_held && (input->events[i].key_code == KEY_MINUS ||
+                    } else if (zoom_held && (input->events[i].key_code == KEY_MINUS ||
                                              input->events[i].key_code == KEY_KPMINUS)) {
                         scale_change = 1;  // smaller pixels (higher res)
                         input->events[i].type = 0; // suppress from JS
-                    } else if (ctrl_held && input->events[i].key_code == KEY_0) {
+                    } else if (zoom_held && input->events[i].key_code == KEY_0) {
                         scale_change = 99;  // reset to default (3)
                         input->events[i].type = 0; // suppress from JS
                     }
-                    // Volume: KEY_VOLUMEUP/DOWN/MUTE, F1/F2/F3 as fallback, or the
-                    // MiniBook's own F2/F3/F4.
+                    // Volume: KEY_VOLUMEUP/DOWN/MUTE, or this machine's top-row
+                    // F-keys (key_volup / key_voldn / key_mute above).
                     else if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
-                        (minibook_keys ? strcmp(input->events[i].key_name, "f4") == 0
-                                       : strcmp(input->events[i].key_name, "f3") == 0)) {
+                             strcmp(input->events[i].key_name, key_volup) == 0) {
                         audio_volume_adjust(audio, 1);
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 1200.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0 ||
-                             (minibook_keys ? strcmp(input->events[i].key_name, "f3") == 0
-                                            : strcmp(input->events[i].key_name, "f2") == 0)) {
+                               strcmp(input->events[i].key_name, key_voldn) == 0) {
                         audio_volume_adjust(audio, -1);
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 800.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiomute") == 0 ||
-                             strcmp(input->events[i].key_name, minibook_keys ? "f2" : "f1") == 0) {
+                               strcmp(input->events[i].key_name, key_mute) == 0) {
                         audio_volume_adjust(audio, 0);
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 440.0, 0.08, 0.15, 0.001, 0.07, 0.0);
-                    // Brightness: KEY_BRIGHTNESS or F5/F6 as fallback
+                    // Brightness: KEY_BRIGHTNESS or this machine's top-row F-keys
                     } else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
                               strcmp(input->events[i].key_name, "brightnessdown") == 0 ||
-                              strcmp(input->events[i].key_name, minibook_keys ? "f7" : "f6") == 0 ||
-                              strcmp(input->events[i].key_name, minibook_keys ? "f6" : "f5") == 0) && bl_path[0]) {
+                              strcmp(input->events[i].key_name, key_brup) == 0 ||
+                              strcmp(input->events[i].key_name, key_brdn) == 0) && bl_path[0]) {
                         int up = (strcmp(input->events[i].key_name, "brightnessup") == 0 ||
-                                  strcmp(input->events[i].key_name, minibook_keys ? "f7" : "f6") == 0);
+                                  strcmp(input->events[i].key_name, key_brup) == 0);
                         char tmp[160];
                         snprintf(tmp, sizeof(tmp), "%s/brightness", bl_path);
                         FILE *f = fopen(tmp, "r");
@@ -4856,7 +4895,7 @@ int main(int argc, char *argv[]) {
                         if (cur > bl_max) cur = bl_max;
                         f = fopen(tmp, "w");
                         if (f) { fprintf(f, "%d", cur); fclose(f); }
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         // Click sound: higher = brighter, lower = dimmer
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
@@ -5535,8 +5574,9 @@ int main(int argc, char *argv[]) {
             }
 
             // DRM page flip already syncs to vblank (~16ms). Only use
-            // frame_sync for fbdev/non-vsync paths to avoid double-wait.
-            if (display && display->is_fbdev)
+            // frame_sync for fbdev and fake-vblank (simpledrm) paths to
+            // avoid double-wait.
+            if (display && (display->is_fbdev || display->fake_vblank))
                 frame_sync_60fps(&frame_time);
         }
     }

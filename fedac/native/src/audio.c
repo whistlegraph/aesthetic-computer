@@ -4796,6 +4796,7 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
 
 void audio_boot_beep(ACAudio *audio) {
     if (!audio || !audio->pcm) return;
+    if (getenv("AC_NO_BOOT_SOUND")) return;  // also silences the startup chime
     // Two-tone "doo-dah" — distinct from old single ping (OTA test marker)
     audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.8, 0.002, 0.08, -0.15);  // E5
     usleep(80000);
