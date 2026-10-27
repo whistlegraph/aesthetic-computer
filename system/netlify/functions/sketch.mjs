@@ -96,7 +96,7 @@ const DENY = new Set(("hop jump embed paste stamp painting steal putback source 
 
 // Generated code runs in visitors' browsers: only drawing, no navigation.
 function safe(source) {
-  if (source.length > 1500 || /https?:|:\/\/|\$[a-z0-9]/i.test(source)) return false;
+  if (source.length > 4000 || /https?:|:\/\/|\$[a-z0-9]/i.test(source)) return false;
   let depth = 0;
   for (const ch of source) {
     if (ch === "(") depth++;
@@ -128,10 +128,10 @@ async function draw(word) {
   });
   if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const msg = await res.json();
-  if (msg.stop_reason === "refusal") return null;
+  if (msg.stop_reason === "refusal") return { skip: true };
   const text = (msg.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
   const source = text.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/, "").trim();
-  return source === "SKIP" || !source ? null : source;
+  return source === "SKIP" || !source ? { skip: true } : { program: source };
 }
 
 export async function handler(event) {
@@ -148,25 +148,30 @@ export async function handler(event) {
   try {
     database = await connect();
     const sketches = database.db.collection(COLLECTION);
+    // Only a drawing or the model's own SKIP is final; a rejected or failed
+    // attempt may try again later, inside the throttles.
     const cached = await sketches.findOne({ word });
-    if (cached) return respond(200, cached.code ? { code: cached.code } : { skip: true });
+    if (cached?.code) return respond(200, { code: cached.code });
+    if (cached?.skip) return respond(200, { skip: true });
 
     const source =
       event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() || event.headers?.["client-ip"] || "unknown";
     if (throttled(source)) return respond(200, { skip: true });
     hourCount += 1;
 
-    const program = await draw(word);
+    const { program, skip } = await draw(word);
     let code = null;
     if (program && safe(program)) {
       const stored = await storeKidlisp({ httpMethod: "POST", headers: {}, body: JSON.stringify({ source: `; ${word}\n${program}` }) });
       const body = typeof stored.body === "string" ? JSON.parse(stored.body) : stored.body;
       code = body?.code || null;
+    } else if (program) console.warn(`✏️ sketch rejected for "${word}" (${program.length} chars)`);
+    if (code || skip) {
+      try {
+        await sketches.createIndex({ word: 1 }, { unique: true });
+      } catch {}
+      await sketches.updateOne({ word }, { $set: code ? { word, code, at: new Date() } : { word, skip: true, at: new Date() } }, { upsert: true });
     }
-    try {
-      await sketches.createIndex({ word: 1 }, { unique: true });
-    } catch {}
-    await sketches.updateOne({ word }, { $setOnInsert: { word, code, at: new Date() } }, { upsert: true });
     return respond(200, code ? { code } : { skip: true });
   } catch (err) {
     console.error("✏️ sketch failed:", err.message);
