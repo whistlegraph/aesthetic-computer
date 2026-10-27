@@ -1797,6 +1797,23 @@ static void *audio_thread_fn(void *arg) {
     if (!buffer || (audio->use_s32 && !buffer32) || !sf2_buf) {
         fprintf(stderr, "[audio] thread: alloc failed\n"); return NULL;
     }
+    // Jack routing (AC_AUDIO_HEADPHONE_DEVICE): silence for whichever PCM
+    // isn't playing, and the card's "Headphone Jack" control to choose.
+    int16_t *silence = calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t));
+    snd_ctl_t *jack_ctl = NULL;
+    snd_ctl_elem_value_t *jack_val = NULL;
+    unsigned int jack_poll_frames = 0;
+    if (audio->jack_routed && silence) {
+        char ctl_name[16];
+        snprintf(ctl_name, sizeof(ctl_name), "hw:%d", audio->card_index);
+        if (snd_ctl_open(&jack_ctl, ctl_name, SND_CTL_NONBLOCK) == 0) {
+            snd_ctl_elem_value_malloc(&jack_val);
+            snd_ctl_elem_value_set_interface(jack_val, SND_CTL_ELEM_IFACE_CARD);
+            snd_ctl_elem_value_set_name(jack_val, "Headphone Jack");
+        } else {
+            jack_ctl = NULL;
+        }
+    }
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
     // Melodic headroom (Menu Band's MelodicHeadroom). Same-pitch voices add
@@ -2463,12 +2480,32 @@ static void *audio_thread_fn(void *arg) {
          * jack-sense in the codec mutes whichever side isn't being
          * driven by the active jack state. */
         snd_pcm_t *pcm2 = (snd_pcm_t *)audio->headphone_pcm;
+        /* Jack-routed (MacBook Neo): read the jack about 4x a second, then
+         * play to exactly one side and keep the other running on silence,
+         * so a plug or unplug switches at the next period. */
+        const int16_t *hp_src = buffer;
+        int speaker_silent = 0;
+        if (pcm2 && jack_ctl) {
+            jack_poll_frames += period_frames;
+            if (jack_poll_frames >= (unsigned int)(rate / 4)) {
+                jack_poll_frames = 0;
+                if (snd_ctl_elem_read(jack_ctl, jack_val) == 0) {
+                    int plugged = snd_ctl_elem_value_get_boolean(jack_val, 0);
+                    if (plugged != audio->jack_plugged)
+                        fprintf(stderr, "[audio] headphones %s: playing to %s\n",
+                                plugged ? "in" : "out", plugged ? "jack" : "speakers");
+                    audio->jack_plugged = plugged;
+                }
+            }
+            if (audio->jack_plugged) speaker_silent = 1;
+            else hp_src = silence;
+        }
         if (pcm2) {
             int rem2 = (int)period_frames;
             int off2 = 0;
             while (rem2 > 0) {
                 int f2 = snd_pcm_writei(pcm2,
-                                         buffer + off2 * AUDIO_CHANNELS,
+                                         hp_src + off2 * AUDIO_CHANNELS,
                                          rem2);
                 if (f2 == -EAGAIN) break; /* don't spin on secondary */
                 if (f2 < 0) {
@@ -2485,10 +2522,11 @@ static void *audio_thread_fn(void *arg) {
          * top portion of the 24-bit window — correct for S24-in-S32
          * bottom-aligned format. (<<16 put data in bits 31:16 which
          * the DSP's 24-bit window barely saw → super quiet.) */
-        const void *write_buf = buffer;
+        const int16_t *main_src = speaker_silent ? silence : buffer;
+        const void *write_buf = main_src;
         if (buffer32) {
             for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
-                buffer32[j] = (int32_t)buffer[j] << audio->s32_shift;
+                buffer32[j] = (int32_t)main_src[j] << audio->s32_shift;
             write_buf = buffer32;
         }
         int remaining = (int)period_frames;
@@ -2496,7 +2534,7 @@ static void *audio_thread_fn(void *arg) {
         while (remaining > 0) {
             const void *wptr = buffer32
                 ? (const void *)(buffer32 + offset * AUDIO_CHANNELS)
-                : (const void *)(buffer + offset * AUDIO_CHANNELS);
+                : (const void *)(main_src + offset * AUDIO_CHANNELS);
             /* mmap_writei skips a buffer copy versus writei; falls
              * through to writei when access wasn't negotiated as
              * MMAP_INTERLEAVED. */
@@ -2575,6 +2613,9 @@ static void *audio_thread_fn(void *arg) {
     free(bench_us);
     free(buffer);
     free(buffer32);
+    free(silence);
+    if (jack_val) snd_ctl_elem_value_free(jack_val);
+    if (jack_ctl) snd_ctl_close(jack_ctl);
     free(sf2_buf);
     return NULL;
 }
@@ -3201,6 +3242,15 @@ ACAudio *audio_init(void) {
                 secondary = ucm_speaker_pcm;
             else
                 secondary = ucm_headphone_pcm; /* legacy fallback opened */
+        }
+        /* AC_AUDIO_HEADPHONE_DEVICE names the jack PCM outright (the
+         * MacBook Neo: speakers hw:1,1, jack plughw:1,0). Nothing mutes
+         * the unused side in hardware there, so the audio thread routes
+         * by the card's "Headphone Jack" control (jack_routed below). */
+        const char *hp_env = getenv("AC_AUDIO_HEADPHONE_DEVICE");
+        if (!secondary && hp_env && hp_env[0]) {
+            secondary = hp_env;
+            audio->jack_routed = 1;
         }
         if (secondary) {
             snd_pcm_t *pcm2 = NULL;
