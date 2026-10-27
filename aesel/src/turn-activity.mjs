@@ -1,4 +1,5 @@
-// The live tool feed is disposable. Only the turn's measured totals stay on the page.
+// The live tool feed is disposable. What stays on the page is the turn's trail
+// (what kinds of work it did, counted) and its measured totals.
 const TOOL_TYPES = new Set(['commandExecution', 'fileChange', 'mcpToolCall', 'dynamicToolCall']);
 export const FEED_LIMIT = 8;
 const number = value => Number.isFinite(value) && value >= 0 ? value : 0;
@@ -25,17 +26,84 @@ export function toolLabel(item) {
 
 export function beginTurnActivity(state, id, thread, now = Date.now()) {
   if (state.spend?.thread !== thread) state.spend = { thread, tokens: 0, usd: 0, billed: false };
-  state.turnActivity = { id, startedAt: now, tools: new Set(), feed: [], tokens: 0, reasoning: 0, metered: false, usd: 0 };
+  state.turnActivity = { id, startedAt: now, tools: new Set(), kinds: new Map(), feed: [], tokens: 0, reasoning: 0, metered: false, usd: 0 };
 }
 
-export function recordToolActivity(state, item, completed = false) {
+const base = path => String(path || '').split('/').filter(Boolean).at(-1) || String(path || '');
+const oneLine = value => String(value || '').replace(/\s+/g, ' ').trim();
+
+// Pro is someone's own work, so the feed names it: the command, the file, the
+// MCP server and tool. Piece mode keeps toolLabel's plain verbs.
+export function toolDetail(item) {
+  const input = item.input || item.arguments || {};
+  if (item.type === 'fileChange') {
+    const files = (item.changes || []).map(change => base(change.path)).filter(Boolean);
+    return files.length ? `editing ${files.slice(0, 3).join(', ')}${files.length > 3 ? ` +${files.length - 3}` : ''}` : 'editing files';
+  }
+  if (item.type === 'commandExecution') {
+    if (typeof input.description === 'string' && input.description.trim()) return oneLine(input.description);
+    const command = oneLine(Array.isArray(item.command) ? item.command.join(' ') : item.command);
+    const wrapped = /^(?:\/bin\/)?(?:ba|z)?sh -l?c (['"]?)(.*)\1$/.exec(command);
+    return `$ ${wrapped ? wrapped[2] : command}`;
+  }
+  if (item.type === 'mcpToolCall' && item.server) return `${item.server} · ${item.tool}`;
+  const [name, detail] = String(item.tool || 'tool').split(' · ');
+  const mcp = /^mcp__(.+?)__(.+)$/.exec(name);
+  if (mcp) return `${mcp[1].replace(/^claude_ai_/, '')} · ${mcp[2]}`;
+  const says = { Read: 'reading', Grep: 'searching', Glob: 'finding', WebFetch: 'fetching', WebSearch: 'searching the web for', Agent: 'agent:', Task: 'agent:', Skill: 'skill' }[name];
+  const what = name === 'Read' ? base(detail) : name === 'WebFetch' ? (detail || '').replace(/^https?:\/\/([^/]+).*/, '$1') : detail;
+  return oneLine(says ? `${says} ${what || ''}` : what ? `${name} · ${what}` : name);
+}
+
+// One word per kind of work, for the trail a finished turn leaves behind.
+function toolKind(item) {
+  if (item.type === 'fileChange') return ['edit', 'edit', 'edits'];
+  if (item.type === 'commandExecution') return ['command', 'command', 'commands'];
+  if (item.type === 'mcpToolCall' && item.server) return [item.server, item.server, item.server];
+  const name = String(item.tool || '').split(' · ')[0];
+  const mcp = /^mcp__(.+?)__/.exec(name);
+  if (mcp) { const server = mcp[1].replace(/^claude_ai_/, ''); return [server, server, server]; }
+  if (name === 'Read') return ['read', 'file read', 'files read'];
+  if (name === 'Grep' || name === 'Glob') return ['search', 'search', 'searches'];
+  if (name === 'Agent' || name === 'Task') return ['agent', 'agent', 'agents'];
+  return [name || 'tool', name || 'tool', name || 'tool'];
+}
+
+export function toolTrail(kinds) {
+  return [...kinds.entries()].sort((a, b) => b[1].count - a[1].count)
+    .map(([, kind]) => kind.one === kind.many ? (kind.count === 1 ? kind.one : `${kind.one} ×${kind.count}`) : `${kind.count} ${kind.count === 1 ? kind.one : kind.many}`)
+    .join(' · ');
+}
+
+// The model's own checklist — Claude's TodoWrite, Codex's turn plan — as one
+// shape: what the step is, and whether it is waiting, under way or done.
+export function planFrom(steps) {
+  if (!Array.isArray(steps)) return null;
+  const plan = steps.map(step => {
+    const status = String(step?.status || 'pending');
+    return {
+      text: oneLine(status === 'in_progress' || status === 'inProgress' ? step.activeForm || step.content || step.step : step.content || step.step),
+      status: status === 'completed' ? 'done' : status === 'in_progress' || status === 'inProgress' ? 'active' : 'pending',
+    };
+  }).filter(step => step.text);
+  return plan.length ? plan : null;
+}
+
+export const isPlanTool = item => item?.type === 'dynamicToolCall' && String(item.tool || '').split(' · ')[0] === 'TodoWrite';
+
+export function recordToolActivity(state, item, completed = false, {detail = false, now = Date.now()} = {}) {
   const turn = state.turnActivity;
-  if (!turn || !item?.id || !TOOL_TYPES.has(item.type)) return;
+  if (!turn || !item?.id || !TOOL_TYPES.has(item.type) || isPlanTool(item)) return;
+  if (!turn.tools.has(item.id)) {
+    const [key, one, many] = toolKind(item);
+    const kind = turn.kinds.get(key) || { one, many, count: 0 };
+    kind.count += 1; turn.kinds.set(key, kind);
+  }
   turn.tools.add(item.id);
   let row = turn.feed.find(row => row.id === item.id);
   // A duplicate start must not bring a completed tool back to life.
   if (row?.status !== 'running' && !completed && row) return;
-  if (!row) { row = { id: item.id, text: toolLabel(item), status: 'running' }; turn.feed.push(row); }
+  if (!row) { row = { id: item.id, text: detail ? toolDetail(item) : toolLabel(item), status: 'running', startedAt: now }; turn.feed.push(row); }
   if (completed) row.status = item.status === 'failed' || item.error || (item.exitCode != null && item.exitCode !== 0) ? 'failed' : 'done';
   if (turn.feed.length > FEED_LIMIT) turn.feed.splice(0, turn.feed.length - FEED_LIMIT);
 }
@@ -89,7 +157,7 @@ export function turnUsageText(turn) {
   const seconds = Math.max(0, Math.round(((turn.finishedAt ?? Date.now()) - turn.startedAt) / 1000));
   const elapsed = seconds >= 60 ? `${Math.floor(seconds / 60)}m ${seconds % 60}s` : `${seconds}s`;
   return [turn.status === 'interrupted' ? 'stopped' : turn.status === 'failed' ? 'failed' : '',
-    `${turn.tools.size} tool${turn.tools.size === 1 ? '' : 's'}`, elapsed,
+    turn.kinds?.size ? toolTrail(turn.kinds) : `${turn.tools.size} tool${turn.tools.size === 1 ? '' : 's'}`, elapsed,
     turn.metered ? `${size(turn.tokens)} tokens` : '',
     turn.reasoning > 0 ? `${size(turn.reasoning)} reasoning tokens` : '',
     turn.usd > 0 ? `$${turn.usd < .01 ? turn.usd.toFixed(4) : turn.usd.toFixed(3)}` : '',

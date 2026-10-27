@@ -514,7 +514,7 @@ test("a reply's markdown is read, not shown, and pro's page is flush left", asyn
   const { markdown } = await import("../src/render.mjs");
   const read = markdown("## Plan\n- **Airtable** needs `auth` first\n- see [docs](https://example.com/x)");
   assert.equal(read.text, "Plan\n• Airtable needs auth first\n• see docs");
-  assert.deepEqual(read.spans.map((s) => [s.tone, read.text.slice(s.start, s.end)]), [["highlight bold", "Plan"], ["bold", "Airtable"], ["soft", "auth"], ["soft", "docs"]]);
+  assert.deepEqual(read.spans.map((s) => [s.tone, read.text.slice(s.start, s.end)]), [["highlight bold", "Plan"], ["muted", "• "], ["bold", "Airtable"], ["soft", "auth"], ["muted", "• "], ["soft", "docs"]]);
   const frame = renderFrame(
     {
       workspace: "/client", mode: "remote", status: "ready", busy: false, input: "", account: "@tester",

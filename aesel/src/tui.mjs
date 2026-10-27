@@ -12,7 +12,7 @@ import {takeSubmittedBatch,inputBatchDelay,trimSubmittedInput} from './input-bat
 import {startNativeGamepad} from './native-gamepad.mjs';
 import {requestFeedback} from './request-feedback.mjs';
 import {publicActivity,observeToolActivity} from './public-activity.mjs';
-import {beginTurnActivity,recordToolActivity,recordTurnUsage,recordCodexUsage,finishTurnActivity} from './turn-activity.mjs';
+import {beginTurnActivity,recordToolActivity,recordTurnUsage,recordCodexUsage,finishTurnActivity,planFrom,isPlanTool} from './turn-activity.mjs';
 import {notebookConversationEntry} from './notebook-conversation.mjs';
 import {connectionFailure,conciseFailure} from './connection-status.mjs';
 import {TurnRecovery,CONTINUE_INTERRUPTED_TURN} from './turn-recovery.mjs';
@@ -1857,9 +1857,10 @@ function handleNotification({ method, params = {} }) {
       if (process.env.AESEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
       state.status = "tool";
       if (params.item?.type === "fileChange") state.status = "writing";
+      if (isPlanTool(params.item)) state.plan = planFrom(params.item.input?.todos);
       const summary = itemSummary(params.item);
       if (summary) {
-        recordToolActivity(state, params.item);
+        recordToolActivity(state, params.item, false, {detail: pro});
         transcript.event("tool_call", { id: params.item.id, name: summary.kind, input: summary.text });
       }
       break;
@@ -1878,7 +1879,7 @@ function handleNotification({ method, params = {} }) {
         } else if (item.status) {
           suffix = ` · ${item.status}`;
         }
-        recordToolActivity(state, item, true);
+        recordToolActivity(state, item, true, {detail: pro});
         transcript.event("tool_result", { id: item.id, name: summary.kind, summary: `${summary.text}${suffix}` });
       }
       break;
@@ -1886,8 +1887,13 @@ function handleNotification({ method, params = {} }) {
     case "item/commandExecution/outputDelta":
       // Raw output remains in the provider's log, outside the conversation.
       break;
+    case "turn/plan/updated":
+      state.plan = planFrom(params.plan);
+      break;
     case "turn/completed": {
       state.question = null;
+      // A finished plan has said what it had to; an unfinished one stays pinned.
+      if (state.plan?.every(step => step.status === 'done')) state.plan = null;
       const completedId=params.turn?.id||engine.turnId;
       if(completedId){completedTurns.add(completedId);if(completedTurns.size>32)completedTurns.delete(completedTurns.values().next().value);}
       turnRecovery.progress();
@@ -2453,7 +2459,7 @@ async function commandNew() {
       accept:async next=>{engine=next;previousEngine.close();},
     });
     state.entries=[];
-    state.input='';state.cursor=0;state.queued=[];state.scrollOffset=0;
+    state.input='';state.cursor=0;state.queued=[];state.scrollOffset=0;state.plan=null;
     slabSession.connected(engine.threadId, backend.id);
     saveDesktopIdle();
   } catch(error) { addEntry('error',errorText(error)); }

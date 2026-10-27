@@ -14,7 +14,7 @@ test('the feed stays bounded, counts parallel tools once, and never stores comma
   assert.equal(state.turnActivity.feed.at(-1).status,'failed');
   assert.doesNotMatch(JSON.stringify(state.turnActivity.feed),/RAW_/);
   const receipt=finishTurnActivity(state,'completed',61000);
-  assert.equal(receipt.text,'30 tools · 1m 1s');
+  assert.equal(receipt.text,'30 commands · 1m 1s');
   assert.equal(state.turnActivity.feed.length,0);
 });
 
@@ -62,7 +62,7 @@ test('missing usage stays absent and a new turn clears old tools and totals', ()
   const state={};beginTurnActivity(state,'a','thread',0);
   recordToolActivity(state,{id:'tool',type:'mcpToolCall',tool:'mcp__ac__ac_symbol',arguments:{code:'RAW_CODE'}});
   assert.equal(state.turnActivity.feed[0].text,'reading source');
-  assert.equal(finishTurnActivity(state,'failed',1000).text,'failed · 1 tool · 1s');
+  assert.equal(finishTurnActivity(state,'failed',1000).text,'failed · ac · 1s');
   beginTurnActivity(state,'b','thread',2000);
   assert.equal(state.turnActivity.tools.size,0);
   assert.equal(state.turnActivity.tokens,0);

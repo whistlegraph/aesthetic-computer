@@ -81,6 +81,14 @@ export function coloredHandle(account,colors,useColor=true,hover=false){
   return (hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${pageInk(rgb[i])}${ch}`).join('')+'\x1b[0m'+color.ground;
 }
 
+// A handle named in a reply, coloured the same way. A wrap can split one: the
+// tail of a split handle takes the tail of its colours.
+function handleInk(handle, value) {
+  const all = handleCharacterColors(handle), chars = Array.from(value);
+  const rgb = value.startsWith('@') ? all : all.slice(all.length - chars.length);
+  return chars.map((ch, i) => `${pageInk(rgb[i] || all.at(-1))}${ch}`).join('') + color.reset + color.ground;
+}
+
 // Slab adjusts these ANSI hues to the actual tab background as its status
 // changes. The macOS appearance alone cannot tell us how light that page is.
 const slabHues = [[1,352],[2,141],[3,46],[4,217],[5,283],[6,185],
@@ -140,6 +148,7 @@ export const paintsGround =
 export const color = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
+  italic: "\x1b[3m",
   inverse: "\x1b[7m",
   get ground() { return (paintsGround ? bg(palette.background) : "") + fg(palette.text); },
   get text() { return fg(palette.text); },
@@ -375,8 +384,18 @@ export function markdown(source) {
     let text = line;
     let lineTone = "";
     const heading = /^\s{0,3}(#{1,6})\s+(.*)$/.exec(text);
-    if (heading) { text = heading[2]; lineTone = "highlight bold"; }
-    text = text.replace(/^(\s*)[-*+]\s+/, "$1• ");
+    if (heading) { text = heading[2]; lineTone = heading[1].length <= 2 ? "highlight bold" : "bold"; }
+    // A quote is set off by a rule and read softly; a list keeps its marker,
+    // muted, so the item is what the eye lands on.
+    const quote = !heading && /^\s{0,3}>\s?(.*)$/.exec(text);
+    if (quote) { text = `│ ${quote[1]}`; lineTone = "soft italic"; }
+    const marker = /^(\s*)(?:([-*+])|(\d{1,3}[.)]))\s+/.exec(text);
+    let lead = 0;
+    if (!heading && !quote && marker) {
+      const mark = marker[2] ? "• " : `${marker[3]} `;
+      text = marker[1] + mark + text.slice(marker[0].length);
+      lead = marker[1].length + mark.length;
+    }
     // Inline marks, innermost first: code keeps its insides verbatim.
     const inline = [];
     let cleaned = "";
@@ -385,11 +404,18 @@ export function markdown(source) {
       let m;
       if ((m = /^`([^`\n]+)`/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "soft" }); cleaned += m[1]; i += m[0].length; continue; }
       if ((m = /^\*\*([^*\n]+)\*\*/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "bold" }); cleaned += m[1]; i += m[0].length; continue; }
+      // Italic only between word boundaries, so 2*3*4 and snake_case stay as written.
+      if (!/\w/.test(text[i - 1] || "") && (m = /^([*_])(?![\s*_])([^*_\n]+?)(?<!\s)\1(?!\w)/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[2].length, tone: "italic" }); cleaned += m[2]; i += m[0].length; continue; }
+      // An @handle wears its own colours, the way it does everywhere on AC.
+      if (!/[\w@/.]/.test(text[i - 1] || "") && (m = /^@[a-z0-9](?:[a-z0-9._-]{0,30}[a-z0-9])?(?![\w@])/i.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[0].length, tone: "text", handle: m[0] }); cleaned += m[0]; i += m[0].length; continue; }
       if ((m = /^\[([^\]\n]+)\]\((https?:[^)\s]+)\)/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "soft", url: m[2] }); cleaned += m[1]; i += m[0].length; continue; }
       cleaned += text[i]; i += 1;
     }
     if (lineTone) spans.push({ start: offset, end: offset + cleaned.length, tone: lineTone });
-    else for (const span of inline) spans.push({ ...span, start: span.start + offset, end: span.end + offset });
+    else {
+      if (lead) spans.push({ start: offset, end: offset + lead, tone: "muted" });
+      for (const span of inline) spans.push({ ...span, start: span.start + offset, end: span.end + offset });
+    }
     offset += cleaned.length + 1;
     return cleaned;
   });
@@ -408,10 +434,98 @@ function outputRows(source,width,useColor,tone,code=false,prose=false,ink=null){
   return wrapText(text,width).map(line=>{
     const start=Math.max(cursor,text.indexOf(line,cursor));cursor=start+line.length;
     return syntaxLine(text,spans,start,cursor,(role,value,span)=>{
+      if(useColor&&!ink&&span?.handle)return handleInk(span.handle,value);
       const painted=ink?ink(role==='text'?tone:role,value):paint(useColor,role==='text'?tone:role,value);
       return useColor&&span?.url?`\x1b]8;;${span.url}\x07\x1b[4m${painted}\x1b[24m\x1b]8;;\x07`:painted;
     });
   });
+}
+
+// A Markdown table in a reply: a header row, a |---| rule, then rows. Found at
+// the block level because laying one out needs the width.
+const TABLE_ROW = /^[ \t]*\|.*\|[ \t]*$/;
+const TABLE_RULE = /^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*$/;
+export function splitTables(text) {
+  const lines = text.split("\n"), parts = [];
+  let prose = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (TABLE_ROW.test(lines[i]) && TABLE_RULE.test(lines[i + 1] || "")) {
+      let end = i + 2;
+      while (end < lines.length && TABLE_ROW.test(lines[end])) end += 1;
+      if (prose.length) parts.push({ table: false, text: prose.join("\n") });
+      prose = [];
+      parts.push({ table: true, text: lines.slice(i, end).join("\n") });
+      i = end - 1;
+    } else prose.push(lines[i]);
+  }
+  if (prose.length) parts.push({ table: false, text: prose.join("\n") });
+  return parts;
+}
+
+const tableCells = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split(/(?<!\\)\|/).map(cell => markdown(cell.trim().replace(/\\\|/g, "|")).text);
+const NUMERIC = /^[-+~≈$€£]?\d[\d,]*(\.\d+)?\s?(%|[kKmMbB]|ms|s|x|×)?$/;
+
+// Columns two cells apart, the header in the highlight over a muted rule,
+// numbers set right. Too wide for the page, the widest columns wrap; too many
+// columns even for that, and each row is set as a little record instead.
+export function tableRows(source, width, useColor) {
+  const lines = source.split("\n");
+  const header = tableCells(lines[0]);
+  const aligns = tableCells(lines[1]).map(rule => /:$/.test(rule.trim()) && !/^:/.test(rule.trim()) ? "right" : null);
+  const body = lines.slice(2).map(tableCells);
+  const count = Math.max(header.length, ...body.map(row => row.length));
+  const rows = [header, ...body].map(row => Array.from({ length: count }, (_, i) => row[i] || ""));
+  const right = Array.from({ length: count }, (_, i) => aligns[i] === "right" || (body.length && body.every(row => !row[i] || NUMERIC.test(row[i])) && body.some(row => row[i])));
+  const gap = 2;
+  const widths = Array.from({ length: count }, (_, i) => Math.max(1, ...rows.map(row => textWidth(row[i]))));
+  const total = () => widths.reduce((a, b) => a + b, 0) + gap * (count - 1);
+  // Numbers never wrap; words wrap down to eight cells and no further.
+  const limits = widths.map((natural, i) => right[i] ? natural : Math.min(natural, 8));
+  while (total() > width) {
+    const room = widths.map((w, i) => w - limits[i]);
+    const widest = room.indexOf(Math.max(...room));
+    if (room[widest] <= 0) break;
+    widths[widest] -= 1;
+  }
+  if (total() > width) {
+    const label = Math.min(Math.max(...header.map(textWidth)), Math.floor(width / 3));
+    return body.flatMap((row, r) => [
+      ...(r ? [""] : []),
+      ...row.flatMap((cell, i) => wrapText(cell || "", Math.max(1, width - label - 2)).map((piece, k) =>
+        paint(useColor, "muted", (k ? "" : clipText(header[i] || "", label)).padEnd(label) + "  ") + paint(useColor, i ? "text" : "bold", piece))),
+    ]);
+  }
+  const out = [];
+  rows.forEach((row, r) => {
+    const wrapped = row.map((cell, i) => wrapText(cell, widths[i]));
+    const height = Math.max(...wrapped.map(cell => cell.length));
+    for (let k = 0; k < height; k += 1) {
+      out.push(wrapped.map((cell, i) => {
+        const piece = cell[k] || "", pad = " ".repeat(Math.max(0, widths[i] - textWidth(piece)));
+        const set = right[i] ? pad + piece : piece + pad;
+        return paint(useColor, r === 0 ? "highlight bold" : i === 0 ? "bold" : "text", set);
+      }).join(" ".repeat(gap)).trimEnd());
+    }
+    if (r === 0) out.push(paint(useColor, "muted", "─".repeat(Math.min(width, total()))));
+  });
+  return out;
+}
+
+// The model's plan, pinned over the bar until every step is done. Long plans
+// fold: the steps already done become a count, and the active step and the
+// next few stay in view.
+export function planRows(plan, width, room, useColor) {
+  if (!Array.isArray(plan) || !plan.length) return [];
+  const done = plan.filter(step => step.status === 'done').length;
+  const mark = { done: '✓', active: '›', pending: '○' };
+  const tone = { done: 'muted', active: 'highlight', pending: 'text' };
+  let shown = plan.map((step, index) => ({ ...step, index }));
+  const head = paint(useColor, 'muted', `plan · ${done}/${plan.length}`);
+  if (shown.length > room - 1) {
+    const focus = Math.max(0, plan.findIndex(step => step.status !== 'done'));
+    shown = shown.slice(Math.max(0, Math.min(focus, plan.length - (room - 1))), Math.max(0, Math.min(focus, plan.length - (room - 1))) + room - 1);
+  }
+  return [head, ...shown.map(step => paint(useColor, tone[step.status], clipText(`${mark[step.status]} ${step.text}`, width)))];
 }
 
 // Typing and footer animation do not change the conversation. Keep its wrapped
@@ -491,6 +605,11 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
     // a block and not as more prose.
     const codeGround=useColor&&(fenced||entry.kind==='command'||entry.kind==='change');
     const onGround=(line)=>codeGround?`\x1b[48;5;234m${fit(line,Math.max(1,width-prefix.length))}\x1b[49m`:line;
+    if(!fenced&&entry.kind==='assistant'&&part.includes('|')&&splitTables(part).some(p=>p.table)){
+      const room=Math.max(1,width-prefix.length);
+      for(const piece of splitTables(part.replace(/^\n|\n$/g,'')))rows.push(...(piece.table?tableRows(piece.text,room,useColor):outputRows(piece.text,room,useColor,bodyTone,false,true)));
+      continue;
+    }
     if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(typed?(TYPED_STYLE==='bubble'?2:TYPED_STYLE==='outline'?4:0):0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',typed&&TYPED_STYLE==='bubble'?(r,v)=>cloudInk(r,v,TYPED_TINT):null).map(onGround));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
@@ -835,14 +954,25 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
         return chunks.reverse().flat();
       })();
   // A pinned rolling feed: new work displaces old work without adding scrollback.
-  const feedSize = Math.min(3, Math.max(1, Math.floor(height / 6)));
+  const feedSize = Math.min(pro ? 4 : 3, Math.max(1, Math.floor(height / 6)));
+  // A tool still running says how long it has been at it, once that is long
+  // enough to wonder; parallel calls say how many are out at once.
+  const now = Date.now();
+  const feed = state.turnActivity?.feed || [];
+  const running = feed.filter(item => item.status === 'running').length;
   const provisional = !state.about && !state.settings && state.busy
-    ? (state.turnActivity?.feed || []).slice(-feedSize).map(item => {
+    ? feed.slice(-feedSize).map((item, index, shown) => {
         const mark = item.status === 'failed' ? '!' : item.status === 'done' ? '·' : '›';
         const tone = item.status === 'failed' ? 'error' : item.status === 'done' ? 'muted' : 'inbox';
-        return paint(useColor, tone, clipText(`${mark} ${item.text}`, contentWidth));
+        const seconds = item.status === 'running' && item.startedAt ? Math.floor((now - item.startedAt) / 1000) : 0;
+        const after = [seconds >= 3 ? `${seconds}s` : '', index === shown.length - 1 && running > 1 ? `${running} running` : ''].filter(Boolean).join(' · ');
+        const tail = after ? `  ${after}` : '';
+        return paint(useColor, tone, clipText(`${mark} ${item.text}`, Math.max(8, contentWidth - textWidth(tail)))) + (tail ? paint(useColor, 'muted', tail) : '');
       }) : [];
   for (const row of provisional) unruled.add(row);
+  const plan = !state.about && !state.settings ? planRows(state.plan, contentWidth, Math.max(2, Math.floor(height / 4)), useColor) : [];
+  for (const row of plan) unruled.add(row);
+  provisional.unshift(...plan);
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=Math.max(0,transcriptRows-drawer.length-provisional.length);
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
