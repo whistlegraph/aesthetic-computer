@@ -51,7 +51,7 @@ import {pickerModels,drawerKey,drawerIndex,normalizeSettings} from "./provider-p
 import { cachedCatalog, loadCatalog, newestModel, preferNewer } from "./model-catalog.mjs";
 import { providerLabel, fishPath } from "./render.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND, hostedModel } from "./backends.mjs";
-import {OPEN_MODEL_INFO} from './open-models.mjs';
+import {HOSTED_MODEL_INFO} from './open-models.mjs';
 import {openRouterKey} from './open-key.mjs';
 import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
@@ -2249,7 +2249,7 @@ function engineLabel() {
 // keep the old connection available until the replacement connects.
 async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "", {drain=true,recovering=false}={}) {
   if(nextBackend.id==='ac'){
-    if(nextModel&&!hostedModel(nextModel)){addEntry("error",`AC hosted runs ${Object.keys(OPEN_MODEL_INFO).join(", ")}, or Automatic.`);return redraw();}
+    if(nextModel&&!hostedModel(nextModel)){addEntry("error",`AC hosted runs ${Object.keys(HOSTED_MODEL_INFO).join(", ")}, or Automatic.`);return redraw();}
     nextModel=hostedModel(nextModel);
   }
   if (nextBackend.id !== "ac" && nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)

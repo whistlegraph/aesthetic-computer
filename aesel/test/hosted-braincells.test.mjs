@@ -11,7 +11,7 @@ import { AcServer } from "../src/ac-server.mjs";
 import { BACKENDS, hostedModel } from "../src/backends.mjs";
 import { PIECE_INSTRUCTIONS } from "../src/harness-contract.mjs";
 import { McpTools } from "../src/mcp-client.mjs";
-import { OPEN_MODEL_INFO } from "../src/open-models.mjs";
+import { HOSTED_MODEL_INFO } from "../src/open-models.mjs";
 import { normalizeSettings, pickerModels } from "../src/provider-picker.mjs";
 
 const sse = (events) => new Response(events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(""));
@@ -38,11 +38,11 @@ function completion(engine) {
   return () => turn;
 }
 
-test("the aesthetic picker offers Automatic and every open model, marked, and nothing custom", () => {
+test("the aesthetic picker offers Automatic, every open model and Claude, marked, and nothing custom", () => {
   for (const model of ["", "opus", "custom", "deepseek/deepseek-v4.1-flash"]) {
     const rows = pickerModels({ backend: "ac", model, row: 1 });
     assert.deepEqual(rows[0], { id: "", label: "Automatic", detail: "aesthetic.computer default" });
-    assert.deepEqual(rows.slice(1).map((r) => r.id), Object.values(OPEN_MODEL_INFO).map((m) => m.id));
+    assert.deepEqual(rows.slice(1).map((r) => r.id), Object.values(HOSTED_MODEL_INFO).map((m) => m.id));
     assert.equal(rows.find((r) => r.id === "moonshotai/kimi-k3").detail, "●●●●○  $$$$");
   }
   assert.equal(BACKENDS.ac.defaultModel, "", "hosted opens on Automatic");

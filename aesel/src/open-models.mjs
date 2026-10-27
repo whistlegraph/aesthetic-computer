@@ -19,3 +19,13 @@ export const OPEN_MODEL_INFO = {
 export const OPEN_MODELS = Object.fromEntries(Object.entries(OPEN_MODEL_INFO).map(([name, info]) => [name, info.id]));
 
 export const DEFAULT_OPEN_MODEL = OPEN_MODELS.flash;
+
+// What braincells buy beyond the open models: Claude, which aesthetic.computer
+// pays for from its Anthropic API credits. Not in Aesel's trials, so the
+// marks are placed by price ($2 / $10 and $4 / $20 per million) and by repute.
+export const HOSTED_MODEL_INFO = {
+  ...OPEN_MODEL_INFO,
+  sonnet: { id: "anthropic/claude-sonnet-5.5", label: "Claude Sonnet 5.5", smart: 5, cost: 4 },
+  opus: { id: "anthropic/claude-opus-5.5", label: "Claude Opus 5.5", smart: 5, cost: 5 },
+};
+export const HOSTED_MODELS = Object.fromEntries(Object.entries(HOSTED_MODEL_INFO).map(([name, info]) => [name, info.id]));

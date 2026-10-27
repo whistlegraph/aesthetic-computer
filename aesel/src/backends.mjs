@@ -10,7 +10,7 @@
 // did; the two differ mainly in where the model name comes from, which is why
 // each one carries its own answer for `/model`.
 import {AC_MODELS,DEFAULT_CLAUDE_MODEL} from './provider-defaults.mjs';
-import {DEFAULT_OPEN_MODEL,OPEN_MODELS} from './open-models.mjs';
+import {DEFAULT_OPEN_MODEL,HOSTED_MODELS,OPEN_MODELS} from './open-models.mjs';
 import {deferredEngine} from './deferred-engine.mjs';
 
 export const BACKENDS = {
@@ -83,11 +83,11 @@ export const BACKEND_ALIASES = {
 // no vendor CLI or subscription — only an @handle.
 export const DEFAULT_BACKEND = "ac";
 
-// A model for the hosted provider: one of the open models, by name or id, or
-// "" (Automatic) for anything else — a remembered older model included.
+// A model for the hosted provider: one of the open models or Claude, by name
+// or id, or "" (Automatic) for anything else — a remembered older model included.
 export function hostedModel(model) {
-  const id = OPEN_MODELS[model] || model;
-  return Object.values(OPEN_MODELS).includes(id) ? id : "";
+  const id = HOSTED_MODELS[model] || model;
+  return Object.values(HOSTED_MODELS).includes(id) ? id : "";
 }
 
 export function backendIds() {
