@@ -1298,7 +1298,7 @@ final class MenuBandController {
             let v = UInt8(min(127, Int(velocity) + (accent ? 18 : 0)))
             mixAnalysis.mark("skin-key-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
             lastSoundWasPercussion = true
-            synth.playDrumSkin(strike: strike, anchors: [], velocity: v, sidechain: true)
+            synth.playDrumSkin(strike: strike, anchors: [], velocity: v)
             guard drumKit == .menuBand else { return 0 }
             return Self.trackDrumLiftBit | (drumKitGeneration << 5)
                 | UInt64(pc << 1) | (left ? 1 : 0)

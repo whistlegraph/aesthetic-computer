@@ -3247,24 +3247,16 @@ final class MenuBandSynth {
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
 
-    /// `sidechain` is the keyboard kit: a key strike pumps the melodic bus
-    /// hard (see `sidechainDuck`) where a trackpad strike only makes a
-    /// transparent pocket.
-    func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8,
-                      sidechain: Bool = false) {
+    /// Key and trackpad strikes alike pump the melodic bus by zone (see
+    /// `sidechainDuck`), so a finger on the kick ducks the notes as hard as
+    /// the keyboard kit's kick does.
+    func playDrumSkin(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         guard started else { return }
         audioTelemetry.trigger(percussion: true)
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
-        if sidechain {
-            sidechainDuck(zone: zone, velocity: velocity)
-        } else {
-            let depth: Float = zone == .kick ? 0.40
-                : (zone == .tom ? 0.30 : (zone == .snare ? 0.22 : 0.10))
-            triggerMelodicDuck(depth: depth, velocity: velocity,
-                               hold: zone == .kick ? 0.10 : 0.06)
-        }
+        sidechainDuck(zone: zone, velocity: velocity)
         percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
