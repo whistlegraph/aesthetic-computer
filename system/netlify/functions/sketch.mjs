@@ -86,7 +86,8 @@ Two real programs:
 (scroll frame frame)
 
 Rules:
-- Reply with the program only: no prose, no code fences, at most 30 lines.
+- Reply with the program only: no prose, no code fences.
+- Be terse: about 8 to 15 short lines and under 900 characters. Use the infix shorthand and \`repeat\` instead of copying a long expression; a simple drawing that reads beats a detailed one.
 - Draw the thing the word names, recognisably, and make something move.
 - Use only drawing, colour, math, timing and motion. No sound, images, text, links or other pieces.
 - It must run smoothly on a slow single-core computer with no GPU: use at most one of spin, scroll or zoom, never blur or contrast, and keep it under about 30 shapes a frame.

@@ -1429,7 +1429,11 @@ async function boot({
 
 // 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
-  let result = await route($, text);
+  // 'gni (or '$gni) runs a KidLisp $code with just its name in the corner.
+  const quiet = text?.trim().match(/^'\$?([0-9A-Za-z]{3,64})'?$/);
+  let result = quiet
+    ? (await $.load(parse(`$${quiet[1]}?nosource`))) && { left: true }
+    : await route($, text);
 
   // Phones capitalize the first letter, and commands and piece files are
   // lowercase. Retry a plain first word lowered, only after the exact text
@@ -1485,7 +1489,7 @@ async function sketch($, text) {
       }
       result = JSON.parse(body.split("\u0000")[1] || "{}");
     }
-    if (result.code && (await $.load(parse(`$${result.code}`)))) return { left: true };
+    if (result.code && (await $.load(parse(`$${result.code}?nosource`)))) return { left: true };
   } catch {} // offline or the server said no
   if (input) input.text = typed; // the help character answers over the entry
   return false;

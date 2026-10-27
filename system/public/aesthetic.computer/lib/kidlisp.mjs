@@ -13141,6 +13141,9 @@ class KidLisp {
     // compiled Fía piece, 2026-10-11) with nolabel set. When the label shows,
     // ten times a second is enough for its blinking timers.
     if (api.hud.hidden?.()) return;
+    // `?nosource` (sketches, the prompt's 'code shortcut): keep the plain
+    // piece-name label, e.g. `$gni`, instead of the source.
+    if (api.hud.sourceless?.()) return;
     const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (this.hudColoredAt && nowMs - this.hudColoredAt < 100 && this.hudColoredSource === this.syntaxHighlightSource) return;
     this.hudColoredAt = nowMs; this.hudColoredSource = this.syntaxHighlightSource;
