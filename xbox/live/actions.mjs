@@ -183,7 +183,7 @@ function basePose(actor) {
     const fight = actor.stance === "fight" ? 1 - Math.min(1, drive * 2) : 0;
     const breath = Math.sin(actor.time * 2.1), shift = Math.sin(actor.time * .9);
     if (fight) {
-      pose.crouch += 12 * fight; pose.curl += .07 * fight;
+      pose.crouch += 2 * fight; pose.curl += .03 * fight;
       pose.arch += .05 * breath * fight; pose.side += .05 * shift * fight;
     }
     for (const [name, s] of [["left", -1], ["right", 1]]) {
