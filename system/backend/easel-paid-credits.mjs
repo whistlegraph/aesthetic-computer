@@ -152,6 +152,19 @@ const OPEN_PRICES={
  // OpenRouter 2026-10-08. Whistlegraph's default (Sonnet) and premium (Opus).
  'anthropic/claude-sonnet-5.5':[2.00,10.0], 'anthropic/claude-opus-5.5':[4.00,20.0],
 };
+// What a direct Anthropic call cost, in USD, from its usage block at the list
+// prices above: cache reads at 0.1× input, five-minute cache writes at 1.25×,
+// one-hour writes at 2×. Null for a model with no price, so the fixed-rate
+// fallback bills it instead.
+export function anthropicCost(model,usage={}) {
+  const price=OPEN_PRICES[model];if(!price)return null;
+  const [input,output]=price.map(p=>p/1e6);
+  const hour=Number(usage.cache_creation?.ephemeral_1h_input_tokens)||0;
+  const writes=Number(usage.cache_creation_input_tokens)||0;
+  return (Number(usage.input_tokens)||0)*input+(Number(usage.output_tokens)||0)*output
+    +(Number(usage.cache_read_input_tokens)||0)*input*0.1
+    +(writes-hour)*input*1.25+hour*input*2;
+}
 // Braincells per token, worst case: every token priced as output, marked up,
 // rounded up to a hundredth. Flash comes to 0.48, Kimi K3 to 6.
 const worstRate=([input,output])=>Math.ceil(Math.max(input,output)*INFERENCE_MARKUP*BRAINCELLS_PER_USD/1e4)/100;

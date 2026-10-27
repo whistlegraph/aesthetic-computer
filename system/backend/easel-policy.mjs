@@ -20,6 +20,30 @@ export const EASEL_MODELS = {
   "anthropic/claude-sonnet-4.6": { label: "sonnet (premium)" },
   "openai/gpt-5.4": { label: "gpt (premium)" },
 };
+// Claude models bought straight from Anthropic, on AC's API credits, whenever
+// ANTHROPIC_CREDITS_KEY is set; OpenRouter serves them otherwise. Only models
+// with list prices in easel-paid-credits.mjs, because the bill is computed
+// from tokens: Anthropic reports no cost.
+export const ANTHROPIC_DIRECT = {
+  "anthropic/claude-sonnet-5.5": "claude-sonnet-5-5",
+  "anthropic/claude-opus-5.5": "claude-opus-5-5",
+};
+// Anthropic's own thinking controls, measured 2026-10-26: these models refuse
+// {type:"enabled"} (adaptive replaces it) and {type:"disabled"}. Sonnet turns
+// thinking off with "between_tools"; Opus has no off, so the lowest effort
+// stands in. OpenRouter's `reasoning.effort` becomes output_config.effort.
+const DIRECT_EFFORT = { none: "low", minimal: "low", low: "low", medium: "medium", high: "high" };
+export function anthropicThinking(model, { thinking, reasoning } = {}) {
+  const out = {};
+  const effort = DIRECT_EFFORT[reasoning?.effort];
+  if (effort) out.output_config = { effort };
+  if (thinking?.type === "enabled") out.thinking = { type: "adaptive" };
+  if (thinking?.type === "disabled") {
+    if (model === "anthropic/claude-sonnet-5.5") out.thinking = { type: "between_tools" };
+    else out.output_config = { effort: "low" };
+  }
+  return out;
+}
 // Best of the 2026-09-28 trials, and among the cheapest to run.
 export const DEFAULT_EASEL_MODEL = "deepseek/deepseek-v4.1-flash";
 // What a request gets when it does not say, and the most it may ask for. A

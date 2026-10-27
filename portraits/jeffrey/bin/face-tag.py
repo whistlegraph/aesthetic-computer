@@ -127,12 +127,16 @@ OUTPUT_SCHEMA = {
 
 
 def load_anthropic_key() -> str:
-    if "ANTHROPIC_API_KEY" in os.environ:
-        return os.environ["ANTHROPIC_API_KEY"]
+    # The credits key (AC's claimed API credits) is spent first when present.
+    for name in ("ANTHROPIC_CREDITS_KEY", "ANTHROPIC_API_KEY"):
+        if name in os.environ:
+            return os.environ[name]
     if VAULT_ENV.exists():
-        for line in VAULT_ENV.read_text().splitlines():
-            if line.startswith("ANTHROPIC_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
+        lines = VAULT_ENV.read_text().splitlines()
+        for name in ("ANTHROPIC_CREDITS_KEY", "ANTHROPIC_API_KEY"):
+            for line in lines:
+                if line.startswith(name + "="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
     sys.exit("ANTHROPIC_API_KEY not set and not found in vault/lith/.env")
 
 
