@@ -183,16 +183,25 @@ if (!activity.error) {
 
 // SIGNUP — accounts made, and how far today's attempts got.
 if (!signupToday.error) {
-  const f = { signup: { att: 0, auth: 0, done: 0 }, login: { att: 0, auth: 0, done: 0 } };
+  // The in-page door (signup-flow.mjs) mails a code and never redirects, so
+  // `auth_returned` only counts the Universal Login fallback; `verified` is
+  // what either path reaches once the person is through Auth0.
+  const stages = ["handle_held", "social_started", "code_sent", "code_failed", "verified", "auth_returned", "auth_failed", "fallback", "completed"];
+  const blank = () => ({ att: 0, ...Object.fromEntries(stages.map(s => [s, 0])) });
+  const f = { signup: blank(), login: blank() };
   for (const row of signupToday.funnel?.rows || []) {
     const m = f[row._id.mode]; if (!m) continue;
-    m.att += row.attempts; m.auth += row.auth_returned; m.done += row.completed;
+    m.att += row.attempts; for (const s of stages) m[s] += row[s] || 0;
   }
   const made = signupToday.last24Hours?.accountsCreated ?? 0;
   const latest = signupDays.latestHandle;
   line(`${label("SIGNUP")}  ${bold(made)} new accounts   ${spark(dayKeys.map(signupsOn))} ${dim(`${days}d`)}${latest ? `   ${dim(`latest @${latest.value} ${latest.when.slice(5, 10)}`)}` : ""}`);
-  const flow = (m) => `${m.att} tried → ${m.auth} back from auth → ${m.done} done`;
-  line(`        ${dim("sign up")} ${f.signup.att && !f.signup.done ? yellow(flow(f.signup)) : flow(f.signup)}`);
+  const flow = (m) => {
+    const misses = [m.code_failed && `${m.code_failed} bad code`, m.auth_failed && `${m.auth_failed} auth failed`,
+      m.fallback && `${m.fallback} to password`, m.social_started && `${m.social_started} google/apple`, m.handle_held && `${m.handle_held} handle held`, m.auth_returned && `${m.auth_returned} via redirect`].filter(Boolean);
+    return `${m.att} tried → ${m.code_sent} code sent → ${m.verified} verified → ${m.completed} done${misses.length ? dim(`  (${misses.join(" · ")})`) : ""}`;
+  };
+  line(`        ${dim("sign up")} ${f.signup.att && !f.signup.completed ? yellow(flow(f.signup)) : flow(f.signup)}`);
   line(`        ${dim("log in ")} ${flow(f.login)}`);
   const give = visits.sites["give.aesthetic.computer"]?.visits || 0;
   const support = sites.reduce((n, [, s]) => n + (s.surfaces.support || 0), 0);
