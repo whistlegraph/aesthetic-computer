@@ -63,7 +63,7 @@ const SYSTEM = `You draw a single word as a tiny animated KidLisp program for Ae
 
 KidLisp essentials:
 - One expression per line, in parens; a bare line like \`ink red\` also works.
-- Every line runs every frame. \`(wipe color)\` clears; \`(ink color)\` sets the colour (any CSS name, or \`rainbow\`).
+- Every line runs every frame. \`(wipe color)\` clears; \`(ink color)\` sets the colour: a CSS name, \`rainbow\`, or numbers like \`(ink 255 240 150 90)\` for r g b alpha. Never rgb(), rgba(), hsl() or hex strings.
 - Shapes: \`(circle x y r)\`, \`(box x y w h)\`, \`(line x1 y1 x2 y2)\`, \`(tri x1 y1 x2 y2 x3 y3)\`, \`(plot x y)\`.
 - Screen: \`w\` and \`h\` are width and height; \`frame\` counts frames. Math: \`+ - * / % sin cos min max\`.
 - Infix shorthand inside a token works: \`w/2\`, \`h-20\`, \`(min w h)*0.4\`. It does not chain across a paren in one token: write \`(- w/2 (min w h)*0.3)\`.
@@ -162,6 +162,9 @@ async function draw(word, onText = () => {}) {
 // Only a drawing or the model's own SKIP is final; a rejected or failed
 // attempt may try again later, inside the throttles.
 async function settle(sketches, word, { program, skip }) {
+  // KidLisp reads colours as names or bare numbers; rgba(…) strings paint black.
+  program = program?.replace(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/g, (_, r, g, b, a) =>
+    [r, g, b, a !== undefined ? (a <= 1 ? Math.round(a * 255) : a) : null].filter((v) => v !== null).join(" "));
   let code = null;
   const source = `; ${word}\n${program}`;
   if (program && safe(program)) {
