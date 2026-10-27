@@ -472,7 +472,10 @@ function isDark() {
   const h = getLAHour();
   return h >= 20 || h < 7; // dark after 8pm, light after 7am (LA time)
 }
-let dark = true; // AC Native Notepat is an instrument surface: always dark.
+// Light by day, dark from 8pm to 7am LA time: the system theme decides, so a
+// forced theme (__theme._forceDark) can still pin a stage show dark.
+const themeDark = () => (globalThis.__theme ? globalThis.__theme.update().dark : isDark());
+let dark = themeDark();
 
 // Background color — average of active notes, lerped
 let bgColor = [0, 0, 0];
@@ -582,6 +585,12 @@ let metaChorded = false; // a note fired while Win was down, so it wasn't a tap
 let metaSides = 0;
 let altSides = 0;
 let appleKeys = false; // system.hw.keyboard === "apple"
+// Hold to record a global sample: Home, or F5 on a Mac, which has no Home
+// key. Its F5 is the mic key (micmute in the media row, f5 with fn held),
+// so on Apple keyboards F5 records instead of cycling the radio.
+function isRecordKey(key) {
+  return key === "home" || (appleKeys && (key === "f5" || key === "micmute" || key === "dictate"));
+}
 
 // Analog keyboard (NuPhy Hall-Effect) detection. When a note-on event
 // arrives with an analog pressure value (0 < p < 1) that isn't the
@@ -1734,33 +1743,46 @@ function activeKitForOffset(offset) {
 }
 function kitNamesFor(kit) {
   if (isWarKit(kit)) return WAR_NAMES;
-  if (kit === "perc") return PERCUSSION_NAMES;
+  if (kit === "perc" || kit === "track") return PERCUSSION_NAMES;
   if (kit === "zoo") return ZOO_NAMES;
   if (kit === "lasers") return LASER_NAMES;
   return null;
 }
 function kitLabelsFor(kit) {
   if (isWarKit(kit)) return WAR_LABELS;
-  if (kit === "perc") return PERCUSSION_LABELS;
+  if (kit === "perc" || kit === "track") return PERCUSSION_LABELS;
   if (kit === "zoo") return ZOO_LABELS;
   if (kit === "lasers") return LASER_LABELS;
   return null;
 }
 function kitColorsFor(kit) {
   if (isWarKit(kit)) return WAR_COLORS;
-  if (kit === "perc") return PERCUSSION_COLORS;
+  if (kit === "perc" || kit === "track") return PERCUSSION_COLORS;
   if (kit === "zoo") return ZOO_COLORS;
   if (kit === "lasers") return LASER_COLORS;
   return null;
 }
-// Cycle the kit state for a side: off → perc → warA → warB → zoo → lasers → off.
+// Menu Band's sidechain for its keyboard kit (sidechainDuck by drum), keys
+// struck at velocity 100: kick deepest, then snare/clap, the small hand
+// percussion, and everything metal lightest.
+const PERC_KEY_DUCK = {
+  c: [0.85, 0.16, 0.10], d: [0.62, 0.11, 0.18], e: [0.62, 0.11, 0.18],
+  f: [0.42, 0.08, 0.30], "f#": [0.42, 0.08, 0.30], "g#": [0.42, 0.08, 0.30],
+  "a#": [0.42, 0.08, 0.30],
+};
+const PERC_KEY_DUCK_OTHER = [0.28, 0.06, 0.40];
+
+// Cycle the kit state for a side: off → track → perc → warA → warB → zoo →
+// lasers → off. TrackDrum comes first so shift+[ / shift+] from notes latches
+// it, as ⇧[ / ⇧] do in Menu Band.
 // warA = preset-default model per weapon (mostly classic); warB forces
 // physical/DWG synthesis for direct A/B comparison; zoo + lasers are
 // sound-design sketches grounded in classic subtractive synthesis
 // recipes (animal calls, sci-fi phasers/blasters/warps).
 function cycleKit(side) {
   const cur = side === "left" ? kitLeft : kitRight;
-  const next = cur === "off"    ? "perc"
+  const next = cur === "off"    ? "track"
+             : cur === "track"  ? "perc"
              : cur === "perc"   ? "warA"
              : cur === "warA"   ? "warB"
              : cur === "warB"   ? "zoo"
@@ -1866,7 +1888,8 @@ const PAD_MODES = [
   { m: 5, root: 8.7715, gain: 0.18 },
 ];
 
-const PAD_HAT_FREQS = [6900, 8400, 9600];
+// The 808 hat cluster Menu Band's membrane rings at its edge (hatFreqs).
+const PAD_HAT_FREQS = [800, 540, 522.7, 369.6];
 
 // One colour per concentric instrument, for the background pulse.
 const PAD_ZONE_COLORS = {
@@ -1881,10 +1904,28 @@ const PAD_ZONE_COLORS = {
 // trackpad shape. Fall back to the 1.64:1 Menu Band tuned against.
 const PAD_FALLBACK_ASPECT = 1.64;
 
-// Trackdrum's short, layered voices need extra input gain to match the
-// perceived loudness of a sustained Notepat tone on the laptop speakers. The
-// dedicated transient-bus compressor still catches hard multi-finger peaks.
-const TRACKDRUM_MIX_GAIN = 1.2;
+// The drum bus now renders at Menu Band's own gain (audio.c DRUM_BUS_GAIN),
+// so the head plays at unity, exactly as MenuBandPercussion does.
+const TRACKDRUM_MIX_GAIN = 1;
+
+// Menu Band's sidechain (MenuBandSynth.triggerMelodicDuck): a drum pulls the
+// melodic voices down by `depth`, scaled by velocity and deepened a little
+// per extra held note, never below `floor`; audio.c holds it `hold` seconds
+// and climbs back over 0.28 s.
+function melodicDuck(sound, depth, velocity, hold, floor = 0.48) {
+  const polyphony = Math.max(0, Object.keys(sounds).length - 1);
+  const scaled = depth * (0.55 + 0.45 * (velocity / 127)) + Math.min(0.12, polyphony * 0.03);
+  sound?.duck?.(Math.max(floor, 1 - scaled), hold);
+}
+
+// Depth, hold and floor per head zone (sidechainDuck by zone). Keys and bare
+// trackpad strikes both take it, so a finger on the kick pumps the melodic
+// voices as hard as the keyboard kit's C does. (Menu Band gives the pad only
+// a transparent pocket, 0.40 deep with a 0.48 floor, which barely moves.)
+const PAD_KEY_DUCK = {
+  kick: [0.80, 0.15, 0.12], tom: [0.60, 0.11, 0.20], snare: [0.50, 0.09, 0.25],
+};
+const PAD_KEY_DUCK_EDGE = [0.28, 0.06, 0.40];
 
 let padContacts = new Map();   // tracking id -> { x, y, strikeX, strikeY, strikeFrame }
 let padGeneration = -1;        // last surface generation acted on
@@ -1972,7 +2013,7 @@ function padStrikeVelocity(contact, anchorCount, sx, sy, aspect) {
 // set the same way Menu Band does and hands each one to the native synth.
 function playPadStrike(sound, x, y, anchors, velocity, aspect) {
   if (!sound?.synth) return;
-  const v = padClamp((velocity / 100) * TRACKDRUM_MIX_GAIN, 0.12, 1.45);
+  const v = padClamp((velocity / 100) * TRACKDRUM_MIX_GAIN, 0.1, 2.2);
   const { hw, hh } = padHalfExtent(aspect);
   const sx = (x - 0.5) * 2;
   const sy = (y - 0.5) * 2;
@@ -2086,6 +2127,97 @@ function playPadStrike(sound, x, y, anchors, velocity, aspect) {
   if (drumFlashes.length > 8) drumFlashes.shift();
   padStrikes.push({ x, y, zone, frame });
   if (padStrikes.length > 12) padStrikes.shift();
+}
+
+// ── The TrackDrum kit: keys strike the head ──
+//
+// Menu Band's TrackDrum kit (MenuBandPercussion.keyStrike): a latched side's
+// keys strike the membrane at fixed spots, laid out for the hand rather than
+// the scale — C the kick dead centre, D the snare, E and F two clicks on the
+// rim (top and side), G and A the hat, the sharps the spots in between, B a
+// third click. Every key lifts off the same spot on release. Positions are in
+// pad space on Menu Band's 1.64:1 trackpad.
+const TRACK_KEY_STRIKES = {
+  c:    [0.00, "up"],   "c#": [0.20, "up"],   d:    [0.54, "up"],
+  "d#": [0.40, "down"], e:    [0.92, "up"],   f:    [1.00, "side"],
+  "f#": [0.62, "down"], g:    [0.78, "up"],   "g#": [0.86, "up"],
+  a:    [0.84, "down"], "a#": [0.44, "up"],   b:    [0.96, "down"],
+};
+
+function trackKeyStrike(letter, left) {
+  const [d, dir] = TRACK_KEY_STRIKES[letter] || TRACK_KEY_STRIKES.c;
+  const hand = left ? -1 : 1;
+  if (dir === "side") {
+    const sx = Math.max(0.40, 1 - (1 - d) / 1.64);
+    return { x: 0.5 + hand * sx * 0.5, y: 0.5 };
+  }
+  return { x: 0.5 + hand * 0.14, y: 0.5 + (dir === "up" ? d : -d) * 0.5 };
+}
+
+// One key: strike now, and leave a release entry on the hold so key-up lifts
+// the finger from the same spot (Menu Band lifts at velocity 64).
+function playTrackKey(sound, letter, left, volume, holdVoices = null) {
+  const { x, y } = trackKeyStrike(letter, left);
+  const velocity = padClamp(Math.round(volume * 100), 1, 127);
+  const zone = padZone(padDepth((x - 0.5) * 2, (y - 0.5) * 2, PAD_FALLBACK_ASPECT));
+  const [depth, hold, floor] = PAD_KEY_DUCK[zone] || PAD_KEY_DUCK_EDGE;
+  melodicDuck(sound, depth, velocity, hold, floor);
+  playPadStrike(sound, x, y, [], velocity, PAD_FALLBACK_ASPECT);
+  if (holdVoices) {
+    holdVoices.push({
+      handle: null,
+      releaseFade: 0,
+      onRelease: () => playPadLift(sound, x, y, [], 64, PAD_FALLBACK_ASPECT),
+    });
+  }
+}
+
+// A finger leaving the head (MenuBandPercussion.playSurfaceLift): lighter
+// than a strike — a low dry tack off the skin, a tiny closure on the hat
+// band, a near-instant click on the last strip of the perimeter.
+function playPadLift(sound, x, y, anchors, velocity, aspect) {
+  if (!sound?.synth) return;
+  const sx = (x - 0.5) * 2;
+  const sy = (y - 0.5) * 2;
+  const distance = padDepth(sx, sy, aspect);
+  const v = padClamp(velocity / 127, 0.08, 1);
+  const pan = padClamp(sx * 0.72, -1, 1);
+  let proximity = 0;
+  for (const a of anchors) proximity += 1 - Math.min(1, Math.hypot((a.x - x) * 1.64, a.y - y));
+  if (anchors.length) proximity /= anchors.length;
+  const tension = 1 + Math.min(0.62, anchors.length * 0.12 + proximity * 0.26);
+  const damping = Math.max(0.45, 1 - anchors.length * 0.09 - proximity * 0.22);
+  const edge = padSmoothstep(0.62, 0.70, distance);
+  const outerClick = padSmoothstep(0.88, 0.965, distance);
+  const centerKick = 1 - padSmoothstep(0.10, 0.38, distance);
+  const tomBand = padSmoothstep(0.23, 0.31, distance)
+    * (1 - padSmoothstep(0.40, 0.48, distance));
+  const snareBand = padSmoothstep(0.40, 0.48, distance)
+    * (1 - padSmoothstep(0.62, 0.70, distance));
+  const hit = (type, tone, duration, volume, attack, decay) => {
+    if (!(volume > 0.001)) return;
+    sound.synth({ type, tone, duration, volume, attack, decay, pan });
+  };
+  if (centerKick > 0.01) {
+    hit("sine", 70 * tension, 0.045 * damping, 0.18 * centerKick * v, 0.0005, 0.043 * damping);
+    hit("noise", 1450, 0.003, 0.07 * centerKick * v, 0.0001, 0.0027);
+  }
+  if (tomBand > 0.01) {
+    hit("sine", 148 * tension, 0.022 * damping, 0.10 * tomBand * v, 0.0002, 0.020 * damping);
+  }
+  if (snareBand > 0.01) {
+    hit("noise", 3500 * tension, 0.006 * damping, 0.12 * snareBand * v, 0.0001, 0.0055 * damping);
+    hit("triangle", 190 * tension, 0.016 * damping, 0.065 * snareBand * v, 0.0002, 0.014 * damping);
+  }
+  const hatLift = edge * (1 - outerClick * 0.92);
+  if (hatLift > 0.01) {
+    for (const f of PAD_HAT_FREQS) hit("square", f, 0.005, 0.014 * hatLift * v, 0.0001, 0.0045);
+  }
+  if (outerClick > 0.01) {
+    hit("noise", 7800, 0.0016, 0.32 * outerClick * v, 0.00004, 0.0013);
+    hit("triangle", 1900 * tension, 0.0030, 0.24 * outerClick * v, 0.00005, 0.0025);
+    hit("sine", 600 * tension, 0.0040, 0.12 * outerClick * v, 0.00008, 0.0034);
+  }
 }
 
 // ── Rubbing the head, as opposed to hitting it ──
@@ -2268,6 +2400,9 @@ function updatePadDrum(trackpad, sound) {
     // articulation but soften them in the same 0.28..0.75 range as Menu Band.
     const slideScale = isSlideStrike ? Math.min(0.75, 0.28 + distance * 3.5) : 1;
     const velocity = Math.max(1, Math.round(baseVelocity * slideScale));
+    const zone = padZone(padDepth((c.x - 0.5) * 2, (c.y - 0.5) * 2, aspect));
+    const [depth, hold, floor] = PAD_KEY_DUCK[zone] || PAD_KEY_DUCK_EDGE;
+    melodicDuck(sound, depth, velocity, hold, floor);
     playPadStrike(sound, c.x, c.y, anchors, velocity, aspect);
   }
 
@@ -2392,7 +2527,13 @@ function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFac
       playZoo(sound, letter, volume, pan, pitchFactor, "down", voices);
     } else if (kit === "lasers") {
       playLaser(sound, letter, volume, pan, pitchFactor, "down", voices);
+    } else if (kit === "track") {
+      // Menu Band strikes TrackDrum keys at velocity 100; only the side's
+      // master and shift's accent move it here.
+      playTrackKey(sound, letter, gridOffset <= 0, volume / Math.max(1e-6, baseVolume) * (shiftHeld ? 1.18 : 1), voices);
     } else {
+      const [depth, hold, floor] = PERC_KEY_DUCK[letter] || PERC_KEY_DUCK_OTHER;
+      melodicDuck(sound, depth, 100, hold, floor);
       playPercussion(sound, letter, volume, pan, pitchFactor, "down", voices);
     }
     // Per-pad hit feedback — bright outline for ~12 frames (~200ms @ 60fps).
@@ -3308,7 +3449,7 @@ function act({ event: e, sound, wifi, system }) {
     }
     // F5 — cycle internet radio stations (KPBJ, r8dio, NTS 1/2) through
     // the shared deck. Layer notepat melody over a live feed.
-    if (key === "f5") { djTuneRadio(sound, radioIdx + 1); return; }
+    if (key === "f5" && !appleKeys) { djTuneRadio(sound, radioIdx + 1); return; }
     if (key === "pageup" || key === "pagedown") {
       const d = sound?.deck?.decks?.[0];
       if (d?.loaded) {
@@ -3488,6 +3629,7 @@ function act({ event: e, sound, wifi, system }) {
       const banner = {
         off:    side === "left" ? `${arrow} notes`  : `notes ${arrow}`,
         perc:   side === "left" ? `${arrow} DRUMS`  : `DRUMS ${arrow}`,
+        track:  side === "left" ? `${arrow} TRACKDRUM` : `TRACKDRUM ${arrow}`,
         warA:   side === "left" ? `${arrow} WAR A`  : `WAR A ${arrow}`,
         warB:   side === "left" ? `${arrow} WAR B`  : `WAR B ${arrow}`,
         zoo:    side === "left" ? `${arrow} ZOO`    : `ZOO ${arrow}`,
@@ -3504,6 +3646,7 @@ function act({ event: e, sound, wifi, system }) {
       // Preview the kit's signature sound on "c" so the user hears what
       // they just switched to.
       if (next === "perc") playPercussion(sound, "c", 1.6, pan);
+      else if (next === "track") playTrackKey(sound, "c", side === "left", 1);
       else if (isWarKit(next)) playWar(sound, "c", 1.2, pan, 1.0, "both", null, warModelFor(next));
       else if (next === "zoo") playZoo(sound, "c", 1.2, pan);
       else if (next === "lasers") playLaser(sound, "c", 1.2, pan);
@@ -3579,7 +3722,7 @@ function act({ event: e, sound, wifi, system }) {
     // on this same press, so NO click/speak that would land in the take),
     // clear all custom per-key samples, and record a fresh GLOBAL sample
     // while held.
-    if (key === "home" && !recording && !perKeyRecording) {
+    if (isRecordKey(key) && !recording && !perKeyRecording) {
       if (wave !== "sample") setWave("sample", sound, { silent: true });
       sampleBank = {};            // clear custom per-key samples
       lastLoadedSample = null;    // force reload on next play
@@ -3722,26 +3865,16 @@ function act({ event: e, sound, wifi, system }) {
         }
         if (perKeyRecording === key) return;
 
-        // Push drums well above unity so they cut through the mix. The
-        // mixer divides by total voice weight, so at velocity 1.0 we want
-        // a drum-layer peak near ~1.8 so that against 3 sustained
-        // melodic voices (~2.1 weight) the kick still lands at ~0.5 vs
-        // each melody at ~0.17 — roughly 3× prominence. Then scale the
-        // whole thing by the per-side master so the user can balance L/R.
-        // Base drum volume from velocity, then apply shift-accent boost
-        // (shift-held = capitalized = accented hit). Drums get more
-        // aggressive accent than notes since the compressor will rein
-        // them in anyway.
-        const accent = shiftHeld ? 1.5 : 1.0;
-        const baseDrumVol = (1.0 + velocity * 0.8) * accent;
+        // Menu Band's level: a key strikes at velocity 100, so v = 1.0, and
+        // shift accents it 1.3x (MenuBandPercussion.noteOn). The drum bus
+        // gain and the melodic duck give drums their prominence now, as on
+        // the Mac, rather than a 1.8x push into a compressor. The per-side
+        // master still balances L/R.
+        const accent = shiftHeld ? 1.3 : 1.0;
+        const baseDrumVol = velocity * accent;
         const drumVol = baseDrumVol * master;
-        // Subtle note-based pitch harmonization: each semitone nudges the
-        // drum's fundamental by 1/36 of an octave (one full keyboard
-        // octave = a minor third of pitch shift). A kick on C3 sounds
-        // noticeably lower than a kick on C5, and a snare on D harmonizes
-        // just a hair above a kick on C. Combined with the trackpad
-        // pitch shift via effectivePitchShift().
-        const drumPitch = Math.pow(2, effectivePitchShift() + semitones / 36);
+        // Menu Band tunes its kit only by the kit-wide bend, never by key.
+        const drumPitch = Math.pow(2, effectivePitchShift());
         // Drums get their own pan (kit geometry + grid bias), not the
         // QWERTY physical key position → pan. Left keys pan left, right pan right.
         const drumPan = drumPanFor(letter, offset, key);
@@ -3913,7 +4046,7 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     // Home key release: stop global recording + save to global sample
-    if (key === "home" && recording && recPointerId === null) {
+    if (isRecordKey(key) && recording && recPointerId === null) {
       stopSampleRecording(sound, "home-lift");
       // Save global sample data for bank restore
       const data = sound.sample.getData?.();
@@ -4206,12 +4339,11 @@ function act({ event: e, sound, wifi, system }) {
         // Percussion pad tap: fire drum (or drum sample) and flash trail.
         const touchDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
         if (touchDrum) {
-          // Subtle note-based pitch harmonization — see keyboard drum
-          // path for rationale. Each semitone = 1/36 octave of drum tuning.
-          const touchDrumPitch = Math.pow(2, effectivePitchShift() + semitones / 36);
+          // Kit-wide bend only, as on the keyboard path (Menu Band).
+          const touchDrumPitch = Math.pow(2, effectivePitchShift());
           // QWERTY physical key position → pan (matches where finger lands).
           const touchDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
-          const touchBaseVol = 1.8;
+          const touchBaseVol = 1.0; // Menu Band's velocity-100 strike
           const touchVol = touchBaseVol * masterForSide(hitNote.gridOffset);
           const drumHold = triggerPercussionDown(
             sound, hitNote.letter, hitNote.octave, touchVol, touchDrumPan, touchDrumPitch,
@@ -4402,11 +4534,11 @@ function act({ event: e, sound, wifi, system }) {
           // Drag-to-drum: drum pads fire as one-shots on rollover too.
           const rollDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
           if (rollDrum) {
-            // Subtle note-based pitch harmonization (see keyboard path).
-            const rollDrumPitch = Math.pow(2, effectivePitchShift() + semitones / 36);
+            // Kit-wide bend only, as on the keyboard path (Menu Band).
+            const rollDrumPitch = Math.pow(2, effectivePitchShift());
             // QWERTY physical key position → pan (matches where finger lands).
             const rollDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
-            const rollBaseVol = 1.8;
+            const rollBaseVol = 1.0; // Menu Band's velocity-100 strike
             const rollVol = rollBaseVol * masterForSide(hitNote.gridOffset);
             const drumHold = triggerPercussionDown(
               sound, hitNote.letter, hitNote.octave, rollVol, rollDrumPan, rollDrumPitch,
@@ -9275,7 +9407,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["- / =",      "bpm \u2212 / +"],
       ]],
       ["SAMPLE", [255, 150, 210], [
-        ["home",       "record global"],
+        [appleKeys ? "f5" : "home", "record global"],
         ["end",        "arm per-key"],
         ["delete",     "clear samples"],
       ]],
@@ -9533,12 +9665,7 @@ function sim({ pressures, sound, trackpad }) {
     waveViewOffsetSec = 0;
     waveDriftSpeed = 1.0;
   }
-  // AC Native Notepat stays dark: this is a stage instrument, not the web
-  // page's time-of-day theme.
-  if (!dark) {
-    dark = true;
-    bgTarget = [20, 20, 25];
-  }
+  dark = themeDark();
 
   // === DJ DECK MAINTENANCE ===
   // Hot-plug check every ~3s while active, or ~15s when idle.

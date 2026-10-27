@@ -796,6 +796,7 @@ function drawHighlighted(text, x0, y0, charW, ink, write, font) {
 }
 
 function paint({ wipe, ink, box, write, screen, paintCount, system }) {
+  collectFetches(system);
   frame++;
   const T = __theme.update();
   wipe(T.bg[0], T.bg[1], T.bg[2]);
@@ -914,7 +915,10 @@ function sketchResult(body) {
   return code ? { code, source: body.slice(0, end).trim() } : null;
 }
 
-function sim({ system }) {
+// Finished fetches, read in paint: the runtime hands system.fetchResult only
+// to paint (sim's copy is always null), so reading it in sim lost every
+// sketch and fell back to running the word as KidLisp.
+function collectFetches(system) {
   if (sketchPending && !system?.fetchPending) {
     const { word, cmd } = sketchPending;
     sketchPending = null;
@@ -951,4 +955,4 @@ function sim({ system }) {
 }
 
 const system = "prompt";
-export { boot, paint, act, sim, system };
+export { boot, paint, act, system };

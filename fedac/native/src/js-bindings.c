@@ -3101,6 +3101,21 @@ static JSValue js_sound_bpm(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_NewFloat64(ctx, audio->bpm);
 }
 
+// Melodic duck: `sound.duck(target, holdSeconds)` drops the melodic voices to
+// `target` (0..1) now, holds, then lets them climb back over 0.28 s. The piece
+// picks the depth per drum, as Menu Band's sidechain does.
+static JSValue js_sound_duck(JSContext *ctx, JSValueConst this_val,
+                             int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt ? current_rt->audio : NULL;
+    if (!audio || argc < 1) return JS_UNDEFINED;
+    double target = 1.0, hold = 0.0;
+    JS_ToFloat64(ctx, &target, argv[0]);
+    if (argc > 1) JS_ToFloat64(ctx, &hold, argv[1]);
+    audio_duck(audio, target, hold);
+    return JS_UNDEFINED;
+}
+
 // Drum-skin friction: `sound.scratch({level, cutoff, resonance, roughness,
 // release, pan, synthetic})` while a finger slides on the pad, and
 // `sound.scratch(null)` (or level 0) when it lifts. One continuous voice, so
@@ -3334,6 +3349,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, sound, "update", JS_NewCFunction(ctx, js_sound_update, "update", 2));
     JS_SetPropertyStr(ctx, sound, "bpm", JS_NewCFunction(ctx, js_sound_bpm, "bpm", 1));
     JS_SetPropertyStr(ctx, sound, "scratch", JS_NewCFunction(ctx, js_sound_scratch, "scratch", 1));
+    JS_SetPropertyStr(ctx, sound, "duck", JS_NewCFunction(ctx, js_sound_duck, "duck", 2));
     JS_SetPropertyStr(ctx, sound, "time", JS_NewFloat64(ctx, rt->audio ? rt->audio->time : 0.0));
     JS_SetPropertyStr(ctx, sound, "registerSample", JS_NewCFunction(ctx, js_noop, "registerSample", 3));
 

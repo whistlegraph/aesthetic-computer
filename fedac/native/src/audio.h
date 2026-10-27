@@ -11,7 +11,9 @@
 #define AUDIO_SAMPLE_RATE 192000
 #define AUDIO_CHANNELS 2
 #define AUDIO_PERIOD_SIZE 192   // ~1ms at 192kHz — minimal latency
-#define AUDIO_MAX_VOICES 32
+// 96, as Menu Band's percussion: one TrackDrum strike is 15-20 voices, so a
+// fast roll needs room for several strikes' tails at once.
+#define AUDIO_MAX_VOICES 96
 #define AUDIO_WAVEFORM_SIZE 512
 #define AUDIO_MAX_SAMPLE_VOICES 12
 #define AUDIO_MAX_SAMPLE_SECS 10
@@ -105,6 +107,10 @@ typedef struct {
     double fade_elapsed;    // progress through fade
     double started_at;      // monotonic time reference
     uint64_t id;            // unique voice ID
+    // Constant-power pan gains for the drum bus, cached against `pan`.
+    double drum_pan_at;
+    double drum_gl, drum_gr;
+    int drum_pan_ok;
     // Noise filter state
     double noise_b0, noise_b1, noise_b2, noise_a1, noise_a2;
     double noise_x1, noise_x2, noise_y1, noise_y2;
@@ -566,6 +572,11 @@ void audio_scratch_set(ACAudio *audio, double level, double cutoff,
                        double resonance, double roughness, double release,
                        double pan, int synthetic);
 void audio_scratch_stop(ACAudio *audio);
+
+// Melodic duck (Menu Band's sidechain): drop every melodic voice to `target`
+// (0..1) now and hold it there `hold` seconds, then climb back to unity over
+// 0.28 s. Overlapping ducks keep the deeper target and the later hold.
+void audio_duck(ACAudio *audio, double target, double hold);
 void audio_set_output_history_paused(ACAudio *audio, int paused);
 
 // Microphone — hot-mic mode (device stays open, recording toggles buffering)

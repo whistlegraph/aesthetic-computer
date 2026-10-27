@@ -83,6 +83,9 @@ const char *input_key_name(int code) {
         case KEY_BRIGHTNESSDOWN: return "brightnessdown";
         case KEY_BRIGHTNESSUP: return "brightnessup";
         case KEY_MICMUTE: return "micmute";
+#ifdef KEY_DICTATE
+        case KEY_DICTATE: return "dictate";
+#endif
         case KEY_SWITCHVIDEOMODE: return "switchvideo";
         case KEY_WLAN: return "wlan";
         case KEY_MEDIA: return "media";

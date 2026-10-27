@@ -829,6 +829,22 @@ void audio_scratch_set(ACAudio *audio, double level, double cutoff,
     pthread_mutex_unlock(&audio->lock);
 }
 
+// Melodic duck requests, written by the JS thread and read by the audio
+// thread (a torn read of one double only lands one sample off).
+static volatile double duck_req_target = 1.0, duck_req_hold = 0.0;
+static volatile unsigned duck_req_seq = 0;
+
+void audio_duck(ACAudio *audio, double target, double hold) {
+    (void)audio;
+    if (!(target >= 0.0)) target = 0.0;
+    if (target > 1.0) target = 1.0;
+    if (!(hold >= 0.0)) hold = 0.0;
+    duck_req_target = target;
+    duck_req_hold = hold;
+    __sync_synchronize();
+    duck_req_seq++;
+}
+
 void audio_scratch_stop(ACAudio *audio) {
     if (!audio) return;
     pthread_mutex_lock(&audio->lock);
@@ -1909,24 +1925,17 @@ static void *audio_thread_fn(void *arg) {
     int pitch_touched[AUDIO_MAX_VOICES];
     const float echo_a = 1.0f - expf((float)(-2.0 * M_PI * ECHO_LP_HZ / rate)); // one-pole damper
 
-    // Drum bus peak compressor — gives percussion proper "stacking" feel.
-    // The drum bus sums additively (no auto-mix divide) so rapid hits
-    // would otherwise saturate through soft_clip tanh, flattening peaks
-    // and making each new hit sound QUIETER. A real peak compressor
-    // with fast attack / slower release keeps the drum bus below ~0.95
-    // so transients retain impact AND the compressor recovers between
-    // hits so each kick/snare feels punchy on its own.
-    double drum_gain = 1.0;
-    const double DRUM_THRESH = 0.95;
-    const double DRUM_BUS_TRIM = 0.6;
-    // 5ms attack — slower than a 2ms beater transient so the first peak
-    // of each hit passes through at full amplitude before compression
-    // engages. This preserves the "snap" of each individual kick/snare.
-    const double drum_att_coeff = 1.0 - exp(-1.0 / (0.005 * rate));
-    // 200ms release — recovers quickly enough that successive hits at
-    // typical tempos (120-200 BPM, 300-500ms between hits) each get
-    // the benefit of full dynamic range.
-    const double drum_rel_coeff = 1.0 - exp(-1.0 / (0.200 * rate));
+    // Drum bus, as Menu Band's percussion renders it: constant-power pan and
+    // one fixed gain (its masterGain 0.34 x outputLevel 0.90), no compressor,
+    // so overlapping hits simply add and a later hit never pulls an earlier
+    // one's tail down.
+    const double DRUM_BUS_GAIN = 0.34 * 0.90;
+
+    // Melodic duck state (audio_duck): requests arrive by sequence number.
+    unsigned duck_seen = duck_req_seq;
+    double duck_gain = 1.0, duck_target = 1.0, duck_hold = 0.0;
+    const double duck_att_coeff = 1.0 - exp(-1.0 / (0.002 * rate)); // ~2 ms, no click
+    const double duck_rise = 1.0 / (0.28 * rate);                     // silence to unity in 0.28 s
 
     // Set real-time priority to prevent audio glitches from background tasks
     struct sched_param sp = { .sched_priority = 50 };
@@ -2018,10 +2027,17 @@ static void *audio_thread_fn(void *arg) {
 
                 int is_percussive = !isinf(voice->duration) && voice->duration < 0.5;
                 if (is_percussive) {
-                    // Drum bus — no auto-mix normalization. Drums stack
-                    // additively and rely on soft_clip for peak control.
-                    drum_l += amp * left_gain;
-                    drum_r += amp * right_gain;
+                    // Drum bus — no auto-mix normalization; constant-power
+                    // pan like Menu Band's (cos/sin), cached per voice.
+                    if (!voice->drum_pan_ok || voice->drum_pan_at != voice->pan) {
+                        double th = (voice->pan + 1.0) * 0.25 * M_PI;
+                        voice->drum_gl = cos(th);
+                        voice->drum_gr = sin(th);
+                        voice->drum_pan_at = voice->pan;
+                        voice->drum_pan_ok = 1;
+                    }
+                    drum_l += amp * voice->drum_gl;
+                    drum_r += amp * voice->drum_gr;
                 } else {
                     // Tone bus — its level joins its pitch's headroom bucket.
                     // A released (linger) voice counts at its actual fade.
@@ -2064,42 +2080,32 @@ static void *audio_thread_fn(void *arg) {
             tone_l *= tone_gain;
             tone_r *= tone_gain;
 
-            // Drum bus trim. notepat's kick stacks four layers at volume
-            // ~2 (1.0 full-scale each after the centre pan law), so without
-            // this the kick body alone sits 3-4 dB into the compressor below
-            // and 8:1 into the master clamp. Any later hit — a hat landing
-            // on the ringing kick — then steps both gains within ~6 ms, an
-            // audible pop (simulated 0.81 → 0.66). At 0.6 the body clears
-            // the 0.95 threshold, the hat changes nothing, and the output
-            // peak drops only ~1 dB (0.94 → 0.82). Melodic notes never
-            // popped the kick because their attack ramps; hats don't.
-            drum_l *= DRUM_BUS_TRIM;
-            drum_r *= DRUM_BUS_TRIM;
+            drum_l *= DRUM_BUS_GAIN;
+            drum_r *= DRUM_BUS_GAIN;
 
-            // Drum bus peak compressor: detect peak, attack fast if over
-            // threshold, release slow. Unlike the tone auto-mix divide,
-            // this preserves individual hit dynamics — a single drum hit
-            // passes through at full amplitude, but sustained buildup
-            // from overlapping hits gets gain-reduced gracefully so they
-            // stack linearly instead of saturating through soft_clip.
-            {
-                double peak = fabs(drum_l);
-                double peak_r = fabs(drum_r);
-                if (peak_r > peak) peak = peak_r;
-                double target = (peak > DRUM_THRESH) ? (DRUM_THRESH / peak) : 1.0;
-                if (target < drum_gain) {
-                    drum_gain += (target - drum_gain) * drum_att_coeff;
-                } else {
-                    drum_gain += (target - drum_gain) * drum_rel_coeff;
-                }
-                drum_l *= drum_gain;
-                drum_r *= drum_gain;
+            // Melodic duck: snap toward the requested floor while it holds,
+            // then climb linearly back to unity.
+            if (duck_req_seq != duck_seen) {
+                duck_seen = duck_req_seq;
+                double t = duck_req_target;
+                if (duck_hold > 0.0) { if (t < duck_target) duck_target = t; }
+                else duck_target = t;
+                if (duck_req_hold > duck_hold) duck_hold = duck_req_hold;
             }
+            if (duck_hold > 0.0) {
+                duck_hold -= 1.0 / rate;
+                if (duck_gain > duck_target) duck_gain += (duck_target - duck_gain) * duck_att_coeff;
+            } else if (duck_gain < 1.0) {
+                duck_gain += duck_rise;
+                if (duck_gain > 1.0) duck_gain = 1.0;
+            }
+            tone_l *= duck_gain;
+            tone_r *= duck_gain;
 
             // Merge the two buses. Drums land compressed to ~0.95 peak
             // so they retain impact without saturating the final output.
-            double mix_l = tone_l + drum_l + sf2_buf[2 * i] * GM_SF2_GAIN;
-            double mix_r = tone_r + drum_r + sf2_buf[2 * i + 1] * GM_SF2_GAIN;
+            double mix_l = tone_l + drum_l + sf2_buf[2 * i] * GM_SF2_GAIN * duck_gain;
+            double mix_r = tone_r + drum_r + sf2_buf[2 * i + 1] * GM_SF2_GAIN * duck_gain;
 
             // Mix sample voices (pitch-shifted playback)
             // Lock already held from line 246 — safe to read sample_buf
@@ -3874,15 +3880,18 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
         }
     }
     if (slot < 0) {
-        // Steal oldest voice
-        double oldest = 0;
-        slot = 0;
+        // Steal the oldest finite voice (a drum tail), as Menu Band does, so
+        // a roll never cuts a held note; only when every voice is held does
+        // the oldest held one go.
+        double oldest = -1, oldest_held = -1;
+        int held_slot = 0;
         for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
-            if (audio->voices[i].elapsed > oldest) {
-                oldest = audio->voices[i].elapsed;
-                slot = i;
-            }
+            double e = audio->voices[i].elapsed;
+            if (isinf(audio->voices[i].duration)) {
+                if (e > oldest_held) { oldest_held = e; held_slot = i; }
+            } else if (e > oldest) { oldest = e; slot = i; }
         }
+        if (slot < 0) slot = held_slot;
     }
 
     ACVoice *v = &audio->voices[slot];
