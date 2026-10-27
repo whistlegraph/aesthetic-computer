@@ -1460,14 +1460,35 @@ async function halt($, text) {
 async function sketch($, text) {
   const word = text?.trim().toLowerCase().replace(/\s+/g, " ");
   if (!/^[a-z][a-z' -]{1,30}$/.test(word) || word.split(" ").length > 3) return false;
+  const input = $.system.prompt.input;
+  const typed = input?.text;
   $.notice(`sketching ${word}...`, ["white", "blue"]);
   try {
-    const { code } = await (await fetch(`/api/sketch?word=${encodeURIComponent(word)}`)).json();
-    if (!code) return false;
-    return (await $.load(parse(`$${code}`))) ? { left: true } : false;
-  } catch {
-    return false; // offline or the server said no: the help character answers.
-  }
+    const res = await fetch(`/api/sketch?word=${encodeURIComponent(word)}&stream=1`);
+    let result;
+    if (res.headers.get("content-type")?.includes("json")) result = await res.json();
+    else {
+      // A fresh drawing streams: show its code arriving under the word. The
+      // last line is \u0000 + the JSON result.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let body = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        body += decoder.decode(value, { stream: true });
+        if (input) {
+          input.text = `${typed}\n\n${body.split("\u0000")[0]}`;
+          input.snap();
+        }
+        $.needsPaint();
+      }
+      result = JSON.parse(body.split("\u0000")[1] || "{}");
+    }
+    if (result.code && (await $.load(parse(`$${result.code}`)))) return { left: true };
+  } catch {} // offline or the server said no
+  if (input) input.text = typed; // the help character answers over the entry
+  return false;
 }
 
 async function route($, text) {

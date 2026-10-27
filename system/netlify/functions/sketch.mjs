@@ -107,7 +107,10 @@ function safe(source) {
   return !(source.match(/[a-z][a-z0-9_-]*/gi) || []).some((t) => DENY.has(t.toLowerCase()));
 }
 
-async function draw(word) {
+
+// Ask Claude for the drawing, streaming. `onText` sees each piece of the
+// program as it's written, so the prompt can show the code arriving.
+async function draw(word, onText = () => {}) {
   const key = process.env.ANTHROPIC_CREDITS_KEY || process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("no anthropic key");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -121,6 +124,7 @@ async function draw(word) {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: 4000,
+      stream: true,
       output_config: { effort: "low" },
       fallbacks: "default",
       system: SYSTEM,
@@ -128,29 +132,72 @@ async function draw(word) {
     }),
   });
   if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  const msg = await res.json();
-  if (msg.stop_reason === "refusal") return { skip: true };
-  const text = (msg.content || []).filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-  const source = text.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/, "").trim();
+
+  let text = "", stop = null, buffer = "";
+  const decoder = new TextDecoder();
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let cut;
+    while ((cut = buffer.indexOf("\n\n")) !== -1) {
+      const data = buffer.slice(0, cut).split("\n").find((l) => l.startsWith("data: "));
+      buffer = buffer.slice(cut + 2);
+      if (!data) continue;
+      const event = JSON.parse(data.slice(6));
+      if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+        text += event.delta.text;
+        onText(event.delta.text);
+      } else if (event.type === "message_delta") stop = event.delta?.stop_reason ?? stop;
+      else if (event.type === "error") throw new Error(`anthropic stream: ${event.error?.message}`);
+    }
+  }
+  if (stop === "refusal") return { skip: true };
+  const source = text.trim().replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/, "").trim();
   return source === "SKIP" || !source ? { skip: true } : { program: source };
 }
+
+// Store a safe drawing as a $code and remember the outcome for the word.
+// Only a drawing or the model's own SKIP is final; a rejected or failed
+// attempt may try again later, inside the throttles.
+async function settle(sketches, word, { program, skip }) {
+  let code = null;
+  const source = `; ${word}\n${program}`;
+  if (program && safe(program)) {
+    const stored = await storeKidlisp({ httpMethod: "POST", headers: {}, body: JSON.stringify({ source }) });
+    const body = typeof stored.body === "string" ? JSON.parse(stored.body) : stored.body;
+    code = body?.code || null;
+  } else if (program) console.warn(`✏️ sketch rejected for "${word}" (${program.length} chars)`);
+  if (code || skip) {
+    try {
+      await sketches.createIndex({ word: 1 }, { unique: true });
+    } catch {}
+    const doc = code ? { word, code, source, at: new Date() } : { word, skip: true, at: new Date() };
+    await sketches.updateOne({ word }, { $set: doc }, { upsert: true });
+  }
+  return code ? { code, source } : { skip: true };
+}
+
+// With ?stream=1 a fresh drawing streams as plain text, and the last line is
+// `\u0000` + the JSON result. Everything already known answers as JSON.
+const END = "\u0000";
 
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") return respond(204, "");
   if (event.httpMethod !== "GET") return respond(405, { error: "Method not allowed" });
 
-  const word = (event.queryStringParameters?.word || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const query = event.queryStringParameters || {};
+  const word = (query.word || "").trim().toLowerCase().replace(/\s+/g, " ");
   if (!/^[a-z][a-z' -]{1,30}$/.test(word) || word.split(" ").length > 3) return respond(200, { skip: true });
 
   const near = nearPiece(word);
   if (near) return respond(200, { near });
 
-  let database;
+  let database, streaming = false;
   try {
     database = await connect();
     const sketches = database.db.collection(COLLECTION);
-    // Only a drawing or the model's own SKIP is final; a rejected or failed
-    // attempt may try again later, inside the throttles.
     // The source rides along so AC OS, which can't fetch $codes, needs one call.
     const cached = await sketches.findOne({ word });
     if (cached?.code) {
@@ -166,26 +213,29 @@ export async function handler(event) {
     if (throttled(from)) return respond(200, { skip: true });
     hourCount += 1;
 
-    const { program, skip } = await draw(word);
-    let code = null;
-    const source = `; ${word}\n${program}`;
-    if (program && safe(program)) {
-      const stored = await storeKidlisp({ httpMethod: "POST", headers: {}, body: JSON.stringify({ source }) });
-      const body = typeof stored.body === "string" ? JSON.parse(stored.body) : stored.body;
-      code = body?.code || null;
-    } else if (program) console.warn(`✏️ sketch rejected for "${word}" (${program.length} chars)`);
-    if (code || skip) {
-      try {
-        await sketches.createIndex({ word: 1 }, { unique: true });
-      } catch {}
-      const doc = code ? { word, code, source, at: new Date() } : { word, skip: true, at: new Date() };
-      await sketches.updateOne({ word }, { $set: doc }, { upsert: true });
-    }
-    return respond(200, code ? { code, source } : { skip: true });
+    if (!query.stream) return respond(200, await settle(sketches, word, await draw(word)));
+
+    streaming = true;
+    const encoder = new TextEncoder();
+    const body = new ReadableStream({
+      async start(controller) {
+        let result = { skip: true };
+        try {
+          result = await settle(sketches, word, await draw(word, (t) => controller.enqueue(encoder.encode(t))));
+        } catch (err) {
+          console.error("✏️ sketch failed:", err.message);
+        } finally {
+          controller.enqueue(encoder.encode(`\n${END}${JSON.stringify(result)}`));
+          controller.close();
+          await database.disconnect();
+        }
+      },
+    });
+    return { statusCode: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }, body };
   } catch (err) {
     console.error("✏️ sketch failed:", err.message);
     return respond(200, { skip: true });
   } finally {
-    await database?.disconnect();
+    if (!streaming) await database?.disconnect();
   }
 }
