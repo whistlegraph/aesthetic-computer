@@ -77,6 +77,15 @@ export function createPaintingWipService(repo, now = () => Date.now()) {
   function authorize(painting, user, key) {
     if (!canEditPaintingWip(painting, user, key)) fail(403, "This painting belongs to another editor");
   }
+  // A guest's painting becomes theirs when they sign in and keep editing it:
+  // the editor key proved it was theirs, so the account takes ownership.
+  async function claim(painting, user) {
+    if (!user?.sub || painting.user) return painting;
+    const fields = { user: user.sub, bucket: "user-aesthetic-computer" };
+    if (await repo.update({ code: painting.code, "wip.revision": painting.wip.revision }, fields))
+      return { ...painting, ...fields };
+    fail(409, "This painting changed in another tab. Reload it before continuing.");
+  }
   return {
     async create(input, user) {
       if (!idPattern.test(input.id || "") || !keyPattern.test(input.key || "")) fail(400, "Invalid editor identity");
@@ -87,7 +96,7 @@ export function createPaintingWipService(repo, now = () => Date.now()) {
       if (existing) {
         authorize(existing, user, input.key);
         if (paintingWipExpired(existing, now())) fail(410, "This empty painting has expired");
-        return paintingWipMetadata(existing);
+        return paintingWipMetadata(await claim(existing, user));
       }
       if (input.parent && (typeof input.parent !== "string" || !/^[A-Za-z0-9]{3,12}$/.test(input.parent) ||
           !await repo.find({ code: input.parent }))) fail(404, "Starting painting not found");
@@ -125,8 +134,9 @@ export function createPaintingWipService(repo, now = () => Date.now()) {
         ...(includeState ? { state } : {}) };
     },
     async save(input, user) {
-      const painting = await find(input.code);
+      let painting = await find(input.code);
       authorize(painting, user, input.key);
+      painting = await claim(painting, user);
       if (painting.status !== "wip") fail(409, "This painting is Done. Start a new painting from it.");
       const state = statePayload(input.state);
       // Retrying a response that was lost does not add a revision.
