@@ -66,8 +66,9 @@ function paint({ wipe, ink, line, screen }) {
   const hs = Math.max(1, Math.min(big * 2, Math.floor((w - 16) / (headline.length * 6))));
   ink(255).write(headline, { x: 8, y, size: hs });
   y += 10 * hs + 6;
-  const named = `${now.handles.length} handles`;
-  const unnamed = `${now.guests} guests`;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const named = plural(now.handles.length, "handle");
+  const unnamed = plural(now.guests, "guest");
   ink(130, 220, 255).write(named, { x: 8, y, size: big });
   let gx = 8 + (named.length + 2) * 6 * big;
   if (gx + unnamed.length * 6 * big > w - 8) (gx = 8), (y += 10 * big + 4); // wrap on phones.
@@ -76,8 +77,9 @@ function paint({ wipe, ink, line, screen }) {
   const top = y; // where the handle columns restart.
 
   // The handles, in columns when they run past the bottom.
-  const rowH = 12;
-  const colW = 6 * 28;
+  const ls = w >= 1000 ? 3 : w >= 480 ? 2 : 1; // list text scale.
+  const rowH = 12 * ls;
+  const colW = 6 * 28 * ls;
   const bottom = h - 34; // leave room for the sparkline + status.
   let x = 8;
   let shown = 0;
@@ -89,17 +91,17 @@ function paint({ wipe, ink, line, screen }) {
     // Last slot that fits holds the overflow count instead of a name.
     const lastSlot = x + 2 * colW > w && y + 2 * rowH > bottom;
     if (lastSlot && now.handles.length - shown > 1) {
-      ink(110).write(`+${now.handles.length - shown} more`, { x, y });
+      ink(110).write(`+${now.handles.length - shown} more`, { x, y, size: ls });
       break;
     }
-    ink(...hue(v.handle)).write(v.handle, { x, y });
+    ink(...hue(v.handle)).write(v.handle, { x, y, size: ls });
     const where = v.piece ? v.piece : "…";
     const tabs = v.tabs > 1 ? ` x${v.tabs}` : "";
-    ink(110).write(`${where}${tabs}`, { x: x + 6 * (v.handle.length + 1), y });
+    ink(110).write(`${where}${tabs}`, { x: x + 6 * ls * (v.handle.length + 1), y, size: ls });
     y += rowH;
     shown += 1;
   }
-  if (!now.handles.length) ink(80).write("no handles on right now", { x, y });
+  if (!now.handles.length) ink(80).write("no handles on right now", { x, y, size: ls });
 
   // Sparkline of the total along the bottom edge.
   const sy = h - 22, sh = 14;
