@@ -171,12 +171,16 @@ static void wifi_do_scan(ACWifi *wifi) {
         return;
     }
 
-    WiFiNetwork nets[WIFI_MAX_NETWORKS];
+    // Parse every BSS before keeping the strongest WIFI_MAX_NETWORKS: iw
+    // lists them in no signal order, and in a dense block (40+ BSSes) the
+    // first 32 in file order can leave out a strong known network.
+    enum { SCAN_PARSE_MAX = 256 };
+    static WiFiNetwork nets[SCAN_PARSE_MAX];
     int count = 0;
     char line[512];
     int cur = -1;
 
-    while (fgets(line, sizeof(line), fp) && count < WIFI_MAX_NETWORKS) {
+    while (fgets(line, sizeof(line), fp) && count < SCAN_PARSE_MAX) {
         char bssid[18];
         if (sscanf(line, "BSS %17s", bssid) == 1) {
             cur = count++;
@@ -211,6 +215,7 @@ static void wifi_do_scan(ACWifi *wifi) {
     int w = 0;
     for (int r = 0; r < count; r++)
         if (nets[r].ssid[0]) { if (w != r) nets[w] = nets[r]; w++; }
+    if (w > WIFI_MAX_NETWORKS) w = WIFI_MAX_NETWORKS;  // strongest kept
 
     // Commit results under lock
     pthread_mutex_lock(&wifi->lock);
