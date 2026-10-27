@@ -1,7 +1,7 @@
 // Prompt Log, 2026.09.03
 // Record every prompt submission (anonymous) so the corpus of what people
 // enter — including misses — is searchable and countable.
-// POST: fire-and-forget from the prompt piece: { text }
+// POST: fire-and-forget from the prompt piece: { text, handled }
 // GET (admin): ?q=substring&limit=N to search raw entries,
 //              ?stats=1&since=ISO&limit=N for grouped top entries + totals.
 
@@ -71,7 +71,8 @@ async function classify(text, db) {
   if (head.startsWith("@")) return { kind: "user-piece", resolved: null };
 
   const slug = head.split(":")[0].split("~")[0];
-  if (pieceOnDisk(slug)) return { kind: "piece", resolved: true };
+  if (pieceOnDisk(slug) || pieceOnDisk(slug.toLowerCase()))
+    return { kind: "piece", resolved: true };
 
   return { kind: "word", resolved: false };
 }
@@ -180,7 +181,13 @@ export async function handler(event) {
         text = `${head} [redacted]`;
       }
 
-      const { kind, resolved } = await classify(text, database.db);
+      let { kind, resolved } = await classify(text, database.db);
+      // The prompt says whether anything answered. Trust it for words: the
+      // file lookup can't see built-in commands like `signup` or `done`.
+      if (kind === "word" && typeof body.handled === "boolean") {
+        resolved = body.handled;
+        if (body.handled) kind = body.sketched ? "sketch" : "command";
+      }
 
       const now = new Date();
       try {

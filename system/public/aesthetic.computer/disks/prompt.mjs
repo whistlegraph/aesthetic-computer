@@ -1429,15 +1429,48 @@ async function boot({
 
 // 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
-  // 🛰️ Prompt corpus: record what was entered (anonymous, fire-and-forget).
+  let result = await route($, text);
+
+  // Phones capitalize the first letter, and commands and piece files are
+  // lowercase. Retry a plain first word lowered, only after the exact text
+  // missed, because $codes can carry capitals.
+  const head = text?.trim().split(/[\s:~]/)[0] || "";
+  if (!result && /[A-Z]/.test(head) && /^[A-Za-z0-9-]+$/.test(head))
+    result = await route($, text.trim().replace(head, head.toLowerCase()));
+
+  // ✏️ Still nothing: draw the word instead of a 404. Typos of real pieces
+  // and undrawable words come back empty and fall to the help character.
+  const sketched = !result && (await sketch($, text));
+  if (sketched) result = sketched;
+
+  // 🛰️ Prompt corpus: record what was entered and whether anything answered
+  // (anonymous, fire-and-forget).
   if (text?.trim().length > 0) {
     fetch("/api/prompt-log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: text.trim().slice(0, 256) }),
+      body: JSON.stringify({ text: text.trim().slice(0, 256), handled: !!result, sketched: !!sketched }),
     }).catch(() => {});
   }
 
+  return result;
+}
+
+// One generated KidLisp drawing per word, cached server-side (`/api/sketch`).
+async function sketch($, text) {
+  const word = text?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!/^[a-z][a-z' -]{1,30}$/.test(word) || word.split(" ").length > 3) return false;
+  $.notice(`sketching ${word}...`, ["white", "blue"]);
+  try {
+    const { code } = await (await fetch(`/api/sketch?word=${encodeURIComponent(word)}`)).json();
+    if (!code) return false;
+    return (await $.load(parse(`$${code}`))) ? { left: true } : false;
+  } catch {
+    return false; // offline or the server said no: the help character answers.
+  }
+}
+
+async function route($, text) {
   const {
     api,
     broadcast,
@@ -1896,6 +1929,10 @@ async function halt($, text) {
     /* ignore */
   }
 
+  // `laer-klokken` is hard to type: take it hyphenless, with æ, or clipped.
+  if (/^l(?:ae|æ)r(?:[- ]?klok(?:k(?:e[nm]?)?)?)?$/i.test(text.trim()))
+    text = "laer-klokken";
+
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
   let slug = tokens[0]; // Note: Includes colon params.
@@ -1903,8 +1940,8 @@ async function halt($, text) {
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
 
-  // 📎 Command aliases.
-  const aliases = { ls: "list" };
+  // 📎 Command aliases, plus the names people reach for (from the prompt log).
+  const aliases = { ls: "list", notepad: "notepat", radio: "r8dio" };
   if (aliases[slugWithoutColon]) {
     text = text.replace(slugWithoutColon, aliases[slugWithoutColon]);
     tokens[0] = slug.replace(slugWithoutColon, aliases[slugWithoutColon]);
