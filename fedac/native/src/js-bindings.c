@@ -7158,6 +7158,18 @@ static JSValue build_system_diagnostics(JSContext *ctx) {
 
     JS_SetPropertyStr(ctx, sys, "battery", battery);
 
+    // Safe area — system.safe {top, left, right, bottom} in screen pixels:
+    // where a framed panel's rounded corners can't reach (ac-native.c).
+    {
+        extern int g_safe_top, g_safe_left, g_safe_right, g_safe_bottom;
+        JSValue safe = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, safe, "top", JS_NewInt32(ctx, g_safe_top));
+        JS_SetPropertyStr(ctx, safe, "left", JS_NewInt32(ctx, g_safe_left));
+        JS_SetPropertyStr(ctx, safe, "right", JS_NewInt32(ctx, g_safe_right));
+        JS_SetPropertyStr(ctx, safe, "bottom", JS_NewInt32(ctx, g_safe_bottom));
+        JS_SetPropertyStr(ctx, sys, "safe", safe);
+    }
+
     // Hardware info — system.hw (model, cpu, ram)
     {
         JSValue hw = JS_NewObject(ctx);

@@ -42,6 +42,10 @@ void fb_copy_to(ACFramebuffer *src, uint32_t *dst, int dst_stride) {
     }
 }
 
+// Software brightness, 0..256 (256 = untouched): applied as frames are
+// scaled to the panel, for displays with no backlight control to drive.
+int fb_dim = 256;
+
 void fb_copy_scaled(ACFramebuffer *src, uint32_t *dst, int dst_w, int dst_h, int dst_stride, int scale) {
     if (!src || !dst || dst_w <= 0 || dst_h <= 0 || scale <= 0 ||
         src->width <= 0 || src->height <= 0 || dst_stride < dst_w) return;
@@ -64,8 +68,14 @@ void fb_copy_scaled(ACFramebuffer *src, uint32_t *dst, int dst_w, int dst_h, int
 
         // Expand source row: each pixel repeated 'scale' times
         int dx = 0;
+        const int dim = fb_dim;
         for (int sx = 0; sx < src_w && dx < max_dx; sx++) {
             uint32_t p = src_row[sx];
+            if (dim < 256)  // software brightness (panels without a backlight control)
+                p = (p & 0xFF000000u) |
+                    ((((p >> 16) & 0xFF) * dim >> 8) << 16) |
+                    ((((p >> 8) & 0xFF) * dim >> 8) << 8) |
+                    ((p & 0xFF) * dim >> 8);
             for (int r = 0; r < scale && dx < max_dx; r++)
                 dst_row[dx++] = p;
         }

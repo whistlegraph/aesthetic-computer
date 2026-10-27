@@ -1786,6 +1786,48 @@ static void mix_sample_voice(SampleVoice *sv, const float *buf, int slen, int sm
     }
 }
 
+// Speaker guard on demand (AC_SPEAKER_GUARD="<command line>",
+// AC_SPEAKER_GUARD_IDLE=<seconds>, default 4). The MacBook Neo's speakers
+// whir at rest while the protection daemon (speakerguardd) holds them
+// unlocked, and sit silent at the card's own locked level. So run the
+// daemon only while the speaker feed carries signal: start it on the first
+// audible period, stop it after the idle time; the card re-locks itself.
+// Runs off the audio thread, which only raises audio->guard_audible.
+#include <signal.h>
+#include <sys/wait.h>
+static void *speaker_guard_fn(void *arg) {
+    ACAudio *audio = (ACAudio *)arg;
+    const char *cmd = getenv("AC_SPEAKER_GUARD");
+    const char *idle_env = getenv("AC_SPEAKER_GUARD_IDLE");
+    double idle_s = idle_env && atof(idle_env) > 0 ? atof(idle_env) : 4.0;
+    pid_t pid = 0;
+    double quiet = 0;
+    while (audio->running) {
+        usleep(100000);
+        if (audio->guard_audible) { audio->guard_audible = 0; quiet = 0; }
+        else quiet += 0.1;
+        if (!pid && quiet == 0) {
+            pid = fork();
+            if (pid == 0) {
+                char line[512];  // exec, so the pid we signal is the daemon's
+                snprintf(line, sizeof(line), "exec %s", cmd);
+                execl("/bin/sh", "sh", "-c", line, (char *)NULL);
+                _exit(127);
+            }
+            if (pid < 0) pid = 0;
+            else fprintf(stderr, "[audio] speaker guard started (pid %d)\n", (int)pid);
+        } else if (pid && quiet >= idle_s) {
+            kill(pid, SIGTERM);
+            waitpid(pid, NULL, 0);
+            fprintf(stderr, "[audio] speaker guard stopped after %.0fs idle\n", idle_s);
+            pid = 0;
+        }
+        if (pid && waitpid(pid, NULL, WNOHANG) == pid) pid = 0;  // exited on its own
+    }
+    if (pid) { kill(pid, SIGTERM); waitpid(pid, NULL, 0); }
+    return NULL;
+}
+
 static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     const unsigned int period_frames = audio->actual_period ? audio->actual_period : AUDIO_PERIOD_SIZE;
@@ -1814,6 +1856,45 @@ static void *audio_thread_fn(void *arg) {
             jack_ctl = NULL;
         }
     }
+    // Idle amp off (AC_SPEAKER_IDLE_OFF=<seconds>): the MacBook Neo's amp
+    // whirs while it plays digital silence, so after that long with nothing
+    // to play turn the card's "Speaker Switch" off, and back on with the
+    // next non-silent period (macOS powers its amp down the same way).
+    snd_ctl_t *amp_ctl = NULL;
+    snd_ctl_elem_value_t *amp_val = NULL;
+    unsigned int amp_idle_after = 0, amp_idle_frames = 0;
+    int amp_on = 1;
+    const char *idle_env = getenv("AC_SPEAKER_IDLE_OFF");
+    if (idle_env && atof(idle_env) > 0) {
+        char ctl_name[16];
+        snprintf(ctl_name, sizeof(ctl_name), "hw:%d", audio->card_index);
+        if (snd_ctl_open(&amp_ctl, ctl_name, SND_CTL_NONBLOCK) == 0) {
+            snd_ctl_elem_value_malloc(&amp_val);
+            snd_ctl_elem_value_set_interface(amp_val, SND_CTL_ELEM_IFACE_MIXER);
+            snd_ctl_elem_value_set_name(amp_val, "Speaker Switch");
+            amp_idle_after = (unsigned int)(atof(idle_env) *
+                (audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
+        } else {
+            amp_ctl = NULL;
+        }
+    }
+    // Speaker air (AC_SPEAKER_AIR=<LSBs>): the MacBook Neo's amp whirs on
+    // digital silence and goes quiet the moment any signal plays, so the
+    // speaker feed always carries a few LSBs of triangular noise (about
+    // -80 dBFS at 3) — inaudible, but never silence.
+    // /run/speaker-air, when present, overrides the level live (re-read
+    // about once a second) so it can be tuned by ear without a restart.
+    const char *air_env = getenv("AC_SPEAKER_AIR");
+    int air_lsb = air_env ? atoi(air_env) : 0;
+    int16_t *airbuf = air_lsb > 0 ? calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t)) : NULL;
+    uint32_t air_rng = 0x9E3779B9u;
+    unsigned int air_poll_frames = 0;
+    const char *suspend_env = getenv("AC_SPEAKER_IDLE_SUSPEND");
+    unsigned int suspend_after = suspend_env && atof(suspend_env) > 0
+        ? (unsigned int)(atof(suspend_env) * (audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE))
+        : 0;
+    unsigned int suspend_idle = 0;
+    int spk_suspended = 0;
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
     // Melodic headroom (Menu Band's MelodicHeadroom). Same-pitch voices add
@@ -2523,6 +2604,51 @@ static void *audio_thread_fn(void *arg) {
          * bottom-aligned format. (<<16 put data in bits 31:16 which
          * the DSP's 24-bit window barely saw → super quiet.) */
         const int16_t *main_src = speaker_silent ? silence : buffer;
+        if (!speaker_silent && !audio->guard_audible) {
+            for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
+                if (buffer[j] > 1 || buffer[j] < -1) { audio->guard_audible = 1; break; }
+        }
+        if (airbuf && (air_poll_frames += period_frames) >= (unsigned int)rate) {
+            air_poll_frames = 0;
+            FILE *af = fopen("/run/speaker-air", "r");
+            if (af) {
+                int lv;
+                if (fscanf(af, "%d", &lv) == 1 && lv >= 0 && lv <= 2000 && lv != air_lsb) {
+                    air_lsb = lv;
+                    fprintf(stderr, "[audio] speaker air: %d LSB\n", air_lsb);
+                }
+                fclose(af);
+            }
+        }
+        if (airbuf && air_lsb > 0) {
+            for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++) {
+                // Triangular noise: the sum of two uniform draws (xorshift32).
+                air_rng ^= air_rng << 13; air_rng ^= air_rng >> 17; air_rng ^= air_rng << 5;
+                int a = (int)(air_rng % (unsigned)(air_lsb + 1));
+                air_rng ^= air_rng << 13; air_rng ^= air_rng >> 17; air_rng ^= air_rng << 5;
+                int b = (int)(air_rng % (unsigned)(air_lsb + 1));
+                int v = main_src[j] + a - b;
+                airbuf[j] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+            }
+            main_src = airbuf;
+        }
+        if (amp_ctl) {
+            int audible = 0;
+            for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
+                if (main_src[j] > 1 || main_src[j] < -1) { audible = 1; break; }
+            if (audible) {
+                amp_idle_frames = 0;
+                if (!amp_on) {
+                    snd_ctl_elem_value_set_boolean(amp_val, 0, 1);
+                    if (snd_ctl_elem_write(amp_ctl, amp_val) >= 0) amp_on = 1;
+                    fprintf(stderr, "[audio] speaker amp on%s\n", amp_on ? "" : " (write failed)");
+                }
+            } else if (amp_on && (amp_idle_frames += period_frames) >= amp_idle_after) {
+                snd_ctl_elem_value_set_boolean(amp_val, 0, 0);
+                if (snd_ctl_elem_write(amp_ctl, amp_val) >= 0) amp_on = 0;
+                fprintf(stderr, "[audio] speaker amp off (idle)%s\n", amp_on ? " (write failed)" : "");
+            }
+        }
         const void *write_buf = main_src;
         if (buffer32) {
             for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
@@ -2531,6 +2657,34 @@ static void *audio_thread_fn(void *arg) {
         }
         int remaining = (int)period_frames;
         int offset = 0;
+        // Idle suspend (AC_SPEAKER_IDLE_SUSPEND=<seconds>): stop the speaker
+        // stream after that long with nothing to play, as PipeWire's idle
+        // suspend does on Asahi. Stopping it takes the amp off, which ends
+        // the MacBook Neo's whir at rest while the protection daemon holds
+        // the speakers unlocked. The next audible period re-prepares it
+        // (about 100 ms late).
+        if (suspend_after) {
+            int audible = 0;
+            if (!speaker_silent)
+                for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
+                    if (buffer[j] > 1 || buffer[j] < -1) { audible = 1; break; }
+            if (audible) {
+                suspend_idle = 0;
+                if (spk_suspended) {
+                    snd_pcm_prepare(pcm);
+                    spk_suspended = 0;
+                    fprintf(stderr, "[audio] speaker stream resumed\n");
+                }
+            } else if (!spk_suspended && (suspend_idle += period_frames) >= suspend_after) {
+                snd_pcm_drop(pcm);
+                spk_suspended = 1;
+                fprintf(stderr, "[audio] speaker stream suspended (idle)\n");
+            }
+            if (spk_suspended) {
+                remaining = 0;  // nothing to the speakers; pace on the clock
+                if (!pcm2) usleep((useconds_t)(period_frames * 1000000.0 / rate));
+            }
+        }
         while (remaining > 0) {
             const void *wptr = buffer32
                 ? (const void *)(buffer32 + offset * AUDIO_CHANNELS)
@@ -2616,6 +2770,9 @@ static void *audio_thread_fn(void *arg) {
     free(silence);
     if (jack_val) snd_ctl_elem_value_free(jack_val);
     if (jack_ctl) snd_ctl_close(jack_ctl);
+    free(airbuf);
+    if (amp_val) snd_ctl_elem_value_free(amp_val);
+    if (amp_ctl) snd_ctl_close(amp_ctl);
     free(sf2_buf);
     return NULL;
 }
@@ -3656,6 +3813,12 @@ ACAudio *audio_init(void) {
     // Start audio thread
     audio->running = 1;
     pthread_create(&audio->thread, NULL, audio_thread_fn, audio);
+
+    // Speaker guard on demand (AC_SPEAKER_GUARD): see speaker_guard_fn.
+    if (getenv("AC_SPEAKER_GUARD") && *getenv("AC_SPEAKER_GUARD")) {
+        pthread_t gt;
+        if (pthread_create(&gt, NULL, speaker_guard_fn, audio) == 0) pthread_detach(gt);
+    }
 
     /* Force PCI runtime-PM to "on" for the sound card now that the
      * driver is loaded and card_idx is known. The init-script attempt

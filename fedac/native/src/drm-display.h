@@ -28,6 +28,7 @@ typedef struct {
     // inner area pieces draw in, full_w/full_h stay the panel, and
     // display_present paints the border a shade off the frame's edge.
     int margin;
+    int corner;                 // the panel's top-corner radius (0 = square)
     int full_w, full_h;
 
     // Double buffering
@@ -72,9 +73,10 @@ ACDisplay *drm_init(void);
 // Present the small framebuffer scaled up to the display
 // This is the primary display function — handles GPU texture upload or CPU scaling
 void display_present(ACDisplay *d, ACFramebuffer *screen, int scale);
-// Frame the panel with a `margin`-pixel border (0 or unsupported: no-op).
-// Call before sizing the screen or input: it shrinks width/height.
-void display_set_margin(ACDisplay *d, int margin);
+// Frame the panel with a `margin`-pixel border (0 or unsupported: no-op),
+// rounding its top corners concentric with a panel corner of radius
+// `corner`. Call before sizing the screen or input: it shrinks width/height.
+void display_set_margin(ACDisplay *d, int margin, int corner);
 
 // Flip to the back buffer (makes it visible) — used by non-SDL3 paths
 void drm_flip(ACDisplay *d);

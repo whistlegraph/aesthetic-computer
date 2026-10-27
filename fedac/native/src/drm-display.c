@@ -761,7 +761,7 @@ int drm_front_stride(ACDisplay *d) {
     return (int)(d->buffers[d->front].pitch / sizeof(uint32_t));
 }
 
-void display_set_margin(ACDisplay *d, int margin) {
+void display_set_margin(ACDisplay *d, int margin, int corner) {
     // DRM dumb buffers only: fbdev strides and the SDL/rotated paths assume
     // width/height are the whole panel.
     if (!d || margin <= 0 || d->is_fbdev || d->is_sdl || d->rotation || d->margin) return;
@@ -769,6 +769,7 @@ void display_set_margin(ACDisplay *d, int margin) {
     d->full_w = d->width;
     d->full_h = d->height;
     d->margin = margin;
+    d->corner = corner;
     d->width -= 2 * margin;
     d->height -= 2 * margin;
     ac_log("[drm] framed: %dx%d panel, %dpx border, %dx%d inner\n",
@@ -819,6 +820,24 @@ static void present_framed(ACDisplay *d, ACFramebuffer *screen, int scale) {
         }
     }
     fb_copy_scaled(screen, dst + (size_t)oy * stride + ox, iw, ih, stride, scale);
+
+    // Round the frame's top corners, as the MacBook panels themselves are
+    // (their bottom corners are square): border colour outside a quarter
+    // circle of radius r, concentric with the panel's own corner (radius
+    // d->corner), so the frame's curve runs parallel to the glass's.
+    int r = d->corner - d->margin;
+    if (r <= 0) return;
+    if (r * 2 > iw || r > ih) return;
+    for (int y = 0; y < r; y++) {
+        int dy = r - y;  // distance from the circle's centre row
+        int span = 0;    // pixels outside the circle on this row
+        while (span < r && (r - span) * (r - span) + dy * dy > r * r) span++;
+        uint32_t *top = dst + (size_t)(oy + y) * stride;
+        for (int x = 0; x < span; x++) {
+            top[ox + x] = c;
+            top[ox + iw - 1 - x] = c;
+        }
+    }
 }
 
 void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {

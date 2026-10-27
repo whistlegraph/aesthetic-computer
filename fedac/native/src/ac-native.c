@@ -810,6 +810,17 @@ static ACGraph *g_shutdown_graph = NULL;
 static ACFramebuffer *g_shutdown_screen = NULL;
 static int g_shutdown_pixel_scale = 3;
 
+// The frame's safe area in screen pixels (system.safe): where a framed
+// panel's rounded top corners can't reach. Corner UI (QR, battery) sits
+// inside it. Zero on unframed displays.
+int g_safe_top = 0, g_safe_left = 0, g_safe_right = 0, g_safe_bottom = 0;
+static void update_safe_area(ACDisplay *display, int scale) {
+    int r = (display && display->margin) ? display->corner - display->margin : 0;
+    int inset = (r > 0 && scale > 0) ? (r + scale - 1) / scale : 0;
+    g_safe_top = g_safe_left = g_safe_right = inset;
+    g_safe_bottom = 0;  // MacBook panels' bottom corners are square
+}
+
 #ifdef USE_WAYLAND
 // Global Wayland display — used by ac_display_present dispatch
 static ACWaylandDisplay *g_wayland_display = NULL;
@@ -3915,14 +3926,18 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        // Apple's panels round their corners off, so frame them: a border a
-        // shade off the frame, C64-style, keeps every piece pixel visible.
-        // AC_SCREEN_MARGIN sets it in panel pixels (0 = none).
+        // Apple's panels round their top corners off, so frame them: a
+        // border a shade off the frame, C64-style, with top corners
+        // concentric with the panel's. AC_SCREEN_MARGIN (border) and
+        // AC_SCREEN_CORNER (the panel's corner radius) are in panel pixels.
         if (display) {
-            int margin = strcmp(machine_keys()->name, "apple") == 0 ? 32 : 0;
+            int apple = strcmp(machine_keys()->name, "apple") == 0;
+            int margin = apple ? 32 : 0, corner = apple ? 60 : 0;
             const char *margin_env = getenv("AC_SCREEN_MARGIN");
+            const char *corner_env = getenv("AC_SCREEN_CORNER");
             if (margin_env && *margin_env) margin = atoi(margin_env);
-            display_set_margin(display, margin);
+            if (corner_env && *corner_env) corner = atoi(corner_env);
+            display_set_margin(display, margin, corner);
         }
 
         // Target ~300px wide — just divide and let fb_copy_scaled handle the remainder
@@ -3984,6 +3999,7 @@ int main(int argc, char *argv[]) {
     g_shutdown_graph = &graph;
     g_shutdown_screen = screen;
     g_shutdown_pixel_scale = pixel_scale;
+    update_safe_area(display, pixel_scale);
 
     // Cursor overlay buffer — drawn separately so KidLisp effects don't smear it
     ACFramebuffer *cursor_fb = fb_create(screen->width, screen->height);
@@ -4872,6 +4888,23 @@ int main(int argc, char *argv[]) {
                         // Click sound: higher = brighter, lower = dimmer
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
+                    // No backlight to drive (the MacBook Neo before its DCP
+                    // runs): dim the frame itself, in the same ×1.5 steps.
+                    } else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
+                              strcmp(input->events[i].key_name, "brightnessdown") == 0 ||
+                              strcmp(input->events[i].key_name, key_brup) == 0 ||
+                              strcmp(input->events[i].key_name, key_brdn) == 0) && !bl_path[0]) {
+                        extern int fb_dim;
+                        int up = (strcmp(input->events[i].key_name, "brightnessup") == 0 ||
+                                  strcmp(input->events[i].key_name, key_brup) == 0);
+                        int next = up ? fb_dim * 3 / 2 : fb_dim * 2 / 3;
+                        if (next == fb_dim) next += up ? 1 : -1;
+                        if (next < 24) next = 24;    // never fully dark
+                        if (next > 256) next = 256;
+                        fb_dim = next;
+                        if (consume_row_keys) input->events[i].type = 0;
+                        audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
+                                    0.04, 0.12, 0.001, 0.03, 0.0);
                     }
                     // Tape recording: PrintScreen (or Insert/Pause as fallbacks
                     // on laptops where PrtSc doesn't fire standalone) toggles
@@ -4923,6 +4956,7 @@ int main(int argc, char *argv[]) {
                         // Keep shutdown-animation globals in sync with new screen + scale
                         g_shutdown_screen = screen;
                         g_shutdown_pixel_scale = pixel_scale;
+                        update_safe_area(display, pixel_scale);
                         input->scale = pixel_scale;
                         // Update JS runtime's graph reference (holds framebuffer)
                         if (rt) {

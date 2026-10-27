@@ -441,6 +441,7 @@ typedef struct {
     void *headphone_pcm;        // snd_pcm_t* for headphone PCM (NULL if same as main)
     int jack_routed;            // 1: play to exactly one of main/headphone PCM, by the jack
     int jack_plugged;           // last "Headphone Jack" reading (jack_routed only)
+    volatile int guard_audible; // speaker feed carried signal this period (guard thread reads)
 
     // HDMI audio output (secondary, low-pass filtered clone)
     void *hdmi_pcm;             // snd_pcm_t* for HDMI audio device (NULL if not found)

@@ -6727,6 +6727,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // the bar automatically gives the rest of the UI more room.
   const topBarH = 34;
   const barY = 3; // top-flush text row (matrix font at size=1 is ~7 px tall)
+  // The frame's safe area (system.safe): on Apple's rounded-corner panels
+  // the top corners clip, so the corner UI (QR, battery) steps inside it.
+  const safeL = system?.safe?.left || 0;
+  const safeR = system?.safe?.right || 0;
 
   ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
@@ -6749,7 +6753,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   let statusRightReserve = reserveTime.length * CH + 4 + 20 + 2 + 3 * CH; // time + vol
   if (reserveBatPct >= 0) statusRightReserve += 14 + (String(reserveBatPct).length + 1) * CH + 6;
   if (reserveSysBrt >= 0) statusRightReserve += 4 + 16 + 2 + 3 * CH;
-  const statusRightLimit = Math.max(80, w - statusRightReserve - 8);
+  const statusRightLimit = Math.max(80, w - statusRightReserve - 8 - safeR);
 
   // Left: QR code → notepat.com. Scale=1, version-1 with 2-module quiet
   // zone = 25×25 px. Taller top bar (54 px) leaves breathing room below
@@ -6757,16 +6761,16 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // the Reed-Solomon encoding so the inner module-grid blit is the only
   // per-frame cost.
   if (globalThis.qr) {
-    globalThis.qr("https://notepat.com", 2, 2, 1);
+    globalThis.qr("https://notepat.com", 2 + safeL, 4, 1); // vertically centred in the 34px bar
   }
-  const qrW = 28; // 25px QR + 2px left inset + 1px right padding before label
-  const labelX = qrW + 4;
+  const qrW = 28 + safeL; // 25px QR + 2px left inset + 1px right padding before label
+  const labelX = qrW + 8;
   // Wordmark at size=2 (matrix glyph advance = 8px): "notepat" = 7*8 = 56px,
-  // ".com" follows at +56. The whole mark is ~14px tall, so it sits a touch
-  // lower than the size-1 status row to stay vertically centered in the bar.
+  // ".com" follows at +56. The caps run y+2..y+16 at this size, so y=8
+  // centres them on the bar (17), level with the QR beside them.
   const wmSize = 2;
   const wmCh = 4 * wmSize; // matrix glyph advance per char at this size
-  const wmY = barY + 2;
+  const wmY = Math.round(topBarH / 2) - 9;
   const labelW = 11 * wmCh; // "notepat.com" = 11 glyphs
   const npHovered = hoverX >= 0 && hoverX <= labelX + labelW && hoverY < topBarH;
   if (npHovered) { ink(255, 255, 255, 20); box(labelX - 2, 0, labelW + 2, topBarH, true); }
@@ -7294,7 +7298,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // Right section: battery | time | vol
-  let rx = w - 2; // right edge cursor (builds right to left)
+  let rx = w - 2 - safeR; // right edge cursor (builds right to left)
 
   // Battery icon + percentage
   const bat = system?.battery;
