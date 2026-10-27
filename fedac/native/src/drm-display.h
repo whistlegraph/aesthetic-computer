@@ -23,6 +23,13 @@ typedef struct {
     int rotation;
     int scan_w, scan_h;
 
+    // A framed panel (Apple's rounded-corner displays) keeps a border of
+    // `margin` panel pixels on every side: width/height above shrink to the
+    // inner area pieces draw in, full_w/full_h stay the panel, and
+    // display_present paints the border a shade off the frame's edge.
+    int margin;
+    int full_w, full_h;
+
     // Double buffering
     struct {
         uint32_t handle;
@@ -65,6 +72,9 @@ ACDisplay *drm_init(void);
 // Present the small framebuffer scaled up to the display
 // This is the primary display function — handles GPU texture upload or CPU scaling
 void display_present(ACDisplay *d, ACFramebuffer *screen, int scale);
+// Frame the panel with a `margin`-pixel border (0 or unsupported: no-op).
+// Call before sizing the screen or input: it shrinks width/height.
+void display_set_margin(ACDisplay *d, int margin);
 
 // Flip to the back buffer (makes it visible) — used by non-SDL3 paths
 void drm_flip(ACDisplay *d);

@@ -3915,6 +3915,16 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
+        // Apple's panels round their corners off, so frame them: a border a
+        // shade off the frame, C64-style, keeps every piece pixel visible.
+        // AC_SCREEN_MARGIN sets it in panel pixels (0 = none).
+        if (display) {
+            int margin = strcmp(machine_keys()->name, "apple") == 0 ? 32 : 0;
+            const char *margin_env = getenv("AC_SCREEN_MARGIN");
+            if (margin_env && *margin_env) margin = atoi(margin_env);
+            display_set_margin(display, margin);
+        }
+
         // Target ~300px wide — just divide and let fb_copy_scaled handle the remainder
         {
             int target = display->width / 300;
