@@ -1,0 +1,228 @@
+{
+ "code": "pmpk",
+ "title": "Carve It Up for You (Pumpkin Carver)",
+ "clip": "6887389067546348805",
+ "source": "https://assets.aesthetic.computer/whistlegraph/index/posts/6887389067546348805.mp4",
+ "note": "Sung in unison \u2014 all three pens draw the whole time \u2014 so phrases rotate round the three drawings rather than following a singer.",
+ "phrases": [
+  {
+   "ink": "#ee5a24",
+   "anchor": [
+    531.0,
+    1125.0
+   ],
+   "words": [
+    {
+     "text": "three",
+     "start": 0.17,
+     "end": 0.97
+    },
+    {
+     "text": "two",
+     "start": 0.97,
+     "end": 1.96
+    },
+    {
+     "text": "one",
+     "start": 1.96,
+     "end": 2.98
+    }
+   ]
+  },
+  {
+   "ink": "#6b3fd4",
+   "anchor": [
+    427.5,
+    360.0
+   ],
+   "words": [
+    {
+     "text": "and",
+     "start": 2.98,
+     "end": 3.98
+    },
+    {
+     "text": "late",
+     "start": 3.98,
+     "end": 4.82
+    },
+    {
+     "text": "last",
+     "start": 4.82,
+     "end": 5.68
+    },
+    {
+     "text": "night",
+     "start": 5.68,
+     "end": 6.9
+    }
+   ]
+  },
+  {
+   "ink": "#f29a2e",
+   "anchor": [
+    675.0,
+    576.0
+   ],
+   "words": [
+    {
+     "text": "i",
+     "start": 6.9,
+     "end": 7.02
+    },
+    {
+     "text": "went",
+     "start": 7.02,
+     "end": 7.9
+    },
+    {
+     "text": "out",
+     "start": 7.9,
+     "end": 8.84
+    },
+    {
+     "text": "to",
+     "start": 8.84,
+     "end": 9.0
+    },
+    {
+     "text": "the",
+     "start": 9.0,
+     "end": 9.88
+    },
+    {
+     "text": "field",
+     "start": 9.88,
+     "end": 10.96
+    }
+   ]
+  },
+  {
+   "ink": "#ee5a24",
+   "anchor": [
+    450.0,
+    1507.5
+   ],
+   "words": [
+    {
+     "text": "looking",
+     "start": 10.96,
+     "end": 13.03
+    },
+    {
+     "text": "for",
+     "start": 13.03,
+     "end": 13.92
+    },
+    {
+     "text": "something",
+     "start": 13.92,
+     "end": 16.96
+    },
+    {
+     "text": "to",
+     "start": 16.96,
+     "end": 17.31
+    },
+    {
+     "text": "eat",
+     "start": 17.31,
+     "end": 17.84
+    }
+   ],
+   "until": 19.4
+  },
+  {
+   "ink": "#6b3fd4",
+   "anchor": [
+    427.5,
+    315.0
+   ],
+   "words": [
+    {
+     "text": "then",
+     "start": 19.53,
+     "end": 20.48
+    },
+    {
+     "text": "i",
+     "start": 20.48,
+     "end": 20.73
+    },
+    {
+     "text": "spotted",
+     "start": 20.73,
+     "end": 22.65
+    },
+    {
+     "text": "this",
+     "start": 22.65,
+     "end": 23.9
+    },
+    {
+     "text": "here",
+     "start": 23.9,
+     "end": 24.88
+    },
+    {
+     "text": "pumpkin",
+     "start": 24.88,
+     "end": 26.77
+    }
+   ]
+  },
+  {
+   "ink": "#f29a2e",
+   "anchor": [
+    360.0,
+    1431.0
+   ],
+   "words": [
+    {
+     "text": "should",
+     "start": 26.77,
+     "end": 28.42
+    },
+    {
+     "text": "i",
+     "start": 28.42,
+     "end": 28.7
+    },
+    {
+     "text": "carve",
+     "start": 28.7,
+     "end": 30.06
+    },
+    {
+     "text": "it",
+     "start": 30.06,
+     "end": 30.67
+    },
+    {
+     "text": "up",
+     "start": 30.67,
+     "end": 31.16
+    },
+    {
+     "text": "for",
+     "start": 31.16,
+     "end": 31.98
+    },
+    {
+     "text": "you",
+     "start": 31.98,
+     "end": 32.88
+    }
+   ],
+   "maxWidth": 470
+  }
+ ],
+ "sheetTimes": [
+  10.6,
+  17.5,
+  29.0,
+  30.5,
+  32.0,
+  32.9
+ ]
+}
