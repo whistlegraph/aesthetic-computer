@@ -1723,8 +1723,30 @@ static inline double soft_clip(double x) {
     return tanh(x * 0.9) / tanh(0.9);
 }
 
-// Compressor state (per-channel peak follower)
-static double comp_env = 0.0;  // envelope follower level
+// RBJ 12 dB/oct high- or low-pass (Q 0.707), direct form I.
+typedef struct { double b0, b1, b2, a1, a2, x1, x2, y1, y2; } BassBiquad;
+
+static void bass_biquad(BassBiquad *f, double rate, double hz, int highpass) {
+    double w0 = 2.0 * M_PI * hz / rate;
+    double alpha = sin(w0) / (2.0 * 0.70710678);
+    double c = cos(w0);
+    double a0 = 1.0 + alpha;
+    double edge = highpass ? (1.0 + c) / 2.0 : (1.0 - c) / 2.0;
+    f->b0 = edge / a0;
+    f->b1 = (highpass ? -2.0 * edge : 2.0 * edge) / a0;
+    f->b2 = edge / a0;
+    f->a1 = -2.0 * c / a0;
+    f->a2 = (1.0 - alpha) / a0;
+    f->x1 = f->x2 = f->y1 = f->y2 = 0.0;
+}
+
+static inline double bass_biquad_run(BassBiquad *f, double x) {
+    double y = f->b0 * x + f->b1 * f->x1 + f->b2 * f->x2 - f->a1 * f->y1 - f->a2 * f->y2;
+    f->x2 = f->x1; f->x1 = x;
+    f->y2 = f->y1; f->y1 = y;
+    return y;
+}
+
 static unsigned long xrun_count = 0;
 static unsigned long short_write_count = 0;
 
@@ -1849,10 +1871,16 @@ static void *audio_thread_fn(void *arg) {
     const unsigned int period_frames = audio->actual_period ? audio->actual_period : AUDIO_PERIOD_SIZE;
     int16_t *buffer = calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t));
     int32_t *buffer32 = NULL;
-    if (audio->use_s32)
+    // The final mix before 16-bit rounding: an S32 PCM gets these at full
+    // resolution instead of int16 << shift, which threw away every bit
+    // below the 16th (the software volume made quiet levels coarser still).
+    float *bufferf = NULL;
+    if (audio->use_s32) {
         buffer32 = calloc(period_frames * AUDIO_CHANNELS, sizeof(int32_t));
+        bufferf = calloc(period_frames * AUDIO_CHANNELS, sizeof(float));
+    }
     float *sf2_buf = calloc(period_frames * 2, sizeof(float));
-    if (!buffer || (audio->use_s32 && !buffer32) || !sf2_buf) {
+    if (!buffer || (audio->use_s32 && (!buffer32 || !bufferf)) || !sf2_buf) {
         fprintf(stderr, "[audio] thread: alloc failed\n"); return NULL;
     }
     // Jack routing (AC_AUDIO_HEADPHONE_DEVICE): silence for whichever PCM
@@ -1937,6 +1965,53 @@ static void *audio_thread_fn(void *arg) {
     const double duck_att_coeff = 1.0 - exp(-1.0 / (0.002 * rate)); // ~2 ms, no click
     const double duck_rise = 1.0 / (0.28 * rate);                     // silence to unity in 0.28 s
 
+    // Master peak limiter, as Menu Band's (Apple PeakLimiter: 2 ms attack,
+    // 50 ms decay, a ceiling just under full scale). The stage it replaces
+    // clamped everything above 0.4 at 8:1 with a 0.2 ms attack: every kick
+    // came out flattened, and the gain rode inside each bass cycle, which
+    // read as grit. The signal runs `lim_ahead` samples late so the gain is
+    // already down when a peak arrives, and the held minimum keeps it down
+    // for the whole lookahead window, then for `lim_hold` more: a kick's
+    // cycles are ~18 ms apart, and a gain that recovered between them would
+    // ride each cycle and pump the drums.
+    enum { LIM_RING = 1024 };
+    int lim_ahead = (int)(0.002 * rate);
+    if (lim_ahead < 1) lim_ahead = 1;
+    if (lim_ahead > LIM_RING) lim_ahead = LIM_RING;
+    double lim_ring_l[LIM_RING] = {0}, lim_ring_r[LIM_RING] = {0};
+    int lim_pos = 0, lim_hold_left = 0;
+    double lim_hold_gain = 1.0, lim_gain = 1.0;
+    const double LIM_CEILING = 0.95;
+    const double lim_att_coeff = 1.0 - exp(-4.0 / lim_ahead);  // ~98% of the way in one window
+    const int lim_hold = (int)(0.025 * rate);
+    const double lim_rel_coeff = 1.0 - exp(-1.0 / (0.120 * rate));
+
+    // Speaker bass (AC_SPEAKER_BASS=<amount>, built-in speakers only): a
+    // laptop speaker can't move air below ~150 Hz, so a 55 Hz kick body
+    // simply isn't there. macOS fixes this with its speaker DSP and Asahi
+    // with bankstown; this is the same idea. The sub-bass is cut from the
+    // speaker feed (it only costs excursion and limiter headroom) and
+    // replaced by its own harmonics — a full-wave rectified low band, whose
+    // 2f, 4f… the ear hears as the missing fundamental.
+    // /run/speaker-bass ("<amount> [cut Hz] [keep]") overrides it live, read
+    // about once a second like /run/speaker-air; keep is the share of the
+    // cut sub left in (0 = all of it high-passed away, 1 = none).
+    const char *bass_env = getenv("AC_SPEAKER_BASS");
+    double bass_amount = bass_env ? atof(bass_env) : 0.0;
+    double bass_cut = 100.0, bass_keep = 0.0;
+    unsigned int bass_poll_frames = 0;
+    BassBiquad bass_hp_l, bass_hp_r, bass_lp1, bass_lp2, bass_hp_harm;
+    bass_biquad(&bass_hp_harm, rate, bass_cut, 1);
+    bass_biquad(&bass_hp_l, rate, bass_cut, 1);
+    bass_biquad(&bass_hp_r, rate, bass_cut, 1);
+    bass_biquad(&bass_lp1, rate, bass_cut * 1.4, 0);
+    bass_biquad(&bass_lp2, rate, bass_cut * 1.4, 0);
+    double bass_dc = 0.0, bass_smooth = 0.0;
+    const double bass_dc_coeff = 1.0 - exp(-2.0 * M_PI * 40.0 / rate);
+    const double bass_smooth_coeff = 1.0 - exp(-2.0 * M_PI * 900.0 / rate);
+    if (bass_amount > 0.0)
+        fprintf(stderr, "[audio] speaker bass: harmonics x%.2f, sub cut at 100 Hz\n", bass_amount);
+
     // Set real-time priority to prevent audio glitches from background tasks
     struct sched_param sp = { .sched_priority = 50 };
     if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp) != 0)
@@ -1995,6 +2070,30 @@ static void *audio_thread_fn(void *arg) {
 
         // Outside the lock: gm_sf2 takes its notes from its own queue.
         gm_sf2_render(sf2_buf, (int)period_frames, (int)rate);
+
+        if ((bass_poll_frames += period_frames) >= (unsigned int)rate) {
+            bass_poll_frames = 0;
+            FILE *bf = fopen("/run/speaker-bass", "r");
+            if (bf) {
+                double amt = bass_amount, cut = bass_cut, keep = bass_keep;
+                int n = fscanf(bf, "%lf %lf %lf", &amt, &cut, &keep);
+                if (n >= 1 && amt >= 0.0 && amt <= 8.0 && cut >= 30.0 && cut <= 400.0
+                    && keep >= 0.0 && keep <= 1.0
+                    && (amt != bass_amount || cut != bass_cut || keep != bass_keep)) {
+                    if (cut != bass_cut) {
+                        bass_biquad(&bass_hp_harm, rate, cut, 1);
+                        bass_biquad(&bass_hp_l, rate, cut, 1);
+                        bass_biquad(&bass_hp_r, rate, cut, 1);
+                        bass_biquad(&bass_lp1, rate, cut * 1.4, 0);
+                        bass_biquad(&bass_lp2, rate, cut * 1.4, 0);
+                    }
+                    bass_amount = amt; bass_cut = cut; bass_keep = keep;
+                    fprintf(stderr, "[audio] speaker bass: harmonics x%.2f, sub cut at %.0f Hz, keep %.2f\n",
+                            bass_amount, bass_cut, bass_keep);
+                }
+                fclose(bf);
+            }
+        }
 
         pthread_mutex_lock(&audio->lock);
 
@@ -2365,32 +2464,49 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
-            // Compressor: peak-following gain reduction (threshold 0.4, ratio ~8:1)
+            // Speaker bass (see bass_amount): only while the speakers are
+            // what's playing, never into headphones.
+            if ((bass_amount > 0.0 || (bass_env && bass_keep < 1.0)) && !audio->jack_plugged) {
+                double low = bass_biquad_run(&bass_lp2,
+                             bass_biquad_run(&bass_lp1, 0.5 * (mix_l + mix_r)));
+                double rect = fabs(low);
+                bass_dc += bass_dc_coeff * (rect - bass_dc);
+                bass_smooth += bass_smooth_coeff * ((rect - bass_dc) - bass_smooth);
+                // Rectifying leaves the kick's envelope behind as a one-sided
+                // push below the cut — the speaker can't play it and the
+                // limiter ducks everything for it. Only the harmonics pass.
+                double harm = bass_biquad_run(&bass_hp_harm, bass_smooth) * bass_amount;
+                double hl = bass_biquad_run(&bass_hp_l, mix_l);
+                double hr = bass_biquad_run(&bass_hp_r, mix_r);
+                mix_l = hl + bass_keep * (mix_l - hl) + harm;
+                mix_r = hr + bass_keep * (mix_r - hr) + harm;
+            }
+
+            // Master peak limiter (lookahead; see lim_ahead).
             {
                 double peak = fabs(mix_l);
                 double pr = fabs(mix_r);
                 if (pr > peak) peak = pr;
-                // Attack: very fast (0.2ms), Release: medium (40ms).
-                // The master is a peak clamp, not Menu Band's compressor:
-                // drums land here near 0.95 against a 0.4 threshold, and
-                // an 8 ms attack let each kick's snap through to the
-                // clipper while squashing its body, then a 180 ms release
-                // held the whole mix ducked after every hit (hats never
-                // recovered). The drum bus has its own 5 ms / 200 ms
-                // compressor for stacking feel; this stage just catches
-                // peaks and gets out of the way.
-                double att_coeff = 1.0 - exp(-1.0 / (0.0002 * rate));
-                double rel_coeff = 1.0 - exp(-1.0 / (0.04 * rate));
-                if (peak > comp_env)
-                    comp_env += att_coeff * (peak - comp_env);
-                else
-                    comp_env += rel_coeff * (peak - comp_env);
-                if (comp_env > 0.4) {
-                    double gain = 0.4 + (comp_env - 0.4) * 0.125; // ~8:1 ratio above threshold
-                    double reduction = gain / comp_env;
-                    mix_l *= reduction;
-                    mix_r *= reduction;
+                double need = peak > LIM_CEILING ? LIM_CEILING / peak : 1.0;
+                if (need <= lim_hold_gain) {
+                    lim_hold_gain = need;
+                    lim_hold_left = lim_ahead + lim_hold;
+                } else if (lim_hold_left > 0) {
+                    lim_hold_left--;
+                } else {
+                    lim_hold_gain = need;
                 }
+                if (lim_hold_gain < lim_gain)
+                    lim_gain += lim_att_coeff * (lim_hold_gain - lim_gain);
+                else
+                    lim_gain += lim_rel_coeff * (lim_hold_gain - lim_gain);
+                double late_l = lim_ring_l[lim_pos];
+                double late_r = lim_ring_r[lim_pos];
+                lim_ring_l[lim_pos] = mix_l;
+                lim_ring_r[lim_pos] = mix_r;
+                if (++lim_pos >= lim_ahead) lim_pos = 0;
+                mix_l = late_l * lim_gain;
+                mix_r = late_r * lim_gain;
             }
 
             // Wobble / flange — modulated short-delay blend. Writes every
@@ -2480,6 +2596,10 @@ static void *audio_thread_fn(void *arg) {
             // Soft clip and convert to int16
             mix_l = soft_clip(mix_l);
             mix_r = soft_clip(mix_r);
+            // soft_clip's curve is normalized to tanh(0.9), so it tops out
+            // near 1.4, not 1.0: past that the int16 below wrapped around.
+            if (mix_l > 1.0) mix_l = 1.0; else if (mix_l < -1.0) mix_l = -1.0;
+            if (mix_r > 1.0) mix_r = 1.0; else if (mix_r < -1.0) mix_r = -1.0;
 
             /* 32000 = ~97% of int16 max. Was 26000 (~79%), wasting
              * ~2dB of peak output. Combined with higher soft_clip
@@ -2487,6 +2607,10 @@ static void *audio_thread_fn(void *arg) {
              * compression artifacts. */
             buffer[i * 2] = (int16_t)(mix_l * 32000);
             buffer[i * 2 + 1] = (int16_t)(mix_r * 32000);
+            if (bufferf) {
+                bufferf[i * 2] = (float)mix_l;
+                bufferf[i * 2 + 1] = (float)mix_r;
+            }
 
             /* DAPM keepalive: inject low-frequency dither (alternating
              * every 8 samples = 3kHz, well below 24kHz Nyquist edge).
@@ -2657,8 +2781,13 @@ static void *audio_thread_fn(void *arg) {
         }
         const void *write_buf = main_src;
         if (buffer32) {
+            // Straight from the float mix when the speakers play the mix
+            // itself; the silence, air and keepalive samples stay int16.
+            const double s32_scale = 32000.0 * (double)(1 << audio->s32_shift);
             for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
-                buffer32[j] = (int32_t)main_src[j] << audio->s32_shift;
+                buffer32[j] = (main_src == buffer && bufferf[j] != 0.0f)
+                    ? (int32_t)lrint(bufferf[j] * s32_scale)
+                    : (int32_t)main_src[j] << audio->s32_shift;
             write_buf = buffer32;
         }
         int remaining = (int)period_frames;
@@ -2776,6 +2905,7 @@ static void *audio_thread_fn(void *arg) {
     free(bench_us);
     free(buffer);
     free(buffer32);
+    free(bufferf);
     free(silence);
     if (jack_val) snd_ctl_elem_value_free(jack_val);
     if (jack_ctl) snd_ctl_close(jack_ctl);
@@ -3752,8 +3882,13 @@ ACAudio *audio_init(void) {
                 }
             }
 
-            // Set volume to max for output controls
-            if (snd_mixer_selem_has_playback_volume(elem)) {
+            // Set volume to max for output controls. The MacBook Neo's
+            // macaudio card exposes two integer controls that only look
+            // like volumes: "Speaker Sample Rate" (maxing it told the amp
+            // 192 kHz while the stream ran at 48) and "Speaker Volume
+            // Unlock" (the speaker-protection daemon's lock token).
+            if (snd_mixer_selem_has_playback_volume(elem) &&
+                !strstr(name, "Sample Rate") && !strstr(name, "Unlock")) {
                 long min, max;
                 snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
                 snd_mixer_selem_set_playback_volume_all(elem, max);

@@ -474,7 +474,16 @@ function isDark() {
 }
 // Light by day, dark from 8pm to 7am LA time: the system theme decides, so a
 // forced theme (__theme._forceDark) can still pin a stage show dark.
-const themeDark = () => (globalThis.__theme ? globalThis.__theme.update().dark : isDark());
+// Halloween week (Oct 20 – Nov 1) pins the dark theme and repaints it in
+// pumpkin and purple. The date is re-read with the theme, so a clock still
+// at 1970 before network time picks it up once Wi-Fi sets the date.
+function isHalloween() {
+  const d = new Date();
+  return (d.getMonth() === 9 && d.getDate() >= 20) || (d.getMonth() === 10 && d.getDate() === 1);
+}
+let halloween = isHalloween();
+const themeDark = () => isHalloween() ||
+  (globalThis.__theme ? globalThis.__theme.update().dark : isDark());
 let dark = themeDark();
 
 // Background color — average of active notes, lerped
@@ -1898,6 +1907,20 @@ const PAD_ZONE_COLORS = {
   snare: [235, 220, 170],
   hat: [110, 215, 225],
   click: [180, 140, 235],
+};
+
+// The membrane's materials as Menu Band paints them in light mode
+// (TrackpadDrumSkinPad). Dark mode keeps PAD_ZONE_COLORS, dimmed.
+const PAD_SKIN_LIGHT = {
+  click: [247, 232, 196], hat: [184, 196, 158], snare: [194, 115, 77],
+  tom: [214, 173, 102], kick: [122, 74, 48],
+};
+
+// Halloween's membrane: bone rim, slime hat, witch-purple snare, pumpkin
+// tom and a blood-red kick.
+const PAD_ZONE_HALLOWEEN = {
+  click: [215, 205, 175], hat: [130, 220, 60], snare: [160, 80, 225],
+  tom: [255, 125, 20], kick: [190, 25, 40],
 };
 
 // Pads that report no resolution give aspect 1.0, which is not a real
@@ -6734,8 +6757,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const FG = dark ? 220 : 40;
   const FG_DIM = dark ? 140 : 100;
   const FG_MUTED = dark ? 80 : 150;
-  const BAR_BG = dark ? [35, 20, 30] : [225, 220, 215];
-  const BAR_BORDER = dark ? [55, 35, 45] : [200, 195, 190];
+  const BAR_BG = halloween ? [32, 12, 4] : dark ? [35, 20, 30] : [225, 220, 215];
+  const BAR_BORDER = halloween ? [110, 45, 10] : dark ? [55, 35, 45] : [200, 195, 190];
   const PAD_NORMAL = dark ? [28, 28, 30] : [250, 248, 244];
   const PAD_SHARP = dark ? [18, 18, 20] : [235, 232, 228];
   const PAD_OUTLINE = dark ? [50, 50, 55] : [210, 205, 200];
@@ -6799,7 +6822,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       bgColor[2] += (bgTarget[2] - bgColor[2]) * 0.55;
     }
   } else {
-    bgTarget = dark ? [0, 0, 0] : [255, 255, 255];
+    bgTarget = halloween ? [12, 4, 18] : dark ? [0, 0, 0] : [255, 255, 255];
     // Fade smoothly
     bgColor[0] += (bgTarget[0] - bgColor[0]) * 0.25;
     bgColor[1] += (bgTarget[1] - bgColor[1]) * 0.25;
@@ -8054,26 +8077,44 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ? (kitColors?.[letter] || noteColor(letter))
       : noteColor(letter);
 
+    // Unlit keycaps by theme, as Menu Band's keyboard draws them: in light
+    // mode pale slate naturals and accent-shadow sharps (whiteHi/whiteLo,
+    // blackHi/blackLo), so the keybed sits as light as the page around it.
+    const cap = halloween
+      ? (sharp ? [46, 14, 72] : [120, 52, 10])
+      : sharp
+      ? (dark ? [18, 48, 78] : [10, 68, 140])
+      : (dark ? [84, 98, 110] : [205, 215, 220]);
     if (active) {
       const scale = chordTone && !chordRootMidi.has(padMidi) ? 0.68 : 1;
       ink(Math.floor(nc[0] * scale), Math.floor(nc[1] * scale), Math.floor(nc[2] * scale));
     } else if (trailInfo?.brightness > 0.05) {
       const glow = Math.min(1, trailInfo.brightness) * 0.55;
-      ink(Math.floor(28 + nc[0] * glow), Math.floor(30 + nc[1] * glow), Math.floor(38 + nc[2] * glow));
-    } else if (sharp) {
-      ink(18, 48, 78);
+      if (halloween) {
+        ink(Math.floor(cap[0] + nc[0] * glow), Math.floor(cap[1] + nc[1] * glow), Math.floor(cap[2] + nc[2] * glow));
+      } else if (dark) {
+        ink(Math.floor(28 + nc[0] * glow), Math.floor(30 + nc[1] * glow), Math.floor(38 + nc[2] * glow));
+      } else {
+        ink(Math.floor(cap[0] + (nc[0] - cap[0]) * glow),
+            Math.floor(cap[1] + (nc[1] - cap[1]) * glow),
+            Math.floor(cap[2] + (nc[2] - cap[2]) * glow));
+      }
     } else {
-      ink(84, 98, 110);
+      ink(cap[0], cap[1], cap[2]);
     }
     box(rect.x, rect.y, rect.w, rect.h, true);
 
-    // Hardware-like key edge and Menu Band's note-colour footlight.
-    ink(sharp ? 54 : 34, sharp ? 102 : 48, sharp ? 145 : 58, 230);
+    // Hardware-like key edge (Menu Band's groove) and its note-colour
+    // footlight.
+    if (halloween) ink(sharp ? 120 : 240, sharp ? 50 : 120, sharp ? 190 : 20, 230);
+    else if (dark) ink(sharp ? 54 : 34, sharp ? 102 : 48, sharp ? 145 : 58, 230);
+    else ink(50, 65, 75, 190);
     box(rect.x, rect.y, rect.w, rect.h, "outline");
     ink(nc[0], nc[1], nc[2], active ? 255 : 205);
     box(rect.x + 1, rect.y + rect.h - (sharp ? 3 : 4), Math.max(1, rect.w - 2), sharp ? 2 : 3, true);
 
     if (active) ink(255, 255, 255);
+    else if (halloween) ink(sharp ? 215 : 255, sharp ? 170 : 225, sharp ? 255 : 170);
     else ink(sharp ? 220 : 24, sharp ? 232 : 28, sharp ? 245 : 34);
     const keyLabel = key ? (sharp || !shiftHeld ? key.toLowerCase() : key.toUpperCase()) : "";
     const keyLabelW = keyLabel.length * 6;
@@ -9559,7 +9600,9 @@ function paintPadDrum({ ink, box, write, screen, trackpad }) {
   const y0 = layout ? layout.y + Math.floor((layout.h - h) / 2) : screen.height - h - 8;
 
   // Fill outside-in so the display reads like the Menu Band Trackdrum rather
-  // than a diagnostic contour map.
+  // than a diagnostic contour map. Light mode takes Menu Band's own membrane
+  // materials (cream click rail, sage hat, terracotta snare, ochre tom,
+  // umber kick) and its black zone boundaries.
   for (const [radius, zone] of [
     [1.00, "click"],
     [0.88, "hat"],
@@ -9567,12 +9610,19 @@ function paintPadDrum({ ink, box, write, screen, trackpad }) {
     [0.46, "tom"],
     [0.30, "kick"],
   ]) {
-    const color = PAD_ZONE_COLORS[zone];
     const ix = Math.round((w / 2) * (1 - radius));
     const iy = Math.round((h / 2) * (1 - radius));
-    ink(Math.floor(color[0] * 0.58), Math.floor(color[1] * 0.58), Math.floor(color[2] * 0.58), 245);
-    box(x0 + ix, y0 + iy, Math.max(1, w - ix * 2), Math.max(1, h - iy * 2), true);
-    ink(color[0], color[1], color[2], 210);
+    if (dark) {
+      const color = (halloween ? PAD_ZONE_HALLOWEEN : PAD_ZONE_COLORS)[zone];
+      ink(Math.floor(color[0] * 0.58), Math.floor(color[1] * 0.58), Math.floor(color[2] * 0.58), 245);
+      box(x0 + ix, y0 + iy, Math.max(1, w - ix * 2), Math.max(1, h - iy * 2), true);
+      ink(color[0], color[1], color[2], 210);
+    } else {
+      const color = PAD_SKIN_LIGHT[zone];
+      ink(color[0], color[1], color[2], 245);
+      box(x0 + ix, y0 + iy, Math.max(1, w - ix * 2), Math.max(1, h - iy * 2), true);
+      ink(0, 0, 0, 128);
+    }
     box(x0 + ix, y0 + iy, Math.max(1, w - ix * 2), Math.max(1, h - iy * 2), "outline");
   }
 
@@ -9582,7 +9632,7 @@ function paintPadDrum({ ink, box, write, screen, trackpad }) {
     const age = frame - s.frame;
     if (age > 24) continue;
     const alpha = Math.max(0, 230 - age * 9);
-    const c = PAD_ZONE_COLORS[s.zone] || [220, 220, 220];
+    const c = (halloween ? PAD_ZONE_HALLOWEEN : PAD_ZONE_COLORS)[s.zone] || [220, 220, 220];
     const px = x0 + Math.round(s.x * (w - 1));
     const py = y0 + Math.round(s.y * (h - 1));
     ink(c[0], c[1], c[2], alpha);
@@ -9666,6 +9716,7 @@ function sim({ pressures, sound, trackpad }) {
     waveDriftSpeed = 1.0;
   }
   dark = themeDark();
+  halloween = isHalloween();
 
   // === DJ DECK MAINTENANCE ===
   // Hot-plug check every ~3s while active, or ~15s when idle.
