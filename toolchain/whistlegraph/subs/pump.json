@@ -118,28 +118,28 @@
    "words": [
     {
      "text": "looking",
-     "start": 10.85,
-     "end": 12.61
-    },
-    {
-     "text": "for",
-     "start": 12.73,
+     "start": 11.72,
      "end": 13.47
     },
     {
-     "text": "something",
+     "text": "for",
      "start": 13.67,
-     "end": 16.38
+     "end": 14.33
     },
     {
-     "text": "to",
-     "start": 16.62,
+     "text": "something",
+     "start": 15.65,
      "end": 16.97
     },
     {
-     "text": "eat",
+     "text": "to",
      "start": 17.12,
-     "end": 17.77
+     "end": 17.41
+    },
+    {
+     "text": "eat",
+     "start": 17.55,
+     "end": 17.85
     }
    ],
    "until": 19.4,
@@ -257,6 +257,6 @@
  "size": 56,
  "pitchPx": 6,
  "grade": "hqdn3d=1.5:1.5:3:3,scale=1080:1920:flags=lanczos,cas=0.65,eq=contrast=1.07:saturation=1.10:gamma=1.02,colorbalance=bm=0.02:bh=0.03",
- "timingNote": "Word bounds are voiced-note bounds on the Demucs vocal stem; the full-mix pitch track heard the beat and fired early.",
+ "timingNote": "Word bounds are voiced-note bounds on the Demucs vocal stem; the full-mix pitch track heard the beat and fired early. Assign words by counting syllables onto notes per line: 'field' ends on a falling tail (10.85) that is not 'looking'.",
  "angle": 30
 }
