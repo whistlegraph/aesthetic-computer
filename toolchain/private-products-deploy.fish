@@ -1,8 +1,16 @@
 # Shared by lith and session-server. No work happens merely by sourcing it.
 function prepare_private_products --argument-names root key host remote node_bin revision
-    node "$root/toolchain/private-products.mjs" release-check "$revision"; or return 1
     set -l local_stage (mktemp -d)
-    if not node "$root/toolchain/private-products.mjs" pack "$local_stage/products.tgz"
+    # The manifest and installer come from the revision being deployed, not
+    # this checkout, which may be behind it.
+    if not git -C "$root" show "$revision:private-products.json" >"$local_stage/private-products.json"
+        or not git -C "$root" show "$revision:toolchain/private-products.mjs" >"$local_stage/private-products.mjs"
+        rm -rf "$local_stage"
+        return 1
+    end
+    set -l manifest "AC_PRODUCTS_MANIFEST=$local_stage/private-products.json"
+    if not env $manifest node "$root/toolchain/private-products.mjs" release-check "$revision"
+        or not env $manifest node "$root/toolchain/private-products.mjs" pack "$local_stage/products.tgz"
         rm -rf "$local_stage"
         return 1
     end
@@ -11,7 +19,7 @@ function prepare_private_products --argument-names root key host remote node_bin
         rm -rf "$local_stage"
         return 1
     end
-    if not scp -q -i "$key" "$local_stage/products.tgz" "$root/toolchain/private-products.mjs" "$root/private-products.json" "$host:$PRODUCT_REMOTE_STAGE/"
+    if not scp -q -i "$key" "$local_stage/products.tgz" "$local_stage/private-products.mjs" "$local_stage/private-products.json" "$host:$PRODUCT_REMOTE_STAGE/"
         rm -rf "$local_stage"
         return 1
     end
