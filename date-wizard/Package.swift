@@ -7,10 +7,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "DateWizard",
-            path: "Sources/DateWizard",
-            resources: [
-                .copy("Assets"),
-            ]
+            path: "Sources/DateWizard"
         ),
     ]
 )

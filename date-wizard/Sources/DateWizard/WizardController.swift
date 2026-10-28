@@ -1,103 +1,55 @@
-// WizardController.swift — owns the window + all state (focused week, the
-// events, the auth token). Drives:
+// WizardController.swift — owns the window + all state (the events, the auth
+// token). Drives:
 //   • the sign-in screen (when there's no shared AC token / on a 401),
 //   • the rolling upcoming agenda,
-//   • the add/edit/delete editor sheet for aesthetical events,
-//   • a "Connect a Google calendar" action.
+//   • the add/edit/delete editor sheet for aesthetical events.
 import AppKit
 
-final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDelegate, AgendaViewDelegate {
+final class WizardController: NSWindowController, NSWindowDelegate, AgendaViewDelegate {
 
     // ── state ────────────────────────────────────────────────────────
     private var api: CalAPI
     private let auth = Auth()
 
-    // How far forward the "no day selected" agenda + the menu-bar countdown
-    // badge look. A rolling window from the start of today.
+    // How far forward the agenda and the menu-bar next-appointment look. A
+    // rolling window from the start of today.
     static let upcomingDays = 14
     // Live watch on the shared ~/.ac-token (suite-wide broadcast). Active for
     // the whole app lifetime so a sign-in/out in any AC app updates us live.
     private var sessionWatch: UUID?
 
-    // The Sunday that begins the focused week.
-    private var weekStart = WeekView.startOfWeek(for: Date())
-
-    private var aestheticalEvents: [CalEvent] = []
-    private var feedEvents: [FeedEvent] = []
-
-    // The rolling upcoming set (both sources, merged) that feeds the agenda list
-    // and the menu-bar countdown badge. Independent of the focused day/week.
+    // The rolling upcoming set (both sources) that feeds the agenda list and
+    // the menu bar.
     private var upcomingAesthetical: [CalEvent] = []
     private var upcomingFeed: [FeedEvent] = []
-    // Periodic reload so the badge + agenda stay honest even when the window is
-    // closed / we're parked in day mode.
+    // Periodic reload so the menu bar and agenda stay honest while the window
+    // is closed.
     private var upcomingTimer: Timer?
-    // The last merged+capped upcoming set, kept so the badge can re-pick the next
-    // appointment against the wall clock between network reloads.
+    // The last merged+capped upcoming set, kept so the next appointment can be
+    // re-picked against the wall clock between network reloads.
     private var cachedUpcoming: [LaidEvent] = []
-    // Fast, network-free tick that re-selects the next appointment so the badge
-    // rolls off a meeting the moment it starts — it doesn't wait for the 5-minute
-    // reload (which may be asleep or failing), which used to strand the wand on
-    // "now" for hours after a meeting had actually ended.
-    private var badgeTicker: Timer?
+    // Fast, network-free tick that re-selects the next appointment so the menu
+    // bar rolls off a meeting the moment it starts.
+    private var nextTicker: Timer?
     // No timed event is treated as "ongoing" past this many seconds — a cap so a
     // missing/garbled end time can't keep an appointment alive in the agenda (and
     // masking the ones behind it) indefinitely.
     static let maxTimedDuration: TimeInterval = 12 * 3600
 
-    // Legacy day-focus broadcast. The agenda-only UI always publishes nil.
-    var onFocusedDayChanged: ((Date?) -> Void)?
-
-    // Broadcast the start of the next upcoming appointment (nil = none ahead) so
-    // the menu bar can paint a countdown badge on the wand. Wired by AppDelegate.
+    // Broadcast the start of the next upcoming appointment (nil = none ahead).
+    // Wired by AppDelegate to the menu bar.
     var onNextEventChanged: ((Date?, String?) -> Void)?
 
     // ── UI ───────────────────────────────────────────────────────────
-    private var backdrop: BackdropView!
-    // Legacy day-view surfaces. They remain typed here while the old grid code
-    // is retired, but are no longer installed in the window hierarchy.
-    private var dayGlow: DayGlowView!
-    private var dayDots: DayDotsView!
-    private var weekView: WeekView!
-    // The ordered "no day selected" agenda list (rolling upcoming events),
-    // shown in place of the grid whenever we're not focused on a single day.
     private var agendaScroll: NSScrollView!
     private var agendaView: AgendaView!
     private var titleLabel: NSTextField!
     private var statusLabel: NSTextField!
-    private var addButton: NSButton!          // "+ Event" — the only toolbar button.
-    private var upcomingButton: NSButton!
-    // Vestigial: there's no mode-toggle button in the window anymore (mode is
-    // driven by launch flags / CLI). Live code still harmlessly sets its title.
-    private var modeButton: NSButton!
-
-    // MARK: - Deprecated toolbar buttons
-    // Paging, "today", refresh, and calendars were removed from the window;
-    // their equivalents live in the wizard / ac-login CLI. Kept for reference
-    // alongside the matching deprecated actions further down.
-    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
-    private var prevButton: NSButton!
-    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
-    private var nextButton: NSButton!
-    @available(*, deprecated, message: "Removed from window UI — use the menu bar 'Go to Today'.")
-    private var todayButton: NSButton!
-    @available(*, deprecated, message: "Removed from window UI — refresh is automatic / CLI.")
-    private var refreshButton: NSButton!
-    @available(*, deprecated, message: "Removed from window UI — calendar setup lives in the CLI.")
-    private var connectButton: NSButton!
-
-    // Kept at seven while the old day-grid implementation is retired. The
-    // visible surface is always the rolling agenda.
-    private var dayCount: Int = 7
+    private var addButton: NSButton!
 
     // Auth overlay (shown when unauthenticated).
     private var authOverlay: NSView?
     private var authStatusLabel: NSTextField?
-
-    // Calendars panel (subscription link + connectors), live-updated by async loads.
-    private var subLinkField: NSTextField?
-    private var connectorsBox: NSView?
-    private weak var calendarsWindow: NSWindow?
 
     private var editor: EventEditor?
 
@@ -119,8 +71,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     required init?(coder: NSCoder) { fatalError() }
 
-    // Called by the AppDelegate after the window shows. Ensures auth,
-    // then loads the current week.
+    // Called by the AppDelegate after launch. Ensures auth, then loads.
     func start() {
         // Live suite-wide session watch: any sign-in/out (this app, another
         // wizard, or the AC Electron tray) updates us without a restart.
@@ -138,9 +89,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     // Reload the rolling upcoming set every few minutes so the agenda and the
-    // menu-bar countdown badge stay current even when the window is closed.
-    // (MenuBarDays owns the per-minute countdown tick; this refreshes the data
-    // behind it — new/changed events, and the roll to the next appointment.)
+    // menu bar stay current even when the window is closed.
     private func startUpcomingTimer() {
         guard upcomingTimer == nil else { return }
         let timer = Timer(timeInterval: 300, repeats: true) { [weak self] _ in
@@ -149,14 +98,14 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         RunLoop.main.add(timer, forMode: .common)
         upcomingTimer = timer
 
-        // Cheap local re-selection every 20s: advances the badge to the next
-        // meeting as soon as the current one starts, with no network round-trip.
-        guard badgeTicker == nil else { return }
+        // Cheap local re-selection every 20s: advances to the next meeting as
+        // soon as the current one starts, with no network round-trip.
+        guard nextTicker == nil else { return }
         let tick = Timer(timeInterval: 20, repeats: true) { [weak self] _ in
             self?.publishNextEvent()
         }
         RunLoop.main.add(tick, forMode: .common)
-        badgeTicker = tick
+        nextTicker = tick
     }
 
     // Reacts to a change in the shared ~/.ac-token (broadcast).
@@ -180,28 +129,16 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     // ── layout ───────────────────────────────────────────────────────
     private func setupUI() {
         guard let cv = window?.contentView else { return }
-        cv.wantsLayer = true
-
-        // Living video backdrop (Seedance loop of the mascot illy), drawn
-        // behind everything at low opacity. Sits at the back of the view
-        // stack; the week grid and toolbar render in front of it.
-        backdrop = BackdropView(frame: cv.bounds)
-        backdrop.autoresizingMask = [.width, .height]
-        cv.addSubview(backdrop)
 
         let pad: CGFloat = 12
         let topH: CGFloat = 40
 
-        // Toolbar row (top): title · + Event. Week/day paging,
-        // refresh, "today", and calendar management all live in the
-        // ac-login / wizard CLI — the window stays deliberately minimal.
-        titleLabel = NSTextField(labelWithString: weekRangeTitle())
+        titleLabel = NSTextField(labelWithString: "Upcoming")
         titleLabel.font = .systemFont(ofSize: 17, weight: .bold)
         titleLabel.frame = NSRect(x: pad, y: 560 - topH + 4, width: 245, height: 28)
         titleLabel.autoresizingMask = [.maxXMargin, .minYMargin]
         cv.addSubview(titleLabel)
 
-        // + Event, far right.
         addButton = NSButton(title: "+ Event", target: self, action: #selector(addEventAction))
         addButton.bezelStyle = .rounded
         addButton.font = .systemFont(ofSize: 12)
@@ -212,9 +149,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         let bodyRect = NSRect(x: pad, y: pad + 22,
                               width: 840 - pad * 2,
                               height: 560 - topH - pad * 2 - 22)
-
-        // The sole calendar surface: a rolling appointments agenda. Transparent
-        // so the living backdrop shows through.
         agendaScroll = NSScrollView(frame: bodyRect)
         agendaScroll.autoresizingMask = [.width, .height]
         agendaScroll.drawsBackground = false
@@ -226,10 +160,8 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
                                               width: bodyRect.width, height: bodyRect.height))
         agendaView.delegate = self
         agendaScroll.documentView = agendaView
-        agendaScroll.isHidden = false
         cv.addSubview(agendaScroll)
 
-        // Status line (bottom).
         statusLabel = NSTextField(labelWithString: "")
         statusLabel.font = .systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
@@ -237,86 +169,17 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         statusLabel.autoresizingMask = [.width, .maxYMargin]
         statusLabel.lineBreakMode = .byTruncatingTail
         cv.addSubview(statusLabel)
-
-        updateDayTheme()
     }
 
-    // Single source of truth for the day-color theme: washes the pane, lights
-    // Agenda-only theme: no day is focused, so legacy day accents stay clear.
-    private func updateDayTheme() {
-        dayGlow?.color = nil
-        dayDots?.todayIndex = nil
-        dayDots?.selectedIndex = nil
-        titleLabel?.textColor = .labelColor
-        weekView?.isHidden = true
-        agendaScroll?.isHidden = false
-        upcomingButton?.isHidden = true
-        onFocusedDayChanged?(nil)
-    }
-
-    // A dot in the in-window strip was clicked: focus that weekday within the
-    // currently displayed week, switching to day mode.
-    private func focusDayInCurrentWeek(_ idx: Int) {
-        let base = WeekView.startOfWeek(for: weekStart)
-        let date = Calendar.current.date(byAdding: .day, value: idx, to: base) ?? weekStart
-        dayCount = 1
-        weekStart = Calendar.current.startOfDay(for: date)
-        modeButton?.title = "Week"
-        weekView.dayCount = 1
-        weekView.weekStart = weekStart
-        titleLabel.stringValue = weekRangeTitle()
-        updateDayTheme()
-        refresh()
-    }
-
-    private func weekRangeTitle() -> String {
-        let cal = Calendar.current
-        if dayCount == 1 {
-            // Day mode: "Today / Tomorrow / Yesterday · Tue, Jun 16 2026".
-            let fmt = DateFormatter(); fmt.dateFormat = "EEE, MMM d yyyy"
-            let dayDelta = cal.dateComponents([.day],
-                from: cal.startOfDay(for: Date()), to: weekStart).day ?? 0
-            let word: String
-            switch dayDelta {
-            case 0: word = "Today · "
-            case 1: word = "Tomorrow · "
-            case -1: word = "Yesterday · "
-            default: word = ""
-            }
-            return "\(word)\(fmt.string(from: weekStart))"
-        }
-        // No day selected → the rolling agenda.
-        return "Upcoming"
-    }
-
-    // "Today" now opens the same rolling agenda; there is no secondary day UI.
-    func revealToday() {
-        showWindow(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        showUpcomingAction()
-    }
-
-    // Compatibility entry point for older callers: day requests land on the
-    // agenda rather than navigating to the retired hour grid.
-    func revealDay(_ date: Date) {
-        showWindow(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        showUpcomingAction()
-    }
-
-    // Show the window on the rolling "Upcoming" agenda with no day focused —
-    // backs a click on the menu-bar wand. You land on what's coming up next,
-    // not whatever single day happened to be showing last.
     func revealUpcoming() {
         showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
-        showUpcomingAction()
+        refresh()
     }
 
-    // Menu-bar wand left-click: toggle. If the window is already up and focused,
-    // a second tap hides it (matching the "click the icon to dismiss" reflex).
-    // Otherwise reveal it — this also covers the buried-window case, where the
-    // tap brings the wizard forward instead of dismissing it.
+    // Menu-bar left-click: toggle. If the window is already up and focused, a
+    // second tap hides it; otherwise reveal it (this also covers the
+    // buried-window case, where the tap brings it forward instead).
     func toggleUpcoming() {
         if let w = window, w.isVisible, NSApp.isActive, w.isKeyWindow {
             w.orderOut(nil)
@@ -325,92 +188,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         }
     }
 
-    // ── paging ─────────────────────────────────────────────────────────
-    // DEPRECATED: week paging was removed from the window UI (CLI / launch
-    // flags handle it). Kept for reference; shiftWeek below backs these.
-    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
-    @objc private func prevWeek() { shiftWeek(by: -dayCount) }
-    @available(*, deprecated, message: "Removed from window UI — paging lives in the CLI.")
-    @objc private func nextWeek() { shiftWeek(by: dayCount) }
-    @objc private func goToday() {
-        showUpcomingAction()
-    }
-
-    // Leave a single-day view and return to the rolling agenda ("no day
-    // selected"). Backs the "‹ Upcoming" toolbar button.
-    @objc private func showUpcomingAction() {
-        dayCount = 7
-        weekStart = WeekView.startOfWeek(for: Date())
-        modeButton?.title = "Day"
-        weekView?.dayCount = dayCount
-        weekView?.weekStart = weekStart
-        titleLabel.stringValue = weekRangeTitle()
-        updateDayTheme()
-        refresh()
-    }
-
-    // DEPRECATED: the Day⇄Week toggle button was removed from the window;
-    // mode is set via launch flags / CLI. Keeps the currently-focused day in
-    // view across the switch. Kept for reference.
-    @available(*, deprecated, message: "Removed from window UI — mode is set via CLI / launch flags.")
-    @objc private func toggleModeAction() {
-        let cal = Calendar.current
-        // The day to keep focused: today if it's in the current span, else the
-        // span's first visible day.
-        let now = Date()
-        let focus = (weekStart <= now && now < weekBounds().to)
-            ? now : weekStart
-        if dayCount == 1 {
-            dayCount = 7
-            weekStart = WeekView.startOfWeek(for: focus)
-        } else {
-            dayCount = 1
-            weekStart = cal.startOfDay(for: focus)
-        }
-        modeButton.title = (dayCount == 1) ? "Week" : "Day"
-        weekView.dayCount = dayCount
-        weekView.weekStart = weekStart
-        titleLabel.stringValue = weekRangeTitle()
-        updateDayTheme()
-        refresh()
-    }
-
-    // Compatibility shim for old --today/--tomorrow/--day launchers. Day mode
-    // is retired, so all of them now open the rolling agenda.
-    @available(*, deprecated, message: "DateWizard is agenda-only; day mode is retired.")
-    func setDayMode(_ date: Date) {
-        dayCount = 7
-        weekStart = WeekView.startOfWeek(for: Date())
-        titleLabel?.stringValue = weekRangeTitle()
-        updateDayTheme()
-    }
-
-    // DEPRECATED backing helper for prevWeek/nextWeek (both removed from UI).
-    private func shiftWeek(by days: Int) {
-        weekStart = Calendar.current.date(byAdding: .day, value: days, to: weekStart) ?? weekStart
-        weekView.weekStart = weekStart
-        titleLabel.stringValue = weekRangeTitle()
-        updateDayTheme()
-        refresh()
-    }
-
-    // DEPRECATED: the Refresh button was removed; refresh is automatic / CLI.
-    @available(*, deprecated, message: "Removed from window UI — refresh is automatic / CLI.")
-    @objc private func refreshAction() { refresh() }
-
-    // The visible window's UTC bounds [weekStart, weekStart+7d).
-    private func weekBounds() -> (from: Date, to: Date) {
-        let to = Calendar.current.date(byAdding: .day, value: dayCount, to: weekStart) ?? weekStart
-        return (weekStart, to)
-    }
-
     // ── data load ────────────────────────────────────────────────────
-    // Two loads, kept separate:
-    //   • loadUpcoming() — the rolling agenda + the menu-bar countdown badge.
-    //     Runs on every refresh (and a background timer) so the badge stays
-    //     honest even when the window is closed or parked in day mode.
-    //   • loadDayGrid()  — the hour grid for the focused single day. Only when
-    //     a day is actually selected.
     func refresh() {
         guard let token = auth.currentToken() else { showAuthScreen(); return }
         api.setToken(token)
@@ -418,7 +196,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     // Rolling window [start of today, +upcomingDays). Feeds the agenda list and
-    // the next-appointment badge; independent of the focused day/week.
+    // the menu bar.
     private func loadUpcoming() {
         guard let token = auth.currentToken() else { return }
         api.setToken(token)
@@ -447,7 +225,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     // Merge + filter + sort the upcoming sources into the agenda list, and
-    // publish the next appointment's start for the menu-bar countdown badge.
+    // publish the next appointment for the menu bar.
     private func rebuildUpcoming() {
         let now = Date()
         var laid: [LaidEvent] = []
@@ -477,12 +255,10 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         cachedUpcoming = upcoming
         agendaView?.events = upcoming
 
-        if dayCount != 1 {
-            let count = upcoming.count
-            statusLabel.stringValue = count == 0
-                ? "Nothing coming up in the next \(Self.upcomingDays) days."
-                : "\(count) upcoming event\(count == 1 ? "" : "s") · next \(Self.upcomingDays) days"
-        }
+        let count = upcoming.count
+        statusLabel.stringValue = count == 0
+            ? "Nothing coming up in the next \(Self.upcomingDays) days."
+            : "\(count) upcoming event\(count == 1 ? "" : "s") · next \(Self.upcomingDays) days"
 
         publishNextEvent()
     }
@@ -496,89 +272,16 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         return min(max(end, start), ceiling)
     }
 
-    // Pick the next appointment for the menu-bar badge from the cached set and
-    // hand it to the wand. Next = soonest timed event that hasn't started yet;
-    // all-day items are skipped so the badge always counts down to a clock time.
-    // Runs on the local ticker too, so the badge advances the instant a meeting
-    // starts — it never lingers on "now" waiting for the network reload.
+    // Pick the next appointment for the menu bar from the cached set: the
+    // soonest timed event that hasn't started yet (all-day items are skipped so
+    // there is always a clock time). Runs on the local ticker too, so it
+    // advances the instant a meeting starts.
     private func publishNextEvent() {
         let now = Date()
         let next = cachedUpcoming.first { !$0.allDay && $0.start > now }
         onNextEventChanged?(next?.start, next?.title)
     }
 
-    private func loadDayGrid() {
-        guard let token = auth.currentToken() else { showAuthScreen(); return }
-        api.setToken(token)
-        let (from, to) = weekBounds()
-        statusLabel.stringValue = "Loading…"
-
-        api.fetchEvents(from: from, to: to) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success(let events):
-                self.aestheticalEvents = events
-                self.rebuildLaidEvents()
-                self.statusLabel.stringValue =
-                    "\(events.count) aesthetical event\(events.count == 1 ? "" : "s")"
-                // Now layer the read-only feed overlay.
-                self.loadFeedEvents()
-            case .failure(let err):
-                if case .unauthorized = err {
-                    self.handleUnauthorized()
-                } else {
-                    self.statusLabel.stringValue = err.localizedDescription
-                }
-            }
-        }
-    }
-
-    private func loadFeedEvents() {
-        let (from, to) = weekBounds()
-        api.fetchFeedEvents(from: from, to: to) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success(let events):
-                self.feedEvents = events
-                self.rebuildLaidEvents()
-                if !events.isEmpty {
-                    let base = self.aestheticalEvents.count
-                    self.statusLabel.stringValue =
-                        "\(base) aesthetical · \(events.count) from connected calendars"
-                }
-            case .failure(let err):
-                if case .unauthorized = err { self.handleUnauthorized() }
-                // Feed errors are non-fatal — keep showing aesthetical events.
-            }
-        }
-    }
-
-    // Merge the two sources into the laid-out events the WeekView draws.
-    private func rebuildLaidEvents() {
-        var laid: [LaidEvent] = []
-
-        for e in aestheticalEvents {
-            let allDay = e.allDay ?? false
-            guard let s = Self.parseBoundary(e.start, allDay: allDay),
-                  let en = Self.parseBoundary(e.end, allDay: allDay) else { continue }
-            laid.append(LaidEvent(
-                kind: .aesthetical, uid: e.uid, title: e.title,
-                start: s, end: en, allDay: allDay,
-                note: e.note ?? "", visibility: e.visibility ?? "private",
-                sourceLabel: nil, color: nil))
-        }
-        for e in feedEvents {
-            let allDay = e.allDay ?? false
-            guard let s = Self.parseBoundary(e.start, allDay: allDay) else { continue }
-            let en = e.end.flatMap { Self.parseBoundary($0, allDay: allDay) } ?? s.addingTimeInterval(1800)
-            laid.append(LaidEvent(
-                kind: .feed, uid: e.uid, title: e.title,
-                start: s, end: en, allDay: allDay,
-                note: e.note ?? "", visibility: "private",
-                sourceLabel: e.label, color: Self.color(from: e.color)))
-        }
-        weekView.events = Self.deduped(laid)
-    }
 
     // Collapse events that represent the same underlying item — e.g. a Google
     // event that is both imported into AesthetiCal (uid "ics:<sourceUID>") and
@@ -607,11 +310,9 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // ── editor ───────────────────────────────────────────────────────
     @objc private func addEventAction() {
-        // Default the new event to the next whole hour today (or in the
-        // focused week if it isn't the current week).
+        // Default the new event to the next whole hour.
         let cal = Calendar.current
-        let now = Date()
-        let base = (weekStart <= now && now < weekBounds().to) ? now : weekStart
+        let base = Date()
         var comps = cal.dateComponents([.year, .month, .day, .hour], from: base)
         comps.hour = (comps.hour ?? 9) + 1
         comps.minute = 0
@@ -669,206 +370,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
         }
     }
 
-    // MARK: - Deprecated calendars UI
-    // ── calendars panel: subscription link + connectors ──────────────
-    // DEPRECATED: the "Calendars…" button was removed from the window;
-    // subscription links and Google-calendar connectors are managed via the
-    // CLI now. This panel and its helpers (loadSubLink/copySubLink/
-    // rotateSubLink/reloadConnectors/removeConnector/connectFeedAction below)
-    // are kept for reference and reachable only from here.
-    @available(*, deprecated, message: "Removed from window UI — manage calendars via the CLI.")
-    @objc private func calendarsPanelAction() {
-        guard let window else { return }
-        let W: CGFloat = 470
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: W, height: 248))
-
-        let linkTitle = NSTextField(labelWithString: "Your AesthetiCal subscription link")
-        linkTitle.font = .systemFont(ofSize: 12, weight: .semibold)
-        linkTitle.frame = NSRect(x: 0, y: 226, width: W, height: 18)
-        container.addSubview(linkTitle)
-
-        let hint = NSTextField(labelWithString: "Subscribe in Apple/Google Calendar. Full calendar (private incl.) — keep it secret.")
-        hint.font = .systemFont(ofSize: 10); hint.textColor = .secondaryLabelColor
-        hint.frame = NSRect(x: 0, y: 210, width: W, height: 14)
-        container.addSubview(hint)
-
-        let field = NSTextField(frame: NSRect(x: 0, y: 182, width: 352, height: 22))
-        field.isEditable = false; field.isSelectable = true
-        field.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
-        field.stringValue = "Loading…"
-        container.addSubview(field)
-        self.subLinkField = field
-
-        let copyBtn = NSButton(title: "Copy", target: self, action: #selector(copySubLink))
-        copyBtn.bezelStyle = .rounded
-        copyBtn.frame = NSRect(x: 356, y: 181, width: 48, height: 24)
-        container.addSubview(copyBtn)
-        let rotateBtn = NSButton(title: "Rotate", target: self, action: #selector(rotateSubLink))
-        rotateBtn.bezelStyle = .rounded
-        rotateBtn.frame = NSRect(x: 406, y: 181, width: 60, height: 24)
-        container.addSubview(rotateBtn)
-
-        let sep = NSBox(frame: NSRect(x: 0, y: 166, width: W, height: 1))
-        sep.boxType = .separator
-        container.addSubview(sep)
-
-        let connTitle = NSTextField(labelWithString: "Connected calendars")
-        connTitle.font = .systemFont(ofSize: 12, weight: .semibold)
-        connTitle.frame = NSRect(x: 0, y: 142, width: 300, height: 18)
-        container.addSubview(connTitle)
-
-        let box = NSView(frame: NSRect(x: 0, y: 0, width: W, height: 134))
-        container.addSubview(box)
-        self.connectorsBox = box
-
-        let alert = NSAlert()
-        alert.messageText = "Calendars"
-        alert.accessoryView = container
-        alert.addButton(withTitle: "Done")
-        alert.addButton(withTitle: "Connect a Calendar…")
-        alert.beginSheetModal(for: window) { [weak self] resp in
-            guard let self else { return }
-            self.subLinkField = nil
-            self.connectorsBox = nil
-            // "Connect a Calendar…" — present its sheet now that this one is gone.
-            if resp == .alertSecondButtonReturn { self.connectFeedAction() }
-        }
-
-        loadSubLink()
-        reloadConnectors()
-    }
-
-    private func loadSubLink() {
-        api.fetchSubscriptionLink { [weak self] r in
-            guard let self else { return }
-            switch r {
-            case .success(let link):
-                self.subLinkField?.stringValue = link.url ?? "(no link — handle not set)"
-            case .failure(let e):
-                if case .unauthorized = e { self.handleUnauthorized() }
-                self.subLinkField?.stringValue = "Error: \(e.localizedDescription)"
-            }
-        }
-    }
-
-    @objc private func copySubLink() {
-        guard let s = subLinkField?.stringValue, s.hasPrefix("http") else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
-        statusLabel.stringValue = "Subscription link copied."
-    }
-
-    @objc private func rotateSubLink() {
-        subLinkField?.stringValue = "Rotating…"
-        api.rotateSubscriptionLink { [weak self] r in
-            guard let self else { return }
-            switch r {
-            case .success(let link):
-                self.subLinkField?.stringValue = link.url ?? "(no link)"
-                self.statusLabel.stringValue = "Subscription link rotated — old links revoked."
-            case .failure(let e):
-                if case .unauthorized = e { self.handleUnauthorized() }
-                self.subLinkField?.stringValue = "Error: \(e.localizedDescription)"
-            }
-        }
-    }
-
-    private func reloadConnectors() {
-        api.fetchFeeds { [weak self] r in
-            guard let self, let box = self.connectorsBox else { return }
-            box.subviews.forEach { $0.removeFromSuperview() }
-            switch r {
-            case .success(let feeds):
-                if feeds.isEmpty {
-                    let l = NSTextField(labelWithString: "No calendars connected yet — use “Connect a Calendar…”.")
-                    l.font = .systemFont(ofSize: 11); l.textColor = .secondaryLabelColor
-                    l.frame = NSRect(x: 0, y: box.bounds.height - 22, width: box.bounds.width, height: 18)
-                    box.addSubview(l)
-                    return
-                }
-                var y = box.bounds.height - 26
-                for feed in feeds {
-                    let name = NSTextField(labelWithString: feed.label ?? "Calendar")
-                    name.font = .systemFont(ofSize: 11)
-                    name.frame = NSRect(x: 0, y: y + 3, width: 340, height: 18)
-                    box.addSubview(name)
-                    let rm = NSButton(title: "Remove", target: self,
-                                      action: #selector(self.removeConnector(_:)))
-                    rm.bezelStyle = .rounded
-                    rm.frame = NSRect(x: box.bounds.width - 84, y: y, width: 84, height: 24)
-                    rm.identifier = NSUserInterfaceItemIdentifier(feed.id)
-                    box.addSubview(rm)
-                    y -= 30
-                }
-            case .failure(let e):
-                if case .unauthorized = e { self.handleUnauthorized() }
-            }
-        }
-    }
-
-    @objc private func removeConnector(_ sender: NSButton) {
-        guard let id = sender.identifier?.rawValue else { return }
-        sender.isEnabled = false
-        api.removeFeed(id: id) { [weak self] r in
-            guard let self else { return }
-            switch r {
-            case .success:
-                self.reloadConnectors()
-                self.refresh()
-            case .failure(let e):
-                sender.isEnabled = true
-                if case .unauthorized = e { self.handleUnauthorized() }
-            }
-        }
-    }
-
-    // ── connect a Google calendar ────────────────────────────────────
-    @objc private func connectFeedAction() {
-        guard let window else { return }
-        let alert = NSAlert()
-        alert.messageText = "Connect a Google calendar"
-        alert.informativeText = "Paste the Google \"secret address in iCal format\" URL and a label.\nGoogle Calendar → Settings → your calendar → Integrate calendar → Secret address in iCal format."
-        alert.addButton(withTitle: "Connect")
-        alert.addButton(withTitle: "Cancel")
-
-        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 54))
-        let urlField = NSTextField(frame: NSRect(x: 0, y: 28, width: 320, height: 22))
-        urlField.placeholderString = "https://calendar.google.com/calendar/ical/.../basic.ics"
-        let labelField = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 22))
-        labelField.placeholderString = "Label (e.g. Work)"
-        stack.addSubview(urlField)
-        stack.addSubview(labelField)
-        alert.accessoryView = stack
-
-        alert.beginSheetModal(for: window) { [weak self] resp in
-            guard let self, resp == .alertFirstButtonReturn else { return }
-            let url = urlField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            let label = labelField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !url.isEmpty else { return }
-            self.statusLabel.stringValue = "Connecting calendar…"
-            self.api.connectFeed(url: url, label: label.isEmpty ? "Calendar" : label) { r in
-                switch r {
-                case .success(let feed):
-                    self.statusLabel.stringValue = "Connected \(feed.label ?? "calendar")."
-                    self.refresh()
-                case .failure(let err):
-                    if case .unauthorized = err { self.handleUnauthorized() }
-                    else { self.statusLabel.stringValue = err.localizedDescription }
-                }
-            }
-        }
-    }
-
-    // ── WeekViewDelegate ─────────────────────────────────────────────
-    func weekView(_ view: WeekView, didSelectEditable event: LaidEvent) {
-        presentEditor(uid: event.uid, title: event.title,
-                      start: event.start, end: event.end,
-                      note: event.note, visibility: event.visibility)
-    }
-
-    func weekView(_ view: WeekView, didSelectReadOnly event: LaidEvent) {
-        presentReadOnlyDetails(event)
-    }
 
     private func presentReadOnlyDetails(_ event: LaidEvent) {
         // Read-only details — no edit.
@@ -886,7 +387,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
     }
 
     // ── AgendaViewDelegate ───────────────────────────────────────────
-    // Same routing as the grid: aesthetical → editor, feed → read-only details.
+    // Aesthetical → editor, feed → read-only details.
     func agendaView(_ view: AgendaView, didSelectEditable event: LaidEvent) {
         presentEditor(uid: event.uid, title: event.title,
                       start: event.start, end: event.end,
@@ -895,16 +396,6 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     func agendaView(_ view: AgendaView, didSelectReadOnly event: LaidEvent) {
         presentReadOnlyDetails(event)
-    }
-
-    func weekView(_ view: WeekView, didRequestNewEventAt day: Date, hour: Int) {
-        let cal = Calendar.current
-        var comps = cal.dateComponents([.year, .month, .day], from: day)
-        comps.hour = max(0, min(23, hour))
-        comps.minute = 0
-        let start = cal.date(from: comps) ?? day
-        presentEditor(uid: nil, title: "", start: start,
-                      end: start.addingTimeInterval(3600), note: "", visibility: "private")
     }
 
     // ── sign-in screen ───────────────────────────────────────────────
@@ -920,10 +411,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
         let overlay = NSView(frame: cv.bounds)
         overlay.wantsLayer = true
-        // Translucent scrim so the living mascot backdrop shows through
-        // behind the sign-in prompt.
-        overlay.layer?.backgroundColor = NSColor.windowBackgroundColor
-            .withAlphaComponent(0.62).cgColor
+        overlay.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         overlay.autoresizingMask = [.width, .height]
 
         let title = NSTextField(labelWithString: "Sign in to Aesthetic Computer")
@@ -1074,7 +562,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, WeekViewDele
 
     // ── window lifecycle ─────────────────────────────────────────────
     // Always-on app: hide the window instead of closing it, so the shared
-    // session watch (and live event state) survives. The menu bar strip
+    // session watch (and live event state) survives. The menu bar item
     // keeps running; clicking it re-shows the window. Real teardown happens
     // on app terminate.
     func windowShouldClose(_ sender: NSWindow) -> Bool {

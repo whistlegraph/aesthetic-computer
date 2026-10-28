@@ -1,14 +1,28 @@
-// AgendaView.swift — the "no day selected" face of the wizard: an ordered,
-// scrollable list of everything coming up (rolling window from now forward,
-// see WizardController.upcomingDays). Where WeekView is a spatial hour grid,
-// this is a chronological agenda — one section per day, each event a row of
+// AgendaView.swift — the wizard's one surface: an ordered, scrollable list of
+// everything coming up (rolling window from now forward, see
+// WizardController.upcomingDays). One section per day, each event a row of
 //   TIME   ● Title            (source)
 // sorted by start. Aesthetical events are editable (solid chip); feed events
-// are read-only (dashed chip + source-color dot), matching WeekView's grammar.
+// are read-only (dashed chip + source-color dot).
 //
 // The view is a flipped document view inside an NSScrollView; it sizes its own
 // height to the content so the scroller appears only when the list overflows.
 import AppKit
+
+// One event from either source, normalized for display.
+struct LaidEvent {
+    enum Kind { case aesthetical, feed }
+    var kind: Kind
+    var uid: String
+    var title: String
+    var start: Date
+    var end: Date
+    var allDay: Bool
+    var note: String
+    var visibility: String       // aesthetical only
+    var sourceLabel: String?     // feed only
+    var color: NSColor?          // feed source color
+}
 
 protocol AgendaViewDelegate: AnyObject {
     func agendaView(_ view: AgendaView, didSelectEditable event: LaidEvent)
@@ -43,10 +57,6 @@ final class AgendaView: NSView {
 
     private struct HitBox { var rect: NSRect; var event: LaidEvent }
     private var hitBoxes: [HitBox] = []
-
-    // Scrim opacity over the living backdrop, matching WeekView so the two read
-    // as one surface.
-    private let scrimAlpha: CGFloat = 0.24
 
     // ── build the item list (headers + rows) ──────────────────────────
     private func relayout() {
@@ -91,9 +101,6 @@ final class AgendaView: NSView {
 
     // ── drawing ───────────────────────────────────────────────────────
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.windowBackgroundColor.withAlphaComponent(scrimAlpha).setFill()
-        bounds.fill()
-
         hitBoxes.removeAll()
 
         if items.isEmpty {
@@ -120,14 +127,10 @@ final class AgendaView: NSView {
 
     private func drawEmptyState() {
         let style = NSMutableParagraphStyle(); style.alignment = .center
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.white.withAlphaComponent(0.6)
-        shadow.shadowBlurRadius = 1.5
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .medium),
             .foregroundColor: NSColor.secondaryLabelColor,
             .paragraphStyle: style,
-            .shadow: shadow,
         ]
         ("Nothing coming up." as NSString).draw(
             in: NSRect(x: 0, y: 40, width: bounds.width, height: 20), withAttributes: attrs)
@@ -135,10 +138,8 @@ final class AgendaView: NSView {
 
     private func drawHeader(_ date: Date, atY y: CGFloat) {
         let cal = Calendar.current
-        let color = DayPalette.color(for: date)
 
-        // A relative word ("Today"/"Tomorrow") plus the date, colored in the
-        // day's ROYGBIV hue so the agenda echoes the strip.
+        // A relative word ("Today"/"Tomorrow") plus the date.
         let dayDelta = cal.dateComponents([.day],
             from: cal.startOfDay(for: Date()), to: cal.startOfDay(for: date)).day ?? 0
         let fmt = DateFormatter(); fmt.dateFormat = "EEEE, MMM d"
@@ -150,21 +151,11 @@ final class AgendaView: NSView {
         }
         let text = "\(prefix)\(fmt.string(from: date))"
 
-        // A small day-color dot, then the label.
-        let dotD: CGFloat = 8
-        let dotRect = NSRect(x: sideInset, y: y + (sectionH - dotD) / 2 + 1, width: dotD, height: dotD)
-        color.withAlphaComponent(0.9).setFill()
-        NSBezierPath(ovalIn: dotRect).fill()
-
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.white.withAlphaComponent(0.5)
-        shadow.shadowBlurRadius = 1.5
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 12, weight: .heavy),
-            .foregroundColor: color,
-            .shadow: shadow,
+            .font: NSFont.systemFont(ofSize: 12, weight: .semibold),
+            .foregroundColor: NSColor.labelColor,
         ]
-        (text as NSString).draw(at: NSPoint(x: dotRect.maxX + 7, y: y + (sectionH - 15) / 2),
+        (text as NSString).draw(at: NSPoint(x: sideInset, y: y + (sectionH - 15) / 2),
                                 withAttributes: attrs)
 
         // A hairline under the header.
@@ -186,14 +177,10 @@ final class AgendaView: NSView {
             timeStr = tf.string(from: ev.start).lowercased()
         }
         let timeStyle = NSMutableParagraphStyle(); timeStyle.alignment = .right
-        let timeShadow = NSShadow()
-        timeShadow.shadowColor = NSColor.white.withAlphaComponent(0.5)
-        timeShadow.shadowBlurRadius = 1.0
         let timeAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium),
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: timeStyle,
-            .shadow: timeShadow,
         ]
         (timeStr as NSString).draw(
             in: NSRect(x: rect.minX, y: rect.midY - 7, width: timeColW - 8, height: 14),
