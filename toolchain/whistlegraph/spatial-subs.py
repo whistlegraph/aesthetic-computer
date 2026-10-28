@@ -3,7 +3,7 @@
 #
 #   python3 spatial-subs.py subs/pmpk.json            # → downloads/<code>-subs.mp4 (gitignored)
 #   python3 spatial-subs.py subs/pmpk.json --sheet    # + contact sheet
-#   python3 spatial-subs.py subs/pmpk.json --out x.mp4
+#   python3 spatial-subs.py subs/pmpk.json --out x.mp4 --audio master.wav
 #
 # The Scared of Stairs trial (10-20) set the look: each sung word appears
 # beside a drawing in that pen's ink colour, the phrase builds word by word,
@@ -13,8 +13,15 @@
 # times come from `whisper-cli -ml 1 -sow -oj`; pitch is a numpy YIN over
 # the clip's own audio, so a spec never carries notes.
 #
-# The base is the trial-reel remaster (1080×1920, 30fps, 48k); the words
-# are composited in one ffmpeg pass so the clip is encoded once.
+# "mode": "single" shows one word at a time instead: it appears on its note,
+# holds until the next word's note and fades as that one arrives (a phrase's
+# last word holds to its "end"), cream with a soft shadow at "place", riding
+# the melody against the song's median pitch — quiet enough not to compete
+# with the drawing.
+#
+# The base is the trial-reel remaster (1080×1920, 30fps, 48k), or the spec's
+# "grade" filter chain; --audio swaps in a mastered track (master-audio.mjs).
+# The words are composited in the same ffmpeg pass, so the clip is encoded once.
 
 import json
 import subprocess
@@ -22,7 +29,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W, H, FPS = 1080, 1920, 30
 HERE = Path(__file__).resolve().parent
@@ -132,7 +139,20 @@ def main():
     audio, sr = load_audio(src)
     dur = len(audio) / sr
     phrases = spec["phrases"]
-    for p in phrases:
+    single = spec.get("mode") == "single"
+    if single:
+        everything = [w for p in phrases for w in p["words"]]
+        notes = [word_pitch(audio, sr, w["start"], w.get("end", w["start"] + 0.4)) for w in everything]
+        voiced = [n for n in notes if n is not None]
+        med = float(np.median(voiced))
+        for i, (w, n) in enumerate(zip(everything, notes)):
+            w["lift"] = 0 if n is None else float(np.clip((n - med) * bounce, -60, 60))
+            nxt = everything[i + 1]["start"] if i + 1 < len(everything) else dur
+            last = any(w is p["words"][-1] for p in phrases)
+            w["off"] = min(w["end"], nxt) if last and "end" in w else nxt
+            w["fade"] = 0.5 if last else 0.3
+        print(" ".join(f"{w['text']}@{w['start']:.2f}{w['lift']:+.0f}" for w in everything))
+    for p in (() if single else phrases):
         notes = [word_pitch(audio, sr, w["start"], w["end"]) for w in p["words"]]
         voiced = [n for n in notes if n is not None]
         med = float(np.median(voiced)) if voiced else 0
@@ -142,25 +162,50 @@ def main():
         p["until"] = p.get("until", p["words"][-1]["end"] + spec.get("hold", 0.6))
         print(p["ink"], " ".join(f"{w['text']}{w['lift']:+.0f}" for w in p["words"]))
 
+    grade = spec.get("grade", f"scale={W}:{H}:flags=lanczos,unsharp=5:5:0.4:5:5:0.0")
+    audio_in = sys.argv[sys.argv.index("--audio") + 1] if "--audio" in sys.argv else None
     ff = subprocess.Popen(
         ["ffmpeg", "-v", "error", "-y",
          "-i", src,
+         *(["-i", audio_in] if audio_in else []),
          "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "pipe:0",
          "-filter_complex",
-         f"[0:v]scale={W}:{H}:flags=lanczos,unsharp=5:5:0.4:5:5:0.0,fps={FPS}[b];"
-         "[b][1:v]overlay=shortest=1,format=yuv420p[v]",
-         "-map", "[v]", "-map", "0:a",
+         f"[0:v]{grade},fps={FPS}[b];"
+         f"[b][{2 if audio_in else 1}:v]overlay=shortest=1,format=yuv420p[v]",
+         "-map", "[v]", "-map", "1:a" if audio_in else "0:a",
          "-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "16",
          "-movflags", "+faststart", "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-ac", "2",
          str(out)],
         stdin=subprocess.PIPE)
 
     pop = 0.09
+    cream = tuple(int(spec.get("cream", "#fff4e2")[i:i + 2], 16) for i in (1, 3, 5))
+
+    def draw_single(img, t):
+        for w in (w for p in phrases for w in p["words"]):
+            if not (w["start"] <= t < w["off"] + w["fade"]):
+                continue
+            k = min(1, (t - w["start"]) / pop)
+            a = min(1, k * 1.5) * (1 if t < w["off"] else 1 - (t - w["off"]) / w["fade"])
+            fnt = font_at(max(8, int(size * (0.8 + 0.2 * k))))
+            x0, y0 = spec["place"]
+            y0 -= w["lift"]
+            l, tp, r, b = fnt.getbbox(w["text"], anchor="ms")
+            pad = 24
+            box = Image.new("L", (r - l + pad * 2, b - tp + pad * 2), 0)
+            ImageDraw.Draw(box).text((pad - l, pad - tp), w["text"], font=fnt, fill=255, anchor="ms")
+            shadow = box.filter(ImageFilter.GaussianBlur(7)).point(lambda v: int(v * 0.6 * a))
+            ox, oy = int(x0 + l - pad), int(y0 + tp - pad)
+            img.paste((40, 22, 12, 255), (ox + 2, oy + 5), shadow)
+            img.paste(cream + (255,), (ox, oy), box.point(lambda v: int(v * a)))
+
     for f in range(int(dur * FPS)):
         t = f / FPS
         img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        for p in phrases:
+        if single:
+            draw_single(img, t)
+        for p in (() if single else phrases):
             if not (p["words"][0]["start"] <= t < p["until"]):
                 continue
             ax, ay = anchor_at(p, t)

@@ -14,18 +14,18 @@
    "words": [
     {
      "text": "three",
-     "start": 0.17,
+     "start": 0.1,
      "end": 0.97
     },
     {
      "text": "two",
-     "start": 0.97,
+     "start": 1.1,
      "end": 1.96
     },
     {
      "text": "one",
-     "start": 1.96,
-     "end": 2.98
+     "start": 2.1,
+     "end": 2.5
     }
    ]
   },
@@ -38,23 +38,23 @@
    "words": [
     {
      "text": "and",
-     "start": 2.98,
+     "start": 3.0,
      "end": 3.98
     },
     {
      "text": "late",
-     "start": 3.98,
+     "start": 4.0,
      "end": 4.82
     },
     {
      "text": "last",
-     "start": 4.82,
+     "start": 4.9,
      "end": 5.68
     },
     {
      "text": "night",
-     "start": 5.68,
-     "end": 6.9
+     "start": 5.9,
+     "end": 6.35
     }
    ]
   },
@@ -72,7 +72,7 @@
     },
     {
      "text": "went",
-     "start": 7.02,
+     "start": 7.4,
      "end": 7.9
     },
     {
@@ -82,18 +82,18 @@
     },
     {
      "text": "to",
-     "start": 8.84,
+     "start": 8.8,
      "end": 9.0
     },
     {
      "text": "the",
-     "start": 9.0,
+     "start": 9.3,
      "end": 9.88
     },
     {
      "text": "field",
-     "start": 9.88,
-     "end": 10.96
+     "start": 9.8,
+     "end": 10.75
     }
    ]
   },
@@ -106,28 +106,28 @@
    "words": [
     {
      "text": "looking",
-     "start": 10.96,
+     "start": 10.8,
      "end": 13.03
     },
     {
      "text": "for",
-     "start": 13.03,
+     "start": 12.7,
      "end": 13.92
     },
     {
      "text": "something",
-     "start": 13.92,
+     "start": 13.6,
      "end": 16.96
     },
     {
      "text": "to",
-     "start": 16.96,
+     "start": 16.6,
      "end": 17.31
     },
     {
      "text": "eat",
-     "start": 17.31,
-     "end": 17.84
+     "start": 17.5,
+     "end": 17.85
     }
    ],
    "until": 19.4
@@ -141,33 +141,33 @@
    "words": [
     {
      "text": "then",
-     "start": 19.53,
+     "start": 19.35,
      "end": 20.48
     },
     {
      "text": "i",
-     "start": 20.48,
+     "start": 20.4,
      "end": 20.73
     },
     {
      "text": "spotted",
-     "start": 20.73,
+     "start": 21.3,
      "end": 22.65
     },
     {
      "text": "this",
-     "start": 22.65,
+     "start": 23.2,
      "end": 23.9
     },
     {
      "text": "here",
-     "start": 23.9,
+     "start": 24.1,
      "end": 24.88
     },
     {
      "text": "pumpkin",
-     "start": 24.88,
-     "end": 26.77
+     "start": 25.0,
+     "end": 26.35
     }
    ]
   },
@@ -180,49 +180,62 @@
    "words": [
     {
      "text": "should",
-     "start": 26.77,
+     "start": 26.85,
      "end": 28.42
     },
     {
      "text": "i",
-     "start": 28.42,
+     "start": 27.8,
      "end": 28.7
     },
     {
      "text": "carve",
-     "start": 28.7,
+     "start": 28.65,
      "end": 30.06
     },
     {
      "text": "it",
-     "start": 30.06,
+     "start": 30.4,
      "end": 30.67
     },
     {
      "text": "up",
-     "start": 30.67,
+     "start": 30.7,
      "end": 31.16
     },
     {
      "text": "for",
-     "start": 31.16,
+     "start": 31.2,
      "end": 31.98
     },
     {
      "text": "you",
-     "start": 31.98,
-     "end": 32.88
+     "start": 32.1,
+     "end": 32.45
     }
    ],
    "maxWidth": 470
   }
  ],
  "sheetTimes": [
-  10.6,
-  17.5,
-  29.0,
-  30.5,
-  32.0,
-  32.9
- ]
+  0.4,
+  4.3,
+  7.6,
+  9.5,
+  13.0,
+  17.7,
+  21.6,
+  25.2,
+  28.9,
+  32.2
+ ],
+ "mode": "single",
+ "place": [
+  300,
+  1470
+ ],
+ "size": 84,
+ "pitchPx": 12,
+ "grade": "hqdn3d=1.5:1.5:3:3,scale=1080:1920:flags=lanczos,cas=0.65,eq=contrast=1.07:saturation=1.10:gamma=1.02,colorbalance=bm=0.02:bh=0.03",
+ "timingNote": "Word starts are note onsets read off the clip's pitch/energy track; whisper's offsets run back to back and land early on held notes."
 }
