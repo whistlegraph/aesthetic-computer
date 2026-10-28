@@ -28,3 +28,5 @@ reels-shortlist/
 # whistlegraph/index-original/ backup; baked jpgs regenerate from them
 index-thumbs-original/
 index-thumbs-baked/
+# spatial-subs.py per-word pitch cache (regenerated from the clip)
+*.pitch.json

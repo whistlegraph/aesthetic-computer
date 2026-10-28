@@ -6,7 +6,7 @@
  "note": "Sung in unison \u2014 all three pens draw the whole time \u2014 so phrases rotate round the three drawings rather than following a singer.",
  "phrases": [
   {
-   "ink": "#ee5a24",
+   "ink": "#d9542a",
    "anchor": [
     531.0,
     1125.0
@@ -14,23 +14,27 @@
    "words": [
     {
      "text": "three",
-     "start": 0.1,
-     "end": 0.97
+     "start": 0.18,
+     "end": 0.47
     },
     {
      "text": "two",
-     "start": 1.1,
-     "end": 1.96
+     "start": 1.21,
+     "end": 1.46
     },
     {
      "text": "one",
-     "start": 2.1,
-     "end": 2.5
+     "start": 2.12,
+     "end": 2.46
     }
+   ],
+   "spot": [
+    480,
+    880
    ]
   },
   {
-   "ink": "#6b3fd4",
+   "ink": "#4b2fa6",
    "anchor": [
     427.5,
     360.0
@@ -38,28 +42,32 @@
    "words": [
     {
      "text": "and",
-     "start": 3.0,
-     "end": 3.98
+     "start": 3.07,
+     "end": 3.47
     },
     {
      "text": "late",
-     "start": 4.0,
-     "end": 4.82
+     "start": 4.01,
+     "end": 4.3
     },
     {
      "text": "last",
-     "start": 4.9,
-     "end": 5.68
+     "start": 4.99,
+     "end": 5.25
     },
     {
      "text": "night",
-     "start": 5.9,
-     "end": 6.35
+     "start": 5.92,
+     "end": 6.25
     }
+   ],
+   "spot": [
+    290,
+    1000
    ]
   },
   {
-   "ink": "#f29a2e",
+   "ink": "#e08a2c",
    "anchor": [
     675.0,
     576.0
@@ -67,38 +75,42 @@
    "words": [
     {
      "text": "i",
-     "start": 6.9,
-     "end": 7.02
+     "start": 6.92,
+     "end": 7.48
     },
     {
      "text": "went",
-     "start": 7.4,
-     "end": 7.9
+     "start": 7.49,
+     "end": 7.91
     },
     {
      "text": "out",
-     "start": 7.9,
-     "end": 8.84
+     "start": 7.94,
+     "end": 8.19
     },
     {
      "text": "to",
-     "start": 8.8,
-     "end": 9.0
+     "start": 8.93,
+     "end": 9.28
     },
     {
      "text": "the",
      "start": 9.3,
-     "end": 9.88
+     "end": 9.65
     },
     {
      "text": "field",
-     "start": 9.8,
-     "end": 10.75
+     "start": 9.89,
+     "end": 10.82
     }
+   ],
+   "spot": [
+    830,
+    990
    ]
   },
   {
-   "ink": "#ee5a24",
+   "ink": "#d9542a",
    "anchor": [
     450.0,
     1507.5
@@ -106,34 +118,38 @@
    "words": [
     {
      "text": "looking",
-     "start": 10.8,
-     "end": 13.03
+     "start": 10.85,
+     "end": 12.61
     },
     {
      "text": "for",
-     "start": 12.7,
-     "end": 13.92
+     "start": 12.73,
+     "end": 13.47
     },
     {
      "text": "something",
-     "start": 13.6,
-     "end": 16.96
+     "start": 13.67,
+     "end": 16.38
     },
     {
      "text": "to",
-     "start": 16.6,
-     "end": 17.31
+     "start": 16.62,
+     "end": 16.97
     },
     {
      "text": "eat",
-     "start": 17.5,
-     "end": 17.85
+     "start": 17.12,
+     "end": 17.77
     }
    ],
-   "until": 19.4
+   "until": 19.4,
+   "spot": [
+    175,
+    905
+   ]
   },
   {
-   "ink": "#6b3fd4",
+   "ink": "#4b2fa6",
    "anchor": [
     427.5,
     315.0
@@ -141,38 +157,42 @@
    "words": [
     {
      "text": "then",
-     "start": 19.35,
-     "end": 20.48
+     "start": 19.42,
+     "end": 20.38
     },
     {
      "text": "i",
-     "start": 20.4,
-     "end": 20.73
+     "start": 20.39,
+     "end": 20.8
     },
     {
      "text": "spotted",
-     "start": 21.3,
+     "start": 21.34,
      "end": 22.65
     },
     {
      "text": "this",
-     "start": 23.2,
-     "end": 23.9
+     "start": 23.21,
+     "end": 23.44
     },
     {
      "text": "here",
-     "start": 24.1,
-     "end": 24.88
+     "start": 24.09,
+     "end": 24.56
     },
     {
      "text": "pumpkin",
-     "start": 25.0,
-     "end": 26.35
+     "start": 25.11,
+     "end": 26.25
     }
+   ],
+   "spot": [
+    245,
+    330
    ]
   },
   {
-   "ink": "#f29a2e",
+   "ink": "#e08a2c",
    "anchor": [
     360.0,
     1431.0
@@ -180,62 +200,63 @@
    "words": [
     {
      "text": "should",
-     "start": 26.85,
-     "end": 28.42
+     "start": 26.92,
+     "end": 27.75
     },
     {
      "text": "i",
-     "start": 27.8,
-     "end": 28.7
+     "start": 27.81,
+     "end": 28.18
     },
     {
      "text": "carve",
-     "start": 28.65,
-     "end": 30.06
+     "start": 28.7,
+     "end": 29.72
     },
     {
      "text": "it",
-     "start": 30.4,
-     "end": 30.67
+     "start": 30.45,
+     "end": 30.62
     },
     {
      "text": "up",
      "start": 30.7,
-     "end": 31.16
+     "end": 31.05
     },
     {
      "text": "for",
-     "start": 31.2,
-     "end": 31.98
+     "start": 31.4,
+     "end": 32.14
     },
     {
      "text": "you",
-     "start": 32.1,
-     "end": 32.45
+     "start": 32.15,
+     "end": 32.4
     }
    ],
-   "maxWidth": 470
+   "maxWidth": 470,
+   "spot": [
+    205,
+    1000
+   ]
   }
  ],
  "sheetTimes": [
-  0.4,
-  4.3,
+  0.3,
+  4.15,
   7.6,
-  9.5,
-  13.0,
-  17.7,
-  21.6,
-  25.2,
+  10.3,
+  14.5,
+  17.4,
+  21.9,
+  25.6,
   28.9,
-  32.2
+  32.25
  ],
- "mode": "single",
- "place": [
-  300,
-  1470
- ],
- "size": 84,
- "pitchPx": 12,
+ "mode": "ink",
+ "size": 56,
+ "pitchPx": 6,
  "grade": "hqdn3d=1.5:1.5:3:3,scale=1080:1920:flags=lanczos,cas=0.65,eq=contrast=1.07:saturation=1.10:gamma=1.02,colorbalance=bm=0.02:bh=0.03",
- "timingNote": "Word starts are note onsets read off the clip's pitch/energy track; whisper's offsets run back to back and land early on held notes."
+ "timingNote": "Word bounds are voiced-note bounds on the Demucs vocal stem; the full-mix pitch track heard the beat and fired early.",
+ "angle": 30
 }

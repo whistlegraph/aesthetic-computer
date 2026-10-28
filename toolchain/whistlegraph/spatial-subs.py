@@ -19,6 +19,11 @@
 # the melody against the song's median pitch — quiet enough not to compete
 # with the drawing.
 #
+# "mode": "ink" is single with the words written into the paper: each in its
+# phrase's ink at the phrase's "spot", turned to the paper's "angle", no
+# outline, and wiped in across the word while it is sung (start → end are the
+# voiced-note bounds), so a word can never show before its voice.
+#
 # The base is the trial-reel remaster (1080×1920, 30fps, 48k), or the spec's
 # "grade" filter chain; --audio swaps in a mastered track (master-audio.mjs).
 # The words are composited in the same ffmpeg pass, so the clip is encoded once.
@@ -139,10 +144,20 @@ def main():
     audio, sr = load_audio(src)
     dur = len(audio) / sr
     phrases = spec["phrases"]
-    single = spec.get("mode") == "single"
+    ink_mode = spec.get("mode") == "ink"
+    single = spec.get("mode") == "single" or ink_mode
     if single:
         everything = [w for p in phrases for w in p["words"]]
-        notes = [word_pitch(audio, sr, w["start"], w.get("end", w["start"] + 0.4)) for w in everything]
+        # YIN in numpy is the slow part of a run; cache each word's pitch by its bounds
+        cache_path = HERE / "downloads" / f"{spec['code']}.pitch.json"
+        cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
+        notes = []
+        for w in everything:
+            key = f"{w['start']:.3f}-{w.get('end', w['start'] + 0.4):.3f}"
+            if key not in cache:
+                cache[key] = word_pitch(audio, sr, w["start"], w.get("end", w["start"] + 0.4))
+            notes.append(cache[key])
+        cache_path.write_text(json.dumps(cache))
         voiced = [n for n in notes if n is not None]
         med = float(np.median(voiced))
         for i, (w, n) in enumerate(zip(everything, notes)):
@@ -151,6 +166,11 @@ def main():
             last = any(w is p["words"][-1] for p in phrases)
             w["off"] = min(w["end"], nxt) if last and "end" in w else nxt
             w["fade"] = 0.5 if last else 0.3
+            if ink_mode:
+                # one word on the paper at a time: gone by the next note
+                w["fade"] = min(w["fade"], 0.15)
+                w["off"] = min(w["end"] + 0.6, nxt) if last else nxt
+                w["off"] = min(w["off"], nxt - w["fade"])
         print(" ".join(f"{w['text']}@{w['start']:.2f}{w['lift']:+.0f}" for w in everything))
     for p in (() if single else phrases):
         notes = [word_pitch(audio, sr, w["start"], w["end"]) for w in p["words"]]
@@ -199,11 +219,80 @@ def main():
             img.paste((40, 22, 12, 255), (ox + 2, oy + 5), shadow)
             img.paste(cream + (255,), (ox, oy), box.point(lambda v: int(v * a)))
 
+    angle = spec.get("angle", 0)
+    rad = np.radians(angle)
+    owner = {id(w): p for p in phrases for w in p["words"]}
+
+    def draw_ink(img, t):
+        for w in (w for p in phrases for w in p["words"]):
+            if not (w["start"] <= t < w["off"] + w["fade"]):
+                continue
+            p = owner[id(w)]
+            out = 1 if t < w["off"] else 1 - (t - w["off"]) / w["fade"]
+            reveal = max(0.18, min(w["end"] - w["start"], 0.9))
+            r = (t - w["start"]) / reveal
+            l, tp, rt, b = font.getbbox(w["text"], anchor="ls")
+            pad = 12
+            tw, th = rt - l + pad * 2, b - tp + pad * 2
+            mask = Image.new("L", (tw, th), 0)
+            ImageDraw.Draw(mask).text((pad - l, pad - tp), w["text"], font=font, fill=255, anchor="ls")
+            feather = 0.35 * tw
+            xs = np.arange(tw)
+            wipe = np.clip((r * (tw + feather) - xs) / feather, 0, 1)
+            m = np.asarray(mask, np.float32) / 255 * wipe[None, :] * out * 0.9
+            ink = tuple(int(p["ink"][i:i + 2], 16) for i in (1, 3, 5))
+            alpha = Image.fromarray((m * 255).astype(np.uint8))
+            # a crisp drop shadow in a darker shade of the word's own ink
+            sx, sy = spec.get("shadowOffset", [3, 4])
+            shade = tuple(int(c * spec.get("shadowShade", 0.4)) for c in ink)
+            patch = Image.new("RGBA", (tw + sx, th + sy), (0, 0, 0, 0))
+            shadow = Image.new("RGBA", (tw, th), shade + (0,))
+            shadow.putalpha(alpha.filter(ImageFilter.GaussianBlur(0.8)).point(lambda v: int(v * 0.75)))
+            patch.alpha_composite(shadow, (sx, sy))
+            face = Image.new("RGBA", (tw, th), ink + (0,))
+            face.putalpha(alpha)
+            patch.alpha_composite(face, (0, 0))
+            patch = patch.rotate(-angle, resample=Image.BICUBIC, expand=True)
+            cx, cy = anchor_at({"anchor": p["spot"]}, t)
+            cx += w["lift"] * np.sin(rad)
+            cy -= w["lift"] * np.cos(rad)
+            img.alpha_composite(patch, (int(cx - patch.width / 2), int(cy - patch.height / 2)))
+
+    def overlay(t):
+        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        if ink_mode:
+            draw_ink(img, t)
+        elif single:
+            draw_single(img, t)
+        return img
+
+    if "--still" in sys.argv:
+        # graded frames with their words, side by side, for a quick look
+        times = [float(v) for v in sys.argv[sys.argv.index("--still") + 1].split(",")]
+        cells = []
+        for t in times:
+            png = subprocess.run(
+                ["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", src, "-frames:v", "1",
+                 "-vf", grade, "-f", "image2pipe", "-vcodec", "png", "-"],
+                capture_output=True, check=True).stdout
+            frame = Image.open(__import__("io").BytesIO(png)).convert("RGBA")
+            frame.alpha_composite(overlay(t))
+            cells.append(frame.convert("RGB").resize((540, 960), Image.LANCZOS))
+        sh = Image.new("RGB", (540 * len(cells), 960))
+        for i, c in enumerate(cells):
+            sh.paste(c, (i * 540, 0))
+        sp = out.with_suffix(".still.jpg")
+        sh.save(sp, quality=90)
+        print("✓", sp)
+        return
+
     for f in range(int(dur * FPS)):
         t = f / FPS
         img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        if single:
+        if ink_mode:
+            draw_ink(img, t)
+        elif single:
             draw_single(img, t)
         for p in (() if single else phrases):
             if not (p["words"][0]["start"] <= t < p["until"]):
