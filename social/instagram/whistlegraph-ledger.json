@@ -18,18 +18,18 @@
         "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-20/02-10-45/cover.jpg"
       },
       "insights": {
-        "views": 5041,
-        "reach": 2460,
+        "views": 5075,
+        "reach": 2467,
         "likes": 34,
         "comments": 0,
         "saved": 1,
         "shares": 5,
         "total_interactions": 42,
-        "ig_reels_avg_watch_time": 12848,
-        "ig_reels_video_view_total_time": 32672846,
-        "reels_skip_rate": 16.9
+        "ig_reels_avg_watch_time": 12868,
+        "ig_reels_video_view_total_time": 32892771,
+        "reels_skip_rate": 17
       },
-      "insightsAt": "2026-10-22T16:20:13.079Z"
+      "insightsAt": "2026-10-28T17:33:06.437Z"
     },
     {
       "mediaId": "17902117197600883",
@@ -45,18 +45,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-20/17-38-44/sos-pen.mp4"
       },
       "insights": {
-        "views": 23535,
-        "reach": 10462,
-        "likes": 100,
+        "views": 25998,
+        "reach": 11540,
+        "likes": 105,
         "comments": 2,
-        "saved": 19,
+        "saved": 21,
         "shares": 1,
-        "total_interactions": 138,
-        "ig_reels_avg_watch_time": 19581,
-        "ig_reels_video_view_total_time": 214063985,
-        "reels_skip_rate": 13
+        "total_interactions": 145,
+        "ig_reels_avg_watch_time": 19556,
+        "ig_reels_video_view_total_time": 236138737,
+        "reels_skip_rate": 13.2
       },
-      "insightsAt": "2026-10-22T16:20:13.654Z"
+      "insightsAt": "2026-10-28T17:33:07.070Z"
     },
     {
       "mediaId": "18127789474939683",
@@ -72,18 +72,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-21/19-17-08/soda-remaster.mp4"
       },
       "insights": {
-        "views": 332756,
-        "reach": 171950,
-        "likes": 1143,
-        "comments": 8,
-        "saved": 153,
-        "shares": 157,
-        "total_interactions": 1576,
-        "ig_reels_avg_watch_time": 18234,
-        "ig_reels_video_view_total_time": 3317758521,
-        "reels_skip_rate": 13.6
+        "views": 694431,
+        "reach": 366409,
+        "likes": 2740,
+        "comments": 19,
+        "saved": 376,
+        "shares": 303,
+        "total_interactions": 3703,
+        "ig_reels_avg_watch_time": 18180,
+        "ig_reels_video_view_total_time": 7025021454,
+        "reels_skip_rate": 14.3
       },
-      "insightsAt": "2026-10-22T16:20:14.377Z"
+      "insightsAt": "2026-10-28T17:33:07.499Z"
     },
     {
       "mediaId": "18079482674542442",
@@ -114,8 +114,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-22/17-41-01/rshu-remaster.mp4"
       },
-      "insights": {},
-      "insightsAt": null
+      "insights": {
+        "views": 5169,
+        "reach": 3136,
+        "likes": 9,
+        "comments": 4,
+        "saved": 0,
+        "shares": 1,
+        "total_interactions": 15,
+        "ig_reels_avg_watch_time": 12547,
+        "ig_reels_video_view_total_time": 40341472,
+        "reels_skip_rate": 16.3
+      },
+      "insightsAt": "2026-10-28T17:33:08.147Z"
     },
     {
       "mediaId": "18018198026974033",
@@ -130,7 +141,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-25/06-25-59/boo-remaster.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 33228,
+        "reach": 20311,
+        "likes": 87,
+        "comments": 6,
+        "saved": 9,
+        "shares": 1,
+        "total_interactions": 110,
+        "ig_reels_avg_watch_time": 18510,
+        "ig_reels_video_view_total_time": 383660719,
+        "reels_skip_rate": 14.7
+      },
+      "insightsAt": "2026-10-28T17:33:08.558Z"
     },
     {
       "mediaId": "18110159474138805",
@@ -145,7 +168,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-28/17-29-33/pofu-remaster.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 0,
+        "reach": 0,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 0,
+        "ig_reels_video_view_total_time": 0,
+        "reels_skip_rate": 0
+      },
+      "insightsAt": "2026-10-28T17:33:09.033Z"
     }
   ]
 }
