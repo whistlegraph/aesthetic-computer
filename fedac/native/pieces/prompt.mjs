@@ -30,6 +30,25 @@ const WHISTLEGRAPH_COMMANDS_URL = "https://whistlegraph.org/api/commands";
 const WHISTLEGRAPH_COMMANDS = new Map();
 let whistlegraphFetchStarted = false;
 let whistlegraphFetchConsumed = false;
+
+// Sketch on miss: a plain word or two that isn't KidLisp becomes a drawing.
+// aesthetic.computer/api/sketch answers {code, source} (a stored KidLisp
+// sketch of the word), {near} (a typo of a real piece) or {skip}. A fresh
+// drawing streams instead (stream=1): its code as plain text, then a
+// \u0000 line carrying that JSON, so the code shows up as it's written.
+const SKETCH_URL = "https://aesthetic.computer/api/sketch?stream=1&word=";
+let sketchPending = null; // { word, cmd } while its fetch is in flight
+let lastWifi = null;      // the API's wifi object, for wifi.connected
+
+// 1–3 lowercase words the server accepts, none of them KidLisp vocabulary
+// (so "red" or "wipe blue" still run as KidLisp).
+function sketchable(text) {
+  if (!/^[a-z][a-z' -]{1,30}$/.test(text)) return false;
+  const words = text.trim().split(/\s+/);
+  if (words.length > 3) return false;
+  const vocab = globalThis.KidLispModule?.KIDLISP_VOCABULARY;
+  return !(vocab && words.some((w) => vocab.has(w)));
+}
 // $code aliases
 const CODE_NAMES = ["$roz"];
 // Piece descriptions (for tab completion display)
@@ -278,7 +297,8 @@ function boot({ system }) {
   }
 }
 
-function act({ event: e, system, sound }) {
+function act({ event: e, system, sound, wifi }) {
+  if (wifi) lastWifi = wifi;
   if (e.is("keyboard:down:shift")) { shiftHeld = true; return; }
   if (e.is("keyboard:up:shift")) { shiftHeld = false; return; }
 
@@ -712,6 +732,15 @@ function execute(cmd, system) {
     return;
   }
 
+  // A plain word that isn't KidLisp: ask for a sketch of it while online.
+  if (sketchable(lower) && lastWifi?.connected && system?.fetch && !system.fetchPending) {
+    system.fetch(SKETCH_URL + encodeURIComponent(lower), { stream: true });
+    sketchPending = { word: lower, cmd };
+    message = "sketching " + lower + "...";
+    messageFrame = 0;
+    return;
+  }
+
   // Everything else → KidLisp evaluator
   message = "~> lisp";
   messageFrame = 0;
@@ -767,6 +796,7 @@ function drawHighlighted(text, x0, y0, charW, ink, write, font) {
 }
 
 function paint({ wipe, ink, box, write, screen, paintCount, system }) {
+  collectFetches(system);
   frame++;
   const T = __theme.update();
   wipe(T.bg[0], T.bg[1], T.bg[2]);
@@ -834,9 +864,19 @@ function paint({ wipe, ink, box, write, screen, paintCount, system }) {
     }
   }
 
-  // History below input (also syntax highlighted)
+  // History below input (also syntax highlighted); a sketch being drawn
+  // takes its place, its code highlighted line by line as it streams in.
   let hy = y0 + lineH + 4 + completionH;
-  for (let i = 0; i < history.length && hy < H - charH - 6; i++) {
+  const streamed = sketchPending ? String(system?.fetchPartial || "") : "";
+  if (streamed && streamed[0] !== "{") {
+    const lines = streamed.split("\u0000")[0].replace(/\s+$/, "").split("\n");
+    const fit = Math.max(1, Math.floor((H - charH - 6 - hy) / lineH));
+    for (const line of lines.slice(-fit)) {
+      drawHighlighted(line, x0, hy, charW, ink, write, font);
+      hy += lineH;
+    }
+  }
+  for (let i = 0; !streamed && i < history.length && hy < H - charH - 6; i++) {
     // Dim the history entries
     const entry = history[i];
     const lower = entry.toLowerCase();
@@ -860,7 +900,48 @@ function paint({ wipe, ink, box, write, screen, paintCount, system }) {
   }
 }
 
-function sim({ system }) {
+// A sketch answer: plain JSON, or streamed code then \u0000 + JSON. The
+// result slot holds 8 KB, so a long drawing's JSON tail can arrive cut
+// short; then the code name comes from what's left and the source from
+// the streamed text, which is the same program.
+function sketchResult(body) {
+  const end = body.indexOf("\u0000");
+  if (end < 0) {
+    try { return JSON.parse(body); } catch (_) { return null; }
+  }
+  const tail = body.slice(end + 1);
+  try { return JSON.parse(tail); } catch (_) {}
+  const code = tail.match(/"code":"([0-9A-Za-z]+)"/)?.[1];
+  return code ? { code, source: body.slice(0, end).trim() } : null;
+}
+
+// Finished fetches, read in paint: the runtime hands system.fetchResult only
+// to paint (sim's copy is always null), so reading it in sim lost every
+// sketch and fell back to running the word as KidLisp.
+function collectFetches(system) {
+  if (sketchPending && !system?.fetchPending) {
+    const { word, cmd } = sketchPending;
+    sketchPending = null;
+    const r = sketchResult(String(system?.fetchResult || ""));
+    if (r?.source) {
+      message = "~> $" + r.code;
+      messageFrame = 0;
+      globalThis.__kidlispSource = r.source;
+      globalThis.__kidlispLabel = "$" + r.code;
+      system?.jump?.("lisp");
+    } else if (r?.near) {
+      message = "did you mean " + r.near + "?";
+      messageFrame = 0;
+    } else {
+      // Skipped, throttled or offline: run it as KidLisp, as before.
+      message = "~> lisp";
+      messageFrame = 0;
+      globalThis.__kidlispSource = cmd;
+      globalThis.__kidlispLabel = cmd;
+      system?.jump?.("lisp");
+    }
+    return;
+  }
   if (!whistlegraphFetchStarted || whistlegraphFetchConsumed) return;
   if (system?.fetchPending) return;
   const raw = typeof system?.fetchResult === "string" ? system.fetchResult.trim() : "";
@@ -874,4 +955,4 @@ function sim({ system }) {
 }
 
 const system = "prompt";
-export { boot, paint, act, sim, system };
+export { boot, paint, act, system };

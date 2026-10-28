@@ -57,6 +57,13 @@ createInterface({ input: process.stdin }).on("line", (line) => {
         startedAtMs: Date.now(),
       },
     });
+  } else if (message.method === "turn/steer") {
+    const {expectedTurnId, input} = message.params;
+    if (expectedTurnId !== "turn-1") send({ id: message.id, error: { code: -32600, message: "no active turn" } });
+    else {
+      send({ id: message.id, result: { turnId: "turn-1" } });
+      send({ method: "item/agentMessage/delta", params: { threadId: "thread-1", turnId: "turn-1", itemId: "steer-1", delta: `heard:${input[0].text} ` } });
+    }
   } else if (message.id === 900 && message.result?.decision === "accept") {
     send({
       method: "item/agentMessage/delta",

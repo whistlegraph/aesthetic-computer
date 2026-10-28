@@ -36,6 +36,7 @@
 #include "tts.h"
 #include "js-bindings.h"
 #include "machines.h"
+#include "machine-keys.h"
 #include "lanserv.h"
 #include "recorder.h"
 #include "camera.h"
@@ -808,6 +809,17 @@ void *g_display = NULL;
 static ACGraph *g_shutdown_graph = NULL;
 static ACFramebuffer *g_shutdown_screen = NULL;
 static int g_shutdown_pixel_scale = 3;
+
+// The frame's safe area in screen pixels (system.safe): where a framed
+// panel's rounded top corners can't reach. Corner UI (QR, battery) sits
+// inside it. Zero on unframed displays.
+int g_safe_top = 0, g_safe_left = 0, g_safe_right = 0, g_safe_bottom = 0;
+static void update_safe_area(ACDisplay *display, int scale) {
+    int r = (display && display->margin) ? display->corner - display->margin : 0;
+    int inset = (r > 0 && scale > 0) ? (r + scale - 1) / scale : 0;
+    g_safe_top = g_safe_left = g_safe_right = inset;
+    g_safe_bottom = 0;  // MacBook panels' bottom corners are square
+}
 
 #ifdef USE_WAYLAND
 // Global Wayland display — used by ac_display_present dispatch
@@ -2388,6 +2400,15 @@ static void frame_sync_60fps(struct timespec *next) {
         next->tv_nsec -= 1000000000;
         next->tv_sec++;
     }
+    // After a long frame, restart the cadence from now rather than racing
+    // through the missed deadlines.
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    long long behind = (now.tv_sec - next->tv_sec) * 1000000000LL + (now.tv_nsec - next->tv_nsec);
+    if (behind > 2 * 16666667LL) {
+        *next = now;
+        return;
+    }
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, next, NULL);
 }
 
@@ -2970,8 +2991,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 
         // Startup chime (C E G C'), handle or not. The spoken greeting — time
         // of day, handle, city, tagline, build name — talked over the start of
-        // every boot; the screen already says all of it.
-        if (audio) {
+        // every boot; the screen already says all of it. AC_NO_BOOT_SOUND
+        // silences it (and the boot beep).
+        if (audio && !getenv("AC_NO_BOOT_SOUND")) {
             if (f == 10)  audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
             if (f == 20)  audio_synth(audio, WAVE_SINE, 659.3, 0.15, 0.6, 0.003, 0.10, 0.0);  // E5
             if (f == 30)  audio_synth(audio, WAVE_SINE, 784.0, 0.15, 0.6, 0.003, 0.10, 0.3);  // G5
@@ -3904,6 +3926,20 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
+        // Apple's panels round their top corners off, so frame them: a
+        // border a shade off the frame, C64-style, with top corners
+        // concentric with the panel's. AC_SCREEN_MARGIN (border) and
+        // AC_SCREEN_CORNER (the panel's corner radius) are in panel pixels.
+        if (display) {
+            int apple = strcmp(machine_keys()->name, "apple") == 0;
+            int margin = apple ? 32 : 0, corner = apple ? 60 : 0;
+            const char *margin_env = getenv("AC_SCREEN_MARGIN");
+            const char *corner_env = getenv("AC_SCREEN_CORNER");
+            if (margin_env && *margin_env) margin = atoi(margin_env);
+            if (corner_env && *corner_env) corner = atoi(corner_env);
+            display_set_margin(display, margin, corner);
+        }
+
         // Target ~300px wide — just divide and let fb_copy_scaled handle the remainder
         {
             int target = display->width / 300;
@@ -3963,6 +3999,7 @@ int main(int argc, char *argv[]) {
     g_shutdown_graph = &graph;
     g_shutdown_screen = screen;
     g_shutdown_pixel_scale = pixel_scale;
+    update_safe_area(display, pixel_scale);
 
     // Cursor overlay buffer — drawn separately so KidLisp effects don't smear it
     ACFramebuffer *cursor_fb = fb_create(screen->width, screen->height);
@@ -3984,23 +4021,12 @@ int main(int argc, char *argv[]) {
     ACSecondaryDisplay *hdmi = NULL;
     char bl_path[128] = "";
     int bl_max = 0;
-    // The MiniBook X keeps media keys behind Fn (F2 mute, F3/F4 volume) and
-    // its Fn+F6/F7 brightness never reaches the OS, so plain F-keys do both
-    // there instead of the generic F1–F3 / F5–F6 fallback, and stop at the
-    // OS so notepat's DJ keys on the same F-keys don't fire too. Full row
-    // in docs/machines/minibook-x.md.
-    int minibook_keys = 0;
-    {
-        char product[64] = "";
-        FILE *f = fopen("/sys/class/dmi/id/product_name", "r");
-        if (f) {
-            if (fgets(product, sizeof(product), f)) product[strcspn(product, "\n")] = 0;
-            fclose(f);
-        }
-        minibook_keys = strcmp(product, "MiniBook X") == 0;
-        if (minibook_keys)
-            ac_log("[machine] MiniBook X: F2 mute, F3/F4 volume, F6/F7 brightness (no Fn)\n");
-    }
+    // The built-in keyboard's top row (mute / volume / brightness F-keys)
+    // comes from the per-machine table in machine-keys.c.
+    const MachineKeys *mk = machine_keys();
+    const char *key_mute = mk->mute, *key_voldn = mk->voldn, *key_volup = mk->volup;
+    const char *key_brdn = mk->brdn, *key_brup = mk->brup;
+    const int consume_row_keys = mk->consume_row;
 
 #ifdef USE_WAYLAND
     if (is_wayland) {
@@ -4772,7 +4798,7 @@ int main(int argc, char *argv[]) {
                 }
             }
             // Hardware keys
-            static int ctrl_held = 0;
+            static int ctrl_held = 0, meta_held = 0;
             int power_pressed = 0;
             int scale_change = 0;  // -1 = decrease density (bigger pixels), +1 = increase
             // Global escape → prompt fallback. If the current piece doesn't
@@ -4797,51 +4823,53 @@ int main(int argc, char *argv[]) {
                 }
             }
             for (int i = 0; i < input->event_count; i++) {
-                // Track ctrl modifier
+                // Track ctrl and cmd (meta) modifiers
                 if (input->events[i].key_code == KEY_LEFTCTRL || input->events[i].key_code == KEY_RIGHTCTRL) {
                     ctrl_held = (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) ? 1 : 0;
                 }
+                if (input->events[i].key_code == KEY_LEFTMETA || input->events[i].key_code == KEY_RIGHTMETA) {
+                    meta_held = (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) ? 1 : 0;
+                }
                 if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) {
-                    // Ctrl+= (or Ctrl++) → bigger pixels (increase scale number)
-                    // Ctrl+- → smaller pixels (decrease scale number)
-                    if (ctrl_held && (input->events[i].key_code == KEY_EQUAL ||
+                    // Ctrl/Cmd+= (or +) → bigger pixels (increase scale number)
+                    // Ctrl/Cmd+- → smaller pixels (decrease scale number)
+                    const int zoom_held = ctrl_held || meta_held;
+                    if (zoom_held && (input->events[i].key_code == KEY_EQUAL ||
                                       input->events[i].key_code == KEY_KPPLUS)) {
                         scale_change = -1;  // bigger pixels (lower res)
                         input->events[i].type = 0; // suppress from JS
-                    } else if (ctrl_held && (input->events[i].key_code == KEY_MINUS ||
+                    } else if (zoom_held && (input->events[i].key_code == KEY_MINUS ||
                                              input->events[i].key_code == KEY_KPMINUS)) {
                         scale_change = 1;  // smaller pixels (higher res)
                         input->events[i].type = 0; // suppress from JS
-                    } else if (ctrl_held && input->events[i].key_code == KEY_0) {
+                    } else if (zoom_held && input->events[i].key_code == KEY_0) {
                         scale_change = 99;  // reset to default (3)
                         input->events[i].type = 0; // suppress from JS
                     }
-                    // Volume: KEY_VOLUMEUP/DOWN/MUTE, F1/F2/F3 as fallback, or the
-                    // MiniBook's own F2/F3/F4.
+                    // Volume: KEY_VOLUMEUP/DOWN/MUTE, or this machine's top-row
+                    // F-keys (key_volup / key_voldn / key_mute above).
                     else if (strcmp(input->events[i].key_name, "audiovolumeup") == 0 ||
-                        (minibook_keys ? strcmp(input->events[i].key_name, "f4") == 0
-                                       : strcmp(input->events[i].key_name, "f3") == 0)) {
+                             strcmp(input->events[i].key_name, key_volup) == 0) {
                         audio_volume_adjust(audio, 1);
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 1200.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiovolumedown") == 0 ||
-                             (minibook_keys ? strcmp(input->events[i].key_name, "f3") == 0
-                                            : strcmp(input->events[i].key_name, "f2") == 0)) {
+                               strcmp(input->events[i].key_name, key_voldn) == 0) {
                         audio_volume_adjust(audio, -1);
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 800.0, 0.04, 0.15, 0.001, 0.03, 0.0);
                     } else if (strcmp(input->events[i].key_name, "audiomute") == 0 ||
-                             strcmp(input->events[i].key_name, minibook_keys ? "f2" : "f1") == 0) {
+                               strcmp(input->events[i].key_name, key_mute) == 0) {
                         audio_volume_adjust(audio, 0);
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, 440.0, 0.08, 0.15, 0.001, 0.07, 0.0);
-                    // Brightness: KEY_BRIGHTNESS or F5/F6 as fallback
+                    // Brightness: KEY_BRIGHTNESS or this machine's top-row F-keys
                     } else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
                               strcmp(input->events[i].key_name, "brightnessdown") == 0 ||
-                              strcmp(input->events[i].key_name, minibook_keys ? "f7" : "f6") == 0 ||
-                              strcmp(input->events[i].key_name, minibook_keys ? "f6" : "f5") == 0) && bl_path[0]) {
+                              strcmp(input->events[i].key_name, key_brup) == 0 ||
+                              strcmp(input->events[i].key_name, key_brdn) == 0) && bl_path[0]) {
                         int up = (strcmp(input->events[i].key_name, "brightnessup") == 0 ||
-                                  strcmp(input->events[i].key_name, minibook_keys ? "f7" : "f6") == 0);
+                                  strcmp(input->events[i].key_name, key_brup) == 0);
                         char tmp[160];
                         snprintf(tmp, sizeof(tmp), "%s/brightness", bl_path);
                         FILE *f = fopen(tmp, "r");
@@ -4856,8 +4884,25 @@ int main(int argc, char *argv[]) {
                         if (cur > bl_max) cur = bl_max;
                         f = fopen(tmp, "w");
                         if (f) { fprintf(f, "%d", cur); fclose(f); }
-                        if (minibook_keys) input->events[i].type = 0;
+                        if (consume_row_keys) input->events[i].type = 0;
                         // Click sound: higher = brighter, lower = dimmer
+                        audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
+                                    0.04, 0.12, 0.001, 0.03, 0.0);
+                    // No backlight to drive (the MacBook Neo before its DCP
+                    // runs): dim the frame itself, in the same ×1.5 steps.
+                    } else if ((strcmp(input->events[i].key_name, "brightnessup") == 0 ||
+                              strcmp(input->events[i].key_name, "brightnessdown") == 0 ||
+                              strcmp(input->events[i].key_name, key_brup) == 0 ||
+                              strcmp(input->events[i].key_name, key_brdn) == 0) && !bl_path[0]) {
+                        extern int fb_dim;
+                        int up = (strcmp(input->events[i].key_name, "brightnessup") == 0 ||
+                                  strcmp(input->events[i].key_name, key_brup) == 0);
+                        int next = up ? fb_dim * 3 / 2 : fb_dim * 2 / 3;
+                        if (next == fb_dim) next += up ? 1 : -1;
+                        if (next < 24) next = 24;    // never fully dark
+                        if (next > 256) next = 256;
+                        fb_dim = next;
+                        if (consume_row_keys) input->events[i].type = 0;
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
                     }
@@ -4911,6 +4956,7 @@ int main(int argc, char *argv[]) {
                         // Keep shutdown-animation globals in sync with new screen + scale
                         g_shutdown_screen = screen;
                         g_shutdown_pixel_scale = pixel_scale;
+                        update_safe_area(display, pixel_scale);
                         input->scale = pixel_scale;
                         // Update JS runtime's graph reference (holds framebuffer)
                         if (rt) {
@@ -5534,9 +5580,36 @@ int main(int argc, char *argv[]) {
                 #undef TS_US
             }
 
+            // Remote brightness: writing 0–100 to /run/brightness (over SSH)
+            // sets it once, then the file is removed so the keys own it
+            // again. Drives the backlight, or the software dim without one.
+            if (main_frame % 30 == 0) {
+                FILE *bf = fopen("/run/brightness", "r");
+                if (bf) {
+                    int pct;
+                    if (fscanf(bf, "%d", &pct) == 1) {
+                        if (pct < 0) pct = 0;
+                        if (pct > 100) pct = 100;
+                        if (bl_path[0] && bl_max > 0) {
+                            char tmp[160];
+                            snprintf(tmp, sizeof(tmp), "%s/brightness", bl_path);
+                            FILE *w = fopen(tmp, "w");
+                            if (w) { fprintf(w, "%d", pct * bl_max / 100 > 0 ? pct * bl_max / 100 : 1); fclose(w); }
+                        } else {
+                            extern int fb_dim;
+                            fb_dim = 24 + (256 - 24) * pct / 100;
+                        }
+                        ac_log("[display] brightness %d%% (remote)\n", pct);
+                    }
+                    fclose(bf);
+                    unlink("/run/brightness");
+                }
+            }
+
             // DRM page flip already syncs to vblank (~16ms). Only use
-            // frame_sync for fbdev/non-vsync paths to avoid double-wait.
-            if (display && display->is_fbdev)
+            // frame_sync for fbdev and fake-vblank (simpledrm) paths to
+            // avoid double-wait.
+            if (display && (display->is_fbdev || display->fake_vblank))
                 frame_sync_60fps(&frame_time);
         }
     }

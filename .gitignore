@@ -646,6 +646,7 @@ kidlisp/build/
 /reports/sotce-canvas-garden*.md
 /utilities/sotce-net-revenue-calc.fish
 /toolchain/sotce/
+/toolchain/mcp/sotce-mcp.mjs
 /apple/choir/
 /system/backend/choir*.mjs
 /system/netlify/functions/choir.mjs

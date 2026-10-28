@@ -1807,6 +1807,7 @@ let hideLabel = false;
 // navigation, and this worker serves exactly one view for its whole life.
 let hideLabelForFrame = false;
 let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
+let hideSource = false; // `?nosource`: a KidLisp $code labels itself by name, not source
 
 // Helper function to toggle HUD visibility (used by Tab key and center tap)
 function toggleHUDVisibility(isDoubleTap = false, skipSound = false) {
@@ -3785,6 +3786,7 @@ const $commonApi = {
     // Whether the corner label is hidden (nolabel, a pack, the shell's own
     // overlay, the Tab toggle): a piece need not prepare a label nobody sees.
     hidden: () => hideLabel || hideLabelForFrame || hideLabelViaTab,
+    sourceless: () => hideSource,
     label: (text, color, offset, plainTextOverride) => {
       currentHUDTxt = text;
       // Use plainTextOverride if provided, otherwise strip color codes from text
@@ -10263,9 +10265,11 @@ async function load(
   // Parse search parameters properly to check for nolabel
   // Also hide label in pack mode (standalone bundles have no URL params)
   hideLabel = (typeof window !== "undefined" && window.acPACK_MODE && !window.acKEEP_LABEL) || hideLabelForFrame;
+  hideSource = false;
   if (parsed.search) {
     const searchParams = new URLSearchParams(parsed.search);
     if (searchParams.has("nolabel")) hideLabel = hideLabelForFrame = true;
+    if (searchParams.has("nosource")) hideSource = true;
     if (searchParams.has("autoreload")) autoUpdateForFrame = true;
   }
   if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it

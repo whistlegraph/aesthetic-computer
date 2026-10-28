@@ -178,16 +178,21 @@ function releaseProducts(revision) {
   try {
     const core = ssh("git -C /opt/ac rev-parse HEAD").stdout.trim();
     if (!/^[0-9a-f]{40}$/.test(core)) fail("could not read the commit lith is running");
-    // The products must fit the core that is live, not the knot's newest.
-    const check = spawnSync("node", ["toolchain/private-products.mjs", "release-check", core], { cwd: ROOT, encoding: "utf8", env: process.env });
-    if (check.status !== 0) fail(`these products do not fit lith's core ${core.slice(0, 10)}: ${check.stderr.trim().split("\n").pop()} — run a full ac-deploy`);
+    // The products must fit the core that is live, not the knot's newest, and
+    // its manifest and installer are the ones that apply, not this checkout's.
     const dir = mkdtempSync(join(tmpdir(), "ac-products-")), tgz = join(dir, "products.tgz");
     try {
-      const pack = spawnSync("node", ["toolchain/private-products.mjs", "pack", tgz], { cwd: ROOT, stdio: ["ignore", "ignore", "inherit"], env: process.env });
+      const manifest = join(dir, "private-products.json"), installer = join(dir, "private-products.mjs");
+      writeFileSync(manifest, execFileSync("git", ["-C", ROOT, "show", `${core}:private-products.json`]));
+      writeFileSync(installer, execFileSync("git", ["-C", ROOT, "show", `${core}:toolchain/private-products.mjs`]));
+      const env = { ...process.env, AC_PRODUCTS_MANIFEST: manifest };
+      const check = spawnSync("node", ["toolchain/private-products.mjs", "release-check", core], { cwd: ROOT, encoding: "utf8", env });
+      if (check.status !== 0) fail(`these products do not fit lith's core ${core.slice(0, 10)}: ${check.stderr.trim().split("\n").pop()} — run a full ac-deploy`);
+      const pack = spawnSync("node", ["toolchain/private-products.mjs", "pack", tgz], { cwd: ROOT, stdio: ["ignore", "ignore", "inherit"], env });
       if (pack.status !== 0) fail("could not pack the products");
       const stage = ssh("mktemp -d /tmp/ac-products.XXXXXXXX").stdout.trim();
       if (!/^\/tmp\/ac-products\.[A-Za-z0-9]+$/.test(stage)) fail("could not make a staging directory on lith");
-      const scp = spawnSync("scp", ["-q", "-i", key, tgz, join(ROOT, "toolchain/private-products.mjs"), join(ROOT, "private-products.json"), `root@${host}:${stage}/`], { stdio: "inherit" });
+      const scp = spawnSync("scp", ["-q", "-i", key, tgz, installer, manifest, `root@${host}:${stage}/`], { stdio: "inherit" });
       if (scp.status !== 0) fail("could not upload the products to lith");
       const run = `env AC_CORE_ROOT=/opt/ac AC_PRODUCTS_MANIFEST=${stage}/private-products.json node ${stage}/private-products.mjs`;
       const install = ssh(`set -e

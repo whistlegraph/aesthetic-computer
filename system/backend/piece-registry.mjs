@@ -20,5 +20,5 @@ export async function registerPiece(pieces, {user, slug, ext, bytes, origin = 'a
     $set: {ext, size: bytes.length, revision, updatedAt: now},
   }, {upsert: true});
   const saved = await pieces.findOne({_id: id});
-  return {code: saved.code, id: String(saved._id), discussion: `https://mime.ac/#/t/piece_${saved._id}`};
+  return {code: saved.code, id: String(saved._id), discussion: `https://mime.ac/piece_${saved._id}`};
 }

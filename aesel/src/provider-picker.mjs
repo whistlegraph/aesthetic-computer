@@ -1,4 +1,4 @@
-import { OPEN_MODEL_INFO } from './open-models.mjs';
+import { HOSTED_MODEL_INFO, OPEN_MODEL_INFO } from './open-models.mjs';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {BACKENDS,hostedModel} from './backends.mjs';
@@ -30,12 +30,12 @@ function claudeChoices(p) {
   }
   return rows;
 }
-// The open models, marked for capability (●, out of five) and price ($).
-const openChoices=()=>Object.values(OPEN_MODEL_INFO).map(m=>({id:m.id,label:m.label,detail:`${'●'.repeat(m.smart)}${'○'.repeat(5-m.smart)}  ${'$'.repeat(m.cost)}`}));
+// The open models (and, hosted, Claude), marked for capability (●, out of five) and price ($).
+const openChoices=(info=OPEN_MODEL_INFO)=>Object.values(info).map(m=>({id:m.id,label:m.label,detail:`${'●'.repeat(m.smart)}${'○'.repeat(5-m.smart)}  ${'$'.repeat(m.cost)}`}));
 export function pickerModels(p) {
-  // Hosted offers the same open models, paid in braincells, and Automatic —
+  // Hosted offers the same open models plus Claude, paid in braincells, and Automatic —
   // the relay's own default. Nothing custom: the relay decides what it runs.
-  if(p.backend==='ac')return [{id:'',label:'Automatic',detail:'aesthetic.computer default'},...openChoices()];
+  if(p.backend==='ac')return [{id:'',label:'Automatic',detail:'aesthetic.computer default'},...openChoices(HOSTED_MODEL_INFO)];
   const choices=p.backend==='open'?openChoices()
     // The CLI resolves a family alias to a dated id; a resolved id selects its family row instead of growing a "custom" row.
     // Claude: the catalog the Models API answered with, when one has been
@@ -54,7 +54,7 @@ export function normalizeSettings(patch,previous) {
   const next={provider,model:patch.model??(changed?selected.defaultModel:previous.model),effort:patch.effort??(changed?'':previous.effort),autopublish:patch.autopublish??previous.autopublish};
   if(provider==='ac'){
     if(patch.effort!==undefined&&patch.effort!=='')throw Error('AC hosted manages effort itself');
-    if(patch.model&&!hostedModel(patch.model))throw Error(`AC hosted runs ${Object.values(OPEN_MODEL_INFO).map(m=>m.label).join(', ')}, or Automatic`);
+    if(patch.model&&!hostedModel(patch.model))throw Error(`AC hosted runs ${Object.values(HOSTED_MODEL_INFO).map(m=>m.label).join(', ')}, or Automatic`);
     next.model=hostedModel(next.model);next.effort='';
   }
   if(provider==='claude'&&!['','low','medium','high','xhigh','max'].includes(next.effort))throw Error('Unsupported Claude reasoning effort');

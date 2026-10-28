@@ -51,6 +51,12 @@
         "toolchain/mcp/choir-mcp.mjs"
       ]
     },
+    "sotce": {
+      "command": "node",
+      "args": [
+        "toolchain/mcp/sotce-mcp.mjs"
+      ]
+    },
     "aesel": {
       "type": "stdio",
       "command": "node",

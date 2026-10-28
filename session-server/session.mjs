@@ -1253,6 +1253,40 @@ await start();
 
 // *** Status Page Data Collection ***
 
+// Behind Caddy every socket arrives from loopback, so the visitor's address
+// rides in X-Forwarded-For. Caddy overwrites that header for untrusted
+// clients, but only believe it when the hop really is local.
+function clientIp(req) {
+  const remote = (req.socket.remoteAddress || "localhost").replace("::ffff:", "");
+  if (remote !== "127.0.0.1" && remote !== "::1") return remote;
+  const forwarded = req.headers["x-forwarded-for"];
+  return forwarded ? forwarded.split(",")[0].trim() : remote;
+}
+
+// Who's on AC right now: handles by name (with the piece they're in, which
+// profiles already show publicly) and guests as a bare count. No addresses.
+function getVisitors() {
+  const handles = new Map();
+  const guests = new Set();
+  for (const id of Object.keys(connections)) {
+    const c = clients[id];
+    if (!c) continue;
+    if (c.handle) {
+      const v = handles.get(c.handle) || { handle: c.handle, piece: null, tabs: 0 };
+      v.tabs += 1;
+      if (c.location) v.piece = c.location;
+      handles.set(c.handle, v);
+    } else {
+      guests.add(c.user ? `user:${c.user}` : c.ip ? `ip:${c.ip}` : `id:${id}`);
+    }
+  }
+  return {
+    at: Date.now(),
+    handles: [...handles.values()].sort((a, b) => a.handle.localeCompare(b.handle)),
+    guests: guests.size,
+  };
+}
+
 // Get unified client status - user-centric view
 function getClientStatus() {
   const identityMap = new Map(); // Map by identity (handle or user or IP)
@@ -1352,7 +1386,6 @@ function getClientStatus() {
     return {
       handle: identity.handle,
       location: identity.location,
-      ip: identity.ip,
       geo: identity.geo,
       protocols: identity.protocols,
       connectionCount: {
@@ -1490,6 +1523,12 @@ fastify.get("/oskiewar-room", async (request, reply) => {
 // Status JSON endpoint
 fastify.get("/status", async (request, reply) => {
   return getFullStatus();
+});
+
+fastify.get("/visitors", async (request, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Cache-Control", "no-store");
+  return getVisitors();
 });
 
 // Provenance. `/status` says how the server is doing; this says WHICH SERVER it
@@ -1742,8 +1781,6 @@ fastify.get("/", async (request, reply) => {
               if (c.geo.region) geo += c.geo.region + ', ';
               geo += c.geo.country;
               out += \`<div class="detail">\${geo}</div>\`;
-            } else if (c.ip) {
-              out += \`<div class="detail">🌐 \${c.ip}</div>\`;
             }
             if (c.websocket?.worlds?.length > 0) {
               const w = c.websocket.worlds[0];
@@ -2213,7 +2250,7 @@ wss.on("connection", async (ws, req) => {
   log('🎮 Game client connection detected, adding to connections');
   
   // Regular game client connection handling below
-  const ip = req.socket.remoteAddress || "localhost"; // beautify ip
+  const ip = clientIp(req);
   ws.isAlive = true; // For checking persistence between ping-pong messages.
   ws.pingStart = null; // Track ping timing
   ws.lastPing = null; // Store last measured ping
@@ -2762,22 +2799,6 @@ wss.on("connection", async (ws, req) => {
         
         console.log(`${levelEmoji} [${timestamp}] ${deviceLabel}${queuedTag}: ${argsStr}`);
       }
-    } else if (msg.type === "location:broadcast") {      /*
-      sub
-        .subscribe(`logout:broadcast:${msg.content.user.sub}`, () => {
-          ws.send(pack(`logout:broadcast:${msg.content.user.sub}`, true, id));
-        })
-        .then(() => {
-          log("🏃 Subscribed to logout updates from:", msg.content.user.sub);
-        })
-        .catch((err) =>
-          error(
-            "🏃 Could not unsubscribe from logout:broadcast for:",
-            msg.content.user.sub,
-            err,
-          ),
-        );
-        */
     } else if (msg.type === "logout:broadcast:subscribe") {
       /*
       console.log("Logout broadcast:", msg.type, msg.content);
@@ -2835,9 +2856,9 @@ wss.on("connection", async (ws, req) => {
         ["online", "currentPiece", "connections"],
       );
 
-      // Publish to redis...
+      // Publish to redis (absent when REDIS is off)...
       pub
-        .publish("slug:" + msg.content.handle, msg.content.slug)
+        ?.publish("slug:" + msg.content.handle, msg.content.slug)
         .then((result) => {
           if (msg.content.slug !== "*keep-alive*") {
             log(

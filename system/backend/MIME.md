@@ -81,9 +81,10 @@ is the correct render. Uploaded program *files* are still displayed as text, and
 source stays readable at `?file=`. Native HTML previews remain sandboxed.
 Painting and tape metadata endpoints expose `discussion` URLs for other clients.
 
-Direct entry: `/mime/#/media/painting/abc` (also `tape`, `piece`, or `kidlisp`).
-The painting viewer includes a Comment button. Other media can be discussed from
-the main feed or a direct entry URL.
+A post has one page, its card in the feed at `mime.ac/<permalink>`; comments
+open as a sheet over it. The old thread page is retired: `#/t/<code>` and
+`/mime/#/media/painting/abc` (also `tape`, `piece`, `kidlisp`) still resolve,
+landing on the card with the sheet up and the address rewritten.
 Entering `mime` in the prompt opens the feed.
 The corner word returns to `/prompt`.
 
@@ -115,7 +116,7 @@ gate; moderation removals apply. Code: `backend/mime-whistlegraph-tv.mjs`.
 
 `ac mime <file> ["caption"]` posts a file as an opening post under the
 signed-in @handle (`~/.ac-token`), on the board of its MIME type, and prints
-`https://mime.ac/#/t/<code>`. `AESEL_DRY_RUN=1` shows what would be posted.
+`https://mime.ac/<code>`. `AESEL_DRY_RUN=1` shows what would be posted.
 In Aesel, the media name on the status line opens a list with
 "post to mime.ac", which asks once more before posting. The client is
 `aesel/src/mime.mjs`; it checks size and type before any bytes leave. Files

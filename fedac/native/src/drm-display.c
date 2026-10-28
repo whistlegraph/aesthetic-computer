@@ -504,6 +504,16 @@ ACDisplay *drm_init(void) {
         free(d);
         return fbdev_init();
     }
+    // simpledrm (the firmware framebuffer, e.g. the MacBook Neo before its
+    // display coprocessor is handed over) completes page flips immediately,
+    // so the flip wait below never paces the loop.
+    drmVersionPtr ver = drmGetVersion(d->fd);
+    if (ver) {
+        ac_log("[drm] driver: %s\n", ver->name);
+        d->fake_vblank = strcmp(ver->name, "simpledrm") == 0;
+        if (d->fake_vblank) ac_log("[drm] no real vblank: pacing frames to 60fps in software\n");
+        drmFreeVersion(ver);
+    }
 
     uint64_t has_dumb;
     if (drmGetCap(d->fd, DRM_CAP_DUMB_BUFFER, &has_dumb) < 0 || !has_dumb) {
@@ -751,6 +761,87 @@ int drm_front_stride(ACDisplay *d) {
     return (int)(d->buffers[d->front].pitch / sizeof(uint32_t));
 }
 
+void display_set_margin(ACDisplay *d, int margin, int corner) {
+    // DRM dumb buffers only: fbdev strides and the SDL/rotated paths assume
+    // width/height are the whole panel.
+    if (!d || margin <= 0 || d->is_fbdev || d->is_sdl || d->rotation || d->margin) return;
+    if (2 * margin >= d->width || 2 * margin >= d->height) return;
+    d->full_w = d->width;
+    d->full_h = d->height;
+    d->margin = margin;
+    d->corner = corner;
+    d->width -= 2 * margin;
+    d->height -= 2 * margin;
+    ac_log("[drm] framed: %dx%d panel, %dpx border, %dx%d inner\n",
+           d->full_w, d->full_h, margin, d->width, d->height);
+}
+
+// The border's colour: the mean of the frame's edge pixels, a shade toward
+// mid-grey (darker on light frames, lighter on dark ones), so the border
+// reads as the same surface, just set back.
+static uint32_t frame_border_color(ACFramebuffer *s) {
+    int w = s->width, h = s->height;
+    unsigned long r = 0, g = 0, b = 0, n = 0;
+    for (int i = 0; i < 16; i++) {
+        int x = (w - 1) * i / 15, y = (h - 1) * i / 15;
+        uint32_t px[4] = { s->pixels[x], s->pixels[(h - 1) * s->stride + x],
+                           s->pixels[y * s->stride], s->pixels[y * s->stride + w - 1] };
+        for (int k = 0; k < 4; k++, n++) {
+            r += (px[k] >> 16) & 0xFF;
+            g += (px[k] >> 8) & 0xFF;
+            b += px[k] & 0xFF;
+        }
+    }
+    int cr = (int)(r / n), cg = (int)(g / n), cb = (int)(b / n);
+    int luma = (cr * 3 + cg * 6 + cb) / 10;
+    if (luma > 128) { cr = cr * 86 / 100; cg = cg * 86 / 100; cb = cb * 86 / 100; }
+    else { cr += (255 - cr) * 12 / 100; cg += (255 - cg) * 12 / 100; cb += (255 - cb) * 12 / 100; }
+    extern int fb_dim;  // software brightness dims the border with the frame
+    if (fb_dim < 256) { cr = cr * fb_dim >> 8; cg = cg * fb_dim >> 8; cb = cb * fb_dim >> 8; }
+    return 0xFF000000u | (uint32_t)cr << 16 | (uint32_t)cg << 8 | (uint32_t)cb;
+}
+
+// Framed present: the scaled frame centred in the panel (centring also
+// absorbs the remainder of an inner size that isn't a multiple of scale),
+// the border around it.
+static void present_framed(ACDisplay *d, ACFramebuffer *screen, int scale) {
+    uint32_t *dst = drm_back_buffer(d);
+    int stride = drm_back_stride(d);
+    int iw = screen->width * scale, ih = screen->height * scale;
+    if (iw > d->full_w) iw = d->full_w;
+    if (ih > d->full_h) ih = d->full_h;
+    int ox = (d->full_w - iw) / 2, oy = (d->full_h - ih) / 2;
+    uint32_t c = frame_border_color(screen);
+    for (int y = 0; y < d->full_h; y++) {
+        uint32_t *row = dst + (size_t)y * stride;
+        if (y < oy || y >= oy + ih) {
+            for (int x = 0; x < d->full_w; x++) row[x] = c;
+        } else {
+            for (int x = 0; x < ox; x++) row[x] = c;
+            for (int x = ox + iw; x < d->full_w; x++) row[x] = c;
+        }
+    }
+    fb_copy_scaled(screen, dst + (size_t)oy * stride + ox, iw, ih, stride, scale);
+
+    // Round the frame's top corners, as the MacBook panels themselves are
+    // (their bottom corners are square): border colour outside a quarter
+    // circle of radius r, concentric with the panel's own corner (radius
+    // d->corner), so the frame's curve runs parallel to the glass's.
+    int r = d->corner - d->margin;
+    if (r <= 0) return;
+    if (r * 2 > iw || r > ih) return;
+    for (int y = 0; y < r; y++) {
+        int dy = r - y;  // distance from the circle's centre row
+        int span = 0;    // pixels outside the circle on this row
+        while (span < r && (r - span) * (r - span) + dy * dy > r * r) span++;
+        uint32_t *top = dst + (size_t)(oy + y) * stride;
+        for (int x = 0; x < span; x++) {
+            top[ox + x] = c;
+            top[ox + iw - 1 - x] = c;
+        }
+    }
+}
+
 void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
     if (!d || !screen) return;
 
@@ -779,6 +870,11 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
     (void)scale;
     // CPU fallback: scale to back buffer and flip
     int rotation = (d->rotation + (g_display_flip ? 180 : 0)) % 360;
+    if (d->margin && !rotation) {
+        present_framed(d, screen, scale);
+        drm_flip(d);
+        return;
+    }
     if (rotation)
         copy_scaled_rotated(screen, drm_back_buffer(d),
                             d->scan_w, d->scan_h, drm_back_stride(d), scale, rotation);

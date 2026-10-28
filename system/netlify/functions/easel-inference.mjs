@@ -34,9 +34,10 @@ import { stream } from "@netlify/functions";
 import { timingSafeEqual } from "node:crypto";
 import { inferenceProviderFailure } from "../../backend/easel-provider-error.mjs";
 import { relayInference } from "../../backend/easel-stream.mjs";
-import { EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
+import { ANTHROPIC_DIRECT, anthropicThinking, EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
 
 const OPENROUTER = "https://openrouter.ai/api/v1/messages";
+const ANTHROPIC = "https://api.anthropic.com/v1/messages";
 // A coarse client label for the Braincell ledger: an explicit x-ac-client, or
 // the first product token of the user agent. Never the full agent string.
 const spendClient = (headers = {}) =>
@@ -68,7 +69,8 @@ export const handler = stream(async (event) => {
   if (event.httpMethod !== "POST") return fail(405, "POST only.");
 
   const key = process.env.OPENROUTER_API_KEY;
-  if (!key) return fail(503, "Hosted inference is not configured.");
+  const credits = process.env.ANTHROPIC_CREDITS_KEY;
+  if (!key && !credits) return fail(503, "Hosted inference is not configured.");
 
   // A turn worker (apple/whistlegraph/TURNS.md) runs turns for people who are
   // not holding their phone, so it has no user token. It presents the shared
@@ -129,6 +131,9 @@ export const handler = stream(async (event) => {
   let model, maxTokens, reasoning, thinking;
   try { ({ model, maxTokens, reasoning, thinking } = inferenceRequest(body)); }
   catch (error) { return fail(400, error.message); }
+  // Claude goes straight to Anthropic on AC's credits when we hold them.
+  const direct = credits && ANTHROPIC_DIRECT[model];
+  if (!direct && !key) return fail(503, "Hosted inference is not configured for that model.");
 
   // Has this handle spent its day? Over budget is a refusal here rather than a
   // downgrade, because there is nothing cheaper to downgrade to — and a clear
@@ -156,17 +161,21 @@ export const handler = stream(async (event) => {
     await withWallets(w=>settleDurably(paidHold,braincells,w));
   };
 
-  console.log(`🎨 easel @${handle} — ${MODELS[model].label}${budget ? ` · ${budget.remaining} left` : ""}`);
+  console.log(`🎨 easel @${handle} — ${MODELS[model].label}${direct ? " (anthropic)" : ""}${budget ? ` · ${budget.remaining} left` : ""}`);
 
   const controller = new AbortController();
   const {INFERENCE_DEADLINE_MS}=await import("../../backend/easel-paid-credits.mjs");
   const deadline=setTimeout(()=>controller.abort(),INFERENCE_DEADLINE_MS);
   deadline.unref?.();
   let upstream;
-  try { upstream = await fetch(OPENROUTER, {
+  try { upstream = await fetch(direct ? ANTHROPIC : OPENROUTER, {
     signal: controller.signal,
     method: "POST",
-    headers: {
+    headers: direct ? {
+      "x-api-key": credits,
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01",
+    } : {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
       "anthropic-version": "2023-06-01",
@@ -176,13 +185,16 @@ export const handler = stream(async (event) => {
       "X-Title": "Easel",
     },
     body: JSON.stringify({
-      model,
+      model: direct || model,
       max_tokens: maxTokens,
       system: body.system,
       messages: body.messages,
       tools: body.tools,
-      ...(reasoning ? { reasoning } : {}),
-      ...(thinking ? { thinking } : {}),
+      // `reasoning` is OpenRouter's field; Anthropic has its own controls.
+      ...(direct ? anthropicThinking(model, { thinking, reasoning }) : {
+        ...(reasoning ? { reasoning } : {}),
+        ...(thinking ? { thinking } : {}),
+      }),
       stream: true,
     }),
   });
@@ -206,8 +218,8 @@ export const handler = stream(async (event) => {
     onSettlementError: () => console.error("[aesel] settlement pending recovery", paidHold?.id || "free-allowance"),
     onUsage: async (tokens, usage) => {
       const { recordUsage } = await import("../../backend/ai-budget.mjs");
-      const {usageBraincells,reservationSize}=await import("../../backend/easel-paid-credits.mjs");
-      const braincells=usageBraincells({model,tokens,cost:usage?.cost,
+      const {usageBraincells,reservationSize,anthropicCost}=await import("../../backend/easel-paid-credits.mjs");
+      const braincells=usageBraincells({model,tokens,cost:direct?anthropicCost(model,usage):usage?.cost,
         inputBound:paidHold?.inputBound??reservationSize(body,0)});
       if(paidHold) await settlePaid(braincells);
       else await recordUsage(handle, braincells, { model });

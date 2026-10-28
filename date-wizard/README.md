@@ -54,19 +54,24 @@ The token is treated as expired when the file is missing, unparseable, or
   private) and are **editable** — click one to edit or delete it.
 - **Google / connected-calendar events** draw dashed with a source-color dot
   and are **read-only** — clicking shows details, no edit.
-- Former week/day drill-down views are retired; Today and legacy day launch
-  actions open the same reliable upcoming agenda.
+
+## Menu bar
+
+Plain text that tints with the bar: today's date, plus the next appointment's
+start time when it falls today (`Wed 28 · 9:00`). Hover names the appointment;
+left-click toggles the agenda, right-click offers Open Calendar / Quit. The
+dock icon is a calendar page drawn in code (`DockIcon.swift`).
 
 ## Connect a Google calendar
 
-Click **Connect Google…** and paste your Google *secret address in iCal format*
-URL plus a label:
+There is no in-app connect UI; subscribe with `POST /api/cal` and the Google
+*secret address in iCal format* URL plus a label:
 
 > Google Calendar → Settings → *your calendar* → **Integrate calendar** →
 > **Secret address in iCal format**
 
 This `POST /api/cal {feed:{url,label}}` subscribes the calendar; its events
-then overlay your week live and read-only.
+then overlay the agenda live and read-only.
 
 ## Backend contract
 
@@ -91,10 +96,12 @@ Times are ISO-8601 UTC strings.
 ```
 Sources/DateWizard/
   main.swift             NSApplication bootstrap
-  AppDelegate.swift      window + WizardController; ensure auth then load week
+  AppDelegate.swift      window + menu bar wiring; ensure auth then load
   WizardController.swift owns state (agenda, events, token); refresh/editor/sign-in screen
   AgendaView.swift       chronological, scrollable upcoming appointments list
-  WeekView.swift         deprecated grid implementation retained for shared event types
+  MenuBarDate.swift      menu bar date + next-appointment time, hover label
+  MenuBarFit.swift       shared menu-bar width negotiation (copy of shared/menubar-fit)
+  DockIcon.swift         drawn calendar-page dock icon
   EventEditor.swift      native sheet: Title/Start/End/Note/privacy + Add/Save/Delete
   CalAPI.swift           URLSession networking + Codable models
   Auth.swift             reads the shared AC session token (~/.ac-token) from ac-login

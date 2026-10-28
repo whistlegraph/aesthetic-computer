@@ -12,11 +12,12 @@ import {takeSubmittedBatch,inputBatchDelay,trimSubmittedInput} from './input-bat
 import {startNativeGamepad} from './native-gamepad.mjs';
 import {requestFeedback} from './request-feedback.mjs';
 import {publicActivity,observeToolActivity} from './public-activity.mjs';
-import {beginTurnActivity,recordToolActivity,recordTurnUsage,recordCodexUsage,finishTurnActivity} from './turn-activity.mjs';
+import {beginTurnActivity,recordToolActivity,recordTurnUsage,recordCodexUsage,finishTurnActivity,planFrom,isPlanTool} from './turn-activity.mjs';
 import {notebookConversationEntry} from './notebook-conversation.mjs';
 import {connectionFailure,conciseFailure} from './connection-status.mjs';
 import {TurnRecovery,CONTINUE_INTERRUPTED_TURN} from './turn-recovery.mjs';
 import {ApprovalQueue, approvalFor, approvalShape, defaultApprovalResponse} from "./approvals.mjs";
+import {questionFor, questionText, answerQuestion, declineQuestion} from "./questions.mjs";
 import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
 import {captureFrame} from "./preview-frame.mjs";
 import {inputPixels} from './input-pixels.mjs';
@@ -51,7 +52,7 @@ import {pickerModels,drawerKey,drawerIndex,normalizeSettings} from "./provider-p
 import { cachedCatalog, loadCatalog, newestModel, preferNewer } from "./model-catalog.mjs";
 import { providerLabel, fishPath } from "./render.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND, hostedModel } from "./backends.mjs";
-import {OPEN_MODEL_INFO} from './open-models.mjs';
+import {HOSTED_MODEL_INFO} from './open-models.mjs';
 import {openRouterKey} from './open-key.mjs';
 import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
@@ -79,7 +80,7 @@ import { FrameDiff } from './frame-diff.mjs';
 import { Transcript } from "./transcript.mjs";
 import {markStartup,flushStartupTrace} from './startup-trace.mjs';
 import {Appearance} from './appearance.mjs';
-import {SlabHandle} from './slab-handle.mjs';
+import {SlabPalette} from './slab-palette.mjs';
 import {setPageBackground, paintsGround, palette} from './render.mjs';
 import {nativeTerminalPhase} from './native-terminal.mjs';
 
@@ -386,13 +387,13 @@ markStartup('state');
 
 if (desktopRestored) Object.assign(state, desktopRestored.ui, { medium: currentArtifact?.kind || "piece" });
 if(pro)setAppearance(state.tray);
-const slabHandle = new SlabHandle({
+const slabPalette = new SlabPalette({
   directory:path.join(slabSession.stateDir, 'aesel-handles'), sessionId:slabSession.sessionId,
   enabled:process.platform === 'darwin' && process.env.TERM_PROGRAM === 'Apple_Terminal'
-    && !process.env.AESEL_DESKTOP && process.env.NO_COLOR !== '1' && process.env.AESEL_NATIVE_HANDLE !== '0',
+    && !process.env.AESEL_DESKTOP && process.env.NO_COLOR !== '1',
   changed:() => redraw(),
 });
-process.once('exit', () => slabHandle.close());
+process.once('exit', () => slabPalette.close());
 // Older checkpoints included automatic approval notices in the conversation.
 state.entries = state.entries.filter(entry => !['command', 'change'].includes(entry.kind) && !(entry.kind === 'notice' && /^Ran: /.test(entry.text)));
 if (desktopRestoreError) state.entries.push({ id: "desktop-restore-error", kind: "error", text: desktopRestoreError });
@@ -1069,8 +1070,7 @@ function redraw(immediate = false) {
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
     const view = process.env.AESEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.AESEL_DESKTOP};
-    view.slabHandle = slabHandle.readyLayout;
-    setPageBackground(slabHandle.background);
+    setPageBackground(slabPalette.background);
     const frame = renderFrame(view, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
     // The renderer says where the bar's cursor cell is, and what plain words
     // stand on each transcript row, on the copy it was given.
@@ -1082,8 +1082,6 @@ function redraw(immediate = false) {
       if (layout !== lastLayout) { lastLayout = layout; process.stdout.write(`\x1b]777;easel-layout:${layout}\x07`); }
     }
     if (output) process.stdout.write(output);
-    slabHandle.update(view.handleGeometry);
-    slabHandle.setHovered(state.hover === 'profile');
     // Pro leaves the terminal's own cursor on the bar, blinking as it does
     // everywhere else; every other mode hides it and paints its own.
     if (state.cursorCell && !process.env.AESEL_DESKTOP) process.stdout.write(`\x1b[${state.cursorCell.row};${state.cursorCell.col}H\x1b[?25h`);
@@ -1357,7 +1355,7 @@ startNativeGamepad();
   }
   await transcriptPending.catch(() => {});
   closing = true;
-  slabHandle.close();
+  slabPalette.close();
   turnRecovery.reset();clearTimeout(reconnectTimer);
   performanceAbort?.abort();
   session.unwatch();
@@ -1859,9 +1857,10 @@ function handleNotification({ method, params = {} }) {
       if (process.env.AESEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
       state.status = "tool";
       if (params.item?.type === "fileChange") state.status = "writing";
+      if (isPlanTool(params.item)) state.plan = planFrom(params.item.input?.todos);
       const summary = itemSummary(params.item);
       if (summary) {
-        recordToolActivity(state, params.item);
+        recordToolActivity(state, params.item, false, {detail: pro});
         transcript.event("tool_call", { id: params.item.id, name: summary.kind, input: summary.text });
       }
       break;
@@ -1880,7 +1879,7 @@ function handleNotification({ method, params = {} }) {
         } else if (item.status) {
           suffix = ` · ${item.status}`;
         }
-        recordToolActivity(state, item, true);
+        recordToolActivity(state, item, true, {detail: pro});
         transcript.event("tool_result", { id: item.id, name: summary.kind, summary: `${summary.text}${suffix}` });
       }
       break;
@@ -1888,7 +1887,13 @@ function handleNotification({ method, params = {} }) {
     case "item/commandExecution/outputDelta":
       // Raw output remains in the provider's log, outside the conversation.
       break;
+    case "turn/plan/updated":
+      state.plan = planFrom(params.plan);
+      break;
     case "turn/completed": {
+      state.question = null;
+      // A finished plan has said what it had to; an unfinished one stays pinned.
+      if (state.plan?.every(step => step.status === 'done')) state.plan = null;
       const completedId=params.turn?.id||engine.turnId;
       if(completedId){completedTurns.add(completedId);if(completedTurns.size>32)completedTurns.delete(completedTurns.values().next().value);}
       turnRecovery.progress();
@@ -2023,6 +2028,8 @@ function handleRequest(request) {
   if (process.env.AESEL_APPROVAL_DEBUG === "1" && (request.method === "mcpServer/elicitation/request" || request.method === "item/tool/requestUserInput")) {
     addEntry("notice", `Approval request shape: ${JSON.stringify(approvalShape(request))}`);
   }
+  const question = questionFor(request);
+  if (question) return askQuestion(question);
   const approval = approvalFor(request);
   if (!approval) {
     addEntry("error", `Unsupported engine request: ${request.method}`);
@@ -2046,6 +2053,40 @@ function handleRequest(request) {
   if (!pro) addEntry(approval.kind === "unsupported" ? "error" : "notice", approval.subject);
   state.approvalIndex = 0;
   showPendingApproval();
+}
+
+// A question is asked in the transcript and answered at the prompt; auto-allow
+// never answers one, because a question has no safe default.
+function askQuestion(question) {
+  if (state.question) settleQuestion(declineQuestion(state.question));
+  state.question = {...question, owner: engine};
+  showQuestion();
+  if (!process.env.AESEL_DESKTOP) void notifyNative({ title: "Aesel has a question", body: question.questions[0]?.question || "", kind: "approval" });
+  slabSession.awaitingInput('question');
+}
+
+function showQuestion() {
+  const q = state.question;
+  addEntry("notice", questionText(q.questions[q.index], q.index + 1, q.questions.length));
+  state.status = "question";
+  redraw();
+}
+
+function settleQuestion(response) {
+  const q = state.question;
+  state.question = null;
+  if (!q || q.owner !== engine) return;
+  engine.respond(q.id, response);
+  transcript.event("approval", { subject: q.questions.map(x => x.question).join(' / '), decision: response.decision === 'decline' || (response.answers && !Object.keys(response.answers).length) ? 'declined' : 'answered' });
+  slabSession.resumeWork();
+  state.status = state.busy ? "working" : "ready";
+}
+
+function answerTypedQuestion(text) {
+  addEntry('user', text);
+  const response = answerQuestion(state.question, text);
+  if (response) { settleQuestion(response); return redraw(); }
+  showQuestion();
 }
 
 function answerApproval(character) {
@@ -2249,7 +2290,7 @@ function engineLabel() {
 // keep the old connection available until the replacement connects.
 async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "", {drain=true,recovering=false}={}) {
   if(nextBackend.id==='ac'){
-    if(nextModel&&!hostedModel(nextModel)){addEntry("error",`AC hosted runs ${Object.keys(OPEN_MODEL_INFO).join(", ")}, or Automatic.`);return redraw();}
+    if(nextModel&&!hostedModel(nextModel)){addEntry("error",`AC hosted runs ${Object.keys(HOSTED_MODEL_INFO).join(", ")}, or Automatic.`);return redraw();}
     nextModel=hostedModel(nextModel);
   }
   if (nextBackend.id !== "ac" && nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)
@@ -2418,7 +2459,7 @@ async function commandNew() {
       accept:async next=>{engine=next;previousEngine.close();},
     });
     state.entries=[];
-    state.input='';state.cursor=0;state.queued=[];state.scrollOffset=0;
+    state.input='';state.cursor=0;state.queued=[];state.scrollOffset=0;state.plan=null;
     slabSession.connected(engine.threadId, backend.id);
     saveDesktopIdle();
   } catch(error) { addEntry('error',errorText(error)); }
@@ -2543,6 +2584,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     state.historyIndex = state.history.length;
   }
   if (!text) return redraw();
+  if (state.question && !text.startsWith("/")) return answerTypedQuestion(text);
 
   if (text.startsWith("/")) {
     const [command, ...restWords] = text.split(/\s+/);
@@ -2894,8 +2936,13 @@ async function submitInput(submittedText, submittedMessages = null) {
       return redraw();
     }
     if (command === "/new") return commandNew();
-    addEntry("error", `Unknown command: ${text}`);
-    return redraw();
+    // Pro hands an unknown command to the engine, which knows the user's own
+    // skills and commands (/code-review, /simplify, a project skill) where
+    // Aesel does not.
+    if (!pro) {
+      addEntry("error", `Unknown command: ${text}`);
+      return redraw();
+    }
   }
 
   if(!profile.private && !pro && (!transcriptJournal || !transcriptSharing || session.read()?.user?.sub!==sharingAcknowledgment?.owner)){
@@ -2905,6 +2952,7 @@ async function submitInput(submittedText, submittedMessages = null) {
   if (fromEditor) {
     return enqueueUserMessage(text);
   }
+  if(state.busy&&await steerTurn(text,submittedMessages))return redraw();
   if(state.busy){state.queued.unshift(...(submittedMessages||[text]));return redraw();}
   for(const line of submittedMessages||[text]){
     const entry=state.entries.find(entry=>entry.kind==='user'&&entry.awaitingTurn&&entry.text===line);
@@ -3008,6 +3056,21 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
     // let go from here too or it waits for a turn that will never come.
     drainQueue();
   }
+}
+
+// Typing while the model works is talking to it: the message joins the running
+// turn when the engine can take it (Claude's stdin, Codex's turn/steer), and
+// waits in the queue for the next turn when it cannot.
+async function steerTurn(text, submittedMessages) {
+  if (typeof engine.steer !== 'function' || !engine.turnId || turnRecovery.active || state.approval) return false;
+  try { if (!await engine.steer(text)) return false; }
+  catch (error) { transcript.event('engine', {text:`steer refused: ${errorText(error)}`}); return false; }
+  for(const line of submittedMessages||[text]){
+    const entry=state.entries.find(entry=>entry.kind==='user'&&entry.awaitingTurn&&entry.text===line);
+    if(entry)delete entry.awaitingTurn;else addEntry('user',line);
+  }
+  transcript.event('user', {text, steered:true});
+  return true;
 }
 
 // What a chip on the prompt adds to the message: which file "this" is.
@@ -3181,6 +3244,7 @@ function handleKey(input) {
     if(turnRecovery.providerWaiting){turnRecovery.reset();recoveryPaused=true;}
     if(!state.busy&&state.queued.length){state.queued=[];clearTimeout(inputBatchTimer);inputBatchTimer=null;for(const entry of state.entries)delete entry.awaitingTurn;return redraw();}
     if (performanceAbort) { performanceAbort.abort(new Error("Benchmark cancelled.")); return; }
+    if (state.question) { settleQuestion(declineQuestion(state.question)); flash('question declined'); return redraw(); }
     if (state.busy) {
       state.interruptFor="user";turnRecovery.reset();
       state.status = "interrupting";

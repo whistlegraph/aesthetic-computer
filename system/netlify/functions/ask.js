@@ -41,11 +41,13 @@ const allowedOrigins = [
 // "character:gpt-4o-mini" - Character interactions with OpenAI
 //
 // ENVIRONMENT VARIABLES REQUIRED:
-// - ANTHROPIC_API_KEY (for Claude models)
+// - ANTHROPIC_CREDITS_KEY or ANTHROPIC_API_KEY (for Claude models; the
+//   credits key, AC's claimed API credits, is spent first when set)
 // - OPENAI_API_KEY (for OpenAI models)
 
 async function handleClaudeRequest(messages, model, temperature, top_p, max_tokens, origin, handle = "") {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const anthropicKey = process.env.ANTHROPIC_CREDITS_KEY || process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) {
     console.error("ANTHROPIC_API_KEY not configured");
     return {
       statusCode: 500,
@@ -85,7 +87,7 @@ async function handleClaudeRequest(messages, model, temperature, top_p, max_toke
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "x-api-key": anthropicKey,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify(payload),

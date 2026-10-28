@@ -70,7 +70,7 @@ if(['--help','-h','help'].includes(args[0])){
   }
   if(values.resume!==undefined&&!/^[0-9A-Fa-f-]{36}$/.test(values.resume))fail('invalid thread id');
   if(values.prompt?.length>4000)fail('prompt exceeds 4000 characters');
-  if(values.model!==undefined&&!/^[A-Za-z0-9._@:-]+$/.test(values.model))fail(`invalid model name: ${values.model}`);
+  if(values.model!==undefined&&!/^[A-Za-z0-9._@:/-]+$/.test(values.model))fail(`invalid model name: ${values.model}`);
   // Validated against the runtime table itself, so a new runtime is launchable
   // the moment it exists — a hand-kept list here once refused `p5`.
   if(values.runtime!==undefined){try{runtimeFor(values.runtime);}catch{fail(`unknown runtime: ${values.runtime} (${runtimeMenu()})`);}}

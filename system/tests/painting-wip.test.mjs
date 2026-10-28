@@ -77,3 +77,22 @@ test("account ownership and racing saves do not allow an older writer to overwri
   assert.equal(results.find((r) => r.status === "rejected").reason.status, 409);
   assert.equal(repo.states.size, 1, "the losing writer reclaims its unused snapshot");
 });
+
+test("a guest's painting becomes the account's when they sign in with its editor key", async () => {
+  const repo = memoryWipRepository(), service = createPaintingWipService(repo);
+  const created = await service.create(identity);
+  const piece = base();
+  const first = await service.save({ code: created.code, key: identity.key, revision: 0, state: await encodePaintingState(piece) });
+  assert.equal(repo.paintings.get(created.code).user, undefined);
+  const owner = { sub: "auth0|painter" };
+  const resumed = await service.create(identity, owner);
+  assert.equal(resumed.code, created.code, "signing in keeps the same #code");
+  assert.equal(repo.paintings.get(created.code).user, owner.sub);
+  assert.equal(repo.paintings.get(created.code).bucket, "user-aesthetic-computer");
+  const encoded = await encodePaintingState(add(piece, 90));
+  assert.equal((await service.save({ code: created.code, key: "z".repeat(48), revision: first.revision, state: encoded }, owner)).steps, 1,
+    "once owned, the account edits without the key");
+  await assert.rejects(service.save({ code: created.code, key: identity.key, revision: first.revision + 1, state: encoded }), rejected(403),
+    "the guest key alone no longer edits an owned painting");
+  await assert.rejects(service.save({ code: created.code, key: identity.key, revision: first.revision + 1, state: encoded }, { sub: "auth0|other" }), rejected(403));
+});

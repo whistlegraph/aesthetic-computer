@@ -146,9 +146,12 @@ static void wifi_do_scan(ACWifi *wifi) {
     unlink("/tmp/wifi_scan.txt");
     unlink("/tmp/wifi_scan_err.txt");
 
-    // Run scan synchronously on this thread (no need for background shell)
+    // Run scan synchronously on this thread (no need for background shell).
+    // A scan fired while the radio is still starting (the MacBook Neo's
+    // MT7932 right after boot) can wait forever for results that never
+    // come; timeout kills it so the next attempt goes ahead.
     snprintf(cmd, sizeof(cmd),
-             "iw dev %s scan > /tmp/wifi_scan.txt 2>/tmp/wifi_scan_err.txt",
+             "timeout 20 iw dev %s scan > /tmp/wifi_scan.txt 2>/tmp/wifi_scan_err.txt",
              wifi->iface);
     int rc = run_cmd(cmd);
     if (rc != 0) {
@@ -171,12 +174,16 @@ static void wifi_do_scan(ACWifi *wifi) {
         return;
     }
 
-    WiFiNetwork nets[WIFI_MAX_NETWORKS];
+    // Parse every BSS before keeping the strongest WIFI_MAX_NETWORKS: iw
+    // lists them in no signal order, and in a dense block (40+ BSSes) the
+    // first 32 in file order can leave out a strong known network.
+    enum { SCAN_PARSE_MAX = 256 };
+    static WiFiNetwork nets[SCAN_PARSE_MAX];
     int count = 0;
     char line[512];
     int cur = -1;
 
-    while (fgets(line, sizeof(line), fp) && count < WIFI_MAX_NETWORKS) {
+    while (fgets(line, sizeof(line), fp) && count < SCAN_PARSE_MAX) {
         char bssid[18];
         if (sscanf(line, "BSS %17s", bssid) == 1) {
             cur = count++;
@@ -211,6 +218,7 @@ static void wifi_do_scan(ACWifi *wifi) {
     int w = 0;
     for (int r = 0; r < count; r++)
         if (nets[r].ssid[0]) { if (w != r) nets[w] = nets[r]; w++; }
+    if (w > WIFI_MAX_NETWORKS) w = WIFI_MAX_NETWORKS;  // strongest kept
 
     // Commit results under lock
     pthread_mutex_lock(&wifi->lock);
@@ -756,6 +764,10 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     // CultureHub LA staff network
     strncpy(creds[cred_count].ssid, "CULTUREHUB LA", WIFI_SSID_MAX - 1);
     strncpy(creds[cred_count].pass, "LaMama47!", WIFI_PASS_MAX - 1);
+    cred_count++;
+    // Fuser Team
+    strncpy(creds[cred_count].ssid, "Fuser Team", WIFI_SSID_MAX - 1);
+    strncpy(creds[cred_count].pass, "jX4XmdKAmTNqXRXLHVGH2YxQGHEfwLZdQGrN", WIFI_PASS_MAX - 1);
     cred_count++;
 
     int file_start = cred_count;   // creds from the stick's own file begin here

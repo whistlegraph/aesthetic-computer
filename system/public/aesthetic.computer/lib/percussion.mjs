@@ -181,6 +181,12 @@ export function playPercussion(sound, letter, opts = {}) {
       addHit({ type: "sine", tone: 150 * pf, duration: 0.045, volume: rj(1.3, 0.10) * v, attack: 0.001, decay: 0.044, pan: downPan });
       addHit({ type: "sine", tone: 90 * pf, duration: 0.080, volume: rj(0.85, 0.12) * v, attack: 0.002, decay: 0.078, pan: downPan });
       addHit({ type: "sine", tone: 55 * pf, duration: rj(0.35, 0.20), volume: rj(1.0, 0.12) * v, attack: 0.003, decay: 0.345, pan: downPan });
+      // Key-up "beater off" (Menu Band): a soft low thump, quieter and shorter
+      // than the hit, so a held-then-released kick reads as a damped close.
+      addReleaseBurst(() => {
+        sound.synth({ type: "sine", tone: 70 * pf, duration: 0.045, volume: rj(0.40, 0.12) * v, attack: 0.001, decay: 0.044, pan: downPan });
+        sound.synth({ type: "noise", tone: 1600 * pf, duration: 0.003, volume: rj(0.16, 0.18) * v, attack: 0.0002, decay: 0.0028, pan: downPan });
+      });
       break;
     }
 
@@ -192,6 +198,11 @@ export function playPercussion(sound, letter, opts = {}) {
       addHit({ type: "noise", tone: 3500 * pf, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
       addHit({ type: "noise", tone: 1800 * pf, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
       addHit({ type: "triangle", tone: 180 * pf, duration: 0.025, volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.024, pan: downPan });
+      // Key-up (Menu Band): a short, dry snare-wire tick, lighter than the hit.
+      addReleaseBurst(() => {
+        sound.synth({ type: "noise", tone: 4000 * pf, duration: 0.006, volume: rj(0.30, 0.15) * v, attack: 0.0002, decay: 0.0055, pan: downPan });
+        sound.synth({ type: "triangle", tone: 200 * pf, duration: 0.018, volume: rj(0.14, 0.15) * v, attack: 0.0006, decay: 0.017, pan: downPan });
+      });
       break;
     }
 

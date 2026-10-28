@@ -1,7 +1,6 @@
 // DateWizard — native macOS AppKit wizard for the AesthetiCal calendar.
 //
-// A pop-up window that shows the user's WEEK (Sun→Sat) and lets them
-// schedule. It reads/writes the AesthetiCal backend over HTTPS and
+// A pop-up agenda of upcoming appointments that lets the user schedule. It reads/writes the AesthetiCal backend over HTTPS and
 // overlays the user's Google calendar(s) read-only next to their
 // editable aesthetical events.
 //

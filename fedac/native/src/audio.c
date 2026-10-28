@@ -27,6 +27,9 @@ static int read_system_volume_card(int card);
 // config.json "volume" (percent) — set before audio_init by ac-native so the
 // baseline software gain is per-stick, not per-build. -1 = not set.
 static int default_system_volume_override = -1;
+// Ceiling for software-gain volume keys: 400% for quiet SOF speakers, 100%
+// on cards whose own gain control does the work (the MacBook Neo).
+static int software_volume_max = 400;
 
 // qsort comparator for AC_LATENCY_BENCH percentile computation.
 static int bench_cmp_long(const void *a, const void *b) {
@@ -824,6 +827,22 @@ void audio_scratch_set(ACAudio *audio, double level, double cutoff,
     pthread_mutex_lock(&audio->lock);
     scratch_voice_set(&audio->scratch, &p);
     pthread_mutex_unlock(&audio->lock);
+}
+
+// Melodic duck requests, written by the JS thread and read by the audio
+// thread (a torn read of one double only lands one sample off).
+static volatile double duck_req_target = 1.0, duck_req_hold = 0.0;
+static volatile unsigned duck_req_seq = 0;
+
+void audio_duck(ACAudio *audio, double target, double hold) {
+    (void)audio;
+    if (!(target >= 0.0)) target = 0.0;
+    if (target > 1.0) target = 1.0;
+    if (!(hold >= 0.0)) hold = 0.0;
+    duck_req_target = target;
+    duck_req_hold = hold;
+    __sync_synchronize();
+    duck_req_seq++;
 }
 
 void audio_scratch_stop(ACAudio *audio) {
@@ -1704,8 +1723,30 @@ static inline double soft_clip(double x) {
     return tanh(x * 0.9) / tanh(0.9);
 }
 
-// Compressor state (per-channel peak follower)
-static double comp_env = 0.0;  // envelope follower level
+// RBJ 12 dB/oct high- or low-pass (Q 0.707), direct form I.
+typedef struct { double b0, b1, b2, a1, a2, x1, x2, y1, y2; } BassBiquad;
+
+static void bass_biquad(BassBiquad *f, double rate, double hz, int highpass) {
+    double w0 = 2.0 * M_PI * hz / rate;
+    double alpha = sin(w0) / (2.0 * 0.70710678);
+    double c = cos(w0);
+    double a0 = 1.0 + alpha;
+    double edge = highpass ? (1.0 + c) / 2.0 : (1.0 - c) / 2.0;
+    f->b0 = edge / a0;
+    f->b1 = (highpass ? -2.0 * edge : 2.0 * edge) / a0;
+    f->b2 = edge / a0;
+    f->a1 = -2.0 * c / a0;
+    f->a2 = (1.0 - alpha) / a0;
+    f->x1 = f->x2 = f->y1 = f->y2 = 0.0;
+}
+
+static inline double bass_biquad_run(BassBiquad *f, double x) {
+    double y = f->b0 * x + f->b1 * f->x1 + f->b2 * f->x2 - f->a1 * f->y1 - f->a2 * f->y2;
+    f->x2 = f->x1; f->x1 = x;
+    f->y2 = f->y1; f->y1 = y;
+    return y;
+}
+
 static unsigned long xrun_count = 0;
 static unsigned long short_write_count = 0;
 
@@ -1783,17 +1824,121 @@ static void mix_sample_voice(SampleVoice *sv, const float *buf, int slen, int sm
     }
 }
 
+// Speaker guard on demand (AC_SPEAKER_GUARD="<command line>",
+// AC_SPEAKER_GUARD_IDLE=<seconds>, default 4). The MacBook Neo's speakers
+// whir at rest while the protection daemon (speakerguardd) holds them
+// unlocked, and sit silent at the card's own locked level. So run the
+// daemon only while the speaker feed carries signal: start it on the first
+// audible period, stop it after the idle time; the card re-locks itself.
+// Runs off the audio thread, which only raises audio->guard_audible.
+#include <signal.h>
+#include <sys/wait.h>
+static void *speaker_guard_fn(void *arg) {
+    ACAudio *audio = (ACAudio *)arg;
+    const char *cmd = getenv("AC_SPEAKER_GUARD");
+    const char *idle_env = getenv("AC_SPEAKER_GUARD_IDLE");
+    double idle_s = idle_env && atof(idle_env) > 0 ? atof(idle_env) : 4.0;
+    pid_t pid = 0;
+    double quiet = 0;
+    while (audio->running) {
+        usleep(100000);
+        if (audio->guard_audible) { audio->guard_audible = 0; quiet = 0; }
+        else quiet += 0.1;
+        if (!pid && quiet == 0) {
+            pid = fork();
+            if (pid == 0) {
+                char line[512];  // exec, so the pid we signal is the daemon's
+                snprintf(line, sizeof(line), "exec %s", cmd);
+                execl("/bin/sh", "sh", "-c", line, (char *)NULL);
+                _exit(127);
+            }
+            if (pid < 0) pid = 0;
+            else fprintf(stderr, "[audio] speaker guard started (pid %d)\n", (int)pid);
+        } else if (pid && quiet >= idle_s) {
+            kill(pid, SIGTERM);
+            waitpid(pid, NULL, 0);
+            fprintf(stderr, "[audio] speaker guard stopped after %.0fs idle\n", idle_s);
+            pid = 0;
+        }
+        if (pid && waitpid(pid, NULL, WNOHANG) == pid) pid = 0;  // exited on its own
+    }
+    if (pid) { kill(pid, SIGTERM); waitpid(pid, NULL, 0); }
+    return NULL;
+}
+
 static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     const unsigned int period_frames = audio->actual_period ? audio->actual_period : AUDIO_PERIOD_SIZE;
     int16_t *buffer = calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t));
     int32_t *buffer32 = NULL;
-    if (audio->use_s32)
+    // The final mix before 16-bit rounding: an S32 PCM gets these at full
+    // resolution instead of int16 << shift, which threw away every bit
+    // below the 16th (the software volume made quiet levels coarser still).
+    float *bufferf = NULL;
+    if (audio->use_s32) {
         buffer32 = calloc(period_frames * AUDIO_CHANNELS, sizeof(int32_t));
+        bufferf = calloc(period_frames * AUDIO_CHANNELS, sizeof(float));
+    }
     float *sf2_buf = calloc(period_frames * 2, sizeof(float));
-    if (!buffer || (audio->use_s32 && !buffer32) || !sf2_buf) {
+    if (!buffer || (audio->use_s32 && (!buffer32 || !bufferf)) || !sf2_buf) {
         fprintf(stderr, "[audio] thread: alloc failed\n"); return NULL;
     }
+    // Jack routing (AC_AUDIO_HEADPHONE_DEVICE): silence for whichever PCM
+    // isn't playing, and the card's "Headphone Jack" control to choose.
+    int16_t *silence = calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t));
+    snd_ctl_t *jack_ctl = NULL;
+    snd_ctl_elem_value_t *jack_val = NULL;
+    unsigned int jack_poll_frames = 0;
+    if (audio->jack_routed && silence) {
+        char ctl_name[16];
+        snprintf(ctl_name, sizeof(ctl_name), "hw:%d", audio->card_index);
+        if (snd_ctl_open(&jack_ctl, ctl_name, SND_CTL_NONBLOCK) == 0) {
+            snd_ctl_elem_value_malloc(&jack_val);
+            snd_ctl_elem_value_set_interface(jack_val, SND_CTL_ELEM_IFACE_CARD);
+            snd_ctl_elem_value_set_name(jack_val, "Headphone Jack");
+        } else {
+            jack_ctl = NULL;
+        }
+    }
+    // Idle amp off (AC_SPEAKER_IDLE_OFF=<seconds>): the MacBook Neo's amp
+    // whirs while it plays digital silence, so after that long with nothing
+    // to play turn the card's "Speaker Switch" off, and back on with the
+    // next non-silent period (macOS powers its amp down the same way).
+    snd_ctl_t *amp_ctl = NULL;
+    snd_ctl_elem_value_t *amp_val = NULL;
+    unsigned int amp_idle_after = 0, amp_idle_frames = 0;
+    int amp_on = 1;
+    const char *idle_env = getenv("AC_SPEAKER_IDLE_OFF");
+    if (idle_env && atof(idle_env) > 0) {
+        char ctl_name[16];
+        snprintf(ctl_name, sizeof(ctl_name), "hw:%d", audio->card_index);
+        if (snd_ctl_open(&amp_ctl, ctl_name, SND_CTL_NONBLOCK) == 0) {
+            snd_ctl_elem_value_malloc(&amp_val);
+            snd_ctl_elem_value_set_interface(amp_val, SND_CTL_ELEM_IFACE_MIXER);
+            snd_ctl_elem_value_set_name(amp_val, "Speaker Switch");
+            amp_idle_after = (unsigned int)(atof(idle_env) *
+                (audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
+        } else {
+            amp_ctl = NULL;
+        }
+    }
+    // Speaker air (AC_SPEAKER_AIR=<LSBs>): the MacBook Neo's amp whirs on
+    // digital silence and goes quiet the moment any signal plays, so the
+    // speaker feed always carries a few LSBs of triangular noise (about
+    // -80 dBFS at 3) — inaudible, but never silence.
+    // /run/speaker-air, when present, overrides the level live (re-read
+    // about once a second) so it can be tuned by ear without a restart.
+    const char *air_env = getenv("AC_SPEAKER_AIR");
+    int air_lsb = air_env ? atoi(air_env) : 0;
+    int16_t *airbuf = air_lsb > 0 ? calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t)) : NULL;
+    uint32_t air_rng = 0x9E3779B9u;
+    unsigned int air_poll_frames = 0;
+    const char *suspend_env = getenv("AC_SPEAKER_IDLE_SUSPEND");
+    unsigned int suspend_after = suspend_env && atof(suspend_env) > 0
+        ? (unsigned int)(atof(suspend_env) * (audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE))
+        : 0;
+    unsigned int suspend_idle = 0;
+    int spk_suspended = 0;
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
     // Melodic headroom (Menu Band's MelodicHeadroom). Same-pitch voices add
@@ -1808,24 +1953,64 @@ static void *audio_thread_fn(void *arg) {
     int pitch_touched[AUDIO_MAX_VOICES];
     const float echo_a = 1.0f - expf((float)(-2.0 * M_PI * ECHO_LP_HZ / rate)); // one-pole damper
 
-    // Drum bus peak compressor — gives percussion proper "stacking" feel.
-    // The drum bus sums additively (no auto-mix divide) so rapid hits
-    // would otherwise saturate through soft_clip tanh, flattening peaks
-    // and making each new hit sound QUIETER. A real peak compressor
-    // with fast attack / slower release keeps the drum bus below ~0.95
-    // so transients retain impact AND the compressor recovers between
-    // hits so each kick/snare feels punchy on its own.
-    double drum_gain = 1.0;
-    const double DRUM_THRESH = 0.95;
-    const double DRUM_BUS_TRIM = 0.6;
-    // 5ms attack — slower than a 2ms beater transient so the first peak
-    // of each hit passes through at full amplitude before compression
-    // engages. This preserves the "snap" of each individual kick/snare.
-    const double drum_att_coeff = 1.0 - exp(-1.0 / (0.005 * rate));
-    // 200ms release — recovers quickly enough that successive hits at
-    // typical tempos (120-200 BPM, 300-500ms between hits) each get
-    // the benefit of full dynamic range.
-    const double drum_rel_coeff = 1.0 - exp(-1.0 / (0.200 * rate));
+    // Drum bus, as Menu Band's percussion renders it: constant-power pan and
+    // one fixed gain (its masterGain 0.34 x outputLevel 0.90), no compressor,
+    // so overlapping hits simply add and a later hit never pulls an earlier
+    // one's tail down.
+    const double DRUM_BUS_GAIN = 0.34 * 0.90;
+
+    // Melodic duck state (audio_duck): requests arrive by sequence number.
+    unsigned duck_seen = duck_req_seq;
+    double duck_gain = 1.0, duck_target = 1.0, duck_hold = 0.0;
+    const double duck_att_coeff = 1.0 - exp(-1.0 / (0.002 * rate)); // ~2 ms, no click
+    const double duck_rise = 1.0 / (0.28 * rate);                     // silence to unity in 0.28 s
+
+    // Master peak limiter, as Menu Band's (Apple PeakLimiter: 2 ms attack,
+    // 50 ms decay, a ceiling just under full scale). The stage it replaces
+    // clamped everything above 0.4 at 8:1 with a 0.2 ms attack: every kick
+    // came out flattened, and the gain rode inside each bass cycle, which
+    // read as grit. The signal runs `lim_ahead` samples late so the gain is
+    // already down when a peak arrives, and the held minimum keeps it down
+    // for the whole lookahead window, then for `lim_hold` more: a kick's
+    // cycles are ~18 ms apart, and a gain that recovered between them would
+    // ride each cycle and pump the drums.
+    enum { LIM_RING = 1024 };
+    int lim_ahead = (int)(0.002 * rate);
+    if (lim_ahead < 1) lim_ahead = 1;
+    if (lim_ahead > LIM_RING) lim_ahead = LIM_RING;
+    double lim_ring_l[LIM_RING] = {0}, lim_ring_r[LIM_RING] = {0};
+    int lim_pos = 0, lim_hold_left = 0;
+    double lim_hold_gain = 1.0, lim_gain = 1.0;
+    const double LIM_CEILING = 0.95;
+    const double lim_att_coeff = 1.0 - exp(-4.0 / lim_ahead);  // ~98% of the way in one window
+    const int lim_hold = (int)(0.025 * rate);
+    const double lim_rel_coeff = 1.0 - exp(-1.0 / (0.120 * rate));
+
+    // Speaker bass (AC_SPEAKER_BASS=<amount>, built-in speakers only): a
+    // laptop speaker can't move air below ~150 Hz, so a 55 Hz kick body
+    // simply isn't there. macOS fixes this with its speaker DSP and Asahi
+    // with bankstown; this is the same idea. The sub-bass is cut from the
+    // speaker feed (it only costs excursion and limiter headroom) and
+    // replaced by its own harmonics — a full-wave rectified low band, whose
+    // 2f, 4f… the ear hears as the missing fundamental.
+    // /run/speaker-bass ("<amount> [cut Hz] [keep]") overrides it live, read
+    // about once a second like /run/speaker-air; keep is the share of the
+    // cut sub left in (0 = all of it high-passed away, 1 = none).
+    const char *bass_env = getenv("AC_SPEAKER_BASS");
+    double bass_amount = bass_env ? atof(bass_env) : 0.0;
+    double bass_cut = 100.0, bass_keep = 0.0;
+    unsigned int bass_poll_frames = 0;
+    BassBiquad bass_hp_l, bass_hp_r, bass_lp1, bass_lp2, bass_hp_harm;
+    bass_biquad(&bass_hp_harm, rate, bass_cut, 1);
+    bass_biquad(&bass_hp_l, rate, bass_cut, 1);
+    bass_biquad(&bass_hp_r, rate, bass_cut, 1);
+    bass_biquad(&bass_lp1, rate, bass_cut * 1.4, 0);
+    bass_biquad(&bass_lp2, rate, bass_cut * 1.4, 0);
+    double bass_dc = 0.0, bass_smooth = 0.0;
+    const double bass_dc_coeff = 1.0 - exp(-2.0 * M_PI * 40.0 / rate);
+    const double bass_smooth_coeff = 1.0 - exp(-2.0 * M_PI * 900.0 / rate);
+    if (bass_amount > 0.0)
+        fprintf(stderr, "[audio] speaker bass: harmonics x%.2f, sub cut at 100 Hz\n", bass_amount);
 
     // Set real-time priority to prevent audio glitches from background tasks
     struct sched_param sp = { .sched_priority = 50 };
@@ -1886,6 +2071,30 @@ static void *audio_thread_fn(void *arg) {
         // Outside the lock: gm_sf2 takes its notes from its own queue.
         gm_sf2_render(sf2_buf, (int)period_frames, (int)rate);
 
+        if ((bass_poll_frames += period_frames) >= (unsigned int)rate) {
+            bass_poll_frames = 0;
+            FILE *bf = fopen("/run/speaker-bass", "r");
+            if (bf) {
+                double amt = bass_amount, cut = bass_cut, keep = bass_keep;
+                int n = fscanf(bf, "%lf %lf %lf", &amt, &cut, &keep);
+                if (n >= 1 && amt >= 0.0 && amt <= 8.0 && cut >= 30.0 && cut <= 400.0
+                    && keep >= 0.0 && keep <= 1.0
+                    && (amt != bass_amount || cut != bass_cut || keep != bass_keep)) {
+                    if (cut != bass_cut) {
+                        bass_biquad(&bass_hp_harm, rate, cut, 1);
+                        bass_biquad(&bass_hp_l, rate, cut, 1);
+                        bass_biquad(&bass_hp_r, rate, cut, 1);
+                        bass_biquad(&bass_lp1, rate, cut * 1.4, 0);
+                        bass_biquad(&bass_lp2, rate, cut * 1.4, 0);
+                    }
+                    bass_amount = amt; bass_cut = cut; bass_keep = keep;
+                    fprintf(stderr, "[audio] speaker bass: harmonics x%.2f, sub cut at %.0f Hz, keep %.2f\n",
+                            bass_amount, bass_cut, bass_keep);
+                }
+                fclose(bf);
+            }
+        }
+
         pthread_mutex_lock(&audio->lock);
 
         for (unsigned int i = 0; i < period_frames; i++) {
@@ -1917,10 +2126,17 @@ static void *audio_thread_fn(void *arg) {
 
                 int is_percussive = !isinf(voice->duration) && voice->duration < 0.5;
                 if (is_percussive) {
-                    // Drum bus — no auto-mix normalization. Drums stack
-                    // additively and rely on soft_clip for peak control.
-                    drum_l += amp * left_gain;
-                    drum_r += amp * right_gain;
+                    // Drum bus — no auto-mix normalization; constant-power
+                    // pan like Menu Band's (cos/sin), cached per voice.
+                    if (!voice->drum_pan_ok || voice->drum_pan_at != voice->pan) {
+                        double th = (voice->pan + 1.0) * 0.25 * M_PI;
+                        voice->drum_gl = cos(th);
+                        voice->drum_gr = sin(th);
+                        voice->drum_pan_at = voice->pan;
+                        voice->drum_pan_ok = 1;
+                    }
+                    drum_l += amp * voice->drum_gl;
+                    drum_r += amp * voice->drum_gr;
                 } else {
                     // Tone bus — its level joins its pitch's headroom bucket.
                     // A released (linger) voice counts at its actual fade.
@@ -1963,42 +2179,32 @@ static void *audio_thread_fn(void *arg) {
             tone_l *= tone_gain;
             tone_r *= tone_gain;
 
-            // Drum bus trim. notepat's kick stacks four layers at volume
-            // ~2 (1.0 full-scale each after the centre pan law), so without
-            // this the kick body alone sits 3-4 dB into the compressor below
-            // and 8:1 into the master clamp. Any later hit — a hat landing
-            // on the ringing kick — then steps both gains within ~6 ms, an
-            // audible pop (simulated 0.81 → 0.66). At 0.6 the body clears
-            // the 0.95 threshold, the hat changes nothing, and the output
-            // peak drops only ~1 dB (0.94 → 0.82). Melodic notes never
-            // popped the kick because their attack ramps; hats don't.
-            drum_l *= DRUM_BUS_TRIM;
-            drum_r *= DRUM_BUS_TRIM;
+            drum_l *= DRUM_BUS_GAIN;
+            drum_r *= DRUM_BUS_GAIN;
 
-            // Drum bus peak compressor: detect peak, attack fast if over
-            // threshold, release slow. Unlike the tone auto-mix divide,
-            // this preserves individual hit dynamics — a single drum hit
-            // passes through at full amplitude, but sustained buildup
-            // from overlapping hits gets gain-reduced gracefully so they
-            // stack linearly instead of saturating through soft_clip.
-            {
-                double peak = fabs(drum_l);
-                double peak_r = fabs(drum_r);
-                if (peak_r > peak) peak = peak_r;
-                double target = (peak > DRUM_THRESH) ? (DRUM_THRESH / peak) : 1.0;
-                if (target < drum_gain) {
-                    drum_gain += (target - drum_gain) * drum_att_coeff;
-                } else {
-                    drum_gain += (target - drum_gain) * drum_rel_coeff;
-                }
-                drum_l *= drum_gain;
-                drum_r *= drum_gain;
+            // Melodic duck: snap toward the requested floor while it holds,
+            // then climb linearly back to unity.
+            if (duck_req_seq != duck_seen) {
+                duck_seen = duck_req_seq;
+                double t = duck_req_target;
+                if (duck_hold > 0.0) { if (t < duck_target) duck_target = t; }
+                else duck_target = t;
+                if (duck_req_hold > duck_hold) duck_hold = duck_req_hold;
             }
+            if (duck_hold > 0.0) {
+                duck_hold -= 1.0 / rate;
+                if (duck_gain > duck_target) duck_gain += (duck_target - duck_gain) * duck_att_coeff;
+            } else if (duck_gain < 1.0) {
+                duck_gain += duck_rise;
+                if (duck_gain > 1.0) duck_gain = 1.0;
+            }
+            tone_l *= duck_gain;
+            tone_r *= duck_gain;
 
             // Merge the two buses. Drums land compressed to ~0.95 peak
             // so they retain impact without saturating the final output.
-            double mix_l = tone_l + drum_l + sf2_buf[2 * i] * GM_SF2_GAIN;
-            double mix_r = tone_r + drum_r + sf2_buf[2 * i + 1] * GM_SF2_GAIN;
+            double mix_l = tone_l + drum_l + sf2_buf[2 * i] * GM_SF2_GAIN * duck_gain;
+            double mix_r = tone_r + drum_r + sf2_buf[2 * i + 1] * GM_SF2_GAIN * duck_gain;
 
             // Mix sample voices (pitch-shifted playback)
             // Lock already held from line 246 — safe to read sample_buf
@@ -2258,32 +2464,49 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
-            // Compressor: peak-following gain reduction (threshold 0.4, ratio ~8:1)
+            // Speaker bass (see bass_amount): only while the speakers are
+            // what's playing, never into headphones.
+            if ((bass_amount > 0.0 || (bass_env && bass_keep < 1.0)) && !audio->jack_plugged) {
+                double low = bass_biquad_run(&bass_lp2,
+                             bass_biquad_run(&bass_lp1, 0.5 * (mix_l + mix_r)));
+                double rect = fabs(low);
+                bass_dc += bass_dc_coeff * (rect - bass_dc);
+                bass_smooth += bass_smooth_coeff * ((rect - bass_dc) - bass_smooth);
+                // Rectifying leaves the kick's envelope behind as a one-sided
+                // push below the cut — the speaker can't play it and the
+                // limiter ducks everything for it. Only the harmonics pass.
+                double harm = bass_biquad_run(&bass_hp_harm, bass_smooth) * bass_amount;
+                double hl = bass_biquad_run(&bass_hp_l, mix_l);
+                double hr = bass_biquad_run(&bass_hp_r, mix_r);
+                mix_l = hl + bass_keep * (mix_l - hl) + harm;
+                mix_r = hr + bass_keep * (mix_r - hr) + harm;
+            }
+
+            // Master peak limiter (lookahead; see lim_ahead).
             {
                 double peak = fabs(mix_l);
                 double pr = fabs(mix_r);
                 if (pr > peak) peak = pr;
-                // Attack: very fast (0.2ms), Release: medium (40ms).
-                // The master is a peak clamp, not Menu Band's compressor:
-                // drums land here near 0.95 against a 0.4 threshold, and
-                // an 8 ms attack let each kick's snap through to the
-                // clipper while squashing its body, then a 180 ms release
-                // held the whole mix ducked after every hit (hats never
-                // recovered). The drum bus has its own 5 ms / 200 ms
-                // compressor for stacking feel; this stage just catches
-                // peaks and gets out of the way.
-                double att_coeff = 1.0 - exp(-1.0 / (0.0002 * rate));
-                double rel_coeff = 1.0 - exp(-1.0 / (0.04 * rate));
-                if (peak > comp_env)
-                    comp_env += att_coeff * (peak - comp_env);
-                else
-                    comp_env += rel_coeff * (peak - comp_env);
-                if (comp_env > 0.4) {
-                    double gain = 0.4 + (comp_env - 0.4) * 0.125; // ~8:1 ratio above threshold
-                    double reduction = gain / comp_env;
-                    mix_l *= reduction;
-                    mix_r *= reduction;
+                double need = peak > LIM_CEILING ? LIM_CEILING / peak : 1.0;
+                if (need <= lim_hold_gain) {
+                    lim_hold_gain = need;
+                    lim_hold_left = lim_ahead + lim_hold;
+                } else if (lim_hold_left > 0) {
+                    lim_hold_left--;
+                } else {
+                    lim_hold_gain = need;
                 }
+                if (lim_hold_gain < lim_gain)
+                    lim_gain += lim_att_coeff * (lim_hold_gain - lim_gain);
+                else
+                    lim_gain += lim_rel_coeff * (lim_hold_gain - lim_gain);
+                double late_l = lim_ring_l[lim_pos];
+                double late_r = lim_ring_r[lim_pos];
+                lim_ring_l[lim_pos] = mix_l;
+                lim_ring_r[lim_pos] = mix_r;
+                if (++lim_pos >= lim_ahead) lim_pos = 0;
+                mix_l = late_l * lim_gain;
+                mix_r = late_r * lim_gain;
             }
 
             // Wobble / flange — modulated short-delay blend. Writes every
@@ -2373,6 +2596,10 @@ static void *audio_thread_fn(void *arg) {
             // Soft clip and convert to int16
             mix_l = soft_clip(mix_l);
             mix_r = soft_clip(mix_r);
+            // soft_clip's curve is normalized to tanh(0.9), so it tops out
+            // near 1.4, not 1.0: past that the int16 below wrapped around.
+            if (mix_l > 1.0) mix_l = 1.0; else if (mix_l < -1.0) mix_l = -1.0;
+            if (mix_r > 1.0) mix_r = 1.0; else if (mix_r < -1.0) mix_r = -1.0;
 
             /* 32000 = ~97% of int16 max. Was 26000 (~79%), wasting
              * ~2dB of peak output. Combined with higher soft_clip
@@ -2380,6 +2607,10 @@ static void *audio_thread_fn(void *arg) {
              * compression artifacts. */
             buffer[i * 2] = (int16_t)(mix_l * 32000);
             buffer[i * 2 + 1] = (int16_t)(mix_r * 32000);
+            if (bufferf) {
+                bufferf[i * 2] = (float)mix_l;
+                bufferf[i * 2 + 1] = (float)mix_r;
+            }
 
             /* DAPM keepalive: inject low-frequency dither (alternating
              * every 8 samples = 3kHz, well below 24kHz Nyquist edge).
@@ -2460,12 +2691,32 @@ static void *audio_thread_fn(void *arg) {
          * jack-sense in the codec mutes whichever side isn't being
          * driven by the active jack state. */
         snd_pcm_t *pcm2 = (snd_pcm_t *)audio->headphone_pcm;
+        /* Jack-routed (MacBook Neo): read the jack about 4x a second, then
+         * play to exactly one side and keep the other running on silence,
+         * so a plug or unplug switches at the next period. */
+        const int16_t *hp_src = buffer;
+        int speaker_silent = 0;
+        if (pcm2 && jack_ctl) {
+            jack_poll_frames += period_frames;
+            if (jack_poll_frames >= (unsigned int)(rate / 4)) {
+                jack_poll_frames = 0;
+                if (snd_ctl_elem_read(jack_ctl, jack_val) == 0) {
+                    int plugged = snd_ctl_elem_value_get_boolean(jack_val, 0);
+                    if (plugged != audio->jack_plugged)
+                        fprintf(stderr, "[audio] headphones %s: playing to %s\n",
+                                plugged ? "in" : "out", plugged ? "jack" : "speakers");
+                    audio->jack_plugged = plugged;
+                }
+            }
+            if (audio->jack_plugged) speaker_silent = 1;
+            else hp_src = silence;
+        }
         if (pcm2) {
             int rem2 = (int)period_frames;
             int off2 = 0;
             while (rem2 > 0) {
                 int f2 = snd_pcm_writei(pcm2,
-                                         buffer + off2 * AUDIO_CHANNELS,
+                                         hp_src + off2 * AUDIO_CHANNELS,
                                          rem2);
                 if (f2 == -EAGAIN) break; /* don't spin on secondary */
                 if (f2 < 0) {
@@ -2482,18 +2733,100 @@ static void *audio_thread_fn(void *arg) {
          * top portion of the 24-bit window — correct for S24-in-S32
          * bottom-aligned format. (<<16 put data in bits 31:16 which
          * the DSP's 24-bit window barely saw → super quiet.) */
-        const void *write_buf = buffer;
-        if (buffer32) {
+        const int16_t *main_src = speaker_silent ? silence : buffer;
+        if (!speaker_silent && !audio->guard_audible) {
             for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
-                buffer32[j] = (int32_t)buffer[j] << 8;
+                if (buffer[j] > 1 || buffer[j] < -1) { audio->guard_audible = 1; break; }
+        }
+        if (airbuf && (air_poll_frames += period_frames) >= (unsigned int)rate) {
+            air_poll_frames = 0;
+            FILE *af = fopen("/run/speaker-air", "r");
+            if (af) {
+                int lv;
+                if (fscanf(af, "%d", &lv) == 1 && lv >= 0 && lv <= 2000 && lv != air_lsb) {
+                    air_lsb = lv;
+                    fprintf(stderr, "[audio] speaker air: %d LSB\n", air_lsb);
+                }
+                fclose(af);
+            }
+        }
+        if (airbuf && air_lsb > 0) {
+            for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++) {
+                // Triangular noise: the sum of two uniform draws (xorshift32).
+                air_rng ^= air_rng << 13; air_rng ^= air_rng >> 17; air_rng ^= air_rng << 5;
+                int a = (int)(air_rng % (unsigned)(air_lsb + 1));
+                air_rng ^= air_rng << 13; air_rng ^= air_rng >> 17; air_rng ^= air_rng << 5;
+                int b = (int)(air_rng % (unsigned)(air_lsb + 1));
+                int v = main_src[j] + a - b;
+                airbuf[j] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+            }
+            main_src = airbuf;
+        }
+        if (amp_ctl) {
+            int audible = 0;
+            for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
+                if (main_src[j] > 1 || main_src[j] < -1) { audible = 1; break; }
+            if (audible) {
+                amp_idle_frames = 0;
+                if (!amp_on) {
+                    snd_ctl_elem_value_set_boolean(amp_val, 0, 1);
+                    if (snd_ctl_elem_write(amp_ctl, amp_val) >= 0) amp_on = 1;
+                    fprintf(stderr, "[audio] speaker amp on%s\n", amp_on ? "" : " (write failed)");
+                }
+            } else if (amp_on && (amp_idle_frames += period_frames) >= amp_idle_after) {
+                snd_ctl_elem_value_set_boolean(amp_val, 0, 0);
+                if (snd_ctl_elem_write(amp_ctl, amp_val) >= 0) amp_on = 0;
+                fprintf(stderr, "[audio] speaker amp off (idle)%s\n", amp_on ? " (write failed)" : "");
+            }
+        }
+        const void *write_buf = main_src;
+        if (buffer32) {
+            // Straight from the float mix when the speakers play the mix
+            // itself; the silence, air and keepalive samples stay int16.
+            const double s32_scale = 32000.0 * (double)(1 << audio->s32_shift);
+            for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
+                buffer32[j] = (main_src == buffer && bufferf[j] != 0.0f)
+                    ? (int32_t)lrint(bufferf[j] * s32_scale)
+                    : (int32_t)main_src[j] << audio->s32_shift;
             write_buf = buffer32;
         }
         int remaining = (int)period_frames;
         int offset = 0;
+        // Idle suspend (AC_SPEAKER_IDLE_SUSPEND=<seconds>): stop the speaker
+        // stream after that long with nothing to play, as PipeWire's idle
+        // suspend does on Asahi. Stopping it takes the amp off, which ends
+        // the MacBook Neo's whir at rest while the protection daemon holds
+        // the speakers unlocked. The next audible period re-prepares it
+        // (about 100 ms late).
+        if (suspend_after) {
+            int audible = 0;
+            // Above ±8: the DAPM keepalive writes ±8 into every silent
+            // sample, and counting it as sound kept the stream (and the
+            // whir) running forever.
+            if (!speaker_silent)
+                for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
+                    if (buffer[j] > 8 || buffer[j] < -8) { audible = 1; break; }
+            if (audible) {
+                suspend_idle = 0;
+                if (spk_suspended) {
+                    snd_pcm_prepare(pcm);
+                    spk_suspended = 0;
+                    fprintf(stderr, "[audio] speaker stream resumed\n");
+                }
+            } else if (!spk_suspended && (suspend_idle += period_frames) >= suspend_after) {
+                snd_pcm_drop(pcm);
+                spk_suspended = 1;
+                fprintf(stderr, "[audio] speaker stream suspended (idle)\n");
+            }
+            if (spk_suspended) {
+                remaining = 0;  // nothing to the speakers; pace on the clock
+                if (!pcm2) usleep((useconds_t)(period_frames * 1000000.0 / rate));
+            }
+        }
         while (remaining > 0) {
             const void *wptr = buffer32
                 ? (const void *)(buffer32 + offset * AUDIO_CHANNELS)
-                : (const void *)(buffer + offset * AUDIO_CHANNELS);
+                : (const void *)(main_src + offset * AUDIO_CHANNELS);
             /* mmap_writei skips a buffer copy versus writei; falls
              * through to writei when access wasn't negotiated as
              * MMAP_INTERLEAVED. */
@@ -2572,6 +2905,13 @@ static void *audio_thread_fn(void *arg) {
     free(bench_us);
     free(buffer);
     free(buffer32);
+    free(bufferf);
+    free(silence);
+    if (jack_val) snd_ctl_elem_value_free(jack_val);
+    if (jack_ctl) snd_ctl_close(jack_ctl);
+    free(airbuf);
+    if (amp_val) snd_ctl_elem_value_free(amp_val);
+    if (amp_ctl) snd_ctl_close(amp_ctl);
     free(sf2_buf);
     return NULL;
 }
@@ -3033,6 +3373,7 @@ ACAudio *audio_init(void) {
     if (sof_active &&
         snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S32_LE) == 0) {
         audio->use_s32 = 1;
+        audio->s32_shift = 8;
         fprintf(stderr, "[audio] Negotiated S32_LE format (SOF)\n");
     } else {
         /* Re-negotiate from scratch with S16_LE; preserve the access
@@ -3042,9 +3383,18 @@ ACAudio *audio_init(void) {
                                      audio->use_mmap
                                          ? SND_PCM_ACCESS_MMAP_INTERLEAVED
                                          : SND_PCM_ACCESS_RW_INTERLEAVED);
-        snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
-        fprintf(stderr, "[audio] Negotiated S16_LE format%s\n",
-                sof_active ? " (S32_LE rejected)" : " (non-SOF, forced)");
+        if (snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE) == 0) {
+            fprintf(stderr, "[audio] Negotiated S16_LE format%s\n",
+                    sof_active ? " (S32_LE rejected)" : " (non-SOF, forced)");
+        } else if (snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S32_LE) == 0) {
+            /* S32-only PCMs (the MacBook Neo's speaker front-end) read the
+             * whole container as full scale, so int16 goes in bits 31:16. */
+            audio->use_s32 = 1;
+            audio->s32_shift = 16;
+            fprintf(stderr, "[audio] Negotiated S32_LE format (S16_LE rejected, full-scale)\n");
+        } else {
+            fprintf(stderr, "[audio] WARNING: neither S16_LE nor S32_LE accepted\n");
+        }
     }
     snd_pcm_hw_params_set_channels(pcm, params, AUDIO_CHANNELS);
 
@@ -3103,6 +3453,16 @@ ACAudio *audio_init(void) {
         period = rate / 1000;      // 1ms on HDA-direct paths
         if (period < 64) period = 64;
         buffer_size = period * 4;
+    }
+    // AC_AUDIO_PERIOD_MS overrides the period (buffer stays 4 periods). The
+    // MacBook Neo's speaker PCM converts every sample in software for its
+    // coprocessor and turns fuzzy at 1.3ms periods.
+    const char *period_env = getenv("AC_AUDIO_PERIOD_MS");
+    if (period_env && atoi(period_env) > 0) {
+        period = rate * (unsigned)atoi(period_env) / 1000;
+        buffer_size = period * 4;
+        fprintf(stderr, "[audio] AC_AUDIO_PERIOD_MS=%s — period=%lu buffer=%lu\n",
+                period_env, (unsigned long)period, (unsigned long)buffer_size);
     }
     snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
     snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);
@@ -3178,6 +3538,15 @@ ACAudio *audio_init(void) {
                 secondary = ucm_speaker_pcm;
             else
                 secondary = ucm_headphone_pcm; /* legacy fallback opened */
+        }
+        /* AC_AUDIO_HEADPHONE_DEVICE names the jack PCM outright (the
+         * MacBook Neo: speakers hw:1,1, jack plughw:1,0). Nothing mutes
+         * the unused side in hardware there, so the audio thread routes
+         * by the card's "Headphone Jack" control (jack_routed below). */
+        const char *hp_env = getenv("AC_AUDIO_HEADPHONE_DEVICE");
+        if (!secondary && hp_env && hp_env[0]) {
+            secondary = hp_env;
+            audio->jack_routed = 1;
         }
         if (secondary) {
             snd_pcm_t *pcm2 = NULL;
@@ -3513,8 +3882,13 @@ ACAudio *audio_init(void) {
                 }
             }
 
-            // Set volume to max for output controls
-            if (snd_mixer_selem_has_playback_volume(elem)) {
+            // Set volume to max for output controls. The MacBook Neo's
+            // macaudio card exposes two integer controls that only look
+            // like volumes: "Speaker Sample Rate" (maxing it told the amp
+            // 192 kHz while the stream ran at 48) and "Speaker Volume
+            // Unlock" (the speaker-protection daemon's lock token).
+            if (snd_mixer_selem_has_playback_volume(elem) &&
+                !strstr(name, "Sample Rate") && !strstr(name, "Unlock")) {
                 long min, max;
                 snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
                 snd_mixer_selem_set_playback_volume_all(elem, max);
@@ -3554,10 +3928,19 @@ ACAudio *audio_init(void) {
             fclose(cf);
         }
         if (strstr(cid, "glkda7219") || strstr(cid, "bxtda7219")) sof_default = 80;
+        // The MacBook Neo's card has no Master either, but its "Speaker"
+        // control is the real (kernel-locked, -20 dB) gain. Any software
+        // boost goes straight into soft_clip: 180% crunched every chord and
+        // the keys could push to 400%. Unity, and the keys stop there.
+        if (strcmp(cid, "AppleJ700") == 0) {
+            sof_default = 100;
+            software_volume_max = 100;
+        }
         if (cid[0]) fprintf(stderr, "[audio] Card id: %s (SOF baseline %d%%)\n", cid, sof_default);
     }
     if (default_system_volume_override >= 0) {
-        audio->system_volume = default_system_volume_override;
+        audio->system_volume = default_system_volume_override > software_volume_max
+                                   ? software_volume_max : default_system_volume_override;
         fprintf(stderr, "[audio] System volume: %d%% (config.json volume; hw=%d)\n",
                 audio->system_volume, hw_vol);
     } else {
@@ -3574,6 +3957,12 @@ ACAudio *audio_init(void) {
     // Start audio thread
     audio->running = 1;
     pthread_create(&audio->thread, NULL, audio_thread_fn, audio);
+
+    // Speaker guard on demand (AC_SPEAKER_GUARD): see speaker_guard_fn.
+    if (getenv("AC_SPEAKER_GUARD") && *getenv("AC_SPEAKER_GUARD")) {
+        pthread_t gt;
+        if (pthread_create(&gt, NULL, speaker_guard_fn, audio) == 0) pthread_detach(gt);
+    }
 
     /* Force PCI runtime-PM to "on" for the sound card now that the
      * driver is loaded and card_idx is known. The init-script attempt
@@ -3626,15 +4015,18 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
         }
     }
     if (slot < 0) {
-        // Steal oldest voice
-        double oldest = 0;
-        slot = 0;
+        // Steal the oldest finite voice (a drum tail), as Menu Band does, so
+        // a roll never cuts a held note; only when every voice is held does
+        // the oldest held one go.
+        double oldest = -1, oldest_held = -1;
+        int held_slot = 0;
         for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
-            if (audio->voices[i].elapsed > oldest) {
-                oldest = audio->voices[i].elapsed;
-                slot = i;
-            }
+            double e = audio->voices[i].elapsed;
+            if (isinf(audio->voices[i].duration)) {
+                if (e > oldest_held) { oldest_held = e; held_slot = i; }
+            } else if (e > oldest) { oldest = e; slot = i; }
         }
+        if (slot < 0) slot = held_slot;
     }
 
     ACVoice *v = &audio->voices[slot];
@@ -4076,7 +4468,7 @@ void audio_set_default_system_volume(int pct) {
 void audio_set_system_volume(ACAudio *audio, int pct) {
     if (!audio) return;
     if (pct < 0) pct = 0;
-    if (pct > 400) pct = 400;
+    if (pct > software_volume_max) pct = software_volume_max;
     audio->system_volume = pct;
     ac_log("[audio] System volume set to %d%%\n", pct);
 }
@@ -4766,7 +5158,7 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
             int sv = audio->system_volume;
             if (sv < 0) sv = 150;
             int step = 10;
-            if (delta > 0) sv = (sv + step > 400) ? 400 : sv + step;
+            if (delta > 0) sv = (sv + step > software_volume_max) ? software_volume_max : sv + step;
             else if (delta < 0) sv = (sv - step < 0) ? 0 : sv - step;
             audio->system_volume = sv;
             ac_log("[audio] Software volume: %d%%\n", sv);
@@ -4776,6 +5168,7 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
 
 void audio_boot_beep(ACAudio *audio) {
     if (!audio || !audio->pcm) return;
+    if (getenv("AC_NO_BOOT_SOUND")) return;  // also silences the startup chime
     // Two-tone "doo-dah" — distinct from old single ping (OTA test marker)
     audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.8, 0.002, 0.08, -0.15);  // E5
     usleep(80000);

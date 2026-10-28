@@ -23,6 +23,7 @@
 #include "qrcodegen.h"
 #include <alsa/asoundlib.h>
 #include "machines.h"
+#include "machine-keys.h"
 #ifdef HAVE_RAYLIB
 #include "raylib-soft.h"
 #endif
@@ -2202,6 +2203,14 @@ static JSValue make_event_object(JSContext *ctx, ACEvent *ev) {
     JS_SetPropertyStr(ctx, obj, "repeat", JS_NewBool(ctx, ev->repeat));
     JS_SetPropertyStr(ctx, obj, "key", JS_NewString(ctx, ev->key_name));
     JS_SetPropertyStr(ctx, obj, "code", JS_NewString(ctx, ev->key_name));
+    // Which side a modifier sits on, as KeyboardEvent.location: 1 left, 2
+    // right, 0 otherwise. The name stays "shift"/"control"/"alt"/"meta".
+    int location = 0;
+    switch (ev->key_code) {
+        case KEY_LEFTSHIFT: case KEY_LEFTCTRL: case KEY_LEFTALT: case KEY_LEFTMETA: location = 1; break;
+        case KEY_RIGHTSHIFT: case KEY_RIGHTCTRL: case KEY_RIGHTALT: case KEY_RIGHTMETA: location = 2; break;
+    }
+    JS_SetPropertyStr(ctx, obj, "location", JS_NewInt32(ctx, location));
     // Velocity: 0-127 from analog pressure (0.0-1.0), default 127 for digital keys
     int velocity = ev->pressure > 0.001f ? (int)(ev->pressure * 127.0f) : 127;
     if (velocity < 1 && ev->type == AC_EVENT_KEYBOARD_DOWN) velocity = 1;
@@ -3092,6 +3101,21 @@ static JSValue js_sound_bpm(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_NewFloat64(ctx, audio->bpm);
 }
 
+// Melodic duck: `sound.duck(target, holdSeconds)` drops the melodic voices to
+// `target` (0..1) now, holds, then lets them climb back over 0.28 s. The piece
+// picks the depth per drum, as Menu Band's sidechain does.
+static JSValue js_sound_duck(JSContext *ctx, JSValueConst this_val,
+                             int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt ? current_rt->audio : NULL;
+    if (!audio || argc < 1) return JS_UNDEFINED;
+    double target = 1.0, hold = 0.0;
+    JS_ToFloat64(ctx, &target, argv[0]);
+    if (argc > 1) JS_ToFloat64(ctx, &hold, argv[1]);
+    audio_duck(audio, target, hold);
+    return JS_UNDEFINED;
+}
+
 // Drum-skin friction: `sound.scratch({level, cutoff, resonance, roughness,
 // release, pan, synthetic})` while a finger slides on the pad, and
 // `sound.scratch(null)` (or level 0) when it lifts. One continuous voice, so
@@ -3325,6 +3349,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, sound, "update", JS_NewCFunction(ctx, js_sound_update, "update", 2));
     JS_SetPropertyStr(ctx, sound, "bpm", JS_NewCFunction(ctx, js_sound_bpm, "bpm", 1));
     JS_SetPropertyStr(ctx, sound, "scratch", JS_NewCFunction(ctx, js_sound_scratch, "scratch", 1));
+    JS_SetPropertyStr(ctx, sound, "duck", JS_NewCFunction(ctx, js_sound_duck, "duck", 2));
     JS_SetPropertyStr(ctx, sound, "time", JS_NewFloat64(ctx, rt->audio ? rt->audio->time : 0.0));
     JS_SetPropertyStr(ctx, sound, "registerSample", JS_NewCFunction(ctx, js_noop, "registerSample", 3));
 
@@ -4163,7 +4188,9 @@ static JSValue build_ws_obj(JSContext *ctx, const char *phase) {
     return ws_obj;
 }
 
-// system.fetch(url) — async HTTP GET via curl, result polled via system.fetchResult
+// system.fetch(url[, {stream: true}]) — async HTTP GET via curl, result polled
+// via system.fetchResult. With stream, curl writes unbuffered and may run up to
+// 90 s, and system.fetchPartial carries the body received so far.
 static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) return JS_UNDEFINED;
@@ -4171,18 +4198,25 @@ static JSValue js_fetch(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (current_rt->fetch_pending) return JS_FALSE;
     const char *url = JS_ToCString(ctx, argv[0]);
     if (!url) return JS_UNDEFINED;
+    int stream = 0;
+    if (argc > 1 && JS_IsObject(argv[1])) {
+        JSValue v = JS_GetPropertyStr(ctx, argv[1], "stream");
+        stream = JS_ToBool(ctx, v);
+        JS_FreeValue(ctx, v);
+    }
     unlink("/tmp/ac_fetch.json");
     unlink("/tmp/ac_fetch_rc");
     unlink("/tmp/ac_fetch_err");
     char cmd[2048];
-    ac_log("[fetch] start: %s\n", url);
+    ac_log("[fetch] start: %s%s\n", url, stream ? " (stream)" : "");
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -fsSL --retry 2 --retry-delay 1 --connect-timeout 5 --max-time 12 "
+        "sh -c 'curl -fsSL %s --retry 2 --retry-delay 1 --connect-timeout 5 --max-time %d "
         "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "--output /tmp/ac_fetch.json \"%s\" 2>/tmp/ac_fetch_err;"
-        " echo $? > /tmp/ac_fetch_rc' &", url);
+        " echo $? > /tmp/ac_fetch_rc' &", stream ? "-N" : "", stream ? 90 : 12, url);
     system(cmd);
     current_rt->fetch_pending = 1;
+    current_rt->fetch_stream = stream;
     current_rt->fetch_result[0] = 0;
     current_rt->fetch_error[0] = 0;
     JS_FreeCString(ctx, url);
@@ -4320,6 +4354,7 @@ static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, 
             current_rt->fetch_out[0] = 0;
         }
         current_rt->fetch_pending = 0;
+        current_rt->fetch_stream = 0;
         current_rt->fetch_result[0] = 0;
         current_rt->fetch_error[0] = 0;
     }
@@ -7149,16 +7184,27 @@ static JSValue build_system_diagnostics(JSContext *ctx) {
 
     JS_SetPropertyStr(ctx, sys, "battery", battery);
 
+    // Safe area — system.safe {top, left, right, bottom} in screen pixels:
+    // where a framed panel's rounded corners can't reach (ac-native.c).
+    {
+        extern int g_safe_top, g_safe_left, g_safe_right, g_safe_bottom;
+        JSValue safe = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, safe, "top", JS_NewInt32(ctx, g_safe_top));
+        JS_SetPropertyStr(ctx, safe, "left", JS_NewInt32(ctx, g_safe_left));
+        JS_SetPropertyStr(ctx, safe, "right", JS_NewInt32(ctx, g_safe_right));
+        JS_SetPropertyStr(ctx, safe, "bottom", JS_NewInt32(ctx, g_safe_bottom));
+        JS_SetPropertyStr(ctx, sys, "safe", safe);
+    }
+
     // Hardware info — system.hw (model, cpu, ram)
     {
         JSValue hw = JS_NewObject(ctx);
         char hbuf[256];
 
-        // Product name: /sys/class/dmi/id/product_name
-        if (read_sysfs("/sys/class/dmi/id/product_name", hbuf, sizeof(hbuf)) > 0)
-            JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, hbuf));
-        else
-            JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, "unknown"));
+        // Model: DMI product_name, or the devicetree model on Apple Silicon
+        JS_SetPropertyStr(ctx, hw, "model", JS_NewString(ctx, machine_model()));
+        // Which built-in keyboard row: "generic" | "minibook" | "apple"
+        JS_SetPropertyStr(ctx, hw, "keyboard", JS_NewString(ctx, machine_keys()->name));
 
         // Vendor: /sys/class/dmi/id/sys_vendor
         if (read_sysfs("/sys/class/dmi/id/sys_vendor", hbuf, sizeof(hbuf)) > 0)
@@ -7624,6 +7670,14 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "fetchCancel", JS_NewCFunction(ctx, js_fetch_cancel, "fetchCancel", 0));
     JS_SetPropertyStr(ctx, sys, "fetchPending",
                       JS_NewBool(ctx, current_rt ? current_rt->fetch_pending : 0));
+    if (current_rt && current_rt->fetch_pending && current_rt->fetch_stream) {
+        static char partial[8192];
+        int n = 0;
+        FILE *pf = fopen("/tmp/ac_fetch.json", "r");
+        if (pf) { n = (int)fread(partial, 1, sizeof(partial) - 1, pf); fclose(pf); }
+        partial[n] = 0;
+        JS_SetPropertyStr(ctx, sys, "fetchPartial", JS_NewString(ctx, partial));
+    }
     if (current_rt && current_rt->fetch_pending) {
         FILE *rc = fopen("/tmp/ac_fetch_rc", "r");
         if (rc) {
@@ -7677,6 +7731,7 @@ static JSValue build_system_obj(JSContext *ctx) {
                 }
             }
             current_rt->fetch_pending = 0;
+            current_rt->fetch_stream = 0;
         }
     }
     // Deliver fetch result only during paint phase (where JS consumes it)
