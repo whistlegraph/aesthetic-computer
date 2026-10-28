@@ -82,7 +82,7 @@ We landed in **Smart Contract Templates** because Milestone 4 is literally
 
 ### Final scope (as submitted)
 
-- **Applicant entity:** Aesthetic Inc (US C-corp, EIN 33-1483385).
+- **Applicant entity:** Aesthetic Inc (US C-corp).
 - **Ask:** USD $45,000, milestone-based, 5 milestones over ~14 weeks.
 - **Budget split:** ~47% contract work (M1–M3, $21k) · ~53% adoption / media /
   events (M4–M5, $24k) — deliberately weighted toward the artifacts that

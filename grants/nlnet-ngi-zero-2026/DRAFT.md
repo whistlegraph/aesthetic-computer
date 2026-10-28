@@ -5,7 +5,7 @@
 > **Deadline:** 2026-08-01, 12:00 CEST.
 > **Form:** https://nlnet.nl/propose/ — short, no word limits, plain
 > and technical. Fields filled top-to-bottom below.
-> **Applicant:** Aesthetic Inc (US C-corp, EIN 33-1483385).
+> **Applicant:** Aesthetic Inc (US C-corp).
 > **Draft v0 — engineering register. Lead with the language + protocol
 > as infrastructure; art is the motivating example, never the ask.**
 
@@ -15,7 +15,7 @@
 
 - [x] No categorical exclusion of applicant type — companies eligible
 - [x] Applicant is a legal entity: **Aesthetic Inc**, US C-corp,
-      EIN 33-1483385
+      EIN in the vault
 - [x] Project results ship under a recognised FOSS license — repo is
       **ISC** today; new spec/docs under CC-BY-4.0 / CC0
 - [x] Open standards / interoperability — deliverable IS a spec
@@ -36,7 +36,7 @@
 - **Your name:** Jeffrey Alan Scudder (ORCID 0009-0007-4460-4913)
 - **Email:** mail@aesthetic.computer
 - **Phone:** *(TODO — jeffrey)*
-- **Organisation:** Aesthetic Inc (US C-corp, EIN 33-1483385)
+- **Organisation:** Aesthetic Inc (US C-corp)
 - **Country:** United States *(with a clear European/global dimension —
   see Ecosystem)*
 - **Please select a call:** **Restack**
