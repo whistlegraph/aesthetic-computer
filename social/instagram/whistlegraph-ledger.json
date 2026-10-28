@@ -72,18 +72,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-21/19-17-08/soda-remaster.mp4"
       },
       "insights": {
-        "views": 694589,
+        "views": 694680,
         "reach": 366409,
         "likes": 2742,
-        "comments": 19,
-        "saved": 376,
+        "comments": 18,
+        "saved": 377,
         "shares": 303,
         "total_interactions": 3705,
         "ig_reels_avg_watch_time": 18179,
-        "ig_reels_video_view_total_time": 7026276074,
+        "ig_reels_video_view_total_time": 7027078335,
         "reels_skip_rate": 14.3
       },
-      "insightsAt": "2026-10-28T19:55:46.833Z"
+      "insightsAt": "2026-10-28T21:54:25.538Z"
     },
     {
       "mediaId": "18079482674542442",
@@ -142,18 +142,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-25/06-25-59/boo-remaster.mp4"
       },
       "insights": {
-        "views": 33233,
-        "reach": 20314,
+        "views": 33240,
+        "reach": 20317,
         "likes": 87,
         "comments": 6,
         "saved": 9,
         "shares": 1,
         "total_interactions": 110,
         "ig_reels_avg_watch_time": 18509,
-        "ig_reels_video_view_total_time": 383702391,
+        "ig_reels_video_view_total_time": 383786331,
         "reels_skip_rate": 14.7
       },
-      "insightsAt": "2026-10-28T19:55:50.243Z"
+      "insightsAt": "2026-10-28T21:54:26.473Z"
     },
     {
       "mediaId": "18110159474138805",
@@ -169,18 +169,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-28/17-29-33/pofu-remaster.mp4"
       },
       "insights": {
-        "views": 6094,
-        "reach": 3538,
-        "likes": 21,
+        "views": 8382,
+        "reach": 4811,
+        "likes": 26,
         "comments": 0,
-        "saved": 5,
+        "saved": 7,
         "shares": 0,
-        "total_interactions": 28,
-        "ig_reels_avg_watch_time": 19499,
-        "ig_reels_video_view_total_time": 70001943,
-        "reels_skip_rate": 15.2
+        "total_interactions": 36,
+        "ig_reels_avg_watch_time": 20107,
+        "ig_reels_video_view_total_time": 99410748,
+        "reels_skip_rate": 14.6
       },
-      "insightsAt": "2026-10-28T19:55:51.467Z"
+      "insightsAt": "2026-10-28T21:54:26.949Z"
     },
     {
       "mediaId": "18127886977861755",
@@ -222,7 +222,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-28/20-55-34/pump-master-v4-B.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 1281,
+        "reach": 128,
+        "likes": 11,
+        "comments": 0,
+        "saved": 1,
+        "shares": 0,
+        "total_interactions": 13,
+        "ig_reels_avg_watch_time": 14446,
+        "ig_reels_video_view_total_time": 1849169,
+        "reels_skip_rate": 4.2
+      },
+      "insightsAt": "2026-10-28T21:54:27.914Z"
     }
   ]
 }
