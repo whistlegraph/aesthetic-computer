@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # spatial-subs.py — whistlegraph reels with words that sit on the paper.
 #
-#   python3 spatial-subs.py subs/pmpk.json            # → downloads/<code>-subs.mp4 (gitignored)
-#   python3 spatial-subs.py subs/pmpk.json --sheet    # + contact sheet
-#   python3 spatial-subs.py subs/pmpk.json --out x.mp4 --audio master.wav
+#   python3 spatial-subs.py subs/pump.json            # → downloads/<code>-subs.mp4 (gitignored)
+#   python3 spatial-subs.py subs/pump.json --sheet    # + contact sheet
+#   python3 spatial-subs.py subs/pump.json --out x.mp4 --audio master.wav
 #
 # The Scared of Stairs trial (10-20) set the look: each sung word appears
 # beside a drawing in that pen's ink colour, the phrase builds word by word,
