@@ -32,10 +32,14 @@ const origins = {
   whistlegraph: { name: "Whistlegraph", url: "https://whistlegraph.app/" },
 };
 
+// The podcast's daily episode $codes (marketing/podcast/bin/daily-token.mjs:
+// readalong, crawl and rich-text renderers) are releases, not posts.
+export const DAILY_EPISODE = /^\(wipe [^)\n]*\)\n(\(def episode \(fetch "https:\/\/ipfs\.aesthetic\.computer\/ipfs\/|\(def crawl_start \(clock\)\)|\(flow\n {2}\(heading )/;
+
 function sourceVisibility(kind) {
   if (kind === "whistlegraph") return { ...visible, status: "minted",
     artifactUri: { $regex: ipfsPattern }, tokenId: { $type: "string", $regex: /^\d+$/ } };
-  return { ...visible, ...(kind === "kidlisp" ? { source: nonempty } : { slug: nonempty }) };
+  return { ...visible, ...(kind === "kidlisp" ? { source: { ...nonempty, $not: DAILY_EPISODE } } : { slug: nonempty }) };
 }
 
 export function packedMediaUrl(uri) {
