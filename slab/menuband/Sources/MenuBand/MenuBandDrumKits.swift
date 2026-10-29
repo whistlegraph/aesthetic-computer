@@ -52,6 +52,9 @@ extension MenuBandPercussion {
     /// Pads in zone order, center out: kick, tom, snare, hat, click.
     struct KitSpec {
         let pads: [KitPad]
+        /// Optional per-key sounds in `Drum` order. When present the keyboard
+        /// plays these instead of folding its twelve keys onto five pads.
+        var keys: [KitPad] = []
     }
 
     static func spec(for kit: DrumKit) -> KitSpec? {
@@ -60,6 +63,7 @@ extension MenuBandPercussion {
         case .electro: return electro
         case .salamander: return salamander
         case .handPercussion: return handPercussion
+        case .cc: return MenuBandCCDrums.spec
         }
     }
 
@@ -80,6 +84,12 @@ extension MenuBandPercussion {
                 NSLog("MenuBand: missing drum sample %@", name)
                 return nil
             }
+            return load(url: url)
+        }
+
+        /// Any format AVAudioFile decodes (wav, aiff, mp3, ogg …).
+        static func load(url: URL) -> RecordedHit? {
+            let name = url.lastPathComponent
             do {
                 let file = try AVAudioFile(forReading: url)
                 guard file.length > 1, file.length <= 4_800_000,
@@ -202,8 +212,15 @@ extension MenuBandPercussion {
     func keyboardKitVoices(for drum: Drum, velocity: Double, pan: Double) -> [Voice]? {
         let selected = kit
         guard let spec = Self.spec(for: selected) else { return nil }
+        let gains = padGains(for: selected)
+        if spec.keys.count == Drum.allCases.count {
+            // Key gains follow the pad gains in `padGains`.
+            let gain = gains[spec.pads.count + drum.rawValue]
+            return padVoices(spec.keys[drum.rawValue], gain: gain * velocity, pan: pan,
+                             accent: max(0, min(1, velocity - 0.5)))
+        }
         let index = Self.keyboardPadIndex(for: drum, kit: selected)
-        let gain = padGains(for: selected)[index]
+        let gain = gains[index]
         return padVoices(spec.pads[index], gain: gain * velocity, pan: pan,
                          accent: max(0, min(1, velocity - 0.5)))
     }
@@ -330,15 +347,18 @@ extension MenuBandPercussion {
     // MARK: Loudness matching
 
     /// Per-pad linear gains that put every pad on its role's reference
-    /// loudness. Computed once per kit per sample rate, off the audio thread.
+    /// loudness — the trackpad pads, then any per-key sounds. Computed once
+    /// per kit per sample rate, off the audio thread.
     func padGains(for kit: DrumKit) -> [Double] {
         guard let spec = Self.spec(for: kit) else { return [] }
         Self.gainLock.lock()
         defer { Self.gainLock.unlock() }
-        let key = "\(kit.rawValue)@\(Int(sampleRate))"
+        // The cc kit's sound changes with its family, so the family keys it too.
+        let family = kit == .cc ? (MenuBandCCDrums.loadedFamily ?? "") : ""
+        let key = "\(kit.rawValue)\(family)@\(Int(sampleRate))"
         if let cached = Self.gainCache[key] { return cached }
         let targets = roleTargets()
-        let gains = spec.pads.map { pad -> Double in
+        let gains = (spec.pads + spec.keys).map { pad -> Double in
             let measured = averagedLoudness(of: pad)
             let target = targets[pad.role] ?? -20
             return pow(10, (target + pad.trimDB - measured) / 20)

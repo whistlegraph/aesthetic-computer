@@ -1466,6 +1466,16 @@ final class MenuBandController {
         onChange?()
     }
 
+    /// Pick a family from Will's cc library; the kit switches to it once its
+    /// hits are downloaded (instantly when they're already cached).
+    func selectCCDrumFamily(_ name: String) {
+        debugLog("cc drum family = \(name)")
+        MenuBandCCDrums.select(name) { [weak self] ready in
+            guard let self, ready, MenuBandCCDrums.family == name else { return }
+            self.selectDrumKit(.cc)
+        }
+    }
+
     func trackpadSynthSurface(strike: CGPoint, anchors: [CGPoint], velocity: UInt8) {
         mixAnalysis.mark("synth-\(MenuBandPercussion.drumSkinZone(at: strike).rawValue)")
         synth.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
@@ -2722,6 +2732,7 @@ final class MenuBandController {
         synth.setPercussionVolume(percussionVolume)
         synth.percussion.kit = drumKit
         MenuBandPercussion.DrumKit.current = drumKit
+        MenuBandCCDrums.start()
         synth.setTonesVolume(tonesVolume)
         synth.setMonitorGain(monitorGain)
         // Studio reflex: a Focusrite on the bus means "monitor me". Checked

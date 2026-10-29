@@ -33,6 +33,11 @@ enum TrackDrumKitArt {
             return dark
                 ? [0x63382A, 0x875034, 0xA36943, 0x455F46, 0x947749].map { rgb($0) }
                 : [0xAE6445, 0xD28A54, 0xE8B377, 0x7BA379, 0xC4A264].map { rgb($0) }
+        case .cc:
+            // Will's library: cool sample-pad greys with one hot ring.
+            return dark
+                ? [0x2E3440, 0x434C5E, 0x8F1D3A, 0x4C566A, 0x5E6B80].map { rgb($0) }
+                : [0x8A93A6, 0xA7B0C2, 0xE04466, 0xC0C8D8, 0xD8DEE9].map { rgb($0) }
         }
     }
 
@@ -42,6 +47,7 @@ enum TrackDrumKitArt {
         case .electro: return dark ? rgb(0x0A0A14) : rgb(0x18182A)
         case .salamander: return rgb(0x332C25)
         case .handPercussion: return rgb(0x3F2A20)
+        case .cc: return dark ? rgb(0x15171C) : rgb(0x23262E)
         }
     }
 
