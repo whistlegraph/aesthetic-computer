@@ -72,18 +72,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-21/19-17-08/soda-remaster.mp4"
       },
       "insights": {
-        "views": 694680,
-        "reach": 366409,
-        "likes": 2742,
+        "views": 696602,
+        "reach": 366887,
+        "likes": 2753,
         "comments": 18,
-        "saved": 377,
-        "shares": 303,
-        "total_interactions": 3705,
+        "saved": 378,
+        "shares": 305,
+        "total_interactions": 3719,
         "ig_reels_avg_watch_time": 18179,
-        "ig_reels_video_view_total_time": 7027078335,
+        "ig_reels_video_view_total_time": 7046155220,
         "reels_skip_rate": 14.3
       },
-      "insightsAt": "2026-10-28T21:54:36.392Z"
+      "insightsAt": "2026-10-29T17:17:01.081Z"
     },
     {
       "mediaId": "18079482674542442",
@@ -142,18 +142,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-25/06-25-59/boo-remaster.mp4"
       },
       "insights": {
-        "views": 33240,
-        "reach": 20317,
+        "views": 33265,
+        "reach": 20334,
         "likes": 87,
         "comments": 6,
         "saved": 9,
         "shares": 1,
         "total_interactions": 110,
-        "ig_reels_avg_watch_time": 18509,
-        "ig_reels_video_view_total_time": 383786331,
+        "ig_reels_avg_watch_time": 18510,
+        "ig_reels_video_view_total_time": 384107609,
         "reels_skip_rate": 14.7
       },
-      "insightsAt": "2026-10-28T21:54:37.482Z"
+      "insightsAt": "2026-10-29T17:17:15.235Z"
     },
     {
       "mediaId": "18110159474138805",
@@ -169,18 +169,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-28/17-29-33/pofu-remaster.mp4"
       },
       "insights": {
-        "views": 8382,
-        "reach": 4811,
-        "likes": 26,
-        "comments": 0,
-        "saved": 7,
-        "shares": 0,
-        "total_interactions": 36,
-        "ig_reels_avg_watch_time": 20107,
-        "ig_reels_video_view_total_time": 99410748,
-        "reels_skip_rate": 14.6
+        "views": 21664,
+        "reach": 11258,
+        "likes": 68,
+        "comments": 1,
+        "saved": 20,
+        "shares": 3,
+        "total_interactions": 98,
+        "ig_reels_avg_watch_time": 22011,
+        "ig_reels_video_view_total_time": 269050495,
+        "reels_skip_rate": 12.4
       },
-      "insightsAt": "2026-10-28T21:54:37.864Z"
+      "insightsAt": "2026-10-29T17:17:29.951Z"
     },
     {
       "mediaId": "18127886977861755",
@@ -223,18 +223,33 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-28/20-55-34/pump-master-v4-B.mp4"
       },
       "insights": {
-        "views": 1281,
-        "reach": 128,
-        "likes": 11,
+        "views": 36178,
+        "reach": 24155,
+        "likes": 71,
         "comments": 0,
-        "saved": 1,
-        "shares": 0,
-        "total_interactions": 13,
-        "ig_reels_avg_watch_time": 14446,
-        "ig_reels_video_view_total_time": 1849169,
-        "reels_skip_rate": 4.1
+        "saved": 15,
+        "shares": 5,
+        "total_interactions": 100,
+        "ig_reels_avg_watch_time": 20041,
+        "ig_reels_video_view_total_time": 492581105,
+        "reels_skip_rate": 13.9
       },
-      "insightsAt": "2026-10-28T21:54:38.555Z"
+      "insightsAt": "2026-10-29T17:17:45.843Z"
+    },
+    {
+      "mediaId": "17908040850577847",
+      "containerId": "18639399997050687",
+      "publishedAt": "2026-10-29T17:38:33.490Z",
+      "permalink": "https://www.instagram.com/reel/DfFj4alD4nM/",
+      "caption": "boo",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/be9cdd12-0546-4d68-8a94-1af54dc78259/scratchpad/reel/boo-morose-B.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-29/17-36-34/boo-morose-B.mp4"
+      },
+      "insights": null
     }
   ]
 }
