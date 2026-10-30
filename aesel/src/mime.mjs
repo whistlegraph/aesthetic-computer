@@ -22,7 +22,7 @@ const TYPES = {
   mp4: "video/mp4", m4v: "video/mp4", mov: "video/quicktime", webm: "video/webm",
   nes: "application/x-nes-rom",
   pdf: "application/pdf", zip: "application/zip", json: "application/json", wasm: "application/wasm",
-  txt: "text/plain", md: "text/markdown", html: "text/html", css: "text/css",
+  txt: "text/plain", md: "text/markdown", csv: "text/csv", html: "text/html", css: "text/css",
   js: "text/javascript", mjs: "text/javascript", lisp: "text/x-lisp", lua: "text/x-lua",
   ttf: "font/ttf", otf: "font/otf", woff: "font/woff", woff2: "font/woff2",
 };

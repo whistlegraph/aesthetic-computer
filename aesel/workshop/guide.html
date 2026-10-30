@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Harness Factory Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single reading column on aesel.app's pencil-paper ground; one interactive builder in the middle; the route as a checklist. */
+:root{
+  --paper:#fcf0e9; --sheet:#fffaf6; --ink:#393047; --soft:#6a5a73; --line:#e3d3df;
+  --purple:#79568b; --pink:#f3c4d8; --wash:#f1e6f4; --ok:#3f7a4f; --code:#2f2638; --codefg:#f6e9f1;
+  --display:"Silkscreen",ui-monospace,monospace;
+  --body:"Atkinson Hyperlegible",-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#1d1822; --sheet:#262029; --ink:#efe4ef; --soft:#bba9c2; --line:#3d3343;
+  --purple:#c49ad6; --pink:#6b3a52; --wash:#2e2535; --ok:#7cc48e; --code:#120e16; --codefg:#f6e9f1; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#1d1822; --sheet:#262029; --ink:#efe4ef; --soft:#bba9c2; --line:#3d3343;
+  --purple:#c49ad6; --pink:#6b3a52; --wash:#2e2535; --ok:#7cc48e; --code:#120e16; --codefg:#f6e9f1; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:17px/1.6 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 64px}
+main{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2{font-family:var(--display);font-weight:400;color:var(--purple);text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,7vw,56px);line-height:1.05}
+h2{font-size:24px;line-height:1.2}
+h3{font-size:17px;margin:0}
+p{margin:0}
+section{display:flex;flex-direction:column;gap:16px}
+.lede{font-size:20px;color:var(--soft);max-width:62ch}
+.eyebrow{font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
+code{font-family:var(--mono);font-size:.86em;background:var(--wash);padding:1px 5px;border-radius:4px}
+pre{margin:0;background:var(--code);color:var(--codefg);font:13.5px/1.55 var(--mono);padding:14px 16px;border-radius:10px;overflow-x:auto}
+pre code{background:none;padding:0;font-size:inherit;color:inherit}
+a{color:var(--purple);text-underline-offset:3px}
+
+/* the one-sentence idea */
+.equation{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font:600 15px var(--mono)}
+.equation span{padding:8px 12px;border:2px solid var(--line);border-radius:999px;background:var(--sheet)}
+.equation .goal{border-color:var(--purple);color:var(--purple)}
+.equation i{font-style:normal;color:var(--soft)}
+
+/* run anatomy */
+.flow{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0}
+.flow li{display:grid;grid-template-columns:34px 1fr;gap:14px;padding:12px 0;border-top:1px dashed var(--line)}
+.flow li:first-child{border-top:0}
+.flow b{font:400 14px var(--display);color:var(--purple);padding-top:2px}
+.flow p{color:var(--soft)}
+.flow strong{color:var(--ink)}
+
+/* builder */
+.builder{background:var(--sheet);border:2px solid var(--line);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:18px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip label{display:inline-flex;gap:6px;align-items:center;cursor:pointer;padding:7px 12px;border:2px solid var(--line);border-radius:999px;font:14px var(--mono);user-select:none}
+.chip input:checked+label{border-color:var(--purple);background:var(--wash);color:var(--purple);font-weight:600}
+.chip input:focus-visible+label{outline:3px solid var(--purple);outline-offset:2px}
+.how{padding:12px 14px;border-left:4px solid var(--purple);background:var(--wash);border-radius:0 8px 8px 0;color:var(--ink)}
+.out{display:grid;gap:10px}
+.out .label{font:600 12px var(--mono);color:var(--soft)}
+.copyrow{display:flex;justify-content:flex-end}
+button{font:600 13px var(--mono);color:var(--purple);background:transparent;border:2px solid var(--purple);border-radius:999px;padding:5px 12px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--purple);outline-offset:2px}
+
+/* route */
+.route{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.route li{display:grid;grid-template-columns:auto 64px 1fr;gap:12px;align-items:start;background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:14px}
+.route input{width:20px;height:20px;margin-top:3px;accent-color:var(--purple)}
+.route time{font:600 14px var(--mono);color:var(--purple);font-variant-numeric:tabular-nums;padding-top:1px}
+.route .body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.route .body p{color:var(--soft)}
+.route li.done{opacity:.55}
+.route li.done h3{text-decoration:line-through}
+.progress{font:600 13px var(--mono);color:var(--soft)}
+
+/* tables */
+.table{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 12px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--soft)}
+td code{white-space:nowrap}
+.note{font-size:15px;color:var(--soft)}
+.limits{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.limits div{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--sheet);display:flex;flex-direction:column;gap:6px}
+.limits b{font-size:15px}
+.limits span{font-size:14.5px;color:var(--soft)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:520px){.route li{grid-template-columns:auto 1fr}.route time{grid-column:2}.route .body{grid-column:2}}
+</style>
+</head>
+<body>
+
+<main>
+<header style="display:flex;flex-direction:column;gap:14px">
+  <p class="eyebrow">aesel · <code>ac harness</code> · UCLA workshop</p>
+  <h1>Harness Factory</h1>
+  <p class="lede">Students write a small tool that takes something in, like words, a photo or a file, and makes one kind of media. In 90 minutes they write one, run it, fix it after watching it fail, and post what it made to mime.ac.</p>
+</header>
+
+<section aria-labelledby="idea">
+  <h2 id="idea">The whole idea</h2>
+  <div class="equation" aria-label="inputs plus prompt plus model, then checks, make one MIME type">
+    <span>inputs</span><i>+</i><span>prompt.md</span><i>+</i><span>a model</span><i>→</i><span>checks</span><i>→</i><span class="goal">one MIME type</span>
+  </div>
+  <p>That is Aesel's own idea at classroom size. Aesel always shows which kind of media you're making. A factory harness picks one kind, its <strong>output goal</strong>, and everything else follows from it: the file extension, the format rules the model gets, the checks the result must pass, and how the model's answer becomes a file.</p>
+  <p>Claude Code, Aesel and every other agent tool have the same parts, only bigger. When students write a <code>prompt.md</code> and a <code>check.mjs</code>, they are doing what the people who build those tools do.</p>
+</section>
+
+<section aria-labelledby="folder">
+  <h2 id="folder">A harness is a folder</h2>
+<pre><code>my-harness/
+  harness.json   { "name": "my-harness",
+                   "inputs": ["text", "image"],
+                   "output": "image/svg+xml" }
+  prompt.md      what it knows and how it decides  ← the part students write
+  check.mjs      optional: export default ({ text }) => [problems]
+  runs/          every run: inputs, the model's full answer, the file it made</code></pre>
+</section>
+
+<section aria-labelledby="run">
+  <h2 id="run">What happens when you run one</h2>
+  <ol class="flow">
+    <li><b>1</b><p><strong>Inputs are packed.</strong> Words go in as text. Photos (jpg, heic, png) become a PNG of at most 768 px. Text files are read in as words. An input the harness didn't list in <code>harness.json</code> is refused.</p></li>
+    <li><b>2</b><p><strong>The system prompt is built.</strong> The student's <code>prompt.md</code> comes first, then the format rules for the output goal, such as "one standalone SVG inside an svg block". The student writes the taste; the factory adds the format.</p></li>
+    <li><b>3</b><p><strong>AC hosted inference answers.</strong> It uses Claude Sonnet 5.5 by default and is paid in braincells on the student's own @handle. Nothing else needs installing.</p></li>
+    <li><b>4</b><p><strong>The answer is checked.</strong> Built-in checks for the type run first (the JSON parses, the SVG is complete, KidLisp's parentheses balance, the score plays), then the harness's own <code>check.mjs</code>.</p></li>
+    <li><b>5</b><p><strong>One repair round.</strong> If a check fails, the problems go back to the model and it gets one more try. The terminal shows <code>repairing: …</code>.</p></li>
+    <li><b>6</b><p><strong>The file is made</strong> in <code>runs/&lt;time&gt;/output.&lt;ext&gt;</code>. For most types the answer <em>is</em> the file. For PNG the model writes an image prompt and an image model paints it. For WAV the model writes a score and the laptop synthesizes it.</p></li>
+    <li><b>7</b><p><strong><code>ac harness post</code></strong> puts it on mime.ac, on the board for its MIME type, so the class's SVGs end up together and the WAVs end up together.</p></li>
+  </ol>
+</section>
+
+<section aria-labelledby="try">
+  <h2 id="try">Build one here</h2>
+  <p>Pick the inputs and an output goal. The commands below update to match.</p>
+  <div class="builder">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="eyebrow">inputs</span>
+      <div class="row" id="inputs">
+        <div class="chip"><input type="checkbox" id="in-text" value="text" checked><label for="in-text">✎ text</label></div>
+        <div class="chip"><input type="checkbox" id="in-image" value="image"><label for="in-image">🖼 image</label></div>
+        <div class="chip"><input type="checkbox" id="in-file" value="file"><label for="in-file">📄 file</label></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <span class="eyebrow">output goal</span>
+      <div class="row" id="outputs"></div>
+    </div>
+    <p class="how" id="how"></p>
+    <div class="out">
+      <span class="label">make it, write prompt.md, run it, post it</span>
+      <pre><code id="cmds"></code></pre>
+      <div class="copyrow"><button type="button" id="copy">Copy commands</button></div>
+      <span class="label">harness.json</span>
+      <pre><code id="manifest"></code></pre>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="starters">
+  <h2 id="starters">Six starters</h2>
+  <p>Copy one with <code>ac harness new my-copy --from &lt;starter&gt;</code>, then change its <code>prompt.md</code>.</p>
+  <div class="table"><table>
+    <thead><tr><th scope="col">starter</th><th scope="col">in → out</th><th scope="col">what it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>haiku-cam</code></td><td>image + text → <code>text/plain</code></td><td>a photo becomes a haiku about what's just outside the frame; its <code>check.mjs</code> requires three lines</td></tr>
+      <tr><td><code>poster</code></td><td>text → <code>image/svg+xml</code></td><td>an event becomes a Swiss-style typographic poster</td></tr>
+      <tr><td><code>zine</code></td><td>text + image + file → <code>text/html</code></td><td>the multimodal one: notes, a photo and a file become a one-page web zine</td></tr>
+      <tr><td><code>hum</code></td><td>text → <code>audio/wav</code></td><td>a feeling or place becomes 8–16 bars of music</td></tr>
+      <tr><td><code>kidlisp</code></td><td>text → <code>text/x-lisp</code></td><td>a sentence becomes a KidLisp piece to paste into aesthetic.computer</td></tr>
+      <tr><td><code>sticker</code></td><td>text + image → <code>image/png</code></td><td>the model art-directs and an image model paints a die-cut sticker</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section aria-labelledby="route">
+  <h2 id="route">The 90-minute route</h2>
+  <p class="progress" id="progress" aria-live="polite"></p>
+  <ol class="route" id="routeList">
+    <li><input type="checkbox" id="r0" aria-label="Done: install and sign in"><time>0:00</time><div class="body"><h3>Install and sign in · 10 min</h3>
+<pre><code>curl -fsSL https://prompt.ac/aesel.sh | sh
+ac login
+ac whoami</code></pre></div></li>
+    <li><input type="checkbox" id="r1" aria-label="Done: run someone else's harness"><time>0:10</time><div class="body"><h3>Run someone else's harness · 10 min</h3><p>Everyone runs <code>poster</code> on their own event. Put three results on the projector. Same harness, same model, different posters: why?</p>
+<pre><code>mkdir workshop &amp;&amp; cd workshop
+ac harness new poster --from poster
+ac harness run poster "rooftop karaoke, friday, 9pm"</code></pre></div></li>
+    <li><input type="checkbox" id="r2" aria-label="Done: read a harness"><time>0:20</time><div class="body"><h3>Read a harness · 10 min</h3><p>A dry run prints exactly what the model is told and spends nothing. Show the seam: the student's <code>prompt.md</code> on top, the factory's format rules underneath.</p>
+<pre><code>ac harness run poster "rooftop karaoke" --dry</code></pre></div></li>
+    <li><input type="checkbox" id="r3" aria-label="Done: change one thing"><time>0:30</time><div class="body"><h3>Change one thing · 15 min</h3><p>Edit <code>prompt.md</code>: a rule, a palette, a persona. Run it again and compare the two <code>runs/</code> folders. Then pair up and run each other's harness.</p></div></li>
+    <li><input type="checkbox" id="r4" aria-label="Done: make your own"><time>0:45</time><div class="body"><h3>Make your own · 25 min</h3><p>Pick an input and output pair no starter covers. <code>new</code> writes a <code>prompt.md</code> outline with the inputs and goal filled in. Then try an input meant to break it.</p>
+<pre><code>ac harness new receipt-poem --in image --out text/plain
+ac harness new mood-chord   --in text  --out audio/wav</code></pre></div></li>
+    <li><input type="checkbox" id="r5" aria-label="Done: add a check"><time>1:10</time><div class="body"><h3>Add a check · 10 min</h3><p>A check makes a harness stricter without retraining anything. Whatever it returns goes back to the model for one fix.</p>
+<pre><code>// check.mjs
+export default function check({ text }) {
+  return text.length &gt; 280 ? ["Keep it under 280 characters."] : [];
+}</code></pre></div></li>
+    <li><input type="checkbox" id="r6" aria-label="Done: post and show"><time>1:20</time><div class="body"><h3>Post and show · 10 min</h3><p>Each post lands on its MIME type's board. Walk the boards on mime.ac on the projector.</p>
+<pre><code>ac harness post my-harness "a caption"</code></pre></div></li>
+  </ol>
+</section>
+
+<section aria-labelledby="before">
+  <h2 id="before">Before class</h2>
+  <div class="limits">
+    <div><b>Handles</b><span>Every student needs an aesthetic.computer account with a claimed @handle. Runs are paid in braincells on that handle; plan on about 20 runs each.</span></div>
+    <div><b>5 PNGs a day</b><span><code>image/png</code> goals use the hosted image model, which allows 5 images per handle per day. Demo <code>sticker</code> yourself.</span></div>
+    <div><b>Wi-Fi</b><span>Try a run on the room's network beforehand. A dropped connection is retried once.</span></div>
+    <div><b>What can go in</b><span>Words and pictures only. No audio, video or PDF input yet; a <code>file</code> input must be text.</span></div>
+  </div>
+</section>
+
+<section aria-labelledby="where">
+  <h2 id="where">Where it lives in the repo</h2>
+  <div class="table"><table>
+    <tbody>
+      <tr><td><code>aesel/workshop/README.md</code></td><td>the full teacher's guide (this page is the walkthrough)</td></tr>
+      <tr><td><code>aesel/workshop/starters/</code></td><td>the six starters</td></tr>
+      <tr><td><code>aesel/src/harness-factory.mjs</code></td><td>output goals, input packing, checks, the run loop</td></tr>
+      <tr><td><code>aesel/src/harness-cli.mjs</code></td><td><code>ac harness list · new · run · post</code></td></tr>
+      <tr><td><code>aesel/src/wav-score.mjs</code></td><td>the tiny synth that turns a score into a WAV</td></tr>
+      <tr><td><code>aesel/test/harness-factory.test.mjs</code></td><td>12 tests</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Going further: <code>--model deepseek/deepseek-v4.1-flash</code> runs the same harness much more cheaply, which makes a good comparison. Aesel's own harness is in <code>aesel/harness/*.md</code>, the same idea at full size.</p>
+</section>
+</main>
+
+<script>
+const GOALS = {
+  "text/plain":      { g:"✎", ext:"txt",  how:"The model writes the words; the file is its answer." },
+  "text/markdown":   { g:"📝", ext:"md",   how:"The model writes a Markdown document." },
+  "text/html":       { g:"🌐", ext:"html", how:"The model writes one self-contained web page that opens straight from disk." },
+  "image/svg+xml":   { g:"🖼", ext:"svg",  how:"The model writes a standalone SVG. Built-in check: it must be a complete <svg> document." },
+  "application/json":{ g:"🧾", ext:"json", how:"The model writes JSON. Built-in check: it has to parse." },
+  "text/csv":        { g:"📊", ext:"csv",  how:"The model writes a table with a header row." },
+  "text/x-lisp":     { g:"🎨", ext:"lisp", how:"The model writes a KidLisp piece. Built-in check: balanced parentheses. Paste it into aesthetic.computer to play it." },
+  "text/javascript": { g:"🎮", ext:"mjs",  how:"The model writes an Aesthetic Computer piece. Built-in checks: no imports, exports paint. Publish it with ac publish." },
+  "image/png":       { g:"🖼", ext:"png",  how:"Two steps: the model art-directs by writing an image prompt, then the hosted image model paints it. Counts toward 5 images a day." },
+  "audio/wav":       { g:"🔊", ext:"wav",  how:"Two steps: the model writes a score as JSON notes, then a small synth on your laptop turns it into a WAV of up to 60 seconds." }
+};
+const NAMES = { "text/plain":"receipt-poem", "text/markdown":"field-notes", "text/html":"fridge-zine", "image/svg+xml":"diary-chart",
+  "application/json":"closet-index", "text/csv":"snack-ledger", "text/x-lisp":"weather-loop", "text/javascript":"tiny-game",
+  "image/png":"pet-sticker", "audio/wav":"mood-chord" };
+const outputs = document.getElementById("outputs");
+let goal = "image/svg+xml";
+Object.entries(GOALS).forEach(([mime, o], i) => {
+  const d = document.createElement("div"); d.className = "chip";
+  d.innerHTML = `<input type="radio" name="goal" id="out-${i}" value="${mime}" ${mime === goal ? "checked" : ""}><label for="out-${i}">${o.g} ${mime}</label>`;
+  outputs.append(d);
+});
+function inputs() { return [...document.querySelectorAll("#inputs input:checked")].map((x) => x.value); }
+function render() {
+  let ins = inputs();
+  if (!ins.length) { document.getElementById("in-text").checked = true; ins = ["text"]; }
+  const name = NAMES[goal];
+  const args = ins.map((i) => i === "text" ? '"something to make"' : i === "image" ? "--image photo.jpg" : "--file notes.md").join(" ");
+  document.getElementById("how").textContent = GOALS[goal].how;
+  document.getElementById("cmds").textContent =
+`ac harness new ${name} --in ${ins.join(",")} --out ${goal}
+# now write ${name}/prompt.md: who it is, what makes a good one
+ac harness run ${name} ${args} --dry     # see the prompt, spend nothing
+ac harness run ${name} ${args}
+# → ${name}/runs/<time>/output.${GOALS[goal].ext}
+ac harness post ${name}`;
+  document.getElementById("manifest").textContent = JSON.stringify({ name, inputs: ins, output: goal }, null, 2);
+}
+document.getElementById("inputs").addEventListener("change", render);
+outputs.addEventListener("change", (e) => { goal = e.target.value; render(); });
+document.getElementById("copy").addEventListener("click", async (e) => {
+  const text = document.getElementById("cmds").textContent;
+  try { await navigator.clipboard.writeText(text); e.target.textContent = "Copied"; }
+  catch { const r = document.createRange(); r.selectNodeContents(document.getElementById("cmds")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); e.target.textContent = "Selected; press ⌘C"; }
+  setTimeout(() => (e.target.textContent = "Copy commands"), 1800);
+});
+render();
+
+// The route remembers your checkmarks in this browser only.
+const boxes = [...document.querySelectorAll("#routeList input")];
+let saved = [];
+try { saved = JSON.parse(localStorage.getItem("route") || "[]"); } catch {}
+function progress() {
+  const done = boxes.filter((b) => b.checked).length;
+  boxes.forEach((b) => b.closest("li").classList.toggle("done", b.checked));
+  document.getElementById("progress").textContent = `${done} of ${boxes.length} steps done`;
+  try { localStorage.setItem("route", JSON.stringify(boxes.map((b) => b.checked))); } catch {}
+}
+boxes.forEach((b, i) => { b.checked = !!saved[i]; b.addEventListener("change", progress); });
+progress();
+</script>
+</body>
+</html>

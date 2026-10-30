@@ -1,0 +1,6 @@
+{
+  "name": "kidlisp",
+  "description": "a sentence becomes a KidLisp piece you can play on aesthetic.computer",
+  "inputs": ["text"],
+  "output": "text/x-lisp"
+}

@@ -1,0 +1,6 @@
+{
+  "name": "zine",
+  "description": "notes, a photo and a text file become a one-page web zine",
+  "inputs": ["text", "image", "file"],
+  "output": "text/html"
+}
