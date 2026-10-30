@@ -20,4 +20,10 @@
 @media(max-width:600px){.lede{font-size:17px}.band{margin-top:64px}.band h2{font-size:36px}.cards,.engines{grid-template-columns:1fr}.terminal{white-space:normal;word-break:break-all;font-size:13px}.formats thead{display:none}.formats,.formats tbody,.formats tr,.formats th,.formats td{display:block}.formats tr{padding:12px 0;border-top:1px solid var(--line)}.formats tbody th,.formats td{border-top:0;padding:2px 0}.formats td code{font-size:11px}}
 .hero{padding-top:28px}.hero-art{display:block;width:min(360px,78vw);height:auto;margin:0 auto -8px}
 @media(max-width:600px){.hero-art{width:min(300px,80vw)}}
+.easel{position:relative;width:min(420px,84vw);aspect-ratio:1}.easel>.defs{position:absolute}.easel>img{position:absolute;inset:0;width:100%;height:100%}.easel-tool{opacity:0;transition:opacity .45s ease}.easel-tool.on{opacity:1;z-index:2}.easel-tool.in{opacity:1;z-index:3}.easel.live .easel-poster{visibility:hidden}
+.easel-canvas{position:absolute;left:0;top:0;width:200px;height:300px;transform-origin:0 0;overflow:hidden;background:#fdf3e6;z-index:1;visibility:hidden}.easel.live .easel-canvas{visibility:visible}
+.slide{position:absolute;inset:0;width:100%;height:100%;transform:translateX(105%);transition:transform .7s cubic-bezier(.6,0,.3,1)}.slide.on{transform:none}.slide.off{transform:translateX(-105%)}.slide.reset{transition:none}.slide .pencil{filter:url(#pencil-grain)}.slide .code{font-family:var(--mono);fill:#79568b}.slide .fn{fill:#a1306f}.slide .str{fill:#3f8a5c}.slide .pixel{font-family:Pixel,monospace}
+.easel-mime{position:absolute;right:1%;top:92%;z-index:4;margin:0;opacity:0;transition:opacity .3s}.easel.live .easel-mime{opacity:1}.easel-mime code{display:inline-block;font:11px/1 var(--mono);padding:5px 8px;border-radius:999px;background:#efe3f2;color:var(--purple);box-shadow:0 2px #e2cdea}.easel.live .easel-mime.swap{opacity:0}
+@media(max-width:600px){.easel{width:min(340px,86vw)}.easel-mime code{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.easel-tool,.slide,.easel-mime{transition:none}}
 .shots figcaption{margin-top:14px;text-align:center;font-size:13px;color:var(--soft)}.shots figcaption code{font-size:.92em}

@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-30T16:12:33.910Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.5-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-pencil/gens/tool-brush.png",
+  "promptPath": null,
+  "promptHash": "676ee904f3351346a104b394b08843f188f3be2908eb11988de85e86a3ce24e1",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-pencil/gens/v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 46.241,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1475,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 451
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3231
+  }
+}
