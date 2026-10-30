@@ -14,8 +14,11 @@
 //
 //   cold → parked → moving → open → moving → parked
 //
-// While open the prompt's loop pauses; it resumes as soon as a pull back
-// begins. The address bar follows the card (/mime/?p=<code>) and Back closes.
+// The prompt's loop pauses the moment the sheet starts moving and resumes
+// only once it is home again, so the slide spends the main thread on the
+// slide. The guest frame stays visible and promoted while parked (translated
+// a screen down), so its first appearance costs no paint. The address bar
+// follows the card (/mime/?p=<code>) and Back closes.
 
 const MEDIA = "#171526"; // mime's dark media colour, behind a guest still loading
 const EASE = "cubic-bezier(.2,.8,.2,1)";
@@ -57,7 +60,7 @@ function ensure() {
     background: MEDIA, // Never white; transparent once the guest is ready.
     colorScheme: "normal", // Matching schemes keep the frame see-through.
     transform: "translateY(100%)",
-    visibility: "hidden",
+    willChange: "transform", // Promoted from the start: rastered before any swipe.
     pointerEvents: "none",
   });
   document.body.append(frame);
@@ -150,12 +153,11 @@ function begin() {
   raf = 0;
   if (state === "parked") {
     post({ type: "mime:sheet", open: true }); // First card up, slot away.
-    f.style.visibility = "visible";
     y = innerHeight;
-  } else if (state === "open") resumePrompt(); // Awake before it shows.
+  }
   state = "moving";
   toward = null;
-  f.style.willChange = "transform";
+  pausePrompt(); // The last frame rides along; the loop is back at home().
   const s = stage();
   if (s) s.style.willChange = "transform";
 }
@@ -164,7 +166,6 @@ function begin() {
 function settle(target) {
   const f = ensure();
   if (state === "parked" && target === 0) begin();
-  if (target !== 0) resumePrompt(); // Awake before it slides into view.
   cancelAnimationFrame(raf);
   raf = 0;
   state = "moving";
@@ -183,7 +184,6 @@ function settle(target) {
 
 function opened() {
   state = "open";
-  frame.style.willChange = "";
   write();
   pausePrompt();
   enterHistory();
@@ -204,9 +204,7 @@ function home() {
   Object.assign(frame.style, {
     transition: "none",
     transform: "translateY(100%)",
-    visibility: "hidden",
     pointerEvents: "none",
-    willChange: "",
   });
   const s = stage();
   if (s) Object.assign(s.style, { transition: "none", transform: "", willChange: "" });

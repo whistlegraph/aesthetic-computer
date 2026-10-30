@@ -6169,14 +6169,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.acUpdateReloadTimer = setTimeout(reloadForUpdate, 4000);
       return;
     }
-    // Leave the last frame for the next page to stand behind its boot, so the
-    // reload reads as a blink of the same picture and never a flash of the
-    // body's flat background. The head script that paints it is in index.mjs.
+    stashReloadFrame();
+    window.location.reload();
+  }
+  // Leave the last frame for the next page to stand behind its boot, so a
+  // reload reads as a blink of the same picture and never a flash of the
+  // body's flat background. Runs before an update reload and on every unload
+  // (the desktop app's ⌘R, a browser refresh); the head script in index.mjs
+  // paints it and takes the key, so a fresh visit never sees a stale frame.
+  function stashReloadFrame() {
     try {
       const shot = canvas.toDataURL("image/png");
       if (shot.length < 3000000) sessionStorage.setItem("ac:reload-frame", shot);
     } catch (_e) { /* no canvas or storage; the plain background stands */ }
-    window.location.reload();
   }
   function armUpdateReload(graceMs, quiet = false) {
     if (window.acUpdateReloadTimer) clearTimeout(window.acUpdateReloadTimer);
@@ -14615,6 +14620,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
       window.addEventListener("beforeunload", (e) => {
         send({ type: "before-unload" });
+        stashReloadFrame();
         wrapper.classList.add("reloading");
         
         // 🎮 Clean up GameBoy emulator on page unload
