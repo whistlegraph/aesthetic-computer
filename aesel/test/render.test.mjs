@@ -49,9 +49,11 @@ test("short pro messages fit their text without white cap rows or minimum-width 
     { kind: "assistant", text: "\n\nhi.  \n \n" },
   ], input: "" };
   const frame = cleanText(renderFrame(state, 40, 14, true));
-  assert.deepEqual(frame.split("\n").filter(row => row.trim()).map(row => row.trimEnd()), [
+  // The donkey's letterhead tops the thread; a short window shows its feet.
+  assert.deepEqual(frame.split("\n").filter(row => row.trim()).map(row => row.trimEnd()).slice(-4), [
     " ╭────╮", " │ hi │", " ╰────╯", " hi.",
   ]);
+  assert.match(frame, /[\u2580-\u259f]/);
 });
 
 test("trailing whitespace does not widen messages, and code indentation survives", () => {
@@ -157,14 +159,17 @@ test("keeps a QR column on the right and narrows the transcript around it", asyn
   const rows = wide.split("\n");
   assert.equal(rows.length, 26);
   for (const row of rows) assert.equal(textWidth(row), 100, "every row fills the frame exactly");
-  assert.equal(rows.at(-6).includes("\u2580"), true, "the code sits on the bottom transcript rows");
-  assert.equal(rows[2].includes("\u2580"), false, "and not at the top");
+  // The donkey's letterhead is half blocks too; the code is whatever sits
+  // right of him.
+  const code = (row) => cleanText(row).slice(40).includes("\u2580");
+  assert.equal(code(rows.at(-6)), true, "the code sits on the bottom transcript rows");
+  assert.equal(code(rows[2]), false, "and not at the top");
 
   // Too small a window, or no colour, drops the code rather than corrupting the frame.
   const narrow = renderFrame(state, 50, 26, true);
-  assert.equal(narrow.includes("\u2580"), false);
+  assert.equal(narrow.split("\n").some(code), false);
   for (const row of narrow.split("\n")) assert.equal(textWidth(row), 50);
-  assert.equal(renderFrame(state, 100, 26, false).includes("\u2580"), false, "NO_COLOR keeps the frame plain");
+  assert.equal(renderFrame(state, 100, 26, false).split("\n").some(code), false, "NO_COLOR keeps the frame plain");
 
   // No window is too small to draw a whole frame in.
   for (const columns of [32, 40, 50, 64, 80, 140]) {

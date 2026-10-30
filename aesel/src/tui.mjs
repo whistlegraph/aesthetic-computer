@@ -310,6 +310,7 @@ if (!pro && initialPiece && desktopRestored?.pieceVersion !== undefined && deskt
   }
 }
 const state = {
+  aeselVersion,
   medium: currentArtifact?.kind || 'piece',
   workspace: cwd,
   mode: "remote",
@@ -1857,7 +1858,7 @@ function handleNotification({ method, params = {} }) {
       if (process.env.AESEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
       state.status = "tool";
       if (params.item?.type === "fileChange") state.status = "writing";
-      if (isPlanTool(params.item)) state.plan = planFrom(params.item.input?.todos);
+      if (isPlanTool(params.item)) state.plan = planFrom(params.item.input?.todos, state.plan);
       const summary = itemSummary(params.item);
       if (summary) {
         recordToolActivity(state, params.item, false, {detail: pro});
@@ -1888,7 +1889,7 @@ function handleNotification({ method, params = {} }) {
       // Raw output remains in the provider's log, outside the conversation.
       break;
     case "turn/plan/updated":
-      state.plan = planFrom(params.plan);
+      state.plan = planFrom(params.plan, state.plan);
       break;
     case "turn/completed": {
       state.question = null;
