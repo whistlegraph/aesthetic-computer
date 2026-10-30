@@ -6182,6 +6182,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const shot = canvas.toDataURL("image/png");
       if (shot.length < 3000000) sessionStorage.setItem("ac:reload-frame", shot);
     } catch (_e) { /* no canvas or storage; the plain background stands */ }
+    // The desktop app paints its own backdrop between one document and the
+    // next, before any HTML arrives. Hand it the screen's average colour so
+    // that blank is the page's colour, not the shell's guess at it.
+    if (window.acElectron?.setBackdrop) {
+      try {
+        const one = document.createElement("canvas");
+        one.width = one.height = 1;
+        const c1 = one.getContext("2d");
+        c1.drawImage(canvas, 0, 0, 1, 1);
+        const [r, g, b] = c1.getImageData(0, 0, 1, 1).data;
+        const hex = "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+        window.acElectron.setBackdrop(hex);
+      } catch (_e) { /* the theme default stands */ }
+    }
   }
   function armUpdateReload(graceMs, quiet = false) {
     if (window.acUpdateReloadTimer) clearTimeout(window.acUpdateReloadTimer);
