@@ -1,6 +1,7 @@
 // Public AC media are mime's opening posts. Only replies and thread activity
 // are stored separately; source records remain authoritative for visibility.
 import { ObjectId } from "mongodb";
+import { paintingStorageUrl } from "./painting-storage.mjs";
 
 export const MEDIA_KINDS = {
   painting: "paintings",
@@ -142,7 +143,7 @@ export async function publicPosts(db, docs) {
     const url = `/api/mime?file=${encodeURIComponent(doc.code)}`;
     const file = media
       ? { name: `${media.code || media.id}${media.kind === "whistlegraph" ? "-v" + media.version : ""}.${extension}`, type: doc.board, size: media.size ?? null, url,
-          ...((media.kind === "tape" && media.hasPoster || media.kind === "whistlegraph" && ipfsPattern.test(media.coverUri || "")) ? { poster: `/api/mime?poster=${encodeURIComponent(doc.code)}` } : {}) }
+          ...((media.hasPoster || media.kind === "whistlegraph" && ipfsPattern.test(media.coverUri || "")) ? { poster: `/api/mime?poster=${encodeURIComponent(doc.code)}` } : {}) }
       : doc.file ? { name: doc.file.name, type: doc.file.type, size: doc.file.size, url } : null;
     let original;
     if (media?.code) {
@@ -185,6 +186,8 @@ export function mediaFile(kind, record) {
   if (kind === "tape" && record.mp4Status === "complete" && record.mp4Url) {
     return { url: publicMediaUrl(record.mp4Url) };
   }
+  // Legacy painting slugs may omit their storage folder; the helper knows the shapes.
+  if (kind === "painting") return { url: paintingStorageUrl(record) };
   const bucket = record.bucket || (record.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
   if (!["art-aesthetic-computer", "user-aesthetic-computer"].includes(bucket)) {
     throw new Error("Unsupported media bucket");

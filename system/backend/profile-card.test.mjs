@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHandler } from "../netlify/functions/profile-card.mjs";
-import { profilePage } from "./profile-page.mjs";
-import { boot, leave } from "../public/aesthetic.computer/disks/profile.mjs";
 
 function fixture({ missing = false, fail = false } = {}) {
   const pipelines = [], matches = [];
@@ -48,7 +46,7 @@ test("bounded public profile uses one identity and never exposes private fields"
   assert.equal(data.onlineTimeMs, null);
   assert.equal(data.posts, undefined);
   assert.equal(f.pipelines.length, 1);
-  assert.equal(f.matches.length, 6);
+  assert.equal(f.matches.length, 7);
   assert.equal(data.mood.text, "hello\nworld");
   assert.ok(!response.body.includes("private-user-id") && !response.body.includes("never return"));
   assert.equal(f.disconnected, 1);
@@ -93,16 +91,6 @@ test("missing profiles and failed queries release the connection", async () => {
   assert.equal(failed.disconnected, 1);
 });
 
-test("direct profile documents skip AC startup and preserve piece routes", () => {
-  for (const route of ["/@jeffrey", "/%40Jeffrey/"]) {
-    const html = profilePage(route);
-    assert.match(html, /<ac-profile handle="@jeffrey">/);
-    assert.ok(!html.includes("bios.mjs") && !html.includes("boot.mjs"));
-  }
-  for (const route of ["/@jeffrey/piece", "/prompt", "/@<script>", "/%xx"]) assert.equal(profilePage(route), null);
-  assert.match(profilePage("/@a.b"), /handle="@a.b"/);
-});
-
 test("handle lookup prefers exact spelling and escapes dots in the legacy fallback", async () => {
   const calls = [];
   const handler = createHandler(async () => ({ db: { collection(name) {
@@ -113,16 +101,41 @@ test("handle lookup prefers exact spelling and escapes dots in the legacy fallba
   assert.deepEqual(calls, [{ handle: "a.b" }, { handle: { $regex: "^a\\.b$", $options: "i" } }]);
 });
 
-test("the in-AC profile mounts the same component and cleans up when leaving", () => {
-  let markup, rewritten, cleared = false;
-  boot({ params: ["@a.b"], handle: () => "@jeffrey", hud: { label() {} },
-    net: { rewrite(value) { rewritten = value; } }, dom: {
-      html(parts, ...values) { markup = parts.reduce((out, part, i) => out + part + (values[i] ?? ""), ""); },
-      clear() { cleared = true; },
-    } });
-  assert.equal(rewritten, "@a.b");
-  assert.match(markup, /<ac-profile handle="@a.b">/);
-  assert.match(markup, /profile-piece.mjs/);
-  leave();
-  assert.equal(cleared, true);
+test("the MIMEs listing unions uploads with every media kind for one user, newest first, one page at a time", async () => {
+  const pipelines = [], finds = [];
+  const docs = Array.from({ length: 13 }, (_, i) => i < 2
+    ? { code: "up" + i, parent: null, board: "image/png", when: "2026-10-1" + i, user: "private-user-id", file: { name: "a.png", type: "image/png", size: 1 }, replies: 3 }
+    : { code: "painting_" + i, board: "image/png", when: "2026-10-0" + i, _media: { kind: "painting", id: String(i), code: "f" + i, user: "private-user-id" } });
+  const db = { collection(name) {
+    if (name === "@handles") return {
+      async findOne() { return { _id: "private-user-id", handle: "jeffrey" }; },
+      find() { return { async toArray() { return [{ _id: "private-user-id", handle: "jeffrey" }]; } }; },
+    };
+    if (name === "mime-media-threads") return { find(query, options) { finds.push({ query, options }); return { async toArray() {
+      return [{ _id: "painting_2", replies: 5 }];
+    } }; } };
+    return { aggregate(pipeline) { pipelines.push({ name, pipeline }); return { async toArray() { return docs; } }; } };
+  } };
+  const handler = createHandler(async () => ({ db }));
+  const response = await get(handler, { kind: "mime", page: "0" }), data = JSON.parse(response.body);
+  assert.equal(response.statusCode, 200);
+  assert.equal(pipelines.length, 1);
+  assert.equal(pipelines[0].name, "mimechan");
+  assert.deepEqual(pipelines[0].pipeline[0], { $match: { parent: null, user: "private-user-id" } });
+  assert.deepEqual(pipelines[0].pipeline[1], { $project: { "file.data": 0 } });
+  const unions = pipelines[0].pipeline.filter((stage) => stage.$unionWith);
+  assert.deepEqual(unions.map((stage) => stage.$unionWith.coll), ["paintings", "tapes", "pieces", "kidlisp", "whistlegraph-mints"]);
+  for (const stage of unions) assert.equal(stage.$unionWith.pipeline[0].$match.user, "private-user-id");
+  assert.deepEqual(pipelines[0].pipeline.slice(-3), [{ $sort: { when: -1, code: 1 } }, { $skip: 0 }, { $limit: 13 }]);
+  assert.equal(data.posts.length, 12);
+  assert.equal(data.hasMore, true);
+  assert.equal(data.page, 0);
+  assert.equal(data.posts[0].replies, 3, "uploads keep their own reply count");
+  assert.equal(data.posts[2].replies, 5, "media replies come from the thread ledger");
+  assert.deepEqual(finds[0].query, { _id: { $in: docs.slice(2, 12).map((d) => d.code) } });
+  assert.ok(!response.body.includes("private-user-id"));
+  const kind = await get(handler, { kind: "painting", page: "2" });
+  assert.equal(kind.statusCode, 200);
+  assert.equal(pipelines[1].name, "paintings");
+  assert.deepEqual(pipelines[1].pipeline.slice(-2), [{ $skip: 24 }, { $limit: 13 }]);
 });

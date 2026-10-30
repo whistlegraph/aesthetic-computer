@@ -180,7 +180,6 @@ test("landing metadata imports resolve with Lith's system working directory", as
       "../../public/aesthetic.computer/lib/num.mjs": {},
       "../../public/aesthetic.computer/lib/parse.mjs": parser,
       "../../backend/http.mjs": http,
-      "../../backend/profile-page.mjs": { profilePage: () => null },
       "../../backend/authorization.mjs": { handleFromPermahandle() {} },
       "../../backend/database.mjs": { connect: async () => ({ db: {}, disconnect: async () => {} }) },
       "../../backend/piece-hits.mjs": { recordPieceHit: async () => {}, looksAutomated: () => true },
