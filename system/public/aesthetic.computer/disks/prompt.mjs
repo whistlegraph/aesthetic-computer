@@ -1445,11 +1445,12 @@ async function halt($, text) {
   // ✏️ Still nothing: draw the word instead of a 404. Typos of real pieces
   // and undrawable words come back empty and fall to the help character.
   const sketched = !result && (await sketch($, text));
-  if (sketched) result = sketched;
+  if (sketched?.left) result = sketched;
 
   // 🛰️ Prompt corpus: record what was entered and whether anything answered
-  // (anonymous, fire-and-forget).
-  if (text?.trim().length > 0) {
+  // (anonymous, fire-and-forget). A word the server drew, or declined to,
+  // it logged itself, so a closed tab still counts.
+  if (text?.trim().length > 0 && !sketched) {
     fetch("/api/prompt-log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1460,15 +1461,23 @@ async function halt($, text) {
   return result;
 }
 
-// One generated KidLisp drawing per word, cached server-side (`/api/sketch`).
+// One generated KidLisp drawing per word, with a tune on the synced UTC clock,
+// cached server-side (`/api/sketch`). Returns `{ left: true }` once the drawing
+// runs, `{ logged: true }` when the server answered without one (it wrote the
+// corpus row either way), or false when it never reached the server.
 async function sketch($, text) {
   const word = text?.trim().toLowerCase().replace(/\s+/g, " ");
   if (!/^[a-z][a-z' -]{1,30}$/.test(word) || word.split(" ").length > 3) return false;
   const input = $.system.prompt.input;
   const typed = input?.text;
-  $.notice(`sketching ${word}...`, ["white", "blue"]);
+  $.notice(`making ${word}...`, ["white", "blue"]);
+  // The code arriving is KidLisp, so colour it. The prompt only re-reads this
+  // flag while the input can type, and it is locked for the whole wait.
+  $.system.prompt.kidlispMode = true;
+  let answered = false;
   try {
     const res = await fetch(`/api/sketch?word=${encodeURIComponent(word)}&stream=1`);
+    answered = res.ok;
     let result;
     if (res.headers.get("content-type")?.includes("json")) result = await res.json();
     else {
@@ -1482,7 +1491,7 @@ async function sketch($, text) {
         if (done) break;
         body += decoder.decode(value, { stream: true });
         if (input) {
-          input.text = `${typed}\n\n${body.split("\u0000")[0]}`;
+          input.text = `; ${word}\n${body.split("\u0000")[0]}`; // the stored source's own first line
           input.snap();
         }
         $.needsPaint();
@@ -1491,8 +1500,9 @@ async function sketch($, text) {
     }
     if (result.code && (await $.load(parse(`$${result.code}?nosource`)))) return { left: true };
   } catch {} // offline or the server said no
+  $.system.prompt.kidlispMode = false;
   if (input) input.text = typed; // the help character answers over the entry
-  return false;
+  return answered ? { logged: true } : false;
 }
 
 async function route($, text) {

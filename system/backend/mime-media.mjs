@@ -73,6 +73,7 @@ export function mediaPipeline(kind, match = {}, activity = true) {
       _media: {
         kind: literal(kind), id: { $toString: "$_id" }, code: "$code",
         user: "$user", slug: "$slug", size: packed ? "$bytes" : "$size",
+        ...(kind === "kidlisp" ? { sketch: "$sketch" } : {}), // the word a prompt sketch drew
         hasPoster: { $ne: [{ $ifNull: ["$thumbnailUrl", ""] }, ""] },
         ...(packed ? { title: "$title", version: "$version", aspect: "$aspect",
           artifactUri: "$artifactUri", htmlUri: "$htmlUri", coverUri: "$coverUri", tokenId: "$tokenId" } : {}),
@@ -166,6 +167,7 @@ export async function publicPosts(db, docs) {
       ...(media ? { media: {
         kind: media.kind, id: media.id, code: media.code || null,
         url: original || url, author: handle,
+        ...(typeof media.sketch === "string" ? { title: media.sketch, sketch: true } : {}),
         ...(media.kind === "whistlegraph" ? { title: media.title, version: media.version,
           aspect: media.aspect, packed: true, tokenUrl: `https://teia.art/objkt/${media.tokenId}` } : {}),
       } } : {}),
