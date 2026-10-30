@@ -609,17 +609,19 @@ class TapeManager {
 let pendingUrlRewrite = null;
 let rewriteFocusListenerAttached = false;
 
-// 📦 Opt-in auto-reload for the update badge. `localStorage` is only where the
-// choice is kept between visits — a blocked store (private windows, sandboxed
-// frames) must not make the checkbox untoggleable — so the live answer lives
-// here, and the badge's checkbox is drawn from a copy of it in the worker.
+// 📦 Auto-reload on a new deployment, on for everyone: a page that keeps
+// running last week's code is a page nobody can be sent a fix for.
+// `localStorage` only remembers an opt-out (the key set to "false") between
+// visits — a blocked store (private windows, sandboxed frames) leaves the
+// default standing — so the live answer lives here, and the worker draws its
+// own copy of it.
 const UPDATE_AUTO_RELOAD_KEY = "aesthetic:update-auto-reload";
 
 let updateAutoReload = (() => {
   try {
-    return localStorage.getItem(UPDATE_AUTO_RELOAD_KEY) === "true";
+    return localStorage.getItem(UPDATE_AUTO_RELOAD_KEY) !== "false";
   } catch (err) {
-    return false;
+    return true;
   }
 })();
 
@@ -6152,13 +6154,30 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // visual pulse, then `graceMs` of room for Xbox/TV output buffers to play it
   // before the page goes. Both ways in — the badge's checkbox and an update
   // arriving with auto-reload already on — land here so they sound alike.
+  // A reload mid-sentence or mid-tape throws work away: while the prompt
+  // holds typed text or a tape is recording, the update waits and asks again
+  // in a few seconds, without a second chime.
+  function updateReloadBusy() {
+    try {
+      if (mediaRecorder?.state === "recording") return true;
+      if (keyboard?.input?.value?.length > 0) return true;
+    } catch (_e) { /* no keyboard yet; nothing to protect */ }
+    return false;
+  }
+  function reloadForUpdate() {
+    if (updateReloadBusy()) {
+      window.acUpdateReloadTimer = setTimeout(reloadForUpdate, 4000);
+      return;
+    }
+    window.location.reload();
+  }
   function armUpdateReload(graceMs, quiet = false) {
     if (window.acUpdateReloadTimer) clearTimeout(window.acUpdateReloadTimer);
     // A chime and a full-screen flash are how a person is told an update is
     // about to land. A preview card has nobody to tell, so it skips the cue
     // rather than raising one — this is not an error path.
     if (quiet) {
-      window.acUpdateReloadTimer = setTimeout(() => window.location.reload(), graceMs);
+      window.acUpdateReloadTimer = setTimeout(reloadForUpdate, graceMs);
       return;
     }
     try {
@@ -6192,10 +6211,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } catch (error) {
       console.warn("📦 Update awareness cue unavailable:", error);
     }
-    window.acUpdateReloadTimer = setTimeout(
-      () => window.location.reload(),
-      graceMs,
-    );
+    window.acUpdateReloadTimer = setTimeout(reloadForUpdate, graceMs);
   }
 
   // *** Received Frame ***
