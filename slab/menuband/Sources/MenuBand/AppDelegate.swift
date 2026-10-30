@@ -907,6 +907,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateIcon()
         }
         RevisionChecker.start()
+        // Launch-time "update from main?" modal (fleet builds; see MenuBandUpdater).
+        MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
+        MenuBandUpdater.checkOnLaunch()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
         // LaunchAgent). Reconcile the OS registration with the user's stored
@@ -3987,7 +3990,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .milkyTracker: layoutName = "MilkyTracker"
         }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
-        let revision = RevisionChecker.statusLine.map { " · \($0)" } ?? ""
+        let revision = (MenuBandUpdater.statusLine ?? RevisionChecker.statusLine).map { " · \($0)" } ?? ""
         button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
         // Force a synchronous redraw — the click drag-loop runs the runloop
         // in `eventTracking` mode and has been swallowing the next CA flush
