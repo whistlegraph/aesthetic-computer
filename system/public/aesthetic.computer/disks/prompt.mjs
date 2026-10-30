@@ -280,6 +280,7 @@ let histScrub = null;
 // 🎭 Mime swipe: an upward drag on the curtain drops into the mime feed.
 let mimeSwipe = null;
 let mimeArmed = false; // Last curtain state sent to bios's mime sheet.
+let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it isn't drawn.
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
@@ -5897,54 +5898,71 @@ function paint($) {
 
   // 🎭 mime waits under the bottom edge: the wordmark's extruded slab letters,
   // each floating on its own clock through mime's palette, a chevron lifting
-  // the way the sheet will, and motes drifting up off the edge. Under the
-  // mail envelope, which sits a clear row above.
+  // the way the sheet will, and motes drifting up off the edge. The mail
+  // envelope reads `mimeMarkTop` to sit a clear row above all of it.
+  mimeMarkTop = null;
   if (curtainIdle && screen.height >= 200) {
     const t = motdFrame / 60; // seconds
-    const palette = [[255, 145, 197], [175, 220, 182], [125, 227, 215], [255, 150, 154]]; // pink, mint, teal, coral
-    const paper = [23, 21, 38]; // mime's dark paper, for the extrusion
-    const word = "mime", cw = 6;
-    const x0 = Math.floor((screen.width - word.length * cw) / 2);
-    const baseY = screen.height - 13;
+    const dark = $.dark;
+    const palette = dark
+      ? [[255, 145, 197], [175, 220, 182], [125, 227, 215], [255, 150, 154]] // mime by night: pink, mint, teal, coral
+      : [[147, 34, 95], [37, 123, 85], [0, 107, 114], [189, 56, 81]]; // mime by day: wine, green, teal, rose
+    const side = dark ? [23, 21, 38] : [245, 242, 248]; // the slab's side: mime's paper, night or day
+    const s = screen.height >= 320 ? 2 : 1; // glyphs are 6×10 at size 1
+    const word = "mime";
+    const cw = 7 * s; // the font's advance plus a pixel of tracking
+    const gh = 10 * s, depth = 2 * s;
+    const x0 = Math.floor((screen.width - (word.length * cw - s)) / 2);
+    const baseY = screen.height - gh - depth - 2;
     const cx = Math.floor(screen.width / 2);
+    const letters = word.split("").map((ch, i) => ({
+      ch,
+      x: x0 + i * cw,
+      y: baseY + Math.round(sin(t * 2.6 + i * 1.3) * s * 1.5),
+      c: palette[(i + Math.floor(t * 0.5)) % palette.length],
+    }));
 
     // A breathing glow along the edge.
     const breath = 0.5 + 0.5 * sin(t * 2.2);
-    for (let i = 0; i < 5; i++) {
-      const a = Math.round((8 + 16 * breath) * (1 - i / 5));
-      ink(255, 145, 197, a).box(0, screen.height - 1 - i, screen.width, 1, "fill");
+    for (let i = 0; i < 4 * s; i++) {
+      const a = Math.round((10 + 18 * breath) * (1 - i / (4 * s)));
+      ink(palette[0][0], palette[0][1], palette[0][2], a).box(0, screen.height - 1 - i, screen.width, 1, "fill");
     }
 
     // Motes rising off the edge, each on its own loop.
-    for (let k = 0; k < 7; k++) {
-      const speed = 0.35 + (k % 3) * 0.12;
+    for (let k = 0; k < 9; k++) {
+      const speed = 0.3 + (k % 3) * 0.11;
       const life = (t * speed + k * 0.37) % 1; // 0 at the edge, 1 gone
-      const mx = cx + Math.round(sin(k * 2.1 + t * 0.4) * (14 + k * 4));
-      const my = screen.height - 1 - Math.round(life * 28);
+      const mx = cx + Math.round(sin(k * 2.1 + t * 0.4) * (12 + k * 3) * s);
+      const my = screen.height - 1 - Math.round(life * 26 * s);
       const c = palette[k % palette.length];
-      ink(c[0], c[1], c[2], Math.round(200 * (1 - life))).box(mx, my, 1, 1, "fill");
+      ink(c[0], c[1], c[2], Math.round(210 * (1 - life))).box(mx, my, s, s, "fill");
     }
 
-    // The letters, slab-extruded toward the paper.
-    word.split("").forEach((ch, i) => {
-      const bob = Math.round(sin(t * 2.6 + i * 1.3) * 2);
-      const c = palette[(i + Math.floor(t * 0.5)) % palette.length];
-      const x = x0 + i * cw, y = baseY + bob;
-      for (let d = 3; d >= 1; d--) ink(paper[0], paper[1], paper[2], 235).write(ch, { x: x + d, y: y + d });
-      ink(Math.round(c[0] * 0.5), Math.round(c[1] * 0.5), Math.round(c[2] * 0.5)).write(ch, { x: x + 1, y: y + 1 });
-      ink(c[0], c[1], c[2]).write(ch, { x, y });
+    // Every slab's side first, so no letter's depth lands on a neighbour's face.
+    for (let d = depth; d >= 1; d--) {
+      letters.forEach(({ ch, x, y }) =>
+        ink(side[0], side[1], side[2], 240).write(ch, { x: x + d, y: y + d, size: s }));
+    }
+    letters.forEach(({ ch, x, y, c }) => {
+      ink(Math.round(c[0] * 0.55), Math.round(c[1] * 0.55), Math.round(c[2] * 0.55)).write(ch, { x: x + 1, y: y + 1, size: s });
+      ink(c[0], c[1], c[2]).write(ch, { x, y, size: s });
     });
-    ink(180, 165, 194, 170).write(".ac", { x: x0 + word.length * cw + 1, y: baseY + 3 },
+    const dim = dark ? [180, 165, 194, 180] : [86, 71, 95, 200];
+    ink(...dim).write(".ac", { x: x0 + word.length * cw, y: baseY + gh - 8 * s, size: s },
       undefined, undefined, false, "MatrixChunky8");
 
-    // A chevron that lifts and fades, over and over.
+    // A chevron that lifts and fades, over and over, above the letters.
     const lift = (t * 0.9) % 1;
-    const cy = baseY - 5 - Math.round(lift * 5);
+    const cyBottom = baseY - 2 * s - 2 - Math.round(lift * 5 * s);
+    const cy = cyBottom - 3 * s;
     const ca = Math.round(230 * (1 - lift));
-    ink(255, 145, 197, ca).line(cx - 4, cy + 3, cx, cy);
-    ink(255, 145, 197, ca).line(cx, cy, cx + 4, cy + 3);
-    ink(255, 145, 197, Math.round(ca * 0.5)).line(cx - 4, cy + 4, cx, cy + 1);
-    ink(255, 145, 197, Math.round(ca * 0.5)).line(cx, cy + 1, cx + 4, cy + 4);
+    const pink = palette[0];
+    for (let k = 0; k < s; k++) {
+      ink(pink[0], pink[1], pink[2], ca).line(cx - 4 * s, cyBottom + k, cx, cy + k);
+      ink(pink[0], pink[1], pink[2], ca).line(cx, cy + k, cx + 4 * s, cyBottom + k);
+    }
+    mimeMarkTop = baseY - 10 * s - 2; // the chevron's highest apex
   }
 
   if (showLoginCurtain && flairEnabled) {
@@ -6305,7 +6323,7 @@ function paint($) {
       // envelope, or the badge's overhang drags it off the middle.
       const cluster = w + (label ? badgeW - 3 : 0);
       const ex = Math.floor((screen.width - cluster) / 2);
-      const ey = screen.height - 36; // a clear row above the mime wordmark
+      const ey = mimeMarkTop === null ? screen.height - 24 : mimeMarkTop - 10 - h; // a clear row above the mime wordmark
 
       // A Button hit-tests through its Box, so hand it a real one — a plain
       // {x,y,w,h} has no `contains` and the tap falls through.
