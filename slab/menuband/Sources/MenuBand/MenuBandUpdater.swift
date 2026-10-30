@@ -20,9 +20,12 @@ import AppKit
 enum MenuBandUpdater {
     /// Everything install.sh and Package.swift read. A commit outside these
     /// cannot change the built app, so it doesn't count as an update.
+    /// `live` and `fedac/native/src` are where CSinger's and CGMSynth's
+    /// symlinks land; prepareWorktree also follows any it doesn't know yet.
     static let sourcePaths = [
         "slab/menuband", "slab/bin", "slab/macos-audio",
         "juke-wizard", "fedac/native/samples/piano",
+        "live", "fedac/native/src",
     ]
     static let launchDelay: TimeInterval = 12
     /// Shown in the modal; the rest are summarised as "and N more".
@@ -146,11 +149,43 @@ enum MenuBandUpdater {
             let add = git(["--git-dir", gitDir, "worktree", "add", "--no-checkout", "--detach", wt, target])
             if add.status != 0 { return "worktree add failed: \(add.output.prefix(300))" }
         }
-        let sparse = git(["-C", wt, "sparse-checkout", "set", "--cone"] + sourcePaths)
-        if sparse.status != 0 { return "sparse-checkout failed: \(sparse.output.prefix(300))" }
-        let checkout = git(["-C", wt, "checkout", "--detach", "--force", target], timeout: 300)
-        if checkout.status != 0 { return "checkout failed: \(checkout.output.prefix(300))" }
-        return nil
+        var paths = sourcePaths
+        // A symlink that leaves the sparse set checks out dangling, and the
+        // build then misses its sources. Widen the set until none do.
+        for _ in 0..<4 {
+            let sparse = git(["-C", wt, "sparse-checkout", "set", "--cone"] + paths)
+            if sparse.status != 0 { return "sparse-checkout failed: \(sparse.output.prefix(300))" }
+            let checkout = git(["-C", wt, "checkout", "--detach", "--force", target], timeout: 300)
+            if checkout.status != 0 { return "checkout failed: \(checkout.output.prefix(300))" }
+            let missing = danglingTargetDirs(root: worktree, under: paths).subtracting(paths)
+            if missing.isEmpty { return nil }
+            NSLog("MenuBand update: widening checkout for symlinks into \(missing.sorted())")
+            paths += missing.sorted()
+        }
+        return "symlinks still point outside the checkout"
+    }
+
+    /// Repo-relative directories that dangling symlinks under `paths` point
+    /// into (skipping .build).
+    static func danglingTargetDirs(root: URL, under paths: [String]) -> Set<String> {
+        let fm = FileManager.default
+        let rootPath = root.resolvingSymlinksInPath().path
+        var dirs = Set<String>()
+        for path in paths {
+            let base = root.appendingPathComponent(path)
+            guard let walk = fm.enumerator(at: base, includingPropertiesForKeys: [.isSymbolicLinkKey]) else { continue }
+            for case let url as URL in walk {
+                if url.lastPathComponent == ".build" { walk.skipDescendants(); continue }
+                guard (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true,
+                      !fm.fileExists(atPath: url.path),
+                      let dest = try? fm.destinationOfSymbolicLink(atPath: url.path) else { continue }
+                let resolved = URL(fileURLWithPath: dest, relativeTo: url.deletingLastPathComponent().resolvingSymlinksInPath())
+                    .standardizedFileURL.deletingLastPathComponent().path
+                guard resolved.hasPrefix(rootPath + "/") else { continue }
+                dirs.insert(String(resolved.dropFirst(rootPath.count + 1)))
+            }
+        }
+        return dirs
     }
 
     /// install.sh in its own session, so launchd's kill of this app's process
