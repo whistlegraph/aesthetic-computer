@@ -252,14 +252,20 @@ export async function runHarness(harness, inputs, { infer, paint, cwd = process.
   mkdirSync(dir, { recursive: true });
   let answer = "", body = "", problems = [], rounds = 0;
   const usage = [];
-  for (; rounds < 2; rounds++) {
-    onstep(rounds ? `repairing: ${problems[0]}` : `asking ${harness.model}`);
-    const reply = await infer(harnessRequest(harness, content, { previous: answer, problems }));
-    answer = reply.text; usage.push(reply.usage || {});
-    body = extract(harness.output, answer);
-    problems = builtInProblems(harness.output, body);
-    if (!problems.length) problems = await ownProblems(harness, { mime: harness.output, text: body, inputs });
-    if (!problems.length) break;
+  try {
+    for (; rounds < 2; rounds++) {
+      onstep(rounds ? `repairing: ${problems[0]}` : `asking ${harness.model}`);
+      const reply = await infer(harnessRequest(harness, content, { previous: answer, problems }));
+      answer = reply.text; usage.push(reply.usage || {});
+      body = extract(harness.output, answer);
+      problems = builtInProblems(harness.output, body);
+      if (!problems.length) problems = await ownProblems(harness, { mime: harness.output, text: body, inputs });
+      if (!problems.length) break;
+    }
+  } catch (error) {
+    // A request that never answered leaves nothing to look at; keep runs/ tidy.
+    if (!answer) rmSync(dir, { recursive: true, force: true });
+    throw error;
   }
   writeFileSync(path.join(dir, "answer.md"), answer);
   let output = null;

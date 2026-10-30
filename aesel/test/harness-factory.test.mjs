@@ -141,3 +141,10 @@ test("failing runs leave the answer and no file", async () => {
   assert.equal(run.problems.length, 1);
   assert.throws(() => latestRun(harness), /no finished runs/);
 });
+
+test("a request that never answers leaves no empty run folder", async () => {
+  const dir = scratch();
+  const harness = newHarness(path.join(dir, "quiet"), { output: "text/plain" });
+  await assert.rejects(runHarness(harness, { texts: ["x"] }, { infer: async () => { throw new Error("could not reach aesthetic.computer"); } }), /could not reach/);
+  assert.equal(existsSync(path.join(harness.dir, "runs")) ? (await import("node:fs")).readdirSync(path.join(harness.dir, "runs")).length : 0, 0);
+});
