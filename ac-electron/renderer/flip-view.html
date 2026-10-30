@@ -552,6 +552,11 @@
       }
     } catch (_) {}
     ipcRenderer.on('ac-accent', (_e, c) => { if (c) applyAccentChrome(c.r, c.g, c.b); });
+    // ⌘R (main's View menu) and the prompt's own reload: the webview alone.
+    ipcRenderer.on('ac-reload', () => {
+      const wv = document.getElementById('front-webview');
+      try { wv?.reload(); } catch (e) { console.warn('[flip-view] reload failed', e); }
+    });
 
     const flipCard = document.querySelector('.flip-card');
     const webviewEl = document.getElementById('front-webview');
@@ -864,6 +869,14 @@
       } else if (channel === 'ac-close-window') {
         console.log('[flip] Closing window via ipc-message');
         ipcRenderer.invoke('ac-close-window');
+      } else if (channel === 'ac-backdrop') {
+        // bios sends the screen's average colour just before it unloads; it
+        // shows through the webview between documents on a reload.
+        const color = typeof e.args?.[0] === 'string' ? e.args[0] : '';
+        if (/^#[0-9a-f]{6}$/i.test(color)) {
+          document.documentElement.style.setProperty('--ac-front-bg', color);
+          webviewEl.style.backgroundColor = color;
+        }
       }
     });
     

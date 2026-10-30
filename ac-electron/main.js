@@ -1090,7 +1090,19 @@ function createMenu() {
     {
       label: 'View',
       submenu: [
-        { role: 'reload' },
+        {
+          // ⌘R reloads the AC pane's webview, not the shell around it: the
+          // guest keeps its session, so bios's reload handoff (the last frame
+          // behind the next boot) carries across, and the chrome never blinks.
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: (_item, win) => {
+            if (!win || win.isDestroyed()) return;
+            const pane = [...windows.values()].find((w) => w.window === win);
+            if (pane?.mode === 'ac-pane') win.webContents.send('ac-reload');
+            else win.webContents.reload();
+          },
+        },
         { role: 'forceReload' },
         { type: 'separator' },
         { role: 'resetZoom' },
