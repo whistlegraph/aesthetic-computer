@@ -1492,11 +1492,24 @@ final class MenuBandSynth {
         airVoice.stop()
     }
 
-    /// Tab handoff chime through the fx bus, at the bent pitch. False when
-    /// the engine isn't sounding yet — the caller falls back to the
-    /// isolated `FocusCueBeep` so the handoff always says something.
-    func playPadSwitchCue(toTrackDrum: Bool, off: Bool = false) -> Bool {
-        surfaceCue.playPadSwitch(toTrackDrum: toTrackDrum, off: off)
+    /// Tab handoff cue in the live engine's own voices: TrackDrum answers
+    /// with a real center kick on the current kit, the slider with its
+    /// droplet through the fx bus at the bent pitch. False when the engine isn't
+    /// sounding yet — the caller falls back to the isolated `FocusCueBeep`
+    /// so the handoff always says something. Off never comes here: its
+    /// tock stays dry by design, so the caller plays it on the beep engine.
+    func playPadSwitchCue(_ cue: TrackpadPageCue) -> Bool {
+        switch cue {
+        case .drum:
+            guard started else { return false }
+            playDrumSkin(strike: TrackpadPageCue.drumStrike, anchors: [],
+                         velocity: TrackpadPageCue.drumVelocity)
+            return true
+        case .slider:
+            return surfaceCue.playSliderDroplet()
+        case .off:
+            return false
+        }
     }
 
     /// One movement's worth of idle-page friction, 0…1.
@@ -1719,15 +1732,15 @@ final class MenuBandSynth {
         setMIDISynthPreload(au, enable: true)
         // Bank select once per channel (the MSB+LSB pair sticks until
         // overridden), then issue a PC for every program. We preload on
-        // channels 0-7 to match the controller's voice allocator
-        // (live 0-3, doppler 4-7); channel 9 is drums, 8 and 10-15 are
-        // unused so we skip them.
-        for ch: UInt8 in 0..<8 {
+        // the controller's melodic channels (live 0-3 and 10-15, doppler
+        // 4-7); channel 9 is drums and 8 is spare, so we skip them.
+        let melodic = MenuBandController.melodicChannels
+        for ch in melodic {
             sendMIDIEvent(au, status: 0xB0 | ch, data1: 0,  data2: 0x79)
             sendMIDIEvent(au, status: 0xB0 | ch, data1: 32, data2: 0x00)
         }
         for program: UInt8 in 0...127 {
-            for ch: UInt8 in 0..<8 {
+            for ch in melodic {
                 sendMIDIEvent(au, status: 0xC0 | ch, data1: program)
             }
             loadedPrograms.insert((UInt16(0x79) << 8) | UInt16(program))
@@ -1756,12 +1769,12 @@ final class MenuBandSynth {
     /// Switch the active melodic program on the broadcast channels.
     /// With the startup preload sweep every GM program is already
     /// resident in the AU, so this is just a bank-select + PC pair —
-    /// sub-millisecond, no disk I/O, no DSP rebuild. The 8-channel
-    /// broadcast matches the controller's round-robin voice allocator
-    /// (live 0-3, doppler 4-7) so a noteOn lands on the user's
-    /// instrument no matter which channel it picked.
+    /// sub-millisecond, no disk I/O, no DSP rebuild. The broadcast
+    /// covers the controller's voice allocator (live 0-3 and 10-15,
+    /// doppler 4-7) so a noteOn lands on the user's instrument no
+    /// matter which channel it picked.
     private func selectMelodicProgram(_ au: AudioUnit, program: UInt8) {
-        for ch: UInt8 in 0..<8 {
+        for ch in MenuBandController.melodicChannels {
             sendMIDIEvent(au, status: 0xB0 | ch, data1: 0,  data2: 0x79)
             sendMIDIEvent(au, status: 0xB0 | ch, data1: 32, data2: 0x00)
             sendMIDIEvent(au, status: 0xC0 | ch, data1: program)
@@ -2634,15 +2647,18 @@ final class MenuBandSynth {
     }
 
     /// Fast musical sidechain on the melodic bus. Kick-like events make the
-    /// deepest pocket; brighter percussion makes a lighter one. Chords duck a
-    /// little further than single notes so polyphony cannot mask the groove.
+    /// deepest pocket; brighter percussion makes a lighter one. A held
+    /// chord makes the pocket shallower, not deeper: someone blasting
+    /// chords over kicks wants the chords to stay the loud thing, and the
+    /// kick already has its own level to cut through with. Four or more
+    /// notes take a third off the dip.
     private func triggerMelodicDuck(depth: Float, velocity: UInt8,
                                     hold: TimeInterval,
                                     floor: Float = 0.48) {
         let velocityScale = Float(velocity) / 127
         let polyphony = max(0, activeNotes.count - 1)
-        let polyphonyDepth = min(Float(0.12), Float(polyphony) * 0.03)
-        let scaledDepth = depth * (0.55 + 0.45 * velocityScale) + polyphonyDepth
+        let chordRelief = 1 - min(Float(0.33), Float(polyphony) * 0.11)
+        let scaledDepth = depth * (0.55 + 0.45 * velocityScale) * chordRelief
         let target = max(floor, 1 - scaledDepth)
         let apply = { [weak self] in
             guard let self else { return }
@@ -2666,41 +2682,47 @@ final class MenuBandSynth {
         else { DispatchQueue.main.async(execute: apply) }
     }
 
-    /// The keyboard kit's sidechain. Deeper than the trackpad pocket and
-    /// held a touch longer, so the melodic bus (and the air, which rides
-    /// it) pumps under the drums the way a sidechained pad does: a kick
-    /// drops the voices about 13 dB at ordinary velocity and they swell
-    /// back over the next third of a second. The air bed also takes its
-    /// own cut so it breathes against the hits.
+    /// The keyboard kit's sidechain. The melodic bus (and the air, which
+    /// rides it) pumps under the drums the way a sidechained pad does, but
+    /// audibly: a kick pockets the voices about 4.5 dB at ordinary
+    /// velocity and never past 5, back to full within ~150 ms. Brighter
+    /// percussion makes a shallower dip. The old floors (0.10 for a kick,
+    /// 20 dB down) buried the voices under any steady pattern, and 3 dB
+    /// was too polite to hear; this is the pump you notice without the
+    /// chords stopping being the music. The air bed also takes its own cut
+    /// so it breathes against the hits.
     private func sidechainDuck(drum: MenuBandPercussion.Drum, velocity: UInt8) {
         let depth: Float, hold: TimeInterval, floor: Float
         switch drum {
-        case .kick: depth = 0.85; hold = 0.16; floor = 0.10
-        case .snare, .clap: depth = 0.62; hold = 0.11; floor = 0.18
-        case .snap, .cowbell, .block, .tambo: depth = 0.42; hold = 0.08; floor = 0.30
-        default: depth = 0.28; hold = 0.06; floor = 0.40
+        case .kick: depth = 0.46; hold = 0.08; floor = 0.56
+        case .snare, .clap: depth = 0.32; hold = 0.06; floor = 0.68
+        case .snap, .cowbell, .block, .tambo: depth = 0.18; hold = 0.05; floor = 0.80
+        default: depth = 0.10; hold = 0.04; floor = 0.88
         }
         triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold, floor: floor)
         airVoice.cut(depth * 0.9 * (0.6 + 0.4 * Float(velocity) / 127))
     }
 
+    /// The TrackDrum skin's sidechain, zone for zone the same weight as
+    /// the keyboard kit's so a pad kick and a key kick pocket alike.
     private func sidechainDuck(zone: MenuBandPercussion.DrumSkinZone, velocity: UInt8) {
         let depth: Float, hold: TimeInterval, floor: Float
         switch zone {
-        case .kick: depth = 0.80; hold = 0.15; floor = 0.12
-        case .tom: depth = 0.60; hold = 0.11; floor = 0.20
-        case .snare: depth = 0.50; hold = 0.09; floor = 0.25
-        default: depth = 0.28; hold = 0.06; floor = 0.40
+        case .kick: depth = 0.46; hold = 0.08; floor = 0.56
+        case .tom: depth = 0.32; hold = 0.06; floor = 0.68
+        case .snare: depth = 0.28; hold = 0.06; floor = 0.70
+        default: depth = 0.10; hold = 0.04; floor = 0.88
         }
         triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold, floor: floor)
         airVoice.cut(depth * 0.9 * (0.6 + 0.4 * Float(velocity) / 127))
     }
 
     /// Seconds for the duck to climb the full way from silence back to
-    /// unity once the hold lapses. A kick pocket (~0.23) clears in about
-    /// 0.22 s, a hat pocket (~0.75) in 0.07 s, so even an eighth-note hat
-    /// pattern hands the voices back at full level between hits.
-    private static let melodicDuckReleaseSeconds: Float = 0.28
+    /// unity once the hold lapses. A kick pocket (~0.58) clears in about
+    /// 65 ms, a hat pocket (~0.9) in 15 ms, so with the 80 ms kick hold the
+    /// voices are back at full level ~145 ms after the hit — a pump that
+    /// snaps back inside a sixteenth at 120 BPM, not a swell.
+    private static let melodicDuckReleaseSeconds: Float = 0.15
 
     private func startMelodicDuckTimerIfNeeded() {
         guard melodicDuckTimer == nil else { return }
@@ -3221,10 +3243,10 @@ final class MenuBandSynth {
         let depth: Float
         let hold: TimeInterval
         switch drum {
-        case .kick: depth = 0.42; hold = 0.105
-        case .snare, .clap: depth = 0.25; hold = 0.075
-        case .snap, .cowbell, .block: depth = 0.16; hold = 0.055
-        default: depth = 0.10; hold = 0.040
+        case .kick: depth = 0.34; hold = 0.08
+        case .snare, .clap: depth = 0.22; hold = 0.06
+        case .snap, .cowbell, .block: depth = 0.12; hold = 0.05
+        default: depth = 0.07; hold = 0.040
         }
         triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold)
         percussion.play(drum, velocity: velocity, pan: p)
@@ -3242,7 +3264,7 @@ final class MenuBandSynth {
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
-        triggerMelodicDuck(depth: 0.38, velocity: velocity, hold: 0.12)
+        triggerMelodicDuck(depth: 0.30, velocity: velocity, hold: 0.10)
         percussion.playReverseKick(velocity: velocity, pan: p)
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
     }
@@ -3267,7 +3289,7 @@ final class MenuBandSynth {
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
-        triggerMelodicDuck(depth: zone == .kick ? 0.34 : 0.16,
+        triggerMelodicDuck(depth: zone == .kick ? 0.30 : 0.12,
                            velocity: velocity, hold: 0.07)
         percussion.playSynthSurface(strike: strike, anchors: anchors, velocity: velocity)
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }

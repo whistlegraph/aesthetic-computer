@@ -280,7 +280,7 @@ final class MenuBandSampleVoice {
         // Pre-build the melodic sample playback graph before the host
         // engine starts. Lazy attachment after AVAudioEngine is already
         // running can produce silent player nodes on some CoreAudio graphs.
-        for channel: UInt8 in 0..<8 {
+        for channel in MenuBandController.melodicChannels {
             for slot in 0..<voicesPerChannel {
                 _ = ensureVoice(channel: channel, slot: slot)
             }

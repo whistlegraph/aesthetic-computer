@@ -1908,11 +1908,14 @@ final class MenuBandController {
         synth.playEasterEggDrum()
     }
 
-    /// Tab handoff chime through the fx bus — bent, echoed, spaced like the
-    /// instrument, so the switch previews the page it lands on. False when
-    /// the engine can't sound it yet; the caller keeps the dry fallback.
-    func playPadSwitchCue(toTrackDrum: Bool, off: Bool = false) -> Bool {
-        synth.playPadSwitchCue(toTrackDrum: toTrackDrum, off: off)
+    /// Tab handoff cue in the instrument's own voice — a real kick for
+    /// TrackDrum, a bent, echoing droplet for the slider — so the switch
+    /// previews the page it lands on. False when the engine can't sound it
+    /// yet; the caller keeps the dry fallback.
+    func playPadSwitchCue(_ cue: TrackpadPageCue) -> Bool {
+        let played = synth.playPadSwitchCue(cue)
+        if played, cue == .drum { lastSoundWasPercussion = true }
+        return played
     }
 
     /// Scratching the idle pitch page: one movement's friction, 0…1.
@@ -3207,13 +3210,18 @@ final class MenuBandController {
     private var tapNoteChannel: [UInt8: UInt8] = [:]  // active channel per held note
     private var tapDisplayNote: [UInt8: UInt8] = [:]  // visible key to light for a held tap note
     private var tapLinger: [UInt8: UInt8] = [:]       // notes started under shift → noteOn velocity (drives doppler)
-    // Live notes round-robin across channels 0-3; doppler retriggers
-    // use their own 4-7 cursor. The split guarantees a live press
-    // cannot ever land on a channel that a doppler voice is on, so
-    // the live note's noteOff never cuts a still-ringing doppler tail
-    // (and vice versa). 4 voices per side is enough for typical chord
-    // play and ~7 doppler retriggers with their growing intervals.
-    private var melodicVoiceCursor: UInt8 = 0         // round-robin 0..3 for live
+    /// Live melodic channels: 0–3 plus 10–15, ten voices. A linger fade is
+    /// a channel-wide Expression ramp, so one channel can ring out one
+    /// voice; with only four, a shift-spammed pad's fifth press landed on
+    /// the first's channel and cut it. Ten stack like a piano's sustain
+    /// pedal. Doppler retriggers keep their own 4–7 so a live press can
+    /// never land on a channel a doppler voice is on (and vice versa);
+    /// 9 is GM drums; 8 is spare. The synth's program broadcast and the
+    /// sample backend's prewarm both follow this list.
+    static let liveMelodicChannels: [UInt8] = [0, 1, 2, 3, 10, 11, 12, 13, 14, 15]
+    static let dopplerChannels: [UInt8] = [4, 5, 6, 7]
+    static var melodicChannels: [UInt8] { liveMelodicChannels + dopplerChannels }
+    private var melodicVoiceCursor = 0                // index into liveMelodicChannels
     private var dopplerVoiceCursor: UInt8 = 4         // round-robin 4..7 for doppler retriggers
     /// Last pitch-bend value pushed via `setBend` (centered = 0). Each
     /// freshly-allocated round-robin channel is set to this at noteOn so
@@ -3230,12 +3238,18 @@ final class MenuBandController {
         synth.sendPitchBend(value: currentBendValue, channel: channel)
     }
 
-    /// Linger tail length — how long after key release we hold the
-    /// note before sending the cleanup noteOff. Long enough that the
-    /// synth's natural release envelope can decay to silence (~3-5s on
-    /// most GM voices), short enough that an external DAW doesn't
-    /// accumulate hung notes when the user shift-spams keys.
+    /// Drum linger tail — how long after key release a lingered drum's
+    /// MIDI noteOff is deferred so an external DAW sees a clean pair
+    /// without truncating the kit sample.
     private static let lingerTailSeconds: TimeInterval = 4.0
+
+    /// How long a lingered sustained voice (pad, organ, pipe, choir)
+    /// takes to fade from full to silent after the key lifts. 4 s read
+    /// as the note refusing to leave; 1.6 s is a long release, not a
+    /// hold — and short enough that spamming keys stacks ringing voices
+    /// instead of piling up near-full ones.
+    private static let sustainedLingerSeconds: TimeInterval = 1.6
+    private static let lingerFadeHz: Double = 60
 
     // Doppler retrigger tuning for staccato linger. Each retrigger
     // fires the same midi note on a fresh channel at decaying velocity
@@ -3252,9 +3266,21 @@ final class MenuBandController {
 
     @inline(__always)
     private func nextMelodicChannel() -> UInt8 {
-        let c = melodicVoiceCursor
-        melodicVoiceCursor = (melodicVoiceCursor &+ 1) & 0x03
-        return c
+        let pool = Self.liveMelodicChannels
+        let start = melodicVoiceCursor
+        melodicVoiceCursor = (melodicVoiceCursor + 1) % pool.count
+        lingerLock.lock()
+        let fading = lingerFades
+        lingerLock.unlock()
+        if fading.isEmpty { return pool[start] }
+        // Walk round-robin from the cursor, skipping channels still
+        // ringing out a lingered voice, so a new press never silences one.
+        for i in 0..<pool.count {
+            let ch = pool[(start + i) % pool.count]
+            if fading[ch] == nil { return ch }
+        }
+        // Every live channel is fading: take the one closest to silent.
+        return fading.min { $0.value.lastValue < $1.value.lastValue }!.key
     }
 
     @inline(__always)
@@ -3661,42 +3687,43 @@ final class MenuBandController {
         }
     }
 
-    /// In-flight Expression ramp work items per synth channel, so a
-    /// new noteOn arriving on a channel mid-fade can cancel the
-    /// remaining ramp (and reset Expression to 127) BEFORE playing
-    /// — otherwise the new note starts at the fade's current value
-    /// and you hear it "sustain into" full volume only as the prior
-    /// fade naturally completes. Drove the user's "sustain comes
-    /// after the press" complaint.
-    private var lingerFadeWork: [UInt8: [DispatchWorkItem]] = [:]
-
-    /// The still-ringing sustained-linger note on each synth channel,
-    /// tracked for the lifetime of its fade. A sustained linger keeps
-    /// its original noteOn alive while Expression ramps 127→0, so the
+    /// One lingered sustained voice ringing out on a synth channel. The
+    /// original noteOn stays alive while Expression ramps 127→0, so the
     /// note is physically still sounding (just inaudible) until the
-    /// tail's cleanup noteOff. If a NEW note reuses this channel before
-    /// then, `cancelLingerFade` resets the channel volume back to 127 —
-    /// which, without first stopping the old note, snaps the faded-out
-    /// note back to full volume (the "it plays again after one press"
-    /// bug). We noteOff the tracked note before the volume reset.
-    private var lingeringNoteByChannel: [UInt8: UInt8] = [:]
+    /// cleanup noteOff at the end of the fade.
+    private struct LingerFade {
+        let note: UInt8
+        let midiChannel: UInt8
+        let startedAt: CFTimeInterval
+        var lastValue: UInt8 = 127
+    }
 
-    /// Cancel an in-flight Expression fade on `synthChannel` (if
-    /// any) and immediately restore Expression to 127 so the next
-    /// note on the channel plays at full volume. Call before every
-    /// melodic noteOn that might reuse a recently-faded channel.
+    /// Every fade in flight, by synth channel. Written from the key
+    /// thread (press, release) and read by the main-thread fade timer and
+    /// the channel allocator, hence the lock. One shared timer walks all
+    /// of them; the old design queued 100 dispatch work items per
+    /// lingered note, so a spammed pad put thousands of timers on the
+    /// main queue at once.
+    private let lingerLock = NSLock()
+    private var lingerFades: [UInt8: LingerFade] = [:]
+    private var lingerFadeTimer: Timer?
+
+    /// Cancel an in-flight fade on `synthChannel` (if any) and
+    /// immediately restore Expression to 127 so the next note on the
+    /// channel plays at full volume. Call before every melodic noteOn
+    /// that might reuse a recently-faded channel.
     private func cancelLingerFade(channel synthChannel: UInt8) {
-        if let items = lingerFadeWork.removeValue(forKey: synthChannel) {
-            for w in items { w.cancel() }
-        }
+        lingerLock.lock()
+        let stale = lingerFades.removeValue(forKey: synthChannel)
+        lingerLock.unlock()
         // Kill the still-ringing lingering note on this channel BEFORE
         // restoring the volume — otherwise resetting Expression/Volume
         // to 127 resurrects the faded-out note at full gain.
-        if let stale = lingeringNoteByChannel.removeValue(forKey: synthChannel) {
-            if !midiMode { synth.noteOff(stale, channel: synthChannel) }
+        if let stale {
+            if !midiMode { synth.noteOff(stale.note, channel: synthChannel) }
             // Lingering notes are always melodic → outbound MIDI channel 0
             // (matches midiNoteOn / releaseLingering's midiChannel: 0).
-            midi.noteOff(stale, channel: 0)
+            midi.noteOff(stale.note, channel: 0)
         }
         if !midiMode {
             synth.sendExpression(value: 127, channel: synthChannel)
@@ -3712,98 +3739,85 @@ final class MenuBandController {
         midi.sendCC(7, value: 127, channel: synthChannel)
     }
 
-    /// Run a smooth Expression-controlled fade over `lingerTailSeconds`
-    /// on the channel holding `midiNote`, then send the cleanup
-    /// noteOff and restore Expression to 127 so subsequent notes on
-    /// the channel come back at full volume. Routes both the
-    /// MIDISynth path (CC 11) and the sample-voice path (direct
-    /// player volume) so every melodic backend audibly fades — same
-    /// experience whether the user is on a GM organ, a pad, or
-    /// their own recorded sample.
+    /// Start a smooth Expression fade over `sustainedLingerSeconds` on
+    /// the channel holding `midiNote`. The shared timer ramps it to
+    /// silence and then sends the cleanup noteOff. Routes both the
+    /// MIDISynth path (CC 11) and the sample-voice path (direct player
+    /// volume) so every melodic backend audibly fades — same experience
+    /// whether the user is on a GM organ, a pad, or their own sample.
+    /// Replaces any fade already on the channel: that voice is already
+    /// gone (the new note's `cancelLingerFade` stopped it).
     private func scheduleSustainedLingerFade(midiNote: UInt8,
                                              synthChannel: UInt8,
                                              midiChannel: UInt8) {
-        // Mark this note as ringing-but-fading on its channel so a new
-        // note that reuses the channel kills it (see cancelLingerFade)
-        // instead of snapping it back to full volume.
-        lingeringNoteByChannel[synthChannel] = midiNote
-        // 100 hops over 10 s = every 100 ms. Linear ramp:
-        // Ableton's stock devices (and most third-party plugins)
-        // map CC7/CC11 to a near-linear audible volume curve, so
-        // a linear CC drop reads as a steady, audible fade.
-        // Squared/ease-out curves dropped to "almost silent" by
-        // the midpoint and read as a sharp early cutoff with a
-        // long inaudible tail.
-        let steps = 100
-        let stepInterval = Self.lingerTailSeconds / TimeInterval(steps)
-        var items: [DispatchWorkItem] = []
-        for i in 0..<steps {
-            let t = Float(i + 1) / Float(steps)
-            let remaining = 1.0 - t
-            let value = UInt8(max(0, min(127, Int((127.0 * remaining).rounded()))))
-            let work = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                if !self.midiMode {
-                    self.synth.sendExpression(value: value, channel: synthChannel)
-                    self.synth.setSampleNoteVolume(midi: midiNote,
-                                                   channel: synthChannel,
-                                                   value: value)
-                }
-                // Belt + suspenders for DAW instruments: ramp both
-                // CC11 (Expression — correct envelope mapping) AND
-                // CC7 (Volume — universal). Live's stock devices
-                // (Operator/Wavetable/Drum Rack) all respond to one
-                // or both; sending both means the SHIFT-held tail
-                // audibly fades regardless of which mapping the
-                // active patch uses.
-                self.midi.sendCC(11, value: value, channel: midiChannel)
-                self.midi.sendCC(7,  value: value, channel: midiChannel)
+        lingerLock.lock()
+        lingerFades[synthChannel] = LingerFade(note: midiNote,
+                                               midiChannel: midiChannel,
+                                               startedAt: CACurrentMediaTime())
+        lingerLock.unlock()
+        let arm = { [weak self] in
+            guard let self, self.lingerFadeTimer == nil else { return }
+            let timer = Timer(timeInterval: 1.0 / Self.lingerFadeHz,
+                              repeats: true) { [weak self] _ in
+                self?.stepLingerFades()
             }
-            items.append(work)
-            DispatchQueue.main.asyncAfter(deadline: .now() + stepInterval * Double(i + 1),
-                                          execute: work)
+            timer.tolerance = 1.0 / (Self.lingerFadeHz * 4)
+            RunLoop.main.add(timer, forMode: .common)
+            self.lingerFadeTimer = timer
         }
-        // Final cleanup noteOff lands a comfortable margin AFTER
-        // the last ramp tick so the synth sees CC=0 land cleanly
-        // before the noteOff arrives — and CRITICALLY we do NOT
-        // snap CC11/CC7 back to 127 here. That snap-back was the
-        // "sharp cutoff" the user heard: noteOff with the release
-        // envelope still ringing, then instantly setting Volume
-        // back to 127 punched the residual tail through at full
-        // gain. The reset is now deferred to `cancelLingerFade`,
-        // which fires only when a NEW note starts on this channel
-        // — by which point any release envelope has run its
-        // natural course and a fresh attack is what we're scaling.
-        let tail = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            if !self.midiMode { self.synth.noteOff(midiNote, channel: synthChannel) }
-            self.midi.noteOff(midiNote, channel: midiChannel)
-            // Fade finished and the note is now off — it can no longer be
-            // resurrected, so stop tracking it (only clear if this same
-            // note is still the one registered; a newer note may have
-            // taken the slot). Don't clear lingerFadeWork[synthChannel]
-            // here — leave it so a future noteOn knows the channel is in a
-            // faded state and runs cancelLingerFade to restore CC=127.
-            if self.lingeringNoteByChannel[synthChannel] == midiNote {
-                self.lingeringNoteByChannel.removeValue(forKey: synthChannel)
+        if Thread.isMainThread { arm() } else { DispatchQueue.main.async(execute: arm) }
+    }
+
+    /// One tick of every fade in flight. Linear ramp: Ableton's stock
+    /// devices (and most plugins) map CC7/CC11 to a near-linear audible
+    /// volume curve, so a linear CC drop reads as a steady fade; squared
+    /// curves dropped to "almost silent" by the midpoint and read as an
+    /// early cutoff with a long inaudible tail. The cleanup noteOff
+    /// lands 200 ms after silence — and does NOT snap CC back to 127:
+    /// that snap punched the residual release through at full gain. The
+    /// reset waits for `cancelLingerFade` on the channel's next note.
+    private func stepLingerFades() {
+        let now = CACurrentMediaTime()
+        var sends: [(channel: UInt8, note: UInt8, midiChannel: UInt8, value: UInt8)] = []
+        var finished: [(channel: UInt8, fade: LingerFade)] = []
+        lingerLock.lock()
+        for (channel, var fade) in lingerFades {
+            let elapsed = now - fade.startedAt
+            if elapsed >= Self.sustainedLingerSeconds + 0.2 {
+                finished.append((channel, fade))
+                lingerFades.removeValue(forKey: channel)
+                continue
+            }
+            let remaining = max(0, 1 - elapsed / Self.sustainedLingerSeconds)
+            let value = UInt8(min(127, Int((127 * remaining).rounded())))
+            if value != fade.lastValue {
+                fade.lastValue = value
+                lingerFades[channel] = fade
+                sends.append((channel, fade.note, fade.midiChannel, value))
             }
         }
-        items.append(tail)
-        // 200 ms breathing room past the last ramp tick. AVAudio's
-        // dispatch queue and CoreMIDI both tolerate this fine; the
-        // delay is below the perceptual threshold for "the note
-        // ended" because volume is already 0 from the ramp.
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + Self.lingerTailSeconds + 0.2,
-            execute: tail)
-        // If a prior fade was still in flight on this channel,
-        // cancel it before swapping the tracker — otherwise the old
-        // ramp keeps stepping down Expression while the new note
-        // tries to ring out.
-        if let prev = lingerFadeWork[synthChannel] {
-            for w in prev { w.cancel() }
+        let empty = lingerFades.isEmpty
+        lingerLock.unlock()
+        for s in sends {
+            if !midiMode {
+                synth.sendExpression(value: s.value, channel: s.channel)
+                synth.setSampleNoteVolume(midi: s.note, channel: s.channel, value: s.value)
+            }
+            // Belt + suspenders for DAW instruments: ramp both CC11
+            // (Expression — correct envelope mapping) AND CC7 (Volume —
+            // universal), so the SHIFT-held tail audibly fades whichever
+            // mapping the active patch uses.
+            midi.sendCC(11, value: s.value, channel: s.midiChannel)
+            midi.sendCC(7, value: s.value, channel: s.midiChannel)
         }
-        lingerFadeWork[synthChannel] = items
+        for f in finished {
+            if !midiMode { synth.noteOff(f.fade.note, channel: f.channel) }
+            midi.noteOff(f.fade.note, channel: f.fade.midiChannel)
+        }
+        if empty {
+            lingerFadeTimer?.invalidate()
+            lingerFadeTimer = nil
+        }
     }
 
     /// Fire the same midiNote N times on rotating melodic channels,
