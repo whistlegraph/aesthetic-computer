@@ -6169,6 +6169,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       window.acUpdateReloadTimer = setTimeout(reloadForUpdate, 4000);
       return;
     }
+    // Leave the last frame for the next page to stand behind its boot, so the
+    // reload reads as a blink of the same picture and never a flash of the
+    // body's flat background. The head script that paints it is in index.mjs.
+    try {
+      const shot = canvas.toDataURL("image/png");
+      if (shot.length < 3000000) sessionStorage.setItem("ac:reload-frame", shot);
+    } catch (_e) { /* no canvas or storage; the plain background stands */ }
     window.location.reload();
   }
   function armUpdateReload(graceMs, quiet = false) {

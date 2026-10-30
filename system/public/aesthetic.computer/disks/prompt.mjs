@@ -5895,15 +5895,56 @@ function paint($) {
     $.send({ type: "mime:sheet", content: { action: "armed", on: curtainIdle } });
   }
 
-  // 🎭 "swipe for mimes" along the bottom edge.
+  // 🎭 mime waits under the bottom edge: the wordmark's extruded slab letters,
+  // each floating on its own clock through mime's palette, a chevron lifting
+  // the way the sheet will, and motes drifting up off the edge. Under the
+  // mail envelope, which sits a clear row above.
   if (curtainIdle && screen.height >= 200) {
-    // The last row, under the mail envelope.
-    const label = "^ swipe for mimes ^";
-    const x = Math.floor((screen.width - label.length * 4) / 2);
-    const y = screen.height - 8;
-    const alpha = 110 + Math.round(sin(motdFrame * 0.08) * 40);
-    ink(255, 145, 200, alpha).write(label, { x, y },
+    const t = motdFrame / 60; // seconds
+    const palette = [[255, 145, 197], [175, 220, 182], [125, 227, 215], [255, 150, 154]]; // pink, mint, teal, coral
+    const paper = [23, 21, 38]; // mime's dark paper, for the extrusion
+    const word = "mime", cw = 6;
+    const x0 = Math.floor((screen.width - word.length * cw) / 2);
+    const baseY = screen.height - 13;
+    const cx = Math.floor(screen.width / 2);
+
+    // A breathing glow along the edge.
+    const breath = 0.5 + 0.5 * sin(t * 2.2);
+    for (let i = 0; i < 5; i++) {
+      const a = Math.round((8 + 16 * breath) * (1 - i / 5));
+      ink(255, 145, 197, a).box(0, screen.height - 1 - i, screen.width, 1, "fill");
+    }
+
+    // Motes rising off the edge, each on its own loop.
+    for (let k = 0; k < 7; k++) {
+      const speed = 0.35 + (k % 3) * 0.12;
+      const life = (t * speed + k * 0.37) % 1; // 0 at the edge, 1 gone
+      const mx = cx + Math.round(sin(k * 2.1 + t * 0.4) * (14 + k * 4));
+      const my = screen.height - 1 - Math.round(life * 28);
+      const c = palette[k % palette.length];
+      ink(c[0], c[1], c[2], Math.round(200 * (1 - life))).box(mx, my, 1, 1, "fill");
+    }
+
+    // The letters, slab-extruded toward the paper.
+    word.split("").forEach((ch, i) => {
+      const bob = Math.round(sin(t * 2.6 + i * 1.3) * 2);
+      const c = palette[(i + Math.floor(t * 0.5)) % palette.length];
+      const x = x0 + i * cw, y = baseY + bob;
+      for (let d = 3; d >= 1; d--) ink(paper[0], paper[1], paper[2], 235).write(ch, { x: x + d, y: y + d });
+      ink(Math.round(c[0] * 0.5), Math.round(c[1] * 0.5), Math.round(c[2] * 0.5)).write(ch, { x: x + 1, y: y + 1 });
+      ink(c[0], c[1], c[2]).write(ch, { x, y });
+    });
+    ink(180, 165, 194, 170).write(".ac", { x: x0 + word.length * cw + 1, y: baseY + 3 },
       undefined, undefined, false, "MatrixChunky8");
+
+    // A chevron that lifts and fades, over and over.
+    const lift = (t * 0.9) % 1;
+    const cy = baseY - 5 - Math.round(lift * 5);
+    const ca = Math.round(230 * (1 - lift));
+    ink(255, 145, 197, ca).line(cx - 4, cy + 3, cx, cy);
+    ink(255, 145, 197, ca).line(cx, cy, cx + 4, cy + 3);
+    ink(255, 145, 197, Math.round(ca * 0.5)).line(cx - 4, cy + 4, cx, cy + 1);
+    ink(255, 145, 197, Math.round(ca * 0.5)).line(cx, cy + 1, cx + 4, cy + 4);
   }
 
   if (showLoginCurtain && flairEnabled) {
@@ -6251,7 +6292,7 @@ function paint($) {
 
     $.layer(1);
 
-    // 📬 Mail. Sits above "swipe for mimes": an envelope if there's anything
+    // 📬 Mail. Sits above the mime wordmark: an envelope if there's anything
     // in the box at all, with a red badge counting what's unread.
     if (flairEnabled && mailCount?.total > 0) {
       const unread = mailCount.unread || 0;
@@ -6264,7 +6305,7 @@ function paint($) {
       // envelope, or the badge's overhang drags it off the middle.
       const cluster = w + (label ? badgeW - 3 : 0);
       const ex = Math.floor((screen.width - cluster) / 2);
-      const ey = screen.height - 24; // a clear row above the mime hint
+      const ey = screen.height - 36; // a clear row above the mime wordmark
 
       // A Button hit-tests through its Box, so hand it a real one — a plain
       // {x,y,w,h} has no `contains` and the tap falls through.

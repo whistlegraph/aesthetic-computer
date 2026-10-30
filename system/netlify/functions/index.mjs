@@ -1363,6 +1363,17 @@ async function fun(event, context) {
             }
           })();
         </script>
+        <!-- 📦 Reload handoff: an update reload leaves its last frame in
+             sessionStorage (bios.mjs reloadForUpdate); it stands behind the boot
+             until the piece paints, so nothing flashes gray or white between. -->
+        <script>
+          (function(){try{var f=sessionStorage.getItem('ac:reload-frame');if(!f)return;sessionStorage.removeItem('ac:reload-frame');
+          var s=document.createElement('style');s.id='ac-reload-handoff';
+          s.textContent='html,body{background:#202020 url("'+f+'") center/100% 100% no-repeat !important;image-rendering:pixelated}';
+          document.head.appendChild(s);var done=false;
+          function clear(){if(done)return;done=true;setTimeout(function(){s.remove();},250);}
+          window.addEventListener('ac:booted',clear);setTimeout(clear,10000);}catch(e){}})();
+        </script>
         <!-- Preload the YWFT Processing font for instant boot animation -->
         <link rel="preload" href="/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         <link
