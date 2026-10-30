@@ -931,20 +931,45 @@ function quadrantCell(pixels, useColor) {
 
 // The top of every thread: the donkey, and beside him the harness, model
 // and folder. He scrolls away with the history, like a letterhead.
+// Each thing on it is a place to click, the way the handle on the status line
+// is: the donkey and the name open Aesel's home page, the model opens the
+// model settings, the folder opens in the file manager. `zones` says where
+// each sits on its own row, in columns from the row's first cell.
 function introRows(state, width, useColor) {
   const facts = [
-    paint(useColor, "bold text", "Aesel") + (state.aeselVersion ? paint(useColor, "muted", ` v${state.aeselVersion}`) : ""),
-    paint(useColor, "soft", state.modelLabel || state.model || state.providerSettings?.model || ""),
-    paint(useColor, "muted", clipText(tildePath(state.workspace || ""), Math.max(8, width - TILE[0].length - 3))),
+    { name: "aesel", text: paint(useColor, "bold text", "Aesel") + (state.aeselVersion ? paint(useColor, "muted", ` v${state.aeselVersion}`) : "") },
+    { name: "model", text: paint(useColor, "soft", state.modelLabel || state.model || state.providerSettings?.model || "") },
+    { name: "workspace", text: paint(useColor, "muted", clipText(tildePath(state.workspace || ""), Math.max(8, width - TILE[0].length - 3))) },
   ];
+  const tileWidth = TILE[0].length / 2;
   const rows = [];
+  const zones = [];
   for (let y = 0; y < TILE.length; y += 2) {
     let row = "";
     for (let x = 0; x < TILE[y].length; x += 2) row += quadrantCell([TILE[y][x], TILE[y][x + 1], TILE[y + 1][x], TILE[y + 1][x + 1]], useColor);
-    const fact = width > TILE[0].length / 2 + 12 && facts[y / 2 - 1];
-    rows.push(row + (useColor ? color.reset + color.ground : "") + (fact ? `  ${fact}` : ""));
+    const fact = width > tileWidth + 12 && facts[y / 2 - 1];
+    zones.push([{ name: "aesel", x: 0, width: tileWidth }, ...(fact && cleanText(fact.text) ? [{ name: fact.name, x: tileWidth + 2, width: textWidth(cleanText(fact.text)) }] : [])]);
+    rows.push(row + (useColor ? color.reset + color.ground : "") + (fact ? `  ${fact.text}` : ""));
   }
-  return [...rows, ""];
+  return { rows: [...rows, ""], zones };
+}
+
+// Where the letterhead's clickable parts landed on screen this frame, if any
+// of it is in view: one entry per visible donkey row, in terminal columns and
+// rows (1-based, like the mouse reports them).
+function placeLetterhead(state, intro, start, pad) {
+  state.letterhead = [];
+  if (!intro) return;
+  intro.zones.forEach((zones, index) => {
+    const row = pad + (index - start) + 1;
+    if (index < start || row < 1) return;
+    for (const zone of zones) state.letterhead.push({ name: zone.name, y: row, x: zone.x + 2, width: zone.width });
+  });
+}
+
+function letterheadAction(state, x, y) {
+  const hit = (state.letterhead || []).find((zone) => zone.y === y && x >= zone.x && x < zone.x + zone.width);
+  return hit ? hit.name : "";
 }
 
 export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
@@ -976,6 +1001,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       : null;
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
   const unruled = new Set();
+  let intro = null;
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
     : (() => {
@@ -1008,7 +1034,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
         // Reached the start of the thread: the donkey stands at the top of
         // it and scrolls away with the history, like a letterhead.
         // The desktop app has its own chrome and draws no letterhead.
-        if(index<0&&!state.desktop)chunks.push(introRows(state,contentWidth,useColor));
+        if(index<0&&!state.desktop){intro=introRows(state,contentWidth,useColor);chunks.push(intro.rows);}
         return chunks.reverse().flat();
       })();
   // A pinned rolling feed: new work displaces old work without adding scrollback.
@@ -1037,6 +1063,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : Math.max(0, transcript.length - availableRows - (state.scrollOffset || 0));
   const visible = transcript.slice(start, start + availableRows);
   while (visible.length < availableRows) state.about ? visible.push("") : visible.unshift("");
+  placeLetterhead(state, state.about ? null : intro, start, Math.max(0, availableRows - (transcript.length - start)));
 
   visible.push(...provisional, ...drawer);
   const body = visible.map((line, index) => {
@@ -1160,6 +1187,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : state.scrollOffset ? ` ${state.scrollOffset} lines above · End latest`
     : state.hover === "about" ? " aesel home · click"
     : state.hover === "profile" ? " Open profile in browser · click"
+    : state.hover === "aesel" ? " Open aesthetic.computer/aesel · click"
+    : state.hover === "workspace" ? " Open the folder · click"
     : state.busy
     ? ` ${requestFeedback(state)}`
     : proLayout(state) ? " /help \u00b7 /inbox \u00b7 /mode \u00b7 /ask \u00b7 ctrl-c quit"
@@ -1591,12 +1620,15 @@ export function headerAction(state, columns, rows, x, y) {
     }
     const banner = updateBanner(state, Math.max(32, columns), Math.max(10, rows) - shape.bottom.length);
     if (banner && y - 1 >= banner.top && y - 1 < banner.top + banner.height && x - 1 >= banner.x && x - 1 < banner.x + banner.inner) return "update";
+    const letterhead = letterheadAction(state, x, y);
+    if (letterhead) return letterhead;
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
     const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => ["handle", "model", "engine", "media"].includes(span.name) && x >= span.x + 1 && x <= span.x + (span.name === 'handle' ? textWidth(state.account || '') : span.width));
     return hit ? (hit.name === 'handle' ? state.account?.startsWith('@') ? 'profile' : '' : hit.name === "engine" ? "provider" : hit.name) : "";
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
+  if(!state.settings){const letterhead=letterheadAction(state,x,y);if(letterhead)return letterhead;}
   if(state.settings){
     const {count,start}=drawerWindow(state.settings,rows);
     const first=rows-5-count+1;
