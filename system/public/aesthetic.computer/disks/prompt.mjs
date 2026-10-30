@@ -5889,7 +5889,9 @@ function paint($) {
 
   // 🎭 Tell bios whether a two-finger scroll should pull up the mime feed:
   // only while the curtain is up and nothing is typed.
-  const curtainIdle = showLoginCurtain && !$.system.prompt.input.canType &&
+  // The same test act() uses for the swipe itself: the default theme with
+  // nothing typed — logged in or not, whatever the screen's shape.
+  const curtainIdle = theme === "default" && !$.system.prompt.input.canType &&
     !$.system.prompt.input.text;
   if (curtainIdle !== mimeArmed) {
     mimeArmed = curtainIdle;
@@ -5901,7 +5903,7 @@ function paint($) {
   // the way the sheet will, and motes drifting up off the edge. The mail
   // envelope reads `mimeMarkTop` to sit a clear row above all of it.
   mimeMarkTop = null;
-  if (curtainIdle && screen.height >= 200) {
+  if (curtainIdle) {
     const t = motdFrame / 60; // seconds
     const dark = $.dark;
     const palette = dark
