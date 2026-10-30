@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "paper": "harness-factory.tex",
+  "pdf": "harness-factory.pdf",
+  "pdfSha256": "ca63d9d0331504e5b82216b1b7468edfd753c3ccd0f82f5e8c82709731a80825",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-10-30T17:50:21.609Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every visible wordmark uses the \\ac macro: running header, date line, abstract, body and the Consent paragraph show the period in AC pink at full-page resolution. Bibliography howpublished fields carry a plain period (a .bib field cannot colour it), the same convention as Edit the Harness."
+  },
+  "expectedDiagrams": 1,
+  "diagrams": [
+    {
+      "id": "flow",
+      "page": 3,
+      "crop": [
+        0.08,
+        0.06,
+        0.84,
+        0.25
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Revised after a first render where the goal node collided with the route label. Now a full-width pink banner with five straight dashed drops (contract, checks, route, extension, board), each labelled to its right with clear air; the main row reads left to right; the three teal routes fan and rejoin symmetrically; the pink repair loop runs below in its own channel; the post label sits with space between file and board. Sans labels legible at print size; nothing crosses."
+    }
+  ],
+  "expectedFigures": 3,
+  "figures": [
+    {
+      "id": "poster",
+      "page": 4,
+      "crop": [
+        0.08,
+        0.065,
+        0.19,
+        0.215
+      ],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      },
+      "notes": "Full poster, uncropped, 1200x1800 raster of the run SVG. The giant 14, amber planet and orbit and the grid rules read at page size; the 11px info rows are small by the model own design, and the caption does not lean on them."
+    },
+    {
+      "id": "aesel-pencil",
+      "page": 4,
+      "crop": [
+        0.28,
+        0.065,
+        0.21,
+        0.22
+      ],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      },
+      "notes": "The full input image (720 px square) with the haiku typeset beneath, both inside the figure; the heart on the canvas the haiku names is visible. Caption identifies input and output."
+    },
+    {
+      "id": "hum-roll",
+      "page": 5,
+      "crop": [
+        0.13,
+        0.07,
+        0.76,
+        0.3
+      ],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      },
+      "notes": "Full-width piano roll from score.json; pitch labels, bar numbers, legend and the noise lane all read at page size after the type was enlarged; nothing clipped. Caption says what it is drawn from and what it shows."
+    }
+  ]
+}

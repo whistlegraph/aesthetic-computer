@@ -101,6 +101,11 @@ function translationKey(dir) {
 
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
+  "arxiv-harness-factory": {
+    base: "harness-factory",
+    siteName: "pick-the-type-first-26-arxiv",
+    title: "Pick the Type First",
+  },
   "arxiv-harness-loop": {
     base: "harness-loop",
     siteName: "edit-the-harness-26-arxiv",
