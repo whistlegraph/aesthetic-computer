@@ -1,6 +1,58 @@
 import AVFoundation
 import Foundation
 
+/// Which trackpad page Tab just handed the fingers to. Each page announces
+/// itself in its own voice, so the ear never has to decode a pitch table:
+/// TrackDrum strikes a real kick, the pitch/echo slider lets fall one
+/// echoing water droplet (bent like the next note would be), and handing
+/// the trackpad back to the mouse lands a dry, dead tock — nothing
+/// musical, because nothing musical is under the fingers anymore.
+enum TrackpadPageCue: Equatable {
+    case drum, slider, off
+
+    /// Where the drum page's announcing hit lands on the skin: dead
+    /// center, the kick zone — the same strike `selectDrumKit` auditions.
+    static let drumStrike = CGPoint(x: 0.5, y: 0.5)
+    static let drumVelocity: UInt8 = 96
+
+    /// How long the slider droplet rings, echoes included.
+    static let dropletSeconds = 0.5
+
+    /// The slider page's cue: one water droplet with its own echo. The
+    /// drop is a ~50 ms sine that chirps up a tenth from `pitch` × 520 Hz
+    /// (a drop into a pool pitches up as the cavity closes), then it comes
+    /// back three times at 130 ms, each repeat quieter and duller. Shared
+    /// by the fx-bus cue (which bends `pitch` with the wheel) and the dry
+    /// fallback (pitch 1), so the two never drift apart in character.
+    static func fillDroplet(_ data: UnsafeMutablePointer<Float>, frames: Int,
+                            sampleRate: Double, pitch: Double) {
+        for i in 0..<frames { data[i] = 0 }
+        let taps: [(delay: Double, gain: Double, overtone: Double)] = [
+            (0.00, 1.00, 0.30), (0.13, 0.48, 0.18), (0.26, 0.24, 0.08), (0.39, 0.12, 0.0),
+        ]
+        let f0 = 520.0 * pitch
+        let attack = Int(sampleRate * 0.0015)
+        for tap in taps {
+            let start = Int(tap.delay * sampleRate)
+            let length = min(frames - start, Int(sampleRate * 0.11))
+            guard length > 0 else { continue }
+            var phase = 0.0
+            for j in 0..<length {
+                let t = Double(j) / sampleRate
+                // Chirp: up a tenth over the first 50 ms, then hold.
+                let freq = f0 * pow(2.5, min(1, t / 0.05))
+                phase += 2.0 * Double.pi * freq / sampleRate
+                let ramp: Double = j < attack
+                    ? 0.5 - 0.5 * cos(.pi * Double(j) / Double(attack))
+                    : 1
+                let env = ramp * exp(-t * 48.0)
+                let s = sin(phase) + tap.overtone * sin(2.0 * phase)
+                data[start + j] += Float(s * env * tap.gain * 0.22)
+            }
+        }
+    }
+}
+
 /// Fixed-identity notification bell for the right-⌘ quiet-focus
 /// toggle. Deliberately on its own tiny AVAudioEngine (the same
 /// trick `CrumpleSound` uses) so it is **never** colored by the
@@ -64,16 +116,20 @@ final class FocusCueBeep {
         player.play()
     }
 
-    /// The Tab handoff chime — which trackpad page just took over. A low,
-    /// soft-attacked sine in the airport-PA register, deliberately unlike
-    /// the high focus bell so "mode changed" and "focus changed" never blur:
-    /// TrackDrum lands on G4, the pitch slider a fifth below on C4. Pitch
-    /// alone says which surface is now under the fingers.
-    func padSwitch(toTrackDrum: Bool, off: Bool = false) {
+    /// The Tab handoff cue — which trackpad page just took over — on the
+    /// isolated engine. The live path (`MenuBandSurfaceCue` + the real
+    /// TrackDrum skin) is preferred; this is the stand-in while the synth
+    /// engine is down, so each page keeps the same character: a synthetic
+    /// kick for TrackDrum, the echoing droplet for the slider, a dry tock for off.
+    func padSwitch(_ cue: TrackpadPageCue) {
         guard ensureStarted() else { return }
-        guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum, off: off) else {
-            return
+        let buffer: AVAudioPCMBuffer?
+        switch cue {
+        case .drum: buffer = makeKickBuffer()
+        case .slider: buffer = makeSliderDropletBuffer()
+        case .off: buffer = makeOffTockBuffer()
         }
+        guard let buffer else { return }
         // Flush anything still queued: `scheduleBuffer` appends, so rapid
         // Tab presses would otherwise stack 0.3 s chimes back-to-back and
         // the ear falls behind the page that's actually under the fingers.
@@ -166,13 +222,8 @@ final class FocusCueBeep {
         return buffer
     }
 
-    /// ~0.3s rounded sine "boop": an 8 ms cosine ramp in (no click
-    /// transient — this is the mellow PA chime, not the tick), pure
-    /// fundamental with a whisper of second harmonic for body, then an
-    /// exponential settle.
-    private func makePadSwitchBuffer(toTrackDrum: Bool, off: Bool) -> AVAudioPCMBuffer? {
-        let dur = 0.3
-        let frameCount = AVAudioFrameCount(sampleRate * dur)
+    private func makeMonoBuffer(seconds: Double) -> AVAudioPCMBuffer? {
+        let frameCount = AVAudioFrameCount(sampleRate * seconds)
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
                                          channels: 1),
               let buffer = AVAudioPCMBuffer(pcmFormat: format,
@@ -180,19 +231,61 @@ final class FocusCueBeep {
             return nil
         }
         buffer.frameLength = frameCount
-        guard let data = buffer.floatChannelData?[0] else { return nil }
-        let freq = off ? 130.8 : (toTrackDrum ? 392.0 : 261.6) // C3 off / G4 drum / C4 slider
-        let total = Int(frameCount)
-        let attack = Int(sampleRate * 0.008)
+        return buffer
+    }
+
+    /// TrackDrum stand-in: a ~0.18 s kick — a sine dropping from 150 Hz to
+    /// 45 Hz under a fast exponential, with a pinch of noise on the beater
+    /// transient. Unmistakably a drum, never a tone.
+    private func makeKickBuffer() -> AVAudioPCMBuffer? {
+        let dur = 0.18
+        guard let buffer = makeMonoBuffer(seconds: dur),
+              let data = buffer.floatChannelData?[0] else { return nil }
+        let total = Int(buffer.frameLength)
+        var phase = 0.0
+        var last: Float = 0
         for i in 0..<total {
             let t = Double(i) / sampleRate
-            let ramp: Double = i < attack
-                ? 0.5 - 0.5 * cos(.pi * Double(i) / Double(attack))
-                : 1
-            let env = ramp * exp(-Double(i) / Double(total) * 4.5)
-            let phase = 2.0 * Double.pi * freq * t
-            let s = sin(phase) + 0.10 * sin(2.0 * phase)
-            data[i] = Float(s * env * 0.20)
+            let freq = 45.0 + 105.0 * exp(-t * 38.0)
+            phase += 2.0 * Double.pi * freq / sampleRate
+            let body = sin(phase) * exp(-t * 16.0)
+            let n = Float.random(in: -1...1)
+            last = last * 0.5 + n * 0.5
+            let beater = Double(last) * exp(-t * 220.0) * 0.35
+            data[i] = Float((body + beater) * 0.55)
+        }
+        return buffer
+    }
+
+    /// Pitch/echo slider: the echoing water droplet, at concert pitch
+    /// (this engine never sees the bend).
+    private func makeSliderDropletBuffer() -> AVAudioPCMBuffer? {
+        guard let buffer = makeMonoBuffer(seconds: TrackpadPageCue.dropletSeconds),
+              let data = buffer.floatChannelData?[0] else { return nil }
+        TrackpadPageCue.fillDroplet(data, frames: Int(buffer.frameLength),
+                                    sampleRate: sampleRate, pitch: 1)
+        return buffer
+    }
+
+    /// Trackpad handed back to the mouse: a dry, dead tock — a damped
+    /// 220→110 Hz drop over ~60 ms with a woody click on top. No ring, no
+    /// pitch to read; it sounds like a switch closing.
+    private func makeOffTockBuffer() -> AVAudioPCMBuffer? {
+        let dur = 0.07
+        guard let buffer = makeMonoBuffer(seconds: dur),
+              let data = buffer.floatChannelData?[0] else { return nil }
+        let total = Int(buffer.frameLength)
+        var phase = 0.0
+        var last: Float = 0
+        for i in 0..<total {
+            let t = Double(i) / sampleRate
+            let freq = 110.0 + 110.0 * exp(-t * 90.0)
+            phase += 2.0 * Double.pi * freq / sampleRate
+            let body = sin(phase) * exp(-t * 55.0)
+            let n = Float.random(in: -1...1)
+            last = last * 0.7 + n * 0.3
+            let click = Double(last) * exp(-t * 400.0) * 0.5
+            data[i] = Float((body + click) * 0.4)
         }
         return buffer
     }

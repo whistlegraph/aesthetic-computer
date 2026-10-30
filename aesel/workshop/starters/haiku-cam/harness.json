@@ -1,0 +1,6 @@
+{
+  "name": "haiku-cam",
+  "description": "a photo becomes a haiku about what is just outside the frame",
+  "inputs": ["image", "text"],
+  "output": "text/plain"
+}

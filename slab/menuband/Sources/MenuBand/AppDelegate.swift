@@ -907,6 +907,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateIcon()
         }
         RevisionChecker.start()
+        // Launch-time "update from main?" modal (fleet builds; see MenuBandUpdater).
+        MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
+        MenuBandUpdater.checkOnLaunch()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
         // LaunchAgent). Reconcile the OS registration with the user's stored
@@ -3987,7 +3990,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .milkyTracker: layoutName = "MilkyTracker"
         }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
-        let revision = RevisionChecker.statusLine.map { " · \($0)" } ?? ""
+        let revision = (MenuBandUpdater.statusLine ?? RevisionChecker.statusLine).map { " · \($0)" } ?? ""
         button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
         // Force a synchronous redraw — the click drag-loop runs the runloop
         // in `eventTracking` mode and has been swallowing the next CA flush
@@ -6915,16 +6918,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             focusedInputMode.rawValue,
             forKey: Self.focusedInputModeDefaultsKey
         )
-        // Prefer the fx-bus chime — it sounds at the bent pitch and blooms
-        // with the live echo/space, previewing the page it names. The
-        // isolated beep stays as the fallback while the engine is down.
-        if !menuBand.playPadSwitchCue(
-            toTrackDrum: focusedInputMode == .trackDrum
-        ) {
-            FocusCueBeep.shared.padSwitch(
-                toTrackDrum: focusedInputMode == .trackDrum
-            )
-        }
+        playPadSwitchCue(focusedInputMode == .trackDrum ? .drum : .slider)
         if focusedInputMode == .localFX {
             prepareFocusedLocalFXIdle()
             debugLog("trackpad pad mode = fx (local mouse idle)")
@@ -6965,13 +6959,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hideSystemCursorIfNeeded()
             pitchBendCursorPushed = true
         }
-        // The handoff chime names the destination by pitch, and the choice
-        // is remembered so regaining focus later reopens this same page.
-        // Through the fx bus when it's up: the chime arrives bent and
-        // echoed exactly as the next note would — a preview, not a label.
-        if !menuBand.playPadSwitchCue(toTrackDrum: trackpadPadMode != .fx, off: trackpadPadMode == .mouse) {
-            FocusCueBeep.shared.padSwitch(toTrackDrum: trackpadPadMode != .fx, off: trackpadPadMode == .mouse)
-        }
+        // The handoff cue speaks in the destination's own voice, and the
+        // choice is remembered so regaining focus later reopens this page.
+        playPadSwitchCue(Self.padSwitchCue(for: trackpadPadMode))
         UserDefaults.standard.set(
             (trackpadPadMode == .fx
                 ? FocusedInputMode.localFX : .trackDrum).rawValue,
@@ -7150,6 +7140,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     #endif
+
+    /// What Tab's landing sounds like. Every page that puts a drum under
+    /// the fingers — whole skin, kit, synth surface, or the split's right
+    /// half — announces itself with the kick; the slider drips; handing
+    /// the trackpad back to the mouse tocks.
+    static func padSwitchCue(for mode: TrackpadPadMode) -> TrackpadPageCue {
+        switch mode {
+        case .fx: return .slider
+        case .mouse: return .off
+        case .kit, .skin, .synth, .split: return .drum
+        }
+    }
+
+    /// Prefer the live engine — a real kick on the current kit, or the
+    /// slider droplet bent and echoed like the next note. The isolated beep
+    /// engine stands in while the synth is down, and always plays the off
+    /// tock: that page leaves the fx behind, so its sound stays dry.
+    private func playPadSwitchCue(_ cue: TrackpadPageCue) {
+        if cue != .off, menuBand.playPadSwitchCue(cue) { return }
+        FocusCueBeep.shared.padSwitch(cue)
+    }
 
     static func trackpadPadModeAfterTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
         switch mode {

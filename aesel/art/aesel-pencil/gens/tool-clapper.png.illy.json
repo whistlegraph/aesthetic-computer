@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-10-30T16:16:07.818Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.5-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-pencil/gens/tool-clapper.png",
+  "promptPath": null,
+  "promptHash": "6cbc74e5b2ed4f006acb2b2814ace51bce65d539c74feaa3c259adfee34c6279",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-pencil/gens/v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 42.409,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1521,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 497
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3277
+  }
+}

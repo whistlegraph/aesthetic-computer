@@ -247,20 +247,26 @@ END:VEVENT
 BEGIN:VEVENT
 UID:processing-foundation-fellowship-2027@papers.aesthetic.computer
 DTSTAMP:20261019T000000Z
-LAST-MODIFIED:20261019T000000Z
+LAST-MODIFIED:20261029T000000Z
 DTSTART:20261102T075900Z
 SUMMARY:Processing Foundation Fellowship 2027 — deadline
 DESCRIPTION:An eight-month fellowship for artists\, educators and engineers
-  building open-source tools and resources for the arts. Every project must
-  build on p5.js\, the p5.js Editor or Processing.\n\nPlus open-source ment
- orship\, a cohort\, professional development and public programs.\nFee not
-  stated\n\nEligibility: US-based nominees only\; self-nomination is welcom
- e. Hybrid fellows must be in New York or Los Angeles.\n\nDeadline: 2026-11
- -01. Nominations close 11:59 PM PST\; invited nominees submit proposals by
-  November 23\n\nVideo interviews the week of December 7\; fellows notified
-  the week of December 14\; final presentations October 2\, 2027.\n\nOffici
- al call: https://processingfoundation.org/programs/fellowships/fellowship-
- 2027/\nChecked 2026-10-19
+  building open-source tools and resources for the arts\, in three tracks: 
+ Gaming the System (an open-source game-design toolkit co-designed with und
+ erserved young people in Los Angeles\, backed by the Riot Games Social Imp
+ act Fund)\, Collective Intelligence (youth AI education with the Mark Cuba
+ n Foundation) and DIY Computing (cyberdecks in New York). Every project mu
+ st build on p5.js\, the p5.js Editor or Processing.\n\nPlus open-source me
+ ntorship\, a cohort\, professional development and public programs.\nFee n
+ ot stated\n\nEligibility: US-based nominees only\; self-nomination is welc
+ ome. Gaming the System is hybrid in Los Angeles\, for game makers\, creati
+ ve coders and educators based there\; DIY Computing is hybrid in New York\
+ ; Collective Intelligence is remote anywhere in the US.\n\nDeadline: 2026-
+ 11-01. Nominations close 11:59 PM PST\; invited nominees submit proposals 
+ by November 23\n\nVideo interviews the week of December 7\; fellows notifi
+ ed the week of December 14\; final presentations October 2\, 2027.\n\nOffi
+ cial call: https://processingfoundation.org/programs/fellowships/fellowshi
+ p-2027/\nChecked 2026-10-29
 URL:https://processingfoundation.org/programs/fellowships/fellowship-2027/
 LOCATION:United States (hybrid in New York or Los Angeles\, or remote)
 TRANSP:TRANSPARENT

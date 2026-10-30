@@ -1,0 +1,6 @@
+{
+  "name": "poster",
+  "description": "an event description becomes a bold typographic poster",
+  "inputs": ["text"],
+  "output": "image/svg+xml"
+}

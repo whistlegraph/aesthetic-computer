@@ -66,6 +66,7 @@ final class MenuBandInputMonitor {
     private var readCursor = MonitorReadCursor()
     private var wetUnderflows = 0
     private var wetSource: AVAudioSourceNode?
+    private var wetPoints: [AVAudioConnectionPoint] = []
 
     // Real-time pitch shifter on the voice itself (dry reader). Two taps
     // sliding through a short window, crossfaded — the classic delay-line
@@ -220,7 +221,7 @@ final class MenuBandInputMonitor {
             }
             wetSource = wetNode
             engine.attach(wetNode)
-            let wetPoints = wet.map { AVAudioConnectionPoint(node: $0, bus: $0.nextAvailableInputBus) }
+            wetPoints = wet.map { AVAudioConnectionPoint(node: $0, bus: $0.nextAvailableInputBus) }
             engine.connect(wetNode, to: wetPoints, fromBus: 0, format: monoFormat)
             wetConnected = true
         }
@@ -253,7 +254,15 @@ final class MenuBandInputMonitor {
         engine.detach(voiceEQ)
         if wetConnected {
             if let w = wetSource {
-                engine.disconnectNodeOutput(w)
+                // Unplug each send by its input bus. `disconnectNodeOutput`
+                // on a fanned-out node leaves the engine holding the freed
+                // source after detach, and the next graph edit (the MIDISynth
+                // rebuild) segfaults in UpdateGraphAfterReconfig — every
+                // monitor toggle-off crashed Menu Band (2026-10-29).
+                for point in wetPoints {
+                    if let node = point.node { engine.disconnectNodeInput(node, bus: point.bus) }
+                }
+                wetPoints = []
                 engine.detach(w)
                 wetSource = nil
             }

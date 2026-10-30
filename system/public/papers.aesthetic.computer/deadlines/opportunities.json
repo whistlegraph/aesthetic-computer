@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-10-19",
+  "updated": "2026-10-29",
   "opportunities": [
     {
       "id": "interplay-2027",
@@ -235,19 +235,19 @@
       "id": "processing-foundation-fellowship-2027",
       "title": "Processing Foundation Fellowship 2027",
       "kind": "Fellowship",
-      "disciplines": ["Creative coding", "Open source"],
-      "summary": "An eight-month fellowship for artists, educators and engineers building open-source tools and resources for the arts. Every project must build on p5.js, the p5.js Editor or Processing.",
+      "disciplines": ["Creative coding", "Open source", "Games"],
+      "summary": "An eight-month fellowship for artists, educators and engineers building open-source tools and resources for the arts, in three tracks: Gaming the System (an open-source game-design toolkit co-designed with underserved young people in Los Angeles, backed by the Riot Games Social Impact Fund), Collective Intelligence (youth AI education with the Mark Cuban Foundation) and DIY Computing (cyberdecks in New York). Every project must build on p5.js, the p5.js Editor or Processing.",
       "location": "United States (hybrid in New York or Los Angeles, or remote)",
       "remote": true,
       "dates": "January 25 – September 26, 2027",
       "deadline": {"date": "2026-11-01", "at": "2026-11-01T23:59:00-08:00", "note": "Nominations close 11:59 PM PST; invited nominees submit proposals by November 23"},
       "support": {"paid": true, "text": "$10,000 stipend", "detail": "Plus open-source mentorship, a cohort, professional development and public programs."},
       "fee": {"status": "unknown", "text": "Fee not stated"},
-      "eligibility": {"international": false, "text": "US-based nominees only; self-nomination is welcome. Hybrid fellows must be in New York or Los Angeles."},
+      "eligibility": {"international": false, "text": "US-based nominees only; self-nomination is welcome. Gaming the System is hybrid in Los Angeles, for game makers, creative coders and educators based there; DIY Computing is hybrid in New York; Collective Intelligence is remote anywhere in the US."},
       "requirements": "A nomination first; selected nominees are invited on November 2 to submit a full proposal, with an info session on November 7.",
       "terms": "Video interviews the week of December 7; fellows notified the week of December 14; final presentations October 2, 2027.",
       "source": "https://processingfoundation.org/programs/fellowships/fellowship-2027/",
-      "checked": "2026-10-19",
+      "checked": "2026-10-29",
       "published": "2026-10-19"
     },
     {

@@ -180,12 +180,31 @@ async function openaiGenerate(plan, destination) {
   return { requestId: result.id || null, usage: result.usage || null };
 }
 
+// Nearest declared ratio to a WxH size, for endpoints that take aspect_ratio.
+function nearestRatio(width, height, ratios) {
+  const want = Math.log(width / height);
+  const gap = (ratio) => { const [w, h] = ratio.split(":").map(Number); return Math.abs(Math.log(w / h) - want); };
+  return ratios.reduce((best, ratio) => (gap(ratio) < gap(best) ? ratio : best));
+}
+
+// A fal request body, built from the model's declared field mapping:
+// `size` sends {width,height}, `aspectRatio` the nearest declared ratio,
+// `reference` the first ref and `references` every ref as data URIs.
+function falInput(plan, model) {
+  const fields = model.input || {};
+  const [width, height] = plan.size.split("x").map(Number);
+  const input = { ...(model.defaults || { num_images: 1 }), [fields.prompt || "prompt"]: plan.prompt };
+  if (fields.size) input[fields.size] = { width, height };
+  if (fields.aspectRatio) input[fields.aspectRatio] = nearestRatio(width, height, model.aspectRatios || ["1:1"]);
+  if (fields.reference && plan.refs[0]) input[fields.reference] = dataUri(plan.refs[0]);
+  if (fields.references && plan.refs.length) input[fields.references] = plan.refs.map(dataUri);
+  return input;
+}
+
 async function falGenerate(plan, destination) {
   const key = envValue("FAL_KEY");
   const model = PROVIDERS.fal.models[plan.model];
-  const [width, height] = plan.size.split("x").map(Number);
-  const input = { prompt: plan.prompt, image_size: { width, height }, num_images: 1 };
-  if (plan.refs[0]) input.image_url = dataUri(plan.refs[0]);
+  const input = falInput(plan, model);
   const auth = { Authorization: `Key ${key}`, "Content-Type": "application/json" };
   const queuePath = `${plan.output}.queue.json`;
   let queued = existsSync(queuePath) ? JSON.parse(readFileSync(queuePath, "utf8")) : null;

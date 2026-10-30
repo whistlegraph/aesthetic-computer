@@ -12,6 +12,7 @@ Usage: ac [directory] [--runtime mjs|lisp|p5|l5]
        aesthetic mime <file> ["caption"]
        aesthetic run --task <task.json> --out <rundir> --live [--harness <dir>]
        aesthetic run --init-harness <dir>
+       aesthetic harness list | new <dir> | run <dir> … | post <dir>
 
 Open the aesel terminal interface in a workspace, or manage the
 shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
@@ -24,6 +25,13 @@ braincells, so it asks for --live. A task's kind picks the runner: piece
 loop, with the vault linked). Tasks to start from are in aesel/tasks/.
 --init-harness copies the editable prompt files to a directory to start from;
 edit them and pass it as --harness.
+
+harness makes your own small harness: a folder with harness.json (its
+inputs — text, image, file — and one output MIME type), prompt.md (what it
+knows) and an optional check.mjs. `harness run` sends the inputs to AC hosted
+inference, checks the answer, repairs once, and writes the file its MIME goal
+names under runs/; `harness post` puts the newest one on mime.ac. Starters
+and the 90-minute workshop route are in aesel/workshop/.
 
 Each session starts by choosing an AC blank piece or a nopaint.art brush,
 then shows a QR code that runs it live on a phone. --genre makes that

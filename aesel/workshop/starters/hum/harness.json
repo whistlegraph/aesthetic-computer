@@ -1,0 +1,6 @@
+{
+  "name": "hum",
+  "description": "a feeling or a place becomes a short melody",
+  "inputs": ["text"],
+  "output": "audio/wav"
+}

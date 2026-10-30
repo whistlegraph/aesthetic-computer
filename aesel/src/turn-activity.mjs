@@ -77,13 +77,21 @@ export function toolTrail(kinds) {
 
 // The model's own checklist — Claude's TodoWrite, Codex's turn plan — as one
 // shape: what the step is, and whether it is waiting, under way or done.
-export function planFrom(steps) {
+// Each step keeps the moment it reached its status across rewrites of the
+// list, so the page can say how long ago it started or finished.
+export function planFrom(steps, previous = null, now = Date.now()) {
   if (!Array.isArray(steps)) return null;
+  const before = new Map((previous || []).map(step => [step.key, step]));
   const plan = steps.map(step => {
     const status = String(step?.status || 'pending');
+    const key = oneLine(step?.content || step?.step || '');
+    const state = status === 'completed' ? 'done' : status === 'in_progress' || status === 'inProgress' ? 'active' : 'pending';
+    const prior = before.get(key);
     return {
-      text: oneLine(status === 'in_progress' || status === 'inProgress' ? step.activeForm || step.content || step.step : step.content || step.step),
-      status: status === 'completed' ? 'done' : status === 'in_progress' || status === 'inProgress' ? 'active' : 'pending',
+      key,
+      text: oneLine(state === 'active' ? step.activeForm || step.content || step.step : step.content || step.step),
+      status: state,
+      since: prior?.status === state ? prior.since : now,
     };
   }).filter(step => step.text);
   return plan.length ? plan : null;

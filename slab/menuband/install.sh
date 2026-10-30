@@ -274,6 +274,13 @@ if GIT_COMMIT="$(git -C "${SCRIPT_DIR}" rev-parse HEAD 2>/dev/null)"; then
         /usr/libexec/PlistBuddy -c "Delete :$1" "${APP_DIR}/Contents/Info.plist" >/dev/null 2>&1 || true
         /usr/libexec/PlistBuddy -c "Add :$1 $2 $3" "${APP_DIR}/Contents/Info.plist"
     done
+    # The repo's git dir (the main one, even from a worktree), so the app can
+    # fetch main and offer to update itself (MenuBandUpdater). Quoted apart
+    # from the loop above: a home path can hold spaces.
+    if GIT_COMMON="$(git -C "${SCRIPT_DIR}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+        /usr/libexec/PlistBuddy -c "Delete :MBSourceGitDir" "${APP_DIR}/Contents/Info.plist" >/dev/null 2>&1 || true
+        /usr/libexec/PlistBuddy -c "Add :MBSourceGitDir string ${GIT_COMMON}" "${APP_DIR}/Contents/Info.plist"
+    fi
     say "stamped revision ${GIT_COMMIT:0:10} (#${GIT_COUNT}, ${GIT_BRANCH})"
 fi
 if [[ -f "${SCRIPT_DIR}/AppIcon.icns" ]]; then

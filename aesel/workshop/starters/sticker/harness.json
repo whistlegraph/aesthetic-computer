@@ -1,0 +1,7 @@
+{
+  "name": "sticker",
+  "description": "an idea (and maybe a photo) becomes a die-cut sticker illustration",
+  "inputs": ["text", "image"],
+  "output": "image/png",
+  "image": { "provider": "openai", "model": "gpt-image-2", "quality": "low" }
+}

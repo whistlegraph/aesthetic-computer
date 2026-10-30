@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// The FX surface's own voice: the Tab handoff chime plus a quiet friction
+/// The FX surface's own voice: the Tab handoff droplet plus a quiet friction
 /// "rub", both fed into the synth's pre-limiter fx bus (the same wiring as
 /// `MenuBandSpeechVoice`) so they ride the REAL space/echo sends. Where
 /// `FocusCueBeep` is deliberately isolated and identical every time, these
@@ -76,16 +76,16 @@ final class MenuBandSurfaceCue {
         rubSpeed.rate = pow(2, clamped)
     }
 
-    /// The Tab handoff chime, at the currently-bent pitch, through the fx
-    /// bus. Returns false when the engine can't sound it (caller falls back
-    /// to the isolated `FocusCueBeep`). Stopping first flushes any queued
-    /// chime so rapid Tab presses always hear the freshest destination —
-    /// `scheduleBuffer` on a live player appends, it does not replace.
-    func playPadSwitch(toTrackDrum: Bool, off: Bool = false) -> Bool {
+    /// The slider page's Tab droplet, at the currently-bent pitch, through
+    /// the fx bus — so it arrives bent and (further) echoed exactly as the
+    /// next note would. Returns false when the engine can't sound it (caller
+    /// falls back to the isolated `FocusCueBeep`). Stopping first flushes
+    /// any queued droplet so rapid Tab presses always hear the freshest
+    /// destination — `scheduleBuffer` on a live player appends, it does not
+    /// replace.
+    func playSliderDroplet() -> Bool {
         guard attached, let engine, engine.isRenderingLive else { return false }
-        guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum, off: off) else {
-            return false
-        }
+        guard let buffer = makeSliderDropletBuffer() else { return false }
         chimePlayer.stop()
         chimePlayer.scheduleBuffer(buffer, completionHandler: nil)
         chimePlayer.play()
@@ -140,33 +140,20 @@ final class MenuBandSurfaceCue {
         rubMixer.outputVolume = rubLevel
     }
 
-    /// Same DNA as `FocusCueBeep.makePadSwitchBuffer` — G4 names TrackDrum,
-    /// C4 the slider — but rendered at the bent pitch. The two stay a fifth
-    /// apart under any bend, so the destination remains readable by ear
-    /// while the absolute register previews where the wheel sits.
-    private func makePadSwitchBuffer(toTrackDrum: Bool, off: Bool) -> AVAudioPCMBuffer? {
-        let dur = 0.3
-        let frameCount = AVAudioFrameCount(sampleRate * dur)
+    /// The same droplet `FocusCueBeep` plays dry, rendered at the bent
+    /// pitch so the register previews where the wheel sits before a note
+    /// commits to it.
+    private func makeSliderDropletBuffer() -> AVAudioPCMBuffer? {
+        let frameCount = AVAudioFrameCount(sampleRate * TrackpadPageCue.dropletSeconds)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: renderFormat,
                                             frameCapacity: frameCount) else {
             return nil
         }
         buffer.frameLength = frameCount
         guard let data = buffer.floatChannelData?[0] else { return nil }
-        let base = off ? 130.8 : (toTrackDrum ? 392.0 : 261.6) // C3 off / G4 drum / C4 slider
-        let freq = base * pow(2.0, Double(bend))
-        let total = Int(frameCount)
-        let attack = Int(sampleRate * 0.008)
-        for i in 0..<total {
-            let t = Double(i) / sampleRate
-            let ramp: Double = i < attack
-                ? 0.5 - 0.5 * cos(.pi * Double(i) / Double(attack))
-                : 1
-            let env = ramp * exp(-Double(i) / Double(total) * 4.5)
-            let phase = 2.0 * Double.pi * freq * t
-            let s = sin(phase) + 0.10 * sin(2.0 * phase)
-            data[i] = Float(s * env * 0.20)
-        }
+        TrackpadPageCue.fillDroplet(data, frames: Int(frameCount),
+                                    sampleRate: sampleRate,
+                                    pitch: pow(2.0, Double(bend)))
         return buffer
     }
 

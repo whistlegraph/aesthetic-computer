@@ -126,8 +126,8 @@
   },
   "arxiv-whistlegraph": {
     "created": "2026-03-21",
-    "revisions": 5654,
-    "updated": "2026-10-20T19:21:08.558Z"
+    "revisions": 5655,
+    "updated": "2026-10-30T18:40:48.504Z"
   },
   "arxiv-plork": {
     "created": "2026-03-21",
@@ -358,5 +358,10 @@
     "created": "2026-09-19",
     "revisions": 0,
     "updated": "2026-09-19T21:30:00.000Z"
+  },
+  "arxiv-harness-factory": {
+    "created": "2026-10-30",
+    "revisions": 1,
+    "updated": "2026-10-30T18:40:48.504Z"
   }
 }
