@@ -72,18 +72,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-21/19-17-08/soda-remaster.mp4"
       },
       "insights": {
-        "views": 696602,
-        "reach": 366887,
-        "likes": 2753,
+        "views": 697641,
+        "reach": 367061,
+        "likes": 2765,
         "comments": 18,
-        "saved": 378,
-        "shares": 305,
-        "total_interactions": 3719,
-        "ig_reels_avg_watch_time": 18179,
-        "ig_reels_video_view_total_time": 7046155220,
+        "saved": 381,
+        "shares": 306,
+        "total_interactions": 3733,
+        "ig_reels_avg_watch_time": 18174,
+        "ig_reels_video_view_total_time": 7055272022,
         "reels_skip_rate": 14.3
       },
-      "insightsAt": "2026-10-29T17:17:01.081Z"
+      "insightsAt": "2026-10-31T19:36:40.820Z"
     },
     {
       "mediaId": "18079482674542442",
@@ -142,18 +142,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-25/06-25-59/boo-remaster.mp4"
       },
       "insights": {
-        "views": 33265,
-        "reach": 20334,
+        "views": 33319,
+        "reach": 20370,
         "likes": 87,
         "comments": 6,
         "saved": 9,
         "shares": 1,
         "total_interactions": 110,
-        "ig_reels_avg_watch_time": 18510,
-        "ig_reels_video_view_total_time": 384107609,
+        "ig_reels_avg_watch_time": 18513,
+        "ig_reels_video_view_total_time": 384807490,
         "reels_skip_rate": 14.7
       },
-      "insightsAt": "2026-10-29T17:17:15.235Z"
+      "insightsAt": "2026-10-31T19:37:00.409Z"
     },
     {
       "mediaId": "18110159474138805",
@@ -169,18 +169,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-28/17-29-33/pofu-remaster.mp4"
       },
       "insights": {
-        "views": 21664,
-        "reach": 11258,
-        "likes": 68,
+        "views": 24603,
+        "reach": 13107,
+        "likes": 73,
         "comments": 1,
         "saved": 20,
         "shares": 3,
-        "total_interactions": 98,
-        "ig_reels_avg_watch_time": 22011,
-        "ig_reels_video_view_total_time": 269050495,
-        "reels_skip_rate": 12.4
+        "total_interactions": 104,
+        "ig_reels_avg_watch_time": 21924,
+        "ig_reels_video_view_total_time": 307863956,
+        "reels_skip_rate": 12.5
       },
-      "insightsAt": "2026-10-29T17:17:29.951Z"
+      "insightsAt": "2026-10-31T19:37:12.036Z"
     },
     {
       "mediaId": "18127886977861755",
@@ -223,18 +223,18 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-28/20-55-34/pump-master-v4-B.mp4"
       },
       "insights": {
-        "views": 36178,
-        "reach": 24155,
-        "likes": 71,
+        "views": 39938,
+        "reach": 27079,
+        "likes": 78,
         "comments": 0,
-        "saved": 15,
+        "saved": 16,
         "shares": 5,
-        "total_interactions": 100,
-        "ig_reels_avg_watch_time": 20041,
-        "ig_reels_video_view_total_time": 492581105,
-        "reels_skip_rate": 13.9
+        "total_interactions": 108,
+        "ig_reels_avg_watch_time": 19893,
+        "ig_reels_video_view_total_time": 545265404,
+        "reels_skip_rate": 14
       },
-      "insightsAt": "2026-10-29T17:17:45.843Z"
+      "insightsAt": "2026-10-31T19:37:25.520Z"
     },
     {
       "mediaId": "17908040850577847",
@@ -263,6 +263,33 @@
       "trial": "SS_PERFORMANCE",
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-31/18-43-29/simp-remaster.mp4"
+      },
+      "insights": {
+        "views": 1909,
+        "reach": 741,
+        "likes": 1,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 1,
+        "ig_reels_avg_watch_time": 9049,
+        "ig_reels_video_view_total_time": 6569909,
+        "reels_skip_rate": 20.5
+      },
+      "insightsAt": "2026-10-31T19:37:46.774Z"
+    },
+    {
+      "mediaId": "18138240556645269",
+      "containerId": "18640217497050687",
+      "publishedAt": "2026-10-31T19:45:26.023Z",
+      "permalink": "https://www.instagram.com/reel/DfK75CZjOFY/",
+      "caption": "trib",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/de196391-1740-459e-b42e-dc25c6cc5aef/scratchpad/trib-remaster.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-31/19-43-14/trib-remaster.mp4"
       },
       "insights": null
     }
