@@ -2557,20 +2557,19 @@ let noPaint = false;
 let labelBack = false;
 let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
-// 🌐 Check if running on a branded .com domain (e.g. notepat.com) and redirect to aesthetic.computer
-function redirectIfBrandedDomain() {
+// 🌐 Branded .com domains (notepat.com, laklok.com) boot their own piece at
+// `/`; the prompt for them is aesthetic.computer. (Add more hosts here.)
+const BRANDED_DOMAINS = new Set(["notepat.com", "www.notepat.com", "laklok.com", "www.laklok.com"]);
+function brandedDomainHome() {
   const { hostname } = getSafeUrlParts();
-  if (!hostname) return false;
-  // Match notepat.com or www.notepat.com (add more branded domains here as needed)
-  if (hostname === "notepat.com" || hostname === "www.notepat.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
-    return true;
-  }
-  if (hostname === "laklok.com" || hostname === "www.laklok.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
-    return true;
-  }
-  return false;
+  return hostname && BRANDED_DOMAINS.has(hostname) ? "https://aesthetic.computer" : null;
+}
+// Redirect to aesthetic.computer when on a branded domain; true if it did.
+function redirectIfBrandedDomain() {
+  const url = brandedDomainHome();
+  if (!url) return false;
+  send({ type: "web", content: { url, blank: false } });
+  return true;
 }
 
 let storeRetrievalResolutions = {},
@@ -3216,6 +3215,16 @@ const $commonApi = {
 
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
+      return;
+    }
+
+    // 🌐 On a branded domain (laklok.com, notepat.com) the prompt lives at
+    // aesthetic.computer, so a jump to it crosses hosts: `prompt` lands on
+    // the front door and `prompt~text` keeps its text.
+    if (/^prompt(?:[~:]|$)/.test(to) && brandedDomainHome()) {
+      const url = "https://aesthetic.computer/" + (to === "prompt" ? "" : encodeURI(to));
+      console.log("🐎 Branded domain, prompt lives at:", url);
+      send({ type: "web", content: { url, blank: false } });
       return;
     }
     const jumpOut =

@@ -11,16 +11,23 @@ const origin = "https://aesthetic.computer";
 const snapshot = () => ({ version: 1, id: randomUUID(), mode: "signup", source: "prompt", stages: ["started"], automated: false });
 
 test("signup defaults to Laklok, preserves a starting piece, and retains returning-login fallback", () => {
-  for (const [path, fallback, expected] of [
+  for (const [path, fallback, expected, startingPiece] of [
     ["/", undefined, "/laklok"],
     ["/prompt", undefined, "/laklok"],
     ["/notepat", undefined, "/notepat"],
     ["/laklok", undefined, "/laklok"],
     ["/", "/prompt", "/prompt"],
+    // A branded host (laklok.com boots `laklok` at `/`) is its own front door:
+    // a returning login there must not land on /prompt of the wrong domain.
+    ["/", "/prompt", "/", "laklok"],
+    ["/", undefined, "/", "laklok"],
+    ["/laklok", "/prompt", "/laklok", "laklok"],
+    ["/", "/prompt", "/prompt", "prompt"],
   ]) {
     const storage = new Map();
     let destination;
     const win = {
+      acSTARTING_PIECE: startingPiece,
       location: { href: origin + path, origin, pathname: path, assign: value => { destination = value; } },
       navigator: { doNotTrack: "1" },
       sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
