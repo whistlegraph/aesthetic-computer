@@ -472,6 +472,20 @@ final class MenuBandController {
     var onChange: (() -> Void)?
     var onOctaveLimitNudge: ((Int) -> Void)?
     var onLitChanged: (() -> Void)?
+
+    /// Visual taps. Every melodic note-on/off (note, velocity, on, channel)
+    /// and every drum hit (drum, velocity, pan) — the jam wall and the
+    /// desktop beat bus ride these. Called on the thread that played.
+    var onVisualNote: ((UInt8, UInt8, Bool, UInt8) -> Void)?
+    var onVisualDrum: ((MenuBandPercussion.Drum, UInt8, UInt8) -> Void)?
+    /// `^` (Shift+6, the "hat") while playing: the jam wall, up or down.
+    /// Dispatched to the main thread.
+    var onToggleVisualizer: (() -> Void)?
+    /// The 6 key, whose shifted glyph is the hat.
+    private static let jamWallKeyCode: UInt16 = 22
+    /// Whether the last `^` down was ours, so its key-up is swallowed too
+    /// (even if shift came up first) and never reaches the note path.
+    private var jamWallKeyHeld = false
     var onInstrumentVisualChange: (() -> Void)?
     /// Lightweight CDJ deck / now-playing updates. Kept separate from
     /// `onChange`, whose full icon/window refresh is too expensive for the
@@ -2715,6 +2729,10 @@ final class MenuBandController {
         synth.onNoteEvent = { [weak self] note, vel, on, ch, pan in
             self?.tape.ingestNote(note, velocity: vel, on: on, channel: ch, pan: pan)
             if on { self?.mixAnalysis.mark("melody") }
+            self?.onVisualNote?(note, vel, on, ch)
+        }
+        synth.onPercussionHit = { [weak self] drum, vel, pan in
+            self?.onVisualDrum?(drum, vel, pan)
         }
         // Block-based observer so the controller (a plain Swift class,
         // not NSObject) can register without inheriting from
@@ -4110,6 +4128,24 @@ final class MenuBandController {
     /// voices) rather than cutting on release.
     @discardableResult
     private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false, chordAug: Bool = false, control: Bool = false, shift: Bool = false, optionOnly: Bool = false) -> Bool {
+        // ^ (Shift+6, the "hat") toggles the jam wall — the full-screen
+        // visualizer — without leaving the keys. Checked ahead of everything
+        // so it works on every route (global tap, quiet focus, the wall's own
+        // monitor, the keymap window) and never lingers G# on the way. The
+        // key-up is swallowed whichever order the fingers come off in.
+        if keyCode == Self.jamWallKeyCode {
+            if isDown, shift, !hasModifier, !control {
+                if !isRepeat {
+                    jamWallKeyHeld = true
+                    DispatchQueue.main.async { [weak self] in self?.onToggleVisualizer?() }
+                }
+                return true
+            }
+            if !isDown, jamWallKeyHeld {
+                jamWallKeyHeld = false
+                return true
+            }
+        }
         // Source selection stays inside `1, even with a keyboard drum side
         // enabled. Shift-arrows remain the separate drum-kit selector.
         if optionOnly, instrumentBackend == .acPiano, keyCode == 123 || keyCode == 124 {

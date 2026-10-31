@@ -3227,9 +3227,15 @@ final class MenuBandSynth {
     /// Fire a right-hand-split drum. `pan` is the 0–127 CC10 convention the
     /// keyboard uses (64 = center); converted to the −1…1 the percussion
     /// node wants.
+    /// Fires on every drum hit — keys, keycaps, the trackpad membrane, cues
+    /// — with (drum, velocity, pan 0–127). The jam wall and the desktop beat
+    /// bus ride this. Called on whichever thread struck the drum.
+    var onPercussionHit: ((MenuBandPercussion.Drum, UInt8, UInt8) -> Void)?
+
     func playPercussion(_ drum: MenuBandPercussion.Drum, velocity: UInt8, pan: UInt8) {
         guard started else { return }
         audioTelemetry.trigger(percussion: true)
+        onPercussionHit?(drum, velocity, pan)
         // Drums don't register in `activeNotes`, so the idle-suspend logic
         // would otherwise leave the engine paused and the hit silent. Wake
         // it (and cancel any pending suspend) before staging the voices.
@@ -3261,6 +3267,7 @@ final class MenuBandSynth {
     func playReverseKick(velocity: UInt8, pan: UInt8) {
         guard started else { return }
         audioTelemetry.trigger(percussion: true)
+        onPercussionHit?(.kick, velocity, pan)
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
@@ -3278,6 +3285,16 @@ final class MenuBandSynth {
         _ = resumeAudioEngineIfNeeded()
         rewindVoice.resetReverseAnchor()
         let zone = MenuBandPercussion.drumSkinZone(at: strike)
+        // The membrane's five zones, on the kit's twelve pads.
+        let pad: MenuBandPercussion.Drum
+        switch zone {
+        case .kick: pad = .kick
+        case .tom: pad = .block
+        case .snare: pad = .snare
+        case .hat: pad = .hatClosed
+        case .click: pad = .snap
+        }
+        onPercussionHit?(pad, velocity, UInt8(max(0, min(127, Int(strike.x * 127)))))
         sidechainDuck(zone: zone, velocity: velocity)
         percussion.playDrumSkin(strike: strike, anchors: anchors, velocity: velocity)
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
@@ -3341,6 +3358,7 @@ final class MenuBandSynth {
             _ = resumeAudioEngineIfNeeded()
         }
         let p = max(-1.0, min(1.0, (Double(pan) - 64.0) / 63.0))
+        onPercussionHit?(drum, velocity, pan)
         // Key and keycap drums sidechain the voices: the hand on the drum
         // half pumps the hand on the notes.
         sidechainDuck(drum: drum, velocity: velocity)

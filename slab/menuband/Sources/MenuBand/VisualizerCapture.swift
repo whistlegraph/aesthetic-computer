@@ -1,16 +1,15 @@
 import AppKit
 
-// VisualizerCapture — headless capture of the REAL full-screen LED visualizer
-// (the same WaveformStripView the overlay puts on screen, built through
-// VisualizerOverlay.makeStrip so the shot can't drift from what ships).
+// VisualizerCapture — headless capture of the REAL jam wall (the same
+// JamWallView the overlay puts on screen, built through
+// VisualizerOverlay.makeWall so the shot can't drift from what ships).
 //
 //   MenuBand --render-visualizer --out wall.png [--scale 2] [--size 1440x900]
-//            [--program N] [--cursor 0.72]
+//            [--program N]
 //
-// No audio engine runs headless, so the live sweep never accumulates columns
-// and the wall would paint as an empty off-grid. We seed the raster with the
-// same synthetic note the popover capture uses: silence, a strike, a decaying
-// tail trailing up to the write cursor.
+// No audio engine runs headless, so nothing would ever light the raster. We
+// pose it with a deterministic jam instead — a left-hand phrase on the roll,
+// a kick/snare/hat pattern on the kit, a ring still crossing the half.
 enum VisualizerCLI {
     static func runIfRequested(_ args: [String]) -> Bool {
         guard args.contains("--render-visualizer") else { return false }
@@ -38,17 +37,11 @@ enum VisualizerCLI {
         let prog = UInt8(val("--program") ?? "0") ?? 0
         controller.setMelodicProgram(prog)
 
-        let strip = VisualizerOverlay.makeStrip(menuBand: controller, size: size)
+        // No controller on the wall: it would start the synth's capture tap
+        // the moment it lands in a window, and headless there is no engine.
+        let strip = VisualizerOverlay.makeWall(menuBand: nil, size: size)
         strip.tintColor = InstrumentListView.colorForProgram(Int(prog))
-        strip.seedSyntheticWaveform()
-        if let cursor = Double(val("--cursor") ?? "") {
-            // Re-pose the sweep from real-ish levels when a cursor is asked for.
-            let levels = (0..<220).map { i -> Float in
-                let t = Float(i) / 220
-                return abs(sinf(t * 34)) * (0.25 + 0.75 * expf(-t * 1.6))
-            }
-            strip.seedWaveform(levels: levels, cursorAt: cursor)
-        }
+        strip.seedSyntheticJam()
         strip.layoutSubtreeIfNeeded()
         strip.displayIfNeeded()
 

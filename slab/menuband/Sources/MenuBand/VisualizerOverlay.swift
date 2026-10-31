@@ -1,35 +1,41 @@
 import AppKit
 
-/// Full-screen LED visualizer — the popover's little scope with everything
-/// else taken away. One dot-matrix raster, edge to edge, dark glass all the
-/// way out to the corners, the live waveform sweeping across it. No chrome,
-/// no buttons, nothing to read: the display IS the mode.
+/// Full-screen jam wall — the desktop taken over by one lava lamp (see
+/// `JamWallView`: melody blobs on the left, drum bursts on the right, the
+/// level breathing up the seam). It covers everything but the menu bar, so
+/// the piano stays visible up top: the wall is the piano's display, not a
+/// window in front of it.
 ///
-/// Two ideas hold it together.
+/// Two ways in, two postures:
 ///
-/// **You play into it, you don't drive it.** The keyboard still reaches the
-/// instrument while the wall is up — that's the whole point of standing back
-/// from the machine. Notes route through `handleLocalKey` exactly as they do
-/// with the popover open, and Escape is the only key that means "exit."
+/// **`^` (Shift+6, "hat") while playing.** The wall comes up with hands on
+/// keys and goes down the same way. Nothing about the pointer matters here —
+/// a hand resting on the trackpad, or drumming on it, must not tear the
+/// picture down. Escape also exits.
 ///
-/// **The mouse means "I'm done."** Any real pointer movement tears it down,
-/// screensaver-style, so there's no affordance to hunt for and nothing to
-/// break the picture. *Real* is the load-bearing word: the pointer is parked
-/// on the LED strip the user just clicked, and a hand resting on a trackpad
-/// twitches. So the trigger arms after a grace period, re-anchors to wherever
-/// the pointer actually settled, and then wants a few points of travel before
-/// it fires. Scroll is deliberately NOT a dismissal — it's pitch-bend and
-/// octave, and it moves no pointer.
+/// **Clicking a scope** (the popover's LED strip, the keymap window's big
+/// one). The old posture: the mouse means "I'm done." Any real pointer
+/// travel dismisses, screensaver-style, after a grace period that lets the
+/// hand come off the mouse. *Real* is the load-bearing word: the trigger
+/// re-anchors to wherever the pointer settled and wants a few points of
+/// travel before it fires. Scroll never dismisses — it's pitch-bend and
+/// octave, and moves no pointer.
+///
+/// Either way the keyboard still reaches the instrument: notes route through
+/// `handleLocalKey` exactly as they do with the popover open.
 final class VisualizerOverlay: NSObject {
     private weak var menuBand: MenuBandController?
     private var panel: VisualizerOverlayPanel?
-    private var strip: WaveformStripView?
+    private var wall: JamWallView?
 
     private var keyMonitor: Any?
     private var mouseMonitors: [Any] = []
     private var tintTimer: Timer?
     private var armWorkItem: DispatchWorkItem?
 
+    /// Whether this showing lets the pointer dismiss (scope-click entry) or
+    /// only the keyboard (`^` / Escape / the sibling notification).
+    private var pointerDismisses = false
     /// Pointer position the dismissal measures against. Travel is compared to
     /// this fixed anchor rather than frame-to-frame, so a slow deliberate
     /// drift still accumulates into a dismiss instead of sneaking under a
@@ -46,14 +52,6 @@ final class VisualizerOverlay: NSObject {
     private static let armDelay: TimeInterval = 0.45
     /// Pointer travel from `anchor` that counts as intent to leave.
     private static let dismissSlop: CGFloat = 6
-    /// LED pitch for the wall — 2× the popover's 5/3.5 pt cells. A laptop
-    /// display lands around 140 × 90 lamps, which is both a longer buffer (the
-    /// sweep is one column per frame, so more columns = more seconds of music
-    /// on screen at once — about 5 s here) and still coarse enough to read as
-    /// hardware rather than a plotted line.
-    private static let cellStep: CGFloat = 10
-    private static let cellSize: CGFloat = 7
-
     var isShown: Bool { panel?.isVisible == true }
 
     init(menuBand: MenuBandController) {
@@ -64,16 +62,11 @@ final class VisualizerOverlay: NSObject {
     /// The wall itself, minus the window around it. `--render-visualizer`
     /// builds its capture through here too, so a headless shot can't drift
     /// from what actually ships.
-    static func makeStrip(menuBand: MenuBandController?, size: NSSize) -> WaveformStripView {
-        let strip = WaveformStripView(frame: NSRect(origin: .zero, size: size))
-        strip.menuBand = menuBand
-        strip.autoresizingMask = [.width, .height]
-        // The host bezel is the screen itself — no recessed plate, no rounded
-        // corners, glass straight out to the edges.
-        strip.drawsPlate = false
-        strip.hoverColorFeedbackEnabled = false
-        strip.setCellGeometry(step: cellStep, size: cellSize)
-        return strip
+    static func makeWall(menuBand: MenuBandController?, size: NSSize) -> JamWallView {
+        let wall = JamWallView(frame: NSRect(origin: .zero, size: size))
+        wall.menuBand = menuBand
+        wall.autoresizingMask = [.width, .height]
+        return wall
     }
 
     deinit {
@@ -81,11 +74,13 @@ final class VisualizerOverlay: NSObject {
         if cursorHidden { NSCursor.unhide() }
     }
 
-    func toggle() {
-        if isShown { dismiss() } else { show() }
+    /// `fromKeyboard` picks the posture (see the class note). A toggle that
+    /// finds the wall up takes it down regardless of how it came up.
+    func toggle(fromKeyboard: Bool = false) {
+        if isShown { dismiss() } else { show(fromKeyboard: fromKeyboard) }
     }
 
-    func show() {
+    func show(fromKeyboard: Bool = false) {
         guard !isShown, let menuBand else { return }
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
@@ -93,20 +88,33 @@ final class VisualizerOverlay: NSObject {
             ?? NSScreen.screens.first
         guard let screen else { return }
 
-        let strip = Self.makeStrip(menuBand: menuBand, size: screen.frame.size)
-        strip.isLive = true
-        // Clicking anywhere on the wall exits, same as moving the mouse.
-        strip.onClick = { [weak self] in self?.dismiss() }
+        // Everything below the menu bar — the Dock included — and not one
+        // point more: the piano up top stays in view, playing along.
+        let menuBarGap = max(0, screen.frame.maxY - screen.visibleFrame.maxY)
+        let frame = NSRect(x: screen.frame.minX, y: screen.frame.minY,
+                           width: screen.frame.width,
+                           height: screen.frame.height - menuBarGap)
+
+        let wall = Self.makeWall(menuBand: menuBand, size: frame.size)
+        wall.isLive = true
+        pointerDismisses = !fromKeyboard
+        // Clicking the wall exits in the mouse posture, same as moving it. In
+        // the keyboard posture a trackpad tap is a drum, not a door.
+        wall.onClick = { [weak self] in
+            guard let self, self.pointerDismisses else { return }
+            self.dismiss()
+        }
+        // Notes already ringing when the wall comes up draw from this frame.
+        for n in menuBand.litNotes { wall.noteOn(n, velocity: 96) }
 
         let panel = VisualizerOverlayPanel(
-            contentRect: screen.frame,
+            contentRect: frame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        // Above the menubar and the Dock — a visualizer that stopped at the
-        // menubar would read as a big window, not as the machine taking over
-        // the screen.
+        // Above the Dock and any floating palette — the machine taking over
+        // the desktop, not a big window on it.
         panel.level = .screenSaver
         panel.backgroundColor = .black
         panel.isOpaque = true
@@ -122,11 +130,11 @@ final class VisualizerOverlay: NSObject {
             .stationary,
             .ignoresCycle,
         ]
-        panel.contentView = strip
+        panel.contentView = wall
         panel.alphaValue = 0
 
         self.panel = panel
-        self.strip = strip
+        self.wall = wall
         applyTint()
 
         appBeforeOpen = frontmostOtherApp()
@@ -146,7 +154,7 @@ final class VisualizerOverlay: NSObject {
         installMonitors()
         // Keep the wall's color on the voice: the tint follows the active
         // instrument family (red while sampling, accent in MIDI mode), and the
-        // user can change voice from the keyboard while the visualizer is up.
+        // user can change voice from the keyboard while the wall is up.
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.applyTint()
         }
@@ -154,7 +162,7 @@ final class VisualizerOverlay: NSObject {
         RunLoop.main.add(timer, forMode: .common)
         tintTimer = timer
 
-        arm()
+        if pointerDismisses { arm() }
     }
 
     func dismiss() {
@@ -167,14 +175,18 @@ final class VisualizerOverlay: NSObject {
         tintTimer = nil
         // Stop the capture client before the fade so the synth's tap can wind
         // down with the display rather than 140 ms after it.
-        strip?.isLive = false
-        menuBand?.releaseAllHeldNotes()
+        wall?.isLive = false
+        // Mouse posture: the wall's own key monitor was the only thing
+        // hearing key-ups, so let go of anything it was holding. Keyboard
+        // posture: the route that opened the wall is still live, and a chord
+        // the other hand is holding through `^` must keep ringing.
+        if pointerDismisses { menuBand?.releaseAllHeldNotes() }
         if cursorHidden {
             NSCursor.unhide()
             cursorHidden = false
         }
         self.panel = nil
-        self.strip = nil
+        self.wall = nil
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.14
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -184,6 +196,19 @@ final class VisualizerOverlay: NSObject {
             panel.contentView = nil
         })
         restorePreviousAppFocus()
+    }
+
+    // MARK: - Feed (main thread)
+
+    /// Melodic note-on/off from the synth's note hook, routed by the
+    /// AppDelegate. Cheap no-ops while the wall is down.
+    func noteEvent(midi: UInt8, velocity: UInt8, on: Bool) {
+        guard let wall else { return }
+        if on { wall.noteOn(midi, velocity: velocity) } else { wall.noteOff(midi) }
+    }
+
+    func drumHit(_ drum: MenuBandPercussion.Drum, velocity: UInt8) {
+        wall?.drumHit(drum, velocity: velocity)
     }
 
     // MARK: - Dismissal arming
@@ -204,7 +229,7 @@ final class VisualizerOverlay: NSObject {
     }
 
     private func pointerMoved() {
-        guard isArmed, isShown else { return }
+        guard pointerDismisses, isArmed, isShown else { return }
         let p = NSEvent.mouseLocation
         guard hypot(p.x - anchor.x, p.y - anchor.y) > Self.dismissSlop else { return }
         dismiss()
@@ -213,21 +238,24 @@ final class VisualizerOverlay: NSObject {
     // MARK: - Monitors
 
     private func installMonitors() {
-        let moves: NSEvent.EventTypeMask = [
-            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
-        ]
-        // Local covers the pointer over our own key panel; global covers the
-        // pointer crossing anything else (another Space, a second display).
-        if let m = NSEvent.addLocalMonitorForEvents(matching: moves, handler: { [weak self] event in
-            self?.pointerMoved()
-            return event
-        }) {
-            mouseMonitors.append(m)
-        }
-        if let m = NSEvent.addGlobalMonitorForEvents(matching: moves, handler: { [weak self] _ in
-            self?.pointerMoved()
-        }) {
-            mouseMonitors.append(m)
+        if pointerDismisses {
+            let moves: NSEvent.EventTypeMask = [
+                .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+            ]
+            // Local covers the pointer over our own key panel; global covers
+            // the pointer crossing anything else (another Space, a second
+            // display).
+            if let m = NSEvent.addLocalMonitorForEvents(matching: moves, handler: { [weak self] event in
+                self?.pointerMoved()
+                return event
+            }) {
+                mouseMonitors.append(m)
+            }
+            if let m = NSEvent.addGlobalMonitorForEvents(matching: moves, handler: { [weak self] _ in
+                self?.pointerMoved()
+            }) {
+                mouseMonitors.append(m)
+            }
         }
 
         // Deliberately NOT gated on `panel.isKeyWindow`. LocalKeyCapture arms
@@ -246,8 +274,10 @@ final class VisualizerOverlay: NSObject {
                 self.dismiss()
                 return nil
             }
-            // Everything else is music. Same routing the expanded keymap panel
-            // uses, so the instrument behaves identically with the wall up.
+            // Everything else is music — `^` included, which the controller
+            // turns back into a toggle. Same routing the expanded keymap
+            // panel uses, so the instrument behaves identically with the
+            // wall up.
             let consumed = self.menuBand?.handleLocalKey(
                 keyCode: event.keyCode,
                 isDown: isDown,
@@ -272,14 +302,14 @@ final class VisualizerOverlay: NSObject {
     /// Mirrors `ExpandedPianoWaveformView.applyWaveformTint` — the wall wears
     /// the same color the little scope would.
     private func applyTint() {
-        guard let strip, let menuBand else { return }
+        guard let wall, let menuBand else { return }
         if menuBand.sampleRecordingActive {
-            strip.tintColor = .systemRed
+            wall.tintColor = .systemRed
         } else if menuBand.midiMode {
-            strip.tintColor = .controlAccentColor
+            wall.tintColor = .controlAccentColor
         } else {
             let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
-            strip.tintColor = InstrumentListView.colorForProgram(safe)
+            wall.tintColor = InstrumentListView.colorForProgram(safe)
         }
     }
 
@@ -300,8 +330,8 @@ final class VisualizerOverlay: NSObject {
     }
 }
 
-/// Borderless panels refuse key focus by default. The visualizer needs it —
-/// it's a playable surface, and Escape has to land somewhere.
+/// Borderless panels refuse key focus by default. The wall needs it — it's
+/// a playable surface, and Escape has to land somewhere.
 final class VisualizerOverlayPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }

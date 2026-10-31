@@ -1344,6 +1344,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.pianoWaveformWindowDelegate.dismiss(reason: .closeButton)
             self.visualizerOverlay.show()
         }
+        // ^ (Shift+6) while playing: the jam wall, up or down, hands on
+        // keys. The popover steps aside; the wall is meant to be the only
+        // thing on screen besides the piano up top.
+        menuBand.onToggleVisualizer = { [weak self] in
+            guard let self = self else { return }
+            if self.isPopoverPanelShown { self.closePopover() }
+            self.visualizerOverlay.toggle(fromKeyboard: true)
+        }
+        // Every note and drum feeds the wall (while it's up) and the desktop
+        // beat bus (always), so the Pals wallpaper moves with the music even
+        // with nothing else on screen. GM drums on channel 9 (.mbscore and
+        // MIDI-file playback) land on the kit's pads by their GM number.
+        menuBand.onVisualNote = { [weak self] note, vel, on, ch in
+            if ch == 9 {
+                guard on, vel > 0 else { return }
+                let pad = Self.padForGMDrum(note)
+                MenuBandBeatBus.shared.drum(pad, velocity: vel)
+                DispatchQueue.main.async { self?.visualizerOverlay.drumHit(pad, velocity: vel) }
+                return
+            }
+            if on { MenuBandBeatBus.shared.note(note, velocity: vel) }
+            DispatchQueue.main.async {
+                self?.visualizerOverlay.noteEvent(midi: note, velocity: vel, on: on)
+            }
+        }
+        menuBand.onVisualDrum = { [weak self] drum, vel, _ in
+            MenuBandBeatBus.shared.drum(drum, velocity: vel)
+            DispatchQueue.main.async { self?.visualizerOverlay.drumHit(drum, velocity: vel) }
+        }
 
         // Magnify the icon to fill the bar's usable height. The status
         // button centers (doesn't downscale) its image, so we scale up only
@@ -4928,6 +4957,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleShowKeymapNotification(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
             self?.showExpandedKeymap()
+        }
+    }
+
+    /// General MIDI percussion number → the kit's nearest pad.
+    private static func padForGMDrum(_ n: UInt8) -> MenuBandPercussion.Drum {
+        switch n {
+        case 35, 36: return .kick
+        case 38, 40, 37: return .snare
+        case 39: return .clap
+        case 42, 44: return .hatClosed
+        case 46: return .hatOpen
+        case 49, 57, 52: return .crash
+        case 51, 53, 59: return .ride
+        case 55: return .splash
+        case 56: return .cowbell
+        case 54, 69, 70: return .tambo
+        case 76, 77, 75: return .block
+        default: return .snap
         }
     }
 
