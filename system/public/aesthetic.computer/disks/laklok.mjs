@@ -212,10 +212,16 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, qu
   hud.suffix(".com");
 }
 
-// 🎪 "Laer Klokken" circus banner — a striped, gold-trimmed marquee in the
-// top-right header strip, in GNU Unifont, with every character a different
-// circus color and its own little bounce. Masked to the top header area.
-const LAK_SIGN_FONT = "unifont";
+// 🎪 "Laer Klokken" circus banner — a striped marquee across the header, the
+// name in MatrixChunky8 with every character a different circus color and its
+// own little bounce, a pixel pumpkin on the left and a flapping bat on the
+// right. The sign lives in the lane between the HUD label and the corner
+// chrome (envelope, gear, QR) and sheds its critters, then itself, before it
+// would ever run under either.
+const LAK_SIGN_FONT = "MatrixChunky8";
+const LAK_SIGN_H = 8; // MatrixChunky8 glyph height
+const LAK_SIGN_TOP = 7; // beside the HUD label's row, above the presence line
+const LAK_SIGN_GAP = 1; // extra letter spacing when there's room
 const LAK_CIRCUS_COLS = [
   [255, 80, 80],   // red
   [255, 210, 70],  // gold
@@ -224,38 +230,106 @@ const LAK_CIRCUS_COLS = [
   [255, 150, 220], // pink
   [180, 150, 255], // violet
 ];
-
-// The canvas uses logical pixels, so phone browsers are typically around 256px
-// wide even when their CSS viewport is much larger. Below this breakpoint the
-// full 8px circus spacing collides with both the HUD label and the QR code.
-const LAK_COMPACT_HEADER_MAX = 399;
 const LAK_HUD_FALLBACK_WIDTH = 78;
 const LAK_HEADER_GUTTER = 4;
 
-function getSignLayout($, labelLength, charWidth) {
-  const { screen, hud } = $;
-  const qrSize = lakQRCells?.length || 0;
+// 🎃 A jack-o'-lantern, 9×8.
+const PUMPKIN = {
+  rows: [
+    "....s....",
+    "...ss....",
+    ".ooorooo.",
+    "ooyoroyoo",
+    "ooooroooo",
+    "oyoooooyo",
+    "ooyyyyyoo",
+    ".ooorooo.",
+  ],
+  palette: {
+    s: [90, 170, 70],
+    o: [255, 140, 30],
+    r: [225, 105, 20],
+    y: [255, 235, 90],
+  },
+};
 
-  if (screen.width > LAK_COMPACT_HEADER_MAX) {
-    const gap = 8;
-    const width = labelLength * charWidth + gap * Math.max(0, labelLength - 1);
-    return width <= screen.width - LAK_HEADER_GUTTER
-      ? { left: Math.round((screen.width - width) / 2), gap }
-      : null;
+// 🦇 A bat, 11×5, two wing frames.
+const BAT_FRAMES = [
+  [
+    "w.........w",
+    "ww.......ww",
+    ".ww.ybY.ww.",
+    "..wwbbbww..",
+    "....bbb....",
+  ],
+  [
+    "...........",
+    "....ybY....",
+    ".wwwbbbwww.",
+    "ww..bbb..ww",
+    "w.........w",
+  ],
+];
+const BAT_PALETTE = { w: [40, 28, 60], b: [30, 20, 45], y: [255, 70, 70], Y: [255, 70, 70] };
+const BAT_W = 11;
+const BAT_H = 5;
+const BAT_DRIFT = 3; // px the bat flutters left and right of its perch
+const PUMPKIN_W = 9;
+const SIGN_PAD = 3; // between a critter and the word
+
+function paintSprite($, rows, palette, x, y) {
+  const { ink } = $;
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    for (let c = 0; c < row.length; c++) {
+      const col = palette[row[c]];
+      if (col) ink(col[0], col[1], col[2]).box(x + c, y + r, 1, 1);
+    }
   }
+}
 
+// 📐 The header's free lane: from the HUD label's right edge to the corner
+// chrome's left edge, measured each frame so a long handle label, an unread
+// badge or a narrow phone all push the sign rather than overlap it.
+function signLane($) {
+  const { screen, hud } = $;
   const hudBox = hud?.currentLabel?.()?.btn?.box;
   const hudRight = hudBox
     ? (hudBox.x || 0) + (hudBox.w || 0)
     : 6 + LAK_HUD_FALLBACK_WIDTH;
-  const left = hudRight + LAK_HEADER_GUTTER;
-  const right = screen.width - qrSize - 4 - LAK_HEADER_GUTTER;
-  const available = right - left;
-  const glyphWidth = labelLength * charWidth;
-  const gaps = Math.max(0, labelLength - 1);
-  const gap = gaps > 0 ? Math.min(2, Math.floor((available - glyphWidth) / gaps)) : 0;
+  const corner = cornerLayout($);
+  const right = (corner ? corner.left : screen.width) - LAK_HEADER_GUTTER;
+  return { left: hudRight + LAK_HEADER_GUTTER, right };
+}
 
-  return gap >= 0 ? { left, gap } : null;
+// Fit the word (and critters) into the lane, dropping pieces in order:
+// letter spacing, then the bat, then the pumpkin, then the word itself.
+function signLayout($, label, lane) {
+  const { text, screen } = $;
+  const widths = [...label].map((ch) => text.width(ch, LAK_SIGN_FONT));
+  const glyphs = widths.reduce((a, b) => a + b, 0);
+  const available = lane.right - lane.left;
+  const tries = [
+    { gap: LAK_SIGN_GAP, pumpkin: true, bat: true },
+    { gap: 0, pumpkin: true, bat: true },
+    { gap: LAK_SIGN_GAP, pumpkin: true, bat: false },
+    { gap: 0, pumpkin: true, bat: false },
+    { gap: 0, pumpkin: false, bat: false },
+  ];
+  for (const t of tries) {
+    const word = glyphs + t.gap * (label.length - 1);
+    const width = word
+      + (t.pumpkin ? PUMPKIN_W + SIGN_PAD : 0)
+      + (t.bat ? BAT_W + BAT_DRIFT * 2 + SIGN_PAD : 0);
+    if (width > available) continue;
+    // Prefer the screen's centre when that still sits inside the lane.
+    let left = Math.round((screen.width - width) / 2);
+    if (left < lane.left || left + width > lane.right) {
+      left = lane.left + Math.round((available - width) / 2);
+    }
+    return { ...t, left, width, widths };
+  }
+  return null;
 }
 
 function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
@@ -265,74 +339,94 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
   const label = "Laer Klokken";
   const themed = LAK_THEMES[lakTheme];
 
-  // Unifont latin glyphs are a fixed 8px advance — no need to measure per frame.
-  const CHAR_W = 8;
-  const headerH = headerHeight; // marquee fills the header down to the margin
-  const sx = 0;
-  const sy = 0; // flush with the top of the screen (no gap)
-  const sw = screen.width; // full-width banner across the header
-  const sh = headerH;
-  // Wide screens keep the spacious centered marquee. Phones compact it into
-  // the measured gap between the HUD label and QR; if that gap is too small,
-  // the branded HUD label remains as the sole title rather than overlapping.
-  const signLayout = getSignLayout($, label.length, CHAR_W);
-
   // Striped circus backdrop, slowly scrolling like a barber pole, tuned per
   // theme so the banner reads as one piece with the room.
   const stripeW = 14;
   const scroll = Math.floor(t * 6);
-  for (let bx = 0; bx < sw; bx += stripeW) {
+  for (let bx = 0; bx < screen.width; bx += stripeW) {
     const odd = Math.floor((bx + scroll) / stripeW) % 2;
     const c = odd ? themed.stripeB : themed.stripeA;
-    ink(c[0], c[1], c[2]).box(sx + bx, sy, Math.min(stripeW, sw - bx), sh);
+    ink(c[0], c[1], c[2]).box(bx, 0, Math.min(stripeW, screen.width - bx), headerHeight);
   }
+
+  const layout = signLayout($, label, signLane($));
+  if (!layout) return; // too tight: the HUD label stays the sole title
+  let cx = layout.left;
+  const top = LAK_SIGN_TOP;
+
+  // 🎃 Pumpkin, sitting still on the left.
+  if (layout.pumpkin) {
+    paintSprite($, PUMPKIN.rows, PUMPKIN.palette, cx, top);
+    cx += PUMPKIN_W + SIGN_PAD;
+  }
+
   // Each character: its own circus color + individual vertical bounce.
-  if (!signLayout) return;
-  let cx = signLayout.left;
-  const baseY = sy + Math.round((sh - 16) / 2); // 16 ≈ unifont glyph height, vertically centered
   for (let i = 0; i < label.length; i++) {
     const ch = label[i];
     if (ch !== " ") {
-      const bounce = Math.round(Math.sin(t * 2.6 + i * 0.7) * 2);
+      const bounce = Math.round(Math.sin(t * 2.6 + i * 0.7));
       const c = LAK_CIRCUS_COLS[i % LAK_CIRCUS_COLS.length];
-      ink(20, 10, 6).write(ch, { x: cx + 1, y: baseY + bounce + 1 }, undefined, undefined, false, LAK_SIGN_FONT);
-      ink(c[0], c[1], c[2]).write(ch, { x: cx, y: baseY + bounce }, undefined, undefined, false, LAK_SIGN_FONT);
+      ink(20, 10, 6).write(ch, { x: cx + 1, y: top + bounce + 1 }, undefined, undefined, false, LAK_SIGN_FONT);
+      ink(c[0], c[1], c[2]).write(ch, { x: cx, y: top + bounce }, undefined, undefined, false, LAK_SIGN_FONT);
     }
-    cx += CHAR_W + signLayout.gap;
+    cx += layout.widths[i] + layout.gap;
   }
+
+  // 🦇 Bat, flapping and fluttering on the right.
+  if (layout.bat) {
+    const frame = BAT_FRAMES[Math.floor(t * 1.5) % 2];
+    const bx = cx + SIGN_PAD + BAT_DRIFT + Math.round(Math.sin(t * 0.9) * BAT_DRIFT);
+    const by = top + Math.round((LAK_SIGN_H - BAT_H) / 2) + Math.round(Math.sin(t * 1.3) * 2);
+    paintSprite($, frame, BAT_PALETTE, bx, by);
+  }
+}
+
+// 📐 Where the corner chrome lands, right to left: QR, gear, envelope (+ its
+// badge). `left` is the leftmost pixel anything in the corner occupies, so the
+// sign can keep clear of it. Shared by paintCorner and signLane.
+function cornerLayout($) {
+  if (!lakQRCells) return null;
+  const { screen } = $;
+  const qrBoxSize = lakQRCells.length + 2;
+  const rightInset = 3; // Match the QR's 3px top inset (4px below at this height).
+  const qrX = screen.width - qrBoxSize - rightInset;
+  const qrY = Math.floor((LAK_TOP_MARGIN - qrBoxSize) / 2);
+  const out = { qrX, qrY, qrBoxSize, left: qrX };
+  if (lakTV) return out; // 📺 no controls on television
+  out.gx = qrX - GEAR - 4;
+  out.gy = qrY + Math.floor((qrBoxSize - GEAR) / 2);
+  out.left = out.gx;
+  if (!mailCount) return out;
+  const unread = mailCount.unread || 0;
+  out.label = unread > 0 ? `${unread}` : null;
+  // The badge overhangs the envelope's top-right corner, so the cluster is
+  // the envelope plus that overhang.
+  out.cluster = ENVELOPE.w + (out.label ? badgeWidth(out.label) - 3 : 0);
+  out.ex = out.gx - 6 - out.cluster;
+  out.ey = qrY + Math.floor((qrBoxSize - ENVELOPE.h) / 2);
+  out.mailBox = { x: out.ex - 4, y: out.ey - 6, w: out.cluster + 8, h: ENVELOPE.h + 12 };
+  out.left = out.mailBox.x;
+  return out;
 }
 
 // 📱 The top-right corner, right to left: the laklok.com QR on white paper,
 // the ⚙ settings toggle, and — for a signed-in visitor — the envelope that
 // opens `mail`, wearing a red count when letters are waiting.
 function paintCorner($) {
-  if (!lakQRCells) return;
-  const { screen } = $;
-  const qrBoxSize = lakQRCells.length + 2;
-  const rightInset = 3; // Match the QR's 3px top inset (4px below at this height).
-  const qrX = screen.width - qrBoxSize - rightInset;
-  const qrY = Math.floor((LAK_TOP_MARGIN - qrBoxSize) / 2);
-  paintQR($, lakQRCells, qrX, qrY);
+  const c = cornerLayout($);
+  if (!c) return;
+  paintQR($, lakQRCells, c.qrX, c.qrY);
 
-  if (lakTV) { gearBox = null; mailBox = null; return; } // 📺 no controls on television
-  const gx = qrX - GEAR - 4;
-  const gy = qrY + Math.floor((qrBoxSize - GEAR) / 2);
-  gearBox = paintGear($, gx, gy, settingsOpen);
+  if (lakTV) { gearBox = null; mailBox = null; return; }
+  gearBox = paintGear($, c.gx, c.gy, settingsOpen);
 
-  if (!mailCount) { mailBox = null; return; }
-  const unread = mailCount.unread || 0;
-  const label = unread > 0 ? `${unread}` : null;
-  // The badge overhangs the envelope's top-right corner, so the cluster is
-  // the envelope plus that overhang.
-  const cluster = ENVELOPE.w + (label ? badgeWidth(label) - 3 : 0);
-  const ex = gearBox.x - 6 - cluster;
-  const ey = qrY + Math.floor((qrBoxSize - ENVELOPE.h) / 2);
-  mailBox = { x: ex - 4, y: ey - 6, w: cluster + 8, h: ENVELOPE.h + 12 };
+  if (!c.mailBox) { mailBox = null; return; }
+  mailBox = c.mailBox;
   const { pen } = $;
   const hot = !!pen && pen.x >= mailBox.x && pen.x < mailBox.x + mailBox.w &&
     pen.y >= mailBox.y && pen.y < mailBox.y + mailBox.h;
-  paintEnvelope($, ex, ey, { lit: unread > 0, hot });
-  if (label) paintBadge($, ex + ENVELOPE.w - 3, ey - 5, label, hot);
+  paintEnvelope($, c.ex, c.ey, { lit: (mailCount.unread || 0) > 0, hot });
+  if (c.label) paintBadge($, c.ex + ENVELOPE.w - 3, c.ey - 5, c.label, hot);
 }
 
 // ⚙️ The settings pane — mode / tema / filter / sprog, drawn under the header
