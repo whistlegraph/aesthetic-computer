@@ -1809,6 +1809,19 @@ let hideLabelForFrame = false;
 let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
 let hideSource = false; // `?nosource`: a KidLisp $code labels itself by name, not source
 
+// Put the corner label back at once, no animation: a piece that isn't
+// KidLisp never hides it, so a Tab-hidden label stops at the next such piece.
+function showHUDLabel() {
+  Object.assign(hudAnimationState, {
+    visible: true,
+    animating: false,
+    opacity: 1.0,
+    slideOffset: { x: 0, y: 0 },
+    qrSlideOffset: { x: 0, y: 0 },
+    cornersVisibleBeforeFullscreen: true,
+  });
+}
+
 // Helper function to toggle HUD visibility (used by Tab key and center tap)
 function toggleHUDVisibility(isDoubleTap = false, skipSound = false) {
   const currentTime = performance.now();
@@ -10393,6 +10406,14 @@ async function load(
 
     currentText = slug;
     currentCode = sourceCode;
+
+    // ⇥ Tab hides the corner label only in KidLisp, and the hidden state is
+    // KidLisp's: it carries from one KidLisp piece to the next (through the
+    // prompt, which shows no label) and ends at any other piece.
+    if ((!hudAnimationState.visible || hudAnimationState.animating) && system !== "prompt" &&
+        !detectKidLispPiece({ currentPath, currentHUDTxt, currentText: sourceCode || slug, cleanText: currentHUDTxt })) {
+      showHUDLabel();
+    }
     previewEvidence.activate(previewIdentity);
 
     // 🧾 Begin piece-run telemetry (batched console capture → /api/piece-log)

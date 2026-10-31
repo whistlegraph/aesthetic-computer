@@ -1493,6 +1493,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }, 250);
   };
 
+  // The mime sheet counts its own frames here while the loop sleeps under it.
+  window.acMeterPaint = () => {
+    if (frameMeter.on) frameMeter.paints += 1;
+  };
+
   function meterFrameReturned(painted) {
     if (!frameMeter.on || !frameMeter.sentAt) return;
     const ms = performance.now() - frameMeter.sentAt;

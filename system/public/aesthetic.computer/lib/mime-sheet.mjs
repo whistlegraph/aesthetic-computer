@@ -10,7 +10,7 @@
 // Up:    the guest, sitting on its first card at the top of its own scroll,
 //        forwards pulls, wheel deltas and the up arrow (`pull`, `wheel`, `back`).
 // Both:  follow the input, then settle on release: past 15% of the screen or a
-//        flick finishes the trip, anything less springs back.
+//        flick finishes the trip, anything less eases back to where it was.
 //
 //   cold → parked → moving → open → moving → parked
 //
@@ -21,7 +21,6 @@
 // follows the card (/mime/?p=<code>) and Back closes.
 
 const MEDIA = "#171526"; // mime's dark media colour, behind a guest still loading
-const EASE = "cubic-bezier(.2,.8,.2,1)";
 const COMMIT = 0.15; // of the screen
 const FLICK = 0.45; // px/ms
 
@@ -124,16 +123,20 @@ function popstate(e) {
 // 📐 One position for both: the feed's top edge at `y`, the prompt above it.
 let y = innerHeight;
 let toward = null; // Where a settle is heading: 0 (open) or innerHeight (home).
-let raf = 0;
+let raf = 0; // A pending follow() write.
+let anim = 0; // A settle() glide in progress.
 
-function write(transition = "none") {
+function write() {
   const s = stage();
-  frame.style.transition = transition;
   frame.style.transform = `translateY(${y}px)`;
-  if (s) {
-    s.style.transition = transition;
-    s.style.transform = y >= innerHeight ? "" : `translateY(${y - innerHeight}px)`;
-  }
+  if (s) s.style.transform = y >= innerHeight ? "" : `translateY(${y - innerHeight}px)`;
+  window.acMeterPaint?.(); // A slide frame is a painted frame to the frame meter.
+}
+
+function still() {
+  cancelAnimationFrame(raf);
+  cancelAnimationFrame(anim);
+  raf = anim = 0;
 }
 
 // Follow live input: write at most once per frame.
@@ -146,11 +149,10 @@ function follow(next) {
   });
 }
 
-// Begin moving from wherever things are.
+// Begin moving from wherever things are, a glide in progress included.
 function begin() {
   const f = ensure();
-  cancelAnimationFrame(raf);
-  raf = 0;
+  still();
   if (state === "parked") {
     post({ type: "mime:sheet", open: true }); // First card up, slot away.
     y = innerHeight;
@@ -162,24 +164,31 @@ function begin() {
   if (s) s.style.willChange = "transform";
 }
 
-// Glide to 0 (open) or innerHeight (home), quicker for shorter trips.
+// Glide to 0 (open) or innerHeight (home). Driven frame by frame from the
+// live `y`, so a short pull eases back from exactly where the finger left it
+// rather than snapping; a commit is quicker than a return.
 function settle(target) {
   const f = ensure();
   if (state === "parked" && target === 0) begin();
-  cancelAnimationFrame(raf);
-  raf = 0;
+  still();
   state = "moving";
   toward = target;
   f.style.pointerEvents = "none";
-  const ms = Math.round(120 + 220 * Math.min(1, Math.abs(target - y) / innerHeight));
-  y = target;
-  requestAnimationFrame(() => write(`transform ${ms}ms ${EASE}`));
-  clearTimeout(settle.timer);
-  settle.timer = setTimeout(() => {
-    if (toward !== target) return;
+  const from = y;
+  const share = Math.min(1, Math.abs(target - from) / innerHeight);
+  const ms = target === 0 ? 160 + 200 * share : 240 + 200 * share;
+  const t0 = performance.now();
+  const tick = (now) => {
+    const p = Math.min(1, (now - t0) / ms);
+    const eased = 1 - (1 - p) ** 3;
+    y = from + (target - from) * eased;
+    write();
+    if (p < 1) return (anim = requestAnimationFrame(tick));
+    anim = 0;
     toward = null;
     target === 0 ? opened() : home();
-  }, ms + 30);
+  };
+  anim = requestAnimationFrame(tick);
 }
 
 function opened() {
@@ -187,6 +196,7 @@ function opened() {
   write();
   pausePrompt();
   enterHistory();
+  meterGuest();
   // Take input once a trackpad's momentum has died down, or its tail would
   // scroll straight past the first card.
   const take = () => {
@@ -198,23 +208,37 @@ function opened() {
   take();
 }
 
+// 📊 The Mac app's frame meter counts the piece's painted frames, which stop
+// while the loop sleeps under the sheet. Over mime the frames on screen are
+// the guest's: count its animation frames instead, so the meter reads the
+// feed rather than zero.
+function meterGuest() {
+  const guest = frame.contentWindow;
+  if (!guest || !window.acMeterPaint) return;
+  const tick = () => {
+    if (state !== "open") return;
+    window.acMeterPaint();
+    guest.requestAnimationFrame(tick);
+  };
+  guest.requestAnimationFrame(tick);
+}
+
 function home() {
   state = "parked";
   y = innerHeight;
   Object.assign(frame.style, {
-    transition: "none",
     transform: "translateY(100%)",
     pointerEvents: "none",
   });
   const s = stage();
-  if (s) Object.assign(s.style, { transition: "none", transform: "", willChange: "" });
+  if (s) Object.assign(s.style, { transform: "", willChange: "" });
   resumePrompt();
   post({ type: "mime:sheet", open: false }); // Park the guest on its slot.
   leaveHistory();
   window.focus();
 }
 
-// Release: past a sixth of the screen or a flick finishes, else spring back.
+// Release: past a sixth of the screen or a flick finishes, else ease back.
 // `travel` is how far toward the other end the input went; `speed` > 0 means
 // heading there.
 function release(from, travel, speed) {
@@ -251,7 +275,8 @@ function grab(startY) {
 
 // 🖱️ Wheels, either way. A trackpad streams small deltas, momentum included,
 // and settles when they stop; a mouse notch is one big step and goes at once.
-// `dy` > 0 always means "toward the other end".
+// `dy` > 0 always means "toward the other end". Speed is read over the last
+// few events, as a touch is, so one nudge never counts as a flick.
 let wheel = null;
 
 function wheelStep(from, dy, mode) {
@@ -260,12 +285,13 @@ function wheelStep(from, dy, mode) {
   if (!wheel) {
     if (px <= 0) return;
     if (mode !== 0 || px >= 60) return settle(from === "home" ? 0 : innerHeight);
-    begin();
-    wheel = { from, travel: 0, at: lastWheelAt, speed: 0, timer: 0 };
+    begin(); // Mid-glide, this carries on from the live y.
+    const travel = from === "home" ? innerHeight - y : y;
+    wheel = { from, travel, samples: [[lastWheelAt, travel]], timer: 0 };
   }
-  wheel.speed = px / Math.max(1, lastWheelAt - wheel.at);
-  wheel.at = lastWheelAt;
   wheel.travel = Math.max(0, wheel.travel + px);
+  wheel.samples.push([lastWheelAt, wheel.travel]);
+  if (wheel.samples.length > 6) wheel.samples.shift();
   follow(wheel.from === "home" ? innerHeight - wheel.travel : wheel.travel);
   clearTimeout(wheel.timer);
   if (wheel.travel >= innerHeight * 0.5) return endWheel(true);
@@ -275,16 +301,20 @@ function wheelStep(from, dy, mode) {
 function endWheel(force) {
   if (!wheel) return;
   clearTimeout(wheel.timer);
-  const { from, travel, speed } = wheel;
+  const { from, travel, samples } = wheel;
   wheel = null;
-  release(from, force ? innerHeight : travel, speed);
+  const [t0, a] = samples[0];
+  const [t1, b] = samples.at(-1);
+  release(from, force ? innerHeight : travel, t1 > t0 ? (b - a) / (t1 - t0) : 0);
 }
 
 addEventListener("wheel", (e) => {
   lastWheelAt = performance.now();
   if (!frame || !armed || e.ctrlKey) return; // ctrl+wheel is pinch-zoom
   if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-  if (wheel?.from === "home" || (!wheel && state === "parked"))
+  // Parked, or easing home after a short pull: a new scroll picks it back up.
+  const home = state === "parked" || (state === "moving" && toward === innerHeight);
+  if (wheel?.from === "home" || (!wheel && home))
     wheelStep("home", e.deltaY, e.deltaMode);
 }, { capture: true, passive: true });
 
