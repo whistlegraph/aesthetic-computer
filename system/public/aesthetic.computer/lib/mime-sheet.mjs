@@ -9,8 +9,9 @@
 //        the down arrow on the prompt.
 // Up:    the guest, sitting on its first card at the top of its own scroll,
 //        forwards pulls, wheel deltas and the up arrow (`pull`, `wheel`, `back`).
-// Both:  follow the input, then settle on release: past 15% of the screen or a
-//        flick finishes the trip, anything less eases back to where it was.
+// Both:  follow the input, then settle on release: past half the screen the
+//        trip finishes, anything less eases back to where it was. No flicks,
+//        no notches that jump: the sheet is wherever the input brought it.
 //
 //   cold → parked → moving → open → moving → parked
 //
@@ -21,8 +22,7 @@
 // follows the card (/mime/?p=<code>) and Back closes.
 
 const MEDIA = "#171526"; // mime's dark media colour, behind a guest still loading
-const COMMIT = 0.15; // of the screen
-const FLICK = 0.45; // px/ms
+const COMMIT = 0.5; // of the screen: the halfway line decides, nothing else
 
 let frame;
 let state = "cold"; // cold | parked | moving | open
@@ -121,10 +121,18 @@ function popstate(e) {
 }
 
 // 📐 One position for both: the feed's top edge at `y`, the prompt above it.
+// `y` chases `goal` every frame through a short time constant, so whatever the
+// input does — a finger, a trackpad stream and its momentum tail, a mouse
+// notch, a release — the sheet itself only ever moves smoothly. Live input
+// sits a hair behind the finger; a settle eases out over about half a second.
 let y = innerHeight;
-let toward = null; // Where a settle is heading: 0 (open) or innerHeight (home).
-let raf = 0; // A pending follow() write.
-let anim = 0; // A settle() glide in progress.
+let goal = innerHeight;
+let toward = null; // A settle in flight: 0 (open) or innerHeight (home).
+let tau = 40; // ms to close 63% of the gap
+const FOLLOW = 40;
+const GLIDE = 70;
+let loop = 0;
+let lastStep = 0;
 
 function write() {
   const s = stage();
@@ -133,29 +141,44 @@ function write() {
   window.acMeterPaint?.(); // A slide frame is a painted frame to the frame meter.
 }
 
-function still() {
-  cancelAnimationFrame(raf);
-  cancelAnimationFrame(anim);
-  raf = anim = 0;
+function run() {
+  if (loop) return;
+  lastStep = performance.now();
+  loop = requestAnimationFrame(step);
 }
 
-// Follow live input: write at most once per frame.
+function step(now) {
+  loop = 0;
+  const dt = Math.min(64, now - lastStep);
+  lastStep = now;
+  const gap = goal - y;
+  y = Math.abs(gap) < 1 ? goal : y + gap * (1 - Math.exp(-dt / tau));
+  write();
+  if (y !== goal) return run();
+  if (toward === null) return;
+  const target = toward;
+  toward = null;
+  target === 0 ? opened() : home();
+}
+
+function still() {
+  cancelAnimationFrame(loop);
+  loop = 0;
+}
+
+// Follow live input: the goal moves, the sheet chases it.
 function follow(next) {
-  y = Math.max(0, Math.min(innerHeight, next));
-  if (raf) return;
-  raf = requestAnimationFrame(() => {
-    raf = 0;
-    write();
-  });
+  goal = Math.max(0, Math.min(innerHeight, next));
+  tau = FOLLOW;
+  run();
 }
 
 // Begin moving from wherever things are, a glide in progress included.
 function begin() {
   const f = ensure();
-  still();
   if (state === "parked") {
     post({ type: "mime:sheet", open: true }); // First card up, slot away.
-    y = innerHeight;
+    y = goal = innerHeight;
   }
   state = "moving";
   toward = null;
@@ -164,31 +187,16 @@ function begin() {
   if (s) s.style.willChange = "transform";
 }
 
-// Glide to 0 (open) or innerHeight (home). Driven frame by frame from the
-// live `y`, so a short pull eases back from exactly where the finger left it
-// rather than snapping; a commit is quicker than a return.
+// Glide to 0 (open) or innerHeight (home) from wherever the sheet is now.
 function settle(target) {
   const f = ensure();
   if (state === "parked" && target === 0) begin();
-  still();
   state = "moving";
   toward = target;
   f.style.pointerEvents = "none";
-  const from = y;
-  const share = Math.min(1, Math.abs(target - from) / innerHeight);
-  const ms = target === 0 ? 160 + 200 * share : 240 + 200 * share;
-  const t0 = performance.now();
-  const tick = (now) => {
-    const p = Math.min(1, (now - t0) / ms);
-    const eased = 1 - (1 - p) ** 3;
-    y = from + (target - from) * eased;
-    write();
-    if (p < 1) return (anim = requestAnimationFrame(tick));
-    anim = 0;
-    toward = null;
-    target === 0 ? opened() : home();
-  };
-  anim = requestAnimationFrame(tick);
+  goal = target;
+  tau = GLIDE;
+  run();
 }
 
 function opened() {
@@ -225,7 +233,8 @@ function meterGuest() {
 
 function home() {
   state = "parked";
-  y = innerHeight;
+  still();
+  y = goal = innerHeight;
   Object.assign(frame.style, {
     transform: "translateY(100%)",
     pointerEvents: "none",
@@ -238,11 +247,11 @@ function home() {
   window.focus();
 }
 
-// Release: past a sixth of the screen or a flick finishes, else ease back.
-// `travel` is how far toward the other end the input went; `speed` > 0 means
-// heading there.
-function release(from, travel, speed) {
-  const done = travel > innerHeight * COMMIT || speed > FLICK;
+// Release: past the halfway line the trip finishes, short of it the sheet
+// eases back where it came from. `travel` is how far toward the other end
+// the input went.
+function release(from, travel) {
+  const done = travel >= innerHeight * COMMIT;
   if (from === "home") settle(done ? 0 : innerHeight);
   else settle(done ? innerHeight : 0);
 }
@@ -252,31 +261,27 @@ function grab(startY) {
   if (state !== "parked" && state !== "cold") return;
   begin();
   const y0 = lastDownY ?? startY;
-  const samples = [[performance.now(), y0]];
   let last = y0;
   const move = (e) => {
     last = e.clientY;
-    samples.push([performance.now(), last]);
-    if (samples.length > 6) samples.shift();
     follow(innerHeight - (y0 - last));
   };
   const end = () => {
     removeEventListener("pointermove", move, true);
     removeEventListener("pointerup", end, true);
     removeEventListener("pointercancel", end, true);
-    const [t0, a] = samples[0];
-    const [t1, b] = samples.at(-1);
-    release("home", y0 - last, t1 > t0 ? (a - b) / (t1 - t0) : 0);
+    release("home", y0 - last);
   };
   addEventListener("pointermove", move, { capture: true, passive: true });
   addEventListener("pointerup", end, { capture: true, passive: true });
   addEventListener("pointercancel", end, { capture: true, passive: true });
 }
 
-// 🖱️ Wheels, either way. A trackpad streams small deltas, momentum included,
-// and settles when they stop; a mouse notch is one big step and goes at once.
-// `dy` > 0 always means "toward the other end". Speed is read over the last
-// few events, as a touch is, so one nudge never counts as a flick.
+// 🖱️ Wheels, either way. Every delta — a trackpad's stream and momentum, a
+// mouse notch, a line or page step — is so much travel, and the sheet follows
+// it; nothing jumps the sheet open. The stream ends after a short silence and
+// the halfway line decides, or crossing it mid-stream finishes the trip.
+// `dy` > 0 always means "toward the other end".
 let wheel = null;
 
 function wheelStep(from, dy, mode) {
@@ -284,28 +289,22 @@ function wheelStep(from, dy, mode) {
   const px = mode === 1 ? dy * 16 : mode === 2 ? dy * innerHeight : dy;
   if (!wheel) {
     if (px <= 0) return;
-    if (mode !== 0 || px >= 60) return settle(from === "home" ? 0 : innerHeight);
     begin(); // Mid-glide, this carries on from the live y.
-    const travel = from === "home" ? innerHeight - y : y;
-    wheel = { from, travel, samples: [[lastWheelAt, travel]], timer: 0 };
+    wheel = { from, travel: from === "home" ? innerHeight - y : y, timer: 0 };
   }
   wheel.travel = Math.max(0, wheel.travel + px);
-  wheel.samples.push([lastWheelAt, wheel.travel]);
-  if (wheel.samples.length > 6) wheel.samples.shift();
   follow(wheel.from === "home" ? innerHeight - wheel.travel : wheel.travel);
   clearTimeout(wheel.timer);
-  if (wheel.travel >= innerHeight * 0.5) return endWheel(true);
+  if (wheel.travel >= innerHeight * COMMIT) return endWheel();
   wheel.timer = setTimeout(() => endWheel(), 140);
 }
 
-function endWheel(force) {
+function endWheel() {
   if (!wheel) return;
   clearTimeout(wheel.timer);
-  const { from, travel, samples } = wheel;
+  const { from, travel } = wheel;
   wheel = null;
-  const [t0, a] = samples[0];
-  const [t1, b] = samples.at(-1);
-  release(from, force ? innerHeight : travel, t1 > t0 ? (b - a) / (t1 - t0) : 0);
+  release(from, travel);
 }
 
 addEventListener("wheel", (e) => {
@@ -331,7 +330,7 @@ addEventListener("message", (e) => {
     if (historyEntry) enterHistory();
   } else if (d.type === "mime:sheet:pull") {
     if (d.end) {
-      if (pull) release("open", y, d.velocity || 0);
+      if (pull) release("open", goal);
       pull = false;
     } else {
       if (!pull) {
