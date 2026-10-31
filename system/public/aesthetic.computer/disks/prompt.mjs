@@ -251,6 +251,7 @@ let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
 let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
+let handleOnboarding = false; // 🪪 Sent here to claim a handle (`prompt~handle `).
 
 // 📊 FPS Meter state
 let fpsTimestamps = [];
@@ -1357,6 +1358,9 @@ async function boot({
     }
 
     activated({ ...api, params: effectiveParams }, true);
+    // Onboarding lands here as `prompt~handle `: remember it so a tap can
+    // blank the prefill and a bare word still counts as the handle.
+    handleOnboarding = !hasAutorun && text.trim() === "handle" && !handle();
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
@@ -1429,6 +1433,20 @@ async function boot({
 
 // 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
+  // Onboarding: a bare word typed over the blanked `handle ` prefill is the
+  // handle itself. `handle ...` or anything with spaces routes as usual.
+  if (handleOnboarding && !$.handle?.()) {
+    const word = text?.trim().replace(/^@/, "") || "";
+    if (
+      word &&
+      !/\s/.test(word) &&
+      !/^handle\b/i.test(word) &&
+      validateHandle(word) === "valid"
+    ) {
+      text = "handle " + word;
+    }
+  }
+
   // 'gni (or '$gni) runs a KidLisp $code with just its name in the corner.
   const quiet = text?.trim().match(/^'\$?([0-9A-Za-z]{3,64})'?$/);
   let result = quiet
@@ -3997,7 +4015,8 @@ async function route($, text) {
     // Set user handle or jump to handle color customization piece.
 
     // Make sure there is a parameter.
-    let newHandle = text.split(" ")[1];
+    const handleWords = text.trim().split(/\s+/).slice(1);
+    let newHandle = handleWords[0];
     if (!newHandle) {
       // No parameter - jump to handle customization piece
       if (user && handle()) {
@@ -4011,6 +4030,11 @@ async function route($, text) {
         notice("EMPTY", ["cyan", "blue"]);
         return true;
       }
+    }
+
+    if (handleWords.length > 1) {
+      notice("NO SPACES", ["yellow", "red"]);
+      return true;
     }
 
     if (newHandle[0] === "@") newHandle = newHandle.slice(1); // Strip off any leading "@" sign to help with validation.
@@ -4047,7 +4071,7 @@ async function route($, text) {
       needsPaint();
     } else {
       console.warn("🧖 No @handle specified / bad handle design:", validated);
-      notice(validated.toUpperCase(), ["yellow", "red"]);
+      notice(handleProblem(newHandle, validated), ["yellow", "red"]);
     }
     return true;
   } else if (text.startsWith("admin:handle:strip")) {
@@ -8337,17 +8361,16 @@ function act({
       } else if (profileAction === "profile") {
         jump(handle() || "profile");
       } else if (profileAction === "set-handle") {
-        if (!net.iframe) {
-          send({ type: "onboarding:open" });
-        } else {
-          notice("ENTER HANDLE", ["yellow", "blue"]);
-          const text = "handle ";
-          system.prompt.input.text = text;
-          system.prompt.input.snap();
-          system.prompt.input.runnable = true;
-          firstActivation = false;
-          send({ type: "keyboard:text:replace", content: { text } });
-        }
+        // The prompt is the one place a handle gets set: type it in here.
+        notice("ENTER HANDLE", ["yellow", "blue"]);
+        const text = "handle ";
+        system.prompt.input.text = text;
+        system.prompt.input.addUserText(text);
+        system.prompt.input.snap();
+        system.prompt.input.runnable = true;
+        firstActivation = false;
+        handleOnboarding = true;
+        send({ type: "keyboard:text:replace", content: { text } });
       }
     },
     cancel: () => {
@@ -8741,11 +8764,32 @@ function act({
 // }
 
 // 🖥️ Run When the Prompt is activated.
+// Why a handle was refused, short enough for a notice.
+function handleProblem(candidate, validated) {
+  if (validated === "too long") return "MAX 16 CHARS";
+  if (validated === "reserved") return "RESERVED";
+  if (/[^a-z0-9._]/i.test(candidate)) return "A-Z 0-9 . _ ONLY";
+  if (/^[._]|[._]$/.test(candidate)) return "NO . OR _ AT ENDS";
+  return "NO DOUBLE . OR _";
+}
+
 function activated($, state) {
   // Clear any latent text when activating to prevent MOTD showing when focused
   // but only if we don't have params (which means we're not coming from backspace navigation)
   if (state === true && !$.params[0]) {
     $.system.prompt.input.text = "";
+  }
+
+  // Tapping the untouched `handle ` prefill blanks it; the word typed next
+  // is taken as the handle (see halt).
+  if (state === true && handleOnboarding) {
+    const input = $.system.prompt.input;
+    if (input.text.trim() === "handle") {
+      input.clearUserText();
+      input.text = "";
+      input.runnable = false;
+      $.send({ type: "keyboard:text:replace", content: { text: "" } });
+    }
   }
 
   if (firstActivation) {

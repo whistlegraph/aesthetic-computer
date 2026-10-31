@@ -13862,11 +13862,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "onboarding:open") {
-      if (window.acSignup && window.auth0Client && !window.acTOKEN) {
-        window.acSignup.resume(window.auth0Client, window.acUSER, true);
-      } else {
-        send({ type: "jump", content: { piece: "prompt~handle " } });
-      }
+      // The prompt, with `handle ` typed in, is where a handle gets set.
+      send({ type: "jump", content: { piece: "prompt~handle " } });
       return;
     }
     if (type === "onboarding:complete") {
