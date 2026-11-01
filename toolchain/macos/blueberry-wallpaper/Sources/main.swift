@@ -134,9 +134,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private var appliedVibeMix: CGFloat = -1
     private var appliedVibeColor: (r: CGFloat, g: CGFloat, b: CGFloat) = (-1, -1, -1)
     private var cornerGlows: [CAGradientLayer] = []
-    private var edgeGlows: [CAGradientLayer] = []
     private var cornerFlash: [CGFloat] = [0, 0, 0, 0]
-    private var edgeFlash: CGFloat = 0
     private var lastBeatAt: Double = 0
     private var beatCount = 0
     private var vibeTimer: Timer?
@@ -254,58 +252,36 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
                     glow: min(1, max(0, glow)), at: at)
     }
 
-    /// Four radial glows anchored on the corners plus four edge washes —
-    /// the outline — screen-blended over the field and the Pals so they
-    /// read as light spilling in, not paint.
+    /// Four radial glows anchored on the corners, screen-blended over the
+    /// field and the Pals so they read as light spilling in from the room's
+    /// corners, not paint. Radial only — straight-edged washes along the
+    /// sides read as a letterbox, so there are none.
     private func buildCornerGlows() {
         for _ in 0..<4 {
             let g = CAGradientLayer()
             g.type = .radial
             g.startPoint = CGPoint(x: 0.5, y: 0.5)
             g.endPoint = CGPoint(x: 1, y: 1)
-            g.locations = [0, 0.45, 1]
+            // A long, soft foot: bright only right in the corner, gone well
+            // before the far edge of the glow, so no rim ever shows.
+            g.locations = [0, 0.22, 0.55, 1]
             g.opacity = 0
             g.zPosition = 10
             g.actions = ["opacity": NSNull(), "colors": NSNull(), "bounds": NSNull(), "position": NSNull()]
             layer?.addSublayer(g)
             cornerGlows.append(g)
         }
-        // Edges: bottom, right, top, left — each fades inward from its edge.
-        let dirs: [(CGPoint, CGPoint)] = [
-            (CGPoint(x: 0.5, y: 1), CGPoint(x: 0.5, y: 0)),   // bottom (layer y is flipped)
-            (CGPoint(x: 1, y: 0.5), CGPoint(x: 0, y: 0.5)),   // right
-            (CGPoint(x: 0.5, y: 0), CGPoint(x: 0.5, y: 1)),   // top
-            (CGPoint(x: 0, y: 0.5), CGPoint(x: 1, y: 0.5)),   // left
-        ]
-        for (start, end) in dirs {
-            let g = CAGradientLayer()
-            g.type = .axial
-            g.startPoint = start
-            g.endPoint = end
-            g.locations = [0, 0.35, 1]
-            g.opacity = 0
-            g.zPosition = 11
-            g.actions = ["opacity": NSNull(), "colors": NSNull(), "bounds": NSNull(), "position": NSNull()]
-            layer?.addSublayer(g)
-            edgeGlows.append(g)
-        }
     }
 
     private func layoutCornerGlows() {
-        guard cornerGlows.count == 4, edgeGlows.count == 4 else { return }
-        let side = max(bounds.width, bounds.height) * 0.95
+        guard cornerGlows.count == 4 else { return }
+        let side = max(bounds.width, bounds.height) * 1.3
         let corners = [CGPoint(x: 0, y: 0), CGPoint(x: bounds.width, y: 0),
                        CGPoint(x: bounds.width, y: bounds.height), CGPoint(x: 0, y: bounds.height)]
         for (g, c) in zip(cornerGlows, corners) {
             g.bounds = CGRect(x: 0, y: 0, width: side, height: side)
             g.position = c
         }
-        let w = bounds.width, h = bounds.height
-        let thick = min(w, h) * 0.22
-        edgeGlows[0].frame = CGRect(x: 0, y: 0, width: w, height: thick)
-        edgeGlows[1].frame = CGRect(x: w - thick, y: 0, width: thick, height: h)
-        edgeGlows[2].frame = CGRect(x: 0, y: h - thick, width: w, height: thick)
-        edgeGlows[3].frame = CGRect(x: 0, y: 0, width: thick, height: h)
     }
 
     /// 30 Hz on the main thread: ease toward the published vibe, drive the
@@ -337,10 +313,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
                 let hit = CGFloat(beat.energy) * (i % 2 == pair ? 1.0 : 0.45)
                 cornerFlash[i] = max(cornerFlash[i], hit)
             }
-            edgeFlash = max(edgeFlash, CGFloat(beat.energy))
         }
         for i in 0..<4 { cornerFlash[i] *= 0.80 }
-        edgeFlash *= 0.76
 
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let color = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
@@ -348,21 +322,14 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (i, g) in cornerGlows.enumerated() {
-            g.colors = [bright.withAlphaComponent(0.95).cgColor,
-                        color.withAlphaComponent(0.45).cgColor,
+            g.colors = [bright.withAlphaComponent(1.0).cgColor,
+                        color.withAlphaComponent(0.6).cgColor,
+                        color.withAlphaComponent(0.18).cgColor,
                         color.withAlphaComponent(0).cgColor]
             g.compositingFilter = dark ? "screenBlendMode" : "multiplyBlendMode"
             // A slow breath per corner so the four never sit at one level.
             let breath = 0.75 + 0.25 * CGFloat(sin(now * 0.7 + Double(i) * 1.6))
             let level = min(1, vibeLevel * 0.9 * breath + cornerFlash[i] * 1.0)
-            g.opacity = Float(level * (dark ? 1.0 : 0.7))
-        }
-        for g in edgeGlows {
-            g.colors = [bright.withAlphaComponent(0.9).cgColor,
-                        color.withAlphaComponent(0.35).cgColor,
-                        color.withAlphaComponent(0).cgColor]
-            g.compositingFilter = dark ? "screenBlendMode" : "multiplyBlendMode"
-            let level = min(1, vibeLevel * 0.45 + edgeFlash * 0.95)
             g.opacity = Float(level * (dark ? 1.0 : 0.7))
         }
         CATransaction.commit()
