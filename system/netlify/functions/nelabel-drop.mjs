@@ -6,18 +6,22 @@
 // accounts. Clips are PRIVATE (owner-only presigned reads); the list of who
 // dropped what is public so the page doubles as the tracklist-in-progress.
 //
-// POST   { action: "begin", word?, who, title, length, eta, note?, file: { name, bytes } }
-//          → { code, upload: { url, method, headers } }
+// POST   { action: "begin", word?, who, title, length, eta, note?, file?: { name, bytes } }
+//          → { code, key, committed, upload: { url, method, headers } | null }
+//        Without `file` the entry is an intent: it is on the board at once and
+//        `key` lets the same person attach a clip later.
 // PUT    the clip to upload.url with exactly those headers.
 // POST   { action: "commit", code } → { code, committed: true } | 409
-// GET    → { count, drops: [{ code, who, title, length, eta, note, when }] }
-//        Admin (Authorization: Bearer …, @jeffrey) also gets `url` per drop.
+// POST   { action: "attach", code, key, file: { name, bytes } } → { code, upload }
+//        then PUT + commit as above. Only an entry without a clip takes one.
+// GET    → { count, drops: [{ code, who, title, length, eta, note, when, clip }] }
+//        Admin (Authorization: Bearer …, @jeffrey) also gets `url` per clip.
 // DELETE ?code=X (admin) → { code, deleted: true }
 //
 // NELABEL_DROP_WORD, when set, is a shared passphrase `begin` must carry.
 // Storage: USER_SPACE_NAME bucket, key `nelabel/sampler/<code>/<file>`.
-// Mongo: `nelabel-drops` { code, who, title, length, eta, note, file: { name,
-//        key, bytes, contentType }, committed, when, nuked? }
+// Mongo: `nelabel-drops` { code, key, who, title, length, eta, note, file: { name,
+//        key, bytes, contentType, ready } | null, committed, when, nuked? }
 
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
@@ -30,7 +34,10 @@ import {
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { customAlphabet } from "nanoid";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
+
+const secret = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 16);
 
 const COLLECTION = "nelabel-drops";
 const MAX_BYTES = 48 * 1024 * 1024;
@@ -91,13 +98,19 @@ export function parseBegin(body, word = process.env.NELABEL_DROP_WORD) {
   const eta = text(body.eta, 120);
   if (!eta) throw new Error("Say roughly when you could hand in a finished version");
   const note = text(body.note, 500) || null;
-  const { name, ext } = safeName(body.file?.name);
+  const file = body.file ? parseFile(body.file) : null;
+  return { who, title, length, eta, note, file };
+}
+
+// Validate a `{ name, bytes }` clip description. Throws with a 400 message.
+export function parseFile(file) {
+  const { name, ext } = safeName(file?.name);
   const contentType = CLIP_TYPES[ext];
   if (!contentType) throw new Error(`Send a ${Object.keys(CLIP_TYPES).join(", ")} file`);
-  const bytes = Number(body.file?.bytes);
+  const bytes = Number(file?.bytes);
   if (!Number.isInteger(bytes) || bytes <= 0 || bytes > MAX_BYTES)
     throw new Error(`The clip must be under ${MAX_BYTES / 1024 / 1024} MB`);
-  return { who, title, length, eta, note, file: { name, bytes, contentType } };
+  return { name, bytes, contentType };
 }
 
 async function presignPut({ s3, bucket }, key, contentType) {
@@ -128,7 +141,8 @@ export function present(doc, { admin = false } = {}) {
     eta: doc.eta,
     note: doc.note || null,
     when: doc.when,
-    ...(admin ? { file: doc.file.name, bytes: doc.file.bytes } : {}),
+    clip: !!(doc.file && doc.file.ready),
+    ...(admin && doc.file?.ready ? { file: doc.file.name, bytes: doc.file.bytes } : {}),
   };
 }
 
@@ -138,8 +152,30 @@ async function begin(store, drops, body) {
   catch (error) { return reply(400, { error: error.message }); }
 
   const code = await generateUniqueCode(drops, { type: "nelabel" });
-  const file = { ...fields.file, key: objectKey(code, fields.file.name) };
-  await drops.insertOne({ ...fields, file, code, committed: false, when: new Date() });
+  const key = secret();
+  if (!fields.file) {
+    // An intent: on the board now, clip later.
+    await drops.insertOne({ ...fields, file: null, code, key, committed: true, when: new Date() });
+    return reply(200, { code, key, committed: true, upload: null });
+  }
+  const file = { ...fields.file, key: objectKey(code, fields.file.name), ready: false };
+  await drops.insertOne({ ...fields, file, code, key, committed: false, when: new Date() });
+  const upload = await presignPut(store, file.key, file.contentType);
+  return reply(200, { code, key, committed: false, upload });
+}
+
+// Add a clip to an entry that has none. Needs the entry's key from `begin`.
+async function attach(store, drops, body) {
+  const code = String(body.code || "");
+  const key = String(body.key || "");
+  const doc = await drops.findOne({ code, nuked: { $ne: true } });
+  if (!doc || !key || doc.key !== key) return reply(404, { error: "No such entry" });
+  if (doc.file?.ready) return reply(409, { error: "That entry already has a clip" });
+  let parsed;
+  try { parsed = parseFile(body.file); }
+  catch (error) { return reply(400, { error: error.message }); }
+  const file = { ...parsed, key: objectKey(code, parsed.name), ready: false };
+  await drops.updateOne({ _id: doc._id }, { $set: { file } });
   const upload = await presignPut(store, file.key, file.contentType);
   return reply(200, { code, upload });
 }
@@ -148,12 +184,13 @@ async function commit({ s3, bucket }, drops, body) {
   const code = String(body.code || "");
   const doc = await drops.findOne({ code, nuked: { $ne: true } });
   if (!doc) return reply(404, { error: "No such drop" });
-  if (doc.committed) return reply(200, { code, committed: true });
+  if (!doc.file) return reply(409, { error: "No clip to check" });
+  if (doc.file.ready) return reply(200, { code, committed: true });
   try {
     const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: doc.file.key }));
     await drops.updateOne(
       { _id: doc._id },
-      { $set: { "file.bytes": head.ContentLength ?? doc.file.bytes, committed: true, when: new Date() } },
+      { $set: { "file.bytes": head.ContentLength ?? doc.file.bytes, "file.ready": true, committed: true } },
     );
   } catch {
     return reply(409, { error: "The clip never arrived" });
@@ -166,7 +203,7 @@ async function list(store, drops, admin) {
   const presented = [];
   for (const doc of docs) {
     const item = present(doc, { admin });
-    if (admin) item.url = await presignGet(store, doc.file.key, `nelabel-${doc.code}-${doc.file.name}`);
+    if (admin && doc.file?.ready) item.url = await presignGet(store, doc.file.key, `nelabel-${doc.code}-${doc.file.name}`);
     presented.push(item);
   }
   return reply(200, { count: presented.length, drops: presented });
@@ -175,7 +212,7 @@ async function list(store, drops, admin) {
 async function remove({ s3, bucket }, drops, code) {
   const doc = await drops.findOne({ code, nuked: { $ne: true } });
   if (!doc) return reply(404, { error: "No such drop" });
-  try { await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: doc.file.key })); } catch {}
+  if (doc.file) { try { await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: doc.file.key })); } catch {} }
   await drops.updateOne({ _id: doc._id }, { $set: { nuked: true, nukedAt: new Date() } });
   return reply(200, { code, deleted: true });
 }
@@ -208,7 +245,8 @@ export async function handler(event) {
       catch { return reply(400, { error: "Body must be JSON" }); }
       if (body.action === "begin") return await begin(store, drops, body);
       if (body.action === "commit") return await commit(store, drops, body);
-      return reply(400, { error: "action must be begin or commit" });
+      if (body.action === "attach") return await attach(store, drops, body);
+      return reply(400, { error: "action must be begin, attach or commit" });
     }
     if (event.httpMethod === "DELETE") {
       if (!(await isAdmin(event.headers))) return reply(401, { error: "Admin only" });

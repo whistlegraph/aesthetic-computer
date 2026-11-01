@@ -2,8 +2,26 @@
 
 [hidden] { display: none !important; }
 
-.bell { color: #00c4fd; margin-top: 1rem; line-height: 1.05; }
+/* The bell swings from its crown; the clapper lags a little behind. */
+.bell { color: #00c4fd; margin-top: 1rem; display: inline-block; transform-origin: 50% 0; animation: ring 3.6s ease-in-out infinite; }
+.bell pre { line-height: 1.05; margin: 0; }
+.bell-clapper { transform-origin: 50% -200%; animation: clap 3.6s ease-in-out infinite; }
+@keyframes ring {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    66% { transform: rotate(7deg); }
+    74% { transform: rotate(-6deg); }
+    82% { transform: rotate(4deg); }
+    90% { transform: rotate(-2deg); }
+}
+@keyframes clap {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    69% { transform: rotate(-9deg); }
+    77% { transform: rotate(8deg); }
+    85% { transform: rotate(-5deg); }
+    93% { transform: rotate(2deg); }
+}
 .bel-tagline { color: #00c4fd; margin: 1rem 0 0; }
+@media (prefers-reduced-motion: reduce) { .bell, .bell-clapper { animation: none; } }
 
 strong { color: #00c4fd; font-weight: bold; }
 
@@ -52,6 +70,13 @@ strong { color: #00c4fd; font-weight: bold; }
 .bel-list a { color: #00c4fd; }
 .bel-empty { color: #006888; margin-top: 1em; }
 
+/* Your own entries, waiting for a clip. */
+.bel-mine { margin-top: 1em; }
+.bel-mine p { margin: 0 0 0.5em; }
+.bel-mine-list { list-style: none; margin: 0.5em 0 0; padding: 0; }
+.bel-mine-list li { margin: 0 0 0.5em; }
+.bel-mine-list .bel-bar, .bel-mine-list .bel-status { display: block; margin-top: 0.25em; }
+
 .bel-foot { color: #006888; }
 .bel-foot a { color: #00c4fd; }
 
@@ -79,7 +104,6 @@ strong { color: #00c4fd; font-weight: bold; }
     .bel-status.bad { color: #b3261e; }
 }
 
-/* preview on aesthetic.computer only */
-.bel-proposal { color: #006888; margin: 0 0 1rem; }
-.bel-proposal a { color: #006888; }
-@media (prefers-color-scheme: light) { .bel-proposal, .bel-proposal a { color: #6a9fb5; } }
+/* preview bumper on aesthetic.computer only: highlighter yellow */
+.bel-proposal { display: inline-block; background: #ffe600; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 0 1rem; }
+.bel-proposal a { color: #000; }
