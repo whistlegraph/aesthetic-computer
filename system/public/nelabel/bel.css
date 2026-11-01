@@ -1,0 +1,59 @@
+/* nela bel — adds to the site's styles.css; changes nothing there. */
+
+[hidden] { display: none !important; }
+
+.bell { color: #00c4fd; margin-top: 1rem; line-height: 1.05; }
+
+strong { color: #00c4fd; font-weight: bold; }
+
+/* Form, in the meetupBox idiom: cyan box, underlined inputs. */
+.bel-form { display: grid; gap: 0.75em; }
+.bel-form .meetingTitle { margin: 0; }
+.bel-field { display: block; margin: 0; }
+.bel-field input {
+    font: inherit;
+    color: #00c4fd;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid #00c4fd;
+    padding: 0 2px;
+    width: 100%;
+    max-width: 28ch;
+}
+.bel-field input.short { max-width: 8ch; }
+.bel-field input::placeholder { color: #006888; }
+.bel-field input:focus-visible,
+.bel-choose input:focus-visible + span,
+.ncc-give:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
+
+.bel-pick { margin: 0.25em 0 0; }
+.bel-choose { position: relative; cursor: pointer; }
+.bel-choose input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.bel-choose span { display: inline-block; padding: 2px; }
+.bel-choose:hover span, .bel-choose.has span { background: #00c4fd; color: #000; font-weight: bold; }
+.bel-clip { display: block; margin-top: 0.25em; color: #006888; }
+.bel-choose.has + .bel-clip { color: #00c4fd; }
+
+.bel-form .ncc-give { justify-self: start; margin-top: 0.25em; }
+.bel-form .ncc-give:disabled { cursor: progress; opacity: 0.6; }
+
+.bel-bar { color: #00d080; margin: 0; }
+.bel-status { margin: 0; min-height: 1rem; color: #00d080; }
+.bel-status.bad { color: #ff5a5a; }
+.bel-status.good { color: #00d080; font-weight: bold; }
+
+/* The board. */
+.bel-list { list-style: none; margin: 1em 0 0; padding: 0; }
+.bel-list li { margin: 0 0 0.5em; display: grid; grid-template-columns: 3ch 1fr auto; gap: 0 1ch; }
+.bel-list .n { color: #006888; }
+.bel-list .who { color: #00c4fd; }
+.bel-list .len { color: #006888; white-space: nowrap; }
+.bel-list a { color: #00c4fd; }
+.bel-empty { color: #006888; margin-top: 1em; }
+
+.bel-foot { color: #006888; }
+.bel-foot a { color: #00c4fd; }
+
+/* preview on aesthetic.computer only */
+.bel-proposal { color: #006888; margin: 0 0 1rem; }
+.bel-proposal a { color: #006888; }
