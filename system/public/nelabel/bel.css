@@ -113,6 +113,10 @@ strong { color: #00c4fd; font-weight: bold; }
     .bel-status.bad { color: #b3261e; }
 }
 
+.bel-concepts { list-style: none; padding: 0; margin: 0.75em 0; }
+.bel-concepts li { margin: 0.35em 0; }
+.bel-concepts li::before { content: "♪ "; color: var(--nela-green, #00d080); }
+
 /* preview bumper on aesthetic.computer only: highlighter yellow */
 .bel-proposal { display: inline-block; background: #ffe600; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 0 1rem; }
 .bel-proposal a { color: #000; }
