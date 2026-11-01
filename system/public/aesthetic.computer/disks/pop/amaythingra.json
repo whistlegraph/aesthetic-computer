@@ -7,17 +7,56 @@
   "key": "G major",
   "meter": "4/4",
   "duration": 273,
+  "released": "2026-06-03",
+  "status": "released",
   "audio": "/assets/pop/amaythingra.mp3",
   "cover": "/assets/pop/amaythingra.jpg",
   "sections": [
-    { "name": "intro",  "t": 0,   "code": "a" },
-    { "name": "build",  "t": 32,  "code": "b" },
-    { "name": "drop1",  "t": 64,  "code": "c" },
-    { "name": "break",  "t": 96,  "code": "d" },
-    { "name": "vortex", "t": 112, "code": "e" },
-    { "name": "drop2",  "t": 128, "code": "f" },
-    { "name": "outro",  "t": 192, "code": "g" },
-    { "name": "resolve","t": 248, "code": "h" }
+    {
+      "name": "intro",
+      "t": 0,
+      "code": "a"
+    },
+    {
+      "name": "build",
+      "t": 32,
+      "code": "b"
+    },
+    {
+      "name": "drop1",
+      "t": 64,
+      "code": "c"
+    },
+    {
+      "name": "break",
+      "t": 96,
+      "code": "d"
+    },
+    {
+      "name": "vortex",
+      "t": 112,
+      "code": "e"
+    },
+    {
+      "name": "drop2",
+      "t": 128,
+      "code": "f"
+    },
+    {
+      "name": "outro",
+      "t": 192,
+      "code": "g"
+    },
+    {
+      "name": "resolve",
+      "t": 248,
+      "code": "h"
+    }
   ],
+  "links": {
+    "spotify": "https://open.spotify.com/track/4hVFWMISa235ybIEfOYuwt",
+    "apple": "https://music.apple.com/us/album/amaythingra/6776359148?i=6776359150",
+    "youtube": "https://youtu.be/2FwOYCXS4UA"
+  },
   "credits": "vowel-extraction deep-house remix of amazing grace for the pixsies body. all instruments + composition: aesthetic dot computer."
 }

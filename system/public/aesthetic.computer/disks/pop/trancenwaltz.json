@@ -7,6 +7,8 @@
   "key": "—",
   "meter": "3/4",
   "duration": 86.7,
+  "released": "2026-05-17",
+  "status": "released",
   "audio": "/assets/pop/trancenwaltz.mp3",
   "cover": "/assets/pop/trancenwaltz.jpg",
   "sections": [
@@ -60,7 +62,9 @@
     }
   ],
   "links": {
-    "spotify": "https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum"
+    "spotify": "https://open.spotify.com/track/3PIPwPqptVlWy71rCEhQum",
+    "apple": "https://music.apple.com/us/album/trancenwaltz/6773318345?i=6773318348",
+    "youtube": "https://youtu.be/RBG3k_XsfLA"
   },
   "credits": "dark/emo war-arc trance-waltz. youtu.be/RBG3k_XsfLA"
 }

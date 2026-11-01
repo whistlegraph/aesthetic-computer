@@ -32,6 +32,8 @@ Two hard-won constraints (violating either stalls the page on long tracks):
   "key": "F major",
   "meter": "3/4",
   "duration": 83.5714,
+  "released": "2026-05-22",
+  "status": "released",
   "audio":  "/assets/pop/<slug>.mp3",
   "cover":  "/assets/pop/<slug>.jpg",
   "sections": [
@@ -43,6 +45,17 @@ Two hard-won constraints (violating either stalls the page on long tracks):
 }
 ```
 
+- `released` — the ISO date the single went out (DistroKid release date, or
+  the day it went live on AC). `pop.aesthetic.computer` sorts by it, newest
+  first; `pop/RELEASES.md` is where the date comes from.
+- `status` — `released` (in stores via DistroKid) or `ac` (self-hosted on AC
+  only, e.g. `sailor-song`). Defaults to `released`.
+- `links` — `spotify`, `apple`, `youtube` as recorded in `pop/RELEASES.md`.
+  The catalog page shows whichever are present.
+- A manifest with `"sections": []` and no `disks/<slug>.mjs` wrapper is
+  **catalog-only** (`americomputadora`, `momabobasheep`): it plays on
+  `pop.aesthetic.computer`, in `juke` and the iPhone app, but has no
+  slideshow piece, so the catalog's `piece` is `null`.
 - `audio` / `cover` — CDN-served (`assets.aesthetic.computer/pop/...`) or
   dev-served (`/assets/pop/...`). Both work because `system/public/assets/`
   syncs to the CDN.
@@ -64,6 +77,10 @@ Two hard-won constraints (violating either stalls the page on long tracks):
 4. **Sync CDN** (when ready to publish): `npm run assets:sync:up` + the
    `doctl compute cdn flush` dance from `[[project_cdn_overwrite_stale]]`.
 5. **Visit** `aesthetic.computer/<slug>` to confirm — tap to play.
+6. **Publish the catalog:** `node pop/bin/publish-release-records.mjs`
+   (rewrites `system/public/pop.aesthetic.computer/releases/catalog.json` +
+   `feed.xml`) then `node pop/bin/catalog-art.mjs <slug>` (thumbs/, art/,
+   and the `pop-og.jpg` montage when run without a slug). Deploy lith.
 
 A future `pop/bin/publish-illys.mjs <slug>` should automate steps 1–2 by
 reading `out/<slug>.struct.json` + the campaign gens dir.
@@ -85,7 +102,9 @@ reading `out/<slug>.struct.json` + the campaign gens dir.
 - `sailor-song` ✓ (sage oc's cover, artist `sage oc`. Its section stills are
   frames of the relit performance video, cropped above the caption row.)
 
-The AC iPhone app plays the whole catalog natively: `pop` (or `pop <slug>`)
+`pop.aesthetic.computer` (also served at `aesthetic.computer/pop`) lists the
+catalog newest-first with an in-page jukebox; `juke` is the same catalog as a
+piece. The AC iPhone app plays the whole catalog natively: `pop` (or `pop <slug>`)
 at the prompt opens `apple/aesthetic.computer/PopPlayer.swift`, which reads
 `pop.aesthetic.computer/releases/catalog.json`. A track reaches it once
 `node pop/bin/publish-release-records.mjs` has been re-run with its manifest.
