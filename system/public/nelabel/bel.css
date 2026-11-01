@@ -1,8 +1,9 @@
-/* nela bel — adds to the site's styles.css; changes nothing there. */
+/* nela bells — adds to the site's styles.css; changes nothing there. */
 
 [hidden] { display: none !important; }
 
 .bell { color: #00c4fd; margin-top: 1rem; line-height: 1.05; }
+.bel-tagline { color: #00c4fd; margin: 1rem 0 0; }
 
 strong { color: #00c4fd; font-weight: bold; }
 

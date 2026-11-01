@@ -1,4 +1,4 @@
-// nela bel sampler drop. The clip store runs on Aesthetic Computer for now;
+// nela bells sampler drop. The clip store runs on Aesthetic Computer for now;
 // the page is plain HTML and can move anywhere. No framework, no build.
 (function () {
   var API = "https://aesthetic.computer/api/nelabel-drop";
