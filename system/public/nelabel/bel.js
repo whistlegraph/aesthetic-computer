@@ -86,7 +86,7 @@
       var title = document.createElement("span"); title.className = "who"; title.textContent = e.title;
       var pick = document.createElement("label"); pick.className = "bel-choose";
       var input = document.createElement("input"); input.type = "file"; input.accept = clip.accept;
-      var span = document.createElement("span"); span.textContent = "[ attach your clip ]";
+      var span = document.createElement("span"); span.textContent = "[ Attach your clip ]";
       pick.appendChild(input); pick.appendChild(span);
       var meterEl = document.createElement("pre"); meterEl.className = "bel-bar"; meterEl.hidden = true;
       var statusEl = document.createElement("p"); statusEl.className = "bel-status";
@@ -97,12 +97,12 @@
         if (!file) return;
         pick.classList.add("has"); span.textContent = "[ " + file.name + " ]";
         meterEl.hidden = false; meter(0, meterEl);
-        say("> sending the clip…", null, statusEl);
+        say("> Sending the clip…", null, statusEl);
         post({ action: "attach", code: e.code, key: e.key, file: { name: file.name, bytes: file.size } })
           .then(function (j) { return putWithProgress(j.upload, file, meterEl); })
-          .then(function () { say("> making sure it landed…", null, statusEl); return post({ action: "commit", code: e.code }); })
-          .then(function () { meter(1, meterEl); say("> it's on the board.", "good", statusEl); load(); })
-          .catch(function (err) { say("> " + err.message, "bad", statusEl); pick.classList.remove("has"); span.textContent = "[ attach your clip ]"; });
+          .then(function () { say("> Making sure it landed…", null, statusEl); return post({ action: "commit", code: e.code }); })
+          .then(function () { meter(1, meterEl); say("> It's on the board.", "good", statusEl); load(); })
+          .catch(function (err) { say("> " + err.message, "bad", statusEl); pick.classList.remove("has"); span.textContent = "[ Attach your clip ]"; });
       });
       mineList.appendChild(li);
     });
@@ -112,7 +112,7 @@
     fetch(API)
       .then(function (r) { return r.json(); })
       .then(function (data) { render(data.drops || []); })
-      .catch(function () { empty.hidden = false; empty.textContent = "couldn't load the board."; });
+      .catch(function () { empty.hidden = false; empty.textContent = "Couldn't load the board."; });
   }
 
   clip.addEventListener("change", function () {
@@ -127,15 +127,15 @@
       xhr.open(upload.method, upload.url);
       Object.keys(upload.headers || {}).forEach(function (k) { xhr.setRequestHeader(k, upload.headers[k]); });
       xhr.upload.onprogress = function (e) { if (e.lengthComputable) meter(e.loaded / e.total, meterEl); };
-      xhr.onload = function () { (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("upload failed (" + xhr.status + ")")); };
-      xhr.onerror = function () { reject(new Error("upload failed")); };
+      xhr.onload = function () { (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error("Upload failed (" + xhr.status + ")")); };
+      xhr.onerror = function () { reject(new Error("Upload failed.")); };
       xhr.send(file);
     });
   }
 
   function post(body) {
     return fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "something went wrong"); return j; }); });
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Something went wrong."); return j; }); });
   }
 
   form.addEventListener("submit", function (e) {
@@ -147,12 +147,12 @@
       eta: form.eta.value, note: form.note.value, word: form.word.value,
       file: file ? { name: file.name, bytes: file.size } : null
     };
-    if (!body.who.trim()) return say("> who are you?", "bad");
-    if (!body.title.trim()) return say("> give the track a working title.", "bad");
-    if (!body.eta.trim()) return say("> say roughly when you could finish it.", "bad");
+    if (!body.who.trim()) return say("> Who are you?", "bad");
+    if (!body.title.trim()) return say("> Give the track a working title.", "bad");
+    if (!body.eta.trim()) return say("> Say roughly when you could finish it.", "bad");
 
     send.disabled = true;
-    say("> putting you on the board…");
+    say("> Putting you on the board…");
     var entry;
     post(body)
       .then(function (j) {
@@ -160,13 +160,13 @@
         remember(remembered().concat([entry]));
         if (!j.upload) return;
         bar.hidden = false; meter(0);
-        say("> sending the clip…");
+        say("> Sending the clip…");
         return putWithProgress(j.upload, file)
-          .then(function () { say("> making sure it landed…"); return post({ action: "commit", code: j.code }); })
+          .then(function () { say("> Making sure it landed…"); return post({ action: "commit", code: j.code }); })
           .then(function () { meter(1); entry.clip = true; });
       })
       .then(function () {
-        say(entry.clip ? "> you're on the board, clip and all." : "> you're on the board. come back here for the clip.", "good");
+        say(entry.clip ? "> You're on the board, clip and all." : "> You're on the board. Come back here for the clip.", "good");
         form.reset(); clip.dispatchEvent(new Event("change"));
         load();
       })
