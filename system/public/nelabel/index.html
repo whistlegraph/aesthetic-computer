@@ -4,14 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NELA BELLS | NELA Computer Club</title>
-    <meta name="description" content="Have you listened to the nela bells? A NELA Computer Club compilation. Drop 16 seconds of the track you'd put on it.">
+    <meta name="description" content="have you listened to the nela bells? a nela computer club compilation. send 16 seconds of the track you'd put on it.">
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6fbf8">
     <link rel="canonical" href="https://nela.computer/bells/">
     <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="NELA Computer Club">
     <meta property="og:title" content="NELA BELLS">
-    <meta property="og:description" content="Have you listened to the nela bells? A NELA Computer Club compilation. Drop 16 seconds of the track you'd put on it.">
+    <meta property="og:description" content="have you listened to the nela bells? a nela computer club compilation. send 16 seconds of the track you'd put on it.">
     <meta property="og:url" content="https://nela.computer/bells/">
     <meta property="og:image" content="https://aesthetic.computer/nelabel/nela-bells.png">
     <link rel="stylesheet" href="styles.css">
@@ -36,7 +39,7 @@
 ▐██████████▌
 ▀▀▀▀▀▀▀▀▀▀▀▀
      ▐▌</pre>
-        <p class="bel-tagline">Have you listened to the nela bells?</p>
+        <p class="bel-tagline">have you listened to the nela bells?</p>
         </header>
 
         <h2>Sampler Call</h2>
@@ -44,29 +47,30 @@
 
         <div class="meetupBox">
             <p class="meetingTitle">DROP BY SUNDAY, NOVEMBER 15</p>
-            <p>nela bells is a little netlabel for a NELA Computer Club compilation. Before anything else: who's in?</p>
-            <p>If you've got a track you'd want on it, drop a sampler. <strong>16 seconds</strong> of it, any section you like. wav or flac if you can; a phone recording is fine too.</p>
-            <p>Anyone who drops a clip is on the sampler. The full release is whoever finishes. The clips get stitched into one preview so we can hear it as a whole.</p>
+            <p>nela bells is a netlabel for a computer club compilation. before anything else gets decided i want to know who's in.</p>
+            <p>if you have a track you'd put on it, send <strong>16 seconds</strong> of it. any part. wav or flac if you have them &mdash; a phone recording is fine.</p>
+            <p>everyone who sends a clip is on the sampler. the full release is whoever finishes a track. i'll stitch the clips into one preview so we can hear the thing whole before it exists.</p>
+            <p>this came out of the netlabel thread in the club signal chat. that's where to talk about it.</p>
         </div>
 
         <h2>Drop</h2>
         <pre>▒▒▒▒</pre>
 
         <form id="drop" class="meetupBox bel-form" novalidate>
-            <p class="meetingTitle">YOUR SAMPLER</p>
-            <label class="bel-field" for="who">Who you are: <input id="who" name="who" type="text" autocomplete="nickname" maxlength="64" placeholder="name or handle" required></label>
-            <label class="bel-field" for="title">Working title: <input id="title" name="title" type="text" maxlength="120" required></label>
-            <label class="bel-field" for="length">Full track, roughly: <input id="length" name="length" type="text" maxlength="32" placeholder="3:40" inputmode="numeric" class="short"></label>
-            <label class="bel-field" for="eta">Finished version by: <input id="eta" name="eta" type="text" maxlength="120" placeholder="mid December" required></label>
-            <label class="bel-field" for="note">Anything else: <input id="note" name="note" type="text" maxlength="500"></label>
-            <label class="bel-field" for="word" id="wordField" hidden>The club word: <input id="word" name="word" type="text" maxlength="64" autocomplete="off"></label>
+            <p class="meetingTitle">YOUR CLIP</p>
+            <label class="bel-field" for="who">who you are: <input id="who" name="who" type="text" autocomplete="nickname" maxlength="64" placeholder="name or handle" required></label>
+            <label class="bel-field" for="title">working title: <input id="title" name="title" type="text" maxlength="120" required></label>
+            <label class="bel-field" for="length">the full track runs about: <input id="length" name="length" type="text" maxlength="32" placeholder="3:40" inputmode="numeric" class="short"></label>
+            <label class="bel-field" for="eta">you could finish it by: <input id="eta" name="eta" type="text" maxlength="120" placeholder="mid december" required></label>
+            <label class="bel-field" for="note">anything else: <input id="note" name="note" type="text" maxlength="500"></label>
+            <label class="bel-field" for="word" id="wordField" hidden>the club word: <input id="word" name="word" type="text" maxlength="64" autocomplete="off"></label>
 
             <p class="bel-pick">
-                <label class="bel-choose"><input id="clip" name="clip" type="file" accept=".wav,.flac,.mp3,.m4a,.aif,.aiff,.ogg,.opus,audio/*" required><span>[ choose a file ]</span></label>
-                <span id="clipName" class="bel-clip">16 seconds of the track · wav, flac, mp3, m4a, aiff, ogg · under 48 MB</span>
+                <label class="bel-choose"><input id="clip" name="clip" type="file" accept=".wav,.flac,.mp3,.m4a,.aif,.aiff,.ogg,.opus,audio/*" required><span>[ pick a file ]</span></label>
+                <span id="clipName" class="bel-clip">16 seconds · wav, flac, mp3, m4a, aiff, ogg · under 48 MB</span>
             </p>
 
-            <button id="send" class="ncc-give" type="submit">&gt; Drop it_</button>
+            <button id="send" class="ncc-give" type="submit">&gt; send it_</button>
             <pre id="bar" class="bel-bar" aria-hidden="true" hidden></pre>
             <p id="status" class="bel-status" role="status" aria-live="polite"></p>
         </form>
@@ -75,10 +79,10 @@
         <pre>▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒</pre>
 
         <ol id="list" class="bel-list"></ol>
-        <p id="empty" class="bel-empty" hidden>Nobody yet. Be first.</p>
+        <p id="empty" class="bel-empty" hidden>nobody yet.</p>
 
         <br/>
-        <p class="bel-foot">Clips stay private until the sampler is cut. Questions go in the club chat.<br/><a href="/">&larr; nela.computer</a></p>
+        <p class="bel-foot">clips stay private until the sampler is cut. the rest of the conversation is in the netlabel thread of the club chat.<br/><a href="/">&larr; nela.computer</a></p>
 
     </div><!--.textRegion-->
     </div><!--.container-->

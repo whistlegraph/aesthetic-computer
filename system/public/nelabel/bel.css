@@ -55,6 +55,31 @@ strong { color: #00c4fd; font-weight: bold; }
 .bel-foot { color: #006888; }
 .bel-foot a { color: #00c4fd; }
 
+/* Auto light theme. The site stylesheet is dark only; this flips the page
+   when the viewer's system asks for light, keeping the club's green and cyan
+   as inks on a pale ground. */
+:root { color-scheme: dark light; }
+@media (prefers-color-scheme: light) {
+    body { background-color: #f6fbf8; color: #00703f; }
+    a:link, a:visited { color: #0071a1; }
+    header, .bell, .bel-tagline, strong { color: #0071a1; }
+    h3 { background-color: #00703f; color: #f6fbf8; }
+    .meetupBox { border-color: #0071a1; color: #0071a1; }
+    .bel-field input { color: #0071a1; border-bottom-color: #0071a1; }
+    .bel-field input::placeholder { color: #6a9fb5; }
+    .bel-field input:focus-visible,
+    .bel-choose input:focus-visible + span,
+    .ncc-give:focus-visible { outline-color: #0071a1; }
+    .bel-choose:hover span, .bel-choose.has span { background: #0071a1; color: #f6fbf8; }
+    .bel-clip, .bel-list .n, .bel-list .len, .bel-empty, .bel-foot, .bel-proposal, .bel-proposal a { color: #6a9fb5; }
+    .bel-choose.has + .bel-clip, .bel-list .who, .bel-list a, .bel-foot a { color: #0071a1; }
+    .ncc-give { background: #00703f; color: #f6fbf8; }
+    .ncc-give:hover { background: #0071a1; }
+    .bel-bar, .bel-status, .bel-status.good { color: #00703f; }
+    .bel-status.bad { color: #b3261e; }
+}
+
 /* preview on aesthetic.computer only */
 .bel-proposal { color: #006888; margin: 0 0 1rem; }
 .bel-proposal a { color: #006888; }
+@media (prefers-color-scheme: light) { .bel-proposal, .bel-proposal a { color: #6a9fb5; } }
