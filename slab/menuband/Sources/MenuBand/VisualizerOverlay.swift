@@ -2,9 +2,10 @@ import AppKit
 
 /// Full-screen jam wall — the desktop taken over by one lava lamp (see
 /// `JamWallView`: melody blobs on the left, drum bursts on the right, the
-/// level breathing up the seam). It covers everything but the menu bar, so
-/// the piano stays visible up top: the wall is the piano's display, not a
-/// window in front of it.
+/// level breathing up the seam). It covers the whole screen, menu bar
+/// included, and paints the Menu Band piano back on top in exactly the
+/// spot the status item occupies — the same live image, lit keys and all —
+/// so the only thing left of the desktop is the instrument.
 ///
 /// Two ways in, two postures:
 ///
@@ -31,6 +32,11 @@ final class VisualizerOverlay: NSObject {
     private var keyMonitor: Any?
     private var mouseMonitors: [Any] = []
     private var tintTimer: Timer?
+    private var pianoTimer: Timer?
+    private var piano: NSImageView?
+    /// The status item's current image and its frame in screen points, read
+    /// each frame while the wall is up — the AppDelegate wires this.
+    var menuBarItem: (() -> (image: NSImage?, frame: NSRect?))?
     private var armWorkItem: DispatchWorkItem?
 
     /// Whether this showing lets the pointer dismiss (scope-click entry) or
@@ -88,12 +94,9 @@ final class VisualizerOverlay: NSObject {
             ?? NSScreen.screens.first
         guard let screen else { return }
 
-        // Everything below the menu bar — the Dock included — and not one
-        // point more: the piano up top stays in view, playing along.
-        let menuBarGap = max(0, screen.frame.maxY - screen.visibleFrame.maxY)
-        let frame = NSRect(x: screen.frame.minX, y: screen.frame.minY,
-                           width: screen.frame.width,
-                           height: screen.frame.height - menuBarGap)
+        // The whole screen, menu bar and Dock included. The piano comes
+        // back on top, painted by us (see `piano` below).
+        let frame = screen.frame
 
         let wall = Self.makeWall(menuBand: menuBand, size: frame.size)
         wall.isLive = true
@@ -131,6 +134,14 @@ final class VisualizerOverlay: NSObject {
             .ignoresCycle,
         ]
         panel.contentView = wall
+        // The Menu Band piano, exactly where the status item sits under us.
+        let piano = NSImageView(frame: .zero)
+        piano.imageScaling = .scaleProportionallyUpOrDown
+        piano.imageAlignment = .alignCenter
+        piano.contentTintColor = .white
+        wall.addSubview(piano)
+        self.piano = piano
+        syncPiano(screenOrigin: frame.origin)
         panel.alphaValue = 0
 
         self.panel = panel
@@ -161,6 +172,15 @@ final class VisualizerOverlay: NSObject {
         timer.tolerance = 0.1
         RunLoop.main.add(timer, forMode: .common)
         tintTimer = timer
+        // The piano's lit keys change with every note; follow the status
+        // item's image at 30 fps so the copy up top is as live as the real one.
+        let origin = frame.origin
+        let pt = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            self?.syncPiano(screenOrigin: origin)
+        }
+        pt.tolerance = 0.01
+        RunLoop.main.add(pt, forMode: .common)
+        pianoTimer = pt
 
         if pointerDismisses { arm() }
     }
@@ -173,6 +193,9 @@ final class VisualizerOverlay: NSObject {
         isArmed = false
         tintTimer?.invalidate()
         tintTimer = nil
+        pianoTimer?.invalidate()
+        pianoTimer = nil
+        piano = nil
         // Stop the capture client before the fade so the synth's tap can wind
         // down with the display rather than 140 ms after it.
         wall?.isLive = false
@@ -196,6 +219,18 @@ final class VisualizerOverlay: NSObject {
             panel.contentView = nil
         })
         restorePreviousAppFocus()
+    }
+
+    /// Copy the status item's image and position onto the wall.
+    private func syncPiano(screenOrigin: NSPoint) {
+        guard let piano, let item = menuBarItem?() else { return }
+        if let f = item.frame {
+            let local = NSRect(x: f.origin.x - screenOrigin.x, y: f.origin.y - screenOrigin.y,
+                               width: f.width, height: f.height)
+            if piano.frame != local { piano.frame = local }
+        }
+        if piano.image !== item.image { piano.image = item.image }
+        piano.isHidden = item.image == nil
     }
 
     // MARK: - Feed (main thread)

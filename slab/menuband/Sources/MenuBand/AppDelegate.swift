@@ -1352,6 +1352,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if self.isPopoverPanelShown { self.closePopover() }
             self.visualizerOverlay.toggle(fromKeyboard: true)
         }
+        // The wall covers the menu bar and paints the piano back on top:
+        // hand it the status item's live image and screen frame.
+        visualizerOverlay.menuBarItem = { [weak self] in
+            (self?.statusItem?.button?.image, self?.statusItem?.button?.window?.frame)
+        }
         // Every note and drum feeds the wall (while it's up) and the desktop
         // beat bus (always), so the Pals wallpaper moves with the music even
         // with nothing else on screen. GM drums on channel 9 (.mbscore and

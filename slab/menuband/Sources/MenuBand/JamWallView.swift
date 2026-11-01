@@ -13,6 +13,14 @@ import AppKit
 /// together, and the master level breathes a glow up the seam. Chords read
 /// as a cluster of color; a groove reads as weather.
 ///
+/// And it is weather, not spotlights: every blob throws a wide halo, the
+/// whole field carries an ambient wash of the vibe (the running color of
+/// what's being played), pools of that color sit in the four corners the
+/// way the wallpaper's do, and every drum flashes the entire field for a
+/// frame or two. The wall covers the whole screen, menu bar included, and
+/// paints the Menu Band piano itself back on top where the status item
+/// lives (see `VisualizerOverlay`).
+///
 /// Rendered as a metaball field at a quarter of the screen's resolution and
 /// scaled up through Core Graphics' bilinear filter — the upscale IS the
 /// glow — so a laptop pays ~100k cells a frame and the headless
@@ -47,7 +55,7 @@ final class JamWallView: NSView {
     // MARK: - Field
 
     /// Screen points per field cell.
-    private static let cell: CGFloat = 4
+    private static let cell: CGFloat = 5
     private var fw = 0
     private var fh = 0
     private var field: [Float] = []     // fw × fh × RGB, linear light
@@ -162,6 +170,12 @@ final class JamWallView: NSView {
     private var level: Float = 0
     private var idleTicks = 0
     private var seed: UInt32 = 0x9E3779B9
+    /// The running color of what's played (notes pull hard, drums gently),
+    /// how much is going on, and the whole-field flash a drum leaves.
+    private var vibe: (r: Float, g: Float, b: Float) = (0.4, 0.5, 1)
+    private var vibeSet = false
+    private var glowLevel: Float = 0
+    private var flash: Float = 0
 
     /// Deterministic jitter so the headless capture is reproducible.
     private func rand() -> Float {
@@ -259,7 +273,9 @@ final class JamWallView: NSView {
         let home = Float((pc * 7) % 12) / 11
         let x = Float(fw) * (0.06 + 0.37 * home) + (rand() - 0.5) * Float(fw) * 0.05
         let y = Float(fh) * (0.10 + 0.72 * pitch) + (rand() - 0.5) * Float(fh) * 0.06
-        let base = Float(min(fw, fh)) * (0.11 + 0.08 * v)
+        let base = Float(min(fw, fh)) * (0.14 + 0.09 * v)
+        blendVibe(Self.melodyRGB[pc], weight: 0.5)
+        glowLevel = min(1, max(glowLevel, 0.55 + 0.35 * v) + 0.1)
         // Born at nearly full size and over-bright: the key-down is the
         // frame you see it, not the start of a fade-in.
         let blob = Blob(kind: .note, x: x, y: y,
@@ -267,7 +283,7 @@ final class JamWallView: NSView {
                         r: base * 0.85, rGrowth: base * 0.9,
                         stretchX: 1,
                         color: Self.melodyRGB[pc],
-                        energy: 1.6, tau: 1.1, held: true, midi: midi,
+                        energy: 1.35, tau: 1.1, held: true, midi: midi,
                         phase: rand() * 6.283, sway: Float(fw) * 0.012)
         push(blob)
         idleTicks = 0
@@ -292,7 +308,10 @@ final class JamWallView: NSView {
         let half = Float(fw) * 0.5
         let x = half + half * (0.06 + 0.88 * home.x) + (rand() - 0.5) * half * 0.10
         let y = Float(fh) * home.y + (rand() - 0.5) * Float(fh) * 0.08
-        let base = Float(min(fw, fh)) * 0.16 * home.size * (0.6 + 0.6 * v)
+        let base = Float(min(fw, fh)) * 0.19 * home.size * (0.6 + 0.6 * v)
+        blendVibe(Self.drumRGB[i], weight: 0.18)
+        glowLevel = min(1, max(glowLevel, 0.5 + 0.5 * v) + 0.12)
+        flash = min(1, flash + (0.22 + 0.3 * v) * (i == 0 ? 1.4 : 1))
         let blob = Blob(kind: .drum, x: x, y: y,
                         vy: Float(fh) * 0.02,
                         r: base, rGrowth: base * 0.6,
@@ -303,6 +322,13 @@ final class JamWallView: NSView {
         push(blob)
         idleTicks = 0
         needsDisplay = true
+    }
+
+    private func blendVibe(_ c: (r: Float, g: Float, b: Float), weight: Float) {
+        guard vibeSet else { vibe = c; vibeSet = true; return }
+        vibe = (vibe.r + (c.r - vibe.r) * weight,
+                vibe.g + (c.g - vibe.g) * weight,
+                vibe.b + (c.b - vibe.b) * weight)
     }
 
     private func push(_ blob: Blob) {
@@ -346,6 +372,10 @@ final class JamWallView: NSView {
         // Master level, lifted the way the scope lifts it; the seam breathes it.
         let target = min(1, (rms * 2.2).squareRoot())
         if target > level { level = target } else { level += (target - level) * min(1, dtf * 6) }
+        glowLevel *= expf(-dtf / 1.3)
+        if glowLevel < 0.004 { glowLevel = 0 }
+        flash *= expf(-dtf / 0.11)
+        if flash < 0.004 { flash = 0 }
 
         for i in blobs.indices {
             var b = blobs[i]
@@ -356,7 +386,7 @@ final class JamWallView: NSView {
                     // The over-bright attack settles into a sustain that
                     // breathes; the blob keeps swelling the longer the key
                     // is down.
-                    let breath = 0.85 + 0.12 * sinf(Float(now) * 2.1 + b.phase)
+                    let breath = 0.78 + 0.12 * sinf(Float(now) * 2.1 + b.phase)
                     b.energy += (breath - b.energy) * min(1, dtf * 7)
                     b.r = min(b.r + b.rGrowth * dtf * 0.45, b.rGrowth * 1.9)
                 } else {
@@ -372,7 +402,7 @@ final class JamWallView: NSView {
         blobs.removeAll { ($0.kind == .note && !$0.held && $0.energy < 0.015)
             || ($0.kind == .drum && $0.energy < 0.02)
             || $0.y - $0.r > Float(fh) * 1.1 }
-        return !blobs.isEmpty || level > 0.01
+        return !blobs.isEmpty || level > 0.01 || glowLevel > 0 || flash > 0
     }
 
     // MARK: - Capture
@@ -449,31 +479,50 @@ final class JamWallView: NSView {
     /// way light does.
     private func renderField() {
         let w = fw, h = fh
-        let ambient = (tint.r * 0.030, tint.g * 0.030, tint.b * 0.030)
+        // Ambient: the voice tint at rest, the vibe washing over the whole
+        // field as the music builds, and a drum's flash over everything.
+        // Kept low: the room is an abyss with color behind it, not a lit
+        // panel — the wash tints the dark, it never lifts it to grey.
+        let wash = 0.004 + 0.035 * glowLevel
+        let ambient = (tint.r * 0.012 + vibe.r * wash + flash * 0.045,
+                       tint.g * 0.012 + vibe.g * wash + flash * 0.045,
+                       tint.b * 0.012 + vibe.b * wash + flash * 0.045)
         for i in 0..<(w * h) {
             field[i * 3] = ambient.0
             field[i * 3 + 1] = ambient.1
             field[i * 3 + 2] = ambient.2
         }
+        var all = blobs
         // The seam: a tall soft column of the voice color, as bright as the
         // music is loud.
-        var all = blobs
         all.append(Blob(kind: .seam, x: Float(w) * 0.5, y: Float(h) * 0.5, vy: 0,
                         r: Float(h) * 0.62, rGrowth: 0, stretchX: 5.5,
                         color: tint, energy: 0.10 + 0.55 * level, tau: 1, held: false,
                         midi: nil, phase: 0, sway: 0))
+        // Corner pools of the vibe, like the wallpaper's: light in the room,
+        // not on a stage. Each breathes on its own phase.
+        let poolR = Float(max(w, h)) * 0.55
+        let corners: [(Float, Float)] = [(0, 0), (Float(w), 0), (Float(w), Float(h)), (0, Float(h))]
+        for (i, c) in corners.enumerated() {
+            let breath = 0.75 + 0.25 * sinf(Float(now) * 0.6 + Float(i) * 1.6)
+            all.append(Blob(kind: .seam, x: c.0, y: c.1, vy: 0, r: poolR, rGrowth: 0, stretchX: 1,
+                            color: vibe, energy: (0.012 + 0.16 * glowLevel) * breath + flash * 0.12,
+                            tau: 1, held: false, midi: nil, phase: 0, sway: 0))
+        }
         for b in all {
             let wobble = b.kind == .seam ? 1 : 1 + 0.07 * sinf(Float(now) * 1.3 + b.phase)
             let r = b.r * wobble
             guard r > 0.5, b.energy > 0.001 else { continue }
-            // Blobs are two lobes: the body and a satellite that slowly
-            // orbits, so nothing is a perfect disc.
+            // Blobs are three lobes: the body, a satellite that slowly
+            // orbits so nothing is a perfect disc, and a wide dim halo that
+            // carries the color across the room.
             let lobes: [(Float, Float, Float, Float)] = b.kind == .seam
                 ? [(b.x, b.y, r, b.energy)]
                 : [(b.x, b.y, r, b.energy),
                    (b.x + cosf(Float(now) * 0.5 + b.phase) * r * 0.45,
                     b.y + sinf(Float(now) * 0.37 + b.phase) * r * 0.45,
-                    r * 0.72, b.energy * 0.7)]
+                    r * 0.72, b.energy * 0.7),
+                   (b.x, b.y, r * 2.2, b.energy * 0.05)]
             for (cx, cy, lr, e) in lobes {
                 let rx = lr / b.stretchX
                 let x0 = max(0, Int(cx - rx) - 1), x1 = min(w - 1, Int(cx + rx) + 1)
