@@ -318,13 +318,15 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let color = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
-        let bright = color.blended(withFraction: 0.35, of: .white) ?? color
+        // In the dark the glows stay saturated — colored light in blackness,
+        // never a white-out; in the light they lift toward white.
+        let bright = dark ? color : (color.blended(withFraction: 0.35, of: .white) ?? color)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         for (i, g) in cornerGlows.enumerated() {
-            g.colors = [bright.withAlphaComponent(1.0).cgColor,
-                        color.withAlphaComponent(0.6).cgColor,
-                        color.withAlphaComponent(0.18).cgColor,
+            g.colors = [bright.withAlphaComponent(dark ? 0.9 : 1.0).cgColor,
+                        color.withAlphaComponent(dark ? 0.5 : 0.6).cgColor,
+                        color.withAlphaComponent(dark ? 0.14 : 0.18).cgColor,
                         color.withAlphaComponent(0).cgColor]
             g.compositingFilter = dark ? "screenBlendMode" : "multiplyBlendMode"
             // A slow breath per corner so the four never sit at one level.
@@ -336,7 +338,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
         // Backdrop and Pals follow the color as the level rises — at most a
         // ~70 % pull so the slab tone still shows through underneath.
-        vibeMix += (vibeLevel * 0.7 - vibeMix) * 0.3
+        vibeMix += (vibeLevel * (dark ? 0.5 : 0.7) - vibeMix) * 0.3
         let moved = abs(vibeMix - appliedVibeMix) > 0.01
             || abs(vibeColor.r - appliedVibeColor.r) + abs(vibeColor.g - appliedVibeColor.g)
                + abs(vibeColor.b - appliedVibeColor.b) > 0.03
@@ -404,9 +406,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         guard vibeMix > 0.005 else { return tone }
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         var vibe = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
-        // Keep the mode: a dark field takes a deep version of the color, a
-        // light one a pastel, so menu-bar contrast never flips mid-song.
-        vibe = (dark ? vibe.blended(withFraction: 0.62, of: .black)
+        // Keep the mode. Dark is an abyss: the field itself stays near
+        // black and only hints at the color — the color lives in the corner
+        // glows and the Pals, behind and in front of the dark. Light takes
+        // a pastel of it, so menu-bar contrast never flips mid-song.
+        vibe = (dark ? vibe.blended(withFraction: 0.86, of: .black)
                      : vibe.blended(withFraction: 0.55, of: .white)) ?? vibe
         return tone.blended(withFraction: vibeMix, of: vibe) ?? tone
     }
@@ -416,9 +420,9 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
         let base = dark
-            ? NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1)
+            ? NSColor(srgbRed: 0.012, green: 0.030, blue: 0.095, alpha: 1)
             : NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1)
-        return base.blended(withFraction: dark ? 0.12 : 0.13, of: accent) ?? base
+        return base.blended(withFraction: dark ? 0.08 : 0.13, of: accent) ?? base
     }
 
     /// The backdrop as a soft vertical gradient around that tone. The top
@@ -429,8 +433,10 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         let tone = backdropColor().usingColorSpace(.sRGB) ?? backdropColor()
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         if dark {
-            return (tone.blended(withFraction: 0.22, of: .black) ?? tone,
-                    tone.blended(withFraction: 0.14, of: .white) ?? tone)
+            // Deeper than before: the bottom no longer lifts toward white,
+            // so the whole field reads as depth rather than a lit panel.
+            return (tone.blended(withFraction: 0.45, of: .black) ?? tone,
+                    tone.blended(withFraction: 0.10, of: .black) ?? tone)
         }
         return (tone.blended(withFraction: 0.16, of: .white) ?? tone,
                 tone.blended(withFraction: 0.12, of: .black) ?? tone)
