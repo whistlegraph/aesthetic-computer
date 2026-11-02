@@ -279,12 +279,14 @@ final class BootStatus: ObservableObject {
             // offline (used by the offline.html "Tap to retry" button — the
             // monitor can lag behind a real reconnect by a few seconds).
             bootStatus?.requestForceLive()
-        case "notifications:ready", "notifications":
+        case "notifications:ready", "notifications", "notifications:offer":
             guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
                   message.frameInfo.securityOrigin.host == "aesthetic.computer",
                   let webView = message.webView else { return }
             if type == "notifications:ready" {
                 AppDelegate.shared?.pushBridgeReady(in: webView)
+            } else if type == "notifications:offer" {
+                AppDelegate.shared?.offerNotifications(in: webView)
             } else if let enabled = dictionary["body"] as? Bool {
                 if enabled { AppDelegate.shared?.triggerSubscribe(in: webView) }
                 else { AppDelegate.shared?.triggerUnsubscribe(in: webView) }

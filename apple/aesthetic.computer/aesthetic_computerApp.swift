@@ -52,7 +52,7 @@ struct aesthetic_computerApp: App {
 
 }
 
-// Push permission is requested only by `notifs`. Native opt-out also stops APNs
+// Push permission is requested by `notifs` or a one-time offer after sign-in. Native opt-out also stops APNs
 // immediately; the web bridge retries server cleanup if the device is offline.
 @MainActor
 class AppDelegate: NSObject, ACApplicationDelegate {
@@ -61,6 +61,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
     private let webViews = NSHashTable<WKWebView>.weakObjects()
     private let optedInKey = "acNotificationsOptedIn"
     private let tokenKey = "acNotificationToken"
+    private let offeredKey = "acNotificationsOffered"
     private var revision = 0
     private var pendingSubscribe: Int?
     private var optedIn: Bool {
@@ -170,9 +171,39 @@ class AppDelegate: NSObject, ACApplicationDelegate {
             optedIn = true
             ACApplication.shared.registerForRemoteNotifications()
             // A missing APNs callback must not leave the command stuck forever.
-            try? await Task.sleep(nanoseconds: 25_000_000_000)
+            // Long enough for the web bridge's retried registration.
+            try? await Task.sleep(nanoseconds: 35_000_000_000)
             if pendingSubscribe == current { finishSubscribe(ok: false) }
         }
+    }
+
+    // Asked once per install, after sign-in, and only while iOS hasn't asked
+    // yet. "Not now" leaves `notifs` as the way in; nothing re-prompts.
+    func offerNotifications(in webView: WKWebView) {
+        #if os(iOS)
+        guard !optedIn, pendingSubscribe == nil, !UserDefaults.standard.bool(forKey: offeredKey) else { return }
+        Task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            guard settings.authorizationStatus == .notDetermined else {
+                UserDefaults.standard.set(true, forKey: offeredKey)
+                return
+            }
+            // Let the signed-in page settle before interrupting it.
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !optedIn, pendingSubscribe == nil, !UserDefaults.standard.bool(forKey: offeredKey) else { return }
+            UserDefaults.standard.set(true, forKey: offeredKey)
+            let alert = UIAlertController(title: "Turn on notifications?",
+                message: "Get a note when someone sends you mail, a mood or a scream. You can turn them off anytime with ‘nonotifs’.",
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Not now", style: .cancel))
+            alert.addAction(UIAlertAction(title: "Turn on", style: .default) { _ in
+                self.triggerSubscribe(in: webView)
+            })
+            var controller = webView.window?.rootViewController
+            while let presented = controller?.presentedViewController { controller = presented }
+            controller?.present(alert, animated: true)
+        }
+        #endif
     }
 
     func triggerUnsubscribe(in webView: WKWebView) {
