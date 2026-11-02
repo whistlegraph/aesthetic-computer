@@ -5469,6 +5469,100 @@
           "src": "screenshots"
         }
       }
+    },
+    "tiat-2026-10": {
+      "label": "TIAT — Every Thing Computer opening, October 2026",
+      "url_pattern": "https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/{name}",
+      "key_includes_extension": true,
+      "archived": "2026-11-02",
+      "source_album": "https://photos.app.goo.gl/Crdj6rbC8M1NB9reA",
+      "source_album_title": "tiat: everything computer exhibit opening - 10/26",
+      "event_date": "2026-10",
+      "date_note": "Exact opening date has not been verified; preserve the source album label separately.",
+      "photographer": {
+        "name": "Daniel Clayton",
+        "handle": "@480productions",
+        "url": "https://www.instagram.com/480productions/"
+      },
+      "credit": "Photos: Daniel Clayton (@480productions).",
+      "rights": "Photographer credit required; no open license asserted.",
+      "selection": "Four photos selected for Jeffrey’s archive at his request, reviewed using the supplied maroon-pants clothing cue. No face matching. This selection is not an exhaustive appearance inventory.",
+      "format_note": "Unedited Google Photos downloads requested at 2400 px; these are web derivatives, not camera-original masters.",
+      "items": {
+        "016.jpg": {
+          "aspect": 0.666667,
+          "focal": [
+            50,
+            50
+          ],
+          "pois": [],
+          "src": "tiat-opening",
+          "tier": "web",
+          "width": 1600,
+          "height": 2400,
+          "size": 725302,
+          "sha256": "d9f7ff75d252b263ecc796f147909b770bbe6e5d42b4c261233586f45baf2a59",
+          "album_position_at_import": 16,
+          "source_media_id": "AF1QipPTBp9JP1b98rC-Fwcrv1rjGz0awO_W6u3VPII",
+          "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczOzHTt9YybnFIt9hyLjwQaHIvYf6uTuROpIkHCMLoJmkl9YxfR12JHAJ4iikoxZVqap7ZtDb0KCAE9EKT4x7Nu2kxbSBoWYjKJw781rzeaUcckh3Tw=w2400-h2400",
+          "description": "Right side, back to camera, beside the laptop installation."
+        },
+        "030.jpg": {
+          "aspect": 0.666667,
+          "focal": [
+            50,
+            50
+          ],
+          "pois": [],
+          "src": "tiat-opening",
+          "tier": "web",
+          "width": 1600,
+          "height": 2400,
+          "size": 835828,
+          "sha256": "d5cfc7948b670602353b4b559ac70ef1b42ad0d4e6687959521278ef001d92c5",
+          "album_position_at_import": 30,
+          "source_media_id": "AF1QipP_XoXRW1wCcXxQM53piFSZQoxpiXB5NfPikhk",
+          "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczP4FUIUhajC9JjgUTSmLinWNxbwLvzQZsfx_SKUyjZa_MZ0AkwtaEAEbcQFbBiKV67SOyuugIBysjYNxrXFeBOL6goe2Qkf5uOyfJfm5tyifX_z2xw=w2400-h2400",
+          "description": "Left side, holding a laptop beside the installation."
+        },
+        "058.jpg": {
+          "aspect": 0.666667,
+          "focal": [
+            50,
+            50
+          ],
+          "pois": [],
+          "src": "tiat-opening",
+          "tier": "web",
+          "width": 1600,
+          "height": 2400,
+          "size": 687378,
+          "sha256": "b18af90d2fab61d5c40c0f8865fa9b31993c7e86c478eaa85da0a37570670935",
+          "album_position_at_import": 58,
+          "source_media_id": "AF1QipOd43hAkJNzFPdqijngtDzpxFq83SvKSnQM1Pw",
+          "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczOjHwmPK3kKBc4_x4fyy73Y_Ysf3mbm4G1t7omuVw_GVCh-3hxIpsHdfFEb1csz0BEjHPg1PoMxeEINB3AEw9HoiW0yOgeQ-Rn9jjz5E8rbuWme6pI=w2400-h2400",
+          "description": "Right side, talking beside the installation."
+        },
+        "124.jpg": {
+          "aspect": 0.666667,
+          "focal": [
+            50,
+            50
+          ],
+          "pois": [],
+          "src": "tiat-opening",
+          "tier": "web",
+          "width": 1600,
+          "height": 2400,
+          "size": 815506,
+          "sha256": "9f32a4d780dcef181b6a862a9dd49b777d724d359abca6b7ac045ce3fb3c1b6e",
+          "album_position_at_import": 124,
+          "source_media_id": "AF1QipOox3rMxzDHpFfTV-c3fvbz3l6RLkLP5OinvKY",
+          "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczPdoKHMuMeAQmUL0vHU7J7UnjELKq8y-Ci29onz_pjS22sUbFOxbX288QO1a2NdzhHzyEp_KHD0HxPBwXo8mCDvrFEvQGV2saFqxTHW36dj-FBnSwk=w2400-h2400",
+          "description": "Center, holding a microphone and a small laptop."
+        }
+      }
     }
-  }
+  },
+  "updated": "2026-11-02"
 }
