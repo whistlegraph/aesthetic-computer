@@ -1956,14 +1956,17 @@ if (!sandboxed && !skipAuth) {
             if (u.handle && !window.acUSER.handle) {
               window.acUSER.handle = u.handle;
             }
-            // 🪪 A known, verified account with no handle is asked for one here,
-            // at most once a day, in a dialog that closes back onto the piece.
-            // The hosted sign-in page cannot ask, and the onboarding resume
-            // above only runs in the tab that started a signup.
+            // 🪪 A known, verified account with no handle is sent to the prompt
+            // with `handle ` typed in — the one place a handle gets set — at
+            // most once a day, and only when this tab is already on the prompt
+            // so no piece gets interrupted. The hosted sign-in page cannot ask.
+            const onPrompt = !window.acSTARTING_PIECE && /^\/(prompt)?\/?$/.test(location.pathname);
+            const askedAt = Number(safeLocalStorageGet("ac:handle:asked")) || 0;
             if (u.sub && !u.handle && !window.acUSER.handle && userProfile.email_verified !== false &&
-                window.name !== "ac-login-popup" && window.acSignup &&
-                !window.acSignup.pending() && window.acSignup.shouldAsk()) {
-              window.acSignup.resume(auth0Client, userProfile, true);
+                window.name !== "ac-login-popup" && window.acSEND && onPrompt &&
+                Date.now() - askedAt > 24 * 60 * 60 * 1000) {
+              safeLocalStorageSet("ac:handle:asked", String(Date.now()));
+              window.acSEND({ type: "jump", content: { piece: "prompt~handle " } });
             }
             // If user not in DB or email not verified, refresh token for new signups
             if (!u.sub || !userProfile.email_verified) {

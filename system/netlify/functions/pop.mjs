@@ -1,18 +1,24 @@
-// pop.mjs — serves the /pop dashboard (pop/demos.html) and everything it
-// needs at the public `/pop/` route on lith.
+// pop.mjs — the public `/pop` route on lith.
 //
-// The dashboard imports ES modules from pop/lib, pop/demos and
-// pop/dance/synths, and plays audio from pop/demos/samples and the lane
-// out/ directories. This maps /pop/<rel> → <repo>/pop/<rel>; text assets
-// are served utf-8, audio/images base64. A bare /pop redirects to /pop/
-// so the page's relative module imports resolve.
+// `/pop/` is the release catalog + jukebox: the same page as
+// pop.aesthetic.computer (system/public/pop.aesthetic.computer/index.html,
+// whose <base> points every relative URL back at that host, so the one file
+// works from either origin).
+//
+// Everything under it maps /pop/<rel> → <repo>/pop/<rel>, which is how the
+// studio dashboard (`/pop/demos.html`) reaches its ES modules in pop/lib,
+// pop/demos and pop/dance/synths, and its audio in pop/demos/samples and the
+// lane out/ directories. Text assets are served utf-8, audio/images base64.
+// A bare /pop redirects to /pop/ so the dashboard's relative imports resolve.
 
 import { readFile } from "node:fs/promises";
 import { dirname, resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // system/netlify/functions/ → repo root → pop/
-const POP = resolve(dirname(fileURLToPath(import.meta.url)), "../../../pop");
+const HERE = dirname(fileURLToPath(import.meta.url));
+const POP = resolve(HERE, "../../../pop");
+const CATALOG = resolve(HERE, "../../public/pop.aesthetic.computer/index.html");
 
 const TEXT = {
   ".html": "text/html; charset=utf-8",
@@ -37,7 +43,13 @@ export const handler = async (event) => {
 
   // bare /pop → /pop/ so `./lib/...` imports resolve
   if (rel === "") return { statusCode: 302, headers: { Location: "/pop/" }, body: "" };
-  if (rel === "/") rel = "/demos.html";
+  if (rel === "/" || rel === "/index.html") {
+    return {
+      statusCode: 200,
+      headers: { "content-type": TEXT[".html"], "cache-control": "public, max-age=120" },
+      body: await readFile(CATALOG, "utf8"),
+    };
+  }
 
   const ext = extname(rel).toLowerCase();
   const text = TEXT[ext], bin = BIN[ext];

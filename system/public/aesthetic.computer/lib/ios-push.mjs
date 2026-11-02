@@ -20,17 +20,24 @@ export function installIOSPushBridge(win) {
     if (validToken(value)) { pending.add(value); persistPending(); }
   };
 
+  // One retry: a server stall or 5xx shouldn't cost a `notifs` attempt.
+  // Registration is an idempotent upsert, so sending twice is harmless.
   async function post(body, headers = {}) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {
-      const response = await win.fetch("/api/register-push-token", {
-        method: "POST", signal: controller.signal,
-        headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify({ kind: "apns", ...body }),
-      });
-      if (!response.ok) throw new Error(`Push registration HTTP ${response.status}`);
-    } finally { clearTimeout(timeout); }
+    for (let attempt = 0; ; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await win.fetch("/api/register-push-token", {
+          method: "POST", signal: controller.signal,
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ kind: "apns", ...body }),
+        });
+        if (response.ok) return;
+        if (response.status < 500 || attempt > 0) throw new Error(`Push registration HTTP ${response.status}`);
+      } catch (error) {
+        if (attempt > 0 || !(error.name === "AbortError" || error instanceof TypeError)) throw error;
+      } finally { clearTimeout(timeout); }
+    }
   }
 
   async function sync() {
@@ -101,7 +108,14 @@ export function installIOSPushBridge(win) {
     registeredAs = undefined;
     return schedule();
   };
-  win.iOSTryRegisterPushToken = schedule; // boot.mjs calls after sign-in.
+  // boot.mjs calls this after sign-in. A signed-in person who hasn't turned
+  // notifications off here gets native's one-time offer (native decides).
+  win.iOSTryRegisterPushToken = () => {
+    if (win.acUSER?.sub && read(disabledKey) !== "true") {
+      win.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({ type: "notifications:offer" }));
+    }
+    return schedule();
+  };
   win.iOSPushBridgeVersion = 2;
   win.addEventListener("online", schedule);
   // Retry removals after a reload, including when the previous page was offline.

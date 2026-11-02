@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { connect } from './database.mjs';
 import { dayKey } from './ai-budget.mjs';
 import { imageInputBound } from './easel-input-images.mjs';
+import { BOOK_COLLECTION, bookEntry, drainOutbox, grantRef, grantSource, staged } from './braincell-book.mjs';
 export const CREDIT_PACK = Object.freeze({ id:'braincells-1m-v1', amount:500, currency:'usd', credits:1_000_000, unit:'braincells' });
 // What a braincell is worth: the pack's price, so $5 buys 1,000,000.
 export const BRAINCELLS_PER_USD = CREDIT_PACK.credits / (CREDIT_PACK.amount / 100);
@@ -18,9 +19,17 @@ export const DAILY_PAID_BRAINCELL_CAP = 100_000_000;
 // The same pack sold through Apple in-app purchase; Apple keeps the price.
 export const IAP_PRODUCTS = Object.freeze({ 'computer.aesthetic.easel.braincells.1m': Object.freeze({ credits:1_000_000, unit:'braincells' }) });
 const COLLECTION='ac-credit-wallets';
+// Every balance change stages its book entry on the wallet (braincell-book);
+// the drain here files it. A failed drain loses nothing: lith's credit runner
+// drains again within a minute.
 export async function withWallets(fn) {
   const connection=await connect();
-  try { return await fn(connection.db.collection(COLLECTION)); }
+  try {
+    const wallets=connection.db.collection(COLLECTION);
+    const result=await fn(wallets);
+    await drainOutbox(wallets,connection.db.collection(BOOK_COLLECTION)).catch(error=>console.log('🧠 braincell book drain deferred —',error.message));
+    return result;
+  }
   finally { await connection.disconnect(); }
 }
 export async function balance(user, wallets) {
@@ -40,24 +49,46 @@ export function paidCheckout(session, {live}={}) {
 }
 // A single-document conditional increment makes webhook retries and a
 // simultaneous checkout-return reconciliation safe across server processes.
-export async function fulfillGrant(grant,wallets) {
+// The grant's book entry rides the same update. `source` and `ref` (staff
+// issuer and reason, an Apple environment, a Tezos operation) are optional;
+// the grant id already says the rest.
+export async function fulfillGrant(grant,wallets,{now=new Date()}={}) {
   if(!grant?.user||typeof grant.id!=='string'||!Number.isSafeInteger(grant.credits)||grant.credits<1)return false;
   await ensureWallet(grant.user,wallets);
-  const result=await wallets.updateOne({_id:grant.user,grants:{$ne:grant.id}},{$inc:{balance:grant.credits},$addToSet:{grants:grant.id},$set:{updatedAt:new Date()}});
+  const entry=bookEntry({user:grant.user,key:`issue:${grant.id}`,kind:'issue',source:grant.source||grantSource(grant.id),
+    amount:grant.credits,grantId:grant.id,ref:{...grantRef(grant.id),...grant.ref},at:now});
+  const result=await wallets.updateOne({_id:grant.user,grants:{$ne:grant.id}},staged({$inc:{balance:grant.credits},$addToSet:{grants:grant.id},$set:{updatedAt:now}},[entry],now));
   return result.modifiedCount===1;
 }
 export async function fulfillCheckout(session,wallets,options) {
   const grant=paidCheckout(session,options); if(!grant)return false;
   return fulfillGrant(grant,wallets);
 }
-// Take back a granted pack (an Apple refund). Cumulative per grant, so a
-// redelivered notification converges; spent credit becomes debt.
-export async function revokeGrant(grant,wallets) {
-  if(!grant?.user||typeof grant.id!=='string'||!Number.isSafeInteger(grant.credits)||grant.credits<1)return false;
-  await fulfillGrant(grant,wallets);
+// Take back up to `total` of a grant, cumulatively, so redelivered and
+// out-of-order refunds converge; spent credit becomes debt. A compare-and-set
+// on the balance and the grant's refund lets the entry say the balance it
+// left. Refunds are rare, so a busy wallet only costs a retry.
+async function takeBack(grant,total,wallets,{kind,source,ref,now=new Date()}) {
   const path=`refunds.${grant.id}`;
-  const result=await wallets.updateOne({_id:grant.user},[{$set:{balance:{$subtract:['$balance',{$max:[0,{$subtract:[grant.credits,{$ifNull:[`$${path}`,0]}]}]}]},[path]:{$max:[grant.credits,{$ifNull:[`$${path}`,0]}]},updatedAt:'$$NOW'}}]);
-  return result.modifiedCount===1;
+  for(let attempt=0;attempt<8;attempt++){
+    const wallet=await wallets.findOne({_id:grant.user},{projection:{balance:1,refunds:1}});
+    if(!wallet)return false;
+    const prior=wallet.refunds?.[grant.id],balance=Number(wallet.balance)||0;
+    const delta=Math.max(0,total-(Number(prior)||0));
+    if(!delta)return false;
+    const entry=bookEntry({user:grant.user,key:`${kind}:${grant.id}:${total}`,kind,source,amount:-delta,
+      balanceAfter:balance-delta,grantId:grant.id,ref,at:now});
+    const result=await wallets.updateOne({_id:grant.user,balance:wallet.balance,[path]:prior??{$exists:false}},
+      staged({$inc:{balance:-delta},$set:{[path]:total,updatedAt:now}},[entry],now));
+    if(result.modifiedCount===1)return true;
+  }
+  throw Error('The wallet kept changing under this refund; retry it');
+}
+// Take back a granted pack (an Apple refund).
+export async function revokeGrant(grant,wallets,{now=new Date()}={}) {
+  if(!grant?.user||typeof grant.id!=='string'||!Number.isSafeInteger(grant.credits)||grant.credits<1)return false;
+  await fulfillGrant(grant,wallets,{now});
+  return takeBack(grant,grant.credits,wallets,{kind:'revoke',source:grantSource(grant.id),ref:{...grantRef(grant.id),...grant.ref},now});
 }
 export function reservationSize(body,maxTokens) {
   // UTF-8 bytes upper-bound text tokens, including JSON tool definitions.
@@ -73,23 +104,30 @@ export function reservationSize(body,maxTokens) {
 export const INFERENCE_DEADLINE_MS = 5 * 60_000;
 export const HOLD_LIFETIME_MS = 10 * 60_000;
 const outstanding = wallet => Object.values(wallet?.holds || {}).reduce((n,h)=>n+h.amount,0);
-export async function reserve(user,amount,wallets,{id=randomUUID(),now=new Date(),cap=DAILY_PAID_BRAINCELL_CAP}={}) {
+// `product` and `model` ride on the hold so its settlement, even one Lith
+// recovers after a crash, books the spend against them.
+export async function reserve(user,amount,wallets,{id=randomUUID(),now=new Date(),cap=DAILY_PAID_BRAINCELL_CAP,product,model}={}) {
   if(!Number.isSafeInteger(amount)||amount<1)throw new Error('Invalid credit reservation');
-  const day=dayKey(now);
+  const day=dayKey(now),tags={...(product?{product}:{}),...(model?{model}:{})};
+  const entry=bookEntry({user,key:`reserve:${id}`,kind:'reserve',source:'inference',amount:-amount,holdId:id,...tags,at:now});
   const result=await wallets.updateOne({_id:user,balance:{$gte:amount},[`holds.${id}`]:{$exists:false},
     $expr:{$lte:[{$add:[{$ifNull:[`$daily.${day}`,0]},
       {$sum:{$map:{input:{$objectToArray:{$ifNull:['$holds',{}]}},as:'hold',in:'$$hold.v.amount'}}},amount]},cap]}},
-    {$inc:{balance:-amount},$set:{[`holds.${id}`]:{amount,at:now,day,expiresAt:new Date(+now+HOLD_LIFETIME_MS)}}});
-  return result.modifiedCount===1?{user,id,amount,day}:null;
+    staged({$inc:{balance:-amount},$set:{[`holds.${id}`]:{amount,at:now,day,expiresAt:new Date(+now+HOLD_LIFETIME_MS),...tags}}},[entry],now));
+  return result.modifiedCount===1?{user,id,amount,day,...tags}:null;
 }
 // Charge a finished request `braincells` against its hold and refund the rest.
 // Keyed by the hold's id: the update only matches while that hold exists and it
-// removes the hold, so a retried or duplicated settle changes nothing.
+// removes the hold, so a retried or duplicated settle changes nothing. The
+// book sees the whole hold released and the charge spent.
 export async function settle(hold,braincells,wallets,{now=new Date()}={}) {
   if(!hold)return false;
   if(!Number.isFinite(braincells)||braincells<0)throw new Error('Invalid metered usage');
   const charged=Math.min(hold.amount,Math.ceil(braincells));
-  const result=await wallets.updateOne({_id:hold.user,[`holds.${hold.id}.amount`]:hold.amount},{$inc:{balance:hold.amount-charged,spent:charged,[`daily.${hold.day||dayKey(now)}`]:charged},$unset:{[`holds.${hold.id}`]:''},$set:{updatedAt:now}});
+  const about={user:hold.user,source:'inference',holdId:hold.id,product:hold.product,model:hold.model,at:now};
+  const entries=[bookEntry({...about,key:`release:${hold.id}`,kind:'release',amount:hold.amount})];
+  if(charged)entries.push(bookEntry({...about,key:`spend:${hold.id}`,kind:'spend',amount:-charged}));
+  const result=await wallets.updateOne({_id:hold.user,[`holds.${hold.id}.amount`]:hold.amount},staged({$inc:{balance:hold.amount-charged,spent:charged,[`daily.${hold.day||dayKey(now)}`]:charged},$unset:{[`holds.${hold.id}`]:''},$set:{updatedAt:now}},entries,now));
   return result.modifiedCount===1;
 }
 // Persist the intended settlement before applying it. A crash between these
@@ -104,13 +142,13 @@ export async function settleDurably(hold,braincells,wallets,{now=new Date()}={})
   const wallet=await wallets.findOne({_id:hold.user});
   const pending=wallet?.holds?.[hold.id];
   if(!pending)return false;
-  return settle({...hold,day:pending.day||dayKey(new Date(pending.at))},pending.settlement,wallets,{now});
+  return settle({...hold,day:pending.day||dayKey(new Date(pending.at)),product:pending.product??hold.product,model:pending.model??hold.model},pending.settlement,wallets,{now});
 }
 
 export async function reconcileWallet(wallet,wallets,{now=new Date()}={}) {
   let recovered=0;
   for(const [id,pending] of Object.entries(wallet?.holds || {})) {
-    const hold={user:wallet._id,id,amount:pending.amount,day:pending.day||dayKey(new Date(pending.at))};
+    const hold={user:wallet._id,id,amount:pending.amount,day:pending.day||dayKey(new Date(pending.at)),product:pending.product,model:pending.model};
     if(Number.isFinite(pending.settlement)) {
       if(await settle(hold,pending.settlement,wallets,{now}))recovered++;
     } else if(+new Date(pending.expiresAt || +new Date(pending.at)+HOLD_LIFETIME_MS)<=+now) {
@@ -200,14 +238,14 @@ export function holdBraincells({model,body,maxTokens}) {
   const inputBound=reservationSize(body,0);
   return Math.ceil(inputBound*inputBraincellRate(model,inputBound)+maxTokens*braincellRate(model,inputBound));
 }
-export async function authorizePaidRequest({user,model,body,maxTokens,now=new Date(),withWallets:using=withWallets}) {
+export async function authorizePaidRequest({user,model,body,maxTokens,product,now=new Date(),withWallets:using=withWallets}) {
   const inputBound=reservationSize(body,0);
   const rate=braincellRate(model,inputBound);
   const amount=holdBraincells({model,body,maxTokens});
   return using(async wallets=>{
     const prior=await wallets.findOne({_id:user});
     await reconcileWallet(prior,wallets,{now});
-    const hold=await reserve(user,amount,wallets,{now});
+    const hold=await reserve(user,amount,wallets,{now,product,model});
     if(hold)return {...hold,rate,inputBound};
     const wallet=await wallets.findOne({_id:user},{projection:{daily:1,holds:1}});
     if((Number(wallet?.daily?.[dayKey(now)])||0)+outstanding(wallet)+amount>DAILY_PAID_BRAINCELL_CAP){
@@ -225,7 +263,5 @@ export async function refundCheckout(session,refundedCents,wallets,options){
  if(!Number.isSafeInteger(refundedCents)||refundedCents<0||refundedCents>CREDIT_PACK.amount)throw Error('Invalid refund amount');
  await fulfillCheckout(session,wallets,options);
  const amount=Math.floor(grant.credits*refundedCents/CREDIT_PACK.amount);
- const path=`refunds.${grant.id}`;
- const result=await wallets.updateOne({_id:grant.user},[{$set:{balance:{$subtract:['$balance',{$max:[0,{$subtract:[amount,{$ifNull:[`$${path}`,0]}]}]}]},[path]:{$max:[amount,{$ifNull:[`$${path}`,0]}]},updatedAt:'$$NOW'}}]);
- return result.modifiedCount===1;
+ return takeBack(grant,amount,wallets,{kind:'refund',source:'stripe',ref:grantRef(grant.id)});
 }

@@ -9,18 +9,20 @@
 //        the down arrow on the prompt.
 // Up:    the guest, sitting on its first card at the top of its own scroll,
 //        forwards pulls, wheel deltas and the up arrow (`pull`, `wheel`, `back`).
-// Both:  follow the input, then settle on release: past 15% of the screen or a
-//        flick finishes the trip, anything less springs back.
+// Both:  follow the input, then settle on release: past half the screen the
+//        trip finishes, anything less eases back to where it was. No flicks,
+//        no notches that jump: the sheet is wherever the input brought it.
 //
 //   cold → parked → moving → open → moving → parked
 //
-// While open the prompt's loop pauses; it resumes as soon as a pull back
-// begins. The address bar follows the card (/mime/?p=<code>) and Back closes.
+// The prompt's loop pauses the moment the sheet starts moving and resumes
+// only once it is home again, so the slide spends the main thread on the
+// slide. The guest frame stays visible and promoted while parked (translated
+// a screen down), so its first appearance costs no paint. The address bar
+// follows the card (/mime/?p=<code>) and Back closes.
 
 const MEDIA = "#171526"; // mime's dark media colour, behind a guest still loading
-const EASE = "cubic-bezier(.2,.8,.2,1)";
-const COMMIT = 0.15; // of the screen
-const FLICK = 0.45; // px/ms
+const COMMIT = 0.5; // of the screen: the halfway line decides, nothing else
 
 let frame;
 let state = "cold"; // cold | parked | moving | open
@@ -30,6 +32,8 @@ let historyEntry = false; // We pushed a /mime/?p= entry for the open sheet.
 let swallowPop = false;
 let lastPermalink = null; // The guest's card on screen, as last announced.
 let lastWheelAt = 0;
+let entryMethod = "prompt_key";
+let trackingOpen = false;
 let armed = false; // The prompt says its curtain is up and empty.
 
 const post = (message) =>
@@ -57,7 +61,7 @@ function ensure() {
     background: MEDIA, // Never white; transparent once the guest is ready.
     colorScheme: "normal", // Matching schemes keep the frame see-through.
     transform: "translateY(100%)",
-    visibility: "hidden",
+    willChange: "transform", // Promoted from the start: rastered before any swipe.
     pointerEvents: "none",
   });
   document.body.append(frame);
@@ -112,6 +116,7 @@ function popstate(e) {
   }
   if (e?.state?.acMimeSheet) {
     historyEntry = true; // Forward into a sheet entry: open it again.
+    entryMethod = "prompt_history";
     settle(0);
     return true;
   }
@@ -119,74 +124,95 @@ function popstate(e) {
 }
 
 // 📐 One position for both: the feed's top edge at `y`, the prompt above it.
+// `y` chases `goal` every frame through a short time constant, so whatever the
+// input does — a finger, a trackpad stream and its momentum tail, a mouse
+// notch, a release — the sheet itself only ever moves smoothly. Live input
+// sits a hair behind the finger; a settle eases out over about half a second.
 let y = innerHeight;
-let toward = null; // Where a settle is heading: 0 (open) or innerHeight (home).
-let raf = 0;
+let goal = innerHeight;
+let toward = null; // A settle in flight: 0 (open) or innerHeight (home).
+let tau = 40; // ms to close 63% of the gap
+const FOLLOW = 40;
+const GLIDE = 70;
+let loop = 0;
+let lastStep = 0;
 
-function write(transition = "none") {
+function write() {
   const s = stage();
-  frame.style.transition = transition;
   frame.style.transform = `translateY(${y}px)`;
-  if (s) {
-    s.style.transition = transition;
-    s.style.transform = y >= innerHeight ? "" : `translateY(${y - innerHeight}px)`;
-  }
+  if (s) s.style.transform = y >= innerHeight ? "" : `translateY(${y - innerHeight}px)`;
+  window.acMeterPaint?.(); // A slide frame is a painted frame to the frame meter.
 }
 
-// Follow live input: write at most once per frame.
+function run() {
+  if (loop) return;
+  lastStep = performance.now();
+  loop = requestAnimationFrame(step);
+}
+
+function step(now) {
+  loop = 0;
+  const dt = Math.min(64, now - lastStep);
+  lastStep = now;
+  const gap = goal - y;
+  y = Math.abs(gap) < 1 ? goal : y + gap * (1 - Math.exp(-dt / tau));
+  write();
+  if (y !== goal) return run();
+  if (toward === null) return;
+  const target = toward;
+  toward = null;
+  target === 0 ? opened() : home();
+}
+
+function still() {
+  cancelAnimationFrame(loop);
+  loop = 0;
+}
+
+// Follow live input: the goal moves, the sheet chases it.
 function follow(next) {
-  y = Math.max(0, Math.min(innerHeight, next));
-  if (raf) return;
-  raf = requestAnimationFrame(() => {
-    raf = 0;
-    write();
-  });
+  goal = Math.max(0, Math.min(innerHeight, next));
+  tau = FOLLOW;
+  run();
 }
 
-// Begin moving from wherever things are.
+// Begin moving from wherever things are, a glide in progress included.
 function begin() {
   const f = ensure();
-  cancelAnimationFrame(raf);
-  raf = 0;
+  if (trackingOpen) window.acAccountActivity?.feedSample(null, false);
   if (state === "parked") {
     post({ type: "mime:sheet", open: true }); // First card up, slot away.
-    f.style.visibility = "visible";
-    y = innerHeight;
-  } else if (state === "open") resumePrompt(); // Awake before it shows.
+    y = goal = innerHeight;
+  }
   state = "moving";
   toward = null;
-  f.style.willChange = "transform";
+  pausePrompt(); // The last frame rides along; the loop is back at home().
   const s = stage();
   if (s) s.style.willChange = "transform";
 }
 
-// Glide to 0 (open) or innerHeight (home), quicker for shorter trips.
+// Glide to 0 (open) or innerHeight (home) from wherever the sheet is now.
 function settle(target) {
   const f = ensure();
   if (state === "parked" && target === 0) begin();
-  if (target !== 0) resumePrompt(); // Awake before it slides into view.
-  cancelAnimationFrame(raf);
-  raf = 0;
   state = "moving";
   toward = target;
   f.style.pointerEvents = "none";
-  const ms = Math.round(120 + 220 * Math.min(1, Math.abs(target - y) / innerHeight));
-  y = target;
-  requestAnimationFrame(() => write(`transform ${ms}ms ${EASE}`));
-  clearTimeout(settle.timer);
-  settle.timer = setTimeout(() => {
-    if (toward !== target) return;
-    toward = null;
-    target === 0 ? opened() : home();
-  }, ms + 30);
+  goal = target;
+  tau = GLIDE;
+  run();
 }
 
 function opened() {
+  if (!trackingOpen) {
+    trackingOpen = true;
+    window.acAccountActivity?.feedOpen(entryMethod);
+  }
   state = "open";
-  frame.style.willChange = "";
   write();
   pausePrompt();
   enterHistory();
+  meterGuest();
   // Take input once a trackpad's momentum has died down, or its tail would
   // scroll straight past the first card.
   const take = () => {
@@ -198,29 +224,44 @@ function opened() {
   take();
 }
 
+// 📊 The Mac app's frame meter counts the piece's painted frames, which stop
+// while the loop sleeps under the sheet. Over mime the frames on screen are
+// the guest's: count its animation frames instead, so the meter reads the
+// feed rather than zero.
+function meterGuest() {
+  const guest = frame.contentWindow;
+  if (!guest || !window.acMeterPaint) return;
+  const tick = () => {
+    if (state !== "open") return;
+    window.acMeterPaint();
+    guest.requestAnimationFrame(tick);
+  };
+  guest.requestAnimationFrame(tick);
+}
+
 function home() {
+  if (trackingOpen) window.acAccountActivity?.feedClose("prompt");
+  trackingOpen = false;
   state = "parked";
-  y = innerHeight;
+  still();
+  y = goal = innerHeight;
   Object.assign(frame.style, {
-    transition: "none",
     transform: "translateY(100%)",
-    visibility: "hidden",
     pointerEvents: "none",
-    willChange: "",
   });
   const s = stage();
-  if (s) Object.assign(s.style, { transition: "none", transform: "", willChange: "" });
+  if (s) Object.assign(s.style, { transform: "", willChange: "" });
   resumePrompt();
   post({ type: "mime:sheet", open: false }); // Park the guest on its slot.
   leaveHistory();
   window.focus();
 }
 
-// Release: past a sixth of the screen or a flick finishes, else spring back.
-// `travel` is how far toward the other end the input went; `speed` > 0 means
-// heading there.
-function release(from, travel, speed) {
-  const done = travel > innerHeight * COMMIT || speed > FLICK;
+// Release: past the halfway line the trip finishes, short of it the sheet
+// eases back where it came from. `travel` is how far toward the other end
+// the input went.
+function release(from, travel) {
+  const done = travel >= innerHeight * COMMIT;
   if (from === "home") settle(done ? 0 : innerHeight);
   else settle(done ? innerHeight : 0);
 }
@@ -228,31 +269,29 @@ function release(from, travel, speed) {
 // ✋ Down: a curtain swipe, handed over by the prompt piece once it engages.
 function grab(startY) {
   if (state !== "parked" && state !== "cold") return;
+  entryMethod = "prompt_swipe";
   begin();
   const y0 = lastDownY ?? startY;
-  const samples = [[performance.now(), y0]];
   let last = y0;
   const move = (e) => {
     last = e.clientY;
-    samples.push([performance.now(), last]);
-    if (samples.length > 6) samples.shift();
     follow(innerHeight - (y0 - last));
   };
   const end = () => {
     removeEventListener("pointermove", move, true);
     removeEventListener("pointerup", end, true);
     removeEventListener("pointercancel", end, true);
-    const [t0, a] = samples[0];
-    const [t1, b] = samples.at(-1);
-    release("home", y0 - last, t1 > t0 ? (a - b) / (t1 - t0) : 0);
+    release("home", y0 - last);
   };
   addEventListener("pointermove", move, { capture: true, passive: true });
   addEventListener("pointerup", end, { capture: true, passive: true });
   addEventListener("pointercancel", end, { capture: true, passive: true });
 }
 
-// 🖱️ Wheels, either way. A trackpad streams small deltas, momentum included,
-// and settles when they stop; a mouse notch is one big step and goes at once.
+// 🖱️ Wheels, either way. Every delta — a trackpad's stream and momentum, a
+// mouse notch, a line or page step — is so much travel, and the sheet follows
+// it; nothing jumps the sheet open. The stream ends after a short silence and
+// the halfway line decides, or crossing it mid-stream finishes the trip.
 // `dy` > 0 always means "toward the other end".
 let wheel = null;
 
@@ -261,32 +300,32 @@ function wheelStep(from, dy, mode) {
   const px = mode === 1 ? dy * 16 : mode === 2 ? dy * innerHeight : dy;
   if (!wheel) {
     if (px <= 0) return;
-    if (mode !== 0 || px >= 60) return settle(from === "home" ? 0 : innerHeight);
-    begin();
-    wheel = { from, travel: 0, at: lastWheelAt, speed: 0, timer: 0 };
+    if (from === "home") entryMethod = "prompt_wheel";
+    begin(); // Mid-glide, this carries on from the live y.
+    wheel = { from, travel: from === "home" ? innerHeight - y : y, timer: 0 };
   }
-  wheel.speed = px / Math.max(1, lastWheelAt - wheel.at);
-  wheel.at = lastWheelAt;
   wheel.travel = Math.max(0, wheel.travel + px);
   follow(wheel.from === "home" ? innerHeight - wheel.travel : wheel.travel);
   clearTimeout(wheel.timer);
-  if (wheel.travel >= innerHeight * 0.5) return endWheel(true);
+  if (wheel.travel >= innerHeight * COMMIT) return endWheel();
   wheel.timer = setTimeout(() => endWheel(), 140);
 }
 
-function endWheel(force) {
+function endWheel() {
   if (!wheel) return;
   clearTimeout(wheel.timer);
-  const { from, travel, speed } = wheel;
+  const { from, travel } = wheel;
   wheel = null;
-  release(from, force ? innerHeight : travel, speed);
+  release(from, travel);
 }
 
 addEventListener("wheel", (e) => {
   lastWheelAt = performance.now();
   if (!frame || !armed || e.ctrlKey) return; // ctrl+wheel is pinch-zoom
   if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-  if (wheel?.from === "home" || (!wheel && state === "parked"))
+  // Parked, or easing home after a short pull: a new scroll picks it back up.
+  const home = state === "parked" || (state === "moving" && toward === innerHeight);
+  if (wheel?.from === "home" || (!wheel && home))
     wheelStep("home", e.deltaY, e.deltaMode);
 }, { capture: true, passive: true });
 
@@ -296,14 +335,16 @@ let pull = false;
 addEventListener("message", (e) => {
   if (!frame || e.origin !== location.origin || e.source !== frame.contentWindow) return;
   const d = e.data || {};
-  if (d.type === "mime:sheet:hello") post({ type: "mime:sheet", open: state !== "parked" && state !== "cold" });
+  if (d.type === "mime:activity") {
+    if (trackingOpen) window.acAccountActivity?.feedSample(d.contentId, d.active === true && state === "open");
+  } else if (d.type === "mime:sheet:hello") post({ type: "mime:sheet", open: state !== "parked" && state !== "cold" });
   else if (d.type === "mime:sheet:ready") frame.style.background = "transparent";
   else if (d.type === "mime:sheet:at") {
     lastPermalink = d.permalink || null;
     if (historyEntry) enterHistory();
   } else if (d.type === "mime:sheet:pull") {
     if (d.end) {
-      if (pull) release("open", y, d.velocity || 0);
+      if (pull) release("open", goal);
       pull = false;
     } else {
       if (!pull) {
@@ -320,6 +361,16 @@ addEventListener("message", (e) => {
   }
 });
 
+addEventListener("pagehide", () => {
+  if (trackingOpen) window.acAccountActivity?.feedClose("pagehide");
+  trackingOpen = false;
+});
+addEventListener("pageshow", () => {
+  if (state === "open" && !trackingOpen) {
+    trackingOpen = true;
+    window.acAccountActivity?.feedOpen("prompt_history");
+  }
+});
 window.acMimeSheet = { popstate };
 
 // Messages from the prompt piece:
@@ -332,6 +383,7 @@ export function mimeSheet({ action, y: at, of, on } = {}) {
   else if (action === "armed") armed = !!on;
   else if (action === "grab") grab(of ? (at * innerHeight) / of : innerHeight);
   else if (action === "show") {
+    entryMethod = "prompt_key";
     if (state === "parked" || state === "cold") settle(0);
   }
 }

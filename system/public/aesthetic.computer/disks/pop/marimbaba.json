@@ -7,6 +7,8 @@
   "key": "F major",
   "meter": "3/4",
   "duration": 83.5714,
+  "released": "2026-05-22",
+  "status": "released",
   "audio": "/assets/pop/marimbaba.mp3",
   "cover": "/assets/pop/marimbaba.jpg",
   "sections": [
@@ -72,7 +74,9 @@
     }
   ],
   "links": {
-    "spotify": "https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG"
+    "spotify": "https://open.spotify.com/track/1gopbVPw6LoinIpOANOnEG",
+    "apple": "https://music.apple.com/us/album/marimbaba/6772460819?i=6772460820",
+    "youtube": "https://youtu.be/EqX7Lkr5aRs"
   },
   "credits": "marimba lullaby for the pixsies body. all instruments + composition: aesthetic dot computer."
 }

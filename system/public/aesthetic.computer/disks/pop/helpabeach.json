@@ -7,6 +7,8 @@
   "key": "A minor pentatonic",
   "meter": "4/4",
   "duration": 151.07,
+  "released": "2026-05-21",
+  "status": "released",
   "audio": "/assets/pop/helpabeach.mp3",
   "cover": "/assets/pop/helpabeach.jpg",
   "sections": [
@@ -66,7 +68,9 @@
     }
   ],
   "links": {
-    "spotify": "https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8"
+    "spotify": "https://open.spotify.com/track/3jzlAylJQLSsNIXjnEY1e8",
+    "apple": "https://music.apple.com/us/album/helpabeach/6772056808?i=6772057057",
+    "youtube": "https://youtu.be/KVynj0RAwg8"
   },
   "credits": "chillwave / ambient instrumental — calm ocean bed, sine bells, in-render formant voice. part of the pixsies body."
 }

@@ -2,7 +2,11 @@
 
 Discussion on AC media. The frontend is `/mime/` and the `https://mime.ac/`
 apex; the API is `/api/mime`. `www.mime.ac` redirects to the apex.
-The main feed is one responsive column of media cards, with contained media,
+The home feed currently includes only runnable AC pieces (`piece`) and KidLisp
+(`kidlisp`), including prompt sketches. Records without a runnable code stay out
+of the home feed. Other media sources and Whistlegraph TV spots are paused. Existing media, saved posts, and direct discussion
+links remain available. The main feed is one responsive column of media cards,
+with contained media,
 author-colored handles and avatars, comment controls, and the first comment preview.
 Letterboxing uses a slowly drifting, author-tinted checkerboard; reduced motion
 keeps it still. It loads
@@ -94,7 +98,8 @@ Rate limiting and moderation tools for anonymous replies remain follow-up work.
 
 ## Whistlegraph TV spots
 
-The feed airs Whistlegraph TV like ads: the fifth card, then every ninth,
+TV spots are paused while the home feed is AC pieces only. When enabled,
+the feed airs Whistlegraph TV like ads: the fifth card, then every ninth,
 each one program from `tv.whistlegraph.org` with a pill linking to the
 work's page on whistlegraph.org (clicks count as `originalOpens`). The
 lineup is TV's own: `graphs.json` plus the Whistlegraph Desk's live
@@ -242,8 +247,7 @@ navigation/backgrounding; failures retry while the page remains open. Delivery
 on page exit is best effort. These are client-reported exposure estimates, not
 measured gaze, unique people, or fraud-resistant metrics. Multiple posts may accrue
 visible time simultaneously; only one accrues focused time. Thread reading time is
-not included. The feed interleaves paintings, tapes, KidLisp, pieces, and native uploads,
-newest first within each kind. These counters do not change ranking.
+not included. The home feed ranks only AC pieces and KidLisp. These counters do not change ranking.
 
 KidLisp cards show lazy-loaded WebP previews and run an embedded AC player only
 when their media frame is the most visible one in the foreground window. The

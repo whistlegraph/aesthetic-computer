@@ -7,3 +7,4 @@ Disallow: /.netlify/
 Disallow: /presigned-upload-url/
 
 Sitemap: https://notepaint.art/sitemap.xml
+Sitemap: https://notepaint.art/sitemap-paintings.xml

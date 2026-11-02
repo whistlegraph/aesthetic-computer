@@ -1,0 +1,32 @@
+/* Folds for the principles. Adds to styles.css; changes nothing there. */
+
+/* The opener: what NCC is, when it meets next, and a way to give. */
+.opener { margin-top: 1.5em; color: #00c4fd; }
+.opener p { margin: 0 0 0.75em; }
+.opener-tag { background: #00c4fd; color: #000; font-weight: bold; padding: 0 2px; }
+#openerNext { font-weight: bold; }
+.opener-badge:link, .opener-badge:visited {
+    display: inline-block; text-decoration: none; font-weight: bold;
+    color: #000; background: #00d080; padding: 4px 8px;
+}
+.opener-badge:hover { background: #00c4fd; }
+
+details.fold { margin-top: 1em; }
+details.fold > summary { list-style: none; cursor: pointer; }
+details.fold > summary::-webkit-details-marker { display: none; }
+
+/* The rule titles keep their green bar; a bracket marker says open or shut. */
+details.rule > summary h3 { margin-top: 0; }
+details.fold > summary h3::before,
+details.fold > summary .fold-label::before { content: "[+] "; font-weight: bold; }
+details.fold[open] > summary h3::before,
+details.fold[open] > summary .fold-label::before { content: "[-] "; }
+
+.fold-label { color: #00c4fd; }
+details.fold > summary:hover h3 { background-color: #00c4fd; }
+details.fold > summary:hover .fold-label { text-decoration: underline; }
+details.fold > summary:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
+
+/* preview bumper on aesthetic.computer only: highlighter yellow */
+.bel-proposal { display: inline-block; background: #ffe600; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 0 1rem; }
+.bel-proposal a { color: #000; }

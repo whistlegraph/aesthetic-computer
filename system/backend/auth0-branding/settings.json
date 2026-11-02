@@ -11,7 +11,7 @@
       "header": "#202019",
       "body_text": "#202019",
       "widget_background": "#ffffff",
-      "widget_border": "#8b76c5",
+      "widget_border": "#ff3fa4",
       "input_labels_placeholders": "#65676e",
       "input_filled_text": "#000000",
       "input_border": "#76736e",
@@ -53,14 +53,14 @@
     },
     "borders": {
       "button_border_weight": 1,
-      "buttons_style": "sharp",
-      "button_border_radius": 1,
+      "buttons_style": "rounded",
+      "button_border_radius": 8,
       "input_border_weight": 1,
-      "inputs_style": "sharp",
-      "input_border_radius": 3,
-      "widget_corner_radius": 0,
-      "widget_border_weight": 0,
-      "show_widget_shadow": false
+      "inputs_style": "rounded",
+      "input_border_radius": 8,
+      "widget_corner_radius": 20,
+      "widget_border_weight": 4,
+      "show_widget_shadow": true
     },
     "widget": {
       "logo_position": "center",
@@ -86,15 +86,15 @@
     "login": {
       "login": {
         "footerText": " ",
-        "title": "Aesthetic Computer",
+        "title": "Aesthetic.Computer",
         "description": " ",
         "footerLinkText": "Create account",
-        "pageTitle": "Log in \u2219 ${clientName}"
+        "pageTitle": "Log in ∙ ${clientName}"
       }
     },
     "login-id": {
       "login-id": {
-        "title": "Aesthetic Computer",
+        "title": "Aesthetic.Computer",
         "description": " ",
         "buttonText": "Continue",
         "footerText": " ",
@@ -121,7 +121,7 @@
         "title": "Create your account",
         "description": " ",
         "loginActionText": "Already signed up?",
-        "pageTitle": "I'm new \u2219 ${clientName}"
+        "pageTitle": "I'm new ∙ ${clientName}"
       }
     }
   },

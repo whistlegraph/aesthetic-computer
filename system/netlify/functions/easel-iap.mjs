@@ -75,7 +75,7 @@ export function createHandler({verifiers=makeVerifiers(),verifyUser=authorize,wa
     const grant=grantFor(verified.payload,user.sub);
     if(grant.error)return reply(400,{error:grant.error});
     try{
-      const credited=await wallets(w=>fulfillGrant(grant,w));
+      const credited=await wallets(w=>fulfillGrant({...grant,ref:{appleEnvironment:verified.environment}},w));
       await record({id:grant.id,user:user.sub,environment:verified.environment,productId:verified.payload.productId,quantity:grant.quantity,credits:grant.credits,
         originalTransactionId:verified.payload.originalTransactionId,purchaseDate:verified.payload.purchaseDate,appAccountToken:verified.payload.appAccountToken,redeemedAt:now()});
       return reply(200,{credited,transactionId:grant.transactionId,credits:grant.credits,environment:verified.environment});

@@ -68,8 +68,14 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     attempt = null;
     try { win.sessionStorage.removeItem(KEY); } catch {}
   }
+  // Where a finished flow lands when it has no piece to return to. A branded
+  // host boots its own piece at `/` (laklok.com → laklok), so `/prompt` there
+  // would be the prompt on the wrong domain; aesthetic.computer keeps the
+  // fallback it was given.
+  const home = (fallback) =>
+    win.acSTARTING_PIECE && win.acSTARTING_PIECE !== "prompt" ? "/" : fallback;
   function complete(fallback = "/laklok") {
-    const destination = signupReturnPath(read()?.returnTo, win.location.origin) || fallback;
+    const destination = signupReturnPath(read()?.returnTo, win.location.origin) || home(fallback);
     track("completed");
     clear(); close();
     win.location.assign(destination);
@@ -103,7 +109,7 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     if (!response.ok) throw Object.assign(new Error("Request failed"), { reason: body.message || "network" });
     return body;
   }
-  function frame(title, description, dismiss = () => { const path = signupReturnPath(read()?.returnTo, win.location.origin) || "/prompt"; close(); win.location.assign(path); }) {
+  function frame(title, description, dismiss = () => { const path = signupReturnPath(read()?.returnTo, win.location.origin) || home("/prompt"); close(); win.location.assign(path); }) {
     close();
     dialog = doc.createElement("dialog");
     dialog.dataset.acNoTrack = "";

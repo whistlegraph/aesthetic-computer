@@ -1,5 +1,26 @@
 # Aesel
 
+Aesel also powers the Aesthetic.Computer prompt's automatic KidLisp sketches through
+`/api/aesel-sketch`: an unknown drawable word becomes a shared drawing with a
+tune. This bounded, server-funded path shares Aesel's provider transport while
+keeping its own cache and generation limits. `/api/sketch` remains an alias for
+installed clients. The separate `/api/ask` helper handles unresolved entries.
+
+The prompt pipeline is: resolve a command or existing piece → recognize typed
+KidLisp or ask Aesel to sketch an unknown word → save KidLisp → run its `$code`.
+Sketch generation uses `anthropic/claude-opus-5.5`, low reasoning and a 4,000-token
+output limit; it shares the provider transport with Aesel inference.
+
+Typed source and generated sketches use the same handled-save step when signed
+in with an @handle and KidLisp caching enabled. `/api/store-kidlisp` verifies the
+bearer token and resolves the handle itself. `handled: true` reuses that user's
+copy or creates a new public `$code`; it never transfers an anonymous or another
+user's copy. Mongo and Datomic use the same ownership rule and profile event.
+Their dedup key includes the stable user ID for handled copies; ordinary cache
+requests retain the source hash. Existing codes need no migration. Opening a
+saved code does not copy it. Failed saves show a notice and leave the source or
+shared sketch runnable. These are KidLisp codes, without named-piece version history.
+
 `aesel` opens the native SwiftUI Mac GUI in [`apple/aesel`](../apple/aesel/README.md).
 `a`, `ac` and `easel` open the TUI, which is pro mode: the terminal harness.
 The GUI is the ordinary, piece-first Aesel; both run on the same engine bridges.

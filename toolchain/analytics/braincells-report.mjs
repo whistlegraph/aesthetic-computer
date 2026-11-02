@@ -7,6 +7,7 @@
 // payment identifiers leave the database.
 import { connect, closePool } from "../../system/backend/database.mjs";
 import { LEDGER_COLLECTION } from "../../system/backend/braincell-ledger.mjs";
+import { BOOK_COLLECTION } from "../../system/backend/braincell-book.mjs";
 import { createBalance } from "../../system/backend/openrouter-balance.mjs";
 import { foldBraincells } from "./braincells-fold.mjs";
 
@@ -85,7 +86,7 @@ async function stripePurchases() {
 const { db } = await connect();
 try {
   const opts = { maxTimeMS: 20000 };
-  const [wallets, allowance, ledger, nopaint, speech, apple, tezos, stripe, openRouterState, firstLedger] = await Promise.all([
+  const [wallets, allowance, ledger, nopaint, speech, apple, tezos, stripe, openRouterState, firstLedger, book, firstBook] = await Promise.all([
     db.collection("ac-credit-wallets").find({}, { projection: { balance: 1, spent: 1, holds: 1, daily: 1, grants: 1 }, ...opts }).toArray(),
     db.collection("ai-usage").find({ day: { $in: days } }, { projection: { handle: 1, day: 1, tokens: 1, asks: 1, lastModel: 1 }, ...opts }).toArray(),
     db.collection(LEDGER_COLLECTION).find({ at: range }, { projection: { _id: 0 }, ...opts }).toArray(),
@@ -96,6 +97,9 @@ try {
     stripePurchases(),
     openRouter(),
     db.collection(LEDGER_COLLECTION).find({}, { projection: { at: 1 } }).sort({ at: 1 }).limit(1).next(),
+    db.collection(BOOK_COLLECTION).find({ at: range, kind: { $in: ["issue", "refund", "revoke", "adjust"] } },
+      { projection: { _id: 0, kind: 1, source: 1, amount: 1, reconstructed: 1 }, ...opts }).toArray(),
+    db.collection(BOOK_COLLECTION).find({ reconstructed: { $ne: true } }, { projection: { at: 1 } }).sort({ at: 1 }).limit(1).next(),
   ]);
   // Subs to public handles, in one query for every sub the report touches.
   const subs = [...new Set([...wallets.map(w => w._id), ...nopaint.map(r => r.user), ...speech.map(r => r.user),
@@ -103,6 +107,6 @@ try {
   const handles = Object.fromEntries((await db.collection("@handles").find({ _id: { $in: subs } }, { projection: { handle: 1 } }).toArray())
     .map(h => [h._id, `@${h.handle}`]));
   const report = foldBraincells({ wallets, allowance, ledger, nopaint, speech, apple, tezos, stripe, handles,
-    firstLedgerAt: firstLedger?.at || null, openRouter: openRouterState }, { start, end, limit });
+    firstLedgerAt: firstLedger?.at || null, openRouter: openRouterState, book, firstBookAt: firstBook?.at || null }, { start, end, limit });
   console.log(JSON.stringify({ ...report, window: { ...report.window, hours } }, null, 2));
 } finally { await closePool(); }

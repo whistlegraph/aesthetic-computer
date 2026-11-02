@@ -4,6 +4,14 @@ import { CREDIT_PACK, withWallets, fulfillCheckout, refundCheckout } from '../..
 const origin='https://aesthetic.computer';
 const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Allow-Methods':'GET, POST, OPTIONS'};
 const reply=(statusCode,value)=>({statusCode,headers,body:JSON.stringify(value)});
+// Where Stripe sends the buyer back, fixed per surface; never a client URL.
+// notepaint returns to the studio itself, where the painter is signed in and
+// the painting and note are waiting (nopaint.art/ai/braincells.mjs).
+const RETURNS=Object.freeze({
+ aesel:{success:origin+'/api/easel-checkout?result=success',cancel:origin+'/api/easel-checkout?result=canceled'},
+ nopaint:{success:origin+'/nopaint.art/ai/signin.html?result=success&session_id={CHECKOUT_SESSION_ID}',cancel:origin+'/nopaint.art/ai/signin.html?result=canceled'},
+ notepaint:{success:'https://notepaint.art/?braincells=success&session_id={CHECKOUT_SESSION_ID}',cancel:'https://notepaint.art/?braincells=canceled'},
+});
 export function createHandler({stripe,verifyUser=authorize,handleFor=getHandleOrEmail,fulfill=session=>withWallets(w=>fulfillCheckout(session,w,{live:process.env.CONTEXT!=='dev'})),refund=(session,amount)=>withWallets(w=>refundCheckout(session,amount,w,{live:process.env.CONTEXT!=='dev'})),secret,enabled=true}={}) {
  return async event=>{
   if(event.httpMethod==='OPTIONS')return reply(204,null);
@@ -39,10 +47,10 @@ export function createHandler({stripe,verifyUser=authorize,handleFor=getHandleOr
    if(typeof handle!=='string'||!handle.startsWith('@'))return reply(403,{error:'Claim an AC handle before buying credits'});
    if(![CREDIT_PACK.id,'luna-1m-v1'].includes(body.pack))return reply(400,{error:'Unknown credit pack'});
    if(typeof body.requestId!=='string'||! /^[a-f0-9-]{36}$/.test(body.requestId))return reply(400,{error:'Missing checkout request ID'});
-   if(body.surface !== undefined && body.surface !== 'nopaint')return reply(400,{error:'Unknown checkout surface'});
-   const returnTo=body.surface==='nopaint' ? origin+'/nopaint.art/ai/signin.html' : origin+'/api/easel-checkout';
+   if(body.surface !== undefined && !['nopaint','notepaint'].includes(body.surface))return reply(400,{error:'Unknown checkout surface'});
+   const back=RETURNS[body.surface]||RETURNS.aesel;
    const session=await stripe.checkout.sessions.create({mode:'payment',payment_method_types:['card'],client_reference_id:user.sub,
-    success_url:returnTo+'?result=success'+(body.surface==='nopaint'?'&session_id={CHECKOUT_SESSION_ID}':''),cancel_url:returnTo+'?result=canceled',
+    success_url:back.success,cancel_url:back.cancel,
     line_items:[{price_data:{currency:CREDIT_PACK.currency,unit_amount:CREDIT_PACK.amount,product_data:{images:[origin+'/aesthetic.computer/braincell.png'],name:`${CREDIT_PACK.credits.toLocaleString('en-US')} Braincells`,description:'For creating on AC.'}},quantity:1}],
     metadata:{type:'ac-credits',pack:CREDIT_PACK.id,userSub:user.sub,handle,...(body.surface ? {surface:body.surface} : {})}},
     {idempotencyKey:`ac-credits:${user.sub}:${body.requestId}`});

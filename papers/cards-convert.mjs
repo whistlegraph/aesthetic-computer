@@ -17,6 +17,7 @@ const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 const LANG_LABELS = { da: "Dansk", es: "Español", zh: "中文", ja: "日本語" };
 
 const PAPER_MAP = {
+  "arxiv-harness-factory": { base: "harness-factory", title: "Pick the Type First", siteName: "pick-the-type-first-26-arxiv" },
   "arxiv-ac": { base: "ac", title: "\\acrandname{} '26", siteName: "aesthetic-computer-26-arxiv" },
   "arxiv-api": { base: "api", title: "From \\texttt{setup()} to \\texttt{boot()}", siteName: "piece-api-26-arxiv" },
   "arxiv-archaeology": { base: "archaeology", title: "Repository Archaeology", siteName: "repo-archaeology-26-arxiv" },

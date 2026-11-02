@@ -1,10 +1,11 @@
 // braincells-fold — turn raw Braincell records into the network report's
 // shape. Pure: braincells-report.mjs fetches, this folds, tests feed fixtures.
 import { BRAINCELLS_PER_USD, INFERENCE_MARKUP } from "../../system/backend/easel-paid-credits.mjs";
+import { grantSource } from "../../system/backend/braincell-book.mjs";
 
 export const usd = cells => Math.round(cells / BRAINCELLS_PER_USD * 100) / 100;
 const money = cells => ({ braincells: cells, usd: usd(cells) });
-export const grantKind = id => id.startsWith("cs_") ? "stripe" : id.startsWith("apple:") ? "apple" : id.startsWith("tezos:") ? "tezos" : "staff";
+export const grantKind = grantSource;
 
 // UTC days a window touches; wallet and allowance totals are kept per day.
 export function windowDays(start, end) {
@@ -15,7 +16,7 @@ export function windowDays(start, end) {
 
 export function foldBraincells(raw, { start, end, limit = 25 }) {
   const { wallets = [], allowance = [], ledger = [], nopaint = [], speech = [], apple = [], tezos = [],
-    stripe = { available: false }, handles = {}, firstLedgerAt = null, openRouter = null } = raw;
+    stripe = { available: false }, handles = {}, firstLedgerAt = null, openRouter = null, book = [], firstBookAt = null } = raw;
   const days = windowDays(start, end);
   const who = sub => handles[sub] || (sub ? "(no handle)" : "(unknown)");
   const add = (map, key, cells, extra = {}) => {
@@ -56,6 +57,20 @@ export function foldBraincells(raw, { start, end, limit = 25 }) {
   const paidTotal = Object.values(paidByUser).reduce((n, r) => n + r.braincells, 0);
   const sum = (rows, key) => rows.reduce((n, r) => n + (Number(r[key]) || 0), 0);
 
+  // 📒 Issuance by source, from the book: what each source put in during the
+  // window and what refunds and revokes took back. Reconstructed (backfilled)
+  // entries are left out; their times are best guesses.
+  const sources = {};
+  let adjusted = 0;
+  for (const e of book) {
+    if (e.reconstructed) continue;
+    const amount = Number(e.amount) || 0;
+    if (e.kind === "adjust") { adjusted += amount; continue; }
+    const row = sources[e.source] ??= { issued: 0, takenBack: 0, grants: 0 };
+    if (e.kind === "issue") { row.issued += amount; row.grants++; }
+    if (e.kind === "refund" || e.kind === "revoke") row.takenBack -= amount;
+  }
+
   return {
     format: "ac.braincells.v1", window: { start, end, utcDays: days },
     circulation: {
@@ -82,6 +97,13 @@ export function foldBraincells(raw, { start, end, limit = 25 }) {
           "nopaint-move-requests: complete moves", "whistlegraph-speech-requests: complete transcriptions"],
         gaps: "Choir's curator and /api/ask keep no per-request model rows; their spend shows only in the wallet and allowance totals.",
       },
+    },
+    issuance: {
+      bySource: Object.fromEntries(Object.entries(sources).sort((a, b) => b[1].issued - a[1].issued)
+        .map(([source, r]) => [source, { grants: r.grants, issued: money(r.issued), takenBack: money(r.takenBack), net: money(r.issued - r.takenBack) }])),
+      adjusted: money(adjusted),
+      bookSince: firstBookAt,
+      basis: "braincell-entries in the window; staff grants count at pack price though nobody paid for them",
     },
     purchases: {
       stripe: stripe.available ? { payments: stripe.payments, ...money(stripe.braincells), chargedUsd: stripe.usd, buyers: [...new Set(stripe.users.map(who))],

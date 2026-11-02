@@ -52,7 +52,7 @@ struct aesthetic_computerApp: App {
 
 }
 
-// Push permission is requested only by `notifs`. Native opt-out also stops APNs
+// Push permission is requested by `notifs` or a one-time offer after sign-in. Native opt-out also stops APNs
 // immediately; the web bridge retries server cleanup if the device is offline.
 @MainActor
 class AppDelegate: NSObject, ACApplicationDelegate {
@@ -61,6 +61,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
     private let webViews = NSHashTable<WKWebView>.weakObjects()
     private let optedInKey = "acNotificationsOptedIn"
     private let tokenKey = "acNotificationToken"
+    private let offeredKey = "acNotificationsOffered"
     private var revision = 0
     private var pendingSubscribe: Int?
     private var optedIn: Bool {
@@ -105,6 +106,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
         startNotifications()
+        ACDevices.report(.open)
         return true
     }
     #endif
@@ -133,6 +135,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
 
     func application(_ application: ACApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         apnsToken = deviceToken.map { String(format: "%02x", $0) }.joined()
+        if optedIn, let apnsToken { ACDevices.report(.push, push: ACDevices.apns(apnsToken)) }
         if let webView = appWebView { synchronizePush(in: webView) }
     }
 
@@ -170,9 +173,39 @@ class AppDelegate: NSObject, ACApplicationDelegate {
             optedIn = true
             ACApplication.shared.registerForRemoteNotifications()
             // A missing APNs callback must not leave the command stuck forever.
-            try? await Task.sleep(nanoseconds: 25_000_000_000)
+            // Long enough for the web bridge's retried registration.
+            try? await Task.sleep(nanoseconds: 35_000_000_000)
             if pendingSubscribe == current { finishSubscribe(ok: false) }
         }
+    }
+
+    // Asked once per install, after sign-in, and only while iOS hasn't asked
+    // yet. "Not now" leaves `notifs` as the way in; nothing re-prompts.
+    func offerNotifications(in webView: WKWebView) {
+        #if os(iOS)
+        guard !optedIn, pendingSubscribe == nil, !UserDefaults.standard.bool(forKey: offeredKey) else { return }
+        Task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            guard settings.authorizationStatus == .notDetermined else {
+                UserDefaults.standard.set(true, forKey: offeredKey)
+                return
+            }
+            // Let the signed-in page settle before interrupting it.
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !optedIn, pendingSubscribe == nil, !UserDefaults.standard.bool(forKey: offeredKey) else { return }
+            UserDefaults.standard.set(true, forKey: offeredKey)
+            let alert = UIAlertController(title: "Turn on notifications?",
+                message: "Get a note when someone sends you mail, a mood or a scream. You can turn them off anytime with ‘nonotifs’.",
+                preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Not now", style: .cancel))
+            alert.addAction(UIAlertAction(title: "Turn on", style: .default) { _ in
+                self.triggerSubscribe(in: webView)
+            })
+            var controller = webView.window?.rootViewController
+            while let presented = controller?.presentedViewController { controller = presented }
+            controller?.present(alert, animated: true)
+        }
+        #endif
     }
 
     func triggerUnsubscribe(in webView: WKWebView) {
@@ -183,6 +216,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
         pendingSubscribe = nil
         optedIn = false
         ACApplication.shared.unregisterForRemoteNotifications()
+        ACDevices.report(.push, push: NSNull())
         Task {
             var cleaned = true
             for view in webViews.allObjects {
@@ -281,5 +315,46 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         if let url = AppRoute.notificationDestination(response.notification.request.content.userInfo) {
             AppNavigation.shared.open(url)
         }
+    }
+}
+
+/// This install's row in the AC network device registry (POST /api/app-device),
+/// the same table choir, Whistlegraph and Aesel report to. Anonymous: the
+/// account lives in the web view, so rows count devices, not people.
+@MainActor enum ACDevices {
+    enum Event: String { case open, push }
+
+    static func apns(_ token: String) -> [String: Any] {
+        #if DEBUG
+        let env = "sandbox"
+        #else
+        let env = "production"
+        #endif
+        return ["kind": "apns", "token": token, "env": env]
+    }
+
+    static func report(_ event: Event, push: Any? = nil) {
+        #if os(iOS)
+        guard let deviceId = UIDevice.current.identifierForVendor?.uuidString else { return }
+        let info = Bundle.main.infoDictionary ?? [:]
+        let pad = UIDevice.current.userInterfaceIdiom == .pad
+        var body: [String: Any] = ["app": "aestheticcomputer", "deviceId": deviceId, "event": event.rawValue,
+                                   "platform": pad ? "ipados" : "ios", "label": pad ? "iPad" : "iPhone",
+                                   "os": UIDevice.current.systemVersion, "model": machine()]
+        if let version = info["CFBundleShortVersionString"] as? String { body["version"] = version }
+        if let build = info["CFBundleVersion"] as? String, build.allSatisfy(\.isNumber) { body["build"] = build }
+        if let push { body["push"] = push }
+        var request = URLRequest(url: URL(string: "https://aesthetic.computer/api/app-device")!, timeoutInterval: 10)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        Task { _ = try? await URLSession.shared.data(for: request) } // best effort
+        #endif
+    }
+
+    private static func machine() -> String {
+        var info = utsname()
+        uname(&info)
+        return withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
     }
 }

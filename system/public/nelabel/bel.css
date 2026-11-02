@@ -1,0 +1,122 @@
+/* nela bells — adds to the site's styles.css; changes nothing there. */
+
+[hidden] { display: none !important; }
+
+/* The bell swings from its crown; the clapper lags a little behind. */
+.bell { color: #00c4fd; margin-top: 1rem; display: inline-block; transform-origin: 50% 0; animation: ring 3.6s ease-in-out infinite; }
+.bell pre { line-height: 1.05; margin: 0; }
+.bell-clapper { transform-origin: 50% -200%; animation: clap 3.6s ease-in-out infinite; }
+@keyframes ring {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    66% { transform: rotate(7deg); }
+    74% { transform: rotate(-6deg); }
+    82% { transform: rotate(4deg); }
+    90% { transform: rotate(-2deg); }
+}
+@keyframes clap {
+    0%, 60%, 100% { transform: rotate(0deg); }
+    69% { transform: rotate(-9deg); }
+    77% { transform: rotate(8deg); }
+    85% { transform: rotate(-5deg); }
+    93% { transform: rotate(2deg); }
+}
+.bel-tagline { color: #00c4fd; margin: 1rem 0 0; }
+@media (prefers-reduced-motion: reduce) { .bell, .bell-clapper { animation: none; } }
+
+strong { color: #00c4fd; font-weight: bold; }
+
+/* A linked term with a hover hint. */
+.bel-term { position: relative; text-decoration: underline dotted; }
+.bel-term:hover::after, .bel-term:focus-visible::after {
+    content: attr(data-hint);
+    position: absolute; left: 0; top: 1.4em; z-index: 1;
+    width: max-content; max-width: 32ch;
+    background: #00c4fd; color: #000; padding: 2px 6px;
+    font-weight: normal; text-decoration: none; white-space: normal;
+}
+
+/* Form, in the meetupBox idiom: cyan box, underlined inputs. */
+.bel-form { display: grid; gap: 0.75em; }
+.bel-form .meetingTitle { margin: 0; }
+.bel-field { display: block; margin: 0; }
+.bel-field input {
+    font: inherit;
+    color: #00c4fd;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid #00c4fd;
+    padding: 0 2px;
+    width: 100%;
+    max-width: 28ch;
+}
+.bel-field input.short { max-width: 8ch; }
+.bel-field input::placeholder { color: #006888; }
+.bel-field input:focus-visible,
+.bel-choose input:focus-visible + span,
+.ncc-give:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
+
+.bel-pick { margin: 0.25em 0 0; }
+.bel-choose { position: relative; cursor: pointer; }
+.bel-choose input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.bel-choose span { display: inline-block; padding: 2px; }
+.bel-choose:hover span, .bel-choose.has span { background: #00c4fd; color: #000; font-weight: bold; }
+.bel-clip { display: block; margin-top: 0.25em; color: #006888; }
+.bel-choose.has + .bel-clip { color: #00c4fd; }
+
+.bel-form .ncc-give { justify-self: start; margin-top: 0.25em; }
+.bel-form .ncc-give:disabled { cursor: progress; opacity: 0.6; }
+
+.bel-bar { color: #00d080; margin: 0; }
+.bel-status { margin: 0; min-height: 1rem; color: #00d080; }
+.bel-status.bad { color: #ff5a5a; }
+.bel-status.good { color: #00d080; font-weight: bold; }
+
+/* The board. */
+.bel-list { list-style: none; margin: 1em 0 0; padding: 0; }
+.bel-list li { margin: 0 0 0.5em; display: grid; grid-template-columns: 3ch 1fr auto; gap: 0 1ch; }
+.bel-list .n { color: #006888; }
+.bel-list .who { color: #00c4fd; }
+.bel-list .len { color: #006888; white-space: nowrap; }
+.bel-list a { color: #00c4fd; }
+.bel-empty { color: #006888; margin-top: 1em; }
+
+/* Your own entries, waiting for a clip. */
+.bel-mine { margin-top: 1em; }
+.bel-mine p { margin: 0 0 0.5em; }
+.bel-mine-list { list-style: none; margin: 0.5em 0 0; padding: 0; }
+.bel-mine-list li { margin: 0 0 0.5em; }
+.bel-mine-list .bel-bar, .bel-mine-list .bel-status { display: block; margin-top: 0.25em; }
+
+
+/* Auto light theme. The site stylesheet is dark only; this flips the page
+   when the viewer's system asks for light, keeping the club's green and cyan
+   as inks on a pale ground. */
+:root { color-scheme: dark light; }
+@media (prefers-color-scheme: light) {
+    body { background-color: #f6fbf8; color: #00703f; }
+    a:link, a:visited { color: #0071a1; }
+    header, .bell, .bel-tagline, strong { color: #0071a1; }
+    h3 { background-color: #00703f; color: #f6fbf8; }
+    .meetupBox { border-color: #0071a1; color: #0071a1; }
+    .bel-field input { color: #0071a1; border-bottom-color: #0071a1; }
+    .bel-field input::placeholder { color: #6a9fb5; }
+    .bel-field input:focus-visible,
+    .bel-choose input:focus-visible + span,
+    .ncc-give:focus-visible { outline-color: #0071a1; }
+    .bel-choose:hover span, .bel-choose.has span { background: #0071a1; color: #f6fbf8; }
+    .bel-clip, .bel-list .n, .bel-list .len, .bel-empty { color: #6a9fb5; }
+    .bel-choose.has + .bel-clip, .bel-list .who, .bel-list a { color: #0071a1; }
+    .bel-term:hover::after, .bel-term:focus-visible::after { background: #0071a1; color: #f6fbf8; }
+    .ncc-give { background: #00703f; color: #f6fbf8; }
+    .ncc-give:hover { background: #0071a1; }
+    .bel-bar, .bel-status, .bel-status.good { color: #00703f; }
+    .bel-status.bad { color: #b3261e; }
+}
+
+.bel-concepts { list-style: none; padding: 0; margin: 0.75em 0; }
+.bel-concepts li { margin: 0.35em 0; }
+.bel-concepts li::before { content: "♪ "; color: var(--nela-green, #00d080); }
+
+/* preview bumper on aesthetic.computer only: highlighter yellow */
+.bel-proposal { display: inline-block; background: #ffe600; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 0 1rem; }
+.bel-proposal a { color: #000; }

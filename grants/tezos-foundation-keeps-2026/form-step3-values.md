@@ -63,7 +63,7 @@ Drafted 2026-05-22 from `DRAFT.md` + repo facts. Review before fill.
 
 ## Proposal Team
 > Sole developer and applicant: Jeffrey Alan Scudder.
-> Applicant entity: Aesthetic Inc (US C-corporation, EIN 33-1483385).
+> Applicant entity: Aesthetic Inc (US C-corporation).
 > Aesthetic Inc is the company behind Aesthetic Computer (aesthetic.computer), the creative-coding platform inside which KidLisp and the Keeps collection are designed, built, and operated.
 
 ## Proposal Team Experience
@@ -99,7 +99,7 @@ Drafted 2026-05-22 from `DRAFT.md` + repo facts. Review before fill.
 **0**
 
 ## Any other administrative detail
-> Applicant entity: Aesthetic Inc (US C-corporation, EIN 33-1483385). The grant would be held by Aesthetic Inc and disbursed per milestone. A detailed milestone breakdown (M1–M5, totaling USD 45,000 over ~14 weeks) accompanies this proposal on the Roadmap step.
+> Applicant entity: Aesthetic Inc (US C-corporation). The grant would be held by Aesthetic Inc and disbursed per milestone. A detailed milestone breakdown (M1–M5, totaling USD 45,000 over ~14 weeks) accompanies this proposal on the Roadmap step.
 >
 > Scope summary: M1–M3 are v12 contract engineering (spec, threat model, Ghostnet deployment, mainnet deployment, opt-in v11→v12 migration). M4 publishes the v12 contract as a reusable preservation template under an OSI license, accompanied by a 3–5 video tutorial series walking developers through forking, minting, and the 25-year audit cadence. M5 funds the LA adoption arm — 4 NELA Computer Club appointments at Plot.Place (Chinatown, LA) plus 1 public workshop — guiding 5+ LA-based generative artists through forking the v12 template and minting their first keeps, published as a public onboarding playbook.
 >

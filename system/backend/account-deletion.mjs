@@ -15,6 +15,7 @@
 // be re-purged.
 
 import { createHash, randomBytes } from "node:crypto";
+import { BOOK_COLLECTION } from "./braincell-book.mjs";
 
 const DAY = 24 * 60 * 60 * 1000;
 export const GRACE_MS = 14 * DAY;
@@ -693,6 +694,8 @@ export const STEPS = [
         await db.collection("ac-credit-wallets").deleteOne({ _id: sub });
       }
       await db.collection("ac-credit-purchases").updateMany({ user: sub }, { $set: { user: gone } });
+      // The Braincell book is kept for the books too, under the same stand-in.
+      await db.collection(BOOK_COLLECTION).updateMany({ user: sub }, { $set: { user: gone } });
 
       for (const name of ["boots", "piece-runs"]) {
         const visitor = {

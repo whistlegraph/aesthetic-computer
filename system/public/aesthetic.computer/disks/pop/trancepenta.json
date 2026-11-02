@@ -7,6 +7,8 @@
   "key": "dorian",
   "meter": "5/4",
   "duration": 190.69,
+  "released": "2026-05-20",
+  "status": "released",
   "audio": "/assets/pop/trancepenta.mp3",
   "cover": "/assets/pop/trancepenta.jpg",
   "sections": [
@@ -60,7 +62,8 @@
     }
   ],
   "links": {
-    "spotify": "https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG"
+    "spotify": "https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG",
+    "youtube": "https://youtu.be/Em_lvTYET7M"
   },
   "credits": "5/4 chill-trance — hellsine gabber kick, odyssey theremin, jeffrey hum, supersaw wall. part of pixsies."
 }

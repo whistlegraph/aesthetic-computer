@@ -1,87 +1,404 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Releases and public release data from Aesthetic Dot Computer.">
-  <meta name="theme-color" content="#fa36a5">
-  <title>Aesthetic Dot Computer</title>
-<link rel="canonical" href="https://pop.aesthetic.computer/" />
-<meta property="og:title" content="Aesthetic Dot Computer" />
-<meta property="og:description" content="Releases and public release data from Aesthetic Dot Computer." />
-<meta property="og:url" content="https://pop.aesthetic.computer/" />
-<meta property="og:type" content="website" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23211d24'/%3E%3Ccircle cx='32' cy='32' r='13' fill='none' stroke='%23ef3898' stroke-width='7'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css">
-<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Every relative URL resolves against pop.aesthetic.computer, so this one
+         file also serves as aesthetic.computer/pop (system/netlify/functions/pop.mjs). -->
+    <base href="https://pop.aesthetic.computer/">
+    <title>pop · Aesthetic Computer</title>
+    <link rel="canonical" href="https://pop.aesthetic.computer/" />
+    <meta name="description" content="Every single released by Aesthetic Dot Computer, newest first, with a jukebox that plays them in order.">
+    <meta property="og:title" content="pop — Aesthetic.Computer" />
+    <meta property="og:description" content="Singles made inside Aesthetic Computer, newest first." />
+    <meta property="og:image" content="https://pop.aesthetic.computer/pop-og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pop.aesthetic.computer" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://pop.aesthetic.computer/pop-og.jpg" />
+    <meta name="theme-color" content="#fbfbf8" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1d1d24" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="alternate" type="application/rss+xml" title="pop · Aesthetic Computer" href="feed.xml" />
+    <style>
+        :root {
+            --bg: #fbfbf8; --page-bg: #efefea; --text: #1a1a1a; --dim: #777; --line: rgba(0,0,0,0.09); --hover: rgba(0,0,0,0.035);
+            --link: #1a1a1a; --accent: #b4489a;
+            --s-released: #1f9d55; --s-ac: #2f74c0;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #1d1d24; --page-bg: #141419; --text: #e6e6e6; --dim: #8a8a8a; --line: rgba(255,255,255,0.09); --hover: rgba(255,255,255,0.04);
+                --link: #e6e6e6; --accent: #e07ac0;
+                --s-released: #3ccf7a; --s-ac: #5aa0ef;
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg: #1d1d24; --page-bg: #141419; --text: #e6e6e6; --dim: #8a8a8a; --line: rgba(255,255,255,0.09); --hover: rgba(255,255,255,0.04);
+            --link: #e6e6e6; --accent: #e07ac0;
+            --s-released: #3ccf7a; --s-ac: #5aa0ef;
+        }
+        @font-face { font-family: "Latin Modern Roman"; src: url("fonts/lmroman10-regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+        @font-face { font-family: "Latin Modern Roman"; src: url("fonts/lmroman10-italic.woff") format("woff"); font-weight: 400; font-style: italic; font-display: swap; }
+        @font-face { font-family: "Latin Modern Roman"; src: url("fonts/lmroman10-bold.woff") format("woff"); font-weight: 700; font-style: normal; font-display: swap; }
+        @font-face { font-family: "Latin Modern Roman"; src: url("fonts/lmroman10-bolditalic.woff") format("woff"); font-weight: 700; font-style: italic; font-display: swap; }
+        @font-face { font-family: "YWFT Processing"; src: url("fonts/ywft-processing-regular.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+        * { box-sizing: border-box; }
+        :root { --grid: color-mix(in srgb, var(--text) 20%, var(--bg)); --muted: color-mix(in srgb, var(--text) 72%, var(--bg)); }
+        body {
+            margin: 0; background: var(--page-bg); color: var(--text);
+            font: 15px/1.25 "Latin Modern Roman", "Computer Modern Serif", "CMU Serif", Georgia, "Times New Roman", serif;
+            font-variant-numeric: lining-nums tabular-nums;
+        }
+        main { max-width: 1080px; margin: 0 auto; padding: 32px clamp(20px, 3vw, 40px) 64px; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+        header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding-bottom: 8px; }
+        h1 { font-size: 24px; margin: 0; font-weight: 400; letter-spacing: -0.01em; }
+        h1 .sep, h1 .ac { color: var(--dim); font-weight: 400; }
+        h1 .ac { font-family: "YWFT Processing", sans-serif; white-space: nowrap; }
+        h1 .ac-dot { color: #ff69b4; }
+        nav { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--dim); }
+        nav a, nav button { color: var(--dim); }
+        .intro { color: var(--dim); margin: 6px 0; font-style: italic; }
+        .intro a { color: var(--accent); }
+        .intro kbd { font: inherit; font-style: normal; color: var(--muted); }
+        [hidden] { display: none !important; }
+
+        /* --- the deck: one row of jukebox, pinned to the top of the list --- */
+        .deck {
+            position: sticky; top: 0; z-index: 2; margin: 14px 0 0;
+            background: var(--bg); border: 1px solid var(--grid);
+            display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: 12px;
+        }
+        .deck .art { grid-row: 1 / 3; width: 56px; height: 56px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 12%, var(--bg)); overflow: hidden; }
+        .deck .art img { display: block; width: 56px; height: 56px; object-fit: cover; }
+        .deck .art img:not([src]) { display: none; }
+        .deck .art .glyph { color: var(--accent); font-size: 22px; }
+        .deck .who { min-width: 0; padding-top: 6px; line-height: 1.2; }
+        .deck .who .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .deck .who .title a { color: inherit; }
+        .deck .who .by { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .deck .controls { display: flex; gap: 14px; padding: 6px 12px 0 0; white-space: nowrap; }
+        .deck .controls button { color: var(--dim); padding: 4px 0; }
+        .deck .controls button.play { color: var(--text); font-weight: 700; min-width: 3.2em; text-align: center; }
+        .deck .controls button:hover { text-decoration: underline; }
+        .deck .bar { grid-column: 2 / 4; display: flex; align-items: center; gap: 10px; padding: 4px 12px 6px 0; font-size: 13px; color: var(--muted); }
+        .deck .rail { flex: 1; height: 14px; display: flex; align-items: center; cursor: pointer; }
+        .deck .rail .track { width: 100%; height: 3px; background: var(--grid); position: relative; }
+        .deck .rail .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); }
+        .deck .time { min-width: 7.5em; text-align: right; }
+        .deck[data-state="idle"] .bar .time { min-width: 0; }
+
+        /* --- the catalog --- */
+        table { background: var(--bg); width: 100%; table-layout: fixed; border-collapse: collapse; border: 1px solid var(--grid); border-top: 0; }
+        td { border: 1px solid var(--grid); border-top: 0; padding: 0; vertical-align: top; }
+        [data-album="pixsies"] { --kind: #ef3898; }
+        [data-album="wannadash"] { --kind: #764896; }
+        [data-album="sailor song"] { --kind: #2a9d8f; }
+        [data-album="Wattajetta Stone Club"] { --kind: #2189b5; }
+        tr[data-key] { --tint: color-mix(in srgb, var(--kind, #888) 9%, var(--bg)); --strip: color-mix(in srgb, var(--kind, #888) 65%, var(--bg)); }
+        td.track { background: var(--tint); box-shadow: inset 3px 0 var(--strip); }
+        tbody tr:hover, tbody tr:focus-within { outline: 1px solid var(--accent); outline-offset: -1px; }
+        tr[data-playing] { outline: 1px solid var(--accent); outline-offset: -1px; }
+        tr[data-playing] td.track { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+        .line { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 2px 4px 2px 6px; }
+        .thumb { flex: 0 0 28px; width: 28px; height: 28px; display: grid; place-items: center; background: color-mix(in srgb, var(--kind, var(--dim)) 16%, var(--bg)); overflow: hidden; position: relative; }
+        .thumb img { display: block; width: 28px; height: 28px; object-fit: cover; }
+        .thumb .glyph { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; background: rgba(0,0,0,0.45); font-size: 12px; opacity: 0; }
+        .thumb:hover .glyph, tr[data-playing] .thumb .glyph { opacity: 1; }
+        .icon-fallback { color: var(--muted); }
+        .title { flex: 0 1 auto; min-width: 0; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .title button { font-weight: 700; text-align: left; white-space: nowrap; }
+        .title button:hover { text-decoration: underline; }
+        .title .now { color: var(--accent); font-weight: 400; font-style: italic; font-size: 14px; margin-left: 6px; }
+        tr[data-expanded="true"] .title { white-space: normal; }
+        .marquee { flex: 1 0 72px; min-width: 0; overflow: hidden; white-space: nowrap; padding: 3px 0; color: var(--muted); font-size: 14px; text-align: left; mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+        .marquee-text { display: inline-block; }
+        .marquee.overflows .marquee-text { animation: description-scroll var(--duration) linear infinite; }
+        .marquee:not(.onscreen) .marquee-text, .marquee:hover .marquee-text, .marquee:focus .marquee-text, tr[data-expanded="true"] .marquee-text { animation-play-state: paused; }
+        :root[data-motion="paused"] .marquee-text { animation: none; }
+        @keyframes description-scroll { 0%, 6% { transform: translateX(0); } 100% { transform: translateX(var(--travel)); } }
+        @media (prefers-reduced-motion: reduce) { :root:not([data-motion="playing"]) .marquee-text { animation: none; } }
+        .when { display: inline-flex; align-items: baseline; gap: 10px; flex: none; margin-left: auto; text-align: right; white-space: nowrap; color: var(--muted); font-size: 14px; }
+        .when .len { color: var(--dim); }
+        .details { padding: 6px 10px 10px 39px; line-height: 1.35; }
+        .abstract, .note { color: var(--muted); font-size: 14px; }
+        .facts { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 10px 0 0; font-size: 14px; }
+        .facts dt { color: var(--muted); font-size: 12px; }
+        .facts dd { margin: 0; }
+        .facts .ln a, .facts .ln button { display: inline-block; margin-right: 9px; padding: 4px 0; text-decoration: underline; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; background: var(--sc, var(--dim)); margin-right: 6px; vertical-align: 0; }
+        [data-status="released"] { --sc: var(--s-released); }
+        [data-status="ac"] { --sc: var(--s-ac); }
+        [data-status="ac"] .dot { background: none; box-shadow: inset 0 0 0 2px var(--sc); }
+        .empty { padding: 14px 10px; color: var(--muted); font-style: italic; }
+        footer { color: var(--muted); margin-top: 14px; font-size: 14px; }
+        a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        @media (max-width: 600px) {
+            main { padding: 20px 18px 40px; }
+            h1 { font-size: 22px; }
+            .when { font-size: 12px; gap: 7px; }
+            .when .len { display: none; }
+            .marquee { flex-basis: 54px; font-size: 13px; }
+            .line { gap: 5px; }
+            .thumb { flex-basis: 24px; width: 24px; height: 24px; }
+            .thumb img { width: 24px; height: 24px; }
+            .details { padding-left: 8px; padding-right: 8px; }
+            nav a, nav button { padding: 5px 0; }
+            .deck { grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 10px; }
+            .deck .who { grid-column: 2; grid-row: 1; padding-top: 7px; }
+            .deck .controls { grid-column: 2; grid-row: 2; padding: 2px 8px 6px 0; gap: 16px; }
+            .deck .bar { grid-column: 1 / 3; grid-row: 3; padding: 0 8px 6px 8px; border-top: 1px solid var(--line); }
+            .deck .bar .rail { padding-top: 2px; }
+        }
+    </style>
+    <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  <header>
-    <a class="wordmark" href="/">pop.aesthetic.computer</a>
-    <nav aria-label="Primary">
-      <a href="#releases">releases</a>
-      <a href="#data">release data</a>
-      <a href="https://aesthetic.computer">aesthetic.computer</a>
-    </nav>
-  </header>
+<main>
+    <header>
+        <h1><a href="./">pop</a> <span class="sep">—</span> <a class="ac" href="https://aesthetic.computer">Aesthetic<span class="ac-dot">.</span>Computer</a></h1>
+    </header>
+    <p class="intro">Singles made inside Aesthetic Computer, newest first. Tap a title to play; the jukebox keeps going down the list.</p>
 
-  <main>
-    <section class="hero" aria-labelledby="title">
-      <p class="artist">Aesthetic Dot Computer</p>
-      <h1 id="title">Music made inside Aesthetic Computer.</h1>
-      <a class="primary" href="#releases">listen</a>
+    <section class="deck" id="deck" data-state="idle" aria-label="Now playing">
+        <div class="art"><img alt="" decoding="async" hidden><span class="glyph" aria-hidden="true">♪</span></div>
+        <div class="who"><span class="title" id="deck-title">juke</span><span class="by" id="deck-by">loading the catalog…</span></div>
+        <div class="controls">
+            <button type="button" id="prev" aria-label="Previous track">‹ prev</button>
+            <button type="button" id="toggle" class="play" aria-label="Play">play</button>
+            <button type="button" id="next" aria-label="Next track">next ›</button>
+        </div>
+        <div class="bar">
+            <div class="rail" id="rail" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><div class="track"><div class="fill" id="fill"></div></div></div>
+            <span class="time" id="time"></span>
+        </div>
     </section>
 
-    <section id="releases" aria-labelledby="releases-title">
-      <h2 id="releases-title">Releases</h2>
-      <div id="track-grid" class="track-grid" aria-live="polite"></div>
-      <noscript>JavaScript is required to load the release catalog.</noscript>
-    </section>
+    <table class="tracks" id="tracks" aria-label="Releases">
+      <tbody><tr><td class="empty">Loading the catalog…</td></tr></tbody>
+    </table>
 
-    <section id="data" class="data" aria-labelledby="data-title">
-      <div class="data-heading">
-        <p class="artist">Release data</p>
-        <h2 id="data-title">The release record is becoming an interface.</h2>
-      </div>
+    <footer>
+        <nav>
+            <a href="https://aesthetic.computer/juke">juke</a>
+            <a href="releases/catalog.json">catalog</a>
+            <a href="feed.xml">feed</a>
+            <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/pop">source</a>
+            <button id="theme" type="button">theme</button>
+            <button id="motion" type="button">pause descriptions</button>
+        </nav>
+        <p class="intro">Released by <a href="https://aesthetic.computer">Aesthetic Dot Computer</a> from the <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/pop">/pop</a> mill, est. May 17, 2026. The iPhone app plays the catalog natively: type <kbd>pop</kbd> at the prompt.</p>
+    </footer>
+</main>
+<audio id="audio" preload="none"></audio>
+<script>
+(function () {
+    const root = document.documentElement;
+    try { const t = localStorage.getItem("pop-theme"); if (t) root.dataset.theme = t; } catch (e) {}
+    document.getElementById("theme").addEventListener("click", () => {
+        const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        root.dataset.theme = dark ? "light" : "dark";
+        try { localStorage.setItem("pop-theme", root.dataset.theme); } catch (e) {}
+    });
 
-      <div class="route" aria-label="Release data route">
-        <div>public release record</div>
-        <span aria-hidden="true">→</span>
-        <div>Juke + /pop</div>
-        <span aria-hidden="true">→</span>
-        <div>ERN 4.3.2</div>
-      </div>
+    const motion = document.getElementById("motion");
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    let motionPreference;
+    try { motionPreference = localStorage.getItem("pop-motion"); } catch (e) {}
+    function setMotion(value) {
+        root.dataset.motion = value;
+        motion.textContent = value === "paused" ? "play descriptions" : "pause descriptions";
+    }
+    setMotion(motionPreference || (reducedMotion.matches ? "paused" : "playing"));
+    motion.addEventListener("click", () => {
+        motionPreference = root.dataset.motion === "paused" ? "playing" : "paused";
+        setMotion(motionPreference);
+        try { localStorage.setItem("pop-motion", motionPreference); } catch (e) {}
+    });
+    reducedMotion.addEventListener("change", () => {
+        if (!motionPreference) setMotion(reducedMotion.matches ? "paused" : "playing");
+    });
 
-      <div class="data-grid">
-        <div>
-          <h3>Public</h3>
-          <p>Titles, artists, dates, durations, genres, media links, technical formats, and release state.</p>
-        </div>
-        <div>
-          <h3>Private overlay</h3>
-          <p>Legal party names, partner IDs, rights lines, delivery masters, credentials, and recipient rules.</p>
-        </div>
-      </div>
+    // --- catalog ---
+    const table = document.getElementById("tracks");
+    const tbody = table.tBodies[0];
+    const audio = document.getElementById("audio");
+    const deck = document.getElementById("deck");
+    const deckArt = deck.querySelector(".art img");
+    const deckTitle = document.getElementById("deck-title");
+    const deckBy = document.getElementById("deck-by");
+    const toggleButton = document.getElementById("toggle");
+    const fill = document.getElementById("fill");
+    const rail = document.getElementById("rail");
+    const time = document.getElementById("time");
+    let tracks = [], index = null, rows = [];
 
-      <article class="pilot">
-        <div>
-          <p class="artist">Marimbaba pilot</p>
-          <h3>ERN 4.3.2 / Simple Audio Single / TestMessage</h3>
-          <p>The evaluation message validates against the official schema. It has not been transmitted. Production delivery waits for real identifiers, rights data, local assets, a DDEX implementation licence, and a receiving partner agreement.</p>
-        </div>
-        <div class="pilot-links">
-          <a href="/releases/marimbaba">public JSON</a>
-          <a href="https://ern.ddex.net/electronic-release-notification-message-suite-part-1-definitions-of-messages/">DDEX ERN</a>
-        </div>
-      </article>
-    </section>
-  </main>
+    const clock = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    const longDate = (iso) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }) : "";
+    const el = (tag, attrs = {}, ...children) => {
+        const node = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) { if (v === undefined || v === null || v === false) continue; if (k === "text") node.textContent = v; else node.setAttribute(k, v === true ? "" : v); }
+        node.append(...children.filter(Boolean));
+        return node;
+    };
+    function mark(state) {
+        if (index === null) return;
+        rows[index].querySelector(".now").textContent = state;
+        rows[index].querySelector(".thumb .glyph").textContent = state === "playing" ? "❚❚" : "▶";
+    }
+    const statusLabel = (t) => t.status === "ac" ? "on AC only" : t.links?.spotify ? "in stores + on AC" : "released";
 
-  <footer>
-    <span>@jeffrey / aesthetic.computer</span>
-    <span>public release information only</span>
-  </footer>
+    function row(t, i) {
+        const img = el("img", { src: t.thumb || t.cover, alt: "", loading: "lazy", decoding: "async" });
+        const fallback = () => img.replaceWith(el("span", { class: "icon-fallback", "aria-hidden": "true", text: "◇" }));
+        img.addEventListener("error", fallback, { once: true });
+        const thumb = el("button", { class: "thumb", type: "button", "aria-label": `Play ${t.title}`, "data-play": i }, img, el("span", { class: "glyph", "aria-hidden": "true", text: "▶" }));
+        const title = el("span", { class: "title" }, el("button", { type: "button", "data-play": i, text: t.title, title: t.title }), el("span", { class: "now", "aria-live": "polite" }));
+        const marquee = el("button", { class: "marquee", type: "button", "aria-expanded": "false", "aria-controls": `details-${t.slug}`, title: "Show the record" }, el("span", { class: "marquee-text", text: t.credits || `${t.artist} · ${t.album}` }));
+        const when = el("span", { class: "when" }, t.duration ? el("span", { class: "len", text: clock(t.duration) }) : null, el("time", { datetime: t.released || undefined, text: longDate(t.released) || "undated" }));
+        const facts = el("dl", { class: "facts" });
+        const fact = (dt, dd) => dd && facts.append(el("div", {}, el("dt", { text: dt }), typeof dd === "string" ? el("dd", { text: dd }) : dd));
+        fact("Status", el("dd", { class: "st" }, el("span", { class: "dot" }), el("span", { text: statusLabel(t) })));
+        fact("Released", longDate(t.released));
+        fact("Artist", t.artist);
+        fact("Album", t.album);
+        fact("Length", t.duration ? clock(t.duration) : "");
+        fact("Tempo", [t.bpm && `${t.bpm} BPM`, t.meter, t.key].filter(Boolean).join(" · "));
+        const links = el("dd", { class: "ln" });
+        links.append(el("button", { type: "button", "data-play": i, text: "play here" }));
+        if (t.piece) links.append(el("a", { href: t.piece, text: "open in AC" }));
+        if (t.links?.spotify) links.append(el("a", { href: t.links.spotify, target: "_blank", rel: "noopener", text: "spotify" }));
+        if (t.links?.apple) links.append(el("a", { href: t.links.apple, target: "_blank", rel: "noopener", text: "apple music" }));
+        if (t.links?.youtube) links.append(el("a", { href: t.links.youtube, target: "_blank", rel: "noopener", text: "youtube" }));
+        if (t.audio) links.append(el("a", { href: t.audio, download: `${t.artist} - ${t.title}.mp3`, text: "mp3" }));
+        if (t.releaseData) links.append(el("a", { href: t.releaseData.replace(/^\//, ""), text: "release data" }));
+        fact("Listen", links);
+        const details = el("div", { class: "details", id: `details-${t.slug}`, hidden: true }, el("div", { class: "abstract", text: t.credits || "" }), facts);
+        const tr = el("tr", { "data-key": t.slug, "data-status": t.status || "released", "data-album": t.album || "", "data-created": t.released || "" },
+            el("td", { class: "track" }, el("div", { class: "line" }, thumb, title, marquee, when), details));
+        return tr;
+    }
 
-  <script type="module" src="/site.mjs"></script>
+    function render() {
+        rows = tracks.map(row);
+        tbody.replaceChildren(...rows);
+        measureMarquees();
+        const total = tracks.reduce((s, t) => s + (t.duration || 0), 0);
+        deckBy.textContent = `${tracks.length} singles · ${clock(total)} · tap play for the newest`;
+        const wanted = new URLSearchParams(location.search).get("t") || location.hash.slice(1);
+        const i = tracks.findIndex((t) => t.slug === wanted);
+        if (i >= 0) { cue(i); rows[i].scrollIntoView({ block: "center" }); }
+    }
+
+    // --- jukebox ---
+    function cue(i) {
+        if (!tracks[i]) return;
+        if (index !== null) { mark(""); delete rows[index].dataset.playing; }
+        index = i;
+        const t = tracks[i];
+        audio.src = t.audio;
+        deck.dataset.state = "cued";
+        deckTitle.replaceChildren(t.piece ? el("a", { href: t.piece, text: t.title }) : document.createTextNode(t.title));
+        deckBy.textContent = [t.artist, t.album].filter(Boolean).join(" · ");
+        deckArt.src = t.art || t.cover; deckArt.hidden = false;
+        rows[i].dataset.playing = "";
+        mark("cued");
+        fill.style.width = "0";
+        time.textContent = `0:00 / ${clock(t.duration)}`;
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: t.artist, album: t.album || "", artwork: [{ src: t.art || t.cover, sizes: "480x480", type: "image/jpeg" }] });
+        }
+        try { history.replaceState(null, "", `?t=${t.slug}`); } catch (e) {}
+    }
+    function play(i) { if (i !== index) cue(i); audio.play().catch(() => {}); }
+    function toggle() {
+        if (index === null) return play(0);
+        if (audio.paused) audio.play().catch(() => {}); else audio.pause();
+    }
+    const step = (by) => tracks.length && play((index === null ? 0 : index + by + tracks.length) % tracks.length);
+
+    audio.addEventListener("play", () => { deck.dataset.state = "playing"; toggleButton.textContent = "pause"; toggleButton.setAttribute("aria-label", "Pause"); mark("playing"); });
+    audio.addEventListener("pause", () => { if (audio.ended) return; deck.dataset.state = "paused"; toggleButton.textContent = "play"; toggleButton.setAttribute("aria-label", "Play"); mark("paused"); });
+    audio.addEventListener("ended", () => step(1)); // the whole catalog loops
+    audio.addEventListener("error", () => { deckBy.textContent = "couldn't play that one"; });
+    audio.addEventListener("timeupdate", () => {
+        const d = audio.duration || tracks[index]?.duration || 0;
+        const played = d ? Math.min(1, audio.currentTime / d) : 0;
+        fill.style.width = `${played * 100}%`;
+        rail.setAttribute("aria-valuenow", Math.round(played * 100));
+        time.textContent = `${clock(audio.currentTime)} / ${clock(d)}`;
+    });
+    function seekTo(fraction) {
+        const d = audio.duration || tracks[index]?.duration || 0;
+        if (index === null || !d) return;
+        audio.currentTime = Math.max(0, Math.min(d, fraction * d));
+    }
+    rail.addEventListener("click", (e) => { const r = rail.getBoundingClientRect(); seekTo((e.clientX - r.left) / r.width); });
+    rail.addEventListener("keydown", (e) => {
+        const d = audio.duration || 0; if (!d) return;
+        if (e.key === "ArrowRight") { e.preventDefault(); seekTo((audio.currentTime + 5) / d); }
+        if (e.key === "ArrowLeft") { e.preventDefault(); seekTo((audio.currentTime - 5) / d); }
+    });
+    toggleButton.addEventListener("click", toggle);
+    document.getElementById("prev").addEventListener("click", () => step(-1));
+    document.getElementById("next").addEventListener("click", () => step(1));
+    if ("mediaSession" in navigator) {
+        navigator.mediaSession.setActionHandler("play", () => audio.play());
+        navigator.mediaSession.setActionHandler("pause", () => audio.pause());
+        navigator.mediaSession.setActionHandler("previoustrack", () => step(-1));
+        navigator.mediaSession.setActionHandler("nexttrack", () => step(1));
+    }
+    document.addEventListener("keydown", (e) => {
+        if (e.target !== document.body || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === " ") { e.preventDefault(); toggle(); }
+        if (e.key === "ArrowRight") step(1);
+        if (e.key === "ArrowLeft") step(-1);
+    });
+
+    tbody.addEventListener("click", (e) => {
+        const playButton = e.target.closest("[data-play]");
+        if (playButton) {
+            const i = Number(playButton.dataset.play);
+            if (i === index && !audio.paused) audio.pause(); else play(i);
+            return;
+        }
+        const button = e.target.closest(".marquee");
+        if (!button) return;
+        const row = button.closest("tr");
+        const details = document.getElementById(button.getAttribute("aria-controls"));
+        details.hidden = !details.hidden;
+        row.dataset.expanded = String(!details.hidden);
+        button.setAttribute("aria-expanded", String(!details.hidden));
+    });
+
+    // --- marquee descriptions, as on papers.aesthetic.computer ---
+    let measureFrame;
+    function measureMarquees() {
+        cancelAnimationFrame(measureFrame);
+        measureFrame = requestAnimationFrame(() => {
+            for (const button of tbody.querySelectorAll(".marquee")) {
+                const travel = button.firstElementChild.scrollWidth > button.clientWidth ? button.firstElementChild.scrollWidth : 0;
+                button.classList.toggle("overflows", travel > 0);
+                button.style.setProperty("--travel", -travel + "px");
+                button.style.setProperty("--duration", Math.max(16, travel / 20) + "s");
+                visibility.observe(button);
+            }
+        });
+    }
+    const visibility = new IntersectionObserver((entries) => { for (const entry of entries) entry.target.classList.toggle("onscreen", entry.isIntersecting); });
+    new ResizeObserver(measureMarquees).observe(table);
+    document.fonts.ready.then(measureMarquees);
+
+    fetch("releases/catalog.json")
+        .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then((catalog) => { tracks = (catalog.tracks || []).filter((t) => t.slug && t.audio); render(); })
+        .catch(() => { tbody.replaceChildren(el("tr", {}, el("td", { class: "empty", text: "The catalog is unavailable right now." }))); deckBy.textContent = "catalog unavailable"; });
+})();
+</script>
 </body>
 </html>

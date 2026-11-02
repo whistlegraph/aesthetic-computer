@@ -18,7 +18,6 @@ import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
 import { bootPreloads, workerBundleFilename, builtinPieceUrl } from "../../backend/boot-preloads.mjs";
-import { profilePage } from "../../backend/profile-page.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 import { canonicalPageUrl } from "../../public/aesthetic.computer/lib/site-metadata.mjs";
@@ -97,11 +96,6 @@ function redirectToKidlispCode(event, code) {
 
 async function fun(event, context) {
   const _startTime = Date.now();
-  const profileHost = (event.headers?.host || "").split(":")[0];
-  if (["aesthetic.computer", "www.aesthetic.computer", "localhost", "127.0.0.1"].includes(profileHost)) {
-    const page = profilePage(event.path);
-    if (page) return respond(200, page, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-  }
   
   // 🐛 DEBUG: Log the actual path resolution for troubleshooting
   console.log(`🔍 DEBUG index.mjs: path=${event.path}, dev=${dev}, __dirname=${typeof __dirname !== 'undefined' ? __dirname : 'N/A'}`);
@@ -1368,6 +1362,17 @@ async function fun(event, context) {
               console.log('🏜️ Sandboxed environment detected, skipping analytics');
             }
           })();
+        </script>
+        <!-- 📦 Reload handoff: an update reload leaves its last frame in
+             sessionStorage (bios.mjs reloadForUpdate); it stands behind the boot
+             until the piece paints, so nothing flashes gray or white between. -->
+        <script>
+          (function(){try{var f=sessionStorage.getItem('ac:reload-frame');if(!f)return;sessionStorage.removeItem('ac:reload-frame');
+          var s=document.createElement('style');s.id='ac-reload-handoff';
+          s.textContent='html,body{background:#202020 url("'+f+'") center/100% 100% no-repeat !important;image-rendering:pixelated}';
+          document.head.appendChild(s);var done=false;
+          function clear(){if(done)return;done=true;setTimeout(function(){s.remove();},250);}
+          window.addEventListener('ac:booted',clear);setTimeout(clear,10000);}catch(e){}})();
         </script>
         <!-- Preload the YWFT Processing font for instant boot animation -->
         <link rel="preload" href="/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" />

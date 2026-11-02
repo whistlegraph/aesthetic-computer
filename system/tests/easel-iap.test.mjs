@@ -10,12 +10,13 @@ const verifier = (environment, payloads) => ({ environment,
 function wallet() {
   const doc = { balance: 0, grants: [], refunds: {} };
   const wallets = {
+    async findOne() { return structuredClone(doc); },
     async updateOne(filter, update) {
-      if (Array.isArray(update)) { // revoke pipeline
-        const id = Object.keys(update[0].$set).find(k => k.startsWith("refunds."))?.slice(8);
-        const credits = update[0].$set["refunds." + id].$max[0];
-        const already = doc.refunds[id] || 0;
-        doc.balance -= Math.max(0, credits - already); doc.refunds[id] = Math.max(credits, already);
+      const refund = Object.keys(update.$set || {}).find(k => k.startsWith("refunds."));
+      if (refund) { // the revoke's compare-and-set
+        const id = refund.slice(8);
+        if (filter.balance !== doc.balance || (filter[refund]?.$exists === false ? id in doc.refunds : filter[refund] !== doc.refunds[id])) return { modifiedCount: 0 };
+        doc.balance += update.$inc.balance; doc.refunds[id] = update.$set[refund];
         return { modifiedCount: 1 };
       }
       if (update.$setOnInsert) return { matchedCount: 1 };
