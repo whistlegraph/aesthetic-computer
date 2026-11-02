@@ -327,9 +327,11 @@ const TOOLS = [
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
     } },
   },
-  ...["account_activity", "network_referrers", "feature_usage", "piece_landings"].map(name => ({
+  ...["account_activity", "network_referrers", "feature_usage", "piece_landings", "mime_journeys"].map(name => ({
     name,
-    description: name === "piece_landings"
+    description: name === "mime_journeys"
+      ? "Compare signed-in AC accounts opening MIME from the prompt (swipe vs wheel/key/history), direct MIME visits, and Laer Klokken opens/minutes. Includes overlap, public handles and per-content foreground time. Private SSH report; MIME coverage starts at its tracking rollout, no anonymous-history joins. Optional handle filter."
+      : name === "piece_landings"
       ? "Which pieces people land on, anonymous visitors included: page loads per property and piece from lith's boot telemetry, split anonymous / signed-in, completed loads and top referrer sites per piece. Parameters are stripped; private paths are excluded. Counts landings, not in-tab moves between pieces. Optional property filter."
       : name === "feature_usage"
       ? "Laer Klokken/laklok feature-use counts by authenticated account: ranked controls, per-account counts, UTC daily activity and supported features with no recorded use, plus visibleMinutes (signed-in minutes open in a visible tab, per account and per UTC day, from the presence rollout onward). Covers canvas and HTML clients from the feature rollout onward. Zero is not proof of non-use. Optional public handle/property filter; up to 35 days, at most 50 accounts. No chat content, page contents or link destinations."
@@ -480,6 +482,7 @@ async function callTool(name, args = {}) {
     : name === "google_analytics" ? await googleAnalytics(args)
     : name === "tezos_revenue" ? await tezosRevenue({ hours: checkedHours(args.hours ?? 24) })
     : name === "social_report" ? await socialReport({ root: REPO_ROOT, hours: checkedHours(args.hours ?? 24, 2160) })
+    : name === "mime_journeys" ? await journeyReport("mime", args)
     : name === "account_activity" ? await journeyReport("accounts", args)
     : name === "feature_usage" ? await journeyReport("features", args)
     : name === "network_referrers" ? await journeyReport("referrers", args)

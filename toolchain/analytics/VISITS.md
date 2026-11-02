@@ -568,3 +568,43 @@ is unchanged; no prompts, source, filenames, accounts or session IDs enter visit
 Ship shared collector/modules with `ac-deploy`, then rebuild the browser client
 from the pushed revision with `bash aesel/web/deploy.sh`. Regular monolith
 deployment does not rebuild that client.
+
+### MIME prompt journeys and account viewing time
+
+The November 2, 2026 rollout adds `mime_opened`, `mime_closed` and
+`mime_piece_viewed` to authenticated `account-activity`, with `activityVersion: 1`.
+The parent AC shell records a committed prompt entry as `prompt_swipe`,
+`prompt_wheel`, `prompt_key` or `prompt_history`. Canceled pulls do not count.
+Standalone MIME records `direct`; signing in while a feed is already open is
+`already_open`, never a retroactive attributed swipe. Closing to the prompt,
+page exit and navigation have distinct exit reasons.
+
+Each viewing record contains a public `piece_<id>` or `kidlisp_<id>` content ID
+and incremental `focusedMs`. This is the dominant card's foreground exposure,
+not proof of attention or successful playback. Samples run about once per
+second, cap timer gaps at two seconds, and flush on card changes, loss of focus,
+exit or every 15 seconds. Reloads, crashes, offline use and failed requests can
+lose the final interval. Hidden, covered and parked feeds add no viewing time.
+Signed-out and previous-account time is discarded. DNT, GPC, the existing
+tracking opt-out and automation exclusion apply. Tokens stay in the parent;
+the embedded feed sends only the current public content ID and focus state.
+
+These events use the existing verified-account endpoint, 35-day retention and
+account-deletion cleanup. They have no anonymous visit IDs, source code, input,
+messages or full URLs. No account activity read API is public.
+
+`mime_journeys({hours:24, handle:"@handle"})` compares prompt MIME entries,
+including the swipe subset, against Lær Klokken opens and visible minutes.
+It returns account overlap and per-account, per-content MIME foreground time;
+direct MIME visits and sign-in while already open remain separate. Account
+overlap is within the requested window, not necessarily one session. Choose a
+window after rollout for comparisons: older Lær Klokken coverage cannot imply
+older MIME non-use. Use `account_activity` for ordered session events.
+
+On Lith, from `/opt/ac/system`:
+
+```sh
+node --env-file=.env ../toolchain/analytics/journey-report.mjs mime '{"hours":24}'
+```
+
+Validate with `node --test system/tests/account-activity.test.mjs system/tests/feed-activity.test.mjs`.

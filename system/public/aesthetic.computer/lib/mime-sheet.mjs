@@ -32,6 +32,8 @@ let historyEntry = false; // We pushed a /mime/?p= entry for the open sheet.
 let swallowPop = false;
 let lastPermalink = null; // The guest's card on screen, as last announced.
 let lastWheelAt = 0;
+let entryMethod = "prompt_key";
+let trackingOpen = false;
 let armed = false; // The prompt says its curtain is up and empty.
 
 const post = (message) =>
@@ -114,6 +116,7 @@ function popstate(e) {
   }
   if (e?.state?.acMimeSheet) {
     historyEntry = true; // Forward into a sheet entry: open it again.
+    entryMethod = "prompt_history";
     settle(0);
     return true;
   }
@@ -176,6 +179,7 @@ function follow(next) {
 // Begin moving from wherever things are, a glide in progress included.
 function begin() {
   const f = ensure();
+  if (trackingOpen) window.acAccountActivity?.feedSample(null, false);
   if (state === "parked") {
     post({ type: "mime:sheet", open: true }); // First card up, slot away.
     y = goal = innerHeight;
@@ -200,6 +204,10 @@ function settle(target) {
 }
 
 function opened() {
+  if (!trackingOpen) {
+    trackingOpen = true;
+    window.acAccountActivity?.feedOpen(entryMethod);
+  }
   state = "open";
   write();
   pausePrompt();
@@ -232,6 +240,8 @@ function meterGuest() {
 }
 
 function home() {
+  if (trackingOpen) window.acAccountActivity?.feedClose("prompt");
+  trackingOpen = false;
   state = "parked";
   still();
   y = goal = innerHeight;
@@ -259,6 +269,7 @@ function release(from, travel) {
 // ✋ Down: a curtain swipe, handed over by the prompt piece once it engages.
 function grab(startY) {
   if (state !== "parked" && state !== "cold") return;
+  entryMethod = "prompt_swipe";
   begin();
   const y0 = lastDownY ?? startY;
   let last = y0;
@@ -289,6 +300,7 @@ function wheelStep(from, dy, mode) {
   const px = mode === 1 ? dy * 16 : mode === 2 ? dy * innerHeight : dy;
   if (!wheel) {
     if (px <= 0) return;
+    if (from === "home") entryMethod = "prompt_wheel";
     begin(); // Mid-glide, this carries on from the live y.
     wheel = { from, travel: from === "home" ? innerHeight - y : y, timer: 0 };
   }
@@ -323,7 +335,9 @@ let pull = false;
 addEventListener("message", (e) => {
   if (!frame || e.origin !== location.origin || e.source !== frame.contentWindow) return;
   const d = e.data || {};
-  if (d.type === "mime:sheet:hello") post({ type: "mime:sheet", open: state !== "parked" && state !== "cold" });
+  if (d.type === "mime:activity") {
+    if (trackingOpen) window.acAccountActivity?.feedSample(d.contentId, d.active === true && state === "open");
+  } else if (d.type === "mime:sheet:hello") post({ type: "mime:sheet", open: state !== "parked" && state !== "cold" });
   else if (d.type === "mime:sheet:ready") frame.style.background = "transparent";
   else if (d.type === "mime:sheet:at") {
     lastPermalink = d.permalink || null;
@@ -347,6 +361,16 @@ addEventListener("message", (e) => {
   }
 });
 
+addEventListener("pagehide", () => {
+  if (trackingOpen) window.acAccountActivity?.feedClose("pagehide");
+  trackingOpen = false;
+});
+addEventListener("pageshow", () => {
+  if (state === "open" && !trackingOpen) {
+    trackingOpen = true;
+    window.acAccountActivity?.feedOpen("prompt_history");
+  }
+});
 window.acMimeSheet = { popstate };
 
 // Messages from the prompt piece:
@@ -359,6 +383,7 @@ export function mimeSheet({ action, y: at, of, on } = {}) {
   else if (action === "armed") armed = !!on;
   else if (action === "grab") grab(of ? (at * innerHeight) / of : innerHeight);
   else if (action === "show") {
+    entryMethod = "prompt_key";
     if (state === "parked" || state === "cold") settle(0);
   }
 }
