@@ -197,6 +197,7 @@ function world() {
       { user: OTHER, code: "theirs", source: "(embed $shared)" },
     ],
     "ac-credit-wallets": [{ _id: SUB, balance: 5 }],
+    "braincell-entries": [{ _id: "e1", user: SUB, kind: "issue", amount: 5 }],
     "walkieware-threads": [
       { _id: "my-thread", owner: SUB, code: "wgMine", ledger: { head: 1, versions: [{ id: 1, source: "(wipe red)", request: "red please" }] } },
       { _id: "their-thread", owner: OTHER, code: "wgOther", ledger: { head: 1, versions: [{ id: 1, source: "(wipe blue)", request: "blue please" }] } },
@@ -293,7 +294,7 @@ test("the purge removes the account everywhere and keeps only what it must, with
   const results = await runDueDeletions(deps, { now: later(GRACE_MS) });
   assert.deepEqual(results, [{ state: "completed" }]);
 
-  for (const name of ["paintings", "moods", "tapes", "chat-system", "chat-clock", "logs", "users", "@handles", "walkieware-threads", "whistlegraph-roblox-rooms"]) {
+  for (const name of ["paintings", "moods", "tapes", "chat-system", "chat-clock", "logs", "users", "@handles", "walkieware-threads", "whistlegraph-roblox-rooms", "braincell-entries"]) {
     assert.ok(!JSON.stringify(db.all(name)).includes(SUB), `${name} still names the account`);
   }
   assert.equal(db.all("paintings").length, 1, "other people's work stays");
@@ -311,6 +312,7 @@ test("the purge removes the account everywhere and keeps only what it must, with
   assert.equal(kidlisp.theirs.user, OTHER);
 
   assert.equal(db.all("ac-credit-wallets")[0].balance, 5, "the purchase ledger is kept for the books");
+  assert.equal(db.all("braincell-entries")[0].amount, 5, "the Braincell book is kept, under the stand-in");
   assert.ok(!JSON.stringify(db.all("ac-credit-wallets")).includes(SUB));
   assert.deepEqual(db.all("boots")[0], { meta: {}, server: { country: "US" } });
 

@@ -152,7 +152,7 @@ export const handler = stream(async (event) => {
     if (budgetFailure.statusCode !== 429) return fail(budgetFailure.statusCode, budgetFailure.message);
     try {
       const {authorizePaidRequest}=await import("../../backend/easel-paid-credits.mjs");
-      paidHold=await authorizePaidRequest({user:userSub,model,body,maxTokens});
+      paidHold=await authorizePaidRequest({user:userSub,model,body,maxTokens,product:asWorker?"whistlegraph":"aesel"});
     } catch(error) { return fail(error.statusCode||503,error.message); }
   }
   const settlePaid = async braincells => {
