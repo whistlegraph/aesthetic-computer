@@ -8,19 +8,22 @@ This is **index-only**: pointers to where canonical images live. Masters live on
 
 ## TIAT — Every Thing Computer opening, October 2026
 
-Four photographs added to Jeffrey’s archive on November 2, 2026. **Photos: Daniel Clayton ([@480productions](https://www.instagram.com/480productions/)).**
+Seven photographs of the installation, talk, and clothing-cue selections added to Jeffrey’s archive on November 2, 2026. **Photos: Daniel Clayton ([@480productions](https://www.instagram.com/480productions/)).**
 
 | Album position | Archived photograph | Scene |
 | --- | --- | --- |
 | 016 | [016.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/016.jpg) | Right side, back to camera, beside the laptop installation. |
 | 030 | [030.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/030.jpg) | Left side, holding a laptop beside the installation. |
 | 058 | [058.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/058.jpg) | Right side, talking beside the installation. |
+| 076 | [076.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/076.jpg) | Room view; installation partly visible at the left rear, with dark upper laptop screens. |
 | 124 | [124.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/124.jpg) | Center, holding a microphone and a small laptop. |
+| 125 | [125.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/125.jpg) | Crowd around the installation; three animated faces visible above the audience. |
+| 158 | [158.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/158.jpg) | Audience during a performance; maroon pants and blue-green patchwork shirt at right. |
 
 - **Source:** [shared Google Photos album](https://photos.app.goo.gl/Crdj6rbC8M1NB9reA), titled “tiat: everything computer exhibit opening - 10/26.” The exact event date remains unverified.
 - **Register:** `buckets["tiat-2026-10"]` in [manifest.json](manifest.json); [CDN collection manifest](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/manifest.json) includes dimensions, byte sizes, SHA-256 checksums, source media IDs, and download URLs.
 - **Files:** unedited 1600 × 2400 Google Photos JPEG derivatives, not camera-original masters. Copies on Neo’s desktop are byte-identical.
-- **Selection:** requested for Jeffrey’s archive; reviewed using the supplied maroon-pants clothing cue, without face matching. This is not an exhaustive appearance inventory.
+- **Selection:** installation views are 016, 030, 058, 076 (background), and 125. The set also retains the talk and clothing-cue selections. All 219 album thumbnails were reviewed, with enlarged inspection of installation and room views; small or obscured appearances may remain unrecorded. No face matching.
 - **Reuse:** retain the photographer credit. No open license is asserted.
 
 ## Picture-making history — `drawings.rey.sc`

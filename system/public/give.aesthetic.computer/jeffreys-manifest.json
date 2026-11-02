@@ -5486,7 +5486,7 @@
       },
       "credit": "Photos: Daniel Clayton (@480productions).",
       "rights": "Photographer credit required; no open license asserted.",
-      "selection": "Four photos selected for Jeffrey’s archive at his request, reviewed using the supplied maroon-pants clothing cue. No face matching. This selection is not an exhaustive appearance inventory.",
+      "selection": "Seven photos selected for Jeffrey’s archive: installation views, a talk, and clothing-cue candidates. All 219 album thumbnails were reviewed, with enlarged inspection of installation and room views. No face matching; small or obscured background appearances may remain unrecorded.",
       "format_note": "Unedited Google Photos downloads requested at 2400 px; these are web derivatives, not camera-original masters.",
       "items": {
         "016.jpg": {
@@ -5505,7 +5505,11 @@
           "album_position_at_import": 16,
           "source_media_id": "AF1QipPTBp9JP1b98rC-Fwcrv1rjGz0awO_W6u3VPII",
           "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczOzHTt9YybnFIt9hyLjwQaHIvYf6uTuROpIkHCMLoJmkl9YxfR12JHAJ4iikoxZVqap7ZtDb0KCAE9EKT4x7Nu2kxbSBoWYjKJw781rzeaUcckh3Tw=w2400-h2400",
-          "description": "Right side, back to camera, beside the laptop installation."
+          "description": "Right side, back to camera, beside the laptop installation.",
+          "tags": [
+            "installation",
+            "clothing-cue"
+          ]
         },
         "030.jpg": {
           "aspect": 0.666667,
@@ -5523,7 +5527,11 @@
           "album_position_at_import": 30,
           "source_media_id": "AF1QipP_XoXRW1wCcXxQM53piFSZQoxpiXB5NfPikhk",
           "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczP4FUIUhajC9JjgUTSmLinWNxbwLvzQZsfx_SKUyjZa_MZ0AkwtaEAEbcQFbBiKV67SOyuugIBysjYNxrXFeBOL6goe2Qkf5uOyfJfm5tyifX_z2xw=w2400-h2400",
-          "description": "Left side, holding a laptop beside the installation."
+          "description": "Left side, holding a laptop beside the installation.",
+          "tags": [
+            "installation",
+            "clothing-cue"
+          ]
         },
         "058.jpg": {
           "aspect": 0.666667,
@@ -5541,7 +5549,33 @@
           "album_position_at_import": 58,
           "source_media_id": "AF1QipOd43hAkJNzFPdqijngtDzpxFq83SvKSnQM1Pw",
           "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczOjHwmPK3kKBc4_x4fyy73Y_Ysf3mbm4G1t7omuVw_GVCh-3hxIpsHdfFEb1csz0BEjHPg1PoMxeEINB3AEw9HoiW0yOgeQ-Rn9jjz5E8rbuWme6pI=w2400-h2400",
-          "description": "Right side, talking beside the installation."
+          "description": "Right side, talking beside the installation.",
+          "tags": [
+            "installation",
+            "clothing-cue"
+          ]
+        },
+        "076.jpg": {
+          "aspect": 0.666667,
+          "focal": [
+            50,
+            50
+          ],
+          "pois": [],
+          "src": "tiat-opening",
+          "tier": "web",
+          "width": 1600,
+          "height": 2400,
+          "size": 505909,
+          "sha256": "ef52ff2149d613a86cf07787665d1a1955dc6f495897c4a0337e919cf8c31390",
+          "album_position_at_import": 76,
+          "source_media_id": "AF1QipODGb0oE1uOvBqx54dEEqrFFxPMt44yDNWkNk0",
+          "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczOCNPuD0SAKnDH-t2D2XgdW-jG5-IbUCiCyi9xC9W7GXyKgIAIV-0uwbl49x4FcP7va21m8LTPLtFcPnqRsHoVeMqrqIlsmDZhxI0HKsyyx14KR4I8=w2400-h2400",
+          "description": "Room view with the installation partly visible against the left background wall; upper laptops are dark.",
+          "tags": [
+            "installation",
+            "background"
+          ]
         },
         "124.jpg": {
           "aspect": 0.666667,
@@ -5559,9 +5593,58 @@
           "album_position_at_import": 124,
           "source_media_id": "AF1QipOox3rMxzDHpFfTV-c3fvbz3l6RLkLP5OinvKY",
           "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczPdoKHMuMeAQmUL0vHU7J7UnjELKq8y-Ci29onz_pjS22sUbFOxbX288QO1a2NdzhHzyEp_KHD0HxPBwXo8mCDvrFEvQGV2saFqxTHW36dj-FBnSwk=w2400-h2400",
-          "description": "Center, holding a microphone and a small laptop."
+          "description": "Center, holding a microphone and a small laptop.",
+          "tags": [
+            "talk",
+            "clothing-cue"
+          ]
+        },
+        "125.jpg": {
+          "aspect": 0.666667,
+          "focal": [
+            50,
+            50
+          ],
+          "pois": [],
+          "src": "tiat-opening",
+          "tier": "web",
+          "width": 1600,
+          "height": 2400,
+          "size": 605575,
+          "sha256": "2c945f1fd2238ef0a342a07f095be0ffed09954554de0ecac88cf5eb277f4ce3",
+          "album_position_at_import": 125,
+          "source_media_id": "AF1QipNKKICw6NlW4eAoNzhx8oRyeeTKzHJxxAqkDx8",
+          "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczOK3DTsGYHcOqMyC6Bd7xNUsvehZsUFc389nleCQYA69oD03N2vOTrkxwDrRo733Ba4M-qRFwEu3XTh0SDtLSWggFqOnGKlF_CQSpDUNZFNdIlz_KU=w2400-h2400",
+          "description": "Crowd gathered around the installation; three animated faces are clearly visible above the audience.",
+          "tags": [
+            "installation",
+            "audience"
+          ]
+        },
+        "158.jpg": {
+          "aspect": 0.666667,
+          "focal": [
+            50,
+            50
+          ],
+          "pois": [],
+          "src": "tiat-opening",
+          "tier": "web",
+          "width": 1600,
+          "height": 2400,
+          "size": 700747,
+          "sha256": "ea8bafec75a71fc2b6bf40419e73f9a6383159daef74c68fb2f95391346c3e3b",
+          "album_position_at_import": 158,
+          "source_media_id": "AF1QipOBIJh7dDvGrMIPot6k5uWZ1nfBJm_F5ledAFg",
+          "source_download_url": "https://lh3.googleusercontent.com/pw/AP1GczPumAWoyQjDEeR53_edyItVOE8ksRiNdMw_5eK9gvmgOjTvPib2XfstKXJCq_OLF_hObD8WNWs7D6qQKJ85tuqtpkPe93Y-HoLkfHZvjLQyXiwuEOM=w2400-h2400",
+          "description": "Audience view during a musical performance; maroon pants and blue-green patchwork shirt visible at right.",
+          "tags": [
+            "clothing-cue",
+            "audience"
+          ]
         }
-      }
+      },
+      "reviewed": "2026-11-02"
     }
   },
   "updated": "2026-11-02"
