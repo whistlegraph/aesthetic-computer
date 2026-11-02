@@ -10,6 +10,10 @@ export async function sealPaintingWip(database, body, user) {
       const atproto = await createMediaRecord(database, MediaTypes.PAINTING, record, { userSub: user?.sub || null });
       if (atproto?.rkey) await paintings.updateOne({ _id: record._id }, { $set: { "atproto.rkey": atproto.rkey } });
     } catch (error) { console.warn("Painting federation:", error.message); }
+    // Words for its public page (notepaint, a private product): queued, never
+    // awaited, and absent from a core checkout without the product.
+    import("./nopaint-describe.mjs").then(({ enqueueDescribe }) => enqueueDescribe(result.code, body.wip.revision))
+      .catch(() => {});
   }
   return result;
 }
