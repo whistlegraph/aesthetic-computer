@@ -262,6 +262,11 @@ const PAPER_MAP = {
     siteName: "free-vs-open-26-arxiv",
     title: "Free Versus Nonfree",
   },
+  "arxiv-laptop-performance": {
+    base: "laptop-performance",
+    siteName: "laptop-performance-26-arxiv",
+    title: "Don't Forget the Keyboard",
+  },
   "arxiv-gaming-education": {
     base: "gaming-education",
     siteName: "gaming-education-26-arxiv",
@@ -588,6 +593,7 @@ const CATEGORIES = [
     sub: "Arguments about creative computing — its lineage, its players, and its discontents.",
     dirs: [
       "arxiv-plork",
+      "arxiv-laptop-performance",
       "arxiv-sustainability",
       "arxiv-goodiepal",
       "arxiv-whistlegraph",
@@ -1125,6 +1131,7 @@ function updateIndex(entries) {
     "open-schools-26-arxiv": 18,
     "five-years-from-now-26-arxiv": 19,
     "free-vs-open-26-arxiv": 19.1,
+    "laptop-performance-26-arxiv": 19.15,
     "gaming-education-26-arxiv": 19.2,
     "aesthetic-may-26-essay": 19.5,
     "aesthetic-june-26-essay": 19.6,
@@ -1327,6 +1334,11 @@ function updateIndex(entries) {
       detail: "",
       abstract:
         "Get Closed Source Out of Schools makes the case that creative computing should be teachable, inspectable, and modifiable. The paper argues for open tools as infrastructure for learning.",
+    },
+    "laptop-performance-26-arxiv": {
+      detail: "Laptop performance, typed music, and where notepat and AC Native OS stand &middot; 68-source platter",
+      abstract:
+        "Don't Forget the Keyboard maps twenty years of laptop performance and forty of QWERTY note entry: typewriter percussion, tracker piano rows, Roblox letter sheets, PLOrk and the native-input program, six key-mapping logics, typing as the gesture, the liveness critique, and computers booted into instruments. It tests four claims about Aesthetic.Computer against that map. Two survive narrowly, one is measured, one is argued, and each comes with the study that would settle it.",
     },
     "free-vs-open-26-arxiv": {
       detail: "Stallman's licensing map and where Aesthetic.Computer stands &middot; 6pp",

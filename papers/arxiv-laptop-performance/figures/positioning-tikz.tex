@@ -1,0 +1,60 @@
+% Positioning map: where the instrument lives (x) by what a key means (y).
+% Cell contents are the systems surveyed in sections 3-8; sources in
+% papers/laptop-platter/sources.json.
+\begin{tikzpicture}[
+  every node/.style={font=\sffamily},
+  cell/.style={draw=acgray!40, fill=white, rounded corners=2pt,
+    minimum width=3.42cm, minimum height=1.36cm, text width=3.1cm,
+    align=center, font=\scriptsize\sffamily, inner sep=3pt},
+  filled/.style={cell, fill=acgray!7},
+  ours/.style={cell, draw=acpink, line width=1.1pt, fill=acpink!9},
+  open/.style={cell, draw=acgray!35, dashed, fill=white, text=acgray},
+  colhead/.style={font=\scriptsize\sffamily\bfseries, text=acdark, align=center, text width=3.3cm},
+  rowhead/.style={font=\scriptsize\sffamily\bfseries, text=acdark, align=right, text width=2.15cm, anchor=east},
+  axis/.style={font=\scriptsize\sffamily\itshape, text=acgray}
+]
+  \def\dx{3.62}\def\dy{1.52}
+  % column x positions (cell centres)
+  \def\cA{0}\def\cB{\dx}\def\cC{2*\dx}\def\cD{3*\dx}
+  % row y positions, top row = by name
+  \def\rN{0}\def\rT{-\dy}\def\rP{-2*\dy}\def\rC{-3*\dy}
+
+  % column heads
+  \node[colhead] at (\cA,0.98) {dedicated box};
+  \node[colhead] at (\cB,0.98) {app on a desktop};
+  \node[colhead] at (\cC,0.98) {live-boot studio};
+  \node[colhead] at ({\cD},0.98) {boots into one instrument};
+
+  % row heads
+  \node[rowhead] at (-1.86,\rN) {key plays\\its own name};
+  \node[rowhead] at (-1.86,\rT) {key placed\\by theory};
+  \node[rowhead] at (-1.86,\rP) {key placed\\by position};
+  \node[rowhead] at (-1.86,\rC) {no {QWERTY}:\\knobs, pads, grids};
+
+  % row: by name
+  \node[open]   at (\cA,\rN) {---};
+  \node[ours]   at (\cB,\rN) {\textbf{notepat} (web, 2024)};
+  \node[open]   at (\cC,\rN) {---};
+  \node[ours]   at ({\cD},\rN) {\textbf{notepat on}\\\textbf{AC Native OS} (2026)};
+
+  % row: by theory
+  \node[open]   at (\cA,\rT) {---};
+  \node[filled] at (\cB,\rT) {aQWERTYon \textperiodcentered\ Wicki--Hayden\\TypistInstrument};
+  \node[open]   at (\cC,\rT) {---};
+  \node[open]   at ({\cD},\rT) {---};
+
+  % row: by position
+  \node[open]   at (\cA,\rP) {---};
+  \node[filled] at (\cB,\rP) {trackers \textperiodcentered\ Musical Typing\\CliX \textperiodcentered\ Virtual Piano};
+  \node[filled] at (\cC,\rP) {dyne:bolic \textperiodcentered\ Puredyne\\(bundled apps)};
+  \node[open]   at ({\cD},\rP) {---};
+
+  % row: no qwerty
+  \node[filled] at (\cA,\rC) {Bela \textperiodcentered\ norns\\Organelle \textperiodcentered\ Satellite};
+  \node[filled] at (\cB,\rC) {DAW + controller\\Taptop \textperiodcentered\ Laptap};
+  \node[filled] at (\cC,\rC) {Indamixx\\(DAW desktop)};
+  \node[filled] at ({\cD},\rC) {MOD live-USB\\(needs an interface)};
+
+  % axis captions, set in the empty corner above the row heads
+  \node[axis, anchor=east, align=right] at (-1.86,1.0) {where it lives $\rightarrow$\\[1pt]what a key means $\downarrow$};
+\end{tikzpicture}

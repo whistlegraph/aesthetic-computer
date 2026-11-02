@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "paper": "Don't Forget the Keyboard",
+  "pdf": "laptop-performance.pdf",
+  "pdfSha256": "b5af864ab5540a08f2ad4e30a9ada361f2356c5561c57366cfd920524f180e70",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-11-02T22:48:45Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every wordmark goes through the \\ac macro, including the protected folk-songs bibliography title. Pink period confirmed at full resolution in the byline, abstract, section 1, Figure 1 and Table 2 captions, and the self-citations on page 6."
+  },
+  "expectedDiagrams": 1,
+  "diagrams": [
+    {
+      "id": "positioning",
+      "page": 4,
+      "crop": [
+        0.08,
+        0.055,
+        0.84,
+        0.325
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Four-by-four grid of equal cells with even gutters; nothing touches. Axis captions moved into the empty top-left corner after the first render's vertical arrow crossed the row labels (tangent fail, fixed). Column and row heads in bold sans read at page size; cell text in scriptsize sans is legible. Hierarchy: two pink-outlined cells carry the claim, filled grey cells are priors, dashed cells mark empty space, and the caption names all three states so color is not the only cue. No edges to route. Minor: the bold 'notepat on / AC Native OS' line sets loosely, acceptable."
+    }
+  ],
+  "expectedFigures": 0,
+  "figures": []
+}
