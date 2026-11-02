@@ -42,6 +42,21 @@ test("No Paint's notepaint link records a reviewed milestone and measurement cov
   assert.equal(visitUpdate(visit).$max["actions.notepaint_opened"], true);
 });
 
+test("Braincells funnel and the No Paint sticker are reviewed per-visit milestones", () => {
+  const funnel = ["notepaint_ad_shown", "braincells_sheet_shown", "braincells_limit_reached",
+    "braincells_checkout_opened", "braincells_purchased"];
+  for (const action of funnel) assert.ok(VISIT_ACTIONS.includes(action), action);
+  const visit = validateVisit({ ...snapshot(), actions: funnel.slice(1) }, "https://notepaint.art");
+  for (const action of funnel.slice(1)) assert.equal(visitUpdate(visit).$max[`actions.${action}`], true, action);
+  const ad = validateVisit({ ...snapshot(), linkVersion: 1, actions: ["notepaint_ad_shown", "notepaint_opened"] }, "https://nopaint.art");
+  assert.equal(visitUpdate(ad).$max["actions.notepaint_ad_shown"], true);
+  // A milestone never arrives without interaction evidence, so a sticker
+  // shown to a visit that never interacts is not in the click-rate denominator.
+  assert.equal(validateVisit({ ...snapshot(), interacted: false, actions: ["notepaint_ad_shown"] }, "https://nopaint.art"), null);
+  assert.equal(validateVisit({ ...snapshot(), actions: ["braincells_bought_maybe"] }, "https://notepaint.art"), null,
+    "unreviewed purchase labels are rejected");
+});
+
 test("creation milestones require a confirmed media record and carry no content", () => {
   for (const result of [null, {}, { slug: "upload-only" }, { code: "" }, { code: 123 }, { code: "abc", error: "failed" }])
     assert.equal(visitMediaAction("png", result), null);

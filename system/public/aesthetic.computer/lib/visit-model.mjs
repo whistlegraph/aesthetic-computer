@@ -45,7 +45,8 @@ export const VISIT_ACTIONS = Object.freeze([
   "note_played", "painting_edited", "recording_started",
   "painting_saved", "painting_signed", "piece_made", "tape_saved",
   "whistlegraph_app_clicked", "whistlegraph_access_clicked", "whistlegraph_mime_clicked",
-  "notepaint_opened",
+  "notepaint_opened", "notepaint_ad_shown",
+  "braincells_sheet_shown", "braincells_limit_reached", "braincells_checkout_opened", "braincells_purchased",
 ]);
 
 // Reviewed link milestones only; never retain destinations or mailto contents.

@@ -63,6 +63,11 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `painting_signed` | No Paint burns the owner's `@handle` signature into the painting as an accepted step; a painting already signed as its last step does not fire again |
 | `piece_made` | notepaint.art turned a painting into a published piece from the # list (Make piece) |
 | `notepaint_opened` | A trusted activation (pointer, keyboard or middle-click) of No Paint's HTTPS link to notepaint.art; opening a tab does not prove arrival |
+| `notepaint_ad_shown` | No Paint revealed its notepaint sticker (`#notepaint-ad`) over the title art; recorded at the visit's first interaction, since milestones need one, so it is the click-rate denominator for interacted visits |
+| `braincells_sheet_shown` | notepaint opened its Braincells sheet: from the chip, the Brains list, or at the limit (not on the way back from Stripe) |
+| `braincells_limit_reached` | The sheet opened because Paint or Make piece could not be afforded: the client saw too few Braincells for the chosen brain, or the server answered 402 |
+| `braincells_checkout_opened` | `/api/nopaint-wallet` returned a Stripe Checkout URL and notepaint navigated to it; this is not a payment |
+| `braincells_purchased` | Back on notepaint, AC looked the Checkout session up with Stripe for this account, saw it paid and granted the pack (`paid: true`); once per session per browser. A click, a return URL or a canceled checkout never sets it |
 | `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
 
 MIDI-only use still needs an independently recorded interaction in the visit.
@@ -271,6 +276,13 @@ click-rate denominator. On notepaint, a visit spans in-page navigation and
 keeps its `referrerHost`, so the actions of visits arriving from nopaint.art
 (editing, signing, saving, Make piece) can be counted without joining the two
 sites' visit IDs. Referrers can be omitted, so those arrivals are a floor.
+
+From November 3, No Paint also records `notepaint_ad_shown` when its sticker
+appears, and the report's click-through is opened ÷ shown among those visits.
+The same report sums notepaint's Braincells funnel (sheet shown, limit
+reached, checkout opened, purchased) over human arrivals. Purchases are also
+in the wallet book; the visit flag says only that a confirmed purchase came
+back through notepaint.
 
 On Lith, from `/opt/ac/system`:
 
