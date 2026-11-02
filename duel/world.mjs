@@ -3,8 +3,7 @@ import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.compute
 export const HZ = 60;
 export const DT = 1 / HZ;
 export const INTERP_TICKS = 6;
-export const REWIND_TICKS = 12;
-export const PROTOCOL = 'duel-1';
+export const PROTOCOL = 'duel-2';
 export const FRAG_LIMIT = 10;
 export const COLORS = [0xff593b, 0x69bfff];
 
@@ -22,9 +21,7 @@ export const CFG = Object.freeze({
   airAccel: 35, groundAccel: 14, airCapSpeed: 1.5, groundFriction: 8,
   playerRadius: 0.4, obstacles: WALLS,
 });
-export const MODES = Object.freeze({
-  instagib: { cooldown: 48 }, rocket: { cooldown: 42 },
-});
+export const FIRE_COOLDOWN = 42;
 export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
 export function spawn(seat, life = 1) {

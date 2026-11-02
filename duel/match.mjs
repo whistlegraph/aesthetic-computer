@@ -1,17 +1,14 @@
-import { HZ, DT, REWIND_TICKS, FRAG_LIMIT, MODES, clamp, spawn, move,
+import { HZ, DT, FRAG_LIMIT, FIRE_COOLDOWN, spawn, move,
   direction, rayBox, wallDistance, bodyBox, along } from './world.mjs';
 import { command } from './net.mjs';
 
 export class Match {
-  constructor(mode = 'instagib') {
-    if (!Object.hasOwn(MODES, mode)) throw new Error('Unknown mode');
-    this.mode = mode;
+  constructor() {
     this.tick = 0;
     this.phase = 'waiting';
     this.until = 0;
     this.winner = null;
     this.seats = [null, null];
-    this.history = [];
     this.rockets = [];
     this.events = [];
     this.eventId = 0;
@@ -20,7 +17,7 @@ export class Match {
   join() {
     const seat = this.seats.indexOf(null);
     if (seat < 0) return -1;
-    this.seats[seat] = { player: spawn(seat), ack: 0, queue: [], last: {}, sentTick: this.tick };
+    this.seats[seat] = { player: spawn(seat), ack: 0, queue: [], last: {} };
     if (this.seats.every(Boolean)) this.reset();
     return seat;
   }
@@ -30,7 +27,6 @@ export class Match {
     this.phase = 'waiting';
     this.winner = null;
     this.rockets = [];
-    this.history = [];
     for (const s of this.seats.filter(Boolean)) {
       s.player = spawn(s.player.seat, s.player.life + 1);
       s.queue = [];
@@ -42,7 +38,6 @@ export class Match {
     this.until = this.tick + 3 * HZ;
     this.winner = null;
     this.rockets = [];
-    this.history = [];
     for (const s of this.seats.filter(Boolean)) {
       s.player = spawn(s.player.seat, s.player.life + 1);
       // Consume already received input so it cannot fire in the new round.
@@ -90,34 +85,18 @@ export class Match {
       if (this.phase === 'playing' || this.phase === 'waiting') p = move(p, input);
       else if (c) { p.yaw = c.yaw; p.pitch = c.pitch; }
       s.player = p;
-      if (c?.fire && p.alive && !p.cooldown && this.phase === 'playing') shots.push([s, c]);
+      if (c?.fire && p.alive && !p.cooldown && (this.phase === 'playing' || this.phase === 'waiting')) shots.push(s);
     }
-    this.history.push({ tick: this.tick, players: this.seats.map(s => s && { ...s.player }) });
-    this.history = this.history.slice(-REWIND_TICKS - 2);
-    for (const [s, c] of shots) if (s.player.alive && this.phase === 'playing') this.shoot(s, c);
-    if (this.phase === 'playing') this.stepRockets();
+    for (const s of shots) this.shoot(s);
+    if (this.phase === 'playing' || this.phase === 'waiting') this.stepRockets();
   }
 
-  shoot(s, c) {
+  shoot(s) {
     const p = s.player, dir = direction(p.yaw, p.pitch);
-    p.cooldown = MODES[this.mode].cooldown;
-    if (this.mode === 'rocket') {
-      this.rockets.push({ ...along(p, dir, 0.05), dir, owner: p.seat, born: this.tick,
-        id: ++this.eventId });
-      this.emit('launch', { seat: p.seat });
-      return;
-    }
-    // Rewind only the target; never move live simulation state into the past.
-    const viewTick = clamp(c.viewTick, this.tick - REWIND_TICKS, Math.min(this.tick, s.sentTick));
-    const past = [...this.history].reverse().find(h => h.tick <= viewTick) || this.history[0];
-    const seat = 1 - p.seat, target = this.seats[seat]?.player, old = past?.players[seat];
-    let distance = wallDistance(p, dir, 100), hit = false;
-    if (target?.alive && old?.alive && target.life === old.life) {
-      const d = rayBox(p, dir, bodyBox(old), distance);
-      if (d < distance) { distance = d; hit = true; }
-    }
-    this.emit('beam', { seat: p.seat, from: { x: p.x, y: p.y, z: p.z }, to: along(p, dir, distance), hit });
-    if (hit) this.damage(seat, 100, p.seat);
+    p.cooldown = FIRE_COOLDOWN;
+    this.rockets.push({ ...along(p, dir, 0.05), dir, owner: p.seat, born: this.tick,
+      id: ++this.eventId });
+    this.emit('launch', { seat: p.seat });
   }
 
   damage(seat, amount, attacker) {
@@ -159,7 +138,7 @@ export class Match {
   stepRockets() {
     const remaining = [];
     for (const r of this.rockets) {
-      if (this.phase !== 'playing') break;
+      if (this.phase !== 'playing' && this.phase !== 'waiting') break;
       const travel = 28 * DT;
       let distance = wallDistance(r, r.dir, travel), direct = -1;
       for (const s of this.seats.filter(Boolean)) {
@@ -174,11 +153,11 @@ export class Match {
       if (distance < travel || this.tick - r.born > 3 * HZ) this.explode(r, direct);
       else remaining.push(r);
     }
-    this.rockets = this.phase === 'playing' ? remaining : [];
+    this.rockets = this.phase === 'playing' || this.phase === 'waiting' ? remaining : [];
   }
 
   snapshot() {
-    return { type: 'snapshot', tick: this.tick, mode: this.mode, phase: this.phase,
+    return { type: 'snapshot', tick: this.tick, phase: this.phase,
       until: this.until, winner: this.winner,
       players: this.seats.map(s => s && { ...s.player }),
       acks: this.seats.map(s => s?.ack || 0),

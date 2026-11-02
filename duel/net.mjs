@@ -3,11 +3,10 @@ import { clamp, move } from './world.mjs';
 // Only input crosses the authority boundary: never client positions, damage or dt.
 export function command(raw) {
   if (!raw || !Number.isSafeInteger(raw.seq) || raw.seq < 1 ||
-      !['fwd', 'right', 'yaw', 'pitch', 'viewTick'].every(k => Number.isFinite(raw[k]))) return null;
+      !['fwd', 'right', 'yaw', 'pitch'].every(k => Number.isFinite(raw[k]))) return null;
   return { seq: raw.seq, fwd: clamp(raw.fwd, -1, 1), right: clamp(raw.right, -1, 1),
     yaw: ((raw.yaw % 360) + 360) % 360, pitch: clamp(raw.pitch, -85, 85),
-    buttons: raw.buttons === 1 ? 1 : 0, fire: raw.fire === true,
-    viewTick: Math.floor(raw.viewTick) };
+    buttons: raw.buttons === 1 ? 1 : 0, fire: raw.fire === true };
 }
 
 export function reconcile(authority, pending, ack) {

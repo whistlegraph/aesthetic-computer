@@ -4,50 +4,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>duel · aesthetic.computer</title>
 <style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #11121a; color: #fff8e8; font: 15px ui-monospace, monospace; }
-  canvas { display: block; width: 100%; height: 100%; }
-  button, input, select { font: inherit; color: inherit; background: #242631; border: 1px solid #66656b; border-radius: 0; padding: 12px; }
-  button { cursor: pointer; }
-  button:hover { background: #3d3e49; }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #fff8e8; outline-offset: 3px; }
-  button.primary { background: #ff593b; color: #15131b; border-color: #ff593b; font-weight: bold; }
-  #menu { position: absolute; inset: 0; display: grid; place-items: center; background: #11121a75; }
-  #menu[hidden] { display: none; }
-  form { width: min(460px, calc(100vw - 32px)); padding: 32px; background: #15161ff2; border: 1px solid #4b4951; }
-  h1 { font: 900 88px/0.9 ui-monospace, monospace; letter-spacing: -8px; margin: 0 0 28px; }
-  label { display: grid; gap: 8px; margin-bottom: 20px; }
-  input, select { width: 100%; min-width: 0; }
-  .row { display: flex; gap: 12px; } .row > * { flex: 1; min-width: 0; }
-  p { line-height: 1.7; } #help { color: #c8c5c7; font-size: 13px; margin: 24px 0 0; }
-  #hud { position: absolute; inset: 24px; pointer-events: none; text-shadow: 0 2px 4px #000; }
-  #score { text-align: center; font-size: 48px; font-weight: 800; }
-  #score .a { color: #ff8066; } #score .b { color: #85caff; }
-  #status { text-align: center; margin-top: 8px; }
-  #health { position: absolute; bottom: 0; left: 0; font-size: 24px; }
-  #stats { position: absolute; bottom: 0; right: 0; text-align: right; font-size: 13px; color: #d6d2d1; }
-  #crosshair { position: absolute; width: 5px; height: 5px; background: #fff; border: 1px solid #222; left: 50%; top: 50%; transform: translate(-50%,-50%); }
-  #hit { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 32px; color: #ff593b; opacity: 0; }
-  #error { color: #ffb19e; min-height: 1em; }
-  @media (max-height: 600px) { form { padding: 20px; } h1 { font-size: 52px; margin-bottom: 16px; } label { margin-bottom: 12px; } #help { margin-top: 12px; } }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #141720; }
+  canvas { display: block; width: 100%; height: 100%; outline: none; }
 </style>
-<canvas id="game" aria-label="Duel arena. Use keyboard and mouse to play."></canvas>
-<div id="hud" hidden>
-  <div id="score"></div><div id="status" role="status"></div>
-  <div id="health"></div><div id="stats"></div>
-</div>
-<div id="crosshair" hidden></div><div id="hit" aria-hidden="true">×</div>
-<div id="menu">
-  <form id="join">
-    <h1>duel</h1>
-    <div class="row">
-      <label>Room<input id="room" value="lobby" pattern="[a-z0-9-]{1,32}" maxlength="32" required autocomplete="off"></label>
-      <label>Weapon<select id="mode"><option value="instagib">Instagib</option><option value="rocket">Rockets</option></select></label>
-    </div>
-    <div class="row"><button class="primary" id="play" type="submit">Enter arena</button><button id="invite" type="button">Copy invite</button></div>
-    <p id="error" role="status"></p>
-    <p id="help">WASD move · mouse aim / fire · space jump<br>V first / third person · Esc release mouse<br>Two players. First to 10. Keyboard + mouse.</p>
-  </form>
-</div>
+<canvas id="game" tabindex="0" aria-label="Duel rocket arena. Click or press Enter to play. WASD moves, mouse aims, left mouse fires, Space jumps, V switches camera, Escape releases mouse. Scores and health appear inside the arena."></canvas>
 <script type="module" src="/client.mjs"></script>
 </html>

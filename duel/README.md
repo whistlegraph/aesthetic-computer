@@ -1,30 +1,33 @@
 # duel
 
 A working-name scaffold for Aesthetic Computer's 1v1 arena shooter.
-Two players, one weapon, one room, first to ten. Movement, aim and the rematch
+Two players, one rocket launcher, one room, first to ten. Movement, aim and the rematch
 are the game. No loadouts, pickups, inventory or progression.
 
 ```sh
 npm run duel
 ```
 
-Open http://127.0.0.1:8787 in two browser windows and enter the same room and
-weapon. One player can warm up while waiting. The second starts a three-second
-countdown. Death respawns after one second; a finished match resets after five.
-Each weapon has separate rooms. A third player is refused.
+Open http://127.0.0.1:8787 in two browser windows. You enter the lobby directly;
+click the arena to capture the mouse. One player can move and fire while waiting.
+The second starts a three-second countdown. Death respawns after one second;
+a finished match resets after five. A third player is refused.
 
 WASD moves, mouse aims, left mouse fires, space jumps, V switches first/third
-person, Escape releases the mouse. Desktop keyboard and mouse only for now.
-Click **Resume** to capture the mouse again. **Copy invite** includes the room
-and weapon in the URL. A localhost invite works only on the same machine.
+person, Escape releases the mouse. Click again to resume. Keyboard and mouse only.
+There are no DOM menus or HUD overlays: scores, status and instructions are on
+arena walls, health is on the launcher and player, and the aim point sits at the
+ray's impact in the world. The canvas retains an accessible control description.
+
+Share the page URL to invite another player. Use `?room=your-room` for a separate
+room; there is no weapon selection. A localhost invite works only on the same
+machine.
 
 For a LAN session, run `HOST=0.0.0.0 npm run duel` and use the host's LAN address
-on both machines. Pointer lock and clipboard availability depend on the browser;
-clipboard failure displays the invite instead. `PORT` overrides 8787.
+on both machines. `PORT` overrides 8787.
 
 ## Game
 
-- **Instagib:** one hitscan hit kills; 0.8-second firing interval.
 - **Rockets:** 100 HP, lethal direct hits, distance-based splash with cover
   occlusion, self-damage and rocket-jump impulse; 0.7-second firing interval.
 - **Map:** 36 × 36 m, two mirrored cover blocks, opposite spawns, open center.
@@ -53,7 +56,6 @@ victim, claim a hit, supply a position or choose their simulation delta.
 | Input delivery | Three-command backup, deduplication, sequence ordering, bounded queue |
 | Server time budget | At most one command per simulation tick; excess backlog discarded |
 | Remote rendering | Six-tick buffer, shortest-angle interpolation, freeze on starvation |
-| Hitscan | Target history capped at 12 ticks / 200 ms; cover and life identity checked |
 | Rockets | Authoritative swept collision and splash; no projectile rewind |
 | Disconnect | Match cancelled, remaining player returns to warmup; vacated seat reusable |
 | Stalls | Prediction stops after one second without snapshots; no long catch-up burst |
@@ -63,6 +65,18 @@ victim, claim a hit, supply a position or choose their simulation delta.
 `match.mjs` is the transport-independent match; `server.mjs` supplies rooms,
 WebSockets and an explicit static-file allowlist. `client.mjs` handles input and
 network state; `view.mjs` draws with the repository's vendored Three.js.
+`paint.mjs` owns stepped shading, outlines, paper texture and the animated
+center surface. Fighters use articulated rounded limbs and faces; launchers
+recoil and explosions scatter colored fragments. These are visual effects,
+independent of the authoritative simulation.
+
+The renderer exposes `setSurfaceFrame({ width: 256, height: 256, data })`, where
+`data` is a 256 × 256 RGBA `Uint8ClampedArray`. The frame replaces the center
+surface's procedural animation. This is the future KidLisp worker boundary;
+there is no KidLisp evaluator or language-support claim in this scaffold.
+Use the canonical evaluator in a separately budgeted worker when integrating
+it, and keep program output confined to approved visual surfaces. Collision,
+player visibility, inputs and match state remain server-owned.
 
 No CDN or new dependency install is needed in an installed AC checkout. `ws`
 comes from the root package. This is a standalone local harness, not an AC disk
@@ -76,12 +90,13 @@ npm run test:duel:browser
 ```
 
 Simulation tests cover prediction parity, replay, malformed/duplicate/reordered
-input, synthetic loss/jitter, cover, rewind limits, respawn identity, rockets,
+input, synthetic loss/jitter, cover, rocket travel/cooldown, respawns,
 match completion and disconnect. Integration tests connect real WebSockets,
 check room isolation/capacity and restrict served files. The browser test runs
-two clients through movement, jumping, cameras, both weapons and disconnect,
-then writes screenshots to ignored `tmp/duel/`. It uses installed Chrome on
-macOS or Playwright Chromium elsewhere.
+two clients through movement, jumping, cameras, rockets and disconnect,
+then writes screenshots to ignored `tmp/duel/`. It opens a test browser window
+for real mouse capture, using installed Chrome on macOS or Playwright Chromium
+elsewhere. `DUEL_HEADLESS=1` is available where headless pointer lock works.
 
 ## Next playtest gates
 
@@ -96,7 +111,9 @@ macOS or Playwright Chromium elsewhere.
 4. Define simultaneous-hit/tie policy, spawn protection/selection, match time
    limits, ranked camera rules and rematch consent. Current hits resolve in seat
    order, spawns are fixed, and matches automatically restart.
-5. Integrate the AC entry point, identity, invites, regions, spectators and
+5. Connect KidLisp's canonical evaluator to the surface frame input, with
+   explicit execution budgets and the language's conformance checks.
+6. Integrate the AC entry point, identity, invites, regions, spectators and
    replay evidence; version the physics/map build together before deployment.
 
 The foundations are testable; competitive WAN quality, matchmaking and production

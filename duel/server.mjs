@@ -4,12 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Match } from './match.mjs';
-import { HZ, PROTOCOL, MODES } from './world.mjs';
+import { HZ, PROTOCOL } from './world.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
-  ...['client', 'view', 'net', 'world'].map(n => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
+  ...['client', 'view', 'paint', 'net', 'world'].map(n => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/system/public/aesthetic.computer/lib/pmove.mjs',
     ['../system/public/aesthetic.computer/lib/pmove.mjs', 'text/javascript']],
   ...['three.module.js', 'three.core.js'].map(n => [`/vendor/${n}`,
@@ -47,15 +47,14 @@ export function createDuelServer() {
   };
   wss.on('connection', (ws, url) => {
     const roomId = url.searchParams.get('room') || 'lobby';
-    const mode = url.searchParams.get('mode') || 'instagib';
-    if (!/^[a-z0-9-]{1,32}$/.test(roomId) || !Object.hasOwn(MODES, mode) ||
+    if (!/^[a-z0-9-]{1,32}$/.test(roomId) ||
         url.searchParams.get('protocol') !== PROTOCOL) {
-      ws.close(1008, 'Invalid room, mode or build'); return;
+      ws.close(1008, 'Invalid room or build'); return;
     }
-    const key = `${mode}:${roomId}`;
+    const key = roomId;
     if (!rooms.has(key)) {
       if (rooms.size >= 32) { ws.close(1013, 'Server full'); return; }
-      rooms.set(key, { match: new Match(mode), clients: new Map() });
+      rooms.set(key, { match: new Match(), clients: new Map() });
     }
     const room = rooms.get(key), seat = room.match.join();
     if (seat < 0) { ws.close(1008, 'Room full: two players only'); return; }
@@ -96,8 +95,7 @@ export function createDuelServer() {
         room.match.step();
         if (room.match.tick % 2) continue;
         const snap = room.match.snapshot();
-        for (const [ws, seat] of room.clients) {
-          room.match.seats[seat].sentTick = snap.tick;
+        for (const ws of room.clients.keys()) {
           send(ws, snap);
         }
       }
