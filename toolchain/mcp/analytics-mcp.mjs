@@ -445,13 +445,13 @@ const TOOLS = [
   },
   {
     name: "human_fishery",
-    description: "AC Human Fishery: watch recent likely-human activity through Silo's existing MongoDB firehose on Lith. Returns temporary fish names for non-automated visits with interaction, public property, broad surface, visible-time depth and action flags. Read-only snapshots; repeat after at least 15 seconds for changes. Does not identify people, link separate visits or infer cross-site journeys. lastReportedAt is the last changed snapshot, not proof someone is still online.",
+    description: "AC Human Fishery: recent anonymous visits with interaction, plus a separate MIME watch. mime.events includes verified signed-in handles, prompt swipe/direct entry, per-piece foreground milliseconds and returns; deduplicate by event. mime.directPageArrivals includes non-automated mime.ac page arrivals even before interaction. Anonymous fish and account events are separate, overlapping instruments: never join them or add their counts. Anonymous prompt swipes are not covered. Read-only; repeat after at least 15 seconds. Last report/exposure is not proof someone is still online.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       minutes: { type: "number", minimum: 1, maximum: 60, description: "Look back this many minutes for reported activity; default 5" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Default studio" },
-      limit: { type: "integer", minimum: 1, maximum: 200, description: "Maximum fish returned; default 50" },
-      startedAfter: { type: "string", description: "Optional ISO date: only visits arriving after this time, useful for watching the first arrival after a deploy" },
+      limit: { type: "integer", minimum: 1, maximum: 200, description: "Maximum rows per fish, MIME event and MIME arrival list; default 50" },
+      startedAfter: { type: "string", description: "Optional ISO date: anonymous arrivals and MIME account events after this time" },
     } },
   },
   {

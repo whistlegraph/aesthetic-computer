@@ -186,6 +186,21 @@ milestones, not the exact order or time in which actions occurred. The last
 report is the last changed snapshot, not continuous presence or departure.
 The tool reads existing data; it adds no browser identifiers or new retention.
 
+The separate `mime` section reads existing `account-activity` and
+`network-visits` directly. `mime.events` includes verified-account opens
+(prompt swipe/wheel/key/history versus direct), incremental per-piece
+`focusedMs`, and returns/exits. Each has a stable opaque `event` key for
+poll deduplication, a public handle or account alias, and an account-session
+alias. `mime.directPageArrivals` includes non-automated mime.ac arrivals even
+before interaction. These can overlap signed-in events and the ordinary fish;
+never add them together or use them to infer anonymous identities.
+Anonymous prompt swipe-ins remain uncovered. Each list uses `limit` and its
+own truncation flag; a truncated result cannot establish that no arrivals were
+missed. `startedAfter` bounds MIME event receipt times and direct-page arrival
+times, while `minutes` still bounds the snapshot. No new collector or retention
+is introduced. Test with `node --test system/tests/human-fishery.test.mjs`.
+
+
 ## Coverage
 
 ### AC session recognition on Sotce
