@@ -57,6 +57,14 @@ test("Braincells funnel and the No Paint sticker are reviewed per-visit mileston
     "unreviewed purchase labels are rejected");
 });
 
+test("notepaint's read-only painting view is a reviewed milestone", () => {
+  assert.ok(VISIT_ACTIONS.includes("painting_viewed"));
+  const visit = validateVisit({ ...snapshot(), actions: ["painting_viewed"] }, "https://notepaint.art");
+  assert.equal(visitUpdate(visit).$max["actions.painting_viewed"], true);
+  assert.equal(validateVisit({ ...snapshot(), interacted: false, actions: ["painting_viewed"] }, "https://notepaint.art"), null,
+    "no milestone without interaction evidence");
+});
+
 test("creation milestones require a confirmed media record and carry no content", () => {
   for (const result of [null, {}, { slug: "upload-only" }, { code: "" }, { code: 123 }, { code: "abc", error: "failed" }])
     assert.equal(visitMediaAction("png", result), null);

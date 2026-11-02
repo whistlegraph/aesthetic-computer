@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261102-braincells";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261102-viewer";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 

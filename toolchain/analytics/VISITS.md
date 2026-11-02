@@ -68,6 +68,7 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `braincells_limit_reached` | The sheet opened because Paint or Make piece could not be afforded: the client saw too few Braincells for the chosen brain, or the server answered 402 |
 | `braincells_checkout_opened` | `/api/nopaint-wallet` returned a Stripe Checkout URL and notepaint navigated to it; this is not a payment |
 | `braincells_purchased` | Back on notepaint, AC looked the Checkout session up with Stripe for this account, saw it paid and granted the pack (`paid: true`); once per session per browser. A click, a return URL or a canceled checkout never sets it |
+| `painting_viewed` | notepaint showed someone else's public painting read-only (notepaint.art/<code> or /#code not held by this browser): the painting's public record loaded and its image was placed; recorded at the visit's first interaction. Not proof the image finished loading or was looked at |
 | `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
 
 MIDI-only use still needs an independently recorded interaction in the visit.
