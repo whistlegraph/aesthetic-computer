@@ -149,7 +149,10 @@ const checkedHours = (hours, max = 840) => {
 async function networkReport({ hours = 24, scope = "all" } = {}) {
   const part = promise => promise.then(value => value, error => ({ unavailable: String(error.message || error) }));
   const days = Math.max(1, Math.ceil(checkedHours(hours) / 24));
-  const [visits, referrers, pieces, braincells, tezos, social, search, ga4] = await Promise.all([
+  // Apple's numbers lag a day and arrive sparse, so the app parts read at
+  // least a week regardless of the visit window.
+  const appDays = Math.min(Math.max(days, 7), 35);
+  const [visits, referrers, pieces, braincells, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
     part(visitsReport({ hours, scope })),
     part(journeyReport("referrers", { hours, scope, limit: 25 })),
     part(journeyReport("pieces", { hours, scope, limit: 25 })),
@@ -158,8 +161,46 @@ async function networkReport({ hours = 24, scope = "all" } = {}) {
     part(socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
     part(searchSummary({ days: Math.max(days, 7) })),
     part(googleAnalytics({ days: Math.min(days, 90) })),
+    part(appDownloads({ days: appDays })),
+    part(iosUsage({ days: appDays })),
+    part(appReview()),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social, search, googleAnalytics: ga4 };
+  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social, search, googleAnalytics: ga4,
+    apps: { days: appDays, review, appStore: appStoreTotals(appStore), iosUsage: ios.unavailable ? ios : iosTotals(ios) } };
+}
+
+// The review queue: every app on the account with its newest version per
+// platform. "queue" holds the ones Apple has not finished with.
+const REVIEW_PENDING = new Set(["WAITING_FOR_REVIEW", "IN_REVIEW", "PENDING_DEVELOPER_RELEASE", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"]);
+async function appReview() {
+  const { data: apps } = await asc("/v1/apps?fields[apps]=name&limit=50");
+  const rows = await Promise.all(apps.map(async (app) => {
+    const { data } = await asc(`/v1/apps/${app.id}/appStoreVersions?limit=4&fields[appStoreVersions]=platform,versionString,appStoreState,createdDate`);
+    const newest = {};
+    for (const v of data) newest[v.attributes.platform] ??= { platform: v.attributes.platform, version: v.attributes.versionString, state: v.attributes.appStoreState };
+    return { app: app.attributes.name, versions: Object.values(newest) };
+  }));
+  const queue = rows.flatMap((r) => r.versions.filter((v) => REVIEW_PENDING.has(v.state)).map((v) => ({ app: r.app, ...v })));
+  return { queue, apps: rows };
+}
+
+// Totals only; the daily breakdown stays in app_downloads.
+function appStoreTotals(report) {
+  if (report.unavailable) return report;
+  const apps = {};
+  for (const [name, app] of Object.entries(report.apps ?? {})) {
+    if (!app.daily) { apps[name] = app; continue; }
+    const byType = {};
+    for (const day of Object.values(app.daily)) for (const [type, n] of Object.entries(day)) byType[type] = (byType[type] ?? 0) + n;
+    apps[name] = { firstTimeDownloads: app.firstTimeDownloads, byType };
+  }
+  return { since: report.since, note: report.note, apps };
+}
+
+function iosTotals(report) {
+  const apps = {};
+  for (const [name, { daily, ...totals }] of Object.entries(report.apps ?? {})) apps[name] = totals;
+  return { start: report.start, end: report.end, note: report.note, apps };
 }
 
 // ⬇️ Direct downloads
@@ -349,7 +390,7 @@ const TOOLS = [
   })),
   {
     name: "network_report",
-    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain) and Google Analytics sessions by source. Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain), Google Analytics sessions by source, and the apps (App Store review queue, App Store downloads per app, AC iOS active installs). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
