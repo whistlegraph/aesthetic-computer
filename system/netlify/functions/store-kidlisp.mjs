@@ -2,6 +2,7 @@
 // Caches KidLisp source code and generates short URLs for QR codes
 
 import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
+import { kidlispSaveIdentity, findSavedKidlisp } from "../../backend/kidlisp-save-identity.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
@@ -9,7 +10,6 @@ import { createMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 import { kidlispDatomicEnabled } from "../../backend/kidlisp-sidecar.mjs";
 import { handler as datomicHandler } from "./store-kidlisp-datomic.mjs";
-import crypto from 'crypto';
 
 // Feature flag for Tezos integration (disabled by default until integration file exists)
 const TEZOS_ENABLED = process.env.TEZOS_ENABLED === 'true';
@@ -325,7 +325,7 @@ export async function handler(event, context) {
     await ensureIndexes(collection);
 
     if (event.httpMethod === 'POST') {
-      const { source } = JSON.parse(event.body || '{}');
+      const { source, handled = false } = JSON.parse(event.body || '{}');
       
       if (!source || typeof source !== 'string' || source.length > 50000) {
         return respond(400, { error: 'Invalid source' });
@@ -358,16 +358,22 @@ export async function handler(event, context) {
         }
       }
 
-      const hash = crypto.createHash('sha256').update(source.trim()).digest('hex');
+      let identity;
+      try { identity = kidlispSaveIdentity(source, { handled, user, handle: profileHandle }); }
+      catch (error) {
+        await database.disconnect();
+        return respond(error.statusCode || 400, { error: error.message });
+      }
+      const { hash, contentHash, receipt } = identity;
       console.log(`🔍 Source hash: ${hash.substring(0, 16)}...`);
       
       // Check for existing by hash first
-      const existing = await collection.findOne({ hash });
+      const existing = await findSavedKidlisp(identity, source, hash => collection.findOne({ hash }));
       if (existing) {
         // Paranoid collision check: verify source actually matches
         if (existing.source === source.trim()) {
           await collection.updateOne(
-            { hash }, 
+            { hash: existing.hash },
             { 
               $inc: { hits: 1 },
               $set: { lastAccessed: new Date() }
@@ -375,7 +381,7 @@ export async function handler(event, context) {
           );
           console.log(`♻️ Found existing cache: ${existing.code}`);
           await database.disconnect();
-          return respond(200, { code: existing.code, cached: true });
+          return respond(200, { code: existing.code, cached: true, ...receipt });
         } else {
           // Extremely rare: hash collision detected!
           console.error('💥 SHA-256 collision detected!', { hash, existing: existing.source, new: source.trim() });
@@ -396,6 +402,7 @@ export async function handler(event, context) {
         code,
         source: source.trim(),
         hash,
+        ...(handled ? { contentHash } : {}),
         when: new Date(),
         lastAccessed: new Date(),
         hits: 1
@@ -542,7 +549,8 @@ export async function handler(event, context) {
         await database.disconnect();
         
         // Include Tezos information in response
-        const responseData = { 
+        const responseData = {
+          ...receipt,
           code, 
           cached: false,
           ...(tezosResult && { tezos: tezosResult })
@@ -566,7 +574,7 @@ export async function handler(event, context) {
               );
               console.log(`🔄 Race condition resolved: ${existing.code}`);
               await database.disconnect();
-              return respond(200, { code: existing.code, cached: true });
+              return respond(200, { code: existing.code, cached: true, ...receipt });
             }
           } else if (insertError.keyPattern?.code) {
             await database.disconnect();

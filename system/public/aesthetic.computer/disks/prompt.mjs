@@ -83,6 +83,7 @@ import * as hostPlatform from "../lib/platform.mjs";
 const { AestheticIOSApp, Android, MacOS, MetaBrowser, iOS } = hostPlatform;
 import { validateHandle } from "../lib/text.mjs";
 import { commandDescriptions } from "../lib/prompt-commands.mjs";
+import { savePromptKidlisp } from "../lib/prompt-kidlisp.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
@@ -1480,7 +1481,7 @@ async function halt($, text) {
 }
 
 // One generated KidLisp drawing per word, with a tune on the synced UTC clock,
-// cached server-side (`/api/sketch`). Returns `{ left: true }` once the drawing
+// cached server-side by Aesel (`/api/aesel-sketch`). Returns `{ left: true }` once the drawing
 // runs, `{ logged: true }` when the server answered without one (it wrote the
 // corpus row either way), or false when it never reached the server.
 async function sketch($, text) {
@@ -1494,7 +1495,7 @@ async function sketch($, text) {
   $.system.prompt.kidlispMode = true;
   let answered = false;
   try {
-    const res = await fetch(`/api/sketch?word=${encodeURIComponent(word)}&stream=1`);
+    const res = await fetch(`/api/aesel-sketch?word=${encodeURIComponent(word)}&stream=1`);
     answered = res.ok;
     let result;
     if (res.headers.get("content-type")?.includes("json")) result = await res.json();
@@ -1516,7 +1517,10 @@ async function sketch($, text) {
       }
       result = JSON.parse(body.split("\u0000")[1] || "{}");
     }
-    if (result.code && (await $.load(parse(`$${result.code}?nosource`)))) return { left: true };
+    if (result.code) {
+      const saved = result.source ? await savePromptKidlisp($, result.source, { code: result.code }) : { code: result.code };
+      if (await $.load(parse(`$${saved.code}?nosource`))) return { left: true };
+    }
   } catch {} // offline or the server said no
   $.system.prompt.kidlispMode = false;
   if (input) input.text = typed; // the help character answers over the entry
@@ -4978,8 +4982,9 @@ async function route($, text) {
       trimmed.startsWith(";") ||
       isKidlispSource(trimmed);
     if (isKidlisp) {
-      body = { name: trimmed, source: trimmed };
-      loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
+      const saved = await savePromptKidlisp($, trimmed);
+      body = saved.code ? parse(`$${saved.code}`) : { name: trimmed, source: trimmed };
+      loaded = saved.code ? await load(body) : await load(body, false, false, true, undefined, true); // Force inline KidLisp
       //                                        ^^^^ devReload  ^^^^^ forceKidlisp
     } else {
       body = parse(trimmed);

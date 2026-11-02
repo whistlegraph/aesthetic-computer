@@ -1,5 +1,5 @@
 // Sketch lib, 2026.10.30
-// The pure half of `/api/sketch`: what a generated drawing may contain, and
+// The pure half of Aesel sketch (also served at the legacy `/api/sketch`): what a generated drawing may contain, and
 // how every drawing gets a tune. Kept apart from sketch.mjs so it can be
 // tested without Mongo or a model.
 

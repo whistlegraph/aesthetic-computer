@@ -34,10 +34,9 @@ import { stream } from "@netlify/functions";
 import { timingSafeEqual } from "node:crypto";
 import { inferenceProviderFailure } from "../../backend/easel-provider-error.mjs";
 import { relayInference } from "../../backend/easel-stream.mjs";
-import { ANTHROPIC_DIRECT, anthropicThinking, EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
+import { requestInference } from "../../backend/easel-provider.mjs";
+import { ANTHROPIC_DIRECT, EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
 
-const OPENROUTER = "https://openrouter.ai/api/v1/messages";
-const ANTHROPIC = "https://api.anthropic.com/v1/messages";
 // A coarse client label for the Braincell ledger: an explicit x-ac-client, or
 // the first product token of the user agent. Never the full agent string.
 const spendClient = (headers = {}) =>
@@ -168,35 +167,9 @@ export const handler = stream(async (event) => {
   const deadline=setTimeout(()=>controller.abort(),INFERENCE_DEADLINE_MS);
   deadline.unref?.();
   let upstream;
-  try { upstream = await fetch(direct ? ANTHROPIC : OPENROUTER, {
+  try { upstream = await requestInference({
+    model, maxTokens, body, reasoning, thinking, credits, key,
     signal: controller.signal,
-    method: "POST",
-    headers: direct ? {
-      "x-api-key": credits,
-      "Content-Type": "application/json",
-      "anthropic-version": "2023-06-01",
-    } : {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      "anthropic-version": "2023-06-01",
-      // OpenRouter attributes traffic by these, so ours is legible in their
-      // dashboard as Easel rather than as anonymous API calls.
-      "HTTP-Referer": "https://aesthetic.computer",
-      "X-Title": "Easel",
-    },
-    body: JSON.stringify({
-      model: direct || model,
-      max_tokens: maxTokens,
-      system: body.system,
-      messages: body.messages,
-      tools: body.tools,
-      // `reasoning` is OpenRouter's field; Anthropic has its own controls.
-      ...(direct ? anthropicThinking(model, { thinking, reasoning }) : {
-        ...(reasoning ? { reasoning } : {}),
-        ...(thinking ? { thinking } : {}),
-      }),
-      stream: true,
-    }),
   });
 
   } catch(error) { clearTimeout(deadline); await settlePaid(0); return fail(502,"Inference provider could not be reached."); }
