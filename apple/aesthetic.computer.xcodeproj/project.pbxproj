@@ -459,7 +459,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
+				INFOPLIST_KEY_CFBundleDisplayName = Aesthetic;
 				INFOPLIST_KEY_NSCameraUsageDescription = "For taking photos in `camera` and playing games like `handtime`.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For input in pieces like `baktok`.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -494,7 +494,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "aesthetic-computer-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
+				INFOPLIST_KEY_CFBundleDisplayName = Aesthetic;
 				INFOPLIST_KEY_NSCameraUsageDescription = "For taking photos in `camera` and playing games like `handtime`.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "For input in pieces like `baktok`.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -524,7 +524,7 @@
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
+				INFOPLIST_KEY_CFBundleDisplayName = Aesthetic;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -551,7 +551,7 @@
 				DEVELOPMENT_TEAM = FB5948YR3S;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = aesthetic/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = aesthetic;
+				INFOPLIST_KEY_CFBundleDisplayName = Aesthetic;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (

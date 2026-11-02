@@ -4,4 +4,4 @@ After you sign in, the app offers once to turn on notifications for mail, moods 
 
 Turning notifications on now retries if the connection stalls instead of giving up.
 
-Optional app usage counts now see taps on every piece, not just some. Manage “Share app usage” in iOS Settings → Apps → aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.
+Optional app usage counts now see taps on every piece, not just some. Manage “Share app usage” in iOS Settings → Apps → Aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.
