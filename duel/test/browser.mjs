@@ -7,9 +7,9 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { createDuelServer } from '../server.mjs';
 
-const app = createDuelServer();
+const app = createDuelServer({ prefix: '/dool' });
 app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');
-const base = `http://127.0.0.1:${app.server.address().port}`;
+const base = `http://127.0.0.1:${app.server.address().port}/dool/`;
 // Real pointer capture needs a visible Chrome window on macOS.
 const browser = await chromium.launch({ headless: process.env.DUEL_HEADLESS === '1',
   ...(existsSync('/Applications/Google Chrome.app') ? { channel: 'chrome' } : {}),
@@ -46,7 +46,7 @@ try {
       const data = JSON.parse(payload.toString());
       if (data.type === 'snapshot') state.snap = data;
     }));
-    await page.goto(`${base}/?room=browser-test`);
+    await page.goto(`${base}?room=browser-test`);
     await page.locator('canvas').waitFor({ state: 'visible' });
     return state;
   }
@@ -100,6 +100,17 @@ try {
   await a.page.reload();
   await wait(() => a.snap?.phase === 'waiting', 'reload');
   assert.equal(await a.page.locator('form,button,input,select,div,span').count(), 0);
+  for (const [width, height] of [[390, 844], [1600, 700], [1280, 800]]) {
+    await a.page.setViewportSize({ width, height });
+    await a.page.waitForFunction(({ width, height }) => {
+      const canvas = document.getElementById('game');
+      const scale = Math.max(1, Math.floor(Math.min(width / 480, height / 270)));
+      return canvas.clientWidth === width && canvas.clientHeight === height &&
+        canvas.width === Math.ceil(width / scale) && canvas.height === Math.ceil(height / scale) &&
+        getComputedStyle(canvas).imageRendering === 'pixelated';
+    }, { width, height });
+    await a.page.screenshot({ path: new URL(`resize-${width}x${height}.png`, shots).pathname });
+  }
   assert.deepEqual(errors, []);
   console.log('Browser passed: two players, countdown, pointer lock, strafe, jump, both cameras, rockets, respawn, disconnect, canvas-only interface.');
   console.log(`Screenshots: ${shots.pathname}`);

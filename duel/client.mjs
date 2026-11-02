@@ -33,7 +33,7 @@ async function capture() {
 }
 
 function connect() {
-  const url = new URL('/play', location.href);
+  const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   url.search = new URLSearchParams({ room, protocol: PROTOCOL });
   history = []; pending = []; player = null; snapshot = null; seq = 0; eventId = 0; debt = 0;

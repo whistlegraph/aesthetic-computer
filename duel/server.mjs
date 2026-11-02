@@ -2,44 +2,65 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
-import { WebSocketServer, WebSocket } from 'ws';
+import { createRequire } from 'node:module';
+import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Match } from './match.mjs';
 import { HZ, PROTOCOL } from './world.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
+// Lith installs this dependency in production; standalone development can resolve root's copy.
+const { WebSocketServer, WebSocket } = createRequire(new URL('../lith/package.json', import.meta.url))('ws');
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
   ...['client', 'view', 'paint', 'net', 'world'].map(n => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/system/public/aesthetic.computer/lib/pmove.mjs',
     ['../system/public/aesthetic.computer/lib/pmove.mjs', 'text/javascript']],
+  ['/pmove.mjs', ['../system/public/aesthetic.computer/lib/pmove.mjs', 'text/javascript']],
   ...['three.module.js', 'three.core.js'].map(n => [`/vendor/${n}`,
     [`../system/public/aesthetic.computer/dep/three/${n}`, 'text/javascript']]),
 ]);
 
-export function createDuelServer() {
+export function createDuelServer({ prefix = '' } = {}) {
+  if (prefix && !/^\/[a-z0-9-]+$/.test(prefix)) throw new Error('Invalid mount path');
   const rooms = new Map();
-  const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, 'http://localhost');
-    const asset = assets.get(url.pathname);
+  const handle = async (req, res) => {
+    let url;
+    try { url = new URL(req.url, 'http://localhost'); }
+    catch { res.writeHead(400).end(); return; }
+    if (prefix && url.pathname === prefix) {
+      res.writeHead(307, { Location: `${prefix}/${url.search}`, 'Cache-Control': 'no-store' }).end(); return;
+    }
+    if (prefix && !url.pathname.startsWith(`${prefix}/`)) { res.writeHead(404).end(); return; }
+    const path = url.pathname.slice(prefix.length);
+    if (path === '/health' && req.method === 'GET') {
+      const revision = await readFile(resolve(here, '../system/public/.commit-ref'), 'utf8').catch(() => 'local');
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(JSON.stringify({ name: 'dool', protocol: PROTOCOL, revision: revision.trim() })); return;
+    }
+    const asset = assets.get(path);
     if (req.method !== 'GET' || !asset) { res.writeHead(404).end(); return; }
     try {
       const body = await readFile(resolve(here, asset[0]));
       res.writeHead(200, { 'Content-Type': asset[1], 'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff' }).end(body);
     } catch { res.writeHead(500).end('Asset unavailable'); }
-  });
+  };
+  const server = http.createServer(handle);
   const wss = new WebSocketServer({ noServer: true, maxPayload: 8192, perMessageDeflate: false });
-  server.on('upgrade', (req, socket, head) => {
+  const upgrade = (req, socket, head) => {
     let url, origin;
     try {
       url = new URL(req.url, 'http://localhost');
       origin = req.headers.origin && new URL(req.headers.origin);
     } catch { socket.destroy(); return; }
-    if (url.pathname !== '/play' || (origin && origin.host !== req.headers.host)) {
+    if (url.pathname !== `${prefix}/play` || (origin && origin.host !== req.headers.host)) {
       socket.destroy(); return;
     }
     wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, url));
-  });
+  };
+  const detach = [];
+  const attach = host => detach.push(attachSocketRoute(host, [`${prefix}/play`], upgrade, { allowQuery: true }));
+  attach(server);
   const send = (ws, data) => {
     if (ws.readyState !== WebSocket.OPEN) return;
     if (ws.bufferedAmount > 256 * 1024) { ws.close(1013, 'Connection too slow'); return; }
@@ -102,8 +123,9 @@ export function createDuelServer() {
     }
   }, 4);
 
-  return { server, rooms, async close() {
+  return { server, rooms, handle, attach, async close() {
     clearInterval(timer);
+    for (const remove of detach) remove();
     for (const ws of wss.clients) ws.terminate();
     await new Promise(resolve => wss.close(resolve));
     if (server.listening) await new Promise(resolve => server.close(resolve));
@@ -113,6 +135,6 @@ export function createDuelServer() {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const app = createDuelServer();
   const port = Number(process.env.PORT || 8787), host = process.env.HOST || '127.0.0.1';
-  app.server.listen(port, host, () => console.log(`duel → http://${host}:${port}`));
+  app.server.listen(port, host, () => console.log(`dool → http://${host}:${port}`));
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => app.close().then(() => process.exit(0)));
 }

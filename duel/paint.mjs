@@ -1,4 +1,4 @@
-import * as T from '/vendor/three.module.js';
+import * as T from './vendor/three.module.js';
 
 // The visual layer has no authority over movement or hits.
 export function createPaint() {
@@ -32,12 +32,14 @@ export function createPaint() {
     c.bezierCurveTo(128, y + 3, 384, y - 3, 512, y); c.stroke();
   }
   const floorTexture = new T.CanvasTexture(paper); floorTexture.colorSpace = T.SRGBColorSpace;
+  floorTexture.minFilter = floorTexture.magFilter = T.NearestFilter; floorTexture.generateMipmaps = false;
   floorTexture.wrapS = floorTexture.wrapT = T.RepeatWrapping; floorTexture.repeat.set(6, 6);
 
   // A bounded RGBA-frame inlet for a future KidLisp worker. No evaluator lives here.
   const image = document.createElement('canvas'); image.width = image.height = 256;
   const context = image.getContext('2d'), fieldTexture = new T.CanvasTexture(image);
   fieldTexture.colorSpace = T.SRGBColorSpace;
+  fieldTexture.minFilter = fieldTexture.magFilter = T.NearestFilter; fieldTexture.generateMipmaps = false;
   let external = false, lastFrame = -1;
   function setSurfaceFrame(frame) {
     if (frame?.width !== 256 || frame?.height !== 256 ||

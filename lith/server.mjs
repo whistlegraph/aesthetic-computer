@@ -48,6 +48,7 @@ if (typeof globalThis.awslambda === "undefined") {
 
 import express from "express";
 import {attachMusicalSocket} from "./musical-socket.mjs";
+import { createDuelServer } from "../duel/server.mjs";
 import { optionalProduct } from "../shared/private-product.mjs";
 import { operationsAuth } from "./operations-auth.mjs";
 import { canonicalPageUrl } from "../system/public/aesthetic.computer/lib/site-metadata.mjs";
@@ -106,6 +107,11 @@ const SSL_KEY = join(__dirname, "..", "ssl-dev", "localhost-key.pem");
 const HAS_SSL = existsSync(SSL_CERT) && existsSync(SSL_KEY);
 
 const app = express();
+const dool = createDuelServer({ prefix: '/dool' });
+app.use((req, res, next) => {
+  if (req.path === '/dool' || req.path.startsWith('/dool/')) return dool.handle(req, res);
+  next();
+});
 const BOOT_TIME = Date.now();
 
 // --- Response cache for hot GET endpoints ---
@@ -1497,6 +1503,7 @@ if (DEV && HAS_SSL) {
 }
 
 // Share authentication, concurrency guards and durable quotas with the HTTP lane.
+dool.attach(server);
 const musicalAPI = await import(pathToFileURL(join(SYSTEM, "netlify/functions/easel-musical-jev.mjs")).href);
 const musicalSocket = attachMusicalSocket(server, {authenticate:musicalAPI.authenticateMusical, decide:musicalAPI.musicalDecision});
 const whistlegraph = await optionalProduct(new URL("./whistlegraph-socket.mjs", import.meta.url));
@@ -1616,6 +1623,7 @@ async function gracefulShutdown(signal) {
   console.log(`[lith] draining connections...`);
   musicalSocket.close();
   whistlegraphSocket?.close();
+  await dool.close();
   server.close(() => {
     console.log("[lith] all connections drained, exiting");
     process.exit(0);

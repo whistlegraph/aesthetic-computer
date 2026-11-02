@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { WebSocket } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
+import { createServer } from 'node:http';
+import { attachSocketRoute } from '../../lith/socket-routing.mjs';
 import { Match } from '../match.mjs';
 import { createDuelServer } from '../server.mjs';
 import { spawn, move, HZ, PROTOCOL, FRAG_LIMIT } from '../world.mjs';
@@ -176,4 +178,43 @@ test('HTTP allowlist, actual two-socket match, full room, room isolation and cle
   b.close(); await once(b, 'close');
   await waitFor(a, d => d.phase === 'waiting' && d.tick > 2);
   const replacement = connect(); assert.equal((await waitFor(replacement, d => d.type === 'welcome')).seat, 1);
+});
+
+test('dool mounts below a prefix and shares HTTP and WebSockets without taking over other routes', async t => {
+  const app = createDuelServer({ prefix: '/dool' });
+  const server = createServer((req, res) => {
+    if (req.url.startsWith('/dool')) return app.handle(req, res);
+    res.end('host application');
+  });
+  app.attach(server);
+  const other = new WebSocketServer({ noServer: true });
+  const detach = attachSocketRoute(server, ['/other'], (req, socket, head) => other.handleUpgrade(req, socket, head, ws => {
+    ws.send('other service');
+  }));
+  t.after(async () => {
+    await app.close(); detach();
+    for (const ws of other.clients) ws.terminate();
+    other.close(); server.close();
+  });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const redirect = await fetch(`${base}/dool?room=test`, { redirect: 'manual' });
+  assert.equal(redirect.status, 307);
+  assert.equal(redirect.headers.get('location'), '/dool/?room=test');
+  assert.match(await (await fetch(`${base}/dool/`)).text(), /<title>dool/);
+  assert.equal((await fetch(`${base}/dool/pmove.mjs`)).status, 200);
+  assert.equal((await fetch(`${base}/dool/vendor/three.module.js`)).status, 200);
+  assert.equal((await (await fetch(`${base}/dool/health`)).json()).protocol, PROTOCOL);
+  assert.equal(await (await fetch(base)).text(), 'host application');
+  const wsBase = base.replace('http', 'ws');
+  const player = new WebSocket(`${wsBase}/dool/play?room=mount&protocol=${PROTOCOL}`, { origin: base });
+  const [message] = await once(player, 'message');
+  assert.equal(JSON.parse(message).type, 'welcome');
+  player.close(); await once(player, 'close');
+  const peer = new WebSocket(`${wsBase}/other`);
+  const [response] = await once(peer, 'message');
+  assert.equal(response.toString(), 'other service');
+  peer.close(); await once(peer, 'close');
+  const rejected = new WebSocket(`${wsBase}/dool/play?room=mount&protocol=${PROTOCOL}`, { origin: 'https://unrelated.example' });
+  await once(rejected, 'error');
 });

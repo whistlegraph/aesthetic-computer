@@ -1,6 +1,6 @@
-# duel
+# dool
 
-A working-name scaffold for Aesthetic Computer's 1v1 arena shooter.
+Aesthetic Computer's 1v1 arena shooter, developed in `duel/`.
 Two players, one rocket launcher, one room, first to ten. Movement, aim and the rematch
 are the game. No loadouts, pickups, inventory or progression.
 
@@ -18,6 +18,10 @@ person, Escape releases the mouse. Click again to resume. Keyboard and mouse onl
 There are no DOM menus or HUD overlays: scores, status and instructions are on
 arena walls, health is on the launcher and player, and the aim point sits at the
 ray's impact in the world. The canvas retains an accessible control description.
+The renderer follows canvas resizes, adapts portrait camera framing and draws
+without antialiasing. Nearest-neighbor texture filtering and pixelated canvas
+scaling keep the pixel edges sharp. Resizing is supported; touch controls are
+not implemented yet.
 
 Share the page URL to invite another player. Use `?room=your-room` for a separate
 room; there is no weapon selection. A localhost invite works only on the same
@@ -79,8 +83,13 @@ it, and keep program output confined to approved visual surfaces. Collision,
 player visibility, inputs and match state remain server-owned.
 
 No CDN or new dependency install is needed in an installed AC checkout. `ws`
-comes from the root package. This is a standalone local harness, not an AC disk
-or a deployed `aesthetic.computer/duel` route yet.
+comes from Lith's dependencies (or the root package during local development).
+Lith mounts the game at `/dool/`, including `/dool/play` WebSockets and
+`/dool/health` for the served protocol/revision. `/dool` redirects while preserving
+the room query. This shares AC's HTTPS origin and upgrade router; other WebSocket
+routes retain their existing query rules. It is a standalone game entry, not an
+AC disk. Deploy committed, pushed `main` with `ac-deploy`, then verify the health
+response, browser assets and two-player connection at the public URL.
 
 ## Checks
 

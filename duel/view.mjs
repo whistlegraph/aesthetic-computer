@@ -1,10 +1,10 @@
-import * as T from '/vendor/three.module.js';
+import * as T from './vendor/three.module.js';
 import { createPaint } from './paint.mjs';
 import { WALLS, COLORS, CFG, direction, wallDistance, along, rayBox, bodyBox } from './world.mjs';
 
 export function createView(canvas) {
-  const renderer = new T.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const renderer = new T.WebGLRenderer({ canvas, antialias: false });
+  renderer.setPixelRatio(1);
   const scene = new T.Scene();
   scene.background = new T.Color(0xe6bda0);
   scene.fog = new T.Fog(0xe6bda0, 38, 110);
@@ -60,6 +60,8 @@ export function createView(canvas) {
     const image = document.createElement('canvas'); image.width = pixelsW; image.height = pixelsH;
     const context = image.getContext('2d'), texture = new T.CanvasTexture(image);
     texture.colorSpace = T.SRGBColorSpace;
+    texture.minFilter = texture.magFilter = T.NearestFilter;
+    texture.generateMipmaps = false;
     const mesh = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: texture }));
     return { mesh, context, texture, image };
   }
@@ -124,7 +126,16 @@ export function createView(canvas) {
   });
   const rocketGeometry = new T.SphereGeometry(0.12, 8, 6);
   const rocketMeshes = new Map(), effects = [];
-  let width = 0, height = 0;
+  function resize() {
+    const width = Math.max(1, canvas.clientWidth), height = Math.max(1, canvas.clientHeight);
+    const scale = Math.max(1, Math.floor(Math.min(width / 480, height / 270)));
+    renderer.setSize(Math.ceil(width / scale), Math.ceil(height / scale), false);
+    camera.aspect = width / height;
+    camera.fov = camera.aspect < 1 ? Math.min(120, 2 * Math.atan(1 / camera.aspect) * 180 / Math.PI) : 90;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(canvas);
+  resize();
 
   function effect(e) {
     if (e.type === 'launch') { bodies[e.seat].recoil = 1; return; }
@@ -146,10 +157,6 @@ export function createView(canvas) {
   function render({ players = [], me, seat = 0, third = false, rockets = [], scores = [0, 0], status = '' } = {}) {
     paint.tick(performance.now() / 1000);
     updateBoard(scores, status);
-    if (width !== innerWidth || height !== innerHeight) {
-      width = innerWidth; height = innerHeight;
-      renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix();
-    }
     for (let i = 0; i < 2; i++) {
       const p = i === seat && me ? me : players[i], { body, legs, arms, head, shadow, health, gun, display } = bodies[i];
       body.visible = !!p?.alive && (i !== seat || third || !me);
