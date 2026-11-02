@@ -9,7 +9,8 @@ import { createDuelServer } from '../server.mjs';
 
 const app = createDuelServer({ prefix: '/dool' });
 app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');
-const base = `http://127.0.0.1:${app.server.address().port}/dool/`;
+const base = process.env.DUEL_URL || `http://127.0.0.1:${app.server.address().port}/dool/`;
+const room = `browser-${Date.now()}`;
 // Real pointer capture needs a visible Chrome window on macOS.
 const browser = await chromium.launch({ headless: process.env.DUEL_HEADLESS === '1',
   ...(existsSync('/Applications/Google Chrome.app') ? { channel: 'chrome' } : {}),
@@ -46,7 +47,7 @@ try {
       const data = JSON.parse(payload.toString());
       if (data.type === 'snapshot') state.snap = data;
     }));
-    await page.goto(`${base}?room=browser-test`);
+    await page.goto(`${base}?room=${room}`);
     await page.locator('canvas').waitFor({ state: 'visible' });
     return state;
   }

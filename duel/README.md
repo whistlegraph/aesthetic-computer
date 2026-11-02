@@ -56,10 +56,11 @@ victim, claim a hit, supply a position or choose their simulation delta.
 | --- | --- |
 | Simulation | 60 Hz, fixed 1/60-second movement step |
 | Snapshots | 30 Hz, full state, sequence acknowledgements |
-| Prediction | Immediate local movement; reset to authority and replay unacknowledged input |
+| Prediction | Immediate local simulation; reset to authority and replay unacknowledged input |
+| Presentation | Interpolate consecutive local ticks at display rate; ease small reconciliation offsets over 70 ms; mouse aim stays immediate |
 | Input delivery | Three-command backup, deduplication, sequence ordering, bounded queue |
 | Server time budget | At most one command per simulation tick; excess backlog discarded |
-| Remote rendering | Six-tick buffer, shortest-angle interpolation, freeze on starvation |
+| Remote rendering | Six-tick target buffer on a monotonic playback clock; rate adjusts to jitter; freeze on starvation |
 | Rockets | Authoritative swept collision and splash; no projectile rewind |
 | Disconnect | Match cancelled, remaining player returns to warmup; vacated seat reusable |
 | Stalls | Prediction stops after one second without snapshots; no long catch-up burst |
@@ -74,6 +75,11 @@ render pass and one triangle draw per frame, with a real depth buffer.
 WebGPU is selected asynchronously; browsers without an adapter use Oskiewar's
 existing WebGL 2 host, with antialiasing disabled for this game. Device loss
 reloads the renderer. Other Oskiewar hosts keep their existing defaults.
+
+`presentation.mjs` keeps displayed movement separate from physics. Local position
+interpolation adds one simulation tick (16.7 ms) of visual delay. Corrections over
+one meter, life changes and match transitions snap immediately; smaller offsets
+decay in real time. No smoothed position is sent to the server or used for hits.
 
 `paint.mjs` builds solid-color models and geometry from the shared Oskiewar
 5x7 block font. `project.mjs` clips faces at the near plane and projects them
@@ -127,8 +133,8 @@ timings exclude GPU completion and display latency; they are not a speedup claim
    keep WebSocket control/fallback. TCP head-of-line blocking remains in this
    scaffold. Measure at 30/80/150 ms RTT, jitter, burst loss and server stalls.
 3. Measure correction distance and hit fairness. Add clock synchronization,
-   visual correction smoothing and projectile interpolation/prediction. Current
-   clock estimation uses snapshot arrival; it is not latency-calibrated.
+   projectile interpolation/prediction. The remote playback clock smooths snapshot
+   arrival jitter; it is not latency-calibrated.
 4. Define simultaneous-hit/tie policy, spawn protection/selection, match time
    limits, ranked camera rules and rematch consent. Current hits resolve in seat
    order, spawns are fixed, and matches automatically restart.

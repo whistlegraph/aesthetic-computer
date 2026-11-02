@@ -1,5 +1,6 @@
-import { HZ, DT, PROTOCOL, INTERP_TICKS, move, spawn, clamp } from './world.mjs';
+import { HZ, DT, PROTOCOL, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
+import { LocalPresentation, SnapshotClock } from './presentation.mjs';
 import { createView } from './view.mjs';
 
 const view = await createView(document.getElementById('game'));
@@ -10,9 +11,9 @@ let ws, seat = 0, player, snapshot, history = [], pending = [], seq = 0;
 let yaw = 0, pitch = 0, third = false, firing = false, latestAt = 0, eventId = 0;
 let jumpQueued = false, fireQueued = false, audio, notice = 'CONNECTING';
 let last = performance.now(), debt = 0;
+const presentation = new LocalPresentation(), playback = new SnapshotClock();
 const locked = () => document.pointerLockElement === canvas;
 const send = data => { if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 32768) ws.send(JSON.stringify(data)); };
-const viewTick = () => snapshot ? snapshot.tick + Math.min(6, (performance.now() - latestAt) / 1000 * HZ) - INTERP_TICKS : 0;
 
 function tone(frequency, duration, volume = 0.04) {
   if (!audio || audio.state !== 'running') return;
@@ -38,6 +39,7 @@ function connect() {
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   url.search = new URLSearchParams({ room, protocol: PROTOCOL });
   history = []; pending = []; player = null; snapshot = null; seq = 0; eventId = 0; debt = 0;
+  presentation.reset(null); playback.reset();
   notice = 'CONNECTING';
   ws = new WebSocket(url);
   const socket = ws;
@@ -49,11 +51,14 @@ function connect() {
     const own = data.players[seat];
     if (!own) return;
     const changedLife = !player || own.life !== player.life;
+    const changedPhase = snapshot && data.phase !== snapshot.phase;
     const result = reconcile(own, pending, data.acks[seat]);
     pending = result.pending;
     player = data.phase === 'playing' || data.phase === 'waiting' ? result.player : { ...own };
+    presentation.correct(player, changedLife || changedPhase);
     if (changedLife) { yaw = own.yaw; pitch = own.pitch; }
     snapshot = data; latestAt = performance.now(); history.push(data); history = history.slice(-32);
+    playback.receive(data.tick, latestAt);
     if (notice === 'CONNECTING') notice = '';
     for (const event of data.events) {
       if (event.id <= eventId) continue;
@@ -69,6 +74,7 @@ function connect() {
     if (locked()) document.exitPointerLock();
     notice = e.reason || 'DISCONNECTED — CLICK TO REJOIN';
     player = null; snapshot = null; pending = []; history = [];
+    presentation.reset(null); playback.reset();
   };
   socket.onerror = () => { notice = 'SERVER UNAVAILABLE — CLICK TO RETRY'; };
 }
@@ -93,14 +99,21 @@ document.addEventListener('keyup', e => keys.delete(e.code));
 document.addEventListener('mousedown', e => { if (locked() && e.button === 0) firing = fireQueued = true; });
 document.addEventListener('mouseup', () => { firing = false; });
 window.addEventListener('blur', releaseInput);
-document.addEventListener('visibilitychange', () => { releaseInput(); debt = 0; last = performance.now(); });
+document.addEventListener('visibilitychange', () => {
+  releaseInput(); debt = 0; last = performance.now(); presentation.reset(player);
+});
 
 function frame(now) {
-  debt += Math.min(0.1, (now - last) / 1000); last = now;
+  const elapsed = Math.max(0, (now - last) / 1000);
+  if (elapsed > .25) presentation.reset(player);
+  debt += Math.min(0.1, elapsed); last = now;
   const connected = ws?.readyState === WebSocket.OPEN && player && snapshot;
   while (debt >= DT) {
     debt -= DT;
-    if (!connected || pending.length >= 120 || now - latestAt > 1000) continue;
+    if (!connected || pending.length >= 120 || now - latestAt > 1000) {
+      if (player) presentation.step(player);
+      continue;
+    }
     const c = { seq: ++seq, yaw, pitch,
       fwd: Number(keys.has('KeyW')) - Number(keys.has('KeyS')),
       right: Number(keys.has('KeyD')) - Number(keys.has('KeyA')),
@@ -108,6 +121,7 @@ function frame(now) {
     jumpQueued = fireQueued = false;
     pending.push(c);
     if (snapshot.phase === 'playing' || snapshot.phase === 'waiting') player = move(player, c);
+    presentation.step(player);
     send({ type: 'input', commands: pending.slice(-3) });
   }
   const seconds = snapshot ? Math.max(1, Math.ceil((snapshot.until - snapshot.tick) / HZ)) : 0;
@@ -116,8 +130,10 @@ function frame(now) {
     snapshot.phase === 'finished' ? `${snapshot.winner === seat ? 'YOU WIN' : 'OPPONENT WINS'} · ${seconds}` :
     !player.alive ? 'RESPAWNING' : !locked() ? 'CLICK TO PLAY' :
     snapshot.phase === 'waiting' ? 'WAITING FOR OPPONENT' : '');
-  view.render({ players: connected ? [0, 1].map(i => interpolate(history, viewTick(), i)) : [],
-    me: player ? { ...player, yaw, pitch } : spawn(seat), seat, third,
+  const tick = playback.sample(now);
+  const displayed = presentation.sample(debt / DT, elapsed);
+  view.render({ players: connected ? [0, 1].map(i => interpolate(history, tick, i)) : [],
+    me: player ? { ...displayed, yaw, pitch } : spawn(seat), seat, third,
     rockets: snapshot?.rockets || [], scores: snapshot?.players.map(p => p?.score || 0) || [0, 0],
     status });
   requestAnimationFrame(frame);
