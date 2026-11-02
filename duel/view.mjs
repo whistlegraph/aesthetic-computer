@@ -1,237 +1,222 @@
-import * as T from './vendor/three.module.js';
-import { createPaint } from './paint.mjs';
+import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
+import { model, INK, PAPER, rgb } from './paint.mjs';
+import { Projector } from './project.mjs';
 import { WALLS, COLORS, CFG, direction, wallDistance, along, rayBox, bodyBox } from './world.mjs';
 
-export function createView(canvas) {
-  const renderer = new T.WebGLRenderer({ canvas, antialias: false });
-  renderer.setPixelRatio(1);
-  const scene = new T.Scene();
-  scene.background = new T.Color(0xe6bda0);
-  scene.fog = new T.Fog(0xe6bda0, 38, 110);
-  const camera = new T.PerspectiveCamera(90, 1, 0.04, 130);
-  scene.add(new T.HemisphereLight(0xffecd6, 0x57415c, 1.5));
-  const sun = new T.DirectionalLight(0xffe8c6, 2);
-  sun.position.set(-8, 24, -5); scene.add(sun);
-  const paint = createPaint(), { material, shape } = paint;
-  function box(w, h, d, color, x, y, z, parent = scene) {
-    const mesh = new T.Mesh(new T.BoxGeometry(w, h, d), material(color));
-    const edges = new T.LineSegments(new T.EdgesGeometry(mesh.geometry), new T.LineBasicMaterial({ color: 0x423144 }));
-    mesh.add(edges);
-    mesh.position.set(x, y, z); parent.add(mesh); return mesh;
-  }
-  const floor = new T.Mesh(new T.PlaneGeometry(38, 38), new T.MeshToonMaterial({ map: paint.floorTexture }));
-  floor.rotation.x = -Math.PI / 2; scene.add(floor);
-  const sky = new T.Mesh(new T.SphereGeometry(100, 24, 16), new T.ShaderMaterial({
-    side: T.BackSide, depthWrite: false,
-    vertexShader: 'varying float height; void main(){height=normalize(position).y; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: 'varying float height; void main(){vec3 a=vec3(.90,.74,.63),b=vec3(.51,.47,.65);gl_FragColor=vec4(mix(a,b,smoothstep(0.,.8,height)),1.);}',
-  }));
-  scene.add(sky);
-  const sunDisk = new T.Mesh(new T.SphereGeometry(6, 24, 16), new T.MeshBasicMaterial({ color: 0xffe3a3 }));
-  sunDisk.position.set(-30, 30, 65); scene.add(sunDisk);
-  for (let i = 0; i < 14; i++) {
-    const angle = i / 14 * Math.PI * 2, h = 8 + Math.sin(i * 2.3) * 5;
-    shape(new T.ConeGeometry(10, h, 5), i % 2 ? 0xa1889c : 0xc49a8f,
-      scene, Math.sin(angle) * 55, h / 2, Math.cos(angle) * 55, false);
-  }
-  for (const [i, w] of WALLS.entries()) {
-    const x = (w.xMin + w.xMax) / 2, y = (w.yMin + w.yMax) / 2, z = (w.zMin + w.zMax) / 2;
-    box(w.xMax - w.xMin, w.yMax - w.yMin, w.zMax - w.zMin,
-      i < 4 ? 0x866c7e : i === 4 ? 0xc88168 : 0x8e8ca8, x, y, z);
-    if (i >= 4) box(w.xMax - w.xMin + 0.02, 0.18, w.zMax - w.zMin + 0.02,
-      i === 4 ? COLORS[0] : COLORS[1], x, 5.3, z);
-  }
-  for (const seat of [0, 1]) {
-    box(6, 0.02, 0.12, COLORS[seat], 0, 0.02, seat ? 12 : -12);
-    box(0.12, 0.02, 2, COLORS[seat], 0, 0.02, seat ? 12 : -12);
-    box(35.8, 0.18, 0.04, COLORS[seat], 0, 2.8, seat ? 17.98 : -17.98);
-  }
-  const ring = new T.Mesh(new T.RingGeometry(2.8, 2.85, 64), material(0xeee6d7));
-  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.015; scene.add(ring);
-  const field = new T.Mesh(new T.CircleGeometry(2.7, 64), new T.MeshBasicMaterial({ map: paint.fieldTexture }));
-  field.rotation.x = -Math.PI / 2; field.position.y = 0.01; scene.add(field);
-  for (const x of [-1, 1]) {
-    const hoop = shape(new T.TorusGeometry(6, 0.32, 6, 32), 0xe7be8d, scene, x * 24, 12, 0);
-    hoop.rotation.y = Math.PI / 2;
-  }
-
-  // Detached canvases supply textures only. Every visible mark has a world surface.
-  function surface(w, h, pixelsW = 1024, pixelsH = 256) {
-    const image = document.createElement('canvas'); image.width = pixelsW; image.height = pixelsH;
-    const context = image.getContext('2d'), texture = new T.CanvasTexture(image);
-    texture.colorSpace = T.SRGBColorSpace;
-    texture.minFilter = texture.magFilter = T.NearestFilter;
-    texture.generateMipmaps = false;
-    const mesh = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshBasicMaterial({ map: texture }));
-    return { mesh, context, texture, image };
-  }
-  const board = surface(24, 6, 2048, 512);
-  for (const end of [-1, 1]) {
-    const panel = new T.Mesh(board.mesh.geometry, board.mesh.material);
-    panel.position.set(0, 7, end * 17.95); panel.rotation.y = end === 1 ? Math.PI : 0;
-    scene.add(panel);
-  }
-  let boardText = '';
-  function updateBoard(scores, status) {
-    const text = JSON.stringify([scores, status]);
-    if (text === boardText) return;
-    boardText = text;
-    const c = board.context;
-    c.fillStyle = '#252936'; c.fillRect(0, 0, 2048, 512);
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = 'bold 220px monospace';
-    c.fillStyle = '#ff8066'; c.fillText(String(scores[0]), 780, 132);
-    c.fillStyle = '#fff8e8'; c.fillText(':', 1024, 132);
-    c.fillStyle = '#85caff'; c.fillText(String(scores[1]), 1268, 132);
-    c.fillStyle = '#fff8e8'; c.font = 'bold 96px monospace';
-    c.fillText(status || 'FIRST TO 10', 1024, 302, 1920);
-    c.font = '56px monospace';
-    c.fillText('WASD MOVE · MOUSE AIM / FIRE · SPACE JUMP', 1024, 410);
-    c.fillText('V CAMERA · ESC RELEASE', 1024, 472);
-    board.texture.needsUpdate = true;
-  }
-
-  const bodies = COLORS.map(color => {
-    const body = new T.Group(); scene.add(body);
-    shape(new T.CapsuleGeometry(0.16, 0.5, 4, 8), color, body, 0, 1, 0);
-    const head = shape(new T.SphereGeometry(0.28, 12, 8), color, body, 0, 1.62, 0);
-    for (const x of [-0.095, 0.095]) {
-      shape(new T.SphereGeometry(0.075, 8, 6), 0xfff3dc, head, x, 0.045, 0.24, false);
-      shape(new T.SphereGeometry(0.032, 8, 6), 0x302638, head, x, 0.035, 0.303, false);
-    }
-    const mouth = shape(new T.TorusGeometry(0.08, 0.012, 4, 12, Math.PI), 0x302638, head, 0, -0.055, 0.263, false);
-    mouth.rotation.z = Math.PI;
-    const arms = [-0.3, 0.3].map(x => {
-      const arm = shape(new T.CapsuleGeometry(0.085, 0.45, 4, 6), color, body, x, 1.05, 0.1);
-      arm.rotation.x = -0.8; arm.rotation.z = x > 0 ? 0.25 : -0.25; return arm;
+export async function createView(canvas) {
+  let host, backend;
+  let lost = false;
+  try {
+    host = await WebGPUOskiewarScene3D.create(canvas, {
+      maxTriangles: 16384,
+      onDeviceLost: () => {
+        lost = true;
+        canvas.dataset.engine = 'lost';
+      },
     });
-    const legs = [-0.15, 0.15].map(x => {
-      const leg = new T.Group(); leg.position.set(x, 0.68, 0); body.add(leg);
-      shape(new T.CapsuleGeometry(0.09, 0.43, 4, 6), color, leg, 0, -0.26, 0);
-      shape(new T.CapsuleGeometry(0.1, 0.15, 4, 6), color, leg, 0, -0.57, 0.07).rotation.x = Math.PI / 2;
-      return leg;
-    });
-    const shadow = new T.Mesh(new T.CircleGeometry(0.55, 20), new T.MeshBasicMaterial({ color: 0x45394e, transparent: true, opacity: 0.28, depthWrite: false }));
-    shadow.rotation.x = -Math.PI / 2; scene.add(shadow);
-    const health = box(0.8, 0.08, 0.08, color, 0, 2.15, 0, body);
-    const gun = new T.Group(); scene.add(gun);
-    shape(new T.CylinderGeometry(0.17, 0.19, 0.8, 8), 0x65556f, gun).rotation.x = Math.PI / 2;
-    shape(new T.TorusGeometry(0.17, 0.045, 4, 8), color, gun, 0, 0, 0.38);
-    shape(new T.CircleGeometry(0.135, 8), 0x302638, gun, 0, 0, 0.41, false);
-    box(0.12, 0.3, 0.18, color, 0, -0.2, -0.15, gun);
-    const display = surface(0.23, 0.14, 256, 128);
-    display.mesh.position.set(0, 0, -0.401); display.mesh.rotation.y = Math.PI;
-    gun.add(display.mesh);
-    return { body, legs, arms, head, shadow, health, gun, display, hp: -1, recoil: 0 };
+    backend = 'webgpu';
+  } catch (error) {
+    console.info('WebGPU unavailable; using the shared WebGL 2 host.', error.message);
+    // A failed WebGPU initialization can already own the canvas context.
+    const replacement = canvas.cloneNode(false);
+    canvas.replaceWith(replacement);
+    canvas = replacement;
+    const { WebGLOskiewarScene3D } = await import('./engine/scene3d-webgl.mjs');
+    host = new WebGLOskiewarScene3D(canvas, { maxTriangles: 16384, antialias: false });
+    backend = 'webgl2';
+  }
+  canvas.dataset.engine = backend;
+  const projector = new Projector(host.scene);
+  const sky = [...rgb(0xc0c0c0), 1];
+  const arena = model(({ box, quad }) => {
+    quad([-19, 0, -19], [-19, 0, 19], [19, 0, 19], [19, 0, -19], 0xeeeeee);
+    WALLS.forEach((w, i) =>
+      box(
+        (w.xMin + w.xMax) / 2,
+        (w.yMin + w.yMax) / 2,
+        (w.zMin + w.zMax) / 2,
+        w.xMax - w.xMin,
+        w.yMax - w.yMin,
+        w.zMax - w.zMin,
+        i < 4 ? PAPER : COLORS[i - 4],
+        i < 4 ? 0xc0c0c0 : INK,
+        PAPER,
+      ),
+    );
+    // Court markings describe the playable space, with no scenery beyond it.
+    for (const s of [0, 1])
+      box(0, 0.012, s ? 12 : -12, 2, 0.02, 0.1, COLORS[s], COLORS[s], COLORS[s]);
+    box(0, 0.012, 0, 10, 0.02, 0.06, INK, INK, INK);
+    box(0, 0.012, 0, 0.06, 0.02, 4, INK, INK, INK);
   });
-  const rocketGeometry = new T.SphereGeometry(0.12, 8, 6);
-  const rocketMeshes = new Map(), effects = [];
+  const boardBase = model(({ rect }) => {
+    rect(-12, 0, 0, 24, 6, INK);
+    rect(-11.9, 0.1, -0.012, 23.8, 5.8, PAPER);
+  });
+  let boardKey, boardLetters;
+  const fighters = COLORS.map((color) => ({
+    torso: model(({ box }) => box(0, 1.02, 0, 0.42, 0.62, 0.26, color, INK, PAPER)),
+    head: model(({ box, rect }) => {
+      box(0, 1.59, 0, 0.44, 0.42, 0.36, PAPER, 0xc0c0c0, PAPER);
+      rect(-0.14, 1.59, 0.181, 0.09, 0.07, INK);
+      rect(0.05, 1.59, 0.181, 0.09, 0.07, INK);
+    }),
+    limb: model(({ box }) => box(0, -0.23, 0, 0.13, 0.46, 0.16, color, INK, PAPER)),
+    gun: model(({ box, rect }) => {
+      box(0, 0, 0, 0.32, 0.3, 0.8, 0xc0c0c0, INK, PAPER);
+      box(0, -0.23, -0.13, 0.1, 0.2, 0.16, color, INK, color);
+      rect(-0.13, -0.12, 0.401, 0.26, 0.24, INK);
+      rect(-0.145, -0.13, -0.401, 0.29, 0.26, INK);
+    }),
+    hp: -1,
+    display: null,
+    recoil: 0,
+  }));
+  const rocket = model(({ box }) => box(0, 0, 0, 0.16, 0.16, 0.32, 0xffff00, INK, PAPER));
+  const blast = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffff00, INK, PAPER));
+  const dot = model(({ box }) => box(0, 0, 0, 0.06, 0.06, 0.06, INK, INK, INK));
+  const effects = [];
+  let aspect = 1;
   function resize() {
-    const width = Math.max(1, canvas.clientWidth), height = Math.max(1, canvas.clientHeight);
+    const width = Math.max(1, canvas.clientWidth),
+      height = Math.max(1, canvas.clientHeight);
     const scale = Math.max(1, Math.floor(Math.min(width / 480, height / 270)));
-    renderer.setSize(Math.ceil(width / scale), Math.ceil(height / scale), false);
-    camera.aspect = width / height;
-    camera.fov = camera.aspect < 1 ? Math.min(120, 2 * Math.atan(1 / camera.aspect) * 180 / Math.PI) : 90;
-    camera.updateProjectionMatrix();
+    host.resize(Math.ceil(width / scale), Math.ceil(height / scale));
+    aspect = width / height;
   }
-  new ResizeObserver(resize).observe(canvas);
+  const observer = new ResizeObserver(resize);
+  observer.observe(canvas);
   resize();
-
   function effect(e) {
-    if (e.type === 'launch') { bodies[e.seat].recoil = 1; return; }
-    if (e.type !== 'blast') return;
-    const object = new T.Mesh(new T.IcosahedronGeometry(0.3, 0),
-      new T.MeshBasicMaterial({ color: 0xffd78c, transparent: true }));
-    object.position.set(e.at.x, e.at.y, e.at.z);
-    scene.add(object); effects.push({ object, born: performance.now(), type: e.type });
-    for (let i = 0; i < 10; i++) {
-      const spark = new T.Mesh(new T.TetrahedronGeometry(0.12), new T.MeshBasicMaterial({ color: i % 2 ? 0xcd705b : 0xffe1a2, transparent: true }));
-      spark.position.copy(object.position); scene.add(spark);
-      effects.push({ object: spark, born: performance.now(), type: 'spark',
-        origin: object.position.clone(), velocity: new T.Vector3(Math.sin(i * 2.4) * 3, 1 + i % 3, Math.cos(i * 2.4) * 3) });
+    if (e.type === 'launch') fighters[e.seat].recoil = 1;
+    if (e.type === 'blast') {
+      if (effects.length >= 24) effects.shift();
+      effects.push({ at: e.at, born: performance.now() });
     }
   }
-
-  const aimPoint = new T.Mesh(new T.SphereGeometry(0.08, 8, 6), new T.MeshBasicMaterial({ color: 0xffe7aa }));
-  scene.add(aimPoint);
-  function render({ players = [], me, seat = 0, third = false, rockets = [], scores = [0, 0], status = '' } = {}) {
-    paint.tick(performance.now() / 1000);
-    updateBoard(scores, status);
-    for (let i = 0; i < 2; i++) {
-      const p = i === seat && me ? me : players[i], { body, legs, arms, head, shadow, health, gun, display } = bodies[i];
-      body.visible = !!p?.alive && (i !== seat || third || !me);
-      gun.visible = !!p?.alive;
-      shadow.visible = !!p?.alive;
-      if (!p) continue;
-      health.scale.x = Math.max(0.01, p.health / 100);
-      if (bodies[i].hp !== p.health) {
-        bodies[i].hp = p.health;
-        const c = display.context;
-        c.fillStyle = '#11151d'; c.fillRect(0, 0, 256, 128);
-        c.fillStyle = p.health < 40 ? '#ff8066' : '#e8ffb0';
-        c.font = 'bold 100px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.fillText(String(p.health), 128, 70); display.texture.needsUpdate = true;
-      }
-      const forward = direction(p.yaw, p.pitch), right = direction(p.yaw - 90);
-      const recoil = bodies[i].recoil; bodies[i].recoil *= 0.78;
-      gun.position.set(p.x + forward.x * (1.05 - recoil * 0.1) + right.x * 0.34,
-        p.y + forward.y * 1.05 - 0.3, p.z + forward.z * (1.05 - recoil * 0.1) + right.z * 0.34);
-      gun.rotation.set(-p.pitch * Math.PI / 180, p.yaw * Math.PI / 180, 0, 'YXZ');
-      body.position.set(p.x, p.y - CFG.eyeHeight, p.z);
-      body.rotation.y = p.yaw * Math.PI / 180;
-      const stride = Math.min(1, Math.hypot(p.vx, p.vz) / 10);
-      legs.forEach((leg, j) => { leg.rotation.x = Math.sin(performance.now() / 85 + j * Math.PI) * stride * 0.65; });
-      arms.forEach((arm, j) => { arm.rotation.x = -0.8 + Math.sin(performance.now() / 85 + j * Math.PI) * stride * 0.15; });
-      head.rotation.z = Math.sin(performance.now() / 180) * stride * 0.06;
-      shadow.position.set(p.x, 0.025, p.z);
-      shadow.scale.setScalar(Math.max(0.4, 1 - (p.y - CFG.eyeHeight) * 0.1));
+  const draw = (...args) => projector.draw(...args);
+  function render({
+    players = [],
+    me,
+    seat = 0,
+    third = false,
+    rockets = [],
+    scores = [0, 0],
+    status = '',
+  } = {}) {
+    if (lost) {
+      location.reload();
+      return;
     }
+    const start = performance.now(),
+      now = start;
+    host.beginFrame();
+    let eye = { x: 15, y: 19, z: -22 },
+      aim = { x: 0, y: 0, z: 0 };
     if (me) {
-      const dir = direction(me.yaw, me.pitch);
-      const eye = { x: me.x, y: me.y, z: me.z };
-      let position = eye;
+      const dir = direction(me.yaw, me.pitch),
+        origin = { x: me.x, y: me.y, z: me.z };
+      eye = origin;
       if (third) {
-        const back = { x: -dir.x, y: -dir.y + 0.22, z: -dir.z };
-        const len = Math.hypot(back.x, back.y, back.z);
+        const back = { x: -dir.x, y: -dir.y + 0.22, z: -dir.z },
+          len = Math.hypot(back.x, back.y, back.z);
         for (const k of ['x', 'y', 'z']) back[k] /= len;
-        position = along(eye, back, Math.max(0, wallDistance(eye, back, 4) - 0.2));
+        eye = along(origin, back, Math.max(0, wallDistance(origin, back, 4) - 0.2));
       }
-      // The camera aims at the eye ray's impact; third person cannot shoot around cover.
-      let distance = wallDistance(eye, dir, 100);
-      for (const [i, p] of players.entries()) if (i !== seat && p?.alive) {
-        distance = Math.min(distance, rayBox(eye, dir, bodyBox(p), 100));
-      }
-      const aim = along(eye, dir, Math.max(0.1, distance - 0.1));
-      aimPoint.visible = me.alive;
-      aimPoint.position.set(aim.x, aim.y, aim.z);
-      camera.position.set(position.x, position.y, position.z);
-      camera.lookAt(aim.x, aim.y, aim.z);
-    } else {
-      camera.position.set(15, 19, -22); camera.lookAt(0, 0, 0);
+      let distance = wallDistance(origin, dir, 100);
+      players.forEach((p, i) => {
+        if (i !== seat && p?.alive)
+          distance = Math.min(distance, rayBox(origin, dir, bodyBox(p), 100));
+      });
+      aim = along(origin, dir, Math.max(0.1, distance - 0.1));
     }
-    const ids = new Set(rockets.map(r => r.id));
-    for (const [id, mesh] of rocketMeshes) if (!ids.has(id)) { scene.remove(mesh); rocketMeshes.delete(id); }
-    for (const r of rockets) {
-      if (!rocketMeshes.has(r.id)) {
-        const mesh = new T.Mesh(rocketGeometry, material(0xffbd60));
-        scene.add(mesh); rocketMeshes.set(r.id, mesh);
-      }
-      rocketMeshes.get(r.id).position.set(r.x, r.y, r.z);
+    projector.camera(eye, aim, aspect);
+    draw(arena);
+    const key = JSON.stringify([scores, status]);
+    if (key !== boardKey) {
+      boardKey = key;
+      boardLetters = model(({ text }) => {
+        text(scores[0], -3, 4.8, -0.025, 0.32, COLORS[0]);
+        text(':', 0, 4.8, -0.025, 0.32, INK);
+        text(scores[1], 3, 4.8, -0.025, 0.32, COLORS[1]);
+        const label = status || 'FIRST TO 10';
+        text(label, 0, 1.6, -0.025, Math.min(0.2, 22 / (label.length * 6)), INK);
+      });
     }
-    for (let i = effects.length - 1; i >= 0; i--) {
-      const e = effects[i], age = (performance.now() - e.born) / 250;
-      if (age > 1) {
-        scene.remove(e.object); e.object.geometry.dispose(); e.object.material.dispose(); effects.splice(i, 1);
-      } else {
-        e.object.material.opacity = 1 - age;
-        if (e.type === 'blast') e.object.scale.setScalar(1 + age * 10);
-        if (e.type === 'spark') {
-          e.object.position.copy(e.origin).addScaledVector(e.velocity, age);
-          e.object.rotation.set(age * 3, age * 5, age);
+    // Panels face into the arena. Letter geometry is drawn from the front (-Z).
+    for (const end of [-1, 1]) {
+      draw(boardBase, 0, 4, end * 17.95, end === 1 ? 0 : Math.PI);
+      draw(boardLetters, 0, 4, end * 17.95, end === 1 ? 0 : Math.PI);
+    }
+    for (let i = 0; i < 2; i++) {
+      const p = i === seat && me ? me : players[i];
+      if (!p?.alive) continue;
+      const f = fighters[i],
+        yaw = (p.yaw * Math.PI) / 180,
+        base = p.y - CFG.eyeHeight;
+      if (i !== seat || third || !me) {
+        draw(f.torso, p.x, base, p.z, yaw);
+        draw(f.head, p.x, base, p.z, yaw);
+        const stride = Math.min(1, Math.hypot(p.vx, p.vz) / 10),
+          right = direction(p.yaw - 90);
+        for (const side of [-1, 1]) {
+          const step = Math.sin(now / 85 + (side === 1 ? Math.PI : 0)) * stride * 0.65;
+          draw(
+            f.limb,
+            p.x + right.x * 0.15 * side,
+            base + 0.68,
+            p.z + right.z * 0.15 * side,
+            yaw,
+            step,
+          );
+          draw(
+            f.limb,
+            p.x + right.x * 0.3 * side,
+            base + 1.27,
+            p.z + right.z * 0.3 * side,
+            yaw,
+            -0.8 - step * 0.2,
+          );
         }
       }
+      const forward = direction(p.yaw, p.pitch),
+        right = direction(p.yaw - 90),
+        recoil = f.recoil;
+      f.recoil *= 0.78;
+      const x = p.x + forward.x * (1.05 - recoil * 0.1) + right.x * 0.34,
+        y = p.y + forward.y * 1.05 - 0.3,
+        z = p.z + forward.z * (1.05 - recoil * 0.1) + right.z * 0.34;
+      draw(f.gun, x, y, z, yaw, (-p.pitch * Math.PI) / 180);
+      if (f.hp !== p.health) {
+        f.hp = p.health;
+        f.display = model(({ text }) => text(p.health, 0, 0.065, -0.403, 0.014, PAPER));
+      }
+      draw(f.display, x, y, z, yaw, (-p.pitch * Math.PI) / 180);
     }
-    renderer.render(scene, camera);
+    for (const r of rockets) draw(rocket, r.x, r.y, r.z, Math.atan2(r.dir.x, r.dir.z));
+    if (me?.alive) draw(dot, aim.x, aim.y, aim.z);
+    for (let i = effects.length - 1; i >= 0; i--) {
+      const e = effects[i],
+        age = (now - e.born) / 180;
+      if (age > 1) effects.splice(i, 1);
+      else draw(blast, e.at.x, e.at.y, e.at.z, 0, 0, 0.2 + age * 1.5);
+    }
+    host.present({ clear: sky });
+    // Local inspection only; no telemetry, labels or DOM overlays.
+    canvas.doolStats = {
+      backend,
+      triangles: host.scene.triangleCount,
+      drawCalls: 1,
+      cpuMs: performance.now() - start,
+    };
   }
-  return { render, effect, setSurfaceFrame: paint.setSurfaceFrame };
+  return {
+    canvas,
+    render,
+    effect,
+    destroy() {
+      observer.disconnect();
+      host.destroy();
+    },
+  };
 }

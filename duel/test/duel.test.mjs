@@ -203,7 +203,11 @@ test('dool mounts below a prefix and shares HTTP and WebSockets without taking o
   assert.equal(redirect.headers.get('location'), '/dool/?room=test');
   assert.match(await (await fetch(`${base}/dool/`)).text(), /<title>dool/);
   assert.equal((await fetch(`${base}/dool/pmove.mjs`)).status, 200);
-  assert.equal((await fetch(`${base}/dool/vendor/three.module.js`)).status, 200);
+  for (const module of ['scene3d', 'scene3d-webgpu', 'scene3d-webgl', 'block-font']) {
+    const response = await fetch(`${base}/dool/engine/${module}.mjs`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /javascript/);
+  }
   assert.equal((await (await fetch(`${base}/dool/health`)).json()).protocol, PROTOCOL);
   assert.equal(await (await fetch(base)).text(), 'host application');
   const wsBase = base.replace('http', 'ws');

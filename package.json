@@ -9,8 +9,9 @@
   },
   "scripts": {
     "duel": "node duel/server.mjs",
-    "test:duel": "node --test duel/test/duel.test.mjs",
+    "test:duel": "node --test duel/test/*.test.mjs",
     "test:duel:browser": "node duel/test/browser.mjs",
+    "test:duel:render": "node duel/test/render.mjs",
     "deps:install": "node toolchain/pnpm-install.mjs . && node toolchain/pnpm-install.mjs system",
     "platform": "devcontainer up --workspace-folder .; devcontainer exec --workspace-folder . fish -c 'aesthetic'",
     "test": "node run-tests.mjs",

@@ -183,7 +183,7 @@ function program(gl, vertexText = vertexSource, fragmentText = fragmentSource) {
 export class WebGLOskiewarScene3D {
   constructor(canvas, options = {}) {
     const gl = canvas.getContext("webgl2", {
-      alpha: true, antialias: true, depth: true, stencil: false,
+      alpha: true, antialias: options.antialias ?? true, depth: true, stencil: false,
       premultipliedAlpha: false, preserveDrawingBuffer: false,
     });
     if (!gl) throw new Error("WebGL 2 is unavailable");

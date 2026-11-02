@@ -2,7 +2,8 @@ import { HZ, DT, PROTOCOL, INTERP_TICKS, move, spawn, clamp } from './world.mjs'
 import { reconcile, interpolate } from './net.mjs';
 import { createView } from './view.mjs';
 
-const canvas = document.getElementById('game'), view = createView(canvas), keys = new Set();
+const view = await createView(document.getElementById('game'));
+const canvas = view.canvas, keys = new Set();
 const requestedRoom = new URLSearchParams(location.search).get('room');
 const room = requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom) ? requestedRoom : 'lobby';
 let ws, seat = 0, player, snapshot, history = [], pending = [], seq = 0;

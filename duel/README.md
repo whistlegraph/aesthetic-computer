@@ -15,11 +15,11 @@ a finished match resets after five. A third player is refused.
 
 WASD moves, mouse aims, left mouse fires, space jumps, V switches first/third
 person, Escape releases the mouse. Click again to resume. Keyboard and mouse only.
-There are no DOM menus or HUD overlays: scores, status and instructions are on
-arena walls, health is on the launcher and player, and the aim point sits at the
+There are no DOM menus or HUD overlays: scores and status are on
+arena walls, health is on the launcher, and the aim point sits at the
 ray's impact in the world. The canvas retains an accessible control description.
 The renderer follows canvas resizes, adapts portrait camera framing and draws
-without antialiasing. Nearest-neighbor texture filtering and pixelated canvas
+without antialiasing. Solid triangle faces, geometric bitmap letters and pixelated canvas
 scaling keep the pixel edges sharp. Resizing is supported; touch controls are
 not implemented yet.
 
@@ -68,19 +68,25 @@ victim, claim a hit, supply a position or choose their simulation delta.
 `world.mjs` is shared geometry/movement; `net.mjs` is validation/reconciliation;
 `match.mjs` is the transport-independent match; `server.mjs` supplies rooms,
 WebSockets and an explicit static-file allowlist. `client.mjs` handles input and
-network state; `view.mjs` draws with the repository's vendored Three.js.
-`paint.mjs` owns stepped shading, outlines, paper texture and the animated
-center surface. Fighters use articulated rounded limbs and faces; launchers
-recoil and explosions scatter colored fragments. These are visual effects,
-independent of the authoritative simulation.
+network state; `view.mjs` draws through Oskiewar's shared scene contract (`xbox/live/scene3d.mjs`).
+The new shared `scene3d-webgpu.mjs` host uses one bounded vertex buffer, one
+render pass and one triangle draw per frame, with a real depth buffer.
+WebGPU is selected asynchronously; browsers without an adapter use Oskiewar's
+existing WebGL 2 host, with antialiasing disabled for this game. Device loss
+reloads the renderer. Other Oskiewar hosts keep their existing defaults.
 
-The renderer exposes `setSurfaceFrame({ width: 256, height: 256, data })`, where
-`data` is a 256 × 256 RGBA `Uint8ClampedArray`. The frame replaces the center
-surface's procedural animation. This is the future KidLisp worker boundary;
-there is no KidLisp evaluator or language-support claim in this scaffold.
-Use the canonical evaluator in a separately budgeted worker when integrating
-it, and keep program output confined to approved visual surfaces. Collision,
-player visibility, inputs and match state remain server-owned.
+`paint.mjs` builds solid-color models and geometry from the shared Oskiewar
+5x7 block font. `project.mjs` clips faces at the near plane and projects them
+into the shared triangle stream. The world uses white, gray, black and seat
+colors: no lighting, texture grain, sky gradient, scenery or post effects.
+Fighters and launchers are articulated boxes; explosions are brief solid
+flashes. Collision and network authority remain independent of rendering.
+
+KidLisp remains a future integration. The unused RGBA surface inlet was removed
+with the textured renderer; this host currently accepts solid triangles only.
+Use the canonical evaluator in a separately budgeted worker and add a bounded
+visual-surface command when integrating it. Program output must not alter
+collision, player visibility, inputs or server-owned match state.
 
 No CDN or new dependency install is needed in an installed AC checkout. `ws`
 comes from Lith's dependencies (or the root package during local development).
@@ -96,6 +102,7 @@ response, browser assets and two-player connection at the public URL.
 ```sh
 npm run test:duel
 npm run test:duel:browser
+npm run test:duel:render
 ```
 
 Simulation tests cover prediction parity, replay, malformed/duplicate/reordered
@@ -106,6 +113,11 @@ two clients through movement, jumping, cameras, rockets and disconnect,
 then writes screenshots to ignored `tmp/duel/`. It opens a test browser window
 for real mouse capture, using installed Chrome on macOS or Playwright Chromium
 elsewhere. `DUEL_HEADLESS=1` is available where headless pointer lock works.
+
+The render check requires WebGPU-capable Chrome. It verifies the actual backend,
+compares identical WebGPU/WebGL frames, checks depth occlusion after resize,
+and captures both cameras and portrait/wide layouts. Its local CPU submission
+timings exclude GPU completion and display latency; they are not a speedup claim.
 
 ## Next playtest gates
 
@@ -120,7 +132,7 @@ elsewhere. `DUEL_HEADLESS=1` is available where headless pointer lock works.
 4. Define simultaneous-hit/tie policy, spawn protection/selection, match time
    limits, ranked camera rules and rematch consent. Current hits resolve in seat
    order, spawns are fixed, and matches automatically restart.
-5. Connect KidLisp's canonical evaluator to the surface frame input, with
+5. Connect KidLisp's canonical evaluator to a bounded visual command, with
    explicit execution budgets and the language's conformance checks.
 6. Integrate the AC entry point, identity, invites, regions, spectators and
    replay evidence; version the physics/map build together before deployment.

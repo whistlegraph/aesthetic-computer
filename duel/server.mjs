@@ -12,12 +12,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const { WebSocketServer, WebSocket } = createRequire(new URL('../lith/package.json', import.meta.url))('ws');
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
-  ...['client', 'view', 'paint', 'net', 'world'].map(n => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
+  ...['client', 'view', 'paint', 'project', 'net', 'world'].map(n => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
+  ...['scene3d', 'scene3d-webgpu', 'scene3d-webgl', 'block-font'].map(n =>
+    [`/engine/${n}.mjs`, [`../xbox/live/${n}.mjs`, 'text/javascript']]),
   ['/system/public/aesthetic.computer/lib/pmove.mjs',
     ['../system/public/aesthetic.computer/lib/pmove.mjs', 'text/javascript']],
   ['/pmove.mjs', ['../system/public/aesthetic.computer/lib/pmove.mjs', 'text/javascript']],
-  ...['three.module.js', 'three.core.js'].map(n => [`/vendor/${n}`,
-    [`../system/public/aesthetic.computer/dep/three/${n}`, 'text/javascript']]),
 ]);
 
 export function createDuelServer({ prefix = '' } = {}) {
