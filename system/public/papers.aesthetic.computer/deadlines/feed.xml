@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AC — New media deadlines</title><link>https://papers.aesthetic.computer/deadlines/</link><description>Reviewed opportunities for creative coding, digital art, experimental sound and new media.</description><language>en</language><lastBuildDate>Mon, 19 Oct 2026 12:00:00 GMT</lastBuildDate><atom:link href="https://papers.aesthetic.computer/deadlines/feed.xml" rel="self" type="application/rss+xml"/>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AC — New media deadlines</title><link>https://papers.aesthetic.computer/deadlines/</link><description>Reviewed opportunities for creative coding, digital art, experimental sound and new media.</description><language>en</language><lastBuildDate>Thu, 29 Oct 2026 12:00:00 GMT</lastBuildDate><atom:link href="https://papers.aesthetic.computer/deadlines/feed.xml" rel="self" type="application/rss+xml"/>
 <item><title>Michigan Central Art × Newlab — Creative Residency 2027</title><link>https://papers.aesthetic.computer/deadlines/#michigan-central-newlab-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#michigan-central-newlab-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>A 12-week research residency in Detroit at the intersection of art, technology, health and society, in an Art &amp; Tech track (Knight Foundation) or an Art &amp; Health track (Henry Ford Health).
 
 Deadline: 2026-10-30. Published as 11:59 p.m. EST, though Detroit is on EDT that day — submit early
@@ -24,18 +24,18 @@ Notification May–June 2027. The companion CO-UP track is for social-justice no
 
 Official call: https://culture.lacity.gov/grants/near-co-op
 Checked 2026-10-19</description><category>Creative coding</category><category>Digital art</category><category>Performance</category></item>
-<item><title>Processing Foundation Fellowship 2027</title><link>https://papers.aesthetic.computer/deadlines/#processing-foundation-fellowship-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#processing-foundation-fellowship-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>An eight-month fellowship for artists, educators and engineers building open-source tools and resources for the arts. Every project must build on p5.js, the p5.js Editor or Processing.
+<item><title>Processing Foundation Fellowship 2027</title><link>https://papers.aesthetic.computer/deadlines/#processing-foundation-fellowship-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#processing-foundation-fellowship-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>An eight-month fellowship for artists, educators and engineers building open-source tools and resources for the arts, in three tracks: Gaming the System (an open-source game-design toolkit co-designed with underserved young people in Los Angeles, backed by the Riot Games Social Impact Fund), Collective Intelligence (youth AI education with the Mark Cuban Foundation) and DIY Computing (cyberdecks in New York). Every project must build on p5.js, the p5.js Editor or Processing.
 
 Deadline: 2026-11-01. Nominations close 11:59 PM PST; invited nominees submit proposals by November 23
 Plus open-source mentorship, a cohort, professional development and public programs.
 Fee not stated
 
-Eligibility: US-based nominees only; self-nomination is welcome. Hybrid fellows must be in New York or Los Angeles.
+Eligibility: US-based nominees only; self-nomination is welcome. Gaming the System is hybrid in Los Angeles, for game makers, creative coders and educators based there; DIY Computing is hybrid in New York; Collective Intelligence is remote anywhere in the US.
 
 Video interviews the week of December 7; fellows notified the week of December 14; final presentations October 2, 2027.
 
 Official call: https://processingfoundation.org/programs/fellowships/fellowship-2027/
-Checked 2026-10-19</description><category>Creative coding</category><category>Open source</category></item>
+Checked 2026-10-29</description><category>Creative coding</category><category>Open source</category><category>Games</category></item>
 <item><title>NLnet — Open Internet Stack: Restack, first call</title><link>https://papers.aesthetic.computer/deadlines/#nlnet-restack-2026-11</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#nlnet-restack-2026-11</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>R&amp;D grants for free and open-source software, open hardware, standards and other building blocks of an open internet stack, from the European Commission&#39;s NGI successor.
 
 Deadline: 2026-11-03. 12:00 noon CET; NLnet now calls every two months, on the third of odd months

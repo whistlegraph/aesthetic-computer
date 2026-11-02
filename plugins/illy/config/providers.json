@@ -4,7 +4,7 @@
       "label": "OpenAI Images API",
       "credential": "OPENAI_API_KEY",
       "models": {
-        "gpt-image-2": {
+        "gpt-image-2.5-sunburst": {
           "modes": [
             "generate",
             "edit"
@@ -12,9 +12,22 @@
           "sizes": [
             "1024x1024",
             "1024x1536",
-            "1536x1024"
+            "1536x1024",
+            "2048x2048",
+            "2048x1152",
+            "1152x2048",
+            "3840x2160",
+            "2160x3840"
           ],
-          "defaultQuality": "high"
+          "defaultQuality": "high",
+          "qualities": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "auto"
+          ]
         },
         "gpt-image-2.5-flare": {
           "modes": [
@@ -24,11 +37,24 @@
           "sizes": [
             "1024x1024",
             "1024x1536",
-            "1536x1024"
+            "1536x1024",
+            "2048x2048",
+            "2048x1152",
+            "1152x2048",
+            "3840x2160",
+            "2160x3840"
           ],
-          "defaultQuality": "high"
+          "defaultQuality": "high",
+          "qualities": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "auto"
+          ]
         },
-        "gpt-image-2.5-sunburst": {
+        "gpt-image-2": {
           "modes": [
             "generate",
             "edit"
@@ -46,6 +72,116 @@
       "label": "fal.ai",
       "credential": "FAL_KEY",
       "models": {
+        "google/nano-banana-2.1": {
+          "modes": [
+            "generate"
+          ],
+          "input": {
+            "prompt": "prompt",
+            "aspectRatio": "aspect_ratio"
+          },
+          "defaults": {
+            "num_images": 1,
+            "resolution": "1K",
+            "output_format": "png"
+          },
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ],
+          "output": "images.0.url"
+        },
+        "google/nano-banana-2.1/edit": {
+          "modes": [
+            "edit"
+          ],
+          "maxReferences": 10,
+          "input": {
+            "prompt": "prompt",
+            "references": "image_urls",
+            "aspectRatio": "aspect_ratio"
+          },
+          "defaults": {
+            "num_images": 1,
+            "resolution": "1K",
+            "output_format": "png"
+          },
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ],
+          "output": "images.0.url"
+        },
+        "blackforestlabs/flux-3/text-to-image": {
+          "modes": [
+            "generate"
+          ],
+          "input": {
+            "prompt": "prompt",
+            "aspectRatio": "aspect_ratio"
+          },
+          "defaults": {
+            "resolution": "1k",
+            "output_format": "png"
+          },
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ],
+          "output": "images.0.url"
+        },
+        "blackforestlabs/flux-3/edit-image": {
+          "modes": [
+            "edit"
+          ],
+          "maxReferences": 10,
+          "input": {
+            "prompt": "prompt",
+            "references": "image_urls",
+            "aspectRatio": "aspect_ratio"
+          },
+          "defaults": {
+            "resolution": "1k",
+            "output_format": "png"
+          },
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ],
+          "output": "images.0.url"
+        },
         "fal-ai/flux/dev": {
           "modes": [
             "generate"
@@ -63,6 +199,7 @@
           "maxReferences": 1,
           "input": {
             "prompt": "prompt",
+            "size": "image_size",
             "reference": "image_url"
           },
           "output": "images.0.url"

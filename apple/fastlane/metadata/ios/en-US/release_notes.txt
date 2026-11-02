@@ -1,5 +1,7 @@
-A new dripping icon. Open MIME’s creation and remix links in the MIME app, with its website as a fallback.
+Now called Aesthetic.Computer.
 
-Enter “notifs” to enable notifications on this device, including amail when signed in. Tapping a letter notification opens your mailbox even when the app was closed. Enter “nonotifs” to turn notifications off on this device.
+After you sign in, the app offers once to turn on notifications for mail, moods and screams. You can still enter “notifs” to turn them on and “nonotifs” to turn them off on this device.
 
-Optional app usage counts help us understand successful loads and canvas use. Manage “Share app usage” in iOS Settings → Apps → aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.
+Turning notifications on now retries if the connection stalls instead of giving up.
+
+Optional app usage counts now see taps on every piece, not just some. Manage “Share app usage” in iOS Settings → Apps → Aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.

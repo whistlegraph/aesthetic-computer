@@ -92,6 +92,20 @@
 				removeEventListener("pointerdown", peel, true);
 				removeEventListener("keydown", peel, true);
 			};
+			// The click-rate denominator: visits the sticker was shown to. The
+			// tracker takes milestones only after a visit's first interaction,
+			// so "shown" is recorded then (VISITS.md: notepaint_ad_shown).
+			const seen = () => {
+				if (window.acVisits?.action("notepaint_ad_shown")) return;
+				const retry = (event) => {
+					if (!event.isTrusted) return;
+					setTimeout(() => {
+						if (!window.acVisits?.action("notepaint_ad_shown")) return;
+						for (const type of ["pointerdown", "keydown", "touchstart"]) removeEventListener(type, retry, true);
+					}, 0);
+				};
+				for (const type of ["pointerdown", "keydown", "touchstart"]) addEventListener(type, retry, true);
+			};
 			const watch = new MutationObserver(() => {
 				canvas = document.querySelector("canvas");
 				if (!canvas) return;
@@ -102,7 +116,7 @@
 				addEventListener("pointerdown", peel, true);
 				addEventListener("keydown", peel, true);
 				// Show it once the loader has given way to the title art.
-				setTimeout(() => { place(); ad.classList.add("shown"); }, 1200);
+				setTimeout(() => { place(); ad.classList.add("shown"); seen(); }, 1200);
 			});
 			watch.observe(document.body, { childList: true, subtree: true });
 		})();

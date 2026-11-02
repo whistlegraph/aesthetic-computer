@@ -14,6 +14,7 @@
 // Nothing mutable (hits, keeps, tezos) is ever mirrored there.
 
 import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
+import { kidlispSaveIdentity, findSavedKidlisp } from "../../backend/kidlisp-save-identity.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
@@ -22,7 +23,6 @@ import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 import { sidecar } from "../../backend/kidlisp-sidecar.mjs";
 import { mirrorKidlispPiece } from "../../backend/kidlisp-projection.mjs";
 import { extractAst } from "../../backend/kidlisp-ast.mjs";
-import crypto from "crypto";
 
 const TEZOS_ENABLED = process.env.TEZOS_ENABLED === "true";
 const NO_CACHE_HEADERS = {
@@ -111,7 +111,7 @@ export async function handler(event, context) {
 
   try {
     if (event.httpMethod === "POST") {
-      const { source } = JSON.parse(event.body || "{}");
+      const { source, handled = false } = JSON.parse(event.body || "{}");
       if (!source || typeof source !== "string" || source.length > 50000) {
         await database.disconnect();
         return respond(400, { error: "Invalid source" });
@@ -137,19 +137,25 @@ export async function handler(event, context) {
         } catch {}
       }
 
-      const hash = crypto.createHash("sha256").update(source.trim()).digest("hex");
+      let identity;
+      try { identity = kidlispSaveIdentity(source, { handled, user, handle: profileHandle }); }
+      catch (error) {
+        await database.disconnect();
+        return respond(error.statusCode || 400, { error: error.message });
+      }
+      const { hash, receipt } = identity;
 
       // Dedup: fast path via sidecar hash lookup
-      const existing = await sidecar.lookupByHash(hash);
+      const existing = await findSavedKidlisp(identity, source, hash => sidecar.lookupByHash(hash));
       if (existing) {
         // Resubmitting known source is also the moment to notice a piece the
         // feeds still cannot see, so project it here too — with the sidecar's
         // own `when`, never today's date, or an old piece would resurface at
         // the top of every recency feed. Idempotent, so the common case where
         // the row already exists costs one no-op upsert.
-        await mirrorKidlispPiece(database, { ...existing, hash });
+        await mirrorKidlispPiece(database, existing);
         await database.disconnect();
-        return respond(200, { code: existing.code, cached: true });
+        return respond(200, { code: existing.code, cached: true, ...receipt });
       }
 
       // Generate a code. The Mongo `collection` previously passed to
@@ -194,7 +200,7 @@ export async function handler(event, context) {
       }
 
       // Profile stream event (fire-and-forget)
-      if (profileHandle) {
+      if (profileHandle && !created.cached) {
         publishProfileEvent({
           handle: profileHandle,
           event: {
@@ -292,9 +298,10 @@ export async function handler(event, context) {
       }
 
       await database.disconnect();
-      return respond(201, {
+      return respond(created.cached ? 200 : 201, {
+        ...receipt,
         code: finalCode,
-        cached: false,
+        cached: !!created.cached,
         ...(tezosResult && { tezos: tezosResult }),
       });
     }

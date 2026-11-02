@@ -310,6 +310,7 @@ if (!pro && initialPiece && desktopRestored?.pieceVersion !== undefined && deskt
   }
 }
 const state = {
+  aeselVersion,
   medium: currentArtifact?.kind || 'piece',
   workspace: cwd,
   mode: "remote",
@@ -1857,7 +1858,7 @@ function handleNotification({ method, params = {} }) {
       if (process.env.AESEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
       state.status = "tool";
       if (params.item?.type === "fileChange") state.status = "writing";
-      if (isPlanTool(params.item)) state.plan = planFrom(params.item.input?.todos);
+      if (isPlanTool(params.item)) state.plan = planFrom(params.item.input?.todos, state.plan);
       const summary = itemSummary(params.item);
       if (summary) {
         recordToolActivity(state, params.item, false, {detail: pro});
@@ -1888,7 +1889,7 @@ function handleNotification({ method, params = {} }) {
       // Raw output remains in the provider's log, outside the conversation.
       break;
     case "turn/plan/updated":
-      state.plan = planFrom(params.plan);
+      state.plan = planFrom(params.plan, state.plan);
       break;
     case "turn/completed": {
       state.question = null;
@@ -3083,17 +3084,28 @@ function replaceInput(value) {
   state.cursor = Array.from(value).length;
 }
 
+// Hand a URL or a folder to the system: the browser for one, the file
+// manager for the other. `what` names it in the error, if there is one.
+function openOutside(target, what) {
+  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+  const child = spawn(opener, [target], { stdio: "ignore", detached: true });
+  child.on("error", error => { addEntry("error", `Could not open ${what}: ${errorText(error)}`); redraw(); });
+  child.unref();
+}
+
 function openProfile() {
   if (!session.handle) {
     addEntry("notice", "Sign in with /login to open your profile.");
     return redraw();
   }
-  const url = `https://aesthetic.computer/@${encodeURIComponent(session.handle)}`;
-  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
-  const child = spawn(opener, [url], { stdio: "ignore", detached: true });
-  child.on("error", error => { addEntry("error", `Could not open profile: ${errorText(error)}`); redraw(); });
-  child.unref();
+  openOutside(`https://aesthetic.computer/@${encodeURIComponent(session.handle)}`, "profile");
 }
+
+// The letterhead's name and donkey: Aesel's own page, the way the handle
+// opens the profile.
+const AESEL_HOME = "https://aesthetic.computer/aesel";
+function openAeselHome() { openOutside(AESEL_HOME, "aesel home"); }
+function openWorkspace() { openOutside(state.workspace || cwd, "the folder"); }
 
 function scrollAbout(delta) {
   const height = Math.max(10, process.stdout.rows || 24);
@@ -3327,7 +3339,9 @@ function decodeKeys(buffer) {
         // In pro the interface selects text itself: a press in the transcript
         // anchors, a drag stretches, the release copies. The bottom line keeps
         // its clicks; a wheel keeps its scroll.
-        if (pro && !state.dropdown && !state.settings && !state.about) {
+        // A press on the letterhead is a click on it, not the start of a selection.
+        const onLetterhead = ["aesel", "model", "workspace"].includes(headerAction(state, process.stdout.columns || 80, process.stdout.rows || 24, mouse.x, mouse.y));
+        if (pro && !state.dropdown && !state.settings && !state.about && !onLetterhead) {
           const transcriptRows = (process.stdout.rows || 24) - ((state.layout?.bottom || ["gap", "bar", "gap", "status"]).length);
           if (mouse.press && mouse.y <= transcriptRows) {
             state.selection = { anchor: [mouse.x, mouse.y], head: [mouse.x, mouse.y], active: true };
@@ -3361,6 +3375,8 @@ function decodeKeys(buffer) {
         }
         if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }
         if (mouse.click && action === "profile") openProfile();
+        if (mouse.click && action === "aesel") openAeselHome();
+        if (mouse.click && action === "workspace") openWorkspace();
         if (mouse.click && action === "update") { void submitInput("/update"); return; }
         if (mouse.click && (action === "model" || action === "provider")) { if (pro) openDropdown(); else openSettings(); }
         if (mouse.click && action === "media") { if (state.dropdown?.kind === "media") closeDropdown(); else openMediaDropdown(); }

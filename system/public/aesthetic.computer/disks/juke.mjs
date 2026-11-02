@@ -64,6 +64,7 @@ function clock(seconds) {
 function paint($) {
   const { ink, wipe, screen, ui } = $;
   wipe(colors.ground);
+  $.hud?.label(); // The jukebox owns the whole screen; no corner label.
   const width = Math.min(240, screen.width - 16), left = Math.floor((screen.width - width) / 2);
   const cx = left + Math.floor(width / 2);
   const button = (id, label, x, y, w, h, action, hot = false) => {
@@ -71,7 +72,7 @@ function paint($) {
     item.action = action;
     const b = item.button;
     Object.assign(b.box, { x, y, w, h });
-    b.disabled = y + h < 22 || y > screen.height;
+    b.disabled = y + h < 0 || y > screen.height;
     const active = !b.disabled && (b.down || b.over);
     ink(hot ? colors.pink : active ? colors.shadow : colors.panel).box(b.box, "fill");
     ink(hot ? colors.pink : active ? colors.text : colors.muted).box(b.box, "outline");
@@ -80,8 +81,8 @@ function paint($) {
   const chars = Math.max(8, Math.floor((width - 8) / 6));
   const now = tracks[index];
 
-  // Now playing sits under the corner label; the list scrolls beneath it.
-  let y = 24;
+  // Now playing sits at the top; the list scrolls beneath it.
+  let y = 8;
   const sway = Math.round(Math.sin(frame / 60) * 2);
   ink(colors.pink).write(now ? now.title.slice(0, chars) : "juke", { x: cx + sway, y, center: "x" });
   y += 12;
@@ -115,8 +116,6 @@ function paint($) {
     const label = `${i === index ? "> " : ""}${t.title}`.slice(0, chars - 5) + (t.duration ? ` ${clock(t.duration)}` : "");
     button("t" + i, label, left, ry, width, rowH - 2, () => play($, i), i === index);
   });
-  // Keep the corner label and the now-playing block clear while the list scrolls.
-  ink(colors.ground).box(0, 0, screen.width, 22, "fill");
   if (scrollMax) ink(colors.mint).box(screen.width - 3, top + (screen.height - top - 10) * scroll / scrollMax, 1, 8, "fill");
 }
 

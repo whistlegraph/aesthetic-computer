@@ -38,8 +38,14 @@ test('the plan is pinned, folded around the active step', () => {
   const plan = planFrom([{content:'a', status:'completed'}, {content:'b', activeForm:'doing b', status:'in_progress'}, {content:'c', status:'pending'}]);
   assert.deepEqual(plan.map(s => s.status), ['done', 'active', 'pending']);
   assert.equal(plan[1].text, 'doing b');
-  assert.deepEqual(planFrom([{step:'x', status:'inProgress'}]), [{text:'x', status:'active'}]);
-  assert.deepEqual(planRows(plan, 40, 3, false), ['plan · 1/3', '› doing b', '○ c']);
+  assert.deepEqual(planFrom([{step:'x', status:'inProgress'}], null, 5), [{key:'x', text:'x', status:'active', since:5}]);
+  // A step keeps its moment until its status moves.
+  const first = planFrom([{content:'a', status:'in_progress'}, {content:'b', status:'pending'}], null, 1);
+  const next = planFrom([{content:'a', status:'completed'}, {content:'b', status:'pending'}], first, 9);
+  assert.deepEqual(next.map(s => s.since), [9, 1]);
+  assert.deepEqual(planRows(plan, 40, 3, false, plan[1].since + 1000), ['plan · 1/3', '› doing b  now', '○ c']);
+  // Faded ages: when a step started or finished; a waiting step has none.
+  assert.deepEqual(planRows(plan, 40, 4, false, plan[0].since + 125000), ['plan · 1/3', '✓ a  2m ago', '› doing b  2m ago', '○ c']);
   const state = {profile:{name:'pro'}, account:'@jeffrey', input:'', entries:[], plan};
   assert.match(cleanText(renderFrame(state, 60, 16, false)), /plan · 1\/3/);
 });

@@ -9,7 +9,7 @@ import {drawerOptions,drawerIndex} from "./provider-picker.mjs";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { MASCOT_HEIGHT, MASCOT_ROW_WIDTH, mascotAt, mascotRow } from "./mascot.mjs";
+import { MASCOT_HEIGHT, MASCOT_ROW_WIDTH, TILE, TILE_INKS, mascotAt, mascotRow } from "./mascot.mjs";
 import { rowSpan } from "./selection.mjs";
 import { handleCharacterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
@@ -149,6 +149,7 @@ export const color = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
   italic: "\x1b[3m",
+  faint: "\x1b[2m",
   inverse: "\x1b[7m",
   get ground() { return (paintsGround ? bg(palette.background) : "") + fg(palette.text); },
   get text() { return fg(palette.text); },
@@ -514,7 +515,7 @@ export function tableRows(source, width, useColor) {
 // The model's plan, pinned over the bar until every step is done. Long plans
 // fold: the steps already done become a count, and the active step and the
 // next few stay in view.
-export function planRows(plan, width, room, useColor) {
+export function planRows(plan, width, room, useColor, now = Date.now()) {
   if (!Array.isArray(plan) || !plan.length) return [];
   const done = plan.filter(step => step.status === 'done').length;
   const mark = { done: '✓', active: '›', pending: '○' };
@@ -525,7 +526,21 @@ export function planRows(plan, width, room, useColor) {
     const focus = Math.max(0, plan.findIndex(step => step.status !== 'done'));
     shown = shown.slice(Math.max(0, Math.min(focus, plan.length - (room - 1))), Math.max(0, Math.min(focus, plan.length - (room - 1))) + room - 1);
   }
-  return [head, ...shown.map(step => paint(useColor, tone[step.status], clipText(`${mark[step.status]} ${step.text}`, width)))];
+  // A faded age trails each step: when it started if under way, when it
+  // finished if done. Waiting steps have no moment worth naming yet.
+  return [head, ...shown.map(step => {
+    const age = step.status !== 'pending' && step.since ? planAge(now - step.since) : '';
+    const tail = age ? `  ${age}` : '';
+    return paint(useColor, tone[step.status], clipText(`${mark[step.status]} ${step.text}`, Math.max(8, width - textWidth(tail)))) + (tail ? paint(useColor, 'muted faint', tail) : '');
+  })];
+}
+
+function planAge(ms) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 5) return 'now';
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  return `${Math.floor(seconds / 3600)}h ago`;
 }
 
 // Typing and footer animation do not change the conversation. Keep its wrapped
@@ -879,11 +894,11 @@ function frameHeader(state, width, useColor) {
   // interface that changes because of somebody else.
   const audience = audienceReadout(
     { ...state.audience, frame: state.health?.frame, energy: state.energy?.joules },
-    Math.max(0, width - 4 - textWidth(state.workspace || "workspace")),
+    Math.max(0, width - 4 - textWidth(tildePath(state.workspace || "workspace"))),
     useColor,
   );
   const workspace = clipText(
-    state.workspace || "workspace",
+    tildePath(state.workspace || "workspace"),
     Math.max(8, width - 2 - (audience.plain ? textWidth(audience.plain) + 2 : 0)),
   );
   const pathLine = audience.plain
@@ -892,6 +907,69 @@ function frameHeader(state, width, useColor) {
       `${audience.painted} `
     : paint(useColor, "muted", ` ${workspace}`);
   return {header, pathLine};
+}
+
+const tildePath = (path) => path === homedir() || path.startsWith(`${homedir()}/`) ? `~${path.slice(homedir().length)}` : path;
+
+// One cell of the silhouette: four pixels, top-left, top-right, bottom-left,
+// bottom-right, each an ink or clear. A cell carries at most two inks: the
+// glyph's, and, when no pixel is clear, a second as its background. The eye
+// is the glyph drawn on fur, so wherever the glyph falls short, fur shows.
+// A solid block glyph leaves hairline seams; on its own ink they vanish.
+const QUADRANTS = " ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█";
+function quadrantCell(pixels, useColor) {
+  const inks = [...new Set(pixels.filter((p) => p !== "."))];
+  const ink = inks.includes("E") ? "E" : inks[0];
+  const glyph = QUADRANTS[pixels.reduce((mask, p, i) => mask | (p === ink ? 1 << i : 0), 0)];
+  if (!useColor) return glyph;
+  // Every cell sets its own background, or a solid cell's ink runs on.
+  if (!ink) return `\x1b[49m${color.ground} `;
+  const other = !pixels.includes(".") && inks.find((p) => p !== ink);
+  const under = other ? bg(TILE_INKS[other]) : glyph === "█" ? bg(TILE_INKS[ink]) : `\x1b[49m${color.ground}`;
+  return `${under}${exact(TILE_INKS[ink])}${glyph}`;
+}
+
+// The top of every thread: the donkey, and beside him the harness, model
+// and folder. He scrolls away with the history, like a letterhead.
+// Each thing on it is a place to click, the way the handle on the status line
+// is: the donkey and the name open Aesel's home page, the model opens the
+// model settings, the folder opens in the file manager. `zones` says where
+// each sits on its own row, in columns from the row's first cell.
+function introRows(state, width, useColor) {
+  const facts = [
+    { name: "aesel", text: paint(useColor, "bold text", "Aesel") + (state.aeselVersion ? paint(useColor, "muted", ` v${state.aeselVersion}`) : "") },
+    { name: "model", text: paint(useColor, "soft", state.modelLabel || state.model || state.providerSettings?.model || "") },
+    { name: "workspace", text: paint(useColor, "muted", clipText(tildePath(state.workspace || ""), Math.max(8, width - TILE[0].length - 3))) },
+  ];
+  const tileWidth = TILE[0].length / 2;
+  const rows = [];
+  const zones = [];
+  for (let y = 0; y < TILE.length; y += 2) {
+    let row = "";
+    for (let x = 0; x < TILE[y].length; x += 2) row += quadrantCell([TILE[y][x], TILE[y][x + 1], TILE[y + 1][x], TILE[y + 1][x + 1]], useColor);
+    const fact = width > tileWidth + 12 && facts[y / 2 - 1];
+    zones.push([{ name: "aesel", x: 0, width: tileWidth }, ...(fact && cleanText(fact.text) ? [{ name: fact.name, x: tileWidth + 2, width: textWidth(cleanText(fact.text)) }] : [])]);
+    rows.push(row + (useColor ? color.reset + color.ground : "") + (fact ? `  ${fact.text}` : ""));
+  }
+  return { rows: [...rows, ""], zones };
+}
+
+// Where the letterhead's clickable parts landed on screen this frame, if any
+// of it is in view: one entry per visible donkey row, in terminal columns and
+// rows (1-based, like the mouse reports them).
+function placeLetterhead(state, intro, start, pad) {
+  state.letterhead = [];
+  if (!intro) return;
+  intro.zones.forEach((zones, index) => {
+    const row = pad + (index - start) + 1;
+    if (index < start || row < 1) return;
+    for (const zone of zones) state.letterhead.push({ name: zone.name, y: row, x: zone.x + 2, width: zone.width });
+  });
+}
+
+function letterheadAction(state, x, y) {
+  const hit = (state.letterhead || []).find((zone) => zone.y === y && x >= zone.x && x < zone.x + zone.width);
+  return hit ? hit.name : "";
 }
 
 export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
@@ -923,6 +1001,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       : null;
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
   const unruled = new Set();
+  let intro = null;
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
     : (() => {
@@ -944,13 +1023,18 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
         const chunks=[];
         let covered=0;
         const needed=transcriptRows+Math.max(0,state.scrollOffset||0);
-        for(let index=grouped.length-1;index>=0&&covered<needed;index--){
+        let index=grouped.length-1;
+        for(;index>=0&&covered<needed;index--){
           const entry=grouped[index];
           const lines = entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed", ...(index === working ? { wave: Math.floor((state.mascotMs || 0) / 120) } : {}) } : entry, contentWidth, useColor, pro ? "narrow" : "wide");
           // A cloud's rows are not ruled; the flag rides along with the row.
           if (pro && (entry.kind === "assistant" || entry.kind === "user")) for (const line of lines) unruled.add(line);
           chunks.push(lines);covered+=lines.length;
         }
+        // Reached the start of the thread: the donkey stands at the top of
+        // it and scrolls away with the history, like a letterhead.
+        // The desktop app has its own chrome and draws no letterhead.
+        if(index<0&&!state.desktop){intro=introRows(state,contentWidth,useColor);chunks.push(intro.rows);}
         return chunks.reverse().flat();
       })();
   // A pinned rolling feed: new work displaces old work without adding scrollback.
@@ -970,7 +1054,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
         return paint(useColor, tone, clipText(`${mark} ${item.text}`, Math.max(8, contentWidth - textWidth(tail)))) + (tail ? paint(useColor, 'muted', tail) : '');
       }) : [];
   for (const row of provisional) unruled.add(row);
-  const plan = !state.about && !state.settings ? planRows(state.plan, contentWidth, Math.max(2, Math.floor(height / 4)), useColor) : [];
+  const plan = !state.about && !state.settings ? planRows(state.plan, contentWidth, Math.max(2, Math.floor(height / 4)), useColor, now) : [];
   for (const row of plan) unruled.add(row);
   provisional.unshift(...plan);
   const drawer=drawerRows(state,width,height,useColor);
@@ -979,6 +1063,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : Math.max(0, transcript.length - availableRows - (state.scrollOffset || 0));
   const visible = transcript.slice(start, start + availableRows);
   while (visible.length < availableRows) state.about ? visible.push("") : visible.unshift("");
+  placeLetterhead(state, state.about ? null : intro, start, Math.max(0, availableRows - (transcript.length - start)));
 
   visible.push(...provisional, ...drawer);
   const body = visible.map((line, index) => {
@@ -1102,6 +1187,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : state.scrollOffset ? ` ${state.scrollOffset} lines above · End latest`
     : state.hover === "about" ? " aesel home · click"
     : state.hover === "profile" ? " Open profile in browser · click"
+    : state.hover === "aesel" ? " Open aesthetic.computer/aesel · click"
+    : state.hover === "workspace" ? " Open the folder · click"
     : state.busy
     ? ` ${requestFeedback(state)}`
     : proLayout(state) ? " /help \u00b7 /inbox \u00b7 /mode \u00b7 /ask \u00b7 ctrl-c quit"
@@ -1533,12 +1620,15 @@ export function headerAction(state, columns, rows, x, y) {
     }
     const banner = updateBanner(state, Math.max(32, columns), Math.max(10, rows) - shape.bottom.length);
     if (banner && y - 1 >= banner.top && y - 1 < banner.top + banner.height && x - 1 >= banner.x && x - 1 < banner.x + banner.inner) return "update";
+    const letterhead = letterheadAction(state, x, y);
+    if (letterhead) return letterhead;
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
     const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => ["handle", "model", "engine", "media"].includes(span.name) && x >= span.x + 1 && x <= span.x + (span.name === 'handle' ? textWidth(state.account || '') : span.width));
     return hit ? (hit.name === 'handle' ? state.account?.startsWith('@') ? 'profile' : '' : hit.name === "engine" ? "provider" : hit.name) : "";
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
+  if(!state.settings){const letterhead=letterheadAction(state,x,y);if(letterhead)return letterhead;}
   if(state.settings){
     const {count,start}=drawerWindow(state.settings,rows);
     const first=rows-5-count+1;

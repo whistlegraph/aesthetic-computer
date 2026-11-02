@@ -188,7 +188,7 @@ which framing can soften but not erase.
 ## Key dates & facts
 - Deadline: **2026-08-01, 12:00 CEST**.
 - Ask target: **€30,000–€50,000** (draft lands at **€48,000**).
-- Applicant: **Aesthetic Inc**, US C-corp, **EIN 33-1483385**.
+- Applicant: **Aesthetic Inc**, US C-corp, **EIN in the vault**.
 - Lead: **@jeffrey / Jeffrey Alan Scudder**, ORCID 0009-0007-4460-4913.
 - License: **ISC** (existing) + CC-BY-4.0/CC0 for new docs/spec.
 - Form: 4 narrative fields (Abstract, Prior experience, Requested

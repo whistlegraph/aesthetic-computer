@@ -2876,6 +2876,8 @@ final class MenuBandPopoverViewController: NSViewController {
             item.toolTip = "Keyboard and trackpad drums · Shift-Left/Right to switch kits"
             kits.addItem(item)
         }
+        kits.addItem(.separator())
+        kits.addItem(ccFamilyMenuItem())
         kitItem.submenu = kits
         menu.addItem(kitItem)
         menu.addItem(Self.faderMenuItem("Mic", value: Double(menuBand?.monitorGain ?? 1), max: 2,
@@ -2986,6 +2988,38 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func resetAudioInterface(_ sender: NSMenuItem) {
         menuBand?.resetAudioInterface()
+    }
+
+    /// Will's cc.oooooooooooooooo.cc library, one Strudel drum family per
+    /// item. Picking one downloads its hits and switches to the cc kit.
+    private func ccFamilyMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "cc Family", action: nil, keyEquivalent: "")
+        let families = NSMenu(title: "cc Family")
+        families.autoenablesItems = false
+        let current = MenuBandCCDrums.family
+        let loading = MenuBandCCDrums.loadingFamily
+        let available = MenuBandCCDrums.families
+        if available.isEmpty {
+            let empty = NSMenuItem(title: "Loading cc.oooooooooooooooo.cc…", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            families.addItem(empty)
+        }
+        for family in available {
+            let title = family.name == loading ? "\(family.name) — downloading…" : family.name
+            let pick = NSMenuItem(title: title, action: #selector(pickCCDrumFamily(_:)), keyEquivalent: "")
+            pick.target = self
+            pick.representedObject = family.name
+            pick.state = family.name == current ? .on : .off
+            pick.toolTip = family.pads.map(\.bank).joined(separator: " · ")
+            families.addItem(pick)
+        }
+        item.submenu = families
+        return item
+    }
+
+    @objc private func pickCCDrumFamily(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        menuBand?.selectCCDrumFamily(name)
     }
 
     @objc private func pickDrumKit(_ sender: NSMenuItem) {

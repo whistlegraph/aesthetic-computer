@@ -30,7 +30,7 @@ const NAMES = ["aesel", "easel"];
 // how a git checkout knows never to overwrite itself with a release.
 const STAMP = join(aesel, "install.json");
 
-const INCLUDE = ["bin", "src", "shell", "context", "media", "layouts", "package.json", "README.md", "LICENSE", "install.json"];
+const INCLUDE = ["bin", "src", "shell", "context", "media", "layouts", "workshop", "package.json", "README.md", "LICENSE", "install.json"];
 
 const version = JSON.parse(readFileSync(join(aesel, "package.json"), "utf8")).version;
 await buildTui();

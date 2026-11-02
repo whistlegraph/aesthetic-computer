@@ -4,11 +4,12 @@ import { createHash } from "node:crypto";
 import { connect, closePool } from "../../system/backend/database.mjs";
 import { visitScopeMatch, visitReferrer, visitProperty, visitSurface, automatedVisit, aeselVisitReportPipeline } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 import { laklokFeatureReport } from "./laklok-feature-report.mjs";
+import { mimeJourneyReport } from "./mime-journey-report.mjs";
 import { foldPieceLandings } from "./piece-landings.mjs";
 
 const mode = process.argv[2];
 const { hours = 24, limit = mode === "features" ? 30 : 100, handle, scope = "studio", property } = JSON.parse(process.argv[3] || "{}");
-if (!["accounts", "referrers", "features", "pieces"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
+if (!["accounts", "referrers", "features", "pieces", "mime"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
     !Number.isInteger(limit) || limit < 1 || limit > (mode === "features" ? 50 : 500) ||
     (handle !== undefined && !/^@?[a-z0-9_-]{1,64}$/i.test(handle))) throw new Error("Invalid report options");
 const scoped = visitScopeMatch(scope), end = new Date(), start = new Date(+end - hours * 3600000);
@@ -19,7 +20,9 @@ if (property !== undefined) {
 }
 const { db } = await connect();
 try {
-  if (mode === "pieces") {
+  if (mode === "mime") {
+    console.log(JSON.stringify(await mimeJourneyReport(db, { start, end, scoped, handle, limit })));
+  } else if (mode === "pieces") {
     const boots = await db.collection("boots").find({ createdAt: { $gte: start, $lt: end } }, {
       projection: { _id: 0, status: 1, "meta.host": 1, "meta.path": 1, "meta.referrer": 1, "meta.userAgent": 1, "meta.embedded": 1,
         "meta.packMode": 1, "meta.localDev": 1, "meta.user": 1 }, maxTimeMS: 15000,
@@ -48,7 +51,7 @@ try {
       { $project: { _id: 0, accounts: 1, events: 1 } },
     ], { maxTimeMS: 10000 }).toArray();
     const rows = await collection.find(query, {
-      projection: { _id: 0, tenant: 1, user: 1, session: 1, sequence: 1, at: 1, property: 1, piece: 1, action: 1, referrerHost: 1 }, maxTimeMS: 10000,
+      projection: { _id: 0, tenant: 1, user: 1, session: 1, sequence: 1, at: 1, property: 1, piece: 1, action: 1, referrerHost: 1, activityVersion: 1, entry: 1, contentId: 1, focusedMs: 1, exitReason: 1 }, maxTimeMS: 10000,
     }).sort({ at: -1, _id: -1 }).limit(limit + 1).toArray();
     const key = row => row.tenant === "sotce" ? `sotce-${row.user}` : row.user;
     const names = new Map((await db.collection("@handles").find({ _id: { $in: [...new Set(rows.map(key))] } }, { projection: { handle: 1 } }).toArray()).map(row => [String(row._id), row.handle]));
@@ -60,6 +63,7 @@ try {
         account: names.get(key(row)) ? `@${names.get(key(row))}` : `account-${short(key(row))}`,
         tenant: row.tenant, session: short(`${key(row)}:${row.session}`), sequence: row.sequence, property: row.property,
         piece: row.piece, action: row.action, referrerHost: row.referrerHost,
+        ...(row.activityVersion === 1 ? { entry: row.entry, contentId: row.contentId, focusedMs: row.focusedMs, exitReason: row.exitReason } : {}),
       })),
     }));
   } else {

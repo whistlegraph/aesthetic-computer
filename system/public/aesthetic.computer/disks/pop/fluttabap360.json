@@ -7,6 +7,8 @@
   "key": "C major",
   "meter": "4/4",
   "duration": 360,
+  "released": "2026-06-30",
+  "status": "released",
   "audio": "/assets/pop/fluttabap360.mp3",
   "cover": "/assets/pop/fluttabap360.jpg",
   "sections": [
@@ -181,5 +183,6 @@
       "illy": "/assets/pop/fluttabap360/sec-33.jpg"
     }
   ],
+  "links": {},
   "credits": "the fat six-minute butterfly-park banger for the pixsies body. all instruments synthesized + physically modeled: aesthetic dot computer."
 }

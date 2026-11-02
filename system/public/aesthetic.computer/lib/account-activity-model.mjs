@@ -1,9 +1,10 @@
+import { FEED_ACTIONS, feedActivityFields } from "./feed-activity.mjs";
 import { VISIT_ACTIONS, visitProperty, visitSurface, visitReferrer, visitGroup } from "./visit-model.mjs";
 import { LAKLOK_ACTIONS, LAKLOK_PIECES, LAKLOK_FEATURE_VERSION, LAKLOK_PRESENCE } from "./laklok-activity.mjs";
 
 export const ACCOUNT_ACTIVITY_COLLECTION = "account-activity";
 export const SOTCE_ACTIONS = Object.freeze(["sotce_page_viewed", "sotce_page_visible_30s", "sotce_page_touched", "sotce_question_submitted"]);
-export const ACCOUNT_ACTIONS = Object.freeze(["piece_opened", ...VISIT_ACTIONS, ...SOTCE_ACTIONS, ...LAKLOK_ACTIONS, LAKLOK_PRESENCE]);
+export const ACCOUNT_ACTIONS = Object.freeze(["piece_opened", ...VISIT_ACTIONS, ...SOTCE_ACTIONS, ...FEED_ACTIONS, ...LAKLOK_ACTIONS, LAKLOK_PRESENCE]);
 
 export function accountActivityRoute(host, path, action) {
   if (visitSurface(path) === null) return false;
@@ -32,9 +33,11 @@ export function validateAccountActivity(body, origin) {
       !/^[a-z0-9-]{1,64}$/.test(body.piece) || visitSurface(`/${body.piece}`) === null ||
       typeof body.automated !== "boolean") return null;
   if (SOTCE_ACTIONS.includes(body.action) && (property !== "sotce.net" || body.piece !== "sotce")) return null;
+  const feed = FEED_ACTIONS.includes(body.action) ? feedActivityFields(body.action, body, property) : {};
+  if (!feed) return null;
   const laklok = property !== "sotce.net" && LAKLOK_PIECES.includes(body.piece) && body.featureVersion === LAKLOK_FEATURE_VERSION;
   if ((LAKLOK_ACTIONS.includes(body.action) || body.action === LAKLOK_PRESENCE) && !laklok) return null;
-  return { id: body.id.toLowerCase(), session: body.session.toLowerCase(), sequence: body.sequence, property,
+  return { ...feed, id: body.id.toLowerCase(), session: body.session.toLowerCase(), sequence: body.sequence, property,
     ...(laklok ? { featureVersion: LAKLOK_FEATURE_VERSION } : {}),
     tenant: property === "sotce.net" ? "sotce" : "aesthetic", piece: body.piece,
     action: body.action, automated: body.automated,

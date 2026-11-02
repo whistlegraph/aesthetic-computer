@@ -149,3 +149,23 @@ export function mascotRows(elapsed = 0) {
     })),
   };
 }
+
+// The letterhead donkey: a silhouette in quadrant blocks, after Claude Code's
+// crab, painting at his easel. Each text cell is 2x2 pixels. Every edge inside
+// the shape falls on a cell boundary, since a half cell meeting a full one of
+// the same ink leaves a hairline; feet sit on their own row. The eye is a
+// black glyph on a fur background, like the crab's. A dot is clear.
+export const TILE = [
+  "..............X.X.....KKKKKKKKKK..",
+  "..............X.X.....KKKKKKKKKK..",
+  "..............XXXXXX..KKKKKKKKKK..",
+  "..............XEXXXX..KKKKKKKKKK..",
+  "...XXXXXXXXXXXXXX.....KKKKKKKKKK..",
+  "...XXXXXXXXXXXXXX.....KKKKKKKKKK..",
+  "..X.XXXXXXXXXXXXX.......K....K....",
+  "....XXXXXXXXXXXXX......K......K...",
+  "....X.X.......X.X......K......K...",
+  "..................................",
+];
+// K is the canvas on his easel: the prompt block's pink, the piece in progress.
+export const TILE_INKS = { X: [120, 112, 165], E: [0, 0, 0], K: [200, 30, 100] };

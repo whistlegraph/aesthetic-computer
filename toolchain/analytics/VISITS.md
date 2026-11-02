@@ -62,6 +62,12 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `painting_saved` | PNG upload tracking returns a successful media record with a code |
 | `painting_signed` | No Paint burns the owner's `@handle` signature into the painting as an accepted step; a painting already signed as its last step does not fire again |
 | `piece_made` | notepaint.art turned a painting into a published piece from the # list (Make piece) |
+| `notepaint_opened` | A trusted activation (pointer, keyboard or middle-click) of No Paint's HTTPS link to notepaint.art; opening a tab does not prove arrival |
+| `notepaint_ad_shown` | No Paint revealed its notepaint sticker (`#notepaint-ad`) over the title art; recorded at the visit's first interaction, since milestones need one, so it is the click-rate denominator for interacted visits |
+| `braincells_sheet_shown` | notepaint opened its Braincells sheet: from the chip, the Brains list, or at the limit (not on the way back from Stripe) |
+| `braincells_limit_reached` | The sheet opened because Paint or Make piece could not be afforded: the client saw too few Braincells for the chosen brain, or the server answered 402 |
+| `braincells_checkout_opened` | `/api/nopaint-wallet` returned a Stripe Checkout URL and notepaint navigated to it; this is not a payment |
+| `braincells_purchased` | Back on notepaint, AC looked the Checkout session up with Stripe for this account, saw it paid and granted the pack (`paid: true`); once per session per browser. A click, a return URL or a canceled checkout never sets it |
 | `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
 
 MIDI-only use still needs an independently recorded interaction in the visit.
@@ -180,6 +186,21 @@ milestones, not the exact order or time in which actions occurred. The last
 report is the last changed snapshot, not continuous presence or departure.
 The tool reads existing data; it adds no browser identifiers or new retention.
 
+The separate `mime` section reads existing `account-activity` and
+`network-visits` directly. `mime.events` includes verified-account opens
+(prompt swipe/wheel/key/history versus direct), incremental per-piece
+`focusedMs`, and returns/exits. Each has a stable opaque `event` key for
+poll deduplication, a public handle or account alias, and an account-session
+alias. `mime.directPageArrivals` includes non-automated mime.ac arrivals even
+before interaction. These can overlap signed-in events and the ordinary fish;
+never add them together or use them to infer anonymous identities.
+Anonymous prompt swipe-ins remain uncovered. Each list uses `limit` and its
+own truncation flag; a truncated result cannot establish that no arrivals were
+missed. `startedAfter` bounds MIME event receipt times and direct-page arrival
+times, while `minutes` still bounds the snapshot. No new collector or retention
+is introduced. Test with `node --test system/tests/human-fishery.test.mjs`.
+
+
 ## Coverage
 
 ### AC session recognition on Sotce
@@ -261,6 +282,28 @@ The report separates automation, org click-through, app arrivals with an org
 referrer, and access-link clicks (including those within referred app visits).
 Privacy settings or browser link handling can omit referrers; these counts are
 not a cross-domain conversion funnel. All counts are grouped by visit start.
+
+### No Paint → notepaint route
+
+From November 2, No Paint's notepaint link records `notepaint_opened`, and
+No Paint visits whose page carries that link get `linkVersion: 1`, the
+click-rate denominator. On notepaint, a visit spans in-page navigation and
+keeps its `referrerHost`, so the actions of visits arriving from nopaint.art
+(editing, signing, saving, Make piece) can be counted without joining the two
+sites' visit IDs. Referrers can be omitted, so those arrivals are a floor.
+
+From November 3, No Paint also records `notepaint_ad_shown` when its sticker
+appears, and the report's click-through is opened ÷ shown among those visits.
+The same report sums notepaint's Braincells funnel (sheet shown, limit
+reached, checkout opened, purchased) over human arrivals. Purchases are also
+in the wallet book; the visit flag says only that a confirmed purchase came
+back through notepaint.
+
+On Lith, from `/opt/ac/system`:
+
+```sh
+node --env-file=.env ../toolchain/analytics/nopaint-report.mjs --hours 24
+```
 
 ### Account activity and referrers
 
@@ -540,3 +583,43 @@ is unchanged; no prompts, source, filenames, accounts or session IDs enter visit
 Ship shared collector/modules with `ac-deploy`, then rebuild the browser client
 from the pushed revision with `bash aesel/web/deploy.sh`. Regular monolith
 deployment does not rebuild that client.
+
+### MIME prompt journeys and account viewing time
+
+The November 2, 2026 rollout adds `mime_opened`, `mime_closed` and
+`mime_piece_viewed` to authenticated `account-activity`, with `activityVersion: 1`.
+The parent AC shell records a committed prompt entry as `prompt_swipe`,
+`prompt_wheel`, `prompt_key` or `prompt_history`. Canceled pulls do not count.
+Standalone MIME records `direct`; signing in while a feed is already open is
+`already_open`, never a retroactive attributed swipe. Closing to the prompt,
+page exit and navigation have distinct exit reasons.
+
+Each viewing record contains a public `piece_<id>` or `kidlisp_<id>` content ID
+and incremental `focusedMs`. This is the dominant card's foreground exposure,
+not proof of attention or successful playback. Samples run about once per
+second, cap timer gaps at two seconds, and flush on card changes, loss of focus,
+exit or every 15 seconds. Reloads, crashes, offline use and failed requests can
+lose the final interval. Hidden, covered and parked feeds add no viewing time.
+Signed-out and previous-account time is discarded. DNT, GPC, the existing
+tracking opt-out and automation exclusion apply. Tokens stay in the parent;
+the embedded feed sends only the current public content ID and focus state.
+
+These events use the existing verified-account endpoint, 35-day retention and
+account-deletion cleanup. They have no anonymous visit IDs, source code, input,
+messages or full URLs. No account activity read API is public.
+
+`mime_journeys({hours:24, handle:"@handle"})` compares prompt MIME entries,
+including the swipe subset, against Lær Klokken opens and visible minutes.
+It returns account overlap and per-account, per-content MIME foreground time;
+direct MIME visits and sign-in while already open remain separate. Account
+overlap is within the requested window, not necessarily one session. Choose a
+window after rollout for comparisons: older Lær Klokken coverage cannot imply
+older MIME non-use. Use `account_activity` for ordered session events.
+
+On Lith, from `/opt/ac/system`:
+
+```sh
+node --env-file=.env ../toolchain/analytics/journey-report.mjs mime '{"hours":24}'
+```
+
+Validate with `node --test system/tests/account-activity.test.mjs system/tests/feed-activity.test.mjs`.

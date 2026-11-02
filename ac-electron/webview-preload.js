@@ -46,6 +46,11 @@ window.acElectron = {
     return ipcRenderer.invoke('open-external-url', url);
   },
 
+  // The page's average colour, sent by bios before it unloads. The pane
+  // shell paints it behind this (transparent) webview, so the blank between
+  // one document and the next is the page's colour, not the shell's cream.
+  setBackdrop: (color) => ipcRenderer.sendToHost('ac-backdrop', color),
+
   // Check if we're in Electron
   isElectron: true,
 

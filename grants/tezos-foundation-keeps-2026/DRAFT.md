@@ -154,7 +154,7 @@ Francisco) and SMK (Copenhagen). Designed, deployed, and operates the KidLisp
 Keeps FA2 contracts (v2 → v11) on Tezos, including the mint pipeline, Beacon
 wallet integration, and the repeatable audit tooling.
 
-Applicant entity: **Aesthetic Inc** (C-corp, EIN 33-1483385) — the grant is
+Applicant entity: **Aesthetic Inc** (C-corp) — the grant is
 held by the company, consistent with Aesthetic Computer's other contracted
 work. Jeffrey is the sole developer on the grant scope.
 
@@ -207,7 +207,7 @@ threshold to keep the proposal on the simpler review path.
 
 ## Submission checklist
 
-- [x] Decide applicant entity — **Aesthetic Inc** (C-corp, EIN 33-1483385)
+- [x] Decide applicant entity — **Aesthetic Inc** (C-corp)
 - [x] Set the milestone budget figures — **~$30k, self-audited** (4 milestones)
 - [ ] Register on the Tezos Foundation grants platform; confirm the
       Infrastructure & Tooling form fields + word caps

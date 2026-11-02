@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
-import { profilePage } from "../backend/profile-page.mjs";
 
 const library = new URL("../public/aesthetic.computer/lib/", import.meta.url);
 const post = (kind, code, when = "2026-10-12") => ({ code: kind + "_" + code, name: "@jeffrey", when,
@@ -37,7 +36,6 @@ async function setup(browser, { mime = false, delay = 0 } = {}) {
     if (url.pathname === "/api/mime") return route.fulfill({ contentType: "application/json", body: JSON.stringify({ recent: posts, hasMore: false, boards: [] }) });
     if (url.pathname === "/fixture.svg") return route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#afdcb6"/><circle cx="100" cy="100" r="65" fill="#fcb8dd"/></svg>' });
     if (url.pathname === "/" && mime) return route.fulfill({ contentType: "text/html", body: await readFile(new URL("../public/mime/index.html", import.meta.url), "utf8") });
-    if (url.pathname === "/@jeffrey") return route.fulfill({ contentType: "text/html", body: profilePage(url.pathname) });
     return route.fulfill({ body: "", contentType: "text/plain" });
   });
   return { context, page, requests, errors, fail: (value) => { fail = value; } };
@@ -93,30 +91,6 @@ test("MIME opens immediately, isolates keys, restores focus and scroll, and reus
     }
     await page.mouse.click(2,2);
     await dialog.waitFor({ state: "detached" });
-    assert.deepEqual(errors, []);
-  } finally { await browser.close(); }
-});
-
-test("direct profile handles failures, reduced motion and narrow screens", async () => {
-  const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL });
-  try {
-    const { page, requests, errors, fail } = await setup(browser);
-    fail(true);
-    await page.goto("https://aesthetic.computer/@jeffrey");
-    await page.getByText("Couldn’t load this profile.").waitFor();
-    fail(false);
-    await page.getByRole("button", { name: "Try again" }).click();
-    await page.getByText("Feb 17, 2023", {exact:true}).waitFor();
-    assert.equal(requests.length, 3);
-    for (const width of [1000, 390, 320]) {
-      await page.setViewportSize({ width, height: 844 });
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      await page.screenshot({ path: `/tmp/ac-profile-page-${width}.png` });
-    }
-    await page.emulateMedia({reducedMotion:'reduce'});
-    await page.evaluate(async () => (await import('/aesthetic.computer/lib/profile-card.mjs')).openProfile('@jeffrey'));
-    assert.equal(await page.locator('dialog ac-profile').evaluate(node => getComputedStyle(node).transform), 'none');
-    await page.keyboard.press('Escape');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

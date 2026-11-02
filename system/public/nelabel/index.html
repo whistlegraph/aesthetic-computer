@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NELA BELLS | NELA Computer Club</title>
+    <meta name="description" content="Hark, ye heard o' nela bells? A NELA Computer Club compilation. Put your name down, and send 16 seconds of your track when you have it.">
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6fbf8">
+    <link rel="canonical" href="https://nela.computer/bells/">
+    <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="NELA Computer Club">
+    <meta property="og:title" content="NELA BELLS">
+    <meta property="og:description" content="Hark, ye heard o' nela bells? A NELA Computer Club compilation. Put your name down, and send 16 seconds of your track when you have it.">
+    <meta property="og:url" content="https://nela.computer/bells/">
+    <meta property="og:image" content="https://aesthetic.computer/nelabel/nela-bells.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="bel.css?v=3">
+</head>
+<body>
+    <div class="container">
+    <div class="textRegion">
+        <p class="bel-proposal">PREVIEW &middot; proposed for <a href="https://nela.computer/">nela.computer</a>/bells</p>
+        <header>
+        <pre>░░░░░░░░░░░░░░░░░░░</pre>
+        <h1>NELA BELLS</h1>
+        <pre>░░░░░░░░░░░░░░░░░░░</pre><br/>
+
+        <div class="bell" aria-label="a ringing bell">
+<pre class="logotype bell-body">     ▄▄
+    ▐██▌
+    ████
+   ▐████▌
+   ██████
+  ▐██████▌
+ ▄████████▄
+▐██████████▌
+▀▀▀▀▀▀▀▀▀▀▀▀</pre>
+<pre class="logotype bell-clapper">     ▐▌</pre>
+        </div>
+        <p class="bel-tagline">Hark, ye heard o' nela bells?</p>
+        </header>
+
+        <h2>Sampler Call</h2>
+        <pre>▒▒▒▒▒▒▒▒▒▒▒▒</pre>
+
+        <div class="meetupBox">
+            <p class="meetingTitle">SAY YOU'RE IN BY SUNDAY, NOVEMBER 15</p>
+            <p>nela bells is a <a class="bel-term" href="https://en.wikipedia.org/wiki/Netlabel" title="A record label that puts music out online, usually free to download." data-hint="A record label that puts music out online, usually free to download.">netlabel</a> for a club compilation. I'd love to know who's in.</p>
+            <p>Have a track you'd put on it? Put your name down. If you have <strong>16 seconds</strong> of it to play, send that too &mdash; any part, any format, a phone recording is fine. No audio yet is fine too. Come back for it whenever.</p>
+            <p>Everyone on the board is on the sampler. The full release is whoever finishes. I'll stitch our clips into one preview and share it with the main group chat so we can all get a sense of it.</p>
+            <p>Talk about it in the <a href="https://signal.group/#CjQKIFj25CteIpfyamG48fl2URWEUJCBXOlOziMY2aYKsHQoEhDwIqccnjEG2vXRb_bGvfF0">netlabel thread</a> on Signal, or on the <a href="https://wiki.nela.computer/doc/nela-bells-netlabel-proposal-DBBbr31MEe">club wiki</a>.</p>
+        </div>
+
+        <h2>What We Call It</h2>
+        <pre>▒▒▒▒▒▒▒▒▒▒▒▒▒▒</pre>
+
+        <div class="meetupBox">
+            <p class="meetingTitle">RELEASE CONCEPTS, UNDECIDED</p>
+            <p>nela bells is the label. The compilation itself needs a name, and I keep wavering, so the club can decide. Two shapes so far:</p>
+            <ul class="bel-concepts">
+                <li><strong>NELA BELLS '27</strong> &mdash; a one-off, dated by when it comes out. Could as easily be <strong>NELA BELLS WINTER</strong>.</li>
+                <li><strong>THE NELA BELLS ANNUAL</strong> &mdash; the first of one every year.</li>
+            </ul>
+            <p>Pick one, mix them, or ring in something else in the <a href="https://signal.group/#CjQKIFj25CteIpfyamG48fl2URWEUJCBXOlOziMY2aYKsHQoEhDwIqccnjEG2vXRb_bGvfF0">netlabel thread</a>.</p>
+        </div>
+
+        <h2>I'm In</h2>
+        <pre>▒▒▒▒▒▒</pre>
+
+        <form id="drop" class="meetupBox bel-form" novalidate>
+            <p class="meetingTitle">YOUR TRACK</p>
+            <label class="bel-field" for="who">Who you are: <input id="who" name="who" type="text" autocomplete="nickname" maxlength="64" placeholder="name or handle" required></label>
+            <label class="bel-field" for="title">Working title: <input id="title" name="title" type="text" maxlength="120" required></label>
+            <label class="bel-field" for="length">The full track runs about: <input id="length" name="length" type="text" maxlength="32" placeholder="3:40" inputmode="numeric" class="short"></label>
+            <label class="bel-field" for="eta">You could finish it by: <input id="eta" name="eta" type="text" maxlength="120" placeholder="mid December" required></label>
+            <label class="bel-field" for="note">Anything else: <input id="note" name="note" type="text" maxlength="500"></label>
+            <label class="bel-field" for="word" id="wordField" hidden>The club word: <input id="word" name="word" type="text" maxlength="64" autocomplete="off"></label>
+
+            <p class="bel-pick">
+                <label class="bel-choose"><input id="clip" name="clip" type="file" accept=".wav,.flac,.mp3,.m4a,.aif,.aiff,.ogg,.opus,audio/*"><span>[ Pick a clip ]</span></label>
+                <span id="clipName" class="bel-clip">Optional for now. 16 seconds; wav, flac, mp3, m4a, aiff or ogg; under 48 MB.</span>
+            </p>
+
+            <button id="send" class="ncc-give" type="submit">&gt; I'm in_</button>
+            <pre id="bar" class="bel-bar" aria-hidden="true" hidden></pre>
+            <p id="status" class="bel-status" role="status" aria-live="polite"></p>
+        </form>
+
+        <div id="mine" class="meetupBox bel-mine" hidden>
+            <p class="meetingTitle">YOUR CLIP</p>
+            <p>You're on the board. Add your 16 seconds whenever it exists.</p>
+            <ul id="mineList" class="bel-mine-list"></ul>
+        </div>
+
+        <h2>On The Board</h2>
+        <pre>▒▒▒▒▒▒▒▒▒▒▒▒</pre>
+
+        <ol id="list" class="bel-list"></ol>
+        <p id="empty" class="bel-empty" hidden>Nobody yet.</p>
+
+
+    </div><!--.textRegion-->
+    </div><!--.container-->
+
+    <script src="bel.js?v=2" defer></script>
+</body>
+</html>

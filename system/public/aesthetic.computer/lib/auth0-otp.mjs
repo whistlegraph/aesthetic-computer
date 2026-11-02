@@ -313,6 +313,30 @@ export function otpSignIn({
     });
   }
 
+  // Steps two through four, from whichever credential buys the login ticket.
+  async function spend(email, credential) {
+    // 2 — the credential buys a login ticket.
+    const { login_ticket: ticket } = await ask("/co/authenticate", {
+      client_id: clientId, ...credential,
+    }, "include");
+    if (!ticket) throw fault("unknown", "no login ticket came back");
+
+    // 3 — the ticket buys an authorization code, silently.
+    const verifier = entropy();
+    const authCode = await silently(ticket, await challenge(verifier));
+
+    // 4 — the code buys the tokens, with the verifier proving we are the same
+    // page that asked for it.
+    const body = await ask("/oauth/token", {
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code: authCode,
+      code_verifier: verifier,
+      redirect_uri: redirectUri,
+    });
+    return fromTokens(body, email);
+  }
+
   return {
     // What is on hand right now, without asking Auth0 anything. Null when
     // nobody is signed in this way.
@@ -337,29 +361,27 @@ export function otpSignIn({
       const username = String(email || "").trim();
 
       // 2 — the code buys a login ticket.
-      const { login_ticket: ticket } = await ask("/co/authenticate", {
-        client_id: clientId,
+      return spend(email, {
         credential_type: "http://auth0.com/oauth/grant-type/passwordless/otp",
         realm: connection,
         username,
         otp,
-      }, "include");
-      if (!ticket) throw fault("unknown", "no login ticket came back");
-
-      // 3 — the ticket buys an authorization code, silently.
-      const verifier = entropy();
-      const authCode = await silently(ticket, await challenge(verifier));
-
-      // 4 — the code buys the tokens, with the verifier proving we are the same
-      // page that asked for it.
-      const body = await ask("/oauth/token", {
-        grant_type: "authorization_code",
-        client_id: clientId,
-        code: authCode,
-        code_verifier: verifier,
-        redirect_uri: redirectUri,
       });
-      return fromTokens(body, email);
+    },
+
+    // The same three steps with a password instead of a mailed code, against
+    // the tenant's username-password connection. Nothing in the app offers
+    // this to members: it exists for the App Review account, which has no
+    // mailbox a reviewer can open.
+    async password(email, password, realm = "Username-Password-Authentication") {
+      const username = String(email || "").trim();
+      if (!password) throw fault("unknown", "no password given");
+      return spend(email, {
+        credential_type: "http://auth0.com/oauth/grant-type/password-realm",
+        realm,
+        username,
+        password,
+      });
     },
 
     // An access token that is good for at least another minute, renewed from the

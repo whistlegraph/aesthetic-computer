@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261021-aesel";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261102-braincells";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -22,7 +22,7 @@ export function startVisitTracker(win = window, doc = document) {
   const reset = () => {
     path = win.location.pathname;
     const surface = visitSurface(path);
-    const linkMeasured = ["whistlegraph.org", "whistlegraph.app"].includes(visitProperty(win.location.hostname)) &&
+    const linkMeasured = ["whistlegraph.org", "whistlegraph.app", "nopaint.art"].includes(visitProperty(win.location.hostname)) &&
       [...doc.querySelectorAll("a[href]")].some(link => visitLinkAction(win.location.hostname, link.href));
     state = surface === null ? null : {
       version: 1, ...(linkMeasured ? { linkVersion: 1 } : {}), id: win.crypto.randomUUID(), surface,

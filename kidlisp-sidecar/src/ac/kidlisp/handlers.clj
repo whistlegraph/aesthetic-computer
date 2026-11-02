@@ -119,7 +119,11 @@
           (:body-params req)]
       (if (or (nil? source) (nil? hash) (nil? code))
         (bad "source, hash, code are required")
-        (let [db (d/db conn)]
+        ;; This service owns normal creates. Keep lookup + transaction together:
+        ;; unique/identity otherwise upserts a racing request's new code onto
+        ;; the first entity, breaking the URL already returned to its caller.
+        (locking conn
+         (let [db (d/db conn)]
           (if-let [existing-eid (d/entid db [:kidlisp/hash hash])]
             (let [existing (d/entity db existing-eid)]
               (db/transact conn
@@ -142,7 +146,7 @@
                     forked_from
                     (assoc :kidlisp/forked-from [:kidlisp/code forked_from]))]
               (db/transact conn [piece-tx])
-              (created {:code code :cached false}))))))))
+              (created {:code code :cached false})))))))))
 
 (defn lookup-code
   "GET /kidlisp/:code — returns full entity, increments hits."

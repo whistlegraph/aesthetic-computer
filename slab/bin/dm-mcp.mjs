@@ -36,6 +36,10 @@ import { homedir, hostname } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { formatProse, PROSE_STYLES } from "../lib/imessage-rich-text.mjs";
+import { revealSignatures, sign } from "../lib/prox-signature.mjs";
+import { callerRock } from "../lib/prox-caller.mjs";
+import { describeVoiceMemo, renderVoiceMemo, VOICES, VOICE_MEMO_MAX_CHARS } from "../lib/voice-memo.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SIGNAL = join(HERE, "signal.mjs");
@@ -249,13 +253,13 @@ async function toolRead({ channel, n = 15, to, group, machine } = {}) {
   if (ch === "signal") {
     const toArgs = dest ? ["--to", String(dest)] : [];
     const { stdout } = await runBridge(SIGNAL, ["read", String(n), ...toArgs], machine);
-    return text(stdout.trim() || "(no messages)");
+    return text(revealSignatures(stdout.trim()) || "(no messages)");
   }
   if (ch === "imessage" || ch === "imsg") {
     if (group) throw new Error("iMessage group lookup uses `to`, not the Signal-only `group` alias");
     const toArgs = dest ? ["--to", String(dest)] : [];
     const { stdout } = await runBridge(IMSG, ["read", String(n), ...toArgs], machine, { timeoutMs: 120000 });
-    return text(stdout.trim() || "(no messages)");
+    return text(revealSignatures(stdout.trim()) || "(no messages)");
   }
   throw new Error(`unknown channel "${channel}" (use "signal" or "imessage")`);
 }
@@ -267,7 +271,7 @@ async function toolSearch({ query, to, n = 25, machine } = {}) {
   const args = ["search", String(query), "--limit", String(n)];
   if (to) args.push("--to", String(to));
   const { stdout } = await runBridge(IMSG, args, machine, { timeoutMs: 120000 });
-  return text(stdout.trim() || "(no matching iMessages)");
+  return text(revealSignatures(stdout.trim()) || "(no matching iMessages)");
 }
 
 // List / decrypt Signal attachments (the voice-memo → transcribe pipeline).
@@ -298,7 +302,11 @@ async function toolContacts({ query, machine } = {}) {
 // only `confirm: true` actually sends.
 // decorative-reply: a small flourish leading the bubble. `true` gets the
 // whistlegraph pen; a string is its own motif. Text-only — an empty body
-// stays empty rather than sending a bare ornament.
+// stays empty rather than sending a bare ornament. Agent sends carry it by
+// default (DM_DECORATIVE_REPLY=0 turns the default off; `false` per send).
+// Prose styling lives in slab/lib/imessage-rich-text.mjs (DM_PROSE_STYLE sets
+// the default); the invisible prox signature in slab/lib/prox-signature.mjs.
+const PROSE_DEFAULT = process.env.DM_PROSE_STYLE ?? "sans";
 const DECOR_MOTIF = "🖋️〰️";
 function decorate(message, decorativeReply) {
   if (!decorativeReply || !message) return message;
@@ -314,18 +322,32 @@ async function toolSend({
   image,
   attachments,
   linkPreview,
-  decorativeReply,
+  decorativeReply = process.env.DM_DECORATIVE_REPLY !== "0",
+  prose: proseStyle = PROSE_DEFAULT,
+  signature = process.env.DM_PROX_SIGNATURE !== "0",
   decorated,
+  voice,
+  voiceName = process.env.DM_VOICE || "jeffrey",
   confirm,
   machine,
-} = {}) {
+} = {}, context) {
   const ch = (channel || "").toLowerCase();
-  const requestedFiles = [image, ...(Array.isArray(attachments) ? attachments : [attachments])].filter(Boolean);
+  // A voice memo is words rendered in Jeffrey's own voice (slab/lib/voice-memo.mjs)
+  // and sent as an audio attachment, so it takes the attachment's seat. The
+  // file is rendered for the preview too — the preview tells how long it runs.
+  const memo = voice ? await renderVoiceMemo(voice, { voice: voiceName }) : null;
+  const requestedFiles = [image, ...(Array.isArray(attachments) ? attachments : [attachments]), memo?.path].filter(Boolean);
   const files = inspectOutgoingFiles(requestedFiles);
-  const message = decorate(String(body || ""), decorativeReply);
+  // Typed text effects walk plain characters, so a `decorated` send skips prose.
+  // A signature is invisible tag characters at the end, so it rides along when
+  // the words are copied; the caller's rock is told apart by its loopback port.
+  const styled = decorated ? String(body || "") : formatProse(String(body || ""), proseStyle);
+  const rock = signature && !decorated && styled ? await callerRock(context) : null;
+  const message = sign(decorate(styled, decorativeReply), rock);
   if (!message && !files.length && !linkPreview) {
-    throw new Error("provide `text`, `image`/`attachments`, or `linkPreview`");
+    throw new Error("provide `text`, `image`/`attachments`, `voice`, or `linkPreview`");
   }
+  const fileLine = (file) => (memo && file.path === memo.path ? describeVoiceMemo(memo) : `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`);
 
   if (decorated && ch !== "imessage" && ch !== "imsg") throw new Error("`decorated` (Messages text effects) is iMessage-only");
   if (decorated && (files.length || linkPreview)) throw new Error("`decorated` applies to a text-only message");
@@ -342,7 +364,7 @@ async function toolSend({
         `PREVIEW — not sent. Re-call with confirm:true to send.\n` +
         `channel: Signal   machine: ${isLocal(machine) ? "local" : machine}\n` +
         `${isGroup ? "group" : "to"}: ${rcpt.label}  [${rcpt.how}]\n` +
-        files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`).join("\n") +
+        files.map(fileLine).join("\n") +
         `${files.length ? "\n" : ""}--- message ---\n${message}`,
       );
     }
@@ -397,7 +419,7 @@ async function toolSend({
         "PREVIEW — not sent. Re-call with confirm:true to send.",
         `channel: Messages (iMessage/RCS/SMS)   machine: ${isLocal(machine) ? "local" : machine}`,
         `to: ${rcpt.displayName}  [requested: "${to}"]`,
-        ...files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`),
+        ...files.map(fileLine),
         ...(linkPreview ? [`rich link preview: ${linkPreview}`] : []),
         ...(decor ? [`decorated: ${decor.style} — ${decor.about}`, `per character: ${decor.plan}`, "(types into Messages.app; it must be idle — a draft in the compose field aborts the send)"] : []),
         ...(message ? ["--- message ---", message] : []),
@@ -410,7 +432,7 @@ async function toolSend({
     if (files.length && !isLocal(machine)) throw new Error("attachments are local files; send them from the local machine");
     for (const file of files) {
       const { stdout } = await runImsg(["send", "--media", file.path, ...toArgs], machine, { timeoutMs: 60000 });
-      receipts.push({ kind: "attachment", ...JSON.parse(stdout.trim()) });
+      receipts.push({ kind: memo && file.path === memo.path ? "voice memo" : "attachment", ...JSON.parse(stdout.trim()) });
     }
     if (linkPreview) {
       const { stdout } = await runImsg(["send", "--link-preview", String(linkPreview), ...toArgs], machine, { timeoutMs: 60000 });
@@ -579,7 +601,11 @@ const TOOLS = [
         image: { type: "string", description: "Optional image or file path to attach." },
         attachments: { type: "array", items: { type: "string" }, description: "Optional local file paths to attach." },
         linkPreview: { type: "string", description: "iMessage only: URL to send as a rich link preview." },
-        decorativeReply: { anyOf: [{ type: "boolean" }, { type: "string" }], description: "decorative-reply: lead the text with a flourish. true = the whistlegraph pen (🖋️〰️); a string is a custom motif. Shown in the preview." },
+        voice: { type: "string", maxLength: VOICE_MEMO_MAX_CHARS, description: "Words to speak as a voice memo in Jeffrey's own ElevenLabs voice. Rendered to an Opus `Audio Message.caf` (the format Messages records) and sent as a playable audio attachment; it takes the attachment's seat, so send any text as its own call. The preview renders the clip and shows its length and path. Not `text`: this is spoken, so write it to be heard." },
+        voiceName: { type: "string", enum: VOICES, description: "Which cloned voice speaks `voice` (default jeffrey)." },
+        decorativeReply: { anyOf: [{ type: "boolean" }, { type: "string" }], description: "decorative-reply: lead the text with a flourish. Default ON for agent sends (the whistlegraph pen 🖋️〰️); a string is a custom motif; false sends without it. Shown in the preview." },
+        signature: { type: "boolean", description: "Append the sending session's prox handle (host:name) as invisible Unicode tag characters. Nothing shows in the bubble, but it survives copy/paste, and dm_read shows it as ⟨prox host:name⟩. Default on; false for text the recipient will paste elsewhere." },
+        prose: { type: "string", enum: PROSE_STYLES, description: "Set the whole body in Unicode letters no keyboard types (default sans, so agent sends read as machined). Inside the text, *x* becomes the style's italic, **x** its bold, `x` mono. Links, @handles, #tags and emails stay plain and tappable. 'plain' sends ordinary text — use it when the recipient must copy, search or paste the words (codes, addresses, captions they will post)." },
         decorated: { type: "string", description: "iMessage only: a decorated message — Messages' animated text effects applied character by character. A style name (nod, shake, jitter, ripple, bloom, explode, big, small, wobble, seesaw, carnival, ransom, shout, whisper) or a custom comma list that cycles per character (\"nod,big\"; \"+\" stacks: \"big+bold,small\"). Text only, under 280 characters; the preview shows the per-character plan. Typed into Messages.app, so the app must be idle." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local). Signal sends route over ssh. iMessage sends may name another Mac on the same iMessage account (e.g. blueberry) — for a decorated send that keeps this machine's keyboard and focus untouched, since the effects are typed into that machine's Messages.app." },
@@ -619,7 +645,7 @@ const TOOLS = [
   },
 ];
 
-async function callTool(name, args) {
+async function callTool(name, args, context) {
   switch (name) {
     case "dm_inbox": return toolInbox(args || {});
     case "dm_chats": return toolChats(args || {});
@@ -628,14 +654,14 @@ async function callTool(name, args) {
     case "dm_groups": return toolGroups(args || {});
     case "dm_attachments": return toolAttachments(args || {});
     case "dm_contacts": return toolContacts(args || {});
-    case "dm_send": return toolSend(args || {});
+    case "dm_send": return toolSend(args || {}, context);
     case "dm_visual_capture": return toolVisualCapture(args || {});
     case "dm_react": return toolReact(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
 
-async function handleMessage(message) {
+async function handleMessage(message, context) {
   const { id, method, params } = message;
   try {
     switch (method) {
@@ -656,7 +682,7 @@ async function handleMessage(message) {
       case "tools/list":
         return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
       case "tools/call": {
-        const content = await callTool(params?.name, params?.arguments);
+        const content = await callTool(params?.name, params?.arguments, context);
         return { jsonrpc: "2.0", id, result: { content } };
       }
       default:

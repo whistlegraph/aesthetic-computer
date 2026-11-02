@@ -51,6 +51,23 @@ function pieceOnDisk(slug) {
   );
 }
 
+// One row in the corpus. Also called by the server for entries it answers
+// itself (a sketch), so they land even when the tab that typed them is gone.
+export async function logPrompt(db, { text, kind, resolved }) {
+  const prompts = db.collection(COLLECTION);
+  try {
+    await prompts.createIndex({ createdAt: -1 });
+    await prompts.createIndex({ text: 1 });
+    await prompts.createIndex({ kind: 1, resolved: 1 });
+  } catch {} // already there
+  // Coarsen the timestamp to the hour so stored rows cannot be strung
+  // into fine-grained submission sequences.
+  const now = new Date();
+  const hour = new Date(now);
+  hour.setMinutes(0, 0, 0);
+  await prompts.insertOne({ text, kind, resolved, day: now.toISOString().split("T")[0], createdAt: hour });
+}
+
 // Classify a submission: what kind of thing was entered, and did it resolve?
 // `resolved: false` on kind "word" is the miss corpus — commands the prompt
 // handles internally also land there and get filtered during analysis.
@@ -189,26 +206,7 @@ export async function handler(event) {
         if (body.handled) kind = body.sketched ? "sketch" : "command";
       }
 
-      const now = new Date();
-      try {
-        await prompts.createIndex({ createdAt: -1 });
-        await prompts.createIndex({ text: 1 });
-        await prompts.createIndex({ kind: 1, resolved: 1 });
-      } catch (indexErr) {
-        // Indexes already exist - that's fine
-      }
-
-      // Coarsen the timestamp to the hour so stored rows cannot be strung
-      // into fine-grained submission sequences.
-      const hour = new Date(now);
-      hour.setMinutes(0, 0, 0);
-      await prompts.insertOne({
-        text,
-        kind,
-        resolved,
-        day: now.toISOString().split("T")[0],
-        createdAt: hour,
-      });
+      await logPrompt(database.db, { text, kind, resolved });
 
       await database.disconnect();
       return respond(200, { success: true });

@@ -350,6 +350,15 @@ final class ShapedownTests: XCTestCase {
         XCTAssertEqual(AppDelegate.trackpadPadModeAfterTab(.kit), .fx)
     }
 
+    func testTabLandingSpeaksInThePagesVoice() {
+        XCTAssertEqual(AppDelegate.padSwitchCue(for: .fx), .slider)
+        XCTAssertEqual(AppDelegate.padSwitchCue(for: .mouse), .off)
+        XCTAssertEqual(AppDelegate.padSwitchCue(for: .skin), .drum)
+        XCTAssertEqual(AppDelegate.padSwitchCue(for: .split), .drum)
+        XCTAssertEqual(AppDelegate.padSwitchCue(for: .kit), .drum)
+        XCTAssertEqual(AppDelegate.padSwitchCue(for: .synth), .drum)
+    }
+
     func testFocusedInputTabToggleIgnoresOverlayVisibility() {
         XCTAssertEqual(
             AppDelegate.focusedInputModeAfterTab(.localFX), .trackDrum

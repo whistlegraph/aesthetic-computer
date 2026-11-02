@@ -53,7 +53,7 @@ final class MenuBandPercussion {
     /// zones (kick, tom, snare, hat, click) and share their sounds with the
     /// keyboard percussion layout. ⇧←/→ always steps through the kits.
     enum DrumKit: Int, CaseIterable {
-        case menuBand = 0, electro, salamander, handPercussion
+        case menuBand = 0, electro, salamander, handPercussion, cc
 
         var label: String {
             switch self {
@@ -61,6 +61,7 @@ final class MenuBandPercussion {
             case .electro: return "Electro"
             case .salamander: return "Salamander"
             case .handPercussion: return "Hand Percussion"
+            case .cc: return "cc \(MenuBandCCDrums.family)"
             }
         }
 

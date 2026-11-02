@@ -149,7 +149,10 @@ const checkedHours = (hours, max = 840) => {
 async function networkReport({ hours = 24, scope = "all" } = {}) {
   const part = promise => promise.then(value => value, error => ({ unavailable: String(error.message || error) }));
   const days = Math.max(1, Math.ceil(checkedHours(hours) / 24));
-  const [visits, referrers, pieces, braincells, tezos, social, search, ga4] = await Promise.all([
+  // Apple's numbers lag a day and arrive sparse, so the app parts read at
+  // least a week regardless of the visit window.
+  const appDays = Math.min(Math.max(days, 7), 35);
+  const [visits, referrers, pieces, braincells, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
     part(visitsReport({ hours, scope })),
     part(journeyReport("referrers", { hours, scope, limit: 25 })),
     part(journeyReport("pieces", { hours, scope, limit: 25 })),
@@ -158,8 +161,46 @@ async function networkReport({ hours = 24, scope = "all" } = {}) {
     part(socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
     part(searchSummary({ days: Math.max(days, 7) })),
     part(googleAnalytics({ days: Math.min(days, 90) })),
+    part(appDownloads({ days: appDays })),
+    part(iosUsage({ days: appDays })),
+    part(appReview()),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social, search, googleAnalytics: ga4 };
+  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social, search, googleAnalytics: ga4,
+    apps: { days: appDays, review, appStore: appStoreTotals(appStore), iosUsage: ios.unavailable ? ios : iosTotals(ios) } };
+}
+
+// The review queue: every app on the account with its newest version per
+// platform. "queue" holds the ones Apple has not finished with.
+const REVIEW_PENDING = new Set(["WAITING_FOR_REVIEW", "IN_REVIEW", "PENDING_DEVELOPER_RELEASE", "REJECTED", "METADATA_REJECTED", "INVALID_BINARY"]);
+async function appReview() {
+  const { data: apps } = await asc("/v1/apps?fields[apps]=name&limit=50");
+  const rows = await Promise.all(apps.map(async (app) => {
+    const { data } = await asc(`/v1/apps/${app.id}/appStoreVersions?limit=4&fields[appStoreVersions]=platform,versionString,appStoreState,createdDate`);
+    const newest = {};
+    for (const v of data) newest[v.attributes.platform] ??= { platform: v.attributes.platform, version: v.attributes.versionString, state: v.attributes.appStoreState };
+    return { app: app.attributes.name, versions: Object.values(newest) };
+  }));
+  const queue = rows.flatMap((r) => r.versions.filter((v) => REVIEW_PENDING.has(v.state)).map((v) => ({ app: r.app, ...v })));
+  return { queue, apps: rows };
+}
+
+// Totals only; the daily breakdown stays in app_downloads.
+function appStoreTotals(report) {
+  if (report.unavailable) return report;
+  const apps = {};
+  for (const [name, app] of Object.entries(report.apps ?? {})) {
+    if (!app.daily) { apps[name] = app; continue; }
+    const byType = {};
+    for (const day of Object.values(app.daily)) for (const [type, n] of Object.entries(day)) byType[type] = (byType[type] ?? 0) + n;
+    apps[name] = { firstTimeDownloads: app.firstTimeDownloads, byType };
+  }
+  return { since: report.since, note: report.note, apps };
+}
+
+function iosTotals(report) {
+  const apps = {};
+  for (const [name, { daily, ...totals }] of Object.entries(report.apps ?? {})) apps[name] = totals;
+  return { start: report.start, end: report.end, note: report.note, apps };
 }
 
 // ⬇️ Direct downloads
@@ -327,9 +368,11 @@ const TOOLS = [
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
     } },
   },
-  ...["account_activity", "network_referrers", "feature_usage", "piece_landings"].map(name => ({
+  ...["account_activity", "network_referrers", "feature_usage", "piece_landings", "mime_journeys"].map(name => ({
     name,
-    description: name === "piece_landings"
+    description: name === "mime_journeys"
+      ? "Compare signed-in AC accounts opening MIME from the prompt (swipe vs wheel/key/history), direct MIME visits, and Laer Klokken opens/minutes. Includes overlap, public handles and per-content foreground time. Private SSH report; MIME coverage starts at its tracking rollout, no anonymous-history joins. Optional handle filter."
+      : name === "piece_landings"
       ? "Which pieces people land on, anonymous visitors included: page loads per property and piece from lith's boot telemetry, split anonymous / signed-in, completed loads and top referrer sites per piece. Parameters are stripped; private paths are excluded. Counts landings, not in-tab moves between pieces. Optional property filter."
       : name === "feature_usage"
       ? "Laer Klokken/laklok feature-use counts by authenticated account: ranked controls, per-account counts, UTC daily activity and supported features with no recorded use, plus visibleMinutes (signed-in minutes open in a visible tab, per account and per UTC day, from the presence rollout onward). Covers canvas and HTML clients from the feature rollout onward. Zero is not proof of non-use. Optional public handle/property filter; up to 35 days, at most 50 accounts. No chat content, page contents or link destinations."
@@ -347,7 +390,7 @@ const TOOLS = [
   })),
   {
     name: "network_report",
-    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain) and Google Analytics sessions by source. Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain), Google Analytics sessions by source, and the apps (App Store review queue, App Store downloads per app, AC iOS active installs). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
@@ -402,13 +445,13 @@ const TOOLS = [
   },
   {
     name: "human_fishery",
-    description: "AC Human Fishery: watch recent likely-human activity through Silo's existing MongoDB firehose on Lith. Returns temporary fish names for non-automated visits with interaction, public property, broad surface, visible-time depth and action flags. Read-only snapshots; repeat after at least 15 seconds for changes. Does not identify people, link separate visits or infer cross-site journeys. lastReportedAt is the last changed snapshot, not proof someone is still online.",
+    description: "AC Human Fishery: recent anonymous visits with interaction, plus a separate MIME watch. mime.events includes verified signed-in handles, prompt swipe/direct entry, per-piece foreground milliseconds and returns; deduplicate by event. mime.directPageArrivals includes non-automated mime.ac page arrivals even before interaction. Anonymous fish and account events are separate, overlapping instruments: never join them or add their counts. Anonymous prompt swipes are not covered. Read-only; repeat after at least 15 seconds. Last report/exposure is not proof someone is still online.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       minutes: { type: "number", minimum: 1, maximum: 60, description: "Look back this many minutes for reported activity; default 5" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Default studio" },
-      limit: { type: "integer", minimum: 1, maximum: 200, description: "Maximum fish returned; default 50" },
-      startedAfter: { type: "string", description: "Optional ISO date: only visits arriving after this time, useful for watching the first arrival after a deploy" },
+      limit: { type: "integer", minimum: 1, maximum: 200, description: "Maximum rows per fish, MIME event and MIME arrival list; default 50" },
+      startedAfter: { type: "string", description: "Optional ISO date: anonymous arrivals and MIME account events after this time" },
     } },
   },
   {
@@ -480,6 +523,7 @@ async function callTool(name, args = {}) {
     : name === "google_analytics" ? await googleAnalytics(args)
     : name === "tezos_revenue" ? await tezosRevenue({ hours: checkedHours(args.hours ?? 24) })
     : name === "social_report" ? await socialReport({ root: REPO_ROOT, hours: checkedHours(args.hours ?? 24, 2160) })
+    : name === "mime_journeys" ? await journeyReport("mime", args)
     : name === "account_activity" ? await journeyReport("accounts", args)
     : name === "feature_usage" ? await journeyReport("features", args)
     : name === "network_referrers" ? await journeyReport("referrers", args)

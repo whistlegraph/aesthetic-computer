@@ -83,6 +83,7 @@ import * as hostPlatform from "../lib/platform.mjs";
 const { AestheticIOSApp, Android, MacOS, MetaBrowser, iOS } = hostPlatform;
 import { validateHandle } from "../lib/text.mjs";
 import { commandDescriptions } from "../lib/prompt-commands.mjs";
+import { savePromptKidlisp } from "../lib/prompt-kidlisp.mjs";
 import { nopaint_adjust } from "../systems/nopaint.mjs";
 import { parse } from "../lib/parse.mjs";
 import { signed as shop } from "../lib/shop.mjs";
@@ -204,7 +205,6 @@ let login, // A login button in the center of the display.
   walletBtn, // Tezos wallet button (shown when connected)
   commitBtn, // Commit hash button (navigates to commits piece)
   notepatBtn, // 🎹 Notepat button (to the right of the commit button)
-  jukeBtn, // 🎵 Juke button — every /pop track; the app plays it in the background
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
@@ -252,6 +252,7 @@ let ruler = false; // Paint a line down the center of the display.
 //                   (for measuring the login / signup centering).
 // let firstCommandSent = false; // 🏳️
 let firstActivation = true; // 🏳️ Used to trigger a startup 🔊🎆
+let handleOnboarding = false; // 🪪 Sent here to claim a handle (`prompt~handle `).
 
 // 📊 FPS Meter state
 let fpsTimestamps = [];
@@ -281,6 +282,7 @@ let histScrub = null;
 // 🎭 Mime swipe: an upward drag on the curtain drops into the mime feed.
 let mimeSwipe = null;
 let mimeArmed = false; // Last curtain state sent to bios's mime sheet.
+let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it isn't drawn.
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
@@ -1357,6 +1359,9 @@ async function boot({
     }
 
     activated({ ...api, params: effectiveParams }, true);
+    // Onboarding lands here as `prompt~handle `: remember it so a tap can
+    // blank the prefill and a bare word still counts as the handle.
+    handleOnboarding = !hasAutorun && text.trim() === "handle" && !handle();
     system.prompt.input.canType = true;
     send({ type: "keyboard:unlock" });
     send({ type: "keyboard:open" }); // Necessary for desktop.
@@ -1429,6 +1434,20 @@ async function boot({
 
 // 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
+  // Onboarding: a bare word typed over the blanked `handle ` prefill is the
+  // handle itself. `handle ...` or anything with spaces routes as usual.
+  if (handleOnboarding && !$.handle?.()) {
+    const word = text?.trim().replace(/^@/, "") || "";
+    if (
+      word &&
+      !/\s/.test(word) &&
+      !/^handle\b/i.test(word) &&
+      validateHandle(word) === "valid"
+    ) {
+      text = "handle " + word;
+    }
+  }
+
   // 'gni (or '$gni) runs a KidLisp $code with just its name in the corner.
   const quiet = text?.trim().match(/^'\$?([0-9A-Za-z]{3,64})'?$/);
   let result = quiet
@@ -1445,11 +1464,12 @@ async function halt($, text) {
   // ✏️ Still nothing: draw the word instead of a 404. Typos of real pieces
   // and undrawable words come back empty and fall to the help character.
   const sketched = !result && (await sketch($, text));
-  if (sketched) result = sketched;
+  if (sketched?.left) result = sketched;
 
   // 🛰️ Prompt corpus: record what was entered and whether anything answered
-  // (anonymous, fire-and-forget).
-  if (text?.trim().length > 0) {
+  // (anonymous, fire-and-forget). A word the server drew, or declined to,
+  // it logged itself, so a closed tab still counts.
+  if (text?.trim().length > 0 && !sketched) {
     fetch("/api/prompt-log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1460,15 +1480,23 @@ async function halt($, text) {
   return result;
 }
 
-// One generated KidLisp drawing per word, cached server-side (`/api/sketch`).
+// One generated KidLisp drawing per word, with a tune on the synced UTC clock,
+// cached server-side by Aesel (`/api/aesel-sketch`). Returns `{ left: true }` once the drawing
+// runs, `{ logged: true }` when the server answered without one (it wrote the
+// corpus row either way), or false when it never reached the server.
 async function sketch($, text) {
   const word = text?.trim().toLowerCase().replace(/\s+/g, " ");
   if (!/^[a-z][a-z' -]{1,30}$/.test(word) || word.split(" ").length > 3) return false;
   const input = $.system.prompt.input;
   const typed = input?.text;
-  $.notice(`sketching ${word}...`, ["white", "blue"]);
+  $.notice(`making ${word}...`, ["white", "blue"]);
+  // The code arriving is KidLisp, so colour it. The prompt only re-reads this
+  // flag while the input can type, and it is locked for the whole wait.
+  $.system.prompt.kidlispMode = true;
+  let answered = false;
   try {
-    const res = await fetch(`/api/sketch?word=${encodeURIComponent(word)}&stream=1`);
+    const res = await fetch(`/api/aesel-sketch?word=${encodeURIComponent(word)}&stream=1`);
+    answered = res.ok;
     let result;
     if (res.headers.get("content-type")?.includes("json")) result = await res.json();
     else {
@@ -1482,17 +1510,21 @@ async function sketch($, text) {
         if (done) break;
         body += decoder.decode(value, { stream: true });
         if (input) {
-          input.text = `${typed}\n\n${body.split("\u0000")[0]}`;
+          input.text = `; ${word}\n${body.split("\u0000")[0]}`; // the stored source's own first line
           input.snap();
         }
         $.needsPaint();
       }
       result = JSON.parse(body.split("\u0000")[1] || "{}");
     }
-    if (result.code && (await $.load(parse(`$${result.code}?nosource`)))) return { left: true };
+    if (result.code) {
+      const saved = result.source ? await savePromptKidlisp($, result.source, { code: result.code }) : { code: result.code };
+      if (await $.load(parse(`$${saved.code}?nosource`))) return { left: true };
+    }
   } catch {} // offline or the server said no
+  $.system.prompt.kidlispMode = false;
   if (input) input.text = typed; // the help character answers over the entry
-  return false;
+  return answered ? { logged: true } : false;
 }
 
 async function route($, text) {
@@ -3987,7 +4019,8 @@ async function route($, text) {
     // Set user handle or jump to handle color customization piece.
 
     // Make sure there is a parameter.
-    let newHandle = text.split(" ")[1];
+    const handleWords = text.trim().split(/\s+/).slice(1);
+    let newHandle = handleWords[0];
     if (!newHandle) {
       // No parameter - jump to handle customization piece
       if (user && handle()) {
@@ -4001,6 +4034,11 @@ async function route($, text) {
         notice("EMPTY", ["cyan", "blue"]);
         return true;
       }
+    }
+
+    if (handleWords.length > 1) {
+      notice("NO SPACES", ["yellow", "red"]);
+      return true;
     }
 
     if (newHandle[0] === "@") newHandle = newHandle.slice(1); // Strip off any leading "@" sign to help with validation.
@@ -4037,7 +4075,7 @@ async function route($, text) {
       needsPaint();
     } else {
       console.warn("🧖 No @handle specified / bad handle design:", validated);
-      notice(validated.toUpperCase(), ["yellow", "red"]);
+      notice(handleProblem(newHandle, validated), ["yellow", "red"]);
     }
     return true;
   } else if (text.startsWith("admin:handle:strip")) {
@@ -4944,8 +4982,9 @@ async function route($, text) {
       trimmed.startsWith(";") ||
       isKidlispSource(trimmed);
     if (isKidlisp) {
-      body = { name: trimmed, source: trimmed };
-      loaded = await load(body, false, false, true, undefined, true); // Force kidlisp
+      const saved = await savePromptKidlisp($, trimmed);
+      body = saved.code ? parse(`$${saved.code}`) : { name: trimmed, source: trimmed };
+      loaded = saved.code ? await load(body) : await load(body, false, false, true, undefined, true); // Force inline KidLisp
       //                                        ^^^^ devReload  ^^^^^ forceKidlisp
     } else {
       body = parse(trimmed);
@@ -5877,41 +5916,84 @@ function paint($) {
     subscribersBtn.btn.disabled = true;
   }
 
-  // Juke plays every /pop track; the iPhone app keeps it going in the background.
-  if (showLoginCurtain && !$.system.prompt.input.canType &&
-      !$.system.prompt.input.text && screen.height >= 200) {
-    // Top-right, under the version button when it's showing.
-    const position = { x: 0, y: commitBtn && !commitBtn.btn.disabled ? 20 : 6 };
-    if (!jukeBtn) jukeBtn = new $.ui.TextButtonSmall("juke", position);
-    else jukeBtn.reposition(position, "juke");
-    jukeBtn.btn.box.x = screen.width - jukeBtn.btn.box.w - 6;
-    jukeBtn.btn.disabled = false;
-    jukeBtn.paint($,
-      [[30, 22, 48], [120, 90, 160], 255, [30, 22, 48]],
-      [[60, 40, 90], [255, 145, 200], 255, [60, 40, 90]],
-    );
-  } else if (jukeBtn) {
-    jukeBtn.btn.disabled = true;
-  }
-
   // 🎭 Tell bios whether a two-finger scroll should pull up the mime feed:
   // only while the curtain is up and nothing is typed.
-  const curtainIdle = showLoginCurtain && !$.system.prompt.input.canType &&
+  // The same test act() uses for the swipe itself: the default theme with
+  // nothing typed — logged in or not, whatever the screen's shape.
+  const curtainIdle = theme === "default" && !$.system.prompt.input.canType &&
     !$.system.prompt.input.text;
   if (curtainIdle !== mimeArmed) {
     mimeArmed = curtainIdle;
     $.send({ type: "mime:sheet", content: { action: "armed", on: curtainIdle } });
   }
 
-  // 🎭 "swipe for mimes" along the bottom edge.
-  if (curtainIdle && screen.height >= 200) {
-    // The last row, under the mail envelope.
-    const label = "^ swipe for mimes ^";
-    const x = Math.floor((screen.width - label.length * 4) / 2);
-    const y = screen.height - 8;
-    const alpha = 110 + Math.round(sin(motdFrame * 0.08) * 40);
-    ink(255, 145, 200, alpha).write(label, { x, y },
+  // 🎭 mime waits under the bottom edge: the wordmark's extruded slab letters,
+  // each floating on its own clock through mime's palette, a chevron lifting
+  // the way the sheet will, and motes drifting up off the edge. The mail
+  // envelope reads `mimeMarkTop` to sit a clear row above all of it.
+  mimeMarkTop = null;
+  if (curtainIdle) {
+    const t = motdFrame / 60; // seconds
+    const dark = $.dark;
+    const palette = dark
+      ? [[255, 145, 197], [175, 220, 182], [125, 227, 215], [255, 150, 154]] // mime by night: pink, mint, teal, coral
+      : [[147, 34, 95], [37, 123, 85], [0, 107, 114], [189, 56, 81]]; // mime by day: wine, green, teal, rose
+    const side = dark ? [23, 21, 38] : [245, 242, 248]; // the slab's side: mime's paper, night or day
+    const s = screen.height >= 320 ? 2 : 1; // glyphs are 6×10 at size 1
+    const word = "mime";
+    const cw = 7 * s; // the font's advance plus a pixel of tracking
+    const gh = 10 * s, depth = 2 * s;
+    const x0 = Math.floor((screen.width - (word.length * cw - s)) / 2);
+    const baseY = screen.height - gh - depth - 2;
+    const cx = Math.floor(screen.width / 2);
+    const letters = word.split("").map((ch, i) => ({
+      ch,
+      x: x0 + i * cw,
+      y: baseY + Math.round(sin(t * 2.6 + i * 1.3) * s * 1.5),
+      c: palette[(i + Math.floor(t * 0.5)) % palette.length],
+    }));
+
+    // A breathing glow along the edge.
+    const breath = 0.5 + 0.5 * sin(t * 2.2);
+    for (let i = 0; i < 4 * s; i++) {
+      const a = Math.round((10 + 18 * breath) * (1 - i / (4 * s)));
+      ink(palette[0][0], palette[0][1], palette[0][2], a).box(0, screen.height - 1 - i, screen.width, 1, "fill");
+    }
+
+    // Motes rising off the edge, each on its own loop.
+    for (let k = 0; k < 9; k++) {
+      const speed = 0.3 + (k % 3) * 0.11;
+      const life = (t * speed + k * 0.37) % 1; // 0 at the edge, 1 gone
+      const mx = cx + Math.round(sin(k * 2.1 + t * 0.4) * (12 + k * 3) * s);
+      const my = screen.height - 1 - Math.round(life * 26 * s);
+      const c = palette[k % palette.length];
+      ink(c[0], c[1], c[2], Math.round(210 * (1 - life))).box(mx, my, s, s, "fill");
+    }
+
+    // Every slab's side first, so no letter's depth lands on a neighbour's face.
+    for (let d = depth; d >= 1; d--) {
+      letters.forEach(({ ch, x, y }) =>
+        ink(side[0], side[1], side[2], 240).write(ch, { x: x + d, y: y + d, size: s }));
+    }
+    letters.forEach(({ ch, x, y, c }) => {
+      ink(Math.round(c[0] * 0.55), Math.round(c[1] * 0.55), Math.round(c[2] * 0.55)).write(ch, { x: x + 1, y: y + 1, size: s });
+      ink(c[0], c[1], c[2]).write(ch, { x, y, size: s });
+    });
+    const dim = dark ? [180, 165, 194, 180] : [86, 71, 95, 200];
+    ink(...dim).write(".ac", { x: x0 + word.length * cw, y: baseY + gh - 8 * s, size: s },
       undefined, undefined, false, "MatrixChunky8");
+
+    // A chevron that lifts and fades, over and over, above the letters.
+    const lift = (t * 0.9) % 1;
+    const cyBottom = baseY - 2 * s - 2 - Math.round(lift * 5 * s);
+    const cy = cyBottom - 3 * s;
+    const ca = Math.round(230 * (1 - lift));
+    const pink = palette[0];
+    for (let k = 0; k < s; k++) {
+      ink(pink[0], pink[1], pink[2], ca).line(cx - 4 * s, cyBottom + k, cx, cy + k);
+      ink(pink[0], pink[1], pink[2], ca).line(cx, cy + k, cx + 4 * s, cyBottom + k);
+    }
+    mimeMarkTop = baseY - 10 * s - 2; // the chevron's highest apex
   }
 
   if (showLoginCurtain && flairEnabled) {
@@ -6259,7 +6341,7 @@ function paint($) {
 
     $.layer(1);
 
-    // 📬 Mail. Sits above "swipe for mimes": an envelope if there's anything
+    // 📬 Mail. Sits above the mime wordmark: an envelope if there's anything
     // in the box at all, with a red badge counting what's unread.
     if (flairEnabled && mailCount?.total > 0) {
       const unread = mailCount.unread || 0;
@@ -6272,7 +6354,7 @@ function paint($) {
       // envelope, or the badge's overhang drags it off the middle.
       const cluster = w + (label ? badgeW - 3 : 0);
       const ex = Math.floor((screen.width - cluster) / 2);
-      const ey = screen.height - 24; // a clear row above the mime hint
+      const ey = mimeMarkTop === null ? screen.height - 24 : mimeMarkTop - 10 - h; // a clear row above the mime wordmark
 
       // A Button hit-tests through its Box, so hand it a real one — a plain
       // {x,y,w,h} has no `contains` and the tap falls through.
@@ -8221,7 +8303,6 @@ function act({
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
-      (jukeBtn?.btn.disabled === false && jukeBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       isOverMotdHandle)
@@ -8236,7 +8317,6 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
-      (jukeBtn?.btn.disabled === false && jukeBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
@@ -8286,17 +8366,16 @@ function act({
       } else if (profileAction === "profile") {
         jump(handle() || "profile");
       } else if (profileAction === "set-handle") {
-        if (!net.iframe) {
-          send({ type: "onboarding:open" });
-        } else {
-          notice("ENTER HANDLE", ["yellow", "blue"]);
-          const text = "handle ";
-          system.prompt.input.text = text;
-          system.prompt.input.snap();
-          system.prompt.input.runnable = true;
-          firstActivation = false;
-          send({ type: "keyboard:text:replace", content: { text } });
-        }
+        // The prompt is the one place a handle gets set: type it in here.
+        notice("ENTER HANDLE", ["yellow", "blue"]);
+        const text = "handle ";
+        system.prompt.input.text = text;
+        system.prompt.input.addUserText(text);
+        system.prompt.input.snap();
+        system.prompt.input.runnable = true;
+        firstActivation = false;
+        handleOnboarding = true;
+        send({ type: "keyboard:text:replace", content: { text } });
       }
     },
     cancel: () => {
@@ -8359,18 +8438,6 @@ function act({
       push: () => {
         pushSound();
         jump("notepat");
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  // 🎵 Juke button - the /pop jukebox
-  if (jukeBtn && !jukeBtn.btn.disabled) {
-    jukeBtn.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        jump("juke");
       },
       cancel: () => cancelSound(),
     });
@@ -8702,11 +8769,32 @@ function act({
 // }
 
 // 🖥️ Run When the Prompt is activated.
+// Why a handle was refused, short enough for a notice.
+function handleProblem(candidate, validated) {
+  if (validated === "too long") return "MAX 16 CHARS";
+  if (validated === "reserved") return "RESERVED";
+  if (/[^a-z0-9._]/i.test(candidate)) return "A-Z 0-9 . _ ONLY";
+  if (/^[._]|[._]$/.test(candidate)) return "NO . OR _ AT ENDS";
+  return "NO DOUBLE . OR _";
+}
+
 function activated($, state) {
   // Clear any latent text when activating to prevent MOTD showing when focused
   // but only if we don't have params (which means we're not coming from backspace navigation)
   if (state === true && !$.params[0]) {
     $.system.prompt.input.text = "";
+  }
+
+  // Tapping the untouched `handle ` prefill blanks it; the word typed next
+  // is taken as the handle (see halt).
+  if (state === true && handleOnboarding) {
+    const input = $.system.prompt.input;
+    if (input.text.trim() === "handle") {
+      input.clearUserText();
+      input.text = "";
+      input.runnable = false;
+      $.send({ type: "keyboard:text:replace", content: { text: "" } });
+    }
   }
 
   if (firstActivation) {

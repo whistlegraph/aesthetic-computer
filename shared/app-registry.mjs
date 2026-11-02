@@ -11,7 +11,7 @@
 //           hook in; the endpoint accepts them already.
 export const APPS = Object.freeze({
   whistlegraph:      { tenant: "aesthetic", apns: ["computer.aesthetic.walkieware"], web: false, wired: true },
-  aestheticcomputer: { tenant: "aesthetic", apns: ["aesthetic.computer"],            web: true,  wired: false },
+  aestheticcomputer: { tenant: "aesthetic", apns: ["aesthetic.computer"],            web: true,  wired: true  },
   aesel:             { tenant: "aesthetic", apns: ["computer.aesthetic.aesel.native", "computer.aesthetic.easel"], web: false, wired: true },
   oskiewar:          { tenant: "aesthetic", apns: ["computer.aesthetic.oskiewar"],   web: true,  wired: false },
   menuband:          { tenant: "aesthetic", apns: ["computer.aesthetic.menuband"],   web: false, wired: false },
