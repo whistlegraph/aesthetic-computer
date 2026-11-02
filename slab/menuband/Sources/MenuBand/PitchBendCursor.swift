@@ -1257,6 +1257,10 @@ final class TracktrampMetalView: MTKView, MTKViewDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(kitDidChange(_:)),
             name: MenuBandPercussion.DrumKit.didChange, object: nil)
+        // The cc kit's artwork appears once its family is on disk.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(kitDidChange(_:)),
+            name: MenuBandCCDrums.didChange, object: nil)
     }
 
     /// New kit: re-bake the artwork in its palette.

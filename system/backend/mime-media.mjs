@@ -1,6 +1,7 @@
 // Public AC media are mime's opening posts. Only replies and thread activity
 // are stored separately; source records remain authoritative for visibility.
 import { ObjectId } from "mongodb";
+import { paintingStorageUrl } from "./painting-storage.mjs";
 
 export const MEDIA_KINDS = {
   painting: "paintings",
@@ -32,10 +33,14 @@ const origins = {
   whistlegraph: { name: "Whistlegraph", url: "https://whistlegraph.app/" },
 };
 
+// The podcast's daily episode $codes (marketing/podcast/bin/daily-token.mjs:
+// readalong, crawl and rich-text renderers) are releases, not posts.
+export const DAILY_EPISODE = /^\(wipe [^)\n]*\)\n(\(def episode \(fetch "https:\/\/ipfs\.aesthetic\.computer\/ipfs\/|\(def crawl_start \(clock\)\)|\(flow\n {2}\(heading )/;
+
 function sourceVisibility(kind) {
   if (kind === "whistlegraph") return { ...visible, status: "minted",
     artifactUri: { $regex: ipfsPattern }, tokenId: { $type: "string", $regex: /^\d+$/ } };
-  return { ...visible, ...(kind === "kidlisp" ? { source: nonempty } : { slug: nonempty }) };
+  return { ...visible, ...(kind === "kidlisp" ? { source: { ...nonempty, $not: DAILY_EPISODE } } : { slug: nonempty }) };
 }
 
 export function packedMediaUrl(uri) {
@@ -69,6 +74,7 @@ export function mediaPipeline(kind, match = {}, activity = true) {
       _media: {
         kind: literal(kind), id: { $toString: "$_id" }, code: "$code",
         user: "$user", slug: "$slug", size: packed ? "$bytes" : "$size",
+        ...(kind === "kidlisp" ? { sketch: "$sketch" } : {}), // the word a prompt sketch drew
         hasPoster: { $ne: [{ $ifNull: ["$thumbnailUrl", ""] }, ""] },
         ...(packed ? { title: "$title", version: "$version", aspect: "$aspect",
           artifactUri: "$artifactUri", htmlUri: "$htmlUri", coverUri: "$coverUri", tokenId: "$tokenId" } : {}),
@@ -137,7 +143,7 @@ export async function publicPosts(db, docs) {
     const url = `/api/mime?file=${encodeURIComponent(doc.code)}`;
     const file = media
       ? { name: `${media.code || media.id}${media.kind === "whistlegraph" ? "-v" + media.version : ""}.${extension}`, type: doc.board, size: media.size ?? null, url,
-          ...((media.kind === "tape" && media.hasPoster || media.kind === "whistlegraph" && ipfsPattern.test(media.coverUri || "")) ? { poster: `/api/mime?poster=${encodeURIComponent(doc.code)}` } : {}) }
+          ...((media.hasPoster || media.kind === "whistlegraph" && ipfsPattern.test(media.coverUri || "")) ? { poster: `/api/mime?poster=${encodeURIComponent(doc.code)}` } : {}) }
       : doc.file ? { name: doc.file.name, type: doc.file.type, size: doc.file.size, url } : null;
     let original;
     if (media?.code) {
@@ -162,6 +168,7 @@ export async function publicPosts(db, docs) {
       ...(media ? { media: {
         kind: media.kind, id: media.id, code: media.code || null,
         url: original || url, author: handle,
+        ...(typeof media.sketch === "string" ? { title: media.sketch, sketch: true } : {}),
         ...(media.kind === "whistlegraph" ? { title: media.title, version: media.version,
           aspect: media.aspect, packed: true, tokenUrl: `https://teia.art/objkt/${media.tokenId}` } : {}),
       } } : {}),
@@ -179,6 +186,8 @@ export function mediaFile(kind, record) {
   if (kind === "tape" && record.mp4Status === "complete" && record.mp4Url) {
     return { url: publicMediaUrl(record.mp4Url) };
   }
+  // Legacy painting slugs may omit their storage folder; the helper knows the shapes.
+  if (kind === "painting") return { url: paintingStorageUrl(record) };
   const bucket = record.bucket || (record.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
   if (!["art-aesthetic-computer", "user-aesthetic-computer"].includes(bucket)) {
     throw new Error("Unsupported media bucket");

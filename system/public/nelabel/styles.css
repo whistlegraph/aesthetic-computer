@@ -1,0 +1,131 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    color: #00d080;
+    font-family: monospace;
+}
+
+a:link{
+    color: #00c4fd;
+}
+
+h3 a:link{
+    color: #006888;
+}
+
+h1, h2, h3, h4, h5, h6{
+    margin: 0;
+    padding: 0;
+    line-height: 1rem;
+    font-size: 1em;
+    font-weight: bold;
+}
+
+pre{
+    margin: 0;
+    padding: 0;
+    line-height: 1rem;
+}
+
+h2{
+    margin-top: 3em;
+
+}
+
+h3 {
+    margin-top: 2em;
+    background-color: #00d080;
+    color: #000;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: 2px;
+}
+
+header{
+    color: #00c4fd;
+}
+
+.logotype{
+
+}
+
+.container{
+    display: grid;
+    place-items: center;
+}
+
+.textRegion{
+    width: 100%;
+    max-width: 540px;
+    padding: 10px 10px 4rem;
+    box-sizing: border-box;
+    font-family: monospace;
+}
+
+@media (max-width: 540px) {
+    h1, h2, h3, h4, h5, p, li {
+        font-size: 1.2em;
+        line-height: 1.2rem;
+    }
+    pre {
+        font-size: 1.2em;
+        line-height: 1.2rem;
+    }
+}
+
+.meetupBox{
+    margin-top: 1em;
+    border: 1px solid #00c4fd;
+    padding: 10px;
+    color: #00c4fd;
+}
+
+.meetingTitle{
+    font-weight: bold;
+}
+
+.meetingList{
+    margin-top: 1em;
+}
+
+.meetingList li{
+    margin-bottom: 0.5em;
+}
+
+li{
+    margin-bottom: 2em;
+}
+
+.ncc-support fieldset { border: 0; margin: 1em 0 0; padding: 0; min-width: 0; }
+.ncc-support legend { padding: 0; margin-bottom: 0.5em; }
+.ncc-amounts { display: flex; flex-wrap: wrap; gap: 0.5em 1em; margin-bottom: 0.75em; }
+.ncc-amounts label { position: relative; cursor: pointer; }
+.ncc-amounts input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.ncc-amounts span { display: inline-block; padding: 2px; }
+.ncc-amounts input:checked + span { background: #00c4fd; color: #000; font-weight: bold; }
+.ncc-amounts input:focus-visible + span,
+.ncc-give:focus-visible,
+.ncc-other input:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
+.ncc-other { display: block; margin-bottom: 1em; }
+.ncc-other input {
+    font: inherit;
+    color: #00c4fd;
+    background: transparent;
+    width: 6ch;
+    border: 0;
+    border-bottom: 1px solid #00c4fd;
+    padding: 0 2px;
+}
+.ncc-give {
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    color: #000;
+    background: #00d080;
+    border: 0;
+    padding: 4px 8px;
+}
+.ncc-give:hover { background: #00c4fd; }
+.ncc-thanks { color: #00d080; font-weight: bold; }
+.ncc-note { margin-bottom: 0; }

@@ -36,6 +36,16 @@ run `./install.sh --prompt-host` for hooks + markers, then
 `menubar-swift/install.sh` to build and launch the bar. The rest of this
 README is mostly about the lid daemon, which is where Slab began.
 
+`dm_send` is how an agent writes to someone over Signal or Messages. Agent
+sends come styled by default: the body set in Unicode sans letters (`prose`;
+`plain` for words the reader will copy or search), the whistlegraph pen in
+front (`decorativeReply`), and the sending session's `host:name` appended as
+invisible tag characters (`signature`), which `dm_read` shows as
+`⟨prox host:name⟩`. `voice: "<words>"` sends a voice memo instead: the words
+rendered in Jeffrey's own ElevenLabs voice through `/api/say`, transcoded by
+afconvert to the Opus `Audio Message.caf` Messages itself records, and sent as
+a playable audio attachment (preview first; `confirm: true` sends).
+
 ## The lid (where it started)
 
 A lid-closed ambient + reactive audio system for the MacBook, gated on Claude

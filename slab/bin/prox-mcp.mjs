@@ -31,6 +31,7 @@ import { deliverLocal, drain, makeMessage, peek, stamp } from "./prox-inbox.mjs"
 import { readLoopboyMode, writeLoopboyMode } from "../lib/loopboy-mode.mjs";
 import { loopboyBinding, activeLoopboyBinding, loopboyRouteMatches, LOOPBOY_BINDING_PROPERTIES } from "../lib/loopboy-binding.mjs";
 import { clip, toon } from "../../shared/toon.mjs";
+import { callerSessionId } from "../lib/prox-caller.mjs";
 
 const pexec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -320,50 +321,7 @@ async function toolPoke({ handle, by }) {
 // ── inbox: hand a session words, not keystrokes ─────────────────────────────
 // Same resolution as a poke. A local rock takes the line socket-first then
 // file; a remote one gets it through its owner's /send, which does the same.
-// ── who is calling ───────────────────────────────────────────────────────────
-// prox runs as one shared HTTP daemon, so its own process.env says nothing
-// about the caller. In order: the session id a harness forwards as a header;
-// the process env, but only when we are a per-session stdio child; and, for
-// Claude Code (which forwards nothing), the process that owns the caller's
-// end of the loopback socket — its pid, or an ancestor's, is in a session marker.
-const isLoopback = (a) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(a);
-
-async function markerPids() {
-  const pids = new Map();
-  for (const dir of MARKER_DIRS) {
-    for (const name of await readdir(dir).catch(() => [])) {
-      const m = await readJson(join(dir, name));
-      const pid = Number(m?.agent_pid || m?.claude_pid || 0);
-      if (pid > 0) pids.set(pid, name);
-    }
-  }
-  return pids;
-}
-
-async function sessionByPeerPort(port) {
-  const { stdout } = await pexec("lsof", ["-nP", "-a", `-iTCP:${port}`, "-sTCP:ESTABLISHED", "-Fp"], { timeout: 1500 }).catch(() => ({ stdout: "" }));
-  const owners = stdout.split("\n").filter((l) => l.startsWith("p")).map((l) => Number(l.slice(1))).filter((p) => p > 0 && p !== process.pid);
-  if (!owners.length) return null;
-  const markers = await markerPids();
-  for (const owner of owners) {
-    let pid = owner;
-    for (let hop = 0; hop < 8 && pid > 1; hop++) {
-      if (markers.has(pid)) return markers.get(pid);
-      const { stdout: ppid } = await pexec("ps", ["-o", "ppid=", "-p", String(pid)], { timeout: 1000 }).catch(() => ({ stdout: "" }));
-      pid = Number(ppid.trim()) || 0;
-    }
-  }
-  return null;
-}
-
-async function callerSessionId(context) {
-  const header = context?.headers?.["x-slab-prompt-session-id"];
-  if (typeof header === "string" && header) return header;
-  if (!context) return process.env.AGENT_SESSION_ID || process.env.CLAUDE_SESSION_ID || process.env.SLAB_PROMPT_SESSION_ID || null;
-  if (isLoopback(context.remoteAddress) && context.remotePort) return sessionByPeerPort(context.remotePort);
-  return null;
-}
-
+// ── who is calling: see slab/lib/prox-caller.mjs ─────────────────────────────
 // The caller's real `host:name`, or null when it can't be told (then the
 // message goes out as `<host>:prox`, exactly as before).
 async function callerHandle(context, rocks) {

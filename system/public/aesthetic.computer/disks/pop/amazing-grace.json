@@ -7,6 +7,8 @@
   "key": "G major",
   "meter": "4-beat cells with a pickup",
   "duration": 69.286,
+  "released": "2026-09-23",
+  "status": "released",
   "audio": "https://assets.aesthetic.computer/pop/amazing-grace.mp3",
   "cover": "https://assets.aesthetic.computer/pop/amazing-grace.jpg",
   "sections": [
@@ -77,6 +79,6 @@
       ]
     }
   ],
-  "credits": "Aesthetic Dot Computer. Words John Newton (1779), tune New Britain (William Walker, 1835), both public domain. Sung by jeffrey-pvc through the WORLD speech-to-singing chain; bed from the lane's C engine, phrased on the hymn's own cells. Arranged and produced by Jeffrey Scudder.",
-  "links": {}
+  "links": {},
+  "credits": "Aesthetic Dot Computer. Words John Newton (1779), tune New Britain (William Walker, 1835), both public domain. Sung by jeffrey-pvc through the WORLD speech-to-singing chain; bed from the lane's C engine, phrased on the hymn's own cells. Arranged and produced by Jeffrey Scudder."
 }

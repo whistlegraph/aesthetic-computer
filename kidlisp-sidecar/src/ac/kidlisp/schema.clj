@@ -27,7 +27,7 @@
     :db/valueType   :db.type/string
     :db/cardinality :db.cardinality/one
     :db/unique      :db.unique/identity
-    :db/doc         "SHA-256 of trimmed source. Unique: dedup."}
+    :db/doc         "Dedup key: SHA-256 of trimmed source, or an author-scoped digest for handled saves."}
 
    {:db/ident       :kidlisp/source
     :db/valueType   :db.type/string

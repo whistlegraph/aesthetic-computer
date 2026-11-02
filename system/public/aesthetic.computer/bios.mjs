@@ -609,17 +609,19 @@ class TapeManager {
 let pendingUrlRewrite = null;
 let rewriteFocusListenerAttached = false;
 
-// 📦 Opt-in auto-reload for the update badge. `localStorage` is only where the
-// choice is kept between visits — a blocked store (private windows, sandboxed
-// frames) must not make the checkbox untoggleable — so the live answer lives
-// here, and the badge's checkbox is drawn from a copy of it in the worker.
+// 📦 Auto-reload on a new deployment, on for everyone: a page that keeps
+// running last week's code is a page nobody can be sent a fix for.
+// `localStorage` only remembers an opt-out (the key set to "false") between
+// visits — a blocked store (private windows, sandboxed frames) leaves the
+// default standing — so the live answer lives here, and the worker draws its
+// own copy of it.
 const UPDATE_AUTO_RELOAD_KEY = "aesthetic:update-auto-reload";
 
 let updateAutoReload = (() => {
   try {
-    return localStorage.getItem(UPDATE_AUTO_RELOAD_KEY) === "true";
+    return localStorage.getItem(UPDATE_AUTO_RELOAD_KEY) !== "false";
   } catch (err) {
-    return false;
+    return true;
   }
 })();
 
@@ -1489,6 +1491,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }));
       Object.assign(frameMeter, { rafs: 0, paints: 0, frames: 0, total: 0, worst: 0 });
     }, 250);
+  };
+
+  // The mime sheet counts its own frames here while the loop sleeps under it.
+  window.acMeterPaint = () => {
+    if (frameMeter.on) frameMeter.paints += 1;
   };
 
   function meterFrameReturned(painted) {
@@ -6152,13 +6159,56 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // visual pulse, then `graceMs` of room for Xbox/TV output buffers to play it
   // before the page goes. Both ways in — the badge's checkbox and an update
   // arriving with auto-reload already on — land here so they sound alike.
+  // A reload mid-sentence or mid-tape throws work away: while the prompt
+  // holds typed text or a tape is recording, the update waits and asks again
+  // in a few seconds, without a second chime.
+  function updateReloadBusy() {
+    try {
+      if (mediaRecorder?.state === "recording") return true;
+      if (keyboard?.input?.value?.length > 0) return true;
+    } catch (_e) { /* no keyboard yet; nothing to protect */ }
+    return false;
+  }
+  function reloadForUpdate() {
+    if (updateReloadBusy()) {
+      window.acUpdateReloadTimer = setTimeout(reloadForUpdate, 4000);
+      return;
+    }
+    stashReloadFrame();
+    window.location.reload();
+  }
+  // Leave the last frame for the next page to stand behind its boot, so a
+  // reload reads as a blink of the same picture and never a flash of the
+  // body's flat background. Runs before an update reload and on every unload
+  // (the desktop app's ⌘R, a browser refresh); the head script in index.mjs
+  // paints it and takes the key, so a fresh visit never sees a stale frame.
+  function stashReloadFrame() {
+    try {
+      const shot = canvas.toDataURL("image/png");
+      if (shot.length < 3000000) sessionStorage.setItem("ac:reload-frame", shot);
+    } catch (_e) { /* no canvas or storage; the plain background stands */ }
+    // The desktop app paints its own backdrop between one document and the
+    // next, before any HTML arrives. Hand it the screen's average colour so
+    // that blank is the page's colour, not the shell's guess at it.
+    if (window.acElectron?.setBackdrop) {
+      try {
+        const one = document.createElement("canvas");
+        one.width = one.height = 1;
+        const c1 = one.getContext("2d");
+        c1.drawImage(canvas, 0, 0, 1, 1);
+        const [r, g, b] = c1.getImageData(0, 0, 1, 1).data;
+        const hex = "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
+        window.acElectron.setBackdrop(hex);
+      } catch (_e) { /* the theme default stands */ }
+    }
+  }
   function armUpdateReload(graceMs, quiet = false) {
     if (window.acUpdateReloadTimer) clearTimeout(window.acUpdateReloadTimer);
     // A chime and a full-screen flash are how a person is told an update is
     // about to land. A preview card has nobody to tell, so it skips the cue
     // rather than raising one — this is not an error path.
     if (quiet) {
-      window.acUpdateReloadTimer = setTimeout(() => window.location.reload(), graceMs);
+      window.acUpdateReloadTimer = setTimeout(reloadForUpdate, graceMs);
       return;
     }
     try {
@@ -6192,10 +6242,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } catch (error) {
       console.warn("📦 Update awareness cue unavailable:", error);
     }
-    window.acUpdateReloadTimer = setTimeout(
-      () => window.location.reload(),
-      graceMs,
-    );
+    window.acUpdateReloadTimer = setTimeout(reloadForUpdate, graceMs);
   }
 
   // *** Received Frame ***
@@ -13815,11 +13862,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "onboarding:open") {
-      if (window.acSignup && window.auth0Client && !window.acTOKEN) {
-        window.acSignup.resume(window.auth0Client, window.acUSER, true);
-      } else {
-        send({ type: "jump", content: { piece: "prompt~handle " } });
-      }
+      // The prompt, with `handle ` typed in, is where a handle gets set.
+      send({ type: "jump", content: { piece: "prompt~handle " } });
       return;
     }
     if (type === "onboarding:complete") {
@@ -14592,6 +14636,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
       window.addEventListener("beforeunload", (e) => {
         send({ type: "before-unload" });
+        stashReloadFrame();
         wrapper.classList.add("reloading");
         
         // 🎮 Clean up GameBoy emulator on page unload

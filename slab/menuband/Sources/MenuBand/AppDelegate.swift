@@ -907,6 +907,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateIcon()
         }
         RevisionChecker.start()
+        // Launch-time "update from main?" modal (fleet builds; see MenuBandUpdater).
+        MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
+        MenuBandUpdater.checkOnLaunch()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
         // LaunchAgent). Reconcile the OS registration with the user's stored
@@ -1340,6 +1343,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self else { return }
             self.pianoWaveformWindowDelegate.dismiss(reason: .closeButton)
             self.visualizerOverlay.show()
+        }
+        // ^ (Shift+6) while playing: the jam wall, up or down, hands on
+        // keys. The popover steps aside; the wall is meant to be the only
+        // thing on screen besides the piano up top.
+        menuBand.onToggleVisualizer = { [weak self] in
+            guard let self = self else { return }
+            if self.isPopoverPanelShown { self.closePopover() }
+            self.visualizerOverlay.toggle(fromKeyboard: true)
+        }
+        // The wall covers the menu bar and paints the piano back on top:
+        // hand it the status item's live image and screen frame.
+        visualizerOverlay.menuBarItem = { [weak self] in
+            (self?.statusItem?.button?.image, self?.statusItem?.button?.window?.frame)
+        }
+        // Every note and drum feeds the wall (while it's up) and the desktop
+        // beat bus (always), so the Pals wallpaper moves with the music even
+        // with nothing else on screen. GM drums on channel 9 (.mbscore and
+        // MIDI-file playback) land on the kit's pads by their GM number.
+        menuBand.onVisualNote = { [weak self] note, vel, on, ch in
+            if ch == 9 {
+                guard on, vel > 0 else { return }
+                let pad = Self.padForGMDrum(note)
+                MenuBandBeatBus.shared.drum(pad, velocity: vel)
+                DispatchQueue.main.async { self?.visualizerOverlay.drumHit(pad, velocity: vel) }
+                return
+            }
+            if on { MenuBandBeatBus.shared.note(note, velocity: vel) }
+            DispatchQueue.main.async {
+                self?.visualizerOverlay.noteEvent(midi: note, velocity: vel, on: on)
+            }
+        }
+        menuBand.onVisualDrum = { [weak self] drum, vel, _ in
+            MenuBandBeatBus.shared.drum(drum, velocity: vel)
+            DispatchQueue.main.async { self?.visualizerOverlay.drumHit(drum, velocity: vel) }
         }
 
         // Magnify the icon to fill the bar's usable height. The status
@@ -3987,7 +4024,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .milkyTracker: layoutName = "MilkyTracker"
         }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
-        let revision = RevisionChecker.statusLine.map { " · \($0)" } ?? ""
+        let revision = (MenuBandUpdater.statusLine ?? RevisionChecker.statusLine).map { " · \($0)" } ?? ""
         button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
         // Force a synchronous redraw — the click drag-loop runs the runloop
         // in `eventTracking` mode and has been swallowing the next CA flush
@@ -4925,6 +4962,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func handleShowKeymapNotification(_ note: Notification) {
         DispatchQueue.main.async { [weak self] in
             self?.showExpandedKeymap()
+        }
+    }
+
+    /// General MIDI percussion number → the kit's nearest pad.
+    private static func padForGMDrum(_ n: UInt8) -> MenuBandPercussion.Drum {
+        switch n {
+        case 35, 36: return .kick
+        case 38, 40, 37: return .snare
+        case 39: return .clap
+        case 42, 44: return .hatClosed
+        case 46: return .hatOpen
+        case 49, 57, 52: return .crash
+        case 51, 53, 59: return .ride
+        case 55: return .splash
+        case 56: return .cowbell
+        case 54, 69, 70: return .tambo
+        case 76, 77, 75: return .block
+        default: return .snap
         }
     }
 
@@ -6915,16 +6970,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             focusedInputMode.rawValue,
             forKey: Self.focusedInputModeDefaultsKey
         )
-        // Prefer the fx-bus chime — it sounds at the bent pitch and blooms
-        // with the live echo/space, previewing the page it names. The
-        // isolated beep stays as the fallback while the engine is down.
-        if !menuBand.playPadSwitchCue(
-            toTrackDrum: focusedInputMode == .trackDrum
-        ) {
-            FocusCueBeep.shared.padSwitch(
-                toTrackDrum: focusedInputMode == .trackDrum
-            )
-        }
+        playPadSwitchCue(focusedInputMode == .trackDrum ? .drum : .slider)
         if focusedInputMode == .localFX {
             prepareFocusedLocalFXIdle()
             debugLog("trackpad pad mode = fx (local mouse idle)")
@@ -6965,13 +7011,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hideSystemCursorIfNeeded()
             pitchBendCursorPushed = true
         }
-        // The handoff chime names the destination by pitch, and the choice
-        // is remembered so regaining focus later reopens this same page.
-        // Through the fx bus when it's up: the chime arrives bent and
-        // echoed exactly as the next note would — a preview, not a label.
-        if !menuBand.playPadSwitchCue(toTrackDrum: trackpadPadMode != .fx, off: trackpadPadMode == .mouse) {
-            FocusCueBeep.shared.padSwitch(toTrackDrum: trackpadPadMode != .fx, off: trackpadPadMode == .mouse)
-        }
+        // The handoff cue speaks in the destination's own voice, and the
+        // choice is remembered so regaining focus later reopens this page.
+        playPadSwitchCue(Self.padSwitchCue(for: trackpadPadMode))
         UserDefaults.standard.set(
             (trackpadPadMode == .fx
                 ? FocusedInputMode.localFX : .trackDrum).rawValue,
@@ -7150,6 +7192,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     #endif
+
+    /// What Tab's landing sounds like. Every page that puts a drum under
+    /// the fingers — whole skin, kit, synth surface, or the split's right
+    /// half — announces itself with the kick; the slider drips; handing
+    /// the trackpad back to the mouse tocks.
+    static func padSwitchCue(for mode: TrackpadPadMode) -> TrackpadPageCue {
+        switch mode {
+        case .fx: return .slider
+        case .mouse: return .off
+        case .kit, .skin, .synth, .split: return .drum
+        }
+    }
+
+    /// Prefer the live engine — a real kick on the current kit, or the
+    /// slider droplet bent and echoed like the next note. The isolated beep
+    /// engine stands in while the synth is down, and always plays the off
+    /// tock: that page leaves the fx behind, so its sound stays dry.
+    private func playPadSwitchCue(_ cue: TrackpadPageCue) {
+        if cue != .off, menuBand.playPadSwitchCue(cue) { return }
+        FocusCueBeep.shared.padSwitch(cue)
+    }
 
     static func trackpadPadModeAfterTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
         switch mode {

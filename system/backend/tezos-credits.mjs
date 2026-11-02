@@ -165,7 +165,7 @@ export function tezosPayments({ intents, claims, wallets, chain = chainJSON, ver
       await intents.updateOne({ _id:intent._id, operationHash:{ $exists:false } }, { $set:{ operationHash, grantId:id } });
       const saved = await lookup(secret);
       if (saved.grantId !== id) throw paymentError(409, 'This checkout already has another payment');
-      await fulfillGrant({ user:intent.user, id, credits:intent.credits }, wallets);
+      await fulfillGrant({ user:intent.user, id, credits:intent.credits, ref:{ tezosOperation:operationHash } }, wallets);
       await intents.updateOne({ _id:intent._id, grantId:id }, { $set:{ status:'credited', creditedAt:now() } });
       return publicIntent(await lookup(secret));
     },

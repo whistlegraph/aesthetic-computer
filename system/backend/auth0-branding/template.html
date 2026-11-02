@@ -18,6 +18,7 @@
   --secondary-button-border-color: #b8b5ae;
   --secondary-button-text-color: #202019;
   --base-focus-color: #a32770;
+  --ac-pink: #ff3fa4;
 }
 html { font-size: 18px !important; }
 body {
@@ -25,10 +26,12 @@ body {
   --page-background-image: url(https://oven.aesthetic.computer/kidlisp-backdrop.webp);
   --button-border-width: 1px;
   --social-button-border-width: 1px;
-  --button-border-radius: 0;
-  --input-border-radius: 0;
-  --border-radius-outer: 0;
-  --shadow-component-outer: none;
+  --button-border-radius: 8px;
+  --input-border-radius: 8px;
+  --border-radius-outer: 20px;
+  --box-border-width: 4px;
+  --box-border-color: var(--ac-pink);
+  --shadow-component-outer: 0 18px 50px rgba(20, 10, 30, 0.45);
   --title-font-size: 1.5rem;
   --default-font-size: 1rem;
   --ulp-label-font-size: 1rem;
@@ -41,20 +44,54 @@ main { min-height: 100svh; padding: 32px 16px !important; }
 ._prompt-box-outer { width: min(100%, 440px) !important; }
 #screen-header { padding-bottom: 16px; }
 #screen-header h1 { line-height: 1.25; }
+#screen-header h1 .ac-dot { color: var(--ac-pink); } /* the dot in Aesthetic.Computer; template.html wraps it */
 #screen-header p:empty { display: none; }
 input:not([type=hidden]):not([type=checkbox]) { font-size: 18px !important; min-height: 56px; }
 button[data-action-button-primary], button[data-action-button-secondary] {
-  min-height: 56px; font-size: 18px !important; border-radius: 0 !important;
+  min-height: 56px; font-size: 18px !important; border-radius: 8px !important;
 }
+/* Social buttons: icon pinned left, label centred. */
+button[data-provider] { justify-content: center !important; }
+button[data-provider] > span[data-provider] { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); }
+button[data-provider] > span:not([data-provider]) { text-align: center !important; }
+/* "Create account" / "Log in" under the form, centred like the rest of the card. */
+p:has(> a[href*="/u/"]) { text-align: center; }
+/* The OR divider is the div right before the social-provider forms. */
+div:has(+ div > form[data-provider]) { font-size: 1rem !important; letter-spacing: 0.08em; }
+div:has(+ div > form[data-provider]) > span { padding: 0 14px; }
+/* Auto layout stretches the card to the viewport and reserves a bottom-button band
+   (padding-bottom: button-height + spacing, !important). Let the card hug its content. */
+._prompt-box-outer > :first-child { flex-grow: 0 !important; }
+._prompt-box-outer > * > * { min-height: 0 !important; }
+body._widget-auto-layout ._prompt-box-outer > * > * > div:has(form) { padding-bottom: 40px !important; }
 a:focus-visible, button:focus-visible { outline: 3px solid #a32770; outline-offset: 3px; }
 @media (max-width: 480px) {
   main { padding: 16px !important; }
   ._prompt-box-outer { margin-top: 0 !important; }
 }
-.ac-switch { width: 100%; min-height: 56px; padding: 12px 16px; margin-top: 12px; border: 1px solid #b8b5ae; background: white; color: #202019; font: inherit; cursor: pointer; }
+.ac-switch { width: 100%; min-height: 56px; padding: 12px 16px; margin-top: 12px; border: 1px solid #b8b5ae; border-radius: 8px; background: white; color: #202019; font: inherit; cursor: pointer; }
   </style>
 </head>
 <body class="_widget-auto-layout">
   {%- auth0:widget -%}
+  <script id="ac-login-dot">
+    // Paint the dot in "Aesthetic.Computer" pink. The widget markup is Auth0's, so wrap it
+    // after render and again if the widget re-renders. Without JS the title is plain text.
+    (function () {
+      function dot() {
+        var h = document.querySelector('#screen-header h1');
+        if (!h || h.querySelector('.ac-dot')) return;
+        var t = h.textContent, i = t.indexOf('.');
+        if (i < 0 || t.indexOf('.', i + 1) >= 0) return;
+        h.textContent = '';
+        var s = document.createElement('span');
+        s.className = 'ac-dot';
+        s.textContent = '.';
+        h.append(t.slice(0, i), s, t.slice(i + 1));
+      }
+      dot();
+      new MutationObserver(dot).observe(document.body, { childList: true, subtree: true });
+    })();
+  </script>
 </body>
 </html>

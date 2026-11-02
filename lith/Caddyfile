@@ -1568,6 +1568,22 @@ notepaint.art {
         header Cache-Control "no-cache"
         file_server
     }
+    # A painting's public page, notepaint.art/<code>: the studio with that
+    # painting's title, image and canonical (nopaint-page.mjs, a private
+    # product). Codes are painting-wips.mjs's; an existing file or folder of
+    # the same name (the 2021 site's /gallery, /story…) still wins.
+    @notepaint_painting {
+        path_regexp painting ^/([A-Za-z0-9]{3,12})$
+        not file {path} {path}/
+    }
+    handle @notepaint_painting {
+        rewrite * /api/nopaint-page?code={re.painting.1}
+        import lith_proxy
+    }
+    handle /sitemap-paintings.xml {
+        rewrite * /api/nopaint-page?sitemap=1
+        import lith_proxy
+    }
     # Browser-safe Aesel modules shared with the painting path.
     handle /easel/src/* {
         root * /opt/ac/system/public

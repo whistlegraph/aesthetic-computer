@@ -120,6 +120,25 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private var beat: Beat?
     private var pulse: CGFloat = 0
 
+    // ── vibe ──────────────────────────────────────────────────────────────
+    // Menu Band's beat bus also carries a vibe: `vibeRed/Green/Blue` (sRGB
+    // 0–1), the color of what's being played, and `glow` (0–1), how much is
+    // going on. The backdrop and the Pals drift toward the color; four
+    // corner glows breathe with the level and flash on beats. Everything
+    // eases, so a chord change is a tide, not a cut.
+    private struct Vibe { let color: NSColor; let glow: Double; let at: Double }
+    private var vibe: Vibe?
+    private var vibeColor: (r: CGFloat, g: CGFloat, b: CGFloat) = (0.4, 0.5, 1.0)
+    private var vibeLevel: CGFloat = 0
+    private var vibeMix: CGFloat = 0
+    private var appliedVibeMix: CGFloat = -1
+    private var appliedVibeColor: (r: CGFloat, g: CGFloat, b: CGFloat) = (-1, -1, -1)
+    private var cornerGlows: [CAGradientLayer] = []
+    private var cornerFlash: [CGFloat] = [0, 0, 0, 0]
+    private var lastBeatAt: Double = 0
+    private var beatCount = 0
+    private var vibeTimer: Timer?
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
@@ -156,12 +175,20 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
         loadModel()
         buildCameraAndLights()
+        buildCornerGlows()
         updateAppearance(animated: false)
+        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            self?.vibeTick()
+        }
+        timer.tolerance = 0.01
+        RunLoop.main.add(timer, forMode: .common)
+        vibeTimer = timer
     }
 
     required init?(coder: NSCoder) { nil }
 
     deinit {
+        vibeTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
         DistributedNotificationCenter.default().removeObserver(self)
     }
@@ -201,7 +228,125 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     }
 
     @objc private func beatDidChange(_ note: Notification) {
-        beat = Self.beat(from: note.userInfo) ?? Self.readBeatFile()
+        let info = note.userInfo ?? Self.readBeatInfo()
+        beat = Self.beat(from: info)
+        if let v = Self.vibe(from: info) { vibe = v }
+    }
+
+    private static func readBeatInfo() -> [AnyHashable: Any]? {
+        guard let data = FileManager.default.contents(atPath: beatFile),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return nil }
+        return obj
+    }
+
+    private static func vibe(from info: [AnyHashable: Any]?) -> Vibe? {
+        guard let r = (info?["vibeRed"] as? NSNumber)?.doubleValue,
+              let g = (info?["vibeGreen"] as? NSNumber)?.doubleValue,
+              let b = (info?["vibeBlue"] as? NSNumber)?.doubleValue
+        else { return nil }
+        let glow = (info?["glow"] as? NSNumber)?.doubleValue ?? 0.5
+        let at = (info?["updatedAt"] as? NSNumber)?.doubleValue ?? Date().timeIntervalSince1970
+        return Vibe(color: NSColor(srgbRed: min(1, max(0, r)), green: min(1, max(0, g)),
+                                   blue: min(1, max(0, b)), alpha: 1),
+                    glow: min(1, max(0, glow)), at: at)
+    }
+
+    /// Four radial glows anchored on the corners, screen-blended over the
+    /// field and the Pals so they read as light spilling in from the room's
+    /// corners, not paint. Radial only — straight-edged washes along the
+    /// sides read as a letterbox, so there are none.
+    private func buildCornerGlows() {
+        for _ in 0..<4 {
+            let g = CAGradientLayer()
+            g.type = .radial
+            g.startPoint = CGPoint(x: 0.5, y: 0.5)
+            g.endPoint = CGPoint(x: 1, y: 1)
+            // A long, soft foot: bright only right in the corner, gone well
+            // before the far edge of the glow, so no rim ever shows.
+            g.locations = [0, 0.22, 0.55, 1]
+            g.opacity = 0
+            g.zPosition = 10
+            g.actions = ["opacity": NSNull(), "colors": NSNull(), "bounds": NSNull(), "position": NSNull()]
+            layer?.addSublayer(g)
+            cornerGlows.append(g)
+        }
+    }
+
+    private func layoutCornerGlows() {
+        guard cornerGlows.count == 4 else { return }
+        let side = max(bounds.width, bounds.height) * 1.3
+        let corners = [CGPoint(x: 0, y: 0), CGPoint(x: bounds.width, y: 0),
+                       CGPoint(x: bounds.width, y: bounds.height), CGPoint(x: 0, y: bounds.height)]
+        for (g, c) in zip(cornerGlows, corners) {
+            g.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+            g.position = c
+        }
+    }
+
+    /// 30 Hz on the main thread: ease toward the published vibe, drive the
+    /// corner glows, and re-tint the backdrop when the color has moved.
+    private func vibeTick() {
+        let now = Date().timeIntervalSince1970
+        var targetLevel: CGFloat = 0
+        if let vibe {
+            let age = now - vibe.at
+            // Hold for a beat, then let the room go quiet over ~3 s.
+            // Hold for a beat, then let the room go quiet over ~2 s.
+            targetLevel = CGFloat(vibe.glow) * CGFloat(exp(-max(0, age - 0.3) / 1.6))
+            // The color moves fast: a new chord is a new room within a
+            // couple of frames, not a slow tide.
+            let c = vibe.color
+            vibeColor.r += (c.redComponent - vibeColor.r) * 0.35
+            vibeColor.g += (c.greenComponent - vibeColor.g) * 0.35
+            vibeColor.b += (c.blueComponent - vibeColor.b) * 0.35
+        }
+        vibeLevel += (targetLevel - vibeLevel) * (targetLevel > vibeLevel ? 0.7 : 0.1)
+        // Every hit flashes the outline; corners alternate pairs — odd beats
+        // bottom-left and top-right hard, even beats the other pair — so
+        // the room flickers rather than just pulsing.
+        if let beat, beat.beatAt != lastBeatAt {
+            lastBeatAt = beat.beatAt
+            beatCount += 1
+            let pair = beatCount % 2
+            for i in 0..<4 {
+                let hit = CGFloat(beat.energy) * (i % 2 == pair ? 1.0 : 0.45)
+                cornerFlash[i] = max(cornerFlash[i], hit)
+            }
+        }
+        for i in 0..<4 { cornerFlash[i] *= 0.80 }
+
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let color = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
+        // In the dark the glows stay saturated — colored light in blackness,
+        // never a white-out; in the light they lift toward white.
+        let bright = dark ? color : (color.blended(withFraction: 0.35, of: .white) ?? color)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for (i, g) in cornerGlows.enumerated() {
+            g.colors = [bright.withAlphaComponent(dark ? 0.9 : 1.0).cgColor,
+                        color.withAlphaComponent(dark ? 0.5 : 0.6).cgColor,
+                        color.withAlphaComponent(dark ? 0.14 : 0.18).cgColor,
+                        color.withAlphaComponent(0).cgColor]
+            g.compositingFilter = dark ? "screenBlendMode" : "multiplyBlendMode"
+            // A slow breath per corner so the four never sit at one level.
+            let breath = 0.75 + 0.25 * CGFloat(sin(now * 0.7 + Double(i) * 1.6))
+            let level = min(1, vibeLevel * 0.9 * breath + cornerFlash[i] * 1.0)
+            g.opacity = Float(level * (dark ? 1.0 : 0.7))
+        }
+        CATransaction.commit()
+
+        // Backdrop and Pals follow the color as the level rises — at most a
+        // ~70 % pull so the slab tone still shows through underneath.
+        vibeMix += (vibeLevel * (dark ? 0.5 : 0.7) - vibeMix) * 0.3
+        let moved = abs(vibeMix - appliedVibeMix) > 0.01
+            || abs(vibeColor.r - appliedVibeColor.r) + abs(vibeColor.g - appliedVibeColor.g)
+               + abs(vibeColor.b - appliedVibeColor.b) > 0.03
+        if moved, vibeMix > 0.005 || appliedVibeMix > 0.005 {
+            appliedVibeMix = vibeMix
+            appliedVibeColor = vibeColor
+            updateAppearance(animated: false)
+        }
     }
 
     private static func readBeatFile() -> Beat? {
@@ -257,13 +402,27 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     /// The live backdrop tone: slab's status tint when published, otherwise
     /// the accent-tinted wash.
     private func backdropColor() -> NSColor {
+        let tone = restingBackdropColor()
+        guard vibeMix > 0.005 else { return tone }
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        var vibe = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
+        // Keep the mode. Dark is an abyss: the field itself stays near
+        // black and only hints at the color — the color lives in the corner
+        // glows and the Pals, behind and in front of the dark. Light takes
+        // a pastel of it, so menu-bar contrast never flips mid-song.
+        vibe = (dark ? vibe.blended(withFraction: 0.86, of: .black)
+                     : vibe.blended(withFraction: 0.55, of: .white)) ?? vibe
+        return tone.blended(withFraction: vibeMix, of: vibe) ?? tone
+    }
+
+    private func restingBackdropColor() -> NSColor {
         if let tint = statusTint { return tint }
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
         let base = dark
-            ? NSColor(srgbRed: 0.028, green: 0.072, blue: 0.225, alpha: 1)
+            ? NSColor(srgbRed: 0.012, green: 0.030, blue: 0.095, alpha: 1)
             : NSColor(srgbRed: 0.74, green: 0.84, blue: 0.96, alpha: 1)
-        return base.blended(withFraction: dark ? 0.12 : 0.13, of: accent) ?? base
+        return base.blended(withFraction: dark ? 0.08 : 0.13, of: accent) ?? base
     }
 
     /// The backdrop as a soft vertical gradient around that tone. The top
@@ -274,8 +433,10 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         let tone = backdropColor().usingColorSpace(.sRGB) ?? backdropColor()
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         if dark {
-            return (tone.blended(withFraction: 0.22, of: .black) ?? tone,
-                    tone.blended(withFraction: 0.14, of: .white) ?? tone)
+            // Deeper than before: the bottom no longer lifts toward white,
+            // so the whole field reads as depth rather than a lit panel.
+            return (tone.blended(withFraction: 0.45, of: .black) ?? tone,
+                    tone.blended(withFraction: 0.10, of: .black) ?? tone)
         }
         return (tone.blended(withFraction: 0.16, of: .white) ?? tone,
                 tone.blended(withFraction: 0.12, of: .black) ?? tone)
@@ -295,6 +456,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     override func layout() {
         super.layout()
         background.frame = bounds
+        layoutCornerGlows()
         guard bounds.width > 0, bounds.height > 0 else { return }
 
         let aspect = bounds.width / bounds.height
@@ -306,12 +468,14 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     func pauseAnimations() {
         scene.isPaused = true
         sceneView.rendersContinuously = false
+        vibeTimer?.fireDate = .distantFuture
     }
 
     func resumeAnimations() {
         scene.isPaused = false
         sceneView.rendersContinuously = true
         sceneView.isPlaying = true
+        vibeTimer?.fireDate = Date()
     }
 
     private func loadModel() {
@@ -454,7 +618,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) ?? .systemBlue
         // Split the final Pals colour exactly 50/50 between the accent and
         // whatever backdrop is live, so the marks always sit in its tone.
-        let faded = accent.blended(withFraction: 0.5, of: backdropColor()) ?? accent
+        var faded = accent.blended(withFraction: 0.5, of: backdropColor()) ?? accent
+        if vibeMix > 0.005 {
+            let vibe = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
+            faded = faded.blended(withFraction: vibeMix * 0.8, of: vibe) ?? faded
+        }
         SCNTransaction.begin()
         SCNTransaction.animationDuration = animated ? 0.45 : 0
         for material in materials {

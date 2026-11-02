@@ -6,6 +6,23 @@ An index of canonical photographic references for **Jeffrey Alan Scudder** — f
 
 This is **index-only**: pointers to where canonical images live. Masters live on the assets CDN and in the vault. No binary duplication into `papers/`.
 
+## TIAT — Every Thing Computer opening, October 2026
+
+Four photographs added to Jeffrey’s archive on November 2, 2026. **Photos: Daniel Clayton ([@480productions](https://www.instagram.com/480productions/)).**
+
+| Album position | Archived photograph | Scene |
+| --- | --- | --- |
+| 016 | [016.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/016.jpg) | Right side, back to camera, beside the laptop installation. |
+| 030 | [030.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/030.jpg) | Left side, holding a laptop beside the installation. |
+| 058 | [058.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/058.jpg) | Right side, talking beside the installation. |
+| 124 | [124.jpg](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/124.jpg) | Center, holding a microphone and a small laptop. |
+
+- **Source:** [shared Google Photos album](https://photos.app.goo.gl/Crdj6rbC8M1NB9reA), titled “tiat: everything computer exhibit opening - 10/26.” The exact event date remains unverified.
+- **Register:** `buckets["tiat-2026-10"]` in [manifest.json](manifest.json); [CDN collection manifest](https://assets.aesthetic.computer/jeffreys/tiat-every-thing-computer-2026-10/manifest.json) includes dimensions, byte sizes, SHA-256 checksums, source media IDs, and download URLs.
+- **Files:** unedited 1600 × 2400 Google Photos JPEG derivatives, not camera-original masters. Copies on Neo’s desktop are byte-identical.
+- **Selection:** requested for Jeffrey’s archive; reviewed using the supplied maroon-pants clothing cue, without face matching. This is not an exhaustive appearance inventory.
+- **Reuse:** retain the photographer credit. No open license is asserted.
+
 ## Picture-making history — `drawings.rey.sc`
 
 The platter now includes a public visual history of **3,996 drawings completed from September 2006 through August 2016**, recovered from Jeffrey's still-running Ruby on Rails catalog at [drawings-rey-sc.jas.life](https://drawings-rey-sc.jas.life). The source archive describes itself as “a living archive of images” and was established March 17, 2015. It organizes the work into 102 named groups, 24 locations, and 19 collaborator records.

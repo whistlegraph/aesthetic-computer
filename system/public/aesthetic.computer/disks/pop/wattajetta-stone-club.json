@@ -7,6 +7,8 @@
   "key": "E minor pentatonic",
   "meter": "4/4",
   "duration": 130.716708,
+  "released": "2026-08-09",
+  "status": "released",
   "audio": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.mp3",
   "cover": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.jpg",
   "sections": [
@@ -15,8 +17,13 @@
       "t": 0,
       "illy": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.jpg",
       "code": "a",
-      "color": [86, 190, 220]
+      "color": [
+        86,
+        190,
+        220
+      ]
     }
   ],
+  "links": {},
   "credits": "Water-engine stone club single. Composition and production: Aesthetic Dot Computer."
 }

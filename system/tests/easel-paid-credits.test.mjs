@@ -105,4 +105,10 @@ test('No Paint checkout has a fixed return route and shared wallet fulfillment',
  assert.equal((await h(event({...body,surface:'https://evil.example'}))).statusCode,400);
  await h(event({...body,surface:undefined}));
  assert.equal(created[1].success_url,'https://aesthetic.computer/api/easel-checkout?result=success');
+ await h(event({...body,surface:'notepaint'}));
+ assert.equal(created[2].success_url,'https://notepaint.art/?braincells=success&session_id={CHECKOUT_SESSION_ID}','notepaint returns to the studio, where the painter is signed in');
+ assert.equal(created[2].cancel_url,'https://notepaint.art/?braincells=canceled');
+ assert.equal(created[2].metadata.surface,'notepaint');
+ assert.equal(created[2].line_items[0].price_data.unit_amount,CREDIT_PACK.amount,'the same pack, no new price');
+ for(const surface of ['aesel','NOTEPAINT','https://notepaint.art.evil.test'])assert.equal((await h(event({...body,surface}))).statusCode,400,surface);
 });

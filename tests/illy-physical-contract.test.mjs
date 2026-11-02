@@ -6,15 +6,17 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 const MCP = resolve("plugins/illy/scripts/illy-mcp.mjs");
+// Placeholder credentials: plans are checked before any provider is called.
+const placeholder = "contract-test-key";
 
-function call(name, args) {
+function call(name, args, env = {}) {
   const request = JSON.stringify({
     jsonrpc: "2.0", id: 1, method: "tools/call",
     params: { name, arguments: args },
   });
   const run = spawnSync(process.execPath, [MCP], {
     input: `${request}\n`, encoding: "utf8",
-    env: { ...process.env, OPENAI_API_KEY: "contract-test-key" },
+    env: { ...process.env, OPENAI_API_KEY: placeholder, ...env },
   });
   assert.equal(run.status, 0, run.stderr);
   const response = JSON.parse(run.stdout.trim());
@@ -60,6 +62,25 @@ test("Illy rejects unknown contracts before provider execution", () => {
       pipeline: "marketing", targetDir, prompt: "test",
       provider: "openai", contracts: ["missing-contract"],
     }), /unknown contract: missing-contract/);
+  } finally {
+    rmSync(targetDir, { recursive: true, force: true });
+  }
+});
+
+test("fal routes generate and edit to the newest registered endpoints", () => {
+  const targetDir = mkdtempSync(`${tmpdir()}/illy-contract-`);
+  try {
+    const env = { FAL_KEY: placeholder };
+    const draw = call("illy_plan", { pipeline: "marketing", targetDir, prompt: "a donkey", provider: "fal" }, env);
+    assert.equal(draw.model, "google/nano-banana-2.1");
+    const edit = call("illy_plan", {
+      pipeline: "marketing", targetDir, prompt: "a donkey", provider: "fal",
+      references: [resolve("aesel/art/aesel-pencil/refs/aesel-pixel-1024.png")],
+    }, env);
+    assert.equal(edit.mode, "edit");
+    assert.equal(edit.model, "google/nano-banana-2.1/edit");
+    const flux = call("illy_plan", { pipeline: "marketing", targetDir, prompt: "a donkey", provider: "fal", model: "blackforestlabs/flux-3/text-to-image" }, env);
+    assert.equal(flux.model, "blackforestlabs/flux-3/text-to-image");
   } finally {
     rmSync(targetDir, { recursive: true, force: true });
   }
