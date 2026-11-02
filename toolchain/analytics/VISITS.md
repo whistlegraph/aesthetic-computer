@@ -62,6 +62,7 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `painting_saved` | PNG upload tracking returns a successful media record with a code |
 | `painting_signed` | No Paint burns the owner's `@handle` signature into the painting as an accepted step; a painting already signed as its last step does not fire again |
 | `piece_made` | notepaint.art turned a painting into a published piece from the # list (Make piece) |
+| `notepaint_opened` | A trusted activation (pointer, keyboard or middle-click) of No Paint's HTTPS link to notepaint.art; opening a tab does not prove arrival |
 | `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
 
 MIDI-only use still needs an independently recorded interaction in the visit.
@@ -261,6 +262,21 @@ The report separates automation, org click-through, app arrivals with an org
 referrer, and access-link clicks (including those within referred app visits).
 Privacy settings or browser link handling can omit referrers; these counts are
 not a cross-domain conversion funnel. All counts are grouped by visit start.
+
+### No Paint → notepaint route
+
+From November 2, No Paint's notepaint link records `notepaint_opened`, and
+No Paint visits whose page carries that link get `linkVersion: 1`, the
+click-rate denominator. On notepaint, a visit spans in-page navigation and
+keeps its `referrerHost`, so the actions of visits arriving from nopaint.art
+(editing, signing, saving, Make piece) can be counted without joining the two
+sites' visit IDs. Referrers can be omitted, so those arrivals are a floor.
+
+On Lith, from `/opt/ac/system`:
+
+```sh
+node --env-file=.env ../toolchain/analytics/nopaint-report.mjs --hours 24
+```
 
 ### Account activity and referrers
 
