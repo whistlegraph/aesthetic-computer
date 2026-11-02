@@ -347,13 +347,15 @@ struct WebView: ACWebViewRepresentable {
         config.userContentController.addUserScript(userScript)
         config.userContentController.add(context.coordinator, name: "iOSAppLog")
         config.userContentController.add(context.coordinator, name: "iOSApp")
-        // One boolean for a trusted canvas touch. No keys, coordinates or URLs.
+        // One boolean for a trusted touch on the piece. No keys, coordinates or URLs.
+        // Layers stack over the canvas (piece DOM content, the modal), so any
+        // target inside the runtime's wrapper counts, not only a <canvas>.
         config.userContentController.addUserScript(WKUserScript(source: """
             (() => {
               let sent = false;
               document.addEventListener('visibilitychange', () => { if (!document.hidden) sent = false; });
               document.addEventListener('pointerdown', e => {
-                if (sent || !e.isTrusted || !(e.target instanceof HTMLCanvasElement)) return;
+                if (sent || !e.isTrusted || !(e.target instanceof Element) || !e.target.closest('#aesthetic-computer')) return;
                 sent = true;
                 window.webkit.messageHandlers.iOSApp.postMessage(JSON.stringify({type:'usage:canvas'}));
               }, {capture:true, passive:true});
