@@ -8190,10 +8190,6 @@ async function load(
             // Track the original $code identifier for sharing
             currentOriginalCodeId = slug; // Keep the full $code format
             console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
-            // 🧊 dool objects are KidLisp in the 3D object dialect (slab, orb,
-            // capsule); open them on the object turntable instead.
-            if (/\((?:slab|orb|capsule)\s/.test(sourceToRun.replace(/;[^\n]*/g, "")))
-              sourceToRun = `(jump "object:${cacheId}")`;
 
             // 👤 Fetch author metadata in background (for logging only)
             fetchKidlispMetadata(cacheId).then(meta => {
@@ -8361,7 +8357,14 @@ async function load(
         // Initialize persistent image cache for paste/stamp (only needs to be done once)
         imageCache.init(store);
 
-        loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
+        // 🧊 KidLisp that draws in 3D (slab, orb, capsule, or a `; #3d`
+        // pragma) runs on the object turntable, keeping its $code URL.
+        const objectViewer = /\((?:slab|orb|capsule)\s|^\s*;\s*#3d\b/m.test(sourceToRun)
+          ? await import("./object/viewer.mjs")
+          : null;
+        loadedModule = objectViewer?.isObjectLisp(sourceToRun)
+          ? objectViewer.objectPiece(sourceToRun, currentOriginalCodeId || "")
+          : lisp.module(sourceToRun, path && path.endsWith(".lisp"));
 
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);

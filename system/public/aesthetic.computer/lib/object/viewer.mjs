@@ -1,0 +1,158 @@
+// Object viewer: a turntable for KidLisp written in the 3D object dialect
+// (the dialect dool's objects use). `isObjectLisp` decides from the calls a
+// program makes, or a `; #3d` pragma; `objectPiece` returns a piece that
+// draws it with a small z-buffered rasterizer straight into screen.pixels.
+// Drag to orbit.
+
+import { parseSource, sourceFrame } from "./object-language.mjs";
+
+const SHAPES = /\((?:slab|orb|capsule)\s/;
+
+export function isObjectLisp(source) {
+  if (typeof source !== "string") return false;
+  if (/^\s*;\s*#3d\b/m.test(source)) return true;
+  return SHAPES.test(source.replace(/;[^\n]*/g, ""));
+}
+
+const BG = [20, 23, 32];
+const GRID = [44, 48, 64];
+
+function extent(v) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < v.length; i += 6) {
+    x0 = Math.min(x0, v[i]); x1 = Math.max(x1, v[i]);
+    y0 = Math.min(y0, v[i + 1]); y1 = Math.max(y1, v[i + 1]);
+    z0 = Math.min(z0, v[i + 2]); z1 = Math.max(z1, v[i + 2]);
+  }
+  return {
+    center: { x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2 },
+    radius: Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2,
+  };
+}
+
+export function objectPiece(source, label = "") {
+  let shape, error;
+  let yaw = 0.6, pitch = 0.38, dragging = false;
+  let depth, size = [0, 0];
+  let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
+  const start = Date.now();
+
+  try {
+    shape = parseSource(source);
+    const b = extent(sourceFrame(shape, 0).vertices);
+    center = b.center;
+    radius = Math.max(0.4, b.radius);
+  } catch (e) {
+    error = String(e.message || e).slice(0, 80);
+  }
+
+  function boot({ hud }) {
+    if (label) hud?.label?.(label);
+  }
+
+  function paint({ ink, screen }) {
+    const { width: w, height: h, pixels } = screen;
+    // Clear and draw everything here, in order, so nothing else overwrites it.
+    for (let i = 0; i < w * h; i++) {
+      pixels[i * 4] = BG[0]; pixels[i * 4 + 1] = BG[1]; pixels[i * 4 + 2] = BG[2]; pixels[i * 4 + 3] = 255;
+    }
+    if (!shape) {
+      ink(255, 120, 120).write(error || "not an object", { x: 6, y: h - 16 });
+      return;
+    }
+    if (size[0] !== w || size[1] !== h) {
+      depth = new Float32Array(w * h);
+      size = [w, h];
+    }
+    depth.fill(Infinity);
+    const t = (Date.now() - start) / 1000;
+    if (!dragging) yaw += 0.006;
+
+    const v = sourceFrame(shape, t).vertices;
+    if (v.length) {
+      const now = extent(v).center;
+      for (const k of ["x", "y", "z"]) center[k] += (now[k] - center[k]) * 0.15;
+    }
+
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const distance = radius * 2.4 + 0.6, focal = Math.min(w, h) * 0.9;
+    const project = (x, y, z) => {
+      const dx = x - center.x, dy = y - center.y, dz = z - center.z;
+      const rx = dx * cy - dz * sy, rz = dx * sy + dz * cy;
+      const ry = dy * cp - rz * sp, d = dy * sp + rz * cp + distance;
+      return [w / 2 + (rx * focal) / d, h / 2 - (ry * focal) / d, d];
+    };
+    const near = 0.1;
+
+    // Floor grid, depth tested so the object stands on it; segments that
+    // reach behind the camera are clipped rather than drawn wild.
+    const plot = (x, y, d, rgb) => {
+      x |= 0; y |= 0;
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      const i = y * w + x;
+      if (d >= depth[i]) return;
+      depth[i] = d;
+      pixels[i * 4] = rgb[0]; pixels[i * 4 + 1] = rgb[1]; pixels[i * 4 + 2] = rgb[2];
+    };
+    const segment = (ax, az, bx, bz) => {
+      const steps = 64;
+      for (let s = 0; s <= steps; s++) {
+        const k = s / steps;
+        const p = project(ax + (bx - ax) * k, 0, az + (bz - az) * k);
+        if (p[2] > near) plot(p[0], p[1], p[2] + 0.01, GRID);
+      }
+    };
+    const reach = Math.max(2, Math.ceil(radius * 2));
+    const gx = Math.round(center.x), gz = Math.round(center.z);
+    for (let g = -reach; g <= reach; g++) {
+      segment(gx + g, gz - reach, gx + g, gz + reach);
+      segment(gx - reach, gz + g, gx + reach, gz + g);
+    }
+
+    for (let i = 0; i < v.length; i += 18) {
+      const a = project(v[i], v[i + 1], v[i + 2]);
+      const b = project(v[i + 6], v[i + 7], v[i + 8]);
+      const c = project(v[i + 12], v[i + 13], v[i + 14]);
+      if (a[2] < near || b[2] < near || c[2] < near) continue;
+      fill(pixels, depth, w, h, a, b, c, [v[i + 3] * 255, v[i + 4] * 255, v[i + 5] * 255]);
+    }
+    ink(138, 143, 158).write((shape.name || "object").toLowerCase(), { x: 6, y: h - 16 });
+  }
+
+  function act({ event: e }) {
+    if (e.is("touch")) dragging = true;
+    if (e.is("lift")) dragging = false;
+    if (e.is("draw")) {
+      yaw += (e.delta?.x || 0) * 0.02;
+      pitch = Math.max(-1.2, Math.min(1.4, pitch + (e.delta?.y || 0) * 0.02));
+    }
+  }
+
+  return { boot, paint, act, meta: () => ({ title: shape?.name || "Object", desc: "A KidLisp object." }) };
+}
+
+// One triangle into the colour and depth buffers.
+function fill(pixels, depth, w, h, a, b, c, rgb) {
+  const minX = Math.max(0, Math.floor(Math.min(a[0], b[0], c[0])));
+  const maxX = Math.min(w - 1, Math.ceil(Math.max(a[0], b[0], c[0])));
+  const minY = Math.max(0, Math.floor(Math.min(a[1], b[1], c[1])));
+  const maxY = Math.min(h - 1, Math.ceil(Math.max(a[1], b[1], c[1])));
+  const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  if (!area) return;
+  for (let y = minY; y <= maxY; y++)
+    for (let x = minX; x <= maxX; x++) {
+      const px = x + 0.5, py = y + 0.5;
+      const w0 = ((b[0] - px) * (c[1] - py) - (b[1] - py) * (c[0] - px)) / area;
+      const w1 = ((c[0] - px) * (a[1] - py) - (c[1] - py) * (a[0] - px)) / area;
+      const w2 = 1 - w0 - w1;
+      if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+      const z = w0 * a[2] + w1 * b[2] + w2 * c[2];
+      const i = y * w + x;
+      if (z >= depth[i]) continue;
+      depth[i] = z;
+      pixels[i * 4] = rgb[0];
+      pixels[i * 4 + 1] = rgb[1];
+      pixels[i * 4 + 2] = rgb[2];
+      pixels[i * 4 + 3] = 255;
+    }
+}
