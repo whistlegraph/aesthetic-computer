@@ -452,7 +452,7 @@ async function diagJson(diag, key, url, ms = 1500) {
   }
 }
 
-async function universalSearch(query) {
+async function universalSearch(query, { partial } = {}) {
   const q = (query || "").trim().toLowerCase();
   if (q.length < 2) return [];
   // Mid-command with arguments — don't turn it into a search.
@@ -515,97 +515,119 @@ async function universalSearch(query) {
   diag.sigil = sigilHits.length;
   universalDiag = diag;
 
+  // Priority: commands/pieces → whistlegraphs → handles → sigil media → user pieces →
+  // moods → chat (moods & chat sit "underneath", as designed).
+  const hits = { handles: [], pieces: [], mood: [], chat: [] };
+  const merged = () =>
+    [
+      ...docHits,
+      ...whistlegraphHits,
+      ...hits.handles,
+      ...sigilHits,
+      ...hits.pieces,
+      ...hits.mood,
+      ...hits.chat,
+    ].slice(0, 16);
+
+  // 🌊 The local rows show at once; each network source then joins the list
+  // the moment it answers, instead of the whole list waiting on the slowest.
+  partial?.(merged());
+
   // 4–7) Network sources, in parallel, each best-effort (timed/abortable).
   // `diagJson` flips each source's state the moment it settles, so the UI
   // shows exactly which source is slow, failing, or empty.
-  const [handlesRes, piecesRes, moodRes, chatRes] = await Promise.all([
-    diagJson(diag, "handles", `/api/handles?search=${encodeURIComponent(q)}&limit=4`),
-    diagJson(diag, "pieces", `/api/pieces-search?q=${encodeURIComponent(q)}&limit=4`),
-    diagJson(diag, "mood", `/api/mood/search?q=${encodeURIComponent(q)}&limit=2`),
-    diagJson(
-      diag,
-      "chat",
-      `/api/chat/messages?instance=all&search=${encodeURIComponent(q)}&limit=3`,
-    ),
+  const source = (key, url, rows) =>
+    diagJson(diag, key, url).then((json) => {
+      hits[key] = rows(json);
+      diag.sources[key].n = hits[key].length;
+      partial?.(merged());
+    });
+
+  await Promise.all([
+    source("handles", `/api/handles?search=${encodeURIComponent(q)}&limit=4`, (res) => {
+      const out = [];
+      const raw = Array.isArray(res) ? res : res?.handles || [];
+      for (const h of raw.slice(0, 4)) {
+        const name = typeof h === "string" ? h : h?.handle;
+        if (name) out.push({ text: `@${name}`, display: `@${name}`, color: UNIVERSAL_COLORS.handle });
+      }
+      return out;
+    }),
+    source("pieces", `/api/pieces-search?q=${encodeURIComponent(q)}&limit=4`, (res) => {
+      const out = [];
+      for (const p of (res?.pieces || []).slice(0, 4)) {
+        if (!p?.enter) continue;
+        const tag = p.handle ? ` ·${p.handle}` : "";
+        out.push({ text: p.enter, display: `${p.name || p.enter}${tag}`, color: UNIVERSAL_COLORS.piece });
+      }
+      return out;
+    }),
+    // Note: leading markers use glyphs MatrixChunky8 actually has (~ and •) —
+    // emoji (🌙/💬) have no glyph in this font and render as "?".
+    source("mood", `/api/mood/search?q=${encodeURIComponent(q)}&limit=2`, (res) => {
+      const out = [];
+      for (const m of (res?.moods || []).slice(0, 2)) {
+        if (!m?.mood) continue;
+        const from = m.handle || "anon";
+        const moodText = String(m.mood).replace(/\s+/g, " ");
+        out.push({
+          text: "mood",
+          display: `~ ${from}: ${moodText.slice(0, 32)}`,
+          color: UNIVERSAL_COLORS.mood,
+          // Selecting opens the full-screen `message` piece (see openMessage…).
+          action: "message",
+          message: { from, text: moodText, source: "mood" },
+        });
+      }
+      return out;
+    }),
+    source("chat", `/api/chat/messages?instance=all&search=${encodeURIComponent(q)}&limit=3`, (res) => {
+      const out = [];
+      for (const c of (res?.messages || []).slice(0, 3)) {
+        if (!c?.text) continue;
+        const isClock = c.instance === "clock";
+        const from = c.from || "anon";
+        const chatText = String(c.text).replace(/\s+/g, " ");
+        out.push({
+          text: isClock ? "laer-klokken" : "chat",
+          display: `• ${from}: ${chatText.slice(0, 32)}`,
+          color: isClock ? UNIVERSAL_COLORS.chatClock : UNIVERSAL_COLORS.chatSystem,
+          action: "message",
+          message: { from, text: chatText, source: isClock ? "clock" : "chat" },
+        });
+      }
+      return out;
+    }),
   ]);
 
-  const handleHits = [];
-  const rawHandles = Array.isArray(handlesRes)
-    ? handlesRes
-    : handlesRes?.handles || [];
-  for (const h of rawHandles.slice(0, 4)) {
-    const name = typeof h === "string" ? h : h?.handle;
-    if (!name) continue;
-    handleHits.push({
-      text: `@${name}`,
-      display: `@${name}`,
-      color: UNIVERSAL_COLORS.handle,
-    });
-  }
-
-  const pieceHits = [];
-  for (const p of (piecesRes?.pieces || []).slice(0, 4)) {
-    if (!p?.enter) continue;
-    const tag = p.handle ? ` ·${p.handle}` : "";
-    pieceHits.push({
-      text: p.enter,
-      display: `${p.name || p.enter}${tag}`,
-      color: UNIVERSAL_COLORS.piece,
-    });
-  }
-
-  // Note: leading markers use glyphs MatrixChunky8 actually has (~ and •) —
-  // emoji (🌙/💬) have no glyph in this font and render as "?".
-  const moodHits = [];
-  for (const m of (moodRes?.moods || []).slice(0, 2)) {
-    if (!m?.mood) continue;
-    const from = m.handle || "anon";
-    const moodText = String(m.mood).replace(/\s+/g, " ");
-    moodHits.push({
-      text: "mood",
-      display: `~ ${from}: ${moodText.slice(0, 32)}`,
-      color: UNIVERSAL_COLORS.mood,
-      // Selecting opens the full-screen `message` piece (see openMessage…).
-      action: "message",
-      message: { from, text: moodText, source: "mood" },
-    });
-  }
-
-  const chatHits = [];
-  for (const c of (chatRes?.messages || []).slice(0, 3)) {
-    if (!c?.text) continue;
-    const isClock = c.instance === "clock";
-    const from = c.from || "anon";
-    const chatText = String(c.text).replace(/\s+/g, " ");
-    chatHits.push({
-      text: isClock ? "laer-klokken" : "chat",
-      display: `• ${from}: ${chatText.slice(0, 32)}`,
-      color: isClock
-        ? UNIVERSAL_COLORS.chatClock
-        : UNIVERSAL_COLORS.chatSystem,
-      action: "message",
-      message: { from, text: chatText, source: isClock ? "clock" : "chat" },
-    });
-  }
-
-  // Record what each source contributed, then mark the search complete.
-  diag.sources.handles.n = handleHits.length;
-  diag.sources.pieces.n = pieceHits.length;
-  diag.sources.mood.n = moodHits.length;
-  diag.sources.chat.n = chatHits.length;
   diag.done = true;
+  return merged();
+}
 
-  // Priority: commands/pieces → whistlegraphs → handles → sigil media → user pieces →
-  // moods → chat (moods & chat sit "underneath", as designed).
-  return [
-    ...docHits,
-    ...whistlegraphHits,
-    ...handleHits,
-    ...sigilHits,
-    ...pieceHits,
-    ...moodHits,
-    ...chatHits,
-  ].slice(0, 16);
+// 🔔 Search rows arriving, as sound: each new row is a short soft blip on a
+// pentatonic step set by where it lands in the list (higher up, higher
+// note), staggered so a source answering reads as a little run.
+let promptSound = null;
+const ROW_STEPS = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+function sonifyRows(fresh, all) {
+  if (!promptSound?.synth) return;
+  fresh.slice(0, 6).forEach((row, i) => {
+    const at = all.indexOf(row);
+    const step = ROW_STEPS[Math.max(0, ROW_STEPS.length - 1 - Math.min(at, ROW_STEPS.length - 1))];
+    setTimeout(() => {
+      try {
+        promptSound.synth({
+          type: "sine",
+          tone: 440 * Math.pow(2, step / 12),
+          attack: 0.002,
+          decay: 0.9,
+          duration: 0.035,
+          volume: 0.12,
+        });
+      } catch {}
+    }, i * 38);
+  });
+  promptNeedsPaint?.();
 }
 
 // 🔀 Who owns the arrow keys right now — command history, or the filter list?
@@ -1216,6 +1238,7 @@ async function boot({
       cache: false,
       getDiag: () => universalDiag,
     },
+    onRows: sonifyRows,
   });
 
   // 🧪 Read-only test hook for the browser harness (tests/browser/).
@@ -7650,6 +7673,10 @@ function sim($) {
   // Arrows always drive the dropdown when it's open. Enter is only hijacked
   // for explicit triggers (@ / $ / # / !) or once the user has arrowed into
   // a universal-search result — so typing a command + Enter still RUNS it.
+  promptSound = $.sound;
+  // Keep the dropdown's dots moving while results are still on their way.
+  if (handleAutocomplete?.visible && (handleAutocomplete.loading || handleAutocomplete.streaming))
+    $.needsPaint?.();
   if ($.system.prompt.input) {
     const ac = handleAutocomplete;
     const filter = inFilterMode($); // partial query → filter list owns arrows
@@ -8594,14 +8621,17 @@ function act({
       }
       const cursorPos = system.prompt.input.prompt?.textPos?.() ?? system.prompt.input.text.length;
       const newText = handleAutocomplete.getCompletedText(system.prompt.input.text, cursorPos);
-      // Trailing space only after @handles (so you can keep typing a piece);
-      // sigil codes ($cow / #pic / !tape) stay bare so Enter runs them.
-      const trail = handleAutocomplete.activeTrigger === "@" ? " " : "";
+      // ⏎ Return always goes: it completes the highlighted row and runs it in
+      // one stroke, never just closing the list. Tab completes and stays, with
+      // a trailing space after @handles so a piece can follow.
+      const going = e.is("keyboard:down:enter");
+      const trail = !going && handleAutocomplete.activeTrigger === "@" ? " " : "";
       system.prompt.input.text = newText + trail;
       system.prompt.input.snap();
       send({ type: "keyboard:text:replace", content: { text: system.prompt.input.text } });
       handleAutocomplete.hide();
       needsPaint();
+      if (going && system.prompt.input.text.trim()) system.prompt.input.run(store);
       return; // Consume event
     }
     // Escape to dismiss

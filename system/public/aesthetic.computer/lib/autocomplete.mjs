@@ -54,6 +54,8 @@ class Autocomplete {
   triggerPos = -1; // Position of trigger char in text
   query = "";
   loading = false;
+  streaming = false; // rows are showing but more sources are still answering
+  onRows = null; // (freshRows, allRows) => void — e.g. sonify each arrival
 
   // True once the user has explicitly arrowed into the list. Used by the
   // prompt so universal (no-trigger) search does NOT hijack Enter until the
@@ -82,6 +84,7 @@ class Autocomplete {
     this.maxResults = options.maxResults || 8;
     this.debounceMs = options.debounceMs || 100; // Faster response
     this.universal = options.universal || null;
+    this.onRows = options.onRows || null;
   }
 
   // Set/replace the universal search config after construction.
@@ -204,15 +207,23 @@ class Autocomplete {
       clearTimeout(this.#fetchTimeout);
     }
 
-    this.loading = true;
+    // Keep the rows already showing while the next query streams in, so
+    // typing reads as a list refining, not a blank "Loading..." flash.
+    this.loading = this.items.length === 0;
+    this.streaming = true;
+
+    // A fetch may hand back rows as each source lands: `partial(rows)`.
+    // Only the newest query may paint; `onRows` hears each new row (bleeps).
+    const partial = (rows) => {
+      if (this.#pendingQuery !== cacheKey || !Array.isArray(rows)) return;
+      this.#show(rows, config);
+    };
 
     this.#fetchTimeout = setTimeout(async () => {
-      console.log("🔍 Handle autocomplete fetch:", query);
       try {
-        const results = await config.fetch(query);
-        console.log("🔍 Fetch results:", results);
-        this.items = results.slice(0, this.maxResults);
-        this.selectedIndex = 0;
+        const results = await config.fetch(query, { partial });
+        if (this.#pendingQuery !== cacheKey) return; // a newer query owns it
+        this.#show(results, config);
 
         // Cache results
         if (config.cache) {
@@ -220,13 +231,32 @@ class Autocomplete {
         }
       } catch (err) {
         console.warn("Autocomplete fetch error:", err);
-        this.items = [];
+        if (this.#pendingQuery === cacheKey) this.items = [];
       } finally {
-        this.loading = false;
-        this.#pendingQuery = ""; // No longer in flight.
-        this.#lastQuery = cacheKey; // Resolved — don't re-fetch until it changes.
+        if (this.#pendingQuery === cacheKey) {
+          this.loading = false;
+          this.streaming = false;
+          this.#pendingQuery = ""; // No longer in flight.
+          this.#lastQuery = cacheKey; // Resolved — don't re-fetch until it changes.
+        }
       }
     }, this.debounceMs);
+  }
+
+  // Swap in a (partial or final) result list, keeping the highlighted row on
+  // the same entry when it survives, and tell `onRows` which rows are new.
+  #show(rows, config) {
+    const next = rows.slice(0, this.maxResults);
+    const key = (it) => it.display || it.text;
+    const before = new Set(this.items.map(key));
+    const held = this.navigated ? key(this.items[this.selectedIndex] || {}) : null;
+    this.items = next;
+    this.loading = false;
+    const keep = held ? next.findIndex((it) => key(it) === held) : -1;
+    this.selectedIndex = keep >= 0 ? keep : 0;
+    if (keep < 0) this.navigated = false;
+    const fresh = next.filter((it) => !before.has(key(it)));
+    if (fresh.length) (config.onRows || this.onRows)?.(fresh, next);
   }
 
   hide() {
@@ -238,6 +268,7 @@ class Autocomplete {
     this.triggerPos = -1;
     this.query = "";
     this.loading = false;
+    this.streaming = false;
     this.#pendingQuery = ""; // Clear pending query
     this.#lastQuery = ""; // Allow a fresh fetch when reopened.
     if (this.#fetchTimeout) {
@@ -397,14 +428,18 @@ class Autocomplete {
           `md ${tag(s.mood)}  ch ${tag(s.chat)}`,
         ];
       } else {
-        loadingLines = ["Loading..."];
+        // Nothing to show yet: the query itself, with a dot that breathes.
+        const dots = ".".repeat(1 + (Math.floor(performance.now() / 250) % 3));
+        loadingLines = [`${config.prefix || ""}${this.query}${dots}`];
       }
     }
 
-    // Calculate dropdown dimensions
+    // Calculate dropdown dimensions. While rows stream in, one dim row of
+    // dots under them says more is coming.
+    const tail = !this.loading && this.streaming ? 1 : 0;
     const itemCount = this.loading
       ? loadingLines.length
-      : this.items.length;
+      : this.items.length + tail;
     const dropdownHeight = itemCount * itemHeight + padding * 2;
     
     // Position dropdown BELOW cursor
@@ -481,6 +516,18 @@ class Autocomplete {
         ink(...color).write(displayText, { x: dropX + padding + 2, y: itemY + 2 });
       }
     });
+
+    // More sources still answering: a dim row of drifting dots.
+    if (tail) {
+      const tailY = dropY + padding + this.items.length * itemHeight;
+      const step = Math.floor(performance.now() / 180) % 4;
+      const dots = ["·  ", " · ", "  ·", " · "][step];
+      ink(110, 120, 140).write(
+        (inline ? "  " : "") + dots,
+        { x: inline ? dropX : dropX + padding + 2, y: tailY + (inline ? 1 : 2) },
+        undefined, undefined, false, font,
+      );
+    }
 
     // Query highlight at bottom (optional, boxed mode only)
     if (!inline && this.query && this.items.length > 0) {
