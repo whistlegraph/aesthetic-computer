@@ -150,8 +150,10 @@ export async function createView(canvas) {
       const span = 2 * WORLD + 0.6, h = ROOM_HEIGHT, t = 0.3;
       box(0, h / 2, -WORLD - t / 2, span, h, t, p.walls.south, p.wallSide, p.walls.south);
       box(0, h / 2, WORLD + t / 2, span, h, t, p.walls.north, p.wallSide, p.walls.north);
-      box(-WORLD - t / 2, h / 2, 0, t, h, span, p.walls.west, p.wallSide, p.walls.west);
-      box(WORLD + t / 2, h / 2, 0, t, h, span, p.walls.east, p.wallSide, p.walls.east);
+      // A box colours its x faces second and its z faces third: the long
+      // walls show their z face, the end walls their x face.
+      box(-WORLD - t / 2, h / 2, 0, t, h, span, p.walls.west, p.walls.west, p.wallSide);
+      box(WORLD + t / 2, h / 2, 0, t, h, span, p.walls.east, p.walls.east, p.wallSide);
       box(0, h + t / 2, 0, span, t, span, p.ceiling, p.ceiling, p.ceiling);
     });
   // Sky: rings of colour around the viewer, deep overhead to a glow at the
