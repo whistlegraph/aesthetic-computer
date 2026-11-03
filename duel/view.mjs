@@ -16,6 +16,7 @@ import {
   smallSpanWidth,
 } from './highlight.mjs';
 import { smallWidth } from './paint.mjs';
+import { spanWidth as spanWidthOf } from './highlight.mjs';
 
 // A dark room: night floor, slate walls; the two seat colours stay bright.
 // Braincells are magical purple.
@@ -114,6 +115,9 @@ export async function createView(canvas) {
     hand: model(({ box }) => {
       box(0, 0, 0, 0.16, 0.17, 0.2, PAPER, 0xc0c0c0, PAPER);
       box(0, -0.12, -0.06, 0.17, 0.12, 0.18, color, INK, color);
+      // Five digits: four fingers along the top edge and a thumb to the side.
+      for (let k = 0; k < 4; k++) box(-0.06 + k * 0.04, 0.12, 0.03, 0.03, 0.08, 0.04, PAPER, 0xc0c0c0, PAPER);
+      box(0.1, 0.03, 0.05, 0.04, 0.07, 0.04, PAPER, 0xc0c0c0, PAPER);
     }),
   }));
   const rocket = model(({ box }) =>
@@ -602,7 +606,7 @@ export async function createView(canvas) {
         draw(eyeFor(p, i, now, face), p.x, base, p.z, yaw);
         // Name tags are screen text drawn after the world (see below), so
         // they stay crisp and never fight the scene for depth.
-        tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z });
+        if (i !== seat) tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z });
         const stride = Math.min(1, Math.hypot(p.vx, p.vz) / 10),
           right = direction(p.yaw - 90);
         for (const side of [-1, 1]) {
@@ -641,6 +645,20 @@ export async function createView(canvas) {
       } else {
         const forward = direction(p.yaw, p.pitch),
           right = direction(p.yaw - 90);
+        // Arms: from each shoulder to its hand, so you see your own limbs.
+        const armColor = COLORS[i] || 0xc0c0c0;
+        const arms = model(({ quad }) => {
+          for (const side of [-1, 1]) {
+            const a = [p.x + right.x * 0.32 * side, p.y - 0.38, p.z + right.z * 0.32 * side];
+            const b = [p.x + forward.x * 0.68 + right.x * 0.34 * side, p.y + forward.y * 0.68 - 0.42, p.z + forward.z * 0.68 + right.z * 0.34 * side];
+            const t = 0.06;
+            const up = [0, t, 0], across = [right.x * t, 0, right.z * t];
+            const corner = (s, u, v) => [s[0] + up[0] * u + across[0] * v, s[1] + up[1] * u + across[1] * v, s[2] + up[2] * u + across[2] * v];
+            for (const [u1, v1, u2, v2, c] of [[1, -1, 1, 1, armColor], [-1, -1, -1, 1, tint(armColor, 0.7)], [-1, 1, 1, 1, tint(armColor, 0.85)], [-1, -1, 1, -1, tint(armColor, 0.85)]])
+              quad(corner(a, u1, v1), corner(a, u2, v2), corner(b, u2, v2), corner(b, u1, v1), c);
+          }
+        });
+        draw(arms, 0, 0, 0);
         for (const side of [-1, 1])
           draw(
             f.hand,
@@ -765,7 +783,7 @@ export async function createView(canvas) {
         ? [
             [
               { text: `$${focusObject.code}`, color: THEME.verb },
-              { text: ' kidlisp on the wall', color: THEME.dim },
+              { text: ` kidlisp on the wall - ${focusObject.size || ''}`, color: THEME.dim },
             ],
             ...wallCode.map((l) => codeSpans(l)),
           ]
@@ -938,7 +956,7 @@ export async function createView(canvas) {
     const W = canvas.width,
       H = canvas.height,
       pixel = W / Math.max(1, canvas.clientWidth);
-    if (tags.length) {
+    if (tags.length && !menu) {
       const { unit } = hud;
       const m = model(({ rect: worldRect, text, handleText }) => {
         for (const t of tags) {
@@ -1103,7 +1121,7 @@ export async function createView(canvas) {
     // A square reticle: four L-shaped corners on whole pixels, symmetric
     // about the centre, each with a one-pixel shadow. It opens with speed,
     // closes and colours on an object (green when yours), in pixel steps.
-    if (me?.alive && !radial) {
+    if (me?.alive && !radial && !menu) {
       const { unit } = hud;
       const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
       const color = focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;
@@ -1131,7 +1149,7 @@ export async function createView(canvas) {
     }
     // Aiming at an object with a $code: a small QR at the crosshair opens it
     // on aesthetic.computer from a phone.
-    if (focusObject?.code && !radial) {
+    if (focusObject?.code && !radial && !menu) {
       const url = `https://aesthetic.computer/$${focusObject.code}`;
       const cells = joinCode(url);
       if (cells) {
@@ -1373,25 +1391,31 @@ export async function createView(canvas) {
       draw(w.model, 0, 0, 0);
     }
     if (menu) {
-      // A centred list: title, then items, the chosen one on yellow.
+      // A modal: the scene dimmed behind it, a panel with a title and a
+      // left-aligned list, the chosen row on yellow. Drawn nearest of all.
       const { unit } = hud;
       const rows = menu.items.slice(0, 12);
-      const w = Math.min(W - 40 * unit, Math.max(120, ...rows.map((r) => r.label.length * 6 + 24)) * unit);
+      const w = Math.min(W - 40 * unit, Math.max(130, ...rows.map((r) => r.label.length * 6 + 28)) * unit);
       const lineH = 12 * unit,
-        h = (rows.length + 2) * lineH;
+        h = (rows.length + 2) * lineH + 4 * unit;
+      const z = -0.000009;
+      const near = z - 0.000004; // text clearly in front of the row highlight
       const m = model(({ rect: worldRect, text }) => {
         const rect = flip(worldRect);
-        rect(-w / 2 - unit, -h / 2 - unit, 0.000004, w + 2 * unit, h + 2 * unit, LINE);
-        rect(-w / 2, -h / 2, 0.000003, w, h, 0x15171e);
-        drawSpans({ rect, text }, [{ text: menu.title, color: THEME.verb }], 0, h / 2 - 4 * unit, unit, { shadow: null });
+        rect(-W / 2, -H / 2, z + 0.000004, W, H, 0x0b0c10);
+        rect(-w / 2 - unit, -h / 2 - unit, z + 0.000003, w + 2 * unit, h + 2 * unit, LINE);
+        rect(-w / 2, -h / 2, z + 0.000002, w, h, 0x15171e);
+        const left = -w / 2 + 8 * unit;
+        const title = [{ text: menu.title, color: THEME.verb }];
+        drawSpans({ rect, text }, title, left + spanWidthOf(title, unit) / 2, h / 2 - 5 * unit, unit, { shadow: null, z: near });
         rows.forEach((r, i) => {
-          const y = h / 2 - (i + 2) * lineH + 2 * unit;
+          const y = h / 2 - (i + 2) * lineH;
           const on = i === menu.selected;
-          if (on) rect(-w / 2 + 4 * unit, y - 9 * unit, 0.000002, w - 8 * unit, 11 * unit, 0xffe066);
+          if (on) rect(-w / 2 + 4 * unit, y - 9 * unit, z + 0.000001, w - 8 * unit, 11 * unit, 0xffe066);
           const spans = r.label.startsWith('$')
             ? [{ text: r.label.split(' ')[0], color: on ? INK : THEME.verb }, { text: ' ' + r.label.split(' ').slice(1).join(' '), color: on ? INK : THEME.text }]
             : [{ text: r.label, color: on ? INK : THEME.text }];
-          drawSpans({ rect, text }, spans, 0, y, unit, { shadow: null });
+          drawSpans({ rect, text }, spans, left + spanWidthOf(spans, unit) / 2, y, unit, { shadow: null, z: near });
         });
       });
       projector.overlay(m, W, H);

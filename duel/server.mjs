@@ -449,7 +449,7 @@ export function createDuelServer({
         if (room.match.chalkDirty && room.match.tick % 3 === 0)
           for (const msg of room.match.takeChalk())
             for (const ws of room.clients.keys()) send(ws, msg);
-        if (room.match.tick % 2) continue;
+        // Every tick (60 Hz): smaller gaps to interpolate across.
         const snap = room.match.snapshot();
         for (const ws of room.clients.keys()) {
           send(ws, snap);

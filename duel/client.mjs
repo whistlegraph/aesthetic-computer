@@ -945,7 +945,7 @@ function step(now) {
       const u = w.face === 'north' ? hit.x : hit.z;
       if (Math.abs(u) <= 16 && hit.y >= 1.5 && hit.y <= 1.5 + 18) {
         nearest = t;
-        focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, version: 0, owner: null, geometry: { name: `$${w.code}` } };
+        focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
       }
     }
     // Holding something with nothing else aimed at: the held item is the one to edit.

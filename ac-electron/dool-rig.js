@@ -235,6 +235,12 @@ function openDoolRig() {
       if (!win.isDestroyed()) view.webContents.reload();
     });
     view.webContents.on('unresponsive', () => log('unresponsive'));
+    // A load that fails (the server mid-restart) retries instead of staying blank.
+    view.webContents.on('did-fail-load', (_e, code, desc, url, isMain) => {
+      if (!isMain || code === -3) return;
+      log('load failed:', code, desc, '- retrying');
+      setTimeout(() => !win.isDestroyed() && view.webContents.loadURL(url).catch(() => {}), 1500);
+    });
     view.webContents.on('did-start-loading', () => log('loading'));
   }
   for (const view of clients)
