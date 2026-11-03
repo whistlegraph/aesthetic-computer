@@ -317,6 +317,9 @@ function connect() {
       if (event.type === 'pickup') sfx.pickup(event.seat === seat);
       if (event.type === 'drop') sfx.ringBack();
       if (event.type === 'bounce') sfx.bounce();
+      if (event.type === 'ricochet') sfx.ricochet();
+      if (event.type === 'cancel') sfx.ricochet(1.5);
+      if (event.type === 'headshot') sfx.headshot();
     }
   };
   socket.onclose = (e) => {
@@ -745,6 +748,23 @@ function step(now) {
         focusObject = objects.find((o) => o.id === box.objectId);
       }
     }
+    // Items can be aimed at (and so edited) where they really are: loose on
+    // the floor, or in your own hand.
+    for (const it of snapshot?.items || []) {
+      if (it.holder >= 0 && it.holder !== seat) continue;
+      const r = 0.6;
+      const box = { xMin: it.x - r, xMax: it.x + r, yMin: it.y - 0.1, yMax: it.y + 1.2, zMin: it.z - r, zMax: it.z + r };
+      const distance = it.holder === seat ? 0.5 : rayBox(player, dir, box, nearest);
+      if (distance < nearest && it.holder !== seat) {
+        nearest = distance;
+        focusObject = objects.find((o) => o.id === it.id);
+      }
+    }
+    // Holding something with nothing else aimed at: the held item is the one to edit.
+    if (!focusObject) {
+      const mine = snapshot?.items?.find((it) => it.holder === seat);
+      if (mine) focusObject = objects.find((o) => o.id === mine.id) || null;
+    }
   }
   const displayed = presentation.sample(debt / DT, elapsed);
   // The listener is wherever the camera is, facing where it looks.
@@ -767,6 +787,7 @@ function step(now) {
     rockets: snapshot?.rockets || [],
     items: snapshot?.items || [],
     bullets: snapshot?.bullets || [],
+    since: (now - latestAt) / 1000,
     holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,
     status,
     members,

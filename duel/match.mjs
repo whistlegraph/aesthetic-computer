@@ -10,6 +10,8 @@ import {
   wallDistance,
   bodyBox,
   along,
+  surfaceHit,
+  reflect,
 } from './world.mjs';
 import { command } from './net.mjs';
 
@@ -36,10 +38,11 @@ export class Match {
     for (const o of list.filter((o) => o.item)) {
       ids.add(o.id);
       const it = this.items.get(o.id);
-      if (it) it.kind = o.item;
+      if (it) Object.assign(it, { kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z } });
       else
         this.items.set(o.id, {
-          id: o.id, kind: o.item, x: o.x, y: 0, z: o.z,
+          id: o.id, kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, fuseAt: 0, awayUntil: 0,
+          x: o.x, y: 0, z: o.z,
           vx: 0, vy: 0, vz: 0, spin: 0, holder: -1, thrownBy: -1, cool: [0, 0], ready: 0,
         });
     }
@@ -90,11 +93,16 @@ export class Match {
     if (it.kind === 'shoot') {
       it.ready = this.tick + Math.round(HZ * 0.3);
       const h = this.hand(p);
-      this.bullets.push({ ...h, vx: f.x * 70, vy: f.y * 70, vz: f.z * 70, owner: p.seat, born: this.tick, id: ++this.eventId });
+      // Visible, dodgeable rounds; at most 24 in the air.
+      this.bullets.push({ ...h, vx: f.x * 32, vy: f.y * 32, vz: f.z * 32, owner: p.seat, born: this.tick,
+        safeUntil: this.tick + Math.round(HZ * 0.25), bounces: 0, id: ++this.eventId });
+      while (this.bullets.length > 24) this.bullets.shift();
       this.emit('shot', { seat: p.seat, at: h });
     } else if (it.kind === 'throw') {
       this.release(it, p, 17, 3.5);
       it.thrownBy = p.seat;
+      it.owner = p.seat;
+      if (it.effect === 'explode') it.fuseAt = this.tick + Math.round(HZ * 1.6);
       this.emit('throw', { seat: p.seat, item: it.id });
     } else {
       // Poke: whoever is in front, within reach, takes it.
@@ -120,9 +128,25 @@ export class Match {
     this.damage(q.seat, amount, attacker);
   }
 
+  // An explosive goes off where it is, then reappears at home a little later.
+  detonate(it) {
+    this.explode({ x: it.x, y: it.y + 0.2, z: it.z, owner: it.owner ?? -1 }, -1);
+    Object.assign(it, { fuseAt: 0, thrownBy: -1, holder: -1, vx: 0, vy: 0, vz: 0, spin: 0 });
+    it.awayUntil = this.tick + 3 * HZ;
+    Object.assign(it, { x: it.home.x, y: -50, z: it.home.z });
+  }
+
   stepItems() {
     const G = 22, time = this.tick / HZ;
     for (const it of this.items.values()) {
+      if (it.awayUntil) {
+        if (this.tick < it.awayUntil) continue;
+        Object.assign(it, { awayUntil: 0, y: 0 });
+      }
+      if (it.fuseAt && this.tick >= it.fuseAt) {
+        this.detonate(it);
+        continue;
+      }
       if (it.holder >= 0) {
         const p = this.seats[it.holder]?.player;
         if (!p || !p.alive) {
@@ -138,16 +162,23 @@ export class Match {
       it.vy -= G * DT;
       const speed = Math.hypot(it.vx, it.vy, it.vz);
       if (speed > 0.01) {
-        const dir = { x: it.vx / speed, y: it.vy / speed, z: it.vz / speed };
-        const travel = speed * DT;
-        const block = wallDistance(it, dir, travel, this.objects, time);
-        if (block < travel) {
-          Object.assign(it, along(it, dir, Math.max(0, block - 0.05)));
-          // Reflect the dominant horizontal axis, lose energy.
-          if (Math.abs(dir.x) > Math.abs(dir.z)) it.vx *= -0.45;
-          else it.vz *= -0.45;
-          it.vy *= 0.6;
-        } else Object.assign(it, along(it, dir, travel));
+        // Sub-stepped swept motion; each contact reflects about the face it
+        // met, keeping part of the bounce and most of the slide.
+        const steps = Math.max(1, Math.ceil((speed * DT) / 0.2));
+        for (let k = 0; k < steps; k++) {
+          const sp = Math.hypot(it.vx, it.vy, it.vz);
+          if (sp < 0.01) break;
+          const dir = { x: it.vx / sp, y: it.vy / sp, z: it.vz / sp },
+            travel = (sp * DT) / steps;
+          const hit = surfaceHit(it, dir, travel, this.objects, time);
+          if (hit) {
+            Object.assign(it, along(it, dir, Math.max(0, hit.t - 0.02)));
+            const v = reflect({ x: it.vx, y: it.vy, z: it.vz }, hit.normal, 0.42, 0.85);
+            Object.assign(it, { vx: v.x, vy: v.y, vz: v.z });
+            it.spin = (it.spin || 0) * 0.7 + sp * 0.4;
+            if (sp > 3) this.emit('bounce', { item: it.id, at: { x: it.x, y: it.y, z: it.z } });
+          } else Object.assign(it, along(it, dir, travel));
+        }
       }
       if (it.y <= 0) {
         it.y = 0;
@@ -172,6 +203,10 @@ export class Match {
             const b = bodyBox(q);
             if (it.x > b.xMin - 0.2 && it.x < b.xMax + 0.2 && it.z > b.zMin - 0.2 && it.z < b.zMax + 0.2 && it.y > b.yMin && it.y < b.yMax + 0.2) {
               const d = Math.hypot(it.vx, it.vz) || 1;
+              if (it.effect === 'explode') {
+                this.detonate(it);
+                break;
+              }
               this.hit(q, it.thrownBy, 30, { x: it.vx / d, y: 0.3, z: it.vz / d }, 7, it.id);
               it.vx *= -0.3;
               it.vz *= -0.3;
@@ -180,8 +215,8 @@ export class Match {
             }
           }
       }
-      // Run over it to pick it up, one item per hand.
-      if (it.y < 1.2 && Math.hypot(it.vx, it.vy, it.vz) < 6)
+      // Run over it to pick it up, one item per hand (not while its fuse burns).
+      if (!it.fuseAt && it.y < 1.2 && Math.hypot(it.vx, it.vy, it.vz) < 6)
         for (const o of this.seats.filter(Boolean)) {
           const q = o.player;
           if (!q.alive || this.held(q.seat) || this.tick < (it.cool[q.seat] || 0)) continue;
@@ -195,30 +230,66 @@ export class Match {
     }
   }
 
+  // Bullets after oskiewar: no clock on a round, it ricochets off every
+  // surface until it meets a body (or another round, which cancels both),
+  // sub-stepped so it never tunnels; the shooter is safe from it only for a
+  // moment. Headshots kill.
   stepBullets() {
-    const remaining = [], time = this.tick / HZ;
+    const time = this.tick / HZ;
     for (const b of this.bullets) {
-      b.vy -= 6 * DT; // a little drop, so long shots arc
-      const speed = Math.hypot(b.vx, b.vy, b.vz),
-        dir = { x: b.vx / speed, y: b.vy / speed, z: b.vz / speed },
-        travel = speed * DT;
-      let distance = wallDistance(b, dir, travel, this.objects, time),
-        target = null;
-      for (const s of this.seats.filter(Boolean)) {
-        const q = s.player;
-        if (!q.alive || q.seat === b.owner) continue;
-        const d = rayBox(b, dir, bodyBox(q), travel);
-        if (d < distance) {
-          distance = d;
-          target = q;
+      b.px = b.x;
+      b.py = b.y;
+      b.pz = b.z;
+      const speed = Math.hypot(b.vx, b.vy, b.vz);
+      const steps = Math.max(1, Math.ceil((speed * DT) / 0.25));
+      for (let k = 0; k < steps && !b.dead; k++) {
+        const dir = { x: b.vx / speed, y: b.vy / speed, z: b.vz / speed },
+          travel = (speed * DT) / steps;
+        let body = null, at = travel;
+        for (const s of this.seats.filter(Boolean)) {
+          const q = s.player;
+          if (!q.alive || (q.seat === b.owner && this.tick < b.safeUntil)) continue;
+          const d = rayBox(b, dir, bodyBox(q), travel);
+          if (d < at) {
+            at = d;
+            body = q;
+          }
+        }
+        const surface = surfaceHit(b, dir, at, this.objects, time);
+        if (surface && surface.t <= at) {
+          Object.assign(b, along(b, dir, Math.max(0, surface.t - 0.02)));
+          const v = reflect({ x: b.vx, y: b.vy, z: b.vz }, surface.normal);
+          Object.assign(b, { vx: v.x, vy: v.y, vz: v.z });
+          b.bounces++;
+          this.emit('ricochet', { at: { x: b.x, y: b.y, z: b.z } });
+          continue;
+        }
+        Object.assign(b, along(b, dir, at));
+        if (body) {
+          const head = b.y > body.y - 0.25;
+          this.hit(body, b.owner, head ? 100 : 34, dir, head ? 6 : 4, null);
+          if (head) this.emit('headshot', { seat: body.seat, attacker: b.owner });
+          b.dead = true;
         }
       }
-      Object.assign(b, along(b, dir, Math.min(distance, travel)));
-      if (target) this.hit(target, b.owner, 25, dir, 4, null);
-      else if (distance < travel || b.y < 0) this.emit('spark', { at: { x: b.x, y: Math.max(0, b.y), z: b.z } });
-      if (!target && distance >= travel && b.y >= 0 && this.tick - b.born < 1.5 * HZ) remaining.push(b);
+      if (b.bounces > 16 || Math.abs(b.x) > 30 || Math.abs(b.z) > 30 || b.y > 40) b.dead = true;
     }
-    this.bullets = remaining;
+    // Rounds from different players that meet in the air cancel each other.
+    for (let a = 0; a < this.bullets.length; a++)
+      for (let c = a + 1; c < this.bullets.length; c++) {
+        const p = this.bullets[a], q = this.bullets[c];
+        if (p.dead || q.dead || p.owner === q.owner) continue;
+        // Closest approach during this tick, so fast rounds can't pass through each other.
+        const r0 = [p.px - q.px, p.py - q.py, p.pz - q.pz],
+          dr = [p.x - q.x - r0[0], p.y - q.y - r0[1], p.z - q.z - r0[2]];
+        const dd = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
+        const u = dd ? Math.max(0, Math.min(1, -(r0[0] * dr[0] + r0[1] * dr[1] + r0[2] * dr[2]) / dd)) : 0;
+        if (Math.hypot(r0[0] + dr[0] * u, r0[1] + dr[1] * u, r0[2] + dr[2] * u) < 0.6) {
+          p.dead = q.dead = true;
+          this.emit('cancel', { at: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, z: (p.z + q.z) / 2 } });
+        }
+      }
+    this.bullets = this.bullets.filter((b) => !b.dead);
   }
 
   join() {
@@ -421,7 +492,7 @@ export class Match {
       items: [...this.items.values()].map((it) => ({
         id: it.id, x: it.x, y: it.y, z: it.z, holder: it.holder, spin: it.spin,
       })),
-      bullets: this.bullets.map((b) => ({ x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz })),
+      bullets: this.bullets.map((b) => ({ id: b.id, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz })),
       events: this.events.map((e) => ({ ...e })),
     };
   }

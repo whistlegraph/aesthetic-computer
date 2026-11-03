@@ -47,7 +47,7 @@ export class ObjectStore {
   objects(room) {
     return (this.data.rooms[room] || []).map((o) => {
       const v = o.versions.at(-1);
-      return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || null, version: v.version, code: v.code || null, geometry: v.geometry };
+      return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || null, effect: o.effect || null, version: v.version, code: v.code || null, geometry: v.geometry };
     });
   }
   // Record a version's KidLisp $code once the store has issued it.
@@ -79,7 +79,7 @@ export class ObjectStore {
       } else {
         if (job.baseVersion !== -1 || objects.length >= MAX_OBJECTS)
           throw Error('Object capacity reached');
-        object = { id: job.objectId, owner: job.owner, x: job.x, z: job.z, item: job.item || null, versions: [] };
+        object = { id: job.objectId, owner: job.owner, x: job.x, z: job.z, item: job.item || null, effect: job.effect || null, versions: [] };
         objects.push(object);
       }
       object.versions.push({

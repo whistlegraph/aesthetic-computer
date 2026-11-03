@@ -258,6 +258,8 @@ A flying butterfly MUST move and flap hinged wings with rotate, e.g.
 A walking creature MUST move and have alternating animated feet. Use move with sin time.
 For staircases, risers <=.3 and treads >=.5, ascending +z. Example:
 (ink gray) (repeat 6 i (move 0 0 (* i .5) (scale 1 (+ 1 i) 1 (slab -1 0 0 1 .25 .5))))
+Fur and spikes: (fur length [density] forms...) grows strands out of the shapes inside, e.g. (fur .2 (orb 0 1 0 .5)) is fuzzy,
+(fur .6 6 (orb 0 1 0 .3)) is a spiky ball, (fur .4 120 (slab -.3 1.6 -.3 .3 1.8 .3)) is hair. length .01..2, density 1..400 per square metre.
 Sound: (tone hz [sine|square|triangle|sawtooth] [volume 0..1]) puts an oscillator at that point (at most 4).
 hz may follow time, e.g. (tone (+ 220 (* 30 (sin time))) triangle .3). Give singing, humming, buzzing or musical things a tone.
 Bells, chimes, gongs, drums, horns, whistles, music boxes and speakers ALWAYS get a tone. Low or deep: 60..200 hz; high or bright: 600..2000 hz;

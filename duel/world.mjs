@@ -135,6 +135,51 @@ export function wallDistance(origin, dir, max = 1000, objects = [], time = 0) {
   return hit;
 }
 
+// The first surface along a ray, with the face normal there: walls, solid
+// objects and the floor. { t, normal } or null within max.
+export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0) {
+  let best = null;
+  for (const b of [...WALLS, ...objectBoxes(objects, time)]) {
+    let near = -Infinity, far = max, axis = null, sign = 0;
+    let miss = false;
+    for (const k of ['x', 'y', 'z']) {
+      const lo = b[`${k}Min`], hi = b[`${k}Max`];
+      if (Math.abs(dir[k]) < 1e-8) {
+        if (origin[k] < lo || origin[k] > hi) { miss = true; break; }
+        continue;
+      }
+      const a = (lo - origin[k]) / dir[k], c = (hi - origin[k]) / dir[k];
+      const enter = Math.min(a, c);
+      if (enter > near) {
+        near = enter;
+        axis = k;
+        sign = dir[k] > 0 ? -1 : 1;
+      }
+      far = Math.min(far, Math.max(a, c));
+      if (near > far) { miss = true; break; }
+    }
+    if (miss || near < 0 || near > max || !axis) continue;
+    if (!best || near < best.t)
+      best = { t: near, normal: { x: axis === 'x' ? sign : 0, y: axis === 'y' ? sign : 0, z: axis === 'z' ? sign : 0 } };
+  }
+  if (dir.y < 0 && origin.y >= 0) {
+    const t = -origin.y / dir.y;
+    if (t <= max && (!best || t < best.t)) best = { t, normal: { x: 0, y: 1, z: 0 } };
+  }
+  return best;
+}
+
+// Reflect velocity v about normal n, keeping `bounce` of the normal part
+// and `slide` of the tangential part.
+export function reflect(v, n, bounce = 1, slide = 1) {
+  const d = v.x * n.x + v.y * n.y + v.z * n.z;
+  return {
+    x: (v.x - d * n.x) * slide - d * n.x * bounce,
+    y: (v.y - d * n.y) * slide - d * n.y * bounce,
+    z: (v.z - d * n.z) * slide - d * n.z * bounce,
+  };
+}
+
 export function bodyBox(p) {
   return {
     xMin: p.x - 0.4,

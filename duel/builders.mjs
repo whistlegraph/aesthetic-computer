@@ -271,6 +271,12 @@ export class Builders {
       const player = this.rooms.get(room)?.match.seats[seat]?.player;
       if (!player) throw Error('Rejoin the room');
       const item = existing ? existing.item : ITEM_KINDS.includes(input.item) ? input.item : null;
+      // What an item does beyond its kind: explosives go off.
+      const effect = existing
+        ? existing.effect
+        : item && /\b(bomb|grenade|dynamite|explosive|firework|tnt)s?\b/i.test(prompt)
+          ? 'explode'
+          : null;
       const yaw = (player.yaw * Math.PI) / 180;
       const job = {
         id: randomUUID(),
@@ -279,6 +285,7 @@ export class Builders {
         room,
         prompt,
         item,
+        effect,
         baseVersion: existing?.version ?? -1,
         x: existing?.x ?? Math.round(player.x + Math.sin(yaw) * 6),
         z: existing?.z ?? Math.round(player.z + Math.cos(yaw) * 6),

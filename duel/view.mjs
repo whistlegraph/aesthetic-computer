@@ -111,7 +111,13 @@ export async function createView(canvas) {
   const rocket = model(({ box }) =>
     box(0, 0, 0, 0.16, 0.16, 0.32, 0xffff00, INK, PAPER),
   );
-  const tracer = model(({ box }) => box(0, 0, 0, 0.07, 0.07, 0.07, 0xffe066, 0xffe066, 0xffe066));
+  const tracer = model(({ box }) => box(0, 0, 0, 0.09, 0.09, 0.09, 0xffffff, 0xffe066, 0xffffff));
+  // Trail dots from bright to dim.
+  const trailModels = [1, 0.75, 0.5, 0.32].map((k) => {
+    const c = tint(0xffe066, k);
+    return model(({ box }) => box(0, 0, 0, 0.05, 0.05, 0.05, c, c, c));
+  });
+  const trails = new Map();
   const blast = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffff00, INK, PAPER));
   const dot = model(({ box }) => box(0, 0, 0, 0.06, 0.06, 0.06, INK, INK, INK));
   // Magic: sparkles burst from each part as it lands and spiral upward.
@@ -275,6 +281,10 @@ export async function createView(canvas) {
   observer.observe(canvas);
   resize();
   function effect(e) {
+    // Ballistic contact: sparks where a round ricochets, cancels or lands.
+    if (e.at && (e.type === 'ricochet' || e.type === 'spark')) burst(e.at.x, e.at.y, e.at.z, 6, 0.5);
+    if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
+    if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
     if (e.type === 'blast') {
       if (effects.length >= 24) effects.shift();
       effects.push({ at: e.at, born: performance.now() });
@@ -299,6 +309,7 @@ export async function createView(canvas) {
     radial = null,
     items = [],
     bullets = [],
+    since = 0,
     holding = null,
     touch = null,
     input = 'keys',
@@ -583,11 +594,25 @@ export async function createView(canvas) {
         1 - k * k,
       );
     }
+    // Rounds: carried forward from the last update by their velocity, with a
+    // trail of where they have been (bends at every ricochet) fading behind.
+    const live = new Set();
     for (const b of bullets) {
-      const sp = Math.hypot(b.vx, b.vy, b.vz) || 1;
-      for (let k = 0; k < 3; k++)
-        draw(tracer, b.x - (b.vx / sp) * k * 0.25, b.y - (b.vy / sp) * k * 0.25, b.z - (b.vz / sp) * k * 0.25);
+      live.add(b.id);
+      const t = Math.min(0.1, since);
+      const at = { x: b.x + b.vx * t, y: b.y + b.vy * t, z: b.z + b.vz * t };
+      let trail = trails.get(b.id);
+      if (!trail) trails.set(b.id, (trail = []));
+      const last = trail[trail.length - 1];
+      if (!last || Math.hypot(last.x - at.x, last.y - at.y, last.z - at.z) > 0.35) trail.push(at);
+      if (trail.length > 14) trail.shift();
+      draw(tracer, at.x, at.y, at.z);
+      trail.forEach((p, i) => {
+        const k = (i + 1) / trail.length;
+        draw(trailModels[Math.min(trailModels.length - 1, Math.floor((1 - k) * trailModels.length))], p.x, p.y, p.z, 0, 0, 0.4 + 0.6 * k);
+      });
     }
+    for (const id of trails.keys()) if (!live.has(id)) trails.delete(id);
     for (const r of rockets)
       draw(rocket, r.x, r.y, r.z, Math.atan2(r.dir.x, r.dir.z));
     // (The aim reticle is drawn on screen after the world; see below.)

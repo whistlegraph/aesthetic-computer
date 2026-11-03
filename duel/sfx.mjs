@@ -94,6 +94,15 @@ export class Sfx {
     this.voice(note(4), 0.07, { volume: 0.03 });
     this.voice(note(7), 0.1, { volume: 0.03, at: 0.05 });
   }
+  ricochet(up = 1) {
+    // oskiewar's ricochet: a hat tick and a high sine ping.
+    this.noise(0.03, { volume: 0.03, from: 9000, to: 5000 });
+    this.voice(1550 * up + Math.random() * 400, 0.05, { volume: 0.02, type: 'sine' });
+  }
+  headshot() {
+    this.voice(1200, 0.06, { volume: 0.04, type: 'square' });
+    this.voice(600, 0.25, { slide: 0.5, volume: 0.04, at: 0.04 });
+  }
   bounce() {
     this.voice(140, 0.06, { slide: 0.7, volume: 0.02 });
   }

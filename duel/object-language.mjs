@@ -160,6 +160,9 @@ function admit(source, lenient = false) {
   // text, its parent, and the primitives (box indices) beneath it.
   const nodes = [{ id: 0, parent: -1, text: '', boxes: [] }];
   const tones = [];
+  // Fur per primitive (null when bare), in box order.
+  const furs = [];
+  let fur = null;
   const node = (parent, text) => {
     nodes.push({ id: nodes.length, parent, text, boxes: [] });
     return nodes.length - 1;
@@ -196,6 +199,24 @@ function admit(source, lenient = false) {
         if (op === 'def' && !exact(e.range))
           fail('def must be constant; use let for animation');
         local[args[0]] = e;
+        continue;
+      }
+      // (fur length [density] forms...): strands grow from the surfaces of
+      // the shapes inside, along their outward normals. Visual only.
+      if (op === 'fur') {
+        const numeric = args.filter((a) => typeof a === 'number' || (Array.isArray(a) && !['slab', 'orb', 'capsule', 'tri', 'quad', 'move', 'rotate', 'scale', 'ink', 'repeat', 'let', 'def', 'fur', 'tone'].includes(a[0])));
+        const n = Math.min(2, numeric.length);
+        const values = args.slice(0, n).map((a) => expression(a, local));
+        if (!n || values.some((v) => !exact(v.range)))
+          fail('fur needs a constant length, then an optional density');
+        const length = values[0].range[0],
+          density = n > 1 ? values[1].range[0] : 60;
+        if (length < 0.01 || length > 2) fail('fur length must be .01..2');
+        if (density < 1 || density > 400) fail('fur density must be 1..400 per square metre');
+        const saved = fur;
+        fur = { length, density };
+        out.push(...body(args.slice(n), local, transforms, node(parent, head(f, n + 1))));
+        fur = saved;
         continue;
       }
       if (op === 'repeat') {
@@ -397,6 +418,7 @@ function admit(source, lenient = false) {
       const leaf = node(parent, print(f));
       for (let k = leaf; k > 0; k = nodes[k].parent) nodes[k].boxes.push(boxes.length);
       nodes[0].boxes.push(boxes.length);
+      furs.push(fur);
       boxes.push(boxOf(placed));
       animated ||= transforms.some((t) =>
         (t.args || [t.angle]).some((r) => !exact(r)),
@@ -409,7 +431,7 @@ function admit(source, lenient = false) {
   }
   const plan = body(program, env);
   if (!count) fail('Object needs at least one shape');
-  return { plan, boxes, animated, extent, tree: nodes, tones };
+  return { plan, boxes, animated, extent, tree: nodes, tones, furs };
 }
 function boundsOf(points) {
   return [0, 1, 2].map((i) => {
@@ -480,6 +502,7 @@ function compiled(source) {
   let vertices = new Float64Array(512 * 18),
     length = 0,
     boxes = [],
+    ranges = [],
     sampleTime,
     rendered = false,
     render = true;
@@ -502,6 +525,7 @@ function compiled(source) {
       );
     boxes.push(boxOf(boundsOf(corners)));
     if (!render) return;
+    const start = length;
     for (const t of part.triangles) {
       if (length + 18 > vertices.length) fail('Object exceeds 512 triangles');
       const normal = [0, 1, 2].map(
@@ -528,6 +552,7 @@ function compiled(source) {
         length += 6;
       }
     }
+    ranges[boxes.length - 1] = [start, length];
   }
   const out = {
     model: (_radius, id, _mid, _far, m, at) => emit(meshes[id], m, at),
@@ -539,12 +564,13 @@ function compiled(source) {
     if (time !== sampleTime || (draw && !rendered)) {
       length = 0;
       boxes = [];
+      ranges = [];
       render = draw;
       run({ time }, identity, out);
       sampleTime = time;
       rendered = draw;
     }
-    return { vertices: vertices.subarray(0, length), boxes };
+    return { vertices: vertices.subarray(0, length), boxes, ranges };
   };
   frame(0); // Reject excessive triangles before publication.
   const result = {
@@ -591,6 +617,45 @@ export function evaluate(code, time, beat = 0) {
     }
   }
   return 0;
+}
+
+// Strands for every furred primitive at this moment: a flat list of
+// [x1 y1 z1 x2 y2 z2 r g b] per strand, outward along each face normal.
+const hairCache = new Map();
+export function sourceHair(shape, time = 0) {
+  if (shape?.format !== OBJECT_FORMAT) return new Float32Array(0);
+  const p = compiled(shape.source);
+  if (!p.furs.some(Boolean)) return new Float32Array(0);
+  const { vertices: v, ranges, boxes } = p.frame(time);
+  const out = [];
+  let seed = 1;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  p.furs.forEach((f, prim) => {
+    if (!f || !ranges[prim]) return;
+    const [start, end] = ranges[prim],
+      c = boxes[prim];
+    let carry = 0;
+    for (let i = start; i < end && out.length < 400 * 9; i += 18) {
+      const a = [v[i], v[i + 1], v[i + 2]], b = [v[i + 6], v[i + 7], v[i + 8]], d = [v[i + 12], v[i + 13], v[i + 14]];
+      const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+      let n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+      const area2 = Math.hypot(...n);
+      if (!area2) continue;
+      n = n.map((x) => x / area2);
+      carry += (area2 / 2) * f.density;
+      for (; carry >= 1; carry--) {
+        let s1 = rand(), s2 = rand();
+        if (s1 + s2 > 1) (s1 = 1 - s1), (s2 = 1 - s2);
+        const q = [0, 1, 2].map((k) => a[k] + u[k] * s1 + w[k] * s2);
+        // Point outward from the part's centre, whatever the winding.
+        const out3 = [q[0] - c.x, q[1] - c.y, q[2] - c.z];
+        const sign = n[0] * out3[0] + n[1] * out3[1] + n[2] * out3[2] < 0 ? -1 : 1;
+        const len = f.length * (0.7 + 0.6 * rand());
+        out.push(...q, q[0] + n[0] * len * sign, q[1] + n[1] * len * sign, q[2] + n[2] * len * sign, v[i + 3], v[i + 4], v[i + 5]);
+      }
+    }
+  });
+  return new Float32Array(out);
 }
 
 // The oscillators an object carries: [{ freq(time), wave, volume, at }].
