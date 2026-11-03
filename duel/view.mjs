@@ -4,6 +4,21 @@ import { poseObject } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { Projector } from './project.mjs';
 import { joinCode, hudLayout, drawJoinCode } from './hud.mjs';
+
+// What each kind of input does, one line per hand, as Oskiewar lists its
+// controls: the same world plays from a keyboard alone, a pad or a touchscreen.
+export const LEGEND = {
+  keys: [
+    'wasd move / arrows turn / space jump / v camera',
+    'enter build / f use / q drop / x paint / c chalk / h hide this',
+  ],
+  pad: [
+    '[LS] move / [RS] look / [LT] jump / [Y] camera',
+    '[RB] build / [X] paint / [LB] lock on / [B] cancel',
+  ],
+  touch: ['left side: drag to move', 'right side: drag to look / tap jumps / hold builds'],
+};
+const legendRows = (input) => (LEGEND[input] || LEGEND.keys).map((line) => hintSpans(line, THEME.dim));
 import { radialSlots, ringGeometry } from './radial.mjs';
 import {
   THEME,
@@ -356,13 +371,15 @@ export async function createView(canvas) {
       );
     }
   }
-  let aspect = 1;
+  let aspect = 1,
+    pixelScale = 1;
   function resize() {
     const width = Math.max(1, canvas.clientWidth),
       height = Math.max(1, canvas.clientHeight);
     const scale = Math.max(1, Math.floor(Math.min(width / 640, height / 360)));
     host.resize(Math.ceil(width / scale), Math.ceil(height / scale));
     aspect = width / height;
+    pixelScale = scale;
   }
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
@@ -425,6 +442,7 @@ export async function createView(canvas) {
     jobs = [],
     worldTime = 0,
     locked = false,
+    legend = false,
   } = {}) {
     if (lost) {
       location.reload();
@@ -435,7 +453,7 @@ export async function createView(canvas) {
     const solidObjects = objects.filter((o) => !o.item);
     lastWorldTime = worldTime;
     const cells = joinCode(joinURL);
-    const hud = hudLayout(canvas.width, canvas.height, cells);
+    const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale);
     host.beginFrame();
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
@@ -668,32 +686,6 @@ export async function createView(canvas) {
             armPitch + 0.5,
           );
         }
-      } else {
-        const forward = direction(p.yaw, p.pitch),
-          right = direction(p.yaw - 90);
-        // Arms: from each shoulder to its hand, so you see your own limbs.
-        const armColor = COLORS[i] || 0xc0c0c0;
-        const arms = model(({ quad }) => {
-          for (const side of [-1, 1]) {
-            const a = [p.x + right.x * 0.32 * side, p.y - 0.38, p.z + right.z * 0.32 * side];
-            const b = [p.x + forward.x * 0.68 + right.x * 0.34 * side, p.y + forward.y * 0.68 - 0.42, p.z + forward.z * 0.68 + right.z * 0.34 * side];
-            const t = 0.06;
-            const up = [0, t, 0], across = [right.x * t, 0, right.z * t];
-            const corner = (s, u, v) => [s[0] + up[0] * u + across[0] * v, s[1] + up[1] * u + across[1] * v, s[2] + up[2] * u + across[2] * v];
-            for (const [u1, v1, u2, v2, c] of [[1, -1, 1, 1, armColor], [-1, -1, -1, 1, tint(armColor, 0.7)], [-1, 1, 1, 1, tint(armColor, 0.85)], [-1, -1, 1, -1, tint(armColor, 0.85)]])
-              quad(corner(a, u1, v1), corner(a, u2, v2), corner(b, u2, v2), corner(b, u1, v1), c);
-          }
-        });
-        draw(arms, 0, 0, 0);
-        for (const side of [-1, 1])
-          draw(
-            f.hand,
-            p.x + forward.x * 0.75 + right.x * 0.34 * side,
-            p.y + forward.y * 0.75 - 0.36,
-            p.z + forward.z * 0.75 + right.z * 0.34 * side,
-            yaw,
-            (-p.pitch * Math.PI) / 180,
-          );
       }
     }
     for (let i = sparkles.length - 1; i >= 0; i--) {
@@ -861,6 +853,9 @@ export async function createView(canvas) {
                 : [{ text: 'player ' + building.owner.slice(0, 4), color: THEME.dim }],
             ]
           : [
+              // The controls for the hand in use, until the player has played
+              // a while (H, on the keys, brings them back).
+              ...(legend && !spectator ? legendRows(input) : []),
               spectator
                 ? hintSpans(
                     controller ? 'freecam / lb down / rb up' : 'freecam / wasd / space up / shift down',

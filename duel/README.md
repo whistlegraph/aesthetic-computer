@@ -14,7 +14,10 @@ The second starts a three-second countdown. Death respawns after one second;
 a finished match resets after five. Additional connections spectate with a free camera.
 
 WASD moves, mouse aims, left mouse opens the object prompt, space jumps, V switches first/third
-person, Escape releases the mouse. Click again to resume. Keyboard and mouse only.
+person, Escape releases the mouse. Click again to resume. No mouse is needed: a control key
+engages the keyboard without capturing the pointer, and the arrow keys turn and tilt. A
+controls legend for the hand in use (keys, pad or touch) shows for the first eight seconds of
+play; H pins or hides it.
 Handles float above players. A compact room list and connection meter are
 rendered in the engine, with no DOM overlays. The aim point sits at the ray's
 impact in the world. The canvas retains an accessible control description.
@@ -119,7 +122,7 @@ decay in real time. No smoothed position is sent to the server or used for hits.
 5x7 block font. `project.mjs` clips faces at the near plane and projects them
 into the shared triangle stream. The world uses white, gray, black and seat
 colors with broad ambient shading: no textures or post effects.
-Both camera views show empty hands. Collision and network authority
+Third person shows a body with hands; first person draws no arms or hands, only the aim point and anything held. Collision and network authority
 remain independent of rendering.
 
 New objects use the shared Oskiewar object dialect in `xbox/live/object-lisp.mjs`.

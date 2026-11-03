@@ -16,12 +16,27 @@ export function joinCode(url) {
   }
 }
 
-export function hudLayout(width, height, cells) {
+export function hudLayout(width, height, cells, scale = 1) {
   const safeX = Math.max(6, Math.ceil(width * 0.02));
   const safeY = Math.max(6, Math.ceil(height * 0.03));
-  const unit = Math.max(1, Math.round(Math.min(width / 480, height / 270)));
-  // A corner badge: about a fifth of the short side, never under one pixel per module.
-  const module = cells ? Math.max(1, Math.floor(Math.min(width * 0.14, height * 0.22) / (cells.length + 8))) : 0;
+  // `scale` is screen pixels per buffer pixel. A HUD unit is at least three
+  // screen pixels, so the 7-pixel letters read at about 21 to 28 screen pixels
+  // tall whatever the window (a 1x buffer in a narrow browser window used to
+  // draw them 7 pixels tall, half the size of the browser's own text).
+  const least = Math.ceil(3 / Math.max(1, scale));
+  const unit = Math.max(least, Math.round(Math.min(width / 480, height / 270)));
+  // A corner badge about a fifth of the width (a quarter of the height), and
+  // at least three screen pixels per module so a phone reads it from arm's length.
+  const module = cells
+    ? Math.max(
+        1,
+        Math.min(
+          Math.max(least, Math.floor(Math.min(width * 0.2, height * 0.26) / (cells.length + 8))),
+          // Never more than half the short side, whatever the floor asks.
+          Math.floor(Math.min(width, height) / 2 / (cells.length + 8)),
+        ),
+      )
+    : 0;
   const qrSize = cells ? (cells.length + 8) * module : 0;
   return { safeX, safeY, unit, module, qrSize };
 }

@@ -252,6 +252,18 @@ let objects = [],
   jobs = [],
   focusObject = null;
 const locked = () => document.pointerLockElement === canvas;
+// Keyboard-only play: the first control key engages the keys without a pointer
+// capture, and the arrows turn and tilt; no mouse is needed.
+let keyboardMode = false;
+const engaged = () => locked() || keyboardMode;
+const CONTROL_KEYS = [
+  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyV',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+];
+// The controls legend shows for the first eight seconds of play; H pins or hides it.
+let legendPinned = null,
+  activeSeconds = 0;
+const legendShown = () => legendPinned ?? (seat >= 0 && activeSeconds < 8);
 const send = (data) => {
   if (
     ws?.readyState === WebSocket.OPEN &&
@@ -797,20 +809,14 @@ document.addEventListener('keydown', (e) => {
     releaseInput();
     return;
   }
-  if (!locked()) return;
-  if (
-    [
-      'KeyW',
-      'KeyA',
-      'KeyS',
-      'KeyD',
-      'Space',
-      'ShiftLeft',
-      'ShiftRight',
-      'KeyV',
-    ].includes(e.code)
-  )
-    e.preventDefault();
+  if (!locked() && !keyboardMode) {
+    if (touch.active || !CONTROL_KEYS.includes(e.code)) return;
+    keyboardMode = true;
+    if (!ws || ws.readyState === WebSocket.CLOSED) connect();
+    notice = '';
+  }
+  if (CONTROL_KEYS.includes(e.code)) e.preventDefault();
+  if (e.code === 'KeyH' && !e.repeat) legendPinned = !legendShown();
   keys.add(e.code);
   if (seat >= 0 && e.code === 'Space' && !e.repeat) {
     jumpQueued = true;
@@ -999,6 +1005,11 @@ function step(now) {
       -85,
       85,
     );
+    // Arrow keys turn and tilt at a steady rate for mouse-free play.
+    const turnX = Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft')),
+      turnY = Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'));
+    yaw = (yaw - turnX * 130 * Math.min(0.1, elapsed) + 360) % 360;
+    pitch = clamp(pitch - turnY * 90 * Math.min(0.1, elapsed), -85, 85);
     if (seat >= 0 && gamepad.jump) {
       jumpQueued = true;
       sfx.jump();
@@ -1021,6 +1032,8 @@ function step(now) {
   if (elapsed > 0.25) presentation.reset(player);
   debt += Math.min(0.1, elapsed);
   last = now;
+  if (seat >= 0 && (keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY || pad.fwd || pad.right || pad.dx || pad.dy))
+    activeSeconds += Math.min(0.1, elapsed);
   const connected = ws?.readyState === WebSocket.OPEN && snapshot;
   if (seat < 0 && connected)
     freecam = moveFreecam(
@@ -1117,8 +1130,8 @@ function step(now) {
             ? `${snapshot.winner === seat ? 'YOU WIN' : 'OPPONENT WINS'} · ${seconds}`
             : player && !player.alive
               ? 'RESPAWNING'
-              : !locked() && !touch.active && !controller.id
-                ? 'CLICK TO PLAY'
+              : !engaged() && !touch.active && !controller.id
+                ? 'CLICK OR PRESS A KEY TO PLAY'
                 : snapshot.phase === 'waiting'
                   ? 'WAITING FOR OPPONENT'
                   : '');
@@ -1251,7 +1264,7 @@ function step(now) {
     chalkVersion,
     chalkLocal,
     chalkMode,
-    face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') ? -0.5 : 0) + (keys.has('KeyD') ? 0.5 : 0) } : null,
+    face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
     devLog: devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })),
     owner,
     focusObject,
@@ -1259,6 +1272,7 @@ function step(now) {
     jobs,
     worldTime,
     locked: locked(),
+    legend: legendShown(),
   });
   postProcess(elapsed);
 }
