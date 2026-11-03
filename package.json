@@ -9,9 +9,13 @@
   },
   "scripts": {
     "duel": "node duel/server.mjs",
+    "duel:studio": "node duel/studio.mjs",
+    "duel:builder": "node duel/aesel.mjs",
+    "duel:rig": "node duel/rig.mjs",
     "test:duel": "node --test duel/test/*.test.mjs",
     "test:duel:browser": "node duel/test/browser.mjs",
     "test:duel:render": "node duel/test/render.mjs",
+    "test:duel:rig": "node duel/test/rig.mjs",
     "deps:install": "node toolchain/pnpm-install.mjs . && node toolchain/pnpm-install.mjs system",
     "platform": "devcontainer up --workspace-folder .; devcontainer exec --workspace-folder . fish -c 'aesthetic'",
     "test": "node run-tests.mjs",
