@@ -38,6 +38,34 @@ const sentence = (text) => {
 
 const fileOf = (path) => (path ? basename(String(path)) : '');
 
+// A few lines of what a step actually does: code being written, or the
+// command being run. Redacted and clipped like everything else.
+function detail(name, input = {}) {
+  const lines = (text, mark, n = 3) =>
+    String(text || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, n)
+      .map((l) => clip(`${mark}${l}`));
+  if (name === 'Edit' || name === 'MultiEdit')
+    return [...lines(input.old_string, '- ', 1), ...lines(input.new_string, '+ ', 3)];
+  if (name === 'Write') return lines(input.content, '+ ', 3);
+  if (name === 'Bash') return lines(input.command, '$ ', 2);
+  return [];
+}
+
+function codexDetail(source = '') {
+  const added = String(source)
+    .split('\n')
+    .filter((l) => l.startsWith('+') && !l.startsWith('+++') && l.slice(1).trim())
+    .slice(0, 3)
+    .map((l) => clip(`+ ${l.slice(1).trim()}`));
+  if (added.length) return added;
+  const cmd = String(source).match(/"?cmd"?\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  return cmd ? [clip(`$ ${cmd[1].replace(/\\n.*/s, '')}`)] : [];
+}
+
 function claudeTool(name, input = {}) {
   if (['Edit', 'Write', 'NotebookEdit', 'MultiEdit'].includes(name))
     return `EDIT ${fileOf(input.file_path || input.notebook_path)}`;
@@ -74,9 +102,9 @@ export function devEntries(line) {
     return [];
   }
   const out = [];
-  const push = (kind, text) => {
+  const push = (kind, text, more = []) => {
     const clean = kind === 'say' ? sentence(text) : clip(text);
-    if (clean) out.push({ kind, text: clean });
+    if (clean) out.push({ kind, text: clean, detail: more });
   };
   // Claude Code transcript. A tool result marks the running step done.
   if (row.type === 'user' && Array.isArray(row.message?.content)) {
@@ -86,7 +114,8 @@ export function devEntries(line) {
   if (row.type === 'assistant' && Array.isArray(row.message?.content)) {
     for (const block of row.message.content) {
       if (block.type === 'text') push('say', block.text);
-      if (block.type === 'tool_use') push('do', claudeTool(block.name, block.input));
+      if (block.type === 'tool_use')
+        push('do', claudeTool(block.name, block.input), detail(block.name, block.input));
     }
     return out;
   }
@@ -97,7 +126,7 @@ export function devEntries(line) {
       for (const c of p.content || [])
         if (typeof c?.text === 'string') push('say', c.text);
     if (p.type === 'function_call' || p.type === 'custom_tool_call')
-      push('do', codexTool(p.arguments || p.input));
+      push('do', codexTool(p.arguments || p.input), codexDetail(p.arguments || p.input));
     if (p.type === 'function_call_output' || p.type === 'custom_tool_call_output')
       out.push({ kind: 'done', text: '' });
   }

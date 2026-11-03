@@ -622,12 +622,30 @@ export function fitSource(source) {
   } catch (error) {
     if (!String(error.message).startsWith(OUTSIDE)) throw error;
   }
+  return wrapToFit(source, 11.9, 9.95);
+}
+
+// Handheld items fit a small volume, grip at the origin: scale the whole
+// program to at most `size` metres on its longest side and stand it on y=0.
+export function fitItemSource(source, size = 1.2) {
+  const [[x0, x1], [y0, y1], [z0, z1]] = admit(source, true).extent;
+  const longest = Math.max(x1 - x0, y1 - y0, z1 - z0);
+  if (longest <= size && y0 >= -0.001 && Math.max(-x0, x1, -z0, z1) <= size) return source;
+  const s = Math.min(1, size / Math.max(0.001, longest));
+  const dx = -((x0 + x1) / 2) * s,
+    dz = -((z0 + z1) / 2) * s,
+    dy = -y0 * s;
+  const head = /^\s*;[^\n]*\n?/.exec(source)?.[0] || '';
+  return `${head}(move ${round(dx)} ${round(dy)} ${round(dz)} (scale ${round(s)} ${round(s)} ${round(s)}\n${source.slice(head.length)}\n))`;
+}
+
+function wrapToFit(source, across, tall) {
   const [[x0, x1], [y0, y1], [z0, z1]] = admit(source, true).extent;
   const s = Math.min(
     1,
-    11.9 / Math.max(0.001, x1 - x0),
-    11.9 / Math.max(0.001, z1 - z0),
-    9.95 / Math.max(0.001, y1 - y0),
+    across / Math.max(0.001, x1 - x0),
+    across / Math.max(0.001, z1 - z0),
+    tall / Math.max(0.001, y1 - y0),
   );
   const cx = (x0 + x1) / 2,
     cz = (z0 + z1) / 2;

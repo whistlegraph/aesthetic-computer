@@ -11,6 +11,7 @@ export const CATALOG = {
   toy: ['a ball', 'a robot', 'a kite', 'a spinning top', 'a yo-yo', 'blocks', 'a teddy bear', 'a drum'],
   food: ['a cake', 'a pizza', 'a burger', 'an apple', 'a donut', 'an ice cream', 'a banana', 'a sandwich'],
   play: ['a ramp', 'stairs', 'a slide', 'a fountain', 'a swing', 'a trampoline', 'a maze', 'a seesaw'],
+  sound: ['a bell', 'a chime', 'a gong', 'a drum', 'a horn', 'a music box', 'a whistle', 'a speaker'],
 };
 export const CATEGORIES = Object.keys(CATALOG);
 export const THINGS = CATALOG.play;
@@ -26,6 +27,8 @@ export const TRAITS = [
   'tall',
 ];
 export const CHANGES = [
+  'make it hum',
+  'make it sing',
   'make it bigger',
   'make it smaller',
   'make it spin',
@@ -35,6 +38,9 @@ export const CHANGES = [
   'add wheels',
   'add a roof',
 ];
+
+// Sound things pick how they sound: pitch, character and rhythm.
+export const SOUND_TRAITS = ['low', 'high', 'deep', 'bright', 'ringing', 'buzzing', 'pulsing', 'chiming'];
 
 // Animals can move like animals.
 export const ANIMAL_TRAITS = ['singing', 'big', 'tiny', 'walking', 'flying', 'red', 'striped', 'fluffy'];
@@ -65,7 +71,8 @@ export class Radial {
     if (this.target) return CHANGES.filter((c) => !this.picks.includes(c));
     if (!this.category) return CATEGORIES;
     if (!this.picks.length) return CATALOG[this.category];
-    const traits = this.category === 'animal' ? ANIMAL_TRAITS : TRAITS;
+    const traits =
+      this.category === 'animal' ? ANIMAL_TRAITS : this.category === 'sound' ? SOUND_TRAITS : TRAITS;
     return traits.filter((t) => !this.picks.includes(t));
   }
   get title() {

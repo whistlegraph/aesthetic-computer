@@ -51,15 +51,15 @@ test('dev log keeps notes and tool summaries, redacted', () => {
     },
   });
   assert.deepEqual(devEntries(claude), [
-    { kind: 'say', text: 'Shrinking the QR now.' },
-    { kind: 'do', text: 'EDIT hud.mjs' },
-    { kind: 'do', text: 'RUN List files' },
+    { kind: 'say', text: 'Shrinking the QR now.', detail: [] },
+    { kind: 'do', text: 'EDIT hud.mjs', detail: [] },
+    { kind: 'do', text: 'RUN List files', detail: ['$ ls'] },
   ]);
   const codex = JSON.stringify({
     type: 'response_item',
     payload: { type: 'custom_tool_call', input: '*** Begin Patch\n*** Update File: /Users/jas/a/duel/view.mjs\n' },
   });
-  assert.deepEqual(devEntries(codex), [{ kind: 'do', text: 'EDIT view.mjs' }]);
+  assert.deepEqual(devEntries(codex), [{ kind: 'do', text: 'EDIT view.mjs', detail: [] }]);
   assert.deepEqual(devEntries('{"type":"user"}'), []);
   assert.deepEqual(devEntries('not json'), []);
   const secret = redact(`token=abc123 at /Users/jas/x sk-ant-REDACTEDREDACTED ${'a'.repeat(40)}`);

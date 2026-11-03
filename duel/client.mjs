@@ -184,7 +184,7 @@ function connect() {
           if (running) running.done = true;
           continue;
         }
-        devLog = [...devLog, { ...d, at: performance.now() }].slice(-4);
+        devLog = [...devLog, { ...d, at: performance.now() }].slice(-8);
       }
     if (data.type === 'dev-log')
       for (const d of data.entries.slice(-1)) if (d.kind !== 'done') sfx.dev(d.kind);

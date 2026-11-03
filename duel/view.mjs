@@ -1,5 +1,5 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
-import { model, INK, PAPER, rgb } from './paint.mjs';
+import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree } from './object-language.mjs';
 import { Projector } from './project.mjs';
@@ -557,7 +557,7 @@ export async function createView(canvas) {
     }
     for (const r of rockets)
       draw(rocket, r.x, r.y, r.z, Math.atan2(r.dir.x, r.dir.z));
-    if (me?.alive) draw(dot, aim.x, aim.y, aim.z);
+    // (The aim reticle is drawn on screen after the world; see below.)
     for (let i = effects.length - 1; i >= 0; i--) {
       const e = effects[i],
         age = (now - e.born) / 180;
@@ -672,7 +672,7 @@ export async function createView(canvas) {
       }
       projector.overlay(promptModel, width, height);
     }
-    if (members.length || connection || cells) {
+    if (members.length || connection || cells || fps) {
       const width = canvas.width,
         height = canvas.height,
         { unit, safeX, safeY, qrSize } = hud;
@@ -697,6 +697,7 @@ export async function createView(canvas) {
         height,
         joinURL,
         panelTop,
+        fps,
       ]);
       if (key !== presenceKey) {
         presenceKey = key;
@@ -729,12 +730,12 @@ export async function createView(canvas) {
             );
           });
           drawJoinCode(rect, text, cells, width, height, hud);
-          if (meter) {
+          if (meter || fps) {
             // No box: shadowed text right-aligned under the QR, coloured by health.
             const ping = (connection?.label || '').toLowerCase();
             const bars = connection?.bars || 0;
             const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
-            const pingColor = !ping ? THEME.dim : bars >= 4 ? good : bars >= 3 ? THEME.text : bars >= 2 ? fair : poor;
+            const pingColor = !ping ? THEME.dim : bars >= 3 ? good : bars >= 2 ? fair : poor;
             const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
             const right = width / 2 - safeX;
             let y = height / 2 - safeY - (cells ? qrSize + 16 * unit : 2 * unit);
@@ -747,16 +748,19 @@ export async function createView(canvas) {
             if (ping) {
               // Signal as a staircase of four bars rising left to right,
               // lit bars in the health colour, the rest dark.
-              const wx = right - (smallWidth(ping) + 1) * unit - 17 * unit;
-              const base = y - 8 * unit;
+              const wx = right - (smallWidth(ping) + 1) * unit - 13 * unit;
+              const base = y - 7 * unit;
               for (let i = 0; i < 4; i++) {
-                const h = (i + 1) * 2 * unit,
-                  x = wx + i * 4 * unit;
-                rect(x + unit, base - unit, 0.000002, 3 * unit, h, INK);
-                rect(x, base, 0, 3 * unit, h, i < bars ? pingColor : 0x3a3f4d);
+                const h = (2 + i * 2) * unit,
+                  x = wx + i * 3 * unit;
+                const lit = i < bars;
+                rect(x + unit, base - unit, 0.000002, 2 * unit, h, INK);
+                rect(x, base, 0.000001, 2 * unit, h, lit ? pingColor : 0x2c3040);
+                if (lit) rect(x, base + h - unit, 0, 2 * unit, unit, tint(pingColor, 1.25));
               }
               line([{ text: ping, color: pingColor }]);
             }
+            if (fps) line([{ text: `${fps} fps`, color: fpsColor }]);
           }
         });
       }
@@ -863,27 +867,93 @@ export async function createView(canvas) {
       projector.overlay(m, W, H);
     }
     if (devLog.length) {
-      // A running log, left-aligned under the player list: newest at the
-      // bottom, older lines dimmed.
+      // A live feed: each step types in a character at a time with a block
+      // cursor, its code and commands as sublines beneath it; the stack eases
+      // upward as lines arrive and older rows fade into the room.
       const { unit, safeX, safeY } = hud;
-      const columns = Math.max(16, Math.floor((W * 0.5 - safeX) / (4 * unit)));
-      const recent = devLog.slice(-4);
-      const fit = recent.map((d, i) =>
-        clipSpans(devSpans(d, i === recent.length - 1 ? THEME.text : THEME.dim, i === recent.length - 1), columns),
-      );
-      const key = JSON.stringify([fit, W, H, members.length]);
-      if (key !== devKey) {
-        devKey = key;
-        const left = -W / 2 + safeX + 2;
-        const top = H / 2 - safeY;
-        devModel = model(({ rect: worldRect, text, small }) =>
-          fit.forEach((spans, i) => {
-            const w = smallSpanWidth(spans, unit);
-            drawSpans({ rect: flip(worldRect), text, small }, spans, left + w / 2, top - i * 9 * unit, unit, { tiny: true });
-          }),
-        );
+      const columns = Math.max(16, Math.floor((W * 0.45 - safeX) / (4 * unit)));
+      const rows = [];
+      for (const d of devLog) {
+        rows.push({ d, spans: devSpans(d, THEME.text, true), at: d.at, sub: false });
+        for (const line of d.detail || [])
+          rows.push({
+            d,
+            spans: [{ text: line, color: line.startsWith('+') ? 0x8be28b : line.startsWith('-') ? 0xff8a8a : 0x7cc4ff }],
+            at: d.at,
+            sub: true,
+          });
       }
+      const LINE = 8 * unit,
+        SHOWN = 9;
+      const newest = devLog[devLog.length - 1].at;
+      // Ease the whole stack up by one line over a quarter second per arrival.
+      const ease = Math.min(1, (now - newest) / 250);
+      const lift = (1 - (1 - ease) * (1 - ease)) * LINE;
+      const visible = rows.slice(-SHOWN);
+      const left = -W / 2 + safeX + 2;
+      const bottom = H / 2 - safeY - (SHOWN - 1) * LINE;
+      devModel = model(({ rect: worldRect, text, small }) => {
+        const rect = flip(worldRect);
+        // Characters revealed so far, across an entry and its sublines.
+        const typed = new Map();
+        visible.forEach((r, i) => {
+          const age = (now - r.at) / 1000;
+          const budget = typed.has(r.d) ? typed.get(r.d) : Math.floor(age * 140);
+          let spans = clipSpans(r.spans, columns);
+          const length = spans.reduce((n, x) => n + x.text.length, 0);
+          const shown = Math.max(0, Math.min(length, budget));
+          typed.set(r.d, budget - shown);
+          if (shown < length) {
+            let left2 = shown;
+            spans = spans
+              .map((x) => {
+                const t = x.text.slice(0, Math.max(0, left2));
+                left2 -= x.text.length;
+                return { ...x, text: t };
+              })
+              .filter((x) => x.text);
+          }
+          if (!spans.length && shown === 0) return;
+          // Fade with age and with distance from the newest row.
+          const fromNewest = visible.length - 1 - i;
+          const fade = Math.max(0.18, Math.min(1, 1 - age / 90) * (1 - fromNewest * 0.09));
+          spans = spans.map((x) => ({ ...x, color: tint(x.color, fade) }));
+          const y = bottom + (visible.length - 1 - i) * LINE - LINE + lift;
+          const x0 = left + (r.sub ? 8 * unit : 0);
+          const w = smallSpanWidth(spans, unit);
+          drawSpans({ rect, text, small }, spans, x0 + w / 2, y, unit, { tiny: true, shadow: null });
+          if (shown < length && now % 300 < 200)
+            rect(x0 + w + unit, y - 7 * unit, 0, 3 * unit, 7 * unit, THEME.verb);
+        });
+      });
       projector.overlay(devModel, W, H);
+    }
+    // A square reticle: four corner brackets that spread with movement, snap
+    // in and colour up on an object (green when it is yours), and breathe.
+    if (me?.alive && !radial) {
+      const { unit } = hud;
+      const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
+      const target = focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;
+      const breathe = Math.sin(now / 420) * 0.5 + 0.5;
+      const half = Math.round((focusObject ? 4 : 6 + speed * 6 + breathe * 1.5) * unit),
+        arm = 3 * unit,
+        t = unit;
+      const m = model(({ rect: worldRect }) => {
+        const rect = flip(worldRect);
+        for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          const cx = sx * half,
+            cy = sy * half;
+          const hx = sx < 0 ? cx : cx - arm + t,
+            vy = sy < 0 ? cy : cy - arm + t;
+          rect(hx + t, cy - t - t, 0.000002, arm, t, INK);
+          rect(cx - (sx < 0 ? 0 : t) + t, vy - t, 0.000002, t, arm, INK);
+          rect(hx, cy - t, 0, arm, t, target);
+          rect(cx - (sx < 0 ? 0 : t), vy, 0, t, arm, target);
+        }
+        rect(-t / 2 + t, -t / 2 - t, 0.000002, t, t, INK);
+        rect(-t / 2, -t / 2, 0, t, t, target);
+      });
+      projector.overlay(m, W, H);
     }
     // Aiming at an object with a $code: a small QR at the crosshair opens it
     // on aesthetic.computer from a phone.
@@ -896,8 +966,9 @@ export async function createView(canvas) {
           size = n * unit;
         const m = model(({ rect: worldRect, small }) => {
           const rect = flip(worldRect);
-          const x0 = -size / 2,
-            top = size / 2 - 10 * unit;
+          const { safeX, safeY } = hud;
+          const x0 = W / 2 - safeX - size,
+            top = Math.max(-H / 2 + safeY, (panelTop ?? -Infinity) + 4 * unit) + size;
           rect(x0, top - size, 0.000002, size, size, PAPER);
           cells.forEach((row, y) => {
             for (let c = 0; c < row.length; ) {
@@ -907,26 +978,10 @@ export async function createView(canvas) {
               rect(x0 + (start + 2) * unit, top - (y + 3) * unit, 0, (c - start) * unit, unit, INK);
             }
           });
-          small(`$${focusObject.code}`, 0, top - size - 3 * unit, 0, unit, THEME.verb);
+          small(`$${focusObject.code}`, x0 + size / 2, top + 9 * unit, 0, unit, THEME.verb);
         });
         projector.overlay(m, W, H);
       }
-    }
-    if (fps) {
-      // Bottom right, lifted above the prompt panel when one is open.
-      const { unit, safeX, safeY } = hud;
-      const color = fps >= 55 ? 0x3fb950 : fps >= 30 ? 0xffe066 : 0xff6b6b;
-      const label = `${fps} fps`;
-      const y = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
-      const key = JSON.stringify([label, W, H, y]);
-      if (key !== fpsKey) {
-        fpsKey = key;
-        const w = smallWidth(label) * unit;
-        fpsModel = model(({ rect: worldRect, text, small }) =>
-          drawSpans({ rect: flip(worldRect), text, small }, [{ text: label, color }], W / 2 - safeX - w / 2, y, unit, { tiny: true }),
-        );
-      }
-      projector.overlay(fpsModel, W, H);
     }
     host.present({ clear: sky });
     // Local inspection only; no telemetry, labels or DOM overlays.
