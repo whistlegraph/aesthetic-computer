@@ -95,12 +95,23 @@ export function connectBuilder({
     retry,
     stopped = false;
   const jobs = new Map();
+  // Results finished while the server was away, sent on reconnect.
+  const pending = [];
+  const deliver = (message) => {
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+    else pending.push(message);
+  };
   function connect() {
     socket = new WebSocket(address, {
       headers: { authorization: `Bearer ${token}` },
     });
     const current = socket;
-    current.on('open', () => onState('connected'));
+    current.on('open', () => {
+      onState('connected');
+      const list = [...jobs.entries()].map(([id, c]) => ({ id, meta: c.meta, phase: c.phase, code: c.code }));
+      if (list.length) current.send(JSON.stringify({ type: 'resume', jobs: list }));
+      for (const message of pending.splice(0)) current.send(JSON.stringify(message));
+    });
     current.on('error', () => {});
     current.on('message', async (raw) => {
       let job;
@@ -114,35 +125,37 @@ export function connectBuilder({
         jobs.delete(job.id);
         return;
       }
-      if (job.type !== 'build' || jobs.has(job.id) || jobs.size >= 2) return;
+      if (job.type !== 'build' || jobs.has(job.id) || jobs.size >= 3) return;
       const controller = new AbortController();
+      // Kept with the job: what to hand back if the server restarts.
+      controller.meta = job.meta || null;
+      controller.phase = 'generating';
+      controller.code = '';
       jobs.set(job.id, controller);
-      const timeout = setTimeout(() => controller.abort(), 170000);
+      const timeout = setTimeout(() => {
+        controller.timedOut = true;
+        controller.abort();
+      }, 170000);
       try {
         let lastProgress = 0;
         const onProgress = (progress) => {
-          if (
-            controller.signal.aborted ||
-            current.readyState !== WebSocket.OPEN
-          )
-            return;
+          controller.phase = progress.phase;
+          controller.code = progress.code || controller.code;
+          if (controller.signal.aborted || socket.readyState !== WebSocket.OPEN) return;
           if (
             Date.now() - lastProgress < 150 &&
             progress.phase === 'generating'
           )
             return;
           lastProgress = Date.now();
-          current.send(
-            JSON.stringify({ type: 'progress', id: job.id, ...progress }),
-          );
+          socket.send(JSON.stringify({ type: 'progress', id: job.id, ...progress }));
         };
         const geometry = await generate(job, controller.signal, { onProgress });
-        if (!controller.signal.aborted && current.readyState === WebSocket.OPEN)
-          current.send(JSON.stringify({ type: 'built', id: job.id, geometry }));
+        if (!controller.signal.aborted) deliver({ type: 'built', id: job.id, geometry });
       } catch (error) {
-        if (current.readyState === WebSocket.OPEN)
-          current.send(
-            JSON.stringify({
+        if (!controller.signal.aborted || controller.timedOut)
+          deliver(
+            ({
               type: 'build-error',
               id: job.id,
               error: controller.signal.aborted
@@ -159,8 +172,7 @@ export function connectBuilder({
       }
     });
     current.on('close', () => {
-      for (const controller of jobs.values()) controller.abort();
-      jobs.clear();
+      // Keep building while the server restarts; results wait in pending.
       onState('disconnected');
       if (!stopped) retry = setTimeout(connect, 2000);
     });
@@ -179,9 +191,13 @@ if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
+  const { readFileSync } = await import('node:fs');
+  const { homedir } = await import('node:os');
   const client = connectBuilder({
-    url: process.env.DOOL_SERVER_URL,
-    token: process.env.DOOL_BUILDER_TOKEN,
+    url: process.env.DOOL_SERVER_URL || 'ws://127.0.0.1:8788/builder',
+    token:
+      process.env.DOOL_BUILDER_TOKEN ||
+      readFileSync(`${process.env.DOOL_STATE_DIR || `${homedir()}/.local/share/dool-studio`}/builder-token`, 'utf8').trim(),
     onState: (state) => console.log(`Aesel builder ${state}`),
   });
   for (const signal of ['SIGINT', 'SIGTERM'])

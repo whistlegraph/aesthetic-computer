@@ -75,6 +75,11 @@ function scaleShape(shape, k) {
     motion: shape.motion && { ...shape.motion, distance: shape.motion.distance * k },
   });
 }
+// Not a singleton: each player may have several builds going, and any
+// number of builder processes may connect and share the work.
+export const PER_PLAYER = 3;
+export const PER_WORKER = 3;
+
 export class Builders {
   constructor({ token, store, rooms, send, publish = null }) {
     Object.assign(this, { token, store, rooms, send, publish });
@@ -190,7 +195,13 @@ export class Builders {
         ws.close(1008, 'Invalid builder response');
         return;
       }
+      if (data.type === 'resume') return this.resume(ws, work, data.jobs);
       const job = this.jobs.get(data.id);
+      // A job handed back after a reconnect is this worker's again.
+      if (job && !job.worker && job.adopt === data.id) {
+        job.worker = ws;
+        work.add(job.id);
+      }
       if (!job || job.worker !== ws || !work.has(job.id) || job.finishing)
         return;
       if (data.type === 'progress') {
@@ -231,7 +242,7 @@ export class Builders {
             .then((code) => this.store.setCode(job.room, committed.id, committed.version, code))
             .then(() => this.broadcast(job.room))
             .catch((e) => console.log(`dool $code failed: ${e.message}`));
-        this.send(job.client, {
+        this.deliver(job, {
           type: 'build-result',
           id: job.id,
           objectId: job.objectId,
@@ -239,7 +250,7 @@ export class Builders {
         });
       } catch (e) {
         console.log(`dool build failed (${job.room}): ${e.message} | prompt: ${job.prompt}`);
-        this.send(job.client, {
+        this.deliver(job, {
           type: 'build-result',
           id: job.id,
           error: e.message,
@@ -252,22 +263,36 @@ export class Builders {
     ws.on('close', () => {
       clearInterval(heartbeat);
       this.workers.delete(ws);
+      // The builder keeps working while it reconnects: hold its jobs for a
+      // minute before giving up on them.
       for (const id of work) {
         const job = this.jobs.get(id);
-        if (job && !job.finishing) {
-          this.send(job.client, {
-            type: 'build-result',
-            id,
-            error: 'Aesel disconnected. Your previous version is unchanged.',
-          });
+        if (!job || job.finishing) continue;
+        job.worker = null;
+        job.adopt = id;
+        job.orphanTimer = setTimeout(() => {
+          if (job.finishing || job.worker) return;
+          this.deliver(job, { type: 'build-result', id, error: 'Aesel disconnected. Your previous version is unchanged.' });
           this.finish(job);
-        }
+        }, 60000);
       }
       this.all();
     });
   }
+  // Results go to the player who asked, found by identity: their socket may
+  // have changed since (a reload or a server restart).
+  deliver(job, message) {
+    const room = this.rooms.get(job.room);
+    const open = (ws) => ws && ws.readyState === 1;
+    let to = open(job.client) ? job.client : null;
+    if (!to && room)
+      for (const [ws, member] of room.sessions || [])
+        if (member?.owner === job.owner && open(ws)) to = ws;
+    if (to) this.send(to, message);
+  }
   finish(job) {
     clearTimeout(job.timer);
+    clearTimeout(job.orphanTimer);
     this.jobs.delete(job.id);
     this.workers.get(job.worker)?.delete(job.id);
     this.broadcast(job.room);
@@ -279,8 +304,8 @@ export class Builders {
         typeof input.prompt === 'string' ? input.prompt.trim() : '';
       if (!prompt || prompt.length > 280 || /[\x00-\x1f]/.test(prompt))
         throw Error('Use 1–280 characters');
-      if ([...this.jobs.values()].some((j) => j.owner === owner))
-        throw Error('Aesel is still working on your prompt');
+      if ([...this.jobs.values()].filter((j) => j.owner === owner).length >= PER_PLAYER)
+        throw Error(`Aesel is already making ${PER_PLAYER} things for you`);
       const existing = input.objectId
         ? this.store.get(room, input.objectId)
         : null;
@@ -292,7 +317,10 @@ export class Builders {
         throw Error('Version limit reached');
       if (!existing && this.store.objects(room).length >= MAX_OBJECTS)
         throw Error('Object capacity reached');
-      const worker = [...this.workers].find(([, work]) => work.size < 2)?.[0];
+      // The least busy builder with room takes it.
+      const worker = [...this.workers]
+        .filter(([, work]) => work.size < PER_WORKER)
+        .sort((a, b) => a[1].size - b[1].size)[0]?.[0];
       if (!worker)
         throw Error(
           this.workers.size
@@ -367,6 +395,7 @@ export class Builders {
         id: job.id,
         prompt: [item ? `${prompt} (${ITEM_HINT[item]})` : prompt, job.sketch && `Follow this chalk sketch the player drew (x y z in metres, object origin at 0 0 0, y up); make its shape out of these lines: ${job.sketch}`].filter(Boolean).join('\n').slice(0, 6000),
         previous: existing?.geometry || null,
+        meta: Builders.meta(job),
       });
       this.send(client, {
         type: 'build-accepted',
@@ -378,13 +407,36 @@ export class Builders {
       this.send(client, { type: 'build-result', error: e.message });
     }
   }
+  static meta(job) {
+    const { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt } = job;
+    return { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt };
+  }
+  // A builder that reconnects hands back the jobs it was still working on.
+  resume(ws, work, list = []) {
+    for (const entry of list.slice(0, PER_WORKER * 2)) {
+      const m = entry?.meta;
+      // The room may not be open yet (nobody back since the restart); the
+      // job waits for it and shows when someone joins.
+      if (!m || typeof m.id !== 'string' || this.jobs.has(m.id) || typeof m.room !== 'string') continue;
+      const job = { ...m, worker: ws, client: null, phase: entry.phase || 'generating', code: entry.code || '' };
+      job.timer = setTimeout(() => {
+        if (job.finishing) return;
+        this.deliver(job, { type: 'build-result', id: job.id, error: 'Aesel timed out. Try again.' });
+        this.finish(job);
+      }, 180000);
+      this.jobs.set(job.id, job);
+      work.add(job.id);
+      this.broadcast(job.room);
+    }
+  }
   cancel(owner, room) {
-    const job = [...this.jobs.values()].find(
+    // The newest of this player's builds.
+    const job = [...this.jobs.values()].reverse().find(
       (j) => j.owner === owner && j.room === room,
     );
     if (!job || job.finishing) return;
     this.send(job.worker, { type: 'cancel', id: job.id });
-    this.send(job.client, {
+    this.deliver(job, {
       type: 'build-result',
       id: job.id,
       cancelled: true,
@@ -457,7 +509,10 @@ export class Builders {
     return shape;
   }
   close() {
-    for (const job of this.jobs.values()) clearTimeout(job.timer);
+    for (const job of this.jobs.values()) {
+      clearTimeout(job.timer);
+      clearTimeout(job.orphanTimer);
+    }
     for (const worker of this.workers.keys()) worker.terminate();
     this.jobs.clear();
   }

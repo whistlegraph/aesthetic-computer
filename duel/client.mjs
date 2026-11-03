@@ -243,7 +243,7 @@ function connect() {
     if (data.type === 'pong') connection.reply(data.at, performance.now());
     if (data.type === 'identity') {
       owner = data.owner;
-      prompt.busy = seat >= 0 && jobs.some((j) => j.owner === owner);
+      prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
       try {
         localStorage.setItem('dool-owner', data.token);
       } catch {}
@@ -254,7 +254,7 @@ function connect() {
       builder = data.builder;
       if (Array.isArray(data.history)) codeHistory = data.history;
       jobs = data.jobs;
-      prompt.busy = seat >= 0 && jobs.some((j) => j.owner === owner);
+      prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
     }
     if (data.type === 'build-accepted') {
       sfx.buildStart();
