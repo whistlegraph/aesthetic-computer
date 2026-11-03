@@ -18,6 +18,8 @@ import {
 import { smallWidth } from './paint.mjs';
 
 // A dark room: night floor, slate walls; the two seat colours stay bright.
+// Braincells are magical purple.
+const BRAIN = 0xb46bff;
 // West, east, south, north.
 const WALL_HUES = [0x2b3a5c, 0x4a2f5c, 0x1f4a4a, 0x3a3f4d];
 const FLOOR = 0x23262f,
@@ -70,6 +72,7 @@ export async function createView(canvas) {
   }
   canvas.dataset.engine = backend;
   const projector = new Projector(host.scene);
+  const facecam = new Projector(host.scene);
   const sky = [...rgb(SKY), 1];
   const arena = model(({ box, quad }) => {
     quad([-19, 0, -19], [-19, 0, 19], [19, 0, 19], [19, 0, -19], FLOOR);
@@ -97,10 +100,13 @@ export async function createView(canvas) {
     torso: model(({ box }) =>
       box(0, 1.02, 0, 0.42, 0.62, 0.26, color, INK, PAPER),
     ),
-    head: model(({ box, rect }) => {
+    head: model(({ box }) => {
       box(0, 1.59, 0, 0.44, 0.42, 0.36, PAPER, 0xc0c0c0, PAPER);
-      rect(-0.14, 1.59, 0.181, 0.09, 0.07, INK);
-      rect(0.05, 1.59, 0.181, 0.09, 0.07, INK);
+      // The brain: a magical purple cap of lobes on top of the head.
+      box(0, 1.835, 0, 0.36, 0.09, 0.3, BRAIN, tint(BRAIN, 0.75), tint(BRAIN, 1.15));
+      box(-0.09, 1.89, 0, 0.15, 0.06, 0.26, tint(BRAIN, 1.1), tint(BRAIN, 0.8), tint(BRAIN, 1.25));
+      box(0.09, 1.89, 0, 0.15, 0.06, 0.26, tint(BRAIN, 1.1), tint(BRAIN, 0.8), tint(BRAIN, 1.25));
+      box(0, 1.88, 0, 0.012, 0.07, 0.27, tint(BRAIN, 0.55), tint(BRAIN, 0.55), tint(BRAIN, 0.55));
     }),
     limb: model(({ box }) =>
       box(0, -0.23, 0, 0.13, 0.46, 0.16, color, INK, PAPER),
@@ -146,9 +152,18 @@ export async function createView(canvas) {
   const dot = model(({ box }) => box(0, 0, 0, 0.06, 0.06, 0.06, INK, INK, INK));
   // Magic: sparkles burst from each part as it lands and spiral upward.
   const SPARK = [0xffe066, 0xffffff, 0x7cc4ff, 0xd7a6ff, 0xff9ad5];
+  const BRAIN_SPARK = [0xb46bff, 0xd7a6ff, 0x8e44ff, 0xf0d8ff].map((c) => model(({ box }) => box(0, 0, 0, 0.08, 0.08, 0.08, c, c, c)));
   const sparkModels = SPARK.map((c) => model(({ box }) => box(0, 0, 0, 0.09, 0.09, 0.09, c, c, c)));
   const sparkles = [],
     partCounts = new Map();
+  function burstColor(x, y, z, count, models) {
+    const born = performance.now();
+    for (let i = 0; i < count && sparkles.length < 400; i++) {
+      const a = Math.random() * Math.PI * 2, speed = 0.4 + Math.random() * 0.8;
+      sparkles.push({ x, y, z, vx: Math.cos(a) * speed, vy: 2 + Math.random() * 2, vz: Math.sin(a) * speed,
+        spin: (Math.random() - 0.5) * 6, born, life: 700 + Math.random() * 700, model: models[i % models.length] });
+    }
+  }
   function burst(x, y, z, count = 14, spread = 1) {
     const born = performance.now();
     for (let i = 0; i < count && sparkles.length < 400; i++) {
@@ -167,13 +182,39 @@ export async function createView(canvas) {
     }
   }
   const effects = [];
+  // Eyes: two dark patches on the face, shifted by where the player looks
+  // (dx, dy in metres) and squeezed shut to h. Cached by quantized state.
+  const eyeModels = new Map();
+  function eyes(dx, dy, h) {
+    const key = `${Math.round(dx * 100)}|${Math.round(dy * 100)}|${Math.round(h * 100)}`;
+    let m = eyeModels.get(key);
+    if (!m) {
+      if (eyeModels.size > 200) eyeModels.clear();
+      m = model(({ rect }) => {
+        rect(-0.14 + dx, 1.59 + dy + (0.07 - h) / 2, 0.19, 0.09, h, INK);
+        rect(0.05 + dx, 1.59 + dy + (0.07 - h) / 2, 0.19, 0.09, h, INK);
+      });
+      eyeModels.set(key, m);
+    }
+    return m;
+  }
+  const blinking = (now, seat) => (now + seat * 1700) % 4200 < 130;
+  // Where a player's eyes point: up/down with their aim; your own also glance
+  // with your turning. Squint when just hurt, shut on a blink.
+  function eyeFor(p, i, now, faceState) {
+    const dy = Math.max(-1, Math.min(1, (p.pitch || 0) / 60)) * 0.045;
+    const dx = faceState && i === faceState.seat ? Math.max(-1, Math.min(1, (faceState.turn || 0) * 1.4)) * 0.035 : 0;
+    const hurt = faceState && i === faceState.seat && (now - faceState.hurtAt) < 600;
+    const h = hurt ? 0.02 : blinking(now, i) ? 0.012 : 0.07;
+    return eyes(-dx, dy, h);
+  }
   const objectModels = new Map(),
     previewModels = new Map();
   let promptKey, promptModel;
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel;
   let panelTop = null;
-  let chalkCacheKey = '', chalkModel = null;
+  const chalkModels = new Map();
   // The Lisp tree in space: labels and the lines between them, per source.
   const trees = new Map(),
     labels = new Map(),
@@ -306,6 +347,8 @@ export async function createView(canvas) {
   observer.observe(canvas);
   resize();
   function effect(e) {
+    // Spending braincells: a purple puff from the brain.
+    if (e.type === 'think' && e.at) burstColor(e.at.x, e.at.y, e.at.z, 18, BRAIN_SPARK);
     // Ballistic contact: sparks where a round ricochets, cancels or lands.
     if (e.at && (e.type === 'ricochet' || e.type === 'spark')) burst(e.at.x, e.at.y, e.at.z, 6, 0.5);
     if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
@@ -341,7 +384,10 @@ export async function createView(canvas) {
     devLog = [],
     fps = 0,
     walls = [],
+    menu = null,
+    braincells = null,
     chalk = [[], []],
+    chalkLocal = [],
     chalkMode = null,
     face = null,
     owner,
@@ -553,6 +599,7 @@ export async function createView(canvas) {
       if (i !== seat || third || !me) {
         draw(f.torso, p.x, base, p.z, yaw);
         draw(f.head, p.x, base, p.z, yaw);
+        draw(eyeFor(p, i, now, face), p.x, base, p.z, yaw);
         // Name tags are screen text drawn after the world (see below), so
         // they stay crisp and never fight the scene for depth.
         tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z });
@@ -682,8 +729,10 @@ export async function createView(canvas) {
           ? `chalk ${chalkMode.text}: hold [RT] draw / [X] build / [B] cancel`
           : `chalk ${chalkMode.text}: hold c or right click / enter build / esc cancel`
         : null;
+      const whose = (o) =>
+        o.wall ? 'kidlisp wall' : o.owner === owner ? (pad ? '[LB] to change' : 'yours') : 'player ' + String(o.owner || '').slice(0, 4);
       const hint = drawing ? drawing : carry ? carry : focusObject
-        ? `${named(focusObject)} v${focusObject.version} - ${focusObject.owner === owner ? (pad ? '[LB] to change' : 'yours') : 'player ' + focusObject.owner.slice(0, 4)}`
+        ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
         : input === 'touch'
           ? 'hold the right side to build'
           : pad
@@ -702,7 +751,25 @@ export async function createView(canvas) {
           .flatMap(wrap)
           .slice(-3) || [];
       const cancel = pad ? '[B] cancel' : locked ? 'esc cancel' : 'click to move / esc cancel';
-      const rows = prompt.open
+      // A KidLisp wall in the crosshair: its source, highlighted, in the panel.
+      const wallCode =
+        !prompt.open && !building && focusObject?.wall && focusObject.source
+          ? focusObject.source
+              .split('\n')
+              .filter((l) => l.trim())
+              .slice(0, 6)
+              .flatMap(wrap)
+              .slice(0, 7)
+          : null;
+      const rows = wallCode
+        ? [
+            [
+              { text: `$${focusObject.code}`, color: THEME.verb },
+              { text: ' kidlisp on the wall', color: THEME.dim },
+            ],
+            ...wallCode.map((l) => codeSpans(l)),
+          ]
+        : prompt.open
         ? [
             [{ text: title, color: THEME.verb }],
             ...wrap(writing).map((l) => (radial ? phraseSpans(l) : [{ text: l, color: THEME.text }])),
@@ -740,13 +807,13 @@ export async function createView(canvas) {
       const visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
       ).map((r) => clipSpans(r, columns));
-      const key = JSON.stringify([visible, width, height, prompt.open, !!radial]);
+      const key = JSON.stringify([visible, width, height, prompt.open, !!radial, !!wallCode]);
       if (key !== promptKey) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text }) => {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panelHeight = visible.length * 11 * unit + 10 * unit;
-          const panel = prompt.open || building;
+          const panel = prompt.open || building || wallCode;
           panelTop = panel ? -height / 2 + safeY + panelHeight : null;
           if (panel) {
             // A dark slab with a thin slate rule; text carries the colour.
@@ -993,7 +1060,9 @@ export async function createView(canvas) {
       const lift = (1 - (1 - ease) * (1 - ease)) * LINE;
       const visible = rows.slice(-SHOWN);
       const left = -W / 2 + safeX + 2;
-      const bottom = H / 2 - safeY - (SHOWN - 1) * LINE;
+      // Anchored at the top: lines start at the corner, newest lowest; once
+      // the stack is full it eases upward as each line arrives.
+      const top = H / 2 - safeY;
       devModel = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
         // Characters revealed so far, across an entry and its sublines.
@@ -1020,7 +1089,8 @@ export async function createView(canvas) {
           const fromNewest = visible.length - 1 - i;
           const fade = Math.max(0.18, Math.min(1, 1 - age / 90) * (1 - fromNewest * 0.09));
           spans = spans.map((x) => ({ ...x, color: tint(x.color, fade) }));
-          const y = bottom + (visible.length - 1 - i) * LINE - LINE + lift;
+          const full = rows.length >= SHOWN;
+          const y = top - i * LINE + (full ? lift - LINE : 0);
           const x0 = left + (r.sub ? 8 * unit : 0);
           const w = smallSpanWidth(spans, unit);
           drawSpans({ rect, text, small }, spans, x0 + w / 2, y, unit, { tiny: true, shadow: null });
@@ -1030,30 +1100,32 @@ export async function createView(canvas) {
       });
       projector.overlay(devModel, W, H);
     }
-    // A square reticle: four corner brackets that spread with movement, snap
-    // in and colour up on an object (green when it is yours), and breathe.
+    // A square reticle: four L-shaped corners on whole pixels, symmetric
+    // about the centre, each with a one-pixel shadow. It opens with speed,
+    // closes and colours on an object (green when yours), in pixel steps.
     if (me?.alive && !radial) {
       const { unit } = hud;
       const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
-      const target = focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;
-      const breathe = Math.sin(now / 420) * 0.5 + 0.5;
-      const half = Math.round((focusObject ? 4 : 6 + speed * 6 + breathe * 1.5) * unit),
-        arm = 3 * unit,
+      const color = focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;
+      const half = (focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
+        arm = 4 * unit,
         t = unit;
       const m = model(({ rect: worldRect }) => {
+        // rect(left, bottom, w, h): screen x right, y up, whole pixels.
         const rect = flip(worldRect);
-        for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-          const cx = sx * half,
-            cy = sy * half;
-          const hx = sx < 0 ? cx : cx - arm + t,
-            vy = sy < 0 ? cy : cy - arm + t;
-          rect(hx + t, cy - t - t, 0.000002, arm, t, INK);
-          rect(cx - (sx < 0 ? 0 : t) + t, vy - t, 0.000002, t, arm, INK);
-          rect(hx, cy - t, 0, arm, t, target);
-          rect(cx - (sx < 0 ? 0 : t), vy, 0, t, arm, target);
-        }
-        rect(-t / 2 + t, -t / 2 - t, 0.000002, t, t, INK);
-        rect(-t / 2, -t / 2, 0, t, t, target);
+        const L = (x, y, w, h) => {
+          rect(x + t, y - t, 0.000002, w, h, INK);
+          rect(x, y, 0, w, h, color);
+        };
+        for (const sx of [-1, 1])
+          for (const sy of [-1, 1]) {
+            // The corner's outer pixel, then arms running inward.
+            const x = sx < 0 ? -half - t : half,
+              y = sy < 0 ? -half - t : half;
+            L(sx < 0 ? x : x - arm + t, y, arm, t);
+            L(x, sy < 0 ? y : y - arm + t, t, arm);
+          }
+        L(-t, -t, 2 * t, 2 * t);
       });
       projector.overlay(m, W, H);
     }
@@ -1085,6 +1157,71 @@ export async function createView(canvas) {
         projector.overlay(m, W, H);
       }
     }
+    if (face && me) {
+      const { unit, safeX, safeY } = hud;
+      const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
+      const listTop = floor + Math.max(0, members.length - 1) * 12 * unit + 4 * unit;
+      const S = 24 * unit, x0 = -W / 2 + safeX + 2, y0 = listTop + 4 * unit;
+      const base = me.y - CFG.eyeHeight,
+        yawR = (me.yaw * Math.PI) / 180;
+      const f2 = direction(me.yaw, 0);
+      const head = { x: me.x, y: base + 1.5, z: me.z };
+      const camAt = { x: head.x + f2.x * 1.3, y: head.y + 0.1, z: head.z + f2.z * 1.3 };
+      const start = host.scene.triangleCount;
+      facecam.camera(camAt, head, 1);
+      // A narrow lens: head and shoulders fill the frame.
+      facecam.sx *= 2.2;
+      facecam.sy *= 2.2;
+      const fd = (...a) => facecam.draw(...a);
+      fd(arena);
+      for (const w of walls) if (w.model) fd(w.model, 0, 0, 0);
+      for (const o of objects)
+        if (!o.item && o.geometry.format === OBJECT_FORMAT) fd(sourceFrame(o.geometry, worldTime).vertices, o.x, 0, o.z);
+      const fs = fighters[face.seat] || fighters[0];
+      fd(fs.torso, me.x, base, me.z, yawR);
+      fd(fs.head, me.x, base, me.z, yawR);
+      fd(eyeFor(me, face.seat, now, face), me.x, base, me.z, yawR);
+      // Into the frame: clip each triangle to the cam's square (so big ones
+      // keep correct depth and nothing spills), scale it into the portrait,
+      // and pull it in front of the world.
+      const v = host.scene.vertices,
+        sx = S / W,
+        sy = S / H,
+        cx = (2 * (W / 2 + x0) + S) / W - 1,
+        cy = (2 * y0 + S) / H;
+      const tris = v.slice(start * 18, host.scene.triangleCount * 18);
+      host.scene.triangleCount = start;
+      const edges = [[0, -1], [0, 1], [1, -1], [1, 1]];
+      for (let k = 0; k < tris.length; k += 18) {
+        let poly = [0, 6, 12].map((o) => Array.from(tris.subarray(k + o, k + o + 6)));
+        for (const [axis, side] of edges) {
+          const out = [];
+          for (let i = 0; i < poly.length; i++) {
+            const a = poly[i], b = poly[(i + 1) % poly.length];
+            const ina = a[axis] * side <= 1, inb = b[axis] * side <= 1;
+            if (ina) out.push(a);
+            if (ina !== inb) {
+              const t = (side - a[axis]) / (b[axis] - a[axis]);
+              out.push(a.map((x, n) => x + (b[n] - x) * t));
+            }
+          }
+          poly = out;
+          if (poly.length < 3) break;
+        }
+        for (let i = 1; i + 1 < poly.length; i++) {
+          if (host.scene.triangleCount >= host.scene.maxTriangles) break;
+          let at = host.scene.triangleCount++ * 18;
+          for (const p of [poly[0], poly[i], poly[i + 1]]) {
+            v[at++] = cx + p[0] * sx;
+            v[at++] = cy + p[1] * sy;
+            v[at++] = p[2] * 0.001;
+            v[at++] = p[3];
+            v[at++] = p[4];
+            v[at++] = p[5];
+          }
+        }
+      }
+    }
     if (face) {
       // A face cam, bottom left above the handles: an original pixel portrait
       // in the player's own look that reacts to what happens to them.
@@ -1100,13 +1237,30 @@ export async function createView(canvas) {
       const hp = face.health ?? 100;
       const look = hurt < 0.6 ? face.hurtSide : Math.max(-1, Math.min(1, Math.round((face.turn || 0) * 1.4)));
       const bob = Math.round(Math.sin(now / 700) * 0.6) * unit;
-      const m = model(({ rect: worldRect }) => {
+      const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
         const px = (x, y, w, h, c, z = 0) => rect(x0 + x * unit, y0 + y * unit, z, w * unit, h * unit, c);
-        // Frame: dark, flashing red when hurt.
-        const flash = hurt < 0.35 ? 0x7a1f1f : 0x15171e;
-        px(-1, -1, 26, 26, 0x5a5f70, 0.000004);
-        px(0, 0, 24, 24, flash, 0.000003);
+        // Frame around the cam: slate, flashing red when hurt.
+        const edge = hurt < 0.35 ? 0xff6b6b : 0x5a5f70;
+        px(-1, -1, 26, 1, edge);
+        px(-1, 24, 26, 1, edge);
+        px(-1, 0, 1, 24, edge);
+        px(24, 0, 1, 24, edge);
+        // Braincells beside the cam: a pixel brain and the count, in purple.
+        if (Number.isFinite(braincells)) {
+          const BR = ['.##.##.', '#######', '###.###', '#######', '.##.##.'];
+          BR.forEach((row, r) =>
+            [...row].forEach((ch, c) => ch === '#' && px(27 + c, 20 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
+          );
+          const n = braincells >= 1e6 ? `${(braincells / 1e6).toFixed(1)}m` : braincells >= 1e4 ? `${Math.round(braincells / 1e3)}k` : `${Math.round(braincells)}`;
+          small(n, x0 + (36 + (n.length * 4) / 2) * unit, y0 + 21 * unit, 0, unit, 0xd7a6ff);
+        }
+        // The health bar under it, in health colours.
+        const hpc = hp > 60 ? 0x3fb950 : hp > 30 ? 0xffe066 : 0xff6b6b;
+        px(0, -3, 24, 2, 0x2c3040, 0.000001);
+        px(0, -3, Math.max(0, Math.round((24 * hp) / 100)), 2, hpc);
+        if (me) return;
+        px(0, 0, 24, 24, 0x15171e, 0.000003);
         // Shoulders in the seat colour.
         px(3, 0, 18, 5, COLORS[face.seat] || 0xc0c0c0, 0.000002);
         // Head: the player's white block with a shaded side.
@@ -1154,26 +1308,39 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // Chalk: each player's strokes as thin ribbons, tinted toward their colour.
-    const chalkKey = JSON.stringify(chalk.map((s) => s.reduce((n, x) => n + x.length, 0)).concat(chalk.map((s) => s.at(-1)?.at(-1)?.x)));
-    if (chalkKey !== chalkCacheKey) {
-      chalkCacheKey = chalkKey;
-      chalkModel = model(({ quad }) => {
+    // Chalk: a cached model per stroke, rebuilt only while it grows; your
+    // own newest points draw at once, before the server echoes them.
+    const ribbon = (points, ink) =>
+      model(({ quad }) => {
         const w = 0.02;
-        chalk.forEach((strokes, seatIndex) => {
-          const c = tint(COLORS[seatIndex] || 0xffffff, 0.35) + 0xa0a0a0 > 0xffffff ? 0xf2efe6 : 0xf2efe6;
-          const ink = seatIndex === 0 ? 0xffd9cf : 0xd6ecff;
-          for (const s of strokes)
-            for (let k = 1; k < s.length; k++) {
-              const a = s[k - 1], b = s[k];
-              quad([a.x - w, a.y, a.z], [b.x - w, b.y, b.z], [b.x + w, b.y, b.z], [a.x + w, a.y, a.z], ink);
-              quad([a.x, a.y - w, a.z], [b.x, b.y - w, b.z], [b.x, b.y + w, b.z], [a.x, a.y + w, a.z], c === ink ? ink : ink);
-              quad([a.x, a.y, a.z - w], [b.x, b.y, b.z - w], [b.x, b.y, b.z + w], [a.x, a.y, a.z + w], ink);
-            }
-        });
+        for (let k = 1; k < points.length; k++) {
+          const a = points[k - 1], b = points[k];
+          quad([a.x - w, a.y, a.z], [b.x - w, b.y, b.z], [b.x + w, b.y, b.z], [a.x + w, a.y, a.z], ink);
+          quad([a.x, a.y - w, a.z], [b.x, b.y - w, b.z], [b.x, b.y + w, b.z], [a.x, a.y + w, a.z], ink);
+        }
       });
+    const liveChalk = new Set();
+    chalk.forEach((strokes, seatIndex) => {
+      const ink = seatIndex === 0 ? 0xffd9cf : 0xd6ecff;
+      (strokes || []).forEach((points, k) => {
+        if (!points || points.length < 2) return;
+        const key = `${seatIndex}:${k}`;
+        liveChalk.add(key);
+        let c = chalkModels.get(key);
+        const first = points[0];
+        if (!c || c.length !== points.length || c.x !== first.x || c.z !== first.z) {
+          c = { length: points.length, x: first.x, z: first.z, model: ribbon(points, ink) };
+          chalkModels.set(key, c);
+        }
+        draw(c.model, 0, 0, 0);
+      });
+    });
+    for (const key of chalkModels.keys()) if (!liveChalk.has(key)) chalkModels.delete(key);
+    if (chalkLocal.length >= 1 && seat >= 0) {
+      const mine = chalk[seat]?.at(-1)?.at(-1);
+      const tail = mine ? [mine, ...chalkLocal] : chalkLocal;
+      if (tail.length >= 2) draw(ribbon(tail, seat === 0 ? 0xffd9cf : 0xd6ecff), 0, 0, 0);
     }
-    if (chalkModel) draw(chalkModel, 0, 0, 0);
     // KidLisp walls: step each program about 20 times a second and lay its
     // pixels on the wall as a grid of cells, unmirrored from inside.
     for (const w of walls) {
@@ -1204,6 +1371,30 @@ export async function createView(canvas) {
         });
       }
       draw(w.model, 0, 0, 0);
+    }
+    if (menu) {
+      // A centred list: title, then items, the chosen one on yellow.
+      const { unit } = hud;
+      const rows = menu.items.slice(0, 12);
+      const w = Math.min(W - 40 * unit, Math.max(120, ...rows.map((r) => r.label.length * 6 + 24)) * unit);
+      const lineH = 12 * unit,
+        h = (rows.length + 2) * lineH;
+      const m = model(({ rect: worldRect, text }) => {
+        const rect = flip(worldRect);
+        rect(-w / 2 - unit, -h / 2 - unit, 0.000004, w + 2 * unit, h + 2 * unit, LINE);
+        rect(-w / 2, -h / 2, 0.000003, w, h, 0x15171e);
+        drawSpans({ rect, text }, [{ text: menu.title, color: THEME.verb }], 0, h / 2 - 4 * unit, unit, { shadow: null });
+        rows.forEach((r, i) => {
+          const y = h / 2 - (i + 2) * lineH + 2 * unit;
+          const on = i === menu.selected;
+          if (on) rect(-w / 2 + 4 * unit, y - 9 * unit, 0.000002, w - 8 * unit, 11 * unit, 0xffe066);
+          const spans = r.label.startsWith('$')
+            ? [{ text: r.label.split(' ')[0], color: on ? INK : THEME.verb }, { text: ' ' + r.label.split(' ').slice(1).join(' '), color: on ? INK : THEME.text }]
+            : [{ text: r.label, color: on ? INK : THEME.text }];
+          drawSpans({ rect, text }, spans, 0, y, unit, { shadow: null });
+        });
+      });
+      projector.overlay(m, W, H);
     }
     host.present({ clear: sky });
     // Local inspection only; no telemetry, labels or DOM overlays.

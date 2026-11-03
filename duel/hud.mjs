@@ -18,7 +18,7 @@ export function joinCode(url) {
 
 export function hudLayout(width, height, cells) {
   const safeX = Math.max(6, Math.ceil(width * 0.02));
-  const safeY = Math.max(12, Math.ceil(height * 0.05));
+  const safeY = Math.max(6, Math.ceil(height * 0.03));
   const unit = Math.max(1, Math.round(Math.min(width / 480, height / 270)));
   // A corner badge: about a fifth of the short side, never under one pixel per module.
   const module = cells ? Math.max(1, Math.floor(Math.min(width * 0.14, height * 0.22) / (cells.length + 8))) : 0;

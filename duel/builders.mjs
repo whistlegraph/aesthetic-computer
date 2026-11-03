@@ -97,6 +97,7 @@ export class Builders {
       type: 'objects',
       objects: this.store.objects(room),
       builder: this.workers.size > 0,
+      history: this.store.history(room).slice(0, 24),
       jobs: [...this.jobs.values()]
         .filter((j) => j.room === room)
         .map((j) => ({
@@ -112,6 +113,36 @@ export class Builders {
           preview: j.preview || null,
         })),
     };
+  }
+  async clearRoom(room) {
+    await this.store.clearRoom(room);
+    // A clean room: chalk goes too.
+    const match = this.rooms.get(room)?.match;
+    if (match) for (const seat of [0, 1]) match.clearChalk(seat);
+    this.broadcast(room);
+  }
+  // Put a copy of a remembered $code in front of the player, no Aesel needed.
+  async restore(client, room, owner, seat, code) {
+    try {
+      const entry = this.store.historyEntry(room, code);
+      if (!entry) throw Error('Unknown $' + code);
+      if (this.store.objects(room).length >= MAX_OBJECTS) throw Error('Object capacity reached');
+      const player = this.rooms.get(room)?.match.seats[seat]?.player;
+      if (!player || !owner) throw Error('Rejoin the room');
+      const yaw = (player.yaw * Math.PI) / 180;
+      const job = {
+        id: randomUUID(), objectId: randomUUID(), owner, room, prompt: `$${code}`, baseVersion: -1,
+        item: entry.item, effect: entry.effect,
+        x: Math.round(player.x + Math.sin(yaw) * 4), z: Math.round(player.z + Math.cos(yaw) * 4),
+      };
+      const shape = geometry(entry.geometry);
+      const committed = await this.store.commit(job, shape, () => this.place(job, shape));
+      await this.store.setCode(room, committed.id, committed.version, code);
+      this.send(client, { type: 'build-result', id: job.id, objectId: committed.id, version: committed.version });
+      this.broadcast(room);
+    } catch (e) {
+      this.send(client, { type: 'build-result', error: e.message });
+    }
   }
   // Give versions that predate $codes theirs.
   async backfill() {

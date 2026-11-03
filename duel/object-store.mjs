@@ -50,14 +50,31 @@ export class ObjectStore {
       return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || null, effect: o.effect || null, version: v.version, code: v.code || null, geometry: v.geometry };
     });
   }
-  // Record a version's KidLisp $code once the store has issued it.
+  // Record a version's KidLisp $code once the store has issued it, and
+  // remember it in the room's history (which outlives clearing the room).
   setCode(room, id, version, code) {
     return this.transact((data) => {
-      const v = (data.rooms[room] || [])
-        .find((o) => o.id === id)
-        ?.versions.find((x) => x.version === version);
-      if (v) v.code = code;
-      return !!v;
+      const o = (data.rooms[room] || []).find((x) => x.id === id);
+      const v = o?.versions.find((x) => x.version === version);
+      if (!v) return false;
+      v.code = code;
+      const history = ((data.history ||= {})[room] ||= []);
+      if (!history.some((h) => h.code === code))
+        history.unshift({ code, name: v.geometry?.name || 'object', version, item: o.item || null, effect: o.effect || null, geometry: v.geometry, at: Date.now() });
+      history.length = Math.min(history.length, 64);
+      return true;
+    });
+  }
+  history(room) {
+    return (this.data.history?.[room] || []).map(({ code, name, version, item, at }) => ({ code, name, version, item, at }));
+  }
+  historyEntry(room, code) {
+    return (this.data.history?.[room] || []).find((h) => h.code === code) || null;
+  }
+  clearRoom(room) {
+    return this.transact((data) => {
+      data.rooms[room] = [];
+      return true;
     });
   }
   get(room, id) {

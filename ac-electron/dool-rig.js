@@ -228,6 +228,7 @@ function openDoolRig() {
       const text = typeof event?.message === 'string' ? event.message : message;
       const lvl = typeof event?.level === 'string' ? event.level : level;
       if (lvl === 'error' || lvl === 3) log('console error:', text);
+      else if (lvl === 'warning' || lvl === 2 || /webgpu|webgl|device/i.test(String(text))) log('console:', text);
     });
     view.webContents.on('render-process-gone', (_e, d) => {
       log('renderer gone:', d.reason, d.exitCode);
@@ -256,6 +257,15 @@ function launchDoolRig() {
     if (!win) return;
     // Stay on the current macOS desktop so both views retain controller focus.
     setFull(win, !win.doolFull);
+  });
+  // A fresh process instead of an in-page reload: on some Macs a reloaded
+  // WebGPU page comes back black, while a relaunch always draws.
+  // A fresh renderer process (and GPU context) for the page, in the same
+  // window: the render-process-gone handler reloads it. A full relaunch lost
+  // the launch environment.
+  ipcMain.on('dool-rig:restart', (event) => {
+    console.log(new Date().toISOString(), 'dool restart (new renderer)');
+    event.sender.forcefullyCrashRenderer();
   });
   // A controller pressed while another app is in front brings the game back.
   ipcMain.on('dool-rig:claim-focus', (event) => {

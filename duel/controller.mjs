@@ -12,6 +12,8 @@ const zero = () => ({
   select: false,
   ring: false,
   use: false,
+  dup: false,
+  ddown: false,
   camera: false,
   cancel: false,
   start: false,
@@ -65,6 +67,8 @@ export class Controller {
       // LB picks the aimed object (or empty floor) and opens the build ring.
       result.ring = edge(4);
       result.use = edge(5);
+      result.dup = edge(12);
+      result.ddown = edge(13);
       result.hold = !!buttons[0] && !changed && this.focused;
       result.cancel = edge(1);
       result.prompt = edge(2);

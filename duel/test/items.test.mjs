@@ -140,3 +140,16 @@ test('chalk draws strokes in reach, splits them on release, and clears', () => {
   m.clearChalk(0);
   assert.equal(m.chalk[0].length, 0);
 });
+
+test('chalk syncs as point ops, and whole only after a clear', () => {
+  const m = playing([]);
+  const p = m.seats[0].player;
+  send(m, 0, { chalk: { x: p.x + 1, y: 1.5, z: p.z + 2 } });
+  send(m, 0, { chalk: { x: p.x + 1.5, y: 1.6, z: p.z + 2 } });
+  const first = m.takeChalk();
+  assert.deepEqual(first.map((x) => x.type), ['chalk-ops']);
+  assert.equal(first[0].ops.length, 2);
+  assert.deepEqual(m.takeChalk(), [], 'nothing new, nothing sent');
+  m.clearChalk(0);
+  assert.deepEqual(m.takeChalk().map((x) => [x.type, x.seat, x.strokes.length]), [['chalk', 0, 0]]);
+});

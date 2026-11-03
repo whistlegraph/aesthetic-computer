@@ -237,6 +237,25 @@ export function createDuelServer({
     }
     ws.send(JSON.stringify(data));
   };
+  // Braincells: AC's allowance, read with the player's own sign-in and sent
+  // to them alone. Refreshed every minute and after each build.
+  async function refreshBraincells(ws, member) {
+    if (!member?.token || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      const r = await fetch('https://aesthetic.computer/api/easel-credits', {
+        headers: { authorization: `Bearer ${member.token}` },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!r.ok) return;
+      const b = await r.json();
+      if (Number.isFinite(b.remaining))
+        send(ws, { type: 'braincells', remaining: b.remaining + (Number.isFinite(b.purchased) ? b.purchased : 0), limit: b.limit });
+    } catch {}
+  }
+  const braincellTimer = setInterval(() => {
+    for (const room of rooms.values())
+      for (const [ws] of room.clients) void refreshBraincells(ws, room.sessions.get(ws));
+  }, 60000);
   const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp });
   // Off unless a transcript is named, and only in the listed rooms.
   const devRecent = [];
@@ -302,6 +321,9 @@ export function createDuelServer({
         if (ws.readyState !== WebSocket.OPEN || !room.sessions.has(ws)) return;
         member.handle = handle;
         member.ready = true;
+        // Kept in memory only, to read this player's braincells.
+        member.token = token;
+        void refreshBraincells(ws, member);
         room.assign();
         const colors = await resolveHandleColors(handle);
         if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) {
@@ -392,12 +414,16 @@ export function createDuelServer({
         builders.cancel(owner, key);
       if (data?.type === 'account') void identifyAccount(data.accessToken);
       if (data?.type === 'prompt') {
-        if (member.seat >= 0)
+        if (member.seat >= 0) {
           builders.request(ws, key, owner, member.seat, data);
-        else
-          send(ws, { type: 'build-result', error: 'Spectators cannot build' });
+          for (const ms of [20000, 90000, 180000]) setTimeout(() => void refreshBraincells(ws, member), ms);
+        }
+        else send(ws, { type: 'build-result', error: 'Spectators cannot build' });
       }
       if (data?.type === 'chalk-clear' && member.seat >= 0) room.match.clearChalk(member.seat);
+      if (data?.type === 'clear-room' && member.seat >= 0) void builders.clearRoom(key);
+      if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
+        void builders.restore(ws, key, owner, member.seat, data.code);
       if (data?.type === 'input' && member.seat >= 0)
         room.match.input(member.seat, data.commands);
       if (data?.type === 'ping' && Number.isFinite(data.at))
@@ -420,11 +446,9 @@ export function createDuelServer({
       debt -= 1000 / HZ;
       for (const room of rooms.values()) {
         room.match.step();
-        if (room.match.chalkDirty && room.match.tick % 6 === 0) {
-          room.match.chalkDirty = false;
-          const msg = { type: 'chalk', strokes: room.match.chalk };
-          for (const ws of room.clients.keys()) send(ws, msg);
-        }
+        if (room.match.chalkDirty && room.match.tick % 3 === 0)
+          for (const msg of room.match.takeChalk())
+            for (const ws of room.clients.keys()) send(ws, msg);
         if (room.match.tick % 2) continue;
         const snap = room.match.snapshot();
         for (const ws of room.clients.keys()) {
@@ -445,6 +469,7 @@ export function createDuelServer({
     async close() {
       builders.close();
       stopDevLog();
+      clearInterval(braincellTimer);
       clearInterval(timer);
       for (const remove of detach) remove();
       for (const ws of wss.clients) ws.terminate();

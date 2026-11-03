@@ -64,6 +64,7 @@ export async function kidlispWall(code, { width = 96, height = 54 } = {}) {
     piece?.boot?.(api);
   } catch {}
   return {
+    source,
     width,
     height,
     pixels: display.pixels,

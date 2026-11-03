@@ -30,9 +30,10 @@ function extent(v) {
   };
 }
 
-export function objectPiece(source, label = "") {
+// options: { yaw, pitch, still } fixes the view (thumbnails); still stops the spin.
+export function objectPiece(source, label = "", options = {}) {
   let shape, error;
-  let yaw = 0.6, pitch = 0.38, dragging = false;
+  let yaw = options.yaw ?? 0.6, pitch = options.pitch ?? 0.38, dragging = !!options.still;
   let depth, size = [0, 0];
   let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
   const start = Date.now();

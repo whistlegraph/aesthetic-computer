@@ -37,6 +37,8 @@ let yaw = 0,
   latestAt = 0,
   eventId = 0;
 let chalkStrokes = [[], []],
+  chalkVersion = 0,
+  chalkLocal = [],
   // Draw mode inside a build: { text, target } while you chalk the shape.
   chalkMode = null,
   chalkMouse = false;
@@ -112,6 +114,11 @@ let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
 let members = [];
+// Start opens the room menu; Back opens the $code history.
+let braincells = null;
+let menu = null,
+  codeHistory = [],
+  menuStickAt = 0;
 let objects = [],
   owner = null,
   builder = false,
@@ -205,7 +212,22 @@ function connect() {
       });
     }
     if (data.type === 'presence') members = data.members;
-    if (data.type === 'chalk' && Array.isArray(data.strokes)) chalkStrokes = data.strokes;
+    if (data.type === 'braincells' && Number.isFinite(data.remaining)) braincells = data.remaining;
+    if (data.type === 'chalk' && Array.isArray(data.strokes)) {
+      // Whole: both seats on join, or one seat after a clear or trim.
+      if (Number.isInteger(data.seat)) chalkStrokes[data.seat] = data.strokes;
+      else chalkStrokes = data.strokes;
+      chalkVersion++;
+      if (data.seat === seat || !Number.isInteger(data.seat)) chalkLocal = [];
+    }
+    if (data.type === 'chalk-ops' && Array.isArray(data.ops)) {
+      for (const [s, k, x, y, z] of data.ops) {
+        const strokes = (chalkStrokes[s] ||= []);
+        (strokes[k] ||= []).push({ x, y, z });
+        if (s === seat) chalkLocal = [];
+      }
+      chalkVersion++;
+    }
     if (data.type === 'dev-log')
       for (const d of data.entries) {
         // A finished step updates the line it belongs to rather than adding one.
@@ -230,11 +252,13 @@ function connect() {
       for (const job of data.jobs) sfx.buildProgress(job.id, job.preview?.boxes?.length || 0);
       objects = data.objects;
       builder = data.builder;
+      if (Array.isArray(data.history)) codeHistory = data.history;
       jobs = data.jobs;
       prompt.busy = seat >= 0 && jobs.some((j) => j.owner === owner);
     }
     if (data.type === 'build-accepted') {
       sfx.buildStart();
+      if (player) view.effect({ type: 'think', at: { x: player.x, y: player.y + 0.35, z: player.z } });
       prompt.busy = true;
       prompt.message = 'AESEL IS BUILDING';
       prompt.open = false;
@@ -357,7 +381,7 @@ function connect() {
       const back = async () => {
         try {
           const r = await fetch(new URL('./health', location.href), { cache: 'no-store' });
-          if (r.ok) return location.reload();
+          if (r.ok) return window.doolRig?.restart ? window.doolRig.restart() : location.reload();
         } catch {}
         setTimeout(back, 1000);
       };
@@ -409,6 +433,39 @@ function submitChalk() {
   send({ type: 'prompt', prompt: chalkMode.text, objectId: chalkMode.target?.id, baseVersion: chalkMode.target?.version, chalk: true });
   chalkMode = null;
 }
+function menuItems(kind) {
+  if (kind === 'room')
+    return [
+      { label: 'resume', act: () => {} },
+      { label: 'clear the room', act: () => send({ type: 'clear-room' }) },
+      { label: 'erase my chalk', act: () => send({ type: 'chalk-clear' }) },
+      { label: third ? 'first person' : 'third person', act: () => (third = !third) },
+      {
+        label: 'fullscreen',
+        act: () => (window.doolRig ? window.doolRig.toggleFullscreen() : canvas.requestFullscreen?.().catch(() => {})),
+      },
+    ];
+  return codeHistory.length
+    ? codeHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()} v${h.version}`, act: () => send({ type: 'restore', code: h.code }) }))
+    : [{ label: 'nothing made yet', act: () => {} }];
+}
+function toggleMenu(kind) {
+  if (menu?.kind === kind) return closeMenu();
+  menu = { kind, title: kind === 'room' ? 'room' : '$ history', items: menuItems(kind), selected: 0 };
+  closeBuild();
+  releaseInput();
+  sfx.ringOpen();
+}
+function closeMenu() {
+  menu = null;
+  sfx.ringBack();
+}
+function chooseMenu() {
+  const item = menu?.items[menu.selected];
+  menu = null;
+  sfx.ringPick(0);
+  item?.act();
+}
 function holding() {
   return !!snapshot?.items?.some((it) => it.holder === seat && seat >= 0);
 }
@@ -443,7 +500,7 @@ function submitPrompt(gesture = true) {
 }
 function openRadial() {
   if (seat < 0 || prompt.busy || radial.open) return;
-  const target = focusObject?.owner === owner ? focusObject : null;
+  const target = focusObject?.owner === owner && !focusObject?.wall ? focusObject : null;
   releaseInput();
   document.exitPointerLock();
   canvas.focus();
@@ -520,6 +577,19 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   void sfx.wake();
+  if (!e.repeat && (e.code === 'Tab' || e.code === 'Backquote')) {
+    e.preventDefault();
+    toggleMenu(e.code === 'Tab' ? 'room' : 'history');
+    return;
+  }
+  if (menu) {
+    e.preventDefault();
+    if (e.code === 'ArrowDown' || e.code === 'KeyS') menu.selected = (menu.selected + 1) % menu.items.length;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW') menu.selected = (menu.selected - 1 + menu.items.length) % menu.items.length;
+    if (e.code === 'Enter') chooseMenu();
+    if (e.code === 'Escape') closeMenu();
+    return;
+  }
   if (e.code === 'Escape' && radial.open && !e.repeat) {
     e.preventDefault();
     closeBuild();
@@ -640,11 +710,23 @@ function step(now) {
     fpsFrames = 0;
     fpsAt = now;
   }
-  if (gamepad.start) {
-    if (window.doolRig) window.doolRig.toggleFullscreen();
-    else canvas.requestFullscreen?.().catch(() => {});
+  if (gamepad.start) toggleMenu('room');
+  if (gamepad.swap) toggleMenu('history');
+  if (menu) {
+    // Move with the d-pad or the stick, choose with A, close with B.
+    let step = (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
+    if (!step && Math.abs(gamepad.fwd) > 0.6 && now - menuStickAt > 220) {
+      step = gamepad.fwd > 0 ? -1 : 1;
+      menuStickAt = now;
+    }
+    if (step) {
+      menu.selected = (menu.selected + step + menu.items.length) % menu.items.length;
+      sfx.ringMove(menu.selected);
+    }
+    if (gamepad.select) chooseMenu();
+    if (gamepad.cancel) closeMenu();
+    gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, ring: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
   }
-  if (gamepad.swap) window.doolRig?.focusOther();
   const pad = touch.sample(canvas.clientWidth, canvas.clientHeight, now);
   for (const event of pad.events) {
     if (event.type === 'hold' && !prompt.open) openRadial();
@@ -790,7 +872,12 @@ function step(now) {
       buttons: keys.has('Space') || jumpQueued ? 1 : 0,
       use: useQueued,
       drop: dropQueued,
-      chalk: chalkPoint(),
+      chalk: (() => {
+        const at = chalkPoint();
+        if (at) chalkLocal.push(at);
+        else chalkLocal = [];
+        return at;
+      })(),
       fire: (firing || fireQueued) && locked(),
     };
     jumpQueued = fireQueued = useQueued = dropQueued = false;
@@ -848,6 +935,19 @@ function step(now) {
         focusObject = objects.find((o) => o.id === it.id);
       }
     }
+    // The KidLisp walls are objects too: aim at one to see its code.
+    for (const w of walls) {
+      const along = w.face === 'north' ? dir.z : -dir.x;
+      if (along <= 0.01) continue;
+      const t = w.face === 'north' ? (17.97 - player.z) / dir.z : (-17.97 - player.x) / dir.x;
+      if (!(t > 0) || t >= nearest) continue;
+      const hit = { x: player.x + dir.x * t, y: player.y + dir.y * t, z: player.z + dir.z * t };
+      const u = w.face === 'north' ? hit.x : hit.z;
+      if (Math.abs(u) <= 16 && hit.y >= 1.5 && hit.y <= 1.5 + 18) {
+        nearest = t;
+        focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, version: 0, owner: null, geometry: { name: `$${w.code}` } };
+      }
+    }
     // Holding something with nothing else aimed at: the held item is the one to edit.
     if (!focusObject) {
       const mine = snapshot?.items?.find((it) => it.holder === seat);
@@ -899,7 +999,11 @@ function step(now) {
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps,
     walls,
+    menu,
+    braincells,
     chalk: chalkStrokes,
+    chalkVersion,
+    chalkLocal,
     chalkMode,
     face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') ? -0.5 : 0) + (keys.has('KeyD') ? 0.5 : 0) } : null,
     devLog: devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })),

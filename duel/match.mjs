@@ -33,6 +33,10 @@ export class Match {
     this.chalk = [[], []];
     this.chalkDirty = false;
     this.chalking = [false, false];
+    // New points since the last broadcast, [seat, stroke, x, y, z]; a seat
+    // whose old points were trimmed or cleared is re-sent whole instead.
+    this.chalkOps = [];
+    this.chalkWhole = new Set();
   }
 
   addChalk(seat, at) {
@@ -43,20 +47,34 @@ export class Match {
     const stroke = strokes[strokes.length - 1];
     const last = stroke[stroke.length - 1];
     if (last && Math.hypot(last.x - at.x, last.y - at.y, last.z - at.z) < 0.08) return;
-    stroke.push({ x: Math.round(at.x * 100) / 100, y: Math.round(at.y * 100) / 100, z: Math.round(at.z * 100) / 100 });
+    const point = { x: Math.round(at.x * 100) / 100, y: Math.round(at.y * 100) / 100, z: Math.round(at.z * 100) / 100 };
+    stroke.push(point);
+    this.chalkOps.push([seat, strokes.length - 1, point.x, point.y, point.z]);
     // Keep the newest 800 points per player.
     let total = strokes.reduce((n, s) => n + s.length, 0);
     while (total > 800 && strokes.length) {
       strokes[0].shift();
       if (!strokes[0].length) strokes.shift();
       total--;
+      this.chalkWhole.add(seat);
     }
     this.chalkDirty = true;
   }
 
   clearChalk(seat) {
     this.chalk[seat] = [];
+    this.chalkWhole.add(seat);
     this.chalkDirty = true;
+  }
+
+  // What to send since last time: whole seats first, then point ops.
+  takeChalk() {
+    const whole = [...this.chalkWhole].map((seat) => ({ type: 'chalk', seat, strokes: this.chalk[seat] }));
+    const ops = this.chalkOps.filter((op) => !this.chalkWhole.has(op[0]));
+    this.chalkWhole.clear();
+    this.chalkOps = [];
+    this.chalkDirty = false;
+    return ops.length ? [...whole, { type: 'chalk-ops', ops }] : whole;
   }
 
   // Solid objects collide; items are carried, thrown and run over instead.
