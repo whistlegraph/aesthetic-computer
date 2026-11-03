@@ -1,5 +1,15 @@
 import { blockGlyphs } from './engine/block-font.mjs';
-import { glyphRows } from './handle-font.mjs';
+import { glyphRows as sharedGlyphRows } from './handle-font.mjs';
+// The shared AC font plus the arrow keys, for the controls legend. Rows are
+// ten tall and bit 1 is the left column. (handle-font.mjs is served as the
+// shared font file itself, so the additions live here.)
+const glyphRows = {
+  ...sharedGlyphRows,
+  '←': [0, 4, 2, 31, 2, 4, 0, 0, 0, 0],
+  '→': [0, 4, 8, 31, 8, 4, 0, 0, 0, 0],
+  '↑': [0, 4, 14, 21, 4, 4, 4, 4, 0, 0],
+  '↓': [0, 4, 4, 4, 4, 21, 14, 4, 0, 0],
+};
 import { glyphs as chunky } from './chunky-font.mjs';
 
 // MatrixChunky8 width of a string, in pixels (proportional).
