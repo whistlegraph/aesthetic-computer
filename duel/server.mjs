@@ -40,6 +40,7 @@ const assets = new Map([
     'sfx',
     'highlight',
     'chunky-font',
+    'kidlisp-wall',
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -127,6 +128,34 @@ export function createDuelServer({
             revision: revision.trim(),
           }),
         );
+      return;
+    }
+    // AC's own libraries, read-only, so a wall can run real KidLisp.
+    if (req.method === 'GET' && /^\/ac\/(lib|dep)\/[\w@./-]+\.(mjs|js)$/.test(path) && !path.includes('..')) {
+      const root = resolve(here, '../system/public/aesthetic.computer');
+      const file = resolve(root, path.slice(4));
+      if (file.startsWith(root + '/')) {
+        try {
+          const body = await readFile(file);
+          res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'max-age=60', 'X-Content-Type-Options': 'nosniff' }).end(body);
+        } catch {
+          res.writeHead(404).end();
+        }
+        return;
+      }
+    }
+    // A $code's source from AC's KidLisp store, fetched here to avoid CORS.
+    if (req.method === 'GET' && path === '/kidlisp-source') {
+      const code = url.searchParams.get('code') || '';
+      if (!/^[A-Za-z0-9]{2,16}$/.test(code)) return void res.writeHead(400).end();
+      try {
+        const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?code=${code}`, { signal: AbortSignal.timeout(6000) });
+        const { source } = await r.json();
+        if (typeof source !== 'string') throw Error('no source');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300' }).end(JSON.stringify({ code, source }));
+      } catch {
+        res.writeHead(404).end();
+      }
       return;
     }
     const asset = assets.get(path);

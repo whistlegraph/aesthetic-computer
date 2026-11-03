@@ -12,6 +12,7 @@ import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
+import { kidlispWall } from './kidlisp-wall.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 
 const view = await createView(document.getElementById('game'));
@@ -51,6 +52,12 @@ const controller = new Controller();
 const radial = new Radial();
 const touch = new TouchPad();
 const sfx = new Sfx();
+// Two walls run real KidLisp: $roz on the far wall, $bop on the left.
+const walls = [];
+for (const [code, face] of [['roz', 'north'], ['bop', 'west']])
+  kidlispWall(code, { width: 64, height: 36 })
+    .then((w) => walls.push({ ...w, code, face }))
+    .catch((e) => console.info(`KidLisp wall $${code}:`, e.message));
 // What the face cam reacts to: when you were hurt and from which side, when
 // to grin.
 const face = { hurtAt: -1e9, hurtSide: 0, grinAt: -1e9 };
@@ -825,6 +832,7 @@ function step(now) {
     touch: touch.state(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps,
+    walls,
     face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') ? -0.5 : 0) + (keys.has('KeyD') ? 0.5 : 0) } : null,
     devLog: devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })),
     owner,

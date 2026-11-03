@@ -18,6 +18,8 @@ import {
 import { smallWidth } from './paint.mjs';
 
 // A dark room: night floor, slate walls; the two seat colours stay bright.
+// West, east, south, north.
+const WALL_HUES = [0x2b3a5c, 0x4a2f5c, 0x1f4a4a, 0x3a3f4d];
 const FLOOR = 0x23262f,
   WALL = 0x3a3f4d,
   WALL_SIDE = 0x2c303b,
@@ -85,8 +87,8 @@ export async function createView(canvas) {
         w.xMax - w.xMin,
         w.yMax - w.yMin,
         w.zMax - w.zMin,
-        i < 4 ? WALL : COLORS[i - 4],
-        i < 4 ? WALL_SIDE : INK,
+        i < 4 ? WALL_HUES[i] : COLORS[i - 4],
+        i < 4 ? tint(WALL_HUES[i], 0.8) : INK,
         PAPER,
       ),
     );
@@ -337,6 +339,7 @@ export async function createView(canvas) {
     input = 'keys',
     devLog = [],
     fps = 0,
+    walls = [],
     face = null,
     owner,
     focusObject,
@@ -1142,6 +1145,37 @@ export async function createView(canvas) {
         px(0, -3, Math.max(0, Math.round((24 * hp) / 100)), 2, hc);
       });
       projector.overlay(m, W, H);
+    }
+    // KidLisp walls: step each program about 20 times a second and lay its
+    // pixels on the wall as a grid of cells, unmirrored from inside.
+    for (const w of walls) {
+      if (!w.model || now - (w.at || 0) > 50) {
+        w.at = now;
+        const px = w.step();
+        const cols = w.width, rows = w.height;
+        const span = w.face === 'north' ? 32 : 32, tall = (span * rows) / cols;
+        const cell = span / cols, base = 1.5;
+        w.model = model(({ quad }) => {
+          for (let j = 0; j < rows; j++)
+            for (let i = 0; i < cols; ) {
+              const k = (j * cols + i) * 4;
+              const c = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2];
+              // Merge runs of one colour into one quad.
+              let n = 1;
+              while (i + n < cols) {
+                const q = (j * cols + i + n) * 4;
+                if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
+                n++;
+              }
+              const u0 = span / 2 - i * cell, u1 = span / 2 - (i + n) * cell;
+              const y1 = base + tall - j * cell, y0 = y1 - cell;
+              if (w.face === 'north') quad([u0, y0, 17.97], [u1, y0, 17.97], [u1, y1, 17.97], [u0, y1, 17.97], c);
+              else quad([-17.97, y0, -u0], [-17.97, y0, -u1], [-17.97, y1, -u1], [-17.97, y1, -u0], c);
+              i += n;
+            }
+        });
+      }
+      draw(w.model, 0, 0, 0);
     }
     host.present({ clear: sky });
     // Local inspection only; no telemetry, labels or DOM overlays.
