@@ -33,12 +33,18 @@ final class NavHoldHint {
     private var visible = false
     private var chimed = false
     private var focusedWindowID: Int?
+    /// Set by the AppDelegate from Menu Band's performance-focus notification.
+    /// Inside focus the ⌘ hand is on chords, so bare ⌘⌥ never means "choose a pane".
+    var menuBandPerformanceFocused = false
 
     func beginHold() {
         holding = true
-        disarmed = false
         chimed = false
         focusedWindowID = nil
+        // Menu Band in front or in performance focus owns this hold outright:
+        // no chime, no arrows, and the WindowNav arrows still work as before.
+        disarmed = menuBandPerformanceFocused || MenuBandFocus.isFrontmost
+        guard !disarmed else { return }
         scheduleShow()
     }
 
@@ -104,6 +110,12 @@ final class NavHoldHint {
 
     private func presentOrRefresh() {
         guard holding, !disarmed, AXTiler.trusted else { return }
+        // Focus may have moved onto Menu Band since the hold began.
+        if menuBandPerformanceFocused || MenuBandFocus.isFrontmost {
+            disarmed = true
+            dismiss()
+            return
+        }
         let snapshot = WindowNav.hintSnapshot(focusedWindowID: focusedWindowID)
         guard let current = snapshot.current else {
             if visible { dismiss() }

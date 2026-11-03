@@ -237,6 +237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil
         )
         menuBandPerformanceFocused = Self.menuBandPerformanceFocusIsLive()
+        NavHoldHint.shared.menuBandPerformanceFocused = menuBandPerformanceFocused
         acKeyboardRemote.canConnect = { [weak self] in
             !(self?.menuBandPerformanceFocused ?? true)
         }
@@ -500,7 +501,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard focused != menuBandPerformanceFocused else { return }
         menuBandPerformanceFocused = focused
         acKeyboardRemote.setPerformanceFocused(focused)
+        NavHoldHint.shared.menuBandPerformanceFocused = focused
         if focused {
+            NavHoldHint.shared.endHold()
             promptRockFocusHotkey?.unregister()
             promptRockFocusHotkey = nil
         } else {
