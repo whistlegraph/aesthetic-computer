@@ -51,6 +51,9 @@ const controller = new Controller();
 const radial = new Radial();
 const touch = new TouchPad();
 const sfx = new Sfx();
+// What the face cam reacts to: when you were hurt and from which side, when
+// to grin.
+const face = { hurtAt: -1e9, hurtSide: 0, grinAt: -1e9 };
 // The server's wall clock, learned from snapshots (the fastest arrival is the
 // best estimate), so every player hears the beat land together.
 let clockOffset = null;
@@ -314,6 +317,18 @@ function connect() {
       if (event.type === 'poke') sfx.poke();
       if (event.type === 'throw') sfx.toss();
       if (event.type === 'hit') sfx.hit(event.seat === seat);
+      if (event.type === 'hit' && event.seat === seat && player) {
+        face.hurtAt = performance.now();
+        const from = data.players[event.attacker];
+        if (from && event.attacker !== seat) {
+          // Which side the hit came from, relative to where you face.
+          const to = (Math.atan2(from.x - player.x, from.z - player.z) * 180) / Math.PI;
+          const rel = ((to - yaw + 540) % 360) - 180;
+          face.hurtSide = Math.abs(rel) < 30 ? 0 : rel > 0 ? -1 : 1;
+        } else face.hurtSide = 0;
+      }
+      if ((event.type === 'pickup' && event.seat === seat) || (event.type === 'frag' && event.attacker === seat && event.seat !== seat))
+        face.grinAt = performance.now();
       if (event.type === 'pickup') sfx.pickup(event.seat === seat);
       if (event.type === 'drop') sfx.ringBack();
       if (event.type === 'bounce') sfx.bounce();
@@ -810,6 +825,7 @@ function step(now) {
     touch: touch.state(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps,
+    face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') ? -0.5 : 0) + (keys.has('KeyD') ? 0.5 : 0) } : null,
     devLog: devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })),
     owner,
     focusObject,

@@ -4,7 +4,7 @@
 // draws it with a small z-buffered rasterizer straight into screen.pixels.
 // Drag to orbit.
 
-import { parseSource, sourceFrame, sourceTones, beatAt } from "./object-language.mjs";
+import { parseSource, sourceFrame, sourceTones, sourceHair, beatAt } from "./object-language.mjs";
 
 const SHAPES = /\((?:slab|orb|capsule)\s/;
 
@@ -119,6 +119,19 @@ export function objectPiece(source, label = "") {
       const c = project(v[i + 12], v[i + 13], v[i + 14]);
       if (a[2] < near || b[2] < near || c[2] < near) continue;
       fill(pixels, depth, w, h, a, b, c, [v[i + 3] * 255, v[i + 4] * 255, v[i + 5] * 255]);
+    }
+    // Fur: single aliased lines out of the surface, depth tested.
+    const hair = sourceHair(shape, t);
+    for (let i = 0; i < hair.length; i += 9) {
+      const a = project(hair[i], hair[i + 1], hair[i + 2]),
+        b = project(hair[i + 3], hair[i + 4], hair[i + 5]);
+      if (a[2] < near || b[2] < near) continue;
+      const rgb = [hair[i + 6] * 255, hair[i + 7] * 255, hair[i + 8] * 255];
+      const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1])));
+      for (let s = 0; s <= n; s++) {
+        const k = s / n;
+        plot(a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k - 0.002, rgb);
+      }
     }
     const name = (shape.name || "object").toLowerCase();
     ink(138, 143, 158).write(tones.length && !voices.length ? `${name} - tap for sound` : name, { x: 6, y: h - 16 });

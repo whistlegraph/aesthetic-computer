@@ -1,7 +1,7 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject } from './objects.mjs';
-import { OBJECT_FORMAT, sourceFrame, sourceTree } from './object-language.mjs';
+import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { Projector } from './project.mjs';
 import { joinCode, hudLayout, drawJoinCode } from './hud.mjs';
 import { radialSlots, ringGeometry } from './radial.mjs';
@@ -118,6 +118,28 @@ export async function createView(canvas) {
     return model(({ box }) => box(0, 0, 0, 0.05, 0.05, 0.05, c, c, c));
   });
   const trails = new Map();
+  // Fur: each strand a thin crossed ribbon from root to tip in the surface colour.
+  function drawHair(shape, x, y, z) {
+    let strands;
+    try {
+      strands = sourceHair(shape, lastWorldTime);
+    } catch {
+      return;
+    }
+    if (!strands.length) return;
+    const m = model(({ quad }) => {
+      const w = 0.008;
+      for (let i = 0; i < strands.length; i += 9) {
+        const a = [strands[i], strands[i + 1], strands[i + 2]],
+          b = [strands[i + 3], strands[i + 4], strands[i + 5]];
+        const c = (Math.round(strands[i + 6] * 255) << 16) | (Math.round(strands[i + 7] * 255) << 8) | Math.round(strands[i + 8] * 255);
+        quad([a[0] - w, a[1], a[2]], [b[0] - w, b[1], b[2]], [b[0] + w, b[1], b[2]], [a[0] + w, a[1], a[2]], c);
+        quad([a[0], a[1], a[2] - w], [b[0], b[1], b[2] - w], [b[0], b[1], b[2] + w], [a[0], a[1], a[2] + w], c);
+      }
+    });
+    draw(m, x, y, z);
+  }
+  let lastWorldTime = 0;
   const blast = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffff00, INK, PAPER));
   const dot = model(({ box }) => box(0, 0, 0, 0.06, 0.06, 0.06, INK, INK, INK));
   // Magic: sparkles burst from each part as it lands and spiral upward.
@@ -315,6 +337,7 @@ export async function createView(canvas) {
     input = 'keys',
     devLog = [],
     fps = 0,
+    face = null,
     owner,
     focusObject,
     builder = false,
@@ -329,6 +352,7 @@ export async function createView(canvas) {
     const start = performance.now(),
       now = start;
     const solidObjects = objects.filter((o) => !o.item);
+    lastWorldTime = worldTime;
     const cells = joinCode(joinURL);
     const hud = hudLayout(canvas.width, canvas.height, cells);
     host.beginFrame();
@@ -396,6 +420,7 @@ export async function createView(canvas) {
           0,
           object.z,
         );
+        drawHair(object.geometry, object.x, 0, object.z);
         continue;
       }
       let cached = objectModels.get(object.id);
@@ -1048,6 +1073,75 @@ export async function createView(canvas) {
         });
         projector.overlay(m, W, H);
       }
+    }
+    if (face) {
+      // A face cam, bottom left above the handles: an original pixel portrait
+      // in the player's own look that reacts to what happens to them.
+      const { unit, safeX, safeY } = hud;
+      const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
+      const listTop = floor + Math.max(0, members.length - 1) * 12 * unit + 4 * unit;
+      const S = 24 * unit,
+        x0 = -W / 2 + safeX + 2,
+        y0 = listTop + 4 * unit; // bottom edge of the frame
+      const hurt = (now - face.hurtAt) / 1000,
+        grin = (now - face.grinAt) / 1000;
+      const blink = now % 4200 < 130;
+      const hp = face.health ?? 100;
+      const look = hurt < 0.6 ? face.hurtSide : Math.max(-1, Math.min(1, Math.round((face.turn || 0) * 1.4)));
+      const bob = Math.round(Math.sin(now / 700) * 0.6) * unit;
+      const m = model(({ rect: worldRect }) => {
+        const rect = flip(worldRect);
+        const px = (x, y, w, h, c, z = 0) => rect(x0 + x * unit, y0 + y * unit, z, w * unit, h * unit, c);
+        // Frame: dark, flashing red when hurt.
+        const flash = hurt < 0.35 ? 0x7a1f1f : 0x15171e;
+        px(-1, -1, 26, 26, 0x5a5f70, 0.000004);
+        px(0, 0, 24, 24, flash, 0.000003);
+        // Shoulders in the seat colour.
+        px(3, 0, 18, 5, COLORS[face.seat] || 0xc0c0c0, 0.000002);
+        // Head: the player's white block with a shaded side.
+        const hx = 6, hy = 5 + bob / unit;
+        px(hx, hy, 12, 13, 0xf2f2f2, 0.000002);
+        px(hx + 10, hy, 2, 13, 0xc0c0c0, 0.000001);
+        if (!face.alive) {
+          // X eyes.
+          for (const ex of [hx + 2, hx + 7])
+            for (let k = 0; k < 3; k++) {
+              px(ex + k, hy + 9 - k, 1, 1, INK);
+              px(ex + 2 - k, hy + 9 - k, 1, 1, INK);
+            }
+          px(hx + 4, hy + 3, 4, 1, INK);
+          return;
+        }
+        // Bruises as health drops.
+        if (hp < 60) px(hx + 1, hy + 4, 2, 2, 0x8a6aa8, 0.000001);
+        if (hp < 35) px(hx + 8, hy + 10, 2, 2, 0x8a6aa8, 0.000001);
+        if (hp < 20) px(hx + 5, hy + 11, 1, 2, 0xb33a3a, 0.000001);
+        // Eyes: squint when hurt, closed on a blink, else looking left/right.
+        const ex = [hx + 2 + look, hx + 7 + look];
+        for (const x of ex) {
+          if (hurt < 0.6) px(x, hy + 8, 3, 1, INK);
+          else if (blink) px(x, hy + 8, 3, 1, INK);
+          else px(x, hy + 7, 2, 3, INK);
+        }
+        // Mouth: grin, grimace, frown when low, else a line.
+        if (grin < 1.2) {
+          px(hx + 3, hy + 3, 6, 1, INK);
+          px(hx + 2, hy + 4, 1, 1, INK);
+          px(hx + 9, hy + 4, 1, 1, INK);
+        } else if (hurt < 0.6) {
+          px(hx + 3, hy + 3, 6, 2, INK);
+          px(hx + 4, hy + 3, 4, 1, 0xf2f2f2);
+        } else if (hp < 35) {
+          px(hx + 4, hy + 4, 4, 1, INK);
+          px(hx + 3, hy + 3, 1, 1, INK);
+          px(hx + 8, hy + 3, 1, 1, INK);
+        } else px(hx + 4, hy + 3, 4, 1, INK);
+        // A health bar under the portrait, in health colours.
+        const hc = hp > 60 ? 0x3fb950 : hp > 30 ? 0xffe066 : 0xff6b6b;
+        px(0, -3, 24, 2, 0x2c3040, 0.000001);
+        px(0, -3, Math.max(0, Math.round((24 * hp) / 100)), 2, hc);
+      });
+      projector.overlay(m, W, H);
     }
     host.present({ clear: sky });
     // Local inspection only; no telemetry, labels or DOM overlays.
