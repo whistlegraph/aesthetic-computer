@@ -35,6 +35,8 @@ let yaw = 0,
   firing = false,
   latestAt = 0,
   eventId = 0;
+let useQueued = false,
+  dropQueued = false;
 let jumpQueued = false,
   fireQueued = false,
   audio,
@@ -51,6 +53,16 @@ const touch = new TouchPad();
 const sfx = new Sfx();
 const tones = new SpatialTones(sfx);
 const toneCache = new Map();
+// Items are carried and run over, so only the rest collide.
+let solidList = [],
+  solidFrom = null;
+function solids() {
+  if (solidFrom !== objects) {
+    solidFrom = objects;
+    solidList = objects.filter((o) => !o.item);
+  }
+  return solidList;
+}
 // Every object's oscillators, placed in the room.
 function toneSources() {
   const out = [];
@@ -262,7 +274,7 @@ function connect() {
         own,
         pending,
         data.acks[seat],
-        objects,
+        solids(),
         data.tick,
       );
       pending = result.pending;
@@ -291,6 +303,13 @@ function connect() {
       if (event.type === 'launch') sfx.launch();
       if (event.type === 'blast') sfx.blast();
       if (event.type === 'frag') sfx.frag(event.attacker === seat);
+      if (event.type === 'shot') sfx.shot();
+      if (event.type === 'poke') sfx.poke();
+      if (event.type === 'throw') sfx.toss();
+      if (event.type === 'hit') sfx.hit(event.seat === seat);
+      if (event.type === 'pickup') sfx.pickup(event.seat === seat);
+      if (event.type === 'drop') sfx.ringBack();
+      if (event.type === 'bounce') sfx.bounce();
     }
   };
   socket.onclose = (e) => {
@@ -334,8 +353,12 @@ canvas.addEventListener('paste', (e) => {
   prompt.insert(e.clipboardData?.getData('text') || '');
 });
 // Keyboard Enter, the controller's X and the ring's centre all land here.
+function holding() {
+  return !!snapshot?.items?.some((it) => it.holder === seat && seat >= 0);
+}
 function submitPrompt(gesture = true) {
   if (!prompt.text.trim() || prompt.busy) return false;
+  const item = radial.open ? radial.item : null;
   if (!owner || !builder) {
     prompt.message = !owner ? 'CONNECTING' : 'AESEL IS OFFLINE';
     return false;
@@ -351,6 +374,7 @@ function submitPrompt(gesture = true) {
     prompt: prompt.text,
     objectId: prompt.target?.id,
     baseVersion: prompt.target?.version,
+    item,
   });
   return true;
 }
@@ -471,9 +495,16 @@ document.addEventListener('keydown', (e) => {
     sfx.jump();
   }
   if (seat >= 0 && e.code === 'KeyV' && !e.repeat) third = !third;
+  if (seat >= 0 && e.code === 'KeyF' && !e.repeat) useQueued = true;
+  if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
 });
 document.addEventListener('keyup', (e) => keys.delete(e.code));
 document.addEventListener('mousedown', (e) => {
+  if (seat >= 0 && locked() && e.button === 0 && holding()) {
+    e.preventDefault();
+    useQueued = true;
+    return;
+  }
   if (seat >= 0 && locked() && e.button === 0 && !prompt.busy) {
     e.preventDefault();
     releaseInput();
@@ -568,6 +599,11 @@ function step(now) {
     closeBuild();
     document.exitPointerLock();
   }
+  if (gamepad.use && seat >= 0 && !prompt.open) useQueued = true;
+  if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
+    dropQueued = true;
+    gamepad.prompt = false;
+  }
   if (gamepad.prompt && seat >= 0 && !prompt.open && !prompt.busy) {
     releaseInput();
     document.exitPointerLock();
@@ -655,12 +691,14 @@ function step(now) {
         1,
       ),
       buttons: keys.has('Space') || jumpQueued ? 1 : 0,
+      use: useQueued,
+      drop: dropQueued,
       fire: (firing || fireQueued) && locked(),
     };
-    jumpQueued = fireQueued = false;
+    jumpQueued = fireQueued = useQueued = dropQueued = false;
     pending.push(c);
     if (snapshot.phase === 'playing' || snapshot.phase === 'waiting')
-      player = move(player, c, objects, (snapshot.tick + pending.length) / HZ);
+      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ);
     presentation.step(player);
   }
   // One newest batch per display frame: catch-up steps don't flood a slow link.
@@ -693,7 +731,7 @@ function step(now) {
   if (player) {
     const dir = direction(yaw, pitch);
     let nearest = wallDistance(player, dir, 30);
-    for (const box of objectBoxes(objects, worldTime)) {
+    for (const box of objectBoxes(solids(), worldTime)) {
       const distance = rayBox(player, dir, box, nearest);
       if (distance < nearest) {
         nearest = distance;
@@ -719,6 +757,9 @@ function step(now) {
     seat,
     third,
     rockets: snapshot?.rockets || [],
+    items: snapshot?.items || [],
+    bullets: snapshot?.bullets || [],
+    holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,
     status,
     members,
     joinURL,

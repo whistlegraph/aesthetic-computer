@@ -29,8 +29,16 @@ function act(api) {
   piece?.act(api);
 }
 
+function sim(api) {
+  piece?.sim(api);
+}
+
+function leave(api) {
+  piece?.leave(api);
+}
+
 function meta() {
   return { title: "Object", desc: "A turntable for KidLisp objects: object:$code." };
 }
 
-export { boot, paint, act, meta };
+export { boot, paint, act, sim, leave, meta };

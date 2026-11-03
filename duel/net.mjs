@@ -17,6 +17,8 @@ export function command(raw) {
     pitch: clamp(raw.pitch, -85, 85),
     buttons: raw.buttons === 1 ? 1 : 0,
     fire: raw.fire === true,
+    use: raw.use === true,
+    drop: raw.drop === true,
   };
 }
 

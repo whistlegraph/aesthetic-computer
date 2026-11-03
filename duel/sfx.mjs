@@ -73,6 +73,31 @@ export class Sfx {
     else this.voice(110, 0.3, { slide: 0.5 });
   }
 
+  // Items.
+  shot() {
+    this.voice(900, 0.12, { slide: 0.25, volume: 0.035, type: 'square' });
+    this.noise(0.08, { volume: 0.03, from: 5000, to: 800 });
+  }
+  poke() {
+    this.noise(0.14, { volume: 0.035, from: 800, to: 4000 });
+  }
+  toss() {
+    this.noise(0.25, { volume: 0.025, from: 400, to: 2400 });
+    this.voice(300, 0.2, { slide: 1.6, volume: 0.015 });
+  }
+  hit(mine) {
+    this.voice(mine ? 120 : 180, 0.16, { slide: 0.6, volume: 0.05, type: 'square' });
+    this.noise(0.1, { volume: 0.04, from: 1200, to: 200 });
+  }
+  pickup(mine) {
+    if (!mine) return;
+    this.voice(note(4), 0.07, { volume: 0.03 });
+    this.voice(note(7), 0.1, { volume: 0.03, at: 0.05 });
+  }
+  bounce() {
+    this.voice(140, 0.06, { slide: 0.7, volume: 0.02 });
+  }
+
   // Build ring.
   ringOpen() {
     this.voice(note(0), 0.08, { volume: 0.03 });

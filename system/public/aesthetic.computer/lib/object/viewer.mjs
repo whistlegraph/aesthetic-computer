@@ -4,7 +4,7 @@
 // draws it with a small z-buffered rasterizer straight into screen.pixels.
 // Drag to orbit.
 
-import { parseSource, sourceFrame } from "./object-language.mjs";
+import { parseSource, sourceFrame, sourceTones } from "./object-language.mjs";
 
 const SHAPES = /\((?:slab|orb|capsule)\s/;
 
@@ -36,12 +36,15 @@ export function objectPiece(source, label = "") {
   let depth, size = [0, 0];
   let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
   const start = Date.now();
+  // The object's (tone ...) oscillators; browsers need a tap before sound.
+  let tones = [], voices = [];
 
   try {
     shape = parseSource(source);
     const b = extent(sourceFrame(shape, 0).vertices);
     center = b.center;
     radius = Math.max(0.4, b.radius);
+    tones = sourceTones(shape);
   } catch (e) {
     error = String(e.message || e).slice(0, 80);
   }
@@ -116,10 +119,35 @@ export function objectPiece(source, label = "") {
       if (a[2] < near || b[2] < near || c[2] < near) continue;
       fill(pixels, depth, w, h, a, b, c, [v[i + 3] * 255, v[i + 4] * 255, v[i + 5] * 255]);
     }
-    ink(138, 143, 158).write((shape.name || "object").toLowerCase(), { x: 6, y: h - 16 });
+    const name = (shape.name || "object").toLowerCase();
+    ink(138, 143, 158).write(tones.length && !voices.length ? `${name} - tap for sound` : name, { x: 6, y: h - 16 });
   }
 
-  function act({ event: e }) {
+  function play(sound) {
+    if (voices.length || !tones.length || !sound?.synth) return;
+    voices = tones.map((t) =>
+      sound.synth({
+        type: t.wave,
+        tone: t.frequency(0),
+        duration: "🔁",
+        attack: 0.05,
+        volume: t.volume * (t.wave === "sine" || t.wave === "triangle" ? 0.5 : 0.25),
+      }),
+    );
+  }
+
+  function sim() {
+    const t = (Date.now() - start) / 1000;
+    voices.forEach((v, i) => v?.update?.({ tone: tones[i].frequency(t), duration: 0.05 }));
+  }
+
+  function leave() {
+    voices.forEach((v) => v?.kill?.(0.2));
+    voices = [];
+  }
+
+  function act({ event: e, sound }) {
+    if (e.is("touch")) play(sound);
     if (e.is("touch")) dragging = true;
     if (e.is("lift")) dragging = false;
     if (e.is("draw")) {
@@ -128,7 +156,7 @@ export function objectPiece(source, label = "") {
     }
   }
 
-  return { boot, paint, act, meta: () => ({ title: shape?.name || "Object", desc: "A KidLisp object." }) };
+  return { boot, paint, act, sim, leave, meta: () => ({ title: shape?.name || "Object", desc: "A KidLisp object." }) };
 }
 
 // One triangle into the colour and depth buffers.

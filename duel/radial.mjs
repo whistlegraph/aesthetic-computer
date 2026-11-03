@@ -12,7 +12,12 @@ export const CATALOG = {
   food: ['a cake', 'a pizza', 'a burger', 'an apple', 'a donut', 'an ice cream', 'a banana', 'a sandwich'],
   play: ['a ramp', 'stairs', 'a slide', 'a fountain', 'a swing', 'a trampoline', 'a maze', 'a seesaw'],
   sound: ['a bell', 'a chime', 'a gong', 'a drum', 'a horn', 'a music box', 'a whistle', 'a speaker'],
+  // Items you carry: run over to pick up, RB to use, X to drop.
+  shoot: ['a pistol', 'a blaster', 'a ray gun', 'a water gun', 'a slingshot', 'a bow', 'a crossbow', 'a cannon'],
+  poke: ['a sword', 'a spear', 'a stick', 'a hammer', 'a wand', 'an umbrella', 'a fork', 'a lance'],
+  throw: ['a baseball', 'a frisbee', 'a bomb', 'a snowball', 'a boomerang', 'a dart', 'a rock', 'a pie'],
 };
+export const ITEM_CATEGORIES = ['shoot', 'poke', 'throw'];
 export const CATEGORIES = Object.keys(CATALOG);
 export const THINGS = CATALOG.play;
 export const TRAITS = [
@@ -74,6 +79,10 @@ export class Radial {
     const traits =
       this.category === 'animal' ? ANIMAL_TRAITS : this.category === 'sound' ? SOUND_TRAITS : TRAITS;
     return traits.filter((t) => !this.picks.includes(t));
+  }
+  // A build from an item category makes something you can carry.
+  get item() {
+    return ITEM_CATEGORIES.includes(this.category) ? this.category : null;
   }
   get title() {
     if (this.target)

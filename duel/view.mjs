@@ -111,6 +111,7 @@ export async function createView(canvas) {
   const rocket = model(({ box }) =>
     box(0, 0, 0, 0.16, 0.16, 0.32, 0xffff00, INK, PAPER),
   );
+  const tracer = model(({ box }) => box(0, 0, 0, 0.07, 0.07, 0.07, 0xffe066, 0xffe066, 0xffe066));
   const blast = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffff00, INK, PAPER));
   const dot = model(({ box }) => box(0, 0, 0, 0.06, 0.06, 0.06, INK, INK, INK));
   // Magic: sparkles burst from each part as it lands and spiral upward.
@@ -296,6 +297,9 @@ export async function createView(canvas) {
     objects = [],
     prompt,
     radial = null,
+    items = [],
+    bullets = [],
+    holding = null,
     touch = null,
     input = 'keys',
     devLog = [],
@@ -313,6 +317,7 @@ export async function createView(canvas) {
     }
     const start = performance.now(),
       now = start;
+    const solidObjects = objects.filter((o) => !o.item);
     const cells = joinCode(joinURL);
     const hud = hudLayout(canvas.width, canvas.height, cells);
     host.beginFrame();
@@ -329,10 +334,10 @@ export async function createView(canvas) {
         eye = along(
           origin,
           back,
-          Math.max(0, wallDistance(origin, back, 4, objects, worldTime) - 0.2),
+          Math.max(0, wallDistance(origin, back, 4, solidObjects, worldTime) - 0.2),
         );
       }
-      let distance = wallDistance(origin, dir, 100, objects, worldTime);
+      let distance = wallDistance(origin, dir, 100, solidObjects, worldTime);
       players.forEach((p, i) => {
         if (i !== seat && p?.alive)
           distance = Math.min(distance, rayBox(origin, dir, bodyBox(p), 100));
@@ -349,7 +354,30 @@ export async function createView(canvas) {
     const aliveObjects = new Set(objects.map((o) => o.id));
     for (const id of objectModels.keys())
       if (!aliveObjects.has(id)) objectModels.delete(id);
+    const poses = new Map(items.map((it) => [it.id, it]));
     for (const object of objects) {
+      if (object.item) {
+        const it = poses.get(object.id);
+        if (!it || object.geometry.format !== OBJECT_FORMAT) continue;
+        // In hand: follow the holder's aim; loose: tumble with its spin.
+        let at = it, yaw = (now / 1000) * (it.spin || 0), pitch = 0;
+        const holder = it.holder >= 0 ? (it.holder === seat && me ? me : players[it.holder]) : null;
+        if (holder) {
+          const f = direction(holder.yaw, holder.pitch),
+            r = direction(holder.yaw - 90);
+          at = {
+            x: holder.x + r.x * 0.3 + f.x * 0.45,
+            y: holder.y - 0.55 + f.y * 0.45,
+            z: holder.z + r.z * 0.3 + f.z * 0.45,
+          };
+          yaw = (holder.yaw * Math.PI) / 180;
+          pitch = (-holder.pitch * Math.PI) / 180;
+          // First person: keep your own item out of the middle of the view.
+          if (it.holder === seat && !third) at = { x: at.x, y: at.y - 0.1, z: at.z };
+        }
+        draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
+        continue;
+      }
       if (object.geometry.format === OBJECT_FORMAT) {
         draw(
           sourceFrame(object.geometry, worldTime).vertices,
@@ -555,6 +583,11 @@ export async function createView(canvas) {
         1 - k * k,
       );
     }
+    for (const b of bullets) {
+      const sp = Math.hypot(b.vx, b.vy, b.vz) || 1;
+      for (let k = 0; k < 3; k++)
+        draw(tracer, b.x - (b.vx / sp) * k * 0.25, b.y - (b.vy / sp) * k * 0.25, b.z - (b.vz / sp) * k * 0.25);
+    }
     for (const r of rockets)
       draw(rocket, r.x, r.y, r.z, Math.atan2(r.dir.x, r.dir.z));
     // (The aim reticle is drawn on screen after the world; see below.)
@@ -580,7 +613,15 @@ export async function createView(canvas) {
         cursor +
         prompt.text.slice(prompt.cursor);
       const named = (o) => (o.code ? `$${o.code}` : o.geometry.name);
-      const hint = focusObject
+      const verb = holding ? { shoot: 'shoot', poke: 'poke', throw: 'throw' }[holding.item] : null;
+      const carry = holding
+        ? pad
+          ? `[RB] ${verb} / [X] drop`
+          : input === 'touch'
+            ? `tap ${verb}`
+            : `f or click ${verb} / q drop`
+        : null;
+      const hint = carry ? carry : focusObject
         ? `${named(focusObject)} v${focusObject.version} - ${focusObject.owner === owner ? (pad ? '[LB] to change' : 'yours') : 'player ' + focusObject.owner.slice(0, 4)}`
         : input === 'touch'
           ? 'hold the right side to build'
@@ -778,7 +819,7 @@ export async function createView(canvas) {
           // Hidden behind walls and built objects, as a real tag would be.
           const dx = t.x - eye.x, dy = t.y - eye.y, dz = t.z - eye.z,
             d = Math.hypot(dx, dy, dz);
-          if (wallDistance(eye, { x: dx / d, y: dy / d, z: dz / d }, d, objects, worldTime) < d - 0.3) continue;
+          if (wallDistance(eye, { x: dx / d, y: dy / d, z: dz / d }, d, solidObjects, worldTime) < d - 0.3) continue;
           const member = members.find((x) => x.seat === t.seat);
           const label = member?.handle ? `@${member.handle}` : `guest ${t.seat + 1}`;
           const x = Math.round((s.x * W) / 2),

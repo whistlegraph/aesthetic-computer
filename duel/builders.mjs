@@ -6,7 +6,19 @@ import {
   MAX_VERSIONS,
 } from './objects.mjs';
 import { WALLS, bodyBox } from './world.mjs';
-import { OBJECT_FORMAT } from './object-language.mjs';
+import { OBJECT_FORMAT, fitItemSource, sourceGeometry } from './object-language.mjs';
+
+export const ITEM_KINDS = ['shoot', 'poke', 'throw'];
+// An item is hand-sized with its grip at the origin.
+function asItem(shape, kind) {
+  if (!kind || shape.format !== OBJECT_FORMAT) return shape;
+  return sourceGeometry({ name: shape.name, source: fitItemSource(shape.source) });
+}
+const ITEM_HINT = {
+  shoot: 'a handheld thing that shoots: grip at the origin, barrel pointing +z',
+  poke: 'a handheld thing that pokes or swings: handle at the origin, reaching +z',
+  throw: 'a small throwable thing, about a hand across, resting on y=0',
+};
 function envelope(objects) {
   return objects.flatMap((o) =>
     objectBoxes([
@@ -119,7 +131,7 @@ export class Builders {
   broadcast(room) {
     const current = this.rooms.get(room);
     if (!current) return;
-    current.match.objects = this.store.objects(room);
+    current.match.setObjects(this.store.objects(room));
     for (const client of current.clients.keys())
       this.send(client, this.state(room));
   }
@@ -165,7 +177,7 @@ export class Builders {
         job.preview = null;
         if (data.geometry) {
           try {
-            const shape = geometry(data.geometry);
+            const shape = asItem(geometry(data.geometry), job.item);
             job.preview = this.place(job, shape);
           } catch {}
         }
@@ -180,7 +192,7 @@ export class Builders {
               ? data.error.replace(/[^\x20-\x7e]/g, '').slice(0, 220)
               : 'Aesel could not build that object',
           );
-        const shape = geometry(data.geometry);
+        const shape = asItem(geometry(data.geometry), job.item);
         const committed = await this.store.commit(job, shape, () => this.place(job, shape));
         // Each finished version is a KidLisp program: give it a $code.
         if (this.publish && committed.geometry?.source)
@@ -258,6 +270,7 @@ export class Builders {
         );
       const player = this.rooms.get(room)?.match.seats[seat]?.player;
       if (!player) throw Error('Rejoin the room');
+      const item = existing ? existing.item : ITEM_KINDS.includes(input.item) ? input.item : null;
       const yaw = (player.yaw * Math.PI) / 180;
       const job = {
         id: randomUUID(),
@@ -265,6 +278,7 @@ export class Builders {
         owner,
         room,
         prompt,
+        item,
         baseVersion: existing?.version ?? -1,
         x: existing?.x ?? Math.round(player.x + Math.sin(yaw) * 6),
         z: existing?.z ?? Math.round(player.z + Math.cos(yaw) * 6),
@@ -297,7 +311,7 @@ export class Builders {
       this.send(worker, {
         type: 'build',
         id: job.id,
-        prompt,
+        prompt: item ? `${prompt} (${ITEM_HINT[item]})` : prompt,
         previous: existing?.geometry || null,
       });
       this.send(client, {

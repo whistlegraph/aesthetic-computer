@@ -254,7 +254,7 @@ export function createDuelServer({
     }
     const nativeAccount = authorization?.startsWith('Bearer ');
     const member = room.add(ws, nativeAccount);
-    room.match.objects = store.objects(key);
+    room.match.setObjects(store.objects(key));
     let accountAttempted = false;
     const identifyAccount = async (token) => {
       if (
