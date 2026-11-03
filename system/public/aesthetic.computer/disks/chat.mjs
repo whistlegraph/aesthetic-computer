@@ -3467,8 +3467,9 @@ function act(
       }
     }
 
-    // Handle clicks
-    if (e.is("lift") || e.is("touch")) {
+    // Handle clicks — on lift only. Closing on touch let the same tap's lift
+    // fall through to the message underneath and reopen a modal at once.
+    if (e.is("lift")) {
       if (yesBtn && noBtn) {
         const clickedYes = inside(yesBtn);
         const clickedAlt = inside(altBtn);
@@ -3531,8 +3532,9 @@ function act(
       }
     }
 
-    // Handle clicks
-    if (e.is("lift") || e.is("touch")) {
+    // Handle clicks — on lift only (see the link modal above): a touch-close
+    // let this tap's lift land on the message beneath and reopen the modal.
+    if (e.is("lift")) {
       if (copyBtn && closeBtn) {
         const clickedHeart = heartBtn &&
                              pen.x >= heartBtn.x && pen.x < heartBtn.x + heartBtn.w &&
@@ -4148,6 +4150,24 @@ function act(
                     displayText: element.text,
                     description: "Play this tape",
                     action: () => jump(`video~!${tapeCode}`)
+                  };
+                  break;
+                }
+                // 🎮 A cartridge link plays in the `gameboy` piece. The URL
+                // rides in `store` because `~` params would mangle it.
+                const romHref = /^www\./i.test(element.text) ? "https://" + element.text : element.text;
+                if (/^https?:\/\/[^\s]+\.gbc?([?#]|$)/i.test(romHref)) {
+                  linkConfirmModal = {
+                    type: "url",
+                    text: element.text,
+                    displayText: element.text,
+                    description: "Play on Game Boy",
+                    yesLabel: "play",
+                    action: () => {
+                      store["gameboy:rom-url"] = romHref;
+                      jump("gameboy");
+                    },
+                    alt: { label: "open", action: () => jump("out:" + element.text) },
                   };
                   break;
                 }

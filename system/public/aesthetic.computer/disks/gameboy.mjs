@@ -100,78 +100,81 @@ function sendGameBoyInput(send) {
   });
 }
 
-export async function boot({ ui, screen, send, params, debug }) { 
+// 🔗 A ROM shared as a link — from laklok (handed over in `store`, since a URL
+// does not survive `~` params) or from laklok.com (`gameboy?rom=<url>`).
+// Only http(s) cartridges, 8 MiB at most: the largest real cart is 8 MiB.
+const ROM_LINK = /^https?:\/\/[^\s]+\.(gbc?)([?#]|$)/i;
+const ROM_MAX_BYTES = 8 * 1024 * 1024;
+
+export async function boot({ ui, screen, send, params, debug, query, store }) {
   // GameBoy piece loaded - emulator managed by bios.mjs
   // Reset all button states
   gameboyButtons = {};
   previousButtonState = {};
-  
+
   // Create buttons immediately in boot
   createGameBoyButtons({ screen, ui });
-  
-  // Auto-load ROM if specified in params
-  if (params && params[0]) {
-    const romName = params[0];
-    
-    // Construct path based on environment
-    const basePath = debug 
-      ? "/assets/gameboy" 
-      : "https://assets.aesthetic.computer/gameboy";
-    
-    // Add cache-busting parameter in debug mode
-    const cacheBuster = debug ? `?t=${Date.now()}` : "";
-    
-    try {
+
+  const handed = store?.["gameboy:rom-url"];
+  if (store && handed) delete store["gameboy:rom-url"]; // one launch per tap
+  const link = [query?.rom, handed].find((u) => typeof u === "string" && ROM_LINK.test(u));
+
+  try {
+    let romName, romUrl, response, isGameBoyColor, extension;
+    if (link) {
+      romUrl = link;
+      extension = "." + link.match(ROM_LINK)[1].toLowerCase();
+      isGameBoyColor = extension === ".gbc";
+      romName = decodeURIComponent(new URL(link).pathname.split("/").pop() || "rom")
+        .replace(/\.gbc?$/i, "") || "rom";
+      response = await fetch(romUrl);
+      if (!response.ok) throw new Error(`Failed to load ROM: ${response.status} ${response.statusText}`);
+    } else if (params && params[0]) {
+      // Auto-load a named ROM from the asset shelf.
+      romName = params[0];
+      const basePath = debug
+        ? "/assets/gameboy"
+        : "https://assets.aesthetic.computer/gameboy";
+      const cacheBuster = debug ? `?t=${Date.now()}` : "";
       // Try .gbc first, then fall back to .gb
-      let romUrl = `${basePath}/${romName}.gbc${cacheBuster}`;
-      let response = await fetch(romUrl);
-      let isGameBoyColor = true;
-      let extension = ".gbc";
-      
+      romUrl = `${basePath}/${romName}.gbc${cacheBuster}`;
+      response = await fetch(romUrl);
+      isGameBoyColor = true;
+      extension = ".gbc";
       if (!response.ok) {
-        // Fall back to .gb
         romUrl = `${basePath}/${romName}.gb${cacheBuster}`;
         response = await fetch(romUrl);
         isGameBoyColor = false;
         extension = ".gb";
-        
         if (!response.ok) {
           throw new Error(`Failed to load ROM: ${response.status} ${response.statusText}`);
         }
       }
-      
-      console.log("🎮 gameboy: Loading ROM from:", romUrl);
-      
-      const romData = await response.arrayBuffer();
-      console.log("🎮 gameboy: ROM loaded:", romData.byteLength, "bytes");
-      
-      // Store current ROM info for download button
-      currentRom = {
-        name: romName,
-        extension: extension,
-        url: romUrl,
-        isGameBoyColor: isGameBoyColor
-      };
-      
-      // Create romData object matching bios.mjs format
-      const romDataObj = {
+    } else return;
+
+    console.log("🎮 gameboy: Loading ROM from:", romUrl);
+    const romData = await response.arrayBuffer();
+    if (romData.byteLength < 0x150 || romData.byteLength > ROM_MAX_BYTES) {
+      throw new Error(`Not a Game Boy ROM (${romData.byteLength} bytes)`);
+    }
+    console.log("🎮 gameboy: ROM loaded:", romData.byteLength, "bytes");
+
+    // Store current ROM info for download button
+    currentRom = { name: romName, extension, url: romUrl, isGameBoyColor };
+
+    // Send load command to bios (romData object matches bios.mjs format)
+    send({
+      type: "gameboy:load-rom",
+      content: {
         name: romName,
         originalName: `${romName}${extension}`,
-        romData: romData,
-        isGameBoyColor: isGameBoyColor
-      };
-      
-      // Send load command to bios
-      send({
-        type: "gameboy:load-rom",
-        content: romDataObj
-      });
-      
-      console.log("🎮 gameboy: ROM load command sent to BIOS");
-      
-    } catch (error) {
-      console.error("🎮 gameboy: Failed to load ROM:", error);
-    }
+        romData,
+        isGameBoyColor,
+      },
+    });
+    console.log("🎮 gameboy: ROM load command sent to BIOS");
+  } catch (error) {
+    console.error("🎮 gameboy: Failed to load ROM:", error);
   }
 }
 

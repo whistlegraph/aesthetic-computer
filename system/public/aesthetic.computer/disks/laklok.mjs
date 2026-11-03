@@ -126,7 +126,7 @@ function askMail($) {
 // 🔗 What counts as a media link — hosts that ARE media plus direct files.
 // Mirrored verbatim in the vector client; edit both or the sisters drift.
 const LAK_MEDIA_LINK =
-  /(youtube\.com\/(watch|shorts|embed)|youtu\.be\/|vimeo\.com\/|tiktok\.com\/|soundcloud\.com\/|bandcamp\.com|\.(png|jpe?g|gif|webp|mp4|mov|webm|mp3|wav|ogg|m4a)\b)/i;
+  /(youtube\.com\/(watch|shorts|embed)|youtu\.be\/|vimeo\.com\/|tiktok\.com\/|soundcloud\.com\/|bandcamp\.com|aesthetic\.computer\/watch\/|\.(png|jpe?g|gif|webp|mp4|mov|webm|mp3|wav|ogg|m4a|gbc?)\b)/i;
 function hasMediaLink(text) {
   if (!text) return false;
   const urls = text.match(/https?:\/\/[^\s]+|www\.[^\s]+/gi);

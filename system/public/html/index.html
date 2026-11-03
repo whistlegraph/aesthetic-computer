@@ -296,6 +296,13 @@
   }
   .embed.vid { width: 260px; height: 150px; object-fit: contain; border-radius: 4px; background: #000; }
   .embed.aud { width: 240px; height: 32px; }
+  /* 🎮 A cartridge link → a chip that plays it in AC's gameboy piece. */
+  .embed.rom {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+    border-radius: 4px; background: #8b956d; color: #0f380f; text-decoration: none;
+    font: 600 12px var(--sans);
+  }
+  .embed.rom:hover { background: #9bbc0f; }
   .embed.og {
     display: none; gap: 8px; align-items: center; text-decoration: none;
     border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px;
@@ -572,12 +579,51 @@ $settings.addEventListener("click", (e) => {
 });
 
 // ── Handle tinting ──────────────────────────────────────────────────────────
-// v1: deterministic hue per handle (real per-character /api/handle-colors is a
-// follow-up). Keeps the social-graph color cue without an extra round-trip.
+// Per-character colors from /api/handle-colors, as the raster paints them
+// (chat.mjs: one {r,g,b} per character of "@handle"). Until they arrive — or
+// when a handle has none — a deterministic hue keeps the social-graph cue.
 function handleColor(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return `hsl(${h % 360} 75% 72%)`;
+}
+const handleColorsCache = new Map(); // handle → [{r,g,b}] | null (none set)
+const handleColorsAsks = new Map(); // handle → Promise, one ask per handle
+function fetchHandleColors(name) {
+  if (handleColorsCache.has(name)) return Promise.resolve(handleColorsCache.get(name));
+  if (handleColorsAsks.has(name)) return handleColorsAsks.get(name);
+  const ask = fetch(`${AC_API}/api/handle-colors?handle=${encodeURIComponent(name)}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      const colors = Array.isArray(data?.colors) && data.colors.length ? data.colors : null;
+      handleColorsCache.set(name, colors); // a miss is remembered; no re-ask
+      return colors;
+    })
+    .catch(() => null) // network failure: not cached, a later row retries
+    .finally(() => handleColorsAsks.delete(name));
+  handleColorsAsks.set(name, ask);
+  return ask;
+}
+// Spell `text` ("@name") into `el`, one span per character in its colors.
+function spellHandle(el, text, colors) {
+  el.textContent = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = colors[i];
+    if (!c) { el.append(text.slice(i)); break; } // colors shorter than the text
+    const s = document.createElement("span");
+    s.textContent = text[i];
+    s.style.color = `rgb(${c.r} ${c.g} ${c.b})`;
+    el.append(s);
+  }
+}
+// Tint a handle element now, then recolor it per character once known.
+function paintHandle(el, text) {
+  const name = text.replace(/^@/, "").toLowerCase();
+  if (!name || name === "anon") return;
+  el.style.color = handleColor(name);
+  const apply = (colors) => { if (colors && el.textContent === text) spellHandle(el, text, colors); };
+  if (handleColorsCache.has(name)) apply(handleColorsCache.get(name));
+  else fetchHandleColors(name).then(apply);
 }
 
 // ── Sensitive URLs (mirror lib/chat-highlighting.mjs) ───────────────────────
@@ -591,7 +637,7 @@ const isSensitiveUrl = (url) => SENSITIVE.some((p) => p.test(url));
 
 // ── Media links (mirror LAK_MEDIA_LINK in disks/laklok.mjs verbatim) ───────
 const MEDIA_LINK =
-  /(youtube\.com\/(watch|shorts|embed)|youtu\.be\/|vimeo\.com\/|tiktok\.com\/|soundcloud\.com\/|bandcamp\.com|\.(png|jpe?g|gif|webp|mp4|mov|webm|mp3|wav|ogg|m4a)\b)/i;
+  /(youtube\.com\/(watch|shorts|embed)|youtu\.be\/|vimeo\.com\/|tiktok\.com\/|soundcloud\.com\/|bandcamp\.com|aesthetic\.computer\/watch\/|\.(png|jpe?g|gif|webp|mp4|mov|webm|mp3|wav|ogg|m4a|gbc?)\b)/i;
 const URLISH = /https?:\/\/[^\s]+|www\.[^\s]+/gi;
 function hasMediaLink(text) {
   if (!text) return false;
@@ -610,6 +656,7 @@ const AC_API = "https://aesthetic.computer";
 const YT_LINK = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/; // mirror lib/chat-highlighting.mjs
 const FILE_IMG = /\.(png|jpe?g|gif|webp)([?#]|$)/i;
 const FILE_VID = /\.(mp4|mov|webm)([?#]|$)/i;
+const FILE_ROM = /\.gbc?([?#]|$)/i; // mirror the cartridge link in chat.mjs
 const FILE_AUD = /\.(mp3|wav|ogg|m4a)([?#]|$)/i;
 const PAINTING_TOKEN = /(?<![\w&])#([a-z0-9]{3,})\b/gi; // mirror TOKEN's #painting arm
 
@@ -736,6 +783,19 @@ function paintingEmbed(code) {
   return img;
 }
 
+function romEmbed(url) {
+  const a = document.createElement("a");
+  a.className = "embed rom";
+  a.href = `${AC_API}/gameboy?rom=${encodeURIComponent(url)}`;
+  a.target = "_blank"; a.rel = "noopener";
+  const file = url.split(/[?#]/)[0].split("/").pop() || "cartridge";
+  let name = file;
+  try { name = decodeURIComponent(file); } catch {} // a stray % stays literal
+  a.textContent = "▶ play " + name;
+  a.title = "play on Game Boy";
+  return a;
+}
+
 function buildEmbeds(text) {
   const wrap = document.createElement("div");
   wrap.className = "embeds";
@@ -749,6 +809,7 @@ function buildEmbeds(text) {
     else if (FILE_IMG.test(url)) wrap.append(fileEmbed(url, "img"));
     else if (FILE_VID.test(url)) wrap.append(fileEmbed(url, "vid"));
     else if (FILE_AUD.test(url)) wrap.append(fileEmbed(url, "aud"));
+    else if (FILE_ROM.test(url)) wrap.append(romEmbed(url));
     else wrap.append(ogEmbed(url));
   }
   PAINTING_TOKEN.lastIndex = 0;
@@ -849,7 +910,7 @@ function renderTokens(frag, text, inheritColor) {
     const tok = m[0];
     let el;
     if (tok[0] === "@") {
-      el = span("t-handle", tok); el.style.color = handleColor(tok.slice(1).toLowerCase());
+      el = span("t-handle", tok); paintHandle(el, tok);
       el.title = "open " + tok; el.onclick = () => open("https://aesthetic.computer/" + tok);
     } else if (/^(https?:|www\.)/i.test(tok)) {
       el = document.createElement("a"); el.className = "t-url";
@@ -1045,7 +1106,7 @@ function rowFor(msg) {
   row.dataset.id = msg.id || "";
   const from = document.createElement("span");
   from.className = "from"; from.textContent = msg.from || "anon";
-  if (msg.from && msg.from !== "anon") from.style.color = handleColor(msg.from.replace(/^@/, "").toLowerCase());
+  if (msg.from && msg.from !== "anon") paintHandle(from, msg.from);
   const body = document.createElement("span");
   body.className = "body";
   if (msg.deleted) body.textContent = "[deleted]";
