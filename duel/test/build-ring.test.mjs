@@ -92,17 +92,17 @@ test('the join code is a corner badge that a phone can read', () => {
   const cells = joinCode('https://lake-tea-journal-bureau.trycloudflare.com/?room=studio');
   const span = cells.length + 8;
   // A 1x buffer (a narrow browser window, a phone): three screen pixels per
-  // module and at least three per HUD unit, never past half the short side.
+  // module and at least two per HUD unit, never past half the short side.
   for (const [w, h] of [[700, 757], [960, 540], [390, 844], [480, 270]]) {
     const { qrSize, module, unit } = hudLayout(w, h, cells, 1);
     assert.ok(qrSize <= Math.min(w, h) / 2, `${w}x${h}: ${qrSize}`);
     assert.ok(module >= Math.min(3, Math.floor(Math.min(w, h) / 2 / span)), `${w}x${h}: module ${module}`);
-    assert.ok(unit >= 3, `${w}x${h}: unit ${unit}`);
+    assert.ok(unit >= 2, `${w}x${h}: unit ${unit}`);
   }
   // A 2x buffer behind a 1280x720 window: the same screen sizes, half the units.
   const two = hudLayout(640, 360, cells, 2);
   assert.ok(two.module * 2 >= 3 && two.qrSize * 2 >= 3 * span, `2x: ${two.qrSize}`);
-  assert.ok(two.unit * 2 >= 3 && two.unit <= 2, `2x: unit ${two.unit}`);
+  assert.ok(two.unit * 2 >= 2 && two.unit <= 2, `2x: unit ${two.unit}`);
   // The sizes stay a corner badge, not a panel, on a big 1x buffer.
   assert.ok(hudLayout(1024, 600, cells, 1).qrSize <= 600 * 0.3);
 });

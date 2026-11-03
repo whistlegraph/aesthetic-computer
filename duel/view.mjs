@@ -9,8 +9,9 @@ import { joinCode, hudLayout, drawJoinCode } from './hud.mjs';
 // controls: the same world plays from a keyboard alone, a pad or a touchscreen.
 export const LEGEND = {
   keys: [
-    'wasd move / arrows turn / space jump / v camera',
-    'enter build / f use / q drop / x paint / c chalk / h hide this',
+    'wasd move / arrows turn / space jump',
+    'enter build / f use / q drop / x paint / c chalk',
+    'v camera / tab rooms / h hide this',
   ],
   pad: [
     '[LS] move / [RS] look / [LT] jump / [Y] camera',
@@ -808,6 +809,8 @@ export async function createView(canvas) {
               .flatMap(wrap)
               .slice(0, 7)
           : null;
+      // The legend only joins the plain hint, never a panel.
+      const showLegend = legend && !spectator && !wallCode && !prompt.open && !building;
       const rows = wallCode
         ? [
             [
@@ -855,7 +858,7 @@ export async function createView(canvas) {
           : [
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
-              ...(legend && !spectator ? legendRows(input) : []),
+              ...(showLegend ? legendRows(input) : []),
               spectator
                 ? hintSpans(
                     controller ? 'freecam / lb down / rb up' : 'freecam / wasd / space up / shift down',
@@ -873,7 +876,8 @@ export async function createView(canvas) {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panelHeight = visible.length * 11 * unit + 10 * unit;
           const panel = prompt.open || building;
-          panelTop = panel ? -height / 2 + safeY + panelHeight : null;
+          // The legend also lifts the corner labels, like a panel would.
+          panelTop = panel || showLegend ? -height / 2 + safeY + panelHeight : null;
           if (panel) {
             // A dark slab with a thin slate rule; text carries the colour.
             rect(-width / 2 + safeX, -height / 2 + safeY, 0.000004, width - 2 * safeX, panelHeight, LINE);
