@@ -284,6 +284,11 @@ let mimeSwipe = null;
 let mimeArmed = false; // Last curtain state sent to bios's mime sheet.
 let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it isn't drawn.
 
+// 🎯 Dool: the world under the paper. A crosshair waits bottom-right of the
+// curtain; a tap flies it to the centre, then bios drops the paper into dool.
+let doolBtn;
+let doolFlight = null; // { at, phase: "out" | "away" | "back", awayAt }
+
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
 // this is the "feed already written" win. `kind` is contentItems.type
@@ -1146,6 +1151,8 @@ async function boot({
   if (colon?.includes("poe")) theme = "poe";
   // 🎭 Load the mime feed under the curtain on idle, so a swipe never waits.
   if (theme === "default") send({ type: "mime:sheet", content: { action: "warm" } });
+  // 🎯 And the dool world, so the paper drops onto a room already built.
+  if (theme === "default") send({ type: "dool:sheet", content: { action: "warm" } });
   // ✨ URL override for flair (e.g. `prompt:noflair` / `prompt:flair`). Non-
   // persisting — the `flair` command still owns the saved preference. Handy for
   // a clean attract screen and for the FPS regression test.
@@ -2106,6 +2113,9 @@ async function route($, text) {
     return true;
   } else if (slug === "mime") {
     jump("https://aesthetic.computer/mime/");
+    return true;
+  } else if (slug === "dool") {
+    jump("https://aesthetic.computer/dool/");
     return true;
   } else if (slug === "bills") {
     // 💸 Jump to billing dashboard
@@ -6437,6 +6447,69 @@ function paint($) {
       mailBtn = undefined;
     }
 
+    // 🎯 Dool waits under the paper: its own square reticle, bottom-right of
+    // the curtain. Tapped, it flies to the centre and grows while the paper
+    // drops; when the paper comes back it flies home again.
+    if (curtainIdle || doolFlight) {
+      const now = performance.now();
+      const side = (s) => 16 * s; // four corners about a dot: 2 × (7 + 1) units
+      const home = { x: screen.width - 6 - side(1), y: screen.height - 6 - side(1) };
+      const centre = (s) => ({
+        x: Math.floor((screen.width - side(s)) / 2),
+        y: Math.floor((screen.height - side(s)) / 2),
+      });
+      const mix = (a, b, t) => ({ x: Math.round(a.x + (b.x - a.x) * t), y: Math.round(a.y + (b.y - a.y) * t) });
+      let at = home, scale = 1, lit = false;
+      if (doolFlight) {
+        const t = Math.min(1, (now - doolFlight.at) / 360);
+        const ease = 1 - (1 - t) * (1 - t);
+        scale = 1 + ease;
+        lit = true;
+        if (doolFlight.phase === "out") {
+          at = mix(home, centre(scale), ease);
+          if (t >= 1) {
+            doolFlight.phase = "away";
+            doolFlight.awayAt = now;
+            $.send({ type: "dool:sheet", content: { action: "show" } });
+          }
+        } else if (doolFlight.phase === "away") {
+          at = centre(2);
+          scale = 2;
+          // The loop sleeps while the paper is away; a frame this long after
+          // means it is home again (or the drop never came).
+          if (now - doolFlight.awayAt > 800) doolFlight = { at: now, phase: "back" };
+        } else {
+          scale = 2 - ease;
+          at = mix(centre(2), home, ease);
+          lit = t < 1;
+          if (t >= 1) doolFlight = null;
+        }
+      }
+      const hot = !doolFlight && doolBtn?.over;
+      const s = Math.max(1, Math.round(scale));
+      const t = s, arm = 4 * s, half = 7 * s;
+      const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
+      const color = lit || hot ? [255, 224, 102] : $.dark ? [235, 235, 245] : [40, 40, 50];
+      const L = (x, y, w, h) => {
+        $.ink(24, 24, 32, 170).box(ox + x + t, oy + y + t, w, h);
+        $.ink(color).box(ox + x, oy + y, w, h);
+      };
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1]) {
+          // The corner's outer pixel, then arms running inward.
+          const x = sx < 0 ? -half - t : half, y = sy < 0 ? -half - t : half;
+          L(sx < 0 ? x : x - arm + t, y, arm, t);
+          L(x, sy < 0 ? y : y - arm + t, t, arm);
+        }
+      L(-t, -t, 2 * t, 2 * t);
+      if (!doolFlight) {
+        // A Button hit-tests through its Box, so hand it a real one.
+        const hit = { x: home.x - 6, y: home.y - 6, w: side(1) + 12, h: side(1) + 12 };
+        doolBtn = doolBtn || new $.ui.Button(hit.x, hit.y, hit.w, hit.h);
+        doolBtn.box = $.geo.Box.from(hit);
+      } else doolBtn = undefined;
+    } else doolBtn = undefined;
+
     // 📦 Commit hash button - shows version status / update availability
     // Hide commits button when KidLisp button is active (they share the same screen area)
     // Also part of flair — hidden (along with the notepat button) when flair is off.
@@ -7973,6 +8046,25 @@ function act({
     });
   };
 
+  // 🎯 Dool's crosshair, bottom-right of the curtain: a tap sends it flying
+  // to the centre, and bios drops the paper into the world once it lands.
+  if (doolFlight) {
+    if (e.is("touch") || e.is("draw") || e.is("lift")) return; // The paper is on its way.
+  } else if (doolBtn) {
+    doolBtn.act(e, {
+      down: () => {
+        system.prompt.input.backdropTouchOff = true; // So the lift won't lift the curtain.
+        send({ type: "keyboard:lock" });
+        downSound();
+      },
+      push: () => {
+        pushSound();
+        doolFlight = { at: performance.now(), phase: "out" };
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
   // 🎭 The mime feed lives below the curtain. A mostly-vertical upward drag
   // hands the gesture to bios's mime sheet, which follows the finger itself;
   // down arrow presents it outright. Taps still lift the curtain.
@@ -7983,7 +8075,7 @@ function act({
       send({ type: "mime:sheet", content: { action: "show" } });
       return;
     }
-    if (e.is("touch") && onCurtain) {
+    if (e.is("touch") && onCurtain && !doolBtn?.box?.contains(e)) {
       mimeSwipe = { x: e.x, y: e.y, engaged: false };
     } else if (mimeSwipe && e.is("draw")) {
       const dy = mimeSwipe.y - e.y;

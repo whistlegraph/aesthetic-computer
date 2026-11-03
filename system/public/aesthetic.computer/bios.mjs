@@ -15408,6 +15408,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🎯 The dool world under the prompt's paper (lib/dool-sheet.mjs).
+    if (type === "dool:sheet") {
+      const { doolSheet } = await import("./lib/dool-sheet.mjs");
+      doolSheet(content);
+      return;
+    }
+
     if (type === "keyboard:lock") {
       keyboardFocusLock = true;
       if (logs.hid && debug) console.log("⌨️ Virtual Keyboard: Locked");
@@ -23927,6 +23934,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.onpopstate = function (e) {
     if (window.acMimeSheet?.popstate(e)) return; // 🎭 The mime sheet's own entry.
+    if (window.acDoolSheet?.popstate(e)) return; // 🎯 The dool world's own entry.
     if (
       document.location.hash === "#debug" ||
       document.location.hash === "#nodebug"

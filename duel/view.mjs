@@ -291,6 +291,7 @@ export async function createView(canvas) {
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel;
   let panelTop = null;
+  let cornerRect = null; // The corner block, in buffer pixels from the top left.
   const chalkModels = new Map();
   let boom = 4;
   let cubeModel = null, cubeAt = 0;
@@ -494,6 +495,7 @@ export async function createView(canvas) {
     locked = false,
     legend = false,
     held = {},
+    corner = null,
   } = {}) {
     if (lost) {
       location.reload();
@@ -1151,6 +1153,24 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // The corner block: the world's name at the top left, as the system's
+    // label on every AC piece (SCREEN.md). A tap on it goes back to the prompt.
+    cornerRect = null;
+    if (corner) {
+      const { unit, safeX, safeY } = hud;
+      const w = (corner.length * 6 + 3) * unit,
+        h = 11 * unit;
+      const left = -W / 2 + safeX,
+        bottom = H / 2 - safeY - h;
+      cornerRect = { x: safeX, y: safeY, w, h };
+      const m = model(({ rect: worldRect, text }) => {
+        const rect = flip(worldRect);
+        rect(left + unit, bottom - unit, 0.000003, w, h, INK);
+        rect(left, bottom, 0.000002, w, h, 0x15171e);
+        text(corner, left + w / 2, bottom + 7 * unit, 0, unit, PAPER);
+      });
+      projector.overlay(m, W, H);
+    }
     if (devLog.length) {
       // A live feed: each step types in a character at a time with a block
       // cursor, its code and commands as sublines beneath it; the stack eases
@@ -1176,9 +1196,9 @@ export async function createView(canvas) {
       const lift = (1 - (1 - ease) * (1 - ease)) * LINE;
       const visible = rows.slice(-SHOWN);
       const left = -W / 2 + safeX + 2;
-      // Anchored at the top: lines start at the corner, newest lowest; once
-      // the stack is full it eases upward as each line arrives.
-      const top = H / 2 - safeY;
+      // Anchored at the top, under the corner block: lines start there,
+      // newest lowest; once the stack is full it eases upward as each line arrives.
+      const top = H / 2 - safeY - (cornerRect ? 13 * unit : 0);
       devModel = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
         // Characters revealed so far, across an entry and its sublines.
@@ -1690,6 +1710,15 @@ export async function createView(canvas) {
     canvas,
     render,
     effect,
+    // Is this point (CSS pixels on the canvas) on the corner block?
+    cornerHit(cssX, cssY) {
+      if (!cornerRect) return false;
+      const px = canvas.width / Math.max(1, canvas.clientWidth);
+      const x = cssX * px,
+        y = cssY * px,
+        slack = 6 * px;
+      return x >= 0 && y >= 0 && x <= cornerRect.x + cornerRect.w + slack && y <= cornerRect.y + cornerRect.h + slack;
+    },
     destroy() {
       observer.disconnect();
       host.destroy();

@@ -18,7 +18,26 @@ import { sourceTones, beatAt } from './object-language.mjs';
 const view = await createView(document.getElementById('game'));
 const canvas = view.canvas,
   keys = new Set();
-const requestedRoom = new URLSearchParams(location.search).get('room');
+const query = new URLSearchParams(location.search);
+const requestedRoom = query.get('room');
+// 🎯 Hosted under the AC prompt (lib/dool-sheet.mjs on aesthetic.computer):
+// the paper over this frame drops on a tap and rises on Escape, Back or a tap
+// on the corner block. Parked, the world draws a frame every half second,
+// makes no sound and holds no seat.
+const hosted = query.get('embed') === 'prompt' && window.parent !== window;
+let sheetOpen = !hosted,
+  parkedAt = 0,
+  unlockedAt = -1e9;
+const toHost = (message) => {
+  if (hosted) window.parent.postMessage(message, location.origin);
+};
+function leave() {
+  if (hosted) {
+    releaseInput();
+    if (locked()) document.exitPointerLock();
+    toHost({ type: 'dool:sheet:leave' });
+  } else location.href = '/';
+}
 const room =
   requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom)
     ? requestedRoom
@@ -562,7 +581,10 @@ function connect() {
   };
 }
 
-canvas.addEventListener('click', capture);
+canvas.addEventListener('click', (e) => {
+  if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
+  void capture();
+});
 canvas.addEventListener('paste', (e) => {
   if (!prompt.open) return;
   e.preventDefault();
@@ -734,6 +756,7 @@ const touchy = (e) => e.pointerType === 'touch' || e.pointerType === 'pen';
 canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
   e.preventDefault();
+  if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
   canvas.setPointerCapture?.(e.pointerId);
   const first = !touch.active;
   touch.down(e, canvas.clientWidth, canvas.clientHeight, performance.now(), radial.open);
@@ -752,7 +775,10 @@ function releaseInput() {
   keys.clear();
   firing = jumpQueued = fireQueued = false;
 }
-document.addEventListener('pointerlockchange', releaseInput);
+document.addEventListener('pointerlockchange', () => {
+  releaseInput();
+  if (!locked()) unlockedAt = performance.now();
+});
 document.addEventListener('mousemove', (e) => {
   if (!locked() || prompt.open) return;
   yaw = (yaw - e.movementX * 0.12 + 360) % 360;
@@ -789,6 +815,13 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (e.code === 'Enter') submitChalk();
     else chalkMode = null;
+    return;
+  }
+  // Hosted, with nothing open and the mouse already free (the Escape that
+  // released it does not count), Escape brings the prompt's paper back.
+  if (hosted && e.code === 'Escape' && !e.repeat && !prompt.open && !locked() && performance.now() - unlockedAt > 400) {
+    e.preventDefault();
+    leave();
     return;
   }
   if (e.code === 'Enter' && !e.repeat) {
@@ -867,6 +900,10 @@ document.addEventListener('visibilitychange', () => {
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
+  if (!sheetOpen) {
+    if (now - parkedAt < 500) return; // Parked under the paper: a slow idle.
+    parkedAt = now;
+  }
   try {
     step(now);
   } catch (error) {
@@ -1273,6 +1310,7 @@ function step(now) {
     worldTime,
     locked: locked(),
     legend: legendShown(),
+    corner: 'dool',
     held: {
       keys: [...keys],
       pad: [
@@ -1285,5 +1323,23 @@ function step(now) {
   });
   postProcess(elapsed);
 }
-connect();
+if (hosted) {
+  window.addEventListener('message', (e) => {
+    if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;
+    sheetOpen = e.data.open === true;
+    if (sheetOpen) {
+      last = performance.now();
+      debt = 0;
+      if (!ws || ws.readyState === WebSocket.CLOSED) connect();
+      canvas.focus();
+      void sfx.wake();
+    } else {
+      releaseInput();
+      if (locked()) document.exitPointerLock();
+      closeBuild();
+      sfx.audio?.suspend?.().catch?.(() => {});
+    }
+  });
+  toHost({ type: 'dool:sheet:hello' });
+} else connect();
 requestAnimationFrame(frame);

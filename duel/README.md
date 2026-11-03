@@ -320,3 +320,20 @@ Rotation bounds now evaluate sine/cosine over each actual angle interval. A smal
 leg swing no longer reserves a full circle and falsely crosses the floor. The
 previously rejected Big friend source is a regression fixture; animations that
 really cross the ground remain rejected.
+
+## Under the prompt
+
+dool is the world beneath the aesthetic.computer homepage. The prompt piece
+draws dool's square reticle bottom-right of its curtain; a tap flies it to the
+centre and `lib/dool-sheet.mjs` (the host, in bios) drops the prompt's paper
+to uncover a same-origin frame of `/dool/?embed=prompt` parked beneath the
+stage. The frame is warmed on idle but takes no seat until it is first
+opened, idles at two frames a second while parked, and is silent there.
+
+Hosted, the client says `dool:sheet:hello` when its script has run and
+`dool:sheet:leave` when the player goes back: Escape with nothing open and
+the mouse already free, or a tap on the corner block at the top left (the
+system's label on every AC piece, SCREEN.md). The host answers with
+`{ type: "dool:sheet", open }` as the paper moves. Back in the browser closes
+the world too; the open world is one history entry at `/dool/`. Standalone,
+the corner block goes to the homepage.
