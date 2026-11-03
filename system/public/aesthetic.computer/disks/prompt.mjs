@@ -7420,13 +7420,23 @@ function paint($) {
         screen.width - 16,
       );
     }
-    profile?.paint(
-      $,
-      $.dark ? scheme.dark.profile : scheme.light.profile,
-      undefined, // hoverScheme (use default)
-      undefined, // disabledScheme (use default)
-      $.dark ? scheme.dark.profileRollover : scheme.light.profileRollover
-    );
+    // The handle stands bare in the corner (2026-11-03): no box, the text
+    // alone, brighter under the pointer. A zero-alpha fill and outline draw
+    // nothing. Create handle / resend keep their box as a call to action.
+    const profileScheme = $.dark ? scheme.dark.profile : scheme.light.profile;
+    const profileRollover = $.dark ? scheme.dark.profileRollover : scheme.light.profileRollover;
+    const bareHandle = (base) => [[0, 0, 0, 0], [0, 0, 0, 0], base[2]];
+    if (profileAction === "profile") {
+      profile?.paint($, bareHandle(profileScheme), bareHandle(profileRollover), undefined, bareHandle(profileRollover));
+    } else {
+      profile?.paint(
+        $,
+        profileScheme,
+        undefined, // hoverScheme (use default)
+        undefined, // disabledScheme (use default)
+        profileRollover
+      );
+    }
 
     // ꜩ Tezos wallet button (positioned to the right of handle button)
     if (tezosWalletAddress && profile) {
