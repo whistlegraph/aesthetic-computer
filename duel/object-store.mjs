@@ -71,6 +71,15 @@ export class ObjectStore {
   historyEntry(room, code) {
     return (this.data.history?.[room] || []).find((h) => h.code === code) || null;
   }
+  removeObject(room, id) {
+    return this.transact((data) => {
+      const list = data.rooms[room] || [];
+      const i = list.findIndex((o) => o.id === id);
+      if (i < 0) return null;
+      const [gone] = list.splice(i, 1);
+      return { id: gone.id, x: gone.x, z: gone.z };
+    });
+  }
   clearRoom(room) {
     return this.transact((data) => {
       data.rooms[room] = [];

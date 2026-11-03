@@ -25,7 +25,7 @@ scaling keep the pixel edges sharp. Resizing is supported.
 **Touch:** the left half is a floating move stick; drag the right half to look,
 tap it to jump, and hold it to open the build ring.
 
-**Controller:** left trigger jumps. LB selects the object you're aiming at (or empty floor) and opens the build ring. Point with
+**Controller:** left trigger jumps. RB adds: it opens the build ring, or changes the object (or KidLisp wall) you aim at; with an item in hand it uses it. LB removes the object you aim at (it stays in the $ history, Back, to put back). X paints floor squares or drops an item. Start opens the room menu. Point with
 a stick, A adds the highlighted choice, X builds, B undoes the last choice and
 then closes. Aimed at your own object, the ring offers changes ("make it spin");
 otherwise you pick a thing and then traits ("a red spinning tower"). Typing on

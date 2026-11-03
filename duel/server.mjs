@@ -430,6 +430,25 @@ export function createDuelServer({
       }
       if (data?.type === 'chalk-clear' && member.seat >= 0) room.match.clearChalk(member.seat);
       if (data?.type === 'clear-room' && member.seat >= 0) void builders.clearRoom(key);
+      // LB: take an object out of the room (it stays in the $ history).
+      if (data?.type === 'remove' && member.seat >= 0 && typeof data.objectId === 'string')
+        void store.removeObject(key, data.objectId).then((gone) => {
+          if (!gone) return;
+          room.match.emit('removed', { at: { x: gone.x, y: 1, z: gone.z } });
+          builders.broadcast(key);
+        });
+      // Everything this handle has made that can stand in the space.
+      if (data?.type === 'handle-history' && member.handle)
+        void (async () => {
+          try {
+            const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=300&handle=${encodeURIComponent(member.handle)}`, { signal: AbortSignal.timeout(8000) });
+            const { recent = [] } = await r.json();
+            const items = recent
+              .filter((x) => typeof x.source === 'string' && /\((?:slab|orb|capsule)\s/.test(x.source.replace(/;[^\n]*/g, '')))
+              .map((x) => ({ code: x.code, name: (/^\s*;\s*([^\n]+)/.exec(x.source)?.[1] || x.code).slice(0, 40), at: x.when }));
+            send(ws, { type: 'handle-history', handle: member.handle, items });
+          } catch {}
+        })();
       if (data?.type === 'kidlisp-mod' && member.seat >= 0) void builders.requestKidlisp(ws, key, owner, data);
       if (data?.type === 'paint' && member.seat >= 0 && Number.isInteger(data.i) && Number.isInteger(data.j) && data.i >= 0 && data.i < 18 && data.j >= 0 && data.j < 18)
         void store.paintTile(key, data.i, data.j).then(() => builders.broadcast(key));

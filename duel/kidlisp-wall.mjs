@@ -6,6 +6,23 @@
 import { KidLisp } from './ac/lib/kidlisp.mjs';
 import * as graph from './ac/lib/graph.mjs';
 
+// A KidLisp colour name ("cyan", "255,0,0", "fade:red-blue") to 0xRRGGBB.
+const colors = new Map();
+function colorOf(name) {
+  if (colors.has(name)) return colors.get(name);
+  let rgb = [242, 242, 242];
+  try {
+    const n = name.startsWith('fade:') ? name.slice(5).split('-')[0] : name;
+    const parts = n.split(',').map(Number);
+    const found = parts.length >= 3 && parts.every(Number.isFinite) ? parts : graph.findColor(n);
+    if (Array.isArray(found) && found.length >= 3) rgb = found;
+  } catch {}
+  const c = (Math.round(rgb[0]) << 16) | (Math.round(rgb[1]) << 8) | Math.round(rgb[2]);
+  if (colors.size > 256) colors.clear();
+  colors.set(name, c);
+  return c;
+}
+
 export async function kidlispWall(code, { width = 96, height = 54, source: given = null } = {}) {
   let source = given;
   if (!source) {
@@ -80,5 +97,24 @@ export async function kidlispWall(code, { width = 96, height = 54, source: given
       return display.pixels;
     },
     elapsed: () => (performance.now() - start) / 1000,
+    // KidLisp's own live highlighting (timers flash as they fire, fades as
+    // gradients, the running expression lit): lines of { text, color } runs.
+    colored() {
+      try {
+        lisp.syntaxHighlightSource ||= source;
+        const coded = lisp.buildColoredKidlispString();
+        const lines = [[]];
+        for (const m of coded.matchAll(/\\([^\\]+)\\([^\\]*)/g)) {
+          const color = colorOf(m[1]);
+          m[2].split('\n').forEach((part, k) => {
+            if (k) lines.push([]);
+            if (part) lines[lines.length - 1].push({ text: part, color });
+          });
+        }
+        return lines.filter((l) => l.some((s) => s.text.trim()));
+      } catch {
+        return null;
+      }
+    },
   };
 }

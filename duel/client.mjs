@@ -3,7 +3,7 @@ import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
 import { objectBoxes } from './objects.mjs';
-import { direction, rayBox, wallDistance, along } from './world.mjs';
+import { direction, rayBox, wallDistance, along, SCREEN, WORLD } from './world.mjs';
 import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { accountToken } from './account.mjs';
@@ -144,10 +144,27 @@ let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
 let members = [];
 // Start opens the room menu; Back opens the $code history.
+// Short notices for finished or failed builds, newest last.
+let notices = [];
 let braincells = null,
   shownBraincells = null;
 let tiles = {},
   floorAim = null;
+let handleHistory = [];
+// Removing takes two presses: the first arms it for two seconds.
+let removeArmed = null;
+function removeAimed() {
+  if (!focusObject || focusObject.wall) return;
+  const now = performance.now();
+  if (removeArmed?.id === focusObject.id && now - removeArmed.at < 2000) {
+    send({ type: 'remove', objectId: focusObject.id });
+    removeArmed = null;
+    sfx.ringBack();
+  } else {
+    removeArmed = { id: focusObject.id, at: now };
+    sfx.refuse();
+  }
+}
 let menu = null,
   codeHistory = [],
   menuStickAt = 0;
@@ -244,6 +261,10 @@ function connect() {
       });
     }
     if (data.type === 'presence') members = data.members;
+    if (data.type === 'handle-history' && Array.isArray(data.items)) {
+      handleHistory = data.items;
+      if (menu?.kind === 'history') menu.items = menuItems('history');
+    }
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
       if (shownBraincells === null) shownBraincells = braincells;
@@ -308,11 +329,16 @@ function connect() {
       prompt.message = data.cancelled
         ? 'CANCELLED'
         : data.error || (data.kidlisp ? `$${data.kidlisp} IS ON THE WALL` : `V${data.version} READY`);
-      if (data.error) {
-        prompt.open = true;
-        releaseInput();
-        document.exitPointerLock();
-      } else prompt.text = '';
+      // Several builds can run: a result is a notice, never a takeover.
+      notices = [
+        ...notices,
+        {
+          at: performance.now(),
+          ok: !data.error && !data.cancelled,
+          text: data.cancelled ? 'cancelled' : data.error ? data.error : data.kidlisp ? `$${data.kidlisp} is on the wall` : `v${data.version} ready`,
+        },
+      ].slice(-3);
+      if (!data.error) prompt.text = '';
       canvas.setAttribute(
         'aria-label',
         data.cancelled
@@ -328,9 +354,9 @@ function connect() {
       const target = data.players.find(Boolean);
       if (target) {
         freecam = {
-          x: clamp(target.x + 4, -17, 17),
+          x: clamp(target.x + 4, -WORLD + 1, WORLD - 1),
           y: target.y + 3,
-          z: clamp(target.z - 5, -17, 17),
+          z: clamp(target.z - 5, -WORLD + 1, WORLD - 1),
         };
         yaw =
           (Math.atan2(target.x - freecam.x, target.z - freecam.z) * 180) /
@@ -405,6 +431,7 @@ function connect() {
       if (event.type === 'pickup') sfx.pickup(event.seat === seat);
       if (event.type === 'drop') sfx.ringBack();
       if (event.type === 'bounce') sfx.bounce();
+      if (event.type === 'removed') sfx.ringBack();
       if (event.type === 'ricochet') sfx.ricochet();
       if (event.type === 'cancel') sfx.ricochet(1.5);
       if (event.type === 'headshot') sfx.headshot();
@@ -482,12 +509,19 @@ function menuItems(kind) {
         act: () => (window.doolRig ? window.doolRig.toggleFullscreen() : canvas.requestFullscreen?.().catch(() => {})),
       },
     ];
-  return codeHistory.length
-    ? codeHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()} v${h.version}`, act: () => send({ type: 'restore', code: h.code }) }))
+  // This room's, then everything your handle has made that fits the space.
+  const seen = new Set();
+  const list = [
+    ...codeHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()} v${h.version}` })),
+    ...handleHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()}` })),
+  ].filter((h) => !seen.has(h.code) && seen.add(h.code));
+  return list.length
+    ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
     : [{ label: 'nothing made yet', act: () => {} }];
 }
 function toggleMenu(kind) {
   if (menu?.kind === kind) return closeMenu();
+  if (kind === 'history') send({ type: 'handle-history' });
   menu = { kind, title: kind === 'room' ? 'room' : '$ history', items: menuItems(kind), selected: 0 };
   closeBuild();
   releaseInput();
@@ -695,6 +729,7 @@ document.addEventListener('keydown', (e) => {
     else useQueued = true;
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
+  if (seat >= 0 && e.code === 'Delete' && !e.repeat && focusObject && !focusObject.wall) removeAimed();
   if (seat >= 0 && e.code === 'KeyX' && !e.repeat && floorAim && !focusObject) {
     send({ type: 'paint', i: floorAim.i, j: floorAim.j });
     sfx.ringPick(floorAim.i + floorAim.j);
@@ -797,8 +832,8 @@ function step(now) {
       sfx.jump();
     }
   }
-  // LB selects what you aim at for building and opens the ring.
-  if (gamepad.ring && seat >= 0 && !prompt.open) openRadial();
+  // LB removes what you aim at (it stays in the $ history to put back).
+  if (gamepad.ring && seat >= 0 && !prompt.open && focusObject && !focusObject.wall) removeAimed();
   if (radial.open) {
     const left = Math.hypot(gamepad.right, gamepad.fwd),
       right = Math.hypot(gamepad.lookX, gamepad.lookY);
@@ -829,8 +864,10 @@ function step(now) {
       sfx.ringBack();
     }
   }
-  if (gamepad.use && seat >= 0 && !prompt.open && focusObject?.wall && !holding()) {
-    openRadial(focusObject);
+  // RB adds: with nothing held it builds (or changes what you aim at, or
+  // rewrites a KidLisp wall); with an item in hand it uses the item.
+  if (gamepad.use && seat >= 0 && !prompt.open && !holding()) {
+    openRadial(focusObject?.wall ? focusObject : null);
     gamepad.use = false;
   }
   if (gamepad.use && seat >= 0 && !prompt.open) useQueued = true;
@@ -999,13 +1036,13 @@ function step(now) {
     for (const w of walls) {
       const along = w.face === 'north' ? dir.z : -dir.x;
       if (along <= 0.01) continue;
-      const t = w.face === 'north' ? (17.97 - player.z) / dir.z : (-17.97 - player.x) / dir.x;
+      const t = w.face === 'north' ? (SCREEN - 0.03 - player.z) / dir.z : (-SCREEN + 0.03 - player.x) / dir.x;
       if (!(t > 0) || t >= nearest) continue;
       const hit = { x: player.x + dir.x * t, y: player.y + dir.y * t, z: player.z + dir.z * t };
       const u = w.face === 'north' ? hit.x : hit.z;
       if (Math.abs(u) <= 16 && hit.y >= 1.5 && hit.y <= 1.5 + 18) {
         nearest = t;
-        focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
+        focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, colored: w.colored, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
       }
     }
     // The floor square under the crosshair, within reach, if nothing nearer.
@@ -1071,6 +1108,9 @@ function step(now) {
     walls,
     cube,
     menu,
+    removeArmed:
+      removeArmed && focusObject?.id === removeArmed.id && performance.now() - removeArmed.at < 2000 ? removeArmed.id : null,
+    notices: notices.filter((n) => performance.now() - n.at < 6000),
     braincells: (() => {
       // Ease the shown count toward the real one; each drop is spent.
       if (braincells === null) return null;

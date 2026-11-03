@@ -91,7 +91,15 @@ export async function generateObject(
         code: codeExcerpt(result.text),
         geometry: partialGeometry(result.text),
       });
-      return parseGeometry(result.text);
+      const shape = parseGeometry(result.text);
+      // Asked to make a sound (sing, hum, a bell...) but no tone came back:
+      // send it back once to add one.
+      const wantsSound = /\b(sing|sings|singing|hum|hums|humming|bell|chime|gong|drum|horn|whistle|music|musical|buzz|buzzing|ring|ringing|song|melody|beep|speaker)\b/i.test(job.prompt || '');
+      if (wantsSound && !/\(tone\s/.test(shape.source || '') && attempt < ATTEMPTS - 1) {
+        correction = 'The request asks for sound but the object has no (tone ...). Add at least one tone, using beat and pulse for rhythm, and keep the shape. Previous output: ' + result.text.slice(0, 8000);
+        continue;
+      }
+      return shape;
     } catch (error) {
       if (attempt === ATTEMPTS - 1)
         throw Object.assign(error, {
@@ -185,6 +193,7 @@ export function connectBuilder({
           if (!controller.signal.aborted) deliver({ type: 'built', id: job.id, geometry });
         }
       } catch (error) {
+        console.log(`Aesel job failed: ${error.status || ''} ${error.message}`.trim());
         if (!controller.signal.aborted || controller.timedOut)
           deliver(
             ({

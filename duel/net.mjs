@@ -1,4 +1,4 @@
-import { clamp, move, HZ } from './world.mjs';
+import { clamp, move, HZ, WORLD } from './world.mjs';
 
 // Only input crosses the authority boundary: never client positions, damage or dt.
 export function command(raw) {
@@ -21,7 +21,7 @@ export function command(raw) {
     drop: raw.drop === true,
     chalk:
       raw.chalk && ['x', 'y', 'z'].every((k) => Number.isFinite(raw.chalk[k]))
-        ? { x: clamp(raw.chalk.x, -18, 18), y: clamp(raw.chalk.y, 0, 12), z: clamp(raw.chalk.z, -18, 18) }
+        ? { x: clamp(raw.chalk.x, -WORLD, WORLD), y: clamp(raw.chalk.y, 0, 30), z: clamp(raw.chalk.z, -WORLD, WORLD) }
         : null,
   };
 }

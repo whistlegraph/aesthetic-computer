@@ -12,6 +12,7 @@ import {
   along,
   surfaceHit,
   reflect,
+  WORLD,
 } from './world.mjs';
 import { command } from './net.mjs';
 
@@ -237,8 +238,8 @@ export class Match {
         it.spin *= 0.8;
         if (Math.hypot(it.vx, it.vz) < 0.2) it.vx = it.vz = 0;
       }
-      it.x = Math.max(-18, Math.min(18, it.x));
-      it.z = Math.max(-18, Math.min(18, it.z));
+      it.x = Math.max(-WORLD + 0.5, Math.min(WORLD - 0.5, it.x));
+      it.z = Math.max(-WORLD + 0.5, Math.min(WORLD - 0.5, it.z));
       // A thrown item hits the first other player it reaches while fast.
       if (it.thrownBy >= 0) {
         if (Math.hypot(it.vx, it.vy, it.vz) < 5) it.thrownBy = -1;
@@ -318,7 +319,7 @@ export class Match {
           b.dead = true;
         }
       }
-      if (b.bounces > 16 || Math.abs(b.x) > 30 || Math.abs(b.z) > 30 || b.y > 40) b.dead = true;
+      if (b.bounces > 16 || Math.abs(b.x) > WORLD + 5 || Math.abs(b.z) > WORLD + 5 || b.y > 80) b.dead = true;
     }
     // Rounds from different players that meet in the air cancel each other.
     for (let a = 0; a < this.bullets.length; a++)

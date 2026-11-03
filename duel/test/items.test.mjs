@@ -79,7 +79,8 @@ test('rounds ricochet off walls with no clock, and can come back to the shooter'
   send(m, 0);
   // Face the side wall, a little off square, with the other player out of the way.
   Object.assign(m.seats[1].player, { x: 15, z: 15 });
-  Object.assign(m.seats[0].player, { x: 0, z: 0, yaw: 90, pitch: 0 });
+  // Near the world's edge, facing it.
+  Object.assign(m.seats[0].player, { x: 54, z: 0, yaw: 90, pitch: 0 });
   send(m, 0, { use: true });
   let bounced = false;
   for (let i = 0; i < HZ * 3 && m.seats[0].player.health === 100; i++) {

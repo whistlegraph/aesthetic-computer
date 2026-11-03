@@ -7,6 +7,9 @@ export const INTERP_TICKS = 6;
 export const PROTOCOL = 'duel-6';
 export const FRAG_LIMIT = 10;
 export const COLORS = [0xff593b, 0x69bfff];
+// Half the width of the world in metres; the KidLisp screens stand inside it.
+export const WORLD = 60;
+export const SCREEN = 40;
 
 const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
   type: 'box',
@@ -19,10 +22,11 @@ const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
 });
 
 export const WALLS = [
-  box(-19, -18, 0, 12, -19, 19),
-  box(18, 19, 0, 12, -19, 19),
-  box(-18, 18, 0, 12, -19, -18),
-  box(-18, 18, 0, 12, 18, 19),
+  // The edge of the world: invisible, far out. Nothing walls the court.
+  box(-WORLD - 1, -WORLD, 0, 60, -WORLD - 1, WORLD + 1),
+  box(WORLD, WORLD + 1, 0, 60, -WORLD - 1, WORLD + 1),
+  box(-WORLD, WORLD, 0, 60, -WORLD - 1, -WORLD),
+  box(-WORLD, WORLD, 0, 60, WORLD, WORLD + 1),
 ];
 export const CFG = Object.freeze({
   ...DEFAULT_CFG,
@@ -96,8 +100,8 @@ export function move(player, cmd, objects = [], time = 0) {
     next.vx *= 22 / speed;
     next.vz *= 22 / speed;
   }
-  next.x = clamp(next.x, -17.6, 17.6);
-  next.z = clamp(next.z, -17.6, 17.6);
+  next.x = clamp(next.x, -WORLD + 0.4, WORLD - 0.4);
+  next.z = clamp(next.z, -WORLD + 0.4, WORLD - 0.4);
   return next;
 }
 

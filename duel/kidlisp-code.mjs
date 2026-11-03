@@ -3,10 +3,10 @@
 const STORE = 'https://aesthetic.computer/api/store-kidlisp';
 
 export function kidlispPublisher({ url = STORE, fetch = globalThis.fetch } = {}) {
-  return async (source) => {
+  return async (source, token = null) => {
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ source }),
       signal: AbortSignal.timeout(8000),
     });

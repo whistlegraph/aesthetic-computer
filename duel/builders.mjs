@@ -5,7 +5,7 @@ import {
   MAX_OBJECTS,
   MAX_VERSIONS,
 } from './objects.mjs';
-import { WALLS, bodyBox } from './world.mjs';
+import { WALLS, bodyBox, WORLD } from './world.mjs';
 import { OBJECT_FORMAT, fitItemSource, sourceGeometry } from './object-language.mjs';
 
 export const ITEM_KINDS = ['shoot', 'poke', 'throw'];
@@ -119,6 +119,7 @@ export class Builders {
           code: j.code || '',
           preview: j.preview || null,
           kind: j.kind || 'object',
+          prompt: String(j.prompt || '').slice(0, 60),
           face: j.face || null,
         })),
     };
@@ -133,8 +134,14 @@ export class Builders {
   // Put a copy of a remembered $code in front of the player, no Aesel needed.
   async restore(client, room, owner, seat, code) {
     try {
-      const entry = this.store.historyEntry(room, code);
-      if (!entry) throw Error('Unknown $' + code);
+      let entry = this.store.historyEntry(room, code);
+      if (!entry) {
+        const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?code=${code}`, { signal: AbortSignal.timeout(6000) });
+        const { source } = await r.json();
+        if (typeof source !== 'string') throw Error('Unknown $' + code);
+        const name = /^\s*;\s*([^\n]+)/.exec(source)?.[1] || code;
+        entry = { code, name, item: null, effect: null, geometry: sourceGeometry({ name, source }) };
+      }
       if (this.store.objects(room).length >= MAX_OBJECTS) throw Error('Object capacity reached');
       const player = this.rooms.get(room)?.match.seats[seat]?.player;
       if (!player || !owner) throw Error('Rejoin the room');
@@ -235,7 +242,7 @@ export class Builders {
         try {
           if (data.type !== 'built' || typeof data.source !== 'string') throw Error(typeof data.error === 'string' ? data.error.slice(0, 220) : 'Aesel could not change that KidLisp');
           if (!this.publish) throw Error('No KidLisp store');
-          const code = await this.publish(data.source);
+          const code = await this.publish(data.source, this.tokenOf(job));
           await this.store.setWall(job.room, job.face, code);
           this.deliver(job, { type: 'build-result', id: job.id, kidlisp: code, face: job.face });
         } catch (e) {
@@ -256,7 +263,7 @@ export class Builders {
         const committed = await this.store.commit(job, shape, () => this.place(job, shape));
         // Each finished version is a KidLisp program: give it a $code.
         if (this.publish && committed.geometry?.source)
-          this.publish(committed.geometry.source)
+          this.publish(committed.geometry.source, this.tokenOf(job))
             .then((code) => this.store.setCode(job.room, committed.id, committed.version, code))
             .then(() => this.broadcast(job.room))
             .catch((e) => console.log(`dool $code failed: ${e.message}`));
@@ -296,6 +303,11 @@ export class Builders {
       }
       this.all();
     });
+  }
+  // The asking player's AC sign-in, if they have one (kept in memory only).
+  tokenOf(job) {
+    for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === job.owner && member.token) return member.token;
+    return null;
   }
   // Results go to the player who asked, found by identity: their socket may
   // have changed since (a reload or a server restart).
@@ -515,8 +527,9 @@ export class Builders {
     // court nearest first, then the same at smaller scales. If the room is
     // truly full, take the spot with the least overlap. Never refuse.
     const positions = [[job.x, job.z]];
-    for (let x = -16; x <= 16; x++)
-      for (let z = -16; z <= 16; z++) positions.push([x, z]);
+    for (let x = Math.round(job.x) - 16; x <= Math.round(job.x) + 16; x++)
+      for (let z = Math.round(job.z) - 16; z <= Math.round(job.z) + 16; z++)
+        if (Math.abs(x) < WORLD - 2 && Math.abs(z) < WORLD - 2) positions.push([x, z]);
     positions.sort(
       (a, b) =>
         Math.hypot(a[0] - job.x, a[1] - job.z) -
@@ -530,7 +543,7 @@ export class Builders {
         const boxes = envelope([{ x, z, geometry: sized }]);
         if (
           boxes.some(
-            (b) => b.xMin < -17 || b.xMax > 17 || b.zMin < -17 || b.zMax > 17,
+            (b) => b.xMin < -WORLD + 1 || b.xMax > WORLD - 1 || b.zMin < -WORLD + 1 || b.zMax > WORLD - 1,
           )
         )
           continue;

@@ -34,6 +34,8 @@ const FLOOR = 0x23262f,
 import {
   WALLS,
   COLORS,
+  WORLD,
+  SCREEN,
   CFG,
   direction,
   wallDistance,
@@ -78,27 +80,35 @@ export async function createView(canvas) {
   const projector = new Projector(host.scene);
   const facecam = new Projector(host.scene);
   const sky = [...rgb(SKY), 1];
+  // The open world: a floor out to the horizon, a lit court with a grid in
+  // the middle, and a band of horizon glow. No walls.
   const arena = model(({ box, quad }) => {
-    quad([-19, 0, -19], [-19, 0, 19], [19, 0, 19], [19, 0, -19], FLOOR);
-    // A big grid: the room starts as a blank sheet to build on.
-    for (let v = -18; v <= 18; v += 2) {
-      const c = v === 0 ? LINE : 0x2c3040;
-      box(v, 0.006, 0, 0.04, 0.01, 36, c, c, c);
-      box(0, 0.006, v, 36, 0.01, 0.04, c, c, c);
+    const far = 420;
+    quad([-far, -0.01, -far], [-far, -0.01, far], [far, -0.01, far], [far, -0.01, -far], 0x1b1d26);
+    quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], FLOOR);
+    for (let v = -WORLD; v <= WORLD; v += 2) {
+      const c = v === 0 ? LINE : v % 10 === 0 ? 0x343848 : 0x2a2d3a;
+      box(v, 0.006, 0, 0.04, 0.01, 2 * WORLD, c, c, c);
+      box(0, 0.006, v, 2 * WORLD, 0.01, 0.04, c, c, c);
     }
-    WALLS.forEach((w, i) =>
-      box(
-        (w.xMin + w.xMax) / 2,
-        (w.yMin + w.yMax) / 2,
-        (w.zMin + w.zMax) / 2,
-        w.xMax - w.xMin,
-        w.yMax - w.yMin,
-        w.zMax - w.zMin,
-        i < 4 ? WALL_HUES[i] : COLORS[i - 4],
-        i < 4 ? tint(WALL_HUES[i], 0.8) : INK,
-        PAPER,
-      ),
-    );
+  });
+  // Sky: rings of colour around the viewer, deep overhead to a glow at the
+  // horizon, drawn at the eye so it never comes closer.
+  const SKY_BANDS = [
+    [-0.02, 0.04, 0x3a3150],
+    [0.04, 0.12, 0x2c2a48],
+    [0.12, 0.3, 0x1f2240],
+    [0.3, 0.6, 0x171a30],
+    [0.6, 1.2, 0x11131f],
+  ];
+  const skyModel = model(({ quad }) => {
+    const r = 600, n = 32;
+    for (const [a, b, c] of SKY_BANDS)
+      for (let k = 0; k < n; k++) {
+        const t0 = (k / n) * Math.PI * 2, t1 = ((k + 1) / n) * Math.PI * 2;
+        const p = (t, e) => [Math.cos(t) * r * Math.cos(e), r * Math.sin(e), Math.sin(t) * r * Math.cos(e)];
+        quad(p(t0, a), p(t1, a), p(t1, b), p(t0, b), c);
+      }
   });
   const fighters = COLORS.map((color) => ({
     torso: model(({ box }) =>
@@ -363,6 +373,7 @@ export async function createView(canvas) {
     if (e.at && (e.type === 'ricochet' || e.type === 'spark')) burst(e.at.x, e.at.y, e.at.z, 6, 0.5);
     if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
     if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
+    if (e.at && e.type === 'removed') burst(e.at.x, e.at.y, e.at.z, 24, 1.3);
     if (e.type === 'blast') {
       if (effects.length >= 24) effects.shift();
       effects.push({ at: e.at, born: performance.now() });
@@ -396,6 +407,8 @@ export async function createView(canvas) {
     walls = [],
     cube = [],
     menu = null,
+    removeArmed = null,
+    notices = [],
     braincells = null,
     spending = false,
     tiles = {},
@@ -450,6 +463,7 @@ export async function createView(canvas) {
       aim = along(camera, direction(camera.yaw, camera.pitch), 100);
     }
     projector.camera(eye, aim, aspect);
+    draw(skyModel, eye.x, eye.y, eye.z);
     const tags = [];
     draw(arena);
     const aliveObjects = new Set(objects.map((o) => o.id));
@@ -759,14 +773,19 @@ export async function createView(canvas) {
           : `chalk ${chalkMode.text}: hold c or right click / enter build / esc cancel`
         : null;
       const whose = (o) =>
-        o.wall ? 'kidlisp wall' : o.owner === owner ? (pad ? '[LB] to change' : 'yours') : 'player ' + String(o.owner || '').slice(0, 4);
+        o.wall
+          ? pad ? '[RB] to change' : 'kidlisp wall'
+          : o.owner === owner
+            ? pad ? '[RB] change / [LB] remove' : 'yours - delete removes'
+            : pad ? '[LB] remove' : 'player ' + String(o.owner || '').slice(0, 4);
       const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : 'x paints the floor') : null;
-      const hint = drawing ? drawing : carry ? carry : paintHint ? paintHint : focusObject
+      const confirming = focusObject && removeArmed === focusObject.id ? (pad ? '[LB] again to remove' : 'delete again to remove') : null;
+      const hint = confirming ? confirming : drawing ? drawing : carry ? carry : paintHint ? paintHint : focusObject
         ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
         : input === 'touch'
           ? 'hold the right side to build'
           : pad
-            ? '[LB] to build'
+            ? '[RB] to build'
             : 'enter to build';
       const building = jobs.find((j) => j.owner === owner) || jobs[0];
       const elapsed = building
@@ -797,7 +816,8 @@ export async function createView(canvas) {
               { text: `$${focusObject.code}`, color: THEME.verb },
               { text: ` kidlisp on the wall - ${focusObject.size || ''}`, color: THEME.dim },
             ],
-            ...wallCode.map((l) => animateSpans(codeSpans(l), now)),
+            ...(focusObject.colored?.()?.slice(0, 7).map((l) => clipSpans(l, columns)) ||
+              wallCode.map((l) => animateSpans(codeSpans(l), now))),
           ]
         : prompt.open
         ? [
@@ -817,11 +837,19 @@ export async function createView(canvas) {
           ]
         : building
           ? [
-              [
-                { text: `aesel v${building.version} `, color: THEME.verb },
-                { text: `${building.phase} ${elapsed}s`, color: THEME.dim },
-              ],
-              ...progressCode.map((l) => codeSpans(l)),
+              // Every one of your builds, each with its latest line of code.
+              ...jobs
+                .filter((j) => j.owner === owner)
+                .slice(0, 3)
+                .flatMap((j) => [
+                  [
+                    { text: `aesel v${j.version} `, color: THEME.verb },
+                    { text: `${j.phase} ${Math.max(0, Math.floor((Date.now() - j.startedAt) / 1000))}s `, color: THEME.dim },
+                    { text: j.prompt || '', color: THEME.text },
+                  ],
+                  codeSpans((j.code || '').split('\n').filter(Boolean).at(-1)?.slice(-columns) || '...'),
+                ]),
+              ...(jobs.some((j) => j.owner === owner) ? [] : progressCode.map((l) => codeSpans(l))),
               building.owner === owner
                 ? hintSpans(cancel, THEME.dim)
                 : [{ text: 'player ' + building.owner.slice(0, 4), color: THEME.dim }],
@@ -832,7 +860,7 @@ export async function createView(canvas) {
                     controller ? 'freecam / lb down / rb up' : 'freecam / wasd / space up / shift down',
                     THEME.text,
                   )
-                : hintSpans(hint, THEME.text),
+                : hintSpans(hint, confirming ? 0xff6b6b : THEME.text),
             ];
       const visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
@@ -843,7 +871,7 @@ export async function createView(canvas) {
         promptModel = model(({ rect: worldRect, text }) => {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panelHeight = visible.length * 11 * unit + 10 * unit;
-          const panel = prompt.open || building || wallCode;
+          const panel = prompt.open || building;
           panelTop = panel ? -height / 2 + safeY + panelHeight : null;
           if (panel) {
             // A dark slab with a thin slate rule; text carries the colour.
@@ -1187,6 +1215,18 @@ export async function createView(canvas) {
         projector.overlay(m, W, H);
       }
     }
+    if (notices.length && !menu) {
+      // Build results, briefly, above the panel.
+      const { unit, safeY } = hud;
+      const base = (panelTop ?? -H / 2 + safeY) + 6 * unit;
+      const m = model(({ rect: worldRect, text, small }) =>
+        notices.forEach((n, i) => {
+          const spans = [{ text: n.ok ? 'ready ' : 'failed ', color: n.ok ? 0x3fb950 : 0xff6b6b }, { text: n.text.slice(0, 80), color: THEME.text }];
+          drawSpans({ rect: flip(worldRect), text, small }, spans, 0, base + (notices.length - i) * 10 * unit, unit, { tiny: true });
+        }),
+      );
+      projector.overlay(m, W, H);
+    }
     if (face && me) {
       const { unit, safeX, safeY } = hud;
       const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
@@ -1459,8 +1499,9 @@ export async function createView(canvas) {
               }
               const u0 = span / 2 - i * cell, u1 = span / 2 - (i + n) * cell;
               const y1 = base + tall - j * cell, y0 = y1 - cell;
-              if (w.face === 'north') quad([u0, y0, 17.97], [u1, y0, 17.97], [u1, y1, 17.97], [u0, y1, 17.97], c);
-              else quad([-17.97, y0, -u0], [-17.97, y0, -u1], [-17.97, y1, -u1], [-17.97, y1, -u0], c);
+              const d = SCREEN - 0.03;
+              if (w.face === 'north') quad([u0, y0, d], [u1, y0, d], [u1, y1, d], [u0, y1, d], c);
+              else quad([-d, y0, -u0], [-d, y0, -u1], [-d, y1, -u1], [-d, y1, -u0], c);
               i += n;
             }
         });

@@ -65,7 +65,7 @@ export class Projector {
       a = this.input,
       b = this.clipped;
     const near = 0.05,
-      far = 130;
+      far = 900; // far enough for the horizon
     for (let i = 0; i < vertices.length; i += 18) {
       for (let j = 0; j < 3; j++) {
         const k = i + j * 6,
