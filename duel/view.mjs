@@ -69,18 +69,20 @@ export const PALETTES = {
     sky: 0xcfe3f5,
     far: 0xd3d8e2,
     floor: 0xe4e7ee,
-    axis: 0x8a8f9e,
-    grid10: 0xc4c9d6,
-    grid2: 0xd4d8e2,
+    dot: 0xc9ceda,
+    wall: 0xeceef4,
+    wallSide: 0xdfe2ea,
+    ceiling: 0xf4f5f9,
     bands: [[-0.02, 0.04, 0xfff3dc], [0.04, 0.12, 0xeaf2fb], [0.12, 0.3, 0xcfe3f5], [0.3, 0.6, 0xb4d3f0], [0.6, 1.2, 0x9ec4e9]],
   },
   night: {
     sky: 0x141720,
     far: 0x1b1d26,
     floor: 0x23262f,
-    axis: LINE,
-    grid10: 0x343848,
-    grid2: 0x2a2d3a,
+    dot: 0x343848,
+    wall: 0x2a2d3a,
+    wallSide: 0x22252f,
+    ceiling: 0x1c1e27,
     bands: [[-0.02, 0.04, 0x3a3150], [0.04, 0.12, 0x2c2a48], [0.12, 0.3, 0x1f2240], [0.3, 0.6, 0x171a30], [0.6, 1.2, 0x11131f]],
   },
 };
@@ -133,18 +135,23 @@ export async function createView(canvas) {
   canvas.dataset.engine = backend;
   const projector = new Projector(host.scene);
   const facecam = new Projector(host.scene);
-  // The open world: a floor out to the horizon, a lit court with a grid in
-  // the middle, and a band of horizon glow. No walls.
+  // A small studio: a floor marked only by faint dots every two metres, four
+  // plain walls and a low ceiling, all at the world's edges.
+  const ROOM_HEIGHT = 4;
   const buildArena = (p) =>
     model(({ box, quad }) => {
       const far = 420;
       quad([-far, -0.01, -far], [-far, -0.01, far], [far, -0.01, far], [far, -0.01, -far], p.far);
       quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
-      for (let v = -WORLD; v <= WORLD; v += 2) {
-        const c = v === 0 ? p.axis : v % 10 === 0 ? p.grid10 : p.grid2;
-        box(v, 0.006, 0, 0.04, 0.01, 2 * WORLD, c, c, c);
-        box(0, 0.006, v, 2 * WORLD, 0.01, 0.04, c, c, c);
-      }
+      for (let x = -WORLD + 2; x < WORLD; x += 2)
+        for (let z = -WORLD + 2; z < WORLD; z += 2)
+          box(x, 0.006, z, 0.08, 0.01, 0.08, p.dot, p.dot, p.dot);
+      const span = 2 * WORLD + 0.6, h = ROOM_HEIGHT, t = 0.3;
+      box(0, h / 2, -WORLD - t / 2, span, h, t, p.wall, p.wallSide, p.wall);
+      box(0, h / 2, WORLD + t / 2, span, h, t, p.wall, p.wallSide, p.wall);
+      box(-WORLD - t / 2, h / 2, 0, t, h, span, p.wall, p.wallSide, p.wall);
+      box(WORLD + t / 2, h / 2, 0, t, h, span, p.wall, p.wallSide, p.wall);
+      box(0, h + t / 2, 0, span, t, span, p.ceiling, p.ceiling, p.ceiling);
     });
   // Sky: rings of colour around the viewer, deep overhead to a glow at the
   // horizon, drawn at the eye so it never comes closer.
@@ -1242,7 +1249,7 @@ export async function createView(canvas) {
     // A square reticle: four L-shaped corners on whole pixels, symmetric
     // about the centre, each with a one-pixel shadow. It opens with speed,
     // closes and colours on an object (green when yours), in pixel steps.
-    if (me?.alive && !radial && !menu) {
+    if (me?.alive && !radial && !menu && !bare) {
       const { unit } = hud;
       const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
       const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;

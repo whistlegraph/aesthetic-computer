@@ -7,8 +7,8 @@ export const INTERP_TICKS = 6;
 export const PROTOCOL = 'duel-6';
 export const FRAG_LIMIT = 10;
 export const COLORS = [0xff593b, 0x69bfff];
-// Half the width of the world in metres; the KidLisp screens stand inside it.
-export const WORLD = 60;
+// Half the width of the room in metres: a small studio for now, not a world.
+export const WORLD = 8;
 export const SCREEN = 40;
 
 const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
@@ -22,7 +22,7 @@ const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
 });
 
 export const WALLS = [
-  // The edge of the world: invisible, far out. Nothing walls the court.
+  // The room's four walls, drawn by the view (buildArena) at the same edges.
   box(-WORLD - 1, -WORLD, 0, 60, -WORLD - 1, WORLD + 1),
   box(WORLD, WORLD + 1, 0, 60, -WORLD - 1, WORLD + 1),
   box(-WORLD, WORLD, 0, 60, -WORLD - 1, -WORLD),
@@ -48,7 +48,7 @@ export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
 export function spawn(seat, life = 1) {
   return {
-    ...newState({ z: seat ? 12 : -12, yaw: seat ? 180 : 0, cfg: CFG }),
+    ...newState({ z: seat ? WORLD - 3 : -WORLD + 3, yaw: seat ? 180 : 0, cfg: CFG }),
     seat,
     life,
     health: 100,

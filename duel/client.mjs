@@ -145,7 +145,7 @@ let fps = 0,
 let holdTime = 0,
   holdSpent = false,
   devLog = [];
-let freecam = { x: 4, y: 4, z: -17, yaw: -38, pitch: -20 };
+let freecam = { x: 0, y: 2.2, z: -WORLD + 1.5, yaw: 0, pitch: -4 };
 let freecamPlaced = false;
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
@@ -1273,7 +1273,7 @@ function step(now) {
     removeArmed:
       removeArmed && focusObject?.id === removeArmed.id && performance.now() - removeArmed.at < 2000 ? removeArmed.id : null,
     notices: sheetOpen ? notices.filter((n) => performance.now() - n.at < 6000) : [],
-    braincells: (() => {
+    braincells: !sheetOpen ? null : (() => {
       // Ease the shown count toward the real one; each drop is spent.
       if (braincells === null) return null;
       const gap = shownBraincells - braincells;
@@ -1283,13 +1283,13 @@ function step(now) {
     })(),
     spending: braincells !== null && shownBraincells > braincells + 0.5,
     tiles,
-    floorAim: focusObject ? null : floorAim,
+    floorAim: focusObject || !sheetOpen ? null : floorAim,
     chalk: chalkStrokes,
     chalkVersion,
     chalkLocal,
     chalkMode,
     face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
-    devLog: devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })),
+    devLog: sheetOpen ? devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })) : [],
     owner,
     focusObject,
     builder,
