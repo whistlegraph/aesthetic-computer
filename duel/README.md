@@ -214,9 +214,8 @@ On production, the builder runs on lith beside the server as
 `dool-builder.service` (installed by `lith/deploy.fish`). It reaches the server
 over loopback and reads `DOOL_BUILDER_TOKEN` from `/etc/aesthetic-computer/dool.env`,
 which `lith.service` also loads. Its own AC login lives at
-`/var/lib/dool-builder/.ac-token`. Seed both once with
-`fish lith/scripts/dool-builder-setup.fish`, and renew an expired login with
-`--relogin`. Until then the unit stays down and the game reads "Aesel is offline".
+`/var/lib/dool-builder/.ac-token`. Seed both with
+`fish lith/scripts/dool-builder-setup.fish` (run it again to renew the login). Until then the unit stays down and the game reads "Aesel is offline".
 
 Ownership is a server-issued player identity saved in that browser/profile;
 AC handles are verified separately for display. Each rig pane retains a separate
