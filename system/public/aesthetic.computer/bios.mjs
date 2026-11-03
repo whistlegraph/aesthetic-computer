@@ -22110,20 +22110,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     input.accept = accept;
     input.style.position = "absolute";
     input.style.left = "-9999px"; // Position off-screen
+    // iOS Safari skips `change` on a file input that isn't in the document,
+    // so the pick vanished. Keep it attached until it settles.
+    document.body.appendChild(input);
+    const detach = () => input.remove();
 
     return new Promise((resolve, reject) => {
-      // Simulate click event on a visible element
-      const button = document.createElement("button");
-      button.style.opacity = 0;
-      button.onclick = () => {
-        input.click();
-        document.body.removeChild(button);
-      };
-
-      document.body.appendChild(button);
-      button.click();
+      // The piece asks from the worker, so this runs a beat after the tap.
+      // Chrome still counts that as the gesture; iOS often doesn't and opens
+      // nothing. Without live activation, offer a real button to tap.
+      const activation = navigator.userActivation;
+      if (!activation || activation.isActive) input.click();
+      else {
+        const veil = document.createElement("div");
+        veil.style.cssText =
+          "position:fixed;inset:0;z-index:2147483647;display:flex;gap:12px;" +
+          "align-items:center;justify-content:center;background:rgba(0,0,0,.55);";
+        const choose = document.createElement("button");
+        choose.textContent = mode === "video" ? "choose video" : "choose photo";
+        const cancel = document.createElement("button");
+        cancel.textContent = "cancel";
+        for (const b of [choose, cancel])
+          b.style.cssText =
+            "font:600 18px system-ui,sans-serif;padding:14px 22px;border:0;" +
+            "border-radius:10px;background:#fff;color:#000;";
+        cancel.style.background = "#555";
+        cancel.style.color = "#fff";
+        choose.onclick = (e) => {
+          e.stopPropagation();
+          veil.remove();
+          input.click(); // inside a real tap, so iOS opens the picker
+        };
+        const dismiss = (e) => {
+          e?.stopPropagation();
+          veil.remove();
+          detach();
+          reject("No file was selected!");
+        };
+        cancel.onclick = dismiss;
+        veil.onclick = (e) => { if (e.target === veil) dismiss(e); };
+        veil.append(choose, cancel);
+        document.body.appendChild(veil);
+      }
+      input.addEventListener("cancel", () => {
+        detach();
+        reject("No file was selected!");
+      });
 
       input.onchange = () => {
+        detach();
         const file = input.files[0];
         if (!file) {
           reject("No file was selected!");
