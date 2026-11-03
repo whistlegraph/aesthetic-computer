@@ -2,8 +2,8 @@
 // The prompt as the paper over the dool world. This page is the host: it
 // keeps a same-origin frame of dool (the guest, /dool/?embed=prompt) beneath
 // the stage as an underlay, showing through the prompt's clear curtain from
-// the first frame, and one number, how far the paper has dropped, moves the
-// stage down out of the way and back up over it.
+// the first frame, and one number, how far the paper has faded, dissolves
+// the stage out of the way and back over it.
 //
 // Down: a tap on the prompt's crosshair (`show` from the prompt piece, once
 //       the reticle has flown to the centre).
@@ -102,19 +102,19 @@ function popstate(e) {
   return false;
 }
 
-// 📐 One position: the paper's top edge at `y`, from 0 (home) to the screen's
-// height (dropped). `y` chases `goal` through a short time constant, so the
-// drop and the rise both ease out over about half a second.
+// 📐 One number: how far the paper has faded, from 0 (home, opaque) to the
+// screen's height (gone). `y` chases `goal` through a short time constant,
+// so the fade out and the fade back both ease over about half a second.
 let y = 0;
 let goal = 0;
 let toward = null; // A move in flight: "open" or "home".
-const TAU = 70; // ms to close 63% of the gap
+const TAU = 110; // ms to close 63% of the gap
 let loop = 0;
 let lastStep = 0;
 
 function write() {
   const s = stage();
-  if (s) s.style.transform = y <= 0 ? "" : `translateY(${y}px)`;
+  if (s) s.style.opacity = y <= 0 ? "" : String(Math.max(0, 1 - y / innerHeight));
   window.acMeterPaint?.(); // A slide frame is a painted frame to the frame meter.
 }
 
@@ -151,9 +151,9 @@ function show() {
   state = "moving";
   toward = "open";
   goal = innerHeight;
-  pausePrompt(); // The last frame rides along; the loop is back at home().
+  pausePrompt(); // The last frame fades away; the loop is back at home().
   const s = stage();
-  if (s) s.style.willChange = "transform";
+  if (s) s.style.willChange = "opacity";
   run();
 }
 
@@ -176,6 +176,10 @@ function opened() {
   // comes forward to take clicks; the stage is off screen anyway.
   frame.style.zIndex = "1000";
   frame.style.pointerEvents = "auto";
+  // No host cursor over the world: the guest hides its own, and the mouse
+  // is usually captured, so nothing is left to flicker at the frame's edge.
+  document.documentElement.style.cursor = "none";
+  document.body.style.cursor = "none";
   frame.contentWindow?.focus();
   meterGuest();
 }
@@ -198,7 +202,9 @@ function home() {
   y = goal = 0;
   frame.style.pointerEvents = "none";
   const s = stage();
-  if (s) Object.assign(s.style, { transform: "", willChange: "" });
+  if (s) Object.assign(s.style, { opacity: "", willChange: "" });
+  document.documentElement.style.cursor = "";
+  document.body.style.cursor = "";
   resumePrompt();
   post({ type: "dool:sheet", open: false }); // Park the guest: no input, no sound.
   leaveHistory();

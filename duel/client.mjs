@@ -160,7 +160,9 @@ let fps = 0,
 let holdTime = 0,
   holdSpent = false,
   devLog = [];
-let freecam = { x: 0, y: 2.2, z: -WORLD + 1.5, yaw: 0, pitch: -4 };
+// Behind the curtain the camera looks into a corner, so two walls, the
+// ceiling and the dotted floor all show and the room reads as a room.
+let freecam = { x: -3, y: 2.1, z: -WORLD + 2, yaw: 28, pitch: -7 };
 let freecamPlaced = false;
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)

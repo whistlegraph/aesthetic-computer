@@ -5364,7 +5364,7 @@ function paint($) {
   if (curtainClear) {
     // A veil of the curtain's own colour: the world reads through it, faded.
     scheme.dark.background[3] = scheme.light.background[3] = 0;
-    $.wipe(pal.background[0], pal.background[1], pal.background[2], 84);
+    $.wipe(pal.background[0], pal.background[1], pal.background[2], 44);
   } else if ($.store["painting"]) {
     $.wipe(pal.background);
     $.system.nopaint.present($); // Render the painting.
