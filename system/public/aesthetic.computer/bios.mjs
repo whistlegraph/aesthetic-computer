@@ -855,6 +855,14 @@ if (!window.acDISK_SEND) {
 // MIME warms programs silently before their first frame. The embedding player
 // restores volume only for the card in view.
 let masterVolume = new URLSearchParams(location.search).get("mime") === "1" ? 0 : 1;
+// 🎞️ The mime reel: the whole feed in this one noauth runtime, usually as the
+// prompt's mime sheet guest (lib/mime-sheet.mjs hosts it, lib/mime-reel.mjs runs it).
+const reelMode = (() => {
+  const q = new URLSearchParams(location.search);
+  return q.get("reel") === "1" && q.get("mime") === "1" && q.has("noauth");
+})();
+const reelHosted = reelMode && window.parent !== window;
+let reelMessage = null; // Set in boot.
 let masterClockRate = 1;
 let speakerProcessorNode = null; // Will be set by boot()
 let backgroundMusicEl = null; // Will be set by boot()
@@ -1045,7 +1053,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   
   // Preserve URL-provided view options, never auth callbacks or piece arguments.
   const currentParams = new URLSearchParams(location.search);
-  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon", "mime"]) {
+  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon", "mime", "reel"]) {
     if (currentParams.has(name)) preservedParams[name] = currentParams.get(name);
   }
 
@@ -4404,8 +4412,72 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
   }, { capture: true });
 
+  // 🎞️ Mime reel ⇄ the prompt's mime sheet. The reel (in the worker) says
+  // where it is; this side posts that to the host, follows a pull on the first
+  // card with screen coordinates (the host moves this frame with the finger),
+  // and plays or parks the runtime as the sheet opens and closes.
+  let reelOpen = !reelHosted;
+  let reelReady = false;
+  let reelDownY = null;
+  let reelPull = null;
+  const toSheet = (message) => {
+    if (reelHosted) window.parent.postMessage(message, location.origin);
+  };
+  const reelPlayback = () => {
+    applyMasterVolume(reelOpen ? 1 : 0);
+    if (reelOpen) {
+      window.acRESUME?.();
+      window.AC?.startAudio?.();
+    } else if (reelReady) window.acPAUSE?.(); // Parked: first frame held, loop asleep.
+  };
+  const reelStartPull = () => {
+    if (!reelHosted || reelPull || reelDownY === null) return;
+    const y0 = reelDownY;
+    const move = (e) =>
+      toSheet({ type: "mime:sheet:pull", dy: Math.max(0, e.screenY - y0 - 8) });
+    const end = () => {
+      removeEventListener("pointermove", move, true);
+      removeEventListener("pointerup", end, true);
+      removeEventListener("pointercancel", end, true);
+      reelPull = null;
+      toSheet({ type: "mime:sheet:pull", end: true });
+    };
+    reelPull = end;
+    addEventListener("pointermove", move, { capture: true, passive: true });
+    addEventListener("pointerup", end, { capture: true, passive: true });
+    addEventListener("pointercancel", end, { capture: true, passive: true });
+  };
+  reelMessage = (message) => {
+    if (!message?.type?.startsWith("mime:sheet:")) return;
+    if (message.type === "mime:sheet:ready") {
+      reelReady = true;
+      reelPlayback();
+    }
+    if (message.type === "mime:sheet:pull") return reelStartPull();
+    if (message.type === "mime:sheet:wheel")
+      message = { type: message.type, dy: message.dy * subdivisions, mode: 0 };
+    toSheet(message);
+  };
+  if (reelHosted) {
+    addEventListener("pointerdown", (e) => (reelDownY = e.screenY), {
+      capture: true,
+      passive: true,
+    });
+  }
+
   // 🎯 Auto-density message handler - listen for density change requests from KidLisp
   window.addEventListener("message", (e) => {
+    if (
+      reelHosted &&
+      e.source === window.parent &&
+      e.origin === location.origin &&
+      e.data?.type === "mime:sheet"
+    ) {
+      reelOpen = e.data.open === true;
+      send({ type: "mime:reel:open", content: { open: reelOpen } });
+      reelPlayback();
+      return;
+    }
     if (e.data && e.data.type === 'ac-density-change' && typeof e.data.density === 'number') {
       const newDensity = e.data.density;
       if (newDensity !== density) {
@@ -4835,6 +4907,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       embeddedSource,
       noauth: window.acNOAUTH || false,
       mime: new URLSearchParams(location.search).get("mime") === "1",
+      reel: reelMode,
+      reelHosted,
       bootId: window.acBOOT_ID || null,
       pixelRatio: window.devicePixelRatio, // For the worker's `hd()` layer.
       // The shell may have fetched the piece's source already
@@ -19846,6 +19920,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       consumeDiskSends(send);
       return;
     }
+    if (type === "mime:reel") {
+      reelMessage?.(content);
+      return;
+    }
+
     if (type === "piece-paint-ready") {
       if (window.acHIDE_BOOT_LOG) {
         window.acHIDE_BOOT_LOG();

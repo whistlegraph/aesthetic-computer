@@ -1462,6 +1462,7 @@ let lastPaintTime = 0; // Last time paint() was executed
 let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint behavior
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
+let reel = null; // 🎞️ The mime reel (lib/mime-reel.mjs), only in a noauth MIME runtime.
 
 // 🎬 Piece Transition System
 // Two transition types available: "drip" (default, fast) and "bubble-wrap" (organic, slower)
@@ -10245,6 +10246,7 @@ async function load(
     lastPaintOut = undefined;
     shouldSkipPaint = false;
     pieceFrameCount = 0;
+    reel?.loadStarted();
     // Reset acPieceReady so the signal fires again for the next piece
     if (typeof window !== "undefined") {
       window.acPieceReady = false;
@@ -10792,6 +10794,23 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     globalThis.MIME_MODE = content.mime === true && content.noauth === true;
+    // 🎞️ The mime feed as one runtime: cards are pieces, swiped between here.
+    if (globalThis.MIME_MODE && content.reel === true && !reel) {
+      import("./mime-reel.mjs").then((module) => {
+        reel = module;
+        const reelJump = (to, jumped) => {
+          if (leaving || loading) return setTimeout(() => reelJump(to, jumped), 50);
+          jumped?.();
+          $commonApi.jump(to, true);
+        };
+        module.start({
+          send,
+          hosted: content.reelHosted === true,
+          jump: reelJump,
+          needsPaint: () => $commonApi.needsPaint(),
+        });
+      }).catch((err) => console.warn("🎞️ Reel failed to load:", err));
+    }
     USER = content.user;
     // if (USER) socket.send("login", { user: USER });
 
@@ -11196,6 +11215,7 @@ async function makeFrame({ data: { type, content } }) {
   // Capture the browser scroll wheel / scroll effect.
   if (type === "scroll") {
     if (!cachedAPI) return; // Guard against undefined cachedAPI
+    if (reel?.scroll(content)) return; // 🎞️ Wheels move the mime reel.
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
@@ -11208,6 +11228,12 @@ async function makeFrame({ data: { type, content } }) {
     } catch (e) {
       console.warn("️ ✒ Act failure...", e);
     }
+    return;
+  }
+
+  // 🎞️ The prompt's mime sheet opened or parked the reel.
+  if (type === "mime:reel:open") {
+    reel?.setOpen(content?.open === true);
     return;
   }
 
@@ -13845,6 +13871,18 @@ async function makeFrame({ data: { type, content } }) {
       const startTime = performance.now();
       let penEventCount = 0;
 
+      // 🎞️ The reel holds a press back until it shows what it is; hand over
+      // any press that has been held still long enough.
+      const reelDispatch = (held) => {
+        $api.event = held;
+        try {
+          if (!TV_MODE) act($api);
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
+        }
+      };
+      reel?.tick(reelDispatch);
+
       content.pen?.events.forEach((data) => {
         penEventCount++;
         Object.assign(data, {
@@ -14157,6 +14195,7 @@ async function makeFrame({ data: { type, content } }) {
             });
           }
 
+          if (reel?.pen(data, reelDispatch)) return; // 🎞️ The reel's, or held.
           if (!masked && !TV_MODE) act($api); // Run the act function for all pen events (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -14214,6 +14253,7 @@ async function makeFrame({ data: { type, content } }) {
           },
         });
         $api.event = data;
+        if (reel?.key(data)) return; // 🎞️ Page Up / Page Down step the reel.
         try {
           if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
@@ -14641,6 +14681,8 @@ async function makeFrame({ data: { type, content } }) {
         }
       }
 
+      if (reel?.busy()) noPaint = false; // 🎞️ The reel draws every frame it moves.
+
       // Attempt a paint.
       if (
         previewMode === false &&
@@ -14720,8 +14762,11 @@ async function makeFrame({ data: { type, content } }) {
             }
           }
 
+          // 🎞️ While the mime reel moves or loads a card, it draws instead.
+          const reelHolds = reel?.hold(paint !== defaults.paint) === true;
+
           // Only call paint() if timing allows or no FPS limit is set
-          if (shouldPaint) {
+          if (shouldPaint && !reelHolds) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
 
@@ -14987,6 +15032,14 @@ async function makeFrame({ data: { type, content } }) {
               golTransition.dripDirections = null;
             }
           }
+        }
+
+        // 🎞️ The reel composites its cards over the frame, whole.
+        if (reel?.busy()) {
+          page($api.screen);
+          reel.draw($api);
+          painting.paint(true);
+          paintOut = undefined;
         }
 
         painted = true;

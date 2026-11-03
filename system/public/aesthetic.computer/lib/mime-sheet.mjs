@@ -1,6 +1,6 @@
 // 🎭 Mime Sheet
 // The prompt as the first post of the mime feed. This page is the host: it
-// keeps a same-origin frame of /mime/?embed=prompt (the guest) parked below
+// keeps a same-origin frame of the mime reel (the guest) parked below
 // the screen, and one engine moves both ways. A single number, the feed's top
 // edge on screen, places the frame there and the prompt a screen above it,
 // written in the same frame, so the two never drift apart.
@@ -22,6 +22,16 @@
 // follows the card (/mime/?p=<code>) and Back closes.
 
 const MEDIA = "#171526"; // mime's dark media colour, behind a guest still loading
+// The guest is the mime reel: the whole feed as one noauth AC runtime, cards
+// swiped between inside it (lib/mime-reel.mjs). localStorage "mime-classic"
+// set to "1" brings back the DOM feed (/mime/?embed=prompt), which speaks the
+// same protocol.
+const GUEST = (() => {
+  try {
+    if (localStorage.getItem("mime-classic") === "1") return "/mime/?embed=prompt";
+  } catch {}
+  return "/mime-reel?noauth=true&mime=1&reel=1&nogap=true&nolabel=true";
+})();
 const COMMIT = 0.5; // of the screen: the halfway line decides, nothing else
 
 let frame;
@@ -48,7 +58,7 @@ addEventListener("pointerdown", (e) => (lastDownY = e.clientY), {
 function ensure() {
   if (frame) return frame;
   frame = document.createElement("iframe");
-  frame.src = "/mime/?embed=prompt";
+  frame.src = GUEST;
   frame.title = "mime";
   frame.allow = "autoplay; fullscreen; clipboard-write";
   Object.assign(frame.style, {
