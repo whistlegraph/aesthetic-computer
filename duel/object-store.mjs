@@ -74,7 +74,33 @@ export class ObjectStore {
   clearRoom(room) {
     return this.transact((data) => {
       data.rooms[room] = [];
+      if (data.tiles) delete data.tiles[room];
       return true;
+    });
+  }
+  // KidLisp on the walls: { north: 'roz', west: 'bop' } until changed.
+  walls(room) {
+    return { north: 'roz', west: 'bop', ...(this.data.walls?.[room] || {}) };
+  }
+  setWall(room, face, code) {
+    return this.transact((data) => {
+      ((data.walls ||= {})[room] ||= {})[face] = code;
+      return true;
+    });
+  }
+  // The floor's painted squares: { "i,j": colour index 1..6 }.
+  tiles(room) {
+    return this.data.tiles?.[room] || {};
+  }
+  // Cycle a square through the palette and back to bare.
+  paintTile(room, i, j) {
+    return this.transact((data) => {
+      const tiles = ((data.tiles ||= {})[room] ||= {});
+      const key = `${i},${j}`;
+      const next = ((tiles[key] || 0) + 1) % 7;
+      if (next) tiles[key] = next;
+      else delete tiles[key];
+      return tiles;
     });
   }
   get(room, id) {

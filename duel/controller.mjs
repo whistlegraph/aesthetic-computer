@@ -34,13 +34,25 @@ export class Controller {
     this.focused = false;
   }
   sample(gamepads, focused = true) {
-    const pad =
-      Array.from(gamepads || []).find(
-        (p) => p?.connected && p.mapping === 'standard',
-      ) ||
-      Array.from(gamepads || []).find(
-        (p) => p?.connected && p.axes.length >= 4,
-      );
+    // Every connected controller at once: buttons from any, each stick from
+    // whichever is pushed furthest. A second controller plugged in (or one
+    // switched on later) just works, whichever index the browser gives it.
+    const pads = Array.from(gamepads || []).filter((p) => p?.connected && p.axes.length >= 2);
+    const pad = pads.length
+      ? {
+          id: pads.map((p) => p.id).join(' + '),
+          index: pads.map((p) => p.index).join(','),
+          buttons: Array.from({ length: Math.max(...pads.map((p) => p.buttons.length)) }, (_, i) => ({
+            pressed: pads.some((p) => p.buttons[i]?.pressed || (p.buttons[i]?.value || 0) > 0.5),
+            value: Math.max(...pads.map((p) => p.buttons[i]?.value || 0)),
+          })),
+          axes: Array.from({ length: 4 }, (_, i) => {
+            const pair = i < 2 ? [0, 1] : [2, 3];
+            const best = pads.reduce((a, p) => (Math.hypot(p.axes[pair[0]] || 0, p.axes[pair[1]] || 0) > Math.hypot(a.axes[pair[0]] || 0, a.axes[pair[1]] || 0) ? p : a), pads[0]);
+            return best.axes[i] || 0;
+          }),
+        }
+      : null;
     const result = zero();
     this.id = pad?.id || null;
     if (!pad) {

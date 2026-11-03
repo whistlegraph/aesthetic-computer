@@ -6,10 +6,13 @@
 import { KidLisp } from './ac/lib/kidlisp.mjs';
 import * as graph from './ac/lib/graph.mjs';
 
-export async function kidlispWall(code, { width = 96, height = 54 } = {}) {
-  const response = await fetch(new URL(`./kidlisp-source?code=${encodeURIComponent(code)}`, import.meta.url));
-  if (!response.ok) throw Error(`no KidLisp for $${code}`);
-  const { source } = await response.json();
+export async function kidlispWall(code, { width = 96, height = 54, source: given = null } = {}) {
+  let source = given;
+  if (!source) {
+    const response = await fetch(new URL(`./kidlisp-source?code=${encodeURIComponent(code)}`, import.meta.url));
+    if (!response.ok) throw Error(`no KidLisp for $${code}`);
+    ({ source } = await response.json());
+  }
   const display = { width, height, pixels: new Uint8ClampedArray(width * height * 4) };
   const lisp = new KidLisp();
   const start = performance.now();

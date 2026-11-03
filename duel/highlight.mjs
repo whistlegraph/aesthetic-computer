@@ -45,6 +45,30 @@ export function codeSpans(line, base = THEME.text) {
   return merge(spans);
 }
 
+// Live source: timers flash as their period comes round (1s, 2s..., 0.5s!),
+// and random choices (?) shimmer, the way AC's editor animates KidLisp.
+export function animateSpans(spans, now) {
+  const out = [];
+  for (const s of spans) {
+    if (s.badge || !s.text) {
+      out.push(s);
+      continue;
+    }
+    for (const m of s.text.matchAll(/(\d*\.?\d+s(?:\.\.\.|!)?)|(\?)|([^?\d]+|\d+(?!\.?\d*s))/g)) {
+      const [all, timer, chance] = m;
+      if (timer) {
+        const period = parseFloat(timer) || 1;
+        const phase = ((now / 1000) % period) / period;
+        out.push({ text: all, color: phase < 0.12 ? 0xffffff : phase < 0.3 ? 0xffd28a : s.color });
+      } else if (chance) {
+        const hues = [0xff6b6b, 0xffe066, 0x8be28b, 0x7cc4ff, 0xd7a6ff];
+        out.push({ text: all, color: hues[Math.floor(now / 120) % hues.length] });
+      } else out.push({ text: all, color: s.color });
+    }
+  }
+  return out;
+}
+
 // "[A] CHOOSE / [X] BUILD" → text runs and button badges.
 export function hintSpans(line, color = THEME.text) {
   const spans = [];

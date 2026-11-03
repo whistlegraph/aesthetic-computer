@@ -18,6 +18,8 @@ export const CATALOG = {
   throw: ['a baseball', 'a frisbee', 'a bomb', 'a snowball', 'a boomerang', 'a dart', 'a rock', 'a pie'],
 };
 export const ITEM_CATEGORIES = ['shoot', 'poke', 'throw'];
+// Changes for a KidLisp wall (RB on it).
+export const KIDLISP_MODS = ['faster', 'slower', 'more colorful', 'spin it', 'zoom in', 'add blur', 'make it pulse', 'invert it'];
 // Chalk: build what you drew in the air (hold RT to draw), or wipe it.
 CATALOG.chalk = ['a sculpture', 'a creature', 'a building', 'a vehicle', 'a plant', 'a machine', 'a sign', 'erase my chalk'];
 export const CATEGORIES = Object.keys(CATALOG);
@@ -75,6 +77,7 @@ export class Radial {
   // Editing an object offers changes. A new object first names a thing,
   // then each further pick adds a trait to it.
   get items() {
+    if (this.target?.wall) return KIDLISP_MODS.filter((c) => !this.picks.includes(c));
     if (this.target) return CHANGES.filter((c) => !this.picks.includes(c));
     if (!this.category) return CATEGORIES;
     if (!this.picks.length) return CATALOG[this.category];
@@ -90,6 +93,7 @@ export class Radial {
     return ITEM_CATEGORIES.includes(this.category) ? this.category : null;
   }
   get title() {
+    if (this.target?.wall) return `$${this.target.code} kidlisp`;
     if (this.target)
       return `${this.target.code ? '$' + this.target.code : this.target.geometry.name} V${this.target.version}`;
     if (!this.category) return 'BUILD';

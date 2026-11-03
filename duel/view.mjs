@@ -8,6 +8,7 @@ import { radialSlots, ringGeometry } from './radial.mjs';
 import {
   THEME,
   codeSpans,
+  animateSpans,
   hintSpans,
   devSpans,
   phraseSpans,
@@ -19,6 +20,8 @@ import { smallWidth } from './paint.mjs';
 import { spanWidth as spanWidthOf } from './highlight.mjs';
 
 // A dark room: night floor, slate walls; the two seat colours stay bright.
+// Floor paint, cycled with X: red, yellow, green, blue, purple, pink.
+const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
 // Braincells are magical purple.
 const BRAIN = 0xb46bff;
 // West, east, south, north.
@@ -219,6 +222,9 @@ export async function createView(canvas) {
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel;
   let panelTop = null;
   const chalkModels = new Map();
+  let cubeModel = null, cubeAt = 0;
+  const cellBits = [];
+  let tileCacheKey = '', tileModel = null;
   // The Lisp tree in space: labels and the lines between them, per source.
   const trees = new Map(),
     labels = new Map(),
@@ -388,8 +394,12 @@ export async function createView(canvas) {
     devLog = [],
     fps = 0,
     walls = [],
+    cube = [],
     menu = null,
     braincells = null,
+    spending = false,
+    tiles = {},
+    floorAim = null,
     chalk = [[], []],
     chalkLocal = [],
     chalkMode = null,
@@ -514,6 +524,7 @@ export async function createView(canvas) {
     for (const id of previewModels.keys())
       if (!jobs.some((j) => j.id === id)) previewModels.delete(id);
     for (const job of jobs) {
+      if (job.kind === 'kidlisp') continue; // a wall rewrite has no footprint
       const code = JSON.stringify(job.preview);
       let preview = previewModels.get(job.id);
       if (!preview || preview.code !== code) {
@@ -749,7 +760,8 @@ export async function createView(canvas) {
         : null;
       const whose = (o) =>
         o.wall ? 'kidlisp wall' : o.owner === owner ? (pad ? '[LB] to change' : 'yours') : 'player ' + String(o.owner || '').slice(0, 4);
-      const hint = drawing ? drawing : carry ? carry : focusObject
+      const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : 'x paints the floor') : null;
+      const hint = drawing ? drawing : carry ? carry : paintHint ? paintHint : focusObject
         ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
         : input === 'touch'
           ? 'hold the right side to build'
@@ -785,7 +797,7 @@ export async function createView(canvas) {
               { text: `$${focusObject.code}`, color: THEME.verb },
               { text: ` kidlisp on the wall - ${focusObject.size || ''}`, color: THEME.dim },
             ],
-            ...wallCode.map((l) => codeSpans(l)),
+            ...wallCode.map((l) => animateSpans(codeSpans(l), now)),
           ]
         : prompt.open
         ? [
@@ -1270,8 +1282,17 @@ export async function createView(canvas) {
           BR.forEach((row, r) =>
             [...row].forEach((ch, c) => ch === '#' && px(27 + c, 20 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
           );
-          const n = braincells >= 1e6 ? `${(braincells / 1e6).toFixed(1)}m` : braincells >= 1e4 ? `${Math.round(braincells / 1e3)}k` : `${Math.round(braincells)}`;
-          small(n, x0 + (36 + (n.length * 4) / 2) * unit, y0 + 21 * unit, 0, unit, 0xd7a6ff);
+          // Exact, with thousands separators.
+          const n = Math.round(braincells).toLocaleString('en-US');
+          small(n, x0 + (36 + (n.length * 4) / 2) * unit, y0 + 21 * unit, 0, unit, spending ? 0xf0d8ff : 0xd7a6ff);
+          // Spending: purple pixels fly up and away from the count.
+          if (spending && Math.random() < 0.7)
+            cellBits.push({ x: 36 + Math.random() * n.length * 4, y: 22, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
+          for (let k = cellBits.length - 1; k >= 0; k--) {
+            const b = cellBits[k], t = (now - b.born) / 1000;
+            if (t > 0.9) { cellBits.splice(k, 1); continue; }
+            px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
+          }
         }
         // The health bar under it, in health colours.
         const hpc = hp > 60 ? 0x3fb950 : hp > 30 ? 0xffe066 : 0xff6b6b;
@@ -1326,6 +1347,30 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // Painted floor squares, rebuilt only when they change.
+    const tilesKey = JSON.stringify(tiles);
+    if (tilesKey !== tileCacheKey) {
+      tileCacheKey = tilesKey;
+      tileModel = model(({ quad }) => {
+        for (const [key, c] of Object.entries(tiles)) {
+          const [i, j] = key.split(',').map(Number);
+          const x = -18 + i * 2, z = -18 + j * 2, col = TILE_COLORS[(c - 1) % TILE_COLORS.length];
+          quad([x + 0.06, 0.008, z + 0.06], [x + 1.94, 0.008, z + 0.06], [x + 1.94, 0.008, z + 1.94], [x + 0.06, 0.008, z + 1.94], col);
+        }
+      });
+    }
+    if (tileModel) draw(tileModel, 0, 0, 0);
+    if (floorAim && !menu && !radial) {
+      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.05, y = 0.012;
+      const m = model(({ quad }) => {
+        const c = 0xf2f2f2;
+        quad([x, y, z], [x + 2, y, z], [x + 2, y, z + w], [x, y, z + w], c);
+        quad([x, y, z + 2 - w], [x + 2, y, z + 2 - w], [x + 2, y, z + 2], [x, y, z + 2], c);
+        quad([x, y, z], [x + w, y, z], [x + w, y, z + 2], [x, y, z + 2], c);
+        quad([x + 2 - w, y, z], [x + 2, y, z], [x + 2, y, z + 2], [x + 2 - w, y, z + 2], c);
+      });
+      draw(m, 0, 0, 0);
+    }
     // Chalk: a cached model per stroke, rebuilt only while it grows; your
     // own newest points draw at once, before the server echoes them.
     const ribbon = (points, ink) =>
@@ -1358,6 +1403,38 @@ export async function createView(canvas) {
       const mine = chalk[seat]?.at(-1)?.at(-1);
       const tail = mine ? [mine, ...chalkLocal] : chalkLocal;
       if (tail.length >= 2) draw(ribbon(tail, seat === 0 ? 0xffd9cf : 0xd6ecff), 0, 0, 0);
+    }
+    // The KidLisp cube: six programs on six faces, turning slowly above the
+    // middle of the room. Rebuilt ten times a second; turned every frame.
+    if (cube.some(Boolean)) {
+      if (!cubeModel || now - cubeAt > 100) {
+        cubeAt = now;
+        const S = 2; // half size in metres
+        const faces = [
+          (u, v) => [u, v, S], (u, v) => [-u, v, -S], (u, v) => [S, v, -u],
+          (u, v) => [-S, v, u], (u, v) => [u, S, -v], (u, v) => [u, -S, v],
+        ];
+        cubeModel = model(({ quad }) => {
+          cube.forEach((face, f) => {
+            if (!face) return;
+            const px = face.step(), n = face.width, cell = (2 * S) / n, at = faces[f];
+            for (let j = 0; j < n; j++)
+              for (let i = 0; i < n; ) {
+                const k = (j * n + i) * 4;
+                let run = 1;
+                while (i + run < n) {
+                  const q = (j * n + i + run) * 4;
+                  if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
+                  run++;
+                }
+                const u0 = S - i * cell, u1 = S - (i + run) * cell, v1 = S - j * cell, v0 = v1 - cell;
+                quad(at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1), (px[k] << 16) | (px[k + 1] << 8) | px[k + 2]);
+                i += run;
+              }
+          });
+        });
+      }
+      draw(cubeModel, 0, 7.5, 0, now / 4000, Math.sin(now / 5000) * 0.4);
     }
     // KidLisp walls: step each program about 20 times a second and lay its
     // pixels on the wall as a grid of cells, unmirrored from inside.
@@ -1417,6 +1494,37 @@ export async function createView(canvas) {
             : [{ text: r.label, color: on ? INK : THEME.text }];
           drawSpans({ rect, text }, spans, left + spanWidthOf(spans, unit) / 2, y, unit, { shadow: null, z: near });
         });
+      });
+      projector.overlay(m, W, H);
+    }
+    // A KidLisp wall being rewritten: split the screen; the right half shows
+    // the program running large over the new source streaming in.
+    const wallJob = jobs.find((j) => j.kind === 'kidlisp');
+    if (wallJob && !menu) {
+      const wall = walls.find((w) => w.face === wallJob.face);
+      const { unit } = hud;
+      const half = W / 2;
+      const m = model(({ rect: worldRect, text, small }) => {
+        const rect = flip(worldRect);
+        const z = -0.000006;
+        rect(0, -H / 2, z + 0.000004, half, H, 0x0b0c10);
+        rect(0, -H / 2, z + 0.000003, unit, H, LINE);
+        if (wall?.pixels) {
+          const cols = wall.width, rows = wall.height;
+          const cell = Math.floor((half - 16 * unit) / cols);
+          const left = Math.round(half / 2 - (cols * cell) / 2), top = H / 2 - 16 * unit;
+          for (let j = 0; j < rows; j++)
+            for (let i = 0; i < cols; i++) {
+              const k = (j * cols + i) * 4, px = wall.pixels;
+              rect(left + i * cell, top - (j + 1) * cell, z + 0.000002, cell, cell, (px[k] << 16) | (px[k + 1] << 8) | px[k + 2]);
+            }
+        }
+        const head = [{ text: `$${wall?.code || ''} `, color: THEME.verb }, { text: `aesel ${wallJob.phase} ${Math.max(0, Math.floor((Date.now() - wallJob.startedAt) / 1000))}s`, color: THEME.dim }];
+        drawSpans({ rect, text, small }, head, half / 2, H / 2 - 4 * unit, unit, { tiny: true, shadow: null, z });
+        const lines = (wallJob.code || '').split('\n').filter((l) => l.trim()).slice(-8);
+        lines.forEach((l, i) =>
+          drawSpans({ rect, text, small }, animateSpans(codeSpans(l.slice(0, 70)), now), half / 2, -H / 2 + 12 * unit + (lines.length - i) * 9 * unit, unit, { tiny: true, shadow: null, z }),
+        );
       });
       projector.overlay(m, W, H);
     }

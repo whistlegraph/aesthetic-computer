@@ -252,10 +252,18 @@ export function createDuelServer({
         send(ws, { type: 'braincells', remaining: b.remaining + (Number.isFinite(b.purchased) ? b.purchased : 0), limit: b.limit });
     } catch {}
   }
+  // Every 4 s for anyone with a build going (so spending shows as it
+  // happens), otherwise every minute.
+  let braincellTick = 0;
   const braincellTimer = setInterval(() => {
-    for (const room of rooms.values())
-      for (const [ws] of room.clients) void refreshBraincells(ws, room.sessions.get(ws));
-  }, 60000);
+    braincellTick++;
+    for (const [key, room] of rooms)
+      for (const [ws] of room.clients) {
+        const member = room.sessions.get(ws);
+        const busy = member?.owner && [...builders.jobs.values()].some((j) => j.room === key && j.owner === member.owner);
+        if (busy || braincellTick % 15 === 0) void refreshBraincells(ws, member);
+      }
+  }, 4000);
   const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp });
   // Off unless a transcript is named, and only in the listed rooms.
   const devRecent = [];
@@ -422,6 +430,9 @@ export function createDuelServer({
       }
       if (data?.type === 'chalk-clear' && member.seat >= 0) room.match.clearChalk(member.seat);
       if (data?.type === 'clear-room' && member.seat >= 0) void builders.clearRoom(key);
+      if (data?.type === 'kidlisp-mod' && member.seat >= 0) void builders.requestKidlisp(ws, key, owner, data);
+      if (data?.type === 'paint' && member.seat >= 0 && Number.isInteger(data.i) && Number.isInteger(data.j) && data.i >= 0 && data.i < 18 && data.j >= 0 && data.j < 18)
+        void store.paintTile(key, data.i, data.j).then(() => builders.broadcast(key));
       if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
         void builders.restore(ws, key, owner, member.seat, data.code);
       if (data?.type === 'input' && member.seat >= 0)

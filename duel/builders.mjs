@@ -103,6 +103,8 @@ export class Builders {
       objects: this.store.objects(room),
       builder: this.workers.size > 0,
       history: this.store.history(room).slice(0, 24),
+      tiles: this.store.tiles(room),
+      walls: this.store.walls(room),
       jobs: [...this.jobs.values()]
         .filter((j) => j.room === room)
         .map((j) => ({
@@ -116,6 +118,8 @@ export class Builders {
           phase: j.phase || 'connecting',
           code: j.code || '',
           preview: j.preview || null,
+          kind: j.kind || 'object',
+          face: j.face || null,
         })),
     };
   }
@@ -227,6 +231,20 @@ export class Builders {
         return;
       }
       job.finishing = true;
+      if (job.kind === 'kidlisp') {
+        try {
+          if (data.type !== 'built' || typeof data.source !== 'string') throw Error(typeof data.error === 'string' ? data.error.slice(0, 220) : 'Aesel could not change that KidLisp');
+          if (!this.publish) throw Error('No KidLisp store');
+          const code = await this.publish(data.source);
+          await this.store.setWall(job.room, job.face, code);
+          this.deliver(job, { type: 'build-result', id: job.id, kidlisp: code, face: job.face });
+        } catch (e) {
+          this.deliver(job, { type: 'build-result', id: job.id, error: e.message });
+        } finally {
+          this.finish(job);
+        }
+        return;
+      }
       try {
         if (data.type !== 'built')
           throw Error(
@@ -408,8 +426,37 @@ export class Builders {
     }
   }
   static meta(job) {
-    const { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt } = job;
-    return { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt };
+    const { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code } = job;
+    return { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code };
+  }
+  // Change a wall's KidLisp: a job of its own kind, handed to a builder.
+  async requestKidlisp(client, room, owner, input) {
+    try {
+      const face = ['north', 'west'].includes(input.face) ? input.face : null;
+      const prompt = typeof input.prompt === 'string' ? input.prompt.trim().slice(0, 280) : '';
+      if (!owner || !face || !prompt) throw Error('Choose a change for the wall');
+      if ([...this.jobs.values()].filter((j) => j.owner === owner).length >= PER_PLAYER)
+        throw Error(`Aesel is already making ${PER_PLAYER} things for you`);
+      const worker = [...this.workers].filter(([, w]) => w.size < PER_WORKER).sort((a, b) => a[1].size - b[1].size)[0]?.[0];
+      if (!worker) throw Error(this.workers.size ? 'Aesel is busy. Try again shortly.' : 'Aesel is offline');
+      const code = this.store.walls(room)[face];
+      const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?code=${code}`, { signal: AbortSignal.timeout(6000) });
+      const { source } = await r.json();
+      const job = { id: randomUUID(), kind: 'kidlisp', face, code, owner, room, prompt, objectId: null, baseVersion: 0, x: 0, z: 0, client, worker, startedAt: Date.now() };
+      job.timer = setTimeout(() => {
+        if (job.finishing) return;
+        this.send(worker, { type: 'cancel', id: job.id });
+        this.deliver(job, { type: 'build-result', id: job.id, error: 'Aesel timed out. Try again.' });
+        this.finish(job);
+      }, 180000);
+      this.jobs.set(job.id, job);
+      this.workers.get(worker).add(job.id);
+      this.send(worker, { type: 'build', kind: 'kidlisp', id: job.id, prompt, source, meta: { ...Builders.meta(job), kind: 'kidlisp', face, code } });
+      this.send(client, { type: 'build-accepted', id: job.id, kidlisp: true, face });
+      this.broadcast(room);
+    } catch (e) {
+      this.send(client, { type: 'build-result', error: e.message });
+    }
   }
   // A builder that reconnects hands back the jobs it was still working on.
   resume(ws, work, list = []) {

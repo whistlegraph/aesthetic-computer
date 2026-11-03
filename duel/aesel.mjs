@@ -10,6 +10,33 @@ import { OBJECT_INSTRUCTIONS, parseGeometry } from './objects.mjs';
 const { WebSocket } = createRequire(
   new URL('../lith/package.json', import.meta.url),
 )('ws');
+// KidLisp edits: rewrite a wall's 2D program as asked, keeping it KidLisp.
+const KIDLISP_INSTRUCTIONS = `You edit KidLisp programs for aesthetic.computer. KidLisp is a tiny Lisp for
+generative 2D art that redraws every frame: wipe, ink, line, box, circle, point, plot, spin, zoom,
+scroll, blur, contrast, repeat, def, timers like 1s or 2s... and random choices with ?, colors by name,
+rainbow, and fade:a-b-c gradients. Width and height are w and h. Keep the program's character and change
+what is asked. Return ONLY the new KidLisp source, no markdown, no commentary, under 1200 characters.`;
+
+export async function generateKidlisp(job, signal, { session = new ACSession(), model = DEFAULT_CLAUDE_MODEL, onProgress = () => {} } = {}) {
+  let source = '';
+  const result = await runPersonalTurn({
+    token: () => session.token(),
+    model: `anthropic/${model}`,
+    instructions: KIDLISP_INSTRUCTIONS,
+    tools: [],
+    signal,
+    content: JSON.stringify({ request: job.prompt, source: job.source }),
+    onEvent: ({ method, params }) => {
+      if (method !== 'item/agentMessage/delta') return;
+      source += params.delta || '';
+      onProgress({ phase: 'generating', code: source.slice(-900), geometry: null });
+    },
+  });
+  const text = String(result.text || source).replace(/^```\w*\s*/, '').replace(/\s*```\s*$/, '').trim();
+  if (!text) throw Object.assign(Error('Empty KidLisp'), { buildReason: 'Aesel returned no KidLisp.' });
+  return text.slice(0, 4000);
+}
+
 export async function generateObject(
   job,
   signal,
@@ -150,8 +177,13 @@ export function connectBuilder({
           lastProgress = Date.now();
           socket.send(JSON.stringify({ type: 'progress', id: job.id, ...progress }));
         };
-        const geometry = await generate(job, controller.signal, { onProgress });
-        if (!controller.signal.aborted) deliver({ type: 'built', id: job.id, geometry });
+        if (job.kind === 'kidlisp') {
+          const source = await generateKidlisp(job, controller.signal, { onProgress });
+          if (!controller.signal.aborted) deliver({ type: 'built', id: job.id, source });
+        } else {
+          const geometry = await generate(job, controller.signal, { onProgress });
+          if (!controller.signal.aborted) deliver({ type: 'built', id: job.id, geometry });
+        }
       } catch (error) {
         if (!controller.signal.aborted || controller.timedOut)
           deliver(

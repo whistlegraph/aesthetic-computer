@@ -59,11 +59,40 @@ const radial = new Radial();
 const touch = new TouchPad();
 const sfx = new Sfx();
 // Two walls run real KidLisp: $roz on the far wall, $bop on the left.
+// The room says which $code is on each wall; a change loads the new one.
 const walls = [];
-for (const [code, face] of [['roz', 'north'], ['bop', 'west']])
-  kidlispWall(code, { width: 64, height: 36 })
-    .then((w) => walls.push({ ...w, code, face }))
-    .catch((e) => console.info(`KidLisp wall $${code}:`, e.message));
+const wallCodes = {};
+function setWalls(spec = {}) {
+  for (const [face, code] of Object.entries(spec)) {
+    if (wallCodes[face] === code) continue;
+    wallCodes[face] = code;
+    kidlispWall(code, { width: 64, height: 36 })
+      .then((w) => {
+        if (wallCodes[face] !== code) return;
+        const i = walls.findIndex((x) => x.face === face);
+        const entry = { ...w, code, face };
+        if (i >= 0) walls[i] = entry;
+        else walls.push(entry);
+      })
+      .catch((e) => console.info(`KidLisp wall $${code}:`, e.message));
+  }
+}
+setWalls({ north: 'roz', west: 'bop' });
+// A cube of KidLisp floating over the middle of the room, a program a face.
+const CUBE_FACES = [
+  { code: 'roz' },
+  { code: 'bop' },
+  { name: 'rings', source: 'black\nink (? cyan magenta yellow) 160\ncircle w/2 h/2 (? 2 6 10 14)\n(zoom 1.04)\n(blur 1)' },
+  { name: 'rain', source: 'navy\nink white\nline (? 0 w) 0 (? 0 w) h\n(scroll 0 1)\n(contrast 1.02)' },
+  { name: 'stripes', source: 'fade:lime-teal-navy\nink (? white black) 120\nbox 0 (? 0 h) w 2\n(scroll 1 0)' },
+  { name: 'swirl', source: 'purple\nink rainbow\npoint (? 0 w) (? 0 h)\n(spin 0.5)\n(zoom 1.02)' },
+];
+const cube = [];
+CUBE_FACES.forEach((f, i) =>
+  kidlispWall(f.code || f.name, { width: 24, height: 24, source: f.source || null })
+    .then((w) => (cube[i] = { ...w, code: f.code || f.name }))
+    .catch((e) => console.info(`KidLisp cube face ${i}:`, e.message)),
+);
 // What the face cam reacts to: when you were hurt and from which side, when
 // to grin.
 const face = { hurtAt: -1e9, hurtSide: 0, grinAt: -1e9 };
@@ -115,7 +144,10 @@ let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
 let members = [];
 // Start opens the room menu; Back opens the $code history.
-let braincells = null;
+let braincells = null,
+  shownBraincells = null;
+let tiles = {},
+  floorAim = null;
 let menu = null,
   codeHistory = [],
   menuStickAt = 0;
@@ -212,7 +244,10 @@ function connect() {
       });
     }
     if (data.type === 'presence') members = data.members;
-    if (data.type === 'braincells' && Number.isFinite(data.remaining)) braincells = data.remaining;
+    if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
+      braincells = data.remaining;
+      if (shownBraincells === null) shownBraincells = braincells;
+    }
     if (data.type === 'chalk' && Array.isArray(data.strokes)) {
       // Whole: both seats on join, or one seat after a clear or trim.
       if (Number.isInteger(data.seat)) chalkStrokes[data.seat] = data.strokes;
@@ -253,6 +288,8 @@ function connect() {
       objects = data.objects;
       builder = data.builder;
       if (Array.isArray(data.history)) codeHistory = data.history;
+      if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
+      if (data.walls && typeof data.walls === 'object') setWalls(data.walls);
       jobs = data.jobs;
       prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
     }
@@ -270,7 +307,7 @@ function connect() {
       prompt.busy = false;
       prompt.message = data.cancelled
         ? 'CANCELLED'
-        : data.error || `V${data.version} READY`;
+        : data.error || (data.kidlisp ? `$${data.kidlisp} IS ON THE WALL` : `V${data.version} READY`);
       if (data.error) {
         prompt.open = true;
         releaseInput();
@@ -473,6 +510,13 @@ function submitPrompt(gesture = true) {
   if (!prompt.text.trim() || prompt.busy) return false;
   const item = radial.open ? radial.item : null;
   const chalk = radial.open && radial.chalk;
+  if (radial.open && radial.target?.wall) {
+    const face = walls.find((w) => w.code === radial.target.code)?.face;
+    send({ type: 'kidlisp-mod', face, prompt: prompt.text });
+    prompt.busy = true;
+    closeBuild();
+    return true;
+  }
   if (chalk && /erase my chalk/.test(prompt.text)) {
     send({ type: 'chalk-clear' });
     closeBuild();
@@ -498,9 +542,9 @@ function submitPrompt(gesture = true) {
   });
   return true;
 }
-function openRadial() {
+function openRadial(wall = null) {
   if (seat < 0 || prompt.busy || radial.open) return;
-  const target = focusObject?.owner === owner && !focusObject?.wall ? focusObject : null;
+  const target = wall?.wall ? wall : focusObject?.owner === owner && !focusObject?.wall ? focusObject : null;
   releaseInput();
   document.exitPointerLock();
   canvas.focus();
@@ -646,8 +690,15 @@ document.addEventListener('keydown', (e) => {
     sfx.jump();
   }
   if (seat >= 0 && e.code === 'KeyV' && !e.repeat) third = !third;
-  if (seat >= 0 && e.code === 'KeyF' && !e.repeat) useQueued = true;
+  if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
+    if (focusObject?.wall && !holding()) openRadial(focusObject);
+    else useQueued = true;
+  }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
+  if (seat >= 0 && e.code === 'KeyX' && !e.repeat && floorAim && !focusObject) {
+    send({ type: 'paint', i: floorAim.i, j: floorAim.j });
+    sfx.ringPick(floorAim.i + floorAim.j);
+  }
 });
 document.addEventListener('keyup', (e) => keys.delete(e.code));
 document.addEventListener('mousedown', (e) => {
@@ -778,7 +829,16 @@ function step(now) {
       sfx.ringBack();
     }
   }
+  if (gamepad.use && seat >= 0 && !prompt.open && focusObject?.wall && !holding()) {
+    openRadial(focusObject);
+    gamepad.use = false;
+  }
   if (gamepad.use && seat >= 0 && !prompt.open) useQueued = true;
+  if (gamepad.prompt && seat >= 0 && !prompt.open && !holding() && !chalkMode && floorAim && !focusObject) {
+    send({ type: 'paint', i: floorAim.i, j: floorAim.j });
+    sfx.ringPick(floorAim.i + floorAim.j);
+    gamepad.prompt = false;
+  }
   if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
     dropQueued = true;
     gamepad.prompt = false;
@@ -948,6 +1008,16 @@ function step(now) {
         focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
       }
     }
+    // The floor square under the crosshair, within reach, if nothing nearer.
+    floorAim = null;
+    if (dir.y < -0.02) {
+      const t = -player.y / dir.y;
+      if (t > 0 && t < Math.min(14, nearest)) {
+        const x = player.x + dir.x * t, z = player.z + dir.z * t;
+        const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
+        if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
+      }
+    }
     // Holding something with nothing else aimed at: the held item is the one to edit.
     if (!focusObject) {
       const mine = snapshot?.items?.find((it) => it.holder === seat);
@@ -999,8 +1069,19 @@ function step(now) {
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps,
     walls,
+    cube,
     menu,
-    braincells,
+    braincells: (() => {
+      // Ease the shown count toward the real one; each drop is spent.
+      if (braincells === null) return null;
+      const gap = shownBraincells - braincells;
+      if (Math.abs(gap) < 1) shownBraincells = braincells;
+      else shownBraincells -= Math.sign(gap) * Math.max(1, Math.ceil(Math.abs(gap) * 0.06));
+      return Math.round(shownBraincells);
+    })(),
+    spending: braincells !== null && shownBraincells > braincells + 0.5,
+    tiles,
+    floorAim: focusObject ? null : floorAim,
     chalk: chalkStrokes,
     chalkVersion,
     chalkLocal,
