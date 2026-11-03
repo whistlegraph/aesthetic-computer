@@ -272,6 +272,7 @@ let menu = null,
 let objects = [],
   owner = null,
   builder = false,
+  builderNames = [],
   jobs = [],
   focusObject = null;
 const locked = () => document.pointerLockElement === canvas;
@@ -421,6 +422,7 @@ function connect() {
       for (const job of data.jobs) sfx.buildProgress(job.id, job.preview?.boxes?.length || 0);
       objects = data.objects;
       builder = data.builder;
+      builderNames = Array.isArray(data.builders) ? data.builders : [];
       if (Array.isArray(data.history)) codeHistory = data.history;
       if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
       if (data.wallRes && typeof data.wallRes === 'object') wallRes = data.wallRes;
@@ -1322,6 +1324,7 @@ function step(now) {
     owner,
     focusObject,
     builder,
+    builderNames,
     jobs,
     worldTime,
     locked: locked(),

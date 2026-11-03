@@ -35,6 +35,7 @@ scroll, blur, contrast, repeat, def, timers like 1s or 2s... and random choices 
 rainbow, and fade:a-b-c gradients. Width and height are w and h. Keep the program's character and change
 what is asked. Return ONLY the new KidLisp source, no markdown, no commentary, under 1200 characters.`;
 
+import { hostname } from 'node:os';
 export async function generateKidlisp(job, signal, { session = new ACSession(), model = DEFAULT_CLAUDE_MODEL, onProgress = () => {} } = {}) {
   let source = '';
   const result = await relayTurn({
@@ -130,6 +131,7 @@ export async function generateObject(
 export function connectBuilder({
   url,
   token,
+  name = process.env.DOOL_BUILDER_NAME || hostname().replace(/\.local$/, ''),
   generate = generateObject,
   onState = () => {},
 }) {
@@ -161,6 +163,7 @@ export function connectBuilder({
     const current = socket;
     current.on('open', () => {
       onState('connected');
+      current.send(JSON.stringify({ type: 'hello', name }));
       const list = [...jobs.entries()].map(([id, c]) => ({ id, meta: c.meta, phase: c.phase, code: c.code }));
       if (list.length) current.send(JSON.stringify({ type: 'resume', jobs: list }));
       for (const message of pending.splice(0)) current.send(JSON.stringify(message));

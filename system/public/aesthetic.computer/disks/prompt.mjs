@@ -736,6 +736,8 @@ async function fetchHandleColors(handle) {
 const MOTD_CYCLE_MS = 8000;
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
 let mailCount = null; // { unread, total } — drives the envelope on the curtain
+// The envelope is off the curtain for now (2026-11-03); `mail` still works as a command.
+const MAIL_ON_CURTAIN = false;
 let mailBtn;
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 let versionCommit = null; // Current commit hash for the commit button
@@ -6400,7 +6402,7 @@ function paint($) {
 
     // 📬 Mail. Sits above the mime wordmark: an envelope if there's anything
     // in the box at all, with a red badge counting what's unread.
-    if (flairEnabled && mailCount?.total > 0) {
+    if (MAIL_ON_CURTAIN && flairEnabled && mailCount?.total > 0) {
       const unread = mailCount.unread || 0;
       const w = 15;
       const h = 10;
@@ -7725,7 +7727,7 @@ function paintThinkingGuy($) {
 function sim($) {
   // 📬 Ask once whether there's mail waiting. `?count` is two counts, not the
   // whole inbox — the curtain only needs to know whether to draw the envelope.
-  if (mailCount === null && $.user) {
+  if (MAIL_ON_CURTAIN && mailCount === null && $.user) {
     mailCount = "asking";
     $.net
       .userRequest("GET", "/api/mail?count=1")

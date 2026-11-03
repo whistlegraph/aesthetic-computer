@@ -87,6 +87,7 @@ export class Builders {
     Object.assign(this, { token, store, rooms, send, publish });
 
     this.workers = new Map();
+    this.names = new Map(); // Each builder's name, from its hello.
     this.jobs = new Map();
   }
   authorized(header) {
@@ -104,6 +105,7 @@ export class Builders {
       type: 'objects',
       objects: this.store.objects(room),
       builder: this.workers.size > 0,
+      builders: [...this.workers.keys()].map((ws) => this.names.get(ws) || 'aesel'),
       history: this.store.history(room).slice(0, 24),
       tiles: this.store.tiles(room),
       walls: this.store.walls(room),
@@ -210,6 +212,12 @@ export class Builders {
         ws.close(1008, 'Invalid builder response');
         return;
       }
+      if (data.type === 'hello') {
+        // The builder introduces itself; the world's readout names it.
+        this.names.set(ws, String(data.name || 'aesel').slice(0, 24).toLowerCase());
+        this.all();
+        return;
+      }
       if (data.type === 'resume') return this.resume(ws, work, data.jobs);
       const job = this.jobs.get(data.id);
       // A job handed back after a reconnect is this worker's again.
@@ -292,6 +300,7 @@ export class Builders {
     ws.on('close', () => {
       clearInterval(heartbeat);
       this.workers.delete(ws);
+      this.names.delete(ws);
       // The builder keeps working while it reconnects: hold its jobs for a
       // minute before giving up on them.
       for (const id of work) {

@@ -1,6 +1,6 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { model, INK, PAPER, rgb, tint } from './paint.mjs';
-import { poseObject } from './objects.mjs';
+import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { Projector } from './project.mjs';
 import { joinCode, hudLayout } from './hud.mjs';
@@ -299,7 +299,7 @@ export async function createView(canvas) {
     previewModels = new Map();
   let promptKey, promptModel;
   let presenceKey, presenceModel;
-  let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel;
+  let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, readoutKey, readoutModel;
   let panelTop = null;
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
@@ -501,6 +501,7 @@ export async function createView(canvas) {
     owner,
     focusObject,
     builder = false,
+    builderNames = [],
     jobs = [],
     worldTime = 0,
     locked = false,
@@ -1009,6 +1010,7 @@ export async function createView(canvas) {
         joinURL,
         panelTop,
         fps,
+        !!face,
       ]);
       if (key !== presenceKey) {
         presenceKey = key;
@@ -1040,8 +1042,8 @@ export async function createView(canvas) {
               handle ? colors : PAPER,
             );
           });
-          if (meter || fps) {
-            // No box: shadowed text right-aligned under the QR, coloured by health.
+          if ((meter || fps) && !face) {
+            // No face cam to sit under: shadowed text right-aligned under the QR, coloured by health.
             const ping = (connection?.label || '').toLowerCase();
             const bars = connection?.bars || 0;
             const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
@@ -1259,6 +1261,29 @@ export async function createView(canvas) {
       });
       projector.overlay(devModel, W, H);
     }
+    // The top readout: who is building for this world. Green with the
+    // builder's name while one is connected, red when none is.
+    if (!bare && !menu) {
+      const { unit, safeY } = hud;
+      const names = builderNames.length ? builderNames.join(' + ') : '';
+      const key = `${builder}|${names}|${W}|${H}`;
+      if (key !== readoutKey) {
+        readoutKey = key;
+        readoutModel = model(({ rect: worldRect, small }) => {
+          const rect = flip(worldRect);
+          const text = builder ? `aesel online: ${names || 'aesel'}` : 'aesel offline';
+          const color = builder ? 0x3fb950 : 0xff6b6b;
+          const top = H / 2 - safeY;
+          const w = smallWidth(text) * unit;
+          small(text, unit, top - unit, 0.000002, unit, INK);
+          small(text, 0, top, 0, unit, color);
+          // A dot beside it, lit like the text.
+          rect(-w / 2 - 5 * unit + unit, top - 5 * unit - unit, 0.000002, 3 * unit, 3 * unit, INK);
+          rect(-w / 2 - 5 * unit, top - 5 * unit, 0, 3 * unit, 3 * unit, color);
+        });
+      }
+      projector.overlay(readoutModel, W, H);
+    }
     // A square reticle: four L-shaped corners on whole pixels, symmetric
     // about the centre, each with a one-pixel shadow. It opens with speed,
     // closes and colours on an object (green when yours), in pixel steps.
@@ -1267,9 +1292,65 @@ export async function createView(canvas) {
       const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
       const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : 0x00ffff;
-      const half = (lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
+      let half = (lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
+      // Locked on: the corners surround the object on screen instead of
+      // closing in on the centre. Its world box projects to a screen box,
+      // padded a little and kept at least as big as the resting reticle.
+      let box = null;
+      if (lockedOn && focusObject) {
+        let world = null;
+        if (focusObject.wall) {
+          const w = walls.find((x) => `wall:${x.code}` === focusObject.id);
+          if (w) {
+            const d = SCREEN - 0.03, top = 1.5 + 18;
+            world = w.face === 'north'
+              ? { xMin: -16, xMax: 16, yMin: 1.5, yMax: top, zMin: d, zMax: d }
+              : { xMin: -d, xMax: -d, yMin: 1.5, yMax: top, zMin: -16, zMax: 16 };
+          }
+        } else if (focusObject.item) {
+          const it = items.find((x) => x.id === focusObject.id);
+          if (it) world = { xMin: it.x - 0.6, xMax: it.x + 0.6, yMin: it.y, yMax: it.y + 1.2, zMin: it.z - 0.6, zMax: it.z + 0.6 };
+        } else {
+          for (const b of objectBoxes([focusObject], worldTime)) {
+            if (!world) world = { ...b };
+            else {
+              world.xMin = Math.min(world.xMin, b.xMin); world.xMax = Math.max(world.xMax, b.xMax);
+              world.yMin = Math.min(world.yMin, b.yMin); world.yMax = Math.max(world.yMax, b.yMax);
+              world.zMin = Math.min(world.zMin, b.zMin); world.zMax = Math.max(world.zMax, b.zMax);
+            }
+          }
+        }
+        if (world) {
+          let l = Infinity, r = -Infinity, b = Infinity, u = -Infinity;
+          for (const x of [world.xMin, world.xMax])
+            for (const y of [world.yMin, world.yMax])
+              for (const z of [world.zMin, world.zMax]) {
+                const s = projector.project(x, y, z);
+                if (!s) { l = Infinity; break; }
+                l = Math.min(l, s.x); r = Math.max(r, s.x);
+                b = Math.min(b, s.y); u = Math.max(u, s.y);
+              }
+          if (Number.isFinite(l) && Number.isFinite(r)) {
+            const pad = 3 * unit;
+            const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
+            const left = clamp(Math.round((l * W) / 2) - pad, W / 2 - 2 * unit),
+              right = clamp(Math.round((r * W) / 2) + pad, W / 2 - 2 * unit),
+              bottom = clamp(Math.round((b * H) / 2) - pad, H / 2 - 2 * unit),
+              top = clamp(Math.round((u * H) / 2) + pad, H / 2 - 2 * unit);
+            const min = 2 * half;
+            box = {
+              left: Math.min(left, -min / 2),
+              right: Math.max(right, min / 2),
+              bottom: Math.min(bottom, -min / 2),
+              top: Math.max(top, min / 2),
+            };
+            // Arms grow with the box, up to a quarter of its shorter side.
+            arm = Math.max(4 * unit, Math.min(12 * unit, Math.floor(Math.min(box.right - box.left, box.top - box.bottom) / 4 / unit) * unit));
+          }
+        }
+      }
       const m = model(({ rect: worldRect }) => {
         // rect(left, bottom, w, h): screen x right, y up, whole pixels.
         const rect = flip(worldRect);
@@ -1280,8 +1361,8 @@ export async function createView(canvas) {
         for (const sx of [-1, 1])
           for (const sy of [-1, 1]) {
             // The corner's outer pixel, then arms running inward.
-            const x = sx < 0 ? -half - t : half,
-              y = sy < 0 ? -half - t : half;
+            const x = box ? (sx < 0 ? box.left - t : box.right) : sx < 0 ? -half - t : half,
+              y = box ? (sy < 0 ? box.bottom - t : box.top) : sy < 0 ? -half - t : half;
             L(sx < 0 ? x : x - arm + t, y, arm, t);
             L(x, sy < 0 ? y : y - arm + t, t, arm);
           }
@@ -1440,6 +1521,32 @@ export async function createView(canvas) {
             const b = cellBits[k], t = (now - b.born) / 1000;
             if (t > 0.9) { cellBits.splice(k, 1); continue; }
             px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
+          }
+        }
+        // Under the braincells: the connection as four rising bars and its
+        // ping, then the frame rate, each coloured by health.
+        {
+          const ping = (connection?.label || '').toLowerCase();
+          const bars = connection?.bars || 0;
+          const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
+          const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
+          const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
+          // small() takes the top of its 8-row glyph box; the count sits at 21.
+          let top = Number.isFinite(braincells) ? 12 : 21;
+          if (ping) {
+            const base = top - 8;
+            for (let i = 0; i < 4; i++) {
+              const h = 2 + i * 2, lit = i < bars;
+              px(27 + i * 3 + 1, base - 1, 2, h, INK, 0.000002);
+              px(27 + i * 3, base, 2, h, lit ? pingColor : 0x2c3040, 0.000001);
+              if (lit) px(27 + i * 3, base + h - 1, 2, 1, tint(pingColor, 1.25));
+            }
+            small(ping, x0 + (40 + smallWidth(ping) / 2) * unit, y0 + top * unit, 0, unit, pingColor);
+            top -= 9;
+          }
+          if (fps) {
+            const f = `${fps} fps`;
+            small(f, x0 + (27 + smallWidth(f) / 2) * unit, y0 + top * unit, 0, unit, fpsColor);
           }
         }
         // The health bar under it, in health colours.
