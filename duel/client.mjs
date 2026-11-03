@@ -1273,6 +1273,15 @@ function step(now) {
     worldTime,
     locked: locked(),
     legend: legendShown(),
+    held: {
+      keys: [...keys],
+      pad: [
+        ...['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT'].filter((_, i) => controller.previous[i]),
+        ...(gamepad.fwd || gamepad.right ? ['LS'] : []),
+        ...(gamepad.lookX || gamepad.lookY ? ['RS'] : []),
+      ],
+      touch: [...(touch.stick ? ['left'] : []), ...(touch.look ? ['right'] : [])],
+    },
   });
   postProcess(elapsed);
 }

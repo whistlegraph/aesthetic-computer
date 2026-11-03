@@ -7,19 +7,34 @@ import { joinCode, hudLayout, drawJoinCode } from './hud.mjs';
 
 // What each kind of input does, one line per hand, as Oskiewar lists its
 // controls: the same world plays from a keyboard alone, a pad or a touchscreen.
+// A key is [label, code]; it lights while held. Plain strings are the verbs.
+const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 export const LEGEND = {
   keys: [
-    'wasd move / arrows turn / space jump',
-    'enter build / f use / q drop / x paint / c chalk',
-    'v camera / tab rooms / h hide this',
+    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['arrows', ARROWS], ' turn / ', ['space', 'Space'], ' jump'],
+    [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop / ', ['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk'],
+    [['v', 'KeyV'], ' camera / ', ['tab', 'Tab'], ' rooms / ', ['h', 'KeyH'], ' hide this'],
   ],
   pad: [
     '[LS] move / [RS] look / [LT] jump / [Y] camera',
     '[RB] build / [X] paint / [LB] lock on / [B] cancel',
   ],
-  touch: ['left side: drag to move', 'right side: drag to look / tap jumps / hold builds'],
+  touch: [[['left side', 'left'], ': drag to move'], [['right side', 'right'], ': drag to look / tap jumps / hold builds']],
 };
-const legendRows = (input) => (LEGEND[input] || LEGEND.keys).map((line) => hintSpans(line, THEME.dim));
+// held: { keys: [codes], pad: [badges], touch: ['left' | 'right'] } from the client.
+function legendRows(input, held = {}) {
+  const down = new Set(held[input === 'keys' ? 'keys' : input] || []);
+  const lit = (code) => (Array.isArray(code) ? code.some((c) => down.has(c)) : down.has(code));
+  return (LEGEND[input] || LEGEND.keys).map((line) =>
+    typeof line === 'string'
+      ? hintSpans(line, THEME.dim).map((s) => (s.badge && down.has(s.badge) ? { ...s, lit: true } : s))
+      : line.map((part) =>
+          typeof part === 'string'
+            ? { text: part, color: THEME.dim }
+            : { text: part[0], color: lit(part[1]) ? THEME.verb : THEME.text },
+        ),
+  );
+}
 import { radialSlots, ringGeometry } from './radial.mjs';
 import {
   THEME,
@@ -42,11 +57,32 @@ const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae]
 const BRAIN = 0xb46bff;
 // West, east, south, north.
 const WALL_HUES = [0x2b3a5c, 0x4a2f5c, 0x1f4a4a, 0x3a3f4d];
-const FLOOR = 0x23262f,
-  WALL = 0x3a3f4d,
+const WALL = 0x3a3f4d,
   WALL_SIDE = 0x2c303b,
-  LINE = 0x5a5f70,
-  SKY = 0x141720;
+  LINE = 0x5a5f70;
+// Two rooms by the viewer's clock: a light morning and afternoon, a dark
+// evening and night. The sky bands run from the horizon glow up to overhead.
+export const PALETTES = {
+  day: {
+    sky: 0xcfe3f5,
+    far: 0xd3d8e2,
+    floor: 0xe4e7ee,
+    axis: 0x8a8f9e,
+    grid10: 0xc4c9d6,
+    grid2: 0xd4d8e2,
+    bands: [[-0.02, 0.04, 0xfff3dc], [0.04, 0.12, 0xeaf2fb], [0.12, 0.3, 0xcfe3f5], [0.3, 0.6, 0xb4d3f0], [0.6, 1.2, 0x9ec4e9]],
+  },
+  night: {
+    sky: 0x141720,
+    far: 0x1b1d26,
+    floor: 0x23262f,
+    axis: LINE,
+    grid10: 0x343848,
+    grid2: 0x2a2d3a,
+    bands: [[-0.02, 0.04, 0x3a3150], [0.04, 0.12, 0x2c2a48], [0.12, 0.3, 0x1f2240], [0.3, 0.6, 0x171a30], [0.6, 1.2, 0x11131f]],
+  },
+};
+export const paletteFor = (hour = new Date().getHours()) => (hour >= 7 && hour < 18 ? 'day' : 'night');
 import {
   WALLS,
   COLORS,
@@ -95,37 +131,43 @@ export async function createView(canvas) {
   canvas.dataset.engine = backend;
   const projector = new Projector(host.scene);
   const facecam = new Projector(host.scene);
-  const sky = [...rgb(SKY), 1];
   // The open world: a floor out to the horizon, a lit court with a grid in
   // the middle, and a band of horizon glow. No walls.
-  const arena = model(({ box, quad }) => {
-    const far = 420;
-    quad([-far, -0.01, -far], [-far, -0.01, far], [far, -0.01, far], [far, -0.01, -far], 0x1b1d26);
-    quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], FLOOR);
-    for (let v = -WORLD; v <= WORLD; v += 2) {
-      const c = v === 0 ? LINE : v % 10 === 0 ? 0x343848 : 0x2a2d3a;
-      box(v, 0.006, 0, 0.04, 0.01, 2 * WORLD, c, c, c);
-      box(0, 0.006, v, 2 * WORLD, 0.01, 0.04, c, c, c);
-    }
-  });
+  const buildArena = (p) =>
+    model(({ box, quad }) => {
+      const far = 420;
+      quad([-far, -0.01, -far], [-far, -0.01, far], [far, -0.01, far], [far, -0.01, -far], p.far);
+      quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
+      for (let v = -WORLD; v <= WORLD; v += 2) {
+        const c = v === 0 ? p.axis : v % 10 === 0 ? p.grid10 : p.grid2;
+        box(v, 0.006, 0, 0.04, 0.01, 2 * WORLD, c, c, c);
+        box(0, 0.006, v, 2 * WORLD, 0.01, 0.04, c, c, c);
+      }
+    });
   // Sky: rings of colour around the viewer, deep overhead to a glow at the
   // horizon, drawn at the eye so it never comes closer.
-  const SKY_BANDS = [
-    [-0.02, 0.04, 0x3a3150],
-    [0.04, 0.12, 0x2c2a48],
-    [0.12, 0.3, 0x1f2240],
-    [0.3, 0.6, 0x171a30],
-    [0.6, 1.2, 0x11131f],
-  ];
-  const skyModel = model(({ quad }) => {
-    const r = 600, n = 32;
-    for (const [a, b, c] of SKY_BANDS)
-      for (let k = 0; k < n; k++) {
-        const t0 = (k / n) * Math.PI * 2, t1 = ((k + 1) / n) * Math.PI * 2;
-        const p = (t, e) => [Math.cos(t) * r * Math.cos(e), r * Math.sin(e), Math.sin(t) * r * Math.cos(e)];
-        quad(p(t0, a), p(t1, a), p(t1, b), p(t0, b), c);
-      }
-  });
+  const buildSky = (p) =>
+    model(({ quad }) => {
+      const r = 600, n = 32;
+      for (const [a, b, c] of p.bands)
+        for (let k = 0; k < n; k++) {
+          const t0 = (k / n) * Math.PI * 2, t1 = ((k + 1) / n) * Math.PI * 2;
+          const q = (t, e) => [Math.cos(t) * r * Math.cos(e), r * Math.sin(e), Math.sin(t) * r * Math.cos(e)];
+          quad(q(t0, a), q(t1, a), q(t1, b), q(t0, b), c);
+        }
+    });
+  // The room follows the clock: rebuilt when the hour crosses into day or night.
+  let paletteName = null, arena, skyModel, sky;
+  function dress(name) {
+    if (name === paletteName) return;
+    const p = PALETTES[name];
+    paletteName = name;
+    arena = buildArena(p);
+    skyModel = buildSky(p);
+    sky = [...rgb(p.sky), 1];
+    document.body.style.background = '#' + p.sky.toString(16).padStart(6, '0');
+  }
+  dress(paletteFor());
   const fighters = COLORS.map((color) => ({
     torso: model(({ box }) =>
       box(0, 1.02, 0, 0.42, 0.62, 0.26, color, INK, PAPER),
@@ -444,6 +486,7 @@ export async function createView(canvas) {
     worldTime = 0,
     locked = false,
     legend = false,
+    held = {},
   } = {}) {
     if (lost) {
       location.reload();
@@ -455,6 +498,7 @@ export async function createView(canvas) {
     lastWorldTime = worldTime;
     const cells = joinCode(joinURL);
     const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale);
+    dress(paletteFor());
     host.beginFrame();
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
@@ -858,7 +902,7 @@ export async function createView(canvas) {
           : [
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
-              ...(showLegend ? legendRows(input) : []),
+              ...(showLegend ? legendRows(input, held) : []),
               spectator
                 ? hintSpans(
                     controller ? 'freecam / lb down / rb up' : 'freecam / wasd / space up / shift down',
@@ -876,8 +920,10 @@ export async function createView(canvas) {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panelHeight = visible.length * 11 * unit + 10 * unit;
           const panel = prompt.open || building;
-          // The legend also lifts the corner labels, like a panel would.
-          panelTop = panel || showLegend ? -height / 2 + safeY + panelHeight : null;
+          // Whatever is drawn here (a panel, the legend, or the one hint
+          // line) reports its top, so notices and corner labels stack above
+          // it instead of over it.
+          panelTop = -height / 2 + safeY + panelHeight;
           if (panel) {
             // A dark slab with a thin slate rule; text carries the colour.
             rect(-width / 2 + safeX, -height / 2 + safeY, 0.000004, width - 2 * safeX, panelHeight, LINE);

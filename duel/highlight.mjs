@@ -22,7 +22,11 @@ export const BUTTONS = {
   RB: { fill: 0x5a5f70, ink: 0xffffff },
   RT: { fill: 0x5a5f70, ink: 0xffffff },
   LT: { fill: 0x5a5f70, ink: 0xffffff },
+  LS: { fill: 0x5a5f70, ink: 0xffffff },
+  RS: { fill: 0x5a5f70, ink: 0xffffff },
 };
+// A badge lights white while its button is held.
+const LIT = { fill: 0xffffff, ink: 0x181818 };
 const badgeWidth = (b) => (b.length * 6 + 4);
 
 const TOKEN =
@@ -73,7 +77,7 @@ export function animateSpans(spans, now) {
 export function hintSpans(line, color = THEME.text) {
   const spans = [];
   let at = 0;
-  for (const m of line.matchAll(/\[(LB|LT|RB|RT|[ABXY])\]/g)) {
+  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|[ABXY])\]/g)) {
     if (m.index > at) spans.push({ text: line.slice(at, m.index), color });
     spans.push({ badge: m[1] });
     at = m.index + m[0].length;
@@ -149,7 +153,7 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
   let left = cx - spanWidth(spans, unit) / 2;
   for (const s of spans) {
     if (s.badge) {
-      const { fill, ink } = BUTTONS[s.badge];
+      const { fill, ink } = s.lit ? LIT : BUTTONS[s.badge];
       const bw = badgeWidth(s.badge) * unit;
       if (shadow !== null) rect(left + unit, y - 8 * unit, z + 2 * step, bw, 9 * unit, shadow);
       rect(left, y - 7 * unit, z + step, bw, 9 * unit, fill);
