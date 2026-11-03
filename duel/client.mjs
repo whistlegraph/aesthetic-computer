@@ -97,22 +97,10 @@ function setWalls(spec = {}, res = wallRes) {
       .catch((e) => console.info(`KidLisp wall $${code}:`, e.message));
   }
 }
-setWalls({ north: 'roz', west: 'bop' });
-// A cube of KidLisp floating over the middle of the room, a program a face.
-const CUBE_FACES = [
-  { code: 'roz' },
-  { code: 'bop' },
-  { name: 'rings', source: 'black\nink (? cyan magenta yellow) 160\ncircle w/2 h/2 (? 2 6 10 14)\n(zoom 1.04)\n(blur 1)' },
-  { name: 'rain', source: 'navy\nink white\nline (? 0 w) 0 (? 0 w) h\n(scroll 0 1)\n(contrast 1.02)' },
-  { name: 'stripes', source: 'fade:lime-teal-navy\nink (? white black) 120\nbox 0 (? 0 h) w 2\n(scroll 1 0)' },
-  { name: 'swirl', source: 'purple\nink rainbow\npoint (? 0 w) (? 0 h)\n(spin 0.5)\n(zoom 1.02)' },
-];
+// The walls and the floating cube of KidLisp are retired for now: the room
+// is bare, the walls stay plain, and the cube is gone. The wall machinery
+// above stays for when a room asks for them again.
 const cube = [];
-CUBE_FACES.forEach((f, i) =>
-  kidlispWall(f.code || f.name, { width: 24, height: 24, source: f.source || null })
-    .then((w) => (cube[i] = { ...w, code: f.code || f.name }))
-    .catch((e) => console.info(`KidLisp cube face ${i}:`, e.message)),
-);
 // What the face cam reacts to: when you were hurt and from which side, when
 // to grin.
 const face = { hurtAt: -1e9, hurtSide: 0, grinAt: -1e9 };
@@ -419,7 +407,7 @@ function connect() {
       if (Array.isArray(data.history)) codeHistory = data.history;
       if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
       if (data.wallRes && typeof data.wallRes === 'object') wallRes = data.wallRes;
-      if (data.walls && typeof data.walls === 'object') setWalls(data.walls, wallRes);
+      // Room wall specs are ignored while the walls are plain (setWalls above).
       jobs = data.jobs;
       prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
     }
