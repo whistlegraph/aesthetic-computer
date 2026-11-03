@@ -78,9 +78,9 @@ test('rounds ricochet off walls with no clock, and can come back to the shooter'
   const m = playing([ball('g', 0, -3, 'shoot')]);
   send(m, 0);
   // Face the side wall, a little off square, with the other player out of the way.
-  Object.assign(m.seats[1].player, { x: 15, z: 15 });
-  // Near the world's edge, facing it.
-  Object.assign(m.seats[0].player, { x: 54, z: 0, yaw: 90, pitch: 0 });
+  Object.assign(m.seats[1].player, { x: -5, z: 5 });
+  // Near the room's wall, facing it.
+  Object.assign(m.seats[0].player, { x: 6, z: 0, yaw: 90, pitch: 0 });
   send(m, 0, { use: true });
   let bounced = false;
   for (let i = 0; i < HZ * 3 && m.seats[0].player.health === 100; i++) {
@@ -135,7 +135,7 @@ test('chalk draws strokes in reach, splits them on release, and clears', () => {
   send(m, 0, { chalk: { x: p.x + 1.5, y: 1.6, z: p.z + 2.01 } }); // too close: skipped
   send(m, 0);
   send(m, 0, { chalk: { x: p.x - 1, y: 1, z: p.z + 2 } });
-  send(m, 0, { chalk: { x: p.x + 30, y: 1, z: p.z } }); // out of reach (and clamped to the court)
+  send(m, 0, { chalk: { x: p.x + 30, y: 1, z: p.z + 30 } }); // out of reach (and clamped to the room)
   assert.deepEqual(m.chalk[0].map((s) => s.length), [2, 1]);
   assert.ok(m.chalkDirty);
   m.clearChalk(0);

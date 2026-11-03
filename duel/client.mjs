@@ -1321,6 +1321,13 @@ if (hosted) {
       if (!ws || ws.readyState === WebSocket.CLOSED) connect();
       canvas.focus();
       void sfx.wake();
+      // The tap that dropped the paper is a fresh gesture: take the mouse now,
+      // so no cursor flickers over the world. A refusal leaves click-to-capture.
+      if (!touch.active) {
+        try {
+          Promise.resolve(canvas.requestPointerLock()).catch(() => {});
+        } catch {}
+      }
     } else {
       releaseInput();
       if (locked()) document.exitPointerLock();

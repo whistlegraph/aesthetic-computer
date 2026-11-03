@@ -544,6 +544,13 @@ export async function createView(canvas) {
       eye = camera;
       aim = along(camera, direction(camera.yaw, camera.pitch), 100);
     }
+    // Breathing: a slow rise and fall with a slighter sway, so the room is
+    // never quite still, from the first frame behind the curtain on.
+    {
+      const breath = Math.sin(now / 1900) * 0.03, sway = Math.sin(now / 3100) * 0.015;
+      eye = { ...eye, x: eye.x + sway, y: eye.y + breath };
+      aim = { ...aim, x: aim.x + sway, y: aim.y + breath };
+    }
     projector.camera(eye, aim, aspect);
     draw(skyModel, eye.x, eye.y, eye.z);
     const tags = [];
