@@ -20,6 +20,7 @@ export const BUTTONS = {
   Y: { fill: 0xf5c518, ink: 0x181818 },
   LB: { fill: 0x5a5f70, ink: 0xffffff },
   RB: { fill: 0x5a5f70, ink: 0xffffff },
+  RT: { fill: 0x5a5f70, ink: 0xffffff },
   LT: { fill: 0x5a5f70, ink: 0xffffff },
 };
 const badgeWidth = (b) => (b.length * 6 + 4);
@@ -48,7 +49,7 @@ export function codeSpans(line, base = THEME.text) {
 export function hintSpans(line, color = THEME.text) {
   const spans = [];
   let at = 0;
-  for (const m of line.matchAll(/\[(LB|LT|RB|[ABXY])\]/g)) {
+  for (const m of line.matchAll(/\[(LB|LT|RB|RT|[ABXY])\]/g)) {
     if (m.index > at) spans.push({ text: line.slice(at, m.index), color });
     spans.push({ badge: m[1] });
     at = m.index + m[0].length;

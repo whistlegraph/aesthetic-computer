@@ -278,6 +278,21 @@ export class Builders {
           ? 'explode'
           : null;
       const yaw = (player.yaw * Math.PI) / 180;
+      // Build from chalk: the player's strokes become a sketch to follow,
+      // and the object goes where they were drawn.
+      const strokes = input.chalk ? this.rooms.get(room)?.match.chalk[seat] || [] : [];
+      const points = strokes.flat();
+      let sketch = null;
+      if (points.length >= 2) {
+        const cx = Math.round(points.reduce((n, p) => n + p.x, 0) / points.length);
+        const cz = Math.round(points.reduce((n, p) => n + p.z, 0) / points.length);
+        const step = Math.max(1, Math.ceil(points.length / 80));
+        const lines = strokes
+          .map((s) => s.filter((_, k) => k % step === 0 || k === s.length - 1))
+          .filter((s) => s.length >= 2)
+          .map((s) => s.map((p) => `${(p.x - cx).toFixed(1)} ${p.y.toFixed(1)} ${(p.z - cz).toFixed(1)}`).join(', '));
+        sketch = { x: cx, z: cz, text: lines.map((l, k) => `stroke ${k + 1}: ${l}`).join('; ') };
+      }
       const job = {
         id: randomUUID(),
         objectId: existing?.id || randomUUID(),
@@ -287,8 +302,9 @@ export class Builders {
         item,
         effect,
         baseVersion: existing?.version ?? -1,
-        x: existing?.x ?? Math.round(player.x + Math.sin(yaw) * 6),
-        z: existing?.z ?? Math.round(player.z + Math.cos(yaw) * 6),
+        x: existing?.x ?? sketch?.x ?? Math.round(player.x + Math.sin(yaw) * 6),
+        z: existing?.z ?? sketch?.z ?? Math.round(player.z + Math.cos(yaw) * 6),
+        sketch: sketch?.text || null,
         client,
         worker,
         startedAt: Date.now(),
@@ -318,7 +334,7 @@ export class Builders {
       this.send(worker, {
         type: 'build',
         id: job.id,
-        prompt: item ? `${prompt} (${ITEM_HINT[item]})` : prompt,
+        prompt: [item ? `${prompt} (${ITEM_HINT[item]})` : prompt, job.sketch && `Follow this chalk sketch the player drew (x y z in metres, object origin at 0 0 0, y up); make its shape out of these lines: ${job.sketch}`].filter(Boolean).join('\n').slice(0, 6000),
         previous: existing?.geometry || null,
       });
       this.send(client, {

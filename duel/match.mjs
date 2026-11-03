@@ -29,6 +29,34 @@ export class Match {
     // Items: transient pose and physics for objects that can be picked up.
     this.items = new Map();
     this.bullets = [];
+    // Chalk: strokes of points in the air, per seat; sent when they change.
+    this.chalk = [[], []];
+    this.chalkDirty = false;
+    this.chalking = [false, false];
+  }
+
+  addChalk(seat, at) {
+    const p = this.seats[seat]?.player;
+    if (!p || Math.hypot(at.x - p.x, at.y - p.y, at.z - p.z) > 9) return;
+    const strokes = this.chalk[seat];
+    if (!this.chalking[seat] || !strokes.length) strokes.push([]);
+    const stroke = strokes[strokes.length - 1];
+    const last = stroke[stroke.length - 1];
+    if (last && Math.hypot(last.x - at.x, last.y - at.y, last.z - at.z) < 0.08) return;
+    stroke.push({ x: Math.round(at.x * 100) / 100, y: Math.round(at.y * 100) / 100, z: Math.round(at.z * 100) / 100 });
+    // Keep the newest 800 points per player.
+    let total = strokes.reduce((n, s) => n + s.length, 0);
+    while (total > 800 && strokes.length) {
+      strokes[0].shift();
+      if (!strokes[0].length) strokes.shift();
+      total--;
+    }
+    this.chalkDirty = true;
+  }
+
+  clearChalk(seat) {
+    this.chalk[seat] = [];
+    this.chalkDirty = true;
   }
 
   // Solid objects collide; items are carried, thrown and run over instead.
@@ -377,6 +405,8 @@ export class Match {
       }
       s.player = p;
       if (c && (c.use || c.drop)) this.useItem(s, c);
+      if (c?.chalk) this.addChalk(p.seat, c.chalk);
+      if (c) this.chalking[p.seat] = !!c.chalk;
       if (
         c?.fire &&
         p.alive &&

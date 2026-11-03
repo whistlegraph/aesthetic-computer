@@ -173,6 +173,7 @@ export async function createView(canvas) {
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel;
   let panelTop = null;
+  let chalkCacheKey = '', chalkModel = null;
   // The Lisp tree in space: labels and the lines between them, per source.
   const trees = new Map(),
     labels = new Map(),
@@ -340,6 +341,8 @@ export async function createView(canvas) {
     devLog = [],
     fps = 0,
     walls = [],
+    chalk = [[], []],
+    chalkMode = null,
     face = null,
     owner,
     focusObject,
@@ -674,7 +677,12 @@ export async function createView(canvas) {
             ? `tap ${verb}`
             : `f or click ${verb} / q drop`
         : null;
-      const hint = carry ? carry : focusObject
+      const drawing = chalkMode
+        ? pad
+          ? `chalk ${chalkMode.text}: hold [RT] draw / [X] build / [B] cancel`
+          : `chalk ${chalkMode.text}: hold c or right click / enter build / esc cancel`
+        : null;
+      const hint = drawing ? drawing : carry ? carry : focusObject
         ? `${named(focusObject)} v${focusObject.version} - ${focusObject.owner === owner ? (pad ? '[LB] to change' : 'yours') : 'player ' + focusObject.owner.slice(0, 4)}`
         : input === 'touch'
           ? 'hold the right side to build'
@@ -1146,6 +1154,26 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // Chalk: each player's strokes as thin ribbons, tinted toward their colour.
+    const chalkKey = JSON.stringify(chalk.map((s) => s.reduce((n, x) => n + x.length, 0)).concat(chalk.map((s) => s.at(-1)?.at(-1)?.x)));
+    if (chalkKey !== chalkCacheKey) {
+      chalkCacheKey = chalkKey;
+      chalkModel = model(({ quad }) => {
+        const w = 0.02;
+        chalk.forEach((strokes, seatIndex) => {
+          const c = tint(COLORS[seatIndex] || 0xffffff, 0.35) + 0xa0a0a0 > 0xffffff ? 0xf2efe6 : 0xf2efe6;
+          const ink = seatIndex === 0 ? 0xffd9cf : 0xd6ecff;
+          for (const s of strokes)
+            for (let k = 1; k < s.length; k++) {
+              const a = s[k - 1], b = s[k];
+              quad([a.x - w, a.y, a.z], [b.x - w, b.y, b.z], [b.x + w, b.y, b.z], [a.x + w, a.y, a.z], ink);
+              quad([a.x, a.y - w, a.z], [b.x, b.y - w, b.z], [b.x, b.y + w, b.z], [a.x, a.y + w, a.z], c === ink ? ink : ink);
+              quad([a.x, a.y, a.z - w], [b.x, b.y, b.z - w], [b.x, b.y, b.z + w], [a.x, a.y, a.z + w], ink);
+            }
+        });
+      });
+    }
+    if (chalkModel) draw(chalkModel, 0, 0, 0);
     // KidLisp walls: step each program about 20 times a second and lay its
     // pixels on the wall as a grid of cells, unmirrored from inside.
     for (const w of walls) {

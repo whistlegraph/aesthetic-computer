@@ -333,6 +333,7 @@ export function createDuelServer({
     member.welcomed = true;
     if (devRoom(key) && devRecent.length)
       send(ws, { type: 'dev-log', entries: devRecent });
+    send(ws, { type: 'chalk', strokes: room.match.chalk });
     send(ws, room.match.snapshot());
     send(ws, builders.state(key));
     room.broadcast();
@@ -396,6 +397,7 @@ export function createDuelServer({
         else
           send(ws, { type: 'build-result', error: 'Spectators cannot build' });
       }
+      if (data?.type === 'chalk-clear' && member.seat >= 0) room.match.clearChalk(member.seat);
       if (data?.type === 'input' && member.seat >= 0)
         room.match.input(member.seat, data.commands);
       if (data?.type === 'ping' && Number.isFinite(data.at))
@@ -418,6 +420,11 @@ export function createDuelServer({
       debt -= 1000 / HZ;
       for (const room of rooms.values()) {
         room.match.step();
+        if (room.match.chalkDirty && room.match.tick % 6 === 0) {
+          room.match.chalkDirty = false;
+          const msg = { type: 'chalk', strokes: room.match.chalk };
+          for (const ws of room.clients.keys()) send(ws, msg);
+        }
         if (room.match.tick % 2) continue;
         const snap = room.match.snapshot();
         for (const ws of room.clients.keys()) {

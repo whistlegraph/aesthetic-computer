@@ -18,6 +18,8 @@ export const CATALOG = {
   throw: ['a baseball', 'a frisbee', 'a bomb', 'a snowball', 'a boomerang', 'a dart', 'a rock', 'a pie'],
 };
 export const ITEM_CATEGORIES = ['shoot', 'poke', 'throw'];
+// Chalk: build what you drew in the air (hold RT to draw), or wipe it.
+CATALOG.chalk = ['a sculpture', 'a creature', 'a building', 'a vehicle', 'a plant', 'a machine', 'a sign', 'erase my chalk'];
 export const CATEGORIES = Object.keys(CATALOG);
 export const THINGS = CATALOG.play;
 export const TRAITS = [
@@ -81,6 +83,9 @@ export class Radial {
     return traits.filter((t) => !this.picks.includes(t));
   }
   // A build from an item category makes something you can carry.
+  get chalk() {
+    return this.category === 'chalk';
+  }
   get item() {
     return ITEM_CATEGORIES.includes(this.category) ? this.category : null;
   }

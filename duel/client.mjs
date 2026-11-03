@@ -3,7 +3,7 @@ import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
 import { objectBoxes } from './objects.mjs';
-import { direction, rayBox, wallDistance } from './world.mjs';
+import { direction, rayBox, wallDistance, along } from './world.mjs';
 import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { accountToken } from './account.mjs';
@@ -36,6 +36,10 @@ let yaw = 0,
   firing = false,
   latestAt = 0,
   eventId = 0;
+let chalkStrokes = [[], []],
+  // Draw mode inside a build: { text, target } while you chalk the shape.
+  chalkMode = null,
+  chalkMouse = false;
 let useQueued = false,
   dropQueued = false;
 let jumpQueued = false,
@@ -201,6 +205,7 @@ function connect() {
       });
     }
     if (data.type === 'presence') members = data.members;
+    if (data.type === 'chalk' && Array.isArray(data.strokes)) chalkStrokes = data.strokes;
     if (data.type === 'dev-log')
       for (const d of data.entries) {
         // A finished step updates the line it belongs to rather than adding one.
@@ -385,12 +390,37 @@ canvas.addEventListener('paste', (e) => {
   prompt.insert(e.clipboardData?.getData('text') || '');
 });
 // Keyboard Enter, the controller's X and the ring's centre all land here.
+// Where chalk lands: the aimed surface, or 3 m ahead in the air.
+function chalkPoint() {
+  const held = (gamepad?.boost || chalkMouse || keys.has('KeyC')) && seat >= 0 && !prompt.open;
+  if (!held || !player) return null;
+  const dir = direction(yaw, pitch);
+  const reach = Math.min(3, wallDistance(player, dir, 3, solids(), 0) - 0.05);
+  return along(player, dir, Math.max(0.6, reach));
+}
+// Send the drawing as this build's turn.
+function submitChalk() {
+  if (!chalkMode || prompt.busy) return;
+  if (!owner || !builder) {
+    prompt.message = !owner ? 'CONNECTING' : 'AESEL IS OFFLINE';
+    return;
+  }
+  prompt.busy = true;
+  send({ type: 'prompt', prompt: chalkMode.text, objectId: chalkMode.target?.id, baseVersion: chalkMode.target?.version, chalk: true });
+  chalkMode = null;
+}
 function holding() {
   return !!snapshot?.items?.some((it) => it.holder === seat && seat >= 0);
 }
 function submitPrompt(gesture = true) {
   if (!prompt.text.trim() || prompt.busy) return false;
   const item = radial.open ? radial.item : null;
+  const chalk = radial.open && radial.chalk;
+  if (chalk && /erase my chalk/.test(prompt.text)) {
+    send({ type: 'chalk-clear' });
+    closeBuild();
+    return true;
+  }
   if (!owner || !builder) {
     prompt.message = !owner ? 'CONNECTING' : 'AESEL IS OFFLINE';
     return false;
@@ -407,6 +437,7 @@ function submitPrompt(gesture = true) {
     objectId: prompt.target?.id,
     baseVersion: prompt.target?.version,
     item,
+    chalk,
   });
   return true;
 }
@@ -428,6 +459,18 @@ function closeBuild() {
 }
 function pickRadial(index) {
   if (!radial.pick(index)) return;
+  // Chalk category: erase, or step out of the ring to draw the shape.
+  if (radial.chalk && radial.picks.length === 1) {
+    const thing = radial.picks[0];
+    if (thing === 'erase my chalk') send({ type: 'chalk-clear' });
+    else {
+      chalkMode = { text: thing, target: radial.target };
+      send({ type: 'chalk-clear' });
+    }
+    sfx.ringPick(index);
+    closeBuild();
+    return;
+  }
   prompt.text = radial.text();
   prompt.cursor = prompt.text.length;
   prompt.message = '';
@@ -489,6 +532,12 @@ document.addEventListener('keydown', (e) => {
     releaseInput();
     return;
   }
+  if (chalkMode && !e.repeat && (e.code === 'Enter' || e.code === 'Escape')) {
+    e.preventDefault();
+    if (e.code === 'Enter') submitChalk();
+    else chalkMode = null;
+    return;
+  }
   if (e.code === 'Enter' && !e.repeat) {
     e.preventDefault();
     if (seat < 0) return;
@@ -544,9 +593,14 @@ document.addEventListener('mousedown', (e) => {
     prompt.begin(focusObject?.owner === owner ? focusObject : null);
   }
 });
-document.addEventListener('mouseup', () => {
+document.addEventListener('mouseup', (e) => {
   firing = false;
+  if (e.button === 2) chalkMouse = false;
 });
+document.addEventListener('mousedown', (e) => {
+  if (e.button === 2 && locked()) chalkMouse = true;
+});
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', releaseInput);
 document.addEventListener('visibilitychange', () => {
   releaseInput();
@@ -630,6 +684,17 @@ function step(now) {
     if (seat >= 0 && prompt.busy) send({ type: 'cancel-build' });
     closeBuild();
     document.exitPointerLock();
+  }
+  if (chalkMode) {
+    if (gamepad.prompt) {
+      submitChalk();
+      gamepad.prompt = false;
+    }
+    if (gamepad.cancel) {
+      chalkMode = null;
+      gamepad.cancel = false;
+      sfx.ringBack();
+    }
   }
   if (gamepad.use && seat >= 0 && !prompt.open) useQueued = true;
   if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
@@ -725,6 +790,7 @@ function step(now) {
       buttons: keys.has('Space') || jumpQueued ? 1 : 0,
       use: useQueued,
       drop: dropQueued,
+      chalk: chalkPoint(),
       fire: (firing || fireQueued) && locked(),
     };
     jumpQueued = fireQueued = useQueued = dropQueued = false;
@@ -833,6 +899,8 @@ function step(now) {
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps,
     walls,
+    chalk: chalkStrokes,
+    chalkMode,
     face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') ? -0.5 : 0) + (keys.has('KeyD') ? 0.5 : 0) } : null,
     devLog: devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })),
     owner,

@@ -125,3 +125,18 @@ test('a thrown bomb goes off on its fuse, hurts nearby, and comes back home', ()
   assert.equal(b.awayUntil, 0);
   assert.deepEqual([b.x, b.y, b.z], [0, 0, -3], 'back at home to throw again');
 });
+
+test('chalk draws strokes in reach, splits them on release, and clears', () => {
+  const m = playing([]);
+  const p = m.seats[0].player;
+  send(m, 0, { chalk: { x: p.x + 1, y: 1.5, z: p.z + 2 } });
+  send(m, 0, { chalk: { x: p.x + 1.5, y: 1.6, z: p.z + 2 } });
+  send(m, 0, { chalk: { x: p.x + 1.5, y: 1.6, z: p.z + 2.01 } }); // too close: skipped
+  send(m, 0);
+  send(m, 0, { chalk: { x: p.x - 1, y: 1, z: p.z + 2 } });
+  send(m, 0, { chalk: { x: p.x + 30, y: 1, z: p.z } }); // out of reach (and clamped to the court)
+  assert.deepEqual(m.chalk[0].map((s) => s.length), [2, 1]);
+  assert.ok(m.chalkDirty);
+  m.clearChalk(0);
+  assert.equal(m.chalk[0].length, 0);
+});
