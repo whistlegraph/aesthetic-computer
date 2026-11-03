@@ -1314,7 +1314,7 @@ export async function createView(canvas) {
       );
       projector.overlay(m, W, H);
     }
-    if (face && me) {
+    if (face && me && !bare) {
       const { unit, safeX, safeY } = hud;
       const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
       const listTop = floor + Math.max(0, members.length - 1) * 12 * unit + 4 * unit;
