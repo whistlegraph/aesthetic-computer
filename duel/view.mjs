@@ -299,6 +299,7 @@ export async function createView(canvas) {
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel;
   let panelTop = null;
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
+  const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
   let boom = 4;
   let cubeModel = null, cubeAt = 0;
@@ -502,7 +503,9 @@ export async function createView(canvas) {
     locked = false,
     legend = false,
     held = {},
-    corner = null,
+    corner = false,
+    screens = [],
+    screenPrograms = new Map(),
     bare = false, // Behind the prompt's curtain: no panel, hint or legend.
   } = {}) {
     if (lost) {
@@ -1170,21 +1173,21 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // The corner block: the world's name at the top left, as the system's
-    // label on every AC piece (SCREEN.md). A tap on it goes back to the prompt.
+    // The corner block: the prompt's own pink cursor block at the top left,
+    // where the system label sits on every AC piece (SCREEN.md). A tap on it
+    // goes back to the prompt.
     cornerRect = null;
     if (corner) {
       const { unit, safeX, safeY } = hud;
-      const w = (corner.length * 6 + 3) * unit,
-        h = 11 * unit;
+      const w = 6 * unit,
+        h = 10 * unit;
       const left = -W / 2 + safeX,
         bottom = H / 2 - safeY - h;
       cornerRect = { x: safeX, y: safeY, w, h };
-      const m = model(({ rect: worldRect, text }) => {
+      const m = model(({ rect: worldRect }) => {
         const rect = flip(worldRect);
         rect(left + unit, bottom - unit, 0.000003, w, h, INK);
-        rect(left, bottom, 0.000002, w, h, 0x15171e);
-        text(corner, left + w / 2, bottom + 7 * unit, 0, unit, PAPER);
+        rect(left, bottom, 0.000002, w, h, 0xff3296);
       });
       projector.overlay(m, W, H);
     }
@@ -1649,6 +1652,47 @@ export async function createView(canvas) {
         });
       }
       draw(w.frame, 0, 0, 0);
+    }
+    // Standing KidLisp screens: each $code prompt stands its piece on the
+    // field, facing whoever asked, stepping about 20 times a second.
+    for (const s of screens) {
+      const w = screenPrograms.get(s.code);
+      if (!w) continue;
+      const span = 4, cols = w.width, rows = w.height, cell = span / cols, tall = (span * rows) / cols, base = 0.4;
+      if (!s.model || now - (s.at || 0) > 50) {
+        s.at = now;
+        const px = w.step();
+        s.model = model(({ quad }) => {
+          for (let j = 0; j < rows; j++)
+            for (let i = 0; i < cols; ) {
+              const k = (j * cols + i) * 4;
+              const c = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2];
+              let n = 1;
+              while (i + n < cols) {
+                const q = (j * cols + i + n) * 4;
+                if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
+                n++;
+              }
+              const u0 = span / 2 - i * cell, u1 = span / 2 - (i + n) * cell;
+              const y1 = base + tall - j * cell, y0 = y1 - cell;
+              quad([u0, y0, 0], [u1, y0, 0], [u1, y1, 0], [u0, y1, 0], c);
+              i += n;
+            }
+        });
+      }
+      let frame = screenFrames.get(s.id);
+      if (!frame) {
+        const c = 0x2a2d3a, side = 0x22252f;
+        frame = model(({ box }) => {
+          box(0, base + tall / 2, 0.14, span + 0.3, tall + 0.3, 0.16, c, side, c);
+          box(-span / 2 + 0.4, base / 2, 0.14, 0.16, base, 0.16, c, side, c);
+          box(span / 2 - 0.4, base / 2, 0.14, 0.16, base, 0.16, c, side, c);
+        });
+        screenFrames.set(s.id, frame);
+      }
+      const yaw = ((s.yaw || 0) * Math.PI) / 180;
+      draw(s.model, s.x, 0, s.z, yaw);
+      draw(frame, s.x, 0, s.z, yaw);
     }
     if (menu) {
       // A modal: the scene dimmed behind it, a panel with a title and a

@@ -108,6 +108,7 @@ export class Builders {
       tiles: this.store.tiles(room),
       walls: this.store.walls(room),
       wallRes: this.store.wallRes(room),
+      screens: this.store.screens(room),
       jobs: [...this.jobs.values()]
         .filter((j) => j.room === room)
         .map((j) => ({

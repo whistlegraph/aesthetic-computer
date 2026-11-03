@@ -2,7 +2,22 @@ import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { geometry, MAX_OBJECTS, MAX_VERSIONS } from './objects.mjs';
+import { WORLD } from './world.mjs';
 const digest = (token) => createHash('sha256').update(token).digest('hex');
+// Builds placed when the room was larger come inside the walls: the whole
+// room scales about its centre until the farthest build stands within
+// `limit`, so the layout keeps its shape. Returns true when anything moved.
+export function fitRoom(list, limit = WORLD - 1.5) {
+  let far = 0;
+  for (const o of list) far = Math.max(far, Math.abs(o.x || 0), Math.abs(o.z || 0));
+  if (far <= limit) return false;
+  const k = limit / far;
+  for (const o of list) {
+    o.x = Math.round((o.x || 0) * k * 100) / 100;
+    o.z = Math.round((o.z || 0) * k * 100) / 100;
+  }
+  return true;
+}
 export class ObjectStore {
   constructor(directory) {
     this.directory = directory;
@@ -17,6 +32,10 @@ export class ObjectStore {
     } catch (e) {
       if (e.code !== 'ENOENT') throw e;
     }
+    // Rooms built before the walls closed in: bring their builds inside.
+    let moved = false;
+    for (const list of Object.values(this.data.rooms || {})) moved = fitRoom(list) || moved;
+    if (moved) await this.transact(() => true);
   }
   transact(fn) {
     const task = this.queue.then(async () => {
@@ -84,7 +103,20 @@ export class ObjectStore {
     return this.transact((data) => {
       data.rooms[room] = [];
       if (data.tiles) delete data.tiles[room];
+      if (data.screens) delete data.screens[room];
       return true;
+    });
+  }
+  // Standing KidLisp screens, one per $code prompt: { id, owner, code, x, z, yaw, at }.
+  screens(room) {
+    return (this.data.screens?.[room] || []).map((s) => ({ ...s }));
+  }
+  addScreen(room, screen) {
+    return this.transact((data) => {
+      const list = ((data.screens ||= {})[room] ||= []);
+      if (list.length >= 24) list.shift();
+      list.push(screen);
+      return screen;
     });
   }
   // KidLisp on the walls: { north: 'roz', west: 'bop' } until changed.

@@ -101,6 +101,21 @@ function setWalls(spec = {}, res = wallRes) {
 // is bare, the walls stay plain, and the cube is gone. The wall machinery
 // above stays for when a room asks for them again.
 const cube = [];
+// Standing KidLisp screens: a `$code` prompt stands that piece on the field.
+// The room lists them; each code's program runs here, once, for all of them.
+let screens = [];
+const screenPrograms = new Map();
+function setScreens(list) {
+  for (const s of list) {
+    if (screenPrograms.has(s.code)) continue;
+    screenPrograms.set(s.code, null);
+    kidlispWall(s.code, { width: 64, height: 36 })
+      .then((w) => screenPrograms.set(s.code, w))
+      .catch((e) => console.info(`KidLisp screen $${s.code}:`, e.message));
+  }
+  // Keep the same objects for screens that stay, so their frame caches hold.
+  screens = list.map((s) => Object.assign(screens.find((o) => o.id === s.id) || {}, s));
+}
 // What the face cam reacts to: when you were hurt and from which side, when
 // to grin.
 const face = { hurtAt: -1e9, hurtSide: 0, grinAt: -1e9 };
@@ -408,6 +423,7 @@ function connect() {
       if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
       if (data.wallRes && typeof data.wallRes === 'object') wallRes = data.wallRes;
       // Room wall specs are ignored while the walls are plain (setWalls above).
+      if (Array.isArray(data.screens)) setScreens(data.screens);
       jobs = data.jobs;
       prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
     }
@@ -651,6 +667,17 @@ function holding() {
 }
 function submitPrompt(gesture = true) {
   if (!prompt.text.trim() || prompt.busy) return false;
+  // A bare $code stands that KidLisp piece on the field, a few steps ahead
+  // and facing you. The room keeps it; Aesel is not involved.
+  const code = /^\$([a-z0-9]{2,16})$/i.exec(prompt.text.trim());
+  if (code && seat >= 0 && player && !radial.open) {
+    const dir = direction(yaw, 0);
+    send({ type: 'screen', code: code[1], x: player.x + dir.x * 3.5, z: player.z + dir.z * 3.5, yaw });
+    prompt.text = '';
+    closeBuild();
+    if (gesture) void capture();
+    return true;
+  }
   const item = radial.open ? radial.item : null;
   const chalk = radial.open && radial.chalk;
   if (radial.open && radial.target?.wall) {
@@ -1297,7 +1324,9 @@ function step(now) {
     worldTime,
     locked: locked(),
     legend: sheetOpen && legendShown(),
-    corner: sheetOpen ? 'dool' : null,
+    corner: sheetOpen,
+    screens,
+    screenPrograms,
     bare: !sheetOpen,
     held: {
       keys: [...keys],

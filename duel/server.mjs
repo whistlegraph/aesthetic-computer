@@ -9,7 +9,8 @@ import { Room } from './room.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
-import { HZ, PROTOCOL } from './world.mjs';
+import { HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
+import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -460,6 +461,19 @@ export function createDuelServer({
       if (data?.type === 'wall-res' && member.seat >= 0 && ['north', 'west'].includes(data.face) && [-1, 1].includes(data.dir))
         void store.stepWallRes(key, data.face, data.dir).then(() => builders.broadcast(key));
       else if (data?.type === 'kidlisp-mod' && member.seat >= 0) void builders.requestKidlisp(ws, key, owner, data);
+      // A $code prompt stands that KidLisp piece on the field: no Aesel needed.
+      if (data?.type === 'screen' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
+        void store
+          .addScreen(key, {
+            id: randomUUID(),
+            owner,
+            code: data.code,
+            x: clamp(Number(data.x) || 0, -WORLD + 1, WORLD - 1),
+            z: clamp(Number(data.z) || 0, -WORLD + 1, WORLD - 1),
+            yaw: Number(data.yaw) || 0,
+            at: Date.now(),
+          })
+          .then(() => builders.broadcast(key));
       if (data?.type === 'paint' && member.seat >= 0 && Number.isInteger(data.i) && Number.isInteger(data.j) && data.i >= 0 && data.i < 18 && data.j >= 0 && data.j < 18)
         void store.paintTile(key, data.i, data.j).then(() => builders.broadcast(key));
       if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
