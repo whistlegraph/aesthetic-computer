@@ -10,16 +10,19 @@ import { joinCode, hudLayout, drawJoinCode } from './hud.mjs';
 // A key is [label, code]; it lights while held. Plain strings are the verbs.
 const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 export const LEGEND = {
+  // Lines stay under thirty columns so a phone or a narrow window shows them whole.
   keys: [
-    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['arrows', ARROWS], ' turn / ', ['space', 'Space'], ' jump'],
-    [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop / ', ['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk'],
-    [['v', 'KeyV'], ' camera / ', ['tab', 'Tab'], ' rooms / ', ['h', 'KeyH'], ' hide this'],
+    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['arrows', ARROWS], ' turn'],
+    [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera / ', ['h', 'KeyH'], ' hide'],
+    [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
+    [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['tab', 'Tab'], ' rooms'],
   ],
-  pad: [
-    '[LS] move / [RS] look / [LT] jump / [Y] camera',
-    '[RB] build / [X] paint / [LB] lock on / [B] cancel',
+  pad: ['[LS] move / [RS] look', '[LT] jump / [Y] camera', '[RB] build / [X] paint', '[LB] lock on / [B] cancel'],
+  touch: [
+    [['left side', 'left'], ': drag to move'],
+    [['right side', 'right'], ': drag to look'],
+    [['tap right', 'right'], ' jumps / ', ['hold right', 'right'], ' builds'],
   ],
-  touch: [[['left side', 'left'], ': drag to move'], [['right side', 'right'], ': drag to look / tap jumps / hold builds']],
 };
 // held: { keys: [codes], pad: [badges], touch: ['left' | 'right'] } from the client.
 function legendRows(input, held = {}) {
