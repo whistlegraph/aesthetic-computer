@@ -60,7 +60,9 @@ try {
   await a.page.waitForFunction(() => !!document.pointerLockElement);
   assert.equal(await a.page.evaluate(() => !!document.pointerLockElement), true, 'pointer lock');
   await a.page.dispatchEvent('canvas', 'mousedown', { button: 0, bubbles: true });
-  await wait(() => a.snap?.rockets.length > 0, 'warmup firing');
+  await a.page.waitForFunction(() => document.querySelector('canvas').doolStats.promptOpen);
+  assert.equal(a.snap.rockets.length, 0);
+  await a.page.keyboard.press('Escape');
   await a.page.dispatchEvent('canvas', 'mouseup', { button: 0, bubbles: true });
   const b = await tab();
   await wait(() => a.snap?.phase === 'playing' && b.snap?.phase === 'playing', 'two player countdown');
@@ -77,12 +79,6 @@ try {
   await wait(() => Math.abs(a.snap.players[0].pitch) < 0.3 &&
     Math.min(a.snap.players[0].yaw, 360 - a.snap.players[0].yaw) < 0.3, 'aim settles');
   await a.page.screenshot({ path: new URL('first-person.png', shots).pathname });
-  await a.page.dispatchEvent('canvas', 'mousedown', { button: 0, bubbles: true });
-  await wait(() => a.snap?.rockets.length > 0, 'rocket launch');
-  await a.page.dispatchEvent('canvas', 'mouseup', { button: 0, bubbles: true });
-  await a.page.screenshot({ path: new URL('rocket.png', shots).pathname });
-  await wait(() => a.snap?.players[0].score === 1, 'rocket frag');
-  await wait(() => a.snap?.players[1].alive, 'respawn');
   await focus(a.page);
   if (!await a.page.evaluate(() => !!document.pointerLockElement)) await a.page.locator('canvas').click();
   await a.page.waitForFunction(() => !!document.pointerLockElement);
@@ -113,7 +109,7 @@ try {
     await a.page.screenshot({ path: new URL(`resize-${width}x${height}.png`, shots).pathname });
   }
   assert.deepEqual(errors, []);
-  console.log('Browser passed: two players, countdown, pointer lock, strafe, jump, both cameras, rockets, respawn, disconnect, canvas-only interface.');
+  console.log('Browser passed: two players, countdown, pointer lock, strafe, jump, both cameras, object prompt, disconnect, canvas-only interface.');
   console.log(`Screenshots: ${shots.pathname}`);
 } catch (error) {
   console.error(error.message);

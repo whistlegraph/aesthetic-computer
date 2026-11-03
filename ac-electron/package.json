@@ -13,6 +13,7 @@
     "start": "electron . --inspect=9229 --remote-debugging-port=9222",
     "start:prod": "electron . --inspect=9229 --remote-debugging-port=9222",
     "start:dev": "electron . --dev --inspect=9229 --remote-debugging-port=9222",
+    "start:dool": "electron . --dool-rig",
     "start:shell": "electron . --shell --inspect=9229 --remote-debugging-port=9222",
     "dev": "fish dev.fish --dev",
     "dev:prod": "fish dev.fish --prod",
@@ -141,6 +142,7 @@
     },
     "files": [
       "main.js",
+      "dool-rig.js",
       "tray-renderer.js",
       "preload.js",
       "webview-preload.js",

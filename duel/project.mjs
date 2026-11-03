@@ -6,6 +6,19 @@ export class Projector {
     this.input = new Float64Array(12);
     this.clipped = new Float64Array(15);
   }
+  overlay(vertices, width, height) {
+    for (let i = 0; i < vertices.length; i += 18) {
+      if (this.scene.triangleCount >= this.scene.maxTriangles) return;
+      let at = this.scene.triangleCount++ * 18;
+      for (let j = 0; j < 3; j++) {
+        const k = i + j * 6;
+        this.scene.vertices[at++] = (-vertices[k] * 2) / width;
+        this.scene.vertices[at++] = (vertices[k + 1] * 2) / height;
+        this.scene.vertices[at++] = 0.00001 + vertices[k + 2];
+        for (let c = 3; c < 6; c++) this.scene.vertices[at++] = vertices[k + c];
+      }
+    }
+  }
   camera(eye, target, aspect) {
     this.eye = eye;
     let x = target.x - eye.x,
@@ -23,11 +36,28 @@ export class Projector {
     this.sx = 1 / (tan * aspect);
     this.sy = 1 / tan;
   }
-  draw(vertices, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1) {
+  // A world point to screen space: x right and y up in -1..1, or null behind.
+  project(x, y, z) {
+    const e = this.eye,
+      dx = x - e.x,
+      dy = y - e.y,
+      dz = z - e.z;
+    const [r, u, f] = [this.right, this.up, this.forward];
+    const depth = dx * f[0] + dy * f[1] + dz * f[2];
+    if (depth < 0.1) return null;
+    return {
+      x: ((dx * r[0] + dy * r[1] + dz * r[2]) * this.sx) / depth,
+      y: ((dx * u[0] + dy * u[1] + dz * u[2]) * this.sy) / depth,
+      depth,
+    };
+  }
+  draw(vertices, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) {
     const cy = Math.cos(yaw),
       sy = Math.sin(yaw),
       cp = Math.cos(pitch),
-      sp = Math.sin(pitch);
+      sp = Math.sin(pitch),
+      cr = Math.cos(roll),
+      sr = Math.sin(roll);
     const f = this.forward,
       r = this.right,
       u = this.up,
@@ -42,11 +72,13 @@ export class Projector {
           lx = vertices[k] * scale,
           ly = vertices[k + 1] * scale,
           lz = vertices[k + 2] * scale;
-        const py = ly * cp - lz * sp,
-          pz = ly * sp + lz * cp;
-        const wx = lx * cy + pz * sy + x - eye.x,
+        const rx = lx * cr - ly * sr,
+          ry = lx * sr + ly * cr;
+        const py = ry * cp - lz * sp,
+          pz = ry * sp + lz * cp;
+        const wx = rx * cy + pz * sy + x - eye.x,
           wy = py + y - eye.y,
-          wz = -lx * sy + pz * cy + z - eye.z;
+          wz = -rx * sy + pz * cy + z - eye.z;
         a[j * 3] = wx * r[0] + wy * r[1] + wz * r[2];
         a[j * 3 + 1] = wx * u[0] + wy * u[1] + wz * u[2];
         a[j * 3 + 2] = wx * f[0] + wy * f[1] + wz * f[2];
@@ -86,8 +118,12 @@ export class Projector {
           })
         )
           continue;
-        if (this.scene.triangleCount >= this.scene.maxTriangles)
-          throw new Error('Scene triangle budget exceeded');
+        // Over budget: drop the rest of this frame's geometry, never throw
+        // (a throw here stops the frame loop and freezes the game).
+        if (this.scene.triangleCount >= this.scene.maxTriangles) {
+          this.overflow = true;
+          return;
+        }
         let at = this.scene.triangleCount++ * 18;
         for (const k of [0, j, j + 3]) {
           this.scene.vertices[at++] = b[k];

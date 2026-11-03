@@ -8190,6 +8190,10 @@ async function load(
             // Track the original $code identifier for sharing
             currentOriginalCodeId = slug; // Keep the full $code format
             console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
+            // 🧊 dool objects are KidLisp in the 3D object dialect (slab, orb,
+            // capsule); open them on the object turntable instead.
+            if (/\((?:slab|orb|capsule)\s/.test(sourceToRun.replace(/;[^\n]*/g, "")))
+              sourceToRun = `(jump "object:${cacheId}")`;
 
             // 👤 Fetch author metadata in background (for logging only)
             fetchKidlispMetadata(cacheId).then(meta => {

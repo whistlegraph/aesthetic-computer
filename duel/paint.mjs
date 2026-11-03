@@ -1,4 +1,10 @@
 import { blockGlyphs } from './engine/block-font.mjs';
+import { glyphRows } from './handle-font.mjs';
+import { glyphs as chunky } from './chunky-font.mjs';
+
+// MatrixChunky8 width of a string, in pixels (proportional).
+export const smallWidth = (value) =>
+  [...String(value)].reduce((w, ch) => w + (chunky[ch] || chunky['?'])[4], 0) - 1;
 
 export const INK = 0x181818,
   PAPER = 0xffffff;
@@ -7,7 +13,32 @@ export const rgb = (color) => [
   ((color >> 8) & 255) / 255,
   (color & 255) / 255,
 ];
+const glyphs = {
+  ...blockGlyphs,
+  '@': [14, 17, 23, 21, 23, 16, 14],
+  _: [0, 0, 0, 0, 0, 0, 31],
+  '>': [16, 8, 4, 2, 4, 8, 16],
+  '<': [1, 2, 4, 8, 4, 2, 1],
+  "'": [4, 4, 0, 0, 0, 0, 0],
+  '"': [10, 10, 0, 0, 0, 0, 0],
+  '(': [2, 4, 8, 8, 8, 4, 2],
+  ')': [8, 4, 2, 2, 2, 4, 8],
+  '+': [0, 4, 4, 31, 4, 4, 0],
+  '=': [0, 0, 31, 0, 31, 0, 0],
+  '|': [4, 4, 4, 4, 4, 4, 4],
+  ';': [0, 4, 4, 0, 4, 4, 8],
+  '{': [3, 4, 4, 8, 4, 4, 3],
+  '}': [24, 4, 4, 2, 4, 4, 24],
+  '[': [14, 8, 8, 8, 8, 8, 14],
+  ']': [14, 2, 2, 2, 2, 2, 14],
+};
 const tones = new Map();
+export const tint = (color, light) => {
+  const channels = [16, 8, 0].map((shift) =>
+    Math.round(((color >> shift) & 255) * light),
+  );
+  return (channels[0] << 16) | (channels[1] << 8) | channels[2];
+};
 const colorOf = (color) => {
   if (!tones.has(color)) tones.set(color, rgb(color));
   return tones.get(color);
@@ -27,6 +58,9 @@ export function model(build) {
   const rect = (x, y, z, w, h, color) =>
     quad([x, y, z], [x + w, y, z], [x + w, y + h, z], [x, y + h, z], color);
   const box = (x, y, z, w, h, d, color, side = color, top = PAPER) => {
+    // Broad ambient light keeps color on shadow faces; tops retain their material.
+    if (side === INK && color !== INK) side = tint(color, 0.72);
+    if (top === PAPER) top = color;
     const a = x - w / 2,
       b = x + w / 2,
       c = y - h / 2,
@@ -34,32 +68,105 @@ export function model(build) {
       f = z - d / 2,
       g = z + d / 2;
     quad([a, c, f], [b, c, f], [b, e, f], [a, e, f], color);
-    quad([b, c, g], [a, c, g], [a, e, g], [b, e, g], color);
+    quad([b, c, g], [a, c, g], [a, e, g], [b, e, g], tint(color, 0.94));
     quad([a, c, g], [a, c, f], [a, e, f], [a, e, g], side);
     quad([b, c, f], [b, c, g], [b, e, g], [b, e, f], side);
     quad([a, e, f], [b, e, f], [b, e, g], [a, e, g], top);
     quad([a, c, g], [b, c, g], [b, c, f], [a, c, f], side);
   };
-  const text = (value, x, y, z, unit, color) => {
-    const string = String(value).toUpperCase().replaceAll('·', '-').replaceAll('—', '-');
+  // AC's font_1, lowercase as written: 6 columns, 10 rows, bit 0 leftmost.
+  const text = (value, x, y, z, unit, color, keepCase = false) => {
+    const string = String(value)
+      .replaceAll('·', '-')
+      .replaceAll('—', '-');
     let left = x - ((string.length * 6 - 1) * unit) / 2;
-    for (const letter of string) {
-      const rows = blockGlyphs[letter] || blockGlyphs['?'];
+    for (const raw of string) {
+      const letter = keepCase ? raw : raw.toLowerCase();
+      const rows = glyphRows[letter] || glyphRows[raw] || glyphRows['?'];
       rows.forEach((bits, row) => {
         // Adjacent pixels are a single plane; no texture filtering or font rasterizer.
-        for (let col = 0; col < 5; ) {
-          if (!(bits & (1 << (4 - col)))) {
+        for (let col = 0; col < 6; ) {
+          if (!(bits & (1 << col))) {
             col++;
             continue;
           }
           const start = col++;
-          while (col < 5 && bits & (1 << (4 - col))) col++;
-          rect(-left - col * unit, y - row * unit, z, (col - start) * unit, unit, color);
+          while (col < 6 && bits & (1 << col)) col++;
+          rect(
+            -left - col * unit,
+            y - (row - 1) * unit,
+            z,
+            (col - start) * unit,
+            unit,
+            color,
+          );
         }
       });
       left += 6 * unit;
     }
   };
-  build({ tri, quad, rect, box, text });
+  const handleText = (value, x, y, z, unit, colors) => {
+    const string = String(value);
+    let left = x - ((string.length * 6 - 1) * unit) / 2;
+    [...string].forEach((letter, index) => {
+      const saved = colors?.[index];
+      // Same dark-theme fallback hues as AC's shared web handle renderer.
+      const hue = ((330 + index * 47) % 360) / 60,
+        c = 0.476,
+        m = 0.482;
+      const h = c * (1 - Math.abs((hue % 2) - 1));
+      const channel =
+        hue < 1
+          ? [c, h, 0]
+          : hue < 2
+            ? [h, c, 0]
+            : hue < 3
+              ? [0, c, h]
+              : hue < 4
+                ? [0, h, c]
+                : hue < 5
+                  ? [h, 0, c]
+                  : [c, 0, h];
+      const rgb = saved
+        ? [saved.r, saved.g, saved.b]
+        : channel.map((v) => Math.round((v + m) * 255));
+      const color = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+      (glyphRows[letter] || glyphRows['?']).forEach((bits, row) => {
+        for (let col = 0; col < 6; col++)
+          if (bits & (1 << col))
+            rect(
+              -left - (col + 1) * unit,
+              y - row * unit,
+              z,
+              unit,
+              unit,
+              color,
+            );
+      });
+      left += 6 * unit;
+    });
+  };
+  // MatrixChunky8 for small text: proportional, 8px tall, centred at x like text().
+  const small = (value, x, y, z, unit, color) => {
+    const string = String(value);
+    let left = x - (smallWidth(string) * unit) / 2;
+    for (const ch of string) {
+      const [w, h, xoff, yoff, advance, rows] = chunky[ch] || chunky['?'];
+      rows.forEach((bits, r) => {
+        for (let col = 0; col < w; ) {
+          if (!(bits & (0x80 >> col))) {
+            col++;
+            continue;
+          }
+          const start = col++;
+          while (col < w && bits & (0x80 >> col)) col++;
+          // Top of the glyph box sits ascent - (yoff + h) rows below y.
+          rect(-left - (xoff + col) * unit, y - (8 - yoff - h + r) * unit, z, (col - start) * unit, unit, color);
+        }
+      });
+      left += advance * unit;
+    }
+  };
+  build({ tri, quad, rect, box, text, handleText, small });
   return new Float32Array(data);
 }

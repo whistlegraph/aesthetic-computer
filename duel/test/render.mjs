@@ -21,6 +21,10 @@ const fixture = `<!doctype html><meta name="viewport" content="width=device-widt
 import {createView} from './view.mjs';import {spawn} from './world.mjs';
 window.view=await createView(document.getElementById('game'));
 window.state={me:spawn(0),players:[spawn(0),spawn(1)],scores:[3,7],status:'FIRST TO 10'};
+state.joinURL='https://dool.example.com/?room=studio';
+state.members=[{seat:0,handle:'Jeffrey',colors:null}];
+state.connection={label:'12 MS',bars:4};
+state.prompt={open:false,text:'',cursor:0};
 state.players[1].z=3;
 view.render(state);window.ready=true;
 </script>`;
@@ -60,6 +64,8 @@ try {
     await page.screenshot({ path: new URL(`flat-${backend}-third.png`, shots).pathname });
     for (const [width, height] of [
       [390, 844],
+      [1920, 1080],
+      [3840, 2160],
       [1600, 700],
       [1280, 800],
     ]) {

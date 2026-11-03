@@ -1,10 +1,22 @@
-import { HZ, DT, FRAG_LIMIT, FIRE_COOLDOWN, spawn, move,
-  direction, rayBox, wallDistance, bodyBox, along } from './world.mjs';
+import {
+  HZ,
+  DT,
+  FRAG_LIMIT,
+  FIRE_COOLDOWN,
+  spawn,
+  move,
+  direction,
+  rayBox,
+  wallDistance,
+  bodyBox,
+  along,
+} from './world.mjs';
 import { command } from './net.mjs';
 
 export class Match {
   constructor() {
     this.tick = 0;
+    this.objects = [];
     this.phase = 'waiting';
     this.until = 0;
     this.winner = null;
@@ -41,7 +53,7 @@ export class Match {
     for (const s of this.seats.filter(Boolean)) {
       s.player = spawn(s.player.seat, s.player.life + 1);
       // Consume already received input so it cannot fire in the new round.
-      s.ack = Math.max(s.ack, ...s.queue.map(c => c.seq));
+      s.ack = Math.max(s.ack, ...s.queue.map((c) => c.seq));
       s.queue = [];
       s.last = {};
     }
@@ -52,8 +64,14 @@ export class Match {
     if (!s || !Array.isArray(commands) || commands.length > 6) return;
     for (const raw of commands) {
       const c = command(raw);
-      if (!c || c.seq <= s.ack || c.seq > s.ack + 120 || s.queue.length >= 12 ||
-          s.queue.some(q => q.seq === c.seq)) continue;
+      if (
+        !c ||
+        c.seq <= s.ack ||
+        c.seq > s.ack + 120 ||
+        s.queue.length >= 12 ||
+        s.queue.some((q) => q.seq === c.seq)
+      )
+        continue;
       s.queue.push(c);
     }
     s.queue.sort((a, b) => a.seq - b.seq);
@@ -73,7 +91,10 @@ export class Match {
       // Drain excess backlog without granting extra movement or weapon time.
       while (s.queue.length > 6) s.ack = s.queue.shift().seq;
       const c = s.queue.shift();
-      if (c) { s.ack = c.seq; s.last = c; }
+      if (c) {
+        s.ack = c.seq;
+        s.last = c;
+      }
       const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
       let p = s.player;
       if (!p.alive && this.phase === 'playing' && this.tick >= p.respawnAt) {
@@ -82,20 +103,36 @@ export class Match {
       }
       p.cooldown = Math.max(0, p.cooldown - 1);
       // Waiting is a movement warmup; the match countdown locks both spawns.
-      if (this.phase === 'playing' || this.phase === 'waiting') p = move(p, input);
-      else if (c) { p.yaw = c.yaw; p.pitch = c.pitch; }
+      if (this.phase === 'playing' || this.phase === 'waiting')
+        p = move(p, input, this.objects, this.tick / HZ);
+      else if (c) {
+        p.yaw = c.yaw;
+        p.pitch = c.pitch;
+      }
       s.player = p;
-      if (c?.fire && p.alive && !p.cooldown && (this.phase === 'playing' || this.phase === 'waiting')) shots.push(s);
+      if (
+        c?.fire &&
+        p.alive &&
+        !p.cooldown &&
+        (this.phase === 'playing' || this.phase === 'waiting')
+      )
+        shots.push(s);
     }
     for (const s of shots) this.shoot(s);
     if (this.phase === 'playing' || this.phase === 'waiting') this.stepRockets();
   }
 
   shoot(s) {
-    const p = s.player, dir = direction(p.yaw, p.pitch);
+    const p = s.player,
+      dir = direction(p.yaw, p.pitch);
     p.cooldown = FIRE_COOLDOWN;
-    this.rockets.push({ ...along(p, dir, 0.05), dir, owner: p.seat, born: this.tick,
-      id: ++this.eventId });
+    this.rockets.push({
+      ...along(p, dir, 0.05),
+      dir,
+      owner: p.seat,
+      born: this.tick,
+      id: ++this.eventId,
+    });
     this.emit('launch', { seat: p.seat });
   }
 
@@ -122,13 +159,23 @@ export class Match {
     for (const s of this.seats.filter(Boolean)) {
       const p = s.player;
       if (!p.alive) continue;
-      const dx = p.x - r.x, dy = p.y - 0.7 - r.y, dz = p.z - r.z;
+      const dx = p.x - r.x,
+        dy = p.y - 0.7 - r.y,
+        dz = p.z - r.z;
       const distance = Math.hypot(dx, dy, dz);
       if (distance >= 4 && p.seat !== direct) continue;
-      const dir = distance > 0.001 ? { x: dx / distance, y: dy / distance, z: dz / distance } : { x: 0, y: 1, z: 0 };
-      if (p.seat !== direct && wallDistance(r, dir, distance) < distance - 0.05) continue;
+      const dir =
+        distance > 0.001
+          ? { x: dx / distance, y: dy / distance, z: dz / distance }
+          : { x: 0, y: 1, z: 0 };
+      if (
+        p.seat !== direct &&
+        wallDistance(r, dir, distance, this.objects, this.tick / HZ) < distance - 0.05
+      )
+        continue;
       const force = Math.max(0, 1 - distance / 4);
-      p.vx += dir.x * force * 15; p.vz += dir.z * force * 15;
+      p.vx += dir.x * force * 15;
+      p.vz += dir.z * force * 15;
       p.vy += Math.max(0.3, dir.y) * force * 15;
       p.onGround = false;
       this.damage(p.seat, p.seat === direct ? 100 : Math.ceil(80 * force), r.owner);
@@ -140,12 +187,16 @@ export class Match {
     for (const r of this.rockets) {
       if (this.phase !== 'playing' && this.phase !== 'waiting') break;
       const travel = 28 * DT;
-      let distance = wallDistance(r, r.dir, travel), direct = -1;
+      let distance = wallDistance(r, r.dir, travel, this.objects, this.tick / HZ),
+        direct = -1;
       for (const s of this.seats.filter(Boolean)) {
         const p = s.player;
         if (!p.alive || p.seat === r.owner) continue;
         const d = rayBox(r, r.dir, bodyBox(p), travel);
-        if (d < distance) { distance = d; direct = p.seat; }
+        if (d < distance) {
+          distance = d;
+          direct = p.seat;
+        }
       }
       // Keep explosions just outside the wall so cover occlusion works from the impact.
       const next = along(r, r.dir, Math.max(0, distance - (distance < travel ? 0.01 : 0)));
@@ -157,10 +208,16 @@ export class Match {
   }
 
   snapshot() {
-    return { type: 'snapshot', tick: this.tick, phase: this.phase,
-      until: this.until, winner: this.winner,
-      players: this.seats.map(s => s && { ...s.player }),
-      acks: this.seats.map(s => s?.ack || 0),
-      rockets: this.rockets.map(r => ({ ...r })), events: this.events.map(e => ({ ...e })) };
+    return {
+      type: 'snapshot',
+      tick: this.tick,
+      phase: this.phase,
+      until: this.until,
+      winner: this.winner,
+      players: this.seats.map((s) => s && { ...s.player }),
+      acks: this.seats.map((s) => s?.ack || 0),
+      rockets: this.rockets.map((r) => ({ ...r })),
+      events: this.events.map((e) => ({ ...e })),
+    };
   }
 }

@@ -1,3 +1,4 @@
+import { geometry } from '../objects.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -41,7 +42,7 @@ test('one simulation produces identical prediction and authority; ack replay con
   }
   const base = spawn(0), commands = [cmd(1, { fwd: 1 }), cmd(2, { right: 1 })];
   const server = move(base, commands[0]);
-  assert.deepEqual(reconcile(server, commands, 1).player, commands.reduce(move, base));
+  assert.deepEqual(reconcile(server, commands, 1).player, commands.reduce((p, c) => move(p, c), base));
 });
 
 test('input validation, duplicate/reordered commands and flooding cannot buy simulation time', () => {
@@ -107,8 +108,16 @@ test('rocket travel, cooldown, respawn and first-to-ten match', () => {
   assert.equal(m.phase, 'countdown'); assert.equal(m.seats[0].player.score, 0);
 });
 
+// The arena has no fixed cover any more; a built object stands in for it.
+const block = {
+  id: 'cover',
+  x: 6,
+  z: 0,
+  geometry: geometry({ name: 'Cover', boxes: [{ x: 0, y: 3, z: 0, w: 2, h: 6, d: 6 }] }),
+};
 test('cover stops rockets and warmup permits firing without scoring', () => {
   const cover = playing();
+  cover.objects = [block];
   cover.seats[0].player.x = cover.seats[1].player.x = 6;
   shoot(cover);
   for (let i = 0; i < HZ; i++) cover.step();
@@ -129,6 +138,7 @@ test('rockets sweep into targets, splash respects cover, and self splash gives j
   assert.ok(jump.seats[0].player.vy > 0);
   assert.ok(jump.seats[0].player.health < 100);
   const cover = playing();
+  cover.objects = [block];
   Object.assign(cover.seats[1].player, { x: 7.7, z: 0 });
   cover.explode({ x: 4.99, y: 1, z: 0, owner: 0 }, -1);
   assert.equal(cover.seats[1].player.health, 100);
@@ -171,7 +181,7 @@ test('HTTP allowlist, actual two-socket match, full room, room isolation and cle
   const a = connect(); assert.equal((await waitFor(a, d => d.type === 'welcome')).seat, 0);
   const b = connect(); assert.equal((await waitFor(b, d => d.type === 'welcome')).seat, 1);
   await waitFor(a, d => d.phase === 'countdown');
-  const c = connect('test', 'instagib'); const [code] = await once(c, 'close'); assert.equal(code, 1008);
+  const c = connect('test', 'instagib'); assert.equal((await waitFor(c, d => d.type === 'welcome')).role, 'spectator'); c.close(); await once(c, 'close');
   const other = connect('other-room'); assert.equal((await waitFor(other, d => d.type === 'welcome')).seat, 0);
   a.send(JSON.stringify({ type: 'input', commands: [cmd(1)] }));
   await waitFor(a, d => d.acks?.[0] === 1);

@@ -39,7 +39,9 @@ test('model placement and camera position agree, and overflow is explicit', () =
     face = triangle([-0.1, 0, 0], [0.1, 0.1, 0], [0.1, 0, 0]);
   p.draw(face, 0, 0, 2);
   assert.equal(scene.triangleCount, 1);
-  assert.throws(() => p.draw(face, 0, 0, 2), /budget exceeded/);
+  // Overflow drops geometry and flags it; it never throws (a throw froze the frame loop).
+  p.draw(face, 0, 0, 2);
+  assert.equal(p.overflow, true);
   scene.beginFrame();
   p.camera({ x: 5, y: 0, z: 0 }, { x: 5, y: 0, z: 1 }, 1);
   p.draw(face, 5, 0, 2);

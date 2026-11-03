@@ -5,6 +5,11 @@
  * - AC Pane (3D flip view with front webview + back terminal)
  */
 
+if (process.argv.includes('--dool-rig')) {
+  require('./dool-rig').launchDoolRig();
+  return;
+}
+
 const { app, BrowserWindow, ipcMain, globalShortcut, Menu, Tray, dialog, shell, nativeImage, screen, Notification, net, session, systemPreferences, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -1020,6 +1025,10 @@ function createMenu() {
           label: 'New AC Pane',
           accelerator: 'CmdOrCtrl+N',
           click: () => openAcPaneWindow()
+        },
+        {
+          label: 'Dool Test Rig',
+          click: () => require('./dool-rig').openDoolRig()
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
