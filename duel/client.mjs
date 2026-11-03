@@ -12,7 +12,7 @@ import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
-import { sourceTones } from './object-language.mjs';
+import { sourceTones, beatAt } from './object-language.mjs';
 
 const view = await createView(document.getElementById('game'));
 const canvas = view.canvas,
@@ -51,6 +51,9 @@ const controller = new Controller();
 const radial = new Radial();
 const touch = new TouchPad();
 const sfx = new Sfx();
+// The server's wall clock, learned from snapshots (the fastest arrival is the
+// best estimate), so every player hears the beat land together.
+let clockOffset = null;
 const tones = new SpatialTones(sfx);
 const toneCache = new Map();
 // Items are carried and run over, so only the rest collide.
@@ -287,6 +290,10 @@ function connect() {
         yaw = own.yaw;
         pitch = own.pitch;
       }
+    }
+    if (Number.isFinite(data.epoch)) {
+      const offset = data.epoch - Date.now();
+      clockOffset = clockOffset === null ? offset : Math.max(offset, clockOffset - 2);
     }
     snapshot = data;
     latestAt = performance.now();
@@ -745,7 +752,8 @@ function step(now) {
     const at = seat < 0 ? freecam : displayed || player;
     if (at) {
       const f = direction(yaw, pitch);
-      tones.update(toneSources(), { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime);
+      const beat = beatAt(Date.now() + (clockOffset || 0));
+      tones.update(toneSources(), { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime, beat);
     }
   }
   view.render({

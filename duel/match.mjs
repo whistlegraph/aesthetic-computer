@@ -411,6 +411,7 @@ export class Match {
     return {
       type: 'snapshot',
       tick: this.tick,
+      epoch: Date.now(),
       phase: this.phase,
       until: this.until,
       winner: this.winner,

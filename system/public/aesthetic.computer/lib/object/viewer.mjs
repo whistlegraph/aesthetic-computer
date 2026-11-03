@@ -4,7 +4,7 @@
 // draws it with a small z-buffered rasterizer straight into screen.pixels.
 // Drag to orbit.
 
-import { parseSource, sourceFrame, sourceTones } from "./object-language.mjs";
+import { parseSource, sourceFrame, sourceTones, beatAt } from "./object-language.mjs";
 
 const SHAPES = /\((?:slab|orb|capsule)\s/;
 
@@ -49,7 +49,8 @@ export function objectPiece(source, label = "") {
     error = String(e.message || e).slice(0, 80);
   }
 
-  function boot({ hud }) {
+  function boot({ hud, clock }) {
+    clock?.resync?.();
     if (label) hud?.label?.(label);
   }
 
@@ -131,14 +132,23 @@ export function objectPiece(source, label = "") {
         tone: t.frequency(0),
         duration: "🔁",
         attack: 0.05,
-        volume: t.volume * (t.wave === "sine" || t.wave === "triangle" ? 0.5 : 0.25),
+        volume: 0,
       }),
     );
   }
 
-  function sim() {
+  // Tones follow AC's shared clock, so a bell rings on the same beat as the
+  // game and as any clock.mjs piece.
+  function sim({ clock } = {}) {
     const t = (Date.now() - start) / 1000;
-    voices.forEach((v, i) => v?.update?.({ tone: tones[i].frequency(t), duration: 0.05 }));
+    const beat = beatAt(clock?.time?.().getTime?.() ?? Date.now());
+    voices.forEach((v, i) =>
+      v?.update?.({
+        tone: tones[i].frequency(t, beat),
+        volume: tones[i].gain(t, beat) * (tones[i].wave === "sine" || tones[i].wave === "triangle" ? 0.5 : 0.25),
+        duration: 0.02,
+      }),
+    );
   }
 
   function leave() {

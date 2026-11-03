@@ -262,6 +262,9 @@ Sound: (tone hz [sine|square|triangle|sawtooth] [volume 0..1]) puts an oscillato
 hz may follow time, e.g. (tone (+ 220 (* 30 (sin time))) triangle .3). Give singing, humming, buzzing or musical things a tone.
 Bells, chimes, gongs, drums, horns, whistles, music boxes and speakers ALWAYS get a tone. Low or deep: 60..200 hz; high or bright: 600..2000 hz;
 ringing or chiming: sine or triangle; buzzing: sawtooth or square; pulsing: hz follows (sin time).
+Rhythm: beat counts beats at 120 BPM on a clock every player shares. In tones only, (pulse beat) is a strike decaying
+each beat, (pulse (* beat 2)) each half beat, (frac x) and (floor x) as usual, (pick (floor beat) 440 550 660) steps a melody.
+A bell: (tone (pick (floor beat) 523 659 784 659) sine (* .5 (pulse beat))). A drum: (tone 70 sine (* .8 (pulse beat))).
 Use a few meaningful shapes. No lights, textures, tools, JavaScript, ownership, versions or commentary.
 When revising, preserve the object's purpose and unrequested details. Previous versions may use legacy boxes;
 convert them to this dialect. Keep source concise.`;

@@ -52,7 +52,9 @@ const trig = (op, a) => {
 };
 const exact = (r) => Number.isFinite(r[0]) && r[0] === r[1];
 const finite = (r) => r.every(Number.isFinite);
-function expression(form, env, depth = 0) {
+// Pattern ops are for sound only: shapes keep to the shared dialect.
+const SOUND_OPS = ['floor', 'frac', 'pulse', 'pick'];
+function expression(form, env, depth = 0, sound = false) {
   if (depth > 12) fail('Expression nesting exceeds 12');
   if (typeof form === 'number') {
     if (!Number.isFinite(form) || Math.abs(form) > 10000)
@@ -66,7 +68,7 @@ function expression(form, env, depth = 0) {
   if (!Array.isArray(form) || form.length < 2 || form.length > 9)
     fail('Invalid expression');
   const [op, ...rest] = form,
-    args = rest.map((f) => expression(f, env, depth + 1)),
+    args = rest.map((f) => expression(f, env, depth + 1, sound)),
     r = args.map((a) => a.range);
   let range;
   if (op === '+') range = r.reduce(add, [0, 0]);
@@ -87,6 +89,14 @@ function expression(form, env, depth = 0) {
     ];
   else if (['min', 'max'].includes(op))
     range = [Math[op](...r.map((x) => x[0])), Math[op](...r.map((x) => x[1]))];
+  else if (sound && op === 'floor' && r.length === 1)
+    range = [Math.floor(r[0][0]), Math.floor(r[0][1])];
+  else if (sound && op === 'frac' && r.length === 1) range = [0, 1];
+  else if (sound && op === 'pulse' && r.length === 1) range = [0, 1];
+  else if (sound && op === 'pick' && r.length >= 2)
+    range = [Math.min(...r.slice(1).map((x) => x[0])), Math.max(...r.slice(1).map((x) => x[1]))];
+  else if (!sound && SOUND_OPS.includes(op))
+    fail(`${op} is for tones only`);
   else fail(`Unsupported expression: ${op}; use + - * / sin cos abs min max`);
   if (range.some(Number.isNaN)) fail('Expression is not finite');
   if (exact(range)) return { code: range[0], range, cost: 1, depth: 0 };
@@ -161,6 +171,8 @@ function admit(source, lenient = false) {
   ];
   const env = {
     time: { code: 'time', range: [-Infinity, Infinity] },
+    // Beats at 120 BPM from the Unix epoch: the clock AC's clock.mjs keeps.
+    beat: { code: 'beat', range: [-Infinity, Infinity] },
     pi: { code: Math.PI, range: [Math.PI, Math.PI] },
     tau: { code: 2 * Math.PI, range: [2 * Math.PI, 2 * Math.PI] },
   };
@@ -291,19 +303,21 @@ function admit(source, lenient = false) {
       if (op === 'tone') {
         if (args.length < 1 || args.length > 3)
           fail('tone needs a frequency, then an optional wave and volume');
-        const e = expression(args[0], local);
+        const e = expression(args[0], local, 0, true);
         if (!finite(e.range) || e.range[0] < 20 || e.range[1] > 4000)
           fail('tone frequency must stay within 20..4000 Hz');
         const named = typeof args[1] === 'string';
         if (named && !WAVES.includes(args[1]))
           fail(`tone wave must be one of ${WAVES.join(' ')}`);
         const volumeForm = named ? args[2] : args[1];
-        let volume = 0.3;
+        let volume = 0.3,
+          level = 0.3;
         if (volumeForm !== undefined) {
-          const v = expression(volumeForm, local);
-          if (!exact(v.range) || v.range[0] < 0 || v.range[0] > 1)
-            fail('tone volume must be a constant from 0 to 1');
-          volume = v.range[0];
+          const v = expression(volumeForm, local, 0, true);
+          if (!finite(v.range) || v.range[0] < 0 || v.range[1] > 1)
+            fail('tone volume must stay within 0..1');
+          volume = v.range[1];
+          level = v.code;
         }
         if (tones.length >= 4) fail('Use at most 4 tones');
         const placed = transformed([[0, 0], [0, 0], [0, 0]], transforms);
@@ -311,6 +325,7 @@ function admit(source, lenient = false) {
           freq: e.code,
           wave: named ? args[1] : 'sine',
           volume,
+          level,
           at: placed.map(([lo, hi]) => (lo + hi) / 2),
         });
         node(parent, print(f));
@@ -546,12 +561,16 @@ function compiled(source) {
 const WAVES = ['sine', 'square', 'triangle', 'sawtooth'];
 
 // Evaluate an admitted expression tree (constants folded, lets inlined).
-export function evaluate(code, time) {
+export const BPM = 120;
+export const beatAt = (epochMs) => (epochMs / 60000) * BPM;
+
+export function evaluate(code, time, beat = 0) {
   if (typeof code === 'number') return code;
   if (code === 'time') return time;
+  if (code === 'beat') return beat;
   if (typeof code === 'string') return 0;
   const [op, ...rest] = code;
-  const a = rest.map((c) => evaluate(c, time));
+  const a = rest.map((c) => evaluate(c, time, beat));
   switch (op) {
     case '+': return a.reduce((x, y) => x + y, 0);
     case '-': return a.length === 1 ? -a[0] : a.slice(1).reduce((x, y) => x - y, a[0]);
@@ -562,6 +581,14 @@ export function evaluate(code, time) {
     case 'abs': return Math.abs(a[0]);
     case 'min': return Math.min(...a);
     case 'max': return Math.max(...a);
+    case 'floor': return Math.floor(a[0]);
+    case 'frac': return a[0] - Math.floor(a[0]);
+    // A strike that decays over each unit: a bell on the beat.
+    case 'pulse': return Math.exp(-6 * (a[0] - Math.floor(a[0])));
+    case 'pick': {
+      const n = a.length - 1, i = ((Math.floor(a[0]) % n) + n) % n;
+      return a[1 + i];
+    }
   }
   return 0;
 }
@@ -571,7 +598,8 @@ export function sourceTones(shape) {
   if (shape?.format !== OBJECT_FORMAT) return [];
   return compiled(shape.source).tones.map((t) => ({
     ...t,
-    frequency: (time) => evaluate(t.freq, time),
+    frequency: (time, beat = 0) => evaluate(t.freq, time, beat),
+    gain: (time, beat = 0) => Math.max(0, Math.min(1, evaluate(t.level, time, beat))),
   }));
 }
 

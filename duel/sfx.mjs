@@ -157,7 +157,7 @@ export class SpatialTones {
     this.max = voices;
     this.voices = new Map();
   }
-  update(sources, listener, time) {
+  update(sources, listener, time, beat = 0) {
     const a = this.sfx.audio;
     if (!a || a.state !== 'running') return;
     if (!this.out) {
@@ -214,9 +214,10 @@ export class SpatialTones {
         this.voices.set(s.key, v);
       }
       // Square and saw are loud for their amplitude; even them out.
-      const level = s.volume * (s.wave === 'sine' || s.wave === 'triangle' ? 0.25 : 0.1);
-      set(v.gain.gain, level);
-      set(v.osc.frequency, Math.max(20, Math.min(4000, s.frequency(time))));
+      const level = s.gain(time, beat) * (s.wave === 'sine' || s.wave === 'triangle' ? 0.25 : 0.1);
+      // Short time constants so strikes and steps land crisply on the beat.
+      v.gain.gain.setTargetAtTime(level, t, 0.008);
+      v.osc.frequency.setTargetAtTime(Math.max(20, Math.min(4000, s.frequency(time, beat))), t, 0.004);
       if (v.pan.positionX) {
         set(v.pan.positionX, s.x);
         set(v.pan.positionY, s.y);

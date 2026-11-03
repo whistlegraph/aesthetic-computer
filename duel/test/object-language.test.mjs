@@ -148,3 +148,14 @@ test('objects can carry oscillators that follow time', async () => {
   assert.throws(() => parseSource('(orb 0 1 0 .5) (tone 5000)'), /20..4000/);
   assert.throws(() => parseSource('(orb 0 1 0 .5) (tone 220 kazoo)'), /wave/);
 });
+
+test('tones keep time on a shared 120 BPM beat', async () => {
+  const { sourceTones, beatAt } = await import('../object-language.mjs');
+  assert.equal(beatAt(60000), 120);
+  const g = parseSource('; Bell\n(orb 0 1 0 .4) (tone (pick (floor beat) 523 659 784) sine (* .5 (pulse beat)))');
+  const [t] = sourceTones(g);
+  assert.deepEqual([0, 1, 2, 3].map((b) => t.frequency(0, b)), [523, 659, 784, 523]);
+  assert.equal(t.gain(0, 4), 0.5);
+  assert.ok(t.gain(0, 4.5) < 0.05, 'a strike decays within the beat');
+  assert.throws(() => parseSource('(move (pulse time) 0 0 (orb 0 1 0 .4))'), /tones only/);
+});
