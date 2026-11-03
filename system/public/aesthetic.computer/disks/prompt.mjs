@@ -678,6 +678,8 @@ const KEN_BURNS_CYCLE_MS = 8000;
 
 let handles; // Keep track of total handles set.
 let activeSubscribers = null;
+// The supporters count is off the curtain for now (2026-11-03); Give still answers.
+const SUPPORTERS_ON_CURTAIN = false;
 let subscribersBtn;
 let motd; // Store the moods of the day text
 let motdByHandle; // Store the mood author handle
@@ -1189,7 +1191,7 @@ async function boot({
 
   // Fetch the small, cached subscriber summary without donation history.
   activeSubscribers = null;
-  fetch("/api/gives?summary=subscribers", { signal: AbortSignal.timeout(8000) })
+  if (SUPPORTERS_ON_CURTAIN) fetch("/api/gives?summary=subscribers", { signal: AbortSignal.timeout(8000) })
     .then((res) => {
       if (!res.ok) throw new Error("Subscriber count unavailable");
       return res.json();
@@ -1305,9 +1307,9 @@ async function boot({
 
   // Create login & signup buttons (skip when not in default theme).
   if (!user && theme === "default") {
-    login = new ui.TextButton(currentLang().login, { center: "xy", screen });
+    login = new ui.TextButton(currentLang().login, welcomePos(screen));
     login.stickyScrubbing = true; // Prevent drag-between-button behavior
-    signup = new ui.TextButton(currentLang().signup, { center: "xy", screen });
+    signup = new ui.TextButton(currentLang().signup, welcomePos(screen));
     signup.stickyScrubbing = true; // Prevent drag-between-button behavior
     positionWelcomeButtons(screen, net.iframe);
   }
@@ -1315,7 +1317,7 @@ async function boot({
   if (user && theme === "default") {
     // console.log("User:", user);
     const hand = handle();
-    const btnPos = { center: "xy", screen };
+    const btnPos = welcomePos(screen);
     if (hand) {
       profileAction = "profile";
       profile = new ui.TextButton(hand, btnPos);
@@ -4009,7 +4011,7 @@ async function route($, text) {
         flashColor = [0, 255, 0];
         notice("Check " + res.email);
         send({ type: "keyboard:close" });
-        profile = new ui.TextButton(currentLang().resendEmail, { center: "xy", screen });
+        profile = new ui.TextButton(currentLang().resendEmail, welcomePos(screen));
         profile.stickyScrubbing = true; // Prevent drag-between-button behavior
         profileAction = "resend-verification";
         ellipsisTicker = new gizmo.EllipsisTicker();
@@ -5960,7 +5962,7 @@ function paint($) {
   }
 
   // Monthly supporters link to Give.
-  if (showLoginCurtain && !$.system.prompt.input.canType &&
+  if (SUPPORTERS_ON_CURTAIN && showLoginCurtain && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text && activeSubscribers !== null && screen.height >= 280) {
     const label = `${activeSubscribers.toLocaleString()} monthly supporter${activeSubscribers === 1 ? "" : "s"}`;
     const position = { screen, center: "x", y: Math.floor(screen.height / 2 + 65) };
@@ -7454,7 +7456,7 @@ function paint($) {
       const walletWidth = walletBtn.btn.box.w;
       const profileWidth = profileBox.w;
       const totalWidth = profileWidth + gap + walletWidth;
-      const startX = (screen.width - totalWidth) / 2;
+      const startX = profileBox.x; // Anchored in the corner with the handle.
 
       // Reposition both buttons to be centered together
       profile.btn.box.x = startX;
@@ -7844,10 +7846,7 @@ function sim($) {
 
   if ($.store["handle:received"]) {
     const hand = $.handle();
-    profile = new $.ui.TextButton(hand, {
-      center: "xy",
-      screen: $.screen,
-    });
+    profile = new $.ui.TextButton(hand, welcomePos($.screen));
     profile.stickyScrubbing = true; // Prevent drag-between-button behavior
 
     // Apply colored handle asynchronously (update in-place to avoid flicker)
@@ -9780,19 +9779,28 @@ function poePlayClear(synth, style) {
   }
 }
 
+// The welcome buttons (Log in / I'm new, or the handle) sit in the curtain's
+// bottom-left corner (2026-11-03), clear of the mime wordmark at the bottom
+// centre and dool's crosshair at the bottom right.
+const WELCOME_MARGIN = 6;
+function welcomePos(screen) {
+  return { left: WELCOME_MARGIN, bottom: WELCOME_MARGIN, screen };
+}
+
 function positionWelcomeButtons(screen, iframe) {
   if (login && signup) {
-    login.reposition({ center: "xy", screen });
-    signup.reposition({ center: "xy", screen });
-    // Nudge signup and login by half their width.
-    if (iframe) return; // But not if embedded in an iframe (where only login appears)
-    let offset = 5; // With a fixed pixel offset.
-    signup.btn.box.x += signup.btn.box.w / 2 + offset;
-    login.btn.box.x -= login.btn.box.w / 2 + offset;
-    if (screen.width % 2 !== 0) login.btn.box.x += 1; // Nudge odd display width.
+    login.reposition(welcomePos(screen));
+    signup.reposition(welcomePos(screen));
+    if (iframe) return; // Embedded in an iframe only login appears.
+    const gap = 5;
+    // A row while it clears the mime wordmark; stacked on a narrow screen.
+    const rowRight = login.btn.box.x + login.btn.box.w + gap + signup.btn.box.w;
+    const markLeft = Math.floor((screen.width - 27 * (screen.height >= 320 ? 2 : 1)) / 2) - 8;
+    if (rowRight <= markLeft) signup.btn.box.x = login.btn.box.x + login.btn.box.w + gap;
+    else signup.btn.box.y = login.btn.box.y - signup.btn.box.h - 4;
   }
 
-  if (profile) profile.reposition({ center: "xy", screen });
+  if (profile) profile.reposition(welcomePos(screen));
 }
 
 function downloadPainting({ download, num, store }, scale, sharing = false) {
@@ -9847,7 +9855,7 @@ function fetchUser() {
         // console.log("🟪 User:", u, "Previous Handle:", previousHandle);
         if (previousHandle) {
           profileAction = "profile";
-          profile = new ui.TextButton(previousHandle, { center: "xy", screen });
+          profile = new ui.TextButton(previousHandle, welcomePos(screen));
           profile.stickyScrubbing = true; // Prevent drag-between-button behavior
 
           // Apply colored handle asynchronously (update in-place to avoid flicker)
@@ -9864,10 +9872,7 @@ function fetchUser() {
           beep();
         } else {
           profileAction = "set-handle";
-          profile = new ui.TextButton("Create handle", {
-            center: "xy",
-            screen,
-          });
+          profile = new ui.TextButton("Create handle", welcomePos(screen));
           profile.stickyScrubbing = true; // Prevent drag-between-button behavior
           user.email_verified = true; // Set verified on global 'user' object.
           // store["aesthetic:refresh-user"] = true;
