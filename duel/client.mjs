@@ -11,7 +11,8 @@ import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad } from './touch.mjs';
-import { Sfx } from './sfx.mjs';
+import { Sfx, SpatialTones } from './sfx.mjs';
+import { sourceTones } from './object-language.mjs';
 
 const view = await createView(document.getElementById('game'));
 const canvas = view.canvas,
@@ -48,6 +49,27 @@ const controller = new Controller();
 const radial = new Radial();
 const touch = new TouchPad();
 const sfx = new Sfx();
+const tones = new SpatialTones(sfx);
+const toneCache = new Map();
+// Every object's oscillators, placed in the room.
+function toneSources() {
+  const out = [];
+  for (const o of objects) {
+    const key = `${o.id}:${o.version}`;
+    if (!toneCache.has(key)) {
+      if (toneCache.size > 64) toneCache.clear();
+      try {
+        toneCache.set(key, sourceTones(o.geometry));
+      } catch {
+        toneCache.set(key, []);
+      }
+    }
+    toneCache.get(key).forEach((t, i) =>
+      out.push({ ...t, key: `${key}:${i}`, x: o.x + t.at[0], y: t.at[1], z: o.z + t.at[2] }),
+    );
+  }
+  return out;
+}
 let claimedAt = 0;
 let fps = 0,
   fpsFrames = 0,
@@ -680,6 +702,14 @@ function step(now) {
     }
   }
   const displayed = presentation.sample(debt / DT, elapsed);
+  // The listener is wherever the camera is, facing where it looks.
+  {
+    const at = seat < 0 ? freecam : displayed || player;
+    if (at) {
+      const f = direction(yaw, pitch);
+      tones.update(toneSources(), { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime);
+    }
+  }
   view.render({
     players: connected ? [0, 1].map((i) => interpolate(history, tick, i)) : [],
     me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),

@@ -258,6 +258,8 @@ A flying butterfly MUST move and flap hinged wings with rotate, e.g.
 A walking creature MUST move and have alternating animated feet. Use move with sin time.
 For staircases, risers <=.3 and treads >=.5, ascending +z. Example:
 (ink gray) (repeat 6 i (move 0 0 (* i .5) (scale 1 (+ 1 i) 1 (slab -1 0 0 1 .25 .5))))
+Sound: (tone hz [sine|square|triangle|sawtooth] [volume 0..1]) puts an oscillator at that point (at most 4).
+hz may follow time, e.g. (tone (+ 220 (* 30 (sin time))) triangle .3). Give singing, humming, buzzing or musical things a tone.
 Use a few meaningful shapes. No lights, textures, tools, JavaScript, ownership, versions or commentary.
 When revising, preserve the object's purpose and unrequested details. Previous versions may use legacy boxes;
 convert them to this dialect. Keep source concise.`;

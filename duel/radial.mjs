@@ -15,6 +15,7 @@ export const CATALOG = {
 export const CATEGORIES = Object.keys(CATALOG);
 export const THINGS = CATALOG.play;
 export const TRAITS = [
+  'humming',
   'big',
   'tiny',
   'spinning',
@@ -36,7 +37,7 @@ export const CHANGES = [
 ];
 
 // Animals can move like animals.
-export const ANIMAL_TRAITS = ['big', 'tiny', 'walking', 'flying', 'red', 'blue', 'striped', 'fluffy'];
+export const ANIMAL_TRAITS = ['singing', 'big', 'tiny', 'walking', 'flying', 'red', 'striped', 'fluffy'];
 
 export const HOLD_SECONDS = 0.45;
 

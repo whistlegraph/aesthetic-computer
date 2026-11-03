@@ -149,6 +149,7 @@ function admit(source, lenient = false) {
   // The syntax tree, kept for drawing it in space: each node has its source
   // text, its parent, and the primitives (box indices) beneath it.
   const nodes = [{ id: 0, parent: -1, text: '', boxes: [] }];
+  const tones = [];
   const node = (parent, text) => {
     nodes.push({ id: nodes.length, parent, text, boxes: [] });
     return nodes.length - 1;
@@ -285,6 +286,36 @@ function admit(source, lenient = false) {
         out.push(['ink', ...values]);
         continue;
       }
+      // (tone frequency [wave] [volume]): an oscillator at this point in the
+      // object. Frequency may follow time; it is evaluated by the listener.
+      if (op === 'tone') {
+        if (args.length < 1 || args.length > 3)
+          fail('tone needs a frequency, then an optional wave and volume');
+        const e = expression(args[0], local);
+        if (!finite(e.range) || e.range[0] < 20 || e.range[1] > 4000)
+          fail('tone frequency must stay within 20..4000 Hz');
+        const named = typeof args[1] === 'string';
+        if (named && !WAVES.includes(args[1]))
+          fail(`tone wave must be one of ${WAVES.join(' ')}`);
+        const volumeForm = named ? args[2] : args[1];
+        let volume = 0.3;
+        if (volumeForm !== undefined) {
+          const v = expression(volumeForm, local);
+          if (!exact(v.range) || v.range[0] < 0 || v.range[0] > 1)
+            fail('tone volume must be a constant from 0 to 1');
+          volume = v.range[0];
+        }
+        if (tones.length >= 4) fail('Use at most 4 tones');
+        const placed = transformed([[0, 0], [0, 0], [0, 0]], transforms);
+        tones.push({
+          freq: e.code,
+          wave: named ? args[1] : 'sine',
+          volume,
+          at: placed.map(([lo, hi]) => (lo + hi) / 2),
+        });
+        node(parent, print(f));
+        continue;
+      }
       const arities = {
         slab: [6],
         orb: [4, 5],
@@ -363,7 +394,7 @@ function admit(source, lenient = false) {
   }
   const plan = body(program, env);
   if (!count) fail('Object needs at least one shape');
-  return { plan, boxes, animated, extent, tree: nodes };
+  return { plan, boxes, animated, extent, tree: nodes, tones };
 }
 function boundsOf(points) {
   return [0, 1, 2].map((i) => {
@@ -512,6 +543,38 @@ function compiled(source) {
   cache.set(source, result);
   return result;
 }
+const WAVES = ['sine', 'square', 'triangle', 'sawtooth'];
+
+// Evaluate an admitted expression tree (constants folded, lets inlined).
+export function evaluate(code, time) {
+  if (typeof code === 'number') return code;
+  if (code === 'time') return time;
+  if (typeof code === 'string') return 0;
+  const [op, ...rest] = code;
+  const a = rest.map((c) => evaluate(c, time));
+  switch (op) {
+    case '+': return a.reduce((x, y) => x + y, 0);
+    case '-': return a.length === 1 ? -a[0] : a.slice(1).reduce((x, y) => x - y, a[0]);
+    case '*': return a.reduce((x, y) => x * y, 1);
+    case '/': return a[0] / a[1];
+    case 'sin': return Math.sin(a[0]);
+    case 'cos': return Math.cos(a[0]);
+    case 'abs': return Math.abs(a[0]);
+    case 'min': return Math.min(...a);
+    case 'max': return Math.max(...a);
+  }
+  return 0;
+}
+
+// The oscillators an object carries: [{ freq(time), wave, volume, at }].
+export function sourceTones(shape) {
+  if (shape?.format !== OBJECT_FORMAT) return [];
+  return compiled(shape.source).tones.map((t) => ({
+    ...t,
+    frequency: (time) => evaluate(t.freq, time),
+  }));
+}
+
 // Source text back from the reader's arrays, for labels in the world.
 export function print(form) {
   if (Array.isArray(form)) return `(${form.map(print).join(' ')})`;

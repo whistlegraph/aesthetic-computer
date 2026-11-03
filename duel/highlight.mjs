@@ -159,6 +159,8 @@ const WORDS = {
   walking: THEME.key,
   flying: THEME.key,
   fluffy: THEME.number,
+  humming: 0x8be28b,
+  singing: 0x8be28b,
   make: THEME.dim,
   paint: THEME.dim,
   add: THEME.dim,

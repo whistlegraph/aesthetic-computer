@@ -123,3 +123,88 @@ export class Sfx {
     else this.voice(note(9), 0.07, { volume: 0.01, type: 'sine' });
   }
 }
+
+// Objects that sing: each (tone ...) is an oscillator placed in the room,
+// panned and attenuated from where you stand. Only the nearest few play.
+export class SpatialTones {
+  constructor(sfx, { voices = 8 } = {}) {
+    this.sfx = sfx;
+    this.max = voices;
+    this.voices = new Map();
+  }
+  update(sources, listener, time) {
+    const a = this.sfx.audio;
+    if (!a || a.state !== 'running') return;
+    if (!this.out) {
+      this.out = a.createGain();
+      this.out.gain.value = 0.5;
+      this.out.connect(a.destination);
+    }
+    const L = a.listener,
+      t = a.currentTime;
+    const set = (param, value) => param?.setTargetAtTime(value, t, 0.05);
+    if (L.positionX) {
+      set(L.positionX, listener.x);
+      set(L.positionY, listener.y);
+      set(L.positionZ, listener.z);
+      set(L.forwardX, listener.fx);
+      set(L.forwardY, listener.fy);
+      set(L.forwardZ, listener.fz);
+      set(L.upX, 0);
+      set(L.upY, 1);
+      set(L.upZ, 0);
+    } else {
+      L.setPosition?.(listener.x, listener.y, listener.z);
+      L.setOrientation?.(listener.fx, listener.fy, listener.fz, 0, 1, 0);
+    }
+    const nearest = sources
+      .map((s) => ({ ...s, d: Math.hypot(s.x - listener.x, s.y - listener.y, s.z - listener.z) }))
+      .filter((s) => s.d < 45)
+      .sort((p, q) => p.d - q.d)
+      .slice(0, this.max);
+    const live = new Set(nearest.map((s) => s.key));
+    for (const [key, v] of this.voices)
+      if (!live.has(key)) {
+        v.gain.gain.setTargetAtTime(0, t, 0.08);
+        v.osc.stop(t + 0.5);
+        this.voices.delete(key);
+      }
+    for (const s of nearest) {
+      let v = this.voices.get(s.key);
+      if (!v || v.wave !== s.wave) {
+        if (v) v.osc.stop(t + 0.05);
+        const osc = a.createOscillator(),
+          gain = a.createGain(),
+          pan = a.createPanner();
+        osc.type = s.wave;
+        pan.panningModel = 'HRTF';
+        pan.distanceModel = 'inverse';
+        pan.refDistance = 2;
+        pan.maxDistance = 45;
+        pan.rolloffFactor = 1.3;
+        gain.gain.value = 0;
+        osc.connect(gain).connect(pan).connect(this.out);
+        osc.start();
+        v = { osc, gain, pan, wave: s.wave };
+        this.voices.set(s.key, v);
+      }
+      // Square and saw are loud for their amplitude; even them out.
+      const level = s.volume * (s.wave === 'sine' || s.wave === 'triangle' ? 0.25 : 0.1);
+      set(v.gain.gain, level);
+      set(v.osc.frequency, Math.max(20, Math.min(4000, s.frequency(time))));
+      if (v.pan.positionX) {
+        set(v.pan.positionX, s.x);
+        set(v.pan.positionY, s.y);
+        set(v.pan.positionZ, s.z);
+      } else v.pan.setPosition?.(s.x, s.y, s.z);
+    }
+  }
+  silence() {
+    const t = this.sfx.audio?.currentTime || 0;
+    for (const v of this.voices.values()) {
+      v.gain.gain.setTargetAtTime(0, t, 0.05);
+      v.osc.stop(t + 0.3);
+    }
+    this.voices.clear();
+  }
+}

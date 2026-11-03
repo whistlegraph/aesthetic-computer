@@ -136,3 +136,15 @@ test('the AC object viewer ships the same compiler as the game', async () => {
     'copy xbox/live/object-lisp.mjs into system/public/aesthetic.computer/lib/object/object-compiler.mjs',
   );
 });
+
+test('objects can carry oscillators that follow time', async () => {
+  const { sourceTones } = await import('../object-language.mjs');
+  const g = parseSource('; Hum\n(orb 0 1 0 .5) (move 0 2 0 (tone (+ 220 (* 40 (sin time))) triangle .4))');
+  const [t] = sourceTones(g);
+  assert.equal(t.wave, 'triangle');
+  assert.equal(t.volume, 0.4);
+  assert.deepEqual(t.at, [0, 2, 0]);
+  assert.equal(Math.round(t.frequency(Math.PI / 2)), 260);
+  assert.throws(() => parseSource('(orb 0 1 0 .5) (tone 5000)'), /20..4000/);
+  assert.throws(() => parseSource('(orb 0 1 0 .5) (tone 220 kazoo)'), /wave/);
+});
