@@ -3,16 +3,15 @@ import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { Projector } from './project.mjs';
-import { joinCode, hudLayout, drawJoinCode } from './hud.mjs';
+import { joinCode, hudLayout } from './hud.mjs';
 
 // What each kind of input does, one line per hand, as Oskiewar lists its
 // controls: the same world plays from a keyboard alone, a pad or a touchscreen.
 // A key is [label, code]; it lights while held. Plain strings are the verbs.
-const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
 export const LEGEND = {
   // Lines stay under thirty columns so a phone or a narrow window shows them whole.
   keys: [
-    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['arrows', ARROWS], ' turn'],
+    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' turn'],
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera / ', ['h', 'KeyH'], ' hide'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['tab', 'Tab'], ' rooms'],
@@ -422,7 +421,12 @@ export async function createView(canvas) {
   function resize() {
     const width = Math.max(1, canvas.clientWidth),
       height = Math.max(1, canvas.clientHeight);
-    const scale = Math.max(1, Math.floor(Math.min(width / 640, height / 360)));
+    // Whole steps keep the buffer at least 640x360; on a HiDPI screen each
+    // step is three quarters of a CSS pixel, so the HUD's letters read at
+    // 10.5 CSS pixels (the size 75% browser zoom gave) and the world gains
+    // detail. A 1x screen keeps whole CSS pixels.
+    const step = Math.max(1, Math.floor(Math.min(width / 640, height / 360)));
+    const scale = step * (devicePixelRatio >= 1.5 ? 0.75 : 1);
     host.resize(Math.ceil(width / scale), Math.ceil(height / scale));
     aspect = width / height;
     pixelScale = scale;
@@ -499,7 +503,8 @@ export async function createView(canvas) {
       now = start;
     const solidObjects = objects.filter((o) => !o.item);
     lastWorldTime = worldTime;
-    const cells = joinCode(joinURL);
+    // The corner join code is retired for now: dool is joining the AC homepage.
+    const cells = null;
     const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale);
     dress(paletteFor());
     host.beginFrame();
@@ -960,7 +965,7 @@ export async function createView(canvas) {
       const labelColumns = Math.max(4, Math.floor((width - 2 * safeX - Math.max(qrSize, 90) - 18 * unit) / (6 * unit)));
       const labels = members.map((m) => ({
         seat: m.seat,
-        label: (m.handle ? `@${m.handle}` : `GUEST ${m.seat + 1}`).slice(0, labelColumns),
+        label: (m.handle ? `@${m.handle}` : m.name || `GUEST ${m.seat + 1}`).slice(0, labelColumns),
         handle: m.handle,
         colors: m.colors,
       }));
@@ -1010,7 +1015,6 @@ export async function createView(canvas) {
               handle ? colors : PAPER,
             );
           });
-          drawJoinCode(rect, text, cells, width, height, hud);
           if (meter || fps) {
             // No box: shadowed text right-aligned under the QR, coloured by health.
             const ping = (connection?.label || '').toLowerCase();

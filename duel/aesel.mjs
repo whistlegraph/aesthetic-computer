@@ -166,6 +166,15 @@ export function connectBuilder({
       for (const message of pending.splice(0)) current.send(JSON.stringify(message));
     });
     current.on('error', () => {});
+    // The server pings every ten seconds. Through a proxy a restarted server
+    // leaves this socket open and silent, so silence is treated as a drop.
+    let heard = Date.now();
+    current.on('ping', () => {
+      heard = Date.now();
+    });
+    const watchdog = setInterval(() => {
+      if (Date.now() - heard > 35000) current.terminate();
+    }, 5000);
     current.on('message', async (raw) => {
       let job;
       try {
@@ -231,6 +240,7 @@ export function connectBuilder({
       }
     });
     current.on('close', () => {
+      clearInterval(watchdog);
       // Keep building while the server restarts; results wait in pending.
       onState('disconnected');
       if (!stopped) retry = setTimeout(connect, 2000);

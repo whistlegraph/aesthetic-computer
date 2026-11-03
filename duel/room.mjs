@@ -1,3 +1,4 @@
+import { guestName } from './guest-name.mjs';
 import { Match } from './match.mjs';
 
 // Connections are not people. Duplicate verified handles share one player slot.
@@ -59,6 +60,7 @@ export class Room {
       seat: r.seat,
       role: r.seat < 0 ? 'spectator' : 'player',
       handle: r.handle,
+      name: r.handle ? null : guestName(r.owner),
       colors: r.colors,
       owner: r.owner,
     };

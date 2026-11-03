@@ -7,6 +7,8 @@ import {
 } from './objects.mjs';
 import { WALLS, bodyBox, WORLD } from './world.mjs';
 import { OBJECT_FORMAT, fitItemSource, sourceGeometry } from './object-language.mjs';
+// Builds a guest identity may start per day.
+export const GUEST_BUILDS = 5;
 
 export const ITEM_KINDS = ['shoot', 'poke', 'throw'];
 // An item is hand-sized with its grip at the origin.
@@ -328,9 +330,24 @@ export class Builders {
     this.workers.get(job.worker)?.delete(job.id);
     this.broadcast(job.room);
   }
-  request(client, room, owner, seat, input) {
+  // Guests build on a small daily allowance per identity, counted here in
+  // memory; signed-in players read their own braincells instead.
+  guestRemaining(owner) {
+    const day = new Date().toISOString().slice(0, 10);
+    const used = this.guestBuilds?.get(owner);
+    return GUEST_BUILDS - (used?.day === day ? used.count : 0);
+  }
+  spendGuest(owner) {
+    const day = new Date().toISOString().slice(0, 10);
+    this.guestBuilds ??= new Map();
+    const used = this.guestBuilds.get(owner);
+    this.guestBuilds.set(owner, { day, count: (used?.day === day ? used.count : 0) + 1 });
+  }
+  request(client, room, owner, seat, input, { guest = false } = {}) {
     try {
       if (!owner) throw Error('Identity is not ready');
+      if (guest && this.guestRemaining(owner) <= 0)
+        throw Error(`Guest braincells spent (${GUEST_BUILDS} a day). Sign in to keep building.`);
       const prompt =
         typeof input.prompt === 'string' ? input.prompt.trim() : '';
       if (!prompt || prompt.length > 280 || /[\x00-\x1f]/.test(prompt))
@@ -419,6 +436,7 @@ export class Builders {
         });
         this.finish(job);
       }, 180000);
+      if (guest) this.spendGuest(owner);
       this.jobs.set(job.id, job);
       this.workers.get(worker).add(job.id);
       this.send(worker, {

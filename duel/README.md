@@ -42,7 +42,10 @@ long tokens are redacted on the server before anything is sent.
 
 Share the page URL to invite another player. Use `?room=your-room` for a separate
 room; there is no weapon selection. A localhost invite works only on the same
-machine.
+machine. The corner join code is retired for now, ahead of dool joining the AC
+homepage. Guests are named from their identity (two words, the same in every
+room) and may start five builds a day; signed-in players spend their own
+braincells.
 
 Open two live clients side by side in one desktop window:
 

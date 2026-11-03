@@ -8,7 +8,7 @@ import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
-import { Builders } from './builders.mjs';
+import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { HZ, PROTOCOL } from './world.mjs';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 
@@ -240,7 +240,12 @@ export function createDuelServer({
   // Braincells: AC's allowance, read with the player's own sign-in and sent
   // to them alone. Refreshed every minute and after each build.
   async function refreshBraincells(ws, member) {
-    if (!member?.token || ws.readyState !== WebSocket.OPEN) return;
+    if (ws.readyState !== WebSocket.OPEN) return;
+    if (!member?.token) {
+      // A guest: the day's allowance, once their identity is known.
+      if (member?.owner) send(ws, { type: 'braincells', remaining: builders.guestRemaining(member.owner), limit: GUEST_BUILDS });
+      return;
+    }
     try {
       const r = await fetch('https://aesthetic.computer/api/easel-credits', {
         headers: { authorization: `Bearer ${member.token}` },
@@ -408,6 +413,7 @@ export function createDuelServer({
             if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) {
               member.owner = owner;
               room.assign();
+              void refreshBraincells(ws, member);
             }
             send(ws, { type: 'identity', ...identity });
           })
@@ -423,7 +429,8 @@ export function createDuelServer({
       if (data?.type === 'account') void identifyAccount(data.accessToken);
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
-          builders.request(ws, key, owner, member.seat, data);
+          builders.request(ws, key, owner, member.seat, data, { guest: !member.token });
+          void refreshBraincells(ws, member);
           for (const ms of [20000, 90000, 180000]) setTimeout(() => void refreshBraincells(ws, member), ms);
         }
         else send(ws, { type: 'build-result', error: 'Spectators cannot build' });

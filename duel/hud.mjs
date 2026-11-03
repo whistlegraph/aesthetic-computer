@@ -19,11 +19,11 @@ export function joinCode(url) {
 export function hudLayout(width, height, cells, scale = 1) {
   const safeX = Math.max(6, Math.ceil(width * 0.02));
   const safeY = Math.max(6, Math.ceil(height * 0.03));
-  // `scale` is screen pixels per buffer pixel. A HUD unit is at least two
-  // screen pixels, so the 7-pixel letters read at 14 screen pixels or more,
-  // the size of the browser's own text (a 1x buffer in a narrow window used
-  // to draw them 7 pixels tall; three per unit read too large).
-  const least = Math.ceil(2 / Math.max(1, scale));
+  // `scale` is CSS pixels per buffer pixel. A HUD unit is at least one and a
+  // half CSS pixels, so the 7-pixel letters read at about 10.5 CSS pixels:
+  // two units on the 0.75 buffer a HiDPI screen gets, two whole pixels on a
+  // 1x screen (one unit drew them 7 pixels tall, three units read too large).
+  const least = Math.ceil(1.5 / Math.max(0.5, scale));
   const unit = Math.max(least, Math.round(Math.min(width / 480, height / 270)));
   // A corner badge about a fifth of the width (a quarter of the height), and
   // at least three screen pixels per module so a phone reads it from arm's length.
@@ -31,7 +31,7 @@ export function hudLayout(width, height, cells, scale = 1) {
     ? Math.max(
         1,
         Math.min(
-          Math.max(Math.ceil(3 / Math.max(1, scale)), Math.floor(Math.min(width * 0.2, height * 0.26) / (cells.length + 8))),
+          Math.max(Math.ceil(3 / Math.max(0.5, scale)), Math.floor(Math.min(width * 0.2, height * 0.26) / (cells.length + 8))),
           // Never more than half the short side, whatever the floor asks.
           Math.floor(Math.min(width, height) / 2 / (cells.length + 8)),
         ),
