@@ -22,11 +22,10 @@ const query = new URLSearchParams(location.search);
 const requestedRoom = query.get('room');
 // 🎯 Hosted under the AC prompt (lib/dool-sheet.mjs on aesthetic.computer):
 // the paper over this frame drops on a tap and rises on Escape, Back or a tap
-// on the corner block. Parked, the world draws a frame every half second,
-// makes no sound and holds no seat.
+// on the corner block. Behind the curtain the world keeps drawing, bare of
+// its HUD, makes no sound and holds no seat.
 const hosted = query.get('embed') === 'prompt' && window.parent !== window;
 let sheetOpen = !hosted,
-  parkedAt = 0,
   unlockedAt = -1e9;
 const toHost = (message) => {
   if (hosted) window.parent.postMessage(message, location.origin);
@@ -900,10 +899,6 @@ document.addEventListener('visibilitychange', () => {
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
-  if (!sheetOpen) {
-    if (now - parkedAt < 500) return; // Parked under the paper: a slow idle.
-    parkedAt = now;
-  }
   try {
     step(now);
   } catch (error) {
@@ -1258,14 +1253,12 @@ function step(now) {
     bullets: snapshot?.bullets || [],
     since: (now - latestAt) / 1000,
     holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,
-    status,
-    members,
+    status: sheetOpen ? status : '',
+    members: sheetOpen ? members : [],
     joinURL,
-    connection: connection.state(
-      now,
-      ws?.readyState === WebSocket.OPEN,
-      ws?.bufferedAmount || 0,
-    ),
+    connection: sheetOpen
+      ? connection.state(now, ws?.readyState === WebSocket.OPEN, ws?.bufferedAmount || 0)
+      : null,
     objects,
     prompt,
     radial: radial.open
@@ -1278,14 +1271,14 @@ function step(now) {
       : null,
     touch: touch.state(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
-    fps,
+    fps: sheetOpen ? fps : 0,
     walls,
     cube,
     menu,
     lockedOn: !!lockOn,
     removeArmed:
       removeArmed && focusObject?.id === removeArmed.id && performance.now() - removeArmed.at < 2000 ? removeArmed.id : null,
-    notices: notices.filter((n) => performance.now() - n.at < 6000),
+    notices: sheetOpen ? notices.filter((n) => performance.now() - n.at < 6000) : [],
     braincells: (() => {
       // Ease the shown count toward the real one; each drop is spent.
       if (braincells === null) return null;
@@ -1309,8 +1302,8 @@ function step(now) {
     jobs,
     worldTime,
     locked: locked(),
-    legend: legendShown(),
-    corner: 'dool',
+    legend: sheetOpen && legendShown(),
+    corner: sheetOpen ? 'dool' : null,
     held: {
       keys: [...keys],
       pad: [

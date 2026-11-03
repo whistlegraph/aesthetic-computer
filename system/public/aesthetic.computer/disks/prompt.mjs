@@ -288,6 +288,8 @@ let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it 
 // curtain; a tap flies it to the centre, then bios drops the paper into dool.
 let doolBtn;
 let doolFlight = null; // { at, phase: "out" | "away" | "back", awayAt }
+let glazeWanted = false; // Dark mode asked for the glaze; it rests while the curtain is clear.
+let glazeOn = false;
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
@@ -1161,7 +1163,11 @@ async function boot({
   if (colon?.includes("nostars")) starsEnabled = false; // disable starfield + cube only
   // `prompt:noglaze` skips the glaze post-effect — a quick way to isolate the
   // glaze's (GPU) cost from everything else when diagnosing frame rate.
-  if (dark && !colon?.includes("noglaze")) glaze({ on: true });
+  glazeWanted = dark && !colon?.includes("noglaze");
+  if (glazeWanted) {
+    glaze({ on: true });
+    glazeOn = true;
+  }
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
   net.requestDocs().then((d) => {
@@ -5358,7 +5364,18 @@ function paint($) {
     scheme.poe.dark.background[3] = 176;
     scheme.poe.light.background[3] = 190;
   } else {
-    $.wipe(pal.background);
+    // 🎯 The curtain is clear: the dool world (bios's underlay, lib/dool-sheet.mjs)
+    // shows through, with the buttons and the wordmark over it. The glaze
+    // canvas is opaque, so in dark mode it rests while the curtain is clear.
+    const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
+      !$.system.prompt.input.text &&
+      ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
+    if (curtainClear) $.wipe(0, 0, 0, 0);
+    else $.wipe(pal.background);
+    if (glazeWanted && glazeOn === curtainClear) {
+      glazeOn = !curtainClear;
+      $.glaze({ on: glazeOn });
+    }
   }
 
   $.layer(1); // 🅱️ And above it...
@@ -6453,7 +6470,7 @@ function paint($) {
     if (curtainIdle || doolFlight) {
       const now = performance.now();
       const side = (s) => 16 * s; // four corners about a dot: 2 × (7 + 1) units
-      const home = { x: screen.width - 6 - side(1), y: screen.height - 6 - side(1) };
+      const home = { x: screen.width - 14 - side(1), y: screen.height - 14 - side(1) };
       const centre = (s) => ({
         x: Math.floor((screen.width - side(s)) / 2),
         y: Math.floor((screen.height - side(s)) / 2),

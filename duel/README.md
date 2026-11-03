@@ -327,8 +327,9 @@ dool is the world beneath the aesthetic.computer homepage. The prompt piece
 draws dool's square reticle bottom-right of its curtain; a tap flies it to the
 centre and `lib/dool-sheet.mjs` (the host, in bios) drops the prompt's paper
 to uncover a same-origin frame of `/dool/?embed=prompt` parked beneath the
-stage. The frame is warmed on idle but takes no seat until it is first
-opened, idles at two frames a second while parked, and is silent there.
+stage. The curtain is clear, so the world shows through it from the first
+frame, bare of its HUD; the frame takes no seat until it is first opened and
+is silent until then.
 
 Hosted, the client says `dool:sheet:hello` when its script has run and
 `dool:sheet:leave` when the player goes back: Escape with nothing open and

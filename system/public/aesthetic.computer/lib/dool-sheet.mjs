@@ -1,8 +1,9 @@
 // 🎯 Dool Sheet
 // The prompt as the paper over the dool world. This page is the host: it
-// keeps a same-origin frame of dool (the guest, /dool/?embed=prompt) parked
-// beneath the stage as an underlay, and one number, how far the paper has
-// dropped, moves the stage down to uncover it and back up to cover it.
+// keeps a same-origin frame of dool (the guest, /dool/?embed=prompt) beneath
+// the stage as an underlay, showing through the prompt's clear curtain from
+// the first frame, and one number, how far the paper has dropped, moves the
+// stage down out of the way and back up over it.
 //
 // Down: a tap on the prompt's crosshair (`show` from the prompt piece, once
 //       the reticle has flown to the centre).
@@ -45,7 +46,6 @@ function ensure() {
     zIndex: "-1", // An underlay: beneath the stage, over the page's backdrop.
     background: PAPER,
     colorScheme: "normal",
-    transform: "translateY(100%)", // Parked off screen, clear of the gaps around the stage.
     pointerEvents: "none",
   });
   document.body.append(frame);
@@ -53,11 +53,9 @@ function ensure() {
   return frame;
 }
 
+// The curtain is clear from the start, so the guest goes in at once.
 function warm() {
-  if (frame) return;
-  const go = () => ensure();
-  if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 8000 });
-  else setTimeout(go, 3000);
+  ensure();
 }
 
 // 🔁 The prompt sleeps while the paper is away.
@@ -149,10 +147,7 @@ function show() {
     pendingShow = setTimeout(() => (pendingShow = 0), 4000);
     return;
   }
-  if (state === "parked") {
-    f.style.transform = ""; // Into place beneath the stage before the paper moves.
-    post({ type: "dool:sheet", open: true });
-  }
+  if (state === "parked") post({ type: "dool:sheet", open: true });
   state = "moving";
   toward = "open";
   goal = innerHeight;
@@ -197,10 +192,7 @@ function meterGuest() {
 function home() {
   state = "parked";
   y = goal = 0;
-  Object.assign(frame.style, {
-    transform: "translateY(100%)",
-    pointerEvents: "none",
-  });
+  frame.style.pointerEvents = "none";
   const s = stage();
   if (s) Object.assign(s.style, { transform: "", willChange: "" });
   resumePrompt();
