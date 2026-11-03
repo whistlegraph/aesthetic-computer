@@ -6513,7 +6513,7 @@ function paint($) {
       const s = Math.max(1, Math.round(scale));
       const t = s, arm = 4 * s, half = 7 * s;
       const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
-      const color = lit || hot ? [255, 224, 102] : $.dark ? [235, 235, 245] : [40, 40, 50];
+      const color = lit || hot ? [255, 224, 102] : [0, 255, 255]; // AC's cursor cyan at rest
       const L = (x, y, w, h) => {
         $.ink(24, 24, 32, 170).box(ox + x + t, oy + y + t, w, h);
         $.ink(color).box(ox + x, oy + y, w, h);

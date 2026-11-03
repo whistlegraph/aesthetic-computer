@@ -1263,7 +1263,8 @@ export async function createView(canvas) {
     if (me?.alive && !radial && !menu && !bare) {
       const { unit } = hud;
       const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
-      const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;
+      // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
+      const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : 0x00ffff;
       const half = (lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
