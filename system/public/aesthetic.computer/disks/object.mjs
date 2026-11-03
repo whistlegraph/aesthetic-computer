@@ -11,8 +11,9 @@ let yaw = 0.6, pitch = 0.42, spin = 0.35, dragging = false;
 let depth, size = [0, 0];
 let center = { x: 0, y: 1, z: 0 }, radius = 3;
 
-async function boot({ params, hud }) {
-  code = (params[0] || "").replace(/^\$/, "");
+async function boot({ params, colon, hud }) {
+  // object:8en arrives as colon; object~8en as params.
+  code = (colon?.[0] || params?.[0] || "").replace(/^\$/, "");
   if (!/^[A-Za-z0-9]{2,16}$/.test(code)) {
     status = "no code";
     error = "usage: object:$code";
