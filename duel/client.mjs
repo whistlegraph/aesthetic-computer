@@ -62,13 +62,15 @@ const sfx = new Sfx();
 // The room says which $code is on each wall; a change loads the new one.
 const walls = [];
 const wallCodes = {};
-function setWalls(spec = {}) {
+let wallRes = { north: 64, west: 64 };
+function setWalls(spec = {}, res = wallRes) {
   for (const [face, code] of Object.entries(spec)) {
-    if (wallCodes[face] === code) continue;
-    wallCodes[face] = code;
-    kidlispWall(code, { width: 64, height: 36 })
+    const cols = res[face] || 64;
+    if (wallCodes[face] === `${code}@${cols}`) continue;
+    wallCodes[face] = `${code}@${cols}`;
+    kidlispWall(code, { width: cols, height: Math.round((cols * 9) / 16) })
       .then((w) => {
-        if (wallCodes[face] !== code) return;
+        if (wallCodes[face] !== `${code}@${cols}`) return;
         const i = walls.findIndex((x) => x.face === face);
         const entry = { ...w, code, face };
         if (i >= 0) walls[i] = entry;
@@ -151,6 +153,82 @@ let braincells = null,
 let tiles = {},
   floorAim = null;
 let handleHistory = [];
+// Motion blur: a post layer that blends each frame over the last ones,
+// more as the view turns faster. Toggled in the room menu.
+let motionBlur = true;
+try {
+  motionBlur = localStorage.getItem('dool-blur') !== 'off';
+} catch {}
+let post, postCtx, lastYaw = 0, lastPitch = 0, turnSpeed = 0;
+function postProcess(elapsed) {
+  const src = view.canvas;
+  if (!motionBlur) {
+    if (post) post.style.display = 'none';
+    return;
+  }
+  if (!post) {
+    post = document.createElement('canvas');
+    post.setAttribute('aria-hidden', 'true');
+    Object.assign(post.style, { position: 'fixed', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', imageRendering: 'pixelated', cursor: 'none' });
+    document.body.appendChild(post);
+    postCtx = post.getContext('2d');
+  }
+  post.style.display = 'block';
+  if (post.width !== src.width || post.height !== src.height) {
+    post.width = src.width;
+    post.height = src.height;
+  }
+  // Degrees per second of view rotation, eased.
+  const turned = Math.abs(((yaw - lastYaw + 540) % 360) - 180) + Math.abs(pitch - lastPitch);
+  lastYaw = yaw;
+  lastPitch = pitch;
+  turnSpeed += ((turned / Math.max(1 / 240, elapsed)) - turnSpeed) * 0.3;
+  const trail = Math.min(0.65, turnSpeed / 600);
+  postCtx.globalAlpha = 1 - trail;
+  postCtx.drawImage(src, 0, 0);
+  postCtx.globalAlpha = 1;
+}
+// Lock-on: the view eases to keep this object centred, in third person;
+// null when free. The d-pad moves the lock around you.
+let lockOn = null,
+  thirdBeforeLock = false;
+function spotOf(id) {
+  const o = objects.find((x) => x.id === id);
+  if (o) {
+    const it = snapshot?.items?.find((x) => x.id === id);
+    return { x: it ? it.x : o.x, y: (it ? it.y : 0) + 1, z: it ? it.z : o.z };
+  }
+  const w = walls.find((x) => `wall:${x.code}` === id);
+  if (w) return w.face === 'north' ? { x: 0, y: 10, z: SCREEN } : { x: -SCREEN, y: 10, z: 0 };
+  return null;
+}
+function selectables() {
+  return [...objects.map((o) => o.id), ...walls.map((w) => `wall:${w.code}`)];
+}
+function setLock(id) {
+  if (id && !lockOn) {
+    thirdBeforeLock = third;
+    third = true;
+  }
+  if (!id && lockOn) third = thirdBeforeLock;
+  lockOn = id ? { id, wall: id.startsWith('wall:') } : null;
+}
+// Step the lock to the next selectable clockwise (dir 1) or anticlockwise.
+function cycleLock(dir) {
+  if (!player || !lockOn) return;
+  const bearing = (id) => {
+    const p = spotOf(id);
+    return p ? (((Math.atan2(p.x - player.x, p.z - player.z) * 180) / Math.PI - yaw + 540) % 360) - 180 : null;
+  };
+  const list = selectables()
+    .map((id) => ({ id, b: bearing(id) }))
+    .filter((x) => x.b !== null)
+    .sort((a, b) => a.b - b.b);
+  const at = list.findIndex((x) => x.id === lockOn.id);
+  if (list.length < 2 || at < 0) return;
+  setLock(list[(at - dir + list.length) % list.length].id);
+  sfx.ringMove(at);
+}
 // Removing takes two presses: the first arms it for two seconds.
 let removeArmed = null;
 function removeAimed() {
@@ -310,7 +388,8 @@ function connect() {
       builder = data.builder;
       if (Array.isArray(data.history)) codeHistory = data.history;
       if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
-      if (data.walls && typeof data.walls === 'object') setWalls(data.walls);
+      if (data.wallRes && typeof data.wallRes === 'object') wallRes = data.wallRes;
+      if (data.walls && typeof data.walls === 'object') setWalls(data.walls, wallRes);
       jobs = data.jobs;
       prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
     }
@@ -505,6 +584,15 @@ function menuItems(kind) {
       { label: 'erase my chalk', act: () => send({ type: 'chalk-clear' }) },
       { label: third ? 'first person' : 'third person', act: () => (third = !third) },
       {
+        label: motionBlur ? 'motion blur off' : 'motion blur on',
+        act: () => {
+          motionBlur = !motionBlur;
+          try {
+            localStorage.setItem('dool-blur', motionBlur ? 'on' : 'off');
+          } catch {}
+        },
+      },
+      {
         label: 'fullscreen',
         act: () => (window.doolRig ? window.doolRig.toggleFullscreen() : canvas.requestFullscreen?.().catch(() => {})),
       },
@@ -546,6 +634,11 @@ function submitPrompt(gesture = true) {
   const chalk = radial.open && radial.chalk;
   if (radial.open && radial.target?.wall) {
     const face = walls.find((w) => w.code === radial.target.code)?.face;
+    if (/^(sharper|chunkier)$/.test(prompt.text.trim())) {
+      send({ type: 'wall-res', face, dir: prompt.text.trim() === 'sharper' ? 1 : -1 });
+      closeBuild();
+      return true;
+    }
     send({ type: 'kidlisp-mod', face, prompt: prompt.text });
     prompt.busy = true;
     closeBuild();
@@ -832,8 +925,19 @@ function step(now) {
       sfx.jump();
     }
   }
-  // LB removes what you aim at (it stays in the $ history to put back).
-  if (gamepad.ring && seat >= 0 && !prompt.open && focusObject && !focusObject.wall) removeAimed();
+  // LB toggles a lock on the aimed object; while locked, B removes it (the
+  // lock is the confirmation) and RB changes it.
+  if (gamepad.ring && seat >= 0 && !prompt.open) {
+    setLock(lockOn ? null : focusObject?.id || null);
+    sfx[lockOn ? 'ringOpen' : 'ringBack']();
+  }
+  if (lockOn && !menu && (gamepad.dleft || gamepad.dright)) cycleLock(gamepad.dright ? 1 : -1);
+  if (lockOn && gamepad.cancel && !prompt.open && !radial.open && !lockOn.wall) {
+    send({ type: 'remove', objectId: lockOn.id });
+    setLock(null);
+    gamepad.cancel = false;
+    sfx.ringBack();
+  }
   if (radial.open) {
     const left = Math.hypot(gamepad.right, gamepad.fwd),
       right = Math.hypot(gamepad.lookX, gamepad.lookY);
@@ -900,6 +1004,19 @@ function step(now) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
+  }
+  if (lockOn && player) {
+    const target = spotOf(lockOn.id);
+    if (!target) setLock(null);
+    else {
+      const dx = target.x - player.x, dz = target.z - player.z, dy = target.y - player.y;
+      const wantYaw = (Math.atan2(dx, dz) * 180) / Math.PI;
+      const wantPitch = (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI;
+      const dyaw = ((wantYaw - yaw + 540) % 360) - 180;
+      const k = 1 - Math.exp(-elapsed * 8);
+      yaw = (yaw + dyaw * k + 360) % 360;
+      pitch = clamp(pitch + (wantPitch - pitch) * k, -85, 85);
+    }
   }
   if (elapsed > 0.25) presentation.reset(player);
   debt += Math.min(0.1, elapsed);
@@ -1055,6 +1172,13 @@ function step(now) {
         if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
       }
     }
+    if (lockOn) {
+      const locked = objects.find((o) => o.id === lockOn.id);
+      const w = walls.find((x) => `wall:${x.code}` === lockOn.id);
+      if (locked) focusObject = locked;
+      else if (w)
+        focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, colored: w.colored, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
+    }
     // Holding something with nothing else aimed at: the held item is the one to edit.
     if (!focusObject) {
       const mine = snapshot?.items?.find((it) => it.holder === seat);
@@ -1108,6 +1232,7 @@ function step(now) {
     walls,
     cube,
     menu,
+    lockedOn: !!lockOn,
     removeArmed:
       removeArmed && focusObject?.id === removeArmed.id && performance.now() - removeArmed.at < 2000 ? removeArmed.id : null,
     notices: notices.filter((n) => performance.now() - n.at < 6000),
@@ -1135,6 +1260,7 @@ function step(now) {
     worldTime,
     locked: locked(),
   });
+  postProcess(elapsed);
 }
 connect();
 requestAnimationFrame(frame);

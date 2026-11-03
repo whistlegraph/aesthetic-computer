@@ -91,6 +91,19 @@ export class ObjectStore {
   walls(room) {
     return { north: 'roz', west: 'bop', ...(this.data.walls?.[room] || {}) };
   }
+  // Pixel grid of each screen: { north: 48, west: 64 } columns (16:9).
+  wallRes(room) {
+    return { north: 64, west: 64, ...(this.data.wallRes?.[room] || {}) };
+  }
+  stepWallRes(room, face, dir) {
+    return this.transact((data) => {
+      const steps = [16, 24, 32, 48, 64, 96, 128];
+      const res = ((data.wallRes ||= {})[room] ||= {});
+      const i = steps.indexOf(res[face] || 64);
+      res[face] = steps[Math.max(0, Math.min(steps.length - 1, (i < 0 ? 4 : i) + dir))];
+      return res[face];
+    });
+  }
   setWall(room, face, code) {
     return this.transact((data) => {
       ((data.walls ||= {})[room] ||= {})[face] = code;

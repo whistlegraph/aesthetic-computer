@@ -105,6 +105,7 @@ export class Builders {
       history: this.store.history(room).slice(0, 24),
       tiles: this.store.tiles(room),
       walls: this.store.walls(room),
+      wallRes: this.store.wallRes(room),
       jobs: [...this.jobs.values()]
         .filter((j) => j.room === room)
         .map((j) => ({
@@ -218,7 +219,7 @@ export class Builders {
       if (data.type === 'progress') {
         if (Date.now() - (job.progressAt || 0) < 100) return;
         job.progressAt = Date.now();
-        job.phase = ['generating', 'correcting', 'validating'].includes(
+        job.phase = ['generating', 'correcting', 'validating', 'waiting'].includes(
           data.phase,
         )
           ? data.phase

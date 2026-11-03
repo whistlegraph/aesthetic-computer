@@ -19,7 +19,7 @@ export const CATALOG = {
 };
 export const ITEM_CATEGORIES = ['shoot', 'poke', 'throw'];
 // Changes for a KidLisp wall (RB on it).
-export const KIDLISP_MODS = ['faster', 'slower', 'more colorful', 'spin it', 'zoom in', 'add blur', 'make it pulse', 'invert it'];
+export const KIDLISP_MODS = ['sharper', 'chunkier', 'remix it', 'surprise me', 'faster', 'slower', 'more colorful', 'spin it', 'zoom in', 'add blur', 'make it pulse', 'invert it'];
 // Chalk: build what you drew in the air (hold RT to draw), or wipe it.
 CATALOG.chalk = ['a sculpture', 'a creature', 'a building', 'a vehicle', 'a plant', 'a machine', 'a sign', 'erase my chalk'];
 export const CATEGORIES = Object.keys(CATALOG);

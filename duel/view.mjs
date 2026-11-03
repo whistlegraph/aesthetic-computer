@@ -232,6 +232,7 @@ export async function createView(canvas) {
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel;
   let panelTop = null;
   const chalkModels = new Map();
+  let boom = 4;
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
   let tileCacheKey = '', tileModel = null;
@@ -408,6 +409,7 @@ export async function createView(canvas) {
     cube = [],
     menu = null,
     removeArmed = null,
+    lockedOn = false,
     notices = [],
     braincells = null,
     spending = false,
@@ -445,11 +447,10 @@ export async function createView(canvas) {
         const back = { x: -dir.x, y: -dir.y + 0.22, z: -dir.z },
           len = Math.hypot(back.x, back.y, back.z);
         for (const k of ['x', 'y', 'z']) back[k] /= len;
-        eye = along(
-          origin,
-          back,
-          Math.max(0, wallDistance(origin, back, 4, solidObjects, worldTime) - 0.2),
-        );
+        // Ease the boom in and out rather than snapping as things pass.
+        const want = Math.max(0, wallDistance(origin, back, 4, solidObjects, worldTime) - 0.2);
+        boom = want < boom ? want : boom + (want - boom) * 0.12;
+        eye = along(origin, back, boom);
       }
       let distance = wallDistance(origin, dir, 100, solidObjects, worldTime);
       players.forEach((p, i) => {
@@ -776,11 +777,16 @@ export async function createView(canvas) {
         o.wall
           ? pad ? '[RB] to change' : 'kidlisp wall'
           : o.owner === owner
-            ? pad ? '[RB] change / [LB] remove' : 'yours - delete removes'
-            : pad ? '[LB] remove' : 'player ' + String(o.owner || '').slice(0, 4);
+            ? pad ? '[RB] change / [LB] lock on' : 'yours - delete removes'
+            : pad ? '[LB] lock on' : 'player ' + String(o.owner || '').slice(0, 4);
       const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : 'x paints the floor') : null;
-      const confirming = focusObject && removeArmed === focusObject.id ? (pad ? '[LB] again to remove' : 'delete again to remove') : null;
-      const hint = confirming ? confirming : drawing ? drawing : carry ? carry : paintHint ? paintHint : focusObject
+      const confirming = focusObject && removeArmed === focusObject.id ? 'delete again to remove' : null;
+      const lockHint = lockedOn && focusObject
+        ? focusObject.wall
+          ? `${named(focusObject)} locked: [RB] change / [LB] unlock`
+          : `${named(focusObject)} locked: [B] remove / [RB] change / dpad next / [LB] unlock`
+        : null;
+      const hint = lockHint ? lockHint : confirming ? confirming : drawing ? drawing : carry ? carry : paintHint ? paintHint : focusObject
         ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
         : input === 'touch'
           ? 'hold the right side to build'
@@ -1164,8 +1170,8 @@ export async function createView(canvas) {
     if (me?.alive && !radial && !menu) {
       const { unit } = hud;
       const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
-      const color = focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;
-      const half = (focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
+      const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : PAPER;
+      const half = (lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
       const m = model(({ rect: worldRect }) => {
@@ -1183,7 +1189,13 @@ export async function createView(canvas) {
             L(sx < 0 ? x : x - arm + t, y, arm, t);
             L(x, sy < 0 ? y : y - arm + t, t, arm);
           }
-        L(-t, -t, 2 * t, 2 * t);
+        if (lockedOn) {
+          // A small diamond instead of a dot.
+          L(-t / 2, t, t, t);
+          L(-t / 2 - t, 0, t, t);
+          L(-t / 2 + t, 0, t, t);
+          L(-t / 2, -t, t, t);
+        } else L(-t, -t, 2 * t, 2 * t);
       });
       projector.overlay(m, W, H);
     }
@@ -1479,8 +1491,11 @@ export async function createView(canvas) {
     // KidLisp walls: step each program about 20 times a second and lay its
     // pixels on the wall as a grid of cells, unmirrored from inside.
     for (const w of walls) {
-      if (!w.model || now - (w.at || 0) > 50) {
+      const remixJob = jobs.find((j) => j.kind === 'kidlisp' && j.face === w.face);
+      const remix = !!remixJob;
+      if (!w.model || now - (w.at || 0) > 50 || w.wasRemix !== remix) {
         w.at = now;
+        w.wasRemix = remix;
         const px = w.step();
         const cols = w.width, rows = w.height;
         const span = w.face === 'north' ? 32 : 32, tall = (span * rows) / cols;
@@ -1500,13 +1515,51 @@ export async function createView(canvas) {
               const u0 = span / 2 - i * cell, u1 = span / 2 - (i + n) * cell;
               const y1 = base + tall - j * cell, y0 = y1 - cell;
               const d = SCREEN - 0.03;
-              if (w.face === 'north') quad([u0, y0, d], [u1, y0, d], [u1, y1, d], [u0, y1, d], c);
-              else quad([-d, y0, -u0], [-d, y0, -u1], [-d, y1, -u1], [-d, y1, -u0], c);
+              // While Aesel remixes it, the screen splits in two in space:
+              // the program keeps the left half, the new source the right.
+              const sq = remix ? 0.5 : 1, shift = remix ? span / 4 : 0;
+              const a = u0 * sq + shift, b = u1 * sq + shift;
+              if (w.face === 'north') quad([a, y0, d], [b, y0, d], [b, y1, d], [a, y1, d], c);
+              else quad([-d, y0, -a], [-d, y0, -b], [-d, y1, -b], [-d, y1, -a], c);
               i += n;
             }
         });
       }
       draw(w.model, 0, 0, 0);
+      const tall = (32 * w.height) / w.width;
+      if (remixJob) {
+        // The new source streams onto the right half of the screen itself.
+        const lines = (remixJob.code || '...').split('\n').filter((l) => l.trim()).slice(-14);
+        const key = JSON.stringify(lines);
+        if (w.remixKey !== key) {
+          w.remixKey = key;
+          w.remixModel = model(({ rect: worldRect, text }) => {
+            const rect = (x, y, z, ww, hh, c) => worldRect(-x - ww, y, z, ww, hh, c);
+            rect(-8, -tall, 0.01, 16, tall, 0x0b0c10);
+            lines.forEach((l, k) => drawSpans({ rect, text }, codeSpans(l.slice(0, 40)), 0, -0.6 - k * 1.1, 0.06, { shadow: null, step: 0.002 }));
+          });
+        }
+        const d = SCREEN - 0.05, top = 1.5 + tall;
+        if (w.face === 'north') draw(w.remixModel, -8, top, d, Math.PI);
+        else draw(w.remixModel, -d, top, -8, -Math.PI / 2);
+      }
+      // A frame and two legs, so each screen stands in the open.
+      if (!w.frame || w.frameTall !== tall) {
+        w.frameTall = tall;
+        const d = SCREEN, span = 32, c = 0x2a2d3a, side = 0x22252f;
+        w.frame = model(({ box }) => {
+          if (w.face === 'north') {
+            box(0, 1.5 + tall / 2, d + 0.25, span + 0.6, tall + 0.6, 0.4, c, side, c);
+            box(-span / 2 + 1, 0.75, d + 0.25, 0.4, 1.5, 0.4, c, side, c);
+            box(span / 2 - 1, 0.75, d + 0.25, 0.4, 1.5, 0.4, c, side, c);
+          } else {
+            box(-d - 0.25, 1.5 + tall / 2, 0, 0.4, tall + 0.6, span + 0.6, c, side, c);
+            box(-d - 0.25, 0.75, -span / 2 + 1, 0.4, 1.5, 0.4, c, side, c);
+            box(-d - 0.25, 0.75, span / 2 - 1, 0.4, 1.5, 0.4, c, side, c);
+          }
+        });
+      }
+      draw(w.frame, 0, 0, 0);
     }
     if (menu) {
       // A modal: the scene dimmed behind it, a panel with a title and a
@@ -1535,37 +1588,6 @@ export async function createView(canvas) {
             : [{ text: r.label, color: on ? INK : THEME.text }];
           drawSpans({ rect, text }, spans, left + spanWidthOf(spans, unit) / 2, y, unit, { shadow: null, z: near });
         });
-      });
-      projector.overlay(m, W, H);
-    }
-    // A KidLisp wall being rewritten: split the screen; the right half shows
-    // the program running large over the new source streaming in.
-    const wallJob = jobs.find((j) => j.kind === 'kidlisp');
-    if (wallJob && !menu) {
-      const wall = walls.find((w) => w.face === wallJob.face);
-      const { unit } = hud;
-      const half = W / 2;
-      const m = model(({ rect: worldRect, text, small }) => {
-        const rect = flip(worldRect);
-        const z = -0.000006;
-        rect(0, -H / 2, z + 0.000004, half, H, 0x0b0c10);
-        rect(0, -H / 2, z + 0.000003, unit, H, LINE);
-        if (wall?.pixels) {
-          const cols = wall.width, rows = wall.height;
-          const cell = Math.floor((half - 16 * unit) / cols);
-          const left = Math.round(half / 2 - (cols * cell) / 2), top = H / 2 - 16 * unit;
-          for (let j = 0; j < rows; j++)
-            for (let i = 0; i < cols; i++) {
-              const k = (j * cols + i) * 4, px = wall.pixels;
-              rect(left + i * cell, top - (j + 1) * cell, z + 0.000002, cell, cell, (px[k] << 16) | (px[k + 1] << 8) | px[k + 2]);
-            }
-        }
-        const head = [{ text: `$${wall?.code || ''} `, color: THEME.verb }, { text: `aesel ${wallJob.phase} ${Math.max(0, Math.floor((Date.now() - wallJob.startedAt) / 1000))}s`, color: THEME.dim }];
-        drawSpans({ rect, text, small }, head, half / 2, H / 2 - 4 * unit, unit, { tiny: true, shadow: null, z });
-        const lines = (wallJob.code || '').split('\n').filter((l) => l.trim()).slice(-8);
-        lines.forEach((l, i) =>
-          drawSpans({ rect, text, small }, animateSpans(codeSpans(l.slice(0, 70)), now), half / 2, -H / 2 + 12 * unit + (lines.length - i) * 9 * unit, unit, { tiny: true, shadow: null, z }),
-        );
       });
       projector.overlay(m, W, H);
     }

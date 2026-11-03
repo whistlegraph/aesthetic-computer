@@ -449,7 +449,10 @@ export function createDuelServer({
             send(ws, { type: 'handle-history', handle: member.handle, items });
           } catch {}
         })();
-      if (data?.type === 'kidlisp-mod' && member.seat >= 0) void builders.requestKidlisp(ws, key, owner, data);
+      // Sharper or chunkier: change a screen's pixel grid; no Aesel needed.
+      if (data?.type === 'wall-res' && member.seat >= 0 && ['north', 'west'].includes(data.face) && [-1, 1].includes(data.dir))
+        void store.stepWallRes(key, data.face, data.dir).then(() => builders.broadcast(key));
+      else if (data?.type === 'kidlisp-mod' && member.seat >= 0) void builders.requestKidlisp(ws, key, owner, data);
       if (data?.type === 'paint' && member.seat >= 0 && Number.isInteger(data.i) && Number.isInteger(data.j) && data.i >= 0 && data.i < 18 && data.j >= 0 && data.j < 18)
         void store.paintTile(key, data.i, data.j).then(() => builders.broadcast(key));
       if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))

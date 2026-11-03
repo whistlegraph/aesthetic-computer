@@ -14,6 +14,8 @@ const zero = () => ({
   use: false,
   dup: false,
   ddown: false,
+  dleft: false,
+  dright: false,
   camera: false,
   cancel: false,
   start: false,
@@ -81,6 +83,8 @@ export class Controller {
       result.use = edge(5);
       result.dup = edge(12);
       result.ddown = edge(13);
+      result.dleft = edge(14);
+      result.dright = edge(15);
       result.hold = !!buttons[0] && !changed && this.focused;
       result.cancel = edge(1);
       result.prompt = edge(2);

@@ -10,6 +10,24 @@ import { OBJECT_INSTRUCTIONS, parseGeometry } from './objects.mjs';
 const { WebSocket } = createRequire(
   new URL('../lith/package.json', import.meta.url),
 )('ws');
+// The relay answers 429 "busy" when too many turns run at once: wait and
+// try again with backoff (about a minute in all) rather than failing.
+async function relayTurn(options, onWait = () => {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await runPersonalTurn(options);
+    } catch (error) {
+      if (error.status !== 429 || attempt >= 7 || options.signal?.aborted) throw error;
+      const ms = Math.min(15000, 1500 * 2 ** attempt) * (0.75 + Math.random() * 0.5);
+      onWait(ms);
+      await new Promise((resolve, reject) => {
+        const t = setTimeout(resolve, ms);
+        options.signal?.addEventListener('abort', () => (clearTimeout(t), reject(options.signal.reason)), { once: true });
+      });
+    }
+  }
+}
+
 // KidLisp edits: rewrite a wall's 2D program as asked, keeping it KidLisp.
 const KIDLISP_INSTRUCTIONS = `You edit KidLisp programs for aesthetic.computer. KidLisp is a tiny Lisp for
 generative 2D art that redraws every frame: wipe, ink, line, box, circle, point, plot, spin, zoom,
@@ -19,7 +37,7 @@ what is asked. Return ONLY the new KidLisp source, no markdown, no commentary, u
 
 export async function generateKidlisp(job, signal, { session = new ACSession(), model = DEFAULT_CLAUDE_MODEL, onProgress = () => {} } = {}) {
   let source = '';
-  const result = await runPersonalTurn({
+  const result = await relayTurn({
     token: () => session.token(),
     model: `anthropic/${model}`,
     instructions: KIDLISP_INSTRUCTIONS,
@@ -31,7 +49,7 @@ export async function generateKidlisp(job, signal, { session = new ACSession(), 
       source += params.delta || '';
       onProgress({ phase: 'generating', code: source.slice(-900), geometry: null });
     },
-  });
+  }, () => onProgress({ phase: 'waiting', code: 'waiting for the relay...', geometry: null }));
   const text = String(result.text || source).replace(/^```\w*\s*/, '').replace(/\s*```\s*$/, '').trim();
   if (!text) throw Object.assign(Error('Empty KidLisp'), { buildReason: 'Aesel returned no KidLisp.' });
   return text.slice(0, 4000);
@@ -57,7 +75,7 @@ export async function generateObject(
       code: '',
       geometry: null,
     });
-    const result = await runPersonalTurn({
+    const result = await relayTurn({
       token: () => session.token(),
       model: `anthropic/${model}`,
       instructions: OBJECT_INSTRUCTIONS,
@@ -84,7 +102,7 @@ export async function generateObject(
           geometry: partialGeometry(source),
         });
       },
-    });
+    }, () => onProgress({ phase: 'waiting', code: 'waiting for the relay...', geometry: null }));
     try {
       onProgress({
         phase: 'validating',
