@@ -68,20 +68,21 @@ export const PALETTES = {
   day: {
     sky: 0xcfe3f5,
     far: 0xd3d8e2,
-    floor: 0xe4e7ee,
-    dot: 0xc9ceda,
-    wall: 0xeceef4,
-    wallSide: 0xdfe2ea,
-    ceiling: 0xf4f5f9,
+    // A pastel room: every surface its own tint, so the corners read.
+    floor: 0xe9dfcf,
+    dot: 0xc9b9a6,
+    walls: { north: 0xcfe0f2, south: 0xf4d8de, east: 0xd8ead0, west: 0xf4e8c6 },
+    wallSide: 0xb9bcc8,
+    ceiling: 0xf7f2ee,
     bands: [[-0.02, 0.04, 0xfff3dc], [0.04, 0.12, 0xeaf2fb], [0.12, 0.3, 0xcfe3f5], [0.3, 0.6, 0xb4d3f0], [0.6, 1.2, 0x9ec4e9]],
   },
   night: {
     sky: 0x141720,
     far: 0x1b1d26,
-    floor: 0x23262f,
-    dot: 0x343848,
-    wall: 0x2a2d3a,
-    wallSide: 0x22252f,
+    floor: 0x2b2733,
+    dot: 0x4a4258,
+    walls: { north: 0x27324c, south: 0x3d2a3e, east: 0x263b35, west: 0x3e3729 },
+    wallSide: 0x16181f,
     ceiling: 0x1c1e27,
     bands: [[-0.02, 0.04, 0x3a3150], [0.04, 0.12, 0x2c2a48], [0.12, 0.3, 0x1f2240], [0.3, 0.6, 0x171a30], [0.6, 1.2, 0x11131f]],
   },
@@ -147,10 +148,10 @@ export async function createView(canvas) {
         for (let z = -WORLD + 2; z < WORLD; z += 2)
           box(x, 0.006, z, 0.08, 0.01, 0.08, p.dot, p.dot, p.dot);
       const span = 2 * WORLD + 0.6, h = ROOM_HEIGHT, t = 0.3;
-      box(0, h / 2, -WORLD - t / 2, span, h, t, p.wall, p.wallSide, p.wall);
-      box(0, h / 2, WORLD + t / 2, span, h, t, p.wall, p.wallSide, p.wall);
-      box(-WORLD - t / 2, h / 2, 0, t, h, span, p.wall, p.wallSide, p.wall);
-      box(WORLD + t / 2, h / 2, 0, t, h, span, p.wall, p.wallSide, p.wall);
+      box(0, h / 2, -WORLD - t / 2, span, h, t, p.walls.south, p.wallSide, p.walls.south);
+      box(0, h / 2, WORLD + t / 2, span, h, t, p.walls.north, p.wallSide, p.walls.north);
+      box(-WORLD - t / 2, h / 2, 0, t, h, span, p.walls.west, p.wallSide, p.walls.west);
+      box(WORLD + t / 2, h / 2, 0, t, h, span, p.walls.east, p.wallSide, p.walls.east);
       box(0, h + t / 2, 0, span, t, span, p.ceiling, p.ceiling, p.ceiling);
     });
   // Sky: rings of colour around the viewer, deep overhead to a glow at the
