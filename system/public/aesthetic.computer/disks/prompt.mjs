@@ -5347,8 +5347,24 @@ function paint($) {
     $.system.prompt.input.enter.txt = langButtons.enter;
   }
 
+  // 🎯 The curtain is clear: the dool world (bios's underlay, lib/dool-sheet.mjs)
+  // shows through, with the buttons and the wordmark over it. The prompt's
+  // text input paints the palette background over its whole frame after
+  // this, so the palette goes clear with the curtain; and the glaze canvas is
+  // opaque, so in dark mode it rests while the curtain is clear.
+  const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
+    !$.system.prompt.input.text &&
+    ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
+  if (glazeWanted && glazeOn === curtainClear) {
+    glazeOn = !curtainClear;
+    $.glaze({ on: glazeOn });
+  }
+
   // 🅰️ Paint below the prompt || scheme.
-  if ($.store["painting"]) {
+  if (curtainClear) {
+    scheme.dark.background[3] = scheme.light.background[3] = 0;
+    $.wipe(0, 0, 0, 0);
+  } else if ($.store["painting"]) {
     $.wipe(pal.background);
     $.system.nopaint.present($); // Render the painting.
     // Override pal if available from nopaint
@@ -5364,21 +5380,8 @@ function paint($) {
     scheme.poe.dark.background[3] = 176;
     scheme.poe.light.background[3] = 190;
   } else {
-    // 🎯 The curtain is clear: the dool world (bios's underlay, lib/dool-sheet.mjs)
-    // shows through, with the buttons and the wordmark over it. The glaze
-    // canvas is opaque, so in dark mode it rests while the curtain is clear.
-    const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
-      !$.system.prompt.input.text &&
-      ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
-    // The prompt's text input paints the palette background over its whole
-    // frame after this, so the palette itself goes clear with the curtain.
-    scheme.dark.background[3] = scheme.light.background[3] = curtainClear ? 0 : 255;
-    if (curtainClear) $.wipe(0, 0, 0, 0);
-    else $.wipe(pal.background);
-    if (glazeWanted && glazeOn === curtainClear) {
-      glazeOn = !curtainClear;
-      $.glaze({ on: glazeOn });
-    }
+    scheme.dark.background[3] = scheme.light.background[3] = 255;
+    $.wipe(pal.background);
   }
 
   $.layer(1); // 🅱️ And above it...

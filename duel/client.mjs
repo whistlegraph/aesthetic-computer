@@ -816,8 +816,14 @@ document.addEventListener('keydown', (e) => {
     else chalkMode = null;
     return;
   }
-  // Hosted, with nothing open and the mouse already free (the Escape that
-  // released it does not count), Escape brings the prompt's paper back.
+  // Hosted, Escape first frees the mouse (the browser usually keeps that
+  // press for itself); then, with nothing open and the mouse already free,
+  // Escape brings the prompt's paper back.
+  if (hosted && e.code === 'Escape' && !e.repeat && locked()) {
+    document.exitPointerLock();
+    unlockedAt = performance.now();
+    return;
+  }
   if (hosted && e.code === 'Escape' && !e.repeat && !prompt.open && !locked() && performance.now() - unlockedAt > 400) {
     e.preventDefault();
     leave();
@@ -1304,6 +1310,7 @@ function step(now) {
     locked: locked(),
     legend: sheetOpen && legendShown(),
     corner: sheetOpen ? 'dool' : null,
+    bare: !sheetOpen,
     held: {
       keys: [...keys],
       pad: [

@@ -496,6 +496,7 @@ export async function createView(canvas) {
     legend = false,
     held = {},
     corner = null,
+    bare = false, // Behind the prompt's curtain: no panel, hint or legend.
   } = {}) {
     if (lost) {
       location.reload();
@@ -865,7 +866,9 @@ export async function createView(canvas) {
           : null;
       // The legend only joins the plain hint, never a panel.
       const showLegend = legend && !spectator && !wallCode && !prompt.open && !building;
-      const rows = wallCode
+      const rows = bare
+        ? []
+        : wallCode
         ? [
             [
               { text: `$${focusObject.code}`, color: THEME.verb },
