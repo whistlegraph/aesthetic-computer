@@ -163,6 +163,7 @@ function hide() {
   toward = "home";
   goal = 0;
   frame.style.pointerEvents = "none";
+  frame.style.zIndex = "-1"; // Back beneath the stage for the paper to cover.
   run();
 }
 
@@ -171,6 +172,9 @@ function opened() {
   write();
   pausePrompt();
   enterHistory();
+  // An underlay sits beneath the body for hit testing, so the open world
+  // comes forward to take clicks; the stage is off screen anyway.
+  frame.style.zIndex = "1000";
   frame.style.pointerEvents = "auto";
   frame.contentWindow?.focus();
   meterGuest();

@@ -5370,6 +5370,9 @@ function paint($) {
     const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
       !$.system.prompt.input.text &&
       ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
+    // The prompt's text input paints the palette background over its whole
+    // frame after this, so the palette itself goes clear with the curtain.
+    scheme.dark.background[3] = scheme.light.background[3] = curtainClear ? 0 : 255;
     if (curtainClear) $.wipe(0, 0, 0, 0);
     else $.wipe(pal.background);
     if (glazeWanted && glazeOn === curtainClear) {
