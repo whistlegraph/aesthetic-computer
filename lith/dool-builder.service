@@ -1,0 +1,27 @@
+[Unit]
+Description=dool — Aesel builder beside lith's /dool server
+After=network.target lith.service
+# The builder signs in to the Aesel relay as the operator's AC account. Until
+# that login and the shared secret are seeded
+# (lith/scripts/dool-builder-setup.fish) it stays down instead of flapping.
+ConditionPathExists=/var/lib/dool-builder/.ac-token
+ConditionPathExists=/etc/aesthetic-computer/dool.env
+
+[Service]
+Type=simple
+User=dool-builder
+WorkingDirectory=/opt/ac/duel
+# DOOL_BUILDER_TOKEN: the same secret lith's dool server checks. Kept out of
+# system/.env, which every deploy replaces from the vault.
+EnvironmentFile=/etc/aesthetic-computer/dool.env
+Environment=HOME=/var/lib/dool-builder
+Environment=DOOL_SERVER_URL=ws://127.0.0.1:8888/dool/builder
+ExecStart=/usr/bin/node aesel.mjs
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
