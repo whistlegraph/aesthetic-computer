@@ -1,96 +1,14 @@
 #!/usr/bin/env node
 // Read-only: run from /opt/ac/system with node --env-file=.env.
-// No Paint → notepaint: clicks on No Paint's notepaint link, then what
-// notepaint visits arriving from nopaint.art went on to do. Each half is its
-// own aggregate; the two sites' visit IDs are never joined.
+// No Paint: classic saves, teacher notes, the sticker split and the notepaint
+// funnel. The report itself lives in nopaint.mjs (shared with the analytics MCP).
 import { connect, closePool } from "../../system/backend/database.mjs";
+import { nopaintReport, nopaintReportOptions } from "./nopaint.mjs";
 
 const args = process.argv.slice(2);
 const value = name => args[args.indexOf(name) + 1];
-const hours = args.includes("--hours") ? Number(value("--hours")) : 24;
-const end = args.includes("--end") ? new Date(value("--end")) : new Date();
-if (!Number.isFinite(hours) || hours <= 0 || hours > 840 || !Number.isFinite(+end))
-  throw new Error("Use --hours 1..840 and optional --end ISO-date");
-const start = new Date(+end - hours * 3600000);
-const count = field => ({ $sum: { $cond: [`$${field}`, 1, 0] } });
-const both = (a, b) => ({ $sum: { $cond: [{ $and: [`$${a}`, `$${b}`] }, 1, 0] } });
-const NOTEPAINT_ACTIONS = ["note_written", "paint_pressed", "paint_signin_asked", "paint_failed", "painting_rejected",
-  "canvas_interacted", "painting_edited", "painting_signed", "painting_saved", "piece_made",
-  "braincells_sheet_shown", "braincells_limit_reached", "braincells_checkout_opened", "braincells_purchased"];
+const options = nopaintReportOptions({ hours: args.includes("--hours") ? value("--hours") : 24,
+  end: args.includes("--end") ? value("--end") : undefined });
 const { db } = await connect();
-try {
-  const visits = db.collection("network-visits");
-  const clicks = await visits.aggregate([
-    { $match: { property: "nopaint.art", startedAt: { $gte: start, $lt: end }, linkVersion: 1 } },
-    { $group: { _id: { automated: "$automated" }, visitsWithLink: { $sum: 1 },
-      firstMeasuredVisit: { $min: "$startedAt" }, interacted: count("interacted"),
-      notepaintOpened: count("actions.notepaint_opened"),
-      // The sticker only shows once the title art is up; a visit that left
-      // before it (or never interacted) never saw it. Click-through counts
-      // only visits it was shown to.
-      adShown: count("actions.notepaint_ad_shown"),
-      openedAfterShown: both("actions.notepaint_ad_shown", "actions.notepaint_opened"),
-      // The aesthetic.computer arm of the sticker split (from 2026-11-04).
-      acAdShown: count("actions.ac_ad_shown"), acOpened: count("actions.ac_opened"),
-      acOpenedAfterShown: both("actions.ac_ad_shown", "actions.ac_opened") } },
-  ], { maxTimeMS: 10000 }).toArray();
-  // Arrivals on each arm's destination with nopaint.art as referrer. Arrival
-  // counts are a floor; the two sites' visits are never joined.
-  const FROM_NOPAINT = { $in: ["$referrerHost", ["nopaint.art", "www.nopaint.art"]] };
-  const destinations = await visits.aggregate([
-    { $match: { property: { $in: ["notepaint.art", "aesthetic.computer"] }, automated: false,
-      startedAt: { $gte: start, $lt: end }, $expr: FROM_NOPAINT } },
-    { $group: { _id: "$property", arrivals: { $sum: 1 }, interacted: count("interacted"), engaged: count("engaged"),
-      stayed60: { $sum: { $cond: [{ $and: ["$interacted", { $gte: ["$activeSeconds", 60] }] }, 1, 0] } },
-      canvas_interacted: count("actions.canvas_interacted"), painting_edited: count("actions.painting_edited"),
-      painting_saved: count("actions.painting_saved") } },
-  ], { maxTimeMS: 10000 }).toArray();
-  const arrivals = await visits.aggregate([
-    { $match: { property: "notepaint.art", startedAt: { $gte: start, $lt: end } } },
-    { $group: { _id: { automated: "$automated", from: { $switch: { branches: [
-        { case: { $in: ["$referrerHost", ["nopaint.art", "www.nopaint.art"]] }, then: "nopaint.art" },
-        { case: { $in: ["$referrerHost", ["notepaint.art", "www.notepaint.art"]] }, then: "notepaint.art (itself)" },
-        { case: { $eq: [{ $ifNull: ["$referrerHost", null] }, null] }, then: "direct or unknown" },
-      ], default: "elsewhere" } } },
-      visits: { $sum: 1 }, interacted: count("interacted"), engaged: count("engaged"),
-      ...Object.fromEntries(NOTEPAINT_ACTIONS.map(action => [action, count(`actions.${action}`)])) } },
-    { $sort: { visits: -1 } },
-  ], { maxTimeMS: 10000 }).toArray();
-  const human = clicks.find(row => !row._id.automated);
-  const fromNopaint = arrivals.find(row => !row._id.automated && row._id.from === "nopaint.art");
-  // The Braincells funnel across every human notepaint arrival. The purchase
-  // flag is set only after AC confirmed the payment with Stripe and granted it.
-  const funnel = Object.fromEntries(["visits", "braincells_sheet_shown", "braincells_limit_reached",
-    "braincells_checkout_opened", "braincells_purchased"].map(key => [key,
-    arrivals.filter(row => !row._id.automated).reduce((sum, row) => sum + (row[key] || 0), 0)]));
-  const rate = (n, d) => d ? +(100 * n / d).toFixed(2) : null;
-  const arrived = property => destinations.find(row => row._id === property) || {};
-  // One row per arm: shown → opened → arrived → engaged → made something.
-  // "Made" is the destination's own act: an accepted paint on notepaint, a
-  // touch on AC's canvas. Compare engaged per shown for the cleanest read.
-  const arms = ["notepaint", "ac"].map(arm => {
-    const shown = arm === "ac" ? human?.acAdShown : human?.adShown;
-    const opened = arm === "ac" ? human?.acOpenedAfterShown : human?.openedAfterShown;
-    const dest = arrived(arm === "ac" ? "aesthetic.computer" : "notepaint.art");
-    const made = arm === "ac" ? dest.canvas_interacted : dest.painting_edited;
-    return { arm, shown: shown || 0, opened: opened || 0, clickThroughPercent: rate(opened, shown),
-      arrivals: dest.arrivals || 0, engaged: dest.engaged || 0, stayed60: dest.stayed60 || 0, made: made || 0,
-      engagedPerShownPercent: rate(dest.engaged, shown), madePerShownPercent: rate(made, shown) };
-  });
-  // Where notepaint visitors from nopaint.art stop, in the order the studio asks.
-  const steps = ["visits", "interacted", "note_written", "paint_pressed", "paint_signin_asked",
-    "braincells_limit_reached", "paint_failed", "painting_edited", "painting_rejected", "painting_signed", "painting_saved", "piece_made"];
-  const notepaintFunnel = Object.fromEntries(steps.map(key => [key, fromNopaint?.[key] || 0]));
-  console.log(JSON.stringify({ start, end,
-    unit: "page visits, not unique people; actions are once per visit",
-    note: "Click-through is visits that opened notepaint among visits the sticker was shown to (notepaint_ad_shown, recorded at the visit's first interaction); visits before that action shipped are excluded, not zero. The second rate keeps the older denominator, every visit whose page carried the link. Arrivals group notepaint visits by referrer, which privacy settings can omit, so nopaint.art arrivals are a floor. A notepaint visit spans in-page navigation, so its actions belong to that arrival. The halves are separate aggregates, not joined journeys.",
-    nopaintClickThroughPercent: rate(human?.openedAfterShown, human?.adShown),
-    nopaintClickThroughOfAllLinkVisitsPercent: rate(human?.notepaintOpened, human?.visitsWithLink),
-    fromNopaintMakingPercent: rate(fromNopaint?.painting_edited, fromNopaint?.visits),
-    stickerSplit: arms,
-    notepaintFunnelFromNopaint: notepaintFunnel,
-    braincellsFunnel: funnel,
-    nopaint: clicks,
-    notepaintArrivals: arrivals,
-  }, null, 2));
-} finally { await closePool(); }
+try { console.log(JSON.stringify(await nopaintReport(db, options), null, 2)); }
+finally { await closePool(); }

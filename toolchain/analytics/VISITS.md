@@ -327,6 +327,18 @@ On Lith, from `/opt/ac/system`:
 node --env-file=.env ../toolchain/analytics/nopaint-report.mjs --hours 24
 ```
 
+The same report counts what visits cannot see. `classicSaves` reads
+`nopaint-classic-paintings`, where the 2021 Construct game's Done button saves
+(via server.nopaint.art): total and per UTC day by `savedAt`, first and last
+save, codes reserved in the window, and `reservedUnsaved` (reserved, never
+saved; TTL removes these after a day, so older windows undercount them). It
+never returns codes or images. `teacherNotes` reads `nopaint-teacher-notes`:
+a count with each note's day, school and language, plus the form's
+`teacher_note_opened`/`teacher_note_sent` visits. Names, emails and messages
+stay out; they arrive by mail. The logic lives in `nopaint.mjs`; the analytics
+MCP serves it as `nopaint_report` and folds it (minus raw rows) into
+`network_report`.
+
 ### Account activity and referrers
 
 `POST /api/account-activity` verifies a bearer token through the existing

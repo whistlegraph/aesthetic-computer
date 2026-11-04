@@ -21,6 +21,7 @@ import { recognitionReportOptions } from "../analytics/network-recognition.mjs";
 import { vaultPath } from "../vault/credentials.mjs";
 import { tezosRevenue } from "../analytics/tezos-revenue.mjs";
 import { socialReport } from "../analytics/social-report.mjs";
+import { nopaintReportOptions, nopaintSummary } from "../analytics/nopaint.mjs";
 import { searchConsole, sitemaps, analytics as googleAnalytics, searchSummary, SEARCH_SITES } from "../analytics/google-search.mjs";
 import { fileURLToPath } from "node:url";
 
@@ -137,6 +138,20 @@ async function braincellsReport({ hours = 24, limit = 25 } = {}) {
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
 }
 
+// 🎨 No Paint
+
+// Classic Construct saves, teacher notes, the sticker split and the notepaint
+// funnel, folded on lith by toolchain/analytics/nopaint-report.mjs.
+async function nopaintReport({ hours = 24, end } = {}) {
+  hours = Number(hours);
+  if (end !== undefined && !/^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(end)) throw new Error("end must be an ISO UTC date");
+  nopaintReportOptions({ hours, end }); // Validate before making an SSH call.
+  const remote = `cd /opt/ac/system && node --env-file=.env ../toolchain/analytics/nopaint-report.mjs --hours ${hours}${end ? ` --end ${end}` : ""}`;
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 90_000, maxBuffer: 8 * 1024 * 1024 });
+  return JSON.parse(stdout.slice(stdout.indexOf("{")));
+}
+
 // 🛰️ The whole network at once: traffic per site, where it came from, and the
 // Braincell economy. This is the report to run when someone asks how the
 // Aesthetic network is doing. Each part fails on its own without sinking the rest.
@@ -152,11 +167,12 @@ async function networkReport({ hours = 24, scope = "all" } = {}) {
   // Apple's numbers lag a day and arrive sparse, so the app parts read at
   // least a week regardless of the visit window.
   const appDays = Math.min(Math.max(days, 7), 35);
-  const [visits, referrers, pieces, braincells, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
+  const [visits, referrers, pieces, braincells, nopaint, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
     part(visitsReport({ hours, scope })),
     part(journeyReport("referrers", { hours, scope, limit: 25 })),
     part(journeyReport("pieces", { hours, scope, limit: 25 })),
     part(braincellsReport({ hours, limit: 15 })),
+    part(nopaintReport({ hours }).then(nopaintSummary)),
     part(tezosRevenue({ hours: checkedHours(hours) })),
     part(socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
     part(searchSummary({ days: Math.max(days, 7) })),
@@ -165,7 +181,7 @@ async function networkReport({ hours = 24, scope = "all" } = {}) {
     part(iosUsage({ days: appDays })),
     part(appReview()),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, tezos, social, search, googleAnalytics: ga4,
+  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, nopaint, tezos, social, search, googleAnalytics: ga4,
     apps: { days: appDays, review, appStore: appStoreTotals(appStore), iosUsage: ios.unavailable ? ios : iosTotals(ios) } };
 }
 
@@ -390,11 +406,20 @@ const TOOLS = [
   })),
   {
     name: "network_report",
-    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain), Google Analytics sessions by source, and the apps (App Store review queue, App Store downloads per app, AC iOS active installs). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), No Paint (classic game saves per UTC day, teacher notes, the notepaint/AC sticker split and notepaint funnel), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain), Google Analytics sessions by source, and the apps (App Store review queue, App Store downloads per app, AC iOS active installs). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Visit scope; default all" },
+    } },
+  },
+  {
+    name: "nopaint_report",
+    description: "No Paint (nopaint.art) in one read: classic saves from the 2021 Construct game's Done button (total, per UTC day, first/last savedAt, codes reserved and never saved; counts only, never codes or images; these saves are invisible to the visit collector), teacher notes (count, school and language per note, form opened/sent; no names, emails or messages), the 50/50 sticker split (notepaint vs aesthetic.computer: shown, opened, arrivals, engaged, made), the notepaint funnel for arrivals from No Paint, and the Braincells funnel on notepaint. Page visits, not unique people. Read-only.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
+      end: { type: "string", description: "Optional ISO UTC end, e.g. 2026-11-04T12:00:00Z" },
     } },
   },
   {
@@ -518,6 +543,7 @@ const TOOLS = [
 async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
     : name === "braincells_report" ? await braincellsReport(args)
+    : name === "nopaint_report" ? await nopaintReport(args)
     : name === "network_report" ? await networkReport(args)
     : name === "search_console" ? { ...(await searchConsole(args)), ...(args.sitemaps ? { sitemaps: await sitemaps({ site: args.site }) } : {}) }
     : name === "google_analytics" ? await googleAnalytics(args)
