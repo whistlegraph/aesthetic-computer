@@ -78,7 +78,7 @@ export const PALETTES = {
   },
   night: {
     sky: 0x0f1118, // Solid: no bands (2026-11-03).
-    far: 0x1b1d26,
+    far: 0x0f1118, // The ground beyond the walls is the sky's colour: no horizon line.
     floor: 0x2a2632,
     dot: 0x4e4360,
     walls: { north: 0x26304a, south: 0x3c2742, east: 0x233b35, west: 0x3d3527 }, // Darker pastels.
