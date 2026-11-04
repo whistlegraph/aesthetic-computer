@@ -619,7 +619,10 @@ export async function createView(canvas) {
       const height = ((WORLD + 0.3) * (1 / tan) * canvas.height) / (2 * 7);
       const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
-      const cornerX = (canvas.width - 22 * px) / canvas.width * 2 - 1, cornerY = 1 - (canvas.height - 22 * px) / canvas.height * 2;
+      // The crosshair's centre sits 22 prompt pixels in from the corner; on
+      // the host's grid a buffer pixel is a prompt pixel.
+      const inset = grid ? 22 : 22 * px;
+      const cornerX = (canvas.width - inset) / canvas.width * 2 - 1, cornerY = 1 - (canvas.height - inset) / canvas.height * 2;
       const k0 = 1 - orbit, e0 = k0 * k0 * (3 - 2 * k0);
       projector.shiftX = cornerX * (1 - e0);
       projector.shiftY = cornerY * (1 - e0);
