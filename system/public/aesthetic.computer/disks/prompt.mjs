@@ -7426,6 +7426,8 @@ function paint($) {
     const profileScheme = $.dark ? scheme.dark.profile : scheme.light.profile;
     const profileRollover = $.dark ? scheme.dark.profileRollover : scheme.light.profileRollover;
     const bareHandle = (base) => [[0, 0, 0, 0], [0, 0, 0, 0], base[2]];
+    // Held down, the outline alone comes back around the letters.
+    const heldHandle = (base) => [[0, 0, 0, 0], base[1], base[2]];
     if (profileAction === "profile") {
       // A shadow under every letter for contrast against the curtain: the
       // label's own colour codes, each darkened to a quarter, drawn a pixel
@@ -7434,7 +7436,7 @@ function paint($) {
         const shadow = profile.txt.replace(/\\(\d+),(\d+),(\d+)\\/g, (m, r, g, b) => `\\${r >> 2},${g >> 2},${b >> 2}\\`);
         $.ink(profileScheme[2].map((c, i) => (i < 3 ? c >> 2 : c))).write(shadow, { x: profile.btn.box.x + 5, y: profile.btn.box.y + 5 });
       }
-      profile?.paint($, bareHandle(profileScheme), bareHandle(profileRollover), undefined, bareHandle(profileRollover));
+      profile?.paint($, bareHandle(profileScheme), heldHandle(profileRollover), undefined, bareHandle(profileRollover));
     } else {
       profile?.paint(
         $,
