@@ -27,6 +27,8 @@ const SERVICES = {
     variants: [{ auth: "api-key", keys: ["OPENAI_API_KEY"] }] },
   fal: { files: ["fal.env", "fal/.env", ".devcontainer/envs/devcontainer.env"],
     variants: [{ auth: "api-key", keys: ["FAL_KEY"] }] },
+  openrouter: { files: ["openrouter.env", "openrouter/.env", ".devcontainer/envs/devcontainer.env"],
+    variants: [{ auth: "api-key", keys: ["OPENROUTER_API_KEY"] }] },
   exa: { files: ["mcp/exa.env", "exa/.env"], envFile: "AC_WEB_SEARCH_ENV", localFile: ".config/ac-web-search/exa.env",
     variants: [{ auth: "api-key", keys: ["EXA_API_KEY"] }] },
   slack: { files: ["mcp/slack.env"], envFile: "SLACK_MCP_ENV",

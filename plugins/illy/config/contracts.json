@@ -3,7 +3,7 @@
     "physical-accuracy": {
       "description": "Required physical and anatomical integrity for every illy.",
       "prompt": [
-        "PHYSICAL ACCURACY CONTRACT — REQUIRED, NOT OPTIONAL.",
+        "PHYSICAL ACCURACY CONTRACT \u2014 REQUIRED, NOT OPTIONAL.",
         "Render one coherent physical state. Preserve exact object and character counts, identities, topology, and scale; no duplicates, fusions, substitutions, or parts appearing twice.",
         "Make every support and contact legible: feet bear weight on the stated surface, wheels meet the ground, hands close around held objects, mounted objects remain attached at their brackets, and contact shadows agree with those connections.",
         "Respect gravity, inertia, balance, joint limits, load paths, and plausible weight distribution. Limbs bend correctly; grips, stance, and object orientation must be mechanically usable.",
@@ -15,13 +15,23 @@
     "extreme-physical-beats": {
       "description": "Motion-ready keyframe contract for action, POV, transformation, and multi-beat sequences.",
       "prompt": [
-        "EXTREME PHYSICAL BEAT CONTRACT — MOTION-READY SOURCE FRAME.",
+        "EXTREME PHYSICAL BEAT CONTRACT \u2014 MOTION-READY SOURCE FRAME.",
         "The frame must be a valid start or end state for animation, not merely an attractive action pose. Show the support polygon, contact points, direction of travel, aim or force line, and available clearance needed by the next beat.",
         "Cause must precede effect: trigger before recoil, impact before transformation, push before coast, loss of support before falling. Do not show an effect that has no visible source or an outcome that has already happened in a pre-action keyframe.",
         "Preserve state across the implied cut: the same hands keep the same prop, the same feet stay on the same support unless a named beat moves them, mounted objects remain anchored until the named transformation, and completed changes do not reset.",
         "For moving platforms, show mechanically credible stance, deck or vehicle contact, wheel or ground contact, and balance against acceleration. For recoil or impact, show the equal-and-opposite body or support response without teleportation.",
         "For POV shots, place the camera at the declared physical viewpoint and show only geometry that viewpoint can see. For target-side shots, keep the target mount, incoming force direction, and background actor positions mutually consistent.",
         "Leave every required physical relationship visible enough to inspect at full size and at a 10%-scale preview. A keyframe fails if mechanics require explanation, inference through blur, or a later render to repair them."
+      ]
+    },
+    "garment-fidelity": {
+      "description": "Cleanup of a real garment photo: the reference garment is the product and must survive unchanged.",
+      "prompt": [
+        "GARMENT FIDELITY CONTRACT \u2014 THE REFERENCE GARMENT IS THE PRODUCT.",
+        "Reproduce the exact garment in the reference: same cut, silhouette, drape, fabric weave, colour, seams, lapels, pockets, flaps, cuffs, and every button, pin, tab, and hardware piece at its original position and count. Do not add, remove, straighten, or tidy details.",
+        "Allowed changes only: lint, dust, stray threads, and accidental creases removed; even studio lighting; perspective and lens distortion corrected; background, stand, and hanger cleaned or replaced as the prompt says.",
+        "Keep the garment's own wear and construction marks; distressing, raw edges, and deliberate asymmetry are design, not damage.",
+        "No model, mannequin, body, text, logo, watermark, or props unless the prompt names them."
       ]
     }
   }

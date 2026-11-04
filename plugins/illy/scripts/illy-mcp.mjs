@@ -2,6 +2,7 @@
 // illy-mcp.mjs — provider-neutral illustration broker for AC marketing + pop.
 // Node builtins only; JSON-RPC/MCP over newline-delimited stdio.
 
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync,
@@ -20,7 +21,7 @@ const CONTRACTS = JSON.parse(readFileSync(join(ROOT, "config/contracts.json"), "
 const IMAGE_RE = /\.(png|jpe?g|webp|gif)$/i;
 
 function envValue(name) {
-  const service = { OPENAI_API_KEY: "openai", FAL_KEY: "fal" }[name];
+  const service = { OPENAI_API_KEY: "openai", FAL_KEY: "fal", OPENROUTER_API_KEY: "openrouter" }[name];
   return service ? resolveCredentials(service).values?.[name] || null : null;
 }
 
@@ -121,7 +122,10 @@ function buildPlan(args = {}) {
   const targetDir = resolve(args.targetDir || process.cwd());
   if (!existsSync(targetDir) || !statSync(targetDir).isDirectory()) throw new Error(`targetDir not found: ${targetDir}`);
   const promptPath = args.promptFile ? resolvePath(targetDir, args.promptFile) : firstPromptFile(targetDir, pipeline);
-  const creativePrompt = String(args.prompt || (promptPath && readFileSync(promptPath, "utf8")) || "").trim();
+  const briefPrompt = String(args.prompt || (promptPath && readFileSync(promptPath, "utf8")) || "").trim();
+  // Optional research brief (e.g. fashion research.md) rides ahead of the prompt.
+  const researchPath = pipeline.researchFile && existsSync(join(targetDir, pipeline.researchFile)) ? join(targetDir, pipeline.researchFile) : null;
+  const creativePrompt = researchPath && briefPrompt ? `${readFileSync(researchPath, "utf8").trim()}\n\n${briefPrompt}` : briefPrompt;
   if (!creativePrompt) throw new Error("provide prompt or a target directory containing the pipeline prompt file");
   const contracts = resolveContracts(pipeline, args.contracts || []);
   const prompt = contracts.prompt ? `${creativePrompt}\n\n${contracts.prompt}` : creativePrompt;
@@ -137,10 +141,10 @@ function buildPlan(args = {}) {
   const quality = args.quality || pipeline.defaults?.quality || "high";
   return {
     pipeline: pipelineName, pipelineFile, description: pipeline.description, targetDir,
-    creativePrompt, prompt, promptPath, contracts: contracts.ids,
+    creativePrompt, prompt, promptPath, researchPath, contracts: contracts.ids,
     promptHash: createHash("sha256").update(prompt).digest("hex"), refs, mode,
     provider: picked.provider, model: picked.model, size, quality, slug, variant, output,
-    stages: pipeline.stages, force: args.force === true,
+    stages: pipeline.stages, frame: pipeline.frame || null, force: args.force === true,
   };
 }
 
@@ -235,6 +239,40 @@ async function falGenerate(plan, destination) {
   return { requestId: queued.request_id || null, seed: result.seed ?? null };
 }
 
+async function openrouterGenerate(plan, destination) {
+  const key = envValue("OPENROUTER_API_KEY");
+  const [width, height] = plan.size.split("x").map(Number);
+  const content = [
+    { type: "text", text: `${plan.prompt}\n\nOutput one image, ${width}x${height} (${width > height ? "landscape" : width < height ? "portrait" : "square"}).` },
+    ...plan.refs.map((ref) => ({ type: "image_url", image_url: { url: dataUri(ref) } })),
+  ];
+  const res = await fetchRetry("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: plan.model, modalities: ["image", "text"], messages: [{ role: "user", content }] }),
+    signal: AbortSignal.timeout(600000),
+  });
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text()).slice(0, 600)}`);
+  const result = await res.json();
+  const url = result.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (!url) throw new Error(`OpenRouter returned no image: ${JSON.stringify(result).slice(0, 600)}`);
+  const data = url.startsWith("data:") ? Buffer.from(url.split(",")[1], "base64") : Buffer.from(await (await fetch(url)).arrayBuffer());
+  writeFileSync(destination, data);
+  return { requestId: result.id || null, usage: result.usage || null };
+}
+
+const ADAPTERS = { openai: openaiGenerate, fal: falGenerate, openrouter: openrouterGenerate };
+
+// Deterministic post stage: cover-crop the render to the pipeline's frame
+// (e.g. 1080x1350 for an Instagram 4:5 post) beside the master.
+function frameOutput(output, frame) {
+  const framed = join(dirname(output), `${basename(output, extname(output))}-${frame.suffix || `${frame.width}x${frame.height}`}.jpg`);
+  const { width: w, height: h } = frame;
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", output,
+    "-vf", `scale=${w}:${h}:force_original_aspect_ratio=increase:flags=lanczos,crop=${w}:${h}`,
+    "-q:v", "2", framed]);
+  return framed;
+}
+
 function archiveExisting(output) {
   if (!existsSync(output)) return null;
   const dir = join(dirname(output), "archive");
@@ -252,7 +290,7 @@ function writeProvenance(plan, extra = {}) {
   const meta = {
     schema: "illy/v1", createdAt: new Date().toISOString(), pipeline: plan.pipeline,
     provider: plan.provider, model: plan.model, mode: plan.mode, size: plan.size,
-    quality: plan.quality, output: plan.output, promptPath: plan.promptPath,
+    quality: plan.quality, output: plan.output, promptPath: plan.promptPath, researchPath: plan.researchPath || null,
     promptHash: plan.promptHash, references: plan.refs, contracts: plan.contracts || [],
     stages: plan.stages, ...extra,
   };
@@ -267,10 +305,11 @@ async function generate(args) {
   const pending = `${plan.output}.pending${extname(plan.output) || ".png"}`;
   if (existsSync(pending)) unlinkSync(pending);
   const started = Date.now();
-  const result = plan.provider === "openai" ? await openaiGenerate(plan, pending) : await falGenerate(plan, pending);
+  const result = await ADAPTERS[plan.provider](plan, pending);
   const archived = archiveExisting(plan.output);
   renameSync(pending, plan.output);
-  const meta = writeProvenance(plan, { durationSeconds: (Date.now() - started) / 1000, archived, ...result });
+  const framed = plan.frame ? frameOutput(plan.output, plan.frame) : null;
+  const meta = writeProvenance(plan, { durationSeconds: (Date.now() - started) / 1000, archived, framed, ...result });
   return { status: "generated", plan, meta };
 }
 
@@ -297,7 +336,7 @@ const commonProperties = {
   pipelineFile: { type: "string", description: "Optional JSON file containing {pipeline:{...}} or {pipelines:{name:{...}}}." }, targetDir: { type: "string" },
   prompt: { type: "string" }, promptFile: { type: "string" }, references: { type: "array", items: { type: "string" } },
   contracts: { type: "array", items: { type: "string" }, description: `Additional prompt contracts: ${Object.keys(CONTRACTS).join(", ")}. Pipeline contracts always apply.` },
-  provider: { type: "string", description: "auto, openai, or fal" }, model: { type: "string" }, output: { type: "string" },
+  provider: { type: "string", description: "auto, openai, fal, or openrouter" }, model: { type: "string" }, output: { type: "string" },
   slug: { type: "string" }, variant: { type: "string" }, size: { type: "string" }, quality: { type: "string" }, force: { type: "boolean" },
 };
 
@@ -306,7 +345,7 @@ const TOOLS = [
   { name: "illy_pipelines", description: "List the marketing/pop illy pipeline presets and their stages.", inputSchema: { type: "object", properties: {} } },
   { name: "illy_contracts", description: "List shared prompt contracts enforced by Illy pipelines, including physical and extreme motion-ready requirements.", inputSchema: { type: "object", properties: {} } },
   { name: "illy_plan", description: "Resolve an illy request into a non-billing execution plan: creative prompt, applied contracts, effective prompt, refs, provider/model, stages, and output.", inputSchema: { type: "object", properties: commonProperties } },
-  { name: "illy_generate", description: "Run a paid OpenAI or fal.ai illy pipeline. Existing outputs are cached unless force=true; successful rerolls archive the prior take and write provenance.", inputSchema: { type: "object", properties: commonProperties } },
+  { name: "illy_generate", description: "Run a paid OpenAI, fal.ai, or OpenRouter illy pipeline. Existing outputs are cached unless force=true; successful rerolls archive the prior take and write provenance.", inputSchema: { type: "object", properties: commonProperties } },
   { name: "illy_record", description: "Write illy provenance for an image generated outside the MCP, including a Codex built-in image-tool render.", inputSchema: { type: "object", properties: { output: { type: "string" }, prompt: { type: "string" }, pipeline: { type: "string" }, provider: { type: "string" }, model: { type: "string" }, promptFile: { type: "string" }, references: { type: "array", items: { type: "string" } }, contracts: { type: "array", items: { type: "string" } }, size: { type: "string" }, quality: { type: "string" }, note: { type: "string" } }, required: ["output", "prompt"] } },
 ];
 

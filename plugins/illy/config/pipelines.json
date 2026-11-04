@@ -26,6 +26,16 @@
       "outputTemplate": "out/{slug}-yt-sec-{variant}.png",
       "defaults": { "variant": "0-panel", "size": "1536x1024", "quality": "high" },
       "stages": ["resolve-inputs", "apply-contracts", "select-provider", "generate", "archive", "provenance", "motion-ready"]
+    },
+    "fashion": {
+      "description": "Garment photo cleanup: refs/ input shots + research.md garment ID + cleanup-prompt.txt -> gens/<variant>.png plus a 1080x1350 Instagram frame.",
+      "providerOrder": ["openai", "fal", "openrouter"],
+      "modelByProvider": { "openai": "gpt-image-2.5-sunburst", "fal": "google/nano-banana-2.1/edit", "openrouter": "google/gemini-3-pro-image-preview" },
+      "contracts": ["physical-accuracy", "garment-fidelity"],
+      "promptFile": "cleanup-prompt.txt", "researchFile": "research.md", "refsDir": "refs", "outputTemplate": "gens/{variant}.png",
+      "frame": { "width": 1080, "height": 1350, "suffix": "ig-4x5" },
+      "defaults": { "variant": "v1", "size": "1024x1536", "quality": "high" },
+      "stages": ["resolve-inputs", "apply-contracts", "select-provider", "generate", "archive", "provenance", "frame"]
     }
   }
 }

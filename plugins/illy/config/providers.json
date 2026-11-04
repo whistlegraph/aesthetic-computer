@@ -213,6 +213,60 @@
             "size": "image_size"
           },
           "output": "images.0.url"
+        },
+        "fal-ai/nano-banana/edit": {
+          "modes": [
+            "edit"
+          ],
+          "maxReferences": 4,
+          "input": {
+            "prompt": "prompt",
+            "references": "image_urls"
+          },
+          "output": "images.0.url"
+        },
+        "fal-ai/flux-pro/kontext": {
+          "modes": [
+            "edit"
+          ],
+          "maxReferences": 1,
+          "input": {
+            "prompt": "prompt",
+            "reference": "image_url"
+          },
+          "output": "images.0.url"
+        },
+        "fal-ai/bytedance/seedream/v4/edit": {
+          "modes": [
+            "edit"
+          ],
+          "maxReferences": 4,
+          "input": {
+            "prompt": "prompt",
+            "references": "image_urls",
+            "size": "image_size"
+          },
+          "output": "images.0.url"
+        }
+      }
+    },
+    "openrouter": {
+      "label": "OpenRouter",
+      "credential": "OPENROUTER_API_KEY",
+      "models": {
+        "google/gemini-2.5-flash-image": {
+          "modes": [
+            "generate",
+            "edit"
+          ],
+          "maxReferences": 4
+        },
+        "google/gemini-3-pro-image-preview": {
+          "modes": [
+            "generate",
+            "edit"
+          ],
+          "maxReferences": 4
         }
       }
     }
