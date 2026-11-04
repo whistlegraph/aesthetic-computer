@@ -395,6 +395,22 @@ async function peekRoom() {
 }
 if (hosted) void peekRoom();
 
+// A read-only window into the aim, for end-to-end checks (?debug only).
+if (query.has('debug'))
+  window.doolDebug = () => ({
+    seat,
+    player: player ? { x: player.x, y: player.y, z: player.z } : null,
+    yaw,
+    pitch,
+    locked: locked(),
+    origin: view.aimOrigin(),
+    forward: view.aimForward(),
+    floorAim,
+    focus: focusObject?.id || null,
+    cursorAim,
+    canvas: { w: canvas.width, h: canvas.height, cw: canvas.clientWidth, ch: canvas.clientHeight },
+  });
+
 function connect() {
   const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
