@@ -399,6 +399,11 @@ const PAPER_MAP = {
     siteName: "ios-so-far-26-arxiv",
     title: "iOS So Far",
   },
+  "arxiv-who-is-painting": {
+    base: "who-is-painting",
+    siteName: "who-is-painting-26-arxiv",
+    title: "Who Is Painting",
+  },
   "arxiv-traffic": {
     base: "traffic",
     siteName: "aesthetic-network-traffic-26-arxiv",
@@ -630,6 +635,7 @@ const CATEGORIES = [
       "arxiv-archaeology",
       "arxiv-hand-and-loop",
       "arxiv-traffic",
+      "arxiv-who-is-painting",
       "arxiv-network-audit",
       "arxiv-diversity",
       "arxiv-open-schools",

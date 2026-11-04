@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "paper": "Who Is Painting",
+  "pdf": "who-is-painting.pdf",
+  "expectedFigures": 1,
+  "expectedDiagrams": 2,
+  "visualInference": true,
+  "pdfSha256": "ff5ca3691c07024d84c392387e09acd2226919e407ba23f4d81fa466e6a74ef3",
+  "reviewedAt": "2026-11-04T19:34:09Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Byline checked at 600 dpi on page 1: the period renders AC pink between gray letters. Bibliography entries for prior AC papers use the same macro."
+  },
+  "figures": [
+    {
+      "id": "paintings-sheet",
+      "page": 3,
+      "crop": [
+        0.08,
+        0.06,
+        0.84,
+        0.44
+      ],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      },
+      "notes": "All 331 saved paintings at 64x72 in a 24-column grid spanning the text width; the grid owns the figure and the caption states what is shown and that none carries a name. Nearest-neighbor scaling keeps the pixel marks crisp. The empty tail of the last row is the natural end of the set."
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "saves-per-day",
+      "page": 2,
+      "crop": [
+        0.52,
+        0.06,
+        0.42,
+        0.2
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Sixteen daily bars on a faint 50-step grid; the two spike days are pink and labeled, the baseline gray, so the claim reads at a glance. Date ticks at 20 Oct, 27 Oct, 2 Nov and 4 sit clear of the bars."
+    },
+    {
+      "id": "saves-per-hour",
+      "page": 3,
+      "crop": [
+        0.08,
+        0.56,
+        0.42,
+        0.14
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Two rows with separate baselines; the Tuesday peak label sits above its bar and the Wednesday 110 label sits to the right of its bar, clear of the Tuesday baseline after one revision. Day labels are right-aligned in empty space; hour ticks every two hours."
+    }
+  ]
+}
