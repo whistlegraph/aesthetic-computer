@@ -81,6 +81,7 @@ function logNet(text, flags = {}) {
   netLog.push({ when, text, ...flags });
   if (netLog.length > 40) netLog.shift();
 }
+let parked = false; // The client closed the room's socket itself (back on the curtain).
 let connectAttempts = 0,
   healthPoll = null,
   silentSince = null,
@@ -92,6 +93,7 @@ const CURSOR_AIM = false; // A free mouse does not drag the aim around (2026-11-
 // Down: the socket is closed, or it is open but the server has said nothing
 // for three seconds (a restart in progress, or the network gone).
 function netDown(now) {
+  if (parked) return false; // Left on purpose: not an outage.
   if (ws && ws.readyState === WebSocket.CLOSED) return true;
   const open = ws?.readyState === WebSocket.OPEN;
   const silent = open && connection.lastSnapshot !== null && now - connection.lastSnapshot > 3000;
@@ -241,7 +243,7 @@ try {
 let post, postCtx, lastYaw = 0, lastPitch = 0, turnSpeed = 0;
 function postProcess(elapsed) {
   const src = view.canvas;
-  if (!motionBlur) {
+  if (!motionBlur || orbitMix > 0) { // No smear while the camera flies in or out.
     if (post) post.style.display = 'none';
     return;
   }
@@ -383,7 +385,7 @@ async function peekRoom() {
     const r = await fetch(new URL(`./room?room=${encodeURIComponent(room)}`, import.meta.url), { cache: 'no-store' });
     if (!r.ok) return;
     const data = await r.json();
-    if (ws) return; // Joined meanwhile: the live state wins.
+    if (ws && ws.readyState !== WebSocket.CLOSED) return; // Joined meanwhile: the live state wins.
     if (Array.isArray(data.objects)) objects = data.objects;
     if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
     if (Array.isArray(data.screens)) setScreens(data.screens);
@@ -654,6 +656,16 @@ function connect() {
   };
   socket.onclose = (e) => {
     if (socket !== ws) return;
+    if (parked) {
+      // Our own leave: drop the seat quietly; the room stays as it was seen.
+      seat = -1;
+      player = null;
+      snapshot = null;
+      members = [];
+      prompt.busy = false;
+      void peekRoom();
+      return;
+    }
     logNet(`socket closed ${e.code}${e.reason ? ' ' + e.reason : ''}${e.wasClean ? '' : ' (not clean)'}`, { bad: true });
     // When the server goes away (a restart or an update), watch its health
     // and reload once it is back, so new code lands without anyone touching
@@ -1541,6 +1553,14 @@ if (hosted) {
     if (e.data.phase === 'opened') closingAt = 0;
     if (!('open' in e.data)) return;
     sheetOpen = e.data.open === true;
+    // Back on the curtain you are not in the room (2026-11-03): the seat is
+    // given up at once, as if teleported out, and taken fresh on the next drop.
+    if (!sheetOpen && ws && ws.readyState !== WebSocket.CLOSED) {
+      parked = true;
+      logNet('left the room (back on the curtain)');
+      ws.close(1000, 'left');
+    }
+    if (sheetOpen) parked = false;
     if (!sheetOpen) sheetShown = false;
     if (sheetOpen) closingAt = 0; // A fresh drop starts the reticle at the centre.
     if (!sheetOpen) sheetClosedAt = performance.now();
