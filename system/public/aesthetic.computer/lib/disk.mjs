@@ -2341,7 +2341,6 @@ function updateHUDStatus() {
 }
 
 let loading = false;
-let queuedLoadToken = 0; // The newest load refused while another ran (see load()).
 let loadingStartTime = null; // Track when loading started for timeout safety
 const LOADING_TIMEOUT_MS = 10000; // 10 second max loading time
 
@@ -7923,30 +7922,13 @@ async function load(
     loading = true;
     loadingStartTime = Date.now();
   } else {
-    // Another load is in flight. Rather than drop this one (2026-11-03: the
-    // mime feed's first card was dropped while its reel piece was still
-    // loading, and the feed sat on its splash), the newest refused request
-    // waits and runs once the current load finishes; unless a newer request
-    // replaced it, or the piece it wanted is the one that just loaded.
+    // TODO: If the piece is different, then there should be a way to abort
+    //       or ignore a current load.
     console.warn(
-      "Coudn't load yet:",
+      "Coudn't load:",
       parsed.path || parsed.name,
-      "(Already loading; queued.)",
+      "(Already loading.)",
     );
-    const token = ++queuedLoadToken;
-    const args = [parsed, fromHistory, alias, devReload, loadedCallback, forceKidlisp, forceP5];
-    const wanted = typeof parsed === "object" ? parsed?.slug || parsed?.name || parsed?.text : null;
-    const since = Date.now();
-    const wait = () => {
-      if (token !== queuedLoadToken) return; // a newer request took its place
-      if (loading) {
-        if (Date.now() - since < 10000) setTimeout(wait, 50);
-        return;
-      }
-      if (wanted && $commonApi?.slug === wanted) return; // already there
-      load(...args);
-    };
-    setTimeout(wait, 50);
     return true;
   }
 
