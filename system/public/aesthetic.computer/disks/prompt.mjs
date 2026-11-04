@@ -6540,7 +6540,9 @@ function paint($) {
       const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
       const color = lit || hot ? [255, 224, 102] : [0, 255, 255]; // AC's cursor cyan at rest
       const L = (x, y, w, h) => {
-        $.ink(24, 24, 32, 170).box(ox + x + t, oy + y + t, w, h);
+        // A solid ink shadow, as dool draws it: a translucent one stacked
+        // where the two arms' shadows met and left a darker corner pixel.
+        $.ink(24, 24, 24).box(ox + x + t, oy + y + t, w, h);
         $.ink(color).box(ox + x, oy + y, w, h);
       };
       for (const sx of [-1, 1])
