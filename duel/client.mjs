@@ -1385,7 +1385,10 @@ function step(now) {
     floorAim = null;
     if (dir.y < -0.02) {
       const t = -origin.y / dir.y;
-      if (t > 0 && t < Math.min(60, nearest)) {
+      // The floor is one of the walls the ray can meet: when nothing stands
+      // before it, the two distances are the same, so the floor must not
+      // lose to itself (2026-11-03: this is why no square ever lit).
+      if (t > 0 && t < Math.min(60, nearest + 0.05)) {
         const x = origin.x + dir.x * t, z = origin.z + dir.z * t;
         const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
         if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
