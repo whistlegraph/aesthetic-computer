@@ -88,6 +88,7 @@ let connectAttempts = 0,
   dustedAt = 0,
   mouseAt = null, // The free mouse's last place on the canvas (CSS px), and when.
   cursorAim = false; // This frame the aim ray went through the mouse.
+const CURSOR_AIM = false; // A free mouse does not drag the aim around (2026-11-03).
 // Down: the socket is closed, or it is open but the server has said nothing
 // for three seconds (a restart in progress, or the network gone).
 function netDown(now) {
@@ -1321,7 +1322,9 @@ function step(now) {
   const tick = playback.sample(now);
   const worldTime = tick / HZ;
   focusObject = null;
-  cursorAim = !locked() && !!mouseAt && now - mouseAt.at < 6000 && !touch.active && !prompt.open;
+  // Off (2026-11-03): the aim is the crosshair's normal, with pointer lock for
+  // mouse look; a free mouse does not drag the aim around.
+  cursorAim = CURSOR_AIM && !locked() && !!mouseAt && now - mouseAt.at < 6000 && !touch.active && !prompt.open;
   if (player) {
     // The aim ray: from the camera, through the free mouse or along the
     // camera's own centre (the crosshair's normal), never from the player's
