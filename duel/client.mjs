@@ -921,9 +921,17 @@ document.addEventListener('visibilitychange', () => {
   presentation.reset(player);
 });
 
+// Behind the curtain the world is a backdrop under a veil: it steps at
+// 20 fps there (2026-11-03) so the prompt's own drawing keeps the frame
+// budget, and comes back to full rate the moment the paper drops.
+let bareAt = 0;
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
+  if (hosted && !sheetOpen) {
+    if (now - bareAt < 50) return;
+    bareAt = now;
+  }
   try {
     step(now);
   } catch (error) {
