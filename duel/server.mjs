@@ -125,6 +125,7 @@ export function createDuelServer({
           JSON.stringify({
             name: 'dool',
             building: builders.jobs.size,
+            persistent: !!stateDir, // false means the room dies with the process
             protocol: PROTOCOL,
             revision: revision.trim(),
           }),

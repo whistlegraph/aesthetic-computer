@@ -50,6 +50,8 @@ import express from "express";
 import {attachMusicalSocket} from "./musical-socket.mjs";
 import { createDuelServer } from "../duel/server.mjs";
 import { kidlispPublisher } from "../duel/kidlisp-code.mjs";
+import os from "node:os";
+import { resolve as resolvePath } from "node:path";
 import { optionalProduct } from "../shared/private-product.mjs";
 import { operationsAuth } from "./operations-auth.mjs";
 import { canonicalPageUrl } from "../system/public/aesthetic.computer/lib/site-metadata.mjs";
@@ -110,7 +112,15 @@ const HAS_SSL = existsSync(SSL_CERT) && existsSync(SSL_KEY);
 const app = express();
 // Every finished build is a KidLisp program: the store gives it a $code under
 // the builder's own account (2026-11-03; without this, nothing got a code).
-const dool = createDuelServer({ prefix: '/dool', publishKidlisp: kidlispPublisher() });
+// The room must outlive a restart: without a state directory the object
+// store held everything in memory and every deploy emptied the room
+// (2026-11-03). Same default as the standalone server.
+const dool = createDuelServer({
+  prefix: '/dool',
+  publishKidlisp: kidlispPublisher(),
+  stateDir: process.env.DOOL_STATE_DIR || resolvePath(os.homedir(), '.local/share/dool'),
+});
+await dool.ready; // The store is read from disk before the first request.
 app.use((req, res, next) => {
   if (req.path === '/dool' || req.path.startsWith('/dool/')) return dool.handle(req, res);
   next();
