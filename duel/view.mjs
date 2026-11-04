@@ -317,6 +317,7 @@ export async function createView(canvas) {
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   const SNOW = false; // Resting for now (2026-11-03).
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
+  let qrModel = null; // Retain the tag until its code or pixel dimensions change.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
   let boom = 4;
@@ -1553,47 +1554,56 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // Aiming at an object with a $code: a small QR in the bottom-right corner
-    // opens it on aesthetic.computer from a phone, its code above it. (The
-    // top-right belongs to the legend block since 2026-11-03.)
+    // Match the native KidLisp corner tag: prompt.ac keeps the same QR
+    // matrix; modules and margins use buffer pixels, independent of HUD size.
     qrRect = null;
     qrURL = null;
     if (focusObject?.code && !radial && !menu && !bare) {
-      const url = `https://aesthetic.computer/$${focusObject.code}`;
+      const url = `https://prompt.ac/$${focusObject.code}`;
       qrURL = url;
       const cells = joinCode(url);
       if (cells) {
-        // Composed like the KidLisp corner tag (disk.mjs / top.kidlisp.com):
-        // one pixel a cell, no quiet zone, a black shadow a pixel down and
-        // right, and the $code in white on a black tag flush right above it.
-        const { unit } = hud;
-        const n = cells.length,
-          size = n * unit;
-        const m = model(({ rect: worldRect, small }) => {
-          const rect = flip(worldRect);
-          const { safeX, safeY } = hud;
-          const x0 = W / 2 - safeX - unit - size,
-            bottom = -H / 2 + safeY + unit;
-          rect(x0 + unit, bottom - unit, 0.000003, size, size, INK);
-          rect(x0, bottom, 0.000002, size, size, PAPER);
-          cells.forEach((row, y) => {
-            for (let c = 0; c < row.length; ) {
-              if (!row[c]) { c++; continue; }
-              const start = c++;
-              while (c < row.length && row[c]) c++;
-              rect(x0 + start * unit, bottom + (n - 1 - y) * unit, 0.000001, (c - start) * unit, unit, INK);
+        const n = cells.length, margin = 4, qrOffsetY = 9;
+        const width = n + 1, height = qrOffsetY + n + 2;
+        const left = W - width - margin, top = H - height - margin;
+        qrRect = { x: left, y: top, w: width, h: height };
+        const key = `${url}:${W}:${H}`;
+        if (qrModel?.key !== key) {
+          const m = model(({ rect: worldRect, small }) => {
+            const rect = flip(worldRect);
+            // Coordinates share the 2D runtime's top-left pixel convention.
+            const pixel = (x, y, w, h, color, z = 0.000001) =>
+              rect(-W / 2 + left + x, H / 2 - top - y - h, z, w, h, color);
+            pixel(0, qrOffsetY, n, n, 0xffffff, 0.000003);
+            cells.forEach((row, y) => {
+              for (let c = 0; c < row.length;) {
+                if (!row[c]) { c++; continue; }
+                const start = c++;
+                while (c < row.length && row[c]) c++;
+                pixel(start, qrOffsetY + y, c - start, 1, 0x000000);
+              }
+            });
+            const label = `$${focusObject.code}`;
+            // smallWidth omits the trailing advance; the runtime includes it.
+            const textWidth = smallWidth(label) + 1, labelWidth = textWidth + 2;
+            const labelX = n - labelWidth;
+            // Keep the label clear of the first QR row.
+            pixel(labelX, 0, labelWidth, qrOffsetY, 0x000000, 0);
+            small(label, -W / 2 + left + labelX + 1 + smallWidth(label) / 2,
+              H / 2 - top - 2, -0.000001, 1, 0xffffff);
+            pixel(n, 1, 1, qrOffsetY + n, 0x808080);
+            pixel(1, qrOffsetY + n, n, 1, 0x808080);
+            // Native corner tags have a subtle white top/left highlight.
+            for (let i = 0; i < n; i++) {
+              pixel(i, qrOffsetY, 1, 1,
+                cells[0][i] ? 0x404040 : 0xffffff, -0.000002);
+              if (i) pixel(0, qrOffsetY + i, 1, 1,
+                cells[i][0] ? 0x404040 : 0xffffff, -0.000002);
             }
           });
-          const label = `$${focusObject.code}`;
-          const tw = (smallWidth(label) + 2) * unit, th = 10 * unit;
-          const tx = x0 + size - tw, ty = bottom + size;
-          // In buffer pixels from the top-left, for the click.
-          qrRect = { x: W / 2 + Math.min(x0, tx), y: H / 2 - (ty + th), w: W / 2 - safeX - Math.min(x0, tx), h: size + th + unit };
-          rect(tx + unit, ty - unit, 0.000003, tw, th, INK);
-          rect(tx, ty, 0.000002, tw, th, INK);
-          small(label, tx + tw / 2, ty + th - unit, 0, unit, PAPER);
-        });
-        projector.overlay(m, W, H);
+          qrModel = { key, mesh: m };
+        }
+        projector.overlay(qrModel.mesh, W, H);
       }
     }
     if (notices.length && !menu) {
