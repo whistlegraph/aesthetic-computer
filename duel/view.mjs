@@ -1329,8 +1329,21 @@ export async function createView(canvas) {
       cornerRect = { x: safeX, y: safeY, w, h };
       const m = model(({ rect: worldRect }) => {
         const rect = flip(worldRect);
-        rect(left + unit, bottom - unit, 0.000003, w, h, INK);
-        rect(left, bottom, 0.000002, w, h, 0xff3296);
+        // An outline like the curtain's caret (2026-11-03): its hue drifting
+        // around the edge, each pixel shadowed.
+        const ring = [];
+        const cw = w / unit, ch = h / unit;
+        for (let i = 0; i < cw; i++) ring.push([i, ch - 1]);
+        for (let j = ch - 2; j >= 0; j--) ring.push([cw - 1, j]);
+        for (let i = cw - 2; i >= 0; i--) ring.push([i, 0]);
+        for (let j = 1; j < ch - 1; j++) ring.push([0, j]);
+        ring.forEach(([i, j], k) => {
+          const hue = (k / ring.length + now / 2400) % 1, a = hue * 6, f = a - Math.floor(a), q = 1 - f;
+          const [r, g, b] = [[1, f, 0], [q, 1, 0], [0, 1, f], [0, q, 1], [f, 0, 1], [1, 0, q]][Math.floor(a) % 6];
+          const col = (Math.round(40 + 215 * r) << 16) | (Math.round(40 + 215 * g) << 8) | Math.round(40 + 215 * b);
+          rect(left + i * unit + unit, bottom + j * unit - unit, 0.000003, unit, unit, INK);
+          rect(left + i * unit, bottom + j * unit, 0.000002, unit, unit, col);
+        });
       });
       projector.overlay(m, W, H);
     }
@@ -1434,7 +1447,10 @@ export async function createView(canvas) {
     // The reticle holds through the paper's drop and return (2026-11-03): the
     // prompt's crosshair fades with the paper, so this one must already be
     // there, solid, under it, and stay until the paper is whole again.
-    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle)) {
+    // On the floor the cursor is laid on the aimed square in 3D (below);
+    // facing a wall, an object or the sky it is this 2D reticle.
+    const onFloor = floorAim && !focusObject && !lockedOn && !radial && !menu && !bare && orbit <= 0 && !cursor;
+    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onFloor) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
@@ -1830,13 +1846,23 @@ export async function createView(canvas) {
     }
     if (tileModel) draw(tileModel, 0, 0, 0);
     if (floorAim && !menu && !radial && !bare && orbit <= 0) {
-      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.12, y = 0.024;
+      // The cursor itself, laid flat on the aimed square (2026-11-03): the
+      // reticle's four L corners and its centre dot, projected onto the
+      // floor, in its cyan, with a dark shadow under each stroke.
+      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.1, arm = 0.55, y = 0.024;
       const m = model(({ quad }) => {
-        const c = 0x00ffff; // The reticle's cyan: this is where the ray lands.
-        quad([x, y, z], [x + 2, y, z], [x + 2, y, z + w], [x, y, z + w], c);
-        quad([x, y, z + 2 - w], [x + 2, y, z + 2 - w], [x + 2, y, z + 2], [x, y, z + 2], c);
-        quad([x, y, z], [x + w, y, z], [x + w, y, z + 2], [x, y, z + 2], c);
-        quad([x + 2 - w, y, z], [x + 2, y, z], [x + 2, y, z + 2], [x + 2 - w, y, z + 2], c);
+        const slab = (x0, z0, x1, z1, c, yy) => quad([x0, yy, z0], [x1, yy, z0], [x1, yy, z1], [x0, yy, z1], c);
+        for (const [c, yy, dx] of [[0x101018, y - 0.004, 0.05], [0x00ffff, y, 0]]) {
+          for (const sx of [0, 1])
+            for (const sz of [0, 1]) {
+              const cx = x + sx * 2, cz = z + sz * 2;
+              const ax = sx ? cx - arm : cx, az = sz ? cz - w : cz;
+              slab(ax + dx, az + dx, ax + arm + dx, az + w + dx, c, yy);
+              const bx = sx ? cx - w : cx, bz = sz ? cz - arm : cz;
+              slab(bx + dx, bz + dx, bx + w + dx, bz + arm + dx, c, yy);
+            }
+          slab(x + 0.92 + dx, z + 0.92 + dx, x + 1.08 + dx, z + 1.08 + dx, c, yy);
+        }
       });
       draw(m, 0, 0, 0);
     }
