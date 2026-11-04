@@ -145,8 +145,8 @@ export async function createView(canvas) {
   const ROOM_HEIGHT = 4;
   const buildArena = (p) =>
     model(({ box, quad }) => {
-      const far = 420;
-      quad([-far, -0.01, -far], [-far, -0.01, far], [far, -0.01, far], [far, -0.01, -far], p.far);
+      // (No ground beyond the walls: it was the sky's colour anyway, and a
+      // centimetre under the floor it z-fought from any distance.)
       quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
       for (let x = -WORLD + 2; x < WORLD; x += 2)
         for (let z = -WORLD + 2; z < WORLD; z += 2)
@@ -314,6 +314,7 @@ export async function createView(canvas) {
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let snow = null, snowAt = 0; // The room's falling snow.
+  let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   const SNOW = false; // Resting for now (2026-11-03).
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
@@ -615,8 +616,13 @@ export async function createView(canvas) {
       // the crosshair's 16 px box (half 7 px) when square to it; a slight
       // tilt sets which way is up, and as it circles the room turns
       // (2026-11-03). sy = 1 on a landscape screen (Projector.camera).
+      // The camera hovers 25 m up (depth stays precise; from hundreds of
+      // metres the floor and its marks z-fought) and a zoom factor shrinks
+      // the picture instead of distance, eased back to 1 as it flies in.
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
-      const height = ((WORLD + 0.3) * (1 / tan) * canvas.height) / (2 * 7);
+      const height = 25;
+      const natural = ((WORLD + 0.3) / height) * (1 / tan) * (canvas.height / 2); // room half-size in px
+      orbitZoom = Math.pow(7 / natural, 1 - (1 - orbit) * (1 - orbit) * (3 - 2 * (1 - orbit)));
       const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       // The crosshair's centre sits 22 prompt pixels in from the corner; on
@@ -660,6 +666,11 @@ export async function createView(canvas) {
       aim = { ...aim, x: aim.x + sway + r[0] * lean, y: aim.y + breath + bob * 0.6, z: aim.z + r[2] * lean };
     }
     projector.camera(eye, aim, aspect, roll);
+    if (orbit > 0 && orbitZoom !== 1) {
+      projector.sx *= orbitZoom;
+      projector.sy *= orbitZoom;
+    }
+    orbitZoom = 1;
     // The sky is the clear colour alone: no banded dome (2026-11-03).
     lastEye = eye;
     const tags = [];
