@@ -6102,11 +6102,10 @@ function paint($) {
         $.layer(3);
 
 
-        // Attract mode (2026-11-03): an empty rect that blinks like a
-        // terminal waiting for you, polychrome, its hue drifting around the
-        // edge with a white glint running along it; gone for part of a beat.
-        const now = performance.now(), beat = now % 1100;
-        if (beat < 760) {
+        // Attract mode (2026-11-03): a steady empty rect, polychrome, its hue
+        // drifting around the edge with a white glint running along it.
+        const now = performance.now();
+        {
           const { x, y, w, h } = cursorPos;
           const ring = [];
           for (let i = 0; i < w; i++) ring.push([x + i, y]);
