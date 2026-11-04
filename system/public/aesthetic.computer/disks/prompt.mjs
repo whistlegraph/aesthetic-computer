@@ -6035,6 +6035,25 @@ function paint($) {
       ink(c[0], c[1], c[2], Math.round(210 * (1 - life))).box(mx, my, s, s, "fill");
     }
 
+    // Near the pointer a glow rises from under and behind the word, drawn
+    // before the letters so they stand in front of it (2026-11-03).
+    {
+      const pg = $.pen;
+      const gNear = pg && pg.x !== undefined
+        ? Math.max(0, 1 - Math.hypot(Math.max(x0 - pg.x, 0, pg.x - (x0 + word.length * cw)), Math.max(baseY - pg.y, 0, pg.y - (baseY + gh))) / 48)
+        : 0;
+      if (gNear > 0) {
+        const gx = x0 + (word.length * cw) / 2, gy = baseY + gh + depth, rx = word.length * cw * 0.85, ry = gh * 1.6;
+        const pink = palette[0];
+        for (let y = Math.floor(gy - ry); y <= Math.ceil(gy + 4); y++)
+          for (let x = Math.floor(gx - rx); x <= Math.ceil(gx + rx); x++) {
+            const r = Math.hypot((x - gx) / rx, (y - gy) / ry);
+            if (r >= 1) continue;
+            const a = Math.round(120 * gNear * (1 - r) * (1 - r) * (0.85 + 0.15 * sin(t * 3)));
+            if (a > 1) ink(pink[0], pink[1], pink[2], a).plot(x, y);
+          }
+      }
+    }
     // Every slab's side first, so no letter's depth lands on a neighbour's face.
     for (let d = depth; d >= 1; d--) {
       letters.forEach(({ ch, x, y }) =>
@@ -6048,7 +6067,9 @@ function paint($) {
       : 0;
     if (mNear > 0) $.needsPaint?.();
     letters.forEach(({ ch, x, y, c }) => {
-      const jx = mNear > 0 ? Math.round((Math.random() - 0.5) * 3 * mNear) : 0, jy = mNear > 0 ? Math.round((Math.random() - 0.5) * 3 * mNear) : 0;
+      // A gentle tremble: a single pixel now and then, more often nearer.
+      const jx = mNear > 0 && Math.random() < 0.25 * mNear ? (Math.random() < 0.5 ? -1 : 1) : 0;
+      const jy = mNear > 0 && Math.random() < 0.15 * mNear ? (Math.random() < 0.5 ? -1 : 1) : 0;
       ink(Math.round(c[0] * 0.55), Math.round(c[1] * 0.55), Math.round(c[2] * 0.55)).write(ch, { x: x + 1 + jx, y: y + 1 + jy, size: s });
       ink(c[0], c[1], c[2]).write(ch, { x: x + jx, y: y + jy, size: s });
     });
@@ -6144,7 +6165,7 @@ function paint($) {
             const [r, g, b] = [[1, f, 0], [q, 1, 0], [0, 1, f], [0, q, 1], [f, 0, 1], [1, 0, q]][seg];
             const d = Math.min((k - glint + ring.length) % ring.length, (glint - k + ring.length) % ring.length);
             const lift = Math.min(1, (d === 0 ? 1 : d === 1 ? 0.55 : 0) + caretFill * 0.5);
-            const c = (v) => Math.round(150 + 105 * v + (255 - (150 + 105 * v)) * lift);
+            const c = (v) => Math.round(40 + 215 * v + (255 - (40 + 215 * v)) * lift * 0.6); // saturated
             ink(c(r), c(g), c(b), Math.round(240 * flick * (0.65 + 0.35 * (1 - caretPulse)) + 15 * caretPulse)).plot(px, py);
           });
           // The interior, filling in a fixed scattered order with the fill.
@@ -6163,7 +6184,7 @@ function paint($) {
               const hue = ((ix + iy) / (iw + ih) + now / 2400) % 1;
               const a6 = hue * 6, f6 = a6 - Math.floor(a6), q6 = 1 - f6, sg = Math.floor(a6) % 6;
               const [r, g, b] = [[1, f6, 0], [q6, 1, 0], [0, 1, f6], [0, q6, 1], [f6, 0, 1], [1, 0, q6]][sg];
-              ink(Math.round(170 + 85 * r), Math.round(170 + 85 * g), Math.round(170 + 85 * b), Math.round(200 * flick)).plot(x + 1 + ix, y + 1 + iy);
+              ink(Math.round(60 + 195 * r), Math.round(60 + 195 * g), Math.round(60 + 195 * b), Math.round(200 * flick)).plot(x + 1 + ix, y + 1 + iy);
             }
           }
           // Drips: now and then a bead leaves the bottom edge in that spot's
@@ -9368,8 +9389,12 @@ function meta() {
 }
 
 // 👋 Leave
-function leave() {
+function leave(api) {
   motdController?.abort(); // Abort any motd update.
+  // The mime sheet answers only on the prompt's curtain (2026-11-03): disarm
+  // it on the way out, or a scroll in the next piece pulls it up.
+  api?.send?.({ type: "mime:sheet", content: { action: "armed", on: false } });
+  mimeArmed = false;
 }
 
 export const nohud = true;

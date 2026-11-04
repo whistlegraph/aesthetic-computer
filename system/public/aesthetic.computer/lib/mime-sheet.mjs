@@ -222,6 +222,10 @@ function opened() {
   write();
   pausePrompt();
   enterHistory();
+  // The prompt's glaze (now see-through over the curtain) must not tint the
+  // open feed: it rests until the sheet is home.
+  const gz = document.querySelector('canvas[data-type="glaze"]');
+  if (gz) gz.style.visibility = "hidden";
   meterGuest();
   // Take input once a trackpad's momentum has died down, or its tail would
   // scroll straight past the first card.
@@ -250,6 +254,8 @@ function meterGuest() {
 }
 
 function home() {
+  const gz = document.querySelector('canvas[data-type="glaze"]');
+  if (gz) gz.style.visibility = "";
   if (trackingOpen) window.acAccountActivity?.feedClose("prompt");
   trackingOpen = false;
   state = "parked";

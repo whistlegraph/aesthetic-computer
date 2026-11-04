@@ -293,6 +293,6 @@ void main()
     // Premultiplied out: opaque pixels are exactly the old glaze; a veil
     // keeps a little more of the glaze than its own alpha, so the look reads
     // over the world without hiding it.
-    float alpha = pow(cover, 0.75);
+    float alpha = pow(cover, 1.1); // lighter over the world, so its colour shows through
     endColor = vec4(color * alpha, alpha);
 }
