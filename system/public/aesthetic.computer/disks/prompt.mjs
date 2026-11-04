@@ -6065,10 +6065,13 @@ function paint($) {
     const apexY = baseY - 2 * s - 1 - Math.round((1 - drop) * 5 * s);
     const ca = Math.round(230 * (1 - drop));
     const pink = palette[0];
-    for (let i = 0; i <= 3; i++) {
-      const y = apexY - (3 - i) * s;
-      ink(pink[0], pink[1], pink[2], ca).box(cx - 3 * s + i * s, y, s, s, "fill");
-      if (i < 3) ink(pink[0], pink[1], pink[2], ca).box(cx + 3 * s - i * s, y, s, s, "fill");
+    // Its drop shadow first, a pixel down and right in the slab's side colour.
+    for (const [dx, dy, col, a] of [[s, s, side, Math.round(ca * 0.9)], [0, 0, pink, ca]]) {
+      for (let i = 0; i <= 3; i++) {
+        const y = apexY - (3 - i) * s + dy;
+        ink(col[0], col[1], col[2], a).box(cx - 3 * s + i * s + dx, y, s, s, "fill");
+        if (i < 3) ink(col[0], col[1], col[2], a).box(cx + 3 * s - i * s + dx, y, s, s, "fill");
+      }
     }
     mimeMarkTop = baseY - 2 * s - 1 - 5 * s - 3 * s; // the chevron's highest row
   }
@@ -6503,10 +6506,10 @@ function paint($) {
         y: Math.floor((screen.height - side(s)) / 2),
       });
       const mix = (a, b, t) => ({ x: Math.round(a.x + (b.x - a.x) * t), y: Math.round(a.y + (b.y - a.y) * t) });
-      // Dool's HUD unit on a screen this size (hud.mjs hudLayout): the
-      // crosshair lands at the size of the reticle dool draws in its place,
-      // so one graphic element carries across the paper's drop.
-      const unitAway = Math.max(1, Math.round(Math.min(screen.width / 480, screen.height / 270)));
+      // Dool draws on the prompt's own pixel grid at HUD unit 1 (hud.mjs
+      // hudLayout under lib/dool-sheet.mjs), so the crosshair lands at the
+      // size it left: one graphic element carries across the paper's drop.
+      const unitAway = 1;
       let at = home, scale = 1, lit = false;
       if (doolFlight) {
         const t = Math.min(1, (now - doolFlight.at) / 360);
