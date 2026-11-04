@@ -113,12 +113,11 @@
 	<script>
 		(() => {
 			const ad = document.getElementById("notepaint-ad");
-			// Sticker test (VISITS.md: No Paint sticker split): each page load
-			// draws an arm, half notepaint.art and half aesthetic.computer, same
-			// sticker and words. ?ad=notepaint or ?ad=ac pins one for checking.
-			// Nothing is stored; a reload can draw the other arm.
+			// Sticker (VISITS.md: No Paint sticker split): from 4 November 2026
+			// every visit gets the aesthetic.computer arm; the 50/50 split ran
+			// for one afternoon. ?ad=notepaint still shows the notepaint arm.
 			const pinned = new URLSearchParams(location.search).get("ad");
-			const arm = pinned === "ac" || pinned === "notepaint" ? pinned : Math.random() < 0.5 ? "ac" : "notepaint";
+			const arm = pinned === "notepaint" ? "notepaint" : "ac";
 			if (arm === "ac") {
 				ad.href = "https://aesthetic.computer/";
 				ad.innerHTML = "<b>NEW!</b> aesthetic.computer";

@@ -312,7 +312,7 @@ back through notepaint.
 From November 4, the sticker is a split. Each No Paint page load draws one
 arm at random: notepaint.art (`notepaint_ad_shown`, `notepaint_opened`) or
 aesthetic.computer (`ac_ad_shown`, `ac_opened`), same sticker and words.
-`?ad=notepaint` or `?ad=ac` pins an arm for checking. The report's
+`?ad=notepaint` or `?ad=ac` pins an arm for checking. Later on November 4 the split ended: every visit now gets the aesthetic.computer arm, and `?ad=notepaint` still shows the other. Read `stickerSplit` from then on as a single arm. The report's
 `stickerSplit` follows each arm from shown to opened to arrivals with
 nopaint.art as referrer, engaged, and made (an accepted paint on notepaint, a
 canvas touch on AC). Engaged per shown is the cleanest comparison.
