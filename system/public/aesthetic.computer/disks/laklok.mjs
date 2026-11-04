@@ -213,69 +213,58 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, qu
 }
 
 // 🎪 "Laer Klokken" circus banner — a striped marquee across the header, the
-// name in MatrixChunky8 with every character a different circus color and its
-// own little bounce, a pixel pumpkin on the left and a flapping bat on the
-// right. The sign lives in the lane between the HUD label and the corner
-// chrome (envelope, gear, QR) and sheds its critters, then itself, before it
+// name in MatrixChunky8 with every character a different winter color (cool
+// blues and snow with orange between) and its own little bounce, a bobbing
+// pixel snowflake on the left and a drifting flurry of snow on the right. The sign lives in the lane between the HUD label and the corner
+// chrome (envelope, gear, QR) and sheds its trimmings, then itself, before it
 // would ever run under either.
 const LAK_SIGN_FONT = "MatrixChunky8";
 const LAK_SIGN_H = 8; // MatrixChunky8 glyph height
 const LAK_SIGN_TOP = 7; // beside the HUD label's row, above the presence line
 const LAK_SIGN_GAP = 1; // extra letter spacing when there's room
 const LAK_CIRCUS_COLS = [
-  [255, 80, 80],   // red
-  [255, 210, 70],  // gold
-  [120, 210, 255], // sky
-  [140, 240, 150], // green
-  [255, 150, 220], // pink
-  [180, 150, 255], // violet
+  [255, 150, 50],  // ember orange
+  [140, 210, 255], // sky
+  [235, 245, 255], // snow
+  [255, 190, 90],  // amber
+  [110, 170, 255], // cornflower
+  [190, 230, 255], // frost
 ];
+const LAK_SIGN_SHADOW = [10, 18, 40]; // deep winter navy under each letter
 const LAK_HUD_FALLBACK_WIDTH = 78;
 const LAK_HEADER_GUTTER = 4;
 
-// 🎃 A jack-o'-lantern, 9×8.
-const PUMPKIN = {
+// ❄️ A snowflake, 9×7, with an ember-orange heart; it bobs a pixel so it
+// sweeps the full 8px sign height.
+const SNOWFLAKE = {
   rows: [
-    "....s....",
-    "...ss....",
-    ".ooorooo.",
-    "ooyoroyoo",
-    "ooooroooo",
-    "oyoooooyo",
-    "ooyyyyyoo",
-    ".ooorooo.",
+    "....i....",
+    ".w.wiw.w.",
+    "..wwiww..",
+    "iiiioiiii",
+    "..wwiww..",
+    ".w.wiw.w.",
+    "....i....",
   ],
   palette: {
-    s: [90, 170, 70],
-    o: [255, 140, 30],
-    r: [225, 105, 20],
-    y: [255, 235, 90],
+    i: [150, 215, 255],
+    w: [235, 248, 255],
+    o: [255, 150, 40],
   },
 };
+const SNOWFLAKE_W = 9;
+const SNOWFLAKE_H = 7;
 
-// 🦇 A bat, 11×5, two wing frames.
-const BAT_FRAMES = [
-  [
-    "w.........w",
-    "ww.......ww",
-    ".ww.ybY.ww.",
-    "..wwbbbww..",
-    "....bbb....",
-  ],
-  [
-    "...........",
-    "....ybY....",
-    ".wwwbbbwww.",
-    "ww..bbb..ww",
-    "w.........w",
-  ],
+// 🌨️ A flurry, 11×8: three motes falling through the sign's height, each on
+// its own phase, swaying left and right of their perch.
+const FLURRY_MOTES = [
+  { x: 1, phase: 0.0, speed: 1.1, plus: false, col: [190, 230, 255] },
+  { x: 5, phase: 0.45, speed: 0.8, plus: true, col: [235, 248, 255] },
+  { x: 9, phase: 0.75, speed: 1.3, plus: false, col: [150, 215, 255] },
 ];
-const BAT_PALETTE = { w: [40, 28, 60], b: [30, 20, 45], y: [255, 70, 70], Y: [255, 70, 70] };
-const BAT_W = 11;
-const BAT_H = 5;
-const BAT_DRIFT = 3; // px the bat flutters left and right of its perch
-const PUMPKIN_W = 9;
-const SIGN_PAD = 3; // between a critter and the word
+const FLURRY_W = 11;
+const FLURRY_DRIFT = 3; // px the flurry sways left and right of its perch
+const SIGN_PAD = 3; // between a trimming and the word
 
 function paintSprite($, rows, palette, x, y) {
   const { ink } = $;
@@ -303,24 +292,24 @@ function signLane($) {
 }
 
 // Fit the word (and critters) into the lane, dropping pieces in order:
-// letter spacing, then the bat, then the pumpkin, then the word itself.
+// letter spacing, then the flurry, then the snowflake, then the word itself.
 function signLayout($, label, lane) {
   const { text, screen } = $;
   const widths = [...label].map((ch) => text.width(ch, LAK_SIGN_FONT));
   const glyphs = widths.reduce((a, b) => a + b, 0);
   const available = lane.right - lane.left;
   const tries = [
-    { gap: LAK_SIGN_GAP, pumpkin: true, bat: true },
-    { gap: 0, pumpkin: true, bat: true },
-    { gap: LAK_SIGN_GAP, pumpkin: true, bat: false },
-    { gap: 0, pumpkin: true, bat: false },
-    { gap: 0, pumpkin: false, bat: false },
+    { gap: LAK_SIGN_GAP, snowflake: true, flurry: true },
+    { gap: 0, snowflake: true, flurry: true },
+    { gap: LAK_SIGN_GAP, snowflake: true, flurry: false },
+    { gap: 0, snowflake: true, flurry: false },
+    { gap: 0, snowflake: false, flurry: false },
   ];
   for (const t of tries) {
     const word = glyphs + t.gap * (label.length - 1);
     const width = word
-      + (t.pumpkin ? PUMPKIN_W + SIGN_PAD : 0)
-      + (t.bat ? BAT_W + BAT_DRIFT * 2 + SIGN_PAD : 0);
+      + (t.snowflake ? SNOWFLAKE_W + SIGN_PAD : 0)
+      + (t.flurry ? FLURRY_W + FLURRY_DRIFT * 2 + SIGN_PAD : 0);
     if (width > available) continue;
     // Prefer the screen's centre when that still sits inside the lane.
     let left = Math.round((screen.width - width) / 2);
@@ -354,30 +343,40 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
   let cx = layout.left;
   const top = LAK_SIGN_TOP;
 
-  // 🎃 Pumpkin, sitting still on the left.
-  if (layout.pumpkin) {
-    paintSprite($, PUMPKIN.rows, PUMPKIN.palette, cx, top);
-    cx += PUMPKIN_W + SIGN_PAD;
+  // ❄️ Snowflake, bobbing on the left.
+  if (layout.snowflake) {
+    const bob = Math.round((Math.sin(t * 1.2) + 1) / 2 * (LAK_SIGN_H - SNOWFLAKE_H));
+    paintSprite($, SNOWFLAKE.rows, SNOWFLAKE.palette, cx, top + bob);
+    cx += SNOWFLAKE_W + SIGN_PAD;
   }
 
-  // Each character: its own circus color + individual vertical bounce.
+  // Each character: its own winter color + individual vertical bounce.
   for (let i = 0; i < label.length; i++) {
     const ch = label[i];
     if (ch !== " ") {
       const bounce = Math.round(Math.sin(t * 2.6 + i * 0.7));
       const c = LAK_CIRCUS_COLS[i % LAK_CIRCUS_COLS.length];
-      ink(20, 10, 6).write(ch, { x: cx + 1, y: top + bounce + 1 }, undefined, undefined, false, LAK_SIGN_FONT);
+      const sh = LAK_SIGN_SHADOW;
+      ink(sh[0], sh[1], sh[2]).write(ch, { x: cx + 1, y: top + bounce + 1 }, undefined, undefined, false, LAK_SIGN_FONT);
       ink(c[0], c[1], c[2]).write(ch, { x: cx, y: top + bounce }, undefined, undefined, false, LAK_SIGN_FONT);
     }
     cx += layout.widths[i] + layout.gap;
   }
 
-  // 🦇 Bat, flapping and fluttering on the right.
-  if (layout.bat) {
-    const frame = BAT_FRAMES[Math.floor(t * 1.5) % 2];
-    const bx = cx + SIGN_PAD + BAT_DRIFT + Math.round(Math.sin(t * 0.9) * BAT_DRIFT);
-    const by = top + Math.round((LAK_SIGN_H - BAT_H) / 2) + Math.round(Math.sin(t * 1.3) * 2);
-    paintSprite($, frame, BAT_PALETTE, bx, by);
+  // 🌨️ Flurry, falling and swaying on the right.
+  if (layout.flurry) {
+    const fx = cx + SIGN_PAD + FLURRY_DRIFT;
+    for (const m of FLURRY_MOTES) {
+      const fall = (t * 0.35 * m.speed + m.phase) % 1;
+      const mx = fx + m.x + Math.round(Math.sin(t * 0.9 + m.phase * 6) * FLURRY_DRIFT);
+      const my = top + Math.floor(fall * LAK_SIGN_H);
+      ink(m.col[0], m.col[1], m.col[2]).box(mx, my, 1, 1);
+      if (m.plus) {
+        ink(m.col[0], m.col[1], m.col[2], 150)
+          .box(mx - 1, my, 1, 1).box(mx + 1, my, 1, 1)
+          .box(mx, my - 1, 1, 1).box(mx, my + 1, 1, 1);
+      }
+    }
   }
 }
 

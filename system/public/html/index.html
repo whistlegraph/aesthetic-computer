@@ -458,7 +458,7 @@ $log.addEventListener("play", e => {
 }, true);
 
 // 🎪 Circus marquee — each letter its own color + bounce phase.
-const CIRCUS = ["#ff5050","#ffd246","#78d2ff","#8cf096","#ff96dc","#b496ff"];
+const CIRCUS = ["#ff9632","#8cd2ff","#ebf5ff","#ffbe5a","#6eaaff","#bee6ff"];
 document.getElementById("marquee").innerHTML = [..."Laer Klokken"]
   .map((c, i) => c === " " ? " " :
     `<b style="color:${CIRCUS[i % CIRCUS.length]};animation-delay:${(-i * .13).toFixed(2)}s">${c}</b>`)
