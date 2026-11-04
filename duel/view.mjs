@@ -87,7 +87,11 @@ export const PALETTES = {
     bands: [[-0.02, 0.04, 0x3a3150], [0.04, 0.12, 0x2c2a48], [0.12, 0.3, 0x1f2240], [0.3, 0.6, 0x171a30], [0.6, 1.2, 0x11131f]],
   },
 };
-export const paletteFor = (hour = new Date().getHours()) => (hour >= 7 && hour < 18 ? 'day' : 'night');
+// The room follows the viewer's colour scheme (dark mode is the night room);
+// with no such signal it follows the clock.
+const darkScheme = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+export const paletteFor = (hour = new Date().getHours()) =>
+  darkScheme ? (darkScheme.matches ? 'night' : 'day') : hour >= 7 && hour < 18 ? 'day' : 'night';
 import {
   WALLS,
   COLORS,
@@ -849,7 +853,7 @@ export async function createView(canvas) {
       const width = canvas.width,
         height = canvas.height;
       const { unit, safeX, safeY } = hud;
-      const columns = Math.max(12, Math.floor((width - 2 * safeX - 16) / (6 * unit)));
+      const columns = Math.max(12, Math.min(48, Math.floor((width - 2 * safeX - 16) / (6 * unit))));
       const wrap = (line) => line.match(new RegExp(`.{1,${columns}}`, 'g')) || [''];
       const cursor = now % 1000 < 500 ? '_' : ' ';
       const pad = input === 'pad';
@@ -933,8 +937,9 @@ export async function createView(canvas) {
         : prompt.open
         ? [
             [
-              { text: `${title} `, color: THEME.verb },
-              // Whether a builder is listening, told where it matters: in the prompt.
+              // Whether a builder is listening, told where it matters: in the
+              // prompt; after the revision's title when there is one.
+              ...(prompt.target ? [{ text: `${title} `, color: THEME.verb }] : []),
               builder
                 ? { text: `aesel online${builderNames.length ? ': ' + builderNames.join(' + ') : ''}`, color: 0x3fb950 }
                 : { text: 'aesel offline', color: 0xff6b6b },
@@ -992,43 +997,23 @@ export async function createView(canvas) {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panelHeight = visible.length * 11 * unit + 10 * unit;
           const panel = prompt.open || building;
-          // Only a panel reports its top (notices stack above it); the legend
-          // and the hint line never lift the corners (2026-11-03).
-          panelTop = panel ? -height / 2 + safeY + panelHeight : null;
-          if (!panel) {
-            // The controls as a left-aligned block in the bottom-right
-            // corner, each line starting on the same column.
-            const widths = visible.map((spans) => spanWidthOf(spans, unit));
-            const left = width / 2 - safeX - Math.max(0, ...widths);
-            visible.forEach((spans, i) =>
-              drawSpans(
-                { rect, text },
-                spans,
-                left + widths[i] / 2,
-                -height / 2 + safeY + panelHeight - 5 * unit - i * 11 * unit,
-                unit,
-                { shadow: INK },
-              ),
-            );
-            return;
-          }
+          // Everything here (the legend, the hint line, the prompt, a build
+          // in progress) is a left-aligned block in the bottom-right corner,
+          // so nothing in the other corner ever moves (2026-11-03). A panel
+          // gets a dark slab with a thin slate rule behind its lines.
+          panelTop = null;
+          const widths = visible.map((spans) => spanWidthOf(spans, unit));
+          const blockW = Math.min(width - 2 * safeX, Math.max(0, ...widths) + 8 * unit);
+          const right = width / 2 - safeX, left = right - blockW;
           if (panel) {
-            // A dark slab with a thin slate rule; text carries the colour.
-            rect(-width / 2 + safeX, -height / 2 + safeY, 0.000004, width - 2 * safeX, panelHeight, LINE);
-            rect(
-              -width / 2 + safeX + unit,
-              -height / 2 + safeY + unit,
-              0.000003,
-              width - 2 * safeX - 2 * unit,
-              panelHeight - 2 * unit,
-              0x15171e,
-            );
+            rect(left, -height / 2 + safeY, 0.000004, blockW, panelHeight, LINE);
+            rect(left + unit, -height / 2 + safeY + unit, 0.000003, blockW - 2 * unit, panelHeight - 2 * unit, 0x15171e);
           }
           visible.forEach((spans, i) =>
             drawSpans(
               { rect, text },
               spans,
-              0,
+              left + 4 * unit + widths[i] / 2,
               -height / 2 + safeY + panelHeight - 5 * unit - i * 11 * unit,
               unit,
               { shadow: panel ? null : INK },

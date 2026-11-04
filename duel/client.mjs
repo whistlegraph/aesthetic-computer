@@ -82,7 +82,20 @@ function logNet(text, flags = {}) {
   if (netLog.length > 40) netLog.shift();
 }
 let connectAttempts = 0,
-  healthPoll = null;
+  healthPoll = null,
+  silentSince = null;
+// Down: the socket is closed, or it is open but the server has said nothing
+// for three seconds (a restart in progress, or the network gone).
+function netDown(now) {
+  if (ws && ws.readyState === WebSocket.CLOSED) return true;
+  const open = ws?.readyState === WebSocket.OPEN;
+  const silent = open && connection.lastSnapshot !== null && now - connection.lastSnapshot > 3000;
+  if (silent && silentSince === null) {
+    silentSince = now;
+    logNet('no word from the server for 3 s', { bad: true });
+  } else if (!silent) silentSince = null;
+  return silent;
+}
 // While the socket is down, ask the server's health every two seconds and
 // say what it answered; when it is back, reload (new code lands) or rejoin.
 function watchHealth(hadSnapshot) {
@@ -1377,7 +1390,7 @@ function step(now) {
     builder,
     builderNames,
     netLog,
-    connected: !ws || ws.readyState !== WebSocket.CLOSED, // connecting counts; only a dead socket shows the log
+    connected: !netDown(now), // connecting counts; a dead or long-silent socket shows the log
     jobs,
     worldTime,
     locked: locked(),
