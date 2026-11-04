@@ -288,6 +288,11 @@ let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it 
 // curtain; a tap flies it to the centre, then bios drops the paper into dool.
 let doolBtn;
 let doolFlight = null; // { at, phase: "out" | "away" | "back", awayAt }
+function openDool(send) {
+  const now = performance.now();
+  doolFlight = { at: now, phase: "held", awayAt: now };
+  send({ type: "dool:sheet", content: { action: "show" } });
+}
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
@@ -2136,7 +2141,7 @@ async function route($, text) {
     jump("https://aesthetic.computer/mime/");
     return true;
   } else if (slug === "dool") {
-    jump("https://aesthetic.computer/dool/");
+    openDool(send);
     return true;
   } else if (slug === "bills") {
     // 💸 Jump to billing dashboard
@@ -8477,9 +8482,7 @@ function act({
         // One motion (2026-11-03): the world's camera starts at once and its
         // reticle carries the cursor from this corner to the centre; this
         // crosshair holds still and fades with the paper over it.
-        const now = performance.now();
-        doolFlight = { at: now, phase: "held", awayAt: now };
-        send({ type: "dool:sheet", content: { action: "show" } });
+        openDool(send);
       },
       cancel: () => cancelSound(),
     });
