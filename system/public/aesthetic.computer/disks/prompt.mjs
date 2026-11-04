@@ -1324,9 +1324,9 @@ async function boot({
 
   // Create login & signup buttons (skip when not in default theme).
   if (!user && theme === "default") {
-    login = new ui.TextButton(currentLang().login, welcomePos(screen));
+    login = new ui.TextButton(currentLang().login, { center: "xy", screen });
     login.stickyScrubbing = true; // Prevent drag-between-button behavior
-    signup = new ui.TextButton(currentLang().signup, welcomePos(screen));
+    signup = new ui.TextButton(currentLang().signup, { center: "xy", screen });
     signup.stickyScrubbing = true; // Prevent drag-between-button behavior
     positionWelcomeButtons(screen, net.iframe);
   }
@@ -6102,8 +6102,19 @@ function paint($) {
         $.layer(3);
 
 
-        // A hollow caret indicates that the curtain is not focused.
-        ink(...fillColor).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h, "inline");
+        // Attract mode (2026-11-03): the caret blinks like a terminal waiting
+        // for you, solid and bright for most of a beat, then gone; hollow
+        // while the window is not focused.
+        const beat = performance.now() % 1100;
+        if (beat < 700) {
+          const solid = [...fillColor.slice(0, 3), 235];
+          if ($.inFocus === false) ink(...solid).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h, "inline");
+          else {
+            ink(0, 0, 0, 90).box(cursorPos.x + 1, cursorPos.y + 1, cursorPos.w, cursorPos.h);
+            ink(...solid).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
+          }
+        }
+        $.needsPaint?.();
 
 
         // Reset to default layer
@@ -6116,12 +6127,7 @@ function paint($) {
     // ✨ Starfield on the backdrop layer, under everything else on the curtain.
     if (flairEnabled && starsEnabled && theme === "default") {
       $.layer(0);
-      starfield.paint($, {
-        alpha: $.dark ? 0.8 : 0.9,
-        bold: true,
-        color: $.hud.currentStatusColor() || [255, 0, 200],
-        backdrop: false,
-      });
+      paintSnow($); // Winter (2026-11-03): soft snow instead of the starfield.
       $.layer(1);
     }
 
@@ -7767,6 +7773,35 @@ function paintThinkingGuy($) {
   }
 
   $.needsPaint(); // Keep the animation ticking while thinking.
+}
+
+// ❄️ Snow on the curtain: a few dozen flakes falling slowly with a sideways
+// drift, faint and mostly single pixels, a few small crosses in front.
+const snow = [];
+let snowAt = 0;
+function paintSnow($) {
+  const { width, height } = $.screen;
+  const now = performance.now();
+  const dt = Math.min(0.1, snowAt ? (now - snowAt) / 1000 : 0);
+  snowAt = now;
+  const want = Math.max(24, Math.min(90, Math.floor((width * height) / 5200)));
+  while (snow.length < want)
+    snow.push({ x: Math.random() * width, y: Math.random() * height, v: 6 + Math.random() * 14, p: Math.random() * 6.28, z: Math.random() });
+  snow.length = want;
+  const c = $.dark ? [220, 232, 255] : [120, 140, 175];
+  for (const f of snow) {
+    f.y += f.v * (0.5 + f.z) * dt;
+    f.x += Math.sin(now / 1400 + f.p) * 6 * dt;
+    if (f.y > height + 2) {
+      f.y = -2;
+      f.x = Math.random() * width;
+    }
+    const x = Math.floor(f.x), y = Math.floor(f.y), a = Math.floor(($.dark ? 70 : 90) + f.z * 90);
+    if (f.z > 0.86) {
+      $.ink(...c, a).box(x, y - 1, 1, 3);
+      $.ink(...c, a).box(x - 1, y, 3, 1);
+    } else $.ink(...c, a).plot(x, y);
+  }
 }
 
 // 🧮 Sim
@@ -9832,16 +9867,17 @@ function welcomePos(screen) {
 }
 
 function positionWelcomeButtons(screen, iframe) {
+  // Log in and I'm new sit at the centre of the curtain, side by side; only
+  // the handle (once logged in) lives bare in the bottom-left corner.
   if (login && signup) {
-    login.reposition(welcomePos(screen));
-    signup.reposition(welcomePos(screen));
-    if (iframe) return; // Embedded in an iframe only login appears.
-    const gap = 5;
-    // A row while it clears the mime wordmark; stacked on a narrow screen.
-    const rowRight = login.btn.box.x + login.btn.box.w + gap + signup.btn.box.w;
-    const markLeft = Math.floor((screen.width - 34) / 2) - 8; // the "mimes" mark: 5 glyphs, 7 px apart, at size 1
-    if (rowRight <= markLeft) signup.btn.box.x = login.btn.box.x + login.btn.box.w + gap;
-    else signup.btn.box.y = login.btn.box.y - signup.btn.box.h - 4;
+    login.reposition({ center: "xy", screen });
+    signup.reposition({ center: "xy", screen });
+    if (!iframe) {
+      const offset = 5;
+      signup.btn.box.x += signup.btn.box.w / 2 + offset;
+      login.btn.box.x -= login.btn.box.w / 2 + offset;
+      if (screen.width % 2 !== 0) login.btn.box.x += 1; // Nudge odd display width.
+    }
   }
 
   if (profile) profile.reposition(welcomePos(screen));
