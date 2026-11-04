@@ -430,8 +430,36 @@ export async function createView(canvas) {
     }
   }
   let aspect = 1,
-    pixelScale = 1;
+    pixelScale = 1,
+    grid = null; // The host's pixel grid, when the prompt is the paper over us.
   function resize() {
+    if (grid) {
+      // Pixel-matched to the prompt (2026-11-03): one buffer pixel is one of
+      // the prompt's buffer pixels, on the same grid. The prompt's canvas sits
+      // at (left, top) in CSS pixels; our canvas starts a fraction of a pixel
+      // before the viewport's edge so the two grids coincide, and fills past
+      // the far edge. The HUD unit is then 1, the prompt's own font size.
+      const p = Math.max(0.5, grid.pixel);
+      const shift = (v) => {
+        const r = ((v % p) + p) % p;
+        return r ? r - p : 0;
+      };
+      const left = shift(grid.left),
+        top = shift(grid.top);
+      const cols = Math.ceil((innerWidth - left) / p),
+        rows = Math.ceil((innerHeight - top) / p);
+      Object.assign(canvas.style, {
+        position: 'absolute',
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${cols * p}px`,
+        height: `${rows * p}px`,
+      });
+      host.resize(cols, rows);
+      aspect = (cols * p) / (rows * p);
+      pixelScale = p;
+      return;
+    }
     const width = Math.max(1, canvas.clientWidth),
       height = Math.max(1, canvas.clientHeight);
     // Whole steps keep the buffer at least 640x360; on a HiDPI screen each
@@ -446,6 +474,7 @@ export async function createView(canvas) {
   }
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
+  addEventListener('resize', () => grid && resize());
   resize();
   function effect(e) {
     // Spending braincells: a purple puff from the brain.
@@ -523,7 +552,7 @@ export async function createView(canvas) {
     lastWorldTime = worldTime;
     // The corner join code is retired for now: dool is joining the AC homepage.
     const cells = null;
-    const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale);
+    const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale, grid ? 1 : 0);
     dress(paletteFor());
     host.beginFrame();
     let eye = { x: 15, y: 19, z: -22 },
@@ -1498,7 +1527,7 @@ export async function createView(canvas) {
         }
       }
     }
-    if (face) {
+    if (face && !bare) {
       // A face cam, bottom left above the handles: an original pixel portrait
       // in the player's own look that reacts to what happens to them.
       const { unit, safeX, safeY } = hud;
@@ -1907,6 +1936,15 @@ export async function createView(canvas) {
     canvas,
     render,
     effect,
+    // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
+    // pixel, and where the prompt's canvas starts); null to stand alone.
+    grid(g) {
+      const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0 } : null;
+      if (JSON.stringify(next) === JSON.stringify(grid)) return;
+      grid = next;
+      if (!grid) canvas.style.cssText = '';
+      resize();
+    },
     // Is this point (CSS pixels on the canvas) on the corner block?
     cornerHit(cssX, cssY) {
       if (!cornerRect) return false;

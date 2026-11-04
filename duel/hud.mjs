@@ -16,7 +16,7 @@ export function joinCode(url) {
   }
 }
 
-export function hudLayout(width, height, cells, scale = 1) {
+export function hudLayout(width, height, cells, scale = 1, fixedUnit = 0) {
   const safeX = Math.max(6, Math.ceil(width * 0.02));
   const safeY = Math.max(6, Math.ceil(height * 0.03));
   // `scale` is CSS pixels per buffer pixel. A HUD unit is at least one and a
@@ -24,7 +24,9 @@ export function hudLayout(width, height, cells, scale = 1) {
   // two units on the 0.75 buffer a HiDPI screen gets, two whole pixels on a
   // 1x screen (one unit drew them 7 pixels tall, three units read too large).
   const least = Math.ceil(1.5 / Math.max(0.5, scale));
-  const unit = Math.max(least, Math.round(Math.min(width / 480, height / 270)));
+  // A host that lays us on its own pixel grid fixes the unit (1 under the
+  // prompt: its font_1 and ours are then the same letters, pixel for pixel).
+  const unit = fixedUnit > 0 ? fixedUnit : Math.max(least, Math.round(Math.min(width / 480, height / 270)));
   // A corner badge about a fifth of the width (a quarter of the height), and
   // at least three screen pixels per module so a phone reads it from arm's length.
   const module = cells

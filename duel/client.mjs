@@ -1356,6 +1356,9 @@ function step(now) {
 if (hosted) {
   window.addEventListener('message', (e) => {
     if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;
+    // The prompt's pixel grid rides along: our pixels become its pixels.
+    if ('grid' in e.data) view.grid(e.data.grid);
+    if (!('open' in e.data)) return;
     sheetOpen = e.data.open === true;
     if (sheetOpen) {
       last = performance.now();

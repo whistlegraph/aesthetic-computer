@@ -2282,6 +2282,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       debugCanvas.style.height = projectedHeight + "px";
     }
 
+    // 📐 The frame's pixel grid for underlays (lib/dool-sheet.mjs): CSS pixels
+    // per buffer pixel and where the canvas starts, so a world drawn beneath
+    // the paper can lay its pixels on the same grid.
+    window.acFrameGrid = {
+      pixel: projectedWidth / width,
+      left: parseFloat(wrapper.style.left) || 0,
+      top: parseFloat(wrapper.style.top) || 0,
+      width,
+      height,
+    };
+    window.acDoolSheet?.framed?.();
+
     // During tape playback, don't restore stale content — the canvas was just
     // cleared to transparent by the resize, and we need screen.pixels to be
     // the correct new size so the render-abort mismatch check passes.

@@ -29,6 +29,9 @@ let pendingShow = 0; // A show asked for before the guest was ready.
 
 const post = (message) =>
   frame?.contentWindow?.postMessage(message, location.origin);
+// 📐 The prompt's pixel grid (bios sets window.acFrameGrid on every frame):
+// the guest lays its pixels on it, so the world and the paper share one scale.
+const grid = () => window.acFrameGrid || null;
 const stage = () => document.getElementById("aesthetic-computer");
 
 function ensure() {
@@ -229,7 +232,7 @@ addEventListener("message", (e) => {
   const d = e.data || {};
   if (d.type === "dool:sheet:hello") {
     said = true;
-    post({ type: "dool:sheet", open: state === "open" || toward === "open" });
+    post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid() });
     if (pendingShow) {
       clearTimeout(pendingShow);
       pendingShow = 0;
@@ -239,7 +242,12 @@ addEventListener("message", (e) => {
   else if (d.type === "dool:sheet:leave") hide();
 });
 
-window.acDoolSheet = { popstate };
+// bios reframed: pass the new grid down.
+function framed() {
+  if (said) post({ type: "dool:sheet", grid: grid() });
+}
+
+window.acDoolSheet = { popstate, framed };
 
 // Messages from the prompt piece:
 //   { action: "warm" }   load the guest on idle
