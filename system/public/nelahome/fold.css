@@ -4,7 +4,6 @@
 .opener { margin-top: 1.5em; color: #00c4fd; }
 .opener p { margin: 0 0 0.75em; }
 .opener-tag { background: #00c4fd; color: #000; font-weight: bold; padding: 0 2px; }
-#openerNext { font-weight: bold; }
 .opener-badge:link, .opener-badge:visited {
     display: inline-block; text-decoration: none; font-weight: bold;
     color: #000; background: #00d080; padding: 4px 8px;
