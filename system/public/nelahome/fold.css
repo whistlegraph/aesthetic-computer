@@ -60,6 +60,7 @@ details.fold > summary:focus-visible { outline: 1px dashed #00c4fd; outline-offs
 .pastKey { margin: 0.75em 0 0; display: flex; flex-wrap: wrap; gap: 0.5em 1.5em; }
 .pastKey a { text-decoration: none; }
 .pastKey .box { display: inline-block; vertical-align: middle; }
+.pastMore { margin: 0.75em 0 0; }
 
 /* preview bumper on aesthetic.computer only: highlighter yellow */
 .bel-proposal { display: inline-block; background: #ffe600; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 0 1rem; }
