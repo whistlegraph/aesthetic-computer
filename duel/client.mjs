@@ -83,7 +83,8 @@ function logNet(text, flags = {}) {
 }
 let connectAttempts = 0,
   healthPoll = null,
-  silentSince = null;
+  silentSince = null,
+  down = false;
 // Down: the socket is closed, or it is open but the server has said nothing
 // for three seconds (a restart in progress, or the network gone).
 function netDown(now) {
@@ -855,6 +856,10 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   void sfx.wake();
+  if (down && e.code !== 'Escape') {
+    e.preventDefault();
+    return;
+  }
   if (!e.repeat && (e.code === 'Tab' || e.code === 'Backquote')) {
     e.preventDefault();
     toggleMenu(e.code === 'Tab' ? 'room' : 'history');
@@ -939,16 +944,10 @@ document.addEventListener('keydown', (e) => {
   if (seat >= 0 && e.code === 'Delete' && !e.repeat && focusObject && !focusObject.wall) removeAimed();
   if (seat >= 0 && e.code === 'KeyX' && !e.repeat && !holding() && !chalkMode) paintSquare();
 });
-// Paint the floor square in the crosshair, or, aiming elsewhere, the one a
-// step ahead of the feet: X always paints something (2026-11-03).
+// Paint the floor square the aim ray lands on (the highlighted one), never
+// the one underfoot (2026-11-03).
 function paintSquare() {
-  let at = floorAim && !focusObject ? floorAim : null;
-  if (!at && player) {
-    const f = direction(yaw, 0);
-    const x = player.x + f.x * 1.5, z = player.z + f.z * 1.5;
-    const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
-    if (i >= 0 && i < 18 && j >= 0 && j < 18) at = { i, j };
-  }
+  const at = floorAim && !focusObject ? floorAim : null;
   if (!at) return;
   send({ type: 'paint', i: at.i, j: at.j });
   sfx.ringPick(at.i + at.j);
@@ -1014,7 +1013,17 @@ function step(now) {
       window.doolRig.claimFocus();
     }
   }
-  gamepad = controller.sample(pads, document.hasFocus());
+  // Down (socket dead or the server silent): every menu closes, the pad is
+  // ignored and the HUD rests; only the way back to the paper stays open.
+  down = netDown(now);
+  if (down) {
+    if (menu) closeMenu();
+    if (radial.open) radial.close();
+    if (prompt.open) prompt.open = false;
+    chalkMode = null;
+    releaseInput();
+  }
+  gamepad = controller.sample(down ? [] : pads, document.hasFocus());
   if (gamepad.ring || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
   fpsFrames++;
   if (now - fpsAt >= 500) {
@@ -1300,7 +1309,7 @@ function step(now) {
     floorAim = null;
     if (dir.y < -0.02) {
       const t = -player.y / dir.y;
-      if (t > 0 && t < Math.min(14, nearest)) {
+      if (t > 0 && t < Math.min(40, nearest)) {
         const x = player.x + dir.x * t, z = player.z + dir.z * t;
         const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
         if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
@@ -1367,7 +1376,7 @@ function step(now) {
     lockedOn: !!lockOn,
     removeArmed:
       removeArmed && focusObject?.id === removeArmed.id && performance.now() - removeArmed.at < 2000 ? removeArmed.id : null,
-    notices: sheetOpen ? notices.filter((n) => performance.now() - n.at < 6000) : [],
+    notices: [], // The "ready v0" build notices are retired (2026-11-03); the prompt block tells the story.
     braincells: !sheetOpen ? null : (() => {
       // Ease the shown count toward the real one; each drop is spent.
       if (braincells === null) return null;
@@ -1390,7 +1399,8 @@ function step(now) {
     builder,
     builderNames,
     netLog,
-    connected: !netDown(now), // connecting counts; a dead or long-silent socket shows the log
+    connected: !down, // connecting counts; a dead or long-silent socket shows the log
+    offline: sheetOpen && down,
     jobs,
     worldTime,
     locked: locked(),
@@ -1398,7 +1408,7 @@ function step(now) {
     corner: sheetOpen,
     screens,
     screenPrograms,
-    bare: !sheetOpen,
+    bare: !sheetOpen || down,
     held: {
       keys: [...keys],
       pad: [

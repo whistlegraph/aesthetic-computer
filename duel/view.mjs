@@ -538,6 +538,7 @@ export async function createView(canvas) {
     builderNames = [],
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
+    offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
     jobs = [],
     worldTime = 0,
     locked = false,
@@ -936,6 +937,9 @@ export async function createView(canvas) {
           ]
         : prompt.open
         ? [
+            // The typed line first, on the 2D prompt's own grid, so the text
+            // stays put across the trip in and out of the paper.
+            ...wrap(writing).map((l) => (radial ? phraseSpans(l) : [{ text: l, color: THEME.text }])),
             [
               // Whether a builder is listening, told where it matters: in the
               // prompt; after the revision's title when there is one.
@@ -944,7 +948,6 @@ export async function createView(canvas) {
                 ? { text: `aesel online${builderNames.length ? ': ' + builderNames.join(' + ') : ''}`, color: 0x3fb950 }
                 : { text: 'aesel offline', color: 0xff6b6b },
             ],
-            ...wrap(writing).map((l) => (radial ? phraseSpans(l) : [{ text: l, color: THEME.text }])),
             ...(prompt.message ? wrap(prompt.message).map((l) => [{ text: l, color: THEME.number }]) : []),
             hintSpans(
               radial
@@ -995,30 +998,25 @@ export async function createView(canvas) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text }) => {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
-          const panelHeight = visible.length * 11 * unit + 10 * unit;
           const panel = prompt.open || building;
-          // Everything here (the legend, the hint line, the prompt, a build
-          // in progress) is a left-aligned block in the bottom-right corner,
-          // so nothing in the other corner ever moves (2026-11-03). A panel
-          // gets a dark slab with a thin slate rule behind its lines.
+          // Nothing here lifts the corners (2026-11-03). The prompt and a
+          // build in progress sit top-left on the 2D prompt's own text grid
+          // (6, 6; ten-pixel lines) so the typed line is pixel for pixel
+          // where the paper shows it; the legend and the hint line are
+          // right-aligned at the top-right.
           panelTop = null;
           const widths = visible.map((spans) => spanWidthOf(spans, unit));
-          const blockW = Math.min(width - 2 * safeX, Math.max(0, ...widths) + 8 * unit);
-          const right = width / 2 - safeX, left = right - blockW;
           if (panel) {
-            rect(left, -height / 2 + safeY, 0.000004, blockW, panelHeight, LINE);
-            rect(left + unit, -height / 2 + safeY + unit, 0.000003, blockW - 2 * unit, panelHeight - 2 * unit, 0x15171e);
+            const ox = grid ? 6 : safeX, oy = grid ? 6 : safeY;
+            visible.forEach((spans, i) =>
+              drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, height / 2 - oy - 2 * unit - i * 10 * unit, unit, { shadow: INK }),
+            );
+          } else {
+            const right = width / 2 - safeX;
+            visible.forEach((spans, i) =>
+              drawSpans({ rect, text }, spans, right - widths[i] / 2, height / 2 - safeY - 2 * unit - i * 11 * unit, unit, { shadow: INK }),
+            );
           }
-          visible.forEach((spans, i) =>
-            drawSpans(
-              { rect, text },
-              spans,
-              left + 4 * unit + widths[i] / 2,
-              -height / 2 + safeY + panelHeight - 5 * unit - i * 11 * unit,
-              unit,
-              { shadow: panel ? null : INK },
-            ),
-          );
         });
       }
       projector.overlay(promptModel, width, height);
@@ -1221,8 +1219,9 @@ export async function createView(canvas) {
     // where the system label sits on every AC piece (SCREEN.md). A tap on it
     // goes back to the prompt.
     cornerRect = null;
-    if (corner) {
-      const { unit, safeX, safeY } = hud;
+    if (corner && !prompt?.open) {
+      const { unit } = hud;
+      const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
       const w = 6 * unit,
         h = 10 * unit;
       const left = -W / 2 + safeX,
@@ -1302,7 +1301,7 @@ export async function createView(canvas) {
     }
     // Offline: the connection's log in a panel at the centre, so a restart
     // or a dropped socket reads as what it is, not an empty room (2026-11-03).
-    if (!connected && !bare && !menu) {
+    if (offline && !menu) {
       const { unit } = hud;
       const lines = netLog.slice(-8);
       const key = JSON.stringify([lines, W, H]);
@@ -1421,9 +1420,9 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // Aiming at an object with a $code: a small QR in the top-right corner
-    // opens it on aesthetic.computer from a phone, its code under it. (The
-    // bottom-right belongs to the legend block since 2026-11-03.)
+    // Aiming at an object with a $code: a small QR in the bottom-right corner
+    // opens it on aesthetic.computer from a phone, its code above it. (The
+    // top-right belongs to the legend block since 2026-11-03.)
     if (focusObject?.code && !radial && !menu && !bare) {
       const url = `https://aesthetic.computer/$${focusObject.code}`;
       const cells = joinCode(url);
@@ -1435,7 +1434,7 @@ export async function createView(canvas) {
           const rect = flip(worldRect);
           const { safeX, safeY } = hud;
           const x0 = W / 2 - safeX - size,
-            top = H / 2 - safeY;
+            top = -H / 2 + safeY + size;
           rect(x0, top - size, 0.000002, size, size, PAPER);
           cells.forEach((row, y) => {
             for (let c = 0; c < row.length; ) {
@@ -1445,7 +1444,7 @@ export async function createView(canvas) {
               rect(x0 + (start + 2) * unit, top - (y + 3) * unit, 0, (c - start) * unit, unit, INK);
             }
           });
-          const label = `$${focusObject.code}`, lx = x0 + size / 2, ly = top - size - 2 * unit;
+          const label = `$${focusObject.code}`, lx = x0 + size / 2, ly = top + 10 * unit;
           small(label, lx + unit, ly - unit, 0.000002, unit, INK);
           small(label, lx, ly, 0, unit, THEME.verb);
         });
@@ -1674,9 +1673,9 @@ export async function createView(canvas) {
     }
     if (tileModel) draw(tileModel, 0, 0, 0);
     if (floorAim && !menu && !radial) {
-      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.05, y = 0.012;
+      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.12, y = 0.012;
       const m = model(({ quad }) => {
-        const c = 0xf2f2f2;
+        const c = 0x00ffff; // The reticle's cyan: this is where the ray lands.
         quad([x, y, z], [x + 2, y, z], [x + 2, y, z + w], [x, y, z + w], c);
         quad([x, y, z + 2 - w], [x + 2, y, z + 2 - w], [x + 2, y, z + 2], [x, y, z + 2], c);
         quad([x, y, z], [x + w, y, z], [x + w, y, z + 2], [x, y, z + 2], c);
