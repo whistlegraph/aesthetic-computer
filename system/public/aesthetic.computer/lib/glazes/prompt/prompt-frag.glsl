@@ -269,9 +269,13 @@ void main()
     vec3 p0 = ro + rd * nearIntersectionDist;
     vec2 suv = worldToDensityMap(p0.xy) + vec2(1.0) + vec2(tracking, 0.0);
     vec2 reach = vec2(VHS_SMEAR * texel.x, 0.0);
-    vec3 smear = (2.0 * texture(iTexture, suv).rgb
-                + texture(iTexture, suv - reach).rgb
-                + texture(iTexture, suv + reach).rgb) * 0.25;
+    vec4 centre = texture(iTexture, suv);
+    vec4 left = texture(iTexture, suv - reach);
+    vec4 right = texture(iTexture, suv + reach);
+    vec3 smear = (2.0 * centre.rgb + left.rgb + right.rgb) * 0.25;
+    // How much of the canvas covers this pixel; where it is clear, whatever
+    // lies beneath the page shows through the glaze.
+    float cover = (2.0 * centre.a + left.a + right.a) * 0.25;
     vec2 bleed = vec2(VHS_BLEED * texel.x, 0.0);
     vec3 src = vec3(texture(iTexture, suv - bleed).r, smear.g, texture(iTexture, suv + bleed).b);
     src = mix(smear, src, 0.65);
@@ -284,5 +288,11 @@ void main()
     color *= 1.0 - VHS_SCANLINE * step(0.5, fract(gl_FragCoord.y / 3.0));
     color += (random(gl_FragCoord.xy + fract(tt * 7.0) * 289.0) - 0.5) * VHS_GRAIN;
 
-    endColor = vec4(clamp(color, 0.0, 1.0), 1.);
+    color = clamp(color, 0.0, 1.0);
+
+    // Premultiplied out: opaque pixels are exactly the old glaze; a veil
+    // keeps a little more of the glaze than its own alpha, so the look reads
+    // over the world without hiding it.
+    float alpha = pow(cover, 0.75);
+    endColor = vec4(color * alpha, alpha);
 }

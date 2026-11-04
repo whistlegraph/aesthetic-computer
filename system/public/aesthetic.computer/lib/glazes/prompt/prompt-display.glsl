@@ -34,7 +34,7 @@ vec2 sharpBilinearUV(vec2 uv, vec2 texSize) {
 void main() {
   vec2 uv = vec2(v_texc.x, 1. - v_texc.y);
   vec2 texSize = vec2(textureSize(iTexturePost, 0));
-  vec3 color = texture(iTexturePost, sharpBilinearUV(uv, texSize)).xyz;
+  vec4 color = texture(iTexturePost, sharpBilinearUV(uv, texSize));
 
   // *** Learning SDFs through making cursors. 2022.02.12.01.14
   /*
@@ -67,5 +67,5 @@ void main() {
   }
   */
 
-  endColor = vec4(color, 1.0);
+  endColor = color; // premultiplied, alpha carried from the frag pass
 }

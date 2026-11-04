@@ -288,8 +288,6 @@ let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it 
 // curtain; a tap flies it to the centre, then bios drops the paper into dool.
 let doolBtn;
 let doolFlight = null; // { at, phase: "out" | "away" | "back", awayAt }
-let glazeWanted = false; // Dark mode asked for the glaze; it rests while the curtain is clear.
-let glazeOn = false;
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
 // (`contentItems`, populated by the /api/tv sprinkle fetch). Zero network —
@@ -1183,11 +1181,7 @@ async function boot({
   if (colon?.includes("nostars")) starsEnabled = false; // disable starfield + cube only
   // `prompt:noglaze` skips the glaze post-effect — a quick way to isolate the
   // glaze's (GPU) cost from everything else when diagnosing frame rate.
-  glazeWanted = dark && !colon?.includes("noglaze");
-  if (glazeWanted) {
-    glaze({ on: true });
-    glazeOn = true;
-  }
+  if (dark && !colon?.includes("noglaze")) glaze({ on: true });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
   net.requestDocs().then((d) => {
@@ -5371,15 +5365,11 @@ function paint($) {
   // 🎯 The curtain is clear: the dool world (bios's underlay, lib/dool-sheet.mjs)
   // shows through, with the buttons and the wordmark over it. The prompt's
   // text input paints the palette background over its whole frame after
-  // this, so the palette goes clear with the curtain; and the glaze canvas is
-  // opaque, so in dark mode it rests while the curtain is clear.
+  // this, so the palette goes clear with the curtain. In dark mode the glaze
+  // carries the canvas's alpha, so the world shows through it too.
   const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
     !$.system.prompt.input.text &&
     ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
-  if (glazeWanted && glazeOn === curtainClear) {
-    glazeOn = !curtainClear;
-    $.glaze({ on: glazeOn });
-  }
 
   // 🅰️ Paint below the prompt || scheme.
   if (curtainClear) {
@@ -6622,9 +6612,10 @@ function paint($) {
           at = home;
           scale = 1;
           lit = false;
-          // The loop sleeps while the paper is away; waking long after means
-          // the paper is home, where this crosshair already is.
-          if (now - doolFlight.awayAt > 1500) doolFlight = null;
+          // The loop sleeps from the tap until the paper is home again, so
+          // any frame painted after the tap means the paper is back: ready
+          // for the next tap at once (a 1.5 s wait swallowed quick re-entries).
+          if (now - doolFlight.awayAt > 200) doolFlight = null;
         } else if (doolFlight.phase === "away") {
           at = centre(unitAway);
           scale = unitAway;

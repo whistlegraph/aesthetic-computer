@@ -21353,6 +21353,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         if (glaze.on && glazeReady && !awaitingReframePixels) {
+          // Start from clear: drawing a see-through frame over the last one
+          // would pile its pixels up into an opaque, trailing smear.
+          glazeCompositeCtx.clearRect(0, 0, glazeComposite.width, glazeComposite.height);
           ThreeD?.pasteTo(glazeCompositeCtx);
           const glazeSource = webglCompositeActive ? webglCompositeCanvas : canvas;
           glazeCompositeCtx.drawImage(glazeSource, 0, 0);

@@ -102,8 +102,10 @@ export function init(wrapper) {
   canvas.classList.add("first-glaze");
   canvas.style.opacity = 0;
 
+  // Alpha, so a piece's clear pixels can stay clear through the prompt glaze
+  // (the dool world under the curtain). Other glazes are forced opaque below.
   gl = canvas.getContext("webgl2", {
-    alpha: false,
+    alpha: true,
     depth: false,
     stencil: false,
     desynchronized: true,
@@ -631,6 +633,14 @@ export function render(time, mouse) {
   );
   gl.uniform1f(displayUniformLocations.iTime, time);
   gl.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, 1);
+
+  // Only the prompt glaze writes a meaningful alpha; keep the rest opaque.
+  if (glaze.type !== "prompt") {
+    gl.colorMask(false, false, false, true);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.colorMask(true, true, true, true);
+  }
 }
 
 export function clear(r = 0, g = 0, b = 0) {
