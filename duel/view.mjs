@@ -306,6 +306,7 @@ export async function createView(canvas) {
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, netKey, netModel;
   const SHOW_FPS = false; // The frame-rate readout rests for now (2026-11-03).
   let panelTop = null;
+  let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
@@ -892,8 +893,18 @@ export async function createView(canvas) {
           ? `${named(focusObject)} locked: [RB] change / [LB] unlock`
           : `${named(focusObject)} locked: [B] remove / [RB] change / dpad next / [LB] unlock`
         : null;
-      const hint = lockHint ? lockHint : confirming ? confirming : drawing ? drawing : carry ? carry : paintHint ? paintHint : focusObject
-        ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
+      // What the highlighted object offers ([B] remove, [LB] unlock, its
+      // name and owner) is drawn at the object itself (2026-11-03); the
+      // corner keeps only the general hint.
+      const objectHint = lockHint
+        ? lockHint
+        : confirming
+          ? confirming
+          : focusObject
+            ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
+            : null;
+      objectHintSpans = objectHint && !prompt.open && !bare ? hintSpans(objectHint, confirming ? 0xff6b6b : THEME.text) : null;
+      const hint = drawing ? drawing : carry ? carry : paintHint ? paintHint
         : input === 'touch'
           ? 'hold the right side to build'
           : pad
@@ -963,17 +974,24 @@ export async function createView(canvas) {
         : building
           ? [
               // Every one of your builds, each with its latest line of code.
+              // Each of your builds spits its code out of the prompt: the
+              // request, then the newest lines, the pink block at their end.
               ...jobs
                 .filter((j) => j.owner === owner)
-                .slice(0, 3)
-                .flatMap((j) => [
-                  [
-                    { text: `aesel v${j.version} `, color: THEME.verb },
-                    { text: `${j.phase} ${Math.max(0, Math.floor((Date.now() - j.startedAt) / 1000))}s `, color: THEME.dim },
-                    { text: j.prompt || '', color: THEME.text },
-                  ],
-                  codeSpans((j.code || '').split('\n').filter(Boolean).at(-1)?.slice(-columns) || '...'),
-                ]),
+                .slice(0, 2)
+                .flatMap((j) => {
+                  const lines = (j.code || '').replace(/,/g, ',\n').split('\n').filter((l) => l.trim()).slice(-4).flatMap(wrap).slice(-4);
+                  const out = lines.map((l) => codeSpans(l));
+                  if (!out.length) out.push([]);
+                  out[out.length - 1] = [...out[out.length - 1], { block: true }];
+                  return [
+                    [
+                      { text: `${j.prompt || ''} `, color: THEME.text },
+                      { text: `v${j.version} ${j.phase} ${Math.max(0, Math.floor((Date.now() - j.startedAt) / 1000))}s`, color: THEME.dim },
+                    ],
+                    ...out,
+                  ];
+                }),
               ...(jobs.some((j) => j.owner === owner) ? [] : progressCode.map((l) => codeSpans(l))),
               building.owner === owner
                 ? hintSpans(cancel, THEME.dim)
@@ -1048,6 +1066,7 @@ export async function createView(canvas) {
         panelTop,
         fps,
         !!face,
+        bare,
       ]);
       if (key !== presenceKey) {
         presenceKey = key;
@@ -1079,7 +1098,7 @@ export async function createView(canvas) {
               handle ? colors : PAPER,
             );
           });
-          if ((meter || (SHOW_FPS && fps)) && !face) {
+          if ((meter || (SHOW_FPS && fps)) && !face && !bare) {
             // No face cam to sit under: shadowed text right-aligned under the QR, coloured by health.
             const ping = (connection?.label || '').toLowerCase();
             const bars = connection?.bars || 0;
@@ -1219,7 +1238,7 @@ export async function createView(canvas) {
     // where the system label sits on every AC piece (SCREEN.md). A tap on it
     // goes back to the prompt.
     cornerRect = null;
-    if (corner && !prompt?.open) {
+    if (corner && !prompt?.open && !jobs.some((j) => j.owner === owner)) {
       const { unit } = hud;
       const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
       const w = 6 * unit,
@@ -1395,9 +1414,14 @@ export async function createView(canvas) {
           }
         }
       }
-      const m = model(({ rect: worldRect }) => {
+      const m = model(({ rect: worldRect, text }) => {
         // rect(left, bottom, w, h): screen x right, y up, whole pixels.
         const rect = flip(worldRect);
+        // The highlighted object's offer, under its bracket (or the reticle).
+        if (objectHintSpans) {
+          const cx = box ? (box.left + box.right) / 2 : 0, under = (box ? box.bottom : -half) - 4 * unit;
+          drawSpans({ rect, text }, objectHintSpans, cx, under, unit, { shadow: INK });
+        }
         const L = (x, y, w, h) => {
           rect(x + t, y - t, 0.000002, w, h, INK);
           rect(x, y, 0, w, h, color);

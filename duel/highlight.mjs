@@ -113,25 +113,25 @@ const merge = (spans) =>
   }, []);
 
 export const spanWidth = (spans, unit) =>
-  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.text.length * 6) * unit, 0);
+  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? 7 : s.text.length * 6) * unit, 0);
 
 export const smallSpanWidth = (spans, unit) =>
   spans.reduce((w, s) => w + (s.text ? smallWidth(s.text) + 1 : 0) * unit, 0);
 
 export const plain = (spans) =>
-  spans.map((s) => (s.badge ? `[${s.badge}]` : s.cap ? s.cap : s.text)).join('');
+  spans.map((s) => (s.badge ? `[${s.badge}]` : s.cap ? s.cap : s.block ? '' : s.text)).join('');
 
 // Clip runs to a column budget; a badge counts as two columns.
 export function clipSpans(spans, columns) {
   const out = [];
   let left = columns;
   for (const s of spans) {
-    const cost = s.badge ? s.badge.length + 1 : s.cap ? s.cap.length + 1 : s.text.length;
+    const cost = s.badge ? s.badge.length + 1 : s.cap ? s.cap.length + 1 : s.block ? 1 : s.text.length;
     if (cost <= left) {
       out.push(s);
       left -= cost;
     } else {
-      if (!s.badge && !s.cap && left > 0) out.push({ ...s, text: s.text.slice(0, left) });
+      if (!s.badge && !s.cap && !s.block && left > 0) out.push({ ...s, text: s.text.slice(0, left) });
       break;
     }
   }
@@ -163,6 +163,13 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
       rect(left, y - 7 * unit, z + step, bw, 9 * unit, fill);
       text(s.badge, left + bw / 2, y - unit, z, unit, ink, true);
       left += bw + unit;
+      continue;
+    }
+    if (s.block) {
+      // The prompt's pink cursor block: output is being spat out here.
+      if (shadow !== null) rect(left + unit, y - 8 * unit, z + 2 * step, 6 * unit, 10 * unit, shadow);
+      rect(left, y - 7 * unit, z + step, 6 * unit, 10 * unit, 0xff3296);
+      left += 7 * unit;
       continue;
     }
     if (s.cap) {

@@ -1405,7 +1405,7 @@ function step(now) {
     worldTime,
     locked: locked(),
     legend: sheetOpen && legendShown(),
-    corner: sheetOpen,
+    corner: sheetOpen && !down,
     screens,
     screenPrograms,
     bare: !sheetOpen || down,
