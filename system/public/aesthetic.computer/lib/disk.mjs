@@ -2629,6 +2629,7 @@ let screamingTimer; // Keep track of scream duration.
 const fairies = []; // Render cursor points of other active users,
 //                              dumped each frame.
 
+let glazeDay = false;
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
 // *** Dark Mode ***
@@ -3190,8 +3191,9 @@ const $commonApi = {
     },
   },
   glaze: function (content) {
-    if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
+    if (glazeEnabled === content.on && glazeDay === !!content.day) return; // Prevent glaze from being fired twice...
     glazeEnabled = content.on;
+    glazeDay = !!content.day;
     // Send glaze message immediately when turning ON (don't wait for paint cycle)
     // This ensures glaze activates even when returning from a non-glaze piece
     if (content.on) {
@@ -3291,6 +3293,7 @@ const $commonApi = {
       if (PERF_MODE) params.push("perf=true");
       if (AUTO_SCALE_MODE) params.push("autoScale=true");
       if (hideLabel) params.push("nolabel=true");
+      if (hideSource) params.push("nosource=true");
       if (NOGAP_MODE) params.push("nogap=true");
       if (SPOOF_AUDIO_MODE) params.push("spoofaudio=true");
 
@@ -10822,7 +10825,10 @@ async function makeFrame({ data: { type, content } }) {
       import("./mime-reel.mjs").then((module) => {
         reel = module;
         const reelJump = (to, jumped) => {
-          if (leaving || loading) return setTimeout(() => reelJump(to, jumped), 50);
+          // The feed can arrive before the initial slot has booted. Starting
+          // its first jump then lets that late slot overwrite the first card.
+          if (leaving || loading || !booted || !currentPath)
+            return setTimeout(() => reelJump(to, jumped), 50);
           jumped?.();
           $commonApi.jump(to, true);
         };
@@ -10830,6 +10836,8 @@ async function makeFrame({ data: { type, content } }) {
           send,
           hosted: content.reelHosted === true,
           jump: reelJump,
+          preload: (address) => address.startsWith("$")
+            ? getCachedCodeMultiLevel(address.slice(1)) : Promise.resolve(),
           needsPaint: () => $commonApi.needsPaint(),
         });
       }).catch((err) => console.warn("🎞️ Reel failed to load:", err));

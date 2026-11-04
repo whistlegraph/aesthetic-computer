@@ -1053,7 +1053,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   
   // Preserve URL-provided view options, never auth callbacks or piece arguments.
   const currentParams = new URLSearchParams(location.search);
-  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon", "mime", "reel"]) {
+  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon", "nosource", "mime", "reel"]) {
     if (currentParams.has(name)) preservedParams[name] = currentParams.get(name);
   }
 
@@ -4429,6 +4429,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // card with screen coordinates (the host moves this frame with the finger),
   // and plays or parks the runtime as the sheet opens and closes.
   let reelOpen = !reelHosted;
+  let reelPlaying = !reelHosted;
   let reelReady = false;
   let reelDownY = null;
   let reelPull = null;
@@ -4436,8 +4437,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (reelHosted) window.parent.postMessage(message, location.origin);
   };
   const reelPlayback = () => {
-    applyMasterVolume(reelOpen ? 1 : 0);
-    if (reelOpen) {
+    applyMasterVolume(reelPlaying ? 1 : 0);
+    if (reelPlaying) {
       window.acRESUME?.();
       window.AC?.startAudio?.();
     } else if (reelReady) window.acPAUSE?.(); // Parked: first frame held, loop asleep.
@@ -4486,6 +4487,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       e.data?.type === "mime:sheet"
     ) {
       reelOpen = e.data.open === true;
+      reelPlaying = reelOpen && e.data.playing !== false;
       send({ type: "mime:reel:open", content: { open: reelOpen } });
       reelPlayback();
       return;
@@ -21364,7 +21366,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
 
       if (glaze.on) {
-        Glaze.render(now, pen?.normalizedPosition(canvasRect));
+        Glaze.render(now, pen?.normalizedPosition(canvasRect), glaze.day === true);
       } else {
         Glaze.off();
         canvas.style.removeProperty("opacity");

@@ -14,6 +14,7 @@ uniform sampler2D iTexture;
 uniform sampler2D iTexturePost;
 
 uniform float iTime;
+uniform float iDay;
 uniform vec2 iMouse;
 uniform vec2 iResolution;
 
@@ -133,6 +134,7 @@ vec4 getColor(vec3 pos)
     if (abs(pos.z) < inputRadius && inBounds(imgCoords))
     {
         outColor.xyz = texture(iTexture, imgCoords).xyz;
+        if (iDay > 0.5) outColor.xyz = 1.0 - outColor.xyz;
         outColor.w = maxv(outColor.xyz) * innerDensity;
     }
     return outColor;
@@ -279,6 +281,7 @@ void main()
     vec2 bleed = vec2(VHS_BLEED * texel.x, 0.0);
     vec3 src = vec3(texture(iTexture, suv - bleed).r, smear.g, texture(iTexture, suv + bleed).b);
     src = mix(smear, src, 0.65);
+    if (iDay > 0.5) src = 1.0 - src;
     color = 1.0 - (1.0 - color) * (1.0 - src * VHS_SOURCE);
 
     float luma = dot(color, vec3(0.299, 0.587, 0.114));
@@ -289,6 +292,9 @@ void main()
     color += (random(gl_FragCoord.xy + fract(tt * 7.0) * 289.0) - 0.5) * VHS_GRAIN;
 
     color = clamp(color, 0.0, 1.0);
+
+    // Daylight treats the image as ink on light paper through the same glaze.
+    if (iDay > 0.5) color = mix(1.0 - src, 1.0 - color, 0.35);
 
     // Premultiplied out: opaque pixels are exactly the old glaze; a veil
     // keeps a little more of the glaze than its own alpha, so the look reads

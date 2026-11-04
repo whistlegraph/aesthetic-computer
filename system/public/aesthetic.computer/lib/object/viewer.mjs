@@ -55,7 +55,7 @@ export function objectPiece(source, label = "", options = {}) {
 
   function boot({ hud, clock }) {
     clock?.resync?.();
-    if (label) hud?.label?.(label);
+    if (label) hud?.label?.(label, [230, 232, 240]);
   }
 
   function paint({ ink, screen }) {

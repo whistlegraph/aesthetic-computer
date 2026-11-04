@@ -281,6 +281,7 @@ let histScrub = null;
 
 // 🎭 Mime swipe: an upward drag on the curtain drops into the mime feed.
 let mimeSwipe = null;
+let promptGlazeEnabled = true;
 let mimeArmed = false; // Last curtain state sent to bios's mime sheet.
 let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it isn't drawn.
 
@@ -1186,7 +1187,8 @@ async function boot({
   if (colon?.includes("nostars")) starsEnabled = false; // disable starfield + cube only
   // `prompt:noglaze` skips the glaze post-effect — a quick way to isolate the
   // glaze's (GPU) cost from everything else when diagnosing frame rate.
-  if (dark && !colon?.includes("noglaze")) glaze({ on: true });
+  promptGlazeEnabled = !colon?.includes("noglaze");
+  glaze({ on: promptGlazeEnabled, day: !dark });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
   net.requestDocs().then((d) => {
@@ -8268,6 +8270,9 @@ function act({
   notice,
   ui,
 }) {
+  if (e.is("dark-mode") || e.is("light-mode"))
+    glaze({ on: promptGlazeEnabled, day: !api.dark });
+
   // 🎚️ A press on the bare curtain charges the caret before the release
   // opens the prompt: a soft rising tone now, the chime on the release.
   {
@@ -8362,11 +8367,6 @@ function act({
     jump(motdByHandle);
     return;
   }
-
-  // Light and dark mode glaze shift.
-  // 🧪 Temporarily disabled to test noise16 transition
-  // if (e.is("dark-mode")) glaze({ on: true });
-  // if (e.is("light-mode")) glaze({ on: false });
 
   // USB flash progress (Electron only) — update the OS timeline.
   if (e.is("usb:flash-progress") && packProgress) {

@@ -28,7 +28,7 @@ const WHEEL_REST = 140; // ms of wheel silence that ends a stream
 const LOAD_TIMEOUT = 10000; // a card that never paints still gets revealed
 const FRAMES_KEPT = 6;
 
-let send, jump, needsPaint;
+let send, jump, needsPaint, preload;
 let hosted = false; // Inside the prompt's mime sheet.
 let open = true; // Hosted reels start parked until the sheet opens.
 
@@ -54,16 +54,19 @@ let lastH = 0; // Screen height at the last drawn frame.
 
 let gesture = null; // { mode: "pending" | "reel" | "piece" | "eat", ... }
 let wheel = null; // { travel, timer }
+let wheelCommitted = false;
+let lastWheelAt = -Infinity;
 let pulling = false; // A downward drag on the first card went to the host.
 
 const frames = new Map(); // card key → { w, h, pixels }, the last frame seen
 const posters = new Map(); // card key → ImageBitmap | null (failed)
+const warmed = new Set();
 const fitted = new Map(); // card key + size → pixels
 let blank = null; // { w, h, pixels } in MEDIA
 
 // 🚪 Called by disk once, when the runtime boots in reel mode.
 export function start(options) {
-  ({ send, jump, needsPaint } = options);
+  ({ send, jump, needsPaint, preload } = options);
   hosted = options.hosted === true;
   open = !hosted;
   if (hosted) post({ type: "mime:sheet:hello" });
@@ -88,7 +91,7 @@ function post(message) {
 
 function at() {
   const card = cards[index];
-  if (card && open) post({ type: "mime:sheet:at", permalink: card.permalink });
+  if (card && open) post({ type: "mime:sheet:at", permalink: card.permalink, address: card.address });
 }
 
 // 📰 The feed, a page at a time. Only cards that run as AC pieces.
@@ -105,6 +108,7 @@ function more() {
         seen.add(card.key);
         cards.push(card);
       }
+      if (index >= 0) warm();
     })
     .catch((err) => {
       console.warn("🎞️ Reel: feed unavailable", err);
@@ -230,7 +234,19 @@ function cover(bitmap, w, h) {
 }
 
 function warm() {
-  for (const i of [index - 1, index + 1, index + 2]) {
+  // Fill disk's source cache without booting extra runtimes.
+  for (const i of [index + 1, index + 2]) {
+    const card = cards[i];
+    if (!preload || !card || warmed.has(card.key)) continue;
+    warmed.add(card.key);
+    Promise.resolve().then(() => preload(card.address)).catch(() => warmed.delete(card.key));
+  }
+  const nearby = new Set(cards.slice(Math.max(0, index - 2), index + 4).map(card => card.key));
+  for (const [key, bitmap] of posters) if (!nearby.has(key)) {
+    bitmap?.close();
+    posters.delete(key);
+  }
+  for (const i of [index, index - 1, index + 1, index + 2]) {
     const card = cards[i];
     if (!card?.poster || posters.has(card.key)) continue;
     posters.set(card.key, null);
@@ -239,6 +255,7 @@ function warm() {
       .then((r) => (r.ok ? r.blob() : Promise.reject()))
       .then((blob) => createImageBitmap(blob))
       .then((bitmap) => {
+        if (!posters.has(card.key)) return bitmap.close();
         posters.set(card.key, bitmap);
         if (phase !== "idle") needsPaint();
       })
@@ -315,7 +332,7 @@ export function pen(data, dispatch) {
     gesture = null;
     if (g.pull) return true; // Bios ends the pull from its own pointerup.
     const [t0, y0] = g.samples[0], [t1, y1] = g.samples.at(-1);
-    const v = t1 > t0 ? (y0 - y1) / (t1 - t0) : 0; // px/ms toward next
+    const v = now - t1 <= 100 && t1 > t0 ? (y0 - y1) / (t1 - t0) : 0;
     release(v);
     return true;
   }
@@ -380,6 +397,12 @@ export function scroll(content) {
   if (!open || index < 0) return false;
   const dy = content?.y || 0, dx = content?.x || 0;
   if (Math.abs(dx) > Math.abs(dy) || !dy) return false;
+  const now = performance.now();
+  if (now - lastWheelAt > WHEEL_REST) wheelCommitted = false;
+  lastWheelAt = now;
+  // One trackpad stream commits one card; momentum must not grab the settle
+  // again or spill into the following card after loading completes.
+  if (wheelCommitted) return true;
   if (phase === "waiting" || phase === "jumping" || phase === "loading") return true;
   if (!wheel) {
     if (dy < 0 && index === 0) {
@@ -394,7 +417,11 @@ export function scroll(content) {
   wheel.travel += dy;
   follow(wheel.travel);
   clearTimeout(wheel.timer);
-  if (Math.abs(offset) >= (lastH || 1) * COMMIT) return endWheel(), true;
+  if (Math.abs(offset) >= (lastH || 1) * COMMIT) {
+    wheelCommitted = true;
+    endWheel();
+    return true;
+  }
   wheel.timer = setTimeout(() => endWheel(), WHEEL_REST);
   return true;
 }

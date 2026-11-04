@@ -17,9 +17,10 @@
 //
 // The prompt's loop pauses the moment the sheet starts moving and resumes
 // only once it is home again, so the slide spends the main thread on the
-// slide. The guest frame stays visible and promoted while parked (translated
+// slide. The guest also holds its frame during the trip. It stays promoted
+// while parked (translated
 // a screen down), so its first appearance costs no paint. The address bar
-// follows the card (/mime/?p=<code>) and Back closes.
+// follows the card's piece address and Back closes.
 
 const MEDIA = "#171526"; // mime's dark media colour, behind a guest still loading
 // The guest is the mime reel: the whole feed as one noauth AC runtime, cards
@@ -30,7 +31,7 @@ const GUEST = (() => {
   try {
     if (localStorage.getItem("mime-classic") === "1") return "/mime/?embed=prompt";
   } catch {}
-  return "/mime-reel?noauth=true&mime=1&reel=1&nogap=true&nolabel=true";
+  return "/mime-reel?noauth=true&mime=1&reel=1&nogap=true&nosource=true";
 })();
 const COMMIT = 0.5; // of the screen: the halfway line decides, nothing else
 
@@ -40,6 +41,8 @@ let pausedLoop = false;
 let lastDownY = null; // clientY of the latest pointerdown, for an exact grab.
 let historyEntry = false; // We pushed a /mime/?p= entry for the open sheet.
 let swallowPop = false;
+let lastAddress = null;
+let promptTitle = null;
 let lastPermalink = null; // The guest's card on screen, as last announced.
 let lastWheelAt = 0;
 let entryMethod = "prompt_key";
@@ -100,7 +103,9 @@ function resumePrompt() {
 
 // 🧭 History: an open sheet is one entry; Back closes it.
 function enterHistory() {
-  const url = "/mime/" + (lastPermalink ? "?p=" + encodeURIComponent(lastPermalink) : "");
+  const url = lastAddress ? "/" + lastAddress
+    : "/mime/" + (lastPermalink ? "?p=" + encodeURIComponent(lastPermalink) : "");
+  if (lastAddress) document.title = lastAddress;
   if (!historyEntry) {
     history.pushState({ acMimeSheet: true }, "", url);
     historyEntry = true;
@@ -134,16 +139,13 @@ function popstate(e) {
 }
 
 // 📐 One position for both: the feed's top edge at `y`, the prompt above it.
-// `y` chases `goal` every frame through a short time constant, so whatever the
-// input does — a finger, a trackpad stream and its momentum tail, a mouse
-// notch, a release — the sheet itself only ever moves smoothly. Live input
-// sits a hair behind the finger; a settle eases out over about half a second.
+// Live input follows the finger on the next frame. Only release eases out.
 let y = innerHeight;
 let goal = innerHeight;
 let toward = null; // A settle in flight: 0 (open) or innerHeight (home).
 let tau = 40; // ms to close 63% of the gap
-const FOLLOW = 40;
-const GLIDE = 70;
+const FOLLOW = 0;
+const GLIDE = 50;
 let loop = 0;
 let lastStep = 0;
 
@@ -165,7 +167,7 @@ function step(now) {
   const dt = Math.min(64, now - lastStep);
   lastStep = now;
   const gap = goal - y;
-  y = Math.abs(gap) < 1 ? goal : y + gap * (1 - Math.exp(-dt / tau));
+  y = tau === 0 || Math.abs(gap) < 1 ? goal : y + gap * (1 - Math.exp(-dt / tau));
   write();
   if (y !== goal) return run();
   if (toward === null) return;
@@ -179,7 +181,7 @@ function still() {
   loop = 0;
 }
 
-// Follow live input: the goal moves, the sheet chases it.
+// Follow live input on the next animation frame.
 function follow(next) {
   goal = Math.max(0, Math.min(innerHeight, next));
   tau = FOLLOW;
@@ -191,9 +193,10 @@ function begin() {
   const f = ensure();
   if (trackingOpen) window.acAccountActivity?.feedSample(null, false);
   if (state === "parked") {
-    post({ type: "mime:sheet", open: true }); // First card up, slot away.
+    promptTitle = document.title;
     y = goal = innerHeight;
   }
+  post({ type: "mime:sheet", open: true, playing: false });
   state = "moving";
   toward = null;
   pausePrompt(); // The last frame rides along; the loop is back at home().
@@ -205,6 +208,7 @@ function begin() {
 function settle(target) {
   const f = ensure();
   if (state === "parked" && target === 0) begin();
+  else if (state === "open" && target === innerHeight) begin();
   state = "moving";
   toward = target;
   f.style.pointerEvents = "none";
@@ -219,6 +223,7 @@ function opened() {
     window.acAccountActivity?.feedOpen(entryMethod);
   }
   state = "open";
+  post({ type: "mime:sheet", open: true, playing: true });
   write();
   pausePrompt();
   enterHistory();
@@ -254,6 +259,7 @@ function meterGuest() {
 }
 
 function home() {
+  if (promptTitle !== null) document.title = promptTitle;
   const gz = document.querySelector('canvas[data-type="glaze"]');
   if (gz) gz.style.visibility = "";
   if (trackingOpen) window.acAccountActivity?.feedClose("prompt");
@@ -353,10 +359,11 @@ addEventListener("message", (e) => {
   const d = e.data || {};
   if (d.type === "mime:activity") {
     if (trackingOpen) window.acAccountActivity?.feedSample(d.contentId, d.active === true && state === "open");
-  } else if (d.type === "mime:sheet:hello") post({ type: "mime:sheet", open: state !== "parked" && state !== "cold" });
+  } else if (d.type === "mime:sheet:hello") post({ type: "mime:sheet", open: state !== "parked" && state !== "cold", playing: state === "open" });
   else if (d.type === "mime:sheet:ready") frame.style.background = "transparent";
   else if (d.type === "mime:sheet:at") {
     lastPermalink = d.permalink || null;
+    lastAddress = typeof d.address === "string" && /^(\$?[A-Za-z0-9_-]{1,64}|@[A-Za-z0-9_.-]{1,64}\/[A-Za-z0-9_-]{1,100})$/.test(d.address) ? d.address : null;
     if (historyEntry) enterHistory();
   } else if (d.type === "mime:sheet:pull") {
     if (d.end) {

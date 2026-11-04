@@ -667,7 +667,7 @@ if (window.max?.outlet) {
 // List of legitimate query parameters that should be preserved
 const LEGITIMATE_PARAMS = [
   'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
-  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 'shellhtml',
+  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 'nosource', 'shellhtml',
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
   'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo',
   'crossfade', 'maxfps', 'autoreload'
@@ -1333,7 +1333,7 @@ if (params.has("nocache")) window.acNOCACHE = true;
 // `code` arriving in the same query has no way through.
 if (!parsed.search) {
   const forPiece = new URLSearchParams();
-  for (const name of ["nolabel", "preview", "icon", "autoreload"]) {
+  for (const name of ["nolabel", "nosource", "preview", "icon", "autoreload"]) {
     if (params.has(name)) forPiece.set(name, params.get(name));
   }
   const query = forPiece.toString();

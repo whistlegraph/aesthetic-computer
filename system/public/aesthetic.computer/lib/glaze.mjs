@@ -144,6 +144,7 @@ const defaultUniformNames = [
   "iTexture",
   "iTexturePost",
   "iTime",
+  "iDay",
   "iMouse",
   "iResolution",
 ];
@@ -507,7 +508,7 @@ export function setDynamicUniform(uniformIdentifier, value) {
 
 let lastRender = null; // [time, mouse] of the latest render, for freeze().
 
-export function render(time, mouse) {
+export function render(time, mouse, day = false) {
   if (glaze === undefined || glaze.loaded === false) return;
   lastRender = [time, mouse];
 
@@ -562,6 +563,7 @@ export function render(time, mouse) {
   gl.uniform1i(locations.iTexture, 0);
   gl.uniform1i(locations.iTexturePost, 1);
   gl.uniform1f(locations.iTime, time);
+  gl.uniform1f(locations.iDay, day ? 1 : 0);
   gl.uniform2f(locations.iMouse, mouse.x, mouse.y);
   gl.uniform2f(locations.iResolution, postWidth, postHeight);
 
