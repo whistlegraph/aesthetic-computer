@@ -106,14 +106,16 @@ function popstate(e) {
 }
 
 // 📐 One number: how far the paper has faded, from 0 (home, opaque) to the
-// screen's height (gone). `y` chases `goal` through a short time constant,
-// so the fade out and the fade back both ease over about half a second.
+// screen's height (gone). `y` runs from where it was to `goal` over a fixed
+// time with an ease-in-out, so both ways take the same short beat and end
+// cleanly (2026-11-03: the exponential chase had a long faint tail).
 let y = 0;
 let goal = 0;
 let toward = null; // A move in flight: "open" or "home".
-const TAU = 110; // ms to close 63% of the gap
+const BEAT = 300; // ms, the whole move
 let loop = 0;
 let lastStep = 0;
+let from = 0, began = 0; // The move's start value and time.
 
 function write() {
   const s = stage();
@@ -124,17 +126,24 @@ function write() {
 function run() {
   if (loop) return;
   lastStep = performance.now();
+  from = y;
+  began = lastStep;
+  loop = requestAnimationFrame(step);
+}
+
+function run2() {
+  if (loop) return;
   loop = requestAnimationFrame(step);
 }
 
 function step(now) {
   loop = 0;
-  const dt = Math.min(64, now - lastStep);
   lastStep = now;
-  const gap = goal - y;
-  y = Math.abs(gap) < 1 ? goal : y + gap * (1 - Math.exp(-dt / TAU));
+  const t = Math.min(1, (now - began) / BEAT);
+  const ease = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
+  y = t >= 1 ? goal : from + (goal - from) * ease;
   write();
-  if (y !== goal) return run();
+  if (y !== goal) return run2();
   if (toward === null) return;
   const target = toward;
   toward = null;
@@ -166,7 +175,10 @@ function hide() {
   toward = "home";
   goal = 0;
   frame.style.pointerEvents = "none";
-  frame.style.zIndex = "-1"; // Back beneath the stage for the paper to cover.
+  // The prompt wakes now, not at the end: its crosshair flies home while
+  // the paper fades back in, one motion (2026-11-03). The frame drops
+  // beneath the stage only once the paper is whole, to spare a reflow mid-fade.
+  resumePrompt();
   run();
 }
 
@@ -204,6 +216,7 @@ function home() {
   state = "parked";
   y = goal = 0;
   frame.style.pointerEvents = "none";
+  frame.style.zIndex = "-1"; // Back beneath the stage for the paper to cover.
   const s = stage();
   if (s) Object.assign(s.style, { opacity: "", willChange: "" });
   document.documentElement.style.cursor = "";
