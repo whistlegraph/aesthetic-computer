@@ -6018,7 +6018,7 @@ function paint($) {
       : [[147, 34, 95], [37, 123, 85], [0, 107, 114], [189, 56, 81]]; // mime by day: wine, green, teal, rose
     const side = dark ? [23, 21, 38] : [245, 242, 248]; // the slab's side: mime's paper, night or day
     const s = 1; // glyphs are 6×10: the mark stays tiny on every screen (2026-11-03)
-    const word = "mimes";
+    const word = "MIMEs"; // the format's name in capitals, plural in small
     const cw = 7 * s; // the font's advance plus a pixel of tracking
     const gh = 10 * s, depth = 2 * s;
     const x0 = Math.floor((screen.width - (word.length * cw - s)) / 2);
