@@ -611,15 +611,19 @@ export async function createView(canvas) {
     projector.shiftX = projector.shiftY = 0;
     if (orbit > 0) {
       const a = now / 3200; // a slow spin, about one turn in twenty seconds
-      // Nearly top-down: high above, a little off to one side so the walls
-      // still read as it turns.
-      const far = { x: Math.sin(a) * 14, y: 44, z: -Math.cos(a) * 14 };
+      // Straight down from high above, far enough that the room fits inside
+      // the crosshair's 16 px box (half 7 px) when square to it; a slight
+      // tilt sets which way is up, and as it circles the room turns
+      // (2026-11-03). sy = 1 on a landscape screen (Projector.camera).
+      const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
+      const height = ((WORLD + 0.3) * (1 / tan) * canvas.height) / (2 * 7);
+      const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       const cornerX = (canvas.width - 22 * px) / canvas.width * 2 - 1, cornerY = 1 - (canvas.height - 22 * px) / canvas.height * 2;
       const k0 = 1 - orbit, e0 = k0 * k0 * (3 - 2 * k0);
       projector.shiftX = cornerX * (1 - e0);
       projector.shiftY = cornerY * (1 - e0);
-      const centre = { x: 0, y: 0.8, z: 0 };
+      const centre = { x: 0, y: 0, z: 0 };
       if (!me || orbit >= 1) {
         eye = far;
         aim = centre;
