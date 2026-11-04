@@ -150,7 +150,7 @@ export async function createView(canvas) {
       quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
       for (let x = -WORLD + 2; x < WORLD; x += 2)
         for (let z = -WORLD + 2; z < WORLD; z += 2)
-          box(x, 0.006, z, 0.08, 0.01, 0.08, p.dot, p.dot, p.dot);
+          box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot); // clear of the floor and the paint
       // Four slabs that never share volume (2026-11-03: overlapping corners
       // z-fought): north and south run the full outside width and own the
       // corners; east and west fit exactly between their inner faces.
@@ -551,6 +551,7 @@ export async function createView(canvas) {
     reticle = false, // Draw the reticle even while bare: the paper is moving.
     reticleShift = null, // On the way home, where the reticle has flown to (buffer px, y up).
     orbit = 0, // 1: the far camera circling the room (behind the curtain); 0: the player's own.
+    flyTo = null, // Where the flight in lands while the seat is still being granted.
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
@@ -633,13 +634,19 @@ export async function createView(canvas) {
       projector.shiftX = cornerX * (1 - e0);
       projector.shiftY = cornerY * (1 - e0);
       const centre = { x: 0, y: 0, z: 0 };
-      if (!me || orbit >= 1) {
+      const me0 = me || flyTo; // Before the seat is granted, fly toward the spawn.
+      if (!me0 || orbit >= 1) {
         eye = far;
         aim = centre;
       } else {
         const k = 1 - orbit, e = k * k * (3 - 2 * k); // smoothstep along the curve
-        const f = direction(me.yaw, 0);
-        const behind = { x: me.x - f.x * 3.2, y: me.y + 1.4, z: me.z - f.z * 3.2 };
+        const f = direction(me0.yaw, 0);
+        const behind = { x: me0.x - f.x * 3.2, y: me0.y + 1.4, z: me0.z - f.z * 3.2 };
+        if (!me) {
+          // No seat yet: the eye and aim the seat will have.
+          eye = { x: me0.x, y: me0.y, z: me0.z };
+          aim = along(eye, direction(me0.yaw, 0), 10);
+        }
         const bez = (p, q, r) => (1 - e) * (1 - e) * p + 2 * (1 - e) * e * q + e * e * r;
         eye = { x: bez(far.x, behind.x, eye.x), y: bez(far.y, behind.y, eye.y), z: bez(far.z, behind.z, eye.z) };
         aim = {
@@ -1816,13 +1823,13 @@ export async function createView(canvas) {
         for (const [key, c] of Object.entries(tiles)) {
           const [i, j] = key.split(',').map(Number);
           const x = -18 + i * 2, z = -18 + j * 2, col = TILE_COLORS[(c - 1) % TILE_COLORS.length];
-          quad([x + 0.06, 0.008, z + 0.06], [x + 1.94, 0.008, z + 0.06], [x + 1.94, 0.008, z + 1.94], [x + 0.06, 0.008, z + 1.94], col);
+          quad([x + 0.06, 0.005, z + 0.06], [x + 1.94, 0.005, z + 0.06], [x + 1.94, 0.005, z + 1.94], [x + 0.06, 0.005, z + 1.94], col);
         }
       });
     }
     if (tileModel) draw(tileModel, 0, 0, 0);
     if (floorAim && !menu && !radial && !bare && orbit <= 0) {
-      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.12, y = 0.012;
+      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.12, y = 0.024;
       const m = model(({ quad }) => {
         const c = 0x00ffff; // The reticle's cyan: this is where the ray lands.
         quad([x, y, z], [x + 2, y, z], [x + 2, y, z + w], [x, y, z + w], c);

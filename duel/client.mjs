@@ -82,6 +82,7 @@ function logNet(text, flags = {}) {
   if (netLog.length > 40) netLog.shift();
 }
 let parked = false; // The client closed the room's socket itself (back on the curtain).
+let lastSeat = -1; // The seat held last time, for the next flight in.
 let connectAttempts = 0,
   healthPoll = null,
   silentSince = null,
@@ -443,6 +444,7 @@ function connect() {
     if (data.type === 'welcome' || data.type === 'role') {
       const old = player;
       seat = data.seat;
+      if (seat >= 0) lastSeat = seat;
       if (seat < 0) {
         freecam = old
           ? { x: old.x + 2, y: old.y + 2, z: old.z - 3, yaw, pitch }
@@ -1071,10 +1073,8 @@ function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
   // Full rate for a beat after the paper is back, so the return never stutters.
-  if (hosted && !sheetOpen && now - sheetClosedAt > 900) {
-    if (now - bareAt < 50) return;
-    bareAt = now;
-  }
+  // (The corner world runs at full rate: stepping it at 20 fps made the
+  // turning room's edges flicker, 2026-11-03.)
   try {
     step(now);
   } catch (error) {
@@ -1518,6 +1518,7 @@ function step(now) {
     reticle: hosted && sheetOpen && !down,
     reticleShift: reticleShift(now),
     orbit: orbitStep(now),
+    flyTo: seat < 0 && hosted && sheetOpen ? spawn(lastSeat >= 0 ? lastSeat : 0) : null,
     jobs,
     worldTime,
     locked: locked(),
