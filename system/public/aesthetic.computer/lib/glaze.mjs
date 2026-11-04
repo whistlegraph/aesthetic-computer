@@ -102,8 +102,13 @@ export function init(wrapper) {
   canvas.classList.add("first-glaze");
   canvas.style.opacity = 0;
 
+  // Alpha (2026-11-03): where the prompt's canvas is clear (the curtain over
+  // the dool world) the glaze is clear too, so it can stay on there. Straight
+  // alpha; every glaze writes 1.0 except where the prompt glaze passes the
+  // source's alpha through.
   gl = canvas.getContext("webgl2", {
-    alpha: false,
+    alpha: true,
+    premultipliedAlpha: false,
     depth: false,
     stencil: false,
     desynchronized: true,

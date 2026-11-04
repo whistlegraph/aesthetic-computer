@@ -5376,9 +5376,11 @@ function paint($) {
   const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
     !$.system.prompt.input.text &&
     ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
-  if (glazeWanted && glazeOn === curtainClear) {
-    glazeOn = !curtainClear;
-    $.glaze({ on: glazeOn });
+  // The glaze stays on with the curtain (2026-11-03): its canvas now carries
+  // alpha, so the clear curtain stays clear under it.
+  if (glazeWanted && !glazeOn) {
+    glazeOn = true;
+    $.glaze({ on: true });
   }
 
   // 🅰️ Paint below the prompt || scheme.
@@ -6103,9 +6105,27 @@ function paint($) {
 
 
         // Attract mode (2026-11-03): an empty rect that blinks like a
-        // terminal waiting for you, bright for most of a beat, then gone.
-        const beat = performance.now() % 1100;
-        if (beat < 700) ink(...fillColor.slice(0, 3), 235).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h, "inline");
+        // terminal waiting for you, polychrome, its hue drifting around the
+        // edge with a white glint running along it; gone for part of a beat.
+        const now = performance.now(), beat = now % 1100;
+        if (beat < 760) {
+          const { x, y, w, h } = cursorPos;
+          const ring = [];
+          for (let i = 0; i < w; i++) ring.push([x + i, y]);
+          for (let j = 1; j < h; j++) ring.push([x + w - 1, y + j]);
+          for (let i = w - 2; i >= 0; i--) ring.push([x + i, y + h - 1]);
+          for (let j = h - 2; j > 0; j--) ring.push([x, y + j]);
+          const glint = Math.floor((now / 40) % ring.length);
+          ring.forEach(([px, py], k) => {
+            const hue = (k / ring.length + now / 2400) % 1;
+            const a = hue * 6, f = a - Math.floor(a), q = 1 - f, seg = Math.floor(a) % 6;
+            const [r, g, b] = [[1, f, 0], [q, 1, 0], [0, 1, f], [0, q, 1], [f, 0, 1], [1, 0, q]][seg];
+            const d = Math.min((k - glint + ring.length) % ring.length, (glint - k + ring.length) % ring.length);
+            const lift = d === 0 ? 1 : d === 1 ? 0.55 : 0;
+            const c = (v) => Math.round(150 + 105 * v + (255 - (150 + 105 * v)) * lift);
+            ink(c(r), c(g), c(b), 240).plot(px, py);
+          });
+        }
         $.needsPaint?.();
 
 
