@@ -506,50 +506,49 @@ function compiled(source) {
     sampleTime,
     rendered = false,
     render = true;
-  const point = (m, at, x, y, z) =>
-    [0, 1, 2].map(
-      (k) =>
-        m[at + k] + x * m[at + 3 + k] + y * m[at + 6 + k] + z * m[at + 9 + k],
-    );
   function emit(part, m, at) {
-    const corners = [];
-    for (let i = 0; i < 8; i++)
-      corners.push(
-        ...point(
-          m,
-          at,
-          part.bounds[0][i & 1 ? 1 : 0],
-          part.bounds[1][i & 2 ? 1 : 0],
-          part.bounds[2][i & 4 ? 1 : 0],
-        ),
-      );
-    boxes.push(boxOf(boundsOf(corners)));
+    // Transform directly into the retained buffer. These loops run for every
+    // animated primitive, for both rendering and prediction; temporary arrays
+    // here used to make a busy room spend much of its time allocating.
+    const ox = m[at], oy = m[at + 1], oz = m[at + 2],
+      xx = m[at + 3], xy = m[at + 4], xz = m[at + 5],
+      yx = m[at + 6], yy = m[at + 7], yz = m[at + 8],
+      zx = m[at + 9], zy = m[at + 10], zz = m[at + 11];
+    let minX = Infinity, minY = Infinity, minZ = Infinity,
+      maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const x = part.bounds[0][i & 1 ? 1 : 0],
+        y = part.bounds[1][i & 2 ? 1 : 0], z = part.bounds[2][i & 4 ? 1 : 0],
+        wx = ox + x * xx + y * yx + z * zx,
+        wy = oy + x * xy + y * yy + z * zy,
+        wz = oz + x * xz + y * yz + z * zz;
+      minX = Math.min(minX, wx); maxX = Math.max(maxX, wx);
+      minY = Math.min(minY, wy); maxY = Math.max(maxY, wy);
+      minZ = Math.min(minZ, wz); maxZ = Math.max(maxZ, wz);
+    }
+    boxes.push({ x: (minX + maxX) / 2, y: (minY + maxY) / 2,
+      z: (minZ + maxZ) / 2, w: maxX - minX, h: maxY - minY,
+      d: maxZ - minZ, color: 0xc0c0c0 });
     if (!render) return;
     const start = length;
     for (const t of part.triangles) {
       if (length + 18 > vertices.length) fail('Object exceeds 512 triangles');
-      const normal = [0, 1, 2].map(
-          (k) =>
-            t.normal[0] * m[at + 3 + k] +
-            t.normal[1] * m[at + 6 + k] +
-            t.normal[2] * m[at + 9 + k],
-        ),
-        norm = Math.hypot(...normal);
-      const shade = norm
-        ? 0.72 +
-          0.28 *
-            Math.max(
-              0,
-              normal.reduce((a, n, i) => a + n * objectLight[i], 0) / norm,
-            )
-        : 1;
+      const nx = t.normal[0] * xx + t.normal[1] * yx + t.normal[2] * zx,
+        ny = t.normal[0] * xy + t.normal[1] * yy + t.normal[2] * zy,
+        nz = t.normal[0] * xz + t.normal[1] * yz + t.normal[2] * zz,
+        norm = Math.hypot(nx, ny, nz);
+      const shade = norm ? 0.72 + 0.28 * Math.max(0,
+        (nx * objectLight[0] + ny * objectLight[1] + nz * objectLight[2]) / norm) : 1;
+      const red = (t.color[0] * shade) / 255,
+        green = (t.color[1] * shade) / 255, blue = (t.color[2] * shade) / 255;
       for (let i = 0; i < 9; i += 3) {
-        vertices.set(point(m, at, ...t.points.slice(i, i + 3)), length);
-        vertices.set(
-          t.color.map((c) => (c * shade) / 255),
-          length + 3,
-        );
-        length += 6;
+        const x = t.points[i], y = t.points[i + 1], z = t.points[i + 2];
+        vertices[length++] = ox + x * xx + y * yx + z * zx;
+        vertices[length++] = oy + x * xy + y * yy + z * zy;
+        vertices[length++] = oz + x * xz + y * yz + z * zz;
+        vertices[length++] = red;
+        vertices[length++] = green;
+        vertices[length++] = blue;
       }
     }
     ranges[boxes.length - 1] = [start, length];

@@ -208,13 +208,15 @@ function opened() {
 function meterGuest() {
   const guest = frame.contentWindow;
   if (!guest || !window.acMeterPaint) return;
+  const generation = ++meterGeneration;
   const tick = () => {
-    if (state !== "open") return;
+    if (state !== "open" || generation !== meterGeneration) return;
     window.acMeterPaint();
     guest.requestAnimationFrame(tick);
   };
   guest.requestAnimationFrame(tick);
 }
+let meterGeneration = 0;
 
 function home() {
   state = "parked";
@@ -250,6 +252,13 @@ addEventListener("message", (e) => {
   if (d.type === "dool:sheet:hello") {
     said = true;
     post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid() });
+    // A server restart reloads the guest without moving the host's paper.
+    // Restore the completed transition too: otherwise its HUD stays hidden
+    // and the native frame meter is still attached to the discarded document.
+    if (state === "open") {
+      post({ type: "dool:sheet", phase: "opened" });
+      meterGuest();
+    }
     if (pendingShow) {
       clearTimeout(pendingShow);
       pendingShow = 0;

@@ -46,6 +46,8 @@ let ws,
   seat = -1,
   player,
   snapshot,
+  prediction = null,
+  resetPrediction = false,
   history = [],
   pending = [],
   seq = 0;
@@ -441,6 +443,8 @@ function connect() {
   pending = [];
   player = null;
   snapshot = null;
+  prediction = null;
+  resetPrediction = false;
   seq = 0;
   eventId = 0;
   debt = 0;
@@ -475,6 +479,8 @@ function connect() {
         freecamPlaced = false;
       }
       player = null;
+      prediction = null;
+      resetPrediction = false;
       pending = [];
       seq = 0;
       debt = 0;
@@ -592,10 +598,11 @@ function connect() {
               `Object version ${data.version} ready. Enter to prompt Aesel.`,
       );
     }
-    diagnostics.max('messageMaxMs', performance.now() - messageAt);
     if (data.type === 'snapshot' && !document.hidden && sheetOpen) diagnostics.snapshot();
-    if (data.type !== 'snapshot' || (snapshot && data.tick <= snapshot.tick))
+    if (data.type !== 'snapshot' || (snapshot && data.tick <= snapshot.tick)) {
+      diagnostics.max('messageMaxMs', performance.now() - messageAt);
       return;
+    }
     const own = data.players[seat];
     if (seat < 0 && !freecamPlaced) {
       const target = data.players.find(Boolean);
@@ -619,26 +626,12 @@ function connect() {
       }
     }
     if (seat >= 0 && !own) return;
+    // Socket callbacks only retain the newest authority. Replaying prediction
+    // for every queued snapshot can starve input, rendering and even pongs.
     if (own) {
-      const changedLife = !player || own.life !== player.life;
-      const changedPhase = snapshot && data.phase !== snapshot.phase;
-      const result = reconcile(
-        own,
-        pending,
-        data.acks[seat],
-        solids(),
-        data.tick,
-      );
-      pending = result.pending;
-      player =
-        data.phase === 'playing' || data.phase === 'waiting'
-          ? result.player
-          : { ...own };
-      presentation.correct(player, changedLife || changedPhase);
-      if (changedLife) {
-        yaw = own.yaw;
-        pitch = own.pitch;
-      }
+      if (prediction && diagnostics.enabled) diagnostics.values.snapshotsCoalesced++;
+      resetPrediction ||= !!snapshot && data.phase !== snapshot.phase;
+      prediction = data;
     }
     if (Number.isFinite(data.epoch)) {
       const offset = data.epoch - Date.now();
@@ -683,6 +676,7 @@ function connect() {
       if (event.type === 'cancel') sfx.ricochet(1.5);
       if (event.type === 'headshot') sfx.headshot();
     }
+    diagnostics.max('messageMaxMs', performance.now() - messageAt);
   };
   socket.onclose = (e) => {
     if (socket !== ws) return;
@@ -691,6 +685,8 @@ function connect() {
       seat = -1;
       player = null;
       snapshot = null;
+      prediction = null;
+      resetPrediction = false;
       members = [];
       selfMember = null;
       prompt.busy = false;
@@ -713,6 +709,8 @@ function connect() {
     selfMember = null;
     player = null;
     snapshot = null;
+    prediction = null;
+    resetPrediction = false;
     pending = [];
     history = [];
     presentation.reset(null);
@@ -1100,6 +1098,20 @@ function reticleShift(now) {
   const hx = canvas.width / 2 - 22 * px, hy = -(canvas.height / 2 - 22 * px);
   return { x: Math.round(hx * ease), y: Math.round(hy * ease) };
 }
+function applyPrediction() {
+  if (!prediction) return;
+  const began = performance.now(), data = prediction, own = data.players[seat];
+  prediction = null;
+  const changedLife = !player || own.life !== player.life;
+  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick);
+  pending = result.pending;
+  player = data.phase === 'playing' || data.phase === 'waiting' ? result.player : { ...own };
+  presentation.correct(player, changedLife || resetPrediction);
+  resetPrediction = false;
+  if (changedLife) { yaw = own.yaw; pitch = own.pitch; }
+  diagnostics.max('reconcileMaxMs', performance.now() - began);
+  diagnostics.max('pendingCommandsMax', pending.length);
+}
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
@@ -1108,6 +1120,7 @@ function frame(now) {
   // turning room's edges flicker, 2026-11-03.)
   const began = performance.now();
   try {
+    applyPrediction();
     step(now);
   } catch (error) {
     if (diagnostics.enabled) diagnostics.values.frameErrors++;
@@ -1331,7 +1344,7 @@ function step(now) {
       elapsed,
     );
   const probe = connection.probe(
-    now,
+    performance.now(),
     ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048,
   );
   if (probe) send(probe);

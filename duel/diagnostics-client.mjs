@@ -12,7 +12,8 @@ export class ClientDiagnostics {
     this.lastFrame = this.lastSnapshot = null;
     this.ids = new Set();
     this.values = { frames: 0, frameGapMaxMs: 0, frameWorkMaxMs: 0, renderMaxMs: 0,
-      snapshotGapMaxMs: 0, longTasks: 0, longTaskMaxMs: 0, frameErrors: 0, messageMaxMs: 0 };
+      snapshotGapMaxMs: 0, longTasks: 0, longTaskMaxMs: 0, frameErrors: 0, messageMaxMs: 0,
+      reconcileMaxMs: 0, pendingCommandsMax: 0, snapshotsCoalesced: 0 };
   }
   max(key, value) {
     if (this.enabled && Number.isFinite(value)) this.values[key] = Math.max(this.values[key] || 0, value);

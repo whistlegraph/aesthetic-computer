@@ -15,6 +15,7 @@ const enums = {
 const numbers = new Set(['elapsedMs', 'phaseMs', 'previewCount', 'previewRejected', 'previewMaxMs',
   'commitMs', 'durationMs', 'frames', 'frameGapMaxMs', 'frameWorkMaxMs', 'renderMaxMs',
   'snapshotGapMaxMs', 'longTasks', 'longTaskMaxMs', 'frameErrors', 'messageMaxMs',
+  'reconcileMaxMs', 'pendingCommandsMax', 'snapshotsCoalesced',
   'rttMs', 'jitterMs', 'queuedBytes', 'objects', 'triangles', 'loopGapMaxMs', 'tickMaxMs',
   'clients', 'builds', 'closeCode']);
 const uuid = (v) => typeof v === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(v);

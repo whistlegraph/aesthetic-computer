@@ -2129,6 +2129,7 @@ export async function createView(canvas) {
     // Local inspection only; no telemetry, labels or DOM overlays.
     canvas.doolStats = {
       backend,
+      bare,
       tool: 'hands',
       role: spectator ? 'spectator' : 'player',
       camera: camera || null,

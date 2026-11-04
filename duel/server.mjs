@@ -452,6 +452,7 @@ export function createDuelServer({
         const fields = {};
         for (const k of ['durationMs', 'frames', 'frameGapMaxMs', 'frameWorkMaxMs', 'renderMaxMs',
           'snapshotGapMaxMs', 'longTasks', 'longTaskMaxMs', 'frameErrors', 'messageMaxMs',
+          'reconcileMaxMs', 'pendingCommandsMax', 'snapshotsCoalesced',
           'rttMs', 'jitterMs', 'queuedBytes', 'objects', 'triangles', 'backend']) fields[k] = data[k];
         diagnostics.emit('client.sample', { ...fields, session: ws.diagnosticSession,
           buildIds: Array.isArray(data.buildIds) ? data.buildIds.slice(0, 12).filter((id) =>

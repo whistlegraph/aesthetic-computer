@@ -193,7 +193,8 @@ Set `DOOL_DIAGNOSTICS=1` on the game server to enable private structured journal
 records prefixed `dool.diagnostic`. Off by default; nothing goes to PostHog.
 The welcome message enables the matching client sampler. Visible clients send
 at most one summary every five seconds, covering frame gaps/work, long tasks,
-snapshot gaps, message processing, rendering cost, RTT/jitter, queue size and
+snapshot gaps, message processing, prediction replay cost, maximum pending
+commands, coalesced snapshots, rendering cost, RTT/jitter, queue size and
 object/triangle counts. Hidden tabs and the closed homepage backdrop reset the
 window. Samples are client-reported evidence, not authoritative timing.
 
@@ -215,6 +216,17 @@ Inspect with `journalctl -u lith -o cat | rg 'dool.diagnostic|KidLisp ATProto'`.
 `node duel/test/diagnostics-browser.mjs` verifies two clients observing one build
 and a controlled main-thread stall, without calling a model. The corner label
 shows only the local identity; other players' names remain above their heads.
+
+Local load and recovery checks (no model calls or production traffic):
+
+```sh
+node duel/test/load-server.mjs          # 16 connections, four animated rooms
+node duel/test/load-browser.mjs         # 4× CPU slowdown, packet bursts, movement, reconnect
+node duel/test/sheet-recovery-browser.mjs # embedded reload, HUD, meter, prompt resume
+```
+
+The load fixture is synthetic. `DOOL_ROOM_FIXTURE=/private/path/objects.json`
+can replay a private store locally; never commit that store or its output.
 
 ## Aesel objects
 
