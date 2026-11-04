@@ -6734,8 +6734,10 @@ function paint($) {
         ? Math.max(0, 1 - Math.hypot(pn.x - (home.x + side(1) / 2), pn.y - (home.y + side(1) / 2)) / 70)
         : 0;
       const grow = Math.round(xNear * (2 + 1.5 * (0.5 + 0.5 * Math.sin(now / 200))));
-      if (Math.abs(xNear - doolNearSent) > 0.04 || (xNear === 0 && doolNearSent !== 0)) {
-        doolNearSent = xNear;
+      // Sent on every whole-pixel change, so the room is always exactly the
+      // crosshair's size (no easing on either side).
+      if (grow !== doolNearSent) {
+        doolNearSent = grow;
         $.send({ type: "dool:sheet", content: { action: "near", value: (7 + grow) / 7 } });
       }
       if (xNear > 0) $.needsPaint?.();

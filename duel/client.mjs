@@ -1519,7 +1519,7 @@ function step(now) {
     reticle: hosted && sheetOpen && !down,
     reticleShift: reticleShift(now),
     orbit: orbitStep(now),
-    cornerScale: (shownCornerScale += (cornerScale - shownCornerScale) * 0.25),
+    cornerScale,
     flyTo: seat < 0 && hosted && sheetOpen ? spawn(lastSeat >= 0 ? lastSeat : 0) : null,
     jobs,
     worldTime,
