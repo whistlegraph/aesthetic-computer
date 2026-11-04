@@ -6102,18 +6102,10 @@ function paint($) {
         $.layer(3);
 
 
-        // Attract mode (2026-11-03): the caret blinks like a terminal waiting
-        // for you, solid and bright for most of a beat, then gone; hollow
-        // while the window is not focused.
+        // Attract mode (2026-11-03): an empty rect that blinks like a
+        // terminal waiting for you, bright for most of a beat, then gone.
         const beat = performance.now() % 1100;
-        if (beat < 700) {
-          const solid = [...fillColor.slice(0, 3), 235];
-          if ($.inFocus === false) ink(...solid).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h, "inline");
-          else {
-            ink(0, 0, 0, 90).box(cursorPos.x + 1, cursorPos.y + 1, cursorPos.w, cursorPos.h);
-            ink(...solid).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h);
-          }
-        }
+        if (beat < 700) ink(...fillColor.slice(0, 3), 235).box(cursorPos.x, cursorPos.y, cursorPos.w, cursorPos.h, "inline");
         $.needsPaint?.();
 
 
