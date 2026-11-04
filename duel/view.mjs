@@ -1846,25 +1846,38 @@ export async function createView(canvas) {
     }
     if (tileModel) draw(tileModel, 0, 0, 0);
     if (floorAim && !menu && !radial && !bare && orbit <= 0) {
-      // The cursor itself, laid flat on the aimed square (2026-11-03): the
-      // reticle's four L corners and its centre dot, projected onto the
-      // floor, in its cyan, with a dark shadow under each stroke.
-      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.1, arm = 0.55, y = 0.024;
-      const m = model(({ quad }) => {
-        const slab = (x0, z0, x1, z1, c, yy) => quad([x0, yy, z0], [x1, yy, z0], [x1, yy, z1], [x0, yy, z1], c);
-        for (const [c, yy, dx] of [[0x101018, y - 0.004, 0.05], [0x00ffff, y, 0]]) {
-          for (const sx of [0, 1])
-            for (const sz of [0, 1]) {
-              const cx = x + sx * 2, cz = z + sz * 2;
-              const ax = sx ? cx - arm : cx, az = sz ? cz - w : cz;
-              slab(ax + dx, az + dx, ax + arm + dx, az + w + dx, c, yy);
-              const bx = sx ? cx - w : cx, bz = sz ? cz - arm : cz;
-              slab(bx + dx, bz + dx, bx + w + dx, bz + arm + dx, c, yy);
+      // The cursor projected onto the aimed square, drawn in screen space
+      // (2026-11-03): the square's four corners go through the camera and
+      // the reticle's L corners and centre dot are drawn between them as
+      // whole-pixel HUD lines with their shadow, not as quads on the floor.
+      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, y = 0.02, k = 0.275;
+      const P = [[x, z], [x + 2, z], [x + 2, z + 2], [x, z + 2]].map(([px, pz]) => projector.project(px, y, pz));
+      const mid = projector.project(x + 1, y, z + 1);
+      if (P.every(Boolean) && mid) {
+        const S = P.map((p) => [Math.round((p.x * W) / 2), Math.round((p.y * H) / 2)]);
+        const C = [Math.round((mid.x * W) / 2), Math.round((mid.y * H) / 2)];
+        const { unit } = hud;
+        const m = model(({ rect: worldRect }) => {
+          const rect = flip(worldRect);
+          const dot = (px, py, color, z0) => rect(px, py, z0, unit, unit, color);
+          const line = (a, b, color, z0, off) => {
+            const steps = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / unit;
+            for (let i = 0; i <= steps; i++) {
+              const t = steps ? i / steps : 0;
+              dot(Math.round((a[0] + (b[0] - a[0]) * t) / unit) * unit + off, Math.round((a[1] + (b[1] - a[1]) * t) / unit) * unit - off, color, z0);
             }
-          slab(x + 0.92 + dx, z + 0.92 + dx, x + 1.08 + dx, z + 1.08 + dx, c, yy);
-        }
-      });
-      draw(m, 0, 0, 0);
+          };
+          for (const [color, z0, off] of [[INK, 0.000002, unit], [0x00ffff, 0, 0]]) {
+            S.forEach((p, i) => {
+              const nx = S[(i + 1) % 4], pv = S[(i + 3) % 4];
+              line(p, [p[0] + (nx[0] - p[0]) * k, p[1] + (nx[1] - p[1]) * k], color, z0, off);
+              line(p, [p[0] + (pv[0] - p[0]) * k, p[1] + (pv[1] - p[1]) * k], color, z0, off);
+            });
+            rect(C[0] - unit + off, C[1] - unit - off, z0, 2 * unit, 2 * unit, color);
+          }
+        });
+        projector.overlay(m, W, H);
+      }
     }
     // Chalk: a cached model per stroke, rebuilt only while it grows; your
     // own newest points draw at once, before the server echoes them.
