@@ -185,8 +185,36 @@ timings exclude GPU completion and display latency; they are not a speedup claim
    replay evidence; version the physics/map build together before deployment.
 
 The foundations are testable; competitive WAN quality, matchmaking and production
-operations are not established by this scaffold. No analytics or account data is
-collected.
+operations are not established by this scaffold.
+
+## Operational diagnostics
+
+Set `DOOL_DIAGNOSTICS=1` on the game server to enable private structured journal
+records prefixed `dool.diagnostic`. Off by default; nothing goes to PostHog.
+The welcome message enables the matching client sampler. Visible clients send
+at most one summary every five seconds, covering frame gaps/work, long tasks,
+snapshot gaps, message processing, rendering cost, RTT/jitter, queue size and
+object/triangle counts. Hidden tabs and the closed homepage backdrop reset the
+window. Samples are client-reported evidence, not authoritative timing.
+
+Schema 1 has an ephemeral run/session UUID, deployed revision, bounded numeric
+fields, fixed outcome/reason/phase enums, and build UUIDs already disclosed to
+that connection. It excludes prompts, source, handles, room names, owner tokens,
+URLs, raw errors and stacks. No persistent browser tracking ID is created.
+Per-connection sampling and a global 120-record/second cap bound ingestion.
+Journal storage and retention follow the host's journald policy; no new public
+read endpoint or file store is created.
+
+Build records cover acceptance, rejection, phase duration, preview processing,
+commit duration and terminal outcomes. A separate publication receipt joins the
+build UUID to its public `$code`; KidLisp's ATProto log names that same code on
+success or failure. A commit is not proof that downstream publication or client
+display succeeded. A browser that never recovers cannot send a final sample.
+
+Inspect with `journalctl -u lith -o cat | rg 'dool.diagnostic|KidLisp ATProto'`.
+`node duel/test/diagnostics-browser.mjs` verifies two clients observing one build
+and a controlled main-thread stall, without calling a model. The corner label
+shows only the local identity; other players' names remain above their heads.
 
 ## Aesel objects
 

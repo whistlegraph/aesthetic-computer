@@ -9,6 +9,7 @@ import { Room } from './room.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
+import { createDiagnostics } from './diagnostics.mjs';
 import { HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
@@ -42,6 +43,7 @@ const assets = new Map([
     'highlight',
     'chunky-font',
     'kidlisp-wall',
+    'diagnostics-client',
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -82,13 +84,17 @@ export function createDuelServer({
   publicURL = process.env.DOOL_PUBLIC_URL,
   devLog = process.env.DOOL_DEV_LOG,
   publishKidlisp = null,
+  diagnosticsEnabled = process.env.DOOL_DIAGNOSTICS === '1',
+  diagnosticWrite,
   devLogRooms = (process.env.DOOL_DEV_LOG_ROOMS || 'studio').split(','),
 } = {}) {
   if (prefix && !/^\/[a-z0-9-]+$/.test(prefix))
     throw new Error('Invalid mount path');
   const rooms = new Map();
+  const diagnostics = createDiagnostics({ enabled: diagnosticsEnabled, write: diagnosticWrite });
   const store = new ObjectStore(stateDir),
-    ready = store.load();
+    ready = Promise.all([store.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
+      .then((r) => diagnostics.setRevision(r.trim())).catch(() => {})]);
   const handle = async (req, res) => {
     let url;
     try {
@@ -257,6 +263,15 @@ export function createDuelServer({
       ws.close(1013, 'Connection too slow');
       return;
     }
+    if (diagnostics.enabled && ws.diagnosticJobs &&
+      ['objects', 'build-accepted', 'build-result'].includes(data.type)) {
+      const now = Date.now();
+      for (const [id, at] of ws.diagnosticJobs) if (now - at > 300000) ws.diagnosticJobs.delete(id);
+      const ids = data.type === 'objects' ? data.jobs.map((j) => j.id)
+        : ['build-accepted', 'build-result'].includes(data.type) && data.id ? [data.id] : [];
+      for (const id of ids) ws.diagnosticJobs.set(id, now);
+      while (ws.diagnosticJobs.size > 32) ws.diagnosticJobs.delete(ws.diagnosticJobs.keys().next().value);
+    }
     ws.send(JSON.stringify(data));
   };
   // Braincells: AC's allowance, read with the player's own sign-in and sent
@@ -291,7 +306,7 @@ export function createDuelServer({
         if (busy || braincellTick % 15 === 0) void refreshBraincells(ws, member);
       }
   }, 4000);
-  const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp });
+  const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp, diagnostics });
   // Off unless a transcript is named, and only in the listed rooms.
   const devRecent = [];
   const devRoom = (key) => !!devLog && devLogRooms.includes(key);
@@ -336,6 +351,10 @@ export function createDuelServer({
       return;
     }
     const nativeAccount = authorization?.startsWith('Bearer ');
+    ws.diagnosticSession = randomUUID();
+    ws.diagnosticJobs = new Map();
+    let diagnosticAt = -Infinity;
+    const creditRefreshes = new Set();
     const member = room.add(ws, nativeAccount);
     room.match.setObjects(store.objects(key));
     let accountAttempted = false;
@@ -379,6 +398,7 @@ export function createDuelServer({
       seat: member.seat,
       role: member.seat < 0 ? 'spectator' : 'player',
       protocol: PROTOCOL,
+      diagnostics: diagnostics.enabled,
       room: roomId,
       joinURL: publicURL ? (() => {
         const join = new URL(publicURL);
@@ -426,6 +446,18 @@ export function createDuelServer({
         ws.close(1008, 'Invalid JSON');
         return;
       }
+      if (data?.type === 'diagnostic') {
+        if (!diagnostics.enabled || now - diagnosticAt < 5000) return;
+        diagnosticAt = now;
+        const fields = {};
+        for (const k of ['durationMs', 'frames', 'frameGapMaxMs', 'frameWorkMaxMs', 'renderMaxMs',
+          'snapshotGapMaxMs', 'longTasks', 'longTaskMaxMs', 'frameErrors', 'messageMaxMs',
+          'rttMs', 'jitterMs', 'queuedBytes', 'objects', 'triangles', 'backend']) fields[k] = data[k];
+        diagnostics.emit('client.sample', { ...fields, session: ws.diagnosticSession,
+          buildIds: Array.isArray(data.buildIds) ? data.buildIds.slice(0, 12).filter((id) =>
+            ws.diagnosticJobs.has(id) && Date.now() - ws.diagnosticJobs.get(id) <= 300000) : [] });
+        return;
+      }
       if (data?.type === 'identity' && !owner && !identifying) {
         identifying = true;
         store
@@ -451,9 +483,16 @@ export function createDuelServer({
       if (data?.type === 'account') void identifyAccount(data.accessToken);
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
-          builders.request(ws, key, owner, member.seat, data, { guest: !member.token });
+          const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token });
           void refreshBraincells(ws, member);
-          for (const ms of [20000, 90000, 180000]) setTimeout(() => void refreshBraincells(ws, member), ms);
+          if (accepted) for (const ms of [20000, 90000, 180000]) {
+            const timer = setTimeout(() => {
+              creditRefreshes.delete(timer);
+              void refreshBraincells(ws, member);
+            }, ms);
+            timer.unref();
+            creditRefreshes.add(timer);
+          }
         }
         else send(ws, { type: 'build-result', error: 'Spectators cannot build' });
       }
@@ -509,7 +548,9 @@ export function createDuelServer({
       if (data?.type === 'ping' && Number.isFinite(data.at))
         send(ws, { type: 'pong', at: data.at });
     });
-    ws.on('close', () => {
+    ws.on('close', (code) => {
+      diagnostics.emit('connection.closed', { session: ws.diagnosticSession, closeCode: code });
+      for (const timer of creditRefreshes) clearTimeout(timer);
       clearInterval(heartbeat);
       room.remove(ws);
       if (!room.clients.size) rooms.delete(key);
@@ -518,8 +559,10 @@ export function createDuelServer({
 
   let previous = performance.now(),
     debt = 0;
+  let diagnosticStart = previous, loopGapMaxMs = 0, tickMaxMs = 0;
   const timer = setInterval(() => {
     const now = performance.now();
+    if (diagnostics.enabled) loopGapMaxMs = Math.max(loopGapMaxMs, now - previous);
     debt += Math.min(100, now - previous);
     previous = now;
     while (debt >= 1000 / HZ) {
@@ -534,6 +577,16 @@ export function createDuelServer({
         for (const ws of room.clients.keys()) {
           send(ws, snap);
         }
+      }
+    }
+    if (diagnostics.enabled) {
+      tickMaxMs = Math.max(tickMaxMs, performance.now() - now);
+      if (now - diagnosticStart >= 5000) {
+        if (rooms.size) diagnostics.emit('server.sample', { durationMs: now - diagnosticStart,
+          loopGapMaxMs, tickMaxMs, clients: wss.clients.size, builds: builders.jobs.size,
+          buildIds: [...builders.jobs.keys()] });
+        diagnosticStart = now;
+        loopGapMaxMs = tickMaxMs = 0;
       }
     }
   }, 4);

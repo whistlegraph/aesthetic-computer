@@ -4,6 +4,16 @@ Live source for the `aesthetic` tenant at `hi.aesthetic.computer`.
 
 `login.css` is the style source. `template.html` embeds it, so login never depends on a development server. `settings.json` records the theme, text, identifier-first profile and password/email-code switch forms. `before-2026-10-15.json` contains the previous settings for rollback; no custom page template or switch forms existed before this release.
 
+`fit.js` fits the rendered card to the window, using the same uniform scaling
+approach as Aesel's `SignInPanelLayout`. It observes content size so validation
+messages and a growing challenge remain inside the frame, without replacing
+inputs or touching challenge contents. Explicit browser zoom restores ordinary
+scrolling. Without JavaScript the original responsive layout remains available.
+Run `node system/backend/auth0-branding/build.mjs` to inline CSS and JavaScript;
+publishing also rebuilds automatically. Check fitting with
+`node system/backend/auth0-branding/test-fit.mjs`, then inspect a fresh hosted
+transaction with the draft applied before publishing only `--only template`.
+
 For a live preview, open a fresh sign-in through AC (so Auth0 owns the transaction), find that exact tab with `puppet list`, then run:
 
 ```sh

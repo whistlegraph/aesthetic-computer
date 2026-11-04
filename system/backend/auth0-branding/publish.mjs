@@ -4,6 +4,7 @@
 // Usage: node publish.mjs [--only template,theme,prompts,text,partials] [--dry-run]
 import {readFile} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
+import './build.mjs';
 const args=process.argv.slice(2);
 const dry=args.includes('--dry-run');
 const only=args.includes('--only')?args[args.indexOf('--only')+1].split(','):['template','theme','prompts','text','partials'];

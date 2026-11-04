@@ -1,4 +1,5 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { buildReason } from './diagnostics.mjs';
 import {
   geometry,
   objectBoxes,
@@ -83,12 +84,22 @@ export const PER_PLAYER = 3;
 export const PER_WORKER = 3;
 
 export class Builders {
-  constructor({ token, store, rooms, send, publish = null }) {
-    Object.assign(this, { token, store, rooms, send, publish });
+  constructor({ token, store, rooms, send, publish = null, diagnostics }) {
+    Object.assign(this, { token, store, rooms, send, publish, diagnostics });
 
     this.workers = new Map();
     this.names = new Map(); // Each builder's name, from its hello.
     this.jobs = new Map();
+  }
+  record(event, job, fields = {}) {
+    this.diagnostics?.emit(event, { id: job.id, session: job.client?.diagnosticSession,
+      kind: job.kind || 'object', elapsedMs: Date.now() - job.startedAt, ...fields });
+  }
+  phase(job, phase) {
+    if (job.phase === phase) return;
+    if (job.phase) this.record('build.phase', job, { phase: job.phase, phaseMs: Date.now() - (job.phaseAt || job.startedAt) });
+    job.phase = phase;
+    job.phaseAt = Date.now();
   }
   authorized(header) {
     const expected = Buffer.from(`Bearer ${this.token || ''}`),
@@ -230,21 +241,24 @@ export class Builders {
       if (data.type === 'progress') {
         if (Date.now() - (job.progressAt || 0) < 100) return;
         job.progressAt = Date.now();
-        job.phase = ['generating', 'correcting', 'validating', 'waiting'].includes(
+        this.phase(job, ['generating', 'correcting', 'validating', 'waiting'].includes(
           data.phase,
         )
           ? data.phase
-          : 'generating';
+          : 'generating');
         job.code =
           typeof data.code === 'string'
             ? data.code.replace(/[^\x20-\x7e\n]/g, '').slice(-900)
             : '';
         job.preview = null;
         if (data.geometry) {
+          const began = performance.now();
+          job.previewCount = (job.previewCount || 0) + 1;
           try {
             const shape = asItem(geometry(data.geometry), job.item);
             job.preview = this.place(job, shape);
-          } catch {}
+          } catch { job.previewRejected = (job.previewRejected || 0) + 1; }
+          job.previewMaxMs = Math.max(job.previewMaxMs || 0, performance.now() - began);
         }
         this.broadcast(job.room);
         return;
@@ -256,8 +270,11 @@ export class Builders {
           if (!this.publish) throw Error('No KidLisp store');
           const code = await this.publish(data.source, this.tokenOf(job));
           await this.store.setWall(job.room, job.face, code);
+          job.outcome = 'committed';
+          this.record('build.publication', job, { outcome: 'published', code });
           this.deliver(job, { type: 'build-result', id: job.id, kidlisp: code, face: job.face });
         } catch (e) {
+          job.reason = buildReason(e);
           this.deliver(job, { type: 'build-result', id: job.id, error: e.message });
         } finally {
           this.finish(job);
@@ -272,13 +289,19 @@ export class Builders {
               : 'Aesel could not build that object',
           );
         const shape = asItem(geometry(data.geometry), job.item);
+        const commitAt = performance.now();
         const committed = await this.store.commit(job, shape, () => this.place(job, shape));
+        job.commitMs = performance.now() - commitAt;
+        job.outcome = 'committed';
         // Each finished version is a KidLisp program: give it a $code.
         if (this.publish && committed.geometry?.source)
           this.publish(committed.geometry.source, this.tokenOf(job))
-            .then((code) => this.store.setCode(job.room, committed.id, committed.version, code, { handle: this.handleOf(job) }))
+            .then(async (code) => {
+              const saved = await this.store.setCode(job.room, committed.id, committed.version, code, { handle: this.handleOf(job) });
+              this.record('build.publication', job, { outcome: saved ? 'published' : 'failed', code });
+            })
             .then(() => this.broadcast(job.room))
-            .catch((e) => console.log(`dool $code failed: ${e.message}`));
+            .catch((e) => this.record('build.publication', job, { outcome: 'failed', reason: buildReason(e) }));
         this.deliver(job, {
           type: 'build-result',
           id: job.id,
@@ -286,7 +309,8 @@ export class Builders {
           version: job.baseVersion + 1,
         });
       } catch (e) {
-        console.log(`dool build failed (${job.room}): ${e.message} | prompt: ${job.prompt}`);
+        job.reason = buildReason(e);
+        console.warn(`dool build failed: ${job.reason}`);
         this.deliver(job, {
           type: 'build-result',
           id: job.id,
@@ -311,6 +335,7 @@ export class Builders {
         job.orphanTimer = setTimeout(() => {
           if (job.finishing || job.worker) return;
           this.deliver(job, { type: 'build-result', id, error: 'Aesel disconnected. Your previous version is unchanged.' });
+          job.outcome = 'disconnected';
           this.finish(job);
         }, 60000);
       }
@@ -338,6 +363,10 @@ export class Builders {
     if (to) this.send(to, message);
   }
   finish(job) {
+    this.record('build.finished', job, { outcome: job.outcome || (job.reason === 'timeout' ? 'timeout' : 'failed'),
+      reason: job.reason, phase: job.phase || 'connecting', phaseMs: Date.now() - (job.phaseAt || job.startedAt),
+      previewCount: job.previewCount || 0, previewRejected: job.previewRejected || 0,
+      previewMaxMs: job.previewMaxMs || 0, commitMs: job.commitMs });
     clearTimeout(job.timer);
     clearTimeout(job.orphanTimer);
     this.jobs.delete(job.id);
@@ -358,6 +387,7 @@ export class Builders {
     this.guestBuilds.set(owner, { day, count: (used?.day === day ? used.count : 0) + 1 });
   }
   request(client, room, owner, seat, input, { guest = false } = {}) {
+    const requestId = randomUUID(), startedAt = Date.now();
     try {
       if (!owner) throw Error('Identity is not ready');
       if (guest && this.guestRemaining(owner) <= 0)
@@ -415,7 +445,7 @@ export class Builders {
         sketch = { x: cx, z: cz, text: lines.map((l, k) => `stroke ${k + 1}: ${l}`).join('; ') };
       }
       const job = {
-        id: randomUUID(),
+        id: requestId,
         objectId: existing?.id || randomUUID(),
         owner,
         room,
@@ -428,7 +458,7 @@ export class Builders {
         sketch: sketch?.text || null,
         client,
         worker,
-        startedAt: Date.now(),
+        startedAt,
       };
       // Reserve a visible initial footprint even before the first code arrives.
       try {
@@ -442,6 +472,7 @@ export class Builders {
       } catch {}
       job.timer = setTimeout(() => {
         if (job.finishing) return;
+        job.outcome = 'timeout';
         this.send(worker, { type: 'cancel', id: job.id });
         this.send(client, {
           type: 'build-result',
@@ -452,6 +483,7 @@ export class Builders {
       }, 180000);
       if (guest) this.spendGuest(owner);
       this.jobs.set(job.id, job);
+      this.record('build.accepted', job);
       this.workers.get(worker).add(job.id);
       this.send(worker, {
         type: 'build',
@@ -466,8 +498,11 @@ export class Builders {
         objectId: job.objectId,
       });
       this.broadcast(room);
+      return job.id;
     } catch (e) {
-      this.send(client, { type: 'build-result', error: e.message });
+      this.record('build.rejected', { id: requestId, startedAt, client }, { reason: buildReason(e) });
+      this.send(client, { type: 'build-result', id: requestId, error: e.message });
+      return null;
     }
   }
   static meta(job) {
@@ -476,6 +511,7 @@ export class Builders {
   }
   // Change a wall's KidLisp: a job of its own kind, handed to a builder.
   async requestKidlisp(client, room, owner, input) {
+    const requestId = randomUUID(), startedAt = Date.now();
     try {
       const face = ['north', 'west'].includes(input.face) ? input.face : null;
       const prompt = typeof input.prompt === 'string' ? input.prompt.trim().slice(0, 280) : '';
@@ -487,20 +523,23 @@ export class Builders {
       const code = this.store.walls(room)[face];
       const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?code=${code}`, { signal: AbortSignal.timeout(6000) });
       const { source } = await r.json();
-      const job = { id: randomUUID(), kind: 'kidlisp', face, code, owner, room, prompt, objectId: null, baseVersion: 0, x: 0, z: 0, client, worker, startedAt: Date.now() };
+      const job = { id: requestId, kind: 'kidlisp', face, code, owner, room, prompt, objectId: null, baseVersion: 0, x: 0, z: 0, client, worker, startedAt };
       job.timer = setTimeout(() => {
         if (job.finishing) return;
+        job.outcome = 'timeout';
         this.send(worker, { type: 'cancel', id: job.id });
         this.deliver(job, { type: 'build-result', id: job.id, error: 'Aesel timed out. Try again.' });
         this.finish(job);
       }, 180000);
       this.jobs.set(job.id, job);
+      this.record('build.accepted', job);
       this.workers.get(worker).add(job.id);
       this.send(worker, { type: 'build', kind: 'kidlisp', id: job.id, prompt, source, meta: { ...Builders.meta(job), kind: 'kidlisp', face, code } });
       this.send(client, { type: 'build-accepted', id: job.id, kidlisp: true, face });
       this.broadcast(room);
     } catch (e) {
-      this.send(client, { type: 'build-result', error: e.message });
+      this.record('build.rejected', { id: requestId, startedAt, client, kind: 'kidlisp' }, { reason: buildReason(e) });
+      this.send(client, { type: 'build-result', id: requestId, error: e.message });
     }
   }
   // A builder that reconnects hands back the jobs it was still working on.
@@ -513,6 +552,7 @@ export class Builders {
       const job = { ...m, worker: ws, client: null, phase: entry.phase || 'generating', code: entry.code || '' };
       job.timer = setTimeout(() => {
         if (job.finishing) return;
+        job.outcome = 'timeout';
         this.deliver(job, { type: 'build-result', id: job.id, error: 'Aesel timed out. Try again.' });
         this.finish(job);
       }, 180000);
@@ -533,6 +573,7 @@ export class Builders {
       id: job.id,
       cancelled: true,
     });
+    job.outcome = 'cancelled';
     this.finish(job);
   }
   place(job, shape) {
@@ -603,6 +644,7 @@ export class Builders {
   }
   close() {
     for (const job of this.jobs.values()) {
+      this.record('build.finished', job, { outcome: 'shutdown', phase: job.phase || 'connecting' });
       clearTimeout(job.timer);
       clearTimeout(job.orphanTimer);
     }

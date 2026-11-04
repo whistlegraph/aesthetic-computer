@@ -80,7 +80,7 @@ export class Room {
       spectators,
     };
     for (const r of this.sessions.values())
-      if (r.welcomed) this.send(r.ws, message);
+      if (r.welcomed) this.send(r.ws, { ...message, self: this.public(r) });
   }
   remove(ws) {
     const r = this.sessions.get(ws);

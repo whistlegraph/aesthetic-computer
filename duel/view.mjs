@@ -516,6 +516,7 @@ export async function createView(canvas) {
     rockets = [],
     status = '',
     members = [],
+    self = null,
     connection,
     joinURL,
     objects = [],
@@ -1125,7 +1126,7 @@ export async function createView(canvas) {
         height = canvas.height,
         { unit, safeX, safeY, qrSize } = hud;
       const labelColumns = Math.max(4, Math.floor((width - 2 * safeX - Math.max(qrSize, 90) - 18 * unit) / (6 * unit)));
-      const labels = members.map((m) => ({
+      const labels = (self ? [self] : members.filter((m) => seat >= 0 ? m.seat === seat : owner && m.owner === owner).slice(0, 1)).map((m) => ({
         seat: m.seat,
         label: (m.handle ? `@${m.handle}` : m.name || `GUEST ${m.seat + 1}`).slice(0, labelColumns),
         handle: m.handle,
@@ -1155,7 +1156,7 @@ export async function createView(canvas) {
           // Text already uses screen-right coordinates; ordinary faces need the same flip.
           const rect = (x, y, z, w, h, color) =>
             worldRect(-x - w, y, z, w, h, color);
-          // Bottom left, newest at the bottom, lifted above an open panel.
+          // Bottom left is the local identity; other names stay on their heads.
           const floor = Math.max(-height / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
           labels.forEach(({ label, seat, handle, colors }, i) => {
             const x = -width / 2 + safeX + 2,
@@ -1229,7 +1230,7 @@ export async function createView(canvas) {
             d = Math.hypot(dx, dy, dz);
           if (wallDistance(eye, { x: dx / d, y: dy / d, z: dz / d }, d, solidObjects, worldTime) < d - 0.3) continue;
           const member = members.find((x) => x.seat === t.seat);
-          const label = member?.handle ? `@${member.handle}` : `guest ${t.seat + 1}`;
+          const label = member?.handle ? `@${member.handle}` : member?.name || `guest ${t.seat + 1}`;
           const x = Math.round((s.x * W) / 2),
             y = Math.round((s.y * H) / 2) + 10 * unit;
           if (member?.handle) {
@@ -1610,7 +1611,7 @@ export async function createView(canvas) {
     if (face && me && !bare) {
       const { unit, safeX, safeY } = hud;
       const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
-      const listTop = floor + Math.max(0, members.length - 1) * 12 * unit + 4 * unit;
+      const listTop = floor + 4 * unit;
       const S = 24 * unit, x0 = -W / 2 + safeX + 2, y0 = listTop + 4 * unit;
       const base = me.y - CFG.eyeHeight,
         yawR = (me.yaw * Math.PI) / 180;
@@ -1673,11 +1674,11 @@ export async function createView(canvas) {
       }
     }
     if (face && !bare) {
-      // A face cam, bottom left above the handles: an original pixel portrait
+      // A face cam, bottom left above your handle: an original pixel portrait
       // in the player's own look that reacts to what happens to them.
       const { unit, safeX, safeY } = hud;
       const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
-      const listTop = floor + Math.max(0, members.length - 1) * 12 * unit + 4 * unit;
+      const listTop = floor + 4 * unit;
       const S = 24 * unit,
         x0 = -W / 2 + safeX + 2,
         y0 = listTop + 4 * unit; // bottom edge of the frame

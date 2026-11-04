@@ -152,6 +152,12 @@ const LEXICONS = {
     hasBlob: false,
     hasAnonymous: true,
     buildRecord: async (item, user, database) => {
+      // Datomic owns the source; its Mongo projection owns the sync identity.
+      // Never invent an ObjectId or substitute a $code for the lexicon's ref.
+      const id = item._id ?? (await database.db.collection("kidlisp").findOne(
+        { code: item.code }, { projection: { _id: 1 } },
+      ))?._id;
+      if (!id) throw new Error("KidLisp projection missing identity");
       return {
         record: {
           $type: "computer.aesthetic.kidlisp",
@@ -159,7 +165,7 @@ const LEXICONS = {
           source: item.source,
           acUrl: `https://aesthetic.computer/$${item.code}`,
           when: item.when.toISOString(),
-          ref: item._id.toString()
+          ref: id.toString()
         }
       };
     }
@@ -360,11 +366,17 @@ export async function createMediaRecord(database, type, item, options = {}) {
     
     const rkey = uri.split("/").pop();
     shell.log(`✅ Created ${type} ATProto record: ${rkey}`);
+    if (type === MediaTypes.KIDLISP) {
+      shell.log(`KidLisp ATProto $${item.code}: published`);
+    }
     
     return { rkey, uri };
     
   } catch (error) {
     shell.error(`❌ Failed to create ${type} ATProto record: ${error.message}`);
+    if (type === MediaTypes.KIDLISP) {
+      shell.error(`KidLisp ATProto $${item.code}: failed`);
+    }
     return { error: error.message };
   }
 }

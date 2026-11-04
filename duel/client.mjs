@@ -6,6 +6,7 @@ import { objectBoxes } from './objects.mjs';
 import { direction, rayBox, wallDistance, along, SCREEN, WORLD } from './world.mjs';
 import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
+import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { accountToken } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -72,6 +73,23 @@ const presentation = new LocalPresentation(),
   playback = new SnapshotClock();
 const prompt = new Prompt();
 const connection = new Connection();
+let selfMember = null;
+const diagnostics = new ClientDiagnostics((sample) => {
+  if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048) send(sample);
+});
+let longTaskObserver;
+function configureDiagnostics(enabled) {
+  diagnostics.enabled = enabled;
+  diagnostics.reset();
+  longTaskObserver?.disconnect();
+  if (enabled && typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+    longTaskObserver = new PerformanceObserver((list) => {
+      if (!document.hidden && sheetOpen)
+        for (const entry of list.getEntries()) diagnostics.longTask(entry.duration);
+    });
+    longTaskObserver.observe({ type: 'longtask' });
+  }
+}
 // The connection's own log, for the offline panel: what the socket and the
 // server's health said, when. Kept short.
 const netLog = [];
@@ -431,6 +449,7 @@ function connect() {
   notice = 'CONNECTING';
   connection.reset();
   members = [];
+  selfMember = null;
   freecamPlaced = false;
   connectAttempts++;
   logNet(`connecting to room ${room} (try ${connectAttempts})`);
@@ -441,6 +460,7 @@ function connect() {
   };
   socket.onmessage = (e) => {
     if (socket !== ws) return;
+    const messageAt = performance.now();
     const data = JSON.parse(e.data);
     if (data.type === 'welcome' || data.type === 'role') {
       const old = player;
@@ -465,6 +485,7 @@ function connect() {
       presentation.reset(null);
     }
     if (data.type === 'welcome') {
+      configureDiagnostics(data.diagnostics === true);
       logNet(seat >= 0 ? `joined as player ${seat + 1}` : 'joined as a spectator', { good: true });
       if (data.joinURL) joinURL = data.joinURL;
       let token;
@@ -477,7 +498,10 @@ function connect() {
           send({ type: 'account', accessToken });
       });
     }
-    if (data.type === 'presence') members = data.members;
+    if (data.type === 'presence') {
+      members = data.members;
+      selfMember = data.self || null;
+    }
     if (data.type === 'handle-history' && Array.isArray(data.items)) {
       handleHistory = data.items;
       if (menu?.kind === 'history') menu.items = menuItems('history');
@@ -522,6 +546,7 @@ function connect() {
       } catch {}
     }
     if (data.type === 'objects') {
+      diagnostics.jobs(data.jobs.map((j) => j.id));
       for (const job of data.jobs) sfx.buildProgress(job.id, job.preview?.boxes?.length || 0);
       objects = data.objects;
       builder = data.builder;
@@ -567,6 +592,8 @@ function connect() {
               `Object version ${data.version} ready. Enter to prompt Aesel.`,
       );
     }
+    diagnostics.max('messageMaxMs', performance.now() - messageAt);
+    if (data.type === 'snapshot' && !document.hidden && sheetOpen) diagnostics.snapshot();
     if (data.type !== 'snapshot' || (snapshot && data.tick <= snapshot.tick))
       return;
     const own = data.players[seat];
@@ -665,6 +692,7 @@ function connect() {
       player = null;
       snapshot = null;
       members = [];
+      selfMember = null;
       prompt.busy = false;
       void peekRoom();
       return;
@@ -682,6 +710,7 @@ function connect() {
     objects = [];
     jobs = [];
     members = [];
+    selfMember = null;
     player = null;
     snapshot = null;
     pending = [];
@@ -1039,6 +1068,7 @@ document.addEventListener('mousedown', (e) => {
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('blur', releaseInput);
 document.addEventListener('visibilitychange', () => {
+  diagnostics.reset();
   releaseInput();
   debt = 0;
   last = performance.now();
@@ -1076,11 +1106,18 @@ function frame(now) {
   // Full rate for a beat after the paper is back, so the return never stutters.
   // (The corner world runs at full rate: stepping it at 20 fps made the
   // turning room's edges flicker, 2026-11-03.)
+  const began = performance.now();
   try {
     step(now);
   } catch (error) {
+    if (diagnostics.enabled) diagnostics.values.frameErrors++;
     console.error('dool frame', error);
   }
+  if (diagnostics.enabled) diagnostics.frame({ visible: !document.hidden && sheetOpen,
+    workMs: performance.now() - began, renderMs: canvas.doolStats?.cpuMs,
+    backend: canvas.doolStats?.backend, objects: objects.length, triangles: canvas.doolStats?.triangles,
+    rttMs: connection.rtt, jitterMs: connection.jitter, queuedBytes: ws?.bufferedAmount || 0,
+    buildIds: jobs.map((j) => j.id) });
 }
 function step(now) {
   const elapsed = Math.max(0, (now - last) / 1000);
@@ -1467,6 +1504,7 @@ function step(now) {
     holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,
     status: sheetOpen ? status : '',
     members: sheetOpen ? members : [],
+    self: sheetOpen ? selfMember : null,
     joinURL,
     connection: sheetOpen
       ? connection.state(now, ws?.readyState === WebSocket.OPEN, ws?.bufferedAmount || 0)
