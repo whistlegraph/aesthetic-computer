@@ -1732,13 +1732,49 @@ export async function createView(canvas) {
     }
     // Chalk: a cached model per stroke, rebuilt only while it grows; your
     // own newest points draw at once, before the server echoes them.
+    // Chalk as a rounded tube (2026-11-03): a six-sided prism per segment,
+    // each side shaded by how it faces the light, every joint overlapped a
+    // radius each way so corners read round. Points closer than a few
+    // centimetres are skipped, so a long stroke stays a few hundred quads.
     const ribbon = (points, ink) =>
       model(({ quad }) => {
-        const w = 0.02;
-        for (let k = 1; k < points.length; k++) {
-          const a = points[k - 1], b = points[k];
-          quad([a.x - w, a.y, a.z], [b.x - w, b.y, b.z], [b.x + w, b.y, b.z], [a.x + w, a.y, a.z], ink);
-          quad([a.x, a.y - w, a.z], [b.x, b.y - w, b.z], [b.x, b.y + w, b.z], [a.x, a.y + w, a.z], ink);
+        const r = 0.045, N = 6;
+        const kept = [];
+        for (const p of points) {
+          const l = kept[kept.length - 1];
+          if (!l || Math.hypot(p.x - l.x, p.y - l.y, p.z - l.z) > 0.035) kept.push(p);
+        }
+        const last = points[points.length - 1];
+        if (kept.length && kept[kept.length - 1] !== last && Math.hypot(last.x - kept[kept.length - 1].x, last.y - kept[kept.length - 1].y, last.z - kept[kept.length - 1].z) > 0.005) kept.push(last);
+        if (kept.length < 2) return;
+        for (let k = 1; k < kept.length; k++) {
+          const a = kept[k - 1], b = kept[k];
+          let tx = b.x - a.x, ty = b.y - a.y, tz = b.z - a.z;
+          const len = Math.hypot(tx, ty, tz) || 1;
+          tx /= len; ty /= len; tz /= len;
+          // Two perpendiculars to the segment.
+          const hx = Math.abs(ty) < 0.9 ? 0 : 1, hy = Math.abs(ty) < 0.9 ? 1 : 0;
+          let n1x = ty * 0 - tz * hy, n1y = tz * hx - tx * 0, n1z = tx * hy - ty * hx;
+          const n1l = Math.hypot(n1x, n1y, n1z) || 1;
+          n1x /= n1l; n1y /= n1l; n1z /= n1l;
+          const n2x = ty * n1z - tz * n1y, n2y = tz * n1x - tx * n1z, n2z = tx * n1y - ty * n1x;
+          // The ends reach a radius past the points so neighbours overlap.
+          const ax = a.x - tx * r, ay = a.y - ty * r, az = a.z - tz * r;
+          const bx = b.x + tx * r, by = b.y + ty * r, bz = b.z + tz * r;
+          const ring = (cx, cy, cz) => {
+            const out = [];
+            for (let i = 0; i < N; i++) {
+              const th = (i / N) * Math.PI * 2, c = Math.cos(th), s = Math.sin(th);
+              out.push([cx + r * (c * n1x + s * n2x), cy + r * (c * n1y + s * n2y), cz + r * (c * n1z + s * n2z)]);
+            }
+            return out;
+          };
+          const A = ring(ax, ay, az), B = ring(bx, by, bz);
+          for (let i = 0; i < N; i++) {
+            const j = (i + 1) % N, th = ((i + 0.5) / N) * Math.PI * 2;
+            const ny = Math.cos(th) * n1y + Math.sin(th) * n2y; // the side's upward facing
+            quad(A[i], B[i], B[j], A[j], tint(ink, 0.72 + 0.28 * (ny * 0.5 + 0.5)));
+          }
         }
       });
     const liveChalk = new Set();
