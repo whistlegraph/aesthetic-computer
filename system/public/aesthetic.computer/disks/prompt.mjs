@@ -6709,7 +6709,8 @@ function paint($) {
       const s = Math.max(1, Math.round(scale));
       const t = s, arm = 4 * s, half = (7 + (hot ? 1 : 0)) * s;
       if (hot) {
-        softGlow($, { x: at.x, y: at.y, w: side(1), h: side(1) }, [0, 255, 255], 0.55 + 0.25 * Math.sin(now / 220), 8);
+        // A round glow from the centre, not one hugging the square.
+        softGlow($, { x: at.x + side(1) / 2, y: at.y + side(1) / 2, w: 0, h: 0 }, [0, 255, 255], 0.45 + 0.2 * Math.sin(now / 220), 16);
         $.needsPaint?.();
       }
       const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
