@@ -6727,20 +6727,19 @@ function paint($) {
         }
       }
       const hot = !doolFlight && doolBtn?.over;
-      // Near the pointer the crosshair breathes wider and the room inside it
-      // scales with it: the world hears how near (lib/dool-sheet.mjs).
-      const pn = $.pen;
-      const xNear = !doolFlight && pn && pn.x !== undefined
-        ? Math.max(0, 1 - Math.hypot(pn.x - (home.x + side(1) / 2), pn.y - (home.y + side(1) / 2)) / 70)
-        : 0;
-      const grow = Math.round(xNear * (2 + 1.5 * (0.5 + 0.5 * Math.sin(now / 200))));
+      // Hovered, the crosshair blinks between a wide yellow select outline
+      // and a tight teal inner one, hinting at locking on (2026-11-03); the
+      // room inside follows its size exactly (lib/dool-sheet.mjs "near").
+      const lockBlink = hot && Math.floor(now / 260) % 2 === 0;
+      const grow = lockBlink ? 2 : 0;
+      if (hot) $.needsPaint?.();
       // Sent on every whole-pixel change, so the room is always exactly the
       // crosshair's size (no easing on either side).
       if (grow !== doolNearSent) {
         doolNearSent = grow;
         $.send({ type: "dool:sheet", content: { action: "near", value: (7 + grow) / 7 } });
       }
-      if (xNear > 0) $.needsPaint?.();
+
       // Hover: a soft cyan glow, the arms spread a pixel, a soft tone as the
       // pointer arrives (2026-11-03).
       if (hot && !doolHover) {
@@ -6754,10 +6753,11 @@ function paint($) {
         softGlow($, { x: at.x + side(1) / 2, y: at.y + side(1) / 2, w: 0, h: 0 }, [0, 255, 255], 0.45 + 0.2 * Math.sin(now / 220), 16);
         $.needsPaint?.();
       }
-      const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
-      // Always AC's cursor cyan: the paper freezes on the pressed frame as it
-      // fades, and the world's reticle (cyan) takes over under it.
-      const color = [0, 255, 255];
+      // The centre stays put as the arms spread (it used to grow from the corner).
+      const ox = at.x + 8 * s, oy = at.y + 8 * s; // the reticle's centre
+      // AC's cursor cyan, except the hover blink's yellow select and teal
+      // inner phases; the press stays cyan for the handoff to the world.
+      const color = !hot || doolFlight ? [0, 255, 255] : lockBlink ? [255, 224, 102] : [0, 190, 175];
       // Every shadow first, then every stroke: with no depth here, a
       // vertical arm's shadow drawn after its neighbour's stroke bit a black
       // notch out of the bottom-left corner (2026-11-03). dool's depth test
@@ -6789,19 +6789,6 @@ function paint($) {
       let commitText = updateAvailable
         ? `update to ${versionInfo.deployed}`
         : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
-      // Near the pointer the hash runs like code: digits flip to random hex,
-      // more of them the nearer, settling as the pointer arrives on it.
-      {
-        const pb = $.pen, box = commitBtn?.btn?.box;
-        if (pb && pb.x !== undefined && box) {
-          const d = Math.hypot(Math.max(box.x - pb.x, 0, pb.x - (box.x + box.w)), Math.max(box.y - pb.y, 0, pb.y - (box.y + box.h)));
-          const churn = d <= 0 ? 0 : Math.max(0, 1 - d / 60) * 0.6;
-          if (churn > 0) {
-            commitText = [...commitText].map((ch) => (/[0-9a-f]/.test(ch) && Math.random() < churn ? "0123456789abcdef"[Math.floor(Math.random() * 16)] : ch)).join("");
-            $.needsPaint?.();
-          }
-        }
-      }
       // Create button using TextButtonSmall (MatrixChunky8 font) in the top-right
       const buttonY = 6;
       if (!commitBtn) {
@@ -6870,7 +6857,27 @@ function paint($) {
                   255,                  // text alpha
                   [20, 25, 30, 128]
                 ];
-        commitBtn.paint($, colors);
+        // The hash's letters are drawn here instead, metallic: a hue taken
+        // from the hash's own first six hex digits, a bright sheen sweeping
+        // across them (2026-11-03).
+        commitBtn.paint($, [colors[0], colors[1], [0, 0, 0, 0], colors[3]]);
+        {
+          const hex = (versionInfo.deployed || "").replace(/[^0-9a-f]/gi, "").padEnd(6, "8").slice(0, 6);
+          const r0 = parseInt(hex.slice(0, 2), 16), g0 = parseInt(hex.slice(2, 4), 16), b0 = parseInt(hex.slice(4, 6), 16);
+          const top = Math.max(r0, g0, b0, 1);
+          const base = [r0, g0, b0].map((v) => 110 + Math.round((v / top) * 120)); // bright, keeps the hash's hue
+          const tt = performance.now();
+          let tx = cBox.x + 2;
+          [...commitText].forEach((ch, i) => {
+            const band = Math.pow(Math.max(0, Math.cos((i * 0.9 - tt / 160) * 0.5)), 6);
+            const shade = 0.7 + 0.3 * Math.sin(i * 1.7 + tt / 900);
+            const col = base.map((v) => Math.min(255, Math.round(v * shade + (255 - v * shade) * band)));
+            $.ink(0, 0, 0, 160).write(ch, { x: tx + 1, y: cBox.y + 3 }, undefined, undefined, false, "MatrixChunky8");
+            $.ink(...col).write(ch, { x: tx, y: cBox.y + 2 }, undefined, undefined, false, "MatrixChunky8");
+            tx += $.text.box(ch, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
+          });
+          $.needsPaint?.();
+        }
 
       }
       versionCommit = versionInfo.deployed;
@@ -8464,6 +8471,12 @@ function act({
     }
     if (e.is("touch") && onCurtain && !doolBtn?.box?.contains(e)) {
       mimeSwipe = { x: e.x, y: e.y, engaged: false };
+      // A press on the MIMEs mark is a click on it, not on the curtain.
+      const mb = mimeBox;
+      if (mb && e.x >= mb.x - 4 && e.x <= mb.x + mb.w + 4 && e.y >= mb.y - 14 && e.y <= mb.y + mb.h + 4) {
+        mimeSwipe.onMark = true;
+        inp.backdropTouchOff = true; // So the lift won't lift the curtain.
+      }
     } else if (mimeSwipe && e.is("draw")) {
       const dy = mimeSwipe.y - e.y;
       if (!mimeSwipe.engaged && dy > 14 && dy > abs(e.x - mimeSwipe.x) * 1.5) {
@@ -8474,9 +8487,19 @@ function act({
       }
       if (mimeSwipe.engaged) return;
     } else if (mimeSwipe && e.is("lift")) {
-      const { engaged } = mimeSwipe;
+      const { engaged, onMark, x, y } = mimeSwipe;
       mimeSwipe = null;
       if (engaged) return; // bios decides whether the sheet settles.
+      // Clicking MIMEs slides the curtain down to it, with a sound.
+      if (onMark && Math.hypot(e.x - x, e.y - y) < 10) {
+        try {
+          synth({ type: "sine", tone: 659.25, attack: 0.005, decay: 0.8, duration: 0.07, volume: 0.2 });
+          setTimeout(() => { try { synth({ type: "sine", tone: 493.88, attack: 0.005, decay: 0.85, duration: 0.09, volume: 0.2 }); } catch {} }, 55);
+          setTimeout(() => { try { synth({ type: "sine", tone: 329.63, attack: 0.005, decay: 0.9, duration: 0.16, volume: 0.2 }); } catch {} }, 110);
+        } catch {}
+        send({ type: "mime:sheet", content: { action: "show" } });
+        return;
+      }
     }
   }
 
