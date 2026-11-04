@@ -73,9 +73,9 @@
 		/* Teachers: a small chip under the sticker opens a note form. */
 		#teacher-chip {
 			position: fixed; z-index: 10; display: block; cursor: pointer;
-			padding: 4px 9px 5px; font: 16px/1 'pixelar-regular-w01', monospace; letter-spacing: .5px;
-			color: #1d2b14; background: #fff8e8; border: 2px solid #1d2b14; box-shadow: 3px 3px 0 #c6f7a0;
-			transform: translate(-50%, -50%) rotate(2deg) scale(var(--ad-scale, 1));
+			padding: 7px 14px 8px; font: 24px/1 'pixelar-regular-w01', monospace; letter-spacing: .5px; white-space: nowrap;
+			color: #1d2b14; background: #fff8e8; border: 3px solid #1d2b14; box-shadow: 4px 4px 0 #c6f7a0;
+			transform: translate(-50%, -50%) rotate(-1.5deg) scale(var(--ad-scale, 1));
 			opacity: 0; transition: opacity .4s;
 		}
 		#teacher-chip.shown { opacity: 1; }
@@ -177,12 +177,17 @@
 				if (!canvas?.isConnected) return;
 				const box = canvas.getBoundingClientRect();
 				if (!box.width) return;
-				ad.style.left = `${box.left + box.width / 2}px`;
-				ad.style.top = `${box.top + box.height * 0.67}px`;
-				ad.style.setProperty("--ad-scale", Math.min(1.4, Math.max(0.7, box.width / 400)).toFixed(2));
+				const scale = Math.min(1.4, Math.max(0.7, box.width / 400));
+				// The sticker sits in the canvas's top-left corner (its centre is
+				// placed, so offset by half its unscaled size times the scale).
+				const inset = Math.max(10, box.width * 0.03);
+				ad.style.left = `${box.left + inset + (ad.offsetWidth * scale) / 2}px`;
+				ad.style.top = `${box.top + inset + (ad.offsetHeight * scale) / 2}px`;
+				ad.style.setProperty("--ad-scale", scale.toFixed(2));
+				// The teacher invitation is front and centre.
 				chip.style.left = `${box.left + box.width / 2}px`;
-				chip.style.top = `${box.top + box.height * 0.79}px`;
-				chip.style.setProperty("--ad-scale", ad.style.getPropertyValue("--ad-scale"));
+				chip.style.top = `${box.top + box.height * 0.6}px`;
+				chip.style.setProperty("--ad-scale", scale.toFixed(2));
 			});
 			const peel = (event) => {
 				if (event.target === ad || ad.contains(event.target) || chip.contains(event.target) || note.contains(event.target)) return;
