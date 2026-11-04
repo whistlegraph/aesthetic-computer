@@ -1034,6 +1034,17 @@ document.addEventListener('visibilitychange', () => {
 // 20 fps there (2026-11-03) so the prompt's own drawing keeps the frame
 // budget, and comes back to full rate the moment the paper drops.
 let bareAt = 0, sheetClosedAt = 0, sheetShown = !hosted, closingAt = 0;
+// The far, turning view behind the curtain: 1 there, easing to 0 over 1.4 s
+// once the paper drops, and back out as it returns.
+let orbitMix = hosted ? 1 : 0, orbitAt = performance.now();
+function orbitStep(now) {
+  const want = hosted && (!sheetOpen || closingAt) ? 1 : 0;
+  const dt = Math.min(0.1, (now - orbitAt) / 1000);
+  orbitAt = now;
+  const rate = want ? 1 / 0.5 : 1 / 1.4;
+  orbitMix = want > orbitMix ? Math.min(want, orbitMix + rate * dt) : Math.max(want, orbitMix - rate * dt);
+  return orbitMix;
+}
 // On the way home the reticle flies to the prompt's crosshair corner on the
 // prompt's own path and clock (prompt.mjs doolFlight "back": 360 ms, ease-out,
 // to 14 px in from the bottom-right), in buffer pixels from the centre, y up.
@@ -1501,6 +1512,7 @@ function step(now) {
     cursor: cursorAim ? mouseAt : null,
     reticle: hosted && sheetOpen && !down,
     reticleShift: reticleShift(now),
+    orbit: orbitStep(now),
     jobs,
     worldTime,
     locked: locked(),

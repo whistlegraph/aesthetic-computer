@@ -544,6 +544,7 @@ export async function createView(canvas) {
     cursor = null, // The mouse, in CSS pixels, when it (not the lock) is the aim.
     reticle = false, // Draw the reticle even while bare: the paper is moving.
     reticleShift = null, // On the way home, where the reticle has flown to (buffer px, y up).
+    orbit = 0, // 1: the far camera circling the room (behind the curtain); 0: the player's own.
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
@@ -595,6 +596,29 @@ export async function createView(canvas) {
     if (camera) {
       eye = camera;
       aim = along(camera, direction(camera.yaw, camera.pitch), 100);
+    }
+    // Behind the curtain the room turns slowly, seen from far off and above;
+    // the drop flies the camera down a curve that passes behind the player's
+    // head and into their eyes (2026-11-03). `orbit` eases 1 → 0 on the drop.
+    if (orbit > 0) {
+      const a = now / 9000; // one turn about every minute
+      const far = { x: Math.sin(a) * 24, y: 13, z: -Math.cos(a) * 24 };
+      const centre = { x: 0, y: 0.8, z: 0 };
+      if (!me || orbit >= 1) {
+        eye = far;
+        aim = centre;
+      } else {
+        const k = 1 - orbit, e = k * k * (3 - 2 * k); // smoothstep along the curve
+        const f = direction(me.yaw, 0);
+        const behind = { x: me.x - f.x * 3.2, y: me.y + 1.4, z: me.z - f.z * 3.2 };
+        const bez = (p, q, r) => (1 - e) * (1 - e) * p + 2 * (1 - e) * e * q + e * e * r;
+        eye = { x: bez(far.x, behind.x, eye.x), y: bez(far.y, behind.y, eye.y), z: bez(far.z, behind.z, eye.z) };
+        aim = {
+          x: centre.x + (aim.x - centre.x) * e,
+          y: centre.y + (aim.y - centre.y) * e,
+          z: centre.z + (aim.z - centre.z) * e,
+        };
+      }
     }
     // Breathing: a slow rise and fall with a slighter sway, so the room is
     // never quite still, from the first frame behind the curtain on. Walking
@@ -1731,7 +1755,7 @@ export async function createView(canvas) {
       });
     }
     if (tileModel) draw(tileModel, 0, 0, 0);
-    if (floorAim && !menu && !radial) {
+    if (floorAim && !menu && !radial && !bare && orbit <= 0) {
       const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, w = 0.12, y = 0.012;
       const m = model(({ quad }) => {
         const c = 0x00ffff; // The reticle's cyan: this is where the ray lands.
