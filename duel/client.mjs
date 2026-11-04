@@ -1314,6 +1314,13 @@ function step(now) {
         const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
         if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
       }
+    } else if (!focusObject && nearest > 3) {
+      // Looking level (no pointer lock, say) the ray never meets the floor:
+      // it lands three steps ahead instead, so there is always a square.
+      const f = direction(yaw, 0);
+      const x = player.x + f.x * 3, z = player.z + f.z * 3;
+      const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
+      if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
     }
     if (lockOn) {
       const locked = objects.find((o) => o.id === lockOn.id);

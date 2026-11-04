@@ -689,9 +689,15 @@ export async function createView(canvas) {
         preview = {
           code,
           model: model(({ quad }) => {
-            const boxes = job.preview?.boxes || [
-              { x: 0, y: 0.1, z: 0, w: 2, h: 0.2, d: 3 },
-            ];
+            // Before any geometry, a footprint; once the object streams in
+            // solid, only the newest part wears a wire edge (2026-11-03), so
+            // the outline is the object's own shape, not a cage.
+            const parts = job.preview?.boxes || [];
+            const boxes = job.preview?.format === OBJECT_FORMAT && parts.length
+              ? parts.slice(-1)
+              : parts.length
+                ? parts
+                : [{ x: 0, y: 0.1, z: 0, w: 2, h: 0.2, d: 3 }];
             const ink = job.owner === owner ? 0x4f67cc : 0xc17824;
             const line = 0.06;
             const edge = (a, b) => {
@@ -913,8 +919,8 @@ export async function createView(canvas) {
           : focusObject
             ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
             : null;
-      objectHintSpans = objectHint && !prompt.open && !bare ? hintSpans(objectHint, confirming ? 0xff6b6b : THEME.text) : null;
-      const hint = drawing ? drawing : carry ? carry : paintHint ? paintHint
+      objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
+      const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry : paintHint ? paintHint
         : input === 'touch'
           ? 'hold the right side to build'
           : pad
@@ -1461,26 +1467,33 @@ export async function createView(canvas) {
       const url = `https://aesthetic.computer/$${focusObject.code}`;
       const cells = joinCode(url);
       if (cells) {
+        // Composed like the KidLisp corner tag (disk.mjs / top.kidlisp.com):
+        // one pixel a cell, no quiet zone, a black shadow a pixel down and
+        // right, and the $code in white on a black tag flush right above it.
         const { unit } = hud;
-        const n = cells.length + 4,
+        const n = cells.length,
           size = n * unit;
         const m = model(({ rect: worldRect, small }) => {
           const rect = flip(worldRect);
           const { safeX, safeY } = hud;
-          const x0 = W / 2 - safeX - size,
-            top = -H / 2 + safeY + size;
-          rect(x0, top - size, 0.000002, size, size, PAPER);
+          const x0 = W / 2 - safeX - unit - size,
+            bottom = -H / 2 + safeY + unit;
+          rect(x0 + unit, bottom - unit, 0.000003, size, size, INK);
+          rect(x0, bottom, 0.000002, size, size, PAPER);
           cells.forEach((row, y) => {
             for (let c = 0; c < row.length; ) {
               if (!row[c]) { c++; continue; }
               const start = c++;
               while (c < row.length && row[c]) c++;
-              rect(x0 + (start + 2) * unit, top - (y + 3) * unit, 0, (c - start) * unit, unit, INK);
+              rect(x0 + start * unit, bottom + (n - 1 - y) * unit, 0.000001, (c - start) * unit, unit, INK);
             }
           });
-          const label = `$${focusObject.code}`, lx = x0 + size / 2, ly = top + 10 * unit;
-          small(label, lx + unit, ly - unit, 0.000002, unit, INK);
-          small(label, lx, ly, 0, unit, THEME.verb);
+          const label = `$${focusObject.code}`;
+          const tw = (smallWidth(label) + 2) * unit, th = 10 * unit;
+          const tx = x0 + size - tw, ty = bottom + size;
+          rect(tx + unit, ty - unit, 0.000003, tw, th, INK);
+          rect(tx, ty, 0.000002, tw, th, INK);
+          small(label, tx + tw / 2, ty + th - unit, 0, unit, PAPER);
         });
         projector.overlay(m, W, H);
       }
