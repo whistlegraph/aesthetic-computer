@@ -1421,9 +1421,10 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // Aiming at an object with a $code: a small QR at the crosshair opens it
-    // on aesthetic.computer from a phone.
-    if (focusObject?.code && !radial && !menu) {
+    // Aiming at an object with a $code: a small QR in the top-right corner
+    // opens it on aesthetic.computer from a phone, its code under it. (The
+    // bottom-right belongs to the legend block since 2026-11-03.)
+    if (focusObject?.code && !radial && !menu && !bare) {
       const url = `https://aesthetic.computer/$${focusObject.code}`;
       const cells = joinCode(url);
       if (cells) {
@@ -1434,7 +1435,7 @@ export async function createView(canvas) {
           const rect = flip(worldRect);
           const { safeX, safeY } = hud;
           const x0 = W / 2 - safeX - size,
-            top = Math.max(-H / 2 + safeY, (panelTop ?? -Infinity) + 4 * unit) + size;
+            top = H / 2 - safeY;
           rect(x0, top - size, 0.000002, size, size, PAPER);
           cells.forEach((row, y) => {
             for (let c = 0; c < row.length; ) {
@@ -1444,7 +1445,9 @@ export async function createView(canvas) {
               rect(x0 + (start + 2) * unit, top - (y + 3) * unit, 0, (c - start) * unit, unit, INK);
             }
           });
-          small(`$${focusObject.code}`, x0 + size / 2, top + 9 * unit, 0, unit, THEME.verb);
+          const label = `$${focusObject.code}`, lx = x0 + size / 2, ly = top - size - 2 * unit;
+          small(label, lx + unit, ly - unit, 0.000002, unit, INK);
+          small(label, lx, ly, 0, unit, THEME.verb);
         });
         projector.overlay(m, W, H);
       }
