@@ -1323,8 +1323,10 @@ function step(now) {
   focusObject = null;
   cursorAim = !locked() && !!mouseAt && now - mouseAt.at < 6000 && !touch.active && !prompt.open;
   if (player) {
-    // The aim ray: from the camera through the free mouse, else the view's centre.
-    const ray = cursorAim ? view.aimRay(mouseAt.x, mouseAt.y) : null;
+    // The aim ray: from the camera, through the free mouse or along the
+    // camera's own centre (the crosshair's normal), never from the player's
+    // position with the raw yaw and pitch.
+    const ray = cursorAim ? view.aimRay(mouseAt.x, mouseAt.y) : view.aimForward();
     const origin = ray ? view.aimOrigin() || player : player;
     const dir = ray || direction(yaw, pitch);
     let nearest = wallDistance(origin, dir, 60);

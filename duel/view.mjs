@@ -2046,6 +2046,12 @@ export async function createView(canvas) {
     aimOrigin() {
       return lastEye;
     },
+    // The camera's centre ray: exactly the crosshair's normal, bob, nod and
+    // third-person offset included (2026-11-03).
+    aimForward() {
+      const f = projector.forward;
+      return f && lastEye ? { x: f[0], y: f[1], z: f[2] } : null;
+    },
     aimRay(cssX, cssY) {
       if (!projector.forward || !lastEye) return null;
       const pxr = canvas.width / Math.max(1, canvas.clientWidth);
