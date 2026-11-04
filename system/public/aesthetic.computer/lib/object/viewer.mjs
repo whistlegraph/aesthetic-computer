@@ -33,7 +33,9 @@ function extent(v) {
 // options: { yaw, pitch, still } fixes the view (thumbnails); still stops the spin.
 export function objectPiece(source, label = "", options = {}) {
   let shape, error;
-  let yaw = options.yaw ?? 0.6, pitch = options.pitch ?? 0.38, dragging = !!options.still;
+  // By default the camera looks down on the object from above (about 55°;
+  // it was 22°, nearly side-on), 2026-11-03.
+  let yaw = options.yaw ?? 0.6, pitch = options.pitch ?? 0.95, dragging = !!options.still;
   let depth, size = [0, 0];
   let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
   const start = Date.now();
