@@ -9,7 +9,7 @@
     <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="stylesheet" href="styles.css?v=1.0.2">
-    <link rel="stylesheet" href="fold.css?v=2">
+    <link rel="stylesheet" href="fold.css?v=3">
 </head>
 <body>
     <div class="container">
@@ -27,18 +27,16 @@
         </header>
 
         <div class="opener">
-            <p>NCC is an experiment in learning to use computers the way people have for decades: in person, with each other, sharing tools, time, and what we know.</p>
             <p class="opener-next"><span class="opener-tag">NEXT MEETING</span> <span id="openerNext">every other Tuesday, 7pm</span> &middot; <a href="#meetup">details</a></p>
             <form class="dues" id="dues" action="https://opencollective.com/metagov/projects/nelacc/donate" method="get">
                 <input type="hidden" name="redirect" value="https://nela.computer/?thanks=1#support">
                 <input type="hidden" name="tags" value="dues">
-                <label class="dues-label" for="duesAmount"><span class="opener-tag">DUES</span> <b id="duesShown">$5</b> per meeting</label>
+                <label class="dues-label" for="duesAmount"><span class="opener-tag">DUES</span> <b id="duesShown">$5</b>/meeting</label>
                 <input class="dues-slider" id="duesAmount" type="range" name="amount" min="1" max="30" step="1" value="5">
                 <span class="dues-buttons">
                     <button class="dues-give" type="submit" name="interval" value="oneTime">&gt; This meeting_</button>
                     <button class="dues-give" type="submit" name="interval" value="month">&gt; Every meeting <span id="duesMonthly">($10/mo)</span>_</button>
                 </span>
-                <p class="dues-note"><span id="openerGifts">Pay what you want</span> until memberships are ready. <a href="#support">More ways to give</a></p>
             </form>
         </div>
         <h2 id="meetup">Meetup Info</h2>
@@ -151,6 +149,6 @@
     </div><!--.container-->
 
     <script src="script.js"></script>
-    <script src="fold.js?v=2"></script>
+    <script src="fold.js?v=3"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 /* Folds for the principles. Adds to styles.css; changes nothing there. */
 
-/* The opener: what NCC is, when it meets next, and a way to give. */
+/* The opener. */
 .opener { margin-top: 1.5em; color: #00c4fd; }
 .opener p { margin: 0 0 0.75em; }
 .opener-tag { background: #00c4fd; color: #000; font-weight: bold; padding: 0 2px; }
@@ -11,7 +11,7 @@
 }
 .opener-badge:hover { background: #00c4fd; }
 
-/* Dues: a per-meeting slider and two ways to pay it. */
+/* Dues. */
 .dues { margin: 0; }
 .dues-label { display: block; }
 #duesShown { color: #00d080; }
@@ -23,7 +23,7 @@
 }
 .dues-give:hover { background: #00c4fd; }
 .dues-give:focus-visible, .dues-slider:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
-.dues-note { margin: 0.75em 0 0; font-size: 0.9em; }
+
 
 details.fold { margin-top: 1em; }
 details.fold > summary { list-style: none; cursor: pointer; }
