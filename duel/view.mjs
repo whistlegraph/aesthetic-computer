@@ -33,7 +33,7 @@ function legendRows(input, held = {}) {
       : line.map((part) =>
           typeof part === 'string'
             ? { text: part, color: THEME.dim }
-            : { text: part[0], color: lit(part[1]) ? THEME.verb : THEME.text },
+            : { cap: part[0], lit: lit(part[1]) },
         ),
   );
 }
@@ -300,6 +300,7 @@ export async function createView(canvas) {
   let promptKey, promptModel;
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, readoutKey, readoutModel;
+  const SHOW_FPS = false; // The frame-rate readout rests for now (2026-11-03).
   let panelTop = null;
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
@@ -846,10 +847,10 @@ export async function createView(canvas) {
         o.wall
           ? pad ? '[RB] to change' : 'kidlisp wall'
           : o.owner === owner
-            ? pad ? '[RB] change / [LB] lock on' : 'yours - delete removes'
+            ? pad ? '[RB] change / [LB] lock on' : 'yours - {delete} removes'
             : pad ? '[LB] lock on' : 'player ' + String(o.owner || '').slice(0, 4);
-      const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : 'x paints the floor') : null;
-      const confirming = focusObject && removeArmed === focusObject.id ? 'delete again to remove' : null;
+      const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
+      const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
       const lockHint = lockedOn && focusObject
         ? focusObject.wall
           ? `${named(focusObject)} locked: [RB] change / [LB] unlock`
@@ -861,7 +862,7 @@ export async function createView(canvas) {
           ? 'hold the right side to build'
           : pad
             ? '[RB] to build'
-            : 'enter to build';
+            : '{enter} to build';
       const building = jobs.find((j) => j.owner === owner) || jobs[0];
       const elapsed = building
         ? Math.max(0, Math.floor((Date.now() - building.startedAt) / 1000))
@@ -874,7 +875,7 @@ export async function createView(canvas) {
           .slice(-3)
           .flatMap(wrap)
           .slice(-3) || [];
-      const cancel = pad ? '[B] cancel' : locked ? 'esc cancel' : 'click to move / esc cancel';
+      const cancel = pad ? '[B] cancel' : locked ? '{esc} cancel' : 'click to move / {esc} cancel';
       // A KidLisp wall in the crosshair: its source, highlighted, in the panel.
       const wallCode =
         !prompt.open && !building && focusObject?.wall && focusObject.source
@@ -910,7 +911,7 @@ export async function createView(canvas) {
                   : '[A] choose / [X] build / [B] undo'
                 : prompt.busy
                   ? cancel
-                  : 'enter build / esc close',
+                  : '{enter} build / {esc} close',
               THEME.dim,
             ),
           ]
@@ -939,7 +940,7 @@ export async function createView(canvas) {
               ...(showLegend ? legendRows(input, held) : []),
               spectator
                 ? hintSpans(
-                    controller ? 'freecam / lb down / rb up' : 'freecam / wasd / space up / shift down',
+                    controller ? 'freecam / [LB] down / [RB] up' : 'freecam / {wasd} / {space} up / {shift} down',
                     THEME.text,
                   )
                 : hintSpans(hint, confirming ? 0xff6b6b : THEME.text),
@@ -954,10 +955,26 @@ export async function createView(canvas) {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panelHeight = visible.length * 11 * unit + 10 * unit;
           const panel = prompt.open || building;
-          // Whatever is drawn here (a panel, the legend, or the one hint
-          // line) reports its top, so notices and corner labels stack above
-          // it instead of over it.
-          panelTop = -height / 2 + safeY + panelHeight;
+          // Only a panel reports its top (notices stack above it); the legend
+          // and the hint line never lift the corners (2026-11-03).
+          panelTop = panel ? -height / 2 + safeY + panelHeight : null;
+          if (!panel) {
+            // The controls as a left-aligned block in the bottom-right
+            // corner, each line starting on the same column.
+            const widths = visible.map((spans) => spanWidthOf(spans, unit));
+            const left = width / 2 - safeX - Math.max(0, ...widths);
+            visible.forEach((spans, i) =>
+              drawSpans(
+                { rect, text },
+                spans,
+                left + widths[i] / 2,
+                -height / 2 + safeY + panelHeight - 5 * unit - i * 11 * unit,
+                unit,
+                { shadow: INK },
+              ),
+            );
+            return;
+          }
           if (panel) {
             // A dark slab with a thin slate rule; text carries the colour.
             rect(-width / 2 + safeX, -height / 2 + safeY, 0.000004, width - 2 * safeX, panelHeight, LINE);
@@ -1042,7 +1059,7 @@ export async function createView(canvas) {
               handle ? colors : PAPER,
             );
           });
-          if ((meter || fps) && !face) {
+          if ((meter || (SHOW_FPS && fps)) && !face) {
             // No face cam to sit under: shadowed text right-aligned under the QR, coloured by health.
             const ping = (connection?.label || '').toLowerCase();
             const bars = connection?.bars || 0;
@@ -1072,7 +1089,7 @@ export async function createView(canvas) {
               }
               line([{ text: ping, color: pingColor }]);
             }
-            if (fps) line([{ text: `${fps} fps`, color: fpsColor }]);
+            if (SHOW_FPS && fps) line([{ text: `${fps} fps`, color: fpsColor }]);
           }
         });
       }
@@ -1509,11 +1526,16 @@ export async function createView(canvas) {
         if (Number.isFinite(braincells)) {
           const BR = ['.##.##.', '#######', '###.###', '#######', '.##.##.'];
           BR.forEach((row, r) =>
+            [...row].forEach((ch, c) => ch === '#' && px(27 + c + 1, 20 - r - 1, 1, 1, INK, 0.000002)),
+          );
+          BR.forEach((row, r) =>
             [...row].forEach((ch, c) => ch === '#' && px(27 + c, 20 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
           );
-          // Exact, with thousands separators.
+          // Exact, with thousands separators, shadowed for contrast.
           const n = Math.round(braincells).toLocaleString('en-US');
-          small(n, x0 + (36 + (n.length * 4) / 2) * unit, y0 + 21 * unit, 0, unit, spending ? 0xf0d8ff : 0xd7a6ff);
+          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + 21 * unit;
+          small(n, nx + unit, ny - unit, 0.000002, unit, INK);
+          small(n, nx, ny, 0, unit, spending ? 0xf0d8ff : 0xd7a6ff);
           // Spending: purple pixels fly up and away from the count.
           if (spending && Math.random() < 0.7)
             cellBits.push({ x: 36 + Math.random() * n.length * 4, y: 22, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
@@ -1541,7 +1563,10 @@ export async function createView(canvas) {
               px(27 + i * 3, base, 2, h, lit ? pingColor : 0x2c3040, 0.000001);
               if (lit) px(27 + i * 3, base + h - 1, 2, 1, tint(pingColor, 1.25));
             }
-            small(ping, x0 + (40 + smallWidth(ping) / 2) * unit, y0 + top * unit, 0, unit, pingColor);
+            // The glyphs' foot on the bars' foot (small() takes the top of an 8-row box).
+            const tx = x0 + (40 + smallWidth(ping) / 2) * unit, ty = y0 + (base + 7) * unit;
+            small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
+            small(ping, tx, ty, 0, unit, pingColor);
             top -= 9;
           }
           if (fps) {

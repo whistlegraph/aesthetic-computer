@@ -6501,12 +6501,15 @@ function paint($) {
         y: Math.floor((screen.height - side(s)) / 2),
       });
       const mix = (a, b, t) => ({ x: Math.round(a.x + (b.x - a.x) * t), y: Math.round(a.y + (b.y - a.y) * t) });
+      // Dool's HUD unit on a screen this size (hud.mjs hudLayout): the
+      // crosshair lands at the size of the reticle dool draws in its place,
+      // so one graphic element carries across the paper's drop.
+      const unitAway = Math.max(1, Math.round(Math.min(screen.width / 480, screen.height / 270)));
       let at = home, scale = 1, lit = false;
       if (doolFlight) {
         const t = Math.min(1, (now - doolFlight.at) / 360);
         const ease = 1 - (1 - t) * (1 - t);
-        scale = 1 + ease;
-        lit = true;
+        scale = 1 + ease * (unitAway - 1);
         if (doolFlight.phase === "out") {
           at = mix(home, centre(scale), ease);
           if (t >= 1) {
@@ -6515,15 +6518,14 @@ function paint($) {
             $.send({ type: "dool:sheet", content: { action: "show" } });
           }
         } else if (doolFlight.phase === "away") {
-          at = centre(2);
-          scale = 2;
+          at = centre(unitAway);
+          scale = unitAway;
           // The loop sleeps while the paper is away; a frame this long after
           // means it is home again (or the drop never came).
           if (now - doolFlight.awayAt > 800) doolFlight = { at: now, phase: "back" };
         } else {
-          scale = 2 - ease;
-          at = mix(centre(2), home, ease);
-          lit = t < 1;
+          scale = unitAway - ease * (unitAway - 1);
+          at = mix(centre(unitAway), home, ease);
           if (t >= 1) doolFlight = null;
         }
       }

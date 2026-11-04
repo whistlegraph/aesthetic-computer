@@ -73,18 +73,22 @@ export function animateSpans(spans, now) {
   return out;
 }
 
-// "[A] CHOOSE / [X] BUILD" → text runs and button badges.
+// "[A] CHOOSE / [X] BUILD" → text runs and button badges; "{enter} build"
+// → an outlined key cap (2026-11-03), so every control reads as a key.
 export function hintSpans(line, color = THEME.text) {
   const spans = [];
   let at = 0;
-  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|[ABXY])\]/g)) {
+  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|[ABXY])\]|\{([^}]+)\}/g)) {
     if (m.index > at) spans.push({ text: line.slice(at, m.index), color });
-    spans.push({ badge: m[1] });
+    if (m[1]) spans.push({ badge: m[1] });
+    else spans.push({ cap: m[2] });
     at = m.index + m[0].length;
   }
   if (at < line.length) spans.push({ text: line.slice(at), color });
   return spans;
 }
+// A key cap: the key's name in a thin outline, lit while it is held.
+const capWidth = (k) => k.length * 6 + 4;
 
 // A running step's verb is yellow with ticking dots; a finished one is green.
 export function devSpans({ kind, text, done, age = 0 }, color = THEME.text, live = false) {
@@ -109,25 +113,25 @@ const merge = (spans) =>
   }, []);
 
 export const spanWidth = (spans, unit) =>
-  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.text.length * 6) * unit, 0);
+  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.text.length * 6) * unit, 0);
 
 export const smallSpanWidth = (spans, unit) =>
   spans.reduce((w, s) => w + (s.text ? smallWidth(s.text) + 1 : 0) * unit, 0);
 
 export const plain = (spans) =>
-  spans.map((s) => (s.badge ? `[${s.badge}]` : s.text)).join('');
+  spans.map((s) => (s.badge ? `[${s.badge}]` : s.cap ? s.cap : s.text)).join('');
 
 // Clip runs to a column budget; a badge counts as two columns.
 export function clipSpans(spans, columns) {
   const out = [];
   let left = columns;
   for (const s of spans) {
-    const cost = s.badge ? s.badge.length + 1 : s.text.length;
+    const cost = s.badge ? s.badge.length + 1 : s.cap ? s.cap.length + 1 : s.text.length;
     if (cost <= left) {
       out.push(s);
       left -= cost;
     } else {
-      if (!s.badge && left > 0) out.push({ ...s, text: s.text.slice(0, left) });
+      if (!s.badge && !s.cap && left > 0) out.push({ ...s, text: s.text.slice(0, left) });
       break;
     }
   }
@@ -158,6 +162,17 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
       if (shadow !== null) rect(left + unit, y - 8 * unit, z + 2 * step, bw, 9 * unit, shadow);
       rect(left, y - 7 * unit, z + step, bw, 9 * unit, fill);
       text(s.badge, left + bw / 2, y - unit, z, unit, ink, true);
+      left += bw + unit;
+      continue;
+    }
+    if (s.cap) {
+      // An outline a unit thick on a dark ground; the name in the middle.
+      const bw = capWidth(s.cap) * unit, bh = 9 * unit, top = y - 7 * unit;
+      const line = s.lit ? THEME.verb : THEME.dim;
+      if (shadow !== null) rect(left + unit, top - unit, z + 3 * step, bw, bh, shadow);
+      rect(left, top, z + 2 * step, bw, bh, line);
+      rect(left + unit, top + unit, z + step, bw - 2 * unit, bh - 2 * unit, 0x15171e);
+      text(s.cap, left + bw / 2, y - unit, z, unit, s.lit ? THEME.verb : THEME.text, true);
       left += bw + unit;
       continue;
     }
