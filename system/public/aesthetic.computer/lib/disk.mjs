@@ -2341,6 +2341,7 @@ function updateHUDStatus() {
 }
 
 let loading = false;
+let deferredJumpToken = 0; // The newest jump asked for mid-load (see jump()).
 let loadingStartTime = null; // Track when loading started for timeout safety
 const LOADING_TIMEOUT_MS = 10000; // 10 second max loading time
 
@@ -3216,6 +3217,25 @@ const $commonApi = {
 
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
+      return;
+    }
+
+    // A jump asked for while a piece is still loading would be refused by
+    // load() and lost (2026-11-03: the mime feed's first card, asked for
+    // while its reel piece was booting, left the feed on the reel's splash).
+    // Wait for the load to finish, newest jump wins, then go.
+    if (loading) {
+      const token = ++deferredJumpToken;
+      const since = Date.now();
+      const later = () => {
+        if (token !== deferredJumpToken) return; // a newer jump replaced it
+        if (loading) {
+          if (Date.now() - since < 10000) setTimeout(later, 40);
+          return;
+        }
+        $commonApi.jump(to, ahistorical, alias);
+      };
+      setTimeout(later, 40);
       return;
     }
 
