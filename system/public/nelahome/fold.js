@@ -18,6 +18,28 @@
     window.location.href = url.toString();
   });
 
+  // Past meetings from script.js's EVENTS, newest first; special ones get their page.
+  var SPECIAL = { "2026-10-27": ["Reset In Peace", "https://nela.computer/reset/"] };
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var past = document.getElementById("pastList");
+  if (past && typeof EVENTS !== "undefined") {
+    EVENTS.filter(function (e) {
+      var p = e.split("-").map(Number);
+      return new Date(p[0], p[1] - 1, p[2]) < today;
+    }).reverse().forEach(function (e) {
+      var p = e.split("-").map(Number);
+      var li = document.createElement("li");
+      li.textContent = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      var special = SPECIAL[e];
+      if (special) {
+        var a = document.createElement("a");
+        a.href = special[1]; a.textContent = special[0];
+        li.append(" \u00b7 ", a);
+      }
+      past.appendChild(li);
+    });
+  }
+
   function reveal() {
     if (!location.hash) return;
     var el = document.getElementById(decodeURIComponent(location.hash.slice(1)));

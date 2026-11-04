@@ -9,7 +9,7 @@
     <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="stylesheet" href="styles.css?v=1.0.2">
-    <link rel="stylesheet" href="fold.css?v=4">
+    <link rel="stylesheet" href="fold.css?v=7">
 </head>
 <body>
     <div class="container">
@@ -26,34 +26,20 @@
 ▌   ▚▌   ▚▂▂▞   ▚▂▂▞</pre>
         </header>
 
-        <div class="opener">
-            <form class="dues" id="dues" action="https://opencollective.com/metagov/projects/nelacc/donate" method="get">
-                <input type="hidden" name="redirect" value="https://nela.computer/?thanks=1#support">
-                <input type="hidden" name="tags" value="dues">
-                <label class="dues-label" for="duesAmount"><span class="opener-tag">DUES</span> <b id="duesShown">$5</b></label>
-                <input class="dues-slider" id="duesAmount" type="range" name="amount" min="1" max="30" step="1" value="5">
-                <span class="dues-buttons">
-                    <button class="dues-give" type="submit" name="interval" value="oneTime">&gt; Once_</button>
-                    <button class="dues-give" type="submit" name="interval" value="month">&gt; Monthly_</button>
-                </span>
-            </form>
-        </div>
-        <h2 id="meetup">Meetup Info</h2>
+        <h2 id="meetup">Next Meeting</h2>
         <pre>▒▒▒▒▒▒▒▒▒▒▒▒</pre>
 
-        <div class="meetupBox">
-            <p class="meetingTitle">NEXT MEETING</p>
-            <p id="nextMeeting"></p>
-            <p>On October 27th, 2026, we'll be doing <a href="https://nela.computer/reset/">Reset In Peace</a>, where you can put your old computers to rest.</p>
-            <p>This is in a different location than usual, so please find details there.</p>
-            <p>Otherwise, <a href="https://plot.place">Plot</a> is our home.</p>
-            <!--<p><a href="https://plot.place">Plot</a><br/>937 Sun Mun Way<br/>Los Angeles, CA (Chinatown)</p>-->
-            <br />
-            <p>Bring a laptop.</p>
-            <p>Every other Tuesday, 7pm.</p>
-            <p>Add to calendar: <a href="webcal://nela.computer/calendar.ics">Apple Calendar</a> · <a href="https://calendar.google.com/calendar/render?cid=webcal://nela.computer/calendar.ics" target="_blank" rel="noopener">Google Calendar</a> · <a href="calendar.ics" download>Download .ics</a></p>
-            <ul class="meetingList" id="meetingList"></ul>
+        <div class="meetupBox meet">
+            <p><b id="nextMeeting"></b> &middot; <a href="https://plot.place">Plot</a> &middot; bring a laptop</p>
+            <p>Every other Tuesday, 7pm &middot; <a href="webcal://nela.computer/calendar.ics">Apple</a> &middot; <a href="https://calendar.google.com/calendar/render?cid=webcal://nela.computer/calendar.ics" target="_blank" rel="noopener">Google</a> &middot; <a href="calendar.ics" download>.ics</a></p>
+            <details class="fold">
+                <summary><span class="fold-label">Later dates</span></summary>
+                <ul class="meetingList" id="meetingList"></ul>
+            </details>
         </div>
+
+        <h3 id="past">Past meetings &amp; events</h3>
+        <ul class="pastList" id="pastList"></ul>
 
         <h2>Principles of NELA Computer Club</h2>
         <pre>▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒</pre>
@@ -120,6 +106,17 @@
         <h2 id="support">Support NCC</h2>
         <pre>▒▒▒▒▒▒▒▒▒▒▒</pre>
 
+        <form class="dues" id="dues" action="https://opencollective.com/metagov/projects/nelacc/donate" method="get">
+            <input type="hidden" name="redirect" value="https://nela.computer/?thanks=1#support">
+            <input type="hidden" name="tags" value="dues">
+            <label class="dues-label" for="duesAmount"><span class="opener-tag">DUES</span> <b id="duesShown">$5</b></label>
+            <input class="dues-slider" id="duesAmount" type="range" name="amount" min="1" max="30" step="1" value="5">
+            <span class="dues-buttons">
+                <button class="dues-give" type="submit" name="interval" value="oneTime">&gt; Once_</button>
+                <button class="dues-give" type="submit" name="interval" value="month">&gt; Monthly_</button>
+            </span>
+        </form>
+
         <div class="meetupBox ncc-support">
             <p class="meetingTitle">CONTRIBUTE</p>
             <p id="ncc-thanks" class="ncc-thanks" role="status" hidden>&gt; Contribution received. Thank you for supporting NCC.</p>
@@ -148,6 +145,6 @@
     </div><!--.container-->
 
     <script src="script.js"></script>
-    <script src="fold.js?v=4"></script>
+    <script src="fold.js?v=7"></script>
 </body>
 </html>

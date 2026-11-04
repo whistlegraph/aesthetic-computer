@@ -11,7 +11,7 @@
 .opener-badge:hover { background: #00c4fd; }
 
 /* Dues. */
-.dues { margin: 0; }
+.dues { margin: 1em 0; }
 .dues-label { display: block; }
 #duesShown { color: #00d080; }
 .dues-slider { display: block; width: 100%; margin: 0.75em 0; accent-color: #00d080; height: 2em; }
@@ -39,6 +39,15 @@ details.fold[open] > summary .fold-label::before { content: "[-] "; }
 details.fold > summary:hover h3 { background-color: #00c4fd; }
 details.fold > summary:hover .fold-label { text-decoration: underline; }
 details.fold > summary:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
+
+/* Next meeting, compact. */
+.meet p { margin: 0 0 0.5em; }
+.meet details.fold { margin-top: 0.5em; }
+.meet .meetingList { margin: 0.5em 0 0; padding: 0; list-style: none; }
+.meet .meetingList li { display: inline-block; margin: 0 1em 0.25em 0; }
+#past { margin-top: 1.5em; }
+.pastList { margin: 0.5em 0 0; padding: 0; list-style: none; }
+.pastList li { margin: 0 0 0.25em; }
 
 /* preview bumper on aesthetic.computer only: highlighter yellow */
 .bel-proposal { display: inline-block; background: #ffe600; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 0 1rem; }
