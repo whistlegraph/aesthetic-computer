@@ -53,8 +53,7 @@
 	<script src="scripts/main.js"></script>
 	<!-- The title's sticker for the studio's new home. It rides the canvas
 	     wherever Construct letterboxes it, over the home screen's "39 Brushes"
-	     line, stays through the tap that leaves the splash and peels off for
-	     good on the next tap or key (Paint, No or a menu button). -->
+	     line, and peels off for good on the first tap or key anywhere else. -->
 	<style>
 		#notepaint-ad {
 			position: fixed; z-index: 10; display: block;
@@ -172,7 +171,7 @@
 				} catch { status.textContent = words.failed; }
 				finally { send.disabled = false; }
 			});
-			let canvas, taps = 0;
+			let canvas;
 			const place = () => requestAnimationFrame(() => {
 				if (!canvas?.isConnected) return;
 				const box = canvas.getBoundingClientRect();
@@ -191,7 +190,7 @@
 			});
 			const peel = (event) => {
 				if (event.target === ad || ad.contains(event.target) || chip.contains(event.target) || note.contains(event.target)) return;
-				if (note.open || ++taps < 2) return;
+				if (note.open) return;
 				ad.remove();
 				chip.remove();
 				removeEventListener("resize", place);
