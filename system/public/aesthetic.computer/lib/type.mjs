@@ -2104,17 +2104,19 @@ class TextInput {
 
     // Enter Button
     if (!this.enter.btn.disabled && !this.poe) {
-      // Native window corners clip a screen-edge outline. Keep the input's
-      // cursor/button feedback; inset text fields still retain their outline.
-      if (this.#activatingPress && !nativeViewport) {
+      // Native window corners clip a screen-edge outline, so there it steps
+      // in a few pixels instead of going without (2026-11-03): the press that
+      // lifts or drops the curtain always shows its outline.
+      if (this.#activatingPress) {
         const color =
           pal.focusOutline ||
           (Array.isArray(pal.text)
             ? [...pal.text.slice(0, 3), 128]
             : [255, 0, 200, 64]);
+        const inset = nativeViewport ? 3 : 0;
 
         // Highlight outline.
-        $.ink(color).box(0, 0, frame.width, frame.height, "inline");
+        $.ink(color).box(inset, inset, frame.width - 2 * inset, frame.height - 2 * inset, "inline");
       }
     }
 

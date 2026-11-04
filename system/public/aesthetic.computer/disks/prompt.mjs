@@ -6000,12 +6000,13 @@ function paint($) {
       ? [[255, 145, 197], [175, 220, 182], [125, 227, 215], [255, 150, 154]] // mime by night: pink, mint, teal, coral
       : [[147, 34, 95], [37, 123, 85], [0, 107, 114], [189, 56, 81]]; // mime by day: wine, green, teal, rose
     const side = dark ? [23, 21, 38] : [245, 242, 248]; // the slab's side: mime's paper, night or day
-    const s = screen.height >= 320 ? 2 : 1; // glyphs are 6×10 at size 1
-    const word = "mime";
+    const s = 1; // glyphs are 6×10: the mark stays tiny on every screen (2026-11-03)
+    const word = "mimes";
     const cw = 7 * s; // the font's advance plus a pixel of tracking
     const gh = 10 * s, depth = 2 * s;
     const x0 = Math.floor((screen.width - (word.length * cw - s)) / 2);
-    const baseY = screen.height - gh - depth - 2;
+    // The slab's foot sits on the same bottom margin as the handle and dool's crosshair.
+    const baseY = screen.height - gh - depth - WELCOME_MARGIN;
     const cx = Math.floor(screen.width / 2);
     const letters = word.split("").map((ch, i) => ({
       ch,
@@ -6040,10 +6041,6 @@ function paint($) {
       ink(Math.round(c[0] * 0.55), Math.round(c[1] * 0.55), Math.round(c[2] * 0.55)).write(ch, { x: x + 1, y: y + 1, size: s });
       ink(c[0], c[1], c[2]).write(ch, { x, y, size: s });
     });
-    const dim = dark ? [180, 165, 194, 180] : [86, 71, 95, 200];
-    ink(...dim).write(".ac", { x: x0 + word.length * cw, y: baseY + gh - 8 * s, size: s },
-      undefined, undefined, false, "MatrixChunky8");
-
     // A chevron that lifts and fades, over and over, above the letters.
     const lift = (t * 0.9) % 1;
     const cyBottom = baseY - 2 * s - 2 - Math.round(lift * 5 * s);
@@ -9814,7 +9811,7 @@ function positionWelcomeButtons(screen, iframe) {
     const gap = 5;
     // A row while it clears the mime wordmark; stacked on a narrow screen.
     const rowRight = login.btn.box.x + login.btn.box.w + gap + signup.btn.box.w;
-    const markLeft = Math.floor((screen.width - 27 * (screen.height >= 320 ? 2 : 1)) / 2) - 8;
+    const markLeft = Math.floor((screen.width - 34) / 2) - 8; // the "mimes" mark: 5 glyphs, 7 px apart, at size 1
     if (rowRight <= markLeft) signup.btn.box.x = login.btn.box.x + login.btn.box.w + gap;
     else signup.btn.box.y = login.btn.box.y - signup.btn.box.h - 4;
   }
