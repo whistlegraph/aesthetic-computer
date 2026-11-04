@@ -6539,12 +6539,12 @@ function paint($) {
       const t = s, arm = 4 * s, half = 7 * s;
       const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
       const color = lit || hot ? [255, 224, 102] : [0, 255, 255]; // AC's cursor cyan at rest
-      const L = (x, y, w, h) => {
-        // A solid ink shadow, as dool draws it: a translucent one stacked
-        // where the two arms' shadows met and left a darker corner pixel.
-        $.ink(24, 24, 24).box(ox + x + t, oy + y + t, w, h);
-        $.ink(color).box(ox + x, oy + y, w, h);
-      };
+      // Every shadow first, then every stroke: with no depth here, a
+      // vertical arm's shadow drawn after its neighbour's stroke bit a black
+      // notch out of the bottom-left corner (2026-11-03). dool's depth test
+      // keeps its strokes on top on its own.
+      const parts = [];
+      const L = (x, y, w, h) => parts.push([x, y, w, h]);
       for (const sx of [-1, 1])
         for (const sy of [-1, 1]) {
           // The corner's outer pixel, then arms running inward.
@@ -6553,6 +6553,8 @@ function paint($) {
           L(x, sy < 0 ? y : y - arm + t, t, arm);
         }
       L(-t, -t, 2 * t, 2 * t);
+      for (const [x, y, w, h] of parts) $.ink(24, 24, 24).box(ox + x + t, oy + y + t, w, h);
+      for (const [x, y, w, h] of parts) $.ink(color).box(ox + x, oy + y, w, h);
       if (!doolFlight) {
         // A Button hit-tests through its Box, so hand it a real one.
         const hit = { x: home.x - 6, y: home.y - 6, w: side(1) + 12, h: side(1) + 12 };
