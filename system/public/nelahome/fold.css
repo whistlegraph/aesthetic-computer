@@ -11,6 +11,20 @@
 }
 .opener-badge:hover { background: #00c4fd; }
 
+/* Dues: a per-meeting slider and two ways to pay it. */
+.dues { margin: 0; }
+.dues-label { display: block; }
+#duesShown { color: #00d080; }
+.dues-slider { display: block; width: 100%; margin: 0.75em 0; accent-color: #00d080; height: 2em; }
+.dues-buttons { display: flex; flex-wrap: wrap; gap: 0.5em; }
+.dues-give {
+    font: inherit; font-weight: bold; cursor: pointer; border: 0;
+    color: #000; background: #00d080; padding: 6px 10px;
+}
+.dues-give:hover { background: #00c4fd; }
+.dues-give:focus-visible, .dues-slider:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
+.dues-note { margin: 0.75em 0 0; font-size: 0.9em; }
+
 details.fold { margin-top: 1em; }
 details.fold > summary { list-style: none; cursor: pointer; }
 details.fold > summary::-webkit-details-marker { display: none; }
