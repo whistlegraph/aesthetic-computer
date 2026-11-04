@@ -13,6 +13,8 @@
 /* Dues. */
 .dues { margin: 1em 0; }
 .ncc-support .dues-label { font-weight: normal; }
+.ncc-support > p { margin: 0 0 0.75em; }
+.ncc-support > p:last-child { margin-bottom: 0; }
 .dues-label { display: block; }
 #duesShown { color: #00d080; }
 .dues-slider { display: block; width: 100%; margin: 0.75em 0; accent-color: #00d080; height: 2em; }
@@ -47,7 +49,7 @@ details.fold > summary:focus-visible { outline: 1px dashed #00c4fd; outline-offs
 .meet .meetingList { margin: 0.5em 0 0; padding: 0; list-style: none; }
 .meet .meetingList li { display: inline-block; margin: 0 1em 0.25em 0; }
 #past { margin-top: 1.5em; }
-.pastMonths { display: flex; flex-wrap: wrap; gap: 1em 1.5em; margin-top: 0.75em; }
+.pastMonths { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1em 1.5em; margin-top: 0.75em; }
 .pastCal table { border-collapse: separate; border-spacing: 3px; font-size: 0.8em; }
 .pastCal caption { text-align: left; font-weight: bold; padding: 0 0 0.25em 3px; }
 .pastCal .dow td { color: #006848; text-align: center; }
