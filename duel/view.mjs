@@ -611,7 +611,9 @@ export async function createView(canvas) {
     projector.shiftX = projector.shiftY = 0;
     if (orbit > 0) {
       const a = now / 3200; // a slow spin, about one turn in twenty seconds
-      const far = { x: Math.sin(a) * 40, y: 24, z: -Math.cos(a) * 40 };
+      // Nearly top-down: high above, a little off to one side so the walls
+      // still read as it turns.
+      const far = { x: Math.sin(a) * 14, y: 44, z: -Math.cos(a) * 14 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       const cornerX = (canvas.width - 22 * px) / canvas.width * 2 - 1, cornerY = 1 - (canvas.height - 22 * px) / canvas.height * 2;
       const k0 = 1 - orbit, e0 = k0 * k0 * (3 - 2 * k0);
