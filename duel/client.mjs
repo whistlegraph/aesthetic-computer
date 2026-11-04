@@ -926,13 +926,13 @@ document.addEventListener('keydown', (e) => {
   // Hosted, Escape first frees the mouse (the browser usually keeps that
   // press for itself); then, with nothing open and the mouse already free,
   // Escape brings the prompt's paper back.
-  if (hosted && e.code === 'Escape' && !e.repeat && locked()) {
-    document.exitPointerLock();
-    unlockedAt = performance.now();
-    return;
-  }
-  if (hosted && e.code === 'Escape' && !e.repeat && !prompt.open && !locked() && performance.now() - unlockedAt > 400) {
+  // Hosted, one Escape with nothing open does both (2026-11-03): it frees
+  // the mouse and brings the prompt's paper back. (A browser that eats the
+  // first Escape to end its own pointer lock still needs a second press.)
+  if (hosted && e.code === 'Escape' && !e.repeat && !prompt.open) {
     e.preventDefault();
+    if (locked()) document.exitPointerLock();
+    unlockedAt = performance.now();
     leave();
     return;
   }
