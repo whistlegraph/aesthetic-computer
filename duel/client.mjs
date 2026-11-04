@@ -84,7 +84,8 @@ function logNet(text, flags = {}) {
 let connectAttempts = 0,
   healthPoll = null,
   silentSince = null,
-  down = false;
+  down = false,
+  dustedAt = 0;
 // Down: the socket is closed, or it is open but the server has said nothing
 // for three seconds (a restart in progress, or the network gone).
 function netDown(now) {
@@ -642,6 +643,8 @@ function connect() {
 
 canvas.addEventListener('click', (e) => {
   if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
+  // The code tag in the bottom-right is a button: it opens the $code's page.
+  if (!locked() && view.qrURL && view.qrHit(e.offsetX, e.offsetY)) return void window.open(view.qrURL, '_blank', 'noopener');
   void capture();
 });
 canvas.addEventListener('paste', (e) => {
@@ -1024,6 +1027,24 @@ function step(now) {
     releaseInput();
   }
   gamepad = controller.sample(down ? [] : pads, document.hasFocus());
+  // Walking through chalk dusts it: the points within reach fall as motes
+  // here at once, and the server cuts the strokes for everyone.
+  if (player && seat >= 0 && now - dustedAt > 120 && Math.hypot(player.vx || 0, player.vz || 0) > 0.5) {
+    let fell = 0;
+    chalkStrokes.forEach((strokes, s) => {
+      (strokes || []).forEach((stroke) => {
+        for (const p of stroke) {
+          if (p.y < 2.2 && Math.hypot(p.x - player.x, p.z - player.z) < 0.5) {
+            if (fell++ < 6) view.effect({ type: 'dust', at: p });
+          }
+        }
+      });
+    });
+    if (fell) {
+      dustedAt = now;
+      send({ type: 'chalk-dust' });
+    }
+  }
   if (gamepad.ring || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
   fpsFrames++;
   if (now - fpsAt >= 500) {

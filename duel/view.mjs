@@ -309,6 +309,7 @@ export async function createView(canvas) {
   let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
+  let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
   let boom = 4;
@@ -490,6 +491,7 @@ export async function createView(canvas) {
     if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
     if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
     if (e.at && e.type === 'removed') burst(e.at.x, e.at.y, e.at.z, 24, 1.3);
+    if (e.at && e.type === 'dust') burst(e.at.x, e.at.y, e.at.z, 3, 0.25);
     if (e.type === 'blast') {
       if (effects.length >= 24) effects.shift();
       effects.push({ at: e.at, born: performance.now() });
@@ -743,7 +745,7 @@ export async function createView(canvas) {
       if (job.preview?.format === OBJECT_FORMAT) {
         try {
           draw(sourceFrame(job.preview, worldTime).vertices, job.x, 0, job.z);
-          drawTree(job.preview, job.x, job.z, eye);
+          // The code tree stays out of the room (2026-11-03): the $code tag has it.
         } catch {}
         lingering.set(job.objectId, now + 10000);
       }
@@ -762,12 +764,8 @@ export async function createView(canvas) {
     // Keep a finished object's tree up for a few seconds after it lands.
     for (const [id, until] of lingering) {
       if (until < now) lingering.delete(id);
-      // One tree at a time: an active build owns the air above it.
-      else if (!jobs.length) {
-        const object = objects.find((o) => o.id === id);
-        if (object?.geometry.format === OBJECT_FORMAT)
-          drawTree(object.geometry, object.x, object.z, eye);
-      }
+      // (The object's code tree is no longer drawn in the room; the lingering
+      // window still times the landing burst above.)
     }
     for (let i = 0; i < 2; i++) {
       const p = i === seat && me ? me : players[i];
@@ -1463,8 +1461,11 @@ export async function createView(canvas) {
     // Aiming at an object with a $code: a small QR in the bottom-right corner
     // opens it on aesthetic.computer from a phone, its code above it. (The
     // top-right belongs to the legend block since 2026-11-03.)
+    qrRect = null;
+    qrURL = null;
     if (focusObject?.code && !radial && !menu && !bare) {
       const url = `https://aesthetic.computer/$${focusObject.code}`;
+      qrURL = url;
       const cells = joinCode(url);
       if (cells) {
         // Composed like the KidLisp corner tag (disk.mjs / top.kidlisp.com):
@@ -1491,6 +1492,8 @@ export async function createView(canvas) {
           const label = `$${focusObject.code}`;
           const tw = (smallWidth(label) + 2) * unit, th = 10 * unit;
           const tx = x0 + size - tw, ty = bottom + size;
+          // In buffer pixels from the top-left, for the click.
+          qrRect = { x: W / 2 + Math.min(x0, tx), y: H / 2 - (ty + th), w: W / 2 - safeX - Math.min(x0, tx), h: size + th + unit };
           rect(tx + unit, ty - unit, 0.000003, tw, th, INK);
           rect(tx, ty, 0.000002, tw, th, INK);
           small(label, tx + tw / 2, ty + th - unit, 0, unit, PAPER);
@@ -2032,6 +2035,15 @@ export async function createView(canvas) {
       resize();
     },
     // Is this point (CSS pixels on the canvas) on the corner block?
+    get qrURL() {
+      return qrURL;
+    },
+    qrHit(cssX, cssY) {
+      if (!qrRect) return false;
+      const px = canvas.width / Math.max(1, canvas.clientWidth);
+      const x = cssX * px, y = cssY * px;
+      return x >= qrRect.x && x <= qrRect.x + qrRect.w && y >= qrRect.y && y <= qrRect.y + qrRect.h;
+    },
     cornerHit(cssX, cssY) {
       if (!cornerRect) return false;
       const px = canvas.width / Math.max(1, canvas.clientWidth);

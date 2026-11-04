@@ -437,6 +437,11 @@ export function createDuelServer({
         else send(ws, { type: 'build-result', error: 'Spectators cannot build' });
       }
       if (data?.type === 'chalk-clear' && member.seat >= 0) room.match.clearChalk(member.seat);
+      if (data?.type === 'chalk-dust' && member.seat >= 0) {
+        // Dust the chalk around where the server has this player, not where it says it is.
+        const p = room.match.seats[member.seat]?.player;
+        if (p) room.match.dustChalk(p.x, p.z, 0.5);
+      }
       if (data?.type === 'clear-room' && member.seat >= 0) void builders.clearRoom(key);
       // LB: take an object out of the room (it stays in the $ history).
       if (data?.type === 'remove' && member.seat >= 0 && typeof data.objectId === 'string')

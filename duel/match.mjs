@@ -67,6 +67,35 @@ export class Match {
     this.chalkWhole.add(seat);
     this.chalkDirty = true;
   }
+  // Walking through chalk dusts it (2026-11-03): every point within reach of
+  // the body column goes, strokes split where they were cut. Returns the
+  // points that fell.
+  dustChalk(x, z, r = 0.5) {
+    const fallen = [];
+    this.chalk = this.chalk.map((strokes, seat) => {
+      const out = [];
+      let cut = false;
+      for (const stroke of strokes) {
+        let run = [];
+        for (const p of stroke) {
+          const near = Math.hypot(p.x - x, p.z - z) < r && p.y >= 0 && p.y < 2.2;
+          if (near) {
+            fallen.push(p);
+            cut = true;
+            if (run.length > 1) out.push(run);
+            run = [];
+          } else run.push(p);
+        }
+        if (run.length > 1) out.push(run);
+      }
+      if (cut) {
+        this.chalkWhole.add(seat);
+        this.chalkDirty = true;
+      }
+      return cut ? out : strokes;
+    });
+    return fallen;
+  }
 
   // What to send since last time: whole seats first, then point ops.
   takeChalk() {
