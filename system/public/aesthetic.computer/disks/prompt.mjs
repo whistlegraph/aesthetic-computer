@@ -6040,9 +6040,17 @@ function paint($) {
       letters.forEach(({ ch, x, y }) =>
         ink(side[0], side[1], side[2], 240).write(ch, { x: x + d, y: y + d, size: s }));
     }
+    // Near the pointer the letters shake, each on its own, harder the
+    // nearer (2026-11-03: in place of an outer glow).
+    const pm = $.pen;
+    const mNear = pm && pm.x !== undefined
+      ? Math.max(0, 1 - Math.hypot(Math.max(x0 - pm.x, 0, pm.x - (x0 + word.length * cw)), Math.max(baseY - pm.y, 0, pm.y - (baseY + gh))) / 48)
+      : 0;
+    if (mNear > 0) $.needsPaint?.();
     letters.forEach(({ ch, x, y, c }) => {
-      ink(Math.round(c[0] * 0.55), Math.round(c[1] * 0.55), Math.round(c[2] * 0.55)).write(ch, { x: x + 1, y: y + 1, size: s });
-      ink(c[0], c[1], c[2]).write(ch, { x, y, size: s });
+      const jx = mNear > 0 ? Math.round((Math.random() - 0.5) * 3 * mNear) : 0, jy = mNear > 0 ? Math.round((Math.random() - 0.5) * 3 * mNear) : 0;
+      ink(Math.round(c[0] * 0.55), Math.round(c[1] * 0.55), Math.round(c[2] * 0.55)).write(ch, { x: x + 1 + jx, y: y + 1 + jy, size: s });
+      ink(c[0], c[1], c[2]).write(ch, { x: x + jx, y: y + jy, size: s });
     });
     // A chevron pointing down at the letters, settling and fading over and
     // over, drawn pixel by pixel (2026-11-03): a 7-wide V, one pixel per
@@ -6247,10 +6255,29 @@ function paint($) {
         softGlow($, box, color, near * (0.8 + 0.2 * Math.sin(now / 240)));
         $.needsPaint?.();
       };
-      if (login && !login.btn.disabled) halo(login.btn.box, [120, 140, 255]);
-      if (signup && !signup.btn.disabled) halo(signup.btn.box, [110, 230, 130]);
+      // Log in and I'm new light up from inside: a wash of light over their
+      // face, brighter at the middle, as the pointer comes near.
+      const inner = (box, color) => {
+        if (!box || !pen || pen.x === undefined) return;
+        const dx = Math.max(box.x - pen.x, 0, pen.x - (box.x + box.w)), dy = Math.max(box.y - pen.y, 0, pen.y - (box.y + box.h));
+        const near = Math.max(0, 1 - Math.hypot(dx, dy) / 48);
+        if (near <= 0) return;
+        const k = near * (0.85 + 0.15 * Math.sin(now / 240));
+        $.layer(3);
+        const cxm = box.x + box.w / 2, cym = box.y + box.h / 2;
+        for (let y = box.y + 1; y < box.y + box.h - 1; y++)
+          for (let x = box.x + 1; x < box.x + box.w - 1; x++) {
+            const r = Math.hypot((x - cxm) / (box.w / 2), (y - cym) / (box.h / 2));
+            const a = Math.round(70 * k * Math.max(0, 1 - r * 0.8));
+            if (a > 1) ink(...color, a).plot(x, y);
+          }
+        $.layer(1);
+        $.needsPaint?.();
+      };
+      if (login && !login.btn.disabled) inner(login.btn.box, [150, 170, 255]);
+      if (signup && !signup.btn.disabled) inner(signup.btn.box, [150, 255, 170]);
       if (commitBtn && !commitBtn.btn?.disabled) halo(commitBtn.btn?.box, [230, 230, 240]);
-      if (mimeBox) halo(mimeBox, [255, 145, 197]);
+      // (MIMEs shakes instead of glowing.)
     }
     if (caretBurst.length) {
       const dt = Math.min(0.05, caretBurstAt ? (now - caretBurstAt) / 1000 : 0.016);
@@ -6700,6 +6727,18 @@ function paint($) {
         }
       }
       const hot = !doolFlight && doolBtn?.over;
+      // Near the pointer the crosshair breathes wider and the room inside it
+      // scales with it: the world hears how near (lib/dool-sheet.mjs).
+      const pn = $.pen;
+      const xNear = !doolFlight && pn && pn.x !== undefined
+        ? Math.max(0, 1 - Math.hypot(pn.x - (home.x + side(1) / 2), pn.y - (home.y + side(1) / 2)) / 70)
+        : 0;
+      const grow = Math.round(xNear * (2 + 1.5 * (0.5 + 0.5 * Math.sin(now / 200))));
+      if (Math.abs(xNear - doolNearSent) > 0.04 || (xNear === 0 && doolNearSent !== 0)) {
+        doolNearSent = xNear;
+        $.send({ type: "dool:sheet", content: { action: "near", value: (7 + grow) / 7 } });
+      }
+      if (xNear > 0) $.needsPaint?.();
       // Hover: a soft cyan glow, the arms spread a pixel, a soft tone as the
       // pointer arrives (2026-11-03).
       if (hot && !doolHover) {
@@ -6707,7 +6746,7 @@ function paint($) {
       }
       doolHover = !!hot;
       const s = Math.max(1, Math.round(scale));
-      const t = s, arm = 4 * s, half = (7 + (hot ? 1 : 0)) * s;
+      const t = s, arm = 4 * s, half = (7 + (doolFlight ? 0 : grow)) * s;
       if (hot) {
         // A round glow from the centre, not one hugging the square.
         softGlow($, { x: at.x + side(1) / 2, y: at.y + side(1) / 2, w: 0, h: 0 }, [0, 255, 255], 0.45 + 0.2 * Math.sin(now / 220), 16);
@@ -6745,9 +6784,22 @@ function paint($) {
     // Hide commits button when KidLisp button is active (they share the same screen area)
     // Also part of flair — hidden (along with the notepat button) when flair is off.
     if (flairEnabled && versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
-      const commitText = updateAvailable
+      let commitText = updateAvailable
         ? `update to ${versionInfo.deployed}`
         : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
+      // Near the pointer the hash runs like code: digits flip to random hex,
+      // more of them the nearer, settling as the pointer arrives on it.
+      {
+        const pb = $.pen, box = commitBtn?.btn?.box;
+        if (pb && pb.x !== undefined && box) {
+          const d = Math.hypot(Math.max(box.x - pb.x, 0, pb.x - (box.x + box.w)), Math.max(box.y - pb.y, 0, pb.y - (box.y + box.h)));
+          const churn = d <= 0 ? 0 : Math.max(0, 1 - d / 60) * 0.6;
+          if (churn > 0) {
+            commitText = [...commitText].map((ch) => (/[0-9a-f]/.test(ch) && Math.random() < churn ? "0123456789abcdef"[Math.floor(Math.random() * 16)] : ch)).join("");
+            $.needsPaint?.();
+          }
+        }
+      }
       // Create button using TextButtonSmall (MatrixChunky8 font) in the top-right
       const buttonY = 6;
       if (!commitBtn) {
@@ -7963,6 +8015,7 @@ let wasTyping = false;
 const caretFold = []; // Motes folding back into the caret when the curtain returns.
 let mimeBox = null; // The MIMEs mark's box this frame, for its halo.
 let doolHover = false; // The pointer is over the corner crosshair.
+let doolNearSent = 0; // The last nearness told to the world.
 const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;

@@ -552,6 +552,7 @@ export async function createView(canvas) {
     reticleShift = null, // On the way home, where the reticle has flown to (buffer px, y up).
     orbit = 0, // 1: the far camera circling the room (behind the curtain); 0: the player's own.
     flyTo = null, // Where the flight in lands while the seat is still being granted.
+    cornerScale = 1, // The curtain crosshair's breadth (1 at rest); the room scales with it.
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
@@ -623,7 +624,7 @@ export async function createView(canvas) {
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
       const height = 25;
       const natural = ((WORLD + 0.3) / height) * (1 / tan) * (canvas.height / 2); // room half-size in px
-      orbitZoom = Math.pow(7 / natural, 1 - (1 - orbit) * (1 - orbit) * (3 - 2 * (1 - orbit)));
+      orbitZoom = Math.pow((7 * cornerScale) / natural, 1 - (1 - orbit) * (1 - orbit) * (3 - 2 * (1 - orbit)));
       const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       // The crosshair's centre sits 22 prompt pixels in from the corner; on

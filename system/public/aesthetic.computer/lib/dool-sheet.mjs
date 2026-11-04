@@ -270,8 +270,10 @@ window.acDoolSheet = { popstate, framed };
 //   { action: "warm" }   load the guest on idle
 //   { action: "show" }   drop the paper into the world
 //   { action: "hide" }   bring the paper back
-export function doolSheet({ action } = {}) {
+export function doolSheet({ action, value } = {}) {
   if (action === "warm") warm();
   else if (action === "show") show();
   else if (action === "hide") hide();
+  // The crosshair's breadth as the pointer nears: the room scales with it.
+  else if (action === "near") post({ type: "dool:sheet", near: value });
 }

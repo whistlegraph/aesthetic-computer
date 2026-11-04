@@ -83,6 +83,7 @@ function logNet(text, flags = {}) {
 }
 let parked = false; // The client closed the room's socket itself (back on the curtain).
 let lastSeat = -1; // The seat held last time, for the next flight in.
+let cornerScale = 1, shownCornerScale = 1; // The curtain crosshair's breadth, which the room follows.
 let connectAttempts = 0,
   healthPoll = null,
   silentSince = null,
@@ -1518,6 +1519,7 @@ function step(now) {
     reticle: hosted && sheetOpen && !down,
     reticleShift: reticleShift(now),
     orbit: orbitStep(now),
+    cornerScale: (shownCornerScale += (cornerScale - shownCornerScale) * 0.25),
     flyTo: seat < 0 && hosted && sheetOpen ? spawn(lastSeat >= 0 ? lastSeat : 0) : null,
     jobs,
     worldTime,
@@ -1546,6 +1548,7 @@ if (hosted) {
     if ('grid' in e.data) view.grid(e.data.grid);
     // The HUD shows only between the paper's full drop and the start of its
     // return, so nothing pops in or out mid-fade (2026-11-03).
+    if (typeof e.data.near === 'number') cornerScale = Math.max(1, Math.min(2, e.data.near));
     if (e.data.phase === 'opened') sheetShown = true;
     if (e.data.phase === 'closing') {
       sheetShown = false;
