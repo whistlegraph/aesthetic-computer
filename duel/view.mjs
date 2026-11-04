@@ -151,13 +151,16 @@ export async function createView(canvas) {
       for (let x = -WORLD + 2; x < WORLD; x += 2)
         for (let z = -WORLD + 2; z < WORLD; z += 2)
           box(x, 0.006, z, 0.08, 0.01, 0.08, p.dot, p.dot, p.dot);
-      const span = 2 * WORLD + 0.6, h = ROOM_HEIGHT, t = 0.3;
-      box(0, h / 2, -WORLD - t / 2, span, h, t, p.walls.south, p.wallSide, p.walls.south);
-      box(0, h / 2, WORLD + t / 2, span, h, t, p.walls.north, p.wallSide, p.walls.north);
+      // Four slabs that never share volume (2026-11-03: overlapping corners
+      // z-fought): north and south run the full outside width and own the
+      // corners; east and west fit exactly between their inner faces.
+      const h = ROOM_HEIGHT, t = 0.3, outside = 2 * WORLD + 2 * t, inside = 2 * WORLD;
+      box(0, h / 2, -WORLD - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
+      box(0, h / 2, WORLD + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
       // A box colours its x faces second and its z faces third: the long
       // walls show their z face, the end walls their x face.
-      box(-WORLD - t / 2, h / 2, 0, t, h, span, p.walls.west, p.walls.west, p.wallSide);
-      box(WORLD + t / 2, h / 2, 0, t, h, span, p.walls.east, p.walls.east, p.wallSide);
+      box(-WORLD - t / 2, h / 2, 0, t, h, inside, p.walls.west, p.walls.west, p.wallSide);
+      box(WORLD + t / 2, h / 2, 0, t, h, inside, p.walls.east, p.walls.east, p.wallSide);
       // No ceiling (2026-11-03): the sky shows over the walls.
     });
   // Sky: rings of colour around the viewer, deep overhead to a glow at the
@@ -601,9 +604,18 @@ export async function createView(canvas) {
     // Behind the curtain the room turns slowly, seen from far off and above;
     // the drop flies the camera down a curve that passes behind the player's
     // head and into their eyes (2026-11-03). `orbit` eases 1 → 0 on the drop.
+    // The room turns small in the bottom-right corner, right under the
+    // curtain's crosshair (a lens shift puts the room's centre there), so the
+    // curtain stays mostly 2D and the corner is the way in (2026-11-03).
+    projector.shiftX = projector.shiftY = 0;
     if (orbit > 0) {
-      const a = now / 9000; // one turn about every minute
-      const far = { x: Math.sin(a) * 15, y: 8.5, z: -Math.cos(a) * 15 }; // closer in, looking into the room
+      const a = now / 3200; // a slow spin, about one turn in twenty seconds
+      const far = { x: Math.sin(a) * 40, y: 24, z: -Math.cos(a) * 40 };
+      const px = canvas.width / Math.max(1, canvas.clientWidth);
+      const cornerX = (canvas.width - 22 * px) / canvas.width * 2 - 1, cornerY = 1 - (canvas.height - 22 * px) / canvas.height * 2;
+      const k0 = 1 - orbit, e0 = k0 * k0 * (3 - 2 * k0);
+      projector.shiftX = cornerX * (1 - e0);
+      projector.shiftY = cornerY * (1 - e0);
       const centre = { x: 0, y: 0.8, z: 0 };
       if (!me || orbit >= 1) {
         eye = far;

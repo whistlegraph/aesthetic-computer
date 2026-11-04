@@ -6113,6 +6113,9 @@ function paint($) {
           for (let i = w - 2; i >= 0; i--) ring.push([x + i, y + h - 1]);
           for (let j = h - 2; j > 0; j--) ring.push([x, y + j]);
           const glint = Math.floor((now / 40) % ring.length);
+          // A candle's flicker, never out: the whole rect dips a little at
+          // random, now and then a deeper dip.
+          const flick = 0.78 + 0.22 * Math.random() * (Math.random() < 0.06 ? 0.3 : 1);
           ring.forEach(([px, py], k) => {
             const hue = (k / ring.length + now / 2400) % 1;
             const a = hue * 6, f = a - Math.floor(a), q = 1 - f, seg = Math.floor(a) % 6;
@@ -6120,8 +6123,26 @@ function paint($) {
             const d = Math.min((k - glint + ring.length) % ring.length, (glint - k + ring.length) % ring.length);
             const lift = d === 0 ? 1 : d === 1 ? 0.55 : 0;
             const c = (v) => Math.round(150 + 105 * v + (255 - (150 + 105 * v)) * lift);
-            ink(c(r), c(g), c(b), 240).plot(px, py);
+            ink(c(r), c(g), c(b), Math.round(240 * flick)).plot(px, py);
           });
+          // Drips: now and then a bead leaves the bottom edge in that spot's
+          // colour, falls, and fades.
+          const dt = Math.min(0.1, caretDripAt ? (now - caretDripAt) / 1000 : 0);
+          caretDripAt = now;
+          if (Math.random() < dt * 2.2 && caretDrips.length < 12) {
+            const i = Math.floor(Math.random() * w);
+            const hue = ((w + (h - 1) + (w - 1 - i)) / ring.length + now / 2400) % 1;
+            caretDrips.push({ x: x + i, y: y + h, vy: 4 + Math.random() * 6, hue, born: now });
+          }
+          for (let k = caretDrips.length - 1; k >= 0; k--) {
+            const d = caretDrips[k], age = (now - d.born) / 1000;
+            if (age > 1.4) { caretDrips.splice(k, 1); continue; }
+            d.vy += 26 * dt;
+            d.y += d.vy * dt;
+            const a = d.hue * 6, f = a - Math.floor(a), q = 1 - f, seg = Math.floor(a) % 6;
+            const [r, g, b] = [[1, f, 0], [q, 1, 0], [0, 1, f], [0, q, 1], [f, 0, 1], [1, 0, q]][seg];
+            ink(Math.round(150 + 105 * r), Math.round(150 + 105 * g), Math.round(150 + 105 * b), Math.round(220 * (1 - age / 1.4))).plot(Math.floor(d.x), Math.floor(d.y));
+          }
         }
         $.needsPaint?.();
 
@@ -7790,6 +7811,8 @@ function paintThinkingGuy($) {
 // drift, faint and mostly single pixels, a few small crosses in front.
 const snow = [];
 let snowAt = 0;
+const caretDrips = []; // Beads dripping from the curtain caret's bottom edge.
+let caretDripAt = 0;
 const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;

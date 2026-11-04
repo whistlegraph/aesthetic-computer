@@ -52,8 +52,8 @@ export class Projector {
     const depth = dx * f[0] + dy * f[1] + dz * f[2];
     if (depth < 0.1) return null;
     return {
-      x: ((dx * r[0] + dy * r[1] + dz * r[2]) * this.sx) / depth,
-      y: ((dx * u[0] + dy * u[1] + dz * u[2]) * this.sy) / depth,
+      x: ((dx * r[0] + dy * r[1] + dz * r[2]) * this.sx) / depth + (this.shiftX || 0),
+      y: ((dx * u[0] + dy * u[1] + dz * u[2]) * this.sy) / depth + (this.shiftY || 0),
       depth,
     };
   }
@@ -109,8 +109,8 @@ export class Projector {
       }
       for (let j = 0; j < count; j += 3) {
         const depth = b[j + 2];
-        b[j] = (b[j] * this.sx) / depth;
-        b[j + 1] = (b[j + 1] * this.sy) / depth;
+        b[j] = (b[j] * this.sx) / depth + (this.shiftX || 0);
+        b[j + 1] = (b[j + 1] * this.sy) / depth + (this.shiftY || 0);
         b[j + 2] = far / (far - near) - (far * near) / (depth * (far - near));
       }
       for (let j = 3; j < count - 3; j += 3) {
