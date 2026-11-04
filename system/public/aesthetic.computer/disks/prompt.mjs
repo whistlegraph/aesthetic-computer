@@ -6244,12 +6244,7 @@ function paint($) {
         const dx = Math.max(box.x - pen.x, 0, pen.x - (box.x + box.w)), dy = Math.max(box.y - pen.y, 0, pen.y - (box.y + box.h));
         const near = Math.max(0, 1 - Math.hypot(dx, dy) / 48);
         if (near <= 0) return;
-        $.layer(3);
-        for (let i = 1; i <= 4; i++) {
-          const a = Math.round(110 * near * (1 - (i - 1) / 4) * (0.75 + 0.25 * Math.sin(now / 180)));
-          ink(...color, a).box(box.x - i, box.y - i, box.w + 2 * i, box.h + 2 * i, "outline");
-        }
-        $.layer(1);
+        softGlow($, box, color, near * (0.8 + 0.2 * Math.sin(now / 240)));
         $.needsPaint?.();
       };
       if (login && !login.btn.disabled) halo(login.btn.box, [120, 140, 255]);
@@ -6705,8 +6700,18 @@ function paint($) {
         }
       }
       const hot = !doolFlight && doolBtn?.over;
+      // Hover: a soft cyan glow, the arms spread a pixel, a soft tone as the
+      // pointer arrives (2026-11-03).
+      if (hot && !doolHover) {
+        try { $.sound.synth({ type: "sine", tone: 1046.5, attack: 0.005, decay: 0.85, duration: 0.05, volume: 0.12 }); } catch {}
+      }
+      doolHover = !!hot;
       const s = Math.max(1, Math.round(scale));
-      const t = s, arm = 4 * s, half = 7 * s;
+      const t = s, arm = 4 * s, half = (7 + (hot ? 1 : 0)) * s;
+      if (hot) {
+        softGlow($, { x: at.x, y: at.y, w: side(1), h: side(1) }, [0, 255, 255], 0.55 + 0.25 * Math.sin(now / 220), 8);
+        $.needsPaint?.();
+      }
       const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
       // Always AC's cursor cyan: the paper freezes on the pressed frame as it
       // fades, and the world's reticle (cyan) takes over under it.
@@ -7956,6 +7961,7 @@ let caretPulse = 0;
 let wasTyping = false;
 const caretFold = []; // Motes folding back into the caret when the curtain returns.
 let mimeBox = null; // The MIMEs mark's box this frame, for its halo.
+let doolHover = false; // The pointer is over the corner crosshair.
 const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;
@@ -7980,6 +7986,27 @@ function paintSnow($) {
       $.ink(...c, a).box(x - 1, y, 3, 1);
     } else $.ink(...c, a).plot(x, y);
   }
+}
+
+// A soft glow around a box: every pixel within R of it, alpha falling off
+// smoothly with its distance to the box, so corners come out round
+// (2026-11-03: rectangular rings read as a boxy bevel).
+function softGlow($, box, color, strength = 1, R = 9) {
+  if (strength <= 0) return;
+  $.layer(3);
+  const x0 = Math.floor(box.x - R), y0 = Math.floor(box.y - R);
+  const x1 = Math.ceil(box.x + box.w + R), y1 = Math.ceil(box.y + box.h + R);
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const dx = Math.max(box.x - x - 0.5, 0, x + 0.5 - (box.x + box.w)), dy = Math.max(box.y - y - 0.5, 0, y + 0.5 - (box.y + box.h));
+      if (!dx && !dy) continue; // never over the control itself
+      const d = Math.hypot(dx, dy);
+      if (d >= R) continue;
+      const k = 1 - d / R;
+      const a = Math.round(90 * strength * k * k);
+      if (a > 1) $.ink(...color, a).plot(x, y);
+    }
+  $.layer(1);
 }
 
 // 🧮 Sim
