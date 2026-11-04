@@ -1,3 +1,6 @@
+// One master gain over every voice and noise, so the world sits level with
+// the prompt's own sounds (2026-11-03). Tune here, not per sound.
+const MASTER = 1.8;
 // Small synth cues, no samples. Everything sits on one pentatonic scale so
 // ring moves, picks and build progress play as a melody rather than beeps.
 
@@ -23,6 +26,7 @@ export class Sfx {
   }
   voice(frequency, duration, { volume = 0.04, type = 'triangle', at = 0, slide = 0 } = {}) {
     if (!this.ready) return;
+    volume *= MASTER;
     const a = this.audio,
       t = a.currentTime + at;
     const o = a.createOscillator(),
@@ -39,6 +43,7 @@ export class Sfx {
   }
   noise(duration, { volume = 0.03, at = 0, from = 1800, to = 300 } = {}) {
     if (!this.ready) return;
+    volume *= MASTER;
     const a = this.audio,
       t = a.currentTime + at;
     const buffer = a.createBuffer(1, Math.ceil(a.sampleRate * duration), a.sampleRate);

@@ -159,6 +159,26 @@ export function createDuelServer({
       }
       return;
     }
+    // The room as it stands, for a guest that only looks (the world behind
+    // the prompt's curtain shows what is built without taking a seat).
+    if (path === '/room' && req.method === 'GET') {
+      const id = url.searchParams.get('room') || 'lobby';
+      if (!/^[a-z0-9-]{1,32}$/.test(id)) {
+        res.writeHead(400).end();
+        return;
+      }
+      res
+        .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(
+          JSON.stringify({
+            objects: store.objects(id),
+            tiles: store.tiles(id),
+            screens: store.screens(id),
+            chalk: rooms.get(id)?.match.chalk || [[], []],
+          }),
+        );
+      return;
+    }
     const asset = assets.get(path);
     if (req.method !== 'GET' || !asset) {
       res.writeHead(404).end();

@@ -8074,7 +8074,7 @@ function act({
       tone: 600,
       attack: 0.1,
       decay: 0.99,
-      volume: 0.75,
+      volume: 0.35, // Level with the rest of the prompt's sounds (2026-11-03).
       duration: 0.001,
     });
   };
@@ -8085,7 +8085,7 @@ function act({
       tone: 800,
       attack: 0.1,
       decay: 0.99,
-      volume: 0.75,
+      volume: 0.35, // Level with the rest of the prompt's sounds (2026-11-03).
       duration: 0.005,
     });
   };

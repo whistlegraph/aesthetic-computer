@@ -374,6 +374,26 @@ async function capture() {
   }
 }
 
+// Behind the curtain nothing is connected yet, but the room is persistent:
+// fetch what stands in it so the world shows it from the first frame
+// (2026-11-03). The socket's state replaces this when it joins.
+async function peekRoom() {
+  try {
+    const r = await fetch(new URL(`./room?room=${encodeURIComponent(room)}`, import.meta.url), { cache: 'no-store' });
+    if (!r.ok) return;
+    const data = await r.json();
+    if (ws) return; // Joined meanwhile: the live state wins.
+    if (Array.isArray(data.objects)) objects = data.objects;
+    if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
+    if (Array.isArray(data.screens)) setScreens(data.screens);
+    if (Array.isArray(data.chalk)) {
+      chalkStrokes = data.chalk;
+      chalkVersion++;
+    }
+  } catch {}
+}
+if (hosted) void peekRoom();
+
 function connect() {
   const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
