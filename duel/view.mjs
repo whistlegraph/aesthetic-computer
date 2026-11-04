@@ -1569,7 +1569,7 @@ export async function createView(canvas) {
             small(ping, tx, ty, 0, unit, pingColor);
             top -= 9;
           }
-          if (fps) {
+          if (SHOW_FPS && fps) {
             const f = `${fps} fps`;
             small(f, x0 + (27 + smallWidth(f) / 2) * unit, y0 + top * unit, 0, unit, fpsColor);
           }

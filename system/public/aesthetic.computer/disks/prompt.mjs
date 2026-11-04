@@ -6058,17 +6058,19 @@ function paint($) {
       ink(Math.round(c[0] * 0.55), Math.round(c[1] * 0.55), Math.round(c[2] * 0.55)).write(ch, { x: x + 1, y: y + 1, size: s });
       ink(c[0], c[1], c[2]).write(ch, { x, y, size: s });
     });
-    // A chevron that lifts and fades, over and over, above the letters.
-    const lift = (t * 0.9) % 1;
-    const cyBottom = baseY - 2 * s - 2 - Math.round(lift * 5 * s);
-    const cy = cyBottom - 3 * s;
-    const ca = Math.round(230 * (1 - lift));
+    // A chevron pointing down at the letters, settling and fading over and
+    // over, drawn pixel by pixel (2026-11-03): a 7-wide V, one pixel per
+    // step, its apex a row above the word at rest and starting 5 rows higher.
+    const drop = (t * 0.9) % 1;
+    const apexY = baseY - 2 * s - 1 - Math.round((1 - drop) * 5 * s);
+    const ca = Math.round(230 * (1 - drop));
     const pink = palette[0];
-    for (let k = 0; k < s; k++) {
-      ink(pink[0], pink[1], pink[2], ca).line(cx - 4 * s, cyBottom + k, cx, cy + k);
-      ink(pink[0], pink[1], pink[2], ca).line(cx, cy + k, cx + 4 * s, cyBottom + k);
+    for (let i = 0; i <= 3; i++) {
+      const y = apexY - (3 - i) * s;
+      ink(pink[0], pink[1], pink[2], ca).box(cx - 3 * s + i * s, y, s, s, "fill");
+      if (i < 3) ink(pink[0], pink[1], pink[2], ca).box(cx + 3 * s - i * s, y, s, s, "fill");
     }
-    mimeMarkTop = baseY - 10 * s - 2; // the chevron's highest apex
+    mimeMarkTop = baseY - 2 * s - 1 - 5 * s - 3 * s; // the chevron's highest row
   }
 
   if (showLoginCurtain && flairEnabled) {
