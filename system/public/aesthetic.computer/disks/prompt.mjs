@@ -6014,6 +6014,7 @@ function paint($) {
     const x0 = Math.floor((screen.width - (word.length * cw - s)) / 2);
     // The slab's foot sits on the same bottom margin as the handle and dool's crosshair.
     const baseY = screen.height - gh - depth - WELCOME_MARGIN;
+    mimeBox = { x: x0 - 1, y: baseY - 3, w: word.length * cw + 2, h: gh + depth + 4 };
     const cx = Math.floor(screen.width / 2);
     const letters = word.split("").map((ch, i) => ({
       ch,
@@ -6105,7 +6106,26 @@ function paint($) {
           const want = Math.max(0, Math.min(1, 1 - (dPen - 6) / 54));
           const stepT = Math.min(0.1, caretFillAt ? (now - caretFillAt) / 1000 : 0);
           caretFillAt = now;
-          caretFill += (want - caretFill) * Math.min(1, stepT * (want > caretFill ? 3 : 5));
+          const pressing = curtainPressAt && now - curtainPressAt < 1500;
+          const wantFill = pressing ? 1 : want;
+          caretFill += (wantFill - caretFill) * Math.min(1, stepT * (wantFill > caretFill ? (pressing ? 9 : 3) : 5));
+          // Nearer, it pulses faster and brighter.
+          const pulse = 0.5 + 0.5 * Math.sin(now / (260 - 170 * caretFill));
+          caretPulse = caretFill * pulse;
+          // The whole top-left edge radiates pink as the pointer comes near
+          // (or the press charges), fading along the edges from the corner.
+          if (caretFill > 0.02) {
+            const reachX = Math.floor(screen.width * 0.45), reachY = Math.floor(screen.height * 0.45);
+            for (let i = 0; i < 9; i++) {
+              const a = Math.round((60 + 80 * pulse) * caretFill * (1 - i / 9));
+              if (a < 2) continue;
+              for (let seg = 0; seg < 6; seg++) {
+                const fade = 1 - seg / 6;
+                ink(255, 50, 150, Math.round(a * fade)).box(Math.floor((reachX * seg) / 6), i, Math.ceil(reachX / 6), 1);
+                ink(255, 50, 150, Math.round(a * fade)).box(i, Math.floor((reachY * seg) / 6), 1, Math.ceil(reachY / 6));
+              }
+            }
+          }
           caretRect = { x, y, w, h, at: now };
           // A candle's flicker, never out: the whole rect dips a little at
           // random, now and then a deeper dip.
@@ -6117,7 +6137,7 @@ function paint($) {
             const d = Math.min((k - glint + ring.length) % ring.length, (glint - k + ring.length) % ring.length);
             const lift = Math.min(1, (d === 0 ? 1 : d === 1 ? 0.55 : 0) + caretFill * 0.5);
             const c = (v) => Math.round(150 + 105 * v + (255 - (150 + 105 * v)) * lift);
-            ink(c(r), c(g), c(b), Math.round(240 * flick)).plot(px, py);
+            ink(c(r), c(g), c(b), Math.round(240 * flick * (0.65 + 0.35 * (1 - caretPulse)) + 15 * caretPulse)).plot(px, py);
           });
           // The interior, filling in a fixed scattered order with the fill.
           const iw = Math.max(0, w - 2), ih = Math.max(0, h - 2), cells = iw * ih;
@@ -6181,6 +6201,62 @@ function paint($) {
       caretFill = 0;
     }
     if (!typing && !showLoginCurtain) caretRect = null;
+    // Leaving the prompt for the curtain: a falling two notes and motes
+    // folding back into the caret.
+    if (wasTyping && !typing && showLoginCurtain) {
+      try {
+        $.sound.synth({ type: "sine", tone: 587.33, attack: 0.005, decay: 0.8, duration: 0.09, volume: 0.22 });
+        setTimeout(() => { try { $.sound.synth({ type: "sine", tone: 392, attack: 0.005, decay: 0.85, duration: 0.14, volume: 0.22 }); } catch {} }, 80);
+      } catch {}
+      const cp = $.system.prompt.input?.prompt?.pos?.(undefined, true);
+      if (cp) for (let i = 0; i < 30; i++) {
+        const a = Math.random() * Math.PI * 2, r = 30 + Math.random() * 50;
+        caretFold.push({ x: cp.x + cp.w / 2 + Math.cos(a) * r, y: cp.y + cp.h / 2 + Math.sin(a) * r, tx: cp.x + Math.random() * cp.w, ty: cp.y + Math.random() * cp.h, hue: Math.random(), born: now });
+      }
+    }
+    // Entering: a bright chime with the burst.
+    if (!wasTyping && typing) {
+      try {
+        $.sound.synth({ type: "sine", tone: 783.99, attack: 0.005, decay: 0.8, duration: 0.08, volume: 0.22 });
+        setTimeout(() => { try { $.sound.synth({ type: "sine", tone: 1174.66, attack: 0.005, decay: 0.85, duration: 0.12, volume: 0.18 }); } catch {} }, 60);
+      } catch {}
+      curtainPressAt = 0;
+    }
+    wasTyping = !!typing;
+    if (caretFold.length) {
+      $.layer(3);
+      for (let k = caretFold.length - 1; k >= 0; k--) {
+        const p = caretFold[k], t = (now - p.born) / 450;
+        if (t >= 1) { caretFold.splice(k, 1); continue; }
+        const e = t * t;
+        const a6 = p.hue * 6, f6 = a6 - Math.floor(a6), q6 = 1 - f6, sg = Math.floor(a6) % 6;
+        const [r, g, b] = [[1, f6, 0], [q6, 1, 0], [0, 1, f6], [0, q6, 1], [f6, 0, 1], [1, 0, q6]][sg];
+        ink(Math.round(170 + 85 * r), Math.round(170 + 85 * g), Math.round(170 + 85 * b), Math.round(255 * (0.4 + 0.6 * t))).plot(Math.floor(p.x + (p.tx - p.x) * e), Math.floor(p.y + (p.ty - p.y) * e));
+      }
+      $.layer(1);
+      $.needsPaint?.();
+    }
+    // A halo on the curtain's controls as the pointer nears them.
+    if (showLoginCurtain && !typing) {
+      const pen = $.pen;
+      const halo = (box, color) => {
+        if (!box || !pen || pen.x === undefined) return;
+        const dx = Math.max(box.x - pen.x, 0, pen.x - (box.x + box.w)), dy = Math.max(box.y - pen.y, 0, pen.y - (box.y + box.h));
+        const near = Math.max(0, 1 - Math.hypot(dx, dy) / 48);
+        if (near <= 0) return;
+        $.layer(3);
+        for (let i = 1; i <= 4; i++) {
+          const a = Math.round(110 * near * (1 - (i - 1) / 4) * (0.75 + 0.25 * Math.sin(now / 180)));
+          ink(...color, a).box(box.x - i, box.y - i, box.w + 2 * i, box.h + 2 * i, "outline");
+        }
+        $.layer(1);
+        $.needsPaint?.();
+      };
+      if (login && !login.btn.disabled) halo(login.btn.box, [120, 140, 255]);
+      if (signup && !signup.btn.disabled) halo(signup.btn.box, [110, 230, 130]);
+      if (commitBtn && !commitBtn.btn?.disabled) halo(commitBtn.btn?.box, [230, 230, 240]);
+      if (mimeBox) halo(mimeBox, [255, 145, 197]);
+    }
     if (caretBurst.length) {
       const dt = Math.min(0.05, caretBurstAt ? (now - caretBurstAt) / 1000 : 0.016);
       caretBurstAt = now;
@@ -7875,6 +7951,11 @@ let caretFill = 0, caretFillAt = 0, caretOrder = null; // Hover fill of the curt
 let caretRect = null; // Where the curtain caret was last drawn, for the focus burst.
 const caretBurst = [];
 let caretBurstAt = 0;
+let curtainPressAt = 0; // A press on the bare curtain, charging the caret.
+let caretPulse = 0;
+let wasTyping = false;
+const caretFold = []; // Motes folding back into the caret when the curtain returns.
+let mimeBox = null; // The MIMEs mark's box this frame, for its halo.
 const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;
@@ -8074,6 +8155,23 @@ function act({
   notice,
   ui,
 }) {
+  // 🎚️ A press on the bare curtain charges the caret before the release
+  // opens the prompt: a soft rising tone now, the chime on the release.
+  {
+    const inp = system.prompt.input;
+    const onButton = [login, signup, profile, commitBtn, doolBtn].some((b) => {
+      const box = b?.btn?.box || b?.box;
+      return box && !b?.btn?.disabled && box.contains?.(e);
+    });
+    if (e.is("touch") && inp && !inp.canType && theme === "default" && !onButton) {
+      curtainPressAt = performance.now();
+      try {
+        synth({ type: "sine", tone: 392, attack: 0.02, decay: 0.9, duration: 0.22, volume: 0.22 });
+        synth({ type: "sine", tone: 587.33, attack: 0.12, decay: 0.9, duration: 0.24, volume: 0.12 });
+      } catch {}
+    }
+    if (e.is("lift") || e.is("draw:cancel")) curtainPressAt = 0;
+  }
   // Done is a transaction, not a background task. Prompt remains visible as
   // its progress surface but cannot accept edits or commands until upload
   // yields painting#CODE or reports a recoverable failure.
