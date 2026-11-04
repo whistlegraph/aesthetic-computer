@@ -498,15 +498,36 @@ class Autocomplete {
         } else if (isHovered) {
           ink(255, 255, 255, 20).box(dropX - 2, itemY, maxWidth, itemHeight);
         }
-        const prefix = isSelected ? "> " : "  ";
+        // A typed icon leads each row (2026-11-03): a 5x5 pixel mark for the
+        // row's kind in its own colour, then the text, then the age of a
+        // message or mood at the right edge.
+        const icon = KIND_ICONS[item.kind] || KIND_ICONS.command;
+        const iconColor = isSelected ? [255, 255, 255] : baseColor;
+        icon.forEach((row, r) => {
+          for (let col = 0; col < 5; col++)
+            if (row[col] === "#") ink(...iconColor).box(dropX + col, itemY + 2 + r, 1, 1);
+        });
+        const age = item.when ? ago(item.when) : "";
+        const textX = dropX + 8;
+        const room = Math.max(0, Math.floor((maxWidth - 8 - (age ? age.length * 4 + 6 : 0)) / 4));
         ink(...color).write(
-          prefix + displayText,
-          { x: dropX, y: itemY + 1 },
+          displayText.slice(0, room),
+          { x: textX, y: itemY + 1 },
           undefined,
           undefined,
           false,
           font,
         );
+        if (age) {
+          ink(130, 130, 150).write(
+            age,
+            { x: dropX + maxWidth - 2 - age.length * 4, y: itemY + 1 },
+            undefined,
+            undefined,
+            false,
+            font,
+          );
+        }
       } else {
         if (isSelected) {
           ink(60, 60, 100).box(dropX + 2, itemY - 1, maxWidth - 4, itemHeight);
@@ -553,6 +574,31 @@ class Autocomplete {
   }
 }
 
+// Typed icons, 5x5, one per row kind.
+const KIND_ICONS = {
+  command: ["#....", ".#...", "..#..", ".#...", "#...."],
+  piece: ["#####", "#...#", "#...#", "#...#", "#####"],
+  handle: [".###.", "#..##", "#.#.#", "#..##", ".###."],
+  kidlisp: [".###.", "#.#..", ".###.", "..#.#", ".###."],
+  painting: [".#.#.", "#####", ".#.#.", "#####", ".#.#."],
+  tape: ["..#..", "..#..", "..#..", ".....", "..#.."],
+  whistlegraph: [".....", ".##.#", "#..#.", ".....", "....."],
+  mood: [".#.#.", "#####", "#####", ".###.", "..#.."],
+  chat: ["#####", "#...#", "#####", ".#...", "#...."],
+};
+
+// A message's age, short: 12s, 5m, 3h, 2d, 6w.
+function ago(when) {
+  const t = new Date(when).getTime();
+  if (!Number.isFinite(t)) return "";
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 60) return `${Math.floor(s)}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  if (s < 86400 * 7) return `${Math.floor(s / 86400)}d`;
+  return `${Math.floor(s / 86400 / 7)}w`;
+}
+
 // Pre-configured handle autocomplete helper.
 // Pass `extraTriggers` (a { char: triggerConfig } map) to add sigil/command
 // triggers alongside `@` without disturbing callers that only want handles
@@ -579,6 +625,7 @@ function createHandleAutocomplete(options = {}) {
               .map(h => ({
                 text: typeof h === 'string' ? h : h.handle,
                 display: `@${typeof h === 'string' ? h : h.handle}`,
+                kind: "handle",
               }))
               .filter(h => h.text) // Filter out undefined
               .sort((a, b) => {

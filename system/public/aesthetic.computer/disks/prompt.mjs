@@ -310,7 +310,7 @@ function sigilSuggestions(kind, sigil, query) {
     else if (lc.includes(q)) bucket = contains;
     if (!bucket) continue;
     seen.add(code);
-    bucket.push({ text: code, display: `${sigil}${code}` });
+    bucket.push({ text: code, display: `${sigil}${code}`, kind });
   }
   return [...starts, ...contains];
 }
@@ -393,6 +393,7 @@ function whistlegraphSuggestions(query, limit = 6, explicit = false) {
       text: explicit ? `wg ${code}` : entry.command || (entry.bare ? code : `wg ${code}`),
       display: `${code} — ${title.slice(0, 38)} · whistlegraph`,
       color: UNIVERSAL_COLORS.whistlegraph,
+      kind: "whistlegraph",
     };
     if (code === q) exact.push(row);
     else if (code.startsWith(q) || titleLower.startsWith(q)) prefix.push(row);
@@ -461,7 +462,7 @@ async function diagJson(diag, key, url, ms = 1500) {
 
 async function universalSearch(query, { partial } = {}) {
   const q = (query || "").trim().toLowerCase();
-  if (q.length < 2) return [];
+  if (q.length < 1) return [];
   // Mid-command with arguments — don't turn it into a search.
   const explicitWhistlegraph = q.match(/^wg(?:\s+|:)([a-z0-9]*)$/);
   if (q.includes(" ") && !explicitWhistlegraph) return [];
@@ -495,7 +496,8 @@ async function universalSearch(query, { partial } = {}) {
       docHits.push({
         text: k,
         display: desc ? `${k} — ${String(desc).slice(0, 40)}` : k,
-        color: UNIVERSAL_COLORS.command,
+        color: pieceDocKeys.has(k) ? UNIVERSAL_COLORS.piece : UNIVERSAL_COLORS.command,
+        kind: pieceDocKeys.has(k) ? "piece" : "command",
       });
     }
   } catch (e) {}
@@ -508,7 +510,7 @@ async function universalSearch(query, { partial } = {}) {
     ["tape", "!", UNIVERSAL_COLORS.tape],
   ]) {
     for (const it of sigilSuggestions(kind, sig, q).slice(0, 2)) {
-      sigilHits.push({ text: it.text, display: it.display, color });
+      sigilHits.push({ text: it.text, display: it.display, color, kind });
     }
   }
 
@@ -539,6 +541,12 @@ async function universalSearch(query, { partial } = {}) {
   // 🌊 The local rows show at once; each network source then joins the list
   // the moment it answers, instead of the whole list waiting on the slowest.
   partial?.(merged());
+  // One typed letter is a local affair: the network waits for a second.
+  if (q.length < 2) {
+    for (const source of Object.values(diag.sources)) source.state = "skip";
+    diag.done = true;
+    return merged();
+  }
 
   // 4–7) Network sources, in parallel, each best-effort (timed/abortable).
   // `diagJson` flips each source's state the moment it settles, so the UI
@@ -556,7 +564,7 @@ async function universalSearch(query, { partial } = {}) {
       const raw = Array.isArray(res) ? res : res?.handles || [];
       for (const h of raw.slice(0, 4)) {
         const name = typeof h === "string" ? h : h?.handle;
-        if (name) out.push({ text: `@${name}`, display: `@${name}`, color: UNIVERSAL_COLORS.handle });
+        if (name) out.push({ text: `@${name}`, display: `@${name}`, color: UNIVERSAL_COLORS.handle, kind: "handle" });
       }
       return out;
     }),
@@ -565,7 +573,7 @@ async function universalSearch(query, { partial } = {}) {
       for (const p of (res?.pieces || []).slice(0, 4)) {
         if (!p?.enter) continue;
         const tag = p.handle ? ` ·${p.handle}` : "";
-        out.push({ text: p.enter, display: `${p.name || p.enter}${tag}`, color: UNIVERSAL_COLORS.piece });
+        out.push({ text: p.enter, display: `${p.name || p.enter}${tag}`, color: UNIVERSAL_COLORS.piece, kind: "piece" });
       }
       return out;
     }),
@@ -579,8 +587,10 @@ async function universalSearch(query, { partial } = {}) {
         const moodText = String(m.mood).replace(/\s+/g, " ");
         out.push({
           text: "mood",
-          display: `~ ${from}: ${moodText.slice(0, 32)}`,
+          display: `${from}: ${moodText.slice(0, 32)}`,
           color: UNIVERSAL_COLORS.mood,
+          kind: "mood",
+          when: m.when || null,
           // Selecting opens the full-screen `message` piece (see openMessage…).
           action: "message",
           message: { from, text: moodText, source: "mood" },
@@ -597,8 +607,10 @@ async function universalSearch(query, { partial } = {}) {
         const chatText = String(c.text).replace(/\s+/g, " ");
         out.push({
           text: isClock ? "laer-klokken" : "chat",
-          display: `• ${from}: ${chatText.slice(0, 32)}`,
+          display: `${from}: ${chatText.slice(0, 32)}`,
           color: isClock ? UNIVERSAL_COLORS.chatClock : UNIVERSAL_COLORS.chatSystem,
+          kind: "chat",
+          when: c.when || null,
           action: "message",
           message: { from, text: chatText, source: isClock ? "clock" : "chat" },
         });
@@ -808,6 +820,10 @@ let darkModeOn;
 let pal;
 
 let autocompletions = {};
+let pieceDocKeys = new Set(); // docs.json keys that are pieces, not prompt commands
+// The old top-left completion list (big font, alpha 32) is retired in favour
+// of the one inline list under the typed line (2026-11-03): one system.
+const LEGACY_COMPLETION_LIST = false;
 const activeCompletions = [];
 let fetchingUser = false,
   fetchUserAPI;
@@ -1176,6 +1192,7 @@ async function boot({
 
   net.requestDocs().then((d) => {
     autocompletions = { ...d.pieces, ...d.prompts };
+    pieceDocKeys = new Set(Object.keys(d.pieces || {}));
     tooltipDocs = { ...d.pieces, ...d.prompts }; // Include both pieces and prompts for tooltips
     // Remove hidden autocompleteions.
     keys(autocompletions).forEach((key) => {
@@ -1251,7 +1268,7 @@ async function boot({
     // `getDiag` lets the dropdown surface live per-source fetch state.
     universal: {
       fetch: universalSearch,
-      minChars: 2,
+      minChars: 1,
       cache: false,
       getDiag: () => universalDiag,
     },
@@ -5517,7 +5534,7 @@ function paint($) {
       const showTooltip = tooltipState.visible && tooltipState.command && (activeCompletions.length === 0 || hasSpace || isExactMatch);
 
       // Autocompletions (hidden when tooltip is showing)
-      if (!showTooltip) {
+      if (LEGACY_COMPLETION_LIST && !showTooltip) {
         if (activeCompletions.length > 0) {
           activeCompletions.forEach((completion, i) => {
             $.system.prompt.input.text;
@@ -8831,7 +8848,7 @@ function act({
     return; // consume
   }
 
-  if (e.is("keyboard:down:tab") && e.key === "Tab" && activeCompletions[0]) {
+  if (LEGACY_COMPLETION_LIST && e.is("keyboard:down:tab") && e.key === "Tab" && activeCompletions[0]) {
     // console.log("Tab completing:", activeCompletions[0]);
     // TODO: The text input object needs to be updated here also...
     system.prompt.input.text = activeCompletions[0];
