@@ -6276,7 +6276,7 @@ function paint($) {
       };
       if (login && !login.btn.disabled) inner(login.btn.box, [150, 170, 255]);
       if (signup && !signup.btn.disabled) inner(signup.btn.box, [150, 255, 170]);
-      if (commitBtn && !commitBtn.btn?.disabled) halo(commitBtn.btn?.box, [230, 230, 240]);
+      // (The version badge shines from its letters; no outer glow.)
       // (MIMEs shakes instead of glowing.)
     }
     if (caretBurst.length) {
@@ -6748,11 +6748,7 @@ function paint($) {
       doolHover = !!hot;
       const s = Math.max(1, Math.round(scale));
       const t = s, arm = 4 * s, half = (7 + (doolFlight ? 0 : grow)) * s;
-      if (hot) {
-        // A round glow from the centre, not one hugging the square.
-        softGlow($, { x: at.x + side(1) / 2, y: at.y + side(1) / 2, w: 0, h: 0 }, [0, 255, 255], 0.45 + 0.2 * Math.sin(now / 220), 16);
-        $.needsPaint?.();
-      }
+      // (No glow on hover: the lock-on blink is the whole hover.)
       // The centre stays put as the arms spread (it used to grow from the corner).
       const ox = at.x + 8 * s, oy = at.y + 8 * s; // the reticle's centre
       // AC's cursor cyan, except the hover blink's yellow select and teal
