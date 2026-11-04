@@ -1033,7 +1033,7 @@ document.addEventListener('visibilitychange', () => {
 // Behind the curtain the world is a backdrop under a veil: it steps at
 // 20 fps there (2026-11-03) so the prompt's own drawing keeps the frame
 // budget, and comes back to full rate the moment the paper drops.
-let bareAt = 0, sheetClosedAt = 0;
+let bareAt = 0, sheetClosedAt = 0, sheetShown = !hosted;
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
@@ -1492,11 +1492,11 @@ function step(now) {
     jobs,
     worldTime,
     locked: locked(),
-    legend: sheetOpen && legendShown(),
+    legend: sheetOpen && sheetShown && seat >= 0 && legendShown(),
     corner: sheetOpen && !down,
     screens,
     screenPrograms,
-    bare: !sheetOpen || down,
+    bare: !sheetOpen || !sheetShown || down,
     held: {
       keys: [...keys],
       pad: [
@@ -1514,8 +1514,13 @@ if (hosted) {
     if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;
     // The prompt's pixel grid rides along: our pixels become its pixels.
     if ('grid' in e.data) view.grid(e.data.grid);
+    // The HUD shows only between the paper's full drop and the start of its
+    // return, so nothing pops in or out mid-fade (2026-11-03).
+    if (e.data.phase === 'opened') sheetShown = true;
+    if (e.data.phase === 'closing') sheetShown = false;
     if (!('open' in e.data)) return;
     sheetOpen = e.data.open === true;
+    if (!sheetOpen) sheetShown = false;
     if (!sheetOpen) sheetClosedAt = performance.now();
     if (sheetOpen) {
       last = performance.now();

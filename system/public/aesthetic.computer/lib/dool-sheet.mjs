@@ -179,12 +179,14 @@ function hide() {
   // the paper fades back in, one motion (2026-11-03). The frame drops
   // beneath the stage only once the paper is whole, to spare a reflow mid-fade.
   resumePrompt();
+  post({ type: "dool:sheet", phase: "closing" }); // The HUD rests before the paper returns.
   run();
 }
 
 function opened() {
   state = "open";
   write();
+  post({ type: "dool:sheet", phase: "opened" }); // The paper is gone: the guest may show its HUD.
   pausePrompt();
   enterHistory();
   // An underlay sits beneath the body for hit testing, so the open world
