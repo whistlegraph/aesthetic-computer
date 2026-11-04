@@ -158,7 +158,7 @@ export async function createView(canvas) {
       // walls show their z face, the end walls their x face.
       box(-WORLD - t / 2, h / 2, 0, t, h, span, p.walls.west, p.walls.west, p.wallSide);
       box(WORLD + t / 2, h / 2, 0, t, h, span, p.walls.east, p.walls.east, p.wallSide);
-      box(0, h + t / 2, 0, span, t, span, p.ceiling, p.ceiling, p.ceiling);
+      // No ceiling (2026-11-03): the sky shows over the walls.
     });
   // Sky: rings of colour around the viewer, deep overhead to a glow at the
   // horizon, drawn at the eye so it never comes closer.

@@ -49,6 +49,7 @@ if (typeof globalThis.awslambda === "undefined") {
 import express from "express";
 import {attachMusicalSocket} from "./musical-socket.mjs";
 import { createDuelServer } from "../duel/server.mjs";
+import { kidlispPublisher } from "../duel/kidlisp-code.mjs";
 import { optionalProduct } from "../shared/private-product.mjs";
 import { operationsAuth } from "./operations-auth.mjs";
 import { canonicalPageUrl } from "../system/public/aesthetic.computer/lib/site-metadata.mjs";
@@ -107,7 +108,9 @@ const SSL_KEY = join(__dirname, "..", "ssl-dev", "localhost-key.pem");
 const HAS_SSL = existsSync(SSL_CERT) && existsSync(SSL_KEY);
 
 const app = express();
-const dool = createDuelServer({ prefix: '/dool' });
+// Every finished build is a KidLisp program: the store gives it a $code under
+// the builder's own account (2026-11-03; without this, nothing got a code).
+const dool = createDuelServer({ prefix: '/dool', publishKidlisp: kidlispPublisher() });
 app.use((req, res, next) => {
   if (req.path === '/dool' || req.path.startsWith('/dool/')) return dool.handle(req, res);
   next();
