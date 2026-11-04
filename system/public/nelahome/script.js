@@ -61,30 +61,6 @@ function render() {
 
 document.addEventListener("DOMContentLoaded", render);
 
-(function () {
-  const OC_DONATE_URL = "https://opencollective.com/metagov/projects/nelacc/donate";
-  const form = document.getElementById("ncc-support-form");
-  const other = document.getElementById("ncc-other");
-
-  other.addEventListener("input", () => {
-    if (other.value) form.querySelectorAll("input[name=amount]").forEach(r => (r.checked = false));
-  });
-  form.querySelectorAll("input[name=amount]").forEach(r =>
-    r.addEventListener("change", () => (other.value = ""))
-  );
-
-  form.addEventListener("submit", e => {
-    e.preventDefault();
-    const picked = form.querySelector("input[name=amount]:checked")?.value;
-    const url = new URL(OC_DONATE_URL);
-    url.searchParams.set("amount", other.value || picked || "20");
-    url.searchParams.set("interval", "oneTime");
-    url.searchParams.set("redirect", "https://nela.computer/?thanks=1#support");
-    url.searchParams.set("tags", "general-support");
-    window.location.href = url.toString();
-  });
-
-  if (new URLSearchParams(location.search).get("thanks") === "1") {
-    document.getElementById("ncc-thanks").hidden = false;
-  }
-})();
+if (new URLSearchParams(location.search).get("thanks") === "1") {
+  document.getElementById("ncc-thanks").hidden = false;
+}

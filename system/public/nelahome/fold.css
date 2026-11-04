@@ -12,6 +12,7 @@
 
 /* Dues. */
 .dues { margin: 1em 0; }
+.ncc-support .dues-label { font-weight: normal; }
 .dues-label { display: block; }
 #duesShown { color: #00d080; }
 .dues-slider { display: block; width: 100%; margin: 0.75em 0; accent-color: #00d080; height: 2em; }

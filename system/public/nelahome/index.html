@@ -9,7 +9,7 @@
     <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="stylesheet" href="styles.css?v=1.0.2">
-    <link rel="stylesheet" href="fold.css?v=9">
+    <link rel="stylesheet" href="fold.css?v=10">
 </head>
 <body>
     <div class="container">
@@ -41,34 +41,19 @@
         <h2 id="support">Support NCC</h2>
         <pre>▒▒▒▒▒▒▒▒▒▒▒</pre>
 
-        <form class="dues" id="dues" action="https://opencollective.com/metagov/projects/nelacc/donate" method="get">
-            <input type="hidden" name="redirect" value="https://nela.computer/?thanks=1#support">
-            <input type="hidden" name="tags" value="dues">
-            <label class="dues-label" for="duesAmount"><span class="opener-tag">DUES</span> <b id="duesShown">$5</b></label>
-            <input class="dues-slider" id="duesAmount" type="range" name="amount" min="1" max="30" step="1" value="5">
-            <span class="dues-buttons">
-                <button class="dues-give" type="submit" name="interval" value="oneTime">&gt; Once_</button>
-                <button class="dues-give" type="submit" name="interval" value="month">&gt; Monthly_</button>
-            </span>
-        </form>
-
         <div class="meetupBox ncc-support">
-            <p class="meetingTitle">CONTRIBUTE</p>
             <p id="ncc-thanks" class="ncc-thanks" role="status" hidden>&gt; Contribution received. Thank you for supporting NCC.</p>
             <p>Help us keep NCC a space for learning and collaboration. Your contributions are greatly appreciated. They keep the club going and build a foundation for NCC to exist for years to come.</p>
 
-            <form id="ncc-support-form" action="https://opencollective.com/metagov/projects/nelacc/donate" method="get">
-                <fieldset>
-                    <legend>Choose an amount (USD):</legend>
-                    <div class="ncc-amounts">
-                        <label><input type="radio" name="amount" value="5"><span>[ $5 ]</span></label>
-                        <label><input type="radio" name="amount" value="10"><span>[ $10 ]</span></label>
-                        <label><input type="radio" name="amount" value="20" checked><span>[ $20 ]</span></label>
-                        <label><input type="radio" name="amount" value="50"><span>[ $50 ]</span></label>
-                    </div>
-                    <label class="ncc-other" for="ncc-other">Other: $<input id="ncc-other" type="number" min="1" step="1" inputmode="decimal"></label>
-                    <button class="ncc-give" type="submit">&gt; Contribute_</button>
-                </fieldset>
+            <form class="dues" id="dues" action="https://opencollective.com/metagov/projects/nelacc/donate" method="get">
+                <input type="hidden" name="redirect" value="https://nela.computer/?thanks=1#support">
+                <input type="hidden" name="tags" value="dues">
+                <label class="dues-label" for="duesAmount"><span class="opener-tag">DUES</span> <b id="duesShown">$5</b></label>
+                <input class="dues-slider" id="duesAmount" type="range" name="amount" min="1" max="50" step="1" value="5">
+                <span class="dues-buttons">
+                    <button class="dues-give" type="submit" name="interval" value="oneTime">&gt; Once_</button>
+                    <button class="dues-give" type="submit" name="interval" value="month">&gt; Monthly_</button>
+                </span>
             </form>
 
             <p class="ncc-note">Payments go through <a href="https://opencollective.com/metagov/projects/nelacc">Open Collective</a>. Every dollar in and out is on our public ledger.</p>
@@ -142,7 +127,7 @@
     </div><!--.textRegion-->
     </div><!--.container-->
 
-    <script src="script.js"></script>
-    <script src="fold.js?v=9"></script>
+    <script src="script.js?v=2"></script>
+    <script src="fold.js?v=10"></script>
 </body>
 </html>
