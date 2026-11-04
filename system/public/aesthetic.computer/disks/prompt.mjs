@@ -6137,7 +6137,9 @@ function paint($) {
     // ✨ Starfield on the backdrop layer, under everything else on the curtain.
     if (flairEnabled && starsEnabled && theme === "default") {
       $.layer(0);
-      paintSnow($); // Winter (2026-11-03): soft snow instead of the starfield.
+      // Winter: the snow now falls in 3D inside the dool world under the
+      // curtain (duel/view.mjs), so the flat curtain snow rests.
+      if (!CURTAIN_WORLD_SNOW) paintSnow($);
       $.layer(1);
     }
 
@@ -7789,6 +7791,7 @@ function paintThinkingGuy($) {
 // drift, faint and mostly single pixels, a few small crosses in front.
 const snow = [];
 let snowAt = 0;
+const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;
   const now = performance.now();

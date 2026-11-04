@@ -310,6 +310,7 @@ export async function createView(canvas) {
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
+  let snow = null, snowAt = 0; // The room's falling snow.
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
@@ -602,7 +603,7 @@ export async function createView(canvas) {
     // head and into their eyes (2026-11-03). `orbit` eases 1 → 0 on the drop.
     if (orbit > 0) {
       const a = now / 9000; // one turn about every minute
-      const far = { x: Math.sin(a) * 24, y: 13, z: -Math.cos(a) * 24 };
+      const far = { x: Math.sin(a) * 15, y: 8.5, z: -Math.cos(a) * 15 }; // closer in, looking into the room
       const centre = { x: 0, y: 0.8, z: 0 };
       if (!me || orbit >= 1) {
         eye = far;
@@ -1741,6 +1742,35 @@ export async function createView(canvas) {
         px(0, -3, Math.max(0, Math.round((24 * hp) / 100)), 2, hc);
       });
       projector.overlay(m, W, H);
+    }
+    // ❄️ Snow falling into the open room (2026-11-03): small camera-facing
+    // flakes in a volume over and around the room, depth-tested against the
+    // walls, drifting as they fall, nearer ones a little larger.
+    {
+      if (!snow) {
+        snow = [];
+        for (let i = 0; i < 260; i++)
+          snow.push({ x: (Math.random() - 0.5) * 30, y: Math.random() * 14, z: (Math.random() - 0.5) * 30, v: 0.5 + Math.random() * 0.7, p: Math.random() * 6.3, s: 0.025 + Math.random() * 0.035 });
+      }
+      const dt = Math.min(0.1, (now - (snowAt || now)) / 1000);
+      snowAt = now;
+      const r = projector.right, u = projector.up;
+      const m = model(({ quad }) => {
+        for (const f of snow) {
+          f.y -= f.v * dt;
+          f.x += Math.sin(now / 1700 + f.p) * 0.25 * dt;
+          f.z += Math.cos(now / 2100 + f.p) * 0.2 * dt;
+          if (f.y < 0.02) {
+            f.y = 13 + Math.random();
+            f.x = (Math.random() - 0.5) * 30;
+            f.z = (Math.random() - 0.5) * 30;
+          }
+          const s = f.s;
+          const c = (sx, sy) => [f.x + (r[0] * sx + u[0] * sy) * s, f.y + (r[1] * sx + u[1] * sy) * s, f.z + (r[2] * sx + u[2] * sy) * s];
+          quad(c(-1, -1), c(1, -1), c(1, 1), c(-1, 1), 0xe6eeff);
+        }
+      });
+      draw(m, 0, 0, 0);
     }
     // Painted floor squares, rebuilt only when they change.
     const tilesKey = JSON.stringify(tiles);
