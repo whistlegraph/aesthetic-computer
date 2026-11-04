@@ -1548,7 +1548,7 @@ if (hosted) {
     if ('grid' in e.data) view.grid(e.data.grid);
     // The HUD shows only between the paper's full drop and the start of its
     // return, so nothing pops in or out mid-fade (2026-11-03).
-    if (typeof e.data.near === 'number') cornerScale = Math.max(1, Math.min(2, e.data.near));
+    // (The room no longer scales with the crosshair's hover blink.)
     if (e.data.phase === 'opened') sheetShown = true;
     if (e.data.phase === 'closing') {
       sheetShown = false;
