@@ -46,8 +46,17 @@ details.fold > summary:focus-visible { outline: 1px dashed #00c4fd; outline-offs
 .meet .meetingList { margin: 0.5em 0 0; padding: 0; list-style: none; }
 .meet .meetingList li { display: inline-block; margin: 0 1em 0.25em 0; }
 #past { margin-top: 1.5em; }
-.pastList { margin: 0.5em 0 0; padding: 0; list-style: none; }
-.pastList li { margin: 0 0 0.25em; }
+.pastMonths { display: flex; flex-wrap: wrap; gap: 1em 1.5em; margin-top: 0.75em; }
+.pastCal table { border-collapse: separate; border-spacing: 3px; font-size: 0.8em; }
+.pastCal caption { text-align: left; font-weight: bold; padding: 0 0 0.25em 3px; }
+.pastCal .dow td { color: #006848; text-align: center; }
+.pastCal .box { display: block; width: 0.9em; height: 0.9em; margin: auto; border: 1px solid #006848; box-sizing: border-box; }
+.pastCal .box.met { border: 0; }
+.pastCal .box.plot { background: #00d080; }
+.pastCal .box.event { background: #00c4fd; }
+.pastKey { margin: 0.75em 0 0; display: flex; flex-wrap: wrap; gap: 0.5em 1.5em; }
+.pastKey a { text-decoration: none; }
+.pastKey .box { display: inline-block; vertical-align: middle; }
 
 /* preview bumper on aesthetic.computer only: highlighter yellow */
 .bel-proposal { display: inline-block; background: #ffe600; color: #000; font-weight: bold; padding: 2px 6px; margin: 0 0 1rem; }
