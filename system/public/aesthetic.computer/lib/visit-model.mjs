@@ -50,6 +50,7 @@ export const VISIT_ACTIONS = Object.freeze([
   "painting_viewed",
   "ac_opened", "ac_ad_shown",
   "note_written", "paint_pressed", "paint_signin_asked", "paint_failed", "painting_rejected",
+  "teacher_note_opened", "teacher_note_sent",
 ]);
 
 // Reviewed link milestones only; never retain destinations or mailto contents.

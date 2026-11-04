@@ -70,8 +70,46 @@
 		#notepaint-ad:hover, #notepaint-ad:focus-visible { background: #f6977a; box-shadow: 4px 4px 0 #c6f7a0; outline: none; }
 		@keyframes notepaint-ad-bob { 50% { transform: translate(-50%, calc(-50% - 2px)) rotate(-2deg) scale(var(--ad-scale, 1)); } }
 		@media (prefers-reduced-motion: reduce) { #notepaint-ad.shown { animation: none; } }
+		/* Teachers: a small chip under the sticker opens a note form. */
+		#teacher-chip {
+			position: fixed; z-index: 10; display: block; cursor: pointer;
+			padding: 4px 9px 5px; font: 16px/1 'pixelar-regular-w01', monospace; letter-spacing: .5px;
+			color: #1d2b14; background: #fff8e8; border: 2px solid #1d2b14; box-shadow: 3px 3px 0 #c6f7a0;
+			transform: translate(-50%, -50%) rotate(2deg) scale(var(--ad-scale, 1));
+			opacity: 0; transition: opacity .4s;
+		}
+		#teacher-chip.shown { opacity: 1; }
+		#teacher-chip:hover, #teacher-chip:focus-visible { background: #c6f7a0; outline: none; }
+		#teacher-note { max-width: min(420px, calc(100vw - 32px)); width: 100%; padding: 0; border: 3px solid #1d2b14; box-shadow: 6px 6px 0 #f6977a; background: #fff8e8; color: #1d2b14; }
+		#teacher-note::backdrop { background: rgba(29, 43, 20, .45); }
+		#teacher-note form { display: grid; gap: 10px; padding: 18px 18px 16px; font: 16px/1.35 system-ui, sans-serif; }
+		#teacher-note h2 { margin: 0; font: 26px/1 'pixelar-regular-w01', monospace; }
+		#teacher-note p { margin: 0; }
+		#teacher-note label { display: grid; gap: 3px; font-size: 14px; }
+		#teacher-note input, #teacher-note textarea { font: inherit; font-size: 16px; padding: 7px 8px; border: 2px solid #1d2b14; background: #fff; color: #1d2b14; border-radius: 0; }
+		#teacher-note textarea { min-height: 96px; resize: vertical; }
+		#teacher-note .trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+		#teacher-note .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+		#teacher-note button { font: 20px/1 'pixelar-regular-w01', monospace; padding: 7px 14px 8px; border: 2px solid #1d2b14; cursor: pointer; }
+		#teacher-note button[type=submit] { background: #c6f7a0; color: #1d2b14; }
+		#teacher-note button[value=cancel] { background: transparent; color: #1d2b14; }
+		#teacher-note .status { min-height: 1.2em; font-size: 14px; }
 	</style>
 	<a id="notepaint-ad" href="https://notepaint.art/" hidden><b>NEW!</b> notepaint.art</a>
+	<button id="teacher-chip" type="button" hidden>Teaching with No Paint?</button>
+	<dialog id="teacher-note" aria-labelledby="teacher-title">
+		<form method="dialog" novalidate>
+			<h2 id="teacher-title">Teaching with No Paint?</h2>
+			<p id="teacher-lede">We'd love to hear about your class. Tell us a little and we'll write back.</p>
+			<label><span data-l="name">Your name</span><input id="teacher-name" name="name" autocomplete="name" maxlength="120"></label>
+			<label><span data-l="school">School</span><input id="teacher-school" name="school" autocomplete="organization" maxlength="160"></label>
+			<label><span data-l="email">Email, so we can reply</span><input id="teacher-email" name="email" type="email" autocomplete="email" maxlength="200"></label>
+			<label><span data-l="message">Message</span><textarea id="teacher-message" name="message" maxlength="1200" required></textarea></label>
+			<label class="trap" aria-hidden="true">Website<input id="teacher-website" name="website" tabindex="-1" autocomplete="off"></label>
+			<p class="status" id="teacher-status" role="status"></p>
+			<div class="row"><button value="cancel" formnovalidate data-l="close">Close</button><button type="submit" data-l="send">Send</button></div>
+		</form>
+	</dialog>
 	<script>
 		(() => {
 			const ad = document.getElementById("notepaint-ad");
@@ -86,6 +124,55 @@
 				ad.innerHTML = "<b>NEW!</b> aesthetic.computer";
 			}
 			const shownAction = arm === "ac" ? "ac_ad_shown" : "notepaint_ad_shown";
+			// Teacher note: Spanish for Spanish-language browsers (the class
+			// traffic of November 2026 came from Peru), English otherwise.
+			const chip = document.getElementById("teacher-chip"), note = document.getElementById("teacher-note");
+			const es = /^es\b/i.test(navigator.language || "");
+			const words = es ? { chip: "¿Enseñas con No Paint?", title: "¿Enseñas con No Paint?",
+				lede: "Nos encantaría saber de tu clase. Cuéntanos un poco y te responderemos.",
+				name: "Tu nombre", school: "Colegio", email: "Correo, para responderte", message: "Mensaje",
+				close: "Cerrar", send: "Enviar", sending: "Enviando…", sent: "¡Gracias! Te escribiremos pronto.",
+				needMessage: "Escribe un mensaje.", badEmail: "Revisa el correo.", failed: "No se pudo enviar. Inténtalo de nuevo." }
+				: { chip: "Teaching with No Paint?", title: "Teaching with No Paint?",
+				lede: "We'd love to hear about your class. Tell us a little and we'll write back.",
+				name: "Your name", school: "School", email: "Email, so we can reply", message: "Message",
+				close: "Close", send: "Send", sending: "Sending…", sent: "Thank you! We'll write back soon.",
+				needMessage: "Write a message first.", badEmail: "Check the email address.", failed: "Couldn't send. Please try again." };
+			chip.textContent = words.chip;
+			note.querySelector("#teacher-title").textContent = words.title;
+			note.querySelector("#teacher-lede").textContent = words.lede;
+			note.querySelectorAll("[data-l]").forEach((el) => { el.textContent = words[el.dataset.l]; });
+			const status = note.querySelector("#teacher-status"), form = note.querySelector("form");
+			// Keys typed in the form stay in the form: Construct and the Tab
+			// guard above listen on window and would otherwise eat them.
+			for (const type of ["keydown", "keyup", "keypress"]) note.addEventListener(type, (e) => e.stopPropagation());
+			chip.addEventListener("click", () => {
+				status.textContent = "";
+				note.showModal();
+				window.acVisits?.action("teacher_note_opened");
+			});
+			form.addEventListener("submit", async (event) => {
+				event.preventDefault();
+				if (event.submitter?.value === "cancel") { note.close(); return; }
+				const field = (id) => note.querySelector(id).value.trim();
+				const body = { name: field("#teacher-name"), school: field("#teacher-school"), email: field("#teacher-email"),
+					message: field("#teacher-message"), website: field("#teacher-website"), lang: es ? "es" : "en" };
+				if (!body.message) { status.textContent = words.needMessage; return; }
+				if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(body.email)) { status.textContent = words.badEmail; return; }
+				const send = form.querySelector("button[type=submit]");
+				send.disabled = true; status.textContent = words.sending;
+				try {
+					const response = await fetch("https://aesthetic.computer/api/nopaint-teacher", {
+						method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(body),
+						credentials: "omit", referrerPolicy: "no-referrer" });
+					if (!response.ok) throw new Error(String(response.status));
+					status.textContent = words.sent;
+					window.acVisits?.action("teacher_note_sent");
+					form.reset();
+					setTimeout(() => note.open && note.close(), 2200);
+				} catch { status.textContent = words.failed; }
+				finally { send.disabled = false; }
+			});
 			let canvas, taps = 0;
 			const place = () => requestAnimationFrame(() => {
 				if (!canvas?.isConnected) return;
@@ -94,11 +181,15 @@
 				ad.style.left = `${box.left + box.width / 2}px`;
 				ad.style.top = `${box.top + box.height * 0.67}px`;
 				ad.style.setProperty("--ad-scale", Math.min(1.4, Math.max(0.7, box.width / 400)).toFixed(2));
+				chip.style.left = `${box.left + box.width / 2}px`;
+				chip.style.top = `${box.top + box.height * 0.79}px`;
+				chip.style.setProperty("--ad-scale", ad.style.getPropertyValue("--ad-scale"));
 			});
 			const peel = (event) => {
-				if (event.target === ad || ad.contains(event.target)) return;
-				if (++taps < 2) return;
+				if (event.target === ad || ad.contains(event.target) || chip.contains(event.target) || note.contains(event.target)) return;
+				if (note.open || ++taps < 2) return;
 				ad.remove();
+				chip.remove();
 				removeEventListener("resize", place);
 				removeEventListener("pointerdown", peel, true);
 				removeEventListener("keydown", peel, true);
@@ -122,12 +213,13 @@
 				if (!canvas) return;
 				watch.disconnect();
 				ad.hidden = false;
+				chip.hidden = false;
 				new ResizeObserver(place).observe(canvas);
 				addEventListener("resize", place);
 				addEventListener("pointerdown", peel, true);
 				addEventListener("keydown", peel, true);
 				// Show it once the loader has given way to the title art.
-				setTimeout(() => { place(); ad.classList.add("shown"); seen(); }, 1200);
+				setTimeout(() => { place(); ad.classList.add("shown"); chip.classList.add("shown"); seen(); }, 1200);
 			});
 			watch.observe(document.body, { childList: true, subtree: true });
 		})();

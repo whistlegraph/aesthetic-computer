@@ -76,6 +76,8 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `paint_signin_asked` | Paint opened sign-in because the visitor had no account and no free trial left |
 | `paint_failed` | A move came back with a failure shown to the painter (other than out of Braincells, which is `braincells_limit_reached`) |
 | `painting_rejected` | No was pressed to turn down or step back a result |
+| `teacher_note_opened` | No Paint's "Teaching with No Paint?" / "¿Enseñas con No Paint?" chip opened the teacher note form |
+| `teacher_note_sent` | `/api/nopaint-teacher` accepted the form; the note itself is stored in `nopaint-teacher-notes` and mailed to @jeffrey, never in visits |
 | `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
 
 MIDI-only use still needs an independently recorded interaction in the visit.
