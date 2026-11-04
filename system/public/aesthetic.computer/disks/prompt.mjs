@@ -6578,7 +6578,9 @@ function paint($) {
       const s = Math.max(1, Math.round(scale));
       const t = s, arm = 4 * s, half = 7 * s;
       const ox = at.x + half + t, oy = at.y + half + t; // the reticle's centre
-      const color = lit || hot ? [255, 224, 102] : [0, 255, 255]; // AC's cursor cyan at rest
+      // Always AC's cursor cyan: the paper freezes on the pressed frame as it
+      // fades, and the world's reticle (cyan) takes over under it.
+      const color = [0, 255, 255];
       // Every shadow first, then every stroke: with no depth here, a
       // vertical arm's shadow drawn after its neighbour's stroke bit a black
       // notch out of the bottom-left corner (2026-11-03). dool's depth test
