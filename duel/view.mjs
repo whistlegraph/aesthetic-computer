@@ -299,7 +299,7 @@ export async function createView(canvas) {
     previewModels = new Map();
   let promptKey, promptModel;
   let presenceKey, presenceModel;
-  let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, readoutKey, readoutModel;
+  let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, netKey, netModel;
   const SHOW_FPS = false; // The frame-rate readout rests for now (2026-11-03).
   let panelTop = null;
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
@@ -532,6 +532,8 @@ export async function createView(canvas) {
     focusObject,
     builder = false,
     builderNames = [],
+    netLog = [], // The connection's own story, newest last, shown while it is down.
+    connected = true,
     jobs = [],
     worldTime = 0,
     locked = false,
@@ -930,7 +932,13 @@ export async function createView(canvas) {
           ]
         : prompt.open
         ? [
-            [{ text: title, color: THEME.verb }],
+            [
+              { text: `${title} `, color: THEME.verb },
+              // Whether a builder is listening, told where it matters: in the prompt.
+              builder
+                ? { text: `aesel online${builderNames.length ? ': ' + builderNames.join(' + ') : ''}`, color: 0x3fb950 }
+                : { text: 'aesel offline', color: 0xff6b6b },
+            ],
             ...wrap(writing).map((l) => (radial ? phraseSpans(l) : [{ text: l, color: THEME.text }])),
             ...(prompt.message ? wrap(prompt.message).map((l) => [{ text: l, color: THEME.number }]) : []),
             hintSpans(
@@ -1307,28 +1315,34 @@ export async function createView(canvas) {
       });
       projector.overlay(devModel, W, H);
     }
-    // The top readout: who is building for this world. Green with the
-    // builder's name while one is connected, red when none is.
-    if (!bare && !menu) {
-      const { unit, safeY } = hud;
-      const names = builderNames.length ? builderNames.join(' + ') : '';
-      const key = `${builder}|${names}|${W}|${H}`;
-      if (key !== readoutKey) {
-        readoutKey = key;
-        readoutModel = model(({ rect: worldRect, small }) => {
+    // Offline: the connection's log in a panel at the centre, so a restart
+    // or a dropped socket reads as what it is, not an empty room (2026-11-03).
+    if (!connected && !bare && !menu) {
+      const { unit } = hud;
+      const lines = netLog.slice(-8);
+      const key = JSON.stringify([lines, W, H]);
+      if (key !== netKey) {
+        netKey = key;
+        netModel = model(({ rect: worldRect, text, small }) => {
           const rect = flip(worldRect);
-          const text = builder ? `aesel online: ${names || 'aesel'}` : 'aesel offline';
-          const color = builder ? 0x3fb950 : 0xff6b6b;
-          const top = H / 2 - safeY;
-          const w = smallWidth(text) * unit;
-          small(text, unit, top - unit, 0.000002, unit, INK);
-          small(text, 0, top, 0, unit, color);
-          // A dot beside it, lit like the text.
-          rect(-w / 2 - 5 * unit + unit, top - 5 * unit - unit, 0.000002, 3 * unit, 3 * unit, INK);
-          rect(-w / 2 - 5 * unit, top - 5 * unit, 0, 3 * unit, 3 * unit, color);
+          const cols = Math.min(60, Math.floor((W - 20 * unit) / (4 * unit)));
+          const rows = [
+            [{ text: 'dool is offline', color: 0xff6b6b }],
+            [{ text: 'reconnecting; the room comes back on its own', color: THEME.dim }],
+            ...lines.map((l) => [
+              { text: `${l.when} `, color: THEME.dim },
+              { text: l.text.slice(0, cols - 9), color: l.bad ? 0xff6b6b : l.good ? 0x3fb950 : THEME.text },
+            ]),
+          ];
+          const ph = (rows.length + 1) * 9 * unit + 8 * unit, pw = Math.min(W - 8 * unit, (cols + 2) * 4 * unit);
+          rect(-pw / 2, -ph / 2, 0.000004, pw, ph, LINE);
+          rect(-pw / 2 + unit, -ph / 2 + unit, 0.000003, pw - 2 * unit, ph - 2 * unit, 0x15171e);
+          rows.forEach((spans, i) =>
+            drawSpans({ rect, text, small }, spans, -pw / 2 + 4 * unit + smallSpanWidth(spans, unit) / 2, ph / 2 - 6 * unit - i * 9 * unit, unit, { tiny: true, shadow: null }),
+          );
         });
       }
-      projector.overlay(readoutModel, W, H);
+      projector.overlay(netModel, W, H);
     }
     // A square reticle: four L-shaped corners on whole pixels, symmetric
     // about the centre, each with a one-pixel shadow. It opens with speed,
@@ -1541,6 +1555,8 @@ export async function createView(canvas) {
       const blink = now % 4200 < 130;
       const hp = face.health ?? 100;
       const look = hurt < 0.6 ? face.hurtSide : Math.max(-1, Math.min(1, Math.round((face.turn || 0) * 1.4)));
+      // Looking up or down lifts or lowers the face by a pixel (pitch < 0 is down).
+      const tilt = Math.max(-1, Math.min(1, Math.round((face.pitch || 0) / 35)));
       const bob = Math.round(Math.sin(now / 700) * 0.6) * unit;
       const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
@@ -1583,7 +1599,7 @@ export async function createView(canvas) {
           const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
           const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
           // small() takes the top of its 8-row glyph box; the count sits at 21.
-          let top = Number.isFinite(braincells) ? 12 : 21;
+          let top = Number.isFinite(braincells) ? 10 : 21;
           if (ping) {
             const base = top - 8;
             for (let i = 0; i < 4; i++) {
@@ -1630,11 +1646,11 @@ export async function createView(canvas) {
         if (hp < 35) px(hx + 8, hy + 10, 2, 2, 0x8a6aa8, 0.000001);
         if (hp < 20) px(hx + 5, hy + 11, 1, 2, 0xb33a3a, 0.000001);
         // Eyes: squint when hurt, closed on a blink, else looking left/right.
-        const ex = [hx + 2 + look, hx + 7 + look];
+        const ex = [hx + 2 + look, hx + 7 + look], ey = hy + tilt;
         for (const x of ex) {
-          if (hurt < 0.6) px(x, hy + 8, 3, 1, INK);
-          else if (blink) px(x, hy + 8, 3, 1, INK);
-          else px(x, hy + 7, 2, 3, INK);
+          if (hurt < 0.6) px(x, ey + 8, 3, 1, INK);
+          else if (blink) px(x, ey + 8, 3, 1, INK);
+          else px(x, ey + 7, 2, 3, INK);
         }
         // Mouth: grin, grimace, frown when low, else a line.
         if (grin < 1.2) {

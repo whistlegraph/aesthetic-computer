@@ -72,6 +72,44 @@ const presentation = new LocalPresentation(),
   playback = new SnapshotClock();
 const prompt = new Prompt();
 const connection = new Connection();
+// The connection's own log, for the offline panel: what the socket and the
+// server's health said, when. Kept short.
+const netLog = [];
+function logNet(text, flags = {}) {
+  const d = new Date();
+  const when = [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
+  netLog.push({ when, text, ...flags });
+  if (netLog.length > 40) netLog.shift();
+}
+let connectAttempts = 0,
+  healthPoll = null;
+// While the socket is down, ask the server's health every two seconds and
+// say what it answered; when it is back, reload (new code lands) or rejoin.
+function watchHealth(hadSnapshot) {
+  if (healthPoll) return;
+  const ask = async () => {
+    healthPoll = null;
+    if (ws && ws.readyState !== WebSocket.CLOSED) return;
+    try {
+      const r = await fetch(new URL('./health', location.href), { cache: 'no-store' });
+      if (r.ok) {
+        const h = await r.json().catch(() => ({}));
+        logNet(`server up: ${String(h.revision || '').slice(0, 10)}, building ${h.building ?? '?'}`, { good: true });
+        if (hadSnapshot) {
+          logNet('reloading to rejoin');
+          return window.doolRig?.restart ? window.doolRig.restart() : location.reload();
+        }
+        connect();
+        return;
+      }
+      logNet(`server answered ${r.status} (restarting?)`, { bad: true });
+    } catch (error) {
+      logNet(`server unreachable: ${String(error?.message || error).slice(0, 40)}`, { bad: true });
+    }
+    healthPoll = setTimeout(ask, 2000);
+  };
+  healthPoll = setTimeout(ask, 1000);
+}
 const controller = new Controller();
 const radial = new Radial();
 const touch = new TouchPad();
@@ -281,7 +319,7 @@ const locked = () => document.pointerLockElement === canvas;
 let keyboardMode = false;
 const engaged = () => locked() || keyboardMode;
 const CONTROL_KEYS = [
-  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyV',
+  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyV', 'KeyX',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
 ];
 // The controls legend shows for the first eight seconds of play; H pins or hides it.
@@ -336,8 +374,13 @@ function connect() {
   connection.reset();
   members = [];
   freecamPlaced = false;
+  connectAttempts++;
+  logNet(`connecting to room ${room} (try ${connectAttempts})`);
   ws = new WebSocket(url);
   const socket = ws;
+  socket.onopen = () => {
+    if (socket === ws) logNet('socket open', { good: true });
+  };
   socket.onmessage = (e) => {
     if (socket !== ws) return;
     const data = JSON.parse(e.data);
@@ -363,6 +406,7 @@ function connect() {
       presentation.reset(null);
     }
     if (data.type === 'welcome') {
+      logNet(seat >= 0 ? `joined as player ${seat + 1}` : 'joined as a spectator', { good: true });
       if (data.joinURL) joinURL = data.joinURL;
       let token;
       try {
@@ -556,18 +600,11 @@ function connect() {
   };
   socket.onclose = (e) => {
     if (socket !== ws) return;
-    // When the server goes away (a restart or an update), wait for it to come
-    // back and reload, so new code lands without anyone touching the screen.
-    if (snapshot) {
-      const back = async () => {
-        try {
-          const r = await fetch(new URL('./health', location.href), { cache: 'no-store' });
-          if (r.ok) return window.doolRig?.restart ? window.doolRig.restart() : location.reload();
-        } catch {}
-        setTimeout(back, 1000);
-      };
-      setTimeout(back, 1000);
-    }
+    logNet(`socket closed ${e.code}${e.reason ? ' ' + e.reason : ''}${e.wasClean ? '' : ' (not clean)'}`, { bad: true });
+    // When the server goes away (a restart or an update), watch its health
+    // and reload once it is back, so new code lands without anyone touching
+    // the screen; without a snapshot yet, just rejoin.
+    watchHealth(!!snapshot);
     if (locked()) document.exitPointerLock();
     notice = e.reason || 'DISCONNECTED — CLICK TO REJOIN';
     prompt.busy = false;
@@ -584,6 +621,7 @@ function connect() {
     playback.reset();
   };
   socket.onerror = () => {
+    if (socket === ws) logNet('socket error', { bad: true });
     notice = 'SERVER UNAVAILABLE — CLICK TO RETRY';
   };
 }
@@ -886,11 +924,22 @@ document.addEventListener('keydown', (e) => {
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
   if (seat >= 0 && e.code === 'Delete' && !e.repeat && focusObject && !focusObject.wall) removeAimed();
-  if (seat >= 0 && e.code === 'KeyX' && !e.repeat && floorAim && !focusObject) {
-    send({ type: 'paint', i: floorAim.i, j: floorAim.j });
-    sfx.ringPick(floorAim.i + floorAim.j);
-  }
+  if (seat >= 0 && e.code === 'KeyX' && !e.repeat && !holding() && !chalkMode) paintSquare();
 });
+// Paint the floor square in the crosshair, or, aiming elsewhere, the one a
+// step ahead of the feet: X always paints something (2026-11-03).
+function paintSquare() {
+  let at = floorAim && !focusObject ? floorAim : null;
+  if (!at && player) {
+    const f = direction(yaw, 0);
+    const x = player.x + f.x * 1.5, z = player.z + f.z * 1.5;
+    const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
+    if (i >= 0 && i < 18 && j >= 0 && j < 18) at = { i, j };
+  }
+  if (!at) return;
+  send({ type: 'paint', i: at.i, j: at.j });
+  sfx.ringPick(at.i + at.j);
+}
 document.addEventListener('keyup', (e) => keys.delete(e.code));
 document.addEventListener('mousedown', (e) => {
   if (seat >= 0 && locked() && e.button === 0 && holding()) {
@@ -1046,20 +1095,14 @@ function step(now) {
     gamepad.use = false;
   }
   if (gamepad.use && seat >= 0 && !prompt.open) useQueued = true;
-  if (gamepad.prompt && seat >= 0 && !prompt.open && !holding() && !chalkMode && floorAim && !focusObject) {
-    send({ type: 'paint', i: floorAim.i, j: floorAim.j });
-    sfx.ringPick(floorAim.i + floorAim.j);
-    gamepad.prompt = false;
-  }
+  // X paints (as the legend says); RB builds. With an item in hand X drops it.
   if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
     dropQueued = true;
     gamepad.prompt = false;
   }
-  if (gamepad.prompt && seat >= 0 && !prompt.open && !prompt.busy) {
-    releaseInput();
-    document.exitPointerLock();
-    canvas.focus();
-    prompt.begin(focusObject?.owner === owner ? focusObject : null);
+  if (gamepad.prompt && seat >= 0 && !prompt.open && !chalkMode) {
+    paintSquare();
+    gamepad.prompt = false;
   }
   if (!prompt.open) {
     yaw = (yaw - pad.dx * 0.25 + 360) % 360;
@@ -1327,12 +1370,14 @@ function step(now) {
     chalkVersion,
     chalkLocal,
     chalkMode,
-    face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
+    face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, pitch, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
     devLog: sheetOpen ? devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })) : [],
     owner,
     focusObject,
     builder,
     builderNames,
+    netLog,
+    connected: !ws || ws.readyState !== WebSocket.CLOSED, // connecting counts; only a dead socket shows the log
     jobs,
     worldTime,
     locked: locked(),
