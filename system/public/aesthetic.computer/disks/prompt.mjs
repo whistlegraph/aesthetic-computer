@@ -6152,7 +6152,7 @@ function paint($) {
           caretPulse = caretFill * pulse;
           // The whole top-left edge radiates pink as the pointer comes near
           // (or the press charges), fading along the edges from the corner.
-          if (caretFill > 0.02) {
+          if (caretFill > 0.02 && !pressing) { // hover only: a press doesn't light the edge
             const reachX = Math.floor(screen.width * 0.45), reachY = Math.floor(screen.height * 0.45);
             for (let i = 0; i < 9; i++) {
               const a = Math.round((60 + 80 * pulse) * caretFill * (1 - i / 9));
