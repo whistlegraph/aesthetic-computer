@@ -100,13 +100,13 @@ export class Builders {
       timingSafeEqual(expected, actual)
     );
   }
-  state(room) {
+  state(room, member = null) {
     return {
       type: 'objects',
       objects: this.store.objects(room),
       builder: this.workers.size > 0,
       builders: [...this.workers.keys()].map((ws) => this.names.get(ws) || 'aesel'),
-      history: this.store.history(room).slice(0, 24),
+      history: this.store.history(room, member ? { owner: member.owner, handle: member.handle } : null).slice(0, 24),
       tiles: this.store.tiles(room),
       walls: this.store.walls(room),
       wallRes: this.store.wallRes(room),
@@ -186,7 +186,7 @@ export class Builders {
     if (!current) return;
     current.match.setObjects(this.store.objects(room));
     for (const client of current.clients.keys())
-      this.send(client, this.state(room));
+      this.send(client, this.state(room, current.sessions?.get(client) || null));
   }
   all() {
     for (const room of this.rooms.keys()) this.broadcast(room);
@@ -276,7 +276,7 @@ export class Builders {
         // Each finished version is a KidLisp program: give it a $code.
         if (this.publish && committed.geometry?.source)
           this.publish(committed.geometry.source, this.tokenOf(job))
-            .then((code) => this.store.setCode(job.room, committed.id, committed.version, code))
+            .then((code) => this.store.setCode(job.room, committed.id, committed.version, code, { handle: this.handleOf(job) }))
             .then(() => this.broadcast(job.room))
             .catch((e) => console.log(`dool $code failed: ${e.message}`));
         this.deliver(job, {
@@ -318,6 +318,10 @@ export class Builders {
     });
   }
   // The asking player's AC sign-in, if they have one (kept in memory only).
+  handleOf(job) {
+    for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === job.owner && member.handle) return member.handle;
+    return null;
+  }
   tokenOf(job) {
     for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === job.owner && member.token) return member.token;
     return null;

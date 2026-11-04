@@ -371,7 +371,7 @@ export function createDuelServer({
       send(ws, { type: 'dev-log', entries: devRecent });
     send(ws, { type: 'chalk', strokes: room.match.chalk });
     send(ws, room.match.snapshot());
-    send(ws, builders.state(key));
+    send(ws, builders.state(key, member));
     room.broadcast();
     if (nativeAccount) void identifyAccount(authorization.slice(7));
     let owner = null,

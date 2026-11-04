@@ -71,7 +71,7 @@ export class ObjectStore {
   }
   // Record a version's KidLisp $code once the store has issued it, and
   // remember it in the room's history (which outlives clearing the room).
-  setCode(room, id, version, code) {
+  setCode(room, id, version, code, who = {}) {
     return this.transact((data) => {
       const o = (data.rooms[room] || []).find((x) => x.id === id);
       const v = o?.versions.find((x) => x.version === version);
@@ -79,16 +79,44 @@ export class ObjectStore {
       v.code = code;
       const history = ((data.history ||= {})[room] ||= []);
       if (!history.some((h) => h.code === code))
-        history.unshift({ code, name: v.geometry?.name || 'object', version, item: o.item || null, effect: o.effect || null, geometry: v.geometry, at: Date.now() });
+        history.unshift({
+          code,
+          name: v.geometry?.name || 'object',
+          version,
+          item: o.item || null,
+          effect: o.effect || null,
+          geometry: v.geometry,
+          at: Date.now(),
+          // Signed for the builder's own history across rooms and sessions.
+          owner: o.owner || null,
+          handle: who.handle || null,
+          room,
+        });
       history.length = Math.min(history.length, 64);
       return true;
     });
   }
-  history(room) {
-    return (this.data.history?.[room] || []).map(({ code, name, version, item, at }) => ({ code, name, version, item, at }));
+  // One history per user across every room and session (2026-11-03): the
+  // entries they signed, by handle when logged in, else by owner identity.
+  // Without a user, the room's own list as before.
+  history(room, who = null) {
+    const all = Object.values(this.data.history || {}).flat();
+    const mine = who
+      ? all.filter((h) => (who.handle && h.handle === who.handle) || (who.owner && h.owner === who.owner))
+      : this.data.history?.[room] || [];
+    const seen = new Set();
+    return [...mine]
+      .sort((a, b) => (b.at || 0) - (a.at || 0))
+      .filter((h) => !seen.has(h.code) && seen.add(h.code))
+      .slice(0, 64)
+      .map(({ code, name, version, item, effect, at }) => ({ code, name, version, item, at, kind: item ? 'item' : effect ? 'effect' : 'object' }));
   }
   historyEntry(room, code) {
-    return (this.data.history?.[room] || []).find((h) => h.code === code) || null;
+    for (const list of [this.data.history?.[room] || [], ...Object.values(this.data.history || {})]) {
+      const e = list.find((h) => h.code === code);
+      if (e) return e;
+    }
+    return null;
   }
   removeObject(room, id) {
     return this.transact((data) => {

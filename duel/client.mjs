@@ -693,7 +693,7 @@ function menuItems(kind) {
   // This room's, then everything your handle has made that fits the space.
   const seen = new Set();
   const list = [
-    ...codeHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()} v${h.version}` })),
+    ...codeHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()} v${h.version}${h.kind && h.kind !== 'object' ? ' · ' + h.kind : ''}` })),
     ...handleHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()}` })),
   ].filter((h) => !seen.has(h.code) && seen.add(h.code));
   return list.length
