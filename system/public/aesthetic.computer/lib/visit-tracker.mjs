@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261102-viewer";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261104-split";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -82,9 +82,16 @@ export function startVisitTracker(win = window, doc = document) {
     if (!state.inputs.includes(input)) state.inputs.push(input);
     send();
   };
-  const action = name => {
+  // `typed`: the page vouches for a trusted keystroke in one of its own fields
+  // (notepaint's note). Field typing is never collected as interaction, so
+  // this marks the visit interacted by keyboard; no text is ever passed.
+  const action = (name, { typed = false } = {}) => {
     if (!VISIT_ACTIONS.includes(name) || !visible() || disabled()) return false;
     syncRoute();
+    if (typed && state) {
+      state.interacted = true;
+      if (!state.inputs.includes("keyboard")) state.inputs.push("keyboard");
+    }
     if (!state?.interacted) return false;
     win.acAccountActivity?.action(name);
     if (!state.actions.includes(name)) state.actions.push(name);

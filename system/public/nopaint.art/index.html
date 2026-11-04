@@ -75,6 +75,17 @@
 	<script>
 		(() => {
 			const ad = document.getElementById("notepaint-ad");
+			// Sticker test (VISITS.md: No Paint sticker split): each page load
+			// draws an arm, half notepaint.art and half aesthetic.computer, same
+			// sticker and words. ?ad=notepaint or ?ad=ac pins one for checking.
+			// Nothing is stored; a reload can draw the other arm.
+			const pinned = new URLSearchParams(location.search).get("ad");
+			const arm = pinned === "ac" || pinned === "notepaint" ? pinned : Math.random() < 0.5 ? "ac" : "notepaint";
+			if (arm === "ac") {
+				ad.href = "https://aesthetic.computer/";
+				ad.innerHTML = "<b>NEW!</b> aesthetic.computer";
+			}
+			const shownAction = arm === "ac" ? "ac_ad_shown" : "notepaint_ad_shown";
 			let canvas, taps = 0;
 			const place = () => requestAnimationFrame(() => {
 				if (!canvas?.isConnected) return;
@@ -96,11 +107,11 @@
 			// tracker takes milestones only after a visit's first interaction,
 			// so "shown" is recorded then (VISITS.md: notepaint_ad_shown).
 			const seen = () => {
-				if (window.acVisits?.action("notepaint_ad_shown")) return;
+				if (window.acVisits?.action(shownAction)) return;
 				const retry = (event) => {
 					if (!event.isTrusted) return;
 					setTimeout(() => {
-						if (!window.acVisits?.action("notepaint_ad_shown")) return;
+						if (!window.acVisits?.action(shownAction)) return;
 						for (const type of ["pointerdown", "keydown", "touchstart"]) removeEventListener(type, retry, true);
 					}, 0);
 				};

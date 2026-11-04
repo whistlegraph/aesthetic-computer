@@ -48,6 +48,8 @@ export const VISIT_ACTIONS = Object.freeze([
   "notepaint_opened", "notepaint_ad_shown",
   "braincells_sheet_shown", "braincells_limit_reached", "braincells_checkout_opened", "braincells_purchased",
   "painting_viewed",
+  "ac_opened", "ac_ad_shown",
+  "note_written", "paint_pressed", "paint_signin_asked", "paint_failed", "painting_rejected",
 ]);
 
 // Reviewed link milestones only; never retain destinations or mailto contents.
@@ -71,6 +73,10 @@ export function visitLinkAction(hostname, href) {
   if (property === "nopaint.art" && url.protocol === "https:" &&
       !url.port && !url.username && !url.password && visitProperty(url.hostname) === "notepaint.art")
     return "notepaint_opened";
+  // The other arm of No Paint's sticker test: the same sticker, pointing at AC.
+  if (property === "nopaint.art" && url.protocol === "https:" &&
+      !url.port && !url.username && !url.password && visitProperty(url.hostname) === "aesthetic.computer")
+    return "ac_opened";
   if (property === "whistlegraph.app" && url.protocol === "mailto:" &&
       url.pathname.toLowerCase() === "mail@aesthetic.computer")
     return "whistlegraph_access_clicked";

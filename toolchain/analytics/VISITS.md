@@ -69,6 +69,13 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `braincells_checkout_opened` | `/api/nopaint-wallet` returned a Stripe Checkout URL and notepaint navigated to it; this is not a payment |
 | `braincells_purchased` | Back on notepaint, AC looked the Checkout session up with Stripe for this account, saw it paid and granted the pack (`paid: true`); once per session per browser. A click, a return URL or a canceled checkout never sets it |
 | `painting_viewed` | notepaint showed someone else's public painting read-only (notepaint.art/<code> or /#code not held by this browser): the painting's public record loaded and its image was placed; recorded at the visit's first interaction. Not proof the image finished loading or was looked at |
+| `ac_ad_shown` | No Paint revealed the aesthetic.computer arm of its sticker split; recorded like `notepaint_ad_shown` |
+| `ac_opened` | A trusted activation of No Paint's HTTPS sticker link to aesthetic.computer (the split's other arm) |
+| `note_written` | notepaint's note field got non-blank text from a trusted keystroke; the text is never sent. The studio vouches for the keystroke, so this marks the visit interacted by keyboard |
+| `paint_pressed` | notepaint's Paint was pressed on a painting that could take a move |
+| `paint_signin_asked` | Paint opened sign-in because the visitor had no account and no free trial left |
+| `paint_failed` | A move came back with a failure shown to the painter (other than out of Braincells, which is `braincells_limit_reached`) |
+| `painting_rejected` | No was pressed to turn down or step back a result |
 | `tape_saved` | ZIP/MP4/WebM upload tracking or tape draft finalization returns a successful record with a code; downstream transcoding may still be pending |
 
 MIDI-only use still needs an independently recorded interaction in the visit.
@@ -299,6 +306,18 @@ The same report sums notepaint's Braincells funnel (sheet shown, limit
 reached, checkout opened, purchased) over human arrivals. Purchases are also
 in the wallet book; the visit flag says only that a confirmed purchase came
 back through notepaint.
+
+From November 4, the sticker is a split. Each No Paint page load draws one
+arm at random: notepaint.art (`notepaint_ad_shown`, `notepaint_opened`) or
+aesthetic.computer (`ac_ad_shown`, `ac_opened`), same sticker and words.
+`?ad=notepaint` or `?ad=ac` pins an arm for checking. The report's
+`stickerSplit` follows each arm from shown to opened to arrivals with
+nopaint.art as referrer, engaged, and made (an accepted paint on notepaint, a
+canvas touch on AC). Engaged per shown is the cleanest comparison.
+`notepaintFunnelFromNopaint` counts, among notepaint arrivals from No Paint,
+the visits that reached each step: interacted, note written, Paint pressed,
+sign-in asked, out of Braincells, move failed, edited, rejected, signed,
+saved, piece made.
 
 On Lith, from `/opt/ac/system`:
 

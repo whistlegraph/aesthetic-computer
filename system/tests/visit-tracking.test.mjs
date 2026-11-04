@@ -208,3 +208,22 @@ test("Aesel download milestones recognize real query-based installers without re
     assert.equal(visitLinkAction("aesel.app", url.replace("app=aesel", "app=other")), null);
   }
 });
+
+test("No Paint's sticker split: the aesthetic.computer arm records its own reviewed milestones", () => {
+  assert.equal(visitLinkAction("nopaint.art", "https://aesthetic.computer/"), "ac_opened");
+  assert.equal(visitLinkAction("www.nopaint.art", "https://www.aesthetic.computer/prompt"), "ac_opened");
+  for (const href of ["https://aesthetic.computer.evil.test", "http://aesthetic.computer", "https://aesthetic.computer:1234", "https://secret@aesthetic.computer"])
+    assert.equal(visitLinkAction("nopaint.art", href), null);
+  assert.equal(visitLinkAction("jas.life", "https://aesthetic.computer/"), null);
+  const ac = validateVisit({ ...snapshot(), linkVersion: 1, actions: ["ac_ad_shown", "ac_opened"] }, "https://nopaint.art");
+  assert.equal(visitUpdate(ac).$max["actions.ac_ad_shown"], true);
+  assert.equal(visitUpdate(ac).$max["actions.ac_opened"], true);
+});
+
+test("notepaint funnel steps are allowlisted actions and carry no text", () => {
+  const steps = ["note_written", "paint_pressed", "paint_signin_asked", "paint_failed", "painting_rejected"];
+  for (const step of steps) assert.ok(VISIT_ACTIONS.includes(step), step);
+  const visit = validateVisit({ ...snapshot(), inputs: ["keyboard"], actions: steps }, "https://notepaint.art");
+  assert.deepEqual(visit.actions, steps);
+  assert.equal(validateVisit({ ...snapshot(), actions: ["note_written:a fox"] }, "https://notepaint.art"), null);
+});
