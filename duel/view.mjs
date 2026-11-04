@@ -77,11 +77,11 @@ export const PALETTES = {
     bands: [[-0.02, 0.04, 0xfff3dc], [0.04, 0.12, 0xeaf2fb], [0.12, 0.3, 0xcfe3f5], [0.3, 0.6, 0xb4d3f0], [0.6, 1.2, 0x9ec4e9]],
   },
   night: {
-    sky: 0x141720,
+    sky: 0x0f1118, // Solid: no bands (2026-11-03).
     far: 0x1b1d26,
-    floor: 0x302b3a,
-    dot: 0x56496a,
-    walls: { north: 0x2e3c5e, south: 0x4a3050, east: 0x2b4a42, west: 0x4c4230 },
+    floor: 0x2a2632,
+    dot: 0x4e4360,
+    walls: { north: 0x26304a, south: 0x3c2742, east: 0x233b35, west: 0x3d3527 }, // Darker pastels.
     wallSide: 0x16181f,
     ceiling: 0x222433,
     bands: [[-0.02, 0.04, 0x3a3150], [0.04, 0.12, 0x2c2a48], [0.12, 0.3, 0x1f2240], [0.3, 0.6, 0x171a30], [0.6, 1.2, 0x11131f]],
@@ -90,8 +90,8 @@ export const PALETTES = {
 // The room follows the viewer's colour scheme (dark mode is the night room);
 // with no such signal it follows the clock.
 const darkScheme = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
-export const paletteFor = (hour = new Date().getHours()) =>
-  darkScheme ? (darkScheme.matches ? 'night' : 'day') : hour >= 7 && hour < 18 ? 'day' : 'night';
+// The room is the night room always (2026-11-03): dark pastel walls, a solid dark sky.
+export const paletteFor = () => 'night';
 import {
   WALLS,
   COLORS,
@@ -309,6 +309,7 @@ export async function createView(canvas) {
   let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
+  let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
@@ -540,6 +541,7 @@ export async function createView(canvas) {
     focusObject,
     builder = false,
     builderNames = [],
+    cursor = null, // The mouse, in CSS pixels, when it (not the lock) is the aim.
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
@@ -609,7 +611,8 @@ export async function createView(canvas) {
       aim = { ...aim, x: aim.x + sway + r[0] * lean, y: aim.y + breath + bob * 0.6, z: aim.z + r[2] * lean };
     }
     projector.camera(eye, aim, aspect, roll);
-    draw(skyModel, eye.x, eye.y, eye.z);
+    // The sky is the clear colour alone: no banded dome (2026-11-03).
+    lastEye = eye;
     const tags = [];
     draw(arena);
     const aliveObjects = new Set(objects.map((o) => o.id));
@@ -749,6 +752,28 @@ export async function createView(canvas) {
         } catch {}
         lingering.set(job.objectId, now + 10000);
       }
+    }
+    // Your build's status floats over it while it is highlighted (the aim
+    // on its square or its object), with the way to cancel (2026-11-03).
+    for (const job of jobs) {
+      if (job.owner !== owner || job.kind === 'kidlisp') continue;
+      const near = (focusObject && focusObject.id === job.objectId) ||
+        (floorAim && Math.hypot(-18 + floorAim.i * 2 + 1 - job.x, -18 + floorAim.j * 2 + 1 - job.z) < 2.5);
+      if (!near) continue;
+      const s = projector.project(job.x, 1.8, job.z);
+      if (!s || Math.abs(s.x) > 1.1 || Math.abs(s.y) > 1.1) continue;
+      const { unit } = hud;
+      const seconds = Math.max(0, Math.floor((Date.now() - job.startedAt) / 1000));
+      const rows = [
+        [{ text: (job.prompt || 'building').slice(0, 40), color: THEME.text }],
+        [{ text: `v${job.version} ${job.phase} ${seconds}s`, color: THEME.dim }],
+        hintSpans(input === 'pad' ? '[B] cancel' : '{esc} cancel', THEME.dim),
+      ];
+      const sx = Math.round((s.x * W) / 2), sy = Math.round((s.y * H) / 2);
+      const m = model(({ rect: worldRect, text }) =>
+        rows.forEach((spans, i) => drawSpans({ rect: flip(worldRect), text }, spans, sx, sy + (rows.length - i) * 11 * unit, unit, { shadow: INK })),
+      );
+      projector.overlay(m, W, H);
     }
     // A job that ends with its object present has landed: one big burst.
     for (const [id] of partCounts)
@@ -985,33 +1010,7 @@ export async function createView(canvas) {
               THEME.dim,
             ),
           ]
-        : building
-          ? [
-              // Every one of your builds, each with its latest line of code.
-              // Each of your builds spits its code out of the prompt: the
-              // request, then the newest lines, the pink block at their end.
-              ...jobs
-                .filter((j) => j.owner === owner)
-                .slice(0, 2)
-                .flatMap((j) => {
-                  const lines = (j.code || '').replace(/,/g, ',\n').split('\n').filter((l) => l.trim()).slice(-4).flatMap(wrap).slice(-4);
-                  const out = lines.map((l) => codeSpans(l));
-                  if (!out.length) out.push([]);
-                  out[out.length - 1] = [...out[out.length - 1], { block: true }];
-                  return [
-                    [
-                      { text: `${j.prompt || ''} `, color: THEME.text },
-                      { text: `v${j.version} ${j.phase} ${Math.max(0, Math.floor((Date.now() - j.startedAt) / 1000))}s`, color: THEME.dim },
-                    ],
-                    ...out,
-                  ];
-                }),
-              ...(jobs.some((j) => j.owner === owner) ? [] : progressCode.map((l) => codeSpans(l))),
-              building.owner === owner
-                ? hintSpans(cancel, THEME.dim)
-                : [{ text: 'player ' + building.owner.slice(0, 4), color: THEME.dim }],
-            ]
-          : [
+        : [
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
               ...(showLegend ? legendRows(input, held) : []),
@@ -1030,7 +1029,7 @@ export async function createView(canvas) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text }) => {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
-          const panel = prompt.open || building;
+          const panel = prompt.open; // A build's status floats over the build itself.
           // Nothing here lifts the corners (2026-11-03). The prompt and a
           // build in progress sit top-left on the 2D prompt's own text grid
           // (6, 6; ten-pixel lines) so the typed line is pixel for pixel
@@ -1428,9 +1427,13 @@ export async function createView(canvas) {
           }
         }
       }
+      // With a free mouse the reticle sits on the cursor (2026-11-03).
+      const pxc = canvas.width / Math.max(1, canvas.clientWidth);
+      const cx0 = cursor && !box ? Math.round(cursor.x * pxc - W / 2) : 0, cy0 = cursor && !box ? Math.round(H / 2 - cursor.y * pxc) : 0;
       const m = model(({ rect: worldRect, text }) => {
         // rect(left, bottom, w, h): screen x right, y up, whole pixels.
-        const rect = flip(worldRect);
+        const rect0 = flip(worldRect);
+        const rect = (x, y, z, w, h, color) => rect0(x + cx0, y + cy0, z, w, h, color);
         // The highlighted object's offer, under its bracket (or the reticle).
         if (objectHintSpans) {
           const cx = box ? (box.left + box.right) / 2 : 0, under = (box ? box.bottom : -half) - 4 * unit;
@@ -2037,6 +2040,21 @@ export async function createView(canvas) {
     // Is this point (CSS pixels on the canvas) on the corner block?
     get qrURL() {
       return qrURL;
+    },
+    // The camera's eye and the unit ray through a CSS point on the canvas,
+    // so a free mouse aims where it points instead of at the view's centre.
+    aimOrigin() {
+      return lastEye;
+    },
+    aimRay(cssX, cssY) {
+      if (!projector.forward || !lastEye) return null;
+      const pxr = canvas.width / Math.max(1, canvas.clientWidth);
+      const nx = (cssX * pxr - canvas.width / 2) / (canvas.width / 2), ny = (canvas.height / 2 - cssY * pxr) / (canvas.height / 2);
+      const [f, r, u] = [projector.forward, projector.right, projector.up];
+      const kx = nx / projector.sx, ky = ny / projector.sy;
+      let x = f[0] + r[0] * kx + u[0] * ky, y = f[1] + r[1] * kx + u[1] * ky, z = f[2] + r[2] * kx + u[2] * ky;
+      const l = Math.hypot(x, y, z) || 1;
+      return { x: x / l, y: y / l, z: z / l };
     },
     qrHit(cssX, cssY) {
       if (!qrRect) return false;

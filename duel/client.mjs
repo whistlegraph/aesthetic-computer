@@ -85,7 +85,9 @@ let connectAttempts = 0,
   healthPoll = null,
   silentSince = null,
   down = false,
-  dustedAt = 0;
+  dustedAt = 0,
+  mouseAt = null, // The free mouse's last place on the canvas (CSS px), and when.
+  cursorAim = false; // This frame the aim ray went through the mouse.
 // Down: the socket is closed, or it is open but the server has said nothing
 // for three seconds (a restart in progress, or the network gone).
 function netDown(now) {
@@ -853,7 +855,13 @@ document.addEventListener('pointerlockchange', () => {
   if (!locked()) unlockedAt = performance.now();
 });
 document.addEventListener('mousemove', (e) => {
-  if (!locked() || prompt.open) return;
+  if (!locked()) {
+    // A free mouse: remember where it is; the aim ray goes through it.
+    const r = canvas.getBoundingClientRect();
+    mouseAt = { x: e.clientX - r.left, y: e.clientY - r.top, at: performance.now() };
+    return;
+  }
+  if (prompt.open) return;
   yaw = (yaw - e.movementX * 0.12 + 360) % 360;
   pitch = clamp(pitch - e.movementY * 0.12, -85, 85);
 });
@@ -1116,7 +1124,9 @@ function step(now) {
     gamepad.jump = gamepad.select = gamepad.prompt = gamepad.cancel = false;
   }
   if (gamepad.cancel) {
-    if (seat >= 0 && prompt.busy) send({ type: 'cancel-build' });
+    // B cancels your build while its square or object is highlighted.
+    const highlighted = jobs.some((j) => j.owner === owner && ((focusObject && focusObject.id === j.objectId) || (floorAim && Math.hypot(-18 + floorAim.i * 2 + 1 - j.x, -18 + floorAim.j * 2 + 1 - j.z) < 2.5)));
+    if (seat >= 0 && (prompt.busy || highlighted)) send({ type: 'cancel-build' });
     closeBuild();
     document.exitPointerLock();
   }
@@ -1291,11 +1301,15 @@ function step(now) {
   const tick = playback.sample(now);
   const worldTime = tick / HZ;
   focusObject = null;
+  cursorAim = !locked() && !!mouseAt && now - mouseAt.at < 6000 && !touch.active && !prompt.open;
   if (player) {
-    const dir = direction(yaw, pitch);
-    let nearest = wallDistance(player, dir, 30);
+    // The aim ray: from the camera through the free mouse, else the view's centre.
+    const ray = cursorAim ? view.aimRay(mouseAt.x, mouseAt.y) : null;
+    const origin = ray ? view.aimOrigin() || player : player;
+    const dir = ray || direction(yaw, pitch);
+    let nearest = wallDistance(origin, dir, 60);
     for (const box of objectBoxes(solids(), worldTime)) {
-      const distance = rayBox(player, dir, box, nearest);
+      const distance = rayBox(origin, dir, box, nearest);
       if (distance < nearest) {
         nearest = distance;
         focusObject = objects.find((o) => o.id === box.objectId);
@@ -1307,7 +1321,7 @@ function step(now) {
       if (it.holder >= 0 && it.holder !== seat) continue;
       const r = 0.6;
       const box = { xMin: it.x - r, xMax: it.x + r, yMin: it.y - 0.1, yMax: it.y + 1.2, zMin: it.z - r, zMax: it.z + r };
-      const distance = it.holder === seat ? 0.5 : rayBox(player, dir, box, nearest);
+      const distance = it.holder === seat ? 0.5 : rayBox(origin, dir, box, nearest);
       if (distance < nearest && it.holder !== seat) {
         nearest = distance;
         focusObject = objects.find((o) => o.id === it.id);
@@ -1317,9 +1331,9 @@ function step(now) {
     for (const w of walls) {
       const along = w.face === 'north' ? dir.z : -dir.x;
       if (along <= 0.01) continue;
-      const t = w.face === 'north' ? (SCREEN - 0.03 - player.z) / dir.z : (-SCREEN + 0.03 - player.x) / dir.x;
+      const t = w.face === 'north' ? (SCREEN - 0.03 - origin.z) / dir.z : (-SCREEN + 0.03 - origin.x) / dir.x;
       if (!(t > 0) || t >= nearest) continue;
-      const hit = { x: player.x + dir.x * t, y: player.y + dir.y * t, z: player.z + dir.z * t };
+      const hit = { x: origin.x + dir.x * t, y: origin.y + dir.y * t, z: origin.z + dir.z * t };
       const u = w.face === 'north' ? hit.x : hit.z;
       if (Math.abs(u) <= 16 && hit.y >= 1.5 && hit.y <= 1.5 + 18) {
         nearest = t;
@@ -1329,9 +1343,9 @@ function step(now) {
     // The floor square under the crosshair, within reach, if nothing nearer.
     floorAim = null;
     if (dir.y < -0.02) {
-      const t = -player.y / dir.y;
-      if (t > 0 && t < Math.min(40, nearest)) {
-        const x = player.x + dir.x * t, z = player.z + dir.z * t;
+      const t = -origin.y / dir.y;
+      if (t > 0 && t < Math.min(60, nearest)) {
+        const x = origin.x + dir.x * t, z = origin.z + dir.z * t;
         const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
         if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
       }
@@ -1429,6 +1443,7 @@ function step(now) {
     netLog,
     connected: !down, // connecting counts; a dead or long-silent socket shows the log
     offline: sheetOpen && down,
+    cursor: cursorAim ? mouseAt : null,
     jobs,
     worldTime,
     locked: locked(),
