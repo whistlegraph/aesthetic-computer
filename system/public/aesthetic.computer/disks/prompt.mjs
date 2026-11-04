@@ -9064,10 +9064,10 @@ export const scheme = {
     block: [255, 50, 150],
     highlight: [255, 100, 0],
     guideline: [0, 0, 255, 64],
-    login: [[0, 0, 64, 170], 255, 255, [0, 0, 64]], // Translucent: the world shows through.
+    login: [[0, 0, 64], 255, 255, [0, 0, 64]], // Opaque over the world (2026-11-03).
     loginRollover: [[0, 100, 160], [120, 220, 255], [120, 220, 255], [0, 100, 160]], // Brighter blue glow on hover
     loginDown: [[0, 40, 120], [80, 160, 200], [255, 255, 255], [0, 40, 120]], // Pressed (darker blue, white text)
-    signup: [[0, 64, 0, 170], 255, 255, [0, 64, 0]],
+    signup: [[0, 64, 0], 255, 255, [0, 64, 0]],
     signupRollover: [[40, 100, 40], [100, 255, 100], [100, 255, 100], [40, 100, 40]], // Bright green glow
     profile: [[64, 0, 64], [255, 100, 255], [255, 100, 255], [64, 0, 64]], // Magenta base
     profileRollover: [[100, 40, 120], [255, 150, 255], [255, 150, 255], [100, 40, 120]], // Brighter magenta
@@ -9087,11 +9087,11 @@ export const scheme = {
     highlight: [246, 253, 195],
     guideline: [255, 207, 105],
     // login: [255, [0, 0, 64], [0, 0, 64], 255],
-    login: [[0, 0, 128, 170], 255, 255, [0, 0, 128]], // Translucent: the world shows through.
+    login: [[0, 0, 128], 255, 255, [0, 0, 128]], // Opaque over the world (2026-11-03).
     loginRollover: [[60, 120, 220], [180, 230, 255], [180, 230, 255], [60, 120, 220]], // Brighter blue glow on hover
     loginDown: [[40, 90, 200], [150, 200, 255], [255, 255, 255], [40, 90, 200]], // Pressed (darker blue, white text)
     // signup: [255, [0, 64, 0], [0, 64, 0], 255],
-    signup: [[0, 128, 0, 170], 255, 255, [0, 128, 0]],
+    signup: [[0, 128, 0], 255, 255, [0, 128, 0]],
     signupRollover: [[50, 160, 50], [150, 255, 150], [150, 255, 150], [50, 160, 50]], // Lighter green glow
     profile: [[128, 0, 128], [255, 100, 255], [255, 100, 255], [128, 0, 128]], // Magenta base
     profileRollover: [[160, 50, 160], [255, 170, 255], [255, 170, 255], [160, 50, 160]], // Brighter magenta

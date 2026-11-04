@@ -306,6 +306,7 @@ export async function createView(canvas) {
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, netKey, netModel;
   const SHOW_FPS = false; // The frame-rate readout rests for now (2026-11-03).
   let panelTop = null;
+  let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
@@ -590,13 +591,22 @@ export async function createView(canvas) {
       aim = along(camera, direction(camera.yaw, camera.pitch), 100);
     }
     // Breathing: a slow rise and fall with a slighter sway, so the room is
-    // never quite still, from the first frame behind the curtain on.
+    // never quite still, from the first frame behind the curtain on. Walking
+    // adds a step-paced bob with a small roll and a nod (2026-11-03): the
+    // head tilts side to side with each stride and dips as the foot lands.
+    let roll = 0;
     {
       const breath = Math.sin(now / 1900) * 0.03, sway = Math.sin(now / 3100) * 0.015;
-      eye = { ...eye, x: eye.x + sway, y: eye.y + breath };
-      aim = { ...aim, x: aim.x + sway, y: aim.y + breath };
+      const pace = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 6) : 0;
+      stride += (pace * (now - strideAt)) / 1000 * 9; // about 1.4 steps a second at full pace
+      strideAt = now;
+      const bob = Math.sin(stride) * 0.045 * pace, lean = Math.sin(stride / 2) * 0.02 * pace;
+      roll = Math.sin(stride / 2) * 0.012 * pace + Math.sin(now / 2600) * 0.0025;
+      const r = projector.right || [1, 0, 0];
+      eye = { ...eye, x: eye.x + sway + r[0] * lean, y: eye.y + breath + bob, z: eye.z + r[2] * lean };
+      aim = { ...aim, x: aim.x + sway + r[0] * lean, y: aim.y + breath + bob * 0.6, z: aim.z + r[2] * lean };
     }
-    projector.camera(eye, aim, aspect);
+    projector.camera(eye, aim, aspect, roll);
     draw(skyModel, eye.x, eye.y, eye.z);
     const tags = [];
     draw(arena);

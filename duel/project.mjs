@@ -19,7 +19,7 @@ export class Projector {
       }
     }
   }
-  camera(eye, target, aspect) {
+  camera(eye, target, aspect, roll = 0) {
     this.eye = eye;
     let x = target.x - eye.x,
       y = target.y - eye.y,
@@ -32,6 +32,12 @@ export class Projector {
     this.forward = [x, y, z];
     this.right = [-z / horizontal, 0, x / horizontal];
     this.up = [(-x * y) / horizontal, horizontal, (-z * y) / horizontal];
+    if (roll) {
+      // A tilt of the head: right and up turn together about the forward axis.
+      const c = Math.cos(roll), s = Math.sin(roll), r = this.right, u = this.up;
+      this.right = [r[0] * c + u[0] * s, r[1] * c + u[1] * s, r[2] * c + u[2] * s];
+      this.up = [u[0] * c - r[0] * s, u[1] * c - r[1] * s, u[2] * c - r[2] * s];
+    }
     const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
     this.sx = 1 / (tan * aspect);
     this.sy = 1 / tan;
