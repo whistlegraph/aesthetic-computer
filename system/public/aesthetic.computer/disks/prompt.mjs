@@ -6108,6 +6108,15 @@ function paint($) {
           for (let i = w - 2; i >= 0; i--) ring.push([x + i, y + h - 1]);
           for (let j = h - 2; j > 0; j--) ring.push([x, y + j]);
           const glint = Math.floor((now / 40) % ring.length);
+          // The pointer near the caret wakes it: brightness grows, the block
+          // fills in pixel by pixel, the drips quicken (2026-11-03).
+          const pen = $.pen;
+          const dPen = pen && pen.x !== undefined ? Math.hypot(pen.x - (x + w / 2), pen.y - (y + h / 2)) : Infinity;
+          const want = Math.max(0, Math.min(1, 1 - (dPen - 6) / 54));
+          const stepT = Math.min(0.1, caretFillAt ? (now - caretFillAt) / 1000 : 0);
+          caretFillAt = now;
+          caretFill += (want - caretFill) * Math.min(1, stepT * (want > caretFill ? 3 : 5));
+          caretRect = { x, y, w, h, at: now };
           // A candle's flicker, never out: the whole rect dips a little at
           // random, now and then a deeper dip.
           const flick = 0.78 + 0.22 * Math.random() * (Math.random() < 0.06 ? 0.3 : 1);
@@ -6116,15 +6125,34 @@ function paint($) {
             const a = hue * 6, f = a - Math.floor(a), q = 1 - f, seg = Math.floor(a) % 6;
             const [r, g, b] = [[1, f, 0], [q, 1, 0], [0, 1, f], [0, q, 1], [f, 0, 1], [1, 0, q]][seg];
             const d = Math.min((k - glint + ring.length) % ring.length, (glint - k + ring.length) % ring.length);
-            const lift = d === 0 ? 1 : d === 1 ? 0.55 : 0;
+            const lift = Math.min(1, (d === 0 ? 1 : d === 1 ? 0.55 : 0) + caretFill * 0.5);
             const c = (v) => Math.round(150 + 105 * v + (255 - (150 + 105 * v)) * lift);
             ink(c(r), c(g), c(b), Math.round(240 * flick)).plot(px, py);
           });
+          // The interior, filling in a fixed scattered order with the fill.
+          const iw = Math.max(0, w - 2), ih = Math.max(0, h - 2), cells = iw * ih;
+          if (cells && caretFill > 0.01) {
+            if (!caretOrder || caretOrder.length !== cells) {
+              caretOrder = Array.from({ length: cells }, (_, i) => i);
+              for (let i = cells - 1; i > 0; i--) {
+                const j = Math.floor(((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1 * (i + 1));
+                [caretOrder[i], caretOrder[j]] = [caretOrder[j], caretOrder[i]];
+              }
+            }
+            const shown = Math.floor(caretFill * cells);
+            for (let n = 0; n < shown; n++) {
+              const cell = caretOrder[n], ix = cell % iw, iy = Math.floor(cell / iw);
+              const hue = ((ix + iy) / (iw + ih) + now / 2400) % 1;
+              const a6 = hue * 6, f6 = a6 - Math.floor(a6), q6 = 1 - f6, sg = Math.floor(a6) % 6;
+              const [r, g, b] = [[1, f6, 0], [q6, 1, 0], [0, 1, f6], [0, q6, 1], [f6, 0, 1], [1, 0, q6]][sg];
+              ink(Math.round(170 + 85 * r), Math.round(170 + 85 * g), Math.round(170 + 85 * b), Math.round(200 * flick)).plot(x + 1 + ix, y + 1 + iy);
+            }
+          }
           // Drips: now and then a bead leaves the bottom edge in that spot's
           // colour, falls, and fades.
           const dt = Math.min(0.1, caretDripAt ? (now - caretDripAt) / 1000 : 0);
           caretDripAt = now;
-          if (Math.random() < dt * 2.2 && caretDrips.length < 12) {
+          if (Math.random() < dt * (2.2 + 22 * caretFill) && caretDrips.length < 12 + Math.round(30 * caretFill)) {
             const i = Math.floor(Math.random() * w);
             const hue = ((w + (h - 1) + (w - 1 - i)) / ring.length + now / 2400) % 1;
             caretDrips.push({ x: x + i, y: y + h, vy: 4 + Math.random() * 6, hue, born: now });
@@ -6146,6 +6174,41 @@ function paint($) {
         $.layer(1);
       }
     }
+  }
+
+  // ✨ The caret's burst: when the curtain gives way to typing, the block
+  // explodes outward in its own colours and the real cursor takes its place.
+  {
+    const now = performance.now();
+    const typing = $.system.prompt.input?.canType;
+    if (typing && caretRect && now - caretRect.at < 250) {
+      const { x, y, w, h } = caretRect;
+      for (let i = 0; i < 46; i++) {
+        const a = Math.random() * Math.PI * 2, v = 30 + Math.random() * 90;
+        caretBurst.push({ x: x + Math.random() * w, y: y + Math.random() * h, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, hue: Math.random(), born: now });
+      }
+      caretRect = null;
+      caretFill = 0;
+    }
+    if (!typing && !showLoginCurtain) caretRect = null;
+    if (caretBurst.length) {
+      const dt = Math.min(0.05, caretBurstAt ? (now - caretBurstAt) / 1000 : 0.016);
+      caretBurstAt = now;
+      $.layer(3);
+      for (let k = caretBurst.length - 1; k >= 0; k--) {
+        const p = caretBurst[k], age = (now - p.born) / 1000;
+        if (age > 0.75) { caretBurst.splice(k, 1); continue; }
+        p.vx *= 1 - 3 * dt;
+        p.vy = p.vy * (1 - 3 * dt) + 60 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        const a6 = p.hue * 6, f6 = a6 - Math.floor(a6), q6 = 1 - f6, sg = Math.floor(a6) % 6;
+        const [r, g, b] = [[1, f6, 0], [q6, 1, 0], [0, 1, f6], [0, q6, 1], [f6, 0, 1], [1, 0, q6]][sg];
+        ink(Math.round(170 + 85 * r), Math.round(170 + 85 * g), Math.round(170 + 85 * b), Math.round(255 * (1 - age / 0.75))).plot(Math.floor(p.x), Math.floor(p.y));
+      }
+      $.layer(1);
+      $.needsPaint?.();
+    } else caretBurstAt = 0;
   }
 
   if (showLoginCurtain) {
@@ -7817,6 +7880,10 @@ const snow = [];
 let snowAt = 0;
 const caretDrips = []; // Beads dripping from the curtain caret's bottom edge.
 let caretDripAt = 0;
+let caretFill = 0, caretFillAt = 0, caretOrder = null; // Hover fill of the curtain caret.
+let caretRect = null; // Where the curtain caret was last drawn, for the focus burst.
+const caretBurst = [];
+let caretBurstAt = 0;
 const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;
