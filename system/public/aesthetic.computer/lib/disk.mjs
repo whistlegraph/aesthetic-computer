@@ -10541,6 +10541,7 @@ async function startGlobalVersionPoll() {
       const res = await fetch("/api/version", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      const running = globalVersionInfo?.running;
       globalVersionInfo = debug
         ? {
             ...data,
@@ -10549,6 +10550,8 @@ async function startGlobalVersionPoll() {
             behindBy: 0,
           }
         : data;
+      // `running` is the build this page booted with; `deployed` moves on.
+      globalVersionInfo.running = running || globalVersionInfo.deployed;
       globalRecentCommits = data.recentCommits || [];
       try { $commonApi.needsPaint?.(); } catch {}
     } catch (e) {
@@ -10588,11 +10591,11 @@ async function startGlobalVersionPoll() {
         continue;
       }
       if (!/^[a-f0-9]{7}$/i.test(globalVersionInfo.deployed)) {
-        globalVersionInfo = data;
+        globalVersionInfo = { ...data, running: data.deployed };
         continue; // Establish a baseline after an unavailable initial lookup.
       }
       globalUpdateReady = true;
-      globalVersionInfo = data;
+      globalVersionInfo = { ...data, running: globalVersionInfo.running };
       globalRecentCommits = data.recentCommits || [];
       console.log("📦 New deployment detected:", data.deployed);
       try {

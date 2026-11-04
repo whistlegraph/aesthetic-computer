@@ -37,6 +37,7 @@ let tangledBtn = null;
 let detailBtn = null;
 let playBtn = null;
 let refreshBtn = null;
+let hashBtn = null; // The prompt's commit badge, turned around: tap to flip back.
 
 const FONT = "MatrixChunky8";
 const COLORS = {
@@ -196,7 +197,7 @@ async function loadMoreIfNeeded() {
 }
 
 function buildButtons({ ui, screen }) {
-  tangledBtn = new ui.TextButton("tangled", { right: 4, top: 4, screen });
+  tangledBtn = new ui.TextButton("tangled", { left: 4, top: 4, screen });
   detailBtn = new ui.TextButton(showDetailedView ? "compact" : "detail", {
     left: 4,
     bottom: 4,
@@ -216,7 +217,7 @@ function syncButtons({ screen }) {
   detailBtn.replaceLabel(showDetailedView ? "compact" : "detail");
   playBtn.replaceLabel(autoScroll ? "pause" : "play");
   // Reposition (widths change with label).
-  tangledBtn.reposition({ right: 4, top: 4, screen });
+  tangledBtn.reposition({ left: 4, top: 4, screen });
   refreshBtn.reposition({ right: 4, bottom: 4, screen });
   detailBtn.reposition({ left: 4, bottom: 4, screen });
   playBtn.reposition({ left: 4 + detailBtn.width + 4, bottom: 4, screen });
@@ -230,7 +231,38 @@ const LINK_HOVER = [[20, 30, 60], [140, 180, 255], [220, 235, 255]];
 const PLAY_SCHEME = [[14, 28, 20], [60, 160, 100], [140, 230, 170]];
 const PLAY_HOVER = [[20, 40, 30], [110, 220, 150], [200, 255, 220]];
 
-function boot({ ui, screen }) {
+// Same badge as the prompt's top-right, so the two pieces flip back and forth.
+function paintHash($) {
+  const { screen, system, ui, text } = $;
+  const info = system?.update?.versionInfo;
+  const hash = info?.running || info?.deployed;
+  if (!hash) {
+    hashBtn = null;
+    return;
+  }
+  const pos = { center: "x", y: 6, screen };
+  if (!hashBtn) hashBtn = new ui.TextButtonSmall(hash, pos);
+  else hashBtn.reposition(pos, hash);
+  const box = hashBtn.btn.box;
+  box.w = text.box(hash, undefined, undefined, undefined, undefined, FONT).box.width + 4;
+  box.x = screen.width - box.w - 6;
+
+  const stale = system.update.ready;
+  const hot = hashBtn.btn.over || hashBtn.btn.down;
+  const blink = stale ? 0.5 + 0.5 * sin(frameCount * 0.18) : 0;
+  const fill = stale
+    ? [80 + 40 * blink, 45 + 20 * blink, 10, hot ? 210 : 180]
+    : hot ? [35, 42, 50, 160] : [20, 25, 30, 128];
+  const outline = stale
+    ? [200 + 40 * blink, 110 + 40 * blink, 20, 230]
+    : hot ? [70, 84, 100, 180] : [40, 50, 60, 128];
+  const scheme = [fill, outline, stale ? min(255, 200 + 60 * blink) : 255, fill];
+  hashBtn.paint($, scheme, scheme, scheme, scheme);
+  if (stale) $.needsPaint();
+}
+
+function boot({ ui, screen, hud }) {
+  hud?.label(); // The hash badge is the way back.
   fetchCommits();
   pollTimer = setInterval(() => fetchCommits(1, false), POLL_INTERVAL);
   scroll = 0;
@@ -499,6 +531,7 @@ function paint($) {
   }
 
   paintButtons($);
+  paintHash($);
 
   // Status between buttons (commit count + next-poll countdown).
   const sinceLastFetch = Date.now() - lastFetch;
@@ -529,8 +562,14 @@ function paintButtons($) {
   refreshBtn.paint($, BTN_SCHEME, BTN_HOVER);
 }
 
-function act({ event: e, screen, jump, ui, net }) {
+function act({ event: e, screen, jump, ui, net, system }) {
   if (!tangledBtn) buildButtons({ ui, screen });
+
+  // Flip back to the prompt; a stale build reloads here first.
+  hashBtn?.btn.act(e, () => {
+    if (system?.update?.ready) system.update.reload();
+    else jump("prompt");
+  });
 
   // Buttons.
   tangledBtn.act(e, () => {

@@ -6817,9 +6817,8 @@ function paint($) {
     // Hide commits button when KidLisp button is active (they share the same screen area)
     // Also part of flair — hidden (along with the notepat button) when flair is off.
     if (flairEnabled && versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
-      let commitText = updateAvailable
-        ? `update to ${versionInfo.deployed}`
-        : versionInfo.deployed + (versionInfo.behindBy ? ` (${versionInfo.behindBy} behind)` : "");
+      // Always the build this page is running; an update shows as orange flashing.
+      const commitText = versionInfo.running || versionInfo.deployed;
       // Create button using TextButtonSmall (MatrixChunky8 font) in the top-right
       const buttonY = 6;
       if (!commitBtn) {
@@ -6848,19 +6847,12 @@ function paint($) {
         const blinkTextBoost = Math.round(60 * blink);
 
         const colors = updateAvailable
-          ? isHover
-            ? [
-                [30 + blinkFillBoost, 60 + blinkFillBoost, 30, 180],
-                [60 + blinkOutlineBoost, 160 + blinkOutlineBoost / 2, 60, 220],
-                Math.min(255, 220 + blinkTextBoost),
-                [30 + blinkFillBoost, 60 + blinkFillBoost, 30, 180]
-              ]
-            : [
-                [20 + blinkFillBoost, 50 + blinkFillBoost, 20, 160],
-                [50 + blinkOutlineBoost, 140 + blinkOutlineBoost / 2, 50, 200],
-                Math.min(255, 195 + blinkTextBoost),
-                [20 + blinkFillBoost, 50 + blinkFillBoost, 20, 160]
-              ]
+          ? [
+              [80 + blinkFillBoost, 45 + blinkFillBoost / 2, 10, isHover ? 210 : 180],
+              [200 + blinkOutlineBoost / 2, 110 + blinkOutlineBoost / 2, 20, 230],
+              Math.min(255, 200 + blinkTextBoost),
+              [80 + blinkFillBoost, 45 + blinkFillBoost / 2, 10, isHover ? 210 : 180]
+            ]
           : versionInfo.status === "behind"
             ? isHover
               ? [
@@ -6893,7 +6885,7 @@ function paint($) {
         // across them (2026-11-03).
         commitBtn.paint($, [colors[0], colors[1], [0, 0, 0, 0], colors[3]]);
         {
-          const hex = (versionInfo.deployed || "").replace(/[^0-9a-f]/gi, "").padEnd(6, "8").slice(0, 6);
+          const hex = (commitText || "").replace(/[^0-9a-f]/gi, "").padEnd(6, "8").slice(0, 6);
           const r0 = parseInt(hex.slice(0, 2), 16), g0 = parseInt(hex.slice(2, 4), 16), b0 = parseInt(hex.slice(4, 6), 16);
           const top = Math.max(r0, g0, b0, 1);
           const base = [r0, g0, b0].map((v) => 110 + Math.round((v / top) * 120)); // bright, keeps the hash's hue
@@ -8973,17 +8965,13 @@ function act({
     });
   }
 
-  // 📦 Commit button - reload page when update is ready, else navigate to commits
+  // 📦 Commit button - flips to commits, whose matching badge flips back
   if (commitBtn && !commitBtn.btn.disabled) {
     commitBtn.btn.act(e, {
       down: () => downSound(),
       push: () => {
         pushSound();
-        if (updateAvailable) {
-          send({ type: "window:reload" });
-        } else {
-          jump("commits");
-        }
+        jump("commits");
       },
       cancel: () => cancelSound(),
     });
