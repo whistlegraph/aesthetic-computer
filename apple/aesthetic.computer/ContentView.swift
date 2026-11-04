@@ -130,24 +130,26 @@ final class BootStatus: ObservableObject {
 
 @MainActor class Coordinator: NSObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationDelegate {
     weak var bootStatus: BootStatus?
+    let navigation: AppNavigation
     private(set) var lastLoadedKey: String? = nil
     #if os(macOS)
     private var urlObservation: NSKeyValueObservation?
 
     func observePiece(in webView: WKWebView) {
-        urlObservation = webView.observe(\.url, options: [.initial, .new]) { [weak webView] _, _ in
+        urlObservation = webView.observe(\.url, options: [.initial, .new]) { [weak webView, weak self] _, _ in
             Task { @MainActor in
                 guard let webView else { return }
                 let title = AppRoute.windowTitle(for: webView.url)
-                AppNavigation.shared.windowTitle = title
+                self?.navigation.windowTitle = title
                 webView.window?.title = title
             }
         }
     }
     #endif
 
-    init(bootStatus: BootStatus) {
+    init(bootStatus: BootStatus, navigation: AppNavigation) {
         self.bootStatus = bootStatus
+        self.navigation = navigation
         super.init()
     }
 
@@ -242,13 +244,6 @@ final class BootStatus: ObservableObject {
                   message.frameInfo.securityOrigin.host == "aesthetic.computer",
                   let webView = message.webView, let rgb = dictionary["body"] as? [Double] else { return }
             ApplePlatform.colorWindow(rgb, webView: webView)
-        #if os(macOS)
-        case "frame:meter":
-            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
-                  message.frameInfo.securityOrigin.host == "aesthetic.computer",
-                  let body = dictionary["body"] as? [String: Any] else { return }
-            FrameMeter.shared.update(body)
-        #endif
         case "boot:heartbeat":
             bootStatus?.heartbeat()
         case "boot:ready":
@@ -264,7 +259,7 @@ final class BootStatus: ObservableObject {
                     if let error { NSLog("AC audio startup: %@", error.localizedDescription) }
                 }
                 MacPromptLatencyProbe.run(in: message.webView)
-                FrameMeter.shared.sync(message.webView)
+                message.webView?.evaluateJavaScript("window.acFrameMeter?.(false)") { _, _ in }
                 #endif
             }
         case "usage:canvas":
@@ -315,9 +310,10 @@ struct WebView: ACWebViewRepresentable {
     var url: String
     var reloadTrigger: Int
     let bootStatus: BootStatus
+    let navigation: AppNavigation
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(bootStatus: bootStatus)
+        Coordinator(bootStatus: bootStatus, navigation: navigation)
     }
 
     func makeWebView(context: Context) -> WKWebView {
@@ -401,6 +397,7 @@ struct WebView: ACWebViewRepresentable {
         #endif
         #if os(macOS)
         let webView = ACNativeWebView(frame: .zero, configuration: config)
+        webView.navigation = navigation
         #else
         let webView = WKWebView(frame: .zero, configuration: config)
         #endif
@@ -408,6 +405,7 @@ struct WebView: ACWebViewRepresentable {
         webView.backgroundColor = UIColor(red: grey, green: grey, blue: grey, alpha: 1)
         webView.isOpaque = false
         #endif
+        navigation.webView = webView
         webView.uiDelegate = context.coordinator
         webView.navigationDelegate = context.coordinator
         #if os(macOS)
@@ -514,9 +512,11 @@ struct StalledOverlay: View {
 
 struct ContentView: View {
     #if os(macOS)
-    @ObservedObject private var windowTheme = AppleWindowTheme.shared
-    #endif
+    @StateObject private var navigation = AppNavigation()
+    @Environment(\.openWindow) private var openWindow
+    #else
     @ObservedObject private var navigation = AppNavigation.shared
+    #endif
     @StateObject private var monitor = AppNetworkMonitor()
     @StateObject private var bootStatus = BootStatus()
     @ObservedObject private var pop = PopPlayer.shared
@@ -528,7 +528,7 @@ struct ContentView: View {
     private var liveURL: String { navigation.url }
     private var backdrop: Color {
         #if os(macOS)
-        Color(nsColor: windowTheme.color)
+        Color(nsColor: .windowBackgroundColor)
         #else
         Color(red: grey, green: grey, blue: grey)
         #endif
@@ -556,7 +556,7 @@ struct ContentView: View {
                     WebView(
                         url: resolvedURL,
                         reloadTrigger: bootStatus.reloadTrigger + navigation.revision,
-                        bootStatus: bootStatus
+                        bootStatus: bootStatus, navigation: navigation
                     )
                 }
 
@@ -572,6 +572,8 @@ struct ContentView: View {
             .background(backdrop)
             #if os(macOS)
             .navigationTitle(navigation.windowTitle)
+            .focusedSceneObject(navigation)
+            .onAppear { AppDelegate.shared?.openPromptWindow = { openWindow(id: "prompt") } }
             #endif
             .ignoresSafeArea(.keyboard, edges: .bottom)
             .sheet(isPresented: $pop.isPresented) {

@@ -103,74 +103,13 @@ typealias ACImage = NSImage
     }
 }
 
-// 📊 Frame meter: the runtime reports display frames, painted frames and the
-// worker's frame time at 4 Hz while enabled; the title bar draws them as a bar.
-@MainActor final class FrameMeter: ObservableObject {
-    static let shared = FrameMeter()
-    private static let key = "acFrameMeter"
-    @Published var enabled = UserDefaults.standard.bool(forKey: key) {
-        didSet {
-            UserDefaults.standard.set(enabled, forKey: Self.key)
-            if !enabled { fps = 0; paints = 0; frameMs = 0; worstMs = 0 }
-            sync(AppDelegate.shared?.appWebView)
-        }
-    }
-    @Published private(set) var fps = 0.0
-    @Published private(set) var paints = 0.0
-    @Published private(set) var frameMs = 0.0
-    @Published private(set) var worstMs = 0.0
-
-    func sync(_ webView: WKWebView?) {
-        webView?.evaluateJavaScript("window.acFrameMeter?.(\(enabled))") { _, _ in }
-    }
-
-    func update(_ body: [String: Any]) {
-        guard enabled else { return }
-        func value(_ name: String) -> Double {
-            let number = (body[name] as? Double) ?? 0
-            return number.isFinite ? max(0, min(number, 1000)) : 0
-        }
-        fps = value("fps"); paints = value("paints")
-        frameMs = value("frameMs"); worstMs = value("worstMs")
-    }
-}
-
-// A horizontal bar in the title bar: its length is painted frames against the
-// display's rate, tinted from the window's own backdrop color.
-struct FrameMeterView: View {
-    @ObservedObject private var meter = FrameMeter.shared
-    @ObservedObject private var theme = AppleWindowTheme.shared
-
-    var body: some View {
-        let ink: Color = theme.colorScheme == .dark ? .white : .black
-        let rate = Double(NSScreen.main?.maximumFramesPerSecond ?? 60)
-        HStack(spacing: 6) {
-            Text(verbatim: "\(Int(meter.paints.rounded()))/\(Int(meter.fps.rounded()))")
-                .frame(width: 44, alignment: .trailing)
-            GeometryReader { bar in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(ink.opacity(0.12))
-                    Capsule().fill(ink.opacity(0.45))
-                        .frame(width: bar.size.width * min(meter.paints / rate, 1))
-                }
-            }
-            .frame(width: 96, height: 4)
-            Text(verbatim: String(format: "%.1f ms", meter.frameMs))
-                .frame(width: 48, alignment: .leading)
-        }
-        .font(.system(size: 10, design: .monospaced))
-        .foregroundStyle(ink.opacity(0.6))
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .opacity(meter.enabled ? 1 : 0)
-        .help("Painted frames / display frames per second; worker frame time")
-    }
-}
-
 // WebKit can reset AppKit's cursor when the invisible prompt editor gains
 // focus, even while CSS still reports the SVG cursor. Reassert the same image
 // after mouse dispatch so native focus changes cannot replace it.
 final class ACNativeWebView: WKWebView {
+    weak var navigation: AppNavigation?
+    private var colorObserver: NSObjectProtocol?
+
     private var cursorMonitor: Any?
     private var cursorTrackingArea: NSTrackingArea?
     private lazy var acCursor = NSCursor(image: NSImage(named: "ACCursor")!,
@@ -181,12 +120,18 @@ final class ACNativeWebView: WKWebView {
         if let cursorMonitor { NSEvent.removeMonitor(cursorMonitor) }
         cursorMonitor = nil
         guard let window else { return }
-        if !window.titlebarAccessoryViewControllers.contains(where: { $0.view is NSHostingView<FrameMeterView> }) {
-            let accessory = NSTitlebarAccessoryViewController()
-            accessory.view = NSHostingView(rootView: FrameMeterView())
-            accessory.view.frame.size = accessory.view.fittingSize
-            accessory.layoutAttribute = .trailing
-            window.addTitlebarAccessoryViewController(accessory)
+        window.tabbingMode = .disallowed
+        applyWindowAppearance()
+        if colorObserver == nil {
+            colorObserver = NotificationCenter.default.addObserver(
+                forName: NSColor.systemColorsDidChangeNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.applyWindowAppearance() }
+            }
+        }
+        if let pending = AppNavigation.pendingURL {
+            AppNavigation.pendingURL = nil
+            navigation?.open(pending)
         }
         cursorMonitor = NSEvent.addLocalMonitorForEvents(matching: [
             .mouseMoved, .leftMouseDown, .leftMouseUp, .leftMouseDragged,
@@ -203,6 +148,23 @@ final class ACNativeWebView: WKWebView {
                 }
             }
             return event
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyWindowAppearance()
+    }
+
+    private func applyWindowAppearance() {
+        guard let window else { return }
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            window.titlebarAppearsTransparent = true
+            window.titlebarSeparatorStyle = .automatic
+            window.backgroundColor = NSColor.windowBackgroundColor.blended(
+                withFraction: dark ? 0.16 : 0.08, of: .controlAccentColor) ?? .windowBackgroundColor
+            window.standardWindowButton(.closeButton)?.superview?.appearance = nil
         }
     }
 
@@ -231,6 +193,7 @@ final class ACNativeWebView: WKWebView {
     }
 
     deinit {
+        if let colorObserver { NotificationCenter.default.removeObserver(colorObserver) }
         if let cursorMonitor { NSEvent.removeMonitor(cursorMonitor) }
     }
 }
@@ -269,39 +232,13 @@ extension Image {
     }
 }
 
-#if os(macOS)
-@MainActor final class AppleWindowTheme: ObservableObject {
-    static let shared = AppleWindowTheme()
-    @Published var color = NSColor(white: 32 / 255, alpha: 1)
-    var colorScheme: ColorScheme {
-        let rgb = color.usingColorSpace(.sRGB) ?? color
-        func linear(_ value: CGFloat) -> CGFloat {
-            value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
-        }
-        let luminance = 0.2126 * linear(rgb.redComponent)
-            + 0.7152 * linear(rgb.greenComponent) + 0.0722 * linear(rgb.blueComponent)
-        return luminance < 0.179 ? .dark : .light
-    }
-}
-#endif
-
 @MainActor enum ApplePlatform {
     static func colorWindow(_ rgb: [Double], webView: WKWebView) {
         #if os(macOS)
-        guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && (0...255).contains($0) }),
-              let window = webView.window else { return }
-        let color = NSColor(srgbRed: rgb[0] / 255, green: rgb[1] / 255,
-                            blue: rgb[2] / 255, alpha: 1)
-        if AppleWindowTheme.shared.color != color { AppleWindowTheme.shared.color = color }
-        window.titlebarAppearsTransparent = true
-        window.titlebarSeparatorStyle = .none
-        window.backgroundColor = color
-        // Keep the native title and traffic lights legible on either backing.
-        // Theme only the title bar. Changing the window appearance also changes
-        // WKWebView's prefers-color-scheme and feeds its next wipe back here.
-        window.standardWindowButton(.closeButton)?.superview?.appearance =
-            NSAppearance(named: AppleWindowTheme.shared.colorScheme == .dark ? .darkAqua : .aqua)
-        webView.underPageBackgroundColor = color
+        guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && (0...255).contains($0) }) else { return }
+        // Match overscroll to the page; native chrome follows macOS appearance.
+        webView.underPageBackgroundColor = NSColor(srgbRed: rgb[0] / 255,
+            green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
         #endif
     }
 
@@ -327,6 +264,18 @@ extension Image {
 
 @MainActor final class AppNavigation: ObservableObject {
     static let shared = AppNavigation()
+    #if os(macOS)
+    static var pendingURL: URL?
+    static var active: AppNavigation? {
+        func find(in view: NSView?) -> AppNavigation? {
+            if let webView = view as? ACNativeWebView { return webView.navigation }
+            for child in view?.subviews ?? [] { if let found = find(in: child) { return found } }
+            return nil
+        }
+        return find(in: (NSApp.keyWindow ?? NSApp.mainWindow)?.contentView)
+    }
+    #endif
+    weak var webView: WKWebView?
     @Published var url = AppRoute.prompt
     @Published var revision = 0
     @Published var windowTitle = "aesthetic.computer"
@@ -334,6 +283,11 @@ extension Image {
     func open(_ incoming: URL) {
         guard let destination = AppRoute.destination(for: incoming) else { return }
         url = destination
+        revision += 1
+    }
+
+    func reload() {
+        if let current = webView?.url?.absoluteString { url = current }
         revision += 1
     }
 

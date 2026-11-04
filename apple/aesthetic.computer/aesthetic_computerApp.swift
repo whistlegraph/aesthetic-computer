@@ -10,15 +10,13 @@ import UniformTypeIdentifiers
 struct aesthetic_computerApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    @ObservedObject private var navigation = AppNavigation.shared
-    @ObservedObject private var frameMeter = FrameMeter.shared
     #else
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     #endif
 
     var body: some Scene {
         #if os(macOS)
-        Window(Text(verbatim: navigation.windowTitle), id: "prompt") {
+        WindowGroup("Aesthetic Computer", id: "prompt") {
             ContentView()
                 .frame(width: MacPromptLatencyProbe.enabled ? 640 : nil,
                        height: MacPromptLatencyProbe.enabled ? 480 : nil)
@@ -26,25 +24,7 @@ struct aesthetic_computerApp: App {
         }
         .windowResizability(MacPromptLatencyProbe.enabled ? .contentSize : .contentMinSize)
         .defaultSize(width: 900, height: 700)
-        .commands {
-            CommandGroup(after: .newItem) {
-                Button("Prompt") { AppNavigation.shared.prompt() }
-                    .keyboardShortcut("l")
-                Button("Reload") { AppNavigation.shared.revision += 1 }
-                    .keyboardShortcut("r")
-                Button("Open Audio…") {
-                    let panel = NSOpenPanel()
-                    panel.allowedContentTypes = [.audio]
-                    panel.begin { response in
-                        if response == .OK, let url = panel.url { PopPlayer.shared.openFile(url) }
-                    }
-                }.keyboardShortcut("o")
-            }
-            CommandGroup(after: .toolbar) {
-                Toggle("Frame Meter", isOn: $frameMeter.enabled)
-                    .keyboardShortcut("f", modifiers: [.command, .option])
-            }
-        }
+        .commands { ComputerWindowCommands() }
         #else
         WindowGroup { ContentView() }
         #endif
@@ -52,12 +32,40 @@ struct aesthetic_computerApp: App {
 
 }
 
+#if os(macOS)
+private struct ComputerWindowCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+    @FocusedObject private var navigation: AppNavigation?
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Window") { openWindow(id: "prompt") }
+                .keyboardShortcut("n")
+            Button("Prompt") { navigation?.prompt() }
+                .keyboardShortcut("l").disabled(navigation == nil)
+            Button("Reload") { navigation?.reload() }
+                .keyboardShortcut("r").disabled(navigation == nil)
+            Button("Open Audio…") {
+                let panel = NSOpenPanel()
+                panel.allowedContentTypes = [.audio]
+                panel.begin { response in
+                    if response == .OK, let url = panel.url { PopPlayer.shared.openFile(url) }
+                }
+            }.keyboardShortcut("o")
+        }
+    }
+}
+#endif
+
 // Push permission is requested by `notifs` or a one-time offer after sign-in. Native opt-out also stops APNs
 // immediately; the web bridge retries server cleanup if the device is offline.
 @MainActor
 class AppDelegate: NSObject, ACApplicationDelegate {
     static var shared: AppDelegate?
     weak var appWebView: WKWebView?
+    #if os(macOS)
+    var openPromptWindow: (() -> Void)?
+    #endif
     private let webViews = NSHashTable<WKWebView>.weakObjects()
     private let optedInKey = "acNotificationsOptedIn"
     private let tokenKey = "acNotificationToken"
@@ -85,19 +93,23 @@ class AppDelegate: NSObject, ACApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if let window = sender.windows.first(where: { $0.canBecomeMain }) {
+        if let window = sender.keyWindow ?? sender.mainWindow ?? sender.windows.first(where: { $0.canBecomeMain }) {
             window.deminiaturize(nil)
             window.makeKeyAndOrderFront(nil)
         }
-        return true
+        else { openPromptWindow?() }
+        return false
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             if url.isFileURL { PopPlayer.shared.openFile(url) }
-            else { AppNavigation.shared.open(url) }
+            else { openDestination(url) }
         }
-        _ = applicationShouldHandleReopen(application, hasVisibleWindows: false)
+        if let window = application.keyWindow ?? application.mainWindow {
+            window.deminiaturize(nil)
+            window.makeKeyAndOrderFront(nil)
+        }
         application.activate(ignoringOtherApps: true)
     }
     #else
@@ -110,6 +122,18 @@ class AppDelegate: NSObject, ACApplicationDelegate {
         return true
     }
     #endif
+
+    private func openDestination(_ url: URL) {
+        #if os(macOS)
+        if let navigation = AppNavigation.active { navigation.open(url) }
+        else if AppRoute.destination(for: url) != nil {
+            AppNavigation.pendingURL = url
+            openPromptWindow?()
+        }
+        #else
+        AppNavigation.shared.open(url)
+        #endif
+    }
 
     private func startNotifications() {
         UNUserNotificationCenter.current().delegate = self
@@ -313,7 +337,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         // AppNavigation outlives the web view. Cold launches and offline starts
         // retain the destination until ContentView can load it.
         if let url = AppRoute.notificationDestination(response.notification.request.content.userInfo) {
-            AppNavigation.shared.open(url)
+            openDestination(url)
         }
     }
 }
