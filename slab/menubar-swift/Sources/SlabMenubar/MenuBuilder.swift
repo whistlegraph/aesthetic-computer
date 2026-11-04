@@ -504,14 +504,47 @@ enum MenuBuilder {
         } else {
             for peer in state.tailnetPeers {
                 let marker = peer.online ? "●" : "○"
-                let entry = NSMenuItem(
-                    title: "\(marker) \(peer.hostname)",
-                    action: #selector(AppDelegate.sshPeer(_:)),
-                    keyEquivalent: ""
-                )
-                entry.target = target
-                entry.representedObject = peer.hostname
-                entry.isEnabled = true
+                // An online Mac gets a submenu: the same ssh, plus the way
+                // back in when its screen is locked (ScreenUnlock).
+                guard peer.online && peer.isMac else {
+                    let entry = NSMenuItem(
+                        title: "\(marker) \(peer.hostname)",
+                        action: #selector(AppDelegate.sshPeer(_:)),
+                        keyEquivalent: ""
+                    )
+                    entry.target = target
+                    entry.representedObject = peer.hostname
+                    entry.isEnabled = true
+                    sub.addItem(entry)
+                    continue
+                }
+                let lock = LockProbe.locked(peer.hostname) ? "🔒 " : ""
+                let entry = NSMenuItem(title: "\(marker) \(lock)\(peer.hostname)", action: nil, keyEquivalent: "")
+                let actions = NSMenu()
+                let ssh = NSMenuItem(title: "SSH", action: #selector(AppDelegate.sshPeer(_:)), keyEquivalent: "")
+                ssh.target = target
+                ssh.representedObject = peer.hostname
+                actions.addItem(ssh)
+                let saved = UnlockKeychain.has(peer.hostname)
+                let unlock = NSMenuItem(title: saved ? "Unlock (Screen Share)" : "Screen Share",
+                                        action: #selector(AppDelegate.unlockPeer(_:)), keyEquivalent: "")
+                unlock.target = target
+                unlock.representedObject = [peer.hostname, peer.ip]
+                actions.addItem(unlock)
+                actions.addItem(.separator())
+                let save = NSMenuItem(title: saved ? "Change unlock password…" : "Save unlock password…",
+                                      action: #selector(AppDelegate.saveUnlockPassword(_:)), keyEquivalent: "")
+                save.target = target
+                save.representedObject = peer.hostname
+                actions.addItem(save)
+                if saved {
+                    let forget = NSMenuItem(title: "Forget unlock password",
+                                            action: #selector(AppDelegate.forgetUnlockPassword(_:)), keyEquivalent: "")
+                    forget.target = target
+                    forget.representedObject = peer.hostname
+                    actions.addItem(forget)
+                }
+                entry.submenu = actions
                 sub.addItem(entry)
             }
         }

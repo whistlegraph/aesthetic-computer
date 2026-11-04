@@ -289,6 +289,7 @@ struct StateSnapshot {
         s.preferIterm = FileManager.default.fileExists(atPath: Paths.preferItermFlag)
         s.deskflow = readDeskflow()
         s.tailnetPeers = TailnetPeer.query()
+        LockProbe.refresh(s.tailnetPeers.filter { $0.online && $0.isMac }.map(\.hostname))
         s.claudeSessions = ClaudeSessionReader.active()
         s.popRenders = readPopRenders()
         s.system = readSystemStats()
