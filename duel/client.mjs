@@ -1489,6 +1489,7 @@ function step(now) {
     connected: !down, // connecting counts; a dead or long-silent socket shows the log
     offline: sheetOpen && down,
     cursor: cursorAim ? mouseAt : null,
+    reticle: hosted && sheetOpen && !down,
     jobs,
     worldTime,
     locked: locked(),

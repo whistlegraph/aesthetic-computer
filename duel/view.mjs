@@ -542,6 +542,7 @@ export async function createView(canvas) {
     builder = false,
     builderNames = [],
     cursor = null, // The mouse, in CSS pixels, when it (not the lock) is the aim.
+    reticle = false, // Draw the reticle even while bare: the paper is moving.
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
@@ -1363,9 +1364,12 @@ export async function createView(canvas) {
     // A square reticle: four L-shaped corners on whole pixels, symmetric
     // about the centre, each with a one-pixel shadow. It opens with speed,
     // closes and colours on an object (green when yours), in pixel steps.
-    if (me?.alive && !radial && !menu && !bare) {
+    // The reticle holds through the paper's drop and return (2026-11-03): the
+    // prompt's crosshair fades with the paper, so this one must already be
+    // there, solid, under it, and stay until the paper is whole again.
+    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle)) {
       const { unit } = hud;
-      const speed = Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10);
+      const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
       const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : 0x00ffff;
       let half = (lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
