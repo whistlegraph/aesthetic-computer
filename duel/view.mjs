@@ -314,6 +314,7 @@ export async function createView(canvas) {
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let snow = null, snowAt = 0; // The room's falling snow.
+  const SNOW = false; // Resting for now (2026-11-03).
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
@@ -1471,8 +1472,11 @@ export async function createView(canvas) {
       }
       // With a free mouse the reticle sits on the cursor (2026-11-03).
       const pxc = canvas.width / Math.max(1, canvas.clientWidth);
-      const cx0 = reticleShift ? reticleShift.x : cursor && !box ? Math.round(cursor.x * pxc - W / 2) : 0,
-        cy0 = reticleShift ? reticleShift.y : cursor && !box ? Math.round(H / 2 - cursor.y * pxc) : 0;
+      // In flight the reticle rides the lens shift: it sits on the room's
+      // centre as the camera carries that from the corner to the middle.
+      const shifted = projector.shiftX || projector.shiftY;
+      const cx0 = shifted ? Math.round((projector.shiftX * W) / 2) : reticleShift ? reticleShift.x : cursor && !box ? Math.round(cursor.x * pxc - W / 2) : 0,
+        cy0 = shifted ? Math.round((projector.shiftY * H) / 2) : reticleShift ? reticleShift.y : cursor && !box ? Math.round(H / 2 - cursor.y * pxc) : 0;
       const m = model(({ rect: worldRect, text }) => {
         // rect(left, bottom, w, h): screen x right, y up, whole pixels.
         const rect0 = flip(worldRect);
@@ -1758,7 +1762,7 @@ export async function createView(canvas) {
     // ❄️ Snow falling into the open room (2026-11-03): small camera-facing
     // flakes in a volume over and around the room, depth-tested against the
     // walls, drifting as they fall, nearer ones a little larger.
-    {
+    if (SNOW) {
       if (!snow) {
         snow = [];
         for (let i = 0; i < 260; i++)

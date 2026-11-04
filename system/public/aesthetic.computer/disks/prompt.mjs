@@ -6032,12 +6032,7 @@ function paint($) {
       c: palette[(i + Math.floor(t * 0.5)) % palette.length],
     }));
 
-    // A breathing glow along the edge.
-    const breath = 0.5 + 0.5 * sin(t * 2.2);
-    for (let i = 0; i < 4 * s; i++) {
-      const a = Math.round((10 + 18 * breath) * (1 - i / (4 * s)));
-      ink(palette[0][0], palette[0][1], palette[0][2], a).box(0, screen.height - 1 - i, screen.width, 1, "fill");
-    }
+    // (The breathing glow along the bottom edge is gone, 2026-11-03.)
 
     // Motes rising off the edge, each on its own loop.
     for (let k = 0; k < 9; k++) {
@@ -6560,6 +6555,13 @@ function paint($) {
             doolFlight.awayAt = now;
             $.send({ type: "dool:sheet", content: { action: "show" } });
           }
+        } else if (doolFlight.phase === "held") {
+          at = home;
+          scale = 1;
+          lit = false;
+          // The loop sleeps while the paper is away; waking long after means
+          // the paper is home, where this crosshair already is.
+          if (now - doolFlight.awayAt > 1500) doolFlight = null;
         } else if (doolFlight.phase === "away") {
           at = centre(unitAway);
           scale = unitAway;
@@ -8198,7 +8200,12 @@ function act({
       },
       push: () => {
         pushSound();
-        doolFlight = { at: performance.now(), phase: "out" };
+        // One motion (2026-11-03): the world's camera starts at once and its
+        // reticle carries the cursor from this corner to the centre; this
+        // crosshair holds still and fades with the paper over it.
+        const now = performance.now();
+        doolFlight = { at: now, phase: "held", awayAt: now };
+        send({ type: "dool:sheet", content: { action: "show" } });
       },
       cancel: () => cancelSound(),
     });

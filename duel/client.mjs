@@ -1041,7 +1041,7 @@ function orbitStep(now) {
   const want = hosted && (!sheetOpen || closingAt) ? 1 : 0;
   const dt = Math.min(0.1, (now - orbitAt) / 1000);
   orbitAt = now;
-  const rate = want ? 1 / 0.5 : 1 / 1.4;
+  const rate = want ? 1 / 0.36 : 1 / 1.4; // back out on the paper's own beat
   orbitMix = want > orbitMix ? Math.min(want, orbitMix + rate * dt) : Math.max(want, orbitMix - rate * dt);
   return orbitMix;
 }
