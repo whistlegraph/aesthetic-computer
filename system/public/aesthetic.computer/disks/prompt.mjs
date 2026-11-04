@@ -5371,6 +5371,15 @@ function paint($) {
     !$.system.prompt.input.text &&
     ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
 
+  // On the bare curtain the bottom corners belong to the handle and the
+  // world's crosshair: no Paste or Enter there, on phones too (2026-11-03).
+  // Typing brings them back (the input re-enables them on activation).
+  if (theme === "default" && !$.system.prompt.input.canType) {
+    const inp = $.system.prompt.input;
+    if (inp.enter?.btn) inp.enter.btn.disabled = true;
+    if (inp.paste?.btn) inp.paste.btn.disabled = true;
+  }
+
   // 🅰️ Paint below the prompt || scheme.
   if (curtainClear) {
     // A veil of the curtain's own colour: the world reads through it, faded.
