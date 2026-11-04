@@ -284,6 +284,5 @@ void main()
     color *= 1.0 - VHS_SCANLINE * step(0.5, fract(gl_FragCoord.y / 3.0));
     color += (random(gl_FragCoord.xy + fract(tt * 7.0) * 289.0) - 0.5) * VHS_GRAIN;
 
-    // The source's own alpha rides through, so a clear canvas stays clear.
-    endColor = vec4(clamp(color, 0.0, 1.0), texture(iTexture, suv).a);
+    endColor = vec4(clamp(color, 0.0, 1.0), 1.);
 }

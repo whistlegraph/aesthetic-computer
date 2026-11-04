@@ -5376,11 +5376,9 @@ function paint($) {
   const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
     !$.system.prompt.input.text &&
     ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
-  // The glaze stays on with the curtain (2026-11-03): its canvas now carries
-  // alpha, so the clear curtain stays clear under it.
-  if (glazeWanted && !glazeOn) {
-    glazeOn = true;
-    $.glaze({ on: true });
+  if (glazeWanted && glazeOn === curtainClear) {
+    glazeOn = !curtainClear;
+    $.glaze({ on: glazeOn });
   }
 
   // 🅰️ Paint below the prompt || scheme.

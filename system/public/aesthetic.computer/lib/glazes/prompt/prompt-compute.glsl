@@ -11,5 +11,5 @@ uniform vec2 iResolution;
 uniform float iTime;
 
 void main() {
-  endColor = texture(iTexturePost, vec2(v_texc.x, 1. - v_texc.y));
+  endColor = vec4(texture(iTexturePost, vec2(v_texc.x, 1. - v_texc.y)).xyz, 1.0);
 }
