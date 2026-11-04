@@ -112,7 +112,7 @@ function popstate(e) {
 let y = 0;
 let goal = 0;
 let toward = null; // A move in flight: "open" or "home".
-const BEAT = 300; // ms, the whole move
+const BEAT = 360; // ms, the whole move: the crosshair's flight takes the same
 let loop = 0;
 let lastStep = 0;
 let from = 0, began = 0; // The move's start value and time.
@@ -175,9 +175,11 @@ function hide() {
   toward = "home";
   goal = 0;
   frame.style.pointerEvents = "none";
-  // The prompt wakes now, not at the end: its crosshair flies home while
-  // the paper fades back in, one motion (2026-11-03). The frame drops
-  // beneath the stage only once the paper is whole, to spare a reflow mid-fade.
+  // Beneath the stage at once, so the paper fades in over the world (left on
+  // top, the world hid the whole fade and then cut). The prompt wakes now:
+  // its crosshair flies home while the guest's reticle flies the same path
+  // under the fading paper, one cursor (2026-11-03).
+  frame.style.zIndex = "-1";
   resumePrompt();
   post({ type: "dool:sheet", phase: "closing" }); // The HUD rests before the paper returns.
   run();

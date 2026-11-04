@@ -1033,7 +1033,17 @@ document.addEventListener('visibilitychange', () => {
 // Behind the curtain the world is a backdrop under a veil: it steps at
 // 20 fps there (2026-11-03) so the prompt's own drawing keeps the frame
 // budget, and comes back to full rate the moment the paper drops.
-let bareAt = 0, sheetClosedAt = 0, sheetShown = !hosted;
+let bareAt = 0, sheetClosedAt = 0, sheetShown = !hosted, closingAt = 0;
+// On the way home the reticle flies to the prompt's crosshair corner on the
+// prompt's own path and clock (prompt.mjs doolFlight "back": 360 ms, ease-out,
+// to 14 px in from the bottom-right), in buffer pixels from the centre, y up.
+function reticleShift(now) {
+  if (!closingAt) return null;
+  const t = Math.min(1, (now - closingAt) / 360), ease = 1 - (1 - t) * (1 - t);
+  const px = canvas.width / Math.max(1, canvas.clientWidth);
+  const hx = canvas.width / 2 - 22 * px, hy = -(canvas.height / 2 - 22 * px);
+  return { x: Math.round(hx * ease), y: Math.round(hy * ease) };
+}
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
@@ -1490,6 +1500,7 @@ function step(now) {
     offline: sheetOpen && down,
     cursor: cursorAim ? mouseAt : null,
     reticle: hosted && sheetOpen && !down,
+    reticleShift: reticleShift(now),
     jobs,
     worldTime,
     locked: locked(),
@@ -1518,10 +1529,15 @@ if (hosted) {
     // The HUD shows only between the paper's full drop and the start of its
     // return, so nothing pops in or out mid-fade (2026-11-03).
     if (e.data.phase === 'opened') sheetShown = true;
-    if (e.data.phase === 'closing') sheetShown = false;
+    if (e.data.phase === 'closing') {
+      sheetShown = false;
+      closingAt = performance.now();
+    }
+    if (e.data.phase === 'opened') closingAt = 0;
     if (!('open' in e.data)) return;
     sheetOpen = e.data.open === true;
     if (!sheetOpen) sheetShown = false;
+    if (sheetOpen) closingAt = 0; // A fresh drop starts the reticle at the centre.
     if (!sheetOpen) sheetClosedAt = performance.now();
     if (sheetOpen) {
       last = performance.now();

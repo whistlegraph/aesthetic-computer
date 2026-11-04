@@ -543,6 +543,7 @@ export async function createView(canvas) {
     builderNames = [],
     cursor = null, // The mouse, in CSS pixels, when it (not the lock) is the aim.
     reticle = false, // Draw the reticle even while bare: the paper is moving.
+    reticleShift = null, // On the way home, where the reticle has flown to (buffer px, y up).
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
@@ -1433,7 +1434,8 @@ export async function createView(canvas) {
       }
       // With a free mouse the reticle sits on the cursor (2026-11-03).
       const pxc = canvas.width / Math.max(1, canvas.clientWidth);
-      const cx0 = cursor && !box ? Math.round(cursor.x * pxc - W / 2) : 0, cy0 = cursor && !box ? Math.round(H / 2 - cursor.y * pxc) : 0;
+      const cx0 = reticleShift ? reticleShift.x : cursor && !box ? Math.round(cursor.x * pxc - W / 2) : 0,
+        cy0 = reticleShift ? reticleShift.y : cursor && !box ? Math.round(H / 2 - cursor.y * pxc) : 0;
       const m = model(({ rect: worldRect, text }) => {
         // rect(left, bottom, w, h): screen x right, y up, whole pixels.
         const rect0 = flip(worldRect);
