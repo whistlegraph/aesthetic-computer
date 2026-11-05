@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { notepatPianoLayout,pianoNoteAt } from '../public/aesthetic.computer/lib/notepat-piano-layout.mjs';
+import { notepatPianoLayout,pianoNoteAt,pianoKeyContains } from '../public/aesthetic.computer/lib/notepat-piano-layout.mjs';
 import { learningPadLabels } from '../public/aesthetic.computer/lib/notepat-pad-labels.mjs';
 
 test('piano has two complete octaves, fits both orientations, and leaves white-key letters below the black keys',()=>{
@@ -25,5 +25,14 @@ test('piano has two complete octaves, fits both orientations, and leaves white-k
       assert.ok(layout.keys.some(k=>!k.sharp&&x>=k.x&&x<k.x+k.w&&y>=k.y&&y<k.y+k.h));
     }
     for(const key of layout.keys.filter(k=>!k.sharp)) assert.equal(pianoNoteAt(layout,key.x+key.w/2,key.y+key.h-1),key.note);
+  }
+});
+
+test('piano buttons tolerate keyboard events without drag coordinates',()=>{
+  const layout=notepatPianoLayout({width:187,height:338});
+  for(const key of layout.keys) {
+    for(const point of [undefined,null,{}, {key:'c',name:'keyboard:down:c'}])
+      assert.equal(pianoKeyContains(layout,key.note,point),false);
+    assert.equal(pianoKeyContains(layout,key.note,{x:key.x+key.w/2,y:key.y+key.h-1}),true);
   }
 });

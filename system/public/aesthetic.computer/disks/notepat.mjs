@@ -18,7 +18,7 @@ import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
 import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
-import { notepatPianoLayout, pianoNoteAt } from "../lib/notepat-piano-layout.mjs";
+import { notepatPianoLayout, pianoKeyContains } from "../lib/notepat-piano-layout.mjs";
 import { NotepatPainter, notepatPalette, notepatPadColors, notepatNoteColor } from "../lib/notepat-render.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
@@ -8522,7 +8522,7 @@ function setupButtons({ ui, screen, geo }) {
       buttons[key.note].id=`note-${key.note}`;
       // White keys yield their overlapping hit area to the black keys. Reuse
       // the existing multi-touch and drag lifecycle for every other detail.
-      buttons[key.note].box.contains=point=>pianoNoteAt(pianoLayout,point.x,point.y)===key.note;
+      buttons[key.note].box.contains=point=>pianoKeyContains(pianoLayout,key.note,point);
     }
     return;
   }

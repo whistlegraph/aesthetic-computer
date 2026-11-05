@@ -33,3 +33,8 @@ export function pianoNoteAt(layout,x,y) {
   }
   return null;
 }
+
+// UI buttons also check absent drag coordinates during keyboard events.
+export function pianoKeyContains(layout,note,point) {
+  return !!point && pianoNoteAt(layout,point.x,point.y)===note;
+}
