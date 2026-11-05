@@ -8384,7 +8384,7 @@ async function load(
         // 🧊 KidLisp that draws in 3D (slab, orb, capsule, or a `; #3d`
         // pragma) runs on the object turntable, keeping its $code URL.
         const objectViewer = /\((?:slab|orb|capsule)\s|^\s*;\s*#3d\b/m.test(sourceToRun)
-          ? await import("./object/viewer.mjs?v=live-4")
+          ? await import("./object/viewer.mjs?v=live-5")
           : null;
         loadedModule = objectViewer?.isObjectLisp(sourceToRun)
           ? (reel?.objectPiece(sourceToRun, currentOriginalCodeId || "") || objectViewer.objectPiece(sourceToRun, currentOriginalCodeId || ""))
@@ -10822,7 +10822,7 @@ async function makeFrame({ data: { type, content } }) {
     globalThis.MIME_MODE = content.mime === true && content.noauth === true;
     // 🎞️ The mime feed as one runtime: cards are pieces, swiped between here.
     if (globalThis.MIME_MODE && content.reel === true && !reel) {
-      import("./mime-reel.mjs?v=live-4").then((module) => {
+      import("./mime-reel.mjs?v=live-5").then((module) => {
         reel = module;
         const reelJump = (to, jumped) => {
           // The feed can arrive before the initial slot has booted. Starting
@@ -13741,6 +13741,21 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
+    // Reel navigation remains available while the next piece boots. Normal
+    // piece input stays gated below; otherwise its boot swallows fast swipes.
+    if (reel && !(booted && paintCount > 0n)) {
+      reel.tick(() => {}, content.pen?.events);
+      for (const data of content.pen?.events || []) {
+        data.is = (event) => {
+          const [name, pointer] = event.split(":");
+          return name === data.name && (pointer === "any" ||
+            (pointer ? data.index === Number(pointer) : data.isPrimary === true));
+        };
+        reel.pen(data, () => {});
+      }
+      for (const data of content.keyboard || []) reel.key(data);
+    }
+
     if (booted && paintCount > 0n /*&& !leaving*/) {
       let $api = {};
       keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
@@ -13912,7 +13927,7 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
       };
-      reel?.tick(reelDispatch);
+      reel?.tick(reelDispatch, content.pen?.events);
 
       content.pen?.events.forEach((data) => {
         penEventCount++;

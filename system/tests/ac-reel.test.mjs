@@ -237,3 +237,18 @@ test('cold previews also accept consecutive swipes instead of eating the next ge
   assert.equal(r.callbacks[4](),true);r.loaded();
   assert.equal(r.m.busy(),false);
 });
+
+test('queued movement wins over the hold timer after a slow frame', async t => {
+  const r=await reel(t);
+  let handed=0;
+  const dispatch=()=>handed++;
+  r.m.pen({name:'touch',x:10,y:90,isPrimary:true},dispatch);
+  r.step(250);
+  const move={name:'draw',x:10,y:25,isPrimary:true};
+  r.m.tick(dispatch,[move]);
+  assert.equal(handed,0);
+  r.m.pen(move,dispatch);r.step();
+  r.m.pen({name:'lift',x:10,y:25,isPrimary:true},dispatch);r.settle();
+  assert.equal(r.jumps.at(-1),'$c1');
+  assert.equal(handed,0);
+});

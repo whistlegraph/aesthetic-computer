@@ -14,7 +14,7 @@
 // move, a lift or a still hold (HOLD ms) hands the held events to the piece in
 // order. So taps, sideways drags and press-and-hold drawing all reach the card.
 
-import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs?v=live-4";
+import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs?v=live-5";
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 
 const objects = new Map(); // address → prepared module; bounded to nearby cards
@@ -555,7 +555,9 @@ export function hold(pieceReady, screen) {
 
 // Disk calls this at the top of each frame's pens, to hand over a press that
 // has been held still long enough.
-export function tick(dispatch) {
+export function tick(dispatch, pending = []) {
+  // A slow render must not turn a queued swipe into a stationary hold.
+  if (pending.some(e => e.isPrimary && (e.name === "draw" || e.name === "lift"))) return;
   if (gesture?.mode === "pending" &&
       (gesture.timedOut || performance.now() - gesture.t0 > HOLD))
     handOver(dispatch);
