@@ -69,16 +69,18 @@
 		#notepaint-ad:hover, #notepaint-ad:focus-visible { background: #f6977a; box-shadow: 4px 4px 0 #c6f7a0; outline: none; }
 		@keyframes notepaint-ad-bob { 50% { transform: translate(-50%, calc(-50% - 2px)) rotate(-2deg) scale(var(--ad-scale, 1)); } }
 		@media (prefers-reduced-motion: reduce) { #notepaint-ad.shown { animation: none; } }
-		/* Teachers: a small chip under the sticker opens a note form. */
+		/* Keep the teacher invitation at the edge of the title screen. */
 		#teacher-chip {
 			position: fixed; z-index: 10; display: block; cursor: pointer;
-			padding: 7px 14px 8px; font: 24px/1 'pixelar-regular-w01', monospace; letter-spacing: .5px; white-space: nowrap;
-			color: #1d2b14; background: #fff8e8; border: 3px solid #1d2b14; box-shadow: 4px 4px 0 #c6f7a0;
-			transform: translate(-50%, -50%) rotate(-1.5deg) scale(var(--ad-scale, 1));
-			opacity: 0; transition: opacity .4s;
+			min-height: 44px; padding: 8px; font: 16px/1 'pixelar-regular-w01', monospace; white-space: nowrap;
+			color: #1d2b14; background: #fff8e8e6; border: 0; border-radius: 3px;
+			text-decoration: underline; text-underline-offset: 3px;
+			opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .4s;
 		}
-		#teacher-chip.shown { opacity: 1; }
-		#teacher-chip:hover, #teacher-chip:focus-visible { background: #c6f7a0; outline: none; }
+		#teacher-chip[hidden] { display: none; }
+		#teacher-chip.shown { opacity: 1; visibility: visible; pointer-events: auto; }
+		#teacher-chip:hover { background: #c6f7a0; }
+		#teacher-chip:focus-visible { outline: 2px solid #1d2b14; outline-offset: 2px; }
 		#teacher-note { max-width: min(420px, calc(100vw - 32px)); width: 100%; padding: 0; border: 3px solid #1d2b14; box-shadow: 6px 6px 0 #f6977a; background: #fff8e8; color: #1d2b14; }
 		#teacher-note::backdrop { background: rgba(29, 43, 20, .45); }
 		#teacher-note form { display: grid; gap: 10px; padding: 18px 18px 16px; font: 16px/1.35 system-ui, sans-serif; }
@@ -183,10 +185,9 @@
 				ad.style.left = `${box.left + inset + (ad.offsetWidth * scale) / 2}px`;
 				ad.style.top = `${box.top + inset + (ad.offsetHeight * scale) / 2}px`;
 				ad.style.setProperty("--ad-scale", scale.toFixed(2));
-				// The teacher invitation is front and centre.
-				chip.style.left = `${box.left + box.width / 2}px`;
-				chip.style.top = `${box.top + box.height * 0.6}px`;
-				chip.style.setProperty("--ad-scale", scale.toFixed(2));
+				// A quiet corner link, clear of the central tap-to-start area.
+				chip.style.left = `${box.left + inset}px`;
+				chip.style.top = `${box.bottom - inset - chip.offsetHeight}px`;
 			});
 			const peel = (event) => {
 				if (event.target === ad || ad.contains(event.target) || chip.contains(event.target) || note.contains(event.target)) return;
