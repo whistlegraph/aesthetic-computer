@@ -1,8 +1,13 @@
-import { loadPatch } from "./gm.mjs";
+import { loadPatch, preloadPatchFiles, playLoadingTone } from "./gm.mjs";
 
 // The instrument runs in a worker; samples belong to the browser AudioContext.
-export function createGmBridge({ context, destination, status = () => {}, load = loadPatch }) {
+export function createGmBridge({ context, destination, status = () => {}, load = loadPatch, preload = preloadPatchFiles, fallback = playLoadingTone }) {
   const voices = new Map();
+  const patches = new WeakMap();
+  function remember(ctx,program,patch) {
+    if(!patches.has(ctx)) patches.set(ctx,new Map());
+    patches.get(ctx).set(program,patch);
+  }
   let selection = 0;
   function stop(id) {
     const entry = voices.get(id);
@@ -13,13 +18,19 @@ export function createGmBridge({ context, destination, status = () => {}, load =
     async program(program) {
       const revision = ++selection;
       const ctx = context();
-      if (!ctx) { status({ ready: false, error: "Tap a pad to enable sound" }); return; }
+      if (!ctx) {
+        status({ready:false,loading:true});
+        await preload(program);
+        if(revision===selection) status({ready:false,loading:false});
+        return;
+      }
       status({ ready: false, loading: true });
       try {
         const patch = await load(program, ctx);
         if (!patch) throw new Error("missing patch");
-        const samples = await Promise.all([48, 60, 72].map(note => patch.prefetch(note)));
-        if (samples.some(sample => !sample)) throw new Error("missing sample");
+        remember(ctx,program,patch);
+        const samples = await patch.prefetch();
+        if (Array.isArray(samples) && samples.some(sample => !sample)) throw new Error("missing sample");
         if (revision === selection) status({ ready: true, program });
       } catch { if (revision === selection) status({ ready: false, error: "Instrument could not load. Try again." }); }
     },
@@ -28,15 +39,20 @@ export function createGmBridge({ context, destination, status = () => {}, load =
       stop(id);
       const ctx = context();
       if (!ctx) return;
-      const entry = { voice: null, pitch: 0 };
+      const options={velocity,pan,volume,destination:destination(ctx),fallback:true};
+      const cached=patches.get(ctx)?.get(program);
+      const entry = { voice: cached ? cached.play(note,options) : fallback(ctx,note,options), pitch: 0 };
       voices.set(id, entry);
+      if(cached) return;
       try {
         const patch = await load(program, ctx);
         if (voices.get(id) !== entry) return;
-        if (!patch) { voices.delete(id); return; }
-        entry.voice = patch.play(note, { velocity, pan, volume, destination: destination(ctx) });
+        if (!patch) { if(!entry.voice) voices.delete(id); return; }
+        remember(ctx,program,patch);
+        if (entry.voice) { void patch.prefetch(note); return; }
+        entry.voice = patch.play(note,options);
         entry.voice.update?.({ semitones: entry.pitch });
-      } catch { if (voices.get(id) === entry) voices.delete(id); }
+      } catch { if (voices.get(id) === entry && !entry.voice) voices.delete(id); }
     },
     update({ id, semitones = 0 }) {
       const entry = voices.get(id);

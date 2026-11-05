@@ -16,7 +16,7 @@ import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
-import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
+import { notepatModeBar, notepatPianoKeys, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
 import { NotepatPainter, notepatPalette, notepatPadColors, notepatNoteColor } from "../lib/notepat-render.mjs";
 import {
@@ -762,8 +762,7 @@ function getTopBarPianoMetrics(screen) {
     const p=modeBarLayout.header.piano;
     if(!p) return {hidden:true};
     return {mode:p.whiteCount===14?'full':'compact',x:p.x,y:p.y,height:p.h,
-      whiteKeys:p.whiteCount===14?MINI_PIANO_WHITE_KEYS:TOP_BAR_COMPACT_WHITE_KEYS,
-      blackKeys:p.whiteCount===14?MINI_PIANO_BLACK_KEYS:TOP_BAR_COMPACT_BLACK_KEYS,
+      ...notepatPianoKeys(p.whiteCount),
       whiteKeyWidth:p.keyWidth,blackKeyWidth:Math.max(2,Math.floor(p.keyWidth*.6)),blackKeyHeight:8};
   }
   if (!miniInputsEnabled) return { hidden: true };

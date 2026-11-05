@@ -48,6 +48,7 @@ export function setGMAssetBase(base) {
   _patchCache = new WeakMap();
   _drumCache = new WeakMap();
   _bufferCache.clear();
+  _encodedCache.clear();
   return ASSET_BASE;
 }
 
@@ -177,14 +178,36 @@ function normalizeManifest(raw) {
 
 // ─── Buffer fetch + decode (cached per URL) ───────────────────────────
 const _bufferCache = new Map(); // url -> Promise<AudioBuffer | null>
+// Download before a user gesture; decoding still uses the actual audio context.
+// Keep at most a few selected instruments' compressed samples in memory.
+const _encodedCache = new Map();
+function fetchEncoded(url) {
+  if (_encodedCache.has(url)) return _encodedCache.get(url);
+  const promise = fetch(url, {cache:"force-cache"}).then(response => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.arrayBuffer();
+  }).catch(() => null);
+  _encodedCache.set(url,promise);
+  while (_encodedCache.size > 64) _encodedCache.delete(_encodedCache.keys().next().value);
+  promise.then(bytes => { if(!bytes && _encodedCache.get(url)===promise) _encodedCache.delete(url); });
+  return promise;
+}
+export async function preloadPatchFiles(programNumber) {
+  if (!Number.isInteger(programNumber) || programNumber<0 || programNumber>127) return false;
+  const manifest=await loadManifest();
+  const notes=manifest.patches[programNumber]?.notes || manifest.defaultNotes;
+  const files=await Promise.all(notes.map(note=>fetchEncoded(noteUrl(programDir(programNumber),note))));
+  return files.every(Boolean);
+}
+
 
 function fetchAndDecode(url, ctx) {
   if (_bufferCache.has(url)) return _bufferCache.get(url);
   const p = (async () => {
     try {
-      const res = await fetch(url, { cache: "force-cache" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const arrayBuf = await res.arrayBuffer();
+      const encoded = await fetchEncoded(url);
+      if (!encoded) throw new Error("sample download failed");
+      const arrayBuf = encoded.slice(0); // decodeAudioData may detach its input.
       // decodeAudioData has both promise and callback forms. Use the
       // promise form; old Safari is wrapped by the AC bios so it should
       // be fine here.
@@ -276,6 +299,7 @@ function scheduleNote(ctx, audioBuffer, opts) {
   try {
     source = ctx.createBufferSource();
     source.buffer = audioBuffer;
+    source.loop = opts.loop === true;
     source.playbackRate.value = playbackRate;
 
     gain = ctx.createGain();
@@ -354,6 +378,25 @@ function scheduleNote(ctx, audioBuffer, opts) {
   };
 }
 
+// An immediate local tone while an instrument is downloading. No deferred
+// attack: releasing it always silences it, even if the download finishes later.
+const loadingToneBuffers = new WeakMap();
+export function playLoadingTone(ctx, midiNote, opts = {}) {
+  if (!ctx?.createBuffer || !ctx?.createBufferSource) return null;
+  let buffer=loadingToneBuffers.get(ctx);
+  if (!buffer) {
+    buffer=ctx.createBuffer(1,512,ctx.sampleRate);
+    const samples=buffer.getChannelData(0);
+    for(let i=0;i<samples.length;i++) {
+      const phase=i/samples.length*Math.PI*2;
+      samples[i]=(Math.sin(phase)+.3*Math.sin(2*phase)+.1*Math.sin(3*phase))/1.4;
+    }
+    loadingToneBuffers.set(ctx,buffer);
+  }
+  const frequency=440*2**((midiNote-69)/12);
+  return scheduleNote(ctx,buffer,{...opts,loop:true,playbackRate:frequency*512/ctx.sampleRate,attack:.003,decay:.3,sustain:.12,release:.08});
+}
+
 // ─── Patch loader ─────────────────────────────────────────────────────
 export async function loadPatch(programNumber, audioContext) {
   const program = programNumber | 0;
@@ -379,12 +422,13 @@ export async function loadPatch(programNumber, audioContext) {
     // Per-note buffer cache scoped to this patch — the inner URL cache
     // dedupes across patches if any happen to share notes.
     const samples = new Map(); // midi -> Promise<AudioBuffer | null>
+    const decoded = new Map();
 
     function getSample(midi) {
       if (samples.has(midi)) return samples.get(midi);
       const promise = fetchAndDecode(noteUrl(dir, midi), ctx);
       samples.set(midi, promise);
-      promise.then(buffer => { if (!buffer && samples.get(midi) === promise) samples.delete(midi); });
+      promise.then(buffer => { if (buffer) decoded.set(midi,buffer); else if (samples.get(midi) === promise) samples.delete(midi); });
       return promise;
     }
 
@@ -405,6 +449,13 @@ export async function loadPatch(programNumber, audioContext) {
         const sampleNote = nearestRenderedNote(noteList, target);
         if (sampleNote == null) return noopNoteHandle("no-samples");
         const playbackRate = Math.pow(2, (target - sampleNote) / 12);
+        if (decoded.has(sampleNote)) return scheduleNote(ctx,decoded.get(sampleNote),{...opts,playbackRate});
+        if (opts.fallback) {
+          void getSample(sampleNote); // Warm the exact sample for subsequent notes.
+          const readyNote=nearestRenderedNote([...decoded.keys()],target);
+          if (readyNote !== null) return scheduleNote(ctx,decoded.get(readyNote),{...opts,playbackRate:2**((target-readyNote)/12)});
+          return playLoadingTone(ctx,target,opts) || noopNoteHandle("pending");
+        }
 
         let live = noopNoteHandle("pending");
         let externalReleased = false;

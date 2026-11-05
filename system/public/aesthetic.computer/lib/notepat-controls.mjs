@@ -3,7 +3,7 @@ import { createMidiController } from "./midi-controller.mjs";
 import { createGmBridge } from "./notepat-gm-bridge.mjs";
 
 export function createNotepatControls({ send, context, destination, focus = () => {} }) {
-  let disposed = false, current = { wave: "sine", program: 0, local: true }, midiState;
+  let disposed = false, current = { wave: "gm", program: 0, local: true }, midiState;
   const dialog = document.createElement("dialog");
   dialog.className = "notepat-controls";
   dialog.setAttribute("aria-label", "Notepat sound and MIDI");
@@ -53,6 +53,14 @@ export function createNotepatControls({ send, context, destination, focus = () =
     field("sound-status").textContent = content.error || (content.loading ? "Loading instrument…" : "");
     send({ type: "notepat:state", content: { gmReady: content.ready, gmLoading: !!content.loading } });
   } });
+  let preparedProgram, preparedContext;
+  function prepareInstrument() {
+    if(current.wave !== "gm" || !current.local) return;
+    const ctx=context();
+    if(preparedProgram===current.program && preparedContext===ctx) return;
+    preparedProgram=current.program; preparedContext=ctx;
+    void gm.program(current.program);
+  }
   const control = content => send({ type: "notepat:control", content });
   field("record").onclick = () => { control({ kind: "record" }); dialog.close(); };
   field("connect").onclick = () => midi.connect();
@@ -78,9 +86,11 @@ export function createNotepatControls({ send, context, destination, focus = () =
     message(content) {
       if (disposed || !content) return;
       const { op } = content;
+      prepareInstrument();
       if (op === "open") { panic(); focus(true); if (!dialog.open) dialog.showModal(); send({ type: "notepat:state", content: { controlsOpen: true } }); }
       else if (op === "state") {
         current = { ...current, ...content };
+        prepareInstrument();
         field("sound").value = current.wave === "gm" ? `gm:${current.program}` : current.wave;
         field("local").checked = current.local;
         field("record").textContent = current.recording ? "Stop and play recording" : "Record a phrase";

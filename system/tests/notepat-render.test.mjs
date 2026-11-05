@@ -2,26 +2,31 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { NotepatPainter, notepatPadColors, notepatNoteColor, notepatPalette } from '../public/aesthetic.computer/lib/notepat-render.mjs';
 import { learningPadLabels } from '../public/aesthetic.computer/lib/notepat-pad-labels.mjs';
-import { notepatModeBar } from '../public/aesthetic.computer/lib/notepat-mode-bar.mjs';
+import { notepatModeBar, notepatPianoKeys } from '../public/aesthetic.computer/lib/notepat-mode-bar.mjs';
 import { readFrame } from '../public/aesthetic.computer/lib/gpu-frame.mjs';
 
-test('all natural keys share a font scale; sharps are 15% smaller and have no corner label',()=>{
+test('all natural keys share a font scale; sharps use the next crisp size and have no corner label',()=>{
   for(const w of [12,24,45,100]) for(const h of [12,24,45,100]) {
     const box={x:3,y:7,w,h};let size;
     for(const [key,width] of [['I',3],['W',8],['C',7]]) {
       const label=learningPadLabels(box,key,'c',{width,height:12});
       size ??=label.primary.size;
       assert.equal(label.primary.size,size);assert.equal(label.secondary,undefined);
-      assert.equal(label.primary.y+label.primary.h/2,box.y+h/2);
+      assert.ok(Math.abs(label.primary.y+label.primary.h/2-(box.y+h/2))<=.5);
+      assert.ok(Number.isInteger(label.primary.size)&&Number.isInteger(label.primary.x)&&Number.isInteger(label.primary.y));
       assert.ok(label.primary.x>=box.x && label.primary.x+label.primary.w<=box.x+w);
     }
-    assert.equal(learningPadLabels(box,'V','c#').primary.size,size*.85);
+    assert.equal(learningPadLabels(box,'V','c#').primary.size,Math.max(1,size-1));
   }
 });
 test('portrait header keeps the miniature piano and waveform clear of the controls',()=>{
   for(const width of [187,195,240,342,480,960]) for(const sound of ['piano','sine','g128']) {
     const bar=notepatModeBar(width,{sound}),{piano,viz}=bar.header;
     assert.ok(piano,`${width}:${sound}`);
+    const keys=notepatPianoKeys(piano.whiteCount);
+    assert.equal(keys.whiteKeys.length,piano.whiteCount);
+    assert.equal(keys.whiteKeys[0],"C");
+    assert.ok(keys.blackKeys.every(k=>k.afterWhite>=0&&k.afterWhite<piano.whiteCount-1));
     assert.ok(piano.x>=0 && piano.x+piano.w<viz.x);
     assert.ok(viz.w>=4 && viz.x+viz.w<bar.controls[0].x);
     for(const c of bar.controls) assert.ok(c.x+c.w<=width);

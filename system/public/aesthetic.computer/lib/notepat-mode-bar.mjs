@@ -28,3 +28,11 @@ export function notepatHeader(right) {
   if(piano) x+=piano.w+3;
   return {logo,piano,viz:{x,y:3,w:Math.max(0,right-x-3),h:15}};
 }
+
+const WHITE_KEYS=['C','D','E','F','G','A','B'];
+const BLACK_KEYS=[{note:'C#',afterWhite:0},{note:'D#',afterWhite:1},{note:'F#',afterWhite:3},{note:'G#',afterWhite:4},{note:'A#',afterWhite:5}];
+const PIANO_KEYS={
+  7:{whiteKeys:WHITE_KEYS,blackKeys:BLACK_KEYS},
+  14:{whiteKeys:[...WHITE_KEYS,...WHITE_KEYS.map(n=>'+'+n)],blackKeys:[...BLACK_KEYS,...BLACK_KEYS.map(k=>({note:'+'+k.note,afterWhite:k.afterWhite+7}))]},
+};
+export const notepatPianoKeys=whiteCount=>PIANO_KEYS[whiteCount===14?14:7];
