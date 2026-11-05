@@ -1,22 +1,27 @@
-// Dues, and folds that open for #anchors.
+// Amount shortcuts, and folds that open for #anchors.
 (function () {
   var dues = document.getElementById("dues");
   var amount = document.getElementById("duesAmount");
+  var presets = document.getElementById("duesPresets");
+  var buttons = presets.querySelectorAll("button[data-amount]");
   function show() {
-    document.getElementById("duesShown").textContent = "$" + amount.value;
+    buttons.forEach(function (button) {
+      button.setAttribute("aria-pressed", String(Number(button.dataset.amount) === amount.valueAsNumber));
+    });
+    var valid = amount.validity.valid;
+    var price = valid ? "$" + Number(amount.value).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "";
+    dues.querySelector('[value="oneTime"]').textContent = valid ? "> " + price + " once_" : "> Once_";
+    dues.querySelector('[value="month"]').textContent = valid ? "> " + price + " / month_" : "> Monthly_";
   }
+  buttons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      amount.value = button.dataset.amount;
+      show();
+    });
+  });
+  presets.hidden = false;
   amount.addEventListener("input", show);
   show();
-  dues.addEventListener("submit", function (e) {
-    e.preventDefault();
-    var monthly = e.submitter && e.submitter.value === "month";
-    var url = new URL(dues.action);
-    url.searchParams.set("amount", amount.value);
-    url.searchParams.set("interval", monthly ? "month" : "oneTime");
-    url.searchParams.set("redirect", "https://nela.computer/?thanks=1#support");
-    url.searchParams.set("tags", "dues");
-    window.location.href = url.toString();
-  });
 
   // Past meetings from script.js's EVENTS as little month calendars, newest
   // first: a filled box per meeting, colored by where we met.

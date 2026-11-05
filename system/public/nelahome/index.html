@@ -9,7 +9,7 @@
     <link rel="icon" href="icon-192.png" type="image/png" sizes="192x192">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="stylesheet" href="styles.css?v=1.0.2">
-    <link rel="stylesheet" href="fold.css?v=12">
+    <link rel="stylesheet" href="fold.css?v=13">
 </head>
 <body>
     <div class="container">
@@ -42,21 +42,29 @@
         <pre>▒▒▒▒▒▒▒▒▒▒▒</pre>
 
         <div class="meetupBox ncc-support">
-            <p id="ncc-thanks" class="ncc-thanks" role="status" hidden>&gt; Contribution received. Thank you for supporting NCC.</p>
-            <p>Help us keep NCC a space for learning and collaboration. Your contributions are greatly appreciated. They keep the club going and build a foundation for NCC to exist for years to come.</p>
+            <p id="ncc-thanks" class="ncc-thanks" role="status" hidden>&gt; Thank you for supporting NCC. Check Open Collective for your receipt.</p>
+            <p>Help keep NCC a space for learning and collaboration.</p>
 
             <form class="dues" id="dues" action="https://opencollective.com/metagov/projects/nelacc/donate" method="get">
                 <input type="hidden" name="redirect" value="https://nela.computer/?thanks=1#support">
                 <input type="hidden" name="tags" value="dues">
-                <label class="dues-label" for="duesAmount"><span class="opener-tag">DUES</span> <b id="duesShown">$5</b></label>
-                <input class="dues-slider" id="duesAmount" type="range" name="amount" min="1" max="50" step="1" value="5">
-                <span class="dues-buttons">
-                    <button class="dues-give" type="submit" name="interval" value="oneTime">&gt; Once_</button>
-                    <button class="dues-give" type="submit" name="interval" value="month">&gt; Monthly_</button>
-                </span>
+                <fieldset>
+                    <legend>Choose an amount (USD):</legend>
+                    <div class="ncc-amounts" id="duesPresets" hidden>
+                        <button type="button" data-amount="5" aria-pressed="false">[ $5 ]</button>
+                        <button type="button" data-amount="10" aria-pressed="false">[ $10 ]</button>
+                        <button type="button" data-amount="20" aria-pressed="false">[ $20 ]</button>
+                        <button type="button" data-amount="50" aria-pressed="false">[ $50 ]</button>
+                    </div>
+                    <label class="ncc-other" for="duesAmount">Amount: $<input id="duesAmount" type="number" name="amount" min="1" step="0.01" value="15" inputmode="decimal" required></label>
+                    <span class="dues-buttons">
+                        <button class="dues-give" type="submit" name="interval" value="oneTime">&gt; Once_</button>
+                        <button class="dues-give" type="submit" name="interval" value="month">&gt; Monthly_</button>
+                    </span>
+                </fieldset>
             </form>
 
-            <p class="ncc-note">Payments go through <a href="https://opencollective.com/metagov/projects/nelacc">Open Collective</a>. Every dollar in and out is on our public ledger.</p>
+            <p class="ncc-note">Pay through <a href="https://opencollective.com/metagov/projects/nelacc">Open Collective</a>, with an optional platform tip at checkout. <a href="https://opencollective.com/metagov/projects/nelacc/transactions">Public ledger</a> &middot; <a href="https://docs.opencollective.com/help/financial-contributors/payments#making-changes-to-your-contributions">Change or cancel monthly support</a></p>
         </div>
 
         <h2>Principles of NELA Computer Club</h2>
@@ -129,6 +137,6 @@
     </div><!--.container-->
 
     <script src="script.js?v=2"></script>
-    <script src="fold.js?v=10"></script>
+    <script src="fold.js?v=11"></script>
 </body>
 </html>

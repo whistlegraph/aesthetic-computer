@@ -12,19 +12,23 @@
 
 /* Dues. */
 .dues { margin: 1em 0; }
-.ncc-support .dues-label { font-weight: normal; }
 .ncc-support > p { margin: 0 0 0.75em; }
 .ncc-support > p:last-child { margin-bottom: 0; }
-.dues-label { display: block; }
-#duesShown { color: #00d080; }
-.dues-slider { display: block; width: 100%; margin: 0.75em 0; accent-color: #00d080; height: 2em; }
+.ncc-amounts[hidden] { display: none; }
+.ncc-amounts { gap: 0.5em; }
+.ncc-amounts button {
+    font: inherit; color: #00c4fd; background: transparent;
+    border: 1px solid #00c4fd; padding: 10px 6px; min-height: 44px; cursor: pointer;
+}
+.ncc-amounts button[aria-pressed="true"] { background: #00c4fd; color: #000; font-weight: bold; }
+.ncc-other input { min-height: 32px; }
 .dues-buttons { display: flex; flex-wrap: wrap; gap: 0.5em; }
 .dues-give {
     font: inherit; font-weight: bold; cursor: pointer; border: 0;
-    color: #000; background: #00d080; padding: 6px 10px;
+    color: #000; background: #00d080; padding: 6px 10px; min-height: 44px;
 }
 .dues-give:hover { background: #00c4fd; }
-.dues-give:focus-visible, .dues-slider:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
+.dues-give:focus-visible, .ncc-amounts button:focus-visible { outline: 1px dashed #00c4fd; outline-offset: 2px; }
 
 
 details.fold { margin-top: 1em; }
