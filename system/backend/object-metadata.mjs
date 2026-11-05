@@ -10,7 +10,7 @@ export function objectMetadata(code, source) {
     title,
     desc: `A 3D KidLisp object on Aesthetic Computer. Open $${code} to orbit and play.`,
     image_url: `${base}gif/800/420/${piece}?${query}&duration=8000&fps=8&playbackFps=8`,
-    twitter_image_url: `${base}png/1200/630/${piece}?${query}`,
+    twitter_image_url: `${base}png/600/315/${piece}?${query}&density=2`,
     image_type: "image/gif", image_width: 800, image_height: 420,
     image_alt: `Turntable view of ${title}`,
   };

@@ -11,8 +11,9 @@ test('object links have an animated OG card and an independent PNG fallback',()=
  assert.equal(m.title,'Pink sculpture');
  const image=new URL(m.image_url), still=new URL(m.twitter_image_url);
  assert.equal(image.pathname,'/grab/gif/800/420/%24kx9');
- assert.equal(still.pathname,'/grab/png/1200/630/%24kx9');
+ assert.equal(still.pathname,'/grab/png/600/315/%24kx9');
  assert.equal(image.searchParams.get('view'),'object');
+ assert.equal(still.searchParams.get('density'),'2');
  assert.equal(image.searchParams.get('fps'),image.searchParams.get('playbackFps'));
  assert.equal(m.image_type,'image/gif');
  assert.equal(objectMetadata('abc','; (orb 0 0 0 1)\n(wipe red)'),null);
