@@ -14,7 +14,7 @@
 // move, a lift or a still hold (HOLD ms) hands the held events to the piece in
 // order. So taps, sideways drags and press-and-hold drawing all reach the card.
 
-import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs";
+import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs?v=live-2";
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 
 const objects = new Map(); // address → prepared module; bounded to nearby cards
@@ -676,7 +676,7 @@ function liveFor($, card, w, h) {
       const frame = { w, h, pixels: api.screen.pixels };
       for (const overlay of saved.layers) composite(frame, overlay);
     } else {
-      api.ink(230, 232, 240).write(card.address, { x: 6, y: 10 }, undefined, undefined, false, "MatrixChunky8");
+      api.ink(230, 232, 240).write(card.address, { x: 6, y: 10 }, undefined, undefined, false, "font_1");
       const cells = entry.qr ||= qr("https://prompt.ac/" + card.address, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
       const x0 = w - cells.length - 5, y0 = h - cells.length - 6;
       for (let y = 0; y < cells.length; y++) for (let x = 0; x < cells.length; x++)
