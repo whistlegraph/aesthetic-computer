@@ -1264,7 +1264,23 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
     painter.glyph(learningGlyph(api,String(value),color,font,6,10),x,y);
   painter.ink(...palette.bar).box(0,0,api.screen.width,MODE_BAR_HEIGHT);
   painter.ink(...palette.rail).line(0,MODE_BAR_HEIGHT-1,api.screen.width-1,MODE_BAR_HEIGHT-1);
-  // The original AC corner label is drawn by the HUD above this bar.
+  // Mirror the original corner lettering in the GPU scene; its HUD hit target
+  // remains active underneath. Align the compact suffix to the letter baseline,
+  // two pixels above the p descender.
+  if (modeBarLayout.logo) {
+    const word=learningGlyph(api,"notepat",[255,255,255],"font_1",6,10);
+    const shadow=learningGlyph(api,"notepat",[0,0,0],"font_1",6,10);
+    painter.glyph(shadow,5,5).glyph(word,4,4);
+    if (modeBarLayout.logo.endsWith(".com")) {
+      const com=learningGlyph(api,"com",[0,220,255],"MatrixChunky8",6,10);
+      const comShadow=learningGlyph(api,"com",[0,0,0],"MatrixChunky8",6,10);
+      const dot=learningGlyph(api,".",relaySocket?.connected?[0,255,100]:[255,100,100],"MatrixChunky8",6,10);
+      const dotShadow=learningGlyph(api,".",[0,0,0],"MatrixChunky8",6,10);
+      const bottom=4+word.height-2, dotX=4+word.width+2, comX=dotX+dot.width+2;
+      painter.glyph(dotShadow,dotX+1,bottom-dot.height+1).glyph(dot,dotX,bottom-dot.height);
+      painter.glyph(comShadow,comX+1,bottom-com.height+1).glyph(com,comX,bottom-com.height);
+    }
+  }
   const metrics=getTopBarPianoMetrics(api.screen);
   if(!metrics.hidden) {
     const {x,y,height,whiteKeys,blackKeys,whiteKeyWidth,blackKeyWidth,blackKeyHeight}=metrics;
