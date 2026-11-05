@@ -1,18 +1,15 @@
 export const MODE_BAR_HEIGHT = 21;
-export function notepatModeBar(width, { mode = "main", sound = "piano", octave = 4, bpm = 180, dark = true, layout = "piano" } = {}) {
-  const groups = {
-    main: [["sound", sound], ["octave", String(octave)], ["fx", "FX"], ["tempo", String(bpm)]],
-    fx: [["back", "FX"], ["slide", "slide"], ["room", "room"], ["glitch", "glitch"], ["quick", "quick"], ["theme", dark ? "light" : "dark"], ["layout", layout === "piano" ? "grid" : "keys"]],
-    tempo: [["back", "<"], ["minus", "-"], ["metro", String(bpm)], ["plus", "+"]],
-  };
-  const labels = (groups[mode] || groups.main).map(([id, label]) => ({ id, label }));
+export function notepatModeBar(width, { sound = "piano", octave = 4, dark = true, layout = "piano" } = {}) {
+  const labels = [["sound", sound], ["octave", String(octave)],
+    ["theme", dark ? "light" : "dark"], ["layout", layout === "piano" ? "grid" : "keys"]]
+    .map(([id, label]) => ({ id, label }));
   let padding=6,gap=2;
   const total = () => labels.reduce((n, b) => n + b.label.length * 6 + padding, 0) + (labels.length - 1) * gap;
-  if (total() > width - 4) for (const b of labels) {
-    if (["slide", "room", "glitch", "quick"].includes(b.id)) b.label = {slide:"sld", room:"rm", glitch:"glt", quick:"qk"}[b.id];
+  // Keep the corner wordmark on phone widths; use initials only when needed.
+  if (total() > width - (width >= 140 ? 90 : 4)) for (const b of labels) {
     if (b.id === "sound") b.label = b.label.slice(0, 3);
+    if (b.id === "theme" || b.id === "layout") b.label = b.label[0].toUpperCase();
   }
-  if (total() > width - 4) for (const b of labels) if (["slide", "room", "glitch", "quick", "theme", "layout"].includes(b.id)) b.label = b.label[0];
   if(total()>width-4) { padding=4; gap=1; }
   let x = Math.max(0,width-total()-2);
   const controls = labels.map(b => { const w = b.label.length * 6 + padding; const item = { ...b, x, y: 2, w, h: 17 }; x += w + gap; return item; });

@@ -9,8 +9,8 @@ export const notepatNoteColor=note=>NOTE_COLORS[note.toLowerCase().replace(/^[+-
 // ACOS Notepat's resting pads: muted note colors at night, warm paper by day.
 export function notepatPalette(dark) {
   return dark
-    ? { background:[20,20,25], text:[225,225,235], accent:[0,220,230], rail:[95,95,110], control:[28,28,35], orange:[255,165,0] }
-    : { background:[240,238,232], text:[40,40,50], accent:[0,100,120], rail:[150,150,165], control:[225,225,230], orange:[155,75,0] };
+    ? { background:[20,20,25], bar:[43,43,52], text:[225,225,235], accent:[0,220,230], rail:[95,95,110], control:[28,28,35], orange:[255,165,0] }
+    : { background:[240,238,232], bar:[205,205,213], text:[40,40,50], accent:[0,100,120], rail:[150,150,165], control:[225,225,230], orange:[155,75,0] };
 }
 export function notepatPadColors(noteColor, sharp, dark, active, hover = false) {
   let fill;

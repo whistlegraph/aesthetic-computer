@@ -1198,7 +1198,7 @@ let paintPictureOverlay = false;
 // let qrcells;
 
 let waveBtn, octBtn;
-let modeBarHudHidden = false;
+let modeBarHudState = null;
 const learningKeyGlyphs = new Map();
 function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
   const key=font+":"+text+":"+color.join(",");
@@ -1246,15 +1246,15 @@ function animatePianoReach(api) {
   const key=pianoOffsets.map(n=>Math.round(n*width)).join(":");
   if(key!==pianoGeometryKey){pianoGeometryKey=key;setupButtons(api)}
 }
-let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
+let padsViewport = "", modeBarKey = "", modeBarButtons = [], modeBarLayout;
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
 function updateModeBar(api) {
   const sound = recording ? "REC" : !localSoundEnabled ? "MIDI" : wave === "gm" ? (gmProgram === 0 ? "piano" : `g${gmProgram + 1}`) : ({triangle:"tri",sawtooth:"saw",square:"sqr",composite:"cmp",stample:"stp"}[wave] || wave);
   const octaveLabel=`${performanceModifiers.state.left?"[":""}${octave}${performanceModifiers.state.right?"]":""}`;
-  const key = [api.screen.width, modeBarPage, sound, octaveLabel, metronomeBPM, api.dark, mainLayout].join(":");
+  const key = [api.screen.width, sound, octaveLabel, api.dark, mainLayout].join(":");
   if (key === modeBarKey) return;
   modeBarKey = key;
-  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave:octaveLabel, bpm: metronomeBPM, dark: api.dark, layout: mainLayout });
+  modeBarLayout = notepatModeBar(api.screen.width, { sound, octave:octaveLabel, dark: api.dark, layout: mainLayout });
   modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
 }
 function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
@@ -1262,15 +1262,9 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
   const dark=api.dark !== false, palette=notepatPalette(dark);
   const text=(value,x,y,color=palette.text,font="font_1")=>
     painter.glyph(learningGlyph(api,String(value),color,font,6,10),x,y);
-  painter.ink(...palette.background).box(0,0,api.screen.width,MODE_BAR_HEIGHT);
-  if(modeBarLayout.logo) {
-    const word=learningGlyph(api,"notepat",palette.text,"font_1",6,10);
-    painter.glyph(word,6,6);
-    if(modeBarLayout.logo.endsWith(".com")) {
-      const domain=learningGlyph(api,".com",palette.accent,"font_1",6,10);
-      painter.glyph(domain,48,6+word.height-domain.height);
-    }
-  }
+  painter.ink(...palette.bar).box(0,0,api.screen.width,MODE_BAR_HEIGHT);
+  painter.ink(...palette.rail).line(0,MODE_BAR_HEIGHT-1,api.screen.width-1,MODE_BAR_HEIGHT-1);
+  // The original AC corner label is drawn by the HUD above this bar.
   const metrics=getTopBarPianoMetrics(api.screen);
   if(!metrics.hidden) {
     const {x,y,height,whiteKeys,blackKeys,whiteKeyWidth,blackKeyWidth,blackKeyHeight}=metrics;
@@ -1297,10 +1291,9 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
     }
     painter.ink(...palette.rail).line(v.x,v.y,v.x+v.w-1,v.y).line(v.x,v.y+v.h-1,v.x+v.w-1,v.y+v.h-1);
   }
-  const active={slide,room:roomMode,glitch:glitchMode,quick:quickFade,metro:metronomeEnabled,tempo:metronomeEnabled,fx:slide||roomMode||glitchMode||quickFade};
   for(const c of modeBarButtons) c.button.paint(btn=>{
-    let color=c.id==='sound'?palette.orange:c.id==='octave'?(dark?[255,160,210]:[135,35,95]):['fx','back'].includes(c.id)?(dark?[180,150,255]:[100,65,160]):palette.text;
-    const fill=active[c.id]?(dark?[60,55,80]:[195,190,215]):palette.control;
+    let color=c.id==='sound'?palette.orange:c.id==='octave'?(dark?[255,160,210]:[135,35,95]):palette.text;
+    const fill=palette.control;
     painter.ink(...fill).box(c.x,c.y+1,c.w,c.h-1);
     if(btn.over) painter.ink(...palette.text,24).box(c.x,c.y+1,c.w,c.h-1);
     if(c.id==='sound') painter.ink(...palette.orange).line(c.x+c.w-1,3,c.x+c.w-1,18);
@@ -1347,10 +1340,7 @@ function paintClassicNotepat(api, amplitude, waveforms) {
 function actModeBar(e, api) {
   updateModeBar(api);
   for (const c of modeBarButtons) c.button.act(e, { push: () => {
-    if (c.id === "fx") modeBarPage = "fx";
-    else if (c.id === "tempo") modeBarPage = "tempo";
-    else if (c.id === "back") modeBarPage = "main";
-    else if (c.id === "layout") {
+    if (c.id === "layout") {
       panicNotepat(); mainLayout=mainLayout==='piano'?'grid':'piano';
       api.store['notepat:layout']=mainLayout; api.store.persist('notepat:layout');
       setupButtons(api); modeBarKey='';
@@ -1358,30 +1348,6 @@ function actModeBar(e, api) {
     else if (c.id === "theme") { api.darkMode(api.dark === false); modeBarKey = ""; }
     else if (c.id === "sound") host({ op: "open" });
     else if (c.id === "octave") { octave = String(Math.max(1, (parseInt(octave) + 1) % 10)); buildOctButton(api); }
-    else if (c.id === "slide") {
-      slide = !slide;
-      if (slide && Object.keys(tonestack).length > 1) {
-        orderedByCount(tonestack).forEach((tone, index) => {
-          if (index > 0) {
-            sounds[tone]?.sound.kill(quickFade ? fastFade : fade);
-            trail[tone] = 1;
-            delete tonestack[tone]; delete sounds[tone];
-            if (buttons[tone]) buttons[tone].down = false;
-          }
-        });
-      }
-      cleanupOrphanedSounds(api.pens, true);
-    }
-    else if (c.id === "room") { roomMode = !roomMode; api.sound.room.toggle(); }
-    else if (c.id === "glitch") { glitchMode = !glitchMode; api.sound.glitch?.toggle?.(); }
-    else if (c.id === "quick") quickFade = !quickFade;
-    else if (c.id === "metro") metronomeEnabled = !metronomeEnabled;
-    else if (c.id === "minus") metronomeBPM = Math.max(20, metronomeBPM - 5);
-    else if (c.id === "plus") metronomeBPM = Math.min(300, metronomeBPM + 5);
-    if (["minus", "plus", "metro"].includes(c.id)) {
-      const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
-      metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM)); metronomeVisualPhase = 0;
-    }
   } }, api.pens?.());
 }
 // 🥁 Drum kit lives as a wave type ("drum") in `wavetypes` — when selected,
@@ -2095,8 +2061,6 @@ async function boot({
 
   buildOctButton(api);
   buildWaveButton(api);
-  buildToggleButtons(api);
-  buildMetronomeButtons(api);
 
   const newOctave =
     parseInt(colon[0]) || parseInt(colon[1]) || parseInt(colon[2]);
@@ -3444,10 +3408,18 @@ function paint({
   // Reconcile with the actual render size, including resize events that coalesce.
   if (padsViewport !== `${screen.width}:${screen.height}`) setupButtons(api);
 
-  if (classicControls() !== modeBarHudHidden) {
-    modeBarHudHidden = classicControls();
-    autopatHud?.label(modeBarHudHidden ? undefined : "notepat");
-    autopatHud?.suffix(modeBarHudHidden ? null : ".com");
+  if (classicControls()) {
+    updateModeBar(api);
+    const label = modeBarLayout.logo;
+    if (label !== modeBarHudState) {
+      modeBarHudState = label;
+      autopatHud?.label(label ? "notepat" : undefined);
+      autopatHud?.suffix(label.endsWith(".com") ? ".com" : null);
+    }
+  } else if (modeBarHudState) {
+    modeBarHudState = "";
+    autopatHud?.label(overlayMode || paintPictureOverlay ? undefined : "notepat");
+    autopatHud?.suffix(overlayMode || paintPictureOverlay ? null : ".com");
   }
 
   // Hover state (for newbie-friendly overlays)
@@ -6907,9 +6879,7 @@ function act({
     setupButtons(api);
     buildOctButton(api);
     buildWaveButton(api);
-    buildToggleButtons(api);
-    buildMetronomeButtons(api);
-    // Resize picture to quarter resolution (half width, half height)
+        // Resize picture to quarter resolution (half width, half height)
     const resizedPictureWidth = Math.max(1, Math.floor(screen.width / 2));
     const resizedPictureHeight = Math.max(1, Math.floor(screen.height / 2));
     picture = painting(resizedPictureWidth, resizedPictureHeight, ({ wipe }) => {
@@ -7109,22 +7079,8 @@ function act({
     upperOctaveShift -= 1;
   }
 
-  // 🏠 Room mode toggle (/ key) - global reverb
-  if (e.is("keyboard:down:/") && !e.repeat) {
-    roomMode = !roomMode;
-    room.toggle();
-  }
-
-  // 🔇 BACKSPACE — clear all held (shift-decaying / enter-latched) voices.
-  // Falls through to the original glitch-mode toggle when no held voices
-  // exist, so the binding still serves both purposes without surprise.
-  if (e.is("keyboard:down:backspace") && !e.repeat) {
-    if (!clearHeldVoices()) {
-      glitchMode = !glitchMode;
-      glitch?.toggle?.();
-      cleanupOrphanedSounds(pens, true);
-    }
-  }
+  // Backspace only releases latched voices; it no longer enables an effect.
+  if (e.is("keyboard:down:backspace") && !e.repeat) clearHeldVoices();
 
   // 🔒 ENTER held → next press latches the voice into heldVoices until
   // backspace clears it. ENTER wins over SHIFT when both are held.
@@ -7543,27 +7499,6 @@ function act({
     midiConnected = !e.disconnected;
     midiPerformance.receive(e);
     return;
-  }
-
-  if (!tap) {
-    // 🥁 Spacebar now toggles metronome on/off (instead of snare)
-    if (e.is("keyboard:down:space") && !e.repeat) {
-      metronomeEnabled = !metronomeEnabled;
-      if (metronomeEnabled) {
-        // Seed beat count to (current beat - 1) so the very next sim
-        // tick computes a fresh beatNumber and fires the click on the
-        // press itself. Previously we seeded to the *current* beat,
-        // which made the comparison at line 1844 a no-op and forced a
-        // wait of up-to-one full beat-interval before the first click
-        // (~333ms of silence at 180 BPM, every toggle-on).
-        const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
-        metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM)) - 1;
-      } else {
-        metronomeVisualPhase = 0;
-        metronomeBallPos = 0;
-        metronomeFlash = 0;
-      }
-    }
   }
 
   if (e.is("keyboard:down:arrowleft") && !e.repeat && !percDowns.left) {
@@ -8857,123 +8792,6 @@ function finishRecordingAndJump(api) {
     api.send?.({ type: "visit:action", content: { action: "notepat_playback_requested" } });
     api.jump(target);
   }
-}
-
-// Build metronome controls and toggle buttons with responsive layout
-// Calculates available space and shortens labels as needed to prevent overlap
-function buildMetronomeButtons({ screen, ui, typeface, text }) {
-  const btnHeight = SECONDARY_BAR_HEIGHT - 2;
-  const btnY = SECONDARY_BAR_TOP + 1;
-  const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6;
-  const glyphMetrics = resolveMatrixGlyphMetrics();
-  const hideMidiBadge = !perfOSD || screen.width < 240;
-  
-  // Calculate actual MIDI badge width using proper text measurement
-  // Use stored sample rate or fallback to window.audioContext
-  const sampleRate = storedSampleRate || (typeof window !== "undefined" ? window.audioContext?.sampleRate : null);
-  const sampleRateText = getSampleRateText(sampleRate);
-  const midiTextW = measureMatrixTextWidth("M");
-  const divWidth = 5; // divider (2px) + spacing (3px)
-  const shortRate = sampleRateText ? sampleRateText.replace("Hz", "") : "";
-  const rateTextW = measureMatrixTextWidth(shortRate);
-  const fpsTextW = measureMatrixTextWidth("120fps"); // Max FPS width (6 chars)
-  const totalMidiTextWidth = midiTextW + divWidth + rateTextW + divWidth + fpsTextW;
-  const midiBadgeWidth = hideMidiBadge ? 0 : totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
-  
-  // Left reserved = MIDI badge margin + badge width + tiny gap
-  const leftReserved = hideMidiBadge ? 0 : MIDI_BADGE_MARGIN + midiBadgeWidth + 1;
-  const rightMargin = 4;
-  
-  // Fixed elements: [-] [+] [BPM] - BPM is now 3 chars with minimal padding
-  const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
-  const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
-  const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X; // Reduced padding - only left side
-  
-  // Available width for metronome + toggle buttons
-  const availableWidth = screen.width - leftReserved - rightMargin;
-  
-  // Calculate width needed for each label variant level
-  const calcLabelWidth = (label) => {
-    return (measureMatrixTextBoxWidth(label, { text }, screen.width) || (label.length * glyphWidth)) + TOGGLE_BTN_PADDING_X * 2;
-  };
-  
-  // Fixed metronome elements width: [-] [+] [BPM] (BPM is the toggle button now)
-  const metroFixedWidth = minusBtnWidth + 1 + plusBtnWidth + 1 + bpmTextWidth + TOGGLE_BTN_GAP;
-  
-  // Try different label lengths until everything fits
-  let variantLevel = 0;
-  let totalNeeded = Infinity;
-  
-  while (variantLevel < 3 && totalNeeded > availableWidth) {
-    // Get labels at this variant level (no metro label needed - BPM display is the toggle)
-    const slideLabel = LABEL_VARIANTS.slide[Math.min(variantLevel, LABEL_VARIANTS.slide.length - 1)];
-    const roomLabel = LABEL_VARIANTS.room[Math.min(variantLevel, LABEL_VARIANTS.room.length - 1)];
-    const glitchLabel = LABEL_VARIANTS.glitch[Math.min(variantLevel, LABEL_VARIANTS.glitch.length - 1)];
-    const quickLabel = LABEL_VARIANTS.quick[Math.min(variantLevel, LABEL_VARIANTS.quick.length - 1)];
-    
-    const toggleWidths = calcLabelWidth(slideLabel) + calcLabelWidth(roomLabel) + 
-                        calcLabelWidth(glitchLabel) + calcLabelWidth(quickLabel) + (3 * TOGGLE_BTN_GAP);
-    
-    totalNeeded = metroFixedWidth + toggleWidths;
-    variantLevel++;
-  }
-  
-  // Use the labels that fit (or shortest if nothing fits)
-  const finalLevel = Math.min(variantLevel - 1, 2);
-  secondaryBarLabels = {
-    slide: LABEL_VARIANTS.slide[Math.min(finalLevel, LABEL_VARIANTS.slide.length - 1)],
-    room: LABEL_VARIANTS.room[Math.min(finalLevel, LABEL_VARIANTS.room.length - 1)],
-    glitch: LABEL_VARIANTS.glitch[Math.min(finalLevel, LABEL_VARIANTS.glitch.length - 1)],
-    quick: LABEL_VARIANTS.quick[Math.min(finalLevel, LABEL_VARIANTS.quick.length - 1)],
-  };
-  
-  // Calculate toggle button widths with chosen labels
-  const toggleBtns = [
-    { key: "slide", width: calcLabelWidth(secondaryBarLabels.slide) },
-    { key: "room", width: calcLabelWidth(secondaryBarLabels.room) },
-    { key: "glitch", width: calcLabelWidth(secondaryBarLabels.glitch) },
-    { key: "quick", width: calcLabelWidth(secondaryBarLabels.quick) },
-  ];
-  const toggleTotalWidth = toggleBtns.reduce((sum, b) => sum + b.width, 0) + (toggleBtns.length - 1) * TOGGLE_BTN_GAP;
-  
-  // Position toggle buttons from right side
-  let toggleX = screen.width - rightMargin - toggleTotalWidth;
-  toggleBtns.forEach(({ key, width }) => {
-    const btn = new ui.Button(toggleX, btnY, width, btnHeight);
-    btn.id = `${key}-toggle`;
-    if (key === "slide") slideBtn = btn;
-    else if (key === "room") roomBtn = btn;
-    else if (key === "glitch") glitchBtn = btn;
-    else if (key === "quick") quickBtn = btn;
-    toggleX += width + TOGGLE_BTN_GAP;
-  });
-  
-  // Position metronome controls from left, after MIDI badge
-  let btnX = leftReserved;
-  
-  // Build minus button
-  bpmMinusBtn = new ui.Button(btnX, btnY, minusBtnWidth, btnHeight);
-  bpmMinusBtn.id = "bpm-minus";
-  btnX += minusBtnWidth + 1;
-  
-  // Build plus button (to the left of BPM display)
-  bpmPlusBtn = new ui.Button(btnX, btnY, plusBtnWidth, btnHeight);
-  bpmPlusBtn.id = "bpm-plus";
-  btnX += plusBtnWidth + 1;
-
-  // BPM display area
-  const bpmDisplayX = btnX;
-  btnX += bpmTextWidth + 1;
-
-  // The BPM display itself is the metronome toggle button (no separate metro button)
-  metroBtn = new ui.Button(bpmDisplayX, btnY, bpmTextWidth, btnHeight);
-  metroBtn.id = "metro-toggle";
-}
-
-// Build toggle buttons - now handled by buildMetronomeButtons for unified layout
-function buildToggleButtons({ screen, ui, typeface, text }) {
-  // Toggle buttons are now built in buildMetronomeButtons for responsive layout
-  // This function is kept for backwards compatibility but does nothing
 }
 
 let primaryColor = [0, 0, 0];
