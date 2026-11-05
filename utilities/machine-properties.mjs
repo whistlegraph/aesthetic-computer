@@ -70,6 +70,7 @@ export const properties = [
 export const excludedHosts = {
   "server.nopaint.art": "Legacy save/load API for the preserved No Paint app; no separate product.",
   "lith.aesthetic.computer": "Origin hostname, not a separate public product.",
+  "inbound.aesthetic.computer": "Amail SMTP door; not a website.",
   "ipfs.aesthetic.computer": "Content-addressed gateway; no replacement for its protocol routes.",
   "builds.false.work": "Authenticated client dashboard.",
   "false.work": "Client property; outside this AC-owned change.",
